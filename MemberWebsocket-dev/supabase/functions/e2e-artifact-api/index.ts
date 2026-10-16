@@ -23,7 +23,7 @@ class ApiError extends Error {
 function env(name: string): string { return (Deno.env.get(name) || "").trim(); }
 function asText(value: unknown, max = 1000): string { return String(value ?? "").trim().slice(0, max); }
 function allowedOrigins(): Set<string> {
-  return new Set((env("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io")
+  return new Set([(env("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io"), "https://develop--memberwebsocket-dev-netlify.netlify.app"].join(",")
     .split(",").map((value) => value.trim()).filter(Boolean));
 }
 function corsHeaders(origin: string | null): HeadersInit {
