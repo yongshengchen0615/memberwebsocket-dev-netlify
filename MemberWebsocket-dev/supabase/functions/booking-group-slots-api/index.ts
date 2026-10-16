@@ -26,7 +26,7 @@ class ApiError extends Error {
 
 const env = (name: string) => (Deno.env.get(name) || "").trim();
 const asText = (value: unknown, max = 1000) => String(value ?? "").trim().slice(0, max);
-const allowedOrigins = () => new Set((env("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io").split(",").map((value) => value.trim()).filter(Boolean));
+const allowedOrigins = () => new Set([(env("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io"), "https://develop--memberwebsocket-dev-netlify.netlify.app"].join(",").split(",").map((value) => value.trim()).filter(Boolean));
 const cors = (origin: string | null): HeadersInit => ({
   "Access-Control-Allow-Origin": origin && allowedOrigins().has(origin) ? origin : "",
   "Access-Control-Allow-Headers": "content-type, apikey",
