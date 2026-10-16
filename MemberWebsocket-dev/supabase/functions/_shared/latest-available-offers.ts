@@ -244,7 +244,7 @@ export async function loadLatestPointOffers(
     tickets,
     taipeiDate(),
     includeEveryTicket,
-  ).slice(0, includeEveryTicket ? 20 : 12).map((offer) => {
+  ).slice(0, includeEveryTicket ? 200 : 12).map((offer) => {
     const card: any = cardById.get(offer.pointCardId);
     return { ...offer, cardId: text(card?.card_id), expiresOn: text(card?.expiry_mode) === "date" ? text(card?.expires_on) : "" };
   });
