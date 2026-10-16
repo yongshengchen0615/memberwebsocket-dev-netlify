@@ -74,6 +74,7 @@ jobs:
             MemberWebsocket-dev/tests/integration/transaction_lifecycle.cjs \
             MemberWebsocket-dev/tests/integration/receipt_integrity_sql.cjs \
             MemberWebsocket-dev/tests/integration/booking_ticket_consistency.cjs \
+            MemberWebsocket-dev/tests/integration/point_ticket_multi_quantity.cjs \
             MemberWebsocket-dev/tests/integration/booking_settings_notification_sql.cjs \
             MemberWebsocket-dev/tests/integration/ticket_booking_choice.cjs \
             MemberWebsocket-dev/tests/integration/booking_accessible.cjs \

@@ -237,3 +237,22 @@ test('booking ticket metadata carries the global claimed count without exposing 
   assert.equal(event.selectionId, '');
   assert.equal(JSON.stringify(event).includes('other'), false);
 });
+
+test('AC-001: booking offers three independently selectable instances when points cover the cost', async () => {
+  const { loadBookingBenefits } = await modulePromise;
+  const tickets = ['PT-001', 'PT-002', 'PT-003'].map(ticket_id => ({
+    ticket_id, member_id: member.id, status: 'available', reward_id: 'reward',
+    point_card_id: 'card', ticket_template_id: 'template', threshold_stamps: 5,
+  }));
+  const result = await loadBookingBenefits(database({
+    point_tickets: tickets,
+    point_balances: [{ member_id: member.id, point_card_id: 'card', stamps: 15 }],
+    point_card_settings: [{ id: 1, max_tickets_per_redemption: 0 }],
+    event_tickets: [], calendar_items: [],
+  }), member, 'silver', today);
+  const points = result.items.filter(item => item.kind === 'points');
+  assert.equal(points.length, 3);
+  assert.deepEqual(points.map(item => item.selectionId), ['PT-001', 'PT-002', 'PT-003']);
+  assert.ok(points.every(item => item.selectable && item.pointBalance === 15 && item.pointCost === 5));
+  assert.equal(result.pointTicketMaxPerRedemption, 0);
+});
