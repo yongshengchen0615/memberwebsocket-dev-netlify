@@ -27,9 +27,17 @@ function env(name: string): string {
   return (Deno.env.get(name) || "").trim();
 }
 
+const DEFAULT_ALLOWED_ORIGINS = [
+  "https://yongshengchen0615.github.io",
+  "https://memberwebsocket-dev-netlify.netlify.app",
+  "https://develop--memberwebsocket-dev-netlify.netlify.app",
+];
+
 function allowedOrigins(): Set<string> {
-  return new Set((env("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io")
-    .split(",").map((value) => value.trim()).filter(Boolean));
+  return new Set([
+    ...DEFAULT_ALLOWED_ORIGINS,
+    ...env("ALLOWED_ORIGINS").split(",").map((value) => value.trim()).filter(Boolean),
+  ]);
 }
 
 function corsHeaders(origin: string | null): HeadersInit {
