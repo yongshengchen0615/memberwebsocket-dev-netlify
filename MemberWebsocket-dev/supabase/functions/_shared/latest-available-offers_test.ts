@@ -1,5 +1,6 @@
 import { deepStrictEqual as assertEquals } from "node:assert/strict";
 import { selectLatestEventOffers, selectLatestPointOffers } from "./latest-available-offers.ts";
+import { chooseBookingPointOffers } from "./booking-point-offer-choice.ts";
 
 Deno.test("selectLatestPointOffers uses current reward/template definitions and hides historical duplicates", () => {
   const offers = selectLatestPointOffers(
@@ -117,4 +118,16 @@ Deno.test("booking expands three distinct available tickets for the same reward 
   const booking = selectLatestPointOffers(rewards, cards, templates, tickets, "2026-10-16", true);
   assertEquals(booking.map(item => item.ticketId), ["PT-1", "PT-2", "PT-3"]);
   assertEquals(booking.every(item => item.thresholdStamps === 5), true);
+});
+
+Deno.test("one visible point reward rotates its internal ticket across bookings", () => {
+  const offers = ["PT-001", "PT-002", "PT-003"].map(ticketId =>
+    ({ rewardId: "reward", pointCardId: "card", ticketId }));
+  const holds = [{ benefit_kind: "points", benefit_ref: "PT-001", booking_id: "first" }];
+  assertEquals(chooseBookingPointOffers(offers, holds).map(row => row.ticketId), ["PT-002"]);
+  assertEquals(chooseBookingPointOffers(offers, holds, "first").map(row => row.ticketId), ["PT-001"]);
+  assertEquals(chooseBookingPointOffers(offers, []).length, 1);
+  assertEquals(chooseBookingPointOffers(offers, [
+    ...holds, { benefit_kind: "points", benefit_ref: "PT-002", booking_id: "second" },
+  ]).map(row => row.ticketId), ["PT-003"]);
 });

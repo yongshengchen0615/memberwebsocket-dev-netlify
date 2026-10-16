@@ -2,11 +2,12 @@ import { tierVisibility, loadVisibilityPolicy } from "./tier-visibility.ts";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
 import { loadLatestPointOffers, loadLatestEventOffers } from './latest-available-offers.ts';
 import { isEligibleTierActivity } from './activity-eligibility.ts';
+import { chooseBookingPointOffers } from './booking-point-offer-choice.ts';
 
 export async function loadBookingBenefits(db: SupabaseClient, member: any, tier: string, today: string, currentBookingId = '') {
   // Member and tier are resolved by the authenticated handler, never the body.
   // Fixed-size batched reads; no ticket issuance, claim or redemption occurs here.
-  const [points, events, calendar, eventSettings, pointSettings, pendingPointSelections, pendingSnapshotReceipts] = await Promise.all([
+  const [allPointOffers, events, calendar, eventSettings, pointSettings, pendingPointSelections, pendingSnapshotReceipts] = await Promise.all([
     loadLatestPointOffers(db, String(member.id), true, true),
     loadLatestEventOffers(db, String(member.id), tier, true, true),
     db.from('calendar_items')
@@ -37,6 +38,8 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
   if (pointSettings.error) throw pointSettings.error;
   if (pendingPointSelections.error) throw pendingPointSelections.error;
   if (pendingSnapshotReceipts.error) throw pendingSnapshotReceipts.error;
+  // One visible reward per booking; reserve distinct physical IDs internally.
+  const points = chooseBookingPointOffers(allPointOffers, pendingPointSelections.data || [], currentBookingId);
   const eventClaimsInSnapshots = new Set<string>(
     (pendingSnapshotReceipts.data || []).flatMap((receipt: any) =>
       Array.isArray(receipt.requested_benefits) ? receipt.requested_benefits : []
@@ -197,7 +200,7 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
         return {
           kind: 'points', id: offer.rewardId, title: offer.ticketTitle,
           subtitle: `${offer.cardTitle} · 消耗 ${pointCost} 點`,
-          statusLabel: reservedForOtherBooking ? '已預約使用' : !hasEnoughPoints ? '點數不足' : locationRestricted ? '可預約選用' : '可使用',
+          statusLabel: !hasEnoughPoints ? '點數不足' : reservedForOtherBooking ? '已預約使用' : locationRestricted ? '可預約選用' : '可使用',
           startsOn: '', endsOn: offer.expiresOn, cardId: offer.cardId, cardTitle: offer.cardTitle, cardStyleKey: offer.styleKey,
           pointCost, pointBalance, totalPointBalance, reservedPointBalance, otherBookingReserved,
           requiredServiceIds, requiredServiceMatchMode, requiredServiceTitles, requiredServiceRequirementLabel,
@@ -209,10 +212,10 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
           conditionLabel: `${requiredServiceRequirementLabel ? `預約項目限制：${requiredServiceRequirementLabel} · ` : '預約項目限制：不限 · '}本卡可用 ${pointBalance} 點${otherBookingReserved > 0 ? ` · 其他預約已保留 ${otherBookingReserved} 點` : ''} · 此票券需 ${pointCost} 點 · ${pointTicketMaxPerRedemption === 0 ? '單次預約使用張數不限' : `單次預約最多使用 ${pointTicketMaxPerRedemption} 張`}${locationRestricted ? ' · 現場單獨使用需 GPS 定位' : ''}`,
           disabledReason: !hasTicket
             ? '目前沒有可核銷的票券'
-            : reservedForOtherBooking
-              ? '此票券已選入另一筆預約，服務完成或取消後才會釋放'
-              : !hasEnoughPoints
-                ? `可用點數不足：目前可用 ${pointBalance} 點，此票券需要 ${pointCost} 點`
+            : !hasEnoughPoints
+              ? `可用點數不足：目前可用 ${pointBalance} 點，此票券需要 ${pointCost} 點`
+              : reservedForOtherBooking
+                ? '此優惠目前已由其他預約保留，請稍後重新整理'
                 : '',
         };
       }),

@@ -285,40 +285,38 @@ test('service-restricted tickets require a matching booked service and are remov
   }
 });
 
-test('AC-002: member can choose 3 separate tickets for one reward with 15 points and unlimited setting', async () => {
-  const tickets = ['PT-001', 'PT-002', 'PT-003'].map(selectionId => ({
-    kind: 'points', id: 'same-reward', selectionId, selectable: true,
+test('AC-002: the booking page displays one checkbox for a reward and accepts it on separate bookings', async () => {
+  const benefit = id => ({
+    kind: 'points', id: 'same-reward', selectionId: id, selectable: true,
     title: '同一獎勵', cardId: 'CARD', cardTitle: '集點卡',
     pointCost: 5, pointBalance: 15, statusLabel: '可使用',
-  }));
-  const h = fixture(async () => ({ pointTicketMaxPerRedemption: 0, items: tickets }));
-  try {
-    h.start(); await tick(10);
-    for (const item of tickets) {
-      const input = h.el('bookingBenefitsList').querySelector(`[data-booking-benefit-id="${item.selectionId}"]`);
-      assert.ok(input && !input.disabled);
+  });
+  for (const id of ['PT-001', 'PT-002']) {
+    const h = fixture(async () => ({ pointTicketMaxPerRedemption: 0, items: [benefit(id)] }));
+    try {
+      h.start(); await tick(10);
+      assert.equal(h.el('bookingBenefitsList').querySelectorAll('input[data-booking-benefit-kind="points"]').length, 1);
+      const input = h.el('bookingBenefitsList').querySelector('[data-booking-benefit-id="' + id + '"]');
+      assert.equal(input.disabled, false);
       input.click();
-    }
-    assert.deepEqual(JSON.parse(JSON.stringify(h.w.BookingBenefits.selectionPayload())),
-      tickets.map(item => ({ kind: 'points', id: item.selectionId })));
-    assert.equal(h.el('bookingBenefitsList').querySelectorAll('input:checked').length, 3);
-  } finally { h.close(); }
+      assert.deepEqual(JSON.parse(JSON.stringify(h.w.BookingBenefits.selectionPayload())),
+        [{ kind: 'points', id }]);
+    } finally { h.close(); }
+  }
 });
 
-test('AC-003: the fourth identical ticket is blocked if only 15 points are available', async () => {
-  const tickets = ['PT-001', 'PT-002', 'PT-003', 'PT-004'].map(selectionId => ({
-    kind: 'points', id: 'same-reward', selectionId, selectable: true,
+test('AC-003: fifth booking displays an unfunded reward once and prevents selection', async () => {
+  const h = fixture(async () => ({ pointTicketMaxPerRedemption: 0, items: [{
+    kind: 'points', id: 'same-reward', selectionId: 'PT-001', selectable: false,
     title: '同一獎勵', cardId: 'CARD', cardTitle: '集點卡',
-    pointCost: 5, pointBalance: 15, statusLabel: '可使用',
-  }));
-  const h = fixture(async () => ({ pointTicketMaxPerRedemption: 0, items: tickets }));
+    pointCost: 5, pointBalance: 0, statusLabel: '點數不足',
+    disabledReason: '可用點數不足：目前可用 0 點，此票券需要 5 點',
+  }] }));
   try {
     h.start(); await tick(10);
-    for (const item of tickets.slice(0, 3)) {
-      h.el('bookingBenefitsList').querySelector(`[data-booking-benefit-id="${item.selectionId}"]`).click();
-    }
-    const last = h.el('bookingBenefitsList').querySelector('[data-booking-benefit-id="PT-004"]');
-    assert.equal(last.disabled, true);
-    assert.match(last.parentElement.textContent, /點數不足/);
+    const controls = h.el('bookingBenefitsList').querySelectorAll('input[data-booking-benefit-kind="points"]');
+    assert.equal(controls.length, 1);
+    assert.equal(controls[0].disabled, true);
+    assert.match(h.el('bookingBenefitsList').textContent, /點數不足/);
   } finally { h.close(); }
 });

@@ -238,21 +238,85 @@ test('booking ticket metadata carries the global claimed count without exposing 
   assert.equal(JSON.stringify(event).includes('other'), false);
 });
 
-test('AC-001: booking offers three independently selectable instances when points cover the cost', async () => {
+test('AC-001: one reward appears once regardless of funded physical ticket count', async () => {
   const { loadBookingBenefits } = await modulePromise;
-  const tickets = ['PT-001', 'PT-002', 'PT-003'].map(ticket_id => ({
+  const tickets = ['PT-001', 'PT-002', 'PT-003', 'PT-004'].map(ticket_id => ({
     ticket_id, member_id: member.id, status: 'available', reward_id: 'reward',
     point_card_id: 'card', ticket_template_id: 'template', threshold_stamps: 5,
   }));
-  const result = await loadBookingBenefits(database({
-    point_tickets: tickets,
-    point_balances: [{ member_id: member.id, point_card_id: 'card', stamps: 15 }],
+  const data = { point_tickets: tickets,
+    point_balances: [{ member_id: member.id, point_card_id: 'card', stamps: 20 }],
     point_card_settings: [{ id: 1, max_tickets_per_redemption: 0 }],
+    event_tickets: [], calendar_items: [] };
+  const first = await loadBookingBenefits(database(data), member, 'silver', today);
+  assert.equal(first.items.length, 1, 'a reward is never shown as four checkboxes');
+  assert.equal(first.items[0].selectionId, 'PT-001');
+  assert.equal(first.items[0].selectable, true);
+
+  const held = [{ booking_id: 'booking-A', member_id: member.id, benefit_kind: 'points',
+    benefit_ref: 'PT-001', status: 'pending' }];
+  const another = await loadBookingBenefits(database({ ...data,
+    booking_benefit_selections: held }), member, 'silver', today);
+  assert.equal(another.items.length, 1);
+  assert.equal(another.items[0].selectionId, 'PT-002',
+    'booking B silently gets an unreserved redemption slot for the same reward');
+  assert.equal(another.items[0].pointBalance, 15);
+  assert.equal(another.items[0].selectable, true);
+
+  const editing = await loadBookingBenefits(database({ ...data,
+    booking_benefit_selections: held }), member, 'silver', today, 'booking-A');
+  assert.equal(editing.items[0].selectionId, 'PT-001',
+    'editing an existing booking must preserve its own held ticket');
+  assert.equal(editing.items[0].reservedForCurrentBooking, true);
+  assert.equal(editing.items[0].selectable, true);
+
+  const threeHolds = ['PT-001', 'PT-002', 'PT-003'].map((benefit_ref, i) => ({
+    booking_id: 'booking-' + i, member_id: member.id,
+    benefit_kind: 'points', benefit_ref, status: 'pending',
+  }));
+  const fourth = await loadBookingBenefits(database({ ...data,
+    booking_benefit_selections: threeHolds }), member, 'silver', today);
+  assert.equal(fourth.items.length, 1);
+  assert.equal(fourth.items[0].selectionId, 'PT-004');
+  assert.equal(fourth.items[0].pointBalance, 5);
+  assert.equal(fourth.items[0].selectable, true);
+
+  const fifth = await loadBookingBenefits(database({ ...data,
+    booking_benefit_selections: [...threeHolds, {
+      booking_id: 'booking-3', member_id: member.id, benefit_kind: 'points',
+      benefit_ref: 'PT-004', status: 'pending',
+    }] }), member, 'silver', today);
+  assert.equal(fifth.items.length, 1);
+  assert.equal(fifth.items[0].selectable, false);
+  assert.equal(fifth.items[0].statusLabel, '點數不足');
+
+  const cancelled = await loadBookingBenefits(database({ ...data,
+    booking_benefit_selections: threeHolds.slice(0, 2) }), member, 'silver', today);
+  assert.equal(cancelled.items[0].selectionId, 'PT-003');
+  assert.equal(cancelled.items[0].pointBalance, 10,
+    'cancelling another booking releases its point hold');
+});
+
+test('AC-006: distinct rewards stay independently available instead of being collapsed together', async () => {
+  const { loadBookingBenefits } = await modulePromise;
+  const r = await loadBookingBenefits(database({
+    point_card_rewards: [
+      { id: 'reward', point_card_id: 'card', ticket_template_id: 'template', threshold_stamps: 5 },
+      { id: 'reward-b', point_card_id: 'card', ticket_template_id: 'template-b', threshold_stamps: 10 },
+    ],
+    ticket_templates: [
+      { id: 'template', title: '優惠 A', status: 'active' },
+      { id: 'template-b', title: '優惠 B', status: 'active' },
+    ],
+    point_tickets: [
+      { ticket_id: 'PT-A', member_id: member.id, status: 'available', reward_id: 'reward',
+        point_card_id: 'card', ticket_template_id: 'template', threshold_stamps: 5 },
+      { ticket_id: 'PT-B', member_id: member.id, status: 'available', reward_id: 'reward-b',
+        point_card_id: 'card', ticket_template_id: 'template-b', threshold_stamps: 10 },
+    ],
+    point_balances: [{ member_id: member.id, point_card_id: 'card', stamps: 20 }],
     event_tickets: [], calendar_items: [],
   }), member, 'silver', today);
-  const points = result.items.filter(item => item.kind === 'points');
-  assert.equal(points.length, 3);
-  assert.deepEqual(points.map(item => item.selectionId), ['PT-001', 'PT-002', 'PT-003']);
-  assert.ok(points.every(item => item.selectable && item.pointBalance === 15 && item.pointCost === 5));
-  assert.equal(result.pointTicketMaxPerRedemption, 0);
+  assert.equal(r.items.length, 2);
+  assert.deepEqual(r.items.map(item => item.selectionId), ['PT-A', 'PT-B']);
 });
