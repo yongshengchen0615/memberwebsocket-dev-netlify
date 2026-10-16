@@ -599,10 +599,13 @@
       validateCurrentLogin(false);
       schedule(0);
     };
-    // LINE WebViews may suspend and miss Realtime messages in the background.
+    // Reconcile visible data even when the SDK is unavailable or a socket silently
+    // misses an event. Use the same queue so periodic reads never overlap Realtime.
     if (typeof window.setInterval === 'function') {
       loginCheckTimer = window.setInterval(() => {
-        if (!disposed && document.visibilityState !== 'hidden') validateCurrentLogin(false);
+        if (disposed || shouldDeferResync()) return;
+        validateCurrentLogin(false);
+        if (config.realtimeEnabled !== false) schedule(0);
       }, 30000);
     }
 
@@ -635,7 +638,11 @@
           }
         })
         .subscribe((status) => {
-          if (disposed || status !== 'SUBSCRIBED') return;
+          if (disposed) return;
+          if (status !== 'SUBSCRIBED') {
+            schedule(0);
+            return;
+          }
           validateCurrentLogin(false);
           if (subscribedOnce) {
             schedule(0);
@@ -779,3 +786,4 @@
 
   window.BookingSystem = { loadConfig, signIn, completeSignIn, startPresence, claimBrowserSession, getSession, request, memberProfile, bookingBenefits, claimEventTicket, sendMemberChatMessage, subscribeRealtime, openMemberJoin, logout, showNotice, formatDate, addDays, clientError };
 })();
+
