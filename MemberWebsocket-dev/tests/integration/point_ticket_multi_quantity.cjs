@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const load = require('./fixtures/load-postgres-snapshot.cjs');
-const migration = fs.readFileSync(path.resolve(__dirname, '../../supabase/migrations/20261016224000_allow_multiple_point_reward_tickets.sql'), 'utf8');
+const migration = fs.readFileSync(path.resolve(__dirname, '../../supabase/migrations/20261016151843_allow_multiple_point_reward_tickets.sql'), 'utf8');
 
 test('AC-004: PostgreSQL issues distinct point reward tickets up to balance and stays idempotent', async () => {
   const db = await load();
