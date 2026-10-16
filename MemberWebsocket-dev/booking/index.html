@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="zh-Hant" data-ui-system="material-3">
+<head>
+  <meta name="robots" content="noindex,nofollow">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#f6f1e8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' https://static.line-scdn.net https://cdn.jsdelivr.net; style-src 'self'; style-src-elem 'self'; style-src-attr 'unsafe-inline'; connect-src 'self' https://api.line.me https://access.line.me https://liff.line.me https://*.line-scdn.net https://*.supabase.co wss://*.supabase.co; img-src 'self' data: https://profile.line-scdn.net; frame-src https://liff-subwindow.line.me https://access.line.me; form-action https://liff-subwindow.line.me https://access.line.me">
+  <title>預約｜Lumen Club</title>
+  <link rel="preconnect" href="https://static.line-scdn.net" crossorigin>
+  <link rel="stylesheet" href="./styles.css?v=lumen-design-system-20260924-1">
+  <link rel="stylesheet" href="./calendar-flow.css?v=csp-hardening-20260929-1">
+  <link rel="stylesheet" href="./calendar-holiday-theme.css?v=booking-calendar-holiday-theme-20260916-2-ui-20261007-1">
+  <link rel="stylesheet" href="./membership-progress.css?v=booking-tier-style-20260910-1">
+  <link rel="stylesheet" href="./booking-history.css?v=booking-history-accordion-20260918-1-no-show-20261014-1-status-tabs-20261014-1">
+  <link rel="stylesheet" href="../booking-ticket-cards.css?v=booking-ticket-cards-20261004-1">
+  <link rel="stylesheet" href="./member-booking-format.css?v=booking-service-type-colors-webview-20260918-2">
+  <link rel="stylesheet" href="./group-booking.css?v=booking-participant-colors-20260918-1-confirm-tickets-20261002-1">
+  <link rel="stylesheet" href="./booking-receipt.css?v=snapshot-limits-20261012-1-booking-receipt-dark-20261001-5-receipt-dialog-20261008-1-controls-20261010-2-snapshot-ticket-ui-20261010-1-snapshot-layout-20261012-1-no-prebooking-20261010-1-event-claim-20261012-1">
+  <link rel="stylesheet" href="../user-tour.css?v=user-tour-20260928-10-p2-20261006-1">
+  <script src="../ui-components.js?v=ui-consolidation-20261007-1-point-card-ticket-style-20261007-2" defer></script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0/dist/umd/supabase.js" integrity="sha384-lDkWTkrzxBtYvBtgQmPcLBhTbJdqB11igYtWVcCIVXO0Lv4+XuKKdd4razodiyzk" crossorigin="anonymous" defer></script>
+  <script src="../test-mode-client.js?v=test-login-takeover-20261008-2-p1-secure-20261008-1" defer></script>
+  <script src="./common.js?v=booking-member-chat-20261003-1-p1-secure-20261008-1-line-offline-20261012-1-takeover-20261013-1-silent-takeover-20261013-2-booking-session-20261013-3-connection-efficiency-20261014-1" defer></script>
+  <script src="./booking-date-display.js?v=booking-weekday-20260912-1" defer></script>
+  <script src="./contact-details.js?v=test-mode-20260920-1" defer></script>
+  <script src="./service-type-color.js?v=booking-shared-type-color-map-20260918-4" defer></script>
+  <script src="./group-booking.js?v=async-architecture-20260921-1-ticket-service-requirements-20261002-1-test-data-20261009-1-accessible-1-ticket-source-20261004-1-booking-settings-20261006-2-p2-20261006-1" defer></script>
+  <script src="./liff-fresh-login.js?v=member-presence-20260920-1-p1-secure-20261008-1-booking-session-20261013-3" defer></script>
+  <script src="./membership-progress.js?v=booking-tier-member-parity-20260914-2" defer></script>
+  <script src="./member-ui.js?v=test-mode-20260920-1-no-show-20261014-1-booking-history-status-tabs-20261014-1" defer></script>
+  <script src="./booking-benefits.js?v=ticket-service-requirements-20261002-1-accessible-1-ticket-source-20261004-1-ui-20261007-1-point-card-ticket-style-20261007-1-availability-style-20261007-1-ongoing-20261008-1-release-20261008-2-booking-no-gps-20261012-1-event-claim-exclusivity-20261015-1" defer></script>
+  <script src="./app.js?v=booking-member-chat-20261003-1-ticket-source-20261004-1-ticket-card-ui-20261004-1-ticket-booking-20261006-1-booking-settings-20261006-1-p2-20261006-1-ui-20261007-1-release-20261014-1-single-accordion-20261014-1" defer></script>
+  <script src="./booking-receipt.js?v=accessible-e2e-snapshot-20261005-1-snapshot-policy-optional-gps-20261014-1-release-20261014-1-snapshot-ticket-ui-20261010-1-snapshot-layout-20261012-1-snapshot-mode-entry-gps-20261012-1-snapshot-line-chat-20261012-1-event-claim-20261012-1-point-limits-20261012-1-refresh-state-20261014-1-event-claim-exclusivity-20261015-1" defer></script>
+  <script src="./booking-accessible.js?v=snapshot-policy-optional-gps-20261014-1-release-20261014-1-snapshot-limits-20261012-1-snapshot-mode-entry-gps-20261012-1-snapshot-layout-20261012-1-snapshot-line-chat-20261012-1-snapshot-surplus-20261014-1-history-tabs-20261014-1-refresh-state-20261014-1" defer></script>
+  <script src="../user-tour.js?v=participant-state-isolation-20261004-1-p2-20261006-1" defer></script>
+  <script src="./calendar-flow.js?v=csp-hardening-20260929-1" defer></script>
+  <script src="./booking-flow.js?v=lumen-experience-20260924-1" defer></script>
+  <link rel="stylesheet" href="./booking-benefits.css?v=booking-mobile-layout-20261002-2-ongoing-20261008-1">
+  <link rel="stylesheet" href="./booking-typography.css?v=booking-typography-20260919-contact-render-1">
+  <link rel="stylesheet" href="./contact-details.css?v=booking-contact-dark-20261002-2">
+  <link rel="stylesheet" href="../test-mode.css?v=test-mode-20260920-1">
+  <link rel="stylesheet" href="../user-test-control.css?v=user-qa-observer-20260921-2">
+  <link rel="stylesheet" href="../responsive.css?v=20260914-line-form-1">
+  <script src="../dialog-accessibility.js?v=20260913" defer></script>
+  <script src="../e2e-feature-coverage.js?v=feature-coverage-20261009-1-ongoing-20261010-1-scope-complete-20261015-1" defer></script>
+  <script src="../e2e-scenario-graph.js?v=e2e-graph-20261004-2" defer></script>
+  <script src="../e2e-professional-tester.js?v=professional-qa-20261005-2" defer></script>
+  <script src="../user-test-control.js?v=qa-e2e-20261010-2-consent-scope-ongoing-20261013-1-snapshot-surplus-20261014-1-gps-screenshot-20261015-2" defer></script>
+  <link rel="stylesheet" href="../theme.css?v=m3-ui-20261001-booking-topbar-parity-3-ui-20261007-1">
+  <link rel="stylesheet" href="../experience.css?v=ui-consolidation-20261007-1-point-card-ticket-style-20261007-1-disabled-original-theme-20261007-2">
+  <link rel="stylesheet" href="./booking-mobile.css?v=booking-mobile-layout-20261002-3">
+  <script src="../membership-milestones.js?v=lumen-experience-20260924-1" defer></script>
+  <script src="../theme.js?v=m3-ui-20260929-1"></script>
+  <link rel="stylesheet" href="./booking-accessible.css?v=snapshot-limits-20261012-1-snapshot-mode-entry-gps-20261012-1-snapshot-layout-20261012-1-history-tabs-20261014-1">
+  <link rel="stylesheet" href="../friends.css?v=ui-20261007-4-separate-referral-ongoing-20261008-1">
+  <script src="../friends.js?v=ui-20261007-4-separate-referral-ongoing-20261008-1-ongoing-20261010-1-ongoing-20261013-1" defer></script>
+  <link rel="stylesheet" href="../event-ticket-ui.css?v=ongoing-20261008-1">
+  <script src="../event-ticket-ui.js?v=ongoing-20261008-1" defer></script>
+  <link rel="stylesheet" href="member-booking-details.css?v=20261014-1">
+</head>
+<body>
+  <div class="app-shell">
+    <section id="loadingView" class="state-view" aria-live="polite">
+      <div class="loader" aria-hidden="true"></div>
+      <h1>正在載入預約時段</h1>
+      <p>正在確認會員身分、會員階級與可預約時間…</p>
+    </section>
+
+    <section id="errorView" class="state-view hidden" role="alert">
+      <div class="error-mark" aria-hidden="true">!</div>
+      <p class="kicker">Booking access</p>
+      <h1 id="errorTitle">預約功能暫時無法使用</h1>
+      <p id="errorMessage"></p>
+      <button id="joinMemberButton" class="button button-dark hidden" type="button">前往加入會員</button>
+      <button id="retryButton" class="button button-dark" type="button">重新整理</button>
+    </section>
+
+    <main id="bookingView" class="hidden" data-user-tour="booking">
+      <header class="topbar">
+        <div><p class="kicker">Lumen Club / Booking</p><h1>預約服務</h1></div>
+        <div class="account-menu"><span id="memberName">LINE 會員</span></div>
+      </header>
+      <section class="booking-accessible-switch" aria-label="預約模式">
+        <div class="booking-mode-description">
+          <p class="booking-mode-current"><span aria-hidden="true"></span><strong id="bookingModeTitle">一般預約模式</strong></p>
+          <p id="bookingModeDescription">自行選擇日期、服務項目與時段。</p>
+          <small id="bookingModePreference">切換後會記住此會員在本裝置的偏好。</small>
+        </div>
+        <button id="bookingAccessibleToggle" class="button button-outline" type="button" aria-pressed="false" aria-controls="bookingAccessiblePanel" aria-describedby="bookingModePreference">開啟快照模式</button>
+      </section>
+      <section id="bookingAccessiblePanel" class="booking-accessible-panel hidden" aria-labelledby="bookingAccessibleTitle">
+        <h2 id="bookingAccessibleTitle">拍收據，讓管理員幫您登記</h2>
+        <p>不必選日期或填寫預約。完成服務後，拍下收據就可以了。</p>
+        <ol><li>拍攝清楚的收據</li><li>送出，等待管理員核對</li><li>核對完成後，記錄點數與服務時間</li></ol>
+        <p id="bookingSnapshotLocationStatus" class="booking-snapshot-gps-status" role="status" aria-live="polite">進入快照模式後，系統會依管理端設定確認是否需要 GPS。</p>
+        <button id="bookingSnapshotLocationRetry" class="button button-outline hidden" type="button">重新定位</button>
+        <button id="bookingAccessibleUpload" class="button button-dark" type="button" disabled>拍攝收據並上傳</button>
+        <p id="bookingAccessibleStatus" role="status" aria-live="polite">尚未送出收據。</p>
+        <button id="bookingAccessibleRefresh" class="button button-outline" type="button">更新登記狀態與票券</button>
+        <h3>我的可用票券</h3>
+        <p>直接向現場管理員出示。使用條件由管理員核對，這裡不會自動領取或使用票券。</p>
+        <p id="bookingAccessibleTicketsStatus" role="status" aria-live="polite">正在確認可用票券…</p>
+        <div id="bookingAccessibleTickets" class="booking-accessible-tickets"></div>
+      </section>
+      <span id="memberProfileName" class="hidden" aria-hidden="true"></span>
+      <span id="memberCode" class="hidden" aria-hidden="true"></span>
+
+      <section id="membershipProgress" class="membership-progress" aria-labelledby="membershipProgressTitle" aria-live="polite">
+        <div>
+          <p class="membership-progress-kicker">Membership progress</p>
+          <h2 id="membershipProgressTitle">會員階級</h2>
+          <p id="memberTier" data-membership-current-tier class="membership-progress-current">載入中</p>
+        </div>
+        <p data-membership-summary class="membership-progress-summary">累積 0 分鐘・下一階段資料載入中</p>
+        <p data-membership-remaining class="membership-progress-remaining">正在計算升等進度</p>
+        <div data-membership-progress-track class="membership-progress-track" role="progressbar" aria-label="會員階級進度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-membership-progress-bar></span></div>
+      </section>
+
+      <section class="booking-card" data-booking-standard aria-labelledby="bookingTitle">
+        <div class="section-heading">
+          <div><p class="kicker">New appointment</p><h2 id="bookingTitle">選擇預約日期</h2><p>不可預約的日期會反灰；點選可預約日期後，系統會開啟小視窗讓你選擇預約項目與時間。</p></div>
+          <span id="workHoursBadge" class="slot-unit">載入中</span>
+        </div>
+
+        <div id="bookingNotice" class="service-info" role="note" aria-live="polite"><strong>預約說明：</strong><span>正在載入…</span></div>
+
+        <section class="calendar-shell" aria-label="預約日期日曆">
+          <div class="calendar-toolbar">
+            <button id="previousMonthButton" class="calendar-nav-button" type="button" aria-label="上一個月">‹</button>
+            <strong id="calendarMonthLabel" aria-live="polite">載入中</strong>
+            <button id="nextMonthButton" class="calendar-nav-button" type="button" aria-label="下一個月">›</button>
+          </div>
+          <div class="calendar-weekdays" aria-hidden="true"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+          <div id="calendarGrid" class="calendar-grid" role="grid" aria-label="可選預約日期"></div>
+          <div class="calendar-legend" aria-label="日曆圖例">
+            <span><i class="legend-dot today-dot" aria-hidden="true"></i>今天</span>
+            <span><i class="legend-dot booking-dot" aria-hidden="true"></i>我的預約時段</span>
+            <span><i class="legend-dot disabled-dot" aria-hidden="true"></i>不可預約（過去／未達提前天數）</span>
+          </div>
+        </section>
+
+        <form id="bookingForm" novalidate>
+          <input id="bookingDate" type="hidden" disabled>
+
+          <section id="appointmentPanel" class="booking-selection-modal hidden" role="dialog" aria-modal="true" aria-labelledby="appointmentModalTitle">
+            <div class="booking-selection-modal-card">
+              <div class="booking-selection-modal-heading">
+                <div><p class="kicker">New appointment</p><h2 id="appointmentModalTitle">預約</h2><strong id="selectedDateSummary">尚未選擇日期</strong></div>
+                <button id="closeAppointmentButton" class="booking-selection-modal-close" type="button" aria-label="關閉預約視窗">×</button>
+              </div>
+
+              <div class="booking-selection-modal-body">
+              <fieldset class="booking-contact-fieldset">
+                <legend>預約資料與服務對象</legend>
+                <div id="bookingRecipientHost"></div>
+                <div class="booking-contact-options" role="radiogroup" aria-label="預約資料來源">
+                  <label class="booking-contact-option"><input type="radio" name="bookingContactSource" value="member" checked><span><strong>使用會員資料</strong><br><small id="bookingMemberContactSummary">正在載入會員資料…</small></span></label>
+                  <label class="booking-contact-option"><input type="radio" name="bookingContactSource" value="custom"><span><strong>本次重新填寫</strong><br><small>只套用到這筆預約</small></span></label>
+                </div>
+                <div id="bookingCustomContactFields" class="booking-contact-custom hidden">
+                  <label>姓氏<input id="bookingContactSurname" type="text" maxlength="40" autocomplete="family-name" placeholder="例如：王"></label>
+                  <label>稱謂<select id="bookingContactSalutation"><option value="">請選擇</option><option value="mr">先生</option><option value="ms">小姐</option></select></label>
+                  <label>電話<input id="bookingContactPhone" type="tel" maxlength="20" inputmode="tel" autocomplete="tel" placeholder="例如：0912-345-678"></label>
+                </div>
+                <small class="booking-contact-help">＊重新填寫只會用於本次預約，不會修改會員卡內的會員資料。</small>
+              </fieldset>
+
+              <div id="editingBookingNotice" class="service-info hidden" role="status">
+                正在修改既有預約；送出後需重新確認。
+                <button id="cancelEditBookingButton" class="button button-light" type="button">放棄修改／新增預約</button>
+              </div>
+              <fieldset class="service-picker-fieldset">
+                <legend>可選預約項目</legend>
+                <p class="slot-hint">相同類型服務會集中在同一區塊；按下「增加」後會加入下方「目前選擇」。</p>
+                <div id="servicePicker" class="service-picker"></div>
+                <div id="serviceEmpty" class="empty-state compact hidden"><strong>目前沒有開放的預約項目</strong></div>
+              </fieldset>
+
+              <fieldset class="selected-service-fieldset">
+                <legend>目前選擇</legend>
+                <p class="slot-hint">相同類型會集中顯示；每一筆選擇都可單獨移除。</p>
+                <div id="selectedServiceList" class="selected-service-list"></div>
+                <div id="selectedServiceEmpty" class="empty-state compact"><strong>尚未選擇預約項目</strong><span>請從上方可選項目加入。</span></div>
+              </fieldset>
+
+              <div id="selectionSummary" class="service-info hidden" aria-live="polite"></div>
+
+              <fieldset class="slot-fieldset">
+                <legend>可預約時間</legend>
+                <p id="slotHint" class="slot-hint">請先選擇至少一個預約項目。</p>
+                <div id="slotGrid" class="slot-grid" role="group" aria-label="可預約時間"></div>
+              </fieldset>
+
+
+              <section id="bookingBenefits" class="booking-benefits" aria-labelledby="bookingBenefitsTitle" data-state="loading">
+                <div class="booking-benefits-heading">
+                  <div><h2 id="bookingBenefitsTitle">本次可使用優惠</h2><p id="bookingBenefitsStatus" role="status" aria-live="polite">正在確認你的可用權益…</p></div>
+                  <button id="bookingBenefitsRetry" class="text-button hidden" type="button">重新載入</button>
+                </div>
+                <p class="slot-hint">可勾選集點卡票券與活動票券；適用活動僅顯示供預約參考。真正核銷會在管理端完成服務時再次驗證。</p>
+                <div id="bookingBenefitsList" class="booking-benefits-list" aria-label="本次可使用優惠" aria-busy="true"></div>
+              </section>
+
+
+              <label>備註（選填）
+                <textarea id="memberNote" maxlength="500" rows="3" placeholder="例如：希望安排的服務需求"></textarea>
+              </label>
+
+              </div>
+              <div class="booking-selection-modal-footer">
+                <div id="formMessage" class="form-message hidden" role="status" aria-live="polite"></div>
+                <button id="submitBookingButton" class="button button-dark button-wide" type="submit" disabled>確認預約內容</button>
+              </div>
+            </div>
+          </section>
+        </form>
+      </section>
+
+      <section class="booking-card" aria-labelledby="myBookingsTitle">
+        <div class="section-heading compact"><div><p class="kicker">My appointments</p><h2 id="myBookingsTitle">我的預約</h2><p>依狀態切換預約紀錄；已預約、已完成、無故未到與已取消的服務都會顯示筆數。</p></div></div>
+        <div id="bookingList" class="booking-list"></div>
+        <div id="bookingEmpty" class="empty-state hidden"><strong>目前沒有預約紀錄</strong><span>選擇上方日期即可建立第一筆預約。</span></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="bookingNoticeModal" class="booking-modal booking-alert-modal hidden" role="alertdialog" aria-modal="true" aria-labelledby="bookingNoticeTitle" aria-describedby="bookingNoticeMessage">
+    <div class="booking-modal-card booking-alert-modal-card">
+      <div class="booking-modal-heading">
+        <div><p class="kicker">Notice</p><h2 id="bookingNoticeTitle">提醒</h2></div>
+      </div>
+      <p id="bookingNoticeMessage"></p>
+      <div class="booking-modal-actions booking-alert-modal-actions">
+        <button id="confirmBookingNoticeButton" class="button button-dark" type="button">確認</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="bookingConfirmModal" class="booking-modal hidden" role="dialog" aria-modal="true" aria-labelledby="bookingConfirmTitle">
+    <div class="booking-modal-card">
+      <div class="booking-modal-heading">
+        <div><p class="kicker">Confirm appointment</p><h2 id="bookingConfirmTitle">確認預約</h2></div>
+        <button id="closeBookingConfirmButton" class="booking-modal-close" type="button" aria-label="關閉">×</button>
+      </div>
+      <p>請確認以下預約內容。按下「確認送出」後，時段會立即保留並等待管理端確認。</p>
+      <div id="bookingConfirmSummary" class="booking-confirm-summary"></div>
+      <div id="bookingConfirmMessage" class="form-message hidden" role="status" aria-live="polite"></div>
+      <div class="booking-modal-actions">
+        <button id="cancelBookingConfirmButton" class="button button-light" type="button">返回修改</button>
+        <button id="confirmBookingButton" class="button button-dark" type="button">確認送出</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

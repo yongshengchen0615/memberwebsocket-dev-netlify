@@ -1,0 +1,38 @@
+const { JSDOM } = require('jsdom');
+const fs = require('node:fs'); const assert = require('node:assert/strict');
+const root = require('node:path').join(__dirname, '../..');
+(async()=>{
+const dom = new JSDOM(fs.readFileSync(root+'/booking/index.html','utf8'), { runScripts:'outside-only', url:'https://example.test/booking/' });
+const w=dom.window; const calls=[];
+const serviceId='20000000-0000-4000-8000-000000000001';
+const booking={bookingId:'30000000-0000-4000-8000-000000000001',updatedAt:'2026-09-11T00:00:00Z',status:'confirmed',bookingDate:'2099-01-01',startTime:'09:00',endTime:'10:00',memberNote:'Original note',items:[{serviceId,serviceTitle:'Fixture service',quantity:1}]};
+const data={today:'2026-09-11',settings:{minAdvanceDays:0,workStartTime:'09:00',workEndTime:'18:00'},services:[{serviceId,title:'Fixture service',durationMinutes:60,priceAmount:100,isActive:true}],bookings:[booking]};
+w.BookingSystem={loadConfig:async()=>({}),signIn:async()=>'fixture-token',subscribeRealtime:()=>()=>{},memberProfile:async()=>({}),addDays:(d,n)=>new Date(Date.parse(d+'T00:00:00Z')+n*86400000).toISOString().slice(0,10),formatDate:x=>x,request:async(c,t,token,action,payload)=>{
+ calls.push({action,payload});
+ if(action==='user.booking.bootstrap')return structuredClone(data);
+ if(action==='user.booking.slots')return {slots:[{startTime:'10:00',endTime:'11:10',startAt:'2099-01-01T10:00:00+08:00',endAt:'2099-01-01T11:10:00+08:00',available:true}]};
+ if(action==='user.booking.update')return {booking:{...booking,...payload,status:'pending'}};
+ throw Error(action);
+}};
+w.eval(fs.readFileSync(root+'/booking/app.js','utf8'));
+const tick=()=>new Promise(r=>setTimeout(r,10)); await tick();await tick();
+const clickText=(text)=>{const el=[...w.document.querySelectorAll('button')].find(x=>x.textContent===text);assert.ok(el,text);el.click();};
+clickText('修改預約');await tick();
+assert.equal(w.document.getElementById('appointmentModalTitle').textContent,'修改預約');
+assert.equal(w.document.getElementById('memberNote').value,'Original note');
+assert.equal(calls.filter(x=>x.action==='user.booking.slots').at(-1).payload.bookingId,booking.bookingId);
+clickText('10:00–11:10');
+w.document.getElementById('bookingForm').dispatchEvent(new w.Event('submit',{cancelable:true}));
+assert.equal(w.document.getElementById('bookingConfirmTitle').textContent,'確認修改預約');
+clickText('確認送出');await tick();
+const update=calls.find(x=>x.action==='user.booking.update');assert.ok(update);assert.equal(update.payload.expectedUpdatedAt,booking.updatedAt);
+assert.equal(calls.some(x=>x.action==='user.booking.create'),false);
+assert.equal(w.document.getElementById('appointmentModalTitle').textContent,'預約');
+assert.match(w.document.getElementById('bookingList').textContent,/等待管理端確認/);
+console.log('PASS edit prefills, excludes own slot, sends original version, updates existing booking and resets edit mode');
+clickText('修改預約');await tick();clickText('放棄修改／新增預約');
+assert.equal(w.document.getElementById('memberNote').value,'');
+assert.ok(w.document.getElementById('editingBookingNotice').classList.contains('hidden'));
+console.log('PASS abandoning edit clears stale selections and edit identity');
+w.close();
+})().catch(e=>{console.error(e);process.exitCode=1});

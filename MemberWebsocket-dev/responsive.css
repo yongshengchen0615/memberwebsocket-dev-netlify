@@ -1,0 +1,176 @@
+/* Shared device adaptation: keep content readable at narrow widths and zoom. */
+:root { --device-safe-bottom: env(safe-area-inset-bottom, 0px); }
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+img, svg, video, canvas { max-width: 100%; }
+input, select, textarea { max-width: 100%; min-width: 0; }
+button, a, input, select, textarea { touch-action: manipulation; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 3px solid #bc593b; outline-offset: 3px;
+}
+.booking-item, .booking-card, .booking-admin-card, .service-choice-main, .selected-service-main {
+  min-width: 0; overflow-wrap: anywhere;
+}
+.booking-actions, .booking-admin-actions, .filter-row, .heading-actions { flex-wrap: wrap; gap: 10px; }
+.status-completed { color: #225741; background-color: #e7f3eb; }
+.booking-modal-card, .booking-selection-modal-card {
+  max-height: calc(100dvh - 32px - var(--device-safe-bottom));
+  overscroll-behavior: contain; scrollbar-gutter: stable;
+  padding-bottom: max(20px, var(--device-safe-bottom));
+}
+#editingBookingNotice { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+@media (pointer: coarse) {
+  button, .button, .small-button, .filter-button { min-height: 44px; }
+}
+@media (max-width: 768px) {
+  input, select, textarea { font-size: 16px !important; }
+  .app-shell { padding-bottom: max(24px, var(--device-safe-bottom)); }
+  .booking-actions > button { flex: 1 1 130px; }
+  .booking-modal, .booking-selection-modal { padding: 8px; }
+  .booking-modal-card, .booking-selection-modal-card { max-height: calc(100dvh - 16px - var(--device-safe-bottom)); }
+}
+@media (max-width: 360px) {
+  .calendar-grid, .calendar-weekdays { gap: 3px; }
+  .calendar-day { padding: 5px 2px; }
+  .calendar-booking-times small { padding-inline: 1px; font-size: 9px; }
+  .booking-card { padding: 12px; }
+  .booking-modal-actions { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .booking-modal, .booking-selection-modal { align-items: center; padding: 8px; }
+  .booking-modal-card, .booking-selection-modal-card { max-height: calc(100dvh - 16px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto !important; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+/* 讓所有功能的彈窗都能在橫向手機、縮放與動態工具列下捲動。 */
+[role="dialog"][aria-modal="true"] {
+  max-width: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-top: max(12px, env(safe-area-inset-top, 0px));
+  padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+}
+.modal-card, .editor-modal-card, .ticket-modal-card, .calendar-detail-card,
+.profile-date-modal-card, .profile-edit-modal-card, .booking-admin-modal-card {
+  min-width: 0;
+  max-width: 100%;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  overflow-wrap: anywhere;
+}
+.modal-heading > *, .ticket-modal-heading > *, .profile-edit-modal-heading > *,
+.booking-admin-modal-heading > *, .topbar > *, .workspace-heading > * { min-width: 0; }
+.modal-heading h2, .ticket-modal-heading h2, .profile-edit-modal-heading h2,
+.booking-admin-modal-heading h2, .identity-line, .member-cell { overflow-wrap: anywhere; }
+.close-button, .ticket-close-button, .profile-edit-modal-close, .booking-admin-modal-close {
+  flex-shrink: 0;
+  min-width: 44px;
+  min-height: 44px;
+}
+.modal-actions, .profile-edit-modal-actions, .booking-admin-modal-actions { flex-wrap: wrap; }
+@media (max-width: 480px) {
+  .modal-actions > button, .profile-edit-modal-actions > button,
+  .booking-admin-modal-actions > button { flex: 1 1 120px; white-space: normal; }
+  .profile-edit-modal-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (pointer: coarse) {
+  .nav-link, .card-tab, .card-settings-tab, .logout-button { min-height: 44px; }
+}
+
+/* Native date/time controls can keep an intrinsic width inside LINE/iOS WebView.
+   Force the control and its WebKit value box to shrink with the form column. */
+input[type="time"],
+input[type="date"],
+input[type="datetime-local"],
+input[type="month"],
+input[type="week"] {
+  display: block;
+  inline-size: 100%;
+  width: 100%;
+  min-inline-size: 0 !important;
+  min-width: 0 !important;
+  max-inline-size: 100%;
+  max-width: 100%;
+}
+input[type="time"]::-webkit-date-and-time-value,
+input[type="date"]::-webkit-date-and-time-value,
+input[type="datetime-local"]::-webkit-date-and-time-value,
+input[type="month"]::-webkit-date-and-time-value,
+input[type="week"]::-webkit-date-and-time-value {
+  min-width: 0;
+  max-width: 100%;
+  text-align: left;
+}
+.form-grid > *, .two-columns > *,
+.booking-admin-form-grid > *, .booking-admin-global-settings-grid > *,
+.profile-edit-modal-grid > * {
+  min-width: 0;
+}
+@supports (-webkit-touch-callout: none) {
+  input[type="time"],
+  input[type="date"],
+  input[type="datetime-local"],
+  input[type="month"],
+  input[type="week"] {
+    width: -webkit-fill-available;
+    max-width: -webkit-fill-available;
+  }
+}
+
+/* LINE / WebKit form hardening.
+   Fieldsets and native selects can retain min-content width and push a narrow LIFF viewport wider. */
+form,
+fieldset,
+label {
+  min-inline-size: 0;
+  min-width: 0;
+  max-inline-size: 100%;
+  max-width: 100%;
+}
+fieldset {
+  inline-size: 100%;
+  width: 100%;
+  margin-inline: 0;
+}
+legend {
+  max-inline-size: 100%;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+form > *,
+fieldset > *,
+label > * {
+  min-width: 0;
+  max-width: 100%;
+}
+input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="hidden"]),
+select,
+textarea {
+  display: block;
+  inline-size: 100%;
+  width: 100%;
+  min-inline-size: 0;
+  min-width: 0;
+  max-inline-size: 100%;
+  max-width: 100%;
+}
+select {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* iOS WebKit zooms focused controls below 16px. Width breakpoints are not enough because
+   an iPhone in landscape can expose a CSS viewport wider than the phone breakpoints. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="hidden"]),
+  select,
+  textarea {
+    font-size: max(16px, 1em) !important;
+  }
+}

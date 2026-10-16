@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-Hant" data-ui-system="material-3">
+<head>
+  <meta name="robots" content="noindex,nofollow">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#f3eee6">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; media-src 'self' blob:; base-uri 'none'; object-src 'none'; script-src 'self' https://static.line-scdn.net https://cdn.jsdelivr.net; style-src 'self'; connect-src 'self' https://api.line.me https://access.line.me https://liff.line.me https://*.line-scdn.net https://*.supabase.co wss://*.supabase.co https://nominatim.openstreetmap.org; img-src 'self' data: https://profile.line-scdn.net; frame-src https://liff-subwindow.line.me https://access.line.me; form-action https://liff-subwindow.line.me https://access.line.me">
+  <title>集點卡｜Lumen Club</title>
+  <link rel="preconnect" href="https://static.line-scdn.net" crossorigin>
+  <link rel="stylesheet" href="./styles.css?v=point-card-presets-20260916-1-disabled-original-theme-20261007-2-transfer-click-20261009-1">
+  <link rel="stylesheet" href="./membership-progress.css?v=points-tier-style-20260908">
+  <link rel="stylesheet" href="./pointcard-ticket-overview.css?v=point-card-presets-20260916-1-ticket-booking-20261006-1-ui-20261007-1-original-grayscale-20261007-1">
+  <link rel="stylesheet" href="./point-transfer.css?v=point-transfer-realtime-20261001-2-qr-20261008-1">
+  <link rel="stylesheet" href="../qr-scan-dialog.css?v=qr-dialog-20261008-1-ongoing-20261010-1">
+  <link rel="stylesheet" href="../user-tour.css?v=user-tour-20260928-10-p2-20261006-1">
+  <link rel="stylesheet" href="../test-mode.css?v=test-mode-20260920-1">
+  <link rel="stylesheet" href="../user-test-control.css?v=user-qa-observer-20260921-2">
+  <link rel="stylesheet" href="../responsive.css?v=20260914-line-form-1">
+  <script src="../ui-components.js?v=ui-consolidation-20261007-1" defer></script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0/dist/umd/supabase.js" integrity="sha384-lDkWTkrzxBtYvBtgQmPcLBhTbJdqB11igYtWVcCIVXO0Lv4+XuKKdd4razodiyzk" crossorigin="anonymous" defer></script>
+  <script src="../test-mode-client.js?v=test-login-takeover-20261008-2-p1-secure-20261008-1" defer></script>
+  <script src="../member-system.js?v=layout-stability-20261001-1-accessible-20261003-1-p2-20261006-1-p1-secure-20261008-1-live-sync-20261010-1-line-offline-20261012-1-takeover-20261013-1-silent-takeover-20261013-2-booking-selections-20261013-1-connection-efficiency-20261014-1" defer></script>
+  <script src="./membership-progress.js?v=points-tier-style-20260908" defer></script>
+  <script src="../ticket-booking-choice.js?v=ticket-booking-choice-20261006-1-controls-20261010-2"></script>
+  <script src="../ticket-live-location.js?v=admin-geofence-20261010-2" defer></script>
+  <script src="./pointcard-ticket-overview.js?v=ticket-unlimited-zero-20261002-1-ticket-booking-20261006-1-ui-20261007-1-live-sync-20261010-1-admin-geofence-20261010-2-booking-selections-20261013-1-point-cancel-20261013-1-snapshot-cancel-20261013-1-dual-cancel-20261013-1-reservation-disclosure-20261014-1-booking-snapshot-sum-20261014-1" defer></script>
+  <script src="./app.js?v=point-transfer-realtime-20261001-2-booking-point-reservation-20261002-1-ui-20261007-1-original-theme-grayscale-20261007-1-p1-secure-20261008-1-booking-selections-20261013-1-booking-snapshot-sum-20261014-1-hide-standalone-selection-20261014-1" defer></script>
+  <script src="../vendor/friend-qrcode.js?v=points-transfer-own-qr-20261014-1" defer></script>
+  <script src="../vendor/friend-qr-decoder.js?v=qr-dialog-20261008-1" defer></script>
+  <script src="../friend-qr-scanner.js?v=qr-dialog-20261008-1" defer></script>
+  <script src="../qr-scan-dialog.js?v=qr-dialog-20261008-1-receipt-camera-20261008-1-ongoing-20261010-1" defer></script>
+  <script src="./point-transfer.js?v=point-transfer-realtime-20261001-2-integrity-20261003-1-qr-20261008-1-retry-20261008-1-ongoing-20261010-1-outer-copy-removed-20261014-1" defer></script>
+  <script src="../user-tour.js?v=participant-state-isolation-20261004-1-p2-20261006-1" defer></script>
+  <script src="../dialog-accessibility.js?v=20260913" defer></script>
+  <script src="../e2e-feature-coverage.js?v=feature-coverage-20261009-1-ongoing-20261010-1-scope-complete-20261015-1" defer></script>
+  <script src="../e2e-scenario-graph.js?v=e2e-graph-20261004-2" defer></script>
+  <script src="../e2e-professional-tester.js?v=professional-qa-20261005-2" defer></script>
+  <script src="../user-test-control.js?v=qa-e2e-20261010-2-consent-scope-ongoing-20261013-1-gps-screenshot-20261015-2" defer></script>
+  <link rel="stylesheet" href="../theme.css?v=m3-ui-20261001-booking-topbar-parity-3-ui-20261007-1">
+  <link rel="stylesheet" href="../experience.css?v=ui-consolidation-20261007-1-point-card-ticket-style-20261007-2-disabled-original-theme-20261007-2">
+  <script src="../membership-milestones.js?v=lumen-experience-20260924-1" defer></script>
+  <script src="../theme.js?v=m3-ui-20260929-1"></script>
+  <link rel="stylesheet" href="../ticket-booking-selections.css?v=booking-selections-20261013-1-point-cancel-20261013-1-reservation-disclosure-20261014-1">
+  <script src="../ticket-booking-selections.js?v=booking-selections-20261013-1-point-cancel-20261013-1-reservation-disclosure-20261014-1-event-panel-removed-20261014-1-hide-standalone-selection-20261014-1-booking-range-20261015-1" defer></script>
+</head>
+<body>
+  <div id="app" class="app-shell" aria-busy="true">
+    <section id="loadingView" class="state-view login-loading" aria-live="polite">
+      <h1>正在登入集點卡</h1>
+      <p id="loadingStatus" class="login-status" role="status">正在準備安全登入…</p>
+      <div id="loadingProgress" class="login-progress" role="progressbar" aria-label="登入進度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="8" aria-valuetext="8%">
+        <span id="loadingProgressBar" class="login-progress-bar"></span>
+      </div>
+      <p id="loadingProgressText" class="login-progress-value" aria-hidden="true">8%</p>
+    </section>
+
+    <section id="errorView" class="state-view hidden" role="alert">
+      <div class="error-mark" aria-hidden="true">!</div>
+      <p class="kicker">Unable to continue</p>
+      <h1 id="errorTitle">集點卡暫時無法載入</h1>
+      <p id="errorMessage"></p>
+      <button id="joinMemberButton" class="button button-dark hidden" type="button">前往加入會員</button>
+      <button id="retryButton" class="button button-dark" type="button">重新整理</button>
+    </section>
+
+    <main id="pointsView" class="hidden" data-user-tour="points">
+      <header class="topbar">
+        <div>
+          <p class="kicker">Lumen Club / Rewards</p>
+          <h1>集點卡</h1>
+        </div>
+        <div class="account-menu"><span id="displayName">LINE 使用者</span></div>
+      </header>
+
+      <section class="workspace-intro">
+        <div><p class="kicker">Your rewards</p><h2>集點進度、會員資格與可使用票券。</h2></div>
+      </section>
+
+      <p id="syncNotice" class="sync-notice hidden" role="status" aria-live="polite"></p>
+      <section id="membershipProgress" class="membership-progress" aria-labelledby="membershipProgressTitle" aria-live="polite">
+        <div><p class="membership-progress-kicker">Membership progress</p><h2 id="membershipProgressTitle">會員階級</h2><p data-membership-current-tier class="membership-progress-current">目前會員階級：載入中</p></div>
+        <p data-membership-summary class="membership-progress-summary">累積 0 分鐘・下一階段資料載入中</p>
+        <p data-membership-remaining class="membership-progress-remaining">正在計算升等進度</p>
+        <div data-membership-progress-track class="membership-progress-track" role="progressbar" aria-label="會員階級進度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-membership-progress-bar></span></div>
+      </section>
+
+      <div id="cardTabs" class="card-tabs" role="tablist" aria-label="選擇集點卡"></div>
+      <section id="emptyView" class="empty-panel hidden"><span class="empty-icon" aria-hidden="true">○</span><h2>目前還沒有可用的集點卡</h2><p>店家開通新的活動後，會在這裡看見。</p></section>
+
+      <section id="activeCardView" class="active-card" aria-live="polite">
+        <div class="card-ornament" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="active-card-header"><div><p class="label">Current reward</p><h2 id="activeCardTitle">集點卡</h2></div><div id="activeCardStatus" class="card-status">進行中</div></div>
+        <div class="progress-section">
+          <div class="progress-numbers"><strong id="progressCount">0</strong><span>點</span></div>
+          <div class="progress-foot"><span id="progressMessage">點數會持續累積，達標後可於下方票券總覽選擇使用。</span><span id="remainingMessage">尚未設定兌換票券</span></div>
+        </div>
+        <p id="cardExpiry" class="updated-at card-expiry-only">使用期限：無期限</p>
+        <div class="active-card-actions"><button id="pointTransferButton" class="point-transfer-open-button" type="button" disabled>點數轉贈</button></div>
+        <section id="cardGuidancePanel" class="card-guidance-panel hidden" aria-labelledby="cardGuidanceTitle"><div class="card-guidance-heading"><p class="label dark-label">Card details</p><h2 id="cardGuidanceTitle">使用與優惠說明</h2></div><div class="card-guidance-grid"><article data-card-guidance-item><strong>使用方式</strong><p id="cardUsageMethod"></p></article><article data-card-guidance-item><strong>使用說明</strong><p id="cardUsageInstructions"></p></article><article data-card-guidance-item><strong>優惠說明</strong><p id="cardBenefitDescription"></p></article></div></section>
+      </section>
+
+      <section class="tickets-panel" aria-labelledby="ticketsTitle">
+        <div class="tickets-heading"><div><p class="label dark-label">Point card tickets</p><h2 id="ticketsTitle">集點卡票券總覽</h2></div><span id="ticketSummary" class="tickets-summary"></span></div>
+        <div id="ticketList" class="member-ticket-list"></div>
+      </section>
+
+      <section class="ticket-history-panel" aria-labelledby="ticketHistoryTitle"><details id="ticketHistoryDisclosure" class="ticket-history-disclosure"><summary class="ticket-history-summary"><span class="ticket-history-summary-title"><span class="label dark-label">Ticket history</span><strong id="ticketHistoryTitle">票券使用紀錄</strong></span><span id="ticketHistorySummary" class="tickets-summary">點擊查看所有使用紀錄</span></summary><p class="ticket-history-description">展開後顯示所有資料；每次票券使用只會保留一筆完整紀錄。</p><ul id="ticketHistoryList" class="ticket-history-list"></ul><div id="ticketHistoryEmpty" class="ticket-empty"><span aria-hidden="true">○</span><p>尚未使用過集點卡票券。</p></div></details></section>
+
+      <section class="points-note"><span class="note-mark" aria-hidden="true">i</span><p>集點由店家於消費後登錄，若進度與實際消費不符，請直接向店員出示此畫面協助確認。</p></section>
+    </main>
+  </div>
+</body>
+</html>

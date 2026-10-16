@@ -1,0 +1,55 @@
+/* Responsive refinements for the shared admin polish layer. */
+@media (max-width: 760px) {
+  #adminView > .topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    padding: 16px;
+  }
+
+  #adminView > .topbar > div:first-child {
+    min-width: 0;
+  }
+
+  #adminView > .topbar h1 {
+    font-size: clamp(28px, 7vw, 34px);
+    line-height: 1.2;
+  }
+
+  #adminView > .topbar .account-menu {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    max-width: 100%;
+    padding: 6px;
+    border-radius: 12px;
+    text-align: left;
+  }
+
+  #adminView > .topbar .account-menu > span:first-child {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  #adminView > .topbar .account-menu button {
+    min-height: 44px;
+  }
+}
+
+@media (min-width: 561px) and (max-width: 760px) {
+  .surface-nav {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .surface-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .surface-nav .surface-tab:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}

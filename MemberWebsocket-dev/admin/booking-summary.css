@@ -1,0 +1,120 @@
+.booking-admin-booking.booking-summary-normalized > .booking-admin-booking-heading > div,
+.booking-admin-booking.booking-summary-normalized > h4,
+.booking-admin-booking.booking-summary-normalized > .booking-admin-time,
+.booking-admin-booking.booking-summary-normalized > .booking-admin-item-list {
+  display: none !important;
+}
+
+.booking-admin-booking.booking-summary-normalized > .booking-admin-booking-heading {
+  justify-content: flex-end;
+}
+
+.booking-admin-booking .booking-received-summary {
+  margin: 0 0 12px;
+  padding: 16px;
+  border: 1px solid var(--theme-border, rgba(38, 88, 63, .10));
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(38, 88, 63, .065), var(--theme-surface-raised, #fff));
+  color: var(--theme-text, #25362c);
+  font-size: .96rem;
+  line-height: 1.65;
+}
+
+.booking-admin-booking .booking-received-summary p {
+  margin: 0;
+}
+
+.booking-admin-booking .booking-received-datetime {
+  font-size: 1.08rem;
+  font-weight: 800;
+  letter-spacing: .01em;
+}
+
+.booking-admin-booking .booking-received-name {
+  margin-top: 4px !important;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.booking-admin-booking .booking-received-phone {
+  margin-top: 2px !important;
+}
+
+.booking-admin-booking .booking-member-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--theme-border, rgba(37, 54, 44, .10));
+}
+
+.booking-admin-booking .booking-member-meta-item {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--theme-border, rgba(37, 54, 44, .10));
+  border-radius: 11px;
+  background: var(--theme-surface-muted, rgba(255, 255, 255, .72));
+}
+
+.booking-admin-booking .booking-member-meta-label {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--theme-text-muted, rgba(37, 54, 44, .66));
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+
+.booking-admin-booking .booking-member-meta-item strong {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: .95rem;
+  line-height: 1.35;
+}
+
+.booking-admin-booking .booking-received-services-label {
+  margin-top: 12px !important;
+  font-weight: 800;
+}
+
+.booking-admin-booking .booking-received-services {
+  display: grid;
+  gap: 1px;
+}
+
+.booking-admin-booking .booking-received-services span {
+  display: block;
+}
+
+.booking-admin-booking .booking-copy-button {
+  width: 100%;
+  margin-top: 12px;
+  padding: 9px 12px;
+  border: 1px solid var(--theme-border-strong, rgba(37, 54, 44, .22));
+  border-radius: 10px;
+  background: var(--theme-surface-raised, rgba(255, 255, 255, .76));
+  color: var(--theme-text, #25362c);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.booking-admin-booking .booking-copy-button:disabled {
+  opacity: .68;
+  cursor: default;
+}
+
+@media (max-width: 768px) {
+  .booking-admin-booking .booking-received-summary {
+    padding: 14px;
+  }
+
+  .booking-admin-booking .booking-member-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .booking-admin-booking .booking-copy-button {
+    min-height: 44px;
+  }
+}

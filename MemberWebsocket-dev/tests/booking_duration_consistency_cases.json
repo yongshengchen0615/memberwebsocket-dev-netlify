@@ -1,0 +1,34 @@
+{
+  "purpose": "Regression fixtures for booking schedule versus current service-item duration.",
+  "fixedStoreServiceMinutes": 10,
+  "cases": [
+    {
+      "name": "member-create-90-minute-service",
+      "visibleServiceMinutes": 90,
+      "currentItemMinutes": 100,
+      "scheduledMinutes": 100,
+      "expectScheduleRecalculated": true
+    },
+    {
+      "name": "member-edit-multiple-services",
+      "visibleServiceMinutes": 100,
+      "currentItemMinutes": 110,
+      "scheduledMinutes": 110,
+      "expectScheduleRecalculated": true
+    },
+    {
+      "name": "admin-onsite-change-preserves-reservation",
+      "visibleServiceMinutes": 90,
+      "currentItemMinutes": 100,
+      "scheduledMinutes": 110,
+      "expectScheduleRecalculated": false,
+      "expectCurrentAndScheduledDurationDisplayedSeparately": true
+    }
+  ],
+  "databaseInvariants": [
+    "end_time minus start_time equals total_duration_minutes",
+    "pending or confirmed booking has exactly one fixed store-service item with quantity 1",
+    "pending or confirmed booking has at least one non-system service item",
+    "legacy single-service create delegates to create_booking_bundle_request"
+  ]
+}

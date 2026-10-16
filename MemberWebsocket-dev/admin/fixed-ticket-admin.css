@@ -1,0 +1,268 @@
+.fixed-ticket-schedule {
+  margin: 18px 0;
+  padding: 18px;
+  border: 1px solid var(--theme-border);
+  border-radius: 18px;
+  background: var(--theme-surface-muted);
+}
+
+.fixed-ticket-schedule.hidden {
+  display: none;
+}
+
+.fixed-ticket-schedule-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.fixed-ticket-schedule-heading h4 {
+  margin: 2px 0 5px;
+}
+
+.fixed-ticket-schedule-heading p:last-child,
+.fixed-ticket-schedule-summary {
+  margin: 0;
+  color: var(--muted, #69736f);
+  line-height: 1.6;
+}
+
+.fixed-ticket-notify {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--theme-border);
+  border-radius: 12px;
+  background: var(--theme-surface-raised);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.fixed-ticket-notify input {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin: 2px 0 0;
+}
+
+.fixed-ticket-notify > span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.fixed-ticket-notify strong {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.fixed-ticket-notify small {
+  color: var(--theme-text-muted);
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.fixed-ticket-notify:focus-within {
+  outline: 2px solid var(--theme-positive);
+  outline-offset: 3px;
+}
+
+.fixed-ticket-notification {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--theme-border-strong);
+}
+
+.fixed-ticket-notification-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.fixed-ticket-notification-heading h4 {
+  margin: 0;
+  color: var(--theme-text);
+  font-size: 16px;
+}
+
+.fixed-ticket-timezone {
+  color: var(--theme-text-muted);
+  font-size: 12px;
+}
+
+.fixed-ticket-notification-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  align-items: start;
+  gap: 14px;
+}
+
+.fixed-ticket-notification-grid > label {
+  color: var(--theme-text);
+  font-size: 13px;
+}
+
+.fixed-ticket-notification-grid input {
+  min-width: 0;
+  min-height: 44px;
+}
+
+.fixed-ticket-notification-grid small {
+  color: var(--theme-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.fixed-ticket-notification-summary {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--theme-positive-soft);
+  color: var(--theme-positive-text);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.fixed-ticket-notifications-off .fixed-ticket-notification-summary {
+  background: var(--theme-surface);
+  color: var(--theme-text-muted);
+  border: 1px solid var(--theme-border);
+}
+
+.fixed-ticket-notification-details {
+  color: var(--theme-text-muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.fixed-ticket-notification-details summary {
+  width: fit-content;
+  min-height: 44px;
+  padding: 10px 0;
+  color: var(--theme-text);
+  cursor: pointer;
+}
+
+.fixed-ticket-notification-details summary:focus-visible {
+  outline: 2px solid var(--theme-positive);
+  outline-offset: 3px;
+}
+
+.fixed-ticket-notification-details p {
+  margin: 0;
+}
+
+.fixed-ticket-schedule-grid {
+  align-items: start;
+}
+
+.fixed-ticket-schedule-summary {
+  margin-top: 12px;
+  padding: 11px 13px;
+  border-radius: 12px;
+  background: var(--theme-surface);
+  font-size: 13px;
+}
+
+.fixed-ticket-inline-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.fixed-ticket-list-item strong::before {
+  content: '↻';
+  display: inline-block;
+  margin-right: 7px;
+  color: var(--accent, #df6b4d);
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .fixed-ticket-schedule {
+    padding: 15px;
+    border-radius: 15px;
+  }
+
+  .fixed-ticket-schedule-heading {
+    flex-direction: column;
+  }
+
+  .fixed-ticket-notify {
+    width: 100%;
+    justify-content: flex-start;
+    border-radius: 12px;
+  }
+
+  .fixed-ticket-inline-actions .button {
+    width: 100%;
+  }
+
+  .fixed-ticket-notification-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+
+/* Theme integration: fixed-ticket calendar option */
+html[data-theme] .fixed-ticket-schedule {
+  color: var(--theme-text);
+  background: var(--theme-surface-muted);
+  border-color: var(--theme-border);
+}
+
+html[data-theme] .fixed-ticket-schedule-heading h4,
+html[data-theme] .fixed-ticket-schedule-grid label,
+html[data-theme] .fixed-ticket-notify {
+  color: var(--theme-text);
+}
+
+html[data-theme] .fixed-ticket-schedule-heading p:last-child,
+html[data-theme] .fixed-ticket-schedule-summary {
+  color: var(--theme-text-muted);
+}
+
+html[data-theme] .fixed-ticket-notify {
+  background: var(--theme-surface-raised);
+  border-color: var(--theme-border-strong);
+}
+
+html[data-theme] .fixed-ticket-notify:hover {
+  background: var(--theme-surface);
+}
+
+html[data-theme] .fixed-ticket-notify input[type="checkbox"] {
+  accent-color: var(--theme-positive);
+  min-width: 20px;
+  min-height: 20px;
+  max-height: 20px;
+  margin-top: 2px;
+  box-shadow: none;
+  outline: 0;
+}
+
+html[data-theme] .fixed-ticket-schedule-summary {
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-border);
+}
+
+html[data-theme="dark"] .fixed-ticket-notify:has(input:checked) {
+  background: color-mix(in srgb, var(--theme-positive) 12%, var(--theme-surface-raised));
+  border-color: color-mix(in srgb, var(--theme-positive) 42%, var(--theme-border-strong));
+}
+
+html[data-theme="dark"] #fixedTicketCalendarSummary {
+  background: var(--theme-surface);
+  color: var(--theme-text-muted);
+}

@@ -1,0 +1,9 @@
+drop trigger if exists realtime_automation_test_cases_member_record_change on public.automation_test_cases;
+create trigger realtime_automation_test_cases_member_record_change
+after insert or update or delete on public.automation_test_cases
+for each statement execute function public.notify_member_record_realtime_change();
+
+drop trigger if exists realtime_automation_test_steps_member_record_change on public.automation_test_steps;
+create trigger realtime_automation_test_steps_member_record_change
+after insert or update or delete on public.automation_test_steps
+for each statement execute function public.notify_member_record_realtime_change();

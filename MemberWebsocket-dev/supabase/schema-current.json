@@ -1,0 +1,7400 @@
+{
+  "projectRef": "dbuquirnaskrwcamdxki",
+  "description": "Current application schema after the two reviewed cleanup migrations; contains metadata only.",
+  "tables": [
+    {
+      "name": "public.members",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "line_user_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "display_name",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "member_code",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "status",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'active'::text",
+          "check": "status = ANY (ARRAY['active'::text, 'disabled'::text])"
+        },
+        {
+          "name": "membership_status",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'pending'::text",
+          "check": "membership_status = ANY (ARRAY['pending'::text, 'active'::text])"
+        },
+        {
+          "name": "birthday",
+          "data_type": "date",
+          "format": "date",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "phone",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "check": "phone IS NULL OR btrim(phone) = ''::text OR phone ~ '^\\+[1-9][0-9]{7,14}$'::text"
+        },
+        {
+          "name": "joined_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "last_login_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "surname",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "check": "surname IS NULL OR char_length(btrim(surname)) >= 1 AND char_length(btrim(surname)) <= 40"
+        },
+        {
+          "name": "salutation",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "check": "salutation IS NULL OR (salutation = ANY (ARRAY['mr'::text, 'ms'::text]))"
+        },
+        {
+          "name": "is_test_account",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "false"
+        },
+        {
+          "name": "test_account_sequence",
+          "data_type": "bigint",
+          "format": "int8",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "force_logout_after",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "comment": "Server-side revocation boundary for member LINE ID tokens. Tokens issued at or before this timestamp are rejected."
+        },
+        {
+          "name": "invite_code",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "check": "invite_code IS NULL OR invite_code ~ '^[A-F0-9]{10}$'::text"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "automation_test_cases_member_id_fkey",
+          "source_table": "public.automation_test_cases",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "membership_consents_member_id_fkey",
+          "source_table": "public.membership_consents",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "point_entries_member_id_fkey",
+          "source_table": "public.point_entries",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "member_referrals_inviter_member_id_fkey",
+          "source_table": "public.member_referrals",
+          "source_columns": [
+            "inviter_member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "point_balances_member_id_fkey",
+          "source_table": "public.point_balances",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "member_referrals_invitee_member_id_fkey",
+          "source_table": "public.member_referrals",
+          "source_columns": [
+            "invitee_member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "point_transfers_sender_member_id_fkey",
+          "source_table": "public.point_transfers",
+          "source_columns": [
+            "sender_member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "point_transfers_receiver_member_id_fkey",
+          "source_table": "public.point_transfers",
+          "source_columns": [
+            "receiver_member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "booking_receipts_member_id_fkey",
+          "source_table": "public.booking_receipts",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "point_tickets_member_id_fkey",
+          "source_table": "public.point_tickets",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "service_time_entries_member_id_fkey",
+          "source_table": "public.service_time_entries",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "event_ticket_claims_member_id_fkey",
+          "source_table": "public.event_ticket_claims",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "scheduled_grant_messages_member_id_fkey",
+          "source_table": "public.scheduled_grant_messages",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "bookings_member_id_fkey",
+          "source_table": "public.bookings",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "fixed_ticket_grants_member_id_fkey",
+          "source_table": "public.fixed_ticket_grants",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "booking_benefit_selections_member_id_fkey",
+          "source_table": "public.booking_benefit_selections",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "booking_completion_settlements_member_id_fkey",
+          "source_table": "public.booking_completion_settlements",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "test_login_sessions_member_id_fkey",
+          "source_table": "public.test_login_sessions",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "member_presence_sessions_member_id_fkey",
+          "source_table": "public.member_presence_sessions",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.admins",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "line_user_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "display_name",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "role",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'none'::text",
+          "check": "role = ANY (ARRAY['none'::text, 'admin'::text])"
+        },
+        {
+          "name": "status",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'pending'::text",
+          "check": "status = ANY (ARRAY['pending'::text, 'active'::text, 'disabled'::text])"
+        },
+        {
+          "name": "first_seen_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "test_login_sessions_admin_line_user_id_fkey",
+          "source_table": "public.test_login_sessions",
+          "source_columns": [
+            "admin_line_user_id"
+          ],
+          "target_table": "public.admins",
+          "target_columns": [
+            "line_user_id"
+          ]
+        },
+        {
+          "name": "admin_booking_notification_reads_admin_line_user_id_fkey",
+          "source_table": "public.admin_booking_notification_reads",
+          "source_columns": [
+            "admin_line_user_id"
+          ],
+          "target_table": "public.admins",
+          "target_columns": [
+            "line_user_id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.membership_tier_settings",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "tier_key",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "tier_key = ANY (ARRAY['general'::text, 'silver'::text, 'gold'::text, 'platinum'::text])"
+        },
+        {
+          "name": "tier_label",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "required_service_minutes",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "check": "required_service_minutes >= 0"
+        },
+        {
+          "name": "style_key",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'forest'::text"
+        },
+        {
+          "name": "updated_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'system'::text"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "tier_key"
+      ]
+    },
+    {
+      "name": "public.point_cards",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "card_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "title",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "description",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "status",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'draft'::text",
+          "check": "status = ANY (ARRAY['draft'::text, 'active'::text, 'archived'::text])"
+        },
+        {
+          "name": "accent",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'#e47845'::text"
+        },
+        {
+          "name": "style_key",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'forest'::text"
+        },
+        {
+          "name": "expiry_mode",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'unlimited'::text",
+          "check": "expiry_mode = ANY (ARRAY['unlimited'::text, 'date'::text])"
+        },
+        {
+          "name": "expires_on",
+          "data_type": "date",
+          "format": "date",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "sort_order",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "0"
+        },
+        {
+          "name": "usage_method",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "usage_instructions",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "benefit_description",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "created_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "point_entries_point_card_id_fkey",
+          "source_table": "public.point_entries",
+          "source_columns": [
+            "point_card_id"
+          ],
+          "target_table": "public.point_cards",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "point_transfers_point_card_id_fkey",
+          "source_table": "public.point_transfers",
+          "source_columns": [
+            "point_card_id"
+          ],
+          "target_table": "public.point_cards",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "booking_service_type_rewards_point_card_id_fkey",
+          "source_table": "public.booking_service_type_rewards",
+          "source_columns": [
+            "point_card_id"
+          ],
+          "target_table": "public.point_cards",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "point_tickets_point_card_id_fkey",
+          "source_table": "public.point_tickets",
+          "source_columns": [
+            "point_card_id"
+          ],
+          "target_table": "public.point_cards",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "point_balances_point_card_id_fkey",
+          "source_table": "public.point_balances",
+          "source_columns": [
+            "point_card_id"
+          ],
+          "target_table": "public.point_cards",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "point_card_rewards_point_card_id_fkey",
+          "source_table": "public.point_card_rewards",
+          "source_columns": [
+            "point_card_id"
+          ],
+          "target_table": "public.point_cards",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.ticket_templates",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "ticket_template_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "title",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "ticket_type",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "ticket_type = ANY (ARRAY['coupon'::text, 'lottery'::text])"
+        },
+        {
+          "name": "description",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "usage_method",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "usage_instructions",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "prizes",
+          "data_type": "jsonb",
+          "format": "jsonb",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'[]'::jsonb"
+        },
+        {
+          "name": "status",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'draft'::text",
+          "check": "status = ANY (ARRAY['draft'::text, 'active'::text, 'archived'::text])"
+        },
+        {
+          "name": "created_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "requires_location",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "false"
+        },
+        {
+          "name": "redemption_locations",
+          "data_type": "jsonb",
+          "format": "jsonb",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'[]'::jsonb"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "point_card_rewards_ticket_template_id_fkey",
+          "source_table": "public.point_card_rewards",
+          "source_columns": [
+            "ticket_template_id"
+          ],
+          "target_table": "public.ticket_templates",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "point_tickets_ticket_template_id_fkey",
+          "source_table": "public.point_tickets",
+          "source_columns": [
+            "ticket_template_id"
+          ],
+          "target_table": "public.ticket_templates",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.point_card_rewards",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "reward_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "point_card_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "threshold_stamps",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "check": "threshold_stamps >= 1 AND threshold_stamps <= 100"
+        },
+        {
+          "name": "ticket_template_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "required_service_ids",
+          "data_type": "ARRAY",
+          "format": "_uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'{}'::uuid[]",
+          "check": "cardinality(required_service_ids) <= 20",
+          "comment": "Concrete booking_services.id values required to use this point-card reward. Empty array means unrestricted; any one matching service is sufficient."
+        },
+        {
+          "name": "required_service_match_mode",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'any'::text",
+          "check": "required_service_match_mode = ANY (ARRAY['any'::text, 'all'::text])",
+          "comment": "How required_service_ids are matched: any = at least one selected service is booked; all = every selected service is booked."
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "point_card_rewards_point_card_id_fkey",
+          "source_table": "public.point_card_rewards",
+          "source_columns": [
+            "point_card_id"
+          ],
+          "target_table": "public.point_cards",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "point_card_rewards_ticket_template_id_fkey",
+          "source_table": "public.point_card_rewards",
+          "source_columns": [
+            "ticket_template_id"
+          ],
+          "target_table": "public.ticket_templates",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "point_tickets_reward_id_fkey",
+          "source_table": "public.point_tickets",
+          "source_columns": [
+            "reward_id"
+          ],
+          "target_table": "public.point_card_rewards",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.point_balances",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "member_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "point_card_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "stamps",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "0",
+          "check": "stamps >= 0"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "member_id",
+        "point_card_id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "point_balances_point_card_id_fkey",
+          "source_table": "public.point_balances",
+          "source_columns": [
+            "point_card_id"
+          ],
+          "target_table": "public.point_cards",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "point_balances_member_id_fkey",
+          "source_table": "public.point_balances",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.point_entries",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "entry_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "member_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "point_card_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "amount",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "note",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "created_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "request_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "entry_type",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'grant'::text"
+        },
+        {
+          "name": "reference_type",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "reference_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "point_entries_member_id_fkey",
+          "source_table": "public.point_entries",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "point_entries_point_card_id_fkey",
+          "source_table": "public.point_entries",
+          "source_columns": [
+            "point_card_id"
+          ],
+          "target_table": "public.point_cards",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "point_tickets_redeem_entry_id_fkey",
+          "source_table": "public.point_tickets",
+          "source_columns": [
+            "redeem_entry_id"
+          ],
+          "target_table": "public.point_entries",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.point_tickets",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "ticket_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "member_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "point_card_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "reward_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "ticket_template_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "threshold_stamps",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "check": "threshold_stamps > 0"
+        },
+        {
+          "name": "ticket_type",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "ticket_type = ANY (ARRAY['coupon'::text, 'lottery'::text])"
+        },
+        {
+          "name": "ticket_title",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "ticket_description",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "usage_method",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "usage_instructions",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "prizes",
+          "data_type": "jsonb",
+          "format": "jsonb",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'[]'::jsonb"
+        },
+        {
+          "name": "status",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'available'::text",
+          "check": "status = ANY (ARRAY['available'::text, 'used'::text, 'expired'::text, 'cancelled'::text])"
+        },
+        {
+          "name": "earned_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "used_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "result",
+          "data_type": "jsonb",
+          "format": "jsonb",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "points_spent",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "0",
+          "check": "points_spent >= 0"
+        },
+        {
+          "name": "redeem_entry_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "requires_location",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "false"
+        },
+        {
+          "name": "redemption_locations",
+          "data_type": "jsonb",
+          "format": "jsonb",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'[]'::jsonb"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "point_tickets_member_id_fkey",
+          "source_table": "public.point_tickets",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "point_tickets_ticket_template_id_fkey",
+          "source_table": "public.point_tickets",
+          "source_columns": [
+            "ticket_template_id"
+          ],
+          "target_table": "public.ticket_templates",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "point_tickets_reward_id_fkey",
+          "source_table": "public.point_tickets",
+          "source_columns": [
+            "reward_id"
+          ],
+          "target_table": "public.point_card_rewards",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "point_tickets_point_card_id_fkey",
+          "source_table": "public.point_tickets",
+          "source_columns": [
+            "point_card_id"
+          ],
+          "target_table": "public.point_cards",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "point_tickets_redeem_entry_id_fkey",
+          "source_table": "public.point_tickets",
+          "source_columns": [
+            "redeem_entry_id"
+          ],
+          "target_table": "public.point_entries",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.service_time_entries",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "entry_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "member_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "minutes",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "check": "minutes >= 1"
+        },
+        {
+          "name": "note",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "created_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "request_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "service_time_entries_member_id_fkey",
+          "source_table": "public.service_time_entries",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.event_tickets",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "event_ticket_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "title",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "ticket_type",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "ticket_type = ANY (ARRAY['coupon'::text, 'lottery'::text, 'referral'::text, 'membership_join'::text])"
+        },
+        {
+          "name": "description",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "usage_method",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "usage_instructions",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "prizes",
+          "data_type": "jsonb",
+          "format": "jsonb",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'[]'::jsonb"
+        },
+        {
+          "name": "status",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'draft'::text",
+          "check": "status = ANY (ARRAY['draft'::text, 'active'::text, 'archived'::text])"
+        },
+        {
+          "name": "starts_on",
+          "data_type": "date",
+          "format": "date",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "ends_on",
+          "data_type": "date",
+          "format": "date",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "quota",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "0",
+          "check": "quota >= 0"
+        },
+        {
+          "name": "accent",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'#df6b4d'::text"
+        },
+        {
+          "name": "allowed_tier_keys",
+          "data_type": "ARRAY",
+          "format": "_text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "ARRAY['general'::text, 'silver'::text, 'gold'::text, 'platinum'::text]"
+        },
+        {
+          "name": "created_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "deleted_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "activity_url",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text",
+          "check": "activity_url = ''::text OR char_length(activity_url) <= 2048 AND activity_url ~ '^https://[^[:space:]]+$'::text"
+        },
+        {
+          "name": "activity_link_name",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text",
+          "check": "char_length(activity_link_name) <= 120 AND activity_link_name !~ '[[:cntrl:]]'::text"
+        },
+        {
+          "name": "fixed_ticket_template_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "fixed_cycle_key",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "requires_location",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "false"
+        },
+        {
+          "name": "redemption_locations",
+          "data_type": "jsonb",
+          "format": "jsonb",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'[]'::jsonb"
+        },
+        {
+          "name": "referral_source_event_ticket_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "required_service_ids",
+          "data_type": "ARRAY",
+          "format": "_uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'{}'::uuid[]",
+          "check": "cardinality(required_service_ids) <= 20",
+          "comment": "Concrete booking_services.id values required to use this event ticket. Empty array means unrestricted; any one matching service is sufficient."
+        },
+        {
+          "name": "required_service_match_mode",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'any'::text",
+          "check": "required_service_match_mode = ANY (ARRAY['any'::text, 'all'::text])",
+          "comment": "How required_service_ids are matched: any = at least one selected service is booked; all = every selected service is booked."
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "event_ticket_claims_event_ticket_id_fkey",
+          "source_table": "public.event_ticket_claims",
+          "source_columns": [
+            "event_ticket_id"
+          ],
+          "target_table": "public.event_tickets",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "event_tickets_referral_source_event_ticket_id_fkey",
+          "source_table": "public.event_tickets",
+          "source_columns": [
+            "referral_source_event_ticket_id"
+          ],
+          "target_table": "public.event_tickets",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "member_referrals_reward_event_ticket_id_fkey",
+          "source_table": "public.member_referrals",
+          "source_columns": [
+            "reward_event_ticket_id"
+          ],
+          "target_table": "public.event_tickets",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "calendar_items_source_event_ticket_id_fkey",
+          "source_table": "public.calendar_items",
+          "source_columns": [
+            "source_event_ticket_id"
+          ],
+          "target_table": "public.event_tickets",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "fixed_ticket_grants_event_ticket_id_fkey",
+          "source_table": "public.fixed_ticket_grants",
+          "source_columns": [
+            "event_ticket_id"
+          ],
+          "target_table": "public.event_tickets",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "event_tickets_fixed_ticket_template_id_fkey",
+          "source_table": "public.event_tickets",
+          "source_columns": [
+            "fixed_ticket_template_id"
+          ],
+          "target_table": "public.fixed_ticket_templates",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.event_ticket_claims",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "claim_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "event_ticket_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "member_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "ticket_type",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "ticket_type = ANY (ARRAY['coupon'::text, 'lottery'::text, 'referral'::text, 'membership_join'::text])"
+        },
+        {
+          "name": "ticket_title",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "ticket_description",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "usage_method",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "usage_instructions",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "prizes",
+          "data_type": "jsonb",
+          "format": "jsonb",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'[]'::jsonb"
+        },
+        {
+          "name": "status",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'claimed'::text",
+          "check": "status = ANY (ARRAY['claimed'::text, 'used'::text, 'expired'::text, 'cancelled'::text])"
+        },
+        {
+          "name": "claimed_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "used_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "result",
+          "data_type": "jsonb",
+          "format": "jsonb",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "event_ticket_claims_member_id_fkey",
+          "source_table": "public.event_ticket_claims",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "event_ticket_claims_event_ticket_id_fkey",
+          "source_table": "public.event_ticket_claims",
+          "source_columns": [
+            "event_ticket_id"
+          ],
+          "target_table": "public.event_tickets",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.calendar_items",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "calendar_item_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "title",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "item_type",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "item_type = ANY (ARRAY['holiday'::text, 'event'::text])"
+        },
+        {
+          "name": "description",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "starts_on",
+          "data_type": "date",
+          "format": "date",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "ends_on",
+          "data_type": "date",
+          "format": "date",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "status",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'draft'::text",
+          "check": "status = ANY (ARRAY['draft'::text, 'active'::text, 'archived'::text, 'targeted'::text])"
+        },
+        {
+          "name": "accent",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'#df6b4d'::text"
+        },
+        {
+          "name": "allowed_tier_keys",
+          "data_type": "ARRAY",
+          "format": "_text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "ARRAY[]::text[]"
+        },
+        {
+          "name": "link_label",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "link_url",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "created_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "bonus_points_enabled",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "false"
+        },
+        {
+          "name": "bonus_points",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "0",
+          "check": "bonus_points >= 0 AND bonus_points <= 100"
+        },
+        {
+          "name": "source_event_ticket_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "audience_type",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'all'::text",
+          "check": "audience_type = ANY (ARRAY['all'::text, 'birthday_month'::text])"
+        },
+        {
+          "name": "audience_month",
+          "data_type": "smallint",
+          "format": "int2",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "calendar_items_source_event_ticket_id_fkey",
+          "source_table": "public.calendar_items",
+          "source_columns": [
+            "source_event_ticket_id"
+          ],
+          "target_table": "public.event_tickets",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.audit_logs",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "audit_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "actor_line_user_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "actor_role",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "action",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "target_type",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "target_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "result",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "detail",
+          "data_type": "jsonb",
+          "format": "jsonb",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ]
+    },
+    {
+      "name": "public.idempotency_results",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "request_key",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "action",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "actor_line_user_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "request_hash",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "result",
+          "data_type": "jsonb",
+          "format": "jsonb",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "request_key"
+      ]
+    },
+    {
+      "name": "public.api_rate_limits",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "principal_hash",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "bucket_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "bucket_type",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "bucket_type = ANY (ARRAY['read'::text, 'write'::text])"
+        },
+        {
+          "name": "request_count",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "0"
+        }
+      ],
+      "primary_keys": [
+        "principal_hash",
+        "bucket_at",
+        "bucket_type"
+      ]
+    },
+    {
+      "name": "public.realtime_events",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "bigint",
+          "format": "int8",
+          "options": [
+            "identity",
+            "updatable"
+          ],
+          "identity_generation": "ALWAYS"
+        },
+        {
+          "name": "scope",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "scope = ANY (ARRAY['all'::text, 'member'::text, 'points'::text, 'event'::text, 'calendar'::text, 'admin'::text])"
+        },
+        {
+          "name": "event_type",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ]
+    },
+    {
+      "name": "public.grant_message_presets",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "preset_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "title",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "char_length(title) >= 1 AND char_length(title) <= 80"
+        },
+        {
+          "name": "message",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "char_length(message) >= 1 AND char_length(message) <= 1000"
+        },
+        {
+          "name": "status",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'active'::text",
+          "check": "status = ANY (ARRAY['active'::text, 'archived'::text])"
+        },
+        {
+          "name": "sort_order",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "0"
+        },
+        {
+          "name": "created_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "updated_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ]
+    },
+    {
+      "name": "public.scheduled_grant_messages",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "schedule_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "request_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "member_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "line_user_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "scheduled_for",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "message_text",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "char_length(message_text) >= 1 AND char_length(message_text) <= 5000"
+        },
+        {
+          "name": "status",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'pending'::text",
+          "check": "status = ANY (ARRAY['pending'::text, 'sending'::text, 'sent'::text, 'failed'::text, 'cancelled'::text])"
+        },
+        {
+          "name": "attempt_count",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "0",
+          "check": "attempt_count >= 0 AND attempt_count <= 20"
+        },
+        {
+          "name": "last_error",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "line_request_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "created_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "sent_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "scheduled_grant_messages_member_id_fkey",
+          "source_table": "public.scheduled_grant_messages",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.booking_services",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "title",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "char_length(btrim(title)) >= 1 AND char_length(btrim(title)) <= 100"
+        },
+        {
+          "name": "description",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text",
+          "check": "char_length(description) <= 1000"
+        },
+        {
+          "name": "is_active",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "true"
+        },
+        {
+          "name": "created_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "duration_minutes",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "30",
+          "check": "duration_minutes >= 1 AND duration_minutes <= 720"
+        },
+        {
+          "name": "price_amount",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "0",
+          "check": "price_amount >= 0 AND price_amount <= 10000000",
+          "comment": "Current service price in whole TWD dollars. Server-side booking creation is authoritative."
+        },
+        {
+          "name": "service_type",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "check": "service_type IS NULL OR char_length(btrim(service_type)) >= 1 AND char_length(btrim(service_type)) <= 80",
+          "comment": "Administrator-defined service type used to warn members when multiple selected services share a type."
+        },
+        {
+          "name": "counts_toward_membership",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "true",
+          "comment": "Whether this service may count toward member accumulated paid service minutes. System in-store service is false."
+        },
+        {
+          "name": "deleted_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "comment": "Soft-delete timestamp. Deleted services remain for historical booking references but are excluded from admin/member selection."
+        },
+        {
+          "name": "deleted_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "comment": "LINE user id of the administrator that soft-deleted the service."
+        },
+        {
+          "name": "requires_companion_service",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "false",
+          "comment": "When true, this service is an add-on and cannot be the only non-system service selected by one booking participant."
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "booking_participant_items_service_id_fkey",
+          "source_table": "public.booking_participant_items",
+          "source_columns": [
+            "service_id"
+          ],
+          "target_table": "public.booking_services",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "booking_items_service_id_fkey",
+          "source_table": "public.booking_items",
+          "source_columns": [
+            "service_id"
+          ],
+          "target_table": "public.booking_services",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "bookings_service_id_fkey",
+          "source_table": "public.bookings",
+          "source_columns": [
+            "service_id"
+          ],
+          "target_table": "public.booking_services",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.bookings",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "request_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ],
+          "check": "char_length(request_id) >= 12 AND char_length(request_id) <= 100"
+        },
+        {
+          "name": "service_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "member_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "booking_date",
+          "data_type": "date",
+          "format": "date",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "start_time",
+          "data_type": "time without time zone",
+          "format": "time",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "end_time",
+          "data_type": "time without time zone",
+          "format": "time",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "status",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'pending'::text",
+          "check": "status = ANY (ARRAY['pending'::text, 'confirmed'::text, 'rejected'::text, 'cancelled'::text, 'completed'::text])"
+        },
+        {
+          "name": "member_note",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text",
+          "check": "char_length(member_note) <= 500"
+        },
+        {
+          "name": "admin_note",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text",
+          "check": "char_length(admin_note) <= 500"
+        },
+        {
+          "name": "confirmed_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "confirmed_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "rejected_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "rejected_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "cancelled_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "cancelled_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "total_duration_minutes",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "30"
+        },
+        {
+          "name": "completed_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "completed_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "cancellation_requested_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "comment": "When a member requested cancellation. Booking status remains pending/confirmed until admin review."
+        },
+        {
+          "name": "cancellation_requested_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "comment": "LINE user id that requested cancellation."
+        },
+        {
+          "name": "cancellation_source_status",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "check": "cancellation_source_status IS NULL OR (cancellation_source_status = ANY (ARRAY['pending'::text, 'confirmed'::text]))",
+          "comment": "Booking status at cancellation request time; used to preserve the reservation until review."
+        },
+        {
+          "name": "cancellation_reviewed_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "cancellation_reviewed_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "cancellation_decision",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "check": "cancellation_decision IS NULL OR (cancellation_decision = ANY (ARRAY['approved'::text, 'rejected'::text]))",
+          "comment": "Admin review decision: approved or rejected."
+        },
+        {
+          "name": "contact_source",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'member'::text",
+          "check": "contact_source = ANY (ARRAY['member'::text, 'custom'::text])"
+        },
+        {
+          "name": "contact_surname",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "contact_salutation",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "check": "contact_salutation IS NULL OR (contact_salutation = ANY (ARRAY['mr'::text, 'ms'::text]))"
+        },
+        {
+          "name": "contact_phone",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "technician_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'00000000-0000-4000-8000-000000000020'::uuid"
+        },
+        {
+          "name": "party_size",
+          "data_type": "smallint",
+          "format": "int2",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "1",
+          "check": "party_size >= 1 AND party_size <= 10"
+        },
+        {
+          "name": "starts_next_day",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "false"
+        },
+        {
+          "name": "start_at",
+          "data_type": "timestamp without time zone",
+          "format": "timestamp",
+          "options": [
+            "generated",
+            "nullable",
+            "updatable"
+          ],
+          "default_value": "((booking_date + start_time) +\nCASE\n    WHEN starts_next_day THEN '1 day'::interval\n    ELSE '00:00:00'::interval\nEND)"
+        },
+        {
+          "name": "end_at",
+          "data_type": "timestamp without time zone",
+          "format": "timestamp",
+          "options": [
+            "generated",
+            "nullable",
+            "updatable"
+          ],
+          "default_value": "(((booking_date + start_time) +\nCASE\n    WHEN starts_next_day THEN '1 day'::interval\n    ELSE '00:00:00'::interval\nEND) + make_interval(mins => total_duration_minutes))"
+        },
+        {
+          "name": "receipt_submission_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable",
+            "unique"
+          ]
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "booking_items_booking_id_fkey",
+          "source_table": "public.booking_items",
+          "source_columns": [
+            "booking_id"
+          ],
+          "target_table": "public.bookings",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "bookings_member_id_fkey",
+          "source_table": "public.bookings",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "bookings_service_id_fkey",
+          "source_table": "public.bookings",
+          "source_columns": [
+            "service_id"
+          ],
+          "target_table": "public.booking_services",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "booking_receipts_booking_id_fkey",
+          "source_table": "public.booking_receipts",
+          "source_columns": [
+            "booking_id"
+          ],
+          "target_table": "public.bookings",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "booking_benefit_selections_booking_id_fkey",
+          "source_table": "public.booking_benefit_selections",
+          "source_columns": [
+            "booking_id"
+          ],
+          "target_table": "public.bookings",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "booking_completion_settlements_booking_id_fkey",
+          "source_table": "public.booking_completion_settlements",
+          "source_columns": [
+            "booking_id"
+          ],
+          "target_table": "public.bookings",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "booking_participant_reservations_booking_id_fkey",
+          "source_table": "public.booking_participant_reservations",
+          "source_columns": [
+            "booking_id"
+          ],
+          "target_table": "public.bookings",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "booking_participants_booking_id_fkey",
+          "source_table": "public.booking_participants",
+          "source_columns": [
+            "booking_id"
+          ],
+          "target_table": "public.bookings",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "bookings_technician_id_fkey",
+          "source_table": "public.bookings",
+          "source_columns": [
+            "technician_id"
+          ],
+          "target_table": "public.booking_technicians",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "outbox_booking_id_fkey",
+          "source_table": "booking_notifications.outbox",
+          "source_columns": [
+            "booking_id"
+          ],
+          "target_table": "public.bookings",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "admin_booking_notifications_booking_id_fkey",
+          "source_table": "public.admin_booking_notifications",
+          "source_columns": [
+            "booking_id"
+          ],
+          "target_table": "public.bookings",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.booking_audit_events",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "bigint",
+          "format": "int8",
+          "options": [
+            "identity",
+            "updatable"
+          ],
+          "identity_generation": "ALWAYS"
+        },
+        {
+          "name": "actor_line_user_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "actor_role",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "actor_role = ANY (ARRAY['member'::text, 'admin'::text, 'system'::text])"
+        },
+        {
+          "name": "action",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "char_length(action) >= 1 AND char_length(action) <= 80"
+        },
+        {
+          "name": "target_type",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "char_length(target_type) >= 1 AND char_length(target_type) <= 50"
+        },
+        {
+          "name": "target_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "char_length(target_id) >= 1 AND char_length(target_id) <= 100"
+        },
+        {
+          "name": "result",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'success'::text",
+          "check": "result = ANY (ARRAY['success'::text, 'failed'::text])"
+        },
+        {
+          "name": "metadata",
+          "data_type": "jsonb",
+          "format": "jsonb",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'{}'::jsonb"
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ]
+    },
+    {
+      "name": "public.booking_settings",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "smallint",
+          "format": "int2",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "1",
+          "check": "id = 1"
+        },
+        {
+          "name": "work_start_time",
+          "data_type": "time without time zone",
+          "format": "time",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'09:00:00'::time without time zone",
+          "check": "EXTRACT(second FROM work_start_time) = 0::numeric AND (EXTRACT(minute FROM work_start_time)::integer % 5) = 0"
+        },
+        {
+          "name": "work_end_time",
+          "data_type": "time without time zone",
+          "format": "time",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'17:00:00'::time without time zone",
+          "check": "EXTRACT(second FROM work_end_time) = 0::numeric AND (EXTRACT(minute FROM work_end_time)::integer % 5) = 0"
+        },
+        {
+          "name": "updated_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "min_advance_days",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "0",
+          "check": "min_advance_days >= 0 AND min_advance_days <= 365",
+          "comment": "Global minimum number of days members must book in advance. Applies to all booking services."
+        },
+        {
+          "name": "booking_notice",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text",
+          "check": "char_length(booking_notice) <= 2000",
+          "comment": "Member-facing booking instructions. Plain text; line breaks are preserved by clients."
+        },
+        {
+          "name": "max_party_size",
+          "data_type": "smallint",
+          "format": "int2",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "1",
+          "check": "max_party_size >= 1 AND max_party_size <= 10"
+        },
+        {
+          "name": "primary_technician_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "max_advance_days",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "0",
+          "check": "max_advance_days >= 0 AND max_advance_days <= 365",
+          "comment": "Maximum number of days from today that a member may book. 0 means unlimited."
+        },
+        {
+          "name": "slot_interval_minutes",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "30",
+          "check": "slot_interval_minutes >= 5 AND slot_interval_minutes <= 120 AND (slot_interval_minutes % 5) = 0"
+        },
+        {
+          "name": "reminder_enabled",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "false"
+        },
+        {
+          "name": "reminder_time",
+          "data_type": "time without time zone",
+          "format": "time",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'18:00:00'::time without time zone",
+          "check": "EXTRACT(second FROM reminder_time) = 0::numeric"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "booking_settings_primary_technician_id_fkey",
+          "source_table": "public.booking_settings",
+          "source_columns": [
+            "primary_technician_id"
+          ],
+          "target_table": "public.booking_technicians",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.booking_items",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "booking_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "service_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "service_title",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "char_length(btrim(service_title)) >= 1 AND char_length(btrim(service_title)) <= 100"
+        },
+        {
+          "name": "unit_duration_minutes",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "check": "unit_duration_minutes >= 1 AND unit_duration_minutes <= 720"
+        },
+        {
+          "name": "quantity",
+          "data_type": "smallint",
+          "format": "int2",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "1",
+          "check": "quantity >= 1 AND quantity <= 20"
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "unit_price_amount",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "0",
+          "check": "unit_price_amount >= 0 AND unit_price_amount <= 10000000",
+          "comment": "Price snapshot in whole TWD dollars captured when the booking item is created."
+        },
+        {
+          "name": "service_type",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "check": "service_type IS NULL OR char_length(btrim(service_type)) >= 1 AND char_length(btrim(service_type)) <= 80"
+        },
+        {
+          "name": "counts_toward_membership",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "true",
+          "comment": "Immutable booking-item snapshot. False items must never be included in member paid service-minute totals or tier progress."
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "booking_items_booking_id_fkey",
+          "source_table": "public.booking_items",
+          "source_columns": [
+            "booking_id"
+          ],
+          "target_table": "public.bookings",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "booking_items_service_id_fkey",
+          "source_table": "public.booking_items",
+          "source_columns": [
+            "service_id"
+          ],
+          "target_table": "public.booking_services",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.booking_service_types",
+      "rls_enabled": true,
+      "comment": "Administrator-managed canonical booking service types used by the booking service dropdown.",
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "name",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "char_length(btrim(name)) >= 1 AND char_length(btrim(name)) <= 80",
+          "comment": "Canonical service type label. Matching is case-insensitive and whitespace-trimmed."
+        },
+        {
+          "name": "sort_order",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "0",
+          "check": "sort_order >= 0 AND sort_order <= 1000"
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "created_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "comment": "Server-written provenance. qa:e2e:* marks disposable E2E fixture service types."
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "booking_service_type_rewards_service_type_id_fkey",
+          "source_table": "public.booking_service_type_rewards",
+          "source_columns": [
+            "service_type_id"
+          ],
+          "target_table": "public.booking_service_types",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.point_card_settings",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "smallint",
+          "format": "int2",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "1",
+          "check": "id = 1"
+        },
+        {
+          "name": "max_tickets_per_redemption",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "1",
+          "check": "max_tickets_per_redemption >= 0 AND max_tickets_per_redemption <= 50",
+          "comment": "Maximum point-card tickets per redemption; 0 means no business quantity limit."
+        },
+        {
+          "name": "updated_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'system'::text"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ]
+    },
+    {
+      "name": "public.fixed_ticket_templates",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "fixed_ticket_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "title",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "char_length(title) >= 1 AND char_length(title) <= 100"
+        },
+        {
+          "name": "description",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text",
+          "check": "char_length(description) <= 240"
+        },
+        {
+          "name": "usage_method",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text",
+          "check": "char_length(usage_method) <= 120"
+        },
+        {
+          "name": "usage_instructions",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text",
+          "check": "char_length(usage_instructions) <= 500"
+        },
+        {
+          "name": "status",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'draft'::text",
+          "check": "status = ANY (ARRAY['active'::text, 'draft'::text, 'archived'::text])"
+        },
+        {
+          "name": "schedule_type",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "schedule_type = ANY (ARRAY['birthday_month'::text, 'yearly'::text, 'monthly'::text, 'weekly'::text])"
+        },
+        {
+          "name": "schedule_month",
+          "data_type": "smallint",
+          "format": "int2",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "schedule_day",
+          "data_type": "smallint",
+          "format": "int2",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "schedule_weekday",
+          "data_type": "smallint",
+          "format": "int2",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "quota",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "0",
+          "check": "quota >= 0 AND quota <= 1000000"
+        },
+        {
+          "name": "accent",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'#df6b4d'::text",
+          "check": "accent ~ '^#[0-9A-Fa-f]{6}$'::text"
+        },
+        {
+          "name": "allowed_tier_keys",
+          "data_type": "ARRAY",
+          "format": "_text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "ARRAY['general'::text, 'silver'::text, 'gold'::text, 'platinum'::text]"
+        },
+        {
+          "name": "notify_line",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "true"
+        },
+        {
+          "name": "created_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "deleted_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "expiry_mode",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'month_end'::text",
+          "comment": "Fixed ticket validity mode: month_end, week_end, days_after_issue, or fixed_date."
+        },
+        {
+          "name": "expiry_date",
+          "data_type": "date",
+          "format": "date",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "comment": "Absolute valid-through date when expiry_mode = fixed_date."
+        },
+        {
+          "name": "expiry_days",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "comment": "Inclusive calendar-day validity starting from the scheduled issue date when expiry_mode = days_after_issue."
+        },
+        {
+          "name": "calendar_enabled",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "false"
+        },
+        {
+          "name": "requires_location",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "false"
+        },
+        {
+          "name": "redemption_locations",
+          "data_type": "jsonb",
+          "format": "jsonb",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'[]'::jsonb"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "fixed_ticket_grants_fixed_ticket_template_id_fkey",
+          "source_table": "public.fixed_ticket_grants",
+          "source_columns": [
+            "fixed_ticket_template_id"
+          ],
+          "target_table": "public.fixed_ticket_templates",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "event_tickets_fixed_ticket_template_id_fkey",
+          "source_table": "public.event_tickets",
+          "source_columns": [
+            "fixed_ticket_template_id"
+          ],
+          "target_table": "public.fixed_ticket_templates",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.fixed_ticket_grants",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "fixed_ticket_template_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "member_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "cycle_key",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "cycle_start",
+          "data_type": "date",
+          "format": "date",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "cycle_end",
+          "data_type": "date",
+          "format": "date",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "event_ticket_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "claim_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "status",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'reserved'::text",
+          "check": "status = ANY (ARRAY['reserved'::text, 'issued'::text, 'failed'::text])"
+        },
+        {
+          "name": "notification_error",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "fixed_ticket_grants_fixed_ticket_template_id_fkey",
+          "source_table": "public.fixed_ticket_grants",
+          "source_columns": [
+            "fixed_ticket_template_id"
+          ],
+          "target_table": "public.fixed_ticket_templates",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "fixed_ticket_grants_member_id_fkey",
+          "source_table": "public.fixed_ticket_grants",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "fixed_ticket_grants_event_ticket_id_fkey",
+          "source_table": "public.fixed_ticket_grants",
+          "source_columns": [
+            "event_ticket_id"
+          ],
+          "target_table": "public.event_tickets",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.booking_technicians",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "name",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "char_length(btrim(name)) >= 1 AND char_length(btrim(name)) <= 80"
+        },
+        {
+          "name": "is_active",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "true"
+        },
+        {
+          "name": "sort_order",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "0"
+        },
+        {
+          "name": "created_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "booking_participant_reservations_technician_id_fkey",
+          "source_table": "public.booking_participant_reservations",
+          "source_columns": [
+            "technician_id"
+          ],
+          "target_table": "public.booking_technicians",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "booking_participants_technician_id_fkey",
+          "source_table": "public.booking_participants",
+          "source_columns": [
+            "technician_id"
+          ],
+          "target_table": "public.booking_technicians",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "bookings_technician_id_fkey",
+          "source_table": "public.bookings",
+          "source_columns": [
+            "technician_id"
+          ],
+          "target_table": "public.booking_technicians",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "booking_settings_primary_technician_id_fkey",
+          "source_table": "public.booking_settings",
+          "source_columns": [
+            "primary_technician_id"
+          ],
+          "target_table": "public.booking_technicians",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.booking_participants",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "booking_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "position",
+          "data_type": "smallint",
+          "format": "int2",
+          "options": [
+            "updatable"
+          ],
+          "check": "\"position\" >= 1 AND \"position\" <= 10"
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "technician_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "booking_participants_booking_id_fkey",
+          "source_table": "public.booking_participants",
+          "source_columns": [
+            "booking_id"
+          ],
+          "target_table": "public.bookings",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "booking_participant_reservations_participant_id_fkey",
+          "source_table": "public.booking_participant_reservations",
+          "source_columns": [
+            "participant_id"
+          ],
+          "target_table": "public.booking_participants",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "booking_participants_technician_id_fkey",
+          "source_table": "public.booking_participants",
+          "source_columns": [
+            "technician_id"
+          ],
+          "target_table": "public.booking_technicians",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "booking_participant_items_participant_id_fkey",
+          "source_table": "public.booking_participant_items",
+          "source_columns": [
+            "participant_id"
+          ],
+          "target_table": "public.booking_participants",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.booking_participant_items",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "participant_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "service_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "service_title",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "char_length(btrim(service_title)) >= 1 AND char_length(btrim(service_title)) <= 100"
+        },
+        {
+          "name": "unit_duration_minutes",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "check": "unit_duration_minutes >= 1 AND unit_duration_minutes <= 720"
+        },
+        {
+          "name": "unit_price_amount",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "0",
+          "check": "unit_price_amount >= 0 AND unit_price_amount <= 10000000"
+        },
+        {
+          "name": "quantity",
+          "data_type": "smallint",
+          "format": "int2",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "1",
+          "check": "quantity >= 1 AND quantity <= 2"
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "booking_participant_items_service_id_fkey",
+          "source_table": "public.booking_participant_items",
+          "source_columns": [
+            "service_id"
+          ],
+          "target_table": "public.booking_services",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "booking_participant_items_participant_id_fkey",
+          "source_table": "public.booking_participant_items",
+          "source_columns": [
+            "participant_id"
+          ],
+          "target_table": "public.booking_participants",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.booking_participant_reservations",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "participant_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "booking_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "technician_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "booking_date",
+          "data_type": "date",
+          "format": "date",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "start_time",
+          "data_type": "time without time zone",
+          "format": "time",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "end_time",
+          "data_type": "time without time zone",
+          "format": "time",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "is_active",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "true"
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "starts_next_day",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "false"
+        },
+        {
+          "name": "start_at",
+          "data_type": "timestamp without time zone",
+          "format": "timestamp",
+          "options": [
+            "generated",
+            "nullable",
+            "updatable"
+          ],
+          "default_value": "((booking_date + start_time) +\nCASE\n    WHEN starts_next_day THEN '1 day'::interval\n    ELSE '00:00:00'::interval\nEND)"
+        },
+        {
+          "name": "end_at",
+          "data_type": "timestamp without time zone",
+          "format": "timestamp",
+          "options": [
+            "generated",
+            "nullable",
+            "updatable"
+          ],
+          "default_value": "(((booking_date + end_time) +\nCASE\n    WHEN starts_next_day THEN '1 day'::interval\n    ELSE '00:00:00'::interval\nEND) +\nCASE\n    WHEN (end_time <= start_time) THEN '1 day'::interval\n    ELSE '00:00:00'::interval\nEND)"
+        }
+      ],
+      "primary_keys": [
+        "participant_id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "booking_participant_reservations_participant_id_fkey",
+          "source_table": "public.booking_participant_reservations",
+          "source_columns": [
+            "participant_id"
+          ],
+          "target_table": "public.booking_participants",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "booking_participant_reservations_technician_id_fkey",
+          "source_table": "public.booking_participant_reservations",
+          "source_columns": [
+            "technician_id"
+          ],
+          "target_table": "public.booking_technicians",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "booking_participant_reservations_booking_id_fkey",
+          "source_table": "public.booking_participant_reservations",
+          "source_columns": [
+            "booking_id"
+          ],
+          "target_table": "public.bookings",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.booking_service_type_rewards",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "service_type_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "point_card_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "minutes_per_point",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "check": "minutes_per_point >= 1 AND minutes_per_point <= 10080"
+        },
+        {
+          "name": "created_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'system'::text"
+        },
+        {
+          "name": "updated_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'system'::text"
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "service_type_id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "booking_service_type_rewards_point_card_id_fkey",
+          "source_table": "public.booking_service_type_rewards",
+          "source_columns": [
+            "point_card_id"
+          ],
+          "target_table": "public.point_cards",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "booking_service_type_rewards_service_type_id_fkey",
+          "source_table": "public.booking_service_type_rewards",
+          "source_columns": [
+            "service_type_id"
+          ],
+          "target_table": "public.booking_service_types",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.booking_completion_settlements",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "booking_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "member_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "service_minutes",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "check": "service_minutes >= 0"
+        },
+        {
+          "name": "reward_details",
+          "data_type": "jsonb",
+          "format": "jsonb",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'[]'::jsonb",
+          "check": "jsonb_typeof(reward_details) = 'array'::text"
+        },
+        {
+          "name": "completed_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "booking_id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "booking_completion_settlements_booking_id_fkey",
+          "source_table": "public.booking_completion_settlements",
+          "source_columns": [
+            "booking_id"
+          ],
+          "target_table": "public.bookings",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "booking_completion_settlements_member_id_fkey",
+          "source_table": "public.booking_completion_settlements",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.test_mode_settings",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "true",
+          "check": "id = true"
+        },
+        {
+          "name": "maintenance_message",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text",
+          "check": "char_length(maintenance_message) <= 500"
+        },
+        {
+          "name": "updated_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "maintenance_enabled",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "false",
+          "comment": "Global user-surface maintenance gate. When true, all member-facing surfaces are blocked, including test sessions."
+        },
+        {
+          "name": "allow_pc_test_login",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "false",
+          "comment": "Allow desktop/PC user surfaces to enter direct test-account login while system maintenance and test mode are both enabled."
+        },
+        {
+          "name": "allow_mobile_test_login",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "false",
+          "comment": "Allow mobile/tablet user surfaces to enter direct test-account login while system maintenance and test mode are both enabled."
+        },
+        {
+          "name": "maintenance_revoked_after",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "comment": "Global revocation boundary set when maintenance transitions from off to on. Non-admin LINE tokens issued at or before this timestamp remain revoked after maintenance ends."
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ]
+    },
+    {
+      "name": "public.test_login_sessions",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "token_hash",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ],
+          "check": "token_hash ~ '^[a-f0-9]{64}$'::text"
+        },
+        {
+          "name": "admin_line_user_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "comment": "Legacy source admin for sessions created before direct test-account login. Nullable for direct test sessions."
+        },
+        {
+          "name": "member_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "expires_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "revoked_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "last_used_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "device_class",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "check": "device_class IS NULL OR (device_class = ANY (ARRAY['pc'::text, 'mobile'::text]))",
+          "comment": "Device class on which the direct test session was issued: pc or mobile."
+        },
+        {
+          "name": "surface",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "check": "surface IS NULL OR (surface = ANY (ARRAY['member'::text, 'points'::text, 'event'::text, 'calendar'::text, 'booking'::text]))"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "test_login_sessions_admin_line_user_id_fkey",
+          "source_table": "public.test_login_sessions",
+          "source_columns": [
+            "admin_line_user_id"
+          ],
+          "target_table": "public.admins",
+          "target_columns": [
+            "line_user_id"
+          ]
+        },
+        {
+          "name": "test_login_sessions_member_id_fkey",
+          "source_table": "public.test_login_sessions",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.member_presence_sessions",
+      "rls_enabled": true,
+      "comment": "Server-authenticated current member presence sessions. Historical online/offline events remain in audit_logs.",
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "member_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "session_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "char_length(session_id) >= 16 AND char_length(session_id) <= 80"
+        },
+        {
+          "name": "surface",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "surface = ANY (ARRAY['member'::text, 'points'::text, 'event'::text, 'calendar'::text, 'booking'::text])"
+        },
+        {
+          "name": "online_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "last_seen_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()",
+          "comment": "Heartbeat timestamp used to determine whether a member is currently online."
+        },
+        {
+          "name": "offline_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "offline_reason",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "check": "offline_reason IS NULL OR char_length(offline_reason) <= 30"
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "member_presence_sessions_member_id_fkey",
+          "source_table": "public.member_presence_sessions",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.automation_test_runs",
+      "rls_enabled": true,
+      "comment": "Server-authenticated automated QA test runs. Never stores secrets or full tokens.",
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "run_code",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "suite",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "suite = ANY (ARRAY['quick'::text, 'full'::text])"
+        },
+        {
+          "name": "environment",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'MemberWebsocket-dev'::text"
+        },
+        {
+          "name": "status",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'queued'::text",
+          "check": "status = ANY (ARRAY['queued'::text, 'running'::text, 'passed'::text, 'failed'::text, 'cancelled'::text])"
+        },
+        {
+          "name": "triggered_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "total_cases",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "0",
+          "check": "total_cases >= 0"
+        },
+        {
+          "name": "passed_cases",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "0",
+          "check": "passed_cases >= 0"
+        },
+        {
+          "name": "failed_cases",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "0",
+          "check": "failed_cases >= 0"
+        },
+        {
+          "name": "summary",
+          "data_type": "jsonb",
+          "format": "jsonb",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'{}'::jsonb",
+          "check": "jsonb_typeof(summary) = 'object'::text"
+        },
+        {
+          "name": "started_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "completed_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "automation_test_cases_run_id_fkey",
+          "source_table": "public.automation_test_cases",
+          "source_columns": [
+            "run_id"
+          ],
+          "target_table": "public.automation_test_runs",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.automation_test_cases",
+      "rls_enabled": true,
+      "comment": "Domain-level cases belonging to an automated QA test run.",
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "run_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "case_order",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "check": "case_order >= 1"
+        },
+        {
+          "name": "case_key",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "name",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "domain",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "member_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "status",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'queued'::text",
+          "check": "status = ANY (ARRAY['queued'::text, 'running'::text, 'passed'::text, 'failed'::text, 'skipped'::text])"
+        },
+        {
+          "name": "failure_code",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "failure_message",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "started_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "completed_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "duration_ms",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "check": "duration_ms IS NULL OR duration_ms >= 0"
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "automation_test_steps_case_id_fkey",
+          "source_table": "public.automation_test_steps",
+          "source_columns": [
+            "case_id"
+          ],
+          "target_table": "public.automation_test_cases",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "automation_test_cases_run_id_fkey",
+          "source_table": "public.automation_test_cases",
+          "source_columns": [
+            "run_id"
+          ],
+          "target_table": "public.automation_test_runs",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "automation_test_cases_member_id_fkey",
+          "source_table": "public.automation_test_cases",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.automation_test_steps",
+      "rls_enabled": true,
+      "comment": "Observable steps and expected/actual safe snapshots for automated QA cases.",
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "case_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "step_order",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "check": "step_order >= 1"
+        },
+        {
+          "name": "step_key",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "name",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "status",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'queued'::text",
+          "check": "status = ANY (ARRAY['queued'::text, 'running'::text, 'passed'::text, 'failed'::text, 'skipped'::text])"
+        },
+        {
+          "name": "expected",
+          "data_type": "jsonb",
+          "format": "jsonb",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'{}'::jsonb",
+          "check": "jsonb_typeof(expected) = ANY (ARRAY['object'::text, 'array'::text, 'string'::text, 'number'::text, 'boolean'::text, 'null'::text])"
+        },
+        {
+          "name": "actual",
+          "data_type": "jsonb",
+          "format": "jsonb",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'{}'::jsonb",
+          "check": "jsonb_typeof(actual) = ANY (ARRAY['object'::text, 'array'::text, 'string'::text, 'number'::text, 'boolean'::text, 'null'::text])"
+        },
+        {
+          "name": "message",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "started_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "completed_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "duration_ms",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "check": "duration_ms IS NULL OR duration_ms >= 0"
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "automation_test_steps_case_id_fkey",
+          "source_table": "public.automation_test_steps",
+          "source_columns": [
+            "case_id"
+          ],
+          "target_table": "public.automation_test_cases",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.e2e_evolution_state",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "true",
+          "check": "id = true"
+        },
+        {
+          "name": "run_count",
+          "data_type": "bigint",
+          "format": "int8",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "0",
+          "check": "run_count >= 0"
+        },
+        {
+          "name": "last_complexity_level",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "0",
+          "check": "last_complexity_level >= 0 AND last_complexity_level <= 8"
+        },
+        {
+          "name": "last_seed",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "last_root_run_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ]
+    },
+    {
+      "name": "public.admin_booking_notifications",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "bigint",
+          "format": "int8",
+          "options": [
+            "identity",
+            "updatable"
+          ],
+          "identity_generation": "BY DEFAULT"
+        },
+        {
+          "name": "booking_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "kind",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "kind = ANY (ARRAY['booking_created'::text, 'cancellation_requested'::text])"
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "admin_booking_notifications_booking_id_fkey",
+          "source_table": "public.admin_booking_notifications",
+          "source_columns": [
+            "booking_id"
+          ],
+          "target_table": "public.bookings",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.admin_booking_notification_reads",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "admin_line_user_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "last_read_notification_id",
+          "data_type": "bigint",
+          "format": "int8",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "0"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "admin_line_user_id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "admin_booking_notification_reads_admin_line_user_id_fkey",
+          "source_table": "public.admin_booking_notification_reads",
+          "source_columns": [
+            "admin_line_user_id"
+          ],
+          "target_table": "public.admins",
+          "target_columns": [
+            "line_user_id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.membership_terms",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "version",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ],
+          "check": "length(btrim(version)) >= 1 AND length(btrim(version)) <= 40"
+        },
+        {
+          "name": "title",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "length(btrim(title)) >= 1 AND length(btrim(title)) <= 120"
+        },
+        {
+          "name": "summary",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "body",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "length(btrim(body)) >= 1 AND length(btrim(body)) <= 20000"
+        },
+        {
+          "name": "status",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'draft'::text",
+          "check": "status = ANY (ARRAY['draft'::text, 'active'::text, 'archived'::text])"
+        },
+        {
+          "name": "required",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "true"
+        },
+        {
+          "name": "effective_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "reconsent_existing",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "false"
+        },
+        {
+          "name": "activated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "updated_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "membership_consents_terms_id_fkey",
+          "source_table": "public.membership_consents",
+          "source_columns": [
+            "terms_id"
+          ],
+          "target_table": "public.membership_terms",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.membership_consents",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "member_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "terms_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "accepted_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "result",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'accepted'::text",
+          "check": "result = 'accepted'::text"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "membership_consents_member_id_fkey",
+          "source_table": "public.membership_consents",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "membership_consents_terms_id_fkey",
+          "source_table": "public.membership_consents",
+          "source_columns": [
+            "terms_id"
+          ],
+          "target_table": "public.membership_terms",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.member_referrals",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "referral_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "inviter_member_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "invitee_member_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "invite_code",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "request_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "request_id ~ '^[A-Za-z0-9_-]{8,120}$'::text"
+        },
+        {
+          "name": "trigger_type",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'membership_activation'::text",
+          "check": "trigger_type = 'membership_activation'::text"
+        },
+        {
+          "name": "reward_status",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'issued'::text",
+          "check": "reward_status = ANY (ARRAY['issued'::text, 'failed'::text])"
+        },
+        {
+          "name": "reward_event_ticket_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "rewarded_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "member_referrals_reward_event_ticket_id_fkey",
+          "source_table": "public.member_referrals",
+          "source_columns": [
+            "reward_event_ticket_id"
+          ],
+          "target_table": "public.event_tickets",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "member_referrals_inviter_member_id_fkey",
+          "source_table": "public.member_referrals",
+          "source_columns": [
+            "inviter_member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "member_referrals_invitee_member_id_fkey",
+          "source_table": "public.member_referrals",
+          "source_columns": [
+            "invitee_member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.point_transfers",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "transfer_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "request_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "request_id ~ '^[A-Za-z0-9_-]{8,120}$'::text"
+        },
+        {
+          "name": "sender_member_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "receiver_member_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "point_card_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "amount",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "check": "amount > 0"
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "point_transfers_sender_member_id_fkey",
+          "source_table": "public.point_transfers",
+          "source_columns": [
+            "sender_member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "point_transfers_receiver_member_id_fkey",
+          "source_table": "public.point_transfers",
+          "source_columns": [
+            "receiver_member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "point_transfers_point_card_id_fkey",
+          "source_table": "public.point_transfers",
+          "source_columns": [
+            "point_card_id"
+          ],
+          "target_table": "public.point_cards",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.booking_receipts",
+      "rls_enabled": true,
+      "comment": "Private booking receipt snapshots. Bound receipts are retained for the lifecycle of the booking record; deleting the booking cascades the receipt row and enqueues the Storage object for deletion. Pending uploads older than 24 hours are expired and enqueued for cleanup.",
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "receipt_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "booking_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "member_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "request_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "request_id ~ '^[A-Za-z0-9_-]{8,120}$'::text"
+        },
+        {
+          "name": "storage_bucket",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'booking-receipts'::text",
+          "check": "storage_bucket = 'booking-receipts'::text"
+        },
+        {
+          "name": "object_path",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "declared_mime_type",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "declared_mime_type = ANY (ARRAY['image/jpeg'::text, 'image/png'::text, 'image/webp'::text, 'image/heic'::text, 'image/heif'::text])"
+        },
+        {
+          "name": "declared_size_bytes",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "check": "declared_size_bytes >= 1 AND declared_size_bytes <= 5242880"
+        },
+        {
+          "name": "actual_mime_type",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "actual_size_bytes",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "sha256_hex",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ],
+          "check": "sha256_hex IS NULL OR sha256_hex ~ '^[a-f0-9]{64}$'::text"
+        },
+        {
+          "name": "status",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'pending_upload'::text",
+          "check": "status = ANY (ARRAY['pending_upload'::text, 'awaiting_review'::text, 'bound'::text, 'failed'::text, 'deleted'::text])"
+        },
+        {
+          "name": "failure_reason",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "bound_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "submission_mode",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'booking'::text",
+          "check": "submission_mode = ANY (ARRAY['booking'::text, 'accessible'::text])"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "booking_receipts_member_id_fkey",
+          "source_table": "public.booking_receipts",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "booking_receipts_booking_id_fkey",
+          "source_table": "public.booking_receipts",
+          "source_columns": [
+            "booking_id"
+          ],
+          "target_table": "public.bookings",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.booking_receipt_cleanup_queue",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "bigint",
+          "format": "int8",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "nextval('booking_receipt_cleanup_queue_id_seq'::regclass)"
+        },
+        {
+          "name": "object_path",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "reason",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "enqueued_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "attempts",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "0"
+        },
+        {
+          "name": "last_error",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ]
+    },
+    {
+      "name": "public.event_ticket_settings",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "smallint",
+          "format": "int2",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "1",
+          "check": "id = 1"
+        },
+        {
+          "name": "updated_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'system'::text"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "max_tickets_per_day",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "1",
+          "check": "max_tickets_per_day >= 0 AND max_tickets_per_day <= 50",
+          "comment": "Maximum event tickets per Asia/Taipei business date; 0 means no business quantity limit."
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ]
+    },
+    {
+      "name": "public.booking_benefit_selections",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "booking_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "member_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "benefit_kind",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "benefit_kind = ANY (ARRAY['points'::text, 'event'::text, 'calendar'::text])"
+        },
+        {
+          "name": "benefit_ref",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "title_snapshot",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "status",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'pending'::text",
+          "check": "status = ANY (ARRAY['pending'::text, 'redeemed'::text, 'applied'::text, 'cancelled'::text])"
+        },
+        {
+          "name": "selected_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "redeemed_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "redeemed_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "result",
+          "data_type": "jsonb",
+          "format": "jsonb",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "booking_benefit_selections_booking_id_fkey",
+          "source_table": "public.booking_benefit_selections",
+          "source_columns": [
+            "booking_id"
+          ],
+          "target_table": "public.bookings",
+          "target_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "booking_benefit_selections_member_id_fkey",
+          "source_table": "public.booking_benefit_selections",
+          "source_columns": [
+            "member_id"
+          ],
+          "target_table": "public.members",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.test_execution_leases",
+      "rls_enabled": true,
+      "comment": "Short-lived server-only leases preventing test-data purge while a full browser E2E is executing.",
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "lease_type",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "lease_type = 'full_e2e'::text"
+        },
+        {
+          "name": "actor_line_user_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "expires_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "clock_timestamp()"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ]
+    },
+    {
+      "name": "booking_notifications.config",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "true",
+          "check": "id"
+        },
+        {
+          "name": "enabled",
+          "data_type": "boolean",
+          "format": "bool",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "false"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ]
+    },
+    {
+      "name": "booking_notifications.outbox",
+      "rls_enabled": true,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "gen_random_uuid()"
+        },
+        {
+          "name": "booking_id",
+          "data_type": "uuid",
+          "format": "uuid",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "event_key",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "channel",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "channel = ANY (ARRAY['admin'::text, 'member'::text])"
+        },
+        {
+          "name": "recipient",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "recipient ~ '^U[0-9a-f]{32}$'::text"
+        },
+        {
+          "name": "message_text",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "char_length(message_text) >= 1 AND char_length(message_text) <= 2400"
+        },
+        {
+          "name": "status",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'pending'::text",
+          "check": "status = ANY (ARRAY['pending'::text, 'sending'::text, 'accepted'::text, 'failed'::text, 'skipped'::text])"
+        },
+        {
+          "name": "attempt_count",
+          "data_type": "integer",
+          "format": "int4",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "0"
+        },
+        {
+          "name": "request_id",
+          "data_type": "bigint",
+          "format": "int8",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "first_attempt_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "next_attempt_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "accepted_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "last_error",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "line_request_id",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "created_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        },
+        {
+          "name": "coalesce_key",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "reminder_start_at",
+          "data_type": "timestamp without time zone",
+          "format": "timestamp",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_key_constraints": [
+        {
+          "name": "outbox_booking_id_fkey",
+          "source_table": "booking_notifications.outbox",
+          "source_columns": [
+            "booking_id"
+          ],
+          "target_table": "public.bookings",
+          "target_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "line_config.settings",
+      "rls_enabled": false,
+      "columns": [
+        {
+          "name": "setting_key",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "setting_type",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "check": "setting_type = ANY (ARRAY['secret'::text, 'text'::text, 'url'::text, 'boolean'::text])"
+        },
+        {
+          "name": "value_text",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable"
+          ]
+        },
+        {
+          "name": "vault_secret_name",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "nullable",
+            "updatable",
+            "unique"
+          ]
+        },
+        {
+          "name": "description",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "''::text"
+        },
+        {
+          "name": "updated_by",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "CURRENT_USER"
+        },
+        {
+          "name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "setting_key"
+      ]
+    },
+    {
+      "name": "line_config.audit_log",
+      "rls_enabled": false,
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "bigint",
+          "format": "int8",
+          "options": [
+            "identity",
+            "updatable"
+          ],
+          "identity_generation": "ALWAYS"
+        },
+        {
+          "name": "action",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "setting_key",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ]
+        },
+        {
+          "name": "actor",
+          "data_type": "text",
+          "format": "text",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "CURRENT_USER"
+        },
+        {
+          "name": "detail",
+          "data_type": "jsonb",
+          "format": "jsonb",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "'{}'::jsonb"
+        },
+        {
+          "name": "occurred_at",
+          "data_type": "timestamp with time zone",
+          "format": "timestamptz",
+          "options": [
+            "updatable"
+          ],
+          "default_value": "now()"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="zh-Hant" data-ui-system="material-3">
+<head>
+  <meta name="robots" content="noindex,nofollow">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="theme-color" content="#f5f7f2">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' https://static.line-scdn.net https://cdn.jsdelivr.net; style-src 'self' https://cdn.jsdelivr.net; style-src-elem 'self' https://cdn.jsdelivr.net 'sha256-KJIOj901voMKZQZFhhMhuUzk6p4KVITpJJnOB8DP7Gg='; style-src-attr 'unsafe-inline'; connect-src 'self' https://api.line.me https://access.line.me https://liff.line.me https://*.line-scdn.net https://*.supabase.co wss://*.supabase.co https://nominatim.openstreetmap.org https://cdn.jsdelivr.net; img-src 'self' data: https://profile.line-scdn.net https://dbuquirnaskrwcamdxki.supabase.co https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://cdn.jsdelivr.net; frame-src https://liff-subwindow.line.me https://access.line.me; form-action https://liff-subwindow.line.me https://access.line.me">
+  <title>管理端｜Lumen Club</title>
+  <link rel="preconnect" href="https://static.line-scdn.net" crossorigin>
+  <link rel="stylesheet" href="./terms.css?v=membership-terms-ui-20261005-2">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
+  <link rel="stylesheet" href="./styles.css?v=pointcard-style-preview-20261001-2-ongoing-20261008-1">
+  <link rel="stylesheet" href="./ticket-policy-settings.css?v=policy-admin-ui-20261014-1">
+  <link rel="stylesheet" href="./member-workspace-tabs.css?v=member-workspace-tabs-20261014-2">
+  <link rel="stylesheet" href="./integration-hub.css?v=admin-integration-center-20260925-1">
+  <link rel="stylesheet" href="./calendar-responsive.css?v=calendar-responsive-20260914-mobile-fit-2">
+  <link rel="stylesheet" href="./calendar-date-fix.css?v=20260914-line-date-1">
+  <link rel="stylesheet" href="./booking-panel.css?v=booking-standard-filter-parity-20261005-1-ui-20261007-1-badge-20261009-1-no-show-history-20261014-1" data-booking-admin-panel-style>
+  <link rel="stylesheet" href="../booking-ticket-cards.css?v=booking-ticket-cards-20261004-1">
+  <link rel="stylesheet" href="./booking-panel-responsive.css?v=booking-settings-layout-20260918-1" data-booking-panel-static-style>
+  <link rel="stylesheet" href="./booking-summary.css?v=booking-theme-tokens-20260924-1" data-booking-panel-static-style>
+  <link rel="stylesheet" href="./booking-resources.css?v=booking-theme-tokens-20260924-1-ui-20261006-1" data-booking-panel-static-style>
+  <link rel="stylesheet" href="../booking-admin-group-details.css?v=booking-theme-tokens-20260924-1" data-booking-panel-static-style>
+  <link rel="stylesheet" href="./ui-polish.css?v=lumen-design-system-20260924-1" data-booking-panel-static-style>
+  <link rel="stylesheet" href="./ui-polish-responsive.css?v=ui-refresh-20260924-1-ui-20261006-1" data-booking-panel-static-style>
+  <link rel="stylesheet" href="./booking-receipt-admin.css?v=booking-receipt-admin-dark-20261001-4">
+  <link rel="stylesheet" href="./fixed-ticket-admin.css?v=fixed-ticket-calendar-dark-20260927-1-ui-20261006-1">
+  <link rel="stylesheet" href="./test-mode.css?v=test-mode-ui-20260920-3">
+  <link rel="stylesheet" href="./test-control.css?v=test-control-20261010-1">
+  <link rel="stylesheet" href="./e2e-control.css?v=e2e-coverage-dark-20261005-1">
+  <link rel="stylesheet" href="./e2e-flow-visualizer.css?v=e2e-flow-20261006-2">
+  <link rel="stylesheet" href="./test-workspace-tabs.css?v=test-workspace-tabs-20260923-2">
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0/dist/umd/supabase.js" integrity="sha384-lDkWTkrzxBtYvBtgQmPcLBhTbJdqB11igYtWVcCIVXO0Lv4+XuKKdd4razodiyzk" crossorigin="anonymous" defer></script>
+  <script src="../member-system.js?v=layout-stability-20261001-1-accessible-20261003-1-p2-20261006-1-p1-secure-20261008-1-live-sync-20261010-1-line-offline-20261012-1-admin-concurrent-20261012-1-booking-selections-20261013-1-release-20261014-1-connection-efficiency-20261014-1" defer></script>
+  <script src="./admin-session.js?v=admin-session-20260919-1" defer></script>
+  <script src="./fixed-ticket-admin-integration.js?v=fixed-ticket-sync-20260916-1" defer></script>
+  <script src="./fixed-ticket-calendar-option.js?v=fixed-ticket-calendar-20260917-4-p2-20261006-1" defer></script>
+  <script src="./fixed-ticket-admin.js?v=qa-purge-sync-20261005-1-booking-settings-20261006-1-ui-20261006-1-p2-20261006-1" defer></script>
+  <script src="./pointcard-redemption-limit.js?v=policy-admin-ui-20261014-1" defer></script>
+  <script src="./event-ticket-redemption-limit.js?v=policy-admin-ui-20261014-1" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous" defer></script>
+  <script src="../ticket-live-location.js?v=live-gps-20261010-1-admin-browser-fallback-20261014-1" defer></script>
+  <script src="./coupon-location-editor.js?v=ticket-address-nearest-fallback-20260929-1-live-gps-snapshot-20261012-1-admin-browser-fallback-20261014-1" defer></script>
+  <script src="./app.js?v=member-usage-history-20261014-1" defer></script>
+  <script src="./member-workspace-tabs.js?v=member-workspace-tabs-20261014-2" defer></script>
+  <script src="./terms.js?v=membership-terms-ui-20261005-2" defer></script>
+  <script src="./test-mode.js?v=test-login-takeover-20261008-2" defer></script>
+  <script src="./test-control.js?v=test-control-20261010-1" defer></script>
+  <script src="../e2e-feature-coverage.js?v=feature-coverage-20261009-1-ongoing-20261010-1-scope-complete-20261015-1" defer></script>
+  <script src="../e2e-scenario-graph.js?v=e2e-graph-20261004-2" defer></script>
+  <script src="../e2e-professional-tester.js?v=professional-qa-20261005-2" defer></script>
+  <script src="./e2e-flow-visualizer.js?v=e2e-flow-20261006-1-ongoing-20261010-1" defer></script>
+  <script src="./e2e-control-loader.js?v=e2e-safe-execution-20261010-2-consent-scope-scope-complete-20261015-1-scope-execution-20261016-1" data-e2e-control-src="./e2e-control.js?v=qa-e2e-20261010-2-consent-scope-scope-complete-20261015-1-scope-execution-20261016-1" defer></script>
+  <script src="./test-workspace-tabs.js?v=test-workspace-tabs-20260923-2" defer></script>
+  <script src="./grant-automation.js?v=grant-automation-20260910" defer></script>
+  <script src="../booking-copy-text.js?v=20261014-1" defer></script>
+  <script src="../booking-copy-format.js?v=booking-overnight-20260928-1-controls-20261010-2-release-20261014-1" defer></script>
+  <script src="./booking-panel.js?v=booking-operations-split-20261003-1-ticket-source-20261004-1-ticket-card-ui-20261004-1-ticket-booking-20261006-1-booking-settings-20261006-2-ui-20261006-1-badge-20261009-1-snapshot-20261010-1-policy-entry-20261010-1-controls-20261010-2-snapshot-geofence-20261012-1-release-20261014-1-no-show-history-20261014-1-hide-early-hint-20261015-1-service-ticket-rule-20261015-1" data-booking-admin-panel-extension defer></script>
+  <script src="./booking-receipt-admin.js?v=accessible-history-20261003-1" defer></script>
+  <script src="./integration-hub.js?v=admin-integration-center-20261005-2" defer></script>
+  <link rel="stylesheet" href="../responsive.css?v=20260914-line-form-1">
+  <script src="../dialog-accessibility.js?v=20260913" defer></script>
+  <link rel="stylesheet" href="../theme.css?v=m3-ui-20261001-booking-topbar-parity-3-ui-20261007-1">
+  <link rel="stylesheet" href="../experience.css?v=ui-consolidation-20261007-1">
+  <script src="../theme.js?v=m3-ui-20260929-1"></script>
+  <link rel="stylesheet" href="./booking-accessible-admin.css?v=accessible-history-20261003-1-ui-20261007-1">
+  <script src="./booking-accessible-admin.js?v=accessible-review-e2e-20261006-1-ticket-booking-20261006-1-booking-settings-20261006-2-ongoing-20261010-1-controls-20261010-2" defer></script>
+  <link rel="stylesheet" href="../friends.css?v=p2-20261006-1-ongoing-20261008-1">
+  <script src="./ticket-visibility.js?v=policy-admin-ui-20261014-1" defer></script>
+  <link rel="stylesheet" href="./service-grant.css?v=ongoing-20261008-1">
+  <link rel="stylesheet" href="./operation-audit.css?v=operation-audit-20261013-1-release-20261014-1">
+  <script src="./operation-audit.js?v=operation-audit-20261013-1-release-20261014-1" defer></script>
+</head>
+<body>
+  <div id="app" class="app-shell" aria-busy="true">
+    <section id="loadingView" class="state-view login-loading" aria-live="polite"><h1>正在登入管理端</h1><p id="loadingStatus" class="login-status" role="status">正在準備安全登入…</p><div id="loadingProgress" class="login-progress" role="progressbar" aria-label="登入進度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="8" aria-valuetext="8%"><span id="loadingProgressBar" class="login-progress-bar"></span></div><p id="loadingProgressText" class="login-progress-value" aria-hidden="true">8%</p></section>
+    <section id="errorView" class="state-view hidden" role="alert"><div class="error-mark" aria-hidden="true">!</div><p class="kicker">Access check</p><h1 id="errorTitle">無法進入管理端</h1><p id="errorMessage"></p><div id="pendingBox" class="pending-box hidden"><strong>待授權 LINE User ID</strong><code id="pendingUserId"></code><p>請到 Supabase → Table Editor → <b>admins</b>，將這筆資料的 <b>role</b> 設為 <b>admin</b>、<b>status</b> 設為 <b>active</b>，再重新整理。</p></div><button id="retryButton" class="button button-dark" type="button">重新整理</button></section>
+
+    <main id="adminView" class="hidden">
+      <header class="topbar"><div><p class="kicker">Lumen Club / Operations</p><h1>管理工作台</h1></div><div class="account-menu"><span id="displayName">管理員</span><span id="roleLabel" class="role-label">Admin</span><button id="logoutButton" class="text-button" type="button">登出</button></div></header>
+      <nav class="surface-nav" role="tablist" aria-label="管理功能"><button id="membersTab" class="surface-tab" type="button" role="tab" aria-selected="true" aria-controls="membersPanel">會員卡</button><button id="cardsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="cardsPanel">集點卡</button><button id="eventsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="eventsPanel">活動票券</button><button id="calendarTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="calendarPanel">營運日曆</button><button id="testModeTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="testModePanel">測試</button></nav>
+
+      <section class="ops-overview" aria-labelledby="opsOverviewTitle">
+        <div><p class="kicker">Live operations</p><h2 id="opsOverviewTitle">營運概況</h2></div>
+        <p>先看會員、集點、票券與今日異動，再進入下方工作區處理細節；數字維持既有即時同步來源。</p>
+      </section>
+
+      <section class="stats-row" aria-label="目前概況"><div><span class="stat-label">會員總數</span><strong id="memberCount">0</strong><small>已建立會員資料</small></div><div><span class="stat-label">啟用會員</span><strong id="activeMemberCount">0</strong><small>可使用會員權益</small></div><div><span class="stat-label">進行中集點卡</span><strong id="activeCardCount">0</strong><small>正在對外開放</small></div><div><span class="stat-label">進行中活動票券</span><strong id="activeEventTicketCount">0</strong><small>目前可供會員領取</small></div><div><span class="stat-label">今日新增點數</span><strong id="todayEntryCount">0</strong><small>本日登錄紀錄</small></div></section>
+
+      <section id="membersPanel" class="panel" role="tabpanel" aria-labelledby="membersTab">
+        <div class="panel-heading member-workspace-heading"><div><p class="kicker">Member operations</p><h2>會員卡管理</h2><p>將日常會員操作、等級卡面與申請條款分開處理；切換工作區不會離開會員卡頁面。</p></div><div class="heading-actions"><span id="syncStatus" class="sync-status">尚未同步</span><button id="refreshButton" class="button button-outline hidden" type="button">重新整理確認</button></div></div>
+        <nav class="member-workspace-nav" role="tablist" aria-label="會員卡管理功能">
+          <button id="memberDirectoryTab" class="member-workspace-tab" type="button" role="tab" aria-selected="true" aria-controls="memberDirectoryPanel" tabindex="0"><span>會員名冊</span><small>查詢、會員 360 與強制下線</small></button>
+          <button id="memberUsageTab" class="member-workspace-tab" type="button" role="tab" aria-selected="false" aria-controls="memberUsagePanel" tabindex="-1"><span>使用紀錄</span><small>依會員查詢完整活動歷程</small></button>
+          <button id="memberTierSettingsTab" class="member-workspace-tab" type="button" role="tab" aria-selected="false" aria-controls="memberTierSettingsPanel" tabindex="-1"><span>等級與卡面</span><small>升級門檻與會員卡樣式</small></button>
+          <button id="memberTermsTab" class="member-workspace-tab" type="button" role="tab" aria-selected="false" aria-controls="memberTermsPanel" tabindex="-1"><span>申請條款</span><small>版本、啟用與重新同意</small></button>
+        </nav>
+        <section id="memberDirectoryPanel" class="member-workspace-panel" role="tabpanel" aria-labelledby="memberDirectoryTab">
+          <div class="member-directory-toolbar-row">
+        <nav class="member-directory-tabs" role="tablist" aria-label="會員名冊分類">
+          <button id="realMembersSubtab" class="member-directory-tab active" type="button" role="tab" aria-selected="true" data-member-kind="real">真實用戶</button>
+          <button id="testMembersSubtab" class="member-directory-tab" type="button" role="tab" aria-selected="false" data-member-kind="test">測試用戶</button>
+        </nav>
+            <button id="manageGrantMessagesButton" class="button button-outline" type="button">管理發放預設訊息</button>
+          </div>
+<div class="toolbar"><label class="search-box"><span aria-hidden="true">⌕</span><input id="memberSearch" type="search" placeholder="搜尋姓名、會員編號或等級" autocomplete="off"></label><span id="memberResultCount" class="result-count">0 位會員</span></div>
+        <div class="table-wrap"><table><thead><tr><th>會員</th><th>等級</th><th>狀態</th><th>上線狀態</th><th>累積消費服務時間</th><th>加入日期</th><th class="align-right">操作</th></tr></thead><tbody id="memberTableBody"></tbody></table></div>
+        <div id="memberEmptyState" class="empty-state hidden"><span aria-hidden="true">○</span><h3>還沒有符合條件的會員</h3><p>調整搜尋文字，或等待第一位會員使用 LINE 登入。</p></div>
+        <nav id="memberPagination" class="member-pagination hidden" aria-label="會員名冊頁碼"><button id="memberPrevPageButton" class="button button-outline" type="button">上一頁</button><span id="memberPageStatus" aria-live="polite">第 1 / 1 頁</span><button id="memberNextPageButton" class="button button-outline" type="button">下一頁</button></nav>
+        </section>
+        <section id="memberUsagePanel" class="member-workspace-panel member-usage-panel hidden" role="tabpanel" aria-labelledby="memberUsageTab">
+          <div class="member-usage-header"><div><p class="kicker">Member activity</p><h3>使用紀錄</h3><p>從會員卡「會員 360」移至此處，依會員檢視歷程與分類。</p></div></div>
+          <div class="member-usage-toolbar">
+            <label>會員類型<select id="memberUsageKind"><option value="real">真實會員</option><option value="test">測試會員</option></select></label>
+            <label>搜尋會員<input id="memberUsageSearch" type="search" maxlength="100" autocomplete="off" placeholder="姓名或會員編號"></label>
+            <label class="member-usage-member-field">選擇會員<select id="memberUsageSelect" aria-label="選擇查看使用紀錄的會員"><option value="">請選擇會員</option></select></label>
+          </div>
+          <div class="member-usage-page-controls"><span id="memberUsagePageStatus" role="status" aria-live="polite">請選擇會員</span><div><button id="memberUsagePrev" class="button button-outline" type="button" disabled>上一頁</button><button id="memberUsageNext" class="button button-outline" type="button" disabled>下一頁</button></div></div>
+          <div id="memberUsageRosterMessage" class="form-message hidden" role="alert"></div>
+          <div id="memberUsageIntro" class="member-records-empty"><span aria-hidden="true">○</span><strong>請先選擇會員</strong><small>歷程將在這裡依時間與類別顯示。</small></div>
+          <p id="memberUsageSelectedLabel" class="member-usage-selected" aria-live="polite"></p>
+      <div class="member-records-section-heading">
+        <div><p class="kicker">Activity timeline</p><h3>會員活動歷程</h3></div>
+        <span>最新紀錄優先</span>
+      </div>
+      <div id="memberRecordsSummary" class="member-records-summary" aria-label="紀錄數量"></div>
+      <div id="memberRecordsTabs" class="member-records-tabs" role="tablist" aria-label="會員紀錄分類">
+        <button class="member-record-tab active" type="button" role="tab" aria-selected="true" data-record-filter="all">全部 0</button>
+        <button class="member-record-tab" type="button" role="tab" aria-selected="false" data-record-filter="presence">上／下線 0</button>
+        <button class="member-record-tab" type="button" role="tab" aria-selected="false" data-record-filter="pointCards">集點卡 0</button>
+        <button class="member-record-tab" type="button" role="tab" aria-selected="false" data-record-filter="eventTickets">活動票券 0</button>
+        <button class="member-record-tab" type="button" role="tab" aria-selected="false" data-record-filter="calendar">日曆 0</button>
+        <button class="member-record-tab" type="button" role="tab" aria-selected="false" data-record-filter="bookings">預約 0</button>
+        <button class="member-record-tab" type="button" role="tab" aria-selected="false" data-record-filter="testAutomation">測試操作 0</button>
+      </div>
+      <div id="memberRecordsMessage" class="form-message hidden" role="alert"></div>
+      <div id="memberRecordsList" class="member-records-list" aria-live="polite"></div>
+      <div id="memberRecordsEmpty" class="member-records-empty hidden">
+        <span aria-hidden="true">○</span><strong>目前沒有這類紀錄</strong><small>此會員尚未產生可追溯的使用資料。</small>
+      </div>
+      <p class="member-records-note">日曆僅顯示可由會員票券關聯追溯的項目；系統目前不記錄會員開啟或點擊日曆的瀏覽行為。</p>
+        </section>
+        <section id="memberTierSettingsPanel" class="member-workspace-panel hidden" role="tabpanel" aria-labelledby="memberTierSettingsTab">
+        <section class="tier-settings" aria-labelledby="tierSettingsTitle"><div><p class="kicker">Automatic membership tiers</p><h3 id="tierSettingsTitle">會員等級門檻與卡面樣式</h3><p>系統會以每位會員累積的消費服務時間自動判定等級，不可個別手動指定；每個等級可選擇一種會員卡樣式。</p></div><form id="tierSettingsForm" novalidate><div class="tier-settings-grid"><label>一般會員<input id="tierGeneralMinutes" type="number" min="0" step="1" value="0" readonly aria-describedby="tierGeneralHint"><small id="tierGeneralHint">從 0 分鐘開始</small><select id="tierGeneralStyle" aria-label="一般會員卡面樣式"><option value="forest">森林綠</option><option value="midnight">午夜藍</option><option value="ocean">海灣青</option><option value="sunset">夕陽橘</option><option value="lavender">薰衣草紫</option><option value="rose">玫瑰粉</option><option value="gold">金曜棕</option><option value="platinum">鉑金灰</option><option value="mint">薄荷綠</option><option value="cherry">櫻桃紅</option></select><small>會員卡樣式</small></label><label>銀級會員<input id="tierSilverMinutes" type="number" min="1" max="10000000" step="1" value="600" required><small>達到此累積分鐘數</small><select id="tierSilverStyle" aria-label="銀級會員卡面樣式"><option value="forest">森林綠</option><option value="midnight">午夜藍</option><option value="ocean">海灣青</option><option value="sunset">夕陽橘</option><option value="lavender">薰衣草紫</option><option value="rose">玫瑰粉</option><option value="gold">金曜棕</option><option value="platinum">鉑金灰</option><option value="mint">薄荷綠</option><option value="cherry">櫻桃紅</option></select><small>會員卡樣式</small></label><label>金級會員<input id="tierGoldMinutes" type="number" min="1" max="10000000" step="1" value="1800" required><small>達到此累積分鐘數</small><select id="tierGoldStyle" aria-label="金級會員卡面樣式"><option value="forest">森林綠</option><option value="midnight">午夜藍</option><option value="ocean">海灣青</option><option value="sunset">夕陽橘</option><option value="lavender">薰衣草紫</option><option value="rose">玫瑰粉</option><option value="gold">金曜棕</option><option value="platinum">鉑金灰</option><option value="mint">薄荷綠</option><option value="cherry">櫻桃紅</option></select><small>會員卡樣式</small></label><label>白金會員<input id="tierPlatinumMinutes" type="number" min="1" max="10000000" step="1" value="3600" required><small>達到此累積分鐘數</small><select id="tierPlatinumStyle" aria-label="白金會員卡面樣式"><option value="forest">森林綠</option><option value="midnight">午夜藍</option><option value="ocean">海灣青</option><option value="sunset">夕陽橘</option><option value="lavender">薰衣草紫</option><option value="rose">玫瑰粉</option><option value="gold">金曜棕</option><option value="platinum">鉑金灰</option><option value="mint">薄荷綠</option><option value="cherry">櫻桃紅</option></select><small>會員卡樣式</small></label></div><div id="tierSettingsFormMessage" class="form-message hidden" role="alert"></div><div class="tier-settings-actions"><button id="saveTierSettingsButton" class="button button-dark" type="submit">儲存等級與樣式</button></div></form></section>
+        </section>
+        <section id="memberTermsPanel" class="member-workspace-panel hidden" role="tabpanel" aria-labelledby="memberTermsTab">
+          <section class="terms-admin" aria-labelledby="termsAdminHeading">
+            <div class="panel-heading">
+              <div>
+                <p class="kicker">Membership legal</p>
+                <h3 id="termsAdminHeading">會員申請條款</h3>
+                <p>以版本方式管理會員申請條款。先建立草稿、確認內容與同意政策，再啟用成為正式版本；已啟用與歷史版本維持唯讀。</p>
+              </div>
+              <button id="termsReload" class="button button-outline" type="button">重新載入版本</button>
+            </div>
+
+            <p id="termsAdminMessage" class="form-message hidden" role="status" aria-live="polite"></p>
+
+            <section class="terms-status-overview" aria-label="條款版本概況">
+              <div class="terms-status-card">
+                <span>目前啟用</span>
+                <strong id="termsActiveVersion">讀取中</strong>
+                <small id="termsActiveTitle">正在同步條款狀態</small>
+              </div>
+              <div class="terms-status-card">
+                <span>草稿版本</span>
+                <strong id="termsDraftCount">0</strong>
+                <small>可繼續編輯與發佈</small>
+              </div>
+              <div class="terms-status-card">
+                <span>全部版本</span>
+                <strong id="termsVersionCount">0</strong>
+                <small>包含啟用、草稿與歷史版本</small>
+              </div>
+            </section>
+
+            <div class="terms-admin-grid">
+              <aside class="terms-version-sidebar" aria-labelledby="termsVersionHistoryHeading">
+                <div class="terms-version-sidebar-heading">
+                  <div>
+                    <span class="terms-section-label">Version history</span>
+                    <h4 id="termsVersionHistoryHeading">版本歷史</h4>
+                  </div>
+                  <button id="termsNewDraft" class="button button-outline" type="button">＋ 新版本</button>
+                </div>
+                <div id="termsVersionList" class="terms-version-list" aria-live="polite"></div>
+              </aside>
+
+              <section class="terms-editor" aria-labelledby="termsEditorHeading">
+                <div class="terms-editor-heading">
+                  <div>
+                    <span class="terms-section-label">Terms editor</span>
+                    <h4 id="termsEditorHeading">條款內容與發佈設定</h4>
+                    <p id="termsEditorHint">建立新版本並儲存成草稿；確認內容後才能啟用。</p>
+                  </div>
+                  <span id="termsEditorState" class="terms-editor-status is-new">新草稿</span>
+                </div>
+
+                <div id="termsReadonlyNote" class="terms-readonly-note hidden" role="note"></div>
+
+                <form id="termsDraftForm" class="terms-draft-form">
+                  <input id="termsId" type="hidden">
+
+                  <section class="terms-form-section" aria-labelledby="termsBasicInfoHeading">
+                    <div class="terms-form-section-heading">
+                      <h5 id="termsBasicInfoHeading">基本資訊</h5>
+                      <p>版本識別用於追蹤會員同意紀錄；標題與簡述會提供給會員閱讀。</p>
+                    </div>
+                    <div class="terms-form-grid">
+                      <label class="terms-field">
+                        <span>版本識別</span>
+                        <input id="termsVersion" maxlength="40" required placeholder="例如：2026-10-v1" autocomplete="off">
+                        <small>建議使用日期＋版本號，啟用後不可重寫。</small>
+                      </label>
+                      <label class="terms-field">
+                        <span>條款標題</span>
+                        <input id="termsTitle" maxlength="120" required placeholder="使用同意與免責聲明" autocomplete="off">
+                        <small>會員申請與重新同意時會看到此標題。</small>
+                      </label>
+                    </div>
+                    <label class="terms-field">
+                      <span class="terms-field-head"><span>簡述</span><small id="termsSummaryCount" class="terms-char-count">0 / 500</small></span>
+                      <textarea id="termsSummary" maxlength="500" rows="3" placeholder="用幾句話說明本版條款的重點或變更內容。"></textarea>
+                    </label>
+                  </section>
+
+                  <section class="terms-form-section" aria-labelledby="termsContentHeading">
+                    <div class="terms-form-section-heading">
+                      <h5 id="termsContentHeading">條款全文</h5>
+                      <p>請放入會員實際需要閱讀與同意的完整內容。啟用後會鎖定，日後修改請建立新版本。</p>
+                    </div>
+                    <label class="terms-field">
+                      <span class="terms-field-head"><span>完整條款內容</span><small id="termsBodyCount" class="terms-char-count">0 / 20,000</small></span>
+                      <textarea id="termsBody" maxlength="20000" rows="14" required placeholder="輸入會員申請時需要閱讀的完整條款內容。"></textarea>
+                    </label>
+                  </section>
+
+                  <section class="terms-form-section" aria-labelledby="termsPublishHeading">
+                    <div class="terms-form-section-heading">
+                      <h5 id="termsPublishHeading">生效與同意政策</h5>
+                      <p>啟用前確認生效時間與同意範圍；「既有會員重新同意」會直接影響已加入的會員。</p>
+                    </div>
+
+                    <label class="terms-field">
+                      <span>生效時間</span>
+                      <input id="termsEffectiveAt" type="datetime-local" required>
+                      <small>啟用後，新會員申請會依目前有效版本判斷。</small>
+                    </label>
+
+                    <div class="terms-policy-grid">
+                      <label class="terms-policy-card">
+                        <input id="termsRequired" class="terms-policy-input" type="checkbox" checked>
+                        <span class="terms-policy-copy">
+                          <span class="terms-policy-title-row">
+                            <strong>申請會員必須同意</strong>
+                            <span class="terms-policy-badge">啟用必選</span>
+                          </span>
+                          <small>啟用正式版本時必須開啟；新會員完成同意後才能加入會員。</small>
+                        </span>
+                        <span class="terms-policy-switch" aria-hidden="true"><span class="terms-policy-switch-knob"></span></span>
+                      </label>
+
+                      <label class="terms-policy-card">
+                        <input id="termsReconsent" class="terms-policy-input" type="checkbox">
+                        <span class="terms-policy-copy">
+                          <span class="terms-policy-title-row">
+                            <strong>要求既有會員同意新版</strong>
+                            <span class="terms-policy-badge is-impact">影響既有會員</span>
+                          </span>
+                          <small>重大條款變更時再開啟；啟用後，既有會員會重新進入條款同意流程。</small>
+                        </span>
+                        <span class="terms-policy-switch" aria-hidden="true"><span class="terms-policy-switch-knob"></span></span>
+                      </label>
+                    </div>
+
+                    <div id="termsReconsentNote" class="terms-reconsent-note hidden" role="note">
+                      啟用這個版本後，既有會員下次進入系統時會被要求重新閱讀並同意。請確認本次變更確實需要重新取得同意。
+                    </div>
+                  </section>
+
+                  <div class="terms-actions">
+                    <p class="terms-actions-copy">建議流程：儲存草稿 → 重新檢查內容與生效時間 → 確認同意政策 → 啟用版本。</p>
+                    <button id="termsSave" class="button button-dark" type="submit">建立草稿</button>
+                    <button id="termsActivate" class="button button-outline terms-activate-button" type="button" disabled>啟用此版本</button>
+                  </div>
+                </form>
+              </section>
+            </div>
+          </section>
+        </section>
+      </section>
+
+      <section id="cardsPanel" class="panel hidden" role="tabpanel" aria-labelledby="cardsTab">
+        <div class="panel-heading"><div><p class="kicker">Reward programs</p><h2>集點卡管理</h2><p>集中管理集點卡活動與票券庫，再以集點節點選擇要發放的票券。</p></div></div>
+        <nav class="card-settings-nav" role="tablist" aria-label="集點卡管理功能"><button id="cardSettingsTab" class="card-settings-tab" type="button" role="tab" aria-selected="true" aria-controls="cardSettingsPanel">集點卡</button><button id="ticketSettingsTab" class="card-settings-tab" type="button" role="tab" aria-selected="false" aria-controls="ticketSettingsPanel">票券</button></nav>
+        <section id="cardSettingsPanel" class="card-settings-panel" role="tabpanel" aria-labelledby="cardSettingsTab">
+        <div class="panel-heading workspace-heading"><div><p class="kicker">Points cards</p><h3>集點卡設定</h3><p>建立活動、設定集點節點，並從票券小分頁中建立的票券選擇要發放的內容。</p></div><button id="newCardButton" class="button button-dark" type="button">＋ 新增集點卡</button></div>
+        <div class="card-workspace"><aside class="card-list" aria-label="集點卡列表"><div class="list-heading"><span>所有卡片</span><span id="cardResultCount">0</span></div><div id="cardListItems"></div><div id="cardEmptyState" class="empty-state compact hidden"><span aria-hidden="true">○</span><p>尚未建立集點卡</p></div></aside><section class="editor"><div class="editor-heading"><div><p class="kicker" id="editorKicker">Create points card</p><h3 id="editorTitle">新增集點卡</h3></div><span id="editorStatus" class="editor-status">草稿</span></div><form id="cardForm" novalidate><input id="cardId" type="hidden"><input id="cardExpectedUpdatedAt" type="hidden"><label>卡片名稱<input id="cardTitle" name="title" required maxlength="80" placeholder="例如：春日咖啡集點"></label><label>使用方式（可換行）<textarea id="cardUsageMethod" name="usageMethod" maxlength="120" rows="2" placeholder="例如：完成消費後由店員發放點數"></textarea></label><label>使用說明（可換行）<textarea id="cardUsageInstructions" name="usageInstructions" maxlength="500" rows="4" placeholder="例如：每次消費限累積一次；點數以系統紀錄為準"></textarea></label><label>優惠說明（可換行）<textarea id="cardBenefitDescription" name="benefitDescription" maxlength="500" rows="4" placeholder="例如：達指定點數可兌換下方票券，優惠內容依票券說明為準"></textarea></label><div class="form-grid"><label>公開狀態<select id="cardStatus" name="status"><option value="" selected disabled>請選擇公開狀態</option><option value="active">啟用中</option><option value="draft">草稿</option><option value="archived">已封存</option></select></label></div><div class="form-grid date-settings-grid"><label>集點卡使用期限<select id="cardExpiryMode" name="expiryMode"><option value="unlimited">無期限</option><option value="date">設定到期日</option></select></label><div id="cardExpiresOnField" class="date-control"><div class="date-control-heading"><label for="cardExpiresOn">到期日</label><output id="cardExpiresOnSummary" class="date-control-summary" for="cardExpiresOn">請選擇日期</output></div><div class="date-input-shell"><input id="cardExpiresOn" name="expiresOn" type="date"><button class="date-picker-button" type="button" data-open-date-picker="cardExpiresOn" aria-label="開啟集點卡到期日選擇器"><span aria-hidden="true">▣</span><span>選擇日期</span></button></div><div class="date-quick-actions" aria-label="快速設定集點卡到期日"><button class="date-chip" type="button" data-date-target="cardExpiresOn" data-date-offset="7">7 天後</button><button class="date-chip" type="button" data-date-target="cardExpiresOn" data-date-offset="30">30 天後</button><button class="date-chip" type="button" data-date-target="cardExpiresOn" data-date-offset="90">90 天後</button><button class="date-chip" type="button" data-date-target="cardExpiresOn" data-date-action="end-of-year">今年底</button></div></div></div><section class="reward-editor" aria-labelledby="rewardEditorTitle"><div class="section-heading"><div><p class="kicker">Ticket assignment</p><h4 id="rewardEditorTitle">兌換票券節點</h4><p>這裡只決定需要集到的點數與要發放哪張票券；兌換時會自動扣除相同點數，票券說明與使用方式統一在「票券」頁編輯。</p></div><button id="addRewardButton" class="button button-outline" type="button">＋ 新增節點</button></div><div id="rewardRows" class="reward-rows"></div><p id="rewardEditorHint" class="editor-hint">每個點數只能有一個節點；兌換會自動扣除達標點數；每個節點需選擇一張票券。</p></section><div class="form-grid"><label>識別色<div class="color-field"><input id="cardAccent" name="accent" type="color" value="#e47845"><span id="accentValue">#E47845</span></div></label></div><div id="cardFormMessage" class="form-message hidden" role="alert"></div><div class="editor-actions"><button id="resetCardButton" class="button button-outline" type="button">清除</button><button id="archiveCardButton" class="button button-outline" type="button">封存集點卡</button><button id="deleteCardButton" class="button button-danger" type="button">永久刪除</button><button id="saveCardButton" class="button button-dark" type="submit">儲存集點卡</button></div></form></section></div>
+        </section>
+
+        <section id="ticketSettingsPanel" class="card-settings-panel hidden" role="tabpanel" aria-labelledby="ticketSettingsTab">
+        <div class="panel-heading workspace-heading"><div><p class="kicker">Ticket library</p><h3>票券庫</h3><p>建立可重複使用的票券內容；集點卡只引用票券定義，不在這裡綁定會員資格。</p></div><button id="newTicketButton" class="button button-dark" type="button">＋ 新增票券</button></div>
+        <div class="panel-heading workspace-heading ticket-policy-entry"><div><h4>票券使用與預約</h4><p>指定適用服務項目的票券，使用前須有已確認、未完成且符合項目的預約；未指定項目可直接使用。快照模式維持原規則。</p></div></div>
+        <div class="card-workspace ticket-workspace"><aside class="card-list" aria-label="票券列表"><div class="list-heading"><span>所有票券</span><span id="ticketResultCount">0</span></div><div id="ticketListItems"></div><div id="ticketEmptyState" class="empty-state compact hidden"><span aria-hidden="true">○</span><p>先新增一張票券，才能在集點卡節點選擇它。</p></div></aside><section class="editor"><div class="editor-heading"><div><p class="kicker" id="ticketEditorKicker">Create ticket</p><h3 id="ticketEditorTitle">新增票券</h3></div><span id="ticketEditorStatus" class="editor-status">草稿</span></div><form id="ticketForm" novalidate><input id="ticketTemplateId" type="hidden"><input id="ticketExpectedUpdatedAt" type="hidden"><div class="form-grid"><label>票券名稱<input id="ticketTitle" required maxlength="100" placeholder="例如：免費中杯咖啡"></label><label>票券類型<select id="ticketType"><option value="coupon">優惠券</option><option value="lottery">抽獎券</option></select></label></div><label>票券說明（可換行）<textarea id="ticketDescription" required maxlength="240" rows="3" placeholder="會員會先在此看到票券內容與適用範圍"></textarea></label><label>使用方式（可換行）<textarea id="ticketUsageMethod" required maxlength="120" rows="2" placeholder="例如：結帳前出示本券給店員"></textarea></label><label>使用說明（可換行）<textarea id="ticketUsageInstructions" required maxlength="500" rows="4" placeholder="例如：確認後會扣除 5 點並標記為已使用；限指定門市使用"></textarea></label><div class="form-grid"><label>公開狀態<select id="ticketStatus"><option value="active">啟用中</option><option value="draft">草稿</option><option value="archived">已封存</option></select></label></div><fieldset id="ticketLocationRule" class="event-ticket-tier-access event-ticket-location-rule"><legend>票券定位核銷</legend><label><input id="ticketRequiresLocation" type="checkbox"> 使用時需要在指定地點定位</label><p class="field-help">啟用後，會員核銷此票券時必須取得最新 GPS，並位於任一指定地點的核銷半徑內。</p><div id="ticketLocationControls" class="coupon-location-controls hidden"><div class="coupon-map-search"><label for="ticketAddressSearch">地址搜尋</label><div><input id="ticketAddressSearch" type="search" maxlength="240" autocomplete="street-address" placeholder="輸入地址或地標，例如：台南火車站"><button id="ticketAddressSearchButton" type="button" class="button button-outline">搜尋地址</button><button id="ticketUseCurrentLocationButton" type="button" class="button button-outline">使用目前 GPS 選點</button></div><div id="ticketAddressResults" class="coupon-map-results" aria-live="polite"></div></div><div id="ticketLocationMap" class="coupon-location-map" role="region" aria-label="票券使用地點地圖，點選可選擇候選位置"></div><p id="ticketMapStatus" class="field-help" aria-live="polite">先用地址搜尋、目前 GPS 或地圖點選位置；找不到精確地址時會自動顯示附近／近似候選，再確認地點與半徑範圍後新增。</p><section id="ticketLocationDraft" class="coupon-location-draft hidden" aria-label="待確認使用地點"><div class="coupon-location-draft-heading"><div><strong>待確認位置</strong><small>地圖圓圈即核銷半徑範圍，可拖曳地圖標記微調位置。</small></div><span>尚未加入</span></div><div class="coupon-location-draft-fields"><label>地點名稱<input id="ticketLocationDraftName" type="text" maxlength="100" placeholder="例如：台南門市"></label><label>核銷半徑（公尺）<input id="ticketLocationDraftRadius" type="number" min="50" max="2000" step="10" value="100"></label></div><div class="coupon-location-draft-actions"><button id="clearTicketLocationDraftButton" class="button button-outline" type="button">取消選點</button><button id="addTicketLocationButton" class="button button-dark" type="button">＋ 新增地點</button></div></section><div class="coupon-location-heading"><strong>可使用地點</strong><span id="ticketLocationCount">0 / 20 個使用地點</span></div><div id="ticketLocationRows" class="coupon-location-rows"></div><p class="field-help">符合任一地點的核銷半徑即可使用。座標只在背景保存供核銷判斷，不在管理介面顯示。地圖與地址搜尋資料由 OpenStreetMap 提供。</p></div></fieldset><section id="ticketPrizeEditor" class="lottery-prize-editor hidden" aria-labelledby="ticketPrizeTitle"><div class="prize-heading"><strong id="ticketPrizeTitle">抽獎券可能抽到什麼？</strong><span id="ticketPrizeTotal"></span><div class="prize-actions"><button id="balanceTicketPrizesButton" class="text-button" type="button">平均分配</button><button id="addTicketPrizeButton" class="text-button" type="button">＋ 新增獎項</button></div></div><div id="ticketPrizeRows" class="prize-rows"></div></section><div id="ticketFormMessage" class="form-message hidden" role="alert"></div><div class="editor-actions"><button id="resetTicketButton" class="button button-outline" type="button">清除</button><button id="deleteTicketButton" class="button button-danger hidden" type="button" disabled>刪除票券</button><button id="saveTicketButton" class="button button-dark" type="submit">儲存票券</button></div></form></section></div>
+        </section>
+      </section>
+
+      <section id="eventsPanel" class="panel hidden" role="tabpanel" aria-labelledby="eventsTab">
+        <div class="panel-heading"><div><p class="kicker">Benefits & campaigns</p><h2>活動票券</h2><p>以同一套票券內容結構管理活動權益，再設定適用會員、活動期間與限量張數。</p></div><div class="heading-actions"><button id="newEventTicketButton" class="button button-dark" type="button">＋ 新增活動票券</button></div></div>
+        <div class="panel-heading workspace-heading ticket-policy-entry"><div><h4>票券使用與預約</h4><p>指定適用服務項目的票券，使用前須有已確認、未完成且符合項目的預約；未指定項目可直接使用。快照模式維持原規則。</p></div></div>
+        <fieldset id="eventTicketAllowedTiers" class="event-ticket-tier-access audience-selector"><legend>適用會員</legend><div class="audience-selector-heading"><div><p class="kicker">Audience</p><h4>哪些會員可以領取與使用？</h4><p>權益資格只控制會員等級，不代表管理權限；固定票券也共用相同設定。</p></div><output id="eventTicketTierSummary" class="event-ticket-tier-summary" aria-live="polite">所有會員等級 · 4 / 4</output></div><div class="audience-preset-row" role="group" aria-label="快速選擇適用會員等級"><button class="audience-preset" type="button" data-audience-preset="all">全部會員</button><button class="audience-preset" type="button" data-audience-preset="general">僅一般</button><button class="audience-preset" type="button" data-audience-preset="silver-plus">銀級以上</button><button class="audience-preset" type="button" data-audience-preset="gold-plus">金級以上</button><button class="audience-preset" type="button" data-audience-preset="platinum">僅白金</button></div><div class="event-ticket-tier-options audience-tier-grid"><label><input form="eventTicketForm" name="eventTicketAllowedTierKey" type="checkbox" value="general" checked><span><strong>一般會員</strong><small>General</small></span></label><label><input form="eventTicketForm" name="eventTicketAllowedTierKey" type="checkbox" value="silver" checked><span><strong>銀級會員</strong><small>Silver</small></span></label><label><input form="eventTicketForm" name="eventTicketAllowedTierKey" type="checkbox" value="gold" checked><span><strong>金級會員</strong><small>Gold</small></span></label><label><input form="eventTicketForm" name="eventTicketAllowedTierKey" type="checkbox" value="platinum" checked><span><strong>白金會員</strong><small>Platinum</small></span></label></div></fieldset>
+        <div class="card-workspace event-ticket-workspace"><aside class="card-list" aria-label="活動票券列表"><div class="list-heading"><span>所有活動票券</span><span id="eventTicketResultCount">0</span></div><div id="eventTicketListItems"></div><div id="eventTicketEmptyState" class="empty-state compact hidden"><span aria-hidden="true">○</span><p>尚未建立活動票券</p></div></aside><section class="editor"><div class="editor-heading"><div><p class="kicker" id="eventTicketEditorKicker">Create event ticket</p><h3 id="eventTicketEditorTitle">新增活動票券</h3></div><span id="eventTicketEditorStatus" class="editor-status">草稿</span></div><form id="eventTicketForm" novalidate><input id="eventTicketId" type="hidden"><input id="eventTicketExpectedUpdatedAt" type="hidden"><label>活動票券名稱<input id="eventTicketTitle" required maxlength="100" placeholder="例如：春日來店禮"></label><div class="form-grid"><label>票券類型<select id="eventTicketType"><option value="coupon">優惠券</option><option value="lottery">抽獎券</option><option value="referral">好友邀請</option><option value="membership_join">加入會員</option></select></label><label>公開狀態<select id="eventTicketStatus"><option value="active">啟用中</option><option value="draft">草稿</option><option value="archived">已封存</option></select></label></div><label>票券說明<textarea id="eventTicketDescription" required maxlength="240" rows="3" placeholder="會員會在活動頁看到的票券內容與適用範圍"></textarea></label><label>使用方式<input id="eventTicketUsageMethod" required maxlength="120" placeholder="例如：到店結帳前出示本券給店員"></label><label>使用說明<textarea id="eventTicketUsageInstructions" required maxlength="500" rows="4" placeholder="例如：確認使用後即完成核銷；限活動期間與指定門市使用"></textarea></label><fieldset class="event-ticket-tier-access audience-selector ticket-booking-service-rule"><legend>預約項目限制</legend><div class="audience-selector-heading"><div><p class="kicker">Booking rule</p><h4>需要預約哪些項目才能使用？</h4><p>未勾選代表不限預約項目；可設定任一勾選項目有預約即可，或所有勾選項目都必須預約。</p></div></div><label class="booking-service-match-mode">符合方式<select id="eventTicketRequiredServiceMatchMode"><option value="any">任一勾選項目有預約即可</option><option value="all">勾選的所有項目都需預約</option></select></label><div id="eventTicketRequiredServiceIds" class="event-ticket-tier-options audience-tier-grid" aria-label="活動票券可使用的預約項目"></div></fieldset><section class="date-range-control" aria-labelledby="eventTicketDateRangeTitle"><div class="date-range-heading"><div><p class="kicker">Availability</p><h4 id="eventTicketDateRangeTitle">活動期間</h4><p>日期以台灣時區（UTC+8）為準；開始日或結束日可單獨留空。</p></div><output id="eventTicketDateRangeSummary" class="date-range-summary" aria-live="polite">不限制日期</output></div><div class="form-grid"><div class="date-control"><div class="date-control-heading"><label for="eventTicketStartsOn">開始日（選填）</label><span>從這天開始可領取與使用</span></div><div class="date-input-shell"><input id="eventTicketStartsOn" type="date"><button class="date-picker-button" type="button" data-open-date-picker="eventTicketStartsOn" aria-label="開啟活動開始日選擇器"><span aria-hidden="true">▣</span><span>選擇日期</span></button></div><div class="date-quick-actions" aria-label="快速設定活動開始日"><button class="date-chip" type="button" data-date-target="eventTicketStartsOn" data-date-offset="0">今天</button><button class="date-chip" type="button" data-date-target="eventTicketStartsOn" data-date-offset="1">明天</button><button class="date-chip" type="button" data-date-target="eventTicketStartsOn" data-date-action="clear">清除</button></div></div><div class="date-control"><div class="date-control-heading"><label for="eventTicketEndsOn">結束日（選填）</label><span>到這天結束後停止使用</span></div><div class="date-input-shell"><input id="eventTicketEndsOn" type="date"><button class="date-picker-button" type="button" data-open-date-picker="eventTicketEndsOn" aria-label="開啟活動結束日選擇器"><span aria-hidden="true">▣</span><span>選擇日期</span></button></div><div class="date-quick-actions" aria-label="快速設定活動結束日"><button class="date-chip" type="button" data-date-target="eventTicketEndsOn" data-date-offset="0">今天</button><button class="date-chip" type="button" data-date-target="eventTicketEndsOn" data-date-offset="30">30 天後</button><button class="date-chip" type="button" data-date-target="eventTicketEndsOn" data-date-action="end-of-year">今年底</button><button class="date-chip" type="button" data-date-target="eventTicketEndsOn" data-date-action="clear">清除</button></div></div></div><div class="date-range-presets" aria-label="快速設定活動期間"><span>快速期間</span><button class="date-chip" type="button" data-event-range-days="7">今天起 7 天</button><button class="date-chip" type="button" data-event-range-days="30">今天起 30 天</button><button class="date-chip" type="button" data-event-range-days="90">今天起 90 天</button><button class="date-chip" type="button" data-event-range-action="clear">不限日期</button></div><p id="eventTicketDateRangeMessage" class="date-range-message" aria-live="polite">未設定期間限制。</p></section><div class="form-grid"><label>限量張數<input id="eventTicketQuota" type="number" min="0" max="1000000" step="1" value="0"><small class="field-help">0 代表不限量；一般活動每位會員限領 1 張；好友邀請票券則每成功邀請 1 位新會員，由邀請者獲得 1 張</small></label><label>識別色<div class="color-field"><input id="eventTicketAccent" type="color" value="#df6b4d"><span id="eventTicketAccentValue">#DF6B4D</span></div></label></div><fieldset id="eventTicketLocationRule" class="event-ticket-tier-access event-ticket-location-rule"><legend>票券定位核銷</legend><label><input id="eventTicketRequiresLocation" type="checkbox"> 使用時需要在指定地點定位</label><p class="field-help">領取不需定位；核銷時會要求最新 GPS 與二次確認。優惠券與抽獎券皆可啟用。</p><div id="eventTicketLocationControls" class="coupon-location-controls hidden"><div class="coupon-map-search"><label for="eventTicketAddressSearch">地址搜尋</label><div><input id="eventTicketAddressSearch" type="search" maxlength="240" autocomplete="street-address" placeholder="輸入地址或地標，例如：台南火車站"><button id="eventTicketAddressSearchButton" type="button" class="button button-outline">搜尋地址</button><button id="eventTicketUseCurrentLocationButton" type="button" class="button button-outline">使用目前 GPS 選點</button></div><div id="eventTicketAddressResults" class="coupon-map-results" aria-live="polite"></div></div><div id="eventTicketLocationMap" class="coupon-location-map" role="region" aria-label="使用地點地圖，點選可選擇候選位置"></div><p id="eventTicketMapStatus" class="field-help" aria-live="polite">先用地址搜尋、目前 GPS 或地圖點選位置；找不到精確地址時會自動顯示附近／近似候選，再確認地點與半徑範圍後新增。</p><section id="eventTicketLocationDraft" class="coupon-location-draft hidden" aria-label="待確認使用地點"><div class="coupon-location-draft-heading"><div><strong>待確認位置</strong><small>地圖圓圈即核銷半徑範圍，可拖曳地圖標記微調位置。</small></div><span>尚未加入</span></div><div class="coupon-location-draft-fields"><label>地點名稱<input id="eventTicketLocationDraftName" type="text" maxlength="100" placeholder="例如：台南門市"></label><label>核銷半徑（公尺）<input id="eventTicketLocationDraftRadius" type="number" min="50" max="2000" step="10" value="100"></label></div><div class="coupon-location-draft-actions"><button id="clearEventTicketLocationDraftButton" class="button button-outline" type="button">取消選點</button><button id="addEventTicketLocationButton" class="button button-dark" type="button">＋ 新增地點</button></div></section><div class="coupon-location-heading"><strong>可使用地點</strong><span id="eventTicketLocationCount">0 / 20 個使用地點</span></div><div id="eventTicketLocationRows" class="coupon-location-rows"></div><p class="field-help">符合任一地點的核銷半徑即可使用。座標只在背景保存供核銷判斷，不在管理介面顯示。地圖與地址搜尋資料由 OpenStreetMap 提供。</p></div></fieldset><section id="eventTicketPrizeEditor" class="lottery-prize-editor hidden" aria-labelledby="eventTicketPrizeTitle"><div class="prize-heading"><strong id="eventTicketPrizeTitle">抽獎券可能抽到什麼？</strong><span id="eventTicketPrizeTotal"></span><div class="prize-actions"><button id="balanceEventTicketPrizesButton" class="text-button" type="button">平均分配</button><button id="addEventTicketPrizeButton" class="text-button" type="button">＋ 新增獎項</button></div></div><div id="eventTicketPrizeRows" class="prize-rows"></div></section><p class="editor-hint event-ticket-note">已領取的會員會保留當下的票券說明；之後修改設定只影響新領取的票券。</p><div id="eventTicketFormMessage" class="form-message hidden" role="alert"></div><div class="editor-actions"><button id="deleteEventTicketButton" class="button button-danger hidden" type="button" disabled>刪除目前票券</button><button id="resetEventTicketButton" class="button button-outline" type="button">清除</button><button id="saveEventTicketButton" class="button button-dark" type="submit">儲存活動票券</button></div></form></section></div>
+      </section>
+      <section id="calendarPanel" class="panel hidden" role="tabpanel" aria-labelledby="calendarTab">
+        <div class="panel-heading"><div><p class="kicker">Operations calendar</p><h2>營運日曆</h2><p>整合休假日、活動日期與用戶預約；休假／活動仍在此管理，預約資料由預約模組同步顯示。</p></div><div class="heading-actions"><button id="newCalendarItemButton" class="button button-dark" type="button">＋ 新增休假或活動</button></div></div>
+        <div class="card-workspace calendar-workspace"><aside class="card-list" aria-label="日曆項目列表"><section class="admin-calendar" aria-labelledby="adminCalendarMonthTitle"><div class="admin-calendar-toolbar"><button id="adminCalendarPreviousMonthButton" class="admin-calendar-month-button" type="button" aria-label="上一個月">‹</button><div><h3 id="adminCalendarMonthTitle"></h3><p>點選日期即可新增休假日或活動；點選日期內項目可編輯。</p><button id="adminCalendarTodayButton" class="text-button admin-calendar-today-button" type="button">回到本月</button></div><button id="adminCalendarNextMonthButton" class="admin-calendar-month-button" type="button" aria-label="下一個月">›</button></div><div class="admin-calendar-weekdays" aria-hidden="true"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div><div id="adminCalendarGrid" class="admin-calendar-grid" aria-live="polite"></div></section><div class="list-heading"><span>所有日期</span><span id="calendarItemResultCount">0</span></div><div id="calendarItemListItems"></div><div id="calendarItemEmptyState" class="empty-state compact hidden"><span aria-hidden="true">○</span><p>尚未建立休假日或活動日期</p></div></aside><section class="editor"><div class="editor-heading"><div><p class="kicker" id="calendarItemEditorKicker">Create calendar item</p><h3 id="calendarItemEditorTitle">新增日曆項目</h3></div><span id="calendarItemEditorStatus" class="editor-status">草稿</span></div><form id="calendarItemForm" novalidate><input id="calendarItemId" type="hidden"><input id="calendarItemExpectedUpdatedAt" type="hidden"><label>名稱<input id="calendarItemTitle" required maxlength="100" placeholder="例如：中秋節店休"></label><div class="form-grid"><label>類型<select id="calendarItemType"><option value="holiday">休假日</option><option value="event">活動</option></select></label><label>公開狀態<select id="calendarItemStatus"><option value="active">啟用中</option><option value="draft">草稿</option><option value="archived">已封存</option></select></label></div><label>說明（選填）<textarea id="calendarItemDescription" maxlength="500" rows="4" placeholder="例如：當日暫停營業，祝大家佳節愉快。"></textarea></label><section id="calendarItemEventLinkFields" class="calendar-event-link-fields" aria-labelledby="calendarItemEventLinkTitle"><div><p class="kicker">Event link</p><h4 id="calendarItemEventLinkTitle">活動連結</h4><p>填寫名稱與 HTTPS 網址後，會員可在活動詳情開啟連結。</p></div><div class="form-grid"><label>連結名稱（選填）<input id="calendarItemLinkLabel" maxlength="80" placeholder="例如：查看活動詳情"></label><label>連結網址（選填）<input id="calendarItemLinkUrl" type="url" inputmode="url" maxlength="2048" placeholder="https://example.com/event"></label></div></section><section class="date-range-control" aria-labelledby="calendarItemDateRangeTitle"><div class="date-range-heading"><div><p class="kicker">Date range</p><h4 id="calendarItemDateRangeTitle">日期</h4><p>單日項目只需填寫開始日；跨日活動可再設定結束日。</p></div></div><div class="form-grid"><div class="date-control"><div class="date-control-heading"><label for="calendarItemStartsOn">開始日</label><span>必填</span></div><div class="date-input-shell"><input id="calendarItemStartsOn" type="date" required><button class="date-picker-button" type="button" data-open-date-picker="calendarItemStartsOn" aria-label="開啟開始日選擇器"><span aria-hidden="true">▣</span><span>選擇日期</span></button></div></div><div class="date-control"><div class="date-control-heading"><label for="calendarItemEndsOn">結束日</label><span>選填，留空即為單日</span></div><div class="date-input-shell"><input id="calendarItemEndsOn" type="date"><button class="date-picker-button" type="button" data-open-date-picker="calendarItemEndsOn" aria-label="開啟結束日選擇器"><span aria-hidden="true">▣</span><span>選擇日期</span></button></div></div></div></section><label>識別色<div class="color-field"><input id="calendarItemAccent" type="color" value="#df6b4d"><span id="calendarItemAccentValue">#DF6B4D</span></div></label><div id="calendarItemFormMessage" class="form-message hidden" role="alert"></div><div class="editor-actions"><button id="deleteCalendarItemButton" class="button button-danger" type="button" disabled>刪除目前項目</button><button id="resetCalendarItemButton" class="button button-outline" type="button">清除</button><button id="saveCalendarItemButton" class="button button-dark" type="submit">儲存日曆項目</button></div></form></section></div>
+        <section class="calendar-batch-editor" aria-labelledby="calendarBatchTitle"><div class="section-heading"><div><p class="kicker">Batch calendar changes</p><h3 id="calendarBatchTitle">批次新增、修改、刪除</h3><p>可新增多列，或勾選左側既有項目後加入修改／刪除；每次最多 20 筆，送出前會先檢查全部資料。</p></div><div class="heading-actions"><button id="addCalendarBatchItemButton" class="button button-outline" type="button">＋ 新增一列</button><button id="queueSelectedCalendarItemsButton" class="button button-outline" type="button">加入批次修改</button><button id="deleteSelectedCalendarItemsButton" class="button button-danger" type="button" disabled>批次刪除選取</button></div></div><p id="calendarBatchSummary" class="editor-hint" aria-live="polite">尚未加入批次項目。</p><div id="calendarBatchRows" class="calendar-batch-rows"></div><div id="calendarBatchMessage" class="form-message hidden" role="alert"></div><div class="editor-actions"><button id="clearCalendarBatchButton" class="button button-outline" type="button" disabled>清除批次</button><button id="saveCalendarBatchButton" class="button button-dark" type="button" disabled>儲存批次項目</button></div></section>
+      </section>
+      <section id="testModePanel" class="panel hidden test-mode-panel" role="tabpanel" aria-labelledby="testModeTab">
+        <div class="panel-heading test-mode-panel-heading">
+          <div>
+            <p class="kicker">Testing environment</p>
+            <h2>測試中心</h2>
+            <p>依功能切換環境與測試帳號、自動化測試及歷史紀錄；底層測試流程與資料來源維持不變。</p>
+          </div>
+          <div class="test-mode-status-group" aria-label="測試環境目前狀態">
+            <span id="systemMaintenanceBadge" class="test-mode-status-badge is-loading">系統維護：讀取中</span>
+            <span id="testModePcLoginBadge" class="test-mode-status-badge is-loading">PC 測試登入：讀取中</span>
+            <span id="testModeMobileLoginBadge" class="test-mode-status-badge is-loading">行動裝置測試登入：讀取中</span>
+          </div>
+        </div>
+
+        <div class="test-mode-panel-grid">
+          <section class="test-mode-settings-card" aria-labelledby="testModeSettingsTitle">
+            <div class="test-mode-card-heading">
+              <div>
+                <span class="test-mode-eyebrow">Environment controls</span>
+                <h3 id="testModeSettingsTitle">環境設定</h3>
+                <p>調整後需按下儲存才會套用；正式用戶端的存取判斷由後端維護閘門執行。</p>
+              </div>
+            </div>
+
+            <form id="testModeForm" novalidate>
+              <section class="test-mode-form-section" aria-labelledby="testModeControlTitle">
+                <div class="test-mode-section-heading">
+                  <div><strong id="testModeControlTitle">系統狀態</strong><small>系統維護是用戶端主開關；PC 與行動裝置登入權限只在系統維護開啟時生效。管理端不受影響。</small></div>
+                </div>
+                <div class="test-mode-toggle-list">
+                  <label class="test-mode-toggle">
+                    <span class="test-mode-toggle-copy"><strong>系統維護</strong><small>開啟後，用戶端進入維護狀態；若該裝置的登入開關同時開啟，則會顯示測試帳號入口。</small></span>
+                    <span class="test-mode-toggle-control"><input id="systemMaintenanceEnabled" type="checkbox"><span class="test-mode-switch" aria-hidden="true"></span></span>
+                  </label>
+                  <label class="test-mode-toggle">
+                    <span class="test-mode-toggle-copy"><strong>PC 可登入</strong><small>系統維護開啟且此開關啟用時，PC 可直接選擇測試帳號登入。</small></span>
+                    <span class="test-mode-toggle-control"><input id="testModePcLoginEnabled" type="checkbox"><span class="test-mode-switch" aria-hidden="true"></span></span>
+                  </label>
+                  <label class="test-mode-toggle">
+                    <span class="test-mode-toggle-copy"><strong>行動裝置可登入</strong><small>系統維護開啟且此開關啟用時，手機與平板可直接選擇測試帳號登入。</small></span>
+                    <span class="test-mode-toggle-control"><input id="testModeMobileLoginEnabled" type="checkbox"><span class="test-mode-switch" aria-hidden="true"></span></span>
+                  </label>
+                  <label class="test-mode-toggle">
+                    <span class="test-mode-toggle-copy"><strong>允許測試帳號接管登入（測試強制登出）</strong><small>開啟後，可在其他視窗／裝置再次登入同一測試帳號；新登入成功會撤銷舊 Session 並顯示強制登出通知，不會允許兩個連線同時有效。關閉時，已登入的用戶端將阻擋第二次登入；正式會員不受影響。</small></span>
+                    <span class="test-mode-toggle-control"><input id="testModeDuplicateLoginEnabled" type="checkbox"><span class="test-mode-switch" aria-hidden="true"></span></span>
+                  </label>
+                </div>
+              </section>
+
+              <section class="test-mode-form-section" aria-labelledby="testModeMaintenanceTitle">
+                <div class="test-mode-section-heading">
+                  <div><strong id="testModeMaintenanceTitle">維護畫面訊息</strong><small>系統維護期間，未被允許進入測試帳號的裝置會顯示這段內容；允許登入的裝置則顯示測試帳號選擇畫面。</small></div>
+                  <span class="test-mode-field-meta">最多 500 字</span>
+                </div>
+                <textarea id="testModeMaintenanceMessage" maxlength="500" rows="5" aria-label="系統維護訊息" placeholder="例如：系統維護中，服務調整完成後將重新開放。"></textarea>
+              </section>
+
+              <section class="test-mode-form-section test-mode-account-create-section" aria-labelledby="testModeCreateAccountsTitle">
+                <div class="test-mode-section-heading">
+                  <div><strong id="testModeCreateAccountsTitle">新增虛擬測試帳號</strong><small>只會建立測試會員，不會加入正式會員名冊或會員統計。</small></div>
+                </div>
+                <div class="test-mode-account-create-row">
+                  <label class="test-mode-count-field">本次新增數量
+                    <input id="testModeAddAccountCount" type="number" min="0" max="50" step="1" value="0" inputmode="numeric">
+                  </label>
+                  <div class="test-mode-quick-counts" aria-label="快速設定新增測試帳號數量">
+                    <button class="test-mode-count-chip" type="button" data-test-account-count="1">＋1</button>
+                    <button class="test-mode-count-chip" type="button" data-test-account-count="5">＋5</button>
+                    <button class="test-mode-count-chip" type="button" data-test-account-count="10">＋10</button>
+                  </div>
+                </div>
+                <small class="test-mode-account-create-hint">每次最多新增 50 個；儲存設定時會一併建立。</small>
+              </section>
+
+              <div class="test-mode-safety-note" role="note">
+                <span class="test-mode-safety-icon" aria-hidden="true">i</span>
+                <p><strong>測試資料與正式會員隔離</strong><span>關閉系統維護後，所有測試 session 會失效；關閉某類裝置登入後，該類既有測試 session 會立即失效。</span></p>
+              </div>
+
+              <div id="testModeFormMessage" class="form-message hidden" role="status" aria-live="polite"></div>
+              <div class="test-mode-actions">
+                <p>儲存後立即套用目前環境設定。</p>
+                <button id="saveTestModeButton" class="button button-dark" type="submit">儲存環境設定</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="test-mode-accounts-card" aria-labelledby="testModeAccountsTitle">
+            <div class="test-mode-account-heading">
+              <div>
+                <span class="test-mode-eyebrow">Test members</span>
+                <h3 id="testModeAccountsTitle">測試帳號</h3>
+                <p>系統維護啟用後，只有對應登入開關已啟用的裝置可直接選擇這裡建立的虛擬會員。</p>
+              </div>
+              <span id="testModeAccountCount" class="test-mode-account-count">0 個</span>
+            </div>
+            <div class="test-mode-account-list-shell">
+              <div class="test-mode-account-selection-toolbar">
+                <label class="test-mode-select-all"><input id="testModeSelectAllAccounts" type="checkbox"> 全選</label>
+                <span id="testModeSelectedCount" class="test-mode-selected-count">已選 0 個</span>
+                <button id="deleteSelectedTestAccountsButton" class="button button-danger" type="button" disabled>批次移除選取</button>
+              </div>
+              <div id="testModeAccountActionMessage" class="form-message hidden" role="status" aria-live="polite"></div>
+              <div id="testModeAccountList" class="test-mode-account-list"></div>
+              <div id="testModeAccountEmpty" class="empty-state compact test-mode-account-empty">
+                <span class="test-mode-empty-mark" aria-hidden="true">○</span>
+                <strong>尚未建立測試帳號</strong>
+                <small>設定左側新增數量並儲存後，帳號會顯示在這裡。</small>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section class="test-control-center" aria-labelledby="automationTestTitle">
+          <div class="test-control-heading">
+            <div>
+              <span class="test-mode-eyebrow">Unified E2E Results</span>
+              <h3 id="automationTestTitle">Test Control Center</h3>
+              <p>後端完整 QA 已整合進下方「完整 E2E」單一入口。此區專門顯示環境、測試會員、Session、集點、票券、預約、Presence 與 LINE 通知邊界的執行紀錄、Expected 與 Actual 數據。</p>
+            </div>
+            <div class="test-control-heading-actions">
+              <span id="automationTestRunnerBadge" class="test-mode-status-badge is-off">Runner：待命</span>
+              <label class="test-control-keep-history" for="keepTestHistoryOnPurge">
+                <input id="keepTestHistoryOnPurge" type="checkbox" checked>
+                保留 E2E 測試紀錄與失敗快照
+              </label>
+              <button id="purgeTestDataButton" class="button button-danger" type="button">移除測試資料</button>
+            </div>
+          </div>
+
+          <div class="test-mode-safety-note test-control-retention-note" role="note">
+            <span class="test-mode-safety-icon" aria-hidden="true">i</span>
+            <p><strong>測試資料與測試紀錄分開管理</strong><span>測試結束後，業務測試資料預設保留供檢查。使用「移除測試資料」時，可勾選保留 E2E 執行歷史、案例、步驟與失敗快照；無論是否勾選，測試帳號及環境設定都不會刪除。相關測試會員操作紀錄仍隨業務資料清理。</span></p>
+          </div>
+          <div id="automationTestMessage" class="form-message hidden" role="status" aria-live="polite"></div>
+
+          <div class="test-control-layout">
+            <section class="test-control-run-card" aria-labelledby="automationCurrentRunTitle">
+              <div class="test-control-run-head">
+                <div>
+                  <strong id="automationCurrentRunTitle">目前測試</strong>
+                  <small id="automationTestRunCode">尚未執行</small>
+                </div>
+                <span id="automationTestRunStatus" class="test-control-run-status is-queued">等待執行</span>
+              </div>
+
+              <div class="test-control-summary">
+                <div class="test-control-meta-row">
+                  <span class="test-control-meta-chip">環境：MemberWebsocket-dev</span>
+                  <span id="automationTestRunSuite" class="test-control-meta-chip">—</span>
+                </div>
+                <div class="test-control-progress-shell">
+                  <div id="automationTestProgress" class="test-control-progress" role="progressbar" aria-label="自動化測試進度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0%">
+                    <span id="automationTestProgressBar" class="test-control-progress-bar"></span>
+                  </div>
+                  <span id="automationTestProgressText" class="test-control-progress-text">0% · 0 / 0</span>
+                </div>
+                <div class="test-control-stat-grid" aria-label="自動化測試統計">
+                  <div class="test-control-stat"><span>Passed</span><strong id="automationTestPassedCount">0</strong></div>
+                  <div class="test-control-stat"><span>Failed</span><strong id="automationTestFailedCount">0</strong></div>
+                  <div class="test-control-stat"><span>Total</span><strong id="automationTestTotalCount">0</strong></div>
+                </div>
+              </div>
+
+              <div id="automationTestCaseList" class="test-control-case-list"></div>
+              <div id="automationTestCaseEmpty" class="test-control-empty">尚未建立測試案例。啟動下方「完整 E2E」後，後端 QA 執行過程與結果會顯示在這裡。</div>
+            </section>
+
+            <aside class="test-control-history-card" aria-labelledby="automationHistoryTitle">
+              <h4 id="automationHistoryTitle">歷史測試</h4>
+              <p>保留最近 12 次測試結果；新的失敗完整 E2E 會保存 Replay Manifest，可直接「重播失敗流程」並比對是否重現。</p>
+              <div id="automationTestHistoryList" class="test-control-history-list"></div>
+              <div id="automationTestHistoryEmpty" class="test-control-empty">目前尚無測試紀錄。</div>
+            </aside>
+          </div>
+        </section>
+      </section>
+</main>
+  </div>
+
+  <div id="memberModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="memberModalTitle"><div class="modal-card"><div class="modal-heading"><div><p class="kicker">Member profile</p><h2 id="memberModalTitle">會員資料</h2></div><button id="closeMemberModal" class="close-button" type="button" aria-label="關閉">×</button></div><form id="memberForm"><input id="memberLineUserId" type="hidden"><input id="memberExpectedUpdatedAt" type="hidden"><input id="memberIsTestAccount" type="hidden"><p id="memberIdentity" class="identity-line"></p><p class="auto-tier-note"><span>目前等級</span><strong id="memberTier">一般會員</strong><small>依累積消費服務時間自動計算</small></p><div id="memberTestProfileFields" class="member-test-profile-fields hidden"><p class="member-test-profile-note">測試用戶使用虛擬個人資料，可由管理員修改；會員編號與測試身分不可手動變更。</p><label>顯示名稱<input id="memberDisplayName" type="text" maxlength="80" autocomplete="off"></label><div class="form-grid"><label>姓氏<input id="memberSurname" type="text" maxlength="40" autocomplete="family-name"></label><label>稱謂<select id="memberSalutation"><option value="mr">先生</option><option value="ms">小姐</option></select></label></div><div class="form-grid"><label>生日<input id="memberBirthday" type="date"></label><label>電話<input id="memberPhone" type="tel" maxlength="30" autocomplete="tel"></label></div></div><label>會員狀態<select id="memberStatus"><option value="active">啟用中</option><option value="disabled">已停用</option></select></label><div id="memberFormMessage" class="form-message hidden" role="alert"></div><div class="modal-actions"><button id="cancelMemberButton" class="button button-outline" type="button">取消</button><button id="saveMemberButton" class="button button-dark" type="submit">儲存會員資料</button></div></form></div></div>
+  <div id="memberRecordsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="memberRecordsModalTitle">
+    <div class="modal-card member-records-modal-card" data-member-360-surface>
+      <div class="modal-heading member-records-modal-heading">
+        <div><p class="kicker">Member 360</p><h2 id="memberRecordsModalTitle">會員 360</h2><p class="member-records-modal-subtitle">集中查看會員狀態、權益與跨模組活動紀錄。</p></div>
+        <button id="closeMemberRecordsModal" class="close-button" type="button" aria-label="關閉">×</button>
+      </div>
+      <p id="memberRecordsIdentity" class="identity-line member-records-identity"></p>
+      <section id="memberRecordsOverview" class="member-records-overview" aria-label="會員整合概況"></section>
+      <div id="memberRecordsModalMessage" class="form-message hidden" role="alert"></div>
+      <button id="memberRecordsOpenUsage" class="button button-outline" type="button">查看使用紀錄 →</button>
+    </div>
+  </div>
+  <div id="grantModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="grantModalTitle"><div class="modal-card"><div class="modal-heading"><div><p class="kicker">Member grant</p><h2 id="grantModalTitle">發放集點與服務時間</h2></div><button id="closeGrantModal" class="close-button" type="button" aria-label="關閉">×</button></div><form id="grantForm"><input id="grantMemberId" type="hidden"><p id="grantMemberName" class="identity-line"></p><label class="grant-mode-select">登記方式<select id="grantMode"><option value="manual">手動發放</option><option value="services">依服務項目登記</option></select></label><section id="grantServiceFields" class="grant-service-fields" hidden><p id="grantServiceStatus" role="status" aria-live="polite"></p><div id="grantServiceList" class="grant-service-list"></div><button id="previewServiceGrantButton" type="button" class="button button-outline">預覽發放明細</button><div id="grantServicePreview" class="grant-service-preview" role="status" aria-live="polite">請選擇服務項目並預覽。</div></section><fieldset class="grant-option"><legend><label class="grant-toggle"><input id="grantStampsEnabled" type="checkbox" checked>發放集點</label></legend><div id="grantStampsFields" class="grant-option-fields"><label>集點卡<select id="grantCardId"></select></label><label>增加點數<input id="grantStampAmount" type="number" min="1" max="100" step="1" value="1"></label></div></fieldset><fieldset class="grant-option"><legend><label class="grant-toggle"><input id="grantServiceTimeEnabled" type="checkbox">發放消費服務時間</label></legend><div id="grantServiceTimeFields" class="grant-option-fields"><label>增加服務時間（分鐘）<input id="grantServiceTimeMinutes" type="number" min="1" max="1440" step="1" value="30"></label></div></fieldset><div id="grantMessageSection" class="grant-message-selector"><label>預設訊息<select id="grantMessagePreset"><option value="">不附加預設訊息</option></select></label><p id="grantMessagePreview" class="grant-message-preview is-empty">未選擇預設訊息，LINE 通知只會顯示會員名稱與本次發放明細。</p></div><p id="grantTestNotificationNote" class="grant-test-notification-note hidden">測試用戶僅建立測試資料，不會傳送 LINE 訊息。</p><div id="grantFormMessage" class="form-message hidden" role="alert"></div><div class="modal-actions"><button id="cancelGrantButton" class="button button-outline" type="button">取消</button><button id="saveGrantButton" class="button button-dark" type="submit">確認發放</button></div></form></div></div>
+  <div id="messagePresetModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="messagePresetModalTitle"><div class="modal-card"><div class="modal-heading"><div><p class="kicker">Grant messages</p><h2 id="messagePresetModalTitle">預設訊息管理</h2></div><button id="closeMessagePresetModal" class="close-button" type="button" aria-label="關閉">×</button></div><form id="messagePresetForm"><label>已建立訊息<select id="messagePresetList" class="message-preset-list" size="5" aria-label="已建立的預設訊息"></select></label><input id="messagePresetId" type="hidden"><input id="messagePresetExpectedUpdatedAt" type="hidden"><label>訊息名稱<input id="messagePresetTitle" type="text" maxlength="80" placeholder="例如：消費回饋"></label><label>訊息內容<textarea id="messagePresetBody" maxlength="1000" rows="5" placeholder="例如：感謝您本次消費，會員權益已更新。"></textarea></label><label>狀態<select id="messagePresetStatus"><option value="active">啟用中</option><option value="archived">停用</option></select></label><div id="messagePresetFormMessage" class="form-message hidden" role="alert"></div><div class="modal-actions"><button id="newMessagePresetButton" class="button button-outline" type="button">＋ 新增訊息</button><button id="saveMessagePresetButton" class="button button-dark" type="submit">儲存預設訊息</button></div></form></div></div>
+  <div id="grantSuccessNotice" class="operation-notice hidden" role="status" aria-live="polite" aria-atomic="true"></div>
+</body>
+</html>

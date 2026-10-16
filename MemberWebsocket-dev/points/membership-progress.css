@@ -1,0 +1,29 @@
+.membership-progress { --membership-card-background: #17352e; --membership-card-accent: #df6b4d; --membership-card-soft: #f3c9ab; position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 13px 24px; margin: 18px 0; padding: 22px; overflow: hidden; color: #fdf7ed; border: 1px solid rgba(253, 247, 237, .28); border-radius: 20px; background: var(--membership-card-background); box-shadow: 0 16px 36px rgba(23, 53, 46, .16); }
+.membership-progress::before { content: ""; position: absolute; width: 210px; height: 210px; right: -88px; top: -126px; border: 1px solid rgba(253, 247, 237, .18); border-radius: 50%; box-shadow: 0 0 0 28px rgba(253, 247, 237, .035); }
+.membership-progress > * { position: relative; z-index: 1; }
+.membership-progress-kicker { margin: 0; color: var(--membership-card-soft); font-size: 10px; font-weight: 900; letter-spacing: .15em; text-transform: uppercase; }
+.membership-progress h2 { margin: 6px 0 8px; color: inherit; font-size: clamp(23px, 4vw, 30px); letter-spacing: -.07em; line-height: 1.05; }
+.membership-progress-current { margin: 0; color: var(--membership-card-soft); font-size: 15px; font-weight: 900; line-height: 1.45; }
+.membership-progress-summary { align-self: end; margin: 0; color: rgba(253, 247, 237, .74); font-size: 12px; font-weight: 800; line-height: 1.6; text-align: right; }
+.membership-progress-remaining { grid-column: 1 / -1; margin: -2px 0 -5px; color: var(--membership-card-soft); font-size: 15px; font-weight: 900; line-height: 1.45; }
+.membership-progress-track { grid-column: 1 / -1; height: 11px; overflow: hidden; border-radius: 999px; background: rgba(253, 247, 237, .2); }
+.membership-progress-track span { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--membership-card-accent), var(--membership-card-soft)); transition: width .45s ease; }
+@media (max-width: 620px) { .membership-progress { grid-template-columns: 1fr; gap: 11px; padding: 19px; }.membership-progress-summary { text-align: left; }.membership-progress-remaining { margin-top: -2px; } }
+
+/* Membership copy is server-derived and can grow with tier labels or localized content. */
+.membership-progress > *, .membership-progress > div { min-width: 0; max-width: 100%; }
+.membership-progress-kicker, .membership-progress h2, .membership-progress-current, .membership-progress-summary, .membership-progress-remaining { overflow-wrap: anywhere; }
+.membership-progress h2 { line-height: 1.12; }
+@media (max-width: 420px) { .membership-progress { padding: 17px; border-radius: 17px; }.membership-progress-kicker { letter-spacing: .1em; }.membership-progress-summary, .membership-progress-remaining { font-size: 13px; } }
+
+/* Match the server-derived membership-card palette for every member LIFF. */
+.membership-progress[data-membership-tier-style="forest"] { --membership-card-background: #17352e; --membership-card-accent: #df6b4d; --membership-card-soft: #f3c9ab; }
+.membership-progress[data-membership-tier-style="midnight"] { --membership-card-background: #1a2340; --membership-card-accent: #78a8f7; --membership-card-soft: #dae6ff; }
+.membership-progress[data-membership-tier-style="ocean"] { --membership-card-background: #0d3b4c; --membership-card-accent: #3dc4c5; --membership-card-soft: #c9f0ea; }
+.membership-progress[data-membership-tier-style="sunset"] { --membership-card-background: #54261f; --membership-card-accent: #ee896d; --membership-card-soft: #ffd3b9; }
+.membership-progress[data-membership-tier-style="lavender"] { --membership-card-background: #33264d; --membership-card-accent: #b999e8; --membership-card-soft: #eadbff; }
+.membership-progress[data-membership-tier-style="rose"] { --membership-card-background: #501d32; --membership-card-accent: #e891ab; --membership-card-soft: #ffd8e3; }
+.membership-progress[data-membership-tier-style="gold"] { --membership-card-background: #45320e; --membership-card-accent: #e6b84f; --membership-card-soft: #ffe7a7; }
+.membership-progress[data-membership-tier-style="platinum"] { --membership-card-background: #38414e; --membership-card-accent: #b8cadc; --membership-card-soft: #e9eff5; }
+.membership-progress[data-membership-tier-style="mint"] { --membership-card-background: #1e4039; --membership-card-accent: #6bd0a0; --membership-card-soft: #d1f4de; }
+.membership-progress[data-membership-tier-style="cherry"] { --membership-card-background: #4a1721; --membership-card-accent: #ec6973; --membership-card-soft: #ffd0d4; }

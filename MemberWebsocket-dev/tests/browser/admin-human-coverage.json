@@ -1,0 +1,589 @@
+{
+  "version": 1,
+  "scope": "Seven admin workspaces, including operation audit; test-control workspace excluded",
+  "evidence": "isolated Chromium UI with production handlers and explicit in-memory transport; not live Supabase/LINE delivery",
+  "reviewedSources": {
+    "admin/index.html": "9cb16a27865343d2dbf30c42dca0ee31c52757c466ffa1092ff358f808c12e5b",
+    "admin/app.js": "49cd661affa2bb77cd195af989cfa1ad7b6726ae6ac3819a9e5314256d716738",
+    "admin/member-workspace-tabs.js": "e8235f6c84af59c708090d5dd15dcf52d2929a00f7988453d664028f242f8fe2",
+    "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
+    "admin/grant-automation.js": "f3178a0bb26745d6cd7731b24ab8ab9aaec96a4dada62699a3609ae8b803e2b0",
+    "admin/coupon-location-editor.js": "06ac571bbdb347b0b2279682d2ea1360444293d5597e017370e9d87e4444b096",
+    "admin/fixed-ticket-admin.js": "c105feacd0c32d91ba6483fa045963da959339b14a545d574d8de5595180bfb5",
+    "admin/fixed-ticket-admin-integration.js": "af65455cf96f6770fdbb0a72558d970b5a4377b0d42557ef55b2f5e70c43c190",
+    "admin/fixed-ticket-calendar-option.js": "947e5d1d56a8fb0054d8880b31f053c940505e116a566e13c2c931593870265c",
+    "admin/pointcard-redemption-limit.js": "fbba580c9babdac950b2f619c3f3b949fe89ae0c1365e2555f758d1a8818035c",
+    "admin/event-ticket-redemption-limit.js": "263a564d64845c5abb4ed5167305b0bffefb064130a0268ab533b481d320b688",
+    "admin/integration-hub.js": "696f38801b5e8755e706c3e0153aa023a1d47f01a3f68456dd8e5a7fec868b33",
+    "admin/booking-panel.js": "4d26d1ac7faa061328a380020f55acc0106c5b4af581aab79c443e9990b42ef5",
+    "admin/booking-panel-core.js": "c152d73db4ae28077eb0ae087c49966e60a699aeb237967f8f1d76fdf4bc561c",
+    "admin/booking-resources.js": "421534c24977f3e9756a150990dd7accb109fc7074a4986840ad22282ecb8542",
+    "admin/booking-always-open.js": "9cb236902a7f3f36cf3fe4c3f13fbbac622f000c72d36ec34f7d4dde08e6e54a",
+    "admin/booking-cancellation-sync.js": "a8367bb6565d054af976ec1ffdf950874a4e8f14a3917d2e036bc1744016db19",
+    "admin/booking-receipt-admin.js": "b5873c2753c0f2f9c267d0d13583405c2205cc70c0f2103f5899f741a74cf920",
+    "admin/booking-accessible-admin.js": "5947f0328b3b27ff891760f72615024899a96b77467f7601842056f908ce5526",
+    "admin/ticket-visibility.js": "bb1cf776a3bf1c69f75bbfa6a4b3e07cf9c9077444099533cb9c2883736dd5c0",
+    "admin/operation-audit.js": "2ecd1161e533d56b17a6f89d1907bef384e96a932f81027d6e6178bdcce5a96e"
+  },
+  "features": [
+    {
+      "id": "member.01",
+      "module": "member",
+      "name": "會員名冊、搜尋、空結果與雙向分頁；上／下線競態由 admin_presence_race.test.js 驗證",
+      "cases": [
+        "MEMBER_DIRECTORY"
+      ]
+    },
+    {
+      "id": "member.02",
+      "module": "member",
+      "name": "會員 360 狀態編輯、停用與恢復",
+      "cases": [
+        "MEMBER_PROFILE_STATUS",
+        "RUNNER_ADMIN_TEST_MEMBER_PROFILE_EDIT"
+      ]
+    },
+    {
+      "id": "member.03",
+      "module": "member",
+      "name": "會員 360 概況與管理入口；「使用紀錄」工作區的會員篩選、歷程分類與操作",
+      "cases": [
+        "MEMBER_360",
+        "RUNNER_ADMIN_MEMBER_MODALS",
+        "RUNNER_MEMBER_MODAL_FAILURE"
+      ]
+    },
+    {
+      "id": "member.04",
+      "module": "member",
+      "name": "指定會員強制下線",
+      "cases": [
+        "MEMBER_FORCE_LOGOUT"
+      ]
+    },
+    {
+      "id": "member.05",
+      "module": "member",
+      "name": "等級門檻儲存重載與四級全部卡面",
+      "cases": [
+        "MEMBER_TIERS",
+        "RUNNER_ADMIN_TIER_EDITOR_JOURNEY"
+      ]
+    },
+    {
+      "id": "member.06",
+      "module": "member",
+      "name": "條款版本、唯讀、草稿、重新同意、啟用",
+      "cases": [
+        "MEMBER_TERMS",
+        "RUNNER_ADMIN_TERMS_EDITOR_JOURNEY"
+      ]
+    },
+    {
+      "id": "member.07",
+      "module": "member",
+      "name": "預設訊息新增、修改與封存",
+      "cases": [
+        "MEMBER_PRESET",
+        "MEMBER_MESSAGE_SELECTION"
+      ]
+    },
+    {
+      "id": "member.08",
+      "module": "member",
+      "name": "會員 360 發放：多卡集點、服務時數與三種通知模式",
+      "cases": [
+        "MEMBER_GRANT_immediate",
+        "MEMBER_GRANT_scheduled",
+        "MEMBER_GRANT_none",
+        "RUNNER_ADMIN_GRANT_NOTIFICATION_CONTROLS"
+      ]
+    },
+    {
+      "id": "points.09",
+      "module": "points",
+      "name": "集點卡完整編輯、到期、節點增刪、封存與刪除",
+      "cases": [
+        "POINT_CARD",
+        "RUNNER_ADMIN_CARD_EDITOR_OPTIONS"
+      ]
+    },
+    {
+      "id": "points.10",
+      "module": "points",
+      "name": "排序上移下移、還原、儲存與重載",
+      "cases": [
+        "POINT_SORT",
+        "POINT_DRAG",
+        "RUNNER_ADMIN_CARD_SORT_JOURNEY"
+      ]
+    },
+    {
+      "id": "points.11",
+      "module": "points",
+      "name": "使用張數 0、2、50 儲存重載",
+      "cases": [
+        "LIMIT_points_0",
+        "LIMIT_points_2",
+        "LIMIT_points_50"
+      ]
+    },
+    {
+      "id": "points.12",
+      "module": "points",
+      "name": "一般與抽獎票券模板生命週期",
+      "cases": [
+        "POINT_TEMPLATE_coupon",
+        "POINT_TEMPLATE_lottery"
+      ]
+    },
+    {
+      "id": "points.16",
+      "module": "points",
+      "name": "集點票券庫刪除與兌換節點引用保護",
+      "cases": [
+        "POINT_TEMPLATE_DELETE"
+      ]
+    },
+    {
+      "id": "points.13",
+      "module": "points",
+      "name": "抽獎獎項增刪、機率拒絕與平均分配",
+      "cases": [
+        "LOTTERY_EDITOR_template"
+      ]
+    },
+    {
+      "id": "points.14",
+      "module": "points",
+      "name": "使用地點搜尋、選取、名稱、範圍、調整與刪除",
+      "cases": [
+        "LOCATION_template"
+      ]
+    },
+    {
+      "id": "points.15",
+      "module": "points",
+      "name": "兌換節點指定服務 any/all",
+      "cases": [
+        "SERVICE_RULE_any",
+        "SERVICE_RULE_all"
+      ]
+    },
+    {
+      "id": "event.16",
+      "module": "event",
+      "name": "一般、推薦、加入會員、抽獎票券 CRUD、對象、日期與配額",
+      "cases": [
+        "EVENT_coupon",
+        "EVENT_referral",
+        "EVENT_membership_join",
+        "EVENT_lottery"
+      ]
+    },
+    {
+      "id": "event.17",
+      "module": "event",
+      "name": "所有類型與五組參加對象快速選取",
+      "cases": [
+        "RUNNER_ADMIN_EVENT_AUDIENCE_JOURNEY"
+      ]
+    },
+    {
+      "id": "event.18",
+      "module": "event",
+      "name": "固定票券生日、每週、每月、每年；四種期限與通知/日曆選項",
+      "cases": [
+        "FIXED_birthday_month",
+        "FIXED_weekly",
+        "FIXED_monthly",
+        "FIXED_yearly",
+        "FIXED_NOTIFICATION_TIME"
+      ]
+    },
+    {
+      "id": "event.19",
+      "module": "event",
+      "name": "四週期專用草稿回讀修改刪除與清理",
+      "cases": [
+        "RUNNER_ADMIN_FIXED_DRAFT_BIRTHDAY_MONTH",
+        "RUNNER_ADMIN_FIXED_DRAFT_WEEKLY",
+        "RUNNER_ADMIN_FIXED_DRAFT_MONTHLY",
+        "RUNNER_ADMIN_FIXED_DRAFT_YEARLY"
+      ]
+    },
+    {
+      "id": "event.20",
+      "module": "event",
+      "name": "每日票券 0、2、50 儲存重載",
+      "cases": [
+        "LIMIT_event_0",
+        "LIMIT_event_2",
+        "LIMIT_event_50"
+      ]
+    },
+    {
+      "id": "event.21",
+      "module": "event",
+      "name": "抽獎獎項增刪、機率拒絕與平均分配",
+      "cases": [
+        "LOTTERY_EDITOR_event"
+      ]
+    },
+    {
+      "id": "event.22",
+      "module": "event",
+      "name": "GPS 地點搜尋、範圍、調整與持久化；瀏覽器無法定位可用單次定位或地圖選點",
+      "cases": [
+        "LOCATION_event"
+      ]
+    },
+    {
+      "id": "event.23",
+      "module": "event",
+      "name": "指定服務 any/all 條件儲存",
+      "cases": [
+        "SERVICE_RULE_any",
+        "SERVICE_RULE_all"
+      ]
+    },
+    {
+      "id": "calendar.24",
+      "module": "calendar",
+      "name": "前後月、今天、日期帶入與編輯器",
+      "cases": [
+        "CALENDAR_NAV",
+        "RUNNER_ADMIN_CALENDAR_NAVIGATION"
+      ]
+    },
+    {
+      "id": "calendar.25",
+      "module": "calendar",
+      "name": "休假與活動 CRUD、對象、日期區間與連結",
+      "cases": [
+        "CALENDAR_holiday",
+        "CALENDAR_event",
+        "RUNNER_ADMIN_CALENDAR_CRUD"
+      ]
+    },
+    {
+      "id": "calendar.26",
+      "module": "calendar",
+      "name": "批次日期選取、新增、修改、刪除、空值拒絕與清除",
+      "cases": [
+        "CALENDAR_BATCH",
+        "RUNNER_ADMIN_CALENDAR_BATCH_CONTROLS"
+      ]
+    },
+    {
+      "id": "integration.27",
+      "module": "integration",
+      "name": "四個檢視、通知狀態、稽核類型、搜尋與重新整理",
+      "cases": [
+        "INTEGRATION"
+      ]
+    },
+    {
+      "id": "integration.28",
+      "module": "integration",
+      "name": "發放、服務、活動、預約、日曆、固定與生日票券導覽",
+      "cases": [
+        "INTEGRATION_NAV_member-grant",
+        "INTEGRATION_NAV_booking-services",
+        "INTEGRATION_NAV_events",
+        "INTEGRATION_NAV_booking-queue",
+        "INTEGRATION_NAV_calendar-batch",
+        "INTEGRATION_NAV_fixed-new",
+        "INTEGRATION_NAV_birthday-fixed-new"
+      ]
+    },
+    {
+      "id": "booking.29",
+      "module": "booking",
+      "name": "服務類型 CRUD 與時數集點回饋規則",
+      "cases": [
+        "BOOKING_TYPE"
+      ]
+    },
+    {
+      "id": "booking.30",
+      "module": "booking",
+      "name": "服務 CRUD、時數價格與加購搭配",
+      "cases": [
+        "BOOKING_SERVICE"
+      ]
+    },
+    {
+      "id": "booking.31",
+      "module": "booking",
+      "name": "服務批次新增修改刪除、增減列與取消",
+      "cases": [
+        "BOOKING_SERVICE_BATCH",
+        "RUNNER_ADMIN_BOOKING_BATCH_EDITOR"
+      ]
+    },
+    {
+      "id": "booking.32",
+      "module": "booking",
+      "name": "技師新增修改、停用恢復與主要技師保護",
+      "cases": [
+        "BOOKING_TECHNICIAN"
+      ]
+    },
+    {
+      "id": "booking.33",
+      "module": "booking",
+      "name": "主要技師與預約人數儲存重載",
+      "cases": [
+        "BOOKING_RESOURCE_SETTINGS"
+      ]
+    },
+    {
+      "id": "booking.34",
+      "module": "booking",
+      "name": "跨夜時段、提前日數、票券政策、快照可使用地點／半徑、瀏覽器 GPS 回退、提醒與說明",
+      "cases": [
+        "BOOKING_SHARED_SETTINGS",
+        "TICKET_BOOKING_POLICY_ENTRY"
+      ]
+    },
+    {
+      "id": "booking.35",
+      "module": "booking",
+      "name": "確認、不通過、取消、完成、無故未到分類與結算視窗",
+      "cases": [
+        "BOOKING_STATUS_confirmed",
+        "BOOKING_STATUS_rejected",
+        "BOOKING_STATUS_cancelled",
+        "BOOKING_STATUS_completed"
+      ]
+    },
+    {
+      "id": "booking.36",
+      "module": "booking",
+      "name": "現場改單項目數量、空值拒絕與回讀",
+      "cases": [
+        "BOOKING_ITEMS"
+      ]
+    },
+    {
+      "id": "booking.37",
+      "module": "booking",
+      "name": "會員持有票券增減、額度與未領票券禁止代領",
+      "cases": [
+        "BOOKING_BENEFITS"
+      ]
+    },
+    {
+      "id": "booking.38",
+      "module": "booking",
+      "name": "多人逐位項目與技師調整、重複與主要技師驗證",
+      "cases": [
+        "BOOKING_PARTICIPANTS"
+      ]
+    },
+    {
+      "id": "booking.39",
+      "module": "booking",
+      "name": "取消申請保留/確認取消及審核鎖定",
+      "cases": [
+        "BOOKING_CANCELLATION_approve",
+        "BOOKING_CANCELLATION_reject"
+      ]
+    },
+    {
+      "id": "booking.40",
+      "module": "booking",
+      "name": "安全收據檢視、關閉及 URL 清除",
+      "cases": [
+        "BOOKING_RECEIPT"
+      ]
+    },
+    {
+      "id": "booking.41",
+      "module": "booking",
+      "name": "無障礙審核、票券額度、失敗保留、同收據重送、連續送出與完成歷史",
+      "cases": [
+        "BOOKING_ACCESSIBLE_register",
+        "BOOKING_ACCESSIBLE_dismiss",
+        "BOOKING_ACCESSIBLE_BENEFITS",
+        "BOOKING_ACCESSIBLE_EXISTING",
+        "BOOKING_ACCESSIBLE_FAILURE_BOOKING_CONFLICT",
+        "BOOKING_ACCESSIBLE_FAILURE_ADMIN_REQUIRED",
+        "BOOKING_ACCESSIBLE_FAILURE_API_RESPONSE_UNCERTAIN",
+        "BOOKING_ACCESSIBLE_UNCERTAIN_REPLAY",
+        "BOOKING_ACCESSIBLE_DOUBLE_SUBMIT",
+        "BOOKING_ACCESSIBLE_READ_FAILURE",
+        "BOOKING_RELEASED_TICKET"
+      ]
+    },
+    {
+      "id": "calendar.42",
+      "module": "calendar",
+      "name": "活動加贈集點儲存、回讀與休假停用",
+      "cases": [
+        "CALENDAR_BONUS",
+        "RUNNER_ADMIN_CALENDAR_EVENT_CRUD"
+      ]
+    },
+    {
+      "id": "event.43",
+      "module": "event",
+      "name": "活動同步日曆、唯讀資訊、連結移除與日期必填",
+      "cases": [
+        "EVENT_CALENDAR_SYNC",
+        "RUNNER_ADMIN_EVENT_CALENDAR_SYNC"
+      ]
+    },
+    {
+      "id": "booking.44",
+      "module": "booking",
+      "name": "複製完整預約資訊",
+      "cases": [
+        "BOOKING_COPY"
+      ]
+    },
+    {
+      "id": "shared.45",
+      "module": "shared",
+      "name": "儲存衝突、結果不確定與權限拒絕的錯誤呈現",
+      "cases": [
+        "WRITE_FAILURE_CONFLICT",
+        "WRITE_FAILURE_API_RESPONSE_UNCERTAIN",
+        "WRITE_FAILURE_ADMIN_FORBIDDEN"
+      ]
+    },
+    {
+      "id": "shared.46",
+      "module": "shared",
+      "name": "Runner 寫入拒絕不誤判成功、僅清理本輪草稿",
+      "cases": [
+        "RUNNER_REJECTED_ADMIN_CALENDAR_CRUD",
+        "RUNNER_REJECTED_ADMIN_FIXED_DRAFT_WEEKLY"
+      ]
+    },
+    {
+      "id": "shared.47",
+      "module": "shared",
+      "name": "必填、活動日期反向與不安全連結拒絕",
+      "cases": [
+        "INVALID_EDITORS"
+      ]
+    },
+    {
+      "id": "points.copy",
+      "module": "points",
+      "name": "設定草稿複製、預覽與來源隔離",
+      "cases": [
+        "SETTINGS_COPY_card",
+        "SETTINGS_COPY_ticket"
+      ]
+    },
+    {
+      "id": "event.copy",
+      "module": "event",
+      "name": "活動與固定票券草稿複製",
+      "cases": [
+        "SETTINGS_COPY_event",
+        "SETTINGS_COPY_fixed"
+      ]
+    },
+    {
+      "id": "event.visibility",
+      "module": "event",
+      "name": "會員階級可見性策略儲存與重新載入",
+      "cases": [
+        "TICKET_VISIBILITY"
+      ]
+    },
+    {
+      "id": "member.remove",
+      "module": "member",
+      "name": "會員完整移除：取消、識別確認、清理與名冊刷新",
+      "cases": [
+        "MEMBER_REMOVE"
+      ]
+    },
+    {
+      "id": "member.service-grant",
+      "module": "member",
+      "name": "依服務項目發放、預覽失效、雙擊、回應遺失重送與載入失敗",
+      "cases": [
+        "RUNNER_ADMIN_SERVICE_GRANT_JOURNEY",
+        "MEMBER_SERVICE_GRANT",
+        "MEMBER_SERVICE_GRANT_STALE",
+        "MEMBER_SERVICE_GRANT_RETRY",
+        "MEMBER_SERVICE_GRANT_CATALOG_FAILURE"
+      ]
+    },
+    {
+      "id": "tickets.copy-controls",
+      "module": "points",
+      "name": "正式 runner 三類未儲存設定複製拒絕",
+      "cases": [
+        "RUNNER_ADMIN_SETTINGS_COPY_CONTROLS"
+      ]
+    },
+    {
+      "id": "booking.46",
+      "module": "booking",
+      "name": "已完成訂單差額預覽與可稽核補正",
+      "cases": [
+        "BOOKING_COMPLETED_CORRECTION"
+      ]
+    },
+    {
+      "id": "booking.47",
+      "module": "booking",
+      "name": "取消申請複製與跨年隔日時間顯示",
+      "cases": [
+        "BOOKING_CANCELLATION_COPY_390",
+        "BOOKING_CANCELLATION_COPY_1280"
+      ]
+    },
+    {
+      "id": "operation-audit-query",
+      "module": "integration",
+      "name": "操作稽核篩選、分頁、詳情與權限",
+      "cases": [
+        "AUDIT_QUERY"
+      ]
+    },
+    {
+      "id": "booking.no-show",
+      "module": "booking",
+      "name": "待確認與已確認一般預約人工標記無故未到、二次確認、列表與數量同步",
+      "cases": [
+        "BOOKING_NO_SHOW_390",
+        "BOOKING_NO_SHOW_1280",
+        "BOOKING_CONFIRMED_NO_SHOW_390",
+        "BOOKING_CONFIRMED_NO_SHOW_1280"
+      ]
+    },
+    {
+      "id": "member.usage-runtime",
+      "module": "member",
+      "name": "本輪使用紀錄與名冊節點執行",
+      "cases": [
+        "RUNNER_ADMIN_MEMBER_DIRECTORY_CONTROLS",
+        "RUNNER_ADMIN_MEMBER_USAGE_LOGS"
+      ]
+    },
+    {
+      "id": "integration.audit-runtime",
+      "module": "integration",
+      "name": "本輪操作稽核節點執行",
+      "cases": [
+        "RUNNER_ADMIN_OPERATION_AUDIT"
+      ]
+    },
+    {
+      "id": "booking.no-show-runtime",
+      "module": "booking",
+      "name": "本輪無故未到分類節點執行",
+      "cases": [
+        "RUNNER_ADMIN_BOOKING_NO_SHOW_CONTROLS"
+      ]
+    }
+  ]
+}

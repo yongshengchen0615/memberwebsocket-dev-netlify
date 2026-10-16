@@ -1,0 +1,1 @@
+drop index if exists public.test_execution_leases_last_heartbeat_idx;

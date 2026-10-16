@@ -1,0 +1,195 @@
+/* Responsive booking admin navigation. Keep desktop layout intact; enable native horizontal touch scrolling on compact viewports. */
+@media (max-width: 768px) {
+  #bookingPanel {
+    min-width: 0;
+    overflow-x: clip;
+  }
+
+  #bookingPanel .booking-admin-card,
+  #bookingPanel .booking-admin-queue,
+  #bookingPanel .booking-admin-booking,
+  #bookingPanel .booking-admin-cancellation-review {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  #bookingPanel .booking-admin-settings-form,
+  #bookingPanel .booking-admin-global-settings-grid,
+  #bookingPanel .booking-admin-global-settings-grid > label {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  #bookingPanel .booking-admin-global-settings-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #bookingPanel .booking-admin-global-settings-grid input[type="time"] {
+    display: block;
+    inline-size: 100%;
+    width: 100%;
+    min-inline-size: 0 !important;
+    min-width: 0 !important;
+    max-inline-size: 100%;
+    max-width: 100%;
+  }
+
+  #bookingPanel .booking-admin-global-settings-grid input[type="time"]::-webkit-date-and-time-value {
+    min-width: 0;
+    max-width: 100%;
+    text-align: left;
+  }
+
+  #bookingPanel .booking-admin-filter {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    margin-bottom: 12px;
+    padding: 2px 4px 9px;
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: 4px;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  #bookingPanel .booking-admin-filter::-webkit-scrollbar {
+    display: none;
+  }
+
+  #bookingPanel .booking-admin-filter-button {
+    flex: 0 0 auto;
+    min-height: 40px;
+    padding: 9px 13px;
+    white-space: nowrap;
+    scroll-snap-align: start;
+    touch-action: manipulation;
+  }
+
+  #bookingPanel .booking-admin-booking-heading,
+  #bookingPanel .booking-cancellation-top {
+    min-width: 0;
+  }
+
+  #bookingPanel .booking-admin-booking-heading > div,
+  #bookingPanel .booking-cancellation-top > div {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  #eventTicketForm,
+  #eventTicketForm .date-range-control,
+  #eventTicketForm .date-range-control .form-grid,
+  #eventTicketForm .date-control,
+  #eventTicketForm .date-input-shell {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  #eventTicketForm .date-range-control .form-grid {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #eventTicketForm .date-input-shell > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  #eventTicketForm .date-input-shell input[type="date"] {
+    display: block;
+    inline-size: 100%;
+    width: 100%;
+    min-inline-size: 0 !important;
+    min-width: 0 !important;
+    max-inline-size: 100%;
+    max-width: 100%;
+  }
+
+  #eventTicketForm .date-input-shell input[type="date"]::-webkit-date-and-time-value {
+    min-width: 0;
+    max-width: 100%;
+    text-align: left;
+  }
+
+  #eventTicketForm .date-picker-button {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  #eventTicketForm .date-quick-actions,
+  #eventTicketForm .date-range-presets {
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 480px) {
+  #bookingPanel .booking-admin-card {
+    padding: 14px;
+    border-radius: 15px;
+  }
+
+  #bookingPanel .booking-admin-filter {
+    margin-inline: -2px;
+    width: calc(100% + 4px);
+    padding-inline: 2px;
+  }
+
+  #bookingPanel .booking-admin-filter-button {
+    min-height: 42px;
+    padding-inline: 14px;
+  }
+
+  #bookingPanel .booking-admin-booking,
+  #bookingPanel .booking-cancellation-card {
+    padding: 13px;
+  }
+}
+
+
+/* Shared booking settings responsive layout 20260918 */
+@media (max-width: 768px) {
+  #bookingPanel .booking-admin-settings-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #bookingPanel .booking-admin-settings-notice {
+    grid-column: auto;
+  }
+
+  #bookingPanel .booking-admin-settings-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  #bookingPanel .booking-admin-settings-actions .button {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  #bookingPanel .booking-admin-settings-block {
+    padding: 14px;
+    border-radius: 13px;
+  }
+
+  #bookingPanel .booking-admin-settings-block-heading {
+    gap: 8px;
+  }
+
+  #bookingPanel .booking-admin-settings-badge {
+    font-size: 10px;
+  }
+}

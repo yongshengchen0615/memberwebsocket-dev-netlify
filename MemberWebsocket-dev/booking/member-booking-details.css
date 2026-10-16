@@ -1,0 +1,4 @@
+.member-booking-details{margin-top:12px;border-top:1px solid var(--theme-border,#dce2dd);padding-top:12px}
+.member-booking-details>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;gap:8px}
+.member-booking-details>summary::before{content:'＋'}.member-booking-details[open]>summary::before{content:'−'}
+.booking-detail-target{outline:2px solid var(--theme-accent,#315d50);outline-offset:2px}

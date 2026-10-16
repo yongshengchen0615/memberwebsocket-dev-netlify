@@ -1,0 +1,191 @@
+/* Member-pass overview refresh — scoped to the LIFF member view. */
+#memberView .member-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.28fr) minmax(300px, .86fr);
+  align-items: stretch;
+  gap: 18px;
+  margin: 0 0 20px;
+}
+#memberView .member-overview > * { min-width: 0; margin: 0; }
+html[data-theme] #memberView .member-pass {
+  min-height: 365px;
+  gap: 20px;
+  padding: clamp(20px, 2.7vw, 32px);
+  border-radius: 26px;
+  background: linear-gradient(145deg, rgba(255,255,255,.075), transparent 55%), var(--pass-background);
+  box-shadow: 0 20px 44px rgba(23, 53, 46, .15);
+}
+#memberView .member-pass::before { right: -130px; top: -164px; opacity: .65; }
+#memberView .member-pass::after { width: 160px; height: 160px; left: -100px; bottom: -110px; opacity: .48; }
+#memberView .pass-topline { align-items: center; gap: 12px; font-size: 12px; letter-spacing: .14em; }
+#memberView .status-tag {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 999px;
+  background: rgba(255,255,255,.10);
+  color: #e8f7ec;
+}
+#memberView .status-tag.inactive { color: #ffe5da; }
+#memberView .pass-content { grid-template-columns: auto minmax(0, 1fr) auto; gap: clamp(12px, 2vw, 18px); margin: 8px 0 4px; }
+#memberView .avatar {
+  width: clamp(62px, 6vw, 82px);
+  height: clamp(62px, 6vw, 82px);
+  border: 2px solid rgba(255,255,255,.32);
+  box-shadow: 0 6px 18px rgba(0,0,0,.12);
+}
+#memberView .identity { min-width: 0; }
+#memberView .identity h2 { font-size: clamp(27px, 3.5vw, 45px); line-height: 1.16; overflow-wrap: anywhere; }
+#memberView .identity .label { margin-bottom: 4px; }
+#memberView .tier { display: inline-flex; max-width: 100%; margin-top: 12px; padding: 6px 11px; border-radius: 999px; color: #fff; background: rgba(255,255,255,.14); font-size: 12px; overflow-wrap: anywhere; }
+#memberView .pass-stamp { width: 58px; height: 58px; flex: 0 0 auto; }
+#memberView .pass-member-code { position: relative; z-index: 1; margin: auto 0 0; padding: 16px 0 0; border-top: 1px solid rgba(255,255,255,.24); }
+#memberView .pass-member-code > div { min-width: 0; }
+#memberView .pass-member-code dt { color: rgba(255,255,255,.72); font-size: 11px; font-weight: 800; letter-spacing: .06em; }
+#memberView .pass-member-code dt span { color: rgba(255,255,255,.55); font-size: 10px; }
+#memberView .pass-member-code dd { justify-content: flex-start; flex-wrap: wrap; gap: 10px; margin: 8px 0 0; color: #fff; }
+#memberView #memberCode { flex: 0 1 auto; max-width: 100%; color: #fff; font-size: clamp(19px, 2.4vw, 26px); font-weight: 850; letter-spacing: .055em; line-height: 1.4; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+#memberView .pass-member-code .profile-inline-edit-button {
+  min-height: 36px;
+  padding: 6px 14px;
+  border: 1px solid rgba(255,255,255,.44);
+  color: #fff;
+  background: rgba(255,255,255,.15);
+  font-size: 12px;
+}
+#memberView .pass-member-code .profile-inline-edit-button:hover { background: rgba(255,255,255,.25); }
+#memberView .pass-member-code .profile-inline-edit-button:focus-visible,
+#memberView .pass-actions .member-referral-trigger:focus-visible { outline: 3px solid var(--pass-soft); outline-offset: 3px; box-shadow: none; }
+#memberView .pass-member-code .profile-inline-edit-button:disabled { opacity: .6; }
+/* One semantic action group for membership QR, friends and referral benefits. */
+#memberView .pass-actions {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 9px;
+  min-width: 0;
+}
+#memberView .pass-actions-heading {
+  grid-column: 1 / -1;
+  margin: 0 0 2px;
+  color: rgba(255, 255, 255, .73);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: .055em;
+}
+#memberView .pass-actions .member-referral-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  width: 100%;
+  min-height: 46px;
+  justify-self: stretch;
+  align-self: stretch;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(255,255,255,.34);
+  border-radius: 13px;
+  background: rgba(255,255,255,.11);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.4;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background-color .16s ease, border-color .16s ease;
+}
+#memberView .pass-actions .member-referral-trigger:hover { background: rgba(255,255,255,.22); border-color: rgba(255,255,255,.50); }
+#memberView .pass-actions .member-referral-trigger:disabled { cursor: not-allowed; opacity: .53; }
+#memberView .pass-actions #showMemberIdentityQr {
+  border-color: rgba(255,255,255,.92);
+  background: #fffdf8;
+  color: var(--pass-background);
+  font-weight: 900;
+}
+#memberView .pass-actions #showMemberIdentityQr:hover { background: var(--pass-soft); border-color: var(--pass-soft); }
+#memberView .pass-actions #openMemberReferral { border-color: rgba(255,255,255,.26); }
+
+
+html[data-theme] #memberView .membership-progress[data-membership-tier-style] {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+  min-height: 365px;
+  padding: clamp(20px, 2.7vw, 30px);
+  border-radius: 26px;
+  box-shadow: 0 18px 40px rgba(23,53,46,.10);
+}
+#memberView .membership-progress > * { flex: 0 0 auto; min-width: 0; }
+#memberView .membership-progress h2 { font-size: clamp(23px, 2.9vw, 31px); }
+#memberView .membership-progress-current { font-size: 15px; }
+#memberView .membership-progress-summary { align-self: stretch; margin-top: 10px; text-align: left; font-size: 13px; font-weight: 650; }
+#memberView .membership-progress-remaining { margin: 0; font-size: 15px; }
+#memberView .membership-progress-track { flex: 0 0 12px; width: 100%; height: 12px; }
+#memberView .membership-progress-track span { height: 100%; }
+
+html[data-theme] #memberView .profile-details { margin-top: 0; border-radius: 22px; }
+#memberView .profile-detail-list { gap: 12px; }
+#memberView .profile-detail-list > div { min-width: 0; }
+#memberView .profile-value-line > span { overflow-wrap: anywhere; }
+#memberView .member-feature-links { margin-top: 20px; }
+#memberView .member-feature-links h2 { margin: 0 0 14px; color: var(--theme-text, var(--ink)); font-size: clamp(21px, 3vw, 27px); letter-spacing: -.04em; }
+#memberView .member-feature-links > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+#memberView .member-feature-links a {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: 94px;
+  padding: 18px 16px;
+  border: 1px solid var(--theme-border, rgba(23,53,46,.12));
+  border-radius: 18px;
+  color: var(--theme-text, var(--ink));
+  background: var(--theme-surface-raised, #fffdf8);
+  box-shadow: 0 6px 16px rgba(23,53,46,.04);
+  font-weight: 850;
+  text-decoration: none;
+  transition: border-color .16s ease, transform .16s ease;
+}
+#memberView .member-feature-links a::after { content: "↗"; position: absolute; top: 12px; right: 14px; color: var(--theme-text-muted, #71817a); font-size: 18px; }
+#memberView .member-feature-links a:hover { border-color: var(--theme-accent, #df6b4d); transform: translateY(-2px); }
+#memberView .member-feature-links a:focus-visible { outline: 3px solid var(--theme-accent, #df6b4d); outline-offset: 3px; }
+@media (max-width: 860px) {
+  #memberView .member-overview { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  html[data-theme] #memberView .member-pass { min-height: 325px; }
+  html[data-theme] #memberView .membership-progress[data-membership-tier-style] { min-height: 0; gap: 10px; }
+  #memberView .member-feature-links > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 420px) {
+  html[data-theme] #memberView .member-pass { min-height: 315px; gap: 16px; padding: 18px; border-radius: 21px; }
+  #memberView .pass-content { grid-template-columns: 58px minmax(0, 1fr); gap: 12px; }
+  #memberView .pass-stamp { display: none; }
+  #memberView .avatar { width: 58px; height: 58px; }
+  #memberView .identity h2 { font-size: clamp(24px, 7vw, 32px); }
+  #memberView #memberCode { font-size: 19px; }
+  #memberView .pass-member-code dt span { display: none; }
+  #memberView .pass-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #memberView .pass-actions #showMemberIdentityQr { grid-column: 1 / -1; }
+  #memberView .pass-actions .member-referral-trigger { padding-inline: 8px; }
+  #memberView .pass-actions-heading { margin-bottom: 0; }
+  html[data-theme] #memberView .membership-progress[data-membership-tier-style] { padding: 19px; border-radius: 21px; }
+  #memberView .member-feature-links > div { gap: 9px; }
+  #memberView .member-feature-links a { min-height: 82px; padding: 15px 12px; border-radius: 15px; font-size: 14px; }
+}
+@media (max-width: 320px) {
+  #memberView .pass-topline { flex-wrap: wrap; }
+  #memberView .pass-actions { grid-template-columns: repeat(2, minmax(70px, 1fr)); }
+  #memberView .pass-actions .member-referral-trigger { min-height: 48px; padding-inline: 6px; font-size: 12px; }
+  #memberView .member-feature-links > div { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #memberView .member-feature-links a,
+  #memberView .pass-actions .member-referral-trigger { transition: none; }
+  #memberView .member-feature-links a:hover { transform: none; }
+}

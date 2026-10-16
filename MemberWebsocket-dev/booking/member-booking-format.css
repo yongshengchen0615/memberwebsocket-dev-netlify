@@ -1,0 +1,246 @@
+.booking-item.member-booking-format-card > .booking-item-top {
+  align-items: flex-start;
+}
+
+.booking-item .member-booking-format-summary,
+.booking-item .member-booking-format-totals,
+.booking-confirm-summary .booking-confirm-format-main,
+.booking-confirm-summary .member-booking-format-totals,
+.booking-confirm-summary .booking-confirm-contact-formatted {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.booking-item .member-booking-format-row,
+.booking-confirm-summary .member-booking-format-row {
+  display: grid;
+  grid-template-columns: 7em minmax(0, 1fr);
+  gap: 8px;
+  margin: 0;
+  align-items: baseline;
+}
+
+.booking-item .member-booking-format-label,
+.booking-confirm-summary .member-booking-format-label {
+  color: rgba(37, 54, 44, .68);
+  font-size: .9rem;
+  font-weight: 700;
+}
+
+.booking-item .member-booking-format-value,
+.booking-confirm-summary .member-booking-format-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #25362c;
+  font-size: .96rem;
+  font-weight: 800;
+}
+
+.booking-item .member-booking-format-services-label,
+.booking-confirm-summary .member-booking-format-services-label {
+  margin: 12px 0 0;
+  color: #25362c;
+  font-size: .94rem;
+  font-weight: 800;
+}
+
+.booking-item.member-booking-format-card > .booking-service-items {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+
+.booking-confirm-summary .booking-confirm-format-services {
+  margin: 6px 0 0;
+  padding-left: 20px;
+  color: #607269;
+  font-size: .94rem;
+  line-height: 1.7;
+}
+
+.booking-item .member-booking-format-totals,
+.booking-confirm-summary .member-booking-format-totals {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(37, 54, 44, .10);
+}
+
+.booking-confirm-summary .booking-confirm-contact-formatted {
+  margin-top: 16px;
+  padding: 14px;
+  gap: 8px;
+  border: 1px solid rgba(37, 54, 44, .10);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.booking-confirm-summary .booking-confirm-contact-title {
+  margin: 0 0 2px;
+  color: #25362c;
+  font-size: .92rem;
+  font-weight: 850;
+}
+
+.booking-confirm-summary .booking-confirm-contact-formatted .member-booking-format-row {
+  grid-template-columns: 3.4em minmax(0, 1fr);
+  gap: 6px;
+  align-items: start;
+}
+
+.booking-confirm-summary .booking-confirm-contact-formatted .member-booking-format-label {
+  color: #607269;
+  line-height: 1.55;
+}
+
+.booking-confirm-summary .booking-confirm-contact-formatted .member-booking-format-value {
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.booking-confirm-summary .booking-confirm-format-main > .form-message {
+  margin-top: 12px;
+}
+
+.service-type-color-0 .service-choice,
+.service-type-color-0 .selected-service-item { background: #f6fbfc; border-color: #8fbcc5; }
+
+.service-type-color-1 .service-choice,
+.service-type-color-1 .selected-service-item { background: #fff8f4; border-color: #e8b494; }
+
+.service-type-color-2 .service-choice,
+.service-type-color-2 .selected-service-item { background: #f8f8fd; border-color: #b8bde1; }
+
+.service-type-color-3 .service-choice,
+.service-type-color-3 .selected-service-item { background: #f7fbf8; border-color: #a8cfb5; }
+
+.service-type-color-4 .service-choice,
+.service-type-color-4 .selected-service-item { background: #fffaf0; border-color: #dfc780; }
+
+.service-type-color-5 .service-choice,
+.service-type-color-5 .selected-service-item { background: #fcf7fa; border-color: #d7adcb; }
+
+.service-type-color-6 .service-choice,
+.service-type-color-6 .selected-service-item { background: #f5f9fd; border-color: #aac7e4; }
+
+.service-type-color-7 .service-choice,
+.service-type-color-7 .selected-service-item { background: #fdf6f6; border-color: #e1adad; }
+
+.service-type-color-8 .service-choice,
+.service-type-color-8 .selected-service-item { background: #f8faf4; border-color: #bdcba9; }
+
+.service-type-color-9 .service-choice,
+.service-type-color-9 .selected-service-item { background: #faf7fc; border-color: #c5b2d8; }
+
+.service-type-color-10 .service-choice,
+.service-type-color-10 .selected-service-item { background: #f4fbfa; border-color: #a7d3cd; }
+
+.service-type-color-11 .service-choice,
+.service-type-color-11 .selected-service-item { background: #fcf7f9; border-color: #d9b1be; }
+
+@media (max-width: 620px) {
+  .booking-item .member-booking-format-row,
+  .booking-confirm-summary .member-booking-format-row {
+    grid-template-columns: 6.6em minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .booking-item .member-booking-format-label,
+  .booking-item .member-booking-format-value,
+  .booking-confirm-summary .member-booking-format-label,
+  .booking-confirm-summary .member-booking-format-value {
+    font-size: .92rem;
+  }
+
+  .booking-confirm-summary .booking-confirm-contact-formatted {
+    padding: 13px;
+  }
+
+  .booking-confirm-summary .booking-confirm-contact-formatted .member-booking-format-row {
+    grid-template-columns: 3.25em minmax(0, 1fr);
+    gap: 5px;
+  }
+}
+
+/* Service type colors are intentionally separate from participant-card colors.
+   Use explicit legacy CSS colors so LINE in-app WebViews do not fall back to one shared color. */
+.service-info.service-type-group {
+  border: 1px solid #b7c8c2;
+  border-left-width: 4px;
+  border-left-style: solid;
+  color: #31483f;
+}
+
+.service-info.service-type-group > strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .9rem;
+}
+
+.service-info.service-type-group > strong::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  border-radius: 999px;
+}
+
+.service-info.service-type-group > .service-picker,
+.service-info.service-type-group > .selected-service-list {
+  margin-top: 8px;
+}
+
+.service-type-color-0 { background: #e9f4f6 !important; border-color: #8fbcc5 !important; border-left-color: #346f7e !important; }
+.service-type-color-0 > strong { color: #2c5e6b !important; }
+.service-type-color-0 > strong::before { background: #346f7e; box-shadow: 0 0 0 3px #cfe5e9; }
+
+.service-type-color-1 { background: #fff0e7 !important; border-color: #e8b494 !important; border-left-color: #a65d37 !important; }
+.service-type-color-1 > strong { color: #874927 !important; }
+.service-type-color-1 > strong::before { background: #a65d37; box-shadow: 0 0 0 3px #f7dac8; }
+
+.service-type-color-2 { background: #eff0fb !important; border-color: #b8bde1 !important; border-left-color: #5b65a3 !important; }
+.service-type-color-2 > strong { color: #4c558d !important; }
+.service-type-color-2 > strong::before { background: #5b65a3; box-shadow: 0 0 0 3px #d9dcf1; }
+
+.service-type-color-3 { background: #edf7f0 !important; border-color: #a8cfb5 !important; border-left-color: #3c7e56 !important; }
+.service-type-color-3 > strong { color: #316848 !important; }
+.service-type-color-3 > strong::before { background: #3c7e56; box-shadow: 0 0 0 3px #d4e9da; }
+
+.service-type-color-4 { background: #fff7df !important; border-color: #dfc780 !important; border-left-color: #a07026 !important; }
+.service-type-color-4 > strong { color: #7e591f !important; }
+.service-type-color-4 > strong::before { background: #a07026; box-shadow: 0 0 0 3px #f2e4b7; }
+
+.service-type-color-5 { background: #f8edf4 !important; border-color: #d7adcb !important; border-left-color: #8f507a !important; }
+.service-type-color-5 > strong { color: #754164 !important; }
+.service-type-color-5 > strong::before { background: #8f507a; box-shadow: 0 0 0 3px #ecd6e4; }
+
+.service-type-color-6 { background: #eaf2fb !important; border-color: #aac7e4 !important; border-left-color: #376ca0 !important; }
+.service-type-color-6 > strong { color: #2d5a86 !important; }
+.service-type-color-6 > strong::before { background: #376ca0; box-shadow: 0 0 0 3px #d2e2f2; }
+
+.service-type-color-7 { background: #fbecec !important; border-color: #e1adad !important; border-left-color: #ac4f52 !important; }
+.service-type-color-7 > strong { color: #8e4144 !important; }
+.service-type-color-7 > strong::before { background: #ac4f52; box-shadow: 0 0 0 3px #f1d3d4; }
+
+.service-type-color-8 { background: #f1f5e9 !important; border-color: #bdcba9 !important; border-left-color: #5c744a !important; }
+.service-type-color-8 > strong { color: #4b5f3c !important; }
+.service-type-color-8 > strong::before { background: #5c744a; box-shadow: 0 0 0 3px #dce6cf; }
+
+.service-type-color-9 { background: #f2edf8 !important; border-color: #c5b2d8 !important; border-left-color: #6f5291 !important; }
+.service-type-color-9 > strong { color: #5c4478 !important; }
+.service-type-color-9 > strong::before { background: #6f5291; box-shadow: 0 0 0 3px #e0d5eb; }
+
+.service-type-color-10 { background: #e8f6f4 !important; border-color: #a7d3cd !important; border-left-color: #2d7e77 !important; }
+.service-type-color-10 > strong { color: #256861 !important; }
+.service-type-color-10 > strong::before { background: #2d7e77; box-shadow: 0 0 0 3px #cfe9e5; }
+
+.service-type-color-11 { background: #f9edf1 !important; border-color: #d9b1be !important; border-left-color: #9b5970 !important; }
+.service-type-color-11 > strong { color: #80495c !important; }
+.service-type-color-11 > strong::before { background: #9b5970; box-shadow: 0 0 0 3px #ecd6dd; }
+
+@media (max-width: 620px) {
+  .service-info.service-type-group {
+    border-left-width: 5px;
+    padding: 11px 12px;
+  }
+}

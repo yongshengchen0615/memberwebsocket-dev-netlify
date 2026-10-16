@@ -1,0 +1,758 @@
+{
+  "version": 1,
+  "asOf": "2026-10-09",
+  "baseCommit": "8e26e1ab609e4c5471520e73d19da65db244cd46",
+  "scope": "會員系統 Trello QA 與完成兩個列表的 44 張卡片；現有程式與測試對照，非線上通過證明",
+  "cards": [
+    {
+      "card": "https://trello.com/c/rAnvrQp1",
+      "list": "QA",
+      "name": "[P1][E2E] 管理端功能覆蓋與無障礙預約審核",
+      "checklistOpen": 6,
+      "checklistTotal": 9,
+      "runtimeFeatureIds": [
+        "member.directory",
+        "booking.admin-lifecycle",
+        "booking.accessible-admin"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/browser/admin-human.spec.cjs"
+      ],
+      "remaining": "現有完整管理流程；本次修正會員 360 舊入口並加服務發放。部署後六模組 run code／清理證據仍待保存。"
+    },
+    {
+      "card": "https://trello.com/c/WZ3vwIIM",
+      "list": "QA",
+      "name": "[管理端] 依服務項目登記並發放點數與服務時間",
+      "checklistOpen": 3,
+      "checklistTotal": 13,
+      "runtimeFeatureIds": [
+        "member.service-grant"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/browser/admin-human.spec.cjs",
+        "tests/integration/service_grant_sql.cjs"
+      ],
+      "remaining": "本次新增：空選項、數量、預覽失效、雙擊、catalog 失敗、寫入不確定鎖定／重載、SQL 回滾與重送。真實多連線及部署版本待驗。"
+    },
+    {
+      "card": "https://trello.com/c/KOxWjquJ",
+      "list": "QA",
+      "name": "[P1][預約票券] 使用資格、改約解除綁定與核銷一致性",
+      "checklistOpen": 3,
+      "checklistTotal": 8,
+      "runtimeFeatureIds": [
+        "tickets.service",
+        "booking.benefits",
+        "booking.lifecycle"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/integration/booking_ticket_consistency.cjs",
+        "tests/integration/ticket_booking_choice.cjs",
+        "tests/integration/transaction_lifecycle.cjs"
+      ],
+      "remaining": "已有服務限制、綁定、改約／取消解除及核銷 SQL；兩個真實連線的 race、跨端狀態待驗。"
+    },
+    {
+      "card": "https://trello.com/c/Fg1e2Zgn",
+      "list": "QA",
+      "name": "[用戶端預約] 服務對象與好友操作 UI 優化",
+      "checklistOpen": 6,
+      "checklistTotal": 11,
+      "runtimeFeatureIds": [
+        "booking.group"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/browser/member-p2.spec.cjs",
+        "tests/integration/friends_ui.cjs"
+      ],
+      "remaining": "已有好友／優惠分頁及代約 UI／SQL；服務對象 0／1／多位、切換保留資料與鍵盤流程仍需専項瀏覽器案例。"
+    },
+    {
+      "card": "https://trello.com/c/BECc6lsi",
+      "list": "QA",
+      "name": "[P2][UI/UX] 全站排版整合、共用元件收斂與一致性優化",
+      "checklistOpen": 0,
+      "checklistTotal": 21,
+      "runtimeFeatureIds": [
+        "shared.theme"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/browser/ui-layout.spec.cjs",
+        "tests/browser/settings-layout.spec.cjs"
+      ],
+      "remaining": "已有隔離版面測試；不同裝置／LINE WebView 字體與縮放仍屬裝置驗收。"
+    },
+    {
+      "card": "https://trello.com/c/WLz2BF3V",
+      "list": "QA",
+      "name": "[用戶端] 預約活動票券沿用票券頁樣式",
+      "checklistOpen": 6,
+      "checklistTotal": 11,
+      "runtimeFeatureIds": [
+        "booking.benefits",
+        "event.crud"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/integration/shared_event_ticket.cjs",
+        "tests/browser/ui-layout.spec.cjs"
+      ],
+      "remaining": "已有共用 renderer 與票券版面；指定卡片要求的完整載入／空／錯誤／鎖定／選取視覺矩陣尚未全部成為專項瀏覽器案例。"
+    },
+    {
+      "card": "https://trello.com/c/ddjFU4kK",
+      "list": "QA",
+      "name": "[管理端] 會員 360 子視窗返回與發放入口整理",
+      "checklistOpen": 3,
+      "checklistTotal": 11,
+      "runtimeFeatureIds": [
+        "member.directory",
+        "member.grant",
+        "member.service-grant"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/browser/admin-human.spec.cjs"
+      ],
+      "remaining": "已有 360 子窗返回；本次修正 runtime 路徑並新增服務發放返回。每種子窗的焦點／Escape／背景關閉仍有待驗項目。"
+    },
+    {
+      "card": "https://trello.com/c/6VyCnAnt",
+      "list": "QA",
+      "name": "[P1][登入安全] 新登入成功後撤銷舊連線與強制登出通知",
+      "checklistOpen": 6,
+      "checklistTotal": 12,
+      "runtimeFeatureIds": [
+        "shared.session",
+        "member.revocation"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/integration/login_session_sql.cjs",
+        "tests/integration/test_duplicate_login_sql.cjs",
+        "tests/forced_logout_close.test.js"
+      ],
+      "remaining": "SQL 撤銷與前端通知存在；兩個真實瀏覽器的新登入／舊 token 失效／Realtime 先後次序尚未實跑。"
+    },
+    {
+      "card": "https://trello.com/c/KqacPEVI",
+      "list": "QA",
+      "name": "[P1][管理端] 移除會員全部資料與連線撤銷",
+      "checklistOpen": 8,
+      "checklistTotal": 13,
+      "runtimeFeatureIds": [
+        "member.directory"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/browser/admin-human.spec.cjs",
+        "tests/integration/member_removal_sql.cjs"
+      ],
+      "remaining": "已具移除確認、錯誤編號拒絕與資料庫移除測試；跨 Auth／Storage 故障補償及真實重登仍待驗，沒有專屬 runtime 移除節點。"
+    },
+    {
+      "card": "https://trello.com/c/QLP54qAL",
+      "list": "QA",
+      "name": "[P2][UI/UX] QR 掃描與無障礙收據快照共用彈窗",
+      "checklistOpen": 4,
+      "checklistTotal": 12,
+      "runtimeFeatureIds": [
+        "member.qr",
+        "booking.receipt"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/browser/member-p2.spec.cjs",
+        "tests/browser/receipt-location.spec.cjs",
+        "tests/browser/points-transfer.spec.cjs",
+        "tests/integration/friend_qr_scanner.cjs"
+      ],
+      "remaining": "本次新增共用 QR 入口節點、轉贈 Escape／晚到相機停止；實機前後鏡頭、LINE 權限仍待驗。"
+    },
+    {
+      "card": "https://trello.com/c/qaBhQ3XN",
+      "list": "QA",
+      "name": "[P2][點數轉贈] 好友選擇與 QR 收件者整合",
+      "checklistOpen": 5,
+      "checklistTotal": 13,
+      "runtimeFeatureIds": [
+        "points.transfer",
+        "points.transfer-recipients"
+      ],
+      "pairedKeys": [
+        "PAIRED_POINT_TRANSFER_ATOMIC"
+      ],
+      "evidencePaths": [
+        "tests/browser/points-transfer.spec.cjs",
+        "tests/integration/qa_user_journeys.cjs"
+      ],
+      "remaining": "本次新增好友／QR／手動轉贈 UI、失敗恢复、雙擊與不確定重送。PNG／真實瀏覽器待 CI；線上多連線守恆待驗。"
+    },
+    {
+      "card": "https://trello.com/c/yw0nT1O7",
+      "list": "完成",
+      "name": "[預約設定] 工作時段、切分間隔與跨夜營業可設定",
+      "checklistOpen": 0,
+      "checklistTotal": 8,
+      "runtimeFeatureIds": [
+        "booking.settings"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/browser/admin-human.spec.cjs",
+        "tests/integration/booking_sql.cjs"
+      ],
+      "remaining": "已有設定保存、跨夜 SQL；夏令／跨日提醒的實際排程與部署環境待驗。"
+    },
+    {
+      "card": "https://trello.com/c/LhP0mklc",
+      "list": "完成",
+      "name": "[會員申請/法務] 管理員維護條款，申請會員時強制同意",
+      "checklistOpen": 0,
+      "checklistTotal": 9,
+      "runtimeFeatureIds": [
+        "member.terms"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/browser/member-join-terms.spec.cjs",
+        "tests/integration/admin_terms.cjs",
+        "tests/integration/member_terms_startup.cjs"
+      ],
+      "remaining": "已有未勾选拒絕、目前條款版本與成功申請；正式條款改版後跨端同步需線上 run。"
+    },
+    {
+      "card": "https://trello.com/c/qsTxEQzY",
+      "list": "完成",
+      "name": "[UX] 所有用戶端每次開啟教學與今日略過",
+      "checklistOpen": 0,
+      "checklistTotal": 13,
+      "runtimeFeatureIds": [
+        "shared.tour"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/integration/member_first_use_tour.cjs",
+        "tests/browser/member-p2.spec.cjs"
+      ],
+      "remaining": "歷史「每次／今日略過」需求已被 SDdOuOeS 的首次教學與明確不再顯示取代；以現行規則測試。"
+    },
+    {
+      "card": "https://trello.com/c/VtDiHS1A",
+      "list": "完成",
+      "name": "[預約通知] LINE 顯示可用票券與活動",
+      "checklistOpen": 0,
+      "checklistTotal": 10,
+      "runtimeFeatureIds": [
+        "booking.settings",
+        "booking.benefits"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/integration/booking_settings_notification_sql.cjs",
+        "tests/notification_entitlement_behavior.test.js"
+      ],
+      "remaining": "通知內容及權益快照有程式／SQL 證據；LINE 官方帳號實際投遞、點擊跳轉待驗。"
+    },
+    {
+      "card": "https://trello.com/c/SRiRn2uN",
+      "list": "完成",
+      "name": "[P1][企劃][會員安全] 強制下線與維護管制：需求、規則與驗收",
+      "checklistOpen": 0,
+      "checklistTotal": 12,
+      "runtimeFeatureIds": [
+        "member.revocation"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/forced_logout_close.test.js",
+        "tests/browser/admin-human.spec.cjs"
+      ],
+      "remaining": "企劃來源卡；與 BzcIsJTk 共用驗收，不能把規格文件當成 runtime 通過。"
+    },
+    {
+      "card": "https://trello.com/c/NeBybbEx",
+      "list": "完成",
+      "name": "[P1][設計][會員安全] 強制下線與維護管制：管理端與會員端 UI／UX",
+      "checklistOpen": 0,
+      "checklistTotal": 12,
+      "runtimeFeatureIds": [
+        "member.revocation"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/forced_logout_close.test.js",
+        "tests/browser/admin-human.spec.cjs"
+      ],
+      "remaining": "設計來源卡；管理入口與退出路徑有測試，裝置通知顯示仍需線上驗收。"
+    },
+    {
+      "card": "https://trello.com/c/bz5K49k0",
+      "list": "完成",
+      "name": "[P1][程式][會員安全] 強制下線與維護管制：後端、前端與安全 E2E",
+      "checklistOpen": 0,
+      "checklistTotal": 17,
+      "runtimeFeatureIds": [
+        "member.revocation",
+        "shared.session"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/integration/login_session_sql.cjs",
+        "tests/browser/admin-human.spec.cjs"
+      ],
+      "remaining": "已覆蓋權限／單次下線管理操作；離線舊 session、HTTP／Realtime 競態與維護解除需真實双端。"
+    },
+    {
+      "card": "https://trello.com/c/tAk3xIlB",
+      "list": "完成",
+      "name": "[P1][活動票券] 顯示會員今日可使用張數",
+      "checklistOpen": 0,
+      "checklistTotal": 13,
+      "runtimeFeatureIds": [
+        "event.limits"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/integration/qa_event_day_sql.cjs",
+        "tests/integration/e2e_feature_nodes.cjs"
+      ],
+      "remaining": "每日額度與 badge 回讀已有；午夜／時區跨日與即時更新的線上長流程待驗。"
+    },
+    {
+      "card": "https://trello.com/c/JAu9THfd",
+      "list": "完成",
+      "name": "[P2][會員成長] 邀請碼綁定與雙方優惠券獎勵",
+      "checklistOpen": 0,
+      "checklistTotal": 15,
+      "runtimeFeatureIds": [
+        "member.referral"
+      ],
+      "pairedKeys": [
+        "PAIRED_MEMBER_REFERRAL_REWARD"
+      ],
+      "evidencePaths": [
+        "tests/e2e_referral_current_rule.test.js",
+        "tests/referral_inviter_only_reward.test.js",
+        "tests/browser/member-p2.spec.cjs",
+        "tests/integration/referral_current_rule_sql.cjs"
+      ],
+      "remaining": "卡名「雙方」為舊規則；現行輸入者一張，重送同一邀請不重發、另次邀請可再發。本次修正 paired 子券 ID／領取狀態判斷及清理失敗。"
+    },
+    {
+      "card": "https://trello.com/c/S6cyhQub",
+      "list": "完成",
+      "name": "[P2][集點卡] 會員點數轉贈與原子交易保護",
+      "checklistOpen": 0,
+      "checklistTotal": 15,
+      "runtimeFeatureIds": [
+        "points.transfer",
+        "points.transfer-recipients"
+      ],
+      "pairedKeys": [
+        "PAIRED_POINT_TRANSFER_ATOMIC"
+      ],
+      "evidencePaths": [
+        "tests/browser/points-transfer.spec.cjs",
+        "tests/integration/transaction_lifecycle.cjs"
+      ],
+      "remaining": "既有原子 SQL／paired API；本次加入真正 UI 操作。真實兩連線同時扣點尚待線上驗收。"
+    },
+    {
+      "card": "https://trello.com/c/S2iqRat9",
+      "list": "完成",
+      "name": "[活動優惠券] 限量領取、每人限用與定位核銷",
+      "checklistOpen": 1,
+      "checklistTotal": 8,
+      "runtimeFeatureIds": [
+        "event.crud",
+        "tickets.location"
+      ],
+      "pairedKeys": [
+        "PAIRED_EVENT_LAST_TICKET_RACE"
+      ],
+      "evidencePaths": [
+        "tests/integration/event_coupon_sql.cjs",
+        "tests/browser/receipt-location.spec.cjs"
+      ],
+      "remaining": "已具限量／定位與最後一張 paired 案例；隔離 SQL 不能取代實際兩連線 race／GPS 精度驗收。"
+    },
+    {
+      "card": "https://trello.com/c/hJ7KHBcV",
+      "list": "完成",
+      "name": "[E2E] 六模組完整流程與逾時復原驗收",
+      "checklistOpen": 1,
+      "checklistTotal": 7,
+      "runtimeFeatureIds": [
+        "testing.accounts",
+        "shared.session"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/e2e_complete_feature_coverage.test.js",
+        "tests/browser/e2e-refresh.spec.cjs",
+        "tests/integration/qa_cleanup_boundaries.cjs"
+      ],
+      "remaining": "歷史六模組完成卡仍留 1 項實跑證據；本次新增 5 個 runtime 節點、55 功能對照與弱證據保留，不宣告 live 全通過。"
+    },
+    {
+      "card": "https://trello.com/c/BzcIsJTk",
+      "list": "完成",
+      "name": "[P1][會員安全][協作總卡] 強制會員下線與維護期間存取管制",
+      "checklistOpen": 23,
+      "checklistTotal": 23,
+      "runtimeFeatureIds": [
+        "member.revocation",
+        "shared.session"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/integration/login_session_sql.cjs",
+        "tests/forced_logout_close.test.js",
+        "tests/browser/admin-human.spec.cjs"
+      ],
+      "remaining": "23 項 checklist 仍未勾選，與拆分企劃／設計／程式卡重複；需以共同線上雙端證據逐項關閉。"
+    },
+    {
+      "card": "https://trello.com/c/8kxtOrHq",
+      "list": "完成",
+      "name": "[預約提醒] 前一天提醒時間可設定",
+      "checklistOpen": 1,
+      "checklistTotal": 8,
+      "runtimeFeatureIds": [
+        "booking.settings",
+        "automation.health"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/integration/booking_settings_notification_sql.cjs",
+        "tests/booking_notification_dispatch_schedule.test.js"
+      ],
+      "remaining": "設定、佇列及排程邏輯已有；指定時間投遞、重試與實際 LINE 收件仍待驗。"
+    },
+    {
+      "card": "https://trello.com/c/t9HzzKQL",
+      "list": "完成",
+      "name": "[P1][預約核對] 完成預約拍攝收據與管理端快照檢視",
+      "checklistOpen": 1,
+      "checklistTotal": 16,
+      "runtimeFeatureIds": [
+        "booking.receipt",
+        "booking.accessible-admin"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/browser/receipt-location.spec.cjs",
+        "tests/browser/admin-human.spec.cjs",
+        "tests/integration/receipt_integrity_sql.cjs"
+      ],
+      "remaining": "已有 fake camera／快照／簽章完整性；實體装置與跨服務上傳失敗補償待驗。"
+    },
+    {
+      "card": "https://trello.com/c/kJExuw1n",
+      "list": "完成",
+      "name": "[預約] 頁首顯示可用活動與票券",
+      "checklistOpen": 1,
+      "checklistTotal": 8,
+      "runtimeFeatureIds": [
+        "booking.benefits"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/integration/booking_benefits.cjs",
+        "tests/integration/shared_event_ticket.cjs"
+      ],
+      "remaining": "已有可用權益 renderer；0／1／多筆及斷線後 Realtime 恢復尚需完整瀏覽器矩陣。"
+    },
+    {
+      "card": "https://trello.com/c/SaQR21KH",
+      "list": "完成",
+      "name": "[P2][會員導流] 註冊成功後由用戶傳訊至 LINE 官方帳號",
+      "checklistOpen": 1,
+      "checklistTotal": 14,
+      "runtimeFeatureIds": [
+        "member.join"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/membership_join_test_account.test.js",
+        "tests/browser/member-join-terms.spec.cjs"
+      ],
+      "remaining": "有加入成功與測試帳號隔離／訊息 payload；LIFF 實際開聊天室／傳訊與重送回饋需 LINE 實機。"
+    },
+    {
+      "card": "https://trello.com/c/GqJwHJ51",
+      "list": "完成",
+      "name": "[預約][票券核銷] 預約頁顯示可用活動／票券，完成服務時自動核銷",
+      "checklistOpen": 1,
+      "checklistTotal": 24,
+      "runtimeFeatureIds": [
+        "booking.benefits",
+        "booking.admin-lifecycle"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/integration/transaction_lifecycle.cjs",
+        "tests/integration/booking_ticket_consistency.cjs"
+      ],
+      "remaining": "已覆蓋完成服務時核銷及回滾；正式 LINE 通知與跨端同步仍保留 UAT。"
+    },
+    {
+      "card": "https://trello.com/c/6GkXwA2G",
+      "list": "完成",
+      "name": "用戶端 會員電話格式需要正確",
+      "checklistOpen": 0,
+      "checklistTotal": 0,
+      "runtimeFeatureIds": [
+        "member.phone",
+        "member.profile"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/integration/member_terms_startup.cjs",
+        "tests/integration/test_account_phone_sql.cjs",
+        "tests/integration/e2e_feature_nodes.cjs"
+      ],
+      "remaining": "已有台灣國碼、重複數字／無效輸入與保存回讀；若擴充其他國家規則需新增對應案例。"
+    },
+    {
+      "card": "https://trello.com/c/0oENbEVe",
+      "list": "完成",
+      "name": "完成預約時會傳 等待管理員確認預約 到官方帳號聊天視窗",
+      "checklistOpen": 0,
+      "checklistTotal": 0,
+      "runtimeFeatureIds": [
+        "booking.receipt",
+        "booking.admin-lifecycle"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/member_phone_and_pending_booking_notice.test.js",
+        "tests/browser/receipt-location.spec.cjs"
+      ],
+      "remaining": "待確認通知 payload／入口有測試；官方帳號聊天室實際顯示需 LINE 實機。"
+    },
+    {
+      "card": "https://trello.com/c/Y5fs2XWy",
+      "list": "完成",
+      "name": "活動票卷 與集點卡票卷 可以設定 是否有預約什麼項目才能使用 例如 身體集點卡的優惠卷 只有 有預約身體相關服務才能使用",
+      "checklistOpen": 0,
+      "checklistTotal": 0,
+      "runtimeFeatureIds": [
+        "tickets.service"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/integration/ticket_booking_choice.cjs",
+        "tests/integration/booking_ticket_consistency.cjs"
+      ],
+      "remaining": "現行使用具體 service IDs 的 any／all 規則；測試覆蓋資格與結算，新增服務後需部署回歸。"
+    },
+    {
+      "card": "https://trello.com/c/HAZz5IQU",
+      "list": "完成",
+      "name": "用戶端預約 不需要過了預約時間才可上傳收據快照",
+      "checklistOpen": 0,
+      "checklistTotal": 0,
+      "runtimeFeatureIds": [
+        "booking.receipt"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/browser/receipt-location.spec.cjs",
+        "tests/integration/receipt_integrity_sql.cjs"
+      ],
+      "remaining": "收據 prepare／上傳規則已有；不要求預約時間已過的線上完整提交流程待部署 run。"
+    },
+    {
+      "card": "https://trello.com/c/tRp809EW",
+      "list": "完成",
+      "name": "如果管理端 沒設定好友邀請票卷 則會無法使用好友邀請功能",
+      "checklistOpen": 0,
+      "checklistTotal": 0,
+      "runtimeFeatureIds": [
+        "member.referral"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/referral_member_identifier_behavior.test.js",
+        "tests/browser/member-p2.spec.cjs",
+        "tests/integration/referral_current_rule_sql.cjs"
+      ],
+      "remaining": "無有效獎勵來源時後端拒絕與 UI 提示已有；本次 paired 若已有來源會跳過，避免更動既有配額。"
+    },
+    {
+      "card": "https://trello.com/c/evsud1Xh",
+      "list": "完成",
+      "name": "預約用戶端  加入 無障礙模式 可以方便長輩不會操作 直接上傳 收據快照 讓管理員登記完成的預約後 也會記錄點數與服務時間 且無障礙模式會直接顯示可用的票卷",
+      "checklistOpen": 0,
+      "checklistTotal": 0,
+      "runtimeFeatureIds": [
+        "booking.accessible",
+        "booking.accessible-admin"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/integration/booking_accessible.cjs",
+        "tests/browser/admin-human.spec.cjs"
+      ],
+      "remaining": "已有無障礙上傳與審核、票券點數結算、不確定重送；真實相機與部署版本待驗。"
+    },
+    {
+      "card": "https://trello.com/c/azCJknql",
+      "list": "完成",
+      "name": "管理端與用戶端 預約紀錄 如果有 使用票卷 需要顯示是什麼集點卡的票卷 與活動票卷",
+      "checklistOpen": 0,
+      "checklistTotal": 0,
+      "runtimeFeatureIds": [
+        "booking.sources"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/browser/admin-human.spec.cjs",
+        "tests/integration/booking_copy.cjs",
+        "tests/integration/e2e_feature_nodes.cjs"
+      ],
+      "remaining": "已有會員／管理歷史來源 renderer 與已解除綁定說明；跨端 live 資料同步待驗。"
+    },
+    {
+      "card": "https://trello.com/c/bGbmzpdP",
+      "list": "完成",
+      "name": "[P2][管理端] 集點卡與兩類票券設定複製",
+      "checklistOpen": 0,
+      "checklistTotal": 6,
+      "runtimeFeatureIds": [
+        "tickets.copy"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/browser/admin-human.spec.cjs",
+        "tests/integration/member_p2_features.cjs"
+      ],
+      "remaining": "原已有 card／ticket／event／fixed 草稿複製 UI＋SQL；本次補 runtime 未儲存拒絕入口，未宣稱新增整個複製能力。"
+    },
+    {
+      "card": "https://trello.com/c/SDdOuOeS",
+      "list": "完成",
+      "name": "[P2][教學] 預約與票券導覽、遮擋修正及不再顯示",
+      "checklistOpen": 0,
+      "checklistTotal": 7,
+      "runtimeFeatureIds": [
+        "shared.tour"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/browser/member-p2.spec.cjs",
+        "tests/integration/member_first_use_tour.cjs"
+      ],
+      "remaining": "现行首次與不再顯示規則已有自動化；全部五端跨帳號偏好／LINE WebView 仍可擴充。"
+    },
+    {
+      "card": "https://trello.com/c/xp2aIRkQ",
+      "list": "完成",
+      "name": "[P2][好友系統] 好友關係、邀請入口與代好友預約獎勵",
+      "checklistOpen": 0,
+      "checklistTotal": 8,
+      "runtimeFeatureIds": [
+        "member.referral",
+        "booking.group"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/browser/member-p2.spec.cjs",
+        "tests/integration/friends_ui.cjs",
+        "tests/integration/member_p2_features.cjs"
+      ],
+      "remaining": "好友同意、封鎖／移除、代約授權與完成加贈 SQL 已有；代約成功／取消／移除好友後的完整瀏覽器生命周期仍待專項。"
+    },
+    {
+      "card": "https://trello.com/c/mzBhSgbg",
+      "list": "完成",
+      "name": "[P2][活動票券] 會員階級可見性、鎖定提示與日曆顯示規則",
+      "checklistOpen": 0,
+      "checklistTotal": 5,
+      "runtimeFeatureIds": [
+        "event.crud",
+        "calendar.member"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/browser/admin-human.spec.cjs",
+        "tests/integration/shared_event_ticket.cjs"
+      ],
+      "remaining": "階級可見設定與 SQL／renderer 已有；四類階級跨 event／booking／calendar 的整體矩陣可再補。"
+    },
+    {
+      "card": "https://trello.com/c/KYbD8eDI",
+      "list": "完成",
+      "name": "會員卡 會員編號旁邊 加入一個 複製按鈕",
+      "checklistOpen": 0,
+      "checklistTotal": 0,
+      "runtimeFeatureIds": [
+        "member.clipboard"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/browser/member-join-terms.spec.cjs",
+        "tests/integration/qa_user_journeys.cjs"
+      ],
+      "remaining": "本次新增 runtime 成功／失败回饋、DOM 真實 copy handler、原生剪貼簿內容檢查；Chromium 執行待 CI。"
+    },
+    {
+      "card": "https://trello.com/c/yCOGcGUz",
+      "list": "完成",
+      "name": "[P1][預約設定] 是否必須預約主要技師才能預約",
+      "checklistOpen": 0,
+      "checklistTotal": 6,
+      "runtimeFeatureIds": [
+        "booking.settings"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/browser/admin-human.spec.cjs",
+        "tests/booking_primary_requirement_behavior.test.js"
+      ],
+      "remaining": "設定保存與主要技師邊界已有；多參與者的真實用戶提交／切換快取可再擴充。"
+    },
+    {
+      "card": "https://trello.com/c/9sE85D48",
+      "list": "完成",
+      "name": "[P2][預約體驗] 首次一般模式與記住切換偏好",
+      "checklistOpen": 0,
+      "checklistTotal": 5,
+      "runtimeFeatureIds": [
+        "booking.accessible"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/browser/booking-mode.spec.cjs",
+        "tests/integration/booking_accessible.cjs"
+      ],
+      "remaining": "首次一般與按會員記住偏好已有；既有舊 key 遷移及無儲存權限可再擴充。"
+    },
+    {
+      "card": "https://trello.com/c/GcZdmaQz",
+      "list": "完成",
+      "name": "[P1][活動票券] LINE 通知時間與停用設定",
+      "checklistOpen": 3,
+      "checklistTotal": 6,
+      "runtimeFeatureIds": [
+        "event.fixed",
+        "automation.health"
+      ],
+      "pairedKeys": [],
+      "evidencePaths": [
+        "tests/browser/admin-human.spec.cjs",
+        "tests/integration/fixed_ticket_automation_sql.cjs",
+        "tests/integration/booking_settings_notification_sql.cjs"
+      ],
+      "remaining": "設定 UI、排程及停用條件已有；3 個待驗 checklist 需真實發券／通知时间／停用無收件證據。"
+    }
+  ]
+}

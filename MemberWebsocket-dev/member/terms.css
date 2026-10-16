@@ -1,0 +1,9 @@
+.terms-box { min-width: 0; text-align: left; }
+.terms-box h2 { margin: 0; font-size: 17px; color: var(--ink); }
+.terms-box p { line-height: 1.6; }
+.terms-box details { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: var(--paper); color: var(--ink); }
+.terms-box summary { cursor: pointer; font-weight: 750; }
+.terms-body { max-height: 220px; overflow: auto; margin-top: 12px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.7; }
+.profile-form .terms-consent { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; line-height: 1.5; cursor: pointer; }
+.profile-form .terms-consent input { width: 18px; height: 18px; flex: none; margin: 1px 0 0; }
+html[data-theme="dark"] .terms-box details { background: var(--theme-surface, #253831); color: var(--theme-text, #f5f8f2); }

@@ -1,0 +1,47 @@
+[
+  {
+    "ddl": "CREATE UNIQUE INDEX booking_benefit_selections_one_pending_ticket_idx ON public.booking_benefit_selections USING btree (member_id, benefit_kind, benefit_ref) WHERE ((status = 'pending'::text) AND (benefit_kind = ANY (ARRAY['points'::text, 'event'::text])))"
+  },
+  {
+    "ddl": "CREATE UNIQUE INDEX booking_receipts_accessible_pending_member ON public.booking_receipts USING btree (member_id) WHERE ((submission_mode = 'accessible'::text) AND (booking_id IS NULL) AND (status = 'pending_upload'::text))"
+  },
+  {
+    "ddl": "CREATE UNIQUE INDEX booking_receipts_accessible_review_member ON public.booking_receipts USING btree (member_id) WHERE ((submission_mode = 'accessible'::text) AND (booking_id IS NULL) AND (status = 'awaiting_review'::text))"
+  },
+  {
+    "ddl": "CREATE UNIQUE INDEX booking_receipts_member_request_unique ON public.booking_receipts USING btree (member_id, request_id)"
+  },
+  {
+    "ddl": "CREATE UNIQUE INDEX booking_receipts_one_bound_per_booking ON public.booking_receipts USING btree (booking_id) WHERE (status = 'bound'::text)"
+  },
+  {
+    "ddl": "CREATE UNIQUE INDEX booking_receipts_one_pending_per_booking ON public.booking_receipts USING btree (booking_id) WHERE (status = 'pending_upload'::text)"
+  },
+  {
+    "ddl": "CREATE UNIQUE INDEX booking_receipts_one_review_per_booking ON public.booking_receipts USING btree (booking_id) WHERE (status = 'awaiting_review'::text)"
+  },
+  {
+    "ddl": "CREATE UNIQUE INDEX booking_service_types_name_ci_key ON public.booking_service_types USING btree (lower(btrim(name)))"
+  },
+  {
+    "ddl": "CREATE UNIQUE INDEX booking_technicians_name_unique_ci ON public.booking_technicians USING btree (lower(btrim(name)))"
+  },
+  {
+    "ddl": "CREATE UNIQUE INDEX event_tickets_fixed_template_cycle_uidx ON public.event_tickets USING btree (fixed_ticket_template_id, fixed_cycle_key) WHERE ((fixed_ticket_template_id IS NOT NULL) AND (fixed_cycle_key IS NOT NULL))"
+  },
+  {
+    "ddl": "CREATE UNIQUE INDEX event_tickets_one_active_membership_join_idx ON public.event_tickets USING btree (ticket_type) WHERE ((ticket_type = 'membership_join'::text) AND (status = 'active'::text) AND (deleted_at IS NULL))"
+  },
+  {
+    "ddl": "CREATE UNIQUE INDEX event_tickets_one_active_referral_idx ON public.event_tickets USING btree (ticket_type) WHERE ((ticket_type = 'referral'::text) AND (status = 'active'::text) AND (deleted_at IS NULL) AND (referral_source_event_ticket_id IS NULL))"
+  },
+  {
+    "ddl": "CREATE UNIQUE INDEX point_entries_request_once ON public.point_entries USING btree (request_id, member_id, point_card_id) WHERE ((request_id IS NOT NULL) AND (request_id <> ''::text))"
+  },
+  {
+    "ddl": "CREATE UNIQUE INDEX point_ticket_one_available_per_reward ON public.point_tickets USING btree (member_id, reward_id) WHERE ((status = 'available'::text) AND (reward_id IS NOT NULL))"
+  },
+  {
+    "ddl": "CREATE UNIQUE INDEX service_time_request_once ON public.service_time_entries USING btree (request_id, member_id) WHERE ((request_id IS NOT NULL) AND (request_id <> ''::text))"
+  }
+]

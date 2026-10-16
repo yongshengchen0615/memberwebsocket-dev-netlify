@@ -1,0 +1,20 @@
+[build]
+  base = "."
+  command = "node scripts/build-site.mjs"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "24"
+
+# Keep links that include the former monorepo directory usable.
+[[redirects]]
+  from = "/MemberWebsocket-dev/*"
+  to = "/:splat"
+  status = 301
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    Cache-Control = "public, max-age=0, must-revalidate"

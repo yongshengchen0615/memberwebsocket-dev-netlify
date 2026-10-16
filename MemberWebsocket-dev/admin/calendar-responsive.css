@@ -1,0 +1,550 @@
+/* Responsive calendar-management overrides.
+   Keep calendar CRUD/selection behavior unchanged; only adapt presentation and touch ergonomics. */
+
+#calendarPanel {
+  min-width: 0;
+}
+
+#calendarPanel > .panel-heading {
+  margin-bottom: 20px;
+}
+
+#calendarPanel .calendar-workspace,
+#calendarPanel .calendar-workspace .card-list,
+#calendarPanel .admin-calendar,
+#calendarPanel .admin-calendar-grid,
+#calendarPanel .admin-calendar-day,
+#calendarPanel .calendar-batch-editor {
+  min-width: 0;
+}
+
+#calendarPanel .admin-calendar {
+  overflow: hidden;
+  background: linear-gradient(180deg, #f8fbf8 0%, #f5f9f6 100%);
+}
+
+#calendarPanel .admin-calendar-toolbar {
+  position: relative;
+}
+
+#calendarPanel .admin-calendar-toolbar h3 {
+  font-size: clamp(21px, 2.1vw, 26px);
+  line-height: 1.15;
+}
+
+#calendarPanel .admin-calendar-month-button,
+#calendarPanel .admin-calendar-today-button,
+#calendarPanel .admin-calendar-day-button,
+#calendarPanel .admin-calendar-item {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#calendarPanel .admin-calendar-month-button:focus-visible,
+#calendarPanel .admin-calendar-today-button:focus-visible,
+#calendarPanel .admin-calendar-day-button:focus-visible,
+#calendarPanel .admin-calendar-item:focus-visible {
+  outline: 3px solid rgba(223, 107, 77, .28);
+  outline-offset: 2px;
+}
+
+#calendarPanel .admin-calendar-weekdays {
+  padding: 0 2px;
+  font-size: 11px;
+  letter-spacing: .04em;
+}
+
+#calendarPanel .admin-calendar-day {
+  min-height: clamp(108px, 10vw, 138px);
+  transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
+}
+
+#calendarPanel .admin-calendar-day:hover:not(.admin-calendar-day-empty) {
+  border-color: #c9dbce;
+  background: #fff;
+}
+
+#calendarPanel .admin-calendar-day-button {
+  min-height: 38px;
+}
+
+#calendarPanel .admin-calendar-item {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  padding: 5px 6px;
+  font-size: 11px;
+}
+
+#calendarPanel .admin-calendar-selection {
+  inline-size: 18px;
+  block-size: 18px;
+}
+
+#calendarPanel .admin-calendar-item-row .admin-calendar-selection {
+  margin-top: 5px;
+}
+
+#calendarPanel .admin-calendar-item-row[data-event-ticket-calendar-managed="true"] {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+#calendarPanel .admin-calendar-item-row[data-event-ticket-calendar-managed="true"] .admin-calendar-item {
+  width: 100%;
+}
+
+#calendarPanel .calendar-batch-editor {
+  box-shadow: 0 10px 24px rgba(37, 60, 49, .04);
+}
+
+#calendarEditorModal .editor-modal-card {
+  width: min(100%, 820px);
+  max-height: min(92dvh, 860px);
+}
+
+#calendarEditorModal #calendarItemForm {
+  min-width: 0;
+}
+
+#calendarEditorModal #calendarItemForm input,
+#calendarEditorModal #calendarItemForm select,
+#calendarEditorModal #calendarItemForm textarea {
+  min-height: 44px;
+}
+
+#calendarEditorModal #calendarItemForm textarea {
+  min-height: 104px;
+}
+
+#eventTicketCalendarInfoModal .editor-modal-card {
+  width: min(100%, 640px);
+  max-height: min(88dvh, 760px);
+}
+
+#eventTicketCalendarInfoContent {
+  display: grid;
+  gap: 0;
+}
+
+#eventTicketCalendarInfoContent > p {
+  margin: 0;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+#eventTicketCalendarInfoContent > p:first-child {
+  border-top: 0;
+}
+
+#eventTicketCalendarInfoContent > p strong {
+  color: var(--ink);
+  font-size: 11px;
+}
+
+@media (min-width: 1180px) {
+  #calendarPanel .admin-calendar {
+    padding: 22px;
+  }
+
+  #calendarPanel .admin-calendar-day {
+    padding: 8px;
+  }
+
+  #calendarPanel .admin-calendar-item {
+    padding: 6px 7px;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 1024px) {
+  #calendarPanel .admin-calendar {
+    padding: 15px;
+  }
+
+  #calendarPanel .admin-calendar-day {
+    min-height: 100px;
+    padding: 5px;
+  }
+
+  #calendarPanel .admin-calendar-item {
+    min-height: 27px;
+    padding: 4px 5px;
+    font-size: 10px;
+  }
+
+  #calendarPanel .admin-calendar-selection {
+    inline-size: 16px;
+    block-size: 16px;
+  }
+}
+
+@media (max-width: 760px) {
+  #calendarPanel > .panel-heading .heading-actions,
+  #calendarPanel > .panel-heading .heading-actions .button {
+    width: 100%;
+  }
+
+  #calendarPanel .admin-calendar {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 12px 10px 14px;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+  }
+
+  #calendarPanel .admin-calendar-toolbar,
+  #calendarPanel .admin-calendar > .calendar-batch-editor {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    width: 100%;
+  }
+
+  #calendarPanel .admin-calendar-toolbar {
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding-bottom: 2px;
+    background: #f8fbf8;
+  }
+
+  #calendarPanel .admin-calendar-toolbar::after {
+    content: "左右滑動月曆查看完整日期";
+    grid-column: 1 / -1;
+    justify-self: center;
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: .02em;
+  }
+
+  #calendarPanel .admin-calendar-toolbar h3 {
+    font-size: 21px;
+  }
+
+  #calendarPanel .admin-calendar-toolbar p {
+    max-width: 420px;
+    margin-inline: auto;
+    font-size: 11px;
+  }
+
+  #calendarPanel .admin-calendar-month-button {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+  }
+
+  #calendarPanel .admin-calendar-today-button {
+    min-height: 36px;
+    margin-top: 3px;
+    padding: 6px 10px;
+  }
+
+  #calendarPanel .admin-calendar-weekdays,
+  #calendarPanel .admin-calendar-grid {
+    width: 672px;
+    min-width: 672px;
+    grid-template-columns: repeat(7, 96px);
+  }
+
+  #calendarPanel .admin-calendar-weekdays {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    margin-bottom: 4px;
+    padding: 6px 0;
+    background: #f8fbf8;
+    font-size: 11px;
+  }
+
+  #calendarPanel .admin-calendar-day {
+    min-height: 104px;
+    padding: 5px;
+    gap: 4px;
+  }
+
+  #calendarPanel .admin-calendar-day-button {
+    min-height: 40px;
+    padding: 2px 4px;
+  }
+
+  #calendarPanel .admin-calendar-day.is-today .admin-calendar-day-number {
+    width: 26px;
+    height: 26px;
+  }
+
+  #calendarPanel .admin-calendar-item {
+    min-height: 32px;
+    padding: 5px 6px;
+    font-size: 10px;
+    line-height: 1.35;
+  }
+
+  #calendarPanel .admin-calendar-selection {
+    inline-size: 20px;
+    block-size: 20px;
+  }
+
+  #calendarPanel .admin-calendar-item-row {
+    gap: 5px;
+  }
+
+  #calendarPanel .admin-calendar-item-row[data-event-ticket-calendar-managed="true"] {
+    gap: 0;
+  }
+
+  #calendarPanel .admin-calendar-item-row .admin-calendar-selection {
+    margin-top: 6px;
+  }
+
+  #calendarPanel .admin-calendar > .calendar-batch-editor {
+    box-sizing: border-box;
+    margin-top: 18px;
+    background: #f7faf7;
+  }
+
+  #calendarPanel .calendar-batch-editor .heading-actions,
+  #calendarPanel .calendar-batch-editor .editor-actions {
+    width: 100%;
+  }
+
+  #calendarEditorModal,
+  #eventTicketCalendarInfoModal {
+    padding: 0;
+    align-items: end;
+  }
+
+  #calendarEditorModal .editor-modal-card,
+  #eventTicketCalendarInfoModal .editor-modal-card {
+    width: 100%;
+    max-height: 94dvh;
+    padding: 18px 16px max(18px, env(safe-area-inset-bottom));
+    border-radius: 22px 22px 0 0;
+  }
+
+  #calendarEditorModal .editor-heading,
+  #eventTicketCalendarInfoModal .editor-heading {
+    position: sticky;
+    top: -18px;
+    z-index: 4;
+    margin: 0 -2px 16px;
+    padding: 18px 2px 12px;
+    background: var(--paper);
+    border-bottom: 1px solid rgba(223, 232, 225, .8);
+  }
+
+  #calendarEditorModal .editor-modal-close {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+  }
+
+  #eventTicketCalendarInfoModal #closeEventTicketCalendarInfoButton {
+    min-height: 44px;
+  }
+
+  #calendarEditorModal #calendarItemForm {
+    gap: 16px;
+  }
+
+  #calendarEditorModal #calendarItemForm input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+  #calendarEditorModal #calendarItemForm select,
+  #calendarEditorModal #calendarItemForm textarea {
+    min-height: 48px;
+    font-size: 16px;
+  }
+
+  #calendarEditorModal #calendarItemForm .editor-actions {
+    gap: 8px;
+    padding-top: 4px;
+  }
+}
+
+@media (max-width: 520px) {
+  #calendarPanel .calendar-batch-editor .heading-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  #calendarPanel .calendar-batch-editor .heading-actions .button,
+  #calendarPanel .calendar-batch-editor .editor-actions .button {
+    width: 100%;
+    flex-basis: 100%;
+  }
+
+  #calendarEditorModal #calendarItemForm .editor-actions .button {
+    flex: 1 1 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  #calendarPanel .admin-calendar {
+    margin-inline: -2px;
+    padding-inline: 8px;
+  }
+
+  #calendarPanel .admin-calendar-weekdays,
+  #calendarPanel .admin-calendar-grid {
+    width: 616px;
+    min-width: 616px;
+    grid-template-columns: repeat(7, 88px);
+  }
+
+  #calendarPanel .admin-calendar-day {
+    min-height: 98px;
+  }
+
+  #calendarPanel .admin-calendar-toolbar p {
+    display: none;
+  }
+
+  #calendarEditorModal .editor-modal-card,
+  #eventTicketCalendarInfoModal .editor-modal-card {
+    padding-right: 13px;
+    padding-left: 13px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #calendarPanel .admin-calendar-day {
+    transition: none;
+  }
+}
+
+/* LINE mobile calendar: keep all seven date columns inside the viewport.
+   The previous fixed 672/616px grids intentionally overflowed and forced horizontal scrolling. */
+@media (max-width: 760px) {
+  #calendarPanel .admin-calendar {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    overflow-y: visible;
+    padding: 10px 6px 12px;
+    scrollbar-gutter: auto;
+    scrollbar-width: none;
+  }
+
+  #calendarPanel .admin-calendar-toolbar,
+  #calendarPanel .admin-calendar > .calendar-batch-editor {
+    position: relative;
+    left: auto;
+    width: 100%;
+  }
+
+  #calendarPanel .admin-calendar-toolbar::after {
+    content: none;
+    display: none;
+  }
+
+  #calendarPanel .admin-calendar-weekdays,
+  #calendarPanel .admin-calendar-grid {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+
+  #calendarPanel .admin-calendar-weekdays {
+    position: static;
+    padding-inline: 0;
+    font-size: 10px;
+  }
+
+  #calendarPanel .admin-calendar-day {
+    min-width: 0;
+    min-height: 86px;
+    padding: 3px 2px;
+    gap: 2px;
+    overflow: hidden;
+  }
+
+  #calendarPanel .admin-calendar-day-header {
+    grid-template-columns: 16px minmax(0, 1fr);
+    gap: 2px;
+    min-width: 0;
+  }
+
+  #calendarPanel .admin-calendar-selection {
+    inline-size: 16px;
+    block-size: 16px;
+    max-inline-size: 16px;
+    max-width: 16px;
+  }
+
+  #calendarPanel .admin-calendar-day-button {
+    width: 100%;
+    min-width: 0;
+    min-height: 32px;
+    padding: 1px 2px;
+  }
+
+  #calendarPanel .admin-calendar-day.is-today .admin-calendar-day-number {
+    width: 23px;
+    height: 23px;
+  }
+
+  #calendarPanel .admin-calendar-items,
+  #calendarPanel .admin-calendar-item-row,
+  #calendarPanel .admin-calendar-item {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  #calendarPanel .admin-calendar-item-row:not([data-event-ticket-calendar-managed="true"]) {
+    grid-template-columns: 16px minmax(0, 1fr);
+    gap: 2px;
+  }
+
+  #calendarPanel .admin-calendar-item {
+    min-height: 26px;
+    padding: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 420px) {
+  #calendarPanel .admin-calendar {
+    margin-inline: 0;
+    padding-inline: 4px;
+  }
+
+  #calendarPanel .admin-calendar-day {
+    min-height: 76px;
+    padding: 2px 1px;
+  }
+
+  #calendarPanel .admin-calendar-day-header,
+  #calendarPanel .admin-calendar-item-row:not([data-event-ticket-calendar-managed="true"]) {
+    grid-template-columns: 14px minmax(0, 1fr);
+  }
+
+  #calendarPanel .admin-calendar-selection {
+    inline-size: 14px;
+    block-size: 14px;
+    max-inline-size: 14px;
+    max-width: 14px;
+  }
+
+  #calendarPanel .admin-calendar-day.is-today .admin-calendar-day-number {
+    width: 21px;
+    height: 21px;
+  }
+
+  #calendarPanel .admin-calendar-item {
+    min-height: 24px;
+    padding: 2px;
+    font-size: 8px;
+  }
+}

@@ -1,0 +1,577 @@
+/* Mobile-first booking layout refinements.
+   Loaded after shared theme/experience styles so the booking flow can use
+   phone-specific hierarchy without changing desktop behavior. */
+
+@media (max-width: 720px) {
+  #bookingView {
+    min-width: 0;
+  }
+
+  #bookingView > .topbar {
+    margin-bottom: 14px;
+  }
+
+  #bookingView > .topbar h1 {
+    font-size: clamp(30px, 9vw, 38px);
+    line-height: 1;
+  }
+
+  #bookingView .membership-progress {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 14px;
+    margin: 12px 0;
+    padding: 14px 15px;
+    border-radius: 18px;
+  }
+
+  #bookingView .membership-progress h2 {
+    margin: 4px 0 5px;
+    font-size: 20px;
+  }
+
+  #bookingView .membership-progress-current {
+    font-size: 14px;
+  }
+
+  #bookingView .membership-progress-summary {
+    align-self: end;
+    max-width: 148px;
+    font-size: 11px;
+    line-height: 1.45;
+    text-align: right;
+  }
+
+  #bookingView .membership-progress-remaining {
+    grid-column: 1 / -1;
+    margin: 0;
+    font-size: 12px;
+  }
+
+  #bookingView .membership-progress-track {
+    height: 8px;
+  }
+
+  #bookingView .booking-card {
+    margin-bottom: 12px;
+    padding: 14px;
+    border-radius: 20px;
+  }
+
+  #bookingView .section-heading {
+    margin-bottom: 14px;
+  }
+
+  #bookingView .section-heading h2 {
+    font-size: 22px;
+    line-height: 1.15;
+  }
+
+  #bookingView .section-heading p {
+    margin-top: 5px;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  #bookingView .slot-unit {
+    margin-top: 8px;
+    padding: 6px 9px;
+    font-size: 10px;
+  }
+
+  #bookingView #bookingNotice {
+    margin: 10px 0 12px;
+    padding: 11px 12px;
+    border-radius: 14px;
+    font-size: 12px;
+  }
+
+  #bookingView .calendar-shell {
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  #bookingView .calendar-toolbar {
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    gap: 6px;
+  }
+
+  #bookingView .calendar-toolbar strong {
+    font-size: 16px;
+  }
+
+  #bookingView .calendar-weekdays,
+  #bookingView .calendar-grid {
+    gap: 4px;
+  }
+
+  #bookingView .calendar-weekdays span {
+    padding: 3px 0;
+    font-size: 10px;
+  }
+
+  #bookingView .calendar-day-placeholder,
+  #bookingView .calendar-day {
+    min-height: 48px;
+  }
+
+  #bookingView .calendar-day {
+    position: relative;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 4px 2px 8px;
+    border-radius: 12px;
+    text-align: center;
+  }
+
+  #bookingView .calendar-day-number {
+    font-size: 14px;
+    font-weight: 800;
+  }
+
+  #bookingView .calendar-booking-times {
+    position: absolute;
+    left: 50%;
+    bottom: 4px;
+    display: block;
+    width: auto;
+    transform: translateX(-50%);
+  }
+
+  #bookingView .calendar-booking-times small {
+    display: none;
+  }
+
+  #bookingView .calendar-day.has-booking .calendar-booking-times::after {
+    content: "";
+    display: block;
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--theme-accent);
+  }
+
+  #bookingView .calendar-holiday-label {
+    max-width: 100%;
+    margin-top: 1px;
+    padding: 1px 3px;
+    overflow: hidden;
+    font-size: 7px;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #bookingView .calendar-legend {
+    gap: 6px 10px;
+    margin-top: 4px;
+    font-size: 10px;
+    line-height: 1.4;
+  }
+
+  /* Mobile appointment sheet: header and submit action remain visible while
+     only the form body scrolls. */
+  #appointmentPanel.booking-selection-modal {
+    align-items: stretch;
+    padding: 0;
+    background: var(--theme-overlay);
+  }
+
+  #appointmentPanel .booking-selection-modal-card {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    padding: 0;
+    overflow: hidden;
+    border-radius: 0;
+    background: var(--theme-surface);
+    box-shadow: none;
+  }
+
+  #appointmentPanel .booking-selection-modal-heading {
+    position: relative;
+    z-index: 3;
+    margin: 0;
+    padding:
+      max(12px, env(safe-area-inset-top))
+      14px
+      12px;
+    border-bottom: 1px solid var(--theme-border);
+    background: var(--theme-surface);
+  }
+
+  #appointmentPanel .booking-selection-modal-heading .kicker {
+    margin-bottom: 4px;
+    font-size: 9px;
+  }
+
+  #appointmentPanel .booking-selection-modal-heading h2 {
+    margin: 0 0 3px;
+    font-size: 24px;
+  }
+
+  #appointmentPanel .booking-selection-modal-heading strong {
+    color: var(--theme-text-muted);
+    font-size: 13px;
+  }
+
+  #appointmentPanel .booking-selection-modal-close {
+    width: 44px;
+    height: 44px;
+    border-color: var(--theme-border);
+    background: var(--theme-surface-raised);
+    color: var(--theme-text);
+  }
+
+  #appointmentPanel .booking-selection-modal-body {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 12px 14px 22px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #appointmentPanel .booking-selection-modal-footer {
+    position: relative;
+    z-index: 4;
+    display: grid;
+    gap: 8px;
+    padding: 10px 14px max(10px, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--theme-border);
+    background: var(--theme-surface);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, .06);
+  }
+
+  #appointmentPanel .booking-selection-modal-footer .form-message {
+    margin: 0;
+  }
+
+  #appointmentPanel #submitBookingButton {
+    width: 100%;
+    min-height: 54px;
+    margin: 0;
+    border-radius: 15px;
+    font-size: 15px;
+  }
+
+  #appointmentPanel .booking-contact-fieldset,
+  #appointmentPanel .service-picker-fieldset,
+  #appointmentPanel .selected-service-fieldset,
+  #appointmentPanel .slot-fieldset,
+  #appointmentPanel .booking-benefits {
+    margin: 0 0 12px;
+    padding: 14px;
+    border: 1px solid var(--theme-border);
+    border-radius: 18px;
+    background: var(--theme-surface-muted);
+    box-shadow: none;
+  }
+
+  #appointmentPanel .booking-contact-fieldset legend,
+  #appointmentPanel .service-picker-fieldset legend,
+  #appointmentPanel .selected-service-fieldset legend,
+  #appointmentPanel .slot-fieldset legend {
+    padding: 0 3px;
+    color: var(--theme-text);
+    font-size: 14px;
+    font-weight: 900;
+  }
+
+  #appointmentPanel .slot-hint {
+    margin-bottom: 9px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  #appointmentPanel .booking-contact-options {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  #appointmentPanel .booking-contact-option {
+    min-height: 0;
+    padding: 11px 12px;
+    border-color: var(--theme-border);
+    border-radius: 14px;
+    background: var(--theme-surface-raised);
+  }
+
+  #appointmentPanel .booking-contact-option strong {
+    color: var(--theme-text);
+  }
+
+  #appointmentPanel .booking-contact-option small,
+  #appointmentPanel .booking-contact-help {
+    color: var(--theme-text-muted);
+  }
+
+  #appointmentPanel .booking-contact-custom input,
+  #appointmentPanel .booking-contact-custom select {
+    border-color: var(--theme-border-strong);
+    background: var(--theme-surface-raised);
+    color: var(--theme-text);
+  }
+
+  #appointmentPanel .booking-contact-custom {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  #appointmentPanel .service-picker,
+  #appointmentPanel .selected-service-list {
+    gap: 8px;
+  }
+
+  #appointmentPanel .service-choice,
+  #appointmentPanel .selected-service-item {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 14px;
+    background: var(--theme-surface-raised);
+  }
+
+  #appointmentPanel .service-choice-main strong,
+  #appointmentPanel .selected-service-main strong {
+    font-size: 14px;
+  }
+
+  #appointmentPanel .service-choice-main small,
+  #appointmentPanel .selected-service-main small {
+    font-size: 11px;
+  }
+
+  #appointmentPanel .service-add-button,
+  #appointmentPanel .selected-service-remove {
+    min-width: 70px;
+    min-height: 44px;
+    padding: 8px 11px;
+  }
+
+  #appointmentPanel #selectionSummary {
+    margin: 0 0 12px;
+    border: 1px solid var(--theme-border);
+  }
+
+  #appointmentPanel .slot-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  #appointmentPanel .slot-button {
+    min-height: 48px;
+    border-radius: 13px;
+    font-size: 13px;
+  }
+
+  #appointmentPanel .booking-benefits {
+    color: var(--theme-text);
+  }
+
+  #appointmentPanel .booking-benefits-heading {
+    align-items: flex-start;
+  }
+
+  #appointmentPanel .booking-benefits-heading h2 {
+    font-size: 15px;
+  }
+
+  #appointmentPanel .booking-benefits-heading p {
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  #appointmentPanel .booking-benefits-list {
+    gap: 12px;
+  }
+
+  #appointmentPanel .booking-benefit-group {
+    gap: 7px;
+  }
+
+  #appointmentPanel .booking-benefit-group-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  #appointmentPanel .booking-benefit {
+    gap: 5px;
+    padding: 11px 12px;
+    border-radius: 14px;
+    background: var(--theme-surface-raised);
+  }
+
+  #appointmentPanel .booking-benefit h4 {
+    font-size: 14px;
+  }
+
+  #appointmentPanel .booking-benefit p,
+  #appointmentPanel .booking-benefit small {
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  #appointmentPanel .booking-benefit-select {
+    min-height: 46px;
+    margin-top: 3px;
+    padding-top: 7px;
+    border-top: 1px solid var(--theme-border);
+    font-size: 12px;
+  }
+
+  #appointmentPanel .booking-benefit-link {
+    min-height: 40px;
+    font-size: 12px;
+  }
+
+  #appointmentPanel > .booking-selection-modal-card textarea,
+  #appointmentPanel .booking-selection-modal-body > label textarea {
+    min-height: 88px;
+  }
+
+  #appointmentPanel .booking-selection-modal-body > label {
+    margin: 2px 0 4px;
+    padding: 14px;
+    border: 1px solid var(--theme-border);
+    border-radius: 18px;
+    background: var(--theme-surface-muted);
+  }
+
+  #bookingView #myBookingsTitle {
+    font-size: 22px;
+  }
+
+  #bookingView .booking-list {
+    gap: 9px;
+  }
+
+  #bookingView .booking-item {
+    padding: 13px;
+    border-radius: 16px;
+  }
+
+  #bookingView .booking-item-top {
+    gap: 7px;
+  }
+
+  #bookingView .booking-item-top strong {
+    font-size: 15px;
+    line-height: 1.35;
+  }
+
+  #bookingView .booking-item-top span,
+  #bookingView .booking-note,
+  #bookingView .booking-service-items {
+    font-size: 12px;
+  }
+
+  #bookingConfirmModal.booking-modal {
+    padding: 0;
+  }
+
+  #bookingConfirmModal .booking-modal-card {
+    width: 100%;
+    max-height: 100dvh;
+    margin-top: auto;
+    padding: 18px 14px max(14px, env(safe-area-inset-bottom));
+    border-radius: 24px 24px 0 0;
+  }
+
+  #bookingConfirmModal .booking-modal-actions {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 420px) {
+  #bookingView .membership-progress {
+    grid-template-columns: 1fr;
+  }
+
+  #bookingView .membership-progress-summary {
+    max-width: none;
+    text-align: left;
+  }
+
+  #bookingView .calendar-day-placeholder,
+  #bookingView .calendar-day {
+    min-height: 46px;
+  }
+
+  #bookingView .calendar-legend {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  #appointmentPanel .slot-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #appointmentPanel .service-choice,
+  #appointmentPanel .selected-service-item {
+    grid-template-columns: 1fr;
+  }
+
+  #appointmentPanel .service-add-button,
+  #appointmentPanel .selected-service-remove {
+    width: 100%;
+  }
+}
+
+@media (max-width: 360px) {
+  .app-shell {
+    padding-left: max(10px, env(safe-area-inset-left));
+    padding-right: max(10px, env(safe-area-inset-right));
+  }
+
+  #bookingView .booking-card {
+    padding: 12px;
+  }
+
+  #bookingView .calendar-weekdays,
+  #bookingView .calendar-grid {
+    gap: 3px;
+  }
+
+  #appointmentPanel .booking-selection-modal-body,
+  #appointmentPanel .booking-selection-modal-heading,
+  #appointmentPanel .booking-selection-modal-footer {
+    padding-inline: 12px;
+  }
+
+  #appointmentPanel .booking-contact-fieldset,
+  #appointmentPanel .service-picker-fieldset,
+  #appointmentPanel .selected-service-fieldset,
+  #appointmentPanel .slot-fieldset,
+  #appointmentPanel .booking-benefits,
+  #appointmentPanel .booking-selection-modal-body > label {
+    padding: 12px;
+  }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  #appointmentPanel .booking-selection-modal-card {
+    height: 100dvh;
+    max-height: 100dvh;
+  }
+
+  #appointmentPanel .booking-selection-modal-heading {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  #appointmentPanel .booking-selection-modal-heading .kicker {
+    display: none;
+  }
+
+  #appointmentPanel .booking-selection-modal-footer {
+    padding-top: 7px;
+    padding-bottom: max(7px, env(safe-area-inset-bottom));
+  }
+
+  #appointmentPanel #submitBookingButton {
+    min-height: 46px;
+  }
+}

@@ -1,0 +1,68 @@
+.friends-panel {padding:20px;margin:20px 0;border:1px solid var(--theme-border);border-radius:20px;background:var(--theme-surface);color:var(--theme-text);}
+.friends-panel h2 {margin:0 0 12px;font-size:22px;}
+.friends-panel p,.friends-panel small {color:var(--theme-text-muted);line-height:1.6;}
+.friends-panel form,.friend-actions {display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.friends-panel input,.friends-panel select {width:100%;max-width:420px;padding:12px;border:1px solid var(--theme-border);border-radius:10px;background:var(--theme-surface-muted);color:var(--theme-text);font:inherit;}
+.friends-panel label {display:block;margin:12px 0;}
+.friend-row {display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 0;border-top:1px solid var(--theme-border);}
+.friend-row strong,.friend-row small {display:block;}
+.friend-qr {display:block;width:192px;max-width:100%;height:auto;margin:12px 0;background:white;border:8px solid white;border-radius:12px;}
+.friends-panel button {min-height:44px;}
+.friends-panel [role=status] {min-height:1.6em;}
+#settingsCopyModal .modal-card {width:min(560px,calc(100vw - 24px));max-height:85dvh;overflow:auto;}
+@media(max-width:620px){.friends-panel{padding:16px;} .friend-row{align-items:flex-start;} .friend-actions{width:100%;} }
+.friend-sharing {display:grid;grid-template-columns:192px minmax(0,1fr);gap:18px;align-items:center;}
+.friend-sharing input {font-size:13px;overflow:hidden;text-overflow:ellipsis;}
+.member-referral-dialog .friends-panel {margin:0;padding:16px;}
+.member-referral-dialog .friends-panel h3 {margin:0 0 12px;}
+.member-referral-dialog .friend-actions {align-items:stretch;}
+.member-referral-dialog .friend-actions button {flex:1 1 150px;min-height:44px;}
+#friendQrScanner,#memberReferralQrScanner {border-radius:16px;padding:12px;background:var(--theme-surface-muted);}
+#friendQrScanner[hidden],#memberReferralQrScanner[hidden] {display:none;}
+#friendQrFile[hidden],#memberReferralQrFile[hidden],#confirmFriendRequest[hidden] {display:none;}
+#friendQrVideo,#memberReferralQrVideo {display:block;width:100%;aspect-ratio:4/3;object-fit:contain;border-radius:12px;background:#111;}
+#friendQrScanner p,#memberReferralQrScanner p {margin:10px 0;line-height:1.6;color:var(--theme-text-muted);}
+.friend-feedback {margin:10px 0;padding:10px 12px;border:1px solid var(--theme-border);border-radius:12px;background:var(--theme-surface-muted);color:var(--theme-text);line-height:1.6;}
+.friend-feedback:empty {display:none;}
+.friend-feedback[data-state="success"] {border-color:color-mix(in srgb,var(--theme-positive,#2f7b55) 32%,var(--theme-border));background:var(--theme-positive-soft,#eef8ef);color:var(--theme-positive-text,#1f5d2a);}
+.friend-feedback[data-state="error"] {border-color:color-mix(in srgb,var(--theme-danger,#a94635) 32%,var(--theme-border));background:var(--theme-danger-soft,#fff0f0);color:var(--theme-danger-text,#8c1d18);}
+#bindMemberReferral {min-height:44px;}
+@media(max-width:560px){.friend-sharing{grid-template-columns:minmax(0,1fr);gap:8px;}.friend-qr{margin:8px auto;}.member-referral-dialog .friend-actions button{flex-basis:120px;}.member-referral-dialog{padding:16px;}.member-referral-heading{position:sticky;top:-16px;background:var(--theme-surface-raised);padding:12px 0;z-index:1;}}
+
+.booking-contact-fieldset .booking-recipient {margin:0 0 12px;padding:0 0 12px;border:0;border-bottom:1px solid var(--theme-border);border-radius:0;background:transparent;}
+.booking-recipient>p {font-size:12px;}
+.booking-recipient select {max-width:none;}
+.friend-link-actions {display:grid;gap:12px;min-width:0;}
+.friend-link-actions button {min-height:44px;white-space:normal;}
+.friend-link-actions small {line-height:1.6;}
+.friend-copy-buffer {position:fixed;opacity:0;width:1px;height:1px;inset:0;pointer-events:none;}
+.member-referral-section {grid-template-columns:minmax(0,1fr);}
+.friend-invite-section,.friend-add-section {gap:12px;}
+.friend-add-section>label {margin:0;}
+.friend-add-section>input {width:100%;}
+#memberReferralRewardTabPanel .member-referral-section {margin:0;}
+.member-referral-code-row {min-width:0;overflow-wrap:anywhere;}
+.member-invite-code {min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere;}
+.member-referral-dialog .friends-panel {border-radius:var(--ui-radius-panel);}
+
+
+.friend-subtabs {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:4px;border:1px solid var(--theme-border);border-radius:16px;background:var(--theme-surface-muted);}
+.friend-subtab {min-height:42px;padding:9px 14px;border:1px solid transparent;border-radius:12px;background:transparent;color:var(--theme-text-muted);font:inherit;font-weight:700;cursor:pointer;}
+.friend-subtab[aria-selected="true"] {border-color:var(--theme-border);background:var(--theme-surface);color:var(--theme-text);}
+.friend-subtab:focus-visible {outline:2px solid currentColor;outline-offset:2px;}
+.friend-subtab-panel {display:grid;gap:14px;min-width:0;}
+.friend-subtab-panel[hidden] {display:none;}
+.friends-panel-heading {display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;}
+.friends-panel-heading h3 {margin:0;}
+.friends-panel-heading .button {flex:0 0 auto;}
+@media(max-width:560px){.friend-subtabs{position:sticky;top:58px;z-index:1;}.friends-panel-heading{align-items:flex-start;}.friends-panel-heading .button{min-width:96px;}}
+
+.booking-recipient-heading {display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;min-width:0;}
+.booking-recipient .booking-recipient-heading label {margin:0;font-weight:800;}
+.booking-recipient-actions {display:flex;flex-wrap:wrap;gap:8px;min-width:0;}
+.booking-recipient-actions .button {display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 14px;text-decoration:none;white-space:normal;font:inherit;font-size:13px;}
+.booking-recipient-help {margin-top:12px;font-size:12px;color:var(--theme-text-muted);line-height:1.6;}
+.booking-recipient-help summary {cursor:pointer;min-height:32px;}
+.booking-recipient-help p {margin:6px 0;}
+.booking-recipient :is(a,button,summary):focus-visible {outline:3px solid var(--theme-focus-ring);outline-offset:3px;}
+@media(max-width:420px){.booking-recipient-heading{align-items:flex-start;}.booking-recipient-actions{width:100%;}.booking-recipient-actions .button{flex:1;}}

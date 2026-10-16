@@ -1,0 +1,185 @@
+{
+  "retiredFunctions": [
+    {
+      "schema": "public",
+      "name": "admin_save_test_mode",
+      "identity": "p_enabled boolean, p_allow_admin_user_login boolean, p_maintenance_message text, p_updated_by text, p_add_account_count integer"
+    },
+    {
+      "schema": "public",
+      "name": "admin_save_test_mode_v2",
+      "identity": "p_test_mode_enabled boolean, p_maintenance_enabled boolean, p_maintenance_message text, p_updated_by text, p_add_account_count integer"
+    },
+    {
+      "schema": "public",
+      "name": "admin_save_test_mode_v3",
+      "identity": "p_test_mode_enabled boolean, p_maintenance_enabled boolean, p_allow_pc_test_login boolean, p_allow_mobile_test_login boolean, p_maintenance_message text, p_updated_by text, p_add_account_count integer"
+    },
+    {
+      "schema": "public",
+      "name": "booking_has_required_service_id",
+      "identity": "p_booking_id uuid, p_required_service_ids uuid[]"
+    },
+    {
+      "schema": "public",
+      "name": "booking_has_required_service_type",
+      "identity": "p_booking_id uuid, p_required_service_types text[]"
+    },
+    {
+      "schema": "public",
+      "name": "complete_booking_with_receipt_request",
+      "identity": "p_receipt_id text, p_member_id uuid, p_actor_line_user_id text, p_expected_booking_updated_at timestamp with time zone, p_actual_mime_type text, p_actual_size_bytes integer, p_sha256_hex text"
+    },
+    {
+      "schema": "public",
+      "name": "create_booking_request",
+      "identity": "p_request_id text, p_service_id uuid, p_member_id uuid, p_booking_date date, p_start_time time without time zone, p_member_note text"
+    },
+    {
+      "schema": "public",
+      "name": "issue_birthday_benefits",
+      "identity": "p_business_date date"
+    },
+    {
+      "schema": "public",
+      "name": "prevent_delete_ticket_required_service_type",
+      "identity": ""
+    },
+    {
+      "schema": "public",
+      "name": "register_accessible_receipt_request",
+      "identity": "p_receipt_id text, p_expected_receipt_updated_at timestamp with time zone, p_actor text, p_booking_id uuid, p_booking_date date, p_start_time time without time zone, p_items jsonb, p_admin_note text"
+    },
+    {
+      "schema": "public",
+      "name": "rename_booking_service_type",
+      "identity": "p_type_id uuid, p_name text, p_actor text"
+    },
+    {
+      "schema": "public",
+      "name": "save_booking_settings_with_service_types",
+      "identity": "p_work_start_time time without time zone, p_work_end_time time without time zone, p_min_advance_days integer, p_service_types text[], p_expected_updated_at timestamp with time zone, p_actor text"
+    },
+    {
+      "schema": "public",
+      "name": "save_booking_shared_settings",
+      "identity": "p_work_start_time time without time zone, p_work_end_time time without time zone, p_min_advance_days integer, p_booking_notice text, p_expected_updated_at timestamp with time zone, p_actor text"
+    },
+    {
+      "schema": "public",
+      "name": "save_booking_shared_settings",
+      "identity": "p_work_start_time time without time zone, p_work_end_time time without time zone, p_min_advance_days integer, p_max_advance_days integer, p_booking_notice text, p_expected_updated_at timestamp with time zone, p_actor text"
+    },
+    {
+      "schema": "public",
+      "name": "save_booking_shared_settings_v2",
+      "identity": "p_work_start_time time without time zone, p_work_end_time time without time zone, p_min_advance_days integer, p_max_advance_days integer, p_booking_notice text, p_store_service_minutes integer, p_expected_updated_at timestamp with time zone, p_actor text"
+    },
+    {
+      "schema": "public",
+      "name": "sync_legacy_ticket_redemption_location",
+      "identity": ""
+    },
+    {
+      "schema": "public",
+      "name": "sync_legacy_ticket_required_service_types_to_ids",
+      "identity": ""
+    },
+    {
+      "schema": "public",
+      "name": "sync_ticket_required_service_type_name",
+      "identity": ""
+    }
+  ],
+  "retiredTables": [
+    "birthday_benefit_grants",
+    "birthday_benefit_settings"
+  ],
+  "retiredColumns": {
+    "event_tickets": [
+      "required_service_types",
+      "redemption_latitude",
+      "redemption_longitude",
+      "redemption_radius_meters"
+    ],
+    "point_card_rewards": [
+      "required_service_types"
+    ],
+    "event_ticket_settings": [
+      "max_tickets_per_redemption"
+    ],
+    "test_mode_settings": [
+      "enabled",
+      "allow_admin_user_login"
+    ],
+    "booking_services": [
+      "work_start_time",
+      "work_end_time",
+      "slot_minutes",
+      "min_advance_days",
+      "available_weekdays"
+    ]
+  },
+  "updatedFunctions": [
+    {
+      "schema": "public",
+      "name": "save_point_card",
+      "identity": "p_actor_line_user_id text, p_card jsonb, p_expected_updated_at timestamp with time zone"
+    },
+    {
+      "schema": "public",
+      "name": "bind_member_referral",
+      "identity": "p_invitee_line_user_id text, p_invite_code text, p_request_id text"
+    },
+    {
+      "schema": "public",
+      "name": "apply_fixed_ticket_location_rule",
+      "identity": ""
+    },
+    {
+      "schema": "public",
+      "name": "admin_delete_test_accounts",
+      "identity": "p_member_ids uuid[]"
+    },
+    {
+      "schema": "public",
+      "name": "admin_purge_test_data",
+      "identity": ""
+    },
+    {
+      "schema": "public",
+      "name": "admin_save_maintenance_test_access",
+      "identity": "p_maintenance_enabled boolean, p_allow_pc_test_login boolean, p_allow_mobile_test_login boolean, p_maintenance_message text, p_updated_by text, p_add_account_count integer"
+    },
+    {
+      "schema": "public",
+      "name": "admin_prepare_complex_e2e_fixtures",
+      "identity": "p_run_tag text, p_actor text"
+    },
+    {
+      "schema": "maintenance",
+      "name": "ensure_required_system_baseline",
+      "identity": ""
+    },
+    {
+      "schema": "maintenance",
+      "name": "ensure_event_ticket_settings_baseline",
+      "identity": ""
+    },
+    {
+      "schema": "public",
+      "name": "count_today_usable_event_tickets",
+      "identity": "p_line_user_id text"
+    },
+    {
+      "schema": "public",
+      "name": "redeem_event_ticket",
+      "identity": "p_line_user_id text, p_claim_id text, p_location jsonb"
+    },
+    {
+      "schema": "public",
+      "name": "redeem_event_tickets_with_location",
+      "identity": "p_line_user_id text, p_claim_ids text[], p_request_id text, p_location jsonb"
+    }
+  ]
+}

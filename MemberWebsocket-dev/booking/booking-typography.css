@@ -1,0 +1,387 @@
+/* Booking typography and text hierarchy overrides. Loaded last on the member booking page. */
+:root {
+  --booking-text: #17352e;
+  --booking-text-strong: #25362c;
+  --booking-text-muted: #65776f;
+  --booking-text-soft: #7a8881;
+  --booking-line: rgba(23, 53, 46, .10);
+}
+
+body {
+  line-height: 1.5;
+}
+
+/* Page / section hierarchy */
+.topbar h1 {
+  line-height: 1.02;
+  letter-spacing: -.045em;
+}
+
+.kicker {
+  margin-bottom: 7px;
+  line-height: 1.25;
+}
+
+.section-heading h2,
+.booking-selection-modal-heading h2,
+.booking-modal-heading h2 {
+  line-height: 1.18;
+  letter-spacing: -.03em;
+}
+
+.section-heading p,
+.booking-modal-card > p,
+.state-view p {
+  color: var(--booking-text-muted);
+  font-size: 14px;
+  line-height: 1.72;
+  overflow-wrap: anywhere;
+}
+
+.section-heading p {
+  max-width: 42rem;
+  margin-top: 8px;
+}
+
+/* General labels / helper copy */
+label,
+.slot-fieldset legend,
+.service-picker-fieldset legend,
+.selected-service-fieldset legend {
+  color: var(--booking-text-strong);
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 800;
+}
+
+input,
+select,
+textarea,
+button {
+  letter-spacing: 0;
+}
+
+textarea {
+  line-height: 1.65;
+}
+
+.slot-hint,
+.service-choice-main small,
+.selected-service-main small,
+.empty-state span {
+  font-size: 13px;
+  line-height: 1.62;
+}
+
+.slot-hint {
+  color: var(--booking-text-muted);
+}
+
+.service-info,
+.form-message {
+  font-size: 13.5px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.service-info strong {
+  font-weight: 850;
+}
+
+/* Service selection */
+.service-choice-main,
+.selected-service-main {
+  gap: 5px;
+}
+
+.service-choice-main strong,
+.selected-service-main strong {
+  color: var(--booking-text-strong);
+  font-size: 15.5px;
+  line-height: 1.4;
+  letter-spacing: -.01em;
+}
+
+.service-choice-main small,
+.selected-service-main small {
+  color: var(--booking-text-muted);
+  font-weight: 600;
+}
+
+.service-add-button,
+.selected-service-remove,
+.button,
+.text-button,
+.text-danger-button {
+  line-height: 1.3;
+}
+
+.slot-button {
+  font-size: 13.5px;
+  line-height: 1.25;
+}
+
+/* Appointment modal date / contact section */
+.booking-selection-modal-heading strong {
+  color: var(--booking-text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.appointment-date-bar span {
+  color: var(--booking-text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/* Calendar typography */
+.calendar-toolbar strong {
+  color: var(--booking-text-strong);
+  font-size: 18px;
+  line-height: 1.35;
+  letter-spacing: -.015em;
+}
+
+.calendar-weekdays span {
+  color: var(--booking-text-soft);
+  font-size: 11px;
+  line-height: 1.3;
+  letter-spacing: .02em;
+}
+
+.calendar-day-number {
+  color: inherit;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.calendar-booking-times small {
+  line-height: 1.35;
+}
+
+.calendar-legend {
+  color: var(--booking-text-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+/* Membership copy */
+.membership-progress-kicker {
+  line-height: 1.3;
+}
+
+.membership-progress h2 {
+  letter-spacing: -.045em;
+}
+
+.membership-progress-current,
+.membership-progress-remaining {
+  line-height: 1.55;
+}
+
+.membership-progress-summary {
+  font-size: 12.5px;
+  line-height: 1.65;
+}
+
+/* My appointments / confirmation common rows */
+.booking-item .member-booking-format-summary,
+.booking-item .member-booking-format-totals,
+.booking-confirm-summary .booking-confirm-format-main,
+.booking-confirm-summary .member-booking-format-totals {
+  gap: 6px;
+}
+
+.booking-item .member-booking-format-row,
+.booking-confirm-summary .member-booking-format-row {
+  grid-template-columns: 6.2em minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.booking-item .member-booking-format-label,
+.booking-confirm-summary .member-booking-format-label {
+  color: var(--booking-text-muted);
+  font-size: 13px;
+  line-height: 1.55;
+  font-weight: 750;
+}
+
+.booking-item .member-booking-format-value,
+.booking-confirm-summary .member-booking-format-value {
+  color: var(--booking-text-strong);
+  font-size: 14px;
+  line-height: 1.55;
+  font-weight: 800;
+}
+
+.booking-item .member-booking-format-services-label,
+.booking-confirm-summary .member-booking-format-services-label {
+  margin-top: 14px;
+  color: var(--booking-text-strong);
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 850;
+}
+
+.booking-item.member-booking-format-card > .booking-service-items,
+.booking-confirm-summary .booking-confirm-format-services {
+  margin-top: 7px;
+  color: var(--booking-text-muted);
+  font-size: 13.5px;
+  line-height: 1.72;
+}
+
+.booking-item .member-booking-format-totals,
+.booking-confirm-summary .member-booking-format-totals {
+  margin-top: 14px;
+  padding-top: 13px;
+}
+
+/* Booking history cards */
+.booking-item {
+  line-height: 1.5;
+}
+
+.status-badge {
+  font-size: 11.5px !important;
+  line-height: 1.25;
+}
+
+.booking-note {
+  color: var(--booking-text-muted);
+  font-size: 13px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.booking-service-group-heading h3 {
+  font-size: 18px;
+  line-height: 1.35;
+  letter-spacing: -.015em;
+}
+
+.booking-service-group-heading p,
+.booking-service-group-empty {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.booking-service-group-count {
+  line-height: 1.25;
+}
+
+/* Confirmation modal */
+.booking-confirm-summary {
+  gap: 12px;
+  line-height: 1.55;
+}
+
+.booking-confirm-summary .booking-confirm-format-main {
+  gap: 6px;
+}
+
+.booking-confirm-summary .booking-confirm-contact-formatted {
+  margin-top: 16px;
+  padding: 14px;
+  gap: 8px;
+  border: 1px solid var(--booking-line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.booking-confirm-summary .booking-confirm-contact-title {
+  margin: 0 0 2px;
+  color: var(--booking-text-strong);
+  font-size: 14px;
+  line-height: 1.4;
+  font-weight: 850;
+}
+
+.booking-confirm-summary .booking-confirm-contact-formatted .member-booking-format-row {
+  grid-template-columns: 3.4em minmax(0, 1fr);
+  gap: 6px;
+}
+
+.booking-confirm-summary .booking-confirm-contact-formatted .member-booking-format-label {
+  color: var(--booking-text-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.booking-confirm-summary .booking-confirm-contact-formatted .member-booking-format-value {
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 700;
+}
+
+.booking-modal-actions .button {
+  font-size: 14px;
+}
+
+/* Small-screen readability */
+@media (max-width: 720px) {
+  .section-heading p,
+  .booking-modal-card > p,
+  .state-view p {
+    font-size: 13.5px;
+    line-height: 1.68;
+  }
+
+  .booking-selection-modal-heading h2,
+  .booking-modal-heading h2 {
+    font-size: 26px;
+  }
+
+  .service-info,
+  .form-message {
+    font-size: 13px;
+  }
+
+  .booking-item .member-booking-format-row,
+  .booking-confirm-summary .member-booking-format-row {
+    grid-template-columns: 5.8em minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .booking-confirm-summary .booking-confirm-contact-formatted .member-booking-format-row {
+    grid-template-columns: 3.25em minmax(0, 1fr);
+    gap: 5px;
+  }
+
+}
+
+@media (max-width: 420px) {
+  .calendar-weekdays span {
+    font-size: 10.5px;
+  }
+
+  .calendar-day-number {
+    font-size: 13px;
+  }
+
+  .calendar-booking-times small {
+    font-size: 8px;
+    line-height: 1.3;
+  }
+
+  .calendar-legend {
+    font-size: 11px;
+  }
+
+  .booking-confirm-summary {
+    padding: 14px;
+  }
+
+  .booking-confirm-summary .booking-confirm-contact-formatted {
+    padding: 12px;
+  }
+
+  .booking-confirm-summary .booking-confirm-contact-formatted .member-booking-format-row {
+    grid-template-columns: 3.2em minmax(0, 1fr);
+  }
+
+  .booking-confirm-summary .booking-confirm-contact-formatted .member-booking-format-value {
+    overflow-wrap: anywhere;
+  }
+}

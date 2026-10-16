@@ -1,0 +1,51 @@
+/* Mobile-only calendar type badges. Desktop keeps the existing full labels unchanged. */
+@media (max-width: 700px) {
+  .calendar-item::before {
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    border: 1px solid currentColor;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: 0;
+  }
+
+  .calendar-item.holiday::before {
+    content: "休";
+  }
+
+  .calendar-item.event::before {
+    content: "活";
+  }
+}
+
+@media (max-width: 430px) {
+  .calendar-item {
+    width: max-content;
+    max-width: 100%;
+    min-height: 22px;
+    justify-self: start;
+    padding: 1px;
+    border-left: 0;
+    background: transparent;
+  }
+
+  .calendar-item span {
+    display: none;
+  }
+
+  .calendar-item::before {
+    width: 20px;
+    height: 20px;
+    flex-basis: 20px;
+    border: 0;
+    border-radius: 6px;
+    color: var(--item-foreground, #000000);
+    background: var(--item-accent, #df6b4d);
+    font-size: 10px;
+  }
+}

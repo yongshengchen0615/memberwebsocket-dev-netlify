@@ -1,0 +1,33 @@
+.booking-selection-panel{margin:24px 0;padding:20px;border:1px solid var(--theme-border,#dce2dd);border-radius:18px;background:var(--theme-surface-raised,#fff);color:var(--theme-text,#26332c)}
+.booking-selection-panel h2{font-size:1.2rem;margin:0 0 8px}.booking-selection-panel p{line-height:1.6}
+.booking-selection-row{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--theme-border,#dce2dd)}
+.booking-selection-row small,.booking-selection-option small{display:block;margin-top:6px;line-height:1.5;overflow-wrap:anywhere}
+.booking-selection-option{display:flex;gap:12px;align-items:flex-start;padding:14px 0}.booking-selection-option input{width:20px;height:20px;flex:0 0 20px;margin-top:2px;accent-color:var(--theme-accent,#2e6142)}
+.booking-selection-controls{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}.booking-selection-panel button{min-height:44px}
+.booking-selection-context{font-size:.85rem;line-height:1.5;color:var(--theme-text-secondary,#536858);overflow-wrap:anywhere}
+.booking-selection-panel .is-error{color:var(--theme-danger,#b3261e)}
+@media(max-width:560px){.booking-selection-panel{padding:16px}.booking-selection-row{align-items:flex-start;flex-direction:column}.booking-selection-controls button{flex:1 1 130px}}
+
+/* Member point-ticket reservation release action. Never style it like redemption. */
+.member-ticket .ticket-reservation-cancel{justify-self:start;min-height:40px;padding:8px 14px;border:1px solid var(--theme-border,#c5cfc8);border-radius:10px;background:var(--theme-surface-raised,#fff);color:var(--theme-text,#26332c);font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.member-ticket .ticket-reservation-cancel:hover:not(:disabled){border-color:var(--theme-accent,#2e6142);background:var(--theme-surface,#f4f7f3)}
+.member-ticket .ticket-reservation-cancel:focus-visible{outline:3px solid var(--theme-accent,#2e6142);outline-offset:2px}
+.member-ticket .ticket-reservation-cancel:disabled{opacity:.55;cursor:not-allowed}
+
+/* Ticket-specific disclosure: independent actions, no nested ticket card buttons. */
+.ticket-reservation-disclosure{width:100%;min-width:0;margin-top:12px;border:1px solid var(--theme-border,rgba(80,90,80,.24));border-radius:12px;background:var(--theme-surface-raised,#fff);color:var(--theme-text,#26332c);font-size:13px}
+.ticket-reservation-summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 14px;font-weight:800;cursor:pointer;list-style:none;overflow-wrap:anywhere}
+.ticket-reservation-summary::-webkit-details-marker{display:none}
+.ticket-reservation-summary::after{content:'＋';font-size:18px;line-height:1}
+.ticket-reservation-disclosure[open] .ticket-reservation-summary::after{content:'−'}
+.ticket-reservation-summary:focus-visible{outline:3px solid var(--theme-accent,#2e6142);outline-offset:2px;border-radius:12px}
+.ticket-reservation-list{display:grid;gap:8px;padding:0 12px 12px}
+.ticket-reservation-row{display:grid;gap:6px;min-width:0;padding:12px;border:1px solid var(--theme-border,rgba(80,90,80,.16));border-radius:10px;background:var(--theme-surface,#f7f7f5)}
+.ticket-reservation-kind{font-size:13px;font-weight:850}
+.ticket-reservation-detail,.ticket-reservation-reason{font-size:12px;line-height:1.5;color:var(--theme-text-secondary,#536858);overflow-wrap:anywhere}
+.ticket-reservation-cancel{justify-self:start;min-height:44px;max-width:100%;padding:8px 14px;border:1px solid var(--theme-border,#bcc9bd);border-radius:10px;background:var(--theme-surface-raised,#fff);color:var(--theme-text,#26332c);font:inherit;font-size:13px;font-weight:750;cursor:pointer}
+.ticket-reservation-cancel:hover:not(:disabled){border-color:var(--theme-accent,#2e6142)}
+.ticket-reservation-cancel:focus-visible{outline:3px solid var(--theme-accent,#2e6142);outline-offset:2px}
+.ticket-reservation-cancel:disabled{opacity:.5;cursor:wait}
+.event-ticket>.ticket-reservation-disclosure{flex:1 1 100%;align-self:stretch}
+@media(max-width:420px){.ticket-reservation-list{padding:0 8px 8px}.ticket-reservation-row{padding:10px}.ticket-reservation-cancel{width:100%}}

@@ -1,0 +1,102 @@
+/* Calendar date-field hardening for LINE / iOS WebView.
+   Native date controls may keep an intrinsic width wider than the modal column.
+   Keep the width constrained without clipping the native date text/indicator. */
+#calendarEditorModal .date-range-control,
+#calendarEditorModal .date-range-control .form-grid,
+#calendarEditorModal .date-control,
+#calendarEditorModal .date-input-shell,
+#calendarPanel .calendar-batch-editor .date-control,
+#calendarPanel .calendar-batch-editor .date-input-shell {
+  min-inline-size: 0;
+  min-width: 0;
+  max-inline-size: 100%;
+  max-width: 100%;
+}
+
+#calendarEditorModal .date-control,
+#calendarEditorModal .date-input-shell,
+#calendarPanel .calendar-batch-editor .date-control,
+#calendarPanel .calendar-batch-editor .date-input-shell {
+  overflow: visible;
+}
+
+#calendarEditorModal .date-range-control .form-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#calendarEditorModal input[type="date"],
+#calendarPanel .calendar-batch-editor input[type="date"] {
+  box-sizing: border-box;
+  display: block;
+  inline-size: 100% !important;
+  width: 100% !important;
+  min-inline-size: 0 !important;
+  min-width: 0 !important;
+  max-inline-size: 100% !important;
+  max-width: 100% !important;
+  min-height: 56px;
+  height: auto;
+  padding-block: 12px;
+  line-height: normal;
+  overflow: visible;
+}
+
+#calendarEditorModal input[type="date"]::-webkit-datetime-edit,
+#calendarEditorModal input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+#calendarEditorModal input[type="date"]::-webkit-date-and-time-value,
+#calendarPanel .calendar-batch-editor input[type="date"]::-webkit-datetime-edit,
+#calendarPanel .calendar-batch-editor input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+#calendarPanel .calendar-batch-editor input[type="date"]::-webkit-date-and-time-value {
+  min-inline-size: 0;
+  min-width: 0;
+  max-inline-size: 100%;
+  max-width: 100%;
+  line-height: 1.35;
+  overflow: visible;
+}
+
+#calendarEditorModal input[type="date"]::-webkit-date-and-time-value,
+#calendarPanel .calendar-batch-editor input[type="date"]::-webkit-date-and-time-value {
+  padding-block: 1px;
+  text-align: left;
+}
+
+#calendarEditorModal input[type="date"]::-webkit-calendar-picker-indicator,
+#calendarPanel .calendar-batch-editor input[type="date"]::-webkit-calendar-picker-indicator {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  padding: 1px;
+}
+
+@supports (-webkit-touch-callout: none) {
+  #calendarEditorModal input[type="date"],
+  #calendarPanel .calendar-batch-editor input[type="date"] {
+    inline-size: 100% !important;
+    width: 100% !important;
+    max-inline-size: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+@media (max-width: 760px) {
+  #calendarEditorModal .date-control,
+  #calendarPanel .calendar-batch-editor .date-control {
+    width: 100%;
+    min-width: 0;
+  }
+
+  #calendarEditorModal .date-input-shell,
+  #calendarPanel .calendar-batch-editor .date-input-shell {
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+
+  #calendarEditorModal input[type="date"],
+  #calendarPanel .calendar-batch-editor input[type="date"] {
+    min-height: 58px;
+    padding-top: 13px;
+    padding-bottom: 13px;
+  }
+}

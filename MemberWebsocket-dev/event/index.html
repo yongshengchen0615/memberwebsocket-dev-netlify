@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-Hant" data-ui-system="material-3">
+<head>
+  <meta name="robots" content="noindex,nofollow">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#1c332d">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' https://static.line-scdn.net https://cdn.jsdelivr.net; style-src 'self'; connect-src 'self' https://api.line.me https://access.line.me https://liff.line.me https://*.line-scdn.net https://*.supabase.co wss://*.supabase.co https://nominatim.openstreetmap.org; img-src 'self' data: https://profile.line-scdn.net; frame-src https://liff-subwindow.line.me https://access.line.me; form-action https://liff-subwindow.line.me https://access.line.me">
+  <title>活動票券｜Lumen Club</title>
+  <link rel="preconnect" href="https://static.line-scdn.net" crossorigin>
+  <link rel="stylesheet" href="./styles.css?v=booking-reserved-20261002-1-ticket-booking-20261006-1-ongoing-20261008-1">
+  <link rel="stylesheet" href="./membership-progress.css?v=event-tier-style-20260908">
+  <link rel="stylesheet" href="./today-usable.css?v=today-usable-20261001-4">
+  <link rel="stylesheet" href="../user-tour.css?v=user-tour-20260928-10-p2-20261006-1">
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0/dist/umd/supabase.js" integrity="sha384-lDkWTkrzxBtYvBtgQmPcLBhTbJdqB11igYtWVcCIVXO0Lv4+XuKKdd4razodiyzk" crossorigin="anonymous" defer></script>
+  <script src="../test-mode-client.js?v=test-login-takeover-20261008-2-p1-secure-20261008-1" defer></script>
+  <script src="../member-system.js?v=layout-stability-20261001-1-accessible-20261003-1-p2-20261006-1-p1-secure-20261008-1-live-sync-20261010-1-line-offline-20261012-1-takeover-20261013-1-silent-takeover-20261013-2-booking-selections-20261013-1-connection-efficiency-20261014-1" defer></script>
+  <script src="./membership-progress.js?v=event-tier-style-20260908" defer></script>
+  <script src="../ticket-booking-choice.js?v=ticket-booking-choice-20261006-1-controls-20261010-2"></script>
+  <script src="../ticket-live-location.js?v=admin-geofence-20261010-2" defer></script>
+  <script src="./app.js?v=booking-reserved-20261002-1-admin-geofence-20261010-2-booking-selections-20261013-1-reservation-disclosure-20261014-1" defer></script>
+  <script src="./today-usable.js?v=ticket-unlimited-zero-20261002-1" defer></script>
+  <script src="../user-tour.js?v=participant-state-isolation-20261004-1-p2-20261006-1" defer></script>
+  <link rel="stylesheet" href="../test-mode.css?v=test-mode-20260920-1">
+  <link rel="stylesheet" href="../user-test-control.css?v=user-qa-observer-20260921-2">
+  <link rel="stylesheet" href="../responsive.css?v=20260914-line-form-1">
+  <script src="../dialog-accessibility.js?v=20260913" defer></script>
+  <script src="../e2e-feature-coverage.js?v=feature-coverage-20261009-1-ongoing-20261010-1-scope-complete-20261015-1" defer></script>
+  <script src="../e2e-scenario-graph.js?v=e2e-graph-20261004-2" defer></script>
+  <script src="../e2e-professional-tester.js?v=professional-qa-20261005-2" defer></script>
+  <script src="../user-test-control.js?v=qa-e2e-20261010-2-consent-scope-ongoing-20261013-1-gps-screenshot-20261015-2" defer></script>
+  <link rel="stylesheet" href="../theme.css?v=m3-ui-20261001-booking-topbar-parity-3-ui-20261007-1">
+  <link rel="stylesheet" href="../experience.css?v=ui-consolidation-20261007-1">
+  <script src="../membership-milestones.js?v=lumen-experience-20260924-1" defer></script>
+  <script src="../theme.js?v=m3-ui-20260929-1"></script>
+  <link rel="stylesheet" href="../event-ticket-ui.css?v=ongoing-20261008-1">
+  <script src="../event-ticket-ui.js?v=ongoing-20261008-1" defer></script>
+  <link rel="stylesheet" href="../ticket-booking-selections.css?v=booking-selections-20261013-1-reservation-disclosure-20261014-1">
+  <script src="../ticket-booking-selections.js?v=booking-selections-20261013-1-reservation-disclosure-20261014-1-event-panel-removed-20261014-1-booking-range-20261015-1" defer></script>
+</head>
+<body>
+  <div id="app" class="app-shell" aria-busy="true">
+    <section id="loadingView" class="state-view login-loading" aria-live="polite"><h1>正在登入活動票券</h1><p id="loadingStatus" class="login-status" role="status">正在準備安全登入…</p><div id="loadingProgress" class="login-progress" role="progressbar" aria-label="登入進度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="8" aria-valuetext="8%"><span id="loadingProgressBar" class="login-progress-bar"></span></div><p id="loadingProgressText" class="login-progress-value" aria-hidden="true">8%</p></section>
+    <section id="errorView" class="state-view hidden" role="alert"><div class="error-mark" aria-hidden="true">!</div><p class="kicker">Event access</p><h1 id="errorTitle">活動票券暫時無法載入</h1><p id="errorMessage"></p><button id="joinMemberButton" class="button button-dark hidden" type="button">前往加入會員</button><button id="retryButton" class="button button-dark" type="button">重新整理</button></section>
+
+    <main id="eventView" class="hidden" data-user-tour="event">
+      <header class="topbar"><div><p class="kicker">Lumen Club / Member event</p><h1>活動票券</h1></div><div class="account-menu"><span id="displayName">LINE 使用者</span></div></header>
+      <p id="syncNotice" class="sync-notice hidden" role="status" aria-live="polite"></p>
+      <section id="membershipProgress" class="membership-progress" aria-labelledby="membershipProgressTitle" aria-live="polite"><div><p class="membership-progress-kicker">Membership progress</p><h2 id="membershipProgressTitle">會員階級</h2><p data-membership-current-tier class="membership-progress-current">目前會員階級：載入中</p></div><p data-membership-summary class="membership-progress-summary">累積 0 分鐘・下一階段資料載入中</p><p data-membership-remaining class="membership-progress-remaining">正在計算升等進度</p><div data-membership-progress-track class="membership-progress-track" role="progressbar" aria-label="會員階級進度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-membership-progress-bar></span></div></section>
+      <section class="event-toolbar" aria-label="活動票券資訊"><span class="toolbar-rule"></span><span id="eventSummary">目前沒有開放中的活動</span></section>
+      <section id="eventList" class="event-list" aria-live="polite"></section>
+      <section id="emptyView" class="empty-view hidden"><span class="empty-mark" aria-hidden="true">○</span><h2>還沒有活動票券</h2><p>有新的會員活動時，票券會出現在這裡。</p></section>
+      <section id="usedTicketHistory" class="used-ticket-history hidden" aria-labelledby="usedTicketHistoryTitle"><details id="usedTicketHistoryDisclosure" class="used-ticket-history-disclosure"><summary class="history-summary"><span class="history-summary-title"><span class="eyebrow">Ticket history</span><strong id="usedTicketHistoryTitle">票券使用紀錄</strong></span><span id="usedTicketHistorySummary" class="history-summary-count">點擊查看所有使用紀錄</span></summary><p class="history-description">展開後顯示所有資料；點擊條列項目可查看票券內容與核銷結果。</p><ul id="usedTicketList" class="used-ticket-list" aria-live="polite"></ul></details></section>
+      <p class="privacy-note"><span aria-hidden="true">i</span> 活動票券只會綁定目前登入的 LINE 會員，領取與使用紀錄由系統保留。</p>
+    </main>
+  </div>
+
+  <div id="ticketModal" class="ticket-modal hidden" role="dialog" aria-modal="true" aria-labelledby="ticketModalTitle" aria-describedby="ticketModalDescription">
+    <div class="ticket-modal-card">
+      <div class="ticket-modal-topline"><span id="ticketModalType" class="ticket-type">活動票券</span><button id="closeTicketModal" class="close-button" type="button" aria-label="關閉">×</button></div>
+      <h2 id="ticketModalTitle">票券詳情</h2>
+      <p id="ticketModalDate" class="ticket-date"></p>
+      <p id="ticketModalDescription" class="ticket-description"></p>
+      <section class="instructions" aria-label="票券使用說明"><strong id="ticketModalUsageMethod"></strong><p id="ticketModalUsageInstructions"></p></section>
+      <div id="ticketModalPrizes" class="modal-prizes hidden"></div>
+      <p id="ticketModalStatus" class="ticket-status-message"></p>
+      <div id="ticketModalProcessing" class="processing hidden" role="status" aria-live="polite"><span class="processing-spinner" aria-hidden="true"></span><span id="ticketModalProcessingText">正在處理，請稍候…</span></div>
+      <div id="ticketModalResult" class="ticket-result hidden"></div>
+      <p id="ticketModalLocationStatus" class="ticket-status-message hidden" role="status" aria-live="polite"></p>
+      <button id="ticketModalLocationButton" class="modal-action modal-refresh-button hidden" type="button">重新檢查是否位於可使用地點</button>
+      <button id="ticketModalAction" class="modal-action" type="button">領取活動票券</button>
+      <button id="refreshTicketButton" class="modal-action modal-refresh-button hidden" type="button">重新整理確認</button>
+      <div id="ticketModalMessage" class="modal-message hidden" role="status"></div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,120 @@
+/* Keep booking holiday markers visually consistent with the member calendar. */
+#calendarGrid .calendar-day.holiday-disabled {
+  border-color: rgba(23, 53, 46, .11);
+  background: #fffdf8;
+  color: #17352e;
+  box-shadow: none;
+}
+
+#calendarGrid .calendar-day.holiday-disabled:hover {
+  border-color: rgba(23, 53, 46, .18);
+  background: #fffdf8;
+}
+
+/* A holiday can also be today. Draw an independent inset frame so holiday box-shadow rules cannot hide it. */
+#calendarGrid .calendar-day.holiday-disabled.today {
+  position: relative;
+  border-color: #df6b4d;
+}
+
+#calendarGrid .calendar-day.holiday-disabled.today::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  z-index: 2;
+  border: 2px solid rgba(223, 107, 77, .82);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+#calendarGrid .calendar-day.holiday-disabled .calendar-day-number {
+  color: #17352e;
+}
+
+#calendarGrid .calendar-holiday-label {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  margin-top: 0;
+  padding: 4px 5px;
+  overflow: hidden;
+  color: var(--holiday-foreground, #000000);
+  border-left: 2px solid currentColor;
+  border-radius: 3px;
+  background: var(--holiday-accent, #df6b4d);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#calendarGrid .calendar-holiday-label::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+#bookingHolidayModal .booking-holiday-details {
+  display: grid;
+  gap: 11px;
+  margin: 19px 0 0;
+}
+
+#bookingHolidayModal .booking-holiday-detail {
+  padding: 13px 14px;
+  border: 0;
+  border-left: 4px solid var(--holiday-accent, #df6b4d);
+  border-radius: 8px;
+  background: #f5f7f2;
+}
+
+#bookingHolidayModal .booking-holiday-detail strong {
+  display: block;
+  color: #17352e;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+#bookingHolidayModal .booking-holiday-detail p {
+  margin: 6px 0 0;
+  color: #445b51;
+  font-size: 14px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 700px) {
+  #calendarGrid .calendar-holiday-label {
+    gap: 3px;
+    padding: 3px 4px;
+    font-size: 9px;
+  }
+
+  #calendarGrid .calendar-holiday-label::before {
+    display: none;
+  }
+}
+
+@media (max-width: 430px) {
+  #calendarGrid .calendar-holiday-label {
+    display: block;
+    width: 100%;
+    height: 5px;
+    min-height: 5px;
+    padding: 0;
+    border: 0;
+    border-radius: 99px;
+    background: var(--holiday-accent, #df6b4d);
+    color: transparent;
+    font-size: 0;
+    line-height: 0;
+  }
+}

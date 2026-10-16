@@ -1,0 +1,41 @@
+.booking-benefits {
+  margin: 16px 0;
+  padding: 16px 18px;
+  border: 1px solid var(--theme-border);
+  border-radius: 18px;
+  color: var(--theme-text);
+  background: var(--theme-surface);
+}
+.booking-benefits-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.booking-benefits-heading h2 { margin: 0; font-size: 1rem; }
+.booking-benefits-heading p { margin: 5px 0 0; color: var(--theme-text-muted); font-size: .8rem; }
+.booking-benefits-list { display: grid; gap: 16px; }
+.booking-benefits[data-state="ready"] .booking-benefits-list { margin-top: 12px; }
+.booking-benefit-group { display: grid; gap: 9px; }
+.booking-benefit-group-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.booking-benefit-group-title { margin: 0; font-size: .86rem; }
+.booking-benefit-group-count { color: var(--theme-text-muted); font-size: .72rem; font-weight: 700; }
+.booking-benefit-group-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: 12px; }
+.booking-benefit { min-width: 0; padding: 12px 14px; border: 1px solid var(--theme-border); border-radius: 14px; background: var(--theme-surface-muted); display: grid; gap: 7px; }
+.booking-benefit.is-selected { border-color: var(--theme-accent); }
+.booking-benefit h4 { margin: 0; font-size: .95rem; overflow-wrap: anywhere; }
+.booking-benefit p { margin: 0; font-size: .78rem; color: var(--theme-text-muted); overflow-wrap: anywhere; }
+.booking-benefit .booking-benefit-meta { color: var(--theme-accent); font-weight: 700; font-size: .72rem; }
+.booking-benefit small { color: var(--theme-text-muted); font-size: .72rem; }
+.booking-benefit-condition { display: block; line-height: 1.45; }
+.booking-benefit-select { display: flex; align-items: center; gap: 9px; min-height: 44px; font-size: .82rem; font-weight: 700; cursor: pointer; }
+.booking-benefit-select input { width: 20px; height: 20px; margin: 0; accent-color: var(--theme-accent); }
+.booking-benefit-select input:disabled { cursor: not-allowed; opacity: .6; }
+.booking-benefit-disabled-reason { display: block; line-height: 1.45; }
+.booking-benefit-link { justify-self: start; display: inline-flex; align-items: center; min-height: 44px; color: var(--theme-link); font-size: .8rem; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.booking-benefit-link:focus-visible,.booking-benefit-select input:focus-visible { outline: 3px solid var(--theme-focus-ring); outline-offset: 2px; border-radius: 4px; }
+@media (max-width: 600px) {
+  .booking-benefits { padding: 14px; margin: 14px 0; }
+  .booking-benefit-group-grid { grid-template-columns: 1fr; }
+}
+
+.booking-benefit.event-ticket {padding:24px;gap:13px;border-radius:21px;min-height:286px;background:var(--theme-surface);}
+.booking-benefit.event-ticket h3 {font-size:clamp(23px,4vw,32px);}
+.booking-benefit.event-ticket.is-selected {outline:2px solid var(--theme-accent);outline-offset:2px;}
+.booking-benefit.event-ticket .booking-benefit-select {padding-top:10px;border-top:1px solid var(--theme-border);}
+@media(max-width:650px){.booking-benefit.event-ticket{padding:19px;min-height:0;}}

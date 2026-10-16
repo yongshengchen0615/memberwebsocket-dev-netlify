@@ -1,0 +1,16 @@
+.qr-scan-dialog-overlay{position:fixed;inset:0;z-index:10050;display:grid;place-items:center;padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));background:var(--theme-overlay,rgba(0,0,0,.74));}
+.qr-scan-dialog-card{width:min(100%,470px);max-height:90dvh;overflow:auto;overscroll-behavior:contain;padding:18px;border:1px solid var(--theme-border,#67717a);border-radius:20px;background:var(--theme-surface,#fff);color:var(--theme-text,#222);box-shadow:var(--theme-modal-shadow,0 20px 48px #0004);}
+.qr-scan-dialog-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;}
+.qr-scan-dialog-heading h2{margin:0;font-size:19px;}
+.qr-scan-dialog-close{min-height:44px;padding:8px 16px;border:1px solid var(--theme-border-strong,#aaa);border-radius:12px;background:var(--theme-surface-raised,#eee);color:var(--theme-text,#222);font:inherit;font-weight:750;cursor:pointer;}
+.qr-scan-dialog-overlay video{display:block;width:100%;aspect-ratio:4/3;object-fit:contain;border-radius:12px;background:#111;}
+.qr-scan-dialog-overlay p{line-height:1.6;color:var(--theme-text-muted,#555);}
+.qr-scan-dialog-overlay button:focus-visible{outline:3px solid var(--theme-focus-ring,#5277bf);outline-offset:3px;}
+.qr-scan-dialog-overlay [hidden]{display:none!important}
+.qr-display-panel{display:grid;justify-items:center;gap:12px;text-align:center;overflow-wrap:anywhere}
+.qr-display-panel canvas{max-width:100%;height:auto;background:#fff;border-radius:12px}
+.friend-qr[hidden],.qr-display-panel[hidden]{display:none!important}
+.qr-display-panel strong{font-size:18px;letter-spacing:.06em}
+.qr-scan-dialog-overlay .point-transfer-friend-picker{display:grid;gap:12px}
+.qr-scan-dialog-overlay select{width:100%;min-height:44px;font:inherit;background:var(--theme-surface,#fff);color:var(--theme-text,#222);border:1px solid var(--theme-border,#aaa);border-radius:10px;padding:8px}
+@media(max-width:600px){.qr-scan-dialog-overlay{align-items:end}.qr-scan-dialog-card{max-height:92dvh;width:100%;border-radius:20px 20px 12px 12px;}}
