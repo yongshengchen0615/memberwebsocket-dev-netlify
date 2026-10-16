@@ -284,3 +284,41 @@ test('service-restricted tickets require a matching booked service and are remov
     h.close();
   }
 });
+
+test('AC-002: member can choose 3 separate tickets for one reward with 15 points and unlimited setting', async () => {
+  const tickets = ['PT-001', 'PT-002', 'PT-003'].map(selectionId => ({
+    kind: 'points', id: 'same-reward', selectionId, selectable: true,
+    title: '同一獎勵', cardId: 'CARD', cardTitle: '集點卡',
+    pointCost: 5, pointBalance: 15, statusLabel: '可使用',
+  }));
+  const h = fixture(async () => ({ pointTicketMaxPerRedemption: 0, items: tickets }));
+  try {
+    h.start(); await tick(10);
+    for (const item of tickets) {
+      const input = h.el('bookingBenefitsList').querySelector(`[data-booking-benefit-id="${item.selectionId}"]`);
+      assert.ok(input && !input.disabled);
+      input.click();
+    }
+    assert.deepEqual(JSON.parse(JSON.stringify(h.w.BookingBenefits.selectionPayload())),
+      tickets.map(item => ({ kind: 'points', id: item.selectionId })));
+    assert.equal(h.el('bookingBenefitsList').querySelectorAll('input:checked').length, 3);
+  } finally { h.close(); }
+});
+
+test('AC-003: the fourth identical ticket is blocked if only 15 points are available', async () => {
+  const tickets = ['PT-001', 'PT-002', 'PT-003', 'PT-004'].map(selectionId => ({
+    kind: 'points', id: 'same-reward', selectionId, selectable: true,
+    title: '同一獎勵', cardId: 'CARD', cardTitle: '集點卡',
+    pointCost: 5, pointBalance: 15, statusLabel: '可使用',
+  }));
+  const h = fixture(async () => ({ pointTicketMaxPerRedemption: 0, items: tickets }));
+  try {
+    h.start(); await tick(10);
+    for (const item of tickets.slice(0, 3)) {
+      h.el('bookingBenefitsList').querySelector(`[data-booking-benefit-id="${item.selectionId}"]`).click();
+    }
+    const last = h.el('bookingBenefitsList').querySelector('[data-booking-benefit-id="PT-004"]');
+    assert.equal(last.disabled, true);
+    assert.match(last.parentElement.textContent, /點數不足/);
+  } finally { h.close(); }
+});

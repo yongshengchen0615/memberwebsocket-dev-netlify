@@ -68,6 +68,7 @@ export function selectLatestPointOffers(
   templates: JsonRow[],
   availableTickets: JsonRow[],
   today = "9999-12-31",
+  includeEveryTicket = false,
 ): CurrentPointOffer[] {
   const cardById = new Map(cards.map((row) => [text(row.id), row]));
   const templateById = new Map(templates.map((row) => [text(row.id), row]));
@@ -100,12 +101,12 @@ export function selectLatestPointOffers(
         ticket.rewardId === rewardId ||
         (ticket.ticketTemplateId === ticketTemplateId && ticket.thresholdStamps === thresholdStamps)
       );
-    // A reward may have multiple issued tickets. Prefer a non-GPS instance
-    // when both are available, but GPS tickets are also selectable for booking.
-    const availableTicket = tickets.find((ticket) => !ticket.requiresLocation && matchesOffer(ticket))
-      || tickets.find(matchesOffer);
-    if (!availableTicket) continue;
-
+    // Notifications need one summary per reward; booking needs one selectable
+    // entry per issued ticket (including repeated instances of one reward).
+    const matchingTickets = tickets.filter(matchesOffer).sort((a, b) =>
+      Number(a.requiresLocation) - Number(b.requiresLocation) || a.ticketId.localeCompare(b.ticketId)
+    );
+    for (const availableTicket of (includeEveryTicket ? matchingTickets : matchingTickets.slice(0, 1))) {
     const offer: CurrentPointOffer = {
       rewardId,
       pointCardId,
@@ -121,6 +122,7 @@ export function selectLatestPointOffers(
     if (availableTicket.ticketId) offer.ticketId = availableTicket.ticketId;
     offer.requiresLocation = availableTicket.requiresLocation;
     offers.push(offer);
+    }
   }
 
   return offers.sort((left, right) =>
@@ -188,6 +190,7 @@ export async function loadLatestPointOffers(
   supabase: SupabaseClient,
   memberId: string,
   strict: boolean,
+  includeEveryTicket = false,
 ): Promise<Array<CurrentPointOffer & { cardId: string; expiresOn: string }>> {
   const ticketsResult = await supabase
     .from("point_tickets")
@@ -240,7 +243,8 @@ export async function loadLatestPointOffers(
     templatesResult.data || [],
     tickets,
     taipeiDate(),
-  ).slice(0, 12).map((offer) => {
+    includeEveryTicket,
+  ).slice(0, includeEveryTicket ? 20 : 12).map((offer) => {
     const card: any = cardById.get(offer.pointCardId);
     return { ...offer, cardId: text(card?.card_id), expiresOn: text(card?.expiry_mode) === "date" ? text(card?.expires_on) : "" };
   });

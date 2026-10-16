@@ -105,3 +105,16 @@ Deno.test("unclaimed fixed and membership tickets stay hidden and cancelled clai
   const claims = [{event_ticket_id:"full",member_id:"other",status:"cancelled"}];
   assertEquals(selectLatestEventOffers(events,claims,"member-a"), []);
 });
+
+Deno.test("booking expands three distinct available tickets for the same reward without multiplying notification summaries", () => {
+  const rewards = [{ id: "reward-1", point_card_id: "card-1", threshold_stamps: 5, ticket_template_id: "template-1" }];
+  const cards = [{ id: "card-1", title: "集點卡", status: "active", expiry_mode: "unlimited", sort_order: 0 }];
+  const templates = [{ id: "template-1", title: "相同獎勵", status: "active" }];
+  const tickets = ["PT-1", "PT-2", "PT-3"].map(ticket_id =>
+    ({ ticket_id, reward_id: "reward-1", point_card_id: "card-1", ticket_template_id: "template-1", threshold_stamps: 5 }));
+  const summaries = selectLatestPointOffers(rewards, cards, templates, tickets, "2026-10-16");
+  assertEquals(summaries.length, 1);
+  const booking = selectLatestPointOffers(rewards, cards, templates, tickets, "2026-10-16", true);
+  assertEquals(booking.map(item => item.ticketId), ["PT-1", "PT-2", "PT-3"]);
+  assertEquals(booking.every(item => item.thresholdStamps === 5), true);
+});

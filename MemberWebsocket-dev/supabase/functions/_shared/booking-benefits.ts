@@ -7,7 +7,7 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
   // Member and tier are resolved by the authenticated handler, never the body.
   // Fixed-size batched reads; no ticket issuance, claim or redemption occurs here.
   const [points, events, calendar, eventSettings, pointSettings, pendingPointSelections, pendingSnapshotReceipts] = await Promise.all([
-    loadLatestPointOffers(db, String(member.id), true),
+    loadLatestPointOffers(db, String(member.id), true, true),
     loadLatestEventOffers(db, String(member.id), tier, true, true),
     db.from('calendar_items')
       .select('calendar_item_id,title,item_type,starts_on,ends_on,status,allowed_tier_keys,source_event_ticket_id,audience_type,audience_month')
