@@ -17,6 +17,8 @@ function harness(kind = 'booking') {
   const listeners = new Map(), timers = new Map(), intervals = new Map(), storage = new Map();
   const calls = [], channels = [];
   let nextId = 0, removed = 0;
+  let now = 10000;
+  class ClockDate extends Date { static now() { return now; } }
   function events(prefix) {
     return {
       addEventListener(type, fn) { const key = prefix + type; if (!listeners.has(key)) listeners.set(key, new Set()); listeners.get(key).add(fn); },
@@ -47,10 +49,11 @@ function harness(kind = 'booking') {
     return new Promise((resolve, reject) => calls.push({ url, body, resolve: data => resolve(response(data)), reject }));
   };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, kind === 'booking' ? '../booking/common.js' : '../member-system.js'), 'utf8'),
-    { window, document, navigator, fetch, URL, URLSearchParams, AbortController, console });
+    { window, document, navigator, fetch, URL, URLSearchParams, AbortController, console, Date: ClockDate });
   return {
     window, document, navigator, calls, timers, intervals, channels,
     system: kind === 'booking' ? window.BookingSystem : window.MemberSystem,
+    advanceClock(ms) { now += ms; },
     emit(type, documentEvent = false) { for (const fn of listeners.get((documentEvent ? 'd:' : 'w:') + type) || []) fn({}); },
     listenerCount: () => [...listeners.values()].reduce((sum, set) => sum + set.size, 0),
     removed: () => removed,
@@ -59,6 +62,90 @@ function harness(kind = 'booking') {
   };
 }
 const succeed = (call, data = {}) => call.resolve({ ok: true, data });
+
+async function runScheduledRefresh(h) {
+  assert.ok(h.timers.size, 'a data refresh must be scheduled');
+  for (let i = 0; i < 10 && h.timers.size; i++) {
+    const [id, timer] = [...h.timers.entries()][0];
+    h.timers.delete(id);
+    h.advanceClock(timer.delay);
+    timer.fn();
+    await flush();
+  }
+  assert.equal(h.timers.size, 0, 'refresh scheduling must settle');
+}
+
+for (const sdkAvailable of [true, false]) {
+  test(`booking: the safety interval reconciles data with SDK ${sdkAvailable ? 'available' : 'unavailable'}`, async () => {
+    const h = harness();
+    if (!sdkAvailable) h.window.supabase = null;
+    let updates = 0;
+    const stop = h.subscribe(() => { updates++; });
+    for (const tick of h.intervals.values()) tick();
+    await runScheduledRefresh(h);
+    assert.equal(updates, 1);
+    stop();
+  });
+}
+
+test('booking: periodic reconciliation pauses while hidden or offline', async () => {
+  const h = harness();
+  let updates = 0;
+  const stop = h.subscribe(() => { updates++; });
+  h.document.visibilityState = 'hidden';
+  for (const tick of h.intervals.values()) tick();
+  assert.equal(h.timers.size, 0);
+  h.document.visibilityState = 'visible'; h.navigator.onLine = false;
+  for (const tick of h.intervals.values()) tick();
+  assert.equal(h.timers.size, 0);
+  h.navigator.onLine = true;
+  for (const tick of h.intervals.values()) tick();
+  await runScheduledRefresh(h);
+  assert.equal(updates, 1);
+  stop();
+});
+
+test('booking: periodic and realtime signals preserve one trailing refresh during a slow read', async () => {
+  const h = harness();
+  let updates = 0, finish;
+  const stop = h.subscribe(() => {
+    updates++;
+    if (updates === 1) return new Promise(resolve => { finish = resolve; });
+  });
+  for (const tick of h.intervals.values()) tick();
+  await runScheduledRefresh(h);
+  for (let i = 0; i < 10; i++) {
+    for (const tick of h.intervals.values()) tick();
+    h.channels[0].change({ new: { scope: 'member' } });
+  }
+  assert.equal(updates, 1);
+  assert.equal(h.timers.size, 0);
+  finish(); await flush();
+  await runScheduledRefresh(h);
+  assert.equal(updates, 2);
+  stop();
+});
+
+test('booking: a channel error schedules data recovery and disposal blocks late recovery', async () => {
+  const h = harness();
+  let updates = 0;
+  const stop = h.subscribe(() => { updates++; });
+  h.channels[0].status('CHANNEL_ERROR');
+  await runScheduledRefresh(h);
+  assert.equal(updates, 1);
+  const lateTick = [...h.intervals.values()][0];
+  stop();
+  lateTick(); h.channels[0].status('TIMED_OUT');
+  assert.equal(h.timers.size, 0);
+});
+
+test('booking: explicitly disabled realtime does not enable periodic data reads', async () => {
+  const h = harness();
+  const stop = h.system.subscribeRealtime({ ...config, realtimeEnabled: false }, () => assert.fail('disabled data refresh'));
+  for (const tick of h.intervals.values()) tick();
+  assert.equal(h.timers.size, 0);
+  stop();
+});
 
 test('booking: 100 concurrent identical slot reads send one request and subsequent reads stay fresh', async () => {
   const h = harness();
@@ -209,3 +296,4 @@ for (const kind of ['booking', 'member']) {
     assert.equal(h.calls.length, 1);
   });
 }
+
