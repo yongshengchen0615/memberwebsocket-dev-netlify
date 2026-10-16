@@ -1,0 +1,88 @@
+name: Publish verified develop to Netlify
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/publish-netlify.yml'
+      - 'MemberWebsocket-dev/**'
+      - 'scripts/**'
+      - 'netlify.toml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: publish-netlify-develop
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      NETLIFY_SITE_ID: 23796c62-480a-4b46-ac90-bfbc5ad4d300
+      NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build the exact develop commit
+        env:
+          COMMIT_REF: ${{ github.sha }}
+        run: node scripts/build-site.mjs
+      - name: Verify deployable static output
+        run: |
+          node --test scripts/deploy.test.mjs scripts/netlify-publish-workflow.test.mjs
+          grep -Fq 'booking-multi-details-20261017-1' dist/points/index.html
+          grep -Fq 'bookingById' dist/points/pointcard-ticket-overview.js
+      - name: Retain the exact production bundle for recovery
+        uses: actions/upload-artifact@v4
+        with:
+          name: netlify-dist-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Require authorized Netlify deployment credentials
+        shell: bash
+        run: |
+          if [ -z "${NETLIFY_AUTH_TOKEN:-}" ]; then
+            echo '::error::NETLIFY_AUTH_TOKEN repository Actions secret is missing. Build artifact is ready but the existing Netlify site cannot be published without authorization.'
+            exit 1
+          fi
+      - name: Wait for successful full-project CI on this exact commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 85); do
+            conclusion=$(gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/test-memberwebsocket-dev.yml/runs?branch=develop&event=push&per_page=50" \
+              | jq -r --arg sha "$GITHUB_SHA" '[.workflow_runs[] | select(.head_sha == $sha)][0].conclusion // "pending"')
+            case "$conclusion" in
+              success) echo 'Exact develop commit passed full CI'; exit 0 ;;
+              failure|cancelled|timed_out|action_required|startup_failure) echo "::error::Full CI did not pass: $conclusion"; exit 1 ;;
+              *) sleep 20 ;;
+            esac
+          done
+          echo '::error::Full project CI did not finish before the deploy timeout'
+          exit 1
+      - name: Publish the verified bundle to the existing Netlify production site
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes netlify-cli@23.11.0 deploy --prod --no-build --dir=dist --site="$NETLIFY_SITE_ID" --message="verified-develop-$GITHUB_SHA"
+      - name: Confirm published page and JS contain the same fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 5 --retry-delay 3 --max-time 30 https://memberwebsocket-dev-netlify.netlify.app/points/ -o /tmp/verified-points.html
+          curl -fsSL --retry 5 --retry-delay 3 --max-time 30 https://memberwebsocket-dev-netlify.netlify.app/points/pointcard-ticket-overview.js -o /tmp/verified-overview.js
+          grep -Fq 'booking-multi-details-20261017-1' /tmp/verified-points.html
+          grep -Fq 'bookingById' /tmp/verified-overview.js
+          short_sha="${GITHUB_SHA:0:7}"
+          grep -Fq "data-commit=\"$short_sha\"" /tmp/verified-points.html
+          echo "Published site matches develop $GITHUB_SHA"
