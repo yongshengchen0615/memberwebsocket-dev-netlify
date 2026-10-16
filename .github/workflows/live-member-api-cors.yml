@@ -1,0 +1,72 @@
+name: Live Supabase member API CORS smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/live-member-api-cors.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Verify actual Edge Function OPTIONS responses
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://dbuquirnaskrwcamdxki.supabase.co/functions/v1/api'
+          headers="$(mktemp)"
+          trap 'rm -f "$headers"' EXIT
+
+          for origin in \
+            'https://yongshengchen0615.github.io' \
+            'https://memberwebsocket-dev-netlify.netlify.app' \
+            'https://develop--memberwebsocket-dev-netlify.netlify.app'; do
+            status="$(curl --silent --show-error --max-time 30 --retry 2 \
+              --dump-header "$headers" --output /dev/null --write-out '%{http_code}' \
+              --request OPTIONS "$url" \
+              --header "Origin: $origin" \
+              --header 'Access-Control-Request-Method: POST' \
+              --header 'Access-Control-Request-Headers: content-type,apikey')"
+            if [ "$status" != 204 ]; then
+              echo "::error::OPTIONS for $origin returned $status rather than 204"
+              exit 1
+            fi
+            clean_headers="$(tr -d '\r' < "$headers")"
+            if ! printf '%s\n' "$clean_headers" | grep -Fxi "access-control-allow-origin: $origin" > /dev/null; then
+              echo "::error::OPTIONS for $origin did not echo the exact allowed origin"
+              exit 1
+            fi
+            if ! printf '%s\n' "$clean_headers" | grep -Ei '^access-control-allow-methods:.*POST' > /dev/null; then
+              echo "::error::OPTIONS for $origin did not allow POST"
+              exit 1
+            fi
+            for required_header in content-type apikey; do
+              if ! printf '%s\n' "$clean_headers" | grep -Ei "^access-control-allow-headers:.*$required_header" > /dev/null; then
+                echo "::error::OPTIONS for $origin did not allow $required_header"
+                exit 1
+              fi
+            done
+            echo "PASS: actual OPTIONS preflight $origin (HTTP $status)"
+          done
+
+          blocked_origin='https://develop--memberwebsocket-dev-netlify.netlify.app.attacker.example'
+          status="$(curl --silent --show-error --max-time 30 --retry 2 \
+            --dump-header "$headers" --output /dev/null --write-out '%{http_code}' \
+            --request OPTIONS "$url" --header "Origin: $blocked_origin" \
+            --header 'Access-Control-Request-Method: POST' \
+            --header 'Access-Control-Request-Headers: content-type,apikey')"
+          if [ "$status" != 403 ]; then
+            echo "::error::Unapproved origin returned HTTP $status instead of 403"
+            exit 1
+          fi
+          if tr -d '\r' < "$headers" | grep -Ei '^access-control-allow-origin: *[^[:space:]]' > /dev/null; then
+            echo "::error::Unapproved origin received a permissive allow-origin header"
+            exit 1
+          fi
+          echo "PASS: unapproved origin rejected (HTTP $status)"
