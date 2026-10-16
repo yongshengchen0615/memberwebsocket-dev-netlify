@@ -43,11 +43,16 @@ for (const entry of entryPages) {
   const relative = path.relative(path.dirname(page), output).split(path.sep).join('/');
   const base = relative ? `${relative}/` : './';
   const html = await readFile(page, 'utf8');
-  if (!html.includes('</head>')) throw new Error(`Missing HTML head: ${entry}`);
-  const tags = [
-    `  <link rel="stylesheet" href="${base}version-badge.css?v=${siteVersion}">`,
-    `  <script src="${base}version-badge.js?v=${siteVersion}" data-site-version="${siteVersion}" data-commit="${commit}" defer></script>`,
-  ].join('\n');
-  await writeFile(page, html.replace('</head>', `${tags}\n</head>`));
+  if (!html.includes('</head>') || !html.includes('</body>')) {
+    throw new Error(`Missing HTML head or body: ${entry}`);
+  }
+  // Render during the build, not after DOMContentLoaded: works in restrictive
+  // mobile WebViews without script execution or unsafe-inline CSP exemptions.
+  const stylesheet = `  <link rel="stylesheet" href="${base}version-badge.css?v=${siteVersion}">`;
+  const badge = `  <small id="site-build-version" class="site-build-version" role="note" aria-label="網站部署版本 ${siteVersion}" data-commit="${commit}">${siteVersion}</small>`;
+  await writeFile(
+    page,
+    html.replace('</head>', `${stylesheet}\n</head>`).replace('</body>', `${badge}\n</body>`),
+  );
 }
 console.log(`Built static frontend in dist (version ${siteVersion}); database source, tests and internal documentation excluded.`);

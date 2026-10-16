@@ -1,23 +1,31 @@
-/* Quiet, non-interactive build identifier on all published pages. */
-.site-build-version {
+/* Build-time badge: no inline CSS or runtime JavaScript required. */
+html body > .site-build-version {
   position: fixed;
   right: calc(8px + env(safe-area-inset-right, 0px));
-  bottom: calc(6px + env(safe-area-inset-bottom, 0px));
-  z-index: 20;
+  bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  z-index: 2147483000;
+  display: block;
   box-sizing: border-box;
   max-width: calc(100vw - 16px);
   margin: 0;
   padding: 2px 5px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, .78);
+  background: rgba(255, 255, 255, .84);
   color: #58635f;
   font: 400 10px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace;
   letter-spacing: .01em;
-  opacity: .64;
+  opacity: .76;
   pointer-events: none;
   user-select: none;
   white-space: nowrap;
 }
+@media (max-width: 720px) {
+  html body > .site-build-version {
+    right: calc(10px + env(safe-area-inset-right, 0px));
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    opacity: .88;
+  }
+}
 @media print {
-  .site-build-version { display: none; }
+  html body > .site-build-version { display: none; }
 }
