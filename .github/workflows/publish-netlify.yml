@@ -50,7 +50,7 @@ jobs:
         shell: bash
         run: |
           if [ -z "${NETLIFY_AUTH_TOKEN:-}" ]; then
-            echo '::error::NETLIFY_AUTH_TOKEN repository Actions secret is missing. Build artifact is ready but the existing Netlify site cannot be published without authorization.'
+            echo '::error::NETLIFY_AUTH_TOKEN is unavailable. Configure it as a GitHub Repository Actions Secret (not a GitHub variable or a Netlify site environment variable). If set after an earlier run, start a new workflow run. The site bundle artifact is ready but production was not published.'
             exit 1
           fi
       - name: Wait for successful full-project CI on this exact commit
