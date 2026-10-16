@@ -144,3 +144,24 @@ test('deployed test-mode API responds to browser preflight only for trusted orig
   const deniedResponse = await preflight(untrusted);
   assert.notEqual(deniedResponse.headers.get('access-control-allow-origin'), untrusted);
 });
+
+
+test('deployed test-mode API returns a CORS-readable rejection for malformed POST requests', async () => {
+  const config = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/config.json'), 'utf8'));
+  const origin = 'https://develop--memberwebsocket-dev-netlify.netlify.app';
+  const response = await fetch(new URL('/functions/v1/test-mode-api', config.supabaseUrl), {
+    method: 'POST',
+    headers: {
+      Origin: origin,
+      'Content-Type': 'application/json',
+      apikey: config.supabasePublishableKey,
+    },
+    body: '{not valid JSON',
+    signal: AbortSignal.timeout(15000),
+  });
+  assert.equal(response.headers.get('access-control-allow-origin'), origin);
+  assert.equal(response.status, 400, 'Malformed body should be rejected before authentication');
+  const payload = await response.json();
+  assert.equal(payload.ok, false);
+  assert.equal(payload.error?.code, 'INVALID_JSON');
+});
