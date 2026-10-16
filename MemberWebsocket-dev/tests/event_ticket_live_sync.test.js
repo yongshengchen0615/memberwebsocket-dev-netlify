@@ -8,7 +8,7 @@ const root = path.resolve(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const app = read('event/app.js');
 const html = read('event/index.html');
-const sql = read('supabase/migrations/20261016213000_sync_unredeemed_event_ticket_metadata.sql');
+const sql = read('supabase/migrations/20261016133147_sync_unredeemed_event_ticket_metadata.sql');
 const api = read('supabase/functions/api/index.ts');
 const start = app.indexOf('  function ticketForOffer(offer) {');
 const end = app.indexOf('\n  function modalStatusText(', start);
