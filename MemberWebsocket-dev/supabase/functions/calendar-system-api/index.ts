@@ -4,7 +4,7 @@ const REPLACEMENT_ENDPOINT = "https://zrdpsobxaehqukacjjss.supabase.co/functions
 
 Deno.serve((request: Request) => {
   const origin = request.headers.get("Origin");
-  const allowOrigin = origin === "https://yongshengchen0615.github.io" ? origin : "";
+  const allowOrigin = ["https://yongshengchen0615.github.io", "https://develop--memberwebsocket-dev-netlify.netlify.app"].includes(origin || "") ? origin : "";
   const headers = {
     "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Headers": "content-type, apikey",

@@ -1,5 +1,5 @@
 function corsHeaders(origin: string | null): HeadersInit {
-  const allowed = new Set((Deno.env.get("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io")
+  const allowed = new Set([(Deno.env.get("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io"), "https://develop--memberwebsocket-dev-netlify.netlify.app"].join(",")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean));
