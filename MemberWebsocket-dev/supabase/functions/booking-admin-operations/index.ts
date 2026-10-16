@@ -38,7 +38,7 @@ function requireUuid(value: unknown, label: string): string {
   return text;
 }
 function allowedOrigins(): Set<string> {
-  return new Set((env("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io").split(",").map((value) => value.trim()).filter(Boolean));
+  return new Set([(env("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io"), "https://develop--memberwebsocket-dev-netlify.netlify.app"].join(",").split(",").map((value) => value.trim()).filter(Boolean));
 }
 function corsHeaders(origin: string | null): HeadersInit {
   return {
