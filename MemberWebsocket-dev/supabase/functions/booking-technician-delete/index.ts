@@ -1,5 +1,5 @@
 const ALLOWED_ORIGINS = new Set(
-  (Deno.env.get("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io")
+  [(Deno.env.get("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io"), "https://develop--memberwebsocket-dev-netlify.netlify.app"].join(",")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean),
