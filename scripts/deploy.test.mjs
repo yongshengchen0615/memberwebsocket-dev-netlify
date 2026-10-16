@@ -98,3 +98,49 @@ test('badge CSS stays visible on mobile and does not obstruct touch or require i
   assert.match(css, /@media\s*\(max-width:\s*720px\)/);
   assert.match(css, /@media print/);
 });
+
+
+const testModeAllowedOrigins = [
+  'https://yongshengchen0615.github.io',
+  'https://memberwebsocket-dev-netlify.netlify.app',
+  'https://develop--memberwebsocket-dev-netlify.netlify.app',
+];
+
+test('test-mode API source preserves explicit CORS allowlist and request authorization', () => {
+  const source = fs.readFileSync(path.join(root, 'MemberWebsocket-dev/supabase/functions/test-mode-api/index.ts'), 'utf8');
+  for (const origin of testModeAllowedOrigins) {
+    assert.ok(source.includes(JSON.stringify(origin)), 'Missing trusted origin: ' + origin);
+  }
+  assert.match(source, /origin && allowedOrigins\(\)\.has\(origin\)/);
+  assert.match(source, /if \(request\.method === "OPTIONS"\)/);
+  assert.match(source, /if \(origin && !allowedOrigins\(\)\.has\(origin\)\)/);
+  assert.doesNotMatch(source, /"Access-Control-Allow-Origin":\s*"\*"/);
+});
+
+test('deployed test-mode API responds to browser preflight only for trusted origins', async () => {
+  const { supabaseUrl } = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/config.json'), 'utf8'));
+  const endpoint = new URL('/functions/v1/test-mode-api', supabaseUrl);
+  const preflight = async (origin) => fetch(endpoint, {
+    method: 'OPTIONS',
+    headers: {
+      Origin: origin,
+      'Access-Control-Request-Method': 'POST',
+      'Access-Control-Request-Headers': 'content-type,apikey',
+    },
+    signal: AbortSignal.timeout(15000),
+  });
+  for (const origin of testModeAllowedOrigins) {
+    const response = await preflight(origin);
+    assert.equal(response.status, 204, origin + ': preflight must return 204');
+    assert.equal(response.headers.get('access-control-allow-origin'), origin, origin);
+    const allowedHeaders = (response.headers.get('access-control-allow-headers') || '')
+      .toLowerCase().split(',').map(x => x.trim());
+    assert.ok(allowedHeaders.includes('apikey'), origin + ': apikey blocked');
+    assert.ok(allowedHeaders.includes('content-type'), origin + ': content-type blocked');
+    assert.ok((response.headers.get('access-control-allow-methods') || '').includes('POST'));
+    assert.match(response.headers.get('vary') || '', /\bOrigin\b/i);
+  }
+  const untrusted = 'https://untrusted.example';
+  const deniedResponse = await preflight(untrusted);
+  assert.notEqual(deniedResponse.headers.get('access-control-allow-origin'), untrusted);
+});
