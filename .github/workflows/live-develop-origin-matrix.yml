@@ -1,0 +1,113 @@
+name: Live develop site CORS and pages
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop]
+    paths: ['.github/workflows/live-develop-origin-matrix.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  browser-origin-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - name: Probe 28 deployed Edge Functions with real browser preflights
+        shell: bash
+        run: |
+          set -euo pipefail
+          functions=(
+            api
+            grant-automation
+            booking-api
+            calendar-system-api
+            booking-calendar-api
+            booking-admin-api
+            event-ticket-links
+            booking-admin-operations
+            booking-cancellation-api
+            member-profile-api
+            booking-contact-api
+            point-ticket-batch-api
+            pointcard-extension-api
+            birthday-benefits
+            fixed-ticket-automation
+            calendar-member-api
+            member-calendar-api
+            booking-group-api
+            booking-technician-delete
+            booking-group-details-api
+            booking-group-slots-api
+            test-mode-api
+            test-control-api
+            user-test-api
+            e2e-artifact-api
+            member-growth-api
+            booking-receipt-api
+            event-ticket-extension-api
+          )
+          origins=(
+            'https://develop--memberwebsocket-dev-netlify.netlify.app'
+            'https://memberwebsocket-dev-netlify.netlify.app'
+            'https://yongshengchen0615.github.io'
+          )
+          h="$(mktemp)"
+          trap 'rm -f "$h"' EXIT
+          passed=0
+          failed=0
+          for origin in "${origins[@]}"; do
+            for fn in "${functions[@]}"; do
+              endpoint="https://dbuquirnaskrwcamdxki.supabase.co/functions/v1/$fn"
+              if ! status="$(curl -sS -m 16 --retry 1 -D "$h" -o /dev/null -w '%{http_code}' -X OPTIONS \
+                -H "Origin: $origin" -H 'Access-Control-Request-Method: POST' \
+                -H 'Access-Control-Request-Headers: content-type,apikey' "$endpoint")"; then
+                echo "::error::OPTIONS transport failed: $fn origin=$origin"
+                failed=$((failed+1))
+                continue
+              fi
+              headers="$(tr -d '\r' < "$h")"
+              allow_origin="$(printf '%s\n' "$headers" | awk 'BEGIN{IGNORECASE=1} tolower($0) ~ /^access-control-allow-origin:/ {sub(/^[^:]*:[[:space:]]*/, "");print;exit}')"
+              allow_methods="$(printf '%s\n' "$headers" | awk 'BEGIN{IGNORECASE=1} tolower($0) ~ /^access-control-allow-methods:/ {sub(/^[^:]*:[[:space:]]*/, "");print;exit}')"
+              allow_headers="$(printf '%s\n' "$headers" | awk 'BEGIN{IGNORECASE=1} tolower($0) ~ /^access-control-allow-headers:/ {sub(/^[^:]*:[[:space:]]*/, "");print;exit}')"
+              if [[ "$status" != 204 || "$allow_origin" != "$origin" || ",$allow_methods," != *POST* || "$allow_headers" != *content-type* || "$allow_headers" != *apikey* ]]; then
+                echo "::error::FAIL $fn origin=$origin status=$status allow_origin='$allow_origin' methods='$allow_methods' headers='$allow_headers'"
+                failed=$((failed+1))
+              else
+                echo "PASS $fn origin=$origin http=$status"
+                passed=$((passed+1))
+              fi
+            done
+          done
+          for fn in api member-profile-api booking-admin-api booking-api; do
+            if ! status="$(curl -sS -m 16 --retry 1 -D "$h" -o /dev/null -w '%{http_code}' -X OPTIONS \
+              -H 'Origin: https://develop--memberwebsocket-dev-netlify.netlify.app.attacker.example' \
+              -H 'Access-Control-Request-Method: POST' \
+              -H 'Access-Control-Request-Headers: content-type,apikey' \
+              "https://dbuquirnaskrwcamdxki.supabase.co/functions/v1/$fn")"; then
+              echo "::error::Negative preflight transport failed: $fn"
+              failed=$((failed+1))
+              continue
+            fi
+            if tr -d '\r' < "$h" | grep -Eiq '^access-control-allow-origin:[[:space:]]*https?://'; then
+              echo "::error::Unapproved origin accepted on $fn"
+              failed=$((failed+1))
+            else
+              echo "PASS unauthorized origin blocked: $fn (HTTP $status)"
+              passed=$((passed+1))
+            fi
+          done
+          echo "RESULT: passed=$passed failed=$failed expected=88"
+          test "$passed" -eq 88
+          test "$failed" -eq 0
+
+      - name: Check develop admin and user page HTTP delivery
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://develop--memberwebsocket-dev-netlify.netlify.app'
+          for p in / /member/ /admin/ /booking/ /calendar/ /event/ /points/; do
+            status="$(curl --location --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' "$base$p")"
+            echo "PAGE $p HTTP $status"
+            test "$status" = 200
+          done
