@@ -91,7 +91,9 @@ test('AC-007: pointcard detail aggregates two bookings for one reward without du
     assert.deepEqual(Array.from(data.bookingSelections,x=>x.bookingId),['BOOKING-A','BOOKING-B']);
     assert.deepEqual(Array.from(data.bookingSelections,x=>x.ticketId),['PT-A','PT-B']);
     await data.onCancelBooking(data.bookingSelections[1]);
-    assert.deepEqual(events.at(-1),{bookingId:'BOOKING-B',ticketId:'PT-B'});
+    assert.deepEqual(events.filter(e => e.bookingId === 'BOOKING-B' && e.ticketId),
+      [{bookingId:'BOOKING-B',ticketId:'PT-B'}],
+      'cancelling the second booking must address exactly its own ticket');
   } finally {dom.window.close();}
 });
 
