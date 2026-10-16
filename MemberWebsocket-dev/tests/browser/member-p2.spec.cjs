@@ -214,3 +214,39 @@ test('selected-scope friends node reads the list and rejects self without issuin
   expect(result.status,JSON.stringify(result)).toBe('passed');
   expect(await page.evaluate(() => p2Calls.filter(row => /request|accept|block|remove/.test(row.action)))).toHaveLength(0);
 });
+
+
+test('member onboarding spotlight reposition emits no blocked inline-style CSP violations', async ({ page }) => {
+  const errors = [];
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    window.__tourCspViolations = [];
+    document.addEventListener('securitypolicyviolation', event => {
+      window.__tourCspViolations.push({
+        directive: event.effectiveDirective,
+        blockedURI: event.blockedURI,
+      });
+    });
+  });
+  page.on('console', entry => {
+    if (entry.type() === 'error' && /Applying inline style|violates the following Content Security Policy/.test(entry.text())) {
+      errors.push(entry.text());
+    }
+  });
+  await page.goto(base + '/event/');
+  await expect(page.locator('#memberTourDialog')).toBeVisible();
+  const masks = page.locator('[data-member-tour-mask]');
+  await expect(masks).toHaveCount(4);
+  await page.locator('#memberTourNext').click();
+  await expect(page.locator('#memberTourDialog')).toBeVisible();
+  await page.evaluate(() => window.dispatchEvent(new Event('resize')));
+  await page.waitForTimeout(180);
+  expect(await page.evaluate(() => window.__tourCspViolations.filter(v => v.directive.startsWith('style-src')))).toEqual([]);
+  expect(errors.filter(message => /inline style/.test(message))).toEqual([]);
+  const states = await masks.evaluateAll(nodes => nodes.map(node => ({
+    region: node.dataset.memberTourMask,
+    display: getComputedStyle(node).display,
+    position: getComputedStyle(node).position,
+  })));
+  expect(states.every(mask => mask.position === 'absolute')).toBe(true);
+});

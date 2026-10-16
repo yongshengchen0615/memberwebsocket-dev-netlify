@@ -49,3 +49,26 @@ test('booking CSP permits only style attributes needed for runtime holiday accen
   assert.match(meta, /style-src-attr 'unsafe-inline';/);
   assert.doesNotMatch(meta, /script-src[^;]*'unsafe-inline'/);
 });
+
+test('member onboarding and E2E recovery update mask geometry via CSP-safe CSSOM properties', () => {
+  for (const file of ['user-tour.js', 'user-test-control.js']) {
+    const script = read(file);
+    assert.doesNotMatch(script, /\.style\.cssText\s*=/, `${file} must not write blocked inline cssText`);
+    assert.doesNotMatch(script, /setAttribute\s*\(\s*['"]style['"]/, `${file} must not set inline style attributes`);
+  }
+  assert.match(read('user-tour.js'), /const setMask = \(region, values\)/);
+  assert.match(read('user-tour.js'), /style\[property\] = values\[property\] \?\? ''/);
+});
+
+test('shipped application pages and first-party client scripts do not originate srcdoc inline-script frames', () => {
+  const root = path.join(__dirname, '..');
+  const walk = folder => fs.readdirSync(folder, { withFileTypes: true }).flatMap(dirent => {
+    if (['tests', 'supabase', 'vendor'].includes(dirent.name)) return [];
+    const full = path.join(folder, dirent.name);
+    return dirent.isDirectory() ? walk(full) : /\.(?:html|js)$/.test(full) ? [full] : [];
+  });
+  for (const file of walk(root)) {
+    const source = fs.readFileSync(file, 'utf8');
+    assert.doesNotMatch(source, /\bsrcdoc\b/i, `${path.relative(root, file)} creates or mentions srcdoc`);
+  }
+});

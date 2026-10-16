@@ -1304,9 +1304,12 @@
     overlay?.classList.add('hidden');
     focus?.classList.add('hidden');
     for (const mask of masks) {
-      mask.style.cssText = mask.dataset.memberTourMask === 'top'
-        ? 'left:0;top:0;right:0;bottom:0'
-        : 'display:none';
+      // E2E recovery must obey the same strict CSP as the real tour.
+      const top = mask.dataset.memberTourMask === 'top';
+      for (const property of ['left', 'top', 'right', 'bottom', 'width', 'height']) {
+        mask.style[property] = top && ['left', 'top', 'right', 'bottom'].includes(property) ? '0' : '';
+      }
+      mask.style.display = top ? 'block' : 'none';
     }
     if (app) app.inert = false;
     return {

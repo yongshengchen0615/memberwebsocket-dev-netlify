@@ -396,9 +396,17 @@
     const masks = Array.isArray(ui.memberTourMasks) ? ui.memberTourMasks : [];
     if (masks.length !== 4) return;
     const byRegion = Object.fromEntries(masks.map((mask) => [mask.dataset.memberTourMask, mask]));
+    // Property-level CSSOM updates work with style-src 'self'. Assigning
+    // cssText would be treated as an inline style and blocked by strict CSP.
+    const setMask = (region, values) => {
+      const style = byRegion[region].style;
+      for (const property of ['display', 'left', 'top', 'right', 'bottom', 'width', 'height']) {
+        style[property] = values[property] ?? '';
+      }
+    };
     if (!focusBox) {
-      byRegion.top.style.cssText = 'left:0;top:0;right:0;bottom:0';
-      for (const region of ['right', 'bottom', 'left']) byRegion[region].style.cssText = 'display:none';
+      setMask('top', { display: 'block', left: '0', top: '0', right: '0', bottom: '0' });
+      for (const region of ['right', 'bottom', 'left']) setMask(region, { display: 'none' });
       return;
     }
     const gap = innerWidth <= 620 ? 7 : 10;
@@ -407,10 +415,10 @@
     const right = Math.min(innerWidth, focusBox.right + gap);
     const bottom = Math.min(innerHeight, focusBox.bottom + gap);
     const height = Math.max(0, bottom - top);
-    byRegion.top.style.cssText = `display:block;left:0;top:0;right:0;height:${top}px`;
-    byRegion.bottom.style.cssText = `display:block;left:0;top:${bottom}px;right:0;bottom:0`;
-    byRegion.left.style.cssText = `display:block;left:0;top:${top}px;width:${left}px;height:${height}px`;
-    byRegion.right.style.cssText = `display:block;left:${right}px;top:${top}px;right:0;height:${height}px`;
+    setMask('top', { display: 'block', left: '0', top: '0', right: '0', height: `${top}px` });
+    setMask('bottom', { display: 'block', left: '0', top: `${bottom}px`, right: '0', bottom: '0' });
+    setMask('left', { display: 'block', left: '0', top: `${top}px`, width: `${left}px`, height: `${height}px` });
+    setMask('right', { display: 'block', left: `${right}px`, top: `${top}px`, right: '0', height: `${height}px` });
   }
 
   function close(outcome) {
