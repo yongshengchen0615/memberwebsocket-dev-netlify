@@ -30,7 +30,7 @@ test('deploy emits recoverable artifact and verifies both page and JS after publ
   assert.match(flow, /data-commit=/);
   // Production CDN propagation must never turn a correct deploy into a false
   // negative. The smoke check keeps strict assertions on every retry.
-  assert.match(flow, /for attempt in \\$\(seq 1 30\)/);
+  assert.match(flow, /for attempt in \$\(seq 1 30\)/);
   assert.match(flow, /html_ok=0/);
   assert.match(flow, /js_ok=0/);
   assert.match(flow, /version_ok=0/);
