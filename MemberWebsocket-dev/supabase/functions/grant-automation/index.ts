@@ -38,7 +38,7 @@ function dbClient(): SupabaseClient {
   return createClient(url,key,{ auth:{ persistSession:false,autoRefreshToken:false } });
 }
 function allowedOrigins(): Set<string> {
-  return new Set((env("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io").split(",").map((v) => v.trim()).filter(Boolean));
+  return new Set([(env("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io"), "https://develop--memberwebsocket-dev-netlify.netlify.app"].join(",").split(",").map((v) => v.trim()).filter(Boolean));
 }
 function corsHeaders(origin: string | null): HeadersInit {
   return {
