@@ -28,6 +28,14 @@ test('deploy emits recoverable artifact and verifies both page and JS after publ
   assert.match(flow, /booking-multi-details-20261017-1/);
   assert.match(flow, /dist\/points\/pointcard-ticket-overview\.js/);
   assert.match(flow, /data-commit=/);
+  // Production CDN propagation must never turn a correct deploy into a false
+  // negative. The smoke check keeps strict assertions on every retry.
+  assert.match(flow, /for attempt in \$\(seq 1 30\)/);
+  assert.match(flow, /html_ok=0/);
+  assert.match(flow, /js_ok=0/);
+  assert.match(flow, /version_ok=0/);
+  assert.match(flow, /\[\[ "\$html_ok" == 1 && "\$js_ok" == 1 && "\$version_ok" == 1 \]\]/);
+  assert.match(flow, /after 30 checks/);
 });
 
 test('deployment changes trigger the same full suite on PR and develop push', () => {

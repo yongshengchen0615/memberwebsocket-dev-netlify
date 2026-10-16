@@ -79,10 +79,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl -fsSL --retry 5 --retry-delay 3 --max-time 30 https://memberwebsocket-dev-netlify.netlify.app/points/ -o /tmp/verified-points.html
-          curl -fsSL --retry 5 --retry-delay 3 --max-time 30 https://memberwebsocket-dev-netlify.netlify.app/points/pointcard-ticket-overview.js -o /tmp/verified-overview.js
-          grep -Fq 'booking-multi-details-20261017-1' /tmp/verified-points.html
-          grep -Fq 'bookingById' /tmp/verified-overview.js
           short_sha="${GITHUB_SHA:0:7}"
-          grep -Fq "data-commit=\"$short_sha\"" /tmp/verified-points.html
-          echo "Published site matches develop $GITHUB_SHA"
+          # Netlify deployment is atomic, but its public CDN aliases can lag the
+          # deploy API. Retry all three real public-file assertions as one gate.
+          for attempt in $(seq 1 30); do
+            html_ok=0
+            js_ok=0
+            version_ok=0
+            if curl -fsSL --max-time 20 --retry 2 --retry-delay 1 https://memberwebsocket-dev-netlify.netlify.app/points/ -o /tmp/verified-points.html; then
+              if grep -Fq 'booking-multi-details-20261017-1' /tmp/verified-points.html; then html_ok=1; fi
+              if grep -Fq "data-commit=\"$short_sha\"" /tmp/verified-points.html; then version_ok=1; fi
+            fi
+            if curl -fsSL --max-time 20 --retry 2 --retry-delay 1 https://memberwebsocket-dev-netlify.netlify.app/points/pointcard-ticket-overview.js -o /tmp/verified-overview.js; then
+              if grep -Fq 'bookingById' /tmp/verified-overview.js; then js_ok=1; fi
+            fi
+            if [[ "$html_ok" == 1 && "$js_ok" == 1 && "$version_ok" == 1 ]]; then
+              echo "Published production site matches develop $GITHUB_SHA (attempt $attempt)"
+              exit 0
+            fi
+            echo "Production CDN verification $attempt/30: html=$html_ok js=$js_ok commit=$version_ok"
+            if (( attempt < 30 )); then sleep 5; fi
+          done
+          echo "::error::Published production files did not match the exact commit and point-card fix after 30 checks"
+          exit 1
