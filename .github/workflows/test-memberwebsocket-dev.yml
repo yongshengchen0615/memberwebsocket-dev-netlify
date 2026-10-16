@@ -1,0 +1,481 @@
+name: Test MemberWebsocket Dev
+
+on:
+  push:
+    paths:
+      - 'MemberWebsocket-dev/**'
+      - '.github/workflows/test-memberwebsocket-dev.yml'
+  pull_request:
+    paths:
+      - 'MemberWebsocket-dev/**'
+      - '.github/workflows/test-memberwebsocket-dev.yml'
+
+permissions:
+  contents: read
+
+# Normalize push and PR branch names so the same change does not run the full suite twice.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  regression:
+    name: Regression tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run application regression tests
+        run: >-
+          node --test --test-reporter=spec --test-reporter-destination=stdout
+          --test-reporter=junit --test-reporter-destination=regression-results.xml
+          MemberWebsocket-dev/tests/*.test.js
+      - name: Save regression diagnostics and durations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: memberwebsocket-regression-${{ github.run_attempt }}
+          path: regression-results.xml
+          retention-days: 7
+          if-no-files-found: warn
+
+  integration:
+    name: DOM integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: MemberWebsocket-dev/tests/integration/package-lock.json
+      - name: Install DOM integration test dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: MemberWebsocket-dev/tests/integration
+      - name: Check DOM, accessibility, and booking integration behavior
+        run: |
+          node --test \
+            MemberWebsocket-dev/tests/integration/admin_startup.cjs \
+            MemberWebsocket-dev/tests/integration/admin_terms.cjs \
+            MemberWebsocket-dev/tests/integration/booking_startup.cjs \
+            MemberWebsocket-dev/tests/integration/booking_benefits.cjs \
+            MemberWebsocket-dev/tests/integration/shared_event_ticket.cjs \
+            MemberWebsocket-dev/tests/integration/booking_copy.cjs \
+            MemberWebsocket-dev/tests/integration/dialog_accessibility.cjs \
+            MemberWebsocket-dev/tests/integration/e2e_background_startup.cjs \
+            MemberWebsocket-dev/tests/integration/e2e_background_sync.cjs \
+            MemberWebsocket-dev/tests/integration/e2e_lease_grace.cjs \
+            MemberWebsocket-dev/tests/integration/member_first_use_tour.cjs \
+            MemberWebsocket-dev/tests/integration/member_terms_startup.cjs \
+            MemberWebsocket-dev/tests/integration/transaction_lifecycle.cjs \
+            MemberWebsocket-dev/tests/integration/receipt_integrity_sql.cjs \
+            MemberWebsocket-dev/tests/integration/booking_ticket_consistency.cjs \
+            MemberWebsocket-dev/tests/integration/booking_settings_notification_sql.cjs \
+            MemberWebsocket-dev/tests/integration/ticket_booking_choice.cjs \
+            MemberWebsocket-dev/tests/integration/booking_accessible.cjs \
+            MemberWebsocket-dev/tests/integration/test_account_phone_sql.cjs \
+            MemberWebsocket-dev/tests/integration/test_duplicate_login_sql.cjs \
+            MemberWebsocket-dev/tests/integration/login_session_sql.cjs \
+            MemberWebsocket-dev/tests/integration/member_removal_sql.cjs \
+            MemberWebsocket-dev/tests/integration/service_grant_sql.cjs \
+            MemberWebsocket-dev/tests/integration/referral_current_rule_sql.cjs \
+            MemberWebsocket-dev/tests/integration/e2e_feature_nodes.cjs \
+            MemberWebsocket-dev/tests/integration/e2e_data_optimization.cjs \
+            MemberWebsocket-dev/tests/integration/qa_user_journeys.cjs \
+            MemberWebsocket-dev/tests/integration/fixed_ticket_automation_sql.cjs \
+            MemberWebsocket-dev/tests/integration/automation_health_sql.cjs \
+            MemberWebsocket-dev/tests/integration/qa_event_day_sql.cjs \
+            MemberWebsocket-dev/tests/integration/qa_cleanup_boundaries.cjs \
+            MemberWebsocket-dev/tests/integration/member_p2_features.cjs \
+            MemberWebsocket-dev/tests/integration/friends_ui.cjs \
+            MemberWebsocket-dev/tests/integration/ongoing_ticket_audit.cjs \
+            MemberWebsocket-dev/tests/integration/ticket_selection_ui.cjs \
+            MemberWebsocket-dev/tests/integration/qr_modal_lifecycle.cjs \
+            MemberWebsocket-dev/tests/integration/snapshot_location.cjs \
+            MemberWebsocket-dev/tests/integration/snapshot_completion_controls.cjs \
+            MemberWebsocket-dev/tests/integration/receipt_refresh_state.cjs \
+            MemberWebsocket-dev/tests/integration/friend_qr_scanner.cjs
+          node --max-old-space-size=1024 --test MemberWebsocket-dev/tests/integration/admin_human_journeys.cjs
+          node --test MemberWebsocket-dev/tests/integration/ongoing_release_20261014.cjs MemberWebsocket-dev/tests/integration/ongoing_release_ui.cjs
+          node MemberWebsocket-dev/tests/integration/booking_ui.cjs
+          node MemberWebsocket-dev/tests/integration/booking_sql.cjs
+          node MemberWebsocket-dev/tests/integration/event_coupon_sql.cjs
+          node MemberWebsocket-dev/tests/integration/coupon_location_editor.cjs
+          node MemberWebsocket-dev/tests/integration/legacy_schema_cleanup.cjs
+
+  browser-e2e:
+    name: Chromium admin, member, receipt and GPS E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: MemberWebsocket-dev/tests/browser/package-lock.json
+      - name: Install browser test dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: MemberWebsocket-dev/tests/browser
+      - name: Install Chromium and system dependencies
+        run: npx playwright install --with-deps chromium --only-shell
+        working-directory: MemberWebsocket-dev/tests/browser
+      - name: Check selected-scope production runner nodes first
+        run: >-
+          npm test -- admin-human.spec.cjs member-p2.spec.cjs
+          booking-history-tabs.spec.cjs snapshot-history-tabs.spec.cjs
+          --grep 'selected-scope|RUNNER_ADMIN_MEMBER_DIRECTORY|RUNNER_ADMIN_MEMBER_USAGE|RUNNER_ADMIN_OPERATION_AUDIT|RUNNER_ADMIN_BOOKING_NO_SHOW'
+        working-directory: MemberWebsocket-dev/tests/browser
+      - name: Check E2E refresh and purged-history recovery first
+        run: npm test -- e2e-refresh.spec.cjs
+        working-directory: MemberWebsocket-dev/tests/browser
+      - name: Fail fast on ticket selections and shared layouts
+        run: npm test -- ticket-selection.spec.cjs ui-layout.spec.cjs
+        working-directory: MemberWebsocket-dev/tests/browser
+      - name: Fail fast on mobile member pass and GPS permission retry
+        run: |
+          npm test -- member-p2.spec.cjs --grep "membership pass actions stay grouped"
+          npm test -- receipt-location.spec.cjs --grep "GPS permission denial"
+        working-directory: MemberWebsocket-dev/tests/browser
+      - name: Fail fast on no-show confirmation and readable audit
+        run: npm test -- admin-human.spec.cjs --grep "BOOKING_NO_SHOW|AUDIT_QUERY"
+        working-directory: MemberWebsocket-dev/tests/browser
+      - name: Run real-browser admin, member, receipt and location flows
+        run: npm test
+        working-directory: MemberWebsocket-dev/tests/browser
+      - name: Save browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: memberwebsocket-browser-${{ github.run_attempt }}
+          path: |
+            MemberWebsocket-dev/tests/browser/browser-results.xml
+            MemberWebsocket-dev/tests/browser/test-results
+          retention-days: 7
+          if-no-files-found: warn
+
+  browser-syntax:
+    name: Browser JavaScript syntax
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check browser JavaScript syntax
+        run: |
+          printf '%s\n' \
+            MemberWebsocket-dev/friends.js \
+            MemberWebsocket-dev/friend-qr-scanner.js \
+            MemberWebsocket-dev/vendor/friend-qr-decoder.js \
+            MemberWebsocket-dev/admin/ticket-visibility.js \
+            MemberWebsocket-dev/theme.js \
+            MemberWebsocket-dev/user-tour.js \
+            MemberWebsocket-dev/e2e-feature-coverage.js \
+            MemberWebsocket-dev/e2e-scenario-graph.js \
+            MemberWebsocket-dev/e2e-professional-tester.js \
+            MemberWebsocket-dev/membership-milestones.js \
+            MemberWebsocket-dev/test-mode-client.js \
+            MemberWebsocket-dev/user-test-control.js \
+            MemberWebsocket-dev/member-system.js \
+            MemberWebsocket-dev/admin/admin-session.js \
+            MemberWebsocket-dev/admin/test-mode.js \
+            MemberWebsocket-dev/admin/test-control.js \
+            MemberWebsocket-dev/admin/e2e-control-loader.js \
+            MemberWebsocket-dev/admin/e2e-control.js \
+            MemberWebsocket-dev/admin/app.js \
+            MemberWebsocket-dev/admin/grant-automation.js \
+            MemberWebsocket-dev/admin/fixed-ticket-admin-integration.js \
+            MemberWebsocket-dev/admin/fixed-ticket-calendar-option.js \
+            MemberWebsocket-dev/admin/fixed-ticket-admin.js \
+            MemberWebsocket-dev/admin/pointcard-redemption-limit.js \
+            MemberWebsocket-dev/admin/booking-panel.js \
+            MemberWebsocket-dev/admin/booking-panel-core.js \
+            MemberWebsocket-dev/admin/booking-receipt-admin.js \
+            MemberWebsocket-dev/admin/booking-accessible-admin.js \
+            MemberWebsocket-dev/booking/booking-accessible.js \
+            MemberWebsocket-dev/admin/booking-resources.js \
+            MemberWebsocket-dev/admin/booking-cancellation-sync.js \
+            MemberWebsocket-dev/member/app.js \
+            MemberWebsocket-dev/member/member-phone.js \
+            MemberWebsocket-dev/member/profile-extension.js \
+            MemberWebsocket-dev/member/profile-birthday-edit.js \
+            MemberWebsocket-dev/member/member-growth.js \
+            MemberWebsocket-dev/points/pointcard-ticket-overview.js \
+            MemberWebsocket-dev/points/point-transfer.js \
+            MemberWebsocket-dev/points/app.js \
+            MemberWebsocket-dev/event/app.js \
+            MemberWebsocket-dev/event/today-usable.js \
+            MemberWebsocket-dev/calendar/app.js \
+            MemberWebsocket-dev/booking/common.js \
+            MemberWebsocket-dev/booking/booking-benefits.js \
+            MemberWebsocket-dev/booking/membership-progress.js \
+            MemberWebsocket-dev/booking/booking-flow.js \
+            MemberWebsocket-dev/booking/member-ui.js \
+            MemberWebsocket-dev/booking/group-booking.js \
+            MemberWebsocket-dev/booking/contact-details.js \
+            MemberWebsocket-dev/booking/app.js \
+            MemberWebsocket-dev/booking/booking-receipt.js \
+            MemberWebsocket-dev/booking/calendar-flow.js \
+          | xargs -n1 -P4 node --check
+
+  edge-functions:
+    name: Supabase Edge Function typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Check Edge Functions
+        run: |
+          deno check \
+            MemberWebsocket-dev/supabase/functions/api/index.ts \
+            MemberWebsocket-dev/supabase/functions/birthday-benefits/index.ts \
+            MemberWebsocket-dev/supabase/functions/test-mode-api/index.ts \
+            MemberWebsocket-dev/supabase/functions/test-control-api/index.ts \
+            MemberWebsocket-dev/supabase/functions/user-test-api/index.ts \
+            MemberWebsocket-dev/supabase/functions/e2e-artifact-api/index.ts \
+            MemberWebsocket-dev/supabase/functions/e2e-artifact-retention/index.ts \
+            MemberWebsocket-dev/supabase/functions/pointcard-extension-api/index.ts \
+            MemberWebsocket-dev/supabase/functions/member-profile-api/index.ts \
+            MemberWebsocket-dev/supabase/functions/member-growth-api/index.ts \
+            MemberWebsocket-dev/supabase/functions/booking-receipt-api/index.ts \
+            MemberWebsocket-dev/supabase/functions/booking-contact-api/index.ts \
+            MemberWebsocket-dev/supabase/functions/grant-automation/index.ts \
+            MemberWebsocket-dev/supabase/functions/event-ticket-links/index.ts \
+            MemberWebsocket-dev/supabase/functions/event-ticket-extension-api/index.ts \
+            MemberWebsocket-dev/supabase/functions/scheduled-grant-messages/index.ts \
+            MemberWebsocket-dev/supabase/functions/booking-api/index.ts \
+            MemberWebsocket-dev/supabase/functions/booking-admin-api/index.ts \
+            MemberWebsocket-dev/supabase/functions/booking-admin-operations/index.ts \
+            MemberWebsocket-dev/supabase/functions/booking-group-api/index.ts \
+            MemberWebsocket-dev/supabase/functions/booking-group-details-api/index.ts \
+            MemberWebsocket-dev/supabase/functions/booking-group-slots-api/index.ts \
+            MemberWebsocket-dev/supabase/functions/booking-calendar-api/index.ts \
+            MemberWebsocket-dev/supabase/functions/booking-cancellation-api/index.ts \
+            MemberWebsocket-dev/supabase/functions/booking-line-notifications/index.ts \
+            MemberWebsocket-dev/supabase/functions/booking-technician-delete/index.ts \
+            MemberWebsocket-dev/supabase/functions/fixed-ticket-automation/index.ts \
+            MemberWebsocket-dev/supabase/functions/member-calendar-api/index.ts \
+            MemberWebsocket-dev/supabase/functions/calendar-system-api/index.ts \
+            MemberWebsocket-dev/supabase/functions/calendar-member-api/index.ts \
+            MemberWebsocket-dev/supabase/functions/point-ticket-batch-api/index.ts
+      - name: Test Edge Function business logic and LINE delivery
+        run: |
+          deno test \
+            MemberWebsocket-dev/supabase/functions/_shared/*_test.ts \
+            MemberWebsocket-dev/supabase/functions/booking-line-notifications/delivery_test.ts
+
+  wiring:
+    name: Static wiring and architecture checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check grant automation wiring
+        run: |
+          grep -q 'grant-automation.js' MemberWebsocket-dev/admin/index.html
+          grep -q 'supabaseGrantAutomationUrl' MemberWebsocket-dev/config.json
+          grep -q 'fixed-ticket-admin-integration.js?v=fixed-ticket-sync-20260916-1' MemberWebsocket-dev/admin/index.html
+          grep -q 'fixed-ticket-calendar-option.js?v=fixed-ticket-calendar-20260917-4' MemberWebsocket-dev/admin/index.html
+          grep -q 'fixed-ticket-admin.js?v=qa-purge-sync-20261005-1' MemberWebsocket-dev/admin/index.html
+          grep -q 'pointcard-redemption-limit.js?v=policy-admin-ui-20261014-1' MemberWebsocket-dev/admin/index.html
+          ! grep -q 'event-ticket-activity-link.js' MemberWebsocket-dev/admin/index.html
+          grep -Eq 'app\.js\?v=[^" ]+' MemberWebsocket-dev/event/index.html
+          ! grep -q 'batch-redemption.js' MemberWebsocket-dev/event/index.html
+          ! grep -q 'batch-redemption.css' MemberWebsocket-dev/event/index.html
+          ! grep -q 'activity-link.js' MemberWebsocket-dev/event/index.html
+          test ! -e MemberWebsocket-dev/admin/event-ticket-activity-link.js
+          test ! -e MemberWebsocket-dev/event/activity-link.js
+          grep -q 'activity_url' MemberWebsocket-dev/supabase/migrations/20260910175251_add_event_ticket_activity_url.sql
+          node MemberWebsocket-dev/tests/event_ticket_activity_link.test.js
+          grep -q 'grant_member_benefits_with_event_bonus' MemberWebsocket-dev/supabase/migrations/20260910_add_grant_notification_schedule_calendar_bonus.sql
+          grep -q 'claim_due_grant_messages' MemberWebsocket-dev/supabase/migrations/20260910_add_grant_notification_schedule_calendar_bonus.sql
+      - name: Check unified calendar backend wiring
+        run: |
+          grep -q 'member-system.js?v=layout-stability-20261001-1' MemberWebsocket-dev/calendar/index.html
+          ! grep -q 'tier-sync.js' MemberWebsocket-dev/calendar/index.html
+          ! grep -q 'realtime-resync.js' MemberWebsocket-dev/calendar/index.html
+          grep -q 'memberCalendarFunctionUrl' MemberWebsocket-dev/config.json
+          grep -q 'allowedTierLabels' MemberWebsocket-dev/supabase/functions/member-calendar-api/index.ts
+          grep -q 'tierEligible' MemberWebsocket-dev/supabase/functions/member-calendar-api/index.ts
+          grep -q 'applyCalendarDisplayRules' MemberWebsocket-dev/supabase/functions/member-calendar-api/index.ts
+      - name: Check booking wiring
+        run: |
+          grep -q './booking/' MemberWebsocket-dev/index.html
+          grep -q './admin/#booking' MemberWebsocket-dev/index.html
+          grep -q '"bookingLiffId": "2010787602-sgiB0ETj"' MemberWebsocket-dev/config.json
+          grep -q 'config.bookingLiffId' MemberWebsocket-dev/booking/common.js
+          grep -q "signIn(state.config, 'booking')" MemberWebsocket-dev/booking/app.js
+          grep -q 'memberProfile' MemberWebsocket-dev/booking/app.js
+          grep -q 'id="memberTier"' MemberWebsocket-dev/booking/index.html
+          grep -q 'id="membershipProgress"' MemberWebsocket-dev/booking/index.html
+          grep -q 'membership-progress.js' MemberWebsocket-dev/booking/index.html
+          grep -q 'ensureSeparateTierTargets' MemberWebsocket-dev/booking/membership-progress.js
+          grep -q '目前會員階級：' MemberWebsocket-dev/booking/membership-progress.js
+          grep -q 'member-ui.js?v=test-mode-20260920-1' MemberWebsocket-dev/booking/index.html
+          grep -q 'app.js?v=booking-member-chat-20261003-1' MemberWebsocket-dev/booking/index.html
+          grep -q 'getRenderCount' MemberWebsocket-dev/booking/app.js
+          grep -q 'getBookingSnapshot' MemberWebsocket-dev/booking/app.js
+          grep -q 'group-booking.js?v=async-architecture-20260921-1' MemberWebsocket-dev/booking/index.html
+          grep -Eq 'common\.js\?v=[^" ]+' MemberWebsocket-dev/booking/index.html
+          grep -q 'booking-receipt.js' MemberWebsocket-dev/booking/index.html
+          grep -q 'booking-receipt.css' MemberWebsocket-dev/booking/index.html
+          grep -q 'booking-receipt-admin.js' MemberWebsocket-dev/admin/index.html
+          grep -q 'member-growth.js' MemberWebsocket-dev/member/index.html
+          grep -q 'point-transfer.js' MemberWebsocket-dev/points/index.html
+          grep -q 'today-usable.js' MemberWebsocket-dev/event/index.html
+          grep -q 'member-growth-api' MemberWebsocket-dev/member-system.js
+          grep -q 'booking-receipt-api' MemberWebsocket-dev/booking/common.js
+          grep -q 'liff-fresh-login.js?v=member-presence-20260920-1' MemberWebsocket-dev/booking/index.html
+          grep -q 'id="bookingNoticeModal"' MemberWebsocket-dev/booking/index.html
+          grep -q 'confirmBookingNoticeButton' MemberWebsocket-dev/booking/index.html
+          grep -q 'function showNotice(message, options = {})' MemberWebsocket-dev/booking/common.js
+          grep -q 'BookingSystem.showNotice' MemberWebsocket-dev/booking/app.js
+          grep -q 'system.showNotice' MemberWebsocket-dev/booking/group-booking.js
+          ! grep -q 'member-booking-format.js' MemberWebsocket-dev/booking/index.html
+          ! grep -q 'booking-confirm-details.js' MemberWebsocket-dev/booking/index.html
+          ! grep -q 'booking-notice-dedupe.js' MemberWebsocket-dev/booking/index.html
+          grep -q 'id="joinMemberButton"' MemberWebsocket-dev/booking/index.html
+          grep -q 'Booking access' MemberWebsocket-dev/booking/index.html
+          grep -q 'membershipRequired === true' MemberWebsocket-dev/booking/member-ui.js
+          ! grep -q 'class="member-summary"' MemberWebsocket-dev/booking/index.html
+          grep -q 'id="bookingConfirmModal"' MemberWebsocket-dev/booking/index.html
+          grep -q 'servicePicker' MemberWebsocket-dev/booking/app.js
+          grep -q 'quantity > 2' MemberWebsocket-dev/supabase/functions/booking-api/index.ts
+          grep -q 'calendar-flow.js' MemberWebsocket-dev/booking/index.html
+          grep -q 'id="calendarGrid"' MemberWebsocket-dev/booking/index.html
+          grep -q 'id="appointmentPanel" class="booking-selection-modal' MemberWebsocket-dev/booking/index.html
+          grep -q 'id="closeAppointmentButton"' MemberWebsocket-dev/booking/index.html
+          grep -q 'advance-disabled' MemberWebsocket-dev/booking/calendar-flow.js
+          grep -q 'booking:settings-updated' MemberWebsocket-dev/booking/app.js
+          grep -q 'booking-calendar-api' MemberWebsocket-dev/booking/calendar-flow.js
+          grep -q 'booking_date,start_time,end_time' MemberWebsocket-dev/supabase/functions/booking-calendar-api/index.ts
+          grep -q 'min_advance_days' MemberWebsocket-dev/supabase/functions/booking-calendar-api/index.ts
+          grep -q 'requireJoinedMember' MemberWebsocket-dev/supabase/functions/booking-calendar-api/index.ts
+          grep -q 'url=../../admin/#booking' MemberWebsocket-dev/booking/admin/index.html
+          test ! -e MemberWebsocket-dev/booking/admin/app.js
+          test ! -e MemberWebsocket-dev/booking/admin/subtabs.js
+          test ! -e MemberWebsocket-dev/booking/admin/cancellation-review.js
+          grep -Eq 'booking-panel\.js\?v=[^" ]+' MemberWebsocket-dev/admin/index.html
+          ! grep -q 'loadBookingAdminPanelExtension' MemberWebsocket-dev/member-system.js
+          grep -q 'booking-panel-core.js' MemberWebsocket-dev/admin/booking-panel.js
+          grep -q 'booking-cancellation-sync.js' MemberWebsocket-dev/admin/booking-panel.js
+          grep -q "tab.textContent = '預約'" MemberWebsocket-dev/admin/booking-panel-core.js
+          grep -q 'admin.booking.settings.save' MemberWebsocket-dev/admin/booking-panel-core.js
+          grep -q 'id="bookingAdminStartTime"' MemberWebsocket-dev/admin/booking-panel-core.js
+          grep -q 'id="bookingAdminEndTime"' MemberWebsocket-dev/admin/booking-panel-core.js
+          grep -q 'id="bookingAdminAdvanceDays"' MemberWebsocket-dev/admin/booking-panel-core.js
+          grep -q 'id="bookingAdminNotice"' MemberWebsocket-dev/admin/booking-panel-core.js
+          grep -q 'bookingNotice' MemberWebsocket-dev/booking/common.js
+          grep -q 'id="bookingNotice"' MemberWebsocket-dev/booking/index.html
+          grep -q '預約共用設定' MemberWebsocket-dev/admin/booking-panel-core.js
+          grep -q 'id="bookingAdminNewTypeButton"' MemberWebsocket-dev/admin/booking-panel-core.js
+          grep -q 'id="bookingAdminBatchAddButton"' MemberWebsocket-dev/admin/booking-panel-core.js
+          grep -q 'id="bookingAdminBatchEditButton"' MemberWebsocket-dev/admin/booking-panel-core.js
+          grep -q 'id="bookingAdminBatchDeleteButton"' MemberWebsocket-dev/admin/booking-panel-core.js
+          grep -q 'admin.booking.type.create' MemberWebsocket-dev/admin/booking-panel-core.js
+          grep -q 'admin.booking.type.update' MemberWebsocket-dev/admin/booking-panel-core.js
+          grep -q 'admin.booking.type.delete' MemberWebsocket-dev/admin/booking-panel-core.js
+          grep -q 'admin.booking.service.delete' MemberWebsocket-dev/admin/booking-panel-core.js
+          grep -q 'admin.booking.services.batch' MemberWebsocket-dev/admin/booking-panel-core.js
+          grep -q 'booking-admin-api' MemberWebsocket-dev/admin/booking-panel-core.js
+          ! grep -q '項目類型（每行一個）' MemberWebsocket-dev/admin/booking-panel-core.js
+          grep -q 'booking-cancellation-api' MemberWebsocket-dev/admin/booking-cancellation-sync.js
+          grep -q 'admin.approve' MemberWebsocket-dev/admin/booking-cancellation-sync.js
+          grep -q 'admin.reject' MemberWebsocket-dev/admin/booking-cancellation-sync.js
+          grep -q 'totalAmount()' MemberWebsocket-dev/booking/app.js
+          grep -q 'STORE_SERVICE_ID' MemberWebsocket-dev/booking/app.js
+          grep -q 'duplicateTypeGroups' MemberWebsocket-dev/booking/app.js
+          ! grep -q 'bookingAdminWeekday' MemberWebsocket-dev/admin/booking-panel-core.js
+          ! grep -q 'bookingAdminDescription' MemberWebsocket-dev/admin/booking-panel-core.js
+          ! grep -q '項目說明' MemberWebsocket-dev/admin/booking-panel-core.js
+          grep -q 'create_booking_bundle_request' MemberWebsocket-dev/supabase/migrations/20260910_booking_global_hours_multi_service_realtime.sql
+          grep -q 'booking_settings' MemberWebsocket-dev/supabase/migrations/20260910_booking_global_hours_multi_service_realtime.sql
+          grep -q 'booking_items' MemberWebsocket-dev/supabase/migrations/20260910_booking_global_hours_multi_service_realtime.sql
+          grep -q 'bookings_no_active_overlap' MemberWebsocket-dev/supabase/migrations/20260910_booking_global_hours_multi_service_realtime.sql
+          grep -q 'BOOKING_SLOT_TAKEN' MemberWebsocket-dev/supabase/functions/booking-api/index.ts
+          grep -q 'priceAmount: Number(row.price_amount' MemberWebsocket-dev/supabase/functions/booking-api/index.ts
+          grep -q 'unit_price_amount' MemberWebsocket-dev/supabase/functions/booking-api/index.ts
+          grep -q 'booking_services_price_amount_check' MemberWebsocket-dev/supabase/migrations/20260910212500_booking_service_pricing.sql
+          grep -q 'booking_items_unit_price_amount_check' MemberWebsocket-dev/supabase/migrations/20260910212500_booking_service_pricing.sql
+          grep -q 'booking_services_service_type_check' MemberWebsocket-dev/supabase/migrations/20260910224000_booking_service_types_and_store_service.sql
+          grep -q 'counts_toward_membership = false' MemberWebsocket-dev/supabase/migrations/20260910224000_booking_service_types_and_store_service.sql
+          grep -q 'booking_service_types' MemberWebsocket-dev/supabase/migrations/20260910230000_booking_shared_service_types.sql
+          grep -q 'add column if not exists deleted_at' MemberWebsocket-dev/supabase/migrations/20260910233000_booking_admin_crud_batch.sql
+          grep -q 'apply_booking_service_batch' MemberWebsocket-dev/supabase/migrations/20260910233000_booking_admin_crud_batch.sql
+          grep -q 'rename_booking_service_type' MemberWebsocket-dev/supabase/migrations/20260910233000_booking_admin_crud_batch.sql
+          grep -q 'delete_booking_service_type' MemberWebsocket-dev/supabase/migrations/20260910233000_booking_admin_crud_batch.sql
+          grep -q 'maintenance.clear_public_data' MemberWebsocket-dev/supabase/migrations/20260910233000_booking_admin_crud_batch.sql
+          grep -q 'bookingAdminApi' /dev/null || true
+      - name: Check realtime sync wiring
+        run: |
+          grep -q "table: 'realtime_events'" MemberWebsocket-dev/member-system.js
+          grep -q "scope !== 'all' && scope !== clientType" MemberWebsocket-dev/member-system.js
+          for file in \
+            MemberWebsocket-dev/member/index.html \
+            MemberWebsocket-dev/points/index.html \
+            MemberWebsocket-dev/event/index.html \
+            MemberWebsocket-dev/calendar/index.html \
+            MemberWebsocket-dev/admin/index.html; do
+            grep -Eq '../member-system\.js\?v=[^" ]+' "$file"
+            ! grep -q 'realtime-resync.js' "$file"
+            ! grep -q './common.js' "$file"
+          done
+          grep -q "table: 'realtime_events'" MemberWebsocket-dev/booking/common.js
+          grep -q "scope === 'all' || scope === targetScope" MemberWebsocket-dev/booking/common.js
+          grep -q "addEventListener('visibilitychange'" MemberWebsocket-dev/booking/common.js
+          grep -q "addEventListener('pageshow'" MemberWebsocket-dev/booking/common.js
+          grep -q "addEventListener('online'" MemberWebsocket-dev/booking/common.js
+          grep -q "status !== 'SUBSCRIBED'" MemberWebsocket-dev/booking/common.js
+          grep -q "member-system:realtime-invalidation" MemberWebsocket-dev/admin/booking-panel-core.js
+          grep -q "type.startsWith('booking.')" MemberWebsocket-dev/admin/booking-panel-core.js
+          ! grep -q "supabase.createClient" MemberWebsocket-dev/admin/booking-panel-core.js
+          grep -q "member-system:realtime-invalidation" MemberWebsocket-dev/admin/booking-cancellation-sync.js
+          grep -q "member-system:realtime-status" MemberWebsocket-dev/admin/booking-cancellation-sync.js
+          grep -q "type.startsWith('booking.')" MemberWebsocket-dev/admin/booking-cancellation-sync.js
+          ! grep -q "supabase.createClient" MemberWebsocket-dev/admin/booking-cancellation-sync.js
+          grep -q 'notify_booking_cancellation_realtime_change' MemberWebsocket-dev/supabase/migrations/20260911123000_booking_cancellation_realtime_sync.sql
+          grep -q 'notify_booking_realtime_change' MemberWebsocket-dev/supabase/migrations/20260910_booking_global_hours_multi_service_realtime.sql
+          grep -q 'realtime_booking_service_types_change' MemberWebsocket-dev/supabase/migrations/20260910233100_booking_service_type_realtime.sql
+          grep -q 'notify_surface_realtime_change' MemberWebsocket-dev/supabase/migrations/20260919062515_complete_realtime_invalidation_coverage.sql
+          grep -q 'realtime_member_profile_change' MemberWebsocket-dev/supabase/migrations/20260919062515_complete_realtime_invalidation_coverage.sql
+          grep -q 'visibilitychange' MemberWebsocket-dev/member-system.js
+          grep -q "addEventListener('online'" MemberWebsocket-dev/member-system.js
+          grep -q 'notify_admin_config_realtime_change' MemberWebsocket-dev/supabase/migrations/20260910_transactional_realtime_invalidation.sql
+          grep -q 'notify_admin_grant_realtime_change' MemberWebsocket-dev/supabase/migrations/20260910_transactional_realtime_invalidation.sql
+
+  validate:
+    name: Validate MemberWebsocket Dev
+    if: always()
+    needs: [regression, integration, browser-e2e, browser-syntax, edge-functions, wiring]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require every test lane to pass
+        env:
+          REGRESSION: ${{ needs.regression.result }}
+          INTEGRATION: ${{ needs.integration.result }}
+          BROWSER_SYNTAX: ${{ needs.browser-syntax.result }}
+          BROWSER_E2E: ${{ needs.browser-e2e.result }}
+          EDGE_FUNCTIONS: ${{ needs.edge-functions.result }}
+          WIRING: ${{ needs.wiring.result }}
+        run: |
+          printf 'regression=%s\nintegration=%s\nbrowser-syntax=%s\nedge-functions=%s\nwiring=%s\n' \
+            "$REGRESSION" "$INTEGRATION" "$BROWSER_SYNTAX" "$EDGE_FUNCTIONS" "$WIRING"
+          test "$REGRESSION" = success
+          test "$INTEGRATION" = success
+          test "$BROWSER_SYNTAX" = success
+          test "$BROWSER_E2E" = success
+          test "$EDGE_FUNCTIONS" = success
+          test "$WIRING" = success

@@ -1,0 +1,57 @@
+name: MemberWebsocket Ticket Policy UI Tests
+
+on:
+  pull_request:
+    paths:
+      - 'MemberWebsocket-dev/admin/**'
+      - 'MemberWebsocket-dev/tests/**'
+      - '.github/workflows/test-memberwebsocket-ticket-policy.yml'
+  push:
+    branches:
+      - 'feat/member-ticket-policy-admin-ui-20261014'
+      - 'main'
+    paths:
+      - 'MemberWebsocket-dev/admin/**'
+      - 'MemberWebsocket-dev/tests/**'
+      - '.github/workflows/test-memberwebsocket-ticket-policy.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  unit-and-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Check updated scripts syntax
+        run: |
+          node --check MemberWebsocket-dev/admin/pointcard-redemption-limit.js
+          node --check MemberWebsocket-dev/admin/event-ticket-redemption-limit.js
+          node --check MemberWebsocket-dev/admin/ticket-visibility.js
+      - name: Unit and static regression tests
+        run: node --test MemberWebsocket-dev/tests/*.test.js
+      - name: Install browser test dependencies
+        working-directory: MemberWebsocket-dev/tests/browser
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Browser regression across desktop and mobile
+        working-directory: MemberWebsocket-dev/tests/browser
+        run: npx playwright test ticket-policy-settings.spec.cjs settings-layout.spec.cjs ticket-selection.spec.cjs
+      - name: Upload failure traces
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ticket-policy-browser-traces
+          path: |
+            MemberWebsocket-dev/tests/browser/test-results/
+            MemberWebsocket-dev/tests/browser/browser-results.xml
+          if-no-files-found: ignore
