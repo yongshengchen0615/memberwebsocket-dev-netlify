@@ -45,3 +45,81 @@ for(const owned of [true,false])test('real event page loads '+(owned?'owned usag
   }else{assert.equal(choice.hidden,true);assert.equal(button.disabled,false);assert.match(button.textContent,/領取/);assert.equal(calls.length,0);}
  }finally{dom.window.close();}
 });
+
+test('AC-007: pointcard detail aggregates two bookings for one reward without duplicating the reward card', async () => {
+  const { dom, w } = await pointFixture([]);
+  try {
+    const events = [];
+    w.TicketBookingSelections = {
+      createTicketReservationDisclosure(options) {
+        events.push(options);
+        const el = w.document.createElement('details');
+        el.append(w.document.createElement('summary'));
+        el.querySelector('summary').textContent = '預約使用明細（' +
+          (options.bookingSelections.length + options.pendingSnapshots.length) + ' 筆）';
+        return el;
+      },
+      async cancelPointTicket(bookingId, ticketId) { events.push({bookingId, ticketId}); }
+    };
+    const card = {
+      cardId:'CARD', title:'QA Card', status:'active', stamps:20,
+      rewards:[{rewardId:'R-PUBLIC',rewardDbId:'R-UUID',
+        ticketTemplateId:'T-PUBLIC',ticketTemplateDbId:'T-UUID',
+        thresholdStamps:5,rewardTitle:'QA coupon'}]
+    };
+    const ticket = (ticketId, bookingId, date, rewardId='R-UUID') => ({
+      ticketId,rewardId,ticketTemplateId:'T-UUID',thresholdStamps:5,
+      ticketTitle:'QA coupon',status:'available',
+      reservedForBooking:Boolean(bookingId),
+      bookingSelections: bookingId ? [{bookingId,bookingDate:date,
+        startTime:'09:00',endTime:'10:00',status:'pending',editable:true}] : [],
+      eligibleBookings:[]
+    });
+    w.PointCardTicketOverview.renderSnapshot({
+      cards:[card],cardDetails:{CARD:{card,tickets:[
+        ticket('PT-A','BOOKING-A','2026-10-21'),
+        ticket('PT-B','BOOKING-B','2026-10-22'),
+        ticket('PT-FREE',null,''),
+        ticket('PT-OTHER','BOOKING-OTHER','2026-10-23','OTHER-REWARD')
+      ]}}
+    });
+    assert.equal(w.document.querySelectorAll('.member-ticket').length,1);
+    assert.equal(w.document.querySelectorAll('.ticket-overview-groups details').length,1);
+    const data=events.find(e=>e.bookingSelections);
+    assert.equal(data.bookingSelections.length,2);
+    assert.match(w.document.querySelector('.ticket-overview-groups details').textContent,/2 筆/);
+    assert.deepEqual(Array.from(data.bookingSelections,x=>x.bookingId),['BOOKING-A','BOOKING-B']);
+    assert.deepEqual(Array.from(data.bookingSelections,x=>x.ticketId),['PT-A','PT-B']);
+    await data.onCancelBooking(data.bookingSelections[1]);
+    assert.deepEqual(events.filter(e => e.bookingId === 'BOOKING-B' && e.ticketId),
+      [{bookingId:'BOOKING-B',ticketId:'PT-B'}],
+      'cancelling the second booking must address exactly its own ticket');
+  } finally {dom.window.close();}
+});
+
+test('AC-008: same reward snapshot receipts are counted once and keep their own ticket ID', async () => {
+  const { dom, w } = await pointFixture([]);
+  try {
+    const seen=[];
+    w.TicketBookingSelections={
+      createTicketReservationDisclosure(options) {
+        seen.push(options);
+        return w.document.createElement('details');
+      }
+    };
+    const card={cardId:'CARD',title:'QA Card',status:'active',stamps:20,
+      rewards:[{rewardDbId:'R-UUID',thresholdStamps:5,rewardTitle:'QA coupon'}]};
+    const ticket=(ticketId,receiptId)=>({
+      ticketId,rewardId:'R-UUID',thresholdStamps:5,ticketTitle:'QA coupon',
+      status:'available',pendingSnapshots:[{receiptId,updatedAt:'2026-10-16T00:00:00Z'}],
+      eligibleBookings:[]
+    });
+    w.PointCardTicketOverview.renderSnapshot({cards:[card],
+      cardDetails:{CARD:{card,tickets:[
+        ticket('PT-A','RCPT-1'),ticket('PT-B','RCPT-1'),ticket('PT-C','RCPT-2')
+      ]}}});
+    assert.equal(seen.length,1);
+    assert.deepEqual(Array.from(seen[0].pendingSnapshots,x=>x.receiptId),['RCPT-1','RCPT-2']);
+    assert.equal(seen[0].pendingSnapshots[1].ticketId,'PT-C');
+  } finally {dom.window.close();}
+});

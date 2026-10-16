@@ -84,7 +84,7 @@ test('ticket-local disclosure exposes independent pending booking cancellation',
   const shared = read('ticket-booking-selections.js');
   assert.match(overview, /createTicketReservationDisclosure/);
   assert.match(overview, /onCancelBooking: async \(context\)/);
-  assert.match(overview, /TicketBookingSelections\.cancelPointTicket\(context\.bookingId, offer\.ticketId\)/);
+  assert.match(overview, /TicketBookingSelections\.cancelPointTicket\(context\.bookingId, context\.ticketId \|\| offer\.ticketId\)/);
   assert.match(shared, /context\.status === 'pending' && context\.editable/);
   assert.match(shared, /取消此一般預約票券/);
   for (const asset of ['ticket-booking-selections.js', 'pointcard-ticket-overview.js', 'ticket-booking-selections.css']) {

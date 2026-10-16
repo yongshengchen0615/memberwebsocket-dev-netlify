@@ -995,8 +995,10 @@ async function adminCards(supabase: SupabaseClient): Promise<{ cards: any[]; tic
     const list = rewardsByCard.get(reward.point_card_id) || [];
     list.push({
       rewardId: reward.reward_id,
+      rewardDbId: reward.id,
       thresholdStamps: Number(reward.threshold_stamps),
       ticketTemplateId: template.ticket_template_id,
+      ticketTemplateDbId: template.id,
       rewardType: template.ticket_type,
       rewardTitle: template.title,
       rewardDescription: template.description || "",

@@ -229,39 +229,65 @@
         : [];
       const cardStamps = points(card.availableStamps ?? card.stamps);
       const matchedTicketIds = new Set();
-
       const offers = rewards.map((reward) => {
         const thresholdStamps = Math.max(1, Number(reward.thresholdStamps || 0));
         const templateId = String(reward.ticketTemplateId || reward.ticket_template_id || '');
+        const templateDbId = String(reward.ticketTemplateDbId || '');
+        const rewardDbId = String(reward.rewardDbId || '');
         const rewardTitle = String(reward.rewardTitle || '');
-        let ticket = tickets.find((item) => {
-          const ticketId = String(item.ticketId || '');
-          return ticketId && !matchedTicketIds.has(ticketId)
-            && templateId
-            && String(item.ticketTemplateId || item.ticket_template_id || '') === templateId;
-        }) || null;
+        const unassigned = tickets.filter((t) => t.ticketId && !matchedTicketIds.has(String(t.ticketId)));
 
-        if (!ticket) {
-          ticket = tickets.find((item) => {
-            const ticketId = String(item.ticketId || '');
-            return ticketId && !matchedTicketIds.has(ticketId)
-              && Number(item.thresholdStamps || 0) === thresholdStamps
-              && (!rewardTitle || String(item.ticketTitle || '') === rewardTitle);
-          }) || null;
+        // IDs exposed for reward cards and ticket rows are different kinds of
+        // IDs (public strings vs database UUIDs). Match canonical UUID first.
+        let matchingTickets = rewardDbId
+          ? unassigned.filter((t) => String(t.rewardId || '') === rewardDbId) : [];
+        if (!matchingTickets.length && templateDbId) {
+          matchingTickets = unassigned.filter((t) =>
+            String(t.ticketTemplateId || '') === templateDbId
+            && Number(t.thresholdStamps || 0) === thresholdStamps
+            && (!rewardDbId || !t.rewardId));
         }
-
-        if (!ticket) {
-          ticket = tickets.find((item) => {
-            const ticketId = String(item.ticketId || '');
-            return ticketId && !matchedTicketIds.has(ticketId)
-              && Number(item.thresholdStamps || 0) === thresholdStamps;
-          }) || null;
+        if (!matchingTickets.length) {
+          matchingTickets = unassigned.filter((t) =>
+            Number(t.thresholdStamps || 0) === thresholdStamps
+            && (!rewardTitle || String(t.ticketTitle || '') === rewardTitle)
+            && (!rewardDbId || !t.rewardId));
         }
+        if (!matchingTickets.length && !rewardDbId) {
+          matchingTickets = unassigned.filter((t) =>
+            Number(t.thresholdStamps || 0) === thresholdStamps);
+        }
+        for (const t of matchingTickets) matchedTicketIds.add(String(t.ticketId));
 
-        const ticketId = String(ticket && ticket.ticketId || '');
-        if (ticketId) matchedTicketIds.add(ticketId);
-
-        const reservedForBooking = Boolean(ticket && ticket.reservedForBooking);
+        // Show exactly one reward card, but include every independent booking
+        // and snapshot reservation for its physical issued ticket instances.
+        const ticket = matchingTickets.find((t) =>
+          !t.reservedForBooking && !t.pendingSnapshot) || matchingTickets[0] || null;
+        const bookingById = new Map();
+        const snapshotById = new Map();
+        for (const t of matchingTickets) {
+          const sourceTicketId = String(t.ticketId || '');
+          for (const context of Array.isArray(t.bookingSelections) ? t.bookingSelections : []) {
+            const bookingId = String(context?.bookingId || '');
+            if (bookingId && !bookingById.has(bookingId)) {
+              bookingById.set(bookingId, { ...context, ticketId: sourceTicketId });
+            }
+          }
+          const sourceSnapshots = Array.isArray(t.pendingSnapshots)
+            ? t.pendingSnapshots : t.pendingSnapshot ? [t.pendingSnapshot] : [];
+          for (const snapshot of sourceSnapshots) {
+            const receiptId = String(snapshot?.receiptId || '');
+            if (receiptId && !snapshotById.has(receiptId)) {
+              snapshotById.set(receiptId, { ...snapshot, ticketId: sourceTicketId });
+            }
+          }
+        }
+        const bookingSelections = [...bookingById.values()].sort((a, b) =>
+          String(a.bookingDate || '').localeCompare(String(b.bookingDate || ''))
+          || String(a.startTime || '').localeCompare(String(b.startTime || '')));
+        const pendingSnapshots = [...snapshotById.values()];
+        const ticketId = String(ticket?.ticketId || '');
+        const reservedForBooking = Boolean(ticket?.reservedForBooking);
         const pendingSnapshot = ticket?.pendingSnapshot || null;
         const shortage = Math.max(0, thresholdStamps - cardStamps);
         const expired = Boolean(card.expired);
@@ -282,6 +308,8 @@
           cardStyleKey: safeCardStyle(card.styleKey),
           cardStamps,
           ticketId,
+          rewardId: String(reward.rewardId || ''),
+          rewardDbId,
           thresholdStamps,
           ticketType: String(ticket ? ticket.ticketType : reward.rewardType || 'coupon'),
           ticketTitle: String(ticket ? ticket.ticketTitle : reward.rewardTitle || '票券'),
@@ -293,8 +321,8 @@
           redemptionLocations: Array.isArray(ticket?.redemptionLocations) ? ticket.redemptionLocations : [],
           reservedForBooking,
           pendingSnapshot,
-          pendingSnapshots: Array.isArray(ticket?.pendingSnapshots) ? ticket.pendingSnapshots : pendingSnapshot ? [pendingSnapshot] : [],
-          bookingSelections: Array.isArray(ticket?.bookingSelections) ? ticket.bookingSelections : [],
+          pendingSnapshots,
+          bookingSelections,
           eligibleBookings: Array.isArray(ticket?.eligibleBookings) ? ticket.eligibleBookings : [],
           shortage,
           baseCanUse: Boolean(ticketId) && !reservedForBooking && !pendingSnapshot && !expired && active && shortage === 0 && Boolean(ticket?.eligibleBookings?.length),
@@ -539,16 +567,17 @@
           title: offer.ticketTitle,
           bookingSelections: offer.bookingSelections,
           pendingSnapshots: offer.pendingSnapshots,
-          expanded: expandedReservationTickets.has(offer.ticketId),
+          expanded: expandedReservationTickets.has(`${offer.cardId}:${offer.rewardDbId || offer.rewardId || offer.thresholdStamps}`),
           onToggle: (open) => {
-            if (open) expandedReservationTickets.add(offer.ticketId);
-            else expandedReservationTickets.delete(offer.ticketId);
+            const disclosureKey = `${offer.cardId}:${offer.rewardDbId || offer.rewardId || offer.thresholdStamps}`;
+            if (open) expandedReservationTickets.add(disclosureKey);
+            else expandedReservationTickets.delete(disclosureKey);
           },
           onCancelBooking: async (context) => {
             if (state.busy) return;
             state.busy = true;
             try {
-              await window.TicketBookingSelections.cancelPointTicket(context.bookingId, offer.ticketId);
+              await window.TicketBookingSelections.cancelPointTicket(context.bookingId, context.ticketId || offer.ticketId);
             } catch (error) {
               overviewError(error?.message || '取消一般預約票券失敗，請更新後再試。');
             } finally {
@@ -565,7 +594,7 @@
                 state.config, 'points', state.idToken,
                 'user.pointcard.snapshot-ticket.cancel', {
                   receiptId: snapshot.receiptId,
-                  ticketId: offer.ticketId,
+                  ticketId: snapshot.ticketId || offer.ticketId,
                   expectedUpdatedAt: snapshot.updatedAt
                 }
               );
