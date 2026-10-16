@@ -4,7 +4,7 @@ const REPLACEMENT_FUNCTION = "pointcard-extension-api";
 
 Deno.serve((request: Request) => {
   const origin = request.headers.get("Origin");
-  const allowOrigin = ["https://yongshengchen0615.github.io", "https://develop--memberwebsocket-dev-netlify.netlify.app"].includes(origin || "") ? origin : "";
+  const allowOrigin = ["https://yongshengchen0615.github.io", "https://memberwebsocket-dev-netlify.netlify.app", "https://develop--memberwebsocket-dev-netlify.netlify.app"].includes(origin || "") ? origin : "";
   const headers = {
     "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Headers": "content-type, apikey",
