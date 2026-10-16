@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 const path = new URL('../.github/workflows/publish-netlify.yml', import.meta.url);
 const flow = readFileSync(path, 'utf8');
+const fullCI = readFileSync(new URL('../.github/workflows/test-memberwebsocket-dev.yml', import.meta.url), 'utf8');
 
 test('production deploy targets only the existing Netlify site with protected credentials', () => {
   assert.match(flow, /NETLIFY_SITE_ID: 23796c62-480a-4b46-ac90-bfbc5ad4d300/);
@@ -27,4 +28,13 @@ test('deploy emits recoverable artifact and verifies both page and JS after publ
   assert.match(flow, /booking-multi-details-20261017-1/);
   assert.match(flow, /dist\/points\/pointcard-ticket-overview\.js/);
   assert.match(flow, /data-commit=/);
+});
+
+test('deployment changes trigger the same full suite on PR and develop push', () => {
+  const sources = fullCI.split('  pull_request:');
+  assert.equal(sources.length, 2);
+  for (const source of sources) {
+    assert.match(source, /'\.github\/workflows\/publish-netlify\.yml'/);
+    assert.match(source, /'scripts\/\*\*'/);
+  }
 });
