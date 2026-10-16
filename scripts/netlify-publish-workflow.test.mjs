@@ -56,6 +56,6 @@ test('AC-009: tests cannot replace the exact release build commit badge with loc
   assert.ok(contract >= 0 && contract < releaseBuild && releaseBuild < releaseCheck
     && releaseCheck < artifact && artifact < deploy,
     'contract tests run first, final pinned build is last before artifact and deploy');
-  assert.match(flow, /COMMIT_REF: \\$\{\{ github\.sha \}\}/);
+  assert.match(flow, /COMMIT_REF: \$\{\{ github\.sha \}\}/);
   assert.match(flow, /grep -Fq "data-commit=.*dist\/points\/index\.html/);
 });
