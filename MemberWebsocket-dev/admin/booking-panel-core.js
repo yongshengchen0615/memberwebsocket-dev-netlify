@@ -909,7 +909,15 @@
     if (state.busy) return;
     state.busy = true;
     const message = els.bookingAdminCrudModalBody.querySelector('[data-modal-message]');
-    try { await fn(); els.bookingAdminCrudModal.classList.add('hidden'); state.selected.clear(); await refreshAll(true); }
+    try {
+      await fn();
+      state.selected.clear();
+      // Keep the modal open until the authoritative catalog is refreshed.
+      // Otherwise a user can immediately trigger another batch action while
+      // state.busy is still true, causing the next action to be silently ignored.
+      await refreshAll(true);
+      els.bookingAdminCrudModal.classList.add('hidden');
+    }
     catch (error) { if (['BOOKING_CONFLICT','BOOKING_NO_SHOW_NOT_ALLOWED'].includes(error?.code)) await refreshAll(false); showMessage(message, error?.message || '操作失敗。', 'error'); }
     finally { state.busy = false; }
   }
