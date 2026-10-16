@@ -1,6 +1,8 @@
-import { cp, mkdir, readdir, rm, stat } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { formatBuildVersion } from './build-version.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = path.join(root, 'MemberWebsocket-dev');
@@ -18,4 +20,34 @@ for (const entry of await readdir(source, { withFileTypes: true })) {
     });
   }
 }
-console.log('Built static frontend in dist; database source, tests and internal documentation excluded.');
+
+const siteVersion = formatBuildVersion(
+  new Date(),
+  process.env.DEPLOY_ID || process.env.BUILD_ID || randomBytes(6).toString('hex'),
+);
+const commit = /^[a-f\d]{7,40}$/i.test(process.env.COMMIT_REF || '')
+  ? process.env.COMMIT_REF.slice(0, 7).toLowerCase()
+  : 'local';
+const entryPages = [
+  'index.html',
+  'admin/index.html',
+  'member/index.html',
+  'points/index.html',
+  'event/index.html',
+  'calendar/index.html',
+  'booking/index.html',
+  'booking/admin/index.html',
+];
+for (const entry of entryPages) {
+  const page = path.join(output, entry);
+  const relative = path.relative(path.dirname(page), output).split(path.sep).join('/');
+  const base = relative ? `${relative}/` : './';
+  const html = await readFile(page, 'utf8');
+  if (!html.includes('</head>')) throw new Error(`Missing HTML head: ${entry}`);
+  const tags = [
+    `  <link rel="stylesheet" href="${base}version-badge.css?v=${siteVersion}">`,
+    `  <script src="${base}version-badge.js?v=${siteVersion}" data-site-version="${siteVersion}" data-commit="${commit}" defer></script>`,
+  ].join('\n');
+  await writeFile(page, html.replace('</head>', `${tags}\n</head>`));
+}
+console.log(`Built static frontend in dist (version ${siteVersion}); database source, tests and internal documentation excluded.`);
