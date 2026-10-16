@@ -8,6 +8,8 @@ const migration = fs.readFileSync(path.resolve(__dirname, '../../supabase/migrat
 test('AC-004: PostgreSQL issues distinct point reward tickets up to balance and stays idempotent', async () => {
   const db = await load();
   try {
+    // The isolated baseline snapshot predates snapshot-copy tracking, unlike the live schema.
+    await db.exec('alter table public.point_tickets add column if not exists snapshot_reservation_copy_of text;');
     await db.exec(migration);
     await db.exec('select maintenance.ensure_required_system_baseline();');
     const rows = (sql, values = []) => db.query(sql, values).then(r => r.rows);
