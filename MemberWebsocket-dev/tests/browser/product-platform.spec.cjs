@@ -21,7 +21,7 @@ async function setup(page,token='root',{loseFirstSave=false,platformLiffId='2012
   sessionStorage.setItem('platform-line-login-return-v1',String(Date.now()));
  });
  await page.route('**/config.json',route=>route.fulfill({json:{brandName:'QA Platform',supabaseUrl:'https://fixture.supabase.co',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'sb_publishable_fixture',adminLiffId:'2010791619-admin',platformLiffId}}));
- await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:`window.loginCalls=[];window.logoutCalls=0;window.liff={init:async options=>{window.initializedLiffId=options.liffId;},isInClient:()=>${inClient},isLoggedIn:()=>${loggedIn},login:(...args)=>{window.loginCalls.push(args);},logout:()=>{window.logoutCalls+=1;sessionStorage.setItem('qaRootLogoutCount',String(Number(sessionStorage.getItem('qaRootLogoutCount')||'0')+1));},getIDToken:()=>${JSON.stringify(token)}};`}));
+ await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:`window.loginCalls=[];window.logoutCalls=0;window.liff={init:async options=>{window.initializedLiffId=options.liffId;},isInClient:()=>${inClient},isLoggedIn:()=>${loggedIn}||sessionStorage.getItem('qaLoggedIn')==='1',login:(...args)=>{window.loginCalls.push(args);},logout:()=>{window.logoutCalls+=1;sessionStorage.setItem('qaRootLogoutCount',String(Number(sessionStorage.getItem('qaRootLogoutCount')||'0')+1));},getIDToken:()=>${JSON.stringify(token)}};`}));
  await page.route('https://fixture.supabase.co/functions/v1/platform-api',async route=>{
   const method=route.request().method();
   const input=method==='POST'?route.request().postDataJSON():null;
@@ -188,6 +188,32 @@ test('PLATFORM_BAD_TOKEN_RECOVERY — wrong-channel token offers retry but never
   await expect(page.locator('#platformWorkspace')).toBeHidden();
   expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('1');
   expect(await page.evaluate(()=>sessionStorage.getItem('platform-line-login-return-v1'))).toBeNull();
+  expect(h.errors).toEqual([]);
+ }finally{await h.db.close();}
+});
+
+test('PLATFORM_EXTERNAL_FIRST_SIGNIN — first signed-out external login returns directly to the root without a second login',async({page})=>{
+ const h=await setup(page,'root',{inClient:false,loggedIn:false,rootLoginReturn:false});try{
+  await expect(page.locator('#platformWorkspace')).toBeHidden();
+  expect(await page.evaluate(()=>window.loginCalls)).toEqual([[]]);
+  expect(await page.evaluate(()=>sessionStorage.getItem('platform-line-login-return-v1'))).not.toBeNull();
+  await page.evaluate(()=>sessionStorage.setItem('qaLoggedIn','1'));
+  await page.reload();
+  await expect(page.locator('#platformWorkspace')).toBeVisible();
+  await expect(page.locator('#platformLoginGate')).toBeHidden();
+  expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
+  await page.reload();
+  await expect(page.locator('#platformWorkspace')).toBeHidden();
+  await expect(page.locator('#platformLoginGate')).toBeVisible();
+  expect(h.errors).toEqual([]);
+ }finally{await h.db.close();}
+});
+test('PLATFORM_INCLIENT_UNAUTH — missing LINE login shows recovery instead of a dead end',async({page})=>{
+ const h=await setup(page,'root',{inClient:true,loggedIn:false,rootLoginReturn:false});try{
+  await expect(page.locator('#platformLoginGate')).toBeVisible();
+  await expect(page.locator('#platformStatus')).toContainText('LIFF 尚未完成登入');
+  await expect(page.locator('#platformWorkspace')).toBeHidden();
+  expect(h.providerCalls).toEqual([]);
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
