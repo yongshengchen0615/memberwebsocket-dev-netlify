@@ -30,7 +30,7 @@ async function setup(page,token='root',{loseFirstSave=false,platformLiffId='2012
 }
 async function fillNew(page,tenant) {
  await page.getByRole('button',{name:'新增商家管理員'}).click();
- for(const key of ['name','slug','ownerLineUserId'])await page.locator(`[name="${key}"]`).fill(tenant[key]);
+ for(const key of ['name','slug','ownerLineUserId'])await page.locator(`#tenantForm [name="${key}"]`).fill(tenant[key]);
  for(const [key,value] of Object.entries(tenant.line))await page.locator(`[name="${key}"]`).fill(value);
  for(const [key,value] of Object.entries(tenant.credentials))await page.locator(`[name="${key}"]`).fill(value);
  for(const key of ['membership','points','booking'])await page.locator(`[data-feature="${key}"]`).check();
@@ -38,12 +38,12 @@ async function fillNew(page,tenant) {
 test('PLATFORM_CREATE_EDIT — root saves merchant, eight grants and encrypted LINE credentials through real handler + SQL',async({page},info)=>{
  const h=await setup(page);try{
   await expect(page.locator('#platformWorkspace')).toBeVisible();expect(await page.evaluate(()=>window.initializedLiffId)).toBe('2012065297-VunxFBj8');expect(h.providerCalls.every(call=>call.channel==='2012065297')).toBe(true);await fillNew(page,h.tenant);
-  await expect(page.locator('[name="channelAccessToken"]')).toHaveAttribute('type','password');await expect(page.locator('[data-feature]')).toHaveCount(8);
+  await expect(page.locator('#tenantForm [name="channelAccessToken"]')).toHaveAttribute('type','password');await expect(page.locator('[data-feature]')).toHaveCount(8);
   await page.getByRole('button',{name:'儲存商家設定',exact:true}).click();await expect(page.locator('#tenantDialog')).toBeHidden();await expect(page.locator('.tenant-card')).toHaveCount(1);await expect(page.locator('.tenant-card')).toContainText('待佈建');
   let row=(await h.db.query('select * from platform_private.tenants')).rows[0];expect(row.features.booking).toBe(true);expect(row.features.testing).toBe(false);
   const before=(await h.db.query('select envelope from platform_private.tenant_secrets')).rows[0].envelope;
-  await page.getByRole('button',{name:'編輯設定'}).click();await expect(page.locator('[name="channelAccessToken"]')).toHaveValue('');await expect(page.locator('[name="channelSecret"]')).toHaveValue('');
-  await page.locator('[data-feature="booking"]').uncheck();await page.locator('[name="name"]').fill('商家 A 更新');await page.getByRole('button',{name:'儲存商家設定',exact:true}).click();await expect(page.locator('#tenantDialog')).toBeHidden();await expect(page.locator('.tenant-card')).toContainText('商家 A 更新');
+  await page.getByRole('button',{name:'編輯設定'}).click();await expect(page.locator('[name="channelAccessToken"]')).toHaveValue('');await expect(page.locator('#tenantForm [name="channelSecret"]')).toHaveValue('');
+  await page.locator('#tenantForm [data-feature="booking"]').uncheck();await page.locator('#tenantForm [name="name"]').fill('商家 A 更新');await page.getByRole('button',{name:'儲存商家設定',exact:true}).click();await expect(page.locator('#tenantDialog')).toBeHidden();await expect(page.locator('.tenant-card')).toContainText('商家 A 更新');
   row=(await h.db.query('select * from platform_private.tenants')).rows[0];expect(row.version).toBe(2);expect(row.features.booking).toBe(false);expect((await h.db.query('select envelope from platform_private.tenant_secrets')).rows[0].envelope).toEqual(before);
   await page.getByRole('button',{name:'停用商家'}).click();await expect(page.locator('.tenant-card')).toContainText('已停用');expect((await h.db.query('select status from platform_private.tenants')).rows[0].status).toBe('suspended');expect(h.errors).toEqual([]);
   await info.attach('platform-control',{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
@@ -73,7 +73,7 @@ test('PLATFORM_MANAGER_SETUP — approved admin can configure own LINE but canno
  const h=await setup(page,'manager');try{
   await h.call({action:'platform.application.submit',businessName:'LINE 自助設定',slug:'self-service-b'},'manager');
   const app=(await h.call({action:'platform.bootstrap'})).body.data.applications[0];
-  const features=Object.fromEntries(Object.keys((await shared('platform-policy.mjs')).FEATURES).map(k=>[k,k==='membership']));
+  const features=Object.fromEntries(Object.keys(h.tenant.features).map(k=>[k,k==='membership']));
   const result=await h.call({action:'platform.application.approve',applicationId:app.id,features,requestId:crypto.randomUUID()});
   expect(result.status).toBe(200);
   await page.reload();await expect(page.locator('#merchantWorkspace')).toBeVisible();
