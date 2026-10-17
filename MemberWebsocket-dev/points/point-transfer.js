@@ -289,10 +289,24 @@
       ? '請先確認前次轉贈交易'
       : !state.loaded ? '正在確認可轉贈點數'
         : !option || !Number.isFinite(balance) || balance <= 0 ? '可用點數為 0，無法轉贈' : '';
-    const pendingButton = document.getElementById('pointTransferPendingButton');
+    let pendingButton = document.getElementById('pointTransferPendingButton');
+    // Keep the normal toolbar's two-button layout unchanged except while
+    // recovering an already-authorized, uncertain transaction.
+    if (state.pending && state.memberCode && session() && !pendingButton) {
+      const actions = button.parentElement;
+      if (actions?.classList.contains('active-card-actions')) {
+        pendingButton = document.createElement('button');
+        pendingButton.id = 'pointTransferPendingButton';
+        pendingButton.type = 'button';
+        pendingButton.className = 'point-transfer-open-button';
+        pendingButton.textContent = '確認前次轉贈';
+        pendingButton.addEventListener('click', openModal);
+        actions.insertBefore(pendingButton, document.getElementById('pointTransferShowOwnQr') || null);
+      }
+    }
     if (pendingButton) {
-      pendingButton.hidden = !state.pending || !state.memberCode || !session();
-      pendingButton.disabled = state.busy;
+      if (!state.pending || !state.memberCode || !session()) pendingButton.remove();
+      else pendingButton.disabled = state.busy;
     }
   }
 
@@ -548,11 +562,6 @@
     if (openButton && !openButton.dataset.bound) {
       openButton.dataset.bound = 'true';
       openButton.addEventListener('click', openModal);
-    }
-    const pendingButton = document.getElementById('pointTransferPendingButton');
-    if (pendingButton && !pendingButton.dataset.bound) {
-      pendingButton.dataset.bound = 'true';
-      pendingButton.addEventListener('click', openModal);
     }
     const qrButton = document.getElementById('pointTransferShowOwnQr');
     if (qrButton && !qrButton.dataset.bound) {
