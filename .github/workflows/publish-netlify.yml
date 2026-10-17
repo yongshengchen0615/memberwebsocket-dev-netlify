@@ -25,18 +25,20 @@ jobs:
     env:
       NETLIFY_SITE_ID: 23796c62-480a-4b46-ac90-bfbc5ad4d300
       NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+      # deploy.test.mjs rebuilds dist; this must persist across EVERY step.
+      COMMIT_REF: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
       - name: Build the exact develop commit
-        env:
-          COMMIT_REF: ${{ github.sha }}
         run: node scripts/build-site.mjs
       - name: Verify deployable static output
         run: |
           node --test scripts/deploy.test.mjs scripts/netlify-publish-workflow.test.mjs
+          # Regression guard: test suite rebuilds dist; never publish a local badge.
+          grep -Fq "data-commit=\"${GITHUB_SHA:0:7}\"" dist/points/index.html
           grep -Fq 'booking-multi-details-20261017-1' dist/points/index.html
           grep -Fq 'bookingById' dist/points/pointcard-ticket-overview.js
       - name: Retain the exact production bundle for recovery
