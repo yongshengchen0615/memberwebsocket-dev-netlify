@@ -330,6 +330,12 @@
     const balance = transferableBalance(cardId);
     const amount = document.getElementById('pointTransferAmount');
     if (amount) amount.max = state.pending ? '' : String(balance);
+    const submit = document.getElementById('pointTransferSubmit');
+    if (submit) submit.disabled = state.busy || (!state.pending && balance <= 0);
+    const modal = document.getElementById('pointTransferModal');
+    if (modal && !modal.classList.contains('hidden') && !state.pending && balance <= 0) {
+      setMessage('可用點數為 0，無法轉贈。請等待預約保留點數釋放。', true);
+    }
     const summary = document.getElementById('pointTransferCardSummary');
     if (summary) summary.textContent = `${option?.title || state.activeCardTitle || '集點卡'}・可轉贈 ${balance} 點${option?.expiresOn ? `・至 ${option.expiresOn}` : ''}`;
     const hint = document.getElementById('pointTransferBalanceHint');
@@ -458,6 +464,7 @@
       });
     }
     updateOpenButton();
+    updateModalBalance();
 
     // renderCards() is also the endpoint of the points realtime refresh path.
     // Re-fetch transfer eligibility/balance here so the transfer button never
@@ -566,7 +573,7 @@
     } finally {
       state.busy = false;
       updateOpenButton();
-      submit.disabled = false;
+      submit.disabled = !state.pending && transferableBalance(cardId) <= 0;
       close.disabled = false;
       fields.forEach((field) => { if (field) field.disabled = false; });
       lockFields();
