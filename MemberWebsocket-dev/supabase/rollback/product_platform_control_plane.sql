@@ -1,6 +1,7 @@
 -- Manual rollback: back up platform settings + encrypted credentials before running.
 -- This removes ONLY the new control plane; original member/business tables remain.
 begin;
+drop function if exists public.platform_credential_key();
 drop function public.platform_suspend_tenant(text,uuid,integer,uuid);
 drop function public.platform_save_tenant(text,uuid,text,uuid,integer,jsonb,jsonb);
 drop function public.platform_list_tenants(text);

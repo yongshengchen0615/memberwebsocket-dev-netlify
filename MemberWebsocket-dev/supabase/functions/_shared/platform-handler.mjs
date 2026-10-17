@@ -56,7 +56,7 @@ export function createPlatformHandler({ db, verifyIdentity, encryptionKey, allow
         const tenant = validateTenant(body.tenant, body.expectedVersion === 0);
         const hash = await payloadHash({tenantId:body.tenantId,expectedVersion:body.expectedVersion,tenant});
         const encrypted = tenant.credentials.channelAccessToken
-          ? await sealCredentials(body.tenantId,tenant.credentials,encryptionKey()) : null;
+          ? await sealCredentials(body.tenantId,tenant.credentials,await encryptionKey()) : null;
         const {credentials,...metadata} = tenant;
         rpc = await db.rpc('platform_save_tenant',{p_actor:identity.lineUserId,p_request_id:body.requestId,p_payload_hash:hash,p_tenant_id:body.tenantId,p_expected_version:body.expectedVersion,p_tenant:metadata,p_secrets:encrypted});
       }

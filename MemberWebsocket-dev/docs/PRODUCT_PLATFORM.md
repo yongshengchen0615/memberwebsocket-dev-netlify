@@ -103,8 +103,9 @@ returning admin_id, line_user_id, enabled;
 新 Edge Function 沿用原系統的自訂 LINE 驗證方式，需要關閉 Supabase gateway JWT 驗證並由 handler 驗證 LINE token。
 設定精確的 ALLOWED_ORIGINS；不使用萬用來源。
 
-伺服器需要 `SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY` 與 `PLATFORM_CREDENTIAL_ENCRYPTION_KEY`。平台 Channel 固定為 `2012065297`，不讀取既有商家的 `LINE_ADMIN_CHANNEL_ID`。
-加密金鑰是 32 隨機位元組的標準 Base64 字串，例如由 `openssl rand -base64 32` 產生，再存進 Supabase Edge secrets。
+伺服器需要 `SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`。平台 Channel 固定為 `2012065297`，不讀取既有商家的 `LINE_ADMIN_CHANNEL_ID`。
+`20261017151624_platform_credential_vault.sql` 在 Supabase Vault 建立一次性的 32 隨機位元組 Base64 金鑰；只透過 service_role 可執行的 SECURITY INVOKER RPC 供後端讀取，不擴大既有 Vault 存取權限，也不在遷移檔或工具回應輸出明文。Vault 功能以實際 Supabase 驗證，PGlite 不模擬 Vault 加密。
+若原本已有 `PLATFORM_CREDENTIAL_ENCRYPTION_KEY`，優先沿用該環境金鑰。不得為了改用 Vault 而刪除既有環境金鑰；需先完成重加密與驗證。也可由 `openssl rand -base64 32` 產生後設定於 Edge secrets。
 不得放入 config.json、Netlify 公開建置變數或版本控制。
 **已存密文仍使用原密鑰；不可直接換掉或刪除。輪替需要雙密鑰讀取、重新加密與完成驗證。**
 
@@ -112,6 +113,7 @@ returning admin_id, line_user_id, enabled;
 
 前端回復可 revert 本分支提交。資料庫回復腳本在 `supabase/rollback/product_platform_control_plane.sql`，
 會刪除本階段新建的平台設定與加密憑證；先備份並由操作者明確執行，腳本不變更原有會員業務資料。
+回復腳本移除金鑰讀取 RPC，但保留 Vault 金鑰，以供加密備份復原；不可在仍有相關密文時刪除。
 
 接續開發順序：
 

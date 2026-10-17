@@ -76,6 +76,17 @@ test('ambiguous legacy installation does not automatically select one of multipl
  const h=await fixture(2);try{assert.equal((await h.db.query('select count(*)::int n from platform_private.super_admins')).rows[0].n,0);assert.equal((await h.call({action:'platform.bootstrap'})).status,403);}finally{await h.db.close();}
 });
 
+test('asynchronous server key resolution completes before encrypting and committing merchant credentials',async()=>{
+ const h=await fixture();try{
+  const {createPlatformHandler}=await shared('platform-handler.mjs');let resolved=false;
+  const handler=createPlatformHandler({db:{rpc:h.rpc},allowedOrigins:h.allowedOrigins,verifyIdentity:async()=>({lineUserId:root,displayName:'root'}),encryptionKey:async()=>{await Promise.resolve();resolved=true;return key;}});
+  const response=await handler(new Request('https://backend.test',{method:'POST',headers:{Origin:'https://allowed.test'},body:JSON.stringify({...h.save,idToken:'synthetic-token'})}));
+  assert.equal(response.status,200);assert.equal(resolved,true);
+  const envelope=(await h.db.query('select envelope from platform_private.tenant_secrets')).rows[0].envelope;
+  const {openCredentials}=await shared('platform-crypto.mjs');assert.deepEqual(await openCredentials(tenantId,envelope,key),h.tenant.credentials);
+ }finally{await h.db.close();}
+});
+
 test('AC-009: dedicated channel plus explicit platform identity are both required; different Provider binding revokes the old UID',async()=>{
  const h=await fixture();try{
   // The verifier accepts only the platform channel, even for the actual owner.
