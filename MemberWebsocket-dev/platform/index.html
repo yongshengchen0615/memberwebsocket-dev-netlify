@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' https://static.line-scdn.net; style-src 'self'; connect-src 'self' https://*.supabase.co https://api.line.me https://access.line.me https://liff.line.me https://*.line-scdn.net; img-src 'self' data:; frame-src https://access.line.me https://liff-subwindow.line.me; form-action 'self' https://access.line.me https://liff-subwindow.line.me">
+  <title>總管理員｜商家管理</title>
+  <link rel="stylesheet" href="./platform.css?v=20261017-1">
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
+  <script src="../member-system.js" defer></script>
+  <script src="./app.js?v=20261017-1" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar"><div><p class="eyebrow">PLATFORM / CONTROL CENTER</p><h1>商家與管理員</h1><p>集中管理每家商家的功能與 LINE 設定。</p></div><a href="../admin/">返回管理工作台</a></header>
+    <p id="platformStatus" role="status" aria-live="polite">正在確認總管理員身分…</p>
+    <section id="platformWorkspace" hidden>
+      <div class="workspace-heading"><div><h2>獨立商家</h2><p>各商家使用獨立會員與業務資料，功能由總管理員逐項設定。</p></div><button id="newTenant" type="button">新增商家管理員</button></div>
+      <p class="notice">新商家儲存後為「待佈建」。完成獨立資料環境與登入驗證後，才能啟用會員、票券與預約等功能。</p>
+      <div id="tenantList" class="tenant-list"></div>
+    </section>
+    <dialog id="tenantDialog" aria-labelledby="tenantDialogTitle">
+      <form id="tenantForm">
+        <div class="dialog-heading"><div><p class="eyebrow">MERCHANT SETUP</p><h2 id="tenantDialogTitle">新增商家管理員</h2></div><button id="closeTenant" class="secondary" type="button">關閉</button></div>
+        <fieldset><legend>商家與管理員</legend><div class="grid">
+          <label>商家名稱<input name="name" maxlength="100" required autocomplete="organization"></label>
+          <label>商家代碼<input name="slug" maxlength="40" minlength="3" pattern="[a-z][a-z0-9]*(-[a-z0-9]+)*" required autocomplete="off"><small>小寫英數字與連字號；建立後無法直接修改。</small></label>
+          <label class="wide">管理員 LINE User ID<input name="ownerLineUserId" maxlength="33" pattern="U[0-9a-f]{32}" required autocomplete="off"><small>使用該商家 LINE Provider 下的使用者識別碼。建立後無法直接更換。</small></label>
+        </div></fieldset>
+        <fieldset><legend>功能權限</legend><p>勾選此商家啟用後可使用的功能。未勾選的功能不開放。</p><div id="featureFields" class="features"></div></fieldset>
+        <fieldset><legend>LINE Channel 設定</legend><div class="grid">
+          <label>管理端 Login Channel ID<input name="adminChannelId" inputmode="numeric" pattern="[0-9]{5,30}" required></label>
+          <label>會員端 Login Channel ID<input name="memberChannelId" inputmode="numeric" pattern="[0-9]{5,30}" required></label>
+          <label>Messaging API Channel ID<input name="messagingChannelId" inputmode="numeric" pattern="[0-9]{5,30}" required></label>
+        </div><p class="hint">Login Channel 與 Messaging API Channel 應位於同一 LINE Provider，才能對應管理員與會員的 LINE 身分。</p></fieldset>
+        <fieldset><legend>LIFF ID</legend><div class="grid">
+          <label>管理端 LIFF ID<input name="adminLiffId" maxlength="100" required></label>
+          <label>會員卡 LIFF ID<input name="memberLiffId" maxlength="100"></label>
+          <label>集點卡 LIFF ID<input name="pointsLiffId" maxlength="100"></label>
+          <label>活動票券 LIFF ID<input name="eventLiffId" maxlength="100"></label>
+          <label>營運日曆 LIFF ID<input name="calendarLiffId" maxlength="100"></label>
+          <label>預約 LIFF ID<input name="bookingLiffId" maxlength="100"></label>
+        </div><p class="hint">請設定已開放功能的 LIFF ID，數字前綴須與對應 Login Channel ID 相同。</p></fieldset>
+        <fieldset><legend>LINE 伺服器憑證</legend><p id="credentialHint">新增商家時必填；儲存後不會回傳憑證內容。</p><div class="grid">
+          <label class="wide">Channel access token<input name="channelAccessToken" type="password" maxlength="4000" autocomplete="new-password" required spellcheck="false"></label>
+          <label class="wide">Channel secret<input name="channelSecret" type="password" maxlength="32" pattern="[a-fA-F0-9]{32}" autocomplete="new-password" required spellcheck="false"></label>
+        </div></fieldset>
+        <p id="tenantFormStatus" role="status" aria-live="polite"></p>
+        <div class="form-actions"><button id="saveTenant" type="submit">儲存商家設定</button></div>
+      </form>
+    </dialog>
+  </main>
+</body>
+</html>

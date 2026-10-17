@@ -67,6 +67,7 @@ jobs:
       - name: Check DOM, accessibility, and booking integration behavior
         run: |
           node --test \
+            MemberWebsocket-dev/tests/integration/product_platform.cjs \
             MemberWebsocket-dev/tests/integration/admin_startup.cjs \
             MemberWebsocket-dev/tests/integration/admin_terms.cjs \
             MemberWebsocket-dev/tests/integration/booking_startup.cjs \
@@ -130,6 +131,9 @@ jobs:
       - name: Install browser test dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: MemberWebsocket-dev/tests/browser
+      - name: Install SQL fixture dependencies for platform browser tests
+        run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: MemberWebsocket-dev/tests/integration
       - name: Install Chromium and system dependencies
         run: npx playwright install --with-deps chromium --only-shell
         working-directory: MemberWebsocket-dev/tests/browser
@@ -179,6 +183,7 @@ jobs:
       - name: Check browser JavaScript syntax
         run: |
           printf '%s\n' \
+            MemberWebsocket-dev/platform/app.js \
             MemberWebsocket-dev/friends.js \
             MemberWebsocket-dev/friend-qr-scanner.js \
             MemberWebsocket-dev/vendor/friend-qr-decoder.js \
@@ -245,6 +250,7 @@ jobs:
       - name: Check Edge Functions
         run: |
           deno check \
+            MemberWebsocket-dev/supabase/functions/platform-api/index.ts \
             MemberWebsocket-dev/supabase/functions/api/index.ts \
             MemberWebsocket-dev/supabase/functions/birthday-benefits/index.ts \
             MemberWebsocket-dev/supabase/functions/test-mode-api/index.ts \

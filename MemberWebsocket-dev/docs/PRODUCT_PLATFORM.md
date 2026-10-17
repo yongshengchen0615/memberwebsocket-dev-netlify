@@ -1,0 +1,99 @@
+# 獨立商家產品化：控制平面第一階段
+
+本分支建立總管理員控制台、商家管理員登記、八項功能設定與 LINE 憑證安全保存。
+**這不是已完成的多租戶會員系統。新增商家維持 `pending_provisioning`，目前不能登入既有業務工作台。**
+業務 API、Realtime、Storage、排程與 LINE 推播尚未接上商家隔離，功能設定目前是待啟用設定。
+不得藉由手動填入 `isolation_verified_at`／`isolation_version` 跳過驗收。
+
+## 已確認事實與工作範圍
+
+| 類別 | 內容 |
+| --- | --- |
+| 需求 | 使用者已確認每位管理員代表獨立商家，會員與業務資料完全隔離。 |
+| 來源版本 | develop `b04486a557ae35c126531cdd1bdb15a22667be5d`。 |
+| 現況 | 2026-10-17 唯讀盤點：既有 public 業務表沒有 tenant_id，112 個 SECURITY DEFINER 函式，僅一位啟用中的管理員。 |
+| 第一階段 | 一個總管理員登記商家管理員，設定會員卡、集點卡、活動票券、營運日曆、整合中心、預約、測試、使用紀錄。 |
+| 身分 | 沿用 LINE ID token 的伺服器驗證；每次 API 與資料庫操作重新確認總管理員資料列。 |
+| 資料 | 私有 schema 保存平台設定、加密憑證、操作識別與稽核，無一般使用者讀寫權限。 |
+| 狀態 | 新增為 pending_provisioning；本階段可停用為 suspended，沒有公開啟用／復權端點。 |
+| 相容性 | 不變更現有商家的會員、票券、預約、LINE 設定與授權邏輯，不將新管理員寫入 public.admins。 |
+| 待完成 | 商家業務環境佈建、路由、商家登入、八項權限於所有 API 強制執行與跨商家隔離。 |
+
+核心不變條件：一般管理員不能呼叫平台 RPC 或讀取平台表；憑證不回傳瀏覽器、不進入稽核；未完成隔離的商家無法被設定 CRUD 啟用。
+
+## 架構決策
+
+| 方案 | 可驗證性 | 維護成本／安全性 | 與現有系統相容性 |
+| --- | --- | --- | --- |
+| 共用資料表 + tenant_id／RLS | 可逐表與跨租戶外鍵測試；須同步修正所有提升權限函式 | 長期管理集中，但 SECURITY DEFINER／service_role 容易繞過 RLS，改造範圍最大 | 需重做全域唯一約束、單例設定、所有 RPC 與資料搬遷 |
+| 每商家獨立 schema | 可檢查表、函式、觸發器、Storage 與排程引用是否跨商家 | 適合沿用現有完整業務模型，但需要版本化佈建與升級工具 | 可保留既有資料模型；仍需重寫所有 public 硬編碼引用與租戶路由 |
+| 每商家獨立 Supabase 專案 | 隔離邊界最明確 | 每商家新增服務成本、密鑰與部署管理負擔 | 能沿用業務程式，但需平台管理 API、成本授權與自動佈建 |
+
+本階段先把控制平面分離，不對尚未完成的業務隔離做出上線保證。
+後續優先驗證獨立 schema 方案；若 RPC、通知或 Realtime 無法維持完整隔離，再選獨立專案。
+不得以替換字串後直接複製所有 SECURITY DEFINER 函式視為隔離完成。
+
+## 權限、設定與憑證
+
+- `platform_private.super_admins` 以 singleton=true 主鍵保證最多一個總管理員。
+- 遷移只在既有啟用管理員恰好一位時，將該管理員登記為總管理員。多位或零位時不自行挑選，須由專案擁有者明確指定。
+- 普通管理員即使在 public.admins 為 active，也無法存取總管理員控制台。
+- 商家代碼、管理員 LINE User ID 建立後不可直接換人；轉移身分需要獨立的撤銷／驗證流程。
+- LINE Login Channel 與 Messaging API Channel 應屬於同一 Provider。表單檢查格式與 LIFF 前綴，不宣稱已驗證 LINE Developers 的設定、token 有效性或 Provider 關聯。
+- 新增時需 adminChannelId、memberChannelId、messagingChannelId、管理端 LIFF ID、開放功能對應的 LIFF ID、Channel access token 與 Channel secret。
+- token 與 secret 使用 Web Crypto AES-256-GCM、隨機 96-bit IV，且以商家 UUID 綁定 additional authenticated data；密鑰由 Edge secrets 提供。
+- 編輯時憑證留空保留原值，更新需同時提供兩項憑證；瀏覽器沒有讀回或解密功能。
+- 所有寫入含原子樂觀鎖、request ID 與交易內稽核；相同操作重試不重複建立。不同內容重用同一 request ID 回傳 409。
+- 設定不放在 public 業務表，避免既有「清空非管理員資料」連帶移除平台資料。
+
+## 驗收與測試對照
+
+| 編號 | Given / When / Then | 測試 |
+| --- | --- | --- |
+| AC-001 | Given 非總管理員或已被撤銷的總管理員，When 查詢／寫入，Then 回傳 403；偽造 actor 直接呼叫 RPC 亦拒絕 | product_platform.test.js；integration/product_platform.cjs；browser/product-platform.spec.cjs |
+| AC-002 | Given 總管理員，When 設定八項布林功能，Then 精確保存；缺項、字串、額外 role/status 欄位拒絕 | 單元 + SQL + Chromium 建立／編輯 |
+| AC-003 | Given 新商家，When 缺憑證、啟用功能無 LIFF、Channel 前綴錯誤，Then 不建立資料 | 單元驗證 + SQL 交易 |
+| AC-004 | Given 有效商家設定，When 保存／查詢，Then 憑證為密文、不進入回應或稽核；換商家 UUID、密鑰或竄改密文皆解密失敗 | 真實 Web Crypto + SQL + 瀏覽器 |
+| AC-005 | Given 逾時或版本競爭，When 重試／舊版本寫入，Then 單筆商家、單筆對應稽核，不覆蓋新版本 | handler + PGlite；Chromium 提交成功後丟失回應 |
+| AC-006 | Given 新商家未完成資料隔離，When 嘗試啟用，Then DB constraint 拒絕；舊業務清除不影響控制平面 | SQL + guard 單元測試 |
+| AC-007 | Given 兩個完整商家環境，When 執行八項功能、跨商家 ID、Realtime、Storage 與排程，Then 完整隔離且功能關閉時 API 拒絕 | **尚未實作／未通過：本階段不可開通新商家** |
+| AC-008 | Given 各商家實際 LINE 設定，When 真實登入與推播，Then 身分、Provider 與憑證有效且不跨商家 | **未執行：需隔離環境與 LINE 測試設定** |
+
+PGlite 執行真實 SQL、角色權限與資料結果，仍不是遠端 Supabase 或多連線 PostgreSQL 併發驗證。
+瀏覽器走真實前端、handler、SQL 與加密流程，LINE 身分提供者以合成帳號替代；不能計為真實 LINE 整合通過。
+
+## 執行方式
+
+既有命令：
+
+```bash
+node scripts/build-site.mjs
+node --test MemberWebsocket-dev/tests/*.test.js
+npm ci --ignore-scripts --prefix MemberWebsocket-dev/tests/integration
+node --test MemberWebsocket-dev/tests/integration/product_platform.cjs
+npm ci --ignore-scripts --prefix MemberWebsocket-dev/tests/browser
+npm test --prefix MemberWebsocket-dev/tests/browser -- product-platform.spec.cjs
+```
+
+控制台路徑：`/platform/`。沿用目前平台管理端的 LIFF 登入；商家自己的管理端 LIFF 設定保存於商家資料中。
+正式部署前，先在隔離的 Supabase 環境驗證這份新遷移及 `platform-api`，不能直接對現有會員資料執行破壞性測試。
+新 Edge Function 沿用原系統的自訂 LINE 驗證方式，需要關閉 Supabase gateway JWT 驗證並由 handler 驗證 LINE token。
+設定精確的 ALLOWED_ORIGINS；不使用萬用來源。
+
+伺服器需要 `SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`、`LINE_ADMIN_CHANNEL_ID` 與 `PLATFORM_CREDENTIAL_ENCRYPTION_KEY`。
+加密金鑰是 32 隨機位元組的標準 Base64 字串，例如由 `openssl rand -base64 32` 產生，再存進 Supabase Edge secrets。
+不得放入 config.json、Netlify 公開建置變數或版本控制。
+**已存密文仍使用原密鑰；不可直接換掉或刪除。輪替需要雙密鑰讀取、重新加密與完成驗證。**
+
+## 回復與剩餘工作
+
+前端回復可 revert 本分支提交。資料庫回復腳本在 `supabase/rollback/product_platform_control_plane.sql`，
+會刪除本階段新建的平台設定與加密憑證；先備份並由操作者明確執行，腳本不變更原有會員業務資料。
+
+接續開發順序：
+
+1. 建立可重建的完整業務 schema 基線及 A／B 商家隔離資料環境。
+2. 實作版本化 schema 佈建與升級，逐一消除 public、Storage、Realtime、cron／通知的全域引用。
+3. 所有 Edge Function 以伺服器解析的商家上下文取得資料與 LINE 設定；租戶參數不能自行提升權限。
+4. 八項功能逐一接入 API 權限與前端入口；稽核、測試、清除資料也必須受商家隔離。
+5. 跑 AC-007／008、全專案測試與隔離環境升級／回復驗證後，才新增啟用商家的控制台操作。
