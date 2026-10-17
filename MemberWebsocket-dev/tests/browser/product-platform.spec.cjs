@@ -115,7 +115,7 @@ test('PLATFORM_REVIEW — root checks requested grants and approves pending admi
  }finally{await h.db.close();}
 });
 test('PLATFORM_CHANNEL_DENIED — root identity using the old admin channel is rejected',async({page})=>{
- const h=await setup(page,'legacy-root');try{await expect(page.locator('#platformStatus')).toContainText('登入已失效');await expect(page.locator('#platformWorkspace')).toBeHidden();expect(h.errors).toEqual([]);}finally{await h.db.close();}
+ const h=await setup(page,'legacy-root');try{await expect(page.locator('#platformStatus')).toContainText('LINE 身分驗證未通過');await expect(page.locator('#platformWorkspace')).toBeHidden();expect(h.errors).toEqual([]);}finally{await h.db.close();}
 });
 test('PLATFORM_CONFIG_REQUIRED — missing platform LIFF never falls back to merchant admin login',async({page})=>{
  const h=await setup(page,'root',{platformLiffId:''});try{await expect(page.locator('#platformStatus')).toContainText('總管理員專用 LIFF');await expect(page.locator('#platformWorkspace')).toBeHidden();expect(await page.evaluate(()=>window.initializedLiffId)).toBeUndefined();expect(h.providerCalls).toEqual([]);expect(h.errors).toEqual([]);}finally{await h.db.close();}
