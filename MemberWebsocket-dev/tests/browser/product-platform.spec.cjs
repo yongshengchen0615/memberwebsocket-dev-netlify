@@ -31,8 +31,8 @@ async function setup(page,token='root',{loseFirstSave=false,platformLiffId='2012
 async function fillNew(page,tenant) {
  await page.getByRole('button',{name:'新增商家管理員'}).click();
  for(const key of ['name','slug','ownerLineUserId'])await page.locator(`#tenantForm [name="${key}"]`).fill(tenant[key]);
- for(const [key,value] of Object.entries(tenant.line))await page.locator(`[name="${key}"]`).fill(value);
- for(const [key,value] of Object.entries(tenant.credentials))await page.locator(`[name="${key}"]`).fill(value);
+ for(const [key,value] of Object.entries(tenant.line))await page.locator(`#tenantForm [name="${key}"]`).fill(value);
+ for(const [key,value] of Object.entries(tenant.credentials))await page.locator(`#tenantForm [name="${key}"]`).fill(value);
  for(const key of ['membership','points','booking'])await page.locator(`[data-feature="${key}"]`).check();
 }
 test('PLATFORM_CREATE_EDIT — root saves merchant, eight grants and encrypted LINE credentials through real handler + SQL',async({page},info)=>{
