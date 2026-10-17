@@ -191,6 +191,10 @@ test('reserved point budget is authoritative even when transfer options return r
     assert.equal(w.document.getElementById('pointTransferButton').disabled,false,'Re-enable after all reservations release');
     w.document.getElementById('pointTransferButton').click();
     assert.equal(w.document.getElementById('pointTransferAmount').max,'15');
+    w.dispatchEvent(new w.CustomEvent('pointcard:active-changed',{detail:{cardId:'card',title:'Card',stamps:0,totalStamps:15,reservedStamps:15,transferEligible:true}}));
+    assert.equal(w.document.getElementById('pointTransferAmount').max,'0');
+    assert.equal(w.document.getElementById('pointTransferSubmit').disabled,true,'Zero available points disable the modal submit');
+    assert.match(w.document.getElementById('pointTransferMessage').textContent,/可用點數為 0/);
     w.document.getElementById('pointTransferClose').click();
     w.dispatchEvent(new w.CustomEvent('pointcard:active-changed',{detail:{cardId:'card',title:'Card',stamps:15,totalStamps:15,reservedStamps:0,transferEligible:false}}));
     await tick();await tick();
