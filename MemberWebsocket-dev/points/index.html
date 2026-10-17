@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="./styles.css?v=point-card-presets-20260916-1-disabled-original-theme-20261007-2-transfer-click-20261009-1">
   <link rel="stylesheet" href="./membership-progress.css?v=points-tier-style-20260908">
   <link rel="stylesheet" href="./pointcard-ticket-overview.css?v=point-card-presets-20260916-1-ticket-booking-20261006-1-ui-20261007-1-original-grayscale-20261007-1">
-  <link rel="stylesheet" href="./point-transfer.css?v=point-transfer-realtime-20261001-2-qr-20261008-1">
+  <link rel="stylesheet" href="./point-transfer.css?v=point-transfer-qr-outside-20261017-1">
   <link rel="stylesheet" href="../qr-scan-dialog.css?v=qr-dialog-20261008-1-ongoing-20261010-1">
   <link rel="stylesheet" href="../user-tour.css?v=user-tour-20260928-10-p2-20261006-1">
   <link rel="stylesheet" href="../test-mode.css?v=test-mode-20260920-1">
@@ -32,7 +32,7 @@
   <script src="../vendor/friend-qr-decoder.js?v=qr-dialog-20261008-1" defer></script>
   <script src="../friend-qr-scanner.js?v=qr-dialog-20261008-1" defer></script>
   <script src="../qr-scan-dialog.js?v=qr-dialog-20261008-1-receipt-camera-20261008-1-ongoing-20261010-1" defer></script>
-  <script src="./point-transfer.js?v=point-transfer-realtime-20261001-2-integrity-20261003-1-qr-20261008-1-retry-20261008-1-ongoing-20261010-1-outer-copy-removed-20261014-1" defer></script>
+  <script src="./point-transfer.js?v=point-transfer-qr-outside-20261017-1" defer></script>
   <script src="../user-tour.js?v=participant-state-isolation-20261004-1-p2-20261006-1" defer></script>
   <script src="../dialog-accessibility.js?v=20260913" defer></script>
   <script src="../e2e-feature-coverage.js?v=feature-coverage-20261009-1-ongoing-20261010-1-scope-complete-20261015-1" defer></script>
@@ -98,7 +98,10 @@
           <div class="progress-foot"><span id="progressMessage">點數會持續累積，達標後可於下方票券總覽選擇使用。</span><span id="remainingMessage">尚未設定兌換票券</span></div>
         </div>
         <p id="cardExpiry" class="updated-at card-expiry-only">使用期限：無期限</p>
-        <div class="active-card-actions"><button id="pointTransferButton" class="point-transfer-open-button" type="button" disabled>點數轉贈</button></div>
+        <div class="active-card-actions">
+          <button id="pointTransferButton" class="point-transfer-open-button" type="button" disabled>點數轉贈</button>
+          <button id="pointTransferShowOwnQr" class="point-transfer-open-button" type="button" aria-haspopup="dialog" disabled>顯示 QR Code</button>
+        </div>
         <section id="cardGuidancePanel" class="card-guidance-panel hidden" aria-labelledby="cardGuidanceTitle"><div class="card-guidance-heading"><p class="label dark-label">Card details</p><h2 id="cardGuidanceTitle">使用與優惠說明</h2></div><div class="card-guidance-grid"><article data-card-guidance-item><strong>使用方式</strong><p id="cardUsageMethod"></p></article><article data-card-guidance-item><strong>使用說明</strong><p id="cardUsageInstructions"></p></article><article data-card-guidance-item><strong>優惠說明</strong><p id="cardBenefitDescription"></p></article></div></section>
       </section>
 

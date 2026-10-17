@@ -77,3 +77,15 @@ test('points transfer removes only the outer copy button; the QR dialog still of
   f.w.QRDisplayDialog.close();
  } finally {f.w.close();}
 });
+
+test('points page exposes its own QR button outside the transfer modal',()=>{
+ const doc=new JSDOM(read('points/index.html')).window.document;
+ const buttons=Array.from(doc.querySelectorAll('.active-card-actions > button'));
+ assert.deepEqual(buttons.map(button=>button.id),['pointTransferButton','pointTransferShowOwnQr']);
+ assert.equal(buttons[1].getAttribute('aria-haspopup'),'dialog');
+ assert.equal(buttons[1].disabled,true);
+ assert.equal(doc.querySelector('#pointTransferModal'),null,'transfer dialog is lazy');
+ const transfer=read('points/point-transfer.js');
+ assert.doesNotMatch(transfer,/<button id="pointTransferShowOwnQr"/,'QR button must not be nested in transfer markup');
+ assert.match(transfer,/qrButton\.addEventListener\('click'/,'outside QR button must have its own listener');
+});

@@ -105,7 +105,6 @@
             <span>我的會員編號</span>
             <strong id="pointTransferOwnMemberCode">讀取中…</strong>
           </div>
-          <button id="pointTransferShowOwnQr" class="point-transfer-copy-button" type="button" aria-haspopup="dialog" disabled>顯示 QR Code</button>
         </section>
         <form id="pointTransferForm" class="point-transfer-form">
           <input id="pointTransferCard" type="hidden">
@@ -145,9 +144,6 @@
 
     document.body.append(modal);
     modal.querySelector('#pointTransferClose').addEventListener('click', closeModal);
-    modal.querySelector('#pointTransferShowOwnQr').addEventListener('click', event => {
-      window.QRDisplayDialog?.show({ memberCode: state.memberCode, title: '我的會員 QR Code', opener: event.currentTarget });
-    });
     modal.addEventListener('click', (event) => {
       if (event.target === modal && !state.busy) closeModal();
     });
@@ -267,7 +263,7 @@
     const output = document.getElementById('pointTransferOwnMemberCode');
     if (output) output.textContent = state.memberCode || '尚未取得會員編號';
     const qrButton = document.getElementById('pointTransferShowOwnQr');
-    if (qrButton) qrButton.disabled = !state.memberCode;
+    if (qrButton) qrButton.disabled = !state.memberCode || !session();
   }
 
   function currentCardId() {
@@ -535,6 +531,14 @@
       openButton.dataset.bound = 'true';
       openButton.addEventListener('click', openModal);
     }
+    const qrButton = document.getElementById('pointTransferShowOwnQr');
+    if (qrButton && !qrButton.dataset.bound) {
+      qrButton.dataset.bound = 'true';
+      qrButton.addEventListener('click', event => {
+        if (!state.memberCode || !session()) return;
+        window.QRDisplayDialog?.show({ memberCode: state.memberCode, title: '我的會員 QR Code', opener: event.currentTarget });
+      });
+    }
     updateOpenButton();
     updateOwnMemberCode();
   }
@@ -545,6 +549,9 @@
     state.receiverGeneration += 1;
     state.receiver = null;
     if (event.detail?.code === 'MEMBER_REMOVED') savePending(null);
+    state.memberCode = '';
+    window.QRDisplayDialog?.close();
+    updateOwnMemberCode();
     document.getElementById('pointTransferModal')?.classList.add('hidden');
     document.body.classList.remove('point-transfer-modal-open');
   });
