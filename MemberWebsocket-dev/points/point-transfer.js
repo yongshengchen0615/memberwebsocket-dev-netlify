@@ -11,6 +11,8 @@
     busy: false,
     activeCardId: '',
     activeCardTitle: '',
+    activeAvailableStamps: null,
+    activeTransferEligible: false,
     memberCode: '',
     options: new Map(),
     loaded: false,
@@ -275,20 +277,32 @@
     );
   }
 
+  function transferableBalance(cardId) {
+    const option = state.options.get(cardId);
+    const apiBalance = Number(option?.balance);
+    // The options API exposes the raw balance, which includes points already
+    // committed to bookings. Only the point-card bootstrap publishes the
+    // balance after general/snapshot reservations. Fail closed until both agree.
+    if (!option || !state.loaded || !state.activeTransferEligible ||
+        cardId !== state.activeCardId || !Number.isFinite(state.activeAvailableStamps) ||
+        !Number.isFinite(apiBalance)) return 0;
+    return Math.max(0, Math.min(state.activeAvailableStamps, apiBalance));
+  }
+
   function updateOpenButton() {
     const button = document.getElementById('pointTransferButton');
     if (!button) return;
     const cardId = currentCardId();
     const option = state.options.get(cardId);
-    const balance = Number(option?.balance ?? 0);
-    const hasPoints = Boolean(state.memberCode && session() && state.loaded && cardId && option && Number.isFinite(balance) && balance > 0);
+    const balance = transferableBalance(cardId);
+    const hasPoints = Boolean(state.memberCode && session() && balance > 0);
     // A previous uncertain transaction is recovered through its own action.
     // Never make the regular transfer button clickable with zero available points.
     button.disabled = !hasPoints || Boolean(state.pending);
     button.title = state.pending
       ? '請先確認前次轉贈交易'
       : !state.loaded ? '正在確認可轉贈點數'
-        : !option || !Number.isFinite(balance) || balance <= 0 ? '可用點數為 0，無法轉贈' : '';
+        : balance <= 0 ? '可用點數為 0，無法轉贈' : '';
     let pendingButton = document.getElementById('pointTransferPendingButton');
     // Keep the normal toolbar's two-button layout unchanged except while
     // recovering an already-authorized, uncertain transaction.
@@ -313,7 +327,7 @@
   function updateModalBalance() {
     const cardId = document.getElementById('pointTransferCard')?.value;
     const option = state.options.get(cardId);
-    const balance = Math.max(0, Number(option?.balance || 0));
+    const balance = transferableBalance(cardId);
     const amount = document.getElementById('pointTransferAmount');
     if (amount) amount.max = state.pending ? '' : String(balance);
     const summary = document.getElementById('pointTransferCardSummary');
@@ -326,7 +340,7 @@
     const modal = ensureModal();
     const cardId = state.pending?.cardId || currentCardId();
     const option = state.options.get(cardId);
-    if ((!option || Number(option.balance || 0) <= 0) && !state.pending) {
+    if (transferableBalance(cardId) <= 0 && !state.pending) {
       updateOpenButton();
       return;
     }
@@ -337,10 +351,10 @@
     document.getElementById('pointTransferMemberCode').value = '';
     document.getElementById('pointTransferAmount').value = '';
     document.getElementById('pointTransferCardSummary').textContent =
-      `${option?.title || state.activeCardTitle || '集點卡'}・可轉贈 ${Number(option?.balance || 0)} 點${option?.expiresOn ? `・至 ${option.expiresOn}` : ''}`;
+      `${option?.title || state.activeCardTitle || '集點卡'}・可轉贈 ${transferableBalance(cardId)} 點${option?.expiresOn ? `・至 ${option.expiresOn}` : ''}`;
     document.getElementById('pointTransferBalanceHint').textContent =
-      state.pending ? '待確認原交易；不會重新扣點。' : `本次轉贈會從這張集點卡扣除，最多可轉贈 ${Number(option?.balance || 0)} 點。`;
-    document.getElementById('pointTransferAmount').max = state.pending ? '' : String(Number(option?.balance || 0));
+      state.pending ? '待確認原交易；不會重新扣點。' : `本次轉贈會從這張集點卡扣除，最多可轉贈 ${transferableBalance(cardId)} 點。`;
+    document.getElementById('pointTransferAmount').max = state.pending ? '' : String(transferableBalance(cardId));
     setMessage('');
     if (state.pending) {
       const { memberCode, amount, requestId } = state.pending;
@@ -422,6 +436,9 @@
 
     state.activeCardId = cardId;
     state.activeCardTitle = title;
+    state.activeAvailableStamps = Number.isFinite(Number(detail?.stamps)) && detail?.stamps != null
+      ? Math.max(0, Number(detail.stamps)) : null;
+    state.activeTransferEligible = detail?.transferEligible !== false && Boolean(cardId);
 
     const current = state.options.get(cardId);
     const transferEligible = detail?.transferEligible !== false;
@@ -492,7 +509,7 @@
     if (!option && !state.pending) return setMessage('這張集點卡目前無法轉贈。', true);
     if (!state.receiver || state.receiver.memberCode !== memberCode) return setMessage('請先確認收件會員。', true);
     if (!Number.isSafeInteger(amount) || amount <= 0) return setMessage('請輸入大於 0 的整數點數。', true);
-    if (!state.pending && amount > Number(option.balance || 0)) return setMessage('轉贈點數不可超過目前可用點數。', true);
+    if (!state.pending && amount > transferableBalance(cardId)) return setMessage('轉贈點數不可超過目前可用點數。', true);
 
     const fingerprint = JSON.stringify([cardId, memberCode, amount]);
     if (state.fingerprint !== fingerprint) {
@@ -582,6 +599,8 @@
     state.receiver = null;
     if (event.detail?.code === 'MEMBER_REMOVED') savePending(null);
     state.memberCode = '';
+    state.activeAvailableStamps = null;
+    state.activeTransferEligible = false;
     updateOpenButton();
     window.QRDisplayDialog?.close();
     updateOwnMemberCode();
