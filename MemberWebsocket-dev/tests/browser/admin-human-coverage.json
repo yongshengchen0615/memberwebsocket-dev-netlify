@@ -8,7 +8,7 @@
     "admin/member-workspace-tabs.js": "e8235f6c84af59c708090d5dd15dcf52d2929a00f7988453d664028f242f8fe2",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
     "admin/grant-automation.js": "f3178a0bb26745d6cd7731b24ab8ab9aaec96a4dada62699a3609ae8b803e2b0",
-    "admin/coupon-location-editor.js": "06ac571bbdb347b0b2279682d2ea1360444293d5597e017370e9d87e4444b096",
+    "admin/coupon-location-editor.js": "31fb9d8ab26519022ed20528f9ce7cba588826c4d20bf2cccc2c1a5f584d055f",
     "admin/fixed-ticket-admin.js": "c105feacd0c32d91ba6483fa045963da959339b14a545d574d8de5595180bfb5",
     "admin/fixed-ticket-admin-integration.js": "af65455cf96f6770fdbb0a72558d970b5a4377b0d42557ef55b2f5e70c43c190",
     "admin/fixed-ticket-calendar-option.js": "947e5d1d56a8fb0054d8880b31f053c940505e116a566e13c2c931593870265c",
@@ -233,7 +233,7 @@
     {
       "id": "event.22",
       "module": "event",
-      "name": "GPS 地點搜尋、範圍、調整與持久化；瀏覽器無法定位可用單次定位或地圖選點",
+      "name": "GPS 地點搜尋、範圍、調整與持久化；CoreLocation 無位置時採替代精度單次定位或地圖選點",
       "cases": [
         "LOCATION_event"
       ]
@@ -341,7 +341,7 @@
     {
       "id": "booking.34",
       "module": "booking",
-      "name": "跨夜時段、提前日數、票券政策、快照可使用地點／半徑、瀏覽器 GPS 回退、提醒與說明",
+      "name": "跨夜時段、提前日數、票券政策、快照可使用地點／半徑、瀏覽器 GPS 雙模式回退、提醒與說明",
       "cases": [
         "BOOKING_SHARED_SETTINGS",
         "TICKET_BOOKING_POLICY_ENTRY"
