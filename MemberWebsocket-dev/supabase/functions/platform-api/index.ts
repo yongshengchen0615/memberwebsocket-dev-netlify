@@ -1,6 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.57.0';
-import { verifyLineIdTokenContract } from '../_shared/auth-contract.ts';
-import { PlatformError } from '../_shared/platform-policy.mjs';
+import { verifyPlatformIdToken } from '../_shared/platform-auth.mjs';
 import { createPlatformHandler } from '../_shared/platform-handler.mjs';
 
 const env = (name: string) => (Deno.env.get(name) || '').trim();
@@ -14,9 +13,6 @@ const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), {
 export const handler = createPlatformHandler({
   db, allowedOrigins,
   encryptionKey:() => env('PLATFORM_CREDENTIAL_ENCRYPTION_KEY'),
-  verifyIdentity:(idToken: string) => verifyLineIdTokenContract({
-    idToken, expectedChannelId:env('LINE_ADMIN_CHANNEL_ID') || '2010791619',
-    createError:(status,code,message) => new PlatformError(status,code,message),
-  }),
+  verifyIdentity:(idToken: string) => verifyPlatformIdToken({idToken}),
 });
 Deno.serve(handler);

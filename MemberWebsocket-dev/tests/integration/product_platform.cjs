@@ -76,6 +76,28 @@ test('ambiguous legacy installation does not automatically select one of multipl
  const h=await fixture(2);try{assert.equal((await h.db.query('select count(*)::int n from platform_private.super_admins')).rows[0].n,0);assert.equal((await h.call({action:'platform.bootstrap'})).status,403);}finally{await h.db.close();}
 });
 
+test('AC-009: dedicated channel plus explicit platform identity are both required; different Provider binding revokes the old UID',async()=>{
+ const h=await fixture();try{
+  // The verifier accepts only the platform channel, even for the actual owner.
+  assert.equal((await h.call({action:'platform.bootstrap'},'legacy-root')).status,401);
+  assert.equal((await h.call({action:'platform.bootstrap'},'root')).status,200);
+  assert.equal((await h.call({action:'platform.bootstrap'},'manager')).status,403);
+  assert.equal((await h.call({action:'platform.bootstrap'},'new-provider-root')).status,403);
+  await assert.rejects(h.db.query("update platform_private.super_admins set line_user_id='invalid'"),/platform_super_admin_line_identity/);
+  const newId='U'+'3'.repeat(32);
+  await h.db.query('update platform_private.super_admins set line_user_id=$1 where singleton',[newId]);
+  assert.equal((await h.call({action:'platform.bootstrap'},'root')).status,403);
+  assert.equal((await h.call(h.save,'new-provider-root')).status,200);
+  assert.equal((await h.db.query('select actor from platform_private.audit_events')).rows[0].actor,newId);
+  assert.equal((await h.db.query('select count(*)::int n from admins where line_user_id=$1',[newId])).rows[0].n,0);
+  await h.db.exec('update platform_private.super_admins set enabled=false');
+  assert.equal((await h.call({action:'platform.bootstrap'},'new-provider-root')).status,403);
+  await h.db.exec('update platform_private.super_admins set enabled=true');
+  await h.db.query("update admins set status='suspended' where line_user_id=$1",[root]);
+  assert.equal((await h.call({action:'platform.bootstrap'},'new-provider-root')).status,403);
+ }finally{await h.db.close();}
+});
+
 test('rollback removes the new platform only and preserves legacy admins/business data',async()=>{
  const h=await fixture();try{
   await h.call(h.save);await h.db.exec('insert into public.legacy_member_data default values');

@@ -13,7 +13,7 @@
 | 來源版本 | develop `b04486a557ae35c126531cdd1bdb15a22667be5d`。 |
 | 現況 | 2026-10-17 唯讀盤點：既有 public 業務表沒有 tenant_id，112 個 SECURITY DEFINER 函式，僅一位啟用中的管理員。 |
 | 第一階段 | 一個總管理員登記商家管理員，設定會員卡、集點卡、活動票券、營運日曆、整合中心、預約、測試、使用紀錄。 |
-| 身分 | 沿用 LINE ID token 的伺服器驗證；每次 API 與資料庫操作重新確認總管理員資料列。 |
+| 身分 | 總管理員獨立 LIFF `2012065297-VunxFBj8`，後端只驗證 Login Channel `2012065297`；每次 API 與資料庫操作重新確認總管理員資料列。 |
 | 資料 | 私有 schema 保存平台設定、加密憑證、操作識別與稽核，無一般使用者讀寫權限。 |
 | 狀態 | 新增為 pending_provisioning；本階段可停用為 suspended，沒有公開啟用／復權端點。 |
 | 相容性 | 不變更現有商家的會員、票券、預約、LINE 設定與授權邏輯，不將新管理員寫入 public.admins。 |
@@ -37,6 +37,8 @@
 
 - `platform_private.super_admins` 以 singleton=true 主鍵保證最多一個總管理員。
 - 遷移只在既有啟用管理員恰好一位時，將該管理員登記為總管理員。多位或零位時不自行挑選，須由專案擁有者明確指定。
+- 後續 `20261017140939_platform_line_identity.sql` 將平台 LINE User ID 獨立保存，初始採用該擁有者的既有 UID。同一 Provider 可以沿用 UID；不同 Provider 須由專案擁有者明確綁定新 UID，登入者不會自動升權。擁有者原管理員資料列停用，或平台 enabled=false，都立即撤銷總管理員存取。
+- 平台身分驗證只向 LINE Verify ID token API 提交 token 與固定的 `client_id=2012065297`；驗證 aud、iss、sub、exp、iat。舊管理端 Channel token 即使屬於總管理員本人也拒絕；商家維護模式與會員單一登入限制不會套用到平台登入。
 - 普通管理員即使在 public.admins 為 active，也無法存取總管理員控制台。
 - 商家代碼、管理員 LINE User ID 建立後不可直接換人；轉移身分需要獨立的撤銷／驗證流程。
 - LINE Login Channel 與 Messaging API Channel 應屬於同一 Provider。表單檢查格式與 LIFF 前綴，不宣稱已驗證 LINE Developers 的設定、token 有效性或 Provider 關聯。
@@ -58,9 +60,10 @@
 | AC-006 | Given 新商家未完成資料隔離，When 嘗試啟用，Then DB constraint 拒絕；舊業務清除不影響控制平面 | SQL + guard 單元測試 |
 | AC-007 | Given 兩個完整商家環境，When 執行八項功能、跨商家 ID、Realtime、Storage 與排程，Then 完整隔離且功能關閉時 API 拒絕 | **尚未實作／未通過：本階段不可開通新商家** |
 | AC-008 | Given 各商家實際 LINE 設定，When 真實登入與推播，Then 身分、Provider 與憑證有效且不跨商家 | **未執行：需隔離環境與 LINE 測試設定** |
+| AC-009 | Given 平台專屬 LIFF，When 正確 Channel + 已綁定總管理員登入，Then 允許；舊管理端 Channel、未授權使用者、過期 token、LINE 服務異常與缺 LIFF 設定皆拒絕；更換 Provider UID 後舊 UID 立即失效 | product_platform_auth.test.js；真實 verifier + handler + PGlite；Chromium |
 
 PGlite 執行真實 SQL、角色權限與資料結果，仍不是遠端 Supabase 或多連線 PostgreSQL 併發驗證。
-瀏覽器走真實前端、handler、SQL 與加密流程，LINE 身分提供者以合成帳號替代；不能計為真實 LINE 整合通過。
+瀏覽器走真實前端、LINE 驗證器、handler、SQL 與加密流程，只有 LINE HTTP 回應以合成帳號替代；不能計為真實 LINE 整合通過。
 
 ## 執行方式
 
@@ -75,12 +78,28 @@ npm ci --ignore-scripts --prefix MemberWebsocket-dev/tests/browser
 npm test --prefix MemberWebsocket-dev/tests/browser -- product-platform.spec.cjs
 ```
 
-控制台路徑：`/admin/platform/`。此路徑位於目前管理端 `/admin/` Endpoint 的子目錄，沿用其 LIFF 登入（仍需核對 LINE Developers 的實際 Endpoint）；商家自己的管理端 LIFF 設定保存於商家資料中。
+控制台路徑：`/admin/platform/`。總管理員從 `https://liff.line.me/2012065297-VunxFBj8` 開啟，使用專屬官方帳號所連結的 LINE Login Channel。公開設定 `platformLiffId` 僅供此控制台使用，缺少或前綴錯誤會停止登入，不退回商家 `adminLiffId`。
+
+LINE Developers 需設定此 LIFF 的 Endpoint 為目標環境的 `/admin/platform/` 完整 HTTPS URL，Scopes 至少包含 `openid`、`profile`，並確認 Login Channel 已連結總管理員官方帳號。此分支沒有修改 LINE Developers，也尚未部署，因此不要將 LIFF 指向尚無此頁面的正式站。商家自己的管理端 LIFF 設定保存於商家資料中。
+
+若總管理員的新 Channel 屬於不同 Provider，先從該 Channel 的 Basic settings → Your user ID 取得擁有者的 UID，透過專案擁有者權限確認後綁定 `platform_private.super_admins.line_user_id`，不可使用使用者自行提交的 UID。保留 `admin_id` 指向原擁有者，以維持撤銷機制。範例只供擁有者在已驗證的隔離環境執行，請替換所有占位值：
+
+```sql
+begin;
+update platform_private.super_admins
+set line_user_id = '<總管理員在新 Provider 的 U 開頭 UID>'
+where singleton and admin_id = '<已核對的原擁有者 admin UUID>'::uuid
+  and line_user_id = '<已核對的目前綁定 UID>'
+returning admin_id, line_user_id, enabled;
+-- 確認恰好一列且為擁有者，再 commit；不符則 rollback。
+```
+
+此操作不新增商家管理員、不修改會員資料。未完成身分核對時保持拒絕登入。LINE 身分與 Provider 規則參考：[User ID](https://developers.line.biz/en/docs/messaging-api/getting-user-ids/)、[Verify ID token](https://developers.line.biz/en/reference/line-login/#verify-id-token)。
 正式部署前，先在隔離的 Supabase 環境驗證這份新遷移及 `platform-api`，不能直接對現有會員資料執行破壞性測試。
 新 Edge Function 沿用原系統的自訂 LINE 驗證方式，需要關閉 Supabase gateway JWT 驗證並由 handler 驗證 LINE token。
 設定精確的 ALLOWED_ORIGINS；不使用萬用來源。
 
-伺服器需要 `SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`、`LINE_ADMIN_CHANNEL_ID` 與 `PLATFORM_CREDENTIAL_ENCRYPTION_KEY`。
+伺服器需要 `SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY` 與 `PLATFORM_CREDENTIAL_ENCRYPTION_KEY`。平台 Channel 固定為 `2012065297`，不讀取既有商家的 `LINE_ADMIN_CHANNEL_ID`。
 加密金鑰是 32 隨機位元組的標準 Base64 字串，例如由 `openssl rand -base64 32` 產生，再存進 Supabase Edge secrets。
 不得放入 config.json、Netlify 公開建置變數或版本控制。
 **已存密文仍使用原密鑰；不可直接換掉或刪除。輪替需要雙密鑰讀取、重新加密與完成驗證。**

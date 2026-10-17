@@ -4,7 +4,7 @@ const {pathToFileURL}=require('node:url');
 const shared=name=>import(pathToFileURL(path.join(__dirname,'../../supabase/functions/_shared',name)));
 const root='U'+'1'.repeat(32),manager='U'+'2'.repeat(32),key=Buffer.alloc(32,7).toString('base64');
 const tenantId='10000000-0000-4000-8000-000000000001';
-const migration=fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261017131559_product_platform_control_plane.sql'),'utf8');
+const migration=['20261017131559_product_platform_control_plane.sql','20261017140939_platform_line_identity.sql'].map(name=>fs.readFileSync(path.join(__dirname,'../../supabase/migrations',name),'utf8')).join('\n');
 async function fixture(adminCount=1) {
  const db=new PGlite();
  await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
@@ -25,18 +25,23 @@ async function fixture(adminCount=1) {
   }catch(error){return {data:null,error};}
  };
  const {createPlatformHandler}=await shared('platform-handler.mjs');
- const {PlatformError}=await shared('platform-policy.mjs');
+ const {verifyPlatformIdToken,PLATFORM_CHANNEL_ID}=await shared('platform-auth.mjs');
  const allowedOrigins=new Set(['https://allowed.test']);
- const handler=createPlatformHandler({db:{rpc},encryptionKey:()=>key,allowedOrigins,verifyIdentity:async token=>{
-   if(token==='root')return {lineUserId:root,displayName:'總管理員'};
-   if(token==='manager')return {lineUserId:manager,displayName:'商家管理員'};
-   throw new PlatformError(401,'AUTH_INVALID','登入已失效。');
- }});
+ const providerCalls=[];
+ // Only the LINE HTTP provider is synthetic. The production verifier, handler,
+ // encrypted writes, authorization RPCs and SQL are exercised together.
+ const handler=createPlatformHandler({db:{rpc},encryptionKey:()=>key,allowedOrigins,verifyIdentity:idToken=>verifyPlatformIdToken({idToken,fetchImpl:async(url,options)=>{
+   providerCalls.push({url,channel:options.body.get('client_id')});
+   assert.equal(options.body.get('client_id'),PLATFORM_CHANNEL_ID);
+   const token=options.body.get('id_token');
+   const sub=token==='root'||token==='legacy-root'?root:token==='manager'?manager:token==='new-provider-root'?'U'+'3'.repeat(32):'';
+   return new Response(JSON.stringify({sub,name:token==='manager'?'商家管理員':'總管理員',aud:token==='legacy-root'?'2010791619':PLATFORM_CHANNEL_ID,iss:'https://access.line.me',iat:Math.floor(Date.now()/1000)-10,exp:Math.floor(Date.now()/1000)+300}),{status:sub?200:400});
+ }})});
  const call=async(body,token='root')=>{const res=await handler(new Request('https://backend.test',{method:'POST',headers:{Origin:'https://allowed.test'},body:JSON.stringify({...body,idToken:token})}));return {status:res.status,body:await res.json()};};
  const {FEATURES}=await shared('platform-policy.mjs');
  const tenant={name:'商家 A',slug:'merchant-a',ownerLineUserId:manager,features:Object.fromEntries(Object.keys(FEATURES).map(k=>[k,true])),line:{adminChannelId:'2010791619',memberChannelId:'2010787602',messagingChannelId:'2010123456',adminLiffId:'2010791619-admin',memberLiffId:'2010787602-member',pointsLiffId:'2010787602-points',eventLiffId:'2010787602-event',calendarLiffId:'2010787602-calendar',bookingLiffId:'2010787602-booking'},credentials:{channelAccessToken:'synthetic-access-token-123456789',channelSecret:'a'.repeat(32)}};
  const save={action:'platform.tenant.save',tenantId,expectedVersion:0,requestId:crypto.randomUUID(),tenant};
- return {db,rpc,call,save,tenant,handler,allowedOrigins};
+ return {db,rpc,call,save,tenant,handler,allowedOrigins,providerCalls};
 }
 
 

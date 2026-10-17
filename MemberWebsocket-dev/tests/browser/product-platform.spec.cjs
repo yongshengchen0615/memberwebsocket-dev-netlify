@@ -13,11 +13,11 @@ test.beforeAll(async()=>{
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));base='http://127.0.0.1:'+server.address().port;
 });
 test.afterAll(async()=>new Promise(resolve=>server.close(resolve)));
-async function setup(page,token='root',{loseFirstSave=false}={}) {
+async function setup(page,token='root',{loseFirstSave=false,platformLiffId='2012065297-VunxFBj8'}={}) {
  const h=await fixture();h.allowedOrigins.add(base);let lost=false;const errors=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
- await page.route('**/config.json',route=>route.fulfill({json:{brandName:'QA Platform',supabaseUrl:'https://fixture.supabase.co',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'sb_publishable_fixture',adminLiffId:'2010791619-admin'}}));
- await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:`window.liff={init:async()=>{},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=>${JSON.stringify(token)}};`}));
+ await page.route('**/config.json',route=>route.fulfill({json:{brandName:'QA Platform',supabaseUrl:'https://fixture.supabase.co',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'sb_publishable_fixture',adminLiffId:'2010791619-admin',platformLiffId}}));
+ await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:`window.liff={init:async options=>{window.initializedLiffId=options.liffId;},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=>${JSON.stringify(token)}};`}));
  await page.route('https://fixture.supabase.co/functions/v1/platform-api',async route=>{
   const method=route.request().method();
   const input=method==='POST'?route.request().postDataJSON():null;
@@ -37,7 +37,7 @@ async function fillNew(page,tenant) {
 }
 test('PLATFORM_CREATE_EDIT — root saves merchant, eight grants and encrypted LINE credentials through real handler + SQL',async({page},info)=>{
  const h=await setup(page);try{
-  await expect(page.locator('#platformWorkspace')).toBeVisible();await fillNew(page,h.tenant);
+  await expect(page.locator('#platformWorkspace')).toBeVisible();expect(await page.evaluate(()=>window.initializedLiffId)).toBe('2012065297-VunxFBj8');expect(h.providerCalls.every(call=>call.channel==='2012065297')).toBe(true);await fillNew(page,h.tenant);
   await expect(page.locator('[name="channelAccessToken"]')).toHaveAttribute('type','password');await expect(page.locator('[data-feature]')).toHaveCount(8);
   await page.getByRole('button',{name:'儲存商家設定',exact:true}).click();await expect(page.locator('#tenantDialog')).toBeHidden();await expect(page.locator('.tenant-card')).toHaveCount(1);await expect(page.locator('.tenant-card')).toContainText('待佈建');
   let row=(await h.db.query('select * from platform_private.tenants')).rows[0];expect(row.features.booking).toBe(true);expect(row.features.testing).toBe(false);
@@ -57,6 +57,12 @@ test('PLATFORM_RETRY — response lost after commit retries the same request wit
 });
 test('PLATFORM_DENIED — ordinary active admin cannot load root control or merchant settings',async({page})=>{
  const h=await setup(page,'manager');try{await expect(page.locator('#platformStatus')).toContainText('僅總管理員');await expect(page.locator('#platformWorkspace')).toBeHidden();expect(h.errors).toEqual([]);}finally{await h.db.close();}
+});
+test('PLATFORM_CHANNEL_DENIED — root identity using the old admin channel is rejected',async({page})=>{
+ const h=await setup(page,'legacy-root');try{await expect(page.locator('#platformStatus')).toContainText('登入已失效');await expect(page.locator('#platformWorkspace')).toBeHidden();expect(h.errors).toEqual([]);}finally{await h.db.close();}
+});
+test('PLATFORM_CONFIG_REQUIRED — missing platform LIFF never falls back to merchant admin login',async({page})=>{
+ const h=await setup(page,'root',{platformLiffId:''});try{await expect(page.locator('#platformStatus')).toContainText('總管理員專用 LIFF');await expect(page.locator('#platformWorkspace')).toBeHidden();expect(await page.evaluate(()=>window.initializedLiffId)).toBeUndefined();expect(h.providerCalls).toEqual([]);expect(h.errors).toEqual([]);}finally{await h.db.close();}
 });
 test('PLATFORM_MOBILE — merchant form fits narrow screen and renders merchant names as text',async({page},info)=>{
  await page.setViewportSize({width:390,height:844});const h=await setup(page);try{
