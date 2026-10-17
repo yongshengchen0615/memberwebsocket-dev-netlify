@@ -479,7 +479,7 @@ jobs:
     name: Validate MemberWebsocket Dev
     if: always()
     needs: [regression, integration, browser-e2e, browser-syntax, edge-functions, wiring]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       - name: Require every test lane to pass
