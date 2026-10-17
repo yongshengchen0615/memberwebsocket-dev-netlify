@@ -55,8 +55,60 @@ test('PLATFORM_RETRY — response lost after commit retries the same request wit
   await page.getByRole('button',{name:'重試相同儲存操作'}).click();await expect(page.locator('#tenantDialog')).toBeHidden();expect((await h.db.query('select count(*)::int n from platform_private.tenants')).rows[0].n).toBe(1);expect((await h.db.query('select count(*)::int n from platform_private.audit_events')).rows[0].n).toBe(1);expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
-test('PLATFORM_DENIED — ordinary active admin cannot load root control or merchant settings',async({page})=>{
- const h=await setup(page,'manager');try{await expect(page.locator('#platformStatus')).toContainText('僅總管理員');await expect(page.locator('#platformWorkspace')).toBeHidden();expect(h.errors).toEqual([]);}finally{await h.db.close();}
+test('PLATFORM_APPLY — ordinary admin sees application form but never root controls',async({page})=>{
+ const h=await setup(page,'manager');try{
+  await expect(page.locator('#platformWorkspace')).toBeHidden();
+  await expect(page.locator('#applicationWorkspace')).toBeVisible();
+  await page.locator('#applicationForm [name="businessName"]').fill('商家申請 B');
+  await page.locator('#applicationForm [name="slug"]').fill('merchant-b');
+  await page.getByRole('button',{name:'提交審核申請'}).click();
+  await expect(page.locator('#applicationProgress')).toContainText('等待總管理員審核');
+  await expect(page.locator('#applicationForm')).toBeHidden();
+  await expect(page.locator('#merchantWorkspace')).toBeHidden();
+  expect((await h.db.query('select count(*)::int n from platform_private.tenants')).rows[0].n).toBe(0);
+  expect(h.errors).toEqual([]);
+ }finally{await h.db.close();}
+});
+test('PLATFORM_MANAGER_SETUP — approved admin can configure own LINE but cannot edit feature grants',async({page})=>{
+ const h=await setup(page,'manager');try{
+  await h.call({action:'platform.application.submit',businessName:'LINE 自助設定',slug:'self-service-b'},'manager');
+  const app=(await h.call({action:'platform.bootstrap'})).body.data.applications[0];
+  const features=Object.fromEntries(Object.keys((await shared('platform-policy.mjs')).FEATURES).map(k=>[k,k==='membership']));
+  const result=await h.call({action:'platform.application.approve',applicationId:app.id,features,requestId:crypto.randomUUID()});
+  expect(result.status).toBe(200);
+  await page.reload();await expect(page.locator('#merchantWorkspace')).toBeVisible();
+  await expect(page.locator('#platformWorkspace')).toBeHidden();
+  await expect(page.locator('#merchantFeatures')).toContainText('會員卡');
+  await expect(page.locator('#merchantFeatures')).not.toContainText('預約');
+  for(const [k,v] of Object.entries(h.tenant.line))await page.locator('#merchantLineForm [name="'+k+'"]').fill(v);
+  for(const [k,v] of Object.entries(h.tenant.credentials))await page.locator('#merchantLineForm [name="'+k+'"]').fill(v);
+  await page.getByRole('button',{name:'儲存我的 LINE 設定'}).click();
+  await expect(page.locator('#merchantMessage')).toContainText('已安全儲存');
+  const tenant=(await h.db.query('select features,credentials_configured,status from platform_private.tenants where slug=$1',['self-service-b'])).rows[0];
+  expect(tenant.features.booking).toBe(false);
+  expect(tenant.credentials_configured).toBe(true);
+  expect(tenant.status).toBe('pending_provisioning');
+  expect(h.errors).toEqual([]);
+ }finally{await h.db.close();}
+});
+test('PLATFORM_REVIEW — root checks requested grants and approves pending admin in UI',async({page})=>{
+ const h=await setup(page);try{
+  const submitted=await h.call({action:'platform.application.submit',businessName:'待審核商家',slug:'new-review'},'manager');
+  expect(submitted.status).toBe(200);
+  await page.reload();
+  await expect(page.locator('#applicationList .tenant-card')).toHaveCount(1);
+  await page.getByRole('button',{name:'審核與選擇功能'}).click();
+  await expect(page.locator('#approvalFeatures [data-approve-feature]')).toHaveCount(8);
+  await page.locator('[data-approve-feature="booking"]').check();
+  await page.getByRole('button',{name:'審核通過'}).click();
+  await expect(page.locator('#approvalDialog')).toBeHidden();
+  await expect(page.locator('#applicationList .tenant-card')).toHaveCount(0);
+  await expect(page.locator('#tenantList .tenant-card')).toHaveCount(1);
+  const tenant=(await h.db.query("select features,status from platform_private.tenants where slug='new-review'")).rows[0];
+  expect(tenant.features.booking).toBe(true);
+  expect(tenant.features.membership).toBe(false);
+  expect(tenant.status).toBe('pending_provisioning');
+ }finally{await h.db.close();}
 });
 test('PLATFORM_CHANNEL_DENIED — root identity using the old admin channel is rejected',async({page})=>{
  const h=await setup(page,'legacy-root');try{await expect(page.locator('#platformStatus')).toContainText('登入已失效');await expect(page.locator('#platformWorkspace')).toBeHidden();expect(h.errors).toEqual([]);}finally{await h.db.close();}
