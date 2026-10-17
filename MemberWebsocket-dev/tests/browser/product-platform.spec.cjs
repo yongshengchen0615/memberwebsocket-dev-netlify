@@ -26,7 +26,7 @@ async function setup(page,token='root',{loseFirstSave=false,platformLiffId='2012
   if(loseFirstSave&&!lost&&input?.action==='platform.tenant.save'){lost=true;return route.abort('failed');}
   await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
  });
- await page.goto(base+'/admin/platform/');return {...h,errors};
+ await page.goto(base+'/platform/');return {...h,errors};
 }
 async function fillNew(page,tenant) {
  await page.getByRole('button',{name:'新增商家管理員'}).click();

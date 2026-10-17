@@ -92,7 +92,7 @@
   el('newTenant').addEventListener('click',()=>fill());
   async function start() {
     try {
-      const response=await fetch('../../config.json',{cache:'no-cache',signal:AbortSignal.timeout(15000)});
+      const response=await fetch('../config.json',{cache:'no-cache',signal:AbortSignal.timeout(15000)});
       if(!response.ok)throw new Error('無法讀取平台公開設定。');
       state.config=await response.json();
       const platformLiffId=String(state.config.platformLiffId || '').trim();

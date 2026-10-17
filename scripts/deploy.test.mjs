@@ -35,6 +35,17 @@ test('published HTML references resolve to files inside the frontend', () => {
   assert.ok(checked > 100, `Expected real asset validation; checked ${checked}`);
 });
 
+test('platform is a sibling of admin in the build output', () => {
+  for (const asset of ['index.html', 'app.js', 'platform.css']) {
+    assert.ok(fs.existsSync(path.join(output, 'platform', asset)), asset);
+  }
+  assert.equal(fs.existsSync(path.join(output, 'admin', 'platform')), false);
+  const html = fs.readFileSync(path.join(output, 'platform/index.html'), 'utf8');
+  const app = fs.readFileSync(path.join(output, 'platform/app.js'), 'utf8');
+  assert.match(html, /src="\.\.\/member-system\.js"/);
+  assert.match(app, /fetch\('\.\.\/config\.json'/);
+});
+
 test('server source, migrations, tests and local deployment state are not published', () => {
   for (const excluded of ['supabase', 'tests', 'docs', '.git', '.netlify', '.env']) {
     assert.equal(fs.existsSync(path.join(output, excluded)), false, excluded);
@@ -62,7 +73,7 @@ test('deployment versions are valid and change for each new deployment', () => {
 test('all nine published entrypoints contain a static, CSP-compatible build badge', () => {
   const pages = [
     'index.html', 'admin/index.html', 'member/index.html', 'points/index.html',
-    'event/index.html', 'calendar/index.html', 'booking/index.html', 'booking/admin/index.html', 'admin/platform/index.html',
+    'event/index.html', 'calendar/index.html', 'booking/index.html', 'booking/admin/index.html', 'platform/index.html',
   ];
   const versions = new Set();
   for (const page of pages) {

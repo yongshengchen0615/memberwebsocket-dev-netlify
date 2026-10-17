@@ -6,6 +6,12 @@
 [build.environment]
   NODE_VERSION = "24"
 
+# Preserve old links while keeping platform as a separate application.
+[[redirects]]
+  from = "/admin/platform/*"
+  to = "/platform/:splat"
+  status = 301
+
 # Keep links that include the former monorepo directory usable.
 [[redirects]]
   from = "/MemberWebsocket-dev/*"

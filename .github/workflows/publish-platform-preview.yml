@@ -53,9 +53,10 @@ jobs:
         run: |
           node --test scripts/deploy.test.mjs scripts/netlify-publish-workflow.test.mjs
           node scripts/build-site.mjs
-          test -f dist/admin/platform/index.html
+          test -f dist/platform/index.html
+          test ! -e dist/admin/platform/index.html
           grep -Fq '2012065297-VunxFBj8' dist/config.json
-          printf '/ /admin/platform/ 302\n' > dist/_redirects
+          printf '/ /platform/ 302\n/admin/platform/* /platform/:splat 301\n' > dist/_redirects
       - name: Publish only the stable preview alias
         shell: bash
         run: |
@@ -71,11 +72,11 @@ jobs:
           set -euo pipefail
           base="https://${PLATFORM_ALIAS}--memberwebsocket-dev-netlify.netlify.app"
           for attempt in $(seq 1 20); do
-            if curl -fsSL --max-time 20 "$base/admin/platform/" -o /tmp/platform.html && grep -Fq "data-commit=\"${GITHUB_SHA:0:7}\"" /tmp/platform.html; then break; fi
+            if curl -fsSL --max-time 20 "$base/platform/" -o /tmp/platform.html && grep -Fq "data-commit=\"${GITHUB_SHA:0:7}\"" /tmp/platform.html; then break; fi
             if [ "$attempt" = 20 ]; then exit 1; fi
             sleep 5
           done
-          curl -fsSL --max-time 20 "$base/admin/platform/app.js" -o /tmp/platform-app.js
+          curl -fsSL --max-time 20 "$base/platform/app.js" -o /tmp/platform-app.js
           grep -Fq 'platformLiffId' /tmp/platform-app.js
           curl -fsSL --max-time 20 "$base/config.json" -o /tmp/platform-config.json
           jq -e '.platformLiffId == "2012065297-VunxFBj8"' /tmp/platform-config.json

@@ -78,9 +78,9 @@ npm ci --ignore-scripts --prefix MemberWebsocket-dev/tests/browser
 npm test --prefix MemberWebsocket-dev/tests/browser -- product-platform.spec.cjs
 ```
 
-控制台路徑：`/admin/platform/`。總管理員從 `https://liff.line.me/2012065297-VunxFBj8` 開啟，使用專屬官方帳號所連結的 LINE Login Channel。公開設定 `platformLiffId` 僅供此控制台使用，缺少或前綴錯誤會停止登入，不退回商家 `adminLiffId`。
+控制台路徑：`/platform/`（獨立於 `/admin/`）。舊 `/admin/platform/` 僅保留 HTTP 301 轉址至 `/platform/`；不再保留舊目錄檔案。總管理員從 `https://liff.line.me/2012065297-VunxFBj8` 開啟，使用專屬官方帳號所連結的 LINE Login Channel。公開設定 `platformLiffId` 僅供此控制台使用，缺少或前綴錯誤會停止登入，不退回商家 `adminLiffId`。
 
-目前發布分支為 `Integrated-Marketing-Platform`，固定網址為 `https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app/admin/platform/`。`publish-platform-preview.yml` 在同一提交的完整測試、建置與票券政策檢查成功後發布相應分支 alias；根目錄導向總管理員頁。舊 `feature/productization-super-admin` 分支保留 `platform` alias。流程不使用 `--prod`，既有正式站維持 develop 版本。
+目前發布分支為 `Integrated-Marketing-Platform`，固定網址為 `https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app/platform/`。`publish-platform-preview.yml` 在同一提交的完整測試、建置與票券政策檢查成功後發布相應分支 alias；根目錄導向總管理員頁。舊 `feature/productization-super-admin` 分支保留 `platform` alias。流程不使用 `--prod`，既有正式站維持 develop 版本。
 
 平台使用獨立的 LIFF 初始化與登入流程，外部瀏覽器未登入時呼叫無參數的 `liff.login()`，由 SDK 使用已設定的 Endpoint URL；不套用商家管理端的強制重新登入與 `member_system_reauth` 回跳參數。每次請求仍由後端驗證專屬 Channel 與總管理員資格。
 
