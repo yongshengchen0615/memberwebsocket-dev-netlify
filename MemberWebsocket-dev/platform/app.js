@@ -18,6 +18,14 @@
       && Date.now()-issuedAt<=LOGIN_RETURN_TTL_MS;
   }
   function showLoginGate(message='每次進入總管理員控制台，請重新使用 LINE 確認身分。') {
+    state.idToken='';
+    state.pending=null;
+    state.approval=null;
+    state.merchantPending=null;
+    for(const id of ['tenantDialog','approvalDialog']) {
+      const dialog=el(id);
+      if(dialog?.open)dialog.close();
+    }
     el('platformWorkspace').hidden=true;
     el('merchantWorkspace').hidden=true;
     el('applicationWorkspace').hidden=true;
