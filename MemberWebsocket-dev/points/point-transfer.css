@@ -1,6 +1,7 @@
 .active-card-actions{
   display:flex;
   justify-content:flex-end;
+  gap:10px;
   margin-top:14px;
 }
 .point-transfer-open-button,
@@ -192,7 +193,7 @@ html[data-theme="dark"] .point-transfer-message{
 }
 @media(max-width:620px){
   .active-card-actions{justify-content:stretch}
-  .point-transfer-open-button{width:100%}
+  .point-transfer-open-button{flex:1 1 0;min-width:0;width:auto}
   .point-transfer-modal{
     align-items:end;
     padding:10px max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));

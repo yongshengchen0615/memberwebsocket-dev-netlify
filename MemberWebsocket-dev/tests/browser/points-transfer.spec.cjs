@@ -72,15 +72,51 @@ test('production recipient runner does not debit and rejects a failed friend fet
  await page.evaluate(()=>qaTransfer.friendError=true);expect((await page.evaluate(()=>qaNodes.pointsTransferRecipientControlsCase())).status).toBe('failed');
 });
 
-test('own QR and friend picker are cancellable dialogs and reopening preserves the transfer form',async({page})=>{
- await page.locator('#pointTransferAmount').fill('2');await page.locator('#pointTransferMemberCode').fill('BBBB');
+test('own QR button remains accessible next to transfer without transferable points',async({page})=>{
+ await page.locator('#pointTransferClose').click();
+ const actions=page.locator('.active-card-actions');
+ await expect(actions.locator('button')).toHaveCount(2);
+ await expect(actions.locator('#pointTransferShowOwnQr')).toBeEnabled();
+ await page.setViewportSize({width:320,height:740});
+ const transferBox=await page.locator('#pointTransferButton').boundingBox();
+ const qrBox=await page.locator('#pointTransferShowOwnQr').boundingBox();
+ expect(qrBox.x).toBeGreaterThan(transferBox.x);
+ expect(qrBox.x+qrBox.width).toBeLessThanOrEqual(321);
+ await page.evaluate(()=>{qaTransfer.sender=0;window.dispatchEvent(new CustomEvent('pointcard:active-changed',{detail:{cardId:'QA-CARD',title:'QA card',stamps:0}}));});
+ await expect(page.locator('#pointTransferButton')).toBeDisabled();
+ await expect(page.locator('#pointTransferShowOwnQr')).toBeEnabled();
+ await page.locator('#pointTransferShowOwnQr').click();
+ await expect(page.locator('#qrDisplayPanel canvas')).toBeVisible();
+ await expect(page.locator('#pointTransferModal')).toBeHidden();
+ expect(await page.locator('#qrDisplayPanel').locator('strong').textContent()).toBe('AAAA');
+ expect(await page.evaluate(()=>qaTransfer.calls.filter(c=>c.action==='points.transfer.create').length)).toBe(0);
+ await page.locator('.qr-scan-dialog-heading .qr-scan-dialog-close').click();
+ await expect(page.locator('#pointTransferShowOwnQr')).toBeFocused();
+});
+test('member access ending disables independent QR action and closes displayed QR',async({page})=>{
+ await page.locator('#pointTransferClose').click();
+ await page.locator('#pointTransferShowOwnQr').click();
+ await expect(page.locator('#qrDisplayPanel canvas')).toBeVisible();
+ await page.evaluate(()=>window.dispatchEvent(new CustomEvent('member:access-ended',{detail:{code:'SESSION_EXPIRED'}})));
+ await expect(page.locator('#pointTransferShowOwnQr')).toBeDisabled();
+ await expect(page.locator('#qrDisplayPanel')).toBeHidden();
+ expect(await page.evaluate(()=>qaTransfer.calls.filter(c=>c.action==='points.transfer.create').length)).toBe(0);
+});
+test('own QR and friend picker are separate actions, and transfer form remains usable',async({page})=>{
+ await page.locator('#pointTransferClose').click();
  await expect(page.locator('#pointTransferCopyOwnCode')).toHaveCount(0);
- await expect(page.locator('#pointTransferOwnMemberCode')).toHaveText('AAAA');
- await page.locator('#pointTransferShowOwnQr').click();await expect(page.locator('#qrDisplayPanel canvas')).toBeVisible();
+ await expect(page.locator('#pointTransferShowOwnQr')).toBeVisible();
+ await expect(page.locator('#pointTransferModal')).toBeHidden();
+ await page.locator('#pointTransferShowOwnQr').click();
+ await expect(page.locator('#qrDisplayPanel canvas')).toBeVisible();
  await expect(page.locator('#qrDisplayPanel button').filter({hasText:'複製會員編號'})).toBeVisible();
  expect(await page.locator('#qrDisplayPanel canvas').evaluate(canvas=>{const c=canvas.getContext('2d');return FriendQRDecode(c.getImageData(0,0,canvas.width,canvas.height).data,canvas.width,canvas.height).data;})).toBe('AAAA');
- await page.locator('.qr-scan-dialog-heading .qr-scan-dialog-close').click();await expect(page.locator('#pointTransferShowOwnQr')).toBeFocused();
+ await page.locator('.qr-scan-dialog-heading .qr-scan-dialog-close').click();
+ await expect(page.locator('#pointTransferShowOwnQr')).toBeFocused();
  await expect(page.locator('#qrDisplayPanel')).toBeHidden();
+ await page.locator('#pointTransferButton').click();
+ await expect(page.locator('#pointTransferOwnMemberCode')).toHaveText('AAAA');
+ await page.locator('#pointTransferAmount').fill('2');await page.locator('#pointTransferMemberCode').fill('BBBB');
  for(let i=0;i<2;i++){await page.locator('#pointTransferChooseFriend').click();await expect(page.locator('.qr-scan-dialog-overlay #pointTransferFriendPicker')).toBeVisible();await page.locator('#pointTransferFriendCancel').click();}
  await expect(page.locator('#pointTransferAmount')).toHaveValue('2');await expect(page.locator('#pointTransferMemberCode')).toHaveValue('BBBB');
  expect(await page.evaluate(()=>qaTransfer.calls.filter(c=>c.action==='points.transfer.create').length)).toBe(0);
