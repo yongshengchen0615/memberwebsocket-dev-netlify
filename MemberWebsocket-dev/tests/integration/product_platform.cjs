@@ -57,7 +57,7 @@ test('AC-001/004: anon/authenticated cannot read private tables or spoof root ac
   // RLS remains a second boundary even if a future grant accidentally exposes a table.
   await h.db.exec('grant usage on schema platform_private to authenticated; grant select on platform_private.tenants to authenticated');
   await h.call(h.save);await h.db.exec('set role authenticated');assert.equal((await h.db.query('select * from platform_private.tenants')).rows.length,0);await h.db.exec('reset role');
-  assert.equal((await h.db.query("select count(*)::int n from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='platform_private' and c.relkind='r' and c.relrowsecurity")).rows[0].n,5);
+  assert.equal((await h.db.query("select count(*)::int n from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='platform_private' and c.relkind='r' and c.relrowsecurity")).rows[0].n,6);
  }finally{await h.db.close();}
 });
 test('AC-005/006: invalid ciphertext rolls back tenant+audit; legacy public-table reset cannot erase control plane',async()=>{
