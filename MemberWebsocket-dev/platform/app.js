@@ -5,6 +5,50 @@
   const fields = form.elements;
   const lineKeys = ['adminChannelId','memberChannelId','messagingChannelId','adminLiffId','memberLiffId','pointsLiffId','eventLiffId','calendarLiffId','bookingLiffId'];
   const state = {config:null,idToken:'',features:{},tenants:[],applications:[],current:null,pending:null,busy:false,approval:null,merchant:null,merchantPending:null};
+  const LOGIN_RETURN_KEY='platform-line-login-return-v1';
+  const LOGIN_RETURN_TTL_MS=180_000;
+  function consumeLoginReturn() {
+    // A one-use navigation hint only. Authorization still happens in LINE Verify + SQL.
+    let issuedAt=0;
+    try {
+      issuedAt=Number(window.sessionStorage.getItem(LOGIN_RETURN_KEY));
+      window.sessionStorage.removeItem(LOGIN_RETURN_KEY);
+    } catch { return false; }
+    return Number.isFinite(issuedAt) && issuedAt>0 && Date.now()>=issuedAt
+      && Date.now()-issuedAt<=LOGIN_RETURN_TTL_MS;
+  }
+  function showLoginGate(message='每次進入總管理員控制台，請重新使用 LINE 確認身分。') {
+    el('platformWorkspace').hidden=true;
+    el('merchantWorkspace').hidden=true;
+    el('applicationWorkspace').hidden=true;
+    el('platformLoginGate').hidden=false;
+    el('platformLoginButton').disabled=false;
+    el('platformStatus').textContent=message;
+  }
+  function clearLoginGate() { el('platformLoginGate').hidden=true; }
+  function freshLineLogin() {
+    const button=el('platformLoginButton');
+    button.disabled=true;
+    el('platformStatus').textContent='正在重新啟動 LINE 登入…';
+    try {
+      window.sessionStorage.setItem(LOGIN_RETURN_KEY,String(Date.now()));
+      const inClient=window.liff.isInClient();
+      state.idToken='';
+      // Discard the old ID token. LINE LIFF browser cannot call liff.login():
+      // liff.init() automatically signs in again after a page reload.
+      window.liff.logout();
+      if(inClient) window.location.reload();
+      else window.liff.login();
+    } catch {
+      try { window.sessionStorage.removeItem(LOGIN_RETURN_KEY); } catch {}
+      button.disabled=false;
+      el('platformStatus').textContent='無法啟動 LINE 重新登入，請重新從 LINE 官方入口開啟此頁。';
+    }
+  }
+  el('platformLoginButton').addEventListener('click',freshLineLogin);
+  window.addEventListener('pageshow',event=>{
+    if(event.persisted && !el('platformWorkspace').hidden) showLoginGate();
+  });
   function message(text) { el('tenantFormStatus').textContent=text; }
   function uncertainError() { return Object.assign(new Error('儲存結果尚未確認。請重試同一操作，避免重複建立。'),{uncertain:true}); }
   async function request(action, payload = {}) {
@@ -21,6 +65,8 @@
       try { body=await response.json(); } catch { throw uncertainError(); }
       if (!response.ok || !body.ok) {
         if (response.status>=500 && ['PLATFORM_DATABASE_UNAVAILABLE','PLATFORM_UNAVAILABLE'].includes(body.error?.code)) throw uncertainError();
+        if(response.status===401 && ['AUTH_INVALID','AUTH_REQUIRED'].includes(body.error?.code))
+          showLoginGate('LINE 驗證已失效，請點選「重新使用 LINE 登入」。若仍失敗，請確認總管理員 LIFF 所屬的 Login Channel。');
         throw Object.assign(new Error(body.error?.message || '操作未完成。'),{code:body.error?.code,status:response.status});
       }
       return body.data;
@@ -219,8 +265,12 @@
         window.liff.login();
         return;
       }
+      const returnedFromLine=consumeLoginReturn();
       state.idToken=window.liff.getIDToken() || '';
-      if(!state.idToken)throw new Error('無法取得總管理員 LINE ID token，請確認 LIFF 已啟用 openid scope。');
+      if(!state.idToken) {
+        showLoginGate('無法取得 LINE ID token。請重新使用 LINE 登入，並確認 LIFF 已啟用 openid scope。');
+        return;
+      }
       let data,superAdmin=true;
       try{data=await refresh();}
       catch(error){
@@ -230,12 +280,22 @@
         renderMine(data);
       }
       if(!superAdmin){
+        clearLoginGate();
         el('platformStatus').textContent='LINE 使用者 '+data.profile.displayName+'，請查看您的商家申請狀態。';
         return;
       }
+      if(!returnedFromLine) {
+        showLoginGate();
+        return;
+      }
+      clearLoginGate();
       for(const [key,label] of Object.entries(data.features)) {const wrap=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.dataset.feature=key;wrap.append(input,document.createTextNode(label));el('featureFields').append(wrap);}
       el('platformWorkspace').hidden=false;el('platformStatus').textContent=`總管理員 ${data.profile.displayName}，已登入。`;
-    } catch(error){el('platformStatus').textContent=error.message;}
+    } catch(error){
+      el('platformStatus').textContent=error.message;
+      if(['AUTH_INVALID','AUTH_REQUIRED'].includes(error.code))showLoginGate(
+        'LINE 身分驗證未通過，請點選「重新使用 LINE 登入」。若仍失敗，請檢查平台 LIFF Channel。');
+    }
   }
   void start();
 })();
