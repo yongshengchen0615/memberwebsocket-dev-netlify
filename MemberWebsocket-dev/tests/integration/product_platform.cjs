@@ -118,3 +118,84 @@ test('rollback removes the new platform only and preserves legacy admins/busines
   assert.equal((await h.db.query("select count(*)::int n from pg_namespace where nspname='platform_private'")).rows[0].n,0);
  }finally{await h.db.close();}
 });
+
+test('AC-010/011: applicant is isolated; root approves selected features; applicant cannot grant their own permissions',async()=>{
+ const h=await fixture();try{
+  const submitted=await h.call({action:'platform.application.submit',businessName:'新商家',slug:'merchant-self'},'manager');
+  assert.equal(submitted.status,200,JSON.stringify(submitted));
+  assert.equal(submitted.body.data.application.status,'pending');
+  assert.equal(submitted.body.data.tenant,null);
+  const pending=await h.call({action:'platform.application.bootstrap'},'manager');
+  assert.equal(pending.body.data.application.businessName,'新商家');
+  assert.equal((await h.db.query('select count(*)::int n from platform_private.tenants')).rows[0].n,0);
+  const rootListing=await h.call({action:'platform.bootstrap'});
+  assert.equal(rootListing.body.data.applications.length,1);
+  const app=rootListing.body.data.applications[0];
+  const features=Object.fromEntries(Object.keys((await shared('platform-policy.mjs')).FEATURES).map(x=>[x,x==='membership'||x==='booking']));
+  const request={action:'platform.application.approve',applicationId:app.id,features,requestId:crypto.randomUUID()};
+  assert.equal((await h.call(request,'manager')).status,403);
+  const approved=await h.call(request);
+  assert.equal(approved.status,200,JSON.stringify(approved));
+  assert.equal(approved.body.data.tenant.status,'pending_provisioning');
+  assert.equal(approved.body.data.tenant.credentialsConfigured,false);
+  assert.equal(approved.body.data.tenant.features.booking,true);
+  assert.equal(approved.body.data.tenant.features.testing,false);
+  assert.equal((await h.call(request)).status,200); // idempotent retry
+  assert.equal((await h.call({...request,requestId:crypto.randomUUID()})).status,409);
+  const mine=await h.call({action:'platform.application.bootstrap'},'manager');
+  assert.equal(mine.body.data.application.status,'approved');
+  assert.equal(mine.body.data.tenant.id,approved.body.data.tenant.id);
+  assert.equal(mine.body.data.tenant.features.testing,false);
+  assert.equal((await h.db.query('select count(*)::int n from platform_private.tenants')).rows[0].n,1);
+  assert.equal((await h.db.query("select count(*)::int n from platform_private.audit_events where action='APPLICATION_APPROVED'")).rows[0].n,1);
+ }finally{await h.db.close();}
+});
+test('AC-012: manager updates own LINE credentials only, secrets stay encrypted and feature grants unchanged',async()=>{
+ const h=await fixture();try{
+  await h.call({action:'platform.application.submit',businessName:'自助商家',slug:'self-line'},'manager');
+  const list=await h.call({action:'platform.bootstrap'});const app=list.body.data.applications[0];
+  const features=Object.fromEntries(Object.keys((await shared('platform-policy.mjs')).FEATURES).map(x=>[x,x==='membership']));
+  const approval=await h.call({action:'platform.application.approve',applicationId:app.id,features,requestId:crypto.randomUUID()});
+  assert.equal(approval.status,200);
+  const tenant=approval.body.data.tenant;
+  const line=h.tenant.line,credentials=h.tenant.credentials;
+  const save={action:'platform.line.save',expectedVersion:tenant.version,requestId:crypto.randomUUID(),line,credentials};
+  assert.equal((await h.call(save,'root')).status,403); // owner identity not equal to root
+  const result=await h.call(save,'manager');
+  assert.equal(result.status,200,JSON.stringify(result));assert.equal(result.body.data.tenant.credentialsConfigured,true);
+  assert.equal(result.body.data.tenant.features.booking,false);
+  assert.equal((await h.call(save,'manager')).status,200);
+  const savedId=tenant.id;
+  const cipher=(await h.db.query('select envelope from platform_private.tenant_secrets where tenant_id=$1',[savedId])).rows[0].envelope;
+  const {openCredentials}=await shared('platform-crypto.mjs');
+  assert.deepEqual(await openCredentials(savedId,cipher,key),credentials);
+  const noSecrets=JSON.stringify({result,mine:await h.call({action:'platform.application.bootstrap'},'manager'),audit:(await h.db.query('select detail from platform_private.audit_events')).rows});
+  assert.ok(!noSecrets.includes(credentials.channelSecret));
+  assert.ok(!noSecrets.includes(credentials.channelAccessToken));
+  assert.equal((await h.call({...save,requestId:crypto.randomUUID(),expectedVersion:tenant.version,credentials:{channelAccessToken:'',channelSecret:''}},'manager')).status,409);
+  const bad=await h.call({...save,requestId:crypto.randomUUID(),expectedVersion:2,features:Object.fromEntries(Object.keys(features).map(k=>[k,true]))},'manager');
+  assert.equal(bad.status,200); // extra grants are ignored by self-service action
+  assert.equal(bad.body.data.tenant.features.booking,false);
+  const featuresRow=(await h.db.query('select features,status from platform_private.tenants where id=$1',[savedId])).rows[0];
+  assert.deepEqual(featuresRow.features,features);assert.equal(featuresRow.status,'pending_provisioning');
+ }finally{await h.db.close();}
+});
+test('AC-013: suspended merchant, unauthenticated and SQL public roles cannot change tenant LINE metadata',async()=>{
+ const h=await fixture();try{
+  const unauth=await h.call({action:'platform.application.submit',businessName:'X',slug:'merchant-x'},'invalid');
+  assert.equal(unauth.status,401);
+  await h.call({action:'platform.application.submit',businessName:'商家',slug:'merchant-suspend'},'manager');
+  const app=(await h.call({action:'platform.bootstrap'})).body.data.applications[0];
+  const features=Object.fromEntries(Object.keys((await shared('platform-policy.mjs')).FEATURES).map(x=>[x,false]));
+  const approved=await h.call({action:'platform.application.approve',applicationId:app.id,features,requestId:crypto.randomUUID()});
+  const tenant=approved.body.data.tenant;
+  await h.call({action:'platform.tenant.suspend',tenantId:tenant.id,expectedVersion:1,requestId:crypto.randomUUID()});
+  assert.equal((await h.call({action:'platform.line.save',expectedVersion:2,requestId:crypto.randomUUID(),line:h.tenant.line,credentials:h.tenant.credentials},'manager')).status,403);
+  for(const role of ['anon','authenticated']){
+    await h.db.exec('set role '+role);
+    await assert.rejects(h.db.query('select * from platform_private.applications'),/permission denied/);
+    await assert.rejects(h.db.query('select public.platform_my_application($1)',[manager]),/permission denied/);
+    await h.db.exec('reset role');
+  }
+ }finally{await h.db.close();}
+});
