@@ -106,6 +106,7 @@ test('point transfer discards stale receiver reads, locks inputs, preserves retr
   try {
     w.eval(fs.readFileSync(path.join(root,'points/point-transfer.js'),'utf8'));
     w.dispatchEvent(new w.CustomEvent('user-tour:ready',{ detail:{ surface:'points',profile:{ memberCode:'SELF' } } }));
+    w.dispatchEvent(new w.CustomEvent('pointcard:active-changed',{ detail:{ cardId:'card',title:'Card',stamps:20,transferEligible:true } }));
     await tick();
     const el = id => w.document.getElementById(id);
     el('pointTransferButton').click();
@@ -163,5 +164,40 @@ test('reload with an uncertain transfer restores exactly the previous request id
     assert.deepEqual(JSON.parse(JSON.stringify(calls[0])),pending);
     assert.equal(w.sessionStorage.getItem('point-transfer-pending:v1:SELF'),null);
     assert.match(el('pointTransferMessage').textContent,/previous-transfer/);
+  }finally{w.close();}
+});
+
+test('reserved point budget is authoritative even when transfer options return raw 15 points',async()=>{
+  const dom = new JSDOM('<div id="pointsView"></div><div id="activeCardView" data-card-id="card"></div><div class="active-card-actions"><button id="pointTransferButton" disabled></button><button id="pointTransferShowOwnQr"></button></div>',{runScripts:'outside-only',url:'https://example.test/',pretendToBeVisual:true});
+  const w=dom.window;
+  let rawBalance=15, requests=0;
+  w.MemberSystem={getSession:()=>({config:{},idToken:'fixture'}),request:async(_,__,___,action)=>{
+    if(action==='points.transfer.options'){requests++;return {cards:[{cardId:'card',title:'Card',balance:rawBalance}]};}
+    throw new Error('A zero available balance must not trigger '+action);
+  }};
+  try{
+    w.eval(fs.readFileSync(path.join(root,'points/point-transfer.js'),'utf8'));
+    w.dispatchEvent(new w.CustomEvent('user-tour:ready',{detail:{surface:'points',profile:{memberCode:'SELF'}}}));
+    await tick();
+    assert.equal(w.document.getElementById('pointTransferButton').disabled,true,'No bootstrap data yet: fail closed');
+    w.dispatchEvent(new w.CustomEvent('pointcard:active-changed',{detail:{cardId:'card',title:'Card',stamps:0,totalStamps:15,reservedStamps:15,generalReservedStamps:15,transferEligible:true}}));
+    await tick();await tick();
+    assert.ok(requests>1,'Transfer options reload after card refresh');
+    assert.equal(w.document.getElementById('pointTransferButton').disabled,true,'Raw 15 includes 15 reserved and cannot enable transfer');
+    w.document.getElementById('pointTransferButton').click();
+    assert.equal(w.document.getElementById('pointTransferModal').classList.contains('hidden'),true);
+    w.dispatchEvent(new w.CustomEvent('pointcard:active-changed',{detail:{cardId:'card',title:'Card',stamps:15,totalStamps:15,reservedStamps:0,transferEligible:true}}));
+    await tick();await tick();
+    assert.equal(w.document.getElementById('pointTransferButton').disabled,false,'Re-enable after all reservations release');
+    w.document.getElementById('pointTransferButton').click();
+    assert.equal(w.document.getElementById('pointTransferAmount').max,'15');
+    w.dispatchEvent(new w.CustomEvent('pointcard:active-changed',{detail:{cardId:'card',title:'Card',stamps:0,totalStamps:15,reservedStamps:15,transferEligible:true}}));
+    assert.equal(w.document.getElementById('pointTransferAmount').max,'0');
+    assert.equal(w.document.getElementById('pointTransferSubmit').disabled,true,'Zero available points disable the modal submit');
+    assert.match(w.document.getElementById('pointTransferMessage').textContent,/可用點數為 0/);
+    w.document.getElementById('pointTransferClose').click();
+    w.dispatchEvent(new w.CustomEvent('pointcard:active-changed',{detail:{cardId:'card',title:'Card',stamps:15,totalStamps:15,reservedStamps:0,transferEligible:false}}));
+    await tick();await tick();
+    assert.equal(w.document.getElementById('pointTransferButton').disabled,true,'Unavailable cards cannot transfer');
   }finally{w.close();}
 });

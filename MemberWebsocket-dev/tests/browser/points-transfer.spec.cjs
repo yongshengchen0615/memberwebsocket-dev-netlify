@@ -121,6 +121,44 @@ test('zero available points keep transfer disabled after uncertain full-balance 
   await expect(page.locator('#pointTransferPendingButton')).toBeHidden();
 });
 
+test('15 reserved of 15 raw points keeps transfer disabled even after options API returns 15',async({page})=>{
+  await page.locator('#pointTransferClose').click();
+  const previous=await page.evaluate(()=>qaTransfer.calls.filter(call=>call.action==='points.transfer.options').length);
+  await page.evaluate(()=>{
+    qaTransfer.sender=15; // Backend options still reports the unreserved raw balance.
+    document.getElementById('progressCount').textContent='0';
+    document.getElementById('progressMessage').textContent='0 點可用 · 15 點已預約';
+    window.dispatchEvent(new CustomEvent('pointcard:active-changed',{detail:{
+      cardId:'QA-CARD',title:'QA card',stamps:0,totalStamps:15,
+      reservedStamps:15,generalReservedStamps:15,transferEligible:true
+    }}));
+  });
+  await page.waitForFunction(count=>qaTransfer.calls.filter(call=>call.action==='points.transfer.options').length>count,previous);
+  await page.waitForTimeout(80);
+  await expect(page.locator('#pointTransferButton')).toBeDisabled();
+  await expect(page.locator('#pointTransferButton')).toHaveAttribute('title','可用點數為 0，無法轉贈');
+  await page.locator('#pointTransferButton').evaluate(button=>button.click());
+  await expect(page.locator('#pointTransferModal')).toBeHidden();
+  await expect(page.locator('#pointTransferShowOwnQr')).toBeEnabled();
+  expect(await page.evaluate(()=>qaTransfer.calls.filter(call=>call.action==='points.transfer.create').length)).toBe(0);
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('pointcard:active-changed',{detail:{
+    cardId:'QA-CARD',title:'QA card',stamps:15,totalStamps:15,reservedStamps:0,transferEligible:true
+  }})));
+  await expect(page.locator('#pointTransferButton')).toBeEnabled();
+  await page.locator('#pointTransferButton').click();
+  await expect(page.locator('#pointTransferAmount')).toHaveAttribute('max','15');
+  await receiver(page);
+  await page.locator('#pointTransferAmount').fill('1');
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('pointcard:active-changed',{detail:{
+    cardId:'QA-CARD',title:'QA card',stamps:0,totalStamps:15,reservedStamps:15,transferEligible:true
+  }})));
+  await expect(page.locator('#pointTransferAmount')).toHaveAttribute('max','0');
+  await expect(page.locator('#pointTransferSubmit')).toBeDisabled();
+  await expect(page.locator('#pointTransferMessage')).toContainText('可用點數為 0');
+  await page.locator('#pointTransferSubmit').evaluate(button=>button.click());
+  expect(await page.evaluate(()=>qaTransfer.calls.filter(call=>call.action==='points.transfer.create').length)).toBe(0);
+});
+
 test('member access ending disables independent QR action and closes displayed QR',async({page})=>{
  await page.locator('#pointTransferClose').click();
  await page.locator('#pointTransferShowOwnQr').click();
