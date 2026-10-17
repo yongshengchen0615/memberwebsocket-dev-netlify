@@ -266,11 +266,20 @@
       } catch {throw new Error('總管理員 LIFF 初始化失敗，請確認 Endpoint URL 與網路。');}
       finally {clearTimeout(initTimer);}
       if(!window.liff.isLoggedIn()) {
-        if(window.liff.isInClient())throw new Error('LINE LIFF 尚未完成登入，請重新開啟此 LIFF。');
+        if(window.liff.isInClient()){
+          showLoginGate('LINE LIFF 尚未完成登入，請點選「重新使用 LINE 登入」進行驗證。');
+          return;
+        }
         el('platformStatus').textContent='正在前往 LINE 登入…';
-        // Let LIFF use its configured Endpoint. Merchant fresh-login URLs add
-        // their own callback parameters and must not control platform redirects.
-        window.liff.login();
+        // An external-browser login initiated from a truly signed-out state
+        // also counts as this visit's fresh LINE authentication.
+        try { window.sessionStorage.setItem(LOGIN_RETURN_KEY,String(Date.now())); }
+        catch { throw new Error('無法保存 LINE 登入回跳狀態，請允許此網站使用分頁儲存空間。'); }
+        try { window.liff.login(); }
+        catch {
+          window.sessionStorage.removeItem(LOGIN_RETURN_KEY);
+          showLoginGate('無法啟動 LINE 登入，請點選「重新使用 LINE 登入」重試。');
+        }
         return;
       }
       const returnedFromLine=consumeLoginReturn();
