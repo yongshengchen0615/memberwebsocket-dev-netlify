@@ -284,17 +284,42 @@
     if (window.isSecureContext === false || !navigator.geolocation?.getCurrentPosition) {
       throw new Error('此裝置不支援定位，請使用 HTTPS 及支援 GPS 定位的瀏覽器。');
     }
-    const point = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(position => {
-      const fix = { latitude: position.coords.latitude, longitude: position.coords.longitude,
-        accuracy: position.coords.accuracy, timestamp: position.timestamp };
-      if (!Object.values(fix).every(Number.isFinite) || Math.abs(fix.latitude) > 90 || Math.abs(fix.longitude) > 180 || fix.accuracy <= 0 || fix.accuracy > 100
-        || fix.timestamp < Date.now() - 120000 || fix.timestamp > Date.now() + 30000) {
-        reject(new Error('GPS 定位不夠精準或已失效（需在 100 公尺內），請重新定位。')); return;
+    const gpsMessage = error => error?.code === 1
+      ? '定位權限未開啟，請允許 GPS 後按「重新定位」。'
+      : error?.code === 3
+        ? 'GPS 定位逾時，請按「重新定位」重試。'
+        : '暫時無法取得 GPS 定位，請檢查裝置定位服務後按「重新定位」。';
+    const getPosition = enableHighAccuracy => new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        maximumAge: 0, timeout: 12000, enableHighAccuracy
+      });
+    });
+    let position;
+    try {
+      position = await getPosition(true);
+    } catch (error) {
+      if (error?.code !== 2) throw new Error(gpsMessage(error));
+      // iOS CoreLocation may temporarily report locationUnknown even with permission.
+      // Retry only once with an independent network-assisted fix; never trust its
+      // coordinates unless they pass the same freshness, accuracy and geofence rules.
+      try {
+        position = await getPosition(false);
+      } catch (fallbackError) {
+        throw new Error(gpsMessage(fallbackError));
       }
-      resolve(fix);
-    }, error => reject(new Error(error?.code === 1 ? '定位權限未開啟，請允許 GPS 後按「重新定位」。'
-      : error?.code === 3 ? 'GPS 定位逾時，請按「重新定位」重試。' : '暫時無法取得 GPS 定位，請按「重新定位」重試。')),
-    { maximumAge: 0, timeout: 12000, enableHighAccuracy: true }));
+    }
+    const point = {
+      latitude: Number(position?.coords?.latitude),
+      longitude: Number(position?.coords?.longitude),
+      accuracy: Number(position?.coords?.accuracy),
+      timestamp: Number(position?.timestamp)
+    };
+    if (!Object.values(point).every(Number.isFinite) ||
+        Math.abs(point.latitude) > 90 || Math.abs(point.longitude) > 180 ||
+        point.accuracy <= 0 || point.accuracy > 100 ||
+        point.timestamp < Date.now() - 120000 || point.timestamp > Date.now() + 30000) {
+      throw new Error('GPS 定位不夠精準或已失效（需在 100 公尺內），請重新定位。');
+    }
     const locations = Array.isArray(policy.snapshotLocations) ? policy.snapshotLocations : [];
     if (!locations.length) throw new Error('管理端尚未設定快照可使用地點，請聯絡管理員。');
     const allowed = locations.map(item => String(item.name || '').trim()).filter(Boolean).join('、');
