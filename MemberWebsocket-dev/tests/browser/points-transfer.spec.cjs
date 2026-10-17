@@ -152,8 +152,10 @@ test('15 reserved of 15 raw points keeps transfer disabled even after options AP
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('pointcard:active-changed',{detail:{
     cardId:'QA-CARD',title:'QA card',stamps:0,totalStamps:15,reservedStamps:15,transferEligible:true
   }})));
-  await page.locator('#pointTransferSubmit').click();
-  await expect(page.locator('#pointTransferMessage')).toContainText('不可超過目前可用點數');
+  await expect(page.locator('#pointTransferAmount')).toHaveAttribute('max','0');
+  await expect(page.locator('#pointTransferSubmit')).toBeDisabled();
+  await expect(page.locator('#pointTransferMessage')).toContainText('可用點數為 0');
+  await page.locator('#pointTransferSubmit').evaluate(button=>button.click());
   expect(await page.evaluate(()=>qaTransfer.calls.filter(call=>call.action==='points.transfer.create').length)).toBe(0);
 });
 
