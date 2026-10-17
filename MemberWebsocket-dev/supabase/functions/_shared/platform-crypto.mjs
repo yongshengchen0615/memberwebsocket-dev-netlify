@@ -1,5 +1,5 @@
 // AES-GCM is provided by Web Crypto; keys are held in Edge Function secrets.
-import { PlatformError } from './platform-policy.js';
+import { PlatformError } from './platform-policy.mjs';
 const encoder = new TextEncoder();
 const base64 = bytes => btoa(String.fromCharCode(...bytes));
 const bytes = value => Uint8Array.from(atob(value), c => c.charCodeAt(0));

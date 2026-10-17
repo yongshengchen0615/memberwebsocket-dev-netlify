@@ -7,7 +7,7 @@ test('AC-001/002/003/004: real migration + handler create tenant atomically; sec
   assert.equal(saved.body.data.tenant.version,1);assert.equal(saved.body.data.tenant.credentialsConfigured,true);
   const listing=await h.call({action:'platform.bootstrap'});assert.equal(listing.status,200);assert.equal(listing.body.data.tenants.length,1);
   const rows=(await h.db.query('select * from platform_private.tenant_secrets')).rows;
-  const {openCredentials}=await shared('platform-crypto.js');assert.deepEqual(await openCredentials(tenantId,rows[0].envelope,key),h.tenant.credentials);
+  const {openCredentials}=await shared('platform-crypto.mjs');assert.deepEqual(await openCredentials(tenantId,rows[0].envelope,key),h.tenant.credentials);
   const all=JSON.stringify({saved,listing,rows,audit:(await h.db.query('select * from platform_private.audit_events')).rows});
   assert.ok(!all.includes(h.tenant.credentials.channelAccessToken));assert.ok(!all.includes(h.tenant.credentials.channelSecret));
   assert.ok(!JSON.stringify(listing).includes('envelope'));assert.ok(!JSON.stringify(listing).includes('payload_hash'));
@@ -22,7 +22,7 @@ test('AC-005: uncertain retry returns original result once; changed request is r
   assert.equal((await h.call(update)).status,200);
   const stale=await h.call({...update,requestId:crypto.randomUUID(),tenant:{...update.tenant,name:'stale'}});assert.equal(stale.status,409);
   const row=(await h.db.query('select name,version from platform_private.tenants')).rows[0];assert.deepEqual(row,{name:'updated',version:2});
-  const cipher=(await h.db.query('select envelope from platform_private.tenant_secrets')).rows[0].envelope;const {openCredentials}=await shared('platform-crypto.js');assert.deepEqual(await openCredentials(tenantId,cipher,key),h.tenant.credentials);
+  const cipher=(await h.db.query('select envelope from platform_private.tenant_secrets')).rows[0].envelope;const {openCredentials}=await shared('platform-crypto.mjs');assert.deepEqual(await openCredentials(tenantId,cipher,key),h.tenant.credentials);
   const identity=await h.call({...update,expectedVersion:2,requestId:crypto.randomUUID(),tenant:{...update.tenant,ownerLineUserId:root}});assert.equal(identity.status,409);
  }finally{await h.db.close();}
 });

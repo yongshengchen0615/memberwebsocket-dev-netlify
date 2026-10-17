@@ -1,7 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.57.0';
 import { verifyLineIdTokenContract } from '../_shared/auth-contract.ts';
-import { PlatformError } from '../_shared/platform-policy.js';
-import { createPlatformHandler } from '../_shared/platform-handler.js';
+import { PlatformError } from '../_shared/platform-policy.mjs';
+import { createPlatformHandler } from '../_shared/platform-handler.mjs';
 
 const env = (name: string) => (Deno.env.get(name) || '').trim();
 const allowedOrigins = new Set([

@@ -1,5 +1,5 @@
-import { FEATURES, PlatformError, publicTenant, validateTenant } from './platform-policy.js';
-import { payloadHash, sealCredentials } from './platform-crypto.js';
+import { FEATURES, PlatformError, publicTenant, validateTenant } from './platform-policy.mjs';
+import { payloadHash, sealCredentials } from './platform-crypto.mjs';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SQL_ERRORS = {
   PLATFORM_ADMIN_REQUIRED:[403,'僅總管理員可管理商家。'], PLATFORM_CONFLICT:[409,'資料已更新，請重新載入後再試。'],

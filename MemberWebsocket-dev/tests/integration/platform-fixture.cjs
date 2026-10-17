@@ -24,8 +24,8 @@ async function fixture(adminCount=1) {
    return {data:name==='platform_list_tenants'?rows.map(r=>r.result):rows[0]?.result,error:null};
   }catch(error){return {data:null,error};}
  };
- const {createPlatformHandler}=await shared('platform-handler.js');
- const {PlatformError}=await shared('platform-policy.js');
+ const {createPlatformHandler}=await shared('platform-handler.mjs');
+ const {PlatformError}=await shared('platform-policy.mjs');
  const allowedOrigins=new Set(['https://allowed.test']);
  const handler=createPlatformHandler({db:{rpc},encryptionKey:()=>key,allowedOrigins,verifyIdentity:async token=>{
    if(token==='root')return {lineUserId:root,displayName:'總管理員'};
@@ -33,7 +33,7 @@ async function fixture(adminCount=1) {
    throw new PlatformError(401,'AUTH_INVALID','登入已失效。');
  }});
  const call=async(body,token='root')=>{const res=await handler(new Request('https://backend.test',{method:'POST',headers:{Origin:'https://allowed.test'},body:JSON.stringify({...body,idToken:token})}));return {status:res.status,body:await res.json()};};
- const {FEATURES}=await shared('platform-policy.js');
+ const {FEATURES}=await shared('platform-policy.mjs');
  const tenant={name:'商家 A',slug:'merchant-a',ownerLineUserId:manager,features:Object.fromEntries(Object.keys(FEATURES).map(k=>[k,true])),line:{adminChannelId:'2010791619',memberChannelId:'2010787602',messagingChannelId:'2010123456',adminLiffId:'2010791619-admin',memberLiffId:'2010787602-member',pointsLiffId:'2010787602-points',eventLiffId:'2010787602-event',calendarLiffId:'2010787602-calendar',bookingLiffId:'2010787602-booking'},credentials:{channelAccessToken:'synthetic-access-token-123456789',channelSecret:'a'.repeat(32)}};
  const save={action:'platform.tenant.save',tenantId,expectedVersion:0,requestId:crypto.randomUUID(),tenant};
  return {db,rpc,call,save,tenant,handler,allowedOrigins};
