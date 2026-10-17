@@ -329,11 +329,13 @@
     const option = state.options.get(cardId);
     const balance = transferableBalance(cardId);
     const amount = document.getElementById('pointTransferAmount');
+    const previousMax = amount?.max || '';
     if (amount) amount.max = state.pending ? '' : String(balance);
     const submit = document.getElementById('pointTransferSubmit');
     if (submit) submit.disabled = state.busy || (!state.pending && balance <= 0);
     const modal = document.getElementById('pointTransferModal');
-    if (modal && !modal.classList.contains('hidden') && !state.pending && balance <= 0) {
+    if (modal && !modal.classList.contains('hidden') && !state.pending &&
+        balance <= 0 && Number(previousMax) > 0) {
       setMessage('可用點數為 0，無法轉贈。請等待預約保留點數釋放。', true);
     }
     const summary = document.getElementById('pointTransferCardSummary');
@@ -373,6 +375,10 @@
       setMessage('前次交易結果尚未確認。再次確認將沿用同一交易識別，不會另建立轉贈。', true);
     }
     lockFields();
+    // A closed modal may previously have had no selected card. Revalidate
+    // the now-selected card before displaying the confirmation action.
+    const submit = document.getElementById('pointTransferSubmit');
+    if (submit) submit.disabled = state.busy || (!state.pending && transferableBalance(cardId) <= 0);
     modal.classList.remove('hidden');
     document.body.classList.add('point-transfer-modal-open');
     window.setTimeout(() => document.getElementById('pointTransferMemberCode')?.focus(), 0);
