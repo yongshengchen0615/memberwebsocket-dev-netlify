@@ -27,36 +27,55 @@ async function setup(page,token='root',{loseFirstSave=false,platformLiffId='2012
   const input=method==='POST'?route.request().postDataJSON():null;
   const headers=new Headers(route.request().headers());headers.set('Origin',base);
   const response=await h.handler(new Request(route.request().url(),{method,headers,...(method==='POST'?{body:JSON.stringify(input)}:{})}));
-  if(loseFirstSave&&!lost&&input?.action==='platform.tenant.save'){lost=true;return route.abort('failed');}
+  if(loseFirstSave&&!lost&&input?.action==='platform.tenant.features.save'){lost=true;return route.abort('failed');}
   await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
  });
  await page.goto(base+'/platform/');return {...h,errors};
 }
-async function fillNew(page,tenant) {
- await page.getByRole('button',{name:'新增商家管理員'}).click();
- for(const key of ['name','slug','ownerLineUserId'])await page.locator(`#tenantForm [name="${key}"]`).fill(tenant[key]);
- for(const [key,value] of Object.entries(tenant.line))await page.locator(`#tenantForm [name="${key}"]`).fill(value);
- for(const [key,value] of Object.entries(tenant.credentials))await page.locator(`#tenantForm [name="${key}"]`).fill(value);
- for(const key of ['membership','points','booking'])await page.locator(`[data-feature="${key}"]`).check();
-}
-test('PLATFORM_CREATE_EDIT — root saves merchant, eight grants and encrypted LINE credentials through real handler + SQL',async({page},info)=>{
+test('PLATFORM_APPLICANT_ROOT_GRANTS — review applicant, grant features only, preserve merchant LINE ownership',async({page},info)=>{
  const h=await setup(page);try{
-  await expect(page.locator('#platformWorkspace')).toBeVisible();expect(await page.evaluate(()=>window.initializedLiffId)).toBe('2012065297-VunxFBj8');expect(h.providerCalls.every(call=>call.channel==='2012065297')).toBe(true);await fillNew(page,h.tenant);
-  await expect(page.locator('#tenantForm [name="channelAccessToken"]')).toHaveAttribute('type','password');await expect(page.locator('[data-feature]')).toHaveCount(8);
-  await page.getByRole('button',{name:'儲存商家設定',exact:true}).click();await expect(page.locator('#tenantDialog')).toBeHidden();await expect(page.locator('.tenant-card')).toHaveCount(1);await expect(page.locator('.tenant-card')).toContainText('待佈建');
-  let row=(await h.db.query('select * from platform_private.tenants')).rows[0];expect(row.features.booking).toBe(true);expect(row.features.testing).toBe(false);
-  const before=(await h.db.query('select envelope from platform_private.tenant_secrets')).rows[0].envelope;
-  await page.getByRole('button',{name:'編輯設定'}).click();await expect(page.locator('#tenantForm [name="channelAccessToken"]')).toHaveValue('');await expect(page.locator('#tenantForm [name="channelSecret"]')).toHaveValue('');
-  await page.locator('#tenantForm [data-feature="booking"]').uncheck();await page.locator('#tenantForm [name="name"]').fill('商家 A 更新');await page.getByRole('button',{name:'儲存商家設定',exact:true}).click();await expect(page.locator('#tenantDialog')).toBeHidden();await expect(page.locator('.tenant-card')).toContainText('商家 A 更新');
-  row=(await h.db.query('select * from platform_private.tenants')).rows[0];expect(row.version).toBe(2);expect(row.features.booking).toBe(false);expect((await h.db.query('select envelope from platform_private.tenant_secrets')).rows[0].envelope).toEqual(before);
-  await page.getByRole('button',{name:'停用商家'}).click();await expect(page.locator('.tenant-card')).toContainText('已停用');expect((await h.db.query('select status from platform_private.tenants')).rows[0].status).toBe('suspended');expect(h.errors).toEqual([]);
-  await info.attach('platform-control',{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
+  await expect(page.locator('#platformWorkspace')).toBeVisible();
+  await expect(page.getByRole('button',{name:'新增商家管理員'})).toBeHidden();
+  const submitted=await h.call({action:'platform.application.submit',businessName:'申請商家 A',slug:'merchant-a'},'manager');
+  expect(submitted.status).toBe(200);
+  await page.reload();
+  await expect(page.locator('#applicationList .tenant-card')).toContainText('LINE 使用者 U');
+  await page.getByRole('button',{name:'審核與選擇功能'}).click();
+  await page.locator('[data-approve-feature="membership"]').check();
+  await page.locator('[data-approve-feature="booking"]').check();
+  await page.getByRole('button',{name:'審核通過'}).click();
+  await expect(page.locator('#tenantList .tenant-card')).toContainText('申請商家 A');
+  const before=(await h.db.query('select * from platform_private.tenants')).rows[0];
+  expect(before.credentials_configured).toBe(false);
+  await page.getByRole('button',{name:'調整開放功能'}).click();
+  await expect(page.locator('#grantFeatures [data-grant-feature]')).toHaveCount(8);
+  await page.locator('[data-grant-feature="booking"]').uncheck();
+  await page.getByRole('button',{name:'儲存功能授權'}).click();
+  await expect(page.locator('#grantDialog')).toBeHidden();
+  const after=(await h.db.query('select * from platform_private.tenants')).rows[0];
+  expect(after.features.membership).toBe(true);expect(after.features.booking).toBe(false);
+  expect(after.line_config).toEqual(before.line_config);
+  expect(after.credentials_configured).toBe(false);
+  expect(after.status).toBe('pending_provisioning');expect(after.version).toBe(2);
+  expect(h.errors).toEqual([]);
+  await info.attach('platform-root-grants',{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
  }finally{await h.db.close();}
 });
-test('PLATFORM_RETRY — response lost after commit retries the same request without duplicate merchant or audit',async({page})=>{
+test('PLATFORM_RETRY — lost root grant response reuses request id without double updates',async({page})=>{
  const h=await setup(page,'root',{loseFirstSave:true});try{
-  await expect(page.locator('#platformWorkspace')).toBeVisible();await fillNew(page,h.tenant);await page.getByRole('button',{name:'儲存商家設定',exact:true}).click();await expect(page.getByRole('button',{name:'重試相同儲存操作'})).toBeEnabled();await expect(page.locator('[name="name"]')).toBeDisabled();
-  await page.getByRole('button',{name:'重試相同儲存操作'}).click();await expect(page.locator('#tenantDialog')).toBeHidden();expect((await h.db.query('select count(*)::int n from platform_private.tenants')).rows[0].n).toBe(1);expect((await h.db.query('select count(*)::int n from platform_private.audit_events')).rows[0].n).toBe(1);expect(h.errors).toEqual([]);
+  await h.call({action:'platform.application.submit',businessName:'重試商家',slug:'retry-shop'},'manager');
+  const app=(await h.call({action:'platform.bootstrap'})).body.data.applications[0];
+  expect((await h.call({action:'platform.application.approve',applicationId:app.id,features:h.tenant.features,requestId:crypto.randomUUID()})).status).toBe(200);
+  await page.reload();
+  await page.getByRole('button',{name:'調整開放功能'}).click();
+  await page.locator('[data-grant-feature="booking"]').uncheck();
+  await page.getByRole('button',{name:'儲存功能授權'}).click();
+  await expect(page.locator('#grantMessage')).toContainText('尚未確認');
+  await page.getByRole('button',{name:'儲存功能授權'}).click();
+  await expect(page.locator('#grantDialog')).toBeHidden();
+  expect((await h.db.query("select count(*)::int n from platform_private.audit_events where action='TENANT_FEATURES_UPDATED'")).rows[0].n).toBe(1);
+  expect((await h.db.query('select version from platform_private.tenants')).rows[0].version).toBe(2);
+  expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
 test('PLATFORM_APPLY — ordinary admin sees application form but never root controls',async({page})=>{
@@ -84,10 +103,23 @@ test('PLATFORM_MANAGER_SETUP — approved admin can configure own LINE but canno
   await expect(page.locator('#platformWorkspace')).toBeHidden();
   await expect(page.locator('#merchantFeatures')).toContainText('會員卡');
   await expect(page.locator('#merchantFeatures')).not.toContainText('預約');
-  for(const [k,v] of Object.entries(h.tenant.line))await page.locator('#merchantLineForm [name="'+k+'"]').fill(v);
-  for(const [k,v] of Object.entries(h.tenant.credentials))await page.locator('#merchantLineForm [name="'+k+'"]').fill(v);
-  await page.getByRole('button',{name:'儲存我的 LINE 設定'}).click();
+  await expect(page.locator('#merchantFeatureNav [data-line-feature]')).toHaveCount(2);
+  await expect(page.locator('#merchantFeatureNav [data-line-feature="booking"]')).toHaveCount(0);
+  for(const k of ['adminChannelId','memberChannelId','messagingChannelId','adminLiffId'])
+    await page.locator('#merchantLineForm [name="'+k+'"]').fill(h.tenant.line[k]);
+  for(const [k,v] of Object.entries(h.tenant.credentials))
+    await page.locator('#merchantLineForm [name="'+k+'"]').fill(v);
+  await page.getByRole('button',{name:'儲存此頁 LINE 設定'}).click();
   await expect(page.locator('#merchantMessage')).toContainText('已安全儲存');
+  let partial=(await h.db.query("select line_config from platform_private.tenants where slug='self-service-b'")).rows[0];
+  expect(partial.line_config.memberLiffId).toBe('');
+  await page.locator('#merchantFeatureNav [data-line-feature="membership"]').click();
+  await expect(page.locator('[data-merchant-panel="membership"]')).toBeVisible();
+  await page.locator('#merchantLineForm [name="memberLiffId"]').fill(h.tenant.line.memberLiffId);
+  await page.getByRole('button',{name:'儲存此頁 LINE 設定'}).click();
+  await expect(page.locator('#merchantMessage')).toContainText('已安全儲存');
+  await page.reload();
+  await expect(page.locator('#merchantFeatureNav [data-line-feature="booking"]')).toHaveCount(0);
   const tenant=(await h.db.query('select features,credentials_configured,status from platform_private.tenants where slug=$1',['self-service-b'])).rows[0];
   expect(tenant.features.booking).toBe(false);
   expect(tenant.credentials_configured).toBe(true);
@@ -134,13 +166,19 @@ test('PLATFORM_EXTERNAL_RETURN — valid external LINE session loads the root wo
   expect(h.providerCalls.length).toBeGreaterThan(0);expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
-test('PLATFORM_MOBILE — merchant form fits narrow screen and renders merchant names as text',async({page},info)=>{
+test('PLATFORM_MOBILE — applicant identity and approved grant panel stay safe on narrow screens',async({page},info)=>{
  await page.setViewportSize({width:390,height:844});const h=await setup(page);try{
-  await expect(page.locator('#platformWorkspace')).toBeVisible();await fillNew(page,{...h.tenant,name:'<img src=x onerror=alert(1)>'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await info.attach('platform-mobile-form',{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
-  await page.getByRole('button',{name:'儲存商家設定',exact:true}).click();await expect(page.locator('#tenantDialog')).toBeHidden();await expect(page.locator('.tenant-card h3')).toHaveText('<img src=x onerror=alert(1)>');expect(await page.locator('.tenant-card img').count()).toBe(0);expect(h.errors).toEqual([]);
+  const name='<img src=x onerror=alert(1)>';
+  await h.call({action:'platform.application.submit',businessName:name,slug:'safe-mobile'},'manager');
+  await page.reload();
+  await expect(page.locator('#applicationList .tenant-card h3')).toHaveText(name);
+  expect(await page.locator('#applicationList .tenant-card img').count()).toBe(0);
+  await page.getByRole('button',{name:'審核與選擇功能'}).click();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await info.attach('platform-mobile-grants',{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
+  expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
-
 test('PLATFORM_ROOT_REAUTH — every fresh root visit requires LINE re-login, return is one-use, BFCache is blocked',async({page})=>{
  const h=await setup(page,'root',{rootLoginReturn:false,inClient:true});try{
   await expect(page.locator('#platformLoginGate')).toBeVisible();
