@@ -10,12 +10,18 @@
   <link rel="stylesheet" href="./platform.css?v=20261017-1">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
   <script src="../member-system.js" defer></script>
-  <script src="./app.js?v=20261018-onboarding-1" defer></script>
+  <script src="./app.js?v=20261018-root-reauth-1" defer></script>
 </head>
 <body>
   <main class="shell">
     <header class="topbar"><div><p class="eyebrow">PLATFORM / CONTROL CENTER</p><h1>商家與管理員</h1><p>使用 LINE 登入；總管理員可審核申請與授權，商家管理員可設定自己的 LINE。</p></div></header>
-    <p id="platformStatus" role="status" aria-live="polite">正在確認總管理員身分…</p>
+    <p id="platformStatus" role="status" aria-live="polite">正在確認 LINE 身分…</p>
+    <section id="platformLoginGate" class="login-gate" hidden aria-labelledby="platformLoginTitle">
+      <h2 id="platformLoginTitle">總管理員 LINE 身分確認</h2>
+      <p>為保護商家與管理員權限，每次進入本控制台都需要重新啟動 LINE 身分驗證。</p>
+      <button id="platformLoginButton" type="button">重新使用 LINE 登入</button>
+      <p class="hint">在 LINE 內建瀏覽器，系統會重新初始化 LINE 登入；一般瀏覽器將開啟 LINE 登入流程。</p>
+    </section>
     <section id="platformWorkspace" hidden>
       <div class="workspace-heading"><div><h2>獨立商家</h2><p>各商家使用獨立會員與業務資料，功能由總管理員逐項設定。</p></div><button id="newTenant" type="button">新增商家管理員</button></div>
       <p class="notice">新商家儲存後為「待佈建」。完成獨立資料環境與登入驗證後，才能啟用會員、票券與預約等功能。</p>
