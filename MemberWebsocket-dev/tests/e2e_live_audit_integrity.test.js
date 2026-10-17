@@ -18,7 +18,10 @@ test('full server QA runs never pass when any case was skipped or omitted', () =
 test('points transfer QA asserts current own-QR UI, not deleted copy button', () => {
   const testRunner = read('user-test-control.js');
   const transfer = read('points/point-transfer.js');
-  assert.match(transfer, /id="pointTransferShowOwnQr"/);
+  const pointsPage = read('points/index.html');
+  assert.match(pointsPage, /<div class="active-card-actions">[\s\S]*id="pointTransferShowOwnQr"/);
+  assert.doesNotMatch(transfer, /<button id="pointTransferShowOwnQr"/);
+  assert.match(transfer, /qrButton\.addEventListener\('click'/);
   assert.doesNotMatch(transfer, /id="pointTransferCopyOwnCode"/);
   assert.match(testRunner, /ownQrControl: Boolean\(ownQr\)/);
   assert.match(testRunner, /deprecatedCopyRemoved: !removedCopy/);
