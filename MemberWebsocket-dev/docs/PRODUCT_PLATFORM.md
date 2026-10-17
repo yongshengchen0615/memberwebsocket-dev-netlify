@@ -80,9 +80,11 @@ npm test --prefix MemberWebsocket-dev/tests/browser -- product-platform.spec.cjs
 
 控制台路徑：`/admin/platform/`。總管理員從 `https://liff.line.me/2012065297-VunxFBj8` 開啟，使用專屬官方帳號所連結的 LINE Login Channel。公開設定 `platformLiffId` 僅供此控制台使用，缺少或前綴錯誤會停止登入，不退回商家 `adminLiffId`。
 
-產品化分支使用固定預覽網址 `https://platform--memberwebsocket-dev-netlify.netlify.app/admin/platform/`。`publish-platform-preview.yml` 僅從此分支發布 `platform` alias，且同一提交的完整測試、建置與票券政策檢查成功後才發布；不使用 `--prod`，既有正式站維持 develop 版本。分支尚未合併前，LIFF Endpoint 應設為此預覽網址，不能使用正式站尚未部署的路徑。
+目前發布分支為 `Integrated-Marketing-Platform`，固定網址為 `https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app/admin/platform/`。`publish-platform-preview.yml` 在同一提交的完整測試、建置與票券政策檢查成功後發布相應分支 alias；根目錄導向總管理員頁。舊 `feature/productization-super-admin` 分支保留 `platform` alias。流程不使用 `--prod`，既有正式站維持 develop 版本。
 
-LINE Developers 需設定此 LIFF 的 Endpoint 為目標環境的 `/admin/platform/` 完整 HTTPS URL，Scopes 至少包含 `openid`、`profile`，並確認 Login Channel 已連結總管理員官方帳號。此分支沒有修改 LINE Developers，也尚未部署，因此不要將 LIFF 指向尚無此頁面的正式站。商家自己的管理端 LIFF 設定保存於商家資料中。
+平台使用獨立的 LIFF 初始化與登入流程，外部瀏覽器未登入時呼叫無參數的 `liff.login()`，由 SDK 使用已設定的 Endpoint URL；不套用商家管理端的強制重新登入與 `member_system_reauth` 回跳參數。每次請求仍由後端驗證專屬 Channel 與總管理員資格。
+
+LINE Developers 需設定此 LIFF 的 Endpoint 為目前發布分支上方的完整 HTTPS URL，Scopes 至少包含 `openid`、`profile`，並確認 Login Channel 已連結總管理員官方帳號。不得將 LIFF 指向尚未發布此功能的正式站。商家自己的管理端 LIFF 設定保存於商家資料中。
 
 若總管理員的新 Channel 屬於不同 Provider，先從該 Channel 的 Basic settings → Your user ID 取得擁有者的 UID，透過專案擁有者權限確認後綁定 `platform_private.super_admins.line_user_id`，不可使用使用者自行提交的 UID。保留 `admin_id` 指向原擁有者，以維持撤銷機制。範例只供擁有者在已驗證的隔離環境執行，請替換所有占位值：
 

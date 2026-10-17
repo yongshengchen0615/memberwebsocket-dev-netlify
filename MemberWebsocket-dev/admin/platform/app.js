@@ -97,8 +97,23 @@
       state.config=await response.json();
       const platformLiffId=String(state.config.platformLiffId || '').trim();
       if(!/^2012065297-[A-Za-z0-9]+$/.test(platformLiffId))throw new Error('尚未正確設定總管理員專用 LIFF ID。');
-      // Reuse the admin login flow without changing the merchant's public config.
-      state.idToken=await window.MemberSystem.signIn({...state.config,adminLiffId:platformLiffId},'admin');
+      window.MemberSystem.validateConfig({...state.config,adminLiffId:platformLiffId},'admin');
+      if(!window.liff)throw new Error('LIFF SDK 載入失敗，請確認網路後重試。');
+      let initTimer;
+      try {
+        await Promise.race([window.liff.init({liffId:platformLiffId}),new Promise((_,reject)=>{initTimer=setTimeout(()=>reject(new Error('LINE 初始化逾時，請重新開啟此頁面。')),8000);})]);
+      } catch {throw new Error('總管理員 LIFF 初始化失敗，請確認 Endpoint URL 與網路。');}
+      finally {clearTimeout(initTimer);}
+      if(!window.liff.isLoggedIn()) {
+        if(window.liff.isInClient())throw new Error('LINE LIFF 尚未完成登入，請重新開啟此 LIFF。');
+        el('platformStatus').textContent='正在前往 LINE 登入…';
+        // Let LIFF use its configured Endpoint. Merchant fresh-login URLs add
+        // their own callback parameters and must not control platform redirects.
+        window.liff.login();
+        return;
+      }
+      state.idToken=window.liff.getIDToken() || '';
+      if(!state.idToken)throw new Error('無法取得總管理員 LINE ID token，請確認 LIFF 已啟用 openid scope。');
       const data=await refresh();
       for(const [key,label] of Object.entries(data.features)) {const wrap=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.dataset.feature=key;wrap.append(input,document.createTextNode(label));el('featureFields').append(wrap);}
       el('platformWorkspace').hidden=false;el('platformStatus').textContent=`總管理員 ${data.profile.displayName}，已登入。`;

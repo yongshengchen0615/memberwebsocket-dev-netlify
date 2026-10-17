@@ -8,6 +8,7 @@ const allowedOrigins = new Set([
   'https://memberwebsocket-dev-netlify.netlify.app',
   'https://develop--memberwebsocket-dev-netlify.netlify.app',
   'https://platform--memberwebsocket-dev-netlify.netlify.app',
+  'https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app',
   ...env('ALLOWED_ORIGINS').split(',').map(x => x.trim()).filter(Boolean),
 ]);
 const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), {auth:{persistSession:false,autoRefreshToken:false}});

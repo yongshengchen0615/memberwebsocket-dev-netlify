@@ -10,6 +10,7 @@ on:
     branches:
       - 'feat/member-ticket-policy-admin-ui-20261014'
       - 'main'
+      - 'Integrated-Marketing-Platform'
     paths:
       - 'MemberWebsocket-dev/admin/**'
       - 'MemberWebsocket-dev/tests/**'
