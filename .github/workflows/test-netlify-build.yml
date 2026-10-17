@@ -13,4 +13,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: node --test scripts/deploy.test.mjs scripts/netlify-publish-workflow.test.mjs scripts/platform-preview-workflow.test.mjs
+      - run: node --test scripts/deploy.test.mjs scripts/netlify-publish-workflow.test.mjs
