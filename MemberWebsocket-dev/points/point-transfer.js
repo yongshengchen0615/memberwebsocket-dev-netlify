@@ -43,6 +43,7 @@
       if (value) window.sessionStorage.setItem(pendingKey(), JSON.stringify(value));
       else window.sessionStorage.removeItem(pendingKey());
     } catch (_) { /* In-memory idempotency still covers this tab. */ }
+    updateOpenButton();
   }
   function restorePending() {
     state.pending = null;
@@ -279,9 +280,20 @@
     if (!button) return;
     const cardId = currentCardId();
     const option = state.options.get(cardId);
-    const balance = Number(option?.balance || 0);
-    button.disabled = !state.pending && (!state.loaded || !cardId || !option || balance <= 0);
-    button.title = button.disabled && state.loaded ? '這張集點卡目前沒有可轉贈點數' : '';
+    const balance = Number(option?.balance ?? 0);
+    const hasPoints = Boolean(state.memberCode && session() && state.loaded && cardId && option && Number.isFinite(balance) && balance > 0);
+    // A previous uncertain transaction is recovered through its own action.
+    // Never make the regular transfer button clickable with zero available points.
+    button.disabled = !hasPoints || Boolean(state.pending);
+    button.title = state.pending
+      ? '請先確認前次轉贈交易'
+      : !state.loaded ? '正在確認可轉贈點數'
+        : !option || !Number.isFinite(balance) || balance <= 0 ? '可用點數為 0，無法轉贈' : '';
+    const pendingButton = document.getElementById('pointTransferPendingButton');
+    if (pendingButton) {
+      pendingButton.hidden = !state.pending || !state.memberCode || !session();
+      pendingButton.disabled = state.busy;
+    }
   }
 
   function updateModalBalance() {
@@ -478,6 +490,7 @@
     savePending({ cardId, memberCode, amount, requestId: state.requestId });
 
     state.busy = true;
+    updateOpenButton();
     const submit = document.getElementById('pointTransferSubmit');
     const close = document.getElementById('pointTransferClose');
     submit.disabled = true;
@@ -495,6 +508,10 @@
         { cardId, memberCode, amount, requestId: state.requestId }
       );
       setMessage(`轉贈完成。交易編號 ${result.transferId}，目前剩餘 ${result.senderBalance} 點。`);
+      const latestBalance = Number(result.senderBalance);
+      if (option && Number.isFinite(latestBalance) && latestBalance >= 0) {
+        state.options.set(cardId, { ...option, balance: latestBalance });
+      }
       savePending(null);
       state.requestId = '';
       state.fingerprint = '';
@@ -517,6 +534,7 @@
       );
     } finally {
       state.busy = false;
+      updateOpenButton();
       submit.disabled = false;
       close.disabled = false;
       fields.forEach((field) => { if (field) field.disabled = false; });
@@ -530,6 +548,11 @@
     if (openButton && !openButton.dataset.bound) {
       openButton.dataset.bound = 'true';
       openButton.addEventListener('click', openModal);
+    }
+    const pendingButton = document.getElementById('pointTransferPendingButton');
+    if (pendingButton && !pendingButton.dataset.bound) {
+      pendingButton.dataset.bound = 'true';
+      pendingButton.addEventListener('click', openModal);
     }
     const qrButton = document.getElementById('pointTransferShowOwnQr');
     if (qrButton && !qrButton.dataset.bound) {
@@ -550,6 +573,7 @@
     state.receiver = null;
     if (event.detail?.code === 'MEMBER_REMOVED') savePending(null);
     state.memberCode = '';
+    updateOpenButton();
     window.QRDisplayDialog?.close();
     updateOwnMemberCode();
     document.getElementById('pointTransferModal')?.classList.add('hidden');
