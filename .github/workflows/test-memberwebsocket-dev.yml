@@ -183,7 +183,7 @@ jobs:
       - name: Check browser JavaScript syntax
         run: |
           printf '%s\n' \
-            MemberWebsocket-dev/platform/app.js \
+            MemberWebsocket-dev/admin/platform/app.js \
             MemberWebsocket-dev/friends.js \
             MemberWebsocket-dev/friend-qr-scanner.js \
             MemberWebsocket-dev/vendor/friend-qr-decoder.js \

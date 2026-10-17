@@ -62,7 +62,7 @@ test('deployment versions are valid and change for each new deployment', () => {
 test('all nine published entrypoints contain a static, CSP-compatible build badge', () => {
   const pages = [
     'index.html', 'admin/index.html', 'member/index.html', 'points/index.html',
-    'event/index.html', 'calendar/index.html', 'booking/index.html', 'booking/admin/index.html', 'platform/index.html',
+    'event/index.html', 'calendar/index.html', 'booking/index.html', 'booking/admin/index.html', 'admin/platform/index.html',
   ];
   const versions = new Set();
   for (const page of pages) {

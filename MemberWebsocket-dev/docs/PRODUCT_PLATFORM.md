@@ -75,7 +75,7 @@ npm ci --ignore-scripts --prefix MemberWebsocket-dev/tests/browser
 npm test --prefix MemberWebsocket-dev/tests/browser -- product-platform.spec.cjs
 ```
 
-控制台路徑：`/platform/`。沿用目前平台管理端的 LIFF 登入；商家自己的管理端 LIFF 設定保存於商家資料中。
+控制台路徑：`/admin/platform/`。此路徑位於目前管理端 `/admin/` Endpoint 的子目錄，沿用其 LIFF 登入（仍需核對 LINE Developers 的實際 Endpoint）；商家自己的管理端 LIFF 設定保存於商家資料中。
 正式部署前，先在隔離的 Supabase 環境驗證這份新遷移及 `platform-api`，不能直接對現有會員資料執行破壞性測試。
 新 Edge Function 沿用原系統的自訂 LINE 驗證方式，需要關閉 Supabase gateway JWT 驗證並由 handler 驗證 LINE token。
 設定精確的 ALLOWED_ORIGINS；不使用萬用來源。

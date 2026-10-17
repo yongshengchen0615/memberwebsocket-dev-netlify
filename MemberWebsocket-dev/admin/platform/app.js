@@ -92,7 +92,9 @@
   el('newTenant').addEventListener('click',()=>fill());
   async function start() {
     try {
-      state.config=await window.MemberSystem.loadConfig();
+      const response=await fetch('../../config.json',{cache:'no-cache',signal:AbortSignal.timeout(15000)});
+      if(!response.ok)throw new Error('無法讀取平台公開設定。');
+      state.config=await response.json();
       state.idToken=await window.MemberSystem.signIn(state.config,'admin');
       const data=await refresh();
       for(const [key,label] of Object.entries(data.features)) {const wrap=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.dataset.feature=key;wrap.append(input,document.createTextNode(label));el('featureFields').append(wrap);}
