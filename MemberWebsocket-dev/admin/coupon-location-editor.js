@@ -378,7 +378,8 @@
 
     function trySingleGpsFix(generation) {
       // Some desktop browsers cannot supply an ongoing position watch but can
-      // return a genuine one-shot fix. Never synthesize coordinates.
+      // return a genuine one-shot fix. Try a different accuracy mode on
+      // CoreLocation-unavailable; never synthesize coordinates.
       const previousTracker = gpsTracker;
       gpsTracker = null;
       gpsFallbackPending = true;
@@ -410,7 +411,7 @@
             : error?.code === 3 ? '瀏覽器 GPS 定位逾時。'
             : '瀏覽器無法判定目前位置。';
           setStatus(gpsAlternativeHelp(reason), true);
-        }, { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 });
+        }, { enableHighAccuracy: false, maximumAge: 0, timeout: 12000 });
       } catch (_) {
         if (generation !== gpsGeneration) return;
         stopGPS();
