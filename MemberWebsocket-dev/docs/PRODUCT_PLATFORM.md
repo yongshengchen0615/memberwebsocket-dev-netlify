@@ -122,3 +122,22 @@ returning admin_id, line_user_id, enabled;
 3. 所有 Edge Function 以伺服器解析的商家上下文取得資料與 LINE 設定；租戶參數不能自行提升權限。
 4. 八項功能逐一接入 API 權限與前端入口；稽核、測試、清除資料也必須受商家隔離。
 5. 跑 AC-007／008、全專案測試與隔離環境升級／回復驗證後，才新增啟用商家的控制台操作。
+
+## 第二階段：管理員主動申請與 LINE 自助設定（2026-10-18）
+
+- 管理員從 `/admin/` 的「申請商家管理員／查看審核進度」連結，進入平台專用 LINE LIFF `/platform/`。此 LIFF 由固定的 `2012065297` Login Channel 驗證，與舊管理端 LINE Channel 分開。
+- 平台根據每次 LINE ID token 驗證結果分流：具有效總管理員權限者可看申請列表、勾選八項功能核准；一般申請人只能提交商家名稱與代碼、查看自己的申請進度。
+- 申請待審核時**不建立商家**；批准後在同一交易建立 `pending_provisioning` 商家，預設空 LINE 設定、憑證未配置，並寫入申請狀態、審核者與稽核事件。批准採 request ID 冪等操作。
+- 核准商家的擁有人可設定**自己的** LINE Login Channels、LIFF IDs、Messaging access token 和 channel secret。Token 與 secret 用現有 AES-GCM 加密流程保存，不在 API 回應、日誌或 UI 回填。
+- 管理員不能設定任何自身功能勾選值、角色、商家狀態、租戶 ID 或核准資料；身分由後端重新驗證並以資料庫 `applicant_line_user_id` 和商家 `owner_line_user_id` 綁定。總管理員可日後透過既有「編輯設定」調整核准功能。
+- LINE Provider 之間的使用者 ID 可能不同。本階段平台申請人 UID 用於管理控制平面；後續商家端 LINE UID 的對應仍須在獨立資料環境驗證與佈建階段明確確認，不能假設不同 Provider 下的 UID 相同。
+- **重要限制：審核通過不自動解鎖既有 `/admin/` 的業務資料。** 原有 API 與多個 `SECURITY DEFINER` 函式尚未完整租戶化，因此保持安全阻斷；完成租戶級資料、RPC、Storage、通知和 Realtime 隔離後才可啟用。
+
+| 驗收 | Given／When／Then | 測試 |
+| --- | --- | --- |
+| AC-010 | 申請人以平台 LINE 驗證進入／提交名稱代碼／系統顯示 pending 且未建立商家 | `integration/product_platform.cjs`、`browser/product-platform.spec.cjs` |
+| AC-011 | 總管理員看到待審核申請／核准八項權限／建立 pending_provisioning 且兩次重試不重複 | 同上 |
+| AC-012 | 經核准管理員設定自己的 LINE／伺服器加密保存／無法修改功能、角色和隔離狀態 | 同上 |
+| AC-013 | 未登入、非擁有人、停權商家、匿名資料庫角色嘗試存取／皆拒絕 | `integration/product_platform.cjs` |
+
+資料遷移：`20261018002000_platform_admin_applications.sql`。資料保留原則：拒絕申請可重新提交；已核准申請留存以保留身份與稽核關係。完整測試證據以 GitHub Actions 執行結果為準，尚未驗證的層級不得計為通過。
