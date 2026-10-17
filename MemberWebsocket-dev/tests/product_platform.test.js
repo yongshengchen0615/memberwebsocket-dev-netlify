@@ -77,3 +77,10 @@ test('AC-001: transport denies untrusted origin, missing/malformed auth and over
   assert.equal((await handler(new Request('https://backend.test',{method:'OPTIONS',headers:{Origin:'https://allowed.test'}}))).status,204);
   assert.deepEqual(calls,[]);
 });
+
+test('AC-010: legacy admin entry provides accessible route to applicant onboarding',()=>{
+ const fs=require('node:fs'); const html=fs.readFileSync(path.join(__dirname,'../admin/index.html'),'utf8');
+ assert.match(html,/id="errorView"[\s\S]*?href="\.\.\/platform\/"/);
+ assert.match(html,/id="loadingView"[\s\S]*?href="\.\.\/platform\/"/);
+ assert.ok((html.match(/href="\.\.\/platform\/"/g)||[]).length>=3);
+});
