@@ -6,20 +6,20 @@
   <meta name="robots" content="noindex,nofollow">
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' https://static.line-scdn.net; style-src 'self'; connect-src 'self' https://*.supabase.co https://api.line.me https://access.line.me https://liff.line.me https://*.line-scdn.net; img-src 'self' data:; frame-src https://access.line.me https://liff-subwindow.line.me; form-action 'self' https://access.line.me https://liff-subwindow.line.me">
-  <title>總管理員｜商家管理</title>
+  <title>管理員申請與商家管理</title>
   <link rel="stylesheet" href="./platform.css?v=20261017-1">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
   <script src="../member-system.js" defer></script>
-  <script src="./app.js?v=20261017-3" defer></script>
+  <script src="./app.js?v=20261018-onboarding-1" defer></script>
 </head>
 <body>
   <main class="shell">
-    <header class="topbar"><div><p class="eyebrow">PLATFORM / CONTROL CENTER</p><h1>商家與管理員</h1><p>使用總管理員官方帳號登入，集中管理每家商家的功能與 LINE 設定。</p></div></header>
+    <header class="topbar"><div><p class="eyebrow">PLATFORM / CONTROL CENTER</p><h1>商家與管理員</h1><p>使用 LINE 登入；總管理員可審核申請與授權，商家管理員可設定自己的 LINE。</p></div></header>
     <p id="platformStatus" role="status" aria-live="polite">正在確認總管理員身分…</p>
     <section id="platformWorkspace" hidden>
       <div class="workspace-heading"><div><h2>獨立商家</h2><p>各商家使用獨立會員與業務資料，功能由總管理員逐項設定。</p></div><button id="newTenant" type="button">新增商家管理員</button></div>
       <p class="notice">新商家儲存後為「待佈建」。完成獨立資料環境與登入驗證後，才能啟用會員、票券與預約等功能。</p>
-      <div id="tenantList" class="tenant-list"></div>
+      <div id="tenantList" class="tenant-list"></div><h2>待審核管理員</h2><p>核准時逐項勾選功能；未核准的申請不得取得商家權限。</p><div id="applicationList" class="tenant-list"></div>
     </section>
     <dialog id="tenantDialog" aria-labelledby="tenantDialogTitle">
       <form id="tenantForm">
@@ -51,6 +51,58 @@
         <div class="form-actions"><button id="saveTenant" type="submit">儲存商家設定</button></div>
       </form>
     </dialog>
+
+    <dialog id="approvalDialog" aria-labelledby="approvalTitle">
+      <form id="approvalForm">
+        <h2 id="approvalTitle">審核管理員申請</h2><p id="approvalDescription"></p>
+        <fieldset><legend>核准功能</legend><div id="approvalFeatures" class="features"></div></fieldset>
+        <p class="notice">核准只開放 LINE 設定權；商家業務功能需完成獨立資料環境驗證後才能啟用。</p>
+        <p id="approvalMessage" role="status" aria-live="polite"></p>
+        <div class="form-actions"><button type="button" class="secondary" id="closeApproval">取消</button><button type="submit" id="confirmApproval">審核通過</button></div>
+      </form>
+    </dialog>
+    <section id="applicationWorkspace" hidden>
+      <h2>申請商家管理員</h2>
+      <p>使用 LINE 身分送出申請，由總管理員審核可使用的功能。</p>
+      <form id="applicationForm">
+        <div class="grid">
+          <label>商家名稱<input name="businessName" maxlength="100" required autocomplete="organization"></label>
+          <label>商家代碼<input name="slug" minlength="3" maxlength="40" pattern="[a-z][a-z0-9]*(-[a-z0-9]+)*" required><small>3–40 位小寫英數及連字號，送出後不可修改。</small></label>
+        </div><p id="applicationMessage" role="status" aria-live="polite"></p>
+        <button id="submitApplication" type="submit">提交審核申請</button>
+      </form>
+      <div id="applicationProgress" class="tenant-card" hidden></div>
+    </section>
+    <section id="merchantWorkspace" hidden>
+      <h2>我的商家 LINE 設定</h2>
+      <p id="merchantInfo"></p>
+      <p class="notice">只能設定自己商家的 LINE 資訊；核准的功能由總管理員控制。獨立資料環境驗證前，不能進入業務管理工作台。</p>
+      <div id="merchantFeatures" class="tenant-features"></div>
+      <form id="merchantLineForm">
+        <fieldset><legend>LINE Channel</legend><div class="grid">
+          <label>管理端 Login Channel ID<input name="adminChannelId" pattern="[0-9]{5,30}" required></label>
+          <label>會員端 Login Channel ID<input name="memberChannelId" pattern="[0-9]{5,30}" required></label>
+          <label>Messaging API Channel ID<input name="messagingChannelId" pattern="[0-9]{5,30}" required></label>
+        </div></fieldset>
+        <fieldset><legend>LIFF ID</legend><div class="grid">
+          <label>管理端 LIFF ID<input name="adminLiffId" maxlength="100" required></label>
+          <label>會員卡 LIFF ID<input name="memberLiffId" maxlength="100"></label>
+          <label>集點卡 LIFF ID<input name="pointsLiffId" maxlength="100"></label>
+          <label>活動票券 LIFF ID<input name="eventLiffId" maxlength="100"></label>
+          <label>營運日曆 LIFF ID<input name="calendarLiffId" maxlength="100"></label>
+          <label>預約 LIFF ID<input name="bookingLiffId" maxlength="100"></label>
+        </div></fieldset>
+        <fieldset><legend>LINE Messaging API 伺服器憑證</legend>
+          <p>憑證只在伺服器加密保存，儲存後不會再顯示。更新時兩欄必須一起填寫。</p>
+          <div class="grid">
+            <label class="wide">Channel access token<input name="channelAccessToken" type="password" autocomplete="new-password" maxlength="4000" spellcheck="false"></label>
+            <label class="wide">Channel secret<input name="channelSecret" type="password" autocomplete="new-password" maxlength="32" pattern="[a-fA-F0-9]{32}" spellcheck="false"></label>
+          </div>
+        </fieldset>
+        <p id="merchantMessage" role="status" aria-live="polite"></p>
+        <button type="submit" id="saveMerchantLine">儲存我的 LINE 設定</button>
+      </form>
+    </section>
   </main>
 </body>
 </html>
