@@ -22,7 +22,7 @@
     state.pending=null;
     state.approval=null;
     state.merchantPending=null;
-    for(const id of ['tenantDialog','approvalDialog']) {
+    for(const id of ['tenantDialog','approvalDialog','grantDialog']) {
       const dialog=el(id);
       if(dialog?.open)dialog.close();
     }
@@ -112,7 +112,7 @@
       const featureList=document.createElement('div');featureList.className='tenant-features';
       for (const [key,label] of Object.entries(state.features)) if (tenant.features[key]) {const tag=document.createElement('span');tag.textContent=label;featureList.append(tag);}
       if (!featureList.childNodes.length) featureList.textContent='尚未開放任何功能';
-      const footer=document.createElement('footer');const edit=document.createElement('button');edit.type='button';edit.textContent='編輯設定';edit.addEventListener('click',()=>fill(tenant));footer.append(edit);
+      const footer=document.createElement('footer');const edit=document.createElement('button');edit.type='button';edit.textContent='調整開放功能';edit.addEventListener('click',()=>openGrantDialog(tenant));footer.append(edit);
       if (tenant.status!=='suspended') {const suspend=document.createElement('button');suspend.type='button';suspend.className='secondary';suspend.textContent='停用商家';suspend.addEventListener('click',async()=>{
         if (!window.confirm(`停用「${tenant.name}」？`)) return;
         suspend.disabled=true;
@@ -145,6 +145,41 @@
   form.addEventListener('change',featureRequirements);
   el('newTenant').addEventListener('click',()=>fill());
 
+  // Root feature-only editor: no merchant LINE fields or secrets are read.
+  const grantDialog=el('grantDialog'),grantForm=el('grantForm');
+  let grantPending=null,grantTenant=null;
+  function openGrantDialog(tenant) {
+    grantTenant=tenant;grantPending=null;
+    el('grantDescription').textContent=tenant.name+' · '+tenant.slug;
+    const list=el('grantFeatures');list.replaceChildren();
+    for(const [key,label] of Object.entries(state.features)) {
+      const wrap=document.createElement('label'),input=document.createElement('input');
+      input.type='checkbox';input.dataset.grantFeature=key;input.checked=tenant.features?.[key]===true;
+      wrap.append(input,document.createTextNode(label));list.append(wrap);
+    }
+    el('grantMessage').textContent='';el('saveGrant').disabled=false;
+    grantDialog.showModal();
+  }
+  grantForm.addEventListener('change',()=>{grantPending=null;});
+  grantForm.addEventListener('submit',async event=>{
+    event.preventDefault();if(!grantTenant)return;
+    if(!grantPending)grantPending={
+      tenantId:grantTenant.id,expectedVersion:grantTenant.version,requestId:crypto.randomUUID(),
+      features:Object.fromEntries([...grantForm.querySelectorAll('[data-grant-feature]')].map(node=>[node.dataset.grantFeature,node.checked]))
+    };
+    el('saveGrant').disabled=true;el('grantMessage').textContent='正在儲存授權…';
+    try{
+      const result=await request('platform.tenant.features.save',grantPending);
+      state.tenants=state.tenants.map(x=>x.id===result.tenant.id?result.tenant:x);
+      grantDialog.close();grantPending=null;grantTenant=null;render();
+      el('platformStatus').textContent='功能授權已更新。商家 LINE 設定仍由管理員自行維護。';
+    }catch(error){
+      el('grantMessage').textContent=error.message;
+      if(!error.uncertain)grantPending=null;
+    }finally{el('saveGrant').disabled=false;}
+  });
+  el('closeGrant').addEventListener('click',()=>{if(!el('saveGrant').disabled){grantPending=null;grantTenant=null;grantDialog.close();}});
+  grantDialog.addEventListener('cancel',event=>{if(el('saveGrant').disabled)event.preventDefault();else{grantPending=null;grantTenant=null;}});
   // Applications are independent from the legacy admin membership table.
   const approvalDialog=el('approvalDialog'),approvalForm=el('approvalForm');
   function renderApplications() {
@@ -154,7 +189,7 @@
     for(const application of pending) {
       const card=document.createElement('article');card.className='tenant-card';
       const title=document.createElement('h3');title.textContent=application.businessName;
-      const info=document.createElement('p');info.textContent=application.slug+' · 申請時間 '+new Date(application.requestedAt).toLocaleString('zh-TW');
+      const info=document.createElement('p');info.textContent=application.slug+' · LINE 使用者 '+(application.applicantLineUserId||'資料待確認')+' · 申請時間 '+new Date(application.requestedAt).toLocaleString('zh-TW');
       const approve=document.createElement('button');approve.type='button';approve.textContent='審核與選擇功能';
       approve.addEventListener('click',()=>{
         state.approval={applicationId:application.id,requestId:crypto.randomUUID(),features:null};
