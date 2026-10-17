@@ -102,7 +102,7 @@ jobs:
         env:
           COMMIT_REF: ${{ github.sha }}
         run: |
-          node --test scripts/deploy.test.mjs scripts/netlify-publish-workflow.test.mjs
+          node --test scripts/deploy.test.mjs scripts/netlify-publish-workflow.test.mjs scripts/platform-preview-workflow.test.mjs
           node scripts/build-site.mjs
           test -f dist/platform/index.html
           test ! -e dist/admin/platform/index.html
