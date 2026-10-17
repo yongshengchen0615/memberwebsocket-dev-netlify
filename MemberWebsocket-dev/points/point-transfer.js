@@ -43,6 +43,7 @@
       if (value) window.sessionStorage.setItem(pendingKey(), JSON.stringify(value));
       else window.sessionStorage.removeItem(pendingKey());
     } catch (_) { /* In-memory idempotency still covers this tab. */ }
+    updateOpenButton();
   }
   function restorePending() {
     state.pending = null;
@@ -279,9 +280,34 @@
     if (!button) return;
     const cardId = currentCardId();
     const option = state.options.get(cardId);
-    const balance = Number(option?.balance || 0);
-    button.disabled = !state.pending && (!state.loaded || !cardId || !option || balance <= 0);
-    button.title = button.disabled && state.loaded ? '這張集點卡目前沒有可轉贈點數' : '';
+    const balance = Number(option?.balance ?? 0);
+    const hasPoints = Boolean(state.memberCode && session() && state.loaded && cardId && option && Number.isFinite(balance) && balance > 0);
+    // A previous uncertain transaction is recovered through its own action.
+    // Never make the regular transfer button clickable with zero available points.
+    button.disabled = !hasPoints || Boolean(state.pending);
+    button.title = state.pending
+      ? '請先確認前次轉贈交易'
+      : !state.loaded ? '正在確認可轉贈點數'
+        : !option || !Number.isFinite(balance) || balance <= 0 ? '可用點數為 0，無法轉贈' : '';
+    let pendingButton = document.getElementById('pointTransferPendingButton');
+    // Keep the normal toolbar's two-button layout unchanged except while
+    // recovering an already-authorized, uncertain transaction.
+    if (state.pending && state.memberCode && session() && !pendingButton) {
+      const actions = button.parentElement;
+      if (actions?.classList.contains('active-card-actions')) {
+        pendingButton = document.createElement('button');
+        pendingButton.id = 'pointTransferPendingButton';
+        pendingButton.type = 'button';
+        pendingButton.className = 'point-transfer-open-button';
+        pendingButton.textContent = '確認前次轉贈';
+        pendingButton.addEventListener('click', openModal);
+        actions.insertBefore(pendingButton, document.getElementById('pointTransferShowOwnQr') || null);
+      }
+    }
+    if (pendingButton) {
+      if (!state.pending || !state.memberCode || !session()) pendingButton.remove();
+      else pendingButton.disabled = state.busy;
+    }
   }
 
   function updateModalBalance() {
@@ -478,6 +504,7 @@
     savePending({ cardId, memberCode, amount, requestId: state.requestId });
 
     state.busy = true;
+    updateOpenButton();
     const submit = document.getElementById('pointTransferSubmit');
     const close = document.getElementById('pointTransferClose');
     submit.disabled = true;
@@ -495,6 +522,10 @@
         { cardId, memberCode, amount, requestId: state.requestId }
       );
       setMessage(`轉贈完成。交易編號 ${result.transferId}，目前剩餘 ${result.senderBalance} 點。`);
+      const latestBalance = Number(result.senderBalance);
+      if (option && Number.isFinite(latestBalance) && latestBalance >= 0) {
+        state.options.set(cardId, { ...option, balance: latestBalance });
+      }
       savePending(null);
       state.requestId = '';
       state.fingerprint = '';
@@ -517,6 +548,7 @@
       );
     } finally {
       state.busy = false;
+      updateOpenButton();
       submit.disabled = false;
       close.disabled = false;
       fields.forEach((field) => { if (field) field.disabled = false; });
@@ -550,6 +582,7 @@
     state.receiver = null;
     if (event.detail?.code === 'MEMBER_REMOVED') savePending(null);
     state.memberCode = '';
+    updateOpenButton();
     window.QRDisplayDialog?.close();
     updateOwnMemberCode();
     document.getElementById('pointTransferModal')?.classList.add('hidden');

@@ -56,7 +56,7 @@ test('QR image only looks up recipient until explicit transfer; foreign QR canno
 test('manual transfer double submit and uncertain replay after reopening conserve balances',async({page})=>{
  await page.locator('#pointTransferAmount').fill('2');await receiver(page);await page.evaluate(()=>qaTransfer.uncertain=true);await page.locator('#pointTransferSubmit').evaluate(button=>{button.click();button.click();});await expect(page.locator('#pointTransferMessage')).toContainText('結果尚未確認');await expect(page.locator('#pointTransferMemberCode')).toBeDisabled();
  const first=await page.evaluate(()=>qaTransfer.calls.find(c=>c.action==='points.transfer.create').payload);expect(await page.evaluate(()=>[qaTransfer.sender,qaTransfer.receiver])).toEqual([3,2]);
- await page.locator('#pointTransferClose').click();await page.locator('#pointTransferButton').click();await expect(page.locator('#pointTransferMemberCode')).toHaveValue('BBBB');await page.locator('#pointTransferSubmit').click();await expect(page.locator('#pointTransferMessage')).toContainText('轉贈完成');
+ await page.locator('#pointTransferClose').click();await expect(page.locator('#pointTransferButton')).toBeDisabled();await expect(page.locator('#pointTransferPendingButton')).toBeEnabled();await page.locator('#pointTransferPendingButton').click();await expect(page.locator('#pointTransferMemberCode')).toHaveValue('BBBB');await page.locator('#pointTransferSubmit').click();await expect(page.locator('#pointTransferMessage')).toContainText('轉贈完成');
  expect(await page.evaluate(()=>qaTransfer.calls.filter(c=>c.action==='points.transfer.create').map(c=>c.payload.requestId))).toEqual([first.requestId,first.requestId]);expect(await page.evaluate(()=>[qaTransfer.sender,qaTransfer.receiver])).toEqual([3,2]);
 });
 test('friend load failure and self recipient preserve balances and allow manual recovery',async({page})=>{
@@ -75,7 +75,7 @@ test('production recipient runner does not debit and rejects a failed friend fet
 test('own QR button remains accessible next to transfer without transferable points',async({page})=>{
  await page.locator('#pointTransferClose').click();
  const actions=page.locator('.active-card-actions');
- await expect(actions.locator('button')).toHaveCount(2);
+ await expect(actions.locator('button:visible')).toHaveCount(2);
  await expect(actions.locator('#pointTransferShowOwnQr')).toBeEnabled();
  await page.setViewportSize({width:320,height:740});
  const transferBox=await page.locator('#pointTransferButton').boundingBox();
@@ -93,6 +93,34 @@ test('own QR button remains accessible next to transfer without transferable poi
  await page.locator('.qr-scan-dialog-heading .qr-scan-dialog-close').click();
  await expect(page.locator('#pointTransferShowOwnQr')).toBeFocused();
 });
+test('zero available points keep transfer disabled after uncertain full-balance transfer, with separate safe recovery',async({page})=>{
+  await page.evaluate(()=>qaTransfer.uncertain=true);
+  await page.locator('#pointTransferAmount').fill('5');
+  await receiver(page);
+  await page.locator('#pointTransferSubmit').click();
+  await expect(page.locator('#pointTransferMessage')).toContainText('結果尚未確認');
+  expect(await page.evaluate(()=>[qaTransfer.sender,qaTransfer.receiver])).toEqual([0,5]);
+  await page.locator('#pointTransferClose').click();
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('pointcard:active-changed',{detail:{cardId:'QA-CARD',title:'QA card',stamps:0}})));
+  await expect(page.locator('#pointTransferButton')).toBeDisabled();
+  await expect(page.locator('#pointTransferButton')).toHaveAttribute('title','請先確認前次轉贈交易');
+  await expect(page.locator('#pointTransferShowOwnQr')).toBeEnabled();
+  await expect(page.locator('#pointTransferPendingButton')).toBeEnabled();
+  await page.locator('#pointTransferButton').evaluate(button=>button.click());
+  await expect(page.locator('#pointTransferModal')).toBeHidden();
+  await page.locator('#pointTransferPendingButton').click();
+  await expect(page.locator('#pointTransferMemberCode')).toHaveValue('BBBB');
+  await expect(page.locator('#pointTransferAmount')).toHaveValue('5');
+  await page.locator('#pointTransferSubmit').click();
+  await expect(page.locator('#pointTransferMessage')).toContainText('轉贈完成');
+  const requestIds=await page.evaluate(()=>qaTransfer.calls.filter(call=>call.action==='points.transfer.create').map(call=>call.payload.requestId));
+  expect(requestIds).toHaveLength(2);
+  expect(requestIds[0]).toBe(requestIds[1]);
+  expect(await page.evaluate(()=>[qaTransfer.sender,qaTransfer.receiver])).toEqual([0,5]);
+  await expect(page.locator('#pointTransferButton')).toBeDisabled();
+  await expect(page.locator('#pointTransferPendingButton')).toBeHidden();
+});
+
 test('member access ending disables independent QR action and closes displayed QR',async({page})=>{
  await page.locator('#pointTransferClose').click();
  await page.locator('#pointTransferShowOwnQr').click();

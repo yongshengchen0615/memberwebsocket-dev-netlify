@@ -135,7 +135,7 @@ test('point transfer discards stale receiver reads, locks inputs, preserves retr
 });
 
 test('reload with an uncertain transfer restores exactly the previous request identity even after balance reaches zero',async()=>{
-  const dom=new JSDOM('<div id="pointsView"></div><div id="activeCardView" data-card-id="card"></div><button id="pointTransferButton"></button>',{runScripts:'outside-only',url:'https://example.test/',pretendToBeVisual:true});
+  const dom=new JSDOM('<div id="pointsView"></div><div id="activeCardView" data-card-id="card"></div><div class="active-card-actions"><button id="pointTransferButton"></button><button id="pointTransferShowOwnQr"></button></div>',{runScripts:'outside-only',url:'https://example.test/',pretendToBeVisual:true});
   const w=dom.window, calls=[];
   const pending={cardId:'card',memberCode:'RECEIVER',amount:3,requestId:'pt-original-unique-123'};
   w.sessionStorage.setItem('point-transfer-pending:v1:SELF',JSON.stringify(pending));
@@ -150,8 +150,9 @@ test('reload with an uncertain transfer restores exactly the previous request id
     w.dispatchEvent(new w.CustomEvent('user-tour:ready',{detail:{surface:'points',profile:{memberCode:'SELF'}}}));
     await tick();
     const el=id=>w.document.getElementById(id);
-    assert.equal(el('pointTransferButton').disabled,false);
-    el('pointTransferButton').click();
+    assert.equal(el('pointTransferButton').disabled,true,'Zero balance cannot open a new transfer');
+    assert.equal(el('pointTransferPendingButton').disabled,false,'Prior transaction stays recoverable');
+    el('pointTransferPendingButton').click();
     assert.equal(el('pointTransferMemberCode').value,'RECEIVER');
     assert.equal(el('pointTransferAmount').value,'3');
     assert.equal(el('pointTransferAmount').max,'');
