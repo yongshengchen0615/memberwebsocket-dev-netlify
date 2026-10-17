@@ -190,6 +190,43 @@
   approvalDialog.addEventListener('cancel',e=>{if(el('confirmApproval').disabled)e.preventDefault();else state.approval=null;});
 
   const applicationForm=el('applicationForm'),merchantForm=el('merchantLineForm');
+  const featureLiffNames={membership:'memberLiffId',points:'pointsLiffId',events:'eventLiffId',calendar:'calendarLiffId',booking:'bookingLiffId'};
+  let merchantPanel='shared';
+  function selectMerchantPanel(feature) {
+    const tenant=state.merchant;
+    // A stale bookmark or a forged query string never exposes an unapproved feature.
+    merchantPanel=feature==='shared'||tenant?.features?.[feature]===true?feature:'shared';
+    for(const panel of merchantForm.querySelectorAll('[data-merchant-panel]'))
+      panel.hidden=panel.dataset.merchantPanel!==merchantPanel;
+    for(const button of el('merchantFeatureNav').querySelectorAll('[data-line-feature]'))
+      button.setAttribute('aria-current',button.dataset.lineFeature===merchantPanel?'page':'false');
+    for(const name of ['adminChannelId','memberChannelId','messagingChannelId','adminLiffId'])
+      merchantForm.elements.namedItem(name).required=merchantPanel==='shared';
+    for(const [featureKey,name] of Object.entries(featureLiffNames))
+      merchantForm.elements.namedItem(name).required=merchantPanel===featureKey;
+    for(const name of ['channelAccessToken','channelSecret'])
+      merchantForm.elements.namedItem(name).required=merchantPanel==='shared'&&!tenant?.credentialsConfigured;
+    el('saveMerchantLine').disabled=['integrations','testing','usage'].includes(merchantPanel);
+    el('merchantMessage').textContent='';
+    try {
+      const url=new URL(window.location.href);
+      if(merchantPanel==='shared')url.searchParams.delete('feature');
+      else url.searchParams.set('feature',merchantPanel);
+      window.history.replaceState(window.history.state,'',url.href);
+    } catch {}
+  }
+  function renderMerchantNav(tenant) {
+    const nav=el('merchantFeatureNav');nav.replaceChildren();
+    for(const [feature,label] of [['shared','共用 LINE 設定'],...Object.entries(state.features)]) {
+      if(feature!=='shared'&&tenant.features?.[feature]!==true)continue;
+      const button=document.createElement('button');
+      button.type='button';button.dataset.lineFeature=feature;button.textContent=label;
+      button.addEventListener('click',()=>selectMerchantPanel(feature));
+      nav.append(button);
+    }
+    const requested=new URLSearchParams(window.location.search).get('feature');
+    selectMerchantPanel(requested||merchantPanel);
+  }
   function renderMine(data){
     state.merchant=data.tenant||null;state.features=data.features||state.features;
     const application=data.application;
@@ -212,12 +249,13 @@
       const field=merchantForm.elements.namedItem(key);
       field.value=tenant.line?.[key]||'';
       const name={memberLiffId:'membership',pointsLiffId:'points',eventLiffId:'events',calendarLiffId:'calendar',bookingLiffId:'booking'}[key];
-      if(name)field.required=tenant.features[name]===true;
+      if(name)field.required=false;
     }
     for(const key of ['channelAccessToken','channelSecret']){
       const field=merchantForm.elements.namedItem(key);field.value='';field.required=!tenant.credentialsConfigured;
     }
     el('merchantMessage').textContent='';state.merchantPending=null;
+    renderMerchantNav(tenant);
   }
   applicationForm.addEventListener('submit',async event=>{
     event.preventDefault();if(!applicationForm.reportValidity())return;
