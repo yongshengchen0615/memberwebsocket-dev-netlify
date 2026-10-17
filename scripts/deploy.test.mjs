@@ -65,11 +65,15 @@ test('all eight published entrypoints contain a static, CSP-compatible build bad
     'event/index.html', 'calendar/index.html', 'booking/index.html', 'booking/admin/index.html',
   ];
   const versions = new Set();
+  const expectedCommit = /^[a-f\d]{7,40}$/i.test(process.env.COMMIT_REF || '')
+    ? process.env.COMMIT_REF.slice(0, 7).toLowerCase()
+    : 'local';
   for (const page of pages) {
     const html = fs.readFileSync(path.join(output, page), 'utf8');
     const match = html.match(/<small id="site-build-version" class="site-build-version" role="note" aria-label="網站部署版本 (v\d{6}\.\d{6}-[a-z0-9]{6})" data-commit="(local|[a-f\d]{7})">([^<]+)<\/small>/);
     assert.ok(match, `${page}: missing build-time badge`);
     assert.equal(match[1], match[3], `${page}: visible version must match label`);
+    assert.equal(match[2], expectedCommit, `${page}: build badge must identify the exact commit`);
     assert.ok(html.indexOf(match[0]) > html.indexOf('</head>'), `${page}: badge must be in body`);
     assert.equal(html.match(/id="site-build-version"/g)?.length, 1, `${page}: must render exactly once`);
     assert.doesNotMatch(html, /<script[^>]+version-badge\.js/, `${page}: must not rely on runtime JavaScript`);
