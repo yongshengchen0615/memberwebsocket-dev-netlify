@@ -141,3 +141,14 @@ returning admin_id, line_user_id, enabled;
 | AC-013 | 未登入、非擁有人、停權商家、匿名資料庫角色嘗試存取／皆拒絕 | `integration/product_platform.cjs` |
 
 資料遷移：`20261017164510_platform_admin_applications.sql`。資料保留原則：拒絕申請可重新提交；已核准申請留存以保留身份與稽核關係。完整測試證據以 GitHub Actions 執行結果為準，尚未驗證的層級不得計為通過。
+
+## 總管理員每次重新進入的 LINE 驗證（AC-014／AC-015）
+
+- 總管理員初始 `platform.bootstrap` 會由 LINE ID token 與資料庫確認身份，但**即使此時有舊的有效 LIFF 登入，也不顯示總管理員工作台**；必須使用「重新使用 LINE 登入」。
+- 使用者點擊後呼叫 `liff.logout()` 丟棄先前 SDK 登入：LINE 內建 LIFF 重新載入、在 `liff.init()` 自動啟動 LINE 登入；外部瀏覽器呼叫 `liff.login()`。
+- 使用 `sessionStorage` 限時 3 分鐘、單次消耗的回跳標記，防止重新登入返回時無限要求登入。**該標記僅用於 UX 流程，不作為身分或權限憑證**；後端仍每次向 LINE 驗證 ID token 並檢查總管理員 DB 身分與權限。
+- LINE ID token 無效（包含舊 Channel 或過期）時，不再只顯示錯誤，會顯示重新登入按鈕。若新憑證仍無效，保持拒絕並提示檢查 LIFF 是否屬於固定平台 Channel `2012065297`，不會自動循環跳轉。
+- 瀏覽器從 BFCache 返回已顯示的總管理員頁時，再次隱藏工作台要求驗證。LINE SDK 可能自動使用既有 LINE 使用者會話，因此**不承諾 LINE 每次顯示密碼或授權畫面**。
+- AC-014：Given 舊有效 root token，When 每次新開頁面，Then 控制台隱藏，重新 LINE 登入後才顯示；重開頁面需再登入，BFCache 也需再登入。
+- AC-015：Given 過期／錯誤 Channel token，When API 拒絕或重試回來仍不合法，Then 顯示重新登入入口、無法操作 root、沒有無限回跳。
+- 測試：`tests/browser/product-platform.spec.cjs` 的 `PLATFORM_ROOT_REAUTH`、`PLATFORM_ROOT_EXTERNAL_REAUTH`、`PLATFORM_BAD_TOKEN_RECOVERY`，以及既有 `PLATFORM_CHANNEL_DENIED`。真實 LINE SDK 身分交握與登入畫面仍須實際 LINE 測試帳號驗證。
