@@ -4,7 +4,7 @@
   const form = el('tenantForm'), dialog = el('tenantDialog');
   const fields = form.elements;
   const lineKeys = ['adminChannelId','memberChannelId','messagingChannelId','adminLiffId','memberLiffId','pointsLiffId','eventLiffId','calendarLiffId','bookingLiffId'];
-  const state = {config:null,idToken:'',features:{},tenants:[],current:null,pending:null,busy:false};
+  const state = {config:null,idToken:'',features:{},tenants:[],applications:[],current:null,pending:null,busy:false,approval:null,merchant:null,merchantPending:null};
   function message(text) { el('tenantFormStatus').textContent=text; }
   function uncertainError() { return Object.assign(new Error('儲存結果尚未確認。請重試同一操作，避免重複建立。'),{uncertain:true}); }
   async function request(action, payload = {}) {
@@ -68,7 +68,7 @@
       card.append(badge,title,info,featureList,footer);list.append(card);
     }
   }
-  async function refresh() {const data=await request('platform.bootstrap');state.tenants=data.tenants;state.features=data.features;render();return data;}
+  async function refresh() {const data=await request('platform.bootstrap');state.tenants=data.tenants;state.applications=data.applications||[];state.features=data.features;render();renderApplications();return data;}
   function collect() {return {name:fields.namedItem('name').value.trim(),slug:fields.namedItem('slug').value.trim(),ownerLineUserId:fields.namedItem('ownerLineUserId').value.trim(),
     features:Object.fromEntries([...form.querySelectorAll('[data-feature]')].map(node=>[node.dataset.feature,node.checked])),
     line:Object.fromEntries(lineKeys.map(key=>[key,fields.namedItem(key).value.trim()])),
@@ -90,6 +90,113 @@
   dialog.addEventListener('close',()=>{if(!state.pending)resetSecrets();});
   form.addEventListener('change',featureRequirements);
   el('newTenant').addEventListener('click',()=>fill());
+
+  // Applications are independent from the legacy admin membership table.
+  const approvalDialog=el('approvalDialog'),approvalForm=el('approvalForm');
+  function renderApplications() {
+    const list=el('applicationList');list.replaceChildren();
+    const pending=state.applications.filter(item=>item.status==='pending');
+    if(!pending.length){const empty=document.createElement('p');empty.className='empty';empty.textContent='目前沒有待審核的管理員。';list.append(empty);return;}
+    for(const application of pending) {
+      const card=document.createElement('article');card.className='tenant-card';
+      const title=document.createElement('h3');title.textContent=application.businessName;
+      const info=document.createElement('p');info.textContent=application.slug+' · 申請時間 '+new Date(application.requestedAt).toLocaleString('zh-TW');
+      const approve=document.createElement('button');approve.type='button';approve.textContent='審核與選擇功能';
+      approve.addEventListener('click',()=>{
+        state.approval={applicationId:application.id,requestId:crypto.randomUUID(),features:null};
+        el('approvalDescription').textContent=application.businessName+' ('+application.slug+')';
+        const box=el('approvalFeatures');box.replaceChildren();
+        for(const [key,label] of Object.entries(state.features)) {
+          const wrap=document.createElement('label'),input=document.createElement('input');
+          input.type='checkbox';input.dataset.approveFeature=key;
+          wrap.append(input,document.createTextNode(label));box.append(wrap);
+        }
+        el('approvalMessage').textContent='';el('confirmApproval').disabled=false;approvalDialog.showModal();
+      });card.append(title,info,approve);list.append(card);
+    }
+  }
+  approvalForm.addEventListener('change',()=>{if(state.approval)state.approval.features=null;});
+  approvalForm.addEventListener('submit',async event=>{
+    event.preventDefault();if(!state.approval)return;
+    if(!state.approval.features)state.approval.features=Object.fromEntries(
+      [...approvalForm.querySelectorAll('[data-approve-feature]')].map(node=>[node.dataset.approveFeature,node.checked]));
+    el('confirmApproval').disabled=true;el('approvalMessage').textContent='正在審核…';
+    try{
+      const result=await request('platform.application.approve',state.approval);
+      state.tenants=[result.tenant,...state.tenants.filter(x=>x.id!==result.tenant.id)];
+      state.applications=state.applications.map(x=>x.id===state.approval.applicationId?{...x,status:'approved'}:x);
+      state.approval=null;approvalDialog.close();render();renderApplications();
+      el('platformStatus').textContent='已審核通過；管理員現在可設定自己的 LINE，商家仍待獨立環境佈建。';
+    }catch(error){
+      el('approvalMessage').textContent=error.message;
+      if(!error.uncertain)state.approval.features=null;
+    }finally{el('confirmApproval').disabled=false;}
+  });
+  el('closeApproval').addEventListener('click',()=>{if(!el('confirmApproval').disabled){state.approval=null;approvalDialog.close();}});
+  approvalDialog.addEventListener('cancel',e=>{if(el('confirmApproval').disabled)e.preventDefault();else state.approval=null;});
+
+  const applicationForm=el('applicationForm'),merchantForm=el('merchantLineForm');
+  function renderMine(data){
+    state.merchant=data.tenant||null;state.features=data.features||state.features;
+    const application=data.application;
+    el('applicationWorkspace').hidden=false;
+    el('applicationForm').hidden=Boolean(application&&application.status!=='rejected');
+    const progress=el('applicationProgress');
+    progress.hidden=!application;
+    progress.textContent=application?('申請商家：'+application.businessName+' · '+
+      ({pending:'等待總管理員審核',approved:'審核通過',rejected:'申請未通過，可重新提交'}[application.status]||'狀態待確認')):'';
+    el('merchantWorkspace').hidden=application?.status!=='approved'||!data.tenant;
+    if(!data.tenant)return;
+    const tenant=data.tenant;
+    el('merchantInfo').textContent=tenant.name+' · '+tenant.slug+' · '+(tenant.credentialsConfigured?'LINE 憑證已保存':'尚未設定 LINE 憑證');
+    const tags=el('merchantFeatures');tags.replaceChildren();
+    for(const [key,label] of Object.entries(state.features))if(tenant.features[key]){
+      const tag=document.createElement('span');tag.textContent=label;tags.append(tag);
+    }
+    if(!tags.childNodes.length)tags.textContent='尚未核准任何業務功能';
+    for(const key of lineKeys){
+      const field=merchantForm.elements.namedItem(key);
+      field.value=tenant.line?.[key]||'';
+      const name={memberLiffId:'membership',pointsLiffId:'points',eventLiffId:'events',calendarLiffId:'calendar',bookingLiffId:'booking'}[key];
+      if(name)field.required=tenant.features[name]===true;
+    }
+    for(const key of ['channelAccessToken','channelSecret']){
+      const field=merchantForm.elements.namedItem(key);field.value='';field.required=!tenant.credentialsConfigured;
+    }
+    el('merchantMessage').textContent='';state.merchantPending=null;
+  }
+  applicationForm.addEventListener('submit',async event=>{
+    event.preventDefault();if(!applicationForm.reportValidity())return;
+    const button=el('submitApplication');button.disabled=true;el('applicationMessage').textContent='正在提交申請…';
+    try{
+      const result=await request('platform.application.submit',{
+        businessName:applicationForm.elements.namedItem('businessName').value.trim(),
+        slug:applicationForm.elements.namedItem('slug').value.trim()});
+      renderMine({...result,features:state.features});
+      el('platformStatus').textContent='申請已送出，等待總管理員審核。';
+    }catch(error){el('applicationMessage').textContent=error.message;}
+    finally{button.disabled=false;}
+  });
+  merchantForm.addEventListener('change',()=>{state.merchantPending=null;});
+  merchantForm.addEventListener('submit',async event=>{
+    event.preventDefault();if(!state.merchant||!merchantForm.reportValidity())return;
+    const button=el('saveMerchantLine');button.disabled=true;el('merchantMessage').textContent='正在儲存 LINE 設定…';
+    if(!state.merchantPending)state.merchantPending={
+      requestId:crypto.randomUUID(),expectedVersion:state.merchant.version,
+      line:Object.fromEntries(lineKeys.map(key=>[key,merchantForm.elements.namedItem(key).value.trim()])),
+      credentials:{channelAccessToken:merchantForm.elements.namedItem('channelAccessToken').value.trim(),
+        channelSecret:merchantForm.elements.namedItem('channelSecret').value.trim()},
+    };
+    try{
+      const result=await request('platform.line.save',state.merchantPending);
+      renderMine({application:{status:'approved',businessName:result.tenant.name},tenant:result.tenant,features:state.features});
+      el('merchantMessage').textContent='LINE 設定已安全儲存。等待商家獨立資料環境完成驗證。';
+    }catch(error){
+      el('merchantMessage').textContent=error.message;
+      if(!error.uncertain)state.merchantPending=null;
+    }finally{button.disabled=false;}
+  });
+
   async function start() {
     try {
       const response=await fetch('../config.json',{cache:'no-cache',signal:AbortSignal.timeout(15000)});
@@ -114,7 +221,18 @@
       }
       state.idToken=window.liff.getIDToken() || '';
       if(!state.idToken)throw new Error('無法取得總管理員 LINE ID token，請確認 LIFF 已啟用 openid scope。');
-      const data=await refresh();
+      let data,superAdmin=true;
+      try{data=await refresh();}
+      catch(error){
+        if(error.code!=='PLATFORM_ADMIN_REQUIRED')throw error;
+        superAdmin=false;
+        data=await request('platform.application.bootstrap');
+        renderMine(data);
+      }
+      if(!superAdmin){
+        el('platformStatus').textContent='LINE 使用者 '+data.profile.displayName+'，請查看您的商家申請狀態。';
+        return;
+      }
       for(const [key,label] of Object.entries(data.features)) {const wrap=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.dataset.feature=key;wrap.append(input,document.createTextNode(label));el('featureFields').append(wrap);}
       el('platformWorkspace').hidden=false;el('platformStatus').textContent=`總管理員 ${data.profile.displayName}，已登入。`;
     } catch(error){el('platformStatus').textContent=error.message;}
