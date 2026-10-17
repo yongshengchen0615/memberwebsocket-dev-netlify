@@ -11,7 +11,7 @@ const text = (value, name, max, required = true) => {
   if (typeof value !== 'string' || value.length > max || (required && !value.trim())) invalid(`${name}格式不正確。`);
   return value.trim();
 };
-export function validateTenant(input, creating = true) {
+export function validateTenant(input, creating = true, { allowIncompleteFeatureLiffs = false } = {}) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) invalid('商家資料格式不正確。');
   const allowed = ['name', 'slug', 'ownerLineUserId', 'features', 'line', 'credentials'];
   if (Object.keys(input).some(k => !allowed.includes(k))) invalid('含有不允許修改的欄位。');
@@ -33,7 +33,7 @@ export function validateTenant(input, creating = true) {
     normalized[k] = text(line[k], k, 30);
     if (!/^\d{5,30}$/.test(normalized[k])) invalid(`${k} 必須是有效 Channel ID。`);
   }
-  const required = { admin: true, member: features.membership, points: features.points, event: features.events, calendar: features.calendar, booking: features.booking };
+  const required = { admin: true, member: !allowIncompleteFeatureLiffs && features.membership, points: !allowIncompleteFeatureLiffs && features.points, event: !allowIncompleteFeatureLiffs && features.events, calendar: !allowIncompleteFeatureLiffs && features.calendar, booking: !allowIncompleteFeatureLiffs && features.booking };
   for (const [surface, needed] of Object.entries(required)) {
     const k = `${surface}LiffId`;
     normalized[k] = text(line[k] ?? '', k, 100, needed);
