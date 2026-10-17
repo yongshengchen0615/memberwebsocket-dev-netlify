@@ -14,14 +14,15 @@ test.beforeAll(async()=>{
 });
 test.afterAll(async()=>new Promise(resolve=>server.close(resolve)));
 async function setup(page,token='root',{loseFirstSave=false}={}) {
- const h=await fixture();let lost=false;const errors=[];
+ const h=await fixture();h.allowedOrigins.add(base);let lost=false;const errors=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
  await page.route('**/config.json',route=>route.fulfill({json:{brandName:'QA Platform',supabaseUrl:'https://fixture.supabase.co',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'sb_publishable_fixture',adminLiffId:'2010791619-admin'}}));
  await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:`window.liff={init:async()=>{},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=>${JSON.stringify(token)}};`}));
  await page.route('https://fixture.supabase.co/functions/v1/platform-api',async route=>{
-  const input=route.request().postDataJSON();
-  const response=await h.handler(new Request(route.request().url(),{method:'POST',headers:{Origin:'https://allowed.test'},body:JSON.stringify(input)}));
-  if(loseFirstSave&&!lost&&input.action==='platform.tenant.save'){lost=true;return route.abort('failed');}
+  const method=route.request().method();
+  const input=method==='POST'?route.request().postDataJSON():null;
+  const response=await h.handler(new Request(route.request().url(),{method,headers:{...route.request().headers(),Origin:base},...(method==='POST'?{body:JSON.stringify(input)}:{})}));
+  if(loseFirstSave&&!lost&&input?.action==='platform.tenant.save'){lost=true;return route.abort('failed');}
   await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
  });
  await page.goto(base+'/admin/platform/');return {...h,errors};
