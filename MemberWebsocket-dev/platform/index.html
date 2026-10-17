@@ -23,10 +23,20 @@
       <p class="hint">在 LINE 內建瀏覽器，系統會重新初始化 LINE 登入；一般瀏覽器將開啟 LINE 登入流程。</p>
     </section>
     <section id="platformWorkspace" hidden>
-      <div class="workspace-heading"><div><h2>獨立商家</h2><p>各商家使用獨立會員與業務資料，功能由總管理員逐項設定。</p></div><button id="newTenant" type="button">新增商家管理員</button></div>
+      <div class="workspace-heading"><div><h2>已審核商家</h2><p>總管理員只管理功能授權；各商家的 LINE Channel、LIFF 和訊息憑證由商家管理員自行設定。</p></div><button id="newTenant" type="button" hidden aria-hidden="true" tabindex="-1">舊版新增商家</button></div>
       <p class="notice">新商家儲存後為「待佈建」。完成獨立資料環境與登入驗證後，才能啟用會員、票券與預約等功能。</p>
       <div id="tenantList" class="tenant-list"></div><h2>待審核管理員</h2><p>核准時逐項勾選功能；未核准的申請不得取得商家權限。</p><div id="applicationList" class="tenant-list"></div>
     </section>
+    <dialog id="grantDialog" aria-labelledby="grantDialogTitle">
+      <form id="grantForm">
+        <h2 id="grantDialogTitle">調整已核准功能</h2>
+        <p id="grantDescription"></p>
+        <fieldset><legend>可開放的功能</legend><div id="grantFeatures" class="features"></div></fieldset>
+        <p class="hint">此處只修改功能授權，不接收或顯示任何商家 LINE 憑證。異動不會繞過商家資料隔離驗證。</p>
+        <p id="grantMessage" role="status" aria-live="polite"></p>
+        <div class="form-actions"><button id="closeGrant" class="secondary" type="button">取消</button><button id="saveGrant" type="submit">儲存功能授權</button></div>
+      </form>
+    </dialog>
     <dialog id="tenantDialog" aria-labelledby="tenantDialogTitle">
       <form id="tenantForm">
         <div class="dialog-heading"><div><p class="eyebrow">MERCHANT SETUP</p><h2 id="tenantDialogTitle">新增商家管理員</h2></div><button id="closeTenant" class="secondary" type="button">關閉</button></div>
