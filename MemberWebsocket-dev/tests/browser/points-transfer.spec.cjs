@@ -75,7 +75,7 @@ test('production recipient runner does not debit and rejects a failed friend fet
 test('own QR button remains accessible next to transfer without transferable points',async({page})=>{
  await page.locator('#pointTransferClose').click();
  const actions=page.locator('.active-card-actions');
- await expect(actions.locator('button')).toHaveCount(2);
+ await expect(actions.locator('button:visible')).toHaveCount(2);
  await expect(actions.locator('#pointTransferShowOwnQr')).toBeEnabled();
  await page.setViewportSize({width:320,height:740});
  const transferBox=await page.locator('#pointTransferButton').boundingBox();
