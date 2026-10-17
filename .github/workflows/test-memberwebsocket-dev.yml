@@ -137,6 +137,9 @@ jobs:
       - name: Install Chromium and system dependencies
         run: npx playwright install --with-deps chromium --only-shell
         working-directory: MemberWebsocket-dev/tests/browser
+      - name: Check platform onboarding and root authorization first
+        run: npm test -- product-platform.spec.cjs
+        working-directory: MemberWebsocket-dev/tests/browser
       - name: Check selected-scope production runner nodes first
         run: >-
           npm test -- admin-human.spec.cjs member-p2.spec.cjs

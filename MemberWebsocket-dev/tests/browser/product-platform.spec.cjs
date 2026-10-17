@@ -21,7 +21,8 @@ async function setup(page,token='root',{loseFirstSave=false}={}) {
  await page.route('https://fixture.supabase.co/functions/v1/platform-api',async route=>{
   const method=route.request().method();
   const input=method==='POST'?route.request().postDataJSON():null;
-  const response=await h.handler(new Request(route.request().url(),{method,headers:{...route.request().headers(),Origin:base},...(method==='POST'?{body:JSON.stringify(input)}:{})}));
+  const headers=new Headers(route.request().headers());headers.set('Origin',base);
+  const response=await h.handler(new Request(route.request().url(),{method,headers,...(method==='POST'?{body:JSON.stringify(input)}:{})}));
   if(loseFirstSave&&!lost&&input?.action==='platform.tenant.save'){lost=true;return route.abort('failed');}
   await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
  });
