@@ -140,4 +140,4 @@ returning admin_id, line_user_id, enabled;
 | AC-012 | 經核准管理員設定自己的 LINE／伺服器加密保存／無法修改功能、角色和隔離狀態 | 同上 |
 | AC-013 | 未登入、非擁有人、停權商家、匿名資料庫角色嘗試存取／皆拒絕 | `integration/product_platform.cjs` |
 
-資料遷移：`20261018002000_platform_admin_applications.sql`。資料保留原則：拒絕申請可重新提交；已核准申請留存以保留身份與稽核關係。完整測試證據以 GitHub Actions 執行結果為準，尚未驗證的層級不得計為通過。
+資料遷移：`20261017164510_platform_admin_applications.sql`。資料保留原則：拒絕申請可重新提交；已核准申請留存以保留身份與稽核關係。完整測試證據以 GitHub Actions 執行結果為準，尚未驗證的層級不得計為通過。
