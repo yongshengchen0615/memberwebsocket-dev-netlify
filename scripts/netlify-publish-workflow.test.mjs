@@ -41,13 +41,13 @@ test('deploy emits recoverable artifact and verifies both page and JS after publ
 test('build output retains the exact commit after deployment tests rebuild dist', () => {
   // deploy.test.mjs invokes build-site.mjs again, so step-only COMMIT_REF is insufficient.
   const jobSetup = flow.split('    steps:')[0];
-  assert.match(jobSetup, /^      COMMIT_REF: \\\$\\{\\{ github\\.sha \\$\\}\\}$/m);
+  assert.ok(jobSetup.includes('      COMMIT_REF: ${{ github.sha }}'), 'COMMIT_REF must be job-wide');
   const verify = flow.split('      - name: Verify deployable static output')[1]
     ?.split('      - name: Retain the exact production bundle')[0];
   assert.ok(verify, 'Missing pre-deploy validation stage');
-  assert.match(verify, /node --test scripts\\/deploy\\.test\\.mjs/);
-  assert.match(verify, /data-commit=/);
-  assert.match(verify, /GITHUB_SHA:0:7/);
+  assert.ok(verify.includes('node --test scripts/deploy.test.mjs'));
+  assert.ok(verify.includes('data-commit='));
+  assert.ok(verify.includes('GITHUB_SHA:0:7'));
 });
 
 test('deployment changes trigger the same full suite on PR and develop push', () => {
