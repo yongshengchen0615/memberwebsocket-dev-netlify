@@ -119,26 +119,35 @@ export function createPlatformHandler({ db, verifyIdentity, encryptionKey, allow
         if (result.error) throw databaseError(result.error);
         return json({ok:true,data:{tenant:publicTenant(result.data)}});
       }
-      if (!['platform.tenant.save','platform.tenant.suspend'].includes(body.action))
+      if (body.action === 'platform.tenant.features.save') {
+        if (!uuid.test(body.requestId || '') || !uuid.test(body.tenantId || '')
+          || !Number.isSafeInteger(body.expectedVersion) || body.expectedVersion < 1)
+          throw new PlatformError(400,'PLATFORM_INVALID_INPUT','商家 ID、版本或操作識別碼不正確。');
+        const features=body.features;
+        if (!features || typeof features !== 'object' || Array.isArray(features)
+          || Object.keys(features).length !== Object.keys(FEATURES).length
+          || Object.keys(FEATURES).some(key=>typeof features[key]!=='boolean')
+          || Object.keys(features).some(key=>!Object.hasOwn(FEATURES,key)))
+          throw new PlatformError(400,'PLATFORM_INVALID_INPUT','請逐項勾選有效功能。');
+        const hash=await payloadHash({tenantId:body.tenantId,expectedVersion:body.expectedVersion,features});
+        const result=await db.rpc('platform_update_tenant_features',{
+          p_actor:actor,p_tenant_id:body.tenantId,p_expected_version:body.expectedVersion,
+          p_features:features,p_request_id:body.requestId,p_payload_hash:hash,
+        });
+        if(result.error)throw databaseError(result.error);
+        return json({ok:true,data:{tenant:publicTenant(result.data)}});
+      }
+      // Deprecated root writes cannot bypass the applicant/approval workflow.
+      if (body.action === 'platform.tenant.save')
+        throw new PlatformError(410,'PLATFORM_LEGACY_WRITE_DISABLED','請由一般管理員申請；總管理員只能核准與勾選功能。');
+      if (body.action !== 'platform.tenant.suspend')
         throw new PlatformError(404,'ACTION_NOT_FOUND','不支援的總管理員操作。');
       if (!uuid.test(body.requestId || '') || !uuid.test(body.tenantId || ''))
         throw new PlatformError(400,'INVALID_REQUEST_ID','操作識別碼格式不正確。');
       if (!Number.isSafeInteger(body.expectedVersion) || body.expectedVersion < 0)
         throw new PlatformError(400,'INVALID_VERSION','資料版本格式不正確。');
-      let rpc;
-      if (body.action === 'platform.tenant.suspend') {
-        rpc = await db.rpc('platform_suspend_tenant',{p_actor:actor,p_tenant_id:body.tenantId,
-          p_expected_version:body.expectedVersion,p_request_id:body.requestId});
-      } else {
-        const tenant = validateTenant(body.tenant,body.expectedVersion === 0);
-        const hash = await payloadHash({tenantId:body.tenantId,expectedVersion:body.expectedVersion,tenant});
-        const encrypted = tenant.credentials.channelAccessToken
-          ? await sealCredentials(body.tenantId,tenant.credentials,await encryptionKey()) : null;
-        const {credentials,...metadata} = tenant;
-        rpc = await db.rpc('platform_save_tenant',{p_actor:actor,p_request_id:body.requestId,
-          p_payload_hash:hash,p_tenant_id:body.tenantId,p_expected_version:body.expectedVersion,
-          p_tenant:metadata,p_secrets:encrypted});
-      }
+      const rpc = await db.rpc('platform_suspend_tenant',{p_actor:actor,p_tenant_id:body.tenantId,
+        p_expected_version:body.expectedVersion,p_request_id:body.requestId});
       if (rpc.error) throw databaseError(rpc.error);
       return json({ok:true,data:{tenant:publicTenant(rpc.data)}});
     } catch (error) {
