@@ -68,10 +68,18 @@ export function createPlatformHandler({ db, verifyIdentity, encryptionKey, allow
         if (workspace.tenant.status === 'suspended')
           throw new PlatformError(403,'TENANT_SUSPENDED','此商家已被停用。');
         const current = workspace.tenant;
+        // Disabled feature LIFF IDs are immutable to the merchant, even via a forged request.
+        // Existing legacy values may be preserved but not altered without root approval.
+        const featureLiffs = {membership:'memberLiffId',points:'pointsLiffId',events:'eventLiffId',calendar:'calendarLiffId',booking:'bookingLiffId'};
+        for (const [feature,key] of Object.entries(featureLiffs)) {
+          if (current.features[feature] !== true
+            && String(body.line?.[key] ?? '') !== String(current.line?.[key] ?? ''))
+            throw new PlatformError(403,'FEATURE_DISABLED','此功能尚未核准，無法修改 LINE 設定。');
+        }
         const validated = validateTenant({
           name:current.name,slug:current.slug,ownerLineUserId:current.ownerLineUserId,
           features:current.features,line:body.line,credentials:body.credentials,
-        },!current.credentialsConfigured);
+        },!current.credentialsConfigured,{allowIncompleteFeatureLiffs:true});
         const hash = await payloadHash({expectedVersion:body.expectedVersion,line:validated.line,credentials:validated.credentials});
         const encrypted = validated.credentials.channelAccessToken
           ? await sealCredentials(current.id,validated.credentials,await encryptionKey()) : null;
