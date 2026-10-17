@@ -74,6 +74,39 @@ test('GPS rejection is shown only when admin GPS ON and retry recovers', async (
   assert.equal(fixture.gpsCalls(), 2);
 });
 
+test('iOS CoreLocation temporarily unavailable retries once with a real, validated fix', async () => {
+  const modes = [];
+  const fixture = setup({ required: true, onPosition(success, fail, options) {
+    modes.push(options.enableHighAccuracy);
+    if (modes.length === 1) fail({ code: 2 });
+    else success({ coords: { latitude: 25.03, longitude: 121.56, accuracy: 18 }, timestamp: Date.now() });
+  } });
+  const fix = await fixture.api.beginSnapshotMode();
+  assert.equal(fix.accuracy, 18);
+  assert.deepEqual(modes, [true, false]);
+  assert.equal(fixture.events.at(-1).status, 'ready');
+});
+
+test('unavailable CoreLocation cannot bypass GPS or retry indefinitely', async () => {
+  const modes = [];
+  const fixture = setup({ required: true, onPosition(_success, fail, options) {
+    modes.push(options.enableHighAccuracy);
+    fail({ code: 2 });
+  } });
+  await assert.rejects(fixture.api.beginSnapshotMode(), /暫時無法取得 GPS/);
+  assert.deepEqual(modes, [true, false]);
+  assert.equal(fixture.events.at(-1).status, 'error');
+});
+
+test('network-assisted fallback still rejects inaccurate coordinates', async () => {
+  const fixture = setup({ required: true, onPosition(success, fail, options) {
+    if (options.enableHighAccuracy) fail({ code: 2 });
+    else success({ coords: { latitude: 25.03, longitude: 121.56, accuracy: 250 }, timestamp: Date.now() });
+  } });
+  await assert.rejects(fixture.api.beginSnapshotMode(), /GPS 定位不夠精準/);
+  assert.equal(fixture.gpsCalls(), 2);
+});
+
 test('missing or unavailable admin policy cannot silently bypass GPS', async () => {
   const fixture = setup({ onPolicy: () => ({}) });
   await assert.rejects(fixture.api.beginSnapshotMode(), /無法確認管理端/);

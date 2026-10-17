@@ -167,7 +167,7 @@ async function run() {
     watches[0].onError({ code: 2 });
     assert.deepEqual(cleared, [0], 'the failed live GPS watch must be stopped');
     assert.equal(oneShots.length, 1, 'retry unavailable watch with one real single GPS fix');
-    assert.equal(oneShots[0].options.enableHighAccuracy, true);
+    assert.equal(oneShots[0].options.enableHighAccuracy, false, 'fallback must use a different CoreLocation strategy');
     assert.match(get('bookingAdminSnapshotMapStatus').textContent, /單次定位/);
     assert.equal(snapshot.get().length, 0, 'no location may be saved before confirmation');
     oneShots[0].onFix({
