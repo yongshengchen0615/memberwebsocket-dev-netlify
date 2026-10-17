@@ -13,11 +13,15 @@ test.beforeAll(async()=>{
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));base='http://127.0.0.1:'+server.address().port;
 });
 test.afterAll(async()=>new Promise(resolve=>server.close(resolve)));
-async function setup(page,token='root',{loseFirstSave=false,platformLiffId='2012065297-VunxFBj8',inClient=true,loggedIn=true}={}) {
+async function setup(page,token='root',{loseFirstSave=false,platformLiffId='2012065297-VunxFBj8',inClient=true,loggedIn=true,rootLoginReturn=true}={}) {
  const h=await fixture();h.allowedOrigins.add(base);let lost=false;const errors=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
+ if(rootLoginReturn&&token==='root')await page.addInitScript(()=>{
+  // Simulate a genuine LINE return for the pre-existing root-control cases.
+  sessionStorage.setItem('platform-line-login-return-v1',String(Date.now()));
+ });
  await page.route('**/config.json',route=>route.fulfill({json:{brandName:'QA Platform',supabaseUrl:'https://fixture.supabase.co',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'sb_publishable_fixture',adminLiffId:'2010791619-admin',platformLiffId}}));
- await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:`window.loginCalls=[];window.liff={init:async options=>{window.initializedLiffId=options.liffId;},isInClient:()=>${inClient},isLoggedIn:()=>${loggedIn},login:(...args)=>{window.loginCalls.push(args);},getIDToken:()=>${JSON.stringify(token)}};`}));
+ await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:`window.loginCalls=[];window.logoutCalls=0;window.liff={init:async options=>{window.initializedLiffId=options.liffId;},isInClient:()=>${inClient},isLoggedIn:()=>${loggedIn},login:(...args)=>{window.loginCalls.push(args);},logout:()=>{window.logoutCalls+=1;sessionStorage.setItem('qaRootLogoutCount',String(Number(sessionStorage.getItem('qaRootLogoutCount')||'0')+1));},getIDToken:()=>${JSON.stringify(token)}};`}));
  await page.route('https://fixture.supabase.co/functions/v1/platform-api',async route=>{
   const method=route.request().method();
   const input=method==='POST'?route.request().postDataJSON():null;
@@ -134,5 +138,56 @@ test('PLATFORM_MOBILE — merchant form fits narrow screen and renders merchant 
  await page.setViewportSize({width:390,height:844});const h=await setup(page);try{
   await expect(page.locator('#platformWorkspace')).toBeVisible();await fillNew(page,{...h.tenant,name:'<img src=x onerror=alert(1)>'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await info.attach('platform-mobile-form',{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
   await page.getByRole('button',{name:'儲存商家設定',exact:true}).click();await expect(page.locator('#tenantDialog')).toBeHidden();await expect(page.locator('.tenant-card h3')).toHaveText('<img src=x onerror=alert(1)>');expect(await page.locator('.tenant-card img').count()).toBe(0);expect(h.errors).toEqual([]);
+ }finally{await h.db.close();}
+});
+
+test('PLATFORM_ROOT_REAUTH — every fresh root visit requires LINE re-login, return is one-use, BFCache is blocked',async({page})=>{
+ const h=await setup(page,'root',{rootLoginReturn:false,inClient:true});try{
+  await expect(page.locator('#platformLoginGate')).toBeVisible();
+  await expect(page.locator('#platformWorkspace')).toBeHidden();
+  expect(h.providerCalls.length).toBeGreaterThan(0); // recognizes root, never grants the workspace yet
+  await page.getByRole('button',{name:'重新使用 LINE 登入'}).click();
+  await expect(page.locator('#platformWorkspace')).toBeVisible();
+  await expect(page.locator('#platformLoginGate')).toBeHidden();
+  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('1');
+  expect(await page.evaluate(()=>sessionStorage.getItem('platform-line-login-return-v1'))).toBeNull();
+  await page.reload();
+  await expect(page.locator('#platformLoginGate')).toBeVisible();
+  await expect(page.locator('#platformWorkspace')).toBeHidden();
+  await page.getByRole('button',{name:'重新使用 LINE 登入'}).click();
+  await expect(page.locator('#platformWorkspace')).toBeVisible();
+  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('2');
+  await page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})));
+  await expect(page.locator('#platformLoginGate')).toBeVisible();
+  await expect(page.locator('#platformWorkspace')).toBeHidden();
+  expect(h.errors).toEqual([]);
+ }finally{await h.db.close();}
+});
+test('PLATFORM_ROOT_EXTERNAL_REAUTH — external browser logs out before LINE login and never loops on callback',async({page})=>{
+ const h=await setup(page,'root',{rootLoginReturn:false,inClient:false,loggedIn:true});try{
+  await expect(page.locator('#platformLoginGate')).toBeVisible();
+  await page.getByRole('button',{name:'重新使用 LINE 登入'}).click();
+  expect(await page.evaluate(()=>window.loginCalls)).toEqual([[]]);
+  expect(await page.evaluate(()=>window.logoutCalls)).toBe(1);
+  await page.reload(); // Simulated LINE SDK callback with a fresh token
+  await expect(page.locator('#platformWorkspace')).toBeVisible();
+  await expect(page.locator('#platformLoginGate')).toBeHidden();
+  expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
+  await page.reload();
+  await expect(page.locator('#platformLoginGate')).toBeVisible();
+  expect(h.errors).toEqual([]);
+ }finally{await h.db.close();}
+});
+test('PLATFORM_BAD_TOKEN_RECOVERY — wrong-channel token offers retry but never opens super admin or creates an infinite loop',async({page})=>{
+ const h=await setup(page,'legacy-root',{rootLoginReturn:false});try{
+  await expect(page.locator('#platformLoginGate')).toBeVisible();
+  await expect(page.locator('#platformStatus')).toContainText('LINE 身分驗證未通過');
+  await expect(page.locator('#platformWorkspace')).toBeHidden();
+  await page.getByRole('button',{name:'重新使用 LINE 登入'}).click();
+  await expect(page.locator('#platformLoginGate')).toBeVisible();
+  await expect(page.locator('#platformWorkspace')).toBeHidden();
+  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('1');
+  expect(await page.evaluate(()=>sessionStorage.getItem('platform-line-login-return-v1'))).toBeNull();
+  expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
