@@ -279,6 +279,12 @@
     if(!data.tenant)return;
     const tenant=data.tenant;
     el('merchantInfo').textContent=tenant.name+' · '+tenant.slug+' · '+(tenant.credentialsConfigured?'LINE 憑證已保存':'尚未設定 LINE 憑證');
+    const readiness=el('merchantReadiness');
+    if(readiness) {
+      readiness.textContent=tenant.capabilities?.dataPlaneVerified
+        ? 'Supabase 已標記資料隔離驗證；實際用戶端開通仍需通過各項業務 API、Realtime 與 Storage 的隔離測試。'
+        : '功能授權及 LINE 設定已連接 Supabase 控制平台；新商家用戶端尚待獨立資料環境驗證，暫不連接舊商家會員資料。';
+    }
     const tags=el('merchantFeatures');tags.replaceChildren();
     for(const [key,label] of Object.entries(state.features))if(tenant.features[key]){
       const tag=document.createElement('span');tag.textContent=label;tags.append(tag);
