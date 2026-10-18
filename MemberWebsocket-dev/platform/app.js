@@ -28,6 +28,8 @@
       const dialog=el(id);
       if(dialog?.open)dialog.close();
     }
+    const authorizationNotice=el('platformAuthorizationNotice');
+    if(authorizationNotice)authorizationNotice.hidden=true;
     el('platformWorkspace').hidden=true;
     el('merchantWorkspace').hidden=true;
     el('applicationWorkspace').hidden=true;
@@ -35,7 +37,18 @@
     el('platformLoginButton').disabled=false;
     el('platformStatus').textContent=message;
   }
-  function clearLoginGate() { el('platformLoginGate').hidden=true; }
+  function showAuthorizationDenied() {
+    if(merchantEntry)return;
+    // Only called for PLATFORM_ADMIN_REQUIRED after successful server-side LINE verification.
+    // No client-side approval, privileged mutation, or account enumeration.
+    showLoginGate('LINE 身分已驗證，但此帳號尚未取得總管理員授權。');
+    el('platformAuthorizationNotice').hidden=false;
+  }
+  function clearLoginGate() {
+    el('platformLoginGate').hidden=true;
+    const authorizationNotice=el('platformAuthorizationNotice');
+    if(authorizationNotice)authorizationNotice.hidden=true;
+  }
   function freshLineLogin() {
     const button=el('platformLoginButton');
     button.disabled=true;
@@ -75,6 +88,7 @@
       try { body=await response.json(); } catch { throw uncertainError(); }
       if (!response.ok || !body.ok) {
         if (response.status>=500 && ['PLATFORM_DATABASE_UNAVAILABLE','PLATFORM_UNAVAILABLE'].includes(body.error?.code)) throw uncertainError();
+        if(response.status===403 && body.error?.code==='PLATFORM_ADMIN_REQUIRED'&&!merchantEntry)showAuthorizationDenied();
         if(response.status===401 && ['AUTH_INVALID','AUTH_REQUIRED'].includes(body.error?.code))
           showLoginGate(merchantEntry?'一般管理員 LINE 驗證已失效，請重新登入。':'總管理員 LINE 驗證已失效，請確認專用 LINE Login Channel。');
         throw Object.assign(new Error(body.error?.message || '操作未完成。'),{code:body.error?.code,status:response.status});
@@ -403,11 +417,14 @@
       for(const [key,label] of Object.entries(data.features)) {const wrap=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.dataset.feature=key;wrap.append(input,document.createTextNode(label));el('featureFields').append(wrap);}
       el('platformWorkspace').hidden=false;el('platformStatus').textContent=`總管理員 ${data.profile.displayName}，已登入。`;
     } catch(error){
+      if(error.code==='PLATFORM_ADMIN_REQUIRED'&&!merchantEntry) {
+        showAuthorizationDenied();
+        return;
+      }
       el('platformStatus').textContent=error.message;
       if(['AUTH_INVALID','AUTH_REQUIRED'].includes(error.code))showLoginGate(
         merchantEntry?'一般管理員 LINE 身分驗證未通過，請重新登入。':'總管理員 LINE 身分驗證未通過，請使用專用 LINE 登入。');
-      if(error.code==='PLATFORM_ADMIN_REQUIRED'&&!merchantEntry)
-        el('platformStatus').textContent='此 LINE 帳號尚未取得總管理員授權。請由資料庫管理人員手動開通 platform_private.super_admins.enabled。一般管理員請使用 /admin/。';
+
     }
   }
   void start();
