@@ -13,13 +13,16 @@ test('MemberWebsocket CI cancels stale runs on the same ref', () => {
 });
 
 test('MemberWebsocket CI separates expensive test lanes and preserves aggregate validation', () => {
-  for (const lane of ['regression:', 'integration:', 'browser-syntax:', 'edge-functions:', 'wiring:', 'validate:']) {
+  for (const lane of ['regression:', 'integration:', 'browser-syntax:', 'edge-functions:', 'wiring:', 'dependency-audit:', 'validate:']) {
     assert.ok(workflow.includes('\n  ' + lane), lane + ' lane must exist');
   }
-  assert.match(workflow, /needs: \[regression, integration, browser-e2e, browser-syntax, edge-functions, wiring\]/);
+  assert.match(workflow, /needs: \[regression, integration, browser-e2e, browser-syntax, edge-functions, wiring, dependency-audit\]/);
   assert.match(workflow, /test "\$BROWSER_E2E" = success/);
   assert.match(workflow, /test "\$REGRESSION" = success/);
   assert.match(workflow, /test "\$EDGE_FUNCTIONS" = success/);
+  assert.match(workflow, /test "\$DEPENDENCY_AUDIT" = success/);
+  assert.match(workflow, /npm audit --prefix MemberWebsocket-dev\/tests\/browser --audit-level=low/);
+  assert.match(workflow, /npm audit --prefix MemberWebsocket-dev\/tests\/integration --audit-level=low/);
 });
 
 test('main CI executes Edge unit tests and receipt refresh race regressions', () => {
