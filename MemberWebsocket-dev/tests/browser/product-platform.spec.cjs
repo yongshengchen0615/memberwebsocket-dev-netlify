@@ -80,7 +80,10 @@ test('PLATFORM_RETRY — lost root grant response reuses request id without doub
 });
 test('PLATFORM_APPLY — admin entry automatically submits once and waits without legacy data access',async({page})=>{
  const h=await setup(page,'manager',{entry:'admin'});try{
-  await expect(page).toHaveURL(/\/admin\/workspace\.html/);
+  await expect(page).toHaveURL(/\/admin\/?(?:\?.*)?$/);
+  await expect(page.locator('#productizedAdmin')).toBeVisible();
+  await expect(page.locator('#app')).toBeHidden();
+  expect(await page.evaluate(()=>document.title)).toBe('管理端｜Lumen Club');
   await expect(page.locator('#platformWorkspace')).toBeHidden();
   await expect(page.locator('#applicationProgress')).toContainText('等待總管理員審核');
   await expect(page.locator('#applicationForm')).toBeHidden();
@@ -108,6 +111,9 @@ test('PLATFORM_MANAGER_SETUP — approved admin can configure own LINE but canno
   await expect(page.locator('#merchantFeatures')).not.toContainText('預約');
   await expect(page.locator('#merchantFeatureNav [data-line-feature]')).toHaveCount(2);
   await expect(page.locator('#merchantFeatureNav [data-line-feature="booking"]')).toHaveCount(0);
+  await expect(page.locator('#merchantFeatureNav [data-line-feature="events"]')).toHaveCount(0);
+  await expect(page.locator('#merchantFeatureNav')).toBeVisible();
+  await expect(page.locator('#adminView .surface-nav')).toBeHidden();
   for(const k of ['adminChannelId','memberChannelId','messagingChannelId','adminLiffId'])
     await page.locator('#merchantLineForm [name="'+k+'"]').fill(h.tenant.line[k]);
   for(const [k,v] of Object.entries(h.tenant.credentials))
@@ -316,6 +322,41 @@ test('PLATFORM_UNMATCHED_ROOT — verified but unbound LINE ID shows review chec
   await expect(page.locator('#platformWorkspace')).toBeHidden();
   await expect(page.locator('#platformAuthorizationNotice')).toContainText('line_user_id');
   expect((await h.db.query('select enabled from platform_private.super_admins where singleton')).rows[0].enabled).toBe(true);
+  expect(h.errors).toEqual([]);
+ }finally{await h.db.close();}
+});
+
+test('PLATFORM_ADMIN_TOP_GRANTS — Lumen header exposes only server-approved modules, rejects forged feature links',async({page})=>{
+ const h=await setup(page,'manager',{entry:'admin'});try{
+  await expect(page).toHaveURL(/\/admin\/?$/);
+  await expect(page.locator('#applicationProgress')).toContainText('等待總管理員審核');
+  await expect(page.locator('#merchantFeatureNav')).toBeHidden();
+  await expect(page.locator('#app')).toBeHidden();
+  const application=(await h.call({action:'platform.bootstrap'})).body.data.applications[0];
+  const allowed=Object.fromEntries(Object.keys(h.tenant.features).map(k=>[k,k==='membership'||k==='points']));
+  const grant=await h.call({action:'platform.application.approve',applicationId:application.id,features:allowed,requestId:crypto.randomUUID()});
+  expect(grant.status).toBe(200);
+  await page.getByRole('button',{name:'重新檢查申請與功能權限'}).click();
+  await expect(page.locator('#merchantFeatureNav [data-line-feature]')).toHaveCount(3);
+  await expect(page.locator('#merchantFeatureNav [data-line-feature="membership"]')).toBeVisible();
+  await expect(page.locator('#merchantFeatureNav [data-line-feature="points"]')).toBeVisible();
+  await expect(page.locator('#merchantFeatureNav [data-line-feature="booking"]')).toHaveCount(0);
+  await expect(page.locator('#merchantFeatureNav [data-line-feature="testing"]')).toHaveCount(0);
+  await page.goto(base+'/admin/?feature=booking');
+  await expect(page.locator('#merchantFeatureNav')).toBeVisible();
+  await expect(page.locator('#merchantFeatureNav [data-line-feature="booking"]')).toHaveCount(0);
+  await expect(page.locator('#merchantFeatureNav [data-line-feature="shared"]')).toHaveAttribute('aria-current','page');
+  const before=await h.call({action:'platform.application.bootstrap'},'manager');
+  expect(before.body.data.tenant.status).toBe('pending_provisioning');
+  const change=await h.call({action:'platform.tenant.features.save',tenantId:grant.body.data.tenant.id,
+    expectedVersion:before.body.data.tenant.version,features:{...allowed,membership:false,points:false,events:true},
+    requestId:crypto.randomUUID()});
+  expect(change.status).toBe(200);
+  await page.getByRole('button',{name:'重新檢查申請與功能權限'}).click();
+  await expect(page.locator('#merchantFeatureNav [data-line-feature="membership"]')).toHaveCount(0);
+  await expect(page.locator('#merchantFeatureNav [data-line-feature="points"]')).toHaveCount(0);
+  await expect(page.locator('#merchantFeatureNav [data-line-feature="events"]')).toBeVisible();
+  // Disabling everything still provides only shared configuration, not business modules.
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
