@@ -123,3 +123,18 @@ test('AC-034: privileged denial guidance identifies the review field, not a self
  assert.match(js,/function showAuthorizationDenied\(\)/);
  assert.doesNotMatch(html,/<button[^>]*>[^<]*開通總管理員/);
 });
+
+test('AC-037: Lumen admin reuses its existing URL and hides unapproved top features',()=>{
+ const fs=require('node:fs');
+ const html=fs.readFileSync(path.join(__dirname,'../admin/index.html'),'utf8');
+ const admin=fs.readFileSync(path.join(__dirname,'../admin/app.js'),'utf8');
+ const mount=fs.readFileSync(path.join(__dirname,'../admin/productized-workspace.js'),'utf8');
+ const platform=fs.readFileSync(path.join(__dirname,'../platform/app.js'),'utf8');
+ assert.match(html,/id="productizedAdmin"[^>]*hidden/);
+ assert.match(html,/productized-workspace\.js/);
+ assert.match(admin,/await window\.ProductizedAdminShell\.mount\(\)/);
+ assert.doesNotMatch(admin,/window\.location\.replace\(target\.href\)/);
+ assert.match(mount,/fetch\('\.\/workspace\.html'/);
+ assert.match(mount,/legacy\.hidden=true/);
+ assert.match(platform,/tenant\.features\?\.\[feature\]!==true/);
+});
