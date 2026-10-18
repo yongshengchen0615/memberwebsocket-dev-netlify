@@ -44,7 +44,9 @@
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous" defer></script>
   <script src="../ticket-live-location.js?v=live-gps-20261010-1-admin-browser-fallback-20261014-1" defer></script>
   <script src="./coupon-location-editor.js?v=ticket-address-nearest-fallback-20260929-1-live-gps-snapshot-20261012-1-admin-browser-fallback-20261014-1" defer></script>
-  <script src="./app.js?v=product-admin-workflow-20261018-3" defer></script>
+  <link rel="stylesheet" href="./productized-workspace.css?v=unified-admin-20261018-1">
+  <script src="./productized-workspace.js?v=unified-admin-20261018-1" defer></script>
+  <script src="./app.js?v=product-admin-workflow-20261018-4" defer></script>
   <script src="./member-workspace-tabs.js?v=member-workspace-tabs-20261014-2" defer></script>
   <script src="./terms.js?v=membership-terms-ui-20261005-2" defer></script>
   <script src="./test-mode.js?v=test-login-takeover-20261008-2" defer></script>
@@ -75,12 +77,13 @@
   <script src="./operation-audit.js?v=operation-audit-20261013-1-release-20261014-1" defer></script>
 </head>
 <body>
+  <main id="productizedAdmin" class="shell" hidden aria-label="管理端｜Lumen Club 產品化工作台"></main>
   <div id="app" class="app-shell" aria-busy="true">
-    <section id="loadingView" class="state-view login-loading" aria-live="polite"><h1>正在登入管理端</h1><p id="loadingStatus" class="login-status" role="status">正在準備安全登入…</p><div id="loadingProgress" class="login-progress" role="progressbar" aria-label="登入進度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="8" aria-valuetext="8%"><span id="loadingProgressBar" class="login-progress-bar"></span></div><p id="loadingProgressText" class="login-progress-value" aria-hidden="true">8%</p><p><a href="./workspace.html">申請商家管理員／查看審核進度</a></p></section>
-    <section id="errorView" class="state-view hidden" role="alert"><div class="error-mark" aria-hidden="true">!</div><p class="kicker">Access check</p><h1 id="errorTitle">無法進入管理端</h1><p id="errorMessage"></p><div id="pendingBox" class="pending-box hidden"><strong>待授權 LINE User ID</strong><code id="pendingUserId"></code><p>請到 Supabase → Table Editor → <b>admins</b>，將這筆資料的 <b>role</b> 設為 <b>admin</b>、<b>status</b> 設為 <b>active</b>，再重新整理。</p></div><button id="retryButton" class="button button-dark" type="button">重新整理</button><p><a href="./workspace.html">尚未開通？申請商家管理員或設定 LINE</a></p></section>
+    <section id="loadingView" class="state-view login-loading" aria-live="polite"><h1>正在登入管理端</h1><p id="loadingStatus" class="login-status" role="status">正在準備安全登入…</p><div id="loadingProgress" class="login-progress" role="progressbar" aria-label="登入進度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="8" aria-valuetext="8%"><span id="loadingProgressBar" class="login-progress-bar"></span></div><p id="loadingProgressText" class="login-progress-value" aria-hidden="true">8%</p><p>商家管理員申請、審核狀態與已授權功能會直接在此頁面顯示。</p></section>
+    <section id="errorView" class="state-view hidden" role="alert"><div class="error-mark" aria-hidden="true">!</div><p class="kicker">Access check</p><h1 id="errorTitle">無法進入管理端</h1><p id="errorMessage"></p><div id="pendingBox" class="pending-box hidden"><strong>待授權 LINE User ID</strong><code id="pendingUserId"></code><p>請到 Supabase → Table Editor → <b>admins</b>，將這筆資料的 <b>role</b> 設為 <b>admin</b>、<b>status</b> 設為 <b>active</b>，再重新整理。</p></div><button id="retryButton" class="button button-dark" type="button">重新整理</button><p>產品化管理員申請與 LINE 設定會在本頁登入後顯示。</p></section>
 
     <main id="adminView" class="hidden">
-      <header class="topbar"><div><p class="kicker">Lumen Club / Operations</p><h1>管理工作台</h1></div><div class="account-menu"><span id="displayName">管理員</span><span id="roleLabel" class="role-label">Admin</span><a href="./workspace.html" class="text-button">商家 LINE 設定</a><button id="logoutButton" class="text-button" type="button">登出</button></div></header>
+      <header class="topbar"><div><p class="kicker">Lumen Club / Operations</p><h1>管理工作台</h1></div><div class="account-menu"><span id="displayName">管理員</span><span id="roleLabel" class="role-label">Admin</span><a href="#productizedAdmin" class="text-button" hidden>商家 LINE 設定</a><button id="logoutButton" class="text-button" type="button">登出</button></div></header>
       <nav class="surface-nav" role="tablist" aria-label="管理功能"><button id="membersTab" class="surface-tab" type="button" role="tab" aria-selected="true" aria-controls="membersPanel">會員卡</button><button id="cardsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="cardsPanel">集點卡</button><button id="eventsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="eventsPanel">活動票券</button><button id="calendarTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="calendarPanel">營運日曆</button><button id="testModeTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="testModePanel">測試</button></nav>
 
       <section class="ops-overview" aria-labelledby="opsOverviewTitle">

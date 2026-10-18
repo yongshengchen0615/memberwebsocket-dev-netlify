@@ -268,6 +268,8 @@
   }
   function renderMerchantNav(tenant) {
     const nav=el('merchantFeatureNav');nav.replaceChildren();
+    // Fail closed: only server-returned grants are rendered on the top bar.
+    // Productized business mutations remain unavailable until isolated APIs exist.
     for(const [feature,label] of [['shared','共用 LINE 設定'],...Object.entries(state.features)]) {
       if(feature!=='shared'&&tenant.features?.[feature]!==true)continue;
       const button=document.createElement('button');

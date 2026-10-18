@@ -78,11 +78,15 @@ test('AC-001: transport denies untrusted origin, missing/malformed auth and over
   assert.deepEqual(calls,[]);
 });
 
-test('AC-010: legacy admin entry provides accessible route to applicant onboarding',()=>{
+test('AC-010: Lumen admin entry embeds applicant onboarding without sending users to another page',()=>{
  const fs=require('node:fs'); const html=fs.readFileSync(path.join(__dirname,'../admin/index.html'),'utf8');
- assert.match(html,/id="errorView"[\s\S]*?href="\.\/workspace\.html"/);
- assert.match(html,/id="loadingView"[\s\S]*?href="\.\/workspace\.html"/);
- assert.ok((html.match(/href="\.\/workspace\.html"/g)||[]).length>=3);
+ const loader=fs.readFileSync(path.join(__dirname,'../admin/productized-workspace.js'),'utf8');
+ assert.ok(html.includes('id="loadingView"') && html.includes('商家管理員申請、審核狀態與已授權功能會直接在此頁面顯示'));
+ assert.ok(html.includes('id="errorView"') && html.includes('產品化管理員申請與 LINE 設定會在本頁登入後顯示'));
+ assert.ok(html.includes('id="productizedAdmin" class="shell" hidden'));
+ assert.ok(!html.includes('href="./workspace.html"'));
+ assert.ok(loader.includes("source.querySelector('#applicationWorkspace')"));
+ assert.ok(loader.includes('host.replaceChildren'));
 });
 
 test('AC-020: merchant and platform use different login return storage',()=>{
@@ -122,4 +126,19 @@ test('AC-034: privileged denial guidance identifies the review field, not a self
  assert.match(js,/body\.error\?\.code==='PLATFORM_ADMIN_REQUIRED'&&!merchantEntry/);
  assert.match(js,/function showAuthorizationDenied\(\)/);
  assert.doesNotMatch(html,/<button[^>]*>[^<]*開通總管理員/);
+});
+
+test('AC-037: Lumen admin reuses its existing URL and hides unapproved top features',()=>{
+ const fs=require('node:fs');
+ const html=fs.readFileSync(path.join(__dirname,'../admin/index.html'),'utf8');
+ const admin=fs.readFileSync(path.join(__dirname,'../admin/app.js'),'utf8');
+ const mount=fs.readFileSync(path.join(__dirname,'../admin/productized-workspace.js'),'utf8');
+ const platform=fs.readFileSync(path.join(__dirname,'../platform/app.js'),'utf8');
+ assert.match(html,/id="productizedAdmin"[^>]*hidden/);
+ assert.match(html,/productized-workspace\.js/);
+ assert.match(admin,/await window\.ProductizedAdminShell\.mount\(\)/);
+ assert.doesNotMatch(admin,/window\.location\.replace\(target\.href\)/);
+ assert.match(mount,/fetch\('\.\/workspace\.html'/);
+ assert.match(mount,/legacy\.hidden=true/);
+ assert.match(platform,/tenant\.features\?\.\[feature\]!==true/);
 });

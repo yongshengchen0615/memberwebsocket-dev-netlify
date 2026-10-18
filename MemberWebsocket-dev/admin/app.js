@@ -430,9 +430,10 @@
       } else {
         state.config = await window.MemberSystem.loadConfig();
         if (state.config.productizedAdmin === true) {
-          const target = new URL('./workspace.html', window.location.href);
-          target.search = window.location.search;
-          window.location.replace(target.href);
+          // Productized tenants never use the legacy shared business data plane.
+          // Keep the /admin/ route and mount only the grant-scoped control plane.
+          startLoginProgress('正在載入已授權的管理功能…', 70);
+          await window.ProductizedAdminShell.mount();
           return;
         }
         startLoginProgress('正在驗證 LINE 身分…', 48);

@@ -1,0 +1,8 @@
+/* Productized workspace reuses Lumen Club's /admin/ entry, not a new route. */
+#app[hidden],#productizedAdmin[hidden]{display:none!important}
+#productizedAdmin{max-width:1180px;margin:0 auto}
+#productizedAdmin .merchant-feature-nav{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:16px 0 24px;padding:12px;background:#f0f4ee;border:1px solid #d2ded2;border-radius:14px}
+#productizedAdmin .merchant-feature-nav button{border-radius:10px;min-height:44px;font-weight:650}
+#productizedAdmin #merchantWorkspace{max-width:100%}
+#productizedAdmin .topbar h1{letter-spacing:-.025em}
+@media(max-width:650px){#productizedAdmin .merchant-feature-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}
