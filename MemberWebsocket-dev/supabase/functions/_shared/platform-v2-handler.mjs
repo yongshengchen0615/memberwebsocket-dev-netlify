@@ -190,7 +190,7 @@ export function createPlatformV2Handler({db,allowedOrigins,lineChannelId,encrypt
             p_version:body.expectedVersion,p_config:body.config,p_envelope:envelope,
             p_req:body.requestId,
             p_hash:await sha256(JSON.stringify({feature:body.feature,version:body.expectedVersion,
-              config:body.config,envelope}))});
+              config:body.config,credentials:body.credentials||null}))});
           break;
         }
         default:reject(404,'ACTION_NOT_FOUND','未支援的操作。');
