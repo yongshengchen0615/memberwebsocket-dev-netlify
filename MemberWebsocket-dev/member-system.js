@@ -88,10 +88,10 @@
   // The legacy business API is a single-merchant data plane. A tenant URL must
   // never silently fall through to another merchant's existing membership data.
   function assertLegacyTenantScope() {
-    const search = String(window.location?.search || '').replace(/^\\?/, '');
+    const search = String(window.location?.search || '').replace(/^\?/, '');
     const isTenantScoped = search.split('&').some(segment => {
       if (!segment) return false;
-      try { return decodeURIComponent(segment.split('=')[0].replace(/\\+/g, ' ')).toLowerCase() === 'tenant'; }
+      try { return decodeURIComponent(segment.split('=')[0].replace(/\+/g, ' ')).toLowerCase() === 'tenant'; }
       catch { return true; } // Malformed query keys fail closed.
     });
     if (isTenantScoped) {
