@@ -241,8 +241,11 @@ alter table platform_private.requests enable row level security;
 alter table platform_private.audit_events enable row level security;
 
 revoke all on all tables in schema platform_private from public, anon, authenticated;
+-- Even service_role must NOT have DML on root authority.
+-- Only a separately authorized DB operator can manually grant root.
+revoke all on platform_private.platform_operators from service_role;
+grant select on platform_private.platform_operators to service_role;
 grant select,insert,update on
-  platform_private.platform_operators,
   platform_private.applications,
   platform_private.tenants,
   platform_private.tenant_environments,
