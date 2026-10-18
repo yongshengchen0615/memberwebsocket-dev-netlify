@@ -80,7 +80,15 @@ test('AC-001: transport denies untrusted origin, missing/malformed auth and over
 
 test('AC-010: legacy admin entry provides accessible route to applicant onboarding',()=>{
  const fs=require('node:fs'); const html=fs.readFileSync(path.join(__dirname,'../admin/index.html'),'utf8');
- assert.match(html,/id="errorView"[\s\S]*?href="\.\.\/platform\/"/);
- assert.match(html,/id="loadingView"[\s\S]*?href="\.\.\/platform\/"/);
- assert.ok((html.match(/href="\.\.\/platform\/"/g)||[]).length>=3);
+ assert.match(html,/id="errorView"[\s\S]*?href="\.\/workspace\.html"/);
+ assert.match(html,/id="loadingView"[\s\S]*?href="\.\/workspace\.html"/);
+ assert.ok((html.match(/href="\.\/workspace\.html"/g)||[]).length>=3);
+});
+
+test('AC-020: merchant and platform use different login return storage',()=>{
+ const fs=require('node:fs'),path=require('node:path');
+ const source=fs.readFileSync(path.join(__dirname,'../platform/app.js'),'utf8');
+ const admin=fs.readFileSync(path.join(__dirname,'../admin/index.html'),'utf8');
+ assert.match(source,/merchantEntry\?'admin-line-login-return-v1':'platform-line-login-return-v1'/);
+ assert.doesNotMatch(admin,/href="\.\.\/platform\/"/);
 });
