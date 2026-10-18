@@ -157,7 +157,7 @@ for each row execute function platform_private.check_tenant_activation();
 -- tenant, suspend the tenant FIRST in the SAME database transaction.
 -- This prevents a healthy=false environment with an active tenant record.
 create function platform_private.prevent_active_environment_downgrade()
-returns trigger language plpgsql security invoker set search_path = '' as $
+returns trigger language plpgsql security invoker set search_path = '' as $$
 declare active_tenant boolean; expected_schema_version text;
 begin
   select t.status='active',t.isolation_version
@@ -175,7 +175,7 @@ begin
     raise exception 'SUSPEND_ACTIVE_TENANT_FIRST';
   end if;
   return new;
-end $;
+end $$;
 revoke all on function platform_private.prevent_active_environment_downgrade()
   from public, anon, authenticated;
 create trigger active_environment_downgrade_guard
