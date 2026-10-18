@@ -112,3 +112,14 @@ test('AC-033: merchant projection separates approved LINE configuration from iso
   const verified=publicTenant({...row,status:'active',isolation_verified_at:'2026-10-18',isolation_version:'v1'});
   assert.equal(verified.capabilities.dataPlaneVerified,true);
 });
+
+test('AC-034: privileged denial guidance identifies the review field, not a self-service grant',()=>{
+ const fs=require('node:fs');
+ const html=fs.readFileSync(path.join(__dirname,'../platform/index.html'),'utf8');
+ const js=fs.readFileSync(path.join(__dirname,'../platform/app.js'),'utf8');
+ assert.match(html,/id="platformAuthorizationNotice"[^>]*hidden[^>]*role="alert"/);
+ for(const column of ['platform_private.super_admins.enabled','line_user_id','admin_id','role = admin','status = active'])assert.ok(html.includes(column),column);
+ assert.match(js,/body\.error\?\.code==='PLATFORM_ADMIN_REQUIRED'&&!merchantEntry/);
+ assert.match(js,/function showAuthorizationDenied\(\)/);
+ assert.doesNotMatch(html,/<button[^>]*>[^<]*開通總管理員/);
+});
