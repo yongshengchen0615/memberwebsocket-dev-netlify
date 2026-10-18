@@ -14,3 +14,11 @@
 @media(max-width:600px){.merchant-feature-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.merchant-feature-nav button{padding:12px 8px}}
 
 .merchant-readiness { border-inline-start: 3px solid currentColor; padding: .7rem 1rem; margin: .7rem 0 1.1rem; background: rgba(131, 155, 159, .1); }
+
+/* Explicit, post-LINE-verification denial guidance; not an authorization control. */
+.authorization-notice{max-width:850px;margin:24px auto;padding:24px 28px;background:#fff8ed;border:2px solid #ac722c;border-radius:16px}
+.authorization-notice h2{color:#714214;margin-top:0}
+.authorization-notice ol{padding-left:1.4em;line-height:1.85;color:#443b2a}
+.authorization-notice li{margin-bottom:10px}
+.authorization-notice code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.92em;overflow-wrap:anywhere;background:#f0e8d8;padding:2px 4px;border-radius:4px}
+@media(max-width:650px){.authorization-notice{padding:18px 16px}}
