@@ -81,12 +81,12 @@ test('AC-001: transport denies untrusted origin, missing/malformed auth and over
 test('AC-010: Lumen admin entry embeds applicant onboarding without sending users to another page',()=>{
  const fs=require('node:fs'); const html=fs.readFileSync(path.join(__dirname,'../admin/index.html'),'utf8');
  const loader=fs.readFileSync(path.join(__dirname,'../admin/productized-workspace.js'),'utf8');
- assert.match(html,/id="loadingView"[\\s\\S]*?商家管理員申請、審核狀態與已授權功能會直接在此頁面顯示/);
- assert.match(html,/id="errorView"[\\s\\S]*?產品化管理員申請與 LINE 設定會在本頁登入後顯示/);
- assert.match(html,/id="productizedAdmin"[^>]*hidden/);
- assert.doesNotMatch(html,/href="\\.\\/workspace\\.html"/);
- assert.match(loader,/source\\.querySelector\\('#applicationWorkspace'\\)/);
- assert.match(loader,/host\\.replaceChildren/);
+ assert.ok(html.includes('id="loadingView"') && html.includes('商家管理員申請、審核狀態與已授權功能會直接在此頁面顯示'));
+ assert.ok(html.includes('id="errorView"') && html.includes('產品化管理員申請與 LINE 設定會在本頁登入後顯示'));
+ assert.ok(html.includes('id="productizedAdmin" class="shell" hidden'));
+ assert.ok(!html.includes('href="./workspace.html"'));
+ assert.ok(loader.includes("source.querySelector('#applicationWorkspace')"));
+ assert.ok(loader.includes('host.replaceChildren'));
 });
 
 test('AC-020: merchant and platform use different login return storage',()=>{
