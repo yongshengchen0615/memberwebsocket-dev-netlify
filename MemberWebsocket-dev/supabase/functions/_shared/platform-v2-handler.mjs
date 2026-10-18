@@ -115,7 +115,7 @@ function parseBody(input){
 }
 function validateId(req){if(!uuid.test(req||''))reject(400,'INVALID_REQUEST','操作識別碼不正確。')}
 function validateVersion(v){if(!Number.isSafeInteger(v)||v<1)reject(400,'INVALID_VERSION','資料版本不正確。')}
-export function createPlatformV2Handler({db,allowedOrigins,lineChannelId,encryptionKey,verifyIdentity}){
+export function createPlatformV2Handler({db,allowedOrigins,lineChannelId,encryptionKey,verifyIdentity=null}){
   if(!db?.rpc||!(allowedOrigins instanceof Set))throw new Error('Missing V2 dependencies');
   return async request=>{
     const origin=request.headers.get('Origin');
