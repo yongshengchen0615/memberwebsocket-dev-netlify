@@ -37,6 +37,8 @@
 | Edge Functions | 32 |
 | Storage Buckets（公開） | 2（0） |
 | Supabase Realtime publication 表 | 1 |
+| 啟用中的 Cron 排程 | 8（共 8） |
+| Storage 物件總數 | 25（booking-receipts 25、e2e-failure-artifacts 0） |
 | pg_cron extension | 已安裝 |
 | 商家／商家申請 | 0／0 |
 | super_admins 已存在／enabled | 1／0 |
@@ -112,12 +114,12 @@ Security Advisor 有 `rls_enabled_no_policy` INFO 告警：目前 67 張（含 p
 | AC-P0-001 | Given 舊資料庫，When 唯讀盤點，Then 產出 62/112/32/2 等可重跑基線，不修改任何資料 | SQL SELECT、API lists | 盤點已執行 |
 | AC-P0-002 | Given 含平台私有 schema 的 DB，When 查詢角色權限，Then anon/authenticated 不能使用它或呼叫 public definer | pg catalog 唯讀查詢 | 已執行 |
 | AC-P0-003 | Given 既有資料，When 準備遷移，Then 能還原資料庫及 Storage 樣本、可重現快照 hash | staging 備份還原演練 | 未執行，阻擋資料切換 |
-| AC-P1-001 | Given 新空白測試 Project，When 執行 schema migration，Then 表與唯一/狀態/權限約束一致且無 root seed | psql / Supabase CLI / SQL integration | 尚未執行 |
-| AC-P1-002 | Given 任意訪客或管理員，When 直接讀寫 private schema/竄改 role/feature/tenant ID，Then 失敗；錯誤不透露 secrets | API + DB roles + 安全負向 | 尚未執行 |
+| AC-P1-001 | Given 新空白測試 Project，When 執行 schema migration，Then 表與唯一/狀態/權限約束一致且無 root seed | PGlite SQL integration；遠端 Supabase sandbox 待驗 | PGlite 相關案例已通過（5 案例之一）；遠端未執行 |
+| AC-P1-002 | Given 任意訪客或管理員，When 直接讀寫 private schema/竄改 role/feature/tenant ID，Then 失敗；錯誤不透露 secrets | PGlite DB roles；API 安全負向待驗 | PGlite DB 角色拒絕通過；API 未執行 |
 | AC-P1-003 | Given 手動核准 root 且另有非 root，When root 核准指定八項功能，Then 只授權該 tenant，並記稽核；停權後舊 token 拒絕 | SQL+API+browser E2E | 尚未執行，需 root 測試帳號 |
-| AC-P1-004 | Given 相同 request_id 重送或併發核准，When 寫入，Then 只有 1 tenant + 1 job，不遺失審計 | 真實 PostgreSQL 多連線交易 | 尚未執行 |
+| AC-P1-004 | Given 相同 request_id 重送或併發核准，When 寫入，Then 只有 1 tenant + 1 job，不遺失審計 | PGlite 唯一約束測試；真實 PostgreSQL 多連線交易待驗 | 唯一約束通過；真正併發未執行 |
 | AC-P1-005 | Given 建立專案的 API 失敗/429/timeout/已成功但回應遺失，When retry/reconcile，Then 不建立重複專案；秘密不記錄 | Provisioner mock 與 sandbox Management API | 尚未執行 |
-| AC-P1-006 | Given sandbox tenant 未通過隔離或 LINE 配置，When 嘗試 active，Then DB/server fail-closed | SQL trigger + API | 尚未執行 |
+| AC-P1-006 | Given sandbox tenant 未通過隔離或 LINE 配置，When 嘗試 active，Then DB/server fail-closed | PGlite SQL trigger；API 待驗 | SQL 約束與觸發器通過；API 未執行 |
 | AC-P1-007 | Given 商家 A/B，When 讀寫對方 API/Storage/Realtime/Jobs 及停權，Then 全部拒絕且無跨資料 | 兩個 sandbox Projects E2E | 屬 P2，不得先宣稱驗證 |
 | AC-P1-008 | Given 控制平面切換失敗，When 切回 legacy 控制 endpoint，Then 舊商家業務服務不中斷且不丟失申請／審計 | staging rollback drill | 尚未執行 |
 
@@ -148,6 +150,19 @@ P1：
 - P1 控制 API 故障時：停止 Provisioner/影響新申請的寫入，將控制頁導回舊平台後端；保留兩邊申請/稽核事件待對帳，**禁止直接刪除**。正式商家流量此階段本來就應維持舊業務專案。
 - 災難回復一律先走 staging 完整演練並記錄 RPO/RTO，才允許實際切換。
 
+## 10. 2026-10-18 P1 本地 SQL 基線測試證據（僅 PR 規劃分支）
+
+新增 `tests/integration/platform_control_plane_p1.cjs`，並放入 `test-memberwebsocket-dev.yml` DOM integration lane。
+實際 GitHub Actions 執行：`run 39123649867`，Job `117664200971`；PGlite 0.3.14 與 Node 24，在此 CI integration lane 執行新建 P1 schema；**以下五項均為實際成功測試輸出**：
+
+1. AC-P1-001：全新 schema 9 私有表、9 RLS、零 root。
+2. AC-P1-002：anon/authenticated 權限拒絕、service_role 不能 INSERT/UPDATE/DELETE root，也不能 UPDATE/DELETE 稽核。
+3. AC-P1-001：八項布林功能與唯一性、root 必須人工核准。
+4. AC-P1-006：商家 active 需要完整隔離 metadata 與 LINE credential readiness；不能直接降級 active 環境。
+5. AC-P1-004：重複 project_ref、job idempotency key、request_id 均遭 DB constraint 擋下。
+
+注意 PGlite 是**單一引擎**，本結果不代表真實 PostgreSQL 多連線競爭、獨立 Supabase Project、真正 LINE/Management API、Storage 複製或備份回復通過。後續修改此版檔案時，必須以**最新 Git SHA 的完整 CI**結論為準；歷史成功只作證據參考。
+
 ## 10. 本輪交付邊界
 
-本輪只進行正式 Supabase 唯讀盤點、規劃文件及未部署的 sandbox schema 參考檔。尚未建立新 Project、寫入正式 DB、改 Netlify、改 LINE、執行完整專案測試或授權任何總管理員。**P1 屬準備中，不能聲稱驗證完成或可上線。**
+本輪只進行正式 Supabase 唯讀盤點、規劃文件、未部署的 sandbox schema 參考檔，以及合成資料 PGlite 整合測試。尚未建立新 Project、寫入正式 DB、改 Netlify、改 LINE、執行完整專案測試或授權任何總管理員。**P1 屬準備中，不能聲稱驗證完成或可上線。**
