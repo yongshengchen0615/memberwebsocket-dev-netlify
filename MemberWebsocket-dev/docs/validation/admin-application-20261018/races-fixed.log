@@ -1,0 +1,12 @@
+▶ admin human journeys — DOM integration, not Chromium evidence
+  ✔ BOOKING_RESOURCE_SETTINGS — primary technician and party size save and reload (2650.741922ms)
+  ✔ LOTTERY_EDITOR_template — add/delete prizes, reject invalid total and evenly balance (2203.755063ms)
+✔ admin human journeys — DOM integration, not Chromium evidence (4882.246859ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6353.566787

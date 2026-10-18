@@ -1,0 +1,15 @@
+▶ admin human journeys — DOM integration, not Chromium evidence
+  ✔ BOOKING_RESOURCE_SETTINGS — primary technician and party size save and reload (2674.479008ms)
+  ✔ LOCATION_template — search, select, rename, radius, adjust, clear, remove and persist (2635.164792ms)
+  ✔ LOCATION_event — search, select, rename, radius, adjust, clear, remove and persist (2166.933482ms)
+  ✔ LOTTERY_EDITOR_template — add/delete prizes, reject invalid total and evenly balance (1587.486705ms)
+  ✔ LOTTERY_EDITOR_event — add/delete prizes, reject invalid total and evenly balance (1633.465663ms)
+✔ admin human journeys — DOM integration, not Chromium evidence (10726.84878ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11731.110561

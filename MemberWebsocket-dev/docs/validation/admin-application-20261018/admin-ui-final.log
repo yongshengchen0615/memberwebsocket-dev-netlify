@@ -1,0 +1,9 @@
+✔ AC-017/018 DOM + real handler/SQL: admin applies, root checks only grants, admin saves each approved LINE page (5399.919765ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6721.904

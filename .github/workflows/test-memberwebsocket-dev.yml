@@ -7,6 +7,7 @@ on:
       - 'scripts/**'
       - 'netlify.toml'
       - '.github/workflows/publish-netlify.yml'
+      - '.github/workflows/publish-platform-preview.yml'
       - '.github/workflows/test-netlify-build.yml'
       - '.github/workflows/test-memberwebsocket-dev.yml'
   pull_request:
@@ -15,6 +16,7 @@ on:
       - 'scripts/**'
       - 'netlify.toml'
       - '.github/workflows/publish-netlify.yml'
+      - '.github/workflows/publish-platform-preview.yml'
       - '.github/workflows/test-netlify-build.yml'
       - '.github/workflows/test-memberwebsocket-dev.yml'
 
@@ -67,6 +69,9 @@ jobs:
       - name: Check DOM, accessibility, and booking integration behavior
         run: |
           node --test \
+            MemberWebsocket-dev/tests/integration/product_platform.cjs \
+            MemberWebsocket-dev/tests/integration/platform_remove_all_data.cjs \
+            MemberWebsocket-dev/tests/integration/product_admin_ui.cjs \
             MemberWebsocket-dev/tests/integration/admin_startup.cjs \
             MemberWebsocket-dev/tests/integration/admin_terms.cjs \
             MemberWebsocket-dev/tests/integration/booking_startup.cjs \
@@ -130,8 +135,14 @@ jobs:
       - name: Install browser test dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: MemberWebsocket-dev/tests/browser
+      - name: Install SQL fixture dependencies for platform browser tests
+        run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: MemberWebsocket-dev/tests/integration
       - name: Install Chromium and system dependencies
         run: npx playwright install --with-deps chromium --only-shell
+        working-directory: MemberWebsocket-dev/tests/browser
+      - name: Check platform onboarding and root authorization first
+        run: npm test -- product-platform.spec.cjs
         working-directory: MemberWebsocket-dev/tests/browser
       - name: Check selected-scope production runner nodes first
         run: >-
@@ -179,6 +190,7 @@ jobs:
       - name: Check browser JavaScript syntax
         run: |
           printf '%s\n' \
+            MemberWebsocket-dev/platform/app.js \
             MemberWebsocket-dev/friends.js \
             MemberWebsocket-dev/friend-qr-scanner.js \
             MemberWebsocket-dev/vendor/friend-qr-decoder.js \
@@ -245,6 +257,7 @@ jobs:
       - name: Check Edge Functions
         run: |
           deno check \
+            MemberWebsocket-dev/supabase/functions/platform-api/index.ts \
             MemberWebsocket-dev/supabase/functions/api/index.ts \
             MemberWebsocket-dev/supabase/functions/birthday-benefits/index.ts \
             MemberWebsocket-dev/supabase/functions/test-mode-api/index.ts \
@@ -464,10 +477,26 @@ jobs:
           grep -q 'notify_admin_config_realtime_change' MemberWebsocket-dev/supabase/migrations/20260910_transactional_realtime_invalidation.sql
           grep -q 'notify_admin_grant_realtime_change' MemberWebsocket-dev/supabase/migrations/20260910_transactional_realtime_invalidation.sql
 
+  dependency-audit:
+    name: Dependency vulnerability audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Audit browser and integration dependency trees
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund --prefix MemberWebsocket-dev/tests/browser
+          npm ci --ignore-scripts --no-audit --no-fund --prefix MemberWebsocket-dev/tests/integration
+          npm audit --prefix MemberWebsocket-dev/tests/browser --audit-level=low
+          npm audit --prefix MemberWebsocket-dev/tests/integration --audit-level=low
+
   validate:
     name: Validate MemberWebsocket Dev
     if: always()
-    needs: [regression, integration, browser-e2e, browser-syntax, edge-functions, wiring]
+    needs: [regression, integration, browser-e2e, browser-syntax, edge-functions, wiring, dependency-audit]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -479,6 +508,7 @@ jobs:
           BROWSER_E2E: ${{ needs.browser-e2e.result }}
           EDGE_FUNCTIONS: ${{ needs.edge-functions.result }}
           WIRING: ${{ needs.wiring.result }}
+          DEPENDENCY_AUDIT: ${{ needs.dependency-audit.result }}
         run: |
           printf 'regression=%s\nintegration=%s\nbrowser-syntax=%s\nedge-functions=%s\nwiring=%s\n' \
             "$REGRESSION" "$INTEGRATION" "$BROWSER_SYNTAX" "$EDGE_FUNCTIONS" "$WIRING"
@@ -488,3 +518,4 @@ jobs:
           test "$BROWSER_E2E" = success
           test "$EDGE_FUNCTIONS" = success
           test "$WIRING" = success
+          test "$DEPENDENCY_AUDIT" = success

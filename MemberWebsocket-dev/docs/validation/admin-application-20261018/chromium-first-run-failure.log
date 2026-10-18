@@ -1,0 +1,11 @@
+Observed Netlify build log excerpt; deploy 6ad48ff29b830f0ed10e1c58, commit 5700c5c38d01083f7791788ba0e7a8aa372f7109.
+2026-10-18 09:34:05 UTC
+1) product-platform.spec.cjs:98:1 PLATFORM_MANAGER_SETUP
+TypeError: Cannot read properties of undefined (reading 'features')
+126 | const tenant=(await h.db.query('select features,credentials_configured,status from platform_private.tenants where slug=$1',['self-service-b'])).rows[0];
+127 | expect(tenant.features.booking).toBe(false);
+at /opt/build/repo/MemberWebsocket-dev/tests/browser/product-platform.spec.cjs:127:17
+1 failed
+242 passed (7.3m)
+Error: Required validation failed: browser-all (exit 1, skipped 0)
+The validation build failed and did not publish a success report.
