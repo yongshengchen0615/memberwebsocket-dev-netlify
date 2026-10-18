@@ -1,6 +1,8 @@
 (() => {
   'use strict';
   const el = id => document.getElementById(id);
+  const merchantEntry = document.documentElement.dataset.workspace === 'merchant';
+  let refreshTimer=null,refreshBusy=false;
   const form = el('tenantForm'), dialog = el('tenantDialog');
   const fields = form.elements;
   const lineKeys = ['adminChannelId','memberChannelId','messagingChannelId','adminLiffId','memberLiffId','pointsLiffId','eventLiffId','calendarLiffId','bookingLiffId'];
@@ -17,12 +19,12 @@
     return Number.isFinite(issuedAt) && issuedAt>0 && Date.now()>=issuedAt
       && Date.now()-issuedAt<=LOGIN_RETURN_TTL_MS;
   }
-  function showLoginGate(message='每次進入總管理員控制台，請重新使用 LINE 確認身分。') {
+  function showLoginGate(message=merchantEntry?'請重新使用 LINE 確認管理員身分。':'每次進入總管理員控制台，請重新使用 LINE 確認身分。') {
     state.idToken='';
     state.pending=null;
     state.approval=null;
     state.merchantPending=null;
-    for(const id of ['tenantDialog','approvalDialog']) {
+    for(const id of ['tenantDialog','approvalDialog','grantDialog']) {
       const dialog=el(id);
       if(dialog?.open)dialog.close();
     }
@@ -103,7 +105,7 @@
   }
   function render() {
     const list=el('tenantList');list.replaceChildren();
-    if (!state.tenants.length) {const p=document.createElement('p');p.className='empty';p.textContent='尚未新增商家。先建立管理員並設定功能與 LINE 資料。';list.append(p);return;}
+    if (!state.tenants.length) {const p=document.createElement('p');p.className='empty';p.textContent='尚無已審核的一般管理員。請從申請清單勾選功能並審核。';list.append(p);return;}
     for (const tenant of state.tenants) {
       const card=document.createElement('article');card.className='tenant-card';
       const badge=document.createElement('span');badge.className='badge';badge.textContent=({pending_provisioning:'待佈建',suspended:'已停用',active:'已啟用'})[tenant.status] || '待確認';
@@ -112,7 +114,7 @@
       const featureList=document.createElement('div');featureList.className='tenant-features';
       for (const [key,label] of Object.entries(state.features)) if (tenant.features[key]) {const tag=document.createElement('span');tag.textContent=label;featureList.append(tag);}
       if (!featureList.childNodes.length) featureList.textContent='尚未開放任何功能';
-      const footer=document.createElement('footer');const edit=document.createElement('button');edit.type='button';edit.textContent='編輯設定';edit.addEventListener('click',()=>fill(tenant));footer.append(edit);
+      const footer=document.createElement('footer');const edit=document.createElement('button');edit.type='button';edit.textContent='調整開放功能';edit.addEventListener('click',()=>openGrantDialog(tenant));footer.append(edit);
       if (tenant.status!=='suspended') {const suspend=document.createElement('button');suspend.type='button';suspend.className='secondary';suspend.textContent='停用商家';suspend.addEventListener('click',async()=>{
         if (!window.confirm(`停用「${tenant.name}」？`)) return;
         suspend.disabled=true;
@@ -145,6 +147,41 @@
   form.addEventListener('change',featureRequirements);
   el('newTenant').addEventListener('click',()=>fill());
 
+  // Root feature-only editor: no merchant LINE fields or secrets are read.
+  const grantDialog=el('grantDialog'),grantForm=el('grantForm');
+  let grantPending=null,grantTenant=null;
+  function openGrantDialog(tenant) {
+    grantTenant=tenant;grantPending=null;
+    el('grantDescription').textContent=tenant.name+' · '+tenant.slug;
+    const list=el('grantFeatures');list.replaceChildren();
+    for(const [key,label] of Object.entries(state.features)) {
+      const wrap=document.createElement('label'),input=document.createElement('input');
+      input.type='checkbox';input.dataset.grantFeature=key;input.checked=tenant.features?.[key]===true;
+      wrap.append(input,document.createTextNode(label));list.append(wrap);
+    }
+    el('grantMessage').textContent='';el('saveGrant').disabled=false;
+    grantDialog.showModal();
+  }
+  grantForm.addEventListener('change',()=>{grantPending=null;});
+  grantForm.addEventListener('submit',async event=>{
+    event.preventDefault();if(!grantTenant)return;
+    if(!grantPending)grantPending={
+      tenantId:grantTenant.id,expectedVersion:grantTenant.version,requestId:crypto.randomUUID(),
+      features:Object.fromEntries([...grantForm.querySelectorAll('[data-grant-feature]')].map(node=>[node.dataset.grantFeature,node.checked]))
+    };
+    el('saveGrant').disabled=true;el('grantMessage').textContent='正在儲存授權…';
+    try{
+      const result=await request('platform.tenant.features.save',grantPending);
+      state.tenants=state.tenants.map(x=>x.id===result.tenant.id?result.tenant:x);
+      grantDialog.close();grantPending=null;grantTenant=null;render();
+      el('platformStatus').textContent='功能授權已更新。商家 LINE 設定仍由管理員自行維護。';
+    }catch(error){
+      el('grantMessage').textContent=error.message;
+      if(!error.uncertain)grantPending=null;
+    }finally{el('saveGrant').disabled=false;}
+  });
+  el('closeGrant').addEventListener('click',()=>{if(!el('saveGrant').disabled){grantPending=null;grantTenant=null;grantDialog.close();}});
+  grantDialog.addEventListener('cancel',event=>{if(el('saveGrant').disabled)event.preventDefault();else{grantPending=null;grantTenant=null;}});
   // Applications are independent from the legacy admin membership table.
   const approvalDialog=el('approvalDialog'),approvalForm=el('approvalForm');
   function renderApplications() {
@@ -154,7 +191,7 @@
     for(const application of pending) {
       const card=document.createElement('article');card.className='tenant-card';
       const title=document.createElement('h3');title.textContent=application.businessName;
-      const info=document.createElement('p');info.textContent=application.slug+' · 申請時間 '+new Date(application.requestedAt).toLocaleString('zh-TW');
+      const info=document.createElement('p');info.textContent=application.slug+' · LINE 使用者 '+(application.applicantLineUserId||'資料待確認')+' · 申請時間 '+new Date(application.requestedAt).toLocaleString('zh-TW');
       const approve=document.createElement('button');approve.type='button';approve.textContent='審核與選擇功能';
       approve.addEventListener('click',()=>{
         state.approval={applicationId:application.id,requestId:crypto.randomUUID(),features:null};
@@ -190,7 +227,45 @@
   approvalDialog.addEventListener('cancel',e=>{if(el('confirmApproval').disabled)e.preventDefault();else state.approval=null;});
 
   const applicationForm=el('applicationForm'),merchantForm=el('merchantLineForm');
+  const featureLiffNames={membership:'memberLiffId',points:'pointsLiffId',events:'eventLiffId',calendar:'calendarLiffId',booking:'bookingLiffId'};
+  let merchantPanel='shared';
+  function selectMerchantPanel(feature) {
+    const tenant=state.merchant;
+    // A stale bookmark or a forged query string never exposes an unapproved feature.
+    merchantPanel=feature==='shared'||tenant?.features?.[feature]===true?feature:'shared';
+    for(const panel of merchantForm.querySelectorAll('[data-merchant-panel]'))
+      panel.hidden=panel.dataset.merchantPanel!==merchantPanel;
+    for(const button of el('merchantFeatureNav').querySelectorAll('[data-line-feature]'))
+      button.setAttribute('aria-current',button.dataset.lineFeature===merchantPanel?'page':'false');
+    for(const name of ['adminChannelId','memberChannelId','messagingChannelId','adminLiffId'])
+      merchantForm.elements.namedItem(name).required=merchantPanel==='shared';
+    for(const [featureKey,name] of Object.entries(featureLiffNames))
+      merchantForm.elements.namedItem(name).required=merchantPanel===featureKey;
+    for(const name of ['channelAccessToken','channelSecret'])
+      merchantForm.elements.namedItem(name).required=merchantPanel==='shared'&&!tenant?.credentialsConfigured;
+    el('saveMerchantLine').disabled=['integrations','testing','usage'].includes(merchantPanel);
+    el('merchantMessage').textContent='';
+    try {
+      const url=new URL(window.location.href);
+      if(merchantPanel==='shared')url.searchParams.delete('feature');
+      else url.searchParams.set('feature',merchantPanel);
+      window.history.replaceState(window.history.state,'',url.href);
+    } catch {}
+  }
+  function renderMerchantNav(tenant) {
+    const nav=el('merchantFeatureNav');nav.replaceChildren();
+    for(const [feature,label] of [['shared','共用 LINE 設定'],...Object.entries(state.features)]) {
+      if(feature!=='shared'&&tenant.features?.[feature]!==true)continue;
+      const button=document.createElement('button');
+      button.type='button';button.dataset.lineFeature=feature;button.textContent=label;
+      button.addEventListener('click',()=>selectMerchantPanel(feature));
+      nav.append(button);
+    }
+    const requested=new URLSearchParams(window.location.search).get('feature');
+    selectMerchantPanel(requested||merchantPanel);
+  }
   function renderMine(data){
+    state.mineSignature=JSON.stringify([data.application?.status,data.tenant?.version,data.tenant?.status]);
     state.merchant=data.tenant||null;state.features=data.features||state.features;
     const application=data.application;
     el('applicationWorkspace').hidden=false;
@@ -199,7 +274,8 @@
     progress.hidden=!application;
     progress.textContent=application?('申請商家：'+application.businessName+' · '+
       ({pending:'等待總管理員審核',approved:'審核通過',rejected:'申請未通過，可重新提交'}[application.status]||'狀態待確認')):'';
-    el('merchantWorkspace').hidden=application?.status!=='approved'||!data.tenant;
+    el('merchantWorkspace').hidden=application?.status!=='approved'||!data.tenant||data.tenant.status==='suspended';
+    if(data.tenant?.status==='suspended')progress.textContent='此管理員已停用，請聯絡總管理員。';
     if(!data.tenant)return;
     const tenant=data.tenant;
     el('merchantInfo').textContent=tenant.name+' · '+tenant.slug+' · '+(tenant.credentialsConfigured?'LINE 憑證已保存':'尚未設定 LINE 憑證');
@@ -212,12 +288,13 @@
       const field=merchantForm.elements.namedItem(key);
       field.value=tenant.line?.[key]||'';
       const name={memberLiffId:'membership',pointsLiffId:'points',eventLiffId:'events',calendarLiffId:'calendar',bookingLiffId:'booking'}[key];
-      if(name)field.required=tenant.features[name]===true;
+      if(name)field.required=false;
     }
     for(const key of ['channelAccessToken','channelSecret']){
       const field=merchantForm.elements.namedItem(key);field.value='';field.required=!tenant.credentialsConfigured;
     }
     el('merchantMessage').textContent='';state.merchantPending=null;
+    renderMerchantNav(tenant);
   }
   applicationForm.addEventListener('submit',async event=>{
     event.preventDefault();if(!applicationForm.reportValidity())return;
@@ -251,13 +328,28 @@
     }finally{button.disabled=false;}
   });
 
+  async function refreshMine() {
+    if(!merchantEntry||!state.idToken||refreshBusy)return;
+    refreshBusy=true;
+    try {
+      const data=await request('platform.application.bootstrap');
+      const signature=JSON.stringify([data.application?.status,data.tenant?.version,data.tenant?.status]);
+      if(signature!==state.mineSignature)renderMine(data);
+      el('platformStatus').textContent=data.application?.status==='pending'?'申請已送出，等待總管理員審核。':'已更新目前的功能權限。';
+    }catch(error){el('platformStatus').textContent=error.message;}
+    finally{refreshBusy=false;}
+  }
+  el('refreshApplication')?.addEventListener('click',()=>void refreshMine());
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refreshMine();});
+  window.addEventListener('pagehide',()=>{if(refreshTimer)clearInterval(refreshTimer);});
+  window.addEventListener('pageshow',event=>{if(event.persisted&&merchantEntry)void start();});
   async function start() {
     try {
       const response=await fetch('../config.json',{cache:'no-cache',signal:AbortSignal.timeout(15000)});
       if(!response.ok)throw new Error('無法讀取平台公開設定。');
       state.config=await response.json();
-      const platformLiffId=String(state.config.platformLiffId || '').trim();
-      if(!/^2012065297-[A-Za-z0-9]+$/.test(platformLiffId))throw new Error('尚未正確設定總管理員專用 LIFF ID。');
+      const platformLiffId=String((merchantEntry?state.config.adminLiffId:state.config.platformLiffId) || '').trim();
+      if(!(merchantEntry?/^2010791619-[A-Za-z0-9]+$/:/^2012065297-[A-Za-z0-9]+$/).test(platformLiffId))throw new Error(merchantEntry?'尚未正確設定一般管理員 LIFF ID。':'尚未正確設定總管理員專用 LIFF ID。');
       window.MemberSystem.validateConfig({...state.config,adminLiffId:platformLiffId},'admin');
       if(!window.liff)throw new Error('LIFF SDK 載入失敗，請確認網路後重試。');
       let initTimer;
@@ -288,19 +380,15 @@
         showLoginGate('無法取得 LINE ID token。請重新使用 LINE 登入，並確認 LIFF 已啟用 openid scope。');
         return;
       }
-      let data,superAdmin=true;
-      try{data=await refresh();}
-      catch(error){
-        if(error.code!=='PLATFORM_ADMIN_REQUIRED')throw error;
-        superAdmin=false;
-        data=await request('platform.application.bootstrap');
-        renderMine(data);
-      }
-      if(!superAdmin){
-        clearLoginGate();
-        el('platformStatus').textContent='LINE 使用者 '+data.profile.displayName+'，請查看您的商家申請狀態。';
+      if(merchantEntry){
+        const data=await request('platform.application.ensure');
+        renderMine(data);clearLoginGate();
+        el('platformStatus').textContent='管理員 '+data.profile.displayName+'，已登入。';
+        if(refreshTimer)clearInterval(refreshTimer);
+        refreshTimer=setInterval(()=>{if(!document.hidden)void refreshMine();},15000);
         return;
       }
+      const data=await refresh();
       if(!returnedFromLine) {
         showLoginGate();
         return;

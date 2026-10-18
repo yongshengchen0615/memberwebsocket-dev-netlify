@@ -28,6 +28,7 @@ function fixture() {
 }
 function transport(s, action, p={}, slug='api',record=true) {
   if(record)s.calls.push({action,payload:structuredClone(p),slug});
+  if(s.hold?.action===action&&action!=='admin.booking.receipt.register'){const wait=s.hold.wait;s.hold=null;return wait.then(()=>transport(s,action,p,slug,false));}
   if(s.fault && !s.fault.afterCommit && s.fault.action===action && (!s.fault.onCall || s.calls.filter(c=>c.action===action).length===s.fault.onCall)){const f=s.fault;s.fault=null;throw Object.assign(new Error(f.message||'QA rejected write'),{code:f.code||'CONFLICT'});}
   const stamp=()=>new Date(Date.parse(version)+(++s.seq)*1000).toISOString();
   const save=(table,key,value)=>{const row={...value,[key]:value[key]||'qa-'+(++s.seq),updatedAt:stamp()};const i=s[table].findIndex(x=>x[key]===row[key]);if(i<0)s[table].push(row);else s[table][i]=row;return structuredClone(row);};

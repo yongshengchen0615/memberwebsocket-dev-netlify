@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.57.0';
-import { verifyPlatformIdToken } from '../_shared/platform-auth.mjs';
+import { verifyPlatformIdToken, verifyMerchantAdminIdToken } from '../_shared/platform-auth.mjs';
 import { createPlatformHandler } from '../_shared/platform-handler.mjs';
 import { resolvePlatformEncryptionKey } from '../_shared/platform-key.mjs';
 
@@ -17,5 +17,7 @@ export const handler = createPlatformHandler({
   db, allowedOrigins,
   encryptionKey:() => resolvePlatformEncryptionKey({configuredKey:env('PLATFORM_CREDENTIAL_ENCRYPTION_KEY'),db}),
   verifyIdentity:(idToken: string) => verifyPlatformIdToken({idToken}),
+  verifyApplicantIdentity:(idToken: string) => verifyMerchantAdminIdToken({idToken}),
 });
 Deno.serve(handler);
+

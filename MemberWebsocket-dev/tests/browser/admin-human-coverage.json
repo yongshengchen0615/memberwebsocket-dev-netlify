@@ -3,8 +3,8 @@
   "scope": "Seven admin workspaces, including operation audit; test-control workspace excluded",
   "evidence": "isolated Chromium UI with production handlers and explicit in-memory transport; not live Supabase/LINE delivery",
   "reviewedSources": {
-    "admin/index.html": "faa929ae808fdb5940f64c035369054d50a7d10b9cf31b8f1deba1b0ad05105b",
-    "admin/app.js": "49cd661affa2bb77cd195af989cfa1ad7b6726ae6ac3819a9e5314256d716738",
+    "admin/index.html": "5fd78d21028e7a99c68da720ad3205872fd20693fc322fe83685e5809b5dea3f",
+    "admin/app.js": "6a61250af2f21223c5846be2da1cbc322678446db12bf4aec6be78ffb9304738",
     "admin/member-workspace-tabs.js": "e8235f6c84af59c708090d5dd15dcf52d2929a00f7988453d664028f242f8fe2",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
     "admin/grant-automation.js": "f3178a0bb26745d6cd7731b24ab8ab9aaec96a4dada62699a3609ae8b803e2b0",
@@ -17,13 +17,15 @@
     "admin/integration-hub.js": "696f38801b5e8755e706c3e0153aa023a1d47f01a3f68456dd8e5a7fec868b33",
     "admin/booking-panel.js": "4d26d1ac7faa061328a380020f55acc0106c5b4af581aab79c443e9990b42ef5",
     "admin/booking-panel-core.js": "e61eb0815a14f41610d8440bc8f8854779968cd0d5c2a32c29172b66edf5197c",
-    "admin/booking-resources.js": "421534c24977f3e9756a150990dd7accb109fc7074a4986840ad22282ecb8542",
+    "admin/booking-resources.js": "ea6901dc1020cbb85ead15107333e4b110e2b9a02854bffba856e410445bd852",
     "admin/booking-always-open.js": "9cb236902a7f3f36cf3fe4c3f13fbbac622f000c72d36ec34f7d4dde08e6e54a",
     "admin/booking-cancellation-sync.js": "a8367bb6565d054af976ec1ffdf950874a4e8f14a3917d2e036bc1744016db19",
     "admin/booking-receipt-admin.js": "b5873c2753c0f2f9c267d0d13583405c2205cc70c0f2103f5899f741a74cf920",
     "admin/booking-accessible-admin.js": "5947f0328b3b27ff891760f72615024899a96b77467f7601842056f908ce5526",
     "admin/ticket-visibility.js": "bb1cf776a3bf1c69f75bbfa6a4b3e07cf9c9077444099533cb9c2883736dd5c0",
-    "admin/operation-audit.js": "2ecd1161e533d56b17a6f89d1907bef384e96a932f81027d6e6178bdcce5a96e"
+    "admin/operation-audit.js": "2ecd1161e533d56b17a6f89d1907bef384e96a932f81027d6e6178bdcce5a96e",
+    "admin/workspace.html": "ec38cbdcd16f266a345483fe67eee5dc4f24e176050c948eca2fc275c2fe3de8",
+    "platform/app.js": "45e63831451915aaf137ecf7e93813bfbb2c36ce9034ce467b29d56c4d71c0a1"
   },
   "features": [
     {
@@ -594,5 +596,14 @@
       "PLATFORM_MANAGER_SETUP",
       "PLATFORM_REVIEW"
     ]
+  },
+  "productAdminCoverage": {
+    "spec": "product-platform.spec.cjs",
+    "cases": [
+      "PLATFORM_APPLY",
+      "PLATFORM_MANAGER_SETUP",
+      "PLATFORM_REVIEW"
+    ],
+    "scope": "Product admin entry, automatic idempotent application, root grants and owner LINE settings; existing legacy journeys use their explicit legacy fixture."
   }
 }

@@ -12,5 +12,6 @@
   "eventLiffId": "2010787602-tuapstY3",
   "calendarLiffId": "2010787602-4UKzslco",
   "bookingLiffId": "2010787602-sgiB0ETj",
-  "memberCalendarFunctionUrl": "https://dbuquirnaskrwcamdxki.supabase.co/functions/v1/member-calendar-api"
+  "memberCalendarFunctionUrl": "https://dbuquirnaskrwcamdxki.supabase.co/functions/v1/member-calendar-api",
+  "productizedAdmin": true
 }

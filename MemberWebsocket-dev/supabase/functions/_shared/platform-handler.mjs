@@ -11,7 +11,7 @@ export function databaseError(error) {
   for (const [code,[status,message]] of Object.entries(SQL_ERRORS)) if (String(error?.message || '').includes(code)) return new PlatformError(status,code,message);
   return new PlatformError(503,'PLATFORM_DATABASE_UNAVAILABLE','目前無法儲存或讀取商家設定。');
 }
-export function createPlatformHandler({ db, verifyIdentity, encryptionKey, allowedOrigins }) {
+export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdentity = verifyIdentity, encryptionKey, allowedOrigins }) {
   return async request => {
     const origin = request.headers.get('Origin');
     const headers = { 'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Vary':'Origin',
@@ -33,7 +33,8 @@ export function createPlatformHandler({ db, verifyIdentity, encryptionKey, allow
       catch { throw new PlatformError(400,'INVALID_JSON','請求格式不正確。'); }
       if (!body || typeof body !== 'object' || Array.isArray(body)) throw new PlatformError(400,'INVALID_JSON','請求格式不正確。');
       if (typeof body.idToken !== 'string' || !body.idToken || body.idToken.length > 10_000) throw new PlatformError(401,'AUTH_REQUIRED','請使用 LINE 帳號登入。');
-      const identity = await verifyIdentity(body.idToken);
+      const applicantAction = ['platform.application.bootstrap','platform.application.ensure','platform.application.submit','platform.line.save'].includes(body.action);
+      const identity = await (applicantAction ? verifyApplicantIdentity : verifyIdentity)(body.idToken);
       const actor = identity.lineUserId;
       const readOnly = ['platform.bootstrap','platform.application.bootstrap'].includes(body.action);
       const rate = await db.rpc('consume_api_rate_limit',{p_principal_hash:await payloadHash(`platform:${actor}`),
@@ -47,6 +48,20 @@ export function createPlatformHandler({ db, verifyIdentity, encryptionKey, allow
         return {application:application && {...application,tenant:undefined},
           tenant:application?.tenant ? publicTenant(application.tenant) : null};
       };
+      if (body.action === 'platform.application.ensure') {
+        // Identity and initial name come only from LINE verification. The SQL
+        // actor lock and unique constraint make simultaneous first visits safe.
+        let workspace = await mine();
+        if (!workspace.application) {
+          const name = Array.from(String(identity.displayName || 'LINE 管理員').trim() || 'LINE 管理員').slice(0,100).join('');
+          const result = await db.rpc('platform_submit_application',{
+            p_actor:actor,p_name:name,p_slug:'admin-'+crypto.randomUUID().replaceAll('-',''),
+          });
+          if (result.error) throw databaseError(result.error);
+          workspace = await mine();
+        }
+        return json({ok:true,data:{profile:{displayName:identity.displayName},features:FEATURES,...workspace}});
+      }
       if (body.action === 'platform.application.bootstrap') {
         return json({ok:true,data:{profile:{displayName:identity.displayName},features:FEATURES,...await mine()}});
       }
@@ -68,10 +83,18 @@ export function createPlatformHandler({ db, verifyIdentity, encryptionKey, allow
         if (workspace.tenant.status === 'suspended')
           throw new PlatformError(403,'TENANT_SUSPENDED','此商家已被停用。');
         const current = workspace.tenant;
+        // Disabled feature LIFF IDs are immutable to the merchant, even via a forged request.
+        // Existing legacy values may be preserved but not altered without root approval.
+        const featureLiffs = {membership:'memberLiffId',points:'pointsLiffId',events:'eventLiffId',calendar:'calendarLiffId',booking:'bookingLiffId'};
+        for (const [feature,key] of Object.entries(featureLiffs)) {
+          if (current.features[feature] !== true
+            && String(body.line?.[key] ?? '') !== String(current.line?.[key] ?? ''))
+            throw new PlatformError(403,'FEATURE_DISABLED','此功能尚未核准，無法修改 LINE 設定。');
+        }
         const validated = validateTenant({
           name:current.name,slug:current.slug,ownerLineUserId:current.ownerLineUserId,
           features:current.features,line:body.line,credentials:body.credentials,
-        },!current.credentialsConfigured);
+        },!current.credentialsConfigured,{allowIncompleteFeatureLiffs:true});
         const hash = await payloadHash({expectedVersion:body.expectedVersion,line:validated.line,credentials:validated.credentials});
         const encrypted = validated.credentials.channelAccessToken
           ? await sealCredentials(current.id,validated.credentials,await encryptionKey()) : null;
@@ -111,26 +134,35 @@ export function createPlatformHandler({ db, verifyIdentity, encryptionKey, allow
         if (result.error) throw databaseError(result.error);
         return json({ok:true,data:{tenant:publicTenant(result.data)}});
       }
-      if (!['platform.tenant.save','platform.tenant.suspend'].includes(body.action))
+      if (body.action === 'platform.tenant.features.save') {
+        if (!uuid.test(body.requestId || '') || !uuid.test(body.tenantId || '')
+          || !Number.isSafeInteger(body.expectedVersion) || body.expectedVersion < 1)
+          throw new PlatformError(400,'PLATFORM_INVALID_INPUT','商家 ID、版本或操作識別碼不正確。');
+        const features=body.features;
+        if (!features || typeof features !== 'object' || Array.isArray(features)
+          || Object.keys(features).length !== Object.keys(FEATURES).length
+          || Object.keys(FEATURES).some(key=>typeof features[key]!=='boolean')
+          || Object.keys(features).some(key=>!Object.hasOwn(FEATURES,key)))
+          throw new PlatformError(400,'PLATFORM_INVALID_INPUT','請逐項勾選有效功能。');
+        const hash=await payloadHash({tenantId:body.tenantId,expectedVersion:body.expectedVersion,features});
+        const result=await db.rpc('platform_update_tenant_features',{
+          p_actor:actor,p_tenant_id:body.tenantId,p_expected_version:body.expectedVersion,
+          p_features:features,p_request_id:body.requestId,p_payload_hash:hash,
+        });
+        if(result.error)throw databaseError(result.error);
+        return json({ok:true,data:{tenant:publicTenant(result.data)}});
+      }
+      // Deprecated root writes cannot bypass the applicant/approval workflow.
+      if (body.action === 'platform.tenant.save')
+        throw new PlatformError(410,'PLATFORM_LEGACY_WRITE_DISABLED','請由一般管理員申請；總管理員只能核准與勾選功能。');
+      if (body.action !== 'platform.tenant.suspend')
         throw new PlatformError(404,'ACTION_NOT_FOUND','不支援的總管理員操作。');
       if (!uuid.test(body.requestId || '') || !uuid.test(body.tenantId || ''))
         throw new PlatformError(400,'INVALID_REQUEST_ID','操作識別碼格式不正確。');
       if (!Number.isSafeInteger(body.expectedVersion) || body.expectedVersion < 0)
         throw new PlatformError(400,'INVALID_VERSION','資料版本格式不正確。');
-      let rpc;
-      if (body.action === 'platform.tenant.suspend') {
-        rpc = await db.rpc('platform_suspend_tenant',{p_actor:actor,p_tenant_id:body.tenantId,
-          p_expected_version:body.expectedVersion,p_request_id:body.requestId});
-      } else {
-        const tenant = validateTenant(body.tenant,body.expectedVersion === 0);
-        const hash = await payloadHash({tenantId:body.tenantId,expectedVersion:body.expectedVersion,tenant});
-        const encrypted = tenant.credentials.channelAccessToken
-          ? await sealCredentials(body.tenantId,tenant.credentials,await encryptionKey()) : null;
-        const {credentials,...metadata} = tenant;
-        rpc = await db.rpc('platform_save_tenant',{p_actor:actor,p_request_id:body.requestId,
-          p_payload_hash:hash,p_tenant_id:body.tenantId,p_expected_version:body.expectedVersion,
-          p_tenant:metadata,p_secrets:encrypted});
-      }
+      const rpc = await db.rpc('platform_suspend_tenant',{p_actor:actor,p_tenant_id:body.tenantId,
+        p_expected_version:body.expectedVersion,p_request_id:body.requestId});
       if (rpc.error) throw databaseError(rpc.error);
       return json({ok:true,data:{tenant:publicTenant(rpc.data)}});
     } catch (error) {

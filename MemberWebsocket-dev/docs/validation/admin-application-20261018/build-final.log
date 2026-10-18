@@ -1,0 +1,23 @@
+✔ all seven application entry pages are published (4.670104ms)
+✔ published HTML references resolve to files inside the frontend (34.238248ms)
+✔ platform is a sibling of admin in the build output (2.106845ms)
+✔ server source, migrations, tests and local deployment state are not published (18.923992ms)
+✔ frontend backend settings are copied without changing identity or project (1.15548ms)
+✔ deployment versions are valid and change for each new deployment (3.157106ms)
+✔ all ten published entrypoints contain a static, CSP-compatible build badge (6.691332ms)
+✔ badge CSS stays visible on mobile and does not obstruct touch or require inline styles (0.70938ms)
+✔ test-mode API source preserves explicit CORS allowlist and request authorization (0.807887ms)
+✔ deployed test-mode API responds to browser preflight only for trusted origins (25562.460599ms)
+✔ deployed test-mode API returns a CORS-readable rejection for malformed POST requests (6500.983728ms)
+✔ production deploy targets only the existing Netlify site with protected credentials (4.838692ms)
+✔ deployment is gated by the entire test baseline of its exact develop commit (0.584564ms)
+✔ deploy emits recoverable artifact and verifies both page and JS after publishing (1.298474ms)
+✔ deployment changes trigger the same full suite on PR and develop push (0.731584ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 34306.776408

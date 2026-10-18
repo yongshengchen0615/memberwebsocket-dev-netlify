@@ -4,7 +4,7 @@ const {pathToFileURL}=require('node:url');
 const shared=name=>import(pathToFileURL(path.join(__dirname,'../../supabase/functions/_shared',name)));
 const root='U'+'1'.repeat(32),manager='U'+'2'.repeat(32),key=Buffer.alloc(32,7).toString('base64');
 const tenantId='10000000-0000-4000-8000-000000000001';
-const migration=['20261017131559_product_platform_control_plane.sql','20261017140939_platform_line_identity.sql','20261017164510_platform_admin_applications.sql'].map(name=>fs.readFileSync(path.join(__dirname,'../../supabase/migrations',name),'utf8')).join('\n');
+const migration=['20261017131559_product_platform_control_plane.sql','20261017140939_platform_line_identity.sql','20261017164510_platform_admin_applications.sql','20261018012500_platform_feature_grants_only.sql'].map(name=>fs.readFileSync(path.join(__dirname,'../../supabase/migrations',name),'utf8')).join('\n');
 async function fixture(adminCount=1) {
  const db=new PGlite();
  await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
@@ -17,7 +17,7 @@ async function fixture(adminCount=1) {
  if(adminCount===1)await db.query("insert into admins(line_user_id,role,status)values($1,'admin','active')",[manager]);
  const rpc=async(name,p)=>{
   if(name==='consume_api_rate_limit')return {data:true,error:null}; // Existing shared limiter has its own baseline tests.
-  const args={platform_is_super_admin:['p_actor'],platform_list_tenants:['p_actor'],platform_save_tenant:['p_actor','p_request_id','p_payload_hash','p_tenant_id','p_expected_version','p_tenant','p_secrets'],platform_suspend_tenant:['p_actor','p_tenant_id','p_expected_version','p_request_id'],platform_my_application:['p_actor'],platform_submit_application:['p_actor','p_name','p_slug'],platform_list_applications:['p_actor'],platform_approve_application:['p_actor','p_application_id','p_features','p_request_id'],platform_save_my_line:['p_actor','p_expected_version','p_request_id','p_payload_hash','p_line','p_secrets']}[name];
+  const args={platform_is_super_admin:['p_actor'],platform_list_tenants:['p_actor'],platform_save_tenant:['p_actor','p_request_id','p_payload_hash','p_tenant_id','p_expected_version','p_tenant','p_secrets'],platform_suspend_tenant:['p_actor','p_tenant_id','p_expected_version','p_request_id'],platform_my_application:['p_actor'],platform_submit_application:['p_actor','p_name','p_slug'],platform_list_applications:['p_actor'],platform_approve_application:['p_actor','p_application_id','p_features','p_request_id'],platform_save_my_line:['p_actor','p_expected_version','p_request_id','p_payload_hash','p_line','p_secrets'],platform_update_tenant_features:['p_actor','p_tenant_id','p_expected_version','p_features','p_request_id','p_payload_hash']}[name];
   assert.ok(args,'Unmodeled RPC '+name);
   try {const sql=`select public.${name}(${args.map((_,i)=>'$'+(i+1)).join(',')}) result`;
    const rows=await db.transaction(async tx=>{await tx.exec('set local role service_role');return (await tx.query(sql,args.map(k=>p[k]??null))).rows;});
@@ -25,12 +25,18 @@ async function fixture(adminCount=1) {
   }catch(error){return {data:null,error};}
  };
  const {createPlatformHandler}=await shared('platform-handler.mjs');
- const {verifyPlatformIdToken,PLATFORM_CHANNEL_ID}=await shared('platform-auth.mjs');
+ const {verifyPlatformIdToken,verifyMerchantAdminIdToken,PLATFORM_CHANNEL_ID}=await shared('platform-auth.mjs');
  const allowedOrigins=new Set(['https://allowed.test']);
  const providerCalls=[];
  // Only the LINE HTTP provider is synthetic. The production verifier, handler,
  // encrypted writes, authorization RPCs and SQL are exercised together.
- const handler=createPlatformHandler({db:{rpc},encryptionKey:()=>key,allowedOrigins,verifyIdentity:idToken=>verifyPlatformIdToken({idToken,fetchImpl:async(url,options)=>{
+ const handler=createPlatformHandler({db:{rpc},encryptionKey:()=>key,allowedOrigins,
+ verifyApplicantIdentity:idToken=>verifyMerchantAdminIdToken({idToken,fetchImpl:async(url,options)=>{
+   providerCalls.push({url,channel:options.body.get('client_id')});
+   const token=options.body.get('id_token');
+   const sub=token==='root'||token==='legacy-root'?root:token==='manager'?manager:'';
+   return new Response(JSON.stringify({sub,name:token==='manager'?'商家管理員':'總管理員',aud:'2010791619',iss:'https://access.line.me',iat:Math.floor(Date.now()/1000)-10,exp:Math.floor(Date.now()/1000)+300}),{status:sub?200:400});
+ }}),verifyIdentity:idToken=>verifyPlatformIdToken({idToken,fetchImpl:async(url,options)=>{
    providerCalls.push({url,channel:options.body.get('client_id')});
    assert.equal(options.body.get('client_id'),PLATFORM_CHANNEL_ID);
    const token=options.body.get('id_token');

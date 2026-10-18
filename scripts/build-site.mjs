@@ -31,6 +31,7 @@ const commit = /^[a-f\d]{7,40}$/i.test(process.env.COMMIT_REF || '')
 const entryPages = [
   'index.html',
   'admin/index.html',
+  'admin/workspace.html',
   'platform/index.html',
   'member/index.html',
   'points/index.html',

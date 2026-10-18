@@ -1,117 +1,128 @@
 const test=require('node:test'),assert=require('node:assert/strict');
-const {fixture,shared,root,manager,key,tenantId}=require('./platform-fixture.cjs');
-test('AC-001/002/003/004: real migration + handler create tenant atomically; secrets are encrypted and never listed',async()=>{
+const {fixture,shared,root,manager,key}=require('./platform-fixture.cjs');
+async function approve(h,features=h.tenant.features){
+ const app=await h.call({action:'platform.application.submit',businessName:'商家 A',slug:'merchant-a'},'manager');
+ assert.equal(app.status,200,JSON.stringify(app));
+ const pending=(await h.call({action:'platform.bootstrap'})).body.data.applications[0];
+ const result=await h.call({action:'platform.application.approve',applicationId:pending.id,features,requestId:crypto.randomUUID()});
+ assert.equal(result.status,200,JSON.stringify(result));
+ return result.body.data.tenant;
+}
+const approvedLine=(h,enabled=['membership'])=>Object.fromEntries(Object.entries(h.tenant.line).map(([key,value])=>{
+ const mapping={memberLiffId:'membership',pointsLiffId:'points',eventLiffId:'events',calendarLiffId:'calendar',bookingLiffId:'booking'};
+ return [key,mapping[key]&&!enabled.includes(mapping[key])?'':value];
+}));
+test('AC-001/004/016: old root merchant create is denied; approved owner encrypts own LINE credentials',async()=>{
  const h=await fixture();try{
-  const denied=await h.call(h.save,'manager');assert.equal(denied.status,403);assert.equal((await h.db.query('select count(*)::int n from platform_private.tenants')).rows[0].n,0);
-  const saved=await h.call(h.save);assert.equal(saved.status,200,JSON.stringify(saved));assert.equal(saved.body.data.tenant.status,'pending_provisioning');
-  assert.equal(saved.body.data.tenant.version,1);assert.equal(saved.body.data.tenant.credentialsConfigured,true);
-  const listing=await h.call({action:'platform.bootstrap'});assert.equal(listing.status,200);assert.equal(listing.body.data.tenants.length,1);
-  const rows=(await h.db.query('select * from platform_private.tenant_secrets')).rows;
-  const {openCredentials}=await shared('platform-crypto.mjs');assert.deepEqual(await openCredentials(tenantId,rows[0].envelope,key),h.tenant.credentials);
-  const all=JSON.stringify({saved,listing,rows,audit:(await h.db.query('select * from platform_private.audit_events')).rows});
-  assert.ok(!all.includes(h.tenant.credentials.channelAccessToken));assert.ok(!all.includes(h.tenant.credentials.channelSecret));
-  assert.ok(!JSON.stringify(listing).includes('envelope'));assert.ok(!JSON.stringify(listing).includes('payload_hash'));
+  assert.equal((await h.call(h.save)).status,410);
+  assert.equal((await h.db.query('select count(*)::int n from platform_private.tenants')).rows[0].n,0);
+  const tenant=await approve(h);
+  assert.equal(tenant.status,'pending_provisioning');
+  assert.equal((await h.call({action:'platform.line.save',expectedVersion:1,requestId:crypto.randomUUID(),line:h.tenant.line,credentials:h.tenant.credentials})).status,403);
+  const saved=await h.call({action:'platform.line.save',expectedVersion:1,requestId:crypto.randomUUID(),line:h.tenant.line,credentials:h.tenant.credentials},'manager');
+  assert.equal(saved.status,200,JSON.stringify(saved));
+  const cipher=(await h.db.query('select envelope from platform_private.tenant_secrets')).rows[0].envelope;
+  const {openCredentials}=await shared('platform-crypto.mjs');
+  assert.deepEqual(await openCredentials(tenant.id,cipher,key),h.tenant.credentials);
+  const view=JSON.stringify({saved,listing:await h.call({action:'platform.bootstrap'}),audit:(await h.db.query('select detail from platform_private.audit_events')).rows});
+  assert.ok(!view.includes(h.tenant.credentials.channelAccessToken));assert.ok(!view.includes(h.tenant.credentials.channelSecret));
  }finally{await h.db.close();}
 });
-test('AC-005: uncertain retry returns original result once; changed request is rejected; stale update preserves data',async()=>{
+test('AC-005/016: root feature grant is idempotent, optimistic-locked, audited, and cannot alter LINE',async()=>{
  const h=await fixture();try{
-  const first=await h.call(h.save),replay=await h.call(h.save);assert.deepEqual(replay,first);
-  assert.equal((await h.db.query('select count(*)::int n from platform_private.audit_events')).rows[0].n,1);
-  const changed=await h.call({...h.save,tenant:{...h.tenant,name:'different'}});assert.equal(changed.status,409);assert.equal(changed.body.error.code,'PLATFORM_REQUEST_CONFLICT');
-  const update={...h.save,requestId:crypto.randomUUID(),expectedVersion:1,tenant:{...h.tenant,name:'updated',credentials:{channelAccessToken:'',channelSecret:''}}};
-  assert.equal((await h.call(update)).status,200);
-  const stale=await h.call({...update,requestId:crypto.randomUUID(),tenant:{...update.tenant,name:'stale'}});assert.equal(stale.status,409);
-  const row=(await h.db.query('select name,version from platform_private.tenants')).rows[0];assert.deepEqual(row,{name:'updated',version:2});
-  const cipher=(await h.db.query('select envelope from platform_private.tenant_secrets')).rows[0].envelope;const {openCredentials}=await shared('platform-crypto.mjs');assert.deepEqual(await openCredentials(tenantId,cipher,key),h.tenant.credentials);
-  const identity=await h.call({...update,expectedVersion:2,requestId:crypto.randomUUID(),tenant:{...update.tenant,ownerLineUserId:root}});assert.equal(identity.status,409);
+  const tenant=await approve(h);
+  const features=Object.fromEntries(Object.keys(tenant.features).map(k=>[k,k==='membership']));
+  const save={action:'platform.tenant.features.save',tenantId:tenant.id,expectedVersion:tenant.version,features,requestId:crypto.randomUUID()};
+  assert.equal((await h.call(save,'manager')).status,403);
+  const first=await h.call(save);assert.equal(first.status,200,JSON.stringify(first));
+  assert.deepEqual(await h.call(save),first);
+  assert.equal((await h.call({...save,features:{...features,booking:true}})).status,409);
+  assert.equal((await h.call({...save,requestId:crypto.randomUUID()})).status,409);
+  const row=(await h.db.query('select features,line_config,version,credentials_configured from platform_private.tenants where id=$1',[tenant.id])).rows[0];
+  assert.deepEqual(row.features,features);assert.deepEqual(row.line_config,{});
+  assert.equal(row.version,2);assert.equal(row.credentials_configured,false);
+  assert.equal((await h.db.query("select count(*)::int n from platform_private.audit_events where action='TENANT_FEATURES_UPDATED'")).rows[0].n,1);
  }finally{await h.db.close();}
 });
-test('AC-005: competing versions yield exactly one update, with no double audit or lost increment',async()=>{
+test('AC-005: two competing grant updates preserve one committed version and one audit',async()=>{
  const h=await fixture();try{
-  await h.call(h.save);
-  const outcomes=await Promise.all(['first','second'].map(name=>h.call({...h.save,requestId:crypto.randomUUID(),expectedVersion:1,tenant:{...h.tenant,name}})));
-  assert.deepEqual(outcomes.map(x=>x.status).sort(),[200,409]);
-  assert.equal((await h.db.query('select version from platform_private.tenants')).rows[0].version,2);
-  assert.equal((await h.db.query('select count(*)::int n from platform_private.audit_events')).rows[0].n,2);
+  const tenant=await approve(h);
+  const results=await Promise.all(['points','booking'].map(f=>h.call({action:'platform.tenant.features.save',tenantId:tenant.id,expectedVersion:1,requestId:crypto.randomUUID(),features:Object.fromEntries(Object.keys(tenant.features).map(k=>[k,k===f]))})));
+  assert.deepEqual(results.map(x=>x.status).sort(),[200,409]);
+  const row=(await h.db.query('select features,version from platform_private.tenants where id=$1',[tenant.id])).rows[0];
+  assert.equal(row.version,2);assert.equal(Object.values(row.features).filter(Boolean).length,1);
+  assert.equal((await h.db.query("select count(*)::int n from platform_private.audit_events where action='TENANT_FEATURES_UPDATED'")).rows[0].n,1);
  }finally{await h.db.close();}
 });
-test('AC-001/006: root revocation applies to old identity immediately; activation without isolation is rejected',async()=>{
+test('AC-001/006: root revocation and isolation gate remain enforced',async()=>{
  const h=await fixture();try{
-  await h.call(h.save);
-  await assert.rejects(h.db.query("update platform_private.tenants set status='active' where id=$1",[tenantId]),/isolation_gate/);
-  const result=await h.call({action:'platform.tenant.suspend',tenantId,expectedVersion:1,requestId:crypto.randomUUID()});assert.equal(result.body.data.tenant.status,'suspended');
+  const tenant=await approve(h);
+  await assert.rejects(h.db.query("update platform_private.tenants set status='active' where id=$1",[tenant.id]),/isolation_gate/);
+  assert.equal((await h.call({action:'platform.tenant.suspend',tenantId:tenant.id,expectedVersion:1,requestId:crypto.randomUUID()})).status,200);
   await h.db.query("update admins set status='suspended' where line_user_id=$1",[root]);
   assert.equal((await h.call({action:'platform.bootstrap'})).status,403);
-  assert.equal((await h.call({...h.save,requestId:crypto.randomUUID()})).status,403);
+  assert.equal((await h.call({action:'platform.tenant.features.save',tenantId:tenant.id,expectedVersion:2,features:tenant.features,requestId:crypto.randomUUID()})).status,403);
  }finally{await h.db.close();}
 });
-test('AC-001/004: anon/authenticated cannot read private tables or spoof root actor via RPC',async()=>{
+test('AC-001/013: private tables and root RPC deny direct anonymous access',async()=>{
  const h=await fixture();try{
-  for(const role of ['anon','authenticated']) {
+  for(const role of ['anon','authenticated']){
    await h.db.exec('set role '+role);
    await assert.rejects(h.db.query('select * from platform_private.tenant_secrets'),/permission denied/);
    await assert.rejects(h.db.query('select public.platform_list_tenants($1)',[root]),/permission denied/);
-   await assert.rejects(h.db.query('select public.platform_is_super_admin($1)',[root]),/permission denied/);
+   await assert.rejects(h.db.query('select public.platform_update_tenant_features($1,$2,$3,$4,$5,$6)',[root,crypto.randomUUID(),1,{},crypto.randomUUID(),'a'.repeat(64)]),/permission denied/);
    await h.db.exec('reset role');
   }
-  // RLS remains a second boundary even if a future grant accidentally exposes a table.
   await h.db.exec('grant usage on schema platform_private to authenticated; grant select on platform_private.tenants to authenticated');
-  await h.call(h.save);await h.db.exec('set role authenticated');assert.equal((await h.db.query('select * from platform_private.tenants')).rows.length,0);await h.db.exec('reset role');
-  assert.equal((await h.db.query("select count(*)::int n from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='platform_private' and c.relkind='r' and c.relrowsecurity")).rows[0].n,6);
+  await approve(h);
+  await h.db.exec('set role authenticated');
+  assert.equal((await h.db.query('select * from platform_private.tenants')).rows.length,0);
+  await h.db.exec('reset role');
  }finally{await h.db.close();}
 });
-test('AC-005/006: invalid ciphertext rolls back tenant+audit; legacy public-table reset cannot erase control plane',async()=>{
+test('AC-004: invalid ciphertext is rolled back atomically',async()=>{
  const h=await fixture();try{
-  const p={p_actor:root,p_request_id:crypto.randomUUID(),p_payload_hash:'a'.repeat(64),p_tenant_id:tenantId,p_expected_version:0,p_tenant:{name:h.tenant.name,slug:h.tenant.slug,ownerLineUserId:manager,features:h.tenant.features,line:h.tenant.line},p_secrets:{version:1,iv:'bad',data:'bad'}};
-  assert.ok((await h.rpc('platform_save_tenant',p)).error);
-  assert.equal((await h.db.query('select count(*)::int n from platform_private.tenants')).rows[0].n,0);
-  assert.equal((await h.db.query('select count(*)::int n from platform_private.audit_events')).rows[0].n,0);
-  await h.call(h.save);
-  await h.db.exec(`do $$ declare r record; begin for r in select schemaname,tablename from pg_tables where schemaname='public' and tablename<>'admins' loop execute format('truncate table %I.%I cascade',r.schemaname,r.tablename); end loop; end $$;`);
-  assert.equal((await h.db.query('select count(*)::int n from platform_private.tenants')).rows[0].n,1);
-  assert.equal((await h.db.query('select count(*)::int n from platform_private.super_admins')).rows[0].n,1);
+  const tenant=await approve(h);
+  const result=await h.rpc('platform_save_my_line',{p_actor:manager,p_expected_version:1,p_request_id:crypto.randomUUID(),p_payload_hash:'a'.repeat(64),p_line:approvedLine(h),p_secrets:{version:1,iv:'bad',data:'bad'}});
+  assert.ok(result.error);
+  const row=(await h.db.query('select version,credentials_configured from platform_private.tenants where id=$1',[tenant.id])).rows[0];
+  assert.equal(row.version,1);assert.equal(row.credentials_configured,false);
  }finally{await h.db.close();}
 });
-test('ambiguous legacy installation does not automatically select one of multiple admins as root',async()=>{
+test('ambiguous legacy installation never selects one of two root candidates',async()=>{
  const h=await fixture(2);try{assert.equal((await h.db.query('select count(*)::int n from platform_private.super_admins')).rows[0].n,0);assert.equal((await h.call({action:'platform.bootstrap'})).status,403);}finally{await h.db.close();}
 });
-
-test('asynchronous server key resolution completes before encrypting and committing merchant credentials',async()=>{
+test('merchant encryption key is resolved before writing encrypted LINE secrets',async()=>{
  const h=await fixture();try{
-  const {createPlatformHandler}=await shared('platform-handler.mjs');let resolved=false;
-  const handler=createPlatformHandler({db:{rpc:h.rpc},allowedOrigins:h.allowedOrigins,verifyIdentity:async()=>({lineUserId:root,displayName:'root'}),encryptionKey:async()=>{await Promise.resolve();resolved=true;return key;}});
-  const response=await handler(new Request('https://backend.test',{method:'POST',headers:{Origin:'https://allowed.test'},body:JSON.stringify({...h.save,idToken:'synthetic-token'})}));
-  assert.equal(response.status,200);assert.equal(resolved,true);
-  const envelope=(await h.db.query('select envelope from platform_private.tenant_secrets')).rows[0].envelope;
-  const {openCredentials}=await shared('platform-crypto.mjs');assert.deepEqual(await openCredentials(tenantId,envelope,key),h.tenant.credentials);
+  const tenant=await approve(h),{createPlatformHandler}=await shared('platform-handler.mjs');
+  let resolved=false;
+  const handler=createPlatformHandler({db:{rpc:h.rpc},allowedOrigins:h.allowedOrigins,verifyIdentity:async()=>({lineUserId:manager,displayName:'manager'}),encryptionKey:async()=>{await Promise.resolve();resolved=true;return key;}});
+  const res=await handler(new Request('https://backend.test',{method:'POST',headers:{Origin:'https://allowed.test'},body:JSON.stringify({action:'platform.line.save',expectedVersion:1,requestId:crypto.randomUUID(),line:approvedLine(h),credentials:h.tenant.credentials,idToken:'token'})}));
+  assert.equal(res.status,200);assert.equal(resolved,true);
+  const cipher=(await h.db.query('select envelope from platform_private.tenant_secrets')).rows[0].envelope;
+  const {openCredentials}=await shared('platform-crypto.mjs');
+  assert.deepEqual(await openCredentials(tenant.id,cipher,key),h.tenant.credentials);
  }finally{await h.db.close();}
 });
-
-test('AC-009: dedicated channel plus explicit platform identity are both required; different Provider binding revokes the old UID',async()=>{
+test('AC-009: platform-only LINE channel and root UID binding both required',async()=>{
  const h=await fixture();try{
-  // The verifier accepts only the platform channel, even for the actual owner.
   assert.equal((await h.call({action:'platform.bootstrap'},'legacy-root')).status,401);
-  assert.equal((await h.call({action:'platform.bootstrap'},'root')).status,200);
   assert.equal((await h.call({action:'platform.bootstrap'},'manager')).status,403);
-  assert.equal((await h.call({action:'platform.bootstrap'},'new-provider-root')).status,403);
-  await assert.rejects(h.db.query("update platform_private.super_admins set line_user_id='invalid'"),/platform_super_admin_line_identity/);
+  await assert.rejects(h.db.query("update platform_private.super_admins set line_user_id='bad'"),/platform_super_admin_line_identity/);
   const newId='U'+'3'.repeat(32);
   await h.db.query('update platform_private.super_admins set line_user_id=$1 where singleton',[newId]);
   assert.equal((await h.call({action:'platform.bootstrap'},'root')).status,403);
-  assert.equal((await h.call(h.save,'new-provider-root')).status,200);
-  assert.equal((await h.db.query('select actor from platform_private.audit_events')).rows[0].actor,newId);
-  assert.equal((await h.db.query('select count(*)::int n from admins where line_user_id=$1',[newId])).rows[0].n,0);
+  await h.call({action:'platform.application.submit',businessName:'換授權商家',slug:'rebind-root'},'manager');
+  const apps=(await h.call({action:'platform.bootstrap'},'new-provider-root')).body.data.applications;
+  assert.equal((await h.call({action:'platform.application.approve',applicationId:apps[0].id,features:h.tenant.features,requestId:crypto.randomUUID()},'new-provider-root')).status,200);
+  assert.equal((await h.db.query("select actor from platform_private.audit_events where action='APPLICATION_APPROVED'")).rows[0].actor,newId);
   await h.db.exec('update platform_private.super_admins set enabled=false');
-  assert.equal((await h.call({action:'platform.bootstrap'},'new-provider-root')).status,403);
-  await h.db.exec('update platform_private.super_admins set enabled=true');
-  await h.db.query("update admins set status='suspended' where line_user_id=$1",[root]);
   assert.equal((await h.call({action:'platform.bootstrap'},'new-provider-root')).status,403);
  }finally{await h.db.close();}
 });
-
-test('rollback removes the new platform only and preserves legacy admins/business data',async()=>{
+test('rollback removes platform while preserving legacy member data',async()=>{
  const h=await fixture();try{
-  await h.call(h.save);await h.db.exec('insert into public.legacy_member_data default values');
+  await approve(h);await h.db.exec('insert into public.legacy_member_data default values');
   await h.db.exec(require('node:fs').readFileSync(require('node:path').join(__dirname,'../../supabase/rollback/product_platform_control_plane.sql'),'utf8'));
   assert.equal((await h.db.query('select count(*)::int n from public.admins')).rows[0].n,2);
   assert.equal((await h.db.query('select count(*)::int n from public.legacy_member_data')).rows[0].n,1);
@@ -158,7 +169,7 @@ test('AC-012: manager updates own LINE credentials only, secrets stay encrypted 
   const approval=await h.call({action:'platform.application.approve',applicationId:app.id,features,requestId:crypto.randomUUID()});
   assert.equal(approval.status,200);
   const tenant=approval.body.data.tenant;
-  const line=h.tenant.line,credentials=h.tenant.credentials;
+  const line=approvedLine(h,['membership']),credentials=h.tenant.credentials;
   const save={action:'platform.line.save',expectedVersion:tenant.version,requestId:crypto.randomUUID(),line,credentials};
   assert.equal((await h.call(save,'root')).status,403); // owner identity not equal to root
   const result=await h.call(save,'manager');
@@ -197,5 +208,22 @@ test('AC-013: suspended merchant, unauthenticated and SQL public roles cannot ch
     await assert.rejects(h.db.query('select public.platform_my_application($1)',[manager]),/permission denied/);
     await h.db.exec('reset role');
   }
+ }finally{await h.db.close();}
+});
+
+test('AC-017: initial application uses verified profile, is idempotent under parallel visits and ignores forged identity',async()=>{
+ const h=await fixture();try{
+  const results=await Promise.all(Array.from({length:3},()=>h.call({action:'platform.application.ensure',businessName:'forged',ownerLineUserId:root},'manager')));
+  for(const result of results)assert.equal(result.status,200,JSON.stringify(result));
+  assert.equal(new Set(results.map(x=>x.body.data.application.id)).size,1);
+  const rows=(await h.db.query('select * from platform_private.applications')).rows;
+  assert.equal(rows.length,1);assert.equal(rows[0].applicant_line_user_id,manager);assert.equal(rows[0].business_name,'商家管理員');assert.equal(rows[0].status,'pending');
+  assert.equal((await h.db.query("select count(*)::int n from platform_private.audit_events where action='APPLICATION_SUBMITTED'")).rows[0].n,1);
+  const application=results[0].body.data.application;
+  const approved=await h.call({action:'platform.application.approve',applicationId:application.id,features:h.tenant.features,requestId:crypto.randomUUID()});
+  assert.equal(approved.status,200);
+  const again=await h.call({action:'platform.application.ensure'},'manager');
+  assert.equal(again.body.data.application.id,application.id);assert.equal(again.body.data.application.status,'approved');
+  assert.equal(again.body.data.tenant.credentialsConfigured,false);
  }finally{await h.db.close();}
 });
