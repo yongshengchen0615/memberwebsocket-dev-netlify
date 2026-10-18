@@ -153,6 +153,34 @@ before insert or update of status,isolation_verified_at,isolation_version,creden
 on platform_private.tenants
 for each row execute function platform_private.check_tenant_activation();
 
+-- To quarantine or retire an environment that currently serves an active
+-- tenant, suspend the tenant FIRST in the SAME database transaction.
+-- This prevents a healthy=false environment with an active tenant record.
+create function platform_private.prevent_active_environment_downgrade()
+returns trigger language plpgsql security invoker set search_path = '' as $
+declare active_tenant boolean;
+begin
+  select t.status='active' into active_tenant
+  from platform_private.tenants t
+  where t.id = new.tenant_id
+  for update;
+  if coalesce(active_tenant,false) and
+      (new.stage <> 'verified'
+       or new.verified_at is null
+       or new.health_checked_at is null
+       or new.project_ref is null
+       or new.schema_version is null) then
+    raise exception 'SUSPEND_ACTIVE_TENANT_FIRST';
+  end if;
+  return new;
+end $;
+revoke all on function platform_private.prevent_active_environment_downgrade()
+  from public, anon, authenticated;
+create trigger active_environment_downgrade_guard
+before update of stage,verified_at,health_checked_at,project_ref,schema_version
+on platform_private.tenant_environments
+for each row execute function platform_private.prevent_active_environment_downgrade();
+
 -- Unique request identity is enforced at DB level; application worker must also
 -- serialise retries with a transaction, lease and reconciliation before creating
 -- any billable Supabase project.
