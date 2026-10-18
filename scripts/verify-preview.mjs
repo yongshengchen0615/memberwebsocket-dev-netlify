@@ -21,9 +21,9 @@ function commands(job){
 const jobs=['regression','integration','browser-syntax','edge-functions','wiring'];
 const plan=jobs.map(job=>({job,commands:commands(job)}));
 if(process.argv.includes('--plan')){console.log(JSON.stringify(plan,null,2));process.exit(0);}
-// This opt-in validation lane runs only for the current PR. Production and
+// This opt-in validation lane runs for reviewed productization PRs. Production and
 // ordinary previews retain their existing static build and existing CI gates.
-if(process.env.CONTEXT!=='deploy-preview'||process.env.REVIEW_ID!=='17'){
+if(process.env.CONTEXT!=='deploy-preview'||!['17','21'].includes(process.env.REVIEW_ID)){
   const {status}=await import('node:child_process').then(({spawnSync})=>spawnSync(process.execPath,['scripts/build-site.mjs'],{cwd:root,stdio:'inherit'}));
   process.exit(status??1);
 }

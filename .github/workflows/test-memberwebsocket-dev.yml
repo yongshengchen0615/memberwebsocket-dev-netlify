@@ -477,10 +477,26 @@ jobs:
           grep -q 'notify_admin_config_realtime_change' MemberWebsocket-dev/supabase/migrations/20260910_transactional_realtime_invalidation.sql
           grep -q 'notify_admin_grant_realtime_change' MemberWebsocket-dev/supabase/migrations/20260910_transactional_realtime_invalidation.sql
 
+  dependency-audit:
+    name: Dependency vulnerability audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Audit browser and integration dependency trees
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund --prefix MemberWebsocket-dev/tests/browser
+          npm ci --ignore-scripts --no-audit --no-fund --prefix MemberWebsocket-dev/tests/integration
+          npm audit --prefix MemberWebsocket-dev/tests/browser --audit-level=low
+          npm audit --prefix MemberWebsocket-dev/tests/integration --audit-level=low
+
   validate:
     name: Validate MemberWebsocket Dev
     if: always()
-    needs: [regression, integration, browser-e2e, browser-syntax, edge-functions, wiring]
+    needs: [regression, integration, browser-e2e, browser-syntax, edge-functions, wiring, dependency-audit]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -492,6 +508,7 @@ jobs:
           BROWSER_E2E: ${{ needs.browser-e2e.result }}
           EDGE_FUNCTIONS: ${{ needs.edge-functions.result }}
           WIRING: ${{ needs.wiring.result }}
+          DEPENDENCY_AUDIT: ${{ needs.dependency-audit.result }}
         run: |
           printf 'regression=%s\nintegration=%s\nbrowser-syntax=%s\nedge-functions=%s\nwiring=%s\n' \
             "$REGRESSION" "$INTEGRATION" "$BROWSER_SYNTAX" "$EDGE_FUNCTIONS" "$WIRING"
@@ -501,3 +518,4 @@ jobs:
           test "$BROWSER_E2E" = success
           test "$EDGE_FUNCTIONS" = success
           test "$WIRING" = success
+          test "$DEPENDENCY_AUDIT" = success

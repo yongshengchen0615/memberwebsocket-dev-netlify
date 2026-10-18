@@ -59,8 +59,19 @@ export function requireFeature(tenant, feature) {
   }
 }
 export function publicTenant(row) {
-  // Explicit projection, never spread a database row into an API response.
+  // Explicit projection; no token, ciphertext or privileged actor fields.
+  // Approval only unlocks LINE configuration. Data-plane readiness is a
+  // separate, server-derived signal and never overrides API authorization.
+  const dataPlaneVerified = row.status === 'active'
+    && Boolean(row.isolation_verified_at) && Boolean(row.isolation_version);
   return { id: row.id, name: row.name, slug: row.slug, ownerLineUserId: row.owner_line_user_id,
     features: row.features, line: row.line_config, status: row.status, version: row.version,
-    credentialsConfigured: row.credentials_configured === true, createdAt: row.created_at, updatedAt: row.updated_at };
+    credentialsConfigured: row.credentials_configured === true,
+    capabilities: {
+      lineSettingsEnabled: row.status !== 'suspended',
+      dataPlaneVerified,
+      grantedFeatures: Object.fromEntries(Object.keys(FEATURES).map(key =>
+        [key, row.features?.[key] === true])),
+    },
+    createdAt: row.created_at, updatedAt: row.updated_at };
 }

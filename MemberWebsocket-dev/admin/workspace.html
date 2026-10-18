@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hant" data-workspace="merchant">
+<html lang="zh-Hant" data-workspace="merchant" data-portal-surface="admin">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11,6 +11,8 @@
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
   <script src="../member-system.js" defer></script>
   <script src="../platform/app.js?v=20261018-admin-workflow-1" defer></script>
+  <link rel="stylesheet" href="../portal-navigation.css?v=unified-20261018-1">
+  <script src="../portal-navigation.js?v=unified-20261018-1" defer></script>
 </head>
 <body>
   <main class="shell">
@@ -93,6 +95,7 @@
     <section id="merchantWorkspace" hidden>
       <h2>我的商家管理頁面</h2>
       <p id="merchantInfo"></p>
+      <p id="merchantReadiness" class="merchant-readiness" role="status" aria-live="polite"></p>
       <p class="notice">總管理員只核准可使用的功能。每項 LINE 設定由本商家管理員自行管理；商家資料隔離完成前，所有業務操作仍維持停用。</p>
       <div id="merchantFeatures" class="tenant-features"></div>
       <nav id="merchantFeatureNav" class="merchant-feature-nav" aria-label="已授權功能的 LINE 設定"></nav>

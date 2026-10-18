@@ -12,3 +12,5 @@
 #merchantLineForm>[data-merchant-panel][hidden]{display:none}
 #merchantLineForm>button[type="submit"]{margin-top:16px}
 @media(max-width:600px){.merchant-feature-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.merchant-feature-nav button{padding:12px 8px}}
+
+.merchant-readiness { border-inline-start: 3px solid currentColor; padding: .7rem 1rem; margin: .7rem 0 1.1rem; background: rgba(131, 155, 159, .1); }

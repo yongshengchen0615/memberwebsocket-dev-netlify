@@ -92,3 +92,23 @@ test('AC-020: merchant and platform use different login return storage',()=>{
  assert.match(source,/merchantEntry\?'admin-line-login-return-v1':'platform-line-login-return-v1'/);
  assert.doesNotMatch(admin,/href="\.\.\/platform\/"/);
 });
+
+
+test('AC-033: merchant projection separates approved LINE configuration from isolated business readiness',async()=>{
+  const {publicTenant}=await shared('platform-policy.mjs');
+  const row={id:tenantId,status:'pending_provisioning',features:{membership:true,points:false},credentials_configured:true,
+    envelope:{data:'private'},isolation_verified_at:null,isolation_version:null};
+  const pending=publicTenant(row);
+  assert.equal(pending.capabilities.lineSettingsEnabled,true);
+  assert.equal(pending.capabilities.dataPlaneVerified,false);
+  assert.equal(pending.capabilities.grantedFeatures.membership,true);
+  assert.equal(pending.capabilities.grantedFeatures.points,false);
+  assert.doesNotMatch(JSON.stringify(pending),/private|envelope/);
+  const suspended=publicTenant({...row,status:'suspended'});
+  assert.equal(suspended.capabilities.lineSettingsEnabled,false);
+  assert.equal(suspended.capabilities.dataPlaneVerified,false);
+  const incomplete=publicTenant({...row,status:'active',isolation_verified_at:'2026-10-18'});
+  assert.equal(incomplete.capabilities.dataPlaneVerified,false);
+  const verified=publicTenant({...row,status:'active',isolation_verified_at:'2026-10-18',isolation_version:'v1'});
+  assert.equal(verified.capabilities.dataPlaneVerified,true);
+});
