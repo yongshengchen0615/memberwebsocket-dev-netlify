@@ -46,7 +46,7 @@ Security Advisor 有 `rls_enabled_no_policy` INFO 告警：目前 67 張（含 p
 
 ## 3. P1 邏輯資料模型（新建獨立 Platform Project；不修改舊庫）
 
-所有實體都在 **不對 Data API 公開** 的 `platform_private` schema；撤銷 `PUBLIC/anon/authenticated` schema/table/sequence/function 權限，RLS 預設拒絕；只由受驗證的 platform-api/worker 使用最小權限後端連線。
+所有實體都在 **不對 Data API 公開** 的 `platform_private` schema；撤銷 `PUBLIC/anon/authenticated` schema/table/sequence/function 權限，RLS 預設拒絕；只由受驗證的 platform-api/worker 使用最小權限後端連線；即使 `service_role` 也僅可讀取 `platform_operators`，**不能新增、啟用或修改 Root**，Root DML 只由另外授權的資料庫操作員執行。
 
 | 實體 | 主鍵／唯一性 | 核心欄位與用途 |
 | --- | --- | --- |
@@ -101,6 +101,7 @@ Security Advisor 有 `rls_enabled_no_policy` INFO 告警：目前 67 張（含 p
 | P4 canary/read switch | 先測試商家，後現有商家 | /tenant/bootstrap 受伺服器簽名與授權的 tenant resolver；所有 API、jobs 與 LINE 都採 project-scoped server credentials；少量分流，觀察一致性 | 雙重 healthcheck、權限測試、審計和回滾開關；保留舊庫供回切 |
 | P5 legacy retirement | 確認長期運作後 | 移除單一商家 URL 與舊維護程序引用、停止 legacy 雙寫；設定資料保留期 | 需另行核准、備份可還原、法規保留與流量歸零；**不自動刪除任何正式資料** |
 
+**額外防護：Supabase 的「Restore to a new project」可一併複製 pg_cron／pg_net 等外部操作；複製完成後工作可能立刻運作。未事先隔離外部通道與通知前，不得以生產備份直接複製成測試環境；必要時採受控邏輯匯入，且需處理 Vault 加密根金鑰不會自動遷移的限制。**
 **重要：備份不等於 Storage 物件備份。** Supabase DB backup 的 Storage 物件內容必須另行備份與驗證；Auth、Edge Function、密鑰、外部 LINE channel 設定也必須單獨盤點與重建。不得單靠 schema/data SQL dump 宣稱完成商家遷移。
 **DNS / LIFF**：既有 LINE 回跳/LIFF URL/Netlify 枝節服務保持原樣至 staging 驗證，不能提前改正式設定。
 
@@ -126,7 +127,7 @@ Security Advisor 有 `rls_enabled_no_policy` INFO 告警：目前 67 張（含 p
 ## 8. P0/P1 可執行步驟與安全 Gate
 
 P0：
-1. 執行附屬 read-only SQL，保存 JSON/CSV 輸出和 query 時間；GitHub 對照 32 Functions 的實際 slug、128+? 條部署與 migration 文件差異（**數量應動態計算，不能假設常數**）。
+1. 執行附屬 read-only SQL，保存 JSON/CSV 輸出和 query 時間；GitHub 對照 32 Functions 的實際 slug、既有函式、部署版本與 migration 文件差異（**數量應動態計算，不能假設常數**）。
 2. 用服務提供者備份清單／PITR 設定確認可恢復點；在測試專案演練還原，另匯出 Storage 物件與 hash，不接觸正式寫入。
 3. 建立 Functions → tables/functions → bucket/realtime/cron/LINE channel 的依賴表，標示尚未調查的權限入口。舊業務全量回歸為 P2/P3 強制基線。
 
