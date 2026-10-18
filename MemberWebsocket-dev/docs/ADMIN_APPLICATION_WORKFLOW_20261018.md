@@ -1,6 +1,6 @@
 # 一般管理員自動申請與功能權限流程
 
-本輪結果：**部分完成且受阻，未合併、未部署**。基底為 `84b58a1218b64a0c1775507753c85beb2e581ee5`；來源 SHA-256 與實際執行紀錄見 [results.json](validation/admin-application-20261018/results.json)。
+初次驗證結果（2026-10-18 08:47 UTC）：**部分完成且受阻，當時未合併、未部署**。後續狀態以 PR #17 與對應提交的驗證報告為準。基底為 `84b58a1218b64a0c1775507753c85beb2e581ee5`；來源 SHA-256 與實際執行紀錄見 [results.json](validation/admin-application-20261018/results.json)。
 
 ## 第一性原理摘要
 
@@ -64,6 +64,16 @@
 
 本機依 browser／integration 既有 lockfile 安裝套件，依上表及 `.github/workflows/test-memberwebsocket-dev.yml` 執行完整基線。套件解析、瀏覽器執行環境的本機輔助設定未納入產品或依賴變更。
 
-所有必要檢查通過後，才套用前置功能授權 migration、發布 `platform-api`、將 PR 合併至 `Integrated-Marketing-Platform`，由既有 verified preview 流程發布固定 alias；再檢查 admin、platform、資產、版本與 API 權限，最後進行真人 LINE 驗收。本輪沒有執行任何遠端寫入，無須資料回復。若後續版本有問題，以 revert 提交修正並重跑 CI；不刪除申請或會員資料。
+所有必要檢查通過後，才套用前置功能授權 migration、發布 `platform-api`、將 PR 合併至 `feature/productization-super-admin`，由既有 verified preview 流程發布固定 alias；再檢查 admin、platform、資產、版本與 API 權限，最後進行真人 LINE 驗收。本輪沒有執行任何遠端寫入，無須資料回復。若後續版本有問題，以 revert 提交修正並重跑 CI；不刪除申請或會員資料。
 
 下一步先定位兩個既有 DOM 失敗並取得可執行 Chromium 的 runner，完成全基線後再部署；不以未完成測試換取發布。
+
+## 依指定分支繼續完成（2026-10-18）
+
+使用者已指定完成後合併至 `feature/productization-super-admin`，PR #17 已改為此目標。
+
+兩項失敗已確認涉及寫入尚未完成即執行下一操作：票券儲存回應會重新建立獎項列，覆蓋期間的刪除；預約設定儲存與手動刷新同時發生時可能讀到舊值。已在寫入期間停用獎項欄位及刪除／新增／平衡按鈕，重建的獎項列也維持停用；預約設定寫入期間停用刷新，待寫入與讀取皆結束才恢復。沿用原有驗收斷言，加入受控延遲回應，先重現缺陷，再驗證鎖定與結果。
+
+`races-red.log` 記錄兩案例在修正前對新增的 disabled 斷言失敗；`races-fixed.log` 記錄兩案例與父層共 3 項通過。
+
+為取得可執行 Chromium 的第二個環境，PR 17 的 Netlify Deploy Preview 改用 `scripts/verify-preview.mjs`：從既有 CI 擷取回歸、完整整合、語法、Edge 與 wiring 命令，另執行完整 Chromium、票券瀏覽器基線、audit 與正式建置檢查。任一命令失敗、必要案例為零或案例跳過均令建置失敗。只有全部通過才產生含精確 `COMMIT_REF` 的 `validation-report.json`；靜態部署 ready 本身不能代表驗證通過，必須比對該報告。此額外驗證只對 PR 17 啟用，正式建置與既有 GitHub 發布門檻未變更。

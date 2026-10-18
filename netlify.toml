@@ -24,3 +24,7 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "no-referrer"
     Cache-Control = "public, max-age=0, must-revalidate"
+
+# Opt-in full baseline on PR 17; production keeps the static build above.
+[context.deploy-preview]
+  command = "node scripts/verify-preview.mjs"

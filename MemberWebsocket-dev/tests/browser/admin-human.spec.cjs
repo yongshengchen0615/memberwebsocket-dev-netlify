@@ -201,7 +201,11 @@ test('BOOKING_TECHNICIAN — create, edit, disable, restore and primary protecti
 test('BOOKING_RESOURCE_SETTINGS — primary technician and party size save and reload',async({page:p},info)=>{
   await booking(p,'bookingAdminTechniciansSubtab');await fill(p,'bookingAdminMaxPartySize','3');await select(p,'bookingAdminPrimaryTechnician','tech-2');await click(p,'bookingAdminSavePartySizeButton');await expect.poll(()=>info.fixture.settings.primaryTechnicianId).toBe('tech-2');await click(p,'bookingAdminResourceRefreshButton');await expect(p.locator('#bookingAdminMaxPartySize')).toHaveValue('3');
   await expect(p.locator('#bookingAdminRequirePrimaryTechnician')).toBeChecked();
-  await p.locator('#bookingAdminRequirePrimaryTechnician').uncheck();await click(p,'bookingAdminSavePartySizeButton');await click(p,'bookingAdminResourceRefreshButton');
+  await p.locator('#bookingAdminRequirePrimaryTechnician').uncheck();
+  let releaseSettings;info.fixture.hold={action:'admin.booking.resources.settings.save',wait:new Promise(resolve=>{releaseSettings=resolve;})};
+  await click(p,'bookingAdminSavePartySizeButton');
+  try{await expect(p.locator('#bookingAdminResourceRefreshButton')).toBeDisabled();}finally{releaseSettings();}
+  await expect(p.locator('#bookingAdminResourceRefreshButton')).toBeEnabled();await click(p,'bookingAdminResourceRefreshButton');
   await expect(p.locator('#bookingAdminRequirePrimaryTechnician')).not.toBeChecked();await expect(p.locator('#bookingAdminPrimaryTechnician')).toHaveValue('tech-2');
   await p.locator('#bookingAdminRequirePrimaryTechnician').uncheck();await select(p,'bookingAdminPrimaryTechnician','');await click(p,'bookingAdminSavePartySizeButton');
   await expect.poll(()=>info.fixture.settings.requirePrimaryTechnician).toBe(false);await click(p,'bookingAdminResourceRefreshButton');
@@ -266,7 +270,11 @@ for(const scope of ['template','event'])test('LOTTERY_EDITOR_'+scope+' — add/d
   const event=scope==='event',prefix=event?'eventTicket':'ticket',cap=event?'EventTicket':'Ticket';
   if(event)await openEvent(p,'lottery');else{await click(p,'cardsTab');await click(p,'ticketSettingsTab');await click(p,'newTicketButton');await fill(p,'ticketTitle','QA lottery');await select(p,'ticketType','lottery');await select(p,'ticketStatus','draft');for(const id of ['ticketDescription','ticketUsageMethod','ticketUsageInstructions'])await fill(p,id,'QA required');}
   await p.locator('#'+prefix+'PrizeRows [data-field="'+prefix+'PrizeTitle"]').fill('Prize A');await click(p,'add'+cap+'PrizeButton');await p.locator('#'+prefix+'PrizeRows [data-field="'+prefix+'PrizeTitle"]').nth(1).fill('Prize B');await p.locator('#'+prefix+'PrizeRows [data-field="'+prefix+'PrizeRate"]').first().fill('30');await click(p,'save'+cap+'Button');await expect(p.locator('#'+prefix+'FormMessage')).toBeVisible();expect(calls(info.fixture,event?'admin.event-tickets.save':'admin.tickets.save')).toHaveLength(0);
-  await click(p,'balance'+cap+'PrizesButton');await expect(p.locator('#'+prefix+'PrizeTotal')).toContainText('100%');await click(p,'save'+cap+'Button');await expect.poll(()=>calls(info.fixture,event?'admin.event-tickets.save':'admin.tickets.save').length).toBe(1);await p.locator('#'+prefix+'PrizeRows [data-remove-'+(event?'event-ticket':'ticket')+'-prize]').nth(1).click();await expect(p.locator('#'+prefix+'PrizeRows > div')).toHaveCount(1);await click(p,'balance'+cap+'PrizesButton');
+  await click(p,'balance'+cap+'PrizesButton');await expect(p.locator('#'+prefix+'PrizeTotal')).toContainText('100%');
+  let releaseTicket;if(!event)info.fixture.hold={action:'admin.tickets.save',wait:new Promise(resolve=>{releaseTicket=resolve;})};
+  await click(p,'save'+cap+'Button');
+  if(!event){try{await expect(p.locator('#ticketPrizeRows [data-remove-ticket-prize]').nth(1)).toBeDisabled();}finally{releaseTicket();}await expect(p.locator('#saveTicketButton')).toBeEnabled();}
+  await expect.poll(()=>calls(info.fixture,event?'admin.event-tickets.save':'admin.tickets.save').length).toBe(1);await p.locator('#'+prefix+'PrizeRows [data-remove-'+(event?'event-ticket':'ticket')+'-prize]').nth(1).click();await expect(p.locator('#'+prefix+'PrizeRows > div')).toHaveCount(1);await click(p,'balance'+cap+'PrizesButton');
 });
 for(const mode of ['any','all'])test('SERVICE_RULE_'+mode+' — save concrete service restrictions on reward and event',async({page:p},info)=>{
   await openCard(p);const row=p.locator('#rewardRows [data-reward-row]');await row.locator('[data-field="requiredServiceMatchMode"]').selectOption(mode);await row.locator('input[value="service-1"]').check();await click(p,'saveCardButton');await expect.poll(()=>info.fixture.cards.find(c=>c.title==='QA new card')?.rewards[0]?.requiredServiceMatchMode).toBe(mode);expect(info.fixture.cards.find(c=>c.title==='QA new card').rewards[0].requiredServiceIds).toEqual(['service-1']);await p.locator('#cardEditorModal .editor-modal-close').click();
