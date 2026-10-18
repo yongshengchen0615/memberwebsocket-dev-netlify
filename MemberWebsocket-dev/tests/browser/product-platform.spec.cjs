@@ -13,8 +13,8 @@ test.beforeAll(async()=>{
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));base='http://127.0.0.1:'+server.address().port;
 });
 test.afterAll(async()=>new Promise(resolve=>server.close(resolve)));
-async function setup(page,token='root',{loseFirstSave=false,platformLiffId='2012065297-VunxFBj8',inClient=true,loggedIn=true,rootLoginReturn=true,entry='platform'}={}) {
- const h=await fixture();h.allowedOrigins.add(base);let lost=false;const errors=[];
+async function setup(page,token='root',{loseFirstSave=false,platformLiffId='2012065297-VunxFBj8',inClient=true,loggedIn=true,rootLoginReturn=true,entry='platform',manualGrant=true}={}) {
+ const h=await fixture(1,manualGrant);h.allowedOrigins.add(base);let lost=false;const errors=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
  if(rootLoginReturn&&token==='root')await page.addInitScript(()=>{
   // Simulate a genuine LINE return for the pre-existing root-control cases.
@@ -284,6 +284,38 @@ test('PLATFORM_UNIFIED_PORTALS — navigation never bypasses per-role authentica
     .toEqual(['/platform/','/admin/','/member/']);
   // Merely linking to the admin does not grant a platform privilege.
   await expect(page.locator('#platformWorkspace')).toBeVisible();
+  expect(h.errors).toEqual([]);
+ }finally{await h.db.close();}
+});
+
+test('PLATFORM_ROOT_UNAPPROVED — verified LINE gets exact Supabase review location without dashboard access',async({page})=>{
+ const h=await setup(page,'root',{manualGrant:false});try{
+  await expect(page.locator('#platformAuthorizationNotice')).toBeVisible();
+  await expect(page.locator('#platformAuthorizationNotice')).toContainText('platform_private.super_admins.enabled');
+  await expect(page.locator('#platformAuthorizationNotice')).toContainText('line_user_id');
+  await expect(page.locator('#platformAuthorizationNotice')).toContainText('admin_id');
+  await expect(page.locator('#platformAuthorizationNotice')).toContainText('role = admin');
+  await expect(page.locator('#platformAuthorizationNotice')).toContainText('status = active');
+  await expect(page.locator('#platformAuthorizationNotice a[href*="/sql/new"]')).toBeVisible();
+  await expect(page.locator('#platformWorkspace')).toBeHidden();
+  await expect(page.locator('#platformLoginGate')).toBeVisible();
+  await page.getByRole('button',{name:'重新使用 LINE 登入'}).click();
+  await expect(page.locator('#platformAuthorizationNotice')).toBeVisible();
+  await expect(page.locator('#platformWorkspace')).toBeHidden();
+  // Only a privileged, explicit change to this isolated test DB can grant access.
+  await h.db.exec('update platform_private.super_admins set enabled=true where singleton');
+  await page.getByRole('button',{name:'重新使用 LINE 登入'}).click();
+  await expect(page.locator('#platformWorkspace')).toBeVisible();
+  await expect(page.locator('#platformAuthorizationNotice')).toBeHidden();
+  expect(h.errors).toEqual([]);
+ }finally{await h.db.close();}
+});
+test('PLATFORM_UNMATCHED_ROOT — verified but unbound LINE ID shows review checklist, not an auto grant',async({page})=>{
+ const h=await setup(page,'manager');try{
+  await expect(page.locator('#platformAuthorizationNotice')).toBeVisible();
+  await expect(page.locator('#platformWorkspace')).toBeHidden();
+  await expect(page.locator('#platformAuthorizationNotice')).toContainText('line_user_id');
+  expect((await h.db.query('select enabled from platform_private.super_admins where singleton')).rows[0].enabled).toBe(true);
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
