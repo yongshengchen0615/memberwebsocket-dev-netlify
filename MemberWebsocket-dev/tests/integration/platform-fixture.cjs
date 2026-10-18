@@ -4,8 +4,8 @@ const {pathToFileURL}=require('node:url');
 const shared=name=>import(pathToFileURL(path.join(__dirname,'../../supabase/functions/_shared',name)));
 const root='U'+'1'.repeat(32),manager='U'+'2'.repeat(32),key=Buffer.alloc(32,7).toString('base64');
 const tenantId='10000000-0000-4000-8000-000000000001';
-const migration=['20261017131559_product_platform_control_plane.sql','20261017140939_platform_line_identity.sql','20261017164510_platform_admin_applications.sql','20261018012500_platform_feature_grants_only.sql'].map(name=>fs.readFileSync(path.join(__dirname,'../../supabase/migrations',name),'utf8')).join('\n');
-async function fixture(adminCount=1) {
+const migration=['20261017131559_product_platform_control_plane.sql','20261017140939_platform_line_identity.sql','20261017164510_platform_admin_applications.sql','20261018012500_platform_feature_grants_only.sql','20261018181500_platform_manual_super_admin_grant.sql'].map(name=>fs.readFileSync(path.join(__dirname,'../../supabase/migrations',name),'utf8')).join('\n');
+async function fixture(adminCount=1,manualGrant=true) {
  const db=new PGlite();
  await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
  create table public.admins(id uuid primary key default gen_random_uuid(),line_user_id text unique,display_name text,role text,status text);
@@ -14,6 +14,7 @@ async function fixture(adminCount=1) {
  insert into public.admins(line_user_id,role,status)values('${root}','admin','active');`);
  if(adminCount===2)await db.query("insert into admins(line_user_id,role,status)values($1,'admin','active')",[manager]);
  await db.exec(migration);
+  if(adminCount===1&&manualGrant)await db.exec('update platform_private.super_admins set enabled=true where singleton');
  if(adminCount===1)await db.query("insert into admins(line_user_id,role,status)values($1,'admin','active')",[manager]);
  const rpc=async(name,p)=>{
   if(name==='consume_api_rate_limit')return {data:true,error:null}; // Existing shared limiter has its own baseline tests.
