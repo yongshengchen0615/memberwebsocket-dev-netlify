@@ -123,7 +123,9 @@ test('PLATFORM_MANAGER_SETUP — approved admin can configure own LINE but canno
   await expect(page.locator('#merchantMessage')).toContainText('已安全儲存');
   await page.reload();
   await expect(page.locator('#merchantFeatureNav [data-line-feature="booking"]')).toHaveCount(0);
-  const tenant=(await h.db.query('select features,credentials_configured,status from platform_private.tenants where slug=$1',['self-service-b'])).rows[0];
+  const tenant=(await h.db.query('select features,credentials_configured,status,owner_line_user_id from platform_private.tenants where id=$1',[result.body.data.tenant.id])).rows[0];
+  expect(tenant).toBeDefined();
+  expect(tenant.owner_line_user_id).toBe(app.applicantLineUserId);
   expect(tenant.features.booking).toBe(false);
   expect(tenant.credentials_configured).toBe(true);
   expect(tenant.status).toBe('pending_provisioning');

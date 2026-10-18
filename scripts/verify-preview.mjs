@@ -38,7 +38,7 @@ async function run(name,command,cwd=root){
  const code=await new Promise((resolve,reject)=>{child.once('error',reject);child.once('close',resolve);});
  const skipped=[...output.matchAll(/(?:ℹ skipped |# skipped |\b)(\d+) skipped\b/g)].map(x=>Number(x[1]));
  const nodeSkipped=[...output.matchAll(/(?:ℹ|#) skipped (\d+)/g)].map(x=>Number(x[1]));
- const needsCases=/^(regression-|integration-|browser-all$|ticket-policy-browser$|edge-functions-2$|build-contracts$)/.test(name);
+ const needsCases=/^(regression-|integration-|browser-platform-priority$|browser-all$|ticket-policy-browser$|edge-functions-2$|build-contracts$)/.test(name);
  const hasCases=/(?:ℹ|#) tests [1-9]|[1-9]\d* passed/.test(output);
  const check={name,command,exitCode:code,durationMs:Date.now()-started,skipped:skipped.reduce((a,b)=>a+b,0)+nodeSkipped.reduce((a,b)=>a+b,0),summary:output.split('\n').filter(line=>/tests |pass |fail |passed|failed|skipped|vulnerabilities|^ok \|/.test(line)).slice(-35),tail:code===0?undefined:output.split('\n').slice(-80)};
  report.checks.push(check);fs.writeFileSync(path.join(work,'results',name.replace(/[^\w-]/g,'_')+'.log'),output);
@@ -59,6 +59,7 @@ try{
      await run(job+'-'+(++index),command);
    }
  }
+ await run('browser-platform-priority','npm test -- product-platform.spec.cjs',path.join(root,'MemberWebsocket-dev/tests/browser'));
  await run('browser-all','npm test',path.join(root,'MemberWebsocket-dev/tests/browser'));
  await run('ticket-policy-browser','npx --no-install playwright test ticket-policy-settings.spec.cjs settings-layout.spec.cjs ticket-selection.spec.cjs',path.join(root,'MemberWebsocket-dev/tests/browser'));
  await run('audit-integration','npm audit --audit-level=low',path.join(root,'MemberWebsocket-dev/tests/integration'));

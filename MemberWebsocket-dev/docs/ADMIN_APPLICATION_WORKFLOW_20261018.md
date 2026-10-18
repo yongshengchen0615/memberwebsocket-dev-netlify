@@ -80,3 +80,6 @@
 
 
 後續完整 DOM 嘗試另發現 `LOCATION_template` 在儲存尚未完成時修改地點，會被回應覆蓋。已將整張票券表單於寫入及刷新期間設為原生 `inert`，並保留獎項控制項停用。DOM harness 同步遵守原生不可互動區域，未刪除原有結果斷言。`location-lock-red.log` 記錄新增鎖定斷言先失敗；`location-lock-fixed.log` 記錄地點、抽獎及預約設定五個葉案例與父層共 6 項通過。此前以所有整合檔並行的非 CI 命令另有 startup 子程序逾時；後續依原有 CI 分組命令執行，不修改期限。最終全套結果仍須以精確提交報告為準。
+
+
+第一輪 Netlify 真實 Chromium 全套完成 242 項通過、1 項失敗，失敗建置 `6ad48ff29b830f0ed10e1c58` 已正確阻擋發布。`PLATFORM_MANAGER_SETUP` 已完成 LINE 共用／功能資料儲存後，仍以舊的手動商家代碼 `self-service-b` 查詢，因此讀到空列；已改以核准回應的商家 ID 查詢，保留原本功能、憑證、佈建與 LINE 斷言，另加入申請人歸屬檢查。錯誤節錄見 `chromium-first-run-failure.log`。下一輪先執行全部平台瀏覽器案例，再執行完整 Chromium 與其他既有基線，仍不允許跳過或失敗。DOM harness 的 disabled 斷言保留原生 `:disabled` 語意，僅互動動作另檢查 inert，避免混淆原生可用性斷言。
