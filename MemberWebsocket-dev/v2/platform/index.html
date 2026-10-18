@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-Hant"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101827"><title>平台控制台 · MemberOS V2</title>
+<link rel="stylesheet" href="../assets/main.css">
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
+<script type="module" src="../assets/app.js"></script>
+</head><body data-page="platform">
+<a class="skip" href="#main">跳至主要內容</a>
+<header class="nav"><a class="brand" href="../"><span class="logo">M</span><span>MemberOS <small>PLATFORM</small></span></a><span class="pill">僅限資料庫授權的總管理員</span></header>
+<main id="main" class="dashboard"><div class="eyebrow">PLATFORM CONTROL</div><h1>只決定商家能用哪些功能。</h1><p class="lead">LINE 設定由商家自行完成。環境建置與隔離驗證交由平台後端處理。</p>
+<div id="notice" class="notice" role="status" aria-live="polite">正在檢查 V2 控制平面設定…</div>
+<section class="panel auth" id="auth"><div><h2>重新確認 LINE 身分</h2><p>每次進入控制台均需主動確認，所有請求仍由後端獨立驗證身分與資料庫權限。</p></div><button class="primary" type="button" id="signIn" disabled>確認 LINE 身分</button></section>
+<section class="hidden" id="workspace"><div class="summary"><div><span class="eyebrow">OVERVIEW</span><h2>商家申請管理</h2><p>平台審核不會自動啟用尚未隔離的業務資料。</p></div><span class="status" id="reviewCount">0 筆申請</span></div>
+<div class="section-heading"><h2>待審核與已核准商家</h2><p>核准時只勾選八項功能，不代填商家的 LINE 憑證。</p></div><div id="applications" class="application-list" aria-live="polite"></div><div id="tenants" class="application-list"></div></section>
+<footer class="footer">MemberOS V2 · Root 權限只由資料庫操作員手動授予</footer>
+</main></body></html>
