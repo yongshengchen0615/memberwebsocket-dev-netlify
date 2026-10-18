@@ -41,6 +41,20 @@ select
   (select count(*) from platform_private.super_admins) as manually_bound_root_rows,
   (select count(*) from platform_private.super_admins where enabled) as enabled_root_rows;
 
+-- Operational inventory: counts only, NO cron.command content or storage bytes.
+select current_timestamp as observed_at_utc,
+       (select count(*) from cron.job) as configured_cron_jobs,
+       (select count(*) from cron.job where active) as enabled_cron_jobs,
+       (select count(*) from storage.objects) as storage_object_rows,
+       (select count(*) from platform_private.tenant_secrets) as tenant_encrypted_secrets;
+
+select b.id as bucket_id, b.public,
+       count(o.id)::bigint as storage_object_rows
+from storage.buckets b
+left join storage.objects o on o.bucket_id=b.id
+group by b.id,b.public
+order by b.id;
+
 -- Function surface inventory: NO function bodies / secrets are returned.
 select n.nspname as schema_name,
        count(*) filter (where p.prosecdef) as security_definer_count,
