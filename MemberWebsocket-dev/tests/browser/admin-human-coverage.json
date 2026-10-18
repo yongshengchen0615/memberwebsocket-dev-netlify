@@ -2,10 +2,10 @@
   "version": 1,
   "scope": "Seven admin workspaces, including operation audit; test-control workspace excluded",
   "evidence": "isolated Chromium UI with production handlers and explicit in-memory transport; not live Supabase/LINE delivery",
-  "portalIntegrationReview": "Shared three-role navigation is navigation only; AC-030–035 test navigation wiring, safe tenant readiness and blocked legacy tenant data access. The pre-existing admin human case inventory is unchanged. The platform root access denial now has an actionable Supabase SQL Editor review notice (AC-034) and tested unauthorized/re-enabled journeys, without self-service grants.",
+  "portalIntegrationReview": "Shared three-role navigation is navigation only; AC-030–035 test navigation wiring, safe tenant readiness and blocked legacy tenant data access. The pre-existing admin human case inventory is unchanged. The platform root access denial now has an actionable Supabase SQL Editor review notice (AC-034) and tested unauthorized/re-enabled journeys, without self-service grants. Productized /admin/ now mounts approved merchant workspace in the original Lumen Club management page without a redirect. The top grant navigation is generated only from server-verified tenant.features; the legacy shared business UI remains inaccessible in productized mode.",
   "reviewedSources": {
-    "admin/index.html": "a590f8d5569f78ecf7a57b141007c02cecbbb432a696d9ea26a86347b395f8c4",
-    "admin/app.js": "6a61250af2f21223c5846be2da1cbc322678446db12bf4aec6be78ffb9304738",
+    "admin/index.html": "f4401c25f74432b22e01c5eb992af9c29ffb8910ca32c5f3717ea5ee8881496b",
+    "admin/app.js": "466d7b12f49eaa1a715a02548759553c286189846a89921bf86ac3f31f7f633a",
     "admin/member-workspace-tabs.js": "e8235f6c84af59c708090d5dd15dcf52d2929a00f7988453d664028f242f8fe2",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
     "admin/grant-automation.js": "f3178a0bb26745d6cd7731b24ab8ab9aaec96a4dada62699a3609ae8b803e2b0",
@@ -26,7 +26,7 @@
     "admin/ticket-visibility.js": "bb1cf776a3bf1c69f75bbfa6a4b3e07cf9c9077444099533cb9c2883736dd5c0",
     "admin/operation-audit.js": "2ecd1161e533d56b17a6f89d1907bef384e96a932f81027d6e6178bdcce5a96e",
     "admin/workspace.html": "c90560c417f66f74b17fa6249476eced3e34b90c211299e4c01a4f969f8c0b62",
-    "platform/app.js": "d689224455038be07c1db32b72e5a351201bb63813c5b619e6d385cf40a73c1b"
+    "platform/app.js": "ad38fbf422ebf144739b2955af9276fa87cc5edad36d7bcfdacf8fe835aa135f"
   },
   "features": [
     {
@@ -605,8 +605,9 @@
       "PLATFORM_MANAGER_SETUP",
       "PLATFORM_REVIEW",
       "PLATFORM_ROOT_UNAPPROVED",
-      "PLATFORM_UNMATCHED_ROOT"
+      "PLATFORM_UNMATCHED_ROOT",
+      "PLATFORM_ADMIN_TOP_GRANTS"
     ],
-    "scope": "Product admin entry, automatic idempotent application, root grants and owner LINE settings; existing legacy journeys use their explicit legacy fixture. Super-admin permission denial shows a manual database review checklist; only an explicit synthetic DB grant restores login."
+    "scope": "Product admin entry, automatic idempotent application, root grants and owner LINE settings; existing legacy journeys use their explicit legacy fixture. Super-admin permission denial shows a manual database review checklist; only an explicit synthetic DB grant restores login. Merchant header hides all unauthorized business modules, including URL-forged features; display never overrides server-side denial."
   }
 }
