@@ -77,3 +77,6 @@
 `races-red.log` 記錄兩案例在修正前對新增的 disabled 斷言失敗；`races-fixed.log` 記錄兩案例與父層共 3 項通過。
 
 為取得可執行 Chromium 的第二個環境，PR 17 的 Netlify Deploy Preview 改用 `scripts/verify-preview.mjs`：從既有 CI 擷取回歸、完整整合、語法、Edge 與 wiring 命令，另執行完整 Chromium、票券瀏覽器基線、audit 與正式建置檢查。任一命令失敗、必要案例為零或案例跳過均令建置失敗。只有全部通過才產生含精確 `COMMIT_REF` 的 `validation-report.json`；靜態部署 ready 本身不能代表驗證通過，必須比對該報告。此額外驗證只對 PR 17 啟用，正式建置與既有 GitHub 發布門檻未變更。
+
+
+後續完整 DOM 嘗試另發現 `LOCATION_template` 在儲存尚未完成時修改地點，會被回應覆蓋。已將整張票券表單於寫入及刷新期間設為原生 `inert`，並保留獎項控制項停用。DOM harness 同步遵守原生不可互動區域，未刪除原有結果斷言。`location-lock-red.log` 記錄新增鎖定斷言先失敗；`location-lock-fixed.log` 記錄地點、抽獎及預約設定五個葉案例與父層共 6 項通過。此前以所有整合檔並行的非 CI 命令另有 startup 子程序逾時；後續依原有 CI 分組命令執行，不修改期限。最終全套結果仍須以精確提交報告為準。

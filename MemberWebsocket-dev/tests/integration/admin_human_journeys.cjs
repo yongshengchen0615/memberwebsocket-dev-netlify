@@ -12,7 +12,7 @@ const spec=path.resolve(__dirname,'../browser/admin-human.spec.cjs');
 const pause=()=>new Promise(r=>setTimeout(r,20));
 async function eventually(fn){let error;for(let n=0;n<150;n++){try{return await fn();}catch(e){error=e;await pause();}}throw error;}
 function visible(el){for(let n=el;n&&n.nodeType===1;n=n.parentElement){if(n.hidden||n.classList.contains('hidden')||n.style.display==='none')return false;}return !!el;}
-function disabled(el){return Boolean(el?.matches(':disabled'));}
+function disabled(el){return Boolean(el?.matches(':disabled') || el?.closest('[inert]'));}
 class Locator {
   constructor(page,query){this.page=page;this.query=query;}
   nodes(){return this.query();}
@@ -21,8 +21,8 @@ class Locator {
   first(){return this.nth(0);} nth(i){return new Locator(this.page,()=>this.nodes().slice(i,i+1));}
   filter({hasText}){return new Locator(this.page,()=>this.nodes().filter(n=>typeof hasText==='string'?n.textContent.includes(hasText):hasText.test(n.textContent)));}
   getByRole(role,options={}){return this.locator(role==='button'?'button':role).filter({hasText:options.name||''});}
-  async click(){await eventually(()=>{const n=this.one();if(process.env.ADMIN_JOURNEY_DEBUG)console.log('click',n.id,n.textContent.slice(0,60));assert.ok(visible(n),'Control is hidden');assert.ok(!n.disabled,'Control is disabled');n.click();});await pause();}
-  async fill(value){await eventually(()=>{const n=this.one();assert.ok(visible(n),'Input is hidden');assert.ok(!n.disabled,'Input is disabled');n.value=value;n.dispatchEvent(new this.page.dom.window.Event('input',{bubbles:true}));n.dispatchEvent(new this.page.dom.window.Event('change',{bubbles:true}));});await pause();}
+  async click(){await eventually(()=>{const n=this.one();if(process.env.ADMIN_JOURNEY_DEBUG)console.log('click',n.id,n.textContent.slice(0,60));assert.ok(visible(n),'Control is hidden');assert.ok(!disabled(n),'Control is disabled');n.click();});await pause();}
+  async fill(value){await eventually(()=>{const n=this.one();assert.ok(visible(n),'Input is hidden');assert.ok(!disabled(n),'Input is disabled');n.value=value;n.dispatchEvent(new this.page.dom.window.Event('input',{bubbles:true}));n.dispatchEvent(new this.page.dom.window.Event('change',{bubbles:true}));});await pause();}
   async selectOption(value){const n=await eventually(()=>{const n=this.one();assert.ok(!disabled(n));assert.ok([...n.options].some(o=>o.value===value),'Option missing '+value);return n;});n.value=value;n.dispatchEvent(new this.page.dom.window.Event('change',{bubbles:true}));await pause();}
   async check(){if(!await eventually(()=>this.one().checked))await this.click();}async uncheck(){if(await eventually(()=>this.one().checked))await this.click();}
   async dragTo(target){const w=this.page.dom.window,from=this.one(),to=target.one();const prior=w.document.elementFromPoint;w.document.elementFromPoint=()=>to;try{for(const [type,x,y]of [['pointerdown',1,1],['pointermove',20,20],['pointerup',20,20]]){const e=new w.MouseEvent(type,{bubbles:true,clientX:x,clientY:y,button:0,cancelable:true});Object.defineProperties(e,{pointerId:{value:1},pointerType:{value:'mouse'}});from.dispatchEvent(e);}await pause();}finally{w.document.elementFromPoint=prior;}}
