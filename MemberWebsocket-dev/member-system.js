@@ -88,7 +88,13 @@
   // The legacy business API is a single-merchant data plane. A tenant URL must
   // never silently fall through to another merchant's existing membership data.
   function assertLegacyTenantScope() {
-    if (new URLSearchParams(window.location.search).has('tenant')) {
+    const search = String(window.location?.search || '').replace(/^\\?/, '');
+    const isTenantScoped = search.split('&').some(segment => {
+      if (!segment) return false;
+      try { return decodeURIComponent(segment.split('=')[0].replace(/\\+/g, ' ')).toLowerCase() === 'tenant'; }
+      catch { return true; } // Malformed query keys fail closed.
+    });
+    if (isTenantScoped) {
       throw clientError('TENANT_NOT_READY', '此商家的會員資料環境尚未獨立開通，請由商家專用入口登入。');
     }
   }
