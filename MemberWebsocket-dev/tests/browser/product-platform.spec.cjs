@@ -272,3 +272,18 @@ test('PLATFORM_INCLIENT_UNAUTH — missing LINE login shows recovery instead of 
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
+
+
+test('PLATFORM_UNIFIED_PORTALS — navigation never bypasses per-role authentication',async({page})=>{
+ const h=await setup(page);try{
+  const nav=page.locator('#unifiedPortalNav');
+  await expect(nav).toBeVisible();
+  await expect(nav.locator('a')).toHaveCount(3);
+  await expect(nav.locator('a[aria-current="page"]')).toHaveText('總管理員');
+  expect(await nav.locator('a').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('href'))))
+    .toEqual(['/platform/','/admin/','/member/']);
+  // Merely linking to the admin does not grant a platform privilege.
+  await expect(page.locator('#platformWorkspace')).toBeVisible();
+  expect(h.errors).toEqual([]);
+ }finally{await h.db.close();}
+});
