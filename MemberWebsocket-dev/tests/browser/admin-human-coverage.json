@@ -3,7 +3,7 @@
   "scope": "Seven admin workspaces, including operation audit; test-control workspace excluded",
   "evidence": "isolated Chromium UI with production handlers and explicit in-memory transport; not live Supabase/LINE delivery",
   "reviewedSources": {
-    "admin/index.html": "5fd78d21028e7a99c68da720ad3205872fd20693fc322fe83685e5809b5dea3f",
+    "admin/index.html": "a590f8d5569f78ecf7a57b141007c02cecbbb432a696d9ea26a86347b395f8c4",
     "admin/app.js": "6a61250af2f21223c5846be2da1cbc322678446db12bf4aec6be78ffb9304738",
     "admin/member-workspace-tabs.js": "e8235f6c84af59c708090d5dd15dcf52d2929a00f7988453d664028f242f8fe2",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
@@ -25,7 +25,7 @@
     "admin/ticket-visibility.js": "bb1cf776a3bf1c69f75bbfa6a4b3e07cf9c9077444099533cb9c2883736dd5c0",
     "admin/operation-audit.js": "2ecd1161e533d56b17a6f89d1907bef384e96a932f81027d6e6178bdcce5a96e",
     "admin/workspace.html": "ec38cbdcd16f266a345483fe67eee5dc4f24e176050c948eca2fc275c2fe3de8",
-    "platform/app.js": "45e63831451915aaf137ecf7e93813bfbb2c36ce9034ce467b29d56c4d71c0a1"
+    "platform/app.js": "6c3c790578fe6fbd85e5a0f3684deb1cc719299dbcfc005b4221e33b7aee3d99"
   },
   "features": [
     {

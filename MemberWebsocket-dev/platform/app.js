@@ -7,7 +7,7 @@
   const fields = form.elements;
   const lineKeys = ['adminChannelId','memberChannelId','messagingChannelId','adminLiffId','memberLiffId','pointsLiffId','eventLiffId','calendarLiffId','bookingLiffId'];
   const state = {config:null,idToken:'',features:{},tenants:[],applications:[],current:null,pending:null,busy:false,approval:null,merchant:null,merchantPending:null};
-  const LOGIN_RETURN_KEY='platform-line-login-return-v1';
+  const LOGIN_RETURN_KEY=merchantEntry?'admin-line-login-return-v1':'platform-line-login-return-v1';
   const LOGIN_RETURN_TTL_MS=180_000;
   function consumeLoginReturn() {
     // A one-use navigation hint only. Authorization still happens in LINE Verify + SQL.
@@ -76,7 +76,7 @@
       if (!response.ok || !body.ok) {
         if (response.status>=500 && ['PLATFORM_DATABASE_UNAVAILABLE','PLATFORM_UNAVAILABLE'].includes(body.error?.code)) throw uncertainError();
         if(response.status===401 && ['AUTH_INVALID','AUTH_REQUIRED'].includes(body.error?.code))
-          showLoginGate('LINE 驗證已失效，請點選「重新使用 LINE 登入」。若仍失敗，請確認總管理員 LIFF 所屬的 Login Channel。');
+          showLoginGate(merchantEntry?'一般管理員 LINE 驗證已失效，請重新登入。':'總管理員 LINE 驗證已失效，請確認專用 LINE Login Channel。');
         throw Object.assign(new Error(body.error?.message || '操作未完成。'),{code:body.error?.code,status:response.status});
       }
       return body.data;
@@ -355,7 +355,7 @@
       let initTimer;
       try {
         await Promise.race([window.liff.init({liffId:platformLiffId}),new Promise((_,reject)=>{initTimer=setTimeout(()=>reject(new Error('LINE 初始化逾時，請重新開啟此頁面。')),8000);})]);
-      } catch {throw new Error('總管理員 LIFF 初始化失敗，請確認 Endpoint URL 與網路。');}
+      } catch {throw new Error(merchantEntry?'一般管理員 LIFF 初始化失敗，請確認 Endpoint URL 與網路。':'總管理員 LIFF 初始化失敗，請確認 Endpoint URL 與網路。');}
       finally {clearTimeout(initTimer);}
       if(!window.liff.isLoggedIn()) {
         if(window.liff.isInClient()){
@@ -399,7 +399,9 @@
     } catch(error){
       el('platformStatus').textContent=error.message;
       if(['AUTH_INVALID','AUTH_REQUIRED'].includes(error.code))showLoginGate(
-        'LINE 身分驗證未通過，請點選「重新使用 LINE 登入」。若仍失敗，請檢查平台 LIFF Channel。');
+        merchantEntry?'一般管理員 LINE 身分驗證未通過，請重新登入。':'總管理員 LINE 身分驗證未通過，請使用專用 LINE 登入。');
+      if(error.code==='PLATFORM_ADMIN_REQUIRED'&&!merchantEntry)
+        el('platformStatus').textContent='此 LINE 帳號尚未取得總管理員授權。請由資料庫管理人員手動開通 platform_private.super_admins.enabled。一般管理員請使用 /admin/。';
     }
   }
   void start();

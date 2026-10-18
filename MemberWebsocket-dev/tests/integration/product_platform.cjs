@@ -227,3 +227,16 @@ test('AC-017: initial application uses verified profile, is idempotent under par
   assert.equal(again.body.data.tenant.credentialsConfigured,false);
  }finally{await h.db.close();}
 });
+
+test('AC-021: platform grant is denied until explicitly enabled in the database',async()=>{
+ const h=await fixture(1,false);try{
+  assert.equal((await h.db.query('select enabled from platform_private.super_admins')).rows[0].enabled,false);
+  assert.equal((await h.call({action:'platform.bootstrap'})).status,403);
+  assert.equal((await h.call({action:'platform.application.ensure'},'manager')).status,200);
+  assert.equal((await h.call({action:'platform.bootstrap'})).status,403);
+  await h.db.exec('update platform_private.super_admins set enabled=true where singleton');
+  assert.equal((await h.call({action:'platform.bootstrap'})).status,200);
+  await h.db.exec('update platform_private.super_admins set enabled=false where singleton');
+  assert.equal((await h.call({action:'platform.bootstrap'})).status,403);
+ }finally{await h.db.close();}
+});
