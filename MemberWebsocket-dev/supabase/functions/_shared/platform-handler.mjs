@@ -11,7 +11,7 @@ export function databaseError(error) {
   for (const [code,[status,message]] of Object.entries(SQL_ERRORS)) if (String(error?.message || '').includes(code)) return new PlatformError(status,code,message);
   return new PlatformError(503,'PLATFORM_DATABASE_UNAVAILABLE','目前無法儲存或讀取商家設定。');
 }
-export function createPlatformHandler({ db, verifyIdentity, encryptionKey, allowedOrigins }) {
+export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdentity = verifyIdentity, encryptionKey, allowedOrigins }) {
   return async request => {
     const origin = request.headers.get('Origin');
     const headers = { 'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Vary':'Origin',
@@ -33,7 +33,8 @@ export function createPlatformHandler({ db, verifyIdentity, encryptionKey, allow
       catch { throw new PlatformError(400,'INVALID_JSON','請求格式不正確。'); }
       if (!body || typeof body !== 'object' || Array.isArray(body)) throw new PlatformError(400,'INVALID_JSON','請求格式不正確。');
       if (typeof body.idToken !== 'string' || !body.idToken || body.idToken.length > 10_000) throw new PlatformError(401,'AUTH_REQUIRED','請使用 LINE 帳號登入。');
-      const identity = await verifyIdentity(body.idToken);
+      const applicantAction = ['platform.application.bootstrap','platform.application.ensure','platform.application.submit','platform.line.save'].includes(body.action);
+      const identity = await (applicantAction ? verifyApplicantIdentity : verifyIdentity)(body.idToken);
       const actor = identity.lineUserId;
       const readOnly = ['platform.bootstrap','platform.application.bootstrap'].includes(body.action);
       const rate = await db.rpc('consume_api_rate_limit',{p_principal_hash:await payloadHash(`platform:${actor}`),
@@ -47,6 +48,20 @@ export function createPlatformHandler({ db, verifyIdentity, encryptionKey, allow
         return {application:application && {...application,tenant:undefined},
           tenant:application?.tenant ? publicTenant(application.tenant) : null};
       };
+      if (body.action === 'platform.application.ensure') {
+        // Identity and initial name come only from LINE verification. The SQL
+        // actor lock and unique constraint make simultaneous first visits safe.
+        let workspace = await mine();
+        if (!workspace.application) {
+          const name = Array.from(String(identity.displayName || 'LINE 管理員').trim() || 'LINE 管理員').slice(0,100).join('');
+          const result = await db.rpc('platform_submit_application',{
+            p_actor:actor,p_name:name,p_slug:'admin-'+crypto.randomUUID().replaceAll('-',''),
+          });
+          if (result.error) throw databaseError(result.error);
+          workspace = await mine();
+        }
+        return json({ok:true,data:{profile:{displayName:identity.displayName},features:FEATURES,...workspace}});
+      }
       if (body.action === 'platform.application.bootstrap') {
         return json({ok:true,data:{profile:{displayName:identity.displayName},features:FEATURES,...await mine()}});
       }

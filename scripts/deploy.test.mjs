@@ -70,9 +70,9 @@ test('deployment versions are valid and change for each new deployment', () => {
   assert.throws(() => formatBuildVersion(fixed, 'oops'), TypeError);
 });
 
-test('all nine published entrypoints contain a static, CSP-compatible build badge', () => {
+test('all ten published entrypoints contain a static, CSP-compatible build badge', () => {
   const pages = [
-    'index.html', 'admin/index.html', 'member/index.html', 'points/index.html',
+    'index.html', 'admin/index.html', 'admin/workspace.html', 'member/index.html', 'points/index.html',
     'event/index.html', 'calendar/index.html', 'booking/index.html', 'booking/admin/index.html', 'platform/index.html',
   ];
   const versions = new Set();

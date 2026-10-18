@@ -25,12 +25,18 @@ async function fixture(adminCount=1) {
   }catch(error){return {data:null,error};}
  };
  const {createPlatformHandler}=await shared('platform-handler.mjs');
- const {verifyPlatformIdToken,PLATFORM_CHANNEL_ID}=await shared('platform-auth.mjs');
+ const {verifyPlatformIdToken,verifyMerchantAdminIdToken,PLATFORM_CHANNEL_ID}=await shared('platform-auth.mjs');
  const allowedOrigins=new Set(['https://allowed.test']);
  const providerCalls=[];
  // Only the LINE HTTP provider is synthetic. The production verifier, handler,
  // encrypted writes, authorization RPCs and SQL are exercised together.
- const handler=createPlatformHandler({db:{rpc},encryptionKey:()=>key,allowedOrigins,verifyIdentity:idToken=>verifyPlatformIdToken({idToken,fetchImpl:async(url,options)=>{
+ const handler=createPlatformHandler({db:{rpc},encryptionKey:()=>key,allowedOrigins,
+ verifyApplicantIdentity:idToken=>verifyMerchantAdminIdToken({idToken,fetchImpl:async(url,options)=>{
+   providerCalls.push({url,channel:options.body.get('client_id')});
+   const token=options.body.get('id_token');
+   const sub=token==='root'||token==='legacy-root'?root:token==='manager'?manager:'';
+   return new Response(JSON.stringify({sub,name:token==='manager'?'商家管理員':'總管理員',aud:'2010791619',iss:'https://access.line.me',iat:Math.floor(Date.now()/1000)-10,exp:Math.floor(Date.now()/1000)+300}),{status:sub?200:400});
+ }}),verifyIdentity:idToken=>verifyPlatformIdToken({idToken,fetchImpl:async(url,options)=>{
    providerCalls.push({url,channel:options.body.get('client_id')});
    assert.equal(options.body.get('client_id'),PLATFORM_CHANNEL_ID);
    const token=options.body.get('id_token');

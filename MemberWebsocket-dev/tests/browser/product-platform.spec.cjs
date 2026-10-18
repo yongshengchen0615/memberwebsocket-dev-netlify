@@ -13,14 +13,14 @@ test.beforeAll(async()=>{
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));base='http://127.0.0.1:'+server.address().port;
 });
 test.afterAll(async()=>new Promise(resolve=>server.close(resolve)));
-async function setup(page,token='root',{loseFirstSave=false,platformLiffId='2012065297-VunxFBj8',inClient=true,loggedIn=true,rootLoginReturn=true}={}) {
+async function setup(page,token='root',{loseFirstSave=false,platformLiffId='2012065297-VunxFBj8',inClient=true,loggedIn=true,rootLoginReturn=true,entry='platform'}={}) {
  const h=await fixture();h.allowedOrigins.add(base);let lost=false;const errors=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
  if(rootLoginReturn&&token==='root')await page.addInitScript(()=>{
   // Simulate a genuine LINE return for the pre-existing root-control cases.
   sessionStorage.setItem('platform-line-login-return-v1',String(Date.now()));
  });
- await page.route('**/config.json',route=>route.fulfill({json:{brandName:'QA Platform',supabaseUrl:'https://fixture.supabase.co',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'sb_publishable_fixture',adminLiffId:'2010791619-admin',platformLiffId}}));
+ await page.route('**/config.json',route=>route.fulfill({json:{brandName:'QA Platform',supabaseUrl:'https://fixture.supabase.co',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'sb_publishable_fixture',adminLiffId:'2010791619-admin',productizedAdmin:true,platformLiffId}}));
  await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:`window.loginCalls=[];window.logoutCalls=0;window.liff={init:async options=>{window.initializedLiffId=options.liffId;},isInClient:()=>${inClient},isLoggedIn:()=>${loggedIn}||sessionStorage.getItem('qaLoggedIn')==='1',login:(...args)=>{window.loginCalls.push(args);},logout:()=>{window.logoutCalls+=1;sessionStorage.setItem('qaRootLogoutCount',String(Number(sessionStorage.getItem('qaRootLogoutCount')||'0')+1));},getIDToken:()=>${JSON.stringify(token)}};`}));
  await page.route('https://fixture.supabase.co/functions/v1/platform-api',async route=>{
   const method=route.request().method();
@@ -30,7 +30,7 @@ async function setup(page,token='root',{loseFirstSave=false,platformLiffId='2012
   if(loseFirstSave&&!lost&&input?.action==='platform.tenant.features.save'){lost=true;return route.abort('failed');}
   await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
  });
- await page.goto(base+'/platform/');return {...h,errors};
+ await page.goto(base+(entry==='admin'?'/admin/':'/platform/'));return {...h,errors};
 }
 test('PLATFORM_APPLICANT_ROOT_GRANTS — review applicant, grant features only, preserve merchant LINE ownership',async({page},info)=>{
  const h=await setup(page);try{
@@ -78,28 +78,31 @@ test('PLATFORM_RETRY — lost root grant response reuses request id without doub
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
-test('PLATFORM_APPLY — ordinary admin sees application form but never root controls',async({page})=>{
- const h=await setup(page,'manager');try{
+test('PLATFORM_APPLY — admin entry automatically submits once and waits without legacy data access',async({page})=>{
+ const h=await setup(page,'manager',{entry:'admin'});try{
+  await expect(page).toHaveURL(/\/admin\/workspace\.html/);
   await expect(page.locator('#platformWorkspace')).toBeHidden();
-  await expect(page.locator('#applicationWorkspace')).toBeVisible();
-  await page.locator('#applicationForm [name="businessName"]').fill('商家申請 B');
-  await page.locator('#applicationForm [name="slug"]').fill('merchant-b');
-  await page.getByRole('button',{name:'提交審核申請'}).click();
   await expect(page.locator('#applicationProgress')).toContainText('等待總管理員審核');
   await expect(page.locator('#applicationForm')).toBeHidden();
   await expect(page.locator('#merchantWorkspace')).toBeHidden();
+  expect(await page.evaluate(()=>window.initializedLiffId)).toBe('2010791619-admin');
+  await page.reload();
+  await expect(page.locator('#applicationProgress')).toContainText('等待總管理員審核');
+  expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(1);
+  expect((await h.db.query("select count(*)::int n from platform_private.audit_events where action='APPLICATION_SUBMITTED'")).rows[0].n).toBe(1);
   expect((await h.db.query('select count(*)::int n from platform_private.tenants')).rows[0].n).toBe(0);
+  expect(h.providerCalls.every(call=>call.channel==='2010791619')).toBe(true);
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
 test('PLATFORM_MANAGER_SETUP — approved admin can configure own LINE but cannot edit feature grants',async({page})=>{
- const h=await setup(page,'manager');try{
-  await h.call({action:'platform.application.submit',businessName:'LINE 自助設定',slug:'self-service-b'},'manager');
+ const h=await setup(page,'manager',{entry:'admin'});try{
+  await expect(page.locator('#applicationProgress')).toContainText('等待總管理員審核');
   const app=(await h.call({action:'platform.bootstrap'})).body.data.applications[0];
   const features=Object.fromEntries(Object.keys(h.tenant.features).map(k=>[k,k==='membership']));
   const result=await h.call({action:'platform.application.approve',applicationId:app.id,features,requestId:crypto.randomUUID()});
   expect(result.status).toBe(200);
-  await page.reload();await expect(page.locator('#merchantWorkspace')).toBeVisible();
+  await page.getByRole('button',{name:'重新檢查申請與功能權限'}).click();await expect(page.locator('#merchantWorkspace')).toBeVisible();
   await expect(page.locator('#platformWorkspace')).toBeHidden();
   await expect(page.locator('#merchantFeatures')).toContainText('會員卡');
   await expect(page.locator('#merchantFeatures')).not.toContainText('預約');
@@ -111,7 +114,7 @@ test('PLATFORM_MANAGER_SETUP — approved admin can configure own LINE but canno
     await page.locator('#merchantLineForm [name="'+k+'"]').fill(v);
   await page.getByRole('button',{name:'儲存此頁 LINE 設定'}).click();
   await expect(page.locator('#merchantMessage')).toContainText('已安全儲存');
-  let partial=(await h.db.query("select line_config from platform_private.tenants where slug='self-service-b'")).rows[0];
+  let partial=(await h.db.query("select line_config from platform_private.tenants ")).rows[0];
   expect(partial.line_config.memberLiffId).toBe('');
   await page.locator('#merchantFeatureNav [data-line-feature="membership"]').click();
   await expect(page.locator('[data-merchant-panel="membership"]')).toBeVisible();
@@ -124,6 +127,18 @@ test('PLATFORM_MANAGER_SETUP — approved admin can configure own LINE but canno
   expect(tenant.features.booking).toBe(false);
   expect(tenant.credentials_configured).toBe(true);
   expect(tenant.status).toBe('pending_provisioning');
+  await expect(page.locator('#merchantLineForm [name="memberLiffId"]')).toHaveValue(h.tenant.line.memberLiffId);
+  const current=(await h.call({action:'platform.application.bootstrap'},'manager')).body.data.tenant;
+  const reduced=await h.call({action:'platform.tenant.features.save',tenantId:current.id,expectedVersion:current.version,requestId:crypto.randomUUID(),features:{...current.features,membership:false,booking:true}});
+  expect(reduced.status).toBe(200);
+  await page.getByRole('button',{name:'重新檢查申請與功能權限'}).click();
+  await expect(page.locator('#merchantFeatureNav [data-line-feature="membership"]')).toHaveCount(0);
+  await expect(page.locator('#merchantFeatureNav [data-line-feature="booking"]')).toHaveCount(1);
+  const suspended=await h.call({action:'platform.tenant.suspend',tenantId:current.id,expectedVersion:reduced.body.data.tenant.version,requestId:crypto.randomUUID()});
+  expect(suspended.status).toBe(200);
+  await page.getByRole('button',{name:'重新檢查申請與功能權限'}).click();
+  await expect(page.locator('#merchantWorkspace')).toBeHidden();
+  await expect(page.locator('#applicationProgress')).toContainText('停用');
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });

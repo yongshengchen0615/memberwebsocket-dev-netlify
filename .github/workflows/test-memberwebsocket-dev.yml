@@ -70,6 +70,7 @@ jobs:
         run: |
           node --test \
             MemberWebsocket-dev/tests/integration/product_platform.cjs \
+            MemberWebsocket-dev/tests/integration/product_admin_ui.cjs \
             MemberWebsocket-dev/tests/integration/admin_startup.cjs \
             MemberWebsocket-dev/tests/integration/admin_terms.cjs \
             MemberWebsocket-dev/tests/integration/booking_startup.cjs \

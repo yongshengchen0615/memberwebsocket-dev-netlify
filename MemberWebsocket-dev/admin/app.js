@@ -429,6 +429,12 @@
         startLoginProgress('已安全沿用原管理端 Session…', 64);
       } else {
         state.config = await window.MemberSystem.loadConfig();
+        if (state.config.productizedAdmin === true) {
+          const target = new URL('./workspace.html', window.location.href);
+          target.search = window.location.search;
+          window.location.replace(target.href);
+          return;
+        }
         startLoginProgress('正在驗證 LINE 身分…', 48);
         state.idToken = await window.MemberSystem.signIn(state.config, 'admin');
       }
@@ -3207,3 +3213,4 @@
     refresh: () => refreshData(false)
   });
 })();
+

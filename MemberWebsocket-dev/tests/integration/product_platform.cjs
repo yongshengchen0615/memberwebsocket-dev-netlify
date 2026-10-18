@@ -210,3 +210,20 @@ test('AC-013: suspended merchant, unauthenticated and SQL public roles cannot ch
   }
  }finally{await h.db.close();}
 });
+
+test('AC-017: initial application uses verified profile, is idempotent under parallel visits and ignores forged identity',async()=>{
+ const h=await fixture();try{
+  const results=await Promise.all(Array.from({length:3},()=>h.call({action:'platform.application.ensure',businessName:'forged',ownerLineUserId:root},'manager')));
+  for(const result of results)assert.equal(result.status,200,JSON.stringify(result));
+  assert.equal(new Set(results.map(x=>x.body.data.application.id)).size,1);
+  const rows=(await h.db.query('select * from platform_private.applications')).rows;
+  assert.equal(rows.length,1);assert.equal(rows[0].applicant_line_user_id,manager);assert.equal(rows[0].business_name,'商家管理員');assert.equal(rows[0].status,'pending');
+  assert.equal((await h.db.query("select count(*)::int n from platform_private.audit_events where action='APPLICATION_SUBMITTED'")).rows[0].n,1);
+  const application=results[0].body.data.application;
+  const approved=await h.call({action:'platform.application.approve',applicationId:application.id,features:h.tenant.features,requestId:crypto.randomUUID()});
+  assert.equal(approved.status,200);
+  const again=await h.call({action:'platform.application.ensure'},'manager');
+  assert.equal(again.body.data.application.id,application.id);assert.equal(again.body.data.application.status,'approved');
+  assert.equal(again.body.data.tenant.credentialsConfigured,false);
+ }finally{await h.db.close();}
+});
