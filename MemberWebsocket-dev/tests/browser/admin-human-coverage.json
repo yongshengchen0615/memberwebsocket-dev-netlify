@@ -2,6 +2,7 @@
   "version": 1,
   "scope": "Seven admin workspaces, including operation audit; test-control workspace excluded",
   "evidence": "isolated Chromium UI with production handlers and explicit in-memory transport; not live Supabase/LINE delivery",
+  "portalIntegrationReview": "Shared three-role navigation is navigation only; AC-030–035 test navigation wiring, safe tenant readiness and blocked legacy tenant data access. The pre-existing admin human case inventory is unchanged.",
   "reviewedSources": {
     "admin/index.html": "a590f8d5569f78ecf7a57b141007c02cecbbb432a696d9ea26a86347b395f8c4",
     "admin/app.js": "6a61250af2f21223c5846be2da1cbc322678446db12bf4aec6be78ffb9304738",
@@ -24,8 +25,8 @@
     "admin/booking-accessible-admin.js": "5947f0328b3b27ff891760f72615024899a96b77467f7601842056f908ce5526",
     "admin/ticket-visibility.js": "bb1cf776a3bf1c69f75bbfa6a4b3e07cf9c9077444099533cb9c2883736dd5c0",
     "admin/operation-audit.js": "2ecd1161e533d56b17a6f89d1907bef384e96a932f81027d6e6178bdcce5a96e",
-    "admin/workspace.html": "ec38cbdcd16f266a345483fe67eee5dc4f24e176050c948eca2fc275c2fe3de8",
-    "platform/app.js": "6c3c790578fe6fbd85e5a0f3684deb1cc719299dbcfc005b4221e33b7aee3d99"
+    "admin/workspace.html": "c90560c417f66f74b17fa6249476eced3e34b90c211299e4c01a4f969f8c0b62",
+    "platform/app.js": "25335f927ae70e459b1e334cd16dc623e978ae2bd335de56d7085bd3aead53b8"
   },
   "features": [
     {
