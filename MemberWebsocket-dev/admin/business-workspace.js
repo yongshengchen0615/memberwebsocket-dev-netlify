@@ -31,5 +31,10 @@
  }
  document.addEventListener('click',event=>{const target=event.target.closest?.('[data-business-allowed="false"]');if(target){event.preventDefault();event.stopImmediatePropagation();}},true);
  window.addEventListener('member-admin-ready',select);
+ // Booking and other extensions may mount after the initial bootstrap.
+ // Apply current grants before a late tab or panel becomes available.
+ const observer=new MutationObserver(()=>{if(latest)apply(latest);});
+ for(const target of [document.getElementById('adminView'),document.querySelector('#adminView .surface-nav')])
+  if(target)observer.observe(target,{childList:true});
  window.BusinessWorkspace=Object.freeze({apply});
 })();

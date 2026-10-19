@@ -70,3 +70,16 @@ test('AC-306: scoped settings use the database Channel, never a caller-selected 
   assert.equal(response.status,200);assert.equal(selected,'2099999999');
  }finally{await h.db.close();}
 });
+test('AC-303: late-mounted modules immediately inherit current grants and settings integration',async()=>{
+ const dom=new JSDOM('<main id="adminView"><nav class="surface-nav"></nav></main>',{url:'https://allowed.test/admin/?business=late-shop',runScripts:'outside-only'});
+ try{
+  const w=dom.window,d=w.document;let mounted=0;w.BusinessLineSettings={apply:()=>mounted++};
+  w.eval(fs.readFileSync(path.join(__dirname,'../../admin/business-workspace.js'),'utf8'));
+  w.BusinessWorkspace.apply({features:{points:true},business:{name:'Late fixture'}});
+  d.querySelector('.surface-nav').insertAdjacentHTML('beforeend','<button id="bookingTab"></button><button id="cardsTab"></button>');
+  d.querySelector('#adminView').insertAdjacentHTML('beforeend','<section id="bookingPanel"></section><section id="cardsPanel"></section>');
+  await until(()=>d.querySelector('#bookingTab').hidden);
+  assert.equal(d.querySelector('#bookingPanel').hidden,true);assert.equal(d.querySelector('#cardsTab').hidden,false);assert.equal(d.querySelector('#cardsPanel').hidden,false);
+  assert.ok(mounted>1,'late modules must also receive inline settings');
+ }finally{dom.window.close();}
+});
