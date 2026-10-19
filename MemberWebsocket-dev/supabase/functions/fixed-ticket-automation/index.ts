@@ -1,3 +1,5 @@
+import { businessContext } from '../_shared/business-scope.ts';
+import { assertTenantIdentity } from '../_shared/tenant-access.mjs';
 import { businessEnv, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';
 import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 
@@ -82,6 +84,8 @@ async function verifyAdmin(supabase: SupabaseClient, idToken: string): Promise<{
     throw new ApiError(401, "AUTH_INVALID", "LINE 登入已失效，請重新登入。");
   }
 
+  try { assertTenantIdentity(businessContext(), {issuedAtMs:Number(payload.iat || 0)*1000}); }
+  catch (error) { const e=error as {status:number;code:string;message:string}; throw new ApiError(e.status,e.code,e.message); }
   const admin = await supabase.from("admins").select("role,status").eq("line_user_id", sub).maybeSingle();
   if (admin.error) throw new ApiError(500, "DATABASE_ERROR", "無法確認管理員權限。");
   if (!admin.data || admin.data.status !== "active" || admin.data.role !== "admin") {

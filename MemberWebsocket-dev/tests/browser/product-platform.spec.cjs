@@ -362,11 +362,7 @@ test('PLATFORM_INCLIENT_UNAUTH — missing LINE login shows recovery instead of 
 test('PLATFORM_UNIFIED_PORTALS — navigation never bypasses per-role authentication',async({page})=>{
  const h=await setup(page);try{
   const nav=page.locator('#unifiedPortalNav');
-  await expect(nav).toBeVisible();
-  await expect(nav.locator('a')).toHaveCount(1);
-  await expect(nav.locator('a[aria-current="page"]')).toHaveText('總管理員');
-  expect(await nav.locator('a').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('href'))))
-    .toEqual(['/platform/']);
+  await expect(nav).toHaveCount(0);
   // The root workspace has no link to merchant or client entrances.
   await expect(page.locator('a[href^="/admin/"],a[href^="../admin/"],a[href^="/member/"]')).toHaveCount(0);
   await expect(page.locator('#platformWorkspace')).toBeVisible();

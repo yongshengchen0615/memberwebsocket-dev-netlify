@@ -33,7 +33,7 @@
     let body;
     try { body = await response.json(); }
     catch { throw Object.assign(Error('無法確認伺服器回應，請重試相同操作。'), {uncertain:true}); }
-    if (!response.ok || !body.ok) throw Object.assign(Error(body.error?.message || '無法取得 LINE 設定。'), {code:body.error?.code});
+    if (!response.ok || !body.ok) throw Object.assign(Error(body.error?.message || '無法取得 LINE 設定。'), {code:body.error?.code,uncertain:response.status>=500});
     return body.data;
   }
   function lock() {
@@ -61,8 +61,9 @@
     if (!tenant) return;
     if (view.form) for (const input of view.form.querySelectorAll('input')) {
       const secret = ['channelAccessToken','channelSecret'].includes(input.name);
-      if (reset || !view.dirty.has(input.name)) input.value = secret ? '' : tenant.line?.[input.name] || '';
-      input.required = !secret || !tenant.credentialsConfigured;
+      if (reset || !view.dirty.has(input.name)) input.value = secret ? '' : (tenant.moduleLine?.[view.feature]?.line || tenant.line)?.[input.name] || '';
+      input.required = !secret || !(tenant.moduleLine?.[view.feature]?.credentialsConfigured || tenant.credentialsConfigured);
+      if(['adminChannelId','adminLiffId'].includes(input.name))input.readOnly=Boolean(tenant.line?.[input.name]);
     }
     view.links.replaceChildren();
     if (!view.path) { view.links.textContent = '此管理功能不需要額外 LINE 用戶端入口。'; return; }
@@ -74,8 +75,8 @@
     const copy = node('button', '複製用戶端連結', 'button button-outline'); copy.type = 'button';
     copy.onclick = async () => { try { await navigator.clipboard.writeText(endpoint.href); view.status.textContent = '已複製' + view.label + '用戶端連結。'; } catch { view.status.textContent = '請複製下方的完整網址。'; } };
     view.links.append(a, copy, node('p', 'LIFF Endpoint URL（含商家代碼）'), code);
-    const id = tenant.line?.[view.key];
-    if (tenant.onboarding?.configurationComplete && /^\d{5,30}-[A-Za-z0-9_-]+$/.test(id || '')) {
+    const id = (tenant.moduleLine?.[view.feature]?.line || tenant.line)?.[view.key];
+    if ((tenant.moduleLine?.[view.feature]?.credentialsConfigured || tenant.onboarding?.configurationComplete) && /^\d{5,30}-[A-Za-z0-9_-]+$/.test(id || '')) {
       const liff = node('a', '開啟已儲存的 LINE 入口'); liff.href = 'https://liff.line.me/' + id;
       liff.target = '_blank'; liff.rel = 'noopener noreferrer'; view.links.append(liff);
     }
@@ -85,7 +86,7 @@
     if (saving || !tenant || grants[view.feature] !== true || tenant.features?.[view.feature] !== true) return;
     if (!view.pending) {
       if (!view.form.reportValidity()) return;
-      const line = {...tenant.line};
+      const line = {...tenant.line,...tenant.moduleLine?.[view.feature]?.line};
       // Merge only this form's edited fields into the last server snapshot.
       // Other modules' unsaved drafts never enter this request.
       for (const input of view.form.querySelectorAll('input')) if (!['channelAccessToken','channelSecret'].includes(input.name)
@@ -98,11 +99,11 @@
       const result = await request('platform.line.save', view.pending);
       tenant = result.tenant; view.pending = null; view.dirty.clear();
       for (const v of views.values()) update(v, v === view);
-      view.status.textContent = view.label + ' LINE 設定已儲存，其他功能的 LIFF 設定已保留。';
+      view.status.textContent = view.label + ' LINE 設定已儲存，其他功能的 Channel、LIFF 與憑證均維持原設定。';
     } catch (error) {
       view.status.textContent = error.message;
       if (!error.uncertain) view.pending = null;
-      if (['FEATURE_DISABLED','TENANT_SUSPENDED','PLATFORM_APPLICATION_NOT_APPROVED','BUSINESS_FORBIDDEN','AUTH_INVALID'].includes(error.code)) {
+      if (['FEATURE_DISABLED','TENANT_SUSPENDED','PLATFORM_APPLICATION_NOT_APPROVED','BUSINESS_FORBIDDEN','AUTH_INVALID','TENANT_EXPIRED','TENANT_REAUTH_REQUIRED'].includes(error.code)) {
         tenant = null; for (const v of views.values()) { v.form?.reset(); v.section.hidden = true; }
       }
       if (error.code === 'PLATFORM_CONFLICT') view.status.textContent += ' 請先載入最新設定，再確認本區塊內容後儲存。';
@@ -123,9 +124,9 @@
       if (path) {
         const form = node('form'); form.id = 'businessLine-' + feature; view.form = form;
         addField(form, key, label + ' LIFF ID');
-        const shared = node('details'); shared.open = !tenant.credentialsConfigured;
-        shared.append(node('summary','商家共用 Channel 與通知憑證'));
-        shared.append(node('p','各功能的 LIFF ID 獨立保存。以下 Channel 與訊息憑證由本商家所有功能共用；修改會影響其他已授權功能。Login 與 Messaging API Channel 請建在同一個 LINE Provider。'));
+        const shared = node('details'); shared.open = !(tenant.moduleLine?.[feature]?.credentialsConfigured || tenant.credentialsConfigured);
+        shared.append(node('summary','此功能的 Channel 與通知憑證'));
+        shared.append(node('p','此功能的用戶端 Channel、LIFF 與通知憑證獨立保存，不影響其他功能。管理員登入沿用商家已設定的 Channel；Login 與 Messaging API Channel 請建在同一個 LINE Provider。'));
         const grid = node('div','','business-line-fields');
         for (const [name,text] of Object.entries(common)) addField(grid,name,text,['channelAccessToken','channelSecret'].includes(name));
         // Give each field a unique accessible ID without introducing nested forms.
@@ -145,7 +146,7 @@
     loading = true;
     try {
       const result = await request('platform.application.bootstrap');
-      if (!result.tenant || result.tenant.slug !== session.config.business || result.application?.status !== 'approved' || result.tenant.status === 'suspended') throw Error('此商家的 LINE 設定權限尚未開放。');
+      if (!result.tenant || result.tenant.slug !== session.config.business || result.application?.status !== 'approved' || (result.tenant.status === 'suspended' || result.tenant.expired)) throw Error('此商家的 LINE 設定權限尚未開放。');
       tenant = result.tenant; render();
       for (const view of views.values()) {
         if (force && view === source) view.dirty.clear();

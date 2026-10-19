@@ -51,3 +51,53 @@ Deno.test('AC-210: production request adapter enforces fresh grants, private sch
   const pushed=calls.find(c=>c.path==='/v2/bot/message/push');assert(pushed.body.messages[0].action.uri.endsWith('?business=merchant-a'));
  }finally{globalThis.fetch=previous;Deno.env.get=previousEnv;}
 });
+
+Deno.test('AC-181-002/AC-184-03: production verification rejects old provider-verified tokens after resume and expired requests never execute',async()=>{
+ const {verifyLineIdTokenContract}=await import('./auth-contract.ts');
+ const previousEnv=Deno.env.get,previous=globalThis.fetch;
+ Deno.env.get=(key:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture'} as Record<string,string>)[key];
+ let issued=Math.floor(Date.now()/1000)-30;const cutoff=new Date((issued+10)*1000).toISOString();
+ let expired=false,executed=0;
+ globalThis.fetch=(async(input:RequestInfo|URL)=>{
+  const path=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url).pathname;
+  const response=(data:unknown)=>new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json'}});
+  if(path.endsWith('/platform_business_context'))return response({...a,access_revoked_before:cutoff,expires_at:expired?'2000-01-01T00:00:00Z':null});
+  if(path==='/oauth2/v2.1/verify')return response({sub:ownerA,aud:'2010791619',iss:'https://access.line.me',iat:issued,exp:Math.floor(Date.now()/1000)+300,name:'fixture'});
+  if(path.endsWith('/admins'))return response({role:'admin',status:'active'});
+  return response(null);
+ }) as typeof fetch;
+ try{
+  const handler=businessHandler('api',async()=>{
+   try{await verifyLineIdTokenContract({idToken:'provider-verified',expectedChannelId:'2010791619',createError:(status,code,message)=>Object.assign(Error(message),{status,code})});executed++;return new Response('{}');}
+   catch(e){return new Response(JSON.stringify({code:(e as any).code}),{status:(e as any).status||500});}
+  });
+  const req=()=>new Request('https://api.test',{method:'POST',body:JSON.stringify({business:'merchant-a',action:'admin.bootstrap',idToken:token(ownerA)})});
+  const old=await handler(req());assert(old.status===401);assert((await old.json()).code==='TENANT_REAUTH_REQUIRED');assert(executed===0);
+  issued+=20;assert((await handler(req())).status===200);assert(executed===1);
+  expired=true;assert((await handler(req())).status===403);assert(executed===1);
+ }finally{Deno.env.get=previousEnv;globalThis.fetch=previous;}
+});
+
+Deno.test('AC-ENV-002/003: request adapter reads only the action module credentials and never falls back on a configured-module failure',async()=>{
+ const {sealCredentials}=await import('./platform-crypto.mjs');
+ const previousEnv=Deno.env.get,previous=globalThis.fetch,key=btoa(String.fromCharCode(...new Uint8Array(32).fill(7)));
+ const envelopes:Record<string,unknown>={};for(const f of ['membership','points'])envelopes[f]=await sealCredentials(a.id+':'+f,{channelAccessToken:'synthetic-'+f,channelSecret:'a'.repeat(32)},key);
+ Deno.env.get=(name:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture',PLATFORM_CREDENTIAL_ENCRYPTION_KEY:key} as Record<string,string>)[name];
+ let broken=false;
+ globalThis.fetch=(async(input:RequestInfo|URL,init?:RequestInit)=>{
+  const path=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url).pathname;
+  const body=typeof init?.body==='string'?JSON.parse(init.body):{};
+  const response=(data:unknown)=>new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json'}});
+  if(path.endsWith('/platform_business_context'))return response({...a,module_line:Object.fromEntries(['membership','points'].map(f=>[f,{credentialsConfigured:true,line:{adminChannelId:'2010791619',adminLiffId:'2010791619-admin',memberChannelId:f==='membership'?'2010787602':'2010789999',messagingChannelId:'2010123456',[f==='membership'?'memberLiffId':'pointsLiffId']:(f==='membership'?'2010787602':'2010789999')+'-fixture'}}]))});
+  if(path.endsWith('/platform_module_credentials'))return response(broken?null:{scope:'module',envelope:envelopes[body.p_feature]});
+  throw Error('unexpected request '+path);
+ }) as typeof fetch;
+ try{
+  const handler=businessHandler('api',async()=>{const db=createClient('https://runtime-fixture.supabase.co','fixture');const result=await db.rpc('get_line_messaging_token');return new Response(JSON.stringify({token:result.data,channel:businessEnv('LINE_MEMBER_CHANNEL_ID')}));});
+  for(const f of ['membership','points']){
+   const req=()=>new Request('https://api.test',{method:'POST',body:JSON.stringify({business:'merchant-a',action:f==='membership'?'admin.member.update':'admin.pointcards.save',idToken:token(ownerA)})});
+   const data=await(await handler(req())).json();assert(data.token==='synthetic-'+f);assert(data.channel===(f==='membership'?'2010787602':'2010789999'));
+   broken=true;assert((await handler(req())).status===503);broken=false;
+  }
+ }finally{Deno.env.get=previousEnv;globalThis.fetch=previous;}
+});

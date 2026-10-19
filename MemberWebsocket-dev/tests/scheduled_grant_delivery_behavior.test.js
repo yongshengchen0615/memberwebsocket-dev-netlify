@@ -39,6 +39,9 @@ function fixture({ url = '', status = 200, acceptedId = '', testMember = false, 
   vm.runInNewContext(code, {
     Deno: { env: { get: (key) => key === 'GRANT_MESSAGE_DISPATCH_SECRET' ? 'fixture-secret' : 'fixture-config' }, serve: (value) => { handler = value; } },
     createClient: () => db,
+    // The non-business delivery unit fixture retains its original transport.
+    // business-runtime_test.ts covers the real scoped credential adapter.
+    businessContext: () => null, withBusinessModule: async (_feature,run) => run(),
     buildLineFlexNotice: () => ({ type: 'flex', contents: { header: { backgroundColor: '#315D50' }, body: { type: 'box', contents: [] }, footer: { type: 'box', contents: [] } } }),
     replaceCurrentGrantSections: (text) => text,
     buildLatestAvailableOffersSection: async () => '',

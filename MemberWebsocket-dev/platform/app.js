@@ -28,7 +28,7 @@
       const field=el('merchantLineForm')?.elements.namedItem(key);if(field)field.value='';
     }
     if(el('onboardingJourney'))el('onboardingJourney').hidden=true;
-    for(const id of ['tenantDialog','approvalDialog','grantDialog']) {
+    for(const id of ['tenantDialog','approvalDialog','grantDialog','expiryDialog']) {
       const dialog=el(id);
       if(dialog?.open)dialog.close();
     }
@@ -93,8 +93,8 @@
       if (!response.ok || !body.ok) {
         if (response.status>=500 && ['PLATFORM_DATABASE_UNAVAILABLE','PLATFORM_UNAVAILABLE'].includes(body.error?.code)) throw uncertainError();
         if(response.status===403 && body.error?.code==='PLATFORM_ADMIN_REQUIRED'&&!merchantEntry)showAuthorizationDenied();
-        if(response.status===401 && ['AUTH_INVALID','AUTH_REQUIRED'].includes(body.error?.code))
-          showLoginGate(merchantEntry?'一般管理員 LINE 驗證已失效，請重新登入。':'總管理員 LINE 驗證已失效，請確認專用 LINE Login Channel。');
+        if(response.status===401 && ['AUTH_INVALID','AUTH_REQUIRED','TENANT_REAUTH_REQUIRED'].includes(body.error?.code))
+          showLoginGate(merchantEntry?(body.error?.message || '一般管理員 LINE 驗證已失效，請重新登入。'):'總管理員 LINE 驗證已失效，請確認專用 LINE Login Channel。');
         throw Object.assign(new Error(body.error?.message || '操作未完成。'),{code:body.error?.code,status:response.status});
       }
       return body.data;
@@ -126,7 +126,7 @@
     if (!state.tenants.length) {const p=document.createElement('p');p.className='empty';p.textContent='尚無已審核的一般管理員。請從申請清單勾選功能並審核。';list.append(p);return;}
     for (const tenant of state.tenants) {
       const card=document.createElement('article');card.className='tenant-card';
-      const badge=document.createElement('span');badge.className='badge';badge.textContent=tenant.status==='suspended'?'已停用':tenant.onboarding?.adminReady?'已核准・可立即使用'
+      const badge=document.createElement('span');badge.className='badge';badge.textContent=tenant.status==='suspended'?'已停用':tenant.expired?'使用期限已到':tenant.onboarding?.adminReady?'已核准・可立即使用'
         :tenant.onboarding?.configurationComplete?'設定齊全・待平台開通':'已核准・待 LINE 設定';
       const title=document.createElement('h3');title.textContent=tenant.name;
       const info=document.createElement('p');info.textContent=`${tenant.slug} · 管理員 ${tenant.ownerLineUserId}`;
@@ -134,20 +134,70 @@
       for (const [key,label] of Object.entries(state.features)) if (tenant.features[key]) {const tag=document.createElement('span');tag.textContent=label;featureList.append(tag);}
       if (!featureList.childNodes.length) featureList.textContent='尚未開放任何功能';
       const footer=document.createElement('footer');const edit=document.createElement('button');edit.type='button';edit.textContent='調整開放功能';edit.addEventListener('click',()=>openGrantDialog(tenant));footer.append(edit);
-      if (tenant.status!=='suspended') {const suspend=document.createElement('button');suspend.type='button';suspend.className='secondary';suspend.textContent='停用商家';suspend.addEventListener('click',async()=>{
-        if (!window.confirm(`停用「${tenant.name}」？`)) return;
-        suspend.disabled=true;
-        try {const result=await request('platform.tenant.suspend',{tenantId:tenant.id,expectedVersion:tenant.version,requestId:crypto.randomUUID()});state.tenants=state.tenants.map(item=>item.id===result.tenant.id?result.tenant:item);render();el('platformStatus').textContent='商家已停用。';}
-        catch(error){el('platformStatus').textContent=error.message;}finally{suspend.disabled=false;}
-      });footer.append(suspend);}
+      const expiry=document.createElement('button');expiry.type='button';expiry.className='secondary';expiry.textContent='設定使用期限';
+      expiry.addEventListener('click',()=>openExpiryDialog(tenant));footer.append(expiry);
+      const access=document.createElement('button');access.type='button';access.className='secondary';
+      const suspended=tenant.status==='suspended';access.textContent=suspended?'復權':'停用商家';let pending=null,working=false;
+      access.addEventListener('click',async()=>{
+        if(working)return;
+        if(!pending&&!window.confirm(suspended?`復權「${tenant.name}」？期限與功能授權維持原設定，管理員須重新使用 LINE 登入。`:`停用「${tenant.name}」？管理員與用戶會立即失去使用資格。`))return;
+        if(!pending)pending={tenantId:tenant.id,expectedVersion:tenant.version,requestId:crypto.randomUUID()};
+        working=true;for(const button of footer.querySelectorAll('button'))button.disabled=true;
+        try{
+          await request(suspended?'platform.tenant.resume':'platform.tenant.suspend',pending);
+          pending=null;await refresh();el('platformStatus').textContent=suspended?'已復權，請重新使用 LINE 登入；既有期限與授權維持不變。':'商家已停用，舊憑證已撤銷。';
+        }catch(error){
+          el('platformStatus').textContent=error.message;
+          if(error.uncertain){access.textContent='重試相同'+(suspended?'復權':'停用')+'操作';}
+          else{pending=null;await refresh().catch(()=>{});}
+        }finally{working=false;access.disabled=false;if(!pending)for(const button of footer.querySelectorAll('button'))button.disabled=false;}
+      });footer.append(access);
+      const expiryInfo=document.createElement('p');expiryInfo.textContent='使用期限：'+(tenant.expiresAt?new Date(tenant.expiresAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false})+'（台灣時間）':'無到期日');
       const setup=document.createElement('p');
       const onboarding=tenant.onboarding;
-      setup.textContent=tenant.status==='suspended'?'已停用；管理員與用戶均不可使用。':onboarding?.adminReady?'已核准功能已開通，管理員可設定業務內容並分享專屬用戶連結。'
+      setup.textContent=tenant.status==='suspended'?'已停用；管理員與用戶均不可使用。':tenant.expired?'使用期限已到；請由總管理員調整期限，延長後須重新登入。':onboarding?.adminReady?'已核准功能已開通，管理員可設定業務內容並分享專屬用戶連結。'
         :onboarding?.configurationComplete?'LINE 設定已完整保存；下一步由平台完成商家專屬服務與 LINE 實測。目前管理業務與用戶端尚未開放。'
         :'審核已通過；下一步由一般管理員完成共用 LINE 與各項功能設定。目前管理業務與用戶端尚未開放。';
-      card.append(badge,title,info,featureList,setup,footer);list.append(card);
+      card.append(badge,title,info,featureList,expiryInfo,setup,footer);list.append(card);
     }
   }
+  const expiryDialog=el('expiryDialog'),expiryForm=el('expiryForm');
+  let expiryTenant=null,expiryPending=null,expiryBusy=false;
+  function openExpiryDialog(tenant){
+    expiryTenant=tenant;expiryPending=null;expiryBusy=false;
+    for(const input of expiryForm.querySelectorAll('input'))input.disabled=false;
+    el('saveExpiry').textContent='儲存使用期限';
+    el('expiryDescription').textContent=tenant.name+' · '+tenant.slug;
+    el('expiryUnlimited').checked=!tenant.expiresAt;
+    el('expiryAt').value=tenant.expiresAt?new Date(Date.parse(tenant.expiresAt)+8*3600000).toISOString().slice(0,16):'';
+    el('expiryAt').disabled=!tenant.expiresAt;el('expiryAt').required=Boolean(tenant.expiresAt);
+    for(const button of expiryForm.querySelectorAll('button'))button.disabled=false;
+    el('expiryMessage').textContent='';expiryDialog.showModal();
+  }
+  el('expiryUnlimited').addEventListener('change',()=>{
+    el('expiryAt').disabled=el('expiryUnlimited').checked;el('expiryAt').required=!el('expiryUnlimited').checked;
+  });
+  expiryForm.addEventListener('submit',async event=>{
+    event.preventDefault();if(expiryBusy||!expiryTenant)return;
+    if(!expiryPending){
+      if(!expiryForm.reportValidity())return;
+      const expiresAt=el('expiryUnlimited').checked?null:new Date(el('expiryAt').value+':00+08:00').toISOString();
+      if(!window.confirm(`更新「${expiryTenant.name}」的使用期限？${expiresAt?' 到期即停止管理員與用戶存取。':' 將設定為無到期日。'}`))return;
+      expiryPending={tenantId:expiryTenant.id,expectedVersion:expiryTenant.version,requestId:crypto.randomUUID(),expiresAt};
+    }
+    expiryBusy=true;for(const node of expiryForm.querySelectorAll('input,button'))node.disabled=true;
+    el('expiryMessage').textContent='正在更新使用期限…';
+    try{
+      await request('platform.tenant.expiry.save',expiryPending);expiryPending=null;await refresh();expiryDialog.close();
+      el('platformStatus').textContent='使用期限已更新；停用狀態與功能授權維持原設定。';
+    }catch(error){
+      el('expiryMessage').textContent=error.message;
+      if(error.uncertain){el('saveExpiry').textContent='重試相同期限操作';el('saveExpiry').disabled=false;}
+      else{expiryPending=null;for(const node of expiryForm.querySelectorAll('input,button'))node.disabled=false;el('expiryAt').disabled=el('expiryUnlimited').checked;}
+    }finally{expiryBusy=false;}
+  });
+  el('closeExpiry').addEventListener('click',()=>{if(!expiryBusy&&!expiryPending)expiryDialog.close();});
+  expiryDialog.addEventListener('cancel',event=>{if(expiryBusy||expiryPending)event.preventDefault();});
   async function refresh() {const data=await request('platform.bootstrap');state.tenants=data.tenants;state.applications=data.applications||[];state.features=data.features;render();renderApplications();return data;}
   function collect() {return {name:fields.namedItem('name').value.trim(),slug:fields.namedItem('slug').value.trim(),ownerLineUserId:fields.namedItem('ownerLineUserId').value.trim(),
     features:Object.fromEntries([...form.querySelectorAll('[data-feature]')].map(node=>[node.dataset.feature,node.checked])),
@@ -373,13 +423,13 @@
     selectMerchantPanel(requested||merchantPanel);
   }
   function renderMine(data){
-    state.mineSignature=JSON.stringify([data.application?.status,data.tenant?.version,data.tenant?.status]);
+    state.mineSignature=JSON.stringify([data.application?.status,data.tenant?.version,data.tenant?.status,data.tenant?.expired]);
     state.merchant=data.tenant||null;state.features=data.features||state.features;
     state.merchantPending=null;merchantDirty=false;latestMine=null;lockMerchant(false);
     if(el('merchantSyncStatus'))el('merchantSyncStatus').textContent='';
     if(el('reloadMerchantSettings'))el('reloadMerchantSettings').hidden=true;
     const application=data.application;
-    if(!data.tenant||data.tenant.status==='suspended')for(const key of ['channelAccessToken','channelSecret'])merchantForm.elements.namedItem(key).value='';
+    if(!data.tenant||(data.tenant.status==='suspended'||data.tenant.expired))for(const key of ['channelAccessToken','channelSecret'])merchantForm.elements.namedItem(key).value='';
     renderJourney(application,data.tenant);
     el('applicationWorkspace').hidden=false;
     el('applicationForm').hidden=Boolean(application&&application.status!=='rejected');
@@ -387,9 +437,9 @@
     progress.hidden=!application;
     progress.textContent=application?('申請商家：'+application.businessName+' · '+
       ({pending:'等待總管理員審核',approved:'審核通過',rejected:'申請未通過，可重新提交'}[application.status]||'狀態待確認')):'';
-    el('merchantWorkspace').hidden=application?.status!=='approved'||!data.tenant||data.tenant.status==='suspended';
-    if(data.tenant?.status==='suspended')progress.textContent='此管理員已停用，請聯絡總管理員。';
-    if(el('applicationNextStep'))el('applicationNextStep').textContent=data.tenant?.status==='suspended'?'請聯絡總管理員確認停用原因。'
+    el('merchantWorkspace').hidden=application?.status!=='approved'||!data.tenant||(data.tenant.status==='suspended'||data.tenant.expired);
+    if((data.tenant?.status==='suspended'||data.tenant?.expired))progress.textContent=data.tenant?.expired?'使用期限已到，請聯絡總管理員。':'此管理員已停用，請聯絡總管理員。';
+    if(el('applicationNextStep'))el('applicationNextStep').textContent=(data.tenant?.status==='suspended'||data.tenant?.expired)?'請聯絡總管理員確認停用原因。'
       :application?.status==='pending'?'下一步由總管理員審核並勾選開放功能。你現在不必填 LINE 資料；請保留此入口，審核結果會在本頁更新。申請時間：'+new Date(application.requestedAt).toLocaleString('zh-TW')
       :application?.status==='approved'?(data.tenant?.onboarding?.adminReady?'審核已通過，管理功能與專屬用戶端已開放。請進入管理功能儲存業務設定，並分享下方用戶連結。':'審核已通過。正在確認業務空間，請重新檢查進度。')
       :application?.status==='rejected'?'請確認商家資料後重新提交；如需了解原因，請聯絡總管理員。':'填寫商家資料並提交，由總管理員審核。';
@@ -480,8 +530,8 @@
     refreshBusy=true;
     try {
       const data=await request('platform.application.bootstrap');
-      const signature=JSON.stringify([data.application?.status,data.tenant?.version,data.tenant?.status]);
-      const accessChanged=data.application?.status!=='approved'||data.tenant?.status==='suspended'
+      const signature=JSON.stringify([data.application?.status,data.tenant?.version,data.tenant?.status,data.tenant?.expired]);
+      const accessChanged=data.application?.status!=='approved'||(data.tenant?.status==='suspended'||data.tenant?.expired)
         ||JSON.stringify(data.tenant?.features)!==JSON.stringify(state.merchant?.features);
       if(signature!==state.mineSignature){
         if(merchantDirty&&!accessChanged){

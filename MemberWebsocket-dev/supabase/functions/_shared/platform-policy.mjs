@@ -1,5 +1,6 @@
 // Shared, server-side product control contract. No credentials belong in responses.
 import { merchantOnboarding } from './merchant-onboarding.mjs';
+import { tenantExpired } from './tenant-access.mjs';
 export const FEATURES = Object.freeze({
   membership: '會員卡', points: '集點卡', events: '活動票券', calendar: '營運日曆',
   integrations: '整合中心', booking: '預約', testing: '測試', usage: '使用紀錄',
@@ -52,7 +53,7 @@ export function validateTenant(input, creating = true, { allowIncompleteFeatureL
   return { name, slug, ownerLineUserId, features: Object.fromEntries(Object.keys(FEATURES).map(k => [k, features[k]])), line: normalized, credentials: { channelAccessToken, channelSecret } };
 }
 export function requireFeature(tenant, feature) {
-  if (!tenant || tenant.status !== 'active' || !tenant.isolation_verified_at || !/^business_[a-f0-9]{32}$/.test(tenant.runtime_schema||'')) {
+  if (!tenant || tenant.status !== 'active' || tenantExpired(tenant) || !tenant.isolation_verified_at || !/^business_[a-f0-9]{32}$/.test(tenant.runtime_schema||'')) {
     throw new PlatformError(409, 'TENANT_NOT_READY', '商家尚未完成獨立資料環境驗證，暫時無法使用。');
   }
   if (!Object.hasOwn(FEATURES, feature) || tenant.features?.[feature] !== true) {
@@ -62,16 +63,19 @@ export function requireFeature(tenant, feature) {
 export function publicTenant(row) {
   // Explicit projection; no token, ciphertext or privileged actor fields.
   // Provisioning and approval commit together. Do not infer access from LINE.
-  const dataPlaneVerified = row.status === 'active'
+  const expired = tenantExpired(row);
+  const dataPlaneVerified = row.status === 'active' && !expired
     && Boolean(row.isolation_verified_at) && row.isolation_version==='business-v1-20261019'
     && /^business_[a-f0-9]{32}$/.test(row.runtime_schema||'');
   return { id: row.id, name: row.name, slug: row.slug, ownerLineUserId: row.owner_line_user_id,
     features: row.features, line: row.line_config, status: row.status, version: row.version,
+    expiresAt:row.expires_at || null, expired, accessRevokedBefore:row.access_revoked_before || null,
     credentialsConfigured: row.credentials_configured === true,
+    ...(row.module_line!==undefined?{moduleLine:Object.fromEntries(Object.entries(row.module_line).filter(([key])=>row.features?.[key]===true).map(([key,value])=>[key,{line:value.line||{},credentialsConfigured:value.credentialsConfigured===true}]))}:{}),
     onboarding: merchantOnboarding({status:row.status,features:row.features,line:row.line_config,
-      credentialsConfigured:row.credentials_configured === true,runtimeReady:dataPlaneVerified}),
+      credentialsConfigured:row.credentials_configured === true,runtimeReady:dataPlaneVerified,expires_at:row.expires_at}),
     capabilities: {
-      lineSettingsEnabled: row.status !== 'suspended',
+      lineSettingsEnabled: row.status !== 'suspended' && !expired,
       dataPlaneVerified,
       grantedFeatures: Object.fromEntries(Object.keys(FEATURES).map(key =>
         [key, row.features?.[key] === true])),

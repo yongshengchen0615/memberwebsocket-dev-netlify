@@ -54,12 +54,15 @@ test('BUSINESS_APPROVAL_ACTIVATES — real approval/SQL immediately opens grant-
   await memberLine.getByRole('button',{name:'儲存會員卡 LINE 設定',exact:true}).click();
   await expect(memberLine.locator('[role=status]')).toContainText('已儲存');
   await expect(memberLine.locator('[name=channelAccessToken]')).toHaveValue('');
-  expect((await h.db.query('select line_config from platform_private.tenants')).rows[0].line_config.pointsLiffId).toBe('');
+  expect((await h.db.query('select module_line from platform_private.tenants')).rows[0].module_line.points).toBeUndefined();
   await manager.locator('#cardsTab').click();await expect(pointsLine).toBeVisible();
   await pointsLine.locator('[name=pointsLiffId]').fill('2010787602-points');
+  await pointsLine.locator('details').evaluate(x=>x.open=true);
+  await pointsLine.locator('[name=channelAccessToken]').fill('synthetic-points-token-123456789');
+  await pointsLine.locator('[name=channelSecret]').fill('b'.repeat(32));
   await pointsLine.getByRole('button',{name:'儲存集點卡 LINE 設定',exact:true}).click();
   await expect(pointsLine.locator('[role=status]')).toContainText('已儲存');
-  expect((await h.db.query('select line_config from platform_private.tenants')).rows[0].line_config.memberLiffId).toBe(fields.memberLiffId);
+  expect((await h.db.query('select module_line from platform_private.tenants')).rows[0].module_line.membership.line.memberLiffId).toBe(fields.memberLiffId);
   await pointsLine.getByRole('button',{name:'複製用戶端連結'}).click();await expect(pointsLine.locator('[role=status]')).toContainText('已複製');
   await manager.setViewportSize({width:390,height:844});
   expect(await manager.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

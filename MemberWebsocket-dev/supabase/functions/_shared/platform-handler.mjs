@@ -1,8 +1,10 @@
 import { FEATURES, PlatformError, publicTenant, validateTenant } from './platform-policy.mjs';
 import { payloadHash, sealCredentials } from './platform-crypto.mjs';
+import { assertTenantIdentity } from './tenant-access.mjs';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SQL_ERRORS = {
   PLATFORM_ADMIN_REQUIRED:[403,'僅總管理員可管理商家。'], PLATFORM_CONFLICT:[409,'資料已更新，請重新載入後再試。'],
+  PLATFORM_FEATURE_DISABLED:[403,'此功能尚未核准。'], PLATFORM_RESUME_NOT_READY:[409,'商家尚未完成開通，無法復權。'], TENANT_EXPIRED:[403,'使用期限已到，請聯絡總管理員。'],
   PLATFORM_DUPLICATE_SLUG:[409,'商家代碼已被使用。'], PLATFORM_REQUEST_CONFLICT:[409,'這個操作識別碼已用於其他內容。'],
   PLATFORM_TENANT_NOT_FOUND:[404,'找不到商家。'], PLATFORM_PROVISIONING_REQUIRED:[409,'商家尚未完成獨立資料環境驗證。'],
   PLATFORM_INVALID_INPUT:[400,'商家資料格式不正確。'], PLATFORM_APPLICATION_NOT_FOUND:[404,'找不到管理員申請。'], PLATFORM_APPLICATION_REVIEWED:[409,'申請已完成審核。'], PLATFORM_APPLICATION_NOT_APPROVED:[403,'申請尚未通過審核。'], PLATFORM_CREDENTIALS_REQUIRED:[400,'請完整設定 LINE 伺服器憑證。'], PLATFORM_IMMUTABLE_IDENTITY:[409,'已建立商家的代碼與管理員身分不可直接更換。'],
@@ -40,8 +42,12 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         if(result.error)throw databaseError(result.error);
         if(!result.data)throw new PlatformError(404,'BUSINESS_NOT_FOUND','找不到商家入口。');
         const tenant=publicTenant(result.data);
+        if(tenant.expired)throw new PlatformError(403,'TENANT_EXPIRED','使用期限已到，請聯絡總管理員。');
         if(!tenant.capabilities.dataPlaneVerified)throw new PlatformError(403,'TENANT_SUSPENDED','此商家尚未開放或已停用。');
-        return json({ok:true,data:{business:tenant.slug,name:tenant.name,features:tenant.features,line:tenant.onboarding.configurationComplete?tenant.line:{}}});
+        const module=body.feature && tenant.features[body.feature]===true?tenant.moduleLine?.[body.feature]:null;
+        if(body.feature!==undefined && (!Object.hasOwn(FEATURES,body.feature)||tenant.features[body.feature]!==true))throw new PlatformError(403,'FEATURE_DISABLED','此功能尚未開放。');
+        return json({ok:true,data:{business:tenant.slug,name:tenant.name,features:tenant.features,
+          line:module?.credentialsConfigured?{...tenant.line,...module.line}:tenant.onboarding.configurationComplete?tenant.line:{adminLiffId:tenant.line?.adminLiffId||''}}});
       }
       if (typeof body.idToken !== 'string' || !body.idToken || body.idToken.length > 10_000) throw new PlatformError(401,'AUTH_REQUIRED','請使用 LINE 帳號登入。');
       const applicantAction = ['platform.application.bootstrap','platform.application.ensure','platform.application.submit','platform.line.save'].includes(body.action);
@@ -55,7 +61,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         const business = publicTenant(context.data);
         if (!business.capabilities.dataPlaneVerified) throw new PlatformError(403,'TENANT_SUSPENDED','此商家尚未開放或已停用。');
         // Match the login channel used by BusinessContext; never trust a request's channel ID.
-        if (business.onboarding.configurationComplete) trustedChannel = business.line.adminChannelId;
+        if (business.line?.adminLiffId?.startsWith(business.line.adminChannelId+'-')) trustedChannel = business.line.adminChannelId;
       }
       const identity = await (applicantAction ? verifyApplicantIdentity : verifyIdentity)(body.idToken, trustedChannel);
       const actor = identity.lineUserId;
@@ -70,6 +76,8 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         const application = result.data || null;
         if (body.business !== undefined && application?.tenant?.slug !== body.business)
           throw new PlatformError(403,'BUSINESS_FORBIDDEN','無法存取其他商家的設定。');
+        try { assertTenantIdentity(application?.tenant,identity); }
+        catch(error) { throw new PlatformError(error.status,error.code,error.message); }
         return {application:application && {...application,tenant:undefined},
           tenant:application?.tenant ? publicTenant(application.tenant) : null};
       };
@@ -107,7 +115,27 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
           throw new PlatformError(403,'PLATFORM_APPLICATION_NOT_APPROVED','請先等待總管理員核准。');
         if (workspace.tenant.status === 'suspended')
           throw new PlatformError(403,'TENANT_SUSPENDED','此商家已被停用。');
+        if (workspace.tenant.expired)
+          throw new PlatformError(403,'TENANT_EXPIRED','使用期限已到，請聯絡總管理員。');
         const current = workspace.tenant;
+        if (body.feature !== undefined && current.moduleLine !== undefined) {
+          const key={membership:'memberLiffId',points:'pointsLiffId',events:'eventLiffId',calendar:'calendarLiffId',booking:'bookingLiffId'}[body.feature];
+          if(!key || current.features[body.feature]!==true)throw new PlatformError(403,'FEATURE_DISABLED','此功能尚未核准。');
+          const existing=current.moduleLine[body.feature];
+          for(const other of ['memberLiffId','pointsLiffId','eventLiffId','calendarLiffId','bookingLiffId'])if(other!==key && Object.hasOwn(body.line||{},other) && String(body.line[other]??'')!==String(current.line?.[other]??''))throw new PlatformError(400,'LINE_FEATURE_SCOPE','請只修改本功能的 LIFF 設定。');
+          for(const name of ['adminChannelId','adminLiffId'])if(current.line?.[name] && body.line?.[name]!==current.line[name])
+            throw new PlatformError(400,'LINE_ADMIN_IDENTITY_IMMUTABLE','管理員登入由商家共用；功能頁只能修改該功能的用戶入口與通知設定。');
+          const line=Object.fromEntries(['adminChannelId','memberChannelId','messagingChannelId','adminLiffId',key].map(k=>[k,body.line?.[k]||'']));
+          const validated=validateTenant({name:current.name,slug:current.slug,ownerLineUserId:current.ownerLineUserId,
+            features:current.features,line,credentials:body.credentials},!existing?.credentialsConfigured&&!current.credentialsConfigured,{allowIncompleteFeatureLiffs:true});
+          const scopedLine=Object.fromEntries(Object.keys(line).map(k=>[k,validated.line[k]]));
+          const encrypted=validated.credentials.channelAccessToken?await sealCredentials(current.id+':'+body.feature,validated.credentials,await encryptionKey()):null;
+          const hash=await payloadHash({feature:body.feature,expectedVersion:body.expectedVersion,line:scopedLine,credentials:validated.credentials});
+          const result=await db.rpc('platform_save_module_line',{p_actor:actor,p_feature:body.feature,p_expected_version:body.expectedVersion,
+            p_request_id:body.requestId,p_payload_hash:hash,p_line:scopedLine,p_secrets:encrypted});
+          if(result.error)throw databaseError(result.error);
+          return json({ok:true,data:{tenant:publicTenant(result.data)}});
+        }
         if (body.feature !== undefined) {
           const key = {membership:'memberLiffId',points:'pointsLiffId',events:'eventLiffId',calendar:'calendarLiffId',booking:'bookingLiffId'}[body.feature];
           if (!key || current.features[body.feature] !== true)
@@ -188,6 +216,23 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       // Deprecated root writes cannot bypass the applicant/approval workflow.
       if (body.action === 'platform.tenant.save')
         throw new PlatformError(410,'PLATFORM_LEGACY_WRITE_DISABLED','請由一般管理員申請；總管理員只能核准與勾選功能。');
+      if (['platform.tenant.resume','platform.tenant.expiry.save'].includes(body.action)) {
+        if (!uuid.test(body.requestId || '') || !uuid.test(body.tenantId || '')
+          || !Number.isSafeInteger(body.expectedVersion) || body.expectedVersion < 1)
+          throw new PlatformError(400,'PLATFORM_INVALID_INPUT','商家 ID、版本或操作識別碼不正確。');
+        let change={status:'active'};
+        if(body.action==='platform.tenant.expiry.save') {
+          if(body.expiresAt!==null && (typeof body.expiresAt!=='string'
+            || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(body.expiresAt)
+            || !Number.isFinite(Date.parse(body.expiresAt))))
+            throw new PlatformError(400,'PLATFORM_INVALID_INPUT','請提供有效期限（含時區），或選擇無到期日。');
+          change={expiresAt:body.expiresAt===null?null:new Date(body.expiresAt).toISOString()};
+        }
+        const result=await db.rpc('platform_update_tenant_access',{p_actor:actor,p_tenant_id:body.tenantId,
+          p_expected_version:body.expectedVersion,p_request_id:body.requestId,p_change:change});
+        if(result.error)throw databaseError(result.error);
+        return json({ok:true,data:{tenant:publicTenant(result.data)}});
+      }
       if (body.action !== 'platform.tenant.suspend')
         throw new PlatformError(404,'ACTION_NOT_FOUND','不支援的總管理員操作。');
       if (!uuid.test(body.requestId || '') || !uuid.test(body.tenantId || ''))
