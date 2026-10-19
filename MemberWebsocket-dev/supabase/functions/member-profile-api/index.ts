@@ -1,7 +1,8 @@
+import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract } from "../_shared/auth-contract.ts";
 import { resolveUserTestIdentity, TestModeAuthError } from "../_shared/test-mode-auth.ts";
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 
 type Json = Record<string, unknown>;
 type Identity = { lineUserId: string; displayName: string };
@@ -19,12 +20,13 @@ class ApiError extends Error {
   }
 }
 
-function env(name: string): string { return (Deno.env.get(name) || "").trim(); }
+function env(name: string): string { return (businessEnv(name) || "").trim(); }
 function asText(value: unknown, max = 1000): string { return String(value ?? "").trim().slice(0, max); }
 const DEFAULT_ALLOWED_ORIGINS = [
   "https://yongshengchen0615.github.io",
   "https://memberwebsocket-dev-netlify.netlify.app",
   "https://develop--memberwebsocket-dev-netlify.netlify.app",
+  "https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app",
 ];
 function allowedOrigins(): Set<string> {
   return new Set([
@@ -234,7 +236,7 @@ function termsError(error: { code?: string; message?: string; details?: string; 
   return new ApiError(500, "DATABASE_ERROR", "會員資料暫時無法儲存。");
 }
 
-Deno.serve(async (request: Request) => {
+serveBusiness('member-profile-api',async (request: Request) => {
   const origin = request.headers.get("Origin");
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
   if (request.method !== "POST") return response(origin, { ok: false, error: { code: "METHOD_NOT_ALLOWED", message: "只支援 POST。" } }, 405);

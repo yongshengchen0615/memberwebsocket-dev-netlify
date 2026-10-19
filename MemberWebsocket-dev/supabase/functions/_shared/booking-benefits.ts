@@ -1,5 +1,5 @@
 import { tierVisibility, loadVisibilityPolicy } from "./tier-visibility.ts";
-import type { SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import type { SupabaseClient } from './business-runtime.ts';
 import { loadLatestPointOffers, loadLatestEventOffers } from './latest-available-offers.ts';
 import { isEligibleTierActivity } from './activity-eligibility.ts';
 import { chooseBookingPointOffers } from './booking-point-offer-choice.ts';

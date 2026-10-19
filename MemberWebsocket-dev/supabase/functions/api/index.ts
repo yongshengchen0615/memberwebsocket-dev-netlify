@@ -1,3 +1,4 @@
+import { businessEnv, businessFetch as fetch, businessHandler } from '../_shared/business-runtime.ts';
 import { removeMember } from "../_shared/member-removal.ts";
 import { tierVisibility, loadVisibilityPolicy } from "../_shared/tier-visibility.ts";
 import { bookingTicketUsageError, ticketBookingId } from "../_shared/booking-ticket-usage.ts";
@@ -8,7 +9,7 @@ import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
 import { buildLineFlexNotice } from "../_shared/line-flex.ts";
 import { resolveTestSession, TestModeAuthError } from "../_shared/test-mode-auth.ts";
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 
@@ -90,13 +91,14 @@ class ApiError extends Error {
 }
 
 function env(name: string): string {
-  return (Deno.env.get(name) || "").trim();
+  return (businessEnv(name) || "").trim();
 }
 
 const DEFAULT_ALLOWED_ORIGINS = [
   "https://yongshengchen0615.github.io",
   "https://memberwebsocket-dev-netlify.netlify.app",
   "https://develop--memberwebsocket-dev-netlify.netlify.app",
+  "https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app",
 ];
 
 function allowedOrigins(): Set<string> {
@@ -2996,4 +2998,4 @@ async function handleRequest(request: Request): Promise<Response> {
   }
 }
 
-export default { fetch: handleRequest };
+export default { fetch: businessHandler('api', handleRequest) };

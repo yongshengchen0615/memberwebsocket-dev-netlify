@@ -541,7 +541,16 @@
   function safeTierStyle(value) { const styleKey = String(value || '').trim(); return MEMBER_TIER_STYLE_KEYS.includes(styleKey) ? styleKey : 'forest'; }
 
   function setView(view) {
-    if (view === 'member' && !cardOpenRecorded && document.visibilityState !== 'hidden') {
+    if(view==='member'&&state.config?.business&&!state.config.grantedFeatures?.membership){
+      els.memberPass.hidden=true;els.membershipProgress.hidden=true;
+      if(!document.getElementById('businessJoined')){
+        const section=document.createElement('section');section.id='businessJoined';section.className='panel';
+        const title=document.createElement('h2');title.textContent='會員加入已完成';section.append(title);
+        for(const [feature,path,label]of [['points','points','集點卡'],['events','event','活動票券'],['calendar','calendar','營運日曆'],['booking','booking','預約']])if(state.config.grantedFeatures[feature]){const a=document.createElement('a');a.href='../'+path+'/?business='+encodeURIComponent(state.config.business);a.textContent='前往'+label;a.className='button';section.append(a);}
+        els.memberView.prepend(section);
+      }
+    }
+    if (view === 'member' && !cardOpenRecorded && document.visibilityState !== 'hidden' && (!state.config?.business||state.config.grantedFeatures?.membership)) {
       cardOpenRecorded = true;
       void window.MemberSystem.request(state.config,'member',state.idToken,'user.member.card.open').catch(() => { cardOpenRecorded = false; });
     }

@@ -1,4 +1,5 @@
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import { businessEnv, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';
+import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 
 type Json = Record<string, unknown>;
 
@@ -16,7 +17,7 @@ const TIER_KEYS = ["general", "silver", "gold", "platinum"] as const;
 const SCHEDULE_TYPES = ["birthday_month", "yearly", "monthly", "weekly"] as const;
 const EXPIRY_MODES = ["month_end", "week_end", "days_after_issue", "fixed_date"] as const;
 
-function env(name: string): string { return (Deno.env.get(name) || "").trim(); }
+function env(name: string): string { return (businessEnv(name) || "").trim(); }
 function asText(value: unknown, max = 1000): string { return String(value ?? "").trim().slice(0, max); }
 function taipeiDate(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -264,7 +265,7 @@ async function audit(supabase: SupabaseClient, actor: string, action: string, ta
   });
 }
 
-Deno.serve(async (request: Request) => {
+serveBusiness('fixed-ticket-automation',async (request: Request) => {
   const origin = request.headers.get("Origin");
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
   if (request.method !== "POST") return reply(origin, { ok: false, error: { code: "METHOD_NOT_ALLOWED", message: "只支援 POST。" } }, 405);

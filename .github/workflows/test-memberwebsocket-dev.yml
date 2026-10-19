@@ -115,6 +115,7 @@ jobs:
             MemberWebsocket-dev/tests/integration/friend_qr_scanner.cjs
           node --max-old-space-size=1024 --test MemberWebsocket-dev/tests/integration/admin_human_journeys.cjs
           node --test MemberWebsocket-dev/tests/integration/ongoing_release_20261014.cjs MemberWebsocket-dev/tests/integration/ongoing_release_ui.cjs
+          node --test MemberWebsocket-dev/tests/integration/business-runtime.cjs
           node MemberWebsocket-dev/tests/integration/booking_ui.cjs
           node MemberWebsocket-dev/tests/integration/booking_sql.cjs
           node MemberWebsocket-dev/tests/integration/event_coupon_sql.cjs

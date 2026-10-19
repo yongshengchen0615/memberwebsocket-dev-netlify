@@ -1,11 +1,12 @@
-import { createClient } from "npm:@supabase/supabase-js@2.57.0";
+import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
+import { createClient } from '../_shared/business-runtime.ts';
 
 const BUCKET = "e2e-failure-artifacts";
 const RETENTION_DAYS = 30;
 const PAGE_SIZE = 1000;
 const MAX_ROUNDS = 100;
 
-function env(name: string): string { return (Deno.env.get(name) || "").trim(); }
+function env(name: string): string { return (businessEnv(name) || "").trim(); }
 function db() {
   const url = env("SUPABASE_URL");
   const key = env("SUPABASE_SERVICE_ROLE_KEY");
@@ -20,7 +21,7 @@ function secureEqual(left: string, right: string): boolean {
   for (let index = 0; index < a.length; index += 1) diff |= a[index] ^ b[index];
   return diff === 0;
 }
-Deno.serve(async (request: Request) => {
+serveBusiness('e2e-artifact-retention',async (request: Request) => {
   if (request.method !== "POST") {
     return new Response(JSON.stringify({ ok: false, error: "METHOD_NOT_ALLOWED" }), {
       status: 405, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },

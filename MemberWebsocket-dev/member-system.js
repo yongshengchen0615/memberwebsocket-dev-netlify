@@ -108,6 +108,7 @@
         if (!result.response.ok) throw clientError('CONFIG_ERROR', '讀取 config.json 失敗。');
         const config = JSON.parse(result.body);
         if (!config || typeof config !== 'object' || Array.isArray(config)) throw clientError('CONFIG_ERROR', 'config.json 格式不正確。');
+        if(window.BusinessContext)await window.BusinessContext.configure(config);
         return config;
       } catch (error) {
         lastError = error && error.code === 'CONFIG_ERROR' ? error : clientError('CONFIG_ERROR', '無法讀取公開設定，請確認網路後重試。');
@@ -168,8 +169,8 @@
     return idToken;
   }
 
-  const LOGIN_BROWSER_KEY = 'member-login-browser-v1';
-  const LOGIN_REGISTERED_KEY = 'member-login-registered-v1';
+  const LOGIN_BROWSER_KEY = 'member-login-browser-v1' + (window.BusinessContext?.slug ? ':'+window.BusinessContext.slug : '');
+  const LOGIN_REGISTERED_KEY = 'member-login-registered-v1' + (window.BusinessContext?.slug ? ':'+window.BusinessContext.slug : '');
 
   function browserLoginKey() {
     try {
@@ -619,7 +620,9 @@
         }
       });
     };
-    const client = realtimeClientFor(config);
+    // Private business schemas use authenticated reconciliation. No shared
+    // broadcast channel or anonymous subscription can carry another shop's data.
+    const client = config.business ? null : realtimeClientFor(config);
     if (!client) {
       // When the Realtime SDK/CDN is unavailable, keep member data synchronized
       // through the existing authenticated bootstrap instead of requiring reload.
@@ -904,7 +907,7 @@
   function openMemberJoin(config) {
     const memberLiffId = String(config && config.memberLiffId || '').trim();
     if (!/^[A-Za-z0-9_-]{1,100}$/.test(memberLiffId)) return false;
-    const url = `https://liff.line.me/${encodeURIComponent(memberLiffId)}`;
+    const url = `https://liff.line.me/${encodeURIComponent(memberLiffId)}` + (config.business ? `?business=${encodeURIComponent(config.business)}` : "");
     if (window.liff && typeof window.liff.openWindow === 'function') {
       window.liff.openWindow({ url, external: false });
       return true;

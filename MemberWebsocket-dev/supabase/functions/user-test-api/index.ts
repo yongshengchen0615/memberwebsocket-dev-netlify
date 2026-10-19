@@ -1,5 +1,6 @@
+import { businessEnv, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';
 import { summarizeE2EExecution, normalizeFeatureCoverage } from "../_shared/e2e-coverage.js";
-import { createClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient } from '../_shared/business-runtime.ts';
 import { attachE2EDiagnosis, diagnoseE2EFailure, summarizeE2EFailureDiagnoses } from "../_shared/e2e-diagnostics.js";
 import { readJsonObject } from "../_shared/request-body.ts";
 import { resolveTestSession, TestModeAuthError } from "../_shared/test-mode-auth.ts";
@@ -31,7 +32,7 @@ class ApiError extends Error {
 }
 
 function env(name: string): string {
-  return (Deno.env.get(name) || "").trim();
+  return (businessEnv(name) || "").trim();
 }
 
 function asText(value: unknown, max = 1000): string {
@@ -2157,7 +2158,7 @@ async function runSurfaceCases(s: any, identity: any, token: string, surface: Su
   return cases;
 }
 
-Deno.serve(async (request: Request) => {
+serveBusiness('user-test-api',async (request: Request) => {
   const origin = request.headers.get("Origin");
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
   if (request.method !== "POST") return failReply(origin, new ApiError(405, "METHOD_NOT_ALLOWED", "只支援 POST。"));

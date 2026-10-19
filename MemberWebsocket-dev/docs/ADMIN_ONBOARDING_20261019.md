@@ -1,3 +1,5 @@
+> 後續更新：已接入核准交易中的隔離業務佈建及可用入口，最新契約見 [BUSINESS_ACTIVATION_20261019.md](BUSINESS_ACTIVATION_20261019.md)。以下保留前一版 LINE 設定 UX 的驗證紀錄。
+
 # 管理員申請與 LINE 設定體驗
 
 ## 結果與邊界

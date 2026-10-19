@@ -126,7 +126,7 @@
     if (!state.tenants.length) {const p=document.createElement('p');p.className='empty';p.textContent='尚無已審核的一般管理員。請從申請清單勾選功能並審核。';list.append(p);return;}
     for (const tenant of state.tenants) {
       const card=document.createElement('article');card.className='tenant-card';
-      const badge=document.createElement('span');badge.className='badge';badge.textContent=tenant.status==='suspended'?'已停用'
+      const badge=document.createElement('span');badge.className='badge';badge.textContent=tenant.status==='suspended'?'已停用':tenant.onboarding?.adminReady?'已核准・可立即使用'
         :tenant.onboarding?.configurationComplete?'設定齊全・待平台開通':'已核准・待 LINE 設定';
       const title=document.createElement('h3');title.textContent=tenant.name;
       const info=document.createElement('p');info.textContent=`${tenant.slug} · 管理員 ${tenant.ownerLineUserId}`;
@@ -142,7 +142,7 @@
       });footer.append(suspend);}
       const setup=document.createElement('p');
       const onboarding=tenant.onboarding;
-      setup.textContent=tenant.status==='suspended'?'已停用；管理員與用戶均不可使用。'
+      setup.textContent=tenant.status==='suspended'?'已停用；管理員與用戶均不可使用。':onboarding?.adminReady?'已核准功能已開通，管理員可設定業務內容並分享專屬用戶連結。'
         :onboarding?.configurationComplete?'LINE 設定已完整保存；下一步由平台完成商家專屬服務與 LINE 實測。目前管理業務與用戶端尚未開放。'
         :'審核已通過；下一步由一般管理員完成共用 LINE 與各項功能設定。目前管理業務與用戶端尚未開放。';
       card.append(badge,title,info,featureList,setup,footer);list.append(card);
@@ -272,7 +272,7 @@
     const approved=application?.status==='approved'&&tenant?.status!=='suspended';
     const complete=approved&&tenant?.onboarding?.configurationComplete===true;
     const steps=['submitted','approved','configured','verified','live'];
-    const current=!application||application.status==='rejected'?0:!approved?1:!complete?2:3;
+    const current=!application||application.status==='rejected'?0:!approved?1:tenant?.onboarding?.adminReady?4:!complete?2:3;
     for(const [index,key] of steps.entries()) {
       const node=journey.querySelector('[data-journey="'+key+'"]');
       node.dataset.state=index<current?'done':index===current?'current':'waiting';
@@ -293,7 +293,7 @@
     row('共用 LINE 設定',!status?'設定檢查服務尚未更新，請重新整理後再試。':missing.length?'尚缺：'+missing.map(key=>lineLabels[key]||key).join('、'):'必填資料已保存，仍需實際 LINE 驗證。','shared');
     for(const [key,label] of Object.entries(state.features))if(tenant.features?.[key]===true) {
       const feature=status?.features?.[key];
-      row(label,!feature?'等待伺服器確認設定。':feature.missing.length?'尚缺：'+feature.missing.map(name=>lineLabels[name]||name).join('、')
+      row(label,status?.adminReady?'管理功能已開放。'+(feature?.missing.length?'自有 LINE 入口尚缺：'+feature.missing.map(name=>lineLabels[name]||name).join('、'):'可使用下方專屬入口。'):!feature?'等待伺服器確認設定。':feature.missing.length?'尚缺：'+feature.missing.map(name=>lineLabels[name]||name).join('、')
         :featureLiffNames[key]?'LIFF ID 已保存；用戶入口尚未開放。':'沿用共用 LINE 設定，無需額外 LIFF；功能尚未開放。',key);
     }
     const next=el('merchantNextAction');
@@ -301,8 +301,21 @@
     next.hidden=status?.configurationComplete===true||status?.grantedCount===0;
     next.textContent=missing?.length?'下一步：完成共用 LINE 設定':'下一步：設定'+(state.features[firstMissing]||'LINE');
     next.onclick=()=>{selectMerchantPanel(missing?.length?'shared':firstMissing||'shared');merchantForm.scrollIntoView?.({block:'start'});};
-    el('merchantLaunchStatus').dataset.ready='false';
-    el('merchantLaunchMessage').textContent=!status?'尚無法取得開通檢查結果，請稍後重新檢查。'
+    el('merchantLaunchStatus').dataset.ready=String(status?.adminReady===true);
+    const launch=el('merchantLaunchStatus').querySelector('.onboarding-actions');
+    for(const old of launch.querySelectorAll('[data-business-launch]'))old.remove();
+    for(const button of launch.querySelectorAll('button[disabled]'))button.hidden=status?.adminReady===true;
+    if(status?.adminReady){
+      const surfaces={membership:'member',points:'points',events:'event',calendar:'calendar',booking:'booking'};
+      const link=(label,path)=>{const a=document.createElement('a');a.className='primary';a.textContent=label;a.dataset.businessLaunch='true';a.href=path;launch.prepend(a);};
+      link('進入已核准的管理功能','/admin/?business='+encodeURIComponent(tenant.slug));
+      for(const [feature,path]of Object.entries(surfaces))if(tenant.features[feature])link('開啟'+state.features[feature]+'用戶端','/'+path+'/?business='+encodeURIComponent(tenant.slug));
+      const endpoints=document.createElement('div');endpoints.dataset.businessLaunch='true';
+      const heading=document.createElement('strong');heading.textContent='LINE LIFF Endpoint URL（可直接複製）';endpoints.append(heading);
+      for(const [feature,path]of Object.entries(surfaces))if(tenant.features[feature]){const p=document.createElement('p');p.textContent=state.features[feature]+'：'+location.origin+'/'+path+'/?business='+tenant.slug;endpoints.append(p);}
+      launch.append(endpoints);
+    }
+    el('merchantLaunchMessage').textContent=status?.adminReady?'核准即開通。請進入管理功能設定會員條款、卡片、票券及預約內容；已儲存的公開內容會提供給此商家的用戶。自有 LINE 入口與通知可在下方設定，不需再次等待平台開通。':!status?'尚無法取得開通檢查結果，請稍後重新檢查。'
       :status.grantedCount===0?'總管理員尚未開放功能，請先聯絡總管理員調整功能授權。'
       :status.configurationComplete?'LINE 設定已完整保存。下一步由平台完成商家專屬服務及實際 LINE 登入驗證。你目前無需重複儲存；用戶端尚未開放。'
       :'下一步由你完成下方設定清單。可先儲存共用設定，再逐頁補齊已核准功能的 LIFF ID。';
@@ -317,7 +330,7 @@
     const missing=[...(status?.commonMissing||[]),...Object.values(status?.features||{}).flatMap(item=>item.missing)];
     const summary='商家：'+tenant.name+'\n商家代碼：'+tenant.slug+'\nLINE 設定：'+(status?.configurationComplete?'必填資料已保存':status?'尚缺 '+missing.map(key=>lineLabels[key]||key).join('、'):'等待確認')
       +'\n核准功能：'+Object.entries(state.features).filter(([key])=>tenant.features?.[key]===true).map(([,label])=>label).join('、')
-      +'\n管理業務／用戶端：尚未開放\n平台待辦：提供商家專屬服務網址、完成商家資料隔離及 LINE 實測。';
+      +(status?.adminReady?'\n管理業務／用戶端：已開放\n管理入口：'+location.origin+'/admin/?business='+tenant.slug:'\n管理業務／用戶端：尚未開放\n請聯絡總管理員確認申請。');
     try{await navigator.clipboard.writeText(summary);el('copySetupMessage').textContent='開通狀態已複製，可貼給平台聯絡人；不含憑證。';}
     catch{el('copySetupMessage').textContent='無法自動複製，請將本頁顯示的商家代碼與開通狀態提供給平台聯絡人。';}
   });
@@ -378,14 +391,17 @@
     if(data.tenant?.status==='suspended')progress.textContent='此管理員已停用，請聯絡總管理員。';
     if(el('applicationNextStep'))el('applicationNextStep').textContent=data.tenant?.status==='suspended'?'請聯絡總管理員確認停用原因。'
       :application?.status==='pending'?'下一步由總管理員審核並勾選開放功能。你現在不必填 LINE 資料；請保留此入口，審核結果會在本頁更新。申請時間：'+new Date(application.requestedAt).toLocaleString('zh-TW')
-      :application?.status==='approved'?'審核已通過。現在可以在下方設定已授權功能；用戶端尚未開放，請依開通清單完成後續步驟。'
+      :application?.status==='approved'?(data.tenant?.onboarding?.adminReady?'審核已通過，管理功能與專屬用戶端已開放。請進入管理功能儲存業務設定，並分享下方用戶連結。':'審核已通過。正在確認業務空間，請重新檢查進度。')
       :application?.status==='rejected'?'請確認商家資料後重新提交；如需了解原因，請聯絡總管理員。':'填寫商家資料並提交，由總管理員審核。';
     if(!data.tenant)return;
     const tenant=data.tenant;
+    if(tenant.onboarding?.adminReady&&location.pathname==='/admin/'&&!new URLSearchParams(location.search).has('business')){
+      location.replace('/admin/?business='+encodeURIComponent(tenant.slug));return;
+    }
     el('merchantInfo').textContent=tenant.name+' · '+tenant.slug+' · '+(tenant.credentialsConfigured?'LINE 憑證已保存':'尚未設定 LINE 憑證');
     const readiness=el('merchantReadiness');
     if(readiness) {
-      readiness.textContent=tenant.onboarding?.configurationComplete
+      readiness.textContent=tenant.onboarding?.adminReady?'審核已通過，已核准功能與用戶端已開放。自有 LINE 入口與通知設定可隨時保存。':tenant.onboarding?.configurationComplete
         ? 'LINE 必填設定已保存，等待平台開通商家專屬服務。尚未驗證實際 LINE 登入與訊息傳送。'
         : '你已取得 LINE 設定權。請完成共用資料與各項已核准功能的設定，再由平台完成開通與實測。';
     }
@@ -443,7 +459,7 @@
       const result=await request('platform.line.save',state.merchantPending);
       merchantSaving=false;
       renderMine({application:{status:'approved',businessName:result.tenant.name},tenant:result.tenant,features:state.features});
-      el('merchantMessage').textContent=result.tenant.onboarding?.configurationComplete
+      el('merchantMessage').textContent=result.tenant.onboarding?.adminReady?'LINE 設定已安全儲存。已核准的管理功能持續可用；自有 LINE 入口與通知請依上方完整網址實際登入確認。':result.tenant.onboarding?.configurationComplete
         ?'LINE 設定已安全儲存，必填資料已齊全。下一步由平台開通商家專屬服務與完成 LINE 實測；管理業務及用戶端尚未開放。'
         :'LINE 設定已安全儲存。請依上方清單補齊其餘設定；管理業務及用戶端尚未開放。';
     }catch(error){
