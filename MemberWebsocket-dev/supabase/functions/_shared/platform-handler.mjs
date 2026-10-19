@@ -1,6 +1,6 @@
 import { FEATURES, PlatformError, publicTenant, validateTenant } from './platform-policy.mjs';
 import { payloadHash, sealCredentials } from './platform-crypto.mjs';
-import { assertTenantIdentity } from './tenant-access.mjs';
+import { assertTenantIdentity, normalizeExpiry } from './tenant-access.mjs';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SQL_ERRORS = {
   PLATFORM_ADMIN_REQUIRED:[403,'僅總管理員可管理商家。'], PLATFORM_CONFLICT:[409,'資料已更新，請重新載入後再試。'],
@@ -222,11 +222,8 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
           throw new PlatformError(400,'PLATFORM_INVALID_INPUT','商家 ID、版本或操作識別碼不正確。');
         let change={status:'active'};
         if(body.action==='platform.tenant.expiry.save') {
-          if(body.expiresAt!==null && (typeof body.expiresAt!=='string'
-            || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(body.expiresAt)
-            || !Number.isFinite(Date.parse(body.expiresAt))))
-            throw new PlatformError(400,'PLATFORM_INVALID_INPUT','請提供有效期限（含時區），或選擇無到期日。');
-          change={expiresAt:body.expiresAt===null?null:new Date(body.expiresAt).toISOString()};
+          try { change={expiresAt:normalizeExpiry(body.expiresAt)}; }
+          catch { throw new PlatformError(400,'PLATFORM_INVALID_INPUT','請提供有效期限（含時區），或選擇無到期日。'); }
         }
         const result=await db.rpc('platform_update_tenant_access',{p_actor:actor,p_tenant_id:body.tenantId,
           p_expected_version:body.expectedVersion,p_request_id:body.requestId,p_change:change});
