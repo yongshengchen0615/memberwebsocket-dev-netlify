@@ -5,7 +5,7 @@ const owner='U'+'2'.repeat(32),features={membership:true,points:true,events:fals
 const line={adminChannelId:'2010791619',memberChannelId:'2010787602',messagingChannelId:'2010123456',adminLiffId:'2010791619-admin',memberLiffId:'2010787602-member',pointsLiffId:'',eventLiffId:'',calendarLiffId:'',bookingLiffId:''};
 const credentials={channelAccessToken:'synthetic-access-token-123456789',channelSecret:'a'.repeat(32)};
 const until=async check=>{for(let i=0;i<150;i++){if(check())return;await new Promise(r=>setTimeout(r,20));}assert.ok(check(),'UI never reached expected state');};
-test('AC-302/303/304: workbench owns module forms, isolated saves, shared credentials and scoped links',async()=>{
+test('AC-302/303/304: workbench owns module forms, isolated saves, module credentials and scoped links',async()=>{
  const h=await fixture();let dom;try{
   const t=await h.approve(owner,'inline-shop',features);
   dom=new JSDOM('<section id="businessWorkspaceStatus"></section><section id="membersPanel"></section><section id="cardsPanel"></section><section id="eventsPanel"></section>',{url:'https://allowed.test/admin/?business=inline-shop',runScripts:'outside-only'});
@@ -32,13 +32,14 @@ test('AC-302/303/304: workbench owns module forms, isolated saves, shared creden
   const row=(await h.db.query('select * from platform_private.tenants')).rows[0];
   assert.equal(row.line_config.memberLiffId,line.memberLiffId);assert.equal(row.line_config.pointsLiffId,'');
   assert.equal(calls.filter(c=>c.action==='platform.line.save')[0].requestId,calls.filter(c=>c.action==='platform.line.save')[1].requestId);
-  assert.equal((await h.db.query("select count(*)::int n from platform_private.audit_events where action='MERCHANT_LINE_UPDATED'")).rows[0].n,1);
+  assert.equal((await h.db.query("select count(*)::int n from platform_private.audit_events where action='MODULE_LINE_UPDATED'")).rows[0].n,1);
   assert.equal(points.elements.pointsLiffId.value,'2010787602-unsaved');assert.equal(member.elements.channelAccessToken.value,'');assert.equal(member.elements.channelSecret.value,'');
+  fill(points,'channelAccessToken','synthetic-points-token-123456789');fill(points,'channelSecret','b'.repeat(32));
   points.dispatchEvent(new w.Event('submit',{cancelable:true}));
   await until(()=>d.querySelector('[data-business-line-feature="points"] [role="status"]').textContent.includes('已儲存'));
-  const saved=(await h.db.query('select line_config from platform_private.tenants')).rows[0].line_config;
-  assert.equal(saved.memberLiffId,line.memberLiffId);assert.equal(saved.pointsLiffId,'2010787602-unsaved');
-  assert.equal(calls.filter(c=>c.action==='platform.line.save').at(-1).credentials.channelAccessToken,'');
+  const saved=(await h.db.query('select module_line from platform_private.tenants')).rows[0].module_line;
+  assert.equal(saved.membership.line.memberLiffId,line.memberLiffId);assert.equal(saved.points.line.pointsLiffId,'2010787602-unsaved');
+  assert.equal(calls.filter(c=>c.action==='platform.line.save').at(-1).credentials.channelAccessToken,'synthetic-points-token-123456789');
   await w.BusinessLineSettings.apply({features:{...features,membership:false},business:{slug:t.slug}});
   assert.equal(d.querySelector('[data-business-line-feature="membership"]'),null);
  }finally{dom?.window.close();await h.db.close();}
@@ -64,7 +65,7 @@ test('AC-306: scoped settings use the database Channel, never a caller-selected 
   const t=await h.approve(owner,'channel-shop',{...features,points:false});
   const updated={...line,adminChannelId:'2099999999',adminLiffId:'2099999999-admin'};
   const saved=await h.call({action:'platform.line.save',feature:'membership',expectedVersion:1,requestId:crypto.randomUUID(),line:updated,credentials},'manager');
-  assert.equal(saved.status,200);assert.equal(saved.body.data.tenant.onboarding.configurationComplete,true);
+  assert.equal(saved.status,200);assert.equal(saved.body.data.tenant.moduleLine.membership.credentialsConfigured,true);
   const {createPlatformHandler}=await import('../../supabase/functions/_shared/platform-handler.mjs');
   let selected;
   const handler=createPlatformHandler({db:{rpc:h.rpc},allowedOrigins:new Set(),verifyApplicantIdentity:async(_token,channel)=>{selected=channel;return{lineUserId:owner};},verifyIdentity:()=>assert.fail('root verifier must not be used')});

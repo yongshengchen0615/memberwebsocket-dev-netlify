@@ -30,6 +30,7 @@ test('AC-030/AC-301: navigation stays within the current role and never exposes 
   for (const surface of ['platform', 'admin', 'member']) {
     const { document, nodes } = documentFor(surface);
     vm.runInNewContext(script, { document });
+    if(surface==='platform'){assert.equal(nodes.length,0,'AC-181-004 removes the redundant platform entrance');continue;}
     assert.equal(nodes.length, 1);
     assert.equal(nodes[0].attributes['aria-label'].includes('獨立驗證'), true);
     const links = nodes[0].children.filter(item => item.name === 'a');

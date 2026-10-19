@@ -1,4 +1,5 @@
-import { businessEnv, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';
+import { businessContext } from '../_shared/business-scope.ts';
+import { withBusinessModule, businessEnv, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';
 import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 import { buildLineFlexNotice } from "../_shared/line-flex.ts";
 import { replaceCurrentGrantSections } from "../_shared/grant-message-sections.ts";
@@ -175,7 +176,7 @@ serveBusiness('scheduled-grant-messages',async (request: Request) => {
   const rows:any[] = Array.isArray(claim.data) ? claim.data : [];
   if (!rows.length) return new Response(JSON.stringify({ ok:true,claimed:0,sent:0,failed:0 }),{ status:200,headers:{ "Content-Type":"application/json","Cache-Control":"no-store" } });
 
-  const token = await lineToken(supabase);
+  const legacyToken = await lineToken(supabase);
   const eventLiffUrl = await lineSetting(supabase, "event_ticket_liff_url", DEFAULT_EVENT_LIFF_URL);
   let sent = 0;
   let failed = 0;
@@ -202,6 +203,8 @@ serveBusiness('scheduled-grant-messages',async (request: Request) => {
       continue;
     }
 
+    const module = isFixedTicketNotification(row) ? "events" : businessContext()?.features?.membership === false ? "points" : "membership";
+    const token = await withBusinessModule(module, () => lineToken(supabase)).catch(() => "") || (businessContext() ? "" : legacyToken);
     if (!token) {
       const attempts = Number(row.attempt_count || 0);
       const terminal = attempts >= 3;
@@ -216,7 +219,7 @@ serveBusiness('scheduled-grant-messages',async (request: Request) => {
       continue;
     }
 
-    const result = await dispatchOne(supabase,token,row,eventLiffUrl);
+    const result = await withBusinessModule(module, () => dispatchOne(supabase,token,row,eventLiffUrl));
     if (result.suppressed) {
       if (result.action !== "skip") await supabase.from("scheduled_grant_messages").update({
         status:result.action === "defer" ? "pending" : "cancelled",last_error:result.error,

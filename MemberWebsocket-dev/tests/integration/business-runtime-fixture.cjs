@@ -5,7 +5,7 @@ const snapshot=require('./fixtures/business-template.cjs');
 const q=id=>'"'+id.replaceAll('"','""')+'"';
 const migrations=path.resolve(__dirname,'../../supabase/migrations');
 const root='U'+'1'.repeat(32);
-module.exports=async()=>{
+module.exports=async(options={})=>{
  const db=new PGlite({extensions:{btree_gist}});
  try{
   await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;create role authenticator;
@@ -32,7 +32,7 @@ module.exports=async()=>{
   for(const t of snapshot.triggers)await db.exec(t.definition);
   await db.exec('set check_function_bodies=on;grant usage on schema public,storage to service_role;grant all on all tables in schema public,storage to service_role;grant all on all sequences in schema public to service_role;');
   await db.query("insert into public.admins(line_user_id,display_name,role,status)values($1,'root','admin','active')",[root]);
-  for(const name of ['20261017131559_product_platform_control_plane.sql','20261017140939_platform_line_identity.sql','20261017164510_platform_admin_applications.sql','20261018012500_platform_feature_grants_only.sql','20261018181500_platform_manual_super_admin_grant.sql','20261019024033_business_runtime.sql'])await db.exec(fs.readFileSync(path.join(migrations,name),'utf8'));
+  for(const name of ['20261017131559_product_platform_control_plane.sql','20261017140939_platform_line_identity.sql','20261017164510_platform_admin_applications.sql','20261018012500_platform_feature_grants_only.sql','20261018181500_platform_manual_super_admin_grant.sql','20261019024033_business_runtime.sql','20261019122719_admin_access_lifecycle.sql','20261019122917_module_line_scope.sql'].filter(name=>options.beforeAccess?!name.includes('admin_access_lifecycle')&&!name.includes('module_line_scope'):true))await db.exec(fs.readFileSync(path.join(migrations,name),'utf8'));
   await db.exec('update platform_private.super_admins set enabled=true;');
   const approve=async(actor,slug,features=Object.fromEntries(['membership','points','events','calendar','integrations','booking','testing','usage'].map(k=>[k,true])))=>{
    const a=(await db.query('select public.platform_submit_application($1,$2,$3) a',[actor,slug,slug])).rows[0].a;

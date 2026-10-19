@@ -1,7 +1,8 @@
 import { createClient as baseClient } from 'npm:@supabase/supabase-js@2.57.0';
-import { assertBusinessAction,businessBootstrap } from './business-policy.mjs';
+import { assertBusinessAction,businessBootstrap,actionFeatures } from './business-policy.mjs';
 import { openCredentials } from './platform-crypto.mjs';
 import { resolvePlatformEncryptionKey } from './platform-key.mjs';
+import { tenantExpired } from './tenant-access.mjs';
 import { merchantOnboarding } from './merchant-onboarding.mjs';
 export type { SupabaseClient } from 'npm:@supabase/supabase-js@2.57.0';
 type Context=Record<string,any>;
@@ -72,14 +73,32 @@ async function resolve(body:any):Promise<Context|null>{
  if(!result.data&&slug)throw Object.assign(Error('找不到商家入口。'),{status:404,code:'BUSINESS_NOT_FOUND'});
  return result.data;
 }
-async function credentials(c:Context){
- c.customLineReady=merchantOnboarding({status:c.status,features:c.features,line:c.line_config,credentialsConfigured:c.credentials_configured}).configurationComplete;
- if(!c.credentials_configured)return;
- const db=control(),result=await db.rpc('platform_business_credentials',{p_tenant_id:c.id});
+async function credentials(c:Context,feature?:string){
+ c.adminCustomLineReady=Boolean(c.line_config?.adminLiffId?.startsWith(c.line_config?.adminChannelId+'-'));
+ const module=feature?c.module_line?.[feature]:null;
+ c.active_feature=feature;
+ if(module)c.line_config={...c.line_config,...module.line};
+ const configured=module?module.credentialsConfigured===true:c.credentials_configured;
+ c.customLineReady=merchantOnboarding({status:c.status,features:feature?{[feature]:true}:c.features,line:c.line_config,credentialsConfigured:configured}).configurationComplete;
+ if(!configured)return;
+ const db=control(),result=await db.rpc(module?'platform_module_credentials':'platform_business_credentials',module?{p_tenant_id:c.id,p_feature:feature}:{p_tenant_id:c.id});
  if(result.error||!result.data)throw Error('BUSINESS_CREDENTIALS_UNAVAILABLE');
  const key=await resolvePlatformEncryptionKey({configuredKey:rawEnv('PLATFORM_CREDENTIAL_ENCRYPTION_KEY'),db});
- c.credentials=await openCredentials(c.id,result.data,key);
+ c.credentials=await openCredentials(module&&result.data.scope==='module'?c.id+':'+feature:c.id,module?result.data.envelope:result.data,key);
 }
+export async function withBusinessModule<T>(feature:string,run:()=>Promise<T>):Promise<T>{
+ const current=scope.getStore();if(!current)return run();
+ const c:Context={...current,credentials:undefined};
+ if(c.features?.[feature]!==true)throw Object.assign(Error('此功能已停用。'),{code:'FEATURE_DISABLED',status:403});
+ await credentials(c,feature);return scope.run(c,run);
+}
+function requestModule(name:string,body:any):string|undefined{
+ if(name==='booking-line-notifications')return 'booking';
+ if(name==='scheduled-grant-messages')return undefined;
+ const features=actionFeatures(policyAction(name,body),body);
+ return features?.[0];
+}
+
 const jobs=new Set(['booking-line-notifications','scheduled-grant-messages','e2e-artifact-retention']);
 const jobAllowed=(name:string,c:Context)=>name==='scheduled-grant-messages'
  ? ['membership','points','events'].some(key=>c.features?.[key]):c.features?.[name==='booking-line-notifications'?'booking':'testing']===true;
@@ -115,7 +134,7 @@ export function businessHandler(name:string,handler:(request:Request)=>Response|
      if(active.error)throw Error('BUSINESS_JOBS_UNAVAILABLE');
      for(const tenant of active.data||[]){
       if(!jobAllowed(name,tenant))continue;
-      await credentials(tenant);
+      await credentials(tenant,requestModule(name,body));
       await scope.run(tenant,()=>handler(new Request(request.url,{method:'POST',headers:request.headers,body:JSON.stringify({...body,business:tenant.slug})})));
      }
     }
@@ -125,10 +144,11 @@ export function businessHandler(name:string,handler:(request:Request)=>Response|
    if(requested.startsWith('admin.')&&subject(body.idToken)!==c.owner_line_user_id)
     throw Object.assign(Error('你沒有此商家的管理權限。'),{code:'BUSINESS_ADMIN_REQUIRED',status:403});
    if(jobs.has(name)&&!String(body.action||'').startsWith('admin.')){
+    if(tenantExpired(c))throw Object.assign(Error('使用期限已到，請聯絡總管理員。'),{code:'TENANT_EXPIRED',status:403});
     if(c.status!=='active')throw Object.assign(Error('此商家已停用。'),{code:'TENANT_SUSPENDED',status:403});
     if(!jobAllowed(name,c))throw Object.assign(Error('此功能已停用。'),{code:'FEATURE_DISABLED',status:403});
    }else assertBusinessAction(c,policyAction(name,body),body);
-   await credentials(c);
+   await credentials(c,requestModule(name,body));
    const response=await scope.run(c,()=>handler(request));
    if(body.action==='admin.bootstrap'&&response.ok){
     const payload=await response.clone().json();if(payload.ok&&payload.data){payload.data=businessBootstrap(payload.data,c);return new Response(JSON.stringify(payload),{status:response.status,headers:response.headers});}

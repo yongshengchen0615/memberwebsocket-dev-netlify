@@ -1,4 +1,5 @@
-import { businessEnv, businessFetch as fetch } from './business-scope.ts';
+import { businessEnv, businessContext, businessFetch as fetch } from './business-scope.ts';
+import { assertTenantIdentity } from './tenant-access.mjs';
 export type ContractIdentity = { lineUserId: string; displayName: string; issuedAtMs: number };
 
 type ErrorFactory = (status: number, code: string, message: string, details?: unknown) => Error;
@@ -44,6 +45,8 @@ export async function verifyLineIdTokenContract(args: {
     displayName: String(payload.name || "LINE 使用者").slice(0, 120),
     issuedAtMs: iat * 1000,
   };
+  try { assertTenantIdentity(businessContext(), identity); }
+  catch (error) { const e=error as {status:number;code:string;message:string}; throw createError(e.status,e.code,e.message); }
 
   const url = (businessEnv("SUPABASE_URL") || "").trim();
   const key = (businessEnv("SUPABASE_SERVICE_ROLE_KEY") || "").trim();

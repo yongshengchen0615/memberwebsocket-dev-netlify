@@ -8,7 +8,7 @@
  async function configure(config){
   if(!slug)return config;
   const url=new URL(config.supabaseFunctionUrl);url.pathname=url.pathname.replace(/\/api\/?$/,'/platform-api');
-  const response=await original(url.href,{method:'POST',headers:{'Content-Type':'application/json',apikey:config.supabasePublishableKey},body:JSON.stringify({action:'platform.business.public',business:slug}),cache:'no-store'});
+  const response=await original(url.href,{method:'POST',headers:{'Content-Type':'application/json',apikey:config.supabasePublishableKey},body:JSON.stringify({action:'platform.business.public',business:slug,...({member:'membership',points:'points',event:'events',calendar:'calendar',booking:'booking'}[location.pathname.split('/')[1]]?{feature:{member:'membership',points:'points',event:'events',calendar:'calendar',booking:'booking'}[location.pathname.split('/')[1]]}:{})}),cache:'no-store'});
   const body=await response.json();if(!response.ok||!body.ok)throw Object.assign(Error(body.error?.message||'無法取得商家設定。'),{code:body.error?.code||'BUSINESS_UNAVAILABLE'});
   config.business=body.data.business;config.brandName=body.data.name;config.grantedFeatures=body.data.features;
   for(const key of ['adminLiffId','memberLiffId','pointsLiffId','eventLiffId','calendarLiffId','bookingLiffId']){

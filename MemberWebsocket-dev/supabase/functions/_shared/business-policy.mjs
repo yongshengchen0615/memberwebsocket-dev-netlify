@@ -1,3 +1,4 @@
+import { tenantExpired } from './tenant-access.mjs';
 // One server-side action map for every existing management/member endpoint.
 // Unknown scoped actions fail closed. Bootstrap/session are workspace operations.
 export const businessFeatures=['membership','points','events','calendar','integrations','booking','testing','usage'];
@@ -18,8 +19,9 @@ export function actionFeatures(action,body={}) {
  if(action==='admin.ticket-visibility.get'||action==='admin.ticket-visibility.save')return ['points','events'];
  return null;
 }
-export function assertBusinessAction(context,action,body={}) {
+export function assertBusinessAction(context,action,body={},now=Date.now()) {
  if(context.status!=='active'||!/^business_[a-f0-9]{32}$/.test(context.runtime_schema||''))throw Object.assign(Error('此商家已停用或尚未完成開通。'),{code:'TENANT_SUSPENDED',status:403});
+ if(tenantExpired(context,now))throw Object.assign(Error('使用期限已到，請聯絡總管理員。'),{code:'TENANT_EXPIRED',status:403});
  const features=actionFeatures(action,body);
  if(features&&Array.isArray(body.benefits))for(const benefit of body.benefits){if(benefit?.kind==='points')features.push('points');if(benefit?.kind==='event')features.push('events');}
  if(features===null)throw Object.assign(Error('此功能尚未取得商家授權。'),{code:'FEATURE_ACTION_UNMAPPED',status:403});

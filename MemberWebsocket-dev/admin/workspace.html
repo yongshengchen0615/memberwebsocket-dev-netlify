@@ -31,6 +31,16 @@
       <p class="notice">新商家儲存後為「待佈建」。完成獨立資料環境與登入驗證後，才能啟用會員、票券與預約等功能。</p>
       <div id="tenantList" class="tenant-list"></div><h2>待審核管理員</h2><p>核准時逐項勾選功能；未核准的申請不得取得商家權限。</p><div id="applicationList" class="tenant-list"></div>
     </section>
+    <dialog id="expiryDialog" aria-labelledby="expiryTitle">
+      <form id="expiryForm">
+        <h2 id="expiryTitle">設定使用期限</h2><p id="expiryDescription"></p>
+        <label><input id="expiryUnlimited" type="checkbox">無到期日</label>
+        <label>到期時間（台灣時間 UTC+8）<input id="expiryAt" type="datetime-local" min="2000-01-01T00:00" max="9999-12-31T23:59"></label>
+        <p class="hint">到期即停止管理員與用戶存取。復權不會延長期限；延長已到期資格後須重新使用 LINE 登入。</p>
+        <p id="expiryMessage" role="status" aria-live="polite"></p>
+        <div class="form-actions"><button id="closeExpiry" class="secondary" type="button">取消</button><button id="saveExpiry" type="submit">儲存使用期限</button></div>
+      </form>
+    </dialog>
     <dialog id="grantDialog" aria-labelledby="grantDialogTitle">
       <form id="grantForm">
         <h2 id="grantDialogTitle">調整已核准功能</h2>
