@@ -24,6 +24,10 @@
     state.pending=null;
     state.approval=null;
     state.merchantPending=null;
+    for(const key of ['channelAccessToken','channelSecret']) {
+      const field=el('merchantLineForm')?.elements.namedItem(key);if(field)field.value='';
+    }
+    if(el('onboardingJourney'))el('onboardingJourney').hidden=true;
     for(const id of ['tenantDialog','approvalDialog','grantDialog']) {
       const dialog=el(id);
       if(dialog?.open)dialog.close();
@@ -122,7 +126,8 @@
     if (!state.tenants.length) {const p=document.createElement('p');p.className='empty';p.textContent='尚無已審核的一般管理員。請從申請清單勾選功能並審核。';list.append(p);return;}
     for (const tenant of state.tenants) {
       const card=document.createElement('article');card.className='tenant-card';
-      const badge=document.createElement('span');badge.className='badge';badge.textContent=({pending_provisioning:'待佈建',suspended:'已停用',active:'已啟用'})[tenant.status] || '待確認';
+      const badge=document.createElement('span');badge.className='badge';badge.textContent=tenant.status==='suspended'?'已停用'
+        :tenant.onboarding?.configurationComplete?'設定齊全・待平台開通':'已核准・待 LINE 設定';
       const title=document.createElement('h3');title.textContent=tenant.name;
       const info=document.createElement('p');info.textContent=`${tenant.slug} · 管理員 ${tenant.ownerLineUserId}`;
       const featureList=document.createElement('div');featureList.className='tenant-features';
@@ -135,7 +140,12 @@
         try {const result=await request('platform.tenant.suspend',{tenantId:tenant.id,expectedVersion:tenant.version,requestId:crypto.randomUUID()});state.tenants=state.tenants.map(item=>item.id===result.tenant.id?result.tenant:item);render();el('platformStatus').textContent='商家已停用。';}
         catch(error){el('platformStatus').textContent=error.message;}finally{suspend.disabled=false;}
       });footer.append(suspend);}
-      card.append(badge,title,info,featureList,footer);list.append(card);
+      const setup=document.createElement('p');
+      const onboarding=tenant.onboarding;
+      setup.textContent=tenant.status==='suspended'?'已停用；管理員與用戶均不可使用。'
+        :onboarding?.configurationComplete?'LINE 設定已完整保存；下一步由平台完成商家專屬服務與 LINE 實測。目前管理業務與用戶端尚未開放。'
+        :'審核已通過；下一步由一般管理員完成共用 LINE 與各項功能設定。目前管理業務與用戶端尚未開放。';
+      card.append(badge,title,info,featureList,setup,footer);list.append(card);
     }
   }
   async function refresh() {const data=await request('platform.bootstrap');state.tenants=data.tenants;state.applications=data.applications||[];state.features=data.features;render();renderApplications();return data;}
@@ -231,7 +241,7 @@
       state.tenants=[result.tenant,...state.tenants.filter(x=>x.id!==result.tenant.id)];
       state.applications=state.applications.map(x=>x.id===state.approval.applicationId?{...x,status:'approved'}:x);
       state.approval=null;approvalDialog.close();render();renderApplications();
-      el('platformStatus').textContent='已審核通過；管理員現在可設定自己的 LINE，商家仍待獨立環境佈建。';
+      el('platformStatus').textContent='已審核通過；一般管理員的管理頁會更新授權，現在可設定 LINE。LINE 設定完成後，仍需平台開通商家專屬服務並完成實測，才可讓用戶使用。';
     }catch(error){
       el('approvalMessage').textContent=error.message;
       if(!error.uncertain)state.approval.features=null;
@@ -242,8 +252,77 @@
 
   const applicationForm=el('applicationForm'),merchantForm=el('merchantLineForm');
   const featureLiffNames={membership:'memberLiffId',points:'pointsLiffId',events:'eventLiffId',calendar:'calendarLiffId',booking:'bookingLiffId'};
-  let merchantPanel='shared';
+  let merchantPanel='shared',merchantDirty=false,merchantSaving=false,latestMine=null;
+  const lineLabels={adminChannelId:'管理端 Login Channel ID',memberChannelId:'會員端 Login Channel ID',messagingChannelId:'Messaging API Channel ID',adminLiffId:'管理端 LIFF ID',memberLiffId:'會員卡 LIFF ID',pointsLiffId:'集點卡 LIFF ID',eventLiffId:'活動票券 LIFF ID',calendarLiffId:'營運日曆 LIFF ID',bookingLiffId:'預約 LIFF ID',credentials:'Messaging API token 與 secret'};
+  function installFieldHelp() {
+    for(const key of [...lineKeys,'channelAccessToken','channelSecret']) {
+      const input=merchantForm.elements.namedItem(key);if(!input)continue;
+      const help=document.createElement('small');help.id='lineHelp-'+key;
+      help.textContent=key.endsWith('LiffId')?'LINE Developers → 對應 LINE Login Channel → LIFF → LIFF ID。需先取得平台提供的商家專屬 Endpoint URL。'
+        :key==='channelAccessToken'?'LINE Developers → Messaging API Channel → Messaging API → Channel access token (long-lived) → Issue。'
+        :key==='channelSecret'?'LINE Developers → Messaging API Channel → Basic settings → Channel secret。'
+        :'LINE Developers → '+(key==='messagingChannelId'?'Messaging API':'LINE Login')+' Channel → Basic settings → Channel ID。';
+      input.setAttribute('aria-describedby',help.id);input.insertAdjacentElement('afterend',help);
+    }
+  }
+  installFieldHelp();
+  function renderJourney(application,tenant) {
+    const journey=el('onboardingJourney');if(!journey)return;
+    journey.hidden=false;
+    const approved=application?.status==='approved'&&tenant?.status!=='suspended';
+    const complete=approved&&tenant?.onboarding?.configurationComplete===true;
+    const steps=['submitted','approved','configured','verified','live'];
+    const current=!application||application.status==='rejected'?0:!approved?1:!complete?2:3;
+    for(const [index,key] of steps.entries()) {
+      const node=journey.querySelector('[data-journey="'+key+'"]');
+      node.dataset.state=index<current?'done':index===current?'current':'waiting';
+      if(index===current)node.setAttribute('aria-current','step');else node.removeAttribute('aria-current');
+    }
+    if(tenant?.status==='suspended')for(const node of journey.querySelectorAll('[aria-current]'))node.removeAttribute('aria-current');
+  }
+  function renderChecklist(tenant) {
+    const list=el('merchantChecklist');if(!list)return;
+    list.replaceChildren();const status=tenant.onboarding;
+    const row=(name,detail,panel)=>{
+      const article=document.createElement('article'),body=document.createElement('div'),title=document.createElement('strong'),p=document.createElement('p');
+      title.textContent=name;p.textContent=detail;body.append(title,p);article.append(body);
+      if(panel){const button=document.createElement('button');button.type='button';button.className='secondary';button.dataset.setupFeature=panel;button.textContent='前往設定';button.addEventListener('click',()=>{selectMerchantPanel(panel);merchantForm.scrollIntoView?.({block:'start'});});article.append(button);}
+      list.append(article);
+    };
+    const missing=status?.commonMissing;
+    row('共用 LINE 設定',!status?'設定檢查服務尚未更新，請重新整理後再試。':missing.length?'尚缺：'+missing.map(key=>lineLabels[key]||key).join('、'):'必填資料已保存，仍需實際 LINE 驗證。','shared');
+    for(const [key,label] of Object.entries(state.features))if(tenant.features?.[key]===true) {
+      const feature=status?.features?.[key];
+      row(label,!feature?'等待伺服器確認設定。':feature.missing.length?'尚缺：'+feature.missing.map(name=>lineLabels[name]||name).join('、')
+        :featureLiffNames[key]?'LIFF ID 已保存；用戶入口尚未開放。':'沿用共用 LINE 設定，無需額外 LIFF；功能尚未開放。',key);
+    }
+    const next=el('merchantNextAction');
+    const firstMissing=Object.entries(status?.features||{}).find(([,item])=>!item.configured)?.[0];
+    next.hidden=status?.configurationComplete===true||status?.grantedCount===0;
+    next.textContent=missing?.length?'下一步：完成共用 LINE 設定':'下一步：設定'+(state.features[firstMissing]||'LINE');
+    next.onclick=()=>{selectMerchantPanel(missing?.length?'shared':firstMissing||'shared');merchantForm.scrollIntoView?.({block:'start'});};
+    el('merchantLaunchStatus').dataset.ready='false';
+    el('merchantLaunchMessage').textContent=!status?'尚無法取得開通檢查結果，請稍後重新檢查。'
+      :status.grantedCount===0?'總管理員尚未開放功能，請先聯絡總管理員調整功能授權。'
+      :status.configurationComplete?'LINE 設定已完整保存。下一步由平台完成商家專屬服務及實際 LINE 登入驗證。你目前無需重複儲存；用戶端尚未開放。'
+      :'下一步由你完成下方設定清單。可先儲存共用設定，再逐頁補齊已核准功能的 LIFF ID。';
+  }
+  function lockMerchant(value) {
+    for(const node of merchantForm.querySelectorAll('input'))node.disabled=value;
+    for(const node of document.querySelectorAll('#merchantFeatureNav button,#merchantChecklist button,#merchantNextAction,#reloadMerchantSettings'))node.disabled=value;
+  }
+  el('copySetupSummary')?.addEventListener('click',async()=>{
+    const tenant=state.merchant;if(!tenant)return;
+    const status=tenant.onboarding;
+    const missing=[...(status?.commonMissing||[]),...Object.values(status?.features||{}).flatMap(item=>item.missing)];
+    const summary='商家：'+tenant.name+'\n商家代碼：'+tenant.slug+'\nLINE 設定：'+(status?.configurationComplete?'必填資料已保存':status?'尚缺 '+missing.map(key=>lineLabels[key]||key).join('、'):'等待確認')
+      +'\n核准功能：'+Object.entries(state.features).filter(([key])=>tenant.features?.[key]===true).map(([,label])=>label).join('、')
+      +'\n管理業務／用戶端：尚未開放\n平台待辦：提供商家專屬服務網址、完成商家資料隔離及 LINE 實測。';
+    try{await navigator.clipboard.writeText(summary);el('copySetupMessage').textContent='開通狀態已複製，可貼給平台聯絡人；不含憑證。';}
+    catch{el('copySetupMessage').textContent='無法自動複製，請將本頁顯示的商家代碼與開通狀態提供給平台聯絡人。';}
+  });
   function selectMerchantPanel(feature) {
+    if(merchantSaving||state.merchantPending)return;
     const tenant=state.merchant;
     // A stale bookmark or a forged query string never exposes an unapproved feature.
     merchantPanel=feature==='shared'||tenant?.features?.[feature]===true?feature:'shared';
@@ -283,7 +362,12 @@
   function renderMine(data){
     state.mineSignature=JSON.stringify([data.application?.status,data.tenant?.version,data.tenant?.status]);
     state.merchant=data.tenant||null;state.features=data.features||state.features;
+    state.merchantPending=null;merchantDirty=false;latestMine=null;lockMerchant(false);
+    if(el('merchantSyncStatus'))el('merchantSyncStatus').textContent='';
+    if(el('reloadMerchantSettings'))el('reloadMerchantSettings').hidden=true;
     const application=data.application;
+    if(!data.tenant||data.tenant.status==='suspended')for(const key of ['channelAccessToken','channelSecret'])merchantForm.elements.namedItem(key).value='';
+    renderJourney(application,data.tenant);
     el('applicationWorkspace').hidden=false;
     el('applicationForm').hidden=Boolean(application&&application.status!=='rejected');
     const progress=el('applicationProgress');
@@ -292,14 +376,18 @@
       ({pending:'等待總管理員審核',approved:'審核通過',rejected:'申請未通過，可重新提交'}[application.status]||'狀態待確認')):'';
     el('merchantWorkspace').hidden=application?.status!=='approved'||!data.tenant||data.tenant.status==='suspended';
     if(data.tenant?.status==='suspended')progress.textContent='此管理員已停用，請聯絡總管理員。';
+    if(el('applicationNextStep'))el('applicationNextStep').textContent=data.tenant?.status==='suspended'?'請聯絡總管理員確認停用原因。'
+      :application?.status==='pending'?'下一步由總管理員審核並勾選開放功能。你現在不必填 LINE 資料；請保留此入口，審核結果會在本頁更新。申請時間：'+new Date(application.requestedAt).toLocaleString('zh-TW')
+      :application?.status==='approved'?'審核已通過。現在可以在下方設定已授權功能；用戶端尚未開放，請依開通清單完成後續步驟。'
+      :application?.status==='rejected'?'請確認商家資料後重新提交；如需了解原因，請聯絡總管理員。':'填寫商家資料並提交，由總管理員審核。';
     if(!data.tenant)return;
     const tenant=data.tenant;
     el('merchantInfo').textContent=tenant.name+' · '+tenant.slug+' · '+(tenant.credentialsConfigured?'LINE 憑證已保存':'尚未設定 LINE 憑證');
     const readiness=el('merchantReadiness');
     if(readiness) {
-      readiness.textContent=tenant.capabilities?.dataPlaneVerified
-        ? 'Supabase 已標記資料隔離驗證；實際用戶端開通仍需通過各項業務 API、Realtime 與 Storage 的隔離測試。'
-        : '功能授權及 LINE 設定已連接 Supabase 控制平台；新商家用戶端尚待獨立資料環境驗證，暫不連接舊商家會員資料。';
+      readiness.textContent=tenant.onboarding?.configurationComplete
+        ? 'LINE 必填設定已保存，等待平台開通商家專屬服務。尚未驗證實際 LINE 登入與訊息傳送。'
+        : '你已取得 LINE 設定權。請完成共用資料與各項已核准功能的設定，再由平台完成開通與實測。';
     }
     const tags=el('merchantFeatures');tags.replaceChildren();
     for(const [key,label] of Object.entries(state.features))if(tenant.features[key]){
@@ -317,6 +405,7 @@
     }
     el('merchantMessage').textContent='';state.merchantPending=null;
     renderMerchantNav(tenant);
+    renderChecklist(tenant);
   }
   applicationForm.addEventListener('submit',async event=>{
     event.preventDefault();if(!applicationForm.reportValidity())return;
@@ -330,9 +419,18 @@
     }catch(error){el('applicationMessage').textContent=error.message;}
     finally{button.disabled=false;}
   });
-  merchantForm.addEventListener('change',()=>{state.merchantPending=null;});
+  merchantForm.addEventListener('input',()=>{
+    if(merchantSaving||state.merchantPending)return;
+    merchantDirty=true;
+    if(el('merchantSyncStatus'))el('merchantSyncStatus').textContent='你有尚未儲存的設定。進度與清單仍依上次儲存資料顯示。';
+  });
+  merchantForm.addEventListener('change',()=>{if(!merchantSaving&&!state.merchantPending)merchantDirty=true;});
   merchantForm.addEventListener('submit',async event=>{
-    event.preventDefault();if(!state.merchant||!merchantForm.reportValidity())return;
+    event.preventDefault();if(merchantSaving||!state.merchant||state.merchant.status==='suspended')return;
+    if(!state.merchantPending&&merchantPanel!=='shared'&&state.merchant.onboarding?.commonMissing?.length){
+      selectMerchantPanel('shared');el('merchantMessage').textContent='請先完成並儲存共用 LINE 設定，再儲存功能頁。';return;
+    }
+    if(!state.merchantPending&&!merchantForm.reportValidity())return;
     const button=el('saveMerchantLine');button.disabled=true;el('merchantMessage').textContent='正在儲存 LINE 設定…';
     if(!state.merchantPending)state.merchantPending={
       requestId:crypto.randomUUID(),expectedVersion:state.merchant.version,
@@ -340,28 +438,47 @@
       credentials:{channelAccessToken:merchantForm.elements.namedItem('channelAccessToken').value.trim(),
         channelSecret:merchantForm.elements.namedItem('channelSecret').value.trim()},
     };
+    merchantSaving=true;lockMerchant(true);
     try{
       const result=await request('platform.line.save',state.merchantPending);
+      merchantSaving=false;
       renderMine({application:{status:'approved',businessName:result.tenant.name},tenant:result.tenant,features:state.features});
-      el('merchantMessage').textContent='LINE 設定已安全儲存。等待商家獨立資料環境完成驗證。';
+      el('merchantMessage').textContent=result.tenant.onboarding?.configurationComplete
+        ?'LINE 設定已安全儲存，必填資料已齊全。下一步由平台開通商家專屬服務與完成 LINE 實測；管理業務及用戶端尚未開放。'
+        :'LINE 設定已安全儲存。請依上方清單補齊其餘設定；管理業務及用戶端尚未開放。';
     }catch(error){
       el('merchantMessage').textContent=error.message;
       if(!error.uncertain)state.merchantPending=null;
-    }finally{button.disabled=false;}
+      else el('merchantMessage').textContent='儲存結果尚未確認。設定已暫時鎖定，請按「重試相同儲存操作」確認結果。';
+    }finally{
+      merchantSaving=false;lockMerchant(Boolean(state.merchantPending));
+      button.disabled=false;button.textContent=state.merchantPending?'重試相同儲存操作':'儲存此頁 LINE 設定';
+    }
   });
 
   async function refreshMine() {
-    if(!merchantEntry||!state.idToken||refreshBusy)return;
+    if(!merchantEntry||!state.idToken||refreshBusy||merchantSaving||state.merchantPending)return;
     refreshBusy=true;
     try {
       const data=await request('platform.application.bootstrap');
       const signature=JSON.stringify([data.application?.status,data.tenant?.version,data.tenant?.status]);
-      if(signature!==state.mineSignature)renderMine(data);
+      const accessChanged=data.application?.status!=='approved'||data.tenant?.status==='suspended'
+        ||JSON.stringify(data.tenant?.features)!==JSON.stringify(state.merchant?.features);
+      if(signature!==state.mineSignature){
+        if(merchantDirty&&!accessChanged){
+          latestMine=data;
+          if(el('merchantSyncStatus'))el('merchantSyncStatus').textContent='偵測到較新的已儲存設定。你的草稿已保留；儲存前請載入最新設定，避免覆蓋。';
+          if(el('reloadMerchantSettings'))el('reloadMerchantSettings').hidden=false;
+        }else renderMine(data);
+      }
       el('platformStatus').textContent=data.application?.status==='pending'?'申請已送出，等待總管理員審核。':'已更新目前的功能權限。';
     }catch(error){el('platformStatus').textContent=error.message;}
     finally{refreshBusy=false;}
   }
   el('refreshApplication')?.addEventListener('click',()=>void refreshMine());
+  el('reloadMerchantSettings')?.addEventListener('click',()=>{
+    if(latestMine&&window.confirm('捨棄尚未儲存的設定，載入最新版本？'))renderMine(latestMine);
+  });
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refreshMine();});
   window.addEventListener('pagehide',()=>{if(refreshTimer)clearInterval(refreshTimer);});
   window.addEventListener('pageshow',event=>{if(event.persisted&&merchantEntry)void start();});

@@ -13,7 +13,7 @@ test.beforeAll(async()=>{
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));base='http://127.0.0.1:'+server.address().port;
 });
 test.afterAll(async()=>new Promise(resolve=>server.close(resolve)));
-async function setup(page,token='root',{loseFirstSave=false,platformLiffId='2012065297-VunxFBj8',inClient=true,loggedIn=true,rootLoginReturn=true,entry='platform',manualGrant=true}={}) {
+async function setup(page,token='root',{loseFirstSave=false,loseFirstLineSave=false,platformLiffId='2012065297-VunxFBj8',inClient=true,loggedIn=true,rootLoginReturn=true,entry='platform',manualGrant=true}={}) {
  const h=await fixture(1,manualGrant);h.allowedOrigins.add(base);let lost=false;const errors=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
  if(rootLoginReturn&&token==='root')await page.addInitScript(()=>{
@@ -28,6 +28,7 @@ async function setup(page,token='root',{loseFirstSave=false,platformLiffId='2012
   const headers=new Headers(route.request().headers());headers.set('Origin',base);
   const response=await h.handler(new Request(route.request().url(),{method,headers,...(method==='POST'?{body:JSON.stringify(input)}:{})}));
   if(loseFirstSave&&!lost&&input?.action==='platform.tenant.features.save'){lost=true;return route.abort('failed');}
+  if(loseFirstLineSave&&!lost&&input?.action==='platform.line.save'){lost=true;return route.abort('failed');}
   await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
  });
  await page.goto(base+(entry==='admin'?'/admin/':'/platform/'));return {...h,errors};
@@ -59,6 +60,83 @@ test('PLATFORM_APPLICANT_ROOT_GRANTS — review applicant, grant features only, 
   expect(after.status).toBe('pending_provisioning');expect(after.version).toBe(2);
   expect(h.errors).toEqual([]);
   await info.attach('platform-root-grants',{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
+ }finally{await h.db.close();}
+});
+test('ONBOARDING_GUIDE — exact LINE sources, saved checklist, responsible next step and no unusable links on mobile',async({page},info)=>{
+ await page.setViewportSize({width:390,height:844});const h=await setup(page,'manager',{entry:'admin'});try{
+  await expect(page.locator('#onboardingJourney')).toContainText('送出申請');
+  await expect(page.locator('#unifiedPortalNav [data-portal-entry="member"]')).toBeHidden();
+  await expect(page.locator('#applicationNextStep')).toContainText('總管理員');
+  const app=(await h.call({action:'platform.bootstrap'})).body.data.applications[0];
+  const features=Object.fromEntries(Object.keys(h.tenant.features).map(k=>[k,['membership','booking'].includes(k)]));
+  expect((await h.call({action:'platform.application.approve',applicationId:app.id,features,requestId:crypto.randomUUID()})).status).toBe(200);
+  await page.locator('#refreshApplication').click();await expect(page.locator('#merchantWorkspace')).toBeVisible();
+  await page.locator('#merchantSetupGuide summary').click();
+  await expect(page.locator('#merchantSetupGuide')).toContainText('Basic settings');
+  await expect(page.locator('#merchantSetupGuide')).toContainText('Endpoint URL');
+  await expect(page.locator('#merchantLineForm [name="adminChannelId"]')).toHaveAttribute('aria-describedby','lineHelp-adminChannelId');
+  await expect(page.locator('#merchantChecklist')).toContainText('尚缺：會員卡 LIFF ID');
+  await page.locator('[data-setup-feature="booking"]').click();
+  await page.locator('#merchantLineForm [name="bookingLiffId"]').fill(h.tenant.line.bookingLiffId);
+  await page.locator('#saveMerchantLine').click();
+  await expect(page.locator('[data-merchant-panel="shared"]')).toBeVisible();
+  await expect(page.locator('#merchantMessage')).toContainText('請先完成');
+  for(const k of ['adminChannelId','memberChannelId','messagingChannelId','adminLiffId'])await page.locator('#merchantLineForm [name="'+k+'"]').fill(h.tenant.line[k]);
+  for(const [k,v] of Object.entries(h.tenant.credentials))await page.locator('#merchantLineForm [name="'+k+'"]').fill(v);
+  await page.locator('#saveMerchantLine').click();await expect(page.locator('#merchantMessage')).toContainText('已安全儲存');
+  await page.locator('[data-line-feature="membership"]').click();
+  await page.locator('#merchantLineForm [name="memberLiffId"]').fill(h.tenant.line.memberLiffId);
+  await page.locator('#saveMerchantLine').click();await expect(page.locator('#merchantMessage')).toContainText('必填資料已齊全');
+  await expect(page.locator('#merchantLaunchMessage')).toContainText('由平台');
+  await expect(page.locator('[data-journey="verified"]')).toHaveAttribute('aria-current','step');
+  await expect(page.getByRole('button',{name:'用戶端尚未開放',exact:true})).toBeDisabled();
+  expect(await page.locator('#merchantLaunchStatus a').count()).toBe(0);
+  await page.locator('#copySetupSummary').click();await expect(page.locator('#copySetupMessage')).toContainText('已複製');
+  const copied=await page.evaluate(()=>navigator.clipboard.readText());
+  expect(copied).toContain('尚未開放');expect(copied).not.toContain(h.tenant.credentials.channelAccessToken);expect(copied).not.toContain(h.tenant.credentials.channelSecret);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  expect(h.errors).toEqual([]);
+  await info.attach('onboarding-mobile',{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
+ }finally{await h.db.close();}
+});
+test('ONBOARDING_DRAFT — refresh preserves edited secrets; newer settings require explicit reload; revoked access discards draft',async({page})=>{
+ const h=await setup(page,'manager',{entry:'admin'});try{
+  await expect(page.locator('#applicationProgress')).toBeVisible();
+  const app=(await h.call({action:'platform.bootstrap'})).body.data.applications[0];
+  const features=Object.fromEntries(Object.keys(h.tenant.features).map(k=>[k,k==='membership']));
+  expect((await h.call({action:'platform.application.approve',applicationId:app.id,features,requestId:crypto.randomUUID()})).status).toBe(200);
+  await page.locator('#refreshApplication').click();await expect(page.locator('#merchantWorkspace')).toBeVisible();
+  await page.locator('#merchantLineForm [name="channelAccessToken"]').fill('unsaved-synthetic-token');
+  const current=(await h.call({action:'platform.application.bootstrap'},'manager')).body.data.tenant;
+  const saved=await h.call({action:'platform.line.save',requestId:crypto.randomUUID(),expectedVersion:current.version,line:{...h.tenant.line,pointsLiffId:'',eventLiffId:'',calendarLiffId:'',bookingLiffId:''},credentials:h.tenant.credentials},'manager');
+  expect(saved.status).toBe(200);
+  await page.locator('#refreshApplication').click();await expect(page.locator('#reloadMerchantSettings')).toBeVisible();
+  await expect(page.locator('#merchantLineForm [name="channelAccessToken"]')).toHaveValue('unsaved-synthetic-token');
+  await page.locator('#reloadMerchantSettings').click();
+  await expect(page.locator('#merchantLineForm [name="channelAccessToken"]')).toHaveValue('');
+  await page.locator('#merchantLineForm [name="channelAccessToken"]').fill('another-unsaved-synthetic-token');
+  expect((await h.call({action:'platform.tenant.suspend',tenantId:current.id,expectedVersion:saved.body.data.tenant.version,requestId:crypto.randomUUID()})).status).toBe(200);
+  await page.locator('#refreshApplication').click();await expect(page.locator('#merchantWorkspace')).toBeHidden();
+  await expect(page.locator('#merchantLineForm [name="channelAccessToken"]')).toHaveValue('');
+  expect(h.errors).toEqual([]);
+ }finally{await h.db.close();}
+});
+test('ONBOARDING_LINE_RETRY — lost save response locks draft and replays the exact request once',async({page})=>{
+ const h=await setup(page,'manager',{entry:'admin',loseFirstLineSave:true});try{
+  await expect(page.locator('#applicationProgress')).toBeVisible();
+  const app=(await h.call({action:'platform.bootstrap'})).body.data.applications[0];
+  const features=Object.fromEntries(Object.keys(h.tenant.features).map(k=>[k,k==='membership']));
+  expect((await h.call({action:'platform.application.approve',applicationId:app.id,features,requestId:crypto.randomUUID()})).status).toBe(200);
+  await page.locator('#refreshApplication').click();await expect(page.locator('#merchantWorkspace')).toBeVisible();
+  for(const k of ['adminChannelId','memberChannelId','messagingChannelId','adminLiffId'])await page.locator('#merchantLineForm [name="'+k+'"]').fill(h.tenant.line[k]);
+  for(const [k,v] of Object.entries(h.tenant.credentials))await page.locator('#merchantLineForm [name="'+k+'"]').fill(v);
+  await page.locator('#saveMerchantLine').click();await expect(page.locator('#merchantMessage')).toContainText('尚未確認');
+  await expect(page.locator('#merchantLineForm [name="adminChannelId"]')).toBeDisabled();
+  await expect(page.locator('[data-line-feature="membership"]')).toBeDisabled();
+  await page.getByRole('button',{name:'重試相同儲存操作'}).click();await expect(page.locator('#merchantMessage')).toContainText('已安全儲存');
+  expect((await h.db.query('select version from platform_private.tenants')).rows[0].version).toBe(2);
+  expect((await h.db.query("select count(*)::int n from platform_private.audit_events where action='MERCHANT_LINE_UPDATED'")).rows[0].n).toBe(1);
+  await expect(page.locator('#merchantLineForm [name="channelAccessToken"]')).toHaveValue('');expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
 test('PLATFORM_RETRY — lost root grant response reuses request id without double updates',async({page})=>{

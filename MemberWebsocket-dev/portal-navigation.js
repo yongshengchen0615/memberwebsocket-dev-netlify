@@ -24,6 +24,7 @@
       a.href = url;
       a.textContent = title;
       a.className = 'unified-portal-link';
+      a.dataset.portalEntry = id;
       if (id === surface) {
         a.setAttribute('aria-current', 'page');
       }
@@ -33,6 +34,15 @@
     if (target) document.body.insertBefore(nav, target);
     else document.body.append(nav);
   }
+  function syncProductizedEntry() {
+    // A new merchant must not be sent into the old unscoped member runtime.
+    const member=document.querySelector('#unifiedPortalNav [data-portal-entry="member"]');
+    if(member&&surface==='admin'&&(document.documentElement.dataset.productizedAdmin==='true'
+      ||document.documentElement.dataset.workspace==='merchant'))member.hidden=true;
+  }
+  document.addEventListener('productized-admin-ready',syncProductizedEntry);
+  document.addEventListener('DOMContentLoaded',syncProductizedEntry,{once:true});
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount, { once: true });
   else mount();
+  syncProductizedEntry();
 })();

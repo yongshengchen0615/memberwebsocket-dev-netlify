@@ -36,6 +36,7 @@
       legacy.hidden=true;
       host.hidden=false;
       document.documentElement.dataset.productizedAdmin='true';
+      document.dispatchEvent(new Event('productized-admin-ready'));
     }catch(error){
       host.hidden=true;legacy.hidden=false;
       delete document.documentElement.dataset.workspace;

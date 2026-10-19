@@ -6,9 +6,9 @@ const vm = require('node:vm');
 const root = path.join(__dirname, '..');
 const script = fs.readFileSync(path.join(root, 'portal-navigation.js'), 'utf8');
 function documentFor(surface) {
-  const nodes = [];
+  const nodes = [], listeners = {};
   const createElement = name => ({
-    name, attributes: {}, children: [], className: '', textContent: '', href: '',
+    name, attributes: {}, dataset: {}, children: [], className: '', textContent: '', href: '',
     setAttribute(key, value) { this.attributes[key] = value; },
     append(child) { this.children.push(child); },
   });
@@ -21,8 +21,10 @@ function documentFor(surface) {
     documentElement: { dataset: { portalSurface: surface } },
     body, readyState: 'complete', createElement,
     getElementById(id) { return nodes.find(node => node.id === id); },
+    addEventListener(name,callback) { listeners[name]=callback; },
+    querySelector() { return nodes.flatMap(node=>node.children).find(node=>node.dataset.portalEntry==='member'); },
   };
-  return { document, nodes };
+  return { document, nodes, listeners };
 }
 test('AC-030: independent entrances use one accessible navigation and exactly one active role', () => {
   for (const surface of ['platform', 'admin', 'member']) {
@@ -38,6 +40,14 @@ test('AC-030: independent entrances use one accessible navigation and exactly on
     vm.runInNewContext(script, { document });
     assert.equal(nodes.length, 1, 'navigation is not duplicated');
   }
+});
+test('AC-104: productized admin never links into the legacy unscoped member runtime',()=>{
+  const {document,nodes,listeners}=documentFor('admin');
+  vm.runInNewContext(script,{document});
+  const member=nodes[0].children.find(node=>node.dataset.portalEntry==='member');
+  assert.equal(member.hidden,undefined);
+  document.documentElement.dataset.productizedAdmin='true';listeners['productized-admin-ready']();
+  assert.equal(member.hidden,true);
 });
 test('AC-031: unknown surfaces never inject role navigation', () => {
   const { document, nodes } = documentFor('unknown');

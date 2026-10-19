@@ -80,6 +80,17 @@
         <div class="form-actions"><button type="button" class="secondary" id="closeApproval">取消</button><button type="submit" id="confirmApproval">審核通過</button></div>
       </form>
     </dialog>
+    <section id="onboardingJourney" class="onboarding-journey" hidden aria-labelledby="journeyTitle">
+      <h2 id="journeyTitle">開通進度</h2>
+      <ol>
+        <li data-journey="submitted">1. 送出申請</li>
+        <li data-journey="approved">2. 總管理員審核</li>
+        <li data-journey="configured">3. 設定 LINE 與功能</li>
+        <li data-journey="verified">4. 平台開通與實測</li>
+        <li data-journey="live">5. 分享給用戶使用</li>
+      </ol>
+      <p>審核通過後即可設定 LINE；管理業務與用戶端需等平台開通並完成實測。本頁每 15 秒檢查審核與授權狀態，亦可手動重新檢查。</p>
+    </section>
     <section id="applicationWorkspace" hidden>
       <h2>申請商家管理員</h2>
       <p>使用 LINE 身分送出申請，由總管理員審核可使用的功能。</p>
@@ -91,12 +102,36 @@
         <button id="submitApplication" type="submit">提交審核申請</button>
       </form>
       <div id="applicationProgress" class="application-progress" hidden></div>
+      <p id="applicationNextStep" role="status" aria-live="polite"></p>
     </section>
     <section id="merchantWorkspace" hidden>
       <h2>我的商家管理頁面</h2>
       <p id="merchantInfo"></p>
       <p id="merchantReadiness" class="merchant-readiness" role="status" aria-live="polite"></p>
-      <p class="notice">總管理員只核准可使用的功能。每項 LINE 設定由本商家管理員自行管理；商家資料隔離完成前，所有業務操作仍維持停用。</p>
+      <section id="merchantLaunchStatus" class="launch-status" data-ready="false" aria-labelledby="launchTitle">
+        <h3 id="launchTitle">何時可以開始使用？</h3>
+        <p id="merchantLaunchMessage"></p>
+        <p>管理端：審核通過後可設定 LINE，業務操作尚未開放。用戶端：尚未開放。平台須完成商家專屬服務與實際 LINE 登入驗證；目前沒有預定開通時間。</p>
+        <div class="onboarding-actions"><button type="button" disabled>管理功能尚未開放</button><button type="button" disabled>用戶端尚未開放</button><button type="button" id="copySetupSummary" class="secondary">複製開通狀態給平台</button></div>
+        <p id="copySetupMessage" role="status" aria-live="polite"></p>
+      </section>
+      <section class="setup-checklist" aria-labelledby="checklistTitle">
+        <h3 id="checklistTitle">設定清單</h3><p>依已儲存資料檢查完整度；格式正確不代表 LINE 已連線成功。</p>
+        <div id="merchantChecklist"></div><button id="merchantNextAction" type="button">開始設定</button>
+      </section>
+      <details id="merchantSetupGuide" class="setup-guide">
+        <summary>不知道 LINE 資料去哪裡找？查看完整教學</summary>
+        <ol>
+          <li>開啟 <a href="https://developers.line.biz/console/" target="_blank" rel="noopener noreferrer">LINE Developers Console</a>，選擇商家擁有的 Provider。LINE Login 與 Messaging API Channel 必須在同一 Provider，才能對應同一用戶。</li>
+          <li>建立 LINE Login Channel，App types 選 Web app。在 <strong>Basic settings → Channel ID</strong> 複製登入 Channel ID。管理端、會員端可用同一 Login Channel；若使用不同 Channel，請分別填寫對應 ID。</li>
+          <li>在 <a href="https://manager.line.biz/" target="_blank" rel="noopener noreferrer">LINE Official Account Manager</a> 的設定啟用 Messaging API，選擇同一 Provider。回 LINE Developers 開啟該 Messaging API Channel，從 <strong>Basic settings</strong> 複製 Channel ID、Channel secret；從 <strong>Messaging API → Channel access token (long-lived) → Issue</strong> 取得 token。Secret 與 token 只填在下方密碼欄位，不要傳送給其他人。</li>
+          <li>開啟對應 LINE Login Channel 的 <strong>LIFF → Add</strong>，Size 選 Full，Scopes 勾選 openid、profile。每個已核准的用戶功能建立自己的 LIFF，將 LIFF ID 貼回該功能頁。LIFF ID 的數字前綴應等於該 Login Channel ID。</li>
+          <li><strong>Endpoint URL 需使用平台提供的商家專屬 HTTPS 網址。</strong>目前尚未提供商家專屬服務網址，請先向平台確認；不要填入共用 /admin/、/member/ 或任意加上商家參數。現有 LIFF 資料可以先保存，尚未建立者等專屬網址提供後再完成。</li>
+          <li>先儲存共用設定，再逐頁儲存已核准功能。平台開通後，需確認 Channel 已 Published、LIFF Endpoint 與功能相符，並以管理員及另一個測試用戶實際登入。完成後才能分享用戶連結或放入官方帳號選單。</li>
+        </ol>
+        <p class="hint">申請與設定仍使用本平台的管理員登入；你填入的商家管理端 LIFF 不會立即更換目前的登入入口。平台會在專屬服務開通時處理商家管理員身分綁定。</p>
+        <p><a href="https://developers.line.biz/en/docs/liff/registering-liff-apps/" target="_blank" rel="noopener noreferrer">LINE 官方 LIFF 設定說明</a> · <a href="https://developers.line.biz/en/docs/messaging-api/getting-started/" target="_blank" rel="noopener noreferrer">Messaging API 官方說明</a></p>
+      </details>
       <div id="merchantFeatures" class="tenant-features"></div>
       <nav id="merchantFeatureNav" class="merchant-feature-nav" aria-label="已授權功能的 LINE 設定"></nav>
       <form id="merchantLineForm">
@@ -125,6 +160,8 @@
         <section data-merchant-panel="integrations" hidden><h3>整合中心 — LINE 設定</h3><p>整合中心使用共用 Messaging API Channel 與伺服器憑證；不需建立額外 LIFF ID。</p></section>
         <section data-merchant-panel="testing" hidden><h3>測試 — LINE 設定</h3><p>測試功能沿用已設定的 LINE 測試入口與共用 Channel。測試工具的業務權限仍受商家隔離狀態限制。</p></section>
         <section data-merchant-panel="usage" hidden><h3>使用紀錄 — LINE 設定</h3><p>使用紀錄由已核准功能產生，不需額外的 LIFF ID；存取紀錄仍由伺服器驗證權限。</p></section>
+        <p id="merchantSyncStatus" class="hint" role="status" aria-live="polite"></p>
+        <button id="reloadMerchantSettings" type="button" class="secondary" hidden>捨棄草稿並載入最新設定</button>
         <p id="merchantMessage" role="status" aria-live="polite"></p>
         <button type="submit" id="saveMerchantLine">儲存此頁 LINE 設定</button>
       </form>

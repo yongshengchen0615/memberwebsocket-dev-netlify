@@ -1,4 +1,5 @@
 // Shared, server-side product control contract. No credentials belong in responses.
+import { merchantOnboarding } from './merchant-onboarding.mjs';
 export const FEATURES = Object.freeze({
   membership: '會員卡', points: '集點卡', events: '活動票券', calendar: '營運日曆',
   integrations: '整合中心', booking: '預約', testing: '測試', usage: '使用紀錄',
@@ -67,6 +68,8 @@ export function publicTenant(row) {
   return { id: row.id, name: row.name, slug: row.slug, ownerLineUserId: row.owner_line_user_id,
     features: row.features, line: row.line_config, status: row.status, version: row.version,
     credentialsConfigured: row.credentials_configured === true,
+    onboarding: merchantOnboarding({status:row.status,features:row.features,line:row.line_config,
+      credentialsConfigured:row.credentials_configured === true}),
     capabilities: {
       lineSettingsEnabled: row.status !== 'suspended',
       dataPlaneVerified,

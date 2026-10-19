@@ -23,6 +23,8 @@ test('AC-017/018 DOM + real handler/SQL: admin applies, root checks only grants,
   admin=await page(h);const d=admin.d;
   assert.deepEqual(admin.calls,['2010791619-vhevCvvD']);
   assert.match(d.querySelector('#applicationProgress').textContent,/等待總管理員審核/);
+  assert.match(d.querySelector('#onboardingJourney')?.textContent||'',/送出申請/);
+  assert.match(d.querySelector('#applicationNextStep')?.textContent||'',/總管理員/);
   assert.equal(d.querySelector('#applicationForm').hidden,true);assert.equal(d.querySelector('#merchantWorkspace').hidden,true);
   platform=await page(h,false);const p=platform.d;
   assert.match(p.querySelector('#applicationList').textContent,/商家管理員/);
@@ -32,6 +34,9 @@ test('AC-017/018 DOM + real handler/SQL: admin applies, root checks only grants,
   await waitFor(()=>p.querySelectorAll('#tenantList .tenant-card').length===1);
   assert.equal((await h.db.query('select credentials_configured from platform_private.tenants')).rows[0].credentials_configured,false);
   d.querySelector('#refreshApplication').click();await waitFor(()=>!d.querySelector('#merchantWorkspace').hidden);
+  assert.match(d.querySelector('#merchantSetupGuide')?.textContent||'',/LINE Developers/);
+  assert.match(d.querySelector('#merchantSetupGuide').textContent,/Basic settings/);
+  assert.equal(d.querySelector('#merchantLaunchStatus').dataset.ready,'false');
   assert.equal(d.querySelectorAll('#merchantFeatureNav [data-line-feature]').length,2);
   assert.equal(d.querySelector('#merchantFeatureNav [data-line-feature="booking"]'),null);
   const form=d.querySelector('#merchantLineForm');
@@ -46,6 +51,8 @@ test('AC-017/018 DOM + real handler/SQL: admin applies, root checks only grants,
   await waitFor(()=>d.querySelector('#merchantMessage').textContent.includes('已安全儲存'));
   const row=(await h.db.query('select line_config,features,version from platform_private.tenants')).rows[0];
   assert.equal(row.line_config.memberLiffId,h.tenant.line.memberLiffId);assert.equal(row.features.booking,false);assert.equal(row.version,3);
+  assert.match(d.querySelector('#merchantLaunchStatus').textContent,/平台/);
+  assert.match(d.querySelector('#merchantMessage').textContent,/尚未開放/);
   assert.deepEqual(admin.errors,[]);assert.deepEqual(platform.errors,[]);
  }finally{admin?.dom.window.close();platform?.dom.window.close();await h.db.close();}
 });
