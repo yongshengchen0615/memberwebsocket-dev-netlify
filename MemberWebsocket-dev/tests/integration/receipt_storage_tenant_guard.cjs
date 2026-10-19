@@ -44,7 +44,7 @@ test('AC-187-007: Storage guard authorizes real tenant members without bypassing
   await db.query(`insert into ${schemaA}.members(id,status) values ($1,'active')`,[memberA]);
   await db.query(`insert into ${schemaB}.members(id,status) values ($1,'active')`,[memberB]);
   const legacy = (await db.query(`insert into public.members(line_user_id,member_code,invite_code,status,membership_status,display_name,is_test_account)
-    values('qa-tenant-receipt','QASTORAGE','QASTORAGE0000','active','active','QA Fixture',true) returning id`)).rows[0].id;
+    values('qa-tenant-receipt','AAAA','AAAA000000','active','active','QA Fixture',true) returning id`)).rows[0].id;
   // This must fail with MEMBER_REMOVED on the original one-segment-only guard.
   await t.test('valid active tenant upload succeeds; legacy and unrelated bucket remain usable', async () => {
     await insert('booking-receipts', tenantA + '/' + memberA + '/accessible/receipt.jpg');
