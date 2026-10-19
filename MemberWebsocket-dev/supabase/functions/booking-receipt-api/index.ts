@@ -280,13 +280,15 @@ async function prepare(supabase:SupabaseClient,identity:Identity,member:any,body
   }
   const path=asText(prepared.objectPath,500);
   const signed=await supabase.storage.from(BUCKET).createSignedUploadUrl(path,{upsert:false});
-  if(signed.error||!signed.data?.token) {
+  if(signed.error||!signed.data?.token||!signed.data?.path) {
     await supabase.rpc("fail_booking_receipt_request",{p_receipt_id:prepared.receiptId,p_member_id:member.id,p_actor_line_user_id:identity.lineUserId,p_reason:"signed-upload-url-failed"});
     throw new ApiError(503,"RECEIPT_UPLOAD_UNAVAILABLE","目前無法建立安全上傳連結。");
   }
   return {
     receiptId:prepared.receiptId,
-    objectPath:path,
+    // The scoped Storage adapter prefixes the tenant UUID. Browsers upload
+    // directly, so they need the exact signed path, not the DB-relative path.
+    objectPath:signed.data.path,
     uploadToken:signed.data.token,
     uploadExpiresInSeconds:7200,
     alreadyPrepared:Boolean(prepared.alreadyPrepared),
