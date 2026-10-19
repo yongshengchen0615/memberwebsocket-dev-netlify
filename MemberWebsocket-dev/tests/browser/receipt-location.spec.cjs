@@ -117,7 +117,7 @@ async function open(page,run,mode='',accessible=true) {
   }
   await page.goto(base+'/receipt?run='+run+'&mode='+mode);
   expect(await page.evaluate(()=>typeof window.BookingSystem?.getSession)).toBe('function');
-  await page.evaluate(accessible=>accessible?window.BookingReceipts.openAccessible():window.BookingReceipts.openBooking('QA-BOOKING','version-1'),accessible);
+  await page.evaluate(({accessible,mode})=>accessible?window.BookingReceipts.openAccessible():window.BookingReceipts.openBooking(mode==='business-signed'?'40000000-0000-4000-8000-000000000004':'QA-BOOKING','version-1'),{accessible,mode});
 }
 
 test('snapshot positioning policy blocks denied GPS and successful retries send fresh evidence',async({page,context})=>{
