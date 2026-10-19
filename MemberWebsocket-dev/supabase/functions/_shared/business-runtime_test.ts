@@ -101,3 +101,41 @@ Deno.test('AC-ENV-002/003: request adapter reads only the action module credenti
   }
  }finally{Deno.env.get=previousEnv;globalThis.fetch=previous;}
 });
+
+Deno.test('AC-187-003: real Storage SDK keeps signed upload paths scoped and rejects token/path substitution',async()=>{
+ const {scope}=await import('./business-scope.ts');
+ const previous=globalThis.fetch,grants=new Map<string,string>(),objects=new Map<string,unknown>();
+ globalThis.fetch=(async(input:RequestInfo|URL,init?:RequestInit)=>{
+  const u=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url);
+  const prefix='/storage/v1/object/upload/sign/booking-receipts/';
+  assert(u.pathname.startsWith(prefix),'unexpected Storage operation');
+  const path=u.pathname.slice(prefix.length);
+  const reply=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json'}});
+  if(init?.method==='POST'){
+   assert(new Headers(init.headers).get('x-upsert')!=='true','receipt upload cannot overwrite existing objects');
+   const token='synthetic-'+grants.size;grants.set(token,path);
+   return reply({url:'/object/upload/sign/booking-receipts/'+path+'?token='+token});
+  }
+  if(grants.get(u.searchParams.get('token')||'')!==path)return reply({statusCode:'403',error:'Invalid upload signature',message:'Invalid upload signature'},403);
+  if(objects.has(path))return reply({statusCode:'409',error:'Duplicate',message:'Asset Already Exists'},409);
+  objects.set(path,init?.body);return reply({Key:'booking-receipts/'+path});
+ }) as typeof fetch;
+ try{
+  // The browser uses an unscoped publishable client; the API signs via its
+  // scoped service client. A token is usable only with the SDK-returned path.
+  const browser=createClient('https://runtime-fixture.supabase.co','sb_publishable_synthetic');
+  for(const tenant of [null,a,b]){
+   const sign=()=>createClient('https://runtime-fixture.supabase.co','server-only-fixture').storage.from('booking-receipts').createSignedUploadUrl('member/receipt.png',{upsert:false});
+   const result=tenant?await scope.run(tenant,sign):await sign();
+   assert(!result.error&&result.data);
+   const data=result.data!;assert(data.path===(tenant?tenant.id+'/':'')+'member/receipt.png');
+   const bad=await browser.storage.from('booking-receipts').uploadToSignedUrl('foreign/receipt.png',data.token,new Uint8Array([1]));
+   assert(bad.error,'signed token cannot authorize another tenant/path');
+   const uploaded=await browser.storage.from('booking-receipts').uploadToSignedUrl(data.path,data.token,new Uint8Array([1]));
+   assert(!uploaded.error,uploaded.error?.message);
+   const repeat=await browser.storage.from('booking-receipts').uploadToSignedUrl(data.path,data.token,new Uint8Array([2]));
+   assert(repeat.error,'replay cannot overwrite a receipt');
+  }
+  assert(objects.size===3,'legacy and the two tenants have distinct stored objects');
+ }finally{globalThis.fetch=previous;}
+});

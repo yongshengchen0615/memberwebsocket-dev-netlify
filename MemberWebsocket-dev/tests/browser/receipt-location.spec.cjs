@@ -3,6 +3,9 @@ const http=require('node:http');
 const fs=require('node:fs');
 const path=require('node:path');
 const root=path.resolve(__dirname,'../..');
+const receiptUploadFixture=require('../helpers/receipt-upload-fixture.cjs');
+const signedRuns=new Map();
+const tenantId='10000000-0000-4000-8000-000000000001';
 let server,base;
 const runs=new Map();
 const fixtureScripts=new Map();
@@ -19,7 +22,7 @@ function shell(surface,run,mode) {
     async function request(_config,_type,_token,action,payload={}){const response=await fetch('/api?run='+run+'&mode='+mode,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,payload})});const body=await response.json();if(!response.ok)throw Object.assign(new Error(body.message),{code:body.code});return body;}
     const config={supabaseUrl:location.origin,supabasePublishableKey:'local-fixture'};
     window.BookingSystem={getSession:()=>({config,idToken:'local-fixture'}),request,claimEventTicket:(_config,_token,eventTicketId)=>request(config,'booking','local-fixture','user.booking.event-ticket.claim',{eventTicketId})};
-    window.supabase={createClient:()=>({storage:{from:()=>({uploadToSignedUrl:async(objectPath,token,file,options)=>{const response=await fetch('/upload?run='+run+'&token='+token,{method:'PUT',headers:{'Content-Type':options.contentType},body:file});return {error:response.ok?null:Object.assign(new Error('Upload unavailable'),{code:'RECEIPT_UPLOAD_UNAVAILABLE'})};}})}})};
+    window.supabase={createClient:()=>({storage:{from:()=>({uploadToSignedUrl:async(objectPath,token,file,options)=>{const response=await fetch('/upload?run='+run+'&token='+token+'&path='+encodeURIComponent(objectPath),{method:'PUT',headers:{'Content-Type':options.contentType},body:file});return {error:response.ok?null:Object.assign(new Error('Upload unavailable'),{code:'RECEIPT_UPLOAD_UNAVAILABLE'})};}})}})};
     window.addEventListener('booking:accessible-receipt-submitted',()=>window.fixtureEvents++);
     window.MemberSystem={loadConfig:async()=>config,signIn:async()=> 'local-fixture',request,subscribeRealtime:()=>()=>{},bindDialogKeyboard(){}};
     window.MembershipProgress={render(){}};
@@ -39,13 +42,19 @@ test.beforeAll(async()=>{
       if(url.pathname==='/api'||url.pathname==='/upload') {
         const chunks=[];for await(const chunk of req)chunks.push(chunk);const data=Buffer.concat(chunks),state=runs.get(run);
         if(url.pathname==='/upload') {
-          state.uploads.push({size:data.length,type:req.headers['content-type'],jpeg:data[0]===255&&data[1]===216,token:url.searchParams.get('token')});
+          if(signedRuns.has(run)){try{signedRuns.get(run).upload(url.searchParams.get('path'),url.searchParams.get('token'),data);}catch(error){return json(res,{message:error.message},400);}}
+          state.uploads.push({objectPath:url.searchParams.get('path'),size:data.length,type:req.headers['content-type'],jpeg:data[0]===255&&data[1]===216,token:url.searchParams.get('token')});
           if(url.searchParams.get('mode')==='unused')return json(res,{},503);
           return json(res,{});
         }
         const {action,payload}=JSON.parse(data);
         if(action==='user.booking.receipt.prepare') {
-          state.prepare.push(payload);return json(res,{receiptId:'QA-RECEIPT',objectPath:'qa/receipt.jpg',uploadToken:'qa-token'});
+          state.prepare.push(payload);
+          if(url.searchParams.get('mode')==='business-signed'){
+            const f=receiptUploadFixture(tenantId);signedRuns.set(run,f);
+            return json(res,await f.prepare(payload));
+          }
+          return json(res,{receiptId:'QA-RECEIPT',objectPath:'qa/receipt.jpg',uploadToken:'qa-token'});
         }
         if(action==='user.booking.receipt.finalize') {
           state.finalize.push(payload);state.status='awaiting_review';
@@ -366,4 +375,18 @@ test('snapshot blocks cumulative point overspend and configured ticket quantity 
  await page.locator('#bookingReceiptSubmit').click();
  await expect(page.locator('#bookingReceiptModal')).toBeHidden();
  expect(runs.get(run).prepare[0].benefits).toEqual([{kind:'points',id:'QA-P3'}]);
+});
+
+for(const accessible of [true,false])test(`AC-187: business ${accessible?'snapshot':'booking'} signed path reaches awaiting review`,async({page},info)=>{
+  const run='business-signed-'+accessible;
+  await open(page,run,'business-signed',accessible);
+  await capture(page);
+  await page.locator('#bookingReceiptSubmit').click();
+  await expect(page.locator('#bookingReceiptModal')).toBeHidden();
+  const state=runs.get(run),f=signedRuns.get(run);
+  expect(state.prepare).toHaveLength(1);expect(state.uploads).toHaveLength(1);expect(state.finalize).toHaveLength(1);
+  expect(state.uploads[0].objectPath).toBe(tenantId+'/'+f.storedPath());
+  expect(f.uploaded.size).toBe(1);expect(state.status).toBe('awaiting_review');
+  expect(await page.evaluate(()=>fixtureStreams.every(s=>s.getTracks().every(t=>t.readyState==='ended')))).toBe(true);
+  await page.screenshot({path:info.outputPath('business-snapshot-submitted.png')});
 });
