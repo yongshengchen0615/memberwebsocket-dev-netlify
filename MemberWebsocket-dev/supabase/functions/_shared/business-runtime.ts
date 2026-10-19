@@ -88,7 +88,7 @@ async function credentials(c:Context,feature?:string){
 }
 export async function withBusinessModule<T>(feature:string,run:()=>Promise<T>):Promise<T>{
  const current=scope.getStore();if(!current)return run();
- const c={...current,credentials:undefined};
+ const c:Context={...current,credentials:undefined};
  if(c.features?.[feature]!==true)throw Object.assign(Error('此功能已停用。'),{code:'FEATURE_DISABLED',status:403});
  await credentials(c,feature);return scope.run(c,run);
 }
