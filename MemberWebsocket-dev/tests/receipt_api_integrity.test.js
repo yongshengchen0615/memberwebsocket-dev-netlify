@@ -22,7 +22,7 @@ for (const status of ['pending_upload','awaiting_review','bound']) {
     vm.runInContext(stripTypeScriptTypes(source.slice(source.indexOf('function effectiveSettlement('),source.indexOf('async function adminList('))+code),context);
     const db = {
       rpc:async () => ({ data:{ status,receiptId:'receipt',objectPath:'object',alreadyPrepared:true },error:null }),
-      storage:{ from:() => ({ createSignedUploadUrl:async (path,options) => { signed.push({ path,upsert:options.upsert }); return { data:{ token:'fixture' } }; } }) },
+      storage:{ from:() => ({ createSignedUploadUrl:async (path,options) => { signed.push({ path,upsert:options.upsert }); return { data:{ token:'fixture',path } }; } }) },
     };
     const result = await context.prepare(db,{},member,body);
     if (status === 'pending_upload') {
