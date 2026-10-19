@@ -46,3 +46,16 @@ test('deployment changes trigger the same full suite on PR and develop push', ()
     assert.match(source, /'scripts\/\*\*'/);
   }
 });
+
+test('AC-009: tests cannot replace the exact release build commit badge with local', () => {
+  const contract = flow.indexOf('- name: Verify static build and deployment contracts');
+  const releaseBuild = flow.indexOf('- name: Build the exact develop commit');
+  const releaseCheck = flow.indexOf('- name: Verify final commit-pinned static output');
+  const artifact = flow.indexOf('- name: Retain the exact production bundle for recovery');
+  const deploy = flow.indexOf('- name: Publish the verified bundle');
+  assert.ok(contract >= 0 && contract < releaseBuild && releaseBuild < releaseCheck
+    && releaseCheck < artifact && artifact < deploy,
+    'contract tests run first, final pinned build is last before artifact and deploy');
+  assert.match(flow, /COMMIT_REF: \$\{\{ github\.sha \}\}/);
+  assert.match(flow, /grep -Fq "data-commit=.*dist\/points\/index\.html/);
+});

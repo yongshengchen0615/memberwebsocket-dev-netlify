@@ -30,15 +30,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      # deploy.test.mjs executes build-site.mjs itself. Run it before the
+      # release build so it cannot overwrite the commit badge with "local".
+      - name: Verify static build and deployment contracts
+        run: node --test scripts/deploy.test.mjs scripts/netlify-publish-workflow.test.mjs
       - name: Build the exact develop commit
         env:
           COMMIT_REF: ${{ github.sha }}
         run: node scripts/build-site.mjs
-      - name: Verify deployable static output
+      - name: Verify final commit-pinned static output
+        shell: bash
         run: |
-          node --test scripts/deploy.test.mjs scripts/netlify-publish-workflow.test.mjs
+          set -euo pipefail
           grep -Fq 'booking-multi-details-20261017-1' dist/points/index.html
           grep -Fq 'bookingById' dist/points/pointcard-ticket-overview.js
+          grep -Fq "data-commit=\"${GITHUB_SHA:0:7}\"" dist/points/index.html
       - name: Retain the exact production bundle for recovery
         uses: actions/upload-artifact@v4
         with:
