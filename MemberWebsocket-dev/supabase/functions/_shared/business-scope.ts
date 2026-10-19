@@ -4,6 +4,7 @@ export const scope=new AsyncLocalStorage<Context>();
 export const businessContext=()=>scope.getStore();
 export const rawEnv=(name:string)=>(Deno.env.get(name)||'').trim();
 export function businessEnv(name:string):string|undefined {
+ if(name==='ALLOWED_ORIGINS')return [rawEnv(name)||'https://yongshengchen0615.github.io','https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app','https://platform--memberwebsocket-dev-netlify.netlify.app'].join(',');
  const c=scope.getStore();if(!c)return Deno.env.get(name);
  if(name==='LINE_ADMIN_CHANNEL_ID')return c.customLineReady?c.line_config?.adminChannelId||rawEnv(name)||'2010791619':rawEnv(name)||'2010791619';
  if(/^LINE_(MEMBER|POINTS|EVENT|CALENDAR|BOOKING)_CHANNEL_ID$/.test(name))return c.customLineReady?c.line_config?.memberChannelId||Deno.env.get(name):Deno.env.get(name);

@@ -1,4 +1,4 @@
-import { businessEnv } from '../_shared/business-scope.ts';
+import { businessEnv, businessHandler } from '../_shared/business-runtime.ts';
 import { hasCurrentTermsConsent } from "../_shared/membership-terms.ts";
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
@@ -316,5 +316,5 @@ async function handleRequest(request: Request): Promise<Response> {
   }
 }
 
-export default { fetch: handleRequest };
+export default { fetch: businessHandler('event-ticket-links', handleRequest) };
 
