@@ -241,7 +241,7 @@
       state.tenants=[result.tenant,...state.tenants.filter(x=>x.id!==result.tenant.id)];
       state.applications=state.applications.map(x=>x.id===state.approval.applicationId?{...x,status:'approved'}:x);
       state.approval=null;approvalDialog.close();render();renderApplications();
-      el('platformStatus').textContent='已審核通過；一般管理員的管理頁會更新授權，現在可設定 LINE。LINE 設定完成後，仍需平台開通商家專屬服務並完成實測，才可讓用戶使用。';
+      el('platformStatus').textContent='已審核通過；已核准的管理功能與用戶端已開放，一般管理員可在管理工作台各功能區塊設定 LINE。';
     }catch(error){
       el('approvalMessage').textContent=error.message;
       if(!error.uncertain)state.approval.features=null;
@@ -395,8 +395,11 @@
       :application?.status==='rejected'?'請確認商家資料後重新提交；如需了解原因，請聯絡總管理員。':'填寫商家資料並提交，由總管理員審核。';
     if(!data.tenant)return;
     const tenant=data.tenant;
-    if(tenant.onboarding?.adminReady&&location.pathname==='/admin/'&&!new URLSearchParams(location.search).has('business')){
-      location.replace('/admin/?business='+encodeURIComponent(tenant.slug));return;
+    if(tenant.onboarding?.adminReady&&['/admin/','/admin/workspace.html'].includes(location.pathname)&&!new URLSearchParams(location.search).has('business')){
+      const target=new URL('/admin/',location.origin);target.searchParams.set('business',tenant.slug);
+      const requested=new URLSearchParams(location.search).get('feature');
+      if(tenant.features[requested]===true)target.searchParams.set('feature',requested);
+      location.replace(target.href);return;
     }
     el('merchantInfo').textContent=tenant.name+' · '+tenant.slug+' · '+(tenant.credentialsConfigured?'LINE 憑證已保存':'尚未設定 LINE 憑證');
     const readiness=el('merchantReadiness');

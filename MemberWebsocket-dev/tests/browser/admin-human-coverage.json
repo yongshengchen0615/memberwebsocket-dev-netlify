@@ -4,7 +4,7 @@
   "evidence": "isolated Chromium UI with production handlers and explicit in-memory transport; not live Supabase/LINE delivery",
   "portalIntegrationReview": "2026-10-19: Approval now provisions isolated business data and opens the existing admin/member runtime. BUSINESS_APPROVAL_ACTIVATES in business-activation.spec.cjs covers real approval SQL, ready links and grant-scoped admin navigation; the existing human CRUD case inventory is retained. business-runtime.cjs tests data/FK/login/storage isolation and business-runtime_test.ts exercises the production request adapter, fresh grants and concurrent routing. LINE providers and external browser business HTTP use explicit fixture transports; no live LINE delivery claim.",
   "reviewedSources": {
-    "admin/index.html": "6d54dc23b68bd1076b4dc4e531cb06e72af791fb332118b9edc3d4f12c8c60f4",
+    "admin/index.html": "212d4aab945daec35f19a3069e09eaa30f744fe9102f58512b32570ac646e91a",
     "admin/app.js": "83e4359ec62ede92d4607bcd718f90f869b2806406c0a76b3bb838c172db494e",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
@@ -26,9 +26,10 @@
     "admin/ticket-visibility.js": "bb1cf776a3bf1c69f75bbfa6a4b3e07cf9c9077444099533cb9c2883736dd5c0",
     "admin/operation-audit.js": "2ecd1161e533d56b17a6f89d1907bef384e96a932f81027d6e6178bdcce5a96e",
     "admin/workspace.html": "2f42516fd179c5ca32be135ca288d0bed36a841b5e2af16fa00c01575355b307",
-    "platform/app.js": "d16e40cf93d49328645c8635f3634f6377ab6ce790e82e16c9c29c1f513b7174",
-    "admin/business-workspace.js": "b8eb2836a02cc21c4c5a66ed2502cf4ae611a9b562cfe316fdc114d293dcdc35",
-    "business-context.js": "63a2a9ac097d620578361badcb5cac8fdaea2ce03f132d1f2d68bf25a33cce4c"
+    "platform/app.js": "f7d60ff1e7de1f814977847003fe14c3e97663fde94c1cf447d6ec10299f89de",
+    "admin/business-workspace.js": "acaa1f2a3d715f684e7aae802dced3a337a8d4929042c30af6120b1103048eaf",
+    "business-context.js": "63a2a9ac097d620578361badcb5cac8fdaea2ce03f132d1f2d68bf25a33cce4c",
+    "admin/business-line-settings.js": "a9b408715ea29ae8b7f390610a7103cd994694e57d6ff443a9c1a8031ac22462"
   },
   "features": [
     {
@@ -611,5 +612,17 @@
       "PLATFORM_ADMIN_TOP_GRANTS"
     ],
     "scope": "Product admin entry, automatic idempotent application, root grants and owner LINE settings; existing legacy journeys use their explicit legacy fixture. Super-admin permission denial shows a manual database review checklist; only an explicit synthetic DB grant restores login. Merchant header hides all unauthorized business modules, including URL-forged features; display never overrides server-side denial."
-  }
+  },
+  "businessFeatureJourneys": [
+    {
+      "source": "business-activation.spec.cjs",
+      "case": "BUSINESS_APPROVAL_ACTIVATES",
+      "scope": "核准後直接進入管理工作台；逐功能 LINE 設定、獨立儲存、憑證清空、商家專屬入口與手機版"
+    },
+    {
+      "source": "product-platform.spec.cjs",
+      "case": "PLATFORM_UNIFIED_PORTALS",
+      "scope": "總管理端不提供一般管理員與用戶端跨端連結"
+    }
+  ]
 }

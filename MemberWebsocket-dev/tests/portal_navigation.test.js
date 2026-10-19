@@ -26,14 +26,14 @@ function documentFor(surface) {
   };
   return { document, nodes, listeners };
 }
-test('AC-030: independent entrances use one accessible navigation and exactly one active role', () => {
+test('AC-030/AC-301: navigation stays within the current role and never exposes cross-role entrances', () => {
   for (const surface of ['platform', 'admin', 'member']) {
     const { document, nodes } = documentFor(surface);
     vm.runInNewContext(script, { document });
     assert.equal(nodes.length, 1);
     assert.equal(nodes[0].attributes['aria-label'].includes('獨立驗證'), true);
     const links = nodes[0].children.filter(item => item.name === 'a');
-    assert.deepEqual(links.map(item => item.href), ['/platform/', '/admin/', '/member/']);
+    assert.deepEqual(links.map(item => item.href), [{platform:'/platform/',admin:'/admin/',member:'/member/'}[surface]]);
     assert.equal(links.filter(item => item.attributes['aria-current'] === 'page').length, 1);
     assert.equal(links.find(item => item.attributes['aria-current'] === 'page').href,
       { platform:'/platform/', admin:'/admin/', member:'/member/' }[surface]);
@@ -45,9 +45,9 @@ test('AC-104: productized admin never links into the legacy unscoped member runt
   const {document,nodes,listeners}=documentFor('admin');
   vm.runInNewContext(script,{document});
   const member=nodes[0].children.find(node=>node.dataset.portalEntry==='member');
-  assert.equal(member.hidden,undefined);
+  assert.equal(member,undefined);
   document.documentElement.dataset.productizedAdmin='true';listeners['productized-admin-ready']();
-  assert.equal(member.hidden,true);
+  assert.equal(nodes[0].children.some(node=>node.dataset.portalEntry==='member'),false);
 });
 test('AC-031: unknown surfaces never inject role navigation', () => {
   const { document, nodes } = documentFor('unknown');

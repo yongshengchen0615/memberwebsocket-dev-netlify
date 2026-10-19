@@ -45,7 +45,19 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       }
       if (typeof body.idToken !== 'string' || !body.idToken || body.idToken.length > 10_000) throw new PlatformError(401,'AUTH_REQUIRED','請使用 LINE 帳號登入。');
       const applicantAction = ['platform.application.bootstrap','platform.application.ensure','platform.application.submit','platform.line.save'].includes(body.action);
-      const identity = await (applicantAction ? verifyApplicantIdentity : verifyIdentity)(body.idToken);
+      let trustedChannel;
+      if (applicantAction && body.business !== undefined) {
+        if (typeof body.business !== 'string' || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(body.business) || body.business.length > 40)
+          throw new PlatformError(400,'INVALID_BUSINESS','商家入口格式不正確。');
+        const context = await db.rpc('platform_business_context',{p_actor:null,p_slug:body.business});
+        if (context.error) throw databaseError(context.error);
+        if (!context.data) throw new PlatformError(403,'BUSINESS_FORBIDDEN','無法存取此商家設定。');
+        const business = publicTenant(context.data);
+        if (!business.capabilities.dataPlaneVerified) throw new PlatformError(403,'TENANT_SUSPENDED','此商家尚未開放或已停用。');
+        // Match the login channel used by BusinessContext; never trust a request's channel ID.
+        if (business.onboarding.configurationComplete) trustedChannel = business.line.adminChannelId;
+      }
+      const identity = await (applicantAction ? verifyApplicantIdentity : verifyIdentity)(body.idToken, trustedChannel);
       const actor = identity.lineUserId;
       const readOnly = ['platform.bootstrap','platform.application.bootstrap'].includes(body.action);
       const rate = await db.rpc('consume_api_rate_limit',{p_principal_hash:await payloadHash(`platform:${actor}`),
@@ -56,6 +68,8 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         const result = await db.rpc('platform_my_application',{p_actor:actor});
         if (result.error) throw databaseError(result.error);
         const application = result.data || null;
+        if (body.business !== undefined && application?.tenant?.slug !== body.business)
+          throw new PlatformError(403,'BUSINESS_FORBIDDEN','無法存取其他商家的設定。');
         return {application:application && {...application,tenant:undefined},
           tenant:application?.tenant ? publicTenant(application.tenant) : null};
       };
@@ -94,6 +108,14 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         if (workspace.tenant.status === 'suspended')
           throw new PlatformError(403,'TENANT_SUSPENDED','此商家已被停用。');
         const current = workspace.tenant;
+        if (body.feature !== undefined) {
+          const key = {membership:'memberLiffId',points:'pointsLiffId',events:'eventLiffId',calendar:'calendarLiffId',booking:'bookingLiffId'}[body.feature];
+          if (!key || current.features[body.feature] !== true)
+            throw new PlatformError(403,'FEATURE_DISABLED','此功能尚未核准，無法修改 LINE 設定。');
+          for (const other of ['memberLiffId','pointsLiffId','eventLiffId','calendarLiffId','bookingLiffId'])
+            if (other !== key && String(body.line?.[other] ?? '') !== String(current.line?.[other] ?? ''))
+              throw new PlatformError(400,'LINE_FEATURE_SCOPE','請只修改本功能的 LIFF 設定。');
+        }
         // Disabled feature LIFF IDs are immutable to the merchant, even via a forged request.
         // Existing legacy values may be preserved but not altered without root approval.
         const featureLiffs = {membership:'memberLiffId',points:'pointsLiffId',events:'eventLiffId',calendar:'calendarLiffId',booking:'bookingLiffId'};
