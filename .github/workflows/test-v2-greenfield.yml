@@ -1,0 +1,107 @@
+name: V2 Greenfield Security And Functional Tests
+
+on:
+  push:
+    branches:
+      - feature/supabase-v2-greenfield
+    paths:
+      - 'MemberWebsocket-dev/v2/**'
+      - 'MemberWebsocket-dev/supabase/functions/_shared/platform-v2-handler.mjs'
+      - 'MemberWebsocket-dev/supabase/functions/platform-v2/**'
+      - 'MemberWebsocket-dev/supabase/plans/p1_control_plane_schema_sandbox_ONLY.sql'
+      - 'MemberWebsocket-dev/tests/platform_v2.test.js'
+      - 'MemberWebsocket-dev/tests/v2_build.test.js'
+      - 'MemberWebsocket-dev/tests/integration/platform_v2.cjs'
+      - 'MemberWebsocket-dev/tests/browser/v2-platform.spec.cjs'
+      - 'scripts/build-v2-site.mjs'
+      - 'netlify.toml'
+      - '.github/workflows/test-v2-greenfield.yml'
+  pull_request:
+    paths:
+      - 'MemberWebsocket-dev/v2/**'
+      - 'MemberWebsocket-dev/supabase/functions/_shared/platform-v2-handler.mjs'
+      - 'MemberWebsocket-dev/supabase/functions/platform-v2/**'
+      - 'MemberWebsocket-dev/tests/platform_v2.test.js'
+      - 'MemberWebsocket-dev/tests/v2_build.test.js'
+      - 'MemberWebsocket-dev/tests/integration/platform_v2.cjs'
+      - 'MemberWebsocket-dev/tests/browser/v2-platform.spec.cjs'
+      - 'scripts/build-v2-site.mjs'
+      - 'netlify.toml'
+      - '.github/workflows/test-v2-greenfield.yml'
+permissions:
+  contents: read
+concurrency:
+  group: v2-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  sql-and-node:
+    name: V2 Postgres, Auth, Crypto and Clean Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: MemberWebsocket-dev/tests/integration/package-lock.json
+      - name: Install pinned PGlite dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund --prefix MemberWebsocket-dev/tests/integration
+      - name: Test V2 and require nonzero test cases
+        run: |
+          node --test --test-reporter=spec \
+            MemberWebsocket-dev/tests/platform_v2.test.js \
+            MemberWebsocket-dev/tests/v2_build.test.js \
+            MemberWebsocket-dev/tests/integration/platform_v2.cjs
+      - name: Check new browser module syntax
+        run: |
+          node --check MemberWebsocket-dev/v2/assets/app.js
+          node --check MemberWebsocket-dev/v2/assets/client.js
+          node --check scripts/build-v2-site.mjs
+          node --check MemberWebsocket-dev/supabase/functions/_shared/platform-v2-handler.mjs
+  edge-typecheck:
+    name: V2 Deno Edge Function Typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno check MemberWebsocket-dev/supabase/functions/platform-v2/index.ts
+  browser:
+    name: V2 Chromium Merchant And Platform E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: MemberWebsocket-dev/tests/browser/package-lock.json
+      - name: Install pinned browser dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund --prefix MemberWebsocket-dev/tests/browser
+      - name: Install pinned SQL fixture dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund --prefix MemberWebsocket-dev/tests/integration
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium --only-shell
+        working-directory: MemberWebsocket-dev/tests/browser
+      - name: New site merchant, super admin, mobile deny fallback
+        run: npm test -- v2-platform.spec.cjs
+        working-directory: MemberWebsocket-dev/tests/browser
+  gate:
+    name: V2 Complete Test Gate
+    if: always()
+    needs: [sql-and-node,edge-typecheck,browser]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every V2 test layer must succeed
+        env:
+          SQL_NODE: ${{ needs.sql-and-node.result }}
+          EDGE: ${{ needs.edge-typecheck.result }}
+          BROWSER: ${{ needs.browser.result }}
+        run: |
+          test "$SQL_NODE" = success
+          test "$EDGE" = success
+          test "$BROWSER" = success

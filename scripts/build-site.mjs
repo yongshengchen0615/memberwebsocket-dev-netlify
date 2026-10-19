@@ -7,7 +7,7 @@ import { formatBuildVersion } from './build-version.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = path.join(root, 'MemberWebsocket-dev');
 const output = path.join(root, 'dist');
-const publicDirectories = new Set(['admin', 'platform', 'booking', 'calendar', 'event', 'member', 'points', 'vendor']);
+const publicDirectories = new Set(['admin', 'platform', 'booking', 'calendar', 'event', 'member', 'points', 'vendor', 'v2']);
 const publicFile = /\.(?:html|css|js|json|svg|png|jpe?g|webp|gif|ico|txt|woff2?)$/i;
 
 await rm(output, { recursive: true, force: true });
@@ -39,6 +39,9 @@ const entryPages = [
   'calendar/index.html',
   'booking/index.html',
   'booking/admin/index.html',
+  'v2/index.html',
+  'v2/admin/index.html',
+  'v2/platform/index.html',
 ];
 for (const entry of entryPages) {
   const page = path.join(output, entry);

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-Hant"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101827">
+<title>商家工作台 · MemberOS V2</title>
+<link rel="stylesheet" href="../assets/main.css">
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
+<script type="module" src="../assets/app.js"></script>
+</head><body data-page="admin">
+<a class="skip" href="#main">跳至主要內容</a>
+<header class="nav"><a class="brand" href="../"><span class="logo">M</span><span>MemberOS <small>ADMIN</small></span></a><span class="pill">商家專屬工作台</span></header>
+<main id="main" class="dashboard"><div class="eyebrow">MERCHANT WORKSPACE</div>
+<h1>開始經營您的會員關係。</h1><p class="lead">提出申請後，由平台核准可使用的功能。您只需要設定獲准頁面的 LINE 資訊。</p>
+<div class="notice" role="status" aria-live="polite" id="notice">正在檢查 V2 平台設定…</div>
+<section class="panel auth" id="auth"><div><h2>使用 LINE 確認身分</h2><p>不與舊版會員系統共用登入狀態或資料庫。</p></div><button id="signIn" class="primary" type="button" disabled>LINE 登入</button></section>
+<section id="workspace" class="hidden" aria-label="商家狀態"><div class="summary"><div><span class="eyebrow">YOUR APPLICATION</span><h2 id="businessName">商家申請</h2><p id="businessStatus">正在取得申請進度…</p></div><span id="statusChip" class="status">待審核</span></div>
+<form id="applicationForm" class="panel hidden" autocomplete="off"><h3>修改申請資料</h3><label>商家名稱<input id="applyName" required maxlength="100" placeholder="例如：星光美學"/></label><label>商家代碼<input id="applySlug" required maxlength="40" pattern="[a-z][a-z0-9-]{2,39}" placeholder="starlight-beauty"/></label><button type="submit" class="primary">送出申請</button></form>
+<div class="section-heading"><h2>功能與 LINE 設定</h2><p>未核准的功能無法設定。業務功能須完成獨立專案佈建及資料隔離才會開通。</p></div>
+<div id="featureGrid" class="feature-grid"></div>
+<form id="lineForm" class="panel hidden" autocomplete="off"><div class="form-heading"><h3 id="lineTitle">LINE 設定</h3><button class="quiet" id="closeLine" type="button">關閉</button></div><input type="hidden" id="lineFeature"/>
+<div class="field-grid"><label>LINE Login Channel ID<input id="lineChannel" inputmode="numeric" required pattern="[0-9]{5,30}"/></label><label>LIFF ID<input id="lineLiff" required placeholder="ChannelID-..."/></label><label>Messaging Channel ID<input id="lineMessaging" inputmode="numeric" required pattern="[0-9]{5,30}"/></label></div>
+<p class="hint">憑證欄位留空代表沿用已保存的密文；首次設定必須同時填入兩項。</p>
+<div class="field-grid"><label>Channel access token<input id="lineToken" type="password" autocomplete="new-password" spellcheck="false"/></label><label>Channel secret<input id="lineSecret" type="password" autocomplete="new-password" spellcheck="false"/></label></div>
+<button class="primary" type="submit">安全儲存設定</button></form></section>
+<footer class="footer">MemberOS V2 · 所有功能授權由伺服器重新檢查</footer></main></body></html>

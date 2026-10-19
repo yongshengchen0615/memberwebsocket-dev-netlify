@@ -28,3 +28,10 @@
 # Opt-in full baseline on PR 17; production keeps the static build above.
 [context.deploy-preview]
   command = "node scripts/verify-preview.mjs"
+
+# Only this development branch serves the brand-new V2 application.
+# The production branch continues to serve the existing site until data migration
+# and all acceptance/security tests pass. No legacy assets are included in V2 dist.
+[context."feature/supabase-v2-greenfield"]
+  command = "node scripts/build-v2-site.mjs"
+  publish = "dist"
