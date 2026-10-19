@@ -1,4 +1,4 @@
-import { SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import { SupabaseClient } from '../_shared/business-runtime.ts';
 import { ApiError, asText, Json } from "./shared.ts";
 
 export function requireUuid(value: unknown): string {

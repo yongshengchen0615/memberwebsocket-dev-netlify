@@ -1,8 +1,9 @@
+import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
 import { hasCurrentTermsConsent } from "../_shared/membership-terms.ts";
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract } from "../_shared/auth-contract.ts";
 import { resolveUserTestIdentity, TestModeAuthError } from "../_shared/test-mode-auth.ts";
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 import { currentBusinessDate } from "../_shared/booking-hours.ts";
 
 type Json = Record<string, unknown>;
@@ -28,7 +29,7 @@ class ApiError extends Error {
 }
 
 function env(name: string): string {
-  return (Deno.env.get(name) || "").trim();
+  return (businessEnv(name) || "").trim();
 }
 
 function allowedOrigins(): Set<string> {
@@ -246,7 +247,7 @@ async function loadCalendar(supabase: SupabaseClient, month: string, memberId: s
   };
 }
 
-Deno.serve(async (request) => {
+serveBusiness('booking-calendar-api',async (request) => {
   const origin = request.headers.get("origin");
   if (origin && !allowedOrigins().has(origin)) {
     return response(null, { ok: false, error: { code: "ORIGIN_NOT_ALLOWED", message: "不允許的來源。" } }, 403);

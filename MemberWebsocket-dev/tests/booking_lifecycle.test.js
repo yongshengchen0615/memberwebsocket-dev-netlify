@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
+const fs = require('./helpers/edge-test-fs.cjs');
 const vm = require('node:vm');
 const { stripTypeScriptTypes } = require('node:module');
 const { localTimestamp } = require('../supabase/functions/_shared/booking-hours.ts');

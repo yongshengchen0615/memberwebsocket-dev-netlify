@@ -1,5 +1,5 @@
-// Describes saved configuration, never grants access. The existing product
-// runtime has no isolated business APIs, so no URL or ready flag is emitted.
+// LINE readiness is separate from approved business access. runtimeReady is
+// derived by the server from an actually provisioned private namespace.
 const featureLiffs = Object.freeze({membership:'memberLiffId',points:'pointsLiffId',events:'eventLiffId',calendar:'calendarLiffId',booking:'bookingLiffId'});
 const featureKeys = ['membership','points','events','calendar','integrations','booking','testing','usage'];
 const channel = value => typeof value === 'string' && /^\d{5,30}$/.test(value);
@@ -21,16 +21,18 @@ export function merchantOnboarding(tenant = {}) {
   const configured = Object.values(features).filter(item => item.configured).length;
   const configurationComplete = commonMissing.length === 0 && count > 0 && count === configured;
   const suspended = tenant.status === 'suspended';
+  const runtimeReady=tenant.runtimeReady===true&&!suspended;
+  for(const [key,value] of Object.entries(features))value.userReady=runtimeReady&&Object.hasOwn(featureLiffs,key);
   return {
-    stage:suspended ? 'suspended' : !count ? 'awaiting_grants'
+    stage:suspended ? 'suspended' : !count ? 'awaiting_grants' : runtimeReady?'ready'
       : configurationComplete ? 'awaiting_platform' : 'configuration_required',
     commonMissing,features,grantedCount:count,configuredCount:configured,configurationComplete,
     nextOwner:suspended || !count || configurationComplete ? 'platform' : 'merchant',
     blockers:suspended ? ['TENANT_SUSPENDED'] : [
       ...(!count ? ['FEATURE_GRANTS_REQUIRED'] : []),
       ...(!configurationComplete ? ['LINE_CONFIGURATION_INCOMPLETE'] : []),
-      'BUSINESS_RUNTIME_UNAVAILABLE','LINE_LIVE_VERIFICATION_REQUIRED',
+      ...(!runtimeReady?['BUSINESS_RUNTIME_UNAVAILABLE']:[]),
     ],
-    adminReady:false,userReady:false,
+    adminReady:runtimeReady&&count>0,userReady:runtimeReady&&Object.values(features).some(f=>f.userReady),
   };
 }

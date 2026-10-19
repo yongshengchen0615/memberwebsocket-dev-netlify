@@ -52,7 +52,7 @@ export function validateTenant(input, creating = true, { allowIncompleteFeatureL
   return { name, slug, ownerLineUserId, features: Object.fromEntries(Object.keys(FEATURES).map(k => [k, features[k]])), line: normalized, credentials: { channelAccessToken, channelSecret } };
 }
 export function requireFeature(tenant, feature) {
-  if (!tenant || tenant.status !== 'active' || !tenant.isolation_verified_at) {
+  if (!tenant || tenant.status !== 'active' || !tenant.isolation_verified_at || !/^business_[a-f0-9]{32}$/.test(tenant.runtime_schema||'')) {
     throw new PlatformError(409, 'TENANT_NOT_READY', '商家尚未完成獨立資料環境驗證，暫時無法使用。');
   }
   if (!Object.hasOwn(FEATURES, feature) || tenant.features?.[feature] !== true) {
@@ -61,15 +61,15 @@ export function requireFeature(tenant, feature) {
 }
 export function publicTenant(row) {
   // Explicit projection; no token, ciphertext or privileged actor fields.
-  // Approval only unlocks LINE configuration. Data-plane readiness is a
-  // separate, server-derived signal and never overrides API authorization.
+  // Provisioning and approval commit together. Do not infer access from LINE.
   const dataPlaneVerified = row.status === 'active'
-    && Boolean(row.isolation_verified_at) && Boolean(row.isolation_version);
+    && Boolean(row.isolation_verified_at) && row.isolation_version==='business-v1-20261019'
+    && /^business_[a-f0-9]{32}$/.test(row.runtime_schema||'');
   return { id: row.id, name: row.name, slug: row.slug, ownerLineUserId: row.owner_line_user_id,
     features: row.features, line: row.line_config, status: row.status, version: row.version,
     credentialsConfigured: row.credentials_configured === true,
     onboarding: merchantOnboarding({status:row.status,features:row.features,line:row.line_config,
-      credentialsConfigured:row.credentials_configured === true}),
+      credentialsConfigured:row.credentials_configured === true,runtimeReady:dataPlaneVerified}),
     capabilities: {
       lineSettingsEnabled: row.status !== 'suspended',
       dataPlaneVerified,

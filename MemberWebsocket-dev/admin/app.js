@@ -429,7 +429,7 @@
         startLoginProgress('已安全沿用原管理端 Session…', 64);
       } else {
         state.config = await window.MemberSystem.loadConfig();
-        if (state.config.productizedAdmin === true) {
+        if (state.config.productizedAdmin === true && !state.config.business) {
           // Productized tenants never use the legacy shared business data plane.
           // Keep the /admin/ route and mount only the grant-scoped control plane.
           startLoginProgress('正在載入已授權的管理功能…', 70);
@@ -639,6 +639,7 @@
   }
 
   function applyAdminBootstrap(result, requestStartedAt) {
+    if(result.features){state.config.grantedFeatures=result.features;window.BusinessWorkspace?.apply(result);}
     if (state.memberKind === 'real') {
       state.members = mergeNewerPresenceObservations(result.members, requestStartedAt);
       memberPresencePageVersion++;

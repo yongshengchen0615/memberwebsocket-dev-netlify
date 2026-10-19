@@ -1,9 +1,10 @@
+import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
 import { linkedBooking } from "../_shared/linked-booking.ts";
 import { hasCurrentTermsConsent } from "../_shared/membership-terms.ts";
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
 import { resolveTestSession, TestModeAuthError } from "../_shared/test-mode-auth.ts";
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 import { workWindow, clockTime, occupiedRange, localRange, slotHasPassed, timeOnBusinessDate, localTimestamp, currentBusinessDate } from "../_shared/booking-hours.ts";
 
 type Json = Record<string, unknown>;
@@ -40,7 +41,7 @@ class ApiError extends Error {
 }
 
 function env(name: string): string {
-  return (Deno.env.get(name) || "").trim();
+  return (businessEnv(name) || "").trim();
 }
 
 function allowedOrigins(): Set<string> {
@@ -1078,7 +1079,7 @@ async function route(supabase: SupabaseClient, identity: Identity, clientType: C
   throw new ApiError(404, "ACTION_NOT_FOUND", "不支援的管理端預約操作。");
 }
 
-Deno.serve(async (request: Request) => {
+serveBusiness('booking-api',async (request: Request) => {
   const origin = request.headers.get("Origin");
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
   if (request.method !== "POST") return response(origin, { ok: false, error: { code: "METHOD_NOT_ALLOWED", message: "只支援 POST。" } }, 405);

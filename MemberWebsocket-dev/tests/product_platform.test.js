@@ -57,7 +57,7 @@ test('AC-004: response projection excludes ciphertext, actor fields and unexpect
 test('AC-006: pending/suspended merchant cannot pass the future data-plane activation gate',async()=>{
   const {requireFeature,FEATURES}=await shared('platform-policy.mjs');
   for(const feature of Object.keys(FEATURES)) {
-    const row={status:'active',isolation_verified_at:'2026-10-17',features:{[feature]:true}};
+    const row={status:'active',isolation_verified_at:'2026-10-17',runtime_schema:'business_'+'1'.repeat(32),features:{[feature]:true}};
     assert.doesNotThrow(()=>requireFeature(row,feature));
     assert.throws(()=>requireFeature({...row,status:'pending_provisioning'},feature),e=>e.code==='TENANT_NOT_READY');
     assert.throws(()=>requireFeature({...row,status:'suspended'},feature),e=>e.code==='TENANT_NOT_READY');
@@ -113,7 +113,7 @@ test('AC-033: merchant projection separates approved LINE configuration from iso
   assert.equal(suspended.capabilities.dataPlaneVerified,false);
   const incomplete=publicTenant({...row,status:'active',isolation_verified_at:'2026-10-18'});
   assert.equal(incomplete.capabilities.dataPlaneVerified,false);
-  const verified=publicTenant({...row,status:'active',isolation_verified_at:'2026-10-18',isolation_version:'v1'});
+  const verified=publicTenant({...row,status:'active',isolation_verified_at:'2026-10-18',isolation_version:'business-v1-20261019',runtime_schema:'business_'+'1'.repeat(32)});
   assert.equal(verified.capabilities.dataPlaneVerified,true);
 });
 

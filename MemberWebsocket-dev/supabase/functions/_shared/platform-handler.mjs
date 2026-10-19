@@ -32,6 +32,17 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       try { const data = new Uint8Array(size); let at = 0; for (const c of chunks) { data.set(c,at); at += c.length; } body = JSON.parse(new TextDecoder().decode(data)); }
       catch { throw new PlatformError(400,'INVALID_JSON','請求格式不正確。'); }
       if (!body || typeof body !== 'object' || Array.isArray(body)) throw new PlatformError(400,'INVALID_JSON','請求格式不正確。');
+      if(body.action==='platform.business.public'){
+        if(typeof body.business!=='string'||!/^[-a-z0-9]{3,40}$/.test(body.business))throw new PlatformError(400,'INVALID_BUSINESS','商家入口格式不正確。');
+        const limited=await db.rpc('consume_api_rate_limit',{p_principal_hash:await payloadHash('business-public:'+body.business+':'+(request.headers.get('x-forwarded-for')||'')),p_is_write:false,p_cost:1,p_read_limit:90,p_write_limit:15});
+        if(limited.error||!limited.data)throw new PlatformError(429,'RATE_LIMITED','請稍後再試。');
+        const result=await db.rpc('platform_business_context',{p_actor:null,p_slug:body.business});
+        if(result.error)throw databaseError(result.error);
+        if(!result.data)throw new PlatformError(404,'BUSINESS_NOT_FOUND','找不到商家入口。');
+        const tenant=publicTenant(result.data);
+        if(!tenant.capabilities.dataPlaneVerified)throw new PlatformError(403,'TENANT_SUSPENDED','此商家尚未開放或已停用。');
+        return json({ok:true,data:{business:tenant.slug,name:tenant.name,features:tenant.features,line:tenant.onboarding.configurationComplete?tenant.line:{}}});
+      }
       if (typeof body.idToken !== 'string' || !body.idToken || body.idToken.length > 10_000) throw new PlatformError(401,'AUTH_REQUIRED','請使用 LINE 帳號登入。');
       const applicantAction = ['platform.application.bootstrap','platform.application.ensure','platform.application.submit','platform.line.save'].includes(body.action);
       const identity = await (applicantAction ? verifyApplicantIdentity : verifyIdentity)(body.idToken);

@@ -47,6 +47,7 @@
     if (!response.ok) throw clientError('CONFIG_LOAD_FAILED', '無法載入系統設定。');
     const config = await response.json();
     if (!config.supabaseUrl || !config.supabasePublishableKey) throw clientError('CONFIG_INVALID', 'Supabase 設定不完整。');
+    if(window.BusinessContext)await window.BusinessContext.configure(config);
     return config;
   }
 
@@ -86,8 +87,8 @@
     return token;
   }
 
-  const LOGIN_BROWSER_KEY = 'member-login-browser-v1';
-  const LOGIN_REGISTERED_KEY = 'member-login-registered-v1';
+  const LOGIN_BROWSER_KEY = 'member-login-browser-v1' + (window.BusinessContext?.slug ? ':'+window.BusinessContext.slug : '');
+  const LOGIN_REGISTERED_KEY = 'member-login-registered-v1' + (window.BusinessContext?.slug ? ':'+window.BusinessContext.slug : '');
 
   async function claimBrowserSession(config, clientType, idToken) {
     if (clientType === 'admin') return;
@@ -613,7 +614,7 @@
     window.addEventListener('pageshow', onPageShow);
     window.addEventListener('online', onOnline);
 
-    if (config.realtimeEnabled !== false && window.supabase && typeof window.supabase.createClient === 'function') {
+    if (!config.business && config.realtimeEnabled !== false && window.supabase && typeof window.supabase.createClient === 'function') {
       const clientKey = JSON.stringify([config.supabaseUrl, config.supabasePublishableKey]);
       if (!realtimeClient || realtimeClientKey !== clientKey) {
         realtimeClient = window.supabase.createClient(config.supabaseUrl, config.supabasePublishableKey, {
@@ -671,7 +672,7 @@
   function openMemberJoin(config) {
     const memberLiffId = String(config && config.memberLiffId || '').trim();
     if (!/^[A-Za-z0-9_-]{1,100}$/.test(memberLiffId)) return false;
-    const url = `https://liff.line.me/${encodeURIComponent(memberLiffId)}`;
+    const url = `https://liff.line.me/${encodeURIComponent(memberLiffId)}` + (config.business ? `?business=${encodeURIComponent(config.business)}` : "");
     if (window.liff && typeof window.liff.openWindow === 'function') {
       window.liff.openWindow({ url, external: false });
       return true;

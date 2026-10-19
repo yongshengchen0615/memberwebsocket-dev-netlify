@@ -18,7 +18,7 @@ test('AC-102: complete LINE settings and even a manual isolation flag never adve
   const result=merchantOnboarding(tenant);
   assert.equal(result.configurationComplete,true);assert.equal(result.stage,'awaiting_platform');
   assert.equal(result.adminReady,false);assert.equal(result.userReady,false);assert.equal(result.nextOwner,'platform');
-  assert.deepEqual(result.blockers,['BUSINESS_RUNTIME_UNAVAILABLE','LINE_LIVE_VERIFICATION_REQUIRED']);
+  assert.deepEqual(result.blockers,['BUSINESS_RUNTIME_UNAVAILABLE']);
   assert.equal(result.features.membership.userReady,false);
  }
 });
@@ -29,4 +29,9 @@ test('AC-103: mismatched LIFF prefix, suspension and no grants remain blocked',a
  tenant.status='pending_provisioning';tenant.features={};assert.equal(merchantOnboarding(tenant).stage,'awaiting_grants');
  const malformed=merchantOnboarding({features:{membership:true},line:null});
  assert.equal(malformed.configurationComplete,false);assert.equal(malformed.userReady,false);
+});
+test('AC-205: a provisioned approved business is usable before LINE setup',async()=>{
+ const {merchantOnboarding}=await model();const status=merchantOnboarding({status:'active',runtimeReady:true,features:{membership:true,points:true},line:{},credentialsConfigured:false});
+ assert.equal(status.configurationComplete,false);assert.equal(status.adminReady,true);assert.equal(status.userReady,true);assert.equal(status.stage,'ready');assert.equal(status.features.points.userReady,true);
+ assert.ok(!status.blockers.includes('BUSINESS_RUNTIME_UNAVAILABLE'));
 });

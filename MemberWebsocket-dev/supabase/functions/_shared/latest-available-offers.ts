@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import type { SupabaseClient } from './business-runtime.ts';
 
 type JsonRow = Record<string, any>;
 

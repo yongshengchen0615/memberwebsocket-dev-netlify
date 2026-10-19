@@ -1,4 +1,5 @@
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import { businessEnv, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';
+import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 import { buildLineFlexNotice } from "../_shared/line-flex.ts";
 import { replaceCurrentGrantSections } from "../_shared/grant-message-sections.ts";
 import { buildLatestAvailableOffersSection } from "../_shared/latest-available-offers.ts";
@@ -8,7 +9,7 @@ type Json = Record<string, unknown>;
 const TIER_LABELS: Record<string,string> = { general:"一般會員",silver:"銀級會員",gold:"金級會員",platinum:"白金會員" };
 const DEFAULT_EVENT_LIFF_URL = "https://liff.line.me/2010787602-tuapstY3";
 
-function env(name: string): string { return (Deno.env.get(name) || "").trim(); }
+function env(name: string): string { return (businessEnv(name) || "").trim(); }
 function asText(value: unknown, max = 5000): string { return String(value ?? "").trim().slice(0,max); }
 function dbClient(): SupabaseClient {
   const url = env("SUPABASE_URL");
@@ -159,7 +160,7 @@ async function dispatchOne(supabase: SupabaseClient, token: string, row: any, ev
   }
 }
 
-Deno.serve(async (request: Request) => {
+serveBusiness('scheduled-grant-messages',async (request: Request) => {
   if (request.method !== "POST") return new Response(JSON.stringify({ ok:false,error:"METHOD_NOT_ALLOWED" }),{ status:405,headers:{ "Content-Type":"application/json" } });
 
   const supabase = dbClient();

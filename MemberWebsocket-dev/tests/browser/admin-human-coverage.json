@@ -2,11 +2,11 @@
   "version": 1,
   "scope": "Seven admin workspaces, including operation audit; test-control workspace excluded",
   "evidence": "isolated Chromium UI with production handlers and explicit in-memory transport; not live Supabase/LINE delivery",
-  "portalIntegrationReview": "Shared three-role navigation is navigation only; AC-030–035 test navigation wiring, safe tenant readiness and blocked legacy tenant data access. The pre-existing admin human case inventory is unchanged. The platform root access denial now has an actionable Supabase SQL Editor review notice (AC-034) and tested unauthorized/re-enabled journeys, without self-service grants. Productized /admin/ now mounts approved merchant workspace in the original Lumen Club management page without a redirect. The top grant navigation is generated only from server-verified tenant.features; the legacy shared business UI remains inaccessible in productized mode. 2026-10-19: Productized onboarding adds a five-step journey, exact LINE Console field guidance, server-derived saved configuration checklist, clear merchant/platform responsibility, safe retry, draft preservation and blocked user entries. Executable coverage: ONBOARDING_GUIDE, ONBOARDING_DRAFT and ONBOARDING_LINE_RETRY in product-platform.spec.cjs; existing business journeys and grants remain unchanged.",
+  "portalIntegrationReview": "2026-10-19: Approval now provisions isolated business data and opens the existing admin/member runtime. BUSINESS_APPROVAL_ACTIVATES in business-activation.spec.cjs covers real approval SQL, ready links and grant-scoped admin navigation; the existing human CRUD case inventory is retained. business-runtime.cjs tests data/FK/login/storage isolation and business-runtime_test.ts exercises the production request adapter, fresh grants and concurrent routing. LINE providers and external browser business HTTP use explicit fixture transports; no live LINE delivery claim.",
   "reviewedSources": {
-    "admin/index.html": "f4401c25f74432b22e01c5eb992af9c29ffb8910ca32c5f3717ea5ee8881496b",
-    "admin/app.js": "466d7b12f49eaa1a715a02548759553c286189846a89921bf86ac3f31f7f633a",
-    "admin/member-workspace-tabs.js": "e8235f6c84af59c708090d5dd15dcf52d2929a00f7988453d664028f242f8fe2",
+    "admin/index.html": "6d54dc23b68bd1076b4dc4e531cb06e72af791fb332118b9edc3d4f12c8c60f4",
+    "admin/app.js": "83e4359ec62ede92d4607bcd718f90f869b2806406c0a76b3bb838c172db494e",
+    "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
     "admin/grant-automation.js": "f3178a0bb26745d6cd7731b24ab8ab9aaec96a4dada62699a3609ae8b803e2b0",
     "admin/coupon-location-editor.js": "31fb9d8ab26519022ed20528f9ce7cba588826c4d20bf2cccc2c1a5f584d055f",
@@ -25,8 +25,10 @@
     "admin/booking-accessible-admin.js": "5947f0328b3b27ff891760f72615024899a96b77467f7601842056f908ce5526",
     "admin/ticket-visibility.js": "bb1cf776a3bf1c69f75bbfa6a4b3e07cf9c9077444099533cb9c2883736dd5c0",
     "admin/operation-audit.js": "2ecd1161e533d56b17a6f89d1907bef384e96a932f81027d6e6178bdcce5a96e",
-    "admin/workspace.html": "cdadbd839712b4df2322f4cc989ca3ef3fad146c1ee1746eb7bad8edb0bce658",
-    "platform/app.js": "38f24cb4274261fa04e0a64fd01bbf10518e4381a07d8355886e69c5596a2457"
+    "admin/workspace.html": "2f42516fd179c5ca32be135ca288d0bed36a841b5e2af16fa00c01575355b307",
+    "platform/app.js": "d16e40cf93d49328645c8635f3634f6377ab6ce790e82e16c9c29c1f513b7174",
+    "admin/business-workspace.js": "b8eb2836a02cc21c4c5a66ed2502cf4ae611a9b562cfe316fdc114d293dcdc35",
+    "business-context.js": "63a2a9ac097d620578361badcb5cac8fdaea2ce03f132d1f2d68bf25a33cce4c"
   },
   "features": [
     {

@@ -1,8 +1,9 @@
+import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
 import { hasCurrentTermsConsent } from "../_shared/membership-terms.ts";
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract } from "../_shared/auth-contract.ts";
 import { resolveUserTestIdentity, TestModeAuthError } from "../_shared/test-mode-auth.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient } from '../_shared/business-runtime.ts';
 import { workWindow, clockTime, occupiedRange, localRange, slotHasPassed, timeOnBusinessDate, currentBusinessDate } from "../_shared/booking-hours.ts";
 
 type Json = Record<string, any>;
@@ -24,7 +25,7 @@ class ApiError extends Error {
   }
 }
 
-const env = (name: string) => (Deno.env.get(name) || "").trim();
+const env = (name: string) => (businessEnv(name) || "").trim();
 const asText = (value: unknown, max = 1000) => String(value ?? "").trim().slice(0, max);
 const allowedOrigins = () => new Set([(env("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io"), "https://develop--memberwebsocket-dev-netlify.netlify.app"].join(",").split(",").map((value) => value.trim()).filter(Boolean));
 const cors = (origin: string | null): HeadersInit => ({
@@ -305,7 +306,7 @@ async function slots(supabase: ReturnType<typeof db>, member: any, body: Json) {
   };
 }
 
-Deno.serve(async (request: Request) => {
+serveBusiness('booking-group-slots-api',async (request: Request) => {
   const origin = request.headers.get("Origin");
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(origin) });
   if (request.method !== "POST") return reply(origin, { ok: false, error: { code: "METHOD_NOT_ALLOWED", message: "只支援 POST。" } }, 405);

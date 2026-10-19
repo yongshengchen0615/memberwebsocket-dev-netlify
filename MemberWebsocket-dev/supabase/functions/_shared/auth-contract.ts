@@ -1,3 +1,4 @@
+import { businessEnv, businessFetch as fetch } from './business-scope.ts';
 export type ContractIdentity = { lineUserId: string; displayName: string; issuedAtMs: number };
 
 type ErrorFactory = (status: number, code: string, message: string, details?: unknown) => Error;
@@ -44,11 +45,11 @@ export async function verifyLineIdTokenContract(args: {
     issuedAtMs: iat * 1000,
   };
 
-  const url = (Deno.env.get("SUPABASE_URL") || "").trim();
-  const key = (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "").trim();
+  const url = (businessEnv("SUPABASE_URL") || "").trim();
+  const key = (businessEnv("SUPABASE_SERVICE_ROLE_KEY") || "").trim();
   if (!url || !key) throw createError(503, "SUPABASE_CONFIG_MISSING", "Supabase server 設定尚未完成。");
 
-  const { createClient } = await import("npm:@supabase/supabase-js@2.57.0");
+  const { createClient } = await import('./business-runtime.ts');
   const supabase = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
   const [settingsResult, adminResult, memberResult, removalResult] = await Promise.all([
     supabase.from("test_mode_settings").select("maintenance_enabled,maintenance_message,maintenance_revoked_after").eq("id", true).maybeSingle(),
@@ -69,7 +70,7 @@ export async function verifyLineIdTokenContract(args: {
   }
 
   const isActiveAdmin = adminResult.data?.role === "admin" && adminResult.data?.status === "active";
-  const adminChannelId = (Deno.env.get("LINE_ADMIN_CHANNEL_ID") || "2010791619").trim();
+  const adminChannelId = (businessEnv("LINE_ADMIN_CHANNEL_ID") || "2010791619").trim();
   const canBypassUserRestrictions = isActiveAdmin && expectedChannelId === adminChannelId;
   if (!canBypassUserRestrictions && settingsResult.data?.maintenance_enabled === true) {
     throw createError(503, "SYSTEM_MAINTENANCE", String(settingsResult.data?.maintenance_message || "").trim() || "系統維護中，請稍後再試。");

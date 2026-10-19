@@ -1,4 +1,5 @@
-import { createClient } from "npm:@supabase/supabase-js@2.57.0";
+import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
+import { createClient } from '../_shared/business-runtime.ts';
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
 
 type Json = Record<string, unknown>;
@@ -20,7 +21,7 @@ class ApiError extends Error {
   }
 }
 
-function env(name: string): string { return (Deno.env.get(name) || "").trim(); }
+function env(name: string): string { return (businessEnv(name) || "").trim(); }
 function asText(value: unknown, max = 1000): string { return String(value ?? "").trim().slice(0, max); }
 function allowedOrigins(): Set<string> {
   return new Set([(env("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io"), "https://develop--memberwebsocket-dev-netlify.netlify.app"].join(",")
@@ -181,7 +182,7 @@ async function signedView(origin: string | null, body: Json): Promise<Response> 
     expiresAt: new Date(Date.now() + SIGNED_URL_TTL_SECONDS * 1000).toISOString(),
   } });
 }
-Deno.serve(async (request: Request) => {
+serveBusiness('e2e-artifact-api',async (request: Request) => {
   const origin = request.headers.get("Origin");
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
   if (request.method !== "POST") return failReply(origin, new ApiError(405, "METHOD_NOT_ALLOWED", "只支援 POST。"));

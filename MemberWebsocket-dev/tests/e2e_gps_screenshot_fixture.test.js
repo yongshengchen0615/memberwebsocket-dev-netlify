@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
-const { readFileSync } = require('node:fs');
+const { readFileSync } = require('./helpers/edge-test-fs.cjs');
 const { join } = require('node:path');
 const root = join(__dirname, '..');
 const user = readFileSync(join(root, 'user-test-control.js'), 'utf8');

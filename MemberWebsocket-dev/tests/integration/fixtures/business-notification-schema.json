@@ -1,0 +1,269 @@
+{
+  "tables": [
+    {
+      "name": "config",
+      "columns": [
+        {
+          "name": "id",
+          "type": "boolean",
+          "default": "true",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "enabled",
+          "type": "boolean",
+          "default": "false",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ]
+    },
+    {
+      "name": "outbox",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "default": "gen_random_uuid()",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "booking_id",
+          "type": "uuid",
+          "default": null,
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "event_key",
+          "type": "text",
+          "default": null,
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "channel",
+          "type": "text",
+          "default": null,
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "recipient",
+          "type": "text",
+          "default": null,
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "message_text",
+          "type": "text",
+          "default": null,
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "default": "'pending'::text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "attempt_count",
+          "type": "integer",
+          "default": "0",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "request_id",
+          "type": "bigint",
+          "default": null,
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "first_attempt_at",
+          "type": "timestamp with time zone",
+          "default": null,
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "next_attempt_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "accepted_at",
+          "type": "timestamp with time zone",
+          "default": null,
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "last_error",
+          "type": "text",
+          "default": null,
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "line_request_id",
+          "type": "text",
+          "default": null,
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "coalesce_key",
+          "type": "text",
+          "default": null,
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "reminder_start_at",
+          "type": "timestamp without time zone",
+          "default": null,
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        }
+      ]
+    }
+  ],
+  "indexes": [
+    {
+      "table": "outbox",
+      "definition": "CREATE INDEX booking_notifications_outbox_booking_id_idx ON booking_notifications.outbox USING btree (booking_id)"
+    },
+    {
+      "table": "outbox",
+      "definition": "CREATE INDEX booking_notifications_due ON booking_notifications.outbox USING btree (next_attempt_at) WHERE (status = ANY (ARRAY['pending'::text, 'sending'::text]))"
+    },
+    {
+      "table": "outbox",
+      "definition": "CREATE UNIQUE INDEX booking_notifications_pending_coalesce ON booking_notifications.outbox USING btree (coalesce_key, channel, recipient) WHERE ((status = 'pending'::text) AND (attempt_count = 0) AND (first_attempt_at IS NULL) AND (coalesce_key IS NOT NULL))"
+    },
+    {
+      "table": "outbox",
+      "definition": "CREATE UNIQUE INDEX outbox_day_before_reminder_once ON booking_notifications.outbox USING btree (event_key) WHERE (event_key ~ ':reminder:day_before$'::text)"
+    }
+  ],
+  "triggers": [
+    {
+      "name": "prevent_test_member_outbox",
+      "table": "outbox",
+      "definition": "CREATE TRIGGER prevent_test_member_outbox BEFORE INSERT ON booking_notifications.outbox FOR EACH ROW EXECUTE FUNCTION booking_notifications.prevent_test_member_outbox()"
+    }
+  ],
+  "functions": [
+    {
+      "name": "prevent_test_member_outbox",
+      "definition": "CREATE OR REPLACE FUNCTION booking_notifications.prevent_test_member_outbox()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\nbegin\n  if exists (\n    select 1\n    from public.bookings b\n    join public.members m on m.id = b.member_id\n    where b.id = new.booking_id\n      and m.is_test_account = true\n  ) then\n    return null;\n  end if;\n  return new;\nend;\n$function$\n",
+      "identityArgs": ""
+    },
+    {
+      "name": "sync_day_before_reminders",
+      "definition": "CREATE OR REPLACE FUNCTION booking_notifications.sync_day_before_reminders()\n RETURNS integer\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare v_count integer := 0;\n        v_today date := (now() at time zone 'Asia/Taipei')::date;\n        v_settings public.booking_settings%rowtype;\nbegin\n  if not pg_try_advisory_xact_lock(738491205315::bigint) then return 0; end if;\n  select * into v_settings from public.booking_settings where id = 1;\n  if not found then return 0; end if;\n\n  -- A pending, never attempted row follows a reschedule or a changed reminder time.\n  update booking_notifications.outbox q\n     set reminder_start_at = b.start_at,\n         recipient = m.line_user_id,\n         message_text = left('【預約提醒】' || E'\\n日期：' ||\n           to_char(b.start_at, 'YYYY/MM/DD') || E'\\n時段：' ||\n           to_char(b.start_at, 'HH24:MI') || '（台北時間）' ||\n           E'\\n請準時到場；如需調整請至預約頁操作。', 2200),\n         next_attempt_at = ((b.start_at::date - 1) + v_settings.reminder_time)\n                           at time zone 'Asia/Taipei',\n         last_error = null\n    from public.bookings b join public.members m on m.id = b.member_id\n   where q.booking_id = b.id and q.event_key ~ ':reminder:day_before$'\n     and q.status = 'pending' and q.attempt_count = 0 and q.first_attempt_at is null\n     and b.status = 'confirmed' and b.cancellation_requested_at is null\n     and b.start_at::date > v_today\n     and m.is_test_account is not true and m.line_user_id ~ '^U[0-9a-f]{32}$'\n     and (q.reminder_start_at is distinct from b.start_at\n          or q.recipient is distinct from m.line_user_id\n          or q.next_attempt_at is distinct from\n              (((b.start_at::date - 1) + v_settings.reminder_time) at time zone 'Asia/Taipei'));\n\n  if not v_settings.reminder_enabled or not coalesce(\n      (select enabled from booking_notifications.config where id), false) then\n    return 0;\n  end if;\n\n  insert into booking_notifications.outbox\n    (booking_id, event_key, channel, recipient, message_text, reminder_start_at, next_attempt_at)\n  select b.id, b.id::text || ':reminder:day_before', 'member', m.line_user_id,\n         left('【預約提醒】' || E'\\n日期：' ||\n           to_char(b.start_at, 'YYYY/MM/DD') || E'\\n時段：' ||\n           to_char(b.start_at, 'HH24:MI') || '（台北時間）' ||\n           E'\\n請準時到場；如需調整請至預約頁操作。', 2200),\n         b.start_at,\n         ((b.start_at::date - 1) + v_settings.reminder_time) at time zone 'Asia/Taipei'\n    from public.bookings b join public.members m on m.id = b.member_id\n   where b.status = 'confirmed' and b.cancellation_requested_at is null\n     and b.start_at::date = v_today + 1\n     and m.is_test_account is not true and m.line_user_id ~ '^U[0-9a-f]{32}$'\n  on conflict (event_key) where event_key ~ ':reminder:day_before$'\n  do update set recipient = excluded.recipient,\n                message_text = excluded.message_text,\n                reminder_start_at = excluded.reminder_start_at,\n                next_attempt_at = excluded.next_attempt_at,\n                status = 'pending', last_error = null\n    where booking_notifications.outbox.status in ('pending', 'skipped')\n      and booking_notifications.outbox.attempt_count = 0\n      and booking_notifications.outbox.first_attempt_at is null;\n  get diagnostics v_count = row_count;\n  return v_count;\nend $function$\n",
+      "identityArgs": ""
+    },
+    {
+      "name": "dispatch",
+      "definition": "CREATE OR REPLACE FUNCTION booking_notifications.dispatch(p_limit integer DEFAULT 20)\n RETURNS integer\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare dispatch_secret text; project_url text;\nbegin\n  if not coalesce((select enabled from booking_notifications.config where id),false) then return 0; end if;\n  if not pg_try_advisory_xact_lock(738491205314::bigint) then return 0; end if;\n  if not exists(select 1 from booking_notifications.outbox where status in ('pending','sending') and next_attempt_at<=now()) then return 0; end if;\n  select decrypted_secret into dispatch_secret from vault.decrypted_secrets where name='BOOKING_NOTIFICATION_DISPATCH_SECRET';\n  select decrypted_secret into project_url from vault.decrypted_secrets where name='project_url';\n  if nullif(dispatch_secret,'') is null or nullif(project_url,'') is null then return 0; end if;\n  perform net.http_post(url:=rtrim(project_url,'/')||'/functions/v1/booking-line-notifications',\n    headers:=jsonb_build_object('Content-Type','application/json','x-dispatch-secret',dispatch_secret),\n    body:='{}'::jsonb,timeout_milliseconds:=10000);\n  return 1;\nend;\n$function$\n",
+      "identityArgs": "p_limit integer"
+    },
+    {
+      "name": "enqueue",
+      "definition": "CREATE OR REPLACE FUNCTION booking_notifications.enqueue()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare\n  event_kind text;\n  event_id text;\n  notification_coalesce_key text;\n  mod_audit_id bigint;\n  mod_actor_role text;\n  mod_action text;\n  member_record public.members%rowtype;\n  latest public.bookings%rowtype;\n  items text;\n  participant_details text;\n  fallback_technician text;\n  store_service_minutes integer := 0;\n  fallback_service_minutes integer := 0;\n  fallback_amount bigint := 0;\n  contact text;\n  phone text;\n  admin_details text;\n  member_details text;\n  admin_message text;\n  member_message text;\nbegin\n  if TG_OP = 'INSERT' then\n    if NEW.status <> 'pending' then return null; end if;\n    event_kind := 'created';\n    event_id := NEW.id::text || ':created';\n  elsif OLD.status = 'pending' and NEW.status = 'confirmed' then\n    event_kind := 'confirmed';\n    event_id := NEW.id::text || ':confirmed:' || NEW.updated_at::text;\n  elsif NEW.status = 'completed' and OLD.status is distinct from NEW.status then\n    event_kind := 'completed';\n    event_id := NEW.id::text || ':completed:' || NEW.updated_at::text;\n  elsif NEW.status = 'rejected' and OLD.status is distinct from NEW.status then\n    event_kind := 'rejected';\n    event_id := NEW.id::text || ':rejected:' || NEW.updated_at::text;\n  elsif NEW.status = 'cancelled' and OLD.status is distinct from NEW.status then\n    event_kind := 'cancelled';\n    event_id := NEW.id::text || ':cancelled:' || NEW.updated_at::text;\n  elsif OLD.cancellation_requested_at is null and NEW.cancellation_requested_at is not null and NEW.cancellation_reviewed_at is null then\n    event_kind := 'cancellation_requested';\n    event_id := NEW.id::text || ':cancellation_requested:' || NEW.updated_at::text;\n  elsif OLD.cancellation_requested_at is not null and NEW.cancellation_requested_at is null and NEW.cancellation_decision = 'rejected' and NEW.cancellation_reviewed_at is not null then\n    event_kind := 'cancellation_rejected';\n    event_id := NEW.id::text || ':cancellation_rejected:' || NEW.updated_at::text;\n  elsif OLD.status in ('pending','confirmed') and NEW.status in ('pending','confirmed') then\n    select e.id, e.actor_role, e.action into mod_audit_id, mod_actor_role, mod_action\n    from public.booking_audit_events e\n    where e.target_type = 'booking'\n      and e.target_id = NEW.id::text\n      and e.created_at = NEW.updated_at\n      and e.action in ('BOOKING_UPDATED','BOOKING_ITEMS_UPDATED')\n    order by e.id desc\n    limit 1;\n\n    if mod_audit_id is null then return null; end if;\n\n    if mod_actor_role = 'member' and mod_action = 'BOOKING_UPDATED' then\n      event_kind := 'modified_by_member';\n      notification_coalesce_key := NEW.id::text || ':modified_by_member';\n    elsif mod_actor_role = 'admin' and mod_action = 'BOOKING_ITEMS_UPDATED' then\n      event_kind := 'modified_by_admin';\n      notification_coalesce_key := NEW.id::text || ':modified_by_admin';\n    else\n      return null;\n    end if;\n    event_id := NEW.id::text || ':modified:' || mod_audit_id::text;\n  else\n    return null;\n  end if;\n\n  select * into latest from public.bookings where id = NEW.id;\n  if not found then return null; end if;\n\n  if event_kind = 'confirmed' and latest.status <> 'confirmed' then return null; end if;\n  if event_kind = 'completed' and latest.status <> 'completed' then return null; end if;\n  if event_kind = 'rejected' and latest.status <> 'rejected' then return null; end if;\n  if event_kind = 'cancelled' and latest.status <> 'cancelled' then return null; end if;\n\n  if event_kind in ('confirmed','completed','rejected','cancelled') then\n    update booking_notifications.outbox\n      set status = 'skipped',\n          last_error = 'Superseded by later booking state transition'\n    where booking_id = NEW.id\n      and status = 'pending'\n      and attempt_count = 0\n      and first_attempt_at is null\n      and coalesce_key is not null;\n  end if;\n\n  select * into member_record from public.members where id = latest.member_id;\n\n  select coalesce(sum(\n      bi.unit_duration_minutes * greatest(coalesce(bi.quantity, 1), 1)\n    ), 0)::integer\n    into store_service_minutes\n  from public.booking_items bi\n  where bi.booking_id = NEW.id\n    and bi.service_id = '00000000-0000-4000-8000-000000000010'::uuid;\n\n  select string_agg(\n      case bp.position\n        when 1 then '第一位預約'\n        when 2 then '第二位預約'\n        when 3 then '第三位預約'\n        when 4 then '第四位預約'\n        when 5 then '第五位預約'\n        when 6 then '第六位預約'\n        when 7 then '第七位預約'\n        when 8 then '第八位預約'\n        when 9 then '第九位預約'\n        when 10 then '第十位預約'\n        else '第 ' || bp.position::text || ' 位預約'\n      end ||\n      E'\\n預約項目：' || coalesce(nullif(participant_items.items, ''), '請至預約頁查看') ||\n      E'\\n個別時間：' ||\n        (coalesce(participant_items.service_minutes, 0) + case when coalesce(participant_items.has_store_service, false) then 0 else store_service_minutes end)::text || ' 分鐘' ||\n        case when store_service_minutes > 0\n          then '（含店內服務 ' || store_service_minutes::text || ' 分鐘）'\n          else ''\n        end ||\n      E'\\n個別金額：NT$' || to_char(coalesce(participant_items.amount, 0), 'FM999,999,999,990') ||\n      E'\\n預約技師：' || coalesce(nullif(bt.name, ''), '現場安排'),\n      E'\\n\\n' order by bp.position\n    )\n    into participant_details\n  from public.booking_participants bp\n  left join public.booking_technicians bt on bt.id = bp.technician_id\n  left join lateral (\n    select\n      string_agg(\n        bpi.service_title ||\n          case when greatest(coalesce(bpi.quantity, 1), 1) > 1\n            then ' × ' || greatest(coalesce(bpi.quantity, 1), 1)::text\n            else ''\n          end,\n        '、' order by bpi.created_at, bpi.id\n      ) as items,\n      coalesce(bool_or(bpi.service_id = '00000000-0000-4000-8000-000000000010'::uuid), false) as has_store_service,\n      coalesce(sum(\n        bpi.unit_duration_minutes * greatest(coalesce(bpi.quantity, 1), 1)\n      ), 0)::integer as service_minutes,\n      coalesce(sum(\n        bpi.unit_price_amount * greatest(coalesce(bpi.quantity, 1), 1)\n      ), 0)::bigint as amount\n    from public.booking_participant_items bpi\n    where bpi.participant_id = bp.id\n  ) participant_items on true\n  where bp.booking_id = NEW.id;\n\n  -- Legacy single-person bookings may predate booking_participants.\n  if nullif(participant_details, '') is null then\n    select\n      string_agg(\n        bi.service_title ||\n          case when greatest(coalesce(bi.quantity, 1), 1) > 1\n            then ' × ' || greatest(coalesce(bi.quantity, 1), 1)::text\n            else ''\n          end,\n        '、' order by bi.created_at, bi.id\n      ),\n      coalesce(sum(\n        bi.unit_duration_minutes * greatest(coalesce(bi.quantity, 1), 1)\n      ), 0)::integer,\n      coalesce(sum(\n        bi.unit_price_amount * greatest(coalesce(bi.quantity, 1), 1)\n      ), 0)::bigint\n      into items, fallback_service_minutes, fallback_amount\n    from public.booking_items bi\n    where bi.booking_id = NEW.id\n      and bi.service_id <> '00000000-0000-4000-8000-000000000010'::uuid;\n\n    select bt.name\n      into fallback_technician\n    from public.booking_technicians bt\n    where bt.id = latest.technician_id;\n\n    participant_details :=\n      '第一位預約' ||\n      E'\\n預約項目：' || coalesce(nullif(items, ''), '請至預約頁查看') ||\n      E'\\n個別時間：' || (fallback_service_minutes + store_service_minutes)::text || ' 分鐘' ||\n        case when store_service_minutes > 0\n          then '（含店內服務 ' || store_service_minutes::text || ' 分鐘）'\n          else ''\n        end ||\n      E'\\n個別金額：NT$' || to_char(fallback_amount, 'FM999,999,999,990') ||\n      E'\\n預約技師：' || coalesce(nullif(fallback_technician, ''), '現場安排');\n  end if;\n\n  contact := coalesce(nullif(latest.contact_surname,''), nullif(member_record.surname,''), '會員') ||\n    case coalesce(nullif(latest.contact_salutation,''), nullif(member_record.salutation,''), '')\n      when 'mr' then '先生'\n      when 'ms' then '小姐'\n      else ''\n    end;\n  phone := coalesce(nullif(latest.contact_phone,''), nullif(member_record.phone,''), '未提供');\n\n  admin_details :=\n    '預約編號：' || NEW.id::text ||\n    E'\\n預約人：' || contact ||\n    E'\\n營業日：' || to_char(latest.booking_date,'YYYY/MM/DD') ||\n    E'\\n時段：' || to_char(latest.start_at,'YYYY/MM/DD HH24:MI') || '–' || to_char(latest.end_at,'YYYY/MM/DD HH24:MI') || '（台北時間）' ||\n    E'\\n電話：' || phone ||\n    E'\\n預約人數：' || greatest(coalesce(latest.party_size, 1), 1)::text || ' 位' ||\n    case\n      when nullif(btrim(latest.member_note), '') is not null\n        then E'\\n會員備註：' || regexp_replace(btrim(latest.member_note), E'[\\r\\n]+', ' ', 'g')\n      else ''\n    end ||\n    case\n      when nullif(btrim(latest.admin_note), '') is not null\n        then E'\\n管理端說明：' || regexp_replace(btrim(latest.admin_note), E'[\\r\\n]+', ' ', 'g')\n      else ''\n    end ||\n    E'\\n\\n' || coalesce(participant_details,'請至預約頁查看');\n\n  member_details :=\n    '預約人：' || contact ||\n    E'\\n營業日：' || to_char(latest.booking_date,'YYYY/MM/DD') ||\n    E'\\n時段：' || to_char(latest.start_at,'YYYY/MM/DD HH24:MI') || '–' || to_char(latest.end_at,'YYYY/MM/DD HH24:MI') || '（台北時間）' ||\n    E'\\n電話：' || phone ||\n    E'\\n預約人數：' || greatest(coalesce(latest.party_size, 1), 1)::text || ' 位' ||\n    case\n      when nullif(btrim(latest.member_note), '') is not null\n        then E'\\n會員備註：' || regexp_replace(btrim(latest.member_note), E'[\\r\\n]+', ' ', 'g')\n      else ''\n    end ||\n    case\n      when nullif(btrim(latest.admin_note), '') is not null\n        then E'\\n管理端說明：' || regexp_replace(btrim(latest.admin_note), E'[\\r\\n]+', ' ', 'g')\n      else ''\n    end ||\n    E'\\n\\n' || coalesce(participant_details,'請至預約頁查看');\n\n  if event_kind in ('created','modified_by_member','cancellation_requested') then\n    admin_message := case event_kind\n      when 'created' then '【預約】'\n      when 'modified_by_member' then '【修改預約】'\n      when 'cancellation_requested' then '【取消預約申請】'\n    end || E'\\n' || admin_details;\n\n    if event_kind = 'modified_by_member' then\n      insert into booking_notifications.outbox(\n        booking_id,event_key,channel,recipient,message_text,coalesce_key,next_attempt_at\n      )\n        select NEW.id,event_id,'admin',line_user_id,left(admin_message,2200),notification_coalesce_key,now()+interval '15 seconds'\n        from public.admins\n        where status='active' and role='admin' and line_user_id ~ '^U[0-9a-f]{32}$'\n      on conflict (coalesce_key,channel,recipient)\n        where status='pending' and attempt_count=0 and first_attempt_at is null and coalesce_key is not null\n      do update set\n        event_key = excluded.event_key,\n        message_text = excluded.message_text,\n        next_attempt_at = excluded.next_attempt_at,\n        last_error = null;\n    else\n      insert into booking_notifications.outbox(booking_id,event_key,channel,recipient,message_text)\n        select NEW.id,event_id,'admin',line_user_id,left(admin_message,2200)\n        from public.admins\n        where status='active' and role='admin' and line_user_id ~ '^U[0-9a-f]{32}$'\n        on conflict (event_key,channel,recipient) do nothing;\n    end if;\n\n  elsif event_kind in ('confirmed','modified_by_admin','completed','rejected','cancelled','cancellation_rejected') then\n    if member_record.line_user_id ~ '^U[0-9a-f]{32}$' then\n      member_message := case event_kind\n        when 'confirmed' then '【預約確認】'\n        when 'modified_by_admin' then '【修改預約】'\n        when 'completed' then '【完成服務】'\n        when 'rejected' then '【預約未通過】'\n        when 'cancelled' then '【預約取消】'\n        when 'cancellation_rejected' then '【取消申請未通過】'\n      end || E'\\n' || member_details;\n\n      if event_kind = 'modified_by_admin' then\n        insert into booking_notifications.outbox(\n          booking_id,event_key,channel,recipient,message_text,coalesce_key,next_attempt_at\n        ) values(\n          NEW.id,event_id,'member',member_record.line_user_id,left(member_message,2200),notification_coalesce_key,now()+interval '15 seconds'\n        )\n        on conflict (coalesce_key,channel,recipient)\n          where status='pending' and attempt_count=0 and first_attempt_at is null and coalesce_key is not null\n        do update set\n          event_key = excluded.event_key,\n          message_text = excluded.message_text,\n          next_attempt_at = excluded.next_attempt_at,\n          last_error = null;\n      else\n        insert into booking_notifications.outbox(booking_id,event_key,channel,recipient,message_text)\n          values(NEW.id,event_id,'member',member_record.line_user_id,left(member_message,2200))\n          on conflict (event_key,channel,recipient) do nothing;\n      end if;\n    end if;\n  end if;\n\n  begin\n    perform booking_notifications.dispatch(20);\n  exception when others then\n    null;\n  end;\n\n  return null;\nend;\n$function$\n",
+      "identityArgs": ""
+    }
+  ],
+  "constraints": [
+    {
+      "name": "config_id_check",
+      "type": "c",
+      "table": "config",
+      "definition": "CHECK (id)"
+    },
+    {
+      "name": "config_pkey",
+      "type": "p",
+      "table": "config",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "outbox_booking_id_fkey",
+      "type": "f",
+      "table": "outbox",
+      "definition": "FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "outbox_channel_check",
+      "type": "c",
+      "table": "outbox",
+      "definition": "CHECK ((channel = ANY (ARRAY['admin'::text, 'member'::text])))"
+    },
+    {
+      "name": "outbox_event_key_channel_recipient_key",
+      "type": "u",
+      "table": "outbox",
+      "definition": "UNIQUE (event_key, channel, recipient)"
+    },
+    {
+      "name": "outbox_message_text_check",
+      "type": "c",
+      "table": "outbox",
+      "definition": "CHECK (((char_length(message_text) >= 1) AND (char_length(message_text) <= 2400)))"
+    },
+    {
+      "name": "outbox_pkey",
+      "type": "p",
+      "table": "outbox",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "outbox_recipient_check",
+      "type": "c",
+      "table": "outbox",
+      "definition": "CHECK ((recipient ~ '^U[0-9a-f]{32}$'::text))"
+    },
+    {
+      "name": "outbox_status_check",
+      "type": "c",
+      "table": "outbox",
+      "definition": "CHECK ((status = ANY (ARRAY['pending'::text, 'sending'::text, 'accepted'::text, 'failed'::text, 'skipped'::text])))"
+    }
+  ]
+}
