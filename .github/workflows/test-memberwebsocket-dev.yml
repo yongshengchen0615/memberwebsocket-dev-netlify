@@ -96,6 +96,7 @@ jobs:
             MemberWebsocket-dev/tests/integration/test_duplicate_login_sql.cjs \
             MemberWebsocket-dev/tests/integration/login_session_sql.cjs \
             MemberWebsocket-dev/tests/integration/member_removal_sql.cjs \
+            MemberWebsocket-dev/tests/integration/receipt_storage_tenant_guard.cjs \
             MemberWebsocket-dev/tests/integration/service_grant_sql.cjs \
             MemberWebsocket-dev/tests/integration/referral_current_rule_sql.cjs \
             MemberWebsocket-dev/tests/integration/e2e_feature_nodes.cjs \
