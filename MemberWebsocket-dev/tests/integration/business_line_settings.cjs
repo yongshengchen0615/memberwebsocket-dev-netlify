@@ -20,6 +20,8 @@ test('AC-302/303/304: workbench owns module forms, isolated saves, shared creden
   assert.equal(d.querySelector('#cardsPanel [data-feature-client]').getAttribute('href'),'https://allowed.test/points/?business=inline-shop');
   const member=d.querySelector('#businessLine-membership'),points=d.querySelector('#businessLine-points');
   const fill=(form,key,value)=>{form.elements.namedItem(key).value=value;form.elements.namedItem(key).dispatchEvent(new w.Event('input',{bubbles:true}));};
+  for(const input of d.querySelectorAll('input[pattern]'))assert.doesNotThrow(()=>new RegExp(input.pattern,'v'));
+  fill(member,'memberLiffId','2010787602-invalid@');assert.equal(member.elements.memberLiffId.validity.patternMismatch,true);
   fill(points,'pointsLiffId','2010787602-unsaved');
   for(const [key,value]of Object.entries({...line,...credentials}))if(member.elements.namedItem(key))fill(member,key,value);
   member.dispatchEvent(new w.Event('submit',{cancelable:true}));

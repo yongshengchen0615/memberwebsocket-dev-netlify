@@ -49,7 +49,7 @@
     input.name = key; input.id = form.id + '-' + key; input.maxLength = key === 'channelAccessToken' ? 4000 : 100;
     input.type = secret ? 'password' : 'text'; input.autocomplete = secret ? 'new-password' : 'off';
     input.spellcheck = false;
-    input.pattern = key === 'channelSecret' ? '[a-fA-F0-9]{32}' : key.endsWith('ChannelId') ? '[0-9]{5,30}' : key.endsWith('LiffId') ? '[0-9]{5,30}-[A-Za-z0-9_-]+' : '.*';
+    input.pattern = key === 'channelSecret' ? '[a-fA-F0-9]{32}' : key.endsWith('ChannelId') ? '[0-9]{5,30}' : key.endsWith('LiffId') ? '[0-9]{5,30}-(?:[A-Za-z0-9_]|-)+' : '.*';
     const help = node('small', key.endsWith('LiffId') ? 'LINE Developers → LINE Login Channel → LIFF → LIFF ID。Endpoint URL 請使用本區塊下方的完整網址。'
       : key === 'channelAccessToken' ? 'Messaging API Channel → Messaging API → Channel access token (long-lived)。留空保留已存憑證。'
       : key === 'channelSecret' ? 'Messaging API Channel → Basic settings → Channel secret。與 token 一起更新，儲存後不回填。'
