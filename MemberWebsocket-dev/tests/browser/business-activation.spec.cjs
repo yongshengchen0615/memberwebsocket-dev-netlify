@@ -40,6 +40,10 @@ test('BUSINESS_APPROVAL_ACTIVATES — real approval/SQL immediately opens grant-
   await expect(manager.locator('[data-business-launch][href^="/booking/"]')).toHaveCount(0);
   await manager.locator('[data-business-launch][href^="/admin/"]').click();await expect(manager.locator('#businessWorkspaceStatus')).toContainText('審核已通過');
   await expect(manager.locator('#membersTab')).toBeVisible();await expect(manager.locator('#cardsTab')).toBeVisible();await expect(manager.locator('#eventsTab')).toBeHidden();await expect(manager.locator('#bookingTab')).toBeHidden();
+  await expect(manager.locator('#memberUsageTab')).toBeHidden();
+  await manager.locator('#memberDirectoryTab').focus();await manager.keyboard.press('ArrowRight');
+  await expect(manager.locator('#memberTierSettingsTab')).toBeFocused();
+  await manager.evaluate(()=>window.MemberWorkspaceTabs.select('usage'));await expect(manager.locator('#memberUsagePanel')).toBeHidden();
   expect(errors).toEqual([]);await info.attach('approved-business-admin',{body:await manager.screenshot({fullPage:true}),contentType:'image/png'});
  }finally{await manager.close();await platform.close();await h.db.close();}
 });

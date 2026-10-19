@@ -7,9 +7,9 @@
   for(const [feature,name]of Object.entries(panels)){
    const tab=document.getElementById(name+'Tab'),panel=document.getElementById(name+'Panel'),allowed=data.features[feature]===true;
    if(tab){tab.hidden=!allowed;tab.disabled=!allowed;tab.dataset.businessAllowed=String(allowed);}
-   if(panel&&!allowed){panel.classList.add('hidden');panel.hidden=true;}
+   if(panel){panel.hidden=!allowed;if(!allowed)panel.classList.add('hidden');}
   }
-  const usage=document.getElementById('memberUsageTab');if(usage)usage.hidden=!data.features.usage;
+  const usage=document.getElementById('memberUsageTab');if(usage){usage.hidden=!data.features.usage;usage.disabled=!data.features.usage;usage.dataset.businessAllowed=String(!!data.features.usage);}
   if(!document.getElementById('businessWorkspaceStatus')){
    const status=document.createElement('section');status.id='businessWorkspaceStatus';status.className='form-message success';status.setAttribute('role','status');
    const text=document.createElement('span');text.textContent=(data.business?.name||'商家')+'｜審核已通過，已核准功能可立即使用。 ';

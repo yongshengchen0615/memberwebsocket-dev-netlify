@@ -6,7 +6,7 @@
   "reviewedSources": {
     "admin/index.html": "6d54dc23b68bd1076b4dc4e531cb06e72af791fb332118b9edc3d4f12c8c60f4",
     "admin/app.js": "83e4359ec62ede92d4607bcd718f90f869b2806406c0a76b3bb838c172db494e",
-    "admin/member-workspace-tabs.js": "e8235f6c84af59c708090d5dd15dcf52d2929a00f7988453d664028f242f8fe2",
+    "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
     "admin/grant-automation.js": "f3178a0bb26745d6cd7731b24ab8ab9aaec96a4dada62699a3609ae8b803e2b0",
     "admin/coupon-location-editor.js": "31fb9d8ab26519022ed20528f9ce7cba588826c4d20bf2cccc2c1a5f584d055f",
@@ -27,7 +27,7 @@
     "admin/operation-audit.js": "2ecd1161e533d56b17a6f89d1907bef384e96a932f81027d6e6178bdcce5a96e",
     "admin/workspace.html": "2f42516fd179c5ca32be135ca288d0bed36a841b5e2af16fa00c01575355b307",
     "platform/app.js": "d16e40cf93d49328645c8635f3634f6377ab6ce790e82e16c9c29c1f513b7174",
-    "admin/business-workspace.js": "569f03f6fc22696516627a9a9e00032e61231f75b8aceedeab4683085ab84bec",
+    "admin/business-workspace.js": "b8eb2836a02cc21c4c5a66ed2502cf4ae611a9b562cfe316fdc114d293dcdc35",
     "business-context.js": "63a2a9ac097d620578361badcb5cac8fdaea2ce03f132d1f2d68bf25a33cce4c"
   },
   "features": [
