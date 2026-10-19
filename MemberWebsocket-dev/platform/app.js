@@ -259,7 +259,7 @@
       const input=merchantForm.elements.namedItem(key);if(!input)continue;
       const help=document.createElement('small');help.id='lineHelp-'+key;
       help.textContent=key.endsWith('LiffId')?'LINE Developers → 對應 LINE Login Channel → LIFF → LIFF ID。需先取得平台提供的商家專屬 Endpoint URL。'
-        :key==='channelAccessToken'?'LINE Developers → Messaging API Channel → Messaging API → Channel access token (long-lived) → Issue。'
+        :key==='channelAccessToken'?'LINE Developers → Messaging API Channel → Messaging API → Channel access token (long-lived)。已有 token 請沿用；重新發行會讓原 token 失效。'
         :key==='channelSecret'?'LINE Developers → Messaging API Channel → Basic settings → Channel secret。'
         :'LINE Developers → '+(key==='messagingChannelId'?'Messaging API':'LINE Login')+' Channel → Basic settings → Channel ID。';
       input.setAttribute('aria-describedby',help.id);input.insertAdjacentElement('afterend',help);

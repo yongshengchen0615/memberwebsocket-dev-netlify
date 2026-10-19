@@ -72,3 +72,5 @@ LINE 資料來源依官方文件核對：
 - https://developers.line.biz/en/docs/line-login/getting-started/
 - https://developers.line.biz/en/docs/liff/registering-liff-apps/
 - https://developers.line.biz/en/docs/messaging-api/getting-started/
+
+長效 Messaging API token 取得方式與重新發行會撤銷原 token 的行為另依 https://developers.line.biz/en/docs/basics/channel-access-token/ 核對，教學提示優先沿用已有 token，避免影響使用同一官方帳號的既有服務。

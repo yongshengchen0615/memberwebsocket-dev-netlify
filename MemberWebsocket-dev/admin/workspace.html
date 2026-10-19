@@ -124,7 +124,7 @@
         <ol>
           <li>開啟 <a href="https://developers.line.biz/console/" target="_blank" rel="noopener noreferrer">LINE Developers Console</a>，選擇商家擁有的 Provider。LINE Login 與 Messaging API Channel 必須在同一 Provider，才能對應同一用戶。</li>
           <li>建立 LINE Login Channel，App types 選 Web app。在 <strong>Basic settings → Channel ID</strong> 複製登入 Channel ID。管理端、會員端可用同一 Login Channel；若使用不同 Channel，請分別填寫對應 ID。</li>
-          <li>在 <a href="https://manager.line.biz/" target="_blank" rel="noopener noreferrer">LINE Official Account Manager</a> 的設定啟用 Messaging API，選擇同一 Provider。回 LINE Developers 開啟該 Messaging API Channel，從 <strong>Basic settings</strong> 複製 Channel ID、Channel secret；從 <strong>Messaging API → Channel access token (long-lived) → Issue</strong> 取得 token。Secret 與 token 只填在下方密碼欄位，不要傳送給其他人。</li>
+          <li>在 <a href="https://manager.line.biz/" target="_blank" rel="noopener noreferrer">LINE Official Account Manager</a> 的設定啟用 Messaging API，選擇同一 Provider。回 LINE Developers 開啟該 Messaging API Channel，從 <strong>Basic settings</strong> 複製 Channel ID、Channel secret；從 <strong>Messaging API → Channel access token (long-lived) → Issue</strong> 取得 token。已有 token 請沿用；重新發行會讓原 token 失效，請先確認其他服務的使用情況。Secret 與 token 只填在下方密碼欄位，不要傳送給其他人。</li>
           <li>開啟對應 LINE Login Channel 的 <strong>LIFF → Add</strong>，Size 選 Full，Scopes 勾選 openid、profile。每個已核准的用戶功能建立自己的 LIFF，將 LIFF ID 貼回該功能頁。LIFF ID 的數字前綴應等於該 Login Channel ID。</li>
           <li><strong>Endpoint URL 需使用平台提供的商家專屬 HTTPS 網址。</strong>目前尚未提供商家專屬服務網址，請先向平台確認；不要填入共用 /admin/、/member/ 或任意加上商家參數。現有 LIFF 資料可以先保存，尚未建立者等專屬網址提供後再完成。</li>
           <li>先儲存共用設定，再逐頁儲存已核准功能。平台開通後，需確認 Channel 已 Published、LIFF Endpoint 與功能相符，並以管理員及另一個測試用戶實際登入。完成後才能分享用戶連結或放入官方帳號選單。</li>

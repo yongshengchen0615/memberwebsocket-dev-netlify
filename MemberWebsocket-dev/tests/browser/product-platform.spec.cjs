@@ -74,6 +74,7 @@ test('ONBOARDING_GUIDE — exact LINE sources, saved checklist, responsible next
   await page.locator('#merchantSetupGuide summary').click();
   await expect(page.locator('#merchantSetupGuide')).toContainText('Basic settings');
   await expect(page.locator('#merchantSetupGuide')).toContainText('Endpoint URL');
+  await expect(page.locator('#merchantSetupGuide')).toContainText('重新發行會讓原 token 失效');
   await expect(page.locator('#merchantLineForm [name="adminChannelId"]')).toHaveAttribute('aria-describedby','lineHelp-adminChannelId');
   await expect(page.locator('#merchantChecklist')).toContainText('尚缺：會員卡 LIFF ID');
   await page.locator('[data-setup-feature="booking"]').click();

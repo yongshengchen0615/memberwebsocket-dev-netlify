@@ -25,8 +25,8 @@
     "admin/booking-accessible-admin.js": "5947f0328b3b27ff891760f72615024899a96b77467f7601842056f908ce5526",
     "admin/ticket-visibility.js": "bb1cf776a3bf1c69f75bbfa6a4b3e07cf9c9077444099533cb9c2883736dd5c0",
     "admin/operation-audit.js": "2ecd1161e533d56b17a6f89d1907bef384e96a932f81027d6e6178bdcce5a96e",
-    "admin/workspace.html": "730dd868140902cb70268e7cbe0bff992f70a66020cde09289be6597c420be99",
-    "platform/app.js": "1d37797099e55330c9bd521157a441ec227005b63ba3e0b5eec6f0b4d88e787e"
+    "admin/workspace.html": "cdadbd839712b4df2322f4cc989ca3ef3fad146c1ee1746eb7bad8edb0bce658",
+    "platform/app.js": "38f24cb4274261fa04e0a64fd01bbf10518e4381a07d8355886e69c5596a2457"
   },
   "features": [
     {
