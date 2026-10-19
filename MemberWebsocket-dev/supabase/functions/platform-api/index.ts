@@ -17,7 +17,7 @@ export const handler = createPlatformHandler({
   db, allowedOrigins,
   encryptionKey:() => resolvePlatformEncryptionKey({configuredKey:env('PLATFORM_CREDENTIAL_ENCRYPTION_KEY'),db}),
   verifyIdentity:(idToken: string) => verifyPlatformIdToken({idToken}),
-  verifyApplicantIdentity:(idToken: string) => verifyMerchantAdminIdToken({idToken}),
+  verifyApplicantIdentity:(idToken: string, channelId?: string) => verifyMerchantAdminIdToken({idToken}, channelId),
 });
 Deno.serve(handler);
 

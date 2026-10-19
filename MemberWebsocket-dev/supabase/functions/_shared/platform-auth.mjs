@@ -6,7 +6,8 @@ export const PLATFORM_CHANNEL_ID = '2012065297';
 
 export const MERCHANT_ADMIN_CHANNEL_ID = '2010791619';
 export const verifyPlatformIdToken = options => verifyChannelToken(options, PLATFORM_CHANNEL_ID, '總管理員');
-export const verifyMerchantAdminIdToken = options => verifyChannelToken(options, MERCHANT_ADMIN_CHANNEL_ID, '一般管理員');
+// channelId is resolved from the trusted business record by the handler.
+export const verifyMerchantAdminIdToken = (options, channelId = MERCHANT_ADMIN_CHANNEL_ID) => verifyChannelToken(options, channelId, '一般管理員');
 
 async function verifyChannelToken({ idToken, fetchImpl = globalThis.fetch, now = Date.now }, channelId, label) {
   if (typeof idToken !== 'string' || !idToken || idToken.length > 10_000) {

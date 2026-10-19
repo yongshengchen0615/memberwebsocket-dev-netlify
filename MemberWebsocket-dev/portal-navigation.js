@@ -19,7 +19,7 @@
     caption.className = 'unified-portal-caption';
     caption.textContent = '系統入口';
     nav.append(caption);
-    for (const { id, title, url } of links) {
+    for (const { id, title, url } of links.filter(link => link.id === surface)) {
       const a = document.createElement('a');
       a.href = url;
       a.textContent = title;

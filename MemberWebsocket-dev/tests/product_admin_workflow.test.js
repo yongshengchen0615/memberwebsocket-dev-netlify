@@ -19,3 +19,10 @@ test('AC-017: applicant actions and root operations choose distinct trusted veri
   assert.equal((await handler(new Request('https://backend.test',{method:'POST',body:JSON.stringify({action,idToken:'synthetic'})}))).status,401);
  assert.equal(applicant,4);assert.equal(root,3);
 });
+
+test('AC-306: own business Channel is accepted only when the handler supplies the trusted Channel',async()=>{
+ const {verifyMerchantAdminIdToken}=await auth(),now=1800000000000;
+ const options={idToken:'synthetic',now:()=>now,fetchImpl:async()=>new Response(JSON.stringify({sub:'U'+'2'.repeat(32),aud:'2099999999',iss:'https://access.line.me',iat:now/1000-1,exp:now/1000+300}))};
+ await assert.rejects(verifyMerchantAdminIdToken(options),e=>e.code==='AUTH_INVALID');
+ assert.equal((await verifyMerchantAdminIdToken(options,'2099999999')).lineUserId,'U'+'2'.repeat(32));
+});

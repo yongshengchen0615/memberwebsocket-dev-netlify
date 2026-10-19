@@ -13,13 +13,13 @@
   if(!document.getElementById('businessWorkspaceStatus')){
    const status=document.createElement('section');status.id='businessWorkspaceStatus';status.className='form-message success';status.setAttribute('role','status');
    const text=document.createElement('span');text.textContent=(data.business?.name||'商家')+'｜審核已通過，已核准功能可立即使用。 ';
-   const settings=document.createElement('a');settings.href='./workspace.html';settings.textContent='LINE 設定與用戶端連結';
-   status.append(text,settings);document.querySelector('#adminView')?.prepend(status);
+   status.append(text);document.querySelector('#adminView')?.prepend(status);
    if(!data.features.membership&&['points','events','calendar','booking'].some(key=>data.features[key])){
     const terms=document.getElementById('memberTermsPanel');
     if(terms){const button=document.createElement('button');button.type='button';button.className='button button-outline';button.textContent='設定會員加入條款';button.onclick=()=>{terms.hidden=false;terms.classList.toggle('hidden');window.dispatchEvent(new CustomEvent('member-workspace-selected',{detail:{workspace:'terms'}}));};status.append(button,terms);}
    }
   }
+  window.BusinessLineSettings?.apply(data);
  }
  function select(){
   if(!latest)return;
