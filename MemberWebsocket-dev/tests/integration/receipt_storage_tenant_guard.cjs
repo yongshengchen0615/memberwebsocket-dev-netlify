@@ -40,6 +40,7 @@ test('AC-187-007: Storage guard authorizes real tenant members without bypassing
     create table ${schemaA}.member_removal_jobs(member_id uuid,state text);
     create table ${schemaB}.member_removal_jobs(member_id uuid,state text);
   `);
+  await exec('20261019151200_fix_tenant_receipt_storage_guard.sql');
   await db.query('insert into platform_private.tenants(id,status,runtime_schema) values($1,\'active\',$2),($3,\'active\',$4)',[tenantA,schemaA,tenantB,schemaB]);
   await db.query(`insert into ${schemaA}.members(id,status) values ($1,'active')`,[memberA]);
   await db.query(`insert into ${schemaB}.members(id,status) values ($1,'active')`,[memberB]);
