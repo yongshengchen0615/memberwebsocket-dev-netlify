@@ -37,8 +37,17 @@ test('AC-017/018 DOM + real handler/SQL: admin applies, root checks only grants,
   assert.match(d.querySelector('#merchantSetupGuide')?.textContent||'',/LINE Developers/);
   assert.match(d.querySelector('#merchantSetupGuide').textContent,/Basic settings/);
   assert.equal(d.querySelector('#merchantLaunchStatus').dataset.ready,'false');
+  assert.equal(d.querySelector('#merchantOverviewPanel').hidden,false);
+  assert.equal(d.querySelector('#merchantLineSettingsPanel').hidden,true);
+  assert.equal(d.querySelector('#merchantLineSettingsTab').hidden,false);
+  d.querySelector('#merchantLineSettingsTab').click();
+  assert.equal(d.querySelector('#merchantLineSettingsPanel').hidden,false);
+  assert.equal(d.querySelector('#merchantOverviewPanel').hidden,true);
   assert.equal(d.querySelectorAll('#merchantFeatureNav [data-line-feature]').length,2);
   assert.equal(d.querySelector('#merchantFeatureNav [data-line-feature="booking"]'),null);
+  d.querySelector('#merchantOverviewTab').click();
+  assert.equal(d.querySelector('#merchantLineSettingsPanel').hidden,true);
+  d.querySelector('#merchantLineSettingsTab').click();
   const form=d.querySelector('#merchantLineForm');
   for(const name of ['adminChannelId','memberChannelId','messagingChannelId','adminLiffId'])form.elements.namedItem(name).value=h.tenant.line[name];
   for(const [name,value]of Object.entries(h.tenant.credentials))form.elements.namedItem(name).value=value;
