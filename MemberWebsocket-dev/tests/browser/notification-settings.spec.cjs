@@ -3,7 +3,7 @@ const fixture=require('../integration/business-platform-fixture.cjs'),{key}=requ
 let server,base;
 test.beforeAll(async()=>{server=http.createServer((req,res)=>{
  if(req.url==='/settings.js'){res.setHeader('Content-Type','text/javascript; charset=utf-8');return res.end(fs.readFileSync(path.resolve(__dirname,'../../admin/business-line-settings.js')));}
- res.setHeader('Content-Type','text/html; charset=utf-8');res.end('<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>input,select{max-width:100%;box-sizing:border-box}form{display:grid;gap:8px}label{display:grid}code{overflow-wrap:anywhere}body{margin:16px}</style></head><body><section id="businessWorkspaceStatus"></section><section id="membersPanel"></section><section id="bookingPanel"></section><section id="cardsPanel"></section></body></html>');
+ res.setHeader('Content-Type','text/html; charset=utf-8');res.end('<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>input,select{max-width:100%;box-sizing:border-box}form{display:grid;gap:8px}label{display:grid}code{overflow-wrap:anywhere}body{margin:16px}</style></head><body><section id="businessWorkspaceStatus"></section><nav id="businessLineFeatureNav" role="tablist"></nav><div id="businessLineFeatureContent"></div><section id="membersPanel"></section><section id="bookingPanel"></section><section id="cardsPanel"></section></body></html>');
  });await new Promise(r=>server.listen(0,'127.0.0.1',r));base='http://127.0.0.1:'+server.address().port;});
 test.afterAll(async()=>new Promise(r=>server.close(r)));
 for(const width of [390,1280])test('NOTIFICATION_PURPOSES_'+width+' — independent verified channels, lost-response replay, test recipient and disable on real SQL',async({page},info)=>{
@@ -26,6 +26,10 @@ for(const width of [390,1280])test('NOTIFICATION_PURPOSES_'+width+' — independ
   await page.addScriptTag({url:base+'/settings.js'});await page.evaluate(()=>window.BusinessLineSettings.apply({features:window.qaFeatures}));
   await expect(page.locator('[data-business-line-feature]')).toHaveCount(2);
   await expect(page.locator('#notification-points-member')).toHaveCount(0);
+  await expect(page.locator('#businessLineFeatureNav [role="tab"]')).toHaveCount(2);
+  await page.locator('#businessLineFeatureTab-booking').click();
+  await expect(page.locator('[data-business-line-feature="booking"]')).toBeVisible();
+  await expect(page.locator('[data-business-line-feature="membership"]')).toBeHidden();
   const admin=page.locator('#notification-booking-admin'),member=page.locator('#notification-booking-member');
   await page.locator('[data-business-line-feature="booking"] > details').evaluate(d=>d.open=true);
   await admin.locator('select').selectOption('custom');await admin.locator('[name=messagingChannelId]').fill('2010123456');await admin.locator('[name=channelAccessToken]').fill('synthetic-browser-notification-token-123456');
