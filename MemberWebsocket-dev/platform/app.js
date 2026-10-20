@@ -388,14 +388,15 @@
     const granted = Object.keys(state.features).some(key => state.merchant?.features?.[key] === true);
     merchantWorkspaceTab = requested === 'line' && granted ? 'line' : 'overview';
     const lineTab = el('merchantLineSettingsTab'),overviewTab = el('merchantOverviewTab');
+    if (!lineTab || !overviewTab || !el('merchantOverviewPanel') || !el('merchantLineSettingsPanel')) return;
     lineTab.hidden = !granted; lineTab.disabled = !granted;
     lineTab.setAttribute('aria-selected',String(merchantWorkspaceTab === 'line'));
     overviewTab.setAttribute('aria-selected',String(merchantWorkspaceTab === 'overview'));
     el('merchantLineSettingsPanel').hidden = merchantWorkspaceTab !== 'line';
     el('merchantOverviewPanel').hidden = merchantWorkspaceTab !== 'overview';
   }
-  el('merchantOverviewTab').addEventListener('click',()=>selectMerchantWorkspaceTab('overview'));
-  el('merchantLineSettingsTab').addEventListener('click',()=>selectMerchantWorkspaceTab('line'));
+  el('merchantOverviewTab')?.addEventListener('click',()=>selectMerchantWorkspaceTab('overview'));
+  el('merchantLineSettingsTab')?.addEventListener('click',()=>selectMerchantWorkspaceTab('line'));
   function selectMerchantPanel(feature, reveal = true) {
     if(merchantSaving||state.merchantPending)return;
     const tenant=state.merchant;
