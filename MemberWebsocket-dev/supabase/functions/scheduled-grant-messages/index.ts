@@ -204,6 +204,13 @@ serveBusiness('scheduled-grant-messages',async (request: Request) => {
     }
 
     const module = isFixedTicketNotification(row) ? "events" : businessContext()?.features?.membership === false ? "points" : "membership";
+    if (businessContext()?.module_line?.[module]?.notifications?.member?.mode === 'disabled') {
+      const suppressed=await supabase.from('scheduled_grant_messages').update({status:'cancelled',last_error:'NOTIFICATIONS_DISABLED',updated_at:new Date().toISOString()})
+        .eq('id',row.id).eq('status','sending');
+      if(suppressed.error){failed++;continue;}
+      await writeAudit(supabase,row,'success',{reason:'notifications_disabled',skipped:true});
+      continue;
+    }
     const token = await withBusinessModule(module, () => lineToken(supabase)).catch(() => "") || (businessContext() ? "" : legacyToken);
     if (!token) {
       const attempts = Number(row.attempt_count || 0);

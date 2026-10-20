@@ -164,6 +164,13 @@ serveBusiness('booking-line-notifications',async (request: Request) => {
     // Bounded parallel work finishes comfortably inside the two-minute claim lease.
     for (let offset = 0; offset < jobs.length; offset += 5) {
       await Promise.all(jobs.slice(offset, offset + 5).map(async (job: any) => {
+        if (job.channel === 'admin' ? config.data.ADMIN_NOTIFICATIONS_DISABLED : config.data.MEMBER_NOTIFICATIONS_DISABLED) {
+          const suppressed = await db.from('notice_outbox').update({status:'skipped',last_error:'NOTIFICATIONS_DISABLED'})
+            .eq('id',job.id).eq('status','sending').eq('attempt_count',job.attempt_count).select('id');
+          if (suppressed.error || suppressed.data?.length !== 1) failed++;
+          else skipped++;
+          return;
+        }
         // Defense in depth: never allow a claimed legacy/manual outbox row to send LINE for a test member.
         const testGuard = await db.rpc('skip_booking_notification_for_test_member', {
           p_id: job.id,

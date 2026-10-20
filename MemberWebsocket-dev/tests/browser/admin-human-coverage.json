@@ -2,7 +2,7 @@
   "version": 1,
   "scope": "Seven admin workspaces, including operation audit; test-control workspace excluded",
   "evidence": "isolated Chromium UI with production handlers and explicit in-memory transport; not live Supabase/LINE delivery",
-  "portalIntegrationReview": "2026-10-19: Reviewed access lifecycle dialogs, removal of redundant platform navigation, expiry in Taipei time, fresh LINE identity after suspension, and independent module LINE credentials. ACCESS_LIFECYCLE in admin-access-lifecycle.spec.cjs covers suspend/reload/reinstate/lost-response replay/expiry; BUSINESS_APPROVAL_ACTIVATES covers per-module settings. Existing CRUD cases are retained. These use isolated SQL and explicit LINE provider stubs; live provider verification is separate.",
+  "portalIntegrationReview": "2026-10-20: Reviewed separate per-purpose notification forms, masked token replacement, provider channel validation, lost-response retry, test-to-current-manager only, disabled routing and existing module LIFF journeys. NOTIFICATION_PURPOSES_390/1280 in notification-settings.spec.cjs use production handler, real isolated SQL and explicit LINE transport; BUSINESS_APPROVAL_ACTIVATES selectors now distinguish identity forms from notification forms. Live LINE delivery remains external QA.",
   "reviewedSources": {
     "admin/index.html": "212d4aab945daec35f19a3069e09eaa30f744fe9102f58512b32570ac646e91a",
     "admin/app.js": "83e4359ec62ede92d4607bcd718f90f869b2806406c0a76b3bb838c172db494e",
@@ -29,7 +29,7 @@
     "platform/app.js": "668ba25a8f8f9537e59649f1e3ebc78b39007f3c22b9ccdd7603472646b71d6b",
     "admin/business-workspace.js": "acaa1f2a3d715f684e7aae802dced3a337a8d4929042c30af6120b1103048eaf",
     "business-context.js": "81c622980d1518bf4700e5e5a959901ac6a917fb5bad4e6f793e4fb730ccd3c4",
-    "admin/business-line-settings.js": "9f934aff6364de3a216aaa8b3f86f7cd9f36373f27f8b5e66d5bf07feb1aaa29"
+    "admin/business-line-settings.js": "fe90cbe7bcccf310da21c4aec2f15258faa78c4579fc14aed8d33fa0b41ba289"
   },
   "features": [
     {
@@ -623,6 +623,11 @@
       "source": "product-platform.spec.cjs",
       "case": "PLATFORM_UNIFIED_PORTALS",
       "scope": "總管理端不提供一般管理員與用戶端跨端連結"
+    },
+    {
+      "source": "notification-settings.spec.cjs",
+      "case": "NOTIFICATION_PURPOSES_390 / NOTIFICATION_PURPOSES_1280",
+      "scope": "管理員／會員通知用途獨立、加密遮罩、Channel 驗證、回應遺失重試、限定本人測試與停用隔離"
     }
   ]
 }

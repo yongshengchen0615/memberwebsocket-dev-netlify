@@ -1,10 +1,42 @@
-import { businessHandler,createClient } from './business-runtime.ts';
+import { businessHandler,createClient,withBusinessModule } from './business-runtime.ts';
 import { businessEnv,businessFetch } from './business-scope.ts';
+import { sealCredentials } from './platform-crypto.mjs';
 const assert=(condition:unknown,message='assertion failed')=>{if(!condition)throw Error(message);};
 const ownerA='U'+'a'.repeat(32),ownerB='U'+'b'.repeat(32);
 const token=(sub:string)=>'e30.'+btoa(JSON.stringify({sub}))+'.signature';
 const a={id:'10000000-0000-4000-8000-000000000001',slug:'merchant-a',name:'A',status:'active',runtime_schema:'business_'+'a'.repeat(32),owner_line_user_id:ownerA,features:{membership:true,points:true,booking:true},line_config:{},credentials_configured:false};
 const b={...a,id:'20000000-0000-4000-8000-000000000002',slug:'merchant-b',name:'B',runtime_schema:'business_'+'b'.repeat(32),owner_line_user_id:ownerB};
+Deno.test('AC-186: dispatch resolves each purpose and never falls back from disabled or corrupt notification routes',async()=>{
+ const oldEnv=Deno.env.get,oldFetch=globalThis.fetch,key=btoa(String.fromCharCode(...new Uint8Array(32).fill(9)));
+ const base=await sealCredentials(a.id+':booking',{channelAccessToken:'synthetic-base',channelSecret:'a'.repeat(32)},key);
+ const pointBase=await sealCredentials(a.id+':points',{channelAccessToken:'synthetic-points',channelSecret:'a'.repeat(32)},key);
+ const envelopes:Record<string,unknown>={};for(const purpose of ['admin','member'])envelopes[purpose]=await sealCredentials(a.id+':booking:notify:'+purpose,{channelAccessToken:'synthetic-'+purpose},key);
+ let disabled=false,broken=false;
+ Deno.env.get=(name:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture',PLATFORM_CREDENTIAL_ENCRYPTION_KEY:key} as Record<string,string>)[name];
+ globalThis.fetch=(async(input:RequestInfo|URL,init?:RequestInit)=>{
+  const p=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url).pathname;
+  const body=typeof init?.body==='string'?JSON.parse(init.body):{};
+  const reply=(data:unknown)=>new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json'}});
+  if(p.endsWith('/platform_business_context'))return reply({...a,module_line:{points:{credentialsConfigured:true,line:{}},booking:{credentialsConfigured:true,line:{},notifications:{admin:{mode:disabled?'disabled':'custom'},member:{mode:'custom'}}}}});
+  if(p.endsWith('/platform_module_credentials'))return reply({scope:'module',envelope:body.p_feature==='points'?pointBase:base});
+  if(p.endsWith('/platform_notification_credentials'))return reply({admin:{mode:'custom',envelope:broken?envelopes.member:envelopes.admin},member:{mode:'custom',envelope:envelopes.member}});
+  if(p.endsWith('/booking_notification_config'))return reply({BOOKING_NOTIFICATION_DISPATCH_SECRET:'synthetic-dispatch'});
+  throw Error('unexpected path '+p);
+ }) as typeof fetch;
+ try{
+  const handler=businessHandler('api',async()=>{
+   const db=createClient('https://runtime-fixture.supabase.co','fixture');
+   const config=await db.rpc('booking_notification_config');
+   const nested=await withBusinessModule('points',async()=>await db.rpc('get_line_messaging_token'));
+   assert(nested.data==='synthetic-points','a DB client created before withBusinessModule must read the active module token');
+   return new Response(JSON.stringify(config.data));
+  });
+  const req=()=>new Request('https://backend.test',{method:'POST',body:JSON.stringify({business:'merchant-a',idToken:token(ownerA),action:'admin.booking.settings.save'})});
+  const first=await(await handler(req())).json();assert(first.LINE_BOOKING_ADMIN_CHANNEL_ACCESS_TOKEN==='synthetic-admin');assert(first.LINE_BOOKING_MEMBER_CHANNEL_ACCESS_TOKEN==='synthetic-member');
+  disabled=true;const second=await(await handler(req())).json();assert(second.LINE_BOOKING_ADMIN_CHANNEL_ACCESS_TOKEN==='');assert(second.ADMIN_NOTIFICATIONS_DISABLED===true);assert(second.LINE_BOOKING_MEMBER_CHANNEL_ACCESS_TOKEN==='synthetic-member');
+  disabled=false;broken=true;const third=await(await handler(req())).json();assert(third.LINE_BOOKING_ADMIN_CHANNEL_ACCESS_TOKEN==='','another purpose envelope must never decrypt or fall back');assert(third.LINE_BOOKING_MEMBER_CHANNEL_ACCESS_TOKEN==='synthetic-member','an invalid admin channel must not block the member channel');
+ }finally{Deno.env.get=oldEnv;globalThis.fetch=oldFetch;}
+});
 Deno.test('AC-210: production request adapter enforces fresh grants, private schemas, storage prefixes and concurrent isolation',async()=>{
  const previousEnv=Deno.env.get;
  Deno.env.get=(key:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'server-only-fixture'} as Record<string,string>)[key];

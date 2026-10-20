@@ -3,6 +3,9 @@ import { tenantExpired } from './tenant-access.mjs';
 // Unknown scoped actions fail closed. Bootstrap/session are workspace operations.
 export const businessFeatures=['membership','points','events','calendar','integrations','booking','testing','usage'];
 export function actionFeatures(action,body={}) {
+ if(action==='admin.sync.status')return [];
+ const sync=/^user\.(member|points|event|calendar|booking)\.sync\.status$/.exec(action);
+ if(sync)return [({member:'membership',points:'points',event:'events',calendar:'calendar',booking:'booking'})[sync[1]]];
  if(['admin.bootstrap','admin.session.claim','admin.session.logout','admin.summary','public.status','session.status'].includes(action)
    || /^user\.[a-z]+\.session\.(claim|status|logout)$/.test(action))return [];
  if(action==='admin.settings.copy')return [({card:'points',pointcard:'points',point_card:'points',ticket:'points',event:'events',event_ticket:'events',calendar:'calendar',calendar_item:'calendar',fixed:'events',fixed_ticket:'events'})[body.kind]||'integrations'];

@@ -1,6 +1,7 @@
 import { FEATURES, PlatformError, publicTenant, validateTenant } from './platform-policy.mjs';
-import { payloadHash, sealCredentials } from './platform-crypto.mjs';
+import { payloadHash, sealCredentials, openCredentials } from './platform-crypto.mjs';
 import { assertTenantIdentity, normalizeExpiry } from './tenant-access.mjs';
+import { validateNotificationRoute, verifyNotificationToken } from './notification-routes.mjs';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SQL_ERRORS = {
   PLATFORM_ADMIN_REQUIRED:[403,'僅總管理員可管理商家。'], PLATFORM_CONFLICT:[409,'資料已更新，請重新載入後再試。'],
@@ -13,7 +14,7 @@ export function databaseError(error) {
   for (const [code,[status,message]] of Object.entries(SQL_ERRORS)) if (String(error?.message || '').includes(code)) return new PlatformError(status,code,message);
   return new PlatformError(503,'PLATFORM_DATABASE_UNAVAILABLE','目前無法儲存或讀取商家設定。');
 }
-export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdentity = verifyIdentity, encryptionKey, allowedOrigins }) {
+export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdentity = verifyIdentity, encryptionKey, allowedOrigins, fetchImpl = fetch }) {
   return async request => {
     const origin = request.headers.get('Origin');
     const headers = { 'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Vary':'Origin',
@@ -50,7 +51,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
           line:module?.credentialsConfigured?{...tenant.line,...module.line}:tenant.onboarding.configurationComplete?tenant.line:{adminLiffId:tenant.line?.adminLiffId||''}}});
       }
       if (typeof body.idToken !== 'string' || !body.idToken || body.idToken.length > 10_000) throw new PlatformError(401,'AUTH_REQUIRED','請使用 LINE 帳號登入。');
-      const applicantAction = ['platform.application.bootstrap','platform.application.ensure','platform.application.submit','platform.line.save'].includes(body.action);
+      const applicantAction = ['platform.application.bootstrap','platform.application.ensure','platform.application.submit','platform.line.save','platform.notifications.save','platform.notifications.test'].includes(body.action);
       let trustedChannel;
       if (applicantAction && body.business !== undefined) {
         if (typeof body.business !== 'string' || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(body.business) || body.business.length > 40)
@@ -106,6 +107,59 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         const result = await db.rpc('platform_submit_application',{p_actor:actor,p_name:body.businessName.trim(),p_slug:body.slug});
         if (result.error) throw databaseError(result.error);
         return json({ok:true,data:{...await mine()}});
+      }
+      if (body.action === 'platform.notifications.test') {
+        validateNotificationRoute({...body,mode:'inherit'});
+        if (!uuid.test(body.requestId || '') || !Number.isSafeInteger(body.expectedVersion)) throw new PlatformError(400,'INVALID_REQUEST_ID','操作識別碼或資料版本不正確。');
+        const workspace=await mine(),current=workspace.tenant;
+        if (workspace.application?.status!=='approved'||!current?.capabilities.dataPlaneVerified) throw new PlatformError(403,'TENANT_SUSPENDED','此商家尚未開放或已停用。');
+        if (current.features?.[body.feature]!==true) throw new PlatformError(403,'FEATURE_DISABLED','此功能尚未核准。');
+        const route=current.moduleLine?.[body.feature]?.notifications?.[body.purpose];
+        if(route?.mode==='disabled')throw new PlatformError(409,'NOTIFICATION_DISABLED','請先啟用此用途通知。');
+        const hash=await payloadHash({feature:body.feature,purpose:body.purpose,expectedVersion:body.expectedVersion});
+        const args={p_actor:actor,p_feature:body.feature,p_purpose:body.purpose,p_expected_version:body.expectedVersion,p_request_id:body.requestId,p_payload_hash:hash};
+        const claim=await db.rpc('platform_notification_test',args);if(claim.error)throw databaseError(claim.error);
+        if(claim.data?.state==='accepted')return json({ok:true,data:claim.data});
+        const custom=route?.mode==='custom';
+        const stored=await db.rpc(custom?'platform_notification_credentials':'platform_module_credentials',{p_tenant_id:current.id,p_feature:body.feature});
+        if(stored.error)throw databaseError(stored.error);
+        const secret=custom?stored.data?.[body.purpose]:stored.data;
+        if(!secret?.envelope)throw new PlatformError(409,'NOTIFICATION_NOT_CONFIGURED','請先儲存本模組或獨立通知憑證。');
+        const credentials=await openCredentials(custom?current.id+':'+body.feature+':notify:'+body.purpose:secret.scope==='module'?current.id+':'+body.feature:current.id,secret.envelope,await encryptionKey());
+        const channel=custom?route.channelId:(current.moduleLine?.[body.feature]?.line||current.line)?.messagingChannelId;
+        await verifyNotificationToken(credentials.channelAccessToken,channel,fetchImpl);
+        let remote;
+        try { remote=await fetchImpl('https://api.line.me/v2/bot/message/push',{method:'POST',signal:AbortSignal.timeout(8000),
+          headers:{'Content-Type':'application/json',Authorization:'Bearer '+credentials.channelAccessToken,'X-Line-Retry-Key':body.requestId},
+          body:JSON.stringify({to:actor,messages:[{type:'text',text:'【通知通道測試】'+FEATURES[body.feature]+'｜'+(body.purpose==='admin'?'管理員':'會員')+'通知連線測試。此訊息僅傳給操作中的管理員。'}]})}); }
+        catch {throw new PlatformError(503,'LINE_NOTIFICATION_UNCERTAIN','無法確認 LINE 是否已接收，請重試相同測試操作。');}
+        const accepted=remote.ok||(remote.status===409&&Boolean(remote.headers.get('x-line-accepted-request-id')));
+        const result={state:accepted?'accepted':'failed',status:remote.status,requestId:remote.headers.get('x-line-request-id')||''};
+        const finish=await db.rpc('platform_notification_test',{...args,p_result:result});if(finish.error)throw databaseError(finish.error);
+        if(!accepted)throw new PlatformError(remote.status>=500||remote.status===429?503:400,'LINE_NOTIFICATION_FAILED','LINE 未接收測試通知。請確認已加入該官方帳號好友、Channel 位於相同 Provider，並檢查訊息額度。');
+        return json({ok:true,data:result});
+      }
+      if (body.action === 'platform.notifications.save') {
+        validateNotificationRoute(body);
+        if (!uuid.test(body.requestId || '') || !Number.isSafeInteger(body.expectedVersion) || body.expectedVersion < 1)
+          throw new PlatformError(400,'INVALID_REQUEST_ID','操作識別碼或資料版本不正確。');
+        const workspace = await mine(), current = workspace.tenant;
+        if (workspace.application?.status !== 'approved' || !current) throw new PlatformError(403,'PLATFORM_APPLICATION_NOT_APPROVED','請先等待總管理員核准。');
+        if (!current.capabilities.dataPlaneVerified) throw new PlatformError(403,'TENANT_SUSPENDED','此商家已停用或使用期限已到。');
+        if (current.features?.[body.feature] !== true) throw new PlatformError(403,'FEATURE_DISABLED','此功能尚未核准。');
+        let encrypted = null;
+        if (body.mode === 'custom') {
+          await verifyNotificationToken(body.channelAccessToken,body.messagingChannelId,fetchImpl);
+          encrypted = await sealCredentials(current.id+':'+body.feature+':notify:'+body.purpose,
+            {channelAccessToken:body.channelAccessToken},await encryptionKey());
+        }
+        const hash = await payloadHash({feature:body.feature,purpose:body.purpose,mode:body.mode,expectedVersion:body.expectedVersion,
+          channel:body.mode==='custom'?body.messagingChannelId:null,token:body.mode==='custom'?body.channelAccessToken:null});
+        const result = await db.rpc('platform_save_notification_route',{p_actor:actor,p_feature:body.feature,p_purpose:body.purpose,p_mode:body.mode,
+          p_expected_version:body.expectedVersion,p_request_id:body.requestId,p_payload_hash:hash,
+          p_channel_id:body.mode==='custom'?body.messagingChannelId:null,p_envelope:encrypted});
+        if (result.error) throw databaseError(result.error);
+        return json({ok:true,data:{tenant:publicTenant(result.data)}});
       }
       if (body.action === 'platform.line.save') {
         if (!uuid.test(body.requestId || '') || !Number.isSafeInteger(body.expectedVersion) || body.expectedVersion < 1)
