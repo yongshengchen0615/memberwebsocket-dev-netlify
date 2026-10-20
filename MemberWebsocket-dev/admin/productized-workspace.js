@@ -17,14 +17,12 @@
     const heading=host.querySelector('header.topbar h1');
     if(heading)heading.textContent='管理端｜Lumen Club';
     const subtitle=host.querySelector('header.topbar p:last-child');
-    if(subtitle)subtitle.textContent='申請審核、已授權功能及各功能的 LINE 設定，皆在此管理端完成。';
+    if(subtitle)subtitle.textContent='管理功能與 LINE 設定各自獨立；僅已核准的功能可設定 LINE。';
     const nav=host.querySelector('#merchantFeatureNav');
-    const merchant=host.querySelector('#merchantWorkspace');
-    nav.setAttribute('aria-label','已授權的管理功能');
-    merchant.insertBefore(nav,merchant.firstElementChild);
+    nav.setAttribute('aria-label','總管理員已核准功能的 LINE 設定');
     document.documentElement.dataset.workspace='merchant';
     const link=document.createElement('link');
-    link.rel='stylesheet';link.href='../platform/platform.css?v=unified-admin-20261018-1';
+    link.rel='stylesheet';link.href='../platform/platform.css?v=line-tab-20261020-1';
     document.head.append(link);
     try {
       await new Promise((resolve,reject)=>{
