@@ -13,7 +13,7 @@
     messagingChannelId: 'Messaging API Channel ID', adminLiffId: '管理端 LIFF ID',
     channelAccessToken: 'Channel access token', channelSecret: 'Channel secret',
   };
-  let grants = {}, tenant = null, loading = false, saving = false;
+  let grants = {}, tenant = null, loading = false, saving = false, activeFeature = null, navSignature = '';
   const views = new Map();
   const pendingOperation = () => [...views.values()].some(v => v.pending || [...(v.routes?.values() || [])].some(r => r.pending || r.testPending));
   function node(tag, text, className) {
@@ -192,13 +192,41 @@
     }
     view.section.append(details);
   }
+  function selectFeature(feature) {
+    activeFeature = views.has(feature) ? feature : views.keys().next().value || null;
+    for (const [name, view] of views) {
+      const selected = name === activeFeature;
+      view.section.hidden = !selected;
+      const button = document.getElementById('businessLineFeatureTab-' + name);
+      if (button) {button.setAttribute('aria-selected',String(selected));button.tabIndex = selected ? 0 : -1;}
+    }
+  }
+  function renderNav() {
+    const nav = document.getElementById('businessLineFeatureNav');
+    if (!nav) return;
+    const signature = [...views.keys()].join('|');
+    if (signature !== navSignature) {
+      navSignature = signature;
+      nav.replaceChildren();
+      for (const [feature, view] of views) {
+        const button = node('button',view.label);
+        button.id='businessLineFeatureTab-'+feature;button.type='button';button.setAttribute('role','tab');
+        button.setAttribute('aria-controls',view.section.id);
+        button.onclick=()=>selectFeature(feature);
+        nav.append(button);
+      }
+    }
+    selectFeature(activeFeature);
+  }
   function render() {
+    const container = document.getElementById('businessLineFeatureContent');
+    if (!container) return;
     for (const [feature, [panelName, label, path, key]] of Object.entries(modules)) {
-      const panel = document.getElementById(panelName + 'Panel');
       const allowed = grants[feature] === true && tenant?.features?.[feature] === true;
       if (!allowed) { views.get(feature)?.section.remove(); views.delete(feature); continue; }
-      if (!panel || views.has(feature)) continue;
+      if (views.has(feature)) continue;
       const section = node('section', '', 'business-line-settings'); section.dataset.businessLineFeature = feature;
+      section.id='businessLineSection-'+feature;section.setAttribute('role','tabpanel');section.setAttribute('aria-labelledby','businessLineFeatureTab-'+feature);
       section.append(node('h2', label + '｜LINE 設定與用戶端連結'));
       const status = node('p'); status.setAttribute('role','status'); status.setAttribute('aria-live','polite');
       const view = {feature, label, path, key, section, status, dirty:new Set(), links:node('div','','business-client-links')};
@@ -221,8 +249,9 @@
         section.append(form);
       }
       section.append(status); notificationForms(view);
-      section.append(view.links, reload); panel.prepend(section); views.set(feature,view); update(view);
+      section.append(view.links, reload); container.append(section); views.set(feature,view); update(view);
     }
+    renderNav();
   }
   async function load(force = false, source = null) {
     if (loading || saving || pendingOperation()) return;
@@ -250,5 +279,5 @@
     if (!tenant || changed) return load();
   }
   window.addEventListener('member-admin-ready', () => void load());
-  window.BusinessLineSettings = Object.freeze({apply});
+  window.BusinessLineSettings = Object.freeze({apply,select:selectFeature});
 })();

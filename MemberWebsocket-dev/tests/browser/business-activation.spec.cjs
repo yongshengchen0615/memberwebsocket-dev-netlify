@@ -42,6 +42,11 @@ test('BUSINESS_APPROVAL_ACTIVATES — real approval/SQL immediately opens grant-
   await expect(manager.locator('#memberTierSettingsTab')).toBeFocused();
   await manager.evaluate(()=>window.MemberWorkspaceTabs.select('usage'));await expect(manager.locator('#memberUsagePanel')).toBeHidden();
   await expect(manager.locator('#businessWorkspaceStatus a[href*="workspace.html"]')).toHaveCount(0);
+  await expect(manager.locator('#lineSettingsTab')).toBeVisible();
+  await manager.locator('#lineSettingsTab').click();
+  await expect(manager.locator('#lineSettingsPanel')).toBeVisible();
+  await expect(manager.locator('#membersPanel [data-business-line-feature]')).toHaveCount(0);
+  await expect(manager.locator('#businessLineFeatureNav [role=tab]')).toHaveCount(2);
   const memberSection=manager.locator('[data-business-line-feature="membership"]');const memberLine=memberSection.locator('#businessLine-membership');
   const pointsSection=manager.locator('[data-business-line-feature="points"]');const pointsLine=pointsSection.locator('#businessLine-points');
   await expect(memberLine).toBeVisible();
@@ -55,7 +60,8 @@ test('BUSINESS_APPROVAL_ACTIVATES — real approval/SQL immediately opens grant-
   await expect(memberSection.locator(':scope > [role=status]')).toContainText('已儲存');
   await expect(memberLine.locator('[name=channelAccessToken]')).toHaveValue('');
   expect((await h.db.query('select module_line from platform_private.tenants')).rows[0].module_line.points).toBeUndefined();
-  await manager.locator('#cardsTab').click();await expect(pointsLine).toBeVisible();
+  await manager.locator('#businessLineFeatureTab-points').click();await expect(pointsLine).toBeVisible();
+  await expect(memberLine).toBeHidden();
   await pointsLine.locator('[name=pointsLiffId]').fill('2010787602-points');
   await pointsLine.locator('details').evaluate(x=>x.open=true);
   await pointsLine.locator('[name=channelAccessToken]').fill('synthetic-points-token-123456789');
@@ -63,6 +69,11 @@ test('BUSINESS_APPROVAL_ACTIVATES — real approval/SQL immediately opens grant-
   await pointsLine.getByRole('button',{name:'儲存集點卡 LINE 設定',exact:true}).click();
   await expect(pointsSection.locator(':scope > [role=status]')).toContainText('已儲存');
   expect((await h.db.query('select module_line from platform_private.tenants')).rows[0].module_line.membership.line.memberLiffId).toBe(fields.memberLiffId);
+  await manager.locator('#cardsTab').click();
+  await expect(manager.locator('#lineSettingsPanel')).toBeHidden();
+  await expect(manager.locator('#cardsPanel')).toBeVisible();
+  await manager.locator('#lineSettingsTab').click();
+  await expect(pointsLine).toBeVisible();
   await pointsSection.getByRole('button',{name:'複製用戶端連結'}).click();await expect(pointsSection.locator(':scope > [role=status]')).toContainText('已複製');
   await manager.setViewportSize({width:390,height:844});
   expect(await manager.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

@@ -5,10 +5,10 @@ const owner='U'+'2'.repeat(32),features={membership:true,points:true,events:fals
 const line={adminChannelId:'2010791619',memberChannelId:'2010787602',messagingChannelId:'2010123456',adminLiffId:'2010791619-admin',memberLiffId:'2010787602-member',pointsLiffId:'',eventLiffId:'',calendarLiffId:'',bookingLiffId:''};
 const credentials={channelAccessToken:'synthetic-access-token-123456789',channelSecret:'a'.repeat(32)};
 const until=async check=>{for(let i=0;i<150;i++){if(check())return;await new Promise(r=>setTimeout(r,20));}assert.ok(check(),'UI never reached expected state');};
-test('AC-302/303/304: workbench owns module forms, isolated saves, module credentials and scoped links',async()=>{
+test('AC-302/303/304: LINE settings tab owns module forms, isolated saves, module credentials and scoped links',async()=>{
  const h=await fixture();let dom;try{
   const t=await h.approve(owner,'inline-shop',features);
-  dom=new JSDOM('<section id="businessWorkspaceStatus"></section><section id="membersPanel"></section><section id="cardsPanel"></section><section id="eventsPanel"></section>',{url:'https://allowed.test/admin/?business=inline-shop',runScripts:'outside-only'});
+  dom=new JSDOM('<section id="businessWorkspaceStatus"></section><nav id="businessLineFeatureNav" role="tablist"></nav><div id="businessLineFeatureContent"></div><section id="membersPanel"></section><section id="cardsPanel"></section><section id="eventsPanel"></section>',{url:'https://allowed.test/admin/?business=inline-shop',runScripts:'outside-only'});
   const w=dom.window;w.AbortSignal=AbortSignal;
   w.MemberAdminSession={get:()=>({config:{business:t.slug,supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'synthetic'},idToken:'manager'})};
   let loseFirstSave=true;const calls=[];w.fetch=async(url,options)=>{const input=JSON.parse(options.body);calls.push(input);const response=await h.handler(new Request(url,{...options,headers:{...options.headers,Origin:'https://allowed.test'}}));if(input.action==='platform.line.save'&&loseFirstSave){loseFirstSave=false;throw Error('synthetic lost response after committed SQL');}return response;};
@@ -16,8 +16,16 @@ test('AC-302/303/304: workbench owns module forms, isolated saves, module creden
   await w.BusinessLineSettings.apply({features,business:{slug:t.slug}});
   const d=w.document;await until(()=>d.querySelectorAll('[data-business-line-feature]').length===2);
   assert.equal(d.querySelector('[data-business-line-feature="events"]'),null);
-  assert.equal(d.querySelector('#membersPanel [data-feature-client]').getAttribute('href'),'https://allowed.test/member/?business=inline-shop');
-  assert.equal(d.querySelector('#cardsPanel [data-feature-client]').getAttribute('href'),'https://allowed.test/points/?business=inline-shop');
+  assert.equal(d.querySelectorAll('#businessLineFeatureNav button').length,2);
+  assert.equal(d.querySelector('#membersPanel [data-business-line-feature]'),null,'LINE forms must no longer appear inline inside business management');
+  assert.equal(d.querySelector('[data-business-line-feature="membership"]').hidden,false);
+  assert.equal(d.querySelector('[data-business-line-feature="points"]').hidden,true);
+  d.querySelector('#businessLineFeatureTab-points').click();
+  assert.equal(d.querySelector('[data-business-line-feature="membership"]').hidden,true);
+  assert.equal(d.querySelector('[data-business-line-feature="points"]').hidden,false);
+  d.querySelector('#businessLineFeatureTab-membership').click();
+  assert.equal(d.querySelector('#businessLineFeatureContent [data-business-line-feature="membership"] [data-feature-client]').getAttribute('href'),'https://allowed.test/member/?business=inline-shop');
+  assert.equal(d.querySelector('#businessLineFeatureContent [data-business-line-feature="points"] [data-feature-client]').getAttribute('href'),'https://allowed.test/points/?business=inline-shop');
   const member=d.querySelector('#businessLine-membership'),points=d.querySelector('#businessLine-points');
   const fill=(form,key,value)=>{form.elements.namedItem(key).value=value;form.elements.namedItem(key).dispatchEvent(new w.Event('input',{bubbles:true}));};
   for(const input of d.querySelectorAll('input[pattern]'))assert.doesNotThrow(()=>new RegExp(input.pattern,'v'));
@@ -42,6 +50,9 @@ test('AC-302/303/304: workbench owns module forms, isolated saves, module creden
   assert.equal(calls.filter(c=>c.action==='platform.line.save').at(-1).credentials.channelAccessToken,'synthetic-points-token-123456789');
   await w.BusinessLineSettings.apply({features:{...features,membership:false},business:{slug:t.slug}});
   assert.equal(d.querySelector('[data-business-line-feature="membership"]'),null);
+  assert.equal(d.querySelector('#businessLineFeatureTab-membership'),null);
+  assert.equal(d.querySelectorAll('#businessLineFeatureNav button').length,1);
+  assert.equal(d.querySelector('[data-business-line-feature="points"]').hidden,false);
  }finally{dom?.window.close();await h.db.close();}
 });
 test('AC-303/305: real handler + SQL reject revoked, cross-business, cross-module and stale writes',async()=>{
