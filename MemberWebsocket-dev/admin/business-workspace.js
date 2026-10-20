@@ -51,6 +51,11 @@
   const tab=document.getElementById('lineSettingsTab'),panel=document.getElementById('lineSettingsPanel');
   if(tab)tab.setAttribute('aria-selected','false');
   if(panel){panel.hidden=true;panel.classList.add('hidden');}
+  const selected=event.target.closest('button[role="tab"]');
+  const selectedPanel=selected?.getAttribute('aria-controls');
+  if(selectedPanel && selected?.dataset.businessAllowed!=='false'){
+   const node=document.getElementById(selectedPanel);if(node)node.hidden=false;
+  }
  });
  document.addEventListener('click',event=>{const target=event.target.closest?.('[data-business-allowed="false"]');if(target){event.preventDefault();event.stopImmediatePropagation();}},true);
  window.addEventListener('member-admin-ready',select);
