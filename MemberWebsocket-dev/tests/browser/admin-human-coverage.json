@@ -29,7 +29,7 @@
     "platform/app.js": "668ba25a8f8f9537e59649f1e3ebc78b39007f3c22b9ccdd7603472646b71d6b",
     "admin/business-workspace.js": "acaa1f2a3d715f684e7aae802dced3a337a8d4929042c30af6120b1103048eaf",
     "business-context.js": "81c622980d1518bf4700e5e5a959901ac6a917fb5bad4e6f793e4fb730ccd3c4",
-    "admin/business-line-settings.js": "efa99f8dd0547e458bbfd0aac8b0eb1ef96c7e2aed43854cec7a529fe25f5d26"
+    "admin/business-line-settings.js": "fe90cbe7bcccf310da21c4aec2f15258faa78c4579fc14aed8d33fa0b41ba289"
   },
   "features": [
     {

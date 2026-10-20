@@ -80,3 +80,17 @@ test('AC-186: existing cron dispatches a custom-only notification module without
   assert.equal((await h.db.query('select credentials_configured from platform_private.tenants where id=$1',[h.t.id])).rows[0].credentials_configured,false);
  }finally{await h.db.close();}
 });
+test('AC-186: configuring notifications before a newly granted module preserves legacy Login/LIFF and credential scope',async()=>{
+ const h=await setup();try{
+  const {sealCredentials,openCredentials}=await import('../../supabase/functions/_shared/platform-crypto.mjs');
+  const line={adminChannelId:'2010791619',adminLiffId:'2010791619-admin',memberChannelId:'2010787602',messagingChannelId:'2010123456',bookingLiffId:'2010787602-booking'};
+  const envelope=await sealCredentials(h.t.id,{channelAccessToken:'synthetic-inherited-token-123456',channelSecret:'a'.repeat(32)},key);
+  await h.db.query('insert into platform_private.tenant_secrets(tenant_id,envelope)values($1,$2)',[h.t.id,envelope]);
+  await h.db.query('update platform_private.tenants set credentials_configured=true,line_config=$2 where id=$1',[h.t.id,line]);
+  const saved=await h.save();assert.equal(saved.status,200,JSON.stringify(saved));
+  assert.deepEqual(saved.body.data.tenant.moduleLine.booking.line,line);assert.equal(saved.body.data.tenant.moduleLine.booking.credentialsConfigured,true);
+  const inherited=(await h.rpc('platform_module_credentials',{p_tenant_id:h.t.id,p_feature:'booking'})).data;
+  assert.equal(inherited.scope,'tenant');assert.equal((await openCredentials(h.t.id,inherited.envelope,key)).channelAccessToken,'synthetic-inherited-token-123456');
+  assert.equal((await h.db.query('select line_config from platform_private.tenants where id=$1',[h.t.id])).rows[0].line_config.adminChannelId,line.adminChannelId);
+ }finally{await h.db.close();}
+});

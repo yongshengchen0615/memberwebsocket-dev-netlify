@@ -83,7 +83,7 @@
     }
     if (view.form) for (const input of view.form.querySelectorAll('input')) {
       const secret = ['channelAccessToken','channelSecret'].includes(input.name);
-      if (reset || !view.dirty.has(input.name)) input.value = secret ? '' : (tenant.moduleLine?.[view.feature]?.line || tenant.line)?.[input.name] || '';
+      if (reset || !view.dirty.has(input.name)) input.value = secret ? '' : {...tenant.line,...tenant.moduleLine?.[view.feature]?.line}[input.name] || '';
       input.required = !secret || !(tenant.moduleLine?.[view.feature]?.credentialsConfigured || tenant.credentialsConfigured);
       if(['adminChannelId','adminLiffId'].includes(input.name))input.readOnly=Boolean(tenant.line?.[input.name]);
     }
@@ -97,7 +97,7 @@
     const copy = node('button', '複製用戶端連結', 'button button-outline'); copy.type = 'button';
     copy.onclick = async () => { try { await navigator.clipboard.writeText(endpoint.href); view.status.textContent = '已複製' + view.label + '用戶端連結。'; } catch { view.status.textContent = '請複製下方的完整網址。'; } };
     view.links.append(a, copy, node('p', 'LIFF Endpoint URL（含商家代碼）'), code);
-    const id = (tenant.moduleLine?.[view.feature]?.line || tenant.line)?.[view.key];
+    const id = {...tenant.line,...tenant.moduleLine?.[view.feature]?.line}[view.key];
     if ((tenant.moduleLine?.[view.feature]?.credentialsConfigured || tenant.onboarding?.configurationComplete) && /^\d{5,30}-[A-Za-z0-9_-]+$/.test(id || '')) {
       const liff = node('a', '開啟已儲存的 LINE 入口'); liff.href = 'https://liff.line.me/' + id;
       liff.target = '_blank'; liff.rel = 'noopener noreferrer'; view.links.append(liff);
@@ -179,6 +179,7 @@
       const fields=node('div','','business-line-fields');fields.id=form.id+'-fields';
       const channel=addField(fields,'messagingChannelId','通知 Messaging API Channel ID');
       const token=addField(fields,'channelAccessToken','通知 Channel access token（long-lived）',true);
+      token.nextElementSibling.textContent='Messaging API → Channel access token (long-lived)。重新驗證或輪替時需輸入完整 Token；儲存後不回填。';
       form.append(fields);
       const summary=node('p'),status=node('p'); status.setAttribute('role','status');status.setAttribute('aria-live','polite');
       const save=node('button','驗證並儲存通知設定','button button-outline');save.type='submit';

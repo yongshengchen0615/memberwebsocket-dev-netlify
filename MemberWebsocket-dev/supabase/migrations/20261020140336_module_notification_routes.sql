@@ -48,8 +48,17 @@ begin
   verified_at=excluded.verified_at,updated_at=clock_timestamp();
  summary:=jsonb_build_object('mode',p_mode,'channelId',case when p_mode='custom' then p_channel_id end,
   'verifiedAt',case when p_mode='custom' then clock_timestamp() end);
+ -- Notification-only setup must preserve an existing shared Login/LIFF and
+ -- inherited credential envelope for a newly granted module.
+ if not (t.module_line ? p_feature) and t.credentials_configured then
+  insert into platform_private.module_secrets(tenant_id,feature,envelope,credential_scope)
+   select t.id,p_feature,s.envelope,'tenant' from platform_private.tenant_secrets s where s.tenant_id=t.id
+   on conflict(tenant_id,feature)do nothing;
+  if not exists(select 1 from platform_private.module_secrets where tenant_id=t.id and feature=p_feature)
+   then raise exception 'PLATFORM_CREDENTIALS_REQUIRED';end if;
+ end if;
  update platform_private.tenants set module_line=jsonb_set(module_line,array[p_feature],
-  coalesce(module_line->p_feature,'{}'::jsonb)||jsonb_build_object('notifications',
+  coalesce(module_line->p_feature,jsonb_build_object('line',line_config,'credentialsConfigured',credentials_configured))||jsonb_build_object('notifications',
    coalesce(module_line->p_feature->'notifications','{}'::jsonb)||jsonb_build_object(p_purpose,summary))),
   version=version+1,updated_by=p_actor,updated_at=clock_timestamp() where id=t.id returning * into t;
  insert into platform_private.audit_events(actor,tenant_id,action,detail)
