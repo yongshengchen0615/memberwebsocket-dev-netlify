@@ -108,5 +108,17 @@ begin
 end $$;
 revoke all on function public.platform_notification_test(text,text,text,integer,uuid,text,jsonb) from public,anon,authenticated;
 grant execute on function public.platform_notification_test(text,text,text,integer,uuid,text,jsonb) to service_role;
+-- The existing cron also dispatches modules whose outgoing route is configured
+-- independently of Login/LIFF. Disabled routes still drain as skipped/cancelled.
+do $$ declare def text; begin
+ select pg_get_functiondef('public.platform_tick_businesses()'::regprocedure) into def;
+ def:=replace(def,
+  'coalesce((t.module_line->''booking''->>''credentialsConfigured'')::boolean,false)',
+  '(coalesce((t.module_line->''booking''->>''credentialsConfigured'')::boolean,false) or exists(select 1 from jsonb_each(coalesce(t.module_line->''booking''->''notifications'',''{}''::jsonb)) n where n.value->>''mode'' in (''custom'',''disabled'')))');
+ def:=replace(def,
+  'm.value->>''credentialsConfigured''=''true''',
+  '(m.value->>''credentialsConfigured''=''true'' or m.value->''notifications''->''member''->>''mode'' in (''custom'',''disabled''))');
+ execute def;
+end $$;
 notify pgrst,'reload schema';
 commit;

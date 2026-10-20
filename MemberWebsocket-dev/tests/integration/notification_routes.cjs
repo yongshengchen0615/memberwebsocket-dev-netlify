@@ -64,3 +64,19 @@ test('AC-185: opaque revisions use private PostgreSQL schemas, authorized identi
   assert.deepEqual(Object.keys(after),['revision']);
  }finally{await h.db.close();}
 });
+test('AC-186: existing cron dispatches a custom-only notification module without requiring Login/LIFF credentials',async()=>{
+ const h=await setup();try{
+  assert.equal((await h.save({feature:'membership',purpose:'member'})).status,200);
+  await h.db.query('update platform_private.tenants set features=$2 where id=$1',[h.t.id,{...features,points:false,events:false,calendar:false,booking:false}]);
+  await h.db.exec(`create schema net;create table net.calls(body jsonb);
+   create function net.http_post(url text,headers jsonb,body jsonb,timeout_milliseconds integer)returns bigint language plpgsql as $$begin insert into net.calls values(body);return 1;end$$;
+   insert into vault.decrypted_secrets(name,decrypted_secret,updated_at)values('project_url','https://fixture.supabase.co',now()),('GRANT_MESSAGE_DISPATCH_SECRET','synthetic-dispatch',now());`);
+  const member=(await h.db.query(`insert into ${h.t.runtime_schema}.members(line_user_id,member_code,invite_code,status,membership_status,display_name,is_test_account)
+   values($1,'AAAA','AAAA000000','active','pending','Synthetic',false)returning id`,['U'+'d'.repeat(32)])).rows[0].id;
+  await h.db.query(`insert into ${h.t.runtime_schema}.scheduled_grant_messages(schedule_id,request_id,member_id,line_user_id,scheduled_for,message_text,created_by)
+   values('QA-schedule','QA-request',$1,$2,now()-interval '1 minute','Synthetic','system')`,[member,'U'+'d'.repeat(32)]);
+  await h.db.query('select public.platform_tick_businesses()');
+  assert.equal((await h.db.query('select * from net.calls')).rows[0].body.business,h.t.slug);
+  assert.equal((await h.db.query('select credentials_configured from platform_private.tenants where id=$1',[h.t.id])).rows[0].credentials_configured,false);
+ }finally{await h.db.close();}
+});

@@ -148,6 +148,9 @@ jobs:
       - name: Check platform onboarding and root authorization first
         run: npm test -- product-platform.spec.cjs business-activation.spec.cjs
         working-directory: MemberWebsocket-dev/tests/browser
+      - name: Check scoped notification settings and business synchronization
+        run: npm test -- notification-settings.spec.cjs business-sync.spec.cjs
+        working-directory: MemberWebsocket-dev/tests/browser
       - name: Check selected-scope production runner nodes first
         run: >-
           npm test -- admin-human.spec.cjs member-p2.spec.cjs

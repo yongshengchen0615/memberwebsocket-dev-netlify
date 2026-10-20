@@ -46,15 +46,18 @@ export function createClient(url:string,key:string,options?:any):import('npm:@su
   if(key==='storage')return storageAdapter(target.storage,c);
   if(key==='schema')return(name:string)=>{if(name!==c.runtime_schema)throw Error('CROSS_BUSINESS_SCHEMA');return client;};
   if(key==='rpc')return(name:string,params?:any,options?:any)=>{
-   if(name==='get_line_messaging_token')return Promise.resolve({data:notificationToken(c,'member')||null,error:null});
+   const active=scope.getStore();
+   if(active && active.id!==c.id)throw Error('CROSS_BUSINESS_SCHEMA');
+   const current=active||c;
+   if(name==='get_line_messaging_token')return Promise.resolve({data:notificationToken(current,'member')||null,error:null});
    if(name==='get_grant_dispatch_secret'||name==='get_e2e_artifact_retention_secret')return control().rpc(name);
    if(name==='booking_notification_config')return control().rpc(name).then(({data,error}:any)=>({error,data:error?null:{BOOKING_NOTIFICATION_DISPATCH_SECRET:data?.BOOKING_NOTIFICATION_DISPATCH_SECRET,
-    LINE_BOOKING_ADMIN_CHANNEL_ACCESS_TOKEN:notificationToken(c,'admin'),LINE_BOOKING_MEMBER_CHANNEL_ACCESS_TOKEN:notificationToken(c,'member'),
-    ADMIN_NOTIFICATIONS_DISABLED:c.module_line?.booking?.notifications?.admin?.mode==='disabled',
-    MEMBER_NOTIFICATIONS_DISABLED:c.module_line?.booking?.notifications?.member?.mode==='disabled'}}));
+    LINE_BOOKING_ADMIN_CHANNEL_ACCESS_TOKEN:notificationToken(current,'admin'),LINE_BOOKING_MEMBER_CHANNEL_ACCESS_TOKEN:notificationToken(current,'member'),
+    ADMIN_NOTIFICATIONS_DISABLED:current.module_line?.booking?.notifications?.admin?.mode==='disabled',
+    MEMBER_NOTIFICATIONS_DISABLED:current.module_line?.booking?.notifications?.member?.mode==='disabled'}}));
    if(name==='get_line_setting'){
     const keys:Record<string,string>={LINE_MEMBER_LIFF_ID:'memberLiffId',LINE_POINTS_LIFF_ID:'pointsLiffId',LINE_EVENT_LIFF_ID:'eventLiffId',LINE_CALENDAR_LIFF_ID:'calendarLiffId',LINE_BOOKING_LIFF_ID:'bookingLiffId',LINE_ADMIN_LIFF_ID:'adminLiffId'};
-    if(keys[params?.p_key])return Promise.resolve({data:c.customLineReady?c.line_config?.[keys[params.p_key]]||null:null,error:null});
+    if(keys[params?.p_key])return Promise.resolve({data:current.customLineReady?current.line_config?.[keys[params.p_key]]||null:null,error:null});
    }
    return target.rpc(name,params,options);
   };

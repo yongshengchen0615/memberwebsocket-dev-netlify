@@ -2,8 +2,8 @@ const {test,expect}=require('playwright/test'),http=require('node:http'),fs=requ
 const fixture=require('../integration/business-platform-fixture.cjs'),{key}=require('../integration/platform-fixture.cjs');
 let server,base;
 test.beforeAll(async()=>{server=http.createServer((req,res)=>{
- if(req.url==='/settings.js'){res.setHeader('Content-Type','text/javascript');return res.end(fs.readFileSync(path.resolve(__dirname,'../../admin/business-line-settings.js')));}
- res.setHeader('Content-Type','text/html');res.end('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>input,select{max-width:100%;box-sizing:border-box}form{display:grid;gap:8px}label{display:grid}code{overflow-wrap:anywhere}body{margin:16px}</style></head><body><section id="businessWorkspaceStatus"></section><section id="membersPanel"></section><section id="bookingPanel"></section><section id="cardsPanel"></section></body></html>');
+ if(req.url==='/settings.js'){res.setHeader('Content-Type','text/javascript; charset=utf-8');return res.end(fs.readFileSync(path.resolve(__dirname,'../../admin/business-line-settings.js')));}
+ res.setHeader('Content-Type','text/html; charset=utf-8');res.end('<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>input,select{max-width:100%;box-sizing:border-box}form{display:grid;gap:8px}label{display:grid}code{overflow-wrap:anywhere}body{margin:16px}</style></head><body><section id="businessWorkspaceStatus"></section><section id="membersPanel"></section><section id="bookingPanel"></section><section id="cardsPanel"></section></body></html>');
  });await new Promise(r=>server.listen(0,'127.0.0.1',r));base='http://127.0.0.1:'+server.address().port;});
 test.afterAll(async()=>new Promise(r=>server.close(r)));
 for(const width of [390,1280])test('NOTIFICATION_PURPOSES_'+width+' — independent verified channels, lost-response replay, test recipient and disable on real SQL',async({page},info)=>{
@@ -21,7 +21,7 @@ for(const width of [390,1280])test('NOTIFICATION_PURPOSES_'+width+' — independ
    if(body.action==='platform.notifications.save'&&lose){lose=false;return route.abort('failed');}
    return route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
   });
-  await page.goto(base+'/');
+  await page.goto(base+'/');expect(await page.evaluate(()=>document.characterSet)).toBe('UTF-8');
   await page.evaluate(({tenant,features})=>{window.MemberAdminSession={get:()=>({idToken:'synthetic-provider-verified',config:{business:tenant.slug,supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'synthetic'}})};window.qaFeatures=features;},{tenant,features});
   await page.addScriptTag({url:base+'/settings.js'});await page.evaluate(()=>window.BusinessLineSettings.apply({features:window.qaFeatures}));
   await expect(page.locator('[data-business-line-feature]')).toHaveCount(2);
