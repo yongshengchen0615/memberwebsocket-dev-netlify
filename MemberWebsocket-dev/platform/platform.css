@@ -39,3 +39,9 @@
 .authorization-notice li{margin-bottom:10px}
 .authorization-notice code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.92em;overflow-wrap:anywhere;background:#f0e8d8;padding:2px 4px;border-radius:4px}
 @media(max-width:650px){.authorization-notice{padding:18px 16px}}
+
+/* Merchant workspace separates operational readiness from LINE settings. */
+#merchantWorkspace .merchant-workspace-tabs{display:flex;flex-wrap:wrap;gap:10px;margin:20px 0 24px;padding-bottom:12px;border-bottom:1px solid #d2ded2}
+#merchantWorkspace .merchant-workspace-tabs button{background:#e8eee7;color:#204735;border:1px solid #c5d4c7;min-height:44px}
+#merchantWorkspace .merchant-workspace-tabs button[aria-selected="true"]{background:#1e5941;color:#fff;border-color:#1e5941}
+#merchantWorkspace .merchant-workspace-tabs button[hidden]{display:none!important}
