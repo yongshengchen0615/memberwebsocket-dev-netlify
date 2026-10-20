@@ -18,7 +18,7 @@
 <body>
   <main class="shell">
     <button id="refreshApplication" type="button" class="secondary">重新檢查申請與功能權限</button>
-    <header class="topbar"><div><p class="eyebrow">ADMIN / WORKSPACE</p><h1>一般管理員後台</h1><p>首次登入自動提出申請；審核通過後，可在已開通的功能頁設定 LINE 資訊。</p></div></header>
+    <header class="topbar"><div><p class="eyebrow">ADMIN / WORKSPACE</p><h1>一般管理員後台</h1><p>首次登入自動提出申請；審核通過後，可在獨立的 LINE 設定分頁設定已核准功能。</p></div></header>
     <p id="platformStatus" role="status" aria-live="polite">正在確認 LINE 身分…</p>
     <section id="platformLoginGate" class="login-gate" hidden aria-labelledby="platformLoginTitle">
       <h2 id="platformLoginTitle">一般管理員 LINE 身分確認</h2>
@@ -117,6 +117,11 @@
     </section>
     <section id="merchantWorkspace" hidden>
       <h2>我的商家管理頁面</h2>
+      <nav id="merchantWorkspaceNav" class="merchant-workspace-tabs" role="tablist" aria-label="商家管理分頁">
+        <button type="button" id="merchantOverviewTab" role="tab" aria-controls="merchantOverviewPanel" aria-selected="true">商家總覽</button>
+        <button type="button" id="merchantLineSettingsTab" role="tab" aria-controls="merchantLineSettingsPanel" aria-selected="false" hidden disabled>LINE 設定</button>
+      </nav>
+      <div id="merchantOverviewPanel" role="tabpanel" aria-labelledby="merchantOverviewTab">
       <p id="merchantInfo"></p>
       <p id="merchantReadiness" class="merchant-readiness" role="status" aria-live="polite"></p>
       <section id="merchantLaunchStatus" class="launch-status" data-ready="false" aria-labelledby="launchTitle">
@@ -144,6 +149,9 @@
         <p><a href="https://developers.line.biz/en/docs/liff/registering-liff-apps/" target="_blank" rel="noopener noreferrer">LINE 官方 LIFF 設定說明</a> · <a href="https://developers.line.biz/en/docs/messaging-api/getting-started/" target="_blank" rel="noopener noreferrer">Messaging API 官方說明</a></p>
       </details>
       <div id="merchantFeatures" class="tenant-features"></div>
+      </div>
+      <section id="merchantLineSettingsPanel" role="tabpanel" aria-labelledby="merchantLineSettingsTab" hidden>
+      <h3>LINE 設定</h3><p class="hint">此處集中設定已核准功能的 LIFF 與通知 Channel；未開放的功能不顯示，也無法透過 API 儲存。</p>
       <nav id="merchantFeatureNav" class="merchant-feature-nav" aria-label="已授權功能的 LINE 設定"></nav>
       <form id="merchantLineForm">
         <section data-merchant-panel="shared" aria-label="共用 LINE 設定">
@@ -176,6 +184,7 @@
         <p id="merchantMessage" role="status" aria-live="polite"></p>
         <button type="submit" id="saveMerchantLine">儲存此頁 LINE 設定</button>
       </form>
+      </section>
     </section>
   </main>
 </body>
