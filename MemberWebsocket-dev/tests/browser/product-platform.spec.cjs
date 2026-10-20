@@ -78,6 +78,7 @@ test('ONBOARDING_GUIDE — exact LINE sources, saved checklist, responsible next
   await expect(page.locator('#merchantLineForm [name="adminChannelId"]')).toHaveAttribute('aria-describedby','lineHelp-adminChannelId');
   await expect(page.locator('#merchantChecklist')).toContainText('尚缺：會員卡 LIFF ID');
   await page.locator('[data-setup-feature="booking"]').click();
+  await expect(page.locator('#merchantLineSettingsPanel')).toBeVisible();
   await page.locator('#merchantLineForm [name="bookingLiffId"]').fill(h.tenant.line.bookingLiffId);
   await page.locator('#saveMerchantLine').click();
   await expect(page.locator('[data-merchant-panel="shared"]')).toBeVisible();
@@ -88,6 +89,8 @@ test('ONBOARDING_GUIDE — exact LINE sources, saved checklist, responsible next
   await page.locator('[data-line-feature="membership"]').click();
   await page.locator('#merchantLineForm [name="memberLiffId"]').fill(h.tenant.line.memberLiffId);
   await page.locator('#saveMerchantLine').click();await expect(page.locator('#merchantMessage')).toContainText('必填資料已齊全');
+  await page.locator('#merchantOverviewTab').click();
+  await expect(page.locator('#merchantLineSettingsPanel')).toBeHidden();
   await expect(page.locator('#merchantLaunchMessage')).toContainText('由平台');
   await expect(page.locator('[data-journey="verified"]')).toHaveAttribute('aria-current','step');
   await expect(page.getByRole('button',{name:'用戶端尚未開放',exact:true})).toBeDisabled();
@@ -107,6 +110,8 @@ test('ONBOARDING_DRAFT — refresh preserves edited secrets; newer settings requ
   const features=Object.fromEntries(Object.keys(h.tenant.features).map(k=>[k,k==='membership']));
   expect((await h.call({action:'platform.application.approve',applicationId:app.id,features,requestId:crypto.randomUUID()})).status).toBe(200);
   await page.locator('#refreshApplication').click();await expect(page.locator('#merchantWorkspace')).toBeVisible();
+  await page.locator('#merchantLineSettingsTab').click();
+  await expect(page.locator('#merchantLineSettingsPanel')).toBeVisible();
   await page.locator('#merchantLineForm [name="channelAccessToken"]').fill('unsaved-synthetic-token');
   const current=(await h.call({action:'platform.application.bootstrap'},'manager')).body.data.tenant;
   const saved=await h.call({action:'platform.line.save',requestId:crypto.randomUUID(),expectedVersion:current.version,line:{...h.tenant.line,pointsLiffId:'',eventLiffId:'',calendarLiffId:'',bookingLiffId:''},credentials:h.tenant.credentials},'manager');
@@ -129,6 +134,8 @@ test('ONBOARDING_LINE_RETRY — lost save response locks draft and replays the e
   const features=Object.fromEntries(Object.keys(h.tenant.features).map(k=>[k,k==='membership']));
   expect((await h.call({action:'platform.application.approve',applicationId:app.id,features,requestId:crypto.randomUUID()})).status).toBe(200);
   await page.locator('#refreshApplication').click();await expect(page.locator('#merchantWorkspace')).toBeVisible();
+  await page.locator('#merchantLineSettingsTab').click();
+  await expect(page.locator('#merchantLineSettingsPanel')).toBeVisible();
   for(const k of ['adminChannelId','memberChannelId','messagingChannelId','adminLiffId'])await page.locator('#merchantLineForm [name="'+k+'"]').fill(h.tenant.line[k]);
   for(const [k,v] of Object.entries(h.tenant.credentials))await page.locator('#merchantLineForm [name="'+k+'"]').fill(v);
   await page.locator('#saveMerchantLine').click();await expect(page.locator('#merchantMessage')).toContainText('尚未確認');
@@ -188,6 +195,9 @@ test('PLATFORM_MANAGER_SETUP — approved admin can configure own LINE but canno
   await expect(page.locator('#platformWorkspace')).toBeHidden();
   await expect(page.locator('#merchantFeatures')).toContainText('會員卡');
   await expect(page.locator('#merchantFeatures')).not.toContainText('預約');
+  await expect(page.locator('#merchantOverviewPanel')).toBeVisible();
+  await page.locator('#merchantLineSettingsTab').click();
+  await expect(page.locator('#merchantLineSettingsPanel')).toBeVisible();
   await expect(page.locator('#merchantFeatureNav [data-line-feature]')).toHaveCount(2);
   await expect(page.locator('#merchantFeatureNav [data-line-feature="booking"]')).toHaveCount(0);
   await expect(page.locator('#merchantFeatureNav [data-line-feature="events"]')).toHaveCount(0);
@@ -413,12 +423,17 @@ test('PLATFORM_ADMIN_TOP_GRANTS — Lumen header exposes only server-approved mo
   const grant=await h.call({action:'platform.application.approve',applicationId:application.id,features:allowed,requestId:crypto.randomUUID()});
   expect(grant.status).toBe(200);
   await page.getByRole('button',{name:'重新檢查申請與功能權限'}).click();
+  await expect(page.locator('#merchantLineSettingsTab')).toBeVisible();
+  await page.locator('#merchantLineSettingsTab').click();
+  await expect(page.locator('#merchantLineSettingsPanel')).toBeVisible();
   await expect(page.locator('#merchantFeatureNav [data-line-feature]')).toHaveCount(3);
   await expect(page.locator('#merchantFeatureNav [data-line-feature="membership"]')).toBeVisible();
   await expect(page.locator('#merchantFeatureNav [data-line-feature="points"]')).toBeVisible();
   await expect(page.locator('#merchantFeatureNav [data-line-feature="booking"]')).toHaveCount(0);
   await expect(page.locator('#merchantFeatureNav [data-line-feature="testing"]')).toHaveCount(0);
   await page.goto(base+'/admin/?feature=booking');
+  await expect(page.locator('#merchantLineSettingsTab')).toBeVisible();
+  await page.locator('#merchantLineSettingsTab').click();
   await expect(page.locator('#merchantFeatureNav')).toBeVisible();
   await expect(page.locator('#merchantFeatureNav [data-line-feature="booking"]')).toHaveCount(0);
   await expect(page.locator('#merchantFeatureNav [data-line-feature="shared"]')).toHaveAttribute('aria-current','page');
