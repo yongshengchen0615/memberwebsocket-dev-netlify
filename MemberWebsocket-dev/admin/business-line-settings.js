@@ -15,6 +15,7 @@
   };
   let grants = {}, tenant = null, loading = false, saving = false;
   const views = new Map();
+  const pendingOperation = () => [...views.values()].some(v => v.pending || [...(v.routes?.values() || [])].some(r => r.pending || r.testPending));
   function node(tag, text, className) {
     const result = document.createElement(tag); if (text) result.textContent = text;
     if (className) result.className = className; return result;
@@ -38,10 +39,18 @@
   }
   function lock() {
     for (const view of views.values()) {
-      const blocked = saving || Boolean([...views.values()].find(v => v.pending));
+      const blocked = saving || pendingOperation();
       for (const input of view.form?.querySelectorAll('input') || []) input.disabled = blocked;
       if (view.save) { view.save.disabled = saving || (blocked && !view.pending); view.save.textContent = view.pending ? '重試相同儲存操作' : '儲存' + view.label + ' LINE 設定'; }
       view.reload.disabled = blocked;
+      for (const route of view.routes?.values() || []) {
+        for (const input of route.form.querySelectorAll('input,select,button')) input.disabled = blocked;
+        if (!saving && route.pending) route.save.disabled = false;
+        route.test.disabled = blocked || route.dirty || tenant?.moduleLine?.[view.feature]?.notifications?.[route.purpose]?.mode === 'disabled';
+        if (!saving && route.testPending) route.test.disabled = false;
+        route.test.textContent = route.testPending ? '重試相同測試操作' : '傳送測試給我';
+        route.save.textContent = route.pending ? '重試相同儲存操作' : '驗證並儲存通知設定';
+      }
     }
   }
   function addField(form, key, labelText, secret = false) {
@@ -59,6 +68,19 @@
   }
   function update(view, reset = false) {
     if (!tenant) return;
+    for (const [purpose, route] of view.routes || []) {
+      const saved = tenant.moduleLine?.[view.feature]?.notifications?.[purpose];
+      if (!route.dirty && !route.pending) {
+        route.mode.value = saved?.mode || 'inherit';
+        route.channel.value = saved?.channelId || '';
+        route.token.value = '';
+      }
+      route.fields.hidden = route.mode.value !== 'custom';
+      route.channel.required = route.token.required = route.mode.value === 'custom';
+      route.summary.textContent = saved?.mode === 'disabled' ? '已停用：此用途不發送通知。'
+        : saved?.mode === 'custom' ? '已驗證獨立 Channel ' + saved.channelId + '；Token 已加密保存。'
+        : (tenant.moduleLine?.[view.feature]?.credentialsConfigured || tenant.credentialsConfigured) ? '共用本模組的 Messaging API 憑證；尚未驗證通知連線。' : '未設定：請先設定本模組 Channel，或選用獨立通知 Channel。';
+    }
     if (view.form) for (const input of view.form.querySelectorAll('input')) {
       const secret = ['channelAccessToken','channelSecret'].includes(input.name);
       if (reset || !view.dirty.has(input.name)) input.value = secret ? '' : (tenant.moduleLine?.[view.feature]?.line || tenant.line)?.[input.name] || '';
@@ -83,7 +105,7 @@
   }
   async function save(view, event) {
     event.preventDefault();
-    if (saving || !tenant || grants[view.feature] !== true || tenant.features?.[view.feature] !== true) return;
+    if (saving || (!view.pending && pendingOperation()) || !tenant || grants[view.feature] !== true || tenant.features?.[view.feature] !== true) return;
     if (!view.pending) {
       if (!view.form.reportValidity()) return;
       const line = {...tenant.line,...tenant.moduleLine?.[view.feature]?.line};
@@ -108,6 +130,66 @@
       }
       if (error.code === 'PLATFORM_CONFLICT') view.status.textContent += ' 請先載入最新設定，再確認本區塊內容後儲存。';
     } finally { saving = false; lock(); }
+  }
+  async function saveNotification(view, route, event) {
+    event.preventDefault();
+    if (saving || (!route.pending && pendingOperation()) || !tenant || grants[view.feature] !== true) return;
+    if (!route.pending) {
+      if (!route.form.reportValidity()) return;
+      route.pending = {feature:view.feature,purpose:route.purpose,mode:route.mode.value,expectedVersion:tenant.version,
+        requestId:crypto.randomUUID(),messagingChannelId:route.channel.value.trim(),channelAccessToken:route.token.value.trim()};
+    }
+    saving = true; lock(); route.status.textContent = '正在驗證並儲存通知設定…';
+    try {
+      const result = await request('platform.notifications.save',route.pending);
+      tenant = result.tenant; route.pending = null; route.dirty = false; route.token.value = '';
+      for (const v of views.values()) update(v);
+      route.status.textContent = '通知設定已儲存。';
+    } catch (error) {
+      route.status.textContent = error.message;
+      if (!error.uncertain) route.pending = null;
+      if (error.code === 'PLATFORM_CONFLICT') route.status.textContent += ' 請載入最新設定後重試。';
+      if (['FEATURE_DISABLED','TENANT_SUSPENDED','BUSINESS_FORBIDDEN','AUTH_INVALID','TENANT_EXPIRED','TENANT_REAUTH_REQUIRED'].includes(error.code)) {
+        tenant = null; for (const v of views.values()) { v.form?.reset(); for (const r of v.routes?.values() || []) {r.form.reset();r.pending=null;} v.section.hidden=true; }
+      }
+    } finally { saving = false; lock(); }
+  }
+  async function testNotification(view,route) {
+    if (saving || (!route.testPending && pendingOperation()) || !tenant || grants[view.feature] !== true || route.dirty) return;
+    route.testPending ||= {feature:view.feature,purpose:route.purpose,expectedVersion:tenant.version,requestId:crypto.randomUUID()};
+    saving=true;lock();route.status.textContent='正在傳送測試通知給目前登入的管理員…';
+    try {
+      await request('platform.notifications.test',route.testPending);route.testPending=null;
+      route.status.textContent='LINE 已接受測試通知，請確認目前帳號已加入該官方帳號好友。';
+    } catch(error) {route.status.textContent=error.message;if(!error.uncertain)route.testPending=null;}
+    finally{saving=false;lock();}
+  }
+  function notificationForms(view) {
+    view.routes = new Map();
+    if (!view.path) return;
+    const details = node('details'); details.append(node('summary','通知 Channel 與接收用途'));
+    details.append(node('p','可共用本模組憑證，也可為通知獨立設定。通知 Channel 與 Login Channel 請建立在同一 LINE Provider；會員接收自己的權益與預約通知，預約管理通知送給本商家已授權管理員。'));
+    if (view.feature === 'calendar') details.append(node('p','營運日曆目前沒有主動推播事件；此設定保留通知通道，不代表會自動發送日曆提醒。'));
+    for (const purpose of view.feature === 'booking' ? ['admin','member'] : ['member']) {
+      const form = node('form'); form.id = 'notification-' + view.feature + '-' + purpose;
+      form.append(node('h3',purpose === 'admin' ? '管理員接收通知' : '會員接收通知'));
+      const label=node('label','通知通道'),mode=node('select'); mode.name='mode';
+      for (const [value,text] of [['inherit','共用本模組憑證'],['custom','使用獨立通知 Channel'],['disabled','停用此用途通知']]) {const o=node('option',text);o.value=value;mode.append(o);}
+      label.append(mode);form.append(label);
+      const fields=node('div','','business-line-fields');fields.id=form.id+'-fields';
+      const channel=addField(fields,'messagingChannelId','通知 Messaging API Channel ID');
+      const token=addField(fields,'channelAccessToken','通知 Channel access token（long-lived）',true);
+      form.append(fields);
+      const summary=node('p'),status=node('p'); status.setAttribute('role','status');status.setAttribute('aria-live','polite');
+      const save=node('button','驗證並儲存通知設定','button button-outline');save.type='submit';
+      const test=node('button','傳送測試給我','button button-outline');test.type='button';
+      const route={purpose,form,mode,channel,token,fields,summary,status,save,test,dirty:false,pending:null,testPending:null};
+      test.onclick=()=>void testNotification(view,route);
+      form.append(summary,save,test,status);form.addEventListener('submit',event=>void saveNotification(view,route,event));
+      form.addEventListener('input',()=>{route.dirty=true;fields.hidden=mode.value!=='custom';channel.required=token.required=mode.value==='custom';status.textContent='本用途有尚未儲存的設定。';lock();});
+      view.routes.set(purpose,route);details.append(form);
+    }
+    view.section.append(details);
   }
   function render() {
     for (const [feature, [panelName, label, path, key]] of Object.entries(modules)) {
@@ -137,11 +219,12 @@
         form.addEventListener('input', event => { view.dirty.add(event.target.name); status.textContent = '本區塊有尚未儲存的設定。'; });
         section.append(form);
       }
-      section.append(view.links, reload, status); panel.prepend(section); views.set(feature,view); update(view);
+      section.append(status); notificationForms(view);
+      section.append(view.links, reload); panel.prepend(section); views.set(feature,view); update(view);
     }
   }
   async function load(force = false, source = null) {
-    if (loading || saving || [...views.values()].some(v=>v.pending)) return;
+    if (loading || saving || pendingOperation()) return;
     const session = window.MemberAdminSession?.get(); if (!session?.config.business) return;
     loading = true;
     try {

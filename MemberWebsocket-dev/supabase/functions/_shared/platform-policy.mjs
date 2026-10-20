@@ -71,7 +71,8 @@ export function publicTenant(row) {
     features: row.features, line: row.line_config, status: row.status, version: row.version,
     expiresAt:row.expires_at || null, expired, accessRevokedBefore:row.access_revoked_before || null,
     credentialsConfigured: row.credentials_configured === true,
-    ...(row.module_line!==undefined?{moduleLine:Object.fromEntries(Object.entries(row.module_line).filter(([key])=>row.features?.[key]===true).map(([key,value])=>[key,{line:value.line||{},credentialsConfigured:value.credentialsConfigured===true}]))}:{}),
+    ...(row.module_line!==undefined?{moduleLine:Object.fromEntries(Object.entries(row.module_line).filter(([key])=>row.features?.[key]===true).map(([key,value])=>[key,{line:value.line||{},credentialsConfigured:value.credentialsConfigured===true,
+      notifications:Object.fromEntries(Object.entries(value.notifications||{}).filter(([purpose])=>['admin','member'].includes(purpose)).map(([purpose,route])=>[purpose,{mode:route.mode,channelId:route.channelId||null,verifiedAt:route.verifiedAt||null}]))}]))}:{}),
     onboarding: merchantOnboarding({status:row.status,features:row.features,line:row.line_config,
       credentialsConfigured:row.credentials_configured === true,runtimeReady:dataPlaneVerified,expires_at:row.expires_at}),
     capabilities: {

@@ -489,6 +489,33 @@
     const existing = realtimeSubscriptions.get(subscriptionKey);
     if (existing) return existing.unsubscribe;
 
+    if (config.business && config.realtimeEnabled !== false) {
+      let stopped=false,timer,pending=false,queued=false,revision,lastFull=-Infinity,failures=0;
+      const paused=()=>!navigator.onLine||document.visibilityState==='hidden';
+      const schedule=delay=>{if(stopped)return;if(timer!==undefined)window.clearTimeout(timer);timer=window.setTimeout(()=>{timer=undefined;void probe();},delay);};
+      const probe=async()=>{
+        if(stopped||paused())return;if(pending){queued=true;return;}pending=true;
+        try{
+          const session=getSession();if(!session?.idToken)throw Error('AUTH_REQUIRED');
+          const current=await postJson(String(config.supabaseUrl).replace(/\/$/,'')+'/functions/v1/api',config,
+            {action:targetScope==='admin'?'admin.sync.status':'user.booking.sync.status',clientType:targetScope==='admin'?'admin':'booking',idToken:session.idToken,business:config.business},'同步服務',{write:false});
+          if(stopped)return;
+          if(typeof current.revision!=='string'||current.revision.length>120)throw Error('INVALID_SYNC_REVISION');
+          if(revision!==current.revision||Date.now()-lastFull>=120000){
+            await onUpdate();if(stopped)return;
+            if(typeof onBenefitsUpdate==='function')await onBenefitsUpdate({scope:'all',eventType:'business.reconcile'});
+            revision=current.revision;lastFull=Date.now();
+          }
+          failures=0;
+        }catch(_){failures++;}
+        finally{pending=false;if(!stopped){const delay=queued?0:Math.min(60000,10000*2**Math.min(failures,3));queued=false;schedule(delay);}}
+      };
+      const resume=()=>{if(!paused()){if(pending)queued=true;else schedule(0);}};
+      document.addEventListener('visibilitychange',resume);window.addEventListener('pageshow',resume);window.addEventListener('online',resume);
+      const unsubscribe=()=>{if(stopped)return;stopped=true;if(timer!==undefined)window.clearTimeout(timer);document.removeEventListener('visibilitychange',resume);window.removeEventListener('pageshow',resume);window.removeEventListener('online',resume);realtimeSubscriptions.delete(subscriptionKey);};
+      realtimeSubscriptions.set(subscriptionKey,{unsubscribe});schedule(0);return unsubscribe;
+    }
+
     let disposed = false;
     let channel = null;
     let client = null;

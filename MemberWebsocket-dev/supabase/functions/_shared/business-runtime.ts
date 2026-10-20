@@ -4,6 +4,7 @@ import { openCredentials } from './platform-crypto.mjs';
 import { resolvePlatformEncryptionKey } from './platform-key.mjs';
 import { tenantExpired } from './tenant-access.mjs';
 import { merchantOnboarding } from './merchant-onboarding.mjs';
+import { notificationToken } from './notification-routes.mjs';
 export type { SupabaseClient } from 'npm:@supabase/supabase-js@2.57.0';
 type Context=Record<string,any>;
 import { scope, rawEnv, businessContext, businessEnv, businessFetch } from './business-scope.ts';
@@ -45,10 +46,12 @@ export function createClient(url:string,key:string,options?:any):import('npm:@su
   if(key==='storage')return storageAdapter(target.storage,c);
   if(key==='schema')return(name:string)=>{if(name!==c.runtime_schema)throw Error('CROSS_BUSINESS_SCHEMA');return client;};
   if(key==='rpc')return(name:string,params?:any,options?:any)=>{
-   if(name==='get_line_messaging_token')return Promise.resolve({data:c.credentials?.channelAccessToken||null,error:null});
+   if(name==='get_line_messaging_token')return Promise.resolve({data:notificationToken(c,'member')||null,error:null});
    if(name==='get_grant_dispatch_secret'||name==='get_e2e_artifact_retention_secret')return control().rpc(name);
    if(name==='booking_notification_config')return control().rpc(name).then(({data,error}:any)=>({error,data:error?null:{BOOKING_NOTIFICATION_DISPATCH_SECRET:data?.BOOKING_NOTIFICATION_DISPATCH_SECRET,
-    LINE_BOOKING_ADMIN_CHANNEL_ACCESS_TOKEN:c.credentials?.channelAccessToken||'',LINE_BOOKING_MEMBER_CHANNEL_ACCESS_TOKEN:c.credentials?.channelAccessToken||''}}));
+    LINE_BOOKING_ADMIN_CHANNEL_ACCESS_TOKEN:notificationToken(c,'admin'),LINE_BOOKING_MEMBER_CHANNEL_ACCESS_TOKEN:notificationToken(c,'member'),
+    ADMIN_NOTIFICATIONS_DISABLED:c.module_line?.booking?.notifications?.admin?.mode==='disabled',
+    MEMBER_NOTIFICATIONS_DISABLED:c.module_line?.booking?.notifications?.member?.mode==='disabled'}}));
    if(name==='get_line_setting'){
     const keys:Record<string,string>={LINE_MEMBER_LIFF_ID:'memberLiffId',LINE_POINTS_LIFF_ID:'pointsLiffId',LINE_EVENT_LIFF_ID:'eventLiffId',LINE_CALENDAR_LIFF_ID:'calendarLiffId',LINE_BOOKING_LIFF_ID:'bookingLiffId',LINE_ADMIN_LIFF_ID:'adminLiffId'};
     if(keys[params?.p_key])return Promise.resolve({data:c.customLineReady?c.line_config?.[keys[params.p_key]]||null:null,error:null});
@@ -80,15 +83,37 @@ async function credentials(c:Context,feature?:string){
  if(module)c.line_config={...c.line_config,...module.line};
  const configured=module?module.credentialsConfigured===true:c.credentials_configured;
  c.customLineReady=merchantOnboarding({status:c.status,features:feature?{[feature]:true}:c.features,line:c.line_config,credentialsConfigured:configured}).configurationComplete;
- if(!configured)return;
- const db=control(),result=await db.rpc(module?'platform_module_credentials':'platform_business_credentials',module?{p_tenant_id:c.id,p_feature:feature}:{p_tenant_id:c.id});
- if(result.error||!result.data)throw Error('BUSINESS_CREDENTIALS_UNAVAILABLE');
- const key=await resolvePlatformEncryptionKey({configuredKey:rawEnv('PLATFORM_CREDENTIAL_ENCRYPTION_KEY'),db});
- c.credentials=await openCredentials(module&&result.data.scope==='module'?c.id+':'+feature:c.id,module?result.data.envelope:result.data,key);
+ const db=control();
+ if(configured){
+  const result=await db.rpc(module?'platform_module_credentials':'platform_business_credentials',module?{p_tenant_id:c.id,p_feature:feature}:{p_tenant_id:c.id});
+  if(result.error||!result.data)throw Error('BUSINESS_CREDENTIALS_UNAVAILABLE');
+  const key=await resolvePlatformEncryptionKey({configuredKey:rawEnv('PLATFORM_CREDENTIAL_ENCRYPTION_KEY'),db});
+  c.credentials=await openCredentials(module&&result.data.scope==='module'?c.id+':'+feature:c.id,module?result.data.envelope:result.data,key);
+ }
+ c.notificationCredentials={};
+ if(module?.notifications && Object.keys(module.notifications).length){
+  const result=await db.rpc('platform_notification_credentials',{p_tenant_id:c.id,p_feature:feature});
+  for(const purpose of ['admin','member']){
+   const mode=module.notifications[purpose]?.mode;
+   if(mode==='disabled')c.notificationCredentials[purpose]='';
+   else if(mode==='custom'){
+    // A broken outgoing channel must not block non-LINE business operations.
+    // Override with an empty token on failure so this purpose can never fall
+    // back to a different account; delivery records its configuration failure.
+    c.notificationCredentials[purpose]='';
+    try{
+     if(result.error||result.data?.[purpose]?.mode!=='custom')continue;
+     const key=await resolvePlatformEncryptionKey({configuredKey:rawEnv('PLATFORM_CREDENTIAL_ENCRYPTION_KEY'),db});
+     const secret=await openCredentials(c.id+':'+feature+':notify:'+purpose,result.data[purpose].envelope,key);
+     c.notificationCredentials[purpose]=secret?.channelAccessToken||'';
+    }catch{ /* fail closed for this purpose only */ }
+   }
+  }
+ }
 }
 export async function withBusinessModule<T>(feature:string,run:()=>Promise<T>):Promise<T>{
  const current=scope.getStore();if(!current)return run();
- const c:Context={...current,credentials:undefined};
+ const c:Context={...current,credentials:undefined,notificationCredentials:undefined};
  if(c.features?.[feature]!==true)throw Object.assign(Error('此功能已停用。'),{code:'FEATURE_DISABLED',status:403});
  await credentials(c,feature);return scope.run(c,run);
 }

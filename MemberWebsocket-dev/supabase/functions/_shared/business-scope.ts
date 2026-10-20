@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { notificationToken } from './notification-routes.mjs';
 type Context=Record<string,any>;
 export const scope=new AsyncLocalStorage<Context>();
 export const businessContext=()=>scope.getStore();
@@ -8,7 +9,7 @@ export function businessEnv(name:string):string|undefined {
  const c=scope.getStore();if(!c)return Deno.env.get(name);
  if(name==='LINE_ADMIN_CHANNEL_ID')return (c.adminCustomLineReady??c.customLineReady)?c.line_config?.adminChannelId||rawEnv(name)||'2010791619':rawEnv(name)||'2010791619';
  if(/^LINE_(MEMBER|POINTS|EVENT|CALENDAR|BOOKING)_CHANNEL_ID$/.test(name))return c.customLineReady?c.line_config?.memberChannelId||Deno.env.get(name):Deno.env.get(name);
- if(/^LINE_.*(ACCESS_TOKEN|CHANNEL_SECRET)$/.test(name))return /SECRET$/.test(name)?c.credentials?.channelSecret||'':c.credentials?.channelAccessToken||'';
+ if(/^LINE_.*(ACCESS_TOKEN|CHANNEL_SECRET)$/.test(name))return /SECRET$/.test(name)?c.credentials?.channelSecret||'':notificationToken(c,/BOOKING_ADMIN/.test(name)?'admin':'member');
  const liff=name.match(/^LINE_(MEMBER|POINTS|EVENT|CALENDAR|BOOKING)_LIFF_ID$/);
  if(liff)return c.customLineReady?c.line_config?.[liff[1].toLowerCase()+'LiffId']||Deno.env.get(name):Deno.env.get(name);
  return Deno.env.get(name);

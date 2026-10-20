@@ -623,6 +623,68 @@
     // Private business schemas use authenticated reconciliation. No shared
     // broadcast channel or anonymous subscription can carry another shop's data.
     const client = config.business ? null : realtimeClientFor(config);
+    if (config.business) {
+      // Private schemas never subscribe to the shared anonymous event feed.
+      // Read an authorized opaque revision; reload full data only on change.
+      let timer, pending = false, queued = false, revision, lastFullAt = -Infinity;
+      let failures = 0, probes = 0, refreshes = 0;
+      const paused = () => document.visibilityState === 'hidden'
+        || (typeof navigator !== 'undefined' && navigator.onLine === false);
+      const status = value => {
+        if (disposed || realtimeStatuses.get(clientType) === value) return;
+        realtimeStatuses.set(clientType, value);
+        emitRealtimeEvent('member-system:realtime-status', {clientType,status:value});
+      };
+      const schedule = delay => {
+        if (disposed) return;
+        if (timer !== undefined) window.clearTimeout(timer);
+        timer = window.setTimeout(() => { timer = undefined; void probe(); }, delay);
+      };
+      const probe = async () => {
+        if (disposed || paused()) return;
+        if (pending) { queued = true; return; }
+        const active = sessions.get(clientType);
+        if (!active?.idToken) { schedule(10000); return; }
+        pending = true;
+        const started = Date.now();
+        try {
+          probes++;
+          const action = clientType === 'admin' ? 'admin.sync.status' : 'user.' + clientType + '.sync.status';
+          const current = await sendRequest(active.config, clientType, active.idToken, action, {business:config.business});
+          if (disposed) return;
+          if (typeof current.revision !== 'string' || current.revision.length > 120) throw Error('INVALID_SYNC_REVISION');
+          const changed = revision !== current.revision || Date.now() - lastFullAt >= 120000;
+          if (changed) {
+            // Child booking/receipt modules consume the same invalidation feed.
+            emitRealtimeEvent('member-system:realtime-invalidation', {clientType,scope:clientType,eventType:clientType === 'admin' ? 'booking.receipt.reconcile' : 'business.reconcile'});
+            await onUpdate({clientType,eventTypes:[],reasons:['revision-changed']});
+            if (disposed) return;
+            revision = current.revision; lastFullAt = Date.now(); refreshes++;
+          }
+          failures = 0; status('SUBSCRIBED');
+          emitRealtimeEvent('member-system:sync-metrics', {clientType,transport:'authenticated-revision',durationMs:Date.now()-started,changed,probes,refreshes});
+        } catch (_) { failures++; status('CHANNEL_ERROR'); }
+        finally {
+          pending = false;
+          if (!disposed) { const next = queued ? 0 : Math.min(60000,10000 * 2 ** Math.min(failures,3)); queued = false; schedule(next); }
+        }
+      };
+      const resume = () => { if (!paused()) { if (pending) queued = true; else schedule(0); } };
+      document.addEventListener('visibilitychange', resume);
+      window.addEventListener('pageshow', resume);
+      window.addEventListener('online', resume);
+      const unsubscribe = () => {
+        if (disposed) return; disposed = true;
+        if (timer !== undefined) window.clearTimeout(timer);
+        document.removeEventListener('visibilitychange', resume);
+        window.removeEventListener('pageshow', resume);
+        window.removeEventListener('online', resume);
+        realtimeSubscriptions.delete(clientType); realtimeStatuses.delete(clientType);
+        emitRealtimeEvent('member-system:realtime-status', {clientType,status:'CLOSED'});
+      };
+      realtimeSubscriptions.set(clientType,{unsubscribe}); status('SYNCING'); schedule(0);
+      return unsubscribe;
+    }
     if (!client) {
       // When the Realtime SDK/CDN is unavailable, keep member data synchronized
       // through the existing authenticated bootstrap instead of requiring reload.
