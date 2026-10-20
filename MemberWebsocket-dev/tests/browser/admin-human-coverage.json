@@ -2,9 +2,9 @@
   "version": 1,
   "scope": "Seven admin workspaces, including operation audit; test-control workspace excluded",
   "evidence": "isolated Chromium UI with production handlers and explicit in-memory transport; not live Supabase/LINE delivery",
-  "portalIntegrationReview": "2026-10-20: Reviewed separate per-purpose notification forms, masked token replacement, provider channel validation, lost-response retry, test-to-current-manager only, disabled routing and existing module LIFF journeys. NOTIFICATION_PURPOSES_390/1280 in notification-settings.spec.cjs use production handler, real isolated SQL and explicit LINE transport; BUSINESS_APPROVAL_ACTIVATES selectors now distinguish identity forms from notification forms. Live LINE delivery remains external QA.",
+  "portalIntegrationReview": "2026-10-20: Reviewed separate per-purpose notification forms, masked token replacement, provider channel validation, lost-response retry, test-to-current-manager only, disabled routing and existing module LIFF journeys. NOTIFICATION_PURPOSES_390/1280 in notification-settings.spec.cjs use production handler, real isolated SQL and explicit LINE transport; BUSINESS_APPROVAL_ACTIVATES selectors now distinguish identity forms from notification forms. Live LINE delivery remains external QA. 2026-10-20: LINE 設定改為獨立主分頁，只有核准功能顯示子分頁；審閱開通/撤權/模組獨立儲存/切回管理頁的回歸，補充 business_line_settings.cjs、product_admin_ui.cjs 與 business-activation.spec.cjs。",
   "reviewedSources": {
-    "admin/index.html": "212d4aab945daec35f19a3069e09eaa30f744fe9102f58512b32570ac646e91a",
+    "admin/index.html": "01d171a81323bb5689d4af7eb5d2e5f99b6ecdad4c144b24c5bb67c672c874af",
     "admin/app.js": "83e4359ec62ede92d4607bcd718f90f869b2806406c0a76b3bb838c172db494e",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
@@ -25,11 +25,11 @@
     "admin/booking-accessible-admin.js": "5947f0328b3b27ff891760f72615024899a96b77467f7601842056f908ce5526",
     "admin/ticket-visibility.js": "bb1cf776a3bf1c69f75bbfa6a4b3e07cf9c9077444099533cb9c2883736dd5c0",
     "admin/operation-audit.js": "2ecd1161e533d56b17a6f89d1907bef384e96a932f81027d6e6178bdcce5a96e",
-    "admin/workspace.html": "ab511d5d3ee2e46f3fc66b520704c1e1c5a369f56e2ccec441421f5d80bec6b4",
-    "platform/app.js": "668ba25a8f8f9537e59649f1e3ebc78b39007f3c22b9ccdd7603472646b71d6b",
-    "admin/business-workspace.js": "acaa1f2a3d715f684e7aae802dced3a337a8d4929042c30af6120b1103048eaf",
+    "admin/workspace.html": "899e4c70858a9cdb76eb83199391b4bbb10c3e58a48b6bb2ce029580b5baecad",
+    "platform/app.js": "bef7031447820fb74d32bcb017aacdf58d3097da093a73896a0af5dbeca0a752",
+    "admin/business-workspace.js": "7434d9f55748c05036946538fa840ebc4d5383864a9657acabd1c993b781e2ac",
     "business-context.js": "81c622980d1518bf4700e5e5a959901ac6a917fb5bad4e6f793e4fb730ccd3c4",
-    "admin/business-line-settings.js": "fe90cbe7bcccf310da21c4aec2f15258faa78c4579fc14aed8d33fa0b41ba289"
+    "admin/business-line-settings.js": "f9a5016ed38a58710f38a21c15e3c6a162ddef43ca9e5dc2ad604fcbc01da27a"
   },
   "features": [
     {
@@ -611,13 +611,13 @@
       "PLATFORM_UNMATCHED_ROOT",
       "PLATFORM_ADMIN_TOP_GRANTS"
     ],
-    "scope": "Product admin entry, automatic idempotent application, root grants and owner LINE settings; existing legacy journeys use their explicit legacy fixture. Super-admin permission denial shows a manual database review checklist; only an explicit synthetic DB grant restores login. Merchant header hides all unauthorized business modules, including URL-forged features; display never overrides server-side denial."
+    "scope": "Product admin entry, automatic idempotent application, root grants and owner LINE settings; existing legacy journeys use their explicit legacy fixture. Super-admin permission denial shows a manual database review checklist; only an explicit synthetic DB grant restores login. Merchant header hides all unauthorized business modules, including URL-forged features; display never overrides server-side denial. 商家總覽/LINE 設定分頁切換與按總管理員授權顯示子頁由 product_admin_ui.cjs 涵蓋。"
   },
   "businessFeatureJourneys": [
     {
       "source": "business-activation.spec.cjs",
       "case": "BUSINESS_APPROVAL_ACTIVATES",
-      "scope": "核准後直接進入管理工作台；逐功能 LINE 設定、獨立儲存、憑證清空、商家專屬入口與手機版"
+      "scope": "核准後直接進入管理工作台；逐功能 LINE 設定、獨立儲存、憑證清空、商家專屬入口與手機版；LINE 主分頁與功能子分頁依審核權限顯示，切回業務頁仍正常"
     },
     {
       "source": "product-platform.spec.cjs",
