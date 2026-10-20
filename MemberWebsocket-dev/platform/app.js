@@ -302,7 +302,7 @@
 
   const applicationForm=el('applicationForm'),merchantForm=el('merchantLineForm');
   const featureLiffNames={membership:'memberLiffId',points:'pointsLiffId',events:'eventLiffId',calendar:'calendarLiffId',booking:'bookingLiffId'};
-  let merchantPanel='shared',merchantDirty=false,merchantSaving=false,latestMine=null;
+  let merchantPanel='shared',merchantWorkspaceTab='overview',merchantDirty=false,merchantSaving=false,latestMine=null;
   const lineLabels={adminChannelId:'管理端 Login Channel ID',memberChannelId:'會員端 Login Channel ID',messagingChannelId:'Messaging API Channel ID',adminLiffId:'管理端 LIFF ID',memberLiffId:'會員卡 LIFF ID',pointsLiffId:'集點卡 LIFF ID',eventLiffId:'活動票券 LIFF ID',calendarLiffId:'營運日曆 LIFF ID',bookingLiffId:'預約 LIFF ID',credentials:'Messaging API token 與 secret'};
   function installFieldHelp() {
     for(const key of [...lineKeys,'channelAccessToken','channelSecret']) {
@@ -384,11 +384,24 @@
     try{await navigator.clipboard.writeText(summary);el('copySetupMessage').textContent='開通狀態已複製，可貼給平台聯絡人；不含憑證。';}
     catch{el('copySetupMessage').textContent='無法自動複製，請將本頁顯示的商家代碼與開通狀態提供給平台聯絡人。';}
   });
-  function selectMerchantPanel(feature) {
+  function selectMerchantWorkspaceTab(requested) {
+    const granted = Object.keys(state.features).some(key => state.merchant?.features?.[key] === true);
+    merchantWorkspaceTab = requested === 'line' && granted ? 'line' : 'overview';
+    const lineTab = el('merchantLineSettingsTab'),overviewTab = el('merchantOverviewTab');
+    lineTab.hidden = !granted; lineTab.disabled = !granted;
+    lineTab.setAttribute('aria-selected',String(merchantWorkspaceTab === 'line'));
+    overviewTab.setAttribute('aria-selected',String(merchantWorkspaceTab === 'overview'));
+    el('merchantLineSettingsPanel').hidden = merchantWorkspaceTab !== 'line';
+    el('merchantOverviewPanel').hidden = merchantWorkspaceTab !== 'overview';
+  }
+  el('merchantOverviewTab').addEventListener('click',()=>selectMerchantWorkspaceTab('overview'));
+  el('merchantLineSettingsTab').addEventListener('click',()=>selectMerchantWorkspaceTab('line'));
+  function selectMerchantPanel(feature, reveal = true) {
     if(merchantSaving||state.merchantPending)return;
     const tenant=state.merchant;
     // A stale bookmark or a forged query string never exposes an unapproved feature.
     merchantPanel=feature==='shared'||tenant?.features?.[feature]===true?feature:'shared';
+    if (reveal) selectMerchantWorkspaceTab('line');
     for(const panel of merchantForm.querySelectorAll('[data-merchant-panel]'))
       panel.hidden=panel.dataset.merchantPanel!==merchantPanel;
     for(const button of el('merchantFeatureNav').querySelectorAll('[data-line-feature]'))
@@ -420,7 +433,7 @@
       nav.append(button);
     }
     const requested=new URLSearchParams(window.location.search).get('feature');
-    selectMerchantPanel(requested||merchantPanel);
+    selectMerchantPanel(requested||merchantPanel, false);
   }
   function renderMine(data){
     state.mineSignature=JSON.stringify([data.application?.status,data.tenant?.version,data.tenant?.status,data.tenant?.expired]);
@@ -473,7 +486,9 @@
       const field=merchantForm.elements.namedItem(key);field.value='';field.required=!tenant.credentialsConfigured;
     }
     el('merchantMessage').textContent='';state.merchantPending=null;
+    const deepLink=new URLSearchParams(location.search).get('feature');
     renderMerchantNav(tenant);
+    selectMerchantWorkspaceTab(deepLink && tenant.features?.[deepLink]===true ? 'line' : merchantWorkspaceTab);
     renderChecklist(tenant);
   }
   applicationForm.addEventListener('submit',async event=>{
