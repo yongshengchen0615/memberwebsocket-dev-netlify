@@ -129,26 +129,40 @@
     font-weight: 800;
   }
 
+  /* Actual booked start times stay visible; the old dot-only layout hid every time. */
+  #bookingView .calendar-day.has-booking {
+    align-items: stretch;
+    justify-content: flex-start;
+    min-height: 80px;
+    padding: 4px 2px;
+  }
+
+  #bookingView .calendar-day.has-booking .calendar-day-number {
+    align-self: center;
+  }
+
   #bookingView .calendar-booking-times {
-    position: absolute;
-    left: 50%;
-    bottom: 4px;
-    display: block;
-    width: auto;
-    transform: translateX(-50%);
+    position: static;
+    display: grid;
+    gap: 2px;
+    width: 100%;
+    transform: none;
   }
 
   #bookingView .calendar-booking-times small {
-    display: none;
+    display: block;
+    padding: 2px 1px;
+    overflow: hidden;
+    text-overflow: clip;
+    white-space: nowrap;
+    font-size: 8px;
+    line-height: 1.2;
+    text-align: center;
   }
 
+  #bookingView .calendar-booking-times .calendar-booking-end,
   #bookingView .calendar-day.has-booking .calendar-booking-times::after {
-    content: "";
-    display: block;
-    width: 5px;
-    height: 5px;
-    border-radius: 999px;
-    background: var(--theme-accent);
+    display: none;
   }
 
   #bookingView .calendar-holiday-label {
