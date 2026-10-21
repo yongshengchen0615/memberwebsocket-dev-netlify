@@ -101,7 +101,7 @@ export async function verifyPlatformPreview({
     catch { throw new Error('authentication response must contain valid JSON'); }
     if (payload.error?.code !== 'AUTH_REQUIRED') throw new Error('expected AUTH_REQUIRED rejection');
   }, 1);
-  return { commit, origin, checks };
+  return { commit, origin, passedChecks: checks };
 }
 
 async function main() {

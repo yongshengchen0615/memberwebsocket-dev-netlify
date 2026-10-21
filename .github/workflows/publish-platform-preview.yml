@@ -28,6 +28,7 @@ jobs:
       NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
       GH_TOKEN: ${{ github.token }}
       PLATFORM_ALIAS: ${{ github.ref_name == 'Integrated-Marketing-Platform' && 'integrated-marketing-platform' || 'platform' }}
+      PREVIEW_SOURCE_BRANCH: ${{ github.ref_name }}
       COMMIT_REF: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
@@ -52,12 +53,27 @@ jobs:
         env:
           COMMIT_REF: ${{ github.sha }}
         run: |
-          node --test scripts/deploy.test.mjs scripts/netlify-publish-workflow.test.mjs scripts/check-preview-ci.test.mjs scripts/verify-platform-preview.test.mjs
+          node --test scripts/deploy.test.mjs scripts/netlify-publish-workflow.test.mjs scripts/check-preview-ci.test.mjs scripts/verify-platform-preview.test.mjs scripts/inspect-preview-source.test.mjs scripts/netlify-preview-source.test.mjs
           node scripts/build-site.mjs
           test -f dist/platform/index.html
           test ! -e dist/admin/platform/index.html
           grep -Fq '2012065297-VunxFBj8' dist/config.json
-          printf '/ /platform/ 302\n/admin/platform/* /platform/:splat 301\n' > dist/_redirects
+          python3 - <<'PY'
+          import pathlib, tomllib
+          config = tomllib.loads(pathlib.Path('netlify.toml').read_text())
+          redirects = ['/ /platform/ 302']
+          for rule in config['redirects']:
+              assert set(rule) <= {'from', 'to', 'status'}, 'Review new redirect options before ZIP publishing'
+              redirects.append(f"{rule['from']} {rule['to']} {rule['status']}")
+          pathlib.Path('dist/_redirects').write_text('\n'.join(redirects) + '\n')
+          headers = []
+          for rule in config['headers']:
+              headers.append(rule['for'])
+              headers.extend(f'  {key}: {value}' for key, value in rule['values'].items())
+          pathlib.Path('dist/_headers').write_text('\n'.join(headers) + '\n')
+          PY
+          mkdir -p evidence
+          (cd dist && zip -qr ../evidence/platform-preview.zip .)
       - name: Retain the exact preview bundle for recovery
         uses: actions/upload-artifact@v4
         with:
@@ -65,16 +81,20 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 7
-      - name: Publish only the stable preview alias
+      - name: Publish only the verified preview branch or isolated legacy alias
         shell: bash
         run: |
           set -euo pipefail
           test -n "${NETLIFY_AUTH_TOKEN:-}"
           current=$(gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/$GITHUB_REF_NAME" --jq '.object.sha')
           test "$current" = "$GITHUB_SHA"
-          npx --yes netlify-cli@23.11.0 deploy --no-build --dir=dist --site="$NETLIFY_SITE_ID" --alias="$PLATFORM_ALIAS" --message="verified-platform-$GITHUB_SHA" --json > /tmp/platform-deploy.json
-          mkdir -p evidence
-          jq '{deploy_id,deploy_url,source_sha:env.GITHUB_SHA}' /tmp/platform-deploy.json > evidence/platform-deploy.json
+          if [ "$GITHUB_REF_NAME" = Integrated-Marketing-Platform ]; then
+            node scripts/inspect-preview-source.mjs
+            node scripts/netlify-preview-source.mjs --publish
+          else
+            npx --yes netlify-cli@23.11.0 deploy --no-build --dir=dist --site="$NETLIFY_SITE_ID" --alias="$PLATFORM_ALIAS" --message="verified-platform-$GITHUB_SHA" --json > /tmp/platform-deploy.json
+            jq '{deploy_id,deploy_url,source_sha:env.GITHUB_SHA}' /tmp/platform-deploy.json > evidence/platform-deploy.json
+          fi
           cat evidence/platform-deploy.json
       - name: Verify preview page, assets, configuration and protected API
         env:

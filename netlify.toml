@@ -1,6 +1,7 @@
 [build]
   base = "."
-  command = "node scripts/build-site.mjs"
+  command = "node scripts/netlify-preview-source.mjs --build"
+  ignore = "node ./scripts/netlify-preview-source.mjs --ignore"
   publish = "dist"
 
 [build.environment]
