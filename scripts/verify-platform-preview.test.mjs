@@ -112,8 +112,10 @@ test('wrong auth error code, caching or preflight status cannot pass', async t =
 test('transport failures retain diagnostics and persistent failures remain fatal', async t => {
   const f = await fixture(t, ({ url }) => { if (url.endsWith('/platform/')) throw new Error('network unavailable'); });
   await assert.rejects(verifyPlatformPreview(f.options), /platform\/.*network unavailable/);
-  assert.equal(f.checks.length, 2);
-  assert.ok(f.checks.every(x => x.ok === false && x.status === null));
+  const failed = f.checks.filter(x => x.url === base + '/platform/');
+  assert.equal(failed.length, 2);
+  assert.ok(failed.every(x => x.ok === false && x.status === null));
+  assert.equal(f.checks.filter(x => x.url === base + '/' && x.ok).length, 1);
 });
 
 test('invalid commit or retry limits fail before issuing HTTP requests', async t => {
