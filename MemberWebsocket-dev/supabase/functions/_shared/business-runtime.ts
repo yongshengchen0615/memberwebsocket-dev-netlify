@@ -4,6 +4,7 @@ import { openCredentials } from './platform-crypto.mjs';
 import { resolvePlatformEncryptionKey } from './platform-key.mjs';
 import { tenantExpired } from './tenant-access.mjs';
 import { merchantOnboarding } from './merchant-onboarding.mjs';
+import { wakeBookingNotifications } from './booking-notification-wake.mjs';
 import { notificationToken } from './notification-routes.mjs';
 export type { SupabaseClient } from 'npm:@supabase/supabase-js@2.57.0';
 type Context=Record<string,any>;
@@ -178,6 +179,7 @@ export function businessHandler(name:string,handler:(request:Request)=>Response|
    }else assertBusinessAction(c,policyAction(name,body),body);
    await credentials(c,requestModule(name,body));
    const response=await scope.run(c,()=>handler(request));
+   await wakeBookingNotifications({name,context:c,body,response,dispatch:(id:string)=>control().rpc('platform_dispatch_booking',{p_tenant_id:id})});
    if(body.action==='admin.bootstrap'&&response.ok){
     const payload=await response.clone().json();if(payload.ok&&payload.data){payload.data=businessBootstrap(payload.data,c);return new Response(JSON.stringify(payload),{status:response.status,headers:response.headers});}
    }

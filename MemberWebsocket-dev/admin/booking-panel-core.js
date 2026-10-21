@@ -509,6 +509,7 @@
         ...(contactsById.get(String(item.bookingId || '')) || {}),
       }));
       const nextBooking = {
+        noShowRisk: booking.noShowRisk,
         settings: { ...(booking.settings || {}), ...(catalog.settings || {}), ...(resources.settings || {}) },
         bookings,
         groups: groupData?.bookingGroups && typeof groupData.bookingGroups === 'object' ? groupData.bookingGroups : {},
@@ -537,6 +538,7 @@
       const selectionChanged = [...state.selected].sort().join('|') !== [...nextSelected].sort().join('|');
 
       state.booking = nextBooking;
+      window.BookingRiskSettings?.mount(els.bookingAdminSettingsPanel,{data:state.booking.noShowRisk,request:(action,body)=>bookingRequest('admin.booking.risk.'+action,body,action!=='get')});
       state.catalog = nextCatalog;
       state.selected = nextSelected;
       if (catalogChanged) {
@@ -622,6 +624,7 @@
   function renderAll() { renderSettings(); renderTypes(); renderServices(); renderStats(); renderBookings(); }
   function renderSettings() {
     const settings = state.booking.settings || {};
+    window.BookingRiskSettings?.mount(els.bookingAdminSettingsPanel,{data:state.booking.noShowRisk,request:(action,body)=>bookingRequest('admin.booking.risk.'+action,body,action!=='get')});
     els.bookingAdminStartTime.value = String(settings.workStartTime || '09:00');
     els.bookingAdminEndTime.value = String(settings.workEndTime || '17:00');
     els.bookingAdminSlotInterval.value = String(Number(settings.slotIntervalMinutes || 30));

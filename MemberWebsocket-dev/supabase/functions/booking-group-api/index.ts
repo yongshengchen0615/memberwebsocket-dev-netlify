@@ -51,6 +51,7 @@ function mapDbError(error: any): ApiError {
     ["FRIEND_ACCEPTED_REQUIRED",403,"FRIEND_ACCEPTED_REQUIRED","好友需要接受邀請後才能代約。"],
     ["FRIEND_SINGLE_RECIPIENT_REQUIRED",400,"FRIEND_SINGLE_RECIPIENT_REQUIRED","代好友預約請選擇單人服務。"],
     ["REQUEST_ID_CONFLICT",409,"REQUEST_ID_CONFLICT","同一操作識別不可更換受服務者。"],
+    ["BOOKING_RESTRICTED",403,"BOOKING_RESTRICTED","目前暫停線上預約，請重新整理查看到期時間與聯絡方式。"],
     ["BOOKING_SLOT_TAKEN",409,"BOOKING_SLOT_TAKEN","選擇的技師在這段時間剛被預約，請選擇其他時間。"],
     ["INVALID_BOOKING_BENEFITS",400,"INVALID_BOOKING_BENEFITS","選用優惠資料格式不正確。"],
     ["EVENT_TICKET_ALREADY_REGISTERED",409,"EVENT_TICKET_ALREADY_REGISTERED","這張活動票券已在一般預約或快照模式登記，不能重複登記。"],

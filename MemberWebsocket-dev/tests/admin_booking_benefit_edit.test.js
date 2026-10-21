@@ -48,5 +48,5 @@ test('admin booking ticket editor assets are cache-busted', () => {
   const coreVersion = /booking-panel-core\.js', '([^']+)'/.exec(read('admin/booking-panel.js'))?.[1];
   assert.ok(htmlVersion && coreVersion, 'booking loader versions must be present');
   assert.equal(htmlVersion, coreVersion, 'HTML must load the same booking core version');
-  assert.match(coreVersion, /-controls-20261010-2-snapshot-geofence-20261012-1-release-20261014-1-no-show-history-20261014-1-hide-early-hint-20261015-1-service-ticket-rule-20261015-1$/, 'latest booking ticket rule assets must not be cached');
+  assert.match(coreVersion, /-controls-20261010-2-snapshot-geofence-20261012-1-release-20261014-1-no-show-history-20261014-1-hide-early-hint-20261015-1-service-ticket-rule-20261015-1-booking-risk-20261021-1$/, 'latest booking ticket rule assets must not be cached');
 });

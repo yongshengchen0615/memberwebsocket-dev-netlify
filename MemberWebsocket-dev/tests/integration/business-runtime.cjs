@@ -8,7 +8,7 @@ test('AC-201: approval atomically provisions empty private business data and cur
   assert.equal((await h.db.query(`select count(*)::int n from ${t.runtime_schema}.members`)).rows[0].n,0);
   assert.equal((await h.db.query(`select count(*)::int n from ${t.runtime_schema}.admins where line_user_id=$1 and role='admin' and status='active'`,[t.owner_line_user_id])).rows[0].n,1);
   assert.equal((await h.db.query('select count(*)::int n from public.admins')).rows[0].n,1);
-  assert.equal((await h.db.query('select count(*)::int n from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname=$1 and c.relkind=\'r\' and c.relrowsecurity',[t.runtime_schema])).rows[0].n,65);
+  assert.equal((await h.db.query('select count(*)::int n from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname=$1 and c.relkind=\'r\' and c.relrowsecurity',[t.runtime_schema])).rows[0].n,69);
  }finally{await h.db.close();}
 });
 test('AC-206: two businesses accept the same LINE user and public IDs with independent data, FKs and sessions',async()=>{
@@ -42,7 +42,7 @@ test('AC-207: direct anon/authenticated access, foreign admins and unscoped func
   }
   await assert.rejects(h.db.query(`select ${s}.copy_admin_settings($1,'point_card','missing','copy','COPY-foreign-admin-123')`,[h.root]),/ADMIN_REQUIRED/);
   const functions=(await h.db.query(`select pg_get_functiondef(p.oid) definition from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname=$1`,[s])).rows;
-  assert.equal(functions.length,251);
+  assert.equal(functions.length,257);
   for(const f of functions)assert.doesNotMatch(f.definition,/\b(?:public|booking_notifications|platform_private|line_config|vault|cron)\./);
  }finally{await h.db.close();}
 });
