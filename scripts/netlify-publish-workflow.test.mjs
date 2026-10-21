@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 const path = new URL('../.github/workflows/publish-netlify.yml', import.meta.url);
 const flow = readFileSync(path, 'utf8');
 const fullCI = readFileSync(new URL('../.github/workflows/test-memberwebsocket-dev.yml', import.meta.url), 'utf8');
+const previewFlow = readFileSync(new URL('../.github/workflows/publish-platform-preview.yml', import.meta.url), 'utf8');
 
 test('production deploy targets only the existing Netlify site with protected credentials', () => {
   assert.match(flow, /NETLIFY_SITE_ID: 23796c62-480a-4b46-ac90-bfbc5ad4d300/);
@@ -45,4 +46,18 @@ test('deployment changes trigger the same full suite on PR and develop push', ()
     assert.match(source, /'\.github\/workflows\/publish-netlify\.yml'/);
     assert.match(source, /'scripts\/\*\*'/);
   }
+});
+
+test('preview smoke treats page, JS and config as one bounded CDN gate without weakening API authorization', () => {
+  assert.match(previewFlow, /for attempt in \\$\\(seq 1 20\\)/);
+  for (const flag of ['html_ok', 'js_ok', 'config_ok']) {
+    assert.match(previewFlow, new RegExp(flag + '=0'));
+    assert.match(previewFlow, new RegExp(flag + '=1'));
+  }
+  assert.match(previewFlow, /\\[\\[ "\\$html_ok" == 1 && "\\$js_ok" == 1 && "\\$config_ok" == 1 \\]\\]/);
+  assert.match(previewFlow, /data-commit=/);
+  assert.match(previewFlow, /platformLiffId/);
+  assert.match(previewFlow, /test "\\$code" = 401/);
+  assert.match(previewFlow, /AUTH_REQUIRED/);
+  assert.match(previewFlow, /after 20 checks/);
 });
