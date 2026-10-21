@@ -10,9 +10,11 @@ const expectedLanes = [
 
 test('every pull request triggers the entire regression workflow, regardless of changed paths', () => {
   const topLevel = workflow.split(/^permissions:/m)[0];
-  const pr = topLevel.match(/^  pull_request:\s*\n([\s\S]*?)(?=^\S|$)/m);
-  assert.ok(pr, 'pull_request event is required');
-  assert.doesNotMatch(pr[1], /^\s+(?:paths|paths-ignore|branches|branches-ignore):/m);
+  const marker = '  pull_request:\n';
+  const index = topLevel.indexOf(marker);
+  assert.notEqual(index, -1, 'pull_request event is required');
+  const prSettings = topLevel.slice(index + marker.length);
+  assert.doesNotMatch(prSettings, /^\s+(?:paths|paths-ignore|branches|branches-ignore):/m);
 });
 
 test('all eight test lanes and the aggregate validation job remain present', () => {
