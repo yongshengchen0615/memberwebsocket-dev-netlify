@@ -4,6 +4,9 @@ import { readFileSync } from 'node:fs';
 const path = new URL('../.github/workflows/publish-netlify.yml', import.meta.url);
 const flow = readFileSync(path, 'utf8');
 const fullCI = readFileSync(new URL('../.github/workflows/test-memberwebsocket-dev.yml', import.meta.url), 'utf8');
+const preview = readFileSync(new URL('../.github/workflows/publish-platform-preview.yml', import.meta.url), 'utf8');
+const build = readFileSync(new URL('../.github/workflows/test-netlify-build.yml', import.meta.url), 'utf8');
+const policy = readFileSync(new URL('../.github/workflows/test-memberwebsocket-ticket-policy.yml', import.meta.url), 'utf8');
 
 test('production deploy targets only the existing Netlify site with protected credentials', () => {
   assert.match(flow, /NETLIFY_SITE_ID: 23796c62-480a-4b46-ac90-bfbc5ad4d300/);
@@ -38,11 +41,65 @@ test('deploy emits recoverable artifact and verifies both page and JS after publ
   assert.match(flow, /after 30 checks/);
 });
 
-test('deployment changes trigger the same full suite on PR and develop push', () => {
-  const sources = fullCI.split('  pull_request:');
-  assert.equal(sources.length, 2);
-  for (const source of sources) {
-    assert.match(source, /'\.github\/workflows\/publish-netlify\.yml'/);
-    assert.match(source, /'scripts\/\*\*'/);
+test('deployment changes trigger the full suite for develop push and every pull request', () => {
+  const sections = fullCI.split('  pull_request:');
+  assert.equal(sections.length, 2);
+  assert.ok(sections[0].includes("'.github/workflows/publish-netlify.yml'"));
+  assert.ok(sections[0].includes("'scripts/**'"));
+  const prSettings = sections[1].split('permissions:')[0];
+  // An unrestricted PR trigger covers release-only changes and every other file.
+  assert.doesNotMatch(prSettings, /^\s+(?:paths|paths-ignore|branches|branches-ignore):/m);
+});
+
+test('preview uses the latest exact-commit CI gate before publishing and preserves alias scope', () => {
+  assert.ok(preview.indexOf('node scripts/check-preview-ci.mjs') < preview.indexOf('netlify-cli@'));
+  assert.match(preview, /if \[ "\$result" != 2 \]/);
+  assert.match(preview, /--alias="\$PLATFORM_ALIAS"/);
+  assert.doesNotMatch(preview, /--prod/);
+});
+
+test('preview retains its exact bundle and smoke evidence even when verification fails', () => {
+  assert.match(preview, /name: platform-preview-dist-\$\{\{ github.sha \}\}/);
+  assert.match(preview, /COMMIT_REF: \$\{\{ github.sha \}\}/);
+  assert.match(preview, /run: node scripts\/verify-platform-preview.mjs/);
+  assert.match(preview, /if: always\(\)[\s\S]*path: evidence\/platform-\*\.json/);
+  for (const flow of [preview, build]) {
+    assert.match(flow, /scripts\/verify-platform-preview.test.mjs/);
+    assert.match(flow, /scripts\/check-preview-ci.test.mjs/);
+  }
+});
+
+test('release-only changes trigger every required preview workflow on push and PR', () => {
+  for (const workflow of [fullCI, policy]) {
+    const sections = workflow.split('  pull_request:');
+    assert.equal(sections.length, 2);
+    const push = sections[0];
+    const pullRequest = sections[1].split('permissions:')[0];
+    assert.ok(push.includes("'scripts/**'"));
+    assert.ok(push.includes("'.github/workflows/publish-platform-preview.yml'"));
+    if (workflow === fullCI) {
+      // Unfiltered PR trigger covers this and any future release-only paths.
+      assert.doesNotMatch(pullRequest, /^\s+(?:paths|paths-ignore|branches|branches-ignore):/m);
+    } else {
+      assert.ok(pullRequest.includes("'scripts/**'"));
+      assert.ok(pullRequest.includes("'.github/workflows/publish-platform-preview.yml'"));
+    }
+  }
+  assert.match(policy, /'feature\/productization-super-admin'/);
+});
+
+test('the integrated preview uses a real branch ZIP after CI and retains global routing and headers', () => {
+  assert.match(preview, /if \[ "\$GITHUB_REF_NAME" = Integrated-Marketing-Platform \]; then\s+node scripts\/inspect-preview-source.mjs\s+node scripts\/netlify-preview-source.mjs --publish\s+else/);
+  assert.ok(preview.indexOf('node scripts/check-preview-ci.mjs') < preview.indexOf('node scripts/netlify-preview-source.mjs --publish'));
+  assert.match(preview, /config\['redirects'\]/);
+  assert.match(preview, /config\['headers'\]/);
+  assert.match(preview, /dist\/_headers/);
+  assert.match(preview, /zip -qr ..\/evidence\/platform-preview.zip/);
+  const config = readFileSync(new URL('../netlify.toml', import.meta.url), 'utf8');
+  assert.match(config, /command = "node scripts\/netlify-preview-source.mjs --build"/);
+  assert.match(config, /ignore = "node .\/scripts\/netlify-preview-source.mjs --ignore"/);
+  for (const source of [preview, build]) {
+    assert.match(source, /scripts\/netlify-preview-source.test.mjs/);
+    assert.match(source, /scripts\/inspect-preview-source.test.mjs/);
   }
 });
