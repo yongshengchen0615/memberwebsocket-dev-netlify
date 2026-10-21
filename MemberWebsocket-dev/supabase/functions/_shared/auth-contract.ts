@@ -1,5 +1,6 @@
 import { businessEnv, businessContext, businessFetch as fetch } from './business-scope.ts';
 import { assertTenantIdentity } from './tenant-access.mjs';
+import { isVerifiedLineIdClaim } from './line-id-claims.mjs';
 export type ContractIdentity = { lineUserId: string; displayName: string; issuedAtMs: number };
 
 type ErrorFactory = (status: number, code: string, message: string, details?: unknown) => Error;
@@ -11,7 +12,7 @@ export async function verifyLineIdTokenContract(args: {
   allowLoginClaim?: boolean;
 }): Promise<ContractIdentity> {
   const { idToken, expectedChannelId, createError, allowLoginClaim = false } = args;
-  if (!idToken) throw createError(401, "AUTH_REQUIRED", "請先使用 LINE 登入。");
+  if (typeof idToken !== "string" || !idToken || idToken.length > 10_000) throw createError(401, "AUTH_REQUIRED", "請先使用 LINE 登入。");
 
   let response: Response;
   try {
@@ -19,6 +20,7 @@ export async function verifyLineIdTokenContract(args: {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ id_token: idToken, client_id: expectedChannelId }),
+      signal: AbortSignal.timeout(15_000),
     });
   } catch {
     throw createError(503, "LINE_AUTH_UNAVAILABLE", "LINE 身分驗證服務暫時無法使用。");
@@ -31,14 +33,11 @@ export async function verifyLineIdTokenContract(args: {
     throw createError(503, "LINE_AUTH_UNAVAILABLE", "LINE 身分驗證服務暫時無法使用。");
   }
 
-  const sub = typeof payload.sub === "string" ? payload.sub.trim() : "";
-  const aud = typeof payload.aud === "string" ? payload.aud.trim() : "";
-  const iss = typeof payload.iss === "string" ? payload.iss.trim() : "";
-  const exp = Number(payload.exp || 0);
-  const iat = Number(payload.iat || 0);
-  if (!response.ok || !sub || aud !== expectedChannelId || iss !== "https://access.line.me" || !Number.isFinite(exp) || exp * 1000 <= Date.now() || !Number.isFinite(iat) || iat <= 0) {
+  if (!response.ok || !isVerifiedLineIdClaim(payload, expectedChannelId)) {
     throw createError(401, "AUTH_INVALID", "LINE 登入已失效，請重新登入。");
   }
+  const sub = String(payload.sub);
+  const iat = Number(payload.iat);
 
   const identity = {
     lineUserId: sub,
