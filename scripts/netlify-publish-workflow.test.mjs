@@ -4,6 +4,9 @@ import { readFileSync } from 'node:fs';
 const path = new URL('../.github/workflows/publish-netlify.yml', import.meta.url);
 const flow = readFileSync(path, 'utf8');
 const fullCI = readFileSync(new URL('../.github/workflows/test-memberwebsocket-dev.yml', import.meta.url), 'utf8');
+const preview = readFileSync(new URL('../.github/workflows/publish-platform-preview.yml', import.meta.url), 'utf8');
+const build = readFileSync(new URL('../.github/workflows/test-netlify-build.yml', import.meta.url), 'utf8');
+const policy = readFileSync(new URL('../.github/workflows/test-memberwebsocket-ticket-policy.yml', import.meta.url), 'utf8');
 
 test('production deploy targets only the existing Netlify site with protected credentials', () => {
   assert.match(flow, /NETLIFY_SITE_ID: 23796c62-480a-4b46-ac90-bfbc5ad4d300/);
@@ -45,4 +48,31 @@ test('deployment changes trigger the same full suite on PR and develop push', ()
     assert.match(source, /'\.github\/workflows\/publish-netlify\.yml'/);
     assert.match(source, /'scripts\/\*\*'/);
   }
+});
+
+test('preview uses the latest exact-commit CI gate before publishing and preserves alias scope', () => {
+  assert.ok(preview.indexOf('node scripts/check-preview-ci.mjs') < preview.indexOf('netlify-cli@'));
+  assert.match(preview, /if \[ "\$result" != 2 \]/);
+  assert.match(preview, /--alias="\$PLATFORM_ALIAS"/);
+  assert.doesNotMatch(preview, /--prod/);
+});
+
+test('preview retains its exact bundle and smoke evidence even when verification fails', () => {
+  assert.match(preview, /name: platform-preview-dist-\$\{\{ github.sha \}\}/);
+  assert.match(preview, /COMMIT_REF: \$\{\{ github.sha \}\}/);
+  assert.match(preview, /run: node scripts\/verify-platform-preview.mjs/);
+  assert.match(preview, /if: always\(\)[\s\S]*path: evidence\/platform-\*\.json/);
+  for (const flow of [preview, build]) {
+    assert.match(flow, /scripts\/verify-platform-preview.test.mjs/);
+    assert.match(flow, /scripts\/check-preview-ci.test.mjs/);
+  }
+});
+
+test('release-only changes trigger every required preview workflow on push and PR', () => {
+  for (const workflow of [fullCI, policy]) {
+    const triggers = workflow.split('permissions:')[0];
+    assert.equal((triggers.match(/'scripts\/\*\*'/g) || []).length, 2);
+    assert.equal((triggers.match(/'\.github\/workflows\/publish-platform-preview.yml'/g) || []).length, 2);
+  }
+  assert.match(policy, /'feature\/productization-super-admin'/);
 });
