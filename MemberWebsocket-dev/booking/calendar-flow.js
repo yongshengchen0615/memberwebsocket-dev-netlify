@@ -312,7 +312,8 @@
         button.title = reason;
         button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，${reason}`);
       } else {
-        button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，可開啟預約`);
+        const occupiedText = intervals.length ? `，有 ${intervals.length} 個我的預約時段` : '';
+        button.setAttribute('aria-label', `${formatDate(date)}${occupiedText}${bookedTimesDescription}，可開啟預約`);
         button.addEventListener('click', () => selectDate(date, button));
       }
       els.calendarGrid.appendChild(button);
