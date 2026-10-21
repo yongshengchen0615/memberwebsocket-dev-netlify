@@ -3,6 +3,10 @@ name: MemberWebsocket Ticket Policy UI Tests
 on:
   pull_request:
     paths:
+      - 'scripts/**'
+      - 'netlify.toml'
+      - '.github/workflows/publish-platform-preview.yml'
+      - '.github/workflows/test-netlify-build.yml'
       - 'MemberWebsocket-dev/admin/**'
       - 'MemberWebsocket-dev/tests/**'
       - '.github/workflows/test-memberwebsocket-ticket-policy.yml'
@@ -11,7 +15,12 @@ on:
       - 'feat/member-ticket-policy-admin-ui-20261014'
       - 'main'
       - 'Integrated-Marketing-Platform'
+      - 'feature/productization-super-admin'
     paths:
+      - 'scripts/**'
+      - 'netlify.toml'
+      - '.github/workflows/publish-platform-preview.yml'
+      - '.github/workflows/test-netlify-build.yml'
       - 'MemberWebsocket-dev/admin/**'
       - 'MemberWebsocket-dev/tests/**'
       - '.github/workflows/test-memberwebsocket-ticket-policy.yml'
