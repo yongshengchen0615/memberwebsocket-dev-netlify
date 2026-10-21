@@ -13,6 +13,10 @@ test('AC-188: commit routes create to admin, confirm/edit to member and suppress
   assert.equal(rows.length,1,'effective technician change must notify the member');assert.equal(rows[0].channel,'member');assert.ok(rows[0].message_text.includes('QA technician'));
   const version=(await h.state(b)).updated_at;
   await edit(h.tech);assert.equal(String((await h.state(b)).updated_at),String(version),'no-op must not change version or notify');
+  await h.q('select S.admin_update_booking_participant_items_request($1,$2,$3,$4)',[b,version,owner,[{position:1,items:[{serviceId:h.svc,quantity:1}]}]]);
+  assert.equal(String((await h.state(b)).updated_at),String(version),'no-op services preserve booking version');
+  await h.q('select S.admin_update_booking_participant_items_request($1,$2,$3,$4)',[b,version,owner,[{position:1,items:[{serviceId:h.svc,quantity:2}]}]]);
+  assert.equal((await h.q('select quantity from S.booking_participant_items where service_id=$1',[h.svc]))[0].quantity,2);
   await h.q("update S.bookings set status='cancelled',cancelled_by=$2 where id=$1",[b,owner]);
   assert.equal((await h.q("select count(*)::int n from S.notice_outbox where booking_id=$1 and channel='member' and message_text like '【預約取消】%'",[b]))[0].n,1);
  }finally{await h.db.close();}

@@ -13,7 +13,7 @@ begin
  elsif position('FUNCTION public.admin_update_booking_participant_items_request(' in def)>0 then
   def:=replace(def,'  select sum(bi_store.unit_duration_minutes * bi_store.quantity)::integer',
    $patch$  if (select jsonb_agg(jsonb_build_object('position',bp.position,'items',(select jsonb_agg(jsonb_build_object('serviceId',pi.service_id,'quantity',pi.quantity) order by pi.service_id) from public.booking_participant_items pi where pi.participant_id=bp.id)) order by bp.position) from public.booking_participants bp where bp.booking_id=b.id)
-   = (select jsonb_agg(jsonb_build_object('position',(person->>'position')::integer,'items',(select jsonb_agg(jsonb_build_object('serviceId',(item->>'serviceId')::uuid,'quantity',(item->>'quantity')::integer) order by (item->>'serviceId')::uuid) from jsonb_array_elements(person->'items') item)) order by (person->>'position')::integer) from jsonb_array_elements(p_participants) person)
+   = (select jsonb_agg(jsonb_build_object('position',(requested_person.person_json->>'position')::integer,'items',(select jsonb_agg(jsonb_build_object('serviceId',(requested_item.item_json->>'serviceId')::uuid,'quantity',(requested_item.item_json->>'quantity')::integer) order by (requested_item.item_json->>'serviceId')::uuid) from jsonb_array_elements(requested_person.person_json->'items') requested_item(item_json))) order by (requested_person.person_json->>'position')::integer) from jsonb_array_elements(p_participants) requested_person(person_json))
   then return b; end if;
   select sum(bi_store.unit_duration_minutes * bi_store.quantity)::integer$patch$);
  end if;
