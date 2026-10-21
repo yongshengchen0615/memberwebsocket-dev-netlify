@@ -126,3 +126,9 @@ test('snapshot supports multi-page and detects duplicated node IDs',async()=>{
   await assert.rejects(manager.snapshot('owner',5),/Duplicate Project item IDs/);
   assert.equal(calls,2);
 });
+test('Status cannot bypass WIP via generic set or --wip-limit flag',async()=>{
+  const s=setup([{number:1,status:'In Progress'},{number:2,status:'In Progress'},{number:48,status:'Ready'}]);
+  await assert.rejects(s.manager.execute('set',{issue:'48',field:'Status',value:'In Progress',apply:true}),/Use move/);
+  await assert.rejects(s.manager.execute('move',{issue:'48',from:'Ready',to:'In Progress',apply:true,'wip-limit':'100'}),/WIP limit/);
+  assert.equal(s.mutations,0);
+});
