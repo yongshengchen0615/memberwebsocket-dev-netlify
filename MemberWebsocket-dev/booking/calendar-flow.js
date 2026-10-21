@@ -13,6 +13,7 @@
     occupancyRequestSeq: 0,
     reloadTimer: 0,
     occupiedByDate: new Map(),
+    memberBookedByDate: new Map(),
     holidaysByDate: new Map(),
     lastDateTrigger: null,
     holidayTrigger: null,
@@ -70,7 +71,10 @@
     });
 
     window.addEventListener('booking:selection-changed', syncAfterSelectionMutation);
-    window.addEventListener('booking:bookings-rendered', scheduleMonthOccupancyReload);
+    window.addEventListener('booking:bookings-rendered', (event) => {
+      syncMemberBookingTimes(event.detail?.bookings);
+      scheduleMonthOccupancyReload();
+    });
     window.addEventListener('booking:view-shown', loadMonthOccupancy);
     if (els.bookingView && !els.bookingView.classList.contains('hidden')) loadMonthOccupancy();
   });
@@ -261,14 +265,29 @@
         button.appendChild(label);
       }
 
-      const intervals = state.occupiedByDate.get(date) || [];
-      if (intervals.length && !isHoliday) {
+      // The booking bootstrap is already member-scoped and renders immediately, even if
+      // the supplemental monthly calendar request fails. Merge extra older rows from that API.
+      const localIntervals = state.memberBookedByDate.get(date) || [];
+      const apiIntervals = state.occupiedByDate.get(date) || [];
+      const intervalKey = (item) => [item.startTime, item.endTime, item.startAt, item.endAt].join('|');
+      const known = new Set(localIntervals.map(intervalKey));
+      const intervals = [...localIntervals, ...apiIntervals.filter((item) => !known.has(intervalKey(item)))]
+        .sort((a, b) => a.startTime.localeCompare(b.startTime) || a.endTime.localeCompare(b.endTime));
+      if (intervals.length) {
         button.classList.add('has-booking');
         const list = document.createElement('span');
         list.className = 'calendar-booking-times';
         intervals.slice(0, 2).forEach((interval) => {
           const label = document.createElement('small');
-          label.textContent = `${interval.startAt && interval.startAt !== date ? '隔日 ' : ''}${interval.startTime}–${interval.endTime}${interval.endAt && interval.endAt !== date ? '（隔日結束）' : ''}`;
+          const fullTime = `${interval.startAt && interval.startAt !== date ? '隔日 ' : ''}${interval.startTime}–${interval.endTime}${interval.endAt && interval.endAt !== date ? '（隔日結束）' : ''}`;
+          label.title = fullTime;
+          label.setAttribute('aria-label', fullTime);
+          const start = document.createElement('span');
+          start.textContent = `${interval.startAt && interval.startAt !== date ? '隔日 ' : ''}${interval.startTime}`;
+          const end = document.createElement('span');
+          end.className = 'calendar-booking-end';
+          end.textContent = `–${interval.endTime}${interval.endAt && interval.endAt !== date ? '（隔日結束）' : ''}`;
+          label.append(start, end);
           list.appendChild(label);
         });
         if (intervals.length > 2) {
@@ -279,28 +298,53 @@
         button.appendChild(list);
       }
 
+      const bookedTimesDescription = intervals.length
+        ? `，我的預約時間：${intervals.map((item) => `${item.startTime} 至 ${item.endTime}`).join('、')}`
+        : '';
       if (isPast) {
         button.title = isHoliday ? '休假日；日期已過，無法預約' : '日期已過，無法預約';
-        button.setAttribute('aria-label', `${formatDate(date)}，${button.title}`);
+        button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，${button.title}`);
       } else if (isHoliday) {
         button.title = '休假日，無法預約；點選查看說明';
-        button.setAttribute('aria-label', `${formatDate(date)}，休假日，無法預約，點選查看休假說明`);
+        button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，休假日，無法預約，點選查看休假說明`);
         button.addEventListener('click', () => showHolidayNotice(date, holidays, button));
       } else if (isAdvanceBlocked) {
         const reason = `需提前 ${state.minAdvanceDays} 天，最早可預約 ${formatDate(minimumDate)}`;
         button.title = reason;
-        button.setAttribute('aria-label', `${formatDate(date)}，${reason}`);
+        button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，${reason}`);
       } else if (isRangeBlocked) {
         const reason = `超過可預約範圍，最遠可預約 ${formatDate(maximumDate)}`;
         button.title = reason;
         button.setAttribute('aria-label', `${formatDate(date)}，${reason}`);
       } else {
-        const occupiedText = intervals.length ? `，有 ${intervals.length} 個我的預約時段` : '';
-        button.setAttribute('aria-label', `${formatDate(date)}${occupiedText}，可開啟預約`);
+        button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，可開啟預約`);
         button.addEventListener('click', () => selectDate(date, button));
       }
       els.calendarGrid.appendChild(button);
     }
+  }
+
+  function syncMemberBookingTimes(bookings) {
+    if (!Array.isArray(bookings)) return;
+    const grouped = new Map();
+    for (const booking of bookings) {
+      if (!['pending', 'confirmed', 'cancel_requested'].includes(String(booking?.status || ''))) continue;
+      const date = String(booking?.bookingDate || '').slice(0, 10);
+      const startTime = String(booking?.startTime || '').slice(0, 5);
+      const endTime = String(booking?.endTime || '').slice(0, 5);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime)) continue;
+      const interval = {
+        startTime, endTime,
+        startAt: String(booking?.startAt || '').slice(0, 10) || date,
+        endAt: String(booking?.endAt || '').slice(0, 10) || date,
+      };
+      const rows = grouped.get(date) || [];
+      if (!rows.some((item) => item.startTime === startTime && item.endTime === endTime
+        && item.startAt === interval.startAt && item.endAt === interval.endAt)) rows.push(interval);
+      grouped.set(date, rows);
+    }
+    state.memberBookedByDate = grouped;
+    renderCalendar();
   }
 
   async function loadMonthOccupancy() {
