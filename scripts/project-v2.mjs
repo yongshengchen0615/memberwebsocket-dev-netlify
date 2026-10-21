@@ -130,6 +130,7 @@ export function createManager({ graphql, rest }) {
     const plan = { action:command, itemId:item.id, title:item.content?.title, project:before.id };
     if (command === 'move' || command === 'set') {
       const fieldName = command === 'move' ? 'Status' : flags.field;
+      if (command === 'set' && fieldName === 'Status') fail('Use move to change Status so expected state and WIP are checked');
       const target = command === 'move' ? flags.to : flags.value;
       if (!target) fail('move needs --to; set needs --field and --value');
       const {field, option} = requireOption(before,fieldName,target);
@@ -137,8 +138,7 @@ export function createManager({ graphql, rest }) {
       if (command === 'move') {
         if (!flags.from) fail('move requires --from CURRENT_STATUS to prevent stale writes');
         if (old !== flags.from) fail('Status conflict: current=' + old + ', expected=' + flags.from);
-        const limit = Number(flags['wip-limit'] ?? 2);
-        if (!Number.isInteger(limit) || limit < 1) fail('Invalid --wip-limit');
+        const limit = 2; // Project #5 policy; do not permit flag override
         if (target === 'In Progress' && old !== target && before.items.filter(x => !x.isArchived && fieldValue(x,'Status') === target).length >= limit) fail('In Progress WIP limit exceeded');
       }
       plan.field = fieldName; plan.from = old; plan.to = target;
