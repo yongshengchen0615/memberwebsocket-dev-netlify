@@ -70,21 +70,20 @@ test('preview retains its exact bundle and smoke evidence even when verification
 });
 
 test('release-only changes trigger every required preview workflow on push and PR', () => {
-  for (const workflow of [fullCI, policy]) {
-    const sections = workflow.split('  pull_request:');
-    assert.equal(sections.length, 2);
-    const push = sections[0];
-    const pullRequest = sections[1].split('permissions:')[0];
-    assert.ok(push.includes("'scripts/**'"));
-    assert.ok(push.includes("'.github/workflows/publish-platform-preview.yml'"));
-    if (workflow === fullCI) {
-      // Unfiltered PR trigger covers this and any future release-only paths.
-      assert.doesNotMatch(pullRequest, /^\s+(?:paths|paths-ignore|branches|branches-ignore):/m);
-    } else {
-      assert.ok(pullRequest.includes("'scripts/**'"));
-      assert.ok(pullRequest.includes("'.github/workflows/publish-platform-preview.yml'"));
-    }
+  const fullTriggers = fullCI.split('permissions:')[0];
+  const policyTriggers = policy.split('permissions:')[0];
+  for (const triggers of [fullTriggers, policyTriggers]) {
+    assert.match(triggers, /^  push:/m);
+    assert.match(triggers, /^  pull_request:/m);
   }
+  // Full CI now tests every pull request; only push needs a path allowlist.
+  assert.equal((fullTriggers.match(/'scripts\/\*\*'/g) || []).length, 1);
+  assert.equal((fullTriggers.match(/'\.github\/workflows\/publish-platform-preview.yml'/g) || []).length, 1);
+  const fullPrConfig = fullTriggers.slice(fullTriggers.indexOf('  pull_request:'));
+  assert.doesNotMatch(fullPrConfig, /^\s+(?:paths|paths-ignore|branches|branches-ignore):/m);
+  // Ticket-policy workflow still requires release paths in both event filters.
+  assert.equal((policyTriggers.match(/'scripts\/\*\*'/g) || []).length, 2);
+  assert.equal((policyTriggers.match(/'\.github\/workflows\/publish-platform-preview.yml'/g) || []).length, 2);
   assert.match(policy, /'feature\/productization-super-admin'/);
 });
 
