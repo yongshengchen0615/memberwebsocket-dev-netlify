@@ -14,17 +14,6 @@ on:
       - '.github/workflows/test-netlify-build.yml'
       - '.github/workflows/test-memberwebsocket-dev.yml'
   pull_request:
-    paths:
-      - 'MemberWebsocket-dev/**'
-      - 'scripts/**'
-      - 'AGENTS.md'
-      - 'docs/DEVELOPMENT_GUARDRAILS.md'
-      - '.github/PULL_REQUEST_TEMPLATE.md'
-      - 'netlify.toml'
-      - '.github/workflows/publish-netlify.yml'
-      - '.github/workflows/publish-platform-preview.yml'
-      - '.github/workflows/test-netlify-build.yml'
-      - '.github/workflows/test-memberwebsocket-dev.yml'
 
 permissions:
   contents: read
@@ -49,6 +38,8 @@ jobs:
           node --test --test-reporter=spec --test-reporter-destination=stdout
           --test-reporter=junit --test-reporter-destination=regression-results.xml
           MemberWebsocket-dev/tests/*.test.js
+      - name: Verify governance workflow gates
+        run: node --test scripts/governance-workflow.test.mjs
       - name: Save regression diagnostics and durations
         if: always()
         uses: actions/upload-artifact@v4
