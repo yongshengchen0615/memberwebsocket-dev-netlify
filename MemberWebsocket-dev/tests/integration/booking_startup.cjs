@@ -20,12 +20,14 @@ if (!process.argv.includes('--fixture')) {
 
 async function fixture(mode) {
   const errors = [];
+  const bookingRenderEvents = [];
   const vc = new VirtualConsole();
   vc.on('jsdomError', error => errors.push(error.message));
   const dom = new JSDOM(fs.readFileSync(path.join(root, 'booking/index.html'), 'utf8'), {
     url: 'https://example.test/MemberWebsocket-dev/booking/', runScripts: 'outside-only', pretendToBeVisual: true, virtualConsole: vc,
   });
   const w = dom.window;
+  w.addEventListener('booking:bookings-rendered', (event) => bookingRenderEvents.push(event.detail));
   const el = id => w.document.getElementById(id);
   const tick = ms => new Promise(resolve => setTimeout(resolve, ms));
   let subscriptions = 0;
@@ -80,6 +82,13 @@ async function fixture(mode) {
     }
     assert.equal(el('bookingView').classList.contains('hidden'), false);
     assert.equal(subscriptions, 1);
+    assert.ok(bookingRenderEvents.length > 0, 'Bootstrap must publish the signed-in member booking times to calendar');
+    assert.deepEqual(
+      JSON.parse(JSON.stringify(bookingRenderEvents.at(-1).bookings)),
+      [{ bookingDate: booking.bookingDate, startTime: booking.startTime, endTime: booking.endTime,
+        status: booking.status }],
+      'Only booking date/time/status should be published, not member identity or private notes'
+    );
     const bookingCard = el('bookingList').querySelector('.booking-item[data-booking-id]');
     assert.ok(bookingCard, 'Booking history card should render');
     assert.equal(bookingCard.querySelector('details.member-booking-details'), null, 'Booking history should not contain a second details toggle');
