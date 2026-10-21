@@ -31,6 +31,8 @@ Apply, in order:
 1. `20261021045559_booking_notification_event_repair.sql`: update current tenants and the future-business template; service-role-only wake RPC.
 2. `20261021045611_booking_no_show_policy.sql`: additive private tables/functions/triggers, disabled policy for existing and newly approved businesses.
 
+Existing-tenant upgrades explicitly qualify booking return types. The upgrade regression provisions a tenant and member first, runs both migrations from the control-plane search path, and checks that the return-type OID and member data remain intact. No functions are dropped.
+
 No business records, Auth users, Storage objects, secrets or super-admin grants are deleted or replaced.
 
 For policy rollback, use the authorized management UI to disable the policy; retain events, restrictions and appeals for audit. For a bad published frontend/Edge version, revert the code commit and redeploy the prior source through CI. Keep additive DB objects so old code remains compatible. Database errors abort each migration transaction. Do not drop business schemas or run a global reset as recovery.

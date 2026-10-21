@@ -46,3 +46,19 @@ test('AC-188: post-commit wake uses tenant scope; durable claims, backoff and st
   assert.equal((await h.state(b)).status,'pending');
  }finally{await h.db.close();}
 });
+test('AC-188 upgrade: existing tenant row types and data survive migration outside its search path',async()=>{
+ const fixture=require('./business-runtime-fixture.cjs'),fs=require('node:fs'),path=require('node:path');
+ const h=await fixture({beforeEventRepair:true});try{
+  const t=await h.approve(owner,'existing-upgrade'),s=t.runtime_schema;
+  await h.db.query(`insert into ${s}.members(line_user_id,member_code,invite_code)values($1,'KEPT-MEMBER','ABCD999999')`,[memberLine]);
+  const signature=`${s}.admin_update_booking_participant_items_request(uuid,timestamptz,text,jsonb)`;
+  const before=(await h.db.query('select prorettype::oid result from pg_proc where oid=$1::regprocedure',[signature])).rows[0].result;
+  await h.db.exec('set search_path=public,extensions');
+  for(const name of ['20261021045559_booking_notification_event_repair.sql','20261021045611_booking_no_show_policy.sql'])await h.db.exec(fs.readFileSync(path.resolve(__dirname,'../../supabase/migrations',name),'utf8'));
+  const after=(await h.db.query('select prorettype::oid result from pg_proc where oid=$1::regprocedure',[signature])).rows[0].result;
+  assert.equal(after,before,'upgrade must keep the tenant-owned return type without dropping the function');
+  assert.equal((await h.db.query(`select member_code from ${s}.members`)).rows[0].member_code,'KEPT-MEMBER');
+  assert.equal((await h.db.query(`select enabled from ${s}.booking_no_show_policy`)).rows[0].enabled,false);
+  assert.equal((await h.db.query(`select count(*)::int n from ${s}.booking_no_show_events`)).rows[0].n,0,'no historical backfill');
+ }finally{await h.db.close();}
+});

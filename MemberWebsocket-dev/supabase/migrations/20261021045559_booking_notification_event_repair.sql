@@ -17,6 +17,9 @@ begin
   then return b; end if;
   select sum(bi_store.unit_duration_minutes * bi_store.quantity)::integer$patch$);
  end if;
+ -- Existing tenants are upgraded from a control-plane search_path. Preserve
+ -- the tenant row type explicitly instead of resolving unqualified public types.
+ def:=regexp_replace(def,'\mRETURNS bookings\M','RETURNS public.bookings');
  return def;
 end $repair$;
 revoke all on function platform_private.repair_booking_event_sql(text) from public,anon,authenticated,service_role;
