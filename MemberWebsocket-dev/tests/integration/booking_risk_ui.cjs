@@ -18,3 +18,20 @@ test('AC-173 UI: blank policy remains off; enabling requires chosen values and r
   assert.ok(w.document.querySelector('[role=status]').textContent.includes('原因'));
  }finally{w.close();}
 });
+test('AC-173 member UI: exact expiry, permitted existing edits, safe contact text and authenticated appeal payload',async()=>{
+ const dom=new JSDOM('<form id="bookingForm"></form>',{runScripts:'outside-only'}),w=dom.window;
+ try{
+  const source=fs.readFileSync(path.resolve(__dirname,'../../booking/app.js'),'utf8');
+  const chunk=source.slice(source.indexOf('  function bookingRestricted() {'),source.indexOf('  function renderMemberProfile() {'));
+  const now=Date.parse('2026-10-21T00:00:00Z');const calls=[];
+  w.BookingSystem={request:async(config,client,idToken,action,body)=>{calls.push({config,client,idToken,action,body});return{restricted:true,expiresAt:'2026-10-22T00:00:00Z',appealEnabled:true,appealSubmitted:true};}};
+  w.eval(`const state={config:{business:'synthetic'},idToken:'verified-fixture',editing:null,data:{bookingRestriction:{restricted:true,expiresAt:'2026-10-22T00:00:00Z',appealEnabled:true,contactText:'<img src=x onerror=alert(1)>電話客服'}}};const els={bookingForm:document.getElementById('bookingForm')};function currentServerTimeMs(){return ${now};}${chunk};window.riskState=state;window.riskRestricted=bookingRestricted;window.riskRender=renderBookingRestriction;`);
+  assert.equal(w.riskRestricted(),true);w.riskRender();assert.equal(w.document.querySelectorAll('img').length,0);assert.ok(w.document.getElementById('bookingRestrictionNotice').textContent.includes('電話客服'));
+  w.document.querySelector('button').click();assert.equal(calls.length,0);
+  w.document.querySelector('textarea').value='請核對預約紀錄';w.document.querySelector('button').click();await new Promise(r=>setImmediate(r));
+  assert.equal(calls.length,1);assert.equal(calls[0].client,'member');assert.equal(calls[0].idToken,'verified-fixture');assert.equal(calls[0].action,'user.booking.risk.appeal');assert.deepEqual(Object.keys(calls[0].body),['reason']);
+  assert.ok(w.document.getElementById('bookingRestrictionNotice').textContent.includes('申覆已送出'));
+  w.riskState.editing={bookingId:'existing'};assert.equal(w.riskRestricted(),false);
+  w.riskState.editing=null;w.riskState.data.bookingRestriction.expiresAt=new Date(now).toISOString();assert.equal(w.riskRestricted(),false);w.riskRender();assert.equal(w.document.getElementById('bookingRestrictionNotice'),null);
+ }finally{w.close();}
+});
