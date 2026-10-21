@@ -277,7 +277,7 @@
         button.classList.add('has-booking');
         const list = document.createElement('span');
         list.className = 'calendar-booking-times';
-        intervals.slice(0, 2).forEach((interval) => {
+        intervals.forEach((interval) => {
           const label = document.createElement('small');
           const fullTime = `${interval.startAt && interval.startAt !== date ? '隔日 ' : ''}${interval.startTime}–${interval.endTime}${interval.endAt && interval.endAt !== date ? '（隔日結束）' : ''}`;
           label.title = fullTime;
@@ -290,11 +290,6 @@
           label.append(start, end);
           list.appendChild(label);
         });
-        if (intervals.length > 2) {
-          const more = document.createElement('small');
-          more.textContent = `+${intervals.length - 2} 個時段`;
-          list.appendChild(more);
-        }
         button.appendChild(list);
       }
 
@@ -315,7 +310,7 @@
       } else if (isRangeBlocked) {
         const reason = `超過可預約範圍，最遠可預約 ${formatDate(maximumDate)}`;
         button.title = reason;
-        button.setAttribute('aria-label', `${formatDate(date)}，${reason}`);
+        button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，${reason}`);
       } else {
         button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，可開啟預約`);
         button.addEventListener('click', () => selectDate(date, button));
