@@ -44,11 +44,21 @@ async function fixture(t, mutate = () => {}) {
 test('verifies all ten pages, exact asset bytes, legacy redirect, preflight and authentication', async t => {
   const f = await fixture(t);
   const result = await verifyPlatformPreview(f.options);
-  assert.equal(result.checks, previewPages.length + previewAssets.length + 3);
+  assert.equal(result.passedChecks, previewPages.length + previewAssets.length + 3);
   assert.equal(result.commit, commit);
   assert.ok(f.calls.some(x => x.url.endsWith('/booking/admin/')));
   assert.ok(f.checks.every(x => x.ok));
   assert.ok(f.calls.some(x => x.url === api && x.method === 'POST'));
+});
+
+test('the success summary preserves per-resource diagnostics when added to the saved report', async t => {
+  const f = await fixture(t);
+  const result = await verifyPlatformPreview(f.options);
+  const report = { checks: f.checks };
+  Object.assign(report, result, { ok: true });
+  assert.equal(report.checks, f.checks);
+  assert.equal(report.checks.length, 18);
+  assert.equal(report.passedChecks, 18);
 });
 
 test('a transient asset HTTP 500 is diagnosed and must pass the same byte check on retry', async t => {
