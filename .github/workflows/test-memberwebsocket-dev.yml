@@ -5,6 +5,9 @@ on:
     paths:
       - 'MemberWebsocket-dev/**'
       - 'scripts/**'
+      - 'AGENTS.md'
+      - 'docs/DEVELOPMENT_GUARDRAILS.md'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
       - 'netlify.toml'
       - '.github/workflows/publish-netlify.yml'
       - '.github/workflows/publish-platform-preview.yml'
@@ -14,6 +17,9 @@ on:
     paths:
       - 'MemberWebsocket-dev/**'
       - 'scripts/**'
+      - 'AGENTS.md'
+      - 'docs/DEVELOPMENT_GUARDRAILS.md'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
       - 'netlify.toml'
       - '.github/workflows/publish-netlify.yml'
       - '.github/workflows/publish-platform-preview.yml'
