@@ -30,6 +30,7 @@ Apply, in order:
 
 1. `20261021045559_booking_notification_event_repair.sql`: update current tenants and the future-business template; service-role-only wake RPC.
 2. `20261021045611_booking_no_show_policy.sql`: additive private tables/functions/triggers, disabled policy for existing and newly approved businesses.
+3. `20261021060609_booking_risk_appeal_resolution.sql`: #193 disambiguates the appeal-review reason in existing and future business functions. The added review/release test first reproduced SQL 42702; review replay preserves the first outcome and a separate release remains required.
 
 Existing-tenant upgrades explicitly qualify booking return types. The upgrade regression provisions a tenant and member first, runs both migrations from the control-plane search path, and checks that the return-type OID and member data remain intact. No functions are dropped.
 
@@ -45,6 +46,9 @@ For policy rollback, use the authorized management UI to disable the policy; ret
 | AC-188-005–008 | Same suite: rollback, wrong actor, tenant wake gating, leases, retry/backoff, stale worker; `booking_notification_wake.test.js` and existing Deno LINE delivery fault tests. |
 | AC-173-001–008 | `tests/integration/booking_no_show_policy.cjs`: disabled/blank defaults, invalid policy, atomic duplicate mark, threshold, blocked creation, appeal replay, exact expiry boundary, revoked count/audit and anon/authenticated denial. |
 | AC-173 UI | `booking_risk_ui.cjs`; `tests/browser/booking-risk.spec.cjs`, widths 390/1280, SQL-backed component journeys. |
+| AC-173 boundaries / #193 | `booking_risk_boundaries.cjs`: outside-window/cancel/revoke, disabled-period history, grace rollback, immutable duration, UTC/month-end expiry, foreign actors/public roles, appeal/release/audit idempotency. Chromium adds the complete review-then-release component journey at both widths. |
+| Physical PostgreSQL | `tests/integration/postgres/booking-risk.cjs`: the same six boundary cases against PostgreSQL 17, distinct TCP sessions for duplicate marks, threshold races and a create waiting on a member lock; competing outbox claims; existing-tenant upgrade and actual `pg_dump`/`pg_restore` into another disposable database. CI validation requires this lane. |
+| Intermittent #192 | The previously observed unscoped anonymous 503 returned 401 on recheck without an application fix. Root cause remains unproven. Only bounded database/provider error codes are logged; provider messages, tokens and actors are excluded. Maintenance fail-closed behavior is unchanged and covered by two Deno cases. |
 | Existing isolation | `tests/integration/business-runtime.cjs`: 69 RLS tables (65 existing + 4 risk tables), 257 private functions (251 existing + 6 risk functions), foreign admins/FKs/storage boundaries. |
 | Full baseline | `.github/workflows/test-memberwebsocket-dev.yml`: regression, DOM/PGlite, real Chromium fixtures, syntax, Deno, wiring and dependency audit. All existing cases remain required. |
 | Deployment | `.github/workflows/publish-platform-preview.yml`: waits for three exact-SHA CI workflows, publishes the integrated alias, verifies commit badge/assets and protected API. |
@@ -56,7 +60,7 @@ Baseline executed locally before changes: Node 1,011 pass / 0 fail / 0 skip; DOM
 ## External acceptance still required
 
 - Approved LINE OA/member test accounts and de-identified actual receipt evidence; mocks and accepted outbox state do not prove a person received a message.
-- A dedicated disposable Supabase project/branch for full empty-database migration, upgrade, parallel-session race and backup/restore exercises. No production destructive tests.
+- A dedicated disposable Supabase project/branch for full empty-history migration and managed Auth/Storage/Edge integration. The PostgreSQL CI lane exercises physical SQL concurrency and dump/restore with synthetic fixtures; it does not validate the entire managed Supabase stack or real LINE identities. No production destructive tests.
 - Business-selected no-show threshold/window/period/grace/contact values before enabling any live restriction. The deployment leaves all policies disabled.
 
 ## #190 / #180 sandbox-reset blocker

@@ -153,6 +153,12 @@ export async function resolveUserTestIdentity(
     .maybeSingle();
 
   if (settingsResult.error) {
+    // Keep provider/database messages and request tokens out of logs. The code
+    // alone distinguishes schema-cache, permission and transport failures.
+    const code = String(settingsResult.error.code || "");
+    console.error("TEST_MODE_SETTINGS_READ_FAILED", {
+      code: /^[A-Z0-9_]{1,32}$/.test(code) ? code : "UNKNOWN",
+    });
     throw new TestModeAuthError(503, "TEST_MODE_CHECK_FAILED", "目前無法確認系統維護狀態。");
   }
 

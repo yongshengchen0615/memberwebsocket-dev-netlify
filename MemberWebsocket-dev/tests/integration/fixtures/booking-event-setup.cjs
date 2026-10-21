@@ -1,7 +1,7 @@
 const fixture=require('../business-runtime-fixture.cjs');
 const owner='U'+'2'.repeat(32),memberLine='U'+'3'.repeat(32);
-module.exports=async()=>{
- const h=await fixture(),t=await h.approve(owner,'notification-events'),s=t.runtime_schema;
+module.exports=async(options={})=>{
+ const h=await fixture(options),t=await h.approve(owner,'notification-events'),s=t.runtime_schema;
  const q=async(sql,args=[])=>(await h.db.query(sql.replaceAll('S.',s+'.'),args)).rows;
  await q("update S.booking_settings set require_primary_technician=false,primary_technician_id=null,work_start_time='08:00',work_end_time='22:00'");
  const m=(await q("insert into S.members(line_user_id,member_code,invite_code,status,membership_status,is_test_account)values($1,'QA-NOTIFY','ABCD123456','active','active',true)returning id",[memberLine]))[0].id;

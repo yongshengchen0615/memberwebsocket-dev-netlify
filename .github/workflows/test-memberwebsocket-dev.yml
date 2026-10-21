@@ -76,6 +76,7 @@ jobs:
             MemberWebsocket-dev/tests/integration/notification_routes.cjs \
             MemberWebsocket-dev/tests/integration/booking_notification_events.cjs \
             MemberWebsocket-dev/tests/integration/booking_no_show_policy.cjs \
+            MemberWebsocket-dev/tests/integration/booking_risk_boundaries.cjs \
             MemberWebsocket-dev/tests/integration/booking_risk_ui.cjs \
             MemberWebsocket-dev/tests/integration/admin_startup.cjs \
             MemberWebsocket-dev/tests/integration/admin_terms.cjs \
@@ -256,6 +257,50 @@ jobs:
             MemberWebsocket-dev/booking/booking-receipt.js \
             MemberWebsocket-dev/booking/calendar-flow.js \
           | xargs -n1 -P4 node --check
+
+  postgres-integration:
+    name: PostgreSQL 17 transactions and recovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: synthetic-ci-only
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: MemberWebsocket-dev/tests/integration/package-lock.json
+      - name: Install pinned PostgreSQL test client
+        run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: MemberWebsocket-dev/tests/integration
+      - name: Test isolated database migrations, physical sessions and backup restore
+        env:
+          POSTGRES_TEST_PORT: ${{ job.services.postgres.ports[5432] }}
+          POSTGRES_TEST_CONTAINER: ${{ job.services.postgres.id }}
+        run: >-
+          node --test --test-concurrency=1
+          --test-reporter=spec --test-reporter-destination=stdout
+          --test-reporter=junit --test-reporter-destination=postgres-results.xml
+          MemberWebsocket-dev/tests/integration/postgres/booking-risk.cjs
+      - name: Save PostgreSQL acceptance results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-transactions-${{ github.run_attempt }}
+          path: postgres-results.xml
+          retention-days: 7
+          if-no-files-found: error
 
   edge-functions:
     name: Supabase Edge Function typecheck
@@ -508,7 +553,7 @@ jobs:
   validate:
     name: Validate MemberWebsocket Dev
     if: always()
-    needs: [regression, integration, browser-e2e, browser-syntax, edge-functions, wiring, dependency-audit]
+    needs: [regression, integration, postgres-integration, browser-e2e, browser-syntax, edge-functions, wiring, dependency-audit]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -516,6 +561,7 @@ jobs:
         env:
           REGRESSION: ${{ needs.regression.result }}
           INTEGRATION: ${{ needs.integration.result }}
+          POSTGRES_INTEGRATION: ${{ needs.postgres-integration.result }}
           BROWSER_SYNTAX: ${{ needs.browser-syntax.result }}
           BROWSER_E2E: ${{ needs.browser-e2e.result }}
           EDGE_FUNCTIONS: ${{ needs.edge-functions.result }}
@@ -526,6 +572,7 @@ jobs:
             "$REGRESSION" "$INTEGRATION" "$BROWSER_SYNTAX" "$EDGE_FUNCTIONS" "$WIRING"
           test "$REGRESSION" = success
           test "$INTEGRATION" = success
+          test "$POSTGRES_INTEGRATION" = success
           test "$BROWSER_SYNTAX" = success
           test "$BROWSER_E2E" = success
           test "$EDGE_FUNCTIONS" = success
