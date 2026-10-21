@@ -11,3 +11,6 @@
 .booking-holiday-detail{padding:12px;border-radius:12px;background:#f5f7f2;border:1px solid rgba(23,53,46,.1);border-left:4px solid var(--holiday-accent,#df6b4d)}
 .booking-holiday-detail strong{display:block;color:#17352e}
 .booking-holiday-detail p{margin:5px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;color:#5d6b65;line-height:1.55}
+
+/* Keep each of the signed-in member's booked start times visible on narrow day cells. */
+@media(max-width:520px){.calendar-booking-times small:nth-child(n+2){display:block}.calendar-booking-times small{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}.calendar-booking-times .calendar-booking-end{display:none}}
