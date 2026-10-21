@@ -49,15 +49,15 @@ test('deployment changes trigger the same full suite on PR and develop push', ()
 });
 
 test('preview smoke treats page, JS and config as one bounded CDN gate without weakening API authorization', () => {
-  assert.match(previewFlow, /for attempt in \\$\\(seq 1 20\\)/);
+  assert.match(previewFlow, /for attempt in \$\(seq 1 20\)/);
   for (const flag of ['html_ok', 'js_ok', 'config_ok']) {
     assert.match(previewFlow, new RegExp(flag + '=0'));
     assert.match(previewFlow, new RegExp(flag + '=1'));
   }
-  assert.match(previewFlow, /\\[\\[ "\\$html_ok" == 1 && "\\$js_ok" == 1 && "\\$config_ok" == 1 \\]\\]/);
+  assert.match(previewFlow, /\[\[ "\$html_ok" == 1 && "\$js_ok" == 1 && "\$config_ok" == 1 \]\]/);
   assert.match(previewFlow, /data-commit=/);
   assert.match(previewFlow, /platformLiffId/);
-  assert.match(previewFlow, /test "\\$code" = 401/);
+  assert.match(previewFlow, /test "\$code" = 401/);
   assert.match(previewFlow, /AUTH_REQUIRED/);
   assert.match(previewFlow, /after 20 checks/);
 });
