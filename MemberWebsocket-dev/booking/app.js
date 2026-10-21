@@ -1023,7 +1023,13 @@
 
     window.BookingMemberUI?.organizeBookingHistory?.();
     state.bookingRenderCount += 1;
-    window.dispatchEvent(new CustomEvent('booking:bookings-rendered', { detail: { renderCount: state.bookingRenderCount } }));
+    window.dispatchEvent(new CustomEvent('booking:bookings-rendered', { detail: {
+      renderCount: state.bookingRenderCount,
+      // Only the authenticated member's already-loaded booking times; do not expose profile or tokens.
+      bookings: bookings.map(({ bookingDate, startTime, endTime, startAt, endAt, status }) => ({
+        bookingDate, startTime, endTime, startAt, endAt, status,
+      })),
+    } }));
   }
 
   function summaryRow(label, value) {
