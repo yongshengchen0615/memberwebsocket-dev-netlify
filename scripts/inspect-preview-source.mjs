@@ -35,7 +35,7 @@ export function summarizePreviewSource(site, deploys, { siteId, branch, alias })
       skipPullRequests: typeof build.skip_prs === 'boolean' ? build.skip_prs : null,
     },
     nativeBranchDeployObserved: relevant.some(item => item.branch === branch && item.context === 'branch-deploy'),
-    aliasDeployObserved: relevant.some(item => item.branch === alias && item.context !== 'branch-deploy'),
+    aliasDeployObserved: relevant.some(item => item.branch === alias && !item.hasBuild && !item.commit),
     deploys: relevant,
   };
 }
