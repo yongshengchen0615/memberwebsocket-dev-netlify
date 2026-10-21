@@ -31,8 +31,8 @@ async function fixture(t, mutate = () => {}) {
       response = options.method === 'OPTIONS'
         ? new Response(null, { status: 204, headers: { 'access-control-allow-origin': base, 'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': 'content-type', vary: 'Origin' } })
         : Response.json({ error: { code: 'AUTH_REQUIRED' } }, { status: 401, headers: { 'access-control-allow-origin': base, 'cache-control': 'no-store' } });
-    } else if (parsed.pathname === '/' || parsed.pathname === '/admin/platform/') {
-      response = new Response(null, { status: parsed.pathname === '/' ? 302 : 301, headers: { location: '/platform/' } });
+    } else if (parsed.pathname === '/admin/platform/') {
+      response = new Response(null, { status: 301, headers: { location: '/platform/' } });
     } else {
       response = new Response(files.get(parsed.pathname) ?? 'missing', { status: files.has(parsed.pathname) ? 200 : 404 });
     }
@@ -41,10 +41,10 @@ async function fixture(t, mutate = () => {}) {
   return { dist, calls, checks, options: { base, api, commit, dist, fetchImpl, attempts: 2, delayMs: 0, onCheck: check => checks.push(check) } };
 }
 
-test('verifies all nine pages, exact asset bytes, redirects, preflight and authentication', async t => {
+test('verifies all ten pages, exact asset bytes, legacy redirect, preflight and authentication', async t => {
   const f = await fixture(t);
   const result = await verifyPlatformPreview(f.options);
-  assert.equal(result.checks, previewPages.length + previewAssets.length + 4);
+  assert.equal(result.checks, previewPages.length + previewAssets.length + 3);
   assert.equal(result.commit, commit);
   assert.ok(f.calls.some(x => x.url.endsWith('/booking/admin/')));
   assert.ok(f.checks.every(x => x.ok));
@@ -81,7 +81,7 @@ test('a 200 asset with the wrong content cannot pass', async t => {
 });
 
 test('wrong redirect destination is rejected', async t => {
-  const f = await fixture(t, ({ url }) => url === base + '/' ? new Response(null, { status: 302, headers: { location: '/admin/' } }) : undefined);
+  const f = await fixture(t, ({ url }) => url.endsWith('/admin/platform/') ? new Response(null, { status: 301, headers: { location: '/admin/' } }) : undefined);
   await assert.rejects(verifyPlatformPreview(f.options), /redirect/);
 });
 

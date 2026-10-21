@@ -13,9 +13,9 @@
 | AC | 可觀察結果 | 自動化 |
 |---|---|---|
 | AC-001 | 三個必需 workflow 以路徑、精確 SHA、最新 run 判斷；新版失敗／pending 不被舊成功遮蔽 | scripts/check-preview-ci.test.mjs |
-| AC-002 | 九個公開頁面及五個資產符合實際發布 bundle 的 SHA-256；舊 HTML、同 SHA 不同 build、錯資產拒絕 | scripts/verify-platform-preview.test.mjs |
+| AC-002 | 十個公開頁面及五個資產符合實際發布 bundle 的 SHA-256；舊 HTML、同 SHA 不同 build、錯資產拒絕 | scripts/verify-platform-preview.test.mjs |
 | AC-003 | HTTP／傳輸失敗保留網址、狀態、request ID、次數與耗時；靜態資源最多三次嚴格驗證，持續錯誤失敗 | scripts/verify-platform-preview.test.mjs |
-| AC-004 | 根入口／舊 platform 連結維持轉址；API OPTIONS 204、POST 無 token 為401／AUTH_REQUIRED，CORS／no-store 正確；API 不重試 | scripts/verify-platform-preview.test.mjs |
+| AC-004 | 根入口維持原首頁；舊 platform 連結維持轉址；API OPTIONS 204、POST 無 token 為401／AUTH_REQUIRED，CORS／no-store 正確；API 不重試 | scripts/verify-platform-preview.test.mjs |
 | AC-005 | 發布相關變更觸發三個必需 workflow，保留原全套九 lane | scripts/netlify-publish-workflow.test.mjs + GitHub Actions |
 | AC-006 | 發布前保存精確 bundle，成功／失敗均保存部署 ID、來源 SHA 與 smoke JSON | Preview workflow artifact + 真實發布 |
 

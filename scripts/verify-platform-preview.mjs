@@ -4,6 +4,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 export const previewPages = [
+  ['/', 'index.html'],
   ['/platform/', 'platform/index.html'], ['/admin/', 'admin/index.html'],
   ['/admin/workspace.html', 'admin/workspace.html'], ['/member/', 'member/index.html'],
   ['/points/', 'points/index.html'], ['/event/', 'event/index.html'],
@@ -71,7 +72,7 @@ export async function verifyPlatformPreview({
       if (digest(body) !== item.hash) throw new Error('remote bytes do not match the exact local artifact');
     });
   }
-  for (const [url, status] of [['/', 302], ['/admin/platform/', 301]]) {
+  for (const [url, status] of [['/admin/platform/', 301]]) {
     await check(new URL(url, origin).href, { redirect: 'manual' }, response => {
       const target = new URL(response.headers.get('location') || '/', origin);
       if (response.status !== status || target.origin !== origin || target.pathname !== '/platform/' || target.search || target.hash) {
