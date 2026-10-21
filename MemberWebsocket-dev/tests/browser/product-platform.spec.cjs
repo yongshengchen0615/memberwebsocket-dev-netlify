@@ -22,6 +22,13 @@ async function setup(page,token='root',{loseFirstSave=false,loseFirstLineSave=fa
  });
  await page.route('**/config.json',route=>route.fulfill({json:{brandName:'QA Platform',supabaseUrl:'https://fixture.supabase.co',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'sb_publishable_fixture',adminLiffId:'2010791619-admin',productizedAdmin:true,platformLiffId}}));
  await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:`window.loginCalls=[];window.logoutCalls=0;window.liff={init:async options=>{window.initializedLiffId=options.liffId;},isInClient:()=>${inClient},isLoggedIn:()=>${loggedIn}||sessionStorage.getItem('qaLoggedIn')==='1',login:(...args)=>{window.loginCalls.push(args);},logout:()=>{window.logoutCalls+=1;sessionStorage.setItem('qaRootLogoutCount',String(Number(sessionStorage.getItem('qaRootLogoutCount')||'0')+1));},getIDToken:()=>${JSON.stringify(token)}};`}));
+ // A legacy Leaflet map can request OpenStreetMap tiles even while the admin
+ // workspace is hidden. Unavailable remote images must not block goto(load)
+ // or make the application/authorization E2E depend on a third-party CDN.
+ await page.route('https://*.tile.openstreetmap.org/**',route=>route.fulfill({
+  status:200,contentType:'image/png',
+  body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQABpfZFQAAAAABJRU5ErkJggg==','base64')
+ }));
  await page.route('https://fixture.supabase.co/functions/v1/platform-api',async route=>{
   const method=route.request().method();
   const input=method==='POST'?route.request().postDataJSON():null;
