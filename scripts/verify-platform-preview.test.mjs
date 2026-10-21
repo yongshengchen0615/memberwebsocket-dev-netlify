@@ -96,6 +96,14 @@ test('authentication rejection without origin-scoped CORS fails', async t => {
   await assert.rejects(verifyPlatformPreview(f.options), /CORS/);
 });
 
+test('malformed API responses fail without copying response contents into diagnostics', async t => {
+  const secret = 'response-content-must-not-be-logged';
+  const f = await fixture(t, ({ url, options, response }) => url === api && options.method === 'POST'
+    ? new Response(secret, { status: 401, headers: response.headers }) : undefined);
+  await assert.rejects(verifyPlatformPreview(f.options), /valid JSON/);
+  assert.equal(JSON.stringify(f.checks).includes(secret), false);
+});
+
 test('wrong auth error code, caching or preflight status cannot pass', async t => {
   for (const failure of ['error-code', 'cache', 'preflight']) {
     const f = await fixture(t, ({ url, options, response }) => {

@@ -96,7 +96,10 @@ export async function verifyPlatformPreview({
     if (response.status !== 401) throw new Error(`unauthenticated request expected HTTP 401, got HTTP ${response.status}`);
     if (response.headers.get('access-control-allow-origin') !== origin) throw new Error('authentication CORS contract failed');
     if (!/\bno-store\b/i.test(response.headers.get('cache-control') || '')) throw new Error('authentication response must be no-store');
-    if (JSON.parse(body).error?.code !== 'AUTH_REQUIRED') throw new Error('expected AUTH_REQUIRED rejection');
+    let payload;
+    try { payload = JSON.parse(body); }
+    catch { throw new Error('authentication response must contain valid JSON'); }
+    if (payload.error?.code !== 'AUTH_REQUIRED') throw new Error('expected AUTH_REQUIRED rejection');
   }, 1);
   return { commit, origin, checks };
 }
