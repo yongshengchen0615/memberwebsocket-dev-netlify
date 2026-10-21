@@ -31,6 +31,7 @@ Apply, in order:
 1. `20261021045559_booking_notification_event_repair.sql`: update current tenants and the future-business template; service-role-only wake RPC.
 2. `20261021045611_booking_no_show_policy.sql`: additive private tables/functions/triggers, disabled policy for existing and newly approved businesses.
 3. `20261021060609_booking_risk_appeal_resolution.sql`: #193 disambiguates the appeal-review reason in existing and future business functions. The added review/release test first reproduced SQL 42702; review replay preserves the first outcome and a separate release remains required.
+4. `20261021061400_booking_risk_member_lock.sql`: #194 uses `FOR NO KEY UPDATE` for the member risk mutex. PostgreSQL 17 exposed a real deadlock when two member-removal guards already held `KEY SHARE` before the risk triggers requested `FOR UPDATE`. The new mode still serializes risk operations and conflicts with member deletion, while permitting the existing FK/removal guards. The TCP regression forces that interleaving and requires both marks to succeed, two events and one restriction. Reference: https://www.postgresql.org/docs/17/explicit-locking.html#LOCKING-ROWS
 
 Existing-tenant upgrades explicitly qualify booking return types. The upgrade regression provisions a tenant and member first, runs both migrations from the control-plane search path, and checks that the return-type OID and member data remain intact. No functions are dropped.
 

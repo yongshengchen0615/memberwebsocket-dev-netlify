@@ -46,7 +46,13 @@ test('PostgreSQL 17: distinct simultaneous no-shows reach one threshold without 
  const h=await setup();try{
   const x=await helpers(h);await x.enable();const one=await x.past(await h.make()),two=await x.past(await h.make());
   const a=await h.db.connect(),c=await h.db.connect();
-  await Promise.all([[a,one],[c,two]].map(async([client,b])=>client.query(`select ${h.s}.admin_mark_booking_no_show($1,$2,$3,'Distinct race')`,[h.owner,b,(await h.state(b)).updated_at])));
+  // Both BEFORE member_removal_guard triggers may hold KEY SHARE before either
+  // AFTER risk trigger upgrades its mutex. Force that real interleaving here.
+  await Promise.all([a,c].map(async client=>{await client.query('begin');await client.query(`select id from ${h.s}.members where id=$1 for key share`,[h.m]);}));
+  await Promise.all([[a,one],[c,two]].map(async([client,b])=>{
+   try{await client.query(`select ${h.s}.admin_mark_booking_no_show($1,$2,$3,'Distinct race')`,[h.owner,b,(await h.state(b)).updated_at]);await client.query('commit');}
+   catch(error){await client.query('rollback');throw error;}
+  }));
   assert.equal((await h.q('select count(*)::int n from S.booking_no_show_events'))[0].n,2);
   assert.equal((await h.q('select count(*)::int n from S.booking_restrictions'))[0].n,1);assert.equal((await x.status()).restricted,true);
  }finally{await h.db.close();}
@@ -69,7 +75,7 @@ test('PostgreSQL 17: existing-tenant upgrade and pg_dump/pg_restore preserve row
   const signature=s+'.admin_update_booking_participant_items_request(uuid,timestamptz,text,jsonb)';
   const originalType=(await h.db.query('select prorettype::oid result from pg_proc where oid=$1::regprocedure',[signature])).rows[0].result;
   await h.db.exec('set search_path=public,extensions');
-  for(const name of ['20261021045559_booking_notification_event_repair.sql','20261021045611_booking_no_show_policy.sql','20261021060609_booking_risk_appeal_resolution.sql'])await h.db.exec(fs.readFileSync(path.resolve(__dirname,'../../../supabase/migrations',name),'utf8'));
+  for(const name of ['20261021045559_booking_notification_event_repair.sql','20261021045611_booking_no_show_policy.sql','20261021060609_booking_risk_appeal_resolution.sql','20261021061400_booking_risk_member_lock.sql'])await h.db.exec(fs.readFileSync(path.resolve(__dirname,'../../../supabase/migrations',name),'utf8'));
   assert.equal((await h.db.query('select prorettype::oid result from pg_proc where oid=$1::regprocedure',[signature])).rows[0].result,originalType);
   await h.db.query(`update ${s}.booking_no_show_policy set contact_text='Restore marker'`);
   const before=(await h.db.query(`select (select count(*)::int from ${s}.members) members,(select count(*)::int from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname=$1 and c.relkind='r' and c.relrowsecurity) rls`,[s])).rows[0];
@@ -82,7 +88,8 @@ test('PostgreSQL 17: existing-tenant upgrade and pg_dump/pg_restore preserve row
   await assert.rejects(client.query(`insert into ${s}.booking_no_show_events(booking_id,member_id,occurred_at,marked_by)values($1,$2,now(),'synthetic')`,[crypto.randomUUID(),m]),/foreign key/);
   // A new business approved after restore must still run both installers.
   const app=(await client.query('select public.platform_submit_application($1,$2,$3) a',['U'+'5'.repeat(32),'After restore','after-restore'])).rows[0].a;
-  const restored=(await client.query('select public.platform_approve_application($1,$2,$3,$4) t',[h.root,app.id,{booking:true},crypto.randomUUID()])).rows[0].t;
+  const features=Object.fromEntries(['membership','points','events','calendar','integrations','booking','testing','usage'].map(key=>[key,true]));
+  const restored=(await client.query('select public.platform_approve_application($1,$2,$3,$4) t',[h.root,app.id,features,crypto.randomUUID()])).rows[0].t;
   assert.equal((await client.query(`select enabled from ${restored.runtime_schema}.booking_no_show_policy`)).rows[0].enabled,false);
  }finally{await h.db.close();}
 });
