@@ -5,7 +5,7 @@ import path from 'node:path';
 export const siteId = '23796c62-480a-4b46-ac90-bfbc5ad4d300';
 export const siteName = 'memberwebsocket-dev-netlify';
 export const previewBranch = 'Integrated-Marketing-Platform';
-export const previewAlias = 'verified-integrated-platform';
+export const previewAlias = 'integrated-marketing-platform';
 const repo = 'yongshengchen0615/memberwebsocket-dev-netlify';
 const id = value => typeof value === 'string' && /^[a-f0-9]{24}$/.test(value);
 const sha = value => typeof value === 'string' && /^[a-f0-9]{40}$/.test(value);
@@ -15,12 +15,16 @@ export class PreviewValidationError extends Error {
 const fail = code => { throw new PreviewValidationError(code); };
 
 // Validate the CLI's one-shot, non-production draft *after* it has uploaded.
-// The stable draft alias is intentionally different from the native Git branch.
+// The existing preview alias is CORS-approved; native Git branch builds are gated off.
 export async function verifyCliPreview({ cli, source, token, commit, branch, alias, fetchImpl = fetch }) {
   if (!token || !sha(commit) || branch !== previewBranch || alias !== previewAlias) fail('INVALID_RELEASE_INPUT');
   if (!source || source.siteId !== siteId || source.branch !== previewBranch
     || source.production?.branch !== 'master' || !id(source.production?.deployId)
-    || source.build?.repository !== repo) fail('SOURCE_IDENTITY');
+    || source.build?.repository !== repo || source.alias !== previewAlias
+    || source.aliasDeployObserved !== true || !Array.isArray(source.deploys)
+    || source.deploys.some(item => item.context === 'branch-deploy' &&
+       item.branch?.toLowerCase() === previewBranch.toLowerCase() &&
+       !['ready', 'error', 'rejected', 'canceled'].includes(item.state))) fail('SOURCE_IDENTITY');
   if (!cli || !id(cli.deploy_id)) fail('INVALID_DEPLOY_ID');
   let url;
   try { url = new URL(cli.deploy_url); } catch { fail('INVALID_DEPLOY_URL'); }
