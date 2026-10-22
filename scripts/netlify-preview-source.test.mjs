@@ -125,3 +125,37 @@ test('publish errors identify the failing provider phase without echoing secrets
   assert.doesNotMatch(describePreviewPublishFailure(new Error('secret full Netlify error body')), /secret full/);
   assert.match(describePreviewPublishFailure(new PreviewProviderError('bad phase with token', 777)), /unclassified: HTTP unknown/);
 });
+
+test('opaque failures report the last trusted publisher stage without revealing provider errors', async () => {
+  const phases = [];
+  let captured;
+  await assert.rejects(publishPreviewBranch({ ...input, onPhase: phase => phases.push(phase),
+    fetchImpl: async (url, options) => {
+      if (options.method === 'POST') throw new Error('private provider credential in transport error');
+      return provider().fetchImpl(url, options);
+    } }), error => { captured = error; return true; });
+  assert.equal(phases.at(-1), 'upload');
+  const report = describePreviewPublishFailure(captured, phases.at(-1));
+  assert.match(report, /during upload \(unclassified\)/);
+  assert.doesNotMatch(report, /private provider credential/);
+  assert.deepEqual(phases, ['input', 'site', 'site-identity', 'deploy-list', 'deploy-list-validation', 'upload']);
+});
+
+test('semantic publisher failures retain a safe stage but never provider metadata', async () => {
+  for (const scenario of [
+    { options: { build: {} }, phase: 'upload-response' },
+    { options: { deploy: { ...deploy, context: 'production' } }, phase: 'deploy-identity' },
+    { options: { site: { ...site, build_settings: { ...site.build_settings, repo_path: 'other/repo' } } }, phase: 'site-identity' },
+  ]) {
+    const phases = [];
+    let captured;
+    const p = provider(scenario.options);
+    await assert.rejects(publishPreviewBranch({ ...input, onPhase: stage => phases.push(stage), fetchImpl: p.fetchImpl }),
+      error => { captured = error; return true; });
+    assert.equal(phases.at(-1), scenario.phase);
+    const report = describePreviewPublishFailure(captured, phases.at(-1));
+    assert.match(report, new RegExp('during ' + scenario.phase + ' \\(unclassified\\)'));
+    assert.doesNotMatch(report, /other\/repo|never-print-token/);
+  }
+  assert.match(describePreviewPublishFailure(new Error('secret'), 'unsafe provider message'), /during unclassified/);
+});
