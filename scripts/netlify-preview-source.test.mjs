@@ -14,7 +14,7 @@ function provider(overrides = {}) {
     calls.push({ url, options });
     const endpoint = new URL(url);
     let value;
-    if (options.method === 'POST') value = overrides.build || { deploy_id: deployId };
+    if (options.method === 'POST') value = overrides.build || { id: deployId };
     else if (endpoint.pathname === `/api/v1/deploys/${deployId}`) value = overrides.deploy || deploy;
     else if (endpoint.pathname.endsWith('/deploys')) value = overrides.existing || [];
     else value = overrides.site || site;
@@ -38,7 +38,9 @@ test('uploads exactly once to the case-preserved nonproduction branch and retain
   assert.equal(posts.length, 1);
   const url = new URL(posts[0].url);
   assert.equal(url.origin, 'https://api.netlify.com');
-  assert.equal(url.pathname, `/api/v1/sites/${previewSite}/builds`);
+  assert.equal(url.pathname, `/api/v1/sites/${previewSite}/deploys`);
+  // The existing Netlify branch build is intentionally skipped; the exact CI ZIP
+  // must be installed as a deploy, not rebuilt with the provider's ignore hook.
   assert.equal(url.searchParams.get('branch'), previewBranch);
   assert.equal(url.searchParams.get('title'), `verified-platform-${input.commit}`);
   assert.equal(posts[0].options.body, input.zip);
@@ -47,6 +49,20 @@ test('uploads exactly once to the case-preserved nonproduction branch and retain
   assert.equal(result.production_deploy_unchanged, true);
   assert.doesNotMatch(JSON.stringify(result), /never-print-token/);
   for (const call of p.calls) assert.equal(call.options.redirect, 'error');
+});
+
+test('ZIP deploy response must identify one immutable deploy before status polling', async () => {
+  for (const build of [{}, { id: 'invalid' }, { deploy_id: deployId }, { id: '0'.repeat(24) }]) {
+    const p = provider({ build });
+    // The wrong returned id must not be guessed or replaced with a branch alias.
+    const failed = build.id === '0'.repeat(24) ? /publish/ : /identity/;
+    if (build.id === '0'.repeat(24)) {
+      await assert.rejects(publishPreviewBranch({ ...input, fetchImpl: p.fetchImpl }), /HTTP|publish|fetch|not belong/i);
+    } else {
+      await assert.rejects(publishPreviewBranch({ ...input, fetchImpl: p.fetchImpl }), failed);
+    }
+    assert.equal(p.calls.filter(call => call.options.method === 'POST').length, 1);
+  }
 });
 
 test('missing branch, other site, wrong commit or invalid ZIP cannot make any API request', async () => {
