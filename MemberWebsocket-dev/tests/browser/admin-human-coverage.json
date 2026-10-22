@@ -2,9 +2,9 @@
   "version": 1,
   "scope": "Seven admin workspaces, including operation audit; test-control workspace excluded",
   "evidence": "isolated Chromium UI with production handlers and explicit in-memory transport; not live Supabase/LINE delivery",
-  "portalIntegrationReview": "2026-10-20: Reviewed separate per-purpose notification forms, masked token replacement, provider channel validation, lost-response retry, test-to-current-manager only, disabled routing and existing module LIFF journeys. NOTIFICATION_PURPOSES_390/1280 in notification-settings.spec.cjs use production handler, real isolated SQL and explicit LINE transport; BUSINESS_APPROVAL_ACTIVATES selectors now distinguish identity forms from notification forms. Live LINE delivery remains external QA. 2026-10-20: LINE 設定改為獨立主分頁，只有核准功能顯示子分頁；審閱開通/撤權/模組獨立儲存/切回管理頁的回歸，補充 business_line_settings.cjs、product_admin_ui.cjs 與 business-activation.spec.cjs。 2026-10-21: Reviewed booking risk policy, blank disabled defaults, separate tenant SQL, reason-required revoke/release, member expiry/contact/appeal; booking-risk.spec.cjs provides separate component journeys using real isolated PostgreSQL; booking_risk_ui.cjs checks validation and no accidental activation. Existing booking/admin flows and inventory cases remain required.",
+  "portalIntegrationReview": "2026-10-20: Reviewed separate per-purpose notification forms, masked token replacement, provider channel validation, lost-response retry, test-to-current-manager only, disabled routing and existing module LIFF journeys. NOTIFICATION_PURPOSES_390/1280 in notification-settings.spec.cjs use production handler, real isolated SQL and explicit LINE transport; BUSINESS_APPROVAL_ACTIVATES selectors now distinguish identity forms from notification forms. Live LINE delivery remains external QA. 2026-10-20: LINE 設定改為獨立主分頁，只有核准功能顯示子分頁；審閱開通/撤權/模組獨立儲存/切回管理頁的回歸，補充 business_line_settings.cjs、product_admin_ui.cjs 與 business-activation.spec.cjs。 2026-10-21: Reviewed booking risk policy, blank disabled defaults, separate tenant SQL, reason-required revoke/release, member expiry/contact/appeal; booking-risk.spec.cjs provides separate component journeys using real isolated PostgreSQL; booking_risk_ui.cjs checks validation and no accidental activation. Existing booking/admin flows and inventory cases remain required. 2026-10-22: Reviewed LINE module arrow/Home/End navigation with grant removal and draft retention; reviewed booking risk in-flight control locking, failed-action retry and reason preservation. line_settings_keyboard.cjs, booking_risk_ui.cjs, notification-settings.spec.cjs and booking-risk-recovery.spec.cjs cover these incremental paths. No API, policy, identity or notification routing changes; full card and live Provider acceptance remain outstanding.",
   "reviewedSources": {
-    "admin/index.html": "3fa07e0d338045f784e5ada015f697bfb83c5db1996b5ff3dced71673ea7c5fa",
+    "admin/index.html": "c3c440cf055ab9a344b696192998060eace99e493263413298977f587cb35c5c",
     "admin/app.js": "83e4359ec62ede92d4607bcd718f90f869b2806406c0a76b3bb838c172db494e",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
@@ -16,7 +16,7 @@
     "admin/pointcard-redemption-limit.js": "fbba580c9babdac950b2f619c3f3b949fe89ae0c1365e2555f758d1a8818035c",
     "admin/event-ticket-redemption-limit.js": "263a564d64845c5abb4ed5167305b0bffefb064130a0268ab533b481d320b688",
     "admin/integration-hub.js": "696f38801b5e8755e706c3e0153aa023a1d47f01a3f68456dd8e5a7fec868b33",
-    "admin/booking-panel.js": "7f0fceaf261c295e52f9a8cf3fe3bce853e81e68f8b942efec19075404882ac9",
+    "admin/booking-panel.js": "b8ce9f896b0789d27cde4c2980ea7c85af2438f8ffac26f671523336a6c7dd96",
     "admin/booking-panel-core.js": "063232a2ab7c7c1132e8f6e54ec23b6e0ada93ca75ecdd362666a38b1c1f0bed",
     "admin/booking-resources.js": "ea6901dc1020cbb85ead15107333e4b110e2b9a02854bffba856e410445bd852",
     "admin/booking-always-open.js": "9cb236902a7f3f36cf3fe4c3f13fbbac622f000c72d36ec34f7d4dde08e6e54a",
@@ -29,8 +29,8 @@
     "platform/app.js": "a2948db1f2ff92678a319d8a2b4319f50e933f2eed3a2f59a8a4b4a6389fe1ea",
     "admin/business-workspace.js": "7434d9f55748c05036946538fa840ebc4d5383864a9657acabd1c993b781e2ac",
     "business-context.js": "81c622980d1518bf4700e5e5a959901ac6a917fb5bad4e6f793e4fb730ccd3c4",
-    "admin/business-line-settings.js": "f9a5016ed38a58710f38a21c15e3c6a162ddef43ca9e5dc2ad604fcbc01da27a",
-    "admin/booking-risk.js": "44898d22bbb2cd78ab055c214711c72852d0a6ba441fe8135f0d787a00431b41"
+    "admin/business-line-settings.js": "aac46cfc090f72d46c64647449bb926f1b7e29164de85a955c4c44c4271207b7",
+    "admin/booking-risk.js": "febcb896ad9d203a632a0beae5a5aaebcb7f2d31cc90ab10d6ccebf5fe246b5a"
   },
   "features": [
     {
