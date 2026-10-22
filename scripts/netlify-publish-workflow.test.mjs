@@ -113,6 +113,7 @@ test('integrated preview publishes an isolated CLI draft after CI with exact bun
   assert.ok(config.includes('ignore = "node ./scripts/netlify-preview-source.mjs --ignore"'));
   for (const source of [preview, build]) {
     assert.ok(source.includes('scripts/netlify-preview-source.test.mjs'));
+    assert.ok(source.includes('scripts/verify-netlify-cli-preview.test.mjs'));
     assert.ok(source.includes('scripts/inspect-preview-source.test.mjs'));
   }
 });
