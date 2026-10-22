@@ -8,6 +8,7 @@ on:
       - 'scripts/**'
       - 'netlify.toml'
       - '.github/workflows/publish-platform-preview.yml'
+      - '.github/workflows/test-memberwebsocket-dev.yml'
   workflow_dispatch:
 
 permissions:

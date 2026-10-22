@@ -86,8 +86,10 @@ test('release-only changes trigger every required preview workflow on push and P
     const triggers = workflow.split('permissions:')[0];
     assert.equal((triggers.match(/'scripts\/\*\*'/g) || []).length, 2);
     assert.equal((triggers.match(/'\.github\/workflows\/publish-platform-preview.yml'/g) || []).length, 2);
+    assert.equal((triggers.match(/'\.github\/workflows\/test-memberwebsocket-dev.yml'/g) || []).length, 2);
   }
   assert.match(policy, /'feature\/productization-super-admin'/);
+  assert.match(preview.split('permissions:')[0], /'\.github\/workflows\/test-memberwebsocket-dev.yml'/);
 });
 
 test('integrated preview verifies the CI-gated native branch instead of a colliding Draft alias', () => {
