@@ -33,7 +33,8 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_EVENT_NAME: workflow_dispatch
           HEALTHCHECK: 'true'
-        run: node scripts/project-v2-status.mjs
+        run: |-
+          node --input-type=module -e "import { main } from './scripts/project-v2-status.mjs'; await main({ ...process.env, GITHUB_EVENT_NAME: 'workflow_dispatch' });"
       - name: Preview Issue 87 status change (read only)
         env:
           PROJECTS_V2_TOKEN: ${{ secrets.PROJECTS_V2_TOKEN }}
@@ -42,7 +43,8 @@ jobs:
           ISSUE_NUMBER: '87'
           TARGET_STATUS: '開發中'
           APPLY: 'false'
-        run: node scripts/project-v2-status.mjs
+        run: |-
+          node --input-type=module -e "import { main } from './scripts/project-v2-status.mjs'; await main({ ...process.env, GITHUB_EVENT_NAME: 'workflow_dispatch' });"
       - name: Update Issue 87 Status to 開發中 and verify persisted value
         env:
           PROJECTS_V2_TOKEN: ${{ secrets.PROJECTS_V2_TOKEN }}
@@ -51,7 +53,8 @@ jobs:
           ISSUE_NUMBER: '87'
           TARGET_STATUS: '開發中'
           APPLY: 'true'
-        run: node scripts/project-v2-status.mjs
+        run: |-
+          node --input-type=module -e "import { main } from './scripts/project-v2-status.mjs'; await main({ ...process.env, GITHUB_EVENT_NAME: 'workflow_dispatch' });"
       - name: Independently reread Issue 87 on a separate API call
         env:
           PROJECTS_V2_TOKEN: ${{ secrets.PROJECTS_V2_TOKEN }}
@@ -60,4 +63,5 @@ jobs:
           ISSUE_NUMBER: '87'
           TARGET_STATUS: '開發中'
           APPLY: 'false'
-        run: node scripts/project-v2-status.mjs
+        run: |-
+          node --input-type=module -e "import { main } from './scripts/project-v2-status.mjs'; await main({ ...process.env, GITHUB_EVENT_NAME: 'workflow_dispatch' });"
