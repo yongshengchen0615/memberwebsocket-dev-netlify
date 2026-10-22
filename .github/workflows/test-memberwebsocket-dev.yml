@@ -61,7 +61,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          # Node 24 V8 can abort while releasing PGlite WASM wrappers (nodejs/node#66366).
+          # Keep all SQL/browser assertions on the supported Node 22 runtime.
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: MemberWebsocket-dev/tests/integration/package-lock.json
       - name: Install DOM integration test dependencies
@@ -139,7 +141,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          # Node 24 V8 can abort while releasing PGlite WASM wrappers (nodejs/node#66366).
+          # Keep all SQL/browser assertions on the supported Node 22 runtime.
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: MemberWebsocket-dev/tests/browser/package-lock.json
       - name: Install browser test dependencies

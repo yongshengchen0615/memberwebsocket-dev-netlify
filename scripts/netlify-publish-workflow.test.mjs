@@ -86,8 +86,10 @@ test('release-only changes trigger every required preview workflow on push and P
     const triggers = workflow.split('permissions:')[0];
     assert.equal((triggers.match(/'scripts\/\*\*'/g) || []).length, 2);
     assert.equal((triggers.match(/'\.github\/workflows\/publish-platform-preview.yml'/g) || []).length, 2);
+    assert.equal((triggers.match(/'\.github\/workflows\/test-memberwebsocket-dev.yml'/g) || []).length, 2);
   }
   assert.match(policy, /'feature\/productization-super-admin'/);
+  assert.match(preview.split('permissions:')[0], /'\.github\/workflows\/test-memberwebsocket-dev.yml'/);
 });
 
 test('integrated preview verifies the CI-gated native branch instead of a colliding Draft alias', () => {
@@ -100,6 +102,10 @@ test('integrated preview verifies the CI-gated native branch instead of a collid
   assert.ok(preview.includes("'integrated-marketing-platform' || 'platform'"));
   assert.ok(preview.indexOf(ci) < preview.indexOf(inspect));
   assert.ok(preview.indexOf(inspect) < preview.indexOf(native));
+  assert.ok(preview.indexOf(native) < preview.indexOf('- name: Build and verify the exact platform frontend'));
+  assert.ok(preview.includes('VERIFIED_PREVIEW_SOURCE_EPOCH=$(git show -s --format=%ct'));
+  assert.ok(preview.includes('DEPLOY_ID=$(jq -er'));
+  assert.ok(preview.includes("redirects = [] if os.environ['GITHUB_REF_NAME'] == 'Integrated-Marketing-Platform'"), 'Native recovery bundle must retain the verified root HTTP 200 contract');
   assert.ok(preview.indexOf(native) < preview.indexOf('cat evidence/platform-deploy.json'));
   const nativeClause = preview.slice(preview.indexOf(sourceBranch), preview.indexOf('          else',preview.indexOf(sourceBranch)));
   assert.ok(!nativeClause.includes('netlify-cli@'), 'Integrated source must not upload an alias Draft');
