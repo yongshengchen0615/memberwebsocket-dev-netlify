@@ -23,7 +23,7 @@ function fixture() {
     }
   }
   vm.runInNewContext(handler, {
-    ApiError, Request, Response,
+    ApiError, Request, Response, MAX_REQUEST_BYTES: 30_000,
     serveBusiness(_name, fn) { serve = fn; },
     corsHeaders() { return { 'Cache-Control': 'no-store' }; },
     originAllowed() { return true; },
@@ -49,9 +49,8 @@ function fixture() {
     response(_origin, data, status = 200) {
       return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
     },
-    mapDbError(error) {
-      return new ApiError(500, 'INTERNAL_ERROR', String(error?.message || 'Internal error'));
-    },
+    // A fixture wiring error must fail loudly; never disguise it as a backend 500.
+    mapDbError(error) { throw error; },
   });
 
   return {
