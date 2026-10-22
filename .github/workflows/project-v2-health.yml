@@ -1,0 +1,32 @@
+name: Project 5 GraphQL Health
+
+# This is a read-only daily access check; failures are visible in Actions.
+on:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: project5-graphql-health
+  cancel-in-progress: false
+
+jobs:
+  health:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate PAT access and Project Status without mutations
+        env:
+          PROJECTS_V2_TOKEN: ${{ secrets.PROJECTS_V2_TOKEN }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          HEALTHCHECK: 'true'
+        run: node scripts/project-v2-status.mjs

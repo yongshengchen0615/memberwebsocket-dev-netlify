@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  changeProjectStatus, createGraphqlClient, getProjectIssue, LABEL_STATUS,
-  REPOSITORY, resolveRequest, STATUS_OPTIONS,
+  changeProjectStatus, checkProjectHealth, createGraphqlClient, getProjectIssue, LABEL_STATUS,
+  REPOSITORY, resolveRequest, STATUS_OPTIONS, main,
 } from './project-v2-status.mjs';
 
 const opts = STATUS_OPTIONS.map((name, n) => ({ name, id: `opt${n}` }));
@@ -33,7 +33,7 @@ function mock({ pages = [page()], before = '已阻塞', after = '觀察中', lab
   return { graphql, requests, get writes() { return writes; } };
 }
 const manual = { GITHUB_REPOSITORY: REPOSITORY, GITHUB_EVENT_NAME: 'workflow_dispatch', ISSUE_NUMBER: '40', TARGET_STATUS: '觀察中', APPLY: 'false' };
-const update = (api, status = '觀察中', additional = {}) => changeProjectStatus(api.graphql, { issueNumber: 40, status, apply: true, ...additional });
+const update = (api, status = '觀察中', additional = {}) => changeProjectStatus(api.graphql, { issueNumber: 40, status, apply: true, ...additional }, { sleep: async () => {} });
 
 test('nine stable workflow status options are unique', () => {
   assert.equal(STATUS_OPTIONS.length, 9);
@@ -134,5 +134,145 @@ test('label-triggered transitions verify current labels and reject changed/dupli
     const api = mock({ labels });
     await assert.rejects(update(api, 'QA / E2E', { event: 'issues', label: 'project-status/qa' }), /Live Issue labels changed/);
     assert.equal(api.writes, 0);
+  }
+});
+
+const health = () => ({ viewer: { login: 'project-owner' }, user: { projectV2: {
+  id: 'PROJECT5', title: 'Project 5', field: { id: 'FIELD', name: 'Status', options: opts },
+} } });
+
+test('AC-PV2-015: health check validates viewer, project and all Status options without mutation', async () => {
+  let calls = 0;
+  const result = await checkProjectHealth(async (query, vars) => {
+    calls++;
+    assert.match(query, /query ProjectHealthCheck/);
+    assert.doesNotMatch(query, /mutation/);
+    assert.deepEqual(vars, { owner: 'yongshengchen0615', number: 5 });
+    return health();
+  });
+  assert.equal(calls, 1);
+  assert.equal(result.action, 'healthy');
+  assert.equal(result.optionCount, 9);
+});
+
+test('AC-PV2-016: missing access, absent field, and options drift fail closed', async () => {
+  const base = health();
+  for (const broken of [
+    { ...base, viewer: null },
+    { ...base, user: { projectV2: null } },
+    { ...base, user: { projectV2: { ...base.user.projectV2, field: null } } },
+    { ...base, user: { projectV2: { ...base.user.projectV2, field: { id: 'FIELD', name: 'Status', options: opts.filter(x => x.name !== '開發中') } } } },
+    { ...base, user: { projectV2: { ...base.user.projectV2, field: { id: 'FIELD', name: 'Status', options: [...opts, opts[0]] } } } },
+  ]) await assert.rejects(checkProjectHealth(async () => broken));
+});
+
+test('AC-PV2-017: read query retries transport and 502 faults a bounded number of times', async () => {
+  let calls = 0;
+  const waits = [];
+  const api = createGraphqlClient('test-secret', async () => {
+    calls++;
+    if (calls === 1) throw new Error('secret-text');
+    if (calls === 2) return { ok: false, status: 502 };
+    return { ok: true, status: 200, json: async () => ({ data: health() }) };
+  }, { sleep: async ms => waits.push(ms) });
+  assert.deepEqual(await api('query Health', {}), health());
+  assert.equal(calls, 3);
+  assert.deepEqual(waits, [250, 500]);
+});
+
+test('AC-PV2-018: 403 and 429 never retry and response body stays private', async () => {
+  for (const status of [403, 429]) {
+    let calls = 0;
+    const api = createGraphqlClient('test-secret', async () => {
+      calls++;
+      return { ok: false, status, text: async () => 'test-secret' };
+    }, { sleep: async () => { throw Error('unexpected retry'); } });
+    await assert.rejects(api('query Read', {}), e => e.message.includes(String(status)) && !e.message.includes('test-secret'));
+    assert.equal(calls, 1);
+  }
+});
+
+test('AC-PV2-019: ambiguous mutations are never replayed, even on network failure', async () => {
+  for (const response of [null, 503]) {
+    let calls = 0;
+    const api = createGraphqlClient('secret', async () => {
+      calls++;
+      if (response === null) throw Error('network');
+      return { ok: false, status: response };
+    }, { sleep: async () => { throw Error('mutation was retried'); } });
+    await assert.rejects(api('mutation Update { updateProjectV2ItemFieldValue { id } }', {}), /UNKNOWN/);
+    assert.equal(calls, 1);
+  }
+});
+
+test('AC-PV2-020: exhausting read retries fails after exactly three attempts', async () => {
+  let calls = 0;
+  const api = createGraphqlClient('secret', async () => { calls++; return { ok: false, status: 504 }; }, { sleep: async () => {} });
+  await assert.rejects(api('query Read', {}), /HTTP 504/);
+  assert.equal(calls, 3);
+});
+
+test('AC-PV2-021: replication lag only retries verification, never repeats mutation', async () => {
+  const api = mock();
+  let verifyCount = 0;
+  let delays = 0;
+  const graphql = async (query, vars) => {
+    if (query.includes('query CurrentProjectItem')) {
+      verifyCount++;
+      return read(verifyCount <= 2 ? '已阻塞' : '觀察中');
+    }
+    return api.graphql(query, vars);
+  };
+  const result = await changeProjectStatus(graphql, { issueNumber: 40, status: '觀察中', apply: true }, { sleep: async () => { delays++; } });
+  assert.equal(result.action, 'updated');
+  assert.equal(api.writes, 1);
+  assert.equal(verifyCount, 3);
+  assert.equal(delays, 1);
+});
+
+test('AC-PV2-022: persistent read-back mismatch is UNKNOWN and never counts as success', async () => {
+  const api = mock({ after: '已阻塞' });
+  let reads = 0;
+  const graphql = async (query, vars) => {
+    if (query.includes('query CurrentProjectItem')) reads++;
+    return api.graphql(query, vars);
+  };
+  await assert.rejects(changeProjectStatus(graphql, { issueNumber: 40, status: '觀察中', apply: true }, { sleep: async () => {} }), /UNKNOWN/);
+  assert.equal(reads, 4);
+  assert.equal(api.writes, 1);
+});
+
+test('AC-PV2-023: mutation detection also recognizes leading whitespace', async () => {
+  let calls = 0;
+  const api = createGraphqlClient('secret', async () => { calls++; throw Error('network'); }, { sleep: async () => {} });
+  await assert.rejects(api('\n mutation Update { x }', {}), /UNKNOWN/);
+  assert.equal(calls, 1);
+});
+
+test('AC-PV2-024: scheduled check is one read-only API call using synthetic token', async () => {
+  const queries = [];
+  const result = await main({ GITHUB_REPOSITORY: REPOSITORY, GITHUB_EVENT_NAME: 'schedule', HEALTHCHECK: 'true', PROJECTS_V2_TOKEN: 'test-token' },
+    async (_url, options) => {
+      assert.equal(options.headers.Authorization, 'Bearer test-token');
+      queries.push(JSON.parse(options.body).query);
+      return { ok: true, status: 200, json: async () => ({ data: health() }) };
+    });
+  assert.equal(result.action, 'healthy');
+  assert.equal(queries.length, 1);
+  assert.match(queries[0], /query ProjectHealthCheck/);
+  assert.doesNotMatch(queries[0], /mutation/);
+});
+
+test('AC-PV2-025: spoofed health events and repository are rejected before I/O', async () => {
+  for (const env of [
+    { GITHUB_REPOSITORY: 'other/repo', GITHUB_EVENT_NAME: 'schedule' },
+    { GITHUB_REPOSITORY: REPOSITORY, GITHUB_EVENT_NAME: 'issues' },
+    { GITHUB_REPOSITORY: REPOSITORY, GITHUB_EVENT_NAME: 'pull_request' },
+  ]) {
+    let calls = 0;
+    await assert.rejects(main({ ...env, HEALTHCHECK: 'true', PROJECTS_V2_TOKEN: 'test-token' }, async () => {
+      calls++; return { ok: true, json: async () => ({ data: health() }) };
+    }), /Untrusted health/);
+    assert.equal(calls, 0);
   }
 });

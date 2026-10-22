@@ -61,6 +61,19 @@ query CurrentProjectItem($item:ID!) {
     }
   }
 }`;
+const HEALTH_QUERY = `
+query ProjectHealthCheck($owner:String!, $number:Int!) {
+  viewer { login }
+  user(login:$owner) {
+    projectV2(number:$number) {
+      id
+      title
+      field(name:"Status") {
+        ... on ProjectV2SingleSelectField { id name options { id name } }
+      }
+    }
+  }
+}`;
 const LABEL_QUERY = `
 query CurrentIssueLabels($issue:ID!) {
   node(id:$issue) {
@@ -117,35 +130,82 @@ export function resolveRequest(env, eventPayload) {
   throw new Error(`Untrusted event: ${event}`);
 }
 
-export function createGraphqlClient(token, fetchImpl = globalThis.fetch) {
+/**
+ * Retry *only reads* after transient gateway/transport errors. A timed-out
+ * mutation may have committed; replaying it could overwrite a newer UI edit.
+ * Rate limits and permission failures are never retried automatically.
+ */
+export function createGraphqlClient(token, fetchImpl = globalThis.fetch, { sleep = ms => new Promise(resolve => setTimeout(resolve, ms)) } = {}) {
   requireString(token, 'PROJECTS_V2_TOKEN');
   if (typeof fetchImpl !== 'function') throw new Error('fetch is required');
   return async (query, variables) => {
-    let response;
-    try {
-      response = await fetchImpl('https://api.github.com/graphql', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/vnd.github+json',
-          'Content-Type': 'application/json',
-          'X-GitHub-Api-Version': '2022-11-28',
-        },
-        body: JSON.stringify({ query, variables }),
-        signal: AbortSignal.timeout(20_000),
-      });
-    } catch (cause) {
-      throw new Error('GitHub GraphQL transport failure', { cause });
+    const isMutation = /^\s*mutation\b/.test(query);
+    for (let attempt = 0; attempt < (isMutation ? 1 : 3); attempt++) {
+      let response;
+      try {
+        response = await fetchImpl('https://api.github.com/graphql', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/vnd.github+json',
+            'Content-Type': 'application/json',
+            'X-GitHub-Api-Version': '2022-11-28',
+          },
+          body: JSON.stringify({ query, variables }),
+          signal: AbortSignal.timeout(20_000),
+        });
+      } catch {
+        if (!isMutation && attempt < 2) {
+          await sleep(250 * 2 ** attempt);
+          continue;
+        }
+        throw new Error(isMutation
+          ? 'GitHub GraphQL mutation transport failed; result UNKNOWN, inspect Project before retrying'
+          : 'GitHub GraphQL transport failed after bounded read retries');
+      }
+      if (response.status === 403 || response.status === 429) {
+        throw new Error(`GitHub GraphQL HTTP ${response.status}; check Project permissions, PAT expiry, or rate limits (no automatic retry)`);
+      }
+      if (!response.ok) {
+        if (!isMutation && [502, 503, 504].includes(response.status) && attempt < 2) {
+          await sleep(250 * 2 ** attempt);
+          continue;
+        }
+        throw new Error(`GitHub GraphQL HTTP ${response.status}; request failed${isMutation ? ', mutation result may be UNKNOWN' : ''}`);
+      }
+      let payload;
+      try { payload = await response.json(); }
+      catch { throw new Error('Invalid JSON from GitHub GraphQL; inspect Project state before retrying a mutation'); }
+      if (payload.errors?.length) {
+        // Avoid echoing provider messages or values; an HTTP 200 may still be rate limited.
+        throw new Error(`GitHub GraphQL returned ${payload.errors.length} error(s); check schema, scope or rate limits`);
+      }
+      if (!payload.data) throw new Error('GitHub GraphQL returned no data');
+      return payload.data;
     }
-    if (!response.ok) throw new Error(`GitHub GraphQL HTTP ${response.status}; check PAT project scope and owner access`);
-    let payload;
-    try { payload = await response.json(); } catch { throw new Error('Invalid JSON from GitHub GraphQL'); }
-    if (payload.errors?.length) {
-      // Deliberately do not echo raw provider messages: they can contain sensitive input.
-      throw new Error(`GitHub GraphQL returned ${payload.errors.length} error(s); check token/project permissions and schema`);
-    }
-    if (!payload.data) throw new Error('GitHub GraphQL returned no data');
-    return payload.data;
+    throw new Error('Read retry limit exceeded');
+  };
+}
+
+/** A read-only API check that fails closed on missing account, Project, or Status options. */
+export async function checkProjectHealth(graphql) {
+  const data = await graphql(HEALTH_QUERY, { owner: PROJECT_OWNER, number: PROJECT_NUMBER });
+  const project = data.user?.projectV2;
+  if (!data.viewer?.login || !project?.id) {
+    throw new Error('Token cannot access Project #5; check PAT owner, expiry and project scope');
+  }
+  const field = project.field;
+  if (!field?.id || field.name !== 'Status' || !Array.isArray(field.options)) {
+    throw new Error('Project Status single-select field is inaccessible');
+  }
+  const actual = field.options.map(x => x.name);
+  const missing = STATUS_OPTIONS.filter(name => !actual.includes(name));
+  if (missing.length || new Set(actual).size !== actual.length) {
+    throw new Error('Project Status options changed; reconcile configured values before writing');
+  }
+  return {
+    action: 'healthy', project: `${PROJECT_OWNER}/${PROJECT_NUMBER}`,
+    projectId: project.id, viewer: data.viewer.login, optionCount: field.options.length,
   };
 }
 
@@ -201,7 +261,7 @@ function assertCurrentItem(data, original) {
   return found.fieldValueByName;
 }
 
-export async function changeProjectStatus(graphql, request) {
+export async function changeProjectStatus(graphql, request, { sleep = ms => new Promise(resolve => setTimeout(resolve, ms)) } = {}) {
   const details = await getProjectIssue(graphql, request.issueNumber, request.status);
   const oldStatus = details.item.fieldValueByName?.name ?? null;
   const changed = details.item.fieldValueByName?.optionId !== details.optionId;
@@ -239,22 +299,33 @@ export async function changeProjectStatus(graphql, request) {
   if (updateData.updateProjectV2ItemFieldValue?.projectV2Item?.id !== details.item.id) {
     throw new Error('Mutation did not confirm the target item');
   }
-  const afterData = await graphql(CURRENT_ITEM_QUERY, { item: details.item.id });
-  const afterValue = assertCurrentItem(afterData, details);
-  if (afterValue?.optionId !== details.optionId || afterValue?.name !== request.status) {
-    throw new Error('Post-write Status read-back mismatch');
+  // GitHub's read replicas may briefly be behind a completed write.
+  // Never retry the mutation; only repeat verification against the same item.
+  for (let verify = 0; verify < 3; verify++) {
+    const afterData = await graphql(CURRENT_ITEM_QUERY, { item: details.item.id });
+    const afterValue = assertCurrentItem(afterData, details);
+    if (afterValue?.optionId === details.optionId && afterValue?.name === request.status) {
+      return summary;
+    }
+    if (verify < 2) await sleep(250 * 2 ** verify);
   }
-  return summary;
+  throw new Error('Post-write Status read-back mismatch; result UNKNOWN, inspect Project before retrying');
 }
 
 export async function main(env = process.env, fetchImpl = globalThis.fetch) {
+  // Reject untrusted contexts before touching untrusted event payload files.
+  const isHealth = env.HEALTHCHECK === 'true';
+  if (isHealth && (env.GITHUB_REPOSITORY !== REPOSITORY ||
+    !['schedule', 'workflow_dispatch'].includes(env.GITHUB_EVENT_NAME))) {
+    throw new Error('Untrusted health check context');
+  }
   let payload;
-  if (env.GITHUB_EVENT_NAME === 'issues') {
+  if (!isHealth && env.GITHUB_EVENT_NAME === 'issues') {
     payload = JSON.parse(readFileSync(requireString(env.GITHUB_EVENT_PATH, 'GITHUB_EVENT_PATH'), 'utf8'));
   }
-  const request = resolveRequest(env, payload);
+  const request = isHealth ? null : resolveRequest(env, payload);
   const graphql = createGraphqlClient(env.PROJECTS_V2_TOKEN, fetchImpl);
-  const result = await changeProjectStatus(graphql, request);
+  const result = isHealth ? await checkProjectHealth(graphql) : await changeProjectStatus(graphql, request);
   console.log(JSON.stringify(result));
   return result;
 }

@@ -40,8 +40,9 @@ jobs:
   project-status:
     # Do not run a secret-bearing job for arbitrary issue labels.
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      startsWith(github.event.label.name, 'project-status/')
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       startsWith(github.event.label.name, 'project-status/'))
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

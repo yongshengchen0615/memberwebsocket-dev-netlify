@@ -6,12 +6,14 @@ on:
       - scripts/project-v2-status.mjs
       - scripts/project-v2-status.test.mjs
       - .github/workflows/project-v2-status.yml
+      - .github/workflows/project-v2-health.yml
       - .github/workflows/project-v2-status-tests.yml
   pull_request:
     paths:
       - scripts/project-v2-status.mjs
       - scripts/project-v2-status.test.mjs
       - .github/workflows/project-v2-status.yml
+      - .github/workflows/project-v2-health.yml
       - .github/workflows/project-v2-status-tests.yml
 
 permissions:
