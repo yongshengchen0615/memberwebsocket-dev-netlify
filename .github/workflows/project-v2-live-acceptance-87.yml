@@ -60,6 +60,32 @@ jobs:
             throw Error('GraphQL could not confirm a Project 5 item for Issue 87');
           }
           console.log(JSON.stringify({action:'ensured_test_item',project:'yongshengchen0615/5',issue:87,itemId:result.addProjectV2ItemById.item.id}));
+          const check = await gql(`
+            query TestItemIdentity($item:ID!, $owner:String!, $num:Int!) {
+              node(id:$item) {
+                ... on ProjectV2Item {
+                  id type project { id }
+                  content { __typename ... on Issue { id number repository { nameWithOwner } } }
+                  fieldValueByName(name:"Status") { ... on ProjectV2ItemFieldSingleSelectValue { name optionId } }
+                }
+              }
+              user(login:$owner) {
+                projectV2(number:$num) {
+                  items(first:100) {
+                    totalCount
+                    nodes { id type content { ... on Issue { number repository { nameWithOwner } } } }
+                    pageInfo { hasNextPage }
+                  }
+                }
+              }
+            }`, { item:result.addProjectV2ItemById.item.id, owner:'yongshengchen0615', num:5 });
+          const items = check.user?.projectV2?.items;
+          console.log(JSON.stringify({
+            action:'diagnostic_test_item', node:check.node,
+            firstPageCount:items?.nodes?.length, totalCount:items?.totalCount,
+            firstPageMatch:items?.nodes?.filter(x => x.content?.number === 87),
+            pageInfo:items?.pageInfo
+          }));
           NODE
       - name: Preview Issue 87 status change (read only)
         env:
