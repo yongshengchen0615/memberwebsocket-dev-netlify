@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { blockNativePreview, publishPreviewBranch, previewSite, previewBranch } from './netlify-preview-source.mjs';
+import { blockNativePreview, publishPreviewBranch, previewSite, previewBranch, describePreviewPublishFailure, PreviewProviderError } from './netlify-preview-source.mjs';
 
 const site = { id: previewSite, name: 'memberwebsocket-dev-netlify', build_settings: {
   repo_path: 'yongshengchen0615/memberwebsocket-dev-netlify', repo_branch: 'master',
@@ -102,4 +102,26 @@ test('a production change detected after upload prevents a successful result', a
       json: async () => ({ ...site, published_deploy: { id: 'changed' } }) };
     return p.fetchImpl(url, options);
   } }), /Production identity changed/);
+});
+
+test('publish errors identify the failing provider phase without echoing secrets or response bodies', async () => {
+  const stages = ['site', 'deploy-list', 'upload', 'deploy-status', 'production'];
+  for (let failAt = 1; failAt <= stages.length; failAt++) {
+    const p = provider();
+    let count = 0;
+    await assert.rejects(publishPreviewBranch({ ...input, fetchImpl: async (url, options) => {
+      if (++count === failAt) return { ok: false, status: 422,
+        json: async () => { throw new Error('private provider response: never read'); } };
+      return p.fetchImpl(url, options);
+    } }), error => {
+      assert.equal(error instanceof PreviewProviderError, true);
+      const message = describePreviewPublishFailure(error);
+      assert.equal(message, `Verified preview publication failed during ${stages[failAt - 1]}: HTTP 422. Inspect deployment state before retrying. Provider bodies and credentials were not logged.`);
+      assert.doesNotMatch(message, /private provider response|never-print-token/);
+      return true;
+    });
+  }
+  assert.match(describePreviewPublishFailure(new Error('secret full Netlify error body')), /unclassified/);
+  assert.doesNotMatch(describePreviewPublishFailure(new Error('secret full Netlify error body')), /secret full/);
+  assert.match(describePreviewPublishFailure(new PreviewProviderError('bad phase with token', 777)), /unclassified: HTTP unknown/);
 });
