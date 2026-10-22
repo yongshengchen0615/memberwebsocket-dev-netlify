@@ -56,6 +56,11 @@
 #adminQuickActions .admin-quick-action:hover {
   border-color: var(--theme-accent);
 }
+/* Match the selected source tab without becoming an independent navigation state. */
+#adminQuickActions .admin-quick-action[aria-current="location"] {
+  border-color: var(--theme-accent, #22634c);
+  box-shadow: inset 4px 0 0 var(--theme-accent, #22634c);
+}
 #adminQuickActions .admin-quick-action:focus-visible {
   outline: 3px solid var(--theme-accent);
   outline-offset: 3px;
