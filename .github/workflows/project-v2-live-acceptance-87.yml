@@ -96,6 +96,7 @@ jobs:
             pageInfo:items?.pageInfo
           }));
           NODE
+      # Re-run after Issue.projectItems resolver and 29 contract cases are installed.
       - name: Preview Issue 87 status change (read only)
         env:
           PROJECTS_V2_TOKEN: ${{ secrets.PROJECTS_V2_TOKEN }}
