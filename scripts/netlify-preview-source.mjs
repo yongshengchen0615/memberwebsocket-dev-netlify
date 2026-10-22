@@ -60,12 +60,15 @@ export async function publishPreviewBranch({ token, siteId, branch, commit, zip,
   }
   const query = new URLSearchParams({ branch, title: `verified-platform-${commit}` });
   // A POST is never retried: a timeout may have created a deploy already.
-  const build = await request(`/sites/${siteId}/builds?${query}`, { method: 'POST',
+  // An API "build" invokes the site's branch build/ignore hook and can be
+  // cancelled even when CI has already produced a verified ZIP. Submit the
+  // exact artifact as a branch-scoped ZIP *deploy* instead; no provider rebuild.
+  const upload = await request(`/sites/${siteId}/deploys?${query}`, { method: 'POST',
     headers: { 'Content-Type': 'application/zip' }, body: zip }, 'upload');
-  if (!/^[a-f0-9]{24}$/.test(build.deploy_id || '')) throw new Error('Preview upload did not return a deploy identity');
+  if (!/^[a-f0-9]{24}$/.test(upload.id || '')) throw new Error('Preview upload did not return a deploy identity');
   for (let attempt = 0; attempt < attempts; attempt++) {
-    const deploy = await request(`/deploys/${build.deploy_id}`, {}, 'deploy-status');
-    if (deploy.id !== build.deploy_id || deploy.site_id !== siteId || deploy.branch !== branch
+    const deploy = await request(`/deploys/${upload.id}`, {}, 'deploy-status');
+    if (deploy.id !== upload.id || deploy.site_id !== siteId || deploy.branch !== branch
       || deploy.context !== 'branch-deploy') throw new Error('Published deploy does not belong to the verified preview branch');
     if (['error', 'rejected', 'canceled'].includes(deploy.state)) throw new Error('Preview deploy failed');
     if (deploy.state === 'ready') {
