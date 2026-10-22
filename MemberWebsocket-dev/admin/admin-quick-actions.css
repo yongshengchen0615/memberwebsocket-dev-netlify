@@ -70,3 +70,54 @@
 @media (prefers-reduced-motion: reduce) {
   #adminQuickActions .admin-quick-action { transition: none; }
 }
+
+/* Productized merchant shell — visual hierarchy only. Permission-gated sections
+   and all existing controls keep their original selectors and handlers. */
+#productizedAdmin .topbar {
+  border: 1px solid var(--theme-border, #d2ded2);
+  border-radius: 18px;
+  padding: clamp(16px, 2.5vw, 26px);
+  background: var(--theme-surface, #fff);
+}
+#productizedAdmin #merchantWorkspace {
+  border-radius: 18px;
+  min-width: 0;
+}
+#productizedAdmin .merchant-workspace-tabs {
+  position: relative;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+#productizedAdmin .merchant-workspace-tabs button,
+#productizedAdmin .merchant-feature-nav button,
+#productizedAdmin #merchantNextAction,
+#productizedAdmin #saveMerchantLine {
+  min-height: 44px;
+}
+#productizedAdmin .merchant-workspace-tabs button:focus-visible,
+#productizedAdmin .merchant-feature-nav button:focus-visible,
+#productizedAdmin #merchantNextAction:focus-visible,
+#productizedAdmin #saveMerchantLine:focus-visible {
+  outline: 3px solid var(--theme-accent, #22634c);
+  outline-offset: 3px;
+}
+#productizedAdmin .merchant-feature-nav {
+  min-width: 0;
+  align-items: stretch;
+}
+#productizedAdmin .merchant-feature-nav button { overflow-wrap: anywhere; }
+#productizedAdmin #merchantLineForm { min-width: 0; }
+#productizedAdmin #merchantLineForm input,
+#productizedAdmin #merchantLineForm select,
+#productizedAdmin #merchantLineForm textarea {
+  min-width: 0;
+  max-width: 100%;
+}
+#productizedAdmin #merchantLineForm .grid { min-width: 0; }
+@media (max-width: 650px) {
+  #productizedAdmin .topbar { margin-inline: 0; }
+  #productizedAdmin .merchant-workspace-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #productizedAdmin .merchant-workspace-tabs button { min-width: 0; white-space: normal; }
+  #productizedAdmin .merchant-feature-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #productizedAdmin .merchant-feature-nav button { min-width: 0; }
+}
