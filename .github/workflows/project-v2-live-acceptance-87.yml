@@ -1,0 +1,63 @@
+name: Project 5 Temporary Live Acceptance 87
+
+# One-off branch-only gate. This file must be removed before PR #86 is merged.
+on:
+  push:
+    branches:
+      - feat/projects-v2-graphql-status-20261022
+    paths:
+      - .github/workflows/project-v2-live-acceptance-87.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: project5-issue87-temporary-acceptance
+  cancel-in-progress: false
+
+jobs:
+  live:
+    if: github.repository == 'yongshengchen0615/memberwebsocket-dev-netlify' && github.ref == 'refs/heads/feat/projects-v2-graphql-status-20261022'
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check 25 synthetic contract cases
+        run: node --test scripts/project-v2-status.test.mjs
+      - name: Verify Project 5 GraphQL access (read only)
+        env:
+          PROJECTS_V2_TOKEN: ${{ secrets.PROJECTS_V2_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_NAME: workflow_dispatch
+          HEALTHCHECK: 'true'
+        run: node scripts/project-v2-status.mjs
+      - name: Preview Issue 87 status change (read only)
+        env:
+          PROJECTS_V2_TOKEN: ${{ secrets.PROJECTS_V2_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_NAME: workflow_dispatch
+          ISSUE_NUMBER: '87'
+          TARGET_STATUS: '開發中'
+          APPLY: 'false'
+        run: node scripts/project-v2-status.mjs
+      - name: Update Issue 87 Status to 開發中 and verify persisted value
+        env:
+          PROJECTS_V2_TOKEN: ${{ secrets.PROJECTS_V2_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_NAME: workflow_dispatch
+          ISSUE_NUMBER: '87'
+          TARGET_STATUS: '開發中'
+          APPLY: 'true'
+        run: node scripts/project-v2-status.mjs
+      - name: Independently reread Issue 87 on a separate API call
+        env:
+          PROJECTS_V2_TOKEN: ${{ secrets.PROJECTS_V2_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_NAME: workflow_dispatch
+          ISSUE_NUMBER: '87'
+          TARGET_STATUS: '開發中'
+          APPLY: 'false'
+        run: node scripts/project-v2-status.mjs
