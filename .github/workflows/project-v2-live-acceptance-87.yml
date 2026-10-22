@@ -35,6 +35,32 @@ jobs:
           HEALTHCHECK: 'true'
         run: |-
           node --input-type=module -e "import { main } from './scripts/project-v2-status.mjs'; await main({ ...process.env, GITHUB_EVENT_NAME: 'workflow_dispatch' });"
+      - name: Ensure test Issue 87 belongs to Project 5 (idempotent GraphQL add)
+        env:
+          PROJECTS_V2_TOKEN: ${{ secrets.PROJECTS_V2_TOKEN }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { createGraphqlClient } from './scripts/project-v2-status.mjs';
+          const gql = createGraphqlClient(process.env.PROJECTS_V2_TOKEN);
+          const data = await gql(`
+            query TestIssueAndProject($owner:String!, $repo:String!, $issue:Int!, $project:Int!) {
+              repository(owner:$owner, name:$repo) { issue(number:$issue) { id number } }
+              user(login:$owner) { projectV2(number:$project) { id title } }
+            }`, { owner: 'yongshengchen0615', repo: 'memberwebsocket-dev-netlify', issue: 87, project: 5 });
+          const issue = data.repository?.issue;
+          const project = data.user?.projectV2;
+          if (issue?.number !== 87 || !issue.id || !project?.id) {
+            throw Error('Expected Issue 87 and personal Project 5 are not readable');
+          }
+          const result = await gql(`
+            mutation AddTestIssue($project:ID!, $content:ID!) {
+              addProjectV2ItemById(input:{projectId:$project, contentId:$content}) { item { id } }
+            }`, { project: project.id, content: issue.id });
+          if (!result.addProjectV2ItemById?.item?.id) {
+            throw Error('GraphQL could not confirm a Project 5 item for Issue 87');
+          }
+          console.log(JSON.stringify({action:'ensured_test_item',project:'yongshengchen0615/5',issue:87,itemId:result.addProjectV2ItemById.item.id}));
+          NODE
       - name: Preview Issue 87 status change (read only)
         env:
           PROJECTS_V2_TOKEN: ${{ secrets.PROJECTS_V2_TOKEN }}
