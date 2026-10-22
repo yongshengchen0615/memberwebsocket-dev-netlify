@@ -6,7 +6,7 @@
     const shortcuts = document.getElementById('adminQuickActions');
     if (!workspace || !shortcuts) return;
     const buttons = [...shortcuts.querySelectorAll('button[data-admin-quick-tab]')];
-    const targets = buttons.map(button => document.getElementById(button.dataset.adminQuickTab));
+    const targetFor = button => document.getElementById(button.dataset.adminQuickTab);
     const targetAvailable = target => Boolean(target && !target.hidden && !target.disabled &&
       target.getAttribute('aria-hidden') !== 'true' && !target.classList.contains('hidden') &&
       target.getClientRects().length);
@@ -14,10 +14,17 @@
       const workspaceReady = !workspace.hidden && !workspace.classList.contains('hidden') &&
         workspace.getClientRects().length > 0;
       let count = 0;
-      buttons.forEach((button, index) => {
-        const available = workspaceReady && targetAvailable(targets[index]);
+      buttons.forEach(button => {
+        const target = targetFor(button);
+        const available = workspaceReady && targetAvailable(target);
         if (button.hidden === available) button.hidden = !available;
         if (button.disabled === available) button.disabled = !available;
+        const active = available && target.getAttribute('aria-selected') === 'true';
+        if (active && button.getAttribute('aria-current') !== 'location') {
+          button.setAttribute('aria-current', 'location');
+        } else if (!active && button.hasAttribute('aria-current')) {
+          button.removeAttribute('aria-current');
+        }
         if (available) count += 1;
       });
       if (shortcuts.hidden === (count > 0)) shortcuts.hidden = count === 0;
@@ -40,9 +47,12 @@
     });
     const observer = new MutationObserver(sync);
     observer.observe(workspace, { attributes: true, attributeFilter: ['hidden', 'class'] });
-    targets.filter(Boolean).forEach(target => observer.observe(target, {
-      attributes: true, attributeFilter: ['hidden', 'disabled', 'class', 'aria-hidden'],
-    }));
+    // Observe the live navigation: feature tabs may be mounted or replaced after bootstrap.
+    const navigation = workspace.querySelector('.surface-nav');
+    if (navigation) observer.observe(navigation, {
+      childList: true, subtree: true, attributes: true,
+      attributeFilter: ['hidden', 'disabled', 'class', 'aria-hidden', 'aria-selected'],
+    });
     window.addEventListener('pageshow', sync);
     sync();
   });
