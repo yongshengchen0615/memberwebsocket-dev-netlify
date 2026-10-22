@@ -91,7 +91,12 @@ test('release-only changes trigger every required preview workflow on push and P
 });
 
 test('the integrated preview uses a real branch ZIP after CI and retains global routing and headers', () => {
-  assert.match(preview, /if \[ "\$GITHUB_REF_NAME" = Integrated-Marketing-Platform \]; then\s+node scripts\/inspect-preview-source.mjs\s+node scripts\/netlify-preview-source.mjs --publish\s+else/);
+  assert.match(preview, /if \\[ "\\$GITHUB_REF_NAME" = Integrated-Marketing-Platform \\]; then\\s+node scripts\\/inspect-preview-source.mjs/);
+  assert.match(preview, /node scripts\\/verify-netlify-cli-preview.mjs \\/tmp\\/platform-deploy.json/);
+  assert.match(preview, /'verified-integrated-platform' \\|\\| 'platform'/);
+  assert.match(preview, /--no-build --dir=dist --site="\\$NETLIFY_SITE_ID" --alias="\\$PLATFORM_ALIAS"/);
+  assert.doesNotMatch(preview, /node scripts\\/netlify-preview-source.mjs --publish/);
+  assert.match(preview, /scripts\\/verify-netlify-cli-preview.test.mjs/);
   assert.ok(preview.indexOf('node scripts/check-preview-ci.mjs') < preview.indexOf('node scripts/netlify-preview-source.mjs --publish'));
   assert.match(preview, /config\['redirects'\]/);
   assert.match(preview, /config\['headers'\]/);
