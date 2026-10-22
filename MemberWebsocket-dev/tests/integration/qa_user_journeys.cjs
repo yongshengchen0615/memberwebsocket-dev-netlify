@@ -70,6 +70,18 @@ async function transferPage(){
  return {d,w,q,get,fill};
 }
 
+test('transfer opening cannot move focus away after the member starts entering an amount',async()=>{
+ const {w,get,fill}=await transferPage();
+ try{
+  const queued=[];w.setTimeout=callback=>{queued.push(callback);return queued.length;};
+  get('pointTransferButton').click();
+  get('pointTransferAmount').focus();fill('pointTransferAmount','2');
+  queued.forEach(callback=>callback());
+  assert.equal(w.document.activeElement,get('pointTransferAmount'),'opening focus must not steal focus from an active draft');
+  assert.equal(get('pointTransferAmount').value,'2');
+ }finally{w.close();}
+});
+
 test('accepted friend UI filters pending friends and requires explicit transfer',async()=>{
  const {w,q,get,fill}=await transferPage();
  try{
