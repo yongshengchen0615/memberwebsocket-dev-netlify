@@ -104,6 +104,12 @@ test('integrated preview publishes an isolated CLI draft after CI with exact bun
   assert.ok(preview.indexOf(verify) < preview.indexOf('cat evidence/platform-deploy.json'));
   assert.ok(!preview.includes('node scripts/netlify-preview-source.mjs --publish'), 'Do not use the failed raw ZIP upload route');
   assert.ok(!preview.includes('--prod'), 'Never deploy preview as production');
+  // Preview client API calls must stay within the server's exact Origin allow-list.
+  const edge = readFileSync(new URL('../MemberWebsocket-dev/supabase/functions/platform-api/index.ts', import.meta.url), 'utf8');
+  assert.ok(edge.includes("'https://verified-integrated-platform--memberwebsocket-dev-netlify.netlify.app'"));
+  assert.ok(edge.includes("'https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app'"));
+  assert.ok(!edge.includes("'*'"), 'Wildcard Origin authorization is prohibited');
+
   assert.ok(preview.includes("config['redirects']"));
   assert.ok(preview.includes("config['headers']"));
   assert.ok(preview.includes('dist/_headers'));
