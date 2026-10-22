@@ -123,6 +123,16 @@ serveBusiness('booking-contact-api',async (request: Request) => {
       throw new ApiError(403, "CLIENT_ACTION_MISMATCH", "操作端與功能不相符。");
     }
 
+    // Preserve the raw token's type and length. Coercion/truncation would bypass
+    // verifyLineIdTokenContract's malformed-token input boundary.
+    const verifyProvidedToken = async (): Promise<Identity> => {
+      const rawToken = body.idToken;
+      if (typeof rawToken !== "string" || !rawToken.trim() || rawToken.length > 10_000) {
+        throw new ApiError(401, "AUTH_REQUIRED", "請先使用 LINE 登入。");
+      }
+      return await verifyLineIdToken(rawToken.trim(), clientType);
+    };
+
     const supabase = dbClient();
     let identity: Identity;
     if (clientType === "member") {
@@ -130,13 +140,13 @@ serveBusiness('booking-contact-api',async (request: Request) => {
         const testIdentity = await resolveUserTestIdentity(supabase, asText(body.testSessionToken, 200));
         identity = testIdentity
           ? { lineUserId: testIdentity.lineUserId, displayName: testIdentity.displayName }
-          : await verifyLineIdToken(asText(body.idToken, 10_000), clientType);
+          : await verifyProvidedToken();
       } catch (error) {
         if (error instanceof TestModeAuthError) throw new ApiError(error.status, error.code, error.message);
         throw error;
       }
     } else {
-      identity = await verifyLineIdToken(asText(body.idToken, 10_000), clientType);
+      identity = await verifyProvidedToken();
     }
     await consumeRateLimit(supabase, identity, action);
 
