@@ -22,9 +22,9 @@ function provider(overrides = {}) {
   } };
 }
 
-test('native branch and hook publication is blocked while production and PR previews retain builds', () => {
+test('native branch build proceeds, but wrong identity and production still fail closed', () => {
   const base = { NETLIFY: 'true', BRANCH: previewBranch, CONTEXT: 'branch-deploy' };
-  assert.equal(blockNativePreview(base), true);
+  assert.equal(blockNativePreview(base), false);
   assert.equal(blockNativePreview({ ...base, CONTEXT: 'production' }), true);
   assert.equal(blockNativePreview({ ...base, BRANCH: 'integrated-marketing-platform' }), true);
   for (const env of [{ ...base, BRANCH: 'master', CONTEXT: 'production' }, { ...base, BRANCH: 'develop' },
