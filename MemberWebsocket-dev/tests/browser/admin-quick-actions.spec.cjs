@@ -19,6 +19,30 @@ test('AC-ADM-UX-003: shortcuts use existing tabs, no parallel business flow', as
   expect(host.sessions.get(info.testId).unexpected).toEqual([]);
 });
 
+test('AC-ADM-UX-003/007: shortcut location follows source tabs and a replaced nav item', async ({ page }, info) => {
+  await page.goto(host.base + '/admin/?run=' + encodeURIComponent(info.testId));
+  await expect(page.locator('#adminQuickActions')).toBeVisible();
+  const memberShortcut = page.locator('[data-admin-quick-tab="membersTab"]');
+  const eventShortcut = page.locator('[data-admin-quick-tab="eventsTab"]');
+  await page.locator('#membersTab').click();
+  await expect(memberShortcut).toHaveAttribute('aria-current', 'location');
+  await expect(eventShortcut).not.toHaveAttribute('aria-current');
+  await page.locator('#eventsTab').click();
+  await expect(eventShortcut).toHaveAttribute('aria-current', 'location');
+  await expect(memberShortcut).not.toHaveAttribute('aria-current');
+  // Feature-nav refreshes may replace DOM nodes without a full page reload.
+  await page.evaluate(() => {
+    const original = document.getElementById('eventsTab');
+    original.replaceWith(original.cloneNode(true));
+  });
+  await expect(eventShortcut).toBeVisible();
+  await expect(eventShortcut).toHaveAttribute('aria-current', 'location');
+  await page.evaluate(() => { document.getElementById('eventsTab').disabled = true; });
+  await expect(eventShortcut).toBeHidden();
+  await expect(eventShortcut).not.toHaveAttribute('aria-current');
+  expect(host.sessions.get(info.testId).unexpected).toEqual([]);
+});
+
 test('AC-ADM-UX-001: shortcut disappears when its existing tab is revoked', async ({ page }, info) => {
   await page.goto(host.base + '/admin/?run=' + encodeURIComponent(info.testId));
   await expect(page.locator('#adminQuickActions')).toBeVisible();
