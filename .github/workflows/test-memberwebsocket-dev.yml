@@ -137,6 +137,11 @@ jobs:
     name: Chromium admin, member, receipt and GPS E2E
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      # Keep every shard running so one failure does not erase other evidence.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -155,40 +160,16 @@ jobs:
       - name: Install Chromium and system dependencies
         run: npx playwright install --with-deps chromium --only-shell
         working-directory: MemberWebsocket-dev/tests/browser
-      - name: Check platform onboarding and root authorization first
-        run: npm test -- product-platform.spec.cjs business-activation.spec.cjs
-        working-directory: MemberWebsocket-dev/tests/browser
-      - name: Check scoped notification settings and business synchronization
-        run: npm test -- notification-settings.spec.cjs business-sync.spec.cjs
-        working-directory: MemberWebsocket-dev/tests/browser
-      - name: Check selected-scope production runner nodes first
-        run: >-
-          npm test -- admin-human.spec.cjs member-p2.spec.cjs
-          booking-history-tabs.spec.cjs snapshot-history-tabs.spec.cjs
-          --grep 'selected-scope|RUNNER_ADMIN_MEMBER_DIRECTORY|RUNNER_ADMIN_MEMBER_USAGE|RUNNER_ADMIN_OPERATION_AUDIT|RUNNER_ADMIN_BOOKING_NO_SHOW'
-        working-directory: MemberWebsocket-dev/tests/browser
-      - name: Check E2E refresh and purged-history recovery first
-        run: npm test -- e2e-refresh.spec.cjs
-        working-directory: MemberWebsocket-dev/tests/browser
-      - name: Fail fast on ticket selections and shared layouts
-        run: npm test -- ticket-selection.spec.cjs ui-layout.spec.cjs
-        working-directory: MemberWebsocket-dev/tests/browser
-      - name: Fail fast on mobile member pass and GPS permission retry
-        run: |
-          npm test -- member-p2.spec.cjs --grep "membership pass actions stay grouped"
-          npm test -- receipt-location.spec.cjs --grep "GPS permission denial"
-        working-directory: MemberWebsocket-dev/tests/browser
-      - name: Fail fast on no-show confirmation and readable audit
-        run: npm test -- admin-human.spec.cjs --grep "BOOKING_NO_SHOW|AUDIT_QUERY"
-        working-directory: MemberWebsocket-dev/tests/browser
       - name: Run real-browser admin, member, receipt and location flows
-        run: npm test
+        # All former priority subsets are included in this unfiltered baseline.
+        # File-level sharding preserves each spec's fixture and serial semantics.
+        run: npm test -- --shard=${{ matrix.shard }}/3
         working-directory: MemberWebsocket-dev/tests/browser
       - name: Save browser diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: memberwebsocket-browser-${{ github.run_attempt }}
+          name: memberwebsocket-browser-${{ matrix.shard }}-${{ github.run_attempt }}
           path: |
             MemberWebsocket-dev/tests/browser/browser-results.xml
             MemberWebsocket-dev/tests/browser/test-results
