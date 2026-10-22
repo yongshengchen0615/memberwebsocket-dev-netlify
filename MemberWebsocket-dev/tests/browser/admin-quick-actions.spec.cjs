@@ -9,6 +9,7 @@ test('AC-ADM-UX-003: shortcuts use existing tabs, no parallel business flow', as
   await expect(page.locator('#adminView')).toBeVisible();
   await expect(page.locator('#adminQuickActions')).toBeVisible();
   await expect(page.locator('#adminQuickActions button:visible')).toHaveCount(4);
+  await expect(page.locator('#adminQuickActions').getByRole('button', { name: '狀態' })).toHaveCount(0);
   await page.locator('[data-admin-quick-tab="cardsTab"]').click();
   await expect(page.locator('#cardsTab')).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#cardsPanel')).toBeVisible();
