@@ -1,3 +1,4 @@
+import { isNativeVerifiedPreview, awaitVerifiedPreviewCI } from './netlify-native-ci-gate.mjs';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -31,7 +32,7 @@ export function describePreviewPublishFailure(error) {
 
 export function blockNativePreview(env) {
   return env.NETLIFY === 'true' && env.BRANCH?.toLowerCase() === previewBranch.toLowerCase()
-    && env.CONTEXT !== 'deploy-preview';
+    && (env.BRANCH !== previewBranch || !['branch-deploy', 'deploy-preview'].includes(env.CONTEXT));
 }
 
 // ZIP uploads use a real, case-preserved branch, never the conflicting CLI alias.
@@ -89,7 +90,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   if (mode === '--ignore') process.exitCode = blockNativePreview(process.env) ? 0 : 1;
   else if (mode === '--build') {
     // A build hook can bypass Netlify's ignore command; block it here as well.
-    if (blockNativePreview(process.env)) throw new Error('This preview branch is published only by verified GitHub Actions');
+    if (blockNativePreview(process.env)) throw new Error('This preview branch has an invalid branch or context identity');
+    if (isNativeVerifiedPreview(process.env)) {
+      const verified = await awaitVerifiedPreviewCI({
+        sha: process.env.COMMIT_REF, token: process.env.NETLIFY_GITHUB_READ_TOKEN || '',
+      });
+      console.log(JSON.stringify({ nativePreviewVerified: true, sha: verified.sha, ciRuns: verified.runIds }));
+    }
     await import('./build-site.mjs');
   } else if (mode === '--publish') {
     try {
