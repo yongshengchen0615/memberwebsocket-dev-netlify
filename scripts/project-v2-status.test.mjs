@@ -276,3 +276,74 @@ test('AC-PV2-025: spoofed health events and repository are rejected before I/O',
     assert.equal(calls, 0);
   }
 });
+
+function issueMembershipPage(nodes, next = false, cursor = null, sourceIssue = issue) {
+  return { repository: { issue: { id: sourceIssue.id, number: sourceIssue.number,
+    projectItems: { nodes, pageInfo: { hasNextPage: next, endCursor: cursor } } } } };
+}
+const member = (fieldValueByName = item().fieldValueByName) => ({
+  ...item(), project: { id: 'PROJECT5' }, fieldValueByName,
+});
+
+test('AC-PV2-026: Issue.projectItems resolves a real member omitted from Project.items index', async () => {
+  const seen = [];
+  const gql = async (query, vars) => {
+    seen.push({ query, vars });
+    if (query.includes('query ProjectStatus')) return page([]);
+    if (query.includes('query IssueProjectMembership')) return issueMembershipPage([member()]);
+    throw Error('Unexpected query');
+  };
+  const found = await getProjectIssue(gql, 40, '觀察中');
+  assert.equal(found.item.id, 'ITEM40');
+  assert.equal(found.item.fieldValueByName.name, '已阻塞');
+  assert.ok(seen.some(x => x.query.includes('query IssueProjectMembership')));
+});
+
+test('AC-PV2-027: foreign Project membership and forged Issue identity fail closed', async () => {
+  const broken = [
+    [{ ...member(), project: { id: 'OTHER_PROJECT' } }],
+    [{ ...member(), content: { ...issue, repository: { nameWithOwner: 'other/repo' } } }],
+    [{ ...member(), content: { ...issue, id: 'OTHER_ISSUE' } }],
+    [{ ...member(), content: { ...issue, number: 87 } }],
+    [],
+    [member(), member()],
+  ];
+  for (const nodes of broken) {
+    const gql = async query => query.includes('query ProjectStatus')
+      ? page([]) : issueMembershipPage(nodes);
+    await assert.rejects(getProjectIssue(gql, 40, '觀察中'));
+  }
+});
+
+test('AC-PV2-028: membership paginates safely and verifies identity across pages', async () => {
+  let calls = 0;
+  const gql = async (query, vars) => {
+    if (query.includes('query ProjectStatus')) return page([]);
+    assert.match(query, /query IssueProjectMembership/);
+    if (calls++ === 0) {
+      assert.equal(vars.after, null);
+      return issueMembershipPage([], true, 'CURSOR_2');
+    }
+    assert.equal(vars.after, 'CURSOR_2');
+    return issueMembershipPage([member()]);
+  };
+  assert.equal((await getProjectIssue(gql, 40, '開發中')).item.id, 'ITEM40');
+  assert.equal(calls, 2);
+});
+
+test('AC-PV2-029: missing Issue and invalid membership cursor fail without Status writes', async () => {
+  for (const response of [
+    { repository: { issue: null } },
+    issueMembershipPage([], true, null),
+    issueMembershipPage([], true, 'LOOP'),
+  ]) {
+    let calls = 0;
+    const gql = async query => {
+      if (query.includes('query ProjectStatus')) return page([]);
+      calls++;
+      return response;
+    };
+    await assert.rejects(getProjectIssue(gql, 40, '開發中'));
+    assert.ok(calls >= 1);
+  }
+});
