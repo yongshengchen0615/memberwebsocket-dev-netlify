@@ -11,7 +11,7 @@ const publishPhases = new Set(['site', 'deploy-list', 'upload', 'deploy-status',
 
 export class PreviewProviderError extends Error {
   constructor(phase, status) {
-    super('Preview provider request failed');
+    super(`Preview provider HTTP ${Number.isInteger(status) && status >= 400 && status <= 599 ? status : 'unknown'}`);
     this.name = 'PreviewProviderError';
     this.phase = phase;
     this.status = status;
