@@ -4,7 +4,7 @@
   "evidence": "isolated Chromium UI with production handlers and explicit in-memory transport; not live Supabase/LINE delivery",
   "portalIntegrationReview": "2026-10-20: Reviewed separate per-purpose notification forms, masked token replacement, provider channel validation, lost-response retry, test-to-current-manager only, disabled routing and existing module LIFF journeys. NOTIFICATION_PURPOSES_390/1280 in notification-settings.spec.cjs use production handler, real isolated SQL and explicit LINE transport; BUSINESS_APPROVAL_ACTIVATES selectors now distinguish identity forms from notification forms. Live LINE delivery remains external QA. 2026-10-20: LINE 設定改為獨立主分頁，只有核准功能顯示子分頁；審閱開通/撤權/模組獨立儲存/切回管理頁的回歸，補充 business_line_settings.cjs、product_admin_ui.cjs 與 business-activation.spec.cjs。 2026-10-21: Reviewed booking risk policy, blank disabled defaults, separate tenant SQL, reason-required revoke/release, member expiry/contact/appeal; booking-risk.spec.cjs provides separate component journeys using real isolated PostgreSQL; booking_risk_ui.cjs checks validation and no accidental activation. Existing booking/admin flows and inventory cases remain required.",
   "reviewedSources": {
-    "admin/index.html": "a499969ff9a68712e4a11414c7989719f92ce4bc9adac1257431be06caeced57",
+    "admin/index.html": "3fa07e0d338045f784e5ada015f697bfb83c5db1996b5ff3dced71673ea7c5fa",
     "admin/app.js": "83e4359ec62ede92d4607bcd718f90f869b2806406c0a76b3bb838c172db494e",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
@@ -637,5 +637,14 @@
       "BOOKING_RISK_390",
       "BOOKING_RISK_1280"
     ]
+  },
+  "adminQuickActionsJourney": {
+    "spec": "admin-quick-actions.spec.cjs",
+    "cases": [
+      "AC-ADM-UX-003: shortcuts use existing tabs, no parallel business flow",
+      "AC-ADM-UX-001: shortcut disappears when its existing tab is revoked",
+      "AC-ADM-UX-006/007: responsive and keyboard shortcuts at 320/390/768/1280px"
+    ],
+    "scope": "2026-10-22 #64: new UI-only quick links reuse existing authorized legacy tabs and only show after adminView; productized merchant workspace keeps current permission-gated form/LINE navigation; CSS improves responsive focus states. No new backend mutation or additional feature grant. See admin-quick-actions.spec.cjs. Existing human inventory cases unchanged. Regression: remove text match collision with legacy 「狀態」 role locator; new browser assertion ensures scoped shortcuts don't match it."
   }
 }
