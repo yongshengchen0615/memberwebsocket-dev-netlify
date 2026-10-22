@@ -96,7 +96,7 @@ test('integrated preview publishes an isolated CLI draft after CI with exact bun
   const publish = 'npx --yes netlify-cli@23.11.0 deploy --no-build --dir=dist --site="$NETLIFY_SITE_ID" --alias="$PLATFORM_ALIAS"';
   const verify = 'node scripts/verify-netlify-cli-preview.mjs /tmp/platform-deploy.json';
   assert.ok(preview.includes(branch), 'Explicit branch guard is required');
-  assert.ok(preview.includes("'integrated-marketing-platform' || 'platform'"), 'Alias must preserve the existing CORS-approved preview route');
+  assert.ok(preview.includes("'verified-integrated-platform' || 'platform'"), 'A draft alias must not collide with the native branch URL');
   assert.ok(preview.includes('scripts/verify-netlify-cli-preview.test.mjs'), 'Verifier tests must run in release');
   assert.ok(preview.indexOf('node scripts/check-preview-ci.mjs') < preview.indexOf(inspect));
   assert.ok(preview.indexOf(inspect) < preview.indexOf(publish));
