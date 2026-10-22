@@ -69,6 +69,14 @@ jobs:
                   fieldValueByName(name:"Status") { ... on ProjectV2ItemFieldSingleSelectValue { name optionId } }
                 }
               }
+              repository(owner:$owner, name:"memberwebsocket-dev-netlify") {
+                issue(number:87) {
+                  projectItems(first:100) {
+                    nodes { id project { id } fieldValueByName(name:"Status") { ... on ProjectV2ItemFieldSingleSelectValue { name optionId } } }
+                    pageInfo { hasNextPage }
+                  }
+                }
+              }
               user(login:$owner) {
                 projectV2(number:$num) {
                   items(first:100) {
@@ -84,6 +92,7 @@ jobs:
             action:'diagnostic_test_item', node:check.node,
             firstPageCount:items?.nodes?.length, totalCount:items?.totalCount,
             firstPageMatch:items?.nodes?.filter(x => x.content?.number === 87),
+            directIssueProjectItems:check.repository?.issue?.projectItems,
             pageInfo:items?.pageInfo
           }));
           NODE
