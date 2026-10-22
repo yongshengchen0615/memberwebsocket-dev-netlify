@@ -392,11 +392,27 @@
     lineTab.hidden = !granted; lineTab.disabled = !granted;
     lineTab.setAttribute('aria-selected',String(merchantWorkspaceTab === 'line'));
     overviewTab.setAttribute('aria-selected',String(merchantWorkspaceTab === 'overview'));
+    // Roving tab stops let keyboard users enter only the currently selected panel.
+    lineTab.tabIndex = merchantWorkspaceTab === 'line' ? 0 : -1;
+    overviewTab.tabIndex = merchantWorkspaceTab === 'overview' ? 0 : -1;
     el('merchantLineSettingsPanel').hidden = merchantWorkspaceTab !== 'line';
     el('merchantOverviewPanel').hidden = merchantWorkspaceTab !== 'overview';
   }
+  function handleMerchantWorkspaceTabKeydown(event) {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    const lineTab = el('merchantLineSettingsTab');
+    // A withheld module never becomes visible or keyboard-reachable.
+    if (!lineTab || lineTab.hidden || lineTab.disabled) return;
+    event.preventDefault();
+    const next = event.key === 'Home' ? 'overview' : event.key === 'End' ? 'line'
+      : merchantWorkspaceTab === 'overview' ? 'line' : 'overview';
+    selectMerchantWorkspaceTab(next);
+    el(next === 'line' ? 'merchantLineSettingsTab' : 'merchantOverviewTab')?.focus();
+  }
   el('merchantOverviewTab')?.addEventListener('click',()=>selectMerchantWorkspaceTab('overview'));
   el('merchantLineSettingsTab')?.addEventListener('click',()=>selectMerchantWorkspaceTab('line'));
+  el('merchantOverviewTab')?.addEventListener('keydown',handleMerchantWorkspaceTabKeydown);
+  el('merchantLineSettingsTab')?.addEventListener('keydown',handleMerchantWorkspaceTabKeydown);
   function selectMerchantPanel(feature, reveal = true) {
     if(merchantSaving||state.merchantPending)return;
     const tenant=state.merchant;
