@@ -104,13 +104,13 @@ test('integrated preview publishes an isolated CLI draft after CI with exact bun
   assert.ok(preview.indexOf(verify) < preview.indexOf('cat evidence/platform-deploy.json'));
   assert.ok(!preview.includes('node scripts/netlify-preview-source.mjs --publish'), 'Do not use the failed raw ZIP upload route');
   assert.ok(!preview.includes('--prod'), 'Never deploy preview as production');
-  assert.match(preview, /config\\['redirects'\\]/);
-  assert.match(preview, /config\\['headers'\\]/);
-  assert.match(preview, /dist\\/_headers/);
-  assert.match(preview, /zip -qr ..\\/evidence\\/platform-preview.zip/);
+  assert.ok(preview.includes("config['redirects']"));
+  assert.ok(preview.includes("config['headers']"));
+  assert.ok(preview.includes('dist/_headers'));
+  assert.ok(preview.includes('zip -qr ../evidence/platform-preview.zip'));
   const config = readFileSync(new URL('../netlify.toml', import.meta.url), 'utf8');
-  assert.match(config, /command = "node scripts\\/netlify-preview-source.mjs --build"/);
-  assert.match(config, /ignore = "node .\\/scripts\\/netlify-preview-source.mjs --ignore"/);
+  assert.ok(config.includes('command = "node scripts/netlify-preview-source.mjs --build"'));
+  assert.ok(config.includes('ignore = "node ./scripts/netlify-preview-source.mjs --ignore"'));
   for (const source of [preview, build]) {
     assert.ok(source.includes('scripts/netlify-preview-source.test.mjs'));
     assert.ok(source.includes('scripts/inspect-preview-source.test.mjs'));
