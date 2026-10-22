@@ -57,8 +57,15 @@ test('the success summary preserves per-resource diagnostics when added to the s
   const report = { checks: f.checks };
   Object.assign(report, result, { ok: true });
   assert.equal(report.checks, f.checks);
-  assert.equal(report.checks.length, 18);
-  assert.equal(report.passedChecks, 18);
+  assert.equal(report.checks.length, 21);
+  assert.equal(report.passedChecks, 21);
+});
+
+test('each changed UI script must match exact artifact bytes', async t => {
+  for (const file of ['/admin/business-line-settings.js', '/admin/booking-risk.js', '/points/point-transfer.js']) {
+    const f = await fixture(t, ({ url }) => new URL(url).pathname === file ? new Response('stale UI script') : undefined);
+    await assert.rejects(verifyPlatformPreview(f.options), /remote bytes do not match/);
+  }
 });
 
 test('a transient asset HTTP 500 is diagnosed and must pass the same byte check on retry', async t => {

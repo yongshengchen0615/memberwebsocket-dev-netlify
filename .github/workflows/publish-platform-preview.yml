@@ -69,9 +69,9 @@ jobs:
           test ! -e dist/admin/platform/index.html
           grep -Fq '2012065297-VunxFBj8' dist/config.json
           python3 - <<'PY'
-          import pathlib, tomllib
+          import os, pathlib, tomllib
           config = tomllib.loads(pathlib.Path('netlify.toml').read_text())
-          redirects = ['/ /platform/ 302']
+          redirects = [] if os.environ['GITHUB_REF_NAME'] == 'Integrated-Marketing-Platform' else ['/ /platform/ 302']
           for rule in config['redirects']:
               assert set(rule) <= {'from', 'to', 'status'}, 'Review new redirect options before ZIP publishing'
               redirects.append(f"{rule['from']} {rule['to']} {rule['status']}")

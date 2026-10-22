@@ -15,6 +15,8 @@ export const previewAssets = [
   ['/platform/app.js', 'platform/app.js'], ['/config.json', 'config.json'],
   ['/booking/calendar-flow.js', 'booking/calendar-flow.js'],
   ['/booking/member-ui.js', 'booking/member-ui.js'], ['/version-badge.css', 'version-badge.css'],
+  ['/admin/business-line-settings.js', 'admin/business-line-settings.js'],
+  ['/admin/booking-risk.js', 'admin/booking-risk.js'], ['/points/point-transfer.js', 'points/point-transfer.js'],
 ];
 const digest = body => createHash('sha256').update(body).digest('hex');
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
