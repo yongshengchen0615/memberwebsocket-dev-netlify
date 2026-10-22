@@ -2,7 +2,7 @@ import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promi
 import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { formatBuildVersion } from './build-version.mjs';
+import { buildDate, formatBuildVersion } from './build-version.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = path.join(root, 'MemberWebsocket-dev');
@@ -22,7 +22,7 @@ for (const entry of await readdir(source, { withFileTypes: true })) {
 }
 
 const siteVersion = formatBuildVersion(
-  new Date(),
+  buildDate(process.env),
   process.env.DEPLOY_ID || process.env.BUILD_ID || randomBytes(6).toString('hex'),
 );
 const commit = /^[a-f\d]{7,40}$/i.test(process.env.COMMIT_REF || '')

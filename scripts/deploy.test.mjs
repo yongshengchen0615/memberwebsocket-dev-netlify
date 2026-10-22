@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { formatBuildVersion } from './build-version.mjs';
+import { buildDate, formatBuildVersion } from './build-version.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 execFileSync(process.execPath, ['scripts/build-site.mjs'], { cwd: root });
@@ -175,4 +175,30 @@ test('deployed test-mode API returns a CORS-readable rejection for malformed POS
   const payload = await response.json();
   assert.equal(payload.ok, false);
   assert.equal(payload.error?.code, 'INVALID_JSON');
+});
+
+
+test('native and verifier builds reproduce exact bytes using one deploy and source timestamp', () => {
+  const env = { ...process.env, COMMIT_REF: 'b'.repeat(40),
+    DEPLOY_ID: '6ad8954a695249e48e388cae', VERIFIED_PREVIEW_SOURCE_EPOCH: '1792136723' };
+  const build = changes => {
+    execFileSync(process.execPath, ['scripts/build-site.mjs'], { cwd: root, env: { ...env, ...changes } });
+    return fs.readFileSync(path.join(output, 'platform/index.html'), 'utf8');
+  };
+  const native = build({});
+  assert.ok(native.includes(formatBuildVersion(new Date(1792136723000), env.DEPLOY_ID)), 'release badge must use the source timestamp');
+  assert.equal(build({}), native, 'CI verifier must rebuild the exact native artifact, including its badge');
+  assert.notEqual(build({ DEPLOY_ID: '6ad8954a695249e48e388cab' }), native, 'new deploys retain distinct badges');
+  assert.notEqual(build({ VERIFIED_PREVIEW_SOURCE_EPOCH: '1792136724' }), native, 'wrong source timestamp cannot match');
+});
+
+test('reproducible build identity fails closed for malformed provenance', () => {
+  const now = new Date('2026-10-22T00:00:00Z');
+  assert.equal(buildDate({}, now), now);
+  const env = { COMMIT_REF: 'b'.repeat(40), DEPLOY_ID: 'a'.repeat(24), VERIFIED_PREVIEW_SOURCE_EPOCH: '1792136723' };
+  assert.equal(buildDate(env).getTime(), 1792136723000);
+  for (const change of [{ COMMIT_REF: 'short' }, { DEPLOY_ID: 'wrong' }, { VERIFIED_PREVIEW_SOURCE_EPOCH: '' },
+    { VERIFIED_PREVIEW_SOURCE_EPOCH: 'bad' }, { VERIFIED_PREVIEW_SOURCE_EPOCH: '1792136723.1' }]) {
+    assert.throws(() => buildDate({ ...env, ...change }), TypeError);
+  }
 });

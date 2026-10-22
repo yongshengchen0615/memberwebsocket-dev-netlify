@@ -102,6 +102,9 @@ test('integrated preview verifies the CI-gated native branch instead of a collid
   assert.ok(preview.includes("'integrated-marketing-platform' || 'platform'"));
   assert.ok(preview.indexOf(ci) < preview.indexOf(inspect));
   assert.ok(preview.indexOf(inspect) < preview.indexOf(native));
+  assert.ok(preview.indexOf(native) < preview.indexOf('- name: Build and verify the exact platform frontend'));
+  assert.ok(preview.includes('VERIFIED_PREVIEW_SOURCE_EPOCH=$(git show -s --format=%ct'));
+  assert.ok(preview.includes('DEPLOY_ID=$(jq -er'));
   assert.ok(preview.indexOf(native) < preview.indexOf('cat evidence/platform-deploy.json'));
   const nativeClause = preview.slice(preview.indexOf(sourceBranch), preview.indexOf('          else',preview.indexOf(sourceBranch)));
   assert.ok(!nativeClause.includes('netlify-cli@'), 'Integrated source must not upload an alias Draft');

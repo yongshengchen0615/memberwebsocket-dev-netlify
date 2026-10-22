@@ -1,4 +1,5 @@
 import { isNativeVerifiedPreview, awaitVerifiedPreviewCI } from './netlify-native-ci-gate.mjs';
+import { execFileSync } from 'node:child_process';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -96,6 +97,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
         sha: process.env.COMMIT_REF, token: process.env.NETLIFY_GITHUB_READ_TOKEN || '',
       });
       console.log(JSON.stringify({ nativePreviewVerified: true, sha: verified.sha, ciRuns: verified.runIds }));
+      // Rebuild verification uses this same Git timestamp and native deploy ID.
+      process.env.VERIFIED_PREVIEW_SOURCE_EPOCH = execFileSync('git',
+        ['show', '-s', '--format=%ct', verified.sha], { encoding: 'utf8' }).trim();
     }
     await import('./build-site.mjs');
   } else if (mode === '--publish') {
