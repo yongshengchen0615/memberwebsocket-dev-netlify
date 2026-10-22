@@ -27,7 +27,7 @@ jobs:
       NETLIFY_SITE_ID: 23796c62-480a-4b46-ac90-bfbc5ad4d300
       NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
       GH_TOKEN: ${{ github.token }}
-      PLATFORM_ALIAS: ${{ github.ref_name == 'Integrated-Marketing-Platform' && 'verified-integrated-platform' || 'platform' }}
+      PLATFORM_ALIAS: ${{ github.ref_name == 'Integrated-Marketing-Platform' && 'integrated-marketing-platform' || 'platform' }}
       PREVIEW_SOURCE_BRANCH: ${{ github.ref_name }}
       COMMIT_REF: ${{ github.sha }}
     steps:
