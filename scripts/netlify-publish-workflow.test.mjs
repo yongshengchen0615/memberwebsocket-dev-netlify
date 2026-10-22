@@ -8,6 +8,19 @@ const preview = readFileSync(new URL('../.github/workflows/publish-platform-prev
 const build = readFileSync(new URL('../.github/workflows/test-netlify-build.yml', import.meta.url), 'utf8');
 const policy = readFileSync(new URL('../.github/workflows/test-memberwebsocket-ticket-policy.yml', import.meta.url), 'utf8');
 
+test('PR merge runs cannot cancel a branch push release baseline', () => {
+  const concurrency = fullCI.split('concurrency:')[1].split('jobs:')[0];
+  assert.match(concurrency, /github\.event_name/);
+  assert.match(concurrency, /github\.event\.pull_request\.number/);
+  assert.match(concurrency, /github\.ref/);
+});
+
+test('preview retrieves exact SHA push evidence for its source branch', () => {
+  assert.match(preview, /-f event=push/);
+  assert.match(preview, /-f head_sha="\$GITHUB_SHA"/);
+  assert.match(preview, /-f branch="\$GITHUB_REF_NAME"/);
+});
+
 test('production deploy targets only the existing Netlify site with protected credentials', () => {
   assert.match(flow, /NETLIFY_SITE_ID: 23796c62-480a-4b46-ac90-bfbc5ad4d300/);
   assert.match(flow, /NETLIFY_AUTH_TOKEN: \$\{\{ secrets\.NETLIFY_AUTH_TOKEN \}\}/);

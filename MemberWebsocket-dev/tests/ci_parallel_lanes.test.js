@@ -6,10 +6,12 @@ const path = require('node:path');
 const ROOT = path.resolve(__dirname, '..', '..');
 const workflow = fs.readFileSync(path.join(ROOT, '.github/workflows/test-memberwebsocket-dev.yml'), 'utf8');
 
-test('MemberWebsocket CI cancels stale runs on the same ref', () => {
+test('MemberWebsocket CI cancels stale runs within the same event and branch or PR', () => {
   assert.match(workflow, /concurrency:/);
   assert.match(workflow, /cancel-in-progress: true/);
-  assert.match(workflow, /github\.head_ref \|\| github\.ref/);
+  // A PR tests a synthetic merge, so it must not cancel its source branch's
+  // release baseline. Different PRs may also have different target branches.
+  assert.match(workflow, /group: \$\{\{ github\.workflow \}\}-\$\{\{ github\.event_name \}\}-\$\{\{ github\.event\.pull_request\.number \|\| github\.ref \}\}/);
 });
 
 test('MemberWebsocket CI separates expensive test lanes and preserves aggregate validation', () => {
