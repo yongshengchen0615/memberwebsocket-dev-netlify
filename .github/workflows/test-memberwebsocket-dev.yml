@@ -23,9 +23,10 @@ on:
 permissions:
   contents: read
 
-# Normalize push and PR branch names so the same change does not run the full suite twice.
+# Keep release pushes independent of PR synthetic merge tests. Separate PRs can
+# target different base branches, so each PR also needs its own cancellation key.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
