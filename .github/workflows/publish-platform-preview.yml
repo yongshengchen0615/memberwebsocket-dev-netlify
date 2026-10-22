@@ -53,7 +53,7 @@ jobs:
         env:
           COMMIT_REF: ${{ github.sha }}
         run: |
-          node --test scripts/deploy.test.mjs scripts/netlify-publish-workflow.test.mjs scripts/check-preview-ci.test.mjs scripts/verify-platform-preview.test.mjs scripts/inspect-preview-source.test.mjs scripts/netlify-preview-source.test.mjs
+          node --test scripts/deploy.test.mjs scripts/netlify-publish-workflow.test.mjs scripts/check-preview-ci.test.mjs scripts/verify-platform-preview.test.mjs scripts/inspect-preview-source.test.mjs scripts/netlify-preview-source.test.mjs scripts/verify-netlify-cli-preview.test.mjs
           node scripts/build-site.mjs
           test -f dist/platform/index.html
           test ! -e dist/admin/platform/index.html
@@ -90,7 +90,10 @@ jobs:
           test "$current" = "$GITHUB_SHA"
           if [ "$GITHUB_REF_NAME" = Integrated-Marketing-Platform ]; then
             node scripts/inspect-preview-source.mjs
-            node scripts/netlify-preview-source.mjs --publish
+            # CLI draft aliases must differ from an existing Git branch slug.
+            # Upload exactly once to the isolated preview, never production.
+            npx --yes netlify-cli@23.11.0 deploy --no-build --dir=dist --site="$NETLIFY_SITE_ID" --alias="$PLATFORM_ALIAS" --message="verified-platform-$GITHUB_SHA" --json > /tmp/platform-deploy.json
+            node scripts/verify-netlify-cli-preview.mjs /tmp/platform-deploy.json
           else
             npx --yes netlify-cli@23.11.0 deploy --no-build --dir=dist --site="$NETLIFY_SITE_ID" --alias="$PLATFORM_ALIAS" --message="verified-platform-$GITHUB_SHA" --json > /tmp/platform-deploy.json
             jq '{deploy_id,deploy_url,source_sha:env.GITHUB_SHA}' /tmp/platform-deploy.json > evidence/platform-deploy.json

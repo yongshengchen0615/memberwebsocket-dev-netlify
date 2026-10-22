@@ -90,18 +90,30 @@ test('release-only changes trigger every required preview workflow on push and P
   assert.match(policy, /'feature\/productization-super-admin'/);
 });
 
-test('the integrated preview uses a real branch ZIP after CI and retains global routing and headers', () => {
-  assert.match(preview, /if \[ "\$GITHUB_REF_NAME" = Integrated-Marketing-Platform \]; then\s+node scripts\/inspect-preview-source.mjs\s+node scripts\/netlify-preview-source.mjs --publish\s+else/);
-  assert.ok(preview.indexOf('node scripts/check-preview-ci.mjs') < preview.indexOf('node scripts/netlify-preview-source.mjs --publish'));
-  assert.match(preview, /config\['redirects'\]/);
-  assert.match(preview, /config\['headers'\]/);
-  assert.match(preview, /dist\/_headers/);
-  assert.match(preview, /zip -qr ..\/evidence\/platform-preview.zip/);
+test('integrated preview publishes an isolated CLI draft after CI with exact bundle and smoke evidence', () => {
+  const branch = 'if [ "$GITHUB_REF_NAME" = Integrated-Marketing-Platform ]; then';
+  const inspect = 'node scripts/inspect-preview-source.mjs';
+  const publish = 'npx --yes netlify-cli@23.11.0 deploy --no-build --dir=dist --site="$NETLIFY_SITE_ID" --alias="$PLATFORM_ALIAS"';
+  const verify = 'node scripts/verify-netlify-cli-preview.mjs /tmp/platform-deploy.json';
+  assert.ok(preview.includes(branch), 'Explicit branch guard is required');
+  assert.ok(preview.includes("'integrated-marketing-platform' || 'platform'"), 'Alias must preserve the existing CORS-approved preview route');
+  assert.ok(preview.includes('scripts/verify-netlify-cli-preview.test.mjs'), 'Verifier tests must run in release');
+  assert.ok(preview.indexOf('node scripts/check-preview-ci.mjs') < preview.indexOf(inspect));
+  assert.ok(preview.indexOf(inspect) < preview.indexOf(publish));
+  assert.ok(preview.indexOf(publish) < preview.indexOf(verify));
+  assert.ok(preview.indexOf(verify) < preview.indexOf('cat evidence/platform-deploy.json'));
+  assert.ok(!preview.includes('node scripts/netlify-preview-source.mjs --publish'), 'Do not use the failed raw ZIP upload route');
+  assert.ok(!preview.includes('--prod'), 'Never deploy preview as production');
+  assert.ok(preview.includes("config['redirects']"));
+  assert.ok(preview.includes("config['headers']"));
+  assert.ok(preview.includes('dist/_headers'));
+  assert.ok(preview.includes('zip -qr ../evidence/platform-preview.zip'));
   const config = readFileSync(new URL('../netlify.toml', import.meta.url), 'utf8');
-  assert.match(config, /command = "node scripts\/netlify-preview-source.mjs --build"/);
-  assert.match(config, /ignore = "node .\/scripts\/netlify-preview-source.mjs --ignore"/);
+  assert.ok(config.includes('command = "node scripts/netlify-preview-source.mjs --build"'));
+  assert.ok(config.includes('ignore = "node ./scripts/netlify-preview-source.mjs --ignore"'));
   for (const source of [preview, build]) {
-    assert.match(source, /scripts\/netlify-preview-source.test.mjs/);
-    assert.match(source, /scripts\/inspect-preview-source.test.mjs/);
+    assert.ok(source.includes('scripts/netlify-preview-source.test.mjs'));
+    assert.ok(source.includes('scripts/verify-netlify-cli-preview.test.mjs'));
+    assert.ok(source.includes('scripts/inspect-preview-source.test.mjs'));
   }
 });
