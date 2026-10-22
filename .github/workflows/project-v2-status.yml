@@ -1,0 +1,62 @@
+name: Project 5 Status (GraphQL)
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Existing issue number in Project #5 (do not create items)'
+        required: true
+        type: string
+      status:
+        description: 'Target Project Status'
+        required: true
+        type: choice
+        options:
+          - 待規劃
+          - 準備開始
+          - 開發中
+          - 程式碼審查
+          - QA / E2E
+          - 等待部署
+          - 觀察中
+          - 已完成
+          - 已阻塞
+      apply:
+        description: 'Write to Projects v2 (unchecked = dry-run preview)'
+        required: true
+        default: false
+        type: boolean
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: project5-status-${{ github.event.issue.number || inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  project-status:
+    # Do not run a secret-bearing job for arbitrary issue labels.
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       startsWith(github.event.label.name, 'project-status/'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Update Project #5 Status with verified GraphQL read-back
+        env:
+          PROJECTS_V2_TOKEN: ${{ secrets.PROJECTS_V2_TOKEN }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+          TARGET_STATUS: ${{ inputs.status }}
+          APPLY: ${{ github.event_name == 'issues' || inputs.apply }}
+        run: node scripts/project-v2-status.mjs
