@@ -57,3 +57,21 @@
 - **AC-PV2-024/025：** 排程健康檢查為唯讀，無效事件或存取範圍先拒絕。
 - **AC-PV2-LIVE-001：** 真實 GitHub PAT 讀取 Project #5 成功。
 - **AC-PV2-LIVE-002：** #41 實際寫入「開發中」，更新後 GraphQL 與 Projects 網頁獨立核對；**未執行前不得宣稱已完成**。
+
+
+## 真實 GitHub GraphQL 驗收（2026-10-23）
+
+已使用帳號持有者設定的 `PROJECTS_V2_TOKEN`，在 **Actions 真實 Runner** 對測試 [Issue #87](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/issues/87) 執行：
+
+1. **唯讀 Health：成功**，`viewer=yongshengchen0615`、Project ID `PVT_kwHOAY1fWs4BoA58`、Status 選項 9 個。
+2. **指定卡片歸屬：成功**，`Issue.projectItems` 對應 Project #5 的 item `PVTI_lAHOAY1fWs4BoA58zhCwDlU`。在同一次真實請求中，`Project.items` 清單未包含 #87，這是先前查找失敗的根因。
+3. **dry-run：成功**，從未設定 Status 預覽到「開發中」，`action=preview`。
+4. **mutation：成功**，官方 `updateProjectV2ItemFieldValue` 更新 Status，`action=updated` 並確認寫入後欄位值。
+5. **第二次獨立 GraphQL 讀回：成功**，`from=開發中`、`action=unchanged`。目前沒有瀏覽器看板的獨立目視核對，不能以此取代 UI 驗收。
+6. **合成契約測試：29/29 通過**，包含 4 個新增 Issue membership 邊界／異常測試；一時性的測試工作流程已自分支移除，避免保留額外的 PAT 使用入口。
+
+**證據：** [Actions Run 39810557366](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/actions/runs/39810557366)，程式驗收 SHA `87007f4a86d9fcad0c55d6653406febe11efcbe5`；正式 PR 必須以移除測試工作流程後的最終 SHA 重新完成全部必要 CI。
+
+**正式修復：** `getProjectIssue` 優先嘗試原本的 `Project.items` 列表；若符合的 item 為 0，改以 `Issue.projectItems` 查詢（支援游標分頁），並要求 item 的 Project ID、Issue number、Issue node ID、repository 名稱全部一致。找不到、複數候選、錯誤 owner、異常分頁時拒絕寫入。這保留舊流程相容性，同時修補 GitHub 列表索引漏項情境。
+
+**注意：** 這個獨立 PAT 通道不會提升 ChatGPT GitHub Projects 連接器本身的 OAuth/App 授權，因此後者依然可能回傳 403；正式自動化需以本工具的 Actions workflow 啟動。
