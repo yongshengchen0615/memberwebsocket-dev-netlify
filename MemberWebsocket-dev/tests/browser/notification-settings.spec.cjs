@@ -27,6 +27,10 @@ for(const width of [390,1280])test('NOTIFICATION_PURPOSES_'+width+' — independ
   await expect(page.locator('[data-business-line-feature]')).toHaveCount(2);
   await expect(page.locator('#notification-points-member')).toHaveCount(0);
   await expect(page.locator('#businessLineFeatureNav [role="tab"]')).toHaveCount(2);
+  const firstTab=page.locator('#businessLineFeatureTab-membership'),bookingTab=page.locator('#businessLineFeatureTab-booking');
+  await firstTab.focus();await page.keyboard.press('ArrowRight');await expect(bookingTab).toBeFocused();await expect(bookingTab).toHaveAttribute('aria-selected','true');
+  await page.keyboard.press('Home');await expect(firstTab).toBeFocused();await expect(firstTab).toHaveAttribute('tabindex','0');
+  await page.keyboard.press('End');await expect(bookingTab).toBeFocused();await expect(firstTab).toHaveAttribute('tabindex','-1');
   await page.locator('#businessLineFeatureTab-booking').click();
   await expect(page.locator('[data-business-line-feature="booking"]')).toBeVisible();
   await expect(page.locator('[data-business-line-feature="membership"]')).toBeHidden();

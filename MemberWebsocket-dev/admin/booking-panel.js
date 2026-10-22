@@ -31,7 +31,7 @@
   // Only behavior modules remain lazy so opening the admin shell cannot cause
   // a late stylesheet-driven layout shift.
   const preloadExtensions = [
-    ['booking-risk.js', 'booking-risk-20261021-1'],
+    ['booking-risk.js', 'booking-risk-recovery-20261022-1'],
     ['booking-always-open.js', 'booking-always-open-20260917-2'],
     ['booking-cancellation-sync.js', 'layout-stability-20261001-1-controls-20261010-2'],
     ['booking-resources.js', 'booking-technician-disable-action-20260920-1-booking-settings-20261006-2-ui-20261006-1'],
