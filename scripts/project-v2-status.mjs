@@ -48,6 +48,24 @@ query ProjectStatus($owner:String!, $number:Int!, $after:String) {
     }
   }
 }`;
+const ISSUE_PROJECT_ITEMS_QUERY = `
+query IssueProjectMembership($owner:String!, $repo:String!, $issue:Int!, $after:String) {
+  repository(owner:$owner, name:$repo) {
+    issue(number:$issue) {
+      id number
+      projectItems(first:100, after:$after) {
+        nodes {
+          id type project { id }
+          content { ... on Issue { id number repository { nameWithOwner } } }
+          fieldValueByName(name:"Status") {
+            ... on ProjectV2ItemFieldSingleSelectValue { name optionId }
+          }
+        }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+  }
+}`;
 const CURRENT_ITEM_QUERY = `
 query CurrentProjectItem($item:ID!) {
   node(id:$item) {
@@ -242,6 +260,35 @@ export async function getProjectIssue(graphql, issueNumber, status) {
     seenCursors.add(cursor);
     after = cursor;
     if (page === 99) throw new Error('Project pagination exceeds safety limit');
+  }
+  if (matches.length === 0) {
+    // GitHub's Project.items index can omit an item that Issue.projectItems
+    // and node(id) can already read. Resolve membership from the Issue itself
+    // while insisting on the exact project ID and repository ownership.
+    let issueAfter = null;
+    const cursors = new Set();
+    let sourceId = null;
+    for (let page = 0; page < 100; page++) {
+      const data = await graphql(ISSUE_PROJECT_ITEMS_QUERY, {
+        owner: PROJECT_OWNER, repo: REPOSITORY.split('/')[1], issue: issueNumber, after: issueAfter,
+      });
+      const issue = data.repository?.issue;
+      if (!issue?.id || issue.number !== issueNumber) throw new Error('Issue membership is unavailable or mismatched');
+      if (sourceId && sourceId !== issue.id) throw new Error('Issue changed during membership pagination');
+      sourceId = issue.id;
+      const membership = issue.projectItems;
+      if (!Array.isArray(membership?.nodes)) throw new Error('Issue Project membership is unreadable');
+      for (const item of membership.nodes) {
+        if (item?.project?.id === projectId && matchingItem(item, issueNumber) &&
+            item.content?.id === issue.id) matches.push(item);
+      }
+      if (!membership.pageInfo?.hasNextPage) break;
+      const cursor = membership.pageInfo.endCursor;
+      if (!cursor || cursors.has(cursor)) throw new Error('Invalid Issue membership cursor');
+      cursors.add(cursor);
+      issueAfter = cursor;
+      if (page === 99) throw new Error('Issue membership exceeds safety limit');
+    }
   }
   if (matches.length !== 1) {
     throw new Error(`Expected exactly one Project item for issue #${issueNumber}; found ${matches.length}`);
