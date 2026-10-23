@@ -29,7 +29,11 @@
     accessiblePendingCount: 0,
     latestNotificationId: 0,
     bookingRenderSignatures: new Map(),
+    settingsBaseline: null,
+    settingsDraftVersion: '',
+    settingsDirty: false,
   };
+  const SETTINGS_INPUT_IDS = ['bookingAdminStartTime','bookingAdminEndTime','bookingAdminSlotInterval','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminStoreServiceMinutes','bookingAdminReminderEnabled','bookingAdminSnapshotLocationRequired','bookingAdminReminderTime','bookingAdminNotice'];
   const els = {};
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
@@ -182,8 +186,11 @@
             </div>
             <div id="bookingAdminSettingsMessage" class="form-message hidden" role="status" aria-live="polite"></div>
             <div class="booking-admin-settings-actions">
-              <p><strong>儲存後立即套用</strong><span>這些設定會套用到所有預約項目，不需逐項調整。</span></p>
-              <button id="bookingAdminSaveSettingsButton" class="button button-dark" type="submit">儲存預約與票券設定</button>
+              <p><strong>儲存後立即套用</strong><span>這些設定會套用到所有預約項目，不需逐項調整。</span><span id="bookingAdminDraftStatus" class="booking-admin-settings-draft-status" role="status" aria-live="polite">設定載入中…</span></p>
+              <div class="booking-admin-settings-action-buttons">
+                <button id="bookingAdminDiscardSettingsButton" class="button button-outline" type="button" disabled>還原未儲存變更</button>
+                <button id="bookingAdminSaveSettingsButton" class="button button-dark" type="submit">儲存預約與票券設定</button>
+              </div>
             </div>
           </form>
         </section>
@@ -248,7 +255,7 @@
 
   function cacheElements() {
     [
-      'bookingTab','bookingPanel','bookingAdminSyncStatus','bookingAdminSettingsForm','bookingAdminStartTime','bookingAdminEndTime','bookingAdminSlotInterval','bookingAdminHoursPreview','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminStoreServiceMinutes','bookingAdminReminderEnabled','bookingAdminSnapshotLocationRequired','bookingAdminReminderTime','bookingAdminNotice','bookingAdminSettingsMessage','bookingAdminSaveSettingsButton',
+      'bookingTab','bookingPanel','bookingAdminSyncStatus','bookingAdminSettingsForm','bookingAdminStartTime','bookingAdminEndTime','bookingAdminSlotInterval','bookingAdminHoursPreview','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminStoreServiceMinutes','bookingAdminReminderEnabled','bookingAdminSnapshotLocationRequired','bookingAdminReminderTime','bookingAdminNotice','bookingAdminSettingsMessage','bookingAdminDraftStatus','bookingAdminDiscardSettingsButton','bookingAdminSaveSettingsButton',
       'bookingAdminNewTypeButton','bookingAdminTypeMessage','bookingAdminTypeList','bookingAdminTypeEmpty','bookingAdminServiceCount','bookingAdminPendingCount','bookingAdminAccessiblePendingCount','bookingAdminConfirmedCount',
       'bookingAdminTechniciansSubtab','bookingAdminServicesSubtab','bookingAdminSettingsSubtab','bookingAdminQueueSubtab','bookingAdminQueueSubtabCount','bookingAdminTechniciansPanel','bookingAdminServicesPanel','bookingAdminSettingsPanel','bookingAdminQueuePanel','bookingAdminStandardMode','bookingAdminAccessibleMode','bookingAdminStandardModeCount','bookingAdminAccessibleModeCount','bookingAdminStandardQueueView','bookingAdminNewServiceButton','bookingAdminBatchAddButton','bookingAdminBatchEditButton','bookingAdminBatchDeleteButton','bookingAdminServiceMessage','bookingAdminServiceList','bookingAdminServiceEmpty','bookingAdminQueue','bookingAdminQueueEmpty',
       'bookingAdminCrudModal','bookingAdminCrudModalTitle','bookingAdminCrudModalBody','bookingAdminCrudModalClose'
@@ -259,6 +266,15 @@
     els.bookingTab.addEventListener('click', activateBookingPanel);
     PRIMARY_TAB_IDS.forEach((id) => document.getElementById(id)?.addEventListener('click', deactivateBookingPanel));
     els.bookingAdminSettingsForm.addEventListener('submit', saveSettings);
+    els.bookingAdminSettingsForm.addEventListener('input', (event) => { if (SETTINGS_INPUT_IDS.includes(event.target?.id)) updateSettingsDraft(); });
+    els.bookingAdminSettingsForm.addEventListener('change', (event) => { if (SETTINGS_INPUT_IDS.includes(event.target?.id)) updateSettingsDraft(); });
+    els.bookingAdminDiscardSettingsButton.addEventListener('click', () => {
+      if (state.busy || !state.settingsDirty) return;
+      renderSettings(true);
+      showMessage(els.bookingAdminSettingsMessage, '已還原至目前伺服器設定；未儲存的更改已捨棄。', 'success');
+    });
+    const snapshotRows = document.getElementById('bookingAdminSnapshotLocationRows');
+    if (snapshotRows) new MutationObserver(() => updateSettingsDraft()).observe(snapshotRows, { childList: true, subtree: true });
     window.TicketLocationEditors?.snapshot?.init();
     ['bookingAdminStartTime','bookingAdminEndTime','bookingAdminSlotInterval'].forEach((id) => els[id].addEventListener('input', renderHoursPreview));
     els.bookingAdminNewTypeButton.addEventListener('click', () => openTypeModal(null));
@@ -622,9 +638,35 @@
   }
 
   function renderAll() { renderSettings(); renderTypes(); renderServices(); renderStats(); renderBookings(); }
-  function renderSettings() {
+  function currentSettingsSignature() {
+    return JSON.stringify({
+      fields: SETTINGS_INPUT_IDS.map((id) => {
+        const input = els[id];
+        return input?.type === 'checkbox' ? Boolean(input.checked) : String(input?.value || '');
+      }),
+      locations: window.TicketLocationEditors?.snapshot?.get?.() || [],
+    });
+  }
+  function updateSettingsDraft() {
+    if (state.settingsBaseline === null || !els.bookingAdminDraftStatus) return;
+    state.settingsDirty = currentSettingsSignature() !== state.settingsBaseline;
+    els.bookingAdminDiscardSettingsButton.disabled = state.busy || !state.settingsDirty;
+    if (!state.busy) {
+      const serverVersion = String(state.booking.settings?.updatedAt || '');
+      els.bookingAdminDraftStatus.textContent = state.settingsDirty
+        ? (serverVersion !== state.settingsDraftVersion
+          ? '伺服器已有新版設定；本頁草稿已保留。請先記下變更並重新載入，避免覆寫他人修改。'
+          : '有未儲存的變更，離開前請儲存或還原。')
+        : '目前設定已載入，尚未修改。';
+    }
+  }
+  function renderSettings(force = false) {
     const settings = state.booking.settings || {};
     window.BookingRiskSettings?.mount(els.bookingAdminSettingsPanel,{data:state.booking.noShowRisk,request:(action,body)=>bookingRequest('admin.booking.risk.'+action,body,action!=='get')});
+    if (state.settingsDirty && !force) {
+      updateSettingsDraft();
+      return;
+    }
     els.bookingAdminStartTime.value = String(settings.workStartTime || '09:00');
     els.bookingAdminEndTime.value = String(settings.workEndTime || '17:00');
     els.bookingAdminSlotInterval.value = String(Number(settings.slotIntervalMinutes || 30));
@@ -637,6 +679,10 @@
     window.TicketLocationEditors?.snapshot?.set(Array.isArray(settings.snapshotLocations) ? settings.snapshotLocations : []);
     els.bookingAdminReminderTime.value = String(settings.reminderTime || '18:00');
     renderHoursPreview();
+    state.settingsBaseline = currentSettingsSignature();
+    state.settingsDraftVersion = String(settings.updatedAt || '');
+    state.settingsDirty = false;
+    updateSettingsDraft();
   }
   function renderHoursPreview() {
     const start = els.bookingAdminStartTime.value;
@@ -739,6 +785,10 @@
     const snapshotLocations = window.TicketLocationEditors?.snapshot?.get() || [];
     if (els.bookingAdminSnapshotLocationRequired.checked && !snapshotLocations.length) return showMessage(els.bookingAdminSettingsMessage, '請先新增至少一個快照允許地點，才能啟用定位限制。', 'error');
     state.busy = true; clearMessage(els.bookingAdminSettingsMessage);
+    els.bookingAdminSaveSettingsButton.disabled = true;
+    els.bookingAdminSaveSettingsButton.textContent = '儲存中…';
+    els.bookingAdminDiscardSettingsButton.disabled = true;
+    els.bookingAdminDraftStatus.textContent = '正在儲存，請勿重複送出。';
     try {
       const result = await manageRequest('admin.booking.settings.save', {
         workStartTime: els.bookingAdminStartTime.value,
@@ -752,12 +802,25 @@
         snapshotLocationRequired: els.bookingAdminSnapshotLocationRequired.checked,
         snapshotLocations,
         reminderTime,
-        expectedUpdatedAt: state.booking.settings?.updatedAt || '',
+        expectedUpdatedAt: state.settingsDraftVersion,
       }, true);
-      state.booking.settings = result.settings || state.booking.settings;
-      renderSettings(); showMessage(els.bookingAdminSettingsMessage, '預約與票券共用設定已儲存。', 'success');
-    } catch (error) { showMessage(els.bookingAdminSettingsMessage, error?.message || '儲存失敗。', 'error'); }
-    finally { state.busy = false; }
+      if (!result.settings || !result.settings.updatedAt) throw clientError('API_RESPONSE_UNCERTAIN', '儲存回應缺少可確認的版本；請重新載入核對後再操作。');
+      state.booking.settings = result.settings;
+      renderSettings(true);
+      showMessage(els.bookingAdminSettingsMessage, '預約與票券共用設定已儲存。', 'success');
+    } catch (error) {
+      const conflict = /CONFLICT|STALE_VERSION|VERSION_MISMATCH/i.test(String(error?.code || ''));
+      const uncertain = error?.code === 'API_RESPONSE_UNCERTAIN';
+      showMessage(els.bookingAdminSettingsMessage, conflict
+        ? '設定版本已變更，未儲存草稿仍保留。請先記下變更，再重新載入比較，勿直接覆寫。'
+        : uncertain ? '無法確認這次是否已儲存；目前輸入仍保留。請重新載入核對結果，避免重複送出。'
+          : error?.message || '儲存失敗；目前輸入仍保留。', 'error');
+    } finally {
+      state.busy = false;
+      els.bookingAdminSaveSettingsButton.disabled = false;
+      els.bookingAdminSaveSettingsButton.textContent = '儲存預約與票券設定';
+      updateSettingsDraft();
+    }
   }
 
   function openTypeModal(type) {
