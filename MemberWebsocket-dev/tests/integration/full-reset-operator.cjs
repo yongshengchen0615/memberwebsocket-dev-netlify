@@ -109,6 +109,7 @@ async function backupAndRestoreDatabase({db,url,restoreUrl,backupDir,keyBytes}){
  const pg={env:pgEnv(parsed),maxBuffer:1024*1024};
  const local={env:{...pgEnv(target),PGSSLMODE:target.searchParams.get('sslmode')||'disable'},maxBuffer:1024*1024};
  const dbCount=await db.query("select (select count(*)::int from public.admins) admins,(select count(*)::int from platform_private.tenants) tenants,(select count(*)::int from auth.users) users,(select count(*)::int from storage.objects) objects");
+ const originalPlan=(await db.query('select maintenance.plan_sandbox_database_reset() p')).rows[0].p;
  const restored=new Client({connectionString:restoreUrl,connectionTimeoutMillis:8000});
  try{
   await exec('pg_dump',['--format=custom','--no-owner','--no-acl','--file='+dump],pg);
@@ -130,6 +131,9 @@ async function backupAndRestoreDatabase({db,url,restoreUrl,backupDir,keyBytes}){
    await verified.connect();
    const counts=await verified.query("select (select count(*)::int from public.admins) admins,(select count(*)::int from platform_private.tenants) tenants,(select count(*)::int from auth.users) users,(select count(*)::int from storage.objects) objects");
    assert(json(counts.rows[0])===json(dbCount.rows[0]),'RESTORED_DB_COUNTS_NOT_MATCHED');
+   const restoredPlan=(await verified.query('select maintenance.plan_sandbox_database_reset() p')).rows[0].p;
+   assert(restoredPlan.fingerprint===originalPlan.fingerprint,'RESTORED_DB_APPLICATION_CONTENT_MISMATCH');
+   assert(restoredPlan.tableCount===originalPlan.tableCount,'RESTORED_DB_SCHEMA_INCOMPLETE');
   }finally{await verified.end().catch(()=>{})}
   return {sha256:sha(bytes),originalCounts:dbCount.rows[0],encryptedBackup:encrypted};
  }finally{
