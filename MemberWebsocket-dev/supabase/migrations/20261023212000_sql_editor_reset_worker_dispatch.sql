@@ -55,7 +55,7 @@ begin
     raise exception 'RESET_BACKUP_STORAGE_AND_PROVIDER_PROOF_REQUIRED';
   end if;
   v_preview := maintenance.plan_sandbox_database_reset();
-  v_ticket := pg_catalog.encode(pg_catalog.gen_random_bytes(32),'hex');
+  v_ticket := pg_catalog.encode(extensions.gen_random_bytes(32),'hex');
   insert into maintenance.sql_full_reset_jobs(id,ticket_sha256,fingerprint)
   values(v_job,pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(v_ticket,'UTF8')),'hex'),
          v_preview->>'fingerprint');
@@ -159,6 +159,10 @@ begin
       or exists(select 1 from cron.job where active) then
       raise exception 'RESET_MANAGED_RESOURCES_NOT_EMPTY';
     end if;
+    if (maintenance.plan_sandbox_database_reset()->>'fingerprint')
+        is distinct from v_job.fingerprint then
+      raise exception 'RESET_APPLICATION_CHANGED_WHILE_CLEARING_FILES';
+    end if;
     v_output := maintenance.execute_sandbox_database_reset(
       p_job_id,(maintenance.plan_sandbox_database_reset()->>'fingerprint'),
       'RESET MEMBERWEBSOCKET TEST DATA');
@@ -167,6 +171,9 @@ begin
     where id=p_job_id;
     return v_output;
   elsif p_action='fail' then
+    update maintenance.sandbox_reset_target
+    set backup_verified_at=null,storage_restore_verified_at=null,
+        provider_isolation_verified_at=null where singleton=true;
     update maintenance.sql_full_reset_jobs
     set state='failed',finished_at=pg_catalog.clock_timestamp(),
         error_code=left(coalesce(p_result->>'error','RESET_WORKER_FAILED'),120)
