@@ -54,13 +54,14 @@ test('deploy emits recoverable artifact and verifies both page and JS after publ
   assert.match(flow, /after 30 checks/);
 });
 
-test('deployment changes trigger the same full suite on PR and develop push', () => {
-  const sources = fullCI.split('  pull_request:');
-  assert.equal(sources.length, 2);
-  for (const source of sources) {
-    assert.match(source, /'\.github\/workflows\/publish-netlify\.yml'/);
-    assert.match(source, /'scripts\/\*\*'/);
-  }
+test('deployment changes trigger the full suite on push and every pull request', () => {
+  const sections = fullCI.split('  pull_request:');
+  assert.equal(sections.length, 2);
+  const push = sections[0];
+  const pr = sections[1].split('permissions:')[0];
+  assert.match(push, /'\.github\/workflows\/publish-netlify\.yml'/);
+  assert.match(push, /'scripts\/\*\*'/);
+  assert.doesNotMatch(pr, /^\s+(?:paths|paths-ignore|branches|branches-ignore):/m);
 });
 
 test('preview uses the latest exact-commit CI gate before publishing and preserves alias scope', () => {
@@ -82,14 +83,24 @@ test('preview retains its exact bundle and smoke evidence even when verification
 });
 
 test('release-only changes trigger every required preview workflow on push and PR', () => {
-  for (const workflow of [fullCI, policy]) {
-    const triggers = workflow.split('permissions:')[0];
-    assert.equal((triggers.match(/'scripts\/\*\*'/g) || []).length, 2);
-    assert.equal((triggers.match(/'\.github\/workflows\/publish-platform-preview.yml'/g) || []).length, 2);
-    assert.equal((triggers.match(/'\.github\/workflows\/test-memberwebsocket-dev.yml'/g) || []).length, 2);
+  const fullTriggers = fullCI.split('permissions:')[0];
+  const policyTriggers = policy.split('permissions:')[0];
+  for (const triggers of [fullTriggers, policyTriggers]) {
+    assert.match(triggers, /^  push:/m);
+    assert.match(triggers, /^  pull_request:/m);
   }
+  for (const path of [
+    "'scripts/**'",
+    "'.github/workflows/publish-platform-preview.yml'",
+    "'.github/workflows/test-memberwebsocket-dev.yml'",
+  ]) {
+    assert.equal(fullTriggers.split(path).length - 1, 1, `full CI push: ${path}`);
+    assert.equal(policyTriggers.split(path).length - 1, 2, `policy push+PR: ${path}`);
+  }
+  const prSettings = fullTriggers.slice(fullTriggers.indexOf('  pull_request:'));
+  assert.doesNotMatch(prSettings, /^\s+(?:paths|paths-ignore|branches|branches-ignore):/m);
   assert.match(policy, /'feature\/productization-super-admin'/);
-  assert.match(preview.split('permissions:')[0], /'\.github\/workflows\/test-memberwebsocket-dev.yml'/);
+  assert.match(preview.split('permissions:')[0], /'\.github\/workflows\/test-memberwebsocket-dev\.yml'/);
 });
 
 test('integrated preview verifies the CI-gated native branch instead of a colliding Draft alias', () => {
