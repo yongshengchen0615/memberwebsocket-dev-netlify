@@ -785,6 +785,9 @@
     const snapshotLocations = window.TicketLocationEditors?.snapshot?.get() || [];
     if (els.bookingAdminSnapshotLocationRequired.checked && !snapshotLocations.length) return showMessage(els.bookingAdminSettingsMessage, '請先新增至少一個快照允許地點，才能啟用定位限制。', 'error');
     state.busy = true; clearMessage(els.bookingAdminSettingsMessage);
+    const previousDisabled = new Map([...els.bookingAdminSettingsForm.querySelectorAll('input,select,textarea,button')].map((control) => [control, control.disabled]));
+    for (const control of previousDisabled.keys()) control.disabled = true;
+    els.bookingAdminSettingsForm.setAttribute('aria-busy', 'true');
     els.bookingAdminSaveSettingsButton.disabled = true;
     els.bookingAdminSaveSettingsButton.textContent = '儲存中…';
     els.bookingAdminDiscardSettingsButton.disabled = true;
@@ -817,6 +820,8 @@
           : error?.message || '儲存失敗；目前輸入仍保留。', 'error');
     } finally {
       state.busy = false;
+      for (const [control, disabled] of previousDisabled) control.disabled = disabled;
+      els.bookingAdminSettingsForm.removeAttribute('aria-busy');
       els.bookingAdminSaveSettingsButton.disabled = false;
       els.bookingAdminSaveSettingsButton.textContent = '儲存預約與票券設定';
       updateSettingsDraft();
