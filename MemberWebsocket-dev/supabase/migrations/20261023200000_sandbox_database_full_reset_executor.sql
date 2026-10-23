@@ -43,6 +43,19 @@ begin
   v_items := v_items || pg_catalog.jsonb_build_array(
    pg_catalog.jsonb_build_object('schema',t.schemaname,'table',t.tablename,'rows',n));
  end loop;
+ -- A newly-created external view or materialized view changes the reviewed
+ -- schema fingerprint even when the contents of every table stay identical.
+ for t in
+  select n.nspname as schemaname,c.relname as viewname
+  from pg_catalog.pg_class c
+  join pg_catalog.pg_namespace n on n.oid=c.relnamespace
+  where c.relkind in ('v','m')
+    and (n.nspname in ('public','platform_private','booking_notifications','line_config')
+      or n.nspname ~ '^business_[a-f0-9]{32}$')
+  order by n.nspname,c.relname
+ loop
+  v_signature:=v_signature||'view:'||pg_catalog.format('%I.%I',t.schemaname,t.viewname)||';';
+ end loop;
  select count(*) into v_schemas from pg_catalog.pg_namespace
  where nspname ~ '^business_[a-f0-9]{32}$';
  return pg_catalog.jsonb_build_object(
