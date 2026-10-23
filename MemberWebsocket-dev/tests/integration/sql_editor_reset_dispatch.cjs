@@ -186,3 +186,34 @@ test('AC-CLR-047: owner-approved project ref remains required, even without back
   assert.equal(await tableCount(db,'public.admins'),1);
  }finally{await db.close()}
 });
+
+
+test('AC-CLR-048: stale asynchronous net dispatch is marked failed so DBA can retry',async()=>{
+ const db=await setup();
+ try{
+  const submitted=(await request(db)).rows[0].r;
+  await assert.rejects(request(db),/RESET_JOB_ALREADY_ACTIVE/);
+  await db.query("update maintenance.sql_full_reset_jobs set requested_at=now()-interval '10 minutes' where id=$1",[submitted.jobId]);
+  const retried=(await request(db)).rows[0].r;
+  assert.notEqual(retried.jobId,submitted.jobId);
+  assert.equal((await db.query('select state from maintenance.sql_full_reset_jobs where id=$1',[submitted.jobId])).rows[0].state,'failed');
+  assert.equal(await tableCount(db,'maintenance.sql_full_reset_jobs'),2);
+  assert.equal(await tableCount(db,'net.queued'),2);
+  assert.equal(await tableCount(db,'public.admins'),1);
+ }finally{await db.close()}
+});
+
+test('AC-CLR-049: stale running background job cannot permanently block another SQL Editor request',async()=>{
+ const db=await setup();
+ try{
+  const first=(await request(db)).rows[0].r;
+  const {ticket}=await getTicket(db);
+  await claim(db,first.jobId,ticket);
+  await assert.rejects(request(db),/RESET_JOB_ALREADY_ACTIVE/);
+  await db.query("update maintenance.sql_full_reset_jobs set started_at=now()-interval '40 minutes' where id=$1",[first.jobId]);
+  const second=(await request(db)).rows[0].r;
+  assert.equal(second.submitted,true);
+  assert.equal((await db.query('select error_code from maintenance.sql_full_reset_jobs where id=$1',[first.jobId])).rows[0].error_code,'RESET_STALE_BACKGROUND_JOB_EXPIRED');
+  assert.equal(await tableCount(db,'public.admins'),1);
+ }finally{await db.close()}
+});
