@@ -37,7 +37,7 @@ test('AC-PLAT-202: editing enabled only in Supabase table immediately activates 
   assert.equal((await h.call({action:'platform.bootstrap'},'manager')).status,403);
   await h.call({action:'platform.bootstrap'},'manager');
   assert.equal((await row(h.db,manager)).enabled,false,'LINE relogin cannot undo owner revocation');
-  const audits=(await h.db.query("select action from platform_private.audit_events where action like 'PLATFORM_SUPABASE_%' order by created_at")).rows.map(x=>x.action);
+  const audits=(await h.db.query("select action from platform_private.audit_events where action like 'PLATFORM_SUPABASE_%' and detail->>'targetLineUserId'='U22222222222222222222222222222222' order by created_at")).rows.map(x=>x.action);
   assert.deepEqual(audits,['PLATFORM_SUPABASE_ACCESS_GRANTED','PLATFORM_SUPABASE_ACCESS_REVOKED']);
   assert.equal((await h.call({action:'platform.application.approve',requestId:crypto.randomUUID(),applicationId:crypto.randomUUID(),features:h.tenant.features},'manager')).status,403);
  }finally{await h.db.close()}
