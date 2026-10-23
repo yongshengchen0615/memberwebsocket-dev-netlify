@@ -94,3 +94,16 @@ test('AC-PLAT-111: Supabase owner checkbox completes pending reset bootstrap epo
   assert.equal((await h.call({action:'platform.bootstrap'},'root')).status,200);
  }finally{await h.db.close()}
 });
+
+
+test('AC-PLAT-112: service-role registration RPC persists disabled singleton candidate in isolation',async()=>{
+ const h=await fixture();
+ try{
+  await h.db.exec('delete from platform_private.super_admins; delete from public.admins;');
+  const res=await h.rpc('platform_record_access_request',{p_actor:root,p_display_name:'verified LINE root'});
+  assert.equal(res.error,null,res.error?.message || 'registration error');
+  assert.equal(res.data.registered,true);
+  assert.equal(res.data.pendingSupabaseApproval,true);
+  assert.equal((await h.db.query('select enabled from platform_private.super_admins')).rows[0].enabled,false);
+ }finally{await h.db.close()}
+});
