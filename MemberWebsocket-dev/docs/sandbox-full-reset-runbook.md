@@ -20,13 +20,15 @@
 工作流程：[`MemberWebsocket-dev Manual Full Reset`](../../../.github/workflows/memberwebsocket-sandbox-reset.yml)。
 此工作流程只接受 **`workflow_dispatch` 人工啟動**，不會在 push、PR、merge 或部署時自動清除；只允許 GitHub 帳號 `yongshengchen0615` 啟動。
 
-啟用前先在 GitHub Repository → **Settings → Environments** 建立 `memberwebsocket-dev-reset`，設定必須由另一位授權人批准的 **Required reviewers**，並在該 Environment 的 Secrets（不是公開 Variables）保存：
+啟用前先在 GitHub Repository → **Settings → Environments** 建立 `memberwebsocket-dev-reset`，設定必須由另一位授權人批准的 **Required reviewers**，啟用 **Prevent self-review**、關閉 **Allow administrators to bypass configured protection rules**，並確認至少一位指定審核人不是 `yongshengchen0615`，並在該 Environment 的 Secrets（不是公開 Variables）保存：
 
 - `RESET_DB_URL`：**只連至** `dbuquirnaskrwcamdxki` 的 PostgreSQL 管理連線 URI。
 - `RESET_SERVICE_ROLE_KEY`：**僅此測試專案**的 Supabase service role 金鑰，不能給前端。
 - `RESET_BACKUP_KEY_B64`：獨立儲存在秘密管理器的隨機 AES-256 32 bytes 金鑰，以 base64 編碼。金鑰不能和加密備份放在一起。
 
-安全設定完成、並將此工作流程合併到 GitHub 預設分支後，進入 Repository → **Actions → MemberWebsocket-dev Manual Full Reset → Run workflow**：
+清除執行前會經 GitHub API 讀回 Environment 的審核規則，若缺少獨立審核、未開啟 Prevent self-review、仍可管理員略過審核，或不是從儲存庫預設 `main` 分支發起，立即拒絕清除。即使環境被意外自動建立，單靠有同名 Environment 也不代表授權通過。
+
+安全設定完成、並將此工作流程合併到 GitHub 預設分支 `main` 後，進入 Repository → **Actions → MemberWebsocket-dev Manual Full Reset → Run workflow**：
 
 1. 先選 `operation=plan`、`isolation=NOT VERIFIED`，預覽目前商家／帳號／表格範圍；無任何刪除。
 2. 要執行之前，獨立確認 LINE webhook、對外通知、登入與外部寫入已停止，不能只靠填表假設已隔離。
