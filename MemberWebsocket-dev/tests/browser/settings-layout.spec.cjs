@@ -52,7 +52,21 @@ for(const variant of [
   await expect(draftNotice).toHaveValue(originalNotice);
   await expect(draftStatus).toContainText('尚未修改');
   await draftNotice.fill('QA booking settings persisted '+variant.name);
-  await page.locator('#bookingAdminSaveSettingsButton').click();
+  if(variant.name==='desktop light') {
+    const transport=host.sessions.get(info.testId);
+    let releaseWrite;
+    transport.hold={action:'admin.booking.settings.save',wait:new Promise(resolve=>{releaseWrite=resolve;})};
+    try {
+      await page.locator('#bookingAdminSaveSettingsButton').click();
+      await expect(page.locator('#bookingAdminSaveSettingsButton')).toBeDisabled();
+      await expect(draftNotice).toBeDisabled();
+      await expect(draftStatus).toContainText('正在儲存');
+      const beforeRelease=transport.calls.filter(item=>item.action==='admin.booking.settings.save').length;
+      expect(beforeRelease).toBe(1);
+    } finally { releaseWrite(); }
+  } else {
+    await page.locator('#bookingAdminSaveSettingsButton').click();
+  }
   await expect(page.locator('#bookingAdminSettingsMessage')).toContainText('已儲存');
   await expect(draftStatus).toContainText('尚未修改');
   await expect(host.sessions.get(info.testId).settings.bookingNotice).toBe('QA booking settings persisted '+variant.name);
