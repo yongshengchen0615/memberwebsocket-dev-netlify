@@ -9,7 +9,12 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.0";
 const PROJECT="dbuquirnaskrwcamdxki";
 const DOMAIN="https://"+PROJECT+".supabase.co";
 type Json={ [key:string]:unknown };
-type Supabase=ReturnType<typeof createClient>;
+type Supabase=ReturnType<typeof configuration>;
+type RpcResponse={data:Json|null;error:{message:string}|null};
+function callRpc(db:Supabase, name:string, args:Record<string,unknown>):Promise<RpcResponse>{
+  const method=db.rpc as unknown as (name:string,args:Record<string,unknown>)=>Promise<RpcResponse>;
+  return method.call(db,name,args);
+}
 const send=(body:Json,status=200)=>new Response(JSON.stringify(body),{
  status,headers:{"Content-Type":"application/json","Cache-Control":"no-store"}
 });
@@ -20,7 +25,7 @@ function configuration(){
  return createClient(url,key,{auth:{autoRefreshToken:false,persistSession:false}});
 }
 async function phase(db:Supabase,id:string,ticket:string,action:string,result:Json|null=null):Promise<Json>{
- const r=await db.rpc("maintenance_sql_reset_phase",{
+ const r=await callRpc(db,"maintenance_sql_reset_phase",{
    p_job_id:id,p_ticket:ticket,p_action:action,p_result:result
  });
  if(r.error)throw Error("RESET_"+action.toUpperCase()+"_DENIED");
@@ -63,7 +68,7 @@ Deno.serve(async(req:Request)=>{
      !/^[a-f0-9]{64}$/.test(ticket))
     return send({ok:false,error:"INVALID_WORKER_REQUEST"},401);
   db=configuration();
-  const claim=await db.rpc("maintenance_sql_reset_claim",{
+  const claim=await callRpc(db,"maintenance_sql_reset_claim",{
    p_job_id:jobId,p_ticket:ticket
   });
   if(claim.error||claim.data?.accepted!==true)
