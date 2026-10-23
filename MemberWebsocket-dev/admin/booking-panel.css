@@ -172,3 +172,5 @@
   #bookingPanel .booking-admin-settings-action-buttons{display:grid;grid-template-columns:minmax(0,1fr)}
   #bookingPanel .booking-admin-settings-action-buttons .button{width:100%;min-width:0}
 }
+
+#bookingPanel .booking-admin-settings-form[aria-busy="true"] .coupon-location-map{pointer-events:none;opacity:.75}
