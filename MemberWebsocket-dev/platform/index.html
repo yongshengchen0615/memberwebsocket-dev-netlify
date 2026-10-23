@@ -11,7 +11,7 @@
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
   <script src="../business-context.js"></script>
 <script src="../member-system.js" defer></script>
-  <script src="./app.js?v=20261018-admin-workflow-2" defer></script>
+  <script src="./app.js?v=20261023-root-auto-reauth-1" defer></script>
   <link rel="stylesheet" href="../portal-navigation.css?v=unified-20261018-1">
   <script src="../portal-navigation.js?v=unified-20261018-1" defer></script>
 </head>
@@ -31,7 +31,7 @@
     </section>
     <section id="platformLoginGate" class="login-gate" hidden aria-labelledby="platformLoginTitle">
       <h2 id="platformLoginTitle">總管理員 LINE 身分確認</h2>
-      <p>為保護商家與管理員權限，每次進入本控制台都需要重新啟動 LINE 身分驗證。</p>
+      <p>首次進入會自動啟動 LINE 身分確認。若授權被拒絕、回跳逾時或登入失敗，請使用下方按鈕手動重試；總管理員權限仍由伺服器驗證。</p>
       <button id="platformLoginButton" type="button">重新使用 LINE 登入</button>
       <p class="hint">在 LINE 內建瀏覽器，系統會重新初始化 LINE 登入；一般瀏覽器將開啟 LINE 登入流程。</p>
     </section>
