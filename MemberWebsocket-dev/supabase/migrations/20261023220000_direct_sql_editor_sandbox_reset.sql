@@ -24,6 +24,14 @@ begin
   end if;
   perform pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('maintenance:sql-full-reset-request',0));
+  -- A failed pg_net dispatch or Edge cold-start must never strand this test
+  -- environment in queued/running forever. Tickets expire after 5 minutes;
+  -- an Edge task running for 30+ minutes is no longer recoverable.
+  update maintenance.sql_full_reset_jobs
+  set state='failed', finished_at=pg_catalog.clock_timestamp(),
+      error_code='RESET_STALE_BACKGROUND_JOB_EXPIRED'
+  where (state='queued' and requested_at < pg_catalog.clock_timestamp()-interval '6 minutes')
+     or (state='running' and started_at < pg_catalog.clock_timestamp()-interval '30 minutes');
   if exists(select 1 from maintenance.sql_full_reset_jobs
      where state in ('queued','running')) then
     raise exception 'RESET_JOB_ALREADY_ACTIVE';
