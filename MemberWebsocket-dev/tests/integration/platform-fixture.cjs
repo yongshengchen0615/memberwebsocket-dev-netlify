@@ -9,7 +9,7 @@ async function fixture(adminCount=1,manualGrant=true) {
  const db=new PGlite();
  await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
  create table public.admins(id uuid primary key default gen_random_uuid(),line_user_id text unique,display_name text,role text,status text);
- grant select on public.admins to service_role;
+ grant select,insert,update on public.admins to service_role;
  create table public.legacy_member_data(id uuid primary key default gen_random_uuid());
  insert into public.admins(line_user_id,role,status)values('${root}','admin','active');`);
  if(adminCount===2)await db.query("insert into admins(line_user_id,role,status)values($1,'admin','active')",[manager]);
