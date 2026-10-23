@@ -1,3 +1,5 @@
+> **2026-10-23 更新：本文件的 Platform 頁面內核准管理員流程已被取代。** 現行規格與實際操作請改看 [Supabase super_admins 直接授權](./platform-supabase-super-admins-grant-20261023.md)：Platform LINE 登入直接寫入 `platform_private.super_admins`、預設 `enabled=false`，Supabase 專案擁有者在 Table Editor 切換 `enabled` 即可。保留本文件僅作舊版測試與初始化背景；一般使用者不再需要透過此處的 DBA root 初始化函式取得 Platform 管理員授權。
+
 # Platform 清除後的登入紀錄與授權操作
 
 ## 經證實的起因
