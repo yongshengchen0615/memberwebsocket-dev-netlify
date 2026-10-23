@@ -5,10 +5,10 @@
 BEGIN;
 
 ALTER TABLE platform_private.super_admins
+  DROP CONSTRAINT super_admins_pkey;
+ALTER TABLE platform_private.super_admins
   ALTER COLUMN singleton DROP NOT NULL,
   ALTER COLUMN admin_id DROP NOT NULL;
-ALTER TABLE platform_private.super_admins
-  DROP CONSTRAINT super_admins_pkey;
 ALTER TABLE platform_private.super_admins
   ADD CONSTRAINT super_admins_pkey PRIMARY KEY (line_user_id);
 CREATE UNIQUE INDEX super_admins_single_root_idx
