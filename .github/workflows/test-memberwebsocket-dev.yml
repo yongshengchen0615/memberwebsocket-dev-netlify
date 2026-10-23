@@ -73,6 +73,7 @@ jobs:
         run: |
           node --test \
             MemberWebsocket-dev/tests/integration/product_platform.cjs \
+            MemberWebsocket-dev/tests/integration/admin_qualification.cjs \
             MemberWebsocket-dev/tests/integration/platform_remove_all_data.cjs \
             MemberWebsocket-dev/tests/integration/product_admin_ui.cjs \
             MemberWebsocket-dev/tests/integration/business_line_settings.cjs \
@@ -280,6 +281,7 @@ jobs:
           --test-reporter=spec --test-reporter-destination=stdout
           --test-reporter=junit --test-reporter-destination=postgres-results.xml
           MemberWebsocket-dev/tests/integration/postgres/booking-risk.cjs
+          MemberWebsocket-dev/tests/integration/postgres/admin-qualification.cjs
       - name: Save PostgreSQL acceptance results
         if: always()
         uses: actions/upload-artifact@v4
