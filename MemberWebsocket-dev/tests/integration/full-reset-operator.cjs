@@ -91,36 +91,49 @@ function pgEnv(parsed){
   PGDATABASE:decodeURIComponent(parsed.pathname.slice(1)),PGSSLMODE:parsed.searchParams.get('sslmode')||'require'};
  return opts;
 }
-async function backupAndRestoreDatabase({db,url,backupDir,keyBytes}){
- const parsed=new URL(url);
- assert(parsed.protocol==='postgresql:'||parsed.protocol==='postgres:','DATABASE_URL_INVALID');
- assert(parsed.hostname==='db.'+PROJECT+'.supabase.co'||parsed.hostname.endsWith('.pooler.supabase.com'),'DATABASE_HOST_MISMATCH');
+function validateRestoreDatabaseUrl(raw){
+ const u=new URL(raw);
+ assert(['postgres:','postgresql:'].includes(u.protocol),'RESTORE_DB_URL_PROTOCOL');
+ assert(['127.0.0.1','localhost','::1'].includes(u.hostname),'RESTORE_DB_MUST_BE_LOCAL');
+ assert(/^reset_restore_[a-f0-9]{32}$/.test(u.pathname.slice(1)),'RESTORE_DB_DISPOSABLE_NAME_REQUIRED');
+ return u;
+}
+async function backupAndRestoreDatabase({db,url,restoreUrl,backupDir,keyBytes}){
+ const parsed=new URL(url),target=validateRestoreDatabaseUrl(restoreUrl);
+ assert(['postgres:','postgresql:'].includes(parsed.protocol),'DATABASE_URL_INVALID');
+ assert(parsed.hostname==='db.'+PROJECT+'.supabase.co'||parsed.hostname.endsWith('.pooler.supabase.com'),
+  'DATABASE_HOST_MISMATCH');
+ assert(target.href!==parsed.href,'RESTORE_TARGET_MUST_DIFFER');
  const dump=path.join(backupDir,'snapshot.tmp');
  const encrypted=path.join(backupDir,'postgres.dump.enc');
  const pg={env:pgEnv(parsed),maxBuffer:1024*1024};
- const restoreName='reset_restore_'+randomUUID().replaceAll('-','');
+ const local={env:{...pgEnv(target),PGSSLMODE:target.searchParams.get('sslmode')||'disable'},maxBuffer:1024*1024};
  const dbCount=await db.query("select (select count(*)::int from public.admins) admins,(select count(*)::int from platform_private.tenants) tenants,(select count(*)::int from auth.users) users,(select count(*)::int from storage.objects) objects");
- let created=false;
+ const restored=new Client({connectionString:restoreUrl,connectionTimeoutMillis:8000});
  try{
   await exec('pg_dump',['--format=custom','--no-owner','--no-acl','--file='+dump],pg);
   const bytes=await fs.readFile(dump);
   await fs.writeFile(encrypted,cipher(keyBytes,bytes),{mode:0o600});
   const plain=decipher(keyBytes,await fs.readFile(encrypted));
   assert(sha(plain)===sha(bytes),'DATABASE_BACKUP_INTEGRITY_FAILURE');
-  // New database on the SAME isolated test Postgres cluster. Never restore into
-  // 'postgres' or another existing database, and never use --clean.
-  await db.query('create database '+ident(restoreName)+' template template0');
-  created=true;
-  await exec('pg_restore',['--exit-on-error','--no-owner','--no-acl','--dbname='+restoreName,dump],pg);
-  const restored=new Client({connectionString:url.replace(/\/[^/?]*(\?|$)/,'/'+restoreName+'$1'),connectionTimeoutMillis:8000});
+  // Must be an already created, empty, separate local PostgreSQL 17 DB.
+  // The operator never CREATEs or DROP(s) a database on Supabase, and never
+  // restores to any remote server or a reused DB.
+  await restored.connect();
+  const state=await restored.query("select current_database() name,(select count(*)::int from pg_class where relnamespace='public'::regnamespace and relkind in ('r','p')) tables");
+  assert(state.rows[0].name===target.pathname.slice(1),'RESTORE_DATABASE_NAME_MISMATCH');
+  assert(state.rows[0].tables===0,'RESTORE_DATABASE_NOT_EMPTY');
+  await restored.end();
+  await exec('pg_restore',['--exit-on-error','--no-owner','--no-acl','--dbname='+target.pathname.slice(1),dump],local);
+  const verified=new Client({connectionString:restoreUrl,connectionTimeoutMillis:8000});
   try{
-   await restored.connect();
-   const counts=await restored.query("select (select count(*)::int from public.admins) admins,(select count(*)::int from platform_private.tenants) tenants,(select count(*)::int from auth.users) users,(select count(*)::int from storage.objects) objects");
+   await verified.connect();
+   const counts=await verified.query("select (select count(*)::int from public.admins) admins,(select count(*)::int from platform_private.tenants) tenants,(select count(*)::int from auth.users) users,(select count(*)::int from storage.objects) objects");
    assert(json(counts.rows[0])===json(dbCount.rows[0]),'RESTORED_DB_COUNTS_NOT_MATCHED');
-  }finally{await restored.end().catch(()=>{})}
+  }finally{await verified.end().catch(()=>{})}
   return {sha256:sha(bytes),originalCounts:dbCount.rows[0],encryptedBackup:encrypted};
  }finally{
-  if(created)await db.query('drop database if exists '+ident(restoreName)+' with (force)').catch(()=>{throw Error('RESTORE_DATABASE_CLEANUP_FAILED')});
+  await restored.end().catch(()=>{});
   await fs.rm(dump,{force:true}).catch(()=>{});
  }
 }
@@ -167,7 +180,7 @@ async function run(env=process.env,args=process.argv.slice(2)){
   const backupDir=path.resolve(required(env,'RESET_BACKUP_DIR'));
   await fs.mkdir(backupDir,{recursive:true,mode:0o700});
   assert((await fs.readdir(backupDir)).length===0,'RESET_BACKUP_DIR_MUST_BE_EMPTY');
-  const backup=await backupAndRestoreDatabase({db:client,url:conn,backupDir,keyBytes:rootKey});
+  const backup=await backupAndRestoreDatabase({db:client,url:conn,restoreUrl:required(env,'RESET_RESTORE_DB_URL'),backupDir,keyBytes:rootKey});
   const objects=await verifyStorageArchive({url,key:service,db:client,keyBytes:rootKey,backupDir});
   await fs.writeFile(path.join(backupDir,'backup-proof.enc'),cipher(rootKey,Buffer.from(json({
    project:PROJECT,db:backup.sha256,storage:objects.length,backupAt:new Date().toISOString()
@@ -188,4 +201,4 @@ async function run(env=process.env,args=process.argv.slice(2)){
 }
 if(require.main===module)run().then(res=>console.log(json(res)))
  .catch(error=>{console.error('RESET_OPERATOR_FAILED:',error.message);process.exitCode=1});
-module.exports={run,cipher,decipher,storageCall,encoded,validateResetSecrets,validateProjectOrigin};
+module.exports={run,cipher,decipher,storageCall,encoded,validateResetSecrets,validateProjectOrigin,validateRestoreDatabaseUrl};
