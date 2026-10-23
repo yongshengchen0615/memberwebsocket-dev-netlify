@@ -77,6 +77,7 @@ jobs:
             MemberWebsocket-dev/tests/integration/full_reset_preflight.cjs \
             MemberWebsocket-dev/tests/integration/full_reset_readiness.cjs \
             MemberWebsocket-dev/tests/integration/sandbox_bootstrap.cjs \
+            MemberWebsocket-dev/tests/integration/sandbox_database_executor.cjs \
             MemberWebsocket-dev/tests/integration/product_admin_ui.cjs \
             MemberWebsocket-dev/tests/integration/business_line_settings.cjs \
             MemberWebsocket-dev/tests/integration/line_settings_keyboard.cjs \
