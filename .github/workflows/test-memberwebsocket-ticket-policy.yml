@@ -8,8 +8,7 @@ on:
       - '.github/workflows/publish-platform-preview.yml'
       - '.github/workflows/test-netlify-build.yml'
       - '.github/workflows/test-memberwebsocket-dev.yml'
-      - 'MemberWebsocket-dev/admin/**'
-      - 'MemberWebsocket-dev/tests/**'
+      - 'MemberWebsocket-dev/**'
       - '.github/workflows/test-memberwebsocket-ticket-policy.yml'
   push:
     branches:
@@ -23,8 +22,7 @@ on:
       - '.github/workflows/publish-platform-preview.yml'
       - '.github/workflows/test-netlify-build.yml'
       - '.github/workflows/test-memberwebsocket-dev.yml'
-      - 'MemberWebsocket-dev/admin/**'
-      - 'MemberWebsocket-dev/tests/**'
+      - 'MemberWebsocket-dev/**'
       - '.github/workflows/test-memberwebsocket-ticket-policy.yml'
 
 permissions:
