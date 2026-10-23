@@ -159,3 +159,37 @@ end $$;
 revoke all on function maintenance.ci_reset_plan(),
  maintenance.ci_reset_synthetic(uuid,text,text,text,text,text,boolean)
  from public,anon,authenticated,service_role;
+
+
+-- Deliberately separate the one-time synthetic DBA bootstrap from reset.
+-- A clean database is not a public self-registration path to platform root.
+create table maintenance.ci_root_bootstrap_audit(
+ id integer primary key, reset_request_id uuid not null, actor text not null,
+ reviewer text not null, occurred_at timestamptz not null default clock_timestamp()
+);
+create function maintenance.ci_bootstrap_root(p_actor text,p_reviewer text,p_confirmation text)
+returns jsonb language plpgsql security invoker set search_path=''
+as $$
+declare v_request uuid;
+begin
+ if pg_catalog.current_database() !~ '^ci_booking_[a-f0-9]{32}$'
+ then raise exception 'CI_ONLY_DATABASE_REQUIRED'; end if;
+ if p_actor is distinct from 'ci-root-actor' or p_reviewer is distinct from 'ci-separate-reviewer'
+   or p_actor=p_reviewer then raise exception 'CI_TWO_PERSON_REVIEW_REQUIRED'; end if;
+ if p_confirmation is distinct from 'BOOTSTRAP SYNTHETIC ROOT' then
+  raise exception 'CI_BOOTSTRAP_CONFIRMATION_REQUIRED'; end if;
+ perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('ci_reset_synthetic',0));
+ if exists(select 1 from public.admins) or exists(select 1 from platform_private.super_admins)
+    or not exists(select 1 from maintenance.ci_root_bootstrap where id=1 and required=true and enabled=false)
+ then raise exception 'CI_ROOT_BOOTSTRAP_NOT_PERMITTED'; end if;
+ select request_id into v_request from maintenance.ci_reset_audit order by occurred_at desc limit 1;
+ if v_request is null then raise exception 'CI_RESET_EVIDENCE_REQUIRED'; end if;
+ insert into public.admins(id) values(1);
+ insert into platform_private.super_admins(id,enabled) values(1,true);
+ update maintenance.ci_root_bootstrap set required=false,enabled=true where id=1;
+ insert into maintenance.ci_root_bootstrap_audit(id,reset_request_id,actor,reviewer)
+ values(1,v_request,p_actor,p_reviewer);
+ return pg_catalog.jsonb_build_object('rootReady',true,'resetRequestId',v_request,'syntheticOnly',true);
+end $$;
+revoke all on function maintenance.ci_bootstrap_root(text,text,text)
+from public,anon,authenticated,service_role;
