@@ -180,12 +180,16 @@ async function run(env=process.env,args=process.argv.slice(2)){
   const backupDir=path.resolve(required(env,'RESET_BACKUP_DIR'));
   await fs.mkdir(backupDir,{recursive:true,mode:0o700});
   assert((await fs.readdir(backupDir)).length===0,'RESET_BACKUP_DIR_MUST_BE_EMPTY');
+  const permissions=(await fs.stat(backupDir)).mode;
+  assert((permissions & 0o077)===0,'RESET_BACKUP_DIRECTORY_MUST_BE_PRIVATE');
+  // Stop recurring writers BEFORE taking the DB and object backup, not after.
+  // Remain stopped after failure: never resume outbox dispatch automatically.
+  const paused=await pauseCron(client);
   const backup=await backupAndRestoreDatabase({db:client,url:conn,restoreUrl:required(env,'RESET_RESTORE_DB_URL'),backupDir,keyBytes:rootKey});
   const objects=await verifyStorageArchive({url,key:service,db:client,keyBytes:rootKey,backupDir});
   await fs.writeFile(path.join(backupDir,'backup-proof.enc'),cipher(rootKey,Buffer.from(json({
    project:PROJECT,db:backup.sha256,storage:objects.length,backupAt:new Date().toISOString()
   }))),{mode:0o600});
-  const paused=await pauseCron(client);
   await deleteManagedResources({db:client,url,key:service,expectedObjects:objects});
   const active=(await client.query('select count(*)::int n from cron.job where active')).rows[0].n;
   assert(active===0,'ACTIVE_DISPATCH_RESTARTED');
