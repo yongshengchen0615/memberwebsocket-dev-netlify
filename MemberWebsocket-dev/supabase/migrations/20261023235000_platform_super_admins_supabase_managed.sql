@@ -49,8 +49,8 @@ BEGIN
    OR char_length(btrim(p_display_name)) NOT BETWEEN 1 AND 120
  THEN RAISE EXCEPTION 'PLATFORM_INVALID_ACCESS_IDENTITY'; END IF;
  INSERT INTO platform_private.super_admins
-   (singleton,admin_id,line_user_id,display_name,enabled)
- VALUES (NULL,NULL,p_actor,btrim(p_display_name),FALSE)
+   (line_user_id,display_name)
+ VALUES (p_actor,btrim(p_display_name))
  ON CONFLICT (line_user_id) DO UPDATE
    SET display_name=EXCLUDED.display_name,
        last_seen_at=clock_timestamp()
@@ -147,4 +147,37 @@ GRANT EXECUTE ON FUNCTION public.platform_record_access_request(text,text),
  TO service_role;
 REVOKE EXECUTE ON FUNCTION public.platform_review_access_request(text,text,boolean)
  FROM service_role;
+
+-- Service role is used by the Edge worker for verified LINE login.
+-- Column privileges prevent it from directly granting permissions or
+-- impersonating the singleton root, even if an unrelated API has a flaw.
+REVOKE INSERT,UPDATE ON platform_private.super_admins FROM service_role;
+GRANT INSERT(line_user_id,display_name) ON platform_private.super_admins TO service_role;
+GRANT UPDATE(display_name,last_seen_at) ON platform_private.super_admins TO service_role;
+GRANT SELECT ON platform_private.super_admins TO service_role;
+
+-- DB/Supabase permission changes are auditable, but Supabase SQL sessions
+-- may expose postgres rather than the actual Dashboard human identity.
+CREATE OR REPLACE FUNCTION platform_private.audit_super_admin_enabled()
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=''
+AS $audit$
+BEGIN
+ IF OLD.enabled IS DISTINCT FROM NEW.enabled THEN
+  INSERT INTO platform_private.audit_events(actor,action,detail)
+  VALUES (
+    coalesce(nullif(current_setting('request.jwt.claim.sub',TRUE),''),current_user),
+    CASE WHEN NEW.enabled THEN 'PLATFORM_SUPABASE_ACCESS_GRANTED'
+      ELSE 'PLATFORM_SUPABASE_ACCESS_REVOKED' END,
+    jsonb_build_object('targetLineUserId',NEW.line_user_id,
+      'enabled',NEW.enabled,'dbRole',current_user)
+  );
+ END IF;
+ RETURN NEW;
+END
+$audit$;
+CREATE TRIGGER platform_super_admin_enabled_audit
+AFTER UPDATE OF enabled ON platform_private.super_admins
+FOR EACH ROW EXECUTE FUNCTION platform_private.audit_super_admin_enabled();
+REVOKE ALL ON FUNCTION platform_private.audit_super_admin_enabled()
+  FROM PUBLIC,anon,authenticated;
 COMMIT;
