@@ -1,0 +1,31 @@
+name: Test Projects v2 Card Manager
+
+on:
+  push:
+    paths:
+      - 'scripts/project-v2.mjs'
+      - 'scripts/project-v2.test.mjs'
+      - '.github/workflows/test-project-v2.yml'
+  pull_request:
+    paths:
+      - 'scripts/project-v2.mjs'
+      - 'scripts/project-v2.test.mjs'
+      - '.github/workflows/test-project-v2.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  projects-v2-contract:
+    name: Projects v2 synthetic CRUD and safety checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check JavaScript syntax
+        run: node --check scripts/project-v2.mjs
+      - name: Test Projects v2 operations without live credentials
+        run: node --test scripts/project-v2.test.mjs
