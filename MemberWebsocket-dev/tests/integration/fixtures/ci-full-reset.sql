@@ -76,7 +76,7 @@ declare v_database text := pg_catalog.current_database(); v_names text[] := arra
  'business_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.bookings',
  'business_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.outbox',
  'auth.users','storage.objects'];
- v_actual integer; v_table text; v_n bigint; v_total bigint:=0; v_signature text:='';
+ v_actual integer; v_table text; v_n bigint; v_total bigint:=0; v_signature text:=''; v_row_digest text;
 begin
  if v_database !~ '^ci_booking_[a-f0-9]{32}$' then raise exception 'CI_ONLY_DATABASE_REQUIRED'; end if;
  select count(*)::integer into v_actual from pg_catalog.pg_tables
@@ -91,7 +91,12 @@ begin
  foreach v_table in array v_names loop
   execute 'select count(*)::bigint from '||v_table into v_n;
   v_total:=v_total+v_n;
-  v_signature:=v_signature||v_table||':'||v_n::text||';';
+  -- Cover content, not only counts: changes with the same number of rows
+  -- must invalidate an earlier plan. Return only a SHA-256 summary.
+  execute pg_catalog.format(
+   'select coalesce(string_agg(encode(sha256(convert_to(row_to_json(t)::text,''UTF8'')),''hex''),''|'' order by row_to_json(t)::text),'''') from %s t',
+   v_table) into v_row_digest;
+  v_signature:=v_signature||v_table||':'||v_n::text||':'||v_row_digest||';';
  end loop;
  return pg_catalog.jsonb_build_object('tableCount',v_actual,'rowCount',v_total,
   'fingerprint',pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(v_signature,'UTF8')),'hex'),
@@ -128,6 +133,22 @@ begin
  if not exists(select 1 from maintenance.ci_dispatch_gate where blocked=true)
     or exists(select 1 from maintenance.ci_dispatch_gate where blocked=false)
    then raise exception 'CI_EXTERNAL_DISPATCH_NOT_BLOCKED'; end if;
+ -- The plan check and the delete operate under the same table locks: no
+ -- concurrent app write may slip in between the fingerprint and TRUNCATE.
+ lock table
+  public.admins,public.members,public.system_settings,
+  platform_private.super_admins,platform_private.tenants,platform_private.module_secrets,
+  platform_private.module_notification_routes,platform_private.audit_events,
+  booking_notifications.outbox,
+  business_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.admins,
+  business_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.members,
+  business_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.bookings,
+  business_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.outbox,
+  business_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.admins,
+  business_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.members,
+  business_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.bookings,
+  business_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.outbox,
+  auth.users,storage.objects in access exclusive mode;
  v_plan:=maintenance.ci_reset_plan();
  if v_plan->>'fingerprint' is distinct from p_plan_sha then raise exception 'CI_RESET_STALE_PLAN'; end if;
 
