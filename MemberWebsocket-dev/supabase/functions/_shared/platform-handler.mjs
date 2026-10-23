@@ -8,6 +8,7 @@ const SQL_ERRORS = {
   PLATFORM_FEATURE_DISABLED:[403,'此功能尚未核准。'], PLATFORM_RESUME_NOT_READY:[409,'商家尚未完成開通，無法復權。'], TENANT_EXPIRED:[403,'使用期限已到，請聯絡總管理員。'],
   PLATFORM_DUPLICATE_SLUG:[409,'商家代碼已被使用。'], PLATFORM_REQUEST_CONFLICT:[409,'這個操作識別碼已用於其他內容。'],
   PLATFORM_TENANT_NOT_FOUND:[404,'找不到商家。'], PLATFORM_PROVISIONING_REQUIRED:[409,'商家尚未完成獨立資料環境驗證。'],
+  PLATFORM_SUPABASE_ONLY_APPROVAL:[403,'Platform 管理權限只能由 Supabase 管理者修改。'],
   PLATFORM_ROOT_REQUIRED:[403,'只有最高管理員可以核准或撤銷 Platform 管理權。'],
   PLATFORM_SELF_OR_ROOT_REVIEW_FORBIDDEN:[403,'不可核准自己或變更最高管理員權限。'],
   PLATFORM_ACCESS_REQUEST_NOT_FOUND:[404,'找不到待審核的 Platform 管理員登入紀錄。'],
@@ -238,32 +239,20 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       if (auth.error) throw databaseError(auth.error);
       if (auth.data !== true) throw new PlatformError(403,'PLATFORM_ADMIN_REQUIRED','僅總管理員可管理商家。');
       if (body.action === 'platform.bootstrap') {
-        const [tenants,applications,rootGrant] = await Promise.all([
+        const [tenants,applications] = await Promise.all([
           db.rpc('platform_list_tenants',{p_actor:actor}),
           db.rpc('platform_list_applications',{p_actor:actor}),
-          db.rpc('platform_is_root_super_admin',{p_actor:actor}),
         ]);
         if (tenants.error) throw databaseError(tenants.error);
         if (applications.error) throw databaseError(applications.error);
-        if (rootGrant.error) throw databaseError(rootGrant.error);
-        let operatorRequests = [];
-        if (rootGrant.data === true) {
-          const applicants=await db.rpc('platform_list_access_requests',{p_actor:actor});
-          if (applicants.error) throw databaseError(applicants.error);
-          operatorRequests=applicants.data || [];
-        }
         return json({ok:true,data:{profile:{displayName:identity.displayName},
-          features:FEATURES,tenants:(tenants.data || []).map(publicTenant),applications:applications.data || [],
-          canReviewPlatformAccess:rootGrant.data===true,operatorRequests}});
+          features:FEATURES,tenants:(tenants.data || []).map(publicTenant),applications:applications.data || []}});
       }
+      // This API never approves Platform operators: the Supabase owner edits
+      // platform_private.super_admins.enabled in the Table Editor.
       if (body.action === 'platform.operator.review') {
-        if (typeof body.targetLineUserId!=='string' || !/^U[0-9a-f]{32}$/.test(body.targetLineUserId)
-          || typeof body.allowed!=='boolean') throw new PlatformError(400,'PLATFORM_INVALID_ACCESS_REVIEW','權限核准資料不正確。');
-        const updated=await db.rpc('platform_review_access_request',{
-          p_actor:actor,p_target:body.targetLineUserId,p_allow:body.allowed,
-        });
-        if (updated.error) throw databaseError(updated.error);
-        return json({ok:true,data:{review:updated.data}});
+        throw new PlatformError(403,'PLATFORM_SUPABASE_ONLY_APPROVAL',
+          'Platform 管理權限只能由 Supabase 管理者修改。');
       }
       if (body.action === 'platform.application.approve') {
         if (!uuid.test(body.requestId || '') || !uuid.test(body.applicationId || ''))
