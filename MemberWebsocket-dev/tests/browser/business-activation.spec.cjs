@@ -36,6 +36,10 @@ test('BUSINESS_APPROVAL_ACTIVATES — real approval/SQL immediately opens grant-
   const row=(await h.db.query('select * from platform_private.tenants')).rows[0];expect(row.status).toBe('active');expect(row.credentials_configured).toBe(false);
   await manager.locator('#refreshApplication').click();await expect(manager.locator('#businessWorkspaceStatus')).toContainText('審核已通過');
   await expect(manager).toHaveURL(base+'/admin/?business='+row.slug);
+  // AC-LNN-001/004: only the grant-controlled tab remains, at all viewport sizes.
+  await expect(manager.locator('#adminView .account-menu a[href="#productizedAdmin"]')).toHaveCount(0);
+  await expect(manager.locator('#lineSettingsTab')).toHaveCount(1);
+  await expect(manager.locator('#lineSettingsPanel')).toHaveCount(1);
   await expect(manager.locator('#membersTab')).toBeVisible();await expect(manager.locator('#cardsTab')).toBeVisible();await expect(manager.locator('#eventsTab')).toBeHidden();await expect(manager.locator('#bookingTab')).toBeHidden();
   await expect(manager.locator('#memberUsageTab')).toBeHidden();
   await manager.locator('#memberDirectoryTab').focus();await manager.keyboard.press('ArrowRight');
