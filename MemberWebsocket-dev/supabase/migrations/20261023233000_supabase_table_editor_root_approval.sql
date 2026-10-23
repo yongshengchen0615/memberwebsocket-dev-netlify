@@ -84,6 +84,7 @@ declare
  v_record platform_private.platform_access_requests%rowtype;
  v_admin_id uuid;
  v_root_candidate_created boolean:=false;
+ v_rows integer;
 begin
  if p_actor is null or p_actor !~ '^U[0-9a-f]{32}$'
    or p_display_name is null
@@ -98,10 +99,9 @@ begin
                last_seen_at=pg_catalog.clock_timestamp()
  returning * into v_record;
 
- -- An existing owner/root can never be overwritten by new LINE visitors.
- -- Two concurrent first visits serialize and create at most one proposal.
- perform pg_catalog.pg_advisory_xact_lock(
-   pg_catalog.hashtextextended('platform:first-root-candidate',0));
+ -- Existing grants cannot be overwritten by LINE visitors. The singleton
+ -- PRIMARY KEY serializes concurrent first visits (including in PGlite);
+ -- there is no unsupported advisory-lock assumption in the web runtime.
  if not exists(select 1 from platform_private.super_admins) then
    insert into public.admins(line_user_id,display_name,role,status)
    values(p_actor,pg_catalog.btrim(p_display_name),'none','pending')
@@ -111,8 +111,10 @@ begin
 
    insert into platform_private.super_admins(
      singleton,admin_id,enabled,line_user_id
-   ) values(true,v_admin_id,false,p_actor);
-   v_root_candidate_created:=true;
+   ) values(true,v_admin_id,false,p_actor)
+   on conflict (singleton) do nothing;
+   get diagnostics v_rows = row_count;
+   v_root_candidate_created := (v_rows=1);
  end if;
 
  return pg_catalog.jsonb_build_object(
