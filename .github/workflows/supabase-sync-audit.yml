@@ -60,6 +60,9 @@ jobs:
             echo '::error::Set SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD as repository Actions secrets.'
             exit 1
           fi
+      - name: Initialize local CLI metadata (no database changes)
+        working-directory: MemberWebsocket-dev
+        run: supabase init
       - name: Link working copy to existing production project
         working-directory: MemberWebsocket-dev
         run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
