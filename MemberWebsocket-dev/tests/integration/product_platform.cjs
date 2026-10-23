@@ -108,9 +108,14 @@ test('AC-009: platform-only LINE channel and root UID binding both required',asy
  const h=await fixture();try{
   assert.equal((await h.call({action:'platform.bootstrap'},'legacy-root')).status,401);
   assert.equal((await h.call({action:'platform.bootstrap'},'manager')).status,403);
+  await assert.rejects(h.db.query("update platform_private.super_admins set line_user_id='bad'"),/PLATFORM_DISABLE_ROOT_BEFORE_REASSIGNING_IDENTITY/);
+  // Existing active root cannot silently change LINE identity. Supabase DBA
+  // must explicitly disable the grant, rebind and enable it again.
+  await h.db.exec('update platform_private.super_admins set enabled=false where singleton');
   await assert.rejects(h.db.query("update platform_private.super_admins set line_user_id='bad'"),/platform_super_admin_line_identity/);
   const newId='U'+'3'.repeat(32);
   await h.db.query('update platform_private.super_admins set line_user_id=$1 where singleton',[newId]);
+  await h.db.exec('update platform_private.super_admins set enabled=true where singleton');
   assert.equal((await h.call({action:'platform.bootstrap'},'root')).status,403);
   await h.call({action:'platform.application.submit',businessName:'換授權商家',slug:'rebind-root'},'manager');
   const apps=(await h.call({action:'platform.bootstrap'},'new-provider-root')).body.data.applications;
