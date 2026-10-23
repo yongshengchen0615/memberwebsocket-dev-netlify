@@ -71,6 +71,19 @@ async function verifyStorageArchive({url,key,db,keyBytes,backupDir}){
  await fs.writeFile(path.join(backupDir,'storage-manifest.enc'),encrypted,{mode:0o600});
  return manifest;
 }
+function validateProjectOrigin(raw){
+ const u=new URL(raw);
+ assert(u.origin==='https://'+PROJECT+'.supabase.co','SUPABASE_URL_NOT_ALLOWLISTED');
+ return u.origin;
+}
+function validateResetSecrets(env){
+ assert(required(env,'RESET_CONFIRM')===CONFIRM,'RESET_CONFIRMATION_MISMATCH');
+ const k=Buffer.from(required(env,'RESET_BACKUP_KEY_B64'),'base64');
+ assert(k.length===32,'RESET_BACKUP_KEY_MUST_BE_32_BYTES');
+ assert(required(env,'RESET_PROVIDER_ISOLATION_ATTESTATION')==='DISPATCH_DISABLED_AND_EXTERNAL_WEBHOOKS_ISOLATED',
+  'EXTERNAL_PROVIDER_ISOLATION_NOT_ATTESTED');
+ return k;
+}
 function pgEnv(parsed){
  const opts={...process.env,
   PGHOST:parsed.hostname,PGPORT:parsed.port||'5432',
@@ -147,16 +160,10 @@ async function run(env=process.env,args=process.argv.slice(2)){
   assert(state.projectRef===PROJECT&&state.existingProjectApprovedAsSandbox,'WRONG_PROJECT');
   const current=(await client.query('select maintenance.plan_sandbox_database_reset() p')).rows[0].p;
   if(args[0]==='--plan')return{mode:'plan',preview:current};
-  assert(required(env,'RESET_CONFIRM')===CONFIRM,'RESET_CONFIRMATION_MISMATCH');
-  const rootKey=Buffer.from(required(env,'RESET_BACKUP_KEY_B64'),'base64');
-  assert(rootKey.length===32,'RESET_BACKUP_KEY_MUST_BE_32_BYTES');
-  const url=required(env,'SUPABASE_URL').replace(/\/$/,'');
-  assert(new URL(url).origin==='https://'+PROJECT+'.supabase.co','SUPABASE_URL_NOT_ALLOWLISTED');
+  const rootKey=validateResetSecrets(env);
+  const url=validateProjectOrigin(required(env,'SUPABASE_URL'));
   const service=required(env,'SUPABASE_SERVICE_ROLE_KEY');
-  // This must be a separately recorded human check of disabled LINE webhooks,
-  // ingress, and external notification providers. No automated proof is made.
-  assert(required(env,'RESET_PROVIDER_ISOLATION_ATTESTATION')==='DISPATCH_DISABLED_AND_EXTERNAL_WEBHOOKS_ISOLATED',
-   'EXTERNAL_PROVIDER_ISOLATION_NOT_ATTESTED');
+  // Attestation cannot automatically prove LINE provider-side isolation.
   const backupDir=path.resolve(required(env,'RESET_BACKUP_DIR'));
   await fs.mkdir(backupDir,{recursive:true,mode:0o700});
   assert((await fs.readdir(backupDir)).length===0,'RESET_BACKUP_DIR_MUST_BE_EMPTY');
@@ -181,4 +188,4 @@ async function run(env=process.env,args=process.argv.slice(2)){
 }
 if(require.main===module)run().then(res=>console.log(json(res)))
  .catch(error=>{console.error('RESET_OPERATOR_FAILED:',error.message);process.exitCode=1});
-module.exports={run,cipher,decipher,storageCall,encoded};
+module.exports={run,cipher,decipher,storageCall,encoded,validateResetSecrets,validateProjectOrigin};
