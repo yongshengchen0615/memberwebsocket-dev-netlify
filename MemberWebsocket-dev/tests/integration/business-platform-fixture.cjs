@@ -1,13 +1,18 @@
 const fixture=require('./business-runtime-fixture.cjs');
 const {shared,key}=require('./platform-fixture.cjs');
 module.exports=async()=>{
- const h=await fixture();const allowedOrigins=new Set(['https://allowed.test']);
+ const h=await fixture();
+ // This cross-module browser fixture uses the production platform handler.
+ // Apply the new platform registration migration to its physical SQL DB too.
+ const fs=require('node:fs'),path=require('node:path');
+ await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261023224500_platform_access_registration_and_review.sql'),'utf8'));
+ const allowedOrigins=new Set(['https://allowed.test']);
  const rpc=async(name,params={})=>{
   if(!/^(platform_[a-z_]+|consume_api_rate_limit)$/.test(name))throw Error('Unknown RPC '+name);
   try{
    const entries=Object.entries(params),sql=`select public.${name}(${entries.map(([key],i)=>key+'=>$'+(i+1)).join(',')}) result`;
    const rows=await h.db.transaction(async tx=>{await tx.exec('set local role service_role');return(await tx.query(sql,entries.map(([,value])=>value))).rows;});
-   return{data:['platform_list_tenants','platform_list_applications','platform_active_businesses'].includes(name)?rows.map(r=>r.result):rows[0]?.result,error:null};
+   return{data:['platform_list_tenants','platform_list_applications','platform_list_access_requests','platform_active_businesses'].includes(name)?rows.map(r=>r.result):rows[0]?.result,error:null};
   }catch(error){return{data:null,error};}
  };
  const {createPlatformHandler}=await shared('platform-handler.mjs'),{verifyPlatformIdToken,verifyMerchantAdminIdToken}=await shared('platform-auth.mjs');

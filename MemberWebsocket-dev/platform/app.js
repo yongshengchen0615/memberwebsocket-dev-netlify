@@ -6,7 +6,7 @@
   const form = el('tenantForm'), dialog = el('tenantDialog');
   const fields = form.elements;
   const lineKeys = ['adminChannelId','memberChannelId','messagingChannelId','adminLiffId','memberLiffId','pointsLiffId','eventLiffId','calendarLiffId','bookingLiffId'];
-  const state = {config:null,idToken:'',features:{},tenants:[],applications:[],current:null,pending:null,busy:false,approval:null,merchant:null,merchantPending:null};
+  const state = {config:null,idToken:'',features:{},tenants:[],applications:[],operatorRequests:[],canReviewPlatformAccess:false,current:null,pending:null,busy:false,approval:null,merchant:null,merchantPending:null};
   const LOGIN_RETURN_KEY=merchantEntry?'admin-line-login-return-v1':'platform-line-login-return-v1';
   const LOGIN_RETURN_TTL_MS=180_000;
   const AUTO_LOGIN_ATTEMPT_KEY='platform-line-auto-attempt-v1';
@@ -214,7 +214,49 @@
   });
   el('closeExpiry').addEventListener('click',()=>{if(!expiryBusy&&!expiryPending)expiryDialog.close();});
   expiryDialog.addEventListener('cancel',event=>{if(expiryBusy||expiryPending)event.preventDefault();});
-  async function refresh() {const data=await request('platform.bootstrap');state.tenants=data.tenants;state.applications=data.applications||[];state.features=data.features;render();renderApplications();return data;}
+  function renderPlatformAccessRequests() {
+    const panel=el('platformAccessPanel'),list=el('platformAccessList');
+    if(!panel||!list)return;
+    panel.hidden=!state.canReviewPlatformAccess;
+    list.replaceChildren();
+    if(!state.canReviewPlatformAccess)return;
+    if(!state.operatorRequests.length){
+      const p=document.createElement('p');p.className='empty';
+      p.textContent='尚無其他已驗證 LINE 身分的 Platform 管理員申請。';list.append(p);return;
+    }
+    for(const applicant of state.operatorRequests){
+      const card=document.createElement('article');card.className='tenant-card';
+      const name=document.createElement('strong');name.textContent=applicant.displayName || 'LINE 使用者';
+      const lineId=document.createElement('p');lineId.textContent='LINE ID：'+applicant.lineUserId;
+      const status=document.createElement('p');
+      status.textContent=(applicant.allowed?'已授予 Platform 管理權':'待核准 / 未授權')
+        +' · 最後登入：'+new Date(applicant.lastSeenAt).toLocaleString('zh-TW');
+      const change=document.createElement('button');change.type='button';change.className='secondary';
+      change.textContent=applicant.allowed?'撤銷 Platform 權限':'核准 Platform 權限';
+      change.addEventListener('click',async()=>{
+        const allowed=!applicant.allowed;
+        if(!window.confirm((allowed?'核准':'撤銷')+'「'+(applicant.displayName||'LINE 使用者')+'」的 Platform 管理權？'))return;
+        change.disabled=true;
+        try{
+          await request('platform.operator.review',{targetLineUserId:applicant.lineUserId,allowed});
+          await refresh();
+          el('platformStatus').textContent=allowed?'管理權限已核准。':'管理權限已撤銷；舊身分憑證無法再操作 Platform。';
+        }catch(error){
+          el('platformStatus').textContent=error.message;
+          await refresh().catch(()=>{});
+        }finally{change.disabled=false;}
+      });
+      card.append(name,lineId,status,change);list.append(card);
+    }
+  }
+  async function refresh() {
+    const data=await request('platform.bootstrap');
+    state.tenants=data.tenants;state.applications=data.applications||[];
+    state.features=data.features;state.canReviewPlatformAccess=data.canReviewPlatformAccess===true;
+    state.operatorRequests=state.canReviewPlatformAccess?(data.operatorRequests||[]):[];
+    render();renderApplications();renderPlatformAccessRequests();
+    return data;
+  }
   function collect() {return {name:fields.namedItem('name').value.trim(),slug:fields.namedItem('slug').value.trim(),ownerLineUserId:fields.namedItem('ownerLineUserId').value.trim(),
     features:Object.fromEntries([...form.querySelectorAll('[data-feature]')].map(node=>[node.dataset.feature,node.checked])),
     line:Object.fromEntries(lineKeys.map(key=>[key,fields.namedItem(key).value.trim()])),
