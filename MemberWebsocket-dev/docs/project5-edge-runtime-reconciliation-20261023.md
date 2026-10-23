@@ -18,6 +18,20 @@
 | `booking-admin-operations` | v27 | **是**（兩端各 33,236 字元） | `admin.booking.*` 入口限制、`verifyLineIdTokenContract`、`authorizeAdmin`；部分變更 RPC 傳遞驗證身分衍生的 `p_actor` | 全 action 的資源 owner、跨商家 A/B、共用依賴及實際 SQL 結果仍待測 |
 | `point-ticket-batch-api` | v8 | **是**（兩端各 1,243 字元） | 已退休相容入口：`OPTIONS` 204，其餘回應 HTTP 410／`FUNCTION_RETIRED`，指向 `pointcard-extension-api` | 實際遠端 HTTP 410 與租戶 wrapper 故障路徑仍待測 |
 
+## 共用安全依賴的部署差異（同輪追加）
+
+入口檔相同**不等於**整個部署套件相同。繼續檢查上述三支 ACTIVE 業務 Function 打包的 `_shared` 關鍵模組，對應相同整合 SHA 的 GitHub 來源進行逐字比對：
+
+| 已部署 Function | `auth-contract.ts` | `business-runtime.ts` | `business-scope.ts` | `tenant-access.mjs` |
+| --- | --- | --- | --- | --- |
+| `fixed-ticket-automation` v11 | 未打包／入口使用自行實作的 verifyAdmin | **不同**（來源 13,460／部署 11,659 字元） | **不同**（2,380／2,290） | 相同（1,137） |
+| `member-profile-api` v33 | **不同**（來源 7,731／部署 7,906 字元） | **不同**（13,460／11,659） | **不同**（2,380／2,290） | 相同（1,137） |
+| `booking-admin-operations` v27 | **不同**（7,731／7,906） | 相同（13,460） | 相同（2,380） | 相同（1,137） |
+
+- 整合來源 `_shared/auth-contract.ts` 引入 `isVerifiedLineIdClaim`；會員與預約管理兩個遠端打包版本**尚無該共用 guard 的 import**。部署版仍有自己對 sub／aud／iss／exp／iat 的檢查，這是**版本與驗證契約不一致**，不能直接推斷能繞過 LINE 認證。
+- 本輪三支遠端打包檔均沒有 `_shared/line-id-claims.mjs`。與來源匯入關係一致的完整 bundle 是否已部署，仍待在核可沙盒重新打包／部署與負向 HTTP 驗證。
+- 此表只覆蓋四個共用檔和三支 Function，**未核對其他相依模組／整個 32 支入口，也沒有驗證遠端可見的權限資料**。任何發布決策須採完整 dependency closure、版本與執行結果，而不是只比入口。
+
 **重要：** 上述長度和完全一致結果只針對四支入口檔；不是 32 個 Edge Function 的整體版本驗證。部署 metadata `verify_jwt=false` 不單獨等於漏洞，因為本系統也使用應用層 LINE 驗證，必須按每個 action 觀察伺服器拒絕行為。
 
 ## 驗收對照與可執行測試
