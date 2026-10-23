@@ -4,7 +4,7 @@ const {pathToFileURL}=require('node:url');
 const shared=name=>import(pathToFileURL(path.join(__dirname,'../../supabase/functions/_shared',name)));
 const root='U'+'1'.repeat(32),manager='U'+'2'.repeat(32),key=Buffer.alloc(32,7).toString('base64');
 const tenantId='10000000-0000-4000-8000-000000000001';
-const migration=['20261017131559_product_platform_control_plane.sql','20261017140939_platform_line_identity.sql','20261017164510_platform_admin_applications.sql','20261018012500_platform_feature_grants_only.sql','20261018181500_platform_manual_super_admin_grant.sql','20261023224500_platform_access_registration_and_review.sql'].map(name=>fs.readFileSync(path.join(__dirname,'../../supabase/migrations',name),'utf8')).join('\n');
+const migration=['20261017131559_product_platform_control_plane.sql','20261017140939_platform_line_identity.sql','20261017164510_platform_admin_applications.sql','20261018012500_platform_feature_grants_only.sql','20261018181500_platform_manual_super_admin_grant.sql','20261023224500_platform_access_registration_and_review.sql','20261023233000_supabase_table_editor_root_approval.sql'].map(name=>fs.readFileSync(path.join(__dirname,'../../supabase/migrations',name),'utf8')).join('\n');
 async function fixture(adminCount=1,manualGrant=true) {
  const db=new PGlite();
  await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
