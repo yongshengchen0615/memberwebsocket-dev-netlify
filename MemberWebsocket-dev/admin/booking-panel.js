@@ -31,7 +31,7 @@
   // Only behavior modules remain lazy so opening the admin shell cannot cause
   // a late stylesheet-driven layout shift.
   const preloadExtensions = [
-    ['booking-risk.js', 'booking-risk-recovery-20261022-1'],
+    ['booking-risk.js', 'booking-risk-recovery-20261022-1-risk-tab-20261023-1'],
     ['booking-always-open.js', 'booking-always-open-20260917-2'],
     ['booking-cancellation-sync.js', 'layout-stability-20261001-1-controls-20261010-2'],
     ['booking-resources.js', 'booking-technician-disable-action-20260920-1-booking-settings-20261006-2-ui-20261006-1'],
@@ -44,7 +44,7 @@
           console.error('booking admin extension preload failed', preloadExtensions[index][0], result.reason);
         }
       });
-      const result = load('booking-panel-core.js', 'booking-operations-split-20261003-1-ticket-source-20261004-1-ticket-card-ui-20261004-1-ticket-booking-20261006-1-booking-settings-20261006-2-ui-20261006-1-badge-20261009-1-snapshot-20261010-1-policy-entry-20261010-1-controls-20261010-2-snapshot-geofence-20261012-1-release-20261014-1-no-show-history-20261014-1-hide-early-hint-20261015-1-service-ticket-rule-20261015-1-booking-risk-20261021-1');
+      const result = load('booking-panel-core.js', 'booking-operations-split-20261003-1-ticket-source-20261004-1-ticket-card-ui-20261004-1-ticket-booking-20261006-1-booking-settings-20261006-2-ui-20261006-1-badge-20261009-1-snapshot-20261010-1-policy-entry-20261010-1-controls-20261010-2-snapshot-geofence-20261012-1-release-20261014-1-no-show-history-20261014-1-hide-early-hint-20261015-1-service-ticket-rule-20261015-1-booking-risk-20261021-1-risk-tab-20261023-1');
       // Compatibility marker for legacy architecture checks:
       // load('booking-panel-core.js', 'layout-stability-20261001-1')
       return result;

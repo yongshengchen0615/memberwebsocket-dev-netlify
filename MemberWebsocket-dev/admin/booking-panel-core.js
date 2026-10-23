@@ -68,7 +68,7 @@
     panel.setAttribute('aria-labelledby', 'bookingTab');
     panel.innerHTML = `
       <div class="panel-heading booking-admin-heading">
-        <div><p class="kicker">Booking operations</p><h2>預約管理</h2><p>技師、預約項目、共用設定與用戶預約分頁管理，降低單頁資訊密度。</p></div>
+        <div><p class="kicker">Booking operations</p><h2>預約管理</h2><p>技師、預約項目、共用設定、爽約限制與用戶預約分頁管理，依工作任務快速找到設定。</p></div>
         <div class="heading-actions"><span id="bookingAdminSyncStatus" class="sync-status">尚未同步</span></div>
       </div>
 
@@ -79,10 +79,11 @@
         <div><span>已確認</span><strong id="bookingAdminConfirmedCount">0</strong><small>已確認的一般預約</small></div>
       </section>
 
-      <nav class="booking-admin-filter booking-admin-subtabs" role="tablist" aria-label="預約管理分類">
+      <nav id="bookingAdminSubtabs" class="booking-admin-filter booking-admin-subtabs" role="tablist" aria-label="預約管理分類">
         <button id="bookingAdminTechniciansSubtab" class="booking-admin-filter-button active" type="button" role="tab" aria-selected="true" aria-controls="bookingAdminTechniciansPanel">技師設定</button>
         <button id="bookingAdminServicesSubtab" class="booking-admin-filter-button" type="button" role="tab" aria-selected="false" aria-controls="bookingAdminServicesPanel">預約項目</button>
         <button id="bookingAdminSettingsSubtab" class="booking-admin-filter-button" type="button" role="tab" aria-selected="false" aria-controls="bookingAdminSettingsPanel">預約共用設定</button>
+        <button id="bookingAdminRiskSubtab" class="booking-admin-filter-button" type="button" role="tab" aria-selected="false" aria-controls="bookingAdminRiskPanel">爽約與預約限制</button>
         <button id="bookingAdminQueueSubtab" class="booking-admin-filter-button" type="button" role="tab" aria-selected="false" aria-controls="bookingAdminQueuePanel">用戶預約<span id="bookingAdminQueueSubtabCount"></span></button>
       </nav>
 
@@ -195,6 +196,14 @@
           </form>
         </section>
 
+        <section id="bookingAdminRiskPanel" class="booking-admin-card booking-admin-risk-panel hidden" role="tabpanel" aria-labelledby="bookingAdminRiskSubtab">
+          <div class="booking-admin-risk-intro">
+            <div><p class="kicker">Booking eligibility</p><h3>爽約與線上預約限制</h3><p>集中管理爽約累計、線上預約資格、人工解除與會員申覆。</p></div>
+            <button id="bookingAdminRiskOpenAdvanceSettings" type="button" class="button button-outline" aria-describedby="bookingAdminRiskAdvanceHint">查看提前預約設定</button>
+          </div>
+          <p id="bookingAdminRiskAdvanceHint" class="booking-admin-risk-note">提前預約天數與最遠可預約日期仍在「預約共用設定」；本頁爽約政策只限制新的線上預約。</p>
+          <div id="bookingAdminRiskMount" class="booking-admin-risk-mount"></div>
+        </section>
         <section id="bookingAdminQueuePanel" class="booking-admin-card booking-admin-operations-panel hidden" role="tabpanel" aria-labelledby="bookingAdminQueueSubtab">
           <div class="booking-admin-section-heading booking-admin-operations-heading">
             <div><p class="kicker">Booking operations</p><h3>預約處理</h3><p>一般預約與快照收據採不同審核流程，請先選擇要處理的工作類型。</p></div>
@@ -257,7 +266,7 @@
     [
       'bookingTab','bookingPanel','bookingAdminSyncStatus','bookingAdminSettingsForm','bookingAdminStartTime','bookingAdminEndTime','bookingAdminSlotInterval','bookingAdminHoursPreview','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminStoreServiceMinutes','bookingAdminReminderEnabled','bookingAdminSnapshotLocationRequired','bookingAdminReminderTime','bookingAdminNotice','bookingAdminSettingsMessage','bookingAdminDraftStatus','bookingAdminDiscardSettingsButton','bookingAdminSaveSettingsButton',
       'bookingAdminNewTypeButton','bookingAdminTypeMessage','bookingAdminTypeList','bookingAdminTypeEmpty','bookingAdminServiceCount','bookingAdminPendingCount','bookingAdminAccessiblePendingCount','bookingAdminConfirmedCount',
-      'bookingAdminTechniciansSubtab','bookingAdminServicesSubtab','bookingAdminSettingsSubtab','bookingAdminQueueSubtab','bookingAdminQueueSubtabCount','bookingAdminTechniciansPanel','bookingAdminServicesPanel','bookingAdminSettingsPanel','bookingAdminQueuePanel','bookingAdminStandardMode','bookingAdminAccessibleMode','bookingAdminStandardModeCount','bookingAdminAccessibleModeCount','bookingAdminStandardQueueView','bookingAdminNewServiceButton','bookingAdminBatchAddButton','bookingAdminBatchEditButton','bookingAdminBatchDeleteButton','bookingAdminServiceMessage','bookingAdminServiceList','bookingAdminServiceEmpty','bookingAdminQueue','bookingAdminQueueEmpty',
+      'bookingAdminSubtabs','bookingAdminTechniciansSubtab','bookingAdminServicesSubtab','bookingAdminSettingsSubtab','bookingAdminRiskSubtab','bookingAdminRiskPanel','bookingAdminRiskMount','bookingAdminRiskOpenAdvanceSettings','bookingAdminQueueSubtab','bookingAdminQueueSubtabCount','bookingAdminTechniciansPanel','bookingAdminServicesPanel','bookingAdminSettingsPanel','bookingAdminQueuePanel','bookingAdminStandardMode','bookingAdminAccessibleMode','bookingAdminStandardModeCount','bookingAdminAccessibleModeCount','bookingAdminStandardQueueView','bookingAdminNewServiceButton','bookingAdminBatchAddButton','bookingAdminBatchEditButton','bookingAdminBatchDeleteButton','bookingAdminServiceMessage','bookingAdminServiceList','bookingAdminServiceEmpty','bookingAdminQueue','bookingAdminQueueEmpty',
       'bookingAdminCrudModal','bookingAdminCrudModalTitle','bookingAdminCrudModalBody','bookingAdminCrudModalClose'
     ].forEach((id) => { els[id] = document.getElementById(id); });
   }
@@ -281,6 +290,21 @@
     els.bookingAdminTechniciansSubtab.addEventListener('click', () => setSubtab('technicians'));
     els.bookingAdminServicesSubtab.addEventListener('click', () => setSubtab('services'));
     els.bookingAdminSettingsSubtab.addEventListener('click', () => setSubtab('settings'));
+    els.bookingAdminRiskSubtab.addEventListener('click', () => setSubtab('risk'));
+    els.bookingAdminRiskOpenAdvanceSettings.addEventListener('click', () => {
+      setSubtab('settings');
+      els.bookingAdminAdvanceDays.focus();
+    });
+    els.bookingAdminSubtabs.addEventListener('keydown', (event) => {
+      const tabs = [els.bookingAdminTechniciansSubtab, els.bookingAdminServicesSubtab, els.bookingAdminSettingsSubtab, els.bookingAdminRiskSubtab, els.bookingAdminQueueSubtab];
+      const index = tabs.indexOf(document.activeElement);
+      if (index < 0 || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1
+        : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+      tabs[next].click();
+      tabs[next].focus();
+    });
     els.bookingAdminQueueSubtab.addEventListener('click', () => setSubtab('queue'));
     els.bookingAdminStandardMode.addEventListener('click', () => setQueueMode('standard'));
     els.bookingAdminAccessibleMode.addEventListener('click', () => setQueueMode('accessible'));
@@ -314,12 +338,13 @@
   }
 
   function setSubtab(subtab) {
-    const allowed = ['technicians', 'services', 'settings', 'queue'];
+    const allowed = ['technicians', 'services', 'settings', 'risk', 'queue'];
     state.subtab = allowed.includes(subtab) ? subtab : 'technicians';
     const tabs = {
       technicians: [els.bookingAdminTechniciansSubtab, els.bookingAdminTechniciansPanel],
       services: [els.bookingAdminServicesSubtab, els.bookingAdminServicesPanel],
       settings: [els.bookingAdminSettingsSubtab, els.bookingAdminSettingsPanel],
+      risk: [els.bookingAdminRiskSubtab, els.bookingAdminRiskPanel],
       queue: [els.bookingAdminQueueSubtab, els.bookingAdminQueuePanel],
     };
     Object.entries(tabs).forEach(([key, pair]) => {
@@ -327,6 +352,7 @@
       const active = key === state.subtab;
       tab?.classList.toggle('active', active);
       tab?.setAttribute('aria-selected', String(active));
+      if (tab) tab.tabIndex = active ? 0 : -1;
       panel?.classList.toggle('hidden', !active);
     });
     if (state.subtab === 'queue') setQueueMode(state.queueMode);
@@ -554,7 +580,7 @@
       const selectionChanged = [...state.selected].sort().join('|') !== [...nextSelected].sort().join('|');
 
       state.booking = nextBooking;
-      window.BookingRiskSettings?.mount(els.bookingAdminSettingsPanel,{data:state.booking.noShowRisk,request:(action,body)=>bookingRequest('admin.booking.risk.'+action,body,action!=='get')});
+      window.BookingRiskSettings?.mount(els.bookingAdminRiskMount,{data:state.booking.noShowRisk,request:(action,body)=>bookingRequest('admin.booking.risk.'+action,body,action!=='get')});
       state.catalog = nextCatalog;
       state.selected = nextSelected;
       if (catalogChanged) {
@@ -662,7 +688,7 @@
   }
   function renderSettings(force = false) {
     const settings = state.booking.settings || {};
-    window.BookingRiskSettings?.mount(els.bookingAdminSettingsPanel,{data:state.booking.noShowRisk,request:(action,body)=>bookingRequest('admin.booking.risk.'+action,body,action!=='get')});
+    window.BookingRiskSettings?.mount(els.bookingAdminRiskMount,{data:state.booking.noShowRisk,request:(action,body)=>bookingRequest('admin.booking.risk.'+action,body,action!=='get')});
     if (state.settingsDirty && !force) {
       updateSettingsDraft();
       return;
