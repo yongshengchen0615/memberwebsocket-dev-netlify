@@ -11,7 +11,7 @@
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
   <script src="../business-context.js"></script>
 <script src="../member-system.js" defer></script>
-  <script src="./app.js?v=20261023-platform-access-review-1" defer></script>
+  <script src="./app.js?v=20261023-supabase-root-approval-1" defer></script>
   <link rel="stylesheet" href="../portal-navigation.css?v=unified-20261018-1">
   <script src="../portal-navigation.js?v=unified-20261018-1" defer></script>
 </head>
@@ -21,11 +21,11 @@
     <p id="platformStatus" role="status" aria-live="polite">正在確認 LINE 身分…</p>
     <section id="platformAuthorizationNotice" class="authorization-notice" hidden role="alert" aria-labelledby="platformAuthorizationTitle">
       <h2 id="platformAuthorizationTitle">總管理員權限尚未核准</h2>
-      <p>LINE 身分驗證已完成，系統已記錄這次 Platform 管理員登入申請，但目前尚無管理權限。請由已授權的最高管理員審核，或由資料庫管理者恢復清除後的首位最高管理員。</p>
+      <p>LINE 身分已完成驗證。若尚未建立總管理員，系統會在 Supabase 建立 <code>super_admins.enabled = false</code> 的候選紀錄；登入本身不會賦予權限。</p>
       <ol>
-        <li>請授權的資料庫管理人員開啟 <a href="https://supabase.com/dashboard/project/dbuquirnaskrwcamdxki/sql/new" target="_blank" rel="noopener noreferrer">Supabase 專案 SQL Editor（另開視窗）</a>，確認要審核的帳號身分。</li>
-        <li>在資料表 <code>platform_private.super_admins</code> 核對 <code>line_user_id</code> 與 <code>admin_id</code>，並確認關聯的 <code>public.admins</code> 紀錄為 <code>role = admin</code>、<code>status = active</code>。</li>
-        <li>身分和授權已由管理人員核准後，才將 <code>platform_private.super_admins.enabled</code> 設為 <code>true</code>；未確認身分時不得開通。</li>
+        <li>請具有 Supabase 專案管理權限的人開啟 <a href="https://supabase.com/dashboard/project/dbuquirnaskrwcamdxki/editor" target="_blank" rel="noopener noreferrer">Supabase Table Editor（另開視窗）</a>，切換到 <code>platform_private</code> schema。</li>
+        <li>在 <code>super_admins</code> 核對候選人的 <code>line_user_id</code>，必須與準備開通的本人 Platform LINE 身分一致。請勿核准不認識的帳號。</li>
+        <li>將該筆紀錄的 <code>enabled</code> 由 <code>false</code> 勾選為 <code>true</code> 並儲存；資料庫會自動同步更新對應 <code>public.admins</code> 的 <code>role=admin</code> 和 <code>status=active</code>，不需下 SQL 指令。</li>
       </ol>
       <p>完成審核後，請按下方「重新使用 LINE 登入」再次驗證。此入口僅供總管理員使用。</p>
     </section>
