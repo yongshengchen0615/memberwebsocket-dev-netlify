@@ -162,3 +162,15 @@
 
 /* Regular booking no-show status is distinct from cancellation. */
 #bookingPanel .booking-admin-status.status-no_show{background:#fff0eb;color:#a34832}
+
+/* Booking shared-settings draft and safe-action feedback — #81 */
+#bookingPanel .booking-admin-settings-draft-status{display:block;margin-top:7px;color:var(--theme-text-muted,#546e61);font-weight:750;line-height:1.5}
+#bookingPanel .booking-admin-settings-action-buttons{display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap}
+#bookingPanel .booking-admin-settings-action-buttons .button{min-width:148px}
+#bookingPanel .booking-admin-settings-action-buttons .button:disabled{opacity:.55;cursor:not-allowed}
+@media (max-width:768px){
+  #bookingPanel .booking-admin-settings-action-buttons{display:grid;grid-template-columns:minmax(0,1fr)}
+  #bookingPanel .booking-admin-settings-action-buttons .button{width:100%;min-width:0}
+}
+
+#bookingPanel .booking-admin-settings-form[aria-busy="true"] .coupon-location-map{pointer-events:none;opacity:.75}
