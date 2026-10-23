@@ -31,7 +31,6 @@ as $$
     select 1 from platform_private.super_admins s
     join public.admins a on a.id=s.admin_id
     where s.enabled=true and s.line_user_id=p_actor
-      and a.line_user_id=p_actor
       and a.role='admin' and a.status='active'
   )
 $$;
