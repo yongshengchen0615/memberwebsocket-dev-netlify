@@ -177,10 +177,10 @@ test('AC-CLR-046: do not allow direct DB reset while Auth, Storage or cron still
   assert.equal(await tableCount(db,'platform_private.tenants'),1);
  }finally{await db.close()}
 });
-test('AC-CLR-047: owner-approved project ref remains required, even without backups',async()=>{
+test('AC-CLR-047: owner-approved project record remains required, even without backups',async()=>{
  const db=await setup();
  try{
-  await db.exec("update maintenance.sandbox_reset_target set project_ref='another-project' where singleton=true");
+  await db.exec('delete from maintenance.sandbox_reset_target;');
   await assert.rejects(request(db),/WRONG_RESET_PROJECT/);
   assert.equal(await tableCount(db,'net.queued'),0);
   assert.equal(await tableCount(db,'public.admins'),1);
