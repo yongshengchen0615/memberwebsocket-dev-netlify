@@ -10,6 +10,8 @@ test('AC-CLR-030: irreversible reset can be launched only through manual owner-s
  assert.doesNotMatch(workflow,/^\s{2}(push|pull_request|schedule|repository_dispatch):\s*$/m);
  assert.match(workflow,/if:\s*github\.actor == 'yongshengchen0615'/);
  assert.match(workflow,/environment:\s*memberwebsocket-dev-reset/);
+ assert.match(workflow,/Verify independent environment reviewer protection/);
+ assert.match(workflow,/verify_reset_environment\.cjs/);
  assert.match(workflow,/cancel-in-progress:\s*false/);
  assert.match(workflow,/default:\s*plan/);
  assert.match(workflow,/RESET MEMBERWEBSOCKET TEST DATA/);
