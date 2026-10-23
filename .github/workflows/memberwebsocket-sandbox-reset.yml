@@ -19,6 +19,7 @@ on:
         description: "Confirm LINE/webhooks cannot reach real recipients"
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: memberwebsocket-sandbox-reset
   cancel-in-progress: false
@@ -62,6 +63,11 @@ jobs:
       - name: Install tested PostgreSQL client dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: MemberWebsocket-dev/tests/integration
+      - name: Verify independent environment reviewer protection and prevent admin bypass
+        if: inputs.operation == 'execute'
+        env:
+          RESET_GITHUB_TOKEN: ${{ github.token }}
+        run: node MemberWebsocket-dev/tests/integration/verify_reset_environment.cjs
       - name: Safe plan
         if: inputs.operation == 'plan'
         env:
