@@ -10,40 +10,35 @@
 |---|---|
 | 身分 | 必須是 DB 的 `postgres` 身分及持有測試專案服務金鑰的操作人，SQL 管理 RPC 永遠不授權 anon / authenticated / service_role |
 | 範圍 | 只允許 `dbuquirnaskrwcamdxki`；如果錯專案、漏表、版本指紋過期，直接失敗 |
-| 安全 | 先通過可解密的加密 DB/Storage 備份、獨立 DB 還原、Storage 上傳下載 SHA-256 驗證、外部 LINE webhook 停發聲明及 cron=0 |
-| 原子性 | DB 事務完整清除或完整 rollback；Storage/Auth API 與 DB 不是同一 transaction，API 中途失敗時保留備份並停止，必須依紀錄補償 |
+| 安全 | SQL Editor 專用路徑依使用者授權免備份、免人工 LINE 停發核准，要求 DBA 與測試專案白名單、一次性 ticket、官方 API、Cron 自動停用、清除後資料驗收；獨立 GitHub 備份型工作流程仍保留更嚴格的驗證 |
+| 原子性 | DB 交易清除失敗會回滾；Storage/Auth API 無法跨服務回滾，使用無備份路徑時部分刪除可能不可恢復，須查看 job 狀態並人工處理 |
 | 帳號 | reset 後 admin/member/tenant/root grant=0；重新初始化 root 只能在可信成功 epoch 之後由 DBA 執行一次 |
 | 可觀察性 | 印出本輪動作統計，不列印服務金鑰、會員個資、LINE ID、原始檔名、資料值 |
 
-## SQL Editor：一段 SQL 發起完整資料／檔案清除
+## 最簡單操作：SQL Editor 一段 SQL 直接清除測試環境（2026-10-23 新規則）
 
-**目標：**在 [MemberWebsocket-dev SQL Editor](https://supabase.com/dashboard/project/dbuquirnaskrwcamdxki/sql) 貼上一段指令，發起包含全部管理員、會員、商家、Auth 和 Storage 實體檔案的受控重置。
+**限定專案：`dbuquirnaskrwcamdxki`（MemberWebsocket-dev）；正式環境不可使用。**
+使用者已明確核准此測試專案無需先備份資料庫、Storage 檔案、進行還原測試或人工隔離 LINE/Webhook；因此這條路徑**沒有可回復承諾**，刪除成功後舊資料及檔案會永久消失。
 
-前置一次性部署：`20261023212000_sql_editor_reset_worker_dispatch.sql` migration，並將 `sql-full-reset-worker` Edge Function 部署至**相同** `dbuquirnaskrwcamdxki` 專案，`verify_jwt=false`（worker 以 DBA 一次性 256-bit ticket 與 server-side service_role 驗證，不接受一般使用者發出清除請求）。工作流程必須事先完成 DB + Storage **異地加密備份與還原驗證**，並確認 LINE 出站／Webhook 等外部來源已停止；核對 `maintenance.sandbox_reset_target` 三項驗證欄位已由授權工作流程填妥。**不可以單純更新旗標假裝備份成功。**
-
-SQL Editor 發起清除時**只貼下面這一段**：
+在 [指定測試專案 SQL Editor](https://supabase.com/dashboard/project/dbuquirnaskrwcamdxki/sql) 以 `postgres` 身分貼上唯一操作指令：
 
 ```sql
-select maintenance.request_full_reset_from_sql(
-  'RESET MEMBERWEBSOCKET TEST DATA'
-);
+select maintenance.request_full_reset_from_sql('RESET MEMBERWEBSOCKET TEST DATA');
 ```
 
-如果未驗證備份、Storage 還原、通知隔離會收到 `RESET_BACKUP_STORAGE_AND_PROVIDER_PROOF_REQUIRED`，舊資料完全保留；如果驗證完成，會回傳 `submitted:true, completed:false` 和 `jobId`。這是**已送出**，**不是已清除**。背景 worker 先停止 Cron，再使用 Auth Admin API 和 Storage API 清空，最後透過資料庫 RPC 在單一 PostgreSQL transaction 刪除全部應用資料；成功或失敗均持久記錄在 `maintenance.sql_full_reset_jobs`，而不是只看 `net.http_post` 回應。
+**不用設定任何備份或人工停發驗證旗標。** 已安裝的 `20261023220000_direct_sql_editor_sandbox_reset.sql` 會讓此入口直接建立限時、單次使用的清除工作，派送 `sql-full-reset-worker`。Worker 自動停用 `pg_cron`，再使用 Supabase 官方 Auth Admin API 刪除所有使用者、Storage API 清空所有 bucket 的檔案，最後以單一 PostgreSQL 交易清除所有總管理員、管理員、會員、商家、預約、通知及商家動態 schema；保留資料庫系統結構與必要的初始化範本。
 
-查詢完成狀態：
+SQL 回應 `submitted:true` 代表**已開始排程**，不代表清除成功。等待 SQL 背景請求完成後，在同一頁執行：
 
 ```sql
 select maintenance.latest_full_reset_status();
 ```
 
-成功必須出現 `state=completed`、`result.databaseReset=true`，再使用本操作手冊下方的殘留 SQL 核對角色、商家、Auth、Storage、Cron。若 `queued` 是尚未執行；`running` 是尚未完成；`failed` 必須根據 `errorCode` 排查並重新核驗備份。**不得看到 SQL Editor 顯示 Success 就宣稱資料已清光。**
+只有 `state="completed"` 且 `result.databaseReset=true` 才代表背景清除流程回報成功；另核對管理員、會員、商家、Auth 使用者、Storage 物件、business schema 與 active Cron 均為 0。若為 `queued`、`running`，不得當成成功；`failed` 時查看 `errorCode`，部分檔案／帳號可能已被刪掉而且沒有備份，請先確認現況再重試。不要用 SQL 直接 `TRUNCATE storage.objects`，那會留下實體檔案。
 
-> 提醒：Supabase pg_net 的 HTTP worker 非同步，而且 HTTP 佇列中的 ticket 在送出前可能由具有資料庫權限的角色讀取，因此 ticket 僅能執行已由 postgres 核准的單一清除任務，且只接受一次。這不是一般會員可呼叫的 API。
->
-> 真實跨服務清除有無法原子回滾的步驟：Storage/Auth API 若成功但 DB 交易失敗，已執行的檔案刪除需依先前驗證的備份復原。worker 遇錯停止並撤銷舊備份驗證資格；不會自行重播外部 Cron 或再次清除。
+由於沒有外部 LINE Webhook 人工隔離，外部請求可能在刪除期間新增資料；若資料內容指紋因此改變，執行器會拒絕將不完整清除標示為成功。此 SQL 呼叫不會自動重新開啟排程，且**不會自動解除外部系統對測試環境的呼叫**；如需防止資料重新產生，應自行停止該測試環境的外部入口。
 
-## GitHub Actions 一鍵操作（新增）
+## GitHub Actions 備份型操作（選用，與上述 SQL Editor 不同）
 
 工作流程：[`MemberWebsocket-dev Manual Full Reset`](../../../.github/workflows/memberwebsocket-sandbox-reset.yml)。
 此工作流程只接受 **`workflow_dispatch` 人工啟動**，不會在 push、PR、merge 或部署時自動清除；只允許 GitHub 帳號 `yongshengchen0615` 啟動。
