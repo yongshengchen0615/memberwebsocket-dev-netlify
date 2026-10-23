@@ -21,7 +21,7 @@
     <p id="platformStatus" role="status" aria-live="polite">正在確認 LINE 身分…</p>
     <section id="platformAuthorizationNotice" class="authorization-notice" hidden role="alert" aria-labelledby="platformAuthorizationTitle">
       <h2 id="platformAuthorizationTitle">總管理員權限尚未核准</h2>
-      <p>LINE 身分驗證已完成，但後端沒有授予此帳號總管理員權限。可能是尚未核准、綁定的 LINE 帳號不符，或原管理員帳號未啟用。</p>
+      <p>LINE 身分驗證已完成，系統已記錄這次 Platform 管理員登入申請，但目前尚無管理權限。請由已授權的最高管理員審核，或由資料庫管理者恢復清除後的首位最高管理員。</p>
       <ol>
         <li>請授權的資料庫管理人員開啟 <a href="https://supabase.com/dashboard/project/dbuquirnaskrwcamdxki/sql/new" target="_blank" rel="noopener noreferrer">Supabase 專案 SQL Editor（另開視窗）</a>，確認要審核的帳號身分。</li>
         <li>在資料表 <code>platform_private.super_admins</code> 核對 <code>line_user_id</code> 與 <code>admin_id</code>，並確認關聯的 <code>public.admins</code> 紀錄為 <code>role = admin</code>、<code>status = active</code>。</li>
@@ -36,6 +36,11 @@
       <p class="hint">在 LINE 內建瀏覽器，系統會重新初始化 LINE 登入；一般瀏覽器將開啟 LINE 登入流程。</p>
     </section>
     <section id="platformWorkspace" hidden>
+      <section id="platformAccessPanel" hidden aria-labelledby="platformAccessTitle">
+        <h2 id="platformAccessTitle">Platform 管理權限審核</h2>
+        <p>僅最高管理員可以核准或撤銷已驗證 LINE 身分的 Platform 操作權限。登入本身不會自動授權。</p>
+        <div id="platformAccessList" class="tenant-list"></div>
+      </section>
       <div class="workspace-heading"><div><h2>已審核商家</h2><p>總管理員管理使用狀態、期限與功能授權；各商家的 LINE Channel、LIFF 和訊息憑證由商家管理員自行設定。</p></div><button id="newTenant" type="button" hidden aria-hidden="true" tabindex="-1">舊版新增商家</button></div>
       <p class="notice">核准後即開通已授權功能。停用、到期與功能撤銷會由伺服器阻擋；復權保留原有設定。</p>
       <div id="tenantList" class="tenant-list"></div><h2>待審核管理員</h2><p>核准時逐項勾選功能；未核准的申請不得取得商家權限。</p><div id="applicationList" class="tenant-list"></div>
