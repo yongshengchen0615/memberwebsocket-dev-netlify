@@ -9,15 +9,31 @@
   const state = {config:null,idToken:'',features:{},tenants:[],applications:[],current:null,pending:null,busy:false,approval:null,merchant:null,merchantPending:null};
   const LOGIN_RETURN_KEY=merchantEntry?'admin-line-login-return-v1':'platform-line-login-return-v1';
   const LOGIN_RETURN_TTL_MS=180_000;
+  const AUTO_LOGIN_ATTEMPT_KEY='platform-line-auto-attempt-v1';
+  let rejectedLoginReturn=false;
+  function markAutomaticRootLoginAttempt() {
+    // Short-lived navigation loop guard, never an authorization claim.
+    // Explicit button retry remains available after any failure.
+    if(merchantEntry)return false;
+    try {
+      const now=Date.now();
+      const previous=Number(window.sessionStorage.getItem(AUTO_LOGIN_ATTEMPT_KEY));
+      if(Number.isFinite(previous)&&previous>0&&now>=previous&&now-previous<=LOGIN_RETURN_TTL_MS)return false;
+      window.sessionStorage.setItem(AUTO_LOGIN_ATTEMPT_KEY,String(now));
+      return true;
+    } catch { return false; }
+  }
   function consumeLoginReturn() {
     // A one-use navigation hint only. Authorization still happens in LINE Verify + SQL.
     let issuedAt=0;
     try {
-      issuedAt=Number(window.sessionStorage.getItem(LOGIN_RETURN_KEY));
+      const raw=window.sessionStorage.getItem(LOGIN_RETURN_KEY);
+      issuedAt=Number(raw);
       window.sessionStorage.removeItem(LOGIN_RETURN_KEY);
+      rejectedLoginReturn=raw!==null && (!Number.isFinite(issuedAt)||issuedAt<=0||Date.now()<issuedAt||Date.now()-issuedAt>LOGIN_RETURN_TTL_MS);
     } catch { return false; }
-    return Number.isFinite(issuedAt) && issuedAt>0 && Date.now()>=issuedAt
-      && Date.now()-issuedAt<=LOGIN_RETURN_TTL_MS;
+    return !rejectedLoginReturn && Number.isFinite(issuedAt) && issuedAt>0
+      && Date.now()>=issuedAt && Date.now()-issuedAt<=LOGIN_RETURN_TTL_MS;
   }
   function showLoginGate(message=merchantEntry?'請重新使用 LINE 確認管理員身分。':'每次進入總管理員控制台，請重新使用 LINE 確認身分。') {
     state.idToken='';
@@ -597,9 +613,24 @@
         await Promise.race([window.liff.init({liffId:platformLiffId}),new Promise((_,reject)=>{initTimer=setTimeout(()=>reject(new Error('LINE 初始化逾時，請重新開啟此頁面。')),8000);})]);
       } catch {throw new Error(merchantEntry?'一般管理員 LIFF 初始化失敗，請確認 Endpoint URL 與網路。':'總管理員 LIFF 初始化失敗，請確認 Endpoint URL 與網路。');}
       finally {clearTimeout(initTimer);}
+      const returnedFromLine=consumeLoginReturn();
       if(!window.liff.isLoggedIn()) {
+        if(returnedFromLine || rejectedLoginReturn) {
+          showLoginGate('LINE 登入回跳未完成或已過期，請點選「重新使用 LINE 登入」重試。');
+          return;
+        }
         if(window.liff.isInClient()){
-          showLoginGate('LINE LIFF 尚未完成登入，請點選「重新使用 LINE 登入」進行驗證。');
+          // LIFF is normally signed in after init. Attempt recovery at most once,
+          // then expose a manual option instead of a reload loop.
+          if(!merchantEntry && markAutomaticRootLoginAttempt()) {
+            freshLineLogin();
+            return;
+          }
+          showLoginGate('LINE LIFF 尚未完成登入或自動驗證未成功，請點選「重新使用 LINE 登入」重試。');
+          return;
+        }
+        if(!merchantEntry && !markAutomaticRootLoginAttempt()) {
+          showLoginGate('LINE 登入回跳尚未完成，請點選「重新使用 LINE 登入」重試。');
           return;
         }
         el('platformStatus').textContent='正在前往 LINE 登入…';
@@ -614,7 +645,6 @@
         }
         return;
       }
-      const returnedFromLine=consumeLoginReturn();
       state.idToken=window.liff.getIDToken() || '';
       if(!state.idToken) {
         showLoginGate('無法取得 LINE ID token。請重新使用 LINE 登入，並確認 LIFF 已啟用 openid scope。');
@@ -628,11 +658,19 @@
         refreshTimer=setInterval(()=>{if(!document.hidden)void refreshMine();},15000);
         return;
       }
-      const data=await refresh();
       if(!returnedFromLine) {
-        showLoginGate();
+        if(!rejectedLoginReturn && markAutomaticRootLoginAttempt()) {
+          // A pre-existing LINE session is not proof of fresh root authentication.
+          // Force the existing LIFF reauth path once; server still verifies root.
+          freshLineLogin();
+        } else {
+          showLoginGate(rejectedLoginReturn
+            ? 'LINE 登入回跳已過期或無效，請點選「重新使用 LINE 登入」重試。'
+            : '這次自動 LINE 驗證尚未完成，請點選「重新使用 LINE 登入」重試。');
+        }
         return;
       }
+      const data=await refresh();
       clearLoginGate();
       for(const [key,label] of Object.entries(data.features)) {const wrap=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.dataset.feature=key;wrap.append(input,document.createTextNode(label));el('featureFields').append(wrap);}
       el('platformWorkspace').hidden=false;el('platformStatus').textContent=`總管理員 ${data.profile.displayName}，已登入。`;
@@ -641,9 +679,9 @@
         showAuthorizationDenied();
         return;
       }
-      el('platformStatus').textContent=error.message;
-      if(['AUTH_INVALID','AUTH_REQUIRED'].includes(error.code))showLoginGate(
-        merchantEntry?'一般管理員 LINE 身分驗證未通過，請重新登入。':'總管理員 LINE 身分驗證未通過，請使用專用 LINE 登入。');
+      showLoginGate(['AUTH_INVALID','AUTH_REQUIRED'].includes(error.code)
+        ? (merchantEntry?'一般管理員 LINE 身分驗證未通過，請重新登入。':'總管理員 LINE 身分驗證未通過，請使用專用 LINE 登入。')
+        : error?.message || 'LINE 驗證尚未完成，請檢查網路後手動重試。');
 
     }
   }
