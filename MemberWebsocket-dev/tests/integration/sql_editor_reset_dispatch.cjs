@@ -34,7 +34,7 @@ async function setup(){
    'create table cron.job(jobid bigint primary key,active boolean);',
    'create table net.queued(id bigint primary key,body jsonb not null);',
    "create function extensions.gen_random_bytes(p_n integer) returns bytea language sql as $$select decode(repeat('aa',p_n),'hex')$$;",
-   "create function net.http_post(url text,body jsonb,params jsonb default '{}'::jsonb,headers jsonb default '{}'::jsonb,timeout_milliseconds integer default 2000) returns bigint language plpgsql as $$ begin insert into net.queued select coalesce(max(id)+1,123),body from net.queued;return (select max(id) from net.queued);end $$;",
+   "create function net.http_post(url text,body jsonb,params jsonb default '{}'::jsonb,headers jsonb default '{}'::jsonb,timeout_milliseconds integer default 2000) returns bigint language plpgsql as $$ declare v_body jsonb:=body; begin insert into net.queued(id,body) values((select coalesce(max(id)+1,123) from net.queued),v_body);return (select max(id) from net.queued);end $$;",
    "create function cron.alter_job(job_id bigint, active boolean default true) returns void language plpgsql as $$begin update cron.job set active=alter_job.active where jobid=job_id;end $$;",
    "create function maintenance.ensure_required_system_baseline() returns void language plpgsql as $$begin insert into public.system_settings values(1,'ready');end $$;",
    "create function maintenance.ensure_referral_reward_baseline() returns void language plpgsql as $$begin null;end $$;",
