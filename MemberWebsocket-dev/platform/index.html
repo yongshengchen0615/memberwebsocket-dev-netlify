@@ -24,8 +24,8 @@
       <p>LINE 身分已完成驗證。若尚未建立總管理員，系統會在 Supabase 建立 <code>super_admins.enabled = false</code> 的候選紀錄；登入本身不會賦予權限。</p>
       <ol>
         <li>請具有 Supabase 專案管理權限的人開啟 <a href="https://supabase.com/dashboard/project/dbuquirnaskrwcamdxki/editor" target="_blank" rel="noopener noreferrer">Supabase Table Editor（另開視窗）</a>，切換到 <code>platform_private</code> schema。</li>
-        <li>在 <code>super_admins</code> 核對候選人的 <code>line_user_id</code>，必須與準備開通的本人 Platform LINE 身分一致。請勿核准不認識的帳號。</li>
-        <li>將該筆紀錄的 <code>platform_private.super_admins.enabled</code> 由 <code>false</code> 勾選為 <code>true</code> 並儲存；資料庫會自動同步更新對應 <code>public.admins</code> 的 <code>role=admin</code> 和 <code>status=active</code>，不需下 SQL 指令。</li>
+        <li>在 <code>super_admins</code> 核對候選人的 <code>line_user_id</code> 與關聯的 <code>admin_id</code>，LINE User ID 必須與準備開通的本人 Platform LINE 身分一致。請勿核准不認識的帳號。</li>
+        <li>將該筆紀錄的 <code>platform_private.super_admins.enabled</code> 由 <code>false</code> 勾選為 <code>true</code> 並儲存；資料庫會自動同步更新對應 <code>public.admins</code> 的 <code>role = admin</code> 和 <code>status = active</code>，不需下 SQL 指令。</li>
       </ol>
       <p>完成審核後，請按下方「重新使用 LINE 登入」再次驗證。此入口僅供總管理員使用。</p>
     </section>
