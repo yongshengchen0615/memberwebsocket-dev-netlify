@@ -75,3 +75,22 @@ test('AC-PLAT-110: root identity cannot be replaced while enabled, and invalid g
   assert.equal((await h.rpc('platform_is_root_super_admin',{p_actor:manager})).data,true);
  }finally{await h.db.close()}
 });
+
+
+test('AC-PLAT-111: Supabase owner checkbox completes pending reset bootstrap epoch without DBA SQL bootstrap',async()=>{
+ const h=await fixture();
+ try{
+  await h.db.exec('delete from platform_private.super_admins; delete from public.admins;');
+  await h.db.exec("create schema maintenance; create table maintenance.sandbox_reset_epoch(singleton boolean primary key,root_bootstrap_required boolean not null,last_completed_request uuid,bootstrapped_at timestamptz);");
+  await h.db.exec("insert into maintenance.sandbox_reset_epoch(singleton,root_bootstrap_required,last_completed_request) values(true,true,gen_random_uuid());");
+  const visitor=await h.call({action:'platform.bootstrap'},'root');
+  assert.equal(visitor.status,403);
+  const pending=(await h.db.query('select root_bootstrap_required,bootstrapped_at from maintenance.sandbox_reset_epoch')).rows[0];
+  assert.equal(pending.root_bootstrap_required,true);
+  assert.equal(pending.bootstrapped_at,null);
+  await h.db.exec('update platform_private.super_admins set enabled=true where singleton=true');
+  const done=(await h.db.query('select root_bootstrap_required,bootstrapped_at is not null as initialized from maintenance.sandbox_reset_epoch')).rows[0];
+  assert.deepEqual(done,{root_bootstrap_required:false,initialized:true});
+  assert.equal((await h.call({action:'platform.bootstrap'},'root')).status,200);
+ }finally{await h.db.close()}
+});
