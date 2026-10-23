@@ -1,0 +1,113 @@
+name: MemberWebsocket-dev Manual Full Reset
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        type: choice
+        required: true
+        default: plan
+        options: [plan, execute]
+        description: "Read-only plan or irreversible complete test reset"
+      confirmation:
+        type: string
+        description: "For execute: RESET MEMBERWEBSOCKET TEST DATA"
+      isolation:
+        type: choice
+        required: true
+        default: NOT VERIFIED
+        options: [NOT VERIFIED, DISPATCH_DISABLED_AND_EXTERNAL_WEBHOOKS_ISOLATED]
+        description: "Confirm LINE/webhooks cannot reach real recipients"
+permissions:
+  contents: read
+concurrency:
+  group: memberwebsocket-sandbox-reset
+  cancel-in-progress: false
+jobs:
+  full-reset:
+    if: github.actor == 'yongshengchen0615'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: memberwebsocket-dev-reset
+    services:
+      restore:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: synthetic-local-restore-only
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Confirm dangerous operation explicitly
+        shell: bash
+        env:
+          OPERATION: ${{ inputs.operation }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          ISOLATION: ${{ inputs.isolation }}
+        run: |
+          set -euo pipefail
+          if [[ "$OPERATION" == "execute" ]]; then
+            [[ "$CONFIRMATION" == "RESET MEMBERWEBSOCKET TEST DATA" ]] || exit 1
+            [[ "$ISOLATION" == "DISPATCH_DISABLED_AND_EXTERNAL_WEBHOOKS_ISOLATED" ]] || exit 1
+          elif [[ "$OPERATION" != "plan" ]]; then exit 1; fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: MemberWebsocket-dev/tests/integration/package-lock.json
+      - name: Install tested PostgreSQL client dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: MemberWebsocket-dev/tests/integration
+      - name: Safe plan
+        if: inputs.operation == 'plan'
+        env:
+          RESET_DB_URL: ${{ secrets.RESET_DB_URL }}
+        run: node MemberWebsocket-dev/tests/integration/full-reset-operator.cjs --plan
+      - name: Install PostgreSQL 17 client for real recovery proof
+        if: inputs.operation == 'execute'
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common curl ca-certificates
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+      - name: Prepare isolated local restoration database
+        if: inputs.operation == 'execute'
+        shell: bash
+        env:
+          PG_CONTAINER: ${{ job.services.restore.id }}
+          PG_PORT: ${{ job.services.restore.ports[5432] }}
+        run: |
+          set -euo pipefail
+          DB="$(node -e "process.stdout.write('reset_restore_'+require('node:crypto').randomBytes(16).toString('hex'))")"
+          docker exec "$PG_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c "create database $DB template template0"
+          echo "RESET_RESTORE_DB_URL=postgresql://postgres:synthetic-local-restore-only@127.0.0.1:$PG_PORT/$DB?sslmode=disable" >> "$GITHUB_ENV"
+      - name: Encrypted backup, actual restore check, Storage and DB clear
+        if: inputs.operation == 'execute'
+        env:
+          RESET_DB_URL: ${{ secrets.RESET_DB_URL }}
+          SUPABASE_URL: https://dbuquirnaskrwcamdxki.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.RESET_SERVICE_ROLE_KEY }}
+          RESET_BACKUP_KEY_B64: ${{ secrets.RESET_BACKUP_KEY_B64 }}
+          RESET_BACKUP_DIR: ${{ runner.temp }}/memberwebsocket-reset-backup
+          RESET_PROVIDER_ISOLATION_ATTESTATION: ${{ inputs.isolation }}
+          RESET_CONFIRM: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -m 700 -p "$RESET_BACKUP_DIR"
+          node MemberWebsocket-dev/tests/integration/full-reset-operator.cjs --execute
+      - name: Save ONLY encrypted recovery artifacts (including failed runs)
+        if: always() && inputs.operation == 'execute'
+        uses: actions/upload-artifact@v4
+        with:
+          name: memberwebsocket-reset-encrypted-backups-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/memberwebsocket-reset-backup/*.enc
+          retention-days: 7
+          if-no-files-found: warn
