@@ -42,6 +42,7 @@ async function fixture(withCron=false){
  await db.exec(load('20261018182000_remove_all_business_data.sql'));
  await db.exec(load('20261023150000_full_reset_preflight.sql'));
  await db.exec(load('20261023174600_guard_unsafe_legacy_reset.sql'));
+ await db.exec(load('20261023183000_approved_existing_sandbox_scope.sql'));
  return db;
 }
 const count=async(db,table)=>(await db.query('select count(*)::int n from '+table)).rows[0].n;
@@ -101,5 +102,37 @@ test('AC-CLR-009: preview and guard have no PUBLIC, anon, authenticated or servi
    for(const role of ['anon','authenticated','service_role'])
     assert.equal((await db.query('select has_function_privilege($1,$2,$3) allowed',[role,fn,'EXECUTE'])).rows[0].allowed,false,role+' '+fn);
   }
+ }finally{await db.close()}
+});
+
+test('AC-CLR-010: owner-approved existing Supabase sandbox stays blocked until actual backup and provider verification',async()=>{
+ const db=await fixture();
+ try{
+  const s=(await db.query('select maintenance.sandbox_reset_status() as r')).rows[0].r;
+  assert.equal(s.projectRef,'dbuquirnaskrwcamdxki');
+  assert.equal(s.existingProjectApprovedAsSandbox,true);
+  assert.equal(s.separateProjectRequired,false);
+  assert.equal(s.canPermanentlyErase,false);
+  assert.equal(s.databaseBackupVerified,false);
+  assert.equal(s.storageRestoreVerified,false);
+  assert.equal(s.providerIsolationVerified,false);
+  assert.equal(s.readiness.canExecute,false);
+  assert.equal((await db.query('select count(*)::int n from public.admins')).rows[0].n,1);
+ }finally{await db.close()}
+});
+
+test('AC-CLR-011: only the approved project ref and DBA can read sandbox designation',async()=>{
+ const db=await fixture();
+ try{
+  for(const role of ['anon','authenticated','service_role']){
+   assert.equal((await db.query('select has_function_privilege($1,$2,$3) as allowed',
+    [role,'maintenance.sandbox_reset_status()','EXECUTE'])).rows[0].allowed,false,role);
+   assert.equal((await db.query('select has_table_privilege($1,$2,$3) as allowed',
+    [role,'maintenance.sandbox_reset_target','SELECT'])).rows[0].allowed,false,role);
+  }
+  await assert.rejects(db.exec("update maintenance.sandbox_reset_target set project_ref='zrdpsobxaehqukacjjss'"),
+    /no_unverified_backup_proof|check constraint/i);
+  const s=(await db.query('select maintenance.sandbox_reset_status() as r')).rows[0].r;
+  assert.equal(s.projectRef,'dbuquirnaskrwcamdxki');
  }finally{await db.close()}
 });
