@@ -213,6 +213,14 @@
         button.id='businessLineFeatureTab-'+feature;button.type='button';button.setAttribute('role','tab');
         button.setAttribute('aria-controls',view.section.id);
         button.onclick=()=>selectFeature(feature);
+        button.addEventListener('keydown',event=>{
+          if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+          const available=[...nav.querySelectorAll('[role="tab"]')].filter(tab=>!tab.hidden&&!tab.disabled);
+          const index=available.indexOf(button);if(index<0||!available.length)return;
+          event.preventDefault();
+          const next=event.key==='Home'?0:event.key==='End'?available.length-1:(index+(event.key==='ArrowRight'?1:-1)+available.length)%available.length;
+          available[next].click();available[next].focus();
+        });
         nav.append(button);
       }
     }

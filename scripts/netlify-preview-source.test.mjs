@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { blockNativePreview, publishPreviewBranch, previewSite, previewBranch } from './netlify-preview-source.mjs';
+import { blockNativePreview, publishPreviewBranch, previewSite, previewBranch, describePreviewPublishFailure, PreviewProviderError } from './netlify-preview-source.mjs';
 
 const site = { id: previewSite, name: 'memberwebsocket-dev-netlify', build_settings: {
   repo_path: 'yongshengchen0615/memberwebsocket-dev-netlify', repo_branch: 'master',
@@ -14,7 +14,7 @@ function provider(overrides = {}) {
     calls.push({ url, options });
     const endpoint = new URL(url);
     let value;
-    if (options.method === 'POST') value = overrides.build || { deploy_id: deployId };
+    if (options.method === 'POST') value = overrides.build || { id: deployId };
     else if (endpoint.pathname === `/api/v1/deploys/${deployId}`) value = overrides.deploy || deploy;
     else if (endpoint.pathname.endsWith('/deploys')) value = overrides.existing || [];
     else value = overrides.site || site;
@@ -22,9 +22,9 @@ function provider(overrides = {}) {
   } };
 }
 
-test('native branch and hook publication is blocked while production and PR previews retain builds', () => {
+test('native branch build proceeds, but wrong identity and production still fail closed', () => {
   const base = { NETLIFY: 'true', BRANCH: previewBranch, CONTEXT: 'branch-deploy' };
-  assert.equal(blockNativePreview(base), true);
+  assert.equal(blockNativePreview(base), false);
   assert.equal(blockNativePreview({ ...base, CONTEXT: 'production' }), true);
   assert.equal(blockNativePreview({ ...base, BRANCH: 'integrated-marketing-platform' }), true);
   for (const env of [{ ...base, BRANCH: 'master', CONTEXT: 'production' }, { ...base, BRANCH: 'develop' },
@@ -38,7 +38,9 @@ test('uploads exactly once to the case-preserved nonproduction branch and retain
   assert.equal(posts.length, 1);
   const url = new URL(posts[0].url);
   assert.equal(url.origin, 'https://api.netlify.com');
-  assert.equal(url.pathname, `/api/v1/sites/${previewSite}/builds`);
+  assert.equal(url.pathname, `/api/v1/sites/${previewSite}/deploys`);
+  // The existing Netlify branch build is intentionally skipped; the exact CI ZIP
+  // must be installed as a deploy, not rebuilt with the provider's ignore hook.
   assert.equal(url.searchParams.get('branch'), previewBranch);
   assert.equal(url.searchParams.get('title'), `verified-platform-${input.commit}`);
   assert.equal(posts[0].options.body, input.zip);
@@ -47,6 +49,20 @@ test('uploads exactly once to the case-preserved nonproduction branch and retain
   assert.equal(result.production_deploy_unchanged, true);
   assert.doesNotMatch(JSON.stringify(result), /never-print-token/);
   for (const call of p.calls) assert.equal(call.options.redirect, 'error');
+});
+
+test('ZIP deploy response must identify one immutable deploy before status polling', async () => {
+  for (const build of [{}, { id: 'invalid' }, { deploy_id: deployId }, { id: '0'.repeat(24) }]) {
+    const p = provider({ build });
+    // The wrong returned id must not be guessed or replaced with a branch alias.
+    const failed = build.id === '0'.repeat(24) ? /publish/ : /identity/;
+    if (build.id === '0'.repeat(24)) {
+      await assert.rejects(publishPreviewBranch({ ...input, fetchImpl: p.fetchImpl }), /HTTP|publish|fetch|not belong/i);
+    } else {
+      await assert.rejects(publishPreviewBranch({ ...input, fetchImpl: p.fetchImpl }), failed);
+    }
+    assert.equal(p.calls.filter(call => call.options.method === 'POST').length, 1);
+  }
 });
 
 test('missing branch, other site, wrong commit or invalid ZIP cannot make any API request', async () => {
@@ -102,4 +118,26 @@ test('a production change detected after upload prevents a successful result', a
       json: async () => ({ ...site, published_deploy: { id: 'changed' } }) };
     return p.fetchImpl(url, options);
   } }), /Production identity changed/);
+});
+
+test('publish errors identify the failing provider phase without echoing secrets or response bodies', async () => {
+  const stages = ['site', 'deploy-list', 'upload', 'deploy-status', 'production'];
+  for (let failAt = 1; failAt <= stages.length; failAt++) {
+    const p = provider();
+    let count = 0;
+    await assert.rejects(publishPreviewBranch({ ...input, fetchImpl: async (url, options) => {
+      if (++count === failAt) return { ok: false, status: 422,
+        json: async () => { throw new Error('private provider response: never read'); } };
+      return p.fetchImpl(url, options);
+    } }), error => {
+      assert.equal(error instanceof PreviewProviderError, true);
+      const message = describePreviewPublishFailure(error);
+      assert.equal(message, `Verified preview publication failed during ${stages[failAt - 1]}: HTTP 422. Inspect deployment state before retrying. Provider bodies and credentials were not logged.`);
+      assert.doesNotMatch(message, /private provider response|never-print-token/);
+      return true;
+    });
+  }
+  assert.match(describePreviewPublishFailure(new Error('secret full Netlify error body')), /unclassified/);
+  assert.doesNotMatch(describePreviewPublishFailure(new Error('secret full Netlify error body')), /secret full/);
+  assert.match(describePreviewPublishFailure(new PreviewProviderError('bad phase with token', 777)), /unclassified: HTTP unknown/);
 });

@@ -168,6 +168,21 @@ test('member access ending disables independent QR action and closes displayed Q
  await expect(page.locator('#qrDisplayPanel')).toBeHidden();
  expect(await page.evaluate(()=>qaTransfer.calls.filter(c=>c.action==='points.transfer.create').length)).toBe(0);
 });
+test('opening focus cannot steal input from an active transfer draft',async({page})=>{
+ await page.locator('#pointTransferClose').click();
+ const result=await page.evaluate(()=>{
+  const queued=[],original=window.setTimeout;
+  try{
+   window.setTimeout=callback=>{queued.push(callback);return queued.length;};
+   document.getElementById('pointTransferButton').click();
+   const amount=document.getElementById('pointTransferAmount');amount.focus();amount.value='2';amount.dispatchEvent(new Event('input',{bubbles:true}));
+   queued.forEach(callback=>callback());
+   return {active:document.activeElement.id,amount:amount.value,writes:qaTransfer.calls.filter(call=>call.action==='points.transfer.create').length};
+  }finally{window.setTimeout=original;}
+ });
+ expect(result).toEqual({active:'pointTransferAmount',amount:'2',writes:0});
+});
+
 test('own QR and friend picker are separate actions, and transfer form remains usable',async({page})=>{
  await page.locator('#pointTransferClose').click();
  await expect(page.locator('#pointTransferCopyOwnCode')).toHaveCount(0);
