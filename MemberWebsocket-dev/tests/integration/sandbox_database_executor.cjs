@@ -156,3 +156,31 @@ test('AC-CLR-021: no user-facing role can enumerate or wipe data',async()=>{
     assert.equal((await db.query('select has_function_privilege($1,$2,$3) allowed',[role,fn,'EXECUTE'])).rows[0].allowed,false,role+' '+fn);
  }finally{await db.close()}
 });
+
+
+test('AC-CLR-025: a merchant-referencing view outside the merchant schema prevents CASCADE collateral damage',async()=>{
+ const db=await fixture({cron:false});
+ try{
+  const pBefore=await plan(db);
+  await proofs(db);
+  await db.exec('create view public.merchant_member_view as select id from '+tenant+'.members');
+  const p=await plan(db);
+  assert.notEqual(p.fingerprint,pBefore.fingerprint);
+  await assert.rejects(execute(db,p),/RESET_EXTERNAL_SCHEMA_DEPENDENCIES/);
+  assert.equal(await count(db,tenant+'.members'),1);
+  assert.equal(await count(db,'public.admins'),1);
+  assert.equal(await count(db,'public.merchant_member_view'),1);
+ }finally{await db.close()}
+});
+
+test('AC-CLR-026: a reset preserves business template and supports newly provisioned merchant schema',async()=>{
+ const db=await fixture({cron:false});
+ try{
+  await proofs(db);const p=await plan(db);await execute(db,p);
+  assert.equal(await count(db,'platform_private.business_templates'),1);
+  await db.exec('insert into platform_private.tenants values(7); create schema business_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; create table business_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.members(id int primary key); insert into business_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.members values(1)');
+  assert.equal(await count(db,'platform_private.tenants'),1);
+  assert.equal(await count(db,'business_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.members'),1);
+  assert.equal(await count(db,'public.admins'),0);
+ }finally{await db.close()}
+});
