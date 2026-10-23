@@ -43,4 +43,4 @@
 
 僅在全部必要驗收與既有基線於交付 SHA 實際通過、無安全／資料阻擋時稱「已驗證完成」。否則明確標「驗證失敗」或「部分完成且受阻」，列出未跑或失敗項及原因。Project 狀態必須按 #39 進出條件移動，不能憑程式已提交推進 Done。
 
-**目前已知阻擋**：Issue [#40](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/issues/40) 記錄整合分支 Chromium E2E 失敗；不可忽略它或假稱全套 CI 已通過。此規範本身不代表問題已修復。
+**歷史缺陷與目前驗證必須區分**：Issue [#40](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/issues/40) 曾記錄 Chromium E2E 逾時；2026-10-22 的 PR #84 合併版另有同 SHA 全 CI 與 Preview 成功證據。歷史成功不代表之後的版本已通過；每次合併及發布仍須核對當下提交的必要測試、版本與部署證據。

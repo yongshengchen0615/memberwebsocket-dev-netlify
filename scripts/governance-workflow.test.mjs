@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
+const guardrails = readFileSync(new URL('../docs/DEVELOPMENT_GUARDRAILS.md', import.meta.url), 'utf8');
+const agents = readFileSync(new URL('../AGENTS.md', import.meta.url), 'utf8');
 const workflow = readFileSync(new URL('../.github/workflows/test-memberwebsocket-dev.yml', import.meta.url), 'utf8');
 const expectedLanes = [
   'regression', 'integration', 'postgres-integration', 'browser-e2e',
@@ -38,4 +40,16 @@ test('all eight test lanes and the aggregate validation job remain present', () 
   ]) {
     assert.ok(aggregate.includes('test "$' + variable + '" = success'), variable + ' must be required to pass');
   }
+});
+
+test('project status vocabulary stays synchronized with the current nine-stage board', () => {
+  const required = [
+    '待規劃', '準備開始', '開發中', '程式碼審查', 'QA / E2E',
+    '等待部署', '觀察中', '已完成', '已阻塞',
+  ];
+  for (const name of required) {
+    assert.ok(guardrails.includes(name), `missing Project status: ${name}`);
+  }
+  assert.ok(guardrails.includes('不能把英文舊名稱當成可寫入的欄位值'));
+  assert.doesNotMatch(agents, /\*\*目前已知阻擋\*\*.*Chromium/);
 });

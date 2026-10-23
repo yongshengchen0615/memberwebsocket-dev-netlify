@@ -92,7 +92,7 @@ deno test MemberWebsocket-dev/supabase/functions/_shared/*_test.ts MemberWebsock
 - 某項環境無法提供時標記 **Blocked/未執行**，保留理由、待補證據與負責人；不得將 0 tests、skip 或 only mocks 記為 pass。
 - 每個失敗案例先分析原因、最小修復並重測該案例；最終修改完成後**重新跑本版全部必要測試**。
 
-**2026-10-21 已知基線阻擋：** [#40](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/issues/40) 描述整合分支 `93b26e9e5c690e60f0d78c906874b4159b3013b5` 的 Chromium `PLATFORM_APPLY` 導覽逾時。這是既存失敗紀錄，不代表本文件檢查或後續版本的執行結果。不可藉由增大 retry、略過該案例或修改發布閘門掩飾問題。
+**歷史 CI 失敗紀錄（非目前狀態）：** [#40](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/issues/40) 於 2026-10-21 記錄 Chromium `PLATFORM_APPLY` 導覽逾時；2026-10-22 的 PR #84 合併版本已留下分片 Chromium、全套 CI 與 Preview 成功證據。不可將任何舊失敗或舊成功直接套用至新的提交；任何測試異常必須保留實際證據，不能藉增加 retry、略過案例或降低發布門檻掩飾。
 
 ## 7. PR 合併與上線閘門
 
@@ -105,6 +105,6 @@ deno test MemberWebsocket-dev/supabase/functions/_shared/*_test.ts MemberWebsock
 
 ## 8. Project #5 Status 的證據規則
 
-`Backlog → Ready → In Progress → Code Review → QA / E2E → Ready to Deploy → Deployed → Done`；`Blocked` 為可從未完成階段進入的獨立狀態。詳細進出條件依 [#39](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/issues/39)。PR 合併不等於 QA；Preview deployed 不等於 Production deployed；沒有實測就不標 Done。
+`待規劃 → 準備開始 → 開發中 → 程式碼審查 → QA / E2E → 等待部署 → 觀察中 → 已完成`；`已阻塞` 為未完成工作可進入的獨立狀態。這些是 Project #5 實際 Status 選項，不能把英文舊名稱當成可寫入的欄位值。詳細進出條件依 [#39](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/issues/39)。PR 合併不等於 QA；Preview deployed 不等於 Production deployed；沒有實測就不標已完成。
 
 **固定交付報告**：本輪結果（已驗證完成／驗證失敗／部分完成且受阻） → 第一性原理摘要 → 變更檔案與影響 → AC 對照 → 測試報告（命令、環境、SHA、時間、pass/fail/skip、CI/log URL） → 已知問題 → 執行／回復 → 下一步。只填實際取得的證據。
