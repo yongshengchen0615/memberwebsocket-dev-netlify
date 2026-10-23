@@ -390,11 +390,15 @@ test('PLATFORM_EXPIRED_RETURN — stale callback marker cannot trigger automatic
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
-test('PLATFORM_INCLIENT_UNAUTH — missing LINE login shows recovery instead of a dead end',async({page})=>{
+test('PLATFORM_INCLIENT_UNAUTH — signed-out LIFF attempts once, then exposes manual recovery',async({page})=>{
  const h=await setup(page,'root',{inClient:true,loggedIn:false,rootLoginReturn:false});try{
   await expect(page.locator('#platformLoginGate')).toBeVisible();
-  await expect(page.locator('#platformStatus')).toContainText('LIFF 尚未完成登入');
+  await expect(page.locator('#platformStatus')).toContainText('回跳未完成');
   await expect(page.locator('#platformWorkspace')).toBeHidden();
+  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('1');
+  await page.reload();
+  await expect(page.locator('#platformLoginGate')).toBeVisible();
+  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('1');
   expect(h.providerCalls).toEqual([]);
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
