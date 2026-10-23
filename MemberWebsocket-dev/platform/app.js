@@ -613,7 +613,12 @@
         await Promise.race([window.liff.init({liffId:platformLiffId}),new Promise((_,reject)=>{initTimer=setTimeout(()=>reject(new Error('LINE 初始化逾時，請重新開啟此頁面。')),8000);})]);
       } catch {throw new Error(merchantEntry?'一般管理員 LIFF 初始化失敗，請確認 Endpoint URL 與網路。':'總管理員 LIFF 初始化失敗，請確認 Endpoint URL 與網路。');}
       finally {clearTimeout(initTimer);}
+      const returnedFromLine=consumeLoginReturn();
       if(!window.liff.isLoggedIn()) {
+        if(returnedFromLine || rejectedLoginReturn) {
+          showLoginGate('LINE 登入回跳未完成或已過期，請點選「重新使用 LINE 登入」重試。');
+          return;
+        }
         if(window.liff.isInClient()){
           // LIFF is normally signed in after init. Attempt recovery at most once,
           // then expose a manual option instead of a reload loop.
@@ -640,7 +645,6 @@
         }
         return;
       }
-      const returnedFromLine=consumeLoginReturn();
       state.idToken=window.liff.getIDToken() || '';
       if(!state.idToken) {
         showLoginGate('無法取得 LINE ID token。請重新使用 LINE 登入，並確認 LIFF 已啟用 openid scope。');
