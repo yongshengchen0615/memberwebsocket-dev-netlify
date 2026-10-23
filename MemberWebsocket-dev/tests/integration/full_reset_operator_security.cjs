@@ -19,6 +19,14 @@ test('AC-CLR-023: operator validates exact project, confirmation, isolation and 
   'https://dbuquirnaskrwcamdxki.supabase.co.evil.example']){
   assert.throws(()=>op.validateProjectOrigin(bad),/SUPABASE_URL_NOT_ALLOWLISTED/);
  }
+ for(const bad of [
+  'postgresql://postgres:pw@db.dbuquirnaskrwcamdxki.supabase.co:5432/reset_restore_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  'postgresql://postgres:pw@127.0.0.1:5432/postgres',
+  'postgresql://postgres:pw@127.0.0.1:5432/reset_restore_bad']){
+  assert.throws(()=>op.validateRestoreDatabaseUrl(bad),/RESTORE_DB_MUST_BE_LOCAL|RESTORE_DB_DISPOSABLE_NAME_REQUIRED/);
+ }
+ assert.equal(op.validateRestoreDatabaseUrl('postgresql://postgres:pw@127.0.0.1:5432/reset_restore_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa').pathname,
+  '/reset_restore_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
  const env={RESET_CONFIRM:'RESET MEMBERWEBSOCKET TEST DATA',
   RESET_BACKUP_KEY_B64:randomBytes(32).toString('base64'),
   RESET_PROVIDER_ISOLATION_ATTESTATION:'DISPATCH_DISABLED_AND_EXTERNAL_WEBHOOKS_ISOLATED'};
