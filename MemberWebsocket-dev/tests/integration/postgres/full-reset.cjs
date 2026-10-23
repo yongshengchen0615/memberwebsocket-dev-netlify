@@ -139,3 +139,29 @@ test('AC-CLR-004: verified pg_dump snapshot restores original synthetic accounts
                    [{required:false,enabled:true}]);
  }finally{await db.close()}
 });
+
+
+test('AC-CLR-001/002: clean synthetic database requires one-time independently confirmed root bootstrap',async()=>{
+ const db=await setup();
+ try{
+  const bootstrap="select maintenance.ci_bootstrap_root($1,$2,$3) as result";
+  await assert.rejects(db.query(bootstrap,[actor,reviewer,'BOOTSTRAP SYNTHETIC ROOT']),
+                       /CI_ROOT_BOOTSTRAP_NOT_PERMITTED/);
+  const p=await plan(db);
+  await db.query(resetSql,args(uuid(),p));
+  await assert.rejects(db.query(bootstrap,[actor,reviewer,'INVALID']),/CI_BOOTSTRAP_CONFIRMATION_REQUIRED/);
+  await assert.rejects(db.query(bootstrap,[actor,actor,'BOOTSTRAP SYNTHETIC ROOT']),
+                       /CI_TWO_PERSON_REVIEW_REQUIRED/);
+  assert.equal(await count(db,'public.admins'),0);
+  const boot=(await db.query(bootstrap,[actor,reviewer,'BOOTSTRAP SYNTHETIC ROOT'])).rows[0].result;
+  assert.equal(boot.syntheticOnly,true);
+  assert.equal(boot.rootReady,true);
+  assert.equal(await count(db,'public.admins'),1);
+  assert.deepEqual((await db.query('select enabled from platform_private.super_admins')).rows,[{enabled:true}]);
+  assert.deepEqual((await db.query('select required,enabled from maintenance.ci_root_bootstrap')).rows,
+                   [{required:false,enabled:true}]);
+  assert.equal(await count(db,'maintenance.ci_root_bootstrap_audit'),1);
+  await assert.rejects(db.query(bootstrap,[actor,reviewer,'BOOTSTRAP SYNTHETIC ROOT']),
+                       /CI_ROOT_BOOTSTRAP_NOT_PERMITTED/);
+ }finally{await db.close()}
+});
