@@ -298,19 +298,18 @@ test('PLATFORM_MOBILE — applicant identity and approved grant panel stay safe 
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
-test('PLATFORM_ROOT_REAUTH — every fresh root visit requires LINE re-login, return is one-use, BFCache is blocked',async({page})=>{
+test('PLATFORM_ROOT_REAUTH — initial root visit auto-reauthenticates once, return is one-use, BFCache is blocked',async({page})=>{
  const h=await setup(page,'root',{rootLoginReturn:false,inClient:true});try{
-  await expect(page.locator('#platformLoginGate')).toBeVisible();
-  await expect(page.locator('#platformWorkspace')).toBeHidden();
-  expect(h.providerCalls.length).toBeGreaterThan(0); // recognizes root, never grants the workspace yet
-  await page.getByRole('button',{name:'重新使用 LINE 登入'}).click();
   await expect(page.locator('#platformWorkspace')).toBeVisible();
   await expect(page.locator('#platformLoginGate')).toBeHidden();
   expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('1');
   expect(await page.evaluate(()=>sessionStorage.getItem('platform-line-login-return-v1'))).toBeNull();
-  await page.reload();
+  const attempt=await page.evaluate(()=>sessionStorage.getItem('platform-line-auto-attempt-v1'));
+  expect(Number(attempt)).toBeGreaterThan(0);
+  await page.reload(); // A consumed callback cannot silently start another login.
   await expect(page.locator('#platformLoginGate')).toBeVisible();
   await expect(page.locator('#platformWorkspace')).toBeHidden();
+  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('1');
   await page.getByRole('button',{name:'重新使用 LINE 登入'}).click();
   await expect(page.locator('#platformWorkspace')).toBeVisible();
   expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('2');
@@ -320,11 +319,10 @@ test('PLATFORM_ROOT_REAUTH — every fresh root visit requires LINE re-login, re
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
-test('PLATFORM_ROOT_EXTERNAL_REAUTH — external browser logs out before LINE login and never loops on callback',async({page})=>{
+test('PLATFORM_ROOT_EXTERNAL_REAUTH — logged-in external entry starts LINE login without click and never loops',async({page})=>{
  const h=await setup(page,'root',{rootLoginReturn:false,inClient:false,loggedIn:true});try{
-  await expect(page.locator('#platformLoginGate')).toBeVisible();
-  await page.getByRole('button',{name:'重新使用 LINE 登入'}).click();
-  expect(await page.evaluate(()=>window.loginCalls)).toEqual([[]]);
+  await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[]]);
+  await expect(page.locator('#platformWorkspace')).toBeHidden();
   expect(await page.evaluate(()=>window.logoutCalls)).toBe(1);
   await page.reload(); // Simulated LINE SDK callback with a fresh token
   await expect(page.locator('#platformWorkspace')).toBeVisible();
@@ -332,23 +330,27 @@ test('PLATFORM_ROOT_EXTERNAL_REAUTH — external browser logs out before LINE lo
   expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
   await page.reload();
   await expect(page.locator('#platformLoginGate')).toBeVisible();
+  expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
-test('PLATFORM_BAD_TOKEN_RECOVERY — wrong-channel token offers retry but never opens super admin or creates an infinite loop',async({page})=>{
+test('PLATFORM_BAD_TOKEN_RECOVERY — auto login with wrong-channel identity never authorizes root or loops',async({page})=>{
  const h=await setup(page,'legacy-root',{rootLoginReturn:false});try{
   await expect(page.locator('#platformLoginGate')).toBeVisible();
   await expect(page.locator('#platformStatus')).toContainText('LINE 身分驗證未通過');
   await expect(page.locator('#platformWorkspace')).toBeHidden();
+  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('1');
+  await page.reload();
+  await expect(page.locator('#platformLoginGate')).toBeVisible();
+  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('1');
   await page.getByRole('button',{name:'重新使用 LINE 登入'}).click();
   await expect(page.locator('#platformLoginGate')).toBeVisible();
   await expect(page.locator('#platformWorkspace')).toBeHidden();
-  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('1');
+  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('2');
   expect(await page.evaluate(()=>sessionStorage.getItem('platform-line-login-return-v1'))).toBeNull();
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
-
 test('PLATFORM_EXTERNAL_FIRST_SIGNIN — first signed-out external login returns directly to the root without a second login',async({page})=>{
  const h=await setup(page,'root',{inClient:false,loggedIn:false,rootLoginReturn:false});try{
   await expect(page.locator('#platformWorkspace')).toBeHidden();
@@ -362,6 +364,29 @@ test('PLATFORM_EXTERNAL_FIRST_SIGNIN — first signed-out external login returns
   await page.reload();
   await expect(page.locator('#platformWorkspace')).toBeHidden();
   await expect(page.locator('#platformLoginGate')).toBeVisible();
+  expect(h.errors).toEqual([]);
+ }finally{await h.db.close();}
+});
+test('PLATFORM_EXTERNAL_CALLBACK_FAILED — failed external callback never calls LINE login repeatedly',async({page})=>{
+ const h=await setup(page,'root',{inClient:false,loggedIn:false,rootLoginReturn:false});try{
+  await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[]]);
+  expect(await page.evaluate(()=>sessionStorage.getItem('platform-line-login-return-v1'))).not.toBeNull();
+  await page.reload(); // Return without a signed-in session.
+  await expect(page.locator('#platformLoginGate')).toBeVisible();
+  await expect(page.locator('#platformStatus')).toContainText('重試');
+  expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
+  await page.reload();
+  expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
+  expect(h.errors).toEqual([]);
+ }finally{await h.db.close();}
+});
+test('PLATFORM_EXPIRED_RETURN — stale callback marker cannot trigger automatic redirects or root access',async({page})=>{
+ await page.addInitScript(()=>sessionStorage.setItem('platform-line-login-return-v1',String(Date.now()-181000)));
+ const h=await setup(page,'root',{rootLoginReturn:false,inClient:false,loggedIn:true});try{
+  await expect(page.locator('#platformLoginGate')).toBeVisible();
+  await expect(page.locator('#platformWorkspace')).toBeHidden();
+  expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
+  expect(await page.evaluate(()=>sessionStorage.getItem('platform-line-login-return-v1'))).toBeNull();
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
