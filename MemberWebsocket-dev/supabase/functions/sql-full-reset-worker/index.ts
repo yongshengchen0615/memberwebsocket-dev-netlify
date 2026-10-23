@@ -3,8 +3,10 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.0";
 /** SQL-only reset worker. The HTTP endpoint is NOT a public reset API:
  * it requires a fresh, one-use 256-bit job ticket minted only by the DBA.
  * Its job records are never exposed to anon/authenticated users.
- * Backups and restorability MUST have been independently verified before
- * request_full_reset_from_sql will enqueue anything.
+ * This is an explicitly disposable test project: DBA may request irreversible
+ * deletion without backups. The worker still verifies project scope, job
+ * ticket, automatic Cron shutdown, managed Auth/Storage API deletion and DB
+ * completion before returning success.
  */
 const PROJECT="dbuquirnaskrwcamdxki";
 const DOMAIN="https://"+PROJECT+".supabase.co";
@@ -74,8 +76,9 @@ Deno.serve(async(req:Request)=>{
   if(claim.error||claim.data?.accepted!==true)
     return send({ok:false,error:"UNAUTHORIZED_OR_EXPIRED_JOB"},403);
   claimed=true;
-  // Disable autonomous dispatch before irreversible writes. External LINE
-  // providers MUST already be isolated as part of the operator's attestation.
+  // Automatically pause scheduled dispatch. External LINE webhooks are not
+  // disabled by this worker; any concurrent external write will fail the
+  // preview fingerprint check instead of reporting an incomplete success.
   await phase(db,jobId,ticket,"pause");
   const before=await phase(db,jobId,ticket,"inventory");
   const buckets=before.buckets;
