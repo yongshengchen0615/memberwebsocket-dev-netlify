@@ -29,7 +29,7 @@ test('AC-CLR-001/003: isolated reset removes all synthetic admin/member/merchant
   assert.equal(p.environment,'synthetic_disposable_postgres');
   assert.equal(p.allowed,false);
   assert.equal(p.tableCount,19);
-  assert.equal(p.rowCount,21);
+  assert.equal(p.rowCount,23);
   const out=(await db.query(resetSql,args(uuid(),p))).rows[0].result;
   assert.equal(out.systemReady,true);
   assert.equal(out.rootBootstrapRequired,true);
