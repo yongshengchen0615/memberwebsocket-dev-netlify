@@ -116,6 +116,323 @@ begin
     and (ns.nspname in ('public','platform_private','booking_notifications','line_config')
       or ns.nspname ~ '^business_[a-f0-9]{32}$')
  ) then raise exception 'RESET_TRUNCATE_TRIGGER_REVIEW_REQUIRED'; end if;
+ -- DROP SCHEMA CASCADE is limited to merchant-owned objects only. Never let
+ -- a merchant removal cascade into a view or FK of a preserved namespace.
+ if exists(
+  select 1 from pg_catalog.pg_depend d
+  join pg_catalog.pg_rewrite rw on rw.oid=d.objid
+  join pg_catalog.pg_class dep on dep.oid=rw.ev_class
+  join pg_catalog.pg_namespace depns on depns.oid=dep.relnamespace
+  join pg_catalog.pg_class ref on ref.oid=d.refobjid
+  join pg_catalog.pg_namespace refns on refns.oid=ref.relnamespace
+  where refns.nspname ~ '^business_[a-f0-9]{32}
+ -- during approval. All verified assets are locked before final fingerprint.
+ select pg_catalog.string_agg(pg_catalog.format('%I.%I',schemaname,tablename),
+     ', ' order by schemaname,tablename),
+    pg_catalog.string_agg(pg_catalog.format('%I.%I',schemaname,tablename),
+     ';' order by schemaname,tablename),count(*)::integer
+ into v_table_list,v_list_before,v_table_count
+ from pg_catalog.pg_tables
+ where (schemaname in ('public','platform_private','booking_notifications','line_config')
+    or schemaname ~ '^business_[a-f0-9]{32}$')
+   and not (schemaname='platform_private' and tablename='business_templates')
+   and not (schemaname='line_config' and tablename='settings');
+ if v_table_list is null or v_table_count=0
+    then raise exception 'RESET_NO_TARGET_TABLES'; end if;
+ execute 'lock table ' || v_table_list || ' in access exclusive mode';
+ select pg_catalog.string_agg(pg_catalog.format('%I.%I',schemaname,tablename),
+    ';' order by schemaname,tablename) into v_list_after
+ from pg_catalog.pg_tables
+ where (schemaname in ('public','platform_private','booking_notifications','line_config')
+    or schemaname ~ '^business_[a-f0-9]{32}$')
+   and not (schemaname='platform_private' and tablename='business_templates')
+   and not (schemaname='line_config' and tablename='settings');
+ if v_list_after is distinct from v_list_before
+    then raise exception 'RESET_SCHEMA_DRIFT'; end if;
+ v_plan := maintenance.plan_sandbox_database_reset();
+ if v_plan->>'fingerprint' is distinct from p_expected_fingerprint
+    then raise exception 'RESET_STALE_PREVIEW'; end if;
+ v_removed_rows := (v_plan->>'plannedRows')::bigint;
+ execute 'truncate table ' || v_table_list || ' restart identity';
+ -- Remove inactive merchant runtime namespaces as well as their data.
+ -- This only affects explicitly allowlisted business_<32hex> schemas.
+ for v_schema in
+   select nspname from pg_catalog.pg_namespace
+   where nspname ~ '^business_[a-f0-9]{32}$' order by nspname
+ loop
+   execute pg_catalog.format('drop schema %I cascade',v_schema.nspname);
+   v_removed_schemas := v_removed_schemas+1;
+ end loop;
+ -- Recreate the system-required application configuration, not any account.
+ perform maintenance.ensure_required_system_baseline();
+ perform maintenance.ensure_referral_reward_baseline();
+ perform maintenance.ensure_event_ticket_settings_baseline();
+ if exists(select 1 from public.admins)
+  or exists(select 1 from public.members)
+  or exists(select 1 from platform_private.super_admins)
+  or exists(select 1 from platform_private.tenants)
+  or exists(select 1 from auth.users)
+  or exists(select 1 from storage.objects)
+  or exists(select 1 from pg_catalog.pg_namespace
+    where nspname ~ '^business_[a-f0-9]{32}$')
+ then raise exception 'RESET_POSTCONDITION_RESIDUAL_ACCOUNTS_OR_BUSINESSES'; end if;
+ update maintenance.sandbox_reset_epoch
+ set last_completed_request=p_request_id,
+     last_completed_at=pg_catalog.clock_timestamp(),
+     root_bootstrap_required=true,bootstrapped_at=null where singleton=true;
+ if not found then raise exception 'RESET_EPOCH_NOT_INITIALIZED'; end if;
+ -- Require a new independent backup and isolation proof for another reset.
+ update maintenance.sandbox_reset_target
+ set backup_verified_at=null,storage_restore_verified_at=null,
+     provider_isolation_verified_at=null where singleton=true;
+ return pg_catalog.jsonb_build_object(
+   'requestId',p_request_id,
+   'databaseReset',true,'removedRows',v_removed_rows,
+   'truncatedTableCount',v_table_count,'droppedBusinessSchemas',v_removed_schemas,
+   'rootBootstrapRequired',true,
+   'managedStorageRemovedBySql',false,
+   'environmentSecretsPreserved',true);
+end;
+$fn$;
+revoke all on function maintenance.plan_sandbox_database_reset()
+ from public,anon,authenticated,service_role;
+revoke all on function maintenance.execute_sandbox_database_reset(uuid,text,text)
+ from public,anon,authenticated,service_role;
+commit;
+
+   and depns.nspname !~ '^business_[a-f0-9]{32}
+ -- during approval. All verified assets are locked before final fingerprint.
+ select pg_catalog.string_agg(pg_catalog.format('%I.%I',schemaname,tablename),
+     ', ' order by schemaname,tablename),
+    pg_catalog.string_agg(pg_catalog.format('%I.%I',schemaname,tablename),
+     ';' order by schemaname,tablename),count(*)::integer
+ into v_table_list,v_list_before,v_table_count
+ from pg_catalog.pg_tables
+ where (schemaname in ('public','platform_private','booking_notifications','line_config')
+    or schemaname ~ '^business_[a-f0-9]{32}$')
+   and not (schemaname='platform_private' and tablename='business_templates')
+   and not (schemaname='line_config' and tablename='settings');
+ if v_table_list is null or v_table_count=0
+    then raise exception 'RESET_NO_TARGET_TABLES'; end if;
+ execute 'lock table ' || v_table_list || ' in access exclusive mode';
+ select pg_catalog.string_agg(pg_catalog.format('%I.%I',schemaname,tablename),
+    ';' order by schemaname,tablename) into v_list_after
+ from pg_catalog.pg_tables
+ where (schemaname in ('public','platform_private','booking_notifications','line_config')
+    or schemaname ~ '^business_[a-f0-9]{32}$')
+   and not (schemaname='platform_private' and tablename='business_templates')
+   and not (schemaname='line_config' and tablename='settings');
+ if v_list_after is distinct from v_list_before
+    then raise exception 'RESET_SCHEMA_DRIFT'; end if;
+ v_plan := maintenance.plan_sandbox_database_reset();
+ if v_plan->>'fingerprint' is distinct from p_expected_fingerprint
+    then raise exception 'RESET_STALE_PREVIEW'; end if;
+ v_removed_rows := (v_plan->>'plannedRows')::bigint;
+ execute 'truncate table ' || v_table_list || ' restart identity';
+ -- Remove inactive merchant runtime namespaces as well as their data.
+ -- This only affects explicitly allowlisted business_<32hex> schemas.
+ for v_schema in
+   select nspname from pg_catalog.pg_namespace
+   where nspname ~ '^business_[a-f0-9]{32}$' order by nspname
+ loop
+   execute pg_catalog.format('drop schema %I cascade',v_schema.nspname);
+   v_removed_schemas := v_removed_schemas+1;
+ end loop;
+ -- Recreate the system-required application configuration, not any account.
+ perform maintenance.ensure_required_system_baseline();
+ perform maintenance.ensure_referral_reward_baseline();
+ perform maintenance.ensure_event_ticket_settings_baseline();
+ if exists(select 1 from public.admins)
+  or exists(select 1 from public.members)
+  or exists(select 1 from platform_private.super_admins)
+  or exists(select 1 from platform_private.tenants)
+  or exists(select 1 from auth.users)
+  or exists(select 1 from storage.objects)
+  or exists(select 1 from pg_catalog.pg_namespace
+    where nspname ~ '^business_[a-f0-9]{32}$')
+ then raise exception 'RESET_POSTCONDITION_RESIDUAL_ACCOUNTS_OR_BUSINESSES'; end if;
+ update maintenance.sandbox_reset_epoch
+ set last_completed_request=p_request_id,
+     last_completed_at=pg_catalog.clock_timestamp(),
+     root_bootstrap_required=true,bootstrapped_at=null where singleton=true;
+ if not found then raise exception 'RESET_EPOCH_NOT_INITIALIZED'; end if;
+ -- Require a new independent backup and isolation proof for another reset.
+ update maintenance.sandbox_reset_target
+ set backup_verified_at=null,storage_restore_verified_at=null,
+     provider_isolation_verified_at=null where singleton=true;
+ return pg_catalog.jsonb_build_object(
+   'requestId',p_request_id,
+   'databaseReset',true,'removedRows',v_removed_rows,
+   'truncatedTableCount',v_table_count,'droppedBusinessSchemas',v_removed_schemas,
+   'rootBootstrapRequired',true,
+   'managedStorageRemovedBySql',false,
+   'environmentSecretsPreserved',true);
+end;
+$fn$;
+revoke all on function maintenance.plan_sandbox_database_reset()
+ from public,anon,authenticated,service_role;
+revoke all on function maintenance.execute_sandbox_database_reset(uuid,text,text)
+ from public,anon,authenticated,service_role;
+commit;
+
+   and dep.relkind in ('v','m')
+ ) or exists(
+  select 1 from pg_catalog.pg_constraint fk
+  join pg_catalog.pg_class dep on dep.oid=fk.conrelid
+  join pg_catalog.pg_namespace depns on depns.oid=dep.relnamespace
+  join pg_catalog.pg_class ref on ref.oid=fk.confrelid
+  join pg_catalog.pg_namespace refns on refns.oid=ref.relnamespace
+  where fk.contype='f' and refns.nspname ~ '^business_[a-f0-9]{32}
+ -- during approval. All verified assets are locked before final fingerprint.
+ select pg_catalog.string_agg(pg_catalog.format('%I.%I',schemaname,tablename),
+     ', ' order by schemaname,tablename),
+    pg_catalog.string_agg(pg_catalog.format('%I.%I',schemaname,tablename),
+     ';' order by schemaname,tablename),count(*)::integer
+ into v_table_list,v_list_before,v_table_count
+ from pg_catalog.pg_tables
+ where (schemaname in ('public','platform_private','booking_notifications','line_config')
+    or schemaname ~ '^business_[a-f0-9]{32}$')
+   and not (schemaname='platform_private' and tablename='business_templates')
+   and not (schemaname='line_config' and tablename='settings');
+ if v_table_list is null or v_table_count=0
+    then raise exception 'RESET_NO_TARGET_TABLES'; end if;
+ execute 'lock table ' || v_table_list || ' in access exclusive mode';
+ select pg_catalog.string_agg(pg_catalog.format('%I.%I',schemaname,tablename),
+    ';' order by schemaname,tablename) into v_list_after
+ from pg_catalog.pg_tables
+ where (schemaname in ('public','platform_private','booking_notifications','line_config')
+    or schemaname ~ '^business_[a-f0-9]{32}$')
+   and not (schemaname='platform_private' and tablename='business_templates')
+   and not (schemaname='line_config' and tablename='settings');
+ if v_list_after is distinct from v_list_before
+    then raise exception 'RESET_SCHEMA_DRIFT'; end if;
+ v_plan := maintenance.plan_sandbox_database_reset();
+ if v_plan->>'fingerprint' is distinct from p_expected_fingerprint
+    then raise exception 'RESET_STALE_PREVIEW'; end if;
+ v_removed_rows := (v_plan->>'plannedRows')::bigint;
+ execute 'truncate table ' || v_table_list || ' restart identity';
+ -- Remove inactive merchant runtime namespaces as well as their data.
+ -- This only affects explicitly allowlisted business_<32hex> schemas.
+ for v_schema in
+   select nspname from pg_catalog.pg_namespace
+   where nspname ~ '^business_[a-f0-9]{32}$' order by nspname
+ loop
+   execute pg_catalog.format('drop schema %I cascade',v_schema.nspname);
+   v_removed_schemas := v_removed_schemas+1;
+ end loop;
+ -- Recreate the system-required application configuration, not any account.
+ perform maintenance.ensure_required_system_baseline();
+ perform maintenance.ensure_referral_reward_baseline();
+ perform maintenance.ensure_event_ticket_settings_baseline();
+ if exists(select 1 from public.admins)
+  or exists(select 1 from public.members)
+  or exists(select 1 from platform_private.super_admins)
+  or exists(select 1 from platform_private.tenants)
+  or exists(select 1 from auth.users)
+  or exists(select 1 from storage.objects)
+  or exists(select 1 from pg_catalog.pg_namespace
+    where nspname ~ '^business_[a-f0-9]{32}$')
+ then raise exception 'RESET_POSTCONDITION_RESIDUAL_ACCOUNTS_OR_BUSINESSES'; end if;
+ update maintenance.sandbox_reset_epoch
+ set last_completed_request=p_request_id,
+     last_completed_at=pg_catalog.clock_timestamp(),
+     root_bootstrap_required=true,bootstrapped_at=null where singleton=true;
+ if not found then raise exception 'RESET_EPOCH_NOT_INITIALIZED'; end if;
+ -- Require a new independent backup and isolation proof for another reset.
+ update maintenance.sandbox_reset_target
+ set backup_verified_at=null,storage_restore_verified_at=null,
+     provider_isolation_verified_at=null where singleton=true;
+ return pg_catalog.jsonb_build_object(
+   'requestId',p_request_id,
+   'databaseReset',true,'removedRows',v_removed_rows,
+   'truncatedTableCount',v_table_count,'droppedBusinessSchemas',v_removed_schemas,
+   'rootBootstrapRequired',true,
+   'managedStorageRemovedBySql',false,
+   'environmentSecretsPreserved',true);
+end;
+$fn$;
+revoke all on function maintenance.plan_sandbox_database_reset()
+ from public,anon,authenticated,service_role;
+revoke all on function maintenance.execute_sandbox_database_reset(uuid,text,text)
+ from public,anon,authenticated,service_role;
+commit;
+
+   and depns.nspname !~ '^business_[a-f0-9]{32}
+ -- during approval. All verified assets are locked before final fingerprint.
+ select pg_catalog.string_agg(pg_catalog.format('%I.%I',schemaname,tablename),
+     ', ' order by schemaname,tablename),
+    pg_catalog.string_agg(pg_catalog.format('%I.%I',schemaname,tablename),
+     ';' order by schemaname,tablename),count(*)::integer
+ into v_table_list,v_list_before,v_table_count
+ from pg_catalog.pg_tables
+ where (schemaname in ('public','platform_private','booking_notifications','line_config')
+    or schemaname ~ '^business_[a-f0-9]{32}$')
+   and not (schemaname='platform_private' and tablename='business_templates')
+   and not (schemaname='line_config' and tablename='settings');
+ if v_table_list is null or v_table_count=0
+    then raise exception 'RESET_NO_TARGET_TABLES'; end if;
+ execute 'lock table ' || v_table_list || ' in access exclusive mode';
+ select pg_catalog.string_agg(pg_catalog.format('%I.%I',schemaname,tablename),
+    ';' order by schemaname,tablename) into v_list_after
+ from pg_catalog.pg_tables
+ where (schemaname in ('public','platform_private','booking_notifications','line_config')
+    or schemaname ~ '^business_[a-f0-9]{32}$')
+   and not (schemaname='platform_private' and tablename='business_templates')
+   and not (schemaname='line_config' and tablename='settings');
+ if v_list_after is distinct from v_list_before
+    then raise exception 'RESET_SCHEMA_DRIFT'; end if;
+ v_plan := maintenance.plan_sandbox_database_reset();
+ if v_plan->>'fingerprint' is distinct from p_expected_fingerprint
+    then raise exception 'RESET_STALE_PREVIEW'; end if;
+ v_removed_rows := (v_plan->>'plannedRows')::bigint;
+ execute 'truncate table ' || v_table_list || ' restart identity';
+ -- Remove inactive merchant runtime namespaces as well as their data.
+ -- This only affects explicitly allowlisted business_<32hex> schemas.
+ for v_schema in
+   select nspname from pg_catalog.pg_namespace
+   where nspname ~ '^business_[a-f0-9]{32}$' order by nspname
+ loop
+   execute pg_catalog.format('drop schema %I cascade',v_schema.nspname);
+   v_removed_schemas := v_removed_schemas+1;
+ end loop;
+ -- Recreate the system-required application configuration, not any account.
+ perform maintenance.ensure_required_system_baseline();
+ perform maintenance.ensure_referral_reward_baseline();
+ perform maintenance.ensure_event_ticket_settings_baseline();
+ if exists(select 1 from public.admins)
+  or exists(select 1 from public.members)
+  or exists(select 1 from platform_private.super_admins)
+  or exists(select 1 from platform_private.tenants)
+  or exists(select 1 from auth.users)
+  or exists(select 1 from storage.objects)
+  or exists(select 1 from pg_catalog.pg_namespace
+    where nspname ~ '^business_[a-f0-9]{32}$')
+ then raise exception 'RESET_POSTCONDITION_RESIDUAL_ACCOUNTS_OR_BUSINESSES'; end if;
+ update maintenance.sandbox_reset_epoch
+ set last_completed_request=p_request_id,
+     last_completed_at=pg_catalog.clock_timestamp(),
+     root_bootstrap_required=true,bootstrapped_at=null where singleton=true;
+ if not found then raise exception 'RESET_EPOCH_NOT_INITIALIZED'; end if;
+ -- Require a new independent backup and isolation proof for another reset.
+ update maintenance.sandbox_reset_target
+ set backup_verified_at=null,storage_restore_verified_at=null,
+     provider_isolation_verified_at=null where singleton=true;
+ return pg_catalog.jsonb_build_object(
+   'requestId',p_request_id,
+   'databaseReset',true,'removedRows',v_removed_rows,
+   'truncatedTableCount',v_table_count,'droppedBusinessSchemas',v_removed_schemas,
+   'rootBootstrapRequired',true,
+   'managedStorageRemovedBySql',false,
+   'environmentSecretsPreserved',true);
+end;
+$fn$;
+revoke all on function maintenance.plan_sandbox_database_reset()
+ from public,anon,authenticated,service_role;
+revoke all on function maintenance.execute_sandbox_database_reset(uuid,text,text)
+ from public,anon,authenticated,service_role;
+commit;
+
+ ) then raise exception 'RESET_EXTERNAL_SCHEMA_DEPENDENCIES'; end if;
  -- No application table may be silently omitted if the schema is amended
  -- during approval. All verified assets are locked before final fingerprint.
  select pg_catalog.string_agg(pg_catalog.format('%I.%I',schemaname,tablename),
