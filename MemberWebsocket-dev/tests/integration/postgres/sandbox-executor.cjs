@@ -90,6 +90,9 @@ test('AC-CLR-027: actual PG17 executor resets root, tenant, outbox and merchant 
   assert.equal(Number((await restored.query('select count(*)::int n from public.admins')).rows[0].n),1);
   assert.equal(Number((await restored.query('select count(*)::int n from platform_private.tenants')).rows[0].n),1);
   assert.equal(Number((await restored.query('select count(*)::int n from '+merchant+'.bookings')).rows[0].n),1);
+  const restoredPlan=(await restored.query('select maintenance.plan_sandbox_database_reset() p')).rows[0].p;
+  assert.equal(restoredPlan.fingerprint,p.fingerprint,'actual restored content must match full approved application fingerprint');
+  assert.equal(restoredPlan.tableCount,p.tableCount,'restored table inventory must match original');
   const bootstrap=(await db.query('select maintenance.bootstrap_sandbox_root($1,$2) result',
     [uid,'RESTORE ROOT AFTER VERIFIED SANDBOX RESET'])).rows[0].result;
   assert.equal(bootstrap.bootstrapped,true);
