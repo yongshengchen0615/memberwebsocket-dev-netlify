@@ -6,6 +6,7 @@ module.exports=async()=>{
  // Apply the new platform registration migration to its physical SQL DB too.
  const fs=require('node:fs'),path=require('node:path');
  await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261023224500_platform_access_registration_and_review.sql'),'utf8'));
+ await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261023233000_supabase_table_editor_root_approval.sql'),'utf8'));
  const allowedOrigins=new Set(['https://allowed.test']);
  const rpc=async(name,params={})=>{
   if(!/^(platform_[a-z_]+|consume_api_rate_limit)$/.test(name))throw Error('Unknown RPC '+name);
