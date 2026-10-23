@@ -1,102 +1,104 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const {fixture,root,manager}=require('./platform-fixture.cjs');
+const count=async(db,t)=>Number((await db.query('select count(*)::int n from '+t)).rows[0].n);
+const row=async(db,id)=>(await db.query('select line_user_id,display_name,singleton,admin_id,enabled,first_seen_at,last_seen_at from platform_private.super_admins where line_user_id=$1',[id])).rows[0];
 
-const count=async(db,table)=>Number((await db.query('select count(*)::int n from '+table)).rows[0].n);
-
-test('AC-PLAT-101: after test reset, LINE-verified Platform visit writes a pending identity without self-escalation',async()=>{
+test('AC-PLAT-201: validated Platform LINE login writes a pending super_admins record and never grants itself',async()=>{
  const h=await fixture();
  try{
-  await h.db.exec('delete from platform_private.super_admins;delete from public.admins;');
-  assert.equal(await count(h.db,'public.admins'),0);
-  const denied=await h.call({action:'platform.bootstrap'},'root');
-  assert.equal(denied.status,403);
-  assert.equal(denied.body.error.code,'PLATFORM_ADMIN_REQUIRED');
-  assert.equal(await count(h.db,'public.admins'),0,'must not preempt safe first-owner DBA bootstrap');
-  const rows=(await h.db.query('select line_user_id,display_name,access_enabled,first_seen_at from platform_private.platform_access_requests')).rows;
-  assert.equal(rows.length,1);
-  assert.equal(rows[0].line_user_id,root);
-  assert.equal(rows[0].access_enabled,false);
-  const repeat=await h.call({action:'platform.bootstrap'},'root');
-  assert.equal(repeat.status,403);
-  assert.equal(await count(h.db,'platform_private.platform_access_requests'),1);
-  assert.equal((await h.db.query('select first_seen_at from platform_private.platform_access_requests')).rows[0].first_seen_at.getTime(),rows[0].first_seen_at.getTime());
-  assert.equal((await h.rpc('platform_is_super_admin',{p_actor:root})).data,false);
+  const first=await h.call({action:'platform.bootstrap'},'manager');
+  assert.equal(first.status,403);
+  assert.equal(first.body.error.code,'PLATFORM_ADMIN_REQUIRED');
+  let r=await row(h.db,manager);
+  assert.equal(r.line_user_id,manager);
+  assert.equal(r.display_name,'商家管理員');
+  assert.equal(r.singleton,null);
+  assert.equal(r.admin_id,null);
+  assert.equal(r.enabled,false);
+  assert.equal((await h.rpc('platform_is_super_admin',{p_actor:manager})).data,false);
+  const before=r.first_seen_at.getTime();
+  await h.call({action:'platform.bootstrap'},'manager');
+  assert.equal(await count(h.db,'platform_private.super_admins'),2);
+  r=await row(h.db,manager);
+  assert.equal(r.first_seen_at.getTime(),before);
+  assert.equal(r.enabled,false);
  }finally{await h.db.close()}
 });
 
-test('AC-PLAT-102: root may approve and revoke a verified candidate; old LINE token loses platform access immediately',async()=>{
+test('AC-PLAT-202: editing enabled only in Supabase table immediately activates a verified operator and revocation blocks stale LINE tokens',async()=>{
  const h=await fixture();
  try{
-  const denied=await h.call({action:'platform.bootstrap'},'manager');
-  assert.equal(denied.status,403);
-  let response=await h.call({action:'platform.bootstrap'});
-  assert.equal(response.status,200,JSON.stringify(response.body));
-  assert.equal(response.body.data.canReviewPlatformAccess,true);
-  assert.equal(response.body.data.operatorRequests.length,1);
-  assert.equal(response.body.data.operatorRequests[0].lineUserId,manager);
-  assert.equal(response.body.data.operatorRequests[0].allowed,false);
-  const granted=await h.call({action:'platform.operator.review',targetLineUserId:manager,allowed:true});
-  assert.equal(granted.status,200,JSON.stringify(granted.body));
-  const accepted=await h.call({action:'platform.bootstrap'},'manager');
-  assert.equal(accepted.status,200,JSON.stringify(accepted.body));
-  assert.equal(accepted.body.data.canReviewPlatformAccess,false);
-  assert.deepEqual(accepted.body.data.operatorRequests,[]);
-  const forbidden=await h.call({action:'platform.operator.review',targetLineUserId:root,allowed:true},'manager');
-  assert.equal(forbidden.status,403,'delegates cannot approve another root or operator');
-  assert.equal(forbidden.body.error.code,'PLATFORM_ROOT_REQUIRED');
-  const revoked=await h.call({action:'platform.operator.review',targetLineUserId:manager,allowed:false});
-  assert.equal(revoked.status,200,JSON.stringify(revoked.body));
+  await h.call({action:'platform.bootstrap'},'manager');
+  await h.db.query('update platform_private.super_admins set enabled=true where line_user_id=$1',[manager]);
+  assert.equal((await h.call({action:'platform.bootstrap'},'manager')).status,200);
+  assert.equal((await h.rpc('platform_is_super_admin',{p_actor:manager})).data,true);
+  await h.db.query('update platform_private.super_admins set enabled=false where line_user_id=$1',[manager]);
   assert.equal((await h.call({action:'platform.bootstrap'},'manager')).status,403);
-  const audits=(await h.db.query("select action from platform_private.audit_events where action like 'PLATFORM_OPERATOR_%' order by created_at")).rows.map(x=>x.action);
-  assert.deepEqual(audits,['PLATFORM_OPERATOR_GRANTED','PLATFORM_OPERATOR_REVOKED']);
+  await h.call({action:'platform.bootstrap'},'manager');
+  assert.equal((await row(h.db,manager)).enabled,false,'LINE relogin cannot undo owner revocation');
+  assert.equal((await h.call({action:'platform.application.approve',requestId:crypto.randomUUID(),applicationId:crypto.randomUUID(),features:h.tenant.features},'manager')).status,403);
  }finally{await h.db.close()}
 });
 
-test('AC-PLAT-103: repeated LINE visits cannot undo a revocation or forge a display name or grant',async()=>{
+test('AC-PLAT-203: Platform controls are not able to approve operators, even if owner is logged in',async()=>{
  const h=await fixture();
  try{
-  const spoof=await h.call({action:'platform.bootstrap',displayName:'Super Root',role:'admin',approved:true,accessEnabled:true},'manager');
-  assert.equal(spoof.status,403);
-  assert.equal((await h.db.query('select display_name from platform_private.platform_access_requests where line_user_id=$1',[manager])).rows[0].display_name,'商家管理員');
-  await h.call({action:'platform.bootstrap'});
-  await h.call({action:'platform.operator.review',targetLineUserId:manager,allowed:true});
-  await h.call({action:'platform.operator.review',targetLineUserId:manager,allowed:false});
   await h.call({action:'platform.bootstrap'},'manager');
-  assert.equal((await h.db.query('select access_enabled from platform_private.platform_access_requests where line_user_id=$1',[manager])).rows[0].access_enabled,false);
+  const result=await h.call({action:'platform.operator.review',targetLineUserId:manager,allowed:true});
+  assert.equal(result.status,403);
+  assert.equal(result.body.error.code,'PLATFORM_SUPABASE_ONLY_APPROVAL');
+  assert.equal((await row(h.db,manager)).enabled,false);
+  const rootRow=await row(h.db,root);
+  assert.equal(rootRow.singleton,true);
+  assert.ok(rootRow.admin_id);
+  assert.equal(rootRow.enabled,true);
+  await assert.rejects(h.db.query("update platform_private.super_admins set singleton=true where line_user_id=$1",[manager]),/super_admins_root_shape|super_admins_single_root_idx/);
+ }finally{await h.db.close()}
+});
+
+test('AC-PLAT-204: untrusted body, wrong LINE channel and missing legacy admin must never grant control',async()=>{
+ const h=await fixture();
+ try{
+  const forged=await h.call({action:'platform.bootstrap',enabled:true,admin_id:crypto.randomUUID(),lineUserId:root,displayName:'Root'},'manager');
+  assert.equal(forged.status,403);
+  let r=await row(h.db,manager);
+  assert.equal(r.enabled,false);
+  assert.equal(r.display_name,'商家管理員','trusted LINE verifier supplies displayName');
   assert.equal((await h.call({action:'platform.bootstrap'},'legacy-root')).status,401);
-  assert.equal(await count(h.db,'platform_private.platform_access_requests'),2);
+  await h.db.query("update public.admins set status='suspended' where line_user_id=$1",[root]);
+  assert.equal((await h.call({action:'platform.bootstrap'})).status,403);
+  assert.equal((await h.rpc('platform_is_root_super_admin',{p_actor:root})).data,false);
  }finally{await h.db.close()}
 });
 
-test('AC-PLAT-104: only enabled existing singleton root can review; delegates cannot self-approve',async()=>{
- const h=await fixture();
- try{
-  await h.call({action:'platform.bootstrap'},'manager');
-  const denied=await h.call({action:'platform.operator.review',targetLineUserId:manager,allowed:true},'manager');
-  assert.equal(denied.status,403);
-  const self=await h.call({action:'platform.operator.review',targetLineUserId:root,allowed:true});
-  assert.equal(self.status,403);
-  assert.equal(self.body.error.code,'PLATFORM_SELF_OR_ROOT_REVIEW_FORBIDDEN');
-  await h.db.exec('update platform_private.super_admins set enabled=false where singleton=true');
-  const disabled=await h.call({action:'platform.operator.review',targetLineUserId:manager,allowed:true});
-  assert.equal(disabled.status,403);
-  assert.equal((await h.db.query('select access_enabled from platform_private.platform_access_requests where line_user_id=$1',[manager])).rows[0].access_enabled,false);
-  assert.equal(await count(h.db,'platform_private.audit_events'),0);
- }finally{await h.db.close()}
-});
-
-test('AC-PLAT-105: anon/authenticated cannot create, read, review or self-assign Platform roles through RPCs',async()=>{
+test('AC-PLAT-205: private super_admins cannot be edited by anon/authenticated; internal RPCs may not grant access',async()=>{
  const h=await fixture();
  try{
   for(const role of ['anon','authenticated']){
-   for(const signature of [
-    'public.platform_record_access_request(text,text)',
-    'public.platform_list_access_requests(text)',
-    'public.platform_review_access_request(text,text,boolean)',
-    'public.platform_is_super_admin(text)']){
-    assert.equal((await h.db.query('select has_function_privilege($1,$2,$3) allowed',[role,signature,'EXECUTE'])).rows[0].allowed,false,role+' '+signature);
-   }
+   assert.equal((await h.db.query('select has_function_privilege($1,$2,$3) allowed',
+    [role,'public.platform_record_access_request(text,text)','EXECUTE'])).rows[0].allowed,false);
+   assert.equal((await h.db.query('select has_function_privilege($1,$2,$3) allowed',
+    [role,'public.platform_review_access_request(text,text,boolean)','EXECUTE'])).rows[0].allowed,false);
+   await h.db.exec('set role '+role);
+   await assert.rejects(h.db.query('select * from platform_private.super_admins'),/permission denied/);
+   await h.db.exec('reset role');
   }
+  const internal=await h.rpc('platform_review_access_request',{p_actor:root,p_target:manager,p_allow:true});
+  assert.ok(internal.error,'even service role cannot grant via former Platform review RPC');
+ }finally{await h.db.close()}
+});
+
+test('AC-PLAT-206: multiple authenticated candidates create distinct rows and only specifically enabled user gets access',async()=>{
+ const h=await fixture();
+ try{
+  await h.call({action:'platform.bootstrap'},'manager');
+  await h.db.query('select public.platform_record_access_request($1,$2)', ['U'+'3'.repeat(32),'Second operator']);
+  assert.equal(await count(h.db,'platform_private.super_admins'),3);
+  await h.db.query('update platform_private.super_admins set enabled=true where line_user_id=$1',[manager]);
+  assert.equal((await row(h.db,manager)).enabled,true);
+  assert.equal((await row(h.db,'U'+'3'.repeat(32))).enabled,false);
+  const r=await h.db.query('select count(*)::int n from platform_private.super_admins where singleton is true');
+  assert.equal(r.rows[0].n,1);
  }finally{await h.db.close()}
 });
