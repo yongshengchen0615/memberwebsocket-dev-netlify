@@ -87,7 +87,8 @@ test('AC-PLAT-104: only enabled existing singleton root can review; delegates ca
   const disabled=await h.call({action:'platform.operator.review',targetLineUserId:manager,allowed:true});
   assert.equal(disabled.status,403);
   assert.equal((await h.db.query('select access_enabled from platform_private.platform_access_requests where line_user_id=$1',[manager])).rows[0].access_enabled,false);
-  assert.equal(await count(h.db,'platform_private.audit_events'),0);
+  assert.equal((await h.db.query("select count(*)::int n from platform_private.audit_events where action like 'PLATFORM_OPERATOR_%'")).rows[0].n,0,
+    'denied operator review must not append operator audit events; DB owner grant toggles are recorded independently');
  }finally{await h.db.close()}
 });
 
