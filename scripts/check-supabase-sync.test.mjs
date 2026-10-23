@@ -1,35 +1,86 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseMigrationList, compareMigrationList, formatReport } from './check-supabase-sync.mjs';
+import {
+  compareAppliedMigrations,
+  fetchAppliedMigrations,
+  formatReport,
+} from './check-supabase-sync.mjs';
 
-const example = 'Connecting to remote database...\n        LOCAL      │     REMOTE      │ TIME (UTC)\n──────────────────┼─────────────────┼────────────────\n 20261020000000   │ 20261020000000  │ 2026-10-20\n 20261021000000   │                 │ 2026-10-21\n                  │ 20261021000001  │ 2026-10-21\n';
-const files = ['20261020000000_good.sql', '20261021000000_pending.sql'];
+const local = ['20261020000000_first.sql', '20261021000000_second.sql'];
+const remote = [
+  { version: '20261020000000', name: 'first' },
+  { version: '20261021000001', name: 'other' },
+];
 
-test('detect remote-only and local-only versions', () => {
-  const x = compareMigrationList(example, files);
-  assert.equal(x.localCount, 2);
-  assert.equal(x.remoteCount, 2);
-  assert.equal(x.matchedCount, 1);
-  assert.deepEqual(x.pending, ['20261021000000']);
-  assert.deepEqual(x.remoteOnly, ['20261021000001']);
-  assert.equal(x.inSync, false);
-  assert.match(formatReport(x), /Deployment must remain blocked/);
+test('detects local-only and remote-only migrations', () => {
+  const result = compareAppliedMigrations(local, remote);
+  assert.equal(result.localCount, 2);
+  assert.equal(result.remoteCount, 2);
+  assert.equal(result.matchingVersions, 1);
+  assert.deepEqual(result.localOnly, ['20261021000000']);
+  assert.deepEqual(result.remoteOnly, ['20261021000001']);
+  assert.equal(result.inSync, false);
+  assert.match(formatReport(result), /Migration history has drift/);
 });
 
-test('accept exact version alignment and empty drift', () => {
-  const cli = 'LOCAL │ REMOTE │ TIME\n20261020000000 │ 20261020000000 │ timestamp\n';
-  const x = compareMigrationList(cli, ['20261020000000_good.sql']);
-  assert.equal(x.inSync, true);
+test('accepts exact version and name parity', () => {
+  const result = compareAppliedMigrations(['20261020000000_first.sql'], [remote[0]]);
+  assert.equal(result.inSync, true);
+  assert.equal(result.renamed.length, 0);
 });
 
-test('fail closed on unexpected output', () => {
-  assert.throws(() => parseMigrationList('CLI changed output format'), /Unable to parse/);
-  assert.throws(() => compareMigrationList(example, ['nonsense.sql']), /Malformed/);
-  assert.throws(() => compareMigrationList(example, ['20261020000000_one.sql', '20261020000000_two.sql']), /Duplicate/);
+test('detects same-version different-name drift', () => {
+  const result = compareAppliedMigrations(['20261020000000_correct.sql'], [remote[0]]);
+  assert.equal(result.inSync, false);
+  assert.deepEqual(result.renamed, [{
+    version: '20261020000000', local: 'correct', remote: 'first',
+  }]);
 });
 
-test('fail on inconsistency between CLI local rows and repo files', () => {
-  const x = compareMigrationList('20261020000000 │ 20261020000000 │ timestamp', ['20261021000000_other.sql']);
-  assert.deepEqual(x.cliLocalMismatch, ['20261020000000', '20261021000000']);
-  assert.equal(x.inSync, false);
+test('rejects malformed, duplicate and empty remote migration metadata', () => {
+  assert.throws(() => compareAppliedMigrations(['not-a-migration.sql'], []), /Invalid local/);
+  assert.throws(() => compareAppliedMigrations([
+    '20261020000000_first.sql', '20261020000000_duplicate.sql',
+  ], []), /Duplicate local/);
+  assert.throws(() => compareAppliedMigrations([], [{ version: 'x', name: 'bad' }]), /Invalid remote/);
+  assert.throws(() => compareAppliedMigrations([], [remote[0], remote[0]]), /Duplicate remote/);
+  assert.throws(() => compareAppliedMigrations(null, []), /must be arrays/);
+});
+
+test('fetches only migration history with scoped token', async () => {
+  let seen = null;
+  const rows = await fetchAppliedMigrations({
+    token: 'TEST_TOKEN_ONLY',
+    projectRef: 'dbuquirnaskrwcamdxki',
+    fetchImpl: async (url, options) => {
+      seen = { url, options };
+      return { ok: true, status: 200, json: async () => remote };
+    },
+  });
+  assert.deepEqual(rows, remote);
+  assert.equal(seen.url, 'https://api.supabase.com/v1/projects/dbuquirnaskrwcamdxki/database/migrations');
+  assert.equal(seen.options.method, 'GET');
+  assert.equal(seen.options.headers.Authorization, 'Bearer TEST_TOKEN_ONLY');
+  assert.equal(seen.options.redirect, 'error');
+});
+
+test('fails closed on missing token, invalid project, unauthorized API or invalid JSON', async () => {
+  await assert.rejects(fetchAppliedMigrations({ token: '', projectRef: 'dbuquirnaskrwcamdxki' }), /Missing/);
+  await assert.rejects(fetchAppliedMigrations({ token: 'TEST', projectRef: 'x' }), /Invalid/);
+  await assert.rejects(fetchAppliedMigrations({
+    token: 'TEST', projectRef: 'dbuquirnaskrwcamdxki',
+    fetchImpl: async () => ({ ok: false, status: 403 }),
+  }), /HTTP 403/);
+  await assert.rejects(fetchAppliedMigrations({
+    token: 'TEST', projectRef: 'dbuquirnaskrwcamdxki',
+    fetchImpl: async () => ({ ok: true, json: async () => { throw new Error('secret body'); } }),
+  }), /Invalid response JSON/);
+  await assert.rejects(fetchAppliedMigrations({
+    token: 'TEST', projectRef: 'dbuquirnaskrwcamdxki',
+    fetchImpl: async () => ({ ok: true, json: async () => ({ not: 'array' }) }),
+  }), /non-array/);
+  await assert.rejects(fetchAppliedMigrations({
+    token: 'TEST', projectRef: 'dbuquirnaskrwcamdxki',
+    fetchImpl: async () => { throw new Error('network data'); },
+  }), /Cannot reach/);
 });
