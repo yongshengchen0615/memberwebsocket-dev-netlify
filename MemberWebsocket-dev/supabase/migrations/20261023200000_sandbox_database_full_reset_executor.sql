@@ -82,6 +82,12 @@ begin
   then raise exception 'RESET_REQUEST_AND_PREVIEW_REQUIRED'; end if;
  perform pg_catalog.pg_advisory_xact_lock(
    pg_catalog.hashtextextended('maintenance:sandbox-reset-epoch',0));
+ select last_completed_request into v_current_request
+ from maintenance.sandbox_reset_epoch where singleton=true;
+ if v_current_request = p_request_id then
+   return pg_catalog.jsonb_build_object(
+     'alreadyCompleted',true,'requestId',p_request_id,'rootBootstrapRequired',true);
+ end if;
  if not exists (
   select 1 from maintenance.sandbox_reset_target
   where singleton=true and project_ref='dbuquirnaskrwcamdxki'
@@ -90,12 +96,6 @@ begin
     and storage_restore_verified_at is not null
     and provider_isolation_verified_at is not null
  ) then raise exception 'RESET_BACKUP_STORAGE_AND_PROVIDER_PROOF_REQUIRED'; end if;
- select last_completed_request into v_current_request
- from maintenance.sandbox_reset_epoch where singleton=true;
- if v_current_request = p_request_id then
-   return pg_catalog.jsonb_build_object(
-     'alreadyCompleted',true,'requestId',p_request_id,'rootBootstrapRequired',true);
- end if;
  if exists(select 1 from maintenance.sandbox_reset_epoch
    where singleton=true and root_bootstrap_required) then
    raise exception 'RESET_ROOT_BOOTSTRAP_PENDING'; end if;
