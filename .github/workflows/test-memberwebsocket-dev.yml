@@ -81,6 +81,7 @@ jobs:
             MemberWebsocket-dev/tests/integration/full_reset_operator_security.cjs \
             MemberWebsocket-dev/tests/integration/full_reset_workflow_policy.cjs \
             MemberWebsocket-dev/tests/integration/reset_environment_policy.cjs \
+            MemberWebsocket-dev/tests/integration/sql_editor_reset_dispatch.cjs \
             MemberWebsocket-dev/tests/integration/product_admin_ui.cjs \
             MemberWebsocket-dev/tests/integration/business_line_settings.cjs \
             MemberWebsocket-dev/tests/integration/line_settings_keyboard.cjs \
@@ -318,6 +319,7 @@ jobs:
             MemberWebsocket-dev/supabase/functions/user-test-api/index.ts \
             MemberWebsocket-dev/supabase/functions/e2e-artifact-api/index.ts \
             MemberWebsocket-dev/supabase/functions/e2e-artifact-retention/index.ts \
+            MemberWebsocket-dev/supabase/functions/sql-full-reset-worker/index.ts \
             MemberWebsocket-dev/supabase/functions/pointcard-extension-api/index.ts \
             MemberWebsocket-dev/supabase/functions/member-profile-api/index.ts \
             MemberWebsocket-dev/supabase/functions/member-growth-api/index.ts \
