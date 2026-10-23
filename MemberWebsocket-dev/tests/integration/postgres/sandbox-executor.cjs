@@ -4,7 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const database=require('./database.cjs');
 
-const migrationDir=path.join(__dirname,'../../supabase/migrations');
+const migrationDir=path.join(__dirname,'../../../supabase/migrations');
 const filenames=[
   '20261023183000_approved_existing_sandbox_scope.sql',
   '20261023190000_sandbox_root_bootstrap_gate.sql',
