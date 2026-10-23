@@ -20,7 +20,7 @@ test('AC-PLAT-101: after test reset, LINE-verified Platform visit writes a pendi
   const repeat=await h.call({action:'platform.bootstrap'},'root');
   assert.equal(repeat.status,403);
   assert.equal(await count(h.db,'platform_private.platform_access_requests'),1);
-  assert.equal((await h.db.query('select first_seen_at from platform_private.platform_access_requests')).rows[0].first_seen_at,rows[0].first_seen_at);
+  assert.equal((await h.db.query('select first_seen_at from platform_private.platform_access_requests')).rows[0].first_seen_at.getTime(),rows[0].first_seen_at.getTime());
   assert.equal((await h.rpc('platform_is_super_admin',{p_actor:root})).data,false);
  }finally{await h.db.close()}
 });
