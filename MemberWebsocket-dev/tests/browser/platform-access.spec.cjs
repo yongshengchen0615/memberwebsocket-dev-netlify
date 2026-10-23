@@ -16,12 +16,11 @@ test.beforeAll(async()=>{
 });
 test.afterAll(async()=>new Promise(resolve=>server.close(resolve)));
 
-test('AC-PLAT-106: verified login writes pending SQL record; root grants and revokes in actual browser',async({context})=>{
+test('AC-PLAT-207: LINE creates super_admins pending; only a Supabase Table Editor toggle activates and revokes in a real browser',async({context})=>{
  const h=await businessFixture();h.allowedOrigins.add(base);
  const pages=[];
  async function open(actor){
   const page=await context.newPage();pages.push(page);
-  page.on('dialog',dialog=>dialog.accept());
   await page.addInitScript(()=>sessionStorage.setItem('platform-line-login-return-v1',String(Date.now())));
   await page.route('**/config.json',route=>route.fulfill({json:{
    supabaseUrl:'https://fixture.supabase.co',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',
@@ -46,23 +45,20 @@ test('AC-PLAT-106: verified login writes pending SQL record; root grants and rev
   const manager=await open('manager');
   await expect(manager.locator('#platformAuthorizationNotice')).toBeVisible();
   await expect(manager.locator('#platformWorkspace')).toBeHidden();
-  let pending=(await h.db.query('select line_user_id,access_enabled from platform_private.platform_access_requests')).rows;
-  expect(pending).toHaveLength(1);
-  expect(pending[0].access_enabled).toBe(false);
-  const owner=await open('root');
-  await expect(owner.locator('#platformAccessPanel')).toBeVisible();
-  await expect(owner.locator('#platformAccessList')).toContainText('商家管理員');
-  await owner.getByRole('button',{name:'核准 Platform 權限'}).click();
-  await expect(owner.locator('#platformAccessList')).toContainText('已授予 Platform 管理權');
+  await expect(manager.locator('#platformAuthorizationNotice')).toContainText('super_admins');
+  const pending=(await h.db.query('select singleton,admin_id,enabled,display_name from platform_private.super_admins where line_user_id=$1',['U'+'2'.repeat(32)])).rows[0];
+  expect(pending.singleton).toBe(null);
+  expect(pending.admin_id).toBe(null);
+  expect(pending.enabled).toBe(false);
+  expect(pending.display_name).toBe('商家管理員');
+  await h.db.exec("update platform_private.super_admins set enabled=true where line_user_id='U22222222222222222222222222222222'");
   await manager.reload();
   await expect(manager.locator('#platformWorkspace')).toBeVisible();
-  await expect(manager.locator('#platformAccessPanel')).toBeHidden();
-  await owner.getByRole('button',{name:'撤銷 Platform 權限'}).click();
-  await expect(owner.locator('#platformAccessList')).toContainText('待核准');
+  await expect(manager.locator('#platformAccessPanel')).toHaveCount(0,'not approved through Platform UI');
+  await h.db.exec("update platform_private.super_admins set enabled=false where line_user_id='U22222222222222222222222222222222'");
   await manager.reload();
   await expect(manager.locator('#platformAuthorizationNotice')).toBeVisible();
   await expect(manager.locator('#platformWorkspace')).toBeHidden();
-  const audits=(await h.db.query("select action from platform_private.audit_events where action like 'PLATFORM_OPERATOR_%'")).rows;
-  expect(audits).toHaveLength(2);
+  expect((await h.db.query("select enabled from platform_private.super_admins where line_user_id='U22222222222222222222222222222222'")).rows[0].enabled).toBe(false);
  }finally{for(const page of pages)await page.close();await h.db.close();}
 });
