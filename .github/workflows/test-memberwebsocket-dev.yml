@@ -281,6 +281,7 @@ jobs:
           --test-reporter=spec --test-reporter-destination=stdout
           --test-reporter=junit --test-reporter-destination=postgres-results.xml
           MemberWebsocket-dev/tests/integration/postgres/booking-risk.cjs
+          MemberWebsocket-dev/tests/integration/postgres/full-reset.cjs
       - name: Save PostgreSQL acceptance results
         if: always()
         uses: actions/upload-artifact@v4
