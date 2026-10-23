@@ -15,6 +15,28 @@
 | 帳號 | reset 後 admin/member/tenant/root grant=0；重新初始化 root 只能在可信成功 epoch 之後由 DBA 執行一次 |
 | 可觀察性 | 印出本輪動作統計，不列印服務金鑰、會員個資、LINE ID、原始檔名、資料值 |
 
+## GitHub Actions 一鍵操作（新增）
+
+工作流程：[`MemberWebsocket-dev Manual Full Reset`](../../../.github/workflows/memberwebsocket-sandbox-reset.yml)。
+此工作流程只接受 **`workflow_dispatch` 人工啟動**，不會在 push、PR、merge 或部署時自動清除；只允許 GitHub 帳號 `yongshengchen0615` 啟動。
+
+啟用前先在 GitHub Repository → **Settings → Environments** 建立 `memberwebsocket-dev-reset`，設定必須由另一位授權人批准的 **Required reviewers**，並在該 Environment 的 Secrets（不是公開 Variables）保存：
+
+- `RESET_DB_URL`：**只連至** `dbuquirnaskrwcamdxki` 的 PostgreSQL 管理連線 URI。
+- `RESET_SERVICE_ROLE_KEY`：**僅此測試專案**的 Supabase service role 金鑰，不能給前端。
+- `RESET_BACKUP_KEY_B64`：獨立儲存在秘密管理器的隨機 AES-256 32 bytes 金鑰，以 base64 編碼。金鑰不能和加密備份放在一起。
+
+安全設定完成、並將此工作流程合併到 GitHub 預設分支後，進入 Repository → **Actions → MemberWebsocket-dev Manual Full Reset → Run workflow**：
+
+1. 先選 `operation=plan`、`isolation=NOT VERIFIED`，預覽目前商家／帳號／表格範圍；無任何刪除。
+2. 要執行之前，獨立確認 LINE webhook、對外通知、登入與外部寫入已停止，不能只靠填表假設已隔離。
+3. 人工選 `operation=execute`，輸入完整確認文字 `RESET MEMBERWEBSOCKET TEST DATA`，隔離欄位選 `DISPATCH_DISABLED_AND_EXTERNAL_WEBHOOKS_ISOLATED`，然後完成 GitHub Environment 的人工覆核。
+4. 工作流程在單獨的 PostgreSQL 17 容器建立臨時還原 DB，嘗試從指定 Supabase 匯出加密備份、完整還原、驗證 Storage 檔案下載與暫存 bucket 還原。**若 Postgres 擴充套件或權限不相容、無法完成備份還原，就會失敗而不清除**；請先修復此阻擋，不能停用斷言。
+5. 執行完成或失敗時，Actions Artifacts 僅上傳 `*.enc` 加密備份，保留 7 天。成功後**立刻**下載至另外一個持久、限制存取的位置，安全保存與金鑰分離。GitHub artifact 保留期不等於法定備份保存期限。
+6. 最後登入 Supabase SQL Editor 核對所有角色、商家與 Storage 資料都為 0，再由 DBA 初始化首位 root；**不會自動重啟 Cron / LINE 外發**。
+
+這是完成受控環境前置設定後可點選的操作入口；**workflow 檔案已建立不代表環境秘密、Required reviewers、真實 Storage 備份或外部服務隔離已驗證**。
+
 ## 操作方式
 
 此命令必須在安裝 Node.js 22+、PostgreSQL 17 `pg_dump`/`pg_restore` 的受控操作環境執行。執行前在 `MemberWebsocket-dev/tests/integration` 以 `npm ci` 安裝版本固定的 `pg`。不要把任何密鑰寫在 Git 或 shell history。
