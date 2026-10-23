@@ -165,3 +165,18 @@ test('AC-CLR-001/002: clean synthetic database requires one-time independently c
                        /CI_ROOT_BOOTSTRAP_NOT_PERMITTED/);
  }finally{await db.close()}
 });
+
+
+test('AC-CLR-003: a same-row-count modification invalidates the approved fingerprint',async()=>{
+ const db=await setup();
+ try {
+  const p=await plan(db);
+  await db.exec("update public.system_settings set state='mutated-after-plan' where id=1");
+  assert.equal(await count(db,'public.system_settings'),1);
+  const newer=await plan(db);
+  assert.notEqual(newer.fingerprint,p.fingerprint);
+  await assert.rejects(db.query(resetSql,args(uuid(),p)),/CI_RESET_STALE_PLAN/);
+  assert.equal(await count(db,'public.members'),2);
+  assert.equal(await count(db,'maintenance.ci_reset_audit'),0);
+ }finally{await db.close()}
+});
