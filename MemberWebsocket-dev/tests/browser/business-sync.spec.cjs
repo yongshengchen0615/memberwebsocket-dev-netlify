@@ -12,7 +12,7 @@ test('BUSINESS_SYNC — actual browser runtime refreshes two authorized views, p
   for(const business of ['shop-b','shop-a','shop-a']){
    const page=await context.newPage();pages.push(page);await page.clock.install({time:new Date('2026-10-20T00:00:00Z')});
    await page.route('https://fixture.supabase.co/**',async route=>{
-    const body=route.request().postDataJSON();calls.push(body);const state=authority[body.business];
+    const body=route.request().postDataJSON();calls.push({...body,tabIndex:pages.indexOf(page)});const state=authority[body.business];
     if(!state)return route.fulfill({status:403,json:{ok:false,error:{code:'BUSINESS_FORBIDDEN'}}});
     return route.fulfill({json:{ok:true,data:body.action==='admin.sync.status'?{revision:state.revision}:{value:state.value}}});
    });
@@ -34,7 +34,10 @@ test('BUSINESS_SYNC — actual browser runtime refreshes two authorized views, p
   await pages[0].bringToFront();await pages[0].clock.runFor(10001);await expect(pages[0].locator('#value')).toHaveText('B initial');
   expect(calls.filter(c=>c.business==='shop-b'&&c.action==='admin.bootstrap')).toHaveLength(before);
   await pages[2].bringToFront();await pages[2].clock.runFor(1);await pages[2].evaluate(()=>window.stopSync());
-  const probes=calls.filter(c=>c.business==='shop-a'&&c.action==='admin.sync.status').length;await pages[2].clock.runFor(60000);
-  expect(calls.filter(c=>c.business==='shop-a'&&c.action==='admin.sync.status')).toHaveLength(probes);
+  // Unsubscribing the third tab must stop requests from THAT tab.
+  // Another authorized tab for the same shop is intentionally still subscribed.
+  const probes=calls.filter(c=>c.tabIndex===2&&c.business==='shop-a'&&c.action==='admin.sync.status').length;
+  await pages[2].clock.runFor(60000);
+  expect(calls.filter(c=>c.tabIndex===2&&c.business==='shop-a'&&c.action==='admin.sync.status')).toHaveLength(probes);
  }finally{for(const page of pages)await page.close();}
 });
