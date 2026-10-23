@@ -66,3 +66,46 @@ test('AC-PLAT-106: verified login writes pending SQL record; root grants and rev
   expect(audits).toHaveLength(2);
  }finally{for(const page of pages)await page.close();await h.db.close();}
 });
+
+
+test('AC-PLAT-113: Supabase enabled checkbox, not Platform self-approval, unlocks first root in browser',async({context})=>{
+ const h=await businessFixture();h.allowedOrigins.add(base);
+ const pages=[];
+ async function open(actor){
+  const page=await context.newPage();pages.push(page);
+  await page.addInitScript(()=>sessionStorage.setItem('platform-line-login-return-v1',String(Date.now())));
+  await page.route('**/config.json',route=>route.fulfill({json:{
+   supabaseUrl:'https://fixture.supabase.co',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',
+   supabasePublishableKey:'sb_publishable_fixture',adminLiffId:'2010791619-admin',
+   memberLiffId:'2010787602-member',platformLiffId:'2012065297-VunxFBj8'
+  }}));
+  await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:
+   'window.liff={init:async()=>{},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=>'+JSON.stringify(actor)+'};'}));
+  await page.route('https://cdn.jsdelivr.net/**',route=>route.fulfill({contentType:'text/javascript',body:''}));
+  await page.route('https://fixture.supabase.co/functions/v1/**',async route=>{
+   const body=route.request().postDataJSON();
+   const headers=new Headers(route.request().headers());headers.set('Origin',base);
+   const response=await h.handler(new Request(route.request().url(),{
+    method:'POST',headers,body:JSON.stringify(body)
+   }));
+   await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
+  });
+  await page.goto(base+'/platform/');
+  return page;
+ }
+ try{
+  await h.db.exec('delete from platform_private.super_admins;delete from public.admins;');
+  const page=await open('root');
+  await expect(page.locator('#platformAuthorizationNotice')).toBeVisible();
+  await expect(page.locator('#platformWorkspace')).toBeHidden();
+  const before=(await h.db.query('select enabled,line_user_id from platform_private.super_admins')).rows;
+  expect(before).toEqual([{enabled:false,line_user_id:h.root}]);
+  await h.db.exec('update platform_private.super_admins set enabled=true where singleton=true');
+  await page.reload();
+  await expect(page.locator('#platformWorkspace')).toBeVisible();
+  await h.db.exec('update platform_private.super_admins set enabled=false where singleton=true');
+  await page.reload();
+  await expect(page.locator('#platformAuthorizationNotice')).toBeVisible();
+  await expect(page.locator('#platformWorkspace')).toBeHidden();
+ }finally{for(const page of pages)await page.close();await h.db.close();}
+});

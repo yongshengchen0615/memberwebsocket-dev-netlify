@@ -12,7 +12,11 @@ test('AC-PLAT-101: after test reset, LINE-verified Platform visit writes a pendi
   const denied=await h.call({action:'platform.bootstrap'},'root');
   assert.equal(denied.status,403);
   assert.equal(denied.body.error.code,'PLATFORM_ADMIN_REQUIRED');
-  assert.equal(await count(h.db,'public.admins'),0,'must not preempt safe first-owner DBA bootstrap');
+  assert.equal(await count(h.db,'public.admins'),1,'candidate must be persisted for Supabase Table Editor');
+  const pendingAdmin=(await h.db.query('select role,status from public.admins')).rows[0];
+  assert.deepEqual(pendingAdmin,{role:'none',status:'pending'});
+  const slot=(await h.db.query('select enabled,line_user_id from platform_private.super_admins')).rows[0];
+  assert.deepEqual(slot,{enabled:false,line_user_id:root},'unapproved LINE visit must not grant root');
   const rows=(await h.db.query('select line_user_id,display_name,access_enabled,first_seen_at from platform_private.platform_access_requests')).rows;
   assert.equal(rows.length,1);
   assert.equal(rows[0].line_user_id,root);
@@ -20,6 +24,7 @@ test('AC-PLAT-101: after test reset, LINE-verified Platform visit writes a pendi
   const repeat=await h.call({action:'platform.bootstrap'},'root');
   assert.equal(repeat.status,403);
   assert.equal(await count(h.db,'platform_private.platform_access_requests'),1);
+  assert.equal(await count(h.db,'platform_private.super_admins'),1,'repeated logins cannot add root records');
   assert.equal((await h.db.query('select first_seen_at from platform_private.platform_access_requests')).rows[0].first_seen_at.getTime(),rows[0].first_seen_at.getTime());
   assert.equal((await h.rpc('platform_is_super_admin',{p_actor:root})).data,false);
  }finally{await h.db.close()}
@@ -82,7 +87,8 @@ test('AC-PLAT-104: only enabled existing singleton root can review; delegates ca
   const disabled=await h.call({action:'platform.operator.review',targetLineUserId:manager,allowed:true});
   assert.equal(disabled.status,403);
   assert.equal((await h.db.query('select access_enabled from platform_private.platform_access_requests where line_user_id=$1',[manager])).rows[0].access_enabled,false);
-  assert.equal(await count(h.db,'platform_private.audit_events'),0);
+  assert.equal((await h.db.query("select count(*)::int n from platform_private.audit_events where action like 'PLATFORM_OPERATOR_%'")).rows[0].n,0,
+    'denied operator review must not append operator audit events; DB owner grant toggles are recorded independently');
  }finally{await h.db.close()}
 });
 
