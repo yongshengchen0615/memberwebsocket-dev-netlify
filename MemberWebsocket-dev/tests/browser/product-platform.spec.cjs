@@ -272,7 +272,8 @@ test('PLATFORM_CONFIG_REQUIRED — missing platform LIFF never falls back to mer
  const h=await setup(page,'root',{platformLiffId:''});try{await expect(page.locator('#platformStatus')).toContainText('總管理員專用 LIFF');await expect(page.locator('#platformWorkspace')).toBeHidden();expect(await page.evaluate(()=>window.initializedLiffId)).toBeUndefined();expect(h.providerCalls).toEqual([]);expect(h.errors).toEqual([]);}finally{await h.db.close();}
 });
 test('PLATFORM_EXTERNAL_LOGIN — external browser uses the configured LIFF endpoint without custom redirect query',async({page})=>{
- const h=await setup(page,'root',{inClient:false,loggedIn:false});try{
+ // A first login cannot already have a successful callback marker.
+ const h=await setup(page,'root',{inClient:false,loggedIn:false,rootLoginReturn:false});try{
   await expect(page.locator('#platformStatus')).toContainText('正在前往 LINE 登入');
   expect(await page.evaluate(()=>window.loginCalls)).toEqual([[]]);
   expect(new URL(page.url()).searchParams.has('member_system_reauth')).toBe(false);
