@@ -37,6 +37,8 @@ test('AC-PLAT-202: editing enabled only in Supabase table immediately activates 
   assert.equal((await h.call({action:'platform.bootstrap'},'manager')).status,403);
   await h.call({action:'platform.bootstrap'},'manager');
   assert.equal((await row(h.db,manager)).enabled,false,'LINE relogin cannot undo owner revocation');
+  const audits=(await h.db.query("select action from platform_private.audit_events where action like 'PLATFORM_SUPABASE_%' order by created_at")).rows.map(x=>x.action);
+  assert.deepEqual(audits,['PLATFORM_SUPABASE_ACCESS_GRANTED','PLATFORM_SUPABASE_ACCESS_REVOKED']);
   assert.equal((await h.call({action:'platform.application.approve',requestId:crypto.randomUUID(),applicationId:crypto.randomUUID(),features:h.tenant.features},'manager')).status,403);
  }finally{await h.db.close()}
 });
@@ -84,6 +86,13 @@ test('AC-PLAT-205: private super_admins cannot be edited by anon/authenticated; 
    await assert.rejects(h.db.query('select * from platform_private.super_admins'),/permission denied/);
    await h.db.exec('reset role');
   }
+  await h.call({action:'platform.bootstrap'},'manager');
+  assert.equal((await h.db.query("select has_column_privilege('service_role','platform_private.super_admins','enabled','UPDATE') allowed")).rows[0].allowed,false);
+  assert.equal((await h.db.query("select has_column_privilege('service_role','platform_private.super_admins','line_user_id','INSERT') allowed")).rows[0].allowed,true);
+  await h.db.exec('set role service_role');
+  await assert.rejects(h.db.query('update platform_private.super_admins set enabled=true where line_user_id=$1',[manager]),/permission denied/);
+  await assert.rejects(h.db.query('insert into platform_private.super_admins(line_user_id,enabled) values ($1,true)',['U'+'4'.repeat(32)]),/permission denied/);
+  await h.db.exec('reset role');
   const internal=await h.rpc('platform_review_access_request',{p_actor:root,p_target:manager,p_allow:true});
   assert.ok(internal.error,'even service role cannot grant via former Platform review RPC');
  }finally{await h.db.close()}
