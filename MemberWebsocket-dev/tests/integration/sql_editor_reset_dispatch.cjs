@@ -7,7 +7,8 @@ const migrations=[
  '20261023183000_approved_existing_sandbox_scope.sql',
  '20261023190000_sandbox_root_bootstrap_gate.sql',
  '20261023200000_sandbox_database_full_reset_executor.sql',
- '20261023212000_sql_editor_reset_worker_dispatch.sql'
+ '20261023212000_sql_editor_reset_worker_dispatch.sql',
+ '20261023220000_direct_sql_editor_sandbox_reset.sql'
 ];
 const dir=path.join(__dirname,'../../supabase/migrations');
 const confirm='RESET MEMBERWEBSOCKET TEST DATA';
@@ -33,7 +34,7 @@ async function setup(){
    'create table cron.job(jobid bigint primary key,active boolean);',
    'create table net.queued(id bigint primary key,body jsonb not null);',
    "create function extensions.gen_random_bytes(p_n integer) returns bytea language sql as $$select decode(repeat('aa',p_n),'hex')$$;",
-   "create function net.http_post(url text,body jsonb,params jsonb default '{}'::jsonb,headers jsonb default '{}'::jsonb,timeout_milliseconds integer default 2000) returns bigint language plpgsql as $$ begin insert into net.queued values(123,body);return 123;end $$;",
+   "create function net.http_post(url text,body jsonb,params jsonb default '{}'::jsonb,headers jsonb default '{}'::jsonb,timeout_milliseconds integer default 2000) returns bigint language plpgsql as $$ begin insert into net.queued select coalesce(max(id)+1,123),body from net.queued;return (select max(id) from net.queued);end $$;",
    "create function cron.alter_job(job_id bigint, active boolean default true) returns void language plpgsql as $$begin update cron.job set active=alter_job.active where jobid=job_id;end $$;",
    "create function maintenance.ensure_required_system_baseline() returns void language plpgsql as $$begin insert into public.system_settings values(1,'ready');end $$;",
    "create function maintenance.ensure_referral_reward_baseline() returns void language plpgsql as $$begin null;end $$;",
@@ -53,16 +54,18 @@ const request=async(db,confirmation=confirm)=>db.query('select maintenance.reque
 const getTicket=async db=>(await db.query('select body from net.queued')).rows[0].body;
 const phase=(db,id,ticket,action,result=null)=>db.query('select public.maintenance_sql_reset_phase($1,$2,$3,$4) r',[id,ticket,action,result]);
 const claim=(db,id,ticket)=>db.query('select public.maintenance_sql_reset_claim($1,$2) r',[id,ticket]);
-const proofs=async db=>db.exec("update maintenance.sandbox_reset_target set backup_verified_at=now(),storage_restore_verified_at=now(),provider_isolation_verified_at=now();");
 
-test('AC-CLR-034: SQL Editor one-command entry point is blocked unless real backup/storage/LINE proofs exist',async()=>{
+test('AC-CLR-034: approved disposable sandbox can queue directly without backup/LINE approval flags',async()=>{
  const db=await setup();
  try{
   await assert.rejects(request(db,'wrong'),/RESET_EXACT_CONFIRMATION_REQUIRED/);
-  await assert.rejects(request(db),/RESET_BACKUP_STORAGE_AND_PROVIDER_PROOF_REQUIRED/);
-  assert.equal(await tableCount(db,'net.queued'),0);
-  assert.equal(await tableCount(db,'maintenance.sql_full_reset_jobs'),0);
+  assert.equal((await db.query('select count(*)::int n from maintenance.sql_full_reset_jobs')).rows[0].n,0);
   assert.equal((await db.query('select maintenance.latest_full_reset_status() r')).rows[0].r.state,'not_started');
+  const flags=(await db.query('select backup_verified_at,storage_restore_verified_at,provider_isolation_verified_at from maintenance.sandbox_reset_target')).rows[0];
+  assert.deepEqual(flags,{backup_verified_at:null,storage_restore_verified_at:null,provider_isolation_verified_at:null});
+  const sent=(await request(db)).rows[0].r;
+  assert.equal(sent.submitted,true);
+  assert.equal(sent.completed,false);
   assert.equal(await tableCount(db,'public.admins'),1);
   assert.equal(await tableCount(db,'storage.objects'),1);
  }finally{await db.close()}
@@ -71,7 +74,6 @@ test('AC-CLR-034: SQL Editor one-command entry point is blocked unless real back
 test('AC-CLR-035: one click queues only an authorized ticket, does not pretend data was deleted',async()=>{
  const db=await setup();
  try{
-  await proofs(db);
   const dispatched=(await request(db)).rows[0].r;
   assert.equal(dispatched.submitted,true);
   assert.equal(dispatched.completed,false);
@@ -92,7 +94,7 @@ test('AC-CLR-035: one click queues only an authorized ticket, does not pretend d
 test('AC-CLR-036: fake HTTP, replay, wrong ticket or unclean managed resources cannot wipe users',async()=>{
  const db=await setup();
  try{
-  await proofs(db);await request(db);
+  await request(db);
   const {job_id:id,ticket}=await getTicket(db);
   await assert.rejects(claim(db,id,'0'.repeat(64)),/RESET_INVALID_JOB_TICKET/);
   assert.equal((await claim(db,id,ticket)).rows[0].r.accepted,true);
@@ -111,7 +113,7 @@ test('AC-CLR-036: fake HTTP, replay, wrong ticket or unclean managed resources c
 test('AC-CLR-037: simulated supported API deletion followed by database reset produces durable success state',async()=>{
  const db=await setup();
  try{
-  await proofs(db);await request(db);
+  await request(db);
   const {job_id:id,ticket}=await getTicket(db);
   await claim(db,id,ticket);
   await phase(db,id,ticket,'pause');
@@ -127,10 +129,10 @@ test('AC-CLR-037: simulated supported API deletion followed by database reset pr
  }finally{await db.close()}
 });
 
-test('AC-CLR-038: partial Storage/Auth failure revokes evidence and must not report a completed reset',async()=>{
+test('AC-CLR-038: failed API clear is logged and direct sandbox reset can be retried without backup flags',async()=>{
  const db=await setup();
  try{
-  await proofs(db);await request(db);
+  await request(db);
   const {job_id:id,ticket}=await getTicket(db);
   await claim(db,id,ticket);
   const failed=(await phase(db,id,ticket,'fail',{error:'STORAGE_API_FAILED'})).rows[0].r;
@@ -138,7 +140,10 @@ test('AC-CLR-038: partial Storage/Auth failure revokes evidence and must not rep
   const status=(await db.query('select maintenance.latest_full_reset_status() r')).rows[0].r;
   assert.equal(status.state,'failed');
   assert.equal(status.errorCode,'STORAGE_API_FAILED');
-  await assert.rejects(request(db),/RESET_BACKUP_STORAGE_AND_PROVIDER_PROOF_REQUIRED/);
+  const retried=(await request(db)).rows[0].r;
+  assert.equal(retried.submitted,true);
+  assert.equal(retried.completed,false);
+  assert.equal(await tableCount(db,'maintenance.sql_full_reset_jobs'),2);
   assert.equal(await tableCount(db,'public.admins'),1);
  }finally{await db.close()}
 });
@@ -156,5 +161,28 @@ test('AC-CLR-039: public website users and service role cannot mint new SQL rese
     assert.equal((await db.query('select has_function_privilege($1,$2,$3) allowed',[role,fn,'EXECUTE'])).rows[0].allowed,false);
    }
   }
+ }finally{await db.close()}
+});
+
+
+test('AC-CLR-046: do not allow direct DB reset while Auth, Storage or cron still owns data',async()=>{
+ const db=await setup();
+ try{
+  const snapshot=(await db.query('select maintenance.plan_sandbox_database_reset() p')).rows[0].p;
+  const statement='select maintenance.execute_sandbox_database_reset($1,$2,$3)';
+  await assert.rejects(db.query(statement,['11111111-1111-4111-8111-111111111111',snapshot.fingerprint,confirm]),/RESET_AUTH_OR_STORAGE_API_CLEANUP_PENDING/);
+  await db.exec('delete from auth.users; delete from storage.objects;');
+  await assert.rejects(db.query(statement,['11111111-1111-4111-8111-111111111111',snapshot.fingerprint,confirm]),/RESET_ACTIVE_CRON_JOBS_PRESENT/);
+  assert.equal(await tableCount(db,'public.admins'),1);
+  assert.equal(await tableCount(db,'platform_private.tenants'),1);
+ }finally{await db.close()}
+});
+test('AC-CLR-047: owner-approved project ref remains required, even without backups',async()=>{
+ const db=await setup();
+ try{
+  await db.exec("update maintenance.sandbox_reset_target set project_ref='another-project' where singleton=true");
+  await assert.rejects(request(db),/WRONG_RESET_PROJECT/);
+  assert.equal(await tableCount(db,'net.queued'),0);
+  assert.equal(await tableCount(db,'public.admins'),1);
  }finally{await db.close()}
 });
