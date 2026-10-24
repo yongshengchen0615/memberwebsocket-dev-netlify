@@ -117,14 +117,19 @@ test('AC-033: merchant projection separates approved LINE configuration from iso
   assert.equal(verified.capabilities.dataPlaneVerified,true);
 });
 
-test('AC-034: privileged denial guidance identifies the review field, not a self-service grant',()=>{
+test('AC-034: verified but unapproved Platform LINE identity sees only the pending state and no self-service grant',()=>{
  const fs=require('node:fs');
  const html=fs.readFileSync(path.join(__dirname,'../platform/index.html'),'utf8');
  const js=fs.readFileSync(path.join(__dirname,'../platform/app.js'),'utf8');
- assert.match(html,/id="platformAuthorizationNotice"[^>]*hidden[^>]*role="alert"/);
- for(const column of ['platform_private.super_admins.enabled','line_user_id','admin_id','role = admin','status = active'])assert.ok(html.includes(column),column);
+ const notice=html.match(/<section id="platformAuthorizationNotice"[^>]*>[\s\S]*?<\/section>/)?.[0];
+ assert.ok(notice,'server-denied access must have an accessible notice');
+ assert.match(notice,/hidden[^>]*role="alert"/);
+ assert.match(notice,/<h2[^>]*>總管理員權限尚未核准<\/h2>/);
+ assert.doesNotMatch(notice,/<(?:p|ol|li|a|button)\b/i,'no review instructions or action may accompany pending state');
+ assert.doesNotMatch(html,/id="platformLogin(?:Gate|Button)"/,'Platform enters LINE automatically; no separate login card or button');
  assert.match(js,/body\.error\?\.code==='PLATFORM_ADMIN_REQUIRED'&&!merchantEntry/);
  assert.match(js,/function showAuthorizationDenied\(\)/);
+ assert.match(js,/window\.liff\.login\(\)/,'automatic LINE sign-in remains wired');
  assert.doesNotMatch(html,/<button[^>]*>[^<]*開通總管理員/);
 });
 

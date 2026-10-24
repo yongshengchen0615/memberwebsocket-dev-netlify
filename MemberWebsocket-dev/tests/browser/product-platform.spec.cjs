@@ -299,60 +299,56 @@ test('PLATFORM_MOBILE — applicant identity and approved grant panel stay safe 
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
-test('PLATFORM_ROOT_REAUTH — initial root visit auto-reauthenticates once, return is one-use, BFCache is blocked',async({page})=>{
+test('PLATFORM_ROOT_REAUTH — every Platform visit and BFCache restore automatically re-verifies LINE',async({page})=>{
  const h=await setup(page,'root',{rootLoginReturn:false,inClient:true});try{
   await expect(page.locator('#platformWorkspace')).toBeVisible();
-  await expect(page.locator('#platformLoginGate')).toBeHidden();
+  await expect(page.locator('#platformLoginGate,#platformLoginButton')).toHaveCount(0);
   expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('1');
   expect(await page.evaluate(()=>sessionStorage.getItem('platform-line-login-return-v1'))).toBeNull();
-  const attempt=await page.evaluate(()=>sessionStorage.getItem('platform-line-auto-attempt-v1'));
-  expect(Number(attempt)).toBeGreaterThan(0);
-  await page.reload(); // A consumed callback cannot silently start another login.
-  await expect(page.locator('#platformLoginGate')).toBeVisible();
-  await expect(page.locator('#platformWorkspace')).toBeHidden();
-  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('1');
-  await page.getByRole('button',{name:'重新使用 LINE 登入'}).click();
+  expect(await page.evaluate(()=>sessionStorage.getItem('platform-line-auto-attempt-v1'))).toBeNull();
+  await page.reload();
   await expect(page.locator('#platformWorkspace')).toBeVisible();
-  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('2');
+  await expect.poll(()=>page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('2');
   await page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})));
-  await expect(page.locator('#platformLoginGate')).toBeVisible();
-  await expect(page.locator('#platformWorkspace')).toBeHidden();
+  // The BFCache event intentionally navigates; wait for the reauthenticated UI
+  // before reading sessionStorage from the new browsing context.
+  await expect(page.locator('#platformWorkspace')).toBeVisible();
+  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('3');
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
-test('PLATFORM_ROOT_EXTERNAL_REAUTH — logged-in external entry starts LINE login without click and never loops',async({page})=>{
+test('PLATFORM_ROOT_EXTERNAL_REAUTH — external LINE authentication starts automatically on each visit',async({page})=>{
  const h=await setup(page,'root',{rootLoginReturn:false,inClient:false,loggedIn:true});try{
   await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[]]);
   await expect(page.locator('#platformWorkspace')).toBeHidden();
   expect(await page.evaluate(()=>window.logoutCalls)).toBe(1);
-  await page.reload(); // Simulated LINE SDK callback with a fresh token
+  await page.reload(); // LINE callback with its one-use return marker
   await expect(page.locator('#platformWorkspace')).toBeVisible();
-  await expect(page.locator('#platformLoginGate')).toBeHidden();
+  await expect(page.locator('#platformLoginGate,#platformLoginButton')).toHaveCount(0);
   expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
-  await page.reload();
-  await expect(page.locator('#platformLoginGate')).toBeVisible();
-  expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
+  await page.reload(); // A new visit must reauthenticate without any extra click.
+  await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[]]);
+  await expect(page.locator('#platformWorkspace')).toBeHidden();
+  await page.reload(); // Next LINE callback
+  await expect(page.locator('#platformWorkspace')).toBeVisible();
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
-test('PLATFORM_BAD_TOKEN_RECOVERY — auto login with wrong-channel identity never authorizes root or loops',async({page})=>{
+test('PLATFORM_BAD_TOKEN_RECOVERY — wrong-channel LINE token never exposes workspace or causes login loop',async({page})=>{
  const h=await setup(page,'legacy-root',{rootLoginReturn:false});try{
-  await expect(page.locator('#platformLoginGate')).toBeVisible();
   await expect(page.locator('#platformStatus')).toContainText('LINE 身分驗證未通過');
+  await expect(page.locator('#platformLoginGate,#platformLoginButton')).toHaveCount(0);
   await expect(page.locator('#platformWorkspace')).toBeHidden();
   expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('1');
   await page.reload();
-  await expect(page.locator('#platformLoginGate')).toBeVisible();
-  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('1');
-  await page.getByRole('button',{name:'重新使用 LINE 登入'}).click();
-  await expect(page.locator('#platformLoginGate')).toBeVisible();
   await expect(page.locator('#platformWorkspace')).toBeHidden();
-  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('2');
+  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('1');
+  expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
   expect(await page.evaluate(()=>sessionStorage.getItem('platform-line-login-return-v1'))).toBeNull();
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
-test('PLATFORM_EXTERNAL_FIRST_SIGNIN — first signed-out external login returns directly to the root without a second login',async({page})=>{
+test('PLATFORM_EXTERNAL_FIRST_SIGNIN — signed-out entry and subsequent visits automatically launch LINE',async({page})=>{
  const h=await setup(page,'root',{inClient:false,loggedIn:false,rootLoginReturn:false});try{
   await expect(page.locator('#platformWorkspace')).toBeHidden();
   expect(await page.evaluate(()=>window.loginCalls)).toEqual([[]]);
@@ -360,52 +356,54 @@ test('PLATFORM_EXTERNAL_FIRST_SIGNIN — first signed-out external login returns
   await page.evaluate(()=>sessionStorage.setItem('qaLoggedIn','1'));
   await page.reload();
   await expect(page.locator('#platformWorkspace')).toBeVisible();
-  await expect(page.locator('#platformLoginGate')).toBeHidden();
+  await expect(page.locator('#platformLoginGate,#platformLoginButton')).toHaveCount(0);
   expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
   await page.reload();
+  await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[]]);
   await expect(page.locator('#platformWorkspace')).toBeHidden();
-  await expect(page.locator('#platformLoginGate')).toBeVisible();
+  await page.reload();
+  await expect(page.locator('#platformWorkspace')).toBeVisible();
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
-test('PLATFORM_EXTERNAL_CALLBACK_FAILED — failed external callback never calls LINE login repeatedly',async({page})=>{
+test('PLATFORM_EXTERNAL_CALLBACK_FAILED — failed callback is rejected without repeated login redirects or extra UI',async({page})=>{
  const h=await setup(page,'root',{inClient:false,loggedIn:false,rootLoginReturn:false});try{
   await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[]]);
   expect(await page.evaluate(()=>sessionStorage.getItem('platform-line-login-return-v1'))).not.toBeNull();
-  await page.reload(); // Return without a signed-in session.
-  await expect(page.locator('#platformLoginGate')).toBeVisible();
-  await expect(page.locator('#platformStatus')).toContainText('重試');
+  await page.reload(); // LINE returned without a signed-in session.
+  await expect(page.locator('#platformStatus')).toContainText('LINE 登入未完成');
+  await expect(page.locator('#platformLoginGate,#platformLoginButton')).toHaveCount(0);
+  await expect(page.locator('#platformWorkspace')).toBeHidden();
   expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
   await page.reload();
   expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
-test('PLATFORM_EXPIRED_RETURN — stale callback marker cannot trigger automatic redirects or root access',async({page})=>{
+test('PLATFORM_EXPIRED_RETURN — expired callback cannot trigger redirects or root access',async({page})=>{
  await page.addInitScript(()=>sessionStorage.setItem('platform-line-login-return-v1',String(Date.now()-181000)));
  const h=await setup(page,'root',{rootLoginReturn:false,inClient:false,loggedIn:true});try{
-  await expect(page.locator('#platformLoginGate')).toBeVisible();
+  await expect(page.locator('#platformStatus')).toContainText('回跳已過期');
+  await expect(page.locator('#platformLoginGate,#platformLoginButton')).toHaveCount(0);
   await expect(page.locator('#platformWorkspace')).toBeHidden();
   expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
   expect(await page.evaluate(()=>sessionStorage.getItem('platform-line-login-return-v1'))).toBeNull();
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
-test('PLATFORM_INCLIENT_UNAUTH — signed-out LIFF attempts once, then exposes manual recovery',async({page})=>{
+test('PLATFORM_INCLIENT_UNAUTH — signed-out in-client LIFF retries automatically at most once, without a login card',async({page})=>{
  const h=await setup(page,'root',{inClient:true,loggedIn:false,rootLoginReturn:false});try{
-  await expect(page.locator('#platformLoginGate')).toBeVisible();
-  await expect(page.locator('#platformStatus')).toContainText('回跳未完成');
+  await expect(page.locator('#platformStatus')).toContainText('LINE 登入未完成');
+  await expect(page.locator('#platformLoginGate,#platformLoginButton')).toHaveCount(0);
   await expect(page.locator('#platformWorkspace')).toBeHidden();
   expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('1');
   await page.reload();
-  await expect(page.locator('#platformLoginGate')).toBeVisible();
+  await expect(page.locator('#platformWorkspace')).toBeHidden();
   expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('1');
   expect(h.providerCalls).toEqual([]);
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
-
-
 test('PLATFORM_UNIFIED_PORTALS — navigation never bypasses per-role authentication',async({page})=>{
  const h=await setup(page);try{
   const nav=page.locator('#unifiedPortalNav');
@@ -417,38 +415,33 @@ test('PLATFORM_UNIFIED_PORTALS — navigation never bypasses per-role authentica
  }finally{await h.db.close();}
 });
 
-test('PLATFORM_ROOT_UNAPPROVED — verified LINE gets exact Supabase review location without dashboard access',async({page})=>{
+test('PLATFORM_ROOT_UNAPPROVED — verified but unapproved LINE displays only pending text until DBA grants access',async({page})=>{
  const h=await setup(page,'root',{manualGrant:false});try{
-  await expect(page.locator('#platformAuthorizationNotice')).toBeVisible();
-  await expect(page.locator('#platformAuthorizationNotice')).toContainText('platform_private.super_admins.enabled');
-  await expect(page.locator('#platformAuthorizationNotice')).toContainText('line_user_id');
-  await expect(page.locator('#platformAuthorizationNotice')).toContainText('admin_id');
-  await expect(page.locator('#platformAuthorizationNotice')).toContainText('role = admin');
-  await expect(page.locator('#platformAuthorizationNotice')).toContainText('status = active');
-  await expect(page.locator('#platformAuthorizationNotice a[href*="/sql/new"]')).toBeVisible();
+  const notice=page.locator('#platformAuthorizationNotice');
+  await expect(notice).toBeVisible();
+  await expect(notice).toHaveText('總管理員權限尚未核准');
+  for(const id of ['#platformHeader','#platformStatus','#platformWorkspace'])await expect(page.locator(id)).toBeHidden();
+  await expect(page.locator('#platformLoginGate,#platformLoginButton')).toHaveCount(0);
+  await page.reload();
+  await expect(notice).toHaveText('總管理員權限尚未核准');
   await expect(page.locator('#platformWorkspace')).toBeHidden();
-  await expect(page.locator('#platformLoginGate')).toBeVisible();
-  await page.getByRole('button',{name:'重新使用 LINE 登入'}).click();
-  await expect(page.locator('#platformAuthorizationNotice')).toBeVisible();
-  await expect(page.locator('#platformWorkspace')).toBeHidden();
-  // Only a privileged, explicit change to this isolated test DB can grant access.
+  // Only a privileged change to the isolated test database can grant access.
   await h.db.exec('update platform_private.super_admins set enabled=true where singleton');
-  await page.getByRole('button',{name:'重新使用 LINE 登入'}).click();
+  await page.reload(); // No manual LINE login button; reauthenticate on page entry.
   await expect(page.locator('#platformWorkspace')).toBeVisible();
-  await expect(page.locator('#platformAuthorizationNotice')).toBeHidden();
+  await expect(notice).toBeHidden();
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
-test('PLATFORM_UNMATCHED_ROOT — verified but unbound LINE ID shows review checklist, not an auto grant',async({page})=>{
+test('PLATFORM_UNMATCHED_ROOT — an unbound LINE identity sees only pending status, never an automatic grant',async({page})=>{
  const h=await setup(page,'manager');try{
-  await expect(page.locator('#platformAuthorizationNotice')).toBeVisible();
+  await expect(page.locator('#platformAuthorizationNotice')).toHaveText('總管理員權限尚未核准');
   await expect(page.locator('#platformWorkspace')).toBeHidden();
-  await expect(page.locator('#platformAuthorizationNotice')).toContainText('line_user_id');
+  await expect(page.locator('#platformLoginGate,#platformLoginButton')).toHaveCount(0);
   expect((await h.db.query('select enabled from platform_private.super_admins where singleton')).rows[0].enabled).toBe(true);
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
-
 test('PLATFORM_ADMIN_TOP_GRANTS — Lumen header exposes only server-approved modules, rejects forged feature links',async({page})=>{
  const h=await setup(page,'manager',{entry:'admin'});try{
   await expect(page).toHaveURL(/\/admin\/?$/);

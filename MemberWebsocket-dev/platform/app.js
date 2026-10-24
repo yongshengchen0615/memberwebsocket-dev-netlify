@@ -13,7 +13,7 @@
   let rejectedLoginReturn=false;
   function markAutomaticRootLoginAttempt() {
     // Short-lived navigation loop guard, never an authorization claim.
-    // Explicit button retry remains available after any failure.
+    // A failed navigation remains guarded against repeated automatic redirects.
     if(merchantEntry)return false;
     try {
       const now=Date.now();
@@ -53,25 +53,31 @@
     el('platformWorkspace').hidden=true;
     el('merchantWorkspace').hidden=true;
     el('applicationWorkspace').hidden=true;
-    el('platformLoginGate').hidden=false;
-    el('platformLoginButton').disabled=false;
+    el('platformStatus').hidden=false;
     el('platformStatus').textContent=message;
+    const header=el('platformHeader');
+    if(header)header.hidden=false;
   }
   function showAuthorizationDenied() {
     if(merchantEntry)return;
     // Only called for PLATFORM_ADMIN_REQUIRED after successful server-side LINE verification.
     // No client-side approval, privileged mutation, or account enumeration.
-    showLoginGate('LINE 身分已驗證，但此帳號尚未取得總管理員授權。');
+    showLoginGate('');
     el('platformAuthorizationNotice').hidden=false;
+    el('platformStatus').hidden=true;
+    const header=el('platformHeader');
+    if(header)header.hidden=true;
+    // A verified denial completes this attempt; a later page visit may retry LINE.
+    try { window.sessionStorage.removeItem(AUTO_LOGIN_ATTEMPT_KEY); } catch {}
   }
   function clearLoginGate() {
-    el('platformLoginGate').hidden=true;
+    const header=el('platformHeader');
+    if(header)header.hidden=false;
+    el('platformStatus').hidden=false;
     const authorizationNotice=el('platformAuthorizationNotice');
     if(authorizationNotice)authorizationNotice.hidden=true;
   }
   function freshLineLogin() {
-    const button=el('platformLoginButton');
-    button.disabled=true;
     el('platformStatus').textContent='正在重新啟動 LINE 登入…';
     try {
       window.sessionStorage.setItem(LOGIN_RETURN_KEY,String(Date.now()));
@@ -84,13 +90,16 @@
       else window.liff.login();
     } catch {
       try { window.sessionStorage.removeItem(LOGIN_RETURN_KEY); } catch {}
-      button.disabled=false;
-      el('platformStatus').textContent='無法啟動 LINE 重新登入，請重新從 LINE 官方入口開啟此頁。';
+      el('platformStatus').textContent='無法啟動 LINE 登入，請重新開啟此頁。';
     }
   }
-  el('platformLoginButton').addEventListener('click',freshLineLogin);
   window.addEventListener('pageshow',event=>{
-    if(event.persisted && !el('platformWorkspace').hidden) showLoginGate();
+    if(event.persisted && !merchantEntry) {
+      // Restoring a cached Platform page must re-verify LINE, not strand the user
+      // on a gate without a login button or expose a stale privileged workspace.
+      showLoginGate('正在確認 LINE 身分…');
+      void start();
+    }
   });
   function message(text) { el('tenantFormStatus').textContent=text; }
   function uncertainError() { return Object.assign(new Error('儲存結果尚未確認。請重試同一操作，避免重複建立。'),{uncertain:true}); }
@@ -214,7 +223,13 @@
   });
   el('closeExpiry').addEventListener('click',()=>{if(!expiryBusy&&!expiryPending)expiryDialog.close();});
   expiryDialog.addEventListener('cancel',event=>{if(expiryBusy||expiryPending)event.preventDefault();});
-  async function refresh() {const data=await request('platform.bootstrap');state.tenants=data.tenants;state.applications=data.applications||[];state.features=data.features;render();renderApplications();return data;}
+  async function refresh() {
+    const data=await request('platform.bootstrap');
+    state.tenants=data.tenants;state.applications=data.applications||[];
+    state.features=data.features;
+    render();renderApplications();
+    return data;
+  }
   function collect() {return {name:fields.namedItem('name').value.trim(),slug:fields.namedItem('slug').value.trim(),ownerLineUserId:fields.namedItem('ownerLineUserId').value.trim(),
     features:Object.fromEntries([...form.querySelectorAll('[data-feature]')].map(node=>[node.dataset.feature,node.checked])),
     line:Object.fromEntries(lineKeys.map(key=>[key,fields.namedItem(key).value.trim()])),
@@ -616,7 +631,7 @@
       const returnedFromLine=consumeLoginReturn();
       if(!window.liff.isLoggedIn()) {
         if(returnedFromLine || rejectedLoginReturn) {
-          showLoginGate('LINE 登入回跳未完成或已過期，請點選「重新使用 LINE 登入」重試。');
+          showLoginGate('LINE 登入未完成，請重新開啟頁面。');
           return;
         }
         if(window.liff.isInClient()){
@@ -626,11 +641,11 @@
             freshLineLogin();
             return;
           }
-          showLoginGate('LINE LIFF 尚未完成登入或自動驗證未成功，請點選「重新使用 LINE 登入」重試。');
+          showLoginGate('LINE 登入未完成，請重新開啟頁面。');
           return;
         }
         if(!merchantEntry && !markAutomaticRootLoginAttempt()) {
-          showLoginGate('LINE 登入回跳尚未完成，請點選「重新使用 LINE 登入」重試。');
+          showLoginGate('LINE 登入未完成，請重新開啟頁面。');
           return;
         }
         el('platformStatus').textContent='正在前往 LINE 登入…';
@@ -641,13 +656,13 @@
         try { window.liff.login(); }
         catch {
           window.sessionStorage.removeItem(LOGIN_RETURN_KEY);
-          showLoginGate('無法啟動 LINE 登入，請點選「重新使用 LINE 登入」重試。');
+          showLoginGate('無法啟動 LINE 登入，請重新開啟頁面。');
         }
         return;
       }
       state.idToken=window.liff.getIDToken() || '';
       if(!state.idToken) {
-        showLoginGate('無法取得 LINE ID token。請重新使用 LINE 登入，並確認 LIFF 已啟用 openid scope。');
+        showLoginGate('無法取得 LINE 身分憑證，請重新開啟頁面。');
         return;
       }
       if(merchantEntry){
@@ -665,8 +680,8 @@
           freshLineLogin();
         } else {
           showLoginGate(rejectedLoginReturn
-            ? 'LINE 登入回跳已過期或無效，請點選「重新使用 LINE 登入」重試。'
-            : '這次自動 LINE 驗證尚未完成，請點選「重新使用 LINE 登入」重試。');
+            ? 'LINE 登入回跳已過期，請重新開啟頁面。'
+            : 'LINE 驗證未完成，請重新開啟頁面。');
         }
         return;
       }
@@ -674,6 +689,7 @@
       clearLoginGate();
       for(const [key,label] of Object.entries(data.features)) {const wrap=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.dataset.feature=key;wrap.append(input,document.createTextNode(label));el('featureFields').append(wrap);}
       el('platformWorkspace').hidden=false;el('platformStatus').textContent=`總管理員 ${data.profile.displayName}，已登入。`;
+      try { window.sessionStorage.removeItem(AUTO_LOGIN_ATTEMPT_KEY); } catch {}
     } catch(error){
       if(error.code==='PLATFORM_ADMIN_REQUIRED'&&!merchantEntry) {
         showAuthorizationDenied();

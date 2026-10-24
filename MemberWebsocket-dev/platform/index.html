@@ -7,33 +7,20 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' https://static.line-scdn.net; style-src 'self'; connect-src 'self' https://*.supabase.co https://api.line.me https://access.line.me https://liff.line.me https://*.line-scdn.net; img-src 'self' data:; frame-src https://access.line.me https://liff-subwindow.line.me; form-action 'self' https://access.line.me https://liff-subwindow.line.me">
   <title>管理員申請與商家管理</title>
-  <link rel="stylesheet" href="./platform.css?v=20261018-admin-workflow-2">
+  <link rel="stylesheet" href="./platform.css?v=20261024-remove-login-gate-2">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
   <script src="../business-context.js"></script>
 <script src="../member-system.js" defer></script>
-  <script src="./app.js?v=20261023-root-auto-reauth-1" defer></script>
+  <script src="./app.js?v=20261024-remove-login-gate-2" defer></script>
   <link rel="stylesheet" href="../portal-navigation.css?v=unified-20261018-1">
   <script src="../portal-navigation.js?v=unified-20261018-1" defer></script>
 </head>
 <body>
   <main class="shell">
-    <header class="topbar"><div><p class="eyebrow">PLATFORM / CONTROL CENTER</p><h1>商家與管理員</h1><p>總管理員專用：使用 LINE 登入，審核管理員申請並勾選可使用的功能。</p></div></header>
+    <header class="topbar" id="platformHeader"><div><p class="eyebrow">PLATFORM / CONTROL CENTER</p><h1>商家與管理員</h1><p>總管理員專用：使用 LINE 登入，審核管理員申請並勾選可使用的功能。</p></div></header>
     <p id="platformStatus" role="status" aria-live="polite">正在確認 LINE 身分…</p>
     <section id="platformAuthorizationNotice" class="authorization-notice" hidden role="alert" aria-labelledby="platformAuthorizationTitle">
       <h2 id="platformAuthorizationTitle">總管理員權限尚未核准</h2>
-      <p>LINE 身分驗證已完成，但後端沒有授予此帳號總管理員權限。可能是尚未核准、綁定的 LINE 帳號不符，或原管理員帳號未啟用。</p>
-      <ol>
-        <li>請授權的資料庫管理人員開啟 <a href="https://supabase.com/dashboard/project/dbuquirnaskrwcamdxki/sql/new" target="_blank" rel="noopener noreferrer">Supabase 專案 SQL Editor（另開視窗）</a>，確認要審核的帳號身分。</li>
-        <li>在資料表 <code>platform_private.super_admins</code> 核對 <code>line_user_id</code> 與 <code>admin_id</code>，並確認關聯的 <code>public.admins</code> 紀錄為 <code>role = admin</code>、<code>status = active</code>。</li>
-        <li>身分和授權已由管理人員核准後，才將 <code>platform_private.super_admins.enabled</code> 設為 <code>true</code>；未確認身分時不得開通。</li>
-      </ol>
-      <p>完成審核後，請按下方「重新使用 LINE 登入」再次驗證。此入口僅供總管理員使用。</p>
-    </section>
-    <section id="platformLoginGate" class="login-gate" hidden aria-labelledby="platformLoginTitle">
-      <h2 id="platformLoginTitle">總管理員 LINE 身分確認</h2>
-      <p>首次進入會自動啟動 LINE 身分確認。若授權被拒絕、回跳逾時或登入失敗，請使用下方按鈕手動重試；總管理員權限仍由伺服器驗證。</p>
-      <button id="platformLoginButton" type="button">重新使用 LINE 登入</button>
-      <p class="hint">在 LINE 內建瀏覽器，系統會重新初始化 LINE 登入；一般瀏覽器將開啟 LINE 登入流程。</p>
     </section>
     <section id="platformWorkspace" hidden>
       <div class="workspace-heading"><div><h2>已審核商家</h2><p>總管理員管理使用狀態、期限與功能授權；各商家的 LINE Channel、LIFF 和訊息憑證由商家管理員自行設定。</p></div><button id="newTenant" type="button" hidden aria-hidden="true" tabindex="-1">舊版新增商家</button></div>
