@@ -2,7 +2,8 @@ import { createClient as baseClient } from 'npm:@supabase/supabase-js@2.57.0';
 import { assertBusinessAction,businessBootstrap,actionFeatures } from './business-policy.mjs';
 import { openCredentials } from './platform-crypto.mjs';
 import { resolvePlatformEncryptionKey } from './platform-key.mjs';
-import { tenantExpired } from './tenant-access.mjs';
+import { tenantExpired, assertTenantIdentity } from './tenant-access.mjs';
+import { verifyMerchantAdminIdToken } from './platform-auth.mjs';
 import { merchantOnboarding } from './merchant-onboarding.mjs';
 import { wakeBookingNotifications } from './booking-notification-wake.mjs';
 import { notificationToken } from './notification-routes.mjs';
@@ -68,17 +69,35 @@ export function createClient(url:string,key:string,options?:any):import('npm:@su
 function subject(token:unknown):string|null {
  try{const part=String(token).split('.')[1];const parsed=JSON.parse(atob(part.replace(/-/g,'+').replace(/_/g,'/')));return /^U[0-9a-f]{32}$/.test(parsed.sub)?parsed.sub:null;}catch{return null;}
 }
-// This subject is only a routing hint. It never authorizes anything: every
-// existing handler still verifies the original token with LINE and checks the
-// current admin/member record inside the chosen, private namespace.
+// This subject is only a routing hint. Administrative access is verified below;
+// existing handlers retain their own LINE and private admin/member checks.
 async function resolve(body:any):Promise<Context|null>{
  const slug=body.business;
  if(slug!==undefined&&(typeof slug!=='string'||!/^admin-[a-f0-9]{32}$|^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(slug)||slug.length>40))throw Object.assign(Error('商家入口格式不正確。'),{status:400,code:'INVALID_BUSINESS'});
  const actor=subject(body.idToken);if(!slug&&!actor)return null;
- const result=await control().rpc('platform_business_context',{p_actor:actor,p_slug:slug||null});
+ const result=await control().rpc('platform_business_context_v2',{p_actor:actor,p_slug:slug||null});
  if(result.error)throw Object.assign(Error('目前無法確認商家權限。'),{status:503,code:'BUSINESS_ACCESS_UNAVAILABLE'});
  if(!result.data&&slug)throw Object.assign(Error('找不到商家入口。'),{status:404,code:'BUSINESS_NOT_FOUND'});
  return result.data;
+}
+async function assertBusinessAdmin(c:Context,body:any){
+ const qualification=c.owner_qualification_status,cutoff=c.admin_access_revoked_before;
+ if(!Object.hasOwn(c,'owner_qualification_status')||![null,'approved','pending','rejected','suspended'].includes(qualification)
+  ||!Object.hasOwn(c,'admin_access_revoked_before')||(cutoff!==null&&(typeof cutoff!=='string'||!Number.isFinite(Date.parse(cutoff))))
+  ||(c.access_revoked_before!=null&&!Number.isFinite(Date.parse(c.access_revoked_before))))
+  throw Object.assign(Error('目前無法確認商家權限。'),{status:503,code:'BUSINESS_ACCESS_UNAVAILABLE'});
+ if(qualification!=='approved')throw Object.assign(Error(qualification==='suspended'?'管理員資格已停權，請聯絡總管理員。':'請先取得一般管理員資格。'),
+  {status:403,code:qualification==='suspended'?'PLATFORM_QUALIFICATION_SUSPENDED':'PLATFORM_QUALIFICATION_REQUIRED'});
+ // Qualification revocation applies only to this administrative request. Member
+ // scopes continue carrying the tenant cutoff returned by the routing RPC.
+ const revoked=Math.max(Date.parse(c.access_revoked_before||'')||0,Date.parse(cutoff||'')||0);
+ if(revoked)c.access_revoked_before=new Date(revoked).toISOString();
+ // Resolve the trusted admin channel without loading any merchant credentials.
+ // This is the same readiness rule credentials() uses for downstream handlers.
+ c.adminCustomLineReady=Boolean(c.line_config?.adminLiffId?.startsWith(c.line_config?.adminChannelId+'-'));
+ const identity=await scope.run(c,()=>verifyMerchantAdminIdToken({idToken:body.idToken},businessEnv('LINE_ADMIN_CHANNEL_ID')));
+ if(identity.lineUserId!==c.owner_line_user_id)throw Object.assign(Error('你沒有此商家的管理權限。'),{code:'BUSINESS_ADMIN_REQUIRED',status:403});
+ assertTenantIdentity(c,identity);
 }
 async function credentials(c:Context,feature?:string){
  c.adminCustomLineReady=Boolean(c.line_config?.adminLiffId?.startsWith(c.line_config?.adminChannelId+'-'));
@@ -132,10 +151,10 @@ const jobs=new Set(['booking-line-notifications','scheduled-grant-messages','e2e
 const jobAllowed=(name:string,c:Context)=>name==='scheduled-grant-messages'
  ? ['membership','points','events'].some(key=>c.features?.[key]):c.features?.[name==='booking-line-notifications'?'booking':'testing']===true;
 function policyAction(name:string,body:any):string{
- const action=String(body.action||'');
- if(name==='pointcard-extension-api')return 'admin.pointcard.settings.save';
- if(name==='event-ticket-extension-api')return 'admin.event-ticket.settings.save';
- if(name==='booking-cancellation-api')return 'admin.booking.cancellation';
+ const action=String(body.action||body.operation||'');
+ if(name==='pointcard-extension-api')return ['member.settings.get','member.redeem'].includes(body.operation)?'user.pointcard.'+body.operation.slice(7):'admin.pointcard.settings.save';
+ if(name==='event-ticket-extension-api')return ['member.settings.get','member.today-usable','member.redeem'].includes(body.operation)?'user.event.'+body.operation.slice(7):'admin.event-ticket.settings.save';
+ if(name==='booking-cancellation-api')return body.clientType==='member'&&['member.list','member.request'].includes(body.action)?'user.booking.cancellation':'admin.booking.cancellation';
  return action;
 }
 export function businessHandler(name:string,handler:(request:Request)=>Response|Promise<Response>){
@@ -169,14 +188,13 @@ export function businessHandler(name:string,handler:(request:Request)=>Response|
     }
     return response;
    }
-   const requested=String(body.action||body.operation||'');
-   if(requested.startsWith('admin.')&&subject(body.idToken)!==c.owner_line_user_id)
-    throw Object.assign(Error('你沒有此商家的管理權限。'),{code:'BUSINESS_ADMIN_REQUIRED',status:403});
-   if(jobs.has(name)&&!String(body.action||'').startsWith('admin.')){
+   const action=policyAction(name,body),admin=[body.action,body.operation,action].some(value=>String(value||'').startsWith('admin.'));
+   if(admin)await assertBusinessAdmin(c,body);
+   if(jobs.has(name)&&!admin){
     if(tenantExpired(c))throw Object.assign(Error('使用期限已到，請聯絡總管理員。'),{code:'TENANT_EXPIRED',status:403});
     if(c.status!=='active')throw Object.assign(Error('此商家已停用。'),{code:'TENANT_SUSPENDED',status:403});
     if(!jobAllowed(name,c))throw Object.assign(Error('此功能已停用。'),{code:'FEATURE_DISABLED',status:403});
-   }else assertBusinessAction(c,policyAction(name,body),body);
+   }else assertBusinessAction(c,action,body);
    await credentials(c,requestModule(name,body));
    const response=await scope.run(c,()=>handler(request));
    await wakeBookingNotifications({name,context:c,body,response,dispatch:(id:string)=>control().rpc('platform_dispatch_booking',{p_tenant_id:id})});
