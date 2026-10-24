@@ -27,7 +27,7 @@
     try {
       await new Promise((resolve,reject)=>{
         const script=document.createElement('script');
-        script.src='../platform/app.js?v=unified-admin-20261018-1';
+        script.src='../platform/app.js?v=admin-login-recovery-20261024-1';
         script.onload=resolve;script.onerror=()=>reject(new Error('管理端功能初始化失敗，請重新整理。'));
         document.head.append(script);
       });
