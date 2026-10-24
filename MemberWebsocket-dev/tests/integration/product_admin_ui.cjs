@@ -15,7 +15,7 @@ async function page(h,merchant=true){
  w.addEventListener('error',e=>errors.push(e.message));
  w.eval(fs.readFileSync(path.join(root,'member-system.js'),'utf8'));
  w.eval(fs.readFileSync(path.join(root,'platform/app.js'),'utf8'));
- await waitFor(()=>merchant?!w.document.querySelector('#applicationForm').hidden:!w.document.querySelector('#platformWorkspace').hidden);
+ await waitFor(()=>merchant?(calls.length===1&&!w.document.querySelector('#applicationForm').hidden&&w.document.querySelector('#platformStatus').textContent.includes('已登入')):!w.document.querySelector('#platformWorkspace').hidden);
  return {dom,w,d:w.document,errors,calls};
 }
 test('AC-017/018 DOM + real handler/SQL: admin applies, root checks only grants, admin saves each approved LINE page',async()=>{
