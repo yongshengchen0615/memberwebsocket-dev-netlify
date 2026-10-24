@@ -29,7 +29,14 @@ test('BUSINESS_APPROVAL_ACTIVATES — real approval/SQL immediately opens grant-
  }
  const manager=await context.newPage(),platform=await context.newPage();
  try{
-  await wire(manager,'manager');await manager.goto(base+'/admin/workspace.html');await expect(manager.locator('#applicationProgress')).toContainText('等待總管理員審核');
+  await wire(manager,'manager');await manager.goto(base+'/admin/workspace.html');
+  await expect(manager.locator('#applicationForm')).toBeVisible();
+  expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(0);
+  await manager.locator('#applicationForm [name="businessName"]').fill('經審核商家');
+  await manager.locator('#applicationForm [name="slug"]').fill('approved-business');
+  await manager.locator('#submitApplication').click();
+  await expect(manager.locator('#applicationProgress')).toContainText('等待總管理員審核');
+  expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(1);
   await wire(platform,'root');await platform.goto(base+'/platform/');await platform.getByRole('button',{name:'審核與選擇功能'}).click();
   await platform.locator('[data-approve-feature="membership"]').check();await platform.locator('[data-approve-feature="points"]').check();await platform.getByRole('button',{name:'審核通過',exact:true}).click();
   await expect(platform.locator('#tenantList')).toContainText('可立即使用');
