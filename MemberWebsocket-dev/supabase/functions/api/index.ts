@@ -1,3 +1,5 @@
+import { businessEnv, businessFetch as fetch, businessHandler } from '../_shared/business-runtime.ts';
+import { syncRevision } from '../_shared/sync-revision.mjs';
 import { removeMember } from "../_shared/member-removal.ts";
 import { tierVisibility, loadVisibilityPolicy } from "../_shared/tier-visibility.ts";
 import { bookingTicketUsageError, ticketBookingId } from "../_shared/booking-ticket-usage.ts";
@@ -8,7 +10,7 @@ import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
 import { buildLineFlexNotice } from "../_shared/line-flex.ts";
 import { resolveTestSession, TestModeAuthError } from "../_shared/test-mode-auth.ts";
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 
@@ -90,13 +92,14 @@ class ApiError extends Error {
 }
 
 function env(name: string): string {
-  return (Deno.env.get(name) || "").trim();
+  return (businessEnv(name) || "").trim();
 }
 
 const DEFAULT_ALLOWED_ORIGINS = [
   "https://yongshengchen0615.github.io",
   "https://memberwebsocket-dev-netlify.netlify.app",
   "https://develop--memberwebsocket-dev-netlify.netlify.app",
+  "https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app",
 ];
 
 function allowedOrigins(): Set<string> {
@@ -230,6 +233,8 @@ function presenceActionInfo(action: string): { clientType: ClientType; surface: 
 }
 
 function clientTypeForAction(action: string): ClientType {
+  const sync = /^user\.(member|points|event|calendar|booking)\.sync\.status$/.exec(action);
+  if (sync) return sync[1] as ClientType;
   if (action.startsWith("user.pointcard.booking-selections.")) return "points";
   if (action === "user.pointcard.snapshot-ticket.cancel") return "points";
   if (action.startsWith("user.event.booking-selections.")) return "event";
@@ -2094,6 +2099,9 @@ async function adminIntegrationOverview(supabase: SupabaseClient): Promise<Json>
 }
 
 async function handleAction(supabase: SupabaseClient, identity: { lineUserId: string; displayName: string; issuedAtMs?: number }, action: string, body: Json): Promise<Json> {
+  if (action === 'admin.sync.status' || /^user\.(member|points|event|calendar|booking)\.sync\.status$/.test(action))
+    return await syncRevision(supabase, clientTypeForAction(action), identity.lineUserId,
+      (status:number,code:string,message:string) => new ApiError(status,code,message));
   if (action === "user.pointcard.snapshot-ticket.cancel" || action === "user.event.snapshot-ticket.cancel") {
     const member = await requireJoinedMember(supabase,identity);
     const receiptId = requireText(body.receiptId,"快照識別",80);
@@ -2996,4 +3004,4 @@ async function handleRequest(request: Request): Promise<Response> {
   }
 }
 
-export default { fetch: handleRequest };
+export default { fetch: businessHandler('api', handleRequest) };

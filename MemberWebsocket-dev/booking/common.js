@@ -47,6 +47,7 @@
     if (!response.ok) throw clientError('CONFIG_LOAD_FAILED', '無法載入系統設定。');
     const config = await response.json();
     if (!config.supabaseUrl || !config.supabasePublishableKey) throw clientError('CONFIG_INVALID', 'Supabase 設定不完整。');
+    if(window.BusinessContext)await window.BusinessContext.configure(config);
     return config;
   }
 
@@ -86,8 +87,8 @@
     return token;
   }
 
-  const LOGIN_BROWSER_KEY = 'member-login-browser-v1';
-  const LOGIN_REGISTERED_KEY = 'member-login-registered-v1';
+  const LOGIN_BROWSER_KEY = 'member-login-browser-v1' + (window.BusinessContext?.slug ? ':'+window.BusinessContext.slug : '');
+  const LOGIN_REGISTERED_KEY = 'member-login-registered-v1' + (window.BusinessContext?.slug ? ':'+window.BusinessContext.slug : '');
 
   async function claimBrowserSession(config, clientType, idToken) {
     if (clientType === 'admin') return;
@@ -488,6 +489,33 @@
     const existing = realtimeSubscriptions.get(subscriptionKey);
     if (existing) return existing.unsubscribe;
 
+    if (config.business && config.realtimeEnabled !== false) {
+      let stopped=false,timer,pending=false,queued=false,revision,lastFull=-Infinity,failures=0;
+      const paused=()=>!navigator.onLine||document.visibilityState==='hidden';
+      const schedule=delay=>{if(stopped)return;if(timer!==undefined)window.clearTimeout(timer);timer=window.setTimeout(()=>{timer=undefined;void probe();},delay);};
+      const probe=async()=>{
+        if(stopped||paused())return;if(pending){queued=true;return;}pending=true;
+        try{
+          const session=getSession();if(!session?.idToken)throw Error('AUTH_REQUIRED');
+          const current=await postJson(String(config.supabaseUrl).replace(/\/$/,'')+'/functions/v1/api',config,
+            {action:targetScope==='admin'?'admin.sync.status':'user.booking.sync.status',clientType:targetScope==='admin'?'admin':'booking',idToken:session.idToken,business:config.business},'同步服務',{write:false});
+          if(stopped)return;
+          if(typeof current.revision!=='string'||current.revision.length>120)throw Error('INVALID_SYNC_REVISION');
+          if(revision!==current.revision||Date.now()-lastFull>=120000){
+            await onUpdate();if(stopped)return;
+            if(typeof onBenefitsUpdate==='function')await onBenefitsUpdate({scope:'all',eventType:'business.reconcile'});
+            revision=current.revision;lastFull=Date.now();
+          }
+          failures=0;
+        }catch(_){failures++;}
+        finally{pending=false;if(!stopped){const delay=queued?0:Math.min(60000,10000*2**Math.min(failures,3));queued=false;schedule(delay);}}
+      };
+      const resume=()=>{if(!paused()){if(pending)queued=true;else schedule(0);}};
+      document.addEventListener('visibilitychange',resume);window.addEventListener('pageshow',resume);window.addEventListener('online',resume);
+      const unsubscribe=()=>{if(stopped)return;stopped=true;if(timer!==undefined)window.clearTimeout(timer);document.removeEventListener('visibilitychange',resume);window.removeEventListener('pageshow',resume);window.removeEventListener('online',resume);realtimeSubscriptions.delete(subscriptionKey);};
+      realtimeSubscriptions.set(subscriptionKey,{unsubscribe});schedule(0);return unsubscribe;
+    }
+
     let disposed = false;
     let channel = null;
     let client = null;
@@ -613,7 +641,7 @@
     window.addEventListener('pageshow', onPageShow);
     window.addEventListener('online', onOnline);
 
-    if (config.realtimeEnabled !== false && window.supabase && typeof window.supabase.createClient === 'function') {
+    if (!config.business && config.realtimeEnabled !== false && window.supabase && typeof window.supabase.createClient === 'function') {
       const clientKey = JSON.stringify([config.supabaseUrl, config.supabasePublishableKey]);
       if (!realtimeClient || realtimeClientKey !== clientKey) {
         realtimeClient = window.supabase.createClient(config.supabaseUrl, config.supabasePublishableKey, {
@@ -671,7 +699,7 @@
   function openMemberJoin(config) {
     const memberLiffId = String(config && config.memberLiffId || '').trim();
     if (!/^[A-Za-z0-9_-]{1,100}$/.test(memberLiffId)) return false;
-    const url = `https://liff.line.me/${encodeURIComponent(memberLiffId)}`;
+    const url = `https://liff.line.me/${encodeURIComponent(memberLiffId)}` + (config.business ? `?business=${encodeURIComponent(config.business)}` : "");
     if (window.liff && typeof window.liff.openWindow === 'function') {
       window.liff.openWindow({ url, external: false });
       return true;

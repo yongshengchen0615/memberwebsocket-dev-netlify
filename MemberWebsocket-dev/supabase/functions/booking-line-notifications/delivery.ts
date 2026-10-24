@@ -1,3 +1,4 @@
+import { businessFetch as fetch } from '../_shared/business-scope.ts';
 import { bookingDetailUri } from "./booking-actions.ts";
 export type BookingBenefits = {
   pointTickets: string[];

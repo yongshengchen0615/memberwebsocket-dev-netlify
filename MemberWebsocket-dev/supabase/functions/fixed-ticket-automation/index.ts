@@ -1,4 +1,8 @@
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import { businessContext } from '../_shared/business-scope.ts';
+import { assertTenantIdentity } from '../_shared/tenant-access.mjs';
+import { isVerifiedLineIdClaim } from '../_shared/line-id-claims.mjs';
+import { businessEnv, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';
+import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 
 type Json = Record<string, unknown>;
 
@@ -16,7 +20,7 @@ const TIER_KEYS = ["general", "silver", "gold", "platinum"] as const;
 const SCHEDULE_TYPES = ["birthday_month", "yearly", "monthly", "weekly"] as const;
 const EXPIRY_MODES = ["month_end", "week_end", "days_after_issue", "fixed_date"] as const;
 
-function env(name: string): string { return (Deno.env.get(name) || "").trim(); }
+function env(name: string): string { return (businessEnv(name) || "").trim(); }
 function asText(value: unknown, max = 1000): string { return String(value ?? "").trim().slice(0, max); }
 function taipeiDate(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -58,8 +62,8 @@ function reply(origin: string | null, payload: unknown, status = 200): Response 
   });
 }
 
-async function verifyAdmin(supabase: SupabaseClient, idToken: string): Promise<{ lineUserId: string; displayName: string }> {
-  if (!idToken) throw new ApiError(401, "AUTH_REQUIRED", "請先使用 LINE 管理端登入。");
+async function verifyAdmin(supabase: SupabaseClient, idToken: unknown): Promise<{ lineUserId: string; displayName: string }> {
+  if (typeof idToken !== "string" || !idToken || idToken.length > 10_000) throw new ApiError(401, "AUTH_REQUIRED", "請先使用 LINE 管理端登入。");
   const channelId = env("LINE_ADMIN_CHANNEL_ID") || "2010791619";
   let response: Response;
   try {
@@ -67,20 +71,20 @@ async function verifyAdmin(supabase: SupabaseClient, idToken: string): Promise<{
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ id_token: idToken, client_id: channelId }),
+      signal: AbortSignal.timeout(15_000),
     });
   } catch {
     throw new ApiError(503, "LINE_AUTH_UNAVAILABLE", "LINE 身分驗證服務暫時無法使用。");
   }
 
   const payload: Json = await response.json().catch(() => ({}));
-  const sub = asText(payload.sub, 120);
-  const aud = asText(payload.aud, 60);
-  const iss = asText(payload.iss, 100);
-  const exp = Number(payload.exp || 0);
-  if (!response.ok || !sub || aud !== channelId || iss !== "https://access.line.me" || !Number.isFinite(exp) || exp * 1000 <= Date.now()) {
+  if (!response.ok || !isVerifiedLineIdClaim(payload, channelId)) {
     throw new ApiError(401, "AUTH_INVALID", "LINE 登入已失效，請重新登入。");
   }
+  const sub = String(payload.sub);
 
+  try { assertTenantIdentity(businessContext(), {issuedAtMs:Number(payload.iat || 0)*1000}); }
+  catch (error) { const e=error as {status:number;code:string;message:string}; throw new ApiError(e.status,e.code,e.message); }
   const admin = await supabase.from("admins").select("role,status").eq("line_user_id", sub).maybeSingle();
   if (admin.error) throw new ApiError(500, "DATABASE_ERROR", "無法確認管理員權限。");
   if (!admin.data || admin.data.status !== "active" || admin.data.role !== "admin") {
@@ -264,7 +268,7 @@ async function audit(supabase: SupabaseClient, actor: string, action: string, ta
   });
 }
 
-Deno.serve(async (request: Request) => {
+serveBusiness('fixed-ticket-automation',async (request: Request) => {
   const origin = request.headers.get("Origin");
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
   if (request.method !== "POST") return reply(origin, { ok: false, error: { code: "METHOD_NOT_ALLOWED", message: "只支援 POST。" } }, 405);
@@ -276,7 +280,7 @@ Deno.serve(async (request: Request) => {
     const body: Json = await request.json().catch(() => ({}));
     const action = asText(body.action, 80);
     const supabase = dbClient();
-    const identity = await verifyAdmin(supabase, asText(body.idToken, 10_000));
+    const identity = await verifyAdmin(supabase, body.idToken);
 
     if (action === "admin.fixed-tickets.list") {
       return reply(origin, { ok: true, data: { templates: await listTemplates(supabase) } });

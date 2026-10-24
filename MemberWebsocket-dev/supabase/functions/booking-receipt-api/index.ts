@@ -1,10 +1,11 @@
+import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
 import { bookingTicketUsageError } from "../_shared/booking-ticket-usage.ts";
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
 import { resolveUserTestIdentity, TestModeAuthError } from "../_shared/test-mode-auth.ts";
 import { hasCurrentTermsConsent } from "../_shared/membership-terms.ts";
 import { loadBookingBenefits } from "../_shared/booking-benefits.ts";
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 
 type Json = Record<string, unknown>;
 type Identity = { lineUserId: string; displayName: string };
@@ -25,7 +26,7 @@ class ApiError extends Error {
   }
 }
 
-function env(name: string): string { return (Deno.env.get(name) || "").trim(); }
+function env(name: string): string { return (businessEnv(name) || "").trim(); }
 function asText(value: unknown, max=1000): string { return String(value ?? "").trim().slice(0,max); }
 function allowedOrigins(): Set<string> {
   return new Set([(env("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io"), "https://develop--memberwebsocket-dev-netlify.netlify.app"].join(",").split(",").map(v=>v.trim()).filter(Boolean));
@@ -279,13 +280,15 @@ async function prepare(supabase:SupabaseClient,identity:Identity,member:any,body
   }
   const path=asText(prepared.objectPath,500);
   const signed=await supabase.storage.from(BUCKET).createSignedUploadUrl(path,{upsert:false});
-  if(signed.error||!signed.data?.token) {
+  if(signed.error||!signed.data?.token||!signed.data?.path) {
     await supabase.rpc("fail_booking_receipt_request",{p_receipt_id:prepared.receiptId,p_member_id:member.id,p_actor_line_user_id:identity.lineUserId,p_reason:"signed-upload-url-failed"});
     throw new ApiError(503,"RECEIPT_UPLOAD_UNAVAILABLE","目前無法建立安全上傳連結。");
   }
   return {
     receiptId:prepared.receiptId,
-    objectPath:path,
+    // The scoped Storage adapter prefixes the tenant UUID. Browsers upload
+    // directly, so they need the exact signed path, not the DB-relative path.
+    objectPath:signed.data.path,
     uploadToken:signed.data.token,
     uploadExpiresInSeconds:7200,
     alreadyPrepared:Boolean(prepared.alreadyPrepared),
@@ -955,7 +958,7 @@ async function registrationOptions(supabase:SupabaseClient,body:Json):Promise<Js
   };
 }
 
-Deno.serve(async(request:Request)=>{
+serveBusiness('booking-receipt-api',async(request:Request)=>{
   const origin=request.headers.get("Origin");
   if(request.method==="OPTIONS") return new Response(null,{status:204,headers:corsHeaders(origin)});
   if(request.method!=="POST") return response(origin,{ok:false,error:{code:"METHOD_NOT_ALLOWED",message:"只支援 POST。"}},405);

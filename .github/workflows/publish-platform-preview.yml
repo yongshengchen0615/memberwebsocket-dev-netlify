@@ -1,0 +1,122 @@
+name: Publish verified platform preview
+
+on:
+  push:
+    branches: [feature/productization-super-admin, Integrated-Marketing-Platform]
+    paths:
+      - 'MemberWebsocket-dev/**'
+      - 'scripts/**'
+      - 'netlify.toml'
+      - '.github/workflows/publish-platform-preview.yml'
+      - '.github/workflows/test-memberwebsocket-dev.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: publish-platform-preview-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/feature/productization-super-admin' || github.ref == 'refs/heads/Integrated-Marketing-Platform'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NETLIFY_SITE_ID: 23796c62-480a-4b46-ac90-bfbc5ad4d300
+      NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+      GH_TOKEN: ${{ github.token }}
+      PLATFORM_ALIAS: ${{ github.ref_name == 'Integrated-Marketing-Platform' && 'integrated-marketing-platform' || 'platform' }}
+      PREVIEW_SOURCE_BRANCH: ${{ github.ref_name }}
+      COMMIT_REF: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Wait for all established CI on this exact commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 75); do
+            gh api --method GET "/repos/${GITHUB_REPOSITORY}/actions/runs" -f branch="$GITHUB_REF_NAME" -f event=push -f head_sha="$GITHUB_SHA" -f per_page=50 > /tmp/platform-ci.json
+            result=0
+            node scripts/check-preview-ci.mjs /tmp/platform-ci.json || result=$?
+            if [ "$result" = 0 ]; then exit 0; fi
+            if [ "$result" != 2 ]; then echo '::error::Latest required CI failed; preview was not published'; exit 1; fi
+            sleep 15
+          done
+          echo '::error::Required CI did not finish; preview was not published'
+          exit 1
+      - name: Identify the native artifact before reproducing it
+        if: github.ref_name == 'Integrated-Marketing-Platform'
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/inspect-preview-source.mjs
+          node scripts/verify-netlify-native-preview.mjs
+          echo "DEPLOY_ID=$(jq -er '.deploy_id' evidence/platform-deploy.json)" >> "$GITHUB_ENV"
+          echo "VERIFIED_PREVIEW_SOURCE_EPOCH=$(git show -s --format=%ct "$GITHUB_SHA")" >> "$GITHUB_ENV"
+      - name: Build and verify the exact platform frontend
+        env:
+          COMMIT_REF: ${{ github.sha }}
+        run: |
+          node --test scripts/deploy.test.mjs scripts/netlify-publish-workflow.test.mjs scripts/check-preview-ci.test.mjs scripts/verify-platform-preview.test.mjs scripts/inspect-preview-source.test.mjs scripts/netlify-preview-source.test.mjs scripts/verify-netlify-cli-preview.test.mjs scripts/netlify-native-ci-gate.test.mjs scripts/verify-netlify-native-preview.test.mjs
+          node scripts/build-site.mjs
+          test -f dist/platform/index.html
+          test ! -e dist/admin/platform/index.html
+          grep -Fq '2012065297-VunxFBj8' dist/config.json
+          python3 - <<'PY'
+          import os, pathlib, tomllib
+          config = tomllib.loads(pathlib.Path('netlify.toml').read_text())
+          redirects = [] if os.environ['GITHUB_REF_NAME'] == 'Integrated-Marketing-Platform' else ['/ /platform/ 302']
+          for rule in config['redirects']:
+              assert set(rule) <= {'from', 'to', 'status'}, 'Review new redirect options before ZIP publishing'
+              redirects.append(f"{rule['from']} {rule['to']} {rule['status']}")
+          pathlib.Path('dist/_redirects').write_text('\n'.join(redirects) + '\n')
+          headers = []
+          for rule in config['headers']:
+              headers.append(rule['for'])
+              headers.extend(f'  {key}: {value}' for key, value in rule['values'].items())
+          pathlib.Path('dist/_headers').write_text('\n'.join(headers) + '\n')
+          PY
+          mkdir -p evidence
+          (cd dist && zip -qr ../evidence/platform-preview.zip .)
+      - name: Retain the exact preview bundle for recovery
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-preview-dist-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Verify the CI-gated native branch deploy or publish isolated legacy alias
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${NETLIFY_AUTH_TOKEN:-}"
+          current=$(gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/$GITHUB_REF_NAME" --jq '.object.sha')
+          test "$current" = "$GITHUB_SHA"
+          if [ "$GITHUB_REF_NAME" = Integrated-Marketing-Platform ]; then
+            # Never attempt a Draft --alias matching this native Git branch.
+            # Native Netlify builds only after exact-SHA push CI succeeds.
+            node scripts/verify-netlify-native-preview.mjs
+            test "$(jq -er '.deploy_id' evidence/platform-deploy.json)" = "$DEPLOY_ID"
+          else
+            npx --yes netlify-cli@23.11.0 deploy --no-build --dir=dist --site="$NETLIFY_SITE_ID" --alias="$PLATFORM_ALIAS" --message="verified-platform-$GITHUB_SHA" --json > /tmp/platform-deploy.json
+            jq '{deploy_id,deploy_url,source_sha:env.GITHUB_SHA}' /tmp/platform-deploy.json > evidence/platform-deploy.json
+          fi
+          cat evidence/platform-deploy.json
+      - name: Verify preview page, assets, configuration and protected API
+        env:
+          PREVIEW_BASE_URL: https://${{ env.PLATFORM_ALIAS }}--memberwebsocket-dev-netlify.netlify.app
+        run: node scripts/verify-platform-preview.mjs
+      - name: Retain deployment identity and per-resource smoke diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-preview-evidence-${{ github.sha }}-${{ github.run_attempt }}
+          path: evidence/platform-*.json
+          if-no-files-found: warn
+          retention-days: 7

@@ -276,7 +276,7 @@
       showMessage(error?.message || '無法更新預約人數與技師設定。', 'error');
     } finally {
       state.loading = false;
-      if (button) { button.disabled = false; button.textContent = '更新設定'; }
+      if (button) { button.disabled = state.savingSettings; button.textContent = '更新設定'; }
     }
   }
 
@@ -320,6 +320,8 @@
     if (requirePrimaryTechnician && !primaryTechnicianId) return showMessage('請選擇主要技師。', 'error');
 
     const button = document.getElementById(ids.settingsSave);
+    const refreshButton = document.getElementById('bookingAdminResourceRefreshButton');
+    if (refreshButton) refreshButton.disabled = true;
     state.savingSettings = true;
     setButtonBusy(button, true, '儲存中…');
     try {
@@ -340,6 +342,7 @@
       if (error?.code === 'CONFLICT') await refresh(false);
     } finally {
       state.savingSettings = false;
+      if (refreshButton) refreshButton.disabled = state.loading;
       setButtonBusy(button, false, '儲存預約設定');
     }
   }

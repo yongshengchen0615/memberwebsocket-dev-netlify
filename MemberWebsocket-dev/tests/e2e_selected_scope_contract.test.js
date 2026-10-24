@@ -1,6 +1,6 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
+const fs = require('./helpers/edge-test-fs.cjs');
 const path = require('node:path');
 const coverage = require('../e2e-feature-coverage.js');
 const backend = import('data:text/javascript;base64,' + Buffer.from(fs.readFileSync(

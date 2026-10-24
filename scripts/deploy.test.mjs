@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { formatBuildVersion } from './build-version.mjs';
+import { buildDate, formatBuildVersion } from './build-version.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 execFileSync(process.execPath, ['scripts/build-site.mjs'], { cwd: root });
@@ -35,6 +35,17 @@ test('published HTML references resolve to files inside the frontend', () => {
   assert.ok(checked > 100, `Expected real asset validation; checked ${checked}`);
 });
 
+test('platform is a sibling of admin in the build output', () => {
+  for (const asset of ['index.html', 'app.js', 'platform.css']) {
+    assert.ok(fs.existsSync(path.join(output, 'platform', asset)), asset);
+  }
+  assert.equal(fs.existsSync(path.join(output, 'admin', 'platform')), false);
+  const html = fs.readFileSync(path.join(output, 'platform/index.html'), 'utf8');
+  const app = fs.readFileSync(path.join(output, 'platform/app.js'), 'utf8');
+  assert.match(html, /src="\.\.\/member-system\.js"/);
+  assert.match(app, /fetch\('\.\.\/config\.json'/);
+});
+
 test('server source, migrations, tests and local deployment state are not published', () => {
   for (const excluded of ['supabase', 'tests', 'docs', '.git', '.netlify', '.env']) {
     assert.equal(fs.existsSync(path.join(output, excluded)), false, excluded);
@@ -59,10 +70,10 @@ test('deployment versions are valid and change for each new deployment', () => {
   assert.throws(() => formatBuildVersion(fixed, 'oops'), TypeError);
 });
 
-test('all eight published entrypoints contain a static, CSP-compatible build badge', () => {
+test('all ten published entrypoints contain a static, CSP-compatible build badge', () => {
   const pages = [
-    'index.html', 'admin/index.html', 'member/index.html', 'points/index.html',
-    'event/index.html', 'calendar/index.html', 'booking/index.html', 'booking/admin/index.html',
+    'index.html', 'admin/index.html', 'admin/workspace.html', 'member/index.html', 'points/index.html',
+    'event/index.html', 'calendar/index.html', 'booking/index.html', 'booking/admin/index.html', 'platform/index.html',
   ];
   const versions = new Set();
   for (const page of pages) {
@@ -164,4 +175,30 @@ test('deployed test-mode API returns a CORS-readable rejection for malformed POS
   const payload = await response.json();
   assert.equal(payload.ok, false);
   assert.equal(payload.error?.code, 'INVALID_JSON');
+});
+
+
+test('native and verifier builds reproduce exact bytes using one deploy and source timestamp', () => {
+  const env = { ...process.env, COMMIT_REF: 'b'.repeat(40),
+    DEPLOY_ID: '6ad8954a695249e48e388cae', VERIFIED_PREVIEW_SOURCE_EPOCH: '1792136723' };
+  const build = changes => {
+    execFileSync(process.execPath, ['scripts/build-site.mjs'], { cwd: root, env: { ...env, ...changes } });
+    return fs.readFileSync(path.join(output, 'platform/index.html'), 'utf8');
+  };
+  const native = build({});
+  assert.ok(native.includes(formatBuildVersion(new Date(1792136723000), env.DEPLOY_ID)), 'release badge must use the source timestamp');
+  assert.equal(build({}), native, 'CI verifier must rebuild the exact native artifact, including its badge');
+  assert.notEqual(build({ DEPLOY_ID: '6ad8954a695249e48e388cab' }), native, 'new deploys retain distinct badges');
+  assert.notEqual(build({ VERIFIED_PREVIEW_SOURCE_EPOCH: '1792136724' }), native, 'wrong source timestamp cannot match');
+});
+
+test('reproducible build identity fails closed for malformed provenance', () => {
+  const now = new Date('2026-10-22T00:00:00Z');
+  assert.equal(buildDate({}, now), now);
+  const env = { COMMIT_REF: 'b'.repeat(40), DEPLOY_ID: 'a'.repeat(24), VERIFIED_PREVIEW_SOURCE_EPOCH: '1792136723' };
+  assert.equal(buildDate(env).getTime(), 1792136723000);
+  for (const change of [{ COMMIT_REF: 'short' }, { DEPLOY_ID: 'wrong' }, { VERIFIED_PREVIEW_SOURCE_EPOCH: '' },
+    { VERIFIED_PREVIEW_SOURCE_EPOCH: 'bad' }, { VERIFIED_PREVIEW_SOURCE_EPOCH: '1792136723.1' }]) {
+    assert.throws(() => buildDate({ ...env, ...change }), TypeError);
+  }
 });

@@ -1,9 +1,10 @@
+import { businessEnv, businessContext, serveBusiness } from '../_shared/business-runtime.ts';
 import { linkedBooking } from "../_shared/linked-booking.ts";
 import { hasCurrentTermsConsent } from "../_shared/membership-terms.ts";
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
 import { resolveTestSession, TestModeAuthError } from "../_shared/test-mode-auth.ts";
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 import { workWindow, clockTime, occupiedRange, localRange, slotHasPassed, timeOnBusinessDate, localTimestamp, currentBusinessDate } from "../_shared/booking-hours.ts";
 
 type Json = Record<string, unknown>;
@@ -19,6 +20,11 @@ const STORE_SERVICE_ID = "00000000-0000-4000-8000-000000000010";
 const TYPE_PREFIX = "__TYPE__:";
 const WRITE_ACTIONS = new Set([
   "user.booking.create",
+  "user.booking.risk.appeal",
+  "admin.booking.risk.save",
+  "admin.booking.risk.revoke",
+  "admin.booking.risk.release",
+  "admin.booking.risk.resolve",
   "user.booking.cancel",
   "user.booking.update",
   "admin.booking.settings.save",
@@ -40,7 +46,7 @@ class ApiError extends Error {
 }
 
 function env(name: string): string {
-  return (Deno.env.get(name) || "").trim();
+  return (businessEnv(name) || "").trim();
 }
 
 function allowedOrigins(): Set<string> {
@@ -80,6 +86,10 @@ function mapDatabaseError(error: unknown): ApiError {
   const raw = error as { message?: string; details?: string; code?: string };
   const message = `${raw?.message || ""} ${raw?.details || ""}`;
   const rules: Array<[string, number, string, string]> = [
+    ["BOOKING_RESTRICTED",403,"BOOKING_RESTRICTED","目前暫停線上預約，請重新整理查看到期時間與聯絡方式。"],
+    ["INVALID_APPEAL_REASON",400,"INVALID_APPEAL_REASON","請填寫 1–500 字的原因。"],
+    ["BOOKING_APPEAL_UNAVAILABLE",409,"BOOKING_APPEAL_UNAVAILABLE","目前沒有可申覆的限制，請更新資料。"],
+    ["booking_no_show_policy",400,"INVALID_BOOKING_POLICY","請完整設定計次期間、門檻、限制期限、寬限與聯絡方式。"],
     ["INVALID_BOOKING_ID",400,"INVALID_BOOKING_ID","預約識別格式不正確。"],
     ["BOOKING_NO_SHOW_TOO_EARLY",409,"BOOKING_NO_SHOW_TOO_EARLY","服務結束後才能標記無故未到。"],
     ["BOOKING_NO_SHOW_NOT_ALLOWED",409,"BOOKING_NO_SHOW_NOT_ALLOWED","只有待確認的一般預約可標記無故未到，請重新整理。"],
@@ -1057,10 +1067,25 @@ async function adminStatusUpdate(supabase: SupabaseClient, identity: Identity, b
   return { booking: hydrated[0] };
 }
 
+async function bookingRisk(supabase: SupabaseClient, identity: Identity, action: string, body: Json): Promise<Json> {
+  if (!businessContext()) throw new ApiError(403,"FEATURE_DISABLED","此功能僅供已開通商家使用。");
+  const member = action.startsWith("user.");
+  const result = member
+    ? await supabase.rpc(action.endsWith("appeal") ? "booking_no_show_appeal" : "booking_no_show_status", {p_actor:identity.lineUserId,...(action.endsWith("appeal") ? {p_reason:asText(body.reason,501)} : {})})
+    : await supabase.rpc("admin_booking_no_show", {p_actor:identity.lineUserId,p_action:action.split(".").pop(),p_body:body.policy || body});
+  if (result.error) throw mapDatabaseError(result.error);
+  return result.data || {restricted:false};
+}
+
 async function route(supabase: SupabaseClient, identity: Identity, clientType: ClientType, action: string, body: Json): Promise<Json> {
   if (clientType === "member") {
     const member = await requireJoinedMember(supabase, identity);
-    if (action === "user.booking.bootstrap") return await userBootstrap(supabase, member, body);
+    if (action === "user.booking.risk.status" || action === "user.booking.risk.appeal") return await bookingRisk(supabase, identity, action, body);
+    if (action === "user.booking.bootstrap") {
+      const data=await userBootstrap(supabase,member,body);
+      if(businessContext()) data.bookingRestriction=await bookingRisk(supabase,identity,"user.booking.risk.status",{});
+      return data;
+    }
     if (action === "user.booking.slots") return await generateSlots(supabase, body, member);
     if (action === "user.booking.create") return await userCreate(supabase, identity, member, body);
     if (action === "user.booking.update") return await userUpdate(supabase, identity, member, body);
@@ -1071,14 +1096,19 @@ async function route(supabase: SupabaseClient, identity: Identity, clientType: C
   await authorizeAdmin(supabase, identity);
   if (action === "admin.booking.summary") return await adminBookingSummary(supabase, identity);
   if (action === "admin.booking.notifications.read") return await adminMarkBookingNotificationsRead(supabase, identity, body);
-  if (action === "admin.booking.bootstrap") return await adminBootstrap(supabase,body);
+  if (["admin.booking.risk.get","admin.booking.risk.save","admin.booking.risk.revoke","admin.booking.risk.release","admin.booking.risk.resolve"].includes(action)) return await bookingRisk(supabase,identity,action,body);
+  if (action === "admin.booking.bootstrap") {
+    const data=await adminBootstrap(supabase,body);
+    if(businessContext()) data.noShowRisk=await bookingRisk(supabase,identity,"admin.booking.risk.get",{});
+    return data;
+  }
   if (action === "admin.booking.settings.save") return await adminSettingsSave(supabase, identity, body);
   if (action === "admin.booking.service.save") return await adminServiceSave(supabase, identity, body);
   if (action === "admin.booking.status.update") return await adminStatusUpdate(supabase, identity, body);
   throw new ApiError(404, "ACTION_NOT_FOUND", "不支援的管理端預約操作。");
 }
 
-Deno.serve(async (request: Request) => {
+serveBusiness('booking-api',async (request: Request) => {
   const origin = request.headers.get("Origin");
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
   if (request.method !== "POST") return response(origin, { ok: false, error: { code: "METHOD_NOT_ALLOWED", message: "只支援 POST。" } }, 405);

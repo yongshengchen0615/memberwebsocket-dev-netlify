@@ -1,8 +1,9 @@
+import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
 import { hasCurrentTermsConsent } from "../_shared/membership-terms.ts";
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
 import { resolveUserTestIdentity, TestModeAuthError } from "../_shared/test-mode-auth.ts";
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 import { workWindow, clockTime, occupiedRange, localRange, slotHasPassed, timeOnBusinessDate, localTimestamp, currentBusinessDate } from "../_shared/booking-hours.ts";
 
 type Json = Record<string, any>;
@@ -27,7 +28,7 @@ class ApiError extends Error {
   }
 }
 
-const env = (name: string) => (Deno.env.get(name) || "").trim();
+const env = (name: string) => (businessEnv(name) || "").trim();
 function allowedOrigins() {
   return new Set([(env("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io"), "https://develop--memberwebsocket-dev-netlify.netlify.app"].join(",").split(",").map((v) => v.trim()).filter(Boolean));
 }
@@ -50,6 +51,7 @@ function mapDbError(error: any): ApiError {
     ["FRIEND_ACCEPTED_REQUIRED",403,"FRIEND_ACCEPTED_REQUIRED","好友需要接受邀請後才能代約。"],
     ["FRIEND_SINGLE_RECIPIENT_REQUIRED",400,"FRIEND_SINGLE_RECIPIENT_REQUIRED","代好友預約請選擇單人服務。"],
     ["REQUEST_ID_CONFLICT",409,"REQUEST_ID_CONFLICT","同一操作識別不可更換受服務者。"],
+    ["BOOKING_RESTRICTED",403,"BOOKING_RESTRICTED","目前暫停線上預約，請重新整理查看到期時間與聯絡方式。"],
     ["BOOKING_SLOT_TAKEN",409,"BOOKING_SLOT_TAKEN","選擇的技師在這段時間剛被預約，請選擇其他時間。"],
     ["INVALID_BOOKING_BENEFITS",400,"INVALID_BOOKING_BENEFITS","選用優惠資料格式不正確。"],
     ["EVENT_TICKET_ALREADY_REGISTERED",409,"EVENT_TICKET_ALREADY_REGISTERED","這張活動票券已在一般預約或快照模式登記，不能重複登記。"],
@@ -426,7 +428,7 @@ async function route(s: SupabaseClient, i: Identity, clientType: ClientType, act
   throw new ApiError(404,"ACTION_NOT_FOUND","不支援的預約資源管理操作。");
 }
 
-Deno.serve(async (req: Request) => {
+serveBusiness('booking-group-api',async (req: Request) => {
   const origin=req.headers.get("Origin");
   if (req.method==="OPTIONS") return new Response(null,{status:204,headers:cors(origin)});
   if (req.method!=="POST") return reply(origin,{ok:false,error:{code:"METHOD_NOT_ALLOWED",message:"只支援 POST。"}},405);

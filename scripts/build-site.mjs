@@ -2,12 +2,12 @@ import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promi
 import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { formatBuildVersion } from './build-version.mjs';
+import { buildDate, formatBuildVersion } from './build-version.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = path.join(root, 'MemberWebsocket-dev');
 const output = path.join(root, 'dist');
-const publicDirectories = new Set(['admin', 'booking', 'calendar', 'event', 'member', 'points', 'vendor']);
+const publicDirectories = new Set(['admin', 'platform', 'booking', 'calendar', 'event', 'member', 'points', 'vendor']);
 const publicFile = /\.(?:html|css|js|json|svg|png|jpe?g|webp|gif|ico|txt|woff2?)$/i;
 
 await rm(output, { recursive: true, force: true });
@@ -22,7 +22,7 @@ for (const entry of await readdir(source, { withFileTypes: true })) {
 }
 
 const siteVersion = formatBuildVersion(
-  new Date(),
+  buildDate(process.env),
   process.env.DEPLOY_ID || process.env.BUILD_ID || randomBytes(6).toString('hex'),
 );
 const commit = /^[a-f\d]{7,40}$/i.test(process.env.COMMIT_REF || '')
@@ -31,6 +31,8 @@ const commit = /^[a-f\d]{7,40}$/i.test(process.env.COMMIT_REF || '')
 const entryPages = [
   'index.html',
   'admin/index.html',
+  'admin/workspace.html',
+  'platform/index.html',
   'member/index.html',
   'points/index.html',
   'event/index.html',

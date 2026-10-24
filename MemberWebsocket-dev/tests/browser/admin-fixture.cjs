@@ -28,6 +28,7 @@ function fixture() {
 }
 function transport(s, action, p={}, slug='api',record=true) {
   if(record)s.calls.push({action,payload:structuredClone(p),slug});
+  if(s.hold?.action===action&&action!=='admin.booking.receipt.register'){const wait=s.hold.wait;s.hold=null;return wait.then(()=>transport(s,action,p,slug,false));}
   if(s.fault && !s.fault.afterCommit && s.fault.action===action && (!s.fault.onCall || s.calls.filter(c=>c.action===action).length===s.fault.onCall)){const f=s.fault;s.fault=null;throw Object.assign(new Error(f.message||'QA rejected write'),{code:f.code||'CONFLICT'});}
   const stamp=()=>new Date(Date.parse(version)+(++s.seq)*1000).toISOString();
   const save=(table,key,value)=>{const row={...value,[key]:value[key]||'qa-'+(++s.seq),updatedAt:stamp()};const i=s[table].findIndex(x=>x[key]===row[key]);if(i<0)s[table].push(row);else s[table][i]=row;return structuredClone(row);};
@@ -155,7 +156,7 @@ function transport(s, action, p={}, slug='api',record=true) {
 }
 async function startFixture() {
   const sessions=new Map();let base;
-  const scripts=['theme.js','admin/admin-session.js','admin/coupon-location-editor.js','admin/app.js','admin/ticket-visibility.js','admin/member-workspace-tabs.js','admin/terms.js','admin/grant-automation.js','admin/fixed-ticket-admin-integration.js','admin/fixed-ticket-calendar-option.js','admin/fixed-ticket-admin.js','admin/pointcard-redemption-limit.js','admin/event-ticket-redemption-limit.js','booking-copy-text.js','booking-copy-format.js','admin/booking-panel.js','admin/booking-receipt-admin.js','admin/booking-accessible-admin.js','admin/integration-hub.js','admin/operation-audit.js'];
+  const scripts=['theme.js','admin/admin-session.js','admin/coupon-location-editor.js','admin/app.js','admin/admin-quick-actions.js','admin/ticket-visibility.js','admin/member-workspace-tabs.js','admin/terms.js','admin/grant-automation.js','admin/fixed-ticket-admin-integration.js','admin/fixed-ticket-calendar-option.js','admin/fixed-ticket-admin.js','admin/pointcard-redemption-limit.js','admin/event-ticket-redemption-limit.js','booking-copy-text.js','booking-copy-format.js','admin/booking-panel.js','admin/booking-receipt-admin.js','admin/booking-accessible-admin.js','admin/integration-hub.js','admin/operation-audit.js'];
   const server=http.createServer(async(req,res)=>{
     const url=new URL(req.url,'http://localhost');const id=/qa=([^;]+)/.exec(req.headers.cookie||'')?.[1];
     const send=(status,type,body)=>{res.writeHead(status,{'Content-Type':type});res.end(body);};

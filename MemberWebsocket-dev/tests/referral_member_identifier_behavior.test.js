@@ -1,4 +1,4 @@
-const {test}=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const path=require('node:path');const vm=require('node:vm');const {stripTypeScriptTypes}=require('node:module');
+const {test}=require('node:test');const assert=require('node:assert/strict');const fs=require('./helpers/edge-test-fs.cjs');const path=require('node:path');const vm=require('node:vm');const {stripTypeScriptTypes}=require('node:module');
 const source=fs.readFileSync(path.join(__dirname,'../supabase/functions/member-growth-api/index.ts'),'utf8');
 const code=stripTypeScriptTypes(source.slice(source.indexOf('async function referralBind('),source.indexOf('async function transferOptions(')));
 function fixture(result={data:{invite_code:'BBBB000000'},error:null}) {

@@ -1,6 +1,7 @@
+import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
 import { bookingTicketUsageError, ticketBookingId } from "../_shared/booking-ticket-usage.ts";
 import { hasCurrentTermsConsent } from "../_shared/membership-terms.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient } from '../_shared/business-runtime.ts';
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
 import { resolveUserTestIdentity, TestModeAuthError } from "../_shared/test-mode-auth.ts";
 
@@ -12,7 +13,7 @@ class ApiError extends Error {
 
 const MAX_REQUEST_BYTES = 20_000;
 
-function env(name: string): string { return (Deno.env.get(name) || "").trim(); }
+function env(name: string): string { return (businessEnv(name) || "").trim(); }
 function asText(value: unknown, max = 1000): string { return String(value ?? "").trim().slice(0, max); }
 function allowedOrigins(): Set<string> {
   return new Set([(env("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io"), "https://develop--memberwebsocket-dev-netlify.netlify.app"].join(",").split(",").map((v) => v.trim()).filter(Boolean));
@@ -200,7 +201,7 @@ async function saveAdminSetting(origin: string | null, body: Json) {
   } });
 }
 
-Deno.serve(async (request) => {
+serveBusiness('pointcard-extension-api',async (request) => {
   const origin = request.headers.get("Origin");
   try {
     if (origin && !allowedOrigins().has(origin)) throw new ApiError(403, "ORIGIN_NOT_ALLOWED", "此網站來源未被允許使用會員 API。");

@@ -1,8 +1,9 @@
+import { businessEnv, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
 import { buildLineFlexNotice } from "../_shared/line-flex.ts";
 import { buildLatestAvailableOffersSection } from "../_shared/latest-available-offers.ts";
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 
 type Json = Record<string, unknown>;
 type NotificationMode = "none" | "immediate" | "scheduled";
@@ -24,7 +25,7 @@ const MAX_REQUEST_BYTES = 40_000;
 const WRITE_LIMIT = 30;
 const READ_LIMIT = 90;
 
-function env(name: string): string { return (Deno.env.get(name) || "").trim(); }
+function env(name: string): string { return (businessEnv(name) || "").trim(); }
 function asText(value: unknown, max = 1000): string { return String(value ?? "").trim().slice(0,max); }
 function requireText(value: unknown, label: string, max = 100): string {
   const text = asText(value,max);
@@ -277,7 +278,7 @@ async function handleCalendarSave(supabase: SupabaseClient, identity: { lineUser
   return { calendarItem:calendarClient(row.data) };
 }
 
-Deno.serve(async (request: Request) => {
+serveBusiness('grant-automation',async (request: Request) => {
   const origin = request.headers.get("Origin");
   if (request.method === "OPTIONS") return new Response(null,{ status:204,headers:corsHeaders(origin) });
   if (request.method !== "POST") return response(origin,{ ok:false,status:405,error:{ code:"METHOD_NOT_ALLOWED",message:"只支援 POST。" } },405);

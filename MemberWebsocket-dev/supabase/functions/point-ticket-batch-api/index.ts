@@ -1,8 +1,9 @@
+import { serveBusiness } from '../_shared/business-runtime.ts';
 // RETIRED COMPATIBILITY ENDPOINT.
 // Point ticket batch operations are owned by pointcard-extension-api.
 const REPLACEMENT_FUNCTION = "pointcard-extension-api";
 
-Deno.serve((request: Request) => {
+serveBusiness('point-ticket-batch-api',(request: Request) => {
   const origin = request.headers.get("Origin");
   const allowOrigin = ["https://yongshengchen0615.github.io", "https://memberwebsocket-dev-netlify.netlify.app", "https://develop--memberwebsocket-dev-netlify.netlify.app"].includes(origin || "") ? (origin || "") : "";
   const headers = {

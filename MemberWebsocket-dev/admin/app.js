@@ -418,6 +418,23 @@
     throw error;
   }
 
+  function recoverMissingBusinessEntry(error) {
+    // A runner inherits its parent session; dropping its URL scope would reuse
+    // that session for an unscoped bootstrap instead of the application entry.
+    if (isBackgroundE2ERunner()) return false;
+    // A removed/nonexistent merchant must never bootstrap through the shared
+    // legacy business data plane. Redirect only to the unscoped, still-authenticated
+    // application entry; never recover from permission or network failures.
+    if (error?.code !== 'BUSINESS_NOT_FOUND' || !window.BusinessContext?.slug) return false;
+    if (!['/admin/', '/admin'].includes(window.location.pathname)) return false;
+    const clean = new URL(window.location.href);
+    clean.searchParams.delete('business');
+    clean.searchParams.delete('liff.state');
+    if (clean.href === window.location.href) return false;
+    window.location.replace(clean.href);
+    return true;
+  }
+
   async function boot() {
     setView('loading');
     try {
@@ -429,6 +446,13 @@
         startLoginProgress('已安全沿用原管理端 Session…', 64);
       } else {
         state.config = await window.MemberSystem.loadConfig();
+        if (state.config.productizedAdmin === true && !state.config.business) {
+          // Productized tenants never use the legacy shared business data plane.
+          // Keep the /admin/ route and mount only the grant-scoped control plane.
+          startLoginProgress('正在載入已授權的管理功能…', 70);
+          await window.ProductizedAdminShell.mount();
+          return;
+        }
         startLoginProgress('正在驗證 LINE 身分…', 48);
         state.idToken = await window.MemberSystem.signIn(state.config, 'admin');
       }
@@ -445,7 +469,10 @@
         stopAdminRealtime = null;
         stopMemberPresencePolling();
       }
-    } catch (error) { stopLoginProgress(); handleBootError(error); } finally { stopLoginProgress(); els.app.setAttribute('aria-busy', 'false'); }
+    } catch (error) {
+      stopLoginProgress();
+      if (!recoverMissingBusinessEntry(error)) handleBootError(error);
+    } finally { stopLoginProgress(); els.app.setAttribute('aria-busy', 'false'); }
   }
 
   async function resumeAdminFromBfcache() {
@@ -632,6 +659,7 @@
   }
 
   function applyAdminBootstrap(result, requestStartedAt) {
+    if(result.features){state.config.grantedFeatures=result.features;window.BusinessWorkspace?.apply(result);}
     if (state.memberKind === 'real') {
       state.members = mergeNewerPresenceObservations(result.members, requestStartedAt);
       memberPresencePageVersion++;
@@ -1964,7 +1992,12 @@
   function resetTicketForm() { state.selectedTicketId = ''; els.ticketForm.reset(); els.ticketTemplateId.value = ''; els.ticketExpectedUpdatedAt.value = ''; els.ticketType.value = 'coupon'; els.ticketStatus.value = ''; document.getElementById('ticketRequiresLocation').checked = false; window.TicketLocationEditors.template.set([]); renderTicketPrizeRows([defaultPrize()]); updateTicketTypeUI(); els.ticketEditorKicker.textContent = 'Create ticket'; els.ticketEditorTitle.textContent = '新增票券'; updateEditorStatus(els.ticketEditorStatus, ''); els.deleteTicketButton.disabled = true; els.deleteTicketButton.classList.add('hidden'); hideMessage(els.ticketFormMessage); renderTicketList(); }
   function defaultPrize(rate) { return { prizeTitle: '', prizeDescription: '', winRate: rate === undefined ? 100 : rate }; }
   function updateTicketTypeUI() { const lottery = els.ticketType.value === 'lottery'; els.ticketPrizeEditor.classList.toggle('hidden', !lottery); if (lottery && !els.ticketPrizeRows.children.length) renderTicketPrizeRows([defaultPrize()]); }
-  function renderTicketPrizeRows(prizes) { els.ticketPrizeRows.replaceChildren(...prizes.map((prize, index) => { const row = document.createElement('div'); row.className = 'prize-row'; row.dataset.ticketPrizeRow = 'true'; row.append(fieldLabel(`獎項 ${index + 1} 名稱`, 'text', prize.prizeTitle, { field: 'ticketPrizeTitle', maxlength: '100', placeholder: '例如：免費蛋糕' }), fieldLabel('中獎機率', 'number', prize.winRate, { field: 'ticketPrizeRate', min: '0', max: '100', step: '0.01', suffix: '%' })); const description = fieldLabel('獎項說明（可換行，選填）', 'textarea', prize.prizeDescription, { field: 'ticketPrizeDescription', maxlength: '240', rows: 2, placeholder: '例如：可兌換任一蛋糕' }); description.classList.add('prize-description-field'); const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'text-button remove-prize'; remove.dataset.removeTicketPrize = 'true'; remove.textContent = '刪除'; row.append(description, remove); return row; })); updateTicketPrizeTotal(); }
+  function setTicketSaving(value) {
+    state.ticketSaving = value;
+    els.ticketForm.toggleAttribute('inert', value);
+    for (const control of els.ticketPrizeEditor.querySelectorAll('input, textarea, button')) control.disabled = value;
+  }
+  function renderTicketPrizeRows(prizes) { els.ticketPrizeRows.replaceChildren(...prizes.map((prize, index) => { const row = document.createElement('div'); row.className = 'prize-row'; row.dataset.ticketPrizeRow = 'true'; row.append(fieldLabel(`獎項 ${index + 1} 名稱`, 'text', prize.prizeTitle, { field: 'ticketPrizeTitle', maxlength: '100', placeholder: '例如：免費蛋糕' }), fieldLabel('中獎機率', 'number', prize.winRate, { field: 'ticketPrizeRate', min: '0', max: '100', step: '0.01', suffix: '%' })); const description = fieldLabel('獎項說明（可換行，選填）', 'textarea', prize.prizeDescription, { field: 'ticketPrizeDescription', maxlength: '240', rows: 2, placeholder: '例如：可兌換任一蛋糕' }); description.classList.add('prize-description-field'); const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'text-button remove-prize'; remove.dataset.removeTicketPrize = 'true'; remove.textContent = '刪除'; row.append(description, remove); return row; })); setTicketSaving(Boolean(state.ticketSaving)); updateTicketPrizeTotal(); }
   function collectTicketPrizes() { return Array.from(els.ticketPrizeRows.querySelectorAll('[data-ticket-prize-row]')).map((row) => ({ prizeTitle: String(row.querySelector('[data-field="ticketPrizeTitle"]')?.value || '').trim(), prizeDescription: String(row.querySelector('[data-field="ticketPrizeDescription"]')?.value || '').trim(), winRate: Number(row.querySelector('[data-field="ticketPrizeRate"]')?.value) })); }
   function updateTicketPrizeTotal() { const total = Math.round(collectTicketPrizes().reduce((sum, prize) => sum + (Number.isFinite(prize.winRate) ? prize.winRate : 0), 0) * 100); els.ticketPrizeTotal.textContent = `機率合計 ${formatRate(total / 100)}%${total === 10000 ? ' ✓' : '／還差 ' + formatRate((10000 - total) / 100) + '%'}`; els.ticketPrizeTotal.classList.toggle('warning', total !== 10000); }
   function balanceTicketPrizes() { const rows = Array.from(els.ticketPrizeRows.querySelectorAll('[data-ticket-prize-row]')); if (!rows.length) return; const base = Math.floor(10000 / rows.length); const remainder = 10000 - base * rows.length; rows.forEach((row, index) => { row.querySelector('[data-field="ticketPrizeRate"]').value = String((base + (index < remainder ? 1 : 0)) / 100); }); updateTicketPrizeTotal(); }
@@ -1987,16 +2020,17 @@
     return total === 10000 ? '' : '同一張抽獎券的獎項機率合計必須正好是 100%。';
   }
   async function saveTicket(event) {
-    event.preventDefault(); if (requireRefreshBeforeWrite(els.ticketFormMessage)) return; hideMessage(els.ticketFormMessage);
+    event.preventDefault(); if (state.ticketSaving || requireRefreshBeforeWrite(els.ticketFormMessage)) return; hideMessage(els.ticketFormMessage);
     const ticket = { ticketTemplateId: els.ticketTemplateId.value, title: String(els.ticketTitle.value || '').trim(), ticketType: els.ticketType.value, description: String(els.ticketDescription.value || '').trim(), usageMethod: String(els.ticketUsageMethod.value || '').trim(), usageInstructions: String(els.ticketUsageInstructions.value || '').trim(), status: els.ticketStatus.value, requiresLocation: document.getElementById('ticketRequiresLocation').checked, redemptionLocations: window.TicketLocationEditors.template.get(), prizes: els.ticketType.value === 'lottery' ? collectTicketPrizes() : [] };
     const validationMessage = validateTicket(ticket);
     if (validationMessage) return showMessage(els.ticketFormMessage, validationMessage);
+    setTicketSaving(true);
     setSaving(els.saveTicketButton, true, '正在儲存票券…');
     try {
       const result = await window.MemberSystem.request(state.config, 'admin', state.idToken, 'admin.tickets.save', { ticket, expectedUpdatedAt: els.ticketExpectedUpdatedAt.value });
       if (result.ticket) { state.tickets = replaceById(state.tickets, result.ticket, 'ticketTemplateId'); loadTicketForm(result.ticket.ticketTemplateId); }
       if (await refreshAfterSuccessfulWrite('票券已儲存', els.ticketFormMessage)) showMessage(els.ticketFormMessage, '票券已儲存；集點卡節點現在可以選擇它。', true);
-    } catch (error) { handleActionError(error, els.ticketFormMessage); } finally { setSaving(els.saveTicketButton, false); }
+    } catch (error) { handleActionError(error, els.ticketFormMessage); } finally { setTicketSaving(false); setSaving(els.saveTicketButton, false); }
   }
   async function deleteTicket() {
     if (requireRefreshBeforeWrite(els.ticketFormMessage)) return;
@@ -3207,3 +3241,4 @@
     refresh: () => refreshData(false)
   });
 })();
+

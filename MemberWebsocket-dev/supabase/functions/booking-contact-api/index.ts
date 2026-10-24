@@ -1,3 +1,4 @@
+import { serveBusiness } from '../_shared/business-runtime.ts';
 import { readJsonObject } from "../_shared/request-body.ts";
 import { resolveUserTestIdentity, TestModeAuthError } from "../_shared/test-mode-auth.ts";
 import {
@@ -97,7 +98,7 @@ async function handleMemberWrite(supabase: any, identity: Identity, member: any,
   return { booking };
 }
 
-Deno.serve(async (request: Request) => {
+serveBusiness('booking-contact-api',async (request: Request) => {
   const origin = request.headers.get("Origin");
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
   if (request.method !== "POST") {

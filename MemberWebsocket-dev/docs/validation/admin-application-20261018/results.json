@@ -1,0 +1,76 @@
+{
+  "observedAtUtc": "2026-10-18T08:45:47.070504+00:00",
+  "baseCommit": "84b58a1218b64a0c1775507753c85beb2e581ee5",
+  "node": "24.19.0",
+  "deno": "2.9.6",
+  "productionDeployed": false,
+  "sourceSha256": {
+    ".github/workflows/test-memberwebsocket-dev.yml": "97fbb15afa4bbb4d538923c136a133d1ccf0117cebe43d07df39dade209a1c09",
+    "MemberWebsocket-dev/admin/app.js": "c18fd0273ae15daef949b02d90bdb461a961ef252898b479ada07e0aa1b4465c",
+    "MemberWebsocket-dev/admin/index.html": "2dcb3d9a82d6ad7aff264fbdcef485d2b167668fc515f39ebc51d78abe921460",
+    "MemberWebsocket-dev/config.json": "d5d6e9a1e52032bffe4dc7a275d8608f4d610963c778072f7de22e58292878d3",
+    "MemberWebsocket-dev/platform/app.js": "45e63831451915aaf137ecf7e93813bfbb2c36ce9034ce467b29d56c4d71c0a1",
+    "MemberWebsocket-dev/platform/index.html": "0fc1cba371bc613efcf360a4dd899ddee1d9866b715727cce535c3fbec418150",
+    "MemberWebsocket-dev/supabase/functions/_shared/platform-auth.mjs": "2f338c4a2dd3f7e72d3c2a1d12e2100e74205a6d7d0710ab88eb3423e4cc8fce",
+    "MemberWebsocket-dev/supabase/functions/_shared/platform-handler.mjs": "94d818c0e13450e857bee03e1a9c97d25437bdbe1406ec518fe44684b8786733",
+    "MemberWebsocket-dev/supabase/functions/platform-api/index.ts": "82d7954539b2f053daf64a6d1de4e2351d6a91eaa3e25e160e496e918206fe24",
+    "MemberWebsocket-dev/tests/browser/admin-human-coverage.json": "6589db78ced5772565601d195cd183f353ee5f9ebdb22d1d59bf122a7e3a21b2",
+    "MemberWebsocket-dev/tests/browser/product-platform.spec.cjs": "9b78d135bb19251d6c8796609ac85594bd7b3fff99cf417e5b1ae678b3cbbb6c",
+    "MemberWebsocket-dev/tests/integration/platform-fixture.cjs": "5ebed0432848daa870df41aff17fc3a5ac2d7122de2b1ee08fcdd864b30b6400",
+    "MemberWebsocket-dev/tests/integration/product_platform.cjs": "20901a8f5b6c83cc170a1d7b3b9dd8b940fafdf6a82ebf5e678714a357046a70",
+    "scripts/build-site.mjs": "51343f7365fe4f3b49a635df1a7ce20a7615f88e20f866c0c57feaba85a3973b",
+    "scripts/deploy.test.mjs": "8f49195e1929a83c5526008252efd1c3c57a0c31d30975e1f85fd46a76a150fe",
+    "MemberWebsocket-dev/admin/workspace.html": "ec38cbdcd16f266a345483fe67eee5dc4f24e176050c948eca2fc275c2fe3de8",
+    "MemberWebsocket-dev/tests/integration/product_admin_ui.cjs": "23264dd0f392c5704c5b4323d1b681ef35ddee16c83b5f1774436fb2d5e93ee3",
+    "MemberWebsocket-dev/tests/product_admin_workflow.test.js": "4723b8ef4291b66267ee91ec4631d07b4e750667325340b706da0b690f4480d0"
+  },
+  "results": {
+    "regression": {
+      "exitCode": 0,
+      "pass": 959,
+      "fail": 0,
+      "skipped": 0
+    },
+    "platformIntegration": {
+      "exitCode": 0,
+      "pass": 15,
+      "fail": 0,
+      "skipped": 0
+    },
+    "edgeCheck": {
+      "exitCode": 0
+    },
+    "edgeBusinessLogic": {
+      "exitCode": 0,
+      "pass": 25,
+      "fail": 0
+    },
+    "build": {
+      "exitCode": 0,
+      "pass": 15,
+      "fail": 0,
+      "skipped": 0
+    },
+    "completeIntegrationAttempt": {
+      "exitCode": 1,
+      "pass": 406,
+      "fail": 3,
+      "skipped": 0,
+      "note": "2 leaf failures plus their parent suite; pre-final shared UI copy update; superseded platform cases rerun in platform-integration-final.log"
+    },
+    "browser": {
+      "exitCode": 1,
+      "executedUiCases": 0,
+      "blocked": "Chromium exits with SIGTRAP before page creation; standard launch and single-process launch both failed"
+    },
+    "dependencyAudit": {
+      "exitCode": 0,
+      "vulnerabilities": 0,
+      "scope": "browser and integration lockfiles"
+    },
+    "wiring": {
+      "exitCode": 0,
+      "checks": 4
+    }
+  }
+}

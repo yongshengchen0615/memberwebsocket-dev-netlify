@@ -130,6 +130,7 @@
       window.dispatchEvent(new CustomEvent('booking:member-loaded', { detail: { profile: state.profile } }));
       pruneSelections();
       renderMemberProfile();
+      renderBookingRestriction();
       renderSettings();
       renderServices();
       renderBookings();
@@ -159,6 +160,27 @@
     return (state.data.services || []).filter((service) => service.serviceId !== STORE_SERVICE_ID);
   }
 
+  function bookingRestricted() {
+    const r=state.data.bookingRestriction;
+    return !state.editing && r?.restricted===true && Date.parse(r.expiresAt)>currentServerTimeMs();
+  }
+  function renderBookingRestriction() {
+    document.getElementById('bookingRestrictionNotice')?.remove();
+    const r=state.data.bookingRestriction;if(r?.restricted!==true || Date.parse(r.expiresAt)<=currentServerTimeMs())return;
+    const notice=document.createElement('section');notice.id='bookingRestrictionNotice';notice.setAttribute('role','status');
+    const title=document.createElement('h3');title.textContent='線上預約暫時受限';
+    const text=document.createElement('p');text.textContent='到期時間：'+new Date(r.expiresAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'})+'。既有預約與會員權益仍可查詢。'+(r.contactText||'請聯絡店家改以電話預約。');notice.append(title,text);
+    if(r.appealEnabled&&!r.appealSubmitted){
+      const label=document.createElement('label');label.textContent='申覆原因';const reason=document.createElement('textarea');reason.maxLength=500;label.append(reason);
+      const button=document.createElement('button');button.type='button';button.textContent='提出申覆';
+      const message=document.createElement('p');message.setAttribute('aria-live','polite');
+      button.addEventListener('click',async()=>{if(!reason.value.trim()){message.textContent='請填寫申覆原因。';return;}button.disabled=true;
+        try{state.data.bookingRestriction=await window.BookingSystem.request(state.config,'member',state.idToken,'user.booking.risk.appeal',{reason:reason.value.trim()});renderBookingRestriction();}
+        catch(error){message.textContent=error.message;button.disabled=false;}
+      });notice.append(label,button,message);
+    }else if(r.appealSubmitted){const p=document.createElement('p');p.textContent=r.appealResolved?'店家回覆：'+(r.appealResolution||'已核對，請聯絡店家。'):'申覆已送出，等待店家核對。';notice.append(p);}
+    els.bookingForm.before(notice);
+  }
   function renderMemberProfile() {
     const profile = state.profile || {};
     const name = String(profile.displayName || els.memberName.textContent || 'LINE 會員');
@@ -565,13 +587,14 @@
       item.classList.toggle('selected', selected);
       item.setAttribute('aria-pressed', selected ? 'true' : 'false');
     });
-    els.submitBookingButton.disabled = state.submitting || !state.selectedSlot;
+    els.submitBookingButton.disabled = state.submitting || !state.selectedSlot || bookingRestricted();
     clearFormMessage();
   }
 
   function openConfirmation(event) {
     event.preventDefault();
     if (state.submitting) return;
+    if (bookingRestricted()) return showFormMessage('目前暫停新的線上預約，請查看到期時間或聯絡店家。','error');
     const items = selectedServiceRows();
     if (!items.length || !els.bookingDate.value || !state.selectedSlot) {
       return showFormMessage('請完整選擇預約項目、日期與時間。', 'error');
@@ -711,6 +734,7 @@
 
   async function confirmBooking() {
     if (state.submitting) return;
+    if (bookingRestricted()) return showConfirmMessage('目前暫停新的線上預約，請聯絡店家。','error');
     const items = selectedItems();
     const bookingDate = els.bookingDate.value;
     const startTime = state.selectedSlot?.startTime || '';
@@ -790,7 +814,7 @@
       state.submitting = false;
       els.confirmBookingButton.disabled = false;
       els.confirmBookingButton.textContent = '確認送出';
-      els.submitBookingButton.disabled = !state.selectedSlot;
+      els.submitBookingButton.disabled = !state.selectedSlot || bookingRestricted();
     }
   }
 
@@ -999,7 +1023,13 @@
 
     window.BookingMemberUI?.organizeBookingHistory?.();
     state.bookingRenderCount += 1;
-    window.dispatchEvent(new CustomEvent('booking:bookings-rendered', { detail: { renderCount: state.bookingRenderCount } }));
+    window.dispatchEvent(new CustomEvent('booking:bookings-rendered', { detail: {
+      renderCount: state.bookingRenderCount,
+      // Only the authenticated member's already-loaded booking times; do not expose profile or tokens.
+      bookings: bookings.map(({ bookingDate, startTime, endTime, startAt, endAt, status }) => ({
+        bookingDate, startTime, endTime, startAt, endAt, status,
+      })),
+    } }));
   }
 
   function summaryRow(label, value) {

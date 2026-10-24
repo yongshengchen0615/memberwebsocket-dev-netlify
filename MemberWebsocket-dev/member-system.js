@@ -85,21 +85,42 @@
     return error;
   }
 
+  // The legacy business API is a single-merchant data plane. A tenant URL must
+  // never silently fall through to another merchant's existing membership data.
+  function assertLegacyTenantScope() {
+    const search = String(window.location?.search || '').replace(/^\?/, '');
+    const isTenantScoped = search.split('&').some(segment => {
+      if (!segment) return false;
+      try { return decodeURIComponent(segment.split('=')[0].replace(/\+/g, ' ')).toLowerCase() === 'tenant'; }
+      catch { return true; } // Malformed query keys fail closed.
+    });
+    if (isTenantScoped) {
+      throw clientError('TENANT_NOT_READY', '此商家的會員資料環境尚未獨立開通，請由商家專用入口登入。');
+    }
+  }
+
   async function loadConfig() {
-    let lastError;
+    assertLegacyTenantScope();
+    let lastError, config;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        const result = await fetchWithTimeout('../config.json', { cache: 'no-cache' }, READ_TIMEOUT_MS, (response) => response.text());
+        // Same-origin absolute path is stable for LIFF callback URLs and /admin/ routes.
+        const result = await fetchWithTimeout('/config.json', { cache: 'no-store' }, READ_TIMEOUT_MS, (response) => response.text());
         if (!result.response.ok) throw clientError('CONFIG_ERROR', '讀取 config.json 失敗。');
-        const config = JSON.parse(result.body);
+        config = JSON.parse(result.body);
         if (!config || typeof config !== 'object' || Array.isArray(config)) throw clientError('CONFIG_ERROR', 'config.json 格式不正確。');
-        return config;
+        break;
       } catch (error) {
+        config = null;
         lastError = error && error.code === 'CONFIG_ERROR' ? error : clientError('CONFIG_ERROR', '無法讀取公開設定，請確認網路後重試。');
         if (attempt === 0) await wait(READ_RETRY_DELAY_MS);
       }
     }
-    throw lastError || clientError('CONFIG_ERROR', '無法讀取公開設定。');
+    if (!config) throw lastError || clientError('CONFIG_ERROR', '無法讀取公開設定。');
+    // Business discovery is separate from the public config request. Preserve
+    // BUSINESS_NOT_FOUND / authorization errors instead of misreporting network failure.
+    if (window.BusinessContext) await window.BusinessContext.configure(config);
+    return config;
   }
 
   function validateConfig(config, surface) {
@@ -153,8 +174,8 @@
     return idToken;
   }
 
-  const LOGIN_BROWSER_KEY = 'member-login-browser-v1';
-  const LOGIN_REGISTERED_KEY = 'member-login-registered-v1';
+  const LOGIN_BROWSER_KEY = 'member-login-browser-v1' + (window.BusinessContext?.slug ? ':'+window.BusinessContext.slug : '');
+  const LOGIN_REGISTERED_KEY = 'member-login-registered-v1' + (window.BusinessContext?.slug ? ':'+window.BusinessContext.slug : '');
 
   function browserLoginKey() {
     try {
@@ -483,6 +504,7 @@
   }
 
   async function sendRequest(config, clientType, idToken, action, payload) {
+    assertLegacyTenantScope();
     if (isTerminatingAccess) throw clientError('SESSION_REVOKED', '連線已結束，請重新登入。');
     validateConfig(config, clientType);
     const endpoint = requestEndpoint(config, clientType, action);
@@ -603,7 +625,71 @@
         }
       });
     };
-    const client = realtimeClientFor(config);
+    // Private business schemas use authenticated reconciliation. No shared
+    // broadcast channel or anonymous subscription can carry another shop's data.
+    const client = config.business ? null : realtimeClientFor(config);
+    if (config.business) {
+      // Private schemas never subscribe to the shared anonymous event feed.
+      // Read an authorized opaque revision; reload full data only on change.
+      let timer, pending = false, queued = false, revision, lastFullAt = -Infinity;
+      let failures = 0, probes = 0, refreshes = 0;
+      const paused = () => document.visibilityState === 'hidden'
+        || (typeof navigator !== 'undefined' && navigator.onLine === false);
+      const status = value => {
+        if (disposed || realtimeStatuses.get(clientType) === value) return;
+        realtimeStatuses.set(clientType, value);
+        emitRealtimeEvent('member-system:realtime-status', {clientType,status:value});
+      };
+      const schedule = delay => {
+        if (disposed) return;
+        if (timer !== undefined) window.clearTimeout(timer);
+        timer = window.setTimeout(() => { timer = undefined; void probe(); }, delay);
+      };
+      const probe = async () => {
+        if (disposed || paused()) return;
+        if (pending) { queued = true; return; }
+        const active = sessions.get(clientType);
+        if (!active?.idToken) { schedule(10000); return; }
+        pending = true;
+        const started = Date.now();
+        try {
+          probes++;
+          const action = clientType === 'admin' ? 'admin.sync.status' : 'user.' + clientType + '.sync.status';
+          const current = await sendRequest(active.config, clientType, active.idToken, action, {business:config.business});
+          if (disposed) return;
+          if (typeof current.revision !== 'string' || current.revision.length > 120) throw Error('INVALID_SYNC_REVISION');
+          const changed = revision !== current.revision || Date.now() - lastFullAt >= 120000;
+          if (changed) {
+            // Child booking/receipt modules consume the same invalidation feed.
+            emitRealtimeEvent('member-system:realtime-invalidation', {clientType,scope:clientType,eventType:clientType === 'admin' ? 'booking.receipt.reconcile' : 'business.reconcile'});
+            await onUpdate({clientType,eventTypes:[],reasons:['revision-changed']});
+            if (disposed) return;
+            revision = current.revision; lastFullAt = Date.now(); refreshes++;
+          }
+          failures = 0; status('SUBSCRIBED');
+          emitRealtimeEvent('member-system:sync-metrics', {clientType,transport:'authenticated-revision',durationMs:Date.now()-started,changed,probes,refreshes});
+        } catch (_) { failures++; status('CHANNEL_ERROR'); }
+        finally {
+          pending = false;
+          if (!disposed) { const next = queued ? 0 : Math.min(60000,10000 * 2 ** Math.min(failures,3)); queued = false; schedule(next); }
+        }
+      };
+      const resume = () => { if (!paused()) { if (pending) queued = true; else schedule(0); } };
+      document.addEventListener('visibilitychange', resume);
+      window.addEventListener('pageshow', resume);
+      window.addEventListener('online', resume);
+      const unsubscribe = () => {
+        if (disposed) return; disposed = true;
+        if (timer !== undefined) window.clearTimeout(timer);
+        document.removeEventListener('visibilitychange', resume);
+        window.removeEventListener('pageshow', resume);
+        window.removeEventListener('online', resume);
+        realtimeSubscriptions.delete(clientType); realtimeStatuses.delete(clientType);
+        emitRealtimeEvent('member-system:realtime-status', {clientType,status:'CLOSED'});
+      };
+      realtimeSubscriptions.set(clientType,{unsubscribe}); status('SYNCING'); schedule(0);
+      return unsubscribe;
+    }
     if (!client) {
       // When the Realtime SDK/CDN is unavailable, keep member data synchronized
       // through the existing authenticated bootstrap instead of requiring reload.
@@ -888,7 +974,7 @@
   function openMemberJoin(config) {
     const memberLiffId = String(config && config.memberLiffId || '').trim();
     if (!/^[A-Za-z0-9_-]{1,100}$/.test(memberLiffId)) return false;
-    const url = `https://liff.line.me/${encodeURIComponent(memberLiffId)}`;
+    const url = `https://liff.line.me/${encodeURIComponent(memberLiffId)}` + (config.business ? `?business=${encodeURIComponent(config.business)}` : "");
     if (window.liff && typeof window.liff.openWindow === 'function') {
       window.liff.openWindow({ url, external: false });
       return true;

@@ -1299,3 +1299,6 @@ button, input, select, textarea { line-height: 1.35; }
 
 #memberModal {z-index:12;}
 #grantModal {z-index:14;}
+
+/* Feature access remains hidden when shared tab styles set display explicitly. */
+.surface-nav [data-business-allowed="false"], .member-workspace-nav [data-business-allowed="false"] { display: none !important; }

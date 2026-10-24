@@ -1,0 +1,27 @@
+const {test,expect}=require('playwright/test');
+const path=require('node:path');
+for(const width of [320,390,1280]){
+ test('AC-RISK-UX-008 responsive policy workspace '+width,async({page})=>{
+  await page.setViewportSize({width,height:900});
+  await page.setContent('<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><div id="bookingPanel"><main></main></div></html>');
+  await page.addStyleTag({path:path.resolve(__dirname,'../../admin/booking-panel.css')});
+  await page.addScriptTag({path:path.resolve(__dirname,'../../admin/booking-risk.js')});
+  await page.evaluate(()=>window.BookingRiskSettings.mount(document.querySelector('main'),{
+   data:{policy:{enabled:false,version:1},events:[],restrictions:[],appeals:[]},
+   request:async()=>{throw Error('no synthetic write authorized');},
+  }));
+  await expect(page.getByRole('heading',{name:'限制政策設定'})).toBeVisible();
+  await expect(page.getByText('目前沒有會員申覆。')).toBeVisible();
+  const dimensions=await page.evaluate(()=>({
+   doc:document.documentElement.scrollWidth,
+   viewport:window.innerWidth,
+   form:document.querySelector('.booking-risk-policy-form').getBoundingClientRect().width,
+  }));
+  expect(dimensions.doc).toBeLessThanOrEqual(dimensions.viewport+1);
+  expect(dimensions.form).toBeLessThanOrEqual(dimensions.viewport+1);
+  await page.getByLabel('啟用限制',{exact:true}).check();
+  await expect(page.locator('.booking-risk-draft')).toContainText('未儲存');
+  await page.getByRole('button',{name:'還原變更'}).click();
+  await expect(page.getByLabel('啟用限制',{exact:true})).not.toBeChecked();
+ });
+}
