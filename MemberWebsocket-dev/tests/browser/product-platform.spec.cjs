@@ -14,7 +14,7 @@ test.beforeAll(async()=>{
 });
 test.afterAll(async()=>new Promise(resolve=>server.close(resolve)));
 async function setup(page,token='root',{loseFirstSave=false,loseFirstLineSave=false,platformLiffId='2012065297-VunxFBj8',inClient=true,loggedIn=true,rootLoginReturn=true,entry='platform',manualGrant=true}={}) {
- const h=await fixture(1,manualGrant);h.allowedOrigins.add(base);let lost=false;const errors=[];
+ const h=await fixture(1,manualGrant);h.allowedOrigins.add(base);let lost=false;const errors=[],requestActions=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
  if(rootLoginReturn&&token==='root')await page.addInitScript(()=>{
   // Simulate a genuine LINE return for the pre-existing root-control cases.
@@ -32,13 +32,14 @@ async function setup(page,token='root',{loseFirstSave=false,loseFirstLineSave=fa
  await page.route('https://fixture.supabase.co/functions/v1/platform-api',async route=>{
   const method=route.request().method();
   const input=method==='POST'?route.request().postDataJSON():null;
+  if(input?.action)requestActions.push(input.action);
   const headers=new Headers(route.request().headers());headers.set('Origin',base);
   const response=await h.handler(new Request(route.request().url(),{method,headers,...(method==='POST'?{body:JSON.stringify(input)}:{})}));
   if(loseFirstSave&&!lost&&input?.action==='platform.tenant.features.save'){lost=true;return route.abort('failed');}
   if(loseFirstLineSave&&!lost&&input?.action==='platform.line.save'){lost=true;return route.abort('failed');}
   await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
  });
- await page.goto(base+(entry==='admin'?'/admin/':'/platform/'));return {...h,errors};
+ await page.goto(base+(entry==='admin'?'/admin/':'/platform/'));return {...h,errors,requestActions};
 }
 
 async function submitMerchantApplication(page,name='測試商家',slug='ui-manual-review') {
@@ -431,21 +432,20 @@ test('PLATFORM_MOBILE — applicant identity and approved grant panel stay safe 
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
-test('PLATFORM_ROOT_REAUTH — every Platform visit and BFCache restore automatically re-verifies LINE',async({page})=>{
+test('PLATFORM_ROOT_REAUTH — LIFF visits and BFCache restore reverify the server without unsupported forced logout',async({page})=>{
  const h=await setup(page,'root',{rootLoginReturn:false,inClient:true});try{
   await expect(page.locator('#platformWorkspace')).toBeVisible();
   await expect(page.locator('#platformLoginGate,#platformLoginButton')).toHaveCount(0);
-  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('1');
-  expect(await page.evaluate(()=>sessionStorage.getItem('platform-line-login-return-v1'))).toBeNull();
-  expect(await page.evaluate(()=>sessionStorage.getItem('platform-line-auto-attempt-v1'))).toBeNull();
+  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBeNull();
+  expect(h.requestActions.filter(a=>a==='platform.bootstrap').length).toBe(1);
   await page.reload();
   await expect(page.locator('#platformWorkspace')).toBeVisible();
-  await expect.poll(()=>page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('2');
+  await expect.poll(()=>h.requestActions.filter(a=>a==='platform.bootstrap').length).toBe(2);
   await page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})));
-  // The BFCache event intentionally navigates; wait for the reauthenticated UI
-  // before reading sessionStorage from the new browsing context.
   await expect(page.locator('#platformWorkspace')).toBeVisible();
-  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('3');
+  await expect.poll(()=>h.requestActions.filter(a=>a==='platform.bootstrap').length).toBe(3);
+  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBeNull();
+  expect(await page.evaluate(()=>sessionStorage.getItem('platform-line-login-return-v1'))).toBeNull();
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
@@ -471,10 +471,10 @@ test('PLATFORM_BAD_TOKEN_RECOVERY — wrong-channel LINE token never exposes wor
   await expect(page.locator('#platformStatus')).toContainText('LINE 身分驗證未通過');
   await expect(page.locator('#platformLoginGate,#platformLoginButton')).toHaveCount(0);
   await expect(page.locator('#platformWorkspace')).toBeHidden();
-  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('1');
+  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBeNull();
   await page.reload();
   await expect(page.locator('#platformWorkspace')).toBeHidden();
-  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('1');
+  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBeNull();
   expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
   expect(await page.evaluate(()=>sessionStorage.getItem('platform-line-login-return-v1'))).toBeNull();
   expect(h.errors).toEqual([]);
