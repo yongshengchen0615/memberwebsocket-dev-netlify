@@ -64,11 +64,16 @@ BEGIN
   SELECT pg_catalog.pg_get_functiondef(
     'maintenance.execute_sandbox_database_reset(uuid,text,text)'::pg_catalog.regprocedure
   ) INTO v_definition;
-  IF v_definition IS NULL OR pg_catalog.strpos(v_definition,v_before) = 0
-    OR pg_catalog.strpos(v_definition,'maintenance.prune_orphaned_postgrest_business_schemas()') > 0 THEN
+  IF v_definition IS NULL THEN
+    RAISE EXCEPTION 'POSTGREST_RESET_HOOK_DEFINITION_DRIFT';
+  ELSIF pg_catalog.strpos(v_definition,v_after) > 0 THEN
+    -- Existing fix is installed; repeated deploys must be safe.
+    NULL;
+  ELSIF pg_catalog.strpos(v_definition,v_before) > 0 THEN
+    EXECUTE pg_catalog.replace(v_definition,v_before,v_after);
+  ELSE
     RAISE EXCEPTION 'POSTGREST_RESET_HOOK_DEFINITION_DRIFT';
   END IF;
-  EXECUTE pg_catalog.replace(v_definition,v_before,v_after);
 END
 $patch$;
 
