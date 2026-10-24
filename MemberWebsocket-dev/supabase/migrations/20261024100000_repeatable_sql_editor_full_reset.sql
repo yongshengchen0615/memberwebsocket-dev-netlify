@@ -65,7 +65,7 @@ begin
     'message','QUEUED_NOT_YET_CLEARED',
     'checkStatusSql','select maintenance.latest_full_reset_status();');
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION maintenance.execute_sandbox_database_reset(p_request_id uuid, p_expected_fingerprint text, p_confirmation text)
@@ -218,6 +218,6 @@ begin
    'managedStorageRemovedBySql',false,
    'environmentSecretsPreserved',true);
 end;
-$function$
+$function$;
 
 COMMIT;
