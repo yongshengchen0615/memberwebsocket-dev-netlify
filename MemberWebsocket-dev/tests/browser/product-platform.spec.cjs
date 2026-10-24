@@ -222,6 +222,21 @@ test('ADMIN_INCLIENT_UNAUTH — signed-out LIFF browser retries initialization o
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
+test('ADMIN_INCLIENT_RECOVERY — automatic LIFF reinit restores login without manual buttons or duplicate applications',async({page})=>{
+ await page.addInitScript(()=>{
+  if(sessionStorage.getItem('admin-line-auto-attempt-v1'))sessionStorage.setItem('qaLoggedIn','1');
+ });
+ const h=await setup(page,'manager',{entry:'admin',inClient:true,loggedIn:false});try{
+  await expect(page.locator('#applicationForm')).toBeVisible();
+  await expect(page.locator('#applicationProgress')).toBeHidden();
+  expect(await page.evaluate(()=>window.initializedLiffId)).toBe('2010791619-admin');
+  expect(await page.evaluate(()=>sessionStorage.getItem('admin-line-auto-attempt-v1'))).toBeNull();
+  expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
+  expect(h.providerCalls.length).toBeGreaterThan(0);
+  expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(0);
+  expect(h.errors).toEqual([]);
+ }finally{await h.db.close();}
+});
 test('ADMIN_EXTERNAL_UNAUTH — external visitor launches LINE login, callback authenticates without auto-submitting review',async({page})=>{
  const h=await setup(page,'manager',{entry:'admin',inClient:false,loggedIn:false});try{
   await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[]]);
