@@ -119,14 +119,14 @@ test('AC-307: approved feature-specific LINE settings do not require unrelated n
   assert.equal(d.querySelector('#businessLine-calendar [name=bookingLiffId]'),null);
   assert.equal(d.querySelector('#businessLine-booking [name=calendarLiffId]'),null);
   assert.equal(d.querySelector('#notification-calendar-member'),null,'calendar has no active automatic push');
-  assert.equal(d.querySelectorAll('[id^=notification-booking-]').length,2,'booking has admin and member notification purposes');
+  assert.equal(d.querySelectorAll('form[id^="notification-booking-"]').length,2,'booking has admin and member notification purposes');
   assert.equal(d.querySelector('[data-business-line-feature="integrations"]'),null);
   assert.equal(d.querySelector('[data-business-line-feature="testing"]'),null);
   assert.equal(d.querySelector('[data-business-line-feature="usage"]'),null);
   assert.equal(d.querySelector('#businessLineIdentity-booking').hidden,false,'first-time shared Login identity remains configurable');
  } finally {dom?.window.close();await h.db.close();}
 });
-test('AC-308: utility-only merchants cannot open an empty LINE settings tab',()=>{
+test('AC-308: utility-only merchants cannot open an empty LINE settings tab',async()=>{
  const dom=new JSDOM('<main id="adminView"><nav class="surface-nav"><button id="lineSettingsTab"></button></nav><section id="lineSettingsPanel"></section></main>',{url:'https://allowed.test/admin/',runScripts:'outside-only'});
  try{
   const w=dom.window,d=w.document;
@@ -135,5 +135,6 @@ test('AC-308: utility-only merchants cannot open an empty LINE settings tab',()=
   assert.equal(d.querySelector('#lineSettingsTab').hidden,true);
   assert.equal(d.querySelector('#lineSettingsTab').disabled,true);
   assert.equal(d.querySelector('#lineSettingsPanel').hidden,true);
+  await new Promise(resolve=>setTimeout(resolve,0)); // flush MutationObserver before closing JSDOM
  }finally{dom.window.close();}
 });
