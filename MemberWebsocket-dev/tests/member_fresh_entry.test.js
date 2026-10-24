@@ -9,7 +9,7 @@ const root=path.resolve(__dirname,'..');
 const source=fs.readFileSync(path.join(root,'member-system.js'),'utf8');
 const surfaces=['member','points','event','calendar'];
 function harness(route,{reloadThrows=false}={}){
-  const listeners=new Map(),calls=[],document={body:{hidden:false},visibilityState:'visible'};
+  const listeners=new Map(),calls=[],document={body:{hidden:false},visibilityState:'visible',addEventListener(){}};
   const local=new Map(),session=new Map();
   const window={
     crypto:webcrypto,location:{pathname:route,search:'',href:'https://preview.example.test'+route,
