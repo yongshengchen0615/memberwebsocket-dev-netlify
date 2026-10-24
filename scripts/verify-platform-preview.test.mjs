@@ -82,6 +82,21 @@ test('persistent HTTP 500 fails with the exact resource in its error', async t =
   await assert.rejects(verifyPlatformPreview(f.options), /config\.json.*HTTP 500/);
 });
 
+test('removed LINE login gate cannot reappear in a local Platform release', async t => {
+  const f = await fixture(t);
+  const file = path.join(f.dist, 'platform/index.html');
+  await writeFile(file, `<html><small data-commit="${commit.slice(0, 7)}"></small><section id="platformLoginGate"></section></html>`);
+  await assert.rejects(verifyPlatformPreview(f.options), /retired LINE login gate/);
+  assert.equal(f.calls.length, 0, 'invalid local bundle must fail before deployment traffic');
+});
+
+test('removed LINE login handlers cannot reappear in the shipped app bundle', async t => {
+  const f = await fixture(t);
+  await writeFile(path.join(f.dist, 'platform/app.js'), 'el("platformLoginButton").addEventListener("click",login);');
+  await assert.rejects(verifyPlatformPreview(f.options), /retired LINE login gate handlers/);
+  assert.equal(f.calls.length, 0);
+});
+
 test('stale HTML with a different commit never passes', async t => {
   const f = await fixture(t, ({ url, response }) => url.endsWith('/member/') ? response.text().then(body => new Response(body.replace('aaaaaaa', 'bbbbbbb'))) : undefined);
   await assert.rejects(verifyPlatformPreview(f.options), /member\/.*commit/);
