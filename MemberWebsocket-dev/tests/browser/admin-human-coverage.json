@@ -26,12 +26,12 @@
     "admin/ticket-visibility.js": "bb1cf776a3bf1c69f75bbfa6a4b3e07cf9c9077444099533cb9c2883736dd5c0",
     "admin/operation-audit.js": "2ecd1161e533d56b17a6f89d1907bef384e96a932f81027d6e6178bdcce5a96e",
     "admin/workspace.html": "5f7c4f1c0b9d51ba954442357362fa9ecb7913b4f6f3dda357c77c0fd78475a0",
-    "platform/app.js": "2bee2d741c7e84ba6bdf06d48e3066c22bf1801040c509c31a4b86b79f9d29af",
+    "platform/app.js": "1e81848ef30f052ba1be203a739205a5afbc2e670512416bf6f9ecd80a6b5b91",
     "admin/business-workspace.js": "7434d9f55748c05036946538fa840ebc4d5383864a9657acabd1c993b781e2ac",
     "business-context.js": "81c622980d1518bf4700e5e5a959901ac6a917fb5bad4e6f793e4fb730ccd3c4",
     "admin/business-line-settings.js": "aac46cfc090f72d46c64647449bb926f1b7e29164de85a955c4c44c4271207b7",
     "admin/booking-risk.js": "891efdf3e588ebf1aa35eb61924f55e590a1e4546305c62d8826997d54bc6349",
-    "platform/index.html": "f7017a08f1176957c7c52d1e17ba4a492d1a8f1dde098a5a6015234e210de126"
+    "platform/index.html": "926e6c0bc65a56ad2e7abf758f4ece029ee1637ccca6e83ae5930ca3c73260cf"
   },
   "features": [
     {
