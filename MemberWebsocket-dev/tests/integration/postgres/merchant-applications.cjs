@@ -113,3 +113,50 @@ test('PostgreSQL 17 M018: dump/restore preserves two private merchants, qualific
   await assert.rejects(client.query('select public.platform_my_application($1)',[owner]),/PLATFORM_BUSINESS_SELECTION_REQUIRED/);
  }finally{await h.db.close();}
 });
+
+async function waitForClientLock(h,client){
+ const pid=(await client.query('select pg_backend_pid() pid')).rows[0].pid;
+ return async()=>{
+  for(let i=0;i<100;i++){
+   if((await h.db.query('select wait_event_type from pg_stat_activity where pid=$1',[pid])).rows[0]?.wait_event_type==='Lock')return;
+   await new Promise(r=>setTimeout(r,20));
+  }
+  throw Error('EXPECTED_AUTHORIZATION_OR_CATALOG_LOCK_WAIT');
+ };
+}
+async function blockRoleSettings(h){
+ await h.db.exec("alter role authenticator set pgrst.db_schemas='public,graphql_public'");
+ const blocker=await h.db.connect();await blocker.query('begin');
+ assert.equal((await blocker.query("select setrole from pg_db_role_setting where setdatabase=0 and setrole=(select oid from pg_roles where rolname='authenticator') for update")).rowCount,1);
+ return blocker;
+}
+
+test('PostgreSQL 17 M020: distinct parallel approvals preserve both business schemas in shared PostgREST configuration',async()=>{
+ const h=await setup();try{
+  await h.qualify();const a=await h.submit(owner,'merchant-a','Merchant A'),b=await h.submit();
+  const firstBlocked=await waitForClientLock(h,h.first),blocker=await blockRoleSettings(h);
+  const one=h.first.query(review,[root,a.id,a.version,'approved','',features(['membership']),crypto.randomUUID()]);one.catch(()=>{});
+  const two=h.second.query(review,[root,b.id,b.version,'approved','',features(['points']),crypto.randomUUID()]);two.catch(()=>{});
+  await firstBlocked();await h.blocked();await blocker.query('commit');
+  const outcomes=await Promise.allSettled([one,two]);assert.ok(outcomes.every(r=>r.status==='fulfilled'),outcomes.map(r=>r.reason?.message).join('; '));
+  const applications=outcomes.map(r=>r.value.rows[0].result);
+  const settings=(await h.db.query("select unnest(rolconfig) setting from pg_roles where rolname='authenticator'")).rows.map(r=>r.setting).find(v=>v.startsWith('pgrst.db_schemas='));
+  for(const a of applications){assert.equal(a.tenant.status,'active');assert.ok(settings.split('=')[1].split(',').includes(a.tenant.runtime_schema));}
+  assert.equal(await h.count('tenants'),2);
+  assert.equal((await h.db.query("select count(*)::int n from platform_private.audit_events where action='MERCHANT_APPLICATION_APPROVED'")).rows[0].n,2);
+ }finally{await h.db.close();}
+});
+
+test('PostgreSQL 17 M021: an already-authorized in-flight review completes before revocation commits, then old requests are denied',async()=>{
+ const h=await setup();try{
+  await h.qualify();const a=await h.submit(),request=crypto.randomUUID(),blocker=await blockRoleSettings(h);
+  const args=[root,a.id,a.version,'approved','',features(['points']),request];
+  const approving=h.second.query(review,args);approving.catch(()=>{});await h.blocked();
+  const revoker=await h.db.connect(),revocationBlocked=await waitForClientLock(h,revoker);
+  const revoking=revoker.query('update platform_private.super_admins set enabled=false');revoking.catch(()=>{});
+  await revocationBlocked();await blocker.query('commit');
+  assert.equal((await approving).rows[0].result.status,'approved');await revoking;
+  await assert.rejects(h.review(a,'approved',features(['points']),'',request),/PLATFORM_ADMIN_REQUIRED/);
+  assert.equal((await h.db.query('select enabled from platform_private.super_admins where line_user_id=$1',[root])).rows[0].enabled,false);
+ }finally{await h.db.close();}
+});

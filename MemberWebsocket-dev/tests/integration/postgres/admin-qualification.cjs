@@ -65,3 +65,28 @@ test('PostgreSQL 17 Q012: the same approval request racing on two physical sessi
   assert.equal((await h.db.query("select count(*)::int n from platform_private.audit_events where action='ADMIN_QUALIFICATION_APPROVED'")).rows[0].n,1);
  }finally{await h.db.close();}
 });
+
+test('PostgreSQL 17 Q013: administrator revoked during qualification-row wait cannot approve the pending qualification',async()=>{
+ const h=await setup();try{
+  const q=(await h.first.query(submit,[manager,'Synthetic owner',crypto.randomUUID()])).rows[0].result;
+  await h.first.query('begin');await h.first.query('select id from platform_private.admin_qualifications where id=$1 for update',[q.id]);
+  const pending=h.second.query(review,[root,q.id,q.version,'approved','',crypto.randomUUID()]);pending.catch(()=>{});
+  await h.blocked();await h.db.exec('update platform_private.super_admins set enabled=false');await h.first.query('commit');
+  await assert.rejects(pending,/PLATFORM_ADMIN_REQUIRED/);
+  assert.deepEqual((await h.db.query('select status,version from platform_private.admin_qualifications')).rows[0],{status:'pending',version:1});
+  assert.equal((await h.db.query("select count(*)::int n from platform_private.requests where operation='qualification_review'")).rows[0].n,0);
+ }finally{await h.db.close();}
+});
+
+test('PostgreSQL 17 Q014: administrator revoked during a cached-review request lock cannot replay prior approval',async()=>{
+ const h=await setup();try{
+  const q=(await h.first.query(submit,[manager,'Synthetic owner',crypto.randomUUID()])).rows[0].result;
+  const request=crypto.randomUUID(),args=[root,q.id,q.version,'approved','',request];await h.first.query(review,args);
+  await h.first.query('begin');await h.first.query('select pg_advisory_xact_lock(hashtextextended($1,0))',[request]);
+  const pending=h.second.query(review,args);pending.catch(()=>{});
+  await h.blocked();await h.db.exec('update platform_private.super_admins set enabled=false');await h.first.query('commit');
+  await assert.rejects(pending,/PLATFORM_ADMIN_REQUIRED/);
+  assert.deepEqual((await h.db.query('select status,version from platform_private.admin_qualifications')).rows[0],{status:'approved',version:2});
+  assert.equal((await h.db.query("select count(*)::int n from platform_private.requests where operation='qualification_review'")).rows[0].n,1);
+ }finally{await h.db.close();}
+});

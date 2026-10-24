@@ -181,3 +181,16 @@ test('AC-MMA-M012/013: upgrade preserves legacy applications/tenants and transac
   assert.equal((await h.db.query("select count(*)::int n from pg_constraint where conrelid='platform_private.applications'::regclass and conname='applications_applicant_line_user_id_key'")).rows[0].n,0);
  }finally{await h.db.close();}
 });
+
+test('AC-MMA-M019: upgrading pending and rejected single-merchant owners preserves read-only legacy status without qualifying writes',async()=>{
+ const h=await setup({before:async h=>{
+  for(const [actor,slug]of [[owner,'legacy-pending'],[other,'legacy-rejected']])await h.db.query('select public.platform_submit_application($1,$2,$3)',[actor,slug,slug]);
+  await h.db.query("update platform_private.applications set status='rejected',reviewed_by=$1,reviewed_at=now() where applicant_line_user_id=$2",[root,other]);
+ }});try{
+  assert.equal((await h.call('platform_my_application',[owner])).status,'pending');
+  assert.equal((await h.call('platform_my_application',[other])).status,'rejected');
+  await assert.rejects(h.list(owner),/PLATFORM_QUALIFICATION_REQUIRED/);
+  await assert.rejects(h.submit(other,'new-merchant','New Merchant'),/PLATFORM_QUALIFICATION_REQUIRED/);
+  assert.equal(await h.count('applications'),2);assert.equal(await h.count('tenants'),0);
+ }finally{await h.db.close();}
+});
