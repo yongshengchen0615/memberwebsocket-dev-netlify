@@ -7,6 +7,22 @@ alter table platform_private.applications
  add column qualification_id uuid,
  add column version integer not null default 1 check(version>0),
  add column review_reason text check(review_reason is null or char_length(review_reason) between 1 and 500);
+-- The foundation migration can commit before this transaction starts. Its
+-- backfill is therefore only a snapshot: legacy submissions/reviews may have
+-- committed in the gap. ALTER TABLE above now holds applications exclusively,
+-- so catch up before enforcing the owner FK. Never overwrite an explicit
+-- qualification or a qualification that has since been reviewed/resubmitted.
+insert into platform_private.admin_qualifications as q(applicant_line_user_id,display_name,
+ status,origin,reviewed_by,reviewed_at,requested_at,updated_at)
+ select applicant_line_user_id,business_name,status,'legacy_application',
+ reviewed_by,reviewed_at,created_at,updated_at from platform_private.applications
+ on conflict(applicant_line_user_id) do update set
+ display_name=excluded.display_name,status=excluded.status,reviewed_by=excluded.reviewed_by,
+ reviewed_at=excluded.reviewed_at,requested_at=excluded.requested_at,updated_at=excluded.updated_at,
+ version=q.version+1
+ where q.origin='legacy_application' and q.version=1
+ and (q.display_name,q.status,q.reviewed_by,q.reviewed_at,q.requested_at,q.updated_at)
+ is distinct from (excluded.display_name,excluded.status,excluded.reviewed_by,excluded.reviewed_at,excluded.requested_at,excluded.updated_at);
 update platform_private.applications a set qualification_id=q.id
  from platform_private.admin_qualifications q where q.applicant_line_user_id=a.applicant_line_user_id;
 alter table platform_private.applications

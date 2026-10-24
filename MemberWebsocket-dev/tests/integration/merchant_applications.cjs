@@ -194,3 +194,40 @@ test('AC-MMA-M019: upgrading pending and rejected single-merchant owners preserv
   assert.equal(await h.count('applications'),2);assert.equal(await h.count('tenants'),0);
  }finally{await h.db.close();}
 });
+
+test('AC-MMA-M022: upgrade catches legacy applications committed after qualification backfill without losing application state',async()=>{
+ const h=await setup({apply:false});try{
+  for(const [actor,slug,status]of [[owner,'late-pending','pending'],[other,'late-rejected','rejected']]){
+   await h.call('platform_submit_application',[actor,slug,slug]);
+   if(status==='rejected')await h.db.query("update platform_private.applications set status=$1,reviewed_by=$2,reviewed_at=now() where applicant_line_user_id=$3",[status,root,actor]);
+  }
+  const before=(await h.db.query('select * from platform_private.applications order by slug')).rows;
+  assert.equal(await h.count('admin_qualifications'),0);await h.db.exec(merchant);
+  const after=(await h.db.query('select * from platform_private.applications order by slug')).rows;
+  for(let i=0;i<after.length;i++){
+   const {qualification_id,version,review_reason,...old}=after[i];assert.deepEqual(old,before[i]);assert.ok(qualification_id);
+   const q=(await h.db.query('select * from platform_private.admin_qualifications where id=$1',[qualification_id])).rows[0];
+   assert.equal(q.status,before[i].status);assert.equal(q.origin,'legacy_application');assert.equal(q.reviewed_by,before[i].reviewed_by);
+   assert.equal(q.requested_at.getTime(),before[i].created_at.getTime());
+  }
+ }finally{await h.db.close();}
+});
+
+test('AC-MMA-M023: upgrade refreshes untouched legacy review drift but preserves explicit decisions and suspended qualifications',async()=>{
+ const extra='U'+'4'.repeat(32);
+ const h=await setup({apply:false,before:async h=>{
+  for(const [actor,slug]of [[owner,'legacy-review'],[other,'legacy-explicit'],[extra,'legacy-suspended']])
+   await h.db.query('select public.platform_submit_application($1,$2,$3)',[actor,slug,slug]);
+ }});try{
+  // The old approved merchant is authoritative only for an untouched backfill.
+  const a=await h.call('platform_my_application',[owner]);await h.call('platform_approve_application',[root,a.id,features(['points']),crypto.randomUUID()]);
+  let explicit=await h.call('platform_submit_admin_qualification',[other,'Explicit owner',crypto.randomUUID()]);
+  explicit=await h.call('platform_review_admin_qualification',[root,explicit.id,explicit.version,'rejected','Explicit denial',crypto.randomUUID()]);
+  let suspended=await h.qualify(extra);suspended=await h.call('platform_review_admin_qualification',[root,suspended.id,suspended.version,'suspended','Stop',crypto.randomUUID()]);
+  await h.db.exec(merchant);
+  assert.equal((await h.call('platform_my_admin_qualification',[owner])).status,'approved');
+  assert.deepEqual(await h.call('platform_my_admin_qualification',[other]),explicit);
+  assert.deepEqual(await h.call('platform_my_admin_qualification',[extra]),suspended);
+  await assert.rejects(h.list(other),/PLATFORM_QUALIFICATION_REQUIRED/);await assert.rejects(h.list(extra),/PLATFORM_QUALIFICATION_REQUIRED/);
+ }finally{await h.db.close();}
+});

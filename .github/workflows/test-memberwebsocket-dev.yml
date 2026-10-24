@@ -76,6 +76,7 @@ jobs:
             MemberWebsocket-dev/tests/integration/admin_qualification.cjs \
             MemberWebsocket-dev/tests/integration/admin_qualification_api.cjs \
             MemberWebsocket-dev/tests/integration/merchant_applications.cjs \
+            MemberWebsocket-dev/tests/integration/merchant_application_api.cjs \
             MemberWebsocket-dev/tests/integration/platform_access_registration.cjs \
             MemberWebsocket-dev/tests/integration/platform_login_ui.cjs \
             MemberWebsocket-dev/tests/integration/platform_remove_all_data.cjs \

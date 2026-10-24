@@ -1,10 +1,10 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const database=require('./database.cjs');
-const {setup:merchantSetup,root,owner,other,features}=require('../fixtures/merchant-applications.cjs');
+const {setup:merchantSetup,merchant,root,owner,other,features}=require('../fixtures/merchant-applications.cjs');
 const submit='select public.platform_submit_merchant_application($1,$2,$3,$4,null,null) result';
 const review='select public.platform_review_merchant_application($1,$2,$3,$4,$5,$6,$7) result';
-async function setup(){
- const h=await merchantSetup({database:await database()});
+async function setup(options={}){
+ const h=await merchantSetup({...options,database:await database()});
  try{
   h.first=await h.db.connect();h.second=await h.db.connect();
   await h.first.query('set role service_role');await h.second.query('set role service_role');
@@ -20,6 +20,26 @@ async function setup(){
   return h;
  }catch(e){await h.db.close();throw e;}
 }
+
+test('PostgreSQL 17 M024: upgrade waits for legacy transaction and catches its late submission and review',async()=>{
+ const h=await setup({apply:false,before:async h=>{
+  await h.db.query('select public.platform_submit_application($1,$2,$3)',[owner,'Legacy A','legacy-a']);
+ }});try{
+  const a=await h.call('platform_my_application',[owner]);
+  await h.first.query('begin');
+  await h.first.query('select public.platform_submit_application($1,$2,$3)',[other,'Late B','late-b']);
+  await h.first.query('select public.platform_approve_application($1,$2,$3,$4)',[root,a.id,features(['points']),crypto.randomUUID()]);
+  await h.second.query('reset role');
+  const migrating=h.second.query(merchant);migrating.catch(()=>{});
+  await h.blocked();await h.first.query('commit');await migrating;
+  const rows=(await h.db.query(`select a.slug,a.status,q.status qualification_status,a.qualification_id,q.origin
+   from platform_private.applications a join platform_private.admin_qualifications q on q.id=a.qualification_id order by a.slug`)).rows;
+  assert.equal(rows.length,2);assert.deepEqual(rows.map(r=>[r.slug,r.status,r.qualification_status]),[['late-b','pending','pending'],['legacy-a','approved','approved']]);
+  assert.ok(rows.every(r=>r.qualification_id&&r.origin==='legacy_application'));
+  assert.equal((await h.list(owner)).length,1);await assert.rejects(h.list(other),/PLATFORM_QUALIFICATION_REQUIRED/);
+  assert.equal(await h.count('tenants'),1);
+ }finally{await h.db.close();}
+});
 
 test('PostgreSQL 17 M014: same request racing on distinct TCP sessions commits one pending application and audit',async()=>{
  const h=await setup();try{
