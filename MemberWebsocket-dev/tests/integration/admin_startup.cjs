@@ -7,6 +7,49 @@ const { JSDOM, VirtualConsole } = require('jsdom');
 
 const root = path.join(__dirname, '../..');
 
+test('AC-CONFIG-001: admin reads root public config independently of a business lookup error', async () => {
+  const dom = new JSDOM('<!doctype html><title>Admin</title>', {
+    url: 'https://example.test/admin/?business=deleted-merchant', runScripts: 'outside-only',
+  });
+  const w = dom.window;
+  const requests = [], lookups = [];
+  const example = { productizedAdmin: true, adminLiffId: '2010791619-vhevCvvD' };
+  w.BusinessContext = {
+    slug: 'deleted-merchant',
+    configure: async (config) => {
+      lookups.push(config);
+      throw Object.assign(new Error('找不到商家入口。'), { code: 'BUSINESS_NOT_FOUND' });
+    },
+  };
+  w.fetch = async (url, init) => {
+    requests.push({ url, cache: init.cache });
+    return new Response(JSON.stringify(example), { status: 200 });
+  };
+  try {
+    w.eval(fs.readFileSync(path.join(root, 'member-system.js'), 'utf8'));
+    await assert.rejects(w.MemberSystem.loadConfig(), (error) =>
+      error.code === 'BUSINESS_NOT_FOUND' && error.message === '找不到商家入口。'
+    );
+    assert.deepEqual(requests, [{ url: '/config.json', cache: 'no-store' }]);
+    assert.equal(lookups.length, 1, 'do not retry non-network business discovery');
+    assert.equal(lookups[0].productizedAdmin, true);
+  } finally { dom.window.close(); }
+});
+
+test('AC-CONFIG-002: unrelated public config transport errors stay fail-closed', async () => {
+  const dom = new JSDOM('<!doctype html>', { url: 'https://example.test/admin/', runScripts: 'outside-only' });
+  const w = dom.window;
+  let calls = 0;
+  w.fetch = async () => { calls++; throw new TypeError('fetch failed'); };
+  try {
+    w.eval(fs.readFileSync(path.join(root, 'member-system.js'), 'utf8'));
+    await assert.rejects(w.MemberSystem.loadConfig(), (error) =>
+      error.code === 'CONFIG_ERROR' && /無法讀取公開設定/.test(error.message)
+    );
+    assert.equal(calls, 2);
+  } finally { dom.window.close(); }
+});
+
 // Run in a separate process: an observer loop starves even in-process test timers.
 if (!process.argv.includes('--fixture')) {
   for (const mode of ['early', 'late', 'forbidden', 'stale-business']) {
