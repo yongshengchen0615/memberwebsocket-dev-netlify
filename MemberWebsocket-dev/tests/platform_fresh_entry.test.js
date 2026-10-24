@@ -31,7 +31,7 @@ function entry({merchantEntry, inClient=false, returned=false, rejected=false, l
     crypto:require('node:crypto').webcrypto
   };
   const context={
-    window,URL,AbortSignal,Promise,Date,
+    window,URL,AbortSignal,Promise,Date,setTimeout,clearTimeout,
     fetch:async()=>({ok:true,json:async()=>({adminLiffId:'2010791619-testAdmin',platformLiffId:'2012065297-testPlatform'})}),
     merchantEntry, rejectedLoginReturn:rejected, refreshTimer:null,
     state:{config:null,idToken:'',features:{}},
