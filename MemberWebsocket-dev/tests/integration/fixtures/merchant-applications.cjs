@@ -15,7 +15,7 @@ async function setup({database,before,apply=true}={}){
   for(const n of ['20261023224500_platform_access_registration_and_review.sql','20261023235000_platform_super_admins_supabase_managed.sql'])await db.exec(fs.readFileSync(path.join(dir,n),'utf8'));
   await db.exec(qualification);if(apply)await db.exec(merchant);
   const call=async(name,args=[],role='service_role')=>{
-   if(!/^platform_[a-z_]+$/.test(name)||!['service_role','anon','authenticated'].includes(role))throw Error('INVALID_TEST_CALL');
+   if(!/^platform_[a-z0-9_]+$/.test(name)||!['service_role','anon','authenticated'].includes(role))throw Error('INVALID_TEST_CALL');
    const sql=`select public.${name}(${args.map((_,i)=>'$'+(i+1)).join(',')}) result`;
    // Physical harness has a dedicated administrative connection. Every call
    // resets its role even when PostgreSQL rejects the statement.

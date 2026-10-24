@@ -9,7 +9,9 @@ async function page(h,merchant=true){
  w.liff={init:async({liffId})=>{calls.push(liffId);},isLoggedIn:()=>true,isInClient:()=>true,getIDToken:()=>merchant?'manager':'root'};
  w.sessionStorage.setItem('platform-line-login-return-v1',String(Date.now()));
  w.fetch=async(url,options)=>{
-  if(String(url).includes('config.json'))return new Response(fs.readFileSync(path.join(root,'config.json'),'utf8'));
+  // This suite pins the retained legacy portal contract. The coordinated v2
+  // journey is exercised by merchant_workspace_ui and merchant-workspace-v2.
+  if(String(url).includes('config.json'))return Response.json({...JSON.parse(fs.readFileSync(path.join(root,'config.json'),'utf8')),merchantApprovalVersion:1});
   return h.handler(new Request(String(url),{...options,headers:{...options.headers,Origin:'https://allowed.test'}}));
  };
  w.addEventListener('error',e=>errors.push(e.message));

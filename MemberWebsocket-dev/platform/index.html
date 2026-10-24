@@ -7,11 +7,11 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' https://static.line-scdn.net; style-src 'self'; connect-src 'self' https://*.supabase.co https://api.line.me https://access.line.me https://liff.line.me https://*.line-scdn.net; img-src 'self' data:; frame-src https://access.line.me https://liff-subwindow.line.me; form-action 'self' https://access.line.me https://liff-subwindow.line.me">
   <title>管理員申請與商家管理</title>
-  <link rel="stylesheet" href="./platform.css?v=20261024-remove-login-gate-2">
+  <link rel="stylesheet" href="./platform.css?v=merchant-v2-20261024-1">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
   <script src="../business-context.js"></script>
 <script src="../member-system.js" defer></script>
-  <script src="./app.js?v=20261024-remove-login-gate-2" defer></script>
+  <script src="./app.js?v=merchant-v2-20261024-1" defer></script>
   <link rel="stylesheet" href="../portal-navigation.css?v=unified-20261018-1">
   <script src="../portal-navigation.js?v=unified-20261018-1" defer></script>
 </head>
@@ -25,8 +25,19 @@
     <section id="platformWorkspace" hidden>
       <div class="workspace-heading"><div><h2>已審核商家</h2><p>總管理員管理使用狀態、期限與功能授權；各商家的 LINE Channel、LIFF 和訊息憑證由商家管理員自行設定。</p></div><button id="newTenant" type="button" hidden aria-hidden="true" tabindex="-1">舊版新增商家</button></div>
       <p class="notice">核准後即開通已授權功能。停用、到期與功能撤銷會由伺服器阻擋；復權保留原有設定。</p>
-      <div id="tenantList" class="tenant-list"></div><h2>待審核管理員</h2><p>核准時逐項勾選功能；未核准的申請不得取得商家權限。</p><div id="applicationList" class="tenant-list"></div>
+      <div id="tenantList" class="tenant-list"></div><section id="qualificationReviews" hidden aria-labelledby="qualificationReviewsTitle"><h2 id="qualificationReviewsTitle">管理員資格審核</h2><p>資格與商家分開審核；停用資格會限制該管理員的所有商家存取。</p><div id="qualificationList" class="tenant-list"></div></section><h2 id="applicationListTitle">待審核管理員</h2><p>核准時逐項勾選功能；未核准的申請不得取得商家權限。</p><div id="applicationList" class="tenant-list"></div>
     </section>
+
+    <dialog id="v2ReviewDialog" aria-labelledby="v2ReviewTitle">
+      <form id="v2ReviewForm">
+        <h2 id="v2ReviewTitle">審核申請</h2><p id="v2ReviewDescription"></p>
+        <fieldset id="v2ReviewGrants" hidden><legend>核准的商家功能</legend><div id="v2ReviewFeatures" class="features"></div></fieldset>
+        <label for="reviewReason">審核理由<textarea id="reviewReason" name="reason" maxlength="1000" rows="3" aria-describedby="reviewReasonHint"></textarea></label>
+        <p id="reviewReasonHint" class="hint">拒絕或停用時必填，最多 500 個字。理由會提供申請人查看。</p>
+        <p id="v2ReviewMessage" role="status" aria-live="polite"></p>
+        <div class="form-actions"><button id="closeV2Review" type="button" class="secondary">取消</button><button id="confirmV2Review" type="submit">確認審核</button></div>
+      </form>
+    </dialog>
     <dialog id="expiryDialog" aria-labelledby="expiryTitle">
       <form id="expiryForm">
         <h2 id="expiryTitle">設定使用期限</h2><p id="expiryDescription"></p>

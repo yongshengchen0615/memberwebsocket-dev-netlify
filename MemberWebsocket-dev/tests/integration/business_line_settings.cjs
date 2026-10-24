@@ -59,7 +59,7 @@ test('AC-303/305: real handler + SQL reject revoked, cross-business, cross-modul
  const h=await fixture();try{
   const t=await h.approve(owner,'scoped-shop',features),other=await h.approve('U'+'3'.repeat(32),'other-shop',features);
   const save=(body={})=>h.call({action:'platform.line.save',business:t.slug,feature:'membership',expectedVersion:1,requestId:crypto.randomUUID(),line,credentials,...body},'manager');
-  assert.equal((await save({business:other.slug})).status,403);
+  const foreign=await save({business:other.slug});assert.equal(foreign.status,404);assert.equal(foreign.body.error.code,'PLATFORM_APPLICATION_NOT_FOUND');
   assert.equal((await save({feature:'events'})).body.error.code,'FEATURE_DISABLED');
   assert.equal((await save({line:{...line,pointsLiffId:'2010787602-forged'}})).body.error.code,'LINE_FEATURE_SCOPE');
   assert.equal((await save()).status,200);
@@ -79,7 +79,7 @@ test('AC-306: scoped settings use the database Channel, never a caller-selected 
   assert.equal(saved.status,200);assert.equal(saved.body.data.tenant.moduleLine.membership.credentialsConfigured,true);
   const {createPlatformHandler}=await import('../../supabase/functions/_shared/platform-handler.mjs');
   let selected;
-  const handler=createPlatformHandler({db:{rpc:h.rpc},allowedOrigins:new Set(),verifyApplicantIdentity:async(_token,channel)=>{selected=channel;return{lineUserId:owner};},verifyIdentity:()=>assert.fail('root verifier must not be used')});
+  const handler=createPlatformHandler({db:{rpc:h.rpc},allowedOrigins:new Set(),verifyApplicantIdentity:async(_token,channel)=>{selected=channel;return{lineUserId:owner,issuedAtMs:Date.now()};},verifyIdentity:()=>assert.fail('root verifier must not be used')});
   const response=await handler(new Request('https://backend.test',{method:'POST',body:JSON.stringify({action:'platform.application.bootstrap',idToken:'synthetic',business:t.slug,adminChannelId:'attacker-selected'})}));
   assert.equal(response.status,200);assert.equal(selected,'2099999999');
  }finally{await h.db.close();}

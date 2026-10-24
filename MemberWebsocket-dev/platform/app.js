@@ -2,11 +2,15 @@
   'use strict';
   const el = id => document.getElementById(id);
   const merchantEntry = document.documentElement.dataset.workspace === 'merchant';
+  const selectedBusiness=window.BusinessContext?.slug || new URLSearchParams(location.search).get('business') || '';
+  const featureKeys=['membership','points','events','calendar','integrations','booking','testing','usage'];
+  const isV2=()=>state.config?.merchantApprovalVersion===2;
+  const isAccount=()=>merchantEntry&&isV2()&&!selectedBusiness;
   let refreshTimer=null,refreshBusy=false;
   const form = el('tenantForm'), dialog = el('tenantDialog');
   const fields = form.elements;
   const lineKeys = ['adminChannelId','memberChannelId','messagingChannelId','adminLiffId','memberLiffId','pointsLiffId','eventLiffId','calendarLiffId','bookingLiffId'];
-  const state = {config:null,idToken:'',features:{},tenants:[],applications:[],current:null,pending:null,busy:false,approval:null,merchant:null,merchantPending:null};
+  const state = {config:null,idToken:'',features:{},tenants:[],applications:[],current:null,pending:null,busy:false,approval:null,merchant:null,merchantPending:null,qualification:null,qualifications:[],ownerApplications:[]};
   const LOGIN_RETURN_KEY=merchantEntry?'admin-line-login-return-v1':'platform-line-login-return-v1';
   const LOGIN_RETURN_TTL_MS=180_000;
   const AUTO_LOGIN_ATTEMPT_KEY=merchantEntry?'admin-line-auto-attempt-v1':'platform-line-auto-attempt-v1';
@@ -39,11 +43,12 @@
     state.pending=null;
     state.approval=null;
     state.merchantPending=null;
+    if(isV2()){clearAccount();clearPrivateMerchant();state.qualification=null;state.qualifications=[];state.tenants=[];state.applications=[];el('tenantList')?.replaceChildren();el('applicationList')?.replaceChildren();el('qualificationList')?.replaceChildren();}
     for(const key of ['channelAccessToken','channelSecret']) {
       const field=el('merchantLineForm')?.elements.namedItem(key);if(field)field.value='';
     }
     if(el('onboardingJourney'))el('onboardingJourney').hidden=true;
-    for(const id of ['tenantDialog','approvalDialog','grantDialog','expiryDialog']) {
+    for(const id of ['tenantDialog','approvalDialog','grantDialog','expiryDialog','v2ReviewDialog']) {
       const dialog=el(id);
       if(dialog?.open)dialog.close();
     }
@@ -117,6 +122,10 @@
       if (!response.ok || !body.ok) {
         if (response.status>=500 && ['PLATFORM_DATABASE_UNAVAILABLE','PLATFORM_UNAVAILABLE'].includes(body.error?.code)) throw uncertainError();
         if(response.status===403 && body.error?.code==='PLATFORM_ADMIN_REQUIRED'&&!merchantEntry)showAuthorizationDenied();
+        if(isV2()&&merchantEntry&&[403,404].includes(response.status)){
+          clearPrivateMerchant();clearAccount();
+          if(isAccount()){el('qualificationWorkspace').hidden=false;el('qualificationStatus').textContent=body.error?.message||'目前無法確認管理員資格，請重新檢查。';}
+        }
         if(response.status===401 && ['AUTH_INVALID','AUTH_REQUIRED','TENANT_REAUTH_REQUIRED'].includes(body.error?.code))
           showLoginGate(merchantEntry?(body.error?.message || '一般管理員 LINE 驗證已失效，請重新登入。'):'總管理員 LINE 驗證已失效，請確認專用 LINE Login Channel。');
         throw Object.assign(new Error(body.error?.message || '操作未完成。'),{code:body.error?.code,status:response.status});
@@ -222,10 +231,211 @@
   });
   el('closeExpiry').addEventListener('click',()=>{if(!expiryBusy&&!expiryPending)expiryDialog.close();});
   expiryDialog.addEventListener('cancel',event=>{if(expiryBusy||expiryPending)event.preventDefault();});
+  // The version flag coordinates presentation only. Every request is authorized by the server.
+  let qualificationPending=null,qualificationBusy=false,merchantApplicationPending=null,merchantApplicationTarget=null,merchantApplicationBusy=false;
+  let reviewPending=null,reviewSelection=null,reviewBusy=false;
+  function clearPrivateMerchant(){
+    state.merchant=null;state.merchantPending=null;merchantDirty=false;latestMine=null;
+    const settings=el('merchantLineForm');
+    if(settings)for(const input of settings.querySelectorAll('input'))input.value='';
+    for(const id of ['merchantInfo','merchantReadiness','merchantFeatures','merchantChecklist','merchantFeatureNav','merchantMessage','merchantSyncStatus'])el(id)?.replaceChildren();
+    el('merchantLaunchStatus')?.querySelectorAll('[data-business-launch]').forEach(node=>node.remove());
+    if(el('merchantWorkspace'))el('merchantWorkspace').hidden=true;
+    if(el('applicationWorkspace'))el('applicationWorkspace').hidden=true;
+    if(el('onboardingJourney'))el('onboardingJourney').hidden=true;
+  }
+  function clearAccount(){
+    state.ownerApplications=[];merchantApplicationPending=null;merchantApplicationTarget=null;qualificationPending=null;
+    if(el('myMerchantsWorkspace'))el('myMerchantsWorkspace').hidden=true;
+    if(el('qualificationWorkspace'))el('qualificationWorkspace').hidden=true;
+    el('myMerchantList')?.replaceChildren();el('merchantApplicationForm')?.reset();
+    for(const id of ['merchantApplicationMessage','qualificationReason','qualificationMessage'])if(el(id))el(id).textContent='';
+  }
+  const qualificationLabels={pending:'管理員資格等待總管理員審核',approved:'管理員資格已通過',rejected:'管理員資格未通過，可補充資料後重新申請',suspended:'管理員資格已停用，請聯絡總管理員'};
+  function renderQualification(qualification){
+    state.qualification=qualification;
+    el('qualificationWorkspace').hidden=false;
+    el('qualificationStatus').textContent=qualificationLabels[qualification?.status]||'尚未申請管理員資格';
+    el('qualificationReason').textContent=qualification?.reviewReason?'審核理由：'+qualification.reviewReason:'';
+    const button=el('submitQualification');button.hidden=Boolean(qualification&&!['rejected'].includes(qualification.status));
+    button.disabled=qualificationBusy;button.textContent=qualificationPending?'重試相同資格申請':qualification?.status==='rejected'?'重新申請管理員資格':'申請管理員資格';
+    if(qualification?.status!=='approved'){
+      state.ownerApplications=[];merchantApplicationPending=null;merchantApplicationTarget=null;
+      el('myMerchantsWorkspace').hidden=true;el('myMerchantList').replaceChildren();el('merchantApplicationForm').reset();
+      if(qualification?.status==='pending')qualificationPending=null;
+    }
+  }
+  async function refreshAccount(){
+    if(refreshBusy||qualificationBusy||merchantApplicationBusy)return;
+    refreshBusy=true;
+    try{
+      const {qualification}=await request('platform.qualification.bootstrap');
+      renderQualification(qualification);
+      if(qualification?.status==='approved'){
+        const data=await request('platform.merchant.list');
+        state.ownerApplications=data.applications||[];renderMyMerchants();
+      }
+      return true;
+    }catch(error){el('platformStatus').textContent=error.message;return false;}
+    finally{refreshBusy=false;}
+  }
+  function renderMyMerchants(){
+    el('myMerchantsWorkspace').hidden=false;
+    const list=el('myMerchantList');list.replaceChildren();
+    if(!state.ownerApplications.length){const empty=document.createElement('p');empty.className='empty';empty.textContent='尚未申請商家，請填寫下方資料。';list.append(empty);}
+    for(const application of state.ownerApplications){
+      const card=document.createElement('article');card.className='tenant-card';card.dataset.applicationId=application.id;
+      const title=document.createElement('h3');title.textContent=application.businessName;
+      const info=document.createElement('p');info.textContent=application.slug;
+      const badge=document.createElement('span');badge.className='badge';
+      const tenant=application.tenant;
+      const ready=application.status==='approved'&&tenant?.status==='active'&&!tenant.expired&&tenant.onboarding?.adminReady===true;
+      badge.textContent=application.status==='pending'?'等待商家審核':application.status==='rejected'?'商家申請未通過':tenant?.status==='suspended'?'商家已停用':tenant?.expired?'商家使用期限已到':ready?'已核准・可管理':'已核准・等待開通';
+      card.append(badge,title,info);
+      if(application.reviewReason){const reason=document.createElement('p');reason.textContent='審核理由：'+application.reviewReason;card.append(reason);}
+      const actions=document.createElement('footer');
+      if(ready){
+        const manage=document.createElement('a');manage.href='/admin/?business='+encodeURIComponent(application.slug);manage.textContent='管理商家';manage.dataset.manageMerchant='true';
+        const line=document.createElement('a');line.href='/admin/workspace.html?business='+encodeURIComponent(application.slug);line.textContent='LINE 設定';line.dataset.merchantLine='true';actions.append(manage,line);
+      }else{
+        const unavailable=document.createElement('p');unavailable.textContent=application.status==='pending'?'審核通過並開通後，即可管理此商家。':application.status==='rejected'?'請依審核理由修正此申請。':'請聯絡總管理員確認開通、停用或使用期限。';actions.append(unavailable);
+      }
+      if(application.status==='rejected'){
+        const retry=document.createElement('button');retry.type='button';retry.className='secondary';retry.dataset.resubmitMerchant='true';retry.textContent='修正並重新申請';retry.disabled=Boolean(merchantApplicationPending)||merchantApplicationBusy;
+        retry.addEventListener('click',()=>resetMerchantApplication(application));actions.append(retry);
+      }
+      card.append(actions);list.append(card);
+    }
+    el('newMerchantApplication').disabled=Boolean(merchantApplicationPending)||merchantApplicationBusy;
+  }
+  function lockMerchantApplication(locked){
+    for(const node of el('merchantApplicationForm').querySelectorAll('input,button'))node.disabled=locked;
+    el('newMerchantApplication').disabled=locked;
+    for(const node of document.querySelectorAll('[data-resubmit-merchant]'))node.disabled=locked;
+  }
+  function resetMerchantApplication(application=null){
+    if(merchantApplicationPending||merchantApplicationBusy)return;
+    merchantApplicationTarget=application;const form=el('merchantApplicationForm');form.reset();lockMerchantApplication(false);
+    form.elements.namedItem('businessName').value=application?.businessName||'';form.elements.namedItem('slug').value=application?.slug||'';
+    el('merchantApplicationTitle').textContent=application?'修正商家申請：'+application.businessName:'新增商家申請';
+    el('cancelMerchantResubmit').hidden=!application;el('merchantApplicationMessage').textContent='';
+    el('submitMerchantApplication').textContent=application?'重新提交此商家':'提交商家申請';
+    form.elements.namedItem('businessName').focus();
+  }
+  el('submitQualification')?.addEventListener('click',async()=>{
+    if(!isAccount()||qualificationBusy||state.qualification&&state.qualification.status!=='rejected')return;
+    if(!qualificationPending)qualificationPending={requestId:crypto.randomUUID()};
+    qualificationBusy=true;el('submitQualification').disabled=true;el('qualificationMessage').textContent='正在提交管理員資格申請…';
+    try{
+      const data=await request('platform.qualification.submit',qualificationPending);qualificationPending=null;
+      renderQualification(data.qualification);el('qualificationMessage').textContent='資格申請已送出。';
+    }catch(error){
+      if(!error.uncertain)qualificationPending=null;
+      if(error.status===409){qualificationPending=null;qualificationBusy=false;await refreshAccount();}
+      el('qualificationMessage').textContent=error.message;
+    }finally{qualificationBusy=false;el('submitQualification').disabled=false;el('submitQualification').textContent=qualificationPending?'重試相同資格申請':'申請管理員資格';}
+  });
+  el('newMerchantApplication')?.addEventListener('click',()=>resetMerchantApplication());
+  el('cancelMerchantResubmit')?.addEventListener('click',()=>resetMerchantApplication());
+  el('merchantApplicationForm')?.addEventListener('submit',async event=>{
+    event.preventDefault();if(!isAccount()||state.qualification?.status!=='approved'||merchantApplicationBusy)return;
+    const form=el('merchantApplicationForm');
+    if(!merchantApplicationPending){
+      if(!form.reportValidity())return;
+      merchantApplicationPending={businessName:form.elements.namedItem('businessName').value.trim(),slug:form.elements.namedItem('slug').value.trim(),requestId:crypto.randomUUID(),
+        ...(merchantApplicationTarget?{applicationId:merchantApplicationTarget.id,expectedVersion:merchantApplicationTarget.version}:{})};
+    }
+    merchantApplicationBusy=true;lockMerchantApplication(true);el('merchantApplicationMessage').textContent='正在提交商家申請…';
+    try{
+      const data=await request('platform.merchant.submit',merchantApplicationPending);
+      state.ownerApplications=[...state.ownerApplications.filter(item=>item.id!==data.application.id),data.application];
+      merchantApplicationPending=null;merchantApplicationTarget=null;merchantApplicationBusy=false;resetMerchantApplication();renderMyMerchants();
+      el('merchantApplicationMessage').textContent='商家申請已送出，既有商家維持原狀。';
+    }catch(error){
+      if(!error.uncertain)merchantApplicationPending=null;
+      if(error.status===409){merchantApplicationTarget=null;merchantApplicationBusy=false;await refreshAccount();}
+      el('merchantApplicationMessage').textContent=error.message;
+    }finally{
+      merchantApplicationBusy=false;lockMerchantApplication(Boolean(merchantApplicationPending));
+      el('submitMerchantApplication').disabled=false;el('submitMerchantApplication').textContent=merchantApplicationPending?'重試相同商家申請':'提交商家申請';
+    }
+  });
+  function reviewButton(kind,item,decision,label){
+    const button=document.createElement('button');button.type='button';button.className=decision==='approved'?'':'secondary';button.dataset.reviewDecision=decision;button.textContent=label;
+    button.addEventListener('click',()=>openV2Review(kind,item,decision));return button;
+  }
+  function renderQualifications(){
+    el('qualificationReviews').hidden=false;const list=el('qualificationList');list.replaceChildren();
+    if(!state.qualifications.length){const empty=document.createElement('p');empty.className='empty';empty.textContent='目前沒有管理員資格申請。';list.append(empty);}
+    for(const qualification of state.qualifications){
+      const card=document.createElement('article');card.className='tenant-card';card.dataset.qualificationId=qualification.id;
+      const title=document.createElement('h3');title.textContent=qualification.displayName||qualification.applicantLineUserId||'LINE 管理員';
+      const status=document.createElement('p');status.textContent=qualificationLabels[qualification.status]||qualification.status;
+      const reason=document.createElement('p');reason.textContent=qualification.reviewReason?'審核理由：'+qualification.reviewReason:'';
+      const actions=document.createElement('footer');
+      if(['pending','suspended'].includes(qualification.status))actions.append(reviewButton('qualification',qualification,'approved',qualification.status==='suspended'?'恢復管理員資格':'核准資格'));
+      if(qualification.status==='pending')actions.append(reviewButton('qualification',qualification,'rejected','拒絕資格'));
+      if(qualification.status==='approved')actions.append(reviewButton('qualification',qualification,'suspended','停用資格'));
+      card.append(title,status,reason,actions);list.append(card);
+    }
+  }
+  function renderMerchantReviews(){
+    const list=el('applicationList');list.replaceChildren();
+    if(!state.applications.length){const empty=document.createElement('p');empty.className='empty';empty.textContent='目前沒有商家申請。';list.append(empty);}
+    for(const application of state.applications){
+      const card=document.createElement('article');card.className='tenant-card';card.dataset.applicationId=application.id;
+      const title=document.createElement('h3');title.textContent=application.businessName;
+      const info=document.createElement('p');info.textContent=application.slug+' · '+({pending:'等待商家審核',approved:'已核准',rejected:'未通過'}[application.status]||application.status)+' · LINE 使用者 '+(application.applicantLineUserId||'資料待確認');
+      const reason=document.createElement('p');reason.textContent=application.reviewReason?'審核理由：'+application.reviewReason:'';
+      const actions=document.createElement('footer');
+      if(application.status==='pending')actions.append(reviewButton('merchant',application,'approved','核准商家與功能'),reviewButton('merchant',application,'rejected','拒絕商家申請'));
+      card.append(title,info,reason,actions);list.append(card);
+    }
+  }
+  function lockV2Review(locked){
+    for(const node of el('v2ReviewForm').querySelectorAll('input,textarea,button'))node.disabled=locked;
+  }
+  function openV2Review(kind,item,decision){
+    if(reviewBusy||reviewPending)return;
+    reviewSelection={kind,item,decision};const approvesMerchant=kind==='merchant'&&decision==='approved';
+    el('v2ReviewTitle').textContent=(kind==='qualification'?'管理員資格':'商家申請')+'審核';
+    el('v2ReviewDescription').textContent=(item.businessName||item.displayName||item.applicantLineUserId||'LINE 管理員')+' · '+({approved:'核准',rejected:'拒絕',suspended:'停用'}[decision]);
+    el('v2ReviewGrants').hidden=!approvesMerchant;const list=el('v2ReviewFeatures');list.replaceChildren();
+    if(approvesMerchant)for(const key of featureKeys){const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.dataset.v2Feature=key;label.append(input,document.createTextNode(state.features[key]||key));list.append(label);}
+    el('reviewReason').value='';el('reviewReason').required=decision!=='approved';el('v2ReviewMessage').textContent='';el('confirmV2Review').textContent='確認審核';lockV2Review(false);el('v2ReviewDialog').showModal();
+    (decision==='approved'?el('confirmV2Review'):el('reviewReason')).focus();
+  }
+  el('v2ReviewForm')?.addEventListener('submit',async event=>{
+    event.preventDefault();if(!isV2()||!reviewSelection||reviewBusy)return;
+    if(!reviewPending){
+      if(!el('v2ReviewForm').reportValidity())return;
+      const {kind,item,decision}=reviewSelection;const reason=el('reviewReason').value.trim();
+      if(Array.from(reason).length>500){el('v2ReviewMessage').textContent='審核理由最多 500 個字。';return;}
+      reviewPending={...(kind==='qualification'?{qualificationId:item.id}:{applicationId:item.id}),expectedVersion:item.version,decision,reason,requestId:crypto.randomUUID(),
+        ...(kind==='merchant'&&decision==='approved'?{features:Object.fromEntries(featureKeys.map(key=>[key,el('v2ReviewFeatures').querySelector('[data-v2-feature="'+key+'"]').checked]))}:{})};
+    }
+    reviewBusy=true;lockV2Review(true);el('v2ReviewMessage').textContent='正在儲存審核結果…';
+    try{
+      const kind=reviewSelection.kind;const data=await request('platform.'+kind+'.review',reviewPending);
+      if(kind==='qualification'){state.qualifications=state.qualifications.map(item=>item.id===data.qualification.id?data.qualification:item);renderQualifications();}
+      else{state.applications=state.applications.map(item=>item.id===data.application.id?data.application:item);await refresh();}
+      reviewPending=null;reviewSelection=null;el('v2ReviewDialog').close();el('platformStatus').textContent='審核結果已更新。';
+    }catch(error){
+      if(!error.uncertain)reviewPending=null;
+      if(error.status===409){reviewSelection=null;el('v2ReviewDialog').close();await refresh();el('platformStatus').textContent='資料版本已更新，已重新載入。請確認最新資料後再次審核。';}
+      else el('v2ReviewMessage').textContent=error.message;
+    }finally{
+      reviewBusy=false;lockV2Review(Boolean(reviewPending));el('confirmV2Review').disabled=false;el('confirmV2Review').textContent=reviewPending?'重試相同審核操作':'確認審核';
+    }
+  });
+  el('closeV2Review')?.addEventListener('click',()=>{if(!reviewBusy&&!reviewPending){reviewSelection=null;el('v2ReviewDialog').close();}});
+  el('v2ReviewDialog')?.addEventListener('cancel',event=>{if(reviewBusy||reviewPending)event.preventDefault();else reviewSelection=null;});
+
   async function refresh() {
     const data=await request('platform.bootstrap');
     state.tenants=data.tenants;state.applications=data.applications||[];
     state.features=data.features;
+    if(isV2()){const result=await request('platform.qualification.list');state.qualifications=result.qualifications||[];renderQualifications();el('applicationListTitle').textContent='商家申請審核';}
     render();renderApplications();
     return data;
   }
@@ -289,6 +499,7 @@
   // Applications are independent from the legacy admin membership table.
   const approvalDialog=el('approvalDialog'),approvalForm=el('approvalForm');
   function renderApplications() {
+    if(isV2()){renderMerchantReviews();return;}
     const list=el('applicationList');list.replaceChildren();
     const pending=state.applications.filter(item=>item.status==='pending');
     if(!pending.length){const empty=document.createElement('p');empty.className='empty';empty.textContent='目前沒有待審核的管理員。';list.append(empty);return;}
@@ -490,8 +701,8 @@
     if(el('reloadMerchantSettings'))el('reloadMerchantSettings').hidden=true;
     const application=data.application;
     if(!data.tenant||(data.tenant.status==='suspended'||data.tenant.expired))for(const key of ['channelAccessToken','channelSecret'])merchantForm.elements.namedItem(key).value='';
-    renderJourney(application,data.tenant);
-    el('applicationWorkspace').hidden=false;
+    if(isV2()&&selectedBusiness){el('onboardingJourney').hidden=true;}else renderJourney(application,data.tenant);
+    el('applicationWorkspace').hidden=isV2()&&Boolean(selectedBusiness);
     el('applicationForm').hidden=Boolean(application&&application.status!=='rejected');
     const progress=el('applicationProgress');
     progress.hidden=!application;
@@ -503,9 +714,10 @@
       :application?.status==='pending'?'下一步由總管理員審核並勾選開放功能。你現在不必填 LINE 資料；請保留此入口，審核結果會在本頁更新。申請時間：'+new Date(application.requestedAt).toLocaleString('zh-TW')
       :application?.status==='approved'?(data.tenant?.onboarding?.adminReady?'審核已通過，管理功能與專屬用戶端已開放。請進入管理功能儲存業務設定，並分享下方用戶連結。':'審核已通過。正在確認業務空間，請重新檢查進度。')
       :application?.status==='rejected'?'請確認商家資料後重新提交；如需了解原因，請聯絡總管理員。':'填寫商家資料並提交，由總管理員審核。';
+    if(isV2()&&(!data.tenant||data.application?.status!=='approved'||data.tenant.status==='suspended'||data.tenant.expired)){clearPrivateMerchant();return;}
     if(!data.tenant)return;
     const tenant=data.tenant;
-    if(tenant.onboarding?.adminReady&&['/admin/','/admin/workspace.html'].includes(location.pathname)&&!new URLSearchParams(location.search).has('business')){
+    if(!isV2()&&tenant.onboarding?.adminReady&&['/admin/','/admin/workspace.html'].includes(location.pathname)&&!new URLSearchParams(location.search).has('business')){
       const target=new URL('/admin/',location.origin);target.searchParams.set('business',tenant.slug);
       const requested=new URLSearchParams(location.search).get('feature');
       if(tenant.features[requested]===true)target.searchParams.set('feature',requested);
@@ -588,7 +800,8 @@
   });
 
   async function refreshMine() {
-    if(!merchantEntry||!state.idToken||refreshBusy||merchantSaving||state.merchantPending)return;
+    if(!merchantEntry||!state.idToken||refreshBusy||merchantSaving||(!isV2()&&state.merchantPending))return;
+    if(isAccount()){await refreshAccount();return;}
     refreshBusy=true;
     try {
       const data=await request('platform.application.bootstrap');
@@ -596,7 +809,7 @@
       const accessChanged=data.application?.status!=='approved'||(data.tenant?.status==='suspended'||data.tenant?.expired)
         ||JSON.stringify(data.tenant?.features)!==JSON.stringify(state.merchant?.features);
       if(signature!==state.mineSignature){
-        if(merchantDirty&&!accessChanged){
+        if((merchantDirty||state.merchantPending)&&!accessChanged){
           latestMine=data;
           if(el('merchantSyncStatus'))el('merchantSyncStatus').textContent='偵測到較新的已儲存設定。你的草稿已保留；儲存前請載入最新設定，避免覆蓋。';
           if(el('reloadMerchantSettings'))el('reloadMerchantSettings').hidden=false;
@@ -618,8 +831,14 @@
       const response=await fetch('../config.json',{cache:'no-cache',signal:AbortSignal.timeout(15000)});
       if(!response.ok)throw new Error('無法讀取平台公開設定。');
       state.config=await response.json();
+      if(isV2()&&merchantEntry&&selectedBusiness){
+        if(typeof window.BusinessContext?.configure!=='function')throw new Error('無法載入所選商家的登入設定。');
+        state.config=await window.BusinessContext.configure({...state.config});
+      }
+      if(isV2()&&merchantEntry){const subtitle=document.querySelector('header.topbar p:last-child');if(subtitle)subtitle.textContent=selectedBusiness?'此頁設定所選商家的 LINE。返回我的商家可切換其他商家。':'先完成管理員資格，再獨立申請商家。選擇商家後可管理內容或設定 LINE。';}
       const platformLiffId=String((merchantEntry?state.config.adminLiffId:state.config.platformLiffId) || '').trim();
-      if(!(merchantEntry?/^2010791619-[A-Za-z0-9]+$/:/^2012065297-[A-Za-z0-9]+$/).test(platformLiffId))throw new Error(merchantEntry?'尚未正確設定一般管理員 LIFF ID。':'尚未正確設定總管理員專用 LIFF ID。');
+      const merchantLiffPattern=isV2()&&selectedBusiness?/^\d{5,30}-[A-Za-z0-9_-]+$/:/^2010791619-[A-Za-z0-9]+$/;
+      if(!(merchantEntry?merchantLiffPattern:/^2012065297-[A-Za-z0-9]+$/).test(platformLiffId))throw new Error(merchantEntry?'尚未正確設定一般管理員 LIFF ID。':'尚未正確設定總管理員專用 LIFF ID。');
       window.MemberSystem.validateConfig({...state.config,adminLiffId:platformLiffId},'admin');
       if(!window.liff)throw new Error('LIFF SDK 載入失敗，請確認網路後重試。');
       let initTimer;
@@ -685,11 +904,14 @@
       }
       if(merchantEntry){
         // A verified LINE visit is not consent to apply; only the form submits a review request.
-        const data=await request('platform.application.bootstrap');
-        renderMine(data);clearLoginGate();
+        let data;
+        if(isAccount()){data={accountLoaded:await refreshAccount()};}
+        else{data=await request('platform.application.bootstrap');renderMine(data);}
+        clearLoginGate();
+        if(isV2()&&selectedBusiness&&el('backToMyMerchants'))el('backToMyMerchants').hidden=false;
         // Clear only after LINE and server verification have both succeeded.
         try { window.sessionStorage.removeItem(AUTO_LOGIN_ATTEMPT_KEY); } catch {}
-        el('platformStatus').textContent='管理員 '+data.profile.displayName+'，已登入。';
+        if(data.accountLoaded!==false)el('platformStatus').textContent=data.profile?.displayName?'管理員 '+data.profile.displayName+'，已登入。':'已確認 LINE 身分。';
         if(refreshTimer)clearInterval(refreshTimer);
         refreshTimer=setInterval(()=>{if(!document.hidden)void refreshMine();},15000);
         return;

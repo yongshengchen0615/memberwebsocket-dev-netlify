@@ -1,6 +1,9 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const database=require('./database.cjs');
 const {setup:merchantSetup,merchant,root,owner,other,features}=require('../fixtures/merchant-applications.cjs');
+const fs=require('node:fs'),path=require('node:path');
+const migrationDir=path.resolve(__dirname,'../../../supabase/migrations');
+const contextMigration=fs.readFileSync(path.join(migrationDir,fs.readdirSync(migrationDir).find(n=>n.endsWith('_merchant_explicit_context.sql'))),'utf8');
 const submit='select public.platform_submit_merchant_application($1,$2,$3,$4,null,null) result';
 const review='select public.platform_review_merchant_application($1,$2,$3,$4,$5,$6,$7) result';
 async function setup(options={}){
@@ -20,6 +23,36 @@ async function setup(options={}){
   return h;
  }catch(e){await h.db.close();throw e;}
 }
+
+test('PostgreSQL 17 C006: authorized scoped write finishes before qualification suspension commits, later replay is refused',async()=>{
+ const h=await setup();try{
+  await h.db.exec(contextMigration);const q=await h.qualify(),a=await h.review(await h.submit()),id=crypto.randomUUID();
+  const write='select public.platform_save_notification_route_for_merchant($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) result';
+  const args=[owner,a.tenant.id,new Date(Date.now()+1000).toISOString(),'points','member','disabled',a.tenant.version,id,'a'.repeat(64),null,null];
+  await h.first.query('begin');const saved=(await h.first.query(write,args)).rows[0].result;
+  const revoking=h.second.query('select public.platform_review_admin_qualification($1,$2,$3,$4,$5,$6)',[root,q.id,q.version,'suspended','Stop',crypto.randomUUID()]);revoking.catch(()=>{});
+  await h.blocked();await h.first.query('commit');await revoking;
+  assert.equal(saved.module_line.points.notifications.member.mode,'disabled');
+  await assert.rejects(h.first.query(write,args),/PLATFORM_QUALIFICATION_REQUIRED/);
+  assert.equal((await h.db.query("select count(*)::int n from platform_private.audit_events where action='NOTIFICATION_ROUTE_UPDATED'")).rows[0].n,1);
+  const backup=await h.db.backupRestore();
+  assert.equal((await backup.client.query('select status from platform_private.admin_qualifications where id=$1',[q.id])).rows[0].status,'suspended');
+  await backup.client.query('set role authenticated');await assert.rejects(backup.client.query('select public.platform_my_merchant_context($1,$2,$3)',[owner,a.slug,args[2]]),/permission denied/);
+ }finally{await h.db.close();}
+});
+
+test('PostgreSQL 17 C007: same request racing across same-owner merchants cannot write the second tenant',async()=>{
+ const h=await setup();try{
+  await h.db.exec(contextMigration);await h.qualify();const a=await h.review(await h.submit()),b=await h.review(await h.submit(owner,'merchant-c','C')),id=crypto.randomUUID();
+  const write='select public.platform_save_notification_route_for_merchant($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) result';
+  const args=[owner,a.tenant.id,new Date(Date.now()+1000).toISOString(),'points','member','disabled',a.tenant.version,id,'b'.repeat(64),null,null];
+  await h.first.query('begin');await h.first.query(write,args);
+  const second=h.second.query(write,[...args.slice(0,1),b.tenant.id,...args.slice(2)]);second.catch(()=>{});
+  await h.blocked();await h.first.query('commit');await assert.rejects(second,/PLATFORM_REQUEST_CONFLICT/);
+  assert.equal((await h.get(b.id)).tenant.version,b.tenant.version);assert.deepEqual((await h.get(b.id)).tenant.module_line,{});
+  assert.equal((await h.db.query("select count(*)::int n from platform_private.requests where request_id=$1",[id])).rows[0].n,1);
+ }finally{await h.db.close();}
+});
 
 test('PostgreSQL 17 M024: upgrade waits for legacy transaction and catches its late submission and review',async()=>{
  const h=await setup({apply:false,before:async h=>{

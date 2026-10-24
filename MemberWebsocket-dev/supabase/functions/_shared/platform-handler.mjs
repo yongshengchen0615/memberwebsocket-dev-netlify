@@ -9,6 +9,7 @@ const SQL_ERRORS = {
   PLATFORM_QUALIFICATION_REQUIRED:[403,'請先取得一般管理員資格。'],
   PLATFORM_BUSINESS_SELECTION_REQUIRED:[409,'請先選擇要管理的商家。'],
   PLATFORM_MERCHANT_API_REQUIRED:[409,'請使用新版商家申請流程。'],
+  TENANT_REAUTH_REQUIRED:[401,'使用資格曾被停用，請重新使用 LINE 登入。'],
   PLATFORM_QUALIFICATION_NOT_FOUND:[404,'找不到管理員資格申請。'],
   PLATFORM_QUALIFICATION_TRANSITION:[409,'目前資格狀態不允許此操作，請重新載入。'],
   PLATFORM_FEATURE_DISABLED:[403,'此功能尚未核准。'], PLATFORM_RESUME_NOT_READY:[409,'商家尚未完成開通，無法復權。'], TENANT_EXPIRED:[403,'使用期限已到，請聯絡總管理員。'],
@@ -140,7 +141,16 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         return json({ok:true,data:{application:merchantResponse(result.data)}});
       }
       const mine = async () => {
-        const result = await db.rpc('platform_my_application',{p_actor:actor});
+        const context = slug => db.rpc('platform_my_merchant_context',{
+          p_actor:actor,p_slug:slug,p_issued_at:new Date(identity.issuedAtMs).toISOString(),
+        });
+        let result = body.business !== undefined ? await context(body.business)
+          : await db.rpc('platform_my_application',{p_actor:actor});
+        // Before the coordinated schema upgrade, a legacy singleton has no
+        // qualificationId. Once migrated, even an old singleton client must use
+        // the current qualification/fresh-token gate; ambiguous owners fail in SQL.
+        if (!result.error && body.business === undefined && result.data?.qualificationId)
+          result = await context(result.data.slug);
         if (result.error) throw databaseError(result.error);
         const application = result.data || null;
         if (body.business !== undefined && application?.tenant?.slug !== body.business)
@@ -150,6 +160,11 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         return {application:application && {...application,tenant:undefined},
           tenant:application?.tenant ? publicTenant(application.tenant) : null};
       };
+      const merchantWrite = (name,params,workspace) => db.rpc(
+        workspace.application?.qualificationId ? name+'_for_merchant' : name,
+        {...params,...(workspace.application?.qualificationId ? {
+          p_tenant_id:workspace.tenant.id,p_issued_at:new Date(identity.issuedAtMs).toISOString(),
+        } : {})});
       if (body.action === 'platform.application.ensure') {
         // Identity and initial name come only from LINE verification. The SQL
         // actor lock and unique constraint make simultaneous first visits safe.
@@ -186,7 +201,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         if(route?.mode==='disabled')throw new PlatformError(409,'NOTIFICATION_DISABLED','請先啟用此用途通知。');
         const hash=await payloadHash({feature:body.feature,purpose:body.purpose,expectedVersion:body.expectedVersion});
         const args={p_actor:actor,p_feature:body.feature,p_purpose:body.purpose,p_expected_version:body.expectedVersion,p_request_id:body.requestId,p_payload_hash:hash};
-        const claim=await db.rpc('platform_notification_test',args);if(claim.error)throw databaseError(claim.error);
+        const claim=await merchantWrite('platform_notification_test',args,workspace);if(claim.error)throw databaseError(claim.error);
         if(claim.data?.state==='accepted')return json({ok:true,data:claim.data});
         const custom=route?.mode==='custom';
         const stored=await db.rpc(custom?'platform_notification_credentials':'platform_module_credentials',{p_tenant_id:current.id,p_feature:body.feature});
@@ -203,7 +218,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         catch {throw new PlatformError(503,'LINE_NOTIFICATION_UNCERTAIN','無法確認 LINE 是否已接收，請重試相同測試操作。');}
         const accepted=remote.ok||(remote.status===409&&Boolean(remote.headers.get('x-line-accepted-request-id')));
         const result={state:accepted?'accepted':'failed',status:remote.status,requestId:remote.headers.get('x-line-request-id')||''};
-        const finish=await db.rpc('platform_notification_test',{...args,p_result:result});if(finish.error)throw databaseError(finish.error);
+        const finish=await merchantWrite('platform_notification_test',{...args,p_result:result},workspace);if(finish.error)throw databaseError(finish.error);
         if(!accepted)throw new PlatformError(remote.status>=500||remote.status===429?503:400,'LINE_NOTIFICATION_FAILED','LINE 未接收測試通知。請確認已加入該官方帳號好友、Channel 位於相同 Provider，並檢查訊息額度。');
         return json({ok:true,data:result});
       }
@@ -223,9 +238,9 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         }
         const hash = await payloadHash({feature:body.feature,purpose:body.purpose,mode:body.mode,expectedVersion:body.expectedVersion,
           channel:body.mode==='custom'?body.messagingChannelId:null,token:body.mode==='custom'?body.channelAccessToken:null});
-        const result = await db.rpc('platform_save_notification_route',{p_actor:actor,p_feature:body.feature,p_purpose:body.purpose,p_mode:body.mode,
+        const result = await merchantWrite('platform_save_notification_route',{p_actor:actor,p_feature:body.feature,p_purpose:body.purpose,p_mode:body.mode,
           p_expected_version:body.expectedVersion,p_request_id:body.requestId,p_payload_hash:hash,
-          p_channel_id:body.mode==='custom'?body.messagingChannelId:null,p_envelope:encrypted});
+          p_channel_id:body.mode==='custom'?body.messagingChannelId:null,p_envelope:encrypted},workspace);
         if (result.error) throw databaseError(result.error);
         return json({ok:true,data:{tenant:publicTenant(result.data)}});
       }
@@ -253,8 +268,8 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
           const scopedLine=Object.fromEntries(Object.keys(line).map(k=>[k,validated.line[k]]));
           const encrypted=validated.credentials.channelAccessToken?await sealCredentials(current.id+':'+body.feature,validated.credentials,await encryptionKey()):null;
           const hash=await payloadHash({feature:body.feature,expectedVersion:body.expectedVersion,line:scopedLine,credentials:validated.credentials});
-          const result=await db.rpc('platform_save_module_line',{p_actor:actor,p_feature:body.feature,p_expected_version:body.expectedVersion,
-            p_request_id:body.requestId,p_payload_hash:hash,p_line:scopedLine,p_secrets:encrypted});
+          const result=await merchantWrite('platform_save_module_line',{p_actor:actor,p_feature:body.feature,p_expected_version:body.expectedVersion,
+            p_request_id:body.requestId,p_payload_hash:hash,p_line:scopedLine,p_secrets:encrypted},workspace);
           if(result.error)throw databaseError(result.error);
           return json({ok:true,data:{tenant:publicTenant(result.data)}});
         }
@@ -281,10 +296,10 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         const hash = await payloadHash({expectedVersion:body.expectedVersion,line:validated.line,credentials:validated.credentials});
         const encrypted = validated.credentials.channelAccessToken
           ? await sealCredentials(current.id,validated.credentials,await encryptionKey()) : null;
-        const result = await db.rpc('platform_save_my_line',{
+        const result = await merchantWrite('platform_save_my_line',{
           p_actor:actor,p_expected_version:body.expectedVersion,p_request_id:body.requestId,
           p_payload_hash:hash,p_line:validated.line,p_secrets:encrypted,
-        });
+        },workspace);
         if (result.error) throw databaseError(result.error);
         return json({ok:true,data:{tenant:publicTenant(result.data)}});
       }
