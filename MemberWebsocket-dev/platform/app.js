@@ -53,25 +53,39 @@
     el('platformWorkspace').hidden=true;
     el('merchantWorkspace').hidden=true;
     el('applicationWorkspace').hidden=true;
-    el('platformLoginGate').hidden=false;
-    el('platformLoginButton').disabled=false;
+    const loginGate=el('platformLoginGate');
+    if(loginGate)loginGate.hidden=!merchantEntry;
+    const loginButton=el('platformLoginButton');
+    if(loginButton)loginButton.disabled=false;
+    el('platformStatus').hidden=false;
     el('platformStatus').textContent=message;
+    const header=el('platformHeader');
+    if(header)header.hidden=false;
   }
   function showAuthorizationDenied() {
     if(merchantEntry)return;
     // Only called for PLATFORM_ADMIN_REQUIRED after successful server-side LINE verification.
     // No client-side approval, privileged mutation, or account enumeration.
-    showLoginGate('LINE 身分已驗證，但此帳號尚未取得總管理員授權。');
+    showLoginGate('');
     el('platformAuthorizationNotice').hidden=false;
+    el('platformStatus').hidden=true;
+    const header=el('platformHeader');
+    if(header)header.hidden=true;
+    // A verified denial completes this attempt; a later page visit may retry LINE.
+    try { window.sessionStorage.removeItem(AUTO_LOGIN_ATTEMPT_KEY); } catch {}
   }
   function clearLoginGate() {
-    el('platformLoginGate').hidden=true;
+    const loginGate=el('platformLoginGate');
+    if(loginGate)loginGate.hidden=true;
+    const header=el('platformHeader');
+    if(header)header.hidden=false;
+    el('platformStatus').hidden=false;
     const authorizationNotice=el('platformAuthorizationNotice');
     if(authorizationNotice)authorizationNotice.hidden=true;
   }
   function freshLineLogin() {
     const button=el('platformLoginButton');
-    button.disabled=true;
+    if(button)button.disabled=true;
     el('platformStatus').textContent='正在重新啟動 LINE 登入…';
     try {
       window.sessionStorage.setItem(LOGIN_RETURN_KEY,String(Date.now()));
@@ -84,11 +98,11 @@
       else window.liff.login();
     } catch {
       try { window.sessionStorage.removeItem(LOGIN_RETURN_KEY); } catch {}
-      button.disabled=false;
-      el('platformStatus').textContent='無法啟動 LINE 重新登入，請重新從 LINE 官方入口開啟此頁。';
+      if(button)button.disabled=false;
+      el('platformStatus').textContent='無法啟動 LINE 登入，請重新開啟此頁。';
     }
   }
-  el('platformLoginButton').addEventListener('click',freshLineLogin);
+  el('platformLoginButton')?.addEventListener('click',freshLineLogin);
   window.addEventListener('pageshow',event=>{
     if(event.persisted && !el('platformWorkspace').hidden) showLoginGate();
   });
@@ -622,7 +636,7 @@
       const returnedFromLine=consumeLoginReturn();
       if(!window.liff.isLoggedIn()) {
         if(returnedFromLine || rejectedLoginReturn) {
-          showLoginGate('LINE 登入回跳未完成或已過期，請點選「重新使用 LINE 登入」重試。');
+          showLoginGate('LINE 登入未完成，請重新開啟頁面。');
           return;
         }
         if(window.liff.isInClient()){
@@ -632,11 +646,11 @@
             freshLineLogin();
             return;
           }
-          showLoginGate('LINE LIFF 尚未完成登入或自動驗證未成功，請點選「重新使用 LINE 登入」重試。');
+          showLoginGate('LINE 登入未完成，請重新開啟頁面。');
           return;
         }
         if(!merchantEntry && !markAutomaticRootLoginAttempt()) {
-          showLoginGate('LINE 登入回跳尚未完成，請點選「重新使用 LINE 登入」重試。');
+          showLoginGate('LINE 登入未完成，請重新開啟頁面。');
           return;
         }
         el('platformStatus').textContent='正在前往 LINE 登入…';
@@ -647,13 +661,13 @@
         try { window.liff.login(); }
         catch {
           window.sessionStorage.removeItem(LOGIN_RETURN_KEY);
-          showLoginGate('無法啟動 LINE 登入，請點選「重新使用 LINE 登入」重試。');
+          showLoginGate('無法啟動 LINE 登入，請重新開啟頁面。');
         }
         return;
       }
       state.idToken=window.liff.getIDToken() || '';
       if(!state.idToken) {
-        showLoginGate('無法取得 LINE ID token。請重新使用 LINE 登入，並確認 LIFF 已啟用 openid scope。');
+        showLoginGate('無法取得 LINE 身分憑證，請重新開啟頁面。');
         return;
       }
       if(merchantEntry){
@@ -671,8 +685,8 @@
           freshLineLogin();
         } else {
           showLoginGate(rejectedLoginReturn
-            ? 'LINE 登入回跳已過期或無效，請點選「重新使用 LINE 登入」重試。'
-            : '這次自動 LINE 驗證尚未完成，請點選「重新使用 LINE 登入」重試。');
+            ? 'LINE 登入回跳已過期，請重新開啟頁面。'
+            : 'LINE 驗證未完成，請重新開啟頁面。');
         }
         return;
       }
