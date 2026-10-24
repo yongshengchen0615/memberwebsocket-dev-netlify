@@ -612,7 +612,7 @@
   });
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refreshMine();});
   window.addEventListener('pagehide',()=>{if(refreshTimer)clearInterval(refreshTimer);});
-  window.addEventListener('pageshow',event=>{if(event.persisted&&merchantEntry)void start();});
+  window.addEventListener('pageshow',event=>{if(event.persisted&&merchantEntry){showLoginGate('正在重新確認 LINE 身分…');void start();}});
   async function start() {
     try {
       const response=await fetch('../config.json',{cache:'no-cache',signal:AbortSignal.timeout(15000)});
@@ -628,12 +628,13 @@
       } catch {throw new Error(merchantEntry?'一般管理員 LIFF 初始化失敗，請確認 Endpoint URL 與網路。':'總管理員 LIFF 初始化失敗，請確認 Endpoint URL 與網路。');}
       finally {clearTimeout(initTimer);}
       const returnedFromLine=consumeLoginReturn();
+      const inLiffClient=window.liff.isInClient();
       if(!window.liff.isLoggedIn()) {
         if(returnedFromLine || rejectedLoginReturn) {
           showLoginGate('LINE 登入未完成，請重新開啟頁面。');
           return;
         }
-        if(window.liff.isInClient()){
+        if(inLiffClient){
           // LIFF browser signs in during init; a failed first initialization
           // gets one automatic reload. liff.login() must not be called in LIFF.
           if(markAutomaticLoginAttempt()) {
@@ -668,6 +669,20 @@
         showLoginGate('無法取得 LINE 身分憑證，請確認 LIFF 已開通 openid 權限，並重新開啟頁面。');
         return;
       }
+      // Every external entry, including the general-admin portal, must complete
+      // this visit's fresh LINE redirect before using any previously cached token.
+      // LIFF in-app browsing is verified by liff.init() + the server bootstrap:
+      // liff.login() is unsupported in the LINE client.
+      if(!inLiffClient && !returnedFromLine) {
+        if(!rejectedLoginReturn && markAutomaticLoginAttempt()) {
+          freshLineLogin();
+        } else {
+          showLoginGate(rejectedLoginReturn
+            ? 'LINE 登入回跳已過期，請重新開啟頁面。'
+            : 'LINE 驗證未完成，請重新開啟頁面。');
+        }
+        return;
+      }
       if(merchantEntry){
         // A verified LINE visit is not consent to apply; only the form submits a review request.
         const data=await request('platform.application.bootstrap');
@@ -677,18 +692,6 @@
         el('platformStatus').textContent='管理員 '+data.profile.displayName+'，已登入。';
         if(refreshTimer)clearInterval(refreshTimer);
         refreshTimer=setInterval(()=>{if(!document.hidden)void refreshMine();},15000);
-        return;
-      }
-      if(!returnedFromLine) {
-        if(!rejectedLoginReturn && markAutomaticLoginAttempt()) {
-          // A pre-existing LINE session is not proof of fresh root authentication.
-          // Force the existing LIFF reauth path once; server still verifies root.
-          freshLineLogin();
-        } else {
-          showLoginGate(rejectedLoginReturn
-            ? 'LINE 登入回跳已過期，請重新開啟頁面。'
-            : 'LINE 驗證未完成，請重新開啟頁面。');
-        }
         return;
       }
       const data=await refresh();
