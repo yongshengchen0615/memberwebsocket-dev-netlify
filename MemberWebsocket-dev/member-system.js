@@ -5,6 +5,18 @@
   const SUPABASE_FUNCTION_PATTERN = /^https:\/\/[a-z0-9-]+\.supabase\.co\/functions\/v1\/[A-Za-z0-9_-]+$/i;
   const FRESH_LOGIN_QUERY = 'member_system_reauth';
   const FRESH_LOGIN_MAX_AGE_MS = 5 * 60 * 1000;
+  // Four member-facing pages must not revive a previous user's private DOM from
+  // the browser back-forward cache. A full reload repeats LIFF + server claim.
+  const MEMBER_ENTRY_PATH = /^\\/(member|points|event|calendar)\\/(?:index\\.html)?$/;
+  let isRestoringMemberPage = false;
+  window.addEventListener('pageshow', event => {
+    if (!event?.persisted || !MEMBER_ENTRY_PATH.test(String(window.location?.pathname || ''))) return;
+    isRestoringMemberPage = true;
+    if (document.body) document.body.hidden = true;
+    sessions.clear();
+    // Navigation can fail in restricted WebViews; keep the stale document hidden.
+    try { window.location.reload(); } catch (_) {}
+  });
   const READ_RETRY_DELAY_MS = 400;
   const READ_TIMEOUT_MS = 12000;
   const BOOTSTRAP_TIMEOUT_MS = 30000;
@@ -343,7 +355,7 @@
       void stopPresence(event && event.persisted ? 'bfcache' : 'pagehide', true);
     });
     window.addEventListener('pageshow', (event) => {
-      if (!event || !event.persisted || !presenceContext || !presenceContext.closed) return;
+      if (isRestoringMemberPage || !event || !event.persisted || !presenceContext || !presenceContext.closed) return;
       const previous = presenceContext;
       presenceContext = null;
       void startPresence(previous.config, previous.surface, currentPresenceIdToken(previous), 'resume');
@@ -789,6 +801,7 @@
       } else sessionCheckGeneration += 1;
     };
     const onPageShow = (event) => {
+      if (isRestoringMemberPage) return; // New document will perform fresh LINE + server verification.
       if (event?.persisted) sessionCheckGeneration += 1;
       verifyCurrentLogin(false);
       schedule(0, { reason: event && event.persisted ? 'bfcache' : 'pageshow' });
