@@ -95,7 +95,7 @@ test('AC-CLR-053: DBA confirmation, allowlist and role requirements remain stric
  try{
   await assert.rejects(db.query('select maintenance.request_full_reset_from_sql($1)',['bad']),/RESET_EXACT_CONFIRMATION_REQUIRED/);
   await db.exec('set role authenticated');
-  await assert.rejects(db.query('select maintenance.request_full_reset_from_sql($1)',[confirm]),/RESET_DBA_ONLY/);
+  await assert.rejects(db.query('select maintenance.request_full_reset_from_sql($1)',[confirm]),/permission denied for schema maintenance/);
   await db.exec('reset role');
   await db.exec("update maintenance.sandbox_reset_target set project_ref='wrong-project'");
   await assert.rejects(db.query('select maintenance.request_full_reset_from_sql($1)',[confirm]),/WRONG_RESET_PROJECT/);
