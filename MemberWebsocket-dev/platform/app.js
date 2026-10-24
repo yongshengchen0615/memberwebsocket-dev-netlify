@@ -9,12 +9,11 @@
   const state = {config:null,idToken:'',features:{},tenants:[],applications:[],current:null,pending:null,busy:false,approval:null,merchant:null,merchantPending:null};
   const LOGIN_RETURN_KEY=merchantEntry?'admin-line-login-return-v1':'platform-line-login-return-v1';
   const LOGIN_RETURN_TTL_MS=180_000;
-  const AUTO_LOGIN_ATTEMPT_KEY='platform-line-auto-attempt-v1';
+  const AUTO_LOGIN_ATTEMPT_KEY=merchantEntry?'admin-line-auto-attempt-v1':'platform-line-auto-attempt-v1';
   let rejectedLoginReturn=false;
-  function markAutomaticRootLoginAttempt() {
-    // Short-lived navigation loop guard, never an authorization claim.
-    // A failed navigation remains guarded against repeated automatic redirects.
-    if(merchantEntry)return false;
+  function markAutomaticLoginAttempt() {
+    // Per-role one-attempt guard prevents redirect or reload loops when LIFF is unavailable.
+    // This browser hint never grants access; every ID token is verified server-side.
     try {
       const now=Date.now();
       const previous=Number(window.sessionStorage.getItem(AUTO_LOGIN_ATTEMPT_KEY));
@@ -635,16 +634,20 @@
           return;
         }
         if(window.liff.isInClient()){
-          // LIFF is normally signed in after init. Attempt recovery at most once,
-          // then expose a manual option instead of a reload loop.
-          if(!merchantEntry && markAutomaticRootLoginAttempt()) {
-            freshLineLogin();
+          // LIFF browser signs in during init; a failed first initialization
+          // gets one automatic reload. liff.login() must not be called in LIFF.
+          if(markAutomaticLoginAttempt()) {
+            if(merchantEntry) {
+              el('platformStatus').textContent='正在重新初始化 LINE 登入…';
+              window.location.reload();
+            } else freshLineLogin();
             return;
           }
-          showLoginGate('LINE 登入未完成，請重新開啟頁面。');
+          showLoginGate('LINE 登入未完成，請在 LINE 中重新開啟此頁面。');
           return;
         }
-        if(!merchantEntry && !markAutomaticRootLoginAttempt()) {
+        // A cancelled/failed external LINE callback must not cause a redirect loop.
+        if(!markAutomaticLoginAttempt()) {
           showLoginGate('LINE 登入未完成，請重新開啟頁面。');
           return;
         }
@@ -662,20 +665,22 @@
       }
       state.idToken=window.liff.getIDToken() || '';
       if(!state.idToken) {
-        showLoginGate('無法取得 LINE 身分憑證，請重新開啟頁面。');
+        showLoginGate('無法取得 LINE 身分憑證，請確認 LIFF 已開通 openid 權限，並重新開啟頁面。');
         return;
       }
       if(merchantEntry){
         // A verified LINE visit is not consent to apply; only the form submits a review request.
         const data=await request('platform.application.bootstrap');
         renderMine(data);clearLoginGate();
+        // Clear only after LINE and server verification have both succeeded.
+        try { window.sessionStorage.removeItem(AUTO_LOGIN_ATTEMPT_KEY); } catch {}
         el('platformStatus').textContent='管理員 '+data.profile.displayName+'，已登入。';
         if(refreshTimer)clearInterval(refreshTimer);
         refreshTimer=setInterval(()=>{if(!document.hidden)void refreshMine();},15000);
         return;
       }
       if(!returnedFromLine) {
-        if(!rejectedLoginReturn && markAutomaticRootLoginAttempt()) {
+        if(!rejectedLoginReturn && markAutomaticLoginAttempt()) {
           // A pre-existing LINE session is not proof of fresh root authentication.
           // Force the existing LIFF reauth path once; server still verifies root.
           freshLineLogin();
