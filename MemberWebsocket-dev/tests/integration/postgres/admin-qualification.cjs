@@ -6,7 +6,8 @@ const qualification=fs.readFileSync(path.resolve(__dirname,'../../../supabase/mi
 async function setup(){
  const {db}=await database();
  try{
-  await db.exec(`create table public.admins(id uuid primary key default gen_random_uuid(),line_user_id text unique,display_name text,role text,status text);
+  await db.exec(`create schema maintenance;
+   create table public.admins(id uuid primary key default gen_random_uuid(),line_user_id text unique,display_name text,role text,status text);
    grant select on public.admins to service_role;`);
   await db.query("insert into public.admins(line_user_id,display_name,role,status)values($1,'Synthetic root','admin','active')",[root]);
   await db.exec(migration);await db.exec('update platform_private.super_admins set enabled=true');await db.exec(qualification);
