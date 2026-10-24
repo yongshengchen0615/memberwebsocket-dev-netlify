@@ -418,6 +418,20 @@
     throw error;
   }
 
+  function recoverMissingBusinessEntry(error) {
+    // A removed/nonexistent merchant must never bootstrap through the shared
+    // legacy business data plane. Redirect only to the unscoped, still-authenticated
+    // application entry; never recover from permission or network failures.
+    if (error?.code !== 'BUSINESS_NOT_FOUND' || !window.BusinessContext?.slug) return false;
+    if (!['/admin/', '/admin'].includes(window.location.pathname)) return false;
+    const clean = new URL(window.location.href);
+    clean.searchParams.delete('business');
+    clean.searchParams.delete('liff.state');
+    if (clean.href === window.location.href) return false;
+    window.location.replace(clean.href);
+    return true;
+  }
+
   async function boot() {
     setView('loading');
     try {
@@ -452,7 +466,10 @@
         stopAdminRealtime = null;
         stopMemberPresencePolling();
       }
-    } catch (error) { stopLoginProgress(); handleBootError(error); } finally { stopLoginProgress(); els.app.setAttribute('aria-busy', 'false'); }
+    } catch (error) {
+      stopLoginProgress();
+      if (!recoverMissingBusinessEntry(error)) handleBootError(error);
+    } finally { stopLoginProgress(); els.app.setAttribute('aria-busy', 'false'); }
   }
 
   async function resumeAdminFromBfcache() {
