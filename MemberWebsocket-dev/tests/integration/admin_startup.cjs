@@ -9,7 +9,7 @@ const root = path.join(__dirname, '../..');
 
 // Run in a separate process: an observer loop starves even in-process test timers.
 if (!process.argv.includes('--fixture')) {
-  for (const mode of ['early', 'late', 'forbidden']) {
+  for (const mode of ['early', 'late', 'forbidden', 'stale-business']) {
     test(`admin startup and fixed-ticket observers settle (${mode})`, () => {
       const result = spawnSync(process.execPath, [__filename, '--fixture', mode], {
         encoding: 'utf8', timeout: 5000,
@@ -34,7 +34,9 @@ async function runFixture(mode) {
     else throw error;
   });
   const dom = new JSDOM(fs.readFileSync(path.join(root, 'admin/index.html'), 'utf8'), {
-    runScripts: 'outside-only', url: 'https://example.test/MemberWebsocket-dev/admin/', virtualConsole,
+    runScripts: 'outside-only', url: mode === 'stale-business'
+      ? 'https://example.test/admin/?business=missing-merchant&feature=membership'
+      : 'https://example.test/MemberWebsocket-dev/admin/', virtualConsole,
   });
   const w = dom.window;
   const el = (id) => w.document.getElementById(id);
@@ -50,10 +52,14 @@ async function runFixture(mode) {
     calls.push({ url, init });
     return new Response(JSON.stringify({ ok: true, data: { templates: [] } }));
   };
+  if (mode === 'stale-business') w.BusinessContext = { slug: 'missing-merchant' };
   w.liff = { getIDToken: () => 'fixture-token' };
   w.MemberSystem = {
     bindDialogKeyboard() {},
-    loadConfig: async () => ({ supabaseUrl: 'https://fixture.supabase.co' }),
+    loadConfig: async () => {
+      if (mode === 'stale-business') throw Object.assign(new Error('找不到商家入口。'), { code: 'BUSINESS_NOT_FOUND' });
+      return { supabaseUrl: 'https://fixture.supabase.co' };
+    },
     signIn: async () => 'fixture-token',
     request: async () => {
       adminRequests += 1;
@@ -80,6 +86,14 @@ async function runFixture(mode) {
     await tick();
 
     assert.deepEqual(errors, []);
+    if (mode === 'stale-business') {
+      assert.equal(navigationAttempts.length, 1, 'missing business navigates once to clean admin entry');
+      assert.equal(adminRequests, 0, 'missing business must not access the shared admin data plane');
+      assert.equal(subscriptions, 0);
+      assert.equal(el('adminView').classList.contains('hidden'), true);
+      assert.equal(el('errorView').classList.contains('hidden'), true);
+      return;
+    }
     assert.equal(el('loadingView').classList.contains('hidden'), true);
     assert.equal(el('app').getAttribute('aria-busy'), 'false');
     if (mode === 'forbidden') {
