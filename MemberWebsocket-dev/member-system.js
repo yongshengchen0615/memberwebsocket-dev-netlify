@@ -7,7 +7,7 @@
   const FRESH_LOGIN_MAX_AGE_MS = 5 * 60 * 1000;
   // Four member-facing pages must not revive a previous user's private DOM from
   // the browser back-forward cache. A full reload repeats LIFF + server claim.
-  const MEMBER_ENTRY_PATH = /^\\/(member|points|event|calendar)\\/(?:index\\.html)?$/;
+  const MEMBER_ENTRY_PATH = /^\/(member|points|event|calendar)\/(?:index\.html)?$/;
   let isRestoringMemberPage = false;
   window.addEventListener('pageshow', event => {
     if (!event?.persisted || !MEMBER_ENTRY_PATH.test(String(window.location?.pathname || ''))) return;
