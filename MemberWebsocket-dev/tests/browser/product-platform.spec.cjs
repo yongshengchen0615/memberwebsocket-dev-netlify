@@ -211,11 +211,22 @@ test('PLATFORM_APPLY — admin entry reads status without applying; explicit sub
 test('ADMIN_STALE_BUSINESS — missing merchant entry returns to unscoped LINE admin without cross-tenant access',async({page})=>{
  const h=await setup(page,'manager',{entry:'admin'});try{
   await expect(page.locator('#applicationForm')).toBeVisible();
+  // The public endpoint has a deliberate negative contract: a missing slug
+  // returns BUSINESS_NOT_FOUND. Keep all authenticated calls on the real
+  // platform handler; only inject this precise external lookup failure.
+  let missingLookups=0;
+  await page.route('https://fixture.supabase.co/functions/v1/platform-api',async route=>{
+    const input=route.request().method()==='POST'?route.request().postDataJSON():null;
+    if(input?.action!=='platform.business.public')return route.fallback();
+    missingLookups++;
+    await route.fulfill({status:404,contentType:'application/json',body:JSON.stringify({ok:false,error:{code:'BUSINESS_NOT_FOUND',message:'找不到商家入口。'}})});
+  });
   await page.goto(base+'/admin/?business=missing-merchant&feature=membership');
   await expect(page).toHaveURL(base+'/admin/?feature=membership');
   await expect(page.locator('#applicationForm')).toBeVisible();
   await expect(page.locator('#merchantWorkspace')).toBeHidden();
   expect(await page.evaluate(()=>window.initializedLiffId)).toBe('2010791619-admin');
+  expect(missingLookups).toBe(1);
   expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(0);
   expect((await h.db.query('select count(*)::int n from platform_private.tenants')).rows[0].n).toBe(0);
   expect(h.errors).toEqual([]);
