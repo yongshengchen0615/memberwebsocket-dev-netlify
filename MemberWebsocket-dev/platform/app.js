@@ -53,10 +53,6 @@
     el('platformWorkspace').hidden=true;
     el('merchantWorkspace').hidden=true;
     el('applicationWorkspace').hidden=true;
-    const loginGate=el('platformLoginGate');
-    if(loginGate)loginGate.hidden=!merchantEntry;
-    const loginButton=el('platformLoginButton');
-    if(loginButton)loginButton.disabled=false;
     el('platformStatus').hidden=false;
     el('platformStatus').textContent=message;
     const header=el('platformHeader');
@@ -75,8 +71,6 @@
     try { window.sessionStorage.removeItem(AUTO_LOGIN_ATTEMPT_KEY); } catch {}
   }
   function clearLoginGate() {
-    const loginGate=el('platformLoginGate');
-    if(loginGate)loginGate.hidden=true;
     const header=el('platformHeader');
     if(header)header.hidden=false;
     el('platformStatus').hidden=false;
@@ -84,8 +78,6 @@
     if(authorizationNotice)authorizationNotice.hidden=true;
   }
   function freshLineLogin() {
-    const button=el('platformLoginButton');
-    if(button)button.disabled=true;
     el('platformStatus').textContent='正在重新啟動 LINE 登入…';
     try {
       window.sessionStorage.setItem(LOGIN_RETURN_KEY,String(Date.now()));
@@ -98,11 +90,9 @@
       else window.liff.login();
     } catch {
       try { window.sessionStorage.removeItem(LOGIN_RETURN_KEY); } catch {}
-      if(button)button.disabled=false;
       el('platformStatus').textContent='無法啟動 LINE 登入，請重新開啟此頁。';
     }
   }
-  el('platformLoginButton')?.addEventListener('click',freshLineLogin);
   window.addEventListener('pageshow',event=>{
     if(event.persisted && !merchantEntry) {
       // Restoring a cached Platform page must re-verify LINE, not strand the user
