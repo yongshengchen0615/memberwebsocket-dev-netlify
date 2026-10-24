@@ -13,7 +13,7 @@
   let rejectedLoginReturn=false;
   function markAutomaticRootLoginAttempt() {
     // Short-lived navigation loop guard, never an authorization claim.
-    // Explicit button retry remains available after any failure.
+    // A failed navigation remains guarded against repeated automatic redirects.
     if(merchantEntry)return false;
     try {
       const now=Date.now();
@@ -104,7 +104,12 @@
   }
   el('platformLoginButton')?.addEventListener('click',freshLineLogin);
   window.addEventListener('pageshow',event=>{
-    if(event.persisted && !el('platformWorkspace').hidden) showLoginGate();
+    if(event.persisted && !merchantEntry) {
+      // Restoring a cached Platform page must re-verify LINE, not strand the user
+      // on a gate without a login button or expose a stale privileged workspace.
+      showLoginGate('正在確認 LINE 身分…');
+      void start();
+    }
   });
   function message(text) { el('tenantFormStatus').textContent=text; }
   function uncertainError() { return Object.assign(new Error('儲存結果尚未確認。請重試同一操作，避免重複建立。'),{uncertain:true}); }
@@ -694,6 +699,7 @@
       clearLoginGate();
       for(const [key,label] of Object.entries(data.features)) {const wrap=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.dataset.feature=key;wrap.append(input,document.createTextNode(label));el('featureFields').append(wrap);}
       el('platformWorkspace').hidden=false;el('platformStatus').textContent=`總管理員 ${data.profile.displayName}，已登入。`;
+      try { window.sessionStorage.removeItem(AUTO_LOGIN_ATTEMPT_KEY); } catch {}
     } catch(error){
       if(error.code==='PLATFORM_ADMIN_REQUIRED'&&!merchantEntry) {
         showAuthorizationDenied();
