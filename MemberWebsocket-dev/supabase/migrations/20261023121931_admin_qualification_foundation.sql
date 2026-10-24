@@ -91,6 +91,41 @@ begin
  from platform_private.admin_qualifications q order by q.requested_at,q.id;
 end $$;
 
+-- Serialize actual authorization changes with already-authorized reviews.
+-- Advisory locks avoid granting UPDATE on public.admins merely to take a row
+-- lock. Every relevant INSERT/UPDATE/DELETE uses the same per-actor mutex.
+create function platform_private.lock_platform_authorization_change() returns trigger
+language plpgsql security invoker set search_path='' as $$
+declare identities text[]; actor text; referenced_id uuid;
+begin
+ identities:=array[case when tg_op<>'INSERT' then old.line_user_id end,
+  case when tg_op<>'DELETE' then new.line_user_id end];
+ if tg_table_schema='public' then
+  referenced_id:=case when tg_op='INSERT' then new.id else old.id end;
+  select identities||coalesce(array_agg(s.line_user_id),'{}'::text[]) into identities
+   from platform_private.super_admins s where s.admin_id=referenced_id;
+ end if;
+ for actor in select distinct value from unnest(identities) value where value is not null order by value loop
+  perform pg_advisory_xact_lock(hashtextextended('platform:reviewer:'||actor,0));
+ end loop;
+ if tg_op='DELETE' then return old; end if;
+ return new;
+end $$;
+create trigger platform_review_auth_lock
+ before insert or delete or update of line_user_id,role,status,id on public.admins
+ for each row execute function platform_private.lock_platform_authorization_change();
+create trigger platform_review_auth_lock
+ before insert or delete or update of line_user_id,enabled,admin_id,singleton on platform_private.super_admins
+ for each row execute function platform_private.lock_platform_authorization_change();
+
+create function platform_private.lock_platform_reviewer(p_actor text) returns void
+language plpgsql security invoker set search_path='' as $$
+begin
+ if p_actor is null or p_actor !~ '^U[0-9a-f]{32}$' then raise exception 'PLATFORM_ADMIN_REQUIRED'; end if;
+ perform pg_advisory_xact_lock_shared(hashtextextended('platform:reviewer:'||p_actor,0));
+ if not public.platform_is_super_admin(p_actor) then raise exception 'PLATFORM_ADMIN_REQUIRED'; end if;
+end $$;
+
 create function public.platform_review_admin_qualification(p_actor text,p_qualification_id uuid,
  p_expected_version integer,p_decision text,p_reason text,p_request_id uuid)
 returns jsonb language plpgsql security invoker set search_path='' as $$
@@ -112,10 +147,12 @@ begin
    then raise exception 'PLATFORM_REQUEST_CONFLICT'; end if;
   select * into q from platform_private.admin_qualifications where id=p_qualification_id;
   if not found then raise exception 'PLATFORM_QUALIFICATION_NOT_FOUND'; end if;
+  perform platform_private.lock_platform_reviewer(p_actor);
   return platform_private.admin_qualification_json(q);
  end if;
  select * into q from platform_private.admin_qualifications where id=p_qualification_id for update;
  if not found then raise exception 'PLATFORM_QUALIFICATION_NOT_FOUND'; end if;
+ perform platform_private.lock_platform_reviewer(p_actor);
  if q.version<>p_expected_version then raise exception 'PLATFORM_CONFLICT'; end if;
  if not ((q.status='pending' and p_decision in ('approved','rejected'))
   or (q.status='approved' and p_decision='suspended') or (q.status='suspended' and p_decision='approved'))
@@ -134,10 +171,12 @@ begin
 end $$;
 
 revoke all on function platform_private.admin_qualification_json(platform_private.admin_qualifications),
+ platform_private.lock_platform_authorization_change(),platform_private.lock_platform_reviewer(text),
  public.platform_my_admin_qualification(text),public.platform_submit_admin_qualification(text,text,uuid),
  public.platform_list_admin_qualifications(text),public.platform_review_admin_qualification(text,uuid,integer,text,text,uuid)
  from public,anon,authenticated;
 grant execute on function platform_private.admin_qualification_json(platform_private.admin_qualifications),
+ platform_private.lock_platform_authorization_change(),platform_private.lock_platform_reviewer(text),
  public.platform_my_admin_qualification(text),public.platform_submit_admin_qualification(text,text,uuid),
  public.platform_list_admin_qualifications(text),public.platform_review_admin_qualification(text,uuid,integer,text,text,uuid)
  to service_role;

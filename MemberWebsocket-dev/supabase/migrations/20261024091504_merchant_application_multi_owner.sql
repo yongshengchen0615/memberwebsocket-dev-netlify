@@ -136,8 +136,9 @@ begin
  select * into a from platform_private.applications where id=p_application_id for update;
  if a.qualification_id<>q or a.applicant_line_user_id<>hint.applicant_line_user_id
   then raise exception 'PLATFORM_CONFLICT'; end if;
- -- A waiter must recheck a root revocation committed while waiting for the owner lock.
- if not public.platform_is_super_admin(p_actor) then raise exception 'PLATFORM_ADMIN_REQUIRED'; end if;
+ -- A waiter must recheck revocation; authorization changes then wait until
+ -- this already-authorized transaction commits, including provisioning waits.
+ perform platform_private.lock_platform_reviewer(p_actor);
  select * into r from platform_private.requests where request_id=p_request_id;
  if found then
   if r.actor<>p_actor or r.operation<>'merchant_review' or r.payload_hash<>h
@@ -174,13 +175,13 @@ end $$;
 -- Legacy readers/settings cannot guess a merchant once there are multiple.
 -- An exclusive qualification lock prevents an extra merchant being committed
 -- between the ambiguity check and the original settings body's owner query.
-create function platform_private.require_single_merchant_owner(p_actor text) returns void
+create function platform_private.require_single_merchant_owner(p_actor text,p_require_qualification boolean default true) returns void
 language plpgsql security invoker set search_path='' as $$
 declare q platform_private.admin_qualifications;
 begin
  if p_actor is null or p_actor !~ '^U[0-9a-f]{32}$' then raise exception 'PLATFORM_INVALID_INPUT'; end if;
  select * into q from platform_private.admin_qualifications where applicant_line_user_id=p_actor for update;
- if not found or q.status<>'approved' then raise exception 'PLATFORM_QUALIFICATION_REQUIRED'; end if;
+ if p_require_qualification and (not found or q.status<>'approved') then raise exception 'PLATFORM_QUALIFICATION_REQUIRED'; end if;
  if (select count(*) from platform_private.applications where applicant_line_user_id=p_actor)>1
   or (select count(*) from platform_private.tenants where owner_line_user_id=p_actor)>1
  then raise exception 'PLATFORM_BUSINESS_SELECTION_REQUIRED'; end if;
@@ -190,7 +191,7 @@ create or replace function public.platform_my_application(p_actor text) returns 
 language plpgsql security invoker set search_path='' as $$
 declare a platform_private.applications;
 begin
- perform platform_private.require_single_merchant_owner(p_actor);
+ perform platform_private.require_single_merchant_owner(p_actor,false);
  select * into a from platform_private.applications where applicant_line_user_id=p_actor;
  if not found then return null; end if;
  return platform_private.merchant_application_json(a);
@@ -233,6 +234,16 @@ do $$ declare signature text; definition text; guard text; begin
  end loop;
 end $$;
 
+-- The real provisioner reads and writes one shared authenticator role setting.
+-- Lock the catalog-writing base beneath the current risk-installing wrapper,
+-- covering both the wrapper and direct base calls without changing installers.
+do $$ declare definition text; begin
+ select pg_get_functiondef('public.platform_provision_business_base_20261021(uuid)'::regprocedure) into definition;
+ if position(E'\nbegin\n' in definition)=0 or position('platform:business-provision' in definition)>0
+  then raise exception 'MERCHANT_PROVISIONER_DEFINITION_DRIFT'; end if;
+ execute replace(definition,E'\nbegin\n',E'\nbegin\n perform pg_advisory_xact_lock(hashtextextended(''platform:business-provision'',0));\n');
+end $$;
+
 create or replace function public.platform_list_applications(p_actor text) returns setof jsonb
 language plpgsql security invoker set search_path='' as $$
 begin
@@ -243,14 +254,14 @@ begin
 end $$;
 
 revoke all on function platform_private.require_merchant_qualification(text),
- platform_private.require_single_merchant_owner(text),
+ platform_private.require_single_merchant_owner(text,boolean),
  platform_private.merchant_application_json(platform_private.applications),
  public.platform_my_merchant_applications(text),public.platform_get_merchant_application(text,uuid),
  public.platform_submit_merchant_application(text,text,text,uuid,uuid,integer),
  public.platform_review_merchant_application(text,uuid,integer,text,text,jsonb,uuid)
  from public,anon,authenticated;
 grant execute on function platform_private.require_merchant_qualification(text),
- platform_private.require_single_merchant_owner(text),
+ platform_private.require_single_merchant_owner(text,boolean),
  platform_private.merchant_application_json(platform_private.applications),
  public.platform_my_merchant_applications(text),public.platform_get_merchant_application(text,uuid),
  public.platform_submit_merchant_application(text,text,text,uuid,uuid,integer),

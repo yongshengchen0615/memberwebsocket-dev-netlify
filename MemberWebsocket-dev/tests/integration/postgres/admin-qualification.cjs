@@ -90,3 +90,34 @@ test('PostgreSQL 17 Q014: administrator revoked during a cached-review request l
   assert.equal((await h.db.query("select count(*)::int n from platform_private.requests where operation='qualification_review'")).rows[0].n,1);
  }finally{await h.db.close();}
 });
+
+test('PostgreSQL 17 Q015: legacy root role revoked during qualification-row wait cannot approve',async()=>{
+ const h=await setup();try{
+  const q=(await h.first.query(submit,[manager,'Synthetic owner',crypto.randomUUID()])).rows[0].result;
+  await h.first.query('begin');await h.first.query('select id from platform_private.admin_qualifications where id=$1 for update',[q.id]);
+  const pending=h.second.query(review,[root,q.id,q.version,'approved','',crypto.randomUUID()]);pending.catch(()=>{});
+  await h.blocked();await h.db.query("update public.admins set status='suspended' where line_user_id=$1",[root]);await h.first.query('commit');
+  await assert.rejects(pending,/PLATFORM_ADMIN_REQUIRED/);
+  assert.equal((await h.db.query('select status from platform_private.admin_qualifications')).rows[0].status,'pending');
+ }finally{await h.db.close();}
+});
+
+test('PostgreSQL 17 Q016: in-flight qualification review precedes root-role revocation without granting table UPDATE privileges',async()=>{
+ const h=await setup();try{
+  const q=(await h.first.query(submit,[manager,'Synthetic owner',crypto.randomUUID()])).rows[0].result;
+  await h.first.query('reset role');await h.first.query('begin');await h.first.query('lock table platform_private.audit_events in share mode');
+  const request=crypto.randomUUID(),args=[root,q.id,q.version,'approved','',request];
+  const reviewing=h.second.query(review,args);reviewing.catch(()=>{});await h.blocked();
+  const revoker=await h.db.connect(),pid=(await revoker.query('select pg_backend_pid() pid')).rows[0].pid;
+  const revoking=revoker.query("update public.admins set status='suspended' where line_user_id=$1",[root]);revoking.catch(()=>{});
+  let waiting=false;
+  for(let i=0;i<100;i++){
+   if((await h.db.query('select wait_event_type from pg_stat_activity where pid=$1',[pid])).rows[0]?.wait_event_type==='Lock'){waiting=true;break;}
+   await new Promise(r=>setTimeout(r,20));
+  }
+  assert.ok(waiting,'authorization mutex must prevent revocation committing ahead of the authorized review');
+  await h.first.query('commit');assert.equal((await reviewing).rows[0].result.status,'approved');await revoking;
+  await assert.rejects(h.second.query(review,args),/PLATFORM_ADMIN_REQUIRED/);
+  assert.equal((await h.db.query("select has_column_privilege('service_role','public.admins','role','UPDATE') allowed")).rows[0].allowed,false);
+ }finally{await h.db.close();}
+});
