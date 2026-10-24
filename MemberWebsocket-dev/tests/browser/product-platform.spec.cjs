@@ -208,6 +208,19 @@ test('PLATFORM_APPLY — admin entry reads status without applying; explicit sub
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
+test('ADMIN_STALE_BUSINESS — missing merchant entry returns to unscoped LINE admin without cross-tenant access',async({page})=>{
+ const h=await setup(page,'manager',{entry:'admin'});try{
+  await expect(page.locator('#applicationForm')).toBeVisible();
+  await page.goto(base+'/admin/?business=missing-merchant&feature=membership');
+  await expect(page).toHaveURL(base+'/admin/?feature=membership');
+  await expect(page.locator('#applicationForm')).toBeVisible();
+  await expect(page.locator('#merchantWorkspace')).toBeHidden();
+  expect(await page.evaluate(()=>window.initializedLiffId)).toBe('2010791619-admin');
+  expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(0);
+  expect((await h.db.query('select count(*)::int n from platform_private.tenants')).rows[0].n).toBe(0);
+  expect(h.errors).toEqual([]);
+ }finally{await h.db.close();}
+});
 test('ADMIN_INCLIENT_UNAUTH — signed-out LIFF browser retries initialization once without a login button or loop',async({page})=>{
  const h=await setup(page,'manager',{entry:'admin',inClient:true,loggedIn:false});try{
   await expect(page.locator('#platformStatus')).toContainText('LINE 登入未完成');
