@@ -35,6 +35,12 @@ export async function verifyPlatformPreview({
     if (file.endsWith('.html') && !body.toString().includes(`data-commit="${commit.slice(0, 7)}"`)) {
       throw new Error(`${file}: local artifact does not match commit ${commit}`);
     }
+    if (file === 'platform/index.html' && /id=["']platformLogin(?:Gate|Button)["']/.test(body.toString())) {
+      throw new Error('platform/index.html: retired LINE login gate must not be published');
+    }
+    if (file === 'platform/app.js' && /platformLogin(?:Gate|Button)/.test(body.toString())) {
+      throw new Error('platform/app.js: retired LINE login gate handlers must not be published');
+    }
     if (file === 'config.json' && JSON.parse(body).platformLiffId !== '2012065297-VunxFBj8') {
       throw new Error('config.json: incorrect platform LIFF identity');
     }

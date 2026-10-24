@@ -2,7 +2,6 @@
 
 #applicationWorkspace,#merchantWorkspace{max-width:850px;margin:32px auto}#applicationProgress{margin-top:22px}#applicationForm,#merchantLineForm{background:#fff;border:1px solid #dbe2d8;border-radius:16px;padding:22px}#approvalDialog{max-width:680px}#approvalMessage,#applicationMessage,#merchantMessage{min-height:1.7em}#merchantFeatures{margin:14px 0}#applicationList .tenant-card{min-width:0}#applicationList .tenant-card footer{flex-wrap:wrap}@media(max-width:650px){#applicationForm,#merchantLineForm{padding:16px}}
 
-.login-gate{max-width:640px;margin:28px auto;padding:28px;border:1px solid #dbe2d8;border-radius:16px;background:#fff}.login-gate h2{margin-top:0}.login-gate button{margin-top:12px}.login-gate p.hint{margin-bottom:0}
 
 /* Approved merchant functions are presented as separate LINE configuration pages. */
 .merchant-feature-nav{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0 24px}
