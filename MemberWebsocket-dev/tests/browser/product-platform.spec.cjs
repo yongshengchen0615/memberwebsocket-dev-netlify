@@ -418,7 +418,7 @@ test('PLATFORM_ROOT_UNAPPROVED — verified but unapproved LINE displays only pe
   const notice=page.locator('#platformAuthorizationNotice');
   await expect(notice).toBeVisible();
   await expect(notice).toHaveText('總管理員權限尚未核准');
-  await expect(page.locator('#platformHeader,#platformStatus,#platformWorkspace')).toBeHidden();
+  for(const id of ['#platformHeader','#platformStatus','#platformWorkspace'])await expect(page.locator(id)).toBeHidden();
   await expect(page.locator('#platformLoginGate,#platformLoginButton')).toHaveCount(0);
   await page.reload();
   await expect(notice).toHaveText('總管理員權限尚未核准');
