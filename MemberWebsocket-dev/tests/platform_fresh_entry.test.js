@@ -32,6 +32,7 @@ function entry({merchantEntry, inClient=false, returned=false, rejected=false, l
   };
   const context={
     window,URL,AbortSignal,Promise,Date,
+    fetch:async()=>({ok:true,json:async()=>({adminLiffId:'2010791619-testAdmin',platformLiffId:'2012065297-testPlatform'})}),
     merchantEntry, rejectedLoginReturn:rejected, refreshTimer:null,
     state:{config:null,idToken:'',features:{}},
     el:id=>elements[id]||status,
