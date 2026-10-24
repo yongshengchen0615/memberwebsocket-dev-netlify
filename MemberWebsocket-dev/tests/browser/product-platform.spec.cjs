@@ -310,8 +310,10 @@ test('PLATFORM_ROOT_REAUTH — every Platform visit and BFCache restore automati
   await expect(page.locator('#platformWorkspace')).toBeVisible();
   await expect.poll(()=>page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('2');
   await page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})));
-  await expect.poll(()=>page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('3');
+  // The BFCache event intentionally navigates; wait for the reauthenticated UI
+  // before reading sessionStorage from the new browsing context.
   await expect(page.locator('#platformWorkspace')).toBeVisible();
+  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('3');
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
