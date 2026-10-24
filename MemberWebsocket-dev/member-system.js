@@ -101,21 +101,26 @@
 
   async function loadConfig() {
     assertLegacyTenantScope();
-    let lastError;
+    let lastError, config;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        const result = await fetchWithTimeout('../config.json', { cache: 'no-cache' }, READ_TIMEOUT_MS, (response) => response.text());
+        // Same-origin absolute path is stable for LIFF callback URLs and /admin/ routes.
+        const result = await fetchWithTimeout('/config.json', { cache: 'no-store' }, READ_TIMEOUT_MS, (response) => response.text());
         if (!result.response.ok) throw clientError('CONFIG_ERROR', '讀取 config.json 失敗。');
-        const config = JSON.parse(result.body);
+        config = JSON.parse(result.body);
         if (!config || typeof config !== 'object' || Array.isArray(config)) throw clientError('CONFIG_ERROR', 'config.json 格式不正確。');
-        if(window.BusinessContext)await window.BusinessContext.configure(config);
-        return config;
+        break;
       } catch (error) {
+        config = null;
         lastError = error && error.code === 'CONFIG_ERROR' ? error : clientError('CONFIG_ERROR', '無法讀取公開設定，請確認網路後重試。');
         if (attempt === 0) await wait(READ_RETRY_DELAY_MS);
       }
     }
-    throw lastError || clientError('CONFIG_ERROR', '無法讀取公開設定。');
+    if (!config) throw lastError || clientError('CONFIG_ERROR', '無法讀取公開設定。');
+    // Business discovery is separate from the public config request. Preserve
+    // BUSINESS_NOT_FOUND / authorization errors instead of misreporting network failure.
+    if (window.BusinessContext) await window.BusinessContext.configure(config);
+    return config;
   }
 
   function validateConfig(config, surface) {
