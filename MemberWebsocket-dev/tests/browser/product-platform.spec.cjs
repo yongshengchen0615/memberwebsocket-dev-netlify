@@ -208,6 +208,46 @@ test('PLATFORM_APPLY — admin entry reads status without applying; explicit sub
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
+test('ADMIN_INCLIENT_UNAUTH — signed-out LIFF browser retries initialization once without a login button or loop',async({page})=>{
+ const h=await setup(page,'manager',{entry:'admin',inClient:true,loggedIn:false});try{
+  await expect(page.locator('#platformStatus')).toContainText('LINE 登入未完成');
+  await expect(page.locator('#applicationWorkspace')).toBeHidden();
+  expect(await page.evaluate(()=>sessionStorage.getItem('admin-line-auto-attempt-v1'))).not.toBeNull();
+  expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
+  expect(h.providerCalls).toEqual([]);
+  expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(0);
+  await page.reload();
+  await expect(page.locator('#platformStatus')).toContainText('LINE 登入未完成');
+  expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
+  expect(h.errors).toEqual([]);
+ }finally{await h.db.close();}
+});
+test('ADMIN_EXTERNAL_UNAUTH — external visitor launches LINE login, callback authenticates without auto-submitting review',async({page})=>{
+ const h=await setup(page,'manager',{entry:'admin',inClient:false,loggedIn:false});try{
+  await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[]]);
+  await expect(page.locator('#applicationForm')).toBeHidden();
+  expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(0);
+  await page.evaluate(()=>sessionStorage.setItem('qaLoggedIn','1'));
+  await page.reload();
+  await expect(page.locator('#applicationForm')).toBeVisible();
+  expect(await page.evaluate(()=>window.initializedLiffId)).toBe('2010791619-admin');
+  expect(await page.evaluate(()=>sessionStorage.getItem('admin-line-auto-attempt-v1'))).toBeNull();
+  expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(0);
+  expect(h.errors).toEqual([]);
+ }finally{await h.db.close();}
+});
+test('ADMIN_EXTERNAL_CALLBACK_FAILED — rejected or missing session stops without repeated redirects',async({page})=>{
+ const h=await setup(page,'manager',{entry:'admin',inClient:false,loggedIn:false});try{
+  await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[]]);
+  await page.reload();
+  await expect(page.locator('#platformStatus')).toContainText('LINE 登入未完成');
+  expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
+  await page.reload();
+  expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
+  expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(0);
+  expect(h.errors).toEqual([]);
+ }finally{await h.db.close();}
+});
 test('PLATFORM_MANAGER_SETUP — approved admin can configure own LINE but cannot edit feature grants',async({page})=>{
  const h=await setup(page,'manager',{entry:'admin'});try{
   await submitMerchantApplication(page);
