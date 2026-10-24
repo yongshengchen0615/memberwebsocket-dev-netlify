@@ -45,11 +45,15 @@ test('AC-302/303/304: LINE settings tab owns module forms, isolated saves, modul
   assert.equal(d.querySelector('#businessLineIdentity-membership').hidden,true,'shared Login identity must disappear after initial setup');
   assert.equal(d.querySelector('#businessLineIdentity-points').hidden,true,'other modules must not repeat business Login inputs');
   assert.equal(points.elements.adminChannelId.disabled,true,'shared Login identity must not be editable from another feature');
+  fill(points,'memberChannelId','2099999999');
+  fill(points,'pointsLiffId','2099999999-unsaved');
   fill(points,'channelAccessToken','synthetic-points-token-123456789');fill(points,'channelSecret','b'.repeat(32));
   points.dispatchEvent(new w.Event('submit',{cancelable:true}));
   await until(()=>d.querySelector('[data-business-line-feature="points"] [role="status"]').textContent.includes('已儲存'));
   const saved=(await h.db.query('select module_line from platform_private.tenants')).rows[0].module_line;
-  assert.equal(saved.membership.line.memberLiffId,line.memberLiffId);assert.equal(saved.points.line.pointsLiffId,'2010787602-unsaved');
+  assert.equal(saved.membership.line.memberLiffId,line.memberLiffId);assert.equal(saved.points.line.pointsLiffId,'2099999999-unsaved');
+  assert.equal(saved.points.line.memberChannelId,'2099999999','points can use its own member Login Channel');
+  assert.equal(saved.membership.line.memberChannelId,line.memberChannelId,'membership Login Channel must remain isolated');
   assert.equal(calls.filter(c=>c.action==='platform.line.save').at(-1).credentials.channelAccessToken,'synthetic-points-token-123456789');
   await w.BusinessLineSettings.apply({features:{...features,membership:false},business:{slug:t.slug}});
   assert.equal(d.querySelector('[data-business-line-feature="membership"]'),null);
@@ -116,6 +120,7 @@ test('AC-307: approved feature-specific LINE settings do not require unrelated n
   assert.deepEqual([...d.querySelectorAll('[data-business-line-feature]')].map(el=>el.dataset.businessLineFeature),['calendar','booking']);
   assert.ok(d.querySelector('#businessLine-calendar [name=calendarLiffId]'));
   assert.ok(d.querySelector('#businessLine-booking [name=bookingLiffId]'));
+  assert.ok(d.querySelector('#businessLine-booking [name=memberChannelId]'),'booking keeps its own member Login Channel');
   assert.equal(d.querySelector('#businessLine-calendar [name=bookingLiffId]'),null);
   assert.equal(d.querySelector('#businessLine-booking [name=calendarLiffId]'),null);
   assert.equal(d.querySelector('#notification-calendar-member'),null,'calendar has no active automatic push');

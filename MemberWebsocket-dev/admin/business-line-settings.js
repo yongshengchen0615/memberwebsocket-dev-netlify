@@ -11,7 +11,6 @@
   // Login identity belongs to the business; LIFF and notification routes belong to each feature.
   const businessLogin = {
     adminChannelId: '商家管理端 Login Channel ID',
-    memberChannelId: '會員用戶端 Login Channel ID',
     adminLiffId: '商家管理端 LIFF ID',
   };
   const moduleMessaging = {
@@ -99,7 +98,7 @@
     }
     if (view.identityBlock) {
       // Other features should not ask again after the first module seeds shared Login identity.
-      view.identityBlock.hidden = Boolean(tenant.line?.adminChannelId && tenant.line?.memberChannelId && tenant.line?.adminLiffId);
+      view.identityBlock.hidden = Boolean(tenant.line?.adminChannelId && tenant.line?.adminLiffId);
     }
     if (view.form) for (const input of view.form.querySelectorAll('input')) {
       const secret = ['channelAccessToken','channelSecret'].includes(input.name);
@@ -267,12 +266,13 @@
       reload.onclick = () => void load(true, view);
       if (path) {
         const form = node('form'); form.id = 'businessLine-' + feature; view.form = form;
+        addField(form, 'memberChannelId', label + '會員 Login Channel ID');
         addField(form, key, label + ' LIFF ID');
         const identity = node('div','','business-line-identity'); identity.id = 'businessLineIdentity-' + feature;
         const identityFields = node('div','','business-line-fields');
         for (const [name,text] of Object.entries(businessLogin)) addField(identityFields,name,text);
         for (const input of identityFields.querySelectorAll('input')) { input.id = form.id + '-' + input.name; input.setAttribute('aria-describedby',input.id+'-help'); input.nextElementSibling.id=input.id+'-help'; }
-        identity.append(node('h3','商家共用登入設定（僅首次設定）'),node('p','商家管理員及會員 LINE Login 身分跨功能共用；建立後不需在各功能重複輸入。'),identityFields);
+        identity.append(node('h3','商家共用登入設定（僅首次設定）'),node('p','商家管理端 LINE Login 身分跨功能共用；會員端 Login Channel 與 LIFF 則依功能獨立設定。'),identityFields);
         form.append(identity); view.identityBlock = identity;
         const shared = node('details'); shared.open = !(tenant.moduleLine?.[feature]?.credentialsConfigured || tenant.credentialsConfigured);
         shared.append(node('summary','本功能 Messaging API 憑證（初次建立或需要通知時）'));
