@@ -15,11 +15,11 @@ BEGIN
     RAISE EXCEPTION 'POSTGREST_SCHEMA_REPAIR_DBA_ONLY' USING ERRCODE='42501';
   END IF;
   -- A dashboard-managed config without role override needs no adjustment.
-  SELECT substring(conf FROM char_length('pgrst.db_schemas=') + 1)
+  SELECT substring(config.value FROM char_length('pgrst.db_schemas=') + 1)
     INTO v_exposed
   FROM pg_catalog.pg_roles r
-  CROSS JOIN LATERAL pg_catalog.unnest(coalesce(r.rolconfig,ARRAY[]::text[])) conf
-  WHERE r.rolname = 'authenticator' AND conf LIKE 'pgrst.db_schemas=%';
+  CROSS JOIN LATERAL pg_catalog.unnest(coalesce(r.rolconfig,ARRAY[]::text[])) AS config(value)
+  WHERE r.rolname = 'authenticator' AND config.value LIKE 'pgrst.db_schemas=%';
   IF v_exposed IS NULL THEN RETURN 0; END IF;
   FOR v_entry IN
     SELECT pg_catalog.btrim(e.name) AS schema_name
