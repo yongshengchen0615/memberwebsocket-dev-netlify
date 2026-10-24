@@ -74,6 +74,7 @@ jobs:
           node --test \
             MemberWebsocket-dev/tests/integration/product_platform.cjs \
             MemberWebsocket-dev/tests/integration/platform_access_registration.cjs \
+            MemberWebsocket-dev/tests/integration/reset_repeatability.cjs \
             MemberWebsocket-dev/tests/integration/platform_login_ui.cjs \
             MemberWebsocket-dev/tests/integration/platform_remove_all_data.cjs \
             MemberWebsocket-dev/tests/integration/platform_postgrest_reset.cjs \
