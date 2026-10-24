@@ -419,6 +419,9 @@
   }
 
   function recoverMissingBusinessEntry(error) {
+    // A runner inherits its parent session; dropping its URL scope would reuse
+    // that session for an unscoped bootstrap instead of the application entry.
+    if (isBackgroundE2ERunner()) return false;
     // A removed/nonexistent merchant must never bootstrap through the shared
     // legacy business data plane. Redirect only to the unscoped, still-authenticated
     // application entry; never recover from permission or network failures.
