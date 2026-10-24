@@ -232,6 +232,41 @@ test('ADMIN_STALE_BUSINESS — missing merchant entry returns to unscoped LINE a
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
+test('ADMIN_STALE_BACKGROUND_BUSINESS — failed runner keeps merchant scope and never bootstraps an unscoped data plane',async({page})=>{
+ const h=await setup(page,'manager',{entry:'admin'});try{
+  await page.addInitScript(()=>{
+    if(new URLSearchParams(location.search).get('e2eBackgroundRunner')!=='1')return;
+    Object.defineProperty(window,'opener',{configurable:true,value:{closed:false,MemberAdminE2EControl:{
+      provideBackgroundSession:runId=>({runId,idToken:'manager',config:{
+        productizedAdmin:true,business:'missing-merchant',brandName:'QA Platform',
+        supabaseUrl:'https://fixture.supabase.co',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',
+        supabasePublishableKey:'sb_publishable_fixture',adminLiffId:'2010791619-admin',
+      }}),
+    }}});
+  });
+  const bootstraps=[];
+  await page.route('https://fixture.supabase.co/functions/v1/api',async route=>{
+    const input=route.request().postDataJSON();bootstraps.push(input);
+    // External failure boundary only; browser boot, handoff, MemberSystem and
+    // BusinessContext request serialization remain the production code.
+    await route.fulfill({status:input.business?404:403,json:{ok:false,error:{
+      code:input.business?'BUSINESS_NOT_FOUND':'FORBIDDEN',message:'找不到商家入口。',
+    }}});
+  });
+  const entry=base+'/admin/?business=missing-merchant&e2eBackgroundRunner=1&e2eRunId=BG-missing';
+  await page.goto(entry);
+  await expect(page.locator('#errorView')).toBeVisible();
+  await expect(page.locator('#errorMessage')).toContainText('找不到商家入口');
+  await expect(page).toHaveURL(entry);
+  await expect(page.locator('#adminView')).toBeHidden();
+  expect(await page.evaluate(()=>document.documentElement.dataset.memberAdminReady)).toBeUndefined();
+  expect(bootstraps.map(input=>({action:input.action,business:input.business}))).toEqual([
+    {action:'admin.bootstrap',business:'missing-merchant'},
+  ]);
+  expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(0);
+  expect(h.errors).toEqual([]);
+ }finally{await h.db.close();}
+});
 test('ADMIN_INCLIENT_UNAUTH — signed-out LIFF browser retries initialization once without a login button or loop',async({page})=>{
  const h=await setup(page,'manager',{entry:'admin',inClient:true,loggedIn:false});try{
   await expect(page.locator('#platformStatus')).toContainText('LINE 登入未完成');
