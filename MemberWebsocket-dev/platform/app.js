@@ -666,7 +666,8 @@
         return;
       }
       if(merchantEntry){
-        const data=await request('platform.application.ensure');
+        // A verified LINE visit is not consent to apply; only the form submits a review request.
+        const data=await request('platform.application.bootstrap');
         renderMine(data);clearLoginGate();
         el('platformStatus').textContent='管理員 '+data.profile.displayName+'，已登入。';
         if(refreshTimer)clearInterval(refreshTimer);
