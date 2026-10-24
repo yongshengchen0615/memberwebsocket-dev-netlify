@@ -40,6 +40,14 @@ async function setup(page,token='root',{loseFirstSave=false,loseFirstLineSave=fa
  });
  await page.goto(base+(entry==='admin'?'/admin/':'/platform/'));return {...h,errors};
 }
+
+async function submitMerchantApplication(page,name='測試商家',slug='ui-manual-review') {
+ await expect(page.locator('#applicationForm')).toBeVisible();
+ await page.locator('#applicationForm [name="businessName"]').fill(name);
+ await page.locator('#applicationForm [name="slug"]').fill(slug);
+ await page.locator('#submitApplication').click();
+ await expect(page.locator('#applicationProgress')).toContainText('等待總管理員審核');
+}
 test('PLATFORM_APPLICANT_ROOT_GRANTS — review applicant, grant features only, preserve merchant LINE ownership',async({page},info)=>{
  const h=await setup(page);try{
   await expect(page.locator('#platformWorkspace')).toBeVisible();
@@ -71,6 +79,7 @@ test('PLATFORM_APPLICANT_ROOT_GRANTS — review applicant, grant features only, 
 });
 test('ONBOARDING_GUIDE — exact LINE sources, saved checklist, responsible next step and no unusable links on mobile',async({page},info)=>{
  await page.setViewportSize({width:390,height:844});const h=await setup(page,'manager',{entry:'admin'});try{
+  await submitMerchantApplication(page);
   await expect(page.locator('#onboardingJourney')).toContainText('送出申請');
   await expect(page.locator('#unifiedPortalNav [data-portal-entry="member"]')).toBeHidden();
   await expect(page.locator('#applicationNextStep')).toContainText('總管理員');
@@ -112,6 +121,7 @@ test('ONBOARDING_GUIDE — exact LINE sources, saved checklist, responsible next
 });
 test('ONBOARDING_DRAFT — refresh preserves edited secrets; newer settings require explicit reload; revoked access discards draft',async({page})=>{
  const h=await setup(page,'manager',{entry:'admin'});try{
+  await submitMerchantApplication(page);
   await expect(page.locator('#applicationProgress')).toBeVisible();
   const app=(await h.call({action:'platform.bootstrap'})).body.data.applications[0];
   const features=Object.fromEntries(Object.keys(h.tenant.features).map(k=>[k,k==='membership']));
@@ -136,6 +146,7 @@ test('ONBOARDING_DRAFT — refresh preserves edited secrets; newer settings requ
 });
 test('ONBOARDING_LINE_RETRY — lost save response locks draft and replays the exact request once',async({page})=>{
  const h=await setup(page,'manager',{entry:'admin',loseFirstLineSave:true});try{
+  await submitMerchantApplication(page);
   await expect(page.locator('#applicationProgress')).toBeVisible();
   const app=(await h.call({action:'platform.bootstrap'})).body.data.applications[0];
   const features=Object.fromEntries(Object.keys(h.tenant.features).map(k=>[k,k==='membership']));
@@ -171,17 +182,23 @@ test('PLATFORM_RETRY — lost root grant response reuses request id without doub
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
-test('PLATFORM_APPLY — admin entry automatically submits once and waits without legacy data access',async({page})=>{
+test('PLATFORM_APPLY — admin entry reads status without applying; explicit submission is persisted once',async({page})=>{
  const h=await setup(page,'manager',{entry:'admin'});try{
   await expect(page).toHaveURL(/\/admin\/?(?:\?.*)?$/);
   await expect(page.locator('#productizedAdmin')).toBeVisible();
   await expect(page.locator('#app')).toBeHidden();
   expect(await page.evaluate(()=>document.title)).toBe('管理端｜Lumen Club');
   await expect(page.locator('#platformWorkspace')).toBeHidden();
-  await expect(page.locator('#applicationProgress')).toContainText('等待總管理員審核');
-  await expect(page.locator('#applicationForm')).toBeHidden();
+  await expect(page.locator('#applicationForm')).toBeVisible();
+  await expect(page.locator('#applicationProgress')).toBeHidden();
   await expect(page.locator('#merchantWorkspace')).toBeHidden();
   expect(await page.evaluate(()=>window.initializedLiffId)).toBe('2010791619-admin');
+  expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(0);
+  await page.reload();
+  await expect(page.locator('#applicationForm')).toBeVisible();
+  expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(0);
+  await submitMerchantApplication(page,'手動送審商家','manual-review-shop');
+  await expect(page.locator('#applicationForm')).toBeHidden();
   await page.reload();
   await expect(page.locator('#applicationProgress')).toContainText('等待總管理員審核');
   expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(1);
@@ -191,8 +208,64 @@ test('PLATFORM_APPLY — admin entry automatically submits once and waits withou
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
+test('ADMIN_INCLIENT_UNAUTH — signed-out LIFF browser retries initialization once without a login button or loop',async({page})=>{
+ const h=await setup(page,'manager',{entry:'admin',inClient:true,loggedIn:false});try{
+  await expect(page.locator('#platformStatus')).toContainText('LINE 登入未完成');
+  await expect(page.locator('#applicationWorkspace')).toBeHidden();
+  expect(await page.evaluate(()=>sessionStorage.getItem('admin-line-auto-attempt-v1'))).not.toBeNull();
+  expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
+  expect(h.providerCalls).toEqual([]);
+  expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(0);
+  await page.reload();
+  await expect(page.locator('#platformStatus')).toContainText('LINE 登入未完成');
+  expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
+  expect(h.errors).toEqual([]);
+ }finally{await h.db.close();}
+});
+test('ADMIN_INCLIENT_RECOVERY — automatic LIFF reinit restores login without manual buttons or duplicate applications',async({page})=>{
+ await page.addInitScript(()=>{
+  if(sessionStorage.getItem('admin-line-auto-attempt-v1'))sessionStorage.setItem('qaLoggedIn','1');
+ });
+ const h=await setup(page,'manager',{entry:'admin',inClient:true,loggedIn:false});try{
+  await expect(page.locator('#applicationForm')).toBeVisible();
+  await expect(page.locator('#applicationProgress')).toBeHidden();
+  expect(await page.evaluate(()=>window.initializedLiffId)).toBe('2010791619-admin');
+  expect(await page.evaluate(()=>sessionStorage.getItem('admin-line-auto-attempt-v1'))).toBeNull();
+  expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
+  expect(h.providerCalls.length).toBeGreaterThan(0);
+  expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(0);
+  expect(h.errors).toEqual([]);
+ }finally{await h.db.close();}
+});
+test('ADMIN_EXTERNAL_UNAUTH — external visitor launches LINE login, callback authenticates without auto-submitting review',async({page})=>{
+ const h=await setup(page,'manager',{entry:'admin',inClient:false,loggedIn:false});try{
+  await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[]]);
+  await expect(page.locator('#applicationForm')).toBeHidden();
+  expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(0);
+  await page.evaluate(()=>sessionStorage.setItem('qaLoggedIn','1'));
+  await page.reload();
+  await expect(page.locator('#applicationForm')).toBeVisible();
+  expect(await page.evaluate(()=>window.initializedLiffId)).toBe('2010791619-admin');
+  expect(await page.evaluate(()=>sessionStorage.getItem('admin-line-auto-attempt-v1'))).toBeNull();
+  expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(0);
+  expect(h.errors).toEqual([]);
+ }finally{await h.db.close();}
+});
+test('ADMIN_EXTERNAL_CALLBACK_FAILED — rejected or missing session stops without repeated redirects',async({page})=>{
+ const h=await setup(page,'manager',{entry:'admin',inClient:false,loggedIn:false});try{
+  await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[]]);
+  await page.reload();
+  await expect(page.locator('#platformStatus')).toContainText('LINE 登入未完成');
+  expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
+  await page.reload();
+  expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
+  expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(0);
+  expect(h.errors).toEqual([]);
+ }finally{await h.db.close();}
+});
 test('PLATFORM_MANAGER_SETUP — approved admin can configure own LINE but cannot edit feature grants',async({page})=>{
  const h=await setup(page,'manager',{entry:'admin'});try{
+  await submitMerchantApplication(page);
   await expect(page.locator('#applicationProgress')).toContainText('等待總管理員審核');
   const app=(await h.call({action:'platform.bootstrap'})).body.data.applications[0];
   const features=Object.fromEntries(Object.keys(h.tenant.features).map(k=>[k,k==='membership']));
@@ -444,6 +517,7 @@ test('PLATFORM_UNMATCHED_ROOT — an unbound LINE identity sees only pending sta
 });
 test('PLATFORM_ADMIN_TOP_GRANTS — Lumen header exposes only server-approved modules, rejects forged feature links',async({page})=>{
  const h=await setup(page,'manager',{entry:'admin'});try{
+  await submitMerchantApplication(page);
   await expect(page).toHaveURL(/\/admin\/?$/);
   await expect(page.locator('#applicationProgress')).toContainText('等待總管理員審核');
   await expect(page.locator('#merchantFeatureNav')).toBeHidden();
