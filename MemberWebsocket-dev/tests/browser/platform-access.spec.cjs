@@ -45,7 +45,10 @@ test('AC-PLAT-207: LINE creates super_admins pending; only a Supabase Table Edit
   const manager=await open('manager');
   await expect(manager.locator('#platformAuthorizationNotice')).toBeVisible();
   await expect(manager.locator('#platformWorkspace')).toBeHidden();
-  await expect(manager.locator('#platformAuthorizationNotice')).toContainText('super_admins');
+  await expect(manager.locator('#platformAuthorizationNotice')).toHaveText('總管理員權限尚未核准');
+  await expect(manager.locator('#platformStatus')).toBeHidden();
+  await expect(manager.locator('#platformHeader')).toBeHidden();
+  await expect(manager.locator('#platformLoginGate,#platformLoginButton')).toHaveCount(0);
   const pending=(await h.db.query('select singleton,admin_id,enabled,display_name from platform_private.super_admins where line_user_id=$1',['U'+'2'.repeat(32)])).rows[0];
   expect(pending.singleton).toBe(null);
   expect(pending.admin_id).toBe(null);
