@@ -64,7 +64,7 @@ test('deployment changes trigger the same full suite on PR and develop push', ()
 });
 
 test('preview uses the latest exact-commit CI gate before publishing and preserves alias scope', () => {
-  assert.ok(preview.indexOf('node scripts/check-preview-ci.mjs') < preview.indexOf('node scripts/netlify-preview-source.mjs --publish'));
+  assert.ok(preview.indexOf('node scripts/check-preview-ci.mjs') < preview.indexOf('node scripts/verify-netlify-native-preview.mjs'));
   assert.ok(preview.indexOf('node scripts/check-preview-ci.mjs') < preview.indexOf('netlify-cli@'));
   assert.match(preview, /if \[ "\$result" != 2 \]/);
   assert.match(preview, /--alias="\$PLATFORM_ALIAS"/);
@@ -93,33 +93,36 @@ test('release-only changes trigger every required preview workflow on push and P
   assert.match(preview.split('permissions:')[0], /'\.github\/workflows\/test-memberwebsocket-dev.yml'/);
 });
 
-test('integrated preview publishes an exact SHA branch ZIP after full CI, never a production deploy or Draft alias', () => {
+test('integrated preview verifies the CI-gated native branch without a conflicting ZIP publisher', () => {
   const sourceBranch = 'if [ "$GITHUB_REF_NAME" = Integrated-Marketing-Platform ]; then';
+  const inspect = 'node scripts/inspect-preview-source.mjs';
+  const native = 'node scripts/verify-netlify-native-preview.mjs';
   const ci = 'node scripts/check-preview-ci.mjs';
-  const upload = 'node scripts/netlify-preview-source.mjs --publish';
   const netlify = readFileSync(new URL('../scripts/netlify-preview-source.mjs', import.meta.url), 'utf8');
   assert.ok(preview.includes(sourceBranch));
   assert.ok(preview.includes("'integrated-marketing-platform' || 'platform'"));
-  assert.ok(preview.indexOf(ci) < preview.indexOf('- name: Build and verify the exact platform frontend'));
-  assert.ok(preview.indexOf('zip -qr ../evidence/platform-preview.zip') < preview.indexOf(upload));
-  assert.ok(preview.indexOf('node scripts/inspect-preview-source.mjs') < preview.indexOf(upload));
+  assert.ok(preview.indexOf(ci) < preview.indexOf(inspect));
+  assert.ok(preview.indexOf(inspect) < preview.indexOf(native));
+  assert.ok(preview.indexOf(native) < preview.indexOf('- name: Build and verify the exact platform frontend'));
+  assert.ok(preview.includes('VERIFIED_PREVIEW_SOURCE_EPOCH=$(git show -s --format=%ct'));
+  assert.ok(preview.includes('DEPLOY_ID=$(jq -er'));
+  assert.ok(preview.includes('zip -qr ../evidence/platform-preview.zip'));
   assert.ok(preview.includes('test "$current" = "$GITHUB_SHA"'));
   assert.ok(preview.includes(`test "$(jq -er '.source_sha' evidence/platform-deploy.json)" = "$GITHUB_SHA"`));
-  assert.ok(preview.includes(`test "$(jq -er '.source_branch' evidence/platform-deploy.json)" = "$GITHUB_REF_NAME"`));
   assert.ok(preview.includes(`test "$(jq -er '.production_deploy_unchanged' evidence/platform-deploy.json)" = "true"`));
-  const uploadClause = preview.slice(preview.indexOf(sourceBranch), preview.indexOf('          else', preview.indexOf(sourceBranch)));
-  assert.ok(!uploadClause.includes('netlify-cli@'), 'Integrated source must not upload an alias Draft');
-  assert.ok(!uploadClause.includes('--prod'), 'Integrated source must not publish production');
-  assert.doesNotMatch(preview, /- name: Identify the native artifact before reproducing it/);
-  assert.ok(netlify.includes('publishPreviewBranch'), 'Uploader must enforce exact branch and site identity');
-  assert.ok(netlify.includes('site.build_settings?.repo_path !== repository'));
-  assert.ok(netlify.includes('production_deploy_unchanged: true'));
+  const nativeClause = preview.slice(preview.indexOf(sourceBranch), preview.indexOf('          else', preview.indexOf(sourceBranch)));
+  assert.ok(!nativeClause.includes('netlify-cli@'), 'No Draft alias may replace this native Git branch');
+  assert.ok(!nativeClause.includes('netlify-preview-source.mjs --publish'), 'Native branch must have exactly one publisher');
+  assert.ok(nativeClause.includes('node scripts/verify-netlify-native-preview.mjs'));
+  assert.ok(!nativeClause.includes('--prod'), 'Integrated branch must never publish production');
+  assert.ok(preview.indexOf(native, preview.indexOf(sourceBranch)) < preview.indexOf('cat evidence/platform-deploy.json'));
+  assert.ok(netlify.includes('awaitVerifiedPreviewCI'), 'Netlify native build must require exact SHA CI');
+  assert.ok(netlify.includes('isNativeVerifiedPreview(process.env)'), 'Only native branch build may use its CI gate');
   assert.ok(preview.includes("redirects = [] if os.environ['GITHUB_REF_NAME'] == 'Integrated-Marketing-Platform'"));
-  assert.ok(!preview.includes('--prod'));
   assert.ok(preview.includes("config['redirects']"));
   assert.ok(preview.includes("config['headers']"));
   assert.ok(preview.includes('dist/_headers'));
-  assert.ok(preview.includes('zip -qr ../evidence/platform-preview.zip'));
+  assert.ok(!preview.includes('--prod'));
   const config = readFileSync(new URL('../netlify.toml', import.meta.url), 'utf8');
   assert.ok(config.includes('command = "node scripts/netlify-preview-source.mjs --build"'));
   assert.ok(config.includes('ignore = "node ./scripts/netlify-preview-source.mjs --ignore"'));
