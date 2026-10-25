@@ -56,6 +56,8 @@ PY
 )"
 
 browser-act --session "$SESSION" browser open "$BROWSER_ID" "$TARGET_URL/"
+FAILURES=0
+AUTH_GATES=0
 for page in home member booking points admin; do
   if [[ "$page" == home ]]; then
     URL="$TARGET_URL/"
@@ -82,7 +84,10 @@ PY
     fi
   fi
   browser-act --session "$SESSION" wait stable > "$OUT/$page-wait.txt" 2>&1 || true
-  browser-act --session "$SESSION" state > "$OUT/$page-state.txt" || true
+  if ! browser-act --session "$SESSION" state > "$OUT/$page-state.txt"; then
+    echo "$page: state unavailable" >> "$OUT/page-failures.txt"
+    FAILURES=$((FAILURES + 1))
+  fi
   # Do not retain OAuth state, code challenge, or redirect query strings in artifacts.
   sed -i -E 's@https://access\.line\.me/[^[:space:]]+@https://access.line.me/[REDACTED]@g' "$OUT/$page-state.txt"
   browser-act --session "$SESSION" eval \
@@ -105,9 +110,43 @@ PY
       return JSON.stringify({url:location.href,title:document.title,
         viewportWidth:innerWidth,viewportHeight:innerHeight,
         bodyLength:document.body.innerText.length,failedAssets:assets});
-    })()" > "$OUT/$page-assertion.txt" 2> "$OUT/$page-eval-error.txt" || echo "$page: BrowserAct evaluation failed" >> "$OUT/navigation-warnings.txt"
+  if browser-act --session "$SESSION" eval \
+    "(() => {
+      if (!document.body || document.readyState === 'loading') throw Error('PAGE_NOT_READY');
+      if (location.hostname === 'access.line.me' && location.pathname.startsWith('/oauth2/'))
+        return JSON.stringify({status:'AUTH_REQUIRED',provider:'LINE',note:'Anonymous account cannot inspect protected UI'});
+      if (/(正在驗證 LINE 身分|正在登入會員卡|正在登入會員|LINE 身分驗證)/.test(document.body.innerText))
+        return JSON.stringify({status:'AUTH_PENDING',note:'LIFF identity check still pending, business UI not asserted'});
+      if (!['integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app',
+            'develop--memberwebsocket-dev-netlify.netlify.app'].includes(location.hostname))
+        throw Error('UNEXPECTED_REDIRECT');
+      if (/^(404|not found|page not found)/i.test(document.title.trim()))
+        throw Error('NOT_FOUND_DOCUMENT');
+      if (!document.body.innerText.trim()) throw Error('EMPTY_DOCUMENT');
+      const assets = performance.getEntriesByType('resource')
+        .filter(x => /\\.(js|css)(\\?|$)/i.test(x.name) && x.responseStatus >= 400)
+        .map(x => ({ url: x.name, status: x.responseStatus }));
+      if (assets.length) throw Error('ASSET_HTTP_FAILURE: ' + JSON.stringify(assets));
+      return JSON.stringify({url:location.href,title:document.title,
+        viewportWidth:innerWidth,viewportHeight:innerHeight,
+        bodyLength:document.body.innerText.length,failedAssets:assets});
+    })()" > "$OUT/$page-assertion.txt" 2> "$OUT/$page-eval-error.txt"; then
+    if grep -Eq 'AUTH_REQUIRED|AUTH_PENDING' "$OUT/$page-assertion.txt"; then
+      AUTH_GATES=$((AUTH_GATES + 1))
+      echo "$page: authorization gated; no protected operation attempted" >> "$OUT/auth-gated-pages.txt"
+    fi
+  else
+    echo "$page: BrowserAct evaluation failed" >> "$OUT/page-failures.txt"
+    FAILURES=$((FAILURES + 1))
+  fi
+
   browser-act --session "$SESSION" network requests > "$OUT/$page-network.txt" 2>&1 || true
   sed -i -E 's@https://access\.line\.me/[^[:space:]]+@https://access.line.me/[REDACTED]@g' "$OUT/$page-network.txt"
-  browser-act --session "$SESSION" screenshot "$OUT/$page.png" >/dev/null 2>&1 || true
+  if ! browser-act --session "$SESSION" screenshot "$OUT/$page.png" >/dev/null 2>&1; then
+    echo "$page: screenshot failed" >> "$OUT/page-failures.txt"
+    FAILURES=$((FAILURES + 1))
+  fi
   echo "BrowserAct checked: $page"
 done
+printf 'failures=%s auth_gated=%s\n' "$FAILURES" "$AUTH_GATES" | tee "$OUT/summary.txt"
+if (( FAILURES > 0 )); then exit 1; fi
