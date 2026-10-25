@@ -9,11 +9,13 @@ on:
       - .github/workflows/browseract-e2e.yml
       - scripts/browseract-e2e-smoke.sh
       - scripts/browseract-mobile-compat.cjs
+      - scripts/browseract-live-handoff.sh
   pull_request:
     paths:
       - .github/workflows/browseract-e2e.yml
       - scripts/browseract-e2e-smoke.sh
       - scripts/browseract-mobile-compat.cjs
+      - scripts/browseract-live-handoff.sh
   workflow_dispatch:
     inputs:
       preview_url:
@@ -70,7 +72,12 @@ jobs:
         run: |
           set -Eeuo pipefail
           bash -n scripts/browseract-e2e-smoke.sh
+          bash -n scripts/browseract-live-handoff.sh
           node --check scripts/browseract-mobile-compat.cjs
+          if bash scripts/browseract-live-handoff.sh https://memberwebsocket-dev-netlify.netlify.app; then
+            echo "::error::Production URL passed local Remote Assist safety guard"
+            exit 1
+          fi
           if bash scripts/browseract-e2e-smoke.sh https://memberwebsocket-dev-netlify.netlify.app; then
             echo "::error::Production URL passed BrowserAct safety guard"
             exit 1
