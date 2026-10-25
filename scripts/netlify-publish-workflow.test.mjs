@@ -105,7 +105,7 @@ test('integrated preview publishes an exact SHA branch ZIP after full CI, never 
   assert.ok(preview.includes('test "$current" = "$GITHUB_SHA"'));
   assert.ok(preview.includes(`test "$(jq -er '.source_sha' evidence/platform-deploy.json)" = "$GITHUB_SHA"`));
   assert.ok(preview.includes(`test "$(jq -er '.source_branch' evidence/platform-deploy.json)" = "$GITHUB_REF_NAME"`));
-  assert.match(preview, /\\.production_deploy_unchanged/);
+  assert.ok(preview.includes(`test "$(jq -er '.production_deploy_unchanged' evidence/platform-deploy.json)" = "true"`));
   const uploadClause = preview.slice(preview.indexOf(sourceBranch), preview.indexOf('          else', preview.indexOf(sourceBranch)));
   assert.ok(!uploadClause.includes('netlify-cli@'), 'Integrated source must not upload an alias Draft');
   assert.ok(!uploadClause.includes('--prod'), 'Integrated source must not publish production');
