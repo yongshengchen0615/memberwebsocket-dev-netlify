@@ -4,7 +4,7 @@ import { openCredentials } from './platform-crypto.mjs';
 import { resolvePlatformEncryptionKey } from './platform-key.mjs';
 import { tenantExpired, assertTenantIdentity } from './tenant-access.mjs';
 import { verifyMerchantAdminIdToken } from './platform-auth.mjs';
-import { merchantOnboarding } from './merchant-onboarding.mjs';
+import { merchantOnboarding, featureLineReady } from './merchant-onboarding.mjs';
 import { wakeBookingNotifications } from './booking-notification-wake.mjs';
 import { notificationToken } from './notification-routes.mjs';
 export type { SupabaseClient } from 'npm:@supabase/supabase-js@2.57.0';
@@ -131,7 +131,7 @@ async function credentials(c:Context,feature?:string){
  c.active_feature=feature;
  if(module)c.line_config={...c.line_config,...module.line};
  const configured=module?module.credentialsConfigured===true:c.credentials_configured;
- c.customLineReady=merchantOnboarding({status:c.status,features:feature?{[feature]:true}:c.features,line:c.line_config,credentialsConfigured:configured}).configurationComplete;
+ c.customLineReady=feature?featureLineReady(feature,c.line_config):merchantOnboarding({status:c.status,features:c.features,line:c.line_config,credentialsConfigured:configured}).configurationComplete;
  const db=control();
  if(configured){
   const result=await db.rpc(module?'platform_module_credentials':'platform_business_credentials',module?{p_tenant_id:c.id,p_feature:feature}:{p_tenant_id:c.id});

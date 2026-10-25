@@ -2,7 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const database=require('./database.cjs');
 const baseSetup=require('../fixtures/booking-event-setup.cjs');
 const {register,helpers}=require('../fixtures/booking-risk-cases.cjs');
-const setup=async()=>baseSetup(await database());
+const setup=async options=>baseSetup({...await database(),...options});
 register(test,setup,'PostgreSQL 17 TCP');
 
 async function waitForLock(h,client){
@@ -75,7 +75,7 @@ test('PostgreSQL 17: existing-tenant upgrade and pg_dump/pg_restore preserve row
   const signature=s+'.admin_update_booking_participant_items_request(uuid,timestamptz,text,jsonb)';
   const originalType=(await h.db.query('select prorettype::oid result from pg_proc where oid=$1::regprocedure',[signature])).rows[0].result;
   await h.db.exec('set search_path=public,extensions');
-  for(const name of ['20261021045559_booking_notification_event_repair.sql','20261021045611_booking_no_show_policy.sql','20261021060609_booking_risk_appeal_resolution.sql','20261021061400_booking_risk_member_lock.sql'])await h.db.exec(fs.readFileSync(path.resolve(__dirname,'../../../supabase/migrations',name),'utf8'));
+  for(const name of ['20261021045559_booking_notification_event_repair.sql','20261021045611_booking_no_show_policy.sql','20261021060609_booking_risk_appeal_resolution.sql','20261021061400_booking_risk_member_lock.sql','20261025125207_booking_risk_record_context.sql'])await h.db.exec(fs.readFileSync(path.resolve(__dirname,'../../../supabase/migrations',name),'utf8'));
   assert.equal((await h.db.query('select prorettype::oid result from pg_proc where oid=$1::regprocedure',[signature])).rows[0].result,originalType);
   await h.db.query(`update ${s}.booking_no_show_policy set contact_text='Restore marker'`);
   const before=(await h.db.query(`select (select count(*)::int from ${s}.members) members,(select count(*)::int from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname=$1 and c.relkind='r' and c.relrowsecurity) rls`,[s])).rows[0];

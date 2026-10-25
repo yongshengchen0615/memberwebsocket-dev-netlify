@@ -104,7 +104,7 @@
       const secret = ['channelAccessToken','channelSecret'].includes(input.name);
       const sharedIdentity = Object.hasOwn(businessLogin, input.name);
       if (reset || !view.dirty.has(input.name)) input.value = secret ? '' : {...tenant.line,...tenant.moduleLine?.[view.feature]?.line}[input.name] || '';
-      input.required = (!secret || !(tenant.moduleLine?.[view.feature]?.credentialsConfigured || tenant.credentialsConfigured))
+      input.required = !secret && input.name !== 'messagingChannelId'
         && !(sharedIdentity && view.identityBlock?.hidden);
       input.disabled = sharedIdentity && Boolean(view.identityBlock?.hidden);
       if(['adminChannelId','adminLiffId'].includes(input.name))input.readOnly=Boolean(tenant.line?.[input.name]);
@@ -120,7 +120,7 @@
     copy.onclick = async () => { try { await navigator.clipboard.writeText(endpoint.href); view.status.textContent = '已複製' + view.label + '用戶端連結。'; } catch { view.status.textContent = '請複製下方的完整網址。'; } };
     view.links.append(a, copy, node('p', 'LIFF Endpoint URL（含商家代碼）'), code);
     const id = {...tenant.line,...tenant.moduleLine?.[view.feature]?.line}[view.key];
-    if ((tenant.moduleLine?.[view.feature]?.credentialsConfigured || tenant.onboarding?.configurationComplete) && /^\d{5,30}-[A-Za-z0-9_-]+$/.test(id || '')) {
+    if (id?.startsWith({...tenant.line,...tenant.moduleLine?.[view.feature]?.line}.memberChannelId+'-') && /^\d{5,30}-[A-Za-z0-9_-]+$/.test(id || '')) {
       const liff = node('a', '開啟已儲存的 LINE 入口'); liff.href = 'https://liff.line.me/' + id;
       liff.target = '_blank'; liff.rel = 'noopener noreferrer'; view.links.append(liff);
     }
@@ -274,9 +274,9 @@
         for (const input of identityFields.querySelectorAll('input')) { input.id = form.id + '-' + input.name; input.setAttribute('aria-describedby',input.id+'-help'); input.nextElementSibling.id=input.id+'-help'; }
         identity.append(node('h3','商家共用登入設定（僅首次設定）'),node('p','商家管理端 LINE Login 身分跨功能共用；會員端 Login Channel 與 LIFF 則依功能獨立設定。'),identityFields);
         form.append(identity); view.identityBlock = identity;
-        const shared = node('details'); shared.open = !(tenant.moduleLine?.[feature]?.credentialsConfigured || tenant.credentialsConfigured);
-        shared.append(node('summary','本功能 Messaging API 憑證（初次建立或需要通知時）'));
-        shared.append(node('p','LINE 入口設定與通知用途分開管理。初次啟用本功能時，若無可沿用的訊息憑證，需填寫本區資料；已設定的憑證留空即保留。通知用途可在下方另外選擇共用或獨立 Channel。'));
+        const shared = node('details'); shared.open = false;
+        shared.append(node('summary','本功能 Messaging API 憑證（需要通知時設定）'));
+        shared.append(node('p','有效的 Login Channel 與 LIFF 即可啟用本功能入口；不發送通知時，本區可全部留空。需要通知時請同時設定 Messaging API Channel、Token 與 Secret，再驗證通知通道。已設定的憑證留空即保留；更換 Channel 時必須同時更新憑證。'));
         const grid = node('div','','business-line-fields');
         for (const [name,text] of Object.entries(moduleMessaging)) addField(grid,name,text,['channelAccessToken','channelSecret'].includes(name));
         for (const input of grid.querySelectorAll('input')) { input.id = form.id + '-' + input.name; input.setAttribute('aria-describedby',input.id+'-help'); input.nextElementSibling.id=input.id+'-help'; }

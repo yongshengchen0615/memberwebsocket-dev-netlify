@@ -32,7 +32,7 @@ Deno.test('AC-186: dispatch resolves each purpose and never falls back from disa
  }) as typeof fetch;
  try{
   const handler=businessHandler('api',async()=>{
-   const db=createClient('https://runtime-fixture.supabase.co','fixture');
+   const db=createClient('https://runtime-fixture.supabase.co','fixture',{auth:{autoRefreshToken:false,persistSession:false}});
    const config=await db.rpc('booking_notification_config');
    const nested=await withBusinessModule('points',async()=>await db.rpc('get_line_messaging_token'));
    assert(nested.data==='synthetic-points','a DB client created before withBusinessModule must read the active module token');
@@ -66,7 +66,7 @@ Deno.test('AC-210: production request adapter enforces fresh grants, private sch
   const handler=businessHandler('api',async()=>{
    invoked++;
    await Promise.resolve();
-   const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+   const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{autoRefreshToken:false,persistSession:false}});
    const result=await db.from('members').select('id');
    return new Response(JSON.stringify({ok:true,data:result.data}));
   });
@@ -80,7 +80,7 @@ Deno.test('AC-210: production request adapter enforces fresh grants, private sch
   const concurrent=await Promise.all(Array.from({length:16},(_,i)=>handler(i%2?request('merchant-b','admin.pointcards.save',token(ownerB)):request())));
   for(const [i,res]of concurrent.entries())assert((await res.json()).data[0].id===(i%2?b:a).runtime_schema,'async scopes crossed');
   const storage=businessHandler('api',async()=>{
-   const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+   const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{autoRefreshToken:false,persistSession:false}});
    const url=await db.storage.from('booking-receipts').createSignedUrl('member/a.png',60);
    assert(url.data?.signedUrl.includes(a.id+'/member/a.png'));
    let rejected=false;try{await db.storage.from('booking-receipts').remove(['../other-business/a.png']);}catch{rejected=true;}assert(rejected);
@@ -135,7 +135,7 @@ Deno.test('AC-ENV-002/003: request adapter reads only the action module credenti
   throw Error('unexpected request '+path);
  }) as typeof fetch;
  try{
-  const handler=businessHandler('api',async()=>{const db=createClient('https://runtime-fixture.supabase.co','fixture');const result=await db.rpc('get_line_messaging_token');return new Response(JSON.stringify({token:result.data,channel:businessEnv('LINE_MEMBER_CHANNEL_ID')}));});
+  const handler=businessHandler('api',async()=>{const db=createClient('https://runtime-fixture.supabase.co','fixture',{auth:{autoRefreshToken:false,persistSession:false}});const result=await db.rpc('get_line_messaging_token');return new Response(JSON.stringify({token:result.data,channel:businessEnv('LINE_MEMBER_CHANNEL_ID')}));});
   for(const f of ['membership','points']){
    const req=()=>new Request('https://api.test',{method:'POST',body:JSON.stringify({business:'merchant-a',action:f==='membership'?'admin.member.update':'admin.pointcards.save',idToken:token(ownerA)})});
    const data=await(await handler(req())).json();assert(data.token==='synthetic-'+f);assert(data.channel===(f==='membership'?'2010787602':'2010789999'));
@@ -165,9 +165,9 @@ Deno.test('AC-187-003: real Storage SDK keeps signed upload paths scoped and rej
  try{
   // The browser uses an unscoped publishable client; the API signs via its
   // scoped service client. A token is usable only with the SDK-returned path.
-  const browser=createClient('https://runtime-fixture.supabase.co','sb_publishable_synthetic');
+  const browser=createClient('https://runtime-fixture.supabase.co','sb_publishable_synthetic',{auth:{autoRefreshToken:false,persistSession:false}});
   for(const tenant of [null,a,b]){
-   const sign=()=>createClient('https://runtime-fixture.supabase.co','server-only-fixture').storage.from('booking-receipts').createSignedUploadUrl('member/receipt.png',{upsert:false});
+   const sign=()=>createClient('https://runtime-fixture.supabase.co','server-only-fixture',{auth:{autoRefreshToken:false,persistSession:false}}).storage.from('booking-receipts').createSignedUploadUrl('member/receipt.png',{upsert:false});
    const result=tenant?await scope.run(tenant,sign):await sign();
    assert(!result.error&&result.data);
    const data=result.data!;assert(data.path===(tenant?tenant.id+'/':'')+'member/receipt.png');
@@ -180,4 +180,24 @@ Deno.test('AC-187-003: real Storage SDK keeps signed upload paths scoped and rej
   }
   assert(objects.size===3,'legacy and the two tenants have distinct stored objects');
  }finally{globalThis.fetch=previous;}
+});
+
+Deno.test('#124 LIFF-only runtime uses the module Login/LIFF without loading any Messaging secret',async()=>{
+ const previousEnv=Deno.env.get,previous=globalThis.fetch;
+ Deno.env.get=(name:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture',LINE_CALENDAR_CHANNEL_ID:'2099999999'} as Record<string,string>)[name];
+ globalThis.fetch=(async(input:RequestInfo|URL)=>{
+  const path=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url).pathname;
+  if(path.endsWith('/platform_business_context_v2'))return new Response(JSON.stringify({...a,features:{...a.features,calendar:true},credentials_configured:false,line_config:{adminChannelId:'2010791619',adminLiffId:'2010791619-admin'},module_line:{calendar:{credentialsConfigured:false,line:{memberChannelId:'2010787602',calendarLiffId:'2010787602-calendar',messagingChannelId:''}}}}));
+  throw Error('LIFF-only runtime must not load Messaging credentials: '+path);
+ }) as typeof fetch;
+ try{
+  const handler=businessHandler('api',async()=>{
+   const db=createClient('https://runtime-fixture.supabase.co','fixture',{auth:{autoRefreshToken:false,persistSession:false}}),liff=await db.rpc('get_line_setting',{p_key:'LINE_CALENDAR_LIFF_ID'}),token=await db.rpc('get_line_messaging_token');
+   return new Response(JSON.stringify({channel:businessEnv('LINE_CALENDAR_CHANNEL_ID'),liff:liff.data,token:token.data}));
+  });
+  const response=await handler(new Request('https://api.test',{method:'POST',body:JSON.stringify({business:'merchant-a',action:'user.calendar.bootstrap',idToken:token(ownerA)})}));
+  assert(response.status===200);const result=await response.json();
+  assert(result.channel==='2010787602','LIFF-only requests must verify against their module Login channel');
+  assert(result.liff==='2010787602-calendar');assert(result.token===null);
+ }finally{Deno.env.get=previousEnv;globalThis.fetch=previous;}
 });

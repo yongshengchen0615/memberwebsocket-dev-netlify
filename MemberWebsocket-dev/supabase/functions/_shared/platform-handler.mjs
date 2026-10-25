@@ -1,3 +1,4 @@
+import { featureLineReady } from './merchant-onboarding.mjs';
 import { FEATURES, PlatformError, publicTenant, validateTenant } from './platform-policy.mjs';
 import { payloadHash, sealCredentials, openCredentials } from './platform-crypto.mjs';
 import { assertTenantIdentity, normalizeExpiry } from './tenant-access.mjs';
@@ -28,6 +29,16 @@ export function databaseError(error) {
   return new PlatformError(503,'PLATFORM_DATABASE_UNAVAILABLE','目前無法儲存或讀取商家設定。');
 }
 export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdentity = verifyIdentity, encryptionKey, allowedOrigins, fetchImpl = fetch }) {
+  const moduleCredentials = async (current, feature) => {
+    const stored=await db.rpc('platform_module_credentials',{p_tenant_id:current.id,p_feature:feature});
+    if(stored.error)throw databaseError(stored.error);
+    if(stored.data?.envelope || current.moduleLine?.[feature] || !current.credentialsConfigured)return stored;
+    // A legacy tenant envelope can be inherited only before this module owns a
+    // configuration. Its AES associated data remains the tenant identifier.
+    const legacy=await db.rpc('platform_business_credentials',{p_tenant_id:current.id});
+    if(legacy.error)throw databaseError(legacy.error);
+    return {data:legacy.data?{envelope:legacy.data,scope:'tenant'}:null,error:null};
+  };
   return async request => {
     const origin = request.headers.get('Origin');
     const headers = { 'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Vary':'Origin',
@@ -61,7 +72,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         const module=body.feature && tenant.features[body.feature]===true?tenant.moduleLine?.[body.feature]:null;
         if(body.feature!==undefined && (!Object.hasOwn(FEATURES,body.feature)||tenant.features[body.feature]!==true))throw new PlatformError(403,'FEATURE_DISABLED','此功能尚未開放。');
         return json({ok:true,data:{business:tenant.slug,name:tenant.name,features:tenant.features,
-          line:module?.credentialsConfigured?{...tenant.line,...module.line}:tenant.onboarding.configurationComplete?tenant.line:{adminLiffId:tenant.line?.adminLiffId||''}}});
+          line:body.feature && featureLineReady(body.feature,{...tenant.line,...module?.line})?{...tenant.line,...module?.line}:tenant.onboarding.configurationComplete?tenant.line:{adminChannelId:tenant.line?.adminChannelId||'',adminLiffId:tenant.line?.adminLiffId||''}}});
       }
       if (typeof body.idToken !== 'string' || !body.idToken || body.idToken.length > 10_000) throw new PlatformError(401,'AUTH_REQUIRED','請使用 LINE 帳號登入。');
       const qualificationAction = ['platform.qualification.bootstrap','platform.qualification.submit','platform.qualification.list','platform.qualification.review'].includes(body.action);
@@ -207,12 +218,14 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         if (current.features?.[body.feature]!==true) throw new PlatformError(403,'FEATURE_DISABLED','此功能尚未核准。');
         const route=current.moduleLine?.[body.feature]?.notifications?.[body.purpose];
         if(route?.mode==='disabled')throw new PlatformError(409,'NOTIFICATION_DISABLED','請先啟用此用途通知。');
+        if(route?.mode!=='custom' && !(current.moduleLine?.[body.feature] ? current.moduleLine[body.feature].credentialsConfigured : current.credentialsConfigured))
+          throw new PlatformError(409,'NOTIFICATION_NOT_CONFIGURED','請先儲存本模組 Messaging API Channel 與完整憑證，並驗證通知通道。');
         const hash=await payloadHash({feature:body.feature,purpose:body.purpose,expectedVersion:body.expectedVersion});
         const args={p_actor:actor,p_feature:body.feature,p_purpose:body.purpose,p_expected_version:body.expectedVersion,p_request_id:body.requestId,p_payload_hash:hash};
         const claim=await merchantWrite('platform_notification_test',args,workspace);if(claim.error)throw databaseError(claim.error);
         if(claim.data?.state==='accepted')return json({ok:true,data:claim.data});
         const custom=route?.mode==='custom';
-        const stored=await db.rpc(custom?'platform_notification_credentials':'platform_module_credentials',{p_tenant_id:current.id,p_feature:body.feature});
+        const stored=custom?await db.rpc('platform_notification_credentials',{p_tenant_id:current.id,p_feature:body.feature}):await moduleCredentials(current,body.feature);
         if(stored.error)throw databaseError(stored.error);
         const secret=custom?stored.data?.[body.purpose]:stored.data;
         if(!secret?.envelope)throw new PlatformError(409,'NOTIFICATION_NOT_CONFIGURED','請先儲存本模組或獨立通知憑證。');
@@ -238,7 +251,16 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         if (workspace.application?.status !== 'approved' || !current) throw new PlatformError(403,'PLATFORM_APPLICATION_NOT_APPROVED','請先等待總管理員核准。');
         if (!current.capabilities.dataPlaneVerified) throw new PlatformError(403,'TENANT_SUSPENDED','此商家已停用或使用期限已到。');
         if (current.features?.[body.feature] !== true) throw new PlatformError(403,'FEATURE_DISABLED','此功能尚未核准。');
-        let encrypted = null;
+        let encrypted = null, inheritedChannel = null;
+        if (body.mode === 'inherit') {
+          const stored=await moduleCredentials(current,body.feature);
+          if(stored.error)throw databaseError(stored.error);
+          inheritedChannel=(current.moduleLine?.[body.feature]?.line || current.line)?.messagingChannelId;
+          if(!stored.data?.envelope || !/^\d{5,30}$/.test(inheritedChannel || ''))
+            throw new PlatformError(409,'NOTIFICATION_NOT_CONFIGURED','請先儲存本模組 Messaging API Channel 與完整憑證，並驗證通知通道。');
+          const credentials=await openCredentials(stored.data.scope==='module'?current.id+':'+body.feature:current.id,stored.data.envelope,await encryptionKey());
+          await verifyNotificationToken(credentials.channelAccessToken,inheritedChannel,fetchImpl);
+        }
         if (body.mode === 'custom') {
           await verifyNotificationToken(body.channelAccessToken,body.messagingChannelId,fetchImpl);
           encrypted = await sealCredentials(current.id+':'+body.feature+':notify:'+body.purpose,
@@ -248,7 +270,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
           channel:body.mode==='custom'?body.messagingChannelId:null,token:body.mode==='custom'?body.channelAccessToken:null});
         const result = await merchantWrite('platform_save_notification_route',{p_actor:actor,p_feature:body.feature,p_purpose:body.purpose,p_mode:body.mode,
           p_expected_version:body.expectedVersion,p_request_id:body.requestId,p_payload_hash:hash,
-          p_channel_id:body.mode==='custom'?body.messagingChannelId:null,p_envelope:encrypted},workspace);
+          p_channel_id:body.mode==='custom'?body.messagingChannelId:inheritedChannel,p_envelope:encrypted},workspace);
         if (result.error) throw databaseError(result.error);
         return json({ok:true,data:{tenant:publicTenant(result.data)}});
       }
@@ -266,14 +288,14 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         if (body.feature !== undefined && current.moduleLine !== undefined) {
           const key={membership:'memberLiffId',points:'pointsLiffId',events:'eventLiffId',calendar:'calendarLiffId',booking:'bookingLiffId'}[body.feature];
           if(!key || current.features[body.feature]!==true)throw new PlatformError(403,'FEATURE_DISABLED','此功能尚未核准。');
-          const existing=current.moduleLine[body.feature];
           for(const other of ['memberLiffId','pointsLiffId','eventLiffId','calendarLiffId','bookingLiffId'])if(other!==key && Object.hasOwn(body.line||{},other) && String(body.line[other]??'')!==String(current.line?.[other]??''))throw new PlatformError(400,'LINE_FEATURE_SCOPE','請只修改本功能的 LIFF 設定。');
           for(const name of ['adminChannelId','adminLiffId'])if(current.line?.[name] && body.line?.[name]!==current.line[name])
             throw new PlatformError(400,'LINE_ADMIN_IDENTITY_IMMUTABLE','管理員登入由商家共用；功能頁只能修改該功能的用戶入口與通知設定。');
           const line=Object.fromEntries(['adminChannelId','memberChannelId','messagingChannelId','adminLiffId',key].map(k=>[k,body.line?.[k]||'']));
           const validated=validateTenant({name:current.name,slug:current.slug,ownerLineUserId:current.ownerLineUserId,
-            features:current.features,line,credentials:body.credentials},!existing?.credentialsConfigured&&!current.credentialsConfigured,{allowIncompleteFeatureLiffs:true});
+            features:current.features,line,credentials:body.credentials},false,{allowIncompleteFeatureLiffs:true,liffFeature:body.feature});
           const scopedLine=Object.fromEntries(Object.keys(line).map(k=>[k,validated.line[k]]));
+          if(validated.credentials.channelAccessToken)await verifyNotificationToken(validated.credentials.channelAccessToken,scopedLine.messagingChannelId,fetchImpl);
           const encrypted=validated.credentials.channelAccessToken?await sealCredentials(current.id+':'+body.feature,validated.credentials,await encryptionKey()):null;
           const hash=await payloadHash({feature:body.feature,expectedVersion:body.expectedVersion,line:scopedLine,credentials:validated.credentials});
           const result=await merchantWrite('platform_save_module_line',{p_actor:actor,p_feature:body.feature,p_expected_version:body.expectedVersion,
