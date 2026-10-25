@@ -112,6 +112,32 @@ jobs:
         env:
           PREVIEW_BASE_URL: https://${{ env.PLATFORM_ALIAS }}--memberwebsocket-dev-netlify.netlify.app
         run: node scripts/verify-platform-preview.mjs
+      # An independent real Chromium browser validates the deployed build.
+      # This test deliberately blocks non-GET and cross-origin requests:
+      # real LINE sign-in requires a separate authorized sandbox acceptance.
+      - name: Install Chromium preview smoke tooling
+        if: github.ref_name == 'Integrated-Marketing-Platform'
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund --prefix MemberWebsocket-dev/tests/browser
+          (cd MemberWebsocket-dev/tests/browser && npx playwright install --with-deps chromium --only-shell)
+      - name: Run read-only Chromium preview acceptance
+        if: github.ref_name == 'Integrated-Marketing-Platform'
+        env:
+          PREVIEW_BASE_URL: https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app
+          COMMIT_REF: ${{ github.sha }}
+        working-directory: MemberWebsocket-dev/tests/browser
+        run: npx playwright test --config=preview.playwright.config.cjs
+      - name: Retain preview browser HTML, JUnit, traces and failure videos
+        if: always() && github.ref_name == 'Integrated-Marketing-Platform'
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-preview-browser-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            MemberWebsocket-dev/tests/browser/preview-browser-results.xml
+            MemberWebsocket-dev/tests/browser/preview-browser-report
+            MemberWebsocket-dev/tests/browser/test-results
+          retention-days: 7
+          if-no-files-found: warn
       - name: Retain deployment identity and per-resource smoke diagnostics
         if: always()
         uses: actions/upload-artifact@v4
