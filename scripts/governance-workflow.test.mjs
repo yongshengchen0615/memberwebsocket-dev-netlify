@@ -53,3 +53,13 @@ test('project status vocabulary stays synchronized with the current nine-stage b
   assert.ok(guardrails.includes('不能把英文舊名稱當成可寫入的欄位值'));
   assert.doesNotMatch(agents, /\*\*目前已知阻擋\*\*.*Chromium/);
 });
+
+test('perpetual development rules require code quality and reproducible before/after performance evidence', () => {
+  assert.match(agents, /程式碼品質檢查/);
+  assert.match(agents, /效能前後比較/);
+  assert.match(guardrails, /程式碼品質與效能/);
+  assert.match(guardrails, /基準 SHA/);
+  assert.match(guardrails, /同一量測條件/);
+  assert.match(guardrails, /沒有實測不得宣稱效能提升/);
+  assert.match(guardrails, /既有功能回歸/);
+});
