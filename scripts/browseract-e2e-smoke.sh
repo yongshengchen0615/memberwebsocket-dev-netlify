@@ -81,9 +81,13 @@ PY
   fi
   browser-act --session "$SESSION" wait stable
   browser-act --session "$SESSION" state > "$OUT/$page-state.txt"
+  # Do not retain OAuth state, code challenge, or redirect query strings in artifacts.
+  sed -i -E 's@https://access\.line\.me/[^[:space:]]+@https://access.line.me/[REDACTED]@g' "$OUT/$page-state.txt"
   browser-act --session "$SESSION" eval \
     "(() => {
       if (!document.body || document.readyState === 'loading') throw Error('PAGE_NOT_READY');
+      if (location.hostname === 'access.line.me' && location.pathname.startsWith('/oauth2/'))
+        return JSON.stringify({status:'AUTH_REQUIRED',provider:'LINE',note:'Anonymous account cannot inspect protected UI'});
       if (!['integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app',
             'develop--memberwebsocket-dev-netlify.netlify.app'].includes(location.hostname))
         throw Error('UNEXPECTED_REDIRECT');
@@ -99,6 +103,7 @@ PY
         bodyLength:document.body.innerText.length,failedAssets:assets});
     })()" > "$OUT/$page-assertion.txt"
   browser-act --session "$SESSION" network requests > "$OUT/$page-network.txt"
+  sed -i -E 's@https://access\.line\.me/[^[:space:]]+@https://access.line.me/[REDACTED]@g' "$OUT/$page-network.txt"
   browser-act --session "$SESSION" screenshot "$OUT/$page.png"
   echo "Read-only BrowserAct smoke complete: $page"
 done
