@@ -63,3 +63,14 @@ test('perpetual development rules require code quality and reproducible before/a
   assert.match(guardrails, /沒有實測不得宣稱效能提升/);
   assert.match(guardrails, /既有功能回歸/);
 });
+
+test('YAGNI: development guidance and PR template prohibit unnecessary complexity', () => {
+  const template = readFileSync(new URL('../.github/PULL_REQUEST_TEMPLATE.md', import.meta.url), 'utf8');
+  assert.match(agents, /避免過度設計/);
+  assert.match(agents, /不為假想需求/);
+  assert.match(guardrails, /YAGNI/);
+  assert.match(guardrails, /先選最小可驗證方案/);
+  assert.match(guardrails, /AC-015/);
+  assert.match(template, /避免過度設計/);
+  assert.match(template, /已評估最小方案/);
+});
