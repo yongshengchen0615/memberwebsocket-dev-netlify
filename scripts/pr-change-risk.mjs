@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 const CORE_MODULES = new Set(['admin', 'platform', 'booking', 'member', 'points', 'event', 'calendar']);
 const EVIDENCE_HEADINGS = ['受影響模組', '測試與驗收', '回退方案'];
 const HIGH_EVIDENCE_HEADINGS = ['架構審查', '發布及資料庫相容性'];
+const QUALITY_EVIDENCE_HEADINGS = ['既有功能回歸', '程式碼品質與效能'];
 
 const normalize = (file) => {
   if (typeof file === 'string') return { filename: file };
@@ -39,14 +40,17 @@ export function classifyChangeSet(rawFiles) {
   if (names.some((name) => !isDoc(name) && isBackendRisk(name))) { score += 3; critical = true; reasons.push('涉及資料庫、Edge Functions、認證或權限相關路徑'); }
   if (names.some((name) => isDeployRisk(name))) { score += 3; critical = true; reasons.push('涉及發佈、CI 或建置路徑'); }
   const level = critical || score >= 6 ? '大改' : score >= 3 ? '中改' : '小改';
-  return { level, score, critical, files: files.map((f) => f.filename), modules, reasons, note: '僅依路徑做初步風險下限判斷；實際資料破壞性、跨系統契約和測試結果須人工審核。' };
+  return { level, score, critical, requiresQualityEvidence: names.some((name) => !isDoc(name) || isDeployRisk(name)), files: files.map((f) => f.filename), modules, reasons, note: '僅依路徑做初步風險下限判斷；實際資料破壞性、跨系統契約和測試結果須人工審核。' };
 }
 
 export function evaluateEvidence(risk, prBody = '') {
-  if (risk.level === '小改') return { passed: true, missing: [] };
   const missing = [];
-  if (!/^## 變更風險評估\s*$/m.test(prBody)) missing.push('變更風險評估');
-  const headings = [...EVIDENCE_HEADINGS, ...(risk.level === '大改' ? HIGH_EVIDENCE_HEADINGS : [])];
+  if (risk.level !== '小改' && !/^## 變更風險評估\s*$/m.test(prBody)) missing.push('變更風險評估');
+  const headings = [
+    ...(risk.requiresQualityEvidence ? QUALITY_EVIDENCE_HEADINGS : []),
+    ...(risk.level === '小改' ? [] : EVIDENCE_HEADINGS),
+    ...(risk.level === '大改' ? HIGH_EVIDENCE_HEADINGS : []),
+  ];
   for (const heading of headings) {
     const match = prBody.match(new RegExp(`^### ${heading}\\s*\\n([\\s\\S]*?)(?=^#{2,3} |$(?![\\s\\S]))`, 'm'));
     const body = match ? match[1].replace(/<!--[\s\S]*?-->/g, '').replace(/^[\s>*-]+/g, '').trim() : '';
@@ -67,7 +71,7 @@ export function reportMarkdown(risk, evidence, prNumber = '?') {
     ...(risk.reasons.length ? risk.reasons.map((reason) => `- ${reason}`) : ['- 未偵測到高風險路徑；仍需人工審核']),
     '',
     `> ${risk.note}`,
-    '> 本檢查只驗證 PR 說明有風險與測試/回退欄位，並不代表 CI、審查或 Preview 已通過。',
+    '> 本檢查只驗證 PR 說明欄位，並不代表效能已量測、既有功能已通過回歸、CI、審查或 Preview 已通過。',
   ];
   return lines.join('\n') + '\n';
 }
