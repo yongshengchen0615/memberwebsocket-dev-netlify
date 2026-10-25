@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      NETLIFY_SITE_ID: 23796c62-480a-4b46-ac90-bfbc5ad4d300
+      NETLIFY_SITE_ID: 196e1d2c-8216-4ba8-aeb9-1706660adc2b
       NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
       GH_TOKEN: ${{ github.token }}
       PLATFORM_ALIAS: ${{ github.ref_name == 'Integrated-Marketing-Platform' && 'integrated-marketing-platform' || 'platform' }}

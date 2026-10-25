@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { blockNativePreview, publishPreviewBranch, previewSite, previewBranch, describePreviewPublishFailure, PreviewProviderError } from './netlify-preview-source.mjs';
 
 const site = { id: previewSite, name: 'memberwebsocket-dev-netlify', build_settings: {
-  repo_path: 'yongshengchen0615/memberwebsocket-dev-netlify', repo_branch: 'master',
+  repo_path: 'yongshengchen0615/memberwebsocket-dev-netlify', repo_branch: 'main',
 }, published_deploy: { id: '6ad34aa232fcb1cea452346f' } };
 const deployId = '6ad8954a695249e48e388cae';
 const deploy = { id: deployId, site_id: previewSite, branch: previewBranch, context: 'branch-deploy', state: 'ready' };

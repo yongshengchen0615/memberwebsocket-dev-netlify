@@ -18,8 +18,8 @@ internal documents and local Netlify state are excluded from `dist`.
 
 ## Netlify configuration
 
-Use the existing project `memberwebsocket-dev-netlify`
-(`23796c62-480a-4b46-ac90-bfbc5ad4d300`). Connect this repository's `main` branch.
+Use the recreated project `memberwebsocket-dev-netlify`
+(`196e1d2c-8216-4ba8-aeb9-1706660adc2b`). Connect this repository's `main` branch, and enable branch deployments for `Integrated-Marketing-Platform`. The recreated site's first production deploy must finish before the native preview verification can run.
 Leave the base and package directories empty. The root `netlify.toml` sets:
 
 - Build command: `node scripts/build-site.mjs`

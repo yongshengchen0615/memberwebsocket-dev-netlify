@@ -2,7 +2,7 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 
-const siteId = '23796c62-480a-4b46-ac90-bfbc5ad4d300';
+const siteId = '196e1d2c-8216-4ba8-aeb9-1706660adc2b';
 const repo = 'yongshengchen0615/memberwebsocket-dev-netlify';
 const branch = 'Integrated-Marketing-Platform';
 const siteName = 'memberwebsocket-dev-netlify';
@@ -17,7 +17,7 @@ export async function verifyNativePreview({ commit, token, source, fetchImpl = f
     !Number.isInteger(attempts) || attempts < 1 || attempts > 120 ||
     !Number.isInteger(delayMs) || delayMs < 0 || delayMs > 30000) fail('INVALID_INPUT');
   if (source?.siteId !== siteId || source.branch !== branch ||
-    source.production?.branch !== 'master' || !/^[a-f0-9]{24}$/.test(source.production?.deployId || '') ||
+    source.production?.branch !== 'main' || !/^[a-f0-9]{24}$/.test(source.production?.deployId || '') ||
     source.build?.repository !== repo) fail('INVALID_SOURCE');
   async function request(resource) {
     let response;
@@ -45,7 +45,7 @@ export async function verifyNativePreview({ commit, token, source, fetchImpl = f
       const site = await request(`/sites/${siteId}`);
       if (site.id !== siteId || site.name !== siteName ||
         site.published_deploy?.id !== source.production.deployId ||
-        site.build_settings?.repo_branch !== 'master' ||
+        site.build_settings?.repo_branch !== 'main' ||
         site.build_settings?.repo_path !== repo) fail('PRODUCTION_IDENTITY_CHANGED');
       return { deploy_id: valid.id, deploy_url: expected,
         immutable_url: `https://${valid.id}--${siteName}.netlify.app`,

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { inspectPreviewSource, summarizePreviewSource } from './inspect-preview-source.mjs';
 
-const siteId = '23796c62-480a-4b46-ac90-bfbc5ad4d300';
+const siteId = '196e1d2c-8216-4ba8-aeb9-1706660adc2b';
 const site = { id: siteId, name: 'memberwebsocket-dev-netlify', build_settings: {
   provider: 'github', repo_path: 'yongshengchen0615/memberwebsocket-dev-netlify',
   repo_branch: 'main', allowed_branches: ['Integrated-Marketing-Platform'],

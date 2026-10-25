@@ -5,7 +5,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 export const previewBranch = 'Integrated-Marketing-Platform';
-export const previewSite = '23796c62-480a-4b46-ac90-bfbc5ad4d300';
+export const previewSite = '196e1d2c-8216-4ba8-aeb9-1706660adc2b';
 const repository = 'yongshengchen0615/memberwebsocket-dev-netlify';
 const siteName = 'memberwebsocket-dev-netlify';
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));

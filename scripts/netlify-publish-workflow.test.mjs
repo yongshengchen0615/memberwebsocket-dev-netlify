@@ -21,8 +21,8 @@ test('preview retrieves exact SHA push evidence for its source branch', () => {
   assert.match(preview, /-f branch="\$GITHUB_REF_NAME"/);
 });
 
-test('production deploy targets only the existing Netlify site with protected credentials', () => {
-  assert.match(flow, /NETLIFY_SITE_ID: 23796c62-480a-4b46-ac90-bfbc5ad4d300/);
+test('production deploy targets only the recreated Netlify site with protected credentials', () => {
+  assert.match(flow, /NETLIFY_SITE_ID: 196e1d2c-8216-4ba8-aeb9-1706660adc2b/);
   assert.match(flow, /NETLIFY_AUTH_TOKEN: \$\{\{ secrets\.NETLIFY_AUTH_TOKEN \}\}/);
   assert.match(flow, /if \[ -z .*NETLIFY_AUTH_TOKEN/);
   assert.match(flow, /--prod --no-build --dir=dist --site=/);

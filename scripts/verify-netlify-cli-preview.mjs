@@ -2,7 +2,7 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 
-export const siteId = '23796c62-480a-4b46-ac90-bfbc5ad4d300';
+export const siteId = '196e1d2c-8216-4ba8-aeb9-1706660adc2b';
 export const siteName = 'memberwebsocket-dev-netlify';
 export const previewBranch = 'Integrated-Marketing-Platform';
 export const previewAlias = 'integrated-marketing-platform';
@@ -19,7 +19,7 @@ const fail = code => { throw new PreviewValidationError(code); };
 export async function verifyCliPreview({ cli, source, token, commit, branch, alias, fetchImpl = fetch }) {
   if (!token || !sha(commit) || branch !== previewBranch || alias !== previewAlias) fail('INVALID_RELEASE_INPUT');
   if (!source || source.siteId !== siteId || source.branch !== previewBranch
-    || source.production?.branch !== 'master' || !id(source.production?.deployId)
+    || source.production?.branch !== 'main' || !id(source.production?.deployId)
     || source.build?.repository !== repo || source.alias !== previewAlias
     || source.aliasDeployObserved !== true || !Array.isArray(source.deploys)
     || source.deploys.some(item => item.context === 'branch-deploy' &&
