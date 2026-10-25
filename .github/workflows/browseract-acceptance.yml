@@ -1,0 +1,35 @@
+name: BrowserAct Live Acceptance (manual)
+on:
+  workflow_dispatch:
+    inputs:
+      scenario_id:
+        description: 'Approved test case (AC-001 format)'
+        required: true
+        default: 'AC-001'
+        type: string
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: BrowserAct acceptance on deployed preview
+        env:
+          BROWSERACT_API_KEY: ${{ secrets.BROWSERACT_API_KEY }}
+          BROWSERACT_WORKFLOW_ID: ${{ vars.BROWSERACT_WORKFLOW_ID }}
+          BROWSERACT_BASE_URL: https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app/
+          BROWSERACT_SCENARIO_ID: ${{ inputs.scenario_id }}
+        run: node scripts/browseract/run-ci.mjs
+      - name: Retain redacted acceptance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browseract-acceptance-${{ github.sha }}-${{ github.run_attempt }}
+          path: artifacts/browseract-acceptance.json
+          retention-days: 7
+          if-no-files-found: warn

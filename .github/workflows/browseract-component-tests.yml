@@ -1,0 +1,29 @@
+name: BrowserAct Viewer Component Tests
+on:
+  push:
+    paths:
+      - 'scripts/browseract/**'
+      - '.github/workflows/browseract-component-tests.yml'
+  pull_request:
+    paths:
+      - 'scripts/browseract/**'
+      - '.github/workflows/browseract-component-tests.yml'
+permissions:
+  contents: read
+jobs:
+  browseract-viewer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and acceptance contract checks
+        run: |
+          node --check scripts/browseract/core.mjs
+          node --check scripts/browseract/live-server.mjs
+          node --check scripts/browseract/run-ci.mjs
+          node --check scripts/browseract/public/app.js
+      - name: Run isolated BrowserAct viewer and CI runner tests
+        run: node --test scripts/browseract/test/*.test.mjs
