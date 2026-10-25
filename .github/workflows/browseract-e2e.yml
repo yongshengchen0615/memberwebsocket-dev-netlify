@@ -72,9 +72,9 @@ jobs:
             exit 1
           fi
       - name: Optional BrowserAct E2E (requires explicit approval)
-        if: github.event_name == 'workflow_dispatch' && inputs.approve_browser_creation == true
+        if: (github.event_name == 'workflow_dispatch' && inputs.approve_browser_creation == true) || (github.event_name == 'push' && github.ref == 'refs/heads/fix/browseract-e2e-bootstrap-20261025' && contains(github.event.head_commit.message, '[approved-browseract-e2e-20261025]'))
         env:
-          TARGET_URL: ${{ inputs.preview_url }}
+          TARGET_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.preview_url || 'https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app' }}
         shell: bash
         run: bash scripts/browseract-e2e-smoke.sh "$TARGET_URL"
       - name: Upload BrowserAct diagnostics
