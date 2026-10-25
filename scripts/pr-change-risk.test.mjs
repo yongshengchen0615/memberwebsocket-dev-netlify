@@ -123,3 +123,11 @@ test('non-code documentation does not require artificial runtime benchmark evide
   const risk = classifyChangeSet(files('docs/superpowers/specs/feature.md', 'README.md'));
   assert.equal(evaluateEvidence(risk, '').passed, true);
 });
+
+test('canonical PR template asks reviewers to avoid speculative abstraction', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const template = await readFile(new URL('../.github/PULL_REQUEST_TEMPLATE.md', import.meta.url), 'utf8');
+  assert.match(template, /避免過度設計/);
+  assert.match(template, /已評估最小方案/);
+  assert.match(template, /不為假想需求/);
+});
