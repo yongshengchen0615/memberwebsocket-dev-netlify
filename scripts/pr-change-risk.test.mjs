@@ -68,3 +68,18 @@ TBD`;
 test('shared code increases risk but not an automatic large change', () => {
   assert.equal(classifyChangeSet(files('MemberWebsocket-dev/shared/api.js')).level, '中改');
 });
+
+test('only the canonical GitHub PR template exists and retains first-principles plus risk gates', async () => {
+  const { readFile, stat } = await import('node:fs/promises');
+  const { fileURLToPath } = await import('node:url');
+  const canonical = new URL('../.github/PULL_REQUEST_TEMPLATE.md', import.meta.url);
+  const template = await readFile(canonical, 'utf8');
+  assert.match(template, /第一性原理與原功能影響/);
+  for (const heading of ['變更風險評估', '受影響模組', '測試與驗收', '回退方案', '架構審查', '發布及資料庫相容性']) {
+    assert.ok(template.includes(heading), `missing ${heading}`);
+  }
+  await assert.rejects(
+    stat(fileURLToPath(new URL('../.github/pull_request_template.md', import.meta.url))),
+    { code: 'ENOENT' },
+  );
+});
