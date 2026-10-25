@@ -83,3 +83,14 @@ test('only the canonical GitHub PR template exists and retains first-principles 
     { code: 'ENOENT' },
   );
 });
+
+test('changes to risk enforcement or PR template are always big', () => {
+  for (const filename of [
+    'scripts/pr-change-risk.mjs',
+    'scripts/pr-change-risk.test.mjs',
+    '.github/PULL_REQUEST_TEMPLATE.md',
+    '.github/pull_request_template.md',
+  ]) {
+    assert.equal(classifyChangeSet(files(filename)).level, '大改', filename);
+  }
+});
