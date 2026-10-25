@@ -29,6 +29,25 @@
 
 ---
 
+### Task 0: 變更風險分級與 PR 必備證據（#129 / #127）
+
+**Files:**
+- Create: `scripts/pr-change-risk.test.mjs`、`scripts/pr-change-risk.mjs`、`.github/workflows/pr-change-risk.yml`、`.github/pull_request_template.md`
+- Test: `node --test scripts/pr-change-risk.test.mjs`
+- Existing PR: [#131](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/pull/131)
+
+**Interfaces:**
+- Consumes: GitHub `pull_request` 事件、PR changed files API、PR body。
+- Produces: 小改／中改／大改的 Actions job summary；中／大改必要欄位完整性判斷。
+
+- [x] **Step 1:** 先撰寫分類案例，涵蓋 docs-only、單／多模組、SQL／Edge、認證、CI、敏感檔案重新命名，以及缺少證據；在新增實作前觀察測試失敗。
+- [x] **Step 2:** 以獨立 Node 腳本提供風險分類及欄位驗證，限制 GitHub Token 為唯讀。
+- [x] **Step 3:** 加入對所有 PR 觸發的工作流程與 PR Template；不改既有產品 CI。
+- [x] **Step 4:** GitHub Actions [Run 40162518629](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/actions/runs/40162518629) completed/success，Node 測試 9 pass、0 fail，且 PR #131 說明欄位通過初步檢查。
+- [ ] **Step 5:** 先審查 PR #131，再處理與 #56 的 Required Status Checks / Ruleset 統整；沒有啟用保護前不可稱為「全面強制」。
+
+**Expected:** 可對 PR 自動提出風險分類與說明完整性結果。功能實際正確性、業務契約與正式部署核可仍需獨立證據。
+
 ### Task 1: 發布來源與環境唯讀基線（#125）
 
 **Files:**
@@ -108,6 +127,6 @@
 
 ## Handoff and Acceptance
 
-此規劃檔先由 PR 審閱；**本次只新增設計與執行文件，未執行上方任務的產品程式修改或 E2E。**
+此規劃檔先由 PR 審閱；**本 PR 已新增風險分類器、Node 測試、PR Template 與唯讀 GitHub Actions；未修改業務產品程式碼，未執行正式部署或產品 E2E。**
 
 在啟動實作前，工作者必須先檢查遠端最新 SHA、PR 撞檔、Ruleset 有效性及可用的獨立測試環境。每個任務都應單獨開 PR，完整記錄 RED→GREEN、CI、Preview 與回復證據；任何未執行步驟保持未勾選。
