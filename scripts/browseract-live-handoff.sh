@@ -3,8 +3,12 @@
 # GitHub Actions logs, PRs, tickets or public artifacts.
 set -Eeuo pipefail
 
+if [[ "$#" -lt 1 || "$#" -gt 2 ]]; then
+  echo "Usage: bash scripts/browseract-live-handoff.sh <https-preview-root> [existing-test-browser-id]" >&2
+  exit 2
+fi
 TARGET_URL="$1"
-EXISTING_BROWSER_ID="$2"
+EXISTING_BROWSER_ID="${2:-}"
 export TARGET_URL
 python3 - <<'PY'
 import os
