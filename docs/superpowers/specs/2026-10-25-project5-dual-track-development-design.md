@@ -53,6 +53,14 @@
 - 修改檢查器本身的 PR 也必須由人工審查；`pull_request` 可讀取 PR 提供的測試程式碼，因此該工作流程不是強制安全邊界。後續須由具權限管理員在目標分支啟用 Required Status Checks / 合併審查，並與 #56 治理 PR 協調。
 - 既有未更新說明的中／大改 PR，重新觸發此 Action 可能失敗；需補上風險與驗收證據，而不是取消檢查以求通過。
 
+## #56 衝突調和與 GitHub 預設分支啟用條件（2026-10-25）
+
+- PR #57（Draft、尚未合併）已有 `.github/PULL_REQUEST_TEMPLATE.md`、`AGENTS.md` 與 `docs/DEVELOPMENT_GUARDRAILS.md` 等治理檔。本 PR #131 保留同名大寫範本，**以 #57 的第一性原理欄位為基礎加入變更風險必填欄位**，刪除原本小寫同用途範本。合併前需審查 #57 的後續改動；若 #131 先合併，#57 必須先與整合分支更新、處理範本衝突後才可再次驗證。
+- 已知 #57 的 `scripts/governance-workflow.test.mjs` 要求主要產品 CI 對 **所有 PR** 執行；#131 新增獨立無 `paths` 過濾的風險檢查，不取代 #57 移除主要 CI PR 路徑過濾的規則。二者仍需分別落地、依同 SHA 驗證。
+- **GitHub PR Template 僅在儲存庫預設分支 `main` 生效**；#131 目前目標是 `Integrated-Marketing-Platform`，即使合併進整合分支，新 PR 仍不一定能自動取得範本。須等有審核的獨立同步 PR 把統一版本放進 `main`，並用新開的測試 PR 驗證實際填入，才能勾選「已全面啟用」。
+- GitHub REST Rulesets 讀回 `[]`；三分支讀得 `protected=false`。待 CI 全綠且可審核後，由授權管理員在 Settings → Rulesets 配置目標分支的 PR 與必要 status checks（包含 `Change risk and evidence gate`、完整既有 `Validate MemberWebsocket Dev`、建置與 Ticket Policy），並驗證不能直接 push；未確認生效前維持人工審查。
+- 分類器本身、其測試以及 PR Template 修改均屬**大改**：新增 RED→GREEN 測試；最新遠端 [Action 40163345480](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/actions/runs/40163345480) 11 pass / 0 fail。這仍只是風險下限分類：刻意改壞驗證器的 PR 可以改到自身檔案，必須由目標分支的權限與獨立 Reviewer 制衡。
+
 ## 變更門檻
 
 1. **開始前：** Issue、目標分支、base SHA、修改檔案清單與碰撞矩陣，列出使用中的功能和相關負向權限測試。
