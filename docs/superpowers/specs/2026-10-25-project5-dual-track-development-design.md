@@ -36,6 +36,23 @@
 - **WIP：** 建議同時最多兩個程式修改中的 PR；若觸及同一共享檔案、同一 Edge function、同一 migration 契約，先定義合併順序。
 - **AI 開發：** 每個工作開新分支／獨立 worktree，讀取基線、定義受影響檔案、寫 RED→GREEN 測試，再修改最小必要內容；不能跨工作區直接複製未驗證結果。
 
+## PR 變更規模分級與自動化 Gate（#129 / #127）
+
+**此設計在 Draft PR #131 實作，並不代表目標分支上的 Ruleset / Required Status Check 已啟用。** 風險等級是保守的路徑分析下限，人工有權提升等級，不得僅依行數或總檔案數認定安全。
+
+| 風險等級 | 可偵測條件 | 必要處理 |
+| --- | --- | --- |
+| 小改 | 單一功能局部檔案，無命中跨模組或敏感路徑；純文件亦屬此類 | 依既有 PR Code Review 與對應模組測試，不豁免正式 Gate |
+| 中改 | 影響兩個核心模組，或修改共用 JS／API 入口 | PR 說明須有受影響模組、測試與驗收、回退方案；跨模組回歸 |
+| 大改 | 影響三個以上核心模組，或任一 Supabase migration／Edge／認證權限／Netlify／CI 工作流程等高風險路徑 | 額外要求架構審查與發布及資料庫相容性說明；拆分可驗收 PR，人工批准 |
+
+**具體實作：** `scripts/pr-change-risk.mjs` 的 `classifyChangeSet()` 與 `evaluateEvidence()`；`scripts/pr-change-risk.test.mjs` 的 Node 單元測試；`.github/workflows/pr-change-risk.yml` 對 `pull_request`（含 edited）無 `paths` 過濾觸發；`.github/pull_request_template.md` 提供規格化欄位。
+
+- Actions 權限只有 `contents:read` 與 `pull-requests:read`，分頁讀取 PR changed files；API 無回應或頁數／數量不完整則驗證失敗，不默默標小改。
+- PR 內容缺少中／大改必要欄位，或欄位仍填「待補」「TBD」，風險檢查失敗；這是**說明完整度 Gate**，不會確認測試真的執行，不能取代安全 Code Review、必要 CI、E2E、Preview 或 #33 發布核可。
+- 修改檢查器本身的 PR 也必須由人工審查；`pull_request` 可讀取 PR 提供的測試程式碼，因此該工作流程不是強制安全邊界。後續須由具權限管理員在目標分支啟用 Required Status Checks / 合併審查，並與 #56 治理 PR 協調。
+- 既有未更新說明的中／大改 PR，重新觸發此 Action 可能失敗；需補上風險與驗收證據，而不是取消檢查以求通過。
+
 ## 變更門檻
 
 1. **開始前：** Issue、目標分支、base SHA、修改檔案清單與碰撞矩陣，列出使用中的功能和相關負向權限測試。
