@@ -50,6 +50,15 @@ jobs:
           done
           echo '::error::Required CI did not finish; preview was not published'
           exit 1
+      - name: Identify CI-gated native branch artifact
+        if: github.ref_name == 'Integrated-Marketing-Platform'
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/inspect-preview-source.mjs
+          node scripts/verify-netlify-native-preview.mjs
+          echo "DEPLOY_ID=$(jq -er '.deploy_id' evidence/platform-deploy.json)" >> "$GITHUB_ENV"
+          echo "VERIFIED_PREVIEW_SOURCE_EPOCH=$(git show -s --format=%ct "$GITHUB_SHA")" >> "$GITHUB_ENV"
       - name: Build and verify the exact platform frontend
         env:
           COMMIT_REF: ${{ github.sha }}
@@ -82,10 +91,7 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 7
-      - name: Inspect Netlify site identity with redacted diagnostics
-        shell: bash
-        run: node scripts/inspect-preview-source.mjs
-      - name: Publish CI-verified branch ZIP without touching production
+      - name: Verify CI-gated Netlify native branch deployment without upload
         shell: bash
         run: |
           set -euo pipefail
@@ -93,11 +99,11 @@ jobs:
           current=$(gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/$GITHUB_REF_NAME" --jq '.object.sha')
           test "$current" = "$GITHUB_SHA"
           if [ "$GITHUB_REF_NAME" = Integrated-Marketing-Platform ]; then
-            # CI-tested source is uploaded as a branch-scoped ZIP; production remains untouched.
-            # Never use a Draft alias that collides with the actual Git branch.
-            node scripts/netlify-preview-source.mjs --publish
+            # Netlify already publishes this native branch; verification is read-only.
+            # Never upload a competing ZIP or Draft alias to this branch.
+            node scripts/verify-netlify-native-preview.mjs
+            test "$(jq -er '.deploy_id' evidence/platform-deploy.json)" = "$DEPLOY_ID"
             test "$(jq -er '.source_sha' evidence/platform-deploy.json)" = "$GITHUB_SHA"
-            test "$(jq -er '.source_branch' evidence/platform-deploy.json)" = "$GITHUB_REF_NAME"
             test "$(jq -er '.production_deploy_unchanged' evidence/platform-deploy.json)" = "true"
           else
             npx --yes netlify-cli@23.11.0 deploy --no-build --dir=dist --site="$NETLIFY_SITE_ID" --alias="$PLATFORM_ALIAS" --message="verified-platform-$GITHUB_SHA" --json > /tmp/platform-deploy.json

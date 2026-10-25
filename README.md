@@ -19,7 +19,7 @@ internal documents and local Netlify state are excluded from `dist`.
 ## Netlify configuration
 
 Use the recreated project `memberwebsocket-dev-netlify`
-(`196e1d2c-8216-4ba8-aeb9-1706660adc2b`). The currently connected production branch is `master`. The `Integrated-Marketing-Platform` development branch is published independently by GitHub Actions as a CI-verified branch-scoped ZIP at `https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app/platform/`, without replacing the production deployment. Enable only that branch for native Netlify builds if automatic provider-side branch builds are explicitly required; coordinate with the verified ZIP publisher to avoid concurrent deployments.
+(`196e1d2c-8216-4ba8-aeb9-1706660adc2b`). The currently connected production branch is `master`. The `Integrated-Marketing-Platform` development branch uses a **native Netlify branch deploy**, published after exact-SHA CI succeeds, at `https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app/platform/`. The GitHub release workflow validates the existing native deploy, reproduces its build artifact, verifies public files, CORS, and read-only Chromium E2E, and never uploads a competing branch ZIP. The production `master` deploy is unchanged.
 Leave the base and package directories empty. The root `netlify.toml` sets:
 
 - Build command: `node scripts/build-site.mjs`
