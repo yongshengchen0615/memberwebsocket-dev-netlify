@@ -82,6 +82,9 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 7
+      - name: Inspect Netlify site identity with redacted diagnostics
+        shell: bash
+        run: node scripts/inspect-preview-source.mjs
       - name: Publish CI-verified branch ZIP without touching production
         shell: bash
         run: |
