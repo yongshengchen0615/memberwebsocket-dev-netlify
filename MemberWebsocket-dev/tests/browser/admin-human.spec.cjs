@@ -330,7 +330,23 @@ test('RUNNER_MEMBER_MODAL_FAILURE — failed 360 load closes parent and performs
 });
 
 test('CALENDAR_BONUS — save bonus amount, reopen, disable by changing to holiday',async({page:p},info)=>{
-  await openCalendar(p);await p.locator('#calendarBonusPointsEnabled').check();await fill(p,'calendarBonusPoints','4');await click(p,'saveCalendarItemButton');await expect.poll(()=>info.fixture.calendarItems[0]?.bonusPoints).toBe(4);const id=await p.locator('#calendarItemId').inputValue();await p.locator('#calendarEditorModal .editor-modal-close').click();await p.locator('[data-admin-calendar-item-id="'+id+'"]').first().click();await expect(p.locator('#calendarBonusPoints')).toHaveValue('4');await select(p,'calendarItemType','holiday');await expect(p.locator('#calendarBonusPointsField')).toBeHidden();await expect(p.locator('#calendarBonusPointsEnabled')).toBeDisabled();await click(p,'saveCalendarItemButton');await expect.poll(()=>info.fixture.calendarItems[0]?.bonusPointsEnabled).toBe(false);
+  // A committed transport write can precede delivery to the UI. Hold that
+  // response so the test cannot accidentally treat fixture state as UI-ready.
+  let release;const delivered=new Promise(resolve=>{release=resolve;});
+  await p.route('https://fixture.supabase.co/**',async route=>{
+    const {action,operation,...payload}=route.request().postDataJSON();
+    if((action||operation)!=='admin.calendar-items.save')return route.fallback();
+    const data=await transport(info.fixture,action||operation,payload,new URL(route.request().url()).pathname.split('/').at(-1));
+    await delivered;await route.fulfill({json:{ok:true,data}});
+  });
+  await openCalendar(p);await p.locator('#calendarBonusPointsEnabled').check();await fill(p,'calendarBonusPoints','4');await click(p,'saveCalendarItemButton');
+  await expect.poll(()=>info.fixture.calendarItems[0]?.bonusPoints).toBe(4);
+  await expect(p.locator('#saveCalendarItemButton')).toBeDisabled();await expect(p.locator('#calendarItemId')).toHaveValue('');release();
+  await expect(p.locator('#saveCalendarItemButton')).toBeEnabled();
+  const id=info.fixture.calendarItems[0].calendarItemId;expect(id).not.toBe('');await expect(p.locator('#calendarItemId')).toHaveValue(id);
+  await p.locator('#calendarEditorModal .editor-modal-close').click();await p.locator('[data-admin-calendar-item-id="'+id+'"]').first().click();
+  await expect(p.locator('#calendarBonusPoints')).toHaveValue('4');await select(p,'calendarItemType','holiday');await expect(p.locator('#calendarBonusPointsField')).toBeHidden();await expect(p.locator('#calendarBonusPointsEnabled')).toBeDisabled();
+  await click(p,'saveCalendarItemButton');await expect(p.locator('#saveCalendarItemButton')).toBeEnabled();await expect.poll(()=>info.fixture.calendarItems[0]?.bonusPointsEnabled).toBe(false);
 });
 test('EVENT_CALENDAR_SYNC — date required, add, readonly calendar detail and remove linkage',async({page:p},info)=>{
   await openEvent(p);await p.locator('#eventTicketAddToCalendar').check();await click(p,'saveEventTicketButton');await expect(p.locator('#eventTicketFormMessage')).toContainText('開始日');expect(info.fixture.eventTickets).toHaveLength(0);await fill(p,'eventTicketStartsOn',today());await click(p,'saveEventTicketButton');await expect.poll(()=>info.fixture.calendarItems.length).toBe(1);const ticketId=await p.locator('#eventTicketId').inputValue();const calendarId=info.fixture.calendarItems[0].calendarItemId;await p.locator('#eventTicketEditorModal .editor-modal-close').click();await click(p,'calendarTab');await p.locator('[data-admin-calendar-item-id="'+calendarId+'"]').first().click();await expect(p.locator('#eventTicketCalendarInfoModal')).toBeVisible();await expect(p.locator('#eventTicketCalendarInfoContent')).toContainText('活動票券同步');await expect(p.locator('#calendarEditorModal')).toBeHidden();await click(p,'closeEventTicketCalendarInfoButton');await click(p,'eventsTab');await p.locator('[data-event-ticket-id="'+ticketId+'"]').first().click();await expect(p.locator('#eventTicketAddToCalendar')).toBeEnabled();await p.locator('#eventTicketAddToCalendar').uncheck();await click(p,'saveEventTicketButton');await expect.poll(()=>info.fixture.calendarItems.length).toBe(0);
