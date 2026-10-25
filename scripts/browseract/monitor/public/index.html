@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BrowserAct · 會員系統即時驗收</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<body><header class="top"><div><p class="eyebrow">Integrated Marketing Platform / QA</p><h1>BrowserAct 即時測試監控台</h1></div><span id="global-status">需授權</span></header>
+<main><section id="login-panel" class="login panel"><h2>管理員驗證</h2><p>本頁有公開 HTTPS 網址，但遠端測試畫面與任務控制僅對授權人員開放。</p>
+<form id="login-form"><label for="access-token">監控台存取金鑰</label><input type="password" id="access-token" autocomplete="off" required placeholder="輸入管理金鑰"><button type="submit">解鎖監控台</button></form>
+<p id="login-hint" role="status">金鑰只保留於目前分頁的記憶體，重新整理後需重新登入。</p></section>
+<div id="app" class="dashboard" hidden>
+<aside class="panel controls"><div class="section-heading"><h2>任務控制</h2><button id="logout" type="button" class="ghost">鎖定畫面</button></div>
+<form id="start-form"><label for="base-url">驗收網址</label><input id="base-url" type="url" required><label for="scenario-id">驗收案例</label>
+<input id="scenario-id" value="AC-001" pattern="AC-[0-9]{3}(-[A-Za-z0-9_-]+)?" required>
+<fieldset><legend>控制模式</legend><label class="radio"><input type="radio" name="handoff-mode" value="auto" checked> 自動執行</label>
+<label class="radio"><input type="radio" name="handoff-mode" id="human-mode" value="human"> 允許人工接管交接點</label></fieldset>
+<p id="handoff-hint" class="hint">需先在 BrowserAct Bot 加入 Human Interaction 節點才能啟用。</p>
+<button id="start" type="submit">啟動真實瀏覽器測試</button></form>
+<div class="rule"></div><h3>觀看既有任務</h3><form id="attach-form" class="inline"><input id="attach-id" placeholder="BrowserAct Task ID" aria-label="BrowserAct Task ID" required><button class="secondary" type="submit">觀看</button></form>
+<div class="metric"><span>Task ID</span><strong id="task-id">尚未啟動</strong></div>
+<div class="metric"><span>執行狀態</span><strong id="task-status">—</strong></div>
+<div class="metric"><span>驗收判定</span><strong id="verdict">—</strong></div>
+<div class="inline"><button type="button" id="open-live" class="secondary" disabled>開啟測試瀏覽器</button><button type="button" id="resume" disabled>交還自動化</button></div><button type="button" id="stop" class="danger" disabled>永久停止任務</button>
+<p id="feedback" role="status" aria-live="polite">等待啟動。</p></aside>
+<section class="panel browser"><div class="section-heading"><div><h2>遠端瀏覽器即時畫面</h2><p id="control-note" class="hint">未執行任何任務。</p></div><span id="updated">每 3 秒更新</span></div>
+<div class="screen"><iframe id="live" title="BrowserAct 遠端瀏覽器" referrerpolicy="no-referrer" hidden></iframe><div id="waiting">遠端 BrowserAct 啟動並回傳 Live View 後，畫面將出現在這裡。</div></div>
+<p class="hint">只有在 Human Interaction 節點暫停時才能操作；其他狀態僅供觀看。若未顯示可控制畫面，請使用 BrowserAct Dashboard 的 Task Control。</p></section>
+<section class="panel steps"><h2>測試步驟 <span id="step-count">0</span></h2><ol id="step-list"></ol></section>
+<section class="panel screenshot"><h2>步驟畫面</h2><img id="preview" alt="BrowserAct 步驟截圖" hidden><p id="no-preview" class="hint">執行後可查看步驟截圖。</p></section>
+<section class="panel assertions"><h2>驗收斷言</h2><ul id="assertion-list"></ul><p class="hint">Workflow 結束不等於 PASS；仍需完整斷言。</p></section>
+</div></main></body></html>

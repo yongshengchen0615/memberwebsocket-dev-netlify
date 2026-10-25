@@ -1,0 +1,48 @@
+name: Deploy BrowserAct Monitor
+on:
+  push:
+    branches: [feat/browseract-live-acceptance-20261025, Integrated-Marketing-Platform]
+    paths:
+      - 'scripts/browseract/**'
+      - '.github/workflows/deploy-browseract-monitor.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: browseract-monitor-production
+  cancel-in-progress: false
+jobs:
+  validate-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test monitored BrowserAct workflow
+        run: |
+          node --check scripts/browseract/monitor/functions/browseract-monitor.mjs
+          node --check scripts/browseract/monitor/public/app.js
+          node --test scripts/browseract/test/*.test.mjs
+          test -f scripts/browseract/monitor/public/_headers
+      - name: Deploy independent Netlify monitoring site
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: 169028a7-0bc5-45c9-b8a3-1a8fafb73585
+        run: |
+          test -n "${NETLIFY_AUTH_TOKEN:-}"
+          npx --yes netlify-cli@23.11.0 deploy \
+            --no-build --prod --json --site="$NETLIFY_SITE_ID" \
+            --dir=scripts/browseract/monitor/public \
+            --functions=scripts/browseract/monitor/functions \
+            --message="BrowserAct monitor ${GITHUB_SHA}" > /tmp/browseract-deploy.json
+          jq '{deploy_id,deploy_url,site_id}' /tmp/browseract-deploy.json
+      - name: Confirm public UI and protected backend
+        run: |
+          curl -fsS --retry 3 --retry-delay 4 https://memberwebsocket-browseract-monitor.netlify.app/ -o /tmp/monitor.html
+          grep -Fq 'BrowserAct 即時測試監控台' /tmp/monitor.html
+          status=$(curl -sS -o /tmp/monitor-api.json -w '%{http_code}' \
+            'https://memberwebsocket-browseract-monitor.netlify.app/.netlify/functions/browseract-monitor?action=config')
+          test "$status" = 401 -o "$status" = 503
+          ! grep -Eqi '(api_key|live_url|access_token)' /tmp/monitor-api.json

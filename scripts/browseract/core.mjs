@@ -100,11 +100,14 @@ export function createBrowserActClient({ apiKey, fetchImpl = fetch, apiRoot = AP
     try { return JSON.parse(raw); } catch { throw new Error('BrowserAct API 回傳非 JSON 內容'); }
   }
   return {
-    async start({ workflowId, baseUrl, scenarioId }) {
+    async start({ workflowId, baseUrl, scenarioId, handoffMode = 'auto' }) {
       if (!workflowId) throw new Error('缺少 BROWSERACT_WORKFLOW_ID');
+      if (!['auto', 'human'].includes(handoffMode)) throw new Error('無效的交接模式');
+      const parameters = [{ name: 'base_url', value: baseUrl }, { name: 'scenario_id', value: scenarioId }];
+      if (handoffMode === 'human') parameters.push({ name: 'handoff_mode', value: 'human' });
       const task = await send('/v2/workflow/run-task', 'POST', {
         workflow_id: workflowId,
-        input_parameters: [{ name: 'base_url', value: baseUrl }, { name: 'scenario_id', value: scenarioId }],
+        input_parameters: parameters,
         save_browser_data: false
       });
       return { id: validateTaskId(task.id) };
