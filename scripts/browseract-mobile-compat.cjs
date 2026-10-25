@@ -103,6 +103,11 @@ async function main() {
                           ? 'PASS' : 'FAILED';
           }
         }
+        // An uncaught application exception is a failure even if LINE login is still pending.
+        if (item.finalHost === host && errors.length) {
+          item.status = 'FAILED';
+          item.note = 'Uncaught JavaScript exception while preparing authenticated UI';
+        }
         await page.screenshot({ path: path.join(output, item.screenshot), fullPage: true });
       } catch (e) {
         item.errors = [normalizeError(e.message)];
