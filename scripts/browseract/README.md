@@ -30,7 +30,7 @@ node scripts/browseract/live-server.mjs
 
 ## GitHub Actions（第二個啟動入口）
 
-在 GitHub 專案設定 `Secrets.BROWSERACT_API_KEY` 與 `Variables.BROWSERACT_WORKFLOW_ID`。前往 Actions → **BrowserAct Live Acceptance (manual)** → Run workflow，選擇 `Integrated-Marketing-Platform` 分支並填 `scenario_id`。工作流程會顯示 Task ID、狀態與步驟總數，完成後提供不含畫面 URL 的 JSON 報告；若要**即時觀看影像**，在本機開啟監控台，用相同 API Key 貼上 Task ID 追蹤。GitHub Actions 不會公開 Live View URL，避免讓任何可看 CI 日誌的人看到測試工作階段。
+先注意：GitHub `workflow_dispatch` **必須讓 workflow 檔案存在預設分支 `main`** 才能顯示手動執行按鈕。目前此功能僅位於 Draft PR，故請先用上述本機監控台執行。待此 workflow 經審核整合至預設分支後，在 GitHub 專案設定 `Secrets.BROWSERACT_API_KEY` 與 `Variables.BROWSERACT_WORKFLOW_ID`，才可前往 Actions → **BrowserAct Live Acceptance (manual)** → Run workflow，選擇已包含此腳本的分支並填 `scenario_id`。工作流程會顯示 Task ID、狀態與步驟總數，完成後提供不含畫面 URL 的 JSON 報告；若要**即時觀看影像**，在本機開啟監控台，用相同 API Key 貼上 Task ID 追蹤。GitHub Actions 不會公開 Live View URL，避免讓任何可看 CI 日誌的人看到測試工作階段。
 
 此 MVP 尚未串成全自動部署 gate：因為缺少真實 BrowserAct Workflow、API Key 與 LINE 測試身分，僅提供手動觸發入口，不改動既有部署閘門。完成真人／外部驗證後，才擴充 AC-002..AC-012 與發布阻擋。
 
