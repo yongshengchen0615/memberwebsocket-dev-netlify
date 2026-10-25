@@ -25,9 +25,11 @@ async function setup(options={}){
 }
 async function runtimeGuard(h){
  await h.db.exec(contextMigration);
- const files=fs.readdirSync(migrationDir).filter(n=>n.endsWith('_merchant_runtime_transaction_guard.sql'));
- assert.ok(files.length<=1,'only one runtime transaction guard migration may be installed');
- if(files.length)await h.db.exec(fs.readFileSync(path.join(migrationDir,files[0]),'utf8'));
+ for(const suffix of ['_merchant_runtime_transaction_guard.sql','_merchant_runtime_public_hook_guard.sql']){
+  const files=fs.readdirSync(migrationDir).filter(n=>n.endsWith(suffix));
+  assert.ok(files.length<=1,'only one '+suffix+' migration may be installed');
+  if(files.length)await h.db.exec(fs.readFileSync(path.join(migrationDir,files[0]),'utf8'));
+ }
 }
 const adminHeaders=(a,timestamp=new Date(Date.now()+1000).toISOString())=>({'x-platform-admin-actor':owner,
  'x-platform-admin-tenant':a.tenant.id,'x-platform-admin-issued-at':timestamp,'content-profile':a.tenant.runtime_schema});
@@ -39,6 +41,28 @@ async function policyMutation(h,a,kind,text){
  if(kind==='direct UPDATE')return client=>client.query(`update ${a.tenant.runtime_schema}.booking_no_show_policy set contact_text=$1`,[text]);
  const policy=(await h.db.query(`select to_jsonb(p) policy from ${a.tenant.runtime_schema}.booking_no_show_policy p`)).rows[0].policy;
  return client=>client.query(`select ${a.tenant.runtime_schema}.admin_booking_no_show($1,$2,$3)`,[owner,'save',{...policy,contact_text:text}]);
+}
+
+for(const role of ['anon','authenticated'])for(const marked of [false,true]){
+ test('PostgreSQL 17 C015 '+role+' '+(marked?'forged marker':'unmarked')+': the first hook invocation on a fresh TCP backend needs no private schema access',async()=>{
+  const h=await setup();try{
+   await runtimeGuard(h);
+   // PostgreSQL compiles PL/pgSQL independently in each backend. Neither the
+   // setup's service connections nor a prior unmarked call may warm this one.
+   const fresh=await h.db.connect();
+   await fresh.query('begin read only');await fresh.query('set local role '+role);
+   assert.equal((await fresh.query('select current_user role')).rows[0].role,role);
+   const headers=marked?{'x-platform-admin-actor':owner,'x-platform-admin-tenant':'10000000-0000-4000-8000-000000000001',
+    'x-platform-admin-issued-at':new Date().toISOString(),'accept-profile':'business_'+'a'.repeat(32)}:{};
+   if(marked){
+    await assert.rejects(guardSession(fresh,headers),error=>error.code==='PT403'&&error.message.includes('PLATFORM_RUNTIME_CONTEXT_INVALID'));
+    await fresh.query('rollback');
+   }else{
+    await guardSession(fresh,headers);
+    assert.equal((await fresh.query('select 1 allowed')).rows[0].allowed,1);await fresh.query('commit');
+   }
+  }finally{await h.db.close();}
+ });
 }
 
 // These sessions explicitly model PostgREST's transaction + pre-request hook.

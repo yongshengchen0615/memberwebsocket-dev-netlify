@@ -9,9 +9,11 @@ async function setup(){const h=await base();try{await h.db.exec(migration);await
  h.b=await h.review(await h.submit(owner,'merchant-b','B'),'approved',features(['booking']));
  return h;}catch(e){await h.db.close();throw e;}}
 async function runtimeGuard(h){
- const files=fs.readdirSync(dir).filter(n=>n.endsWith('_merchant_runtime_transaction_guard.sql'));
- assert.ok(files.length<=1,'only one runtime transaction guard migration may be installed');
- if(files.length)await h.db.exec(fs.readFileSync(path.join(dir,files[0]),'utf8'));
+ for(const suffix of ['_merchant_runtime_transaction_guard.sql','_merchant_runtime_public_hook_guard.sql']){
+  const files=fs.readdirSync(dir).filter(n=>n.endsWith(suffix));
+  assert.ok(files.length<=1,'only one '+suffix+' migration may be installed');
+  if(files.length)await h.db.exec(fs.readFileSync(path.join(dir,files[0]),'utf8'));
+ }
 }
 const adminHeaders=(a,actor=owner,timestamp=issued())=>({'x-platform-admin-actor':actor,
  'x-platform-admin-tenant':a.tenant.id,'x-platform-admin-issued-at':timestamp,'content-profile':a.tenant.runtime_schema});
