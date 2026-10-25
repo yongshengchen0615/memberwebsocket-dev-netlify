@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { verifyNativePreview, NativeDeployError } from './verify-netlify-native-preview.mjs';
-const commit='b'.repeat(40),siteId='23796c62-480a-4b46-ac90-bfbc5ad4d300',
+const commit='b'.repeat(40),siteId='196e1d2c-8216-4ba8-aeb9-1706660adc2b',
   branch='Integrated-Marketing-Platform',siteName='memberwebsocket-dev-netlify',id='6ad892118bc22a8a08d1e9d5',
   old='6ad34aa232fcb1cea452346f',repo='yongshengchen0615/memberwebsocket-dev-netlify';
 const source={siteId,branch,production:{branch:'master',deployId:old},build:{repository:repo}};
