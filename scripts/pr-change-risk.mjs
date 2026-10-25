@@ -15,8 +15,8 @@ const isBackendRisk = (name) => /(?:^|\/)supabase\/(?:migrations|functions)\//.t
   || /(?:^|\/)(?:auth|permissions|claims|rls|security|roles|admin-session)(?:[.\/-]|$)/i.test(name)
   || /(^|\/)\.env(?:\.|$)/.test(name);
 const isDeployRisk = (name) => name === 'netlify.toml'
-  || /^\.github\/workflows\//.test(name)
-  || /^scripts\/(?:build-site|netlify-preview-source|verify-preview|check-preview-ci|netlify-native-ci-gate|verify-platform-preview|pr-change-risk)\.mjs$/.test(name) && !name.endsWith('pr-change-risk.mjs');
+  || /^\.github\/(?:workflows\/|PULL_REQUEST_TEMPLATE\.md$)/i.test(name)
+  || /^scripts\/(?:build-site|netlify-preview-source|verify-preview|check-preview-ci|netlify-native-ci-gate|verify-platform-preview|pr-change-risk(?:\.test)?)\.mjs$/.test(name);
 const isShared = (name) => /(?:^|\/)(?:shared|common|api)(?:\/|[.-])/i.test(name)
   || /^MemberWebsocket-dev\/(?!admin\/|platform\/|booking\/|member\/|points\/|event\/|calendar\/|tests\/|supabase\/)[^/]+\.js$/i.test(name);
 const isPlaceholder = (value) => !value || /^(?:-+|n\/a|not applicable|tbd|todo|待補|待確認|無|未執行|尚未執行|稍後補|無需|none|pending)(?:[\s.。！!、，,；;:：-]*)$/i.test(value.trim());
@@ -37,7 +37,7 @@ export function classifyChangeSet(rawFiles) {
   else if (modules.length === 2) { score += 3; reasons.push('同時影響兩個核心模組'); }
   if (names.some((name) => !isDoc(name) && isShared(name))) { score += 3; reasons.push('修改共用程式／API 入口'); }
   if (names.some((name) => !isDoc(name) && isBackendRisk(name))) { score += 3; critical = true; reasons.push('涉及資料庫、Edge Functions、認證或權限相關路徑'); }
-  if (names.some((name) => !isDoc(name) && isDeployRisk(name))) { score += 3; critical = true; reasons.push('涉及發佈、CI 或建置路徑'); }
+  if (names.some((name) => isDeployRisk(name))) { score += 3; critical = true; reasons.push('涉及發佈、CI 或建置路徑'); }
   const level = critical || score >= 6 ? '大改' : score >= 3 ? '中改' : '小改';
   return { level, score, critical, files: files.map((f) => f.filename), modules, reasons, note: '僅依路徑做初步風險下限判斷；實際資料破壞性、跨系統契約和測試結果須人工審核。' };
 }
