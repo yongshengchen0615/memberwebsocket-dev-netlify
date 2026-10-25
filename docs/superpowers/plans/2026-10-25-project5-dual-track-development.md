@@ -48,6 +48,24 @@
 
 **Expected:** 可對 PR 自動提出風險分類與說明完整性結果。功能實際正確性、業務契約與正式部署核可仍需獨立證據。
 
+### Task 0.5: #56 重複 PR Template 消除與風險檢查防繞過（#129 / #127）
+
+**Files:**
+- Create: `.github/PULL_REQUEST_TEMPLATE.md`（整合 #57 的第一性原理／既有功能驗收與 #131 的風險欄位）
+- Delete: `.github/pull_request_template.md`（避免大小寫兩種競爭版本）
+- Modify: `scripts/pr-change-risk.test.mjs`、`scripts/pr-change-risk.mjs`
+- Test: `node --test scripts/pr-change-risk.test.mjs`
+
+- [x] **Step 1:** 先新增範本一致性測試；GitHub Action 出現 ENOENT（RED，找不到大寫統一範本）。
+- [x] **Step 2:** 新增統一的大寫 PR Template 並移除小寫版本；遠端 Action 40163252103 10 pass、0 fail。
+- [x] **Step 3:** 再新增「修改分級器、測試、範本屬大改」案例；遠端 Action 40163299659 先出現小改 != 大改（RED）。
+- [x] **Step 4:** 修正分類器路徑 Gate；遠端 [Action 40163345480](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/actions/runs/40163345480) 11 pass、0 fail（GREEN）。
+- [ ] **Step 5:** PR #131 審查整體差異，與 #57 的同名範本改動安排合併順序並更新基線。
+- [ ] **Step 6:** 經獨立 PR 把範本同步到**預設分支 main**，用新 PR 實測自動載入；PR #131 只合併至整合分支時不能宣稱範本已生效。
+- [ ] **Step 7:** 取得 GitHub Rulesets / Required Status Checks 實際生效證據，確認 direct push 被拒、必要檢查不可跳過、沒有管理員無限制 bypass。
+
+**Expected:** 只有一份合併後範本，PR 風險自降級可被測試攔截，且最終 default branch 模板與強制合併保護真正啟用。
+
 ### Task 1: 發布來源與環境唯讀基線（#125）
 
 **Files:**
