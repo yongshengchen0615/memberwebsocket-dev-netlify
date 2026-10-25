@@ -63,7 +63,7 @@ for page in home member booking points admin; do
   browser-act --session "$SESSION" wait stable
   browser-act --session "$SESSION" state > "$OUT/$page-state.txt"
   browser-act --session "$SESSION" eval \
-    "(() => { if (!document.body || document.readyState === 'loading') throw Error('PAGE_NOT_READY'); return document.title || 'untitled'; })()" \
+    "(() => { if (!document.body || document.readyState === 'loading') throw Error('PAGE_NOT_READY'); if (!['integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app','develop--memberwebsocket-dev-netlify.netlify.app'].includes(location.hostname)) throw Error('UNEXPECTED_REDIRECT'); return document.title || 'untitled'; })()" \
     > "$OUT/$page-assertion.txt"
   browser-act --session "$SESSION" screenshot "$OUT/$page.png"
   echo "Read-only BrowserAct smoke complete: $page"
