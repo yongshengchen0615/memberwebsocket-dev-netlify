@@ -1,5 +1,5 @@
 name: BrowserAct E2E readiness and opt-in smoke
-# User-approved, one-time branch validation before removing the temporary push gate.
+# Browser creation requires explicit manual workflow_dispatch approval.
 
 on:
   push:
@@ -76,13 +76,13 @@ jobs:
             exit 1
           fi
       - name: Optional BrowserAct E2E (requires explicit approval)
-        if: (github.event_name == 'workflow_dispatch' && inputs.approve_browser_creation == true) || (github.event_name == 'push' && github.ref == 'refs/heads/fix/browseract-e2e-bootstrap-20261025' && contains(github.event.head_commit.message, '[approved-browseract-e2e-20261025]'))
+        if: github.event_name == 'workflow_dispatch' && inputs.approve_browser_creation == true
         env:
-          TARGET_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.preview_url || 'https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app' }}
+          TARGET_URL: ${{ inputs.preview_url }}
         shell: bash
         run: bash scripts/browseract-e2e-smoke.sh "$TARGET_URL"
       - name: Install pinned Playwright for real mobile viewport checks
-        if: always() && ((github.event_name == 'workflow_dispatch' && inputs.approve_browser_creation == true) || (github.event_name == 'push' && github.ref == 'refs/heads/fix/browseract-e2e-bootstrap-20261025' && contains(github.event.head_commit.message, '[approved-browseract-e2e-20261025]')))
+        if: always() && (github.event_name == 'workflow_dispatch' && inputs.approve_browser_creation == true)
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -90,9 +90,9 @@ jobs:
           cd MemberWebsocket-dev/tests/browser
           npx playwright install --with-deps chromium --only-shell
       - name: Mobile viewport, JavaScript errors and HTTP response checks
-        if: always() && ((github.event_name == 'workflow_dispatch' && inputs.approve_browser_creation == true) || (github.event_name == 'push' && github.ref == 'refs/heads/fix/browseract-e2e-bootstrap-20261025' && contains(github.event.head_commit.message, '[approved-browseract-e2e-20261025]')))
+        if: always() && (github.event_name == 'workflow_dispatch' && inputs.approve_browser_creation == true)
         env:
-          TARGET_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.preview_url || 'https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app' }}
+          TARGET_URL: ${{ inputs.preview_url }}
         run: node scripts/browseract-mobile-compat.cjs
       - name: Upload BrowserAct diagnostics
         if: always()
