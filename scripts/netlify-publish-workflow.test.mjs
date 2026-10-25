@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 const path = new URL('../.github/workflows/publish-netlify.yml', import.meta.url);
 const flow = readFileSync(path, 'utf8');
 const fullCI = readFileSync(new URL('../.github/workflows/test-memberwebsocket-dev.yml', import.meta.url), 'utf8');
@@ -127,4 +127,14 @@ test('integrated preview verifies the CI-gated native branch instead of a collid
     assert.ok(source.includes('scripts/netlify-native-ci-gate.test.mjs'));
     assert.ok(source.includes('scripts/verify-netlify-native-preview.test.mjs'));
   }
+});
+
+test('legacy importer remains retired so it cannot overwrite reviewed sources', () => {
+  // ARCH-01: the old import-source workflow copied a pinned, outdated repo tree
+  // and directly pushed to main. Its removal must not regress.
+  assert.equal(
+    existsSync(new URL('../.github/workflows/import-source.yml', import.meta.url)),
+    false,
+    'Legacy import-source.yml must stay retired; use an independently reviewed PR instead',
+  );
 });
