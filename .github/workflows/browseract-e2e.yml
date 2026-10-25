@@ -62,6 +62,15 @@ jobs:
           cat evidence/browseract/core.txt
           browser-act browser list > evidence/browseract/browsers.txt
           cat evidence/browseract/browsers.txt
+      - name: Verify script syntax and reject production targets
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/browseract-e2e-smoke.sh
+          if bash scripts/browseract-e2e-smoke.sh https://memberwebsocket-dev-netlify.netlify.app; then
+            echo "::error::Production URL passed BrowserAct safety guard"
+            exit 1
+          fi
       - name: Optional BrowserAct E2E (requires explicit approval)
         if: github.event_name == 'workflow_dispatch' && inputs.approve_browser_creation == true
         env:
