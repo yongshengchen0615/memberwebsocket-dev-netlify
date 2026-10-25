@@ -79,7 +79,7 @@ test('only the canonical GitHub PR template exists and retains first-principles 
   const canonical = new URL('../.github/PULL_REQUEST_TEMPLATE.md', import.meta.url);
   const template = await readFile(canonical, 'utf8');
   assert.match(template, /第一性原理與原功能影響/);
-  for (const heading of ['變更風險評估', '受影響模組', '測試與驗收', '回退方案', '架構審查', '發布及資料庫相容性']) {
+  for (const heading of ['變更風險評估', '受影響模組', '測試與驗收', '回退方案', '架構審查', '發布及資料庫相容性', '既有功能回歸', '程式碼品質與效能']) {
     assert.ok(template.includes(heading), `missing ${heading}`);
   }
   await assert.rejects(
