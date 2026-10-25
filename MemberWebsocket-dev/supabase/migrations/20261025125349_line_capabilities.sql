@@ -95,5 +95,42 @@ $guard$;
  end loop;
 end $migration$;
 -- CREATE OR REPLACE retains the existing service-role-only EXECUTE grants.
+
+-- An accepted configuration save must replay before contacting LINE again.
+-- This service-only lookup uses the same request-lock, current authorization,
+-- merchant-prefixed hash and operation fences as the existing write RPCs.
+create function public.platform_configuration_replay(p_actor text,p_tenant_id uuid,p_issued_at timestamptz,
+ p_feature text,p_operation text,p_request_id uuid,p_payload_hash text,p_scoped boolean)
+returns jsonb language plpgsql security invoker set search_path='' as $$
+declare t platform_private.tenants;r platform_private.requests;expected_hash text;
+begin
+ if p_tenant_id is null or p_request_id is null or p_payload_hash is null or p_payload_hash!~'^[a-f0-9]{64}$'
+  or p_scoped is null or p_feature is null or p_feature not in ('membership','points','events','calendar','booking')
+  or p_operation is null or not (p_operation='module_line:'||p_feature
+   or (p_feature<>'calendar' and p_operation='notification:'||p_feature||':member')
+   or (p_feature='booking' and p_operation='notification:booking:admin'))
+  then raise exception 'PLATFORM_INVALID_INPUT';end if;
+ perform pg_advisory_xact_lock(hashtextextended(p_request_id::text,0));
+ if p_scoped then
+  t:=platform_private.require_merchant_access(p_actor,p_tenant_id,p_issued_at);
+  expected_hash:=encode(sha256(convert_to(p_tenant_id::text||':'||p_payload_hash,'UTF8')),'hex');
+ else
+  perform platform_private.require_single_merchant_owner(p_actor);
+  select * into t from platform_private.tenants where id=p_tenant_id and owner_line_user_id=p_actor for update;
+  if not found or t.status<>'active' then raise exception 'PLATFORM_TENANT_NOT_FOUND';end if;
+  if t.expires_at<=clock_timestamp() then raise exception 'TENANT_EXPIRED';end if;
+  if not exists(select 1 from platform_private.applications where tenant_id=t.id and applicant_line_user_id=p_actor and status='approved')
+   then raise exception 'PLATFORM_APPLICATION_NOT_APPROVED';end if;
+  expected_hash:=p_payload_hash;
+ end if;
+ if not coalesce((t.features->>p_feature)::boolean,false) then raise exception 'PLATFORM_FEATURE_DISABLED';end if;
+ select * into r from platform_private.requests where request_id=p_request_id;
+ if not found then return null;end if;
+ if r.actor<>p_actor or r.operation<>p_operation or r.payload_hash<>expected_hash or r.result->>'id' is distinct from t.id::text
+  then raise exception 'PLATFORM_REQUEST_CONFLICT';end if;
+ return case when p_scoped then to_jsonb(t) else r.result end;
+end $$;
+revoke all on function public.platform_configuration_replay(text,uuid,timestamptz,text,text,uuid,text,boolean) from public,anon,authenticated;
+grant execute on function public.platform_configuration_replay(text,uuid,timestamptz,text,text,uuid,text,boolean) to service_role;
 notify pgrst,'reload schema';
 commit;

@@ -184,6 +184,15 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         {...params,...(workspace.application?.qualificationId ? {
           p_tenant_id:workspace.tenant.id,p_issued_at:new Date(identity.issuedAtMs).toISOString(),
         } : {})});
+      const configurationReplay = async (workspace,feature,operation,hash) => {
+        const result=await db.rpc('platform_configuration_replay',{
+          p_actor:actor,p_tenant_id:workspace.tenant.id,p_issued_at:new Date(identity.issuedAtMs).toISOString(),
+          p_feature:feature,p_operation:operation,p_request_id:body.requestId,p_payload_hash:hash,
+          p_scoped:Boolean(workspace.application?.qualificationId),
+        });
+        if(result.error)throw databaseError(result.error);
+        return result.data;
+      };
       if (body.action === 'platform.application.ensure') {
         // Identity and initial name come only from LINE verification. The SQL
         // actor lock and unique constraint make simultaneous first visits safe.
@@ -251,6 +260,12 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         if (workspace.application?.status !== 'approved' || !current) throw new PlatformError(403,'PLATFORM_APPLICATION_NOT_APPROVED','請先等待總管理員核准。');
         if (!current.capabilities.dataPlaneVerified) throw new PlatformError(403,'TENANT_SUSPENDED','此商家已停用或使用期限已到。');
         if (current.features?.[body.feature] !== true) throw new PlatformError(403,'FEATURE_DISABLED','此功能尚未核准。');
+        const hash = await payloadHash({feature:body.feature,purpose:body.purpose,mode:body.mode,expectedVersion:body.expectedVersion,
+          channel:body.mode==='custom'?body.messagingChannelId:null,token:body.mode==='custom'?body.channelAccessToken:null});
+        if(body.mode!=='disabled'){
+          const replay=await configurationReplay(workspace,body.feature,'notification:'+body.feature+':'+body.purpose,hash);
+          if(replay)return json({ok:true,data:{tenant:publicTenant(replay)}});
+        }
         let encrypted = null, inheritedChannel = null;
         if (body.mode === 'inherit') {
           const stored=await moduleCredentials(current,body.feature);
@@ -266,8 +281,6 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
           encrypted = await sealCredentials(current.id+':'+body.feature+':notify:'+body.purpose,
             {channelAccessToken:body.channelAccessToken},await encryptionKey());
         }
-        const hash = await payloadHash({feature:body.feature,purpose:body.purpose,mode:body.mode,expectedVersion:body.expectedVersion,
-          channel:body.mode==='custom'?body.messagingChannelId:null,token:body.mode==='custom'?body.channelAccessToken:null});
         const result = await merchantWrite('platform_save_notification_route',{p_actor:actor,p_feature:body.feature,p_purpose:body.purpose,p_mode:body.mode,
           p_expected_version:body.expectedVersion,p_request_id:body.requestId,p_payload_hash:hash,
           p_channel_id:body.mode==='custom'?body.messagingChannelId:inheritedChannel,p_envelope:encrypted},workspace);
@@ -295,9 +308,13 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
           const validated=validateTenant({name:current.name,slug:current.slug,ownerLineUserId:current.ownerLineUserId,
             features:current.features,line,credentials:body.credentials},false,{allowIncompleteFeatureLiffs:true,liffFeature:body.feature});
           const scopedLine=Object.fromEntries(Object.keys(line).map(k=>[k,validated.line[k]]));
-          if(validated.credentials.channelAccessToken)await verifyNotificationToken(validated.credentials.channelAccessToken,scopedLine.messagingChannelId,fetchImpl);
-          const encrypted=validated.credentials.channelAccessToken?await sealCredentials(current.id+':'+body.feature,validated.credentials,await encryptionKey()):null;
           const hash=await payloadHash({feature:body.feature,expectedVersion:body.expectedVersion,line:scopedLine,credentials:validated.credentials});
+          if(validated.credentials.channelAccessToken){
+            const replay=await configurationReplay(workspace,body.feature,'module_line:'+body.feature,hash);
+            if(replay)return json({ok:true,data:{tenant:publicTenant(replay)}});
+            await verifyNotificationToken(validated.credentials.channelAccessToken,scopedLine.messagingChannelId,fetchImpl);
+          }
+          const encrypted=validated.credentials.channelAccessToken?await sealCredentials(current.id+':'+body.feature,validated.credentials,await encryptionKey()):null;
           const result=await merchantWrite('platform_save_module_line',{p_actor:actor,p_feature:body.feature,p_expected_version:body.expectedVersion,
             p_request_id:body.requestId,p_payload_hash:hash,p_line:scopedLine,p_secrets:encrypted},workspace);
           if(result.error)throw databaseError(result.error);

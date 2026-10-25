@@ -7,6 +7,28 @@ const liffs={membership:'memberLiffId',points:'pointsLiffId',events:'eventLiffId
 const lineFor=(feature,extra={})=>({adminChannelId:'2010791619',adminLiffId:'2010791619-admin',memberChannelId:'2010787602',messagingChannelId:'',[liffs[feature]]:'2010787602-'+feature,...extra});
 const empty={channelAccessToken:'',channelSecret:''};
 async function setup(){const h=await fixture(),tenant=await h.approve(owner,'liff-only-shop',features);return {...h,tenant,save:(feature,line=lineFor(feature),extra={})=>h.call({action:'platform.line.save',business:tenant.slug,feature,line,credentials:empty,expectedVersion:1,requestId:crypto.randomUUID(),...extra},'manager')};}
+for(const kind of ['module','inherit'])test('#124 accepted '+kind+' save replays during Provider outage without revalidating secrets or accepting a changed payload',async()=>{
+ const h=await setup();try{
+  const {createPlatformHandler}=await import('../../supabase/functions/_shared/platform-handler.mjs');
+  let offline=false,providerCalls=0;
+  const handler=createPlatformHandler({db:{rpc:h.rpc},allowedOrigins:h.allowedOrigins,encryptionKey:()=>key,
+   verifyApplicantIdentity:async()=>({lineUserId:owner,issuedAtMs:Date.now()}),verifyIdentity:()=>assert.fail('merchant operation'),
+   fetchImpl:async()=>{providerCalls++;if(offline)throw Error('Synthetic provider outage');return new Response(JSON.stringify({client_id:'2010123456',expires_in:3600}));}});
+  const call=async body=>{const response=await handler(new Request('https://backend.test',{method:'POST',headers:{Origin:'https://allowed.test'},body:JSON.stringify({idToken:'manager',business:h.tenant.slug,...body})}));return{status:response.status,body:await response.json()};};
+  const moduleBody={action:'platform.line.save',feature:'booking',line:lineFor('booking',{messagingChannelId:'2010123456'}),credentials:{channelAccessToken:'synthetic-replay-token-123456789',channelSecret:'a'.repeat(32)},expectedVersion:1,requestId:crypto.randomUUID()};
+  const configured=await call(moduleBody);assert.equal(configured.status,200,JSON.stringify(configured));
+  const body=kind==='module'?moduleBody:{action:'platform.notifications.save',feature:'booking',purpose:'member',mode:'inherit',expectedVersion:2,requestId:crypto.randomUUID()};
+  if(kind==='inherit'){const first=await call(body);assert.equal(first.status,200,JSON.stringify(first));}
+  const count=providerCalls;offline=true;
+  const replay=await call(body);assert.equal(replay.status,200,JSON.stringify(replay));assert.equal(providerCalls,count,'accepted replay must not call unavailable provider');
+  const changed=kind==='module'?{...body,credentials:{...body.credentials,channelAccessToken:'different-synthetic-replay-token-12345'}}:{...body,mode:'custom',messagingChannelId:'2010123456',channelAccessToken:'different-synthetic-replay-token-12345'};
+  const conflict=await call(changed);assert.equal(conflict.body.error.code,'PLATFORM_REQUEST_CONFLICT');assert.equal(providerCalls,count);
+  const fresh=await call({...body,requestId:crypto.randomUUID(),expectedVersion:kind==='module'?2:3});assert.equal(fresh.status,503,'new request still requires live provider validation');
+  await h.db.query("update platform_private.tenants set features=jsonb_set(features,'{booking}','false') where id=$1",[h.tenant.id]);
+  assert.equal((await call(body)).body.error.code,'FEATURE_DISABLED');
+  assert.equal((await h.db.query("select count(*)::int n from platform_private.requests where operation in ('module_line:booking','notification:booking:member')")).rows[0].n,kind==='module'?1:2);
+ }finally{await h.db.close();}
+});
 test('#124 all five LIFF-only modules save without creating secrets and public bootstrap returns their own matched Login/LIFF',async()=>{
  const h=await setup();try{
   let version=1;

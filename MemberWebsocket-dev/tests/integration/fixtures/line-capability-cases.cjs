@@ -15,6 +15,27 @@ async function setup(database,beforeUpgrade){
  }catch(e){await h.db.close();throw e;}
 }
 module.exports=(label,database)=>{
+ test(label+' #124 replay lookup: accepted requests require current merchant, feature, token cutoff and exact operation/hash',async()=>{
+  const h=await setup(database);try{
+   const id=crypto.randomUUID(),issuedAt=new Date(Date.now()+1000).toISOString();
+   await h.write('calendar',1,id);
+   const args=[owner,h.tenant.id,issuedAt,'calendar','module_line:calendar',id,'a'.repeat(64),true];
+   const replay=(changes=[])=>h.call('platform_configuration_replay',changes.length?changes:args);
+   assert.equal((await replay()).version,2);
+   const absent=[...args];absent[5]=crypto.randomUUID();assert.equal(await replay(absent),null);
+   const changed=[...args];changed[6]='b'.repeat(64);await assert.rejects(replay(changed),/PLATFORM_REQUEST_CONFLICT/);
+   const operation=[...args];operation[3]='booking';operation[4]='module_line:booking';await assert.rejects(replay(operation),/PLATFORM_REQUEST_CONFLICT/);
+   const second=(await h.review(await h.submit(owner,'replay-other','Other'),'approved',features(['calendar']))).tenant;
+   const foreign=[...args];foreign[1]=second.id;await assert.rejects(replay(foreign),/PLATFORM_REQUEST_CONFLICT/);
+   for(const role of ['anon','authenticated'])await assert.rejects(h.call('platform_configuration_replay',args,role),/permission denied/);
+   await h.db.query("update platform_private.tenants set features=jsonb_set(features,'{calendar}','false') where id=$1",[h.tenant.id]);
+   await assert.rejects(replay(),/PLATFORM_FEATURE_DISABLED/);
+   await h.db.query("update platform_private.tenants set features=jsonb_set(features,'{calendar}','true'),access_revoked_before=$2::timestamptz+interval '1 second' where id=$1",[h.tenant.id,issuedAt]);
+   await assert.rejects(replay(),/TENANT_REAUTH_REQUIRED/);
+   assert.equal((await h.db.query('select version from platform_private.tenants where id=$1',[h.tenant.id])).rows[0].version,2);
+   assert.equal((await h.db.query('select count(*)::int n from platform_private.requests where request_id=$1',[id])).rows[0].n,1);
+  }finally{await h.db.close();}
+ });
  test(label+' #124 SQL: all five no-secret modules retain scoped LIFF, versions/replay and private RPC grants',async()=>{
   const h=await setup(database);try{
    let version=1;for(const feature of ['membership','points','events','calendar','booking']){
