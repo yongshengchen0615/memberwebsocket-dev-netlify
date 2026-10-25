@@ -1,4 +1,5 @@
 name: BrowserAct E2E readiness and opt-in smoke
+# User-approved, one-time branch validation before removing the temporary push gate.
 
 on:
   push:
