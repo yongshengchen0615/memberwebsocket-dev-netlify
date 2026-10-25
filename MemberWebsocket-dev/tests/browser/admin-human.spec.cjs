@@ -10,7 +10,11 @@ test.beforeEach(async({page},info)=>{
   await page.route('https://fixture.supabase.co/**',async route=>{
     if(route.request().url().includes('/storage/'))return route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><text y="40">QA receipt</text></svg>'});
     const {action,operation,...payload}=route.request().postDataJSON();
-    try {await route.fulfill({json:{ok:true,data:await transport(host.sessions.get(run),action||operation,payload,new URL(route.request().url()).pathname.split('/').at(-1))}});}
+    try {
+      const data=await transport(host.sessions.get(run),action||operation,payload,new URL(route.request().url()).pathname.split('/').at(-1));
+      if((action||operation)==='admin.calendar-items.save'&&info.calendarResponseGate)await info.calendarResponseGate;
+      await route.fulfill({json:{ok:true,data}});
+    }
     catch(e){await route.fulfill({status:400,json:{ok:false,error:{code:e.code,message:e.message}}});}
   });
   await page.route('https://nominatim.openstreetmap.org/**',r=>r.fulfill({json:[{lat:'25.033',lon:'121.5654',display_name:'QA Taipei'}]}));
@@ -333,12 +337,7 @@ test('CALENDAR_BONUS — save bonus amount, reopen, disable by changing to holid
   // A committed transport write can precede delivery to the UI. Hold that
   // response so the test cannot accidentally treat fixture state as UI-ready.
   let release;const delivered=new Promise(resolve=>{release=resolve;});
-  await p.route('https://fixture.supabase.co/**',async route=>{
-    const {action,operation,...payload}=route.request().postDataJSON();
-    if((action||operation)!=='admin.calendar-items.save')return route.fallback();
-    const data=await transport(info.fixture,action||operation,payload,new URL(route.request().url()).pathname.split('/').at(-1));
-    await delivered;await route.fulfill({json:{ok:true,data}});
-  });
+  info.calendarResponseGate=delivered;
   await openCalendar(p);await p.locator('#calendarBonusPointsEnabled').check();await fill(p,'calendarBonusPoints','4');await click(p,'saveCalendarItemButton');
   await expect.poll(()=>info.fixture.calendarItems[0]?.bonusPoints).toBe(4);
   await expect(p.locator('#saveCalendarItemButton')).toBeDisabled();await expect(p.locator('#calendarItemId')).toHaveValue('');release();
