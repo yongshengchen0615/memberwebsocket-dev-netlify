@@ -102,6 +102,7 @@ test('integrated preview publishes an exact SHA branch ZIP after full CI, never 
   assert.ok(preview.includes("'integrated-marketing-platform' || 'platform'"));
   assert.ok(preview.indexOf(ci) < preview.indexOf('- name: Build and verify the exact platform frontend'));
   assert.ok(preview.indexOf('zip -qr ../evidence/platform-preview.zip') < preview.indexOf(upload));
+  assert.ok(preview.indexOf('node scripts/inspect-preview-source.mjs') < preview.indexOf(upload));
   assert.ok(preview.includes('test "$current" = "$GITHUB_SHA"'));
   assert.ok(preview.includes(`test "$(jq -er '.source_sha' evidence/platform-deploy.json)" = "$GITHUB_SHA"`));
   assert.ok(preview.includes(`test "$(jq -er '.source_branch' evidence/platform-deploy.json)" = "$GITHUB_REF_NAME"`));

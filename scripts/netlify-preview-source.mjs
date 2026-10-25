@@ -28,6 +28,19 @@ export function describePreviewPublishFailure(error) {
       ? error.status : 'unknown';
     return `Verified preview publication failed during ${phase}: HTTP ${status}. Inspect deployment state before retrying. Provider bodies and credentials were not logged.`;
   }
+  // Exact internal error strings are safe; provider-supplied errors are never logged.
+  const safeErrors = new Map([
+    ['Invalid verified preview publish input', 'INVALID_INPUT'],
+    ['Preview source or production branch identity changed', 'SOURCE_IDENTITY'],
+    ['A competing preview deployment is still active', 'ACTIVE_DEPLOY'],
+    ['Preview upload did not return a deploy identity', 'INVALID_DEPLOY_ID'],
+    ['Published deploy does not belong to the verified preview branch', 'WRONG_DEPLOY_SCOPE'],
+    ['Preview deploy failed', 'DEPLOY_FAILED'],
+    ['Production identity changed during preview publication', 'PRODUCTION_CHANGED'],
+    ['Preview deploy did not become ready before the deadline', 'DEPLOY_NOT_READY'],
+  ]);
+  const safeCode = error instanceof Error ? safeErrors.get(error.message) : null;
+  if (safeCode) return `Verified preview publication blocked: ${safeCode}. Inspect site and deploy identity before retrying.`;
   return 'Verified preview publication failed (unclassified). Inspect deployment state before retrying. Provider bodies and credentials were not logged.';
 }
 
