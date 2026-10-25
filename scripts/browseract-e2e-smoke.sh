@@ -90,26 +90,6 @@ PY
   fi
   # Do not retain OAuth state, code challenge, or redirect query strings in artifacts.
   sed -i -E 's@https://access\.line\.me/[^[:space:]]+@https://access.line.me/[REDACTED]@g' "$OUT/$page-state.txt"
-  browser-act --session "$SESSION" eval \
-    "(() => {
-      if (!document.body || document.readyState === 'loading') throw Error('PAGE_NOT_READY');
-      if (location.hostname === 'access.line.me' && location.pathname.startsWith('/oauth2/'))
-        return JSON.stringify({status:'AUTH_REQUIRED',provider:'LINE',note:'Anonymous account cannot inspect protected UI'});
-      if (/(正在驗證 LINE 身分|正在登入會員卡|正在登入會員|LINE 身分驗證)/.test(document.body.innerText))
-        return JSON.stringify({status:'AUTH_PENDING',note:'LIFF identity check still pending, business UI not asserted'});
-      if (!['integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app',
-            'develop--memberwebsocket-dev-netlify.netlify.app'].includes(location.hostname))
-        throw Error('UNEXPECTED_REDIRECT');
-      if (/^(404|not found|page not found)/i.test(document.title.trim()))
-        throw Error('NOT_FOUND_DOCUMENT');
-      if (!document.body.innerText.trim()) throw Error('EMPTY_DOCUMENT');
-      const assets = performance.getEntriesByType('resource')
-        .filter(x => /\\.(js|css)(\\?|$)/i.test(x.name) && x.responseStatus >= 400)
-        .map(x => ({ url: x.name, status: x.responseStatus }));
-      if (assets.length) throw Error('ASSET_HTTP_FAILURE: ' + JSON.stringify(assets));
-      return JSON.stringify({url:location.href,title:document.title,
-        viewportWidth:innerWidth,viewportHeight:innerHeight,
-        bodyLength:document.body.innerText.length,failedAssets:assets});
   if browser-act --session "$SESSION" eval \
     "(() => {
       if (!document.body || document.readyState === 'loading') throw Error('PAGE_NOT_READY');
