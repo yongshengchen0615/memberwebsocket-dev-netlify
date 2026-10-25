@@ -36,7 +36,7 @@ async function setup({rate=()=>({data:true,error:null})}={}){
    assert.equal(response.headers.get('cache-control'),'no-store');
    return{status:response.status,body:await response.json()};
   };
-  h.send=(slug='merchant-a',body={},token='manager')=>h.api('submit',{businessName:slug,slug,requestId:crypto.randomUUID(),...body},token);
+  h.send=(name='merchant-a',body={},token='manager')=>h.api('submit',{businessName:name,requestId:crypto.randomUUID(),...body},token);
   h.decide=(a,decision='approved',body={},token='root')=>h.api('review',{
    applicationId:a.id,expectedVersion:a.version,decision,reason:decision==='rejected'?'資料不足':'',
    ...(decision==='approved'?{features:features(['points'])}:{}),requestId:crypto.randomUUID(),...body},token);
@@ -48,6 +48,33 @@ async function setup({rate=()=>({data:true,error:null})}={}){
 function application(r){assert.equal(r.status,200,JSON.stringify(r.body));return r.body.data.application;}
 function safe(a){assert.equal(a.tenant?.runtime_schema,undefined);assert.equal(a.tenant?.line_config,undefined);
  assert.equal(a.tenant?.module_line,undefined);assert.ok(!JSON.stringify(a).includes('envelope'));}
+
+test('AC-CODE-001/002/005: name-only applications receive distinct system codes and an uncertain retry keeps one application',async()=>{
+ const h=await setup();try{
+  await h.qualify();const body={businessName:'商家 A',requestId:'AABBCCDD-1111-4111-8111-112233445566'};
+  const a=application(await h.api('submit',body));assert.equal(a.slug,'m-aabbccdd111141118111112233445566');assert.equal(a.status,'pending');
+  const retries=await Promise.all([h.api('submit',body),h.api('submit',{...body,requestId:body.requestId.toLowerCase()})]);
+  for(const retry of retries)assert.deepEqual(application(retry),a);assert.equal(await h.count('applications'),1);
+  application(await h.decide(a));const approved=await h.get(a.id);
+  const b=application(await h.api('submit',{businessName:'商家 B',requestId:crypto.randomUUID()}));
+  assert.notEqual(b.slug,a.slug);assert.equal(b.status,'pending');assert.deepEqual(await h.get(a.id),approved);
+  assert.equal(await h.count('applications'),2);assert.equal(await h.count('tenants'),1);
+ }finally{await h.db.close();}
+});
+
+test('AC-CODE-003/004: resubmission preserves a legacy code and rejects custom codes or another owner',async()=>{
+ const h=await setup();try{
+  await h.qualify();await h.qualify(other);let a=await h.submit(owner,'legacy-code','原商家');a=await h.review(a,'rejected',null,'補資料');
+  const body={businessName:'商家改名',requestId:crypto.randomUUID(),applicationId:a.id,expectedVersion:a.version};
+  assert.equal((await h.api('submit',body,'other')).status,404);
+  const before=await h.snapshot();
+  for(const slug of ['chosen-code','',null,{},'m-'+'a'.repeat(32)]){
+   assert.equal((await h.api('submit',{...body,slug})).status,400);assert.deepEqual(await h.snapshot(),before);
+  }
+  const next=application(await h.api('submit',body));assert.equal(next.slug,'legacy-code');assert.equal(next.businessName,'商家改名');assert.equal(next.status,'pending');
+  assert.deepEqual(application(await h.api('submit',body)),next);assert.equal(await h.count('applications'),1);
+ }finally{await h.db.close();}
+});
 
 test('AC-MMA-HTTP-001: qualified owner submits distinct B pending after A approval; independent B grants and schema',async()=>{
  const h=await setup();try{
@@ -101,7 +128,7 @@ test('AC-MMA-HTTP-004: current Platform role and correct Channel are required fo
 
 test('AC-MMA-HTTP-005: unapplied/pending/rejected/suspended qualification cannot submit/read/replay merchant actions',async()=>{
  const h=await setup();try{
-  const check=async()=>{for(const [action,body]of [['submit',{businessName:'Name',slug:'merchant-b',requestId:crypto.randomUUID()}],['list',{}],['get',{applicationId:crypto.randomUUID()}]]){
+  const check=async()=>{for(const [action,body]of [['submit',{businessName:'Name',requestId:crypto.randomUUID()}],['list',{}],['get',{applicationId:crypto.randomUUID()}]]){
    const r=await h.api(action,body);assert.equal(r.status,403);assert.equal(r.body.error.code,'PLATFORM_QUALIFICATION_REQUIRED');
   }};
   await check();let q=await h.call('platform_submit_admin_qualification',[owner,'Synthetic',crypto.randomUUID()]);await check();
@@ -147,7 +174,8 @@ test('AC-MMA-HTTP-008: idempotent submit/review return current state; conflicts,
  const h=await setup();try{
   await h.qualify();const requestId=crypto.randomUUID(),a=application(await h.send('merchant-a',{requestId}));
   assert.deepEqual(application(await h.send('merchant-a',{requestId})),a);
-  for(const [r,code]of [[await h.send('different',{requestId}),'PLATFORM_REQUEST_CONFLICT'],[await h.send(),'PLATFORM_DUPLICATE_SLUG']]){
+  const collisionId=crypto.randomUUID();await h.submit(owner,'m-'+collisionId.replaceAll('-',''),'Existing reserved code');
+  for(const [r,code]of [[await h.send('different',{requestId}),'PLATFORM_REQUEST_CONFLICT'],[await h.send('Collision',{requestId:collisionId}),'PLATFORM_DUPLICATE_SLUG']]){
    assert.equal(r.status,409);assert.equal(r.body.error.code,code);
   }
   const reviewId=crypto.randomUUID(),approved=application(await h.decide(a,'approved',{requestId:reviewId}));

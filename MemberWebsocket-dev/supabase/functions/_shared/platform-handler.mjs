@@ -128,13 +128,21 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       if (body.action === 'platform.merchant.submit') {
         if (!validId(body.requestId) || typeof body.businessName !== 'string'
           || !body.businessName.trim() || Array.from(body.businessName.trim()).length > 100
-          || typeof body.slug !== 'string' || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(body.slug)
-          || body.slug.length < 3 || body.slug.length > 40 || ['admin','platform','api','www','root','system'].includes(body.slug)
+          || body.slug !== undefined
           || (body.applicationId === undefined ? body.expectedVersion !== undefined
             : !validId(body.applicationId) || !validVersion(body.expectedVersion)))
-          throw new PlatformError(400,'PLATFORM_INVALID_INPUT','請確認商家名稱、代碼、申請版本與操作識別碼。');
+          throw new PlatformError(400,'PLATFORM_INVALID_INPUT','請確認商家名稱、申請版本與操作識別碼；商家代碼由系統分配，舊頁面請重新整理。');
+        // Stable across an uncertain retry; the SQL transaction still enforces
+        // request ownership, payload consistency and globally unique codes.
+        let slug = 'm-' + body.requestId.toLowerCase().replaceAll('-','');
+        if (body.applicationId !== undefined) {
+          const current = await db.rpc('platform_get_merchant_application',{p_actor:actor,p_application_id:body.applicationId});
+          if (current.error) throw databaseError(current.error);
+          if (!current.data) throw new PlatformError(404,'PLATFORM_APPLICATION_NOT_FOUND','找不到商家申請。');
+          slug = current.data.slug;
+        }
         const result = await db.rpc('platform_submit_merchant_application',{
-          p_actor:actor,p_name:body.businessName.trim(),p_slug:body.slug,p_request_id:body.requestId,
+          p_actor:actor,p_name:body.businessName.trim(),p_slug:slug,p_request_id:body.requestId,
           p_application_id:body.applicationId ?? null,p_expected_version:body.expectedVersion ?? null,
         });
         if (result.error) throw databaseError(result.error);
