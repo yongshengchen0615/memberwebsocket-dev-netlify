@@ -7,10 +7,12 @@ on:
     paths:
       - .github/workflows/browseract-e2e.yml
       - scripts/browseract-e2e-smoke.sh
+      - scripts/browseract-mobile-compat.cjs
   pull_request:
     paths:
       - .github/workflows/browseract-e2e.yml
       - scripts/browseract-e2e-smoke.sh
+      - scripts/browseract-mobile-compat.cjs
   workflow_dispatch:
     inputs:
       preview_url:
@@ -67,6 +69,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           bash -n scripts/browseract-e2e-smoke.sh
+          node --check scripts/browseract-mobile-compat.cjs
           if bash scripts/browseract-e2e-smoke.sh https://memberwebsocket-dev-netlify.netlify.app; then
             echo "::error::Production URL passed BrowserAct safety guard"
             exit 1
@@ -77,6 +80,19 @@ jobs:
           TARGET_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.preview_url || 'https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app' }}
         shell: bash
         run: bash scripts/browseract-e2e-smoke.sh "$TARGET_URL"
+      - name: Install pinned Playwright for real mobile viewport checks
+        if: always() && ((github.event_name == 'workflow_dispatch' && inputs.approve_browser_creation == true) || (github.event_name == 'push' && github.ref == 'refs/heads/fix/browseract-e2e-bootstrap-20261025' && contains(github.event.head_commit.message, '[approved-browseract-e2e-20261025]')))
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund --prefix MemberWebsocket-dev/tests/browser
+          cd MemberWebsocket-dev/tests/browser
+          npx playwright install --with-deps chromium --only-shell
+      - name: Mobile viewport, JavaScript errors and HTTP response checks
+        if: always() && ((github.event_name == 'workflow_dispatch' && inputs.approve_browser_creation == true) || (github.event_name == 'push' && github.ref == 'refs/heads/fix/browseract-e2e-bootstrap-20261025' && contains(github.event.head_commit.message, '[approved-browseract-e2e-20261025]')))
+        env:
+          TARGET_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.preview_url || 'https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app' }}
+        run: node scripts/browseract-mobile-compat.cjs
       - name: Upload BrowserAct diagnostics
         if: always()
         uses: actions/upload-artifact@v4
