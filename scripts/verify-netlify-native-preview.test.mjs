@@ -4,10 +4,10 @@ import { verifyNativePreview, NativeDeployError } from './verify-netlify-native-
 const commit='b'.repeat(40),siteId='196e1d2c-8216-4ba8-aeb9-1706660adc2b',
   branch='Integrated-Marketing-Platform',siteName='memberwebsocket-dev-netlify',id='6ad892118bc22a8a08d1e9d5',
   old='6ad34aa232fcb1cea452346f',repo='yongshengchen0615/memberwebsocket-dev-netlify';
-const source={siteId,branch,production:{branch:'main',deployId:old},build:{repository:repo}};
+const source={siteId,branch,production:{branch:'master',deployId:old},build:{repository:repo}};
 const native={id,site_id:siteId,branch,context:'branch-deploy',commit_ref:commit,state:'ready',
   deploy_ssl_url:'https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app'};
-const site={id:siteId,name:siteName,published_deploy:{id:old},build_settings:{repo_branch:'main',repo_path:repo}};
+const site={id:siteId,name:siteName,published_deploy:{id:old},build_settings:{repo_branch:'master',repo_path:repo}};
 const input={commit,token:'secret-never-log',source};
 const fail=(p,code)=>assert.rejects(p,x=>x instanceof NativeDeployError&&x.code===code);
 function mock({items=[native],detail=native,project=site}={}){

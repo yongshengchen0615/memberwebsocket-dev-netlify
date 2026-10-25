@@ -5,12 +5,12 @@ import { verifyCliPreview, PreviewValidationError, siteId, siteName, previewAlia
 const commit = 'a'.repeat(40);
 const current = '6ad34aa232fcb1cea452346f';
 const deployId = '6ad8954a695249e48e388cae';
-const source = { siteId, branch: previewBranch, production: { branch: 'main', deployId: current },
+const source = { siteId, branch: previewBranch, production: { branch: 'master', deployId: current },
   build: { repository: 'yongshengchen0615/memberwebsocket-dev-netlify' }, alias: previewAlias, aliasDeployObserved: true, deploys: [] };
 const cli = { deploy_id: deployId, deploy_url: `https://${previewAlias}--${siteName}.netlify.app` };
 const deployed = { id: deployId, site_id: siteId, state: 'ready', context: 'branch-deploy', branch: previewAlias };
 const site = { id: siteId, name: siteName, published_deploy: { id: current },
-  build_settings: { repo_branch: 'main', repo_path: 'yongshengchen0615/memberwebsocket-dev-netlify' } };
+  build_settings: { repo_branch: 'master', repo_path: 'yongshengchen0615/memberwebsocket-dev-netlify' } };
 const input = { cli, source, token: 'secret-token-never-print', commit, branch: previewBranch, alias: previewAlias };
 function mocked({ deploy = deployed, project = site } = {}) {
   const calls = [];

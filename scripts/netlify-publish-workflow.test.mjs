@@ -64,6 +64,7 @@ test('deployment changes trigger the same full suite on PR and develop push', ()
 });
 
 test('preview uses the latest exact-commit CI gate before publishing and preserves alias scope', () => {
+  assert.ok(preview.indexOf('node scripts/check-preview-ci.mjs') < preview.indexOf('node scripts/netlify-preview-source.mjs --publish'));
   assert.ok(preview.indexOf('node scripts/check-preview-ci.mjs') < preview.indexOf('netlify-cli@'));
   assert.match(preview, /if \[ "\$result" != 2 \]/);
   assert.match(preview, /--alias="\$PLATFORM_ALIAS"/);
@@ -92,27 +93,27 @@ test('release-only changes trigger every required preview workflow on push and P
   assert.match(preview.split('permissions:')[0], /'\.github\/workflows\/test-memberwebsocket-dev.yml'/);
 });
 
-test('integrated preview verifies the CI-gated native branch instead of a colliding Draft alias', () => {
+test('integrated preview publishes an exact SHA branch ZIP after full CI, never a production deploy or Draft alias', () => {
   const sourceBranch = 'if [ "$GITHUB_REF_NAME" = Integrated-Marketing-Platform ]; then';
-  const inspect = 'node scripts/inspect-preview-source.mjs';
-  const native = 'node scripts/verify-netlify-native-preview.mjs';
   const ci = 'node scripts/check-preview-ci.mjs';
+  const upload = 'node scripts/netlify-preview-source.mjs --publish';
   const netlify = readFileSync(new URL('../scripts/netlify-preview-source.mjs', import.meta.url), 'utf8');
   assert.ok(preview.includes(sourceBranch));
   assert.ok(preview.includes("'integrated-marketing-platform' || 'platform'"));
-  assert.ok(preview.indexOf(ci) < preview.indexOf(inspect));
-  assert.ok(preview.indexOf(inspect) < preview.indexOf(native));
-  assert.ok(preview.indexOf(native) < preview.indexOf('- name: Build and verify the exact platform frontend'));
-  assert.ok(preview.includes('VERIFIED_PREVIEW_SOURCE_EPOCH=$(git show -s --format=%ct'));
-  assert.ok(preview.includes('DEPLOY_ID=$(jq -er'));
-  assert.ok(preview.includes("redirects = [] if os.environ['GITHUB_REF_NAME'] == 'Integrated-Marketing-Platform'"), 'Native recovery bundle must retain the verified root HTTP 200 contract');
-  assert.ok(preview.indexOf(native) < preview.indexOf('cat evidence/platform-deploy.json'));
-  const nativeClause = preview.slice(preview.indexOf(sourceBranch), preview.indexOf('          else',preview.indexOf(sourceBranch)));
-  assert.ok(!nativeClause.includes('netlify-cli@'), 'Integrated source must not upload an alias Draft');
-  assert.ok(netlify.includes('awaitVerifiedPreviewCI'), 'Netlify native build must wait for exact-SHA CI');
-  assert.ok(netlify.includes('isNativeVerifiedPreview(process.env)'), 'Only the native branch may use the gate');
-  assert.ok(preview.includes('scripts/netlify-native-ci-gate.test.mjs'));
-  assert.ok(preview.includes('scripts/verify-netlify-native-preview.test.mjs'));
+  assert.ok(preview.indexOf(ci) < preview.indexOf('- name: Build and verify the exact platform frontend'));
+  assert.ok(preview.indexOf('zip -qr ../evidence/platform-preview.zip') < preview.indexOf(upload));
+  assert.match(preview, /test "\\$current" = "\\$GITHUB_SHA"/);
+  assert.match(preview, /\\.source_sha.*\\$GITHUB_SHA/);
+  assert.match(preview, /\\.source_branch.*\\$GITHUB_REF_NAME/);
+  assert.match(preview, /\\.production_deploy_unchanged/);
+  const uploadClause = preview.slice(preview.indexOf(sourceBranch), preview.indexOf('          else', preview.indexOf(sourceBranch)));
+  assert.ok(!uploadClause.includes('netlify-cli@'), 'Integrated source must not upload an alias Draft');
+  assert.ok(!uploadClause.includes('--prod'), 'Integrated source must not publish production');
+  assert.doesNotMatch(preview, /- name: Identify the native artifact before reproducing it/);
+  assert.ok(netlify.includes('publishPreviewBranch'), 'Uploader must enforce exact branch and site identity');
+  assert.ok(netlify.includes('site.build_settings?.repo_path !== repository'));
+  assert.ok(netlify.includes('production_deploy_unchanged: true'));
+  assert.ok(preview.includes("redirects = [] if os.environ['GITHUB_REF_NAME'] == 'Integrated-Marketing-Platform'"));
   assert.ok(!preview.includes('--prod'));
   assert.ok(preview.includes("config['redirects']"));
   assert.ok(preview.includes("config['headers']"));

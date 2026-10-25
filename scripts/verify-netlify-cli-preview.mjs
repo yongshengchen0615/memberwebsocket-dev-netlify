@@ -19,7 +19,7 @@ const fail = code => { throw new PreviewValidationError(code); };
 export async function verifyCliPreview({ cli, source, token, commit, branch, alias, fetchImpl = fetch }) {
   if (!token || !sha(commit) || branch !== previewBranch || alias !== previewAlias) fail('INVALID_RELEASE_INPUT');
   if (!source || source.siteId !== siteId || source.branch !== previewBranch
-    || source.production?.branch !== 'main' || !id(source.production?.deployId)
+    || source.production?.branch !== 'master' || !id(source.production?.deployId)
     || source.build?.repository !== repo || source.alias !== previewAlias
     || source.aliasDeployObserved !== true || !Array.isArray(source.deploys)
     || source.deploys.some(item => item.context === 'branch-deploy' &&
