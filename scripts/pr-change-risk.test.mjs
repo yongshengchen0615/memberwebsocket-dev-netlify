@@ -13,7 +13,11 @@ const fullBody = `## 變更風險評估
 ### 架構審查
 獨立 workflow 只使用唯讀權限；沿用原發布閘門。
 ### 發布及資料庫相容性
-不更動既有 Netlify 發佈來源或 Supabase migration。`;
+不更動既有 Netlify 發佈來源或 Supabase migration。
+### 既有功能回歸
+保留原有 CI eight lanes，新增變更前後的測試證據與必要跳過阻擋。
+### 程式碼品質與效能
+只調整 GitHub PR 管理流程，沒有產品執行路徑，故 runtime 指標不適用；品質檢查為可維護性及 Node 測試。`;
 
 test('empty or invalid GitHub file list fails closed', () => {
   assert.throws(() => classifyChangeSet([]), /non-empty/);
@@ -93,4 +97,29 @@ test('changes to risk enforcement or PR template are always big', () => {
   ]) {
     assert.equal(classifyChangeSet(files(filename)).level, '大改', filename);
   }
+});
+
+test('a single application or workflow code change requires regression and quality/performance explanations', () => {
+  for (const path of ['MemberWebsocket-dev/booking/index.html', 'scripts/pr-change-risk.mjs', '.github/workflows/pr-change-risk.yml']) {
+    const risk = classifyChangeSet(files(path));
+    const empty = evaluateEvidence(risk, '');
+    assert.equal(empty.passed, false, path);
+    assert.ok(empty.missing.includes('既有功能回歸'), path);
+    assert.ok(empty.missing.includes('程式碼品質與效能'), path);
+    assert.deepEqual(evaluateEvidence(risk, fullBody).missing, [], path);
+  }
+});
+
+test('quality/performance and regression evidence cannot be generic placeholders', () => {
+  const risk = classifyChangeSet(files('MemberWebsocket-dev/booking/index.html'));
+  const partial = `### 既有功能回歸
+TBD
+### 程式碼品質與效能
+待補`;
+  assert.deepEqual(evaluateEvidence(risk, partial).missing, ['既有功能回歸', '程式碼品質與效能']);
+});
+
+test('non-code documentation does not require artificial runtime benchmark evidence', () => {
+  const risk = classifyChangeSet(files('docs/superpowers/specs/feature.md', 'README.md'));
+  assert.equal(evaluateEvidence(risk, '').passed, true);
 });
