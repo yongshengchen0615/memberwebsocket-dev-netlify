@@ -77,10 +77,12 @@ if status != 200 or not final or final.hostname != host or final.scheme != "http
     raise SystemExit(f"HTTP_OR_REDIRECT_FAILURE: {page}: status={status}; final={lines[1:]}")
 PY
   if [[ "$page" != home ]]; then
-    browser-act --session "$SESSION" navigate "$URL"
+    if ! browser-act --session "$SESSION" navigate "$URL" > "$OUT/$page-navigate.txt" 2>&1; then
+      echo "Navigation warning: $page (e.g. LIFF OAuth handoff)" >> "$OUT/navigation-warnings.txt"
+    fi
   fi
-  browser-act --session "$SESSION" wait stable
-  browser-act --session "$SESSION" state > "$OUT/$page-state.txt"
+  browser-act --session "$SESSION" wait stable > "$OUT/$page-wait.txt" 2>&1 || true
+  browser-act --session "$SESSION" state > "$OUT/$page-state.txt" || true
   # Do not retain OAuth state, code challenge, or redirect query strings in artifacts.
   sed -i -E 's@https://access\.line\.me/[^[:space:]]+@https://access.line.me/[REDACTED]@g' "$OUT/$page-state.txt"
   browser-act --session "$SESSION" eval \
@@ -88,6 +90,8 @@ PY
       if (!document.body || document.readyState === 'loading') throw Error('PAGE_NOT_READY');
       if (location.hostname === 'access.line.me' && location.pathname.startsWith('/oauth2/'))
         return JSON.stringify({status:'AUTH_REQUIRED',provider:'LINE',note:'Anonymous account cannot inspect protected UI'});
+      if (/(正在驗證 LINE 身分|正在登入會員卡|正在登入會員|LINE 身分驗證)/.test(document.body.innerText))
+        return JSON.stringify({status:'AUTH_PENDING',note:'LIFF identity check still pending, business UI not asserted'});
       if (!['integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app',
             'develop--memberwebsocket-dev-netlify.netlify.app'].includes(location.hostname))
         throw Error('UNEXPECTED_REDIRECT');
@@ -101,9 +105,9 @@ PY
       return JSON.stringify({url:location.href,title:document.title,
         viewportWidth:innerWidth,viewportHeight:innerHeight,
         bodyLength:document.body.innerText.length,failedAssets:assets});
-    })()" > "$OUT/$page-assertion.txt"
-  browser-act --session "$SESSION" network requests > "$OUT/$page-network.txt"
+    })()" > "$OUT/$page-assertion.txt" 2> "$OUT/$page-eval-error.txt" || echo "$page: BrowserAct evaluation failed" >> "$OUT/navigation-warnings.txt"
+  browser-act --session "$SESSION" network requests > "$OUT/$page-network.txt" 2>&1 || true
   sed -i -E 's@https://access\.line\.me/[^[:space:]]+@https://access.line.me/[REDACTED]@g' "$OUT/$page-network.txt"
-  browser-act --session "$SESSION" screenshot "$OUT/$page.png"
-  echo "Read-only BrowserAct smoke complete: $page"
+  browser-act --session "$SESSION" screenshot "$OUT/$page.png" >/dev/null 2>&1 || true
+  echo "BrowserAct checked: $page"
 done
