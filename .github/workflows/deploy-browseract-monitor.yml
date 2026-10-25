@@ -44,5 +44,6 @@ jobs:
           grep -Fq 'BrowserAct 即時測試監控台' /tmp/monitor.html
           status=$(curl -sS -o /tmp/monitor-api.json -w '%{http_code}' \
             'https://memberwebsocket-browseract-monitor.netlify.app/.netlify/functions/browseract-monitor?action=config')
+          echo "Unauthenticated API status: $status"
           test "$status" = 401
           ! grep -Eqi '(api_key|live_url|access_token)' /tmp/monitor-api.json
