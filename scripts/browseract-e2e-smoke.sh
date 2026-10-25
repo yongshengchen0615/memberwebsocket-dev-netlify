@@ -22,6 +22,8 @@ PY
 NAME="browseract-ci-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
 SESSION="browseract-ci-$GITHUB_RUN_ID"
 trap 'browser-act --session "$SESSION" session close "$SESSION" >/dev/null 2>&1 || true' EXIT
+browser-act get-skills advanced > "$OUT/advanced.txt"
+cat "$OUT/advanced.txt"
 browser-act --format json browser create --type chrome --name "$NAME" \
   --desc "Approved anonymous read-only CI smoke for Netlify preview" > "$OUT/create.json"
 browser-act --format json browser list > "$OUT/browsers.json"
