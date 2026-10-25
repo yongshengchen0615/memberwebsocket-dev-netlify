@@ -22,12 +22,12 @@
     nav.setAttribute('aria-label','總管理員已核准功能的 LINE 設定');
     document.documentElement.dataset.workspace='merchant';
     const link=document.createElement('link');
-    link.rel='stylesheet';link.href='../platform/platform.css?v=line-tab-20261020-1';
+    link.rel='stylesheet';link.href='../platform/platform.css?v=merchant-v2-20261024-1';
     document.head.append(link);
     try {
       await new Promise((resolve,reject)=>{
         const script=document.createElement('script');
-        script.src='../platform/app.js?v=admin-login-recovery-20261024-1';
+        script.src='../platform/app.js?v=merchant-v2-20261024-1';
         script.onload=resolve;script.onerror=()=>reject(new Error('管理端功能初始化失敗，請重新整理。'));
         document.head.append(script);
       });

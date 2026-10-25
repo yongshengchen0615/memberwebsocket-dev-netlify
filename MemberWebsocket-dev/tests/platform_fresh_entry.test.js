@@ -10,7 +10,7 @@ const endPosition=source.lastIndexOf('  void start();');
 assert.ok(startPosition>0&&endPosition>startPosition,'platform must retain a named async start function');
 const startExpression='('+source.slice(startPosition,endPosition).trim()+')';
 
-function entry({merchantEntry, inClient=false, returned=false, rejected=false, loggedIn=true, idToken='synthetic-line-id-token'}={}) {
+function entry({merchantEntry, inClient=false, returned=false, rejected=false, loggedIn=true, idToken='synthetic-line-id-token',version=1,business='',configuredLiff}={}) {
   const calls=[];
   const status={textContent:''};
   const featureFields={append(){}};
@@ -30,11 +30,13 @@ function entry({merchantEntry, inClient=false, returned=false, rejected=false, l
     location:{href:'https://preview.example.test/admin/'},
     crypto:require('node:crypto').webcrypto
   };
+  if(configuredLiff)window.BusinessContext={configure:async config=>{calls.push(['configure-business']);return{...config,adminLiffId:configuredLiff};}};
   const context={
     window,URL,AbortSignal,Promise,Date,setTimeout,clearTimeout,
-    fetch:async()=>({ok:true,json:async()=>({adminLiffId:'2010791619-testAdmin',platformLiffId:'2012065297-testPlatform'})}),
+    fetch:async()=>({ok:true,json:async()=>({merchantApprovalVersion:version,adminLiffId:'2010791619-testAdmin',platformLiffId:'2012065297-testPlatform'})}),
     merchantEntry, rejectedLoginReturn:rejected, refreshTimer:null,
     state:{config:null,idToken:'',features:{}},
+    isV2:()=>version===2,isAccount:()=>false,selectedBusiness:business,
     el:id=>elements[id]||status,
     consumeLoginReturn:()=>returned,
     showLoginGate:msg=>calls.push(['gate',msg]),
@@ -46,7 +48,7 @@ function entry({merchantEntry, inClient=false, returned=false, rejected=false, l
     refresh:async()=>{calls.push(['refresh-root']);return {profile:{displayName:'測試總管理員'},features:{}};},
     refreshMine:()=>{},
     setInterval:()=>1,clearInterval:()=>{},
-    document:{createElement:()=>({append(){}}),createTextNode:()=>({})}
+    document:{createElement:()=>({append(){}}),createTextNode:()=>({}),querySelector:()=>null}
   };
   const start=vm.runInNewContext(startExpression,context);
   return {calls,context,run:start};
@@ -90,4 +92,11 @@ test('AC-121-06: failed ID-token retrieval fails closed before API',async()=>{
   await e.run();
   assert.ok(names(e).includes('gate'));
   assert.ok(!names(e).includes('request'));
+});
+test('AC-MMA-LOGIN-001: selected LINE workspace initializes the server-selected merchant LIFF instead of the account LIFF',async()=>{
+ const e=entry({merchantEntry:true,inClient:true,version:2,business:'merchant-a',configuredLiff:'2099999999-customAdmin'});
+ await e.run();
+ assert.ok(names(e).includes('configure-business'));
+ assert.deepEqual(e.calls.filter(([name])=>name==='init').map(([,id])=>id),['2099999999-customAdmin']);
+ assert.ok(names(e).includes('request'));assert.ok(names(e).includes('authorized-ui'));
 });

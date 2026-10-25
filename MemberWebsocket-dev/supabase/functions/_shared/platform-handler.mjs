@@ -5,6 +5,13 @@ import { validateNotificationRoute, verifyNotificationToken } from './notificati
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SQL_ERRORS = {
   PLATFORM_ADMIN_REQUIRED:[403,'僅總管理員可管理商家。'], PLATFORM_CONFLICT:[409,'資料已更新，請重新載入後再試。'],
+  PLATFORM_QUALIFICATION_SUSPENDED:[403,'管理員資格已停權，請聯絡總管理員。'],
+  PLATFORM_QUALIFICATION_REQUIRED:[403,'請先取得一般管理員資格。'],
+  PLATFORM_BUSINESS_SELECTION_REQUIRED:[409,'請先選擇要管理的商家。'],
+  PLATFORM_MERCHANT_API_REQUIRED:[409,'請使用新版商家申請流程。'],
+  TENANT_REAUTH_REQUIRED:[401,'使用資格曾被停用，請重新使用 LINE 登入。'],
+  PLATFORM_QUALIFICATION_NOT_FOUND:[404,'找不到管理員資格申請。'],
+  PLATFORM_QUALIFICATION_TRANSITION:[409,'目前資格狀態不允許此操作，請重新載入。'],
   PLATFORM_FEATURE_DISABLED:[403,'此功能尚未核准。'], PLATFORM_RESUME_NOT_READY:[409,'商家尚未完成開通，無法復權。'], TENANT_EXPIRED:[403,'使用期限已到，請聯絡總管理員。'],
   PLATFORM_DUPLICATE_SLUG:[409,'商家代碼已被使用。'], PLATFORM_REQUEST_CONFLICT:[409,'這個操作識別碼已用於其他內容。'],
   PLATFORM_TENANT_NOT_FOUND:[404,'找不到商家。'], PLATFORM_PROVISIONING_REQUIRED:[409,'商家尚未完成獨立資料環境驗證。'],
@@ -57,7 +64,11 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
           line:module?.credentialsConfigured?{...tenant.line,...module.line}:tenant.onboarding.configurationComplete?tenant.line:{adminLiffId:tenant.line?.adminLiffId||''}}});
       }
       if (typeof body.idToken !== 'string' || !body.idToken || body.idToken.length > 10_000) throw new PlatformError(401,'AUTH_REQUIRED','請使用 LINE 帳號登入。');
-      const applicantAction = ['platform.application.bootstrap','platform.application.ensure','platform.application.submit','platform.line.save','platform.notifications.save','platform.notifications.test'].includes(body.action);
+      const qualificationAction = ['platform.qualification.bootstrap','platform.qualification.submit','platform.qualification.list','platform.qualification.review'].includes(body.action);
+      const merchantAction = ['platform.merchant.list','platform.merchant.get','platform.merchant.submit','platform.merchant.review'].includes(body.action);
+      if ((qualificationAction || merchantAction) && body.business !== undefined)
+        throw new PlatformError(400,'PLATFORM_INVALID_INPUT','資格與商家申請不接受商家入口。');
+      const applicantAction = ['platform.application.bootstrap','platform.application.ensure','platform.application.submit','platform.line.save','platform.notifications.save','platform.notifications.test','platform.qualification.bootstrap','platform.qualification.submit','platform.merchant.list','platform.merchant.get','platform.merchant.submit'].includes(body.action);
       let trustedChannel;
       if (applicantAction && body.business !== undefined) {
         if (typeof body.business !== 'string' || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(body.business) || body.business.length > 40)
@@ -72,13 +83,74 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       }
       const identity = await (applicantAction ? verifyApplicantIdentity : verifyIdentity)(body.idToken, trustedChannel);
       const actor = identity.lineUserId;
-      const readOnly = ['platform.bootstrap','platform.application.bootstrap'].includes(body.action);
+      const readOnly = ['platform.bootstrap','platform.application.bootstrap','platform.qualification.bootstrap','platform.qualification.list','platform.merchant.list','platform.merchant.get'].includes(body.action);
       const rate = await db.rpc('consume_api_rate_limit',{p_principal_hash:await payloadHash(`platform:${actor}`),
         p_is_write:!readOnly,p_cost:1,p_read_limit:60,p_write_limit:15});
       if (rate.error) throw new PlatformError(503,'RATE_LIMIT_UNAVAILABLE','目前無法確認請求頻率。');
       if (!rate.data) throw new PlatformError(429,'RATE_LIMITED','操作過於頻繁，請稍後再試。');
+      if (body.action === 'platform.qualification.bootstrap') {
+        const result = await db.rpc('platform_my_admin_qualification',{p_actor:actor});
+        if (result.error) throw databaseError(result.error);
+        return json({ok:true,data:{qualification:result.data ?? null}});
+      }
+      if (body.action === 'platform.qualification.submit') {
+        if (typeof body.requestId !== 'string' || !uuid.test(body.requestId))
+          throw new PlatformError(400,'PLATFORM_INVALID_INPUT','操作識別碼格式不正確。');
+        const name = Array.from(String(identity.displayName || 'LINE 管理員').trim() || 'LINE 管理員').slice(0,100).join('');
+        const result = await db.rpc('platform_submit_admin_qualification',{
+          p_actor:actor,p_name:name,p_request_id:body.requestId,
+        });
+        if (result.error) throw databaseError(result.error);
+        return json({ok:true,data:{qualification:result.data}});
+      }
+      // Account-level merchant applications use the fixed applicant Channel.
+      // SQL checks the verified actor's current qualification and row ownership.
+      const merchantResponse = application => application && {
+        id:application.id,qualificationId:application.qualificationId,
+        businessName:application.businessName,slug:application.slug,status:application.status,version:application.version,
+        requestedAt:application.requestedAt,updatedAt:application.updatedAt,
+        reviewedAt:application.reviewedAt,reviewReason:application.reviewReason,
+        tenant:application.tenant ? publicTenant(application.tenant) : null,
+      };
+      const validId = value => typeof value === 'string' && uuid.test(value);
+      const validVersion = value => Number.isSafeInteger(value) && value >= 1 && value <= 2147483647;
+      if (body.action === 'platform.merchant.list') {
+        const result = await db.rpc('platform_my_merchant_applications',{p_actor:actor});
+        if (result.error) throw databaseError(result.error);
+        return json({ok:true,data:{applications:(result.data || []).map(merchantResponse)}});
+      }
+      if (body.action === 'platform.merchant.get') {
+        if (!validId(body.applicationId)) throw new PlatformError(400,'PLATFORM_INVALID_INPUT','商家申請識別碼格式不正確。');
+        const result = await db.rpc('platform_get_merchant_application',{p_actor:actor,p_application_id:body.applicationId});
+        if (result.error) throw databaseError(result.error);
+        return json({ok:true,data:{application:merchantResponse(result.data)}});
+      }
+      if (body.action === 'platform.merchant.submit') {
+        if (!validId(body.requestId) || typeof body.businessName !== 'string'
+          || !body.businessName.trim() || Array.from(body.businessName.trim()).length > 100
+          || typeof body.slug !== 'string' || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(body.slug)
+          || body.slug.length < 3 || body.slug.length > 40 || ['admin','platform','api','www','root','system'].includes(body.slug)
+          || (body.applicationId === undefined ? body.expectedVersion !== undefined
+            : !validId(body.applicationId) || !validVersion(body.expectedVersion)))
+          throw new PlatformError(400,'PLATFORM_INVALID_INPUT','請確認商家名稱、代碼、申請版本與操作識別碼。');
+        const result = await db.rpc('platform_submit_merchant_application',{
+          p_actor:actor,p_name:body.businessName.trim(),p_slug:body.slug,p_request_id:body.requestId,
+          p_application_id:body.applicationId ?? null,p_expected_version:body.expectedVersion ?? null,
+        });
+        if (result.error) throw databaseError(result.error);
+        return json({ok:true,data:{application:merchantResponse(result.data)}});
+      }
       const mine = async () => {
-        const result = await db.rpc('platform_my_application',{p_actor:actor});
+        const context = slug => db.rpc('platform_my_merchant_context',{
+          p_actor:actor,p_slug:slug,p_issued_at:new Date(identity.issuedAtMs).toISOString(),
+        });
+        let result = body.business !== undefined ? await context(body.business)
+          : await db.rpc('platform_my_application',{p_actor:actor});
+        // Before the coordinated schema upgrade, a legacy singleton has no
+        // qualificationId. Once migrated, even an old singleton client must use
+        // the current qualification/fresh-token gate; ambiguous owners fail in SQL.
+        if (!result.error && body.business === undefined && result.data?.qualificationId)
+          result = await context(result.data.slug);
         if (result.error) throw databaseError(result.error);
         const application = result.data || null;
         if (body.business !== undefined && application?.tenant?.slug !== body.business)
@@ -88,6 +160,11 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         return {application:application && {...application,tenant:undefined},
           tenant:application?.tenant ? publicTenant(application.tenant) : null};
       };
+      const merchantWrite = (name,params,workspace) => db.rpc(
+        workspace.application?.qualificationId ? name+'_for_merchant' : name,
+        {...params,...(workspace.application?.qualificationId ? {
+          p_tenant_id:workspace.tenant.id,p_issued_at:new Date(identity.issuedAtMs).toISOString(),
+        } : {})});
       if (body.action === 'platform.application.ensure') {
         // Identity and initial name come only from LINE verification. The SQL
         // actor lock and unique constraint make simultaneous first visits safe.
@@ -124,7 +201,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         if(route?.mode==='disabled')throw new PlatformError(409,'NOTIFICATION_DISABLED','請先啟用此用途通知。');
         const hash=await payloadHash({feature:body.feature,purpose:body.purpose,expectedVersion:body.expectedVersion});
         const args={p_actor:actor,p_feature:body.feature,p_purpose:body.purpose,p_expected_version:body.expectedVersion,p_request_id:body.requestId,p_payload_hash:hash};
-        const claim=await db.rpc('platform_notification_test',args);if(claim.error)throw databaseError(claim.error);
+        const claim=await merchantWrite('platform_notification_test',args,workspace);if(claim.error)throw databaseError(claim.error);
         if(claim.data?.state==='accepted')return json({ok:true,data:claim.data});
         const custom=route?.mode==='custom';
         const stored=await db.rpc(custom?'platform_notification_credentials':'platform_module_credentials',{p_tenant_id:current.id,p_feature:body.feature});
@@ -141,7 +218,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         catch {throw new PlatformError(503,'LINE_NOTIFICATION_UNCERTAIN','無法確認 LINE 是否已接收，請重試相同測試操作。');}
         const accepted=remote.ok||(remote.status===409&&Boolean(remote.headers.get('x-line-accepted-request-id')));
         const result={state:accepted?'accepted':'failed',status:remote.status,requestId:remote.headers.get('x-line-request-id')||''};
-        const finish=await db.rpc('platform_notification_test',{...args,p_result:result});if(finish.error)throw databaseError(finish.error);
+        const finish=await merchantWrite('platform_notification_test',{...args,p_result:result},workspace);if(finish.error)throw databaseError(finish.error);
         if(!accepted)throw new PlatformError(remote.status>=500||remote.status===429?503:400,'LINE_NOTIFICATION_FAILED','LINE 未接收測試通知。請確認已加入該官方帳號好友、Channel 位於相同 Provider，並檢查訊息額度。');
         return json({ok:true,data:result});
       }
@@ -161,9 +238,9 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         }
         const hash = await payloadHash({feature:body.feature,purpose:body.purpose,mode:body.mode,expectedVersion:body.expectedVersion,
           channel:body.mode==='custom'?body.messagingChannelId:null,token:body.mode==='custom'?body.channelAccessToken:null});
-        const result = await db.rpc('platform_save_notification_route',{p_actor:actor,p_feature:body.feature,p_purpose:body.purpose,p_mode:body.mode,
+        const result = await merchantWrite('platform_save_notification_route',{p_actor:actor,p_feature:body.feature,p_purpose:body.purpose,p_mode:body.mode,
           p_expected_version:body.expectedVersion,p_request_id:body.requestId,p_payload_hash:hash,
-          p_channel_id:body.mode==='custom'?body.messagingChannelId:null,p_envelope:encrypted});
+          p_channel_id:body.mode==='custom'?body.messagingChannelId:null,p_envelope:encrypted},workspace);
         if (result.error) throw databaseError(result.error);
         return json({ok:true,data:{tenant:publicTenant(result.data)}});
       }
@@ -191,8 +268,8 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
           const scopedLine=Object.fromEntries(Object.keys(line).map(k=>[k,validated.line[k]]));
           const encrypted=validated.credentials.channelAccessToken?await sealCredentials(current.id+':'+body.feature,validated.credentials,await encryptionKey()):null;
           const hash=await payloadHash({feature:body.feature,expectedVersion:body.expectedVersion,line:scopedLine,credentials:validated.credentials});
-          const result=await db.rpc('platform_save_module_line',{p_actor:actor,p_feature:body.feature,p_expected_version:body.expectedVersion,
-            p_request_id:body.requestId,p_payload_hash:hash,p_line:scopedLine,p_secrets:encrypted});
+          const result=await merchantWrite('platform_save_module_line',{p_actor:actor,p_feature:body.feature,p_expected_version:body.expectedVersion,
+            p_request_id:body.requestId,p_payload_hash:hash,p_line:scopedLine,p_secrets:encrypted},workspace);
           if(result.error)throw databaseError(result.error);
           return json({ok:true,data:{tenant:publicTenant(result.data)}});
         }
@@ -219,10 +296,10 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         const hash = await payloadHash({expectedVersion:body.expectedVersion,line:validated.line,credentials:validated.credentials});
         const encrypted = validated.credentials.channelAccessToken
           ? await sealCredentials(current.id,validated.credentials,await encryptionKey()) : null;
-        const result = await db.rpc('platform_save_my_line',{
+        const result = await merchantWrite('platform_save_my_line',{
           p_actor:actor,p_expected_version:body.expectedVersion,p_request_id:body.requestId,
           p_payload_hash:hash,p_line:validated.line,p_secrets:encrypted,
-        });
+        },workspace);
         if (result.error) throw databaseError(result.error);
         return json({ok:true,data:{tenant:publicTenant(result.data)}});
       }
@@ -238,6 +315,45 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       const auth = await db.rpc('platform_is_super_admin',{p_actor:actor});
       if (auth.error) throw databaseError(auth.error);
       if (auth.data !== true) throw new PlatformError(403,'PLATFORM_ADMIN_REQUIRED','僅總管理員可管理商家。');
+      if (body.action === 'platform.merchant.review') {
+        const reason = body.reason === undefined ? '' : body.reason;
+        const grants = body.features;
+        const validGrants = grants && typeof grants === 'object' && !Array.isArray(grants)
+          && Object.keys(grants).length === Object.keys(FEATURES).length
+          && Object.keys(FEATURES).every(key => Object.hasOwn(grants,key) && typeof grants[key] === 'boolean');
+        if (!validId(body.requestId) || !validId(body.applicationId) || !validVersion(body.expectedVersion)
+          || !['approved','rejected'].includes(body.decision)
+          || typeof reason !== 'string' || Array.from(reason.trim()).length > 500
+          || (body.decision === 'approved' ? !validGrants : !reason.trim() || grants != null))
+          throw new PlatformError(400,'PLATFORM_INVALID_INPUT','請確認商家申請、資料版本、審核理由與八項功能。');
+        const result = await db.rpc('platform_review_merchant_application',{
+          p_actor:actor,p_application_id:body.applicationId,p_expected_version:body.expectedVersion,
+          p_decision:body.decision,p_reason:reason.trim(),p_features:grants ?? null,p_request_id:body.requestId,
+        });
+        if (result.error) throw databaseError(result.error);
+        return json({ok:true,data:{application:merchantResponse(result.data)}});
+      }
+      if (body.action === 'platform.qualification.list') {
+        const result = await db.rpc('platform_list_admin_qualifications',{p_actor:actor});
+        if (result.error) throw databaseError(result.error);
+        return json({ok:true,data:{qualifications:result.data || []}});
+      }
+      if (body.action === 'platform.qualification.review') {
+        const reason = body.reason === undefined ? '' : body.reason;
+        if (typeof body.requestId !== 'string' || !uuid.test(body.requestId)
+          || typeof body.qualificationId !== 'string' || !uuid.test(body.qualificationId)
+          || !Number.isSafeInteger(body.expectedVersion) || body.expectedVersion < 1 || body.expectedVersion > 2147483647
+          || !['approved','rejected','suspended'].includes(body.decision)
+          || typeof reason !== 'string' || Array.from(reason.trim()).length > 500
+          || (['rejected','suspended'].includes(body.decision) && !reason.trim()))
+          throw new PlatformError(400,'PLATFORM_INVALID_INPUT','請確認申請、資料版本、審核結果與理由。');
+        const result = await db.rpc('platform_review_admin_qualification',{
+          p_actor:actor,p_qualification_id:body.qualificationId,p_expected_version:body.expectedVersion,
+          p_decision:body.decision,p_reason:reason.trim(),p_request_id:body.requestId,
+        });
+        if (result.error) throw databaseError(result.error);
+        return json({ok:true,data:{qualification:result.data}});
+      }
       if (body.action === 'platform.bootstrap') {
         const [tenants,applications] = await Promise.all([
           db.rpc('platform_list_tenants',{p_actor:actor}),
@@ -246,7 +362,9 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         if (tenants.error) throw databaseError(tenants.error);
         if (applications.error) throw databaseError(applications.error);
         return json({ok:true,data:{profile:{displayName:identity.displayName},
-          features:FEATURES,tenants:(tenants.data || []).map(publicTenant),applications:applications.data || []}});
+          features:FEATURES,tenants:(tenants.data || []).map(publicTenant),
+          applications:(applications.data || []).map(application => ({...merchantResponse(application),
+            applicantLineUserId:application.applicantLineUserId,tenantId:application.tenantId}))}});
       }
       // This API never approves Platform operators: the Supabase owner edits
       // platform_private.super_admins.enabled in the Table Editor.

@@ -4,8 +4,14 @@ import { sealCredentials } from './platform-crypto.mjs';
 const assert=(condition:unknown,message='assertion failed')=>{if(!condition)throw Error(message);};
 const ownerA='U'+'a'.repeat(32),ownerB='U'+'b'.repeat(32);
 const token=(sub:string)=>'e30.'+btoa(JSON.stringify({sub}))+'.signature';
-const a={id:'10000000-0000-4000-8000-000000000001',slug:'merchant-a',name:'A',status:'active',runtime_schema:'business_'+'a'.repeat(32),owner_line_user_id:ownerA,features:{membership:true,points:true,booking:true},line_config:{},credentials_configured:false};
+const a={id:'10000000-0000-4000-8000-000000000001',slug:'merchant-a',name:'A',status:'active',runtime_schema:'business_'+'a'.repeat(32),owner_line_user_id:ownerA,owner_qualification_status:'approved',admin_access_revoked_before:null,features:{membership:true,points:true,booking:true},line_config:{},credentials_configured:false};
 const b={...a,id:'20000000-0000-4000-8000-000000000002',slug:'merchant-b',name:'B',runtime_schema:'business_'+'b'.repeat(32),owner_line_user_id:ownerB};
+// Only the LINE transport is stubbed; businessHandler uses the real verifier.
+const verified=(init?:RequestInit)=>{
+ const body=new URLSearchParams(init?.body as string),idToken=body.get('id_token')||'';
+ const sub=JSON.parse(atob(idToken.split('.')[1])).sub;
+ return {sub,aud:body.get('client_id'),iss:'https://access.line.me',iat:Math.floor(Date.now()/1000)-5,exp:Math.floor(Date.now()/1000)+300};
+};
 Deno.test('AC-186: dispatch resolves each purpose and never falls back from disabled or corrupt notification routes',async()=>{
  const oldEnv=Deno.env.get,oldFetch=globalThis.fetch,key=btoa(String.fromCharCode(...new Uint8Array(32).fill(9)));
  const base=await sealCredentials(a.id+':booking',{channelAccessToken:'synthetic-base',channelSecret:'a'.repeat(32)},key);
@@ -17,7 +23,8 @@ Deno.test('AC-186: dispatch resolves each purpose and never falls back from disa
   const p=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url).pathname;
   const body=typeof init?.body==='string'?JSON.parse(init.body):{};
   const reply=(data:unknown)=>new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json'}});
-  if(p.endsWith('/platform_business_context'))return reply({...a,module_line:{points:{credentialsConfigured:true,line:{}},booking:{credentialsConfigured:true,line:{},notifications:{admin:{mode:disabled?'disabled':'custom'},member:{mode:'custom'}}}}});
+  if(p.endsWith('/platform_business_context_v2'))return reply({...a,module_line:{points:{credentialsConfigured:true,line:{}},booking:{credentialsConfigured:true,line:{},notifications:{admin:{mode:disabled?'disabled':'custom'},member:{mode:'custom'}}}}});
+  if(p==='/oauth2/v2.1/verify')return reply(verified(init));
   if(p.endsWith('/platform_module_credentials'))return reply({scope:'module',envelope:body.p_feature==='points'?pointBase:base});
   if(p.endsWith('/platform_notification_credentials'))return reply({admin:{mode:'custom',envelope:broken?envelopes.member:envelopes.admin},member:{mode:'custom',envelope:envelopes.member}});
   if(p.endsWith('/booking_notification_config'))return reply({BOOKING_NOTIFICATION_DISPATCH_SECRET:'synthetic-dispatch'});
@@ -46,7 +53,9 @@ Deno.test('AC-210: production request adapter enforces fresh grants, private sch
   const body=typeof init?.body==='string'?JSON.parse(init.body):{};
   calls.push({path:url.pathname,headers,body});
   const reply=(data:unknown)=>new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json'}});
-  if(url.pathname.endsWith('/platform_business_context'))return reply(body.p_slug==='merchant-b'||body.p_actor===ownerB?b:latestA);
+  if(url.pathname.endsWith('/platform_business_context_v2'))return reply(body.p_slug==='merchant-b'||body.p_actor===ownerB?b:latestA);
+  if(url.pathname.endsWith('/platform_my_merchant_context'))return reply({tenant:latestA});
+  if(url.pathname==='/oauth2/v2.1/verify')return reply(verified(init));
   if(url.pathname.endsWith('/members')){await new Promise(r=>setTimeout(r,2));return reply([{id:headers.get('accept-profile')}]);}
   if(url.pathname.includes('/storage/v1/object/sign/'))return reply({signedURL:'/object/sign/'+url.pathname.split('/sign/')[1]+'?token=fixture'});
   if(url.hostname==='api.line.me')return reply({ok:true});
@@ -93,7 +102,7 @@ Deno.test('AC-181-002/AC-184-03: production verification rejects old provider-ve
  globalThis.fetch=(async(input:RequestInfo|URL)=>{
   const path=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url).pathname;
   const response=(data:unknown)=>new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json'}});
-  if(path.endsWith('/platform_business_context'))return response({...a,access_revoked_before:cutoff,expires_at:expired?'2000-01-01T00:00:00Z':null});
+  if(path.endsWith('/platform_business_context_v2'))return response({...a,access_revoked_before:cutoff,expires_at:expired?'2000-01-01T00:00:00Z':null});
   if(path==='/oauth2/v2.1/verify')return response({sub:ownerA,aud:'2010791619',iss:'https://access.line.me',iat:issued,exp:Math.floor(Date.now()/1000)+300,name:'fixture'});
   if(path.endsWith('/admins'))return response({role:'admin',status:'active'});
   return response(null);
@@ -104,7 +113,7 @@ Deno.test('AC-181-002/AC-184-03: production verification rejects old provider-ve
    catch(e){return new Response(JSON.stringify({code:(e as any).code}),{status:(e as any).status||500});}
   });
   const req=()=>new Request('https://api.test',{method:'POST',body:JSON.stringify({business:'merchant-a',action:'admin.bootstrap',idToken:token(ownerA)})});
-  const old=await handler(req());assert(old.status===401);assert((await old.json()).code==='TENANT_REAUTH_REQUIRED');assert(executed===0);
+  const old=await handler(req());assert(old.status===401);assert((await old.json()).error.code==='TENANT_REAUTH_REQUIRED');assert(executed===0);
   issued+=20;assert((await handler(req())).status===200);assert(executed===1);
   expired=true;assert((await handler(req())).status===403);assert(executed===1);
  }finally{Deno.env.get=previousEnv;globalThis.fetch=previous;}
@@ -120,7 +129,8 @@ Deno.test('AC-ENV-002/003: request adapter reads only the action module credenti
   const path=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url).pathname;
   const body=typeof init?.body==='string'?JSON.parse(init.body):{};
   const response=(data:unknown)=>new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json'}});
-  if(path.endsWith('/platform_business_context'))return response({...a,module_line:Object.fromEntries(['membership','points'].map(f=>[f,{credentialsConfigured:true,line:{adminChannelId:'2010791619',adminLiffId:'2010791619-admin',memberChannelId:f==='membership'?'2010787602':'2010789999',messagingChannelId:'2010123456',[f==='membership'?'memberLiffId':'pointsLiffId']:(f==='membership'?'2010787602':'2010789999')+'-fixture'}}]))});
+  if(path.endsWith('/platform_business_context_v2'))return response({...a,module_line:Object.fromEntries(['membership','points'].map(f=>[f,{credentialsConfigured:true,line:{adminChannelId:'2010791619',adminLiffId:'2010791619-admin',memberChannelId:f==='membership'?'2010787602':'2010789999',messagingChannelId:'2010123456',[f==='membership'?'memberLiffId':'pointsLiffId']:(f==='membership'?'2010787602':'2010789999')+'-fixture'}}]))});
+  if(path==='/oauth2/v2.1/verify')return response(verified(init));
   if(path.endsWith('/platform_module_credentials'))return response(broken?null:{scope:'module',envelope:envelopes[body.p_feature]});
   throw Error('unexpected request '+path);
  }) as typeof fetch;

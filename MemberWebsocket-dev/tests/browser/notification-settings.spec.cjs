@@ -11,7 +11,7 @@ for(const width of [390,1280])test('NOTIFICATION_PURPOSES_'+width+' — independ
  const tenant=await h.approve(owner,'notice-browser',features);h.allowedOrigins.add(base);
  const {createPlatformHandler}=await import('../../supabase/functions/_shared/platform-handler.mjs');
  const provider=[];let lose=true,valid=true;
- const handler=createPlatformHandler({db:{rpc:h.rpc},allowedOrigins:h.allowedOrigins,encryptionKey:()=>key,verifyIdentity:()=>{throw Error('ROOT_NOT_ALLOWED');},verifyApplicantIdentity:async()=>({lineUserId:owner}),
+ const handler=createPlatformHandler({db:{rpc:h.rpc},allowedOrigins:h.allowedOrigins,encryptionKey:()=>key,verifyIdentity:()=>{throw Error('ROOT_NOT_ALLOWED');},verifyApplicantIdentity:async()=>({lineUserId:owner,issuedAtMs:Date.now()}),
  fetchImpl:async(url,options)=>{provider.push({url,options});return new Response(JSON.stringify({client_id:valid?'2010123456':'wrong',expires_in:3600}),{status:200,headers:{'x-line-request-id':'synthetic-request-id'}});}});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  try{

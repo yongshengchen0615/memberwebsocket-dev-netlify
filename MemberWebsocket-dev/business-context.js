@@ -24,13 +24,14 @@
     const u=new URL(typeof input==='string'?input:input.url||input.href,window.location.href);
     if(/^https:\/\/[a-z0-9]+\.supabase\.co\/functions\/v1\//.test(u.href)){
      const body=JSON.parse(init.body);
-     if(body&&typeof body==='object'&&!Array.isArray(body))init={...init,body:JSON.stringify({...body,business:slug})};
+     if(body&&typeof body==='object'&&!Array.isArray(body)&&!/^platform\.(qualification|merchant)\./.test(String(body.action||'')))init={...init,body:JSON.stringify({...body,business:slug})};
     }
    }catch{}
   }
   return original(input,init);
  };
  const retain=()=>{if(!slug)return;for(const a of document.querySelectorAll('a[href]')){
+  if(a.dataset?.businessSwitch==='true')continue;
   try{const u=new URL(a.href,window.location.href);if(u.origin===location.origin&&/^\/(?:admin|member|points|event|calendar|booking)\//.test(u.pathname)&&!u.pathname.endsWith('workspace.html')){u.searchParams.set('business',slug);a.href=u.href;}}catch{}
  }};
  document.addEventListener('DOMContentLoaded',retain);
