@@ -38,9 +38,9 @@ async function main() {
       const page = await context.newPage();
       const errors = [];
       const responseFailures = [];
-      page.on('pageerror', e => errors.push(normalizeError(e.message)));
+      page.on('pageerror', e => errors.push({message: normalizeError(e.message), stack: normalizeError(e.stack || '').slice(0, 1600)}));
       page.on('console', m => {
-        if (m.type() === 'error') errors.push(normalizeError(m.text()));
+        if (m.type() === 'error') errors.push({message: normalizeError(m.text()), source: 'console'});
       });
       page.on('response', r => {
         if (r.status() < 400) return;
@@ -57,31 +57,51 @@ async function main() {
       try {
         const response = await page.goto(base + pathname, { waitUntil: 'domcontentloaded', timeout: 45000 });
         item.httpStatus = response ? response.status() : null;
-        await page.waitForTimeout(2500);
-        const final = new URL(page.url());
-        item.finalHost = final.hostname;
-        item.finalPath = final.pathname;
-        if (final.hostname === 'access.line.me' && final.pathname.startsWith('/oauth2/')) {
-          item.status = 'AUTH_REQUIRED';
-          item.note = 'LINE authentication gate; no credentials were entered';
-        } else if (final.hostname !== host) {
-          item.errors = ['Unexpected destination ' + final.hostname];
-        } else {
-          const dom = await page.evaluate(() => ({
-            title: document.title, bodyLength: (document.body?.innerText || '').trim().length,
-            viewportWidth: innerWidth,
-            scrollWidth: document.documentElement.scrollWidth,
-            readyState: document.readyState,
-          }));
+        let dom;
+        for (let attempt = 0; attempt < 8; attempt++) {
+          // LIFF frequently replaces the document while verifying LINE identity.
+          await page.waitForTimeout(attempt === 0 ? 2500 : 900);
+          const final = new URL(page.url());
+          item.finalHost = final.hostname;
+          item.finalPath = final.pathname;
+          if (final.hostname === 'access.line.me' && final.pathname.startsWith('/oauth2/')) {
+            item.status = 'AUTH_REQUIRED';
+            item.note = 'LINE authentication gate; no credentials were entered';
+            break;
+          }
+          if (final.hostname !== host) {
+            item.errors = ['Unexpected destination ' + final.hostname];
+            break;
+          }
+          try {
+            dom = await page.evaluate(() => ({
+              title: document.title, text: (document.body?.innerText || '').trim().slice(0, 400),
+              bodyLength: (document.body?.innerText || '').trim().length,
+              viewportWidth: innerWidth,
+              scrollWidth: document.documentElement.scrollWidth,
+              readyState: document.readyState,
+            }));
+            if (/(正在驗證 LINE 身分|正在登入會員卡|正在登入會員|LINE 身分驗證)/.test(dom.text)) {
+              item.status = 'AUTH_PENDING';
+              item.note = 'LIFF is still checking LINE identity; protected UI not yet validated';
+            }
+            break;
+          } catch (e) {
+            if (!/Execution context was destroyed|Navigation|navigation|closed/i.test(e.message) || attempt === 7) throw e;
+          }
+        }
+        item.jsErrors = errors;
+        item.httpFailures = responseFailures;
+        if (dom) {
           item.title = dom.title;
           item.bodyLength = dom.bodyLength;
           item.overflowPixels = Math.max(0, dom.scrollWidth - dom.viewportWidth);
-          item.jsErrors = errors;
-          item.httpFailures = responseFailures;
-          const fatalHttp = responseFailures.filter(x => ['document', 'script', 'stylesheet'].includes(x.resourceType));
-          item.status = item.httpStatus === 200 && dom.bodyLength > 0 &&
-                        item.overflowPixels <= 16 && !errors.length && !fatalHttp.length
-                        ? 'PASS' : 'FAILED';
+          if (item.status !== 'AUTH_PENDING') {
+            const fatalHttp = responseFailures.filter(x => ['document', 'script', 'stylesheet'].includes(x.resourceType));
+            item.status = item.httpStatus === 200 && dom.bodyLength > 0 &&
+                          item.overflowPixels <= 16 && !errors.length && !fatalHttp.length
+                          ? 'PASS' : 'FAILED';
+          }
         }
         await page.screenshot({ path: path.join(output, item.screenshot), fullPage: true });
       } catch (e) {
