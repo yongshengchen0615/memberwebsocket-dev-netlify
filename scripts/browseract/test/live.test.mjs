@@ -39,7 +39,7 @@ test('BrowserAct API client sends server-side authorization and exact workflow p
   const seen = [];
   const client = createBrowserActClient({ apiKey: 'only-server', fetchImpl: async (url, args) => {
     seen.push({ url: String(url), args });
-    return { ok: true, status: 200, json: async () => url.pathname.endsWith('run-task') ? { id: 'task_123' } : success };
+    return { ok: true, status: 200, text: async () => JSON.stringify(url.pathname.endsWith('run-task') ? { id: 'task_123' } : success) };
   } });
   assert.deepEqual(await client.start({ workflowId: 'flow', baseUrl, scenarioId: 'AC-001' }), { id: 'task_123' });
   assert.equal((await client.get('task_123')).status, 'finished');

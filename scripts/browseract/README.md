@@ -2,6 +2,47 @@
 
 此工具是**本機即時監控台**，不會把 BrowserAct API Key、LINE 工作階段或 Live View URL 發布到公開 Netlify 網站。沿用現有 Playwright / DOM / SQL CI，BrowserAct 僅新增部署後真實瀏覽器驗收。
 
+## 最短啟動方式（Node.js 22 以上）
+
+1. 下載專案或此功能的 ZIP，打開**專案根目錄**（應包含 `scripts/browseract/`）。
+2. 複製 `scripts/browseract/example.env` 為根目錄的 `.env.browseract.local`，以文字編輯器填入：
+
+   - `BROWSERACT_API_KEY`：BrowserAct → Integrations & API → API Keys → Create New API Key。
+   - `BROWSERACT_WORKFLOW_ID`：BrowserAct → Bots → 開啟已發布 Bot → 複製 Bot ID。
+   - `BROWSERACT_BASE_URL`：預設已填寫 `Integrated-Marketing-Platform` Netlify 預覽網址。
+
+   真實金鑰**不得提交 GitHub**；本機檔案已被既有專案 `.gitignore` 的 `.env.*` 規則忽略。
+3. 在根目錄執行：
+
+```bash
+node scripts/browseract/doctor.mjs
+node scripts/browseract/launch.mjs
+```
+
+4. 程式會試著**自動開啟預設瀏覽器**到 `http://127.0.0.1:4173`。若沒有自動開啟，手動貼上此網址。按「啟動 BrowserAct 真實瀏覽器」後，在右側即時畫面觀看；也可按「另開即時瀏覽器」用新分頁觀看。
+
+`doctor.mjs` 檢查 API Key 是否已設定、Bot 是否存在與發布、輸入參數是否包含 `base_url`/`scenario_id`，及 Netlify 是否可連線。它**不會啟動 BrowserAct 測試任務**。若沒有設定，`launch.mjs` 仍會開監控台供你查看操作畫面，但**不會產生真實遠端測試瀏覽器**。
+
+> 僅當 BrowserAct 工作流程執行中、API 回傳 `live_url_info.live_url` 時，才有真實 Live View。若需要先看到真正的遠端瀏覽器但尚未設好 API，可直接在 BrowserAct Dashboard 的 Bot 建置或測試畫面使用 **Browser Preview**（官方支援）。此畫面是 BrowserAct 自己的測試預覽，不代表我們的網站已通過驗收。
+
+### Windows PowerShell
+
+```powershell
+Copy-Item scripts\browseract\example.env .env.browseract.local
+notepad .env.browseract.local
+node scripts/browseract/doctor.mjs
+node scripts/browseract/launch.mjs
+```
+
+### macOS / Linux
+
+```bash
+cp scripts/browseract/example.env .env.browseract.local
+# 使用自己習慣的編輯器設定本機檔案
+node scripts/browseract/doctor.mjs
+node scripts/browseract/launch.mjs
+```
+
 ## 準備
 
 1. 在 BrowserAct Dashboard 建立**已發布**的 Bot / Workflow。其輸入參數需命名為 `base_url` 與 `scenario_id`。
@@ -21,7 +62,7 @@ export BROWSERACT_WORKFLOW_ID='已發布的 Workflow ID'
 export BROWSERACT_BASE_URL='https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app/'
 # 選用：指定可測試的 HTTPS 網域，逗號分隔；預設僅允許 BROWSERACT_BASE_URL 的 origin
 export BROWSERACT_ALLOWED_ORIGINS='https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app'
-node scripts/browseract/live-server.mjs
+node scripts/browseract/launch.mjs
 ```
 
 4. 打開 **http://127.0.0.1:4173**，選擇 AC-001 按「啟動 BrowserAct」。執行期間將顯示 Live View 影格、三秒一次的步驟與截圖。若尚未有 `live_url_info`，顯示等待提示及已有的步驟截圖；任務結束後 Live View 可能失效。瀏覽器位址 `#task=...` 可在同一台電腦重新查看任務；也可把 GitHub Actions 日誌的 Task ID 貼入「查看既有任務」。
@@ -42,6 +83,8 @@ node --check scripts/browseract/core.mjs
 node --check scripts/browseract/live-server.mjs
 node --check scripts/browseract/run-ci.mjs
 node --check scripts/browseract/public/app.js
+node --check scripts/browseract/launch.mjs
+node --check scripts/browseract/doctor.mjs
 ```
 
 所有單元及本機 HTTP API 測試以 fake BrowserAct API 驗證流程與安全負向案例，不能宣稱真實 BrowserAct 或 LINE 驗收已通過。

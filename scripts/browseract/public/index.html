@@ -15,9 +15,9 @@
       <form id="start-form">
         <label for="base-url">驗收網址</label><input id="base-url" name="baseUrl" type="url" required autocomplete="off">
         <label for="scenario-id">驗收案例</label><input id="scenario-id" name="scenarioId" value="AC-001" required pattern="AC-[0-9]{3}(-[A-Za-z0-9_-]+)?">
-        <button id="start-button" type="submit">啟動 BrowserAct</button>
+        <button id="start-button" type="submit">啟動 BrowserAct 真實瀏覽器</button>
       </form>
-      <h2>查看既有任務</h2>
+      <p id="setup-hint" class="note">開啟後將顯示真實遠端瀏覽器操作；如尚未設定，請閱讀 <a href="https://www.browseract.com/docs-api" target="_blank" rel="noopener noreferrer">BrowserAct 官方 API 說明</a>。</p><h2>查看既有任務</h2>
       <form id="attach-form" class="inline"><input id="task-id" aria-label="BrowserAct Task ID" placeholder="貼上 Task ID" required><button type="submit" class="secondary">觀看</button></form>
       <div class="task-meta"><div>Task ID <strong id="current-task">尚未啟動</strong></div><div>BrowserAct <strong id="status">—</strong></div><div>驗收判定 <strong id="verdict">尚無結果</strong></div></div>
       <div class="inline"><button type="button" id="stop-button" class="danger" disabled>停止任務</button><button type="button" id="resume-button" class="secondary" disabled>恢復任務</button></div>
@@ -25,7 +25,7 @@
       <p class="note">僅供本機授權人員使用。即時畫面與截圖可能包含會員資料，請勿公開分享。</p>
     </section>
     <section class="viewer" aria-label="即時遠端瀏覽器">
-      <div class="section-title"><h2>瀏覽器即時畫面</h2><span id="refresh-time">每 3 秒更新</span></div>
+      <div class="section-title"><h2>瀏覽器即時畫面</h2><div class="inline"><button type="button" id="popout-button" class="secondary" disabled>另開即時瀏覽器</button><span id="refresh-time">每 3 秒更新</span></div></div>
       <div class="frame-shell"><iframe id="live-frame" title="BrowserAct Live View" referrerpolicy="no-referrer" hidden></iframe><div id="frame-empty">任務開始執行後，這裡會顯示 BrowserAct 的 Live View。<br>若 BrowserAct 未提供即時連結，仍可觀看步驟截圖。</div></div>
     </section>
     <section class="activity" aria-label="測試步驟">

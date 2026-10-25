@@ -25,5 +25,7 @@ jobs:
           node --check scripts/browseract/live-server.mjs
           node --check scripts/browseract/run-ci.mjs
           node --check scripts/browseract/public/app.js
+          node --check scripts/browseract/launch.mjs
+          node --check scripts/browseract/doctor.mjs
       - name: Run isolated BrowserAct viewer and CI runner tests
         run: node --test scripts/browseract/test/*.test.mjs

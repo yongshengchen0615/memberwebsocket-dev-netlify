@@ -53,6 +53,7 @@ function render(data) {
   setImage(data.steps, selectedStep);
   if (data.liveUrl !== liveUrl) {
     liveUrl = data.liveUrl;
+    $('popout-button').disabled = !liveUrl;
     $('live-frame').hidden = !liveUrl;
     $('frame-empty').hidden = Boolean(liveUrl);
     if (liveUrl) $('live-frame').src = liveUrl;
@@ -84,6 +85,7 @@ function attach(id) {
   liveUrl = null;
   $('live-frame').removeAttribute('src');
   $('live-frame').hidden = true;
+  $('popout-button').disabled = true;
   $('frame-empty').hidden = false;
   location.hash = `task=${encodeURIComponent(id)}`;
   $('current-task').textContent = id;
@@ -116,9 +118,14 @@ for (const action of ['stop','resume']) {
     } catch (error) { feedback(`操作失敗：${error.message}`, true); }
   });
 }
+$('popout-button').addEventListener('click', () => {
+  if (liveUrl) window.open(liveUrl, '_blank', 'noopener,noreferrer');
+});
 request('/api/config').then(config => {
   $('base-url').value = config.baseUrl;
-  $('connection').textContent = config.configured ? 'Workflow 已設定' : '尚未設定 Workflow ID';
+  $('connection').textContent = config.configured ? '已設定 BrowserAct，可啟動真實瀏覽器' : '需要設定 BrowserAct API Key 與 Workflow ID';
+  $('start-button').disabled = !config.configured;
+  $('setup-hint').textContent = config.configured ? '設定已讀取：按啟動後，Live View 將在 BrowserAct 遠端任務執行中出現。' : '尚未連接 BrowserAct。請在專案根目錄設定 .env.browseract.local，重新執行 node scripts/browseract/launch.mjs。';
   const id = new URLSearchParams(location.hash.slice(1)).get('task');
   if (id && /^[A-Za-z0-9_-]{1,128}$/.test(id)) attach(id);
 }).catch(error => feedback(`初始化失敗：${error.message}`, true));

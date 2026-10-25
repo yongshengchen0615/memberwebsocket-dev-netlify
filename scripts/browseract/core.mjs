@@ -93,8 +93,11 @@ export function createBrowserActClient({ apiKey, fetchImpl = fetch, apiRoot = AP
       signal: AbortSignal.timeout(20000)
     });
     if (!response.ok) throw new Error(`BrowserAct API HTTP ${response.status}`);
+    // BrowserAct stop/resume endpoints return HTTP 200 with an empty body.
     if (response.status === 204) return {};
-    return response.json();
+    const raw = await response.text();
+    if (!raw.trim()) return {};
+    try { return JSON.parse(raw); } catch { throw new Error('BrowserAct API 回傳非 JSON 內容'); }
   }
   return {
     async start({ workflowId, baseUrl, scenarioId }) {
@@ -107,6 +110,7 @@ export function createBrowserActClient({ apiKey, fetchImpl = fetch, apiRoot = AP
       return { id: validateTaskId(task.id) };
     },
     get: id => send(`/v2/workflow/get-task?task_id=${encodeURIComponent(validateTaskId(id))}`),
+    getWorkflow: workflowId => send(`/v2/workflow/get-workflow?workflow_id=${encodeURIComponent(String(workflowId))}`),
     stop: id => send(`/v2/workflow/stop-task?task_id=${encodeURIComponent(validateTaskId(id))}`, 'PUT'),
     resume: id => send(`/v2/workflow/resume-task?task_id=${encodeURIComponent(validateTaskId(id))}`, 'PUT')
   };
