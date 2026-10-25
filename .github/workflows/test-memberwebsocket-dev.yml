@@ -292,6 +292,7 @@ jobs:
           MemberWebsocket-dev/tests/integration/postgres/booking-risk.cjs
           MemberWebsocket-dev/tests/integration/postgres/admin-qualification.cjs
           MemberWebsocket-dev/tests/integration/postgres/merchant-applications.cjs
+          MemberWebsocket-dev/tests/integration/postgres/sandbox-fixture-lifecycle.cjs
       - name: Save PostgreSQL acceptance results
         if: always()
         uses: actions/upload-artifact@v4
