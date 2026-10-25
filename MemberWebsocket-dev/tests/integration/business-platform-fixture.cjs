@@ -29,7 +29,7 @@ module.exports=async()=>{
   try{
    const entries=Object.entries(params),sql=`select public.${name}(${entries.map(([key],i)=>key+'=>$'+(i+1)).join(',')}) result`;
    const rows=await h.db.transaction(async tx=>{await tx.exec('set local role service_role');return(await tx.query(sql,entries.map(([,value])=>value))).rows;});
-   return{data:['platform_list_tenants','platform_list_applications','platform_list_access_requests','platform_active_businesses'].includes(name)?rows.map(r=>r.result):rows[0]?.result,error:null};
+   return{data:['platform_list_tenants','platform_list_applications','platform_list_access_requests','platform_list_admin_qualifications','platform_my_merchant_applications','platform_active_businesses'].includes(name)?rows.map(r=>r.result):rows[0]?.result,error:null};
   }catch(error){return{data:null,error};}
  };
  const {createPlatformHandler}=await shared('platform-handler.mjs'),{verifyPlatformIdToken,verifyMerchantAdminIdToken}=await shared('platform-auth.mjs');
