@@ -9,7 +9,7 @@ test('BUSINESS_APPROVAL_ACTIVATES — real approval/SQL immediately opens grant-
  async function wire(page,token){
   page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
   await page.addInitScript(()=>sessionStorage.setItem('platform-line-login-return-v1',String(Date.now())));
-  await page.route('**/config.json',r=>r.fulfill({json:{brandName:'QA',supabaseUrl:'https://fixture.supabase.co',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'sb_publishable_fixture',adminLiffId:'2010791619-admin',memberLiffId:'2010787602-member',pointsLiffId:'2010787602-points',platformLiffId:'2012065297-VunxFBj8',productizedAdmin:true}}));
+  await page.route('**/config.json',r=>r.fulfill({json:{brandName:'QA',supabaseUrl:'https://fixture.supabase.co',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'sb_publishable_fixture',adminLiffId:'2010791619-admin',memberLiffId:'2010787602-member',pointsLiffId:'2010787602-points',platformLiffId:'2012065297-VunxFBj8',productizedAdmin:true,merchantApprovalVersion:2}}));
   await page.route('https://static.line-scdn.net/**',r=>r.fulfill({contentType:'text/javascript',body:`window.liff={init:async()=>{},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=>${JSON.stringify(token)}};`}));
   await page.route('https://cdn.jsdelivr.net/**',r=>r.fulfill({contentType:'text/javascript',body:''}));
   await page.route('https://fixture.supabase.co/functions/v1/**',async route=>{
@@ -30,18 +30,24 @@ test('BUSINESS_APPROVAL_ACTIVATES — real approval/SQL immediately opens grant-
  const manager=await context.newPage(),platform=await context.newPage();
  try{
   await wire(manager,'manager');await manager.goto(base+'/admin/workspace.html');
-  await expect(manager.locator('#applicationForm')).toBeVisible();
+  await expect(manager.locator('#qualificationWorkspace')).toBeVisible();
   expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(0);
-  await manager.locator('#applicationForm [name="businessName"]').fill('經審核商家');
-  await manager.locator('#applicationForm [name="slug"]').fill('approved-business');
-  await manager.locator('#submitApplication').click();
-  await expect(manager.locator('#applicationProgress')).toContainText('等待總管理員審核');
+  await manager.locator('#submitQualification').click();
+  await expect(manager.locator('#qualificationStatus')).toContainText('等待');
+  await wire(platform,'root');await platform.goto(base+'/platform/');
+  await platform.locator('#qualificationList [data-review-decision="approved"]').click();await platform.locator('#confirmV2Review').click();await expect(platform.locator('#v2ReviewDialog')).not.toBeVisible();
+  await manager.locator('#refreshApplication').click();await expect(manager.locator('#myMerchantsWorkspace')).toBeVisible();
+  await manager.locator('#merchantApplicationForm [name="businessName"]').fill('經審核商家');
+  await manager.locator('#merchantApplicationForm [name="slug"]').fill('approved-business');
+  await manager.locator('#submitMerchantApplication').click();
+  await expect(manager.locator('#myMerchantList')).toContainText('等待商家審核');
   expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(1);
-  await wire(platform,'root');await platform.goto(base+'/platform/');await platform.getByRole('button',{name:'審核與選擇功能'}).click();
-  await platform.locator('[data-approve-feature="membership"]').check();await platform.locator('[data-approve-feature="points"]').check();await platform.getByRole('button',{name:'審核通過',exact:true}).click();
+  await platform.reload();await platform.locator('#applicationList [data-review-decision="approved"]').click();
+  await platform.locator('[data-v2-feature="membership"]').check();await platform.locator('[data-v2-feature="points"]').check();await platform.locator('#confirmV2Review').click();await expect(platform.locator('#v2ReviewDialog')).not.toBeVisible();
   await expect(platform.locator('#tenantList')).toContainText('可立即使用');
   const row=(await h.db.query('select * from platform_private.tenants')).rows[0];expect(row.status).toBe('active');expect(row.credentials_configured).toBe(false);
-  await manager.locator('#refreshApplication').click();await expect(manager.locator('#businessWorkspaceStatus')).toContainText('審核已通過');
+  await manager.locator('#refreshApplication').click();await expect(manager.locator('[data-manage-merchant]')).toHaveCount(1);
+  await expect(manager).toHaveURL(base+'/admin/workspace.html');await manager.locator('[data-manage-merchant]').click();
   await expect(manager).toHaveURL(base+'/admin/?business='+row.slug);
   // AC-LNN-001/004: only the grant-controlled tab remains, at all viewport sizes.
   await expect(manager.locator('#adminView .account-menu a[href="#productizedAdmin"]')).toHaveCount(0);

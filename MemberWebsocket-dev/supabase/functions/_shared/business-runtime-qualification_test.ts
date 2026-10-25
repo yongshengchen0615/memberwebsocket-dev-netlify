@@ -1,5 +1,6 @@
-import { businessHandler,businessContext } from './business-runtime.ts';
+import { businessHandler,businessContext,createClient } from './business-runtime.ts';
 import { assertTenantIdentity } from './tenant-access.mjs';
+import { businessFetch } from './business-scope.ts';
 
 const assert=(condition:unknown,message='assertion failed')=>{if(!condition)throw Error(message);};
 const owner='U'+'a'.repeat(32),other='U'+'b'.repeat(32),member='U'+'c'.repeat(32);
@@ -9,23 +10,63 @@ const now=Math.floor(Date.now()/1000),tenantCutoff=new Date((now-60)*1000).toISO
 const tenant={id:'10000000-0000-4000-8000-000000000001',slug:'merchant-a',name:'A',status:'active',runtime_schema:'business_'+'a'.repeat(32),owner_line_user_id:owner,
  features:{membership:true,points:true,events:true,booking:true},line_config:{},credentials_configured:false,access_revoked_before:tenantCutoff,
  owner_qualification_status:'approved',admin_access_revoked_before:null};
-type Fixture={context:any;issued:number;verifiedSub:string;verifiedAudience?:string;verifyStatus:number;rpcStatus:number;calls:{path:string;body:any}[]};
+type Fixture={context:any;issued:number;verifiedSub:string;verifiedAudience?:string;verifyStatus:number;rpcStatus:number;current:boolean;calls:{path:string;body:any;headers:Headers}[]};
 async function transport(run:(f:Fixture)=>Promise<void>){
  const oldEnv=Deno.env.get,oldFetch=globalThis.fetch;
- const f:Fixture={context:structuredClone(tenant),issued:now-10,verifiedSub:owner,verifyStatus:200,rpcStatus:200,calls:[]};
+ const f:Fixture={context:structuredClone(tenant),issued:now-10,verifiedSub:owner,verifyStatus:200,rpcStatus:200,current:true,calls:[]};
  Deno.env.get=(key:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'synthetic-service'} as Record<string,string>)[key];
  globalThis.fetch=(async(input:RequestInfo|URL,init?:RequestInit)=>{
   const url=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url);
   const body=init?.body instanceof URLSearchParams?Object.fromEntries(init.body):typeof init?.body==='string'?JSON.parse(init.body):{};
-  f.calls.push({path:url.pathname,body});
+  f.calls.push({path:url.pathname,body,headers:new Headers(init?.headers)});
   const reply=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json'}});
   if(url.pathname.endsWith('/platform_business_context_v2'))return reply(f.rpcStatus===200?f.context:{code:'PGRST202',message:'RPC missing'},f.rpcStatus);
+  if(url.pathname.endsWith('/platform_my_merchant_context'))return reply(f.current?{tenant}:{message:'PLATFORM_QUALIFICATION_REQUIRED'},f.current?200:403);
   if(url.pathname==='/oauth2/v2.1/verify')return reply({sub:f.verifiedSub,aud:f.verifiedAudience||body.client_id,iss:'https://access.line.me',iat:f.issued,exp:now+300},f.verifyStatus);
+  if(url.pathname.endsWith('/members')||url.pathname.endsWith('/rpc/admin_example'))return reply([]);
+  if(url.pathname.startsWith('/storage/v1/')||url.pathname.startsWith('/v2/bot/message/'))return reply({Key:'synthetic'});
   throw Error('Unexpected transport '+url.pathname);
  }) as typeof fetch;
  try{await run(f);}finally{Deno.env.get=oldEnv;globalThis.fetch=oldFetch;}
 }
 const request=(body:Record<string,unknown>={})=>new Request('https://api.test',{method:'POST',body:JSON.stringify({business:'merchant-a',idToken:token(),action:'admin.bootstrap',...body})});
+
+Deno.test('#97 runtime: committed revocation before external dispatch prevents new LINE or storage mutation',()=>transport(async f=>{
+ for(const operation of ['line','storage','bucket']){
+  f.current=true;const before=f.calls.length;
+  const handle=businessHandler('api',async()=>{
+   f.current=false; // Revocation committed after entry checks, before dispatch.
+   if(operation==='line')await businessFetch('https://api.line.me/v2/bot/message/push',{method:'POST',body:'{}'});
+   else if(operation==='storage')await createClient('https://runtime-fixture.supabase.co','synthetic-service').storage.from('booking-receipts').remove(['owned.png']);
+   else await createClient('https://runtime-fixture.supabase.co','synthetic-service').storage.emptyBucket('synthetic');
+   return new Response('{}');
+  });
+  assert((await handle(request())).status===403,operation+' did not recheck current authority');
+  assert(!f.calls.slice(before).some(c=>c.path.startsWith('/storage/v1/')||c.path.startsWith('/v2/bot/message/')),operation+' dispatched after committed revocation');
+ }
+}));
+
+Deno.test('#97 runtime: scoped table and RPC transports overwrite caller markers with provider-verified admin authority',()=>transport(async f=>{
+ const handle=businessHandler('api',async()=>{
+  const db=createClient('https://runtime-fixture.supabase.co','synthetic-service',{global:{headers:{'x-platform-admin-actor':other,'x-platform-admin-tenant':'forged','x-platform-admin-issued-at':'2099-01-01'}}});
+  await db.from('members').update({display_name:'A'}).eq('id','synthetic');
+  await db.rpc('admin_example');return new Response('{}');
+ });
+ assert((await handle(request())).status===200);
+ const calls=f.calls.filter(c=>c.path.endsWith('/members')||c.path.endsWith('/rpc/admin_example'));assert(calls.length===2);
+ for(const call of calls){assert(call.headers.get('x-platform-admin-actor')===owner,'must not trust caller actor');assert(call.headers.get('x-platform-admin-tenant')===tenant.id,'must scope exact tenant');assert(call.headers.get('x-platform-admin-issued-at')===new Date(f.issued*1000).toISOString(),'must use verified, not decoded timestamp');}
+}));
+
+Deno.test('#97 runtime: member database transports strip reserved admin markers',()=>transport(async f=>{
+ f.context={...tenant,owner_qualification_status:'suspended'};
+ const handle=businessHandler('api',async()=>{
+  const db=createClient('https://runtime-fixture.supabase.co','synthetic-service',{global:{headers:{'x-platform-admin-actor':other,'x-platform-admin-tenant':'forged','x-platform-admin-issued-at':'2099-01-01'}}});
+  await db.from('members').select('id');return new Response('{}');
+ });
+ assert((await handle(request({action:'user.member.bootstrap',idToken:token(member)}))).status===200);
+ const call=f.calls.find(c=>c.path.endsWith('/members'));assert(call,'member transport was not exercised');
+ for(const name of ['x-platform-admin-actor','x-platform-admin-tenant','x-platform-admin-issued-at'])assert(!call!.headers.has(name),'member must not inherit admin marker');
+}));
 
 Deno.test('#97 runtime: current qualification denies every non-approved state before handler or credential reads',()=>transport(async f=>{
  let invoked=0;const handle=businessHandler('api',()=>{invoked++;return new Response('{}');});

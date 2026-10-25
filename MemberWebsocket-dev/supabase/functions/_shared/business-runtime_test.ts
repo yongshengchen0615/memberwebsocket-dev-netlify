@@ -54,6 +54,7 @@ Deno.test('AC-210: production request adapter enforces fresh grants, private sch
   calls.push({path:url.pathname,headers,body});
   const reply=(data:unknown)=>new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json'}});
   if(url.pathname.endsWith('/platform_business_context_v2'))return reply(body.p_slug==='merchant-b'||body.p_actor===ownerB?b:latestA);
+  if(url.pathname.endsWith('/platform_my_merchant_context'))return reply({tenant:latestA});
   if(url.pathname==='/oauth2/v2.1/verify')return reply(verified(init));
   if(url.pathname.endsWith('/members')){await new Promise(r=>setTimeout(r,2));return reply([{id:headers.get('accept-profile')}]);}
   if(url.pathname.includes('/storage/v1/object/sign/'))return reply({signedURL:'/object/sign/'+url.pathname.split('/sign/')[1]+'?token=fixture'});

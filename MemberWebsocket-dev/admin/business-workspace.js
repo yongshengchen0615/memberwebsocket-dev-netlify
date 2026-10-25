@@ -1,9 +1,10 @@
 (() => {
  'use strict';
  const panels={membership:'members',points:'cards',events:'events',calendar:'calendar',integrations:'operationsHub',booking:'booking',testing:'testMode',usage:'operationAudit'};
+ const lineFeatures=['membership','points','events','calendar','booking'];
  let latest=null;
  function selectLineTab() {
-  if(!latest || !Object.values(latest.features||{}).some(Boolean))return;
+  if(!latest || !lineFeatures.some(key=>latest.features?.[key]===true))return;
   const tab=document.getElementById('lineSettingsTab'),panel=document.getElementById('lineSettingsPanel');
   if(!tab||!panel||tab.disabled)return;
   for(const other of document.querySelectorAll('#adminView .surface-nav [role="tab"]'))other.setAttribute('aria-selected',String(other===tab));
@@ -19,7 +20,7 @@
    if(panel){panel.hidden=!allowed;if(!allowed)panel.classList.add('hidden');}
   }
   const lineTab=document.getElementById('lineSettingsTab'),linePanel=document.getElementById('lineSettingsPanel');
-  const hasGrants=Object.values(data.features||{}).some(value=>value===true);
+  const hasGrants=lineFeatures.some(key=>data.features?.[key]===true);
   if(lineTab){lineTab.hidden=!hasGrants;lineTab.disabled=!hasGrants;lineTab.dataset.businessAllowed=String(hasGrants);}
   if(!hasGrants && linePanel){linePanel.hidden=true;linePanel.classList.add('hidden');}
   const usage=document.getElementById('memberUsageTab');if(usage){usage.hidden=!data.features.usage;usage.disabled=!data.features.usage;usage.dataset.businessAllowed=String(!!data.features.usage);}

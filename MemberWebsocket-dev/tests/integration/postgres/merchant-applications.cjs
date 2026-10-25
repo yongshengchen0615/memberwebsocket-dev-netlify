@@ -23,6 +23,69 @@ async function setup(options={}){
   return h;
  }catch(e){await h.db.close();throw e;}
 }
+async function runtimeGuard(h){
+ await h.db.exec(contextMigration);
+ const files=fs.readdirSync(migrationDir).filter(n=>n.endsWith('_merchant_runtime_transaction_guard.sql'));
+ assert.ok(files.length<=1,'only one runtime transaction guard migration may be installed');
+ if(files.length)await h.db.exec(fs.readFileSync(path.join(migrationDir,files[0]),'utf8'));
+}
+const adminHeaders=(a,timestamp=new Date(Date.now()+1000).toISOString())=>({'x-platform-admin-actor':owner,
+ 'x-platform-admin-tenant':a.tenant.id,'x-platform-admin-issued-at':timestamp,'content-profile':a.tenant.runtime_schema});
+async function guardSession(client,headers){
+ await client.query("select set_config('request.headers',$1,true)",[JSON.stringify(headers)]);
+ await client.query('select public.platform_business_pre_request()');
+}
+async function policyMutation(h,a,kind,text){
+ if(kind==='direct UPDATE')return client=>client.query(`update ${a.tenant.runtime_schema}.booking_no_show_policy set contact_text=$1`,[text]);
+ const policy=(await h.db.query(`select to_jsonb(p) policy from ${a.tenant.runtime_schema}.booking_no_show_policy p`)).rows[0].policy;
+ return client=>client.query(`select ${a.tenant.runtime_schema}.admin_booking_no_show($1,$2,$3)`,[owner,'save',{...policy,contact_text:text}]);
+}
+
+// These sessions explicitly model PostgREST's transaction + pre-request hook.
+// They exercise real tenant statements/RPCs, not an HTTP/PostgREST transport.
+for(const kind of ['direct UPDATE','tenant RPC']){
+ test('PostgreSQL 17 C012 '+kind+': an authorized runtime mutation commits before qualification suspension can commit',async()=>{
+  const h=await setup();try{
+   await runtimeGuard(h);const q=await h.qualify(),a=await h.review(await h.submit(),'approved',features(['booking']));
+   const mutate=await policyMutation(h,a,kind,'AUTHORIZED BEFORE SUSPENSION');
+   await h.first.query('begin');await guardSession(h.first,adminHeaders(a));await mutate(h.first);
+   const revoking=h.second.query('select public.platform_review_admin_qualification($1,$2,$3,$4,$5,$6)',[root,q.id,q.version,'suspended','Stop',crypto.randomUUID()]);revoking.catch(()=>{});
+   await h.blocked();
+   assert.equal((await h.db.query('select status from platform_private.admin_qualifications where id=$1',[q.id])).rows[0].status,'approved');
+   await h.first.query('commit');await revoking;
+   assert.equal((await h.db.query(`select contact_text from ${a.tenant.runtime_schema}.booking_no_show_policy`)).rows[0].contact_text,'AUTHORIZED BEFORE SUSPENSION');
+   await h.first.query('begin');await assert.rejects(guardSession(h.first,adminHeaders(a)),/PLATFORM_QUALIFICATION_REQUIRED/);await h.first.query('rollback');
+  }finally{await h.db.close();}
+ });
+
+ test('PostgreSQL 17 C013 '+kind+': a runtime mutation waiting behind committed suspension is denied without changing tenant rows',async()=>{
+  const h=await setup();try{
+   await runtimeGuard(h);const q=await h.qualify(),a=await h.review(await h.submit(),'approved',features(['booking']));
+   const before=(await h.db.query(`select to_jsonb(p) policy from ${a.tenant.runtime_schema}.booking_no_show_policy p`)).rows[0].policy;
+   const mutate=await policyMutation(h,a,kind,'MUST NOT COMMIT');
+   await h.first.query('begin');await h.first.query('select public.platform_review_admin_qualification($1,$2,$3,$4,$5,$6)',[root,q.id,q.version,'suspended','Stop',crypto.randomUUID()]);
+   await h.second.query('begin');
+   const writing=(async()=>{await guardSession(h.second,adminHeaders(a));await mutate(h.second);await h.second.query('commit');})();writing.catch(()=>{});
+   await h.blocked();await h.first.query('commit');await assert.rejects(writing,/PLATFORM_QUALIFICATION_REQUIRED/);await h.second.query('rollback');
+   assert.deepEqual((await h.db.query(`select to_jsonb(p) policy from ${a.tenant.runtime_schema}.booking_no_show_policy p`)).rows[0].policy,before);
+  }finally{await h.db.close();}
+ });
+}
+
+test('PostgreSQL 17 C014: readonly admin transaction and unmarked browser requests work while forged browser markers are denied',async()=>{
+ const h=await setup();try{
+  await runtimeGuard(h);await h.qualify();const a=await h.review(await h.submit(),'approved',features(['booking'])),headers=adminHeaders(a);
+  delete headers['content-profile'];headers['accept-profile']=a.tenant.runtime_schema;
+  await h.first.query('begin read only');await guardSession(h.first,headers);
+  assert.equal((await h.first.query(`select count(*)::int n from ${a.tenant.runtime_schema}.booking_no_show_policy`)).rows[0].n,1);await h.first.query('commit');
+  for(const role of ['anon','authenticated']){
+   await h.first.query('begin');await h.first.query('set local role '+role);await guardSession(h.first,{});
+   assert.equal((await h.first.query('select 1 allowed')).rows[0].allowed,1);await h.first.query('commit');
+   await h.first.query('begin');await h.first.query('set local role '+role);
+   await assert.rejects(guardSession(h.first,headers),/PLATFORM_|BUSINESS_|permission denied/);await h.first.query('rollback');
+  }
+ }finally{await h.db.close();}
+});
 
 test('PostgreSQL 17 C006: authorized scoped write finishes before qualification suspension commits, later replay is refused',async()=>{
  const h=await setup();try{

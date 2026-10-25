@@ -18,6 +18,7 @@ function link(uri:string,c:Context){try{const u=new URL(uri);if(u.hostname==='li
 export async function businessFetch(input:RequestInfo|URL,init?:RequestInit):Promise<Response>{
  const c=scope.getStore();if(!c)return fetch(input,init);
  const url=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url);
+ if(c.authorizeExternal&&url.hostname==='api.line.me'&&url.pathname.startsWith('/v2/bot/message/'))await c.authorizeExternal();
  let body:any;try{body=typeof init?.body==='string'?JSON.parse(init.body):null;}catch{}
  if(body&&url.hostname==='api.line.me'){
   const visit=(node:any)=>{if(!node||typeof node!=='object')return;for(const [k,v]of Object.entries(node)){if(k==='uri'&&typeof v==='string')node[k]=link(v,c);else visit(v);}};visit(body);
