@@ -150,3 +150,7 @@ deno test MemberWebsocket-dev/supabase/functions/_shared/*_test.ts MemberWebsock
 ## V2 與 R01–R10 的關係（2026-10-26）
 
 `AGENTS.md` 是 AI/開發者的十條操作摘要；本文件維持商家隔離、安全、完整 CI、回復與驗收的技術細則。PR #131 的 L0–L3 分類只有**路徑風險下限**，人工可以上調風險，不得下調；正式系統前後端部署、資料庫與 LINE 皆須依既有 #33/#34/#35/#36/#40/#47 的獨立驗收 Gate。規則文本不能取代實際執行結果。
+
+## 9. 敏捷迭代配套（Scrumban）
+
+Backlog Refinement、Sprint Planning、Daily async、Sprint Review、Retrospective、Definition of Ready（DoR）、Definition of Done（DoD）、WIP 與 P0 插單，統一由 [AGILE_DEVELOPMENT.md](AGILE_DEVELOPMENT.md) 說明。敏捷只調整交付節奏；本文的安全授權、完整 CI、原功能回歸、QA 及正式發布 Gate 不得因 Sprint 或 Velocity 被減弱。

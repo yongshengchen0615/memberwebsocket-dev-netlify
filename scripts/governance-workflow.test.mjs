@@ -83,3 +83,23 @@ test('V2 R01-R10 daily rules are present and preserve security and evidence requ
   }
   assert.match(guardrails, /R01–R10/);
 });
+
+
+test('Scrumban rules preserve DoR, DoD, nine statuses and deployment gates', () => {
+  const agile = readFileSync(new URL('../docs/AGILE_DEVELOPMENT.md', import.meta.url), 'utf8');
+  assert.ok(agents.includes('## 六、敏捷式開發（Scrumban）'));
+  assert.ok(agents.includes('docs/AGILE_DEVELOPMENT.md'));
+  assert.ok(guardrails.includes('## 9. 敏捷迭代配套（Scrumban）'));
+  for (const key of [
+    'Sprint Goal', 'Backlog Refinement', 'Sprint Planning', 'Daily async',
+    'Sprint Review', 'Retrospective', 'Definition of Ready（DoR）',
+    'Definition of Done（DoD）', 'WIP 上限', 'P0 緊急插單規則',
+    'Carryover', 'Lead Time', 'Cycle Time', 'Blocked Aging',
+    '不能把文件建議寫成已存在的 GitHub 欄位',
+    '僅合併 PR 不等於發布或 Done', '不得因 Sprint 結束就標完成',
+  ]) assert.ok(agile.includes(key), key);
+  for (const state of [
+    '待規劃', '準備開始', '開發中', '程式碼審查', 'QA / E2E',
+    '等待部署', '觀察中', '已完成', '已阻塞',
+  ]) assert.ok(agile.includes(state), 'Missing status ' + state);
+});

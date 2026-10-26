@@ -75,3 +75,9 @@
 - **R08｜不得繞過 Gate：** 必要檢查 failed、cancelled、skipped、pending 或未觸發都不能當 pass。
 - **R09｜同版發布對帳：** 每次記錄 SHA、CI run、Preview/Production deploy、Edge 與 migration 相容。
 - **R10｜完成必須有證據：** PR Merge、Issue Done、正式發布及觀察狀態各需獨立驗收，不自動等價。
+
+## 六、敏捷式開發（Scrumban）
+
+採用 **輕量 Scrum＋Kanban**：建議一週迭代、每輪 Sprint Goal、工作中 WIP 上限兩條主動修改 PR、Daily async、Sprint Review 與 Retrospective。每項工作開始要達 Definition of Ready（DoR），結束要達 Definition of Done（DoD）；P0 可調整迭代承諾但不得跳過安全、測試與發布 Gate。
+
+沿用 Project #5 九個 Status，不新增或假設已存在的 Sprint 欄位，未達 DoD 不因 PR 合併或 Sprint 結束就標完成。完整流程與模板見 [docs/AGILE_DEVELOPMENT.md](docs/AGILE_DEVELOPMENT.md)。
