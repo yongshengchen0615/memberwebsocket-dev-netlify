@@ -50,6 +50,37 @@ database assertions remain, including both notification purposes and A/B
 merchant isolation. Modern entry assertions inspect `module_line` and the real
 public entry API rather than treating the legacy first-seed snapshot as current.
 
+## Latest integration baseline and measured cost
+
+Integrated the concurrently merged governance commit `80c4f1fee091b0b39d8021b3944521d58ba4cc67`; its application assets are unchanged from the original product baseline. Its full-PR CI and R01–R10 requirements are preserved. The application review remains applicable to the same feature code; final CI uses the updated merged baseline.
+
+A measured duplicate initialization was removed: newly created feature views initialize saved values and links once; existing views still refresh and retain draft/version semantics. The focused 39-case suite passed after this adjustment; build/governance contracts passed 100/100.
+
+Measured base `80c4f1fee091b0b39d8021b3944521d58ba4cc67` against candidate application source `43ea87a82b549745bc9686f56ea2f4cf069e3575` using Node22/JSDOM on the same runtime, five configured features, alternating versions, three warmups and 12 measured samples each. Raw samples, environment and per-file source hashes are in `line-settings-59-performance.json`. Reproduce from repository root with `node scripts/measure-line-settings.cjs 80c4f1fee091b0b39d8021b3944521d58ba4cc67` after installing the existing integration dependencies.
+
+| Metric | Base | Candidate | Interpretation |
+|---|---:|---:|---|
+| Default visible entry inputs | 2 | 1 | Less required manual entry for an already configured merchant |
+| Initialization API calls | 1 | 1 | No extra bootstrap query |
+| Four affected source assets, bytes | 123294 | 132130 | +8836 raw bytes |
+| gzip level9, three identical samples | 33871 | 36371 | +2500 bytes; deterministic source compression, not measured CDN transfer |
+| JSDOM initialization p50, ms | 15.07 | 13.7 | Synthetic DOM timing; no native-browser speedup claim |
+| JSDOM initialization p95, ms | 21.02 | 21.9 | Shared-runtime/JIT noise applies; raw repeated samples retained |
+
+The bounded asset increase supports shared settings/validation across two actual entry paths. No cache, new dependency, database query or runtime service was introduced. Actual Chromium usability and complete CI remain release requirements.
+
+## Acceptance mapping
+
+| AC | Given / When / Then | Executable evidence |
+|---|---|---|
+| AC-001 | Given a granted merchant, when a LIFF ID/URL is saved, then matching Login IDs and the own-merchant public entry work without Messaging credentials. | `line_settings_simple.cjs`, `line_settings_workspace.cjs`, `LINE_SIMPLE_WORKSPACE_390/1280`, `LIFF_ONLY_390/1280` |
+| AC-002 | Given invalid pasted URLs or mismatched advanced fields, when Save/Enter is used, then no write occurs and the invalid disclosure opens/focuses. | Actual-click JSDOM, strict URL cases, workspace Chromium |
+| AC-003 | Given mismatch or another feature draft, when saved values reload or an unrelated feature saves, then validity recovers and draft pairs remain together. | Reload/Save and paired-draft cases in `line_settings_simple.cjs` |
+| AC-004 | Given independent admin/member routes, when saved/tested/retried, then mode, recipient, requestId and unrelated settings are preserved. | `notification_routes.cjs`, `notification-settings.spec.cjs`, booking notification regression |
+| AC-005 | Given revoked/expired access or merchant switch, when an operation completes, then secret drafts/controls clear and stale results cannot populate the new merchant. | Retained-transport SQL negatives, suspended bootstrap, clear/remount cases, actual workspace revoke |
+| AC-006 | Given legacy capability or another merchant, when the UI is used, then the retained contract works and other merchant data stays unchanged. | `product_admin_ui.cjs`, `merchant_workspace_ui.cjs`, V2 browser journey/public API |
+| AC-007 | Given final candidate and approved development merge, when deployed, then exact-SHA full CI, native deployment identity/assets and protected API smoke all succeed. | Final PR #146 and issue #59 release evidence; no fixture substitutes for deployed verification |
+
 ## Verification and limits
 
 Local final code checks: Node regression **1056 pass / 0 fail / 0 skip**;

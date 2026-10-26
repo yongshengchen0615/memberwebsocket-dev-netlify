@@ -54,7 +54,7 @@
     if(adapter?.root!==options.root || tenant?.id!==next.id || tenant?.slug!==next.slug || Object.keys(grants).some(key=>grants[key]===true&&next.features?.[key]!==true))clear();
     adapter={...options,business:next.slug};grants={...next.features};tenant=next;
     if(next.status==='suspended'||next.expired){revoke({code:'BUSINESS_FORBIDDEN',message:'此商家的 LINE 設定權限尚未開放。'});return;}
-    render();for(const view of views.values())update(view);lock();
+    const created=render();for(const view of views.values())if(!created.has(view))update(view);lock();
   }
   const pendingOperation = () => [...views.values()].some(v => v.pending || [...(v.routes?.values() || [])].some(r => r.pending || r.testPending));
   function node(tag, text, className) {
@@ -352,8 +352,8 @@
     panel.append(refresh,check,label,copy,status);view.webhook={refresh,check,copy,endpoint,status};view.section.append(panel);
   }
   function render() {
-    const container = contentNode();
-    if (!container) return;
+    const created=new Set(),container = contentNode();
+    if (!container) return created;
     for (const [feature, [panelName, label, path, key]] of Object.entries(modules)) {
       const allowed = grants[feature] === true && tenant?.features?.[feature] === true;
       if (!allowed || !path) { if(views.has(feature))discard(views.get(feature)); views.delete(feature); continue; }
@@ -392,9 +392,10 @@
         section.append(form);
       }
       section.append(status); notificationForms(view);webhookPanel(view);
-      section.append(view.links, reload); container.append(section); views.set(feature,view); update(view);
+      section.append(view.links, reload); container.append(section); views.set(feature,view);created.add(view);update(view);
     }
     renderNav();
+    return created;
   }
   async function load(force = false, source = null) {
     if (loading || saving || pendingOperation()) return;
@@ -403,10 +404,10 @@
     try {
       const result = await request('platform.application.bootstrap');
       if (!result.tenant || result.tenant.slug !== business || result.application?.status !== 'approved' || (result.tenant.status === 'suspended' || result.tenant.expired)) throw Object.assign(Error('此商家的 LINE 設定權限尚未開放。'),{code:'BUSINESS_FORBIDDEN'});
-      tenant = result.tenant; render();
+      tenant = result.tenant; const created=render();
       for (const view of views.values()) {
         if (force && view === source) {view.dirty.clear();view.derived.clear();}
-        update(view, force && view === source);
+        if(!created.has(view)||force&&view===source)update(view, force && view === source);
       }
       if(source)source.status.textContent='已載入本區塊最新 LINE 設定，請確認後再儲存。';
     } catch (error) {
