@@ -22,7 +22,7 @@ const isShared = (name) => /(?:^|\/)(?:shared|common|api)(?:\/|[.-])/i.test(name
   || /^MemberWebsocket-dev\/(?!admin\/|platform\/|booking\/|member\/|points\/|event\/|calendar\/|tests\/|supabase\/)[^/]+\.js$/i.test(name);
 // Paths are conservative signals only; manual review can raise the risk.
 const isSensitiveRuntime = (name) => !isDoc(name) && new RegExp('(?:^|/)(?:business[-_.](?:line|workspace|context|runtime)|merchant[-_.](?:context|permissions|access)|line[-_.]webhook|booking[-_.]notification|notification[-_.](?:routes|events)|(?:points|ticket)[-_.](?:transfer|policy|grant))(?:[./-]|$)', 'i').test(name);
-const GOVERNANCE_PATHS = new Set(['AGENTS.md', 'docs/DEVELOPMENT_GUARDRAILS.md']);
+const GOVERNANCE_PATHS = new Set(['AGENTS.md', 'docs/DEVELOPMENT_GUARDRAILS.md', 'docs/AGILE_DEVELOPMENT.md', 'scripts/governance-workflow.test.mjs', 'scripts/netlify-publish-workflow.test.mjs']);
 const TIERS = ['L0', 'L1', 'L2', 'L3'];
 const LEVEL_NAMES = { L0: '小改', L1: '小改', L2: '中改', L3: '大改' };
 const isPlaceholder = (value) => !value || /^(?:-+|n\/a|not applicable|tbd|todo|待補|待確認|無|未執行|尚未執行|稍後補|無需|none|pending)(?:[\s.。！!、，,；;:：-]*)$/i.test(value.trim());

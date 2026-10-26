@@ -168,3 +168,16 @@ test('canonical PR template exposes optional manual risk escalation without lowe
     'L3',
   );
 });
+
+test('governance documents must never be classified L0', () => {
+  for (const filename of [
+    'docs/AGILE_DEVELOPMENT.md',
+    'scripts/governance-workflow.test.mjs',
+    'scripts/netlify-publish-workflow.test.mjs',
+  ]) {
+    const risk = classifyChangeSet(files(filename));
+    assert.equal(risk.tier, 'L3', filename);
+    assert.equal(risk.requiresQualityEvidence, true, filename);
+    assert.equal(evaluateEvidence(risk, '').passed, false, filename);
+  }
+});
