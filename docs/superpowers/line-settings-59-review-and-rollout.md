@@ -121,6 +121,15 @@ Chromium and full CI must succeed before merge.
 
 ## Decisions and review boundaries
 
+An unchanged `BUSINESS_SYNC` browser case failed on the rebased candidate:
+the test installed running clocks in three tabs, then counted all shop-A probes
+after stopping one tab. Playwright documents that `install()` keeps time flowing
+until `pauseAt()`. The fixture now pauses each tab before starting subscriptions
+and drains already-issued fetches before testing unsubscribe. All original
+cross-shop, refresh and no-future-probe assertions remain; runtime sync code,
+timeouts and retries are unchanged. Actual final Chromium must verify this
+fixture correction. Reference: https://playwright.dev/docs/clock
+
 - Execute the approved plan inline and continue through merge/development
   deployment without another approval round: the user explicitly authorized
   that outcome. Cost if mistaken: a reversible development UI change guarded
