@@ -1,5 +1,8 @@
 .business-line-settings{margin:0 0 24px;padding:24px;border:1px solid #d6ded6;border-radius:16px;background:#fff;min-width:0}
 .business-line-settings h2{margin:0 0 16px;font-size:1.15rem}
+.business-line-summary{padding:12px 16px;background:#edf5ed;border-left:3px solid #225b40;border-radius:8px;margin:0;color:#284d37}
+.business-line-settings details>summary{line-height:1.5}
+.business-line-settings details>form,.business-line-settings details>label,.business-line-settings details>.business-line-fields{margin-top:16px}
 .business-line-settings form{display:grid;gap:16px}
 .business-line-settings label{display:grid;gap:6px;font-weight:600;min-width:0}
 .business-line-settings input{width:100%;box-sizing:border-box;min-height:44px;padding:10px;border:1px solid #b7c6b9;border-radius:8px}

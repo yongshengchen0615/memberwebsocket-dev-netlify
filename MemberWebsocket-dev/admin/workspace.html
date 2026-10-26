@@ -11,6 +11,8 @@
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
   <script src="../business-context.js"></script>
 <script src="../member-system.js" defer></script>
+  <link rel="stylesheet" href="./business-line-settings.css?v=simple-line-20261026-1">
+  <script src="./business-line-settings.js?v=simple-line-20261026-1" defer></script>
   <script src="../platform/app.js?v=merchant-system-code-20261025-1" defer></script>
   <link rel="stylesheet" href="../portal-navigation.css?v=unified-20261018-1">
   <script src="../portal-navigation.js?v=unified-20261018-1" defer></script>
@@ -185,7 +187,11 @@
       <div id="merchantFeatures" class="tenant-features"></div>
       </div>
       <section id="merchantLineSettingsPanel" role="tabpanel" aria-labelledby="merchantLineSettingsTab" hidden>
-      <h3>LINE 設定</h3><p class="hint">此處集中設定已核准功能的 LIFF 與通知 Channel；未開放的功能不顯示，也無法透過 API 儲存。</p>
+      <h3>LINE 設定</h3><p class="hint">選擇功能，先設定 LINE 入口；需要通知時，再展開通知帳號與接收用途。已儲存的設定會繼續沿用。</p>
+      <section id="merchantSimpleLine" hidden aria-label="逐功能 LINE 簡易設定">
+        <nav data-line-feature-nav class="business-line-feature-nav" role="tablist" aria-label="已核准功能的 LINE 設定"></nav>
+        <div data-line-feature-content></div>
+      </section>
       <nav id="merchantFeatureNav" class="merchant-feature-nav" aria-label="已授權功能的 LINE 設定"></nav>
       <form id="merchantLineForm">
         <section data-merchant-panel="shared" aria-label="共用 LINE 設定">
