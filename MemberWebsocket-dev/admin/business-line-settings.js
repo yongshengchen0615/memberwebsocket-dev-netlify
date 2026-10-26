@@ -28,6 +28,7 @@
   let grants = {}, tenant = null, loading = false, saving = false, activeFeature = null, navSignature = '';
   let adapter = null, generation = 0;
   const views = new Map();
+  const revokedCodes=new Set(['AUTH_REQUIRED','AUTH_INVALID','TENANT_REAUTH_REQUIRED','TENANT_EXPIRED','TENANT_SUSPENDED','FEATURE_DISABLED','BUSINESS_FORBIDDEN','PLATFORM_APPLICATION_NOT_APPROVED','PLATFORM_APPLICATION_NOT_FOUND','PLATFORM_QUALIFICATION_REQUIRED','PLATFORM_QUALIFICATION_SUSPENDED']);
   const find = id => adapter?.root.querySelector('#' + id) || (!adapter ? document.getElementById(id) : null);
   const navNode = () => adapter ? adapter.root.querySelector('[data-line-feature-nav]') : find('businessLineFeatureNav');
   const contentNode = () => adapter ? adapter.root.querySelector('[data-line-feature-content]') : find('businessLineFeatureContent');
@@ -42,11 +43,17 @@
     generation++;for(const view of views.values())discard(view);views.clear();
     navNode()?.replaceChildren();tenant=null;grants={};activeFeature=null;navSignature='';saving=false;loading=false;adapter=null;
   }
+  function revoke(error) {
+    if(!revokedCodes.has(error.code))return false;
+    const target=adapter?.root||find('businessWorkspaceStatus')||contentNode();clear();
+    const alert=node('p',error.message||'LINE 設定權限已變更，請重新確認登入與商家權限。');alert.setAttribute('role','alert');target?.append(alert);return true;
+  }
   function mount(options) {
     if(!options?.root || typeof options.request!=='function' || !options.data?.tenant)throw Error('LINE 設定缺少商家內容。');
     const next=options.data.tenant;
-    if(adapter?.root!==options.root || tenant?.id!==next.id || tenant?.slug!==next.slug)clear();
+    if(adapter?.root!==options.root || tenant?.id!==next.id || tenant?.slug!==next.slug || Object.keys(grants).some(key=>grants[key]===true&&next.features?.[key]!==true))clear();
     adapter={...options,business:next.slug};grants={...next.features};tenant=next;
+    if(next.status==='suspended'||next.expired){revoke({code:'BUSINESS_FORBIDDEN',message:'此商家的 LINE 設定權限尚未開放。'});return;}
     render();for(const view of views.values())update(view);lock();
   }
   const pendingOperation = () => [...views.values()].some(v => v.pending || [...(v.routes?.values() || [])].some(r => r.pending || r.testPending));
@@ -58,10 +65,10 @@
     const epoch=generation,currentAdapter=adapter;
     if(currentAdapter){
       try{const result=await currentAdapter.request(action,payload);if(epoch!==generation)throw {stale:true};return result;}
-      catch(error){if(epoch!==generation)throw {stale:true};throw error;}
+      catch(error){if(epoch!==generation)throw {stale:true};revoke(error);throw error;}
     }
-    const session = window.MemberAdminSession.get();
-    if (!session) throw Error('登入狀態已失效，請重新登入。');
+    const session = window.MemberAdminSession?.get();
+    if (!session) {const error=Object.assign(Error('登入狀態已失效，請重新登入。'),{code:'AUTH_REQUIRED'});revoke(error);throw error;}
     const url = new URL(session.config.supabaseFunctionUrl);
     url.pathname = url.pathname.replace(/\/api\/?$/, '/platform-api');
     let response;
@@ -73,7 +80,8 @@
     let body;
     try { body = await response.json(); }
     catch { throw Object.assign(Error('無法確認伺服器回應，請重試相同操作。'), {uncertain:true}); }
-    if (!response.ok || !body.ok) throw Object.assign(Error(body.error?.message || '無法取得 LINE 設定。'), {code:body.error?.code,uncertain:response.status>=500});
+    if(epoch!==generation)throw {stale:true};
+    if (!response.ok || !body.ok) {const error=Object.assign(Error(body.error?.message || '無法取得 LINE 設定。'), {code:body.error?.code,uncertain:response.status>=500});revoke(error);throw error;}
     if(epoch!==generation)throw {stale:true};return body.data;
   }
   function lock() {
@@ -102,10 +110,7 @@
   }
   function liffValue(value) {
     const text=value.trim();if(/^\d{5,30}-[A-Za-z0-9_-]+$/.test(text))return text;
-    if(!text.startsWith('https://liff.line.me/'))return null;
-    try{const url=new URL(text);if(url.origin!=='https://liff.line.me'||url.username||url.password||url.search||url.hash)return null;
-      return /^\/\d{5,30}-[A-Za-z0-9_-]+$/.test(url.pathname)?url.pathname.slice(1):null;
-    }catch{return null;}
+    return /^https:\/\/liff\.line\.me\/(\d{5,30}-[A-Za-z0-9_-]+)$/.exec(text)?.[1]||null;
   }
   function normalizeEntry(view,input) {
     for(const [key,channel] of [[view.key,'memberChannelId'],['adminLiffId','adminChannelId']]){
@@ -166,6 +171,7 @@
       input.disabled = sharedIdentity && Boolean(view.identityBlock?.hidden);
       if(['adminChannelId','adminLiffId'].includes(input.name))input.readOnly=Boolean(tenant.line?.[input.name]);
     }
+    if(view.form)normalizeEntry(view);
     if(view.entryState){const current={...tenant.line,...tenant.moduleLine?.[view.feature]?.line};view.entryState.textContent=current[view.key]?'入口設定已儲存；實際 LINE 登入仍需驗收。':'尚未設定入口：先貼上此功能的 LIFF ID 或 LINE 入口網址。';}
     view.links.replaceChildren();
     if (!view.path) { view.links.textContent = '此管理功能不需要額外 LINE 用戶端入口。'; return; }
@@ -257,7 +263,7 @@
     const purposeHelp = {membership:'會員加入與權益',points:'集點與兌換',events:'活動與票券',booking:'預約狀態'}[view.feature];
     details.append(node('p',purposeHelp + '通知可共用本功能憑證，或另設專用 Messaging API Channel。兩種 Channel 須屬於相同 LINE Provider；預約管理通知僅送給商家已授權管理員。'));
     for (const purpose of view.feature === 'booking' ? ['admin','member'] : ['member']) {
-      const form = node('form'); form.id = domId('notification-' + view.feature + '-' + purpose);
+      const form = node('form'); form.noValidate=true;form.id = domId('notification-' + view.feature + '-' + purpose);
       form.append(node('h3',purpose === 'admin' ? '管理員接收通知' : '會員接收通知'));
       const label=node('label','通知通道'),mode=node('select'); mode.name='mode';
       for (const [value,text] of [['inherit','使用此功能的官方帳號'],['custom','使用其他官方帳號（進階）'],['disabled','不發送此用途通知']]) {const o=node('option',text);o.value=value;mode.append(o);}
@@ -361,7 +367,7 @@
       const reload = node('button','載入最新 LINE 設定','button button-outline'); reload.type = 'button'; view.reload = reload;
       reload.onclick = () => void load(true, view);
       if (path) {
-        const form = node('form'); form.id = domId('businessLine-' + feature); view.form = form;
+        const form = node('form'); form.noValidate=true;form.id = domId('businessLine-' + feature); view.form = form;
         const entryState=node('p','','business-line-summary');view.entryState=entryState;form.append(entryState);
         addField(form, key, '1. 貼上' + label + ' LIFF ID 或 LINE 入口網址');
         const account=node('details');account.id=form.id+'-account-details';account.append(node('summary','登入帳號細節（自動帶入）'));
@@ -396,15 +402,16 @@
     loading = true;
     try {
       const result = await request('platform.application.bootstrap');
-      if (!result.tenant || result.tenant.slug !== business || result.application?.status !== 'approved' || (result.tenant.status === 'suspended' || result.tenant.expired)) throw Error('此商家的 LINE 設定權限尚未開放。');
+      if (!result.tenant || result.tenant.slug !== business || result.application?.status !== 'approved' || (result.tenant.status === 'suspended' || result.tenant.expired)) throw Object.assign(Error('此商家的 LINE 設定權限尚未開放。'),{code:'BUSINESS_FORBIDDEN'});
       tenant = result.tenant; render();
       for (const view of views.values()) {
-        if (force && view === source) view.dirty.clear();
+        if (force && view === source) {view.dirty.clear();view.derived.clear();}
         update(view, force && view === source);
       }
       if(source)source.status.textContent='已載入本區塊最新 LINE 設定，請確認後再儲存。';
     } catch (error) {
       if(epoch!==generation)return;
+      if(revoke(error))return;
       let status=find('businessLineLoadStatus');
       if(!status){status=node('p');status.id='businessLineLoadStatus';status.setAttribute('role','alert');document.getElementById('businessWorkspaceStatus')?.append(status);}
       status.textContent=error.message;
@@ -412,6 +419,7 @@
     } finally { if(epoch===generation)loading=false; }
   }
   function apply(data) {
+    if(tenant&&(data.business?.slug&&data.business.slug!==tenant.slug || Object.keys(grants).some(key=>grants[key]===true&&data.features?.[key]!==true)))clear();
     const changed = JSON.stringify(grants) !== JSON.stringify(data.features);
     grants = {...data.features}; render();
     if (!tenant || changed) return load();

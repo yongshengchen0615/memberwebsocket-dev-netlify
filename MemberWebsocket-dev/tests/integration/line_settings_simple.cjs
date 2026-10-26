@@ -28,12 +28,52 @@ test('simple entry saves exact LIFF URL using real handler/SQL without separatel
 test('misleading LIFF URLs and a manually mismatched Channel cannot be saved; invalid collapsed account details open and focus',async()=>{
  const t=await setup();try{
   const form=t.d.querySelector('#businessLine-membership');fill(t.w,form,'adminLiffId','2010791619-admin');
-  for(const value of ['https://liff.line.me.evil.test/2010787602-member','https://liff.line.me/2010787602-member?x=1','https://liff.line.me/2010787602-member#x','http://liff.line.me/2010787602-member']){
+  for(const value of ['https://liff.line.me.evil.test/2010787602-member','https://liff.line.me/path/../2010787602-member','https://liff.line.me/2010787602-member?','https://liff.line.me/2010787602-member#','https://liff.line.me/2010787602-member?x=1','https://liff.line.me/2010787602-member#x','http://liff.line.me/2010787602-member']){
    fill(t.w,form,'memberLiffId',value);assert.equal(form.checkValidity(),false);form.dispatchEvent(new t.w.Event('submit',{cancelable:true}));
   }
   fill(t.w,form,'memberLiffId','2010787602-member');fill(t.w,form,'memberChannelId','2099999999');
   const details=form.elements.memberChannelId.closest('details');assert.ok(details,'technical Login Channel lives under account details');details.open=false;
-  form.dispatchEvent(new t.w.Event('submit',{cancelable:true}));assert.equal(details.open,true);assert.equal(t.d.activeElement,form.elements.memberChannelId);assert.equal(t.calls.filter(c=>c.action==='platform.line.save').length,0);
+  form.querySelector('button[type=submit]').click();assert.equal(details.open,true);assert.equal(t.d.activeElement,form.elements.memberChannelId);assert.equal(t.calls.filter(c=>c.action==='platform.line.save').length,0);
+ }finally{await t.close();}
+});
+
+test('native Save activation opens and focuses a collapsed invalid Login Channel without sending a request',async()=>{
+ const t=await setup();try{
+  const form=t.d.querySelector('#businessLine-membership');fill(t.w,form,'adminLiffId','2010791619-admin');fill(t.w,form,'memberLiffId','2010787602-member');fill(t.w,form,'memberChannelId','2099999999');
+  const details=form.elements.memberChannelId.closest('details');details.open=false;
+  form.querySelector('button[type=submit]').click();assert.equal(details.open,true);assert.equal(t.d.activeElement,form.elements.memberChannelId);assert.equal(t.calls.some(c=>c.action==='platform.line.save'),false);
+ }finally{await t.close();}
+});
+
+test('reload discards a mismatch and restores a valid saved pair that can be saved with the actual button',async()=>{
+ const t=await setup();try{
+  const form=t.d.querySelector('#businessLine-membership'),section=form.closest('section');fill(t.w,form,'adminLiffId','2010791619-admin');fill(t.w,form,'memberLiffId','2010787602-member');
+  form.querySelector('button[type=submit]').click();await until(()=>t.calls.filter(c=>c.action==='platform.line.save').length===1 && section.querySelector(':scope > [role=status]').textContent.includes('已儲存'));
+  fill(t.w,form,'memberChannelId','2099999999');assert.equal(form.elements.memberChannelId.validity.customError,true);
+  [...section.querySelectorAll('button')].find(b=>b.textContent==='載入最新 LINE 設定').click();await until(()=>form.elements.memberChannelId.value==='2010787602');
+  assert.equal(form.elements.memberChannelId.validity.customError,false);assert.equal(form.checkValidity(),true);
+  form.querySelector('button[type=submit]').click();await until(()=>t.calls.filter(c=>c.action==='platform.line.save').length===2 && section.querySelector(':scope > [role=status]').textContent.includes('已儲存'));
+ }finally{await t.close();}
+});
+
+for(const operation of ['reload','notification-test'])test('retained business transport clears secret drafts and controls on revoked access during '+operation,async()=>{
+ const t=await setup();try{
+  const form=t.d.querySelector('#businessLine-membership'),secret=form.elements.channelSecret;fill(t.w,form,'channelSecret','a'.repeat(32));
+  await t.h.db.query("update platform_private.admin_qualifications set status='suspended' where applicant_line_user_id=$1",[owner]);
+  if(operation==='reload')[...form.closest('section').querySelectorAll('button')].find(b=>b.textContent==='載入最新 LINE 設定').click();
+  else [...t.d.querySelectorAll('#notification-booking-admin button')].find(b=>b.textContent==='傳送測試給我').click();
+  await until(()=>t.d.querySelectorAll('[data-business-line-feature] form').length===0);
+  assert.equal(t.d.querySelectorAll('[data-business-line-feature] form').length,0);assert.equal(secret.value,'');assert.ok(t.d.querySelector('[role=alert]'));
+ }finally{await t.close();}
+});
+
+test('an authoritative suspended bootstrap clears the retained renderer instead of leaving editable drafts',async()=>{
+ const t=await setup();try{
+  const form=t.d.querySelector('#businessLine-membership'),secret=form.elements.channelSecret;fill(t.w,form,'channelSecret','a'.repeat(32));
+  const bootstrap=(await t.h.call({action:'platform.application.bootstrap',business:t.tenant.slug},'manager')).body.data;
+  t.w.fetch=async()=>Response.json({ok:true,data:{...bootstrap,tenant:{...bootstrap.tenant,status:'suspended'}}});
+  [...form.closest('section').querySelectorAll('button')].find(b=>b.textContent==='載入最新 LINE 設定').click();
+  await until(()=>t.d.querySelectorAll('[data-business-line-feature] form').length===0);assert.equal(t.d.querySelectorAll('[data-business-line-feature] form').length,0);assert.equal(secret.value,'');
  }finally{await t.close();}
 });
 
