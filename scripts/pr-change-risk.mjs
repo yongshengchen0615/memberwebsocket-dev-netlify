@@ -20,13 +20,19 @@ const isDeployRisk = (name) => name === 'netlify.toml'
   || /^scripts\/(?:build-site|netlify-preview-source|verify-preview|check-preview-ci|netlify-native-ci-gate|verify-platform-preview|pr-change-risk(?:\.test)?)\.mjs$/.test(name);
 const isShared = (name) => /(?:^|\/)(?:shared|common|api)(?:\/|[.-])/i.test(name)
   || /^MemberWebsocket-dev\/(?!admin\/|platform\/|booking\/|member\/|points\/|event\/|calendar\/|tests\/|supabase\/)[^/]+\.js$/i.test(name);
+// Paths are conservative signals only; manual review can raise the risk.
+const isSensitiveRuntime = (name) => !isDoc(name) && new RegExp('(?:^|/)(?:business[-_.](?:line|workspace|context|runtime)|merchant[-_.](?:context|permissions|access)|line[-_.]webhook|booking[-_.]notification|notification[-_.](?:routes|events)|(?:points|ticket)[-_.](?:transfer|policy|grant))(?:[./-]|$)', 'i').test(name);
+const GOVERNANCE_PATHS = new Set(['AGENTS.md', 'docs/DEVELOPMENT_GUARDRAILS.md']);
+const TIERS = ['L0', 'L1', 'L2', 'L3'];
+const LEVEL_NAMES = { L0: '小改', L1: '小改', L2: '中改', L3: '大改' };
 const isPlaceholder = (value) => !value || /^(?:-+|n\/a|not applicable|tbd|todo|待補|待確認|無|未執行|尚未執行|稍後補|無需|none|pending)(?:[\s.。！!、，,；;:：-]*)$/i.test(value.trim());
 
-export function classifyChangeSet(rawFiles) {
+export function classifyChangeSet(rawFiles, { manualTier } = {}) {
   if (!Array.isArray(rawFiles) || rawFiles.length === 0) throw new Error('Expected a non-empty GitHub changed-files array');
   const files = rawFiles.map(normalize);
   if (files.some((file) => !file || typeof file.filename !== 'string' || !file.filename.trim())) throw new Error('Invalid changed file entry');
   const names = files.flatMap((file) => [file.filename, file.previous_filename].filter(Boolean));
+  if (manualTier !== undefined && !TIERS.includes(manualTier)) throw new Error('Invalid manual risk tier');
   const modules = [...new Set(names.map((name) => {
     const match = /^MemberWebsocket-dev\/([^/]+)\//.exec(name);
     return match && CORE_MODULES.has(match[1]) ? match[1] : null;
@@ -34,13 +40,19 @@ export function classifyChangeSet(rawFiles) {
   const reasons = [];
   let score = 0;
   let critical = false;
+  const docsOnly = names.every((name) => isDoc(name) && !isDeployRisk(name) && !GOVERNANCE_PATHS.has(name));
   if (modules.length >= 3) { score += 6; reasons.push('同時影響至少三個核心模組'); }
   else if (modules.length === 2) { score += 3; reasons.push('同時影響兩個核心模組'); }
   if (names.some((name) => !isDoc(name) && isShared(name))) { score += 3; reasons.push('修改共用程式／API 入口'); }
   if (names.some((name) => !isDoc(name) && isBackendRisk(name))) { score += 3; critical = true; reasons.push('涉及資料庫、Edge Functions、認證或權限相關路徑'); }
   if (names.some((name) => isDeployRisk(name))) { score += 3; critical = true; reasons.push('涉及發佈、CI 或建置路徑'); }
-  const level = critical || score >= 6 ? '大改' : score >= 3 ? '中改' : '小改';
-  return { level, score, critical, requiresQualityEvidence: names.some((name) => !isDoc(name) || isDeployRisk(name)), files: files.map((f) => f.filename), modules, reasons, note: '僅依路徑做初步風險下限判斷；實際資料破壞性、跨系統契約和測試結果須人工審核。' };
+  if (names.some((name) => isSensitiveRuntime(name))) { score += 3; critical = true; reasons.push('涉及商家歸屬、LINE 憑證／Webhook、通知或點數票券敏感路徑'); }
+  if (names.some((name) => GOVERNANCE_PATHS.has(name))) { score += 3; critical = true; reasons.push('修改全專案開發治理規範'); }
+  const inferredTier = docsOnly ? 'L0' : critical || score >= 6 ? 'L3' : score >= 3 ? 'L2' : 'L1';
+  const tier = TIERS[Math.max(TIERS.indexOf(inferredTier), manualTier ? TIERS.indexOf(manualTier) : 0)];
+  if (manualTier && tier !== inferredTier) reasons.push('PR 主動提升風險等級：' + manualTier);
+  const level = LEVEL_NAMES[tier];
+  return { level, tier, score, critical: tier === 'L3', requiresQualityEvidence: names.some((name) => !isDoc(name) || isDeployRisk(name) || GOVERNANCE_PATHS.has(name)), files: files.map((f) => f.filename), modules, reasons, note: 'L0–L3 是最低風險下限；人工只可上調。文字欄位完整不代表測試或安全驗收成功。' };
 }
 
 export function evaluateEvidence(risk, prBody = '') {
@@ -63,7 +75,7 @@ export function reportMarkdown(risk, evidence, prNumber = '?') {
   const lines = [
     `## Project #5 PR #${prNumber} 變更風險檢查`,
     '',
-    `**初步分級：${risk.level}（${risk.score} 分）**`,
+    `**初步分級：${risk.tier} / ${risk.level}（路徑分數 ${risk.score}）**`,
     `**評估欄位：${evidence.passed ? '完整' : `缺少：${evidence.missing.join('、')}`}**`,
     `**影響模組：${risk.modules.join('、') || '未識別指定模組'}**`,
     '',
@@ -111,7 +123,8 @@ async function main() {
   } else {
     throw new Error('Usage: node scripts/pr-change-risk.mjs --github | --files-json path --body-file path');
   }
-  const risk = classifyChangeSet(files);
+  const manualMatch = body.match(/^### 風險等級覆核[^\\n]*\\r?\\n\\s*(L[0-3])(?=\\s|[：:-]|$)/mi);
+  const risk = classifyChangeSet(files, { manualTier: manualMatch?.[1]?.toUpperCase() });
   const evidence = evaluateEvidence(risk, body);
   const report = reportMarkdown(risk, evidence, number);
   process.stdout.write(report);
