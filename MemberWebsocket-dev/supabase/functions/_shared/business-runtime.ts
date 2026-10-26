@@ -4,7 +4,7 @@ import { openCredentials } from './platform-crypto.mjs';
 import { resolvePlatformEncryptionKey } from './platform-key.mjs';
 import { tenantExpired, assertTenantIdentity } from './tenant-access.mjs';
 import { verifyMerchantAdminIdToken } from './platform-auth.mjs';
-import { merchantOnboarding } from './merchant-onboarding.mjs';
+import { merchantOnboarding, featureLineReady } from './merchant-onboarding.mjs';
 import { wakeBookingNotifications } from './booking-notification-wake.mjs';
 import { notificationToken } from './notification-routes.mjs';
 export type { SupabaseClient } from 'npm:@supabase/supabase-js@2.57.0';
@@ -125,13 +125,16 @@ async function assertBusinessAdmin(c:Context,body:any){
   if(result.error||!result.data)throw Object.assign(Error('管理權限已變更，請重新確認。'),{status:403,code:'BUSINESS_ADMIN_REQUIRED'});
  };
 }
-async function credentials(c:Context,feature?:string){
+async function credentials(c:Context,feature?:string,identityOnly=false){
  c.adminCustomLineReady=Boolean(c.line_config?.adminLiffId?.startsWith(c.line_config?.adminChannelId+'-'));
  const module=feature?c.module_line?.[feature]:null;
  c.active_feature=feature;
  if(module)c.line_config={...c.line_config,...module.line};
  const configured=module?module.credentialsConfigured===true:c.credentials_configured;
- c.customLineReady=merchantOnboarding({status:c.status,features:feature?{[feature]:true}:c.features,line:c.line_config,credentialsConfigured:configured}).configurationComplete;
+ c.customLineReady=feature?featureLineReady(feature,c.line_config):merchantOnboarding({status:c.status,features:c.features,line:c.line_config,credentialsConfigured:configured}).configurationComplete;
+ // Session operations only need the trusted Login identity; no Messaging
+ // envelope or notification route is needed to claim/check/close a session.
+ if(identityOnly){c.notificationCredentials={};return;}
  const db=control();
  if(configured){
   const result=await db.rpc(module?'platform_module_credentials':'platform_business_credentials',module?{p_tenant_id:c.id,p_feature:feature}:{p_tenant_id:c.id});
@@ -166,11 +169,38 @@ export async function withBusinessModule<T>(feature:string,run:()=>Promise<T>):P
  if(c.features?.[feature]!==true)throw Object.assign(Error('此功能已停用。'),{code:'FEATURE_DISABLED',status:403});
  await credentials(c,feature);return scope.run(c,run);
 }
-function requestModule(name:string,body:any):string|undefined{
+const sessionSurface=/^user\.(member|points|event|calendar|booking)\.session\.(claim|status|logout)$/;
+const identityFeatures:Record<string,string>={member:'membership',points:'points',event:'events',calendar:'calendar',booking:'booking'};
+function requestModule(name:string,body:any,context?:Context):string|undefined{
  if(name==='booking-line-notifications')return 'booking';
  if(name==='scheduled-grant-messages')return undefined;
- const features=actionFeatures(policyAction(name,body),body);
- return features?.[0];
+ const action=policyAction(name,body),session=sessionSurface.exec(action);
+ // Session authorization deliberately remains a workspace operation in
+ // actionFeatures. Its LINE identity still belongs to the named surface,
+ // including logout/status after that feature's grant has been revoked.
+ if(session)return identityFeatures[session[1]];
+ const features=actionFeatures(action,body),primary=features?.[0];
+ if(context && /^user\.member\.(bootstrap|profile\.save|terms\.accept)$/.test(action)){
+  // Shared member profile/terms are also used from booking and other approved
+  // LIFFs. aud is only a routing hint, never identity or authorization proof:
+  // choose solely from this tenant's granted, valid LINE configurations. The
+  // downstream verifier must still validate the token with LINE against the
+  // selected database Channel and enforce the existing session/cutoff checks.
+  let audience:unknown;
+  try{audience=JSON.parse(atob(String(body.idToken).split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).aud;}catch{}
+  // Test-session requests may carry no LINE ID token. Leave their existing
+  // authentication branch (and malformed token rejection) to the endpoint.
+  if(typeof audience!=='string')return primary;
+  const candidates=Object.values(identityFeatures).filter(feature=>context.features?.[feature]===true
+   && featureLineReady(feature,{...context.line_config,...context.module_line?.[feature]?.line}));
+  const matched=candidates.find(feature=>({...context.line_config,...context.module_line?.[feature]?.line}).memberChannelId===audience);
+  if(matched)return matched;
+  // Do not fall back to a global Channel when only another configured LIFF can
+  // legitimately enter this shared foundation route. Legacy unconfigured
+  // tenants and an explicitly configured membership Channel retain their path.
+  if(candidates.length && (!primary || !candidates.includes(primary)))throw Object.assign(Error('LINE 登入已失效，請重新登入。'),{status:401,code:'AUTH_INVALID'});
+ }
+ return primary;
 }
 
 const jobs=new Set(['booking-line-notifications','scheduled-grant-messages','e2e-artifact-retention']);
@@ -221,7 +251,7 @@ export function businessHandler(name:string,handler:(request:Request)=>Response|
     if(c.status!=='active')throw Object.assign(Error('此商家已停用。'),{code:'TENANT_SUSPENDED',status:403});
     if(!jobAllowed(name,c))throw Object.assign(Error('此功能已停用。'),{code:'FEATURE_DISABLED',status:403});
    }else assertBusinessAction(c,action,body);
-   await credentials(c,requestModule(name,body));
+   await credentials(c,requestModule(name,body,c),sessionSurface.test(action));
    const response=await scope.run(c,()=>handler(request));
    await wakeBookingNotifications({name,context:c,body,response,dispatch:(id:string)=>control().rpc('platform_dispatch_booking',{p_tenant_id:id})});
    if(body.action==='admin.bootstrap'&&response.ok){

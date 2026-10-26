@@ -32,7 +32,7 @@ Deno.test('AC-186: dispatch resolves each purpose and never falls back from disa
  }) as typeof fetch;
  try{
   const handler=businessHandler('api',async()=>{
-   const db=createClient('https://runtime-fixture.supabase.co','fixture');
+   const db=createClient('https://runtime-fixture.supabase.co','fixture',{auth:{autoRefreshToken:false,persistSession:false}});
    const config=await db.rpc('booking_notification_config');
    const nested=await withBusinessModule('points',async()=>await db.rpc('get_line_messaging_token'));
    assert(nested.data==='synthetic-points','a DB client created before withBusinessModule must read the active module token');
@@ -66,7 +66,7 @@ Deno.test('AC-210: production request adapter enforces fresh grants, private sch
   const handler=businessHandler('api',async()=>{
    invoked++;
    await Promise.resolve();
-   const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+   const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{autoRefreshToken:false,persistSession:false}});
    const result=await db.from('members').select('id');
    return new Response(JSON.stringify({ok:true,data:result.data}));
   });
@@ -80,7 +80,7 @@ Deno.test('AC-210: production request adapter enforces fresh grants, private sch
   const concurrent=await Promise.all(Array.from({length:16},(_,i)=>handler(i%2?request('merchant-b','admin.pointcards.save',token(ownerB)):request())));
   for(const [i,res]of concurrent.entries())assert((await res.json()).data[0].id===(i%2?b:a).runtime_schema,'async scopes crossed');
   const storage=businessHandler('api',async()=>{
-   const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+   const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{autoRefreshToken:false,persistSession:false}});
    const url=await db.storage.from('booking-receipts').createSignedUrl('member/a.png',60);
    assert(url.data?.signedUrl.includes(a.id+'/member/a.png'));
    let rejected=false;try{await db.storage.from('booking-receipts').remove(['../other-business/a.png']);}catch{rejected=true;}assert(rejected);
@@ -135,7 +135,7 @@ Deno.test('AC-ENV-002/003: request adapter reads only the action module credenti
   throw Error('unexpected request '+path);
  }) as typeof fetch;
  try{
-  const handler=businessHandler('api',async()=>{const db=createClient('https://runtime-fixture.supabase.co','fixture');const result=await db.rpc('get_line_messaging_token');return new Response(JSON.stringify({token:result.data,channel:businessEnv('LINE_MEMBER_CHANNEL_ID')}));});
+  const handler=businessHandler('api',async()=>{const db=createClient('https://runtime-fixture.supabase.co','fixture',{auth:{autoRefreshToken:false,persistSession:false}});const result=await db.rpc('get_line_messaging_token');return new Response(JSON.stringify({token:result.data,channel:businessEnv('LINE_MEMBER_CHANNEL_ID')}));});
   for(const f of ['membership','points']){
    const req=()=>new Request('https://api.test',{method:'POST',body:JSON.stringify({business:'merchant-a',action:f==='membership'?'admin.member.update':'admin.pointcards.save',idToken:token(ownerA)})});
    const data=await(await handler(req())).json();assert(data.token==='synthetic-'+f);assert(data.channel===(f==='membership'?'2010787602':'2010789999'));
@@ -165,9 +165,9 @@ Deno.test('AC-187-003: real Storage SDK keeps signed upload paths scoped and rej
  try{
   // The browser uses an unscoped publishable client; the API signs via its
   // scoped service client. A token is usable only with the SDK-returned path.
-  const browser=createClient('https://runtime-fixture.supabase.co','sb_publishable_synthetic');
+  const browser=createClient('https://runtime-fixture.supabase.co','sb_publishable_synthetic',{auth:{autoRefreshToken:false,persistSession:false}});
   for(const tenant of [null,a,b]){
-   const sign=()=>createClient('https://runtime-fixture.supabase.co','server-only-fixture').storage.from('booking-receipts').createSignedUploadUrl('member/receipt.png',{upsert:false});
+   const sign=()=>createClient('https://runtime-fixture.supabase.co','server-only-fixture',{auth:{autoRefreshToken:false,persistSession:false}}).storage.from('booking-receipts').createSignedUploadUrl('member/receipt.png',{upsert:false});
    const result=tenant?await scope.run(tenant,sign):await sign();
    assert(!result.error&&result.data);
    const data=result.data!;assert(data.path===(tenant?tenant.id+'/':'')+'member/receipt.png');
@@ -180,4 +180,111 @@ Deno.test('AC-187-003: real Storage SDK keeps signed upload paths scoped and rej
   }
   assert(objects.size===3,'legacy and the two tenants have distinct stored objects');
  }finally{globalThis.fetch=previous;}
+});
+
+Deno.test('#124 LIFF-only runtime uses the module Login/LIFF without loading any Messaging secret',async()=>{
+ const previousEnv=Deno.env.get,previous=globalThis.fetch;
+ Deno.env.get=(name:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture',LINE_CALENDAR_CHANNEL_ID:'2099999999'} as Record<string,string>)[name];
+ globalThis.fetch=(async(input:RequestInfo|URL)=>{
+  const path=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url).pathname;
+  if(path.endsWith('/platform_business_context_v2'))return new Response(JSON.stringify({...a,features:{...a.features,calendar:true},credentials_configured:false,line_config:{adminChannelId:'2010791619',adminLiffId:'2010791619-admin'},module_line:{calendar:{credentialsConfigured:false,line:{memberChannelId:'2010787602',calendarLiffId:'2010787602-calendar',messagingChannelId:''}}}}));
+  throw Error('LIFF-only runtime must not load Messaging credentials: '+path);
+ }) as typeof fetch;
+ try{
+  const handler=businessHandler('api',async()=>{
+   const db=createClient('https://runtime-fixture.supabase.co','fixture',{auth:{autoRefreshToken:false,persistSession:false}}),liff=await db.rpc('get_line_setting',{p_key:'LINE_CALENDAR_LIFF_ID'}),token=await db.rpc('get_line_messaging_token');
+   return new Response(JSON.stringify({channel:businessEnv('LINE_CALENDAR_CHANNEL_ID'),liff:liff.data,token:token.data}));
+  });
+  const response=await handler(new Request('https://api.test',{method:'POST',body:JSON.stringify({business:'merchant-a',action:'user.calendar.bootstrap',idToken:token(ownerA)})}));
+  assert(response.status===200);const result=await response.json();
+  assert(result.channel==='2010787602','LIFF-only requests must verify against their module Login channel');
+  assert(result.liff==='2010787602-calendar');assert(result.token===null);
+ }finally{Deno.env.get=previousEnv;globalThis.fetch=previous;}
+});
+
+// The LINE provider remains the identity authority; JWT payloads below only
+// model the same routing hints present in real signed tokens. Registry lookup
+// makes changed-payload/forged tokens fail at the provider boundary.
+async function liffIdentityFixture(run:(fixture:any)=>Promise<void>){
+ const {verifyLineIdTokenContract}=await import('./auth-contract.ts');
+ const previousEnv=Deno.env.get,previous=globalThis.fetch,providerCalls:string[]=[];
+ const definition=[['member','membership','memberLiffId','LINE_MEMBER_CHANNEL_ID','2020000001'],['points','points','pointsLiffId','LINE_POINTS_CHANNEL_ID','2020000002'],['event','events','eventLiffId','LINE_EVENT_CHANNEL_ID','2020000003'],['calendar','calendar','calendarLiffId','LINE_CALENDAR_CHANNEL_ID','2020000004'],['booking','booking','bookingLiffId','LINE_MEMBER_CHANNEL_ID','2020000005']];
+ const claims=new Map<string,string>();
+ const issue=(channel:string,suffix='valid')=>{const value='e30.'+btoa(JSON.stringify({sub:ownerA,aud:channel,jti:suffix}))+'.signature';claims.set(value,channel);return value;};
+ const context={...a,features:Object.fromEntries(definition.map(([,feature])=>[feature,true])),credentials_configured:false,line_config:{adminChannelId:'2010791619',adminLiffId:'2010791619-admin'},module_line:Object.fromEntries(definition.map(([,feature,liff,,channel])=>[feature,{credentialsConfigured:false,line:{memberChannelId:channel,[liff]:channel+'-'+feature,messagingChannelId:''}}]))};
+ Deno.env.get=(name:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture',LINE_MEMBER_CHANNEL_ID:'2010787602',LINE_POINTS_CHANNEL_ID:'2010787602',LINE_EVENT_CHANNEL_ID:'2010787602',LINE_CALENDAR_CHANNEL_ID:'2010787602'} as Record<string,string>)[name];
+ globalThis.fetch=(async(input:RequestInfo|URL,init?:RequestInit)=>{
+  const path=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url).pathname;
+  const reply=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json'}});
+  if(path.endsWith('/platform_business_context_v2'))return reply(context);
+  if(path==='/oauth2/v2.1/verify'){
+   const body=new URLSearchParams(init?.body as string),expected=body.get('client_id')||'',channel=claims.get(body.get('id_token')||'');providerCalls.push(expected);
+   return reply({sub:ownerA,aud:channel,iss:'https://access.line.me',iat:Math.floor(Date.now()/1000)-5,exp:Math.floor(Date.now()/1000)+300},channel===expected?200:400);
+  }
+  if(['/test_mode_settings','/admins','/members','/member_removal_jobs','/member_login_sessions'].some(table=>path.endsWith(table)))return reply(null);
+  throw Error('LIFF-only identity must not load Messaging secrets or other data: '+path);
+ }) as typeof fetch;
+ const call=async(action:string,idToken:string,envName:string,name='api',extra={})=>{
+  const handler=businessHandler(name,async request=>{
+   const body=await request.json();
+   try{
+    const identity=await verifyLineIdTokenContract({idToken:body.idToken,expectedChannelId:businessEnv(envName)||'2010787602',allowLoginClaim:action.endsWith('.session.claim'),createError:(status,code,message)=>Object.assign(Error(message),{status,code})});
+    return new Response(JSON.stringify({actor:identity.lineUserId,channel:businessEnv(envName)}));
+   }catch(error){const e=error as any;return new Response(JSON.stringify({error:{code:e.code}}),{status:e.status||500});}
+  });
+  const response=await handler(new Request('https://api.test',{method:'POST',body:JSON.stringify({business:'merchant-a',action,idToken,...extra})}));
+  return {status:response.status,body:await response.json()};
+ };
+ try{await run({definition,context,issue,call,providerCalls});}finally{Deno.env.get=previousEnv;globalThis.fetch=previous;}
+}
+for(const surface of ['member','points','event','calendar','booking'])Deno.test('#124 LIFF-only '+surface+' session claim/status/logout verify the feature Channel before bootstrap',async()=>{
+ await liffIdentityFixture(async({definition,issue,call}:any)=>{
+  const [,feature,,,channel]=definition.find((item:string[])=>item[0]===surface),envName=definition.find((item:string[])=>item[0]===surface)[3],idToken=issue(channel);
+  for(const operation of ['claim','status','logout']){
+   const result=await call('user.'+surface+'.session.'+operation,idToken,envName,'api',{clientType:surface});
+   assert(result.status===200,feature+' '+operation+' must verify its own Channel: '+JSON.stringify(result));assert(result.body.channel===channel);
+  }
+ });
+});
+Deno.test('#124 shared booking member-profile bootstrap uses the verified booking Channel while ordinary membership keeps its own',async()=>{
+ await liffIdentityFixture(async({definition,issue,call}:any)=>{
+  for(const surface of ['booking','member']){
+   const channel=definition.find((item:string[])=>item[0]===surface)[4],idToken=issue(channel);
+   for(const action of ['user.member.bootstrap','user.member.profile.save','user.member.terms.accept']){
+    const result=await call(action,idToken,'LINE_MEMBER_CHANNEL_ID','member-profile-api',{clientType:'member'});
+    assert(result.status===200,surface+' '+action+' must accept its verified Channel: '+JSON.stringify(result));assert(result.body.channel===channel);
+   }
+  }
+ });
+});
+Deno.test('#124 identity routing preserves revoked-feature session cleanup without allowing feature reads or forged identity',async()=>{
+ await liffIdentityFixture(async({context,issue,call,providerCalls}:any)=>{
+  const channel='2020000005',idToken=issue(channel);context.features.booking=false;
+  const logout=await call('user.booking.session.logout',idToken,'LINE_MEMBER_CHANNEL_ID');assert(logout.status===200,'session cleanup remains a workspace operation');
+  const read=await call('user.booking.bootstrap',idToken,'LINE_MEMBER_CHANNEL_ID');assert(read.status===403&&read.body.error.code==='FEATURE_DISABLED');
+  const revokedProfile=await call('user.member.bootstrap',idToken,'LINE_MEMBER_CHANNEL_ID','member-profile-api',{clientType:'member'});assert(revokedProfile.status===401&&revokedProfile.body.error.code==='AUTH_INVALID','a revoked module Channel must not become a shared profile identity');
+  context.features.booking=true;
+  const forged='e30.'+btoa(JSON.stringify({sub:ownerA,aud:channel,jti:'forged'}))+'.forged-signature';
+  const rejected=await call('user.member.bootstrap',forged,'LINE_MEMBER_CHANNEL_ID','member-profile-api',{clientType:'member'});assert(rejected.status===401&&rejected.body.error.code==='AUTH_INVALID');assert(providerCalls.at(-1)===channel,'the provider verifies any routing hint against the stored Channel');
+ });
+});
+Deno.test('#124 session identity does not depend on readable optional Messaging credentials',async()=>{
+ await liffIdentityFixture(async({context,issue,call}:any)=>{
+  context.module_line.calendar.credentialsConfigured=true;
+  const result=await call('user.calendar.session.claim',issue('2020000004'),'LINE_CALENDAR_CHANNEL_ID');
+  assert(result.status===200,'an unused Messaging secret must not block session verification: '+JSON.stringify(result));
+ });
+});
+Deno.test('#124 shared foundation leaves requests without a LINE audience to the endpoint authentication contract',async()=>{
+ await liffIdentityFixture(async({context}:any)=>{
+  context.features={booking:true};
+  // Endpoint authentication chooses and validates a test-session token when no
+  // LINE ID token is provided. The outer routing layer must not preempt it.
+  const handler=businessHandler('member-profile-api',async request=>{
+   const body=await request.json();
+   return new Response(JSON.stringify({authenticationInput:body.testSessionToken}));
+  });
+  const response=await handler(new Request('https://api.test',{method:'POST',body:JSON.stringify({business:'merchant-a',action:'user.member.bootstrap',clientType:'member',testSessionToken:'synthetic-test-session-input'})}));
+  assert(response.status===200,'the endpoint must receive its existing authentication input');assert((await response.json()).authenticationInput==='synthetic-test-session-input');
+ });
 });

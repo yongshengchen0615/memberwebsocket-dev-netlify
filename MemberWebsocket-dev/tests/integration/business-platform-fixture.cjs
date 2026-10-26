@@ -9,7 +9,7 @@ module.exports=async()=>{
  await h.db.exec('create schema if not exists maintenance');
  await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261023235000_platform_super_admins_supabase_managed.sql'),'utf8'));
  const migrationDir=path.join(__dirname,'../../supabase/migrations');
- for(const suffix of ['_admin_qualification_foundation.sql','_merchant_application_multi_owner.sql','_merchant_explicit_context.sql']){
+ for(const suffix of ['_admin_qualification_foundation.sql','_merchant_application_multi_owner.sql','_merchant_explicit_context.sql','_line_capabilities.sql']){
   const file=fs.readdirSync(migrationDir).find(name=>name.endsWith(suffix));
   if(!file)throw Error('MISSING_COORDINATED_MERCHANT_MIGRATION');
   await h.db.exec(fs.readFileSync(path.join(migrationDir,file),'utf8'));
@@ -37,7 +37,10 @@ module.exports=async()=>{
   const token=options.body.get('id_token'),sub=token==='root'?h.root:token==='manager'?'U'+'2'.repeat(32):'';
   return new Response(JSON.stringify({sub,aud:channel,name:token==='manager'?'商家管理員':'總管理員',iss:'https://access.line.me',iat:Math.floor(Date.now()/1000)-10,exp:Math.floor(Date.now()/1000)+300}),{status:sub?200:400});
  };
- const handler=createPlatformHandler({db:{rpc},allowedOrigins,encryptionKey:()=>key,verifyIdentity:idToken=>verifyPlatformIdToken({idToken,fetchImpl:provider('2012065297')}),verifyApplicantIdentity:idToken=>verifyMerchantAdminIdToken({idToken,fetchImpl:provider('2010791619')})});
+ const handler=createPlatformHandler({db:{rpc},allowedOrigins,encryptionKey:()=>key,fetchImpl:async url=>{
+  if(url!=='https://api.line.me/v2/oauth/verify')throw Error('UNEXPECTED_LINE_PROVIDER_CALL');
+  return new Response(JSON.stringify({client_id:'2010123456',expires_in:3600}));
+ },verifyIdentity:idToken=>verifyPlatformIdToken({idToken,fetchImpl:provider('2012065297')}),verifyApplicantIdentity:idToken=>verifyMerchantAdminIdToken({idToken,fetchImpl:provider('2010791619')})});
  const call=async(body,token='root')=>{const res=await handler(new Request('https://backend.test',{method:'POST',headers:{Origin:'https://allowed.test'},body:JSON.stringify({...body,idToken:token})}));return{status:res.status,body:await res.json()};};
  return{...h,rpc,allowedOrigins,handler,call};
 };

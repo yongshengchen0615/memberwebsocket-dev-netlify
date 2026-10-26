@@ -71,6 +71,7 @@ test('BUSINESS_APPROVAL_ACTIVATES — real approval/SQL immediately opens grant-
   await expect(memberSection.locator('[data-feature-client]')).toHaveAttribute('href',base+'/member/?business='+row.slug);
   await memberLine.locator('[name=memberLiffId]').fill('2010787602-invalid@');
   expect(await memberLine.locator('[name=memberLiffId]').evaluate(input=>input.validity.patternMismatch)).toBe(true);
+  await memberLine.locator('details').evaluate(x=>x.open=true);
   const fields={adminChannelId:'2010791619',memberChannelId:'2010787602',messagingChannelId:'2010123456',adminLiffId:'2010791619-admin',memberLiffId:'2010787602-member',channelAccessToken:'synthetic-access-token-123456789',channelSecret:'a'.repeat(32)};
   for(const [key,value]of Object.entries(fields))await memberLine.locator('[name="'+key+'"]').fill(value);
   await memberLine.getByRole('button',{name:'儲存會員卡 LINE 設定',exact:true}).click();

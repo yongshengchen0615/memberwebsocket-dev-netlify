@@ -6,7 +6,7 @@ const path=require('node:path');
 const source=fs.readFileSync(path.resolve(__dirname,'../../admin/booking-risk.js'),'utf8');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 function setup(data,request){
- const dom=new JSDOM('<main></main>',{runScripts:'outside-only'}),w=dom.window;
+ const dom=new JSDOM('<main></main>',{runScripts:'outside-only'}),w=dom.window;w.confirm=()=>true;
  w.eval(source);w.BookingRiskSettings.mount(w.document.querySelector('main'),{data,request});
  return {dom,w,root:w.document.querySelector('#bookingRiskSettings')};
 }

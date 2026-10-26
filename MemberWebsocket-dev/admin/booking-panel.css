@@ -217,6 +217,9 @@
 #bookingPanel .booking-risk-field-group p{margin:0;font-size:12px;line-height:1.6;color:var(--theme-text-muted,#60756a)}
 #bookingPanel .booking-risk-field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;min-width:0}
 #bookingPanel .booking-risk-field-grid>label{min-width:0}
+#bookingPanel .booking-risk-field{display:grid;gap:5px;min-width:0}
+#bookingPanel .booking-risk-field-error{color:var(--theme-danger,#9c2d27);font-size:12px;line-height:1.5}
+#bookingPanel .booking-risk-field [aria-invalid=true]{border-color:var(--theme-danger,#9c2d27)}
 #bookingPanel .booking-risk-field-grid input:not([type=checkbox]),#bookingPanel .booking-risk-field-grid select{width:100%;min-width:0}
 #bookingPanel .booking-risk-preview{padding:13px 15px;border-left:3px solid var(--theme-accent,#749078);border-radius:10px;background:var(--theme-surface-muted,#f1f6ef);color:var(--theme-text,#17352e);font-size:13px;line-height:1.7;overflow-wrap:anywhere}
 #bookingPanel .booking-risk-draft{margin:0;font-size:12px;font-weight:750;color:var(--theme-text-muted,#60756a)}
@@ -226,6 +229,8 @@
 #bookingPanel .booking-risk-record-list{list-style:none;margin:0;padding:12px 15px;border:1px solid var(--theme-border,rgba(23,53,46,.12));border-radius:12px;background:var(--theme-surface-raised,#fff);min-width:0}
 #bookingPanel .booking-risk-record-list>li{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 0;font-size:13px;overflow-wrap:anywhere}
 #bookingPanel .booking-risk-record-list>li+li{border-top:1px solid var(--theme-border,rgba(23,53,46,.1))}
+#bookingPanel .booking-risk-record-list>li>p{flex-basis:100%;min-width:0;margin:0;line-height:1.6;overflow-wrap:anywhere}
+#bookingPanel .booking-risk-record-detail{color:var(--theme-text-muted,#60756a);font-size:12px}
 #bookingPanel .booking-risk-record-list>.booking-risk-empty{color:var(--theme-text-muted,#60756a);font-size:13px}
 #bookingPanel #bookingRiskSettings>h4:not(.booking-risk-policy-heading){margin:13px 0 -3px;font-size:17px}
 @media(max-width:768px){#bookingPanel .booking-risk-overview{grid-template-columns:repeat(2,minmax(0,1fr))}#bookingPanel .booking-risk-metric:last-child{grid-column:1/-1}}
