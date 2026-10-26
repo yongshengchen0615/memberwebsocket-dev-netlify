@@ -78,8 +78,7 @@ test('YAGNI: development guidance and PR template prohibit unnecessary complexit
 test('V2 R01-R10 daily rules are present and preserve security and evidence requirements', () => {
   const ids = ["R01","R02","R03","R04","R05","R06","R07","R08","R09","R10"];
   for (const id of ids) assert.match(agents, new RegExp('\\*\\*' + id + '｜'));
-  for (const text of ['後端授權', 'RLS', '完整產品 CI', 'Required Checks', '不可宣稱規則已由 GitHub強制']) {
-    if (text === '不可宣稱規則已由 GitHub強制') continue;
+  for (const text of ['後端授權', 'RLS', '完整產品 CI', 'Required Checks']) {
     assert.ok(agents.includes(text), text);
   }
   assert.match(guardrails, /R01–R10/);
