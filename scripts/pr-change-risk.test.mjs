@@ -131,3 +131,20 @@ test('canonical PR template asks reviewers to avoid speculative abstraction', as
   assert.match(template, /已評估最小方案/);
   assert.match(template, /不為假想需求/);
 });
+
+test('V2 tiers distinguish documentation, UI, cross-module and sensitive paths', () => {
+  assert.equal(classifyChangeSet(files('docs/guide.md')).tier, 'L0');
+  assert.equal(classifyChangeSet(files('MemberWebsocket-dev/booking/index.html')).tier, 'L1');
+  assert.equal(classifyChangeSet(files('MemberWebsocket-dev/booking/app.js', 'MemberWebsocket-dev/points/app.js')).tier, 'L2');
+  for (const name of ['AGENTS.md', 'docs/DEVELOPMENT_GUARDRAILS.md', 'MemberWebsocket-dev/admin/business-line-settings.js', 'MemberWebsocket-dev/admin/business-workspace.js', 'netlify.toml']) {
+    assert.equal(classifyChangeSet(files(name)).tier, 'L3', name);
+  }
+});
+test('risk override may increase but cannot decrease classification', () => {
+  assert.equal(classifyChangeSet(files('MemberWebsocket-dev/booking/index.html'), { manualTier: 'L3' }).tier, 'L3');
+  assert.equal(classifyChangeSet(files('netlify.toml'), { manualTier: 'L0' }).tier, 'L3');
+  assert.throws(() => classifyChangeSet(files('README.md'), { manualTier: 'L9' }), /Invalid manual risk tier/);
+});
+test('renaming a sensitive merchant file remains high risk', () => {
+  assert.equal(classifyChangeSet([{ filename: 'docs/moved.md', previous_filename: 'MemberWebsocket-dev/admin/business-line-settings.js', status: 'renamed' }]).tier, 'L3');
+});
