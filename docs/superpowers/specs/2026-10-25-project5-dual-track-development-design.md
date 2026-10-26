@@ -94,3 +94,16 @@
 | SQL / Edge 與前端版本飄移 | 禁止對正式 DB 直接套 migrations 或覆寫 Edge | #35/#101 精確來源與 DB history 差異對照 |
 | PR 檔案碰撞 | 不同 PR 改動同個共用檔案或契約 | 重新整合基線後全部測試重跑 |
 | 開發 DB 未隔離 | 不可在正式庫跑 destructive tests | 有專用 sandbox 或可回復的本機實驗環境 |
+
+## 2026-10-26｜治理 V2 第一批（Draft PR #131；尚未啟用）
+
+僅優化既有 PR 風險分類器，不建立第二套平行工具。保留原有 `level`（小改、中改、大改）相容欄位，另加 `tier`：
+
+- L0：純文件，且不涉及治理／Workflow。
+- L1：局部 UI 或一般小型變更（仍須原功能與品質說明）。
+- L2：跨兩核心模組或共用程式。
+- L3：SQL、Edge、認證、商家 LINE／工作區、通知與敏感交易、CI／發佈及核心治理規範。
+- 可選的人工上調：在 PR 說明使用 `### 風險等級覆核`，下一行寫 `L2` 或 `L3`；程式採較高風險等級，禁止降級。
+- `scripts/pr-change-risk.test.mjs` 新增風險等級、手動覆核及敏感路徑改名的測試。這只是下限分類，不取代實際測試、人工審查與正式發布 Gate。
+- 外部唯讀核對：Supabase `dbuquirnaskrwcamdxki` 回報 `ACTIVE_HEALTHY`、沒有 Database Branch；Netlify 舊 Site ID 查詢 404，目前同名 Site ID `196e1d2c-8216-4ba8-aeb9-1706660adc2b`、已發布 deploy `6ade04cedfcdffc76c214b10` ready。若既有 workflow 仍參照舊 Site ID，改由 #125 安全盤點，不在此 PR 更動正式發布來源。
+
