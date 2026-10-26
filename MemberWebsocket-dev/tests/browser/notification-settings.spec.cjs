@@ -35,7 +35,7 @@ for(const width of [390,1280])test('NOTIFICATION_PURPOSES_'+width+' — independ
   await expect(page.locator('[data-business-line-feature="booking"]')).toBeVisible();
   await expect(page.locator('[data-business-line-feature="membership"]')).toBeHidden();
   const admin=page.locator('#notification-booking-admin'),member=page.locator('#notification-booking-member');
-  await page.locator('[data-business-line-feature="booking"] > details').evaluate(d=>d.open=true);
+  await page.locator('[data-business-line-feature="booking"] > details').filter({has:admin}).evaluate(d=>d.open=true);
   await admin.locator('select').selectOption('custom');await admin.locator('[name=messagingChannelId]').fill('2010123456');await admin.locator('[name=channelAccessToken]').fill('synthetic-browser-notification-token-123456');
   await admin.getByRole('button',{name:'驗證並儲存通知設定'}).click();await expect(admin.locator('[role=status]')).toContainText('無法確認');
   await expect(member.getByRole('button',{name:'驗證並儲存通知設定'})).toBeDisabled();

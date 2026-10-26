@@ -87,6 +87,9 @@ jobs:
             MemberWebsocket-dev/tests/integration/product_admin_ui.cjs \
             MemberWebsocket-dev/tests/integration/business_line_settings.cjs \
             MemberWebsocket-dev/tests/integration/line_capabilities.cjs \
+            MemberWebsocket-dev/tests/integration/line_webhook_sql.cjs \
+            MemberWebsocket-dev/tests/integration/line_webhook_api.cjs \
+            MemberWebsocket-dev/tests/integration/line_webhook_ui.cjs \
             MemberWebsocket-dev/tests/integration/line_capabilities_sql.cjs \
             MemberWebsocket-dev/tests/integration/line_capabilities_ui.cjs \
             MemberWebsocket-dev/tests/integration/line_settings_keyboard.cjs \
@@ -297,6 +300,7 @@ jobs:
           --test-reporter=junit --test-reporter-destination=postgres-results.xml
           MemberWebsocket-dev/tests/integration/postgres/booking-risk.cjs
           MemberWebsocket-dev/tests/integration/postgres/line-capabilities.cjs
+          MemberWebsocket-dev/tests/integration/postgres/line-webhook.cjs
           MemberWebsocket-dev/tests/integration/postgres/admin-qualification.cjs
           MemberWebsocket-dev/tests/integration/postgres/merchant-applications.cjs
           MemberWebsocket-dev/tests/integration/postgres/sandbox-fixture-lifecycle.cjs
@@ -322,6 +326,7 @@ jobs:
         run: |
           deno check \
             MemberWebsocket-dev/supabase/functions/platform-api/index.ts \
+            MemberWebsocket-dev/supabase/functions/line-webhook/index.ts \
             MemberWebsocket-dev/supabase/functions/api/index.ts \
             MemberWebsocket-dev/supabase/functions/birthday-benefits/index.ts \
             MemberWebsocket-dev/supabase/functions/test-mode-api/index.ts \

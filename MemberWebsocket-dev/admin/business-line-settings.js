@@ -58,6 +58,11 @@
       }
       if (view.save) { view.save.disabled = saving || (blocked && !view.pending); view.save.textContent = view.pending ? '重試相同儲存操作' : '儲存' + view.label + ' LINE 設定'; }
       view.reload.disabled = blocked;
+      if(view.webhook){
+        view.webhook.refresh.disabled=blocked;
+        view.webhook.check.disabled=blocked || view.dirty.size>0;
+        view.webhook.copy.disabled=blocked || !view.webhook.endpoint.value;
+      }
       for (const route of view.routes?.values() || []) {
         for (const input of route.form.querySelectorAll('input,select,button')) input.disabled = blocked;
         if (!saving && route.pending) route.save.disabled = false;
@@ -83,6 +88,10 @@
   }
   function update(view, reset = false) {
     if (!tenant) return;
+    if(view.webhook && view.webhookVersion!==tenant.version){
+      view.webhookVersion=tenant.version;view.webhook.endpoint.value='';view.webhook.copy.disabled=true;
+      view.webhook.status.textContent='讀取狀態可查看已儲存的設定；檢查連線會確認 LINE Channel，真人收件需另外驗收。';
+    }
     for (const [purpose, route] of view.routes || []) {
       const saved = tenant.moduleLine?.[view.feature]?.notifications?.[purpose];
       if (!route.dirty && !route.pending) {
@@ -249,6 +258,36 @@
     }
     selectFeature(activeFeature);
   }
+  function webhookPanel(view){
+    const panel=node('details');panel.dataset.lineWebhook=view.feature;
+    panel.append(node('summary','Webhook 連線診斷'));
+    panel.append(node('p','僅使用 LIFF 入口時可略過。需要接收事件時，先儲存 Messaging API 設定，再檢查連線。設定 Webhook URL 前，請確認該 Channel 的現有回呼用途。'));
+    const refresh=node('button','讀取 Webhook 狀態','button button-outline'),check=node('button','檢查 LINE 連線','button button-outline'),copy=node('button','複製 Webhook URL','button button-outline');
+    for(const button of [refresh,check,copy])button.type='button';copy.disabled=true;
+    const label=node('label','已確認的接收網址'),endpoint=node('input');endpoint.type='url';endpoint.readOnly=true;
+    endpoint.id='lineWebhookEndpoint-'+view.feature;label.htmlFor=endpoint.id;label.append(endpoint);
+    const status=node('p');status.setAttribute('role','status');status.setAttribute('aria-live','polite');
+    const run=async(action)=>{
+      if(saving || pendingOperation() || !tenant || grants[view.feature]!==true || (action==='platform.webhook.check' && view.dirty.size>0))return;
+      saving=true;lock();status.textContent='正在檢查…';
+      try{
+        const result=await request(action,{feature:view.feature});endpoint.value=result.endpoint;
+        status.textContent=(result.configurationState==='optional'?'LIFF 入口可獨立使用；Messaging API 尚未設定。':'Messaging API 設定已儲存。')
+          +' LINE API：'+(result.apiState==='accepted'?'已接受連線檢查':'尚未確認')
+          +'；Webhook 簽章：'+(result.ingressState==='verified'?'已驗證':'尚未收到有效請求')
+          +'；真人收件：待驗收。'
+          +(result.lastEventAt?' 最後事件：'+new Date(result.lastEventAt).toLocaleString('zh-TW')+'。':'');
+      }catch(error){
+        endpoint.value='';status.textContent=error.message;
+        if(['FEATURE_DISABLED','TENANT_SUSPENDED','BUSINESS_FORBIDDEN','AUTH_INVALID','TENANT_EXPIRED','TENANT_REAUTH_REQUIRED','PLATFORM_QUALIFICATION_REQUIRED','PLATFORM_QUALIFICATION_SUSPENDED','PLATFORM_APPLICATION_NOT_FOUND'].includes(error.code)){
+          tenant=null;for(const v of views.values()){v.form?.reset();if(v.webhook)v.webhook.endpoint.value='';v.section.hidden=true;}
+        }
+      }finally{saving=false;lock();}
+    };
+    refresh.onclick=()=>void run('platform.webhook.status');check.onclick=()=>void run('platform.webhook.check');
+    copy.onclick=async()=>{try{await navigator.clipboard.writeText(endpoint.value);status.textContent='Webhook URL 已複製；請先確認 Channel 現有回呼用途，再由授權人員設定。';}catch{endpoint.focus();endpoint.select();status.textContent='請複製上方已選取的 Webhook URL。';}};
+    panel.append(refresh,check,label,copy,status);view.webhook={refresh,check,copy,endpoint,status};view.section.append(panel);
+  }
   function render() {
     const container = document.getElementById('businessLineFeatureContent');
     if (!container) return;
@@ -283,10 +322,10 @@
         shared.append(grid); form.append(shared);
         const button = node('button','儲存' + label + ' LINE 設定','button button-dark'); button.type='submit'; view.save=button;
         form.append(button); form.addEventListener('submit', event => void save(view,event));
-        form.addEventListener('input', event => { view.dirty.add(event.target.name); status.textContent = '本區塊有尚未儲存的設定。'; });
+        form.addEventListener('input', event => { view.dirty.add(event.target.name); status.textContent = '本區塊有尚未儲存的設定。'; lock(); });
         section.append(form);
       }
-      section.append(status); notificationForms(view);
+      section.append(status); notificationForms(view);webhookPanel(view);
       section.append(view.links, reload); container.append(section); views.set(feature,view); update(view);
     }
     renderNav();
