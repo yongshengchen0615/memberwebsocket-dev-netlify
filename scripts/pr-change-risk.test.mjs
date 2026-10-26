@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { classifyChangeSet, evaluateEvidence } from './pr-change-risk.mjs';
+import { classifyChangeSet, evaluateEvidence, extractManualTier } from './pr-change-risk.mjs';
 
 const files = (...names) => names.map((filename) => ({ filename, status: 'modified', additions: 3, deletions: 1 }));
 const fullBody = `## 變更風險評估
@@ -147,4 +147,12 @@ test('risk override may increase but cannot decrease classification', () => {
 });
 test('renaming a sensitive merchant file remains high risk', () => {
   assert.equal(classifyChangeSet([{ filename: 'docs/moved.md', previous_filename: 'MemberWebsocket-dev/admin/business-line-settings.js', status: 'renamed' }]).tier, 'L3');
+});
+
+test('PR body opt-in escalation parser accepts an exact tier token and ignores prose', () => {
+  assert.equal(extractManualTier('### 風險等級覆核\nL3 — 重大授權變更'), 'L3');
+  assert.equal(extractManualTier('## 摘要\n### 風險等級覆核（選填）\nL2: 多模組'), 'L2');
+  assert.equal(extractManualTier('### 風險等級覆核\n自動判斷為 L3'), undefined);
+  assert.equal(extractManualTier('### 風險等級覆核\nL9'), undefined);
+  assert.equal(extractManualTier('### 風險等級覆核\nTBD'), undefined);
 });
