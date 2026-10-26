@@ -32,10 +32,32 @@ Exact commit IDs, execution times, pass/fail/skip counts and downloadable diagno
 
 ## Release gates and recovery
 
-The Netlify PR preview is a static frontend only; it does not deploy the new Supabase function or migration. Its configured shared backend does not yet provide these diagnostic actions. Preview availability therefore does not establish an operational Webhook endpoint.
+The Netlify PR preview is a static frontend only; it does not deploy the new Supabase function or migration. Its backend is the MemberWebsocket-dev test project already approved in #48. The new backend has now been deployed separately (see evidence below). The deploy-preview origin is intentionally not in the existing API allowlist; use the Integrated-Marketing-Platform development branch after integration for authenticated acceptance. Preview availability alone does not establish real LINE receipt.
 
-Before controlled backend deployment: identify an isolated Supabase environment, audit duplicate claims, apply the migration there, deploy `line-webhook` with its `verify_jwt=false` function configuration and updated `platform-api`, then test signed ingress and current grants. Run advisors and verify service-only grants/RLS. The new code uses explicit service-role grants, independent of default Data API grant changes.
+Controlled backend target is the existing #48-approved `dbuquirnaskrwcamdxki` project. Before deployment, verified no duplicate Channel claims and byte-for-byte equality of all nine deployed platform-api v17 files with the source base; no unrelated live change was overwritten. Applied the migration and deployed `line-webhook` v1 with `verify_jwt=false` and `platform-api` v18. Ran negative live ingress, advisors and service-only/RLS checks. The new code uses explicit service-role grants, independent of default Data API grant changes.
 
 Use an approved non-production LINE Channel only after confirming ownership and existing callback usage. Provider acceptance and human receipt evidence belong to #36; #33 remains the production release gate. Do not overwrite a live Console URL, rotate credentials, send to real people or modify production member data as part of this PR.
 
 Recovery before deployment is closing/reverting the feature PR. After an isolated deployment, revert the code via the original CI pipeline and disable the test Channel callback; preserve receipt evidence until reviewed. Do not drop receipt tables or change production callbacks as an automatic rollback.
+
+
+## 2026-10-26 verification evidence
+
+Tested implementation: `d06b770ef5643947ed7b94cc128fc9a8b494be5e`. Later documentation reconciliation does not change program files. Final integration commit CI remains required.
+
+| Layer | Actual result | Evidence |
+|---|---|---|
+| Application Node regression | 1056 pass / 0 fail / 0 skip | [job](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/actions/runs/40274314382/job/121413680735) |
+| DOM / PGlite integration | full established command successful; detailed batches in job log | [job](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/actions/runs/40274314382/job/121413680516) |
+| PostgreSQL 17 | 58 pass / 0 fail / 0 skip, including physical Channel claim and revoke races | [job](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/actions/runs/40274314382/job/121413680932) |
+| Edge typecheck / logic | typecheck successful; 53 pass / 0 fail | [job](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/actions/runs/40274314382/job/121413680774) |
+| Chromium | 131 + 71 + 92 = 294 pass, including 390/1280 Webhook and existing notification journeys | [run](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/actions/runs/40274314382) |
+| Build / policy / audits | required build and policy workflows successful; both dependency audits report 0 vulnerabilities | [PR checks](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/pull/145/checks) |
+| Deployed backend smoke | 7/7: GET 405, unsigned 401, unknown Channel 401, oversized 413, invalid JSON 400, trusted-origin preflight 204, unauthenticated diagnostics 401 | direct HTTP responses at 2026-10-26T08:54:26Z |
+| Schema and privilege checks | 3 new tables have RLS; anon/authenticated cannot read; all 6 public Webhook RPCs deny browser EXECUTE and use SECURITY INVOKER | Supabase SQL metadata after deployment |
+
+Database migration history: `20261026053639 / line_webhook_issue_144`, corresponding to source `20261026050904_line_webhook.sql`. No business reset, seed, real message or Console mutation was performed. At post-deploy inspection: one existing verified Channel owner, zero bindings, zero receipts.
+
+Security advisors: the three new private service-only tables produce expected INFO `rls_enabled_no_policy` notices; browser grants remain denied. No new WARN/ERROR was added. Existing `pg_net` placement WARN is unchanged ([advisory](https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public)).
+
+Remaining acceptance: live authorized administrator diagnostics and the non-production LINE Channel/consenting identities required by #36. No real LINE signature/receipt is claimed from synthetic tests or the seven rejection checks. Rollout to the normal development origin requires integration; production remains gated by #33.

@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Reuse existing AES credential scopes and current merchant authorization.
-- No direct business mutation, sends, Console changes or shared database deployment.
+- No direct business mutation, sends, Console changes or production deployment. Reuse the test project approved in #48 after exact-source reconciliation.
 - Keep LIFF-only configuration optional; use existing LINE settings tab.
 - Unverified/blocked checks do not count as passed.
 
