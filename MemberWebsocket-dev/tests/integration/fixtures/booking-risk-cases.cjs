@@ -24,6 +24,34 @@ async function helpers(h){
 }
 
 function register(test,setup,label='PostgreSQL snapshot'){
+ test(`${label}: context migration upgrades existing records without changing policy snapshots or audit history`,async()=>{
+  const h=await setup({beforeRiskContext:true});try{
+   const x=await helpers(h);await x.enable();await x.save({threshold_count:1});
+   const b=await x.past(await h.make());await x.mark(b);
+   await h.q('select S.booking_no_show_appeal($1,$2)',[h.memberLine,'Synthetic upgrade review']);
+   const before=await x.risk('get');assert.equal(before.restrictions[0].member_code,undefined);
+   const audits=await h.q('select count(*)::int n from S.booking_audit_events');
+   const fs=require('node:fs'),path=require('node:path');
+   await h.db.exec(fs.readFileSync(path.resolve(__dirname,'../../../supabase/migrations/20261025125207_booking_risk_record_context.sql'),'utf8'));
+   const after=await x.risk('get');assert.deepEqual(after.policy,before.policy);assert.equal(after.restrictions[0].member_code,'QA-NOTIFY');assert.equal(after.appeals[0].source_booking_id,b);
+   assert.deepEqual(after.restrictions[0].policy_snapshot,before.restrictions[0].policy_snapshot);assert.equal(String(after.restrictions[0].ends_at),String(before.restrictions[0].ends_at));
+   assert.deepEqual(await h.q('select count(*)::int n from S.booking_audit_events'),audits);
+   for(const role of ['anon','authenticated']){await h.db.exec('set role '+role);try{await assert.rejects(h.q('select S.admin_booking_no_show($1,\'get\')',[h.owner]),/permission denied/);}finally{await h.db.exec('reset role');}}
+  }finally{await h.db.close();}
+ });
+ test(`${label}: risk records preserve member and source booking context without adding contact or LINE identity`,async()=>{
+  const h=await setup();try{
+   const x=await helpers(h);await x.enable();await x.save({threshold_count:1});
+   const b=await x.past(await h.make());await x.mark(b);
+   await h.q('select S.booking_no_show_appeal($1,$2)',[h.memberLine,'Synthetic review']);
+   const before=await x.risk('get'),r=before.restrictions[0],a=before.appeals[0];
+   assert.equal(r.member_code,'QA-NOTIFY');assert.equal(a.member_code,'QA-NOTIFY');assert.equal(a.source_booking_id,b);
+   assert.equal(r.source_booking_id,b);assert.equal(before.events[0].booking_id,b);
+   for(const record of [r,a])for(const key of ['line_user_id','phone','email','display_name'])assert.equal(Object.hasOwn(record,key),false);
+   await x.risk('resolve',{appealId:a.id,reason:'Reviewed only'});
+   const after=await x.risk('get');assert.deepEqual(after.restrictions[0].policy_snapshot,r.policy_snapshot);assert.equal(String(after.restrictions[0].ends_at),String(r.ends_at));assert.equal((await x.status()).restricted,true);
+  }finally{await h.db.close();}
+ });
  test(`${label}: outside-window, cancelled and revoked events never reach the active threshold`,async()=>{
   const h=await setup();try{
    const x=await helpers(h);await x.enable();

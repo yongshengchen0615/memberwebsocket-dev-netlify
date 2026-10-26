@@ -38,7 +38,7 @@ test('BUSINESS_APPROVAL_ACTIVATES — real approval/SQL immediately opens grant-
   await platform.locator('#qualificationList [data-review-decision="approved"]').click();await platform.locator('#confirmV2Review').click();await expect(platform.locator('#v2ReviewDialog')).not.toBeVisible();
   await manager.locator('#refreshApplication').click();await expect(manager.locator('#myMerchantsWorkspace')).toBeVisible();
   await manager.locator('#merchantApplicationForm [name="businessName"]').fill('經審核商家');
-  await manager.locator('#merchantApplicationForm [name="slug"]').fill('approved-business');
+  await expect(manager.locator('#merchantApplicationForm [name="slug"]')).toHaveCount(0);
   await manager.locator('#submitMerchantApplication').click();
   await expect(manager.locator('#myMerchantList')).toContainText('等待商家審核');
   expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(1);
@@ -71,6 +71,7 @@ test('BUSINESS_APPROVAL_ACTIVATES — real approval/SQL immediately opens grant-
   await expect(memberSection.locator('[data-feature-client]')).toHaveAttribute('href',base+'/member/?business='+row.slug);
   await memberLine.locator('[name=memberLiffId]').fill('2010787602-invalid@');
   expect(await memberLine.locator('[name=memberLiffId]').evaluate(input=>input.validity.patternMismatch)).toBe(true);
+  await memberLine.locator('details').evaluate(x=>x.open=true);
   const fields={adminChannelId:'2010791619',memberChannelId:'2010787602',messagingChannelId:'2010123456',adminLiffId:'2010791619-admin',memberLiffId:'2010787602-member',channelAccessToken:'synthetic-access-token-123456789',channelSecret:'a'.repeat(32)};
   for(const [key,value]of Object.entries(fields))await memberLine.locator('[name="'+key+'"]').fill(value);
   await memberLine.getByRole('button',{name:'儲存會員卡 LINE 設定',exact:true}).click();

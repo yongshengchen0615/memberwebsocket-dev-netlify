@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      NETLIFY_SITE_ID: 23796c62-480a-4b46-ac90-bfbc5ad4d300
+      NETLIFY_SITE_ID: 196e1d2c-8216-4ba8-aeb9-1706660adc2b
       NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
       GH_TOKEN: ${{ github.token }}
       PLATFORM_ALIAS: ${{ github.ref_name == 'Integrated-Marketing-Platform' && 'integrated-marketing-platform' || 'platform' }}
@@ -50,7 +50,7 @@ jobs:
           done
           echo '::error::Required CI did not finish; preview was not published'
           exit 1
-      - name: Identify the native artifact before reproducing it
+      - name: Identify CI-gated native branch artifact
         if: github.ref_name == 'Integrated-Marketing-Platform'
         shell: bash
         run: |
@@ -91,7 +91,7 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 7
-      - name: Verify the CI-gated native branch deploy or publish isolated legacy alias
+      - name: Verify CI-gated Netlify native branch deployment without upload
         shell: bash
         run: |
           set -euo pipefail
@@ -99,10 +99,12 @@ jobs:
           current=$(gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/$GITHUB_REF_NAME" --jq '.object.sha')
           test "$current" = "$GITHUB_SHA"
           if [ "$GITHUB_REF_NAME" = Integrated-Marketing-Platform ]; then
-            # Never attempt a Draft --alias matching this native Git branch.
-            # Native Netlify builds only after exact-SHA push CI succeeds.
+            # Netlify already publishes this native branch; verification is read-only.
+            # Never upload a competing ZIP or Draft alias to this branch.
             node scripts/verify-netlify-native-preview.mjs
             test "$(jq -er '.deploy_id' evidence/platform-deploy.json)" = "$DEPLOY_ID"
+            test "$(jq -er '.source_sha' evidence/platform-deploy.json)" = "$GITHUB_SHA"
+            test "$(jq -er '.production_deploy_unchanged' evidence/platform-deploy.json)" = "true"
           else
             npx --yes netlify-cli@23.11.0 deploy --no-build --dir=dist --site="$NETLIFY_SITE_ID" --alias="$PLATFORM_ALIAS" --message="verified-platform-$GITHUB_SHA" --json > /tmp/platform-deploy.json
             jq '{deploy_id,deploy_url,source_sha:env.GITHUB_SHA}' /tmp/platform-deploy.json > evidence/platform-deploy.json
@@ -112,6 +114,32 @@ jobs:
         env:
           PREVIEW_BASE_URL: https://${{ env.PLATFORM_ALIAS }}--memberwebsocket-dev-netlify.netlify.app
         run: node scripts/verify-platform-preview.mjs
+      # An independent real Chromium browser validates the deployed build.
+      # This test deliberately blocks non-GET and cross-origin requests:
+      # real LINE sign-in requires a separate authorized sandbox acceptance.
+      - name: Install Chromium preview smoke tooling
+        if: github.ref_name == 'Integrated-Marketing-Platform'
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund --prefix MemberWebsocket-dev/tests/browser
+          (cd MemberWebsocket-dev/tests/browser && npx playwright install --with-deps chromium --only-shell)
+      - name: Run read-only Chromium preview acceptance
+        if: github.ref_name == 'Integrated-Marketing-Platform'
+        env:
+          PREVIEW_BASE_URL: https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app
+          COMMIT_REF: ${{ github.sha }}
+        working-directory: MemberWebsocket-dev/tests/browser
+        run: npx playwright test --config=preview.playwright.config.cjs
+      - name: Retain preview browser HTML, JUnit, traces and failure videos
+        if: always() && github.ref_name == 'Integrated-Marketing-Platform'
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-preview-browser-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            MemberWebsocket-dev/tests/browser/preview-browser-results.xml
+            MemberWebsocket-dev/tests/browser/preview-browser-report
+            MemberWebsocket-dev/tests/browser/test-results
+          retention-days: 7
+          if-no-files-found: warn
       - name: Retain deployment identity and per-resource smoke diagnostics
         if: always()
         uses: actions/upload-artifact@v4

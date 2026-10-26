@@ -11,7 +11,7 @@
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
   <script src="../business-context.js"></script>
 <script src="../member-system.js" defer></script>
-  <script src="../platform/app.js?v=merchant-v2-20261024-1" defer></script>
+  <script src="../platform/app.js?v=merchant-system-code-20261025-1" defer></script>
   <link rel="stylesheet" href="../portal-navigation.css?v=unified-20261018-1">
   <script src="../portal-navigation.js?v=unified-20261018-1" defer></script>
 </head>
@@ -119,7 +119,7 @@
         <h3 id="merchantApplicationTitle">新增商家申請</h3>
         <div class="grid">
           <label>商家名稱<input name="businessName" maxlength="100" required autocomplete="organization"></label>
-          <label>商家代碼<input name="slug" minlength="3" maxlength="40" pattern="[a-z][a-z0-9]*(-[a-z0-9]+)*" required autocomplete="off"><small>3–40 位小寫英數及連字號。請為每個商家使用不同代碼。</small></label>
+          <p>商家代碼由系統分配，送出後會顯示在商家列表；修正申請時保留原代碼。</p>
         </div>
         <p id="merchantApplicationMessage" role="status" aria-live="polite"></p>
         <div class="form-actions"><button id="cancelMerchantResubmit" type="button" class="secondary" hidden>取消重新申請</button><button id="submitMerchantApplication" type="submit">提交商家申請</button></div>

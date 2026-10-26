@@ -1,9 +1,14 @@
+import { featureLineReady } from './merchant-onboarding.mjs';
 import { FEATURES, PlatformError, publicTenant, validateTenant } from './platform-policy.mjs';
 import { payloadHash, sealCredentials, openCredentials } from './platform-crypto.mjs';
 import { assertTenantIdentity, normalizeExpiry } from './tenant-access.mjs';
 import { validateNotificationRoute, verifyNotificationToken } from './notification-routes.mjs';
+import { checkLineWebhook } from './line-webhook-diagnostics.mjs';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SQL_ERRORS = {
+  LINE_CHANNEL_IN_USE:[409,'此 Messaging API Channel 已綁定其他商家。'],
+  LINE_DESTINATION_IN_USE:[409,'此官方帳號已綁定其他 Messaging API Channel，請確認 Channel 設定。'],
+  LINE_WEBHOOK_STALE:[409,'LINE 設定已變更，請重新載入並檢查連線。'],
   PLATFORM_ADMIN_REQUIRED:[403,'僅總管理員可管理商家。'], PLATFORM_CONFLICT:[409,'資料已更新，請重新載入後再試。'],
   PLATFORM_QUALIFICATION_SUSPENDED:[403,'管理員資格已停權，請聯絡總管理員。'],
   PLATFORM_QUALIFICATION_REQUIRED:[403,'請先取得一般管理員資格。'],
@@ -28,12 +33,23 @@ export function databaseError(error) {
   return new PlatformError(503,'PLATFORM_DATABASE_UNAVAILABLE','目前無法儲存或讀取商家設定。');
 }
 export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdentity = verifyIdentity, encryptionKey, allowedOrigins, fetchImpl = fetch }) {
+  const moduleCredentials = async (current, feature) => {
+    const stored=await db.rpc('platform_module_credentials',{p_tenant_id:current.id,p_feature:feature});
+    if(stored.error)throw databaseError(stored.error);
+    if(stored.data?.envelope || current.moduleLine?.[feature] || !current.credentialsConfigured)return stored;
+    // A legacy tenant envelope can be inherited only before this module owns a
+    // configuration. Its AES associated data remains the tenant identifier.
+    const legacy=await db.rpc('platform_business_credentials',{p_tenant_id:current.id});
+    if(legacy.error)throw databaseError(legacy.error);
+    return {data:legacy.data?{envelope:legacy.data,scope:'tenant'}:null,error:null};
+  };
   return async request => {
     const origin = request.headers.get('Origin');
     const headers = { 'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Vary':'Origin',
       'Access-Control-Allow-Origin':origin && allowedOrigins.has(origin) ? origin : '',
       'Access-Control-Allow-Headers':'content-type, apikey','Access-Control-Allow-Methods':'POST,OPTIONS', 'Access-Control-Max-Age':'86400' };
     const json = (payload,status = 200) => new Response(JSON.stringify(payload),{status,headers});
+    let webhookActor;
     try {
       if (origin && !allowedOrigins.has(origin)) throw new PlatformError(403,'ORIGIN_NOT_ALLOWED','此網站來源未被允許。');
       if (request.method === 'OPTIONS') return new Response(null,{status:204,headers});
@@ -61,14 +77,14 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         const module=body.feature && tenant.features[body.feature]===true?tenant.moduleLine?.[body.feature]:null;
         if(body.feature!==undefined && (!Object.hasOwn(FEATURES,body.feature)||tenant.features[body.feature]!==true))throw new PlatformError(403,'FEATURE_DISABLED','此功能尚未開放。');
         return json({ok:true,data:{business:tenant.slug,name:tenant.name,features:tenant.features,
-          line:module?.credentialsConfigured?{...tenant.line,...module.line}:tenant.onboarding.configurationComplete?tenant.line:{adminLiffId:tenant.line?.adminLiffId||''}}});
+          line:body.feature && featureLineReady(body.feature,{...tenant.line,...module?.line})?{...tenant.line,...module?.line}:tenant.onboarding.configurationComplete?tenant.line:{adminChannelId:tenant.line?.adminChannelId||'',adminLiffId:tenant.line?.adminLiffId||''}}});
       }
       if (typeof body.idToken !== 'string' || !body.idToken || body.idToken.length > 10_000) throw new PlatformError(401,'AUTH_REQUIRED','請使用 LINE 帳號登入。');
       const qualificationAction = ['platform.qualification.bootstrap','platform.qualification.submit','platform.qualification.list','platform.qualification.review'].includes(body.action);
       const merchantAction = ['platform.merchant.list','platform.merchant.get','platform.merchant.submit','platform.merchant.review'].includes(body.action);
       if ((qualificationAction || merchantAction) && body.business !== undefined)
         throw new PlatformError(400,'PLATFORM_INVALID_INPUT','資格與商家申請不接受商家入口。');
-      const applicantAction = ['platform.application.bootstrap','platform.application.ensure','platform.application.submit','platform.line.save','platform.notifications.save','platform.notifications.test','platform.qualification.bootstrap','platform.qualification.submit','platform.merchant.list','platform.merchant.get','platform.merchant.submit'].includes(body.action);
+      const applicantAction = ['platform.webhook.status','platform.webhook.check','platform.application.bootstrap','platform.application.ensure','platform.application.submit','platform.line.save','platform.notifications.save','platform.notifications.test','platform.qualification.bootstrap','platform.qualification.submit','platform.merchant.list','platform.merchant.get','platform.merchant.submit'].includes(body.action);
       let trustedChannel;
       if (applicantAction && body.business !== undefined) {
         if (typeof body.business !== 'string' || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(body.business) || body.business.length > 40)
@@ -83,7 +99,8 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       }
       const identity = await (applicantAction ? verifyApplicantIdentity : verifyIdentity)(body.idToken, trustedChannel);
       const actor = identity.lineUserId;
-      const readOnly = ['platform.bootstrap','platform.application.bootstrap','platform.qualification.bootstrap','platform.qualification.list','platform.merchant.list','platform.merchant.get'].includes(body.action);
+      if(['platform.webhook.status','platform.webhook.check'].includes(body.action))webhookActor=actor;
+      const readOnly = ['platform.webhook.status','platform.bootstrap','platform.application.bootstrap','platform.qualification.bootstrap','platform.qualification.list','platform.merchant.list','platform.merchant.get'].includes(body.action);
       const rate = await db.rpc('consume_api_rate_limit',{p_principal_hash:await payloadHash(`platform:${actor}`),
         p_is_write:!readOnly,p_cost:1,p_read_limit:60,p_write_limit:15});
       if (rate.error) throw new PlatformError(503,'RATE_LIMIT_UNAVAILABLE','目前無法確認請求頻率。');
@@ -128,13 +145,21 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       if (body.action === 'platform.merchant.submit') {
         if (!validId(body.requestId) || typeof body.businessName !== 'string'
           || !body.businessName.trim() || Array.from(body.businessName.trim()).length > 100
-          || typeof body.slug !== 'string' || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(body.slug)
-          || body.slug.length < 3 || body.slug.length > 40 || ['admin','platform','api','www','root','system'].includes(body.slug)
+          || body.slug !== undefined
           || (body.applicationId === undefined ? body.expectedVersion !== undefined
             : !validId(body.applicationId) || !validVersion(body.expectedVersion)))
-          throw new PlatformError(400,'PLATFORM_INVALID_INPUT','請確認商家名稱、代碼、申請版本與操作識別碼。');
+          throw new PlatformError(400,'PLATFORM_INVALID_INPUT','請確認商家名稱、申請版本與操作識別碼；商家代碼由系統分配，舊頁面請重新整理。');
+        // Stable across an uncertain retry; the SQL transaction still enforces
+        // request ownership, payload consistency and globally unique codes.
+        let slug = 'm-' + body.requestId.toLowerCase().replaceAll('-','');
+        if (body.applicationId !== undefined) {
+          const current = await db.rpc('platform_get_merchant_application',{p_actor:actor,p_application_id:body.applicationId});
+          if (current.error) throw databaseError(current.error);
+          if (!current.data) throw new PlatformError(404,'PLATFORM_APPLICATION_NOT_FOUND','找不到商家申請。');
+          slug = current.data.slug;
+        }
         const result = await db.rpc('platform_submit_merchant_application',{
-          p_actor:actor,p_name:body.businessName.trim(),p_slug:body.slug,p_request_id:body.requestId,
+          p_actor:actor,p_name:body.businessName.trim(),p_slug:slug,p_request_id:body.requestId,
           p_application_id:body.applicationId ?? null,p_expected_version:body.expectedVersion ?? null,
         });
         if (result.error) throw databaseError(result.error);
@@ -165,6 +190,15 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         {...params,...(workspace.application?.qualificationId ? {
           p_tenant_id:workspace.tenant.id,p_issued_at:new Date(identity.issuedAtMs).toISOString(),
         } : {})});
+      const configurationReplay = async (workspace,feature,operation,hash) => {
+        const result=await db.rpc('platform_configuration_replay',{
+          p_actor:actor,p_tenant_id:workspace.tenant.id,p_issued_at:new Date(identity.issuedAtMs).toISOString(),
+          p_feature:feature,p_operation:operation,p_request_id:body.requestId,p_payload_hash:hash,
+          p_scoped:Boolean(workspace.application?.qualificationId),
+        });
+        if(result.error)throw databaseError(result.error);
+        return result.data;
+      };
       if (body.action === 'platform.application.ensure') {
         // Identity and initial name come only from LINE verification. The SQL
         // actor lock and unique constraint make simultaneous first visits safe.
@@ -191,6 +225,24 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         if (result.error) throw databaseError(result.error);
         return json({ok:true,data:{...await mine()}});
       }
+      if (['platform.webhook.status','platform.webhook.check'].includes(body.action)) {
+        if(typeof body.business!=='string')throw new PlatformError(400,'INVALID_BUSINESS','請先選擇要檢查的商家。');
+        const workspace=await mine(),current=workspace.tenant;
+        if(!current || workspace.application?.status!=='approved' || !current.capabilities.dataPlaneVerified)
+          throw new PlatformError(403,'TENANT_SUSPENDED','此商家尚未開放或已停用。');
+        if(!['membership','points','events','calendar','booking'].includes(body.feature) || current.features?.[body.feature]!==true)
+          throw new PlatformError(403,'FEATURE_DISABLED','此功能尚未核准。');
+        const args={p_actor:actor,p_tenant_id:current.id,p_issued_at:new Date(identity.issuedAtMs).toISOString(),p_feature:body.feature};
+        const read=await db.rpc(body.action==='platform.webhook.check'?'platform_line_webhook_prepare':'platform_line_webhook_status',args);
+        if(read.error)throw databaseError(read.error);
+        let summary=read.data;
+        if(body.action==='platform.webhook.check'){
+          const destination=await checkLineWebhook({candidate:read.data,encryptionKey,fetchImpl});
+          const bound=await db.rpc('platform_line_webhook_bind',{...args,p_channel_id:read.data.channelId,p_destination:destination,p_revision:read.data.revision});
+          if(bound.error)throw databaseError(bound.error);summary=bound.data;
+        }
+        return json({ok:true,data:{...summary,endpoint:new URL('line-webhook',request.url).href}});
+      }
       if (body.action === 'platform.notifications.test') {
         validateNotificationRoute({...body,mode:'inherit'});
         if (!uuid.test(body.requestId || '') || !Number.isSafeInteger(body.expectedVersion)) throw new PlatformError(400,'INVALID_REQUEST_ID','操作識別碼或資料版本不正確。');
@@ -199,12 +251,14 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         if (current.features?.[body.feature]!==true) throw new PlatformError(403,'FEATURE_DISABLED','此功能尚未核准。');
         const route=current.moduleLine?.[body.feature]?.notifications?.[body.purpose];
         if(route?.mode==='disabled')throw new PlatformError(409,'NOTIFICATION_DISABLED','請先啟用此用途通知。');
+        if(route?.mode!=='custom' && !(current.moduleLine?.[body.feature] ? current.moduleLine[body.feature].credentialsConfigured : current.credentialsConfigured))
+          throw new PlatformError(409,'NOTIFICATION_NOT_CONFIGURED','請先儲存本模組 Messaging API Channel 與完整憑證，並驗證通知通道。');
         const hash=await payloadHash({feature:body.feature,purpose:body.purpose,expectedVersion:body.expectedVersion});
         const args={p_actor:actor,p_feature:body.feature,p_purpose:body.purpose,p_expected_version:body.expectedVersion,p_request_id:body.requestId,p_payload_hash:hash};
         const claim=await merchantWrite('platform_notification_test',args,workspace);if(claim.error)throw databaseError(claim.error);
         if(claim.data?.state==='accepted')return json({ok:true,data:claim.data});
         const custom=route?.mode==='custom';
-        const stored=await db.rpc(custom?'platform_notification_credentials':'platform_module_credentials',{p_tenant_id:current.id,p_feature:body.feature});
+        const stored=custom?await db.rpc('platform_notification_credentials',{p_tenant_id:current.id,p_feature:body.feature}):await moduleCredentials(current,body.feature);
         if(stored.error)throw databaseError(stored.error);
         const secret=custom?stored.data?.[body.purpose]:stored.data;
         if(!secret?.envelope)throw new PlatformError(409,'NOTIFICATION_NOT_CONFIGURED','請先儲存本模組或獨立通知憑證。');
@@ -230,17 +284,30 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         if (workspace.application?.status !== 'approved' || !current) throw new PlatformError(403,'PLATFORM_APPLICATION_NOT_APPROVED','請先等待總管理員核准。');
         if (!current.capabilities.dataPlaneVerified) throw new PlatformError(403,'TENANT_SUSPENDED','此商家已停用或使用期限已到。');
         if (current.features?.[body.feature] !== true) throw new PlatformError(403,'FEATURE_DISABLED','此功能尚未核准。');
-        let encrypted = null;
+        const hash = await payloadHash({feature:body.feature,purpose:body.purpose,mode:body.mode,expectedVersion:body.expectedVersion,
+          channel:body.mode==='custom'?body.messagingChannelId:null,token:body.mode==='custom'?body.channelAccessToken:null});
+        if(body.mode!=='disabled'){
+          const replay=await configurationReplay(workspace,body.feature,'notification:'+body.feature+':'+body.purpose,hash);
+          if(replay)return json({ok:true,data:{tenant:publicTenant(replay)}});
+        }
+        let encrypted = null, inheritedChannel = null;
+        if (body.mode === 'inherit') {
+          const stored=await moduleCredentials(current,body.feature);
+          if(stored.error)throw databaseError(stored.error);
+          inheritedChannel=(current.moduleLine?.[body.feature]?.line || current.line)?.messagingChannelId;
+          if(!stored.data?.envelope || !/^\d{5,30}$/.test(inheritedChannel || ''))
+            throw new PlatformError(409,'NOTIFICATION_NOT_CONFIGURED','請先儲存本模組 Messaging API Channel 與完整憑證，並驗證通知通道。');
+          const credentials=await openCredentials(stored.data.scope==='module'?current.id+':'+body.feature:current.id,stored.data.envelope,await encryptionKey());
+          await verifyNotificationToken(credentials.channelAccessToken,inheritedChannel,fetchImpl);
+        }
         if (body.mode === 'custom') {
           await verifyNotificationToken(body.channelAccessToken,body.messagingChannelId,fetchImpl);
           encrypted = await sealCredentials(current.id+':'+body.feature+':notify:'+body.purpose,
             {channelAccessToken:body.channelAccessToken},await encryptionKey());
         }
-        const hash = await payloadHash({feature:body.feature,purpose:body.purpose,mode:body.mode,expectedVersion:body.expectedVersion,
-          channel:body.mode==='custom'?body.messagingChannelId:null,token:body.mode==='custom'?body.channelAccessToken:null});
         const result = await merchantWrite('platform_save_notification_route',{p_actor:actor,p_feature:body.feature,p_purpose:body.purpose,p_mode:body.mode,
           p_expected_version:body.expectedVersion,p_request_id:body.requestId,p_payload_hash:hash,
-          p_channel_id:body.mode==='custom'?body.messagingChannelId:null,p_envelope:encrypted},workspace);
+          p_channel_id:body.mode==='custom'?body.messagingChannelId:inheritedChannel,p_envelope:encrypted},workspace);
         if (result.error) throw databaseError(result.error);
         return json({ok:true,data:{tenant:publicTenant(result.data)}});
       }
@@ -258,16 +325,20 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         if (body.feature !== undefined && current.moduleLine !== undefined) {
           const key={membership:'memberLiffId',points:'pointsLiffId',events:'eventLiffId',calendar:'calendarLiffId',booking:'bookingLiffId'}[body.feature];
           if(!key || current.features[body.feature]!==true)throw new PlatformError(403,'FEATURE_DISABLED','此功能尚未核准。');
-          const existing=current.moduleLine[body.feature];
           for(const other of ['memberLiffId','pointsLiffId','eventLiffId','calendarLiffId','bookingLiffId'])if(other!==key && Object.hasOwn(body.line||{},other) && String(body.line[other]??'')!==String(current.line?.[other]??''))throw new PlatformError(400,'LINE_FEATURE_SCOPE','請只修改本功能的 LIFF 設定。');
           for(const name of ['adminChannelId','adminLiffId'])if(current.line?.[name] && body.line?.[name]!==current.line[name])
             throw new PlatformError(400,'LINE_ADMIN_IDENTITY_IMMUTABLE','管理員登入由商家共用；功能頁只能修改該功能的用戶入口與通知設定。');
           const line=Object.fromEntries(['adminChannelId','memberChannelId','messagingChannelId','adminLiffId',key].map(k=>[k,body.line?.[k]||'']));
           const validated=validateTenant({name:current.name,slug:current.slug,ownerLineUserId:current.ownerLineUserId,
-            features:current.features,line,credentials:body.credentials},!existing?.credentialsConfigured&&!current.credentialsConfigured,{allowIncompleteFeatureLiffs:true});
+            features:current.features,line,credentials:body.credentials},false,{allowIncompleteFeatureLiffs:true,liffFeature:body.feature});
           const scopedLine=Object.fromEntries(Object.keys(line).map(k=>[k,validated.line[k]]));
-          const encrypted=validated.credentials.channelAccessToken?await sealCredentials(current.id+':'+body.feature,validated.credentials,await encryptionKey()):null;
           const hash=await payloadHash({feature:body.feature,expectedVersion:body.expectedVersion,line:scopedLine,credentials:validated.credentials});
+          if(validated.credentials.channelAccessToken){
+            const replay=await configurationReplay(workspace,body.feature,'module_line:'+body.feature,hash);
+            if(replay)return json({ok:true,data:{tenant:publicTenant(replay)}});
+            await verifyNotificationToken(validated.credentials.channelAccessToken,scopedLine.messagingChannelId,fetchImpl);
+          }
+          const encrypted=validated.credentials.channelAccessToken?await sealCredentials(current.id+':'+body.feature,validated.credentials,await encryptionKey()):null;
           const result=await merchantWrite('platform_save_module_line',{p_actor:actor,p_feature:body.feature,p_expected_version:body.expectedVersion,
             p_request_id:body.requestId,p_payload_hash:hash,p_line:scopedLine,p_secrets:encrypted},workspace);
           if(result.error)throw databaseError(result.error);
@@ -433,7 +504,12 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       if (rpc.error) throw databaseError(rpc.error);
       return json({ok:true,data:{tenant:publicTenant(rpc.data)}});
     } catch (error) {
-      const safe = error instanceof PlatformError ? error : new PlatformError(503,'PLATFORM_UNAVAILABLE','總管理員服務暫時無法使用。');
+      let safe = error instanceof PlatformError ? error : new PlatformError(503,'PLATFORM_UNAVAILABLE','總管理員服務暫時無法使用。');
+      if(webhookActor && safe.status===404)safe=new PlatformError(403,'BUSINESS_FORBIDDEN','無法存取此商家的連線診斷。');
+      if(webhookActor && [401,403].includes(safe.status)){
+        const audit=await db.rpc('platform_line_webhook_denied',{p_actor:webhookActor});
+        if(audit.error)return json({ok:false,error:{code:'PLATFORM_DATABASE_UNAVAILABLE',message:'目前無法記錄存取檢查，請稍後再試。'}},503);
+      }
       // Never return raw database, LINE provider or encryption errors.
       return json({ok:false,error:{code:safe.code,message:safe.message}},safe.status);
     }

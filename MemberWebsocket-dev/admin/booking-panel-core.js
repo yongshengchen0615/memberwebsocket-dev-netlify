@@ -580,7 +580,7 @@
       const selectionChanged = [...state.selected].sort().join('|') !== [...nextSelected].sort().join('|');
 
       state.booking = nextBooking;
-      window.BookingRiskSettings?.mount(els.bookingAdminRiskMount,{data:state.booking.noShowRisk,request:(action,body)=>bookingRequest('admin.booking.risk.'+action,body,action!=='get')});
+      window.BookingRiskSettings?.mount(els.bookingAdminRiskMount,{data:state.booking.noShowRisk,request:bookingRiskRequest});
       state.catalog = nextCatalog;
       state.selected = nextSelected;
       if (catalogChanged) {
@@ -688,7 +688,7 @@
   }
   function renderSettings(force = false) {
     const settings = state.booking.settings || {};
-    window.BookingRiskSettings?.mount(els.bookingAdminRiskMount,{data:state.booking.noShowRisk,request:(action,body)=>bookingRequest('admin.booking.risk.'+action,body,action!=='get')});
+    window.BookingRiskSettings?.mount(els.bookingAdminRiskMount,{data:state.booking.noShowRisk,request:bookingRiskRequest});
     if (state.settingsDirty && !force) {
       updateSettingsDraft();
       return;
@@ -1426,7 +1426,7 @@
         }
         actions.append(actionButton('修改預約票券', 'button button-outline', () => openBookingBenefitsModal(booking)));
         if (booking.status === 'pending' || booking.status === 'confirmed') {
-          const reason = noShowUnavailableReason(booking);
+          const reason = noShowUnavailableReason(booking, state.booking.noShowRisk?.policy);
           const visibleReason = noShowDisplayReason(reason);
           const noShow = actionButton('無故未到', 'button button-danger', () => openNoShow(booking, textarea.value));
           noShow.dataset.noShowId=bookingId; noShow.disabled = Boolean(reason); noShow.title = visibleReason;
@@ -1833,11 +1833,17 @@
     showModal();
   }
 
+  async function bookingRiskRequest(action, body) {
+    const result = await bookingRequest('admin.booking.risk.'+action, body, action !== 'get');
+    if (result?.policy) { state.booking.noShowRisk = result; updateNoShowButtons(); }
+    return result;
+  }
+
   function updateNoShowButtons() {
     for(const button of document.querySelectorAll('[data-no-show-id]')) {
       const booking=state.booking.bookings.find(b=>String(b.bookingId)===button.dataset.noShowId);
       if(!booking) continue;
-      const reason=noShowUnavailableReason(booking);
+      const reason=noShowUnavailableReason(booking, state.booking.noShowRisk?.policy);
       const visibleReason=noShowDisplayReason(reason);
       button.disabled=Boolean(reason)||state.busy;button.title=visibleReason;
       button.setAttribute('aria-label',visibleReason ? `無故未到：${visibleReason}` : '無故未到');
@@ -1850,21 +1856,24 @@
     return reason === NO_SHOW_EARLY_REASON ? '' : reason;
   }
 
-  function noShowUnavailableReason(booking) {
+  function noShowUnavailableReason(booking, policy = {}) {
     if (booking.receiptSubmissionId || String(booking.requestId || '').startsWith('receipt-register:')) return '快照請使用獨立審核流程。';
     if (!['pending', 'confirmed'].includes(booking.status)) return '只有待確認或已確認的一般預約可標記。';
     if (booking.cancellationRequestedAt && !booking.cancellationReviewedAt) return '請先處理取消申請。';
     const raw = String(booking.endAt || '');
     const end = Date.parse(/(?:Z|[+-]\d{2}:?\d{2})$/.test(raw) ? raw : `${raw}+08:00`);
     if (!raw || !Number.isFinite(end)) return '缺少有效服務結束時間，請先核對排程。';
-    return end >= Date.now() ? NO_SHOW_EARLY_REASON : '';
+    const grace = policy.enabled && Number.isInteger(policy.grace_minutes) && policy.grace_minutes >= 0 ? policy.grace_minutes : 0;
+    return end + grace * 60000 >= Date.now() ? grace > 0 ? `服務結束與 ${grace} 分鐘寬限後才能標記無故未到。` : NO_SHOW_EARLY_REASON : '';
   }
 
   function openNoShow(booking, adminNote) {
-    const reason = noShowUnavailableReason(booking);
+    const reason = noShowUnavailableReason(booking, state.booking.noShowRisk?.policy);
     if (reason) { showMessage(els.bookingAdminServiceMessage, reason, 'error'); return; }
     els.bookingAdminCrudModalTitle.textContent = '確認標記無故未到';
-    els.bookingAdminCrudModalBody.innerHTML = `<form class="booking-admin-form"><p>${escapeHtml(booking.memberDisplayName || '會員')} · ${escapeHtml(booking.memberCode || '')}</p><p>${escapeHtml(booking.startAt || '')}–${escapeHtml(booking.endAt || '')}</p><p>確認此會員未到場？此操作不核銷票券、不扣點、不計入違規；僅解除本筆未使用票券的保留。</p><label><input type="checkbox" required> 我已人工核對，確認這筆預約無故未到。</label><div data-modal-message class="form-message hidden"></div><div class="booking-admin-modal-actions"><button data-cancel type="button" class="button button-outline">返回</button><button type="submit" class="button button-danger">確認標記無故未到</button></div></form>`;
+    const policy = state.booking.noShowRisk?.policy;
+    const impact = policy?.enabled ? `爽約會依目前政策計次；服務結束後須經 ${Number(policy.grace_minutes) || 0} 分鐘寬限，達門檻時限制新的線上預約。` : '爽約政策目前停用；保留這筆爽約紀錄，不依政策執行限制。';
+    els.bookingAdminCrudModalBody.innerHTML = `<form class="booking-admin-form"><p>${escapeHtml(booking.memberDisplayName || '會員')} · ${escapeHtml(booking.memberCode || '')}</p><p>預約：${escapeHtml(booking.bookingId || '')}</p><p>${escapeHtml(booking.startAt || '')}–${escapeHtml(booking.endAt || '')}（台北）</p><p>確認此會員未到場？此操作不核銷票券、不扣點；僅解除本筆未使用票券的保留。</p><p>${escapeHtml(impact)}</p><label><input type="checkbox" required> 我已人工核對，確認這筆預約無故未到。</label><div data-modal-message class="form-message hidden"></div><div class="booking-admin-modal-actions"><button data-cancel type="button" class="button button-outline">返回</button><button type="submit" class="button button-danger">確認標記無故未到</button></div></form>`;
     const form = els.bookingAdminCrudModalBody.querySelector('form');
     form.querySelector('[data-cancel]').addEventListener('click', closeModal);
     form.addEventListener('submit', async e => {

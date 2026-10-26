@@ -5,7 +5,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 export const previewBranch = 'Integrated-Marketing-Platform';
-export const previewSite = '23796c62-480a-4b46-ac90-bfbc5ad4d300';
+export const previewSite = '196e1d2c-8216-4ba8-aeb9-1706660adc2b';
 const repository = 'yongshengchen0615/memberwebsocket-dev-netlify';
 const siteName = 'memberwebsocket-dev-netlify';
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -28,6 +28,19 @@ export function describePreviewPublishFailure(error) {
       ? error.status : 'unknown';
     return `Verified preview publication failed during ${phase}: HTTP ${status}. Inspect deployment state before retrying. Provider bodies and credentials were not logged.`;
   }
+  // Exact internal error strings are safe; provider-supplied errors are never logged.
+  const safeErrors = new Map([
+    ['Invalid verified preview publish input', 'INVALID_INPUT'],
+    ['Preview source or production branch identity changed', 'SOURCE_IDENTITY'],
+    ['A competing preview deployment is still active', 'ACTIVE_DEPLOY'],
+    ['Preview upload did not return a deploy identity', 'INVALID_DEPLOY_ID'],
+    ['Published deploy does not belong to the verified preview branch', 'WRONG_DEPLOY_SCOPE'],
+    ['Preview deploy failed', 'DEPLOY_FAILED'],
+    ['Production identity changed during preview publication', 'PRODUCTION_CHANGED'],
+    ['Preview deploy did not become ready before the deadline', 'DEPLOY_NOT_READY'],
+  ]);
+  const safeCode = error instanceof Error ? safeErrors.get(error.message) : null;
+  if (safeCode) return `Verified preview publication blocked: ${safeCode}. Inspect site and deploy identity before retrying.`;
   return 'Verified preview publication failed (unclassified). Inspect deployment state before retrying. Provider bodies and credentials were not logged.';
 }
 

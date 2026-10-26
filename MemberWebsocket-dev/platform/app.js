@@ -316,7 +316,7 @@
   function resetMerchantApplication(application=null){
     if(merchantApplicationPending||merchantApplicationBusy)return;
     merchantApplicationTarget=application;const form=el('merchantApplicationForm');form.reset();lockMerchantApplication(false);
-    form.elements.namedItem('businessName').value=application?.businessName||'';form.elements.namedItem('slug').value=application?.slug||'';
+    form.elements.namedItem('businessName').value=application?.businessName||'';
     el('merchantApplicationTitle').textContent=application?'修正商家申請：'+application.businessName:'新增商家申請';
     el('cancelMerchantResubmit').hidden=!application;el('merchantApplicationMessage').textContent='';
     el('submitMerchantApplication').textContent=application?'重新提交此商家':'提交商家申請';
@@ -342,7 +342,7 @@
     const form=el('merchantApplicationForm');
     if(!merchantApplicationPending){
       if(!form.reportValidity())return;
-      merchantApplicationPending={businessName:form.elements.namedItem('businessName').value.trim(),slug:form.elements.namedItem('slug').value.trim(),requestId:crypto.randomUUID(),
+      merchantApplicationPending={businessName:form.elements.namedItem('businessName').value.trim(),requestId:crypto.randomUUID(),
         ...(merchantApplicationTarget?{applicationId:merchantApplicationTarget.id,expectedVersion:merchantApplicationTarget.version}:{})};
     }
     merchantApplicationBusy=true;lockMerchantApplication(true);el('merchantApplicationMessage').textContent='正在提交商家申請…';

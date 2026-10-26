@@ -141,3 +141,11 @@ test('publish errors identify the failing provider phase without echoing secrets
   assert.doesNotMatch(describePreviewPublishFailure(new Error('secret full Netlify error body')), /secret full/);
   assert.match(describePreviewPublishFailure(new PreviewProviderError('bad phase with token', 777)), /unclassified: HTTP unknown/);
 });
+
+test('safe local publish errors give useful codes without logging provider-supplied content', () => {
+  assert.match(describePreviewPublishFailure(new Error('Preview source or production branch identity changed')), /SOURCE_IDENTITY/);
+  assert.match(describePreviewPublishFailure(new Error('A competing preview deployment is still active')), /ACTIVE_DEPLOY/);
+  assert.match(describePreviewPublishFailure(new Error('Published deploy does not belong to the verified preview branch')), /WRONG_DEPLOY_SCOPE/);
+  assert.match(describePreviewPublishFailure(new Error('Production identity changed during preview publication')), /PRODUCTION_CHANGED/);
+  assert.doesNotMatch(describePreviewPublishFailure(new Error('secret provider body token=abc')), /secret provider|token=abc/);
+});
