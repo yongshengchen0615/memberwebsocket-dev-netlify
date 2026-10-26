@@ -6,6 +6,11 @@ const featureKeys = ['membership','points','events','calendar','integrations','b
 const channel = value => typeof value === 'string' && /^\d{5,30}$/.test(value);
 const liff = (value, id) => channel(id) && typeof value === 'string'
   && /^\d{5,30}-[A-Za-z0-9_-]+$/.test(value) && value.startsWith(id+'-');
+// A public Login/LIFF entry does not require outgoing Messaging credentials.
+export function featureLineReady(feature, line = {}) {
+  const key = featureLiffs[feature];
+  return Boolean(key && liff(line[key], line.memberChannelId));
+}
 export function merchantOnboarding(tenant = {}) {
   const line = tenant.line || {}, commonMissing = [];
   for (const key of ['adminChannelId','memberChannelId','messagingChannelId'])

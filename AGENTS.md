@@ -60,3 +60,18 @@
 僅在全部必要驗收與既有基線於交付 SHA 實際通過、無安全／資料阻擋時稱「已驗證完成」。否則明確標「驗證失敗」或「部分完成且受阻」，列出未跑或失敗項及原因。Project 狀態必須按 #39 進出條件移動，不能憑程式已提交推進 Done。
 
 **歷史缺陷與目前驗證必須區分**：Issue [#40](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/issues/40) 曾記錄 Chromium E2E 逾時；2026-10-22 的 PR #84 合併版另有同 SHA 全 CI 與 Preview 成功證據。歷史成功不代表之後的版本已通過；每次合併及發布仍須核對當下提交的必要測試、版本與部署證據。
+
+## 五、V2 核心規則（R01–R10）
+
+本節是 AI 日常任務的精簡入口；測試、權限及操作細則仍以 `docs/DEVELOPMENT_GUARDRAILS.md` 為準。風險分級由 Draft PR #131 的 `scripts/pr-change-risk.mjs` 提供候選實作，**在該 PR 合併並配置 Required Checks 之前，不得宣稱規則已由 GitHub 強制執行**。
+
+- **R01｜確認需求與明確驗收：** 每次任務先確認 Issue、目標角色、不做範圍和 Given/When/Then。
+- **R02｜查證真實基線：** 從最新 Git 分支、SHA、現有程式與 CI 取證；不拿舊聊天摘要當目前事實。
+- **R03｜最小且可回復修改：** 使用獨立分支／PR，只改必要路徑，重大改動要有替代方案與回退點。
+- **R04｜原功能防退化：** 新功能與相鄰舊功能都需映射原有測試和負向案例。
+- **R05｜先重現再修復：** 可重現的 Bug 先 RED 後 GREEN，不以提高 timeout/retry 或移除斷言掩蓋根因。
+- **R06｜安全與資料不變條件：** 驗證後端授權、跨商家隔離、RLS、LINE 收件人、點數／票券守恆及撤權。
+- **R07｜按風險適配測試：** 與 V2 L0–L3 風險下限對齊；正式交付仍須完成適用的完整產品 CI。
+- **R08｜不得繞過 Gate：** 必要檢查 failed、cancelled、skipped、pending 或未觸發都不能當 pass。
+- **R09｜同版發布對帳：** 每次記錄 SHA、CI run、Preview/Production deploy、Edge 與 migration 相容。
+- **R10｜完成必須有證據：** PR Merge、Issue Done、正式發布及觀察狀態各需獨立驗收，不自動等價。

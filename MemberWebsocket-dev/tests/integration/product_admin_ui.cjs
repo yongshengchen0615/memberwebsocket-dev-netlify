@@ -9,20 +9,32 @@ async function page(h,merchant=true){
  w.liff={init:async({liffId})=>{calls.push(liffId);},isLoggedIn:()=>true,isInClient:()=>true,getIDToken:()=>merchant?'manager':'root'};
  w.sessionStorage.setItem('platform-line-login-return-v1',String(Date.now()));
  w.fetch=async(url,options)=>{
-  if(String(url).includes('config.json'))return new Response(fs.readFileSync(path.join(root,'config.json'),'utf8'));
+  // This suite pins the retained legacy portal contract. The coordinated v2
+  // journey is exercised by merchant_workspace_ui and merchant-workspace-v2.
+  if(String(url).includes('config.json'))return Response.json({...JSON.parse(fs.readFileSync(path.join(root,'config.json'),'utf8')),merchantApprovalVersion:1});
   return h.handler(new Request(String(url),{...options,headers:{...options.headers,Origin:'https://allowed.test'}}));
  };
  w.addEventListener('error',e=>errors.push(e.message));
  w.eval(fs.readFileSync(path.join(root,'member-system.js'),'utf8'));
  w.eval(fs.readFileSync(path.join(root,'platform/app.js'),'utf8'));
- await waitFor(()=>merchant?!w.document.querySelector('#applicationProgress').hidden:!w.document.querySelector('#platformWorkspace').hidden);
+ await waitFor(()=>merchant?(calls.length===1&&!w.document.querySelector('#applicationForm').hidden&&w.document.querySelector('#platformStatus').textContent.includes('已登入')):!w.document.querySelector('#platformWorkspace').hidden);
  return {dom,w,d:w.document,errors,calls};
 }
 test('AC-017/018 DOM + real handler/SQL: admin applies, root checks only grants, admin saves each approved LINE page',async()=>{
  const h=await fixture();let admin,platform;try{
   admin=await page(h);const d=admin.d;
   assert.deepEqual(admin.calls,['2010791619-vhevCvvD']);
+  // Verified LINE login reads status only; explicit submit owns the first write.
+  assert.equal((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n,0);
+  assert.equal(d.querySelector('#applicationForm').hidden,false);
+  const applicationForm=d.querySelector('#applicationForm');
+  applicationForm.elements.namedItem('businessName').value='商家管理員';
+  applicationForm.elements.namedItem('slug').value='merchant-dom-review';
+  applicationForm.dispatchEvent(new admin.w.Event('submit',{bubbles:true,cancelable:true}));
+  await waitFor(()=>!d.querySelector('#applicationProgress').hidden);
   assert.match(d.querySelector('#applicationProgress').textContent,/等待總管理員審核/);
+  assert.equal((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n,1);
+  assert.equal((await h.db.query("select count(*)::int n from platform_private.audit_events where action='APPLICATION_SUBMITTED'")).rows[0].n,1);
   assert.match(d.querySelector('#onboardingJourney')?.textContent||'',/送出申請/);
   assert.match(d.querySelector('#applicationNextStep')?.textContent||'',/總管理員/);
   assert.equal(d.querySelector('#applicationForm').hidden,true);assert.equal(d.querySelector('#merchantWorkspace').hidden,true);

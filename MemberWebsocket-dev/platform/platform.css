@@ -2,7 +2,6 @@
 
 #applicationWorkspace,#merchantWorkspace{max-width:850px;margin:32px auto}#applicationProgress{margin-top:22px}#applicationForm,#merchantLineForm{background:#fff;border:1px solid #dbe2d8;border-radius:16px;padding:22px}#approvalDialog{max-width:680px}#approvalMessage,#applicationMessage,#merchantMessage{min-height:1.7em}#merchantFeatures{margin:14px 0}#applicationList .tenant-card{min-width:0}#applicationList .tenant-card footer{flex-wrap:wrap}@media(max-width:650px){#applicationForm,#merchantLineForm{padding:16px}}
 
-.login-gate{max-width:640px;margin:28px auto;padding:28px;border:1px solid #dbe2d8;border-radius:16px;background:#fff}.login-gate h2{margin-top:0}.login-gate button{margin-top:12px}.login-gate p.hint{margin-bottom:0}
 
 /* Approved merchant functions are presented as separate LINE configuration pages. */
 .merchant-feature-nav{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0 24px}
@@ -45,3 +44,10 @@
 #merchantWorkspace .merchant-workspace-tabs button{background:#e8eee7;color:#204735;border:1px solid #c5d4c7;min-height:44px}
 #merchantWorkspace .merchant-workspace-tabs button[aria-selected="true"]{background:#1e5941;color:#fff;border-color:#1e5941}
 #merchantWorkspace .merchant-workspace-tabs button[hidden]{display:none!important}
+
+/* Pending LINE accounts see only the approval status, without a login card. */
+#platformAuthorizationNotice{max-width:none;border:0;background:transparent;border-radius:0;padding:48px 0;text-align:center;margin:0}
+#platformAuthorizationNotice h2{margin:0;color:#20352d}
+
+/* Account-level qualification and independent merchant applications. */
+.account-workspace{margin:32px auto;max-width:100%;min-width:0}.account-workspace>p[role="status"]{font-weight:650}#merchantApplicationForm{padding:24px;border:1px solid #dbe2d8;border-radius:16px;background:white}#myMerchantList .tenant-card{min-width:0}#myMerchantList footer,#qualificationList footer,#applicationList footer{flex-wrap:wrap;align-items:center}#myMerchantList footer a,.business-switch{display:inline-block;min-height:44px;padding:12px 4px}#v2ReviewDialog{max-width:680px}textarea{font:inherit;display:block;width:100%;max-width:100%;min-height:100px;border:1px solid #bfcdbf;border-radius:8px;padding:12px;color:inherit;background:#fff;resize:vertical}textarea:focus-visible{outline:3px solid #bd8b26;outline-offset:3px}.form-actions{gap:12px}#qualificationReason,#qualificationStatus,#v2ReviewDescription,#v2ReviewMessage{overflow-wrap:anywhere}@media(max-width:650px){#merchantApplicationForm{padding:16px}.tenant-card footer{flex-wrap:wrap}.form-actions{flex-wrap:wrap}.account-workspace .workspace-heading button{width:100%}.tenant-card{padding:18px}}

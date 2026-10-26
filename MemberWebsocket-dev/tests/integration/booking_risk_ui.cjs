@@ -1,9 +1,9 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),{JSDOM}=require('jsdom'),fs=require('node:fs'),path=require('node:path');
 test('AC-RISK-UX-004: failed action preserves reason and can retry; all writes are locked while pending',async()=>{
- const dom=new JSDOM('<main></main>',{runScripts:'outside-only'}),w=dom.window;
+ const dom=new JSDOM('<main></main>',{runScripts:'outside-only'}),w=dom.window;w.confirm=()=>true;
  try{
   w.eval(fs.readFileSync(path.resolve(__dirname,'../../admin/booking-risk.js'),'utf8'));
-  let rejectRequest;const calls=[],data={policy:{enabled:false,version:1},events:[{booking_id:'synthetic-id',member_code:'SYNTHETIC',occurred_at:'2026-01-01T00:00:00Z'}],restrictions:[{id:'synthetic-restriction',ends_at:'2099-01-01T00:00:00Z'}]};
+  let rejectRequest;const calls=[],data={policy:{enabled:false,version:1},events:[{booking_id:'synthetic-id',member_code:'SYNTHETIC',occurred_at:'2026-01-01T00:00:00Z'}],restrictions:[{id:'synthetic-restriction',starts_at:'2026-01-01T00:00:00Z',ends_at:'2099-01-01T00:00:00Z'}]};
   w.BookingRiskSettings.mount(w.document.querySelector('main'),{data,request:(action,body)=>{calls.push({action,body});return new Promise((_resolve,reject)=>{rejectRequest=reject;});}});
   const reason=[...w.document.querySelectorAll('label')].find(label=>label.textContent.includes('撤銷／解除／回覆原因')).querySelector('input');reason.value='核對後撤銷';
   const revoke=[...w.document.querySelectorAll('button')].find(b=>b.textContent==='撤銷誤判'),release=[...w.document.querySelectorAll('button')].find(b=>b.textContent==='人工解除');
@@ -15,7 +15,7 @@ test('AC-RISK-UX-004: failed action preserves reason and can retry; all writes a
  }finally{w.close();}
 });
 test('AC-173 UI: blank policy remains off; enabling requires chosen values and reasons are required for revocation',async()=>{
- const dom=new JSDOM('<main></main>',{runScripts:'outside-only'}),w=dom.window;
+ const dom=new JSDOM('<main></main>',{runScripts:'outside-only'}),w=dom.window;w.confirm=()=>true;
  try{
   w.eval(fs.readFileSync(path.resolve(__dirname,'../../admin/booking-risk.js'),'utf8'));
   const calls=[],data={policy:{enabled:false,appeal_enabled:true,version:1},events:[{booking_id:'synthetic-id',member_code:'SYNTHETIC',occurred_at:'2026-01-01T00:00:00Z'}]};

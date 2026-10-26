@@ -1,5 +1,5 @@
 // Shared, server-side product control contract. No credentials belong in responses.
-import { merchantOnboarding } from './merchant-onboarding.mjs';
+import { merchantOnboarding, featureLineReady } from './merchant-onboarding.mjs';
 import { tenantExpired } from './tenant-access.mjs';
 export const FEATURES = Object.freeze({
   membership: '會員卡', points: '集點卡', events: '活動票券', calendar: '營運日曆',
@@ -13,7 +13,7 @@ const text = (value, name, max, required = true) => {
   if (typeof value !== 'string' || value.length > max || (required && !value.trim())) invalid(`${name}格式不正確。`);
   return value.trim();
 };
-export function validateTenant(input, creating = true, { allowIncompleteFeatureLiffs = false } = {}) {
+export function validateTenant(input, creating = true, { allowIncompleteFeatureLiffs = false, liffFeature = null } = {}) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) invalid('商家資料格式不正確。');
   const allowed = ['name', 'slug', 'ownerLineUserId', 'features', 'line', 'credentials'];
   if (Object.keys(input).some(k => !allowed.includes(k))) invalid('含有不允許修改的欄位。');
@@ -32,13 +32,13 @@ export function validateTenant(input, creating = true, { allowIncompleteFeatureL
   if (!line || typeof line !== 'object' || Array.isArray(line) || Object.keys(line).some(k => !lineKeys.includes(k))) invalid('LINE 設定格式不正確。');
   const normalized = {};
   for (const k of ['adminChannelId','memberChannelId','messagingChannelId']) {
-    normalized[k] = text(line[k], k, 30);
-    if (!/^\d{5,30}$/.test(normalized[k])) invalid(`${k} 必須是有效 Channel ID。`);
+    normalized[k] = text(line[k] ?? '', k, 30, k !== 'messagingChannelId' || liffFeature === null);
+    if (normalized[k] && !/^\d{5,30}$/.test(normalized[k])) invalid(`${k} 必須是有效 Channel ID。`);
   }
   const required = { admin: true, member: !allowIncompleteFeatureLiffs && features.membership, points: !allowIncompleteFeatureLiffs && features.points, event: !allowIncompleteFeatureLiffs && features.events, calendar: !allowIncompleteFeatureLiffs && features.calendar, booking: !allowIncompleteFeatureLiffs && features.booking };
   for (const [surface, needed] of Object.entries(required)) {
     const k = `${surface}LiffId`;
-    normalized[k] = text(line[k] ?? '', k, 100, needed);
+    normalized[k] = text(line[k] ?? '', k, 100, needed || ({membership:'member',points:'points',events:'event',calendar:'calendar',booking:'booking'}[liffFeature] === surface));
     const channel = normalized[surface === 'admin' ? 'adminChannelId' : 'memberChannelId'];
     if (normalized[k] && (!/^\d{5,30}-[A-Za-z0-9_-]+$/.test(normalized[k]) || !normalized[k].startsWith(`${channel}-`))) invalid(`${k} 與 Channel ID 不一致。`);
   }
@@ -49,6 +49,7 @@ export function validateTenant(input, creating = true, { allowIncompleteFeatureL
   const channelSecret = text(credentials.channelSecret ?? '', 'Channel secret', 128, creating);
   if ((channelAccessToken && (channelAccessToken.length < 20 || /\s/.test(channelAccessToken)))
     || (channelSecret && !/^[a-fA-F0-9]{32}$/.test(channelSecret))) invalid('LINE 憑證格式不正確。');
+  if (channelAccessToken && !normalized.messagingChannelId) invalid('請提供憑證所屬的 Messaging API Channel ID。');
   if (Boolean(channelAccessToken) !== Boolean(channelSecret)) invalid('更新憑證時請同時提供 access token 與 secret。');
   return { name, slug, ownerLineUserId, features: Object.fromEntries(Object.keys(FEATURES).map(k => [k, features[k]])), line: normalized, credentials: { channelAccessToken, channelSecret } };
 }
@@ -71,7 +72,7 @@ export function publicTenant(row) {
     features: row.features, line: row.line_config, status: row.status, version: row.version,
     expiresAt:row.expires_at || null, expired, accessRevokedBefore:row.access_revoked_before || null,
     credentialsConfigured: row.credentials_configured === true,
-    ...(row.module_line!==undefined?{moduleLine:Object.fromEntries(Object.entries(row.module_line).filter(([key])=>row.features?.[key]===true).map(([key,value])=>[key,{line:value.line||{},credentialsConfigured:value.credentialsConfigured===true,
+    ...(row.module_line!==undefined?{moduleLine:Object.fromEntries(Object.entries(row.module_line).filter(([key])=>row.features?.[key]===true).map(([key,value])=>[key,{line:value.line||{},credentialsConfigured:value.credentialsConfigured===true,liffReady:featureLineReady(key,{...row.line_config,...value.line}),
       notifications:Object.fromEntries(Object.entries(value.notifications||{}).filter(([purpose])=>['admin','member'].includes(purpose)).map(([purpose,route])=>[purpose,{mode:route.mode,channelId:route.channelId||null,verifiedAt:route.verifiedAt||null}]))}]))}:{}),
     onboarding: merchantOnboarding({status:row.status,features:row.features,line:row.line_config,
       credentialsConfigured:row.credentials_configured === true,runtimeReady:dataPlaneVerified,expires_at:row.expires_at}),

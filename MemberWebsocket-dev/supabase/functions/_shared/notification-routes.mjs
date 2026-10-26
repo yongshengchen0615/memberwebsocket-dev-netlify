@@ -1,7 +1,7 @@
 import { PlatformError } from './platform-policy.mjs';
 export const notificationPurposes = feature => feature === 'booking' ? ['admin','member'] : ['member'];
 export function validateNotificationRoute(body) {
-  if (!['membership','points','events','calendar','booking'].includes(body.feature)
+  if (!['membership','points','events','booking'].includes(body.feature)
     || !notificationPurposes(body.feature).includes(body.purpose)
     || !['inherit','custom','disabled'].includes(body.mode))
     throw new PlatformError(400,'INVALID_NOTIFICATION_ROUTE','通知功能、用途或模式不正確。');

@@ -146,3 +146,7 @@ deno test MemberWebsocket-dev/supabase/functions/_shared/*_test.ts MemberWebsock
 `待規劃 → 準備開始 → 開發中 → 程式碼審查 → QA / E2E → 等待部署 → 觀察中 → 已完成`；`已阻塞` 為未完成工作可進入的獨立狀態。這些是 Project #5 實際 Status 選項，不能把英文舊名稱當成可寫入的欄位值。詳細進出條件依 [#39](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/issues/39)。PR 合併不等於 QA；Preview deployed 不等於 Production deployed；沒有實測就不標已完成。
 
 **固定交付報告**：本輪結果（已驗證完成／驗證失敗／部分完成且受阻） → 第一性原理摘要 → 變更檔案與影響 → AC 對照 → 測試報告（命令、環境、SHA、時間、pass/fail/skip、CI/log URL） → 已知問題 → 執行／回復 → 下一步。只填實際取得的證據。
+
+## V2 與 R01–R10 的關係（2026-10-26）
+
+`AGENTS.md` 是 AI/開發者的十條操作摘要；本文件維持商家隔離、安全、完整 CI、回復與驗收的技術細則。PR #131 的 L0–L3 分類只有**路徑風險下限**，人工可以上調風險，不得下調；正式系統前後端部署、資料庫與 LINE 皆須依既有 #33/#34/#35/#36/#40/#47 的獨立驗收 Gate。規則文本不能取代實際執行結果。

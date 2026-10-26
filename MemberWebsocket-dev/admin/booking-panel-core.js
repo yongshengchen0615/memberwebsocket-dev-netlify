@@ -29,7 +29,11 @@
     accessiblePendingCount: 0,
     latestNotificationId: 0,
     bookingRenderSignatures: new Map(),
+    settingsBaseline: null,
+    settingsDraftVersion: '',
+    settingsDirty: false,
   };
+  const SETTINGS_INPUT_IDS = ['bookingAdminStartTime','bookingAdminEndTime','bookingAdminSlotInterval','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminStoreServiceMinutes','bookingAdminReminderEnabled','bookingAdminSnapshotLocationRequired','bookingAdminReminderTime','bookingAdminNotice'];
   const els = {};
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
@@ -64,7 +68,7 @@
     panel.setAttribute('aria-labelledby', 'bookingTab');
     panel.innerHTML = `
       <div class="panel-heading booking-admin-heading">
-        <div><p class="kicker">Booking operations</p><h2>預約管理</h2><p>技師、預約項目、共用設定與用戶預約分頁管理，降低單頁資訊密度。</p></div>
+        <div><p class="kicker">Booking operations</p><h2>預約管理</h2><p>技師、預約項目、共用設定、爽約限制與用戶預約分頁管理，依工作任務快速找到設定。</p></div>
         <div class="heading-actions"><span id="bookingAdminSyncStatus" class="sync-status">尚未同步</span></div>
       </div>
 
@@ -75,10 +79,11 @@
         <div><span>已確認</span><strong id="bookingAdminConfirmedCount">0</strong><small>已確認的一般預約</small></div>
       </section>
 
-      <nav class="booking-admin-filter booking-admin-subtabs" role="tablist" aria-label="預約管理分類">
+      <nav id="bookingAdminSubtabs" class="booking-admin-filter booking-admin-subtabs" role="tablist" aria-label="預約管理分類">
         <button id="bookingAdminTechniciansSubtab" class="booking-admin-filter-button active" type="button" role="tab" aria-selected="true" aria-controls="bookingAdminTechniciansPanel">技師設定</button>
         <button id="bookingAdminServicesSubtab" class="booking-admin-filter-button" type="button" role="tab" aria-selected="false" aria-controls="bookingAdminServicesPanel">預約項目</button>
         <button id="bookingAdminSettingsSubtab" class="booking-admin-filter-button" type="button" role="tab" aria-selected="false" aria-controls="bookingAdminSettingsPanel">預約共用設定</button>
+        <button id="bookingAdminRiskSubtab" class="booking-admin-filter-button" type="button" role="tab" aria-selected="false" aria-controls="bookingAdminRiskPanel">爽約與預約限制</button>
         <button id="bookingAdminQueueSubtab" class="booking-admin-filter-button" type="button" role="tab" aria-selected="false" aria-controls="bookingAdminQueuePanel">用戶預約<span id="bookingAdminQueueSubtabCount"></span></button>
       </nav>
 
@@ -182,12 +187,23 @@
             </div>
             <div id="bookingAdminSettingsMessage" class="form-message hidden" role="status" aria-live="polite"></div>
             <div class="booking-admin-settings-actions">
-              <p><strong>儲存後立即套用</strong><span>這些設定會套用到所有預約項目，不需逐項調整。</span></p>
-              <button id="bookingAdminSaveSettingsButton" class="button button-dark" type="submit">儲存預約與票券設定</button>
+              <p><strong>儲存後立即套用</strong><span>這些設定會套用到所有預約項目，不需逐項調整。</span><span id="bookingAdminDraftStatus" class="booking-admin-settings-draft-status" role="status" aria-live="polite">設定載入中…</span></p>
+              <div class="booking-admin-settings-action-buttons">
+                <button id="bookingAdminDiscardSettingsButton" class="button button-outline" type="button" disabled>還原未儲存變更</button>
+                <button id="bookingAdminSaveSettingsButton" class="button button-dark" type="submit">儲存預約與票券設定</button>
+              </div>
             </div>
           </form>
         </section>
 
+        <section id="bookingAdminRiskPanel" class="booking-admin-card booking-admin-risk-panel hidden" role="tabpanel" aria-labelledby="bookingAdminRiskSubtab">
+          <div class="booking-admin-risk-intro">
+            <div><p class="kicker">Booking eligibility</p><h3>爽約與線上預約限制</h3><p>集中管理爽約累計、線上預約資格、人工解除與會員申覆。</p></div>
+            <button id="bookingAdminRiskOpenAdvanceSettings" type="button" class="button button-outline" aria-describedby="bookingAdminRiskAdvanceHint">查看提前預約設定</button>
+          </div>
+          <p id="bookingAdminRiskAdvanceHint" class="booking-admin-risk-note">提前預約天數與最遠可預約日期仍在「預約共用設定」；本頁爽約政策只限制新的線上預約。</p>
+          <div id="bookingAdminRiskMount" class="booking-admin-risk-mount"></div>
+        </section>
         <section id="bookingAdminQueuePanel" class="booking-admin-card booking-admin-operations-panel hidden" role="tabpanel" aria-labelledby="bookingAdminQueueSubtab">
           <div class="booking-admin-section-heading booking-admin-operations-heading">
             <div><p class="kicker">Booking operations</p><h3>預約處理</h3><p>一般預約與快照收據採不同審核流程，請先選擇要處理的工作類型。</p></div>
@@ -248,9 +264,9 @@
 
   function cacheElements() {
     [
-      'bookingTab','bookingPanel','bookingAdminSyncStatus','bookingAdminSettingsForm','bookingAdminStartTime','bookingAdminEndTime','bookingAdminSlotInterval','bookingAdminHoursPreview','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminStoreServiceMinutes','bookingAdminReminderEnabled','bookingAdminSnapshotLocationRequired','bookingAdminReminderTime','bookingAdminNotice','bookingAdminSettingsMessage','bookingAdminSaveSettingsButton',
+      'bookingTab','bookingPanel','bookingAdminSyncStatus','bookingAdminSettingsForm','bookingAdminStartTime','bookingAdminEndTime','bookingAdminSlotInterval','bookingAdminHoursPreview','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminStoreServiceMinutes','bookingAdminReminderEnabled','bookingAdminSnapshotLocationRequired','bookingAdminReminderTime','bookingAdminNotice','bookingAdminSettingsMessage','bookingAdminDraftStatus','bookingAdminDiscardSettingsButton','bookingAdminSaveSettingsButton',
       'bookingAdminNewTypeButton','bookingAdminTypeMessage','bookingAdminTypeList','bookingAdminTypeEmpty','bookingAdminServiceCount','bookingAdminPendingCount','bookingAdminAccessiblePendingCount','bookingAdminConfirmedCount',
-      'bookingAdminTechniciansSubtab','bookingAdminServicesSubtab','bookingAdminSettingsSubtab','bookingAdminQueueSubtab','bookingAdminQueueSubtabCount','bookingAdminTechniciansPanel','bookingAdminServicesPanel','bookingAdminSettingsPanel','bookingAdminQueuePanel','bookingAdminStandardMode','bookingAdminAccessibleMode','bookingAdminStandardModeCount','bookingAdminAccessibleModeCount','bookingAdminStandardQueueView','bookingAdminNewServiceButton','bookingAdminBatchAddButton','bookingAdminBatchEditButton','bookingAdminBatchDeleteButton','bookingAdminServiceMessage','bookingAdminServiceList','bookingAdminServiceEmpty','bookingAdminQueue','bookingAdminQueueEmpty',
+      'bookingAdminSubtabs','bookingAdminTechniciansSubtab','bookingAdminServicesSubtab','bookingAdminSettingsSubtab','bookingAdminRiskSubtab','bookingAdminRiskPanel','bookingAdminRiskMount','bookingAdminRiskOpenAdvanceSettings','bookingAdminQueueSubtab','bookingAdminQueueSubtabCount','bookingAdminTechniciansPanel','bookingAdminServicesPanel','bookingAdminSettingsPanel','bookingAdminQueuePanel','bookingAdminStandardMode','bookingAdminAccessibleMode','bookingAdminStandardModeCount','bookingAdminAccessibleModeCount','bookingAdminStandardQueueView','bookingAdminNewServiceButton','bookingAdminBatchAddButton','bookingAdminBatchEditButton','bookingAdminBatchDeleteButton','bookingAdminServiceMessage','bookingAdminServiceList','bookingAdminServiceEmpty','bookingAdminQueue','bookingAdminQueueEmpty',
       'bookingAdminCrudModal','bookingAdminCrudModalTitle','bookingAdminCrudModalBody','bookingAdminCrudModalClose'
     ].forEach((id) => { els[id] = document.getElementById(id); });
   }
@@ -259,12 +275,36 @@
     els.bookingTab.addEventListener('click', activateBookingPanel);
     PRIMARY_TAB_IDS.forEach((id) => document.getElementById(id)?.addEventListener('click', deactivateBookingPanel));
     els.bookingAdminSettingsForm.addEventListener('submit', saveSettings);
+    els.bookingAdminSettingsForm.addEventListener('input', (event) => { if (SETTINGS_INPUT_IDS.includes(event.target?.id)) updateSettingsDraft(); });
+    els.bookingAdminSettingsForm.addEventListener('change', (event) => { if (SETTINGS_INPUT_IDS.includes(event.target?.id)) updateSettingsDraft(); });
+    els.bookingAdminDiscardSettingsButton.addEventListener('click', () => {
+      if (state.busy || !state.settingsDirty) return;
+      renderSettings(true);
+      showMessage(els.bookingAdminSettingsMessage, '已還原至目前伺服器設定；未儲存的更改已捨棄。', 'success');
+    });
+    const snapshotRows = document.getElementById('bookingAdminSnapshotLocationRows');
+    if (snapshotRows) new MutationObserver(() => updateSettingsDraft()).observe(snapshotRows, { childList: true, subtree: true });
     window.TicketLocationEditors?.snapshot?.init();
     ['bookingAdminStartTime','bookingAdminEndTime','bookingAdminSlotInterval'].forEach((id) => els[id].addEventListener('input', renderHoursPreview));
     els.bookingAdminNewTypeButton.addEventListener('click', () => openTypeModal(null));
     els.bookingAdminTechniciansSubtab.addEventListener('click', () => setSubtab('technicians'));
     els.bookingAdminServicesSubtab.addEventListener('click', () => setSubtab('services'));
     els.bookingAdminSettingsSubtab.addEventListener('click', () => setSubtab('settings'));
+    els.bookingAdminRiskSubtab.addEventListener('click', () => setSubtab('risk'));
+    els.bookingAdminRiskOpenAdvanceSettings.addEventListener('click', () => {
+      setSubtab('settings');
+      els.bookingAdminAdvanceDays.focus();
+    });
+    els.bookingAdminSubtabs.addEventListener('keydown', (event) => {
+      const tabs = [els.bookingAdminTechniciansSubtab, els.bookingAdminServicesSubtab, els.bookingAdminSettingsSubtab, els.bookingAdminRiskSubtab, els.bookingAdminQueueSubtab];
+      const index = tabs.indexOf(document.activeElement);
+      if (index < 0 || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1
+        : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+      tabs[next].click();
+      tabs[next].focus();
+    });
     els.bookingAdminQueueSubtab.addEventListener('click', () => setSubtab('queue'));
     els.bookingAdminStandardMode.addEventListener('click', () => setQueueMode('standard'));
     els.bookingAdminAccessibleMode.addEventListener('click', () => setQueueMode('accessible'));
@@ -298,12 +338,13 @@
   }
 
   function setSubtab(subtab) {
-    const allowed = ['technicians', 'services', 'settings', 'queue'];
+    const allowed = ['technicians', 'services', 'settings', 'risk', 'queue'];
     state.subtab = allowed.includes(subtab) ? subtab : 'technicians';
     const tabs = {
       technicians: [els.bookingAdminTechniciansSubtab, els.bookingAdminTechniciansPanel],
       services: [els.bookingAdminServicesSubtab, els.bookingAdminServicesPanel],
       settings: [els.bookingAdminSettingsSubtab, els.bookingAdminSettingsPanel],
+      risk: [els.bookingAdminRiskSubtab, els.bookingAdminRiskPanel],
       queue: [els.bookingAdminQueueSubtab, els.bookingAdminQueuePanel],
     };
     Object.entries(tabs).forEach(([key, pair]) => {
@@ -311,6 +352,7 @@
       const active = key === state.subtab;
       tab?.classList.toggle('active', active);
       tab?.setAttribute('aria-selected', String(active));
+      if (tab) tab.tabIndex = active ? 0 : -1;
       panel?.classList.toggle('hidden', !active);
     });
     if (state.subtab === 'queue') setQueueMode(state.queueMode);
@@ -538,7 +580,7 @@
       const selectionChanged = [...state.selected].sort().join('|') !== [...nextSelected].sort().join('|');
 
       state.booking = nextBooking;
-      window.BookingRiskSettings?.mount(els.bookingAdminSettingsPanel,{data:state.booking.noShowRisk,request:(action,body)=>bookingRequest('admin.booking.risk.'+action,body,action!=='get')});
+      window.BookingRiskSettings?.mount(els.bookingAdminRiskMount,{data:state.booking.noShowRisk,request:bookingRiskRequest});
       state.catalog = nextCatalog;
       state.selected = nextSelected;
       if (catalogChanged) {
@@ -622,9 +664,35 @@
   }
 
   function renderAll() { renderSettings(); renderTypes(); renderServices(); renderStats(); renderBookings(); }
-  function renderSettings() {
+  function currentSettingsSignature() {
+    return JSON.stringify({
+      fields: SETTINGS_INPUT_IDS.map((id) => {
+        const input = els[id];
+        return input?.type === 'checkbox' ? Boolean(input.checked) : String(input?.value || '');
+      }),
+      locations: window.TicketLocationEditors?.snapshot?.get?.() || [],
+    });
+  }
+  function updateSettingsDraft() {
+    if (state.settingsBaseline === null || !els.bookingAdminDraftStatus) return;
+    state.settingsDirty = currentSettingsSignature() !== state.settingsBaseline;
+    els.bookingAdminDiscardSettingsButton.disabled = state.busy || !state.settingsDirty;
+    if (!state.busy) {
+      const serverVersion = String(state.booking.settings?.updatedAt || '');
+      els.bookingAdminDraftStatus.textContent = state.settingsDirty
+        ? (serverVersion !== state.settingsDraftVersion
+          ? '伺服器已有新版設定；本頁草稿已保留。請先記下變更並重新載入，避免覆寫他人修改。'
+          : '有未儲存的變更，離開前請儲存或還原。')
+        : '目前設定已載入，尚未修改。';
+    }
+  }
+  function renderSettings(force = false) {
     const settings = state.booking.settings || {};
-    window.BookingRiskSettings?.mount(els.bookingAdminSettingsPanel,{data:state.booking.noShowRisk,request:(action,body)=>bookingRequest('admin.booking.risk.'+action,body,action!=='get')});
+    window.BookingRiskSettings?.mount(els.bookingAdminRiskMount,{data:state.booking.noShowRisk,request:bookingRiskRequest});
+    if (state.settingsDirty && !force) {
+      updateSettingsDraft();
+      return;
+    }
     els.bookingAdminStartTime.value = String(settings.workStartTime || '09:00');
     els.bookingAdminEndTime.value = String(settings.workEndTime || '17:00');
     els.bookingAdminSlotInterval.value = String(Number(settings.slotIntervalMinutes || 30));
@@ -637,6 +705,10 @@
     window.TicketLocationEditors?.snapshot?.set(Array.isArray(settings.snapshotLocations) ? settings.snapshotLocations : []);
     els.bookingAdminReminderTime.value = String(settings.reminderTime || '18:00');
     renderHoursPreview();
+    state.settingsBaseline = currentSettingsSignature();
+    state.settingsDraftVersion = String(settings.updatedAt || '');
+    state.settingsDirty = false;
+    updateSettingsDraft();
   }
   function renderHoursPreview() {
     const start = els.bookingAdminStartTime.value;
@@ -739,6 +811,13 @@
     const snapshotLocations = window.TicketLocationEditors?.snapshot?.get() || [];
     if (els.bookingAdminSnapshotLocationRequired.checked && !snapshotLocations.length) return showMessage(els.bookingAdminSettingsMessage, '請先新增至少一個快照允許地點，才能啟用定位限制。', 'error');
     state.busy = true; clearMessage(els.bookingAdminSettingsMessage);
+    const previousDisabled = new Map([...els.bookingAdminSettingsForm.querySelectorAll('input,select,textarea,button')].map((control) => [control, control.disabled]));
+    for (const control of previousDisabled.keys()) control.disabled = true;
+    els.bookingAdminSettingsForm.setAttribute('aria-busy', 'true');
+    els.bookingAdminSaveSettingsButton.disabled = true;
+    els.bookingAdminSaveSettingsButton.textContent = '儲存中…';
+    els.bookingAdminDiscardSettingsButton.disabled = true;
+    els.bookingAdminDraftStatus.textContent = '正在儲存，請勿重複送出。';
     try {
       const result = await manageRequest('admin.booking.settings.save', {
         workStartTime: els.bookingAdminStartTime.value,
@@ -752,12 +831,27 @@
         snapshotLocationRequired: els.bookingAdminSnapshotLocationRequired.checked,
         snapshotLocations,
         reminderTime,
-        expectedUpdatedAt: state.booking.settings?.updatedAt || '',
+        expectedUpdatedAt: state.settingsDraftVersion,
       }, true);
-      state.booking.settings = result.settings || state.booking.settings;
-      renderSettings(); showMessage(els.bookingAdminSettingsMessage, '預約與票券共用設定已儲存。', 'success');
-    } catch (error) { showMessage(els.bookingAdminSettingsMessage, error?.message || '儲存失敗。', 'error'); }
-    finally { state.busy = false; }
+      if (!result.settings || !result.settings.updatedAt) throw clientError('API_RESPONSE_UNCERTAIN', '儲存回應缺少可確認的版本；請重新載入核對後再操作。');
+      state.booking.settings = result.settings;
+      renderSettings(true);
+      showMessage(els.bookingAdminSettingsMessage, '預約與票券共用設定已儲存。', 'success');
+    } catch (error) {
+      const conflict = /CONFLICT|STALE_VERSION|VERSION_MISMATCH/i.test(String(error?.code || ''));
+      const uncertain = error?.code === 'API_RESPONSE_UNCERTAIN';
+      showMessage(els.bookingAdminSettingsMessage, conflict
+        ? '設定版本已變更，未儲存草稿仍保留。請先記下變更，再重新載入比較，勿直接覆寫。'
+        : uncertain ? '無法確認這次是否已儲存；目前輸入仍保留。請重新載入核對結果，避免重複送出。'
+          : error?.message || '儲存失敗；目前輸入仍保留。', 'error');
+    } finally {
+      state.busy = false;
+      for (const [control, disabled] of previousDisabled) control.disabled = disabled;
+      els.bookingAdminSettingsForm.removeAttribute('aria-busy');
+      els.bookingAdminSaveSettingsButton.disabled = false;
+      els.bookingAdminSaveSettingsButton.textContent = '儲存預約與票券設定';
+      updateSettingsDraft();
+    }
   }
 
   function openTypeModal(type) {
@@ -1332,7 +1426,7 @@
         }
         actions.append(actionButton('修改預約票券', 'button button-outline', () => openBookingBenefitsModal(booking)));
         if (booking.status === 'pending' || booking.status === 'confirmed') {
-          const reason = noShowUnavailableReason(booking);
+          const reason = noShowUnavailableReason(booking, state.booking.noShowRisk?.policy);
           const visibleReason = noShowDisplayReason(reason);
           const noShow = actionButton('無故未到', 'button button-danger', () => openNoShow(booking, textarea.value));
           noShow.dataset.noShowId=bookingId; noShow.disabled = Boolean(reason); noShow.title = visibleReason;
@@ -1739,11 +1833,17 @@
     showModal();
   }
 
+  async function bookingRiskRequest(action, body) {
+    const result = await bookingRequest('admin.booking.risk.'+action, body, action !== 'get');
+    if (result?.policy) { state.booking.noShowRisk = result; updateNoShowButtons(); }
+    return result;
+  }
+
   function updateNoShowButtons() {
     for(const button of document.querySelectorAll('[data-no-show-id]')) {
       const booking=state.booking.bookings.find(b=>String(b.bookingId)===button.dataset.noShowId);
       if(!booking) continue;
-      const reason=noShowUnavailableReason(booking);
+      const reason=noShowUnavailableReason(booking, state.booking.noShowRisk?.policy);
       const visibleReason=noShowDisplayReason(reason);
       button.disabled=Boolean(reason)||state.busy;button.title=visibleReason;
       button.setAttribute('aria-label',visibleReason ? `無故未到：${visibleReason}` : '無故未到');
@@ -1756,21 +1856,24 @@
     return reason === NO_SHOW_EARLY_REASON ? '' : reason;
   }
 
-  function noShowUnavailableReason(booking) {
+  function noShowUnavailableReason(booking, policy = {}) {
     if (booking.receiptSubmissionId || String(booking.requestId || '').startsWith('receipt-register:')) return '快照請使用獨立審核流程。';
     if (!['pending', 'confirmed'].includes(booking.status)) return '只有待確認或已確認的一般預約可標記。';
     if (booking.cancellationRequestedAt && !booking.cancellationReviewedAt) return '請先處理取消申請。';
     const raw = String(booking.endAt || '');
     const end = Date.parse(/(?:Z|[+-]\d{2}:?\d{2})$/.test(raw) ? raw : `${raw}+08:00`);
     if (!raw || !Number.isFinite(end)) return '缺少有效服務結束時間，請先核對排程。';
-    return end >= Date.now() ? NO_SHOW_EARLY_REASON : '';
+    const grace = policy.enabled && Number.isInteger(policy.grace_minutes) && policy.grace_minutes >= 0 ? policy.grace_minutes : 0;
+    return end + grace * 60000 >= Date.now() ? grace > 0 ? `服務結束與 ${grace} 分鐘寬限後才能標記無故未到。` : NO_SHOW_EARLY_REASON : '';
   }
 
   function openNoShow(booking, adminNote) {
-    const reason = noShowUnavailableReason(booking);
+    const reason = noShowUnavailableReason(booking, state.booking.noShowRisk?.policy);
     if (reason) { showMessage(els.bookingAdminServiceMessage, reason, 'error'); return; }
     els.bookingAdminCrudModalTitle.textContent = '確認標記無故未到';
-    els.bookingAdminCrudModalBody.innerHTML = `<form class="booking-admin-form"><p>${escapeHtml(booking.memberDisplayName || '會員')} · ${escapeHtml(booking.memberCode || '')}</p><p>${escapeHtml(booking.startAt || '')}–${escapeHtml(booking.endAt || '')}</p><p>確認此會員未到場？此操作不核銷票券、不扣點、不計入違規；僅解除本筆未使用票券的保留。</p><label><input type="checkbox" required> 我已人工核對，確認這筆預約無故未到。</label><div data-modal-message class="form-message hidden"></div><div class="booking-admin-modal-actions"><button data-cancel type="button" class="button button-outline">返回</button><button type="submit" class="button button-danger">確認標記無故未到</button></div></form>`;
+    const policy = state.booking.noShowRisk?.policy;
+    const impact = policy?.enabled ? `爽約會依目前政策計次；服務結束後須經 ${Number(policy.grace_minutes) || 0} 分鐘寬限，達門檻時限制新的線上預約。` : '爽約政策目前停用；保留這筆爽約紀錄，不依政策執行限制。';
+    els.bookingAdminCrudModalBody.innerHTML = `<form class="booking-admin-form"><p>${escapeHtml(booking.memberDisplayName || '會員')} · ${escapeHtml(booking.memberCode || '')}</p><p>預約：${escapeHtml(booking.bookingId || '')}</p><p>${escapeHtml(booking.startAt || '')}–${escapeHtml(booking.endAt || '')}（台北）</p><p>確認此會員未到場？此操作不核銷票券、不扣點；僅解除本筆未使用票券的保留。</p><p>${escapeHtml(impact)}</p><label><input type="checkbox" required> 我已人工核對，確認這筆預約無故未到。</label><div data-modal-message class="form-message hidden"></div><div class="booking-admin-modal-actions"><button data-cancel type="button" class="button button-outline">返回</button><button type="submit" class="button button-danger">確認標記無故未到</button></div></form>`;
     const form = els.bookingAdminCrudModalBody.querySelector('form');
     form.querySelector('[data-cancel]').addEventListener('click', closeModal);
     form.addEventListener('submit', async e => {

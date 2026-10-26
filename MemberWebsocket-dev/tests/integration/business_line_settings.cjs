@@ -42,11 +42,18 @@ test('AC-302/303/304: LINE settings tab owns module forms, isolated saves, modul
   assert.equal(calls.filter(c=>c.action==='platform.line.save')[0].requestId,calls.filter(c=>c.action==='platform.line.save')[1].requestId);
   assert.equal((await h.db.query("select count(*)::int n from platform_private.audit_events where action='MODULE_LINE_UPDATED'")).rows[0].n,1);
   assert.equal(points.elements.pointsLiffId.value,'2010787602-unsaved');assert.equal(member.elements.channelAccessToken.value,'');assert.equal(member.elements.channelSecret.value,'');
+  assert.equal(d.querySelector('#businessLineIdentity-membership').hidden,true,'shared Login identity must disappear after initial setup');
+  assert.equal(d.querySelector('#businessLineIdentity-points').hidden,true,'other modules must not repeat business Login inputs');
+  assert.equal(points.elements.adminChannelId.disabled,true,'shared Login identity must not be editable from another feature');
+  fill(points,'memberChannelId','2099999999');
+  fill(points,'pointsLiffId','2099999999-unsaved');
   fill(points,'channelAccessToken','synthetic-points-token-123456789');fill(points,'channelSecret','b'.repeat(32));
   points.dispatchEvent(new w.Event('submit',{cancelable:true}));
   await until(()=>d.querySelector('[data-business-line-feature="points"] [role="status"]').textContent.includes('已儲存'));
   const saved=(await h.db.query('select module_line from platform_private.tenants')).rows[0].module_line;
-  assert.equal(saved.membership.line.memberLiffId,line.memberLiffId);assert.equal(saved.points.line.pointsLiffId,'2010787602-unsaved');
+  assert.equal(saved.membership.line.memberLiffId,line.memberLiffId);assert.equal(saved.points.line.pointsLiffId,'2099999999-unsaved');
+  assert.equal(saved.points.line.memberChannelId,'2099999999','points can use its own member Login Channel');
+  assert.equal(saved.membership.line.memberChannelId,line.memberChannelId,'membership Login Channel must remain isolated');
   assert.equal(calls.filter(c=>c.action==='platform.line.save').at(-1).credentials.channelAccessToken,'synthetic-points-token-123456789');
   await w.BusinessLineSettings.apply({features:{...features,membership:false},business:{slug:t.slug}});
   assert.equal(d.querySelector('[data-business-line-feature="membership"]'),null);
@@ -59,7 +66,7 @@ test('AC-303/305: real handler + SQL reject revoked, cross-business, cross-modul
  const h=await fixture();try{
   const t=await h.approve(owner,'scoped-shop',features),other=await h.approve('U'+'3'.repeat(32),'other-shop',features);
   const save=(body={})=>h.call({action:'platform.line.save',business:t.slug,feature:'membership',expectedVersion:1,requestId:crypto.randomUUID(),line,credentials,...body},'manager');
-  assert.equal((await save({business:other.slug})).status,403);
+  const foreign=await save({business:other.slug});assert.equal(foreign.status,404);assert.equal(foreign.body.error.code,'PLATFORM_APPLICATION_NOT_FOUND');
   assert.equal((await save({feature:'events'})).body.error.code,'FEATURE_DISABLED');
   assert.equal((await save({line:{...line,pointsLiffId:'2010787602-forged'}})).body.error.code,'LINE_FEATURE_SCOPE');
   assert.equal((await save()).status,200);
@@ -79,7 +86,7 @@ test('AC-306: scoped settings use the database Channel, never a caller-selected 
   assert.equal(saved.status,200);assert.equal(saved.body.data.tenant.moduleLine.membership.credentialsConfigured,true);
   const {createPlatformHandler}=await import('../../supabase/functions/_shared/platform-handler.mjs');
   let selected;
-  const handler=createPlatformHandler({db:{rpc:h.rpc},allowedOrigins:new Set(),verifyApplicantIdentity:async(_token,channel)=>{selected=channel;return{lineUserId:owner};},verifyIdentity:()=>assert.fail('root verifier must not be used')});
+  const handler=createPlatformHandler({db:{rpc:h.rpc},allowedOrigins:new Set(),verifyApplicantIdentity:async(_token,channel)=>{selected=channel;return{lineUserId:owner,issuedAtMs:Date.now()};},verifyIdentity:()=>assert.fail('root verifier must not be used')});
   const response=await handler(new Request('https://backend.test',{method:'POST',body:JSON.stringify({action:'platform.application.bootstrap',idToken:'synthetic',business:t.slug,adminChannelId:'attacker-selected'})}));
   assert.equal(response.status,200);assert.equal(selected,'2099999999');
  }finally{await h.db.close();}
@@ -95,5 +102,44 @@ test('AC-303: late-mounted modules immediately inherit current grants and settin
   await until(()=>d.querySelector('#bookingTab').hidden);
   assert.equal(d.querySelector('#bookingPanel').hidden,true);assert.equal(d.querySelector('#cardsTab').hidden,false);assert.equal(d.querySelector('#cardsPanel').hidden,false);
   assert.ok(mounted>1,'late modules must also receive inline settings');
+ }finally{dom.window.close();}
+});
+
+test('AC-307: approved feature-specific LINE settings do not require unrelated notification purposes',async()=>{
+ const h=await fixture();let dom;
+ try {
+  const scoped={membership:false,points:false,events:false,calendar:true,booking:true,integrations:true,testing:true,usage:true};
+  const t=await h.approve(owner,'per-feature-shop',scoped);
+  dom=new JSDOM('<section id="businessWorkspaceStatus"></section><nav id="businessLineFeatureNav" role="tablist"></nav><div id="businessLineFeatureContent"></div>',{url:'https://allowed.test/admin/?business=per-feature-shop',runScripts:'outside-only'});
+  const w=dom.window;w.AbortSignal=AbortSignal;
+  w.MemberAdminSession={get:()=>({config:{business:t.slug,supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'synthetic'},idToken:'manager'})};
+  w.fetch=(url,options)=>h.handler(new Request(url,{...options,headers:{...options.headers,Origin:'https://allowed.test'}}));
+  w.eval(fs.readFileSync(path.join(__dirname,'../../admin/business-line-settings.js'),'utf8'));
+  await w.BusinessLineSettings.apply({features:scoped,business:{slug:t.slug}});
+  const d=w.document;await until(()=>d.querySelectorAll('[data-business-line-feature]').length===2);
+  assert.deepEqual([...d.querySelectorAll('[data-business-line-feature]')].map(el=>el.dataset.businessLineFeature),['calendar','booking']);
+  assert.ok(d.querySelector('#businessLine-calendar [name=calendarLiffId]'));
+  assert.ok(d.querySelector('#businessLine-booking [name=bookingLiffId]'));
+  assert.ok(d.querySelector('#businessLine-booking [name=memberChannelId]'),'booking keeps its own member Login Channel');
+  assert.equal(d.querySelector('#businessLine-calendar [name=bookingLiffId]'),null);
+  assert.equal(d.querySelector('#businessLine-booking [name=calendarLiffId]'),null);
+  assert.equal(d.querySelector('#notification-calendar-member'),null,'calendar has no active automatic push');
+  assert.equal(d.querySelectorAll('form[id^="notification-booking-"]').length,2,'booking has admin and member notification purposes');
+  assert.equal(d.querySelector('[data-business-line-feature="integrations"]'),null);
+  assert.equal(d.querySelector('[data-business-line-feature="testing"]'),null);
+  assert.equal(d.querySelector('[data-business-line-feature="usage"]'),null);
+  assert.equal(d.querySelector('#businessLineIdentity-booking').hidden,false,'first-time shared Login identity remains configurable');
+ } finally {dom?.window.close();await h.db.close();}
+});
+test('AC-308: utility-only merchants cannot open an empty LINE settings tab',async()=>{
+ const dom=new JSDOM('<main id="adminView"><nav class="surface-nav"><button id="lineSettingsTab"></button></nav><section id="lineSettingsPanel"></section></main>',{url:'https://allowed.test/admin/',runScripts:'outside-only'});
+ try{
+  const w=dom.window,d=w.document;
+  w.eval(fs.readFileSync(path.join(__dirname,'../../admin/business-workspace.js'),'utf8'));
+  w.BusinessWorkspace.apply({features:{membership:false,points:false,events:false,calendar:false,booking:false,integrations:true,testing:true,usage:true},business:{name:'Tools only'}});
+  assert.equal(d.querySelector('#lineSettingsTab').hidden,true);
+  assert.equal(d.querySelector('#lineSettingsTab').disabled,true);
+  assert.equal(d.querySelector('#lineSettingsPanel').hidden,true);
+  await new Promise(resolve=>setTimeout(resolve,0)); // flush MutationObserver before closing JSDOM
  }finally{dom.window.close();}
 });
