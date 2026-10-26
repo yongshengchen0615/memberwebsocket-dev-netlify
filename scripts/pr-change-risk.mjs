@@ -71,6 +71,13 @@ export function evaluateEvidence(risk, prBody = '') {
   return { passed: missing.length === 0, missing };
 }
 
+
+/** Optional PR self-escalation: exact tier token on the line after its heading. */
+export function extractManualTier(prBody = '') {
+  const match = prBody.match(/^### 風險等級覆核[^\r\n]*\r?\n[ \t]*(L[0-3])(?=\s|[：:-]|$)/mi);
+  return match?.[1]?.toUpperCase();
+}
+
 export function reportMarkdown(risk, evidence, prNumber = '?') {
   const lines = [
     `## Project #5 PR #${prNumber} 變更風險檢查`,
@@ -123,8 +130,7 @@ async function main() {
   } else {
     throw new Error('Usage: node scripts/pr-change-risk.mjs --github | --files-json path --body-file path');
   }
-  const manualMatch = body.match(/^### 風險等級覆核[^\\n]*\\r?\\n\\s*(L[0-3])(?=\\s|[：:-]|$)/mi);
-  const risk = classifyChangeSet(files, { manualTier: manualMatch?.[1]?.toUpperCase() });
+  const risk = classifyChangeSet(files, { manualTier: extractManualTier(body) });
   const evidence = evaluateEvidence(risk, body);
   const report = reportMarkdown(risk, evidence, number);
   process.stdout.write(report);
