@@ -148,3 +148,26 @@
 此規劃檔先由 PR 審閱；**本 PR 已新增風險分類器、Node 測試、PR Template 與唯讀 GitHub Actions；未修改業務產品程式碼，未執行正式部署或產品 E2E。**
 
 在啟動實作前，工作者必須先檢查遠端最新 SHA、PR 撞檔、Ruleset 有效性及可用的獨立測試環境。每個任務都應單獨開 PR，完整記錄 RED→GREEN、CI、Preview 與回復證據；任何未執行步驟保持未勾選。
+
+
+## Governance V2 工作交接（2026-10-26；#56 / #129 / #127）
+
+**Ruling：** 不另開新的治理 PR；優先擴充 Draft #131 的既有風險分類器，保留 #57、#132 的獨立審查與合併順序。分類器的 L0–L3 是風險下限，不是 CI / Reviewer / Release 的替代品。
+
+### Task 0-V2：風險分類器（本輪已修改，最終 CI 待驗證）
+- [x] 對純文件、局部 UI、跨模組、敏感商家與授權路徑建立 L0–L3 相容分級。
+- [x] 保留既有 level 欄位；新加 tier 欄位；人工只能上調、不能降級。
+- [x] 使用 JS 函式試跑 8 項 RED→GREEN 及既有分類相容性檢查。
+- [ ] 最終 SHA：完整 Node 合約測試與 GitHub Actions 必需流程均 completed/success；不能引用中間提交。
+
+### Task 0-V2b：合併治理 PR（後續另行審查）
+- [ ] 對比 #57 / #131 / #132 的 PR Template，消除分支上的重複版本。
+- [ ] 由獨立 reviewer 檢查完整 PR，解決 #131 原有 merge conflict 並驗證當下 SHA。
+- [ ] 將唯一 PR Template 同步至預設分支 main，實測新 PR 是否自動載入。
+- [ ] 配置並驗證整合分支 Required Checks / Ruleset（Fail、Cancel、Skip、未觸發不得視為 Pass）。
+- [ ] 使用真實後續 PR 進行『故意缺欄位 → 被擋；補證據 → 通過』的技術強制驗收。
+
+### Task 0-V2c：外部環境 / 產品安全（不能隨本治理 PR 順便發布）
+- [ ] #125 查明現用 Netlify Site ID、Production 唯一 Publisher 和舊 Site ID 引用；審核後獨立修復。
+- [ ] #35 / #127 規劃獨立 Supabase 驗收資料庫；無獨立環境前不得執行破壞性 E2E。
+- [ ] #34 / #36 / #41：A、B 店兩端 LINE OA、跨商家 RLS、撤權、收件人與 Webhook 冪等負向測試。
