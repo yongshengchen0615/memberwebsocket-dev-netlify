@@ -156,3 +156,15 @@ test('PR body opt-in escalation parser accepts an exact tier token and ignores p
   assert.equal(extractManualTier('### 風險等級覆核\nL9'), undefined);
   assert.equal(extractManualTier('### 風險等級覆核\nTBD'), undefined);
 });
+
+test('canonical PR template exposes optional manual risk escalation without lowering the floor', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const template = await readFile(new URL('../.github/PULL_REQUEST_TEMPLATE.md', import.meta.url), 'utf8');
+  assert.match(template, /^### 風險等級覆核（選填）$/m);
+  assert.match(template, /不可降低自動分級/);
+  assert.equal(extractManualTier(template), undefined);
+  assert.equal(
+    classifyChangeSet(files('netlify.toml'), { manualTier: extractManualTier(template) }).tier,
+    'L3',
+  );
+});
