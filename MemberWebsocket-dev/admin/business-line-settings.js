@@ -268,8 +268,8 @@
     endpoint.id='lineWebhookEndpoint-'+view.feature;label.htmlFor=endpoint.id;label.append(endpoint);
     const status=node('p');status.setAttribute('role','status');status.setAttribute('aria-live','polite');
     const run=async(action)=>{
-      if(saving || pendingOperation() || !tenant || grants[view.feature]!==true)return;
-      saving=true;setControls(true);status.textContent='正在檢查…';
+      if(saving || pendingOperation() || !tenant || grants[view.feature]!==true || (action==='platform.webhook.check' && view.dirty.size>0))return;
+      saving=true;lock();status.textContent='正在檢查…';
       try{
         const result=await request(action,{feature:view.feature});endpoint.value=result.endpoint;
         status.textContent=(result.configurationState==='optional'?'LIFF 入口可獨立使用；Messaging API 尚未設定。':'Messaging API 設定已儲存。')
@@ -282,7 +282,7 @@
         if(['FEATURE_DISABLED','TENANT_SUSPENDED','BUSINESS_FORBIDDEN','AUTH_INVALID','TENANT_EXPIRED','TENANT_REAUTH_REQUIRED','PLATFORM_QUALIFICATION_REQUIRED','PLATFORM_QUALIFICATION_SUSPENDED','PLATFORM_APPLICATION_NOT_FOUND'].includes(error.code)){
           tenant=null;for(const v of views.values()){v.form?.reset();if(v.webhook)v.webhook.endpoint.value='';v.section.hidden=true;}
         }
-      }finally{saving=false;setControls(false);}
+      }finally{saving=false;lock();}
     };
     refresh.onclick=()=>void run('platform.webhook.status');check.onclick=()=>void run('platform.webhook.check');
     copy.onclick=async()=>{try{await navigator.clipboard.writeText(endpoint.value);status.textContent='Webhook URL 已複製；請先確認 Channel 現有回呼用途，再由授權人員設定。';}catch{endpoint.focus();endpoint.select();status.textContent='請複製上方已選取的 Webhook URL。';}};
@@ -322,7 +322,7 @@
         shared.append(grid); form.append(shared);
         const button = node('button','儲存' + label + ' LINE 設定','button button-dark'); button.type='submit'; view.save=button;
         form.append(button); form.addEventListener('submit', event => void save(view,event));
-        form.addEventListener('input', event => { view.dirty.add(event.target.name); status.textContent = '本區塊有尚未儲存的設定。'; });
+        form.addEventListener('input', event => { view.dirty.add(event.target.name); status.textContent = '本區塊有尚未儲存的設定。'; lock(); });
         section.append(form);
       }
       section.append(status); notificationForms(view);webhookPanel(view);

@@ -89,6 +89,7 @@ jobs:
             MemberWebsocket-dev/tests/integration/line_capabilities.cjs \
             MemberWebsocket-dev/tests/integration/line_webhook_sql.cjs \
             MemberWebsocket-dev/tests/integration/line_webhook_api.cjs \
+            MemberWebsocket-dev/tests/integration/line_webhook_ui.cjs \
             MemberWebsocket-dev/tests/integration/line_capabilities_sql.cjs \
             MemberWebsocket-dev/tests/integration/line_capabilities_ui.cjs \
             MemberWebsocket-dev/tests/integration/line_settings_keyboard.cjs \

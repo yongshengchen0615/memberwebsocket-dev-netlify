@@ -6,7 +6,7 @@ const event=(id='01JTESTEVENT')=>({webhookEventId:id,type:'message',timestamp:17
 async function fixture(options={}){
  const {sealCredentials}=await import('../supabase/functions/_shared/platform-crypto.mjs');
  const calls=[],candidate={tenantId:'10000000-0000-4000-8000-000000000001',channelId:'2010123456',feature:'booking',scope:'module',revision:'revision',envelope:await sealCredentials('10000000-0000-4000-8000-000000000001:booking',{channelSecret:secret},key)};
- const db={rpc:async(name,params)=>{calls.push({name,params});return options.rpc?options.rpc(name,params,candidate):{data:name==='platform_line_webhook_candidate'?candidate:{accepted:params.p_events.length},error:null};}};
+ const db={rpc:async(name,params)=>{calls.push({name,params});const result=await (options.rpc?options.rpc(name,params,candidate):{data:name==='platform_line_webhook_candidate'?candidate:{accepted:params.p_events.length},error:null});return name==='platform_line_webhook_candidate'&&result.data?{...result,data:[result.data]}:result;}};
  const handler=(await load()).createLineWebhookHandler({db,encryptionKey:()=>key,bodyTimeoutMs:options.bodyTimeoutMs||100,rpcTimeoutMs:options.rpcTimeoutMs||100});
  const send=(body=JSON.stringify({destination,events:[event()]}),signature=createHmac('sha256',secret).update(body).digest('base64'),extra={})=>handler(new Request('https://backend.test/functions/v1/line-webhook',{method:'POST',body,headers:{'content-type':'application/json','x-line-signature':signature,...extra}}));
  return{handler,send,calls,candidate};

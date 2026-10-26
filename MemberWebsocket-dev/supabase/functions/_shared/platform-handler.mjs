@@ -7,6 +7,7 @@ import { checkLineWebhook } from './line-webhook-diagnostics.mjs';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SQL_ERRORS = {
   LINE_CHANNEL_IN_USE:[409,'此 Messaging API Channel 已綁定其他商家。'],
+  LINE_DESTINATION_IN_USE:[409,'此官方帳號已綁定其他 Messaging API Channel，請確認 Channel 設定。'],
   LINE_WEBHOOK_STALE:[409,'LINE 設定已變更，請重新載入並檢查連線。'],
   PLATFORM_ADMIN_REQUIRED:[403,'僅總管理員可管理商家。'], PLATFORM_CONFLICT:[409,'資料已更新，請重新載入後再試。'],
   PLATFORM_QUALIFICATION_SUSPENDED:[403,'管理員資格已停權，請聯絡總管理員。'],

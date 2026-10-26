@@ -17,11 +17,41 @@ async function setup(database,before){
   h.prepare=(t=h.tenant,feature='booking',actor=merchant.owner)=>h.call('platform_line_webhook_prepare',[actor,t.id,issued(),feature]);
   h.status=(t=h.tenant,feature='booking',actor=merchant.owner)=>h.call('platform_line_webhook_status',[actor,t.id,issued(),feature]);
   h.bind=async(t=h.tenant,feature='booking',bot=destination)=>{const c=await h.prepare(t,feature);return h.call('platform_line_webhook_bind',[merchant.owner,t.id,issued(),feature,c.channelId,bot,c.revision]);};
-  h.ingest=(revision,events=[{eventId:'evt-1',type:'message',timestamp:1793000000000,redelivery:false}])=>h.call('platform_line_webhook_ingest',[channel,revision,events]);
+  h.ingest=(revision,events=[{eventId:'evt-1',type:'message',timestamp:1793000000000,redelivery:false}])=>h.call('platform_line_webhook_ingest',[channel,'booking',revision,events]);
   return h;
  }catch(e){await h.db.close();throw e;}
 }
 module.exports=(label,database)=>{
+ test(label+' #144 unverified optional Channel IDs cannot squat a different merchant Channel',async()=>{
+  const h=await setup(database);try{
+   await h.save(h.tenant,'booking',1,line,null);
+   assert.equal((await h.db.query('select count(*)::int n from platform_private.line_channel_owners')).rows[0].n,0);
+   const second=(await h.review(await h.submit(merchant.owner,'verified-channel-shop'),'approved',merchant.features(['booking']))).tenant;
+   await h.save(second);assert.equal((await h.db.query('select tenant_id from platform_private.line_channel_owners where channel_id=$1',[channel])).rows[0].tenant_id,second.id);
+  }finally{await h.db.close();}
+ });
+ test(label+' #144 shared Channel module checks preserve independent health and disabling one leaves another valid candidate',async()=>{
+  const h=await setup(database);try{
+   await h.save();await h.bind();const p=await h.prepare();await h.ingest(p.revision);
+   await h.save(h.tenant,'points',2,{adminChannelId:line.adminChannelId,adminLiffId:line.adminLiffId,memberChannelId:line.memberChannelId,messagingChannelId:channel,pointsLiffId:'2010787602-points'});
+   await h.bind(h.tenant,'points');assert.equal((await h.status()).ingressState,'verified');assert.equal((await h.status(h.tenant,'points')).apiState,'accepted');
+   await h.db.query("update platform_private.tenants set features=jsonb_set(features,'{points}','false') where id=$1",[h.tenant.id]);
+   assert.equal((await h.call('platform_line_webhook_candidate',[destination]))[0].feature,'booking');assert.equal((await h.ingest(p.revision)).accepted,0);
+  }finally{await h.db.close();}
+ });
+ test(label+' #144 suspend then approve invalidates old receipt revisions until a fresh Provider check',async()=>{
+  const h=await setup(database);try{
+   await h.save();await h.bind();const old=await h.prepare();
+   let q=(await h.db.query('select id,version from platform_private.admin_qualifications where applicant_line_user_id=$1',[merchant.owner])).rows[0];
+   q=await h.call('platform_review_admin_qualification',[merchant.root,q.id,q.version,'suspended','Synthetic revocation',crypto.randomUUID()]);
+   await h.call('platform_review_admin_qualification',[merchant.root,q.id,q.version,'approved','',crypto.randomUUID()]);
+   assert.equal(await h.call('platform_line_webhook_candidate',[destination]),null);await assert.rejects(h.ingest(old.revision),/LINE_WEBHOOK_STALE/);
+   assert.equal((await h.status()).apiState,'pending');await h.bind();const fresh=await h.prepare();assert.notEqual(fresh.revision,old.revision);assert.equal((await h.ingest(fresh.revision)).accepted,1);
+   await h.db.query("update platform_private.tenants set status='suspended' where id=$1",[h.tenant.id]);
+   await h.db.query("update platform_private.tenants set status='active' where id=$1",[h.tenant.id]);
+   assert.equal(await h.call('platform_line_webhook_candidate',[destination]),null);await assert.rejects(h.ingest(fresh.revision),/LINE_WEBHOOK_STALE/);
+  }finally{await h.db.close();}
+ });
  test(label+' #144 conflicting legacy channels abort the entire migration and preserve existing configuration',async()=>{
   let upgraded;
   await assert.rejects(setup(database,async h=>{
@@ -45,7 +75,7 @@ module.exports=(label,database)=>{
  test(label+' #144 status/binding/receipts: authorized redacted summaries, terminal dedup, empty verification and transactional rejects',async()=>{
   const h=await setup(database);try{
    await h.save();const p=await h.prepare();assert.equal(p.scope,'module');assert.ok(p.revision);
-   await h.bind();const c=await h.call('platform_line_webhook_candidate',[destination]);assert.equal(c.tenantId,h.tenant.id);
+   await h.bind();const c=(await h.call('platform_line_webhook_candidate',[destination]))?.[0];assert.equal(c.tenantId,h.tenant.id);
    const r=await h.ingest(c.revision);assert.equal(r.accepted,1);assert.equal((await h.ingest(c.revision)).accepted,0);
    await h.ingest(c.revision,[]);const status=await h.status();assert.equal(status.eventsReceived,1);assert.equal(status.humanState,'pending');assert.equal(status.ingressState,'verified');
    const serialized=JSON.stringify(status);for(const term of ['envelope','revision','synthetic','channelSecret','replyToken'])assert.ok(!serialized.includes(term));
@@ -80,7 +110,7 @@ module.exports=(label,database)=>{
  test(label+' #144 signed rate limits are bounded without storing payloads or accepting partial batches',async()=>{
   const h=await setup(database);try{
    await h.save();await h.bind();const p=await h.prepare();await h.ingest(p.revision,[]);
-   await h.db.query('update platform_private.line_webhook_bindings set rate_count=120 where channel_id=$1',[channel]);
+   await h.db.query('update platform_private.line_channel_owners set rate_count=120 where channel_id=$1',[channel]);
    await assert.rejects(h.ingest(p.revision),/LINE_WEBHOOK_RATE_LIMIT/);
    assert.equal((await h.db.query('select count(*)::int n from platform_private.line_webhook_receipts')).rows[0].n,0);
   }finally{await h.db.close();}

@@ -58,11 +58,18 @@ export function createLineWebhookHandler({db,encryptionKey,bodyTimeoutMs=3000,rp
       if(!payload||!botId.test(payload.destination)||!Array.isArray(payload.events)||payload.events.length>100)
         throw new IngressError(400,'INVALID_BODY');
       // Destination only narrows the candidate; no business data is read here.
-      const candidate=await rpc('platform_line_webhook_candidate',{p_destination:payload.destination});
-      if(!candidate)throw new IngressError(401,'INVALID_SIGNATURE');
-      const scope=candidate.tenantId+(candidate.scope==='module'?':'+candidate.feature:'');
-      const credentials=await openCredentials(scope,candidate.envelope,await encryptionKey());
-      if(!await verifyLineSignature(raw,signature,credentials.channelSecret))throw new IngressError(401,'INVALID_SIGNATURE');
+      const candidates=await rpc('platform_line_webhook_candidate',{p_destination:payload.destination});
+      if(!Array.isArray(candidates)||!candidates.length||candidates.length>5)throw new IngressError(401,'INVALID_SIGNATURE');
+      let candidate,storageError=false;
+      const key=await encryptionKey();
+      for(const option of candidates){
+        try{
+          const scope=option.tenantId+(option.scope==='module'?':'+option.feature:'');
+          const credentials=await openCredentials(scope,option.envelope,key);
+          if(await verifyLineSignature(raw,signature,credentials.channelSecret)){candidate=option;break;}
+        }catch{storageError=true;}
+      }
+      if(!candidate)throw new IngressError(storageError?503:401,storageError?'INGRESS_UNAVAILABLE':'INVALID_SIGNATURE');
       const events=payload.events.map(event=>{
         if(!event||typeof event.webhookEventId!=='string'||!/^[A-Za-z0-9_-]{1,128}$/.test(event.webhookEventId)
           ||!Number.isSafeInteger(event.timestamp)||event.timestamp<0||event.timestamp>8640000000000000
@@ -72,7 +79,7 @@ export function createLineWebhookHandler({db,encryptionKey,bodyTimeoutMs=3000,rp
       });
       // This transaction rechecks current grant + credential revision, deduplicates
       // and persists only terminal receipts. There is no background business work.
-      await rpc('platform_line_webhook_ingest',{p_channel_id:candidate.channelId,p_revision:candidate.revision,p_events:events});
+      await rpc('platform_line_webhook_ingest',{p_channel_id:candidate.channelId,p_feature:candidate.feature,p_revision:candidate.revision,p_events:events});
       return json(200);
     } catch(error) {
       const safe=error instanceof IngressError?error:new IngressError(503,'INGRESS_UNAVAILABLE');
