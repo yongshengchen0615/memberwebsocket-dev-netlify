@@ -14,7 +14,7 @@ const allowedOrigins = new Set([
 ]);
 const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), {auth:{persistSession:false,autoRefreshToken:false}});
 export const handler = createPlatformHandler({
-  db, allowedOrigins,
+  db, allowedOrigins, publicSupabaseUrl:env('SUPABASE_PUBLIC_URL') || env('SUPABASE_URL'),
   encryptionKey:() => resolvePlatformEncryptionKey({configuredKey:env('PLATFORM_CREDENTIAL_ENCRYPTION_KEY'),db}),
   verifyIdentity:(idToken: string) => verifyPlatformIdToken({idToken}),
   verifyApplicantIdentity:(idToken: string, channelId?: string) => verifyMerchantAdminIdToken({idToken}, channelId),
