@@ -3,8 +3,11 @@ import { FEATURES, PlatformError, publicTenant, validateTenant } from './platfor
 import { payloadHash, sealCredentials, openCredentials } from './platform-crypto.mjs';
 import { assertTenantIdentity, normalizeExpiry } from './tenant-access.mjs';
 import { validateNotificationRoute, verifyNotificationToken } from './notification-routes.mjs';
+import { checkLineWebhook } from './line-webhook-diagnostics.mjs';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SQL_ERRORS = {
+  LINE_CHANNEL_IN_USE:[409,'此 Messaging API Channel 已綁定其他商家。'],
+  LINE_WEBHOOK_STALE:[409,'LINE 設定已變更，請重新載入並檢查連線。'],
   PLATFORM_ADMIN_REQUIRED:[403,'僅總管理員可管理商家。'], PLATFORM_CONFLICT:[409,'資料已更新，請重新載入後再試。'],
   PLATFORM_QUALIFICATION_SUSPENDED:[403,'管理員資格已停權，請聯絡總管理員。'],
   PLATFORM_QUALIFICATION_REQUIRED:[403,'請先取得一般管理員資格。'],
@@ -45,6 +48,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       'Access-Control-Allow-Origin':origin && allowedOrigins.has(origin) ? origin : '',
       'Access-Control-Allow-Headers':'content-type, apikey','Access-Control-Allow-Methods':'POST,OPTIONS', 'Access-Control-Max-Age':'86400' };
     const json = (payload,status = 200) => new Response(JSON.stringify(payload),{status,headers});
+    let webhookActor;
     try {
       if (origin && !allowedOrigins.has(origin)) throw new PlatformError(403,'ORIGIN_NOT_ALLOWED','此網站來源未被允許。');
       if (request.method === 'OPTIONS') return new Response(null,{status:204,headers});
@@ -79,7 +83,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       const merchantAction = ['platform.merchant.list','platform.merchant.get','platform.merchant.submit','platform.merchant.review'].includes(body.action);
       if ((qualificationAction || merchantAction) && body.business !== undefined)
         throw new PlatformError(400,'PLATFORM_INVALID_INPUT','資格與商家申請不接受商家入口。');
-      const applicantAction = ['platform.application.bootstrap','platform.application.ensure','platform.application.submit','platform.line.save','platform.notifications.save','platform.notifications.test','platform.qualification.bootstrap','platform.qualification.submit','platform.merchant.list','platform.merchant.get','platform.merchant.submit'].includes(body.action);
+      const applicantAction = ['platform.webhook.status','platform.webhook.check','platform.application.bootstrap','platform.application.ensure','platform.application.submit','platform.line.save','platform.notifications.save','platform.notifications.test','platform.qualification.bootstrap','platform.qualification.submit','platform.merchant.list','platform.merchant.get','platform.merchant.submit'].includes(body.action);
       let trustedChannel;
       if (applicantAction && body.business !== undefined) {
         if (typeof body.business !== 'string' || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(body.business) || body.business.length > 40)
@@ -94,7 +98,8 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       }
       const identity = await (applicantAction ? verifyApplicantIdentity : verifyIdentity)(body.idToken, trustedChannel);
       const actor = identity.lineUserId;
-      const readOnly = ['platform.bootstrap','platform.application.bootstrap','platform.qualification.bootstrap','platform.qualification.list','platform.merchant.list','platform.merchant.get'].includes(body.action);
+      if(['platform.webhook.status','platform.webhook.check'].includes(body.action))webhookActor=actor;
+      const readOnly = ['platform.webhook.status','platform.bootstrap','platform.application.bootstrap','platform.qualification.bootstrap','platform.qualification.list','platform.merchant.list','platform.merchant.get'].includes(body.action);
       const rate = await db.rpc('consume_api_rate_limit',{p_principal_hash:await payloadHash(`platform:${actor}`),
         p_is_write:!readOnly,p_cost:1,p_read_limit:60,p_write_limit:15});
       if (rate.error) throw new PlatformError(503,'RATE_LIMIT_UNAVAILABLE','目前無法確認請求頻率。');
@@ -218,6 +223,24 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         const result = await db.rpc('platform_submit_application',{p_actor:actor,p_name:body.businessName.trim(),p_slug:body.slug});
         if (result.error) throw databaseError(result.error);
         return json({ok:true,data:{...await mine()}});
+      }
+      if (['platform.webhook.status','platform.webhook.check'].includes(body.action)) {
+        if(typeof body.business!=='string')throw new PlatformError(400,'INVALID_BUSINESS','請先選擇要檢查的商家。');
+        const workspace=await mine(),current=workspace.tenant;
+        if(!current || workspace.application?.status!=='approved' || !current.capabilities.dataPlaneVerified)
+          throw new PlatformError(403,'TENANT_SUSPENDED','此商家尚未開放或已停用。');
+        if(!['membership','points','events','calendar','booking'].includes(body.feature) || current.features?.[body.feature]!==true)
+          throw new PlatformError(403,'FEATURE_DISABLED','此功能尚未核准。');
+        const args={p_actor:actor,p_tenant_id:current.id,p_issued_at:new Date(identity.issuedAtMs).toISOString(),p_feature:body.feature};
+        const read=await db.rpc(body.action==='platform.webhook.check'?'platform_line_webhook_prepare':'platform_line_webhook_status',args);
+        if(read.error)throw databaseError(read.error);
+        let summary=read.data;
+        if(body.action==='platform.webhook.check'){
+          const destination=await checkLineWebhook({candidate:read.data,encryptionKey,fetchImpl});
+          const bound=await db.rpc('platform_line_webhook_bind',{...args,p_channel_id:read.data.channelId,p_destination:destination,p_revision:read.data.revision});
+          if(bound.error)throw databaseError(bound.error);summary=bound.data;
+        }
+        return json({ok:true,data:{...summary,endpoint:new URL('line-webhook',request.url).href}});
       }
       if (body.action === 'platform.notifications.test') {
         validateNotificationRoute({...body,mode:'inherit'});
@@ -480,7 +503,12 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       if (rpc.error) throw databaseError(rpc.error);
       return json({ok:true,data:{tenant:publicTenant(rpc.data)}});
     } catch (error) {
-      const safe = error instanceof PlatformError ? error : new PlatformError(503,'PLATFORM_UNAVAILABLE','總管理員服務暫時無法使用。');
+      let safe = error instanceof PlatformError ? error : new PlatformError(503,'PLATFORM_UNAVAILABLE','總管理員服務暫時無法使用。');
+      if(webhookActor && safe.status===404)safe=new PlatformError(403,'BUSINESS_FORBIDDEN','無法存取此商家的連線診斷。');
+      if(webhookActor && [401,403].includes(safe.status)){
+        const audit=await db.rpc('platform_line_webhook_denied',{p_actor:webhookActor});
+        if(audit.error)return json({ok:false,error:{code:'PLATFORM_DATABASE_UNAVAILABLE',message:'目前無法記錄存取檢查，請稍後再試。'}},503);
+      }
       // Never return raw database, LINE provider or encryption errors.
       return json({ok:false,error:{code:safe.code,message:safe.message}},safe.status);
     }
