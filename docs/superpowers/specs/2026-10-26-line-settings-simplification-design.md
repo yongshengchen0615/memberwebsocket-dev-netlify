@@ -1,7 +1,6 @@
 # LINE settings simplification — proposed design
 
-Status: proposed; awaiting Jasper's design choice and approval. No product code,
-stored credentials, LINE configuration, database or deployment is changed by this document.
+Status: approved — Jasper requested implementation and merge into Integrated-Marketing-Platform for acceptance. The document itself changes no stored credentials or LINE configuration.
 
 Source baseline: `Integrated-Marketing-Platform@3be0c0e7a06414e0fb706395aca05fbb2724480d`.
 User request: simplify LINE setup while preserving all existing LINE functions.
@@ -48,7 +47,7 @@ component served by isolated browser fixtures.
    but leaves compulsory Messaging setup and shared-first blocking unchanged.
    Rejected because it does not resolve the observed workflow problem.
 
-These are implementation proposals, not choices already approved by the user.
+Approach 1 was approved by the subsequent request to implement and merge for acceptance; approaches 2/3 remain deferred/rejected as described.
 
 ## Proposed user flow
 

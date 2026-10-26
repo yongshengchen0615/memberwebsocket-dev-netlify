@@ -10,6 +10,9 @@ async function setup({origins=[],context=true,rate=()=>({data:true,error:null})}
    const names=fs.readdirSync(dir).filter(n=>n.endsWith('_merchant_explicit_context.sql'));
    if(names.length!==1)throw Error('ONE_MERCHANT_CONTEXT_MIGRATION_REQUIRED');
    await h.db.exec(fs.readFileSync(path.join(dir,names[0]),'utf8'));
+   const capability=fs.readdirSync(dir).filter(n=>n.endsWith('_line_capabilities.sql'));
+   if(capability.length!==1)throw Error('ONE_LINE_CAPABILITY_MIGRATION_REQUIRED');
+   await h.db.exec(fs.readFileSync(path.join(dir,capability[0]),'utf8'));
   }
   const {createPlatformHandler}=await shared('platform-handler.mjs');
   const {verifyMerchantAdminIdToken,verifyPlatformIdToken}=await shared('platform-auth.mjs');

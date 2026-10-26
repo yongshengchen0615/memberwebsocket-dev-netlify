@@ -235,6 +235,8 @@
   let qualificationPending=null,qualificationBusy=false,merchantApplicationPending=null,merchantApplicationTarget=null,merchantApplicationBusy=false;
   let reviewPending=null,reviewSelection=null,reviewBusy=false;
   function clearPrivateMerchant(){
+    const simple=el('merchantSimpleLine');
+    if(simple?.dataset.mounted==='true'){window.BusinessLineSettings?.clear();delete simple.dataset.mounted;simple.hidden=true;}
     state.merchant=null;state.merchantPending=null;merchantDirty=false;latestMine=null;
     const settings=el('merchantLineForm');
     if(settings)for(const input of settings.querySelectorAll('input'))input.value='';
@@ -544,6 +546,7 @@
   const applicationForm=el('applicationForm'),merchantForm=el('merchantLineForm');
   const featureLiffNames={membership:'memberLiffId',points:'pointsLiffId',events:'eventLiffId',calendar:'calendarLiffId',booking:'bookingLiffId'};
   let merchantPanel='shared',merchantWorkspaceTab='overview',merchantDirty=false,merchantSaving=false,latestMine=null;
+  const hasFeatureLine = tenant => merchantEntry && tenant?.moduleLine !== undefined;
   const lineLabels={adminChannelId:'管理端 Login Channel ID',memberChannelId:'會員端 Login Channel ID',messagingChannelId:'Messaging API Channel ID',adminLiffId:'管理端 LIFF ID',memberLiffId:'會員卡 LIFF ID',pointsLiffId:'集點卡 LIFF ID',eventLiffId:'活動票券 LIFF ID',calendarLiffId:'營運日曆 LIFF ID',bookingLiffId:'預約 LIFF ID',credentials:'Messaging API token 與 secret'};
   function installFieldHelp() {
     for(const key of [...lineKeys,'channelAccessToken','channelSecret']) {
@@ -573,7 +576,17 @@
   }
   function renderChecklist(tenant) {
     const list=el('merchantChecklist');if(!list)return;
-    list.replaceChildren();const status=tenant.onboarding;
+    list.replaceChildren();let status=tenant.onboarding;
+    if(hasFeatureLine(tenant)){
+      const configured={};
+      for(const [feature,key]of Object.entries(featureLiffNames))if(tenant.features?.[feature]){
+        const line={...tenant.line,...tenant.moduleLine?.[feature]?.line},id=line[key];
+        const ready=/^\d{5,30}-[A-Za-z0-9_-]+$/.test(id||'')&&id.startsWith(line.memberChannelId+'-');
+        configured[feature]={configured:ready,missing:ready?[]:[key]};
+      }
+      const commonMissing=['adminChannelId','adminLiffId'].filter(key=>!tenant.line?.[key]);
+      status={...tenant.onboarding,commonMissing,features:configured,configurationComplete:!commonMissing.length&&Object.values(configured).every(x=>x.configured)};
+    }
     const row=(name,detail,panel)=>{
       const article=document.createElement('article'),body=document.createElement('div'),title=document.createElement('strong'),p=document.createElement('p');
       title.textContent=name;p.textContent=detail;body.append(title,p);article.append(body);
@@ -581,7 +594,7 @@
       list.append(article);
     };
     const missing=status?.commonMissing;
-    row('共用 LINE 設定',!status?'設定檢查服務尚未更新，請重新整理後再試。':missing.length?'尚缺：'+missing.map(key=>lineLabels[key]||key).join('、'):'必填資料已保存，仍需實際 LINE 驗證。','shared');
+    row(hasFeatureLine(tenant)?'商家管理端登入（僅首次設定）':'共用 LINE 設定',!status?'設定檢查服務尚未更新，請重新整理後再試。':missing.length?'尚缺：'+missing.map(key=>lineLabels[key]||key).join('、'):'必填資料已保存，仍需實際 LINE 驗證。','shared');
     for(const [key,label] of Object.entries(state.features))if(tenant.features?.[key]===true) {
       const feature=status?.features?.[key];
       row(label,status?.adminReady?'管理功能已開放。'+(feature?.missing.length?'自有 LINE 入口尚缺：'+feature.missing.map(name=>lineLabels[name]||name).join('、'):'可使用下方專屬入口。'):!feature?'等待伺服器確認設定。':feature.missing.length?'尚缺：'+feature.missing.map(name=>lineLabels[name]||name).join('、')
@@ -626,7 +639,7 @@
     catch{el('copySetupMessage').textContent='無法自動複製，請將本頁顯示的商家代碼與開通狀態提供給平台聯絡人。';}
   });
   function selectMerchantWorkspaceTab(requested) {
-    const granted = Object.keys(state.features).some(key => state.merchant?.features?.[key] === true);
+    const granted = (hasFeatureLine(state.merchant)?Object.keys(featureLiffNames):Object.keys(state.features)).some(key => state.merchant?.features?.[key] === true);
     merchantWorkspaceTab = requested === 'line' && granted ? 'line' : 'overview';
     const lineTab = el('merchantLineSettingsTab'),overviewTab = el('merchantOverviewTab');
     if (!lineTab || !overviewTab || !el('merchantOverviewPanel') || !el('merchantLineSettingsPanel')) return;
@@ -657,6 +670,10 @@
   function selectMerchantPanel(feature, reveal = true) {
     if(merchantSaving||state.merchantPending)return;
     const tenant=state.merchant;
+    if(hasFeatureLine(tenant)){
+      if(reveal)selectMerchantWorkspaceTab('line');
+      window.BusinessLineSettings?.select(feature);return;
+    }
     // A stale bookmark or a forged query string never exposes an unapproved feature.
     merchantPanel=feature==='shared'||tenant?.features?.[feature]===true?feature:'shared';
     if (reveal) selectMerchantWorkspaceTab('line');
@@ -680,6 +697,20 @@
     } catch {}
   }
   function renderMerchantNav(tenant) {
+    const simple=el('merchantSimpleLine'),modern=hasFeatureLine(tenant);
+    if(simple){simple.hidden=!modern;el('merchantFeatureNav').hidden=modern;merchantForm.hidden=modern;}
+    if(modern){
+      for(const input of merchantForm.querySelectorAll('input'))input.disabled=true;
+      if(!simple||!window.BusinessLineSettings?.mount)throw Error('LINE 設定元件尚未載入，請重新整理後再試。');
+      const requested=new URLSearchParams(location.search).get('feature');simple.dataset.mounted='true';
+      window.BusinessLineSettings.mount({root:simple,data:{tenant},
+        request:(action,payload)=>request(action,{...payload,business:selectedBusiness||tenant.slug}),
+        onUpdate:updated=>{state.merchant=updated;state.mineSignature=JSON.stringify(['approved',updated.version,updated.status,updated.expired]);renderChecklist(updated);},
+        onSelect:feature=>{try{const url=new URL(location.href);if(feature)url.searchParams.set('feature',feature);else url.searchParams.delete('feature');history.replaceState(history.state,'',url.href);}catch{}}
+      });
+      if(requested)window.BusinessLineSettings.select(requested);
+      return;
+    }
     const nav=el('merchantFeatureNav');nav.replaceChildren();
     // Fail closed: only server-returned grants are rendered on the top bar.
     // Productized business mutations remain unavailable until isolated APIs exist.
