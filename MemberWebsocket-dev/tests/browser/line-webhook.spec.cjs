@@ -13,7 +13,7 @@ for(const width of [390,1280])test('#144 WEBHOOK_DIAGNOSTICS_'+width+' real hand
  try{
   await page.setViewportSize({width,height:900});
   await page.route('https://fixture.supabase.co/**',async route=>{
-   const response=await h.handler(new Request(route.request().url(),{method:'POST',headers:{Origin:base},body:route.request().postData()}));
+   const response=await h.handler(new Request('http://fixture.supabase.co/platform-api',{method:'POST',headers:{Origin:base},body:route.request().postData()}));
    await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
   });
   await page.goto(base);await page.evaluate(tenant=>{
