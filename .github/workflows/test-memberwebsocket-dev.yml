@@ -187,6 +187,7 @@ jobs:
           name: memberwebsocket-browser-${{ matrix.shard }}-${{ github.run_attempt }}
           path: |
             MemberWebsocket-dev/tests/browser/browser-results.xml
+            MemberWebsocket-dev/tests/browser/playwright-report
             MemberWebsocket-dev/tests/browser/test-results
           retention-days: 7
           if-no-files-found: warn

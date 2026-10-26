@@ -2,7 +2,7 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 
-export const siteId = '23796c62-480a-4b46-ac90-bfbc5ad4d300';
+export const siteId = '196e1d2c-8216-4ba8-aeb9-1706660adc2b';
 export const siteName = 'memberwebsocket-dev-netlify';
 export const previewBranch = 'Integrated-Marketing-Platform';
 export const previewAlias = 'integrated-marketing-platform';
