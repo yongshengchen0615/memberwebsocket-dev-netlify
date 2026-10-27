@@ -214,3 +214,81 @@ test('PostgreSQL 17 FJG02: anon and authenticated cannot call either tenant acti
     membership_status: 'pending', joined_at: null, consents: 0, activations: 0,
   });
 });
+
+async function referralMember(shop, digit, invite) {
+  const user = 'U' + digit.repeat(32), member = await pending(shop, user);
+  await accept(h.db, shop, request(shop, user));
+  await h.db.query(`update ${shop.schema}.members set invite_code=$1 where id=$2`, [invite, member]);
+  return { user, member, invite };
+}
+async function referralSource(shop, code) {
+  await h.db.query(`update ${shop.schema}.event_tickets set status='draft'
+    where ticket_type='referral' and referral_source_event_ticket_id is null`);
+  return (await h.db.query(`insert into ${shop.schema}.event_tickets
+    (event_ticket_id,title,ticket_type,status,quota,allowed_tier_keys,ends_on,created_by,updated_by)
+    values ($1,'Synthetic referral','referral','active',1,array['general','silver','gold','platinum'],current_date+7,'fixture','fixture') returning id`, [code])).rows[0].id;
+}
+function bind(client, shop, actor, target, key) {
+  return client.query(`select ${shop.schema}.bind_member_referral($1,$2,$3) result`, [actor.user, target.invite, key]);
+}
+async function rewardCounts(shop, source) {
+  return (await h.db.query(`select
+    (select count(*)::int from ${shop.schema}.member_referrals r join ${shop.schema}.event_tickets e on e.id=r.reward_event_ticket_id where e.referral_source_event_ticket_id=$1) relations,
+    (select count(*)::int from ${shop.schema}.event_tickets where referral_source_event_ticket_id=$1) children,
+    (select count(*)::int from ${shop.schema}.event_ticket_claims c join ${shop.schema}.event_tickets e on e.id=c.event_ticket_id where e.referral_source_event_ticket_id=$1) claims`, [source])).rows[0];
+}
+
+test('PostgreSQL 17 FJG02: concurrent referral replay issues one reward to the authenticated actor', async () => {
+  const shop=shops[1], actor=await referralMember(shop,'d','D000000001'), target=await referralMember(shop,'e','E000000001');
+  const source=await referralSource(shop,'QA-FJG-REPLAY');
+  const writer=await h.db.connect(), reader=await h.db.connect(), wait=await waitingOn(reader,writer);
+  await writer.query('set role service_role');await reader.query('set role service_role');
+  let second;
+  try {
+    await writer.query('begin');
+    const first=(await bind(writer,shop,actor,target,'QA-FJG-REFERRAL')).rows[0].result;
+    assert.equal(first.alreadyApplied,false);
+    second=bind(reader,shop,actor,target,'QA-FJG-REFERRAL');second.catch(()=>{});
+    await wait();assert.deepEqual(await rewardCounts(shop,source),{relations:0,children:0,claims:0});
+    await writer.query('commit');
+    const replay=(await second).rows[0].result;
+    assert.equal(replay.alreadyApplied,true);assert.equal(replay.referralId,first.referralId);
+    assert.equal(replay.rewardEventTicketId,first.rewardEventTicketId);
+    assert.deepEqual(await rewardCounts(shop,source),{relations:1,children:1,claims:1});
+    const claim=(await h.db.query(`select c.member_id from ${shop.schema}.event_ticket_claims c join ${shop.schema}.event_tickets e on e.id=c.event_ticket_id where e.referral_source_event_ticket_id=$1`,[source])).rows;
+    assert.deepEqual(claim,[{member_id:actor.member}]);
+  } finally {await writer.query('rollback');if(second)await second.catch(()=>{});}
+});
+
+test('PostgreSQL 17 FJG02: competing referrals cannot exceed the remaining one-ticket quota', async () => {
+  const shop=shops[1], actor=await referralMember(shop,'4','A000000004'), target=await referralMember(shop,'5','A000000005');
+  const other=await referralMember(shop,'6','A000000006'), otherTarget=await referralMember(shop,'7','A000000007');
+  const source=await referralSource(shop,'QA-FJG-QUOTA');
+  const writer=await h.db.connect(), reader=await h.db.connect(), wait=await waitingOn(reader,writer);
+  await writer.query('set role service_role');await reader.query('set role service_role');
+  let second;
+  try {
+    await writer.query('begin');await bind(writer,shop,actor,target,'QA-FJG-FIRST-QUOTA');
+    second=bind(reader,shop,other,otherTarget,'QA-FJG-SECOND-QUOTA');second.catch(()=>{});
+    await wait();await writer.query('commit');
+    await assert.rejects(second,/REFERRAL_REWARD_SOLD_OUT/);
+    assert.deepEqual(await rewardCounts(shop,source),{relations:1,children:1,claims:1});
+    assert.equal((await h.db.query(`select count(*)::int n from ${shop.schema}.member_referrals where inviter_member_id=$1 or invitee_member_id=$2`,[other.member,otherTarget.member])).rows[0].n,0);
+  } finally {await writer.query('rollback');if(second)await second.catch(()=>{});}
+});
+
+test('PostgreSQL 17 FJG02: concurrent first-visit inserts leave one pending member available to the retry read', async () => {
+  const shop=shops[1], user='U'+'8'.repeat(32), writer=await h.db.connect(), reader=await h.db.connect();
+  const wait=await waitingOn(reader,writer);
+  const sql=`insert into ${shop.schema}.members(line_user_id,member_code,status,membership_status,is_test_account) values($1,$2,'active','pending',false) returning id`;
+  let second;
+  try {
+    await writer.query('begin');const first=(await writer.query(sql,[user,'QA-FJG-CREATE-FIRST'])).rows[0].id;
+    second=reader.query(sql,[user,'QA-FJG-CREATE-SECOND']);second.catch(()=>{});
+    await wait();await writer.query('commit');
+    await assert.rejects(second,error=>error.code==='23505');
+    const rows=(await reader.query(`select id,membership_status from ${shop.schema}.members where line_user_id=$1`,[user])).rows;
+    assert.deepEqual(rows,[{id:first,membership_status:'pending'}]);
+    assert.deepEqual(await state(shop,first),{membership_status:'pending',joined_at:null,consents:0,activations:0});
+  } finally {await writer.query('rollback');if(second)await second.catch(()=>{});}
+});

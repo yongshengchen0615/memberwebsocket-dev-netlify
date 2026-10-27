@@ -495,7 +495,8 @@
       return String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/booking-receipt-api';
     }
     if (clientType === 'member' && (action === 'user.member.bootstrap' || action === 'user.member.profile.save' || action === 'user.member.terms.accept' || action === 'user.member.card.open')) {
-      return String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/member-profile-api';
+      return String(config.memberProfileFunctionUrl || '').trim()
+        || String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/member-profile-api';
     }
     if (clientType === 'calendar' && (action === 'user.calendar.bootstrap' || action === 'user.calendar.date.details')) {
       return String(config.memberCalendarFunctionUrl || '').trim();
@@ -1029,3 +1030,4 @@
     subscribeRealtime, getRealtimeStatus, logout, terminateAccessSession, openMemberJoin, formatDate, formatDateTime, initials
   });
 })();
+

@@ -3,6 +3,7 @@ import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDate, formatBuildVersion } from './build-version.mjs';
+import { previewMemberRuntime } from './preview-member-runtime.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = path.join(root, 'MemberWebsocket-dev');
@@ -20,6 +21,10 @@ for (const entry of await readdir(source, { withFileTypes: true })) {
     });
   }
 }
+
+const runtimeConfigPath = path.join(output, 'config.json');
+const runtimeConfig = JSON.parse(await readFile(runtimeConfigPath, 'utf8'));
+await writeFile(runtimeConfigPath, JSON.stringify(previewMemberRuntime(runtimeConfig, process.env), null, 2) + '\n');
 
 const siteVersion = formatBuildVersion(
   buildDate(process.env),
@@ -58,3 +63,4 @@ for (const entry of entryPages) {
   );
 }
 console.log(`Built static frontend in dist (version ${siteVersion}); database source, tests and internal documentation excluded.`);
+

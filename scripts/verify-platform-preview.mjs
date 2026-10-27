@@ -17,17 +17,23 @@ export const previewAssets = [
   ['/booking/member-ui.js', 'booking/member-ui.js'], ['/version-badge.css', 'version-badge.css'],
   ['/admin/business-line-settings.js', 'admin/business-line-settings.js'],
   ['/admin/booking-risk.js', 'admin/booking-risk.js'], ['/points/point-transfer.js', 'points/point-transfer.js'],
+  ['/member-system.js', 'member-system.js'],
 ];
 const digest = body => createHash('sha256').update(body).digest('hex');
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function verifyPlatformPreview({
-  base, commit, dist, api, fetchImpl = fetch, attempts = 3, delayMs = 2000,
+  base, commit, dist, api, memberApis = [], fetchImpl = fetch, attempts = 3, delayMs = 2000,
   timeoutMs = 20000, onCheck = () => {},
 }) {
   if (!/^[a-f0-9]{40}$/.test(commit || '')) throw new Error('A full 40-character commit SHA is required');
   if (!Number.isInteger(attempts) || attempts < 1 || attempts > 5) throw new Error('attempts must be between 1 and 5');
   const origin = new URL(base).origin;
+  for (const endpoint of memberApis) {
+    const url = new URL(endpoint);
+    if (url.origin !== new URL(api).origin || !/^\/functions\/v1\/(api-preview|member-profile-api-preview)$/.test(url.pathname)
+      || url.search || url.hash || url.username || url.password) throw new Error('Unexpected member preview API');
+  }
   const expected = [];
   // Read and validate the whole local artifact before making any network calls.
   for (const [url, file] of [...previewPages, ...previewAssets]) {
@@ -109,6 +115,18 @@ export async function verifyPlatformPreview({
     catch { throw new Error('authentication response must contain valid JSON'); }
     if (payload.error?.code !== 'AUTH_REQUIRED') throw new Error('expected AUTH_REQUIRED rejection');
   }, 1);
+  for (const endpoint of memberApis) {
+    await check(endpoint, { method: 'OPTIONS', redirect: 'error', headers: { Origin: origin } }, response => {
+      if (response.status !== 204 || response.headers.get('access-control-allow-origin') !== origin) throw new Error('member preview preflight contract failed');
+    }, 1);
+    await check(endpoint, { method: 'POST', redirect: 'error', headers: { Origin: origin, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'user.member.profile.save', clientType: 'member' }),
+    }, (response, body) => {
+      if (response.status !== 401 || response.headers.get('access-control-allow-origin') !== origin
+        || !/\bno-store\b/i.test(response.headers.get('cache-control') || '')
+        || JSON.parse(body).error?.code !== 'AUTH_REQUIRED') throw new Error('member preview authentication must reject without identity');
+    }, 1);
+  }
   return { commit, origin, passedChecks: checks };
 }
 
@@ -120,6 +138,7 @@ async function main() {
     const config = JSON.parse(await readFile('dist/config.json', 'utf8'));
     const result = await verifyPlatformPreview({ base: process.env.PREVIEW_BASE_URL, commit: process.env.COMMIT_REF,
       dist: 'dist', api: new URL('/functions/v1/platform-api', config.supabaseUrl).href,
+      memberApis: config.memberProfileFunctionUrl ? [config.supabaseFunctionUrl, config.memberProfileFunctionUrl] : [],
       onCheck: check => { checks.push(check); console.log(JSON.stringify(check)); },
     });
     Object.assign(report, result, { ok: true });
@@ -135,3 +154,4 @@ async function main() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) await main();
+
