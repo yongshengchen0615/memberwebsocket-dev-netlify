@@ -5,6 +5,7 @@ const CORE_MODULES = new Set(['admin', 'platform', 'booking', 'member', 'points'
 const EVIDENCE_HEADINGS = ['受影響模組', '測試與驗收', '回退方案'];
 const HIGH_EVIDENCE_HEADINGS = ['架構審查', '發布及資料庫相容性'];
 const QUALITY_EVIDENCE_HEADINGS = ['既有功能回歸', '程式碼品質與效能'];
+const READINESS_HEADINGS = ['需求與驗收條件', '基線與目標環境', '資安與資料邊界', '測試與驗收', '回退方案'];
 
 const normalize = (file) => {
   if (typeof file === 'string') return { filename: file };
@@ -55,17 +56,49 @@ export function classifyChangeSet(rawFiles, { manualTier } = {}) {
   return { level, tier, score, critical: tier === 'L3', requiresQualityEvidence: names.some((name) => !isDoc(name) || isDeployRisk(name) || GOVERNANCE_PATHS.has(name)), files: files.map((f) => f.filename), modules, reasons, note: 'L0–L3 是最低風險下限；人工只可上調。文字欄位完整不代表測試或安全驗收成功。' };
 }
 
+// Only visible top-level sections count; copied examples and duplicate headings
+// must not make an empty readiness contract appear complete.
+function evidenceSections(prBody) {
+  const lines = String(prBody).replace(/<!--[\s\S]*?(?:-->|$)/g, '').split(/\r?\n/);
+  const sections = new Map();
+  let fence = null, current = null;
+  const visible = [];
+  for (const line of lines) {
+    const marker = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+    if (fence) {
+      if (marker && marker[1][0] === fence[0] && marker[1].length >= fence.length && !marker[2].trim()) fence = null;
+      continue;
+    }
+    if (marker) { fence = marker[1]; continue; }
+    visible.push(line);
+    const heading = /^ {0,3}(#{1,6})\s+(.+?)\s*$/.exec(line);
+    if (heading) {
+      current = null;
+      if (heading[1] === '###') {
+        const title = heading[2];
+        const bodies = sections.get(title) || [];
+        current = [];
+        bodies.push(current);
+        sections.set(title, bodies);
+      }
+    } else if (current) current.push(line);
+  }
+  return { sections, visible: visible.join('\n') };
+}
+
 export function evaluateEvidence(risk, prBody = '') {
+  const { sections, visible } = evidenceSections(prBody);
   const missing = [];
-  if (risk.level !== '小改' && !/^## 變更風險評估\s*$/m.test(prBody)) missing.push('變更風險評估');
-  const headings = [
+  if (risk.level !== '小改' && !/^## 變更風險評估\s*$/m.test(visible)) missing.push('變更風險評估');
+  const headings = new Set([
     ...(risk.requiresQualityEvidence ? QUALITY_EVIDENCE_HEADINGS : []),
+    ...(risk.requiresQualityEvidence ? READINESS_HEADINGS : []),
     ...(risk.level === '小改' ? [] : EVIDENCE_HEADINGS),
     ...(risk.level === '大改' ? HIGH_EVIDENCE_HEADINGS : []),
-  ];
+  ]);
   for (const heading of headings) {
-    const match = prBody.match(new RegExp(`^### ${heading}\\s*\\n([\\s\\S]*?)(?=^#{2,3} |$(?![\\s\\S]))`, 'm'));
-    const body = match ? match[1].replace(/<!--[\s\S]*?-->/g, '').replace(/^[\s>*-]+/g, '').trim() : '';
+    const matches = sections.get(heading) || [];
+    const body = matches.length === 1 ? matches[0].join('\n').replace(/^[\s>*-]+/g, '').trim() : '';
     if (isPlaceholder(body) || body.length < 10) missing.push(heading);
   }
   return { passed: missing.length === 0, missing };

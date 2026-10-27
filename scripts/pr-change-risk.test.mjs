@@ -4,6 +4,12 @@ import { classifyChangeSet, evaluateEvidence, extractManualTier } from './pr-cha
 
 const files = (...names) => names.map((filename) => ({ filename, status: 'modified', additions: 3, deletions: 1 }));
 const fullBody = `## 變更風險評估
+### 需求與驗收條件
+會員能完成原有預約；AC-001 驗證成功與失敗無副作用。
+### 基線與目標環境
+來源整合分支基線 abcdef0123456789abcdef0123456789abcdef01，目標為開發 Preview。
+### 資安與資料邊界
+後端驗證會員及商家歸屬，跨店讀寫拒絕且不產生資料副作用。
 ### 受影響模組
 已盤點 booking 和 points 的前端路由，以及整合點。
 ### 測試與驗收
@@ -112,11 +118,47 @@ test('a single application or workflow code change requires regression and quali
 
 test('quality/performance and regression evidence cannot be generic placeholders', () => {
   const risk = classifyChangeSet(files('MemberWebsocket-dev/booking/index.html'));
-  const partial = `### 既有功能回歸
-TBD
-### 程式碼品質與效能
-待補`;
+  const partial = fullBody.replace(/(### 既有功能回歸\n)[^\n]+/, '$1TBD')
+    .replace(/(### 程式碼品質與效能\n)[^\n]+/, '$1待補');
   assert.deepEqual(evaluateEvidence(risk, partial).missing, ['既有功能回歸', '程式碼品質與效能']);
+});
+
+for (const heading of ['需求與驗收條件', '基線與目標環境', '資安與資料邊界', '測試與驗收', '回退方案']) {
+  test(`readiness: even a small UI change fails without ${heading}`, () => {
+    const risk = classifyChangeSet(files('MemberWebsocket-dev/booking/index.html'));
+    const body = fullBody.replace(new RegExp(`### ${heading}\\n[^\\n]+\\n`), '');
+    assert.deepEqual(evaluateEvidence(risk, body), { passed: false, missing: [heading] });
+  });
+}
+
+test('readiness: comments, fenced examples and duplicate headings cannot provide evidence', () => {
+  const risk = classifyChangeSet(files('MemberWebsocket-dev/booking/index.html'));
+  const absent = fullBody.replace(/### 資安與資料邊界\n[^\n]+\n/, '');
+  const section = '### 資安與資料邊界\n後端驗證商家與會員歸屬，未登入或跨店拒絕且不寫入。';
+  for (const body of [
+    absent + '\n<!--\n' + section + '\n-->',
+    absent + '\n```markdown\n' + section + '\n```',
+    absent + '\n~~~markdown\n' + section + '\n~~~',
+    fullBody + '\n' + section,
+    absent + '\n### 資安與資料邊界\n#### 補充\n未提供本欄的實際說明，不能從其他節借字數。',
+  ]) assert.deepEqual(evaluateEvidence(risk, body), { passed: false, missing: ['資安與資料邊界'] });
+});
+
+test('readiness CLI returns failure for missing security evidence and success for a complete plan', async () => {
+  const { mkdtemp, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { spawnSync } = await import('node:child_process');
+  const dir = await mkdtemp(join(tmpdir(), 'pr-readiness-'));
+  try {
+    await writeFile(join(dir, 'files.json'), JSON.stringify(files('MemberWebsocket-dev/booking/index.html')));
+    for (const [body, code] of [[fullBody, 0], [fullBody.replace(/### 資安與資料邊界\n[^\n]+\n/, ''), 1]]) {
+      await writeFile(join(dir, 'body.md'), body);
+      const result = spawnSync(process.execPath, ['scripts/pr-change-risk.mjs', '--files-json', join(dir, 'files.json'), '--body-file', join(dir, 'body.md')], { encoding: 'utf8', env: { ...process.env, GITHUB_STEP_SUMMARY: '' } });
+      assert.equal(result.status, code, result.stdout + result.stderr);
+      if (code) assert.match(result.stderr, /資安與資料邊界/);
+    }
+  } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
 test('non-code documentation does not require artificial runtime benchmark evidence', () => {

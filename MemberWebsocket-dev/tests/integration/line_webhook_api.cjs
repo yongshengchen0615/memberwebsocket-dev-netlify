@@ -2,6 +2,25 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const {setup}=require('./fixtures/line-webhook-http.cjs');
 const owner='U'+'2'.repeat(32);
 const {destination}=require('./fixtures/line-webhook-cases.cjs');
+test('#144 public URL survives rewritten HTTP gateway URL and ignores untrusted URL hints',async()=>{
+ const h=await setup();try{
+  const transport={url:'http://dbuquirnaskrwcamdxki.supabase.co/platform-api',headers:{Host:'attacker.example','x-forwarded-host':'attacker.example','x-forwarded-proto':'http'}};
+  const extra={endpoint:'https://attacker.example/line-webhook',publicSupabaseUrl:'https://attacker.example'};
+  for(const action of ['platform.webhook.status','platform.webhook.check']){
+   const result=await h.request(action,extra,transport);assert.equal(result.status,200,JSON.stringify(result));
+   assert.equal(result.body.data.endpoint,'https://fixture.supabase.co/functions/v1/line-webhook');
+  }
+  assert.equal(h.provider.length,2);assert.equal((await h.request('platform.webhook.status')).body.data.apiState,'accepted');
+ }finally{await h.db.close();}
+});
+test('#144 invalid endpoint configuration refuses diagnostics before Provider access or binding',async()=>{
+ const h=await setup({publicSupabaseUrl:null});try{
+  for(const action of ['platform.webhook.status','platform.webhook.check']){
+   const result=await h.request(action);assert.equal(result.status,503,JSON.stringify(result));assert.equal(result.body.error.code,'WEBHOOK_ENDPOINT_UNAVAILABLE');assert.equal(result.body.data,undefined);
+  }
+  assert.equal(h.provider.length,0);assert.equal((await h.db.query('select count(*)::int n from platform_private.line_webhook_bindings')).rows[0].n,0);
+ }finally{await h.db.close();}
+});
 test('#144 diagnostics: read status is local, explicit check binds verified bot without sending and never returns credentials',async()=>{
  const h=await setup();try{
   const status=await h.request('platform.webhook.status');assert.equal(status.status,200,JSON.stringify(status));assert.equal(status.body.data.apiState,'pending');assert.equal(h.provider.length,0);

@@ -3,7 +3,7 @@ import { FEATURES, PlatformError, publicTenant, validateTenant } from './platfor
 import { payloadHash, sealCredentials, openCredentials } from './platform-crypto.mjs';
 import { assertTenantIdentity, normalizeExpiry } from './tenant-access.mjs';
 import { validateNotificationRoute, verifyNotificationToken } from './notification-routes.mjs';
-import { checkLineWebhook } from './line-webhook-diagnostics.mjs';
+import { checkLineWebhook, lineWebhookEndpoint } from './line-webhook-diagnostics.mjs';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SQL_ERRORS = {
   LINE_CHANNEL_IN_USE:[409,'此 Messaging API Channel 已綁定其他商家。'],
@@ -32,7 +32,7 @@ export function databaseError(error) {
   for (const [code,[status,message]] of Object.entries(SQL_ERRORS)) if (String(error?.message || '').includes(code)) return new PlatformError(status,code,message);
   return new PlatformError(503,'PLATFORM_DATABASE_UNAVAILABLE','目前無法儲存或讀取商家設定。');
 }
-export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdentity = verifyIdentity, encryptionKey, allowedOrigins, fetchImpl = fetch }) {
+export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdentity = verifyIdentity, encryptionKey, allowedOrigins, fetchImpl = fetch, publicSupabaseUrl }) {
   const moduleCredentials = async (current, feature) => {
     const stored=await db.rpc('platform_module_credentials',{p_tenant_id:current.id,p_feature:feature});
     if(stored.error)throw databaseError(stored.error);
@@ -232,6 +232,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
           throw new PlatformError(403,'TENANT_SUSPENDED','此商家尚未開放或已停用。');
         if(!['membership','points','events','calendar','booking'].includes(body.feature) || current.features?.[body.feature]!==true)
           throw new PlatformError(403,'FEATURE_DISABLED','此功能尚未核准。');
+        const endpoint=lineWebhookEndpoint(publicSupabaseUrl);
         const args={p_actor:actor,p_tenant_id:current.id,p_issued_at:new Date(identity.issuedAtMs).toISOString(),p_feature:body.feature};
         const read=await db.rpc(body.action==='platform.webhook.check'?'platform_line_webhook_prepare':'platform_line_webhook_status',args);
         if(read.error)throw databaseError(read.error);
@@ -241,7 +242,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
           const bound=await db.rpc('platform_line_webhook_bind',{...args,p_channel_id:read.data.channelId,p_destination:destination,p_revision:read.data.revision});
           if(bound.error)throw databaseError(bound.error);summary=bound.data;
         }
-        return json({ok:true,data:{...summary,endpoint:new URL('line-webhook',request.url).href}});
+        return json({ok:true,data:{...summary,endpoint}});
       }
       if (body.action === 'platform.notifications.test') {
         validateNotificationRoute({...body,mode:'inherit'});

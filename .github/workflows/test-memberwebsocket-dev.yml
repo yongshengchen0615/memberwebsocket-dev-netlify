@@ -83,6 +83,8 @@ jobs:
             MemberWebsocket-dev/tests/integration/platform_postgrest_reset.cjs \
             MemberWebsocket-dev/tests/integration/product_admin_ui.cjs \
             MemberWebsocket-dev/tests/integration/business_line_settings.cjs \
+            MemberWebsocket-dev/tests/integration/line_settings_simple.cjs \
+            MemberWebsocket-dev/tests/integration/line_settings_workspace.cjs \
             MemberWebsocket-dev/tests/integration/line_capabilities.cjs \
             MemberWebsocket-dev/tests/integration/line_webhook_sql.cjs \
             MemberWebsocket-dev/tests/integration/line_webhook_api.cjs \

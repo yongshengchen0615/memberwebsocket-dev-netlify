@@ -81,3 +81,13 @@
 採用 **輕量 Scrum＋Kanban**：建議一週迭代、每輪 Sprint Goal、工作中 WIP 上限兩條主動修改 PR、Daily async、Sprint Review 與 Retrospective。每項工作開始要達 Definition of Ready（DoR），結束要達 Definition of Done（DoD）；P0 可調整迭代承諾但不得跳過安全、測試與發布 Gate。
 
 沿用 Project #5 九個 Status，不新增或假設已存在的 Sprint 欄位，未達 DoD 不因 PR 合併或 Sprint 結束就標完成。完整流程與模板見 [docs/AGILE_DEVELOPMENT.md](docs/AGILE_DEVELOPMENT.md)。
+
+## 七、規範確認：每張開發卡的固定開工條件
+
+每次開發必遵守：**原功能不退化、資安與資料邊界不放寬、敏捷小增量、新功能詳細測試**。先完成六項 DoR：需求/編號 AC、真實基線與目標環境、舊功能影響矩陣、資安/資料邊界、測試計畫、交付及回復。只有全部明確才可進準備開始；資訊及授權已清楚的例行工作持續執行，不逐步要求「繼續」。
+
+Project 新增「規範確認」規劃於待規劃與準備開始之間，**尚未套用欄位時維持原九項**，先在待規劃內做檢核，不使用不存在的 Status。同步程式在 main，不能以整合分支文件更新宣稱已啟用。細則見 docs/DEVELOPMENT_GUARDRAILS.md 第10節與 #56。
+
+程式/執行設定/治理 PR 的需求與驗收條件、基線與目標環境、資安與資料邊界、測試與驗收、回退方案，加上既有功能回歸及程式碼品質與效能欄位均須具體。普通說明文件可按實際影響說明；不新增無效 runtime benchmark。PR 文字檢核不代表真實測試成功，完整 CI、審查、外部驗收及正式授權繼續適用；只有 GitHub 實際設定 Required Checks 才有技術強制。
+
+新功能至少按適用範圍涵蓋正常、輸入/邊界、故障恢復、身分與跨商家負向、交易/併發/冪等、整合相容、桌機/手機 E2E、舊功能回歸及真實外部服務。每個 AC 對應案例、命令、最終 SHA、環境、時間、pass/fail/skip 及證據。可重現的原功能退化或資安阻擋未解除，不得交付。

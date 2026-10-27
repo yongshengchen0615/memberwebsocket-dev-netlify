@@ -22,10 +22,10 @@ for(const width of [390,1280])test('#124 LIFF_ONLY_'+width+' — all feature ent
   const fields={membership:'memberLiffId',points:'pointsLiffId',events:'eventLiffId',calendar:'calendarLiffId',booking:'bookingLiffId'};
   for(const [feature,key] of Object.entries(fields)){
    await page.locator('#businessLineFeatureTab-'+feature).click();const form=page.locator('#businessLine-'+feature);
-   if(feature==='membership'){await form.locator('[name=adminChannelId]').fill('2010791619');await form.locator('[name=adminLiffId]').fill('2010791619-admin');}
-   await form.locator('[name=memberChannelId]').fill('2010787602');await form.locator('[name='+key+']').fill('2010787602-'+feature);
+   if(feature==='membership'){await form.locator('[name=adminLiffId]').fill('2010791619-admin');await expect(form.locator('[name=adminChannelId]')).toHaveValue('2010791619');}
+   await form.locator('[name='+key+']').fill('https://liff.line.me/2010787602-'+feature);await expect(form.locator('[name=memberChannelId]')).toHaveValue('2010787602');
    expect(await form.evaluate(f=>f.checkValidity()),'matched Login/LIFF is a complete entry without Messaging credentials').toBe(true);
-   await form.getByRole('button',{name:/儲存.*LINE 設定/}).click();
+   await form.getByRole('button',{name:/儲存.*入口設定/}).click();
    const section=page.locator('[data-business-line-feature="'+feature+'"]');await expect(section.locator(':scope > [role=status]')).toContainText('已儲存');
    await expect(section.getByRole('link',{name:'開啟已儲存的 LINE 入口'})).toHaveAttribute('href','https://liff.line.me/2010787602-'+feature);
    const result=await h.call({action:'platform.business.public',business:tenant.slug,feature});expect(result.status).toBe(200);expect(result.body.data.line[key]).toBe('2010787602-'+feature);

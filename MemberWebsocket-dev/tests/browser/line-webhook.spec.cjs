@@ -13,7 +13,7 @@ for(const width of [390,1280])test('#144 WEBHOOK_DIAGNOSTICS_'+width+' real hand
  try{
   await page.setViewportSize({width,height:900});
   await page.route('https://fixture.supabase.co/**',async route=>{
-   const response=await h.handler(new Request(route.request().url(),{method:'POST',headers:{Origin:base},body:route.request().postData()}));
+   const response=await h.handler(new Request('http://fixture.supabase.co/platform-api',{method:'POST',headers:{Origin:base},body:route.request().postData()}));
    await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
   });
   await page.goto(base);await page.evaluate(tenant=>{
@@ -28,7 +28,7 @@ for(const width of [390,1280])test('#144 WEBHOOK_DIAGNOSTICS_'+width+' real hand
   await panel.getByRole('button',{name:'複製 Webhook URL'}).click();await expect(panel.getByRole('status')).toContainText('已複製');
   expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('https://fixture.supabase.co/functions/v1/line-webhook');
   expect(h.provider).toEqual(['https://api.line.me/v2/oauth/verify','https://api.line.me/v2/bot/info']);
-  await page.locator('#businessLine-booking details').first().locator('summary').click();
+  await page.locator('#businessLine-booking details').filter({has:page.locator('[name=channelSecret]')}).locator('summary').click();
   await page.locator('#businessLine-booking [name=channelSecret]').fill('b'.repeat(32));
   await expect(panel.getByRole('button',{name:'檢查 LINE 連線'})).toBeDisabled();
   await page.locator('#businessLineFeatureTab-points').click();const optional=page.locator('[data-line-webhook=points]');await optional.locator('summary').click();
