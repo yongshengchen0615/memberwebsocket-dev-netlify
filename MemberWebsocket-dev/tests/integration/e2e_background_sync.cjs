@@ -25,7 +25,7 @@ function view(id = 'qa-1', status = 'running', passed = 0) {
 }
 
 async function page(query = '', savedCoverage = null, preloadedDetail = null) {
-  const dom = new JSDOM(read('admin/index.html').replace('</main>', read('tests/fixtures/admin-test-center.html') + '\n</main>'), {
+  const dom = new JSDOM(read('admin/index.html').replace('\n</main>', '\n' + read('tests/fixtures/admin-test-center.html') + '\n</main>'), {
     runScripts: 'outside-only', pretendToBeVisual: true,
     url: 'https://example.test/MemberWebsocket-dev/admin/' + query
   });
