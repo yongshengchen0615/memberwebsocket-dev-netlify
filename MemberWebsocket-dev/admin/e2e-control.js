@@ -42,7 +42,6 @@
   const ADMIN_CASE_MODULES = Object.freeze({
     ADMIN_MEMBER_USAGE_LOGS: ['member'],
     ADMIN_BOOKING_NO_SHOW_CONTROLS: ['booking'],
-    ADMIN_OPERATION_AUDIT: ['integration'],
     ADMIN_SERVICE_GRANT_JOURNEY: ['member'],
     ADMIN_SETTINGS_COPY_CONTROLS: ['points','event'],
     ADMIN_TIER_EDITOR_JOURNEY: ['member'],
@@ -97,7 +96,6 @@
   const ADMIN_NODE_META = Object.freeze({
     ADMIN_MEMBER_USAGE_LOGS: {module:'member',phase:5,dependencies:['ADMIN_TEST_MEMBER_ROSTER']},
     ADMIN_BOOKING_NO_SHOW_CONTROLS: {module:'booking',phase:5,dependencies:['ADMIN_BOOKING_CONTROLS']},
-    ADMIN_OPERATION_AUDIT: {module:'integration',phase:5,dependencies:['ADMIN_AUTH_READY']},
     ADMIN_SERVICE_GRANT_JOURNEY: {module:'member',phase:4,risk:'mutation',dependencies:['ADMIN_TEST_MEMBER_ROSTER']},
     ADMIN_SETTINGS_COPY_CONTROLS: {module:'ticket',phase:4,dependencies:['ADMIN_RESOURCE_EDITORS']},
     ADMIN_TIER_EDITOR_JOURNEY: {module:'member',phase:4,dependencies:['ADMIN_PRIMARY_NAVIGATION']},
@@ -1864,7 +1862,6 @@
     return common.concat([
       caseDef('ADMIN_MEMBER_USAGE_LOGS', '使用紀錄：測試會員選取與七類歷程', 'Human E2E', adminMemberUsageLogsCase),
       caseDef('ADMIN_BOOKING_NO_SHOW_CONTROLS', '無故未到：分類與未到期按鈕邊界', 'Human E2E', adminBookingNoShowControlsCase),
-      caseDef('ADMIN_OPERATION_AUDIT', '操作稽核：日期驗證、測試會員查詢與詳情', 'Human E2E', adminOperationAuditCase),
       caseDef('ADMIN_SERVICE_GRANT_JOURNEY', '依服務項目發放：預覽／雙擊／會員回讀／清理', 'Human E2E', adminServiceGrantJourneyCase),
       caseDef('ADMIN_SETTINGS_COPY_CONTROLS', '設定複製：未儲存拒絕與取消', 'Human E2E', adminSettingsCopyControlsCase),
       caseDef('ADMIN_TIER_EDITOR_JOURNEY', '會員卡：全部樣式與預覽', 'Human E2E', adminTierEditorJourneyCase),
@@ -6332,39 +6329,6 @@
     return selected && wrongStatuses === 0 && invalid === 0
       ? pass('無故未到分類可切換，未到期按鈕不顯示過期提示。', {selected:true,wrongStatuses:0,invalidEarlyLabels:0}, actual)
       : fail('無故未到分類或按鈕狀態異常。', {selected:true,wrongStatuses:0,invalidEarlyLabels:0}, actual);
-  }
-
-  async function adminOperationAuditCase() {
-    const tab = await waitFor(() => document.getElementById('operationAuditTab'), 4000);
-    tab?.click();
-    await waitFor(() => document.getElementById('operationAuditPanel')?.getAttribute('aria-busy') !== 'true', 12000);
-    const form = document.getElementById('operationAuditForm');
-    const code = String(state.adminTestAccount?.memberCode || '');
-    if (!tab || !form || !code) return fail('操作稽核或本輪測試會員不存在。', {ready:true}, {ready:false});
-    const ids = ['auditFrom','auditTo','auditMemberCode','auditAction','auditResult'];
-    const before = Object.fromEntries(ids.map(id => [id,document.getElementById(id)?.value || '']));
-    try {
-      setField('auditFrom','2099-01-02'); setField('auditTo','2099-01-01');
-      form.dispatchEvent(new Event('submit', {bubbles:true,cancelable:true}));
-      const invalidRejected = /有效的日期範圍/.test(document.getElementById('operationAuditStatus')?.textContent || '');
-      setField('auditFrom',before.auditFrom); setField('auditTo',before.auditTo);
-      setField('auditMemberCode',code); setField('auditAction',''); setField('auditResult','');
-      document.getElementById('auditSearch')?.click();
-      const loaded = Boolean(await waitFor(() => {
-        const panel = document.getElementById('operationAuditPanel');
-        const status = document.getElementById('operationAuditStatus')?.textContent || '';
-        return panel?.getAttribute('aria-busy') === 'false' && /本頁.*筆|此條件下沒有紀錄/.test(status);
-      }, 12000));
-      const details = Array.from(document.querySelectorAll('#operationAuditList details'));
-      for (const detail of details.slice(0, 3)) {
-        detail.querySelector('summary')?.click();
-        if (!detail.open) return fail('稽核詳情無法展開。', {expandable:true}, {expandable:false});
-        detail.querySelector('summary')?.click();
-      }
-      return invalidRejected && loaded
-        ? pass('日期錯誤被拒絕，測試會員查詢成功且詳情可展開。', {invalidRejected:true,loaded:true}, {invalidRejected,loaded,detailCount:details.length})
-        : fail('操作稽核驗證或查詢失敗。', {invalidRejected:true,loaded:true}, {invalidRejected,loaded});
-    } finally { for (const id of ids) setField(id,before[id]); }
   }
 
   async function adminTestAccountLifecycleCase() {

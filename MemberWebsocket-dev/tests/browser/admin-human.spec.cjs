@@ -310,7 +310,7 @@ test('BOOKING_RECEIPT — open signed receipt, inspect summary, close and clear 
 // Execute the registered production runner nodes, not copies of their logic.
 const fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'../..');
-const runtimeKeys=['ADMIN_MEMBER_DIRECTORY_CONTROLS','ADMIN_MEMBER_USAGE_LOGS','ADMIN_OPERATION_AUDIT','ADMIN_BOOKING_NO_SHOW_CONTROLS','ADMIN_MEMBER_MODALS','ADMIN_TEST_MEMBER_PROFILE_EDIT','ADMIN_GRANT_NOTIFICATION_CONTROLS','ADMIN_SERVICE_GRANT_JOURNEY','ADMIN_SETTINGS_COPY_CONTROLS','ADMIN_CALENDAR_EVENT_CRUD','ADMIN_EVENT_CALENDAR_SYNC','ADMIN_TIER_EDITOR_JOURNEY','ADMIN_TERMS_EDITOR_JOURNEY','ADMIN_CARD_EDITOR_OPTIONS','ADMIN_CARD_SORT_JOURNEY','ADMIN_EVENT_AUDIENCE_JOURNEY','ADMIN_CALENDAR_NAVIGATION','ADMIN_BOOKING_BATCH_EDITOR','ADMIN_CALENDAR_BATCH_CONTROLS','ADMIN_CALENDAR_CRUD','ADMIN_FIXED_DRAFT_BIRTHDAY_MONTH','ADMIN_FIXED_DRAFT_WEEKLY','ADMIN_FIXED_DRAFT_MONTHLY','ADMIN_FIXED_DRAFT_YEARLY'];
+const runtimeKeys=['ADMIN_MEMBER_DIRECTORY_CONTROLS','ADMIN_MEMBER_USAGE_LOGS','ADMIN_BOOKING_NO_SHOW_CONTROLS','ADMIN_MEMBER_MODALS','ADMIN_TEST_MEMBER_PROFILE_EDIT','ADMIN_GRANT_NOTIFICATION_CONTROLS','ADMIN_SERVICE_GRANT_JOURNEY','ADMIN_SETTINGS_COPY_CONTROLS','ADMIN_CALENDAR_EVENT_CRUD','ADMIN_EVENT_CALENDAR_SYNC','ADMIN_TIER_EDITOR_JOURNEY','ADMIN_TERMS_EDITOR_JOURNEY','ADMIN_CARD_EDITOR_OPTIONS','ADMIN_CARD_SORT_JOURNEY','ADMIN_EVENT_AUDIENCE_JOURNEY','ADMIN_CALENDAR_NAVIGATION','ADMIN_BOOKING_BATCH_EDITOR','ADMIN_CALENDAR_BATCH_CONTROLS','ADMIN_CALENDAR_CRUD','ADMIN_FIXED_DRAFT_BIRTHDAY_MONTH','ADMIN_FIXED_DRAFT_WEEKLY','ADMIN_FIXED_DRAFT_MONTHLY','ADMIN_FIXED_DRAFT_YEARLY'];
 async function loadRuntime(p){
   await p.evaluate(fs.readFileSync(path.join(root,'e2e-scenario-graph.js'),'utf8'));
   await p.evaluate(fs.readFileSync(path.join(root,'admin/e2e-control.js'),'utf8').replace('  window.MemberAdminE2EControl =','  window.qaRuntime={adminDefinitions,state};\n  window.MemberAdminE2EControl ='));
@@ -494,14 +494,13 @@ for(const width of [390,1280])test('BOOKING_CANCELLATION_COPY_'+width+' — actu
  if(typeof p.screenshot==='function')await info.attach('cancel-copy-layout',{body:await p.screenshot({fullPage:true}),contentType:'image/png'});
 });
 
-test('AUDIT_QUERY — filter, detail, cursor, empty state and authorization errors',async({page:p},info)=>{
- await click(p,'operationAuditTab');await expect(p.locator('#operationAuditList')).toContainText('修改預約選用票券');
- await p.locator('#operationAuditList summary').click();await expect(p.locator('#operationAuditList dl')).toContainText('預選數量');await expect(p.locator('#operationAuditList pre')).toHaveCount(0);
- await fill(p,'auditMemberCode','QA-MEMBER');await fill(p,'auditAction','BOOKING_BENEFITS_UPDATED');await select(p,'auditResult','success');await click(p,'auditSearch');
- expect(calls(info.fixture,'admin.audit.query').at(-1).payload.memberCode).toBe('QA-MEMBER');
- await click(p,'auditNext');await expect(p.locator('#operationAuditStatus')).toContainText('沒有紀錄');expect(calls(info.fixture,'admin.audit.query').at(-1).payload.cursor.id).toBe('booking:1');
- info.fixture.fault={action:'admin.audit.query',code:'ADMIN_REQUIRED',message:'您沒有查詢權限'};await click(p,'auditSearch');await expect(p.locator('#operationAuditStatus')).toContainText('您沒有查詢權限');await expect(p.locator('#operationAuditList')).toHaveText('');
- await click(p,'membersTab');await expect(p.locator('#operationAuditPanel')).toBeHidden();await expect(p.locator('#operationAuditTab')).toHaveAttribute('aria-selected','false');
+test('AUDIT_QUERY_REMOVED — standalone audit tab is absent; member history stays usable',async({page:p},info)=>{
+ await expect(p.locator('#operationAuditTab')).toHaveCount(0);
+ await expect(p.locator('#operationAuditPanel')).toHaveCount(0);
+ await expect(p.locator('#memberUsageTab')).toHaveCount(1);
+ await click(p,'memberUsageTab');
+ await expect(p.locator('#memberUsagePanel')).toBeVisible();
+ expect(calls(info.fixture,'admin.audit.query')).toHaveLength(0);
 });
 
 for(const width of [390,1280])test('BOOKING_NO_SHOW_'+width+' — explicit confirmation, no debit and pending count readback',async({page:p},info)=>{
