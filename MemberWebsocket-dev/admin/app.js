@@ -9,7 +9,7 @@
   const POINT_CARD_STYLE_KEYS = Object.freeze(['citrus', 'coral', 'lagoon', 'skyline', 'violet', 'berry', 'cocoa', 'lime', 'denim', 'peach']);
   const POINT_CARD_STYLE_LABELS = Object.freeze({ citrus: '柑橘氣泡', coral: '珊瑚蘇打', lagoon: '潟湖水光', skyline: '晴空城市', violet: '電光紫', berry: '莓果霓虹', cocoa: '可可拿鐵', lime: '萊姆汽水', denim: '丹寧晴藍', peach: '蜜桃冰沙' });
   const LEGACY_POINT_CARD_STYLE_MAP = Object.freeze({ forest: 'lagoon', midnight: 'skyline', ocean: 'denim', sunset: 'coral', lavender: 'violet', rose: 'berry', gold: 'citrus', platinum: 'cocoa', mint: 'lime', cherry: 'peach' });
-  const state = { config: null, idToken: '', members: [], memberPage: { page: 1, pageSize: 100, total: 0, totalPages: 1, query: '' }, memberKind: 'real', memberSearchTimer: null, memberRequestVersion: 0, tierSettings: [], cards: [], cardSortOriginalOrder: [], tickets: [], bookingServices: [], eventTickets: [], calendarItems: [], messagePresets: [], adminCalendarMonth: '', selectedCalendarDates: new Set(), selectedCalendarItemIds: new Set(), calendarBatchItems: [], calendarBatchNextKey: 1, stats: {}, activePanel: 'members', activeCardWorkspace: 'cards', loadedPanels: { members: true, cards: false, events: false, calendar: false, testMode: true }, panelLoads: Object.create(null), summaryLoaded: false, selectedCardId: '', selectedTicketId: '', selectedEventTicketId: '', selectedCalendarItemId: '', grantRequestId: '', grantSuccessTimer: null, editorModals: Object.create(null), cardSortBusy: false, cardSortDirty: false, cardSortDrag: null, suppressCardClick: false, writeConfirmationRequired: false, memberRecords: { lineUserId: '', filter: 'all', data: null, member: null, requestVersion: 0 }, memberUsage: { kind: 'real', page: 1, query: '', members: [], totalPages: 1, total: 0, requestVersion: 0, searchTimer: null, loaded: false }, operationalBookings: [] };
+  const state = { config: null, idToken: '', members: [], memberPage: { page: 1, pageSize: 100, total: 0, totalPages: 1, query: '' }, memberKind: 'real', memberSearchTimer: null, memberRequestVersion: 0, tierSettings: [], cards: [], cardSortOriginalOrder: [], tickets: [], bookingServices: [], eventTickets: [], calendarItems: [], messagePresets: [], adminCalendarMonth: '', selectedCalendarDates: new Set(), selectedCalendarItemIds: new Set(), calendarBatchItems: [], calendarBatchNextKey: 1, stats: {}, activePanel: 'members', activeCardWorkspace: 'cards', loadedPanels: { members: true, cards: false, events: false, calendar: false }, panelLoads: Object.create(null), summaryLoaded: false, selectedCardId: '', selectedTicketId: '', selectedEventTicketId: '', selectedCalendarItemId: '', grantRequestId: '', grantSuccessTimer: null, editorModals: Object.create(null), cardSortBusy: false, cardSortDirty: false, cardSortDrag: null, suppressCardClick: false, writeConfirmationRequired: false, memberRecords: { lineUserId: '', filter: 'all', data: null, member: null, requestVersion: 0 }, memberUsage: { kind: 'real', page: 1, query: '', members: [], totalPages: 1, total: 0, requestVersion: 0, searchTimer: null, loaded: false }, operationalBookings: [] };
   const els = {};
   const LOGIN_PROGRESS_TICK_MS = 650;
   const MEMBER_PRESENCE_POLL_MS = 15_000;
@@ -30,7 +30,7 @@
     window.MemberSystem.bindDialogKeyboard();
     [
       'app', 'loadingView', 'loadingProgress', 'loadingProgressBar', 'loadingProgressText', 'loadingStatus', 'errorView', 'errorTitle', 'errorMessage', 'pendingBox', 'pendingUserId', 'retryButton', 'adminView', 'displayName', 'roleLabel', 'logoutButton',
-      'membersTab', 'cardsTab', 'eventsTab', 'calendarTab', 'testModeTab', 'cardSettingsTab', 'ticketSettingsTab', 'memberCount', 'activeMemberCount', 'activeCardCount', 'activeEventTicketCount', 'todayEntryCount', 'membersPanel', 'cardsPanel', 'eventsPanel', 'calendarPanel', 'testModePanel', 'cardSettingsPanel', 'ticketSettingsPanel', 'syncStatus', 'refreshButton',
+      'membersTab', 'cardsTab', 'eventsTab', 'calendarTab', 'cardSettingsTab', 'ticketSettingsTab', 'memberCount', 'activeMemberCount', 'activeCardCount', 'activeEventTicketCount', 'todayEntryCount', 'membersPanel', 'cardsPanel', 'eventsPanel', 'calendarPanel', 'cardSettingsPanel', 'ticketSettingsPanel', 'syncStatus', 'refreshButton',
       'tierSettingsForm', 'tierGeneralMinutes', 'tierSilverMinutes', 'tierGoldMinutes', 'tierPlatinumMinutes', 'tierGeneralStyle', 'tierSilverStyle', 'tierGoldStyle', 'tierPlatinumStyle', 'tierSettingsFormMessage', 'saveTierSettingsButton',
       'realMembersSubtab', 'testMembersSubtab', 'memberSearch', 'memberResultCount', 'memberTableBody', 'memberEmptyState', 'memberPagination', 'memberPrevPageButton', 'memberPageStatus', 'memberNextPageButton',
       'newCardButton', 'cardResultCount', 'cardListItems', 'cardEmptyState', 'editorKicker', 'editorTitle', 'editorStatus', 'cardForm', 'cardId', 'cardExpectedUpdatedAt', 'cardTitle', 'cardUsageMethod', 'cardUsageInstructions', 'cardBenefitDescription', 'cardStatus', 'cardExpiryMode', 'cardExpiresOnField', 'cardExpiresOn', 'cardExpiresOnSummary', 'cardAccent', 'accentValue', 'rewardRows', 'addRewardButton', 'rewardEditorHint', 'cardFormMessage', 'resetCardButton', 'archiveCardButton', 'deleteCardButton', 'saveCardButton',
@@ -98,7 +98,6 @@
     els.cardsTab.addEventListener('click', () => switchPanel('cards'));
     els.eventsTab.addEventListener('click', () => switchPanel('events'));
     els.calendarTab.addEventListener('click', () => { switchPanel('calendar'); requestOperationalBookingSnapshot(); });
-    els.testModeTab.addEventListener('click', () => switchPanel('testMode'));
     els.cardSettingsTab.addEventListener('click', () => switchCardWorkspace('cards'));
     els.ticketSettingsTab.addEventListener('click', () => switchCardWorkspace('tickets'));
     els.refreshButton.addEventListener('click', () => { if (state.writeConfirmationRequired) return window.location.reload(); return refreshData(true).catch((error) => { els.syncStatus.textContent = error && error.message || '同步失敗，請稍後再試。'; els.syncStatus.classList.add('error'); }); });
@@ -671,7 +670,7 @@
     state.messagePresets = Array.isArray(result.messagePresets) ? result.messagePresets : [];
     renderGrantMessagePresetOptions();
     renderMessagePresetList();
-    state.loadedPanels = { members: true, cards: true, events: true, calendar: true, testMode: true };
+    state.loadedPanels = { members: true, cards: true, events: true, calendar: true };
     state.summaryLoaded = Object.prototype.hasOwnProperty.call(state.stats, 'todayEntryCount');
     els.displayName.textContent = String(result.profile && result.profile.displayName || '管理員');
     els.roleLabel.textContent = String(result.role || 'Admin');
@@ -3173,7 +3172,7 @@
 
   function switchPanel(panel) {
     state.activePanel = panel;
-    ['members', 'cards', 'events', 'calendar', 'testMode'].forEach((name) => { const selected = name === panel; els[name + 'Tab'].setAttribute('aria-selected', String(selected)); els[name + 'Panel'].classList.toggle('hidden', !selected); });
+    ['members', 'cards', 'events', 'calendar'].forEach((name) => { const selected = name === panel; els[name + 'Tab'].setAttribute('aria-selected', String(selected)); els[name + 'Panel'].classList.toggle('hidden', !selected); });
     if (!state.loadedPanels[panel]) ensureAdminPanelData(panel).catch((error) => { setSyncStatus(error && error.message || '資料載入失敗，請稍後再試。', true); });
   }
   function switchCardWorkspace(workspace) { state.activeCardWorkspace = workspace; const workspaces = [['cards', 'cardSettingsTab', 'cardSettingsPanel'], ['tickets', 'ticketSettingsTab', 'ticketSettingsPanel']]; workspaces.forEach(([name, tabId, panelId]) => { const selected = name === workspace; els[tabId].setAttribute('aria-selected', String(selected)); els[panelId].classList.toggle('hidden', !selected); }); }

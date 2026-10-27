@@ -28,11 +28,6 @@
   <link rel="stylesheet" href="./admin-quick-actions.css?v=admin-quick-ux-20261022-2">
   <link rel="stylesheet" href="./booking-receipt-admin.css?v=booking-receipt-admin-dark-20261001-4">
   <link rel="stylesheet" href="./fixed-ticket-admin.css?v=fixed-ticket-calendar-dark-20260927-1-ui-20261006-1">
-  <link rel="stylesheet" href="./test-mode.css?v=test-mode-ui-20260920-3">
-  <link rel="stylesheet" href="./test-control.css?v=test-control-20261010-1">
-  <link rel="stylesheet" href="./e2e-control.css?v=e2e-coverage-dark-20261005-1">
-  <link rel="stylesheet" href="./e2e-flow-visualizer.css?v=e2e-flow-20261006-2">
-  <link rel="stylesheet" href="./test-workspace-tabs.css?v=test-workspace-tabs-20260923-2">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0/dist/umd/supabase.js" integrity="sha384-lDkWTkrzxBtYvBtgQmPcLBhTbJdqB11igYtWVcCIVXO0Lv4+XuKKdd4razodiyzk" crossorigin="anonymous" defer></script>
   <script src="../business-context.js"></script>
@@ -52,14 +47,6 @@
   <script src="./admin-quick-actions.js?v=admin-quick-ux-20261022-2" defer></script>
   <script src="./member-workspace-tabs.js?v=member-workspace-tabs-20261014-2" defer></script>
   <script src="./terms.js?v=membership-terms-ui-20261005-2" defer></script>
-  <script src="./test-mode.js?v=test-login-takeover-20261008-2" defer></script>
-  <script src="./test-control.js?v=test-control-20261010-1" defer></script>
-  <script src="../e2e-feature-coverage.js?v=feature-coverage-20261009-1-ongoing-20261010-1-scope-complete-20261015-1" defer></script>
-  <script src="../e2e-scenario-graph.js?v=e2e-graph-20261004-2" defer></script>
-  <script src="../e2e-professional-tester.js?v=professional-qa-20261005-2" defer></script>
-  <script src="./e2e-flow-visualizer.js?v=e2e-flow-20261006-1-ongoing-20261010-1" defer></script>
-  <script src="./e2e-control-loader.js?v=e2e-safe-execution-20261010-2-consent-scope-scope-complete-20261015-1-scope-execution-20261016-1" data-e2e-control-src="./e2e-control.js?v=qa-e2e-20261010-2-consent-scope-scope-complete-20261015-1-scope-execution-20261016-1" defer></script>
-  <script src="./test-workspace-tabs.js?v=test-workspace-tabs-20260923-2" defer></script>
   <script src="./grant-automation.js?v=grant-automation-20260910" defer></script>
   <script src="../booking-copy-text.js?v=20261014-1" defer></script>
   <script src="../booking-copy-format.js?v=booking-overnight-20260928-1-controls-20261010-2-release-20261014-1" defer></script>
@@ -87,7 +74,7 @@
 
     <main id="adminView" class="hidden">
       <header class="topbar"><div><p class="kicker">Lumen Club / Operations</p><h1>管理工作台</h1></div><div class="account-menu"><span id="displayName">管理員</span><span id="roleLabel" class="role-label">Admin</span><button id="logoutButton" class="text-button" type="button">登出</button></div></header>
-      <nav class="surface-nav" role="tablist" aria-label="管理功能"><button id="membersTab" class="surface-tab" type="button" role="tab" aria-selected="true" aria-controls="membersPanel">會員卡</button><button id="cardsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="cardsPanel">集點卡</button><button id="eventsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="eventsPanel">活動票券</button><button id="calendarTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="calendarPanel">營運日曆</button><button id="testModeTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="testModePanel">測試</button><button id="lineSettingsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="lineSettingsPanel" data-business-allowed="false" hidden disabled>LINE 設定</button></nav>
+      <nav class="surface-nav" role="tablist" aria-label="管理功能"><button id="membersTab" class="surface-tab" type="button" role="tab" aria-selected="true" aria-controls="membersPanel">會員卡</button><button id="cardsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="cardsPanel">集點卡</button><button id="eventsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="eventsPanel">活動票券</button><button id="calendarTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="calendarPanel">營運日曆</button><button id="lineSettingsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="lineSettingsPanel" data-business-allowed="false" hidden disabled>LINE 設定</button></nav>
 
       <section id="lineSettingsPanel" class="panel hidden" role="tabpanel" aria-labelledby="lineSettingsTab" hidden><div class="panel-heading"><div><p class="kicker">LINE / Integrations</p><h2>LINE 設定</h2><p>只顯示總管理員已核准的功能。各功能的 LIFF、訊息 Channel 與通知設定獨立儲存。</p></div></div><nav id="businessLineFeatureNav" class="business-line-feature-nav" aria-label="已核准功能的 LINE 設定"></nav><div id="businessLineFeatureContent"></div><p id="businessLineLoadStatus" role="status" aria-live="polite"></p></section>
       <section class="ops-overview" aria-labelledby="opsOverviewTitle">
@@ -336,183 +323,7 @@
         <div class="card-workspace calendar-workspace"><aside class="card-list" aria-label="日曆項目列表"><section class="admin-calendar" aria-labelledby="adminCalendarMonthTitle"><div class="admin-calendar-toolbar"><button id="adminCalendarPreviousMonthButton" class="admin-calendar-month-button" type="button" aria-label="上一個月">‹</button><div><h3 id="adminCalendarMonthTitle"></h3><p>點選日期即可新增休假日或活動；點選日期內項目可編輯。</p><button id="adminCalendarTodayButton" class="text-button admin-calendar-today-button" type="button">回到本月</button></div><button id="adminCalendarNextMonthButton" class="admin-calendar-month-button" type="button" aria-label="下一個月">›</button></div><div class="admin-calendar-weekdays" aria-hidden="true"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div><div id="adminCalendarGrid" class="admin-calendar-grid" aria-live="polite"></div></section><div class="list-heading"><span>所有日期</span><span id="calendarItemResultCount">0</span></div><div id="calendarItemListItems"></div><div id="calendarItemEmptyState" class="empty-state compact hidden"><span aria-hidden="true">○</span><p>尚未建立休假日或活動日期</p></div></aside><section class="editor"><div class="editor-heading"><div><p class="kicker" id="calendarItemEditorKicker">Create calendar item</p><h3 id="calendarItemEditorTitle">新增日曆項目</h3></div><span id="calendarItemEditorStatus" class="editor-status">草稿</span></div><form id="calendarItemForm" novalidate><input id="calendarItemId" type="hidden"><input id="calendarItemExpectedUpdatedAt" type="hidden"><label>名稱<input id="calendarItemTitle" required maxlength="100" placeholder="例如：中秋節店休"></label><div class="form-grid"><label>類型<select id="calendarItemType"><option value="holiday">休假日</option><option value="event">活動</option></select></label><label>公開狀態<select id="calendarItemStatus"><option value="active">啟用中</option><option value="draft">草稿</option><option value="archived">已封存</option></select></label></div><label>說明（選填）<textarea id="calendarItemDescription" maxlength="500" rows="4" placeholder="例如：當日暫停營業，祝大家佳節愉快。"></textarea></label><section id="calendarItemEventLinkFields" class="calendar-event-link-fields" aria-labelledby="calendarItemEventLinkTitle"><div><p class="kicker">Event link</p><h4 id="calendarItemEventLinkTitle">活動連結</h4><p>填寫名稱與 HTTPS 網址後，會員可在活動詳情開啟連結。</p></div><div class="form-grid"><label>連結名稱（選填）<input id="calendarItemLinkLabel" maxlength="80" placeholder="例如：查看活動詳情"></label><label>連結網址（選填）<input id="calendarItemLinkUrl" type="url" inputmode="url" maxlength="2048" placeholder="https://example.com/event"></label></div></section><section class="date-range-control" aria-labelledby="calendarItemDateRangeTitle"><div class="date-range-heading"><div><p class="kicker">Date range</p><h4 id="calendarItemDateRangeTitle">日期</h4><p>單日項目只需填寫開始日；跨日活動可再設定結束日。</p></div></div><div class="form-grid"><div class="date-control"><div class="date-control-heading"><label for="calendarItemStartsOn">開始日</label><span>必填</span></div><div class="date-input-shell"><input id="calendarItemStartsOn" type="date" required><button class="date-picker-button" type="button" data-open-date-picker="calendarItemStartsOn" aria-label="開啟開始日選擇器"><span aria-hidden="true">▣</span><span>選擇日期</span></button></div></div><div class="date-control"><div class="date-control-heading"><label for="calendarItemEndsOn">結束日</label><span>選填，留空即為單日</span></div><div class="date-input-shell"><input id="calendarItemEndsOn" type="date"><button class="date-picker-button" type="button" data-open-date-picker="calendarItemEndsOn" aria-label="開啟結束日選擇器"><span aria-hidden="true">▣</span><span>選擇日期</span></button></div></div></div></section><label>識別色<div class="color-field"><input id="calendarItemAccent" type="color" value="#df6b4d"><span id="calendarItemAccentValue">#DF6B4D</span></div></label><div id="calendarItemFormMessage" class="form-message hidden" role="alert"></div><div class="editor-actions"><button id="deleteCalendarItemButton" class="button button-danger" type="button" disabled>刪除目前項目</button><button id="resetCalendarItemButton" class="button button-outline" type="button">清除</button><button id="saveCalendarItemButton" class="button button-dark" type="submit">儲存日曆項目</button></div></form></section></div>
         <section class="calendar-batch-editor" aria-labelledby="calendarBatchTitle"><div class="section-heading"><div><p class="kicker">Batch calendar changes</p><h3 id="calendarBatchTitle">批次新增、修改、刪除</h3><p>可新增多列，或勾選左側既有項目後加入修改／刪除；每次最多 20 筆，送出前會先檢查全部資料。</p></div><div class="heading-actions"><button id="addCalendarBatchItemButton" class="button button-outline" type="button">＋ 新增一列</button><button id="queueSelectedCalendarItemsButton" class="button button-outline" type="button">加入批次修改</button><button id="deleteSelectedCalendarItemsButton" class="button button-danger" type="button" disabled>批次刪除選取</button></div></div><p id="calendarBatchSummary" class="editor-hint" aria-live="polite">尚未加入批次項目。</p><div id="calendarBatchRows" class="calendar-batch-rows"></div><div id="calendarBatchMessage" class="form-message hidden" role="alert"></div><div class="editor-actions"><button id="clearCalendarBatchButton" class="button button-outline" type="button" disabled>清除批次</button><button id="saveCalendarBatchButton" class="button button-dark" type="button" disabled>儲存批次項目</button></div></section>
       </section>
-      <section id="testModePanel" class="panel hidden test-mode-panel" role="tabpanel" aria-labelledby="testModeTab">
-        <div class="panel-heading test-mode-panel-heading">
-          <div>
-            <p class="kicker">Testing environment</p>
-            <h2>測試中心</h2>
-            <p>依功能切換環境與測試帳號、自動化測試及歷史紀錄；底層測試流程與資料來源維持不變。</p>
-          </div>
-          <div class="test-mode-status-group" aria-label="測試環境目前狀態">
-            <span id="systemMaintenanceBadge" class="test-mode-status-badge is-loading">系統維護：讀取中</span>
-            <span id="testModePcLoginBadge" class="test-mode-status-badge is-loading">PC 測試登入：讀取中</span>
-            <span id="testModeMobileLoginBadge" class="test-mode-status-badge is-loading">行動裝置測試登入：讀取中</span>
-          </div>
-        </div>
 
-        <div class="test-mode-panel-grid">
-          <section class="test-mode-settings-card" aria-labelledby="testModeSettingsTitle">
-            <div class="test-mode-card-heading">
-              <div>
-                <span class="test-mode-eyebrow">Environment controls</span>
-                <h3 id="testModeSettingsTitle">環境設定</h3>
-                <p>調整後需按下儲存才會套用；正式用戶端的存取判斷由後端維護閘門執行。</p>
-              </div>
-            </div>
-
-            <form id="testModeForm" novalidate>
-              <section class="test-mode-form-section" aria-labelledby="testModeControlTitle">
-                <div class="test-mode-section-heading">
-                  <div><strong id="testModeControlTitle">系統狀態</strong><small>系統維護是用戶端主開關；PC 與行動裝置登入權限只在系統維護開啟時生效。管理端不受影響。</small></div>
-                </div>
-                <div class="test-mode-toggle-list">
-                  <label class="test-mode-toggle">
-                    <span class="test-mode-toggle-copy"><strong>系統維護</strong><small>開啟後，用戶端進入維護狀態；若該裝置的登入開關同時開啟，則會顯示測試帳號入口。</small></span>
-                    <span class="test-mode-toggle-control"><input id="systemMaintenanceEnabled" type="checkbox"><span class="test-mode-switch" aria-hidden="true"></span></span>
-                  </label>
-                  <label class="test-mode-toggle">
-                    <span class="test-mode-toggle-copy"><strong>PC 可登入</strong><small>系統維護開啟且此開關啟用時，PC 可直接選擇測試帳號登入。</small></span>
-                    <span class="test-mode-toggle-control"><input id="testModePcLoginEnabled" type="checkbox"><span class="test-mode-switch" aria-hidden="true"></span></span>
-                  </label>
-                  <label class="test-mode-toggle">
-                    <span class="test-mode-toggle-copy"><strong>行動裝置可登入</strong><small>系統維護開啟且此開關啟用時，手機與平板可直接選擇測試帳號登入。</small></span>
-                    <span class="test-mode-toggle-control"><input id="testModeMobileLoginEnabled" type="checkbox"><span class="test-mode-switch" aria-hidden="true"></span></span>
-                  </label>
-                  <label class="test-mode-toggle">
-                    <span class="test-mode-toggle-copy"><strong>允許測試帳號接管登入（測試強制登出）</strong><small>開啟後，可在其他視窗／裝置再次登入同一測試帳號；新登入成功會撤銷舊 Session 並顯示強制登出通知，不會允許兩個連線同時有效。關閉時，已登入的用戶端將阻擋第二次登入；正式會員不受影響。</small></span>
-                    <span class="test-mode-toggle-control"><input id="testModeDuplicateLoginEnabled" type="checkbox"><span class="test-mode-switch" aria-hidden="true"></span></span>
-                  </label>
-                </div>
-              </section>
-
-              <section class="test-mode-form-section" aria-labelledby="testModeMaintenanceTitle">
-                <div class="test-mode-section-heading">
-                  <div><strong id="testModeMaintenanceTitle">維護畫面訊息</strong><small>系統維護期間，未被允許進入測試帳號的裝置會顯示這段內容；允許登入的裝置則顯示測試帳號選擇畫面。</small></div>
-                  <span class="test-mode-field-meta">最多 500 字</span>
-                </div>
-                <textarea id="testModeMaintenanceMessage" maxlength="500" rows="5" aria-label="系統維護訊息" placeholder="例如：系統維護中，服務調整完成後將重新開放。"></textarea>
-              </section>
-
-              <section class="test-mode-form-section test-mode-account-create-section" aria-labelledby="testModeCreateAccountsTitle">
-                <div class="test-mode-section-heading">
-                  <div><strong id="testModeCreateAccountsTitle">新增虛擬測試帳號</strong><small>只會建立測試會員，不會加入正式會員名冊或會員統計。</small></div>
-                </div>
-                <div class="test-mode-account-create-row">
-                  <label class="test-mode-count-field">本次新增數量
-                    <input id="testModeAddAccountCount" type="number" min="0" max="50" step="1" value="0" inputmode="numeric">
-                  </label>
-                  <div class="test-mode-quick-counts" aria-label="快速設定新增測試帳號數量">
-                    <button class="test-mode-count-chip" type="button" data-test-account-count="1">＋1</button>
-                    <button class="test-mode-count-chip" type="button" data-test-account-count="5">＋5</button>
-                    <button class="test-mode-count-chip" type="button" data-test-account-count="10">＋10</button>
-                  </div>
-                </div>
-                <small class="test-mode-account-create-hint">每次最多新增 50 個；儲存設定時會一併建立。</small>
-              </section>
-
-              <div class="test-mode-safety-note" role="note">
-                <span class="test-mode-safety-icon" aria-hidden="true">i</span>
-                <p><strong>測試資料與正式會員隔離</strong><span>關閉系統維護後，所有測試 session 會失效；關閉某類裝置登入後，該類既有測試 session 會立即失效。</span></p>
-              </div>
-
-              <div id="testModeFormMessage" class="form-message hidden" role="status" aria-live="polite"></div>
-              <div class="test-mode-actions">
-                <p>儲存後立即套用目前環境設定。</p>
-                <button id="saveTestModeButton" class="button button-dark" type="submit">儲存環境設定</button>
-              </div>
-            </form>
-          </section>
-
-          <section class="test-mode-accounts-card" aria-labelledby="testModeAccountsTitle">
-            <div class="test-mode-account-heading">
-              <div>
-                <span class="test-mode-eyebrow">Test members</span>
-                <h3 id="testModeAccountsTitle">測試帳號</h3>
-                <p>系統維護啟用後，只有對應登入開關已啟用的裝置可直接選擇這裡建立的虛擬會員。</p>
-              </div>
-              <span id="testModeAccountCount" class="test-mode-account-count">0 個</span>
-            </div>
-            <div class="test-mode-account-list-shell">
-              <div class="test-mode-account-selection-toolbar">
-                <label class="test-mode-select-all"><input id="testModeSelectAllAccounts" type="checkbox"> 全選</label>
-                <span id="testModeSelectedCount" class="test-mode-selected-count">已選 0 個</span>
-                <button id="deleteSelectedTestAccountsButton" class="button button-danger" type="button" disabled>批次移除選取</button>
-              </div>
-              <div id="testModeAccountActionMessage" class="form-message hidden" role="status" aria-live="polite"></div>
-              <div id="testModeAccountList" class="test-mode-account-list"></div>
-              <div id="testModeAccountEmpty" class="empty-state compact test-mode-account-empty">
-                <span class="test-mode-empty-mark" aria-hidden="true">○</span>
-                <strong>尚未建立測試帳號</strong>
-                <small>設定左側新增數量並儲存後，帳號會顯示在這裡。</small>
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <section class="test-control-center" aria-labelledby="automationTestTitle">
-          <div class="test-control-heading">
-            <div>
-              <span class="test-mode-eyebrow">Unified E2E Results</span>
-              <h3 id="automationTestTitle">Test Control Center</h3>
-              <p>後端完整 QA 已整合進下方「完整 E2E」單一入口。此區專門顯示環境、測試會員、Session、集點、票券、預約、Presence 與 LINE 通知邊界的執行紀錄、Expected 與 Actual 數據。</p>
-            </div>
-            <div class="test-control-heading-actions">
-              <span id="automationTestRunnerBadge" class="test-mode-status-badge is-off">Runner：待命</span>
-              <label class="test-control-keep-history" for="keepTestHistoryOnPurge">
-                <input id="keepTestHistoryOnPurge" type="checkbox" checked>
-                保留 E2E 測試紀錄與失敗快照
-              </label>
-              <button id="purgeTestDataButton" class="button button-danger" type="button">移除測試資料</button>
-            </div>
-          </div>
-
-          <div class="test-mode-safety-note test-control-retention-note" role="note">
-            <span class="test-mode-safety-icon" aria-hidden="true">i</span>
-            <p><strong>測試資料與測試紀錄分開管理</strong><span>測試結束後，業務測試資料預設保留供檢查。使用「移除測試資料」時，可勾選保留 E2E 執行歷史、案例、步驟與失敗快照；無論是否勾選，測試帳號及環境設定都不會刪除。相關測試會員操作紀錄仍隨業務資料清理。</span></p>
-          </div>
-          <div id="automationTestMessage" class="form-message hidden" role="status" aria-live="polite"></div>
-
-          <div class="test-control-layout">
-            <section class="test-control-run-card" aria-labelledby="automationCurrentRunTitle">
-              <div class="test-control-run-head">
-                <div>
-                  <strong id="automationCurrentRunTitle">目前測試</strong>
-                  <small id="automationTestRunCode">尚未執行</small>
-                </div>
-                <span id="automationTestRunStatus" class="test-control-run-status is-queued">等待執行</span>
-              </div>
-
-              <div class="test-control-summary">
-                <div class="test-control-meta-row">
-                  <span class="test-control-meta-chip">環境：MemberWebsocket-dev</span>
-                  <span id="automationTestRunSuite" class="test-control-meta-chip">—</span>
-                </div>
-                <div class="test-control-progress-shell">
-                  <div id="automationTestProgress" class="test-control-progress" role="progressbar" aria-label="自動化測試進度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0%">
-                    <span id="automationTestProgressBar" class="test-control-progress-bar"></span>
-                  </div>
-                  <span id="automationTestProgressText" class="test-control-progress-text">0% · 0 / 0</span>
-                </div>
-                <div class="test-control-stat-grid" aria-label="自動化測試統計">
-                  <div class="test-control-stat"><span>Passed</span><strong id="automationTestPassedCount">0</strong></div>
-                  <div class="test-control-stat"><span>Failed</span><strong id="automationTestFailedCount">0</strong></div>
-                  <div class="test-control-stat"><span>Total</span><strong id="automationTestTotalCount">0</strong></div>
-                </div>
-              </div>
-
-              <div id="automationTestCaseList" class="test-control-case-list"></div>
-              <div id="automationTestCaseEmpty" class="test-control-empty">尚未建立測試案例。啟動下方「完整 E2E」後，後端 QA 執行過程與結果會顯示在這裡。</div>
-            </section>
-
-            <aside class="test-control-history-card" aria-labelledby="automationHistoryTitle">
-              <h4 id="automationHistoryTitle">歷史測試</h4>
-              <p>保留最近 12 次測試結果；新的失敗完整 E2E 會保存 Replay Manifest，可直接「重播失敗流程」並比對是否重現。</p>
-              <div id="automationTestHistoryList" class="test-control-history-list"></div>
-              <div id="automationTestHistoryEmpty" class="test-control-empty">目前尚無測試紀錄。</div>
-            </aside>
-          </div>
-        </section>
-      </section>
 </main>
   </div>
 
