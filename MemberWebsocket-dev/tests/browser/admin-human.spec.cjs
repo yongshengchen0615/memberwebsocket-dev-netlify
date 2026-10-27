@@ -157,16 +157,18 @@ for(const type of ['holiday','event'])test('CALENDAR_'+type+' — create, date r
   await openCalendar(p,type);await fill(p,'calendarItemEndsOn',today());if(type==='event'){await p.locator('#calendarItemAllowedTiers input[value="general"]').uncheck();await p.locator('#calendarItemAllowedTiers input[value="silver"]').uncheck();await fill(p,'calendarItemLinkLabel','QA link');await fill(p,'calendarItemLinkUrl','https://example.test/qa');}
   await click(p,'saveCalendarItemButton');await expect(p.locator('#calendarItemId')).not.toHaveValue('');await expect(p.locator('#saveCalendarItemButton')).toBeEnabled();await fill(p,'calendarItemTitle','QA calendar edited');await click(p,'saveCalendarItemButton');await expect.poll(()=>info.fixture.calendarItems[0]?.title).toBe('QA calendar edited');await click(p,'deleteCalendarItemButton');await expect(p.locator('#calendarItemId')).toHaveValue('');expect(info.fixture.calendarItems).toHaveLength(0);
 });
-test('INTEGRATION — each view, every notification/domain filter, search and refresh',async({page:p},info)=>{
+test('INTEGRATION — three supported views, notification filters and refresh',async({page:p},info)=>{
   info.fixture.templates.push({fixedTicketId:'birthday-current',title:'QA birthday current',status:'active',scheduleType:'birthday_month',allowedTierKeys:['general'],notifyLine:true,updatedAt:'2026-10-05T00:00:00Z'});
   await click(p,'operationsHubTab');await expect(p.locator('#integrationMetricGrid article')).toHaveCount(6);
   await expect(p.locator('#integrationBirthday')).toContainText('QA birthday current');
   await expect(p.locator('#integrationBenefitSummary')).toContainText('生日固定票券');
   await expect(p.locator('#operationsHubPanel')).not.toContainText('生日舊規則');
-  for(const view of ['benefits','notifications','audit','overview']){await p.locator('[data-integration-view-tab="'+view+'"]').click();await expect(p.locator('[data-integration-view="'+view+'"]')).toBeVisible();}
+  for(const view of ['benefits','notifications','overview']){await p.locator('[data-integration-view-tab="'+view+'"]').click();await expect(p.locator('[data-integration-view="'+view+'"]')).toBeVisible();}
   await p.locator('[data-integration-view-tab="notifications"]').click();for(const filter of ['pending','sent','failed','all']){await select(p,'integrationNotificationFilter',filter);await expect(p.locator('#integrationNotifications tbody tr')).toHaveCount(filter==='all'?3:1);if(filter!=='all')await expect(p.locator('#integrationNotifications')).toContainText('QA '+filter);}
-  await p.locator('[data-integration-view-tab="audit"]').click();for(const domain of ['member','booking','event_ticket','calendar','system','all']){await select(p,'integrationAuditFilter',domain);await expect(p.locator('#integrationAuditTimeline article')).toHaveCount(domain==='all'?5:1);}
-  await fill(p,'integrationAuditSearch','Target booking');await expect(p.locator('#integrationAuditTimeline article')).toHaveCount(1);await fill(p,'integrationAuditSearch','absent');await expect(p.locator('#integrationAuditTimeline')).toContainText('沒有符合');await p.locator('[data-integration-action="refresh"]').click();await expect.poll(()=>calls(info.fixture,'admin.integration-overview').length).toBeGreaterThan(1);
+  await expect(p.locator('[data-integration-view-tab="audit"]')).toHaveCount(0);
+  await expect(p.locator('#integrationAuditTimeline')).toHaveCount(0);
+  await expect(p.locator('#integrationAuditSearch')).toHaveCount(0);
+  await p.locator('[data-integration-action="refresh"]').click();await expect.poll(()=>calls(info.fixture,'admin.integration-overview').length).toBeGreaterThan(1);
 });
 for(const [target,expected] of [['member-grant','membersPanel'],['booking-services','bookingAdminServicesPanel'],['events','eventsPanel'],['booking-queue','bookingAdminQueuePanel'],['calendar-batch','calendarPanel'],['fixed-new','eventTicketEditorModal'],['birthday-fixed-new','eventTicketEditorModal']])test('INTEGRATION_NAV_'+target+' — opens the actual destination',async({page:p})=>{
   await click(p,'operationsHubTab');if(target.includes('fixed'))await p.locator('[data-integration-view-tab="benefits"]').click();await p.locator('[data-integration-target="'+target+'"]').first().click();await expect(p.locator('#'+expected)).toBeVisible();if(target==='birthday-fixed-new')await expect(p.locator('#fixedTicketScheduleType')).toHaveValue('birthday_month');
