@@ -20,6 +20,11 @@ function harness() {
     rpc(name, args) {
       if (name === 'consume_api_rate_limit') return Promise.resolve({ data:true, error:null });
       if (name === 'member_service_minute_totals') return Promise.resolve({ data:[{ member_id:member.id,total_minutes:0 }],error:null });
+      if (name === 'save_member_profile_audited') {
+        assert.equal(member.membership_status,'active','profile edit is only allowed after membership activation');
+        Object.assign(member,args.p_fields);
+        return Promise.resolve({data:member,error:null});
+      }
       assert.equal(name, 'accept_membership_terms_api');
       const payload=args.p_payload || {};
       if (forcedTermsRpcError) return Promise.resolve({ data:null, error:forcedTermsRpcError });
