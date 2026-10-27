@@ -32,7 +32,7 @@ function trustedMemberOaBinding(tenant, channel, verifiedBindingsJson) {
 
 export async function requireMemberOaBeforeActivation({
   tenant, expectedChannelId, identity, member, lineAccessToken,
-  verifiedBindingsJson, fetchImpl,
+  verifiedBindingsJson, fetchImpl = undefined,
 }) {
   // Existing active members can still edit profiles or reaccept terms after an
   // OA block. This rule only protects the *first* pending -> active transition.
