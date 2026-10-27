@@ -20,13 +20,13 @@ test.beforeAll(async () => {
     const url = new URL(request.url, 'http://localhost');
     if (url.pathname === '/portal-navigation.js') {
       response.writeHead(200, { 'Content-Type': 'text/javascript' });
-      return response.end(script);
+      return response.end('window.navigationInitialReadyState = document.readyState;\n' + script);
     }
     const match = /^\/fixture\/(\d+)$/.exec(url.pathname);
     const fixture = match && cases[Number(match[1])];
     if (!fixture) { response.writeHead(404); return response.end(); }
     const html = url.searchParams.get('timing') === 'loading'
-      ? fixture.html.replace('</body>', '<script src="/portal-navigation.js" defer></script></body>')
+      ? fixture.html.replace('</body>', '<script src="/portal-navigation.js"></script></body>')
       : fixture.html;
     response.writeHead(200, { 'Content-Type': 'text/html' });
     response.end(html);
@@ -49,6 +49,7 @@ for (const width of [390, 1280]) for (const timing of ['loading', 'ready']) for 
     });
     await page.goto(`${origin}/fixture/${cases.indexOf(fixture)}?timing=${timing}`);
     if (timing === 'ready') await page.addScriptTag({ url: origin + '/portal-navigation.js' });
+    expect(await page.evaluate(() => window.navigationInitialReadyState)).toBe(timing === 'loading' ? 'loading' : 'complete');
     const nav = page.locator('#unifiedPortalNav');
     if (fixture.surface === 'platform') {
       await expect(nav).toHaveCount(0);
