@@ -57,7 +57,7 @@ test('frontend backend settings are copied without changing identity or project'
   const expected = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/config.json')));
   const branch = process.env.BRANCH || process.env.PREVIEW_SOURCE_BRANCH || process.env.GITHUB_REF_NAME;
   if (branch === 'Integrated-Marketing-Platform' && process.env.CONTEXT !== 'production') {
-    expected.supabaseFunctionUrl = new URL('/functions/v1/api-preview', expected.supabaseUrl).href;
+    expected.previewApiFunctionUrl = new URL('/functions/v1/api-preview', expected.supabaseUrl).href;
     expected.memberProfileFunctionUrl = new URL('/functions/v1/member-profile-api-preview', expected.supabaseUrl).href;
   }
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(output, 'config.json'))), expected);

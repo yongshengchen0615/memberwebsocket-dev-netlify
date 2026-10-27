@@ -7,7 +7,7 @@ export function previewMemberRuntime(config, env) {
   if (base.protocol !== 'https:' || !/^[a-z0-9-]+\.supabase\.co$/i.test(base.hostname)
       || base.username || base.password || base.pathname !== '/') throw new Error('Invalid preview Supabase URL');
   return { ...config,
-    supabaseFunctionUrl: new URL('/functions/v1/api-preview', base).href,
+    previewApiFunctionUrl: new URL('/functions/v1/api-preview', base).href,
     memberProfileFunctionUrl: new URL('/functions/v1/member-profile-api-preview', base).href,
   };
 }

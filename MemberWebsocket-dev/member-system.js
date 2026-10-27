@@ -501,7 +501,7 @@
     if (clientType === 'calendar' && (action === 'user.calendar.bootstrap' || action === 'user.calendar.date.details')) {
       return String(config.memberCalendarFunctionUrl || '').trim();
     }
-    return String(config.supabaseFunctionUrl || '').trim();
+    return String(config.previewApiFunctionUrl || config.supabaseFunctionUrl || '').trim();
   }
 
   async function sendRequest(config, clientType, idToken, action, payload) {

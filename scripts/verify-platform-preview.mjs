@@ -23,7 +23,7 @@ const digest = body => createHash('sha256').update(body).digest('hex');
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function verifyPlatformPreview({
-  base, commit, dist, api, memberApis = [], fetchImpl = fetch, attempts = 3, delayMs = 2000,
+  base, commit, dist, api, memberApis = [], memberRuntimeRequired = false, fetchImpl = fetch, attempts = 3, delayMs = 2000,
   timeoutMs = 20000, onCheck = () => {},
 }) {
   if (!/^[a-f0-9]{40}$/.test(commit || '')) throw new Error('A full 40-character commit SHA is required');
@@ -47,8 +47,17 @@ export async function verifyPlatformPreview({
     if (file === 'platform/app.js' && /platformLogin(?:Gate|Button)/.test(body.toString())) {
       throw new Error('platform/app.js: retired LINE login gate handlers must not be published');
     }
-    if (file === 'config.json' && JSON.parse(body).platformLiffId !== '2012065297-VunxFBj8') {
-      throw new Error('config.json: incorrect platform LIFF identity');
+    if (file === 'config.json') {
+      const config = JSON.parse(body);
+      if (config.platformLiffId !== '2012065297-VunxFBj8') throw new Error('config.json: incorrect platform LIFF identity');
+      if (memberRuntimeRequired) {
+        const expectedApis = ['api-preview', 'member-profile-api-preview'].map(name => new URL('/functions/v1/' + name, new URL(api).origin).href);
+        if (config.supabaseFunctionUrl !== new URL('/functions/v1/api', new URL(api).origin).href
+          || config.previewApiFunctionUrl !== expectedApis[0] || config.memberProfileFunctionUrl !== expectedApis[1]
+          || memberApis.length !== 2 || memberApis.some((url,index) => url !== expectedApis[index])) {
+          throw new Error('config.json: required member preview routes are missing or incorrect');
+        }
+      }
     }
     expected.push({ url, file, hash: digest(body) });
   }
@@ -116,15 +125,22 @@ export async function verifyPlatformPreview({
     if (payload.error?.code !== 'AUTH_REQUIRED') throw new Error('expected AUTH_REQUIRED rejection');
   }, 1);
   for (const endpoint of memberApis) {
-    await check(endpoint, { method: 'OPTIONS', redirect: 'error', headers: { Origin: origin } }, response => {
-      if (response.status !== 204 || response.headers.get('access-control-allow-origin') !== origin) throw new Error('member preview preflight contract failed');
+    await check(endpoint, { method: 'OPTIONS', redirect: 'error', headers: { Origin: origin,
+      'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Headers': 'content-type,apikey' } }, response => {
+      const headers = (response.headers.get('access-control-allow-headers') || '').toLowerCase().split(',').map(value=>value.trim());
+      if (response.status !== 204 || response.headers.get('access-control-allow-origin') !== origin
+        || !/\bPOST\b/.test(response.headers.get('access-control-allow-methods') || '')
+        || !headers.includes('content-type') || !headers.includes('apikey')
+        || !/\bOrigin\b/i.test(response.headers.get('vary') || '')) throw new Error('member preview preflight contract failed');
     }, 1);
     await check(endpoint, { method: 'POST', redirect: 'error', headers: { Origin: origin, 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'user.member.profile.save', clientType: 'member' }),
     }, (response, body) => {
+      let payload;
+      try { payload = JSON.parse(body); } catch { throw new Error('member preview authentication response must contain valid JSON'); }
       if (response.status !== 401 || response.headers.get('access-control-allow-origin') !== origin
         || !/\bno-store\b/i.test(response.headers.get('cache-control') || '')
-        || JSON.parse(body).error?.code !== 'AUTH_REQUIRED') throw new Error('member preview authentication must reject without identity');
+        || payload.error?.code !== 'AUTH_REQUIRED') throw new Error('member preview authentication must reject without identity');
     }, 1);
   }
   return { commit, origin, passedChecks: checks };
@@ -138,7 +154,8 @@ async function main() {
     const config = JSON.parse(await readFile('dist/config.json', 'utf8'));
     const result = await verifyPlatformPreview({ base: process.env.PREVIEW_BASE_URL, commit: process.env.COMMIT_REF,
       dist: 'dist', api: new URL('/functions/v1/platform-api', config.supabaseUrl).href,
-      memberApis: config.memberProfileFunctionUrl ? [config.supabaseFunctionUrl, config.memberProfileFunctionUrl] : [],
+      memberApis: config.memberProfileFunctionUrl ? [config.previewApiFunctionUrl, config.memberProfileFunctionUrl] : [],
+      memberRuntimeRequired: (process.env.PREVIEW_SOURCE_BRANCH || process.env.GITHUB_REF_NAME) === 'Integrated-Marketing-Platform',
       onCheck: check => { checks.push(check); console.log(JSON.stringify(check)); },
     });
     Object.assign(report, result, { ok: true });

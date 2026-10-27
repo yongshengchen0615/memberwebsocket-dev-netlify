@@ -262,7 +262,7 @@ test('PostgreSQL 17 FJG02: concurrent referral replay issues one reward to the a
 
 test('PostgreSQL 17 FJG02: competing referrals cannot exceed the remaining one-ticket quota', async () => {
   const shop=shops[1], actor=await referralMember(shop,'4','A000000004'), target=await referralMember(shop,'5','A000000005');
-  const other=await referralMember(shop,'6','A000000006'), otherTarget=await referralMember(shop,'7','A000000007');
+  const other=await referralMember(shop,'f','A000000006'), otherTarget=await referralMember(shop,'7','A000000007');
   const source=await referralSource(shop,'QA-FJG-QUOTA');
   const writer=await h.db.connect(), reader=await h.db.connect(), wait=await waitingOn(reader,writer);
   await writer.query('set role service_role');await reader.query('set role service_role');
