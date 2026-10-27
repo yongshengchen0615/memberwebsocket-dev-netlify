@@ -63,3 +63,22 @@ test('AC-032: each portal actually imports the shared CSS and JS with explicit r
     assert.match(page, /portal-navigation\.js/);
   }
 });
+
+test('AC-136: nested main uses a direct body child as insertBefore reference', () => {
+  const { document, nodes } = documentFor('member');
+  const directWrapper = { name: 'div' };
+  const nestedMain = { name: 'main', parentElement: directWrapper };
+  const children = [directWrapper];
+  // Old selector returned a descendant that is not a direct child of body.
+  document.body.querySelector = selector => selector === 'main' ? nestedMain : null;
+  document.body.firstElementChild = directWrapper;
+  document.body.insertBefore = (node, ref) => {
+    assert.equal(ref, directWrapper, 'insertBefore reference must belong to body');
+    children.splice(children.indexOf(ref), 0, node);
+    nodes.push(node);
+  };
+  vm.runInNewContext(script, { document });
+  assert.equal(children[0].id, 'unifiedPortalNav');
+  assert.equal(children[1], directWrapper);
+  assert.equal(nodes.length, 1);
+});

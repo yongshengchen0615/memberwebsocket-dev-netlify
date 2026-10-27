@@ -30,7 +30,8 @@
       }
       nav.append(a);
     }
-    const target = document.body.querySelector('main') || document.body.firstElementChild;
+    // insertBefore requires a DIRECT child of body; <main> may be nested in a page shell.
+    const target = document.body.querySelector(':scope > main') || document.body.firstElementChild;
     if (target) document.body.insertBefore(nav, target);
     else document.body.append(nav);
   }
