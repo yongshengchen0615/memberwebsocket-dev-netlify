@@ -48,9 +48,7 @@
     tab.setAttribute('aria-controls', 'operationsHubPanel');
     tab.textContent = '整合中心';
 
-    const testTab = document.getElementById('testModeTab');
-    if (testTab && testTab.parentElement === nav) nav.insertBefore(tab, testTab);
-    else nav.append(tab);
+    nav.append(tab);
 
     const panel = document.createElement('section');
     panel.id = 'operationsHubPanel';
@@ -59,9 +57,7 @@
     panel.setAttribute('aria-labelledby', 'operationsHubTab');
     panel.innerHTML = panelHtml();
 
-    const testPanel = document.getElementById('testModePanel');
-    if (testPanel && testPanel.parentElement === adminView) adminView.insertBefore(panel, testPanel);
-    else adminView.append(panel);
+    adminView.append(panel);
 
     tab.addEventListener('click', activate);
     nav.addEventListener('click', (event) => {

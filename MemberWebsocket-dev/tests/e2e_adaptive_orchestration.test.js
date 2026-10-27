@@ -59,8 +59,9 @@ test('E2E evolution state survives ordinary test-data purge', () => {
 });
 
 test('adaptive E2E asset versions and scenario graph are aligned across all surfaces', () => {
-  assert.match(read('admin/index.html'), /e2e-scenario-graph\.js\?v=e2e-graph-20261004-\d+/);
-  assert.match(read('admin/index.html'), /e2e-control\.js\?v=qa-e2e-\d{8}-\d+/);
+  assert.doesNotMatch(read('admin/index.html'), /e2e-scenario-graph\.js\?v=e2e-graph-20261004-\d+/);
+  assert.doesNotMatch(read('admin/index.html'), /e2e-control\.js\?v=qa-e2e-\d{8}-\d+/);
+  assert.match(read('admin/e2e-control-loader.js'), /const E2E_CONTROL_SRC/);
   for (const surface of ['member', 'points', 'event', 'calendar', 'booking']) {
     assert.match(read(surface + '/index.html'), /e2e-scenario-graph\.js\?v=e2e-graph-20261004-\d+/);
     assert.match(read(surface + '/index.html'), /user-test-control\.js\?v=qa-e2e-\d{8}-\d+/);
