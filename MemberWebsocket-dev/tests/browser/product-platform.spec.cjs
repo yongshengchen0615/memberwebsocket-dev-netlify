@@ -386,7 +386,8 @@ test('PLATFORM_REVIEW — root checks requested grants and approves pending admi
   await page.reload();
   await expect(page.locator('#applicationList .tenant-card')).toHaveCount(1);
   await page.getByRole('button',{name:'審核與選擇功能'}).click();
-  await expect(page.locator('#approvalFeatures [data-approve-feature]')).toHaveCount(8);
+  await expect(page.locator('#approvalFeatures [data-approve-feature]')).toHaveCount(6);
+  await expect(page.locator('#approvalFeatures [data-approve-feature="testing"], #approvalFeatures [data-approve-feature="usage"]')).toHaveCount(0);
   await page.locator('[data-approve-feature="booking"]').check();
   await page.getByRole('button',{name:'審核通過'}).click();
   await expect(page.locator('#approvalDialog')).toBeHidden();
@@ -395,6 +396,8 @@ test('PLATFORM_REVIEW — root checks requested grants and approves pending admi
   const tenant=(await h.db.query("select features,status from platform_private.tenants where slug='new-review'")).rows[0];
   expect(tenant.features.booking).toBe(true);
   expect(tenant.features.membership).toBe(false);
+  expect(tenant.features.testing).toBe(false);
+  expect(tenant.features.usage).toBe(false);
   expect(tenant.status).toBe('pending_provisioning');
  }finally{await h.db.close();}
 });
