@@ -3066,13 +3066,12 @@
       overview: false,
       benefits: false,
       notifications: false,
-      audit: false,
+      auditAbsent: false,
       pointSourcesRendered: false,
       campaignContainerReady: false,
       settlementContainerReady: false,
       benefitSummaryReady: false,
       notificationFilterWorked: false,
-      auditFilterWorked: false,
       noReadModelError: false
     };
 
@@ -3100,20 +3099,10 @@
           && Boolean(document.getElementById('integrationNotifications'));
       }
 
-      actual.audit = await switchIntegrationView('audit');
-      const auditFilter = document.getElementById('integrationAuditFilter');
-      const auditSearch = document.getElementById('integrationAuditSearch');
-      if (auditFilter && auditSearch) {
-        auditFilter.value = 'booking';
-        auditFilter.dispatchEvent(new Event('change', { bubbles: true }));
-        await adminHumanTextInput(auditSearch, 'BOOKING', 'Audit 搜尋');
-        await adminHumanPause(50, 130);
-        await adminHumanTextInput(auditSearch, '', 'Audit 搜尋清除');
-        auditFilter.value = 'all';
-        auditFilter.dispatchEvent(new Event('change', { bubbles: true }));
-        actual.auditFilterWorked = auditFilter.value === 'all' && auditSearch.value === ''
-          && Boolean(document.getElementById('integrationAuditTimeline'));
-      }
+      actual.auditAbsent = !document.querySelector('[data-integration-view-tab="audit"]')
+        && !document.getElementById('integrationAuditFilter')
+        && !document.getElementById('integrationAuditSearch')
+        && !document.getElementById('integrationAuditTimeline');
 
       const message = document.getElementById('integrationHubMessage');
       actual.noReadModelError = !message || message.classList.contains('hidden') || !String(message.textContent || '').trim();
@@ -3134,17 +3123,16 @@
       && actual.overview
       && actual.benefits
       && actual.notifications
-      && actual.audit
+      && actual.auditAbsent
       && actual.pointSourcesRendered
       && actual.campaignContainerReady
       && actual.settlementContainerReady
       && actual.benefitSummaryReady
       && actual.notificationFilterWorked
-      && actual.auditFilterWorked
       && actual.noReadModelError;
 
     return ok
-      ? pass('整合中心總覽、權益自動化、通知中心與 Audit Timeline 已以真人 UI 操作完成，讀模型與篩選互動正常。', {
+      ? pass('整合中心總覽、權益自動化與通知中心已完成真人 UI 操作；已下架的稽核入口不存在。', {
           opened: true,
           metricsAtLeast: 6,
           allViews: true,
@@ -7537,7 +7525,6 @@
       ['integrationPointSources', '#integrationPointSources'],
       ['integrationBenefits', '#integrationBenefitSummary'],
       ['integrationNotifications', '#integrationNotifications'],
-      ['integrationAuditTimeline', '#integrationAuditTimeline'],
       ['eventDailyLimit', '#eventMaxTicketsPerDay'],
       ['bookingReceiptViewer', '#adminBookingReceiptModal']
     ];
