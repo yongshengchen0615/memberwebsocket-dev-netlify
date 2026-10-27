@@ -150,7 +150,7 @@ function transport(s, action, p={}, slug='api',record=true) {
     return result;
   }
   if(action==='admin.booking.receipt.dismiss'){s.submissions=[];return {dismissed:true};}
-  if(action==='admin.integration-overview')return {generatedAt:version,stats:bootstrap().stats,pointSources:[{title:'QA source',detail:'30 分鐘',pointCardTitle:'QA card 1',status:'active'}],campaigns:s.eventTickets,settlements:[],automation:{fixedTickets:s.templates},notifications:['pending','sent','failed'].map(status=>({status,memberDisplayName:'QA '+status,memberCode:status,scheduledFor:version,attemptCount:1})),auditTimeline:['member','booking','event_ticket','calendar','system'].map(domain=>({domain,action:'QA '+domain,targetLabel:'Target '+domain,actorRole:'Admin',result:'success',createdAt:version}))};
+  if(action==='admin.integration-overview')return {generatedAt:version,stats:bootstrap().stats,pointSources:[{title:'QA source',detail:'30 分鐘',pointCardTitle:'QA card 1',status:'active'}],campaigns:s.eventTickets,settlements:[],automation:{fixedTickets:s.templates},notifications:['pending','sent','failed'].map(status=>({status,memberDisplayName:'QA '+status,memberCode:status,scheduledFor:version,attemptCount:1}))};
   s.unexpected.push({action,slug});throw Object.assign(new Error('Unimplemented fixture action '+action),{code:'FIXTURE_UNEXPECTED_ACTION'});
 }
 async function startFixture() {
