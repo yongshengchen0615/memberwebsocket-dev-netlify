@@ -405,7 +405,7 @@
     el('v2ReviewTitle').textContent=(kind==='qualification'?'管理員資格':'商家申請')+'審核';
     el('v2ReviewDescription').textContent=(item.businessName||item.displayName||item.applicantLineUserId||'LINE 管理員')+' · '+({approved:'核准',rejected:'拒絕',suspended:'停用'}[decision]);
     el('v2ReviewGrants').hidden=!approvesMerchant;const list=el('v2ReviewFeatures');list.replaceChildren();
-    if(approvesMerchant)for(const key of visibleFeatureKeys{const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.dataset.v2Feature=key;label.append(input,document.createTextNode(state.features[key]||key));list.append(label);}
+    if(approvesMerchant)for(const key of visibleFeatureKeys){const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.dataset.v2Feature=key;label.append(input,document.createTextNode(state.features[key]||key));list.append(label);}
     el('reviewReason').value='';el('reviewReason').required=decision!=='approved';el('v2ReviewMessage').textContent='';el('confirmV2Review').textContent='確認審核';lockV2Review(false);el('v2ReviewDialog').showModal();
     (decision==='approved'?el('confirmV2Review'):el('reviewReason')).focus();
   }
