@@ -2478,21 +2478,6 @@ async function handleAction(supabase: SupabaseClient, identity: { lineUserId: st
 
   if (!action.startsWith("admin.")) throw new ApiError(404,"ACTION_NOT_FOUND","不支援的 API action。");
   const admin = await authorizeAdmin(supabase,identity);
-  if (action === "admin.audit.query") {
-    const from = asText(body.from,80), to = asText(body.to,80);
-    if (!Number.isFinite(Date.parse(from)) || !Number.isFinite(Date.parse(to)))
-      throw new ApiError(400,"INVALID_AUDIT_QUERY","請選擇有效的查詢日期。");
-    const cursor = body.cursor && typeof body.cursor === "object" ? body.cursor as Json : {};
-    const result = await supabase.rpc("admin_query_operation_audit", {
-      p_actor:identity.lineUserId,p_from:from,p_to:to,p_member_code:asText(body.memberCode,40),
-      p_action:asText(body.eventAction,80),p_result:asText(body.result,20),
-      p_before_time:asText(cursor.createdAt,80)||null,p_before_id:asText(cursor.id,100),
-      p_limit:50,p_request_id:requireText(body.requestId,"查詢識別",100),
-    });
-    if (result.error) throw mapDatabaseError(result.error);
-    return result.data;
-  }
-
   if (action === "admin.bootstrap") {
     // Share only within this authorized request; never cache member data globally.
     const settings = tierSettings(supabase);

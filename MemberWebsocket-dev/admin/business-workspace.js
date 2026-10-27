@@ -1,6 +1,6 @@
 (() => {
  'use strict';
- const panels={membership:'members',points:'cards',events:'events',calendar:'calendar',integrations:'operationsHub',booking:'booking',testing:'testMode',usage:'operationAudit'};
+ const panels={membership:'members',points:'cards',events:'events',calendar:'calendar',integrations:'operationsHub',booking:'booking',testing:'testMode'};
  const lineFeatures=['membership','points','events','calendar','booking'];
  let latest=null;
  function selectLineTab() {
