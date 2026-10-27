@@ -16,7 +16,7 @@ function fixture(extra={},responses=[]){
   lineAccessToken:'synthetic-token-do-not-store',verifiedBindingsJson:linked,fetchImpl,...extra,...extra2,
  })};
 }
-async function reject(promise,code,status){await assert.rejects(promise,e=>{assert.equal(e.code,code);assert.equal(e.status,status);assert.doesNotMatch(String(e.message),'synthetic-token-do-not-store');return true;});}
+async function reject(promise,code,status){await assert.rejects(promise,e=>{assert.equal(e.code,code);assert.equal(e.status,status);assert.doesNotMatch(String(e.message),/synthetic-token-do-not-store/);return true;});}
 test('FJG02: valid linked member OA and verified access token permit first activation',async()=>{
  const h=fixture();assert.deepEqual(await h.run(),{required:true});assert.equal(h.calls.length,3);
 });
