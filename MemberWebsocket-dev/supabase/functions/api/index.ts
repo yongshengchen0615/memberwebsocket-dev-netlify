@@ -1866,8 +1866,6 @@ async function adminIntegrationOverview(supabase: SupabaseClient): Promise<Json>
     calendarRes,
     eventTicketsRes,
     scheduledRes,
-    auditRes,
-    bookingAuditRes,
     settlementsRes,
   ] = await Promise.all([
     summaryStats(supabase),
@@ -1893,14 +1891,6 @@ async function adminIntegrationOverview(supabase: SupabaseClient): Promise<Json>
       .select("schedule_id,member_id,scheduled_for,status,attempt_count,last_error,created_at,sent_at")
       .order("created_at",{ ascending:false })
       .limit(60),
-    supabase.from("audit_logs")
-      .select("audit_id,actor_role,action,target_type,target_id,result,created_at")
-      .order("created_at",{ ascending:false })
-      .limit(80),
-    supabase.from("booking_audit_events")
-      .select("id,actor_role,action,target_type,target_id,result,created_at")
-      .order("created_at",{ ascending:false })
-      .limit(60),
     supabase.from("booking_completion_settlements")
       .select("booking_id,member_id,service_minutes,reward_details,created_at")
       .order("created_at",{ ascending:false })
@@ -1909,7 +1899,7 @@ async function adminIntegrationOverview(supabase: SupabaseClient): Promise<Json>
 
   for (const result of [
     pointCardsRes,serviceTypesRes,serviceRewardsRes,fixedTicketsRes,calendarRes,
-    eventTicketsRes,scheduledRes,auditRes,bookingAuditRes,settlementsRes,
+    eventTicketsRes,scheduledRes,settlementsRes,
   ]) {
     if (result.error) throw mapDatabaseError(result.error);
   }
@@ -1921,33 +1911,17 @@ async function adminIntegrationOverview(supabase: SupabaseClient): Promise<Json>
   const calendarRows = calendarRes.data || [];
   const eventTickets = eventTicketsRes.data || [];
   const scheduledRows = scheduledRes.data || [];
-  const auditRows = auditRes.data || [];
-  const bookingAuditRows = bookingAuditRes.data || [];
   const settlements = settlementsRes.data || [];
 
   const memberIds = [...new Set([
     ...scheduledRows.map((row:any) => row.member_id),
     ...settlements.map((row:any) => row.member_id),
   ].filter(Boolean))];
-  const memberTargetLineIds = [...new Set(
-    auditRows
-      .filter((row:any) => row.target_type === "member" && row.target_id)
-      .map((row:any) => String(row.target_id))
-  )];
-
-  const [membersByIdRes,membersByLineRes] = await Promise.all([
-    memberIds.length
-      ? supabase.from("members").select("id,display_name,member_code,is_test_account").in("id",memberIds)
-      : Promise.resolve({ data:[],error:null }),
-    memberTargetLineIds.length
-      ? supabase.from("members").select("line_user_id,display_name,member_code,is_test_account").in("line_user_id",memberTargetLineIds)
-      : Promise.resolve({ data:[],error:null }),
-  ]);
+  const membersByIdRes = memberIds.length
+    ? await supabase.from("members").select("id,display_name,member_code,is_test_account").in("id",memberIds)
+    : { data:[],error:null };
   if (membersByIdRes.error) throw mapDatabaseError(membersByIdRes.error);
-  if (membersByLineRes.error) throw mapDatabaseError(membersByLineRes.error);
-
   const memberById = new Map((membersByIdRes.data || []).map((row:any) => [row.id,row]));
-  const memberByLine = new Map((membersByLineRes.data || []).map((row:any) => [row.line_user_id,row]));
   const cardById = new Map(pointCards.map((row:any) => [row.id,row]));
   const typeById = new Map(serviceTypes.map((row:any) => [row.id,row]));
   const calendarByEventTicketId = new Map<string,any>();
@@ -2025,32 +1999,6 @@ async function adminIntegrationOverview(supabase: SupabaseClient): Promise<Json>
     };
   });
 
-  const auditTimeline = [
-    ...auditRows.map((row:any) => {
-      const member = row.target_type === "member" ? memberByLine.get(String(row.target_id || "")) : null;
-      return {
-        auditId:String(row.audit_id || ""),
-        domain:String(row.target_type || "system"),
-        actorRole:String(row.actor_role || ""),
-        action:String(row.action || ""),
-        targetLabel:member
-          ? `${String(member.display_name || "會員")} · ${String(member.member_code || "未編號")}`
-          : String(row.target_id || row.target_type || ""),
-        result:String(row.result || ""),
-        createdAt:row.created_at || "",
-      };
-    }),
-    ...bookingAuditRows.map((row:any) => ({
-      auditId:`BOOKING-${String(row.id || "")}`,
-      domain:"booking",
-      actorRole:String(row.actor_role || ""),
-      action:String(row.action || ""),
-      targetLabel:String(row.target_id || "預約"),
-      result:String(row.result || ""),
-      createdAt:row.created_at || "",
-    })),
-  ].sort((a:any,b:any) => Date.parse(String(b.createdAt || "")) - Date.parse(String(a.createdAt || ""))).slice(0,100);
-
   const settlementRows = settlements.map((row:any) => {
     const member = memberById.get(row.member_id);
     const rewards = Array.isArray(row.reward_details)
@@ -2093,7 +2041,6 @@ async function adminIntegrationOverview(supabase: SupabaseClient): Promise<Json>
     },
     campaigns:campaignRows,
     notifications,
-    auditTimeline,
     settlements:settlementRows,
     generatedAt:new Date().toISOString(),
   };
