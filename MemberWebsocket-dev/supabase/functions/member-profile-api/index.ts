@@ -1,4 +1,5 @@
-import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
+import { businessEnv, businessContext, serveBusiness } from '../_shared/business-runtime.ts';
+import { requireMemberOaBeforeActivation } from '../_shared/member-oa-registration-gate.mjs';
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract } from "../_shared/auth-contract.ts";
 import { resolveUserTestIdentity, TestModeAuthError } from "../_shared/test-mode-auth.ts";
@@ -329,6 +330,20 @@ serveBusiness('member-profile-api',async (request: Request) => {
     if (member.membership_status !== "active") {
       if (!mergedComplete) throw new ApiError(400, "PROFILE_FIELDS_REQUIRED", "請填妥完整資料再申請會員。");
       await requireCurrentSubmittedTerms(supabase, member, body);
+      if (body.accepted !== true) throw new ApiError(400, "TERMS_CONSENT_REQUIRED", "請閱讀並勾選同意會員條款。");
+      try {
+        await requireMemberOaBeforeActivation({
+          tenant:businessContext(),
+          expectedChannelId:env("LINE_MEMBER_CHANNEL_ID") || "2010787602",
+          identity,member,
+          lineAccessToken:asText(body.lineAccessToken,4096),
+          verifiedBindingsJson:env("MEMBER_OA_VERIFIED_LINKS_JSON"),
+        });
+      } catch (error) {
+        const failure = error as { status?:number; code?:string; message?:string };
+        if (failure.status && failure.code) throw new ApiError(failure.status,failure.code,failure.message || "LINE 驗證失敗。");
+        throw error;
+      }
       const joined = await supabase.rpc("accept_membership_terms_api", {
         p_payload: {
           lineUserId: identity.lineUserId,

@@ -13,11 +13,18 @@ function harness() {
   let terms = { id:'terms-1', version:'v1', title:'會員條款', summary:'摘要', body:'條款全文', status:'active', required:true, effective_at:'2020-01-01T00:00:00Z', activated_at:'2026-09-28T00:00:00Z', reconsent_existing:false };
   const consents = new Set();
   let forcedTermsRpcError = null;
+  let gateError = null;
+  let gateCalls = 0;
   let handler;
   const db = {
     rpc(name, args) {
       if (name === 'consume_api_rate_limit') return Promise.resolve({ data:true, error:null });
       if (name === 'member_service_minute_totals') return Promise.resolve({ data:[{ member_id:member.id,total_minutes:0 }],error:null });
+      if (name === 'save_member_profile_audited') {
+        assert.equal(member.membership_status,'active','profile edit is only allowed after membership activation');
+        Object.assign(member,args.p_fields);
+        return Promise.resolve({data:member,error:null});
+      }
       assert.equal(name, 'accept_membership_terms_api');
       const payload=args.p_payload || {};
       if (forcedTermsRpcError) return Promise.resolve({ data:null, error:forcedTermsRpcError });
@@ -42,6 +49,8 @@ function harness() {
     Deno:{ serve(callback) { handler=callback; }, env:{ get(name) { if (name==='SUPABASE_URL') return 'https://example.supabase.co'; if (name==='SUPABASE_SERVICE_ROLE_KEY') return 'test-only'; return ''; } } },
     createClient:() => db, readJsonObject:(request) => request.json(),
     resolveUserTestIdentity:async () => ({ lineUserId:'line-1',displayName:'Member' }),
+    businessContext:() => ({ id:'tenant-fixture', features:{ membership:true } }),
+    requireMemberOaBeforeActivation:async () => { gateCalls++; if (gateError) throw gateError; return {required:true}; },
     TestModeAuthError:class extends Error {}, verifyLineIdTokenContract:async () => ({ lineUserId:'line-1',displayName:'Member' }),
     crypto:require('node:crypto').webcrypto, TextEncoder, Date, Response, console,
   });
@@ -55,6 +64,8 @@ function harness() {
     member,
     consents,
     forceTermsRpcError(error) { forcedTermsRpcError=error; },
+    forceGateError(error) { gateError=error; },
+    gateCalls() { return gateCalls; },
     setTestAccount() { member.is_test_account=true; },
     setJoinedAt(value) { member.joined_at=value; },
     switchTerms() { terms={...terms,id:'terms-2',version:'v2',activated_at:'2026-09-28T01:00:00Z',reconsent_existing:true}; },
@@ -142,4 +153,44 @@ test('PostgREST stale RPC schema is surfaced as a retryable membership service e
   assert.match(result.body.error.message,/重新送出/);
   assert.equal(h.member.membership_status,'pending');
   assert.equal(h.consents.size,0);
+});
+
+test('FJG-02: rejected friendship cannot create consent or activate a pending member', async () => {
+  const h=harness();
+  h.forceGateError({status:403,code:'MEMBER_OA_FRIENDSHIP_REQUIRED',message:'請先加入商家會員官方帳號。'});
+  const result=await h.call('user.member.profile.save',{
+    birthday:'1990-01-01',phone:'0912345678',surname:'林',salutation:'mr',
+    termsId:'terms-1',termsVersion:'v1',accepted:true,
+    lineAccessToken:'synthetic-user-token',
+  });
+  assert.equal(result.status,403);
+  assert.equal(result.body.error.code,'MEMBER_OA_FRIENDSHIP_REQUIRED');
+  assert.equal(h.gateCalls(),1);
+  assert.equal(h.member.membership_status,'pending');
+  assert.equal(h.consents.size,0);
+});
+
+test('FJG-02: provider failure does not activate pending member or record terms', async () => {
+  const h=harness();
+  h.forceGateError({status:503,code:'LINE_FRIENDSHIP_UNAVAILABLE',message:'稍後重試'});
+  const result=await h.call('user.member.profile.save',{
+    birthday:'1990-01-01',phone:'0912345678',surname:'林',salutation:'mr',
+    termsId:'terms-1',termsVersion:'v1',accepted:true,
+  });
+  assert.equal(result.status,503);
+  assert.equal(result.body.error.code,'LINE_FRIENDSHIP_UNAVAILABLE');
+  assert.equal(h.member.membership_status,'pending');
+  assert.equal(h.consents.size,0);
+});
+
+test('FJG-02: already active member updates never invoke first-join friendship gate', async () => {
+  const h=harness();
+  const profile={birthday:'1990-01-01',phone:'0912345678',surname:'林',salutation:'mr',termsId:'terms-1',termsVersion:'v1',accepted:true};
+  assert.equal((await h.call('user.member.profile.save',profile)).status,200);
+  assert.equal(h.gateCalls(),1);
+  h.forceGateError({status:403,code:'MEMBER_OA_FRIENDSHIP_REQUIRED',message:'blocked'});
+  const result=await h.call('user.member.profile.save',{surname:'陳'});
+  assert.equal(result.status,200);
+  assert.equal(h.gateCalls(),1);
+  assert.equal(h.member.membership_status,'active');
 });

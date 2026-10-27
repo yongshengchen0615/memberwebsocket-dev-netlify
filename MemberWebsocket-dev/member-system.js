@@ -495,12 +495,13 @@
       return String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/booking-receipt-api';
     }
     if (clientType === 'member' && (action === 'user.member.bootstrap' || action === 'user.member.profile.save' || action === 'user.member.terms.accept' || action === 'user.member.card.open')) {
-      return String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/member-profile-api';
+      return String(config.memberProfileFunctionUrl || '').trim()
+        || String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/member-profile-api';
     }
     if (clientType === 'calendar' && (action === 'user.calendar.bootstrap' || action === 'user.calendar.date.details')) {
       return String(config.memberCalendarFunctionUrl || '').trim();
     }
-    return String(config.supabaseFunctionUrl || '').trim();
+    return String(config.previewApiFunctionUrl || config.supabaseFunctionUrl || '').trim();
   }
 
   async function sendRequest(config, clientType, idToken, action, payload) {
@@ -511,6 +512,12 @@
     if (!SUPABASE_FUNCTION_PATTERN.test(endpoint) || endpoint.includes('REPLACE_')) {
       throw clientError('CONFIG_ERROR', '此功能的 Supabase Edge Function URL 尚未設定。');
     }
+    // LINE ID token authenticates identity, but the first membership join also
+    // needs a user access token for the server to check the linked member OA.
+    // Never persist this token or attach it to unrelated member requests.
+    const verifiedJoinPayload = action === 'user.member.profile.save' && payload?.accepted === true
+      ? { ...payload, lineAccessToken: typeof window.liff?.getAccessToken === 'function' ? (window.liff.getAccessToken() || '') : '' }
+      : payload;
     const isWrite = action.endsWith('.session.claim') || action.endsWith('.session.logout') || WRITE_ACTIONS.includes(action) || ['admin.settings.copy','admin.ticket-visibility.save','member.friend.request','member.friend.accept','member.friend.remove','member.friend.block'].includes(action);
     const timeoutMs = isWrite ? WRITE_TIMEOUT_MS : isFullBootstrap(clientType, action, payload) ? BOOTSTRAP_TIMEOUT_MS : READ_TIMEOUT_MS;
     const attempts = isWrite ? 1 : 2;
@@ -529,8 +536,8 @@
           },
           cache: 'no-store',
           body: JSON.stringify(window.TestModeClient && typeof window.TestModeClient.payload === 'function'
-            ? window.TestModeClient.payload({ ...payload, action, clientType, idToken })
-            : { ...payload, action, clientType, idToken })
+            ? window.TestModeClient.payload({ ...verifiedJoinPayload, action, clientType, idToken })
+            : { ...verifiedJoinPayload, action, clientType, idToken })
         }, remaining, (response) => response.text());
 
         let data;
@@ -1023,3 +1030,4 @@
     subscribeRealtime, getRealtimeStatus, logout, terminateAccessSession, openMemberJoin, formatDate, formatDateTime, initials
   });
 })();
+

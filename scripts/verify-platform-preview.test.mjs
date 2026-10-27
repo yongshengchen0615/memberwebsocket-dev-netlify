@@ -57,8 +57,8 @@ test('the success summary preserves per-resource diagnostics when added to the s
   const report = { checks: f.checks };
   Object.assign(report, result, { ok: true });
   assert.equal(report.checks, f.checks);
-  assert.equal(report.checks.length, 21);
-  assert.equal(report.passedChecks, 21);
+  assert.equal(report.checks.length, 22);
+  assert.equal(report.passedChecks, 22);
 });
 
 test('each changed UI script must match exact artifact bytes', async t => {
@@ -66,6 +66,42 @@ test('each changed UI script must match exact artifact bytes', async t => {
     const f = await fixture(t, ({ url }) => new URL(url).pathname === file ? new Response('stale UI script') : undefined);
     await assert.rejects(verifyPlatformPreview(f.options), /remote bytes do not match/);
   }
+});
+
+test('isolated member preview APIs must pass preflight and reject missing LINE identity', async t => {
+  const f = await fixture(t);
+  const endpoints = ['api-preview', 'member-profile-api-preview'].map(name => `https://backend.example/functions/v1/${name}`);
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    if (!endpoints.includes(String(url))) return f.options.fetchImpl(url, options);
+    calls.push({ url: String(url), method: options.method });
+    return options.method === 'OPTIONS'
+      ? new Response(null, { status: 204, headers: { 'access-control-allow-origin': base, 'access-control-allow-methods': 'POST,OPTIONS', 'access-control-allow-headers': 'content-type,apikey', vary:'Origin' } })
+      : Response.json({ error: { code: 'AUTH_REQUIRED' } }, { status: 401, headers: { 'access-control-allow-origin': base, 'cache-control': 'no-store' } });
+  };
+  const result = await verifyPlatformPreview({ ...f.options, memberApis: endpoints, fetchImpl });
+  assert.equal(result.passedChecks, 26);
+  assert.equal(calls.length, 4);
+  await assert.rejects(verifyPlatformPreview({ ...f.options, memberApis: endpoints,
+    fetchImpl: (url, options) => endpoints.includes(String(url)) && options.method === 'OPTIONS'
+      ? new Response(null,{status:204,headers:{'access-control-allow-origin':base}}) : fetchImpl(url,options),
+  }), /preflight contract failed/);
+  const diagnostics=[];
+  await assert.rejects(verifyPlatformPreview({ ...f.options, memberApis: endpoints, onCheck: check=>diagnostics.push(check),
+    fetchImpl: (url, options) => endpoints.includes(String(url)) && options.method === 'POST'
+      ? new Response('SECRET-MEMBER-RESPONSE-SENTINEL',{status:401}) : fetchImpl(url,options),
+  }), /must contain valid JSON/);
+  assert.doesNotMatch(JSON.stringify(diagnostics),/SECRET-MEMBER-RESPONSE-SENTINEL/);
+  await assert.rejects(verifyPlatformPreview({ ...f.options, memberApis: endpoints,
+    fetchImpl: (url, options) => endpoints.includes(String(url)) && options.method === 'POST'
+      ? Response.json({ ok: true }) : fetchImpl(url, options),
+  }), /must reject without identity/);
+});
+
+test('Integrated-Marketing-Platform verification refuses missing preview config before any HTTP calls',async t=>{
+ const f=await fixture(t);
+ await assert.rejects(verifyPlatformPreview({...f.options,memberRuntimeRequired:true}),/required member preview routes/);
+ assert.equal(f.calls.length,0);
 });
 
 test('a transient asset HTTP 500 is diagnosed and must pass the same byte check on retry', async t => {
@@ -164,3 +200,4 @@ test('invalid commit or retry limits fail before issuing HTTP requests', async t
   await assert.rejects(verifyPlatformPreview({ ...f.options, attempts: 0 }), /attempts/);
   assert.equal(f.calls.length, 0);
 });
+

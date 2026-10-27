@@ -54,7 +54,13 @@ test('server source, migrations, tests and local deployment state are not publis
 });
 
 test('frontend backend settings are copied without changing identity or project', () => {
-  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(output, 'config.json'))), JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/config.json'))));
+  const expected = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/config.json')));
+  const branch = process.env.BRANCH || process.env.PREVIEW_SOURCE_BRANCH || process.env.GITHUB_REF_NAME;
+  if (branch === 'Integrated-Marketing-Platform' && process.env.CONTEXT !== 'production') {
+    expected.previewApiFunctionUrl = new URL('/functions/v1/api-preview', expected.supabaseUrl).href;
+    expected.memberProfileFunctionUrl = new URL('/functions/v1/member-profile-api-preview', expected.supabaseUrl).href;
+  }
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(output, 'config.json'))), expected);
 });
 
 
@@ -202,3 +208,4 @@ test('reproducible build identity fails closed for malformed provenance', () => 
     assert.throws(() => buildDate({ ...env, ...change }), TypeError);
   }
 });
+
