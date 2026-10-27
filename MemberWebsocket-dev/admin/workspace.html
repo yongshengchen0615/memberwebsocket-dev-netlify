@@ -7,18 +7,21 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' https://static.line-scdn.net; style-src 'self'; connect-src 'self' https://*.supabase.co https://api.line.me https://access.line.me https://liff.line.me https://*.line-scdn.net; img-src 'self' data:; frame-src https://access.line.me https://liff-subwindow.line.me; form-action 'self' https://access.line.me https://liff-subwindow.line.me">
   <title>一般管理員後台</title>
-  <link rel="stylesheet" href="../platform/platform.css?v=line-tab-20261020-1">
+  <link rel="stylesheet" href="../platform/platform.css?v=merchant-v2-20261024-1">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
   <script src="../business-context.js"></script>
 <script src="../member-system.js" defer></script>
-  <script src="../platform/app.js?v=line-tab-20261020-1" defer></script>
+  <link rel="stylesheet" href="./business-line-settings.css?v=simple-line-20261026-1">
+  <script src="./business-line-settings.js?v=simple-line-20261026-1" defer></script>
+  <script src="../platform/app.js?v=merchant-system-code-20261025-1" defer></script>
   <link rel="stylesheet" href="../portal-navigation.css?v=unified-20261018-1">
   <script src="../portal-navigation.js?v=unified-20261018-1" defer></script>
 </head>
 <body>
   <main class="shell">
+    <a id="backToMyMerchants" class="business-switch" href="/admin/" data-business-switch="true" hidden>返回我的商家</a>
     <button id="refreshApplication" type="button" class="secondary">重新檢查申請與功能權限</button>
-    <header class="topbar"><div><p class="eyebrow">ADMIN / WORKSPACE</p><h1>一般管理員後台</h1><p>首次登入自動提出申請；審核通過後，可在獨立的 LINE 設定分頁設定已核准功能。</p></div></header>
+    <header class="topbar"><div><p class="eyebrow">ADMIN / WORKSPACE</p><h1>一般管理員後台</h1><p>首次登入可主動填寫並送出申請；審核通過後，可在獨立的 LINE 設定分頁設定已核准功能。</p></div></header>
     <p id="platformStatus" role="status" aria-live="polite">正在確認 LINE 身分…</p>
     <section id="platformLoginGate" class="login-gate" hidden aria-labelledby="platformLoginTitle">
       <h2 id="platformLoginTitle">一般管理員 LINE 身分確認</h2>
@@ -29,8 +32,19 @@
     <section id="platformWorkspace" hidden>
       <div class="workspace-heading"><div><h2>已審核商家</h2><p>總管理員只管理功能授權；各商家的 LINE Channel、LIFF 和訊息憑證由商家管理員自行設定。</p></div><button id="newTenant" type="button" hidden aria-hidden="true" tabindex="-1">舊版新增商家</button></div>
       <p class="notice">新商家儲存後為「待佈建」。完成獨立資料環境與登入驗證後，才能啟用會員、票券與預約等功能。</p>
-      <div id="tenantList" class="tenant-list"></div><h2>待審核管理員</h2><p>核准時逐項勾選功能；未核准的申請不得取得商家權限。</p><div id="applicationList" class="tenant-list"></div>
+      <div id="tenantList" class="tenant-list"></div><section id="qualificationReviews" hidden aria-labelledby="qualificationReviewsTitle"><h2 id="qualificationReviewsTitle">管理員資格審核</h2><p>資格與商家分開審核；停用資格會限制該管理員的所有商家存取。</p><div id="qualificationList" class="tenant-list"></div></section><h2 id="applicationListTitle">待審核管理員</h2><p>核准時逐項勾選功能；未核准的申請不得取得商家權限。</p><div id="applicationList" class="tenant-list"></div>
     </section>
+
+    <dialog id="v2ReviewDialog" aria-labelledby="v2ReviewTitle">
+      <form id="v2ReviewForm">
+        <h2 id="v2ReviewTitle">審核申請</h2><p id="v2ReviewDescription"></p>
+        <fieldset id="v2ReviewGrants" hidden><legend>核准的商家功能</legend><div id="v2ReviewFeatures" class="features"></div></fieldset>
+        <label for="reviewReason">審核理由<textarea id="reviewReason" name="reason" maxlength="1000" rows="3" aria-describedby="reviewReasonHint"></textarea></label>
+        <p id="reviewReasonHint" class="hint">拒絕或停用時必填，最多 500 個字。理由會提供申請人查看。</p>
+        <p id="v2ReviewMessage" role="status" aria-live="polite"></p>
+        <div class="form-actions"><button id="closeV2Review" type="button" class="secondary">取消</button><button id="confirmV2Review" type="submit">確認審核</button></div>
+      </form>
+    </dialog>
     <dialog id="expiryDialog" aria-labelledby="expiryTitle">
       <form id="expiryForm">
         <h2 id="expiryTitle">設定使用期限</h2><p id="expiryDescription"></p>
@@ -91,6 +105,28 @@
         <div class="form-actions"><button type="button" class="secondary" id="closeApproval">取消</button><button type="submit" id="confirmApproval">審核通過</button></div>
       </form>
     </dialog>
+
+    <section id="qualificationWorkspace" class="account-workspace" hidden aria-labelledby="qualificationTitle">
+      <h2 id="qualificationTitle">管理員資格</h2>
+      <p>先送出管理員資格申請。資格通過後，即可各別申請與管理多個商家。</p>
+      <p id="qualificationStatus" role="status" aria-live="polite"></p>
+      <p id="qualificationReason"></p>
+      <button id="submitQualification" type="button">申請管理員資格</button>
+      <p id="qualificationMessage" role="status" aria-live="polite"></p>
+    </section>
+    <section id="myMerchantsWorkspace" class="account-workspace" hidden aria-labelledby="myMerchantsTitle">
+      <div class="workspace-heading"><div><h2 id="myMerchantsTitle">我的商家</h2><p>每個商家獨立審核。請選擇要管理的商家；新增申請不會更動既有商家。</p></div><button id="newMerchantApplication" type="button">新增商家申請</button></div>
+      <div id="myMerchantList" class="tenant-list"></div>
+      <form id="merchantApplicationForm">
+        <h3 id="merchantApplicationTitle">新增商家申請</h3>
+        <div class="grid">
+          <label>商家名稱<input name="businessName" maxlength="100" required autocomplete="organization"></label>
+          <p>商家代碼由系統分配，送出後會顯示在商家列表；修正申請時保留原代碼。</p>
+        </div>
+        <p id="merchantApplicationMessage" role="status" aria-live="polite"></p>
+        <div class="form-actions"><button id="cancelMerchantResubmit" type="button" class="secondary" hidden>取消重新申請</button><button id="submitMerchantApplication" type="submit">提交商家申請</button></div>
+      </form>
+    </section>
     <section id="onboardingJourney" class="onboarding-journey" hidden aria-labelledby="journeyTitle">
       <h2 id="journeyTitle">開通進度</h2>
       <ol>
@@ -151,7 +187,11 @@
       <div id="merchantFeatures" class="tenant-features"></div>
       </div>
       <section id="merchantLineSettingsPanel" role="tabpanel" aria-labelledby="merchantLineSettingsTab" hidden>
-      <h3>LINE 設定</h3><p class="hint">此處集中設定已核准功能的 LIFF 與通知 Channel；未開放的功能不顯示，也無法透過 API 儲存。</p>
+      <h3>LINE 設定</h3><p class="hint">選擇功能，先設定 LINE 入口；需要通知時，再展開通知帳號與接收用途。已儲存的設定會繼續沿用。</p>
+      <section id="merchantSimpleLine" hidden aria-label="逐功能 LINE 簡易設定">
+        <nav data-line-feature-nav class="business-line-feature-nav" role="tablist" aria-label="已核准功能的 LINE 設定"></nav>
+        <div data-line-feature-content></div>
+      </section>
       <nav id="merchantFeatureNav" class="merchant-feature-nav" aria-label="已授權功能的 LINE 設定"></nav>
       <form id="merchantLineForm">
         <section data-merchant-panel="shared" aria-label="共用 LINE 設定">

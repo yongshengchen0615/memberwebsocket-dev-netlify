@@ -13,4 +13,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: node --test scripts/deploy.test.mjs scripts/netlify-publish-workflow.test.mjs scripts/check-preview-ci.test.mjs scripts/verify-platform-preview.test.mjs scripts/inspect-preview-source.test.mjs scripts/netlify-preview-source.test.mjs scripts/netlify-native-ci-gate.test.mjs scripts/verify-netlify-native-preview.test.mjs scripts/verify-netlify-cli-preview.test.mjs
+      - run: node --test scripts/preview-target.test.mjs scripts/deploy.test.mjs scripts/netlify-publish-workflow.test.mjs scripts/check-preview-ci.test.mjs scripts/project5-restore-observation.test.mjs scripts/verify-platform-preview.test.mjs scripts/inspect-preview-source.test.mjs scripts/netlify-preview-source.test.mjs scripts/netlify-native-ci-gate.test.mjs scripts/verify-netlify-native-preview.test.mjs scripts/verify-netlify-cli-preview.test.mjs

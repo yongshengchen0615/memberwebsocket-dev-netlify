@@ -5,20 +5,15 @@ on:
     paths:
       - 'MemberWebsocket-dev/**'
       - 'scripts/**'
+      - 'AGENTS.md'
+      - 'docs/DEVELOPMENT_GUARDRAILS.md'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
       - 'netlify.toml'
       - '.github/workflows/publish-netlify.yml'
       - '.github/workflows/publish-platform-preview.yml'
       - '.github/workflows/test-netlify-build.yml'
       - '.github/workflows/test-memberwebsocket-dev.yml'
   pull_request:
-    paths:
-      - 'MemberWebsocket-dev/**'
-      - 'scripts/**'
-      - 'netlify.toml'
-      - '.github/workflows/publish-netlify.yml'
-      - '.github/workflows/publish-platform-preview.yml'
-      - '.github/workflows/test-netlify-build.yml'
-      - '.github/workflows/test-memberwebsocket-dev.yml'
 
 permissions:
   contents: read
@@ -44,6 +39,8 @@ jobs:
           node --test --test-reporter=spec --test-reporter-destination=stdout
           --test-reporter=junit --test-reporter-destination=regression-results.xml
           MemberWebsocket-dev/tests/*.test.js
+      - name: Verify governance workflow gates
+        run: node --test scripts/governance-workflow.test.mjs
       - name: Save regression diagnostics and durations
         if: always()
         uses: actions/upload-artifact@v4
@@ -73,15 +70,35 @@ jobs:
         run: |
           node --test \
             MemberWebsocket-dev/tests/integration/product_platform.cjs \
+            MemberWebsocket-dev/tests/integration/admin_qualification.cjs \
+            MemberWebsocket-dev/tests/integration/admin_qualification_api.cjs \
+            MemberWebsocket-dev/tests/integration/merchant_applications.cjs \
+            MemberWebsocket-dev/tests/integration/merchant_application_api.cjs \
+            MemberWebsocket-dev/tests/integration/merchant_context.cjs \
+            MemberWebsocket-dev/tests/integration/merchant_context_api.cjs \
+            MemberWebsocket-dev/tests/integration/merchant_workspace_ui.cjs \
+            MemberWebsocket-dev/tests/integration/platform_access_registration.cjs \
+            MemberWebsocket-dev/tests/integration/platform_login_ui.cjs \
             MemberWebsocket-dev/tests/integration/platform_remove_all_data.cjs \
+            MemberWebsocket-dev/tests/integration/platform_postgrest_reset.cjs \
             MemberWebsocket-dev/tests/integration/product_admin_ui.cjs \
             MemberWebsocket-dev/tests/integration/business_line_settings.cjs \
+            MemberWebsocket-dev/tests/integration/line_settings_simple.cjs \
+            MemberWebsocket-dev/tests/integration/line_settings_workspace.cjs \
+            MemberWebsocket-dev/tests/integration/line_capabilities.cjs \
+            MemberWebsocket-dev/tests/integration/line_webhook_sql.cjs \
+            MemberWebsocket-dev/tests/integration/line_webhook_api.cjs \
+            MemberWebsocket-dev/tests/integration/line_webhook_ui.cjs \
+            MemberWebsocket-dev/tests/integration/line_capabilities_sql.cjs \
+            MemberWebsocket-dev/tests/integration/line_capabilities_ui.cjs \
             MemberWebsocket-dev/tests/integration/line_settings_keyboard.cjs \
             MemberWebsocket-dev/tests/integration/notification_routes.cjs \
             MemberWebsocket-dev/tests/integration/booking_notification_events.cjs \
             MemberWebsocket-dev/tests/integration/booking_no_show_policy.cjs \
             MemberWebsocket-dev/tests/integration/booking_risk_boundaries.cjs \
             MemberWebsocket-dev/tests/integration/booking_risk_ui.cjs \
+            MemberWebsocket-dev/tests/integration/booking_risk_workspace_ux.cjs \
+            MemberWebsocket-dev/tests/integration/booking_risk_confirmation.cjs \
             MemberWebsocket-dev/tests/integration/admin_startup.cjs \
             MemberWebsocket-dev/tests/integration/admin_terms.cjs \
             MemberWebsocket-dev/tests/integration/booking_startup.cjs \
@@ -172,6 +189,7 @@ jobs:
           name: memberwebsocket-browser-${{ matrix.shard }}-${{ github.run_attempt }}
           path: |
             MemberWebsocket-dev/tests/browser/browser-results.xml
+            MemberWebsocket-dev/tests/browser/playwright-report
             MemberWebsocket-dev/tests/browser/test-results
           retention-days: 7
           if-no-files-found: warn
@@ -280,6 +298,11 @@ jobs:
           --test-reporter=spec --test-reporter-destination=stdout
           --test-reporter=junit --test-reporter-destination=postgres-results.xml
           MemberWebsocket-dev/tests/integration/postgres/booking-risk.cjs
+          MemberWebsocket-dev/tests/integration/postgres/line-capabilities.cjs
+          MemberWebsocket-dev/tests/integration/postgres/line-webhook.cjs
+          MemberWebsocket-dev/tests/integration/postgres/admin-qualification.cjs
+          MemberWebsocket-dev/tests/integration/postgres/merchant-applications.cjs
+          MemberWebsocket-dev/tests/integration/postgres/sandbox-fixture-lifecycle.cjs
       - name: Save PostgreSQL acceptance results
         if: always()
         uses: actions/upload-artifact@v4
@@ -302,6 +325,7 @@ jobs:
         run: |
           deno check \
             MemberWebsocket-dev/supabase/functions/platform-api/index.ts \
+            MemberWebsocket-dev/supabase/functions/line-webhook/index.ts \
             MemberWebsocket-dev/supabase/functions/api/index.ts \
             MemberWebsocket-dev/supabase/functions/birthday-benefits/index.ts \
             MemberWebsocket-dev/supabase/functions/test-mode-api/index.ts \

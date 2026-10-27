@@ -17,7 +17,12 @@ test('BUSINESS_SYNC — actual browser runtime refreshes two authorized views, p
     return route.fulfill({json:{ok:true,data:body.action==='admin.sync.status'?{revision:state.revision}:{value:state.value}}});
    });
    await page.goto(base+'/');await page.addScriptTag({url:base+'/sync.js'});
+   // install() keeps time flowing. Freeze each independent tab before starting
+   // subscriptions so wall time cannot add another tab's probe to our counts.
+   await page.clock.pauseAt(new Date('2026-10-20T00:01:00Z'));
    await page.evaluate(async business=>{
+    const fetch=window.fetch.bind(window);window.pendingSyncRequests=0;
+    window.fetch=async(...args)=>{window.pendingSyncRequests++;try{return await fetch(...args);}finally{window.pendingSyncRequests--;}};
     window.liff={init:async()=>{},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=> 'synthetic-token'};
     window.cfg={business,realtimeEnabled:true,supabaseUrl:'https://fixture.supabase.co',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'synthetic',adminLiffId:'admin',memberLiffId:'member'};
     await window.MemberSystem.signIn(window.cfg,'admin');
@@ -33,7 +38,11 @@ test('BUSINESS_SYNC — actual browser runtime refreshes two authorized views, p
   const before=calls.filter(c=>c.business==='shop-b'&&c.action==='admin.bootstrap').length;
   await pages[0].bringToFront();await pages[0].clock.runFor(10001);await expect(pages[0].locator('#value')).toHaveText('B initial');
   expect(calls.filter(c=>c.business==='shop-b'&&c.action==='admin.bootstrap')).toHaveLength(before);
-  await pages[2].bringToFront();await pages[2].clock.runFor(1);await pages[2].evaluate(()=>window.stopSync());
+  await pages[2].bringToFront();await pages[2].clock.runFor(1);
+  // A request sent before unsubscribe may still reach the fixture afterwards;
+  // drain that request before measuring whether unsubscribe starts new ones.
+  await expect.poll(()=>pages[2].evaluate(()=>window.pendingSyncRequests)).toBe(0);
+  await pages[2].evaluate(()=>window.stopSync());
   const probes=calls.filter(c=>c.business==='shop-a'&&c.action==='admin.sync.status').length;await pages[2].clock.runFor(60000);
   expect(calls.filter(c=>c.business==='shop-a'&&c.action==='admin.sync.status')).toHaveLength(probes);
  }finally{for(const page of pages)await page.close();}

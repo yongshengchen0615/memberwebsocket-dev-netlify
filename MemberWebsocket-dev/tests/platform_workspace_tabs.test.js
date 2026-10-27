@@ -22,8 +22,9 @@ function createFixture(granted) {
       focus() { focused = id; } };
   }
   const context = { state: { features: { booking: '預約' }, merchant: { features: { booking: granted } } },
-    merchantWorkspaceTab: 'overview', el: id => nodes[id] };
-  vm.runInNewContext(script.slice(start, end) + '\nthis.chooseTab = selectMerchantWorkspaceTab;', context);
+    merchantEntry:true,merchantWorkspaceTab: 'overview', el: id => nodes[id] };
+  const declaration=prefix=>script.slice(script.indexOf(prefix),script.indexOf('\n',script.indexOf(prefix)));
+  vm.runInNewContext(declaration('  const featureLiffNames=')+'\n'+declaration('  const hasFeatureLine =')+'\n'+script.slice(start, end) + '\nthis.chooseTab = selectMerchantWorkspaceTab;', context);
   return { nodes, context, focus: () => focused,
     press(id, key) { let prevented = false;
       nodes[id].listeners.keydown({ key, preventDefault() { prevented = true; } });

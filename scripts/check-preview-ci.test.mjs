@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { evaluatePreviewCI } from './check-preview-ci.mjs';
 
@@ -60,4 +61,36 @@ test('successful replacement supersedes older cancelled duplicate without counti
 test('a familiar display name on a different workflow cannot satisfy the gate', () => {
   const runs = baseline.map(run => ({ ...run, path: '.github/workflows/unrelated.yml', name: 'Test MemberWebsocket Dev' }));
   assert.equal(evaluatePreviewCI(runs, sha, branch).status, 'pending');
+});
+
+
+function previewWorkflowEventPaths(filename, event) {
+  const yaml = readFileSync(new URL(`../.github/workflows/${filename}`, import.meta.url), 'utf8');
+  const patterns = [];
+  let inEvent = false;
+  let inPaths = false;
+  for (const line of yaml.split(/\r?\n/)) {
+    if (line === `  ${event}:`) { inEvent = true; inPaths = false; continue; }
+    if (!inEvent) continue;
+    if (/^  [\w-]+:/.test(line)) break;
+    if (/^    paths:\s*$/.test(line)) { inPaths = true; continue; }
+    const pathMatch = inPaths && line.match(/^      - ['"]([^'"]+)['"]\s*$/);
+    if (pathMatch) { patterns.push(pathMatch[1]); continue; }
+    if (inPaths && line.trim() && !line.startsWith('      ')) inPaths = false;
+  }
+  return patterns;
+}
+
+test('Preview publishing change paths always trigger exact-SHA Ticket Policy push and PR CI', () => {
+  const publishedPaths = previewWorkflowEventPaths('publish-platform-preview.yml', 'push');
+  assert.ok(publishedPaths.length > 0, 'Preview publisher must declare push paths');
+  for (const event of ['push', 'pull_request']) {
+    const policyPaths = previewWorkflowEventPaths('test-memberwebsocket-ticket-policy.yml', event);
+    assert.ok(policyPaths.length > 0, `Ticket Policy ${event} paths must be explicit`);
+    for (const publishPath of publishedPaths) {
+      assert.ok(policyPaths.some(policyPath => policyPath === publishPath
+        || (policyPath.endsWith('/**') && publishPath.startsWith(policyPath.slice(0, -2)))),
+      `Ticket Policy ${event} must cover publishing path ${publishPath} to prevent an unresolvable exact-SHA gate`);
+    }
+  }
 });

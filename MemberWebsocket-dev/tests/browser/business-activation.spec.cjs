@@ -9,7 +9,7 @@ test('BUSINESS_APPROVAL_ACTIVATES — real approval/SQL immediately opens grant-
  async function wire(page,token){
   page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
   await page.addInitScript(()=>sessionStorage.setItem('platform-line-login-return-v1',String(Date.now())));
-  await page.route('**/config.json',r=>r.fulfill({json:{brandName:'QA',supabaseUrl:'https://fixture.supabase.co',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'sb_publishable_fixture',adminLiffId:'2010791619-admin',memberLiffId:'2010787602-member',pointsLiffId:'2010787602-points',platformLiffId:'2012065297-VunxFBj8',productizedAdmin:true}}));
+  await page.route('**/config.json',r=>r.fulfill({json:{brandName:'QA',supabaseUrl:'https://fixture.supabase.co',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'sb_publishable_fixture',adminLiffId:'2010791619-admin',memberLiffId:'2010787602-member',pointsLiffId:'2010787602-points',platformLiffId:'2012065297-VunxFBj8',productizedAdmin:true,merchantApprovalVersion:2}}));
   await page.route('https://static.line-scdn.net/**',r=>r.fulfill({contentType:'text/javascript',body:`window.liff={init:async()=>{},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=>${JSON.stringify(token)}};`}));
   await page.route('https://cdn.jsdelivr.net/**',r=>r.fulfill({contentType:'text/javascript',body:''}));
   await page.route('https://fixture.supabase.co/functions/v1/**',async route=>{
@@ -29,13 +29,30 @@ test('BUSINESS_APPROVAL_ACTIVATES — real approval/SQL immediately opens grant-
  }
  const manager=await context.newPage(),platform=await context.newPage();
  try{
-  await wire(manager,'manager');await manager.goto(base+'/admin/workspace.html');await expect(manager.locator('#applicationProgress')).toContainText('等待總管理員審核');
-  await wire(platform,'root');await platform.goto(base+'/platform/');await platform.getByRole('button',{name:'審核與選擇功能'}).click();
-  await platform.locator('[data-approve-feature="membership"]').check();await platform.locator('[data-approve-feature="points"]').check();await platform.getByRole('button',{name:'審核通過',exact:true}).click();
+  await wire(manager,'manager');await manager.goto(base+'/admin/workspace.html');
+  await expect(manager.locator('#qualificationWorkspace')).toBeVisible();
+  expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(0);
+  await manager.locator('#submitQualification').click();
+  await expect(manager.locator('#qualificationStatus')).toContainText('等待');
+  await wire(platform,'root');await platform.goto(base+'/platform/');
+  await platform.locator('#qualificationList [data-review-decision="approved"]').click();await platform.locator('#confirmV2Review').click();await expect(platform.locator('#v2ReviewDialog')).not.toBeVisible();
+  await manager.locator('#refreshApplication').click();await expect(manager.locator('#myMerchantsWorkspace')).toBeVisible();
+  await manager.locator('#merchantApplicationForm [name="businessName"]').fill('經審核商家');
+  await expect(manager.locator('#merchantApplicationForm [name="slug"]')).toHaveCount(0);
+  await manager.locator('#submitMerchantApplication').click();
+  await expect(manager.locator('#myMerchantList')).toContainText('等待商家審核');
+  expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(1);
+  await platform.reload();await platform.locator('#applicationList [data-review-decision="approved"]').click();
+  await platform.locator('[data-v2-feature="membership"]').check();await platform.locator('[data-v2-feature="points"]').check();await platform.locator('#confirmV2Review').click();await expect(platform.locator('#v2ReviewDialog')).not.toBeVisible();
   await expect(platform.locator('#tenantList')).toContainText('可立即使用');
   const row=(await h.db.query('select * from platform_private.tenants')).rows[0];expect(row.status).toBe('active');expect(row.credentials_configured).toBe(false);
-  await manager.locator('#refreshApplication').click();await expect(manager.locator('#businessWorkspaceStatus')).toContainText('審核已通過');
+  await manager.locator('#refreshApplication').click();await expect(manager.locator('[data-manage-merchant]')).toHaveCount(1);
+  await expect(manager).toHaveURL(base+'/admin/workspace.html');await manager.locator('[data-manage-merchant]').click();
   await expect(manager).toHaveURL(base+'/admin/?business='+row.slug);
+  // AC-LNN-001/004: only the grant-controlled tab remains, at all viewport sizes.
+  await expect(manager.locator('#adminView .account-menu a[href="#productizedAdmin"]')).toHaveCount(0);
+  await expect(manager.locator('#lineSettingsTab')).toHaveCount(1);
+  await expect(manager.locator('#lineSettingsPanel')).toHaveCount(1);
   await expect(manager.locator('#membersTab')).toBeVisible();await expect(manager.locator('#cardsTab')).toBeVisible();await expect(manager.locator('#eventsTab')).toBeHidden();await expect(manager.locator('#bookingTab')).toBeHidden();
   await expect(manager.locator('#memberUsageTab')).toBeHidden();
   await manager.locator('#memberDirectoryTab').focus();await manager.keyboard.press('ArrowRight');
@@ -54,19 +71,20 @@ test('BUSINESS_APPROVAL_ACTIVATES — real approval/SQL immediately opens grant-
   await expect(memberSection.locator('[data-feature-client]')).toHaveAttribute('href',base+'/member/?business='+row.slug);
   await memberLine.locator('[name=memberLiffId]').fill('2010787602-invalid@');
   expect(await memberLine.locator('[name=memberLiffId]').evaluate(input=>input.validity.patternMismatch)).toBe(true);
+  await memberLine.locator('details').evaluateAll(nodes=>nodes.forEach(x=>x.open=true));
   const fields={adminChannelId:'2010791619',memberChannelId:'2010787602',messagingChannelId:'2010123456',adminLiffId:'2010791619-admin',memberLiffId:'2010787602-member',channelAccessToken:'synthetic-access-token-123456789',channelSecret:'a'.repeat(32)};
   for(const [key,value]of Object.entries(fields))await memberLine.locator('[name="'+key+'"]').fill(value);
-  await memberLine.getByRole('button',{name:'儲存會員卡 LINE 設定',exact:true}).click();
+  await memberLine.getByRole('button',{name:'儲存會員卡入口設定',exact:true}).click();
   await expect(memberSection.locator(':scope > [role=status]')).toContainText('已儲存');
   await expect(memberLine.locator('[name=channelAccessToken]')).toHaveValue('');
   expect((await h.db.query('select module_line from platform_private.tenants')).rows[0].module_line.points).toBeUndefined();
   await manager.locator('#businessLineFeatureTab-points').click();await expect(pointsLine).toBeVisible();
   await expect(memberLine).toBeHidden();
   await pointsLine.locator('[name=pointsLiffId]').fill('2010787602-points');
-  await pointsLine.locator('details').evaluate(x=>x.open=true);
+  await pointsLine.locator('details').evaluateAll(nodes=>nodes.forEach(x=>x.open=true));
   await pointsLine.locator('[name=channelAccessToken]').fill('synthetic-points-token-123456789');
   await pointsLine.locator('[name=channelSecret]').fill('b'.repeat(32));
-  await pointsLine.getByRole('button',{name:'儲存集點卡 LINE 設定',exact:true}).click();
+  await pointsLine.getByRole('button',{name:'儲存集點卡入口設定',exact:true}).click();
   await expect(pointsSection.locator(':scope > [role=status]')).toContainText('已儲存');
   expect((await h.db.query('select module_line from platform_private.tenants')).rows[0].module_line.membership.line.memberLiffId).toBe(fields.memberLiffId);
   await manager.locator('#cardsTab').click();

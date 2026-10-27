@@ -2,7 +2,7 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 
-const siteId = '23796c62-480a-4b46-ac90-bfbc5ad4d300';
+const siteId = '196e1d2c-8216-4ba8-aeb9-1706660adc2b';
 const repo = 'yongshengchen0615/memberwebsocket-dev-netlify';
 const branch = 'Integrated-Marketing-Platform';
 const siteName = 'memberwebsocket-dev-netlify';

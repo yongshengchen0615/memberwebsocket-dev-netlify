@@ -1,9 +1,10 @@
 (() => {
  'use strict';
  const panels={membership:'members',points:'cards',events:'events',calendar:'calendar',integrations:'operationsHub',booking:'booking',testing:'testMode',usage:'operationAudit'};
+ const lineFeatures=['membership','points','events','calendar','booking'];
  let latest=null;
  function selectLineTab() {
-  if(!latest || !Object.values(latest.features||{}).some(Boolean))return;
+  if(!latest || !lineFeatures.some(key=>latest.features?.[key]===true))return;
   const tab=document.getElementById('lineSettingsTab'),panel=document.getElementById('lineSettingsPanel');
   if(!tab||!panel||tab.disabled)return;
   for(const other of document.querySelectorAll('#adminView .surface-nav [role="tab"]'))other.setAttribute('aria-selected',String(other===tab));
@@ -19,14 +20,15 @@
    if(panel){panel.hidden=!allowed;if(!allowed)panel.classList.add('hidden');}
   }
   const lineTab=document.getElementById('lineSettingsTab'),linePanel=document.getElementById('lineSettingsPanel');
-  const hasGrants=Object.values(data.features||{}).some(value=>value===true);
+  const hasGrants=lineFeatures.some(key=>data.features?.[key]===true);
   if(lineTab){lineTab.hidden=!hasGrants;lineTab.disabled=!hasGrants;lineTab.dataset.businessAllowed=String(hasGrants);}
   if(!hasGrants && linePanel){linePanel.hidden=true;linePanel.classList.add('hidden');}
   const usage=document.getElementById('memberUsageTab');if(usage){usage.hidden=!data.features.usage;usage.disabled=!data.features.usage;usage.dataset.businessAllowed=String(!!data.features.usage);}
   if(!document.getElementById('businessWorkspaceStatus')){
    const status=document.createElement('section');status.id='businessWorkspaceStatus';status.className='form-message success';status.setAttribute('role','status');
    const text=document.createElement('span');text.textContent=(data.business?.name||'商家')+'｜審核已通過，已核准功能可立即使用。 ';
-   status.append(text);document.querySelector('#adminView')?.prepend(status);
+   const back=document.createElement('a');back.href='/admin/';back.dataset.businessSwitch='true';back.textContent='返回我的商家';back.className='button button-outline';
+   status.append(text,back);document.querySelector('#adminView')?.prepend(status);
    if(!data.features.membership&&['points','events','calendar','booking'].some(key=>data.features[key])){
     const terms=document.getElementById('memberTermsPanel');
     if(terms){const button=document.createElement('button');button.type='button';button.className='button button-outline';button.textContent='設定會員加入條款';button.onclick=()=>{terms.hidden=false;terms.classList.toggle('hidden');window.dispatchEvent(new CustomEvent('member-workspace-selected',{detail:{workspace:'terms'}}));};status.append(button,terms);}

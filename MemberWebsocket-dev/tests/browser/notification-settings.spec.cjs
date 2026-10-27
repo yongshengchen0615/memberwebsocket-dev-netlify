@@ -11,7 +11,7 @@ for(const width of [390,1280])test('NOTIFICATION_PURPOSES_'+width+' — independ
  const tenant=await h.approve(owner,'notice-browser',features);h.allowedOrigins.add(base);
  const {createPlatformHandler}=await import('../../supabase/functions/_shared/platform-handler.mjs');
  const provider=[];let lose=true,valid=true;
- const handler=createPlatformHandler({db:{rpc:h.rpc},allowedOrigins:h.allowedOrigins,encryptionKey:()=>key,verifyIdentity:()=>{throw Error('ROOT_NOT_ALLOWED');},verifyApplicantIdentity:async()=>({lineUserId:owner}),
+ const handler=createPlatformHandler({db:{rpc:h.rpc},allowedOrigins:h.allowedOrigins,encryptionKey:()=>key,verifyIdentity:()=>{throw Error('ROOT_NOT_ALLOWED');},verifyApplicantIdentity:async()=>({lineUserId:owner,issuedAtMs:Date.now()}),
  fetchImpl:async(url,options)=>{provider.push({url,options});return new Response(JSON.stringify({client_id:valid?'2010123456':'wrong',expires_in:3600}),{status:200,headers:{'x-line-request-id':'synthetic-request-id'}});}});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  try{
@@ -35,7 +35,7 @@ for(const width of [390,1280])test('NOTIFICATION_PURPOSES_'+width+' — independ
   await expect(page.locator('[data-business-line-feature="booking"]')).toBeVisible();
   await expect(page.locator('[data-business-line-feature="membership"]')).toBeHidden();
   const admin=page.locator('#notification-booking-admin'),member=page.locator('#notification-booking-member');
-  await page.locator('[data-business-line-feature="booking"] > details').evaluate(d=>d.open=true);
+  await page.locator('[data-business-line-feature="booking"] > details').filter({has:admin}).evaluate(d=>d.open=true);
   await admin.locator('select').selectOption('custom');await admin.locator('[name=messagingChannelId]').fill('2010123456');await admin.locator('[name=channelAccessToken]').fill('synthetic-browser-notification-token-123456');
   await admin.getByRole('button',{name:'驗證並儲存通知設定'}).click();await expect(admin.locator('[role=status]')).toContainText('無法確認');
   await expect(member.getByRole('button',{name:'驗證並儲存通知設定'})).toBeDisabled();

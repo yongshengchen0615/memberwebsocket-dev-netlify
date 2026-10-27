@@ -2,8 +2,9 @@ import { createClient as baseClient } from 'npm:@supabase/supabase-js@2.57.0';
 import { assertBusinessAction,businessBootstrap,actionFeatures } from './business-policy.mjs';
 import { openCredentials } from './platform-crypto.mjs';
 import { resolvePlatformEncryptionKey } from './platform-key.mjs';
-import { tenantExpired } from './tenant-access.mjs';
-import { merchantOnboarding } from './merchant-onboarding.mjs';
+import { tenantExpired, assertTenantIdentity } from './tenant-access.mjs';
+import { verifyMerchantAdminIdToken } from './platform-auth.mjs';
+import { merchantOnboarding, featureLineReady } from './merchant-onboarding.mjs';
 import { wakeBookingNotifications } from './booking-notification-wake.mjs';
 import { notificationToken } from './notification-routes.mjs';
 export type { SupabaseClient } from 'npm:@supabase/supabase-js@2.57.0';
@@ -16,6 +17,8 @@ const relative=(path:unknown,c:Context)=>{
  return c.id+'/'+p;
 };
 function storageAdapter(storage:any,c:Context){return new Proxy(storage,{get(target,key){
+ if(c.authorizeExternal&&['createBucket','updateBucket','emptyBucket','deleteBucket'].includes(String(key)))
+  return(...args:any[])=>c.authorizeExternal().then(()=>target[key](...args));
  if(key!=='from')return typeof target[key]==='function'?target[key].bind(target):target[key];
  return(bucket:string)=>{const client=target.from(bucket);return new Proxy(client,{get(object,method){
   const original=object[method];if(typeof original!=='function')return original;
@@ -24,6 +27,8 @@ function storageAdapter(storage:any,c:Context){return new Proxy(storage,{get(tar
    else if(['move','copy'].includes(String(method))){args[0]=relative(args[0],c);args[1]=relative(args[1],c);}
    else if(String(method)==='list')args[0]=args[0]?relative(args[0],c):c.id;
    else if(['upload','update','download','createSignedUrl','createSignedUploadUrl','getPublicUrl','info','exists'].includes(String(method)))args[0]=relative(args[0],c);
+   if(c.authorizeExternal&&['upload','update','remove','move','copy','createSignedUploadUrl'].includes(String(method)))
+    return c.authorizeExternal().then(()=>original.apply(object,args));
    return original.apply(object,args);
   };
  }});};
@@ -33,6 +38,19 @@ export function createClient(url:string,key:string,options?:any):import('npm:@su
  const c=scope.getStore();if(!c)return baseClient(...args);
  const client=baseClient(args[0],args[1],{...args[2],db:{...args[2]?.db,schema:c.runtime_schema},global:{...args[2]?.global,
   fetch:async(input:RequestInfo|URL,init?:RequestInit)=>{
+   const active=scope.getStore();if(active&&active.id!==c.id)throw Error('CROSS_BUSINESS_SCHEMA');
+   const current=active||c,headers=new Headers(input instanceof Request?input.headers:undefined);
+   new Headers(init?.headers).forEach((value,key)=>headers.set(key,value));
+   // These markers are created only after provider verification, never copied
+   // from request/caller headers. PostgREST validates and locks this authority
+   // in the same transaction as every scoped table/RPC statement.
+   for(const name of ['x-platform-admin-actor','x-platform-admin-tenant','x-platform-admin-issued-at'])headers.delete(name);
+   if(current.verifiedAdmin){
+    headers.set('x-platform-admin-actor',current.verifiedAdmin.actor);
+    headers.set('x-platform-admin-tenant',current.id);
+    headers.set('x-platform-admin-issued-at',current.verifiedAdmin.issuedAt);
+   }
+   init={...init,headers};
    for(let attempt=0;;attempt++){
     const result=await (args[2]?.global?.fetch||fetch)(input,init);
     if(result.ok||attempt>=6)return result;
@@ -68,25 +86,55 @@ export function createClient(url:string,key:string,options?:any):import('npm:@su
 function subject(token:unknown):string|null {
  try{const part=String(token).split('.')[1];const parsed=JSON.parse(atob(part.replace(/-/g,'+').replace(/_/g,'/')));return /^U[0-9a-f]{32}$/.test(parsed.sub)?parsed.sub:null;}catch{return null;}
 }
-// This subject is only a routing hint. It never authorizes anything: every
-// existing handler still verifies the original token with LINE and checks the
-// current admin/member record inside the chosen, private namespace.
+// This subject is only a routing hint. Administrative access is verified below;
+// existing handlers retain their own LINE and private admin/member checks.
 async function resolve(body:any):Promise<Context|null>{
  const slug=body.business;
  if(slug!==undefined&&(typeof slug!=='string'||!/^admin-[a-f0-9]{32}$|^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(slug)||slug.length>40))throw Object.assign(Error('商家入口格式不正確。'),{status:400,code:'INVALID_BUSINESS'});
  const actor=subject(body.idToken);if(!slug&&!actor)return null;
- const result=await control().rpc('platform_business_context',{p_actor:actor,p_slug:slug||null});
+ const result=await control().rpc('platform_business_context_v2',{p_actor:actor,p_slug:slug||null});
  if(result.error)throw Object.assign(Error('目前無法確認商家權限。'),{status:503,code:'BUSINESS_ACCESS_UNAVAILABLE'});
  if(!result.data&&slug)throw Object.assign(Error('找不到商家入口。'),{status:404,code:'BUSINESS_NOT_FOUND'});
  return result.data;
 }
-async function credentials(c:Context,feature?:string){
+async function assertBusinessAdmin(c:Context,body:any){
+ const qualification=c.owner_qualification_status,cutoff=c.admin_access_revoked_before;
+ if(!Object.hasOwn(c,'owner_qualification_status')||![null,'approved','pending','rejected','suspended'].includes(qualification)
+  ||!Object.hasOwn(c,'admin_access_revoked_before')||(cutoff!==null&&(typeof cutoff!=='string'||!Number.isFinite(Date.parse(cutoff))))
+  ||(c.access_revoked_before!=null&&!Number.isFinite(Date.parse(c.access_revoked_before))))
+  throw Object.assign(Error('目前無法確認商家權限。'),{status:503,code:'BUSINESS_ACCESS_UNAVAILABLE'});
+ if(qualification!=='approved')throw Object.assign(Error(qualification==='suspended'?'管理員資格已停權，請聯絡總管理員。':'請先取得一般管理員資格。'),
+  {status:403,code:qualification==='suspended'?'PLATFORM_QUALIFICATION_SUSPENDED':'PLATFORM_QUALIFICATION_REQUIRED'});
+ // Qualification revocation applies only to this administrative request. Member
+ // scopes continue carrying the tenant cutoff returned by the routing RPC.
+ const revoked=Math.max(Date.parse(c.access_revoked_before||'')||0,Date.parse(cutoff||'')||0);
+ if(revoked)c.access_revoked_before=new Date(revoked).toISOString();
+ // Resolve the trusted admin channel without loading any merchant credentials.
+ // This is the same readiness rule credentials() uses for downstream handlers.
+ c.adminCustomLineReady=Boolean(c.line_config?.adminLiffId?.startsWith(c.line_config?.adminChannelId+'-'));
+ const identity=await scope.run(c,()=>verifyMerchantAdminIdToken({idToken:body.idToken},businessEnv('LINE_ADMIN_CHANNEL_ID')));
+ if(identity.lineUserId!==c.owner_line_user_id)throw Object.assign(Error('你沒有此商家的管理權限。'),{code:'BUSINESS_ADMIN_REQUIRED',status:403});
+ assertTenantIdentity(c,identity);
+ c.verifiedAdmin={actor:identity.lineUserId,issuedAt:new Date(identity.issuedAtMs).toISOString()};
+ // External services cannot share a Postgres transaction. Recheck immediately
+ // before dispatch; already-dispatched provider/storage requests may finish.
+ c.authorizeExternal=async()=>{
+  const result=await control().rpc('platform_my_merchant_context',{
+   p_actor:c.verifiedAdmin.actor,p_slug:c.slug,p_issued_at:c.verifiedAdmin.issuedAt,
+  });
+  if(result.error||!result.data)throw Object.assign(Error('管理權限已變更，請重新確認。'),{status:403,code:'BUSINESS_ADMIN_REQUIRED'});
+ };
+}
+async function credentials(c:Context,feature?:string,identityOnly=false){
  c.adminCustomLineReady=Boolean(c.line_config?.adminLiffId?.startsWith(c.line_config?.adminChannelId+'-'));
  const module=feature?c.module_line?.[feature]:null;
  c.active_feature=feature;
  if(module)c.line_config={...c.line_config,...module.line};
  const configured=module?module.credentialsConfigured===true:c.credentials_configured;
- c.customLineReady=merchantOnboarding({status:c.status,features:feature?{[feature]:true}:c.features,line:c.line_config,credentialsConfigured:configured}).configurationComplete;
+ c.customLineReady=feature?featureLineReady(feature,c.line_config):merchantOnboarding({status:c.status,features:c.features,line:c.line_config,credentialsConfigured:configured}).configurationComplete;
+ // Session operations only need the trusted Login identity; no Messaging
+ // envelope or notification route is needed to claim/check/close a session.
+ if(identityOnly){c.notificationCredentials={};return;}
  const db=control();
  if(configured){
   const result=await db.rpc(module?'platform_module_credentials':'platform_business_credentials',module?{p_tenant_id:c.id,p_feature:feature}:{p_tenant_id:c.id});
@@ -121,21 +169,48 @@ export async function withBusinessModule<T>(feature:string,run:()=>Promise<T>):P
  if(c.features?.[feature]!==true)throw Object.assign(Error('此功能已停用。'),{code:'FEATURE_DISABLED',status:403});
  await credentials(c,feature);return scope.run(c,run);
 }
-function requestModule(name:string,body:any):string|undefined{
+const sessionSurface=/^user\.(member|points|event|calendar|booking)\.session\.(claim|status|logout)$/;
+const identityFeatures:Record<string,string>={member:'membership',points:'points',event:'events',calendar:'calendar',booking:'booking'};
+function requestModule(name:string,body:any,context?:Context):string|undefined{
  if(name==='booking-line-notifications')return 'booking';
  if(name==='scheduled-grant-messages')return undefined;
- const features=actionFeatures(policyAction(name,body),body);
- return features?.[0];
+ const action=policyAction(name,body),session=sessionSurface.exec(action);
+ // Session authorization deliberately remains a workspace operation in
+ // actionFeatures. Its LINE identity still belongs to the named surface,
+ // including logout/status after that feature's grant has been revoked.
+ if(session)return identityFeatures[session[1]];
+ const features=actionFeatures(action,body),primary=features?.[0];
+ if(context && /^user\.member\.(bootstrap|profile\.save|terms\.accept)$/.test(action)){
+  // Shared member profile/terms are also used from booking and other approved
+  // LIFFs. aud is only a routing hint, never identity or authorization proof:
+  // choose solely from this tenant's granted, valid LINE configurations. The
+  // downstream verifier must still validate the token with LINE against the
+  // selected database Channel and enforce the existing session/cutoff checks.
+  let audience:unknown;
+  try{audience=JSON.parse(atob(String(body.idToken).split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).aud;}catch{}
+  // Test-session requests may carry no LINE ID token. Leave their existing
+  // authentication branch (and malformed token rejection) to the endpoint.
+  if(typeof audience!=='string')return primary;
+  const candidates=Object.values(identityFeatures).filter(feature=>context.features?.[feature]===true
+   && featureLineReady(feature,{...context.line_config,...context.module_line?.[feature]?.line}));
+  const matched=candidates.find(feature=>({...context.line_config,...context.module_line?.[feature]?.line}).memberChannelId===audience);
+  if(matched)return matched;
+  // Do not fall back to a global Channel when only another configured LIFF can
+  // legitimately enter this shared foundation route. Legacy unconfigured
+  // tenants and an explicitly configured membership Channel retain their path.
+  if(candidates.length && (!primary || !candidates.includes(primary)))throw Object.assign(Error('LINE 登入已失效，請重新登入。'),{status:401,code:'AUTH_INVALID'});
+ }
+ return primary;
 }
 
 const jobs=new Set(['booking-line-notifications','scheduled-grant-messages','e2e-artifact-retention']);
 const jobAllowed=(name:string,c:Context)=>name==='scheduled-grant-messages'
  ? ['membership','points','events'].some(key=>c.features?.[key]):c.features?.[name==='booking-line-notifications'?'booking':'testing']===true;
 function policyAction(name:string,body:any):string{
- const action=String(body.action||'');
- if(name==='pointcard-extension-api')return 'admin.pointcard.settings.save';
- if(name==='event-ticket-extension-api')return 'admin.event-ticket.settings.save';
- if(name==='booking-cancellation-api')return 'admin.booking.cancellation';
+ const action=String(body.action||body.operation||'');
+ if(name==='pointcard-extension-api')return ['member.settings.get','member.redeem'].includes(body.operation)?'user.pointcard.'+body.operation.slice(7):'admin.pointcard.settings.save';
+ if(name==='event-ticket-extension-api')return ['member.settings.get','member.today-usable','member.redeem'].includes(body.operation)?'user.event.'+body.operation.slice(7):'admin.event-ticket.settings.save';
+ if(name==='booking-cancellation-api')return body.clientType==='member'&&['member.list','member.request'].includes(body.action)?'user.booking.cancellation':'admin.booking.cancellation';
  return action;
 }
 export function businessHandler(name:string,handler:(request:Request)=>Response|Promise<Response>){
@@ -169,15 +244,14 @@ export function businessHandler(name:string,handler:(request:Request)=>Response|
     }
     return response;
    }
-   const requested=String(body.action||body.operation||'');
-   if(requested.startsWith('admin.')&&subject(body.idToken)!==c.owner_line_user_id)
-    throw Object.assign(Error('你沒有此商家的管理權限。'),{code:'BUSINESS_ADMIN_REQUIRED',status:403});
-   if(jobs.has(name)&&!String(body.action||'').startsWith('admin.')){
+   const action=policyAction(name,body),admin=[body.action,body.operation,action].some(value=>String(value||'').startsWith('admin.'));
+   if(admin)await assertBusinessAdmin(c,body);
+   if(jobs.has(name)&&!admin){
     if(tenantExpired(c))throw Object.assign(Error('使用期限已到，請聯絡總管理員。'),{code:'TENANT_EXPIRED',status:403});
     if(c.status!=='active')throw Object.assign(Error('此商家已停用。'),{code:'TENANT_SUSPENDED',status:403});
     if(!jobAllowed(name,c))throw Object.assign(Error('此功能已停用。'),{code:'FEATURE_DISABLED',status:403});
-   }else assertBusinessAction(c,policyAction(name,body),body);
-   await credentials(c,requestModule(name,body));
+   }else assertBusinessAction(c,action,body);
+   await credentials(c,requestModule(name,body,c),sessionSurface.test(action));
    const response=await scope.run(c,()=>handler(request));
    await wakeBookingNotifications({name,context:c,body,response,dispatch:(id:string)=>control().rpc('platform_dispatch_booking',{p_tenant_id:id})});
    if(body.action==='admin.bootstrap'&&response.ok){

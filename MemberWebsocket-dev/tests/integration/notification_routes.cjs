@@ -7,7 +7,7 @@ async function setup(){
  const {createPlatformHandler}=await import('../../supabase/functions/_shared/platform-handler.mjs');
  let valid=true;const provider=[];
  const handler=createPlatformHandler({db:{rpc:h.rpc},allowedOrigins:h.allowedOrigins,encryptionKey:()=>key,
-   verifyApplicantIdentity:async id=>{if(id!=='manager')throw Error('UNVERIFIED');return{lineUserId:owner};},verifyIdentity:()=>assert.fail('must use applicant authentication'),
+   verifyApplicantIdentity:async id=>{if(id!=='manager')throw Error('UNVERIFIED');return{lineUserId:owner,issuedAtMs:Date.now()};},verifyIdentity:()=>assert.fail('must use applicant authentication'),
    fetchImpl:async(url,options)=>{provider.push({url,options});return new Response(JSON.stringify({client_id:valid?'2010123456':'different-channel',expires_in:1000}),{status:200});}});
  const call=async body=>{const r=await handler(new Request('https://backend.test',{method:'POST',headers:{Origin:'https://allowed.test'},body:JSON.stringify({idToken:'manager',business:t.slug,...body})}));return{status:r.status,body:await r.json()};};
  const save=async(body={})=>call({action:'platform.notifications.save',feature:'booking',purpose:'admin',mode:'custom',messagingChannelId:'2010123456',channelAccessToken:token,requestId:crypto.randomUUID(),expectedVersion:(await h.db.query('select version from platform_private.tenants where id=$1',[t.id])).rows[0].version,...body});
@@ -42,7 +42,8 @@ test('AC-186: real SQL encrypts scoped routes; masked responses, idempotency and
 test('AC-186: provider rejection, foreign business, stale version, revoked grant and suspended tenant fail closed',async()=>{
  const h=await setup();try{
   h.setValid(false);assert.equal((await h.save()).body.error.code,'LINE_NOTIFICATION_INVALID');assert.equal((await h.db.query('select count(*)::int n from platform_private.module_notification_routes')).rows[0].n,0);
-  h.setValid(true);await h.approve('U'+'3'.repeat(32),'other-shop',features);assert.equal((await h.save({business:'other-shop'})).status,403);
+  h.setValid(true);await h.approve('U'+'3'.repeat(32),'other-shop',features);
+  const foreign=await h.save({business:'other-shop'});assert.equal(foreign.status,404);assert.equal(foreign.body.error.code,'PLATFORM_APPLICATION_NOT_FOUND');
   assert.equal((await h.save({feature:'points',purpose:'admin'})).status,400);
   assert.equal((await h.save()).status,200);assert.equal((await h.save({expectedVersion:1})).body.error.code,'PLATFORM_CONFLICT');
   await h.db.query("update platform_private.tenants set features=jsonb_set(features,'{booking}','false') where id=$1",[h.t.id]);assert.equal((await h.save()).body.error.code,'FEATURE_DISABLED');
