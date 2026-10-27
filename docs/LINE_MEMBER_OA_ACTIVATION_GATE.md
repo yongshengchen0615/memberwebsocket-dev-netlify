@@ -65,7 +65,7 @@ Access Token 只於 `user.member.profile.save` 首次條款同意送至後端，
 
 ## PostgreSQL 17 驗收增量（2026-10-27）
 
-沿用 CI 隔離服務、現有 business-runtime installer 與真實 RPC／trigger，新增七案：payload/legacy 兩種先後組合的雙連線競態、rollback 後等待者接手、兩店相同 LINE user 的條款隔離、錯誤輸入無副作用、直接 service-role 更新無 consent 拒絕，以及 anon/authenticated 兩種 RPC 拒絕。競態實際確認 pg_blocking_pids、commit 前不可見、commit 後一筆 consent 和一筆首次啟用稽核；重放不能覆蓋首次姓名或 joined_at。
+沿用 CI 隔離服務、現有 business-runtime installer 與真實 RPC／trigger，新增七案：payload/legacy 兩種先後組合的雙連線競態、rollback 後等待者接手、兩店相同 LINE user 的條款隔離、錯誤輸入無副作用、直接 service-role 更新無 consent 拒絕，以及 anon/authenticated 兩種 RPC 拒絕。競態實際確認 pg_blocking_pids、commit 前不可見、commit 後一筆 consent 和一筆首次啟用稽核；A/B 店可各自完成一次入會，重放不能覆蓋首次生日、電話、稱謂、姓名或 joined_at。
 
 命令：`node --test --test-concurrency=1 MemberWebsocket-dev/tests/integration/postgres/member-activation.cjs`，必須使用既有 `database.cjs` 核可的一次性 CI PostgreSQL 17 服務；不得填入遠端 Supabase 連線或生產帳密。
 

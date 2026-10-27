@@ -108,9 +108,16 @@ for (const firstWrapper of [true, false]) {
       assert.equal(committed.consents, 1);
       assert.equal(committed.activations, 1);
       // A later replay cannot change the first profile or join timestamp.
-      assert.equal((await accept(reader, shop, { ...payload, surname: 'Changed' })).rows[0].joined, false);
+      assert.equal((await accept(reader, shop, {
+        ...payload, surname: 'Changed', birthday: '1991-02-02',
+        phone: '+886923456789', salutation: 'ms',
+      })).rows[0].joined, false);
       assert.deepEqual(await state(shop, member), committed);
-      assert.equal((await h.db.query(`select surname from ${shop.schema}.members where id=$1`, [member])).rows[0].surname, '林');
+      assert.deepEqual((await h.db.query(`
+        select birthday::text,phone,surname,salutation from ${shop.schema}.members where id=$1
+      `, [member])).rows[0], {
+        birthday: '1990-01-01', phone: '+886912345678', surname: '林', salutation: 'mr',
+      });
       assert.equal((await h.db.query(`select count(*)::int n from ${shop.schema}.members where line_user_id=$1`, [user])).rows[0].n, 1);
     } finally {
       await writer.query('rollback');
@@ -156,6 +163,14 @@ test('PostgreSQL 17 FJG02: matching LINE users in two shops retain independent m
   assert.deepEqual(await state(b, memberB), {
     membership_status: 'pending', joined_at: null, consents: 0, activations: 0,
   });
+  const committedA = await state(a, memberA);
+  assert.equal((await accept(client, b, request(b))).rows[0].joined, true);
+  const committedB = await state(b, memberB);
+  assert.equal(committedB.membership_status, 'active');
+  assert.ok(committedB.joined_at);
+  assert.equal(committedB.consents, 1);
+  assert.equal(committedB.activations, 1);
+  assert.deepEqual(await state(a, memberA), committedA);
 });
 
 test('PostgreSQL 17 FJG02: invalid consent, stale terms and incomplete profile persist no activation side effects', async () => {
