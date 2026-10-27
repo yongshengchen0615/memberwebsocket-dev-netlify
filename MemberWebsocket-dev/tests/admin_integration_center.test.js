@@ -26,13 +26,13 @@ test('integration overview remains behind existing admin authorization', () => {
   assert.match(api, /adminIntegrationOverview\(supabase\)/);
 });
 
-test('integration overview minimizes notification and audit identity exposure', () => {
+test('integration overview excludes retired audit reads and limits notification identity exposure', () => {
   const start = api.indexOf('async function adminIntegrationOverview');
   const end = api.indexOf('async function handleAction', start);
   assert.ok(start >= 0 && end > start);
   const section = api.slice(start, end);
   assert.doesNotMatch(section, /scheduled_grant_messages"\)\s*\.select\([^\n]*message_text/);
-  assert.doesNotMatch(section, /audit_logs"\)\s*\.select\([^\n]*actor_line_user_id/);
+  assert.doesNotMatch(section, /\.from\("audit_logs"\)|\.from\("booking_audit_events"\)|auditTimeline/);
   assert.match(section, /memberDisplayName/);
   assert.match(section, /memberCode/);
 });
@@ -44,8 +44,8 @@ test('integration center covers recommended cross-domain read models', () => {
     '最近預約完成結算',
     '固定票券規則',
     '通知中心',
-    'Audit Timeline',
   ]) assert.ok(hub.includes(marker), marker);
+  assert.doesNotMatch(hub, /integrationAuditTimeline|data-integration-view-tab="audit"/);
   assert.match(hub, /calendar-batch/);
   assert.match(hub, /booking-services/);
   assert.match(hub, /member-grant/);

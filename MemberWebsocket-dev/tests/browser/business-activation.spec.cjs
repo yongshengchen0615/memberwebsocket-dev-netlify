@@ -54,10 +54,11 @@ test('BUSINESS_APPROVAL_ACTIVATES — real approval/SQL immediately opens grant-
   await expect(manager.locator('#lineSettingsTab')).toHaveCount(1);
   await expect(manager.locator('#lineSettingsPanel')).toHaveCount(1);
   await expect(manager.locator('#membersTab')).toBeVisible();await expect(manager.locator('#cardsTab')).toBeVisible();await expect(manager.locator('#eventsTab')).toBeHidden();await expect(manager.locator('#bookingTab')).toBeHidden();
-  await expect(manager.locator('#memberUsageTab')).toBeHidden();
+  await expect(manager.locator('#memberUsageTab')).toBeVisible();
   await manager.locator('#memberDirectoryTab').focus();await manager.keyboard.press('ArrowRight');
-  await expect(manager.locator('#memberTierSettingsTab')).toBeFocused();
-  await manager.evaluate(()=>window.MemberWorkspaceTabs.select('usage'));await expect(manager.locator('#memberUsagePanel')).toBeHidden();
+  await expect(manager.locator('#memberUsageTab')).toBeFocused();
+  await manager.keyboard.press('ArrowRight');await expect(manager.locator('#memberTierSettingsTab')).toBeFocused();
+  await manager.evaluate(()=>window.MemberWorkspaceTabs.select('usage'));await expect(manager.locator('#memberUsagePanel')).toBeVisible();
   await expect(manager.locator('#businessWorkspaceStatus a[href*="workspace.html"]')).toHaveCount(0);
   await expect(manager.locator('#lineSettingsTab')).toBeVisible();
   await manager.locator('#lineSettingsTab').click();

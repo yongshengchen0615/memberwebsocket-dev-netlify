@@ -46,6 +46,12 @@ test('platform is a sibling of admin in the build output', () => {
   assert.match(app, /fetch\('\.\.\/config\.json'/);
 });
 
+test('retired admin test center assets are not published to Netlify', () => {
+  for (const name of ['test-mode.js','test-mode.css','test-control.js','test-control.css','test-workspace-tabs.js','test-workspace-tabs.css','e2e-control.js','e2e-control.css','e2e-control-loader.js','e2e-flow-visualizer.js','e2e-flow-visualizer.css']) {
+    assert.equal(fs.existsSync(path.join(output,'admin',name)),false,name);
+  }
+});
+
 test('server source, migrations, tests and local deployment state are not published', () => {
   for (const excluded of ['supabase', 'tests', 'docs', '.git', '.netlify', '.env']) {
     assert.equal(fs.existsSync(path.join(output, excluded)), false, excluded);

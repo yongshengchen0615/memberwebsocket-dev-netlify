@@ -3,7 +3,9 @@
   const el = id => document.getElementById(id);
   const merchantEntry = document.documentElement.dataset.workspace === 'merchant';
   const selectedBusiness=window.BusinessContext?.slug || new URLSearchParams(location.search).get('business') || '';
+  // Preserve the legacy API contract while retiring these management features.
   const featureKeys=['membership','points','events','calendar','integrations','booking','testing','usage'];
+  const visibleFeatureKeys=featureKeys.filter(key=>key!=='testing'&&key!=='usage');
   const isV2=()=>state.config?.merchantApprovalVersion===2;
   const isAccount=()=>merchantEntry&&isV2()&&!selectedBusiness;
   let refreshTimer=null,refreshBusy=false;
@@ -403,7 +405,7 @@
     el('v2ReviewTitle').textContent=(kind==='qualification'?'管理員資格':'商家申請')+'審核';
     el('v2ReviewDescription').textContent=(item.businessName||item.displayName||item.applicantLineUserId||'LINE 管理員')+' · '+({approved:'核准',rejected:'拒絕',suspended:'停用'}[decision]);
     el('v2ReviewGrants').hidden=!approvesMerchant;const list=el('v2ReviewFeatures');list.replaceChildren();
-    if(approvesMerchant)for(const key of featureKeys){const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.dataset.v2Feature=key;label.append(input,document.createTextNode(state.features[key]||key));list.append(label);}
+    if(approvesMerchant)for(const key of visibleFeatureKeys){const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.dataset.v2Feature=key;label.append(input,document.createTextNode(state.features[key]||key));list.append(label);}
     el('reviewReason').value='';el('reviewReason').required=decision!=='approved';el('v2ReviewMessage').textContent='';el('confirmV2Review').textContent='確認審核';lockV2Review(false);el('v2ReviewDialog').showModal();
     (decision==='approved'?el('confirmV2Review'):el('reviewReason')).focus();
   }
@@ -414,7 +416,7 @@
       const {kind,item,decision}=reviewSelection;const reason=el('reviewReason').value.trim();
       if(Array.from(reason).length>500){el('v2ReviewMessage').textContent='審核理由最多 500 個字。';return;}
       reviewPending={...(kind==='qualification'?{qualificationId:item.id}:{applicationId:item.id}),expectedVersion:item.version,decision,reason,requestId:crypto.randomUUID(),
-        ...(kind==='merchant'&&decision==='approved'?{features:Object.fromEntries(featureKeys.map(key=>[key,el('v2ReviewFeatures').querySelector('[data-v2-feature="'+key+'"]').checked]))}:{})};
+        ...(kind==='merchant'&&decision==='approved'?{features:Object.fromEntries(featureKeys.map(key=>[key,visibleFeatureKeys.includes(key) && el('v2ReviewFeatures').querySelector('[data-v2-feature="'+key+'"]').checked]))}:{})};
     }
     reviewBusy=true;lockV2Review(true);el('v2ReviewMessage').textContent='正在儲存審核結果…';
     try{
@@ -514,7 +516,7 @@
         state.approval={applicationId:application.id,requestId:crypto.randomUUID(),features:null};
         el('approvalDescription').textContent=application.businessName+' ('+application.slug+')';
         const box=el('approvalFeatures');box.replaceChildren();
-        for(const [key,label] of Object.entries(state.features)) {
+        for(const [key,label] of Object.entries(state.features).filter(([key])=>visibleFeatureKeys.includes(key))) {
           const wrap=document.createElement('label'),input=document.createElement('input');
           input.type='checkbox';input.dataset.approveFeature=key;
           wrap.append(input,document.createTextNode(label));box.append(wrap);
@@ -527,7 +529,7 @@
   approvalForm.addEventListener('submit',async event=>{
     event.preventDefault();if(!state.approval)return;
     if(!state.approval.features)state.approval.features=Object.fromEntries(
-      [...approvalForm.querySelectorAll('[data-approve-feature]')].map(node=>[node.dataset.approveFeature,node.checked]));
+      featureKeys.map(key=>[key,visibleFeatureKeys.includes(key) && Boolean(approvalForm.querySelector('[data-approve-feature="'+key+'"]')?.checked)]));
     el('confirmApproval').disabled=true;el('approvalMessage').textContent='正在審核…';
     try{
       const result=await request('platform.application.approve',state.approval);
@@ -595,7 +597,7 @@
     };
     const missing=status?.commonMissing;
     row(hasFeatureLine(tenant)?'商家管理端登入（僅首次設定）':'共用 LINE 設定',!status?'設定檢查服務尚未更新，請重新整理後再試。':missing.length?'尚缺：'+missing.map(key=>lineLabels[key]||key).join('、'):'必填資料已保存，仍需實際 LINE 驗證。','shared');
-    for(const [key,label] of Object.entries(state.features))if(tenant.features?.[key]===true) {
+    for(const [key,label] of Object.entries(state.features))if(visibleFeatureKeys.includes(key)&&tenant.features?.[key]===true) {
       const feature=status?.features?.[key];
       row(label,status?.adminReady?'管理功能已開放。'+(feature?.missing.length?'自有 LINE 入口尚缺：'+feature.missing.map(name=>lineLabels[name]||name).join('、'):'可使用下方專屬入口。'):!feature?'等待伺服器確認設定。':feature.missing.length?'尚缺：'+feature.missing.map(name=>lineLabels[name]||name).join('、')
         :featureLiffNames[key]?'LIFF ID 已保存；用戶入口尚未開放。':'沿用共用 LINE 設定，無需額外 LIFF；功能尚未開放。',key);
@@ -675,7 +677,7 @@
       window.BusinessLineSettings?.select(feature);return;
     }
     // A stale bookmark or a forged query string never exposes an unapproved feature.
-    merchantPanel=feature==='shared'||tenant?.features?.[feature]===true?feature:'shared';
+    merchantPanel=feature==='shared'||(visibleFeatureKeys.includes(feature)&&tenant?.features?.[feature]===true)?feature:'shared';
     if (reveal) selectMerchantWorkspaceTab('line');
     for(const panel of merchantForm.querySelectorAll('[data-merchant-panel]'))
       panel.hidden=panel.dataset.merchantPanel!==merchantPanel;
@@ -687,7 +689,7 @@
       merchantForm.elements.namedItem(name).required=merchantPanel===featureKey;
     for(const name of ['channelAccessToken','channelSecret'])
       merchantForm.elements.namedItem(name).required=merchantPanel==='shared'&&!tenant?.credentialsConfigured;
-    el('saveMerchantLine').disabled=['integrations','testing','usage'].includes(merchantPanel);
+    el('saveMerchantLine').disabled=merchantPanel==='integrations';
     el('merchantMessage').textContent='';
     try {
       const url=new URL(window.location.href);
@@ -714,7 +716,7 @@
     const nav=el('merchantFeatureNav');nav.replaceChildren();
     // Fail closed: only server-returned grants are rendered on the top bar.
     // Productized business mutations remain unavailable until isolated APIs exist.
-    for(const [feature,label] of [['shared','共用 LINE 設定'],...Object.entries(state.features)]) {
+    for(const [feature,label] of [['shared','共用 LINE 設定'],...Object.entries(state.features).filter(([key])=>visibleFeatureKeys.includes(key))]) {
       if(feature!=='shared'&&tenant.features?.[feature]!==true)continue;
       const button=document.createElement('button');
       button.type='button';button.dataset.lineFeature=feature;button.textContent=label;
