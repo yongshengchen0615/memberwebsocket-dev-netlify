@@ -20,11 +20,11 @@ test('retired operation-audit renderer is absent while database audit RPC is per
  const sql=source('supabase/migrations/20261013043627_member_booking_selections_and_audit_query.sql');
  assert.equal(fs.existsSync(path.join(root,'admin/operation-audit.js')),false);
  assert.equal(fs.existsSync(path.join(root,'admin/operation-audit.css')),false);
- assert.doesNotMatch(html,/operation-audit\\.(?:js|css)/);
- assert.doesNotMatch(api,/if \\(action === "admin\\.audit\\.query"\\)/);
- assert.match(api,/supabase\\.from\\("audit_logs"\\)\\.insert/);
- assert.match(sql,/revoke all on function public\\.admin_query_operation_audit\\([^;]+\\) from public,anon,authenticated;/i);
- assert.match(sql,/grant execute on function public\\.admin_query_operation_audit\\([^;]+\\) to service_role;/i);
+ assert.doesNotMatch(html,/operation-audit\.(?:js|css)/);
+ assert.doesNotMatch(api,/if \(action === "admin\.audit\.query"\)/);
+ assert.match(api,/supabase\.from\("audit_logs"\)\.insert/);
+ assert.match(sql,/revoke all on function public\.admin_query_operation_audit\([^;]+\) from public,anon,authenticated;/i);
+ assert.match(sql,/grant execute on function public\.admin_query_operation_audit\([^;]+\) to service_role;/i);
 });
 
 test('no-show frontend uses Taipei end time and rejects snapshot, missing time, future and pending cancellation',()=>{
