@@ -1,6 +1,6 @@
 (() => {
  'use strict';
- const panels={membership:'members',points:'cards',events:'events',calendar:'calendar',integrations:'operationsHub',booking:'booking',testing:'testMode'};
+ const panels={membership:'members',points:'cards',events:'events',calendar:'calendar',integrations:'operationsHub',booking:'booking'};
  const lineFeatures=['membership','points','events','calendar','booking'];
  let latest=null;
  function selectLineTab() {
@@ -23,7 +23,7 @@
   const hasGrants=lineFeatures.some(key=>data.features?.[key]===true);
   if(lineTab){lineTab.hidden=!hasGrants;lineTab.disabled=!hasGrants;lineTab.dataset.businessAllowed=String(hasGrants);}
   if(!hasGrants && linePanel){linePanel.hidden=true;linePanel.classList.add('hidden');}
-  const usage=document.getElementById('memberUsageTab');if(usage){usage.hidden=!data.features.usage;usage.disabled=!data.features.usage;usage.dataset.businessAllowed=String(!!data.features.usage);}
+  const usage=document.getElementById('memberUsageTab');if(usage){usage.hidden=!data.features.membership;usage.disabled=!data.features.membership;usage.dataset.businessAllowed=String(!!data.features.membership);}
   if(!document.getElementById('businessWorkspaceStatus')){
    const status=document.createElement('section');status.id='businessWorkspaceStatus';status.className='form-message success';status.setAttribute('role','status');
    const text=document.createElement('span');text.textContent=(data.business?.name||'商家')+'｜審核已通過，已核准功能可立即使用。 ';
