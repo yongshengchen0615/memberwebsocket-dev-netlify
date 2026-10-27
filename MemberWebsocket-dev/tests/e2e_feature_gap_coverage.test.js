@@ -90,7 +90,8 @@ test('admin full E2E covers directory, test-account lifecycle, presets, batch ca
   assert.match(source, /adminIntegrationNavigationCase/);
   assert.match(source, /integrationMetricGrid/);
   assert.match(source, /integrationNotifications/);
-  assert.doesNotMatch(source, /integrationAuditTimeline|data-integration-view-tab="audit"/);
+  assert.match(source, /actual\.auditAbsent/);
+  assert.doesNotMatch(read('admin/integration-hub.js'), /integrationAuditTimeline|data-integration-view-tab="audit"/);
   assert.match(source, /完成結算預覽/);
   assert.match(source, /stayedConfirmedBeforeSubmit/);
   assert.match(source, /確認完成並結算/);
