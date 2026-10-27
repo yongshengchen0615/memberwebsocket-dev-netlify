@@ -63,7 +63,7 @@
 
 ### Task 4: Prevent required-check deadlock and synchronize activation rules
 
-**Files:** .github/workflows/test-memberwebsocket-ticket-policy.yml, scripts/governance-workflow.test.mjs, AGENTS.md, docs/DEVELOPMENT_GUARDRAILS.md, docs/AGILE_DEVELOPMENT.md.
+**Files:** .github/workflows/test-memberwebsocket-ticket-policy.yml, scripts/governance-workflow.test.mjs, scripts/check-preview-ci.test.mjs, scripts/netlify-publish-workflow.test.mjs, AGENTS.md, docs/DEVELOPMENT_GUARDRAILS.md, docs/AGILE_DEVELOPMENT.md.
 
 **Interfaces:** Existing unit-and-regression required check must report for every PR, including ordinary docs; preserve push filters and all test commands. Real Project tenth option and main PR161 write/readback are now verified facts.
 
@@ -73,3 +73,5 @@
 - [ ] Only after the checks can run for ordinary PRs, activate the prepared ruleset and prove rejection on an isolated branch; remove the temporary test target after verification.
 
 Rationale: this is necessary to keep the newly mandatory checks from preventing valid documentation/governance delivery. It does not lower any test, review or deployment gate.
+
+Task4 verification clarification: preserve publisher→Ticket Policy push-path coverage, and update both pre-existing release-trigger contracts to assert unfiltered PR coverage rather than requiring PR filters. Both old contracts were observed RED; the same full93-test build suite must be GREEN.

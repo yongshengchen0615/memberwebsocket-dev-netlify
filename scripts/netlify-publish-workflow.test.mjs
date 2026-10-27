@@ -96,10 +96,12 @@ test('release-only changes trigger every required preview workflow on push and P
     "'.github/workflows/test-memberwebsocket-dev.yml'",
   ]) {
     assert.equal(fullTriggers.split(path).length - 1, 1, `full CI push: ${path}`);
-    assert.equal(policyTriggers.split(path).length - 1, 2, `policy push+PR: ${path}`);
+    assert.equal(policyTriggers.split(path).length - 1, 1, `policy push: ${path}`);
   }
-  const prSettings = fullTriggers.slice(fullTriggers.indexOf('  pull_request:'));
-  assert.doesNotMatch(prSettings, /^\s+(?:paths|paths-ignore|branches|branches-ignore):/m);
+  for (const triggers of [fullTriggers, policyTriggers]) {
+    const prSettings = triggers.slice(triggers.indexOf('  pull_request:')).split('\n').slice(1).join('\n').split(/^  [\w-]+:/m)[0];
+    assert.doesNotMatch(prSettings, /^\s+(?:paths|paths-ignore|branches|branches-ignore):/m);
+  }
   assert.match(policy, /'feature\/productization-super-admin'/);
   assert.match(preview.split('permissions:')[0], /'\.github\/workflows\/test-memberwebsocket-dev\.yml'/);
 });

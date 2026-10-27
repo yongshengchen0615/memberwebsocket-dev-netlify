@@ -84,13 +84,18 @@ function previewWorkflowEventPaths(filename, event) {
 test('Preview publishing change paths always trigger exact-SHA Ticket Policy push and PR CI', () => {
   const publishedPaths = previewWorkflowEventPaths('publish-platform-preview.yml', 'push');
   assert.ok(publishedPaths.length > 0, 'Preview publisher must declare push paths');
-  for (const event of ['push', 'pull_request']) {
-    const policyPaths = previewWorkflowEventPaths('test-memberwebsocket-ticket-policy.yml', event);
-    assert.ok(policyPaths.length > 0, `Ticket Policy ${event} paths must be explicit`);
-    for (const publishPath of publishedPaths) {
-      assert.ok(policyPaths.some(policyPath => policyPath === publishPath
-        || (policyPath.endsWith('/**') && publishPath.startsWith(policyPath.slice(0, -2)))),
-      `Ticket Policy ${event} must cover publishing path ${publishPath} to prevent an unresolvable exact-SHA gate`);
-    }
+  const policyPaths = previewWorkflowEventPaths('test-memberwebsocket-ticket-policy.yml', 'push');
+  assert.ok(policyPaths.length > 0, 'Ticket Policy push paths must remain explicit');
+  for (const publishPath of publishedPaths) {
+    assert.ok(policyPaths.some(policyPath => policyPath === publishPath
+      || (policyPath.endsWith('/**') && publishPath.startsWith(policyPath.slice(0, -2)))),
+    `Ticket Policy push must cover publishing path ${publishPath} to prevent an unresolvable exact-SHA gate`);
   }
+  // Unfiltered PRs cover every publishing path and documentation-only changes;
+  // requiring explicit PR paths would deadlock the new mandatory check.
+  const policy = readFileSync(new URL('../.github/workflows/test-memberwebsocket-ticket-policy.yml', import.meta.url), 'utf8');
+  const triggers = policy.split(/^permissions:/m)[0];
+  assert.match(triggers, /^  pull_request:\s*$/m);
+  const pr = triggers.split('  pull_request:\n')[1].split(/^  [\w-]+:/m)[0];
+  assert.doesNotMatch(pr, /^\s+(?:paths|paths-ignore|branches|branches-ignore):/m);
 });
