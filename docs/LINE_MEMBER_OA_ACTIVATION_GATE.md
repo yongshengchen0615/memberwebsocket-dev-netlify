@@ -47,7 +47,7 @@ Access Token 只於 `user.member.profile.save` 首次條款同意送至後端，
 | AC-002 | Given false/封鎖或惡意 client flag；When direct-call 任一啟用 API；Then 403、不觸發 RPC | 合成 fail-closed/靜態順序、動態 Member Profile handler | `member_oa_registration_gate.test.js`、`membership_terms_flow.test.js` |
 | AC-003 | Given A 店登入身分、B 店參數/Channel、缺 linked、錯 LIFF；When 檢查；Then 未變更會員 | Binding helper 單元，真多店 DB/E2E 待辦 | `member_oa_registration_gate_behavior.test.js` |
 | AC-004 | Given LINE provider 401/429/5xx/網路故障；When 註冊；Then fail closed 且不發券 | Helper 單元+API 合成故障；真人 provider 故障待辦 | `member_oa_friendship_gate.test.js`（#164）／本批測試 |
-| AC-005 | Given 併發註冊兩次；When 重複；Then 同店 `members.line_user_id` 唯一、RPC `for update` 僅一次 pending→active | 已核實 DB 唯一約束/RPC，但**尚未執行實際跨請求並發 DB 測試** | 需補 PostgreSQL 隔離 DB |
+| AC-005 | Given 併發註冊兩次；When 重複；Then 同店 `members.line_user_id` 唯一、RPC `for update` 僅一次 pending→active | 新增 PostgreSQL 17 雙實體連線的鎖等待、首次啟用/重放、rollback 恢復驗收；實際結果以本輪最終 SHA Actions 日誌為準，推薦獎勵競態仍待驗 | `tests/integration/postgres/member-activation.cjs`；獎勵另驗 |
 | AC-006 | Given active 會員之後封鎖 OA；When 修改資料或接受新條款；Then 不自動停權 | 合成 handler + helper | `membership_terms_flow.test.js` |
 
 ## 測試命令及交付 Gate
@@ -62,3 +62,11 @@ Access Token 只於 `user.member.profile.save` 首次條款同意送至後端，
 目前新的 Gate 將未配置的 **新會員首次啟用拒絕為 503**；若直接部署但沒有逐店核准清單，將阻擋所有新入會，因此不得未經配置就發布到可用環境。對既有 active 會員沒有新 Gate；需以完整回歸確認。
 
 目前尚未新增**資料庫層防旁路的好友驗證收據約束**；未授權的 service role 使用或其他啟用入口仍需 #34/#156 完整盤點，不可宣稱已防所有路徑。候選 PR 沒有更改 SQL；revert 本 PR 移除新 Gate/前端 token 傳送，撤回或清除設定中的未使用後端鍵即可（不得暴露/變更真實憑證）。回復時需重跑完整 CI，確認 Netlify/Supabase 精確版本。
+
+## PostgreSQL 17 驗收增量（2026-10-27）
+
+沿用 CI 隔離服務、現有 business-runtime installer 與真實 RPC／trigger，新增七案：payload/legacy 兩種先後組合的雙連線競態、rollback 後等待者接手、兩店相同 LINE user 的條款隔離、錯誤輸入無副作用、直接 service-role 更新無 consent 拒絕，以及 anon/authenticated 兩種 RPC 拒絕。競態實際確認 pg_blocking_pids、commit 前不可見、commit 後一筆 consent 和一筆首次啟用稽核；重放不能覆蓋首次姓名或 joined_at。
+
+命令：`node --test --test-concurrency=1 MemberWebsocket-dev/tests/integration/postgres/member-activation.cjs`，必須使用既有 `database.cjs` 核可的一次性 CI PostgreSQL 17 服務；不得填入遠端 Supabase 連線或生產帳密。
+
+本增量僅測試／CI，不更改 Runtime、資料庫 migration 或 LINE 設定，因此產品效能比較不適用。新增測試尚需本輪 final SHA 執行成功才算驗證；不代表真 LINE、直接 Edge 呼叫、所有 service-role 旁路、推薦券競態或歷史全量 migration 已驗收。
