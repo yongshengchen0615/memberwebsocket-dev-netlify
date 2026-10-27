@@ -11,11 +11,12 @@ export const PROJECT_OWNER = 'yongshengchen0615';
 export const PROJECT_NUMBER = 5;
 export const REPOSITORY = 'yongshengchen0615/memberwebsocket-dev-netlify';
 export const STATUS_OPTIONS = Object.freeze([
-  '待規劃', '準備開始', '開發中', '程式碼審查', 'QA / E2E',
+  '待規劃', '規範確認', '準備開始', '開發中', '程式碼審查', 'QA / E2E',
   '等待部署', '觀察中', '已完成', '已阻塞',
 ]);
 export const LABEL_STATUS = Object.freeze({
   'project-status/backlog': '待規劃',
+  'project-status/spec-check': '規範確認',
   'project-status/ready': '準備開始',
   'project-status/in-progress': '開發中',
   'project-status/code-review': '程式碼審查',
@@ -383,3 +384,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.exitCode = 1;
   });
 }
+

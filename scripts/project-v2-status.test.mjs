@@ -35,9 +35,35 @@ function mock({ pages = [page()], before = '已阻塞', after = '觀察中', lab
 const manual = { GITHUB_REPOSITORY: REPOSITORY, GITHUB_EVENT_NAME: 'workflow_dispatch', ISSUE_NUMBER: '40', TARGET_STATUS: '觀察中', APPLY: 'false' };
 const update = (api, status = '觀察中', additional = {}) => changeProjectStatus(api.graphql, { issueNumber: 40, status, apply: true, ...additional }, { sleep: async () => {} });
 
-test('nine stable workflow status options are unique', () => {
-  assert.equal(STATUS_OPTIONS.length, 9);
-  assert.equal(new Set(STATUS_OPTIONS).size, 9);
+test('AC-FLOW-001: manual and issue-label requests accept 規範確認', () => {
+  assert.equal(resolveRequest({ ...manual, TARGET_STATUS: '規範確認' }).status, '規範確認');
+  const event = { action: 'labeled', repository: { full_name: REPOSITORY },
+    issue: { number: 40, labels: [{ name: 'project-status/spec-check' }] }, label: { name: 'project-status/spec-check' } };
+  assert.equal(resolveRequest({ ...manual, GITHUB_EVENT_NAME: 'issues' }, event).status, '規範確認');
+  assert.throws(() => resolveRequest({ ...manual, GITHUB_EVENT_NAME: 'issues' }, {
+    ...event, issue: { number: 40, labels: [{ name: 'project-status/spec-check' }, { name: 'project-status/ready' }] },
+  }), /Conflicting/);
+});
+
+test('AC-FLOW-001: new status writes the selected field and verifies its persisted value', async () => {
+  const api = mock({ after: '規範確認', labels: ['project-status/spec-check'] });
+  const result = await update(api, '規範確認', { event: 'issues', label: 'project-status/spec-check' });
+  assert.equal(result.to, '規範確認');
+  assert.equal(result.action, 'updated');
+  assert.equal(api.writes, 1);
+  assert.deepEqual(api.requests.find(x => x.query.includes('mutation UpdateProjectStatus')).vars,
+    { project: 'PROJECT5', item: 'ITEM40', field: 'FIELD', option: 'opt1' });
+});
+
+test('AC-FLOW-001: all original nine manual transitions remain supported', () => {
+  for (const status of ['待規劃', '準備開始', '開發中', '程式碼審查', 'QA / E2E', '等待部署', '觀察中', '已完成', '已阻塞']) {
+    assert.equal(resolveRequest({ ...manual, TARGET_STATUS: status }).status, status);
+  }
+});
+
+test('ten workflow status options are unique after the planned field rollout', () => {
+  assert.equal(STATUS_OPTIONS.length, 10);
+  assert.equal(new Set(STATUS_OPTIONS).size, 10);
 });
 test('manual operation defaults to dry run and explicit apply enables write', () => {
   assert.equal(resolveRequest(manual).apply, false);
@@ -54,7 +80,7 @@ test('allowlisted label event can apply, but done and deployment cannot be label
   const event = { action: 'labeled', repository: { full_name: REPOSITORY },
     issue: { number: 40, labels: [{ name: 'project-status/qa' }] }, label: { name: 'project-status/qa' } };
   assert.equal(resolveRequest({ ...manual, GITHUB_EVENT_NAME: 'issues' }, event).status, 'QA / E2E');
-  assert.equal(Object.keys(LABEL_STATUS).length, 6);
+  assert.equal(Object.keys(LABEL_STATUS).length, 7);
   for (const label of ['project-status/done', 'project-status/observing', 'project-status/ready-to-deploy']) {
     assert.equal(LABEL_STATUS[label], undefined);
     assert.throws(() => resolveRequest({ ...manual, GITHUB_EVENT_NAME: 'issues' }, { ...event, label: { name: label } }));
@@ -141,6 +167,12 @@ const health = () => ({ viewer: { login: 'project-owner' }, user: { projectV2: {
   id: 'PROJECT5', title: 'Project 5', field: { id: 'FIELD', name: 'Status', options: opts },
 } } });
 
+test('AC-FLOW-001: a live field missing 規範確認 fails health check without a mutation', async () => {
+  const data = health();
+  data.user.projectV2.field.options = opts.filter(x => x.name !== '規範確認');
+  await assert.rejects(checkProjectHealth(async () => data), /options changed/);
+});
+
 test('AC-PV2-015: health check validates viewer, project and all Status options without mutation', async () => {
   let calls = 0;
   const result = await checkProjectHealth(async (query, vars) => {
@@ -152,7 +184,7 @@ test('AC-PV2-015: health check validates viewer, project and all Status options 
   });
   assert.equal(calls, 1);
   assert.equal(result.action, 'healthy');
-  assert.equal(result.optionCount, 9);
+  assert.equal(result.optionCount, 10);
 });
 
 test('AC-PV2-016: missing access, absent field, and options drift fail closed', async () => {
@@ -347,3 +379,4 @@ test('AC-PV2-029: missing Issue and invalid membership cursor fail without Statu
     assert.ok(calls >= 1);
   }
 });
+
