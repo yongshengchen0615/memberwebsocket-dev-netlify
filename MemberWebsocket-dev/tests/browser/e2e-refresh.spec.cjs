@@ -26,7 +26,7 @@ test.beforeAll(async () => {
     }
     if (pathname === '/admin/') {
       const html = fs.readFileSync(path.join(root, 'admin/index.html'), 'utf8')
-        .replace('</main>', fs.readFileSync(path.join(root, 'tests/fixtures/admin-test-center.html'), 'utf8') + '</main>')
+        .replace('\n</main>', '\n' + fs.readFileSync(path.join(root, 'tests/fixtures/admin-test-center.html'), 'utf8') + '\n</main>')
         .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
       const fixture = '<script src="/fixture.js"></script><script src="/e2e-scenario-graph.js"></script><script src="/admin/test-control.js"></script><script src="/admin/e2e-control-loader.js"></script>';
       res.writeHead(200, { 'Content-Type': 'text/html' });
