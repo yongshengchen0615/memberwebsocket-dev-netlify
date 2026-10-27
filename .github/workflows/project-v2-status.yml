@@ -13,6 +13,7 @@ on:
         type: choice
         options:
           - 待規劃
+          - 規範確認
           - 準備開始
           - 開發中
           - 程式碼審查
@@ -60,3 +61,4 @@ jobs:
           TARGET_STATUS: ${{ inputs.status }}
           APPLY: ${{ github.event_name == 'issues' || inputs.apply }}
         run: node scripts/project-v2-status.mjs
+
