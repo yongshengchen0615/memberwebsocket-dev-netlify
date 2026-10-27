@@ -144,6 +144,33 @@ test('readiness: comments, fenced examples and duplicate headings cannot provide
   ]) assert.deepEqual(evaluateEvidence(risk, body), { passed: false, missing: ['資安與資料邊界'] });
 });
 
+test('review regression: headings of any level or closing hashes cannot duplicate required evidence', () => {
+  const risk = classifyChangeSet(files('src/example.js'));
+  for (const prefix of ['#', '##', '###', '####', '#####', '######']) {
+    for (const suffix of ['', ' ##']) {
+      const body = fullBody + `\n${prefix} 資安與資料邊界${suffix}\n`;
+      assert.deepEqual(evaluateEvidence(risk, body), { passed: false, missing: ['資安與資料邊界'] });
+    }
+  }
+});
+
+test('review regression: indented code and repeated placeholder lines cannot satisfy readiness', () => {
+  const risk = classifyChangeSet(files('src/example.js'));
+  for (const content of ['    this is example code only', '\tthis is example code only', '待補\n待補\n待補\n待補\n待補', '- TBD\n- TBD\n- TBD\n- TBD\n- TBD']) {
+    const body = fullBody.replace(/(### 資安與資料邊界\n)[^\n]+/, '$1' + content);
+    assert.deepEqual(evaluateEvidence(risk, body), { passed: false, missing: ['資安與資料邊界'] });
+  }
+});
+
+test('review regression: executable and configuration files under docs require readiness evidence', () => {
+  for (const name of ['docs/example.js', 'docs/example.mdx', 'docs/example.sql', 'docs/example.yml', 'docs/example.json', 'docs/example.sh', 'docs/example.html']) {
+    const risk = classifyChangeSet(files(name));
+    assert.notEqual(risk.tier, 'L0', name);
+    assert.equal(evaluateEvidence(risk, '').passed, false, name);
+  }
+  assert.equal(evaluateEvidence(classifyChangeSet(files('docs/example.md')), '').passed, true);
+});
+
 test('readiness CLI returns failure for missing security evidence and success for a complete plan', async () => {
   const { mkdtemp, writeFile, rm } = await import('node:fs/promises');
   const { tmpdir } = await import('node:os');

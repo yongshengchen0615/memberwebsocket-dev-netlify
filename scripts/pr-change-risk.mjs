@@ -11,7 +11,9 @@ const normalize = (file) => {
   if (typeof file === 'string') return { filename: file };
   return file;
 };
-const isDoc = (name) => /^(?:docs\/|README(?:\.|$)|CONTRIBUTING(?:\.|$))/.test(name) || /\.md$/i.test(name);
+// A directory name does not make executable/configuration content documentation.
+const isDoc = (name) => /\.(?:md|rst|txt|adoc)$/i.test(name)
+  || /(?:^|\/)(?:README|CONTRIBUTING|LICENSE|NOTICE)$/i.test(name);
 const isBackendRisk = (name) => /(?:^|\/)supabase\/(?:migrations|functions)\//.test(name)
   || /(?:^|\/)supabase\/config\.toml$/.test(name)
   || /(?:^|\/)(?:auth|permissions|claims|rls|security|roles|admin-session)(?:[.\/-]|$)/i.test(name)
@@ -60,7 +62,7 @@ export function classifyChangeSet(rawFiles, { manualTier } = {}) {
 // must not make an empty readiness contract appear complete.
 function evidenceSections(prBody) {
   const lines = String(prBody).replace(/<!--[\s\S]*?(?:-->|$)/g, '').split(/\r?\n/);
-  const sections = new Map();
+  const sections = new Map(), headingCounts = new Map();
   let fence = null, current = null;
   const visible = [];
   for (const line of lines) {
@@ -70,12 +72,14 @@ function evidenceSections(prBody) {
       continue;
     }
     if (marker) { fence = marker[1]; continue; }
+    if (/^(?: {4}|\t)/.test(line)) continue;
     visible.push(line);
     const heading = /^ {0,3}(#{1,6})\s+(.+?)\s*$/.exec(line);
     if (heading) {
       current = null;
+      const title = heading[2].replace(/\s+#+$/, '');
+      headingCounts.set(title, (headingCounts.get(title) || 0) + 1);
       if (heading[1] === '###') {
-        const title = heading[2];
         const bodies = sections.get(title) || [];
         current = [];
         bodies.push(current);
@@ -83,11 +87,11 @@ function evidenceSections(prBody) {
       }
     } else if (current) current.push(line);
   }
-  return { sections, visible: visible.join('\n') };
+  return { sections, headingCounts, visible: visible.join('\n') };
 }
 
 export function evaluateEvidence(risk, prBody = '') {
-  const { sections, visible } = evidenceSections(prBody);
+  const { sections, headingCounts, visible } = evidenceSections(prBody);
   const missing = [];
   if (risk.level !== '小改' && !/^## 變更風險評估\s*$/m.test(visible)) missing.push('變更風險評估');
   const headings = new Set([
@@ -98,7 +102,9 @@ export function evaluateEvidence(risk, prBody = '') {
   ]);
   for (const heading of headings) {
     const matches = sections.get(heading) || [];
-    const body = matches.length === 1 ? matches[0].join('\n').replace(/^[\s>*-]+/g, '').trim() : '';
+    const body = matches.length === 1 && headingCounts.get(heading) === 1
+      ? matches[0].map(line => line.replace(/^[\s>*-]+/g, '').trim())
+        .filter(line => !isPlaceholder(line)).join('\n').trim() : '';
     if (isPlaceholder(body) || body.length < 10) missing.push(heading);
   }
   return { passed: missing.length === 0, missing };
