@@ -6,8 +6,6 @@
     loading: false,
     activeView: 'overview',
     notificationFilter: 'all',
-    auditFilter: 'all',
-    auditQuery: '',
     lastLoadedAt: 0,
   };
 
@@ -68,7 +66,6 @@
 
     panel.addEventListener('click', handleClick);
     panel.addEventListener('change', handleChange);
-    panel.addEventListener('input', handleInput);
     window.addEventListener('member-admin-data-refreshed', () => {
       if (!panel.classList.contains('hidden') && Date.now() - state.lastLoadedAt > 1200) refresh();
     });
@@ -83,7 +80,7 @@
         <div>
           <p class="kicker">Operations center</p>
           <h2>整合營運中心</h2>
-          <p>跨會員、權益、活動、通知、預約與稽核的管理讀模型；實際寫入仍由各 Domain 原有流程負責。</p>
+          <p>跨會員、權益、活動、通知與預約的管理讀模型；實際寫入仍由各 Domain 原有流程負責。</p>
         </div>
         <div class="heading-actions">
           <span id="integrationHubFreshness" class="integration-freshness">尚未同步</span>
@@ -113,7 +110,6 @@
         <button class="integration-view-tab active" role="tab" type="button" aria-selected="true" data-integration-view-tab="overview">總覽</button>
         <button class="integration-view-tab" role="tab" type="button" aria-selected="false" data-integration-view-tab="benefits">權益自動化</button>
         <button class="integration-view-tab" role="tab" type="button" aria-selected="false" data-integration-view-tab="notifications">通知中心</button>
-        <button class="integration-view-tab" role="tab" type="button" aria-selected="false" data-integration-view-tab="audit">Audit Timeline</button>
       </nav>
 
       <section data-integration-view="overview" class="integration-view">
@@ -159,29 +155,6 @@
         </section>
       </section>
 
-      <section data-integration-view="audit" class="integration-view hidden">
-        <section class="integration-card">
-          <div class="integration-card-heading integration-filter-heading">
-            <div><p class="kicker">Unified audit</p><h3>跨模組 Audit Timeline</h3></div>
-            <div class="integration-audit-filters">
-              <label>Domain
-                <select id="integrationAuditFilter">
-                  <option value="all">全部</option>
-                  <option value="member">會員</option>
-                  <option value="booking">預約</option>
-                  <option value="event_ticket">活動票券</option>
-                  <option value="calendar">日曆</option>
-                  <option value="system">系統／其他</option>
-                </select>
-              </label>
-              <label>搜尋
-                <input id="integrationAuditSearch" type="search" maxlength="100" placeholder="Action 或目標">
-              </label>
-            </div>
-          </div>
-          <div id="integrationAuditTimeline" class="integration-audit-timeline"></div>
-        </section>
-      </section>
     `;
   }
 
@@ -225,7 +198,6 @@
     renderSettlements();
     renderBenefits();
     renderNotifications();
-    renderAudit();
     const freshness = document.getElementById('integrationHubFreshness');
     if (freshness) freshness.textContent = `同步於 ${formatDateTime(state.data?.generatedAt)}`;
   }
@@ -364,30 +336,6 @@
     table.append(body); host.replaceChildren(table);
   }
 
-  function renderAudit() {
-    let rows=Array.isArray(state.data?.auditTimeline)?state.data.auditTimeline:[];
-    if(state.auditFilter!=='all') {
-      if(state.auditFilter==='system') rows=rows.filter((row)=>!['member','booking','event_ticket','calendar'].includes(String(row.domain||'')));
-      else rows=rows.filter((row)=>String(row.domain||'')===state.auditFilter);
-    }
-    const q=state.auditQuery.trim().toLowerCase();
-    if(q) rows=rows.filter((row)=>`${row.action||''} ${row.targetLabel||''} ${row.domain||''}`.toLowerCase().includes(q));
-    const host=document.getElementById('integrationAuditTimeline');
-    if(!host) return;
-    if(!rows.length) return renderEmpty(host,'沒有符合條件的 Audit 紀錄。');
-    host.replaceChildren(...rows.map((row)=>{
-      const item=document.createElement('article'); item.className='integration-audit-item';
-      const dot=document.createElement('span'); dot.className=`integration-audit-dot is-${row.result==='success'?'success':row.result==='failed'?'failed':'neutral'}`;
-      const main=document.createElement('div');
-      const heading=document.createElement('div'); heading.className='integration-audit-heading';
-      const title=document.createElement('strong'); title.textContent=auditActionLabel(row.action);
-      const time=document.createElement('time'); time.textContent=formatDateTime(row.createdAt);
-      heading.append(title,time);
-      const meta=document.createElement('p'); meta.textContent=`${domainLabel(row.domain)} · ${row.targetLabel||'—'} · ${row.actorRole||'system'}`;
-      main.append(heading,meta); item.append(dot,main,statusBadge(row.result)); return item;
-    }));
-  }
-
   function handleClick(event) {
     const refreshButton=event.target instanceof Element?event.target.closest('[data-integration-action="refresh"]'):null;
     if(refreshButton) return refresh();
@@ -407,14 +355,10 @@
 
   function handleChange(event) {
     if(event.target?.id==='integrationNotificationFilter') { state.notificationFilter=String(event.target.value||'all'); renderNotifications(); }
-    if(event.target?.id==='integrationAuditFilter') { state.auditFilter=String(event.target.value||'all'); renderAudit(); }
-  }
-
-  function handleInput(event) {
-    if(event.target?.id==='integrationAuditSearch') { state.auditQuery=String(event.target.value||''); renderAudit(); }
   }
 
   function switchView(view) {
+    if(!['overview','benefits','notifications'].includes(view))return;
     state.activeView=view;
     document.querySelectorAll('[data-integration-view]').forEach((section)=>section.classList.toggle('hidden',section.dataset.integrationView!==view));
     document.querySelectorAll('[data-integration-view-tab]').forEach((button)=>{
@@ -490,24 +434,6 @@
     span.className=`integration-status is-${value.replace(/[^a-z0-9_-]/gi,'')||'neutral'}`;
     span.textContent=STATUS_LABELS[value]||value||'—';
     return span;
-  }
-
-  function auditActionLabel(action) {
-    const map={
-      ADMIN_MEMBER_UPDATE:'會員資料更新',
-      GRANT_MESSAGE_PRESET_SAVE:'發放訊息設定',
-      BOOKING_COMPLETED:'預約完成結算',
-      BOOKING_SERVICE_TYPE_CREATED:'新增預約類型',
-      BOOKING_SERVICE_TYPE_UPDATED:'修改預約類型',
-      BOOKING_SERVICE_TYPE_DELETED:'刪除預約類型',
-      'line.push.grant.scheduled':'排程 LINE 發送',
-    };
-    return map[action]||String(action||'系統操作').replaceAll('_',' ').replaceAll('.',' · ');
-  }
-
-  function domainLabel(domain) {
-    const map={member:'會員',booking:'預約',event_ticket:'活動票券',calendar:'日曆',point_card:'集點卡',grant_message_preset:'發放訊息'};
-    return map[domain]||String(domain||'系統');
   }
 
   function formatDateRange(start,end) {
