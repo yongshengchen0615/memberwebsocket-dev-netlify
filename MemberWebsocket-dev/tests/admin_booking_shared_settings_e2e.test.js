@@ -86,9 +86,10 @@ test('booking admin refresh merges the richer admin settings contract', () => {
   assert.match(source, /settings:\s*\{\s*\.\.\.\(booking\.settings \|\| \{\}\),\s*\.\.\.\(catalog\.settings \|\| \{\}\),\s*\.\.\.\(resources\.settings \|\| \{\}\)\s*\}/);
 });
 
-test('admin entrypoint cache-busts the shared-settings E2E controller', () => {
+test('admin entrypoint does not expose the shared-settings E2E controller', () => {
   const html = read('admin/index.html');
-  assert.match(html, /\.\/e2e-control\.js\?v=qa-e2e-\d{8}-\d+/);
+  assert.doesNotMatch(html, /\.\/e2e-control\.js\?v=qa-e2e-\d{8}-\d+/);
+  assert.match(read('admin/e2e-control-loader.js'), /const E2E_CONTROL_SRC/);
 });
 
 
