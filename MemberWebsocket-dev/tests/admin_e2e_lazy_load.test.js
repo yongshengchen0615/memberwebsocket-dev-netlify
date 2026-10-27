@@ -34,7 +34,7 @@ test('AC-003: test-only fixture preserves the E2E loader and background executio
   }
   assert.match(loader, /const E2E_CONTROL_SRC = '\.\/e2e-control\.js\?v=[^'\s]+&lazy=[^'\s]+'/);
   assert.match(loader, /getElementById\('testModeTab'\)/);
-  for (const event of ['pointerenter', 'focus', 'click']) assert.match(loader, new RegExp('addEventListener\\(\\'' + event + '\\''));
+  for (const event of ['pointerenter', 'focus', 'click']) assert.ok(loader.includes(`addEventListener('${event}'`));
   assert.match(loader, /document\.head\.appendChild\(script\)/);
   assert.match(controller, /if \(document\.readyState === 'loading'\)/);
   assert.match(controller, /window\.addEventListener\('DOMContentLoaded', mount, \{ once: true \}\)/);
