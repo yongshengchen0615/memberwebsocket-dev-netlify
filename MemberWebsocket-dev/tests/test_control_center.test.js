@@ -6,14 +6,16 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 
-test('admin test control center is a result surface for the unified full E2E', () => {
-  const html = read('admin/index.html');
+test('test-only control center fixture preserves E2E observability without production admin UI', () => {
+  const productionHtml = read('admin/index.html');
+  const html = read('tests/fixtures/admin-test-center.html');
+  assert.doesNotMatch(productionHtml, /id="testModeTab"|id="testModePanel"/);
   const client = read('admin/test-control.js');
   const e2e = read('admin/e2e-control.js');
   const css = read('admin/test-control.css');
 
-  assert.match(html, /test-control\.css\?v=[^"']+/);
-  assert.match(html, /test-control\.js\?v=test-control-[A-Za-z0-9._-]+/);
+  assert.doesNotMatch(productionHtml, /test-control\.css\?v=[^"']+/);
+  assert.doesNotMatch(productionHtml, /test-control\.js\?v=test-control-[A-Za-z0-9._-]+/);
   assert.match(html, /id="automationTestTitle"/);
   assert.doesNotMatch(html, /id="runQuickAutomationTestButton"/);
   assert.doesNotMatch(html, /id="runFullAutomationTestButton"/);
