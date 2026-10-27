@@ -63,7 +63,7 @@
 
 ## 五、V2 核心規則（R01–R10）
 
-本節是 AI 日常任務的精簡入口；測試、權限及操作細則仍以 `docs/DEVELOPMENT_GUARDRAILS.md` 為準。風險分級由 Draft PR #131 的 `scripts/pr-change-risk.mjs` 提供候選實作，**在該 PR 合併並配置 Required Checks 之前，不得宣稱規則已由 GitHub 強制執行**。
+本節是 AI 日常任務的精簡入口；測試、權限及操作細則仍以 `docs/DEVELOPMENT_GUARDRAILS.md` 為準。風險分級由 PR #131 的 `scripts/pr-change-risk.mjs` 提供實作，**在配置並核實 Required Checks 之前，不得宣稱規則已由 GitHub 強制執行**。
 
 - **R01｜確認需求與明確驗收：** 每次任務先確認 Issue、目標角色、不做範圍和 Given/When/Then。
 - **R02｜查證真實基線：** 從最新 Git 分支、SHA、現有程式與 CI 取證；不拿舊聊天摘要當目前事實。
@@ -80,13 +80,13 @@
 
 採用 **輕量 Scrum＋Kanban**：建議一週迭代、每輪 Sprint Goal、工作中 WIP 上限兩條主動修改 PR、Daily async、Sprint Review 與 Retrospective。每項工作開始要達 Definition of Ready（DoR），結束要達 Definition of Done（DoD）；P0 可調整迭代承諾但不得跳過安全、測試與發布 Gate。
 
-沿用 Project #5 九個 Status，不新增或假設已存在的 Sprint 欄位，未達 DoD 不因 PR 合併或 Sprint 結束就標完成。完整流程與模板見 [docs/AGILE_DEVELOPMENT.md](docs/AGILE_DEVELOPMENT.md)。
+沿用 Project #5 十個 Status，不新增或假設已存在的 Sprint 欄位，未達 DoD 不因 PR 合併或 Sprint 結束就標完成。完整流程與模板見 [docs/AGILE_DEVELOPMENT.md](docs/AGILE_DEVELOPMENT.md)。
 
 ## 七、規範確認：每張開發卡的固定開工條件
 
 每次開發必遵守：**原功能不退化、資安與資料邊界不放寬、敏捷小增量、新功能詳細測試**。先完成六項 DoR：需求/編號 AC、真實基線與目標環境、舊功能影響矩陣、資安/資料邊界、測試計畫、交付及回復。只有全部明確才可進準備開始；資訊及授權已清楚的例行工作持續執行，不逐步要求「繼續」。
 
-Project 新增「規範確認」規劃於待規劃與準備開始之間，**尚未套用欄位時維持原九項**，先在待規劃內做檢核，不使用不存在的 Status。同步程式在 main，不能以整合分支文件更新宣稱已啟用。細則見 docs/DEVELOPMENT_GUARDRAILS.md 第10節與 #56。
+Project #5 已在原 Status 欄位新增「規範確認」，每張新開發卡由待規劃進規範確認，六項 DoR 具備後才進準備開始；其他原九項保留。main 的同步程式已由 PR #161 合併，使用 project-status/spec-check 並做實際寫後讀回。分支保護及檢查是否強制，以 #56 當次設定/驗證為準，不能僅憑文件宣稱。細則見 docs/DEVELOPMENT_GUARDRAILS.md 第10節與 #56。
 
 程式/執行設定/治理 PR 的需求與驗收條件、基線與目標環境、資安與資料邊界、測試與驗收、回退方案，加上既有功能回歸及程式碼品質與效能欄位均須具體。普通說明文件可按實際影響說明；不新增無效 runtime benchmark。PR 文字檢核不代表真實測試成功，完整 CI、審查、外部驗收及正式授權繼續適用；只有 GitHub 實際設定 Required Checks 才有技術強制。
 

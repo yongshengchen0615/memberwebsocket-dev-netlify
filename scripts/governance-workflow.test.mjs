@@ -11,12 +11,19 @@ const expectedLanes = [
 ];
 
 test('every pull request triggers the entire regression workflow, regardless of changed paths', () => {
-  const topLevel = workflow.split(/^permissions:/m)[0];
-  const marker = '  pull_request:\n';
-  const index = topLevel.indexOf(marker);
-  assert.notEqual(index, -1, 'pull_request event is required');
-  const prSettings = topLevel.slice(index + marker.length);
-  assert.doesNotMatch(prSettings, /^\s+(?:paths|paths-ignore|branches|branches-ignore):/m);
+  // A required check with PR path filters stays pending forever on docs-only
+  // changes. Both product gates must receive every PR, including governance.
+  for (const [name, source] of [
+    ['full regression', workflow],
+    ['ticket policy', readFileSync(new URL('../.github/workflows/test-memberwebsocket-ticket-policy.yml', import.meta.url), 'utf8')],
+  ]) {
+    const topLevel = source.split(/^permissions:/m)[0];
+    const marker = '  pull_request:\n';
+    const index = topLevel.indexOf(marker);
+    assert.notEqual(index, -1, name + ': pull_request event is required');
+    const prSettings = topLevel.slice(index + marker.length).split(/^  [a-z_]+:/m)[0];
+    assert.doesNotMatch(prSettings, /^\s+(?:paths|paths-ignore|branches|branches-ignore):/m, name);
+  }
 });
 
 test('all eight test lanes and the aggregate validation job remain present', () => {
@@ -42,7 +49,7 @@ test('all eight test lanes and the aggregate validation job remain present', () 
   }
 });
 
-test('project status vocabulary stays synchronized with the current nine-stage board', () => {
+test('project status vocabulary stays synchronized with the current Project board', () => {
   const required = [
     '待規劃', '準備開始', '開發中', '程式碼審查', 'QA / E2E',
     '等待部署', '觀察中', '已完成', '已阻塞',
@@ -85,7 +92,7 @@ test('V2 R01-R10 daily rules are present and preserve security and evidence requ
 });
 
 
-test('Scrumban rules preserve DoR, DoD, nine statuses and deployment gates', () => {
+test('Scrumban rules preserve DoR, DoD, all required statuses and deployment gates', () => {
   const agile = readFileSync(new URL('../docs/AGILE_DEVELOPMENT.md', import.meta.url), 'utf8');
   assert.ok(agents.includes('## 六、敏捷式開發（Scrumban）'));
   assert.ok(agents.includes('docs/AGILE_DEVELOPMENT.md'));
