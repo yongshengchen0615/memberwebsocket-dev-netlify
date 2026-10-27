@@ -60,3 +60,16 @@
 - [ ] Apply/read back Project option if authenticated and capable; otherwise preserve candidate and report actual blocker, with no speculative workaround or token expansion.
 - [ ] Apply/read back required PR/review/check protection only through an authorized available administration surface; never claim enforcement from a template or green job.
 - [ ] Update #56/#39 with actual completed/blocked work and recovery instructions. All remaining AC stay unchecked.
+
+### Task 4: Prevent required-check deadlock and synchronize activation rules
+
+**Files:** .github/workflows/test-memberwebsocket-ticket-policy.yml, scripts/governance-workflow.test.mjs, AGENTS.md, docs/DEVELOPMENT_GUARDRAILS.md, docs/AGILE_DEVELOPMENT.md.
+
+**Interfaces:** Existing unit-and-regression required check must report for every PR, including ordinary docs; preserve push filters and all test commands. Real Project tenth option and main PR161 write/readback are now verified facts.
+
+- [ ] Extend existing governance trigger contract to both required product workflows; observe RED on Ticket Policy PR path filters.
+- [ ] Remove only Ticket Policy pull_request path filters, preserve push scopes/jobs; synchronize ten-Status daily guidance and remove obsolete Draft/migration-state claims.
+- [ ] Run risk/governance suite, full final-SHA candidate CI and fresh review; then merge the narrow follow-up to the integration branch and validate merge CI/Preview.
+- [ ] Only after the checks can run for ordinary PRs, activate the prepared ruleset and prove rejection on an isolated branch; remove the temporary test target after verification.
+
+Rationale: this is necessary to keep the newly mandatory checks from preventing valid documentation/governance delivery. It does not lower any test, review or deployment gate.

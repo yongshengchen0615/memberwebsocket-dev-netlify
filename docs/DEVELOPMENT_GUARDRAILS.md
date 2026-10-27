@@ -143,7 +143,7 @@ deno test MemberWebsocket-dev/supabase/functions/_shared/*_test.ts MemberWebsock
 
 ## 8. Project #5 Status 的證據規則
 
-`待規劃 → 準備開始 → 開發中 → 程式碼審查 → QA / E2E → 等待部署 → 觀察中 → 已完成`；`已阻塞` 為未完成工作可進入的獨立狀態。這些是 Project #5 實際 Status 選項，不能把英文舊名稱當成可寫入的欄位值。詳細進出條件依 [#39](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/issues/39)。PR 合併不等於 QA；Preview deployed 不等於 Production deployed；沒有實測就不標已完成。
+`待規劃 → 規範確認 → 準備開始 → 開發中 → 程式碼審查 → QA / E2E → 等待部署 → 觀察中 → 已完成`；`已阻塞` 為未完成工作可進入的獨立狀態。這些是 Project #5 實際 Status 選項，不能把英文舊名稱當成可寫入的欄位值。詳細進出條件依 [#39](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/issues/39)。PR 合併不等於 QA；Preview deployed 不等於 Production deployed；沒有實測就不標已完成。
 
 **固定交付報告**：本輪結果（已驗證完成／驗證失敗／部分完成且受阻） → 第一性原理摘要 → 變更檔案與影響 → AC 對照 → 測試報告（命令、環境、SHA、時間、pass/fail/skip、CI/log URL） → 已知問題 → 執行／回復 → 下一步。只填實際取得的證據。
 
@@ -157,7 +157,7 @@ Backlog Refinement、Sprint Planning、Daily async、Sprint Review、Retrospecti
 
 ## 10. 規範確認與每次開發的必要關卡
 
-規劃新增 Status「規範確認」於待規劃與準備開始之間。實際 Project 選項與 main 的同步腳本必須一起驗證；尚未建立前，維持原九 Status，在待規劃內完成 DoR。此規劃不代表選項或 GitHub 分支保護已啟用。
+Project #5 原欄位已新增「規範確認」，main 同步由 PR #161 合併並驗證 label→Status 寫後讀回；原九項及所有卡片保留，共十項。每張新開發卡在此完成六項 DoR，再進準備開始。GitHub 分支保護/Required Checks 的強制效果須以 #56 的實際設定及拒絕證據核實，不能由選項或文字推定。
 
 ### 六項開工 DoR
 
@@ -187,3 +187,5 @@ PR #131 的風險/說明 CLI 對程式、設定及治理變更要求需求與驗
 每項以 AC→案例/層級→命令/job→最終 SHA/環境/時間→結果/退出碼→證據連結追溯；不適用須具體解釋，不能只驗 HTTP 200。開發先相關測試，穩定候選與合併後版本按原規則跑完整基線；同 SHA 無新變更/失敗/疑慮不重跑既有成功證據。
 
 本次引入舊功能失效、越權/外洩/憑證洩漏/資料破壞等資安阻擋，或必要測試失敗/未執行，均不得進等待部署或已完成。Bug 回開發中；外部缺件標相應阻塞，可獨立工作繼續。Review 核實 diff、授權/資料後果及證據；部署按精確版本對帳，觀察通過原 AC 才結案，不因 PR 合併/迭代截止結案。
+
+**必要檢查可達性：** 完整產品與 Ticket Policy workflow 對所有 pull_request 均觸發，不設 PR 路徑過濾，避免純文件/治理 PR 的 required check 永遠 pending。保留既有 push 分支/路徑限制、測試內容及發布條件；失敗、跳過與未執行仍不得算通過。
