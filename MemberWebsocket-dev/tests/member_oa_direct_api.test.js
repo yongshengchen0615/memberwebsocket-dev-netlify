@@ -40,6 +40,8 @@ async function harness(slug,options={}){
  };
  const environment={SUPABASE_URL:'https://example.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'synthetic-only',LINE_MEMBER_CHANNEL_ID:channel,MEMBER_OA_VERIFIED_LINKS_JSON:options.missingBinding?'':bindings};
  const context=vm.createContext({
+  ...await import('../supabase/functions/_shared/member-invitations.mjs'),
+  ...await import('../supabase/functions/_shared/member-oa-registration-gate.mjs'),
   Deno:{env:{get:key=>environment[key]||''},serve(fn){endpoint=fn;}},
   businessContext:()=>options.wrongTenant?{...tenant,id:'synthetic-shop-b'}:tenant,
   businessHandler:(_name,fn)=>fn,createClient:()=>db,readJsonObject:req=>req.json(),

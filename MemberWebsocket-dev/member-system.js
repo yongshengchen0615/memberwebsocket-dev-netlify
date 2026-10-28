@@ -74,6 +74,9 @@
     'user.event.ticket.claim',
     'user.event.ticket.redeem',
     'member.referral.bind',
+    'member.invitation.create',
+    'member.invitation.retry',
+    'user.member.invitation.claim',
     'points.transfer.create',
     'admin.booking.receipt.register',
     'admin.booking.receipt.dismiss'
@@ -488,13 +491,14 @@
   }
 
   function requestEndpoint(config, clientType, action) {
-    if (String(action || '').startsWith('member.friend.') || ['event.today-usable','member.referral.bind','points.transfer.options','points.transfer.receiver','points.transfer.create'].includes(action)) {
-      return String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/member-growth-api';
+    if (String(action || '').startsWith('member.friend.') || String(action || '').startsWith('member.invitation.') || ['event.today-usable','member.referral.bind','points.transfer.options','points.transfer.receiver','points.transfer.create'].includes(action)) {
+      return String(config.memberGrowthFunctionUrl || '').trim()
+        || String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/member-growth-api';
     }
     if (clientType === 'admin' && String(action || '').startsWith('admin.booking.receipt.')) {
       return String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/booking-receipt-api';
     }
-    if (clientType === 'member' && (action === 'user.member.bootstrap' || action === 'user.member.profile.save' || action === 'user.member.terms.accept' || action === 'user.member.card.open')) {
+    if (clientType === 'member' && (action === 'user.member.bootstrap' || action === 'user.member.profile.save' || action === 'user.member.terms.accept' || action === 'user.member.card.open' || action === 'user.member.invitation.claim' || action === 'user.member.oa.check')) {
       return String(config.memberProfileFunctionUrl || '').trim()
         || String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/member-profile-api';
     }
@@ -515,7 +519,7 @@
     // LINE ID token authenticates identity, but the first membership join also
     // needs a user access token for the server to check the linked member OA.
     // Never persist this token or attach it to unrelated member requests.
-    const verifiedJoinPayload = action === 'user.member.profile.save' && payload?.accepted === true
+    const verifiedJoinPayload = (action === 'user.member.profile.save' && payload?.accepted === true) || action === 'user.member.oa.check'
       ? { ...payload, lineAccessToken: typeof window.liff?.getAccessToken === 'function' ? (window.liff.getAccessToken() || '') : '' }
       : payload;
     const isWrite = action.endsWith('.session.claim') || action.endsWith('.session.logout') || WRITE_ACTIONS.includes(action) || ['admin.settings.copy','admin.ticket-visibility.save','member.friend.request','member.friend.accept','member.friend.remove','member.friend.block'].includes(action);

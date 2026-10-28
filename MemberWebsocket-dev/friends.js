@@ -2,7 +2,7 @@
   'use strict';
 
   const booking = Boolean(window.BookingSystem);
-  let profile = null, generation = 0, loading = false, busy = false;
+  let profile = null, profileContext = '', generation = 0, loading = false, busy = false;
   let selectedCode = '', lockedRecipient = null, pendingCode = '', scanner = null, invitationUrl = '';
 
   const el = id => document.getElementById(id);
@@ -434,12 +434,21 @@
 
   function ready(event) {
     const next = event.detail?.profile;
-    if (!next?.lineUserId) return;
-
-    if (next.membershipRequired || next.profileComplete === false) {
+    if (!next?.lineUserId || next.membershipRequired || next.profileComplete === false || (next.status && next.status !== 'active')) {
       generation++;
       stopScan();
       profile = null;
+      profileContext = '';
+      busy = false;
+      pendingCode = '';
+      if (input()) input().value = '';
+      invalidate();
+      el('friendList')?.replaceChildren();
+      el('friendReceivedBookings')?.replaceChildren();
+      if (el('friendBookingRecipient')) {
+        el('friendBookingRecipient').replaceChildren(new Option('本人', ''));
+        el('friendBookingRecipient').disabled = true;
+      }
       invitationUrl = '';
       selectedCode = '';
       lockedRecipient = null;
@@ -448,7 +457,11 @@
       return;
     }
 
-    const changed = profile?.lineUserId !== next.lineUserId;
+    const account = session();
+    const business = account?.config?.business || window.BusinessContext?.slug || new URL(location.href).searchParams.get('business') || '';
+    const nextContext = business + ':' + next.lineUserId;
+    const changed = profileContext !== nextContext;
+    profileContext = nextContext;
     if (changed) {
       generation++;
       stopScan();

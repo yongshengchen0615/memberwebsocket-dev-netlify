@@ -46,6 +46,8 @@ function harness() {
     }
   };
   const context = vm.createContext({
+    ...require('../supabase/functions/_shared/member-invitations.mjs'),
+    ...require('../supabase/functions/_shared/member-oa-registration-gate.mjs'),
     Deno:{ serve(callback) { handler=callback; }, env:{ get(name) { if (name==='SUPABASE_URL') return 'https://example.supabase.co'; if (name==='SUPABASE_SERVICE_ROLE_KEY') return 'test-only'; return ''; } } },
     createClient:() => db, readJsonObject:(request) => request.json(),
     resolveUserTestIdentity:async () => ({ lineUserId:'line-1',displayName:'Member' }),
@@ -56,7 +58,7 @@ function harness() {
   });
   vm.runInContext(stripTypeScriptTypes(source),context);
   async function call(action, payload={}) {
-    const response=await handler(new Request('https://example.invalid',{ method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action,clientType:'member',testSessionToken:'fixture',...payload}) }));
+    const response=await handler(new Request('https://example.invalid',{ method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action,clientType:'member',testSessionToken:'fixture',lineAccessToken:'synthetic-user-token',...payload}) }));
     return { status:response.status,body:await response.json() };
   }
   return {

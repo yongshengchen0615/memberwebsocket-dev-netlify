@@ -7,6 +7,29 @@ const path=require('node:path');
 const source=fs.readFileSync(path.resolve(__dirname,'../../friends.js'),'utf8');
 const tick=()=>new Promise(r=>setTimeout(r,20));
 
+test('same LINE identity switching business clears pending data and ignores the old business response',async()=>{
+ const {dom,w,ready}=await page(false,'https://example.test/member/#friends');try{
+  const current=w.MemberSystem.getSession();current.config.business='shop-a';ready();await tick();
+  const field=w.document.getElementById('friendLookupCode');field.value='PRIVATE-A';
+  let resolve;let first=true;w.MemberSystem.request=async()=>first?(first=false,new Promise(r=>resolve=r)):{friends:[{memberCode:'SHOP-B',displayName:'B○',status:'accepted'}],receivedBookings:[]};
+  w.MemberFriends.clear();await tick();
+  current.config.business='shop-b';ready();
+  resolve({friends:[{memberCode:'PRIVATE-A',displayName:'A○',status:'accepted'}],receivedBookings:[]});await tick();await tick();
+  assert.equal(field.value,'');assert.doesNotMatch(w.document.getElementById('friendList').textContent,/PRIVATE-A/);
+  assert.match(w.document.getElementById('friendList').textContent,/SHOP-B/);
+ }finally{dom.window.close();}
+});
+
+test('losing membership clears stored friend rows, lookup and share link immediately',async()=>{
+ const {dom,w,ready}=await page(false,'https://example.test/member/#friends');try{
+  w.document.getElementById('friendLookupCode').value='PRIVATE-A';
+  ready({lineUserId:'verified-A',memberCode:'AAAA',profileComplete:false,membershipRequired:true});
+  assert.equal(w.document.getElementById('friendList').textContent,'');
+  assert.equal(w.document.getElementById('friendLookupCode').value,'');
+  assert.equal(w.MemberFriends.invitationUrl(),'');
+ }finally{dom.window.close();}
+});
+
 async function page(booking=false,url='https://example.test/member/#friend=BBBB000000'){
   const dom=new JSDOM(
     '<main id="'+(booking?'bookingView':'memberView')+'"><div id="memberPass"></div><p id="bookingNotice"></p><fieldset class="booking-contact-fieldset"><div id="bookingRecipientHost"></div></fieldset></main>',

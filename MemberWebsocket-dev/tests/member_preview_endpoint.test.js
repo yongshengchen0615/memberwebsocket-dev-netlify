@@ -12,6 +12,19 @@ test('preview member writes use the configured isolated endpoint; production ret
  assert.deepEqual(urls,['https://example.supabase.co/functions/v1/member-profile-api-preview','https://example.supabase.co/functions/v1/member-profile-api']);
 });
 
+test('preview invitations and friends use isolated growth; claims and OA checks use isolated profile',async()=>{
+ const urls=[],bodies=[];
+ const context=vm.createContext({window:{setTimeout,clearTimeout,liff:{getAccessToken:()=> 'volatile-access'}},document:{addEventListener(){},removeEventListener(){},querySelector(){return {}; }},URL,AbortController,Map,Set,Date,console,
+  fetch:async(url,options)=>{urls.push(url);bodies.push(JSON.parse(options.body));return{ok:true,status:200,text:async()=>JSON.stringify({ok:true,data:{saved:true}})};}});
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../member-system.js'),'utf8'),context);
+ const config={supabaseUrl:'https://example.supabase.co',supabaseFunctionUrl:'https://example.supabase.co/functions/v1/api',supabasePublishableKey:'synthetic',memberLiffId:'1234567890-synthetic',realtimeEnabled:false,
+  memberProfileFunctionUrl:'https://example.supabase.co/functions/v1/member-profile-api-preview',memberGrowthFunctionUrl:'https://example.supabase.co/functions/v1/member-growth-api-preview'};
+ for(const action of ['member.invitation.create','member.invitation.summary','member.invitation.retry','member.friend.list','user.member.invitation.claim','user.member.oa.check'])await context.window.MemberSystem.request(config,'member','id',action,{});
+ assert.deepEqual(urls,[...Array(4).fill(config.memberGrowthFunctionUrl),...Array(2).fill(config.memberProfileFunctionUrl)]);
+ assert.equal(bodies.at(-1).lineAccessToken,'volatile-access');
+ assert.ok(bodies.slice(0,-1).every(body=>!Object.hasOwn(body,'lineAccessToken')));
+});
+
 test('preview config discovers the merchant through platform-api before using the isolated member API',async()=>{
  const {previewMemberRuntime}=await import('../../scripts/preview-member-runtime.mjs');
  const config=previewMemberRuntime({supabaseUrl:'https://example.supabase.co',supabaseFunctionUrl:'https://example.supabase.co/functions/v1/api',supabasePublishableKey:'synthetic',memberLiffId:'1234567890-synthetic'},{BRANCH:'Integrated-Marketing-Platform'});

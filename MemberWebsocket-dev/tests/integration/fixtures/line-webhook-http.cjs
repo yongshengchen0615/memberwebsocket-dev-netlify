@@ -4,7 +4,7 @@ const {destination,line}=require('./line-webhook-cases.cjs');
 const owner='U'+'2'.repeat(32);
 async function setup({publicSupabaseUrl='https://fixture.supabase.co'}={}){
  const h=await fixture(),dir=path.resolve(__dirname,'../../../supabase/migrations');
- await h.db.exec(fs.readFileSync(path.join(dir,fs.readdirSync(dir).find(n=>n.endsWith('_line_webhook.sql'))),'utf8'));
+ for(const suffix of ['_line_webhook.sql','_member_oa_webhook_state.sql'])await h.db.exec(fs.readFileSync(path.join(dir,fs.readdirSync(dir).find(n=>n.endsWith(suffix))),'utf8'));
  h.tenant=await h.approve(owner,'webhook-api');
  const saved=await h.call({action:'platform.line.save',business:h.tenant.slug,feature:'booking',line,credentials:{channelAccessToken:'synthetic-webhook-api-token-123456789',channelSecret:'a'.repeat(32)},expectedVersion:1,requestId:crypto.randomUUID()},'manager');assert.equal(saved.status,200,JSON.stringify(saved));
  const {createPlatformHandler}=await import('../../../supabase/functions/_shared/platform-handler.mjs');h.provider=[];

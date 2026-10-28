@@ -1,9 +1,11 @@
-import { businessEnv, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';
+import { businessEnv, businessContext, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract } from "../_shared/auth-contract.ts";
 import { resolveUserTestIdentity, TestModeAuthError } from "../_shared/test-mode-auth.ts";
 import { hasCurrentTermsConsent } from "../_shared/membership-terms.ts";
 import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
+
+import { mintInvitationToken, invitationUrl, invitationDatabaseError, InvitationError } from '../_shared/member-invitations.mjs';
 
 type Json = Record<string, unknown>;
 type Identity = { lineUserId: string; displayName: string };
@@ -256,7 +258,7 @@ serveBusiness('member-growth-api',async (request: Request) => {
     const clientType = asText(body.clientType, 20) as ClientType;
     const action = asText(body.action, 100);
     const allowed: Record<ClientType, Set<string>> = {
-      member: new Set(["member.referral.bind","member.line.official-account","member.friend.list","member.friend.lookup","member.friend.request","member.friend.accept","member.friend.remove","member.friend.block"]),
+      member: new Set(["member.invitation.create","member.invitation.summary","member.invitation.retry","member.referral.bind","member.line.official-account","member.friend.list","member.friend.lookup","member.friend.request","member.friend.accept","member.friend.remove","member.friend.block"]),
       booking:new Set(["member.friend.list"]),
       event: new Set(["event.today-usable"]),
       points: new Set(["points.transfer.options","points.transfer.receiver","points.transfer.create","member.friend.list"]),
@@ -265,14 +267,28 @@ serveBusiness('member-growth-api',async (request: Request) => {
       throw new ApiError(403, "CLIENT_ACTION_MISMATCH", "操作端與功能不相符。");
     }
 
+    if (action.startsWith("member.invitation.") && !businessContext()) {
+      throw new ApiError(403,"INVITATION_TENANT_UNAVAILABLE","請由商家會員入口使用邀請。");
+    }
     const supabase = dbClient();
     const identity = await resolveIdentity(supabase, body, clientType);
-    const write = action === "member.friend.lookup" || action === "member.referral.bind" || action === "points.transfer.create" || /^member\.friend\.(request|accept|remove|block)$/.test(action);
+    const write = action === "member.invitation.create" || action === "member.invitation.retry" || action === "member.friend.lookup" || action === "member.referral.bind" || action === "points.transfer.create" || /^member\.friend\.(request|accept|remove|block)$/.test(action);
     await consumeRateLimit(supabase, identity, write);
     const member = await requireMember(supabase, identity);
 
     let data: Json;
-    if (action.startsWith("member.friend.")) {
+    if (action.startsWith("member.invitation.")) {
+      const operation = action.split('.').pop();
+      const secret = operation === "create" ? await mintInvitationToken() : null;
+      // Resolve trusted LIFF configuration before creating a token record.
+      const url = secret ? invitationUrl(businessContext(),channelId("member"),secret.token) : null;
+      const result = await supabase.rpc("member_invitation_" + operation, {
+        p_actor:identity.lineUserId, ...(secret ? {p_token_hash:secret.hash} : {}),
+      });
+      if (result.error) throw invitationDatabaseError(result.error);
+      data = secret ? {...result.data,invitationUrl:url} : result.data;
+    }
+    else if (action.startsWith("member.friend.")) {
       const operation=action.split('.').pop();
       const r=await supabase.rpc("member_friend_action",{p_actor:identity.lineUserId,p_operation:operation,p_code:asText(body.memberCode || body.inviteCode,40)});
       if(r.error) throw mapDatabaseError(r.error);
@@ -287,7 +303,7 @@ serveBusiness('member-growth-api',async (request: Request) => {
 
     return response(origin, { ok:true, status:200, data });
   } catch (error) {
-    const e = error instanceof ApiError ? error : new ApiError(500, "INTERNAL_ERROR", "會員服務暫時無法完成操作。");
+    const e = error instanceof ApiError || error instanceof InvitationError ? error : new ApiError(500, "INTERNAL_ERROR", "會員服務暫時無法完成操作。");
     return response(origin, { ok:false, status:e.status, error:{ code:e.code, message:e.message, details:e.details } }, e.status);
   }
 });
