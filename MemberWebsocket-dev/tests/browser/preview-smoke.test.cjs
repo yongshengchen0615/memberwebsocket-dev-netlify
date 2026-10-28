@@ -38,7 +38,7 @@ test('QA-PREVIEW-002: platform entry renders while unauthenticated workspace sta
 });
 
 for (const width of [390, 1280]) for (const surface of ['member', 'admin']) {
-  test(`QA-PREVIEW-136: ${surface} ${width}px mounts navigation without insertBefore errors`, async ({ page }) => {
+  test(`QA-PREVIEW-136: ${surface} ${width}px preserves the intended navigation without insertBefore errors`, async ({ page }) => {
     const errors = [];
     page.on('pageerror', error => {
       if (/portal-navigation|insertBefore/.test(error.stack || error.message)) errors.push(error.message);
@@ -48,10 +48,15 @@ for (const width of [390, 1280]) for (const surface of ['member', 'admin']) {
     const response = await page.goto(origin + route, { waitUntil: 'load' });
     expect(response?.status()).toBe(200);
     const nav = page.locator('#unifiedPortalNav');
-    await expect(nav).toHaveCount(1);
-    expect(await nav.evaluate(node => node.parentElement.tagName)).toBe('BODY');
-    await expect(nav.locator('a')).toHaveCount(1);
-    await expect(nav.locator('a')).toHaveAttribute('href', `/${surface}/`);
+    if (surface === 'member') {
+      await expect(nav).toHaveCount(0);
+      await expect(page.locator('[data-portal-entry="member"]')).toHaveCount(0);
+    } else {
+      await expect(nav).toHaveCount(1);
+      expect(await nav.evaluate(node => node.parentElement.tagName)).toBe('BODY');
+      await expect(nav.locator('a')).toHaveCount(1);
+      await expect(nav.locator('a')).toHaveAttribute('href', '/admin/');
+    }
     await expect(page.locator('#site-build-version')).toHaveAttribute('data-commit', commit7);
     expect(errors).toEqual([]);
   });
