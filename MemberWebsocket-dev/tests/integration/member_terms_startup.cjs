@@ -15,7 +15,7 @@ const profile = { profileComplete: true, membershipRequired: false, joinedAt: '2
 test('preview new signup waits for server OA recheck and preserves a safe add-friend fallback', async()=>{
  let friendship=false;
  const pending={lineUserId:'new-member',profileComplete:false,membershipRequired:true};
- const {dom,w,calls}=await start(false,{config:{memberFriendshipFlowEnabled:true},profile:pending,
+ const {dom,w,calls}=await start(false,{profile:pending,
   bootstrapResult:()=>({profile:pending,terms,memberOa:{required:true,configured:true,addFriendUrl:'https://line.me/R/ti/p/%40safe-oa'}}),
   oaCheck:()=>{if(!friendship)throw Object.assign(new Error('請先加入商家好友'),{code:'MEMBER_OA_FRIENDSHIP_REQUIRED'});return {memberOa:{required:true,configured:true,friend:true}};}
  });
@@ -26,6 +26,77 @@ test('preview new signup waits for server OA recheck and preserves a safe add-fr
   friendship=true;w.document.getElementById('recheckMemberOa').click();await new Promise(r=>setTimeout(r,20));
   assert.equal(w.document.getElementById('profileForm').hidden,false);
   assert.equal(calls.filter(c=>c.action==='user.member.profile.save').length,0);
+ }finally{dom.window.close();}
+});
+
+test('AC-JOIN-002: incomplete OA setup can be rechecked but only server friendship unlocks signup',async()=>{
+ let configured=false,friend=false;
+ const pending={profileComplete:false,membershipRequired:true};
+ const {dom,w,calls}=await start(false,{profile:pending,
+  bootstrapResult:()=>({profile:pending,terms,memberOa:{required:true,configured,
+   ...(configured?{addFriendUrl:'https://line.me/R/ti/p/%40safe-oa'}:{})}}),
+  oaCheck:()=>{if(!friend)throw Object.assign(new Error('請先加入商家好友'),{code:'MEMBER_OA_FRIENDSHIP_REQUIRED'});return {memberOa:{required:true,configured:true,friend:true}};}
+ });
+ try{
+  const get=id=>w.document.getElementById(id);
+  assert.equal(get('profileForm').hidden,true);
+  assert.equal(get('memberOaAddLink').hidden,true);
+  assert.equal(get('recheckMemberOa').disabled,false);
+  get('recheckMemberOa').click();await new Promise(r=>setTimeout(r,20));
+  assert.equal(calls.filter(c=>c.action==='user.member.bootstrap').length,2);
+  assert.equal(get('profileForm').hidden,true);
+  configured=true;get('recheckMemberOa').click();await new Promise(r=>setTimeout(r,20));
+  assert.equal(get('profileForm').hidden,true,'configuration alone is not friendship authorization');
+  assert.match(get('memberOaStatus').textContent,/加入/);
+  friend=true;get('recheckMemberOa').click();await new Promise(r=>setTimeout(r,20));
+  assert.equal(get('profileForm').hidden,false);
+  assert.equal(calls.filter(c=>c.action==='user.member.profile.save').length,0);
+ }finally{dom.window.close();}
+});
+
+test('AC-JOIN-003: expired LINE friendship credential keeps signup blocked with recovery instructions',async()=>{
+ const pending={profileComplete:false,membershipRequired:true};
+ const {dom,w}=await start(false,{profile:pending,
+  bootstrapResult:()=>({profile:pending,terms,memberOa:{required:true,configured:true,addFriendUrl:'https://line.me/R/ti/p/%40safe-oa'}}),
+  oaCheck:()=>{throw Object.assign(new Error('LINE 登入已失效'),{code:'LINE_ACCESS_TOKEN_INVALID'});}
+ });
+ try{
+  assert.equal(w.document.getElementById('profileForm').hidden,true);
+  assert.match(w.document.getElementById('memberOaStatus').textContent,/關閉.*重新開啟/);
+ }finally{dom.window.close();}
+});
+
+test('AC-JOIN-004: an already activated member found during configuration recheck must reconsent first',async()=>{
+ const pending={profileComplete:false,membershipRequired:true};
+ const {dom,w,calls}=await start(false,{profile:pending,
+  bootstrapResult:count=>count===1
+   ? {profile:pending,terms,memberOa:{required:true,configured:false}}
+   : {profile,terms,consentRequired:true,memberOa:{required:false,configured:false}}
+ });
+ try{
+  w.document.getElementById('recheckMemberOa').click();await new Promise(r=>setTimeout(r,20));
+  assert.equal(w.document.getElementById('termsRenewView').classList.contains('hidden'),false);
+  assert.equal(w.document.getElementById('memberView').classList.contains('hidden'),true);
+  assert.equal(calls.filter(c=>c.action==='user.member.card.open').length,0);
+ }finally{dom.window.close();}
+});
+
+for (const consentRequired of [false,true]) test(`AC-JOIN-005: stale OA check cannot overwrite realtime ${consentRequired?'reconsent':'activation'}`,async()=>{
+ let realtime,finishCheck;
+ const pending={profileComplete:false,membershipRequired:true};
+ const {dom,w}=await start(false,{profile:pending,onSubscribe:callback=>{realtime=callback;},
+  bootstrapResult:count=>count===1
+   ? {profile:pending,terms,memberOa:{required:true,configured:true,addFriendUrl:'https://line.me/R/ti/p/%40safe-oa'}}
+   : {profile,terms,consentRequired,memberOa:{required:false}},
+  oaCheck:()=>new Promise(resolve=>{finishCheck=resolve;})
+ });
+ try{
+  assert.equal(typeof finishCheck,'function');
+  await realtime();
+  finishCheck({memberOa:{required:false}});
+  await new Promise(r=>setTimeout(r,30));
+  assert.equal(w.document.getElementById(consentRequired?'termsRenewView':'memberView').classList.contains('hidden'),false);
+  assert.equal(w.document.getElementById('profileSetupView').classList.contains('hidden'),true);
  }finally{dom.window.close();}
 });
 
@@ -52,7 +123,7 @@ async function start(consentRequired, options = {}) {
     signIn: async () => 'fixture-token',
     initials: () => '會',
     formatDate: (value) => value || '',
-    subscribeRealtime: () => () => {},
+    subscribeRealtime: (_config,_surface,callback) => { options.onSubscribe?.(callback); return () => {}; },
     request: async (_config, _surface, _token, action, payload) => {
       calls.push({ action, payload });
       if (action === 'user.member.bootstrap') {
