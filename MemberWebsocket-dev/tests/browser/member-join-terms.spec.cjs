@@ -12,7 +12,7 @@ window.MembershipProgress={render(){}};
 window.MemberSystem={bindDialogKeyboard(){},loadConfig:async()=>({brandName:'QA Lumen Club'}),signIn:async()=> 'fixture-id-token',
 request:async(_c,_t,_token,action,payload={})=>{window.qaJoinCalls.push({action,payload:structuredClone(payload)});
 if(action==='user.member.bootstrap')return {profile:structuredClone(incomplete),terms:structuredClone(terms),consentRequired:false,
-...(['required','unconfigured'].includes(new URLSearchParams(window.location.search).get('oa')) ? {memberOa:{required:true,configured:new URLSearchParams(window.location.search).get('oa')==='required',addFriendUrl:new URLSearchParams(window.location.search).get('oa')==='required'?'https://line.me/R/ti/p/@qa_member_oa':undefined}} : {})};
+...(['required','unconfigured'].includes(new URLSearchParams(window.location.search).get('oa')) ? {memberOa:{required:true,configured:new URLSearchParams(window.location.search).get('oa')==='required'||window.qaOaConfigReady===true,addFriendUrl:new URLSearchParams(window.location.search).get('oa')==='required'||window.qaOaConfigReady===true?'https://line.me/R/ti/p/@qa_member_oa':undefined}} : {})};
 if(action==='user.member.oa.check'){
  if(!window.qaOaFriend)throw Object.assign(new Error('請先加入商家會員官方帳號'),{code:'MEMBER_OA_FRIENDSHIP_REQUIRED'});
  return {memberOa:{required:true,configured:true,friend:true}};
@@ -52,8 +52,20 @@ test('AC-REG-002: incomplete merchant OA setup fails closed with an actionable m
 await page.goto(base+'/member-join?oa=unconfigured');
 await expect(page.locator('#memberOaJoin')).toBeVisible();
 await expect(page.locator('#profileForm')).toBeHidden();
-await expect(page.locator('#memberOaStatus')).toContainText('尚未完成設定');
+await expect(page.locator('#memberOaStatus')).toContainText('尚未完成');
 await expect(page.locator('#memberOaAddLink')).toBeHidden();
-await expect(page.locator('#recheckMemberOa')).toBeDisabled();
+await expect(page.locator('#recheckMemberOa')).toBeEnabled();
+await expect(page.locator('#recheckMemberOa')).toHaveText('重新檢查商家設定');
+const before=await page.evaluate(()=>qaJoinCalls.filter(x=>x.action==='user.member.bootstrap').length);
+await page.locator('#recheckMemberOa').click();
+await expect(page.locator('#memberOaStatus')).toContainText('尚未完成');
+expect(await page.evaluate(()=>qaJoinCalls.filter(x=>x.action==='user.member.bootstrap').length)).toBe(before+1);
+await expect(page.locator('#profileForm')).toBeHidden();
 expect(await page.evaluate(()=>qaJoinCalls.filter(x=>x.action==='user.member.profile.save').length)).toBe(0);
+await page.evaluate(()=>{window.qaOaConfigReady=true;window.qaOaFriend=true;});
+await page.locator('#recheckMemberOa').click();
+await expect(page.locator('#memberOaJoin')).toBeHidden();
+await expect(page.locator('#profileForm')).toBeVisible();
+await expect(page.locator('#recheckMemberOa')).toHaveText('已加入，重新檢查');
+expect(await page.evaluate(()=>qaJoinCalls.filter(x=>x.action==='user.member.oa.check').length)).toBeGreaterThanOrEqual(1);
 });
