@@ -58,3 +58,13 @@ test('AC-005: preflight is authenticated, read-only, tenant-scoped and uses acti
  assert.match(entry,/verifiedMemberOaBindingsJson:env\('MEMBER_OA_VERIFIED_LINKS_JSON'\)/);
  assert.doesNotMatch(backend,/configured:body\./);
 });
+
+test('AC-007: preview endpoint refuses every action except authenticated read-only OA readiness',()=>{
+ const preview=fs.readFileSync(path.join(root,'supabase/functions/platform-api-preview/index.ts'),'utf8');
+ const platform=fs.readFileSync(path.join(root,'platform/app.js'),'utf8');
+ assert.match(preview,/allowedActions:new Set\(\['platform\.member-oa\.readiness'\]\)/);
+ assert.match(backend,/if \(allowedActions && !allowedActions\.has\(body\.action\)\)/);
+ assert.match(platform,/action === 'platform\.member-oa\.readiness' && location\.hostname === 'integrated-marketing-platform--memberwebsocket-dev-netlify\.netlify\.app'/);
+ assert.match(admin,/action === 'platform\.member-oa\.readiness' && location\.hostname === 'integrated-marketing-platform--memberwebsocket-dev-netlify\.netlify\.app'/);
+ assert.doesNotMatch(preview,/allowedActions:new Set\(\['platform\.line\.save'/);
+});
