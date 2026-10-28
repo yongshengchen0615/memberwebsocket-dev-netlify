@@ -951,7 +951,7 @@
       }
       const data=await refresh();
       clearLoginGate();
-      for(const [key,label] of Object.entries(data.features)) {const wrap=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.dataset.feature=key;wrap.append(input,document.createTextNode(label));el('featureFields').append(wrap);}
+      for(const [key,label] of Object.entries(data.features).filter(([key])=>visibleFeatureKeys.includes(key))) {const wrap=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.dataset.feature=key;wrap.append(input,document.createTextNode(label));el('featureFields').append(wrap);}
       el('platformWorkspace').hidden=false;el('platformStatus').textContent=`總管理員 ${data.profile.displayName}，已登入。`;
       try { window.sessionStorage.removeItem(AUTO_LOGIN_ATTEMPT_KEY); } catch {}
     } catch(error){

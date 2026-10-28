@@ -21,6 +21,7 @@ test('AC-RET-002: root grant and merchant UI cannot display retired products',()
  assert.match(app,/visibleFeatureKeys\.includes\(key\)&&tenant\.features\[key\]/);
  assert.match(app,/visibleFeatureKeys\.includes\(key\) && tenant\.features\[key\]/);
  assert.match(app,/visibleFeatureKeys\.includes\(key\)&&tenant\.features\?\.\[key\]/);
+ assert.match(app,/Object\.entries\(data\.features\)\.filter\(\(\[key\]\)=>visibleFeatureKeys\.includes\(key\)\)/);
 });
 test('AC-RET-003: old grant keys can only be submitted disabled to the unchanged SQL validator',()=>{
  const app=source('platform/app.js');
