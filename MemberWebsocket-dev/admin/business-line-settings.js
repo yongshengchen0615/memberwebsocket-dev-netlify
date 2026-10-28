@@ -41,7 +41,7 @@
   }
   function clear() {
     generation++;for(const view of views.values())discard(view);views.clear();
-    navNode()?.replaceChildren();document.getElementById('memberOaAdminReadinessNotice')?.remove();tenant=null;grants={};activeFeature=null;navSignature='';saving=false;loading=false;adapter=null;
+    navNode()?.replaceChildren();if(typeof document!=='undefined')document.getElementById('memberOaAdminReadinessNotice')?.remove();tenant=null;grants={};activeFeature=null;navSignature='';saving=false;loading=false;adapter=null;
   }
   function revoke(error) {
     if(!revokedCodes.has(error.code))return false;
@@ -65,7 +65,7 @@
     const epoch=generation,currentAdapter=adapter;
     if(currentAdapter){
       try{const result=await currentAdapter.request(action,payload);if(epoch!==generation)throw {stale:true};return result;}
-      catch(error){if(epoch!==generation)throw {stale:true};revoke(error);throw error;}
+      catch(error){if(epoch!==generation)throw {stale:true};if(action!=='platform.member-oa.readiness')revoke(error);throw error;}
     }
     const session = window.MemberAdminSession?.get();
     if (!session) {const error=Object.assign(Error('登入狀態已失效，請重新登入。'),{code:'AUTH_REQUIRED'});revoke(error);throw error;}
@@ -145,7 +145,7 @@
   // to a saved Login Channel/LIFF. Only the authenticated server may confirm it.
   function renderMemberReadiness(view) {
     const block = view.memberReadiness;
-    if (!block || !tenant) return;
+    if (!block || !tenant || (typeof window!=='undefined' && !window.document)) return;
     const line = {...tenant.line,...tenant.moduleLine?.membership?.line};
     const login = /^\d{5,30}$/.test(line.memberChannelId || '');
     const liff = login && /^\d{5,30}-[A-Za-z0-9_-]+$/.test(line.memberLiffId || '')
@@ -192,18 +192,18 @@
     }
   }
   async function checkMemberReadiness(view) {
-    if (!view.memberReadiness || !tenant || view.memberReadiness.pending || saving) return;
+    if (!view.memberReadiness || !tenant || view.memberReadiness.pending || saving || (typeof window!=='undefined' && !window.document)) return;
     const block=view.memberReadiness, version=tenant.version, id=tenant.id, epoch=generation;
     block.pending=true;block.error='';block.verified=false;block.checkedVersion=null;renderMemberReadiness(view);
     try {
       const result=await request('platform.member-oa.readiness');
-      if (epoch!==generation || !tenant || tenant.id!==id || tenant.version!==version) return;
+      if (epoch!==generation || !tenant || tenant.id!==id || tenant.version!==version || (typeof window!=='undefined' && !window.document)) return;
       block.verified=result?.configured===true && result.tenantVersion===version;
     } catch(error) {
-      if (epoch!==generation || !tenant || tenant.id!==id || tenant.version!==version) return;
+      if (epoch!==generation || !tenant || tenant.id!==id || tenant.version!==version || (typeof window!=='undefined' && !window.document)) return;
       block.error=error?.message||'請稍後重試';
     } finally {
-      if(epoch===generation && tenant?.id===id && tenant.version===version) {
+      if(epoch===generation && tenant?.id===id && tenant.version===version && (typeof window==='undefined' || window.document)) {
         block.pending=false;block.checkedVersion=version;renderMemberReadiness(view);
       }
     }
@@ -443,7 +443,7 @@
         panel.setAttribute('aria-label','會員入會開通必要設定');
         const summary=node('h3','會員入會必要設定檢查');
         const list=node('ul');
-        const statusText=node('p');statusText.setAttribute('role','status');statusText.setAttribute('aria-live','polite');
+        const statusText=node('p');statusText.setAttribute('aria-live','polite');
         const recheck=node('button','重新檢查會員入會設定','button button-outline');recheck.type='button';
         const guide=node('p','首次註冊必須先加入本店會員官方帳號。管理功能可獨立使用；只有伺服器確認會員 OA 綁定後，才可進行首次入會的真實驗收。');
         panel.append(summary,guide,list,statusText,recheck);section.append(panel);
