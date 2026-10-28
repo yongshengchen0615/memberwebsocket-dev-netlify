@@ -144,11 +144,11 @@
     }
     panel.hidden = false;
     const configured = memberOa?.configured === true;
-    panel.querySelector('h2').textContent = configured ? '先加入商家 LINE 好友' : '商家 LINE 會員設定尚未完成';
+    panel.querySelector('h2').textContent = configured ? '先加入商家 LINE 好友' : '會員申請尚未開放';
     panel.querySelector('p').textContent = configured
       ? '請加入此商家的會員官方帳號，或解除封鎖後重新檢查，再填寫會員資料。'
-      : '即使已加入官方帳號，也需要商家完成 LINE Login 與會員官方帳號的安全綁定。商家完成後可按下方按鈕重新檢查。';
-    document.getElementById('recheckMemberOa').textContent = configured ? '已加入，重新檢查' : '重新檢查商家設定';
+      : '目前暫時無法申請新會員，請稍後再試，或聯絡店家確認會員服務開放時間。';
+    document.getElementById('recheckMemberOa').textContent = configured ? '已加入，重新檢查' : '重新檢查服務狀態';
     const link = document.getElementById('memberOaAddLink');
     let url = null;
     try {
@@ -161,7 +161,7 @@
     document.getElementById('recheckMemberOa').disabled = false;
     if (epoch !== oaGeneration) return;
     if (memberOa?.configured !== true || !url) {
-      document.getElementById('memberOaStatus').textContent = '商家尚未完成 LINE 官方帳號的可信綁定，請商家確認後點擊「重新檢查商家設定」。';
+      document.getElementById('memberOaStatus').textContent = '目前無法受理新會員申請。';
       return;
     }
     await checkMemberOa();
@@ -195,7 +195,7 @@
     if (memberOa?.configured === true) return checkMemberOa();
     const button = document.getElementById('recheckMemberOa');
     button.disabled = true;
-    document.getElementById('memberOaStatus').textContent = '正在重新讀取商家 LINE 綁定設定…';
+    document.getElementById('memberOaStatus').textContent = '正在確認會員申請服務狀態…';
     try {
       const latest = await window.MemberSystem.request(state.config, 'member', state.idToken, 'user.member.bootstrap');
       if (latest?.profile?.profileComplete && !latest.profile.membershipRequired && latest.memberOa?.required === false) {
