@@ -18,6 +18,7 @@ export const handler = createPlatformHandler({
   encryptionKey:() => resolvePlatformEncryptionKey({configuredKey:env('PLATFORM_CREDENTIAL_ENCRYPTION_KEY'),db}),
   verifyIdentity:(idToken: string) => verifyPlatformIdToken({idToken}),
   verifyApplicantIdentity:(idToken: string, channelId?: string) => verifyMerchantAdminIdToken({idToken}, channelId),
+  verifiedMemberOaBindingsJson:env('MEMBER_OA_VERIFIED_LINKS_JSON'),
 });
 Deno.serve(handler);
 
