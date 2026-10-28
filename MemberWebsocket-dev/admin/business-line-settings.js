@@ -41,7 +41,7 @@
   }
   function clear() {
     generation++;for(const view of views.values())discard(view);views.clear();
-    navNode()?.replaceChildren();tenant=null;grants={};activeFeature=null;navSignature='';saving=false;loading=false;adapter=null;
+    navNode()?.replaceChildren();document.getElementById('memberOaAdminReadinessNotice')?.remove();tenant=null;grants={};activeFeature=null;navSignature='';saving=false;loading=false;adapter=null;
   }
   function revoke(error) {
     if(!revokedCodes.has(error.code))return false;
@@ -168,6 +168,28 @@
       : verified && liff ? '設定查核已完成。正式對外開放前，仍須以真實 LINE 帳號加入本店 OA 並完成首次入會測試。'
       : 'LINE Webhook 驗證或 Messaging Token 已保存，不等於會員 OA 已可信綁定；未完成前會員首次註冊會被後端拒絕。';
     block.reload.disabled = Boolean(block.pending || saving || pendingOperation());
+    const holder = typeof document === 'undefined' ? null
+      : document.getElementById(adapter ? 'merchantOverviewPanel' : 'businessWorkspaceStatus');
+    if (holder) {
+      let notice = document.getElementById('memberOaAdminReadinessNotice');
+      if (!notice || !holder.contains(notice)) {
+        notice?.remove();
+        notice=node('section','','member-oa-admin-notice');
+        notice.id='memberOaAdminReadinessNotice';
+        notice.setAttribute('role','status');
+        const content=node('span'),button=node('button','前往會員 LINE 必要設定','button button-outline');
+        button.type='button';
+        button.onclick=()=>{
+          document.getElementById(adapter ? 'merchantLineSettingsTab' : 'lineSettingsTab')?.click();
+          selectFeature('membership');
+        };
+        notice.append(content,button);holder.prepend(notice);
+      }
+      notice.hidden=verified && liff;
+      if(!notice.hidden)notice.querySelector('span').textContent=block.pending
+        ? '正在檢查會員註冊開通條件；尚未確認前請勿對外開放。'
+        : '會員首次註冊尚未完成必要 LINE 設定：請由商家管理端補齊下方清單，再執行真人 LINE 驗收。';
+    }
   }
   async function checkMemberReadiness(view) {
     if (!view.memberReadiness || !tenant || view.memberReadiness.pending || saving) return;
