@@ -146,8 +146,8 @@
     const block = view.memberReadiness;
     if (!block || !tenant) return;
     const line = {...tenant.line,...tenant.moduleLine?.membership?.line};
-    const login = /^\\d{5,30}$/.test(line.memberChannelId || '');
-    const liff = login && /^\\d{5,30}-[A-Za-z0-9_-]+$/.test(line.memberLiffId || '')
+    const login = /^\d{5,30}$/.test(line.memberChannelId || '');
+    const liff = login && /^\d{5,30}-[A-Za-z0-9_-]+$/.test(line.memberLiffId || '')
       && line.memberLiffId.startsWith(line.memberChannelId + '-');
     const verified = block.checkedVersion === tenant.version && block.verified === true;
     block.summary.textContent = verified && liff
