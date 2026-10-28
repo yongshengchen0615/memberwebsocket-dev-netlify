@@ -22,3 +22,10 @@
 .business-line-feature-nav button:focus-visible{outline:3px solid #bc8e28;outline-offset:2px}
 #businessLineFeatureContent > [hidden],#lineSettingsPanel[hidden]{display:none!important}
 @media(max-width:650px){.business-line-feature-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.business-member-oa-readiness{margin:16px 0;padding:16px;border:1px solid #cad8cc;border-radius:12px;background:#f5f8f4}
+.business-member-oa-readiness h3{margin:0 0 8px;font-size:1rem}
+.business-member-oa-readiness ul{padding-left:22px;margin:12px 0;line-height:1.8}
+.business-member-oa-readiness li[data-ok="false"]{font-weight:650;color:#834324}
+.business-member-oa-readiness li[data-ok="true"]{color:#295b3d}
+.business-member-oa-readiness p{line-height:1.6}
