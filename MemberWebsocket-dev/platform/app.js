@@ -114,8 +114,9 @@
     const timer = setTimeout(() => controller.abort(),20000);
     try {
       const url = new URL(state.config.supabaseFunctionUrl);
-      url.pathname = url.pathname.replace(/\/api\/?$/, '/platform-api');
-      if (!url.pathname.endsWith('/platform-api')) throw new Error('總管理員 API 設定不正確。');
+      const readOnlyPreview = ['platform.member-oa.readiness','platform.member-oa.inspect'].includes(action) && location.hostname === 'integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app';
+      url.pathname = url.pathname.replace(/\/api\/?$/, readOnlyPreview ? '/platform-api-preview' : '/platform-api');
+      if (!url.pathname.endsWith(readOnlyPreview ? '/platform-api-preview' : '/platform-api')) throw new Error('總管理員 API 設定不正確。');
       let response;
       try { response=await fetch(url.href,{method:'POST',headers:{'Content-Type':'application/json',apikey:state.config.supabasePublishableKey},body:JSON.stringify({action,idToken:state.idToken,...payload}),signal:controller.signal}); }
       catch { throw uncertainError(); }
@@ -124,7 +125,7 @@
       if (!response.ok || !body.ok) {
         if (response.status>=500 && ['PLATFORM_DATABASE_UNAVAILABLE','PLATFORM_UNAVAILABLE'].includes(body.error?.code)) throw uncertainError();
         if(response.status===403 && body.error?.code==='PLATFORM_ADMIN_REQUIRED'&&!merchantEntry)showAuthorizationDenied();
-        if(isV2()&&merchantEntry&&[403,404].includes(response.status)){
+        if(isV2()&&merchantEntry&&action!=='platform.member-oa.readiness'&&[403,404].includes(response.status)){
           clearPrivateMerchant();clearAccount();
           if(isAccount()){el('qualificationWorkspace').hidden=false;el('qualificationStatus').textContent=body.error?.message||'目前無法確認管理員資格，請重新檢查。';}
         }

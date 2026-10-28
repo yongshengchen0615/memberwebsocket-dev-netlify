@@ -12,10 +12,10 @@ const profileExtension = fs.readFileSync(path.join(root, 'member/profile-extensi
 const terms = { id: 'terms-2', version: '2026-10-v2', title: '新版條款', summary: '請閱讀', body: '完整條款內容' };
 const profile = { profileComplete: true, membershipRequired: false, joinedAt: '2026-01-01' };
 
-test('preview new signup waits for server OA recheck and preserves a safe add-friend fallback', async()=>{
+test('AC-JOIN-001: server-required signup gates without a client flag and unlocks only after server verification', async()=>{
  let friendship=false;
  const pending={lineUserId:'new-member',profileComplete:false,membershipRequired:true};
- const {dom,w,calls}=await start(false,{config:{memberFriendshipFlowEnabled:true},profile:pending,
+ const {dom,w,calls}=await start(false,{profile:pending,
   bootstrapResult:()=>({profile:pending,terms,memberOa:{required:true,configured:true,addFriendUrl:'https://line.me/R/ti/p/%40safe-oa'}}),
   oaCheck:()=>{if(!friendship)throw Object.assign(new Error('請先加入商家好友'),{code:'MEMBER_OA_FRIENDSHIP_REQUIRED'});return {memberOa:{required:true,configured:true,friend:true}};}
  });
@@ -23,6 +23,9 @@ test('preview new signup waits for server OA recheck and preserves a safe add-fr
   assert.equal(w.document.getElementById('profileForm').hidden,true);
   assert.equal(w.document.getElementById('memberOaAddLink').href,'https://line.me/R/ti/p/%40safe-oa');
   assert.match(w.document.getElementById('memberOaStatus').textContent,/加入/);
+  w.document.getElementById('profileForm').dispatchEvent(new w.Event('submit',{cancelable:true}));
+  assert.match(w.document.getElementById('profileFormMessage').textContent,/好友資格/);
+  assert.equal(calls.filter(c=>c.action==='user.member.profile.save').length,0);
   friendship=true;w.document.getElementById('recheckMemberOa').click();await new Promise(r=>setTimeout(r,20));
   assert.equal(w.document.getElementById('profileForm').hidden,false);
   assert.equal(calls.filter(c=>c.action==='user.member.profile.save').length,0);
@@ -38,6 +41,59 @@ test('closing native add-friend prompt cannot unlock signup without verified ser
   oaCheck:()=>{throw Object.assign(new Error('尚未成為好友'),{code:'MEMBER_OA_FRIENDSHIP_REQUIRED'});}
  });
  try{w.document.getElementById('addMemberOa').click();await new Promise(r=>setTimeout(r,20));assert.equal(requested,1);assert.equal(rechecked,1);assert.equal(w.document.getElementById('profileForm').hidden,true);}finally{dom.window.close();}
+});
+
+test('AC-JOIN-002: incomplete OA configuration can be refreshed but cannot authorize signup', async()=>{
+ let configured=false;
+ const pending={lineUserId:'new-member',profileComplete:false,membershipRequired:true};
+ const {dom,w,calls}=await start(false,{profile:pending,
+  bootstrapResult:()=>({profile:pending,terms,memberOa:{required:true,configured,
+   ...(configured?{addFriendUrl:'https://line.me/R/ti/p/%40safe-oa'}:{})}}),
+  oaCheck:()=>({memberOa:{required:true,configured:true,friend:true}})
+ });
+ try {
+  const get=id=>w.document.getElementById(id);
+  assert.equal(get('profileForm').hidden,true);
+  assert.equal(get('memberOaAddLink').hidden,true);
+  assert.equal(get('recheckMemberOa').disabled,false);
+  get('recheckMemberOa').click();await new Promise(r=>setTimeout(r,20));
+  assert.equal(get('profileForm').hidden,true);
+  assert.equal(calls.filter(c=>c.action==='user.member.oa.check').length,0);
+  assert.equal(calls.filter(c=>c.action==='user.member.profile.save').length,0);
+  configured=true;
+  get('recheckMemberOa').click();await new Promise(r=>setTimeout(r,20));
+  assert.equal(get('profileForm').hidden,false);
+  assert.equal(get('memberOaJoin').hidden,true);
+  assert.equal(calls.filter(c=>c.action==='user.member.oa.check').length,1);
+ }finally{dom.window.close();}
+});
+
+test('AC-JOIN-003: untrusted OA link never exposes a registration form or add-friend link', async()=>{
+ const pending={profileComplete:false,membershipRequired:true};
+ const {dom,w,calls}=await start(false,{profile:pending,
+  bootstrapResult:()=>({profile:pending,terms,memberOa:{required:true,configured:true,addFriendUrl:'https://line.me.attacker.test/R/ti/p/@other'}}),
+  oaCheck:()=>({memberOa:{required:true,configured:true,friend:true}})
+ });
+ try {
+  assert.equal(w.document.getElementById('profileForm').hidden,true);
+  assert.equal(w.document.getElementById('memberOaAddLink').hasAttribute('href'),false);
+  assert.equal(calls.filter(c=>c.action==='user.member.oa.check').length,0);
+ }finally{dom.window.close();}
+});
+
+test('AC-JOIN-004: recovered active membership still requires renewed terms before opening the card',async()=>{
+ const pending={profileComplete:false,membershipRequired:true};
+ const {dom,w,calls}=await start(false,{profile:pending,
+  bootstrapResult:count=>count===1
+   ?{profile:pending,terms,memberOa:{required:true,configured:false}}
+   :{profile,terms,consentRequired:true,memberOa:{required:false,configured:false}}
+ });
+ try {
+  w.document.getElementById('recheckMemberOa').click();await new Promise(r=>setTimeout(r,20));
+  assert.equal(w.document.getElementById('termsRenewView').classList.contains('hidden'),false);
+  assert.equal(w.document.getElementById('memberView').classList.contains('hidden'),true);
+  assert.equal(calls.filter(c=>c.action==='user.member.card.open').length,0);
+ }finally{dom.window.close();}
 });
 
 async function start(consentRequired, options = {}) {

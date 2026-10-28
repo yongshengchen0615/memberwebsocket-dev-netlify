@@ -19,14 +19,14 @@
     channelSecret: '本功能 Channel secret',
   };
   const featureGuides = {
-    membership: '首次入會必須完成會員 LINE Login、LIFF，以及同一商家的 LINE 官方帳號安全綁定；未全部通過前不可分享入會連結。通知與 Webhook 是獨立設定。',
+    membership: '會員加入與會員卡入口：設定會員卡 LIFF；需要會員通知時再設定通知通道。',
     points: '集點與兌換入口：設定集點卡 LIFF；需要集點通知時再設定通知通道。',
     events: '活動與票券入口：設定活動票券 LIFF；需要票券通知時再設定通知通道。',
     calendar: '營運日曆入口：設定日曆 LIFF。目前沒有自動 LINE 推播事件，不必另外設定通知接收用途。',
     booking: '線上預約入口：設定預約 LIFF；預約管理員通知與會員通知可分開設定。',
   };
   let grants = {}, tenant = null, loading = false, saving = false, activeFeature = null, navSignature = '';
-  let adapter = null, generation = 0, memberOaReadiness = null, memberOaReadinessLoading = false;
+  let adapter = null, generation = 0;
   const views = new Map();
   const revokedCodes=new Set(['AUTH_REQUIRED','AUTH_INVALID','TENANT_REAUTH_REQUIRED','TENANT_EXPIRED','TENANT_SUSPENDED','FEATURE_DISABLED','BUSINESS_FORBIDDEN','PLATFORM_APPLICATION_NOT_APPROVED','PLATFORM_APPLICATION_NOT_FOUND','PLATFORM_QUALIFICATION_REQUIRED','PLATFORM_QUALIFICATION_SUSPENDED']);
   const find = id => adapter?.root.querySelector('#' + id) || (!adapter ? document.getElementById(id) : null);
@@ -41,7 +41,7 @@
   }
   function clear() {
     generation++;for(const view of views.values())discard(view);views.clear();
-    navNode()?.replaceChildren();tenant=null;grants={};activeFeature=null;navSignature='';saving=false;loading=false;adapter=null;memberOaReadiness=null;memberOaReadinessLoading=false;
+    navNode()?.replaceChildren();if(typeof document!=='undefined')document.getElementById('memberOaAdminReadinessNotice')?.remove();tenant=null;grants={};activeFeature=null;navSignature='';saving=false;loading=false;adapter=null;
   }
   function revoke(error) {
     if(!revokedCodes.has(error.code))return false;
@@ -55,7 +55,6 @@
     adapter={...options,business:next.slug};grants={...next.features};tenant=next;
     if(next.status==='suspended'||next.expired){revoke({code:'BUSINESS_FORBIDDEN',message:'此商家的 LINE 設定權限尚未開放。'});return;}
     const created=render();for(const view of views.values())if(!created.has(view))update(view);lock();
-    if (grants.membership === true && !memberOaReadiness && !memberOaReadinessLoading) void reloadMemberOaReadiness();
   }
   const pendingOperation = () => [...views.values()].some(v => v.pending || [...(v.routes?.values() || [])].some(r => r.pending || r.testPending));
   function node(tag, text, className) {
@@ -66,12 +65,13 @@
     const epoch=generation,currentAdapter=adapter;
     if(currentAdapter){
       try{const result=await currentAdapter.request(action,payload);if(epoch!==generation)throw {stale:true};return result;}
-      catch(error){if(epoch!==generation)throw {stale:true};revoke(error);throw error;}
+      catch(error){if(epoch!==generation)throw {stale:true};if(action!=='platform.member-oa.readiness')revoke(error);throw error;}
     }
     const session = window.MemberAdminSession?.get();
     if (!session) {const error=Object.assign(Error('登入狀態已失效，請重新登入。'),{code:'AUTH_REQUIRED'});revoke(error);throw error;}
     const url = new URL(session.config.supabaseFunctionUrl);
-    url.pathname = url.pathname.replace(/\/api\/?$/, '/platform-api');
+    const readOnlyPreview = ['platform.member-oa.readiness','platform.member-oa.inspect'].includes(action) && location.hostname === 'integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app';
+    url.pathname = url.pathname.replace(/\/api\/?$/, readOnlyPreview ? '/platform-api-preview' : '/platform-api');
     let response;
     try {
       response = await fetch(url.href, {method:'POST', cache:'no-store', signal:AbortSignal.timeout(15000),
@@ -94,6 +94,7 @@
       }
       if (view.save) { view.save.disabled = saving || (blocked && !view.pending); view.save.textContent = view.pending ? '重試相同儲存操作' : '儲存' + view.label + '入口設定'; }
       view.reload.disabled = blocked;
+      if(view.memberReadiness){view.memberReadiness.reload.disabled=blocked || view.memberReadiness.pending;view.memberReadiness.inspect.disabled=blocked || view.memberReadiness.pending;}
       if(view.webhook){
         view.webhook.refresh.disabled=blocked;
         view.webhook.check.disabled=blocked || view.dirty.size>0;
@@ -140,67 +141,98 @@
     help.id = input.id + '-help'; input.setAttribute('aria-describedby', help.id);
     label.append(input, help); form.append(label); return input;
   }
-  function createMemberOaReadiness() {
-    const section=node('section','','business-member-oa-readiness');
-    section.dataset.memberOaReadiness='true';
-    section.append(node('h3','會員入會｜必要開通設定'));
-    const summary=node('p','正在確認後端入會設定…');
-    summary.setAttribute('role','status');
-    summary.setAttribute('aria-live','polite');
-    summary.dataset.memberOaSummary='true';
-    const list=node('ul');
-    list.dataset.memberOaChecklist='true';
-    const refresh=node('button','重新檢查會員入會設定','button button-outline');
-    refresh.type='button';refresh.dataset.memberOaRefresh='true';
-    refresh.addEventListener('click',()=>void reloadMemberOaReadiness());
-    const help=node('p','登入頻道與 LIFF 請在本頁儲存；官方帳號 Basic ID 必須在 LINE Developers 確認與會員 Login Channel 同 Provider，再由平台管理員完成伺服器端可信綁定。只加入官方帳號好友、僅通過 Webhook 或填入 Token，都不代表會員入會已開通。');
-    section.append(summary,list,refresh,help);
-    return section;
-  }
-  function updateMemberOaReadiness(view) {
-    const panel=view.section.querySelector('[data-member-oa-readiness]');
-    if(!panel)return;
-    const summary=panel.querySelector('[data-member-oa-summary]');
-    const checklist=panel.querySelector('[data-member-oa-checklist]');
-    const button=panel.querySelector('[data-member-oa-refresh]');
-    button.disabled=memberOaReadinessLoading;
-    checklist.replaceChildren();
-    if(!memberOaReadiness){
-      summary.textContent=memberOaReadinessLoading?'正在由伺服器確認會員開通條件…':'尚未確認開通狀態，無法分享新會員入會連結。';
-      return;
+  // Membership activation requires an operator-verified OA binding in addition
+  // to a saved Login Channel/LIFF. Only the authenticated server may confirm it.
+  function renderMemberReadiness(view) {
+    const block = view.memberReadiness;
+    if (!block || !tenant || (typeof window!=='undefined' && !window.document)) return;
+    const line = {...tenant.line,...tenant.moduleLine?.membership?.line};
+    const login = /^\d{5,30}$/.test(line.memberChannelId || '');
+    const liff = login && /^\d{5,30}-[A-Za-z0-9_-]+$/.test(line.memberLiffId || '')
+      && line.memberLiffId.startsWith(line.memberChannelId + '-');
+    const verified = block.checkedVersion === tenant.version && block.verified === true;
+    block.summary.textContent = verified && liff
+      ? '會員入會必要設定：伺服器綁定已確認，請進行真實 LINE 測試'
+      : '會員入會尚未可驗證：請先完成以下必要設定';
+    block.list.replaceChildren();
+    for (const [ok,message] of [
+      [login,'會員 LINE Login Channel ID：必須已儲存且與商家會員帳號一致'],
+      [liff,'會員卡 LIFF ID：必須與會員 Login Channel ID 對應'],
+      [verified,'會員官方帳號可信綁定：由平台確認 LINE Login 與會員 OA Basic ID 的對應，並在伺服器啟用'],
+    ]) {
+      const item=node('li',(ok?'已確認：':'待處理：')+message);
+      item.dataset.ready=String(ok);block.list.append(item);
     }
-    summary.textContent=memberOaReadiness.ready===true?'會員入會必要設定均已確認；請另外執行真人 LINE 入會驗收。'
-      :'會員入會尚未開放：請先完成下列必要設定。';
-    for(const item of memberOaReadiness.checks||[]){
-      const li=node('li',(item.ok?'已完成：':'未完成：')+item.label);
-      li.dataset.check=item.key;li.dataset.ok=String(item.ok===true);
-      checklist.append(li);
+    block.status.textContent = block.pending ? '正在由伺服器檢查會員官方帳號設定…'
+      : block.error ? '無法確認伺服器設定：'+block.error+'。會員註冊不得視為已開通。'
+      : verified && liff ? '設定查核已完成。正式對外開放前，仍須以真實 LINE 帳號加入本店 OA 並完成首次入會測試。'
+      : 'LINE Webhook 驗證或 Messaging Token 已保存，不等於會員 OA 已可信綁定；未完成前會員首次註冊會被後端拒絕。';
+    block.reload.disabled = Boolean(block.pending || saving || pendingOperation());
+    block.inspect.disabled = Boolean(block.pending || saving || pendingOperation());
+    const holder = typeof document === 'undefined' ? null
+      : document.getElementById(adapter ? 'merchantOverviewPanel' : 'businessWorkspaceStatus');
+    if (holder) {
+      let notice = document.getElementById('memberOaAdminReadinessNotice');
+      if (!notice || !holder.contains(notice)) {
+        notice?.remove();
+        notice=node('section','','member-oa-admin-notice');
+        notice.id='memberOaAdminReadinessNotice';
+        notice.setAttribute('role','status');
+        const content=node('span'),button=node('button','前往會員 LINE 必要設定','button button-outline');
+        button.type='button';
+        button.onclick=()=>{
+          document.getElementById(adapter ? 'merchantLineSettingsTab' : 'lineSettingsTab')?.click();
+          selectFeature('membership');
+        };
+        notice.append(content,button);holder.prepend(notice);
+      }
+      notice.hidden=verified && liff;
+      if(!notice.hidden)notice.querySelector('span').textContent=block.pending
+        ? '正在檢查會員註冊開通條件；尚未確認前請勿對外開放。'
+        : '會員首次註冊尚未完成必要 LINE 設定：請由商家管理端補齊下方清單，再執行真人 LINE 驗收。';
     }
-    if(memberOaReadiness.nextStep && memberOaReadiness.ready!==true)
-      checklist.append(node('li',memberOaReadiness.nextStep));
-    if(memberOaReadiness.error)
-      checklist.append(node('li','檢查失敗：'+memberOaReadiness.error));
   }
-  async function reloadMemberOaReadiness() {
-    if(!tenant || grants.membership!==true || memberOaReadinessLoading)return;
-    const currentId=tenant.id,epoch=generation;
-    memberOaReadinessLoading=true;
-    const view=views.get('membership');
-    if(view)update(view);
+  async function inspectMemberOa(view) {
+    const block=view.memberReadiness;
+    if(!block || !tenant || saving || block.pending || pendingOperation())return;
+    const epoch=generation,id=tenant.id,version=tenant.version;
+    block.inspect.disabled=true;
+    block.inspected.textContent='正在向 LINE 驗證本店 Messaging API 憑證與 OA Basic ID…';
+    try {
+      const result=await request('platform.member-oa.inspect');
+      if(epoch!==generation || !tenant || tenant.id!==id || tenant.version!==version)return;
+      block.inspected.textContent='已透過 LINE API 確認官方帳號 '+result.memberOaId+'（Messaging Channel '+result.messagingChannelId+'）。'
+        +' LINE Login 與此 OA 的 Linked LINE Official Account 關聯尚不能透過此 API 證明，首次註冊仍依伺服器可信綁定狀態判定。'
+        +' 請至 LINE Developers → LINE Login Channel '+result.memberLoginChannelId+' → Basic settings → Linked LINE Official Account 核對。';
+    }catch(error){
+      if(epoch!==generation || !tenant || tenant.id!==id || tenant.version!==version)return;
+      block.inspected.textContent='官方帳號查核未完成：'+(error?.message||'請稍後重試');
+    }finally{
+      if(epoch===generation&&tenant?.id===id)block.inspect.disabled=Boolean(saving||pendingOperation()||block.pending);
+    }
+  }
+  async function checkMemberReadiness(view) {
+    if (!view.memberReadiness || !tenant || view.memberReadiness.pending || saving || (typeof window!=='undefined' && !window.document)) return;
+    const block=view.memberReadiness, version=tenant.version, id=tenant.id, epoch=generation;
+    block.pending=true;block.error='';block.verified=false;block.checkedVersion=null;renderMemberReadiness(view);
     try {
       const result=await request('platform.member-oa.readiness');
-      if(epoch!==generation || tenant?.id!==currentId)return;
-      // Do not infer this privileged status from editable form values or saved LIFF alone.
-      memberOaReadiness=Array.isArray(result?.checks)&&typeof result.ready==='boolean'?result
-        :{ready:false,checks:[],error:'伺服器未回傳完整的開通檢查結果。'};
+      if (epoch!==generation || !tenant || tenant.id!==id || tenant.version!==version || (typeof window!=='undefined' && !window.document)) return;
+      block.verified=result?.configured===true && result.tenantVersion===version;
     } catch(error) {
-      if(epoch!==generation || tenant?.id!==currentId)return;
-      memberOaReadiness={ready:false,checks:[],error:error.message||'無法確認開通條件。'};
+      if (epoch!==generation || !tenant || tenant.id!==id || tenant.version!==version || (typeof window!=='undefined' && !window.document)) return;
+      block.error=error?.message||'請稍後重試';
     } finally {
-      if(epoch===generation && tenant?.id===currentId){
-        memberOaReadinessLoading=false;
-        const current=views.get('membership');
-        if(current)update(current);
+      // Releasing the in-flight lock must not depend on the old tenant version.
+      // Settings can be saved while this read-only diagnostic is in flight.
+      if(epoch===generation && tenant?.id===id && view.memberReadiness===block
+          && (typeof window==='undefined' || window.document)) {
+        block.pending=false;
+        const changed=tenant.version!==version;
+        block.checkedVersion=changed ? null : version;
+        if(changed) block.verified=false;
+        renderMemberReadiness(view);
+        if(changed) void checkMemberReadiness(view);
       }
     }
   }
@@ -237,13 +269,13 @@
       if(['adminChannelId','adminLiffId'].includes(input.name))input.readOnly=Boolean(tenant.line?.[input.name]);
     }
     if(view.form)normalizeEntry(view);
-    if(view.feature==='membership') updateMemberOaReadiness(view);
+    if(view.memberReadiness){
+      renderMemberReadiness(view);
+      if(view.memberReadiness.checkedVersion!==tenant.version && !view.memberReadiness.pending)
+        void checkMemberReadiness(view);
+    }
     if(view.entryState){const current={...tenant.line,...tenant.moduleLine?.[view.feature]?.line};view.entryState.textContent=current[view.key]?'入口設定已儲存；實際 LINE 登入仍需驗收。':'尚未設定入口：先貼上此功能的 LIFF ID 或 LINE 入口網址。';}
     view.links.replaceChildren();
-    if (view.feature==='membership' && memberOaReadiness?.ready!==true) {
-      view.links.textContent='會員入會尚未完成後端開通檢查，暫不提供分享連結；已有會員的服務不受此提示影響。';
-      return;
-    }
     if (!view.path) { view.links.textContent = '此管理功能不需要額外 LINE 用戶端入口。'; return; }
     const endpoint = new URL('/' + view.path + '/', location.origin);
     endpoint.searchParams.set('business', tenant.slug);
@@ -279,7 +311,6 @@
       tenant = result.tenant; view.pending = null; view.dirty.clear();view.derived.clear();adapter?.onUpdate?.(tenant);
       for (const v of views.values()) update(v, v === view);
       view.status.textContent = view.label + ' LINE 設定已儲存，其他功能的 Channel、LIFF 與憑證均維持原設定。';
-      if(view.feature==='membership')void reloadMemberOaReadiness();
     } catch (error) {
       if(epoch!==generation)return;
       view.status.textContent = error.message;
@@ -433,9 +464,23 @@
       section.id=domId('businessLineSection-'+feature);section.setAttribute('role','tabpanel');section.setAttribute('aria-labelledby',domId('businessLineFeatureTab-'+feature));
       section.append(node('h2', label + '｜LINE 設定'));
       section.append(node('p', featureGuides[feature]));
-      if(feature==='membership')section.append(createMemberOaReadiness());
       const status = node('p'); status.setAttribute('role','status'); status.setAttribute('aria-live','polite');
       const view = {feature, label, path, key, section, status, dirty:new Set(),derived:new Set(), links:node('div','','business-client-links')};
+      if(feature==='membership'){
+        const panel=node('section','','member-registration-readiness');
+        panel.setAttribute('aria-label','會員入會開通必要設定');
+        const summary=node('h3','會員入會必要設定檢查');
+        const list=node('ul');
+        const statusText=node('p');statusText.setAttribute('aria-live','polite');
+        const recheck=node('button','重新檢查會員入會設定','button button-outline');recheck.type='button';
+        const inspect=node('button','由 LINE 自動辨識我的官方帳號','button button-outline');inspect.type='button';
+        const inspected=node('p');inspected.setAttribute('aria-live','polite');
+        const guide=node('p','首次註冊必須先加入本店會員官方帳號。管理功能可獨立使用；只有伺服器確認會員 OA 綁定後，才可進行首次入會的真實驗收。');
+        panel.append(summary,guide,list,statusText,recheck,inspect,inspected);section.append(panel);
+        view.memberReadiness={summary,list,status:statusText,reload:recheck,inspect,inspected,pending:false,verified:false,checkedVersion:null,error:''};
+        inspect.onclick=()=>void inspectMemberOa(view);
+        recheck.onclick=()=>void checkMemberReadiness(view);
+      }
       const reload = node('button','載入最新 LINE 設定','button button-outline'); reload.type = 'button'; view.reload = reload;
       reload.onclick = () => void load(true, view);
       if (path) {
@@ -453,7 +498,7 @@
         form.append(identity); view.identityBlock = identity;
         const shared = node('details'); shared.open = false;
         shared.append(node('summary','2. 通知帳號憑證（需要通知或 Webhook 時設定）'));
-        shared.append(node('p',feature==='membership'?'會員入會另外必須通過上方的官方帳號安全綁定檢查；通知憑證不取代入會資格驗證。不發送通知時可留空。':'有效的 Login Channel 與 LIFF 可使用此功能入口；不發送通知時，本區可全部留空。需要通知時請同時設定 Messaging API Channel、Token 與 Secret，再驗證通知通道。已設定的憑證留空即保留；更換 Channel 時必須同時更新憑證。'));
+        shared.append(node('p','有效的 Login Channel 與 LIFF 即可啟用本功能入口；不發送通知時，本區可全部留空。需要通知時請同時設定 Messaging API Channel、Token 與 Secret，再驗證通知通道。已設定的憑證留空即保留；更換 Channel 時必須同時更新憑證。'));
         const grid = node('div','','business-line-fields');
         for (const [name,text] of Object.entries(moduleMessaging)) addField(grid,name,text,['channelAccessToken','channelSecret'].includes(name));
         for (const input of grid.querySelectorAll('input')) { input.id = form.id + '-' + input.name; input.setAttribute('aria-describedby',input.id+'-help'); input.nextElementSibling.id=input.id+'-help'; }
@@ -476,8 +521,7 @@
     try {
       const result = await request('platform.application.bootstrap');
       if (!result.tenant || result.tenant.slug !== business || result.application?.status !== 'approved' || (result.tenant.status === 'suspended' || result.tenant.expired)) throw Object.assign(Error('此商家的 LINE 設定權限尚未開放。'),{code:'BUSINESS_FORBIDDEN'});
-      tenant = result.tenant; memberOaReadiness=null; const created=render();
-      if(grants.membership===true)void reloadMemberOaReadiness();
+      tenant = result.tenant; const created=render();
       for (const view of views.values()) {
         if (force && view === source) {view.dirty.clear();view.derived.clear();}
         if(!created.has(view)||force&&view===source)update(view, force && view === source);

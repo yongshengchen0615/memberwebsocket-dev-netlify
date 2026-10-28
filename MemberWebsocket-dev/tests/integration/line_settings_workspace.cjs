@@ -43,36 +43,3 @@ test('actual merchant workspace clears simplified secret drafts and controls whe
   assert.equal(secret.value,'');assert.equal(ui.d.querySelectorAll('#merchantSimpleLine form').length,0);assert.equal(ui.d.querySelector('#merchantLineForm [name=channelAccessToken]').value,'');assert.deepEqual(ui.errors,[]);
  }finally{ui?.close();await h.db.close();}
 });
-
-test('AC-OA-ADM-001: merchant admin sees server-scoped required join checks and cannot share an unverified member link',async()=>{
- const h=await fixture();let ui;
- try{
-  const tenant=await h.approve(owner,'member-oa-admin-check',features);ui=await mount(h,tenant);
-  const panel=ui.d.querySelector('#merchantSimpleLine [data-business-line-feature=membership] [data-member-oa-readiness]');
-  assert.ok(panel,'merchant LINE settings must render the member join readiness checklist');
-  await until(()=>panel.querySelector('[data-member-oa-summary]').textContent.includes('尚未開放'));
-  const checks=[...panel.querySelectorAll('[data-check]')];
-  assert.deepEqual(checks.map(x=>x.dataset.check),['business','login','liff','oa']);
-  assert.equal(panel.querySelector('[data-check=oa]').dataset.ok,'false','Webhook verification or LIFF alone cannot establish the trusted OA link');
-  assert.equal(panel.querySelector('[data-member-oa-refresh]').disabled,false);
-  assert.match(ui.d.querySelector('#merchantSimpleLine [data-business-line-feature=membership] .business-client-links').textContent,/暫不提供分享連結/);
-  assert.equal(ui.d.querySelector('#merchantSimpleLine [data-feature-client=membership]'),null);
-  assert.ok(ui.calls.some(x=>x.action==='platform.member-oa.readiness' && x.business===tenant.slug));
-  assert.deepEqual(ui.errors,[]);
- }finally{ui?.close();await h.db.close();}
-});
-test('AC-OA-ADM-002: OA readiness is read-only, bound to the signed merchant context, and excludes secrets',async()=>{
- const h=await fixture();try{
-  const tenant=await h.approve(owner,'member-oa-readiness',features);
-  const result=await h.call({action:'platform.member-oa.readiness',business:tenant.slug},'manager');
-  assert.equal(result.status,200);
-  assert.equal(result.body.data.ready,false);
-  assert.equal(result.body.data.checks.find(x=>x.key==='oa').ok,false);
-  const serialized=JSON.stringify(result.body);
-  assert.doesNotMatch(serialized,/channelAccessToken|channelSecret|memberOaId|MEMBER_OA_VERIFIED_LINKS_JSON/);
-  const unauth=await h.call({action:'platform.member-oa.readiness',business:tenant.slug},'bad');
-  assert.notEqual(unauth.status,200);
-  const missing=await h.call({action:'platform.member-oa.readiness',business:'no-such-tenant'},'manager');
-  assert.notEqual(missing.status,200);
- }finally{await h.db.close();}
-});

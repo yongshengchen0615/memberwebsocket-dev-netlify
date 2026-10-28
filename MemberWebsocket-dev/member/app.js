@@ -201,6 +201,7 @@
       if (latest?.profile?.profileComplete && !latest.profile.membershipRequired && latest.memberOa?.required === false) {
         state.profile = latest.profile;
         updateTerms(latest.terms);
+        if (latest.consentRequired) return setView('termsRenew');
         renderProfile(state.profile);
         setView('member');
         return;

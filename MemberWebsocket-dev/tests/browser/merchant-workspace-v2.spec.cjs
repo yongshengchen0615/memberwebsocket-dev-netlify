@@ -80,3 +80,35 @@ for(const width of [390,1280])test('LINE_SIMPLE_WORKSPACE_'+width+' — actual a
   await info.attach('line-simple-workspace-'+width,{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
  }finally{await page.close();await h.db.close();}
 });
+
+test('MEMBER_OA_ADMIN_PREFLIGHT: merchant overview shows mandatory LINE setup before sharing new member entry',async({page})=>{
+ test.setTimeout(45000);
+ const h=await setup({origins:[base]});
+ try {
+  await h.qualify();
+  const app=await h.submit(h.owner,'oa-admin-preflight','商家會員開通設定');
+  await h.review(app,'approved',h.features(['membership']));
+  const session=await wire(page,h,'manager');
+  await page.goto(base+'/admin/workspace.html?business=oa-admin-preflight');
+  await expect(page.locator('#merchantWorkspace')).toBeVisible();
+  const notice=page.locator('#memberOaAdminReadinessNotice');
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText('會員首次註冊尚未完成必要 LINE 設定');
+  await notice.getByRole('button',{name:'前往會員 LINE 必要設定'}).click();
+  await expect(page.locator('#merchantLineSettingsPanel')).toBeVisible();
+  const panel=page.locator('#merchantSimpleLine [data-business-line-feature=membership]');
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('.member-registration-readiness')).toContainText('會員官方帳號可信綁定');
+  await expect(panel.locator('.member-registration-readiness li[data-ready=false]')).toHaveCount(3);
+  await panel.getByRole('button',{name:'由 LINE 自動辨識我的官方帳號'}).click();
+  await expect(panel.locator('.member-registration-readiness')).toContainText('官方帳號查核未完成');
+  await expect(panel.locator('.member-registration-readiness li[data-ready=false]')).toHaveCount(3);
+  expect(session.calls.some(item=>item.action==='platform.member-oa.inspect')).toBe(true);
+
+  await panel.getByRole('button',{name:'重新檢查會員入會設定'}).click();
+  await page.locator('#merchantOverviewTab').click();
+  await expect(notice).toBeVisible();
+  expect(session.calls.filter(item=>item.action==='platform.member-oa.readiness').length).toBeGreaterThanOrEqual(2);
+  expect(session.errors).toEqual([]);
+ } finally {await page.close();await h.db.close();}
+});
