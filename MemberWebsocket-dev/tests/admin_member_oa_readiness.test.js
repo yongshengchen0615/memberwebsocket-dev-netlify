@@ -14,13 +14,13 @@ assert.ok(start>=0 && end>start,'existing merchant LINE settings must implement 
 
 function render({login='2010787602',liff='2010787602-member',serverVerified=false,checkedVersion=7,version=7,pending=false,error=''}={}){
  const list={children:[],replaceChildren(){this.children=[];},append(node){this.children.push(node);}};
- const block={summary:{},list,status:{},reload:{},checkedVersion,verified:serverVerified,pending,error};
+ const block={summary:{},list,status:{},reload:{},inspect:{disabled:true},checkedVersion,verified:serverVerified,pending,error};
  const tenant={version,line:{memberChannelId:login},moduleLine:{membership:{line:{memberLiffId:liff}}}};
  const node=(tag,text)=>({tag,textContent:text||'',dataset:{}});
  const context={tenant,node,saving:false,pendingOperation:()=>false};
  vm.runInNewContext(admin.slice(start,end)+'\nthis.renderMemberReadiness=renderMemberReadiness;',context);
  context.renderMemberReadiness({memberReadiness:block});
- return {heading:block.summary.textContent,messages:list.children.map(x=>x.textContent),status:block.status.textContent,disabled:block.reload.disabled};
+ return {heading:block.summary.textContent,messages:list.children.map(x=>x.textContent),status:block.status.textContent,disabled:block.reload.disabled,inspectDisabled:block.inspect.disabled};
 }
 
 test('AC-001: merchant UI names each mandatory condition, with unverified OA blocked',()=>{
@@ -30,6 +30,7 @@ test('AC-001: merchant UI names each mandatory condition, with unverified OA blo
  assert.match(value.messages.join('\n'),/已確認：會員卡 LIFF ID/);
  assert.match(value.messages.join('\n'),/待處理：會員官方帳號可信綁定/);
  assert.match(value.status,/首次註冊會被後端拒絕/);
+ assert.equal(value.inspectDisabled,false,'readiness complete should unlock merchant OA inspection');
 });
 test('AC-002: missing or mismatched member LIFF remains not ready even with stale/true server state',()=>{
  for(const args of [{login:'',liff:'2010787602-member',serverVerified:true},{liff:'111111111-member',serverVerified:true},{serverVerified:true,checkedVersion:6}]){
@@ -59,13 +60,13 @@ test('AC-005: preflight is authenticated, read-only, tenant-scoped and uses acti
  assert.doesNotMatch(backend,/configured:body\./);
 });
 
-test('AC-007: preview endpoint refuses every action except authenticated read-only OA readiness',()=>{
+test('AC-007: preview endpoint allows only authenticated read-only OA readiness and ownership inspection',()=>{
  const preview=fs.readFileSync(path.join(root,'supabase/functions/platform-api-preview/index.ts'),'utf8');
  const platform=fs.readFileSync(path.join(root,'platform/app.js'),'utf8');
- assert.match(preview,/allowedActions:new Set\(\['platform\.member-oa\.readiness'\]\)/);
+ assert.match(preview,/allowedActions:new Set\(\['platform\.member-oa\.readiness','platform\.member-oa\.inspect'\]\)/);
  assert.match(backend,/if \(allowedActions && !allowedActions\.has\(body\.action\)\)/);
- assert.match(platform,/action === 'platform\.member-oa\.readiness' && location\.hostname === 'integrated-marketing-platform--memberwebsocket-dev-netlify\.netlify\.app'/);
- assert.match(admin,/action === 'platform\.member-oa\.readiness' && location\.hostname === 'integrated-marketing-platform--memberwebsocket-dev-netlify\.netlify\.app'/);
+ assert.match(platform,/\['platform\.member-oa\.readiness','platform\.member-oa\.inspect'\]\.includes\(action\) && location\.hostname === 'integrated-marketing-platform--memberwebsocket-dev-netlify\.netlify\.app'/);
+ assert.match(admin,/\['platform\.member-oa\.readiness','platform\.member-oa\.inspect'\]\.includes\(action\) && location\.hostname === 'integrated-marketing-platform--memberwebsocket-dev-netlify\.netlify\.app'/);
  assert.doesNotMatch(preview,/allowedActions:new Set\(\['platform\.line\.save'/);
 });
 

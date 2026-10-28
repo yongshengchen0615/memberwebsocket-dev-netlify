@@ -19,7 +19,7 @@ export const handler = createPlatformHandler({
   verifyIdentity:(idToken: string) => verifyPlatformIdToken({idToken}),
   verifyApplicantIdentity:(idToken: string, channelId?: string) => verifyMerchantAdminIdToken({idToken}, channelId),
   verifiedMemberOaBindingsJson:env('MEMBER_OA_VERIFIED_LINKS_JSON'),
-  allowedActions:new Set(['platform.member-oa.readiness']),
+  allowedActions:new Set(['platform.member-oa.readiness','platform.member-oa.inspect']),
 });
 Deno.serve(handler);
 

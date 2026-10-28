@@ -267,3 +267,35 @@ test('AC-ADMIN-OA-006: actual platform handler restricts readiness to the approv
   assert.doesNotMatch(JSON.stringify(result.body),/accessToken|channelSecret|memberOaId|verifiedBindingsJson/);
  } finally { await h.db.close(); }
 });
+
+test('OA-006: real merchant SQL, encrypted token and LINE stub expose only own OA Basic ID without activation',async()=>{
+ const {setup}=require('./fixtures/merchant-http.cjs');
+ const h=await setup();
+ try{
+  await h.qualify();
+  const application=await h.submit(h.owner,'oa-inspection','Merchant OA inspect');
+  await h.review(application,'approved',h.features(['membership']));
+  const bootstrap=await h.platformCall({action:'platform.application.bootstrap',business:'oa-inspection'});
+  assert.equal(bootstrap.status,200,JSON.stringify(bootstrap.body));
+  const tenant=bootstrap.body.data.tenant;
+  const line={adminChannelId:'2010791619',adminLiffId:'2010791619-admin',memberChannelId:'2010787602',
+    messagingChannelId:'2010123456',memberLiffId:'2010787602-member'};
+  const save=await h.platformCall({action:'platform.line.save',business:'oa-inspection',feature:'membership',
+    expectedVersion:tenant.version,requestId:crypto.randomUUID(),line,
+    credentials:{channelAccessToken:'synthetic-not-a-real-secret-token',channelSecret:'a'.repeat(32)}});
+  assert.equal(save.status,200,JSON.stringify(save.body));
+  const inspected=await h.platformCall({action:'platform.member-oa.inspect',business:'oa-inspection'});
+  assert.equal(inspected.status,200,JSON.stringify(inspected.body));
+  assert.deepEqual(inspected.body.data,{memberLoginChannelId:'2010787602',messagingChannelId:'2010123456',
+    memberOaId:'@synthetic',linkedLoginVerified:false});
+  assert.doesNotMatch(JSON.stringify(inspected.body),/synthetic-not-a-real-secret-token|channelSecret|envelope/);
+  const gate=await h.platformCall({action:'platform.member-oa.readiness',business:'oa-inspection'});
+  assert.equal(gate.status,200);assert.equal(gate.body.data.configured,false,'bot ownership cannot bypass first-join OA gate');
+  const cross=await h.platformCall({action:'platform.member-oa.inspect',business:'oa-inspection'},'other');
+  assert.notEqual(cross.status,200);
+  const forbidden=await h.platformCall({action:'platform.member-oa.inspect',business:'nonexistent-shop'});
+  assert.notEqual(forbidden.status,200);
+  const stored=(await h.db.query('select module_line from platform_private.tenants where id=$1',[tenant.id])).rows[0];
+  assert.equal(JSON.stringify(stored).includes('memberOaBinding'),false);
+ }finally{await h.db.close();}
+});
