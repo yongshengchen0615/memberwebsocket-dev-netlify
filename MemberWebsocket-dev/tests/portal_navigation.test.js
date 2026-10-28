@@ -59,10 +59,10 @@ test('AC-032: admin keeps scoped navigation and member removes redundant system 
   const admin = fs.readFileSync(path.join(root,'admin/workspace.html'),'utf8');
   const member = fs.readFileSync(path.join(root,'member/index.html'),'utf8');
   assert.match(admin, /data-portal-surface="admin"/);
-  assert.match(admin, /portal-navigation\\.css/);
-  assert.match(admin, /portal-navigation\\.js/);
+  assert.match(admin, /portal-navigation\.css/);
+  assert.match(admin, /portal-navigation\.js/);
   assert.match(member, /data-portal-surface="member"/);
-  assert.doesNotMatch(member, /portal-navigation\\.(css|js)/);
+  assert.doesNotMatch(member, /portal-navigation\.(css|js)/);
 });
 
 test('AC-136: nested main uses a direct body child as insertBefore reference', () => {
