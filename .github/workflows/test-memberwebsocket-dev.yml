@@ -87,6 +87,7 @@ jobs:
             MemberWebsocket-dev/tests/integration/line_settings_workspace.cjs \
             MemberWebsocket-dev/tests/integration/line_capabilities.cjs \
             MemberWebsocket-dev/tests/integration/line_webhook_sql.cjs \
+            MemberWebsocket-dev/tests/integration/member_invitations_sql.cjs \
             MemberWebsocket-dev/tests/integration/line_webhook_api.cjs \
             MemberWebsocket-dev/tests/integration/line_webhook_ui.cjs \
             MemberWebsocket-dev/tests/integration/line_capabilities_sql.cjs \
@@ -134,6 +135,7 @@ jobs:
             MemberWebsocket-dev/tests/integration/qa_cleanup_boundaries.cjs \
             MemberWebsocket-dev/tests/integration/member_p2_features.cjs \
             MemberWebsocket-dev/tests/integration/friends_ui.cjs \
+            MemberWebsocket-dev/tests/integration/member_invitations_ui.cjs \
             MemberWebsocket-dev/tests/integration/ongoing_ticket_audit.cjs \
             MemberWebsocket-dev/tests/integration/ticket_selection_ui.cjs \
             MemberWebsocket-dev/tests/integration/qr_modal_lifecycle.cjs \
@@ -301,6 +303,7 @@ jobs:
           MemberWebsocket-dev/tests/integration/postgres/member-activation.cjs
           MemberWebsocket-dev/tests/integration/postgres/line-capabilities.cjs
           MemberWebsocket-dev/tests/integration/postgres/line-webhook.cjs
+          MemberWebsocket-dev/tests/integration/postgres/member-invitations.cjs
           MemberWebsocket-dev/tests/integration/postgres/admin-qualification.cjs
           MemberWebsocket-dev/tests/integration/postgres/merchant-applications.cjs
           MemberWebsocket-dev/tests/integration/postgres/sandbox-fixture-lifecycle.cjs

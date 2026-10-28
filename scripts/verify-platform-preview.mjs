@@ -18,6 +18,7 @@ export const previewAssets = [
   ['/admin/business-line-settings.js', 'admin/business-line-settings.js'],
   ['/admin/booking-risk.js', 'admin/booking-risk.js'], ['/points/point-transfer.js', 'points/point-transfer.js'],
   ['/member-system.js', 'member-system.js'],
+  ['/member/member-invitations.js', 'member/member-invitations.js'], ['/member/app.js', 'member/app.js'],
 ];
 const digest = body => createHash('sha256').update(body).digest('hex');
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -31,7 +32,7 @@ export async function verifyPlatformPreview({
   const origin = new URL(base).origin;
   for (const endpoint of memberApis) {
     const url = new URL(endpoint);
-    if (url.origin !== new URL(api).origin || !/^\/functions\/v1\/(api-preview|member-profile-api-preview)$/.test(url.pathname)
+    if (url.origin !== new URL(api).origin || !/^\/functions\/v1\/(api-preview|member-profile-api-preview|member-growth-api-preview)$/.test(url.pathname)
       || url.search || url.hash || url.username || url.password) throw new Error('Unexpected member preview API');
   }
   const expected = [];
@@ -51,10 +52,11 @@ export async function verifyPlatformPreview({
       const config = JSON.parse(body);
       if (config.platformLiffId !== '2012065297-VunxFBj8') throw new Error('config.json: incorrect platform LIFF identity');
       if (memberRuntimeRequired) {
-        const expectedApis = ['api-preview', 'member-profile-api-preview'].map(name => new URL('/functions/v1/' + name, new URL(api).origin).href);
+        const expectedApis = ['api-preview', 'member-profile-api-preview', 'member-growth-api-preview'].map(name => new URL('/functions/v1/' + name, new URL(api).origin).href);
         if (config.supabaseFunctionUrl !== new URL('/functions/v1/api', new URL(api).origin).href
           || config.previewApiFunctionUrl !== expectedApis[0] || config.memberProfileFunctionUrl !== expectedApis[1]
-          || memberApis.length !== 2 || memberApis.some((url,index) => url !== expectedApis[index])) {
+          || config.memberGrowthFunctionUrl !== expectedApis[2]
+          || memberApis.length !== 3 || memberApis.some((url,index) => url !== expectedApis[index])) {
           throw new Error('config.json: required member preview routes are missing or incorrect');
         }
       }
@@ -154,7 +156,7 @@ async function main() {
     const config = JSON.parse(await readFile('dist/config.json', 'utf8'));
     const result = await verifyPlatformPreview({ base: process.env.PREVIEW_BASE_URL, commit: process.env.COMMIT_REF,
       dist: 'dist', api: new URL('/functions/v1/platform-api', config.supabaseUrl).href,
-      memberApis: config.memberProfileFunctionUrl ? [config.previewApiFunctionUrl, config.memberProfileFunctionUrl] : [],
+      memberApis: config.memberProfileFunctionUrl ? [config.previewApiFunctionUrl, config.memberProfileFunctionUrl, config.memberGrowthFunctionUrl] : [],
       memberRuntimeRequired: (process.env.PREVIEW_SOURCE_BRANCH || process.env.GITHUB_REF_NAME) === 'Integrated-Marketing-Platform',
       onCheck: check => { checks.push(check); console.log(JSON.stringify(check)); },
     });

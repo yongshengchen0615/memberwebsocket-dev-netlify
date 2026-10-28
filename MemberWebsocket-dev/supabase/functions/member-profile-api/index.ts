@@ -1,9 +1,11 @@
 import { businessEnv, businessContext, serveBusiness } from '../_shared/business-runtime.ts';
-import { requireMemberOaBeforeActivation } from '../_shared/member-oa-registration-gate.mjs';
+import { requireMemberOaBeforeActivation, memberOaGuidance, strictLineAccessToken } from '../_shared/member-oa-registration-gate.mjs';
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract } from "../_shared/auth-contract.ts";
 import { resolveUserTestIdentity, TestModeAuthError } from "../_shared/test-mode-auth.ts";
 import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
+
+import { hashInvitationToken, invitationDatabaseError, InvitationError } from '../_shared/member-invitations.mjs';
 
 type Json = Record<string, unknown>;
 type Identity = { lineUserId: string; displayName: string };
@@ -246,11 +248,17 @@ serveBusiness('member-profile-api',async (request: Request) => {
     const body = await readJsonObject(request, MAX_REQUEST_BYTES, ApiError);
 
     const action = asText(body.action, 80);
-    if (!["user.member.bootstrap", "user.member.profile.save", "user.member.terms.accept", "user.member.card.open"].includes(action) || asText(body.clientType, 20) !== "member") throw new ApiError(403, "CLIENT_ACTION_MISMATCH", "操作端與功能不相符。");
+    if (!["user.member.invitation.claim", "user.member.oa.check", "user.member.bootstrap", "user.member.profile.save", "user.member.terms.accept", "user.member.card.open"].includes(action) || asText(body.clientType, 20) !== "member") throw new ApiError(403, "CLIENT_ACTION_MISMATCH", "操作端與功能不相符。");
+    if (["user.member.invitation.claim","user.member.oa.check"].includes(action) && !businessContext()) {
+      throw new ApiError(403,"INVITATION_TENANT_UNAVAILABLE","請由商家會員入口使用此功能。");
+    }
     const supabase = dbClient();
     let identity: Identity;
     try {
       const testIdentity = await resolveUserTestIdentity(supabase, asText(body.testSessionToken, 200));
+      if (testIdentity && ["user.member.invitation.claim","user.member.oa.check"].includes(action) && testIdentity.surface !== "member") {
+        throw new ApiError(403,"TEST_SESSION_SURFACE_MISMATCH","測試登入與目前功能不相符。");
+      }
       identity = testIdentity
         ? { lineUserId: testIdentity.lineUserId, displayName: testIdentity.displayName }
         : await verifyLineIdToken(asText(body.idToken, 10_000));
@@ -260,12 +268,31 @@ serveBusiness('member-profile-api',async (request: Request) => {
     }
     await consumeRateLimit(supabase, identity, action !== "user.member.bootstrap");
     const member = await ensureMember(supabase, identity);
+    if (action === "user.member.invitation.claim") {
+      const hash = await hashInvitationToken(body.invitationToken);
+      const result = await supabase.rpc("member_invitation_claim",{p_actor:identity.lineUserId,p_token_hash:hash});
+      if (result.error) throw invitationDatabaseError(result.error);
+      return response(origin,{ok:true,status:200,data:result.data});
+    }
+    if (action === "user.member.oa.check") {
+      if (member.status !== "active") throw new ApiError(403,"MEMBERSHIP_REQUIRED","會員目前無法使用此功能。");
+      if (member.membership_status === "active") return response(origin,{ok:true,status:200,data:{memberOa:{required:false}}});
+      try {
+        await requireMemberOaBeforeActivation({tenant:businessContext(),expectedChannelId:env("LINE_MEMBER_CHANNEL_ID") || "2010787602",
+          identity,member,lineAccessToken:strictLineAccessToken(body.lineAccessToken),verifiedBindingsJson:env("MEMBER_OA_VERIFIED_LINKS_JSON")});
+      } catch (error) {
+        const failure = error as {status?:number;code?:string;message?:string};
+        if (failure.status && failure.code) throw new ApiError(failure.status,failure.code,failure.message || "LINE 驗證失敗。");
+        throw error;
+      }
+      return response(origin,{ok:true,status:200,data:{memberOa:{required:true,configured:true,friend:true}}});
+    }
     if (action === "user.member.card.open") {
       const logged = await supabase.rpc("record_member_card_open", {p_actor:identity.lineUserId});
       if (logged.error) throw new ApiError(503,"AUDIT_UNAVAILABLE","會員卡開啟紀錄暫時無法儲存。");
       return response(origin,{ok:true,status:200,data:{recorded:true}});
     }
-    if (action === "user.member.bootstrap") return response(origin, { ok: true, status: 200, data: { profile: await profileFor(supabase, member), ...await termsForMember(supabase, member) } });
+    if (action === "user.member.bootstrap") return response(origin, { ok: true, status: 200, data: { profile: await profileFor(supabase, member), ...await termsForMember(supabase, member), memberOa:memberOaGuidance({tenant:businessContext(),expectedChannelId:env("LINE_MEMBER_CHANNEL_ID") || "2010787602",member,verifiedBindingsJson:env("MEMBER_OA_VERIFIED_LINKS_JSON")}) } });
     if (action === "user.member.terms.accept") {
       if (member.membership_status !== "active") throw new ApiError(403, "MEMBERSHIP_REQUIRED", "請先完成會員申請。");
       await requireCurrentSubmittedTerms(supabase, member, body);
@@ -336,7 +363,7 @@ serveBusiness('member-profile-api',async (request: Request) => {
           tenant:businessContext(),
           expectedChannelId:env("LINE_MEMBER_CHANNEL_ID") || "2010787602",
           identity,member,
-          lineAccessToken:asText(body.lineAccessToken,4096),
+          lineAccessToken:strictLineAccessToken(body.lineAccessToken),
           verifiedBindingsJson:env("MEMBER_OA_VERIFIED_LINKS_JSON"),
         });
       } catch (error) {
@@ -369,7 +396,7 @@ serveBusiness('member-profile-api',async (request: Request) => {
     return response(origin, { ok:true, status:200, data:{ profile:await profileFor(supabase,updated.data) } });
 
   } catch (error) {
-    const e = error instanceof ApiError ? error : new ApiError(500, "INTERNAL_ERROR", "會員資料服務暫時無法完成操作。");
+    const e = error instanceof ApiError || error instanceof InvitationError ? error : new ApiError(500, "INTERNAL_ERROR", "會員資料服務暫時無法完成操作。");
     return response(origin, { ok: false, status: e.status, error: { code: e.code, message: e.message, details: e.details } }, e.status);
   }
 });

@@ -12,6 +12,34 @@ const profileExtension = fs.readFileSync(path.join(root, 'member/profile-extensi
 const terms = { id: 'terms-2', version: '2026-10-v2', title: '新版條款', summary: '請閱讀', body: '完整條款內容' };
 const profile = { profileComplete: true, membershipRequired: false, joinedAt: '2026-01-01' };
 
+test('preview new signup waits for server OA recheck and preserves a safe add-friend fallback', async()=>{
+ let friendship=false;
+ const pending={lineUserId:'new-member',profileComplete:false,membershipRequired:true};
+ const {dom,w,calls}=await start(false,{config:{memberFriendshipFlowEnabled:true},profile:pending,
+  bootstrapResult:()=>({profile:pending,terms,memberOa:{required:true,configured:true,addFriendUrl:'https://line.me/R/ti/p/%40safe-oa'}}),
+  oaCheck:()=>{if(!friendship)throw Object.assign(new Error('請先加入商家好友'),{code:'MEMBER_OA_FRIENDSHIP_REQUIRED'});return {memberOa:{required:true,configured:true,friend:true}};}
+ });
+ try{
+  assert.equal(w.document.getElementById('profileForm').hidden,true);
+  assert.equal(w.document.getElementById('memberOaAddLink').href,'https://line.me/R/ti/p/%40safe-oa');
+  assert.match(w.document.getElementById('memberOaStatus').textContent,/加入/);
+  friendship=true;w.document.getElementById('recheckMemberOa').click();await new Promise(r=>setTimeout(r,20));
+  assert.equal(w.document.getElementById('profileForm').hidden,false);
+  assert.equal(calls.filter(c=>c.action==='user.member.profile.save').length,0);
+ }finally{dom.window.close();}
+});
+
+test('closing native add-friend prompt cannot unlock signup without verified server friendship',async()=>{
+ let requested=0,rechecked=0;
+ const pending={lineUserId:'new-member',profileComplete:false,membershipRequired:true};
+ const {dom,w}=await start(false,{config:{memberFriendshipFlowEnabled:true},profile:pending,
+  liff:{isInClient:()=>true,getContext:()=>({viewType:'full'}),isApiAvailable:()=>true,requestFriendship:async()=>requested++,getFriendship:async()=>{rechecked++;return {friendFlag:false};}},
+  bootstrapResult:()=>({profile:pending,terms,memberOa:{required:true,configured:true,addFriendUrl:'https://line.me/R/ti/p/%40safe-oa'}}),
+  oaCheck:()=>{throw Object.assign(new Error('尚未成為好友'),{code:'MEMBER_OA_FRIENDSHIP_REQUIRED'});}
+ });
+ try{w.document.getElementById('addMemberOa').click();await new Promise(r=>setTimeout(r,20));assert.equal(requested,1);assert.equal(rechecked,1);assert.equal(w.document.getElementById('profileForm').hidden,true);}finally{dom.window.close();}
+});
+
 async function start(consentRequired, options = {}) {
   const dom = new JSDOM(html, { runScripts: 'outside-only', url: 'https://example.test/member/' });
   const currentProfile = options.profile || profile;
@@ -20,7 +48,7 @@ async function start(consentRequired, options = {}) {
   const calls = [];
   w.MemberSystem = {
     bindDialogKeyboard() {},
-    loadConfig: async () => ({ brandName: 'Lumen Club' }),
+    loadConfig: async () => ({ brandName: 'Lumen Club', ...options.config }),
     signIn: async () => 'fixture-token',
     initials: () => '會',
     formatDate: (value) => value || '',
@@ -40,10 +68,12 @@ async function start(consentRequired, options = {}) {
         if (typeof options.profileSaveResult === 'function') return options.profileSaveResult(payload);
         return { profile: { ...currentProfile, profileComplete: true, membershipRequired: false } };
       }
+      if (action === 'user.member.oa.check' && options.oaCheck) return options.oaCheck();
       throw new Error(`Unexpected action: ${action}`);
     },
   };
   w.MembershipProgress = { render() {} };
+  if (options.liff) w.liff = options.liff;
   w.eval(memberPhone);
   if (options.loadProfileExtension) w.eval(profileExtension);
   w.eval(app);

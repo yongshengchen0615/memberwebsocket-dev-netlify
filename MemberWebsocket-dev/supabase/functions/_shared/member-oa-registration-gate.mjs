@@ -47,3 +47,19 @@ export async function requireMemberOaBeforeActivation({
   });
   return { required:true };
 }
+
+// Safe bootstrap metadata uses exactly the activation gate's binding resolver.
+// Missing configuration must not make established members' bootstrap unusable.
+export function memberOaGuidance({tenant,expectedChannelId,member,verifiedBindingsJson}) {
+  const required=member?.membership_status!=='active';
+  try {
+    const binding=trustedMemberOaBinding(tenant,expectedChannelId,verifiedBindingsJson);
+    return {required,configured:true,addFriendUrl:'https://line.me/R/ti/p/'+encodeURIComponent(binding.memberOaId)};
+  } catch { return {required,configured:false}; }
+}
+export function strictLineAccessToken(value) {
+  if (typeof value!=='string' || !value.trim() || value.length>4096) {
+    throw new MemberOaFriendshipError(401,'LINE_ACCESS_TOKEN_REQUIRED','請重新登入 LINE 並確認好友狀態。');
+  }
+  return value;
+}

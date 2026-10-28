@@ -10,6 +10,13 @@ const expectedLanes = [
   'browser-syntax', 'edge-functions', 'wiring', 'dependency-audit',
 ];
 
+test('invitation settlement runs both SQL behavior and physical PostgreSQL concurrency in required lanes', () => {
+  const integration = workflow.split(/^  integration:\s*$/m)[1].split(/^  [a-z-]+:\s*$/m)[0];
+  const postgres = workflow.split(/^  postgres-integration:\s*$/m)[1].split(/^  [a-z-]+:\s*$/m)[0];
+  assert.ok(integration.includes('MemberWebsocket-dev/tests/integration/member_invitations_sql.cjs'));
+  assert.ok(postgres.includes('MemberWebsocket-dev/tests/integration/postgres/member-invitations.cjs'));
+});
+
 test('every pull request triggers the entire regression workflow, regardless of changed paths', () => {
   // A required check with PR path filters stays pending forever on docs-only
   // changes. Both product gates must receive every PR, including governance.

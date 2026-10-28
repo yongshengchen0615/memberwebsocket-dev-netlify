@@ -62,7 +62,10 @@ export function createLineWebhookHandler({db,encryptionKey,bodyTimeoutMs=3000,rp
       if(!Array.isArray(candidates)||!candidates.length||candidates.length>5)throw new IngressError(401,'INVALID_SIGNATURE');
       let candidate,storageError=false;
       const key=await encryptionKey();
-      for(const option of candidates){
+      // A shared Channel can have several module bindings. Only a membership
+      // binding whose own credential verifies may establish OA observations.
+      const ordered=[...candidates].sort((a,b)=>Number(b.feature==='membership')-Number(a.feature==='membership'));
+      for(const option of ordered){
         try{
           const scope=option.tenantId+(option.scope==='module'?':'+option.feature:'');
           const credentials=await openCredentials(scope,option.envelope,key);
@@ -75,10 +78,14 @@ export function createLineWebhookHandler({db,encryptionKey,bodyTimeoutMs=3000,rp
           ||!Number.isSafeInteger(event.timestamp)||event.timestamp<0||event.timestamp>8640000000000000
           ||typeof event.type!=='string'||event.type.length>100)
           throw new IngressError(400,'INVALID_EVENT');
-        return {eventId:event.webhookEventId,type:types.has(event.type)?event.type:'other',timestamp:event.timestamp,redelivery:event.deliveryContext?.isRedelivery===true};
+        const receipt={eventId:event.webhookEventId,type:types.has(event.type)?event.type:'other',timestamp:event.timestamp,redelivery:event.deliveryContext?.isRedelivery===true};
+        if((event.type==='follow'||event.type==='unfollow')&&event.source?.type==='user'&&typeof event.source.userId==='string'&&botId.test(event.source.userId))
+          receipt.sourceUserId=event.source.userId;
+        return receipt;
       });
       // This transaction rechecks current grant + credential revision, deduplicates
-      // and persists only terminal receipts. There is no background business work.
+      // and persists terminal receipts plus private membership OA observations.
+      // Observations never register members or issue rewards.
       await rpc('platform_line_webhook_ingest',{p_channel_id:candidate.channelId,p_feature:candidate.feature,p_revision:candidate.revision,p_events:events});
       return json(200);
     } catch(error) {
