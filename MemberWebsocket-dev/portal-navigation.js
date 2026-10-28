@@ -3,7 +3,7 @@
   // Navigation is not authorization: every destination verifies LINE identity
   // and its own server-side role/tenant permissions.
   const surface = document.documentElement.dataset.portalSurface;
-  if (surface === 'platform' || !['admin', 'member'].includes(surface)) return;
+  if (surface !== 'admin') return;
   const links = [
     { id: 'platform', title: '總管理員', url: '/platform/' },
     { id: 'admin', title: '一般管理員', url: '/admin/' },
