@@ -166,7 +166,7 @@
       const title=document.createElement('h3');title.textContent=tenant.name;
       const info=document.createElement('p');info.textContent=`${tenant.slug} · 管理員 ${tenant.ownerLineUserId}`;
       const featureList=document.createElement('div');featureList.className='tenant-features';
-      for (const [key,label] of Object.entries(state.features)) if (tenant.features[key]) {const tag=document.createElement('span');tag.textContent=label;featureList.append(tag);}
+      for (const [key,label] of Object.entries(state.features)) if (visibleFeatureKeys.includes(key) && tenant.features[key]) {const tag=document.createElement('span');tag.textContent=label;featureList.append(tag);}
       if (!featureList.childNodes.length) featureList.textContent='尚未開放任何功能';
       const footer=document.createElement('footer');const edit=document.createElement('button');edit.type='button';edit.textContent='調整開放功能';edit.addEventListener('click',()=>openGrantDialog(tenant));footer.append(edit);
       const expiry=document.createElement('button');expiry.type='button';expiry.className='secondary';expiry.textContent='設定使用期限';
@@ -444,7 +444,7 @@
     return data;
   }
   function collect() {return {name:fields.namedItem('name').value.trim(),slug:fields.namedItem('slug').value.trim(),ownerLineUserId:fields.namedItem('ownerLineUserId').value.trim(),
-    features:Object.fromEntries([...form.querySelectorAll('[data-feature]')].map(node=>[node.dataset.feature,node.checked])),
+    features:Object.fromEntries(featureKeys.map(key=>[key,visibleFeatureKeys.includes(key) && Boolean(form.querySelector('[data-feature="'+key+'"]')?.checked)])),
     line:Object.fromEntries(lineKeys.map(key=>[key,fields.namedItem(key).value.trim()])),
     credentials:{channelAccessToken:fields.namedItem('channelAccessToken').value.trim(),channelSecret:fields.namedItem('channelSecret').value.trim()}};}
   form.addEventListener('submit',async event=>{
@@ -472,7 +472,7 @@
     grantTenant=tenant;grantPending=null;
     el('grantDescription').textContent=tenant.name+' · '+tenant.slug;
     const list=el('grantFeatures');list.replaceChildren();
-    for(const [key,label] of Object.entries(state.features)) {
+    for(const [key,label] of Object.entries(state.features).filter(([key])=>visibleFeatureKeys.includes(key))) {
       const wrap=document.createElement('label'),input=document.createElement('input');
       input.type='checkbox';input.dataset.grantFeature=key;input.checked=tenant.features?.[key]===true;
       wrap.append(input,document.createTextNode(label));list.append(wrap);
@@ -485,7 +485,7 @@
     event.preventDefault();if(!grantTenant)return;
     if(!grantPending)grantPending={
       tenantId:grantTenant.id,expectedVersion:grantTenant.version,requestId:crypto.randomUUID(),
-      features:Object.fromEntries([...grantForm.querySelectorAll('[data-grant-feature]')].map(node=>[node.dataset.grantFeature,node.checked]))
+      features:Object.fromEntries(featureKeys.map(key=>[key,visibleFeatureKeys.includes(key) && Boolean(grantForm.querySelector('[data-grant-feature="'+key+'"]')?.checked)]))
     };
     el('saveGrant').disabled=true;el('grantMessage').textContent='正在儲存授權…';
     try{
@@ -635,13 +635,13 @@
     const status=tenant.onboarding;
     const missing=[...(status?.commonMissing||[]),...Object.values(status?.features||{}).flatMap(item=>item.missing)];
     const summary='商家：'+tenant.name+'\n商家代碼：'+tenant.slug+'\nLINE 設定：'+(status?.configurationComplete?'必填資料已保存':status?'尚缺 '+missing.map(key=>lineLabels[key]||key).join('、'):'等待確認')
-      +'\n核准功能：'+Object.entries(state.features).filter(([key])=>tenant.features?.[key]===true).map(([,label])=>label).join('、')
+      +'\n核准功能：'+Object.entries(state.features).filter(([key])=>visibleFeatureKeys.includes(key)&&tenant.features?.[key]===true).map(([,label])=>label).join('、')
       +(status?.adminReady?'\n管理業務／用戶端：已開放\n管理入口：'+location.origin+'/admin/?business='+tenant.slug:'\n管理業務／用戶端：尚未開放\n請聯絡總管理員確認申請。');
     try{await navigator.clipboard.writeText(summary);el('copySetupMessage').textContent='開通狀態已複製，可貼給平台聯絡人；不含憑證。';}
     catch{el('copySetupMessage').textContent='無法自動複製，請將本頁顯示的商家代碼與開通狀態提供給平台聯絡人。';}
   });
   function selectMerchantWorkspaceTab(requested) {
-    const granted = (hasFeatureLine(state.merchant)?Object.keys(featureLiffNames):Object.keys(state.features)).some(key => state.merchant?.features?.[key] === true);
+    const granted = (hasFeatureLine(state.merchant)?Object.keys(featureLiffNames):visibleFeatureKeys).some(key => state.merchant?.features?.[key] === true);
     merchantWorkspaceTab = requested === 'line' && granted ? 'line' : 'overview';
     const lineTab = el('merchantLineSettingsTab'),overviewTab = el('merchantOverviewTab');
     if (!lineTab || !overviewTab || !el('merchantOverviewPanel') || !el('merchantLineSettingsPanel')) return;
@@ -764,7 +764,7 @@
         : '你已取得 LINE 設定權。請完成共用資料與各項已核准功能的設定，再由平台完成開通與實測。';
     }
     const tags=el('merchantFeatures');tags.replaceChildren();
-    for(const [key,label] of Object.entries(state.features))if(tenant.features[key]){
+    for(const [key,label] of Object.entries(state.features))if(visibleFeatureKeys.includes(key)&&tenant.features[key]){
       const tag=document.createElement('span');tag.textContent=label;tags.append(tag);
     }
     if(!tags.childNodes.length)tags.textContent='尚未核准任何業務功能';
@@ -951,7 +951,7 @@
       }
       const data=await refresh();
       clearLoginGate();
-      for(const [key,label] of Object.entries(data.features)) {const wrap=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.dataset.feature=key;wrap.append(input,document.createTextNode(label));el('featureFields').append(wrap);}
+      for(const [key,label] of Object.entries(data.features).filter(([key])=>visibleFeatureKeys.includes(key))) {const wrap=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.dataset.feature=key;wrap.append(input,document.createTextNode(label));el('featureFields').append(wrap);}
       el('platformWorkspace').hidden=false;el('platformStatus').textContent=`總管理員 ${data.profile.displayName}，已登入。`;
       try { window.sessionStorage.removeItem(AUTO_LOGIN_ATTEMPT_KEY); } catch {}
     } catch(error){

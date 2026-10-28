@@ -13,7 +13,10 @@ export function actionFeatures(action,body={}) {
  if(action==='admin.service-grants.add'||action==='admin.service-grants.catalog'||action==='admin.service-grants.preview')return ['membership','points'];
  if(action.startsWith('admin.booking.')||action.startsWith('user.booking.'))return ['booking'];
  if(/^admin\.(test-|e2e-)/.test(action)||action.startsWith('test-mode.')||action.startsWith('user.qa.'))return ['testing'];
- if(action==='admin.audit.query'||action==='admin.member-records.list')return ['usage'];
+ // Retired standalone audit has no grantable business action, even for legacy usage grants.
+ if(action==='admin.audit.query')return null;
+ // Member-card history is a membership operation, not the retired audit product.
+ if(action==='admin.member-records.list')return ['membership'];
  if(action==='admin.integration-overview')return ['integrations'];
  if(/^admin\.(pointcards?|tickets|stamps)\./.test(action)||action.startsWith('user.pointcard'))return ['points'];
  if(/^admin\.(event-|fixed-tickets)/.test(action)||/^user\.event/.test(action))return ['events'];
