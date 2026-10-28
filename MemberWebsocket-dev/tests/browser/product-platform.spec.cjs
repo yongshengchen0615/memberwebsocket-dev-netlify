@@ -65,12 +65,17 @@ test('PLATFORM_APPLICANT_ROOT_GRANTS — review applicant, grant features only, 
   const before=(await h.db.query('select * from platform_private.tenants')).rows[0];
   expect(before.credentials_configured).toBe(false);
   await page.getByRole('button',{name:'調整開放功能'}).click();
-  await expect(page.locator('#grantFeatures [data-grant-feature]')).toHaveCount(8);
+  // The retired testing/usage products must not be presented as grantable UI;
+  // keep eight boolean keys in the database contract with both retired keys false.
+  await expect(page.locator('#grantFeatures [data-grant-feature]')).toHaveCount(6);
+  await expect(page.locator('#grantFeatures [data-grant-feature="testing"], #grantFeatures [data-grant-feature="usage"]')).toHaveCount(0);
   await page.locator('[data-grant-feature="booking"]').uncheck();
   await page.getByRole('button',{name:'儲存功能授權'}).click();
   await expect(page.locator('#grantDialog')).toBeHidden();
   const after=(await h.db.query('select * from platform_private.tenants')).rows[0];
   expect(after.features.membership).toBe(true);expect(after.features.booking).toBe(false);
+  expect(Object.keys(after.features)).toHaveLength(8);
+  expect(after.features.testing).toBe(false);expect(after.features.usage).toBe(false);
   expect(after.line_config).toEqual(before.line_config);
   expect(after.credentials_configured).toBe(false);
   expect(after.status).toBe('pending_provisioning');expect(after.version).toBe(2);
