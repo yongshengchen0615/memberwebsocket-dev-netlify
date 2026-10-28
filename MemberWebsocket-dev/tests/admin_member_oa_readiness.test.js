@@ -10,6 +10,7 @@ const css=read('admin/business-line-settings.css');
 const adminEntry=read('admin/index.html');
 const merchantEntry=read('admin/workspace.html');
 const platformClient=read('platform/app.js');
+const platformEntry=read('platform/index.html');
 const backend=read('supabase/functions/_shared/platform-handler.mjs');
 const production=read('supabase/functions/platform-api/index.ts');
 const preview=read('supabase/functions/platform-api-preview/index.ts');
@@ -43,6 +44,7 @@ test('RB-ADMIN-004: both manager entrypoints load the restored settings and bust
   assert.match(html,/business-line-settings\.css\?v=member-card-admin-rollback-20261028-1/);
  }
  assert.match(merchantEntry,/platform\/app\.js\?v=member-card-admin-rollback-20261028-1/);
+ assert.match(platformEntry,/\.\/app\.js\?v=member-card-admin-rollback-20261028-1/);
  assert.match(platformClient,/url\.pathname\.replace\(\/\\\/api\\\/\?\$\/, '\/platform-api'\)/);
  assert.doesNotMatch(platformClient,/readOnlyPreview/);
 });
