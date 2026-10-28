@@ -22,11 +22,3 @@
 .business-line-feature-nav button:focus-visible{outline:3px solid #bc8e28;outline-offset:2px}
 #businessLineFeatureContent > [hidden],#lineSettingsPanel[hidden]{display:none!important}
 @media(max-width:650px){.business-line-feature-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}
-
-.member-registration-readiness{padding:16px;border:1px solid #b9c9c0;border-radius:12px;background:#f7faf8;margin:12px 0 16px}
-.member-registration-readiness h3{margin:0 0 10px;font-size:1.02rem}
-.member-registration-readiness ul{margin:12px 0;padding-left:22px;display:grid;gap:8px}
-.member-registration-readiness li[data-ready="false"]{font-weight:650;color:#815b10}
-.member-oa-admin-notice{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin:12px 0;padding:14px 16px;border:1px solid #d4b876;border-radius:12px;background:#fff9ed;color:#61450e}
-.member-oa-admin-notice[hidden]{display:none!important}
-.member-oa-admin-notice button{min-height:44px}

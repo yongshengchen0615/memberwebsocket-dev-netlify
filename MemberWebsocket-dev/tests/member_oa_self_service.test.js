@@ -56,8 +56,8 @@ test('OA-005: preview action is tenant authenticated and read-only; production r
  assert.match(handler,/inspectMemberOaOwnership\(\{line,credentials,fetchImpl\}\)/);
  assert.match(preview,/allowedActions:new Set\(\['platform.member-oa.readiness','platform.member-oa.inspect'\]\)/);
  assert.doesNotMatch(production,/allowedActions:new Set\(\['platform.member-oa.readiness'/);
- assert.match(ui,/由 LINE 自動辨識我的官方帳號/);
- assert.match(ui,/block\.inspect\.disabled = Boolean\(block\.pending \|\| saving \|\| pendingOperation\(\)\)/);
- assert.match(ui,/Linked LINE Official Account/);
+ assert.doesNotMatch(ui,/由 LINE 自動辨識我的官方帳號|member-registration-readiness|platform\.member-oa\.inspect/);
+ assert.match(ui,/request\('platform\.line\.save', view\.pending\)/);
+ assert.match(ui,/memberLiffId/);
  assert.doesNotMatch(file('supabase/functions/_shared/member-oa-registration-gate.mjs'),/inspectMemberOaOwnership/);
 });
