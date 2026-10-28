@@ -55,7 +55,7 @@ test('AC-031: unknown surfaces never inject role navigation', () => {
   vm.runInNewContext(script, { document });
   assert.equal(nodes.length, 0);
 });
-test('AC-032: each portal actually imports the shared CSS and JS with explicit role', () => {
+test('RB-NAV-002: member skips the shared assets while admin and platform declarations remain', () => {
   for (const [route, surface] of [['platform/index.html','platform'],['admin/workspace.html','admin']]) {
     const page = fs.readFileSync(path.join(root,route),'utf8');
     assert.match(page, new RegExp('data-portal-surface="'+surface+'"'));
@@ -91,5 +91,5 @@ test('RB-NAV-001: member portal never mounts the upper System Entry or User Link
   vm.runInNewContext(script,{document});
   assert.equal(nodes.length,0);
   assert.equal(document.getElementById('unifiedPortalNav'),undefined);
-  assert.doesNotMatch(fs.readFileSync(path.join(root,'member/index.html'),'utf8'),/portal-navigation\\.(?:js|css)/);
+  assert.doesNotMatch(fs.readFileSync(path.join(root,'member/index.html'),'utf8'),/portal-navigation\.(?:js|css)/);
 });
