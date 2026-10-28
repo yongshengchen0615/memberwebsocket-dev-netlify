@@ -33,7 +33,7 @@ export function databaseError(error) {
   for (const [code,[status,message]] of Object.entries(SQL_ERRORS)) if (String(error?.message || '').includes(code)) return new PlatformError(status,code,message);
   return new PlatformError(503,'PLATFORM_DATABASE_UNAVAILABLE','目前無法儲存或讀取商家設定。');
 }
-export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdentity = verifyIdentity, encryptionKey, allowedOrigins, fetchImpl = fetch, publicSupabaseUrl, verifiedMemberOaBindingsJson = '' }) {
+export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdentity = verifyIdentity, encryptionKey, allowedOrigins, fetchImpl = fetch, publicSupabaseUrl, verifiedMemberOaBindingsJson = '', allowedActions = null }) {
   const moduleCredentials = async (current, feature) => {
     const stored=await db.rpc('platform_module_credentials',{p_tenant_id:current.id,p_feature:feature});
     if(stored.error)throw databaseError(stored.error);
@@ -65,6 +65,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       try { const data = new Uint8Array(size); let at = 0; for (const c of chunks) { data.set(c,at); at += c.length; } body = JSON.parse(new TextDecoder().decode(data)); }
       catch { throw new PlatformError(400,'INVALID_JSON','請求格式不正確。'); }
       if (!body || typeof body !== 'object' || Array.isArray(body)) throw new PlatformError(400,'INVALID_JSON','請求格式不正確。');
+      if (allowedActions && !allowedActions.has(body.action)) throw new PlatformError(404,'ACTION_NOT_FOUND','預覽端點不支援此操作。');
       if(body.action==='platform.business.public'){
         if(typeof body.business!=='string'||!/^[-a-z0-9]{3,40}$/.test(body.business))throw new PlatformError(400,'INVALID_BUSINESS','商家入口格式不正確。');
         const limited=await db.rpc('consume_api_rate_limit',{p_principal_hash:await payloadHash('business-public:'+body.business+':'+(request.headers.get('x-forwarded-for')||'')),p_is_write:false,p_cost:1,p_read_limit:90,p_write_limit:15});
