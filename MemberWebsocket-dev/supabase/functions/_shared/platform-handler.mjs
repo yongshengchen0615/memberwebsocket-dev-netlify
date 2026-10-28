@@ -4,6 +4,7 @@ import { payloadHash, sealCredentials, openCredentials } from './platform-crypto
 import { assertTenantIdentity, normalizeExpiry } from './tenant-access.mjs';
 import { validateNotificationRoute, verifyNotificationToken } from './notification-routes.mjs';
 import { checkLineWebhook, lineWebhookEndpoint } from './line-webhook-diagnostics.mjs';
+import { memberOaGuidance } from './member-oa-registration-gate.mjs';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SQL_ERRORS = {
   LINE_CHANNEL_IN_USE:[409,'此 Messaging API Channel 已綁定其他商家。'],
@@ -32,7 +33,7 @@ export function databaseError(error) {
   for (const [code,[status,message]] of Object.entries(SQL_ERRORS)) if (String(error?.message || '').includes(code)) return new PlatformError(status,code,message);
   return new PlatformError(503,'PLATFORM_DATABASE_UNAVAILABLE','目前無法儲存或讀取商家設定。');
 }
-export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdentity = verifyIdentity, encryptionKey, allowedOrigins, fetchImpl = fetch, publicSupabaseUrl }) {
+export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdentity = verifyIdentity, encryptionKey, allowedOrigins, fetchImpl = fetch, publicSupabaseUrl, memberOaVerifiedBindingsJson = '' }) {
   const moduleCredentials = async (current, feature) => {
     const stored=await db.rpc('platform_module_credentials',{p_tenant_id:current.id,p_feature:feature});
     if(stored.error)throw databaseError(stored.error);
@@ -84,7 +85,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       const merchantAction = ['platform.merchant.list','platform.merchant.get','platform.merchant.submit','platform.merchant.review'].includes(body.action);
       if ((qualificationAction || merchantAction) && body.business !== undefined)
         throw new PlatformError(400,'PLATFORM_INVALID_INPUT','資格與商家申請不接受商家入口。');
-      const applicantAction = ['platform.webhook.status','platform.webhook.check','platform.application.bootstrap','platform.application.ensure','platform.application.submit','platform.line.save','platform.notifications.save','platform.notifications.test','platform.qualification.bootstrap','platform.qualification.submit','platform.merchant.list','platform.merchant.get','platform.merchant.submit'].includes(body.action);
+      const applicantAction = ['platform.webhook.status','platform.webhook.check','platform.member-oa.readiness','platform.application.bootstrap','platform.application.ensure','platform.application.submit','platform.line.save','platform.notifications.save','platform.notifications.test','platform.qualification.bootstrap','platform.qualification.submit','platform.merchant.list','platform.merchant.get','platform.merchant.submit'].includes(body.action);
       let trustedChannel;
       if (applicantAction && body.business !== undefined) {
         if (typeof body.business !== 'string' || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(body.business) || body.business.length > 40)
@@ -100,7 +101,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       const identity = await (applicantAction ? verifyApplicantIdentity : verifyIdentity)(body.idToken, trustedChannel);
       const actor = identity.lineUserId;
       if(['platform.webhook.status','platform.webhook.check'].includes(body.action))webhookActor=actor;
-      const readOnly = ['platform.webhook.status','platform.bootstrap','platform.application.bootstrap','platform.qualification.bootstrap','platform.qualification.list','platform.merchant.list','platform.merchant.get'].includes(body.action);
+      const readOnly = ['platform.webhook.status','platform.bootstrap','platform.application.bootstrap','platform.member-oa.readiness','platform.qualification.bootstrap','platform.qualification.list','platform.merchant.list','platform.merchant.get'].includes(body.action);
       const rate = await db.rpc('consume_api_rate_limit',{p_principal_hash:await payloadHash(`platform:${actor}`),
         p_is_write:!readOnly,p_cost:1,p_read_limit:60,p_write_limit:15});
       if (rate.error) throw new PlatformError(503,'RATE_LIMIT_UNAVAILABLE','目前無法確認請求頻率。');
@@ -215,6 +216,35 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       }
       if (body.action === 'platform.application.bootstrap') {
         return json({ok:true,data:{profile:{displayName:identity.displayName},features:FEATURES,...await mine()}});
+      }
+      if (body.action === 'platform.member-oa.readiness') {
+        // Read-only, scoped to the verified admin's merchant; neither a client
+        // claim nor a signed Webhook alone is proof of a linked member OA.
+        const workspace = await mine(), merchant = workspace.tenant;
+        if (!merchant || workspace.application?.status !== 'approved')
+          throw new PlatformError(403,'BUSINESS_FORBIDDEN','無法讀取其他商家的入會設定。');
+        if (merchant.features?.membership !== true)
+          throw new PlatformError(403,'FEATURE_DISABLED','尚未核准會員功能。');
+        const identity = {...merchant.line,...merchant.moduleLine?.membership?.line};
+        const channel = String(identity.memberChannelId || '').trim();
+        const liff = String(identity.memberLiffId || '').trim();
+        const channelReady = /^\\d{5,30}$/.test(channel);
+        const liffReady = channelReady && liff.startsWith(channel+'-')
+          && /^\\d{5,30}-[A-Za-z0-9_-]+$/.test(liff);
+        const oaGuidance = memberOaGuidance({
+          tenant: {id:merchant.id,features:merchant.features,
+            line_config:merchant.line,module_line:{membership:{line:merchant.moduleLine?.membership?.line||{}}}},
+          expectedChannelId:channel,member:{membership_status:'pending'},
+          verifiedBindingsJson:memberOaVerifiedBindingsJson,
+        });
+        const checks = [
+          {key:'business',label:'商家會員功能與資料環境',ok:merchant.capabilities?.dataPlaneVerified===true},
+          {key:'login',label:'會員 LINE Login Channel ID',ok:channelReady},
+          {key:'liff',label:'會員 LIFF 與 Login Channel 一致',ok:liffReady},
+          {key:'oa',label:'LINE Login 與本店會員官方帳號的可信綁定',ok:oaGuidance.configured===true},
+        ];
+        return json({ok:true,data:{ready:checks.every(item=>item.ok),checks,
+          nextStep:oaGuidance.configured===true?'':'請在 LINE Developers 確認會員官方帳號與 LINE Login 的 Provider 關聯，再請平台管理員完成伺服器端 OA Basic ID 綁定核准。'}});
       }
       if (body.action === 'platform.application.submit') {
         if (typeof body.businessName !== 'string' || body.businessName.length > 100 || !body.businessName.trim()
