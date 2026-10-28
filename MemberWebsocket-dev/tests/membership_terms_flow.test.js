@@ -157,42 +157,38 @@ test('PostgREST stale RPC schema is surfaced as a retryable membership service e
   assert.equal(h.consents.size,0);
 });
 
-test('FJG-02: rejected friendship cannot create consent or activate a pending member', async () => {
-  const h=harness();
-  h.forceGateError({status:403,code:'MEMBER_OA_FRIENDSHIP_REQUIRED',message:'請先加入商家會員官方帳號。'});
-  const result=await h.call('user.member.profile.save',{
-    birthday:'1990-01-01',phone:'0912345678',surname:'林',salutation:'mr',
-    termsId:'terms-1',termsVersion:'v1',accepted:true,
-    lineAccessToken:'synthetic-user-token',
-  });
-  assert.equal(result.status,403);
-  assert.equal(result.body.error.code,'MEMBER_OA_FRIENDSHIP_REQUIRED');
-  assert.equal(h.gateCalls(),1);
-  assert.equal(h.member.membership_status,'pending');
-  assert.equal(h.consents.size,0);
+// AC-RB-001/002: Explicit temporary rollback of the newly introduced OA
+// prerequisite. Existing LINE identity and current terms remain required.
+test('rollback: a previously failing OA configuration no longer blocks verified join',async()=>{
+ const h=harness();
+ h.forceGateError({status:503,code:'MEMBER_OA_CONFIG_INCOMPLETE',message:'unconfigured OA'});
+ const result=await h.call('user.member.profile.save',{
+  birthday:'1990-01-01',phone:'0912345678',surname:'林',salutation:'mr',
+  termsId:'terms-1',termsVersion:'v1',accepted:true,
+ });
+ assert.equal(result.status,200,JSON.stringify(result.body));
+ assert.equal(h.member.membership_status,'active');
+ assert.deepEqual([...h.consents],['terms-1']);
+ assert.equal(h.gateCalls(),0,'previously unavailable OA check must not block enrollment');
 });
-
-test('FJG-02: provider failure does not activate pending member or record terms', async () => {
-  const h=harness();
-  h.forceGateError({status:503,code:'LINE_FRIENDSHIP_UNAVAILABLE',message:'稍後重試'});
-  const result=await h.call('user.member.profile.save',{
-    birthday:'1990-01-01',phone:'0912345678',surname:'林',salutation:'mr',
-    termsId:'terms-1',termsVersion:'v1',accepted:true,
-  });
-  assert.equal(result.status,503);
-  assert.equal(result.body.error.code,'LINE_FRIENDSHIP_UNAVAILABLE');
-  assert.equal(h.member.membership_status,'pending');
-  assert.equal(h.consents.size,0);
+test('rollback: terms consent is still required before activation',async()=>{
+ const h=harness();
+ const result=await h.call('user.member.profile.save',{
+  birthday:'1990-01-01',phone:'0912345678',surname:'林',salutation:'mr',
+  termsId:'terms-1',termsVersion:'v1',accepted:false,
+ });
+ assert.equal(result.status,400);
+ assert.equal(result.body.error.code,'TERMS_CONSENT_REQUIRED');
+ assert.equal(h.member.membership_status,'pending');
+ assert.equal(h.consents.size,0);
 });
-
-test('FJG-02: already active member updates never invoke first-join friendship gate', async () => {
-  const h=harness();
-  const profile={birthday:'1990-01-01',phone:'0912345678',surname:'林',salutation:'mr',termsId:'terms-1',termsVersion:'v1',accepted:true};
-  assert.equal((await h.call('user.member.profile.save',profile)).status,200);
-  assert.equal(h.gateCalls(),1);
-  h.forceGateError({status:403,code:'MEMBER_OA_FRIENDSHIP_REQUIRED',message:'blocked'});
-  const result=await h.call('user.member.profile.save',{surname:'陳'});
-  assert.equal(result.status,200);
-  assert.equal(h.gateCalls(),1);
-  assert.equal(h.member.membership_status,'active');
+test('rollback: an existing member can still edit profile without LINE OA configuration',async()=>{
+ const h=harness();
+ const profile={birthday:'1990-01-01',phone:'0912345678',surname:'林',salutation:'mr',termsId:'terms-1',termsVersion:'v1',accepted:true};
+ assert.equal((await h.call('user.member.profile.save',profile)).status,200);
+ h.forceGateError({status:503,code:'MEMBER_OA_CONFIG_INCOMPLETE',message:'unconfigured OA'});
+ const result=await h.call('user.member.profile.save',{surname:'陳'});
+ assert.equal(result.status,200);
+ assert.equal(h.gateCalls(),0);
+ assert.equal(h.member.membership_status,'active');
 });
