@@ -70,7 +70,8 @@
     const session = window.MemberAdminSession?.get();
     if (!session) {const error=Object.assign(Error('登入狀態已失效，請重新登入。'),{code:'AUTH_REQUIRED'});revoke(error);throw error;}
     const url = new URL(session.config.supabaseFunctionUrl);
-    url.pathname = url.pathname.replace(/\/api\/?$/, '/platform-api');
+    const readOnlyPreview = action === 'platform.member-oa.readiness' && location.hostname === 'integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app';
+    url.pathname = url.pathname.replace(/\/api\/?$/, readOnlyPreview ? '/platform-api-preview' : '/platform-api');
     let response;
     try {
       response = await fetch(url.href, {method:'POST', cache:'no-store', signal:AbortSignal.timeout(15000),
