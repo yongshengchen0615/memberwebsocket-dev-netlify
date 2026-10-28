@@ -100,6 +100,11 @@ test('MEMBER_OA_ADMIN_PREFLIGHT: merchant overview shows mandatory LINE setup be
   await expect(panel).toBeVisible();
   await expect(panel.locator('.member-registration-readiness')).toContainText('會員官方帳號可信綁定');
   await expect(panel.locator('.member-registration-readiness li[data-ready=false]')).toHaveCount(3);
+  await panel.getByRole('button',{name:'由 LINE 自動辨識我的官方帳號'}).click();
+  await expect(panel.locator('.member-registration-readiness')).toContainText('官方帳號查核未完成');
+  await expect(panel.locator('.member-registration-readiness li[data-ready=false]')).toHaveCount(3);
+  expect(session.calls.some(item=>item.action==='platform.member-oa.inspect')).toBe(true);
+
   await panel.getByRole('button',{name:'重新檢查會員入會設定'}).click();
   await page.locator('#merchantOverviewTab').click();
   await expect(notice).toBeVisible();
