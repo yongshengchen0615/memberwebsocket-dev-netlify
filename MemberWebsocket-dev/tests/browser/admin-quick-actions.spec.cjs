@@ -22,8 +22,10 @@ for (const width of [320, 390, 768, 1280]) {
   test('AC-UI-002: native navigation keyboard works at ' + width + 'px without shortcuts', async ({ page }, info) => {
     await page.setViewportSize({ width, height: 850 });
     await page.goto(host.base + '/admin/?run=' + encodeURIComponent(info.testId));
+    await expect(page.locator('#adminView')).toBeVisible();
     await expect(page.locator('#adminQuickActions')).toHaveCount(0);
     const tab = page.locator('#calendarTab');
+    await expect(tab).toBeVisible();
     await tab.focus();
     await expect(tab).toBeFocused();
     await page.keyboard.press('Enter');
