@@ -6,7 +6,7 @@ const event=(id='01JTESTEVENT')=>({webhookEventId:id,type:'message',timestamp:17
 async function fixture(options={}){
  const {sealCredentials}=await import('../supabase/functions/_shared/platform-crypto.mjs');
  const calls=[],candidate={tenantId:'10000000-0000-4000-8000-000000000001',channelId:'2010123456',feature:'booking',scope:'module',revision:'revision',envelope:await sealCredentials('10000000-0000-4000-8000-000000000001:booking',{channelSecret:secret},key)};
- const db={rpc:async(name,params)=>{calls.push({name,params});const result=await (options.rpc?options.rpc(name,params,candidate):{data:name==='platform_line_webhook_candidate'?candidate:{accepted:params.p_events.length},error:null});return name==='platform_line_webhook_candidate'&&result.data?{...result,data:[result.data]}:result;}};
+ const db={rpc:async(name,params)=>{calls.push({name,params});const result=await (options.rpc?options.rpc(name,params,candidate):{data:name==='platform_line_webhook_candidate'?candidate:{accepted:params.p_events.length},error:null});return name==='platform_line_webhook_candidate'&&result.data?{...result,data:Array.isArray(result.data)?result.data:[result.data]}:result;}};
  const handler=(await load()).createLineWebhookHandler({db,encryptionKey:()=>key,bodyTimeoutMs:options.bodyTimeoutMs||100,rpcTimeoutMs:options.rpcTimeoutMs||100});
  const send=(body=JSON.stringify({destination,events:[event()]}),signature=createHmac('sha256',secret).update(body).digest('base64'),extra={})=>handler(new Request('https://backend.test/functions/v1/line-webhook',{method:'POST',body,headers:{'content-type':'application/json','x-line-signature':signature,...extra}}));
  return{handler,send,calls,candidate};
@@ -48,4 +48,34 @@ test('#144 hangs, storage stale revision and rate limits never ACK success',asyn
  const f=await fixture({bodyTimeoutMs:15});
  const stream=new ReadableStream({start(){},cancel(){}});
  const r=await f.handler(new Request('https://backend.test',{method:'POST',headers:{'x-line-signature':createHmac('sha256',secret).update('{}').digest('base64')},body:stream,duplex:'half'}));assert.equal(r.status,408);assert.equal(f.calls.length,0);
+});
+
+test('#158 signed user identity is retained only for follow/unfollow, without raw payload or tokens',async()=>{
+ const userId='U'+'b'.repeat(32),h=await fixture();
+ const events=[
+  {...event('follow'),type:'follow',source:{type:'user',userId}},
+  {...event('unfollow'),type:'unfollow',source:{type:'user',userId}},
+  {...event('message'),source:{type:'user',userId}},
+  {...event('group'),type:'follow',source:{type:'group',userId,groupId:'private-group'}},
+  {...event('invalid'),type:'follow',source:{type:'user',userId:'invalid'}},
+  {...event('missing'),type:'follow'},
+ ];
+ assert.equal((await h.send(JSON.stringify({destination,events}))).status,200);
+ const receipts=h.calls.at(-1).params.p_events;
+ assert.equal(receipts[0].sourceUserId,userId);assert.equal(receipts[1].sourceUserId,userId);
+ for(const receipt of receipts.slice(2))assert.equal(Object.hasOwn(receipt,'sourceUserId'),false);
+ for(const term of ['replyToken','秘密內容','private-group'])assert.ok(!JSON.stringify(receipts).includes(term));
+ const tampered=JSON.stringify({destination,events:[{...events[0],source:{type:'user',userId:'U'+'c'.repeat(32)}}]});
+ assert.equal((await h.send(tampered,createHmac('sha256',secret).update(JSON.stringify({destination,events})).digest('base64'))).status,401);
+});
+test('#158 shared-channel membership is selected only after its own current credential verifies',async()=>{
+ const {sealCredentials}=await import('../supabase/functions/_shared/platform-crypto.mjs');
+ for(const valid of [true,false]){
+  const h=await fixture({rpc:async(name,p,c)=>{
+   if(name.endsWith('candidate'))return {data:[c,{...c,feature:'membership',envelope:await sealCredentials(c.tenantId+':membership',{channelSecret:valid?secret:'other-secret'},key)}]};
+   return {data:{accepted:p.p_events.length}};
+  }});
+  assert.equal((await h.send(JSON.stringify({destination,events:[{...event(),type:'follow',source:{type:'user',userId:'U'+'b'.repeat(32)}}]}))).status,200);
+  assert.equal(h.calls.at(-1).params.p_feature,valid?'membership':'booking');
+ }
 });
