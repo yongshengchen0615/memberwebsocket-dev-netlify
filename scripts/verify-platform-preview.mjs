@@ -136,7 +136,8 @@ export async function verifyPlatformPreview({
         || !/\bOrigin\b/i.test(response.headers.get('vary') || '')) throw new Error('member preview preflight contract failed');
     }, 1);
     await check(endpoint, { method: 'POST', redirect: 'error', headers: { Origin: origin, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'user.member.profile.save', clientType: 'member' }),
+      body: JSON.stringify({ action: new URL(endpoint).pathname.endsWith('/member-growth-api-preview')
+        ? 'member.friend.list' : 'user.member.profile.save', clientType: 'member' }),
     }, (response, body) => {
       let payload;
       try { payload = JSON.parse(body); } catch { throw new Error('member preview authentication response must contain valid JSON'); }
