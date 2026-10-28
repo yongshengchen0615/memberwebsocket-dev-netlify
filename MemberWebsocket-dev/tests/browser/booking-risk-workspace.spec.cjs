@@ -19,6 +19,13 @@ for(const width of [320,390,1280]){
   }));
   expect(dimensions.doc).toBeLessThanOrEqual(dimensions.viewport+1);
   expect(dimensions.form).toBeLessThanOrEqual(dimensions.viewport+1);
+  const layout=await page.evaluate(()=>({
+    form:getComputedStyle(document.querySelector('.booking-risk-policy-form')).gridTemplateColumns.split(' ').length,
+    records:getComputedStyle(document.querySelector('.booking-risk-records')).gridTemplateColumns.split(' ').length,
+  }));
+  expect(layout.form).toBe(width===1280?2:1);
+  expect(layout.records).toBe(width===1280?2:1);
+  await expect(page.getByRole('heading',{name:'紀錄與申覆處理'})).toBeVisible();
   await page.getByLabel('啟用限制',{exact:true}).check();
   await expect(page.locator('.booking-risk-draft')).toContainText('未儲存');
   await page.getByRole('button',{name:'還原變更'}).click();

@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="./integration-hub.css?v=admin-integration-center-20260925-1">
   <link rel="stylesheet" href="./calendar-responsive.css?v=calendar-responsive-20260914-mobile-fit-2">
   <link rel="stylesheet" href="./calendar-date-fix.css?v=20260914-line-date-1">
-  <link rel="stylesheet" href="./booking-panel.css?v=booking-standard-filter-parity-20261005-1-ui-20261007-1-badge-20261009-1-no-show-history-20261014-1-risk-tab-20261023-1-risk-ux-20261023-2" data-booking-admin-panel-style>
+  <link rel="stylesheet" href="./booking-panel.css?v=booking-standard-filter-parity-20261005-1-ui-20261007-1-badge-20261009-1-no-show-history-20261014-1-risk-tab-20261023-1-risk-ux-20261023-2-layout-20261028-1" data-booking-admin-panel-style>
   <link rel="stylesheet" href="../booking-ticket-cards.css?v=booking-ticket-cards-20261004-1">
   <link rel="stylesheet" href="./booking-panel-responsive.css?v=booking-settings-layout-20260918-1" data-booking-panel-static-style>
   <link rel="stylesheet" href="./booking-summary.css?v=booking-theme-tokens-20260924-1" data-booking-panel-static-style>
@@ -25,7 +25,6 @@
   <link rel="stylesheet" href="../booking-admin-group-details.css?v=booking-theme-tokens-20260924-1" data-booking-panel-static-style>
   <link rel="stylesheet" href="./ui-polish.css?v=lumen-design-system-20260924-1" data-booking-panel-static-style>
   <link rel="stylesheet" href="./ui-polish-responsive.css?v=ui-refresh-20260924-1-ui-20261006-1" data-booking-panel-static-style>
-  <link rel="stylesheet" href="./admin-quick-actions.css?v=admin-quick-ux-20261022-2">
   <link rel="stylesheet" href="./booking-receipt-admin.css?v=booking-receipt-admin-dark-20261001-4">
   <link rel="stylesheet" href="./fixed-ticket-admin.css?v=fixed-ticket-calendar-dark-20260927-1-ui-20261006-1">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
@@ -41,16 +40,15 @@
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous" defer></script>
   <script src="../ticket-live-location.js?v=live-gps-20261010-1-admin-browser-fallback-20261014-1" defer></script>
   <script src="./coupon-location-editor.js?v=ticket-address-nearest-fallback-20260929-1-live-gps-snapshot-20261012-1-admin-browser-fallback-20261014-1" defer></script>
-  <link rel="stylesheet" href="./productized-workspace.css?v=line-tab-20261020-1">
+  <link rel="stylesheet" href="./productized-workspace.css?v=line-tab-20261020-1-quick-removal-20261028-1">
   <script src="./productized-workspace.js?v=admin-login-recovery-20261024-1" defer></script>
   <script src="./app.js?v=admin-business-recovery-20261024-2" defer></script>
-  <script src="./admin-quick-actions.js?v=admin-quick-ux-20261022-2" defer></script>
   <script src="./member-workspace-tabs.js?v=member-workspace-tabs-20261014-2" defer></script>
   <script src="./terms.js?v=membership-terms-ui-20261005-2" defer></script>
   <script src="./grant-automation.js?v=grant-automation-20260910" defer></script>
   <script src="../booking-copy-text.js?v=20261014-1" defer></script>
   <script src="../booking-copy-format.js?v=booking-overnight-20260928-1-controls-20261010-2-release-20261014-1" defer></script>
-  <script src="./booking-panel.js?v=booking-operations-split-20261003-1-ticket-source-20261004-1-ticket-card-ui-20261004-1-ticket-booking-20261006-1-booking-settings-20261006-2-ui-20261006-1-badge-20261009-1-snapshot-20261010-1-policy-entry-20261010-1-controls-20261010-2-snapshot-geofence-20261012-1-release-20261014-1-no-show-history-20261014-1-hide-early-hint-20261015-1-service-ticket-rule-20261015-1-booking-risk-20261021-1-risk-tab-20261023-1-risk-ux-20261023-2" data-booking-admin-panel-extension defer></script>
+  <script src="./booking-panel.js?v=booking-operations-split-20261003-1-ticket-source-20261004-1-ticket-card-ui-20261004-1-ticket-booking-20261006-1-booking-settings-20261006-2-ui-20261006-1-badge-20261009-1-snapshot-20261010-1-policy-entry-20261010-1-controls-20261010-2-snapshot-geofence-20261012-1-release-20261014-1-no-show-history-20261014-1-hide-early-hint-20261015-1-service-ticket-rule-20261015-1-booking-risk-20261021-1-risk-tab-20261023-1-risk-ux-20261023-2-layout-20261028-1" data-booking-admin-panel-extension defer></script>
   <script src="./booking-receipt-admin.js?v=accessible-history-20261003-1" defer></script>
   <script src="./integration-hub.js?v=admin-integration-center-20261005-2" defer></script>
   <link rel="stylesheet" href="../responsive.css?v=20260914-line-form-1">
@@ -81,16 +79,6 @@
       </section>
 
       <section class="stats-row" aria-label="目前概況"><div><span class="stat-label">會員總數</span><strong id="memberCount">0</strong><small>已建立會員資料</small></div><div><span class="stat-label">啟用會員</span><strong id="activeMemberCount">0</strong><small>可使用會員權益</small></div><div><span class="stat-label">進行中集點卡</span><strong id="activeCardCount">0</strong><small>正在對外開放</small></div><div><span class="stat-label">進行中活動票券</span><strong id="activeEventTicketCount">0</strong><small>目前可供會員領取</small></div><div><span class="stat-label">今日新增點數</span><strong id="todayEntryCount">0</strong><small>本日登錄紀錄</small></div></section>
-
-      <section id="adminQuickActions" class="admin-quick-actions" aria-labelledby="adminQuickActionsTitle" hidden>
-        <div class="admin-quick-heading"><h2 id="adminQuickActionsTitle">常用操作</h2><p>僅顯示目前可使用的管理功能</p></div>
-        <div class="admin-quick-grid">
-          <button type="button" class="admin-quick-action" data-admin-quick-tab="membersTab" hidden disabled><span>會員卡</span><small>查詢會員與活動紀錄</small></button>
-          <button type="button" class="admin-quick-action" data-admin-quick-tab="cardsTab" hidden disabled><span>集點卡</span><small>查看集點卡與兌換設定</small></button>
-          <button type="button" class="admin-quick-action" data-admin-quick-tab="eventsTab" hidden disabled><span>活動票券</span><small>查看票券內容與發行設定</small></button>
-          <button type="button" class="admin-quick-action" data-admin-quick-tab="calendarTab" hidden disabled><span>營運日曆</span><small>查看日期與預約工作區</small></button>
-        </div>
-      </section>
 
       <section id="membersPanel" class="panel" role="tabpanel" aria-labelledby="membersTab">
         <div class="panel-heading member-workspace-heading"><div><p class="kicker">Member operations</p><h2>會員卡管理</h2><p>將日常會員操作、等級卡面與申請條款分開處理；切換工作區不會離開會員卡頁面。</p></div><div class="heading-actions"><span id="syncStatus" class="sync-status">尚未同步</span><button id="refreshButton" class="button button-outline hidden" type="button">重新整理確認</button></div></div>
