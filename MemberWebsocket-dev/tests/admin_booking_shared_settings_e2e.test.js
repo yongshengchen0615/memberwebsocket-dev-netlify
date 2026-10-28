@@ -103,6 +103,6 @@ test('ticket service requirements replace the global booking switch in both mana
   assert.doesNotMatch(core, /bookingAdminTicketBookingRequired|bookingAdminTicketPolicyHeading/);
   assert.doesNotMatch(core, /handleTicketBookingPolicyNavigation|ticketBookingRequired:/);
   assert.match(core, /snapshotLocationRequired: els\.bookingAdminSnapshotLocationRequired\.checked/);
-  assert.match(loader, /booking-panel-core\.js', '.*service-ticket-rule-20261015-1-booking-risk-20261021-1-risk-tab-20261023-1-risk-ux-20261023-2'/);
+  assert.match(loader, /booking-panel-core\.js', '.*service-ticket-rule-20261015-1-booking-risk-20261021-1-risk-tab-20261023-1-risk-ux-20261023-2-layout-20261028-1'/);
   assert.match(html, /booking-panel\.js\?v=[^"']*service-ticket-rule-20261015-1/);
 });

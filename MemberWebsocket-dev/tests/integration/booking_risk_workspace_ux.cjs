@@ -16,6 +16,9 @@ test('AC-RISK-UX-005: grouped settings, live summary and empty states without au
  try{
   assert.equal(root.querySelectorAll('.booking-risk-metric').length,3);
   assert.equal(root.querySelectorAll('.booking-risk-field-group').length,4);
+  assert.equal(root.querySelectorAll('.booking-risk-record-section').length,3);
+  assert.equal(root.querySelectorAll('.booking-risk-record-tools label').length,1);
+  assert.equal(root.querySelectorAll('.booking-risk-record-section .booking-risk-record-list').length,3);
   for(const text of ['目前沒有爽約計次紀錄。','目前沒有有效限制紀錄。','目前沒有會員申覆。'])assert.ok(root.textContent.includes(text));
   assert.equal(root.querySelector('[name=enabled]').checked,false);
   assert.equal(root.querySelector('[name=threshold_count]').value,'');
