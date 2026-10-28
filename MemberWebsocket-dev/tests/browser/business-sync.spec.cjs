@@ -7,12 +7,12 @@ test.beforeAll(async()=>{server=http.createServer((req,res)=>{
 test.afterAll(async()=>new Promise(r=>server.close(r)));
 test('BUSINESS_SYNC — actual browser runtime refreshes two authorized views, preserves another shop and stops cleanly',async({context})=>{
  const authority={'shop-a':{revision:'1',value:'A initial'},'shop-b':{revision:'1',value:'B initial'}},calls=[];
- const pages=[];
+ const pages=[],requestsByPage=[];
  try{
   for(const business of ['shop-b','shop-a','shop-a']){
-   const page=await context.newPage();pages.push(page);await page.clock.install({time:new Date('2026-10-20T00:00:00Z')});
+   const page=await context.newPage();pages.push(page);const pageCalls=[];requestsByPage.push(pageCalls);await page.clock.install({time:new Date('2026-10-20T00:00:00Z')});
    await page.route('https://fixture.supabase.co/**',async route=>{
-    const body=route.request().postDataJSON();calls.push(body);const state=authority[body.business];
+    const body=route.request().postDataJSON();calls.push(body);pageCalls.push(body);const state=authority[body.business];
     if(!state)return route.fulfill({status:403,json:{ok:false,error:{code:'BUSINESS_FORBIDDEN'}}});
     return route.fulfill({json:{ok:true,data:body.action==='admin.sync.status'?{revision:state.revision}:{value:state.value}}});
    });
@@ -43,7 +43,10 @@ test('BUSINESS_SYNC — actual browser runtime refreshes two authorized views, p
   // drain that request before measuring whether unsubscribe starts new ones.
   await expect.poll(()=>pages[2].evaluate(()=>window.pendingSyncRequests)).toBe(0);
   await pages[2].evaluate(()=>window.stopSync());
-  const probes=calls.filter(c=>c.business==='shop-a'&&c.action==='admin.sync.status').length;await pages[2].clock.runFor(60000);
-  expect(calls.filter(c=>c.business==='shop-a'&&c.action==='admin.sync.status')).toHaveLength(probes);
+  // Two tabs belong to shop-a; stopping the third tab must not stop the second tab.
+  // Assert only this page's outgoing probes, not those of the other active tab.
+  const stoppedPageRequests=()=>requestsByPage[2].filter(c=>c.business==='shop-a'&&c.action==='admin.sync.status');
+  const probes=stoppedPageRequests().length;await pages[2].clock.runFor(60000);
+  expect(stoppedPageRequests()).toHaveLength(probes);
  }finally{for(const page of pages)await page.close();}
 });
