@@ -65,7 +65,7 @@ test('AC-007: preview endpoint allows only authenticated read-only OA readiness 
  assert.match(preview,/allowedActions:new Set\(\['platform\.member-oa\.readiness','platform\.member-oa\.inspect'\]\)/);
  assert.match(backend,/if \(allowedActions && !allowedActions\.has\(body\.action\)\)/);
  assert.match(platform,/\['platform\.member-oa\.readiness','platform\.member-oa\.inspect'\]\.includes\(action\) && location\.hostname === 'integrated-marketing-platform--memberwebsocket-dev-netlify\.netlify\.app'/);
- assert.match(admin,/action === 'platform\.member-oa\.readiness' && location\.hostname === 'integrated-marketing-platform--memberwebsocket-dev-netlify\.netlify\.app'/);
+ assert.match(admin,/\['platform\.member-oa\.readiness','platform\.member-oa\.inspect'\]\.includes\(action\) && location\.hostname === 'integrated-marketing-platform--memberwebsocket-dev-netlify\.netlify\.app'/);
  assert.doesNotMatch(preview,/allowedActions:new Set\(\['platform\.line\.save'/);
 });
 
