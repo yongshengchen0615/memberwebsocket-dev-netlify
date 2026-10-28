@@ -358,19 +358,8 @@ serveBusiness('member-profile-api',async (request: Request) => {
       if (!mergedComplete) throw new ApiError(400, "PROFILE_FIELDS_REQUIRED", "請填妥完整資料再申請會員。");
       await requireCurrentSubmittedTerms(supabase, member, body);
       if (body.accepted !== true) throw new ApiError(400, "TERMS_CONSENT_REQUIRED", "請閱讀並勾選同意會員條款。");
-      try {
-        await requireMemberOaBeforeActivation({
-          tenant:businessContext(),
-          expectedChannelId:env("LINE_MEMBER_CHANNEL_ID") || "2010787602",
-          identity,member,
-          lineAccessToken:strictLineAccessToken(body.lineAccessToken),
-          verifiedBindingsJson:env("MEMBER_OA_VERIFIED_LINKS_JSON"),
-        });
-      } catch (error) {
-        const failure = error as { status?:number; code?:string; message?:string };
-        if (failure.status && failure.code) throw new ApiError(failure.status,failure.code,failure.message || "LINE 驗證失敗。");
-        throw error;
-      }
+      // Temporary rollback to the pre-OA enforcement join flow (2026-10-22).
+      // LINE ID token, current terms consent and the atomic membership RPC remain mandatory.
       const joined = await supabase.rpc("accept_membership_terms_api", {
         p_payload: {
           lineUserId: identity.lineUserId,
