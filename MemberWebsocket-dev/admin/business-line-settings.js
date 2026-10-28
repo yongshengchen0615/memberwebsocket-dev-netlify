@@ -168,6 +168,7 @@
       : verified && liff ? '設定查核已完成。正式對外開放前，仍須以真實 LINE 帳號加入本店 OA 並完成首次入會測試。'
       : 'LINE Webhook 驗證或 Messaging Token 已保存，不等於會員 OA 已可信綁定；未完成前會員首次註冊會被後端拒絕。';
     block.reload.disabled = Boolean(block.pending || saving || pendingOperation());
+    block.inspect.disabled = Boolean(block.pending || saving || pendingOperation());
     const holder = typeof document === 'undefined' ? null
       : document.getElementById(adapter ? 'merchantOverviewPanel' : 'businessWorkspaceStatus');
     if (holder) {
