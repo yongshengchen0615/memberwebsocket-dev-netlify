@@ -11,7 +11,12 @@ window.MemberPhone={compose:(country,phone)=>{const digits=String(phone||'').rep
 window.MembershipProgress={render(){}};
 window.MemberSystem={bindDialogKeyboard(){},loadConfig:async()=>({brandName:'QA Lumen Club'}),signIn:async()=> 'fixture-id-token',
 request:async(_c,_t,_token,action,payload={})=>{window.qaJoinCalls.push({action,payload:structuredClone(payload)});
-if(action==='user.member.bootstrap')return {profile:structuredClone(incomplete),terms:structuredClone(terms),consentRequired:false};
+if(action==='user.member.bootstrap')return {profile:structuredClone(incomplete),terms:structuredClone(terms),consentRequired:false,
+...(['required','unconfigured'].includes(new URLSearchParams(window.location.search).get('oa')) ? {memberOa:{required:true,configured:new URLSearchParams(window.location.search).get('oa')==='required'||window.qaOaConfigReady===true,addFriendUrl:new URLSearchParams(window.location.search).get('oa')==='required'||window.qaOaConfigReady===true?'https://line.me/R/ti/p/@qa_member_oa':undefined}} : {})};
+if(action==='user.member.oa.check'){
+ if(!window.qaOaFriend)throw Object.assign(new Error('請先加入商家會員官方帳號'),{code:'MEMBER_OA_FRIENDSHIP_REQUIRED'});
+ return {memberOa:{required:true,configured:true,friend:true}};
+}
 if(action==='user.member.profile.save'){if(payload.accepted!==true)throw Object.assign(new Error('必須同意條款'),{code:'TERMS_CONSENT_REQUIRED'});if(payload.termsId!==terms.id||payload.termsVersion!==terms.version)throw Object.assign(new Error('條款版本已更新'),{code:'TERMS_VERSION_STALE'});return {profile:{...structuredClone(incomplete),memberCode:'QA-JOIN-1',surname:payload.surname,salutation:payload.salutation,birthday:payload.birthday,phone:payload.phone,joinedAt:'2026-10-05T00:00:00.000Z',profileComplete:true,membershipRequired:false}};}throw Object.assign(new Error('Unknown action: '+action),{code:'UNKNOWN_ACTION'});},
 subscribeRealtime:()=>()=>{},formatDate:v=>String(v||''),initials:()=> 'QA'};`);return;}
 const file=path.resolve(root,'.'+u.pathname);if(!file.startsWith(root+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile()){res.writeHead(404);res.end();return;}res.writeHead(200,{'Content-Type':file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'application/octet-stream'});fs.createReadStream(file).pipe(res);}catch(e){res.writeHead(500);res.end(e.message);}});await new Promise(r=>server.listen(0,'127.0.0.1',r));base='http://127.0.0.1:'+server.address().port;});
@@ -26,4 +31,41 @@ await page.locator('#saveProfileButton').click();await expect(page.locator('#mem
 await page.locator('#copyMemberCodeButton').click();await expect(page.locator('#copyMemberCodeButton')).toHaveText('已複製');expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('QA-JOIN-1');
 await expect(page.locator('#copyMemberCodeButton')).toBeEnabled();await page.evaluate(()=>history.replaceState(null,'','/MemberWebsocket-dev/member/'));await page.evaluate(fs.readFileSync(path.join(root,'user-test-control.js'),'utf8').replace('  window.MemberUserTestControl =','  window.qaNodes={memberCodeCopyCase};\n  window.MemberUserTestControl ='));expect((await page.evaluate(()=>qaNodes.memberCodeCopyCase())).status).toBe('passed');
 const saves=await page.evaluate(()=>qaJoinCalls.filter(x=>x.action==='user.member.profile.save'));expect(saves).toHaveLength(1);expect(saves[0].payload).toMatchObject({surname:'測',salutation:'mr',birthday:'1990-01-15',phone:'+886912345678',termsId:'terms-join-1',termsVersion:'7',accepted:true});
+});
+test('AC-REG-001: server-required OA must block new join even when client feature flag is absent',async({page})=>{
+await page.goto(base+'/member-join?oa=required');
+await expect(page.locator('#profileSetupView')).toBeVisible();
+await expect(page.locator('#memberOaJoin')).toBeVisible();
+await expect(page.locator('#profileForm')).toBeHidden();
+await expect(page.locator('#memberOaAddLink')).toHaveAttribute('href','https://line.me/R/ti/p/@qa_member_oa');
+await expect(page.locator('#unifiedPortalNav')).toHaveCount(0);
+await page.locator('#recheckMemberOa').click();
+await expect(page.locator('#memberOaStatus')).toContainText('請先加入商家會員官方帳號');
+expect(await page.evaluate(()=>qaJoinCalls.filter(x=>x.action==='user.member.profile.save').length)).toBe(0);
+await page.evaluate(()=>{window.qaOaFriend=true;});
+await page.locator('#recheckMemberOa').click();
+await expect(page.locator('#memberOaJoin')).toBeHidden();
+await expect(page.locator('#profileForm')).toBeVisible();
+expect(await page.evaluate(()=>qaJoinCalls.filter(x=>x.action==='user.member.oa.check').length)).toBeGreaterThanOrEqual(2);
+});
+test('AC-REG-002: incomplete merchant OA setup fails closed with an actionable message',async({page})=>{
+await page.goto(base+'/member-join?oa=unconfigured');
+await expect(page.locator('#memberOaJoin')).toBeVisible();
+await expect(page.locator('#profileForm')).toBeHidden();
+await expect(page.locator('#memberOaStatus')).toContainText('目前無法受理新會員申請');
+await expect(page.locator('#memberOaAddLink')).toBeHidden();
+await expect(page.locator('#recheckMemberOa')).toBeEnabled();
+await expect(page.locator('#recheckMemberOa')).toHaveText('重新檢查服務狀態');
+const before=await page.evaluate(()=>qaJoinCalls.filter(x=>x.action==='user.member.bootstrap').length);
+await page.locator('#recheckMemberOa').click();
+await expect(page.locator('#memberOaStatus')).toContainText('目前無法受理新會員申請');
+expect(await page.evaluate(()=>qaJoinCalls.filter(x=>x.action==='user.member.bootstrap').length)).toBe(before+1);
+await expect(page.locator('#profileForm')).toBeHidden();
+expect(await page.evaluate(()=>qaJoinCalls.filter(x=>x.action==='user.member.profile.save').length)).toBe(0);
+await page.evaluate(()=>{window.qaOaConfigReady=true;window.qaOaFriend=true;});
+await page.locator('#recheckMemberOa').click();
+await expect(page.locator('#memberOaJoin')).toBeHidden();
+await expect(page.locator('#profileForm')).toBeVisible();
+await expect(page.locator('#recheckMemberOa')).toHaveText('已加入，重新檢查');
+expect(await page.evaluate(()=>qaJoinCalls.filter(x=>x.action==='user.member.oa.check').length)).toBeGreaterThanOrEqual(1);
 });

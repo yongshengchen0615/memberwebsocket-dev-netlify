@@ -15,6 +15,8 @@ body { margin: 0; min-height: 100vh; background: radial-gradient(circle at 85% 1
 button { font: inherit; }
 button:focus-visible, a:focus-visible { outline: 3px solid rgba(223, 107, 77, .42); outline-offset: 3px; }
 .hidden { display: none !important; }
+/* Hidden attributes must win over author display:grid/flex on the join form and OA actions. */
+#profileSetupView [hidden] { display: none !important; }
 .app-shell { width: min(100%, 980px); margin: 0 auto; padding: max(24px, env(safe-area-inset-top)) 20px max(40px, env(safe-area-inset-bottom)); }
 .state-view { min-height: 76vh; display: grid; justify-items: center; align-content: center; gap: 10px; text-align: center; }
 .state-view h1 { max-width: 440px; margin: 2px 0; font-size: clamp(26px, 6vw, 42px); letter-spacing: -.05em; }

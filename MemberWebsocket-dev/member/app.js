@@ -111,8 +111,18 @@
   }
 
   async function prepareMembershipJoin(result) {
-    if (!state.config?.memberFriendshipFlowEnabled) return;
-    memberOa = result.memberOa || null;
+    // The server decides whether the first activation requires OA friendship.
+    // The legacy optional config flag is absent from deployed configs and must
+    // not skip the UI while the backend still enforces the membership gate.
+    if (result?.memberOa?.required !== true) {
+      memberOa = null;
+      oaVerified = false;
+      const panel = document.getElementById('memberOaJoin');
+      if (panel) panel.hidden = true;
+      els.profileForm.hidden = false;
+      return;
+    }
+    memberOa = result.memberOa;
     oaVerified = false;
     oaGeneration++;
     oaChecking = false;
@@ -128,11 +138,17 @@
       add.addEventListener('click', () => void requestMemberOaFriendship());
       const link = document.createElement('a'); link.id = 'memberOaAddLink'; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.className = 'button button-refresh'; link.textContent = '開啟官方帳號加好友頁';
       const recheck = document.createElement('button'); recheck.id = 'recheckMemberOa'; recheck.type = 'button'; recheck.className = 'button button-refresh'; recheck.textContent = '已加入，重新檢查';
-      recheck.addEventListener('click', () => void checkMemberOa());
+      recheck.addEventListener('click', () => void recheckMemberOa());
       const feedback = document.createElement('p'); feedback.id = 'memberOaStatus'; feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite');
       actions.append(add, link, recheck); panel.append(title, text, actions, feedback); els.profileForm.before(panel);
     }
     panel.hidden = false;
+    const configured = memberOa?.configured === true;
+    panel.querySelector('h2').textContent = configured ? '先加入商家 LINE 好友' : '會員申請尚未開放';
+    panel.querySelector('p').textContent = configured
+      ? '請加入此商家的會員官方帳號，或解除封鎖後重新檢查，再填寫會員資料。'
+      : '目前暫時無法申請新會員，請稍後再試，或聯絡店家確認會員服務開放時間。';
+    document.getElementById('recheckMemberOa').textContent = configured ? '已加入，重新檢查' : '重新檢查服務狀態';
     const link = document.getElementById('memberOaAddLink');
     let url = null;
     try {
@@ -142,10 +158,10 @@
     link.hidden = !url;
     if (url) link.href = url; else link.removeAttribute('href');
     document.getElementById('addMemberOa').hidden = !canRequestFriendship() || !url;
-    document.getElementById('recheckMemberOa').disabled = memberOa?.configured !== true || !url;
+    document.getElementById('recheckMemberOa').disabled = false;
     if (epoch !== oaGeneration) return;
     if (memberOa?.configured !== true || !url) {
-      document.getElementById('memberOaStatus').textContent = '商家的會員官方帳號尚未完成設定，請聯絡商家後重新整理。';
+      document.getElementById('memberOaStatus').textContent = '目前無法受理新會員申請。';
       return;
     }
     await checkMemberOa();
@@ -170,6 +186,33 @@
     } catch {
       if (epoch === oaGeneration) document.getElementById('memberOaStatus').textContent = '加入好友視窗已關閉或暫時無法使用，請使用官方帳號頁面後重新檢查。';
     } finally { if (epoch === oaGeneration) button.disabled = false; }
+  }
+
+  // Re-fetch server-side binding metadata when an operator fixes the OA setup.
+  // Never allow a refresh result or client-side friend flag to authorize signup.
+  async function recheckMemberOa() {
+    if (oaChecking) return;
+    if (memberOa?.configured === true) return checkMemberOa();
+    const button = document.getElementById('recheckMemberOa');
+    button.disabled = true;
+    document.getElementById('memberOaStatus').textContent = '正在確認會員申請服務狀態…';
+    try {
+      const latest = await window.MemberSystem.request(state.config, 'member', state.idToken, 'user.member.bootstrap');
+      if (latest?.profile?.profileComplete && !latest.profile.membershipRequired && latest.memberOa?.required === false) {
+        state.profile = latest.profile;
+        updateTerms(latest.terms);
+        if (latest.consentRequired) return setView('termsRenew');
+        renderProfile(state.profile);
+        setView('member');
+        return;
+      }
+      await prepareMembershipJoin(latest);
+    } catch (error) {
+      els.profileForm.hidden = true;
+      document.getElementById('memberOaStatus').textContent = error?.message || '商家設定暫時無法讀取，請稍後再試。';
+    } finally {
+      if (!oaChecking) button.disabled = false;
+    }
   }
 
   async function checkMemberOa() {
@@ -363,7 +406,7 @@
 
   async function saveProfile(event) {
     event.preventDefault();
-    if (state.config?.memberFriendshipFlowEnabled && !oaVerified) return;
+    if (memberOa?.required === true && !oaVerified) return showMessage('請先完成 LINE 官方帳號好友資格確認。');
     if (state.profileSaveLocked) return showUncertainSaveMessage();
     hideMessage();
     const birthday = String(els.profileBirthday.value || '').trim();
@@ -407,7 +450,7 @@
         } catch (_) {
           showMessage('會員條款已更新，但最新內容載入失敗，請重新整理後再試。');
         }
-      } else if (state.config?.memberFriendshipFlowEnabled && ['MEMBER_OA_FRIENDSHIP_REQUIRED','MEMBER_OA_CONFIG_INCOMPLETE','LINE_FRIENDSHIP_UNAVAILABLE','LINE_ACCESS_TOKEN_REQUIRED','LINE_ACCESS_TOKEN_INVALID','LINE_CHANNEL_OR_SCOPE_MISMATCH','LINE_IDENTITY_MISMATCH'].includes(error?.code)) {
+      } else if (memberOa?.required === true && ['MEMBER_OA_FRIENDSHIP_REQUIRED','MEMBER_OA_CONFIG_INCOMPLETE','LINE_FRIENDSHIP_UNAVAILABLE','LINE_ACCESS_TOKEN_REQUIRED','LINE_ACCESS_TOKEN_INVALID','LINE_CHANNEL_OR_SCOPE_MISMATCH','LINE_IDENTITY_MISMATCH'].includes(error?.code)) {
         oaVerified = false; els.profileForm.hidden = true;
         document.getElementById('memberOaJoin').hidden = false;
         document.getElementById('memberOaStatus').textContent = error.message;
