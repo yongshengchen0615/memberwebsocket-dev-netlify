@@ -114,8 +114,9 @@
     const timer = setTimeout(() => controller.abort(),20000);
     try {
       const url = new URL(state.config.supabaseFunctionUrl);
-      url.pathname = url.pathname.replace(/\/api\/?$/, '/platform-api');
-      if (!url.pathname.endsWith('/platform-api')) throw new Error('總管理員 API 設定不正確。');
+      const readOnlyPreview = action === 'platform.member-oa.readiness' && location.hostname === 'integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app';
+      url.pathname = url.pathname.replace(/\/api\/?$/, readOnlyPreview ? '/platform-api-preview' : '/platform-api');
+      if (!url.pathname.endsWith(readOnlyPreview ? '/platform-api-preview' : '/platform-api')) throw new Error('總管理員 API 設定不正確。');
       let response;
       try { response=await fetch(url.href,{method:'POST',headers:{'Content-Type':'application/json',apikey:state.config.supabasePublishableKey},body:JSON.stringify({action,idToken:state.idToken,...payload}),signal:controller.signal}); }
       catch { throw uncertainError(); }
