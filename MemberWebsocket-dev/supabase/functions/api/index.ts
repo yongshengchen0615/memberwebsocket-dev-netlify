@@ -1,5 +1,4 @@
 import { businessEnv, businessContext, businessFetch as fetch, businessHandler } from '../_shared/business-runtime.ts';
-import { requireMemberOaBeforeActivation } from '../_shared/member-oa-registration-gate.mjs';
 import { syncRevision } from '../_shared/sync-revision.mjs';
 import { removeMember } from "../_shared/member-removal.ts";
 import { tierVisibility, loadVisibilityPolicy } from "../_shared/tier-visibility.ts";
@@ -2254,19 +2253,7 @@ async function handleAction(supabase: SupabaseClient, identity: { lineUserId: st
     if (!/^\+?\d{8,15}$/.test(phone)) throw new ApiError(400,"INVALID_PHONE","請填寫正確的電話。");
     if (member.membership_status !== "active") {
       if (body.accepted !== true) throw new ApiError(400,"TERMS_CONSENT_REQUIRED","請閱讀並勾選同意會員條款。");
-      try {
-        await requireMemberOaBeforeActivation({
-          tenant:businessContext(),
-          expectedChannelId:channelIdFor("member"),
-          identity,member,
-          lineAccessToken:asText(body.lineAccessToken,4096),
-          verifiedBindingsJson:env("MEMBER_OA_VERIFIED_LINKS_JSON"),
-        });
-      } catch (error) {
-        const failure=error as {status?:number;code?:string;message?:string};
-        if (failure.status && failure.code) throw new ApiError(failure.status,failure.code,failure.message || "LINE 驗證失敗。");
-        throw error;
-      }
+      // Rollback to pre-OA-enforcement join behavior; verified LINE identity and terms remain required.
     }
     const joined = await supabase.rpc("accept_membership_terms",{
       p_line_user_id:identity.lineUserId,p_terms_id:body.termsId,p_version:body.termsVersion,

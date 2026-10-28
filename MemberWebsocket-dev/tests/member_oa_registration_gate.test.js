@@ -5,19 +5,21 @@ const path = require('node:path');
 const root=path.resolve(__dirname,'..');
 const read=p=>fs.readFileSync(path.join(root,p),'utf8');
 
-test('FJG02-RED: member-profile-api rejects pending activation before terms RPC',()=>{
+test('RB-JOIN-001: restored profile enrollment keeps terms RPC and does not require OA gate',()=>{
  const s=read('supabase/functions/member-profile-api/index.ts');
  const pending=s.indexOf('if (member.membership_status !== "active")',s.indexOf('const mergedComplete'));
  const rpc=s.indexOf('supabase.rpc("accept_membership_terms_api"',pending);
  const gate=s.indexOf('await requireMemberOaBeforeActivation(',pending);
- assert.ok(pending>0 && gate>pending && rpc>gate,'member-profile-api must verify member OA before activation RPC');
+ assert.ok(pending>0 && rpc>pending && gate<0);
+ assert.match(s,/await requireCurrentSubmittedTerms\(supabase, member, body\)/);
 });
-test('FJG02-RED: legacy api rejects pending activation before legacy terms RPC',()=>{
+test('RB-JOIN-002: restored legacy enrollment keeps terms RPC and no OA gate',()=>{
  const s=read('supabase/functions/api/index.ts');
  const action=s.indexOf('if (action === "user.member.profile.save")');
  const rpc=s.indexOf('supabase.rpc("accept_membership_terms"',action);
  const gate=s.indexOf('await requireMemberOaBeforeActivation(',action);
- assert.ok(action>0 && gate>action && rpc>gate,'legacy API must check same gate before terms RPC');
+ assert.ok(action>0 && rpc>action && gate<0);
+ assert.match(s,/if \(body.accepted !== true\)/);
 });
 test('FJG02-RED: member write sends LINE user access token separately from ID token',()=>{
  const s=read('member-system.js');
