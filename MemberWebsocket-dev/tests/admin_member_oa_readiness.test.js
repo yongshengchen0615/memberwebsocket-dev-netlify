@@ -68,3 +68,27 @@ test('AC-007: preview endpoint refuses every action except authenticated read-on
  assert.match(admin,/action === 'platform\.member-oa\.readiness' && location\.hostname === 'integrated-marketing-platform--memberwebsocket-dev-netlify\.netlify\.app'/);
  assert.doesNotMatch(preview,/allowedActions:new Set\(\['platform\.line\.save'/);
 });
+
+test('AC-008: a stale in-flight OA check releases its lock and automatically rechecks latest merchant version', async()=>{
+ const begin=admin.indexOf('  async function checkMemberReadiness(view) {');
+ const end=admin.indexOf('  function update(view, reset = false) {',begin);
+ assert.ok(begin>0 && end>begin,'readiness check function must exist');
+ const pending=[];
+ const state={tenant:{id:'00000000-0000-4000-8000-000000000008',version:7},generation:1,saving:false,window:{document:{}},
+  renderMemberReadiness:()=>{},request:()=>new Promise(resolve=>pending.push(resolve))};
+ const block={pending:false,verified:false,checkedVersion:null,error:''},view={memberReadiness:block};
+ vm.runInNewContext(admin.slice(begin,end)+'\nthis.checkMemberReadiness=checkMemberReadiness;',state);
+ const first=state.checkMemberReadiness(view);
+ assert.equal(pending.length,1);assert.equal(block.pending,true);
+ state.tenant.version=8;
+ pending.shift()({configured:true,tenantVersion:7});
+ await first;
+ assert.equal(pending.length,1,'stale response must trigger current-version verification');
+ assert.equal(block.pending,true,'second request now holds the in-flight lock');
+ assert.notEqual(block.checkedVersion,7,'stale version must not appear accepted');
+ pending.shift()({configured:true,tenantVersion:8});
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(block.pending,false);
+ assert.equal(block.checkedVersion,8);
+ assert.equal(block.verified,true);
+});
