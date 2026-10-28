@@ -228,9 +228,9 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         const identity = {...merchant.line,...merchant.moduleLine?.membership?.line};
         const channel = String(identity.memberChannelId || '').trim();
         const liff = String(identity.memberLiffId || '').trim();
-        const channelReady = /^\\d{5,30}$/.test(channel);
+        const channelReady = /^\d{5,30}$/.test(channel);
         const liffReady = channelReady && liff.startsWith(channel+'-')
-          && /^\\d{5,30}-[A-Za-z0-9_-]+$/.test(liff);
+          && /^\d{5,30}-[A-Za-z0-9_-]+$/.test(liff);
         const oaGuidance = memberOaGuidance({
           tenant: {id:merchant.id,features:merchant.features,
             line_config:merchant.line,module_line:{membership:{line:merchant.moduleLine?.membership?.line||{}}}},
