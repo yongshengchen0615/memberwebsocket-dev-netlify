@@ -11,7 +11,13 @@ window.MemberPhone={compose:(country,phone)=>{const digits=String(phone||'').rep
 window.MembershipProgress={render(){}};
 window.MemberSystem={bindDialogKeyboard(){},loadConfig:async()=>({brandName:'QA Lumen Club'}),signIn:async()=> 'fixture-id-token',
 request:async(_c,_t,_token,action,payload={})=>{window.qaJoinCalls.push({action,payload:structuredClone(payload)});
-if(action==='user.member.bootstrap')return {profile:structuredClone(incomplete),terms:structuredClone(terms),consentRequired:false};
+if(action==='user.member.bootstrap')return {profile:structuredClone(incomplete),terms:structuredClone(terms),consentRequired:false,
+...(new URLSearchParams(location.search).has('oa')?{memberOa:{required:true,configured:new URLSearchParams(location.search).get('oa')!=='unconfigured'||window.qaOaConfigured===true,addFriendUrl:new URLSearchParams(location.search).get('oa')!=='unconfigured'||window.qaOaConfigured===true?'https://line.me/R/ti/p/%40qa_member_oa':undefined}}:{})};
+if(action==='user.member.oa.check'){
+ if(window.qaOaExpired)throw Object.assign(new Error('LINE 登入已失效'),{code:'LINE_ACCESS_TOKEN_INVALID'});
+ if(!window.qaOaFriend)throw Object.assign(new Error('請先加入商家會員官方帳號'),{code:'MEMBER_OA_FRIENDSHIP_REQUIRED'});
+ return {memberOa:{required:true,configured:true,friend:true}};
+}
 if(action==='user.member.profile.save'){if(payload.accepted!==true)throw Object.assign(new Error('必須同意條款'),{code:'TERMS_CONSENT_REQUIRED'});if(payload.termsId!==terms.id||payload.termsVersion!==terms.version)throw Object.assign(new Error('條款版本已更新'),{code:'TERMS_VERSION_STALE'});return {profile:{...structuredClone(incomplete),memberCode:'QA-JOIN-1',surname:payload.surname,salutation:payload.salutation,birthday:payload.birthday,phone:payload.phone,joinedAt:'2026-10-05T00:00:00.000Z',profileComplete:true,membershipRequired:false}};}throw Object.assign(new Error('Unknown action: '+action),{code:'UNKNOWN_ACTION'});},
 subscribeRealtime:()=>()=>{},formatDate:v=>String(v||''),initials:()=> 'QA'};`);return;}
 const file=path.resolve(root,'.'+u.pathname);if(!file.startsWith(root+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile()){res.writeHead(404);res.end();return;}res.writeHead(200,{'Content-Type':file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'application/octet-stream'});fs.createReadStream(file).pipe(res);}catch(e){res.writeHead(500);res.end(e.message);}});await new Promise(r=>server.listen(0,'127.0.0.1',r));base='http://127.0.0.1:'+server.address().port;});
@@ -26,4 +32,45 @@ await page.locator('#saveProfileButton').click();await expect(page.locator('#mem
 await page.locator('#copyMemberCodeButton').click();await expect(page.locator('#copyMemberCodeButton')).toHaveText('已複製');expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('QA-JOIN-1');
 await expect(page.locator('#copyMemberCodeButton')).toBeEnabled();await page.evaluate(()=>history.replaceState(null,'','/MemberWebsocket-dev/member/'));await page.evaluate(fs.readFileSync(path.join(root,'user-test-control.js'),'utf8').replace('  window.MemberUserTestControl =','  window.qaNodes={memberCodeCopyCase};\n  window.MemberUserTestControl ='));expect((await page.evaluate(()=>qaNodes.memberCodeCopyCase())).status).toBe('passed');
 const saves=await page.evaluate(()=>qaJoinCalls.filter(x=>x.action==='user.member.profile.save'));expect(saves).toHaveLength(1);expect(saves[0].payload).toMatchObject({surname:'測',salutation:'mr',birthday:'1990-01-15',phone:'+886912345678',termsId:'terms-join-1',termsVersion:'7',accepted:true});
+});
+
+test('AC-JOIN-001: mobile new member passes server OA check before completing membership',async({page})=>{
+await page.setViewportSize({width:390,height:844});
+await page.goto(base+'/member-join?oa=required');
+await expect(page.locator('#profileSetupView')).toBeVisible();
+await expect(page.locator('#profileForm')).toBeHidden();
+await expect(page.locator('#memberOaAddLink')).toHaveAttribute('href','https://line.me/R/ti/p/%40qa_member_oa');
+await expect(page.locator('#memberOaStatus')).toContainText('請先加入');
+expect(await page.evaluate(()=>qaJoinCalls.filter(c=>c.action==='user.member.profile.save').length)).toBe(0);
+await page.evaluate(()=>{window.qaOaFriend=true;});
+await page.locator('#recheckMemberOa').click();
+await expect(page.locator('#profileForm')).toBeVisible();
+await expect(page.locator('#memberOaJoin')).toBeHidden();
+await page.locator('#profileSurname').fill('測');await page.locator('#profileSalutation').selectOption('mr');
+await page.evaluate(()=>{const e=document.getElementById('profileBirthday');e.value='1990-01-15';e.dispatchEvent(new Event('input',{bubbles:true}));});
+await page.locator('#profilePhone').fill('0912345678');await page.locator('#joinTermsAccepted').check();
+await page.locator('#saveProfileButton').click();await expect(page.locator('#memberView')).toBeVisible();
+expect(await page.evaluate(()=>qaJoinCalls.filter(c=>c.action==='user.member.profile.save').length)).toBe(1);
+});
+
+test('AC-JOIN-002: repaired merchant configuration still requires server friendship verification',async({page})=>{
+await page.goto(base+'/member-join?oa=unconfigured');
+await expect(page.locator('#profileForm')).toBeHidden();
+await expect(page.locator('#memberOaAddLink')).toBeHidden();
+await expect(page.locator('#recheckMemberOa')).toBeEnabled();
+await expect(page.locator('#memberOaStatus')).toContainText('尚未完成設定');
+await page.evaluate(()=>{window.qaOaConfigured=true;});
+await page.locator('#recheckMemberOa').click();
+await expect(page.locator('#memberOaStatus')).toContainText('請先加入');
+await expect(page.locator('#profileForm')).toBeHidden();
+await page.evaluate(()=>{window.qaOaFriend=true;});
+await page.locator('#recheckMemberOa').click();await expect(page.locator('#profileForm')).toBeVisible();
+});
+
+test('AC-JOIN-003: expired LINE credential provides recovery without exposing signup',async({page})=>{
+await page.addInitScript(()=>{window.qaOaExpired=true;});
+await page.goto(base+'/member-join?oa=required');
+await expect(page.locator('#memberOaStatus')).toContainText('請關閉此頁');
+await expect(page.locator('#profileForm')).toBeHidden();
+expect(await page.evaluate(()=>qaJoinCalls.filter(c=>c.action==='user.member.profile.save').length)).toBe(0);
 });

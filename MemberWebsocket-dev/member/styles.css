@@ -179,4 +179,4 @@ button, input { line-height: 1.35; }
   pointer-events: none;
 }
 
-#memberPass[hidden], #membershipProgress[hidden] { display: none !important; }
+#memberPass[hidden], #membershipProgress[hidden], #profileForm[hidden], #memberOaJoin[hidden], #memberOaJoin [hidden] { display: none !important; }
