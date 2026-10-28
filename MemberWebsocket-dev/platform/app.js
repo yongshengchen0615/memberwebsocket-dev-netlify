@@ -125,7 +125,7 @@
       if (!response.ok || !body.ok) {
         if (response.status>=500 && ['PLATFORM_DATABASE_UNAVAILABLE','PLATFORM_UNAVAILABLE'].includes(body.error?.code)) throw uncertainError();
         if(response.status===403 && body.error?.code==='PLATFORM_ADMIN_REQUIRED'&&!merchantEntry)showAuthorizationDenied();
-        if(isV2()&&merchantEntry&&[403,404].includes(response.status)){
+        if(isV2()&&merchantEntry&&action!=='platform.member-oa.readiness'&&[403,404].includes(response.status)){
           clearPrivateMerchant();clearAccount();
           if(isAccount()){el('qualificationWorkspace').hidden=false;el('qualificationStatus').textContent=body.error?.message||'目前無法確認管理員資格，請重新檢查。';}
         }
