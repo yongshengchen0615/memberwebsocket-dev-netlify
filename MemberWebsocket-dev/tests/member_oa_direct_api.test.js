@@ -60,26 +60,43 @@ async function harness(slug,options={}){
  }};
 }
 
+// RB-JOIN-001/002: Revert the OA-only requirement while preserving verified
+// LINE identity, current terms, rate limiting, atomic activation and ownership.
 for(const slug of ['member-profile-api','api']){
- for(const [label,options,status,code]of [
-  ['forged friendFlag',{friend:false},403,'MEMBER_OA_FRIENDSHIP_REQUIRED'],
-  ['wrong access-token channel',{tokenChannel:'2099999999'},401,'LINE_CHANNEL_OR_SCOPE_MISMATCH'],
-  ['wrong access-token user',{tokenUser:'U'+'2'.repeat(32)},401,'LINE_IDENTITY_MISMATCH'],
-  ['cross-shop binding',{wrongTenant:true},503,'MEMBER_OA_CONFIG_INCOMPLETE'],
-  ['missing server binding',{missingBinding:true},503,'MEMBER_OA_CONFIG_INCOMPLETE'],
-  ['LINE rate limit',{providerStatus:429},503,'LINE_FRIENDSHIP_UNAVAILABLE'],
-  ['LINE unavailable',{providerStatus:503},503,'LINE_FRIENDSHIP_UNAVAILABLE'],
-  ['LINE transport timeout',{networkError:true},503,'LINE_FRIENDSHIP_UNAVAILABLE'],
-  ['application rate limit',{rateLimit:false},429,'RATE_LIMITED'],
- ])test(`${slug}: direct HTTP ${label} leaves membership pending and consent absent`,async()=>{
-  const h=await harness(slug,options),result=await h.call({friendFlag:true,lineUserId:'U'+'f'.repeat(32),business:'other-shop'});
-  assert.equal(result.status,status,JSON.stringify(result.body));assert.equal(result.body.error.code,code);
-  assert.equal(h.member.membership_status,'pending');assert.equal(h.hasConsent(),false);
-  assert.doesNotMatch(JSON.stringify(result.body),/synthetic-access-token/);
+ for(const [label,options] of [
+  ['missing trusted OA mapping',{missingBinding:true}],
+  ['wrong tenant mapping',{wrongTenant:true}],
+  ['not a LINE OA friend',{friend:false}],
+  ['LINE provider outage',{providerStatus:503}],
+  ['invalid OA access-token channel',{tokenChannel:'2099999999'}],
+ ])test(`${slug}: 2026-10-22 enrollment rollback accepts verified LINE identity despite ${label}`,async()=>{
+  const h=await harness(slug,options);
+  const result=await h.call({friendFlag:false,lineUserId:'U'+'f'.repeat(32)});
+  assert.equal(result.status,200,JSON.stringify(result.body));
+  assert.equal(h.member.membership_status,'active');
+  assert.equal(h.hasConsent(),true);
+  assert.equal(h.member.line_user_id,lineUser,'caller-supplied identity cannot change target');
+  assert.equal(h.calls.length,0,'restored enrollment must not invoke provider OA lookup');
  });
- test(`${slug}: direct HTTP verified member OA activates the authenticated identity`,async()=>{
-  const h=await harness(slug),result=await h.call({lineUserId:'U'+'f'.repeat(32)});
-  assert.equal(result.status,200,JSON.stringify(result.body));assert.equal(h.member.membership_status,'active');assert.equal(h.hasConsent(),true);
-  assert.equal(h.member.line_user_id,lineUser);assert.equal(h.calls.length,3);
+ test(`${slug}: invalid LINE ID token still rejects enrollment`,async()=>{
+  const h=await harness(slug);
+  const result=await h.call({idToken:'forged'});
+  assert.equal(result.status,401,JSON.stringify(result.body));
+  assert.equal(h.member.membership_status,'pending');
+  assert.equal(h.hasConsent(),false);
+ });
+ test(`${slug}: missing consent still rejects enrollment`,async()=>{
+  const h=await harness(slug);
+  const result=await h.call({accepted:false});
+  assert.equal(result.status,400,JSON.stringify(result.body));
+  assert.equal(h.member.membership_status,'pending');
+  assert.equal(h.hasConsent(),false);
+ });
+ test(`${slug}: rate limiter still rejects enrollment`,async()=>{
+  const h=await harness(slug,{rateLimit:false});
+  const result=await h.call();
+  assert.equal(result.status,429,JSON.stringify(result.body));
+  assert.equal(h.member.membership_status,'pending');
+  assert.equal(h.hasConsent(),false);
  });
 }
