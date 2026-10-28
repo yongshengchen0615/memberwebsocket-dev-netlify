@@ -96,7 +96,7 @@ begin
  return jsonb_build_object('claimed',true,'alreadyClaimed',false,'rewardStatus','awaiting_activation');
 end $$;
 
-create or replace function S.settle_member_invitation(p_invitee uuid) returns void
+create or replace function S.settle_member_invitation(p_invitee uuid,p_first_activation boolean default false) returns void
 language plpgsql security invoker set search_path='' as $$
 declare a S.member_invitation_attributions;invitee S.members;inviter S.members;result jsonb;err text;
 begin
@@ -105,7 +105,11 @@ begin
  -- this attribution remains explicitly retryable instead of forming a cycle.
  select * into invitee from S.members where id=p_invitee for update nowait;
  select * into a from S.member_invitation_attributions where invitee_id=p_invitee for update;
- if not found or a.activated_at is null or a.reward_status='issued' then return;end if;
+ if not found or (a.activated_at is null and not p_first_activation) or a.reward_status='issued' then return;end if;
+ -- Write attribution only once per activation. A second UPDATE of the same row
+ -- in this transaction forces FK rechecks that would wait on a busy inviter
+ -- even after the reward subtransaction's NOWAIT failure.
+ a.activated_at:=coalesce(a.activated_at,clock_timestamp());
  begin
   perform S.invitation_tenant_ready();
   select * into inviter from S.members where id=a.inviter_id for update nowait;
@@ -119,23 +123,21 @@ begin
    select 1 from S.member_referrals r where r.referral_id=result->>'referralId'
     and r.inviter_member_id=inviter.id and r.invitee_member_id=invitee.id and r.reward_status='issued'
   ) then raise exception 'REFERRAL_REWARD_UNAVAILABLE';end if;
-  update S.member_invitation_attributions set reward_status='issued',referral_id=result->>'referralId',last_error=null,attempted_at=clock_timestamp() where invitee_id=p_invitee;
+  update S.member_invitation_attributions set activated_at=a.activated_at,reward_status='issued',referral_id=result->>'referralId',last_error=null,attempted_at=clock_timestamp() where invitee_id=p_invitee;
  exception when others then
   -- Subtransaction rolls back every reward side effect on any failure. Keep
   -- only allowlisted outcome codes; provider/SQL diagnostics are never stored.
   err:=case when sqlerrm in ('INVITATION_TENANT_UNAVAILABLE','INVITATION_SOURCE_UNAVAILABLE','REFERRAL_ALREADY_BOUND',
    'REFERRAL_CYCLE_NOT_ALLOWED','REFERRAL_REWARD_UNAVAILABLE','REFERRAL_REWARD_SOLD_OUT','REFERRAL_REWARD_NOT_ELIGIBLE') then sqlerrm
    when sqlstate in ('55P03','40P01','40001','23505') then 'INVITATION_RETRY_REQUIRED' else 'INVITATION_SETTLEMENT_UNAVAILABLE' end;
-  update S.member_invitation_attributions set reward_status='pending',last_error=err,attempted_at=clock_timestamp() where invitee_id=p_invitee;
+  update S.member_invitation_attributions set activated_at=a.activated_at,reward_status='pending',last_error=err,attempted_at=clock_timestamp() where invitee_id=p_invitee;
  end;
 end $$;
 create or replace function S.activate_member_invitation() returns trigger
 language plpgsql security invoker set search_path='' as $$
 begin
  if old.membership_status='pending' and old.joined_at is null and new.membership_status='active' and new.joined_at is not null then
-  update S.member_invitation_attributions set activated_at=clock_timestamp(),reward_status='pending'
-   where invitee_id=new.id and activated_at is null;
-  if found then perform S.settle_member_invitation(new.id);end if;
+  perform S.settle_member_invitation(new.id,true);
  end if;
  return null;
 end $$;
@@ -175,8 +177,8 @@ begin
  end loop;
  return S.member_invitation_summary(p_actor);
 end $$;
-revoke all on function S.invitation_tenant_ready(),S.invitation_actor(text),S.member_invitation_create(text,text),S.member_invitation_claim(text,text),S.settle_member_invitation(uuid),S.activate_member_invitation(),S.member_invitation_summary(text),S.member_invitation_retry(text) from public,anon,authenticated;
-grant execute on function S.invitation_tenant_ready(),S.invitation_actor(text),S.member_invitation_create(text,text),S.member_invitation_claim(text,text),S.settle_member_invitation(uuid),S.activate_member_invitation(),S.member_invitation_summary(text),S.member_invitation_retry(text) to service_role;
+revoke all on function S.invitation_tenant_ready(),S.invitation_actor(text),S.member_invitation_create(text,text),S.member_invitation_claim(text,text),S.settle_member_invitation(uuid,boolean),S.activate_member_invitation(),S.member_invitation_summary(text),S.member_invitation_retry(text) from public,anon,authenticated;
+grant execute on function S.invitation_tenant_ready(),S.invitation_actor(text),S.member_invitation_create(text,text),S.member_invitation_claim(text,text),S.settle_member_invitation(uuid,boolean),S.activate_member_invitation(),S.member_invitation_summary(text),S.member_invitation_retry(text) to service_role;
 $ddl$,'S.',quote_ident(p_schema)||'.'),'SCHEMA_NAME',p_schema);
 end $install$;
 revoke all on function platform_private.install_member_invitations(text) from public,anon,authenticated,service_role;
