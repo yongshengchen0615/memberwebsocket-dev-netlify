@@ -203,8 +203,16 @@
       if (epoch!==generation || !tenant || tenant.id!==id || tenant.version!==version || (typeof window!=='undefined' && !window.document)) return;
       block.error=error?.message||'請稍後重試';
     } finally {
-      if(epoch===generation && tenant?.id===id && tenant.version===version && (typeof window==='undefined' || window.document)) {
-        block.pending=false;block.checkedVersion=version;renderMemberReadiness(view);
+      // Releasing the in-flight lock must not depend on the old tenant version.
+      // Settings can be saved while this read-only diagnostic is in flight.
+      if(epoch===generation && tenant?.id===id && view.memberReadiness===block
+          && (typeof window==='undefined' || window.document)) {
+        block.pending=false;
+        const changed=tenant.version!==version;
+        block.checkedVersion=changed ? null : version;
+        if(changed) block.verified=false;
+        renderMemberReadiness(view);
+        if(changed) void checkMemberReadiness(view);
       }
     }
   }
