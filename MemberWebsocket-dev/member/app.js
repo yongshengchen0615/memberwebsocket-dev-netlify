@@ -111,8 +111,18 @@
   }
 
   async function prepareMembershipJoin(result) {
-    if (!state.config?.memberFriendshipFlowEnabled) return;
-    memberOa = result.memberOa || null;
+    // The server decides whether the first activation requires OA friendship.
+    // The legacy optional config flag is absent from deployed configs and must
+    // not skip the UI while the backend still enforces the membership gate.
+    if (result?.memberOa?.required !== true) {
+      memberOa = null;
+      oaVerified = false;
+      const panel = document.getElementById('memberOaJoin');
+      if (panel) panel.hidden = true;
+      els.profileForm.hidden = false;
+      return;
+    }
+    memberOa = result.memberOa;
     oaVerified = false;
     oaGeneration++;
     oaChecking = false;
@@ -363,7 +373,7 @@
 
   async function saveProfile(event) {
     event.preventDefault();
-    if (state.config?.memberFriendshipFlowEnabled && !oaVerified) return;
+    if (memberOa?.required === true && !oaVerified) return showMessage('請先完成 LINE 官方帳號好友資格確認。');
     if (state.profileSaveLocked) return showUncertainSaveMessage();
     hideMessage();
     const birthday = String(els.profileBirthday.value || '').trim();
@@ -407,7 +417,7 @@
         } catch (_) {
           showMessage('會員條款已更新，但最新內容載入失敗，請重新整理後再試。');
         }
-      } else if (state.config?.memberFriendshipFlowEnabled && ['MEMBER_OA_FRIENDSHIP_REQUIRED','MEMBER_OA_CONFIG_INCOMPLETE','LINE_FRIENDSHIP_UNAVAILABLE','LINE_ACCESS_TOKEN_REQUIRED','LINE_ACCESS_TOKEN_INVALID','LINE_CHANNEL_OR_SCOPE_MISMATCH','LINE_IDENTITY_MISMATCH'].includes(error?.code)) {
+      } else if (memberOa?.required === true && ['MEMBER_OA_FRIENDSHIP_REQUIRED','MEMBER_OA_CONFIG_INCOMPLETE','LINE_FRIENDSHIP_UNAVAILABLE','LINE_ACCESS_TOKEN_REQUIRED','LINE_ACCESS_TOKEN_INVALID','LINE_CHANNEL_OR_SCOPE_MISMATCH','LINE_IDENTITY_MISMATCH'].includes(error?.code)) {
         oaVerified = false; els.profileForm.hidden = true;
         document.getElementById('memberOaJoin').hidden = false;
         document.getElementById('memberOaStatus').textContent = error.message;
