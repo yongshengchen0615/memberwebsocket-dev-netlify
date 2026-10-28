@@ -53,7 +53,7 @@ test('INV09 new invitation HTTP actions reject unscoped, wrong client, auth/rate
 test('INV10 profile claim strictly validates secret; never activates or trusts caller actor/tenant',async()=>{
  const h=await harness('member-profile-api');
  for(const invitationToken of [null,{},[],123,'a'.repeat(63),'a'.repeat(65),'A'.repeat(64)]){
-  const r=await h.call('user.member.invitation.claim',{invitationToken});assert.equal(r.status,400,JSON.stringify(r.body));assert.equal(r.body.error.code,'INVITATION_TOKEN_INVALID');
+  const r=await h.call('user.member.invitation.claim',{invitationToken});assert.equal(r.status,400,JSON.stringify(r.body));assert.equal(r.body.error.code,'INVITATION_TOKEN_INVALID');assert.equal(r.body.error.details,null);
  }
  const r=await h.call('user.member.invitation.claim',{invitationToken:'a'.repeat(64),lineUserId:'forged',business:'other'});assert.equal(r.status,200,JSON.stringify(r.body));
  const c=h.calls.find(c=>c.name==='member_invitation_claim');assert.equal(c.args.p_actor,user);assert.notEqual(c.args.p_token_hash,'a'.repeat(64));assert.equal(h.member.membership_status,'pending');assert.equal(h.provider.length,0);

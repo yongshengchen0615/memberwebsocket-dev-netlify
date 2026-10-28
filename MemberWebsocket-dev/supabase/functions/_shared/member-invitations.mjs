@@ -1,7 +1,7 @@
 // Raw invitation secrets exist only for the response URL and incoming claim.
 // Persistence receives a SHA-256 digest; neither secret nor digest is logged.
 export class InvitationError extends Error {
-  constructor(status, code, message='目前無法使用這份邀請。') { super(message); this.status=status; this.code=code; }
+  constructor(status, code, message='目前無法使用這份邀請。') { super(message); this.status=status; this.code=code; this.details=null; }
 }
 export async function hashInvitationToken(token) {
   if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token)) throw new InvitationError(400,'INVITATION_TOKEN_INVALID');
