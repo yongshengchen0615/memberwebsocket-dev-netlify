@@ -519,9 +519,20 @@
     // LINE ID token authenticates identity, but the first membership join also
     // needs a user access token for the server to check the linked member OA.
     // Never persist this token or attach it to unrelated member requests.
-    const verifiedJoinPayload = (action === 'user.member.profile.save' && payload?.accepted === true) || action === 'user.member.oa.check'
-      ? { ...payload, lineAccessToken: typeof window.liff?.getAccessToken === 'function' ? (window.liff.getAccessToken() || '') : '' }
-      : payload;
+    const needsLineAccessToken = (action === 'user.member.profile.save' && payload?.accepted === true) || action === 'user.member.oa.check';
+    let lineAccessToken = '';
+    if (needsLineAccessToken) {
+      try { lineAccessToken = typeof window.liff?.getAccessToken === 'function' ? window.liff.getAccessToken() || '' : ''; }
+      catch { lineAccessToken = ''; }
+      if (typeof lineAccessToken !== 'string') lineAccessToken = '';
+      // Do not send a known-empty credential only to receive a confusing HTTP
+      // 401. The server still independently verifies every supplied LINE token.
+      if (action === 'user.member.oa.check' && !lineAccessToken.trim()) {
+        throw clientError('LINE_ACCESS_TOKEN_REQUIRED',
+          '無法取得 LINE 好友驗證授權，請關閉此頁後從 LINE App 重新開啟會員卡。');
+      }
+    }
+    const verifiedJoinPayload = needsLineAccessToken ? { ...payload, lineAccessToken } : payload;
     const isWrite = action.endsWith('.session.claim') || action.endsWith('.session.logout') || WRITE_ACTIONS.includes(action) || ['admin.settings.copy','admin.ticket-visibility.save','member.friend.request','member.friend.accept','member.friend.remove','member.friend.block'].includes(action);
     const timeoutMs = isWrite ? WRITE_TIMEOUT_MS : isFullBootstrap(clientType, action, payload) ? BOOTSTRAP_TIMEOUT_MS : READ_TIMEOUT_MS;
     const attempts = isWrite ? 1 : 2;
