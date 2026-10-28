@@ -10,7 +10,5 @@ export function previewMemberRuntime(config, env) {
     previewApiFunctionUrl: new URL('/functions/v1/api-preview', base).href,
     memberProfileFunctionUrl: new URL('/functions/v1/member-profile-api-preview', base).href,
     memberGrowthFunctionUrl: new URL('/functions/v1/member-growth-api-preview', base).href,
-    memberInvitationsEnabled: true,
-    memberFriendshipFlowEnabled: true,
   };
 }

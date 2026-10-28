@@ -12,32 +12,36 @@ const profileExtension = fs.readFileSync(path.join(root, 'member/profile-extensi
 const terms = { id: 'terms-2', version: '2026-10-v2', title: '新版條款', summary: '請閱讀', body: '完整條款內容' };
 const profile = { profileComplete: true, membershipRequired: false, joinedAt: '2026-01-01' };
 
-test('preview new signup waits for server OA recheck and preserves a safe add-friend fallback', async()=>{
- let friendship=false;
+// The 10/28 client OA/recommendation UI is intentionally rolled back to 10/27.
+// Server-side friendship authorization remains covered by member_oa*.test.js.
+test('RB-001: October 27 signup renders its original form without calling the newer OA endpoint',async()=>{
  const pending={lineUserId:'new-member',profileComplete:false,membershipRequired:true};
  const {dom,w,calls}=await start(false,{config:{memberFriendshipFlowEnabled:true},profile:pending,
   bootstrapResult:()=>({profile:pending,terms,memberOa:{required:true,configured:true,addFriendUrl:'https://line.me/R/ti/p/%40safe-oa'}}),
-  oaCheck:()=>{if(!friendship)throw Object.assign(new Error('請先加入商家好友'),{code:'MEMBER_OA_FRIENDSHIP_REQUIRED'});return {memberOa:{required:true,configured:true,friend:true}};}
+  oaCheck:()=>{throw new Error('The rolled-back client must not call the newer OA check');}
  });
- try{
-  assert.equal(w.document.getElementById('profileForm').hidden,true);
-  assert.equal(w.document.getElementById('memberOaAddLink').href,'https://line.me/R/ti/p/%40safe-oa');
-  assert.match(w.document.getElementById('memberOaStatus').textContent,/加入/);
-  friendship=true;w.document.getElementById('recheckMemberOa').click();await new Promise(r=>setTimeout(r,20));
+ try {
   assert.equal(w.document.getElementById('profileForm').hidden,false);
+  assert.equal(w.document.getElementById('memberOaJoin'),null);
+  assert.equal(calls.filter(c=>c.action==='user.member.oa.check').length,0);
   assert.equal(calls.filter(c=>c.action==='user.member.profile.save').length,0);
+  assert.match(w.document.getElementById('joinTermsBody').textContent,/完整條款/);
  }finally{dom.window.close();}
 });
 
-test('closing native add-friend prompt cannot unlock signup without verified server friendship',async()=>{
- let requested=0,rechecked=0;
- const pending={lineUserId:'new-member',profileComplete:false,membershipRequired:true};
- const {dom,w}=await start(false,{config:{memberFriendshipFlowEnabled:true},profile:pending,
-  liff:{isInClient:()=>true,getContext:()=>({viewType:'full'}),isApiAvailable:()=>true,requestFriendship:async()=>requested++,getFriendship:async()=>{rechecked++;return {friendFlag:false};}},
-  bootstrapResult:()=>({profile:pending,terms,memberOa:{required:true,configured:true,addFriendUrl:'https://line.me/R/ti/p/%40safe-oa'}}),
-  oaCheck:()=>{throw Object.assign(new Error('尚未成為好友'),{code:'MEMBER_OA_FRIENDSHIP_REQUIRED'});}
+test('RB-002: rolled-back member page does not mount native OA or new invitation controls',async()=>{
+ let requested=0;
+ const pending={profileComplete:false,membershipRequired:true};
+ const {dom,w}=await start(false,{config:{memberFriendshipFlowEnabled:true,memberInvitationsEnabled:true},profile:pending,
+  liff:{isInClient:()=>true,getContext:()=>({viewType:'full'}),requestFriendship:async()=>requested++},
+  bootstrapResult:()=>({profile:pending,terms,memberOa:{required:true,configured:false}})
  });
- try{w.document.getElementById('addMemberOa').click();await new Promise(r=>setTimeout(r,20));assert.equal(requested,1);assert.equal(rechecked,1);assert.equal(w.document.getElementById('profileForm').hidden,true);}finally{dom.window.close();}
+ try {
+  assert.equal(w.document.getElementById('memberOaJoin'),null);
+  assert.equal(requested,0);
+  assert.equal(w.document.querySelector('script[src*="member-invitations.js"]'),null);
+  assert.equal(w.document.getElementById('profileForm').hidden,false);
+ }finally{dom.window.close();}
 });
 
 async function start(consentRequired, options = {}) {
