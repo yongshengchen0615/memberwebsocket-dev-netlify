@@ -4,6 +4,7 @@ import { payloadHash, sealCredentials, openCredentials } from './platform-crypto
 import { assertTenantIdentity, normalizeExpiry } from './tenant-access.mjs';
 import { validateNotificationRoute, verifyNotificationToken } from './notification-routes.mjs';
 import { checkLineWebhook, lineWebhookEndpoint } from './line-webhook-diagnostics.mjs';
+import { memberOaGuidance } from './member-oa-registration-gate.mjs';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SQL_ERRORS = {
   LINE_CHANNEL_IN_USE:[409,'此 Messaging API Channel 已綁定其他商家。'],
@@ -32,7 +33,7 @@ export function databaseError(error) {
   for (const [code,[status,message]] of Object.entries(SQL_ERRORS)) if (String(error?.message || '').includes(code)) return new PlatformError(status,code,message);
   return new PlatformError(503,'PLATFORM_DATABASE_UNAVAILABLE','目前無法儲存或讀取商家設定。');
 }
-export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdentity = verifyIdentity, encryptionKey, allowedOrigins, fetchImpl = fetch, publicSupabaseUrl }) {
+export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdentity = verifyIdentity, encryptionKey, allowedOrigins, fetchImpl = fetch, publicSupabaseUrl, verifiedMemberOaBindingsJson = '', allowedActions = null }) {
   const moduleCredentials = async (current, feature) => {
     const stored=await db.rpc('platform_module_credentials',{p_tenant_id:current.id,p_feature:feature});
     if(stored.error)throw databaseError(stored.error);
@@ -64,6 +65,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       try { const data = new Uint8Array(size); let at = 0; for (const c of chunks) { data.set(c,at); at += c.length; } body = JSON.parse(new TextDecoder().decode(data)); }
       catch { throw new PlatformError(400,'INVALID_JSON','請求格式不正確。'); }
       if (!body || typeof body !== 'object' || Array.isArray(body)) throw new PlatformError(400,'INVALID_JSON','請求格式不正確。');
+      if (allowedActions && !allowedActions.has(body.action)) throw new PlatformError(404,'ACTION_NOT_FOUND','預覽端點不支援此操作。');
       if(body.action==='platform.business.public'){
         if(typeof body.business!=='string'||!/^[-a-z0-9]{3,40}$/.test(body.business))throw new PlatformError(400,'INVALID_BUSINESS','商家入口格式不正確。');
         const limited=await db.rpc('consume_api_rate_limit',{p_principal_hash:await payloadHash('business-public:'+body.business+':'+(request.headers.get('x-forwarded-for')||'')),p_is_write:false,p_cost:1,p_read_limit:90,p_write_limit:15});
@@ -84,7 +86,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       const merchantAction = ['platform.merchant.list','platform.merchant.get','platform.merchant.submit','platform.merchant.review'].includes(body.action);
       if ((qualificationAction || merchantAction) && body.business !== undefined)
         throw new PlatformError(400,'PLATFORM_INVALID_INPUT','資格與商家申請不接受商家入口。');
-      const applicantAction = ['platform.webhook.status','platform.webhook.check','platform.application.bootstrap','platform.application.ensure','platform.application.submit','platform.line.save','platform.notifications.save','platform.notifications.test','platform.qualification.bootstrap','platform.qualification.submit','platform.merchant.list','platform.merchant.get','platform.merchant.submit'].includes(body.action);
+      const applicantAction = ['platform.member-oa.readiness','platform.webhook.status','platform.webhook.check','platform.application.bootstrap','platform.application.ensure','platform.application.submit','platform.line.save','platform.notifications.save','platform.notifications.test','platform.qualification.bootstrap','platform.qualification.submit','platform.merchant.list','platform.merchant.get','platform.merchant.submit'].includes(body.action);
       let trustedChannel;
       if (applicantAction && body.business !== undefined) {
         if (typeof body.business !== 'string' || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(body.business) || body.business.length > 40)
@@ -100,7 +102,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       const identity = await (applicantAction ? verifyApplicantIdentity : verifyIdentity)(body.idToken, trustedChannel);
       const actor = identity.lineUserId;
       if(['platform.webhook.status','platform.webhook.check'].includes(body.action))webhookActor=actor;
-      const readOnly = ['platform.webhook.status','platform.bootstrap','platform.application.bootstrap','platform.qualification.bootstrap','platform.qualification.list','platform.merchant.list','platform.merchant.get'].includes(body.action);
+      const readOnly = ['platform.member-oa.readiness','platform.webhook.status','platform.bootstrap','platform.application.bootstrap','platform.qualification.bootstrap','platform.qualification.list','platform.merchant.list','platform.merchant.get'].includes(body.action);
       const rate = await db.rpc('consume_api_rate_limit',{p_principal_hash:await payloadHash(`platform:${actor}`),
         p_is_write:!readOnly,p_cost:1,p_read_limit:60,p_write_limit:15});
       if (rate.error) throw new PlatformError(503,'RATE_LIMIT_UNAVAILABLE','目前無法確認請求頻率。');
@@ -215,6 +217,22 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       }
       if (body.action === 'platform.application.bootstrap') {
         return json({ok:true,data:{profile:{displayName:identity.displayName},features:FEATURES,...await mine()}});
+      }
+      // This is an authenticated, per-business preflight; it exposes no secrets,
+      // friend state or OA identity, and uses the same trusted binding resolver as activation.
+      if (body.action === 'platform.member-oa.readiness') {
+        if (typeof body.business !== 'string') throw new PlatformError(400,'INVALID_BUSINESS','請先選擇商家。');
+        const workspace = await mine(), current = workspace.tenant;
+        if (!current || workspace.application?.status !== 'approved' || !current.capabilities.dataPlaneVerified)
+          throw new PlatformError(403,'BUSINESS_FORBIDDEN','無法存取此商家設定。');
+        if (current.features?.membership !== true)
+          throw new PlatformError(403,'FEATURE_DISABLED','此商家尚未開放會員卡。');
+        const memberLine = {...current.line,...current.moduleLine?.membership?.line};
+        const guidance = memberOaGuidance({
+          tenant:{id:current.id,features:current.features,line_config:current.line||{},module_line:current.moduleLine||{}},
+          expectedChannelId:memberLine.memberChannelId,member:null,verifiedBindingsJson:verifiedMemberOaBindingsJson,
+        });
+        return json({ok:true,data:{configured:guidance.configured,tenantVersion:current.version}});
       }
       if (body.action === 'platform.application.submit') {
         if (typeof body.businessName !== 'string' || body.businessName.length > 100 || !body.businessName.trim()

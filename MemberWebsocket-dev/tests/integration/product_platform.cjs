@@ -240,3 +240,30 @@ test('AC-021: platform grant is denied until explicitly enabled in the database'
   assert.equal((await h.call({action:'platform.bootstrap'})).status,403);
  }finally{await h.db.close();}
 });
+
+
+test('AC-ADMIN-OA-006: actual platform handler restricts readiness to the approved merchant and never leaks LINE secrets', async()=>{
+ const {setup}=require('./fixtures/merchant-http.cjs');
+ const h=await setup();
+ try {
+  await h.qualify();
+  const application=await h.submit(h.owner,'oa-preflight','Member OA readiness');
+  await h.review(application,'approved',h.features(['membership']));
+  const scoped={action:'platform.member-oa.readiness',business:'oa-preflight'};
+  const result=await h.platformCall(scoped,'manager');
+  assert.equal(result.status,200,JSON.stringify(result));
+  assert.equal(result.body.data.configured,false,'missing trusted OA mapping must fail closed');
+  assert.equal(Number.isSafeInteger(result.body.data.tenantVersion),true);
+  assert.deepEqual(Object.keys(result.body.data).sort(),['configured','tenantVersion']);
+  const cross=await h.platformCall(scoped,'other');
+  assert.notEqual(cross.status,200,'unapproved manager cannot see another business readiness');
+  const missingBusiness=await h.platformCall({action:scoped.action},'manager');
+  assert.equal(missingBusiness.status,400);
+  const unauth=await h.handler(new Request('https://backend.test',{
+   method:'POST',headers:{Origin:'https://allowed.test','Content-Type':'application/json'},
+   body:JSON.stringify(scoped),
+  }));
+  assert.equal(unauth.status,401);
+  assert.doesNotMatch(JSON.stringify(result.body),/accessToken|channelSecret|memberOaId|verifiedBindingsJson/);
+ } finally { await h.db.close(); }
+});
