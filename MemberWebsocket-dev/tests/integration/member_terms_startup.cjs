@@ -21,6 +21,7 @@ test('preview new signup waits for server OA recheck and preserves a safe add-fr
  });
  try{
   assert.equal(w.document.getElementById('profileForm').hidden,true);
+  assert.equal(w.getComputedStyle(w.document.getElementById('profileForm')).display,'none');
   assert.equal(w.document.getElementById('memberOaAddLink').href,'https://line.me/R/ti/p/%40safe-oa');
   assert.match(w.document.getElementById('memberOaStatus').textContent,/加入/);
   friendship=true;w.document.getElementById('recheckMemberOa').click();await new Promise(r=>setTimeout(r,20));
@@ -116,6 +117,9 @@ async function start(consentRequired, options = {}) {
   const currentProfile = options.profile || profile;
   const w = dom.window;
   await new Promise((resolve) => w.addEventListener('load', resolve, { once: true }));
+  const style=w.document.createElement('style');
+  style.textContent=fs.readFileSync(path.join(root,'member/styles.css'),'utf8');
+  w.document.head.append(style);
   const calls = [];
   w.MemberSystem = {
     bindDialogKeyboard() {},

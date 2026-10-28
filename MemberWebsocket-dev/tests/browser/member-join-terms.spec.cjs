@@ -12,7 +12,7 @@ window.MembershipProgress={render(){}};
 window.MemberSystem={bindDialogKeyboard(){},loadConfig:async()=>({brandName:'QA Lumen Club'}),signIn:async()=> 'fixture-id-token',
 request:async(_c,_t,_token,action,payload={})=>{window.qaJoinCalls.push({action,payload:structuredClone(payload)});
 if(action==='user.member.bootstrap')return {profile:structuredClone(incomplete),terms:structuredClone(terms),consentRequired:false,
-...(new URLSearchParams(location.search).has('oa')?{memberOa:{required:true,configured:new URLSearchParams(location.search).get('oa')!=='unconfigured'||window.qaOaConfigured===true,addFriendUrl:'https://line.me/R/ti/p/%40qa_member_oa'}}:{})};
+...(new URLSearchParams(location.search).has('oa')?{memberOa:{required:true,configured:new URLSearchParams(location.search).get('oa')!=='unconfigured'||window.qaOaConfigured===true,addFriendUrl:new URLSearchParams(location.search).get('oa')!=='unconfigured'||window.qaOaConfigured===true?'https://line.me/R/ti/p/%40qa_member_oa':undefined}}:{})};
 if(action==='user.member.oa.check'){
  if(window.qaOaExpired)throw Object.assign(new Error('LINE 登入已失效'),{code:'LINE_ACCESS_TOKEN_INVALID'});
  if(!window.qaOaFriend)throw Object.assign(new Error('請先加入商家會員官方帳號'),{code:'MEMBER_OA_FRIENDSHIP_REQUIRED'});
@@ -56,6 +56,7 @@ expect(await page.evaluate(()=>qaJoinCalls.filter(c=>c.action==='user.member.pro
 test('AC-JOIN-002: repaired merchant configuration still requires server friendship verification',async({page})=>{
 await page.goto(base+'/member-join?oa=unconfigured');
 await expect(page.locator('#profileForm')).toBeHidden();
+await expect(page.locator('#memberOaAddLink')).toBeHidden();
 await expect(page.locator('#recheckMemberOa')).toBeEnabled();
 await expect(page.locator('#memberOaStatus')).toContainText('尚未完成設定');
 await page.evaluate(()=>{window.qaOaConfigured=true;});
