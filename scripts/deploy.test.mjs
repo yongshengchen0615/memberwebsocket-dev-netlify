@@ -65,6 +65,9 @@ test('frontend backend settings are copied without changing identity or project'
   if (branch === 'Integrated-Marketing-Platform' && process.env.CONTEXT !== 'production') {
     expected.previewApiFunctionUrl = new URL('/functions/v1/api-preview', expected.supabaseUrl).href;
     expected.memberProfileFunctionUrl = new URL('/functions/v1/member-profile-api-preview', expected.supabaseUrl).href;
+    expected.memberGrowthFunctionUrl = new URL('/functions/v1/member-growth-api-preview', expected.supabaseUrl).href;
+    expected.memberInvitationsEnabled = true;
+    expected.memberFriendshipFlowEnabled = true;
   }
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(output, 'config.json'))), expected);
 });

@@ -2,6 +2,19 @@ const {test,before,after}=require('node:test');
 const assert=require('node:assert/strict');
 const {setup}=require('./fixtures/member-invitations.cjs');
 let h;before(async()=>{h=await setup();});after(async()=>{if(h)await h.db.close();});
+test('INV24 bounded retries rotate past twenty conflicting legacy rewards',async()=>{
+ await h.db.exec('begin');try{
+ const t=h.old,a=await h.active(t),b=await h.active(t),token=await h.token(t,a),members=[];
+ await h.db.exec(`update ${t.runtime_schema}.event_tickets set status='draft' where ticket_type='referral' and referral_source_event_ticket_id is null`);
+ for(let i=0;i<21;i++){const p=await h.pending(t);members.push(p);await h.rpc(t,'member_invitation_claim',[p.line_user_id,token.hash]);await h.accept(t,p);}
+ await h.source(t);
+ for(const p of members.slice(0,20))await h.rpc(t,'bind_member_referral',[b.line_user_id,(await h.db.query(`select invite_code from ${t.runtime_schema}.members where id=$1`,[p.id])).rows[0].invite_code,'legacy_'+p.id]);
+ assert.equal((await h.rpc(t,'member_invitation_retry',[a.line_user_id])).rewardedCount,0);
+ const result=await h.rpc(t,'member_invitation_retry',[a.line_user_id]);
+ assert.equal(result.rewardedCount,1);assert.equal(result.pendingCount,20);
+ const last=members.at(-1);assert.equal((await h.db.query(`select inviter_member_id from ${t.runtime_schema}.member_referrals where invitee_member_id=$1`,[last.id])).rows[0].inviter_member_id,a.id);
+ }finally{await h.db.exec('rollback');}
+});
 test('INV23 existing member removal clears invitation secrets and claims without removing surviving members',async()=>{
  for(const t of [h.old,h.fresh]){
   const admin='U'+crypto.randomUUID().replaceAll('-','');

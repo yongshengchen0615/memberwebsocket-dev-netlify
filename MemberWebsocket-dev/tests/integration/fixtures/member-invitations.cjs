@@ -7,6 +7,7 @@ async function setup(options={}){
  try{
   h.old=await h.approve('U'+'2'.repeat(32),'invitation-old');
   await h.db.exec(migration());
+  await h.db.exec(fs.readFileSync(path.join(migrations,fs.readdirSync(migrations).find(n=>n.endsWith('_member_invitation_retry_rotation.sql'))),'utf8'));
   h.fresh=await h.approve('U'+'3'.repeat(32),'invitation-new');
   for(const t of [h.old,h.fresh]){
    await h.db.query("update platform_private.tenants set status='active',credentials_configured=true,isolation_verified_at=now(),isolation_version='business-v1-20261019',expires_at=now()+interval '30 days' where id=$1",[t.id]);
