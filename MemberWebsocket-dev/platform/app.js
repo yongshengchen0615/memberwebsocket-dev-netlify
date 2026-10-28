@@ -114,7 +114,7 @@
     const timer = setTimeout(() => controller.abort(),20000);
     try {
       const url = new URL(state.config.supabaseFunctionUrl);
-      const readOnlyPreview = action === 'platform.member-oa.readiness' && location.hostname === 'integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app';
+      const readOnlyPreview = ['platform.member-oa.readiness','platform.member-oa.inspect'].includes(action) && location.hostname === 'integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app';
       url.pathname = url.pathname.replace(/\/api\/?$/, readOnlyPreview ? '/platform-api-preview' : '/platform-api');
       if (!url.pathname.endsWith(readOnlyPreview ? '/platform-api-preview' : '/platform-api')) throw new Error('總管理員 API 設定不正確。');
       let response;
