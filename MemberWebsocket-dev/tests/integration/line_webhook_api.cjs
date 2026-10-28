@@ -66,3 +66,33 @@ test('#144 real receiver commits signed events exactly once; forged destination/
   assert.equal(h.provider.length,2,'only the explicit read-only check contacts LINE');
  }finally{await h.db.close();}
 });
+
+test('#158 real signed shared-channel receiver stores only verified membership observations without business effects',async()=>{
+ const h=await setup();try{
+  const saved=await h.call({action:'platform.line.save',business:h.tenant.slug,feature:'membership',line:{...require('./fixtures/line-webhook-cases.cjs').line,bookingLiffId:undefined,memberLiffId:'2010787602-member'},credentials:{channelAccessToken:'synthetic-webhook-api-token-123456789',channelSecret:'a'.repeat(32)},expectedVersion:2,requestId:crypto.randomUUID()},'manager');
+  assert.equal(saved.status,200,JSON.stringify(saved));
+  for(const feature of ['booking','membership'])assert.equal((await h.request('platform.webhook.check',{feature})).status,200);
+  const {createLineWebhookHandler}=await import('../../supabase/functions/_shared/line-webhook.mjs');
+  const handler=createLineWebhookHandler({db:{rpc:h.rpc},encryptionKey:()=>require('./platform-fixture.cjs').key});
+  const schema=(await h.db.query('select runtime_schema from platform_private.tenants where id=$1',[h.tenant.id])).rows[0].runtime_schema;
+  const snapshot=async()=>{
+   const result={};for(const ns of ['public',schema])for(const table of ['members','member_referrals','member_friendships','point_entries','fixed_ticket_grants','notice_outbox'])result[ns+'.'+table]=(await h.db.query(`select coalesce(jsonb_agg(to_jsonb(t)),'[]'::jsonb) data from "${ns}"."${table}" t`)).rows[0].data;
+   return result;
+  };
+  const before=await snapshot();
+  const body=JSON.stringify({destination,events:[
+   {webhookEventId:'member-follow',type:'follow',timestamp:100,source:{type:'user',userId:owner}},
+   {webhookEventId:'member-unfollow',type:'unfollow',timestamp:100,source:{type:'user',userId:owner}},
+   {webhookEventId:'group-follow',type:'follow',timestamp:200,source:{type:'group',userId:owner,groupId:'private-group'}},
+  ]});
+  const signature=require('node:crypto').createHmac('sha256','a'.repeat(32)).update(body).digest('base64');
+  const send=()=>handler(new Request('https://backend.test/functions/v1/line-webhook',{method:'POST',body,headers:{'x-line-signature':signature}}));
+  assert.equal((await send()).status,200);assert.equal((await send()).status,200);
+  const rows=(await h.db.query('select tenant_id,line_user_id,feature,friendship_state from platform_private.member_oa_webhook_state')).rows;
+  assert.deepEqual(rows,[{tenant_id:h.tenant.id,line_user_id:owner,feature:'membership',friendship_state:'unfollow'}]);
+  assert.equal((await h.db.query('select count(*)::int n from platform_private.line_webhook_receipts')).rows[0].n,3);
+  assert.equal((await h.request('platform.webhook.status',{feature:'membership'})).body.data.ingressState,'verified');
+  assert.equal((await h.request('platform.webhook.status',{feature:'booking'})).body.data.ingressState,'pending');
+  assert.deepEqual(await snapshot(),before,'OA observations do not mutate membership, legacy friends/referrals, rewards or notices');
+ }finally{await h.db.close();}
+});
