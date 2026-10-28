@@ -55,13 +55,14 @@ test('AC-031: unknown surfaces never inject role navigation', () => {
   vm.runInNewContext(script, { document });
   assert.equal(nodes.length, 0);
 });
-test('AC-032: each portal actually imports the shared CSS and JS with explicit role', () => {
-  for (const [route, surface] of [['platform/index.html','platform'],['admin/workspace.html','admin'],['member/index.html','member']]) {
-    const page = fs.readFileSync(path.join(root,route),'utf8');
-    assert.match(page, new RegExp('data-portal-surface="'+surface+'"'));
-    assert.match(page, /portal-navigation\.css/);
-    assert.match(page, /portal-navigation\.js/);
-  }
+test('AC-032: admin keeps scoped navigation and member removes redundant system entry', () => {
+  const admin = fs.readFileSync(path.join(root,'admin/workspace.html'),'utf8');
+  const member = fs.readFileSync(path.join(root,'member/index.html'),'utf8');
+  assert.match(admin, /data-portal-surface="admin"/);
+  assert.match(admin, /portal-navigation\\.css/);
+  assert.match(admin, /portal-navigation\\.js/);
+  assert.match(member, /data-portal-surface="member"/);
+  assert.doesNotMatch(member, /portal-navigation\\.(css|js)/);
 });
 
 test('AC-136: nested main uses a direct body child as insertBefore reference', () => {
