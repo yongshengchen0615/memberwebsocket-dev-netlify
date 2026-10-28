@@ -214,7 +214,7 @@ test('BOOKING_RESOURCE_SETTINGS — primary technician and party size save and r
   await expect(p.locator('#bookingAdminResourceRefreshButton')).toBeEnabled();await click(p,'bookingAdminResourceRefreshButton');
   await expect(p.locator('#bookingAdminRequirePrimaryTechnician')).not.toBeChecked();await expect(p.locator('#bookingAdminPrimaryTechnician')).toHaveValue('tech-2');
   await p.locator('#bookingAdminRequirePrimaryTechnician').uncheck();await select(p,'bookingAdminPrimaryTechnician','');await click(p,'bookingAdminSavePartySizeButton');
-  await expect.poll(()=>info.fixture.settings.requirePrimaryTechnician).toBe(false);await click(p,'bookingAdminResourceRefreshButton');
+  await expect.poll(()=>info.fixture.settings.primaryTechnicianId).toBe('');await expect.poll(()=>info.fixture.settings.requirePrimaryTechnician).toBe(false);await click(p,'bookingAdminResourceRefreshButton');
   await expect(p.locator('#bookingAdminRequirePrimaryTechnician')).not.toBeChecked();await expect(p.locator('#bookingAdminPrimaryTechnician')).toHaveValue('');
   await p.locator('#bookingAdminRequirePrimaryTechnician').check();await click(p,'bookingAdminSavePartySizeButton');
   await expect(p.locator('#bookingAdminResourceMessage')).toContainText('請選擇主要技師');
