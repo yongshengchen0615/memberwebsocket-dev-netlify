@@ -52,13 +52,13 @@ test('AC-REG-002: incomplete merchant OA setup fails closed with an actionable m
 await page.goto(base+'/member-join?oa=unconfigured');
 await expect(page.locator('#memberOaJoin')).toBeVisible();
 await expect(page.locator('#profileForm')).toBeHidden();
-await expect(page.locator('#memberOaStatus')).toContainText('尚未完成');
+await expect(page.locator('#memberOaStatus')).toContainText('目前無法受理新會員申請');
 await expect(page.locator('#memberOaAddLink')).toBeHidden();
 await expect(page.locator('#recheckMemberOa')).toBeEnabled();
-await expect(page.locator('#recheckMemberOa')).toHaveText('重新檢查商家設定');
+await expect(page.locator('#recheckMemberOa')).toHaveText('重新檢查服務狀態');
 const before=await page.evaluate(()=>qaJoinCalls.filter(x=>x.action==='user.member.bootstrap').length);
 await page.locator('#recheckMemberOa').click();
-await expect(page.locator('#memberOaStatus')).toContainText('尚未完成');
+await expect(page.locator('#memberOaStatus')).toContainText('目前無法受理新會員申請');
 expect(await page.evaluate(()=>qaJoinCalls.filter(x=>x.action==='user.member.bootstrap').length)).toBe(before+1);
 await expect(page.locator('#profileForm')).toBeHidden();
 expect(await page.evaluate(()=>qaJoinCalls.filter(x=>x.action==='user.member.profile.save').length)).toBe(0);
