@@ -75,6 +75,12 @@ test('isolated member preview APIs must pass preflight and reject missing LINE i
   const fetchImpl = async (url, options = {}) => {
     if (!endpoints.includes(String(url))) return f.options.fetchImpl(url, options);
     calls.push({ url: String(url), method: options.method });
+    // Growth validates its action allowlist before authentication. A profile
+    // write cannot prove that the growth endpoint rejects missing identity.
+    if (String(url).endsWith('/member-growth-api-preview') && options.method === 'POST'
+      && JSON.parse(options.body).action !== 'member.friend.list') {
+      return Response.json({ error: { code: 'CLIENT_ACTION_MISMATCH' } }, { status: 403 });
+    }
     return options.method === 'OPTIONS'
       ? new Response(null, { status: 204, headers: { 'access-control-allow-origin': base, 'access-control-allow-methods': 'POST,OPTIONS', 'access-control-allow-headers': 'content-type,apikey', vary:'Origin' } })
       : Response.json({ error: { code: 'AUTH_REQUIRED' } }, { status: 401, headers: { 'access-control-allow-origin': base, 'cache-control': 'no-store' } });
