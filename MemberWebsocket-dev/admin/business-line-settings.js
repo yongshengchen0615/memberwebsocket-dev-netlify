@@ -207,7 +207,7 @@
       if(epoch!==generation || !tenant || tenant.id!==id || tenant.version!==version)return;
       block.inspected.textContent='官方帳號查核未完成：'+(error?.message||'請稍後重試');
     }finally{
-      if(epoch===generation&&tenant?.id===id)block.inspect.disabled=false;
+      if(epoch===generation&&tenant?.id===id)block.inspect.disabled=Boolean(saving||pendingOperation()||block.pending);
     }
   }
   async function checkMemberReadiness(view) {
@@ -473,7 +473,7 @@
         const statusText=node('p');statusText.setAttribute('aria-live','polite');
         const recheck=node('button','重新檢查會員入會設定','button button-outline');recheck.type='button';
         const inspect=node('button','由 LINE 自動辨識我的官方帳號','button button-outline');inspect.type='button';
-        const inspected=node('p');inspected.setAttribute('role','status');
+        const inspected=node('p');inspected.setAttribute('aria-live','polite');
         const guide=node('p','首次註冊必須先加入本店會員官方帳號。管理功能可獨立使用；只有伺服器確認會員 OA 綁定後，才可進行首次入會的真實驗收。');
         panel.append(summary,guide,list,statusText,recheck,inspect,inspected);section.append(panel);
         view.memberReadiness={summary,list,status:statusText,reload:recheck,inspect,inspected,pending:false,verified:false,checkedVersion:null,error:''};
