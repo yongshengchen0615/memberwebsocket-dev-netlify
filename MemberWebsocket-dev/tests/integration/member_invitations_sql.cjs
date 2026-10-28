@@ -73,7 +73,10 @@ test('INV06 expiry, disabled inviter, test parity and consent revocation fail cl
 });
 test('INV07 private tables/functions deny browser roles and installer repeats safely',async()=>{
  for(const t of [h.old,h.fresh]){
+  const trigger=async()=>(await h.db.query(`select oid from pg_trigger where tgrelid=$1::regclass and tgname='members_activate_invitation'`,[t.runtime_schema+'.members'])).rows[0].oid;
+  const before=await trigger();
   await h.db.query('select platform_private.install_member_invitations($1)',[t.runtime_schema]);
+  assert.equal(await trigger(),before,'reinstall preserves trigger identity');
   for(const role of ['anon','authenticated']){
    for(const table of ['member_invitation_tokens','member_invitation_attributions'])assert.equal((await h.db.query('select has_table_privilege($1,$2,\'select\') allowed',[role,t.runtime_schema+'.'+table])).rows[0].allowed,false);
    for(const f of ['member_invitation_create(text,text)','member_invitation_claim(text,text)','member_invitation_summary(text)','member_invitation_retry(text)'])assert.equal((await h.db.query('select has_function_privilege($1,$2,\'execute\') allowed',[role,t.runtime_schema+'.'+f])).rows[0].allowed,false);

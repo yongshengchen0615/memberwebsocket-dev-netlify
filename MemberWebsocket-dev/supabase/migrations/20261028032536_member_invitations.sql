@@ -141,8 +141,7 @@ begin
  end if;
  return null;
 end $$;
-drop trigger if exists members_activate_invitation on S.members;
-create trigger members_activate_invitation after update of membership_status on S.members
+create or replace trigger members_activate_invitation after update of membership_status on S.members
  for each row execute function S.activate_member_invitation();
 
 create or replace function S.member_invitation_summary(p_actor text) returns jsonb
