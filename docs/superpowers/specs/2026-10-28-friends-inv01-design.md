@@ -1,7 +1,7 @@
 # 好友功能首批設計：INV-01 既有好友保護與入口辨識
 
-日期：2026-10-28（Asia/Taipei）  
-狀態：待使用者核准；尚未實作產品程式。  
+日期：2026-10-28（Asia/Taipei）
+狀態：待使用者核准；尚未實作產品程式。
 工作卡：[#149](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/issues/149)，回歸 [#51](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/issues/51)；總目標 [#148](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/issues/148)。
 
 ## 1. 本批目的與範圍
