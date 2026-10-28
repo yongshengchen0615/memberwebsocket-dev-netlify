@@ -9,7 +9,6 @@
   let loginProgressTimer = null;
   let loginProgressValue = 8;
   let memberCodeCopyResetTimer = null;
-  let memberOa = null, oaVerified = false, oaChecking = false, oaGeneration = 0;
 
   window.addEventListener('DOMContentLoaded', () => {
     window.MemberSystem.bindDialogKeyboard();
@@ -67,7 +66,6 @@
           return;
         }
         if (!profile.profileComplete || profile.membershipRequired) {
-          await prepareMembershipJoin(latest);
           if (!els.memberView.classList.contains('hidden')) setView('profileSetup');
           return;
         }
@@ -79,7 +77,6 @@
         return setView('termsRenew');
       }
       if (!state.profile.profileComplete || state.profile.membershipRequired) {
-        await prepareMembershipJoin(result);
         await completeLoginProgress('會員資料已準備完成');
         setView('profileSetup');
         announceTourReady(state.profile);
@@ -108,95 +105,6 @@
       setView('member');
       announceTourReady(profile);
     }
-  }
-
-  async function prepareMembershipJoin(result) {
-    if (!state.config?.memberFriendshipFlowEnabled) return;
-    memberOa = result.memberOa || null;
-    oaVerified = false;
-    oaGeneration++;
-    oaChecking = false;
-    const epoch = oaGeneration;
-    els.profileForm.hidden = true;
-    let panel = document.getElementById('memberOaJoin');
-    if (!panel) {
-      panel = document.createElement('section'); panel.id = 'memberOaJoin'; panel.className = 'member-referral-section';
-      const title = document.createElement('h2'); title.textContent = '先加入商家 LINE 好友';
-      const text = document.createElement('p'); text.textContent = '請加入此商家的會員官方帳號，或解除封鎖後重新檢查，再填寫會員資料。';
-      const actions = document.createElement('div'); actions.className = 'friend-actions';
-      const add = document.createElement('button'); add.id = 'addMemberOa'; add.type = 'button'; add.className = 'button button-dark'; add.textContent = '加入好友／解除封鎖';
-      add.addEventListener('click', () => void requestMemberOaFriendship());
-      const link = document.createElement('a'); link.id = 'memberOaAddLink'; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.className = 'button button-refresh'; link.textContent = '開啟官方帳號加好友頁';
-      const recheck = document.createElement('button'); recheck.id = 'recheckMemberOa'; recheck.type = 'button'; recheck.className = 'button button-refresh'; recheck.textContent = '已加入，重新檢查';
-      recheck.addEventListener('click', () => void checkMemberOa());
-      const feedback = document.createElement('p'); feedback.id = 'memberOaStatus'; feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite');
-      actions.append(add, link, recheck); panel.append(title, text, actions, feedback); els.profileForm.before(panel);
-    }
-    panel.hidden = false;
-    const link = document.getElementById('memberOaAddLink');
-    let url = null;
-    try {
-      const candidate = new URL(memberOa?.addFriendUrl || '');
-      if (candidate.protocol === 'https:' && candidate.hostname === 'line.me' && !candidate.username && !candidate.password && candidate.pathname.startsWith('/R/ti/p/')) url = candidate.href;
-    } catch { /* Missing or untrusted configuration must fail closed. */ }
-    link.hidden = !url;
-    if (url) link.href = url; else link.removeAttribute('href');
-    document.getElementById('addMemberOa').hidden = !canRequestFriendship() || !url;
-    document.getElementById('recheckMemberOa').disabled = memberOa?.configured !== true || !url;
-    if (epoch !== oaGeneration) return;
-    if (memberOa?.configured !== true || !url) {
-      document.getElementById('memberOaStatus').textContent = '商家的會員官方帳號尚未完成設定，請聯絡商家後重新整理。';
-      return;
-    }
-    await checkMemberOa();
-  }
-
-  function canRequestFriendship() {
-    try { return Boolean(window.liff?.isInClient?.() && window.liff.getContext?.()?.viewType === 'full' && typeof window.liff.requestFriendship === 'function'); }
-    catch { return false; }
-  }
-
-  async function requestMemberOaFriendship() {
-    if (oaChecking || !canRequestFriendship()) return;
-    const epoch = oaGeneration;
-    const button = document.getElementById('addMemberOa'); button.disabled = true;
-    try {
-      await window.liff.requestFriendship();
-      if (epoch !== oaGeneration) return;
-      // Closing the prompt proves nothing. Recheck LIFF for UX, then ask the
-      // server to verify the linked OA independently before exposing signup.
-      if (typeof window.liff.getFriendship === 'function') await window.liff.getFriendship();
-      if (epoch === oaGeneration) await checkMemberOa();
-    } catch {
-      if (epoch === oaGeneration) document.getElementById('memberOaStatus').textContent = '加入好友視窗已關閉或暫時無法使用，請使用官方帳號頁面後重新檢查。';
-    } finally { if (epoch === oaGeneration) button.disabled = false; }
-  }
-
-  async function checkMemberOa() {
-    if (oaChecking || memberOa?.configured !== true) return;
-    oaChecking = true;
-    const epoch = oaGeneration, button = document.getElementById('recheckMemberOa');
-    button.disabled = true;
-    document.getElementById('memberOaStatus').textContent = '正在確認本商家的 LINE 好友資格…';
-    try {
-      const claim = await window.MemberInvitations?.claimPending({ config: state.config, idToken: state.idToken, profile: state.profile });
-      if (epoch !== oaGeneration) return;
-      if (claim?.claimed === false) showMessage(claim.reason === 'INVITATION_ALREADY_CLAIMED'
-        ? '此入會流程已保留先前的邀請歸因，新的邀請不會覆蓋；可繼續加入會員。'
-        : '此邀請目前無法計入推薦獎勵；仍可正常加入會員。');
-      const result = await window.MemberSystem.request(state.config, 'member', state.idToken, 'user.member.oa.check', {});
-      if (epoch !== oaGeneration) return;
-      if (result?.memberOa?.friend !== true || result.memberOa.configured !== true) throw new Error('尚未確認好友資格，請加入好友後重新檢查。');
-      oaVerified = true;
-      els.profileForm.hidden = false;
-      document.getElementById('memberOaJoin').hidden = true;
-      document.getElementById('profileSurname')?.focus();
-    } catch (error) {
-      if (epoch === oaGeneration) {
-        oaVerified = false; els.profileForm.hidden = true;
-        document.getElementById('memberOaStatus').textContent = error?.message || '暫時無法確認好友資格，請稍後重新檢查。';
-      }
-    } finally { if (epoch === oaGeneration) { oaChecking = false; button.disabled = false; } }
   }
 
   async function loadLineProfile() {
@@ -363,7 +271,6 @@
 
   async function saveProfile(event) {
     event.preventDefault();
-    if (state.config?.memberFriendshipFlowEnabled && !oaVerified) return;
     if (state.profileSaveLocked) return showUncertainSaveMessage();
     hideMessage();
     const birthday = String(els.profileBirthday.value || '').trim();
@@ -407,10 +314,6 @@
         } catch (_) {
           showMessage('會員條款已更新，但最新內容載入失敗，請重新整理後再試。');
         }
-      } else if (state.config?.memberFriendshipFlowEnabled && ['MEMBER_OA_FRIENDSHIP_REQUIRED','MEMBER_OA_CONFIG_INCOMPLETE','LINE_FRIENDSHIP_UNAVAILABLE','LINE_ACCESS_TOKEN_REQUIRED','LINE_ACCESS_TOKEN_INVALID','LINE_CHANNEL_OR_SCOPE_MISMATCH','LINE_IDENTITY_MISMATCH'].includes(error?.code)) {
-        oaVerified = false; els.profileForm.hidden = true;
-        document.getElementById('memberOaJoin').hidden = false;
-        document.getElementById('memberOaStatus').textContent = error.message;
       } else {
         showMessage(error && error.message || '資料暫時無法儲存，請稍後再試。');
       }
