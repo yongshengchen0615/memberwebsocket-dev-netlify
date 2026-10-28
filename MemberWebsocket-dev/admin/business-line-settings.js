@@ -70,7 +70,7 @@
     const session = window.MemberAdminSession?.get();
     if (!session) {const error=Object.assign(Error('登入狀態已失效，請重新登入。'),{code:'AUTH_REQUIRED'});revoke(error);throw error;}
     const url = new URL(session.config.supabaseFunctionUrl);
-    const readOnlyPreview = action === 'platform.member-oa.readiness' && location.hostname === 'integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app';
+    const readOnlyPreview = ['platform.member-oa.readiness','platform.member-oa.inspect'].includes(action) && location.hostname === 'integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app';
     url.pathname = url.pathname.replace(/\/api\/?$/, readOnlyPreview ? '/platform-api-preview' : '/platform-api');
     let response;
     try {
@@ -94,7 +94,7 @@
       }
       if (view.save) { view.save.disabled = saving || (blocked && !view.pending); view.save.textContent = view.pending ? '重試相同儲存操作' : '儲存' + view.label + '入口設定'; }
       view.reload.disabled = blocked;
-      if(view.memberReadiness)view.memberReadiness.reload.disabled=blocked || view.memberReadiness.pending;
+      if(view.memberReadiness){view.memberReadiness.reload.disabled=blocked || view.memberReadiness.pending;view.memberReadiness.inspect.disabled=blocked || view.memberReadiness.pending;}
       if(view.webhook){
         view.webhook.refresh.disabled=blocked;
         view.webhook.check.disabled=blocked || view.dirty.size>0;
@@ -189,6 +189,25 @@
       if(!notice.hidden)notice.querySelector('span').textContent=block.pending
         ? '正在檢查會員註冊開通條件；尚未確認前請勿對外開放。'
         : '會員首次註冊尚未完成必要 LINE 設定：請由商家管理端補齊下方清單，再執行真人 LINE 驗收。';
+    }
+  }
+  async function inspectMemberOa(view) {
+    const block=view.memberReadiness;
+    if(!block || !tenant || saving || block.pending || pendingOperation())return;
+    const epoch=generation,id=tenant.id,version=tenant.version;
+    block.inspect.disabled=true;
+    block.inspected.textContent='正在向 LINE 驗證本店 Messaging API 憑證與 OA Basic ID…';
+    try {
+      const result=await request('platform.member-oa.inspect');
+      if(epoch!==generation || !tenant || tenant.id!==id || tenant.version!==version)return;
+      block.inspected.textContent='已透過 LINE API 確認官方帳號 '+result.memberOaId+'（Messaging Channel '+result.messagingChannelId+'）。'
+        +' LINE Login 與此 OA 的 Linked LINE Official Account 關聯尚不能透過此 API 證明，首次註冊仍依伺服器可信綁定狀態判定。'
+        +' 請至 LINE Developers → LINE Login Channel '+result.memberLoginChannelId+' → Basic settings → Linked LINE Official Account 核對。';
+    }catch(error){
+      if(epoch!==generation || !tenant || tenant.id!==id || tenant.version!==version)return;
+      block.inspected.textContent='官方帳號查核未完成：'+(error?.message||'請稍後重試');
+    }finally{
+      if(epoch===generation&&tenant?.id===id)block.inspect.disabled=false;
     }
   }
   async function checkMemberReadiness(view) {
@@ -453,9 +472,12 @@
         const list=node('ul');
         const statusText=node('p');statusText.setAttribute('aria-live','polite');
         const recheck=node('button','重新檢查會員入會設定','button button-outline');recheck.type='button';
+        const inspect=node('button','由 LINE 自動辨識我的官方帳號','button button-outline');inspect.type='button';
+        const inspected=node('p');inspected.setAttribute('role','status');
         const guide=node('p','首次註冊必須先加入本店會員官方帳號。管理功能可獨立使用；只有伺服器確認會員 OA 綁定後，才可進行首次入會的真實驗收。');
-        panel.append(summary,guide,list,statusText,recheck);section.append(panel);
-        view.memberReadiness={summary,list,status:statusText,reload:recheck,pending:false,verified:false,checkedVersion:null,error:''};
+        panel.append(summary,guide,list,statusText,recheck,inspect,inspected);section.append(panel);
+        view.memberReadiness={summary,list,status:statusText,reload:recheck,inspect,inspected,pending:false,verified:false,checkedVersion:null,error:''};
+        inspect.onclick=()=>void inspectMemberOa(view);
         recheck.onclick=()=>void checkMemberReadiness(view);
       }
       const reload = node('button','載入最新 LINE 設定','button button-outline'); reload.type = 'button'; view.reload = reload;
