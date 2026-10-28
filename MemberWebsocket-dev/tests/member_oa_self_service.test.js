@@ -51,6 +51,8 @@ test('OA-005: preview action is tenant authenticated and read-only; production r
  assert.match(handler,/const workspace=await mine\(\),current=workspace.tenant/);
  assert.match(handler,/current.features\?\.membership!==true/);
  assert.match(handler,/moduleCredentials\(current,'membership'\)/);
+ assert.match(handler,/const readOnly = \['platform.member-oa.inspect','platform.member-oa.readiness'/);
+ assert.doesNotMatch(handler,/'platform.member-oa.inspect','platform.member-oa.inspect'/);
  assert.match(handler,/inspectMemberOaOwnership\(\{line,credentials,fetchImpl\}\)/);
  assert.match(preview,/allowedActions:new Set\(\['platform.member-oa.readiness','platform.member-oa.inspect'\]\)/);
  assert.doesNotMatch(production,/allowedActions:new Set\(\['platform.member-oa.readiness'/);
