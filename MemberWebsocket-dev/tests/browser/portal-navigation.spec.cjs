@@ -51,8 +51,11 @@ for (const width of [390, 1280]) for (const timing of ['loading', 'ready']) for 
     if (timing === 'ready') await page.addScriptTag({ url: origin + '/portal-navigation.js' });
     expect(await page.evaluate(() => window.navigationInitialReadyState)).toBe(timing === 'loading' ? 'loading' : 'complete');
     const nav = page.locator('#unifiedPortalNav');
-    if (fixture.surface === 'platform') {
+    if (fixture.surface !== 'admin') {
       await expect(nav).toHaveCount(0);
+      if (fixture.surface === 'member') {
+        await expect(page.locator('[data-portal-entry="member"]')).toHaveCount(0);
+      }
     } else {
       await expect(nav).toHaveCount(1);
       expect(await nav.evaluate(node => node.parentElement.tagName)).toBe('BODY');
