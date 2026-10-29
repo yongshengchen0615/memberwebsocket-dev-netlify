@@ -18,14 +18,14 @@ test('AC-001: phone booking is admin-only, validates identity and idempotency', 
   assert.match(sql, /REQUEST_ID_CONFLICT/);
   assert.match(sql, /pg_advisory_xact_lock/);
   assert.match(sql, /revoke all on function public\.admin_create_phone_booking_request/i);
-  assert.match(sql, /grant execute on function public\.admin_create_phone_booking_request.*to service_role/i);
+  assert.match(sql, /grant execute on function public\.admin_create_phone_booking_request[\s\S]*?to service_role/i);
 });
 
 test('AC-002: phone entry accepts already occupied slots without weakening member booking guards', () => {
   assert.match(sql, /allow_overlap|p_allow_overlap/i);
   assert.match(sql, /BOOKING_OVERLAP_ACK_REQUIRED/);
   assert.match(sql, /technician_id,.*confirmed_by/s);
-  assert.match(sql, /NULL,.*p_actor/s);
+  assert.match(sql, /null\s*,\s*p_actor/i);
   assert.doesNotMatch(sql, /drop constraint.*bookings_no_active_technician_overlap/i);
   assert.match(sql, /booking_slot_fits/);
   assert.match(sql, /booking_items/);
