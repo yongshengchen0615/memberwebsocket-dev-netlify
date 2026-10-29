@@ -16,7 +16,7 @@
     "admin/pointcard-redemption-limit.js": "fbba580c9babdac950b2f619c3f3b949fe89ae0c1365e2555f758d1a8818035c",
     "admin/event-ticket-redemption-limit.js": "263a564d64845c5abb4ed5167305b0bffefb064130a0268ab533b481d320b688",
     "admin/booking-panel.js": "40f51f55c01d2b742e559e49476dc8996ae65b6b03ac0c2213f501606a0e8989",
-    "admin/booking-panel-core.js": "c48b3a857c75acfa142f6a6646dc5d55305e116bf7114c1e9e347eee0481de36",
+    "admin/booking-panel-core.js": "d6256ec9795fac495fefd1edd602eade3061ec6f570017c04bfe22c4e72f21a9",
     "admin/booking-resources.js": "ea6901dc1020cbb85ead15107333e4b110e2b9a02854bffba856e410445bd852",
     "admin/booking-always-open.js": "9cb236902a7f3f36cf3fe4c3f13fbbac622f000c72d36ec34f7d4dde08e6e54a",
     "admin/booking-cancellation-sync.js": "a8367bb6565d054af976ec1ffdf950874a4e8f14a3917d2e036bc1744016db19",
@@ -589,9 +589,10 @@
     {
       "id": "booking.phone-conflict",
       "module": "booking",
-      "name": "一般管理員電話預約：時段衝突提示與阻擋、需先取消原預約才能使用該時段，取消後可新增，防止重複送出",
+      "name": "電話預約：與會員相同的服務選取及總分鐘數、灰色不可選時段、取消後重訂、用戶端單人與多人預約佔用",
       "cases": [
-        "BOOKING_PHONE_CONFLICT"
+        "BOOKING_PHONE_CONFLICT",
+        "BOOKING_PHONE_SERVICE_DURATION"
       ]
     }
   ],
