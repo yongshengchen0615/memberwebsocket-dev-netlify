@@ -41,8 +41,9 @@ test('AC-207: direct anon/authenticated access, foreign admins and unscoped func
    await h.db.exec('reset role');
   }
   await assert.rejects(h.db.query(`select ${s}.copy_admin_settings($1,'point_card','missing','copy','COPY-foreign-admin-123')`,[h.root]),/ADMIN_REQUIRED/);
-  const functions=(await h.db.query(`select pg_get_functiondef(p.oid) definition from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname=$1`,[s])).rows;
-  assert.equal(functions.length,257);
+  const functions=(await h.db.query(`select pg_get_functiondef(p.oid) definition,p.proname name from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname=$1`,[s])).rows;
+  assert.equal(functions.length,256,'removing the member appeal RPC reduces the tenant function count by exactly one');
+  assert.equal(functions.filter(f=>f.name==='booking_no_show_appeal').length,0,'retired appeal RPC must not exist');
   for(const f of functions)assert.doesNotMatch(f.definition,/\b(?:public|booking_notifications|platform_private|line_config|vault|cron)\./);
  }finally{await h.db.close();}
 });

@@ -9,7 +9,7 @@
   const section=node('section','',{id:'bookingRiskSettings','aria-labelledby':'bookingRiskTitle'});container.append(section);
   let current=data,busy=false,dirty=false,conflict=false;
   const draw=()=>{
-   const restrictions=current.restrictions||[],pending=(current.appeals||[]).filter(a=>!a.resolved_at);
+   const restrictions=current.restrictions||[];
    const eventsByMember=new Map((current.events||[]).map(e=>[e.member_id,e]));
    const member=record=>record.member_code||eventsByMember.get(record.member_id)?.member_code||'會員識別：'+(record.member_id||'未提供');
    section.replaceChildren(node('h3','政策概況',{id:'bookingRiskTitle'}),node('p','只限制新的線上預約，保留登入、既有預約、票券與點數；政策停用期間不執行限制。'));
@@ -17,7 +17,7 @@
    const metric=(title,value,detail)=>{const card=node('div','',{class:'booking-risk-metric'});card.append(node('span',title),node('strong',String(value)),node('small',detail));summary.append(card);};
    metric('目前政策',current.policy.enabled?'啟用':'停用','不追溯歷史爽約；停用時暫停限制');
    metric('未到期的限制',restrictions.filter(active).length,'包含停用期間保留的紀錄');
-   metric('待處理申覆',pending.length,'回覆不會自動解除限制');
+   metric('最近爽約紀錄',(current.events||[]).length,'最多顯示最近 100 筆');
    section.append(summary,node('p','政策最近變更：'+time(current.policy.updated_at)),node('h4','限制政策設定',{class:'booking-risk-policy-heading'}));
    const form=node('form','',{class:'booking-admin-form booking-admin-settings-form booking-risk-policy-form',novalidate:''}),p=current.policy,fields={},errors={};
    let target=form;
@@ -40,7 +40,7 @@
    group('二、限制期限','只影響新線上預約，不會取消既有預約；既有限制保留原政策快照及期限。');field('duration_count','限制期限數量');
    const duration=node('select');
    for(const [value,text]of [['','請選擇'],['weeks','週'],['months','個月']])duration.append(node('option',text,{value}));duration.value=p.duration_unit||'';addField('duration_unit','限制期限單位',duration);
-   group('三、會員申覆與客服','會員可透過聯絡方式詢問或使用電話預約。');field('appeal_enabled','允許會員申覆','checkbox');
+   group('三、客服聯絡方式','提供線上預約受限時，會員可使用的聯絡管道。');
    field('contact_text','電話預約／客服聯絡方式','text');fields.contact_text.maxLength=500;
    const save=node('button','儲存政策',{type:'submit',class:'button button-dark'}),refresh=node('button',conflict?'重新載入最新政策（捨棄草稿）':'更新紀錄',{type:'button',class:'button button-outline','data-risk-refresh':''}),status=node('p','',{role:'status','aria-live':'polite',tabindex:'-1'});
    const preview=node('div','',{class:'booking-risk-preview','aria-live':'polite'}),draft=node('p','',{class:'booking-risk-draft'});
@@ -65,7 +65,7 @@
     try{
      const result=await request(action,body);if(!result?.policy)throw Error('無法確認操作結果，請更新後核對。');
      current=result;conflict=false;draw();
-     const messages={get:'已更新紀錄。',save:'政策已儲存並重新載入。',revoke:'已撤銷該筆爽約計次，限制狀態已重新核對。',release:'已人工解除指定限制，爽約計次與歷程仍保留。',resolve:'已記錄申覆回覆；未解除限制。'};
+     const messages={get:'已更新紀錄。',save:'政策已儲存並重新載入。',revoke:'已撤銷該筆爽約計次，限制狀態已重新核對。',release:'已人工解除指定限制，爽約計次與歷程仍保留。'};
      const output=announce(messages[action]);(action==='get'?section.querySelector('[data-risk-refresh]'):output).focus();
     }catch(error){
      if(error?.code==='BOOKING_CONFLICT')conflict=true;
@@ -100,9 +100,9 @@
     else if(dirty){status.textContent='有未儲存的變更，請先儲存或還原後更新紀錄。';return;}
     void run('get',{});
    });
-   const reasonLabel=node('label','撤銷／解除／回覆原因（必填）',{for:'bookingRisk-action-reason'}),reason=node('input','',{id:'bookingRisk-action-reason',name:'action_reason',type:'text',maxLength:500});reasonLabel.append(reason);
+   const reasonLabel=node('label','撤銷／解除原因（必填）',{for:'bookingRisk-action-reason'}),reason=node('input','',{id:'bookingRisk-action-reason',name:'action_reason',type:'text',maxLength:500});reasonLabel.append(reason);
     const recordsIntro=node('div','',{class:'booking-risk-records-intro'});
-    recordsIntro.append(node('h4','紀錄與申覆處理'),node('p','操作前請確認會員、預約及原因；系統只會處理指定的紀錄。'));
+    recordsIntro.append(node('h4','爽約與限制紀錄'),node('p','操作前請確認會員、預約及原因；系統只會處理指定的紀錄。'));
     const recordTools=node('div','',{class:'booking-risk-record-tools'});
     recordTools.append(reasonLabel,refresh);section.append(recordsIntro,recordTools,status);
     const records=node('div','',{class:'booking-risk-records'});
@@ -112,7 +112,7 @@
      if(help)card.append(node('p',help,{class:'booking-risk-record-hint'}));
      card.append(list);records.append(card);
     };
-   const effects={revoke:'撤銷這筆爽約計次，依原政策快照重新核對限制；保留原事件與稽核。',release:'只解除指定限制，保留爽約計次與稽核。',resolve:'只記錄申覆回覆，不會自動解除限制。'};
+   const effects={revoke:'撤銷這筆爽約計次，依原政策快照重新核對限制；保留原事件與稽核。',release:'只解除指定限制，保留爽約計次與稽核。'};
    const action=(label,kind,body,record)=>{
     const button=node('button',label,{type:'button',class:'button button-outline','data-risk-action':kind});
     button.addEventListener('click',()=>{
@@ -145,16 +145,7 @@
     if(active(r))li.append(action('人工解除','release',{restrictionId:r.id},r));restrictionList.append(li);
    }
    recordGroup('限制紀錄（最近 100 筆）',restrictionList);
-   const appeals=node('ul','',{class:'booking-risk-record-list'});
-   if(!(current.appeals||[]).length)appeals.append(node('li','目前沒有會員申覆。',{class:'booking-risk-empty'}));
-   for(const a of current.appeals||[]){
-    const li=node('li');li.append(node('p',`${a.reason} · ${a.resolved_at?'已回覆':'待處理'}`));
-    detail(li,member(a)+'；申覆：'+a.id+'；限制：'+a.restriction_id+'；來源預約：'+(a.source_booking_id||'未提供'));
-    detail(li,'申覆時間：'+time(a.created_at));
-    if(a.resolved_at)detail(li,'回覆：'+time(a.resolved_at)+'；內容：'+(a.resolution||'未提供'));
-    else li.append(action('記錄回覆','resolve',{appealId:a.id},a));appeals.append(li);
-   }
-   recordGroup('會員申覆',appeals,'回覆只記錄核對結果；需要恢復資格時，請另行撤銷誤判或人工解除。');section.append(records);
+   section.append(records);
   };
   draw();
  }};

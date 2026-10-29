@@ -12,7 +12,7 @@ for(const width of [390,1280])test(`AC-RISK-UX-002_005_009_${width} — keyboard
   await page.exposeFunction('riskRequest',(action,body)=>x.risk(action,body.policy||body));
   await page.evaluate(data=>window.BookingRiskSettings.mount(document.querySelector('main'),{data,request:window.riskRequest}),await x.risk('get'));
   await expect(page.getByText('限制：'+before.id+'；來源預約：'+booking,{exact:true})).toBeVisible();
-  const reason=page.getByLabel('撤銷／解除／回覆原因（必填）'),revoke=page.getByRole('button',{name:'撤銷誤判',exact:true});
+  const reason=page.getByLabel('撤銷／解除原因（必填）'),revoke=page.getByRole('button',{name:'撤銷誤判',exact:true});
   await reason.fill('合成誤判核對');
   page.once('dialog',async d=>{expect(d.message()).toContain(booking);expect(d.message()).toContain('QA-NOTIFY');expect(d.message()).toContain('合成誤判核對');await d.dismiss();});
   await revoke.focus();await page.keyboard.press('Enter');

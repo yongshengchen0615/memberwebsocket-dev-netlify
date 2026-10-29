@@ -16,10 +16,10 @@ test('AC-RISK-UX-005: grouped settings, live summary and empty states without au
  try{
   assert.equal(root.querySelectorAll('.booking-risk-metric').length,3);
   assert.equal(root.querySelectorAll('.booking-risk-field-group').length,4);
-  assert.equal(root.querySelectorAll('.booking-risk-record-section').length,3);
+  assert.equal(root.querySelectorAll('.booking-risk-record-section').length,2);
   assert.equal(root.querySelectorAll('.booking-risk-record-tools label').length,1);
-  assert.equal(root.querySelectorAll('.booking-risk-record-section .booking-risk-record-list').length,3);
-  for(const text of ['目前沒有爽約計次紀錄。','目前沒有有效限制紀錄。','目前沒有會員申覆。'])assert.ok(root.textContent.includes(text));
+  assert.equal(root.querySelectorAll('.booking-risk-record-section .booking-risk-record-list').length,2);
+  for(const text of ['目前沒有爽約計次紀錄。','目前沒有有效限制紀錄。'])assert.ok(root.textContent.includes(text));
   assert.equal(root.querySelector('[name=enabled]').checked,false);
   assert.equal(root.querySelector('[name=threshold_count]').value,'');
   assert.match(root.querySelector('.booking-risk-preview').textContent,/限制未啟用/);
@@ -62,7 +62,8 @@ test('AC-RISK-UX-007: verified refresh renders counts and action reason stays re
   [...root.querySelectorAll('button')].find(b=>b.textContent==='更新紀錄').click();
   await tick();assert.equal(calls[0].action,'get');
   assert.equal(root.querySelectorAll('.booking-risk-metric strong')[2].textContent,'1');
-  [...root.querySelectorAll('button')].find(b=>b.textContent==='記錄回覆').click();
-  assert.equal(calls.length,1);assert.match(root.querySelector('[role=status]').textContent,/原因/);
+  assert.equal(root.querySelectorAll('.booking-risk-record-section').length,2);
+  assert.equal(root.querySelectorAll('[data-risk-action=resolve]').length,0);
+  assert.doesNotMatch(root.textContent,/申覆/);
  }finally{dom.window.close();}
 });

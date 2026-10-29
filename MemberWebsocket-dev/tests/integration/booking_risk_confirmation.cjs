@@ -29,14 +29,14 @@ test('AC-RISK-UX-005/006/009: each action confirms exact target, reason and effe
  const data={policy,events:[{booking_id:'booking-A',member_id:'member-A',member_code:'QA-A',occurred_at:'2026-10-24T00:00:00Z'}],restrictions:[{id:'restriction-A',member_id:'member-A',member_code:'QA-A',source_booking_id:'booking-A',starts_at:'2026-10-24T00:00:00Z',ends_at:'2099-01-01T00:00:00Z'}],appeals:[{id:'appeal-A',member_id:'member-A',member_code:'QA-A',restriction_id:'restriction-A',reason:'合成申覆',created_at:'2026-10-25T00:00:00Z'}]};
  const h=setup(async()=>data,data);
  try{
-  for(const [label,target,effect]of [['撤銷誤判','booking-A',/撤銷.*計次/],['人工解除','restriction-A',/保留.*計次/],['記錄回覆','appeal-A',/不會.*解除/]]){
+  for(const [label,target,effect]of [['撤銷誤判','booking-A',/撤銷.*計次/],['人工解除','restriction-A',/保留.*計次/]]){
    const reason=h.root.querySelector('[name=action_reason]');assert.ok(reason,'action reason must be addressable');reason.value='合成核對理由';
    const button=h.button(label);button.focus();button.click();await tick();
    assert.equal(h.calls.length,0);assert.match(h.confirmations.at(-1),new RegExp(target));assert.match(h.confirmations.at(-1),/QA-A/);assert.match(h.confirmations.at(-1),/合成核對理由/);assert.match(h.confirmations.at(-1),effect);
    assert.equal(h.w.document.activeElement,button);assert.equal(reason.value,'合成核對理由');
   }
-  h.consent(true);h.button('記錄回覆').click();await tick();assert.equal(h.calls.length,1);assert.equal(h.calls[0].action,'resolve');
-  assert.match(h.root.querySelector('[role=status]').textContent,/未解除/);assert.equal(h.button('人工解除')?.disabled,false);
+  h.consent(true);h.button('人工解除').click();await tick();assert.equal(h.calls.length,1);assert.equal(h.calls[0].action,'release');
+  assert.match(h.root.querySelector('[role=status]').textContent,/人工解除/);assert.equal(h.button('記錄回覆'),undefined);
  }finally{h.dom.window.close();}
 });
 test('AC-RISK-UX-007: version conflict freezes stale writes and reload requires explicit draft discard',async()=>{
@@ -73,8 +73,9 @@ test('AC-RISK-UX-001/004/009: invalid fields are announced and records expose sa
  const h=setup(async()=>assert.fail('invalid input must not write'),data);
  try{
   assert.equal(h.root.querySelectorAll('img').length,0);assert.match(h.root.textContent,/booking-A/);assert.match(h.root.textContent,/restriction-A/);assert.match(h.root.textContent,/台北/);
-  for(const text of ['合成誤判','合成解除','合成回覆','已撤銷'])assert.ok(h.root.textContent.includes(text),text);
+  for(const text of ['合成誤判','合成解除','已撤銷'])assert.ok(h.root.textContent.includes(text),text);
   assert.equal(h.button('人工解除'),undefined);
+  assert.doesNotMatch(h.root.textContent,/合成申覆|合成回覆/);
   h.root.querySelector('[name=enabled]').click();h.root.querySelector('[name=threshold_count]').value='101';h.submit();
   const input=h.root.querySelector('[name=threshold_count]');assert.equal(input.getAttribute('aria-invalid'),'true');
   const message=h.w.document.getElementById(input.getAttribute('aria-describedby'));assert.match(message.textContent,/1.*100/);assert.equal(h.w.document.activeElement,input);
