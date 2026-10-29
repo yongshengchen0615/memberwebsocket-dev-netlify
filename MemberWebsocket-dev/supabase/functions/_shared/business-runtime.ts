@@ -7,6 +7,7 @@ import { verifyMerchantAdminIdToken } from './platform-auth.mjs';
 import { merchantOnboarding, featureLineReady } from './merchant-onboarding.mjs';
 import { wakeBookingNotifications } from './booking-notification-wake.mjs';
 import { notificationToken } from './notification-routes.mjs';
+import { readRequestBytes } from './request-ingress.mjs';
 export type { SupabaseClient } from 'npm:@supabase/supabase-js@2.57.0';
 type Context=Record<string,any>;
 import { scope, rawEnv, businessContext, businessEnv, businessFetch } from './business-scope.ts';
@@ -216,18 +217,14 @@ function policyAction(name:string,body:any):string{
 export function businessHandler(name:string,handler:(request:Request)=>Response|Promise<Response>){
  return async(request:Request):Promise<Response>=>{
   if(request.method!=='POST')return handler(request);
-  let body:any;
   try{
-   const reader=request.clone().body?.getReader(),chunks:Uint8Array[]=[];let size=0;
-   if(reader){try{while(true){const item=await reader.read();if(item.done)break;size+=item.value.byteLength;
-    if(size>8_000_000){void reader.cancel();return new Response(JSON.stringify({ok:false,error:{code:'BODY_TOO_LARGE',message:'請求資料過大。'}}),{status:413});}
-    chunks.push(item.value);
-   }}finally{reader.releaseLock();}}
-   const bytes=new Uint8Array(size);let at=0;for(const chunk of chunks){bytes.set(chunk,at);at+=chunk.length;}
-   body=JSON.parse(new TextDecoder().decode(bytes));
-  }catch{return handler(request);}
-  if(!body||typeof body!=='object'||Array.isArray(body))return handler(request);
-  try{
+   const bytes=await readRequestBytes(request,8_000_000);
+   // Consume once: cloning tees the untrusted stream and retains a second
+   // queued copy while routing. Replay exact bytes for endpoint validation.
+   request=new Request(request,{body:bytes});
+   let body:any;
+   try{body=JSON.parse(new TextDecoder().decode(bytes));}catch{return handler(request);}
+   if(!body||typeof body!=='object'||Array.isArray(body))return handler(request);
    const c=await resolve(body);
    if(!c){
     const response=await handler(request);

@@ -6,6 +6,7 @@ import { validateNotificationRoute, verifyNotificationToken } from './notificati
 import { checkLineWebhook, lineWebhookEndpoint } from './line-webhook-diagnostics.mjs';
 import { memberOaGuidance } from './member-oa-registration-gate.mjs';
 import { inspectMemberOaOwnership } from './member-oa-ownership.mjs';
+import { readRequestBytes, RequestIngressError } from './request-ingress.mjs';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SQL_ERRORS = {
   LINE_CHANNEL_IN_USE:[409,'此 Messaging API Channel 已綁定其他商家。'],
@@ -56,14 +57,9 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       if (origin && !allowedOrigins.has(origin)) throw new PlatformError(403,'ORIGIN_NOT_ALLOWED','此網站來源未被允許。');
       if (request.method === 'OPTIONS') return new Response(null,{status:204,headers});
       if (request.method !== 'POST') throw new PlatformError(405,'METHOD_NOT_ALLOWED','不支援的請求方式。');
-      // Stream-limit before parsing: Content-Length is only a hint and may be forged.
-      const reader = request.body?.getReader();
-      let size = 0; const chunks = [];
-      if (reader) { try { while (true) { const {done,value} = await reader.read(); if (done) break;
-        size += value.byteLength; if (size > 32_000) { await reader.cancel(); throw new PlatformError(413,'BODY_TOO_LARGE','請求資料過大。'); } chunks.push(value);
-      } } finally { reader.releaseLock(); } }
+      const data = await readRequestBytes(request,32_000);
       let body;
-      try { const data = new Uint8Array(size); let at = 0; for (const c of chunks) { data.set(c,at); at += c.length; } body = JSON.parse(new TextDecoder().decode(data)); }
+      try { body = JSON.parse(new TextDecoder().decode(data)); }
       catch { throw new PlatformError(400,'INVALID_JSON','請求格式不正確。'); }
       if (!body || typeof body !== 'object' || Array.isArray(body)) throw new PlatformError(400,'INVALID_JSON','請求格式不正確。');
       if (allowedActions && !allowedActions.has(body.action)) throw new PlatformError(404,'ACTION_NOT_FOUND','預覽端點不支援此操作。');
@@ -541,7 +537,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       if (rpc.error) throw databaseError(rpc.error);
       return json({ok:true,data:{tenant:publicTenant(rpc.data)}});
     } catch (error) {
-      let safe = error instanceof PlatformError ? error : new PlatformError(503,'PLATFORM_UNAVAILABLE','總管理員服務暫時無法使用。');
+      let safe = error instanceof PlatformError || error instanceof RequestIngressError ? error : new PlatformError(503,'PLATFORM_UNAVAILABLE','總管理員服務暫時無法使用。');
       if(webhookActor && safe.status===404)safe=new PlatformError(403,'BUSINESS_FORBIDDEN','無法存取此商家的連線診斷。');
       if(webhookActor && [401,403].includes(safe.status)){
         const audit=await db.rpc('platform_line_webhook_denied',{p_actor:webhookActor});

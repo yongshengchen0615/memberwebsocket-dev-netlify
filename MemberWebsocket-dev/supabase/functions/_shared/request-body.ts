@@ -24,14 +24,19 @@ export async function readJsonObject(
     timer = setTimeout(() => reject(new ApiError(408, "REQUEST_TIMEOUT", "請求傳送逾時。")), timeoutMs);
   });
   try {
-    for (;;) {
-      const { done, value } = await Promise.race([reader.read(), deadline]);
-      if (done) { complete = true; break; }
-      bytes += value.byteLength;
-      if (bytes > maxBytes) throw new ApiError(413, "REQUEST_TOO_LARGE", "請求內容過大。");
-      try { raw += decoder.decode(value, { stream: true }); }
-      catch { throw new ApiError(400, "INVALID_JSON", "請求必須使用 UTF-8 JSON。"); }
-    }
+    // One deadline race for the entire read avoids retaining a reaction on the
+    // pending deadline for every chunk in a highly fragmented request.
+    const consume = async () => {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) { complete = true; break; }
+        bytes += value.byteLength;
+        if (bytes > maxBytes) throw new ApiError(413, "REQUEST_TOO_LARGE", "請求內容過大。");
+        try { raw += decoder.decode(value, { stream: true }); }
+        catch { throw new ApiError(400, "INVALID_JSON", "請求必須使用 UTF-8 JSON。"); }
+      }
+    };
+    await Promise.race([consume(), deadline]);
     let body: unknown;
     try { body = JSON.parse(raw + decoder.decode()); }
     catch { throw new ApiError(400, "INVALID_JSON", "請求內容必須是有效 JSON。"); }
