@@ -8,7 +8,7 @@
   const visibleFeatureKeys=featureKeys.filter(key=>key!=='integrations'&&key!=='testing'&&key!=='usage');
   const isV2=()=>state.config?.merchantApprovalVersion===2;
   const isAccount=()=>merchantEntry&&isV2()&&!selectedBusiness;
-  let refreshTimer=null,refreshBusy=false,rootRefreshBusy=false,rootSnapshot='';
+  let refreshTimer=null,refreshBusy=false,rootRefreshBusy=false,rootSnapshot='',rootRevision=0;
   const form = el('tenantForm'), dialog = el('tenantDialog');
   const fields = form.elements;
   const lineKeys = ['adminChannelId','memberChannelId','messagingChannelId','adminLiffId','memberLiffId','pointsLiffId','eventLiffId','calendarLiffId','bookingLiffId'];
@@ -42,6 +42,7 @@
   }
   function showLoginGate(message=merchantEntry?'請重新使用 LINE 確認管理員身分。':'每次進入總管理員控制台，請重新使用 LINE 確認身分。') {
     state.idToken='';
+    rootRevision++;
     rootSnapshot='';
     if(refreshTimer){clearInterval(refreshTimer);refreshTimer=null;}
     state.pending=null;
@@ -134,6 +135,8 @@
           showLoginGate(merchantEntry?(body.error?.message || '一般管理員 LINE 驗證已失效，請重新登入。'):'總管理員 LINE 驗證已失效，請確認專用 LINE Login Channel。');
         throw Object.assign(new Error(body.error?.message || '操作未完成。'),{code:body.error?.code,status:response.status});
       }
+      // A completed root write makes any older in-flight background snapshot obsolete.
+      if(!merchantEntry&&!['platform.bootstrap','platform.qualification.list'].includes(action))rootRevision++;
       return body.data;
     } finally { clearTimeout(timer); }
   }
@@ -441,12 +444,16 @@
     return ['v2ReviewDialog','approvalDialog','tenantDialog','grantDialog','expiryDialog'].some(id=>el(id)?.open);
   }
   async function refresh({background=false}={}) {
+    // Foreground refreshes outrank polls started before an approval or explicit reload.
+    // A successful root mutation also increments this revision in request().
+    const revision=background?rootRevision:++rootRevision;
     // Fetch both lists before committing either: never display a half-updated review snapshot.
     const data=await request('platform.bootstrap');
     const qualifications=isV2()
       ? (await request('platform.qualification.list')).qualifications||[]
       : [];
-    if(background&&(!state.idToken||state.busy||reviewBusy||reviewPending||document.hidden||rootDialogOpen()))return null;
+    if(revision!==rootRevision||!state.idToken)return null;
+    if(background&&(state.busy||reviewBusy||reviewPending||document.hidden||rootDialogOpen()))return null;
     const snapshot=JSON.stringify([data.tenants||[],data.applications||[],data.features||{},qualifications]);
     const changed=snapshot!==rootSnapshot;
     if(!background||changed){
