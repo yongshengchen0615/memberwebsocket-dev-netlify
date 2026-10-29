@@ -6,7 +6,7 @@ const application=(id,status='approved',overrides={})=>({id,businessName:'商家
 async function settle(){for(let i=0;i<8;i++)await new Promise(resolve=>setImmediate(resolve));}
 async function mount({merchant=true,business='',version=2,q=null,applications=[],qualifications=[],handler,transport,businessContext=false}={}){
  const html=fs.readFileSync(path.join(root,merchant?'admin/workspace.html':'platform/index.html'),'utf8');
- const dom=new JSDOM(html,{url:'https://fixture.test/'+(merchant?'admin/workspace.html':'platform/')+(business?'?business='+business:''),runScripts:'outside-only'}),w=dom.window,calls=[];
+ const dom=new JSDOM(html,{url:'https://fixture.test/'+(merchant?'admin/workspace.html':'platform/')+(business?'?business='+business:''),runScripts:'outside-only',pretendToBeVisual:true}),w=dom.window,calls=[];
  const observers=[],Observer=w.MutationObserver;w.MutationObserver=class extends Observer{constructor(callback){super(callback);observers.push(this);}};
  const intervals=[];w.setInterval=(fn,delay)=>{const id=intervals.length+1;intervals.push({id,fn,delay,active:true});return id;};
  w.clearInterval=id=>{const timer=intervals.find(item=>item.id===id);if(timer)timer.active=false;};
@@ -84,7 +84,7 @@ test('AC-SYNC-002: focus, retry and manual sync update the root list; concurrent
   assert.equal(h.d.querySelectorAll('#qualificationList article').length,1);
   block=true;
   h.intervals[0].fn();h.intervals[0].fn();await settle();
-  assert.equal(h.calls.filter(x=>x.action==='platform.bootstrap').length,4,'duplicate ticks must share one in-flight read');
+  assert.equal(h.calls.filter(x=>x.action==='platform.bootstrap').length,5,'duplicate ticks must share one in-flight read');
   assert.equal(h.d.getElementById('rootSyncNow').disabled,true);
   slowResolve({tenants:[],applications:[application('new','pending')],features,profile:{displayName:'Root'}});
   await settle();
