@@ -157,21 +157,34 @@ for(const type of ['holiday','event'])test('CALENDAR_'+type+' — create, date r
   await openCalendar(p,type);await fill(p,'calendarItemEndsOn',today());if(type==='event'){await p.locator('#calendarItemAllowedTiers input[value="general"]').uncheck();await p.locator('#calendarItemAllowedTiers input[value="silver"]').uncheck();await fill(p,'calendarItemLinkLabel','QA link');await fill(p,'calendarItemLinkUrl','https://example.test/qa');}
   await click(p,'saveCalendarItemButton');await expect(p.locator('#calendarItemId')).not.toHaveValue('');await expect(p.locator('#saveCalendarItemButton')).toBeEnabled();await fill(p,'calendarItemTitle','QA calendar edited');await click(p,'saveCalendarItemButton');await expect.poll(()=>info.fixture.calendarItems[0]?.title).toBe('QA calendar edited');await click(p,'deleteCalendarItemButton');await expect(p.locator('#calendarItemId')).toHaveValue('');expect(info.fixture.calendarItems).toHaveLength(0);
 });
-test('INTEGRATION — three supported views, notification filters and refresh',async({page:p},info)=>{
-  info.fixture.templates.push({fixedTicketId:'birthday-current',title:'QA birthday current',status:'active',scheduleType:'birthday_month',allowedTierKeys:['general'],notifyLine:true,updatedAt:'2026-10-05T00:00:00Z'});
-  await click(p,'operationsHubTab');await expect(p.locator('#integrationMetricGrid article')).toHaveCount(6);
-  await expect(p.locator('#integrationBirthday')).toContainText('QA birthday current');
-  await expect(p.locator('#integrationBenefitSummary')).toContainText('生日固定票券');
-  await expect(p.locator('#operationsHubPanel')).not.toContainText('生日舊規則');
-  for(const view of ['benefits','notifications','overview']){await p.locator('[data-integration-view-tab="'+view+'"]').click();await expect(p.locator('[data-integration-view="'+view+'"]')).toBeVisible();}
-  await p.locator('[data-integration-view-tab="notifications"]').click();for(const filter of ['pending','sent','failed','all']){await select(p,'integrationNotificationFilter',filter);await expect(p.locator('#integrationNotifications tbody tr')).toHaveCount(filter==='all'?3:1);if(filter!=='all')await expect(p.locator('#integrationNotifications')).toContainText('QA '+filter);}
-  await expect(p.locator('[data-integration-view-tab="audit"]')).toHaveCount(0);
-  await expect(p.locator('#integrationAuditTimeline')).toHaveCount(0);
-  await expect(p.locator('#integrationAuditSearch')).toHaveCount(0);
-  await p.locator('[data-integration-action="refresh"]').click();await expect.poll(()=>calls(info.fixture,'admin.integration-overview').length).toBeGreaterThan(1);
+test('RETIRED_CENTER — the removed panel is absent and six top tabs remain ordered',async({page:p},info)=>{
+  await expect(p.locator('#operationsHubTab, #operationsHubPanel, [data-integration-view-tab], [data-integration-target]')).toHaveCount(0);
+  await expect(p.locator('#bookingTab')).toHaveCount(1);
+  const order=await p.locator('#adminView .surface-nav > button[role="tab"]').evaluateAll(nodes=>nodes.map(node=>node.id));
+  expect(order).toEqual(['membersTab','cardsTab','eventsTab','calendarTab','bookingTab','lineSettingsTab']);
+  expect(calls(info.fixture,'admin.integration-overview')).toHaveLength(0);
 });
-for(const [target,expected] of [['member-grant','membersPanel'],['booking-services','bookingAdminServicesPanel'],['events','eventsPanel'],['booking-queue','bookingAdminQueuePanel'],['calendar-batch','calendarPanel'],['fixed-new','eventTicketEditorModal'],['birthday-fixed-new','eventTicketEditorModal']])test('INTEGRATION_NAV_'+target+' — opens the actual destination',async({page:p})=>{
-  await click(p,'operationsHubTab');if(target.includes('fixed'))await p.locator('[data-integration-view-tab="benefits"]').click();await p.locator('[data-integration-target="'+target+'"]').first().click();await expect(p.locator('#'+expected)).toBeVisible();if(target==='birthday-fixed-new')await expect(p.locator('#fixedTicketScheduleType')).toHaveValue('birthday_month');
+for(const [target,tab,panel] of [
+  ['member-grant','membersTab','membersPanel'],
+  ['booking-services','bookingTab','bookingAdminServicesPanel'],
+  ['events','eventsTab','eventsPanel'],
+  ['booking-queue','bookingTab','bookingAdminQueuePanel'],
+  ['calendar-batch','calendarTab','calendarPanel'],
+  ['fixed-new','eventsTab','eventsPanel'],
+  ['birthday-fixed-new','eventsTab','eventsPanel']
+])test('RETIRED_CENTER_DEST_'+target+' — the original feature is accessible without the removed shortcuts',async({page:p},info)=>{
+  if(target==='booking-services')await booking(p,'bookingAdminServicesSubtab');
+  else if(target==='booking-queue')await booking(p,'bookingAdminQueueSubtab');
+  else await click(p,tab);
+  await expect(p.locator('#'+panel)).toBeVisible();
+  if(target==='member-grant')await expect(p.locator('#memberTableBody')).toBeVisible();
+  if(target==='calendar-batch')await expect(p.locator('#addCalendarBatchItemButton')).toBeVisible();
+  if(target.endsWith('fixed-new')){
+    await click(p,'newEventTicketButton');
+    await expect(p.locator('#eventTicketEditorModal')).toBeVisible();
+  }
+  await expect(p.locator('#operationsHubTab, #operationsHubPanel')).toHaveCount(0);
+  expect(calls(info.fixture,'admin.integration-overview')).toHaveLength(0);
 });
 
 module.exports={booking,click,fill,select,openEvent,openCard,openCalendar};
