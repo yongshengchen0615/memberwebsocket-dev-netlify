@@ -19,7 +19,7 @@ test('AC-001/002/003: active reservations reject phone conflicts until cancelled
   const s=tenant.runtime_schema;
   const date=(await h.db.query("select ((now() at time zone 'Asia/Taipei')::date+5)::text d")).rows[0].d;
   await h.db.query("insert into "+s+".booking_service_types(name) values('Phone services')");
-  await h.db.query("insert into "+s+".booking_services(id,title,duration_minutes,price_amount,is_active,service_type) values($1,'Phone service',30,100,true,'Phone services')",[service]);
+  await h.db.query("insert into "+s+".booking_services(id,title,duration_minutes,price_amount,is_active,service_type,created_by) values($1,'Phone service',30,100,true,'Phone services','system')",[service]);
   const tech=(await h.db.query("insert into "+s+".booking_technicians(name,is_active) values('QA technician',true) returning id")).rows[0].id;
   await h.db.query("update "+s+".booking_settings set primary_technician_id=$1",[tech]);
   const member=(await h.db.query(
@@ -78,7 +78,7 @@ test('AC-002 concurrency: simultaneous telephone requests for same free slot com
   const s=tenant.runtime_schema;
   const date=(await h.db.query("select ((now() at time zone 'Asia/Taipei')::date+5)::text d")).rows[0].d;
   await h.db.query("insert into "+s+".booking_service_types(name) values('Phone services')");
-  await h.db.query("insert into "+s+".booking_services(id,title,duration_minutes,price_amount,is_active,service_type) values($1,'Phone service',30,100,true,'Phone services')",[service]);
+  await h.db.query("insert into "+s+".booking_services(id,title,duration_minutes,price_amount,is_active,service_type,created_by) values($1,'Phone service',30,100,true,'Phone services','system')",[service]);
   const c1=await h.db.connect(),c2=await h.db.connect();
   const sql="select ("+s+".admin_create_phone_booking_request($1,$2,$3,$4,$5,$6,$7,$8,$9)).id";
   const result=await Promise.allSettled([
