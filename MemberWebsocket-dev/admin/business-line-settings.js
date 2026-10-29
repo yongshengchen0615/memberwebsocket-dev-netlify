@@ -6,7 +6,6 @@
     events: ['events', '活動票券', 'event', 'eventLiffId'],
     calendar: ['calendar', '營運日曆', 'calendar', 'calendarLiffId'],
     booking: ['booking', '預約', 'booking', 'bookingLiffId'],
-    integrations: ['operationsHub', '整合中心'],
   };
   // Login identity belongs to the business; LIFF and notification routes belong to each feature.
   const businessLogin = {

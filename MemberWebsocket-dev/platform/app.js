@@ -5,7 +5,7 @@
   const selectedBusiness=window.BusinessContext?.slug || new URLSearchParams(location.search).get('business') || '';
   // Preserve the legacy API contract while retiring these management features.
   const featureKeys=['membership','points','events','calendar','integrations','booking','testing','usage'];
-  const visibleFeatureKeys=featureKeys.filter(key=>key!=='testing'&&key!=='usage');
+  const visibleFeatureKeys=featureKeys.filter(key=>key!=='integrations'&&key!=='testing'&&key!=='usage');
   const isV2=()=>state.config?.merchantApprovalVersion===2;
   const isAccount=()=>merchantEntry&&isV2()&&!selectedBusiness;
   let refreshTimer=null,refreshBusy=false,rootRefreshBusy=false,rootSnapshot='';

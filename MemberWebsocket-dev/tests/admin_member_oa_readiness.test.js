@@ -34,7 +34,7 @@ test('RB-ADMIN-002: no October 28 OA readiness banner, inspection buttons or imp
 
 test('RB-ADMIN-003: user-requested removal of unrelated testing and usage management survives rollback',()=>{
  assert.doesNotMatch(admin,/testing: \['testMode'|usage: \['operationAudit'/);
- assert.match(admin,/integrations: \['operationsHub', '整合中心'\]/);
+ assert.doesNotMatch(admin,/integrations:|operationsHub|整合中心/);
  assert.doesNotMatch(adminEntry,/src="\.\/operation-audit\.js|src="\.\/admin-quick-actions\.js/);
 });
 

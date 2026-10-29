@@ -16,7 +16,7 @@ test('AC-RET-001: merchant LINE settings contain neither retired product panel',
 });
 test('AC-RET-002: root grant and merchant UI cannot display retired products',()=>{
  const app=source('platform/app.js');
- assert.match(app,/const visibleFeatureKeys=featureKeys\.filter\(key=>key!=='testing'&&key!=='usage'\)/);
+ assert.match(app,/const visibleFeatureKeys=featureKeys\.filter\(key=>key!=='integrations'&&key!=='testing'&&key!=='usage'\)/);
  assert.match(app,/Object\.entries\(state\.features\)\.filter\(\(\[key\]\)=>visibleFeatureKeys\.includes\(key\)\)/);
  assert.match(app,/visibleFeatureKeys\.includes\(key\)&&tenant\.features\[key\]/);
  assert.match(app,/visibleFeatureKeys\.includes\(key\) && tenant\.features\[key\]/);

@@ -91,7 +91,8 @@ test('admin full E2E covers directory, test-account lifecycle, presets, batch ca
   assert.match(source, /integrationMetricGrid/);
   assert.match(source, /integrationNotifications/);
   assert.match(source, /actual\.auditAbsent/);
-  assert.doesNotMatch(read('admin/integration-hub.js'), /integrationAuditTimeline|data-integration-view-tab="audit"/);
+  assert.equal(fs.existsSync(path.join(root, 'admin/integration-hub.js')), false, 'Retired integration center must not ship');
+  assert.doesNotMatch(read('admin/index.html'), /integration-hub\.(?:js|css)/);
   assert.match(source, /完成結算預覽/);
   assert.match(source, /stayedConfirmedBeforeSubmit/);
   assert.match(source, /確認完成並結算/);
