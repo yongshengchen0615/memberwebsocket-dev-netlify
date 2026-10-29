@@ -27,6 +27,35 @@ async function reviewMerchant(page,slug,decision='approved',feature='points'){
  if(decision==='approved')await page.locator(`[data-v2-feature="${feature}"]`).check();else await page.locator('#reviewReason').fill('請補上商家證明');
  await page.locator('#confirmV2Review').click();await expect(page.locator('#v2ReviewDialog')).not.toBeVisible();
 }
+test('AC-SYNC-004 — real browser keeps root review lists current when another manager submits qualification and merchant',async({page,context})=>{
+ test.setTimeout(60000);
+ const h=await setup({origins:[base]}),rootPage=await context.newPage();
+ try{
+  const manager=await wire(page,h,'manager'),root=await wire(rootPage,h,'root');
+  await rootPage.goto(base+'/platform/');
+  await expect(rootPage.locator('#platformWorkspace')).toBeVisible();
+  await expect(rootPage.locator('#qualificationList article')).toHaveCount(0);
+  await page.goto(base+'/admin/');
+  await expect(page.locator('#qualificationWorkspace')).toBeVisible();
+  await page.locator('#submitQualification').click();
+  await expect(page.locator('#qualificationStatus')).toContainText('等待');
+  // No rootPage.reload(): the live interval must consume the new committed row.
+  await expect(rootPage.locator('#qualificationList article')).toHaveCount(1,{timeout:15000});
+  await expect(rootPage.locator('#rootSyncStatus')).toContainText('已同步');
+  await rootPage.locator('#qualificationList [data-review-decision="approved"]').click();
+  await rootPage.locator('#confirmV2Review').click();
+  await expect(rootPage.locator('#v2ReviewDialog')).not.toBeVisible();
+  await page.locator('#refreshApplication').click();
+  await expect(page.locator('#myMerchantsWorkspace')).toBeVisible();
+  await sendMerchant(page,'即時同步商家');
+  await expect(page.locator('#myMerchantList article')).toHaveCount(1);
+  await expect(rootPage.locator('#applicationList article')).toHaveCount(1,{timeout:15000});
+  await expect(rootPage.locator('#applicationList article')).toContainText('即時同步商家');
+  expect(root.calls.filter(x=>x.action==='platform.bootstrap').length).toBeGreaterThan(1);
+  expect(root.calls.filter(x=>x.action==='platform.qualification.list').length).toBeGreaterThan(1);
+  expect(manager.errors).toEqual([]);expect(root.errors).toEqual([]);
+ }finally{await rootPage.close();await page.close();await h.db.close();}
+});
 test('V2_REAL_HANDLER_JOURNEY — explicit qualification, root decisions, independent A/B, uncertain retry and scoped LINE saves',async({page,context},info)=>{
  test.setTimeout(60000);await page.setViewportSize({width:390,height:844});const h=await setup({origins:[base]}),rootPage=await context.newPage();try{
   const account=await wire(page,h,'manager',{loseAction:'platform.merchant.submit'}),reviewer=await wire(rootPage,h,'root');
