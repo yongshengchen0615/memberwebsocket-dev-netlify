@@ -22,10 +22,15 @@ for(const width of [320,390,1280]){
   expect(dimensions.form).toBeLessThanOrEqual(dimensions.viewport+1);
   const layout=await page.evaluate(()=>({
     form:getComputedStyle(document.querySelector('.booking-risk-policy-form')).gridTemplateColumns.split(' ').length,
+    countFields:getComputedStyle(document.querySelector('.booking-risk-field-group:nth-child(2) .booking-risk-field-grid')).gridTemplateColumns.split(' ').length,
     records:getComputedStyle(document.querySelector('.booking-risk-records')).gridTemplateColumns.split(' ').length,
   }));
-  expect(layout.form).toBe(width===1280?2:1);
+  // AC-RISK-FIGMA-003: four policy steps stack in reading order even on desktop.
+  // On 1280px, individual counting inputs still use three columns; records remain side by side.
+  expect(layout.form).toBe(1);
+  expect(layout.countFields).toBe(width===1280?3:1);
   expect(layout.records).toBe(width===1280?2:1);
+  await expect(page.getByText('可設定 1–3650 天')).toBeVisible();
   await expect(page.locator('.booking-risk-record-section')).toHaveCount(2);
   await page.getByLabel('啟用限制',{exact:true}).check();
   await expect(page.locator('.booking-risk-draft')).toContainText('未儲存');

@@ -12,21 +12,28 @@
    const restrictions=current.restrictions||[];
    const eventsByMember=new Map((current.events||[]).map(e=>[e.member_id,e]));
    const member=record=>record.member_code||eventsByMember.get(record.member_id)?.member_code||'會員識別：'+(record.member_id||'未提供');
-   section.replaceChildren(node('h3','政策概況',{id:'bookingRiskTitle'}),node('p','只限制新的線上預約，保留登入、既有預約、票券與點數；政策停用期間不執行限制。'));
+   const lead=node('div','',{class:'booking-risk-lead'});
+   lead.append(node('h3','政策概況',{id:'bookingRiskTitle'}),node('p','設定爽約計次及限制規則，並核對個別會員紀錄。'));
+   const scope=node('aside','',{class:'booking-risk-scope-note','aria-label':'政策影響範圍'});
+   scope.append(node('strong','僅影響新的線上預約'),node('span','既有預約、登入、票券與點數不受影響；停用政策時暫停執行限制。'));
+   section.replaceChildren(lead,scope);
    const summary=node('div','',{class:'booking-risk-overview','aria-label':'爽約政策概況'});
    const metric=(title,value,detail)=>{const card=node('div','',{class:'booking-risk-metric'});card.append(node('span',title),node('strong',String(value)),node('small',detail));summary.append(card);};
    metric('目前政策',current.policy.enabled?'啟用':'停用','不追溯歷史爽約；停用時暫停限制');
    metric('未到期的限制',restrictions.filter(active).length,'包含停用期間保留的紀錄');
    metric('最近爽約紀錄',(current.events||[]).length,'最多顯示最近 100 筆');
-   section.append(summary,node('p','政策最近變更：'+time(current.policy.updated_at)),node('h4','限制政策設定',{class:'booking-risk-policy-heading'}));
+   section.append(summary,node('p','政策最近變更：'+time(current.policy.updated_at),{class:'booking-risk-updated-at'}),node('h4','限制政策設定',{class:'booking-risk-policy-heading'}),node('p','依序設定啟用狀態、計次條件、限制期限與聯絡方式。',{class:'booking-risk-policy-description'}));
    const form=node('form','',{class:'booking-admin-form booking-admin-settings-form booking-risk-policy-form',novalidate:''}),p=current.policy,fields={},errors={};
    let target=form;
    const group=(title,help)=>{const block=node('div','',{class:'booking-risk-field-group'});block.append(node('h5',title),node('p',help));target=node('div','',{class:'booking-risk-field-grid'});block.append(target);form.append(block);};
+   const hints={lookback_days:'可設定 1–3650 天',threshold_count:'可設定 1–100 次',grace_minutes:'可設定 0–1440 分鐘',duration_count:'可設定 1–120',duration_unit:'請選擇週或個月',contact_text:'啟用政策時必填，最多 500 字'};
    const addField=(key,title,input)=>{
     input.id='bookingRisk-'+key;input.name=key;
     const label=node('label',title,{for:input.id}),error=node('small','',{id:input.id+'-error',class:'booking-risk-field-error'});
     const block=node('div','',{class:'booking-risk-field'});
-    input.setAttribute('aria-describedby',error.id);label.append(input);block.append(label,error);target.append(block);fields[key]=input;errors[key]=error;return input;
+    const hint=hints[key]?node('small',hints[key],{id:input.id+'-hint',class:'booking-risk-field-hint'}):null;
+    input.setAttribute('aria-describedby',[hint?.id,error.id].filter(Boolean).join(' '));
+    label.append(input);block.append(label);if(hint)block.append(hint);block.append(error);target.append(block);fields[key]=input;errors[key]=error;return input;
    };
    const ranges={lookback_days:[1,3650],threshold_count:[1,100],duration_count:[1,120],grace_minutes:[0,1440]};
    const field=(key,title,type='number',value=p[key])=>{
@@ -34,16 +41,16 @@
     if(type==='checkbox')input.checked=value===true;else if(type==='number'){input.min=ranges[key][0];input.max=ranges[key][1];input.step='1';}
     return addField(key,title,input);
    };
-   group('政策開關','預設停用；儲存並確認後才會生效。');field('enabled','啟用限制','checkbox');
-   group('一、爽約計次','依現有服務結束時間及伺服器規則判定；啟用後才開始計次，不追溯歷史。');
+   group('01  政策開關','預設停用；儲存並確認後才會生效。');field('enabled','啟用限制','checkbox');
+   group('02  爽約計次','依現有服務結束時間及伺服器規則判定；啟用後才開始計次，不追溯歷史。');
    field('lookback_days','計次期間（天）');field('threshold_count','達到幾次爽約');field('grace_minutes','服務結束後寬限（分鐘）');
-   group('二、限制期限','只影響新線上預約，不會取消既有預約；既有限制保留原政策快照及期限。');field('duration_count','限制期限數量');
+   group('03  限制期限','只影響新線上預約，不會取消既有預約；既有限制保留原政策快照及期限。');field('duration_count','限制期限數量');
    const duration=node('select');
    for(const [value,text]of [['','請選擇'],['weeks','週'],['months','個月']])duration.append(node('option',text,{value}));duration.value=p.duration_unit||'';addField('duration_unit','限制期限單位',duration);
-   group('三、客服聯絡方式','提供線上預約受限時，會員可使用的聯絡管道。');
+   group('04  客服聯絡方式','提供線上預約受限時，會員可使用的聯絡管道。');
    field('contact_text','電話預約／客服聯絡方式','text');fields.contact_text.maxLength=500;
    const save=node('button','儲存政策',{type:'submit',class:'button button-dark'}),refresh=node('button',conflict?'重新載入最新政策（捨棄草稿）':'更新紀錄',{type:'button',class:'button button-outline','data-risk-refresh':''}),status=node('p','',{role:'status','aria-live':'polite',tabindex:'-1'});
-   const preview=node('div','',{class:'booking-risk-preview','aria-live':'polite'}),draft=node('p','',{class:'booking-risk-draft'});
+   const preview=node('div','',{class:'booking-risk-preview','aria-live':'polite','aria-label':'政策摘要預覽'}),draft=node('p','',{class:'booking-risk-draft'});
    const discard=node('button','還原變更',{type:'button',class:'button button-outline',disabled:''});
    const actions=node('div','',{class:'booking-risk-form-actions'});actions.append(discard,save);form.append(preview,draft,actions);section.append(form);
    const collect=()=>{const policy={version:p.version};for(const [key,input]of Object.entries(fields))policy[key]=input.type==='checkbox'?input.checked:input.value;return policy;};
@@ -133,7 +140,7 @@
     if(e.revoked_at)detail(li,'撤銷：'+time(e.revoked_at)+'；原因：'+(e.revoke_reason||'未提供'));
     else li.append(action('撤銷誤判','revoke',{bookingId:e.booking_id},e));events.append(li);
    }
-   recordGroup('最近 100 筆計次',events);
+   recordGroup('最近 100 筆計次',events,'可撤銷誤判爽約，保留原事件與操作紀錄。');
    const restrictionList=node('ul','',{class:'booking-risk-record-list'});
    if(!restrictions.length)restrictionList.append(node('li','目前沒有有效限制紀錄。',{class:'booking-risk-empty'}));
    for(const r of restrictions){
@@ -144,7 +151,7 @@
     if(r.revoked_at)detail(li,'解除：'+time(r.revoked_at)+'；原因：'+(r.revoke_reason||'未提供'));
     if(active(r))li.append(action('人工解除','release',{restrictionId:r.id},r));restrictionList.append(li);
    }
-   recordGroup('限制紀錄（最近 100 筆）',restrictionList);
+   recordGroup('限制紀錄（最近 100 筆）',restrictionList,'人工解除僅影響指定限制，不會清除爽約次數。');
    section.append(records);
   };
   draw();

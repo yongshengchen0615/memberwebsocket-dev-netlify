@@ -267,3 +267,113 @@
 #bookingPanel .booking-risk-record-list>li>p{line-height:1.7;word-break:normal;overflow-wrap:anywhere}
 #bookingPanel .booking-risk-metric{align-content:start}
 #bookingPanel .booking-risk-record-section{overflow:hidden}
+
+/* Booking-risk Figma layout 20261029: policy context, four steps, then records. */
+#bookingPanel #bookingRiskSettings{
+  --risk-ink:var(--theme-text,#17352e);
+  --risk-muted:var(--theme-text-muted,#61776c);
+  --risk-stroke:var(--theme-border,#dfe8e1);
+  --risk-surface:var(--theme-surface-raised,#fff);
+  --risk-muted-surface:var(--theme-surface-muted,#f5f8f5);
+  display:grid;gap:16px;min-width:0;padding:clamp(14px,2.5vw,30px);
+  border:1px solid var(--risk-stroke);border-radius:18px;background:var(--theme-background,#f2f6f2);
+}
+#bookingPanel #bookingRiskSettings .booking-risk-lead{display:grid;gap:7px;min-width:0}
+#bookingPanel #bookingRiskSettings .booking-risk-lead h3{margin:0;color:var(--risk-ink);font-size:clamp(22px,2.7vw,30px);line-height:1.35}
+#bookingPanel #bookingRiskSettings .booking-risk-lead p{margin:0;color:var(--risk-muted);font-size:14px;line-height:1.7}
+#bookingPanel #bookingRiskSettings .booking-risk-scope-note{
+  display:grid;gap:6px;padding:15px 18px;border:1px solid var(--theme-positive-border,#cfe5d7);
+  border-radius:12px;background:var(--theme-positive-soft,#e8f4ec);color:var(--risk-ink);
+}
+#bookingPanel #bookingRiskSettings .booking-risk-scope-note strong{font-size:14px;color:var(--theme-positive-text,#287a52)}
+#bookingPanel #bookingRiskSettings .booking-risk-scope-note span{font-size:13px;line-height:1.7}
+#bookingPanel #bookingRiskSettings .booking-risk-overview{
+  padding:20px;border:1px solid var(--risk-stroke);border-radius:16px;
+  background:var(--risk-surface);gap:12px;
+}
+#bookingPanel #bookingRiskSettings .booking-risk-metric{
+  padding:16px;border:0;border-radius:11px;background:var(--risk-muted-surface);gap:7px;
+}
+#bookingPanel #bookingRiskSettings .booking-risk-metric strong{font-size:clamp(22px,2.7vw,26px);line-height:1.25}
+#bookingPanel #bookingRiskSettings .booking-risk-metric small{font-size:12px;line-height:1.6}
+#bookingPanel #bookingRiskSettings .booking-risk-updated-at{margin:-4px 0 4px;color:var(--risk-muted);font-size:12px;line-height:1.6}
+#bookingPanel #bookingRiskSettings .booking-risk-policy-heading{margin:4px 0 -10px;font-size:20px;line-height:1.4}
+#bookingPanel #bookingRiskSettings .booking-risk-policy-description{margin:0;color:var(--risk-muted);font-size:13px;line-height:1.65}
+#bookingPanel #bookingRiskSettings>form.booking-risk-policy-form{
+  display:grid;grid-template-columns:minmax(0,1fr);gap:16px;min-width:0;
+  padding:20px;border:1px solid var(--risk-stroke);border-radius:16px;background:var(--risk-surface);
+}
+#bookingPanel #bookingRiskSettings .booking-risk-field-group{
+  grid-column:1/-1;min-width:0;padding:20px;border:1px solid var(--risk-stroke);
+  border-radius:16px;background:var(--risk-surface);gap:14px;
+}
+#bookingPanel #bookingRiskSettings .booking-risk-field-group h5{margin:0;font-size:18px;line-height:1.45;color:var(--risk-ink)}
+#bookingPanel #bookingRiskSettings .booking-risk-field-group>p{font-size:13px;line-height:1.7;color:var(--risk-muted)}
+#bookingPanel #bookingRiskSettings .booking-risk-field-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+#bookingPanel #bookingRiskSettings .booking-risk-field-group:nth-child(2) .booking-risk-field-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+#bookingPanel #bookingRiskSettings .booking-risk-field-group:first-child .booking-risk-field-grid,
+#bookingPanel #bookingRiskSettings .booking-risk-field-group:last-of-type .booking-risk-field-grid{grid-template-columns:minmax(0,1fr)}
+#bookingPanel #bookingRiskSettings .booking-risk-field{gap:7px}
+#bookingPanel #bookingRiskSettings .booking-risk-field label{
+  display:grid;gap:8px;min-width:0;color:var(--risk-ink);font-size:14px;font-weight:700;line-height:1.5;
+}
+#bookingPanel #bookingRiskSettings .booking-risk-field input:not([type=checkbox]),
+#bookingPanel #bookingRiskSettings .booking-risk-field select{
+  min-width:0;min-height:46px;padding:10px 12px;font-size:15px;
+  border:1px solid var(--risk-stroke);border-radius:9px;background:var(--risk-muted-surface);
+}
+#bookingPanel #bookingRiskSettings .booking-risk-field input[type=checkbox]{
+  width:22px;height:22px;accent-color:var(--theme-positive,#287a52);flex:0 0 22px;
+}
+#bookingPanel #bookingRiskSettings .booking-risk-field:first-child label:has(input[type=checkbox]){
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:10px 14px;border-radius:10px;background:var(--risk-muted-surface);min-height:48px;
+}
+#bookingPanel #bookingRiskSettings .booking-risk-field-hint{
+  display:block;min-width:0;font-size:12px;line-height:1.55;color:var(--risk-muted);
+}
+#bookingPanel #bookingRiskSettings .booking-risk-preview{
+  grid-column:1/-1;padding:16px 18px;border-left:3px solid var(--theme-positive,#287a52);
+  background:var(--theme-positive-soft,#e8f4ec);color:var(--risk-ink);font-size:14px;line-height:1.7;
+}
+#bookingPanel #bookingRiskSettings .booking-risk-preview::before{
+  content:"政策摘要預覽";display:block;margin-bottom:5px;
+  font-size:13px;font-weight:750;color:var(--theme-positive-text,#287a52);
+}
+#bookingPanel #bookingRiskSettings .booking-risk-draft{grid-column:1/-1;font-size:13px;line-height:1.6}
+#bookingPanel #bookingRiskSettings .booking-risk-form-actions{grid-column:1/-1;gap:12px}
+#bookingPanel #bookingRiskSettings .booking-risk-form-actions .button{min-height:46px}
+#bookingPanel #bookingRiskSettings .booking-risk-records-intro{
+  display:grid;gap:7px;align-items:start;margin:6px 0 0;padding-top:24px;border-top:1px solid var(--risk-stroke);
+}
+#bookingPanel #bookingRiskSettings .booking-risk-records-intro h4{font-size:20px;line-height:1.4}
+#bookingPanel #bookingRiskSettings .booking-risk-records-intro p{font-size:13px;line-height:1.7}
+#bookingPanel #bookingRiskSettings .booking-risk-record-tools{
+  padding:18px 20px;border-radius:14px;background:var(--risk-surface);
+}
+#bookingPanel #bookingRiskSettings .booking-risk-record-tools>label{color:var(--risk-ink);font-size:14px}
+#bookingPanel #bookingRiskSettings .booking-risk-record-section{padding:20px;border-radius:16px}
+#bookingPanel #bookingRiskSettings .booking-risk-record-section>h4{font-size:17px;line-height:1.5}
+#bookingPanel #bookingRiskSettings .booking-risk-record-list>li{gap:12px;padding:14px 0}
+#bookingPanel #bookingRiskSettings .booking-risk-record-list>li .button{min-height:44px}
+@media(max-width:1050px){
+  #bookingPanel #bookingRiskSettings .booking-risk-field-group:nth-child(2) .booking-risk-field-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:680px){
+  #bookingPanel #bookingRiskSettings{gap:14px;padding:14px;border-radius:14px}
+  #bookingPanel #bookingRiskSettings .booking-risk-overview{grid-template-columns:minmax(0,1fr);padding:16px}
+  #bookingPanel #bookingRiskSettings .booking-risk-metric:last-child{grid-column:auto}
+  #bookingPanel #bookingRiskSettings>form.booking-risk-policy-form{padding:14px;gap:14px}
+  #bookingPanel #bookingRiskSettings .booking-risk-field-group{padding:16px;gap:12px}
+  #bookingPanel #bookingRiskSettings .booking-risk-field-grid,
+  #bookingPanel #bookingRiskSettings .booking-risk-field-group:nth-child(2) .booking-risk-field-grid{grid-template-columns:minmax(0,1fr)}
+  #bookingPanel #bookingRiskSettings .booking-risk-policy-heading{font-size:19px}
+  #bookingPanel #bookingRiskSettings .booking-risk-field-group h5{font-size:17px}
+  #bookingPanel #bookingRiskSettings .booking-risk-form-actions{display:grid;grid-template-columns:minmax(0,1fr)}
+  #bookingPanel #bookingRiskSettings .booking-risk-form-actions .button,
+  #bookingPanel #bookingRiskSettings .booking-risk-record-list>li .button{width:100%;min-height:46px}
+  #bookingPanel #bookingRiskSettings .booking-risk-record-tools{display:grid;padding:15px}
+  #bookingPanel #bookingRiskSettings .booking-risk-record-tools>.button{width:100%;min-height:46px}
+  #bookingPanel #bookingRiskSettings .booking-risk-records{grid-template-columns:minmax(0,1fr)}
+  #bookingPanel #bookingRiskSettings .booking-risk-record-section{padding:16px}
+}
