@@ -231,7 +231,7 @@ test('BOOKING_PHONE_CONFLICT — occupied slot is grey and disabled; cancel then
   expect(conflictError?.code).toBe('PHONE_BOOKING_CONFLICT');
   expect(/請先取消原預約/.test(String(conflictError?.message))).toBe(true);
   expect(info.fixture.bookings).toHaveLength(1);
-  await form.getByRole('button',{name:'取消'}).click();
+  await form.locator('button[data-cancel]').click();
   await p.locator('[data-booking-filter="confirmed"]').click();
   const original=p.locator('#bookingAdminQueue [data-booking-id="online-occupied"]');
   await original.getByRole('button',{name:'取消預約'}).click();
