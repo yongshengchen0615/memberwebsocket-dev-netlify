@@ -8,7 +8,7 @@ begin
  or position('create or replace function S.admin_booking_no_show' in definition)=0
  or position('''appealEnabled'',c.appeal_enabled,''contactText'',c.contact_text,' in definition)=0
  or position('  ''appeals'',(select' in definition)=0 then
-  raise exception 'BOOKING_RISK_APPEAL_RETIRE_SOURCE_MISMATCH';
+  raise exception 'BOOKING_RISK_APPEAL_RETIRE_SOURCE_MISMATCH: member=%, admin=%, status=%, feed=%', position('create or replace function S.booking_no_show_appeal' in definition),position('create or replace function S.admin_booking_no_show' in definition),position('''appealEnabled'',c.appeal_enabled,''contactText'',c.contact_text,' in definition),position('  ''appeals'',(select' in definition);
  end if;
  -- Status no longer publishes the appeal fields.
  start_at:=position('''appealEnabled'',c.appeal_enabled,''contactText'',c.contact_text,' in definition);

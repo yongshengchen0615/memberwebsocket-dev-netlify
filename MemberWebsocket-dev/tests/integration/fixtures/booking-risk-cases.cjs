@@ -132,21 +132,19 @@ function register(test,setup,label='PostgreSQL snapshot'){
    assert.equal((await x.status()).restricted,true);
   }finally{await h.db.close();}
  });
- test(`${label}: appeals and release are idempotent, require reasons and preserve audit/history`,async()=>{
+ test(`${label}: retired appeal actions reject while release is idempotent and auditable`,async()=>{
   const h=await setup();try{
    const x=await helpers(h);await x.enable();await x.save({threshold_count:1});
    const b=await x.past(await h.make());await x.mark(b);const r=await x.status();
    await assert.rejects(x.risk('release',{restrictionId:r.restrictionId,reason:' '}),/INVALID_APPEAL_REASON/);
-   await assert.rejects(h.q('select S.booking_no_show_appeal($1,$2)',[h.memberLine,' ']),/INVALID_APPEAL_REASON/);
-   await x.save({appeal_enabled:false});await assert.rejects(h.q('select S.booking_no_show_appeal($1,$2)',[h.memberLine,'Reason']),/BOOKING_APPEAL_UNAVAILABLE/);
-   await x.save({appeal_enabled:true});await h.q('select S.booking_no_show_appeal($1,$2)',[h.memberLine,'Please review']);await h.q('select S.booking_no_show_appeal($1,$2)',[h.memberLine,'Replay']);
-   const appeal=(await h.q('select * from S.booking_restriction_appeals'))[0];assert.equal(appeal.reason,'Please review');
-   await x.risk('resolve',{appealId:appeal.id,reason:'Reviewed'});await x.risk('resolve',{appealId:appeal.id,reason:'Replay'});
-   assert.equal((await x.status()).restricted,true,'review alone does not silently change the decision');
-   await x.risk('release',{restrictionId:r.restrictionId,reason:'Approved exception'});await x.risk('release',{restrictionId:r.restrictionId,reason:'Replay'});
+   await assert.rejects(h.q('select S.booking_no_show_appeal($1,$2)',[h.memberLine,'Legacy']),/does not exist/);
+   await assert.rejects(x.risk('resolve',{appealId:crypto.randomUUID(),reason:'Legacy'}),/INVALID_INPUT/);
+   assert.equal((await h.q('select count(*)::int n from S.booking_restriction_appeals'))[0].n,0);
+   await x.risk('release',{restrictionId:r.restrictionId,reason:'Approved exception'});
+   await x.risk('release',{restrictionId:r.restrictionId,reason:'Replay'});
    assert.equal((await x.status()).restricted,false);assert.equal((await h.state(b)).status,'no_show');
    assert.equal((await h.q("select count(*)::int n from S.booking_audit_events where action='BOOKING_RISK_RELEASE'"))[0].n,1);
-   assert.equal((await h.q("select count(*)::int n from S.booking_audit_events where action='BOOKING_RISK_RESOLVE'"))[0].n,1);
+   assert.equal((await h.q("select count(*)::int n from S.booking_audit_events where action='BOOKING_RISK_RESOLVE'"))[0].n,0);
    assert.equal((await h.q('select revoked_at from S.booking_no_show_events'))[0].revoked_at,null);
    await h.make();
   }finally{await h.db.close();}
