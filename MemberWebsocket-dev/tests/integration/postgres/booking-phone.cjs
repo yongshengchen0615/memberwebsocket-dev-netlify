@@ -23,9 +23,12 @@ test('AC-001/002/003: active reservations reject phone conflicts until cancelled
   const tech=(await h.db.query("insert into "+s+".booking_technicians(name,is_active) values('QA technician',true) returning id")).rows[0].id;
   await h.db.query("update "+s+".booking_settings set primary_technician_id=$1",[tech]);
   const member=(await h.db.query(
-    "insert into "+s+".members(line_user_id,display_name,member_code,membership_status,status) values($1,'Online member','PHONE-TEST-1','active','active') returning id",
+    "insert into "+s+".members(line_user_id,display_name,member_code,membership_status,status,is_test_account) values($1,'Online member','PHONE-TEST-1','active','active',true) returning id",
     ['U'+'6'.repeat(32)]
   )).rows[0].id;
+  // Follow the existing synthetic-member fixture: activate a test account
+  // through the controlled bypass, then restore ordinary-member behavior.
+  await h.db.query("update "+s+".members set is_test_account=false where id=$1",[member]);
   const online=(id,time='10:00')=>h.db.query("select ("+s+".create_booking_bundle_request($1,$2,$3,$4,$5,$6)).id",
     [id,member,date,time,serviceItems,'']);
   const call=p=>h.db.query("select ("+s+".admin_create_phone_booking_request($1,$2,$3,$4,$5,$6,$7,$8,$9)).*",p);
