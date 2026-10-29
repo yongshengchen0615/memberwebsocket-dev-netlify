@@ -875,7 +875,7 @@
   });
 
   async function refreshMine() {
-    if(!merchantEntry||!state.idToken||document.hidden||navigator.onLine===false||refreshBusy||merchantSaving||(!isV2()&&state.merchantPending))return;
+    if(!merchantEntry||!state.idToken||navigator.onLine===false||refreshBusy||merchantSaving||(!isV2()&&state.merchantPending))return;
     if(isAccount()){await refreshAccount();return;}
     refreshBusy=true;
     try {
@@ -899,7 +899,7 @@
     if(latestMine&&window.confirm('捨棄尚未儲存的設定，載入最新版本？'))renderMine(latestMine);
   });
   document.addEventListener('visibilitychange',()=>{if(!document.hidden){if(merchantEntry)void refreshMine();else void refreshRoot();}});
-  window.addEventListener('online',()=>{if(merchantEntry)void refreshMine();else void refreshRoot();});
+  window.addEventListener('online',()=>{if(!document.hidden){if(merchantEntry)void refreshMine();else void refreshRoot();}});
   window.addEventListener('focus',()=>{if(!merchantEntry&&!document.hidden)void refreshRoot();});
   window.addEventListener('pagehide',()=>{if(refreshTimer)clearInterval(refreshTimer);});
   window.addEventListener('pageshow',event=>{if(event.persisted&&merchantEntry){showLoginGate('正在重新確認 LINE 身分…');void start();}});

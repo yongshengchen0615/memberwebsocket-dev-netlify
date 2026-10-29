@@ -20,7 +20,8 @@ Node `v24.22.1`, synthetic identities and API responses, 2026-10-29 session. No 
 | New platform concurrency/connectivity cases on baseline | RED: 1 pass / 3 fail / 0 skip |
 | Early rejected sibling regression | RED: 0 pass / 1 fail (6 calls instead of 4) |
 | Four sync files on candidate | GREEN: 77 pass / 0 fail / 0 skip, exit 0 |
-| DOM `node --test --test-name-pattern='AC-PERF|AC-SYNC' MemberWebsocket-dev/tests/integration/merchant_workspace_ui.cjs` | GREEN: 11 pass / 0 fail / 0 skip, exit 0 |
+| DOM `node --test --test-name-pattern='AC-PERF|AC-SYNC' MemberWebsocket-dev/tests/integration/merchant_workspace_ui.cjs` | GREEN: 12 pass / 0 fail / 0 skip, exit 0 |
+| Original line_settings_workspace.cjs + product_admin_ui.cjs with real handler/PGlite | Baseline and corrected candidate each 3 pass / 0 fail / 0 skip, exit 0 |
 | Independent code review | Two P2 findings addressed (early failure overlap and invalid browser fixture config); no remaining patch defect reported; review is not test execution |
 | Local Chromium install | Blocked: provider download was not a valid ZIP; local browser checks are not counted as passed |
 
@@ -34,8 +35,8 @@ Real platform JS + JSDOM, same empty V2 data, 40 ms delay per independent API ca
 
 | Metric | Baseline | Candidate |
 |---|---:|---:|
-| Refresh p50 | 81.53 ms | 41.22 ms |
-| Refresh p95 | 83.35 ms | 42.42 ms |
+| Refresh p50 | 81.26 ms | 41.19 ms |
+| Refresh p95 | 83.18 ms | 42.20 ms |
 | Offline API requests for 12 poll ticks | 24 | 0 |
 
 This is a controlled request/critical-path comparison, not a production latency, throughput, or actual traffic claim. Identical read sharing remains 100 callers to 1 network call; later reads still fetch fresh data.
@@ -49,3 +50,5 @@ Supabase performance advisor reported 6 unindexed foreign-key INFO findings, 67 
 Full exact-SHA GitHub CI (DOM, PostgreSQL, all Chromium shards, Node regression, JS syntax, Edge, wiring, dependency audit, aggregate validation, static build, ticket policy) is required before merge. Consult PR/Actions for final status; this document does not pre-claim success. Real LINE provider and live deployed candidate have not been validated by synthetic tests. Recovery is revert through normal CI; no data migration is involved.
 
 Initial remote CI on c1bbf9acff835171226f9f5627bcc62d35ce7ab3 detected two asset-contract mismatches and a stale inventory hash: the unversioned MemberSystem validation-only imports on platform/merchant workspace now preserve the existing contract; platform app cache revisions append to the established prefix, retaining the member-card rollback marker; the inventory hash is calculated after exact source newline normalization. No test assertion was weakened. PR evidence also adds the required explicit L3 risk heading. Corrected candidate must rerun all baseline checks.
+
+The complete DOM lane exposed two existing journeys blocked by the new visibility guard on an explicit merchant recheck. Narrowed hidden-page gating to automatic online/interval/visibility signals; explicit clicks keep the existing contract. A new behavior case failed (0 instead of 2 reads) and passes after correction. The original real SQL/handler journeys pass again. All four modified inventory-covered sources (including platform/app.js and both workspace entries) are reviewed and exact-byte hashes updated. The JSDOM SQL fixtures log their existing BusinessContext MutationObserver teardown diagnostic; this is recorded separately from assertion results and is not browser or provider acceptance.

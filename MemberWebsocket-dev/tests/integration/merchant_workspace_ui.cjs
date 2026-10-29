@@ -118,6 +118,14 @@ test('AC-PERF-003: hidden merchant ignores online events then refreshes when vis
  }finally{h.close();}
 });
 
+test('AC-PERF-003: an explicit merchant refresh retains its existing behavior when visibility is unavailable',async()=>{
+ const h=await mount({q:qualification()});try{
+  Object.defineProperty(h.d,'hidden',{configurable:true,value:true});const before=h.calls.length;
+  h.d.getElementById('refreshApplication').click();await settle();
+  assert.equal(h.calls.length-before,2,'automatic hidden-page suppression must not swallow an explicit recheck');
+ }finally{h.close();}
+});
+
 test('AC-SYNC-001: root sees new qualification and merchant requests without reload, and does not overwrite an open review',async()=>{
  const h=await mount({merchant:false});
  try{

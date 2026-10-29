@@ -23,15 +23,15 @@ Choose local changes over a new WebSocket/broadcast coordinator: current code al
 
 ## Task 1: complete existing read coalescing keys
 
-- [ ] Add behavior cases in `tests/connection_efficiency.test.js` for API keys, config business, live BusinessContext changes, and identical reads in both runtimes.
-- [ ] Run RED; add endpoint key/business scope to MemberSystem and business scope to BookingSystem keys; run GREEN and existing 69-case sync baseline.
+- [x] Add behavior cases in `tests/connection_efficiency.test.js` for API keys, config business, live BusinessContext changes, and identical reads in both runtimes.
+- [x] Run RED; add endpoint key/business scope to MemberSystem and business scope to BookingSystem keys; run GREEN and existing 69-case sync baseline.
 
 ## Task 2: platform independent reads and connectivity
 
-- [ ] Add DOM tests to `tests/integration/merchant_workspace_ui.cjs` for concurrent start, atomic success/failure, revocation, offline gating and single-flight recovery.
-- [ ] Run RED; use Promise.all in platform refresh, offline guards at refresh entry points, online handler through existing refresh functions.
-- [ ] Update platform/app.js asset query in both entry pages; add Chromium coverage using synthetic API responses.
-- [ ] Compare same controlled pair delays and offline workload at baseline/candidate; retain raw counts, not claims about production p95.
+- [x] Add DOM tests to `tests/integration/merchant_workspace_ui.cjs` for concurrent start, atomic success/failure, revocation, offline gating and single-flight recovery.
+- [x] Run RED; use allSettled in platform refresh to drain both parallel calls on failure, offline guards at refresh entry points, online handler through existing refresh functions. Keep explicit recheck behavior; suppress hidden automatic signals at their event source.
+- [x] Update platform/app.js asset query in both entry pages; add Chromium coverage using synthetic API responses.
+- [x] Compare same controlled pair delays and offline workload at baseline/candidate; retain raw counts, not claims about production p95.
 
 ## Verification and recovery
 
