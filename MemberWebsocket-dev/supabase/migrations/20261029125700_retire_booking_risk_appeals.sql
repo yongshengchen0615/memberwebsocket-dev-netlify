@@ -27,15 +27,17 @@ begin
  if start_at=0 or end_at<=start_at then raise exception 'BOOKING_RISK_APPEAL_RESOLVE_SOURCE_MISMATCH';end if;
  definition:=substring(definition from 1 for start_at-1)||substring(definition from end_at);
  definition:=replace(definition,'appeal_enabled=coalesce((p_body->>''appeal_enabled'')::boolean,true)','appeal_enabled=false');
+ definition:=replace(definition,'appeal_enabled boolean not null default true','appeal_enabled boolean not null default false');
  -- Remove appeal feed from the admin payload, but keep the private archive.
  start_at:=position(E',\n ''appeals'',(select' in definition);
  if start_at=0 then raise exception 'BOOKING_RISK_APPEAL_FEED_SOURCE_MISMATCH';end if;
  end_at:=position('));' in substring(definition from start_at));
  if end_at=0 then raise exception 'BOOKING_RISK_APPEAL_FEED_END_MISMATCH';end if;
- definition:=substring(definition from 1 for start_at-1)||substring(definition from start_at+end_at);
+ definition:=substring(definition from 1 for start_at-1)||substring(definition from start_at+end_at+1);
  execute definition;
  for t in select runtime_schema from platform_private.tenants where runtime_schema is not null loop
   perform platform_private.install_booking_risk(t.runtime_schema);
+  execute format('alter table %I.booking_no_show_policy alter column appeal_enabled set default false',t.runtime_schema);
   execute format('update %I.booking_no_show_policy set appeal_enabled=false where appeal_enabled is distinct from false',t.runtime_schema);
   execute format('drop function if exists %I.booking_no_show_appeal(text,text)',t.runtime_schema);
  end loop;
