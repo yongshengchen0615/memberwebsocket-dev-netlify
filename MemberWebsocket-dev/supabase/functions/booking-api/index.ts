@@ -576,6 +576,7 @@ async function generateSlots(supabase: SupabaseClient, body: Json, member: any):
   const items = await normalizeRequestedItems(supabase, body);
   const settings = await bookingSettings(supabase);
   const duration = totalDuration(items);
+  const storeServiceMinutes = Number(items.find((item) => item.serviceId === STORE_SERVICE_ID)?.service?.duration_minutes ?? 0);
   if (duration < 1 || duration > 1440) throw new ApiError(400, "INVALID_BOOKING_DURATION", "預約服務總時間不正確。");
 
   const today = currentBusinessDate(taipeiDate(), taipeiMinutes(), settings.work_start_time, settings.work_end_time);
@@ -587,6 +588,7 @@ async function generateSlots(supabase: SupabaseClient, body: Json, member: any):
       serverNow: new Date().toISOString(),
       settings: settingsClient(settings),
       totalDurationMinutes: duration,
+      storeServiceMinutes,
       totalAmount: totalAmount(items),
       earliestBookingDate,
       latestBookingDate: latestBookingDate || null,
@@ -598,6 +600,7 @@ async function generateSlots(supabase: SupabaseClient, body: Json, member: any):
       serverNow: new Date().toISOString(),
       settings: settingsClient(settings),
       totalDurationMinutes: duration,
+      storeServiceMinutes,
       totalAmount: totalAmount(items),
       earliestBookingDate,
       latestBookingDate: latestBookingDate || null,
@@ -643,6 +646,7 @@ async function generateSlots(supabase: SupabaseClient, body: Json, member: any):
     serverNow: new Date().toISOString(),
     settings: settingsClient(settings),
     totalDurationMinutes: duration,
+      storeServiceMinutes,
     totalAmount: totalAmount(items),
     earliestBookingDate,
     latestBookingDate: latestBookingDate || null,
