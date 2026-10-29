@@ -108,6 +108,39 @@ test('AC-SYNC-003: root approval revocation closes private workspace and stops p
  }finally{h.close();}
 });
 
+test('AC-SYNC-005: a delayed pre-approval poll cannot restore pending buttons after committed merchant approval',async()=>{
+ let applications=[application('race','pending')],resolveOld=null,qualificationReads=0;
+ const h=await mount({merchant:false,handler(input){
+  if(input.action==='platform.bootstrap')return{tenants:[],applications:applications.map(item=>({...item})),features,profile:{displayName:'Root'}};
+  if(input.action==='platform.qualification.list'){
+   if(++qualificationReads===2)return new Promise(resolve=>{resolveOld=()=>resolve({qualifications:[]});});
+   return{qualifications:[]};
+  }
+  if(input.action==='platform.merchant.review'){
+   const reviewed=application('race','approved',{version:4});
+   applications=[reviewed];return{application:reviewed};
+  }
+ }});
+ try{
+  // Poll has fetched the old pending row, but its second API request is delayed.
+  h.intervals[0].fn();await settle();
+  assert.equal(typeof resolveOld,'function');
+  h.d.querySelector('#applicationList [data-review-decision="approved"]').click();
+  h.d.querySelector('[data-v2-feature="points"]').checked=true;
+  submit(h,'v2ReviewForm');await settle();
+  assert.match(h.d.querySelector('#applicationList article').textContent,/已核准/);
+  assert.equal(h.d.querySelectorAll('#applicationList [data-review-decision]').length,0);
+  const updated=h.d.querySelector('#applicationList article');
+  // Releasing the older response after review must NOT restore stale actions.
+  resolveOld();await settle();
+  assert.equal(h.d.querySelector('#applicationList article'),updated,'superseded poll must not redraw the current review');
+  assert.match(h.d.querySelector('#applicationList article').textContent,/已核准/);
+  assert.equal(h.d.querySelectorAll('#applicationList [data-review-decision]').length,0);
+  await h.tick();
+  assert.match(h.d.querySelector('#applicationList article').textContent,/已核准/);
+ }finally{h.close();}
+});
+
 test('v2 account entry reads qualification without creating an application; explicit submit and retry reuse the request ID',async()=>{
  let submissions=0;const h=await mount({handler(input){if(input.action==='platform.qualification.submit'){if(!submissions++)return{throw:true};return{qualification:qualification('pending')};}}});try{
   assert.deepEqual(h.calls.map(x=>x.action),['platform.qualification.bootstrap']);
