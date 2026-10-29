@@ -110,7 +110,10 @@ function transport(s, action, p={}, slug='api',record=true) {
   if(action==='admin.booking.bootstrap')return {settings:s.settings,bookings:s.bookings};
   if(action==='admin.booking.manage.bootstrap')return {settings:s.settings,services:s.services,serviceTypes:s.serviceTypes,pointCards:s.cards.map(c=>({...c,id:c.cardId}))};
   if(action==='admin.booking.resources.bootstrap')return {settings:s.settings,technicians:s.technicians};
-  if(action==='admin.booking.contacts')return {contacts:[]};
+  if(action==='admin.booking.contacts')return {contacts:s.bookings.filter(b=>p.bookingIds?.includes(b.bookingId) && b.bookingSource==='phone').map(b=>({
+    bookingId:b.bookingId,contactSource:'custom',contactSurname:b.contactSurname,
+    contactSalutation:b.contactSalutation,contactPhone:b.contactPhone
+  }))};
   if(action==='admin.booking.group.details')return {bookingGroups:s.groups,technicians:s.technicians,primaryTechnicianId:s.settings.primaryTechnicianId};
   if(action==='admin.booking.settings.save'||action==='admin.booking.resources.settings.save'){s.settings={...s.settings,...p,updatedAt:stamp()};return {settings:s.settings};}
   if(action==='admin.booking.resources.technician.save')return {technician:save('technicians','technicianId',p)};
@@ -133,6 +136,28 @@ function transport(s, action, p={}, slug='api',record=true) {
   if(action==='admin.booking.benefits.list')return {booking:s.bookings.find(b=>b.bookingId===p.bookingId),catalog:s.benefitCatalog};
   if(action==='admin.booking.benefits.update'){const b=s.bookings.find(b=>b.bookingId===p.bookingId);b.benefits=p.benefits.map(i=>({...i,status:'pending',title:'QA selected benefit'}));b.updatedAt=stamp();return {booking:b};}
   if(action==='admin.booking.participants.items.update'||action==='admin.booking.participants.technicians.update'){const group=s.groups[p.bookingId];group.participants=p.participants.map((v,i)=>({...group.participants[i],...v}));s.bookings.find(b=>b.bookingId===p.bookingId).updatedAt=stamp();return {group};}
+  if(action==='admin.booking.phone.create'){
+    if(p.allowOverlap!==true)throw Object.assign(new Error('請確認重疊'),{code:'BOOKING_OVERLAP_ACK_REQUIRED'});
+    const old=s.bookings.find(b=>b.requestId===p.requestId);
+    if(old)return {bookingId:old.bookingId,bookingSource:'phone',status:old.status};
+    const service=s.services.find(x=>x.serviceId===p.items?.[0]?.serviceId);
+    if(!service)throw Object.assign(new Error('無效項目'),{code:'INVALID_BOOKING_ITEMS'});
+    const bookingId='phone-'+(++s.seq);
+    const start=Number(p.startTime.slice(0,2))*60+Number(p.startTime.slice(3,5));
+    const end=(start+Number(service.durationMinutes||30)+10)%(24*60);
+    const row={
+      bookingId,requestId:p.requestId,bookingSource:'phone',memberId:null,memberCode:'',memberDisplayName:'',
+      bookingDate:p.bookingDate,startTime:p.startTime,
+      endTime:String(Math.floor(end/60)).padStart(2,'0')+':'+String(end%60).padStart(2,'0'),
+      status:'confirmed',adminNote:p.adminNote,memberNote:'',
+      contactSurname:p.contactSurname,contactSalutation:p.contactSalutation,contactPhone:p.contactPhone,
+      totalDurationMinutes:Number(service.durationMinutes||30)+10,totalAmount:Number(service.priceAmount||0),
+      items:[{serviceId:service.serviceId,serviceTitle:service.title,unitDurationMinutes:service.durationMinutes,
+        unitPriceAmount:service.priceAmount,quantity:1}],updatedAt:stamp(),
+    };
+    s.bookings.push(row);
+    return {bookingId,bookingSource:'phone',status:'confirmed'};
+  }
   if(action==='admin.booking.status.update'||action==='admin.booking.status.complete'){const b=s.bookings.find(b=>b.bookingId===p.bookingId);Object.assign(b,p,{status:action.endsWith('.complete')?'completed':p.status,updatedAt:stamp()});return {booking:b};}
   if(action==='admin.booking.receipt.list')return {submissions:s.submissions,accessibleRecords:s.accessibleRecords,bookings:s.bookings,receipts:s.receipts};
   if(action==='admin.booking.receipt.url')return {signedUrl:'https://fixture.supabase.co/storage/v1/object/sign/booking-receipts/qa.svg?token=fixture'};
