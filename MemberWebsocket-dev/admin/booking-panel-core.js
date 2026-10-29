@@ -1800,8 +1800,9 @@
         summaryMetaItem('會員編號', String(booking.memberCode || '未取得')),
       );
     }
+    const bookingTotalMinutes = isPhoneBooking(booking) ? booking.totalDurationMinutes : (group?.totalDurationMinutes ?? booking.totalDurationMinutes);
     memberMeta.append(
-      summaryMetaItem('總服務時間', `${Math.max(0, Number(isPhoneBooking(booking) ? booking.totalDurationMinutes : (group?.totalDurationMinutes || booking.totalDurationMinutes || 0))} 分鐘`),
+      summaryMetaItem('總服務時間', `${Math.max(0, Number(bookingTotalMinutes || 0))} 分鐘`),
       summaryMetaItem('總金額', formatMoney(Number(group?.totalAmount ?? booking.totalAmount ?? 0))),
     );
     if(group?.serviceRecipientMemberCode)memberMeta.append(summaryMetaItem('實際受服務者',`${group.serviceRecipientName||'好友'} · ${group.serviceRecipientMemberCode}（好友代約）`));
