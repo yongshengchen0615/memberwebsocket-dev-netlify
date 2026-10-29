@@ -222,6 +222,7 @@
           <section id="bookingAdminStandardQueueView" class="booking-admin-queue-view" role="tabpanel" aria-labelledby="bookingAdminStandardMode">
             <div class="booking-admin-queue-toolbar">
               <div><strong>一般預約</strong><small>依預約狀態篩選需要處理的會員預約。</small></div>
+              <button id="bookingAdminPhoneCreateButton" class="button button-dark" type="button">登記電話預約</button>
               <div class="booking-admin-filter" role="group" aria-label="一般預約狀態篩選">
                 <button class="booking-admin-filter-button active" data-booking-filter="pending" type="button">待確認</button>
                 <button class="booking-admin-filter-button" data-booking-filter="confirmed" type="button">已確認</button>
@@ -269,7 +270,7 @@
     [
       'bookingTab','bookingPanel','bookingAdminSyncStatus','bookingAdminSettingsForm','bookingAdminStartTime','bookingAdminEndTime','bookingAdminSlotInterval','bookingAdminHoursPreview','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminStoreServiceMinutes','bookingAdminReminderEnabled','bookingAdminSnapshotLocationRequired','bookingAdminReminderTime','bookingAdminNotice','bookingAdminSettingsMessage','bookingAdminDraftStatus','bookingAdminDiscardSettingsButton','bookingAdminSaveSettingsButton',
       'bookingAdminNewTypeButton','bookingAdminTypeMessage','bookingAdminTypeList','bookingAdminTypeEmpty','bookingAdminServiceCount','bookingAdminPendingCount','bookingAdminAccessiblePendingCount','bookingAdminConfirmedCount',
-      'bookingAdminSubtabs','bookingAdminTechniciansSubtab','bookingAdminServicesSubtab','bookingAdminSettingsSubtab','bookingAdminRiskSubtab','bookingAdminRiskPanel','bookingAdminRiskMount','bookingAdminRiskOpenAdvanceSettings','bookingAdminQueueSubtab','bookingAdminQueueSubtabCount','bookingAdminTechniciansPanel','bookingAdminServicesPanel','bookingAdminSettingsPanel','bookingAdminQueuePanel','bookingAdminStandardMode','bookingAdminAccessibleMode','bookingAdminStandardModeCount','bookingAdminAccessibleModeCount','bookingAdminStandardQueueView','bookingAdminNewServiceButton','bookingAdminBatchAddButton','bookingAdminBatchEditButton','bookingAdminBatchDeleteButton','bookingAdminServiceMessage','bookingAdminServiceList','bookingAdminServiceEmpty','bookingAdminQueue','bookingAdminQueueEmpty',
+      'bookingAdminSubtabs','bookingAdminTechniciansSubtab','bookingAdminServicesSubtab','bookingAdminSettingsSubtab','bookingAdminRiskSubtab','bookingAdminRiskPanel','bookingAdminRiskMount','bookingAdminRiskOpenAdvanceSettings','bookingAdminQueueSubtab','bookingAdminQueueSubtabCount','bookingAdminTechniciansPanel','bookingAdminServicesPanel','bookingAdminSettingsPanel','bookingAdminQueuePanel','bookingAdminStandardMode','bookingAdminAccessibleMode','bookingAdminStandardModeCount','bookingAdminAccessibleModeCount','bookingAdminStandardQueueView','bookingAdminNewServiceButton','bookingAdminBatchAddButton','bookingAdminBatchEditButton','bookingAdminBatchDeleteButton','bookingAdminServiceMessage','bookingAdminServiceList','bookingAdminServiceEmpty','bookingAdminQueue','bookingAdminQueueEmpty','bookingAdminPhoneCreateButton',
       'bookingAdminCrudModal','bookingAdminCrudModalTitle','bookingAdminCrudModalBody','bookingAdminCrudModalClose'
     ].forEach((id) => { els[id] = document.getElementById(id); });
   }
@@ -309,6 +310,7 @@
       tabs[next].focus();
     });
     els.bookingAdminQueueSubtab.addEventListener('click', () => setSubtab('queue'));
+    els.bookingAdminPhoneCreateButton.addEventListener('click', openPhoneBookingModal);
     els.bookingAdminStandardMode.addEventListener('click', () => setQueueMode('standard'));
     els.bookingAdminAccessibleMode.addEventListener('click', () => setQueueMode('accessible'));
     els.bookingAdminNewServiceButton.addEventListener('click', () => openServiceModal(null));
@@ -1332,6 +1334,79 @@
     showModal();
   }
 
+
+  function openPhoneBookingModal() {
+    const services = (state.catalog.services || []).filter((service) =>
+      service.isActive !== false && service.requiresCompanionService !== true &&
+      service.serviceId && service.serviceId !== STORE_SERVICE_ID
+    );
+    const todayParts = {};
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(new Date()).forEach((part) => {
+      if (part.type !== 'literal') todayParts[part.type] = part.value;
+    });
+    const today = `${todayParts.year}-${todayParts.month}-${todayParts.day}`;
+    const settings = state.booking.settings || {};
+    const interval = Number(settings.slotIntervalMinutes || 30);
+    const earliest = new Date(today + 'T00:00:00Z');
+    earliest.setUTCDate(earliest.getUTCDate() + Number(settings.minAdvanceDays || 0));
+    const minDate = earliest.toISOString().slice(0, 10);
+    const maxAdvance = Number(settings.maxAdvanceDays || 0);
+    const maxDateObj = new Date(today + 'T00:00:00Z');
+    maxDateObj.setUTCDate(maxDateObj.getUTCDate() + maxAdvance);
+    const maxAttr = maxAdvance > 0 ? ` max="${maxDateObj.toISOString().slice(0, 10)}"` : '';
+    const clock = String(settings.workStartTime || '09:00').slice(0, 5);
+
+    els.bookingAdminCrudModalTitle.textContent = '登記電話預約';
+    els.bookingAdminCrudModalBody.innerHTML = `
+      <form class="booking-admin-form" data-phone-booking-form>
+        <p class="booking-admin-time">供店家登記電話或現場客人。即使該時段已有其他預約也可登記；新預約會標示「現場安排」，不指定技師，也不建立 LINE 會員、點數或票券。</p>
+        <label>預約日期<input data-phone-date type="date" min="${minDate}"${maxAttr} value="${minDate}" required></label>
+        <label>開始時間<input data-phone-time type="time" step="300" value="${clock}" required></label>
+        <label>服務項目<select data-phone-service required></select></label>
+        <label>客人姓氏<input data-phone-surname type="text" maxlength="40" autocomplete="off" required placeholder="例如：陳"></label>
+        <label>稱謂<select data-phone-salutation required><option value="mr">先生</option><option value="ms">小姐</option></select></label>
+        <label>聯絡電話<input data-phone-number type="tel" maxlength="25" autocomplete="tel" required placeholder="例如：0912345678"></label>
+        <label>管理端備註（選填）<textarea data-phone-note maxlength="500" rows="2"></textarea></label>
+        <label class="booking-admin-toggle"><input data-phone-overlap type="checkbox" required><span><strong>確認允許與既有預約時段重疊</strong><small>請自行核對現場服務人力、電話客人時間與當日營運安排。</small></span></label>
+        <div data-modal-message class="form-message hidden"></div>
+        <div class="booking-admin-modal-actions">
+          <button data-cancel class="button button-outline" type="button">取消</button>
+          <button class="button button-dark" type="submit" ${services.length ? '' : 'disabled'}>確認登記</button>
+        </div>
+      </form>`;
+    const form = els.bookingAdminCrudModalBody.querySelector('[data-phone-booking-form]');
+    const serviceSelect = form.querySelector('[data-phone-service]');
+    serviceSelect.append(new Option(services.length ? '請選擇服務項目' : '尚未建立可預約項目', '', true, true));
+    services.forEach((service) => {
+      const option = new Option(
+        `${service.title || '預約項目'} · ${Number(service.durationMinutes || 0)} 分鐘`,
+        String(service.serviceId)
+      );
+      serviceSelect.append(option);
+    });
+    let requestId = `PHONE-${window.crypto.randomUUID()}`;
+    form.querySelector('[data-cancel]').addEventListener('click', closeModal);
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!form.reportValidity()) return;
+      const payload = {
+        requestId,
+        bookingDate: form.querySelector('[data-phone-date]').value,
+        startTime: form.querySelector('[data-phone-time]').value,
+        contactSurname: form.querySelector('[data-phone-surname]').value.trim(),
+        contactSalutation: form.querySelector('[data-phone-salutation]').value,
+        contactPhone: form.querySelector('[data-phone-number]').value.trim(),
+        adminNote: form.querySelector('[data-phone-note]').value.trim(),
+        items: [{ serviceId: serviceSelect.value, quantity: 1 }],
+        allowOverlap: true,
+      };
+      await runModalAction(async () => bookingRequest('admin.booking.phone.create', payload, true));
+    });
+    showModal();
+  }
+
   function renderBookings() {
     const bookings = (state.booking.bookings || [])
       .filter((booking) => state.filter === 'all' || booking.status === state.filter)
@@ -1395,6 +1470,12 @@
 
       const heading = document.createElement('div');
       heading.className = 'booking-admin-booking-heading';
+      if (isPhoneBooking(booking)) {
+        const source = document.createElement('span');
+        source.className = 'booking-admin-status';
+        source.textContent = '電話預約 · 現場安排';
+        heading.appendChild(source);
+      }
       const status = document.createElement('span');
       status.className = `booking-admin-status status-${booking.status}`;
       status.textContent = STATUS_LABELS[booking.status] || booking.status;
@@ -1408,7 +1489,7 @@
       const cancellationPending = Boolean(booking.cancellationRequestedAt && !booking.cancellationReviewedAt);
       if (cancellationPending) appendNote(card, '會員已提出取消申請，請至「取消申請」分頁選擇保留預約或確認取消；審核完成前不可修改、確認或完成此預約。', true);
 
-      if (booking.status === 'completed') {
+      if (booking.status === 'completed' && !isPhoneBooking(booking)) {
         card.appendChild(actionButton('更正已完成訂單', 'button button-outline', () => openCompletedBookingModal(booking, group)));
       }
       if (canEditBooking(booking)) {
@@ -1424,11 +1505,13 @@
 
         const actions = document.createElement('div');
         actions.className = 'booking-admin-actions';
-        if (!hasStoredParticipants) {
-          actions.append(actionButton('修改服務項目', 'button button-outline', () => openBookingItemsModal(booking)));
+        if (!isPhoneBooking(booking)) {
+          if (!hasStoredParticipants) {
+            actions.append(actionButton('修改服務項目', 'button button-outline', () => openBookingItemsModal(booking)));
+          }
+          actions.append(actionButton('修改預約票券', 'button button-outline', () => openBookingBenefitsModal(booking)));
         }
-        actions.append(actionButton('修改預約票券', 'button button-outline', () => openBookingBenefitsModal(booking)));
-        if (booking.status === 'pending' || booking.status === 'confirmed') {
+        if (!isPhoneBooking(booking) && (booking.status === 'pending' || booking.status === 'confirmed')) {
           const reason = noShowUnavailableReason(booking, state.booking.noShowRisk?.policy);
           const visibleReason = noShowDisplayReason(reason);
           const noShow = actionButton('無故未到', 'button button-danger', () => openNoShow(booking, textarea.value));
@@ -1442,6 +1525,9 @@
             actionButton('不通過', 'button button-outline', () => updateBookingStatus(booking, 'rejected', textarea.value)),
             actionButton('確認預約', 'button button-dark', () => updateBookingStatus(booking, 'confirmed', textarea.value)),
           );
+        } else if (isPhoneBooking(booking)) {
+          actions.append(actionButton('取消電話預約', 'button button-danger', () =>
+            updateBookingStatus(booking, 'cancelled', textarea.value)));
         } else {
           actions.append(
             actionButton('確認服務完成', 'button button-dark', () => updateBookingStatus(booking, 'completed', textarea.value)),
@@ -1460,6 +1546,11 @@
       if (!retainedCards.has(card)) card.remove();
     });
     state.bookingRenderSignatures = nextSignatures;
+  }
+
+
+  function isPhoneBooking(booking) {
+    return Boolean(booking && booking.bookingSource === 'phone');
   }
 
   function canEditBooking(booking) {
@@ -1493,9 +1584,15 @@
 
     const memberMeta = document.createElement('div');
     memberMeta.className = 'booking-member-meta';
+    if (isPhoneBooking(booking)) {
+      memberMeta.append(summaryMetaItem('預約來源', '電話登記 · 非會員'));
+    } else {
+      memberMeta.append(
+        summaryMetaItem('LINE 名稱', String(booking.memberDisplayName || '未取得')),
+        summaryMetaItem('會員編號', String(booking.memberCode || '未取得')),
+      );
+    }
     memberMeta.append(
-      summaryMetaItem('LINE 名稱', String(booking.memberDisplayName || '未取得')),
-      summaryMetaItem('會員編號', String(booking.memberCode || '未取得')),
       summaryMetaItem('總服務時間', `${Math.max(0, Number(group?.totalDurationMinutes || booking.totalDurationMinutes || 0))} 分鐘`),
       summaryMetaItem('總金額', formatMoney(Number(group?.totalAmount ?? booking.totalAmount ?? 0))),
     );
@@ -1568,7 +1665,7 @@
       tech.textContent = `預約技師：${techName}`;
       block.append(heading, items, tech);
 
-      if (hasStoredParticipants && canEditBooking(booking)) {
+      if (hasStoredParticipants && canEditBooking(booking) && !isPhoneBooking(booking)) {
         const actions = document.createElement('div');
         actions.className = 'booking-admin-actions';
         actions.style.margin = '4px 0 0';
