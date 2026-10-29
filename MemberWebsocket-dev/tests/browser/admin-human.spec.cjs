@@ -160,7 +160,7 @@ for(const type of ['holiday','event'])test('CALENDAR_'+type+' — create, date r
 test('RETIRED_CENTER — the removed panel is absent and six top tabs remain ordered',async({page:p},info)=>{
   await expect(p.locator('#operationsHubTab, #operationsHubPanel, [data-integration-view-tab], [data-integration-target]')).toHaveCount(0);
   await expect(p.locator('#bookingTab')).toHaveCount(1);
-  const order=await p.locator('#adminView .surface-nav > button[role="tab"]').evaluateAll(nodes=>nodes.map(node=>node.id));
+  const order=await p.evaluate(()=>Array.from(document.querySelectorAll('#adminView .surface-nav > button[role="tab"]'),node=>node.id));
   expect(order).toEqual(['membersTab','cardsTab','eventsTab','calendarTab','bookingTab','lineSettingsTab']);
   expect(calls(info.fixture,'admin.integration-overview')).toHaveLength(0);
 });
