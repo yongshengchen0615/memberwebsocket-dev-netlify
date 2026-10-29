@@ -481,7 +481,8 @@
     }
     const endpoint = requestEndpoint(config, clientType, action);
     const testSessionToken = window.TestModeClient && typeof window.TestModeClient.getSessionToken === 'function' ? window.TestModeClient.getSessionToken() : '';
-    const key = JSON.stringify([endpoint, clientType, idToken, testSessionToken, action, payload]);
+    const business = window.BusinessContext?.slug || config.business || '';
+    const key = JSON.stringify([endpoint, config.supabasePublishableKey, business, clientType, idToken, testSessionToken, action, payload]);
     if (pendingReads.has(key)) return pendingReads.get(key);
     const pending = sendRequest(config, clientType, idToken, action, payload).finally(() => {
       if (pendingReads.get(key) === pending) pendingReads.delete(key);

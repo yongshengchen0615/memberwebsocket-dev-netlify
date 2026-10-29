@@ -427,7 +427,8 @@
     }
     if (!SHARED_READ_ACTIONS.has(body.action)) return sendJson(endpoint, config, body, serviceLabel, options);
     // The serialized body includes the exact LINE/test identity and parameters.
-    const key = JSON.stringify([endpoint, config.supabasePublishableKey, body]);
+    const business = window.BusinessContext?.slug || config.business || '';
+    const key = JSON.stringify([endpoint, config.supabasePublishableKey, business, body]);
     if (pendingReads.has(key)) return pendingReads.get(key);
     const pending = sendJson(endpoint, config, body, serviceLabel, options).finally(() => {
       if (pendingReads.get(key) === pending) pendingReads.delete(key);
