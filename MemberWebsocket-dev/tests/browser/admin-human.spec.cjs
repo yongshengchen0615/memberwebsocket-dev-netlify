@@ -299,6 +299,7 @@ test('BOOKING_PHONE_SERVICE_DURATION — member-style multi-service, exact store
   expect(created.totalDurationMinutes).toBe(130);
   expect(created.items).toHaveLength(3);
   expect(created.items[0].quantity).toBe(2);
+  await p.locator('[data-booking-filter="confirmed"]').click();
   const visible=p.locator('#bookingAdminQueue [data-booking-id="'+created.bookingId+'"]');
   await expect(visible).toContainText('總服務時間');
   await expect(visible).toContainText('130 分鐘');
