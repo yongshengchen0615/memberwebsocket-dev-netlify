@@ -248,7 +248,7 @@ test('BOOKING_PHONE_CONFLICT — occupied time warns; cancel original booking be
   expect(createdCalls).toHaveLength(1);
   const payload=createdCalls[0].payload;
   expect(payload).toMatchObject({bookingDate:date,startTime:'10:00',contactSurname:'陳',items:[{serviceId:'service-1',quantity:1}]});
-  expect(payload).not.toHaveProperty('allowOverlap');
+  expect(Object.prototype.hasOwnProperty.call(payload,'allowOverlap')).toBe(false);
   expect(info.fixture.bookings.filter(b=>b.status==='confirmed'&&b.startTime==='10:00')).toHaveLength(1);
   const phone=p.locator('#bookingAdminQueue [data-booking-id^="phone-"]');
   await expect(phone).toContainText('電話預約 · 現場安排');
