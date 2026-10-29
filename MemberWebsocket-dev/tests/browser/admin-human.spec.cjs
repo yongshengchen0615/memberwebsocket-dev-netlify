@@ -198,8 +198,8 @@ test('CALENDAR_BATCH — select dates, add/remove rows, create, update and delet
   for(const item of info.fixture.calendarItems)await p.locator('[data-admin-calendar-item-select="'+item.calendarItemId+'"]').first().check();await click(p,'deleteSelectedCalendarItemsButton');await expect.poll(()=>info.fixture.calendarItems.length).toBe(0);
 });
 
-test('BOOKING_PHONE_CONFLICT — occupied time warns; cancel original booking before telephone reservation',async({page:p},info)=>{
-  const date=today();
+test('BOOKING_PHONE_CONFLICT — occupied slot is grey and disabled; cancel then rebook',async({page:p},info)=>{
+  const date=new Date(Date.parse(today()+'T00:00Z')+86400000).toISOString().slice(0,10);
   info.fixture.bookings.push({
     bookingId:'online-occupied',bookingDate:date,startTime:'10:00',endTime:'10:40',status:'confirmed',
     memberId:'member-1',memberCode:'TEST1',memberDisplayName:'Existing member',totalDurationMinutes:40,
@@ -211,9 +211,13 @@ test('BOOKING_PHONE_CONFLICT — occupied time warns; cancel original booking be
   const form=p.locator('[data-phone-booking-form]');
   await expect(form).toBeVisible();
   await form.locator('[data-phone-date]').fill(date);
-  await form.locator('[data-phone-time]').fill('10:00');
-  await form.locator('[data-phone-service]').selectOption('service-1');
-  await expect(form.locator('[data-modal-message]')).toContainText('請先取消原預約');
+  await form.getByRole('button',{name:'增加 QA service',exact:true}).click();
+  await expect(form.locator('[data-phone-duration]')).toContainText('總服務時間：40 分鐘（項目 30 分鐘＋店內服務 10 分鐘');
+  const occupied=form.locator('.booking-phone-slot').filter({hasText:'10:00'});
+  const overlapping=form.locator('.booking-phone-slot').filter({hasText:'10:30'});
+  await expect(occupied).toBeDisabled();
+  await expect(occupied).toHaveAttribute('data-unavailable-reason','occupied');
+  await expect(overlapping).toBeDisabled();
   await expect(form.getByRole('button',{name:'確認登記'})).toBeDisabled();
   expect(calls(info.fixture,'admin.booking.phone.create')).toHaveLength(0);
   const rejected={
@@ -235,9 +239,11 @@ test('BOOKING_PHONE_CONFLICT — occupied time warns; cancel original booking be
   await click(p,'bookingAdminPhoneCreateButton');
   const next=p.locator('[data-phone-booking-form]');
   await next.locator('[data-phone-date]').fill(date);
-  await next.locator('[data-phone-time]').fill('10:00');
-  await next.locator('[data-phone-service]').selectOption('service-1');
-  await expect(next.locator('[data-modal-message]')).toBeHidden();
+  await next.getByRole('button',{name:'增加 QA service',exact:true}).click();
+  const freed=next.locator('.booking-phone-slot').filter({hasText:'10:00'});
+  await expect(freed).toBeEnabled();
+  await freed.click();
+  await expect(next.getByRole('button',{name:'確認登記'})).toBeEnabled();
   await next.locator('[data-phone-surname]').fill('陳');
   await next.locator('[data-phone-salutation]').selectOption('ms');
   await next.locator('[data-phone-number]').fill('0912345678');
@@ -257,6 +263,44 @@ test('BOOKING_PHONE_CONFLICT — occupied time warns; cancel original booking be
   await expect(phone.getByRole('button',{name:'取消電話預約'})).toHaveCount(1);
   transport(info.fixture,'admin.booking.phone.create',payload);
   expect(info.fixture.bookings.filter(b=>b.bookingSource==='phone')).toHaveLength(1);
+  const reread=transport(info.fixture,'admin.booking.phone.slots',{bookingDate:date,items:[{serviceId:'service-1',quantity:1}]},'booking-api',false);
+  expect(reread.slots.find(slot=>slot.startTime==='10:00')).toMatchObject({available:false,unavailableReason:'occupied'});
+});
+
+test('BOOKING_PHONE_SERVICE_DURATION — member-style multi-service, exact store minutes and unavailable slots',async({page:p},info)=>{
+  info.fixture.settings.storeServiceMinutes=25;
+  info.fixture.services.push({serviceId:'service-3',title:'QA addon',serviceType:'Addons',durationMinutes:15,priceAmount:50,isActive:true,requiresCompanionService:true});
+  const date=new Date(Date.parse(today()+'T00:00Z')+86400000).toISOString().slice(0,10);
+  await booking(p,'bookingAdminQueueSubtab');
+  await click(p,'bookingAdminPhoneCreateButton');
+  const form=p.locator('[data-phone-booking-form]');
+  await form.locator('[data-phone-date]').fill(date);
+  await expect(form.locator('.booking-phone-service-group')).toHaveCount(2);
+  await form.getByRole('button',{name:'增加 QA addon'}).click();
+  await expect(form.locator('[data-modal-message]')).toContainText('先選擇一般預約項目');
+  await form.getByRole('button',{name:'增加 QA service',exact:true}).click();
+  await form.getByRole('button',{name:'增加 QA service',exact:true}).click();
+  await form.getByRole('button',{name:'增加 QA second service',exact:true}).click();
+  await form.getByRole('button',{name:'增加 QA addon'}).click();
+  await expect(form.locator('[data-phone-selected-list]')).toContainText('QA service × 2');
+  await expect(form.locator('[data-phone-duration]')).toContainText('總服務時間：130 分鐘（項目 105 分鐘＋店內服務 25 分鐘');
+  const requestCalls=calls(info.fixture,'admin.booking.phone.slots');
+  expect(requestCalls.at(-1).payload.items).toEqual([
+    {serviceId:'service-1',quantity:2},{serviceId:'service-2',quantity:1},{serviceId:'service-3',quantity:1},
+  ]);
+  const first=form.locator('.booking-phone-slot').filter({hasText:'10:00'});
+  await expect(first).toBeEnabled();
+  await first.click();
+  await form.locator('[data-phone-surname]').fill('林');
+  await form.locator('[data-phone-number]').fill('0912345678');
+  await form.getByRole('button',{name:'確認登記'}).click();
+  await expect(p.locator('#bookingAdminCrudModal')).toBeHidden();
+  const created=info.fixture.bookings.find(b=>b.bookingSource==='phone');
+  expect(created.totalDurationMinutes).toBe(130);
+  expect(created.items).toHaveLength(3);
+  expect(created.items[0].quantity).toBe(2);
+  const repeat=transport(info.fixture,'admin.booking.phone.slots',{bookingDate:date,items:[{serviceId:'service-1',quantity:1}]},'booking-api',false);
+  expect(repeat.slots.find(slot=>slot.startTime==='10:00')).toMatchObject({available:false,unavailableReason:'occupied'});
 });
 
 test('BOOKING_TYPE — create, edit reward rule, reread and delete type',async({page:p},info)=>{
