@@ -1361,7 +1361,7 @@
     els.bookingAdminCrudModalTitle.textContent = '登記電話預約';
     els.bookingAdminCrudModalBody.innerHTML = `
       <form class="booking-admin-form" data-phone-booking-form>
-        <p class="booking-admin-time">供店家登記電話或現場客人。即使該時段已有其他預約也可登記；新預約會標示「現場安排」，不指定技師，也不建立 LINE 會員、點數或票券。</p>
+        <p class="booking-admin-time">供店家登記電話或現場客人。已被預約的時段不可重複登記，請先取消原預約再使用該時段；新預約會標示「現場安排」，不建立 LINE 會員、點數或票券。</p>
         <label>預約日期<input data-phone-date type="date" min="${minDate}"${maxAttr} value="${minDate}" required></label>
         <label>開始時間<input data-phone-time type="time" step="300" value="${clock}" required></label>
         <label>服務項目<select data-phone-service required></select></label>
@@ -1369,7 +1369,6 @@
         <label>稱謂<select data-phone-salutation required><option value="mr">先生</option><option value="ms">小姐</option></select></label>
         <label>聯絡電話<input data-phone-number type="tel" maxlength="25" autocomplete="tel" required placeholder="例如：0912345678"></label>
         <label>管理端備註（選填）<textarea data-phone-note maxlength="500" rows="2"></textarea></label>
-        <label class="booking-admin-toggle"><input data-phone-overlap type="checkbox" required><span><strong>確認允許與既有預約時段重疊</strong><small>請自行核對現場服務人力、電話客人時間與當日營運安排。</small></span></label>
         <div data-modal-message class="form-message hidden"></div>
         <div class="booking-admin-modal-actions">
           <button data-cancel class="button button-outline" type="button">取消</button>
@@ -1386,11 +1385,57 @@
       );
       serviceSelect.append(option);
     });
-    let requestId = `PHONE-${window.crypto.randomUUID()}`;
+    // Preview only. The SQL trigger rechecks every booking within a date
+    // transaction lock so stale screens or simultaneous submissions cannot race.
+    const showPhoneConflict = () => {
+      const date = form.querySelector('[data-phone-date]').value;
+      const time = form.querySelector('[data-phone-time]').value;
+      const service = services.find((item) => item.serviceId === serviceSelect.value);
+      const submit = form.querySelector('button[type="submit"]');
+      const message = form.querySelector('[data-modal-message]');
+      if (!date || !time || !service) {
+        clearMessage(message);
+        submit.disabled = services.length === 0;
+        return false;
+      }
+      const civilStart = (day, clock) => {
+        const normalized = String(clock || '').slice(0, 5);
+        const base = Date.parse(day + 'T' + normalized + ':00Z');
+        if (!Number.isFinite(base)) return NaN;
+        const endClock = String(settings.workEndTime || '17:00').slice(0, 5);
+        const startClock = String(settings.workStartTime || '09:00').slice(0, 5);
+        return endClock < startClock && normalized < endClock ? base + 86400000 : base;
+      };
+      const readLocal = (value) => {
+        const normalized = String(value || '').replace(' ', 'T').slice(0, 16);
+        return /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$/.test(normalized)
+          ? Date.parse(normalized + ':00Z') : NaN;
+      };
+      const start = civilStart(date, time);
+      const end = start + (Number(service.durationMinutes || 0) + Number(settings.storeServiceMinutes || 10)) * 60000;
+      const overlap = (state.booking.bookings || []).some((booking) => {
+        if (!['pending','confirmed'].includes(booking.status)) return false;
+        const oldStart = Number.isFinite(readLocal(booking.startAt)) ? readLocal(booking.startAt)
+          : civilStart(String(booking.bookingDate || ''), String(booking.startTime || ''));
+        const oldEnd = Number.isFinite(readLocal(booking.endAt)) ? readLocal(booking.endAt)
+          : oldStart + Number(booking.totalDurationMinutes || 0) * 60000;
+        return Number.isFinite(oldStart) && Number.isFinite(oldEnd) && start < oldEnd && end > oldStart;
+      });
+      submit.disabled = overlap;
+      if (overlap) showMessage(message, '此時段已有預約，請先取消原預約，或選擇其他時段。', 'error');
+      else clearMessage(message);
+      return overlap;
+    };
+    form.querySelectorAll('[data-phone-date],[data-phone-time],[data-phone-service]').forEach((field) => {
+      field.addEventListener('input', showPhoneConflict);
+      field.addEventListener('change', showPhoneConflict);
+    });
+    showPhoneConflict();
+    const requestId = \`PHONE-\${window.crypto.randomUUID()}\`;
     form.querySelector('[data-cancel]').addEventListener('click', closeModal);
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
-      if (!form.reportValidity()) return;
+      if (!form.reportValidity() || showPhoneConflict()) return;
       const payload = {
         requestId,
         bookingDate: form.querySelector('[data-phone-date]').value,
@@ -1400,7 +1445,6 @@
         contactPhone: form.querySelector('[data-phone-number]').value.trim(),
         adminNote: form.querySelector('[data-phone-note]').value.trim(),
         items: [{ serviceId: serviceSelect.value, quantity: 1 }],
-        allowOverlap: true,
       };
       await runModalAction(async () => bookingRequest('admin.booking.phone.create', payload, true));
     });
