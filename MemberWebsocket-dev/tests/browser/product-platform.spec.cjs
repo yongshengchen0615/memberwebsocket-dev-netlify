@@ -65,10 +65,10 @@ test('PLATFORM_APPLICANT_ROOT_GRANTS — review applicant, grant features only, 
   const before=(await h.db.query('select * from platform_private.tenants')).rows[0];
   expect(before.credentials_configured).toBe(false);
   await page.getByRole('button',{name:'調整開放功能'}).click();
-  // The retired testing/usage products must not be presented as grantable UI;
-  // keep eight boolean keys in the database contract with both retired keys false.
-  await expect(page.locator('#grantFeatures [data-grant-feature]')).toHaveCount(6);
-  await expect(page.locator('#grantFeatures [data-grant-feature="testing"], #grantFeatures [data-grant-feature="usage"]')).toHaveCount(0);
+  // Keep the eight-key DB contract, but grant UI exposes only five retained modules.
+  // All retired products remain impossible to select in the authorization form.
+  await expect(page.locator('#grantFeatures [data-grant-feature]')).toHaveCount(5);
+  await expect(page.locator('#grantFeatures [data-grant-feature="integrations"], #grantFeatures [data-grant-feature="testing"], #grantFeatures [data-grant-feature="usage"]')).toHaveCount(0);
   await page.locator('[data-grant-feature="booking"]').uncheck();
   await page.getByRole('button',{name:'儲存功能授權'}).click();
   await expect(page.locator('#grantDialog')).toBeHidden();
@@ -391,8 +391,8 @@ test('PLATFORM_REVIEW — root checks requested grants and approves pending admi
   await page.reload();
   await expect(page.locator('#applicationList .tenant-card')).toHaveCount(1);
   await page.getByRole('button',{name:'審核與選擇功能'}).click();
-  await expect(page.locator('#approvalFeatures [data-approve-feature]')).toHaveCount(6);
-  await expect(page.locator('#approvalFeatures [data-approve-feature="testing"], #approvalFeatures [data-approve-feature="usage"]')).toHaveCount(0);
+  await expect(page.locator('#approvalFeatures [data-approve-feature]')).toHaveCount(5);
+  await expect(page.locator('#approvalFeatures [data-approve-feature="integrations"], #approvalFeatures [data-approve-feature="testing"], #approvalFeatures [data-approve-feature="usage"]')).toHaveCount(0);
   await page.locator('[data-approve-feature="booking"]').check();
   await page.getByRole('button',{name:'審核通過'}).click();
   await expect(page.locator('#approvalDialog')).toBeHidden();
