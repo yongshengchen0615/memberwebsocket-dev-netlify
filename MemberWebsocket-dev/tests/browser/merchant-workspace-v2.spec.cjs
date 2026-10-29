@@ -39,16 +39,19 @@ test('AC-SYNC-004 — real browser keeps root review lists current when another 
   await expect(page.locator('#qualificationWorkspace')).toBeVisible();
   await page.locator('#submitQualification').click();
   await expect(page.locator('#qualificationStatus')).toContainText('等待');
+  await rootPage.bringToFront();
   // No rootPage.reload(): the live interval must consume the new committed row.
   await expect(rootPage.locator('#qualificationList article')).toHaveCount(1,{timeout:15000});
   await expect(rootPage.locator('#rootSyncStatus')).toContainText('已同步');
   await rootPage.locator('#qualificationList [data-review-decision="approved"]').click();
   await rootPage.locator('#confirmV2Review').click();
   await expect(rootPage.locator('#v2ReviewDialog')).not.toBeVisible();
+  await page.bringToFront();
   await page.locator('#refreshApplication').click();
   await expect(page.locator('#myMerchantsWorkspace')).toBeVisible();
   await sendMerchant(page,'即時同步商家');
   await expect(page.locator('#myMerchantList article')).toHaveCount(1);
+  await rootPage.bringToFront();
   await expect(rootPage.locator('#applicationList article')).toHaveCount(1,{timeout:15000});
   await expect(rootPage.locator('#applicationList article')).toContainText('即時同步商家');
   expect(root.calls.filter(x=>x.action==='platform.bootstrap').length).toBeGreaterThan(1);
