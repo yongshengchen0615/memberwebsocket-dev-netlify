@@ -5,6 +5,7 @@ const path=require('node:path');
 const vm=require('node:vm');
 const {stripTypeScriptTypes}=require('node:module');
 const {pathToFileURL}=require('node:url');
+const {execFileSync}=require('node:child_process');
 const shared=path.resolve(__dirname,'../supabase/functions/_shared');
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 
@@ -94,4 +95,25 @@ test('platform: complete JSON exactly at limit keeps existing authentication rej
   assert.equal(new TextEncoder().encode(body).length,32000);
   const response=await edge.handler(new Request('https://backend.test/api',{method:'POST',body}));
   assert.equal(response.status,401);assert.equal((await response.json()).error.code,'AUTH_REQUIRED');assert.equal(edge.calls(),0);
+});
+
+for(const kind of ['bytes','json'])test(`${kind}: many small chunks stay within a bounded memory budget while the body is still open`,()=>{
+  const source=`
+    import {readRequestBytes} from ${JSON.stringify(pathToFileURL(path.join(shared,'request-ingress.mjs')).href)};
+    import {readJsonObject} from ${JSON.stringify(pathToFileURL(path.join(shared,'request-body.ts')).href)};
+    import {getHeapStatistics} from 'node:v8';
+    global.gc();const initial=getHeapStatistics().used_heap_size;
+    const byte=new Uint8Array([32]);let count=0,retained;
+    const body=new ReadableStream({pull(c){
+      if(count++<200000)c.enqueue(byte);
+      else if(count===200001){c.enqueue(new TextEncoder().encode('{"answer":42}'));}
+      else{global.gc();retained=getHeapStatistics().used_heap_size-initial;c.close();}
+    }});
+    const request=new Request('https://backend.test',{method:'POST',body,duplex:'half'});
+    const result=await (${JSON.stringify(kind)}==='bytes'?readRequestBytes(request,8000000):readJsonObject(request,8000000,Error));
+    console.log(JSON.stringify({complete:result instanceof Uint8Array?result.length===200013:result.answer===42,retained}));
+  `;
+  const result=JSON.parse(execFileSync(process.execPath,['--expose-gc','--input-type=module','-e',source],{encoding:'utf8'}));
+  assert.equal(result.complete,true);
+  assert.ok(result.retained<32*1024*1024,`200KB ingress retained ${result.retained} bytes; chunk count must not retain pending promise reactions`);
 });

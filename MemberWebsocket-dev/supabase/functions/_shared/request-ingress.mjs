@@ -16,16 +16,21 @@ export async function readRequestBytes(request,maxBytes,timeoutMs=10000){
     timer=setTimeout(()=>reject(new RequestIngressError(408,'REQUEST_TIMEOUT','請求傳送逾時。')),timeoutMs);
   });
   try{
-    while(true){
-      const {done,value}=await Promise.race([reader.read(),deadline]);
-      if(done){complete=true;break;}
-      size+=value.byteLength;
-      if(size>maxBytes)throw new RequestIngressError(413,'BODY_TOO_LARGE','請求資料過大。');
-      chunks.push(value);
-    }
-    const bytes=new Uint8Array(size);let offset=0;
-    for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
-    return bytes;
+    // Race the whole consume operation once. Racing every chunk against the
+    // same pending deadline retains a promise reaction for every tiny chunk.
+    const consume=async()=>{
+      while(true){
+        const {done,value}=await reader.read();
+        if(done){complete=true;break;}
+        size+=value.byteLength;
+        if(size>maxBytes)throw new RequestIngressError(413,'BODY_TOO_LARGE','請求資料過大。');
+        chunks.push(value);
+      }
+      const bytes=new Uint8Array(size);let offset=0;
+      for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
+      return bytes;
+    };
+    return await Promise.race([consume(),deadline]);
   }finally{
     clearTimeout(timer);
     if(!complete)void reader.cancel().catch(()=>{});

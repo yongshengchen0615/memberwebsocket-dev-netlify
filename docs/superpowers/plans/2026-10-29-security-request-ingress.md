@@ -31,16 +31,25 @@
 - AC-005 Given final candidate SHA, When existing full CI and build execute, Then every required lane passes without skipped checks.
 
 ## Task 1: Reproduce and repair ingress resource exhaustion
-Files: functions/_shared/request-ingress.mjs (new), business-runtime.ts, platform-handler.mjs; tests/request_ingress_security.test.js (new).
-- [ ] Write behavior tests exercising both real ingress paths with Web Streams and a controlled clock; record baseline failures.
-- [ ] Implement readRequestBytes(request,maxBytes,timeoutMs=10000) and RequestIngressError; enforce cumulative bytes, absolute timeout and nonblocking cancellation.
-- [ ] Replace duplicate vulnerable readers; business consumes once and replays bytes; terminal ingress errors never fall through.
-- [ ] Run focused tests and existing regression; compare identical 32KB read workload and replay bytes before/after without claiming network latency improvements.
+Files: functions/_shared/request-ingress.mjs (new), business-runtime.ts, platform-handler.mjs, request-body.ts; tests/request_ingress_security.test.js (new).
+- [x] Write behavior tests exercising both real ingress paths with Web Streams and a controlled clock; record baseline failures.
+- [x] Implement readRequestBytes(request,maxBytes,timeoutMs=10000) and RequestIngressError; enforce cumulative bytes, absolute timeout and nonblocking cancellation.
+- [x] Replace duplicate vulnerable readers; business consumes once and replays bytes; terminal ingress errors never fall through.
+- [x] Run focused tests and existing regression; compare identical 32KB read workload and replay bytes before/after without claiming network latency improvements.
 
 ## Task 2: Review and verify
-- [ ] Scan public source for secret patterns without printing values; inspect database grants/RLS/views/storage and dependency audit.
+- [x] Scan public source for secret patterns without printing values; inspect database grants/RLS/views/storage and dependency audit.
 - [ ] Execute all established GitHub Actions lanes on the final candidate, plus build/static tests locally.
-- [ ] Independent code review for reader cleanup, timeout, memory, CORS and byte replay behavior.
+- [x] Independent code review for reader cleanup, timeout, memory, CORS and byte replay behavior.
 - [ ] Create PR with exact evidence, integration/Preview status, remaining blockers and rollback (revert code / redeploy prior function bundle).
 
 No schema or credential changes. Real LINE login acceptance requires a real user session; synthetic tests cannot claim this verification. Supabase advisory pg_net in public is a warning requiring extension compatibility assessment, not justification to relocate a live extension blindly.
+
+## Review resolution
+Independent review identified per-chunk Promise.race reactions retaining memory until the deadline settles. Reproduced in the new byte reader and pre-existing JSON reader with 200000 one-byte chunks: 72609408 and 76980536 retained bytes. Both now race the complete consume operation once. Two heap-budget tests (under 32MiB in isolated Node24 processes) pass; focused ingress + existing request-security 30/30. Original authorization/replay/CORS checks unchanged.
+
+## Actual local verification
+Node regression final candidate: 1167 tests expected; actual result recorded in PR after execution. Scripts 137/137, no skips, with TMPDIR set to workspace because host /tmp is unavailable. Browser/integration npm audit: zero known vulnerabilities. Static build, syntax and diff whitespace passed. One process alternating 500 requests each with 150 warmups: baseline platform p50/p95 0.0731/0.1902ms vs first candidate 0.0798/0.2380ms; local microbenchmark only, no production speed claim.
+
+## Review scope limits
+Real Supabase/Deno chunk aggregation and client disconnect propagation require deployed checks; do not assert attack severity from Node heap numbers alone. Full CI and Preview acceptance remain required. Real LINE login, provider delivery and full-system absence of vulnerabilities are not proven by this repair. No authorization, data or notification behavior was changed.
