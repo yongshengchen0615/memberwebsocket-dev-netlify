@@ -14,7 +14,7 @@ begin
  start_at:=position('''appealEnabled'',c.appeal_enabled,''contactText'',c.contact_text,' in definition);
  end_at:=position(' from S.booking_restrictions r cross join' in definition);
  if end_at<=start_at then raise exception 'BOOKING_RISK_APPEAL_STATUS_SOURCE_MISMATCH';end if;
- definition:=substring(definition from 1 for start_at-1)||'''contactText'',c.contact_text'||substring(definition from end_at);
+ definition:=substring(definition from 1 for start_at-1)||'''contactText'',c.contact_text)'||substring(definition from end_at);
  -- Remove creation/grants for member appeal submission.
  start_at:=position('create or replace function S.booking_no_show_appeal' in definition);
  end_at:=position('create or replace function S.admin_booking_no_show' in definition);
