@@ -15,7 +15,8 @@ test('AC-001/002 PostgreSQL 17: verified phone bookings overlap existing members
     await h.db.exec(migration);
     const s=tenant.runtime_schema;
     const day=(await h.db.query("select ((now() at time zone 'Asia/Taipei')::date+5)::text d")).rows[0].d;
-    await h.db.query("insert into "+s+".booking_services(id,title,duration_minutes,price_amount,is_active) values($1,'Phone service',30,100,true)",[service]);
+    await h.db.query("insert into "+s+".booking_service_types(name) values('Phone services')");
+    await h.db.query("insert into "+s+".booking_services(id,title,duration_minutes,price_amount,is_active,service_type) values($1,'Phone service',30,100,true,'Phone services')",[service]);
     const tech=(await h.db.query("insert into "+s+".booking_technicians(name,is_active) values('QA technician',true) returning id")).rows[0].id;
     await h.db.query("update "+s+".booking_settings set primary_technician_id=$1",[tech]);
     const member=(await h.db.query("insert into "+s+".members(line_user_id,display_name,member_code,membership_status,status) values($1,'Online member','PHONE-TEST-1','active','active') returning id",['U'+'6'.repeat(32)])).rows[0].id;
