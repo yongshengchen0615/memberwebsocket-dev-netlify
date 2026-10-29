@@ -1,9 +1,10 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'..'),repo=path.resolve(root,'..'),read=p=>fs.readFileSync(path.resolve(root,p),'utf8');
 test('AC-201: retired product screens and menu entries are absent; member usage remains',()=>{
- const admin=read('admin/index.html'),hub=read('admin/integration-hub.js'),platform=read('platform/index.html'),workspace=read('admin/business-workspace.js');
+ const admin=read('admin/index.html'),platform=read('platform/index.html'),workspace=read('admin/business-workspace.js');
  assert.doesNotMatch(admin,/operation-audit\.(js|css)/);
- assert.doesNotMatch(hub,/Audit Timeline|integrationAuditTimeline|data-integration-view-tab="audit"|renderAudit\(/);
+ assert.doesNotMatch(admin,/integration-hub\.(?:js|css)|operationsHub(?:Tab|Panel)/);
+ assert.equal(fs.existsSync(path.join(root,'admin/integration-hub.js')),false);
  assert.doesNotMatch(platform,/data-merchant-panel="(?:testing|usage)"/);
  assert.doesNotMatch(workspace,/testing:'testMode'|features\.usage/);
  assert.match(admin,/id="memberUsageTab"/);

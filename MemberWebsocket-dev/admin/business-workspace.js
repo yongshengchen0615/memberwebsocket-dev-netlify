@@ -1,6 +1,6 @@
 (() => {
  'use strict';
- const panels={membership:'members',points:'cards',events:'events',calendar:'calendar',integrations:'operationsHub',booking:'booking'};
+ const panels={membership:'members',points:'cards',events:'events',calendar:'calendar',booking:'booking'};
  const lineFeatures=['membership','points','events','calendar','booking'];
  let latest=null;
  function selectLineTab() {
@@ -43,7 +43,7 @@
   if(!latest)return;
   apply(latest);
   const requested=new URLSearchParams(location.search).get('feature');
-  const chosen=requested&&latest.features[requested]?document.getElementById(panels[requested]+'Tab'):null;
+  const chosen=requested&&panels[requested]&&latest.features?.[requested]?document.getElementById(panels[requested]+'Tab'):null;
   const current=document.querySelector('.surface-nav [aria-selected="true"]:not([hidden]):not(:disabled)');
   (chosen||current||document.querySelector('.surface-nav button[data-business-allowed="true"]'))?.click();
  }
