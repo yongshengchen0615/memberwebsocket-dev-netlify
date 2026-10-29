@@ -198,6 +198,67 @@ test('CALENDAR_BATCH — select dates, add/remove rows, create, update and delet
   for(const item of info.fixture.calendarItems)await p.locator('[data-admin-calendar-item-select="'+item.calendarItemId+'"]').first().check();await click(p,'deleteSelectedCalendarItemsButton');await expect.poll(()=>info.fixture.calendarItems.length).toBe(0);
 });
 
+test('BOOKING_PHONE_CONFLICT — occupied time warns; cancel original booking before telephone reservation',async({page:p},info)=>{
+  const date=today();
+  info.fixture.bookings.push({
+    bookingId:'online-occupied',bookingDate:date,startTime:'10:00',endTime:'10:40',status:'confirmed',
+    memberId:'member-1',memberCode:'TEST1',memberDisplayName:'Existing member',totalDurationMinutes:40,
+    items:[{serviceId:'service-1',serviceTitle:'QA service',quantity:1,unitDurationMinutes:30,unitPriceAmount:100}],
+    updatedAt:version,benefits:[],
+  });
+  await booking(p,'bookingAdminQueueSubtab');
+  await click(p,'bookingAdminPhoneCreateButton');
+  const form=p.locator('[data-phone-booking-form]');
+  await expect(form).toBeVisible();
+  await form.locator('[data-phone-date]').fill(date);
+  await form.locator('[data-phone-time]').fill('10:00');
+  await form.locator('[data-phone-service]').selectOption('service-1');
+  await expect(form.locator('[data-modal-message]')).toContainText('請先取消原預約');
+  await expect(form.getByRole('button',{name:'確認登記'})).toBeDisabled();
+  expect(calls(info.fixture,'admin.booking.phone.create')).toHaveLength(0);
+  const rejected={
+    requestId:'PHONE-00000000-0000-4000-8000-000000000001',
+    bookingDate:date,startTime:'10:00',contactSurname:'陳',contactSalutation:'ms',
+    contactPhone:'0912345678',items:[{serviceId:'service-1',quantity:1}],adminNote:'',
+  };
+  let conflictError = null;
+  try { transport(info.fixture,'admin.booking.phone.create',rejected,'booking-api',false); }
+  catch (error) { conflictError = error; }
+  expect(conflictError?.code).toBe('PHONE_BOOKING_CONFLICT');
+  expect(/請先取消原預約/.test(String(conflictError?.message))).toBe(true);
+  expect(info.fixture.bookings).toHaveLength(1);
+  await form.getByRole('button',{name:'取消'}).click();
+  await p.locator('[data-booking-filter="confirmed"]').click();
+  const original=p.locator('#bookingAdminQueue [data-booking-id="online-occupied"]');
+  await original.getByRole('button',{name:'取消預約'}).click();
+  await expect.poll(()=>info.fixture.bookings[0]?.status).toBe('cancelled');
+  await click(p,'bookingAdminPhoneCreateButton');
+  const next=p.locator('[data-phone-booking-form]');
+  await next.locator('[data-phone-date]').fill(date);
+  await next.locator('[data-phone-time]').fill('10:00');
+  await next.locator('[data-phone-service]').selectOption('service-1');
+  await expect(next.locator('[data-modal-message]')).toBeHidden();
+  await next.locator('[data-phone-surname]').fill('陳');
+  await next.locator('[data-phone-salutation]').selectOption('ms');
+  await next.locator('[data-phone-number]').fill('0912345678');
+  await next.locator('[data-phone-note]').fill('來電預約');
+  await next.getByRole('button',{name:'確認登記'}).click();
+  await expect(p.locator('#bookingAdminCrudModal')).toBeHidden();
+  const createdCalls=calls(info.fixture,'admin.booking.phone.create');
+  expect(createdCalls).toHaveLength(1);
+  const payload=createdCalls[0].payload;
+  expect(payload).toMatchObject({bookingDate:date,startTime:'10:00',contactSurname:'陳',items:[{serviceId:'service-1',quantity:1}]});
+  expect(Object.prototype.hasOwnProperty.call(payload,'allowOverlap')).toBe(false);
+  expect(info.fixture.bookings.filter(b=>b.status==='confirmed'&&b.startTime==='10:00')).toHaveLength(1);
+  const phone=p.locator('#bookingAdminQueue [data-booking-id^="phone-"]');
+  await expect(phone).toContainText('電話預約 · 現場安排');
+  await expect(phone.getByRole('button',{name:'確認服務完成'})).toHaveCount(0);
+  await expect(phone.getByRole('button',{name:'修改預約票券'})).toHaveCount(0);
+  await expect(phone.getByRole('button',{name:'取消電話預約'})).toHaveCount(1);
+  transport(info.fixture,'admin.booking.phone.create',payload);
+  expect(info.fixture.bookings.filter(b=>b.bookingSource==='phone')).toHaveLength(1);
+});
+
 test('BOOKING_TYPE — create, edit reward rule, reread and delete type',async({page:p},info)=>{
   await booking(p);await click(p,'bookingAdminNewTypeButton');await p.locator('[data-type-name]').fill('QA type');await p.locator('[data-type-reward-enabled]').check();await p.locator('[data-type-reward-minutes]').fill('30');await p.locator('[data-type-reward-card]').selectOption('card-1');await p.locator('#bookingAdminCrudModal button[type="submit"]').click();await expect(p.locator('#bookingAdminCrudModal')).toBeHidden();
   const row=p.locator('#bookingAdminTypeList .booking-admin-service-row').filter({hasText:'QA type'});await row.getByRole('button',{name:'修改'}).click();await p.locator('[data-type-name]').fill('QA type edited');await p.locator('[data-type-reward-minutes]').fill('60');await p.locator('#bookingAdminCrudModal button[type="submit"]').click();await expect(p.locator('#bookingAdminCrudModal')).toBeHidden();expect(info.fixture.serviceTypes.find(t=>t.name==='QA type edited')).toMatchObject({rewardMinutesPerPoint:60,rewardPointCardId:'card-1'});await p.locator('#bookingAdminTypeList .booking-admin-service-row').filter({hasText:'QA type edited'}).getByRole('button',{name:'刪除'}).click();await expect.poll(()=>info.fixture.serviceTypes.length).toBe(1);
