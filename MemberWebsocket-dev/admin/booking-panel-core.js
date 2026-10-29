@@ -1801,7 +1801,7 @@
       );
     }
     memberMeta.append(
-      summaryMetaItem('總服務時間', `${Math.max(0, Number(group?.totalDurationMinutes || booking.totalDurationMinutes || 0))} 分鐘`),
+      summaryMetaItem('總服務時間', `${Math.max(0, Number(isPhoneBooking(booking) ? booking.totalDurationMinutes : (group?.totalDurationMinutes || booking.totalDurationMinutes || 0))} 分鐘`),
       summaryMetaItem('總金額', formatMoney(Number(group?.totalAmount ?? booking.totalAmount ?? 0))),
     );
     if(group?.serviceRecipientMemberCode)memberMeta.append(summaryMetaItem('實際受服務者',`${group.serviceRecipientName||'好友'} · ${group.serviceRecipientMemberCode}（好友代約）`));
