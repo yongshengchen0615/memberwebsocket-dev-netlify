@@ -21,18 +21,27 @@ test('AC-001: phone booking is admin-only, validates identity and idempotency', 
   assert.match(sql, /grant execute on function public\.admin_create_phone_booking_request[\s\S]*?to service_role/i);
 });
 
-test('AC-002: phone entry accepts already occupied slots without weakening member booking guards', () => {
-  assert.match(sql, /allow_overlap|p_allow_overlap/i);
-  assert.match(sql, /BOOKING_OVERLAP_ACK_REQUIRED/);
-  assert.match(sql, /technician_id,.*confirmed_by/s);
-  assert.match(sql, /null\s*,\s*p_actor/i);
+test('AC-002: admin phone booking rejects occupied time until cancellation', () => {
+  assert.match(sql, /create trigger bookings_phone_no_overlap/i);
+  assert.match(sql, /booking_guard_phone_time_conflict/);
+  assert.match(sql, /pg_advisory_xact_lock\(hashtextextended\(new.booking_date::text,0\)\)/);
+  assert.match(sql, /old_booking.status in \('pending','confirmed'\)/);
+  assert.match(sql, /old_booking.start_at < v_end/);
+  assert.match(sql, /old_booking.end_at > v_start/);
+  assert.match(sql, /PHONE_BOOKING_CONFLICT/);
+  assert.match(sql, /BOOKING_SLOT_TAKEN/);
   assert.doesNotMatch(sql, /drop constraint.*bookings_no_active_technician_overlap/i);
+  assert.doesNotMatch(sql, /p_allow_overlap|BOOKING_OVERLAP_ACK_REQUIRED/i);
   assert.match(sql, /booking_slot_fits/);
   assert.match(sql, /booking_items/);
   assert.match(sql, /booking_participant_items/);
   assert.match(api, /admin\.booking\.phone\.create/);
+  assert.match(api, /請先取消原預約/);
+  assert.doesNotMatch(api, /p_allow_overlap|body.allowOverlap/);
   assert.match(ui, /登記電話預約/);
-  assert.match(ui, /allowOverlap: true/);
+  assert.match(ui, /showPhoneConflict/);
+  assert.match(ui, /請先取消原預約/);
+  assert.doesNotMatch(ui, /allowOverlap: true|data-phone-overlap/);
 });
 
 test('AC-003: non-member phone booking cannot enter member settlement or benefit flows', () => {
