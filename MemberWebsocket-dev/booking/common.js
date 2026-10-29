@@ -485,34 +485,55 @@
   function subscribeRealtime(config, onUpdate, scope = 'member', onBenefitsUpdate = null) {
     if (typeof onUpdate !== 'function') return () => {};
     const targetScope = scope === 'admin' ? 'admin' : 'member';
-    const subscriptionKey = JSON.stringify([config.supabaseUrl, config.supabasePublishableKey, targetScope]);
+    const subscriptionKey = JSON.stringify([config.supabaseUrl, config.supabasePublishableKey, targetScope, config.business || '']);
     const existing = realtimeSubscriptions.get(subscriptionKey);
     if (existing) return existing.unsubscribe;
 
     if (config.business && config.realtimeEnabled !== false) {
       let stopped=false,timer,pending=false,queued=false,revision,lastFull=-Infinity,failures=0;
-      const paused=()=>!navigator.onLine||document.visibilityState==='hidden';
-      const schedule=delay=>{if(stopped)return;if(timer!==undefined)window.clearTimeout(timer);timer=window.setTimeout(()=>{timer=undefined;void probe();},delay);};
+      let generation=0,pendingGeneration=0,refreshing=false,pageHidden=false;
+      const paused=()=>pageHidden||!navigator.onLine||document.visibilityState==='hidden';
+      const schedule=delay=>{if(stopped||paused())return;if(timer!==undefined)window.clearTimeout(timer);timer=window.setTimeout(()=>{timer=undefined;void probe();},delay);};
       const probe=async()=>{
-        if(stopped||paused())return;if(pending){queued=true;return;}pending=true;
+        if(stopped||paused())return;if(pending){queued=true;return;}queued=false;pending=true;
+        pendingGeneration=generation;
+        const stale=()=>stopped||paused()||pendingGeneration!==generation;
         try{
           const session=getSession();if(!session?.idToken)throw Error('AUTH_REQUIRED');
           const current=await postJson(String(config.supabaseUrl).replace(/\/$/,'')+'/functions/v1/api',config,
             {action:targetScope==='admin'?'admin.sync.status':'user.booking.sync.status',clientType:targetScope==='admin'?'admin':'booking',idToken:session.idToken,business:config.business},'同步服務',{write:false});
-          if(stopped)return;
+          if(stale())return;
           if(typeof current.revision!=='string'||current.revision.length>120)throw Error('INVALID_SYNC_REVISION');
           if(revision!==current.revision||Date.now()-lastFull>=120000){
-            await onUpdate();if(stopped)return;
+            refreshing=true;
+            await onUpdate();if(stale())return;
             if(typeof onBenefitsUpdate==='function')await onBenefitsUpdate({scope:'all',eventType:'business.reconcile'});
+            if(stale())return;
             revision=current.revision;lastFull=Date.now();
           }
           failures=0;
-        }catch(_){failures++;}
-        finally{pending=false;if(!stopped){const delay=queued?0:Math.min(60000,10000*2**Math.min(failures,3));queued=false;schedule(delay);}}
+        }catch(_){if(!stale())failures++;}
+        finally{pending=false;refreshing=false;if(!stopped&&!paused()){const delay=queued?0:Math.min(60000,10000*2**Math.min(failures,3));queued=false;schedule(delay);}}
       };
-      const resume=()=>{if(!paused()){if(pending)queued=true;else schedule(0);}};
-      document.addEventListener('visibilitychange',resume);window.addEventListener('pageshow',resume);window.addEventListener('online',resume);
-      const unsubscribe=()=>{if(stopped)return;stopped=true;if(timer!==undefined)window.clearTimeout(timer);document.removeEventListener('visibilitychange',resume);window.removeEventListener('pageshow',resume);window.removeEventListener('online',resume);realtimeSubscriptions.delete(subscriptionKey);};
+      const resume=()=>{
+        if(stopped||paused())return;
+        if(pending){if(pendingGeneration!==generation||refreshing)queued=true;}
+        else schedule(0);
+      };
+      const suspend=()=>{generation++;if(pending)queued=true;if(timer!==undefined)window.clearTimeout(timer);timer=undefined;};
+      const visibility=()=>{if(paused())suspend();else resume();};
+      const pageHide=()=>{pageHidden=true;suspend();};
+      const pageShow=()=>{pageHidden=false;resume();};
+      document.addEventListener('visibilitychange',visibility);
+      window.addEventListener('pagehide',pageHide);window.addEventListener('pageshow',pageShow);
+      window.addEventListener('offline',suspend);window.addEventListener('online',resume);
+      const unsubscribe=()=>{
+        if(stopped)return;stopped=true;if(timer!==undefined)window.clearTimeout(timer);
+        document.removeEventListener('visibilitychange',visibility);
+        window.removeEventListener('pagehide',pageHide);window.removeEventListener('pageshow',pageShow);
+        window.removeEventListener('offline',suspend);window.removeEventListener('online',resume);
+        realtimeSubscriptions.delete(subscriptionKey);
+      };
       realtimeSubscriptions.set(subscriptionKey,{unsubscribe});schedule(0);return unsubscribe;
     }
 
