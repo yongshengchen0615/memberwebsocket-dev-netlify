@@ -54,6 +54,7 @@ test('BUSINESS_APPROVAL_ACTIVATES — real approval/SQL immediately opens grant-
   await expect(manager.locator('#lineSettingsTab')).toHaveCount(1);
   await expect(manager.locator('#lineSettingsPanel')).toHaveCount(1);
   await expect(manager.locator('#operationsHubTab, #operationsHubPanel')).toHaveCount(0);
+  await expect(manager.locator('#bookingTab')).toHaveCount(1);
   expect(await manager.locator('#adminView .surface-nav > button[role="tab"]').evaluateAll(
     nodes => nodes.map(node => node.id)
   )).toEqual(['membersTab','cardsTab','eventsTab','calendarTab','bookingTab','lineSettingsTab']);
