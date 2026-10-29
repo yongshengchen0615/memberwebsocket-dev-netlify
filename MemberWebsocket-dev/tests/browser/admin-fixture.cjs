@@ -137,9 +137,20 @@ function transport(s, action, p={}, slug='api',record=true) {
   if(action==='admin.booking.benefits.update'){const b=s.bookings.find(b=>b.bookingId===p.bookingId);b.benefits=p.benefits.map(i=>({...i,status:'pending',title:'QA selected benefit'}));b.updatedAt=stamp();return {booking:b};}
   if(action==='admin.booking.participants.items.update'||action==='admin.booking.participants.technicians.update'){const group=s.groups[p.bookingId];group.participants=p.participants.map((v,i)=>({...group.participants[i],...v}));s.bookings.find(b=>b.bookingId===p.bookingId).updatedAt=stamp();return {group};}
   if(action==='admin.booking.phone.create'){
-    if(p.allowOverlap!==true)throw Object.assign(new Error('請確認重疊'),{code:'BOOKING_OVERLAP_ACK_REQUIRED'});
     const old=s.bookings.find(b=>b.requestId===p.requestId);
     if(old)return {bookingId:old.bookingId,bookingSource:'phone',status:old.status};
+    const requestedStart=Date.parse(p.bookingDate+'T'+p.startTime+':00Z');
+    const reqService=s.services.find(x=>x.serviceId===p.items?.[0]?.serviceId);
+    if(!reqService)throw Object.assign(new Error('無效項目'),{code:'INVALID_BOOKING_ITEMS'});
+    const requestedEnd=requestedStart+(Number(reqService.durationMinutes||0)+10)*60000;
+    const occupied=s.bookings.some(b=>{
+      if(!['pending','confirmed'].includes(b.status))return false;
+      const from=Date.parse(b.bookingDate+'T'+b.startTime+':00Z');
+      const until=from+Number(b.totalDurationMinutes||0)*60000;
+      return requestedStart<until&&requestedEnd>from;
+    });
+    if(occupied)throw Object.assign(new Error('此時段已有預約，請先取消原預約，或選擇其他時段。'),{code:'PHONE_BOOKING_CONFLICT'});
+
     const service=s.services.find(x=>x.serviceId===p.items?.[0]?.serviceId);
     if(!service)throw Object.assign(new Error('無效項目'),{code:'INVALID_BOOKING_ITEMS'});
     const bookingId='phone-'+(++s.seq);
