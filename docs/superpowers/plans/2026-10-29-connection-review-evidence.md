@@ -47,3 +47,5 @@ Supabase performance advisor reported 6 unindexed foreign-key INFO findings, 67 
 ## Full verification and recovery
 
 Full exact-SHA GitHub CI (DOM, PostgreSQL, all Chromium shards, Node regression, JS syntax, Edge, wiring, dependency audit, aggregate validation, static build, ticket policy) is required before merge. Consult PR/Actions for final status; this document does not pre-claim success. Real LINE provider and live deployed candidate have not been validated by synthetic tests. Recovery is revert through normal CI; no data migration is involved.
+
+Initial remote CI on c1bbf9acff835171226f9f5627bcc62d35ce7ab3 detected two asset-contract mismatches and a stale inventory hash: the unversioned MemberSystem validation-only imports on platform/merchant workspace now preserve the existing contract; platform app cache revisions append to the established prefix, retaining the member-card rollback marker; the inventory hash is calculated after exact source newline normalization. No test assertion was weakened. PR evidence also adds the required explicit L3 risk heading. Corrected candidate must rerun all baseline checks.
