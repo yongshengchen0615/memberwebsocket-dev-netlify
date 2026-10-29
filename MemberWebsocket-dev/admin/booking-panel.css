@@ -377,3 +377,65 @@
   #bookingPanel #bookingRiskSettings .booking-risk-records{grid-template-columns:minmax(0,1fr)}
   #bookingPanel #bookingRiskSettings .booking-risk-record-section{padding:16px}
 }
+
+
+/* Member-parity phone booking: categories, selected services, real slot buttons. */
+.booking-admin-modal .booking-phone-fieldset{
+  min-width:0;margin:0;padding:14px;border:1px solid rgba(23,53,46,.13);
+  border-radius:14px;background:var(--theme-surface-muted,#f7f8f5)
+}
+.booking-admin-modal .booking-phone-fieldset legend{
+  padding:0 6px;font-size:14px;font-weight:850;color:var(--theme-text,#17352e)
+}
+.booking-admin-modal .booking-phone-help{
+  margin:0 0 10px;font-size:12px;line-height:1.6;color:var(--theme-text-muted,#68786f)
+}
+.booking-admin-modal .booking-phone-service-picker,
+.booking-admin-modal .booking-phone-selected-list{display:grid;gap:10px}
+.booking-admin-modal .booking-phone-service-group{display:grid;gap:8px}
+.booking-admin-modal .booking-phone-service-group>strong{font-size:13px;color:var(--theme-text,#17352e)}
+.booking-admin-modal .booking-phone-service-option,
+.booking-admin-modal .booking-phone-selected-item{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:11px 12px;border:1px solid rgba(23,53,46,.12);
+  border-radius:12px;background:var(--theme-surface-raised,#fff)
+}
+.booking-admin-modal .booking-phone-service-option>span,
+.booking-admin-modal .booking-phone-selected-item>span{display:grid;gap:4px;min-width:0}
+.booking-admin-modal .booking-phone-service-option strong,
+.booking-admin-modal .booking-phone-selected-item strong{font-size:13px}
+.booking-admin-modal .booking-phone-service-option small,
+.booking-admin-modal .booking-phone-selected-item small{
+  font-size:12px;line-height:1.5;color:var(--theme-text-muted,#68786f)
+}
+.booking-admin-modal .booking-phone-service-option button,
+.booking-admin-modal .booking-phone-selected-item button{flex:0 0 auto;min-height:40px}
+.booking-admin-modal .booking-phone-duration{
+  margin:12px 0 0;font-size:13px;font-weight:800;line-height:1.6;
+  color:var(--theme-text,#17352e)
+}
+.booking-admin-modal .booking-phone-slot-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:9px
+}
+.booking-admin-modal .booking-phone-slot{
+  min-height:48px;padding:10px 7px;border:1px solid rgba(23,53,46,.24);
+  border-radius:11px;background:var(--theme-surface-raised,#fff);
+  color:var(--theme-text,#17352e);font:inherit;font-size:13px;
+  font-weight:800;cursor:pointer;transition:background-color .15s,border-color .15s
+}
+.booking-admin-modal .booking-phone-slot.selected,
+.booking-admin-modal .booking-phone-slot[aria-pressed="true"]{
+  background:var(--theme-text,#17352e);color:#fff;border-color:var(--theme-text,#17352e)
+}
+.booking-admin-modal .booking-phone-slot:disabled{
+  background:#e5e8e5!important;color:#88918b!important;border-color:#d1d6d1!important;
+  box-shadow:none!important;opacity:1;cursor:not-allowed
+}
+.booking-admin-modal .booking-phone-slot:focus-visible{
+  outline:3px solid var(--theme-accent,#df6b4d);outline-offset:2px
+}
+@media(max-width:520px){
+  .booking-admin-modal .booking-phone-slot-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .booking-admin-modal .booking-phone-service-option,
+  .booking-admin-modal .booking-phone-selected-item{gap:8px;padding:10px}
+}
