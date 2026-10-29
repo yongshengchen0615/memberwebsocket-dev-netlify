@@ -1408,7 +1408,7 @@
       };
       const readLocal = (value) => {
         const normalized = String(value || '').replace(' ', 'T').slice(0, 16);
-        return /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$/.test(normalized)
+        return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(normalized)
           ? Date.parse(normalized + ':00Z') : NaN;
       };
       const start = civilStart(date, time);
@@ -1431,7 +1431,7 @@
       field.addEventListener('change', showPhoneConflict);
     });
     showPhoneConflict();
-    const requestId = \`PHONE-\${window.crypto.randomUUID()}\`;
+    const requestId = `PHONE-${window.crypto.randomUUID()}`;
     form.querySelector('[data-cancel]').addEventListener('click', closeModal);
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
