@@ -78,7 +78,10 @@ test('AC-RISK-UX-001/004/009: invalid fields are announced and records expose sa
   assert.doesNotMatch(h.root.textContent,/合成申覆|合成回覆/);
   h.root.querySelector('[name=enabled]').click();h.root.querySelector('[name=threshold_count]').value='101';h.submit();
   const input=h.root.querySelector('[name=threshold_count]');assert.equal(input.getAttribute('aria-invalid'),'true');
-  const message=h.w.document.getElementById(input.getAttribute('aria-describedby'));assert.match(message.textContent,/1.*100/);assert.equal(h.w.document.activeElement,input);
+  const descriptions=input.getAttribute('aria-describedby').split(/\s+/);assert.equal(descriptions.length,2);
+  const hint=h.w.document.getElementById(descriptions[0]),message=h.w.document.getElementById(descriptions[1]);
+  assert.ok(hint,'hint should be an associated accessible description');assert.ok(message,'error should remain associated with the field');
+  assert.match(hint.textContent,/1.*100/);assert.match(message.textContent,/1.*100/);assert.equal(h.w.document.activeElement,input);
  }finally{h.dom.window.close();}
 });
 test('AC-RISK-UX-008: marking no-show explains actual policy counting and preserves the ticket/points contract',()=>{
