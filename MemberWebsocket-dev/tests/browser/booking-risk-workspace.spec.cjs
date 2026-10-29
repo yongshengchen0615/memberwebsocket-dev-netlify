@@ -11,7 +11,8 @@ for(const width of [320,390,1280]){
    request:async()=>{throw Error('no synthetic write authorized');},
   }));
   await expect(page.getByRole('heading',{name:'限制政策設定'})).toBeVisible();
-  await expect(page.getByText('目前沒有會員申覆。')).toBeVisible();
+  await expect(page.getByRole('heading',{name:'爽約與限制紀錄'})).toBeVisible();
+   await expect(page.getByText('會員申覆')).toHaveCount(0);
   const dimensions=await page.evaluate(()=>({
    doc:document.documentElement.scrollWidth,
    viewport:window.innerWidth,
@@ -25,7 +26,7 @@ for(const width of [320,390,1280]){
   }));
   expect(layout.form).toBe(width===1280?2:1);
   expect(layout.records).toBe(width===1280?2:1);
-  await expect(page.getByRole('heading',{name:'紀錄與申覆處理'})).toBeVisible();
+  await expect(page.locator('.booking-risk-record-section')).toHaveCount(2);
   await page.getByLabel('啟用限制',{exact:true}).check();
   await expect(page.locator('.booking-risk-draft')).toContainText('未儲存');
   await page.getByRole('button',{name:'還原變更'}).click();

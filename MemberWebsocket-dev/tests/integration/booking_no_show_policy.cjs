@@ -1,7 +1,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const setup=require('./fixtures/booking-event-setup.cjs');
 const owner='U'+'2'.repeat(32),memberLine='U'+'3'.repeat(32);
-test('AC-173: disabled-by-default policy, atomic no-show counting, restriction, appeal, revoke and expiry',async()=>{
+test('AC-173: disabled-by-default policy, atomic no-show counting, restriction, legacy-appeal denial, revoke and expiry',async()=>{
  const h=await setup();try{
   const risk=async(action,body={},actor=owner)=>(await h.q('select S.admin_booking_no_show($1,$2,$3) result',[actor,action,body]))[0].result;
   let data=await risk('get');assert.equal(data.policy.enabled,false);assert.equal(data.policy.threshold_count,null);
@@ -22,8 +22,10 @@ test('AC-173: disabled-by-default policy, atomic no-show counting, restriction, 
   let status=(await h.q('select S.booking_no_show_status($1) result',[memberLine]))[0].result;assert.equal(status.restricted,true);
   await assert.rejects(h.make(),/BOOKING_RESTRICTED/);
   assert.equal((await h.q('select count(*)::int n from S.bookings'))[0].n,2,'blocked create transaction leaves no extra bookings');
-  await h.q('select S.booking_no_show_appeal($1,$2)',[memberLine,'請核對這筆誤判']);await h.q('select S.booking_no_show_appeal($1,$2)',[memberLine,'重試']);
-  assert.equal((await h.q('select count(*)::int n from S.booking_restriction_appeals'))[0].n,1);
+  await assert.rejects(h.q('select S.booking_no_show_appeal($1,$2)',[memberLine,'舊入口應拒絕']),/does not exist/);
+  assert.equal((await h.q('select count(*)::int n from S.booking_restriction_appeals'))[0].n,0);
+  assert.equal(Object.hasOwn(status,'appealEnabled'),false);
+  await assert.rejects(risk('resolve',{appealId:crypto.randomUUID(),reason:'舊操作'}),/INVALID_INPUT/);
   const end=(await h.q('select ends_at from S.booking_restrictions'))[0].ends_at;
   assert.equal((await h.q('select S.booking_active_restriction($1,$2) result',[h.m,end]))[0].result,null,'at exact deadline access is restored without a cron');
   await assert.rejects(risk('revoke',{bookingId:first,reason:'假冒'},memberLine),/ADMIN_REQUIRED/);

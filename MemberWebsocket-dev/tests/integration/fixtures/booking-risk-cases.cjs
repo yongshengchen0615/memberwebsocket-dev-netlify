@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 async function helpers(h){
  const risk=async(action,body={},actor=h.owner)=>(await h.q('select S.admin_booking_no_show($1,$2,$3) result',[actor,action,body]))[0].result;
  const save=async(body)=>{const {policy}=await risk('get');return risk('save',{...policy,...body,version:policy.version});};
- const enable=()=>save({enabled:true,threshold_count:2,lookback_days:30,duration_count:1,duration_unit:'months',grace_minutes:0,appeal_enabled:true,contact_text:'Synthetic contact'});
+ const enable=()=>save({enabled:true,threshold_count:2,lookback_days:30,duration_count:1,duration_unit:'months',grace_minutes:0,contact_text:'Synthetic contact'});
  const past=async(b,days=1,recent=false)=>{
   // Synthetic history only. Live-clock and advance-window guards still apply
   // to every production API and to subsequent creation attempts in these tests.
@@ -43,13 +43,13 @@ function register(test,setup,label='PostgreSQL snapshot'){
   const h=await setup();try{
    const x=await helpers(h);await x.enable();await x.save({threshold_count:1});
    const b=await x.past(await h.make());await x.mark(b);
-   await h.q('select S.booking_no_show_appeal($1,$2)',[h.memberLine,'Synthetic review']);
-   const before=await x.risk('get'),r=before.restrictions[0],a=before.appeals[0];
-   assert.equal(r.member_code,'QA-NOTIFY');assert.equal(a.member_code,'QA-NOTIFY');assert.equal(a.source_booking_id,b);
-   assert.equal(r.source_booking_id,b);assert.equal(before.events[0].booking_id,b);
-   for(const record of [r,a])for(const key of ['line_user_id','phone','email','display_name'])assert.equal(Object.hasOwn(record,key),false);
-   await x.risk('resolve',{appealId:a.id,reason:'Reviewed only'});
-   const after=await x.risk('get');assert.deepEqual(after.restrictions[0].policy_snapshot,r.policy_snapshot);assert.equal(String(after.restrictions[0].ends_at),String(r.ends_at));assert.equal((await x.status()).restricted,true);
+   const before=await x.risk('get'),r=before.restrictions[0];
+   assert.equal(r.member_code,'QA-NOTIFY');assert.equal(r.source_booking_id,b);assert.equal(before.events[0].booking_id,b);
+   assert.equal(Object.hasOwn(before,'appeals'),false,'retired archive must not be in the response');
+   for(const key of ['line_user_id','phone','email','display_name'])assert.equal(Object.hasOwn(r,key),false);
+   await assert.rejects(x.risk('resolve',{appealId:crypto.randomUUID(),reason:'Old action'}),/INVALID_INPUT/);
+   const after=await x.risk('get');assert.deepEqual(after.restrictions[0].policy_snapshot,r.policy_snapshot);
+   assert.equal(String(after.restrictions[0].ends_at),String(r.ends_at));assert.equal((await x.status()).restricted,true);
   }finally{await h.db.close();}
  });
  test(`${label}: outside-window, cancelled and revoked events never reach the active threshold`,async()=>{
