@@ -28,6 +28,7 @@ const WRITE_ACTIONS = new Set([
   "admin.booking.settings.save",
   "admin.booking.service.save",
   "admin.booking.status.update",
+  "admin.booking.phone.create",
   "admin.booking.notifications.read",
 ]);
 
@@ -93,6 +94,10 @@ function mapDatabaseError(error: unknown): ApiError {
     ["BOOKING_NO_SHOW_NOT_ALLOWED",409,"BOOKING_NO_SHOW_NOT_ALLOWED","只有待確認的一般預約可標記無故未到，請重新整理。"],
     ["BOOKING_NOT_FOUND",404,"BOOKING_NOT_FOUND","找不到這筆預約。"],
     ["ADMIN_REQUIRED",403,"ADMIN_REQUIRED","目前沒有管理員權限。"],
+    ["BOOKING_OVERLAP_ACK_REQUIRED",400,"BOOKING_OVERLAP_ACK_REQUIRED","請先確認電話預約可能與現有預約重疊。"],
+    ["INVALID_BOOKING_CONTACT",400,"INVALID_BOOKING_CONTACT","請填寫客人姓氏、稱謂與有效的聯絡電話。"],
+    ["INVALID_BOOKING_NOTE",400,"INVALID_BOOKING_NOTE","預約說明不得超過 500 字。"],
+    ["INVALID_REQUEST_ID",400,"INVALID_REQUEST_ID","操作識別碼不正確，請重新開啟電話預約表單。"],
     ["BOOKING_CONFLICT", 409, "BOOKING_CONFLICT", "預約已被更新，請重新整理後再操作。"],
     ["BOOKING_NOT_EDITABLE", 409, "BOOKING_NOT_EDITABLE", "這筆預約已開始或狀態已變更，無法修改。"],
     ["BOOKING_CANCELLATION_PENDING", 409, "BOOKING_CANCELLATION_PENDING", "這筆預約已有待確認的取消申請，請先完成取消審核後再變更預約。"],
@@ -401,6 +406,7 @@ function bookingClient(row: any, items: any[] = [], benefits: any[] = []): Json 
     totalDurationMinutes: Number(row.total_duration_minutes || 30),
     totalAmount: mappedItems.reduce((sum, item: any) => sum + Number(item.subtotalAmount || 0), 0),
     memberId: row.member_id,
+    bookingSource: !row.member_id && String(row.request_id || "").startsWith("PHONE-") ? "phone" : "member",
     memberDisplayName: member?.display_name || "",
     memberCode: member?.member_code || "",
     bookingDate: row.booking_date,
@@ -903,6 +909,57 @@ async function adminServiceSave(supabase: SupabaseClient, identity: Identity, bo
   return { service: serviceClient(savedService) };
 }
 
+
+async function adminCreatePhoneBooking(supabase: SupabaseClient, identity: Identity, body: Json): Promise<Json> {
+  // Authorization occurs in route() before any admin operation. The SQL RPC
+  // independently rechecks active administrator status within the tenant.
+  const requestId = asText(body.requestId, 100);
+  if (!/^PHONE-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId)) {
+    throw new ApiError(400, "INVALID_REQUEST_ID", "操作識別碼不正確，請重新開啟電話預約表單。");
+  }
+  if (body.allowOverlap !== true) {
+    throw new ApiError(400, "BOOKING_OVERLAP_ACK_REQUIRED", "請先確認電話預約可能與現有預約重疊。");
+  }
+  const surname = asText(body.contactSurname, 41);
+  const salutation = asText(body.contactSalutation, 10);
+  const phone = asText(body.contactPhone, 35);
+  if (!surname || surname.length > 40 || !["mr", "ms"].includes(salutation) ||
+      !/^\\+?[0-9() -]{8,25}$/.test(phone)) {
+    throw new ApiError(400, "INVALID_BOOKING_CONTACT", "請填寫客人姓氏、稱謂與有效的聯絡電話。");
+  }
+  const adminNote = asText(body.adminNote, 501);
+  if (adminNote.length > 500) throw new ApiError(400, "INVALID_BOOKING_NOTE", "預約說明不得超過 500 字。");
+  if (!Array.isArray(body.items) || body.items.length < 1 || body.items.length > 20) {
+    throw new ApiError(400, "INVALID_BOOKING_ITEMS", "請至少選擇一個預約項目。");
+  }
+  const items = body.items.map((raw: any) => ({
+    serviceId: requireUuid(raw?.serviceId, "服務項目"),
+    quantity: Number(raw?.quantity ?? 1),
+  }));
+  if (items.some((item) => item.serviceId === STORE_SERVICE_ID || !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 2) ||
+      new Set(items.map((item) => item.serviceId)).size !== items.length) {
+    throw new ApiError(400, "INVALID_BOOKING_ITEMS", "服務項目不得重複，每項數量限 1 或 2。");
+  }
+  const bookingDate = requireDate(body.bookingDate);
+  const startTime = normalizeTime(body.startTime);
+  const result = await supabase.rpc("admin_create_phone_booking_request", {
+    p_request_id: requestId,
+    p_actor: identity.lineUserId,
+    p_booking_date: bookingDate,
+    p_start_time: `${startTime}:00`,
+    p_contact_surname: surname,
+    p_contact_salutation: salutation,
+    p_contact_phone: phone,
+    p_items: items,
+    p_admin_note: adminNote,
+    p_allow_overlap: true,
+  });
+  if (result.error) throw mapDatabaseError(result.error);
+  const row = Array.isArray(result.data) ? result.data[0] : result.data;
+  if (!row?.id) throw new ApiError(500, "BOOKING_CREATE_FAILED", "電話預約尚未完成，請重新整理確認。");
+  return { bookingId: row.id, bookingSource: "phone", status: row.status };
+}
+
 async function adminBookings(supabase: SupabaseClient): Promise<Json[]> {
   const today = taipeiDate();
   const pending = await supabase.from("bookings")
@@ -1100,6 +1157,7 @@ async function route(supabase: SupabaseClient, identity: Identity, clientType: C
     if(businessContext()) data.noShowRisk=await bookingRisk(supabase,identity,"admin.booking.risk.get",{});
     return data;
   }
+  if (action === "admin.booking.phone.create") return await adminCreatePhoneBooking(supabase, identity, body);
   if (action === "admin.booking.settings.save") return await adminSettingsSave(supabase, identity, body);
   if (action === "admin.booking.service.save") return await adminServiceSave(supabase, identity, body);
   if (action === "admin.booking.status.update") return await adminStatusUpdate(supabase, identity, body);
