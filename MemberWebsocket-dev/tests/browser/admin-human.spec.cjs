@@ -221,7 +221,7 @@ test('BOOKING_PHONE_CONFLICT — occupied time warns; cancel original booking be
     bookingDate:date,startTime:'10:00',contactSurname:'陳',contactSalutation:'ms',
     contactPhone:'0912345678',items:[{serviceId:'service-1',quantity:1}],adminNote:'',
   };
-  expect(()=>transport(info.fixture,'admin.booking.phone.create',rejected)).toThrow(/請先取消原預約/);
+  expect(()=>transport(info.fixture,'admin.booking.phone.create',rejected,'booking-api',false)).toThrow(/請先取消原預約/);
   expect(info.fixture.bookings).toHaveLength(1);
   await form.getByRole('button',{name:'取消'}).click();
   await p.locator('[data-booking-filter="confirmed"]').click();
