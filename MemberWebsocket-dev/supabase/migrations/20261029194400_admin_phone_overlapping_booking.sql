@@ -31,7 +31,7 @@ declare
   v_total integer := 0;
   v_start timestamp without time zone;
   v_surname text := btrim(coalesce(p_contact_surname,''));
-  v_salutation text := lower(btrim(coalesce(p_contact_salutation,''));
+  v_salutation text := lower(btrim(coalesce(p_contact_salutation,'')));
   v_phone text := regexp_replace(btrim(coalesce(p_contact_phone,'')),'[()[:space:]-]','','g');
   v_note text := coalesce(p_admin_note,'');
   v_participant uuid;
