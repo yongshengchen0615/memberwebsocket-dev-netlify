@@ -68,6 +68,7 @@ test('AC-005: phone reservation uses member-equivalent service duration and grey
   assert.match(ui, /data-phone-selected-list/);
   assert.match(ui, /data-phone-duration/);
   assert.match(ui, /total !== itemMinutes\(\) \+ store/);
+  assert.match(ui, /isPhoneBooking\(booking\) \? booking\.totalDurationMinutes/);
   assert.match(ui, /selectedItems\(\)/);
   assert.match(css, /\.booking-phone-slot:disabled/);
 });
