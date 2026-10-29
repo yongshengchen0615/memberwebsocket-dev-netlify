@@ -211,7 +211,7 @@ test('BOOKING_PHONE_CONFLICT — occupied slot is grey and disabled; cancel then
   const form=p.locator('[data-phone-booking-form]');
   await expect(form).toBeVisible();
   await form.locator('[data-phone-date]').fill(date);
-  await form.getByRole('button',{name:'增加 QA service',exact:true}).click();
+  await form.locator('button[aria-label="增加 QA service"]').click();
   await expect(form.locator('[data-phone-duration]')).toContainText('總服務時間：40 分鐘（項目 30 分鐘＋店內服務 10 分鐘');
   const occupied=form.locator('.booking-phone-slot').filter({hasText:'10:00'});
   const overlapping=form.locator('.booking-phone-slot').filter({hasText:'10:30'});
@@ -239,7 +239,7 @@ test('BOOKING_PHONE_CONFLICT — occupied slot is grey and disabled; cancel then
   await click(p,'bookingAdminPhoneCreateButton');
   const next=p.locator('[data-phone-booking-form]');
   await next.locator('[data-phone-date]').fill(date);
-  await next.getByRole('button',{name:'增加 QA service',exact:true}).click();
+  await next.locator('button[aria-label="增加 QA service"]').click();
   const freed=next.locator('.booking-phone-slot').filter({hasText:'10:00'});
   await expect(freed).toBeEnabled();
   await freed.click();
@@ -276,12 +276,12 @@ test('BOOKING_PHONE_SERVICE_DURATION — member-style multi-service, exact store
   const form=p.locator('[data-phone-booking-form]');
   await form.locator('[data-phone-date]').fill(date);
   await expect(form.locator('.booking-phone-service-group')).toHaveCount(2);
-  await form.getByRole('button',{name:'增加 QA addon'}).click();
+  await form.locator('button[aria-label="增加 QA addon"]').click();
   await expect(form.locator('[data-modal-message]')).toContainText('先選擇一般預約項目');
-  await form.getByRole('button',{name:'增加 QA service',exact:true}).click();
-  await form.getByRole('button',{name:'增加 QA service',exact:true}).click();
-  await form.getByRole('button',{name:'增加 QA second service',exact:true}).click();
-  await form.getByRole('button',{name:'增加 QA addon'}).click();
+  await form.locator('button[aria-label="增加 QA service"]').click();
+  await form.locator('button[aria-label="增加 QA service"]').click();
+  await form.locator('button[aria-label="增加 QA second service"]').click();
+  await form.locator('button[aria-label="增加 QA addon"]').click();
   await expect(form.locator('[data-phone-selected-list]')).toContainText('QA service × 2');
   await expect(form.locator('[data-phone-duration]')).toContainText('總服務時間：130 分鐘（項目 105 分鐘＋店內服務 25 分鐘');
   const requestCalls=calls(info.fixture,'admin.booking.phone.slots');
