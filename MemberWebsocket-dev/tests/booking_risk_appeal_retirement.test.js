@@ -15,5 +15,6 @@ test('AC-RISK-RETIRE-003 migration archives old records and removes mutation pat
  const migration=read('supabase/migrations/20261029125700_retire_booking_risk_appeals.sql');
  assert.match(migration,/drop function if exists %I\.booking_no_show_appeal/);
  assert.match(migration,/appeal_enabled=false/);
+ assert.match(migration,/to_jsonb\(p\) - ''appeal_enabled''/);
  assert.doesNotMatch(migration,/drop table|truncate|delete from.*booking_restriction_appeals/i);
 });

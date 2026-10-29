@@ -4,7 +4,7 @@ const owner='U'+'2'.repeat(32),memberLine='U'+'3'.repeat(32);
 test('AC-173: disabled-by-default policy, atomic no-show counting, restriction, legacy-appeal denial, revoke and expiry',async()=>{
  const h=await setup();try{
   const risk=async(action,body={},actor=owner)=>(await h.q('select S.admin_booking_no_show($1,$2,$3) result',[actor,action,body]))[0].result;
-  let data=await risk('get');assert.equal(data.policy.enabled,false);assert.equal(data.policy.threshold_count,null);
+  let data=await risk('get');assert.equal(data.policy.enabled,false);assert.equal(data.policy.threshold_count,null);assert.equal(Object.hasOwn(data.policy,'appeal_enabled'),false);
   await assert.rejects(risk('save',{version:1,enabled:true}),/check constraint/);
   await risk('save',{version:1,enabled:true,threshold_count:2,lookback_days:90,duration_count:1,duration_unit:'months',grace_minutes:0,appeal_enabled:true,contact_text:'請電話聯絡店家'});
   const mark=async()=>{

@@ -28,6 +28,8 @@ begin
  definition:=substring(definition from 1 for start_at-1)||substring(definition from end_at);
  definition:=replace(definition,'appeal_enabled=coalesce((p_body->>''appeal_enabled'')::boolean,true)','appeal_enabled=false');
  definition:=replace(definition,'appeal_enabled boolean not null default true','appeal_enabled boolean not null default false');
+ -- Keep legacy column for archived records but do not expose it in the policy API.
+ definition:=replace(definition,'select to_jsonb(p) from S.booking_no_show_policy p where id','select to_jsonb(p) - ''appeal_enabled'' from S.booking_no_show_policy p where id');
  -- Remove appeal feed from the admin payload, but keep the private archive.
  start_at:=position(E',\n ''appeals'',(select' in definition);
  if start_at=0 then raise exception 'BOOKING_RISK_APPEAL_FEED_SOURCE_MISMATCH';end if;
