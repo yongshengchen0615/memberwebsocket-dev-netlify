@@ -8,7 +8,7 @@
   const visibleFeatureKeys=featureKeys.filter(key=>key!=='testing'&&key!=='usage');
   const isV2=()=>state.config?.merchantApprovalVersion===2;
   const isAccount=()=>merchantEntry&&isV2()&&!selectedBusiness;
-  let refreshTimer=null,refreshBusy=false;
+  let refreshTimer=null,refreshBusy=false,rootRefreshBusy=false,rootSnapshot='';
   const form = el('tenantForm'), dialog = el('tenantDialog');
   const fields = form.elements;
   const lineKeys = ['adminChannelId','memberChannelId','messagingChannelId','adminLiffId','memberLiffId','pointsLiffId','eventLiffId','calendarLiffId','bookingLiffId'];
@@ -42,6 +42,8 @@
   }
   function showLoginGate(message=merchantEntry?'請重新使用 LINE 確認管理員身分。':'每次進入總管理員控制台，請重新使用 LINE 確認身分。') {
     state.idToken='';
+    rootSnapshot='';
+    if(refreshTimer){clearInterval(refreshTimer);refreshTimer=null;}
     state.pending=null;
     state.approval=null;
     state.merchantPending=null;
@@ -435,14 +437,42 @@
   el('closeV2Review')?.addEventListener('click',()=>{if(!reviewBusy&&!reviewPending){reviewSelection=null;el('v2ReviewDialog').close();}});
   el('v2ReviewDialog')?.addEventListener('cancel',event=>{if(reviewBusy||reviewPending)event.preventDefault();else reviewSelection=null;});
 
-  async function refresh() {
-    const data=await request('platform.bootstrap');
-    state.tenants=data.tenants;state.applications=data.applications||[];
-    state.features=data.features;
-    if(isV2()){const result=await request('platform.qualification.list');state.qualifications=result.qualifications||[];renderQualifications();el('applicationListTitle').textContent='商家申請審核';}
-    render();renderApplications();
-    return data;
+  function rootDialogOpen(){
+    return ['v2ReviewDialog','approvalDialog','tenantDialog','grantDialog','expiryDialog'].some(id=>el(id)?.open);
   }
+  async function refresh({background=false}={}) {
+    // Fetch both lists before committing either: never display a half-updated review snapshot.
+    const data=await request('platform.bootstrap');
+    const qualifications=isV2()
+      ? (await request('platform.qualification.list')).qualifications||[]
+      : [];
+    if(background&&(!state.idToken||state.busy||reviewBusy||reviewPending||document.hidden||rootDialogOpen()))return null;
+    const snapshot=JSON.stringify([data.tenants||[],data.applications||[],data.features||{},qualifications]);
+    const changed=snapshot!==rootSnapshot;
+    if(!background||changed){
+      state.tenants=data.tenants||[];state.applications=data.applications||[];
+      state.features=data.features;
+      if(isV2()){state.qualifications=qualifications;renderQualifications();el('applicationListTitle').textContent='商家申請審核';}
+      render();renderApplications();
+    }
+    rootSnapshot=snapshot;
+    return {...data,changed};
+  }
+  async function refreshRoot(){
+    if(merchantEntry||!state.idToken||el('platformWorkspace').hidden||document.hidden||rootRefreshBusy||state.busy||reviewBusy||reviewPending||rootDialogOpen())return;
+    rootRefreshBusy=true;
+    const button=el('rootSyncNow');if(button)button.disabled=true;
+    try{
+      const data=await refresh({background:true});
+      if(data&&el('rootSyncStatus')){
+        const message=data.changed?'已同步最新管理員資格與商家申請。':'審核清單已是最新資料。';
+        if(el('rootSyncStatus').textContent!==message)el('rootSyncStatus').textContent=message;
+      }
+    }catch(error){
+      if(state.idToken&&el('rootSyncStatus'))el('rootSyncStatus').textContent='同步失敗：'+error.message+'；將自動再試。';
+    }finally{rootRefreshBusy=false;if(button)button.disabled=false;}
+  }
+  el('rootSyncNow')?.addEventListener('click',()=>void refreshRoot());
   function collect() {return {name:fields.namedItem('name').value.trim(),slug:fields.namedItem('slug').value.trim(),ownerLineUserId:fields.namedItem('ownerLineUserId').value.trim(),
     features:Object.fromEntries(featureKeys.map(key=>[key,visibleFeatureKeys.includes(key) && Boolean(form.querySelector('[data-feature="'+key+'"]')?.checked)])),
     line:Object.fromEntries(lineKeys.map(key=>[key,fields.namedItem(key).value.trim()])),
@@ -856,7 +886,8 @@
   el('reloadMerchantSettings')?.addEventListener('click',()=>{
     if(latestMine&&window.confirm('捨棄尚未儲存的設定，載入最新版本？'))renderMine(latestMine);
   });
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refreshMine();});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden){if(merchantEntry)void refreshMine();else void refreshRoot();}});
+  window.addEventListener('focus',()=>{if(!merchantEntry&&!document.hidden)void refreshRoot();});
   window.addEventListener('pagehide',()=>{if(refreshTimer)clearInterval(refreshTimer);});
   window.addEventListener('pageshow',event=>{if(event.persisted&&merchantEntry){showLoginGate('正在重新確認 LINE 身分…');void start();}});
   async function start() {
@@ -953,6 +984,8 @@
       clearLoginGate();
       for(const [key,label] of Object.entries(data.features).filter(([key])=>visibleFeatureKeys.includes(key))) {const wrap=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.dataset.feature=key;wrap.append(input,document.createTextNode(label));el('featureFields').append(wrap);}
       el('platformWorkspace').hidden=false;el('platformStatus').textContent=`總管理員 ${data.profile.displayName}，已登入。`;
+      if(refreshTimer)clearInterval(refreshTimer);
+      refreshTimer=setInterval(()=>{if(!document.hidden)void refreshRoot();},5000);
       try { window.sessionStorage.removeItem(AUTO_LOGIN_ATTEMPT_KEY); } catch {}
     } catch(error){
       if(error.code==='PLATFORM_ADMIN_REQUIRED'&&!merchantEntry) {

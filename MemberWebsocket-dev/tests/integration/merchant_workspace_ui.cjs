@@ -8,11 +8,13 @@ async function mount({merchant=true,business='',version=2,q=null,applications=[]
  const html=fs.readFileSync(path.join(root,merchant?'admin/workspace.html':'platform/index.html'),'utf8');
  const dom=new JSDOM(html,{url:'https://fixture.test/'+(merchant?'admin/workspace.html':'platform/')+(business?'?business='+business:''),runScripts:'outside-only'}),w=dom.window,calls=[];
  const observers=[],Observer=w.MutationObserver;w.MutationObserver=class extends Observer{constructor(callback){super(callback);observers.push(this);}};
+ const intervals=[];w.setInterval=(fn,delay)=>{const id=intervals.length+1;intervals.push({id,fn,delay,active:true});return id;};
+ w.clearInterval=id=>{const timer=intervals.find(item=>item.id===id);if(timer)timer.active=false;};
  w.AbortController=AbortController;w.AbortSignal=AbortSignal;w.structuredClone=structuredClone;w.confirm=()=>true;
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
  w.MemberSystem={validateConfig(){}};w.liff={init:async()=>{},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=>merchant?'manager':'root'};
  if(business&&!businessContext)w.BusinessContext={configure:async config=>config,slug:business};
- let currentQ=q,currentApps=applications;
+ let currentQ=q,currentApps=applications,currentQualifications=qualifications;
  w.fetch=async(url,options)=>{
   if(String(url).includes('config.json'))return{ok:true,json:async()=>({merchantApprovalVersion:version,adminLiffId:'2010791619-admin',platformLiffId:'2012065297-platform',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api'})};
   const input=JSON.parse(options.body);calls.push(input);
@@ -25,7 +27,7 @@ async function mount({merchant=true,business='',version=2,q=null,applications=[]
    else if(input.action==='platform.qualification.submit'){currentQ=qualification('pending');result={qualification:currentQ};}
    else if(input.action==='platform.merchant.list')result={applications:currentApps};
    else if(input.action==='platform.bootstrap')result={tenants:[],applications:currentApps,features,profile:{displayName:'Root'}};
-   else if(input.action==='platform.qualification.list')result={qualifications};
+   else if(input.action==='platform.qualification.list')result={qualifications:currentQualifications};
    else if(input.action==='platform.application.bootstrap')result={application:null,tenant:null,features,profile:{displayName:'Owner'}};
    else result={};
   }
@@ -34,9 +36,77 @@ async function mount({merchant=true,business='',version=2,q=null,applications=[]
  if(businessContext)w.eval(fs.readFileSync(path.join(root,'business-context.js'),'utf8'));
  if(merchant)w.eval(fs.readFileSync(path.join(root,'admin/business-line-settings.js'),'utf8'));
  w.eval(fs.readFileSync(path.join(root,'platform/app.js'),'utf8'));await settle();
- return{dom,w,d:w.document,calls,setQualification(value){currentQ=value;},setApplications(value){currentApps=value;},close(){for(const observer of observers)observer.disconnect();w.close();}};
+ return{dom,w,d:w.document,calls,intervals,async tick(){for(const timer of intervals.filter(item=>item.active))timer.fn();await settle();},setQualification(value){currentQ=value;},setApplications(value){currentApps=value;},setQualifications(value){currentQualifications=value;},close(){for(const observer of observers)observer.disconnect();w.close();}};
 }
 function submit(h,id){h.d.getElementById(id).dispatchEvent(new h.w.Event('submit',{bubbles:true,cancelable:true}));}
+
+test('AC-SYNC-001: root sees new qualification and merchant requests without reload, and does not overwrite an open review',async()=>{
+ const h=await mount({merchant:false});
+ try{
+  assert.equal(h.intervals.length,1);assert.equal(h.intervals[0].delay,5000);
+  assert.equal(h.d.querySelectorAll('#qualificationList article').length,0);
+  h.setQualifications([qualification('pending',1)]);
+  h.setApplications([application('n','pending')]);
+  await h.tick();
+  assert.equal(h.d.querySelectorAll('#qualificationList article').length,1);
+  assert.equal(h.d.querySelectorAll('#applicationList article').length,1);
+  assert.match(h.d.getElementById('rootSyncStatus').textContent,/已同步/);
+  const before=h.calls.length;
+  h.d.querySelector('#qualificationList [data-review-decision="approved"]').click();
+  h.setQualifications([qualification('pending',1),{...qualification('pending',1),id:'q-2'}]);
+  await h.tick();
+  assert.equal(h.calls.length,before,'an open review must not be replaced by polling');
+  assert.equal(h.d.querySelectorAll('#qualificationList article').length,1);
+  h.d.getElementById('closeV2Review').click();
+  await h.tick();
+  assert.equal(h.d.querySelectorAll('#qualificationList article').length,2);
+  const stable=h.d.querySelector('#qualificationList article');
+  await h.tick();
+  assert.equal(h.d.querySelector('#qualificationList article'),stable,'unchanged data must retain DOM and scroll context');
+ }finally{h.close();}
+});
+
+test('AC-SYNC-002: focus, retry and manual sync update the root list; concurrent refresh is single-flight',async()=>{
+ let fail=false,slowResolve=null,block=false;
+ const h=await mount({merchant:false,handler(input){
+  if(input.action==='platform.bootstrap'&&fail)return{status:503,error:{code:'PLATFORM_UNAVAILABLE',message:'服務暫時不可用'}};
+  if(input.action==='platform.bootstrap'&&block)return new Promise(resolve=>{slowResolve=resolve;});
+ }});
+ try{
+  const before=h.calls.length;
+  fail=true;await h.tick();
+  assert.match(h.d.getElementById('rootSyncStatus').textContent,/同步失敗/);
+  fail=false;h.setApplications([application('new','pending')]);
+  h.w.dispatchEvent(new h.w.Event('focus'));await settle();
+  assert.equal(h.d.querySelectorAll('#applicationList article').length,1);
+  h.setQualifications([qualification('pending',7)]);
+  h.d.getElementById('rootSyncNow').click();await settle();
+  assert.equal(h.d.querySelectorAll('#qualificationList article').length,1);
+  block=true;
+  h.intervals[0].fn();h.intervals[0].fn();await settle();
+  assert.equal(h.calls.filter(x=>x.action==='platform.bootstrap').length,4,'duplicate ticks must share one in-flight read');
+  assert.equal(h.d.getElementById('rootSyncNow').disabled,true);
+  slowResolve({tenants:[],applications:[application('new','pending')],features,profile:{displayName:'Root'}});
+  await settle();
+  assert.equal(h.d.getElementById('rootSyncNow').disabled,false);
+  assert.ok(h.calls.length>before);
+ }finally{h.close();}
+});
+
+test('AC-SYNC-003: root approval revocation closes private workspace and stops polling',async()=>{
+ let revoked=false;
+ const h=await mount({merchant:false,handler(input){
+  if(input.action==='platform.bootstrap'&&revoked)return{status:403,error:{code:'PLATFORM_ADMIN_REQUIRED',message:'權限已撤銷'}};
+ }});
+ try{
+  revoked=true;await h.tick();
+  assert.equal(h.d.getElementById('platformWorkspace').hidden,true);
+  assert.equal(h.d.getElementById('platformAuthorizationNotice').hidden,false);
+  const n=h.calls.length;
+  await h.tick();assert.equal(h.calls.length,n);
+  assert.equal(h.intervals.some(x=>x.active),false);
+ }finally{h.close();}
+});
 
 test('v2 account entry reads qualification without creating an application; explicit submit and retry reuse the request ID',async()=>{
  let submissions=0;const h=await mount({handler(input){if(input.action==='platform.qualification.submit'){if(!submissions++)return{throw:true};return{qualification:qualification('pending')};}}});try{

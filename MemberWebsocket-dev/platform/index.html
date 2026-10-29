@@ -11,7 +11,7 @@
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
   <script src="../business-context.js"></script>
 <script src="../member-system.js" defer></script>
-  <script src="./app.js?v=member-card-admin-rollback-20261028-1" defer></script>
+  <script src="./app.js?v=platform-review-sync-20261029-1" defer></script>
   <link rel="stylesheet" href="../portal-navigation.css?v=unified-20261018-1">
   <script src="../portal-navigation.js?v=unified-20261018-1" defer></script>
 </head>
@@ -25,6 +25,7 @@
     <section id="platformWorkspace" hidden>
       <div class="workspace-heading"><div><h2>已審核商家</h2><p>總管理員管理使用狀態、期限與功能授權；各商家的 LINE Channel、LIFF 和訊息憑證由商家管理員自行設定。</p></div><button id="newTenant" type="button" hidden aria-hidden="true" tabindex="-1">舊版新增商家</button></div>
       <p class="notice">核准後即開通已授權功能。停用、到期與功能撤銷會由伺服器阻擋；復權保留原有設定。</p>
+      <div class="form-actions" id="rootSyncControls"><button type="button" class="secondary" id="rootSyncNow">立即同步待審申請</button><p class="hint" id="rootSyncStatus" role="status" aria-live="polite">每 5 秒檢查新申請；回到頁面會立即同步。</p></div>
       <div id="tenantList" class="tenant-list"></div><section id="qualificationReviews" hidden aria-labelledby="qualificationReviewsTitle"><h2 id="qualificationReviewsTitle">管理員資格審核</h2><p>資格與商家分開審核；停用資格會限制該管理員的所有商家存取。</p><div id="qualificationList" class="tenant-list"></div></section><h2 id="applicationListTitle">待審核管理員</h2><p>核准時逐項勾選功能；未核准的申請不得取得商家權限。</p><div id="applicationList" class="tenant-list"></div>
     </section>
 
