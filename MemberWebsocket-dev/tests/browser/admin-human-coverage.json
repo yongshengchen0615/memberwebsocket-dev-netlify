@@ -16,7 +16,7 @@
     "admin/pointcard-redemption-limit.js": "fbba580c9babdac950b2f619c3f3b949fe89ae0c1365e2555f758d1a8818035c",
     "admin/event-ticket-redemption-limit.js": "263a564d64845c5abb4ed5167305b0bffefb064130a0268ab533b481d320b688",
     "admin/booking-panel.js": "40f51f55c01d2b742e559e49476dc8996ae65b6b03ac0c2213f501606a0e8989",
-    "admin/booking-panel-core.js": "e420dfc7d0b65df4b85b63d843dd7bf25ad1e07aef7e6373c81b68692f3dd92d",
+    "admin/booking-panel-core.js": "8549e6694c8a0d8d749f33ea67f29a661a2d2eb386d7f898b3c0f7e534bfbd18",
     "admin/booking-resources.js": "ea6901dc1020cbb85ead15107333e4b110e2b9a02854bffba856e410445bd852",
     "admin/booking-always-open.js": "9cb236902a7f3f36cf3fe4c3f13fbbac622f000c72d36ec34f7d4dde08e6e54a",
     "admin/booking-cancellation-sync.js": "a8367bb6565d054af976ec1ffdf950874a4e8f14a3917d2e036bc1744016db19",
@@ -584,6 +584,14 @@
       "name": "本輪無故未到分類節點執行",
       "cases": [
         "RUNNER_ADMIN_BOOKING_NO_SHOW_CONTROLS"
+      ]
+    },
+    {
+      "id": "booking.phone-overlap",
+      "module": "booking",
+      "name": "一般管理員電話預約：已佔用時段可建立、技師現場安排、禁止會員專用結算與票券操作、重試冪等",
+      "cases": [
+        "BOOKING_PHONE_OVERLAP"
       ]
     }
   ],
