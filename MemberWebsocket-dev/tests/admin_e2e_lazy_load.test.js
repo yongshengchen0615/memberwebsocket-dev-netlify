@@ -9,7 +9,6 @@ const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 test('AC-001/002: admin workspace has no test center, runner, history or test settings entrypoints', () => {
   const html = read('admin/index.html');
   const app = read('admin/app.js');
-  const hub = read('admin/integration-hub.js');
   for (const id of ['testModeTab', 'testModePanel', 'purgeTestDataButton', 'testModeForm', 'automationTestHistoryList']) {
     assert.doesNotMatch(html, new RegExp('id="' + id + '"'));
   }
@@ -19,9 +18,9 @@ test('AC-001/002: admin workspace has no test center, runner, history or test se
     'test-mode.css', 'test-control.css', 'e2e-control.css', 'e2e-flow-visualizer.css', 'test-workspace-tabs.css'
   ]) assert.ok(!html.includes(asset), 'Removed admin test-only asset is still loaded: ' + asset);
   assert.doesNotMatch(app, /testModeTab|testModePanel|switchPanel\('testMode'\)/);
-  assert.doesNotMatch(hub, /testModeTab|testModePanel/);
-  for (const id of ['membersTab', 'cardsTab', 'eventsTab', 'calendarTab', 'operationsHubPanel']) {
-    assert.match(id === 'operationsHubPanel' ? hub : html, new RegExp(id));
+  assert.doesNotMatch(html, /integration-hub\.(?:js|css)|operationsHub(?:Tab|Panel)/);
+  for (const id of ['membersTab', 'cardsTab', 'eventsTab', 'calendarTab', 'lineSettingsTab']) {
+    assert.match(html, new RegExp(id));
   }
 });
 
