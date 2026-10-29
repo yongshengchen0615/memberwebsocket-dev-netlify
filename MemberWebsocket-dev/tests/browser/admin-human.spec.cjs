@@ -161,7 +161,8 @@ test('RETIRED_CENTER — the removed panel is absent and six top tabs remain ord
   await expect(p.locator('#operationsHubTab, #operationsHubPanel, [data-integration-view-tab], [data-integration-target]')).toHaveCount(0);
   await expect(p.locator('#bookingTab')).toHaveCount(1);
   const order=await p.evaluate(()=>Array.from(document.querySelectorAll('#adminView .surface-nav > button[role="tab"]'),node=>node.id));
-  expect(order).toEqual(['membersTab','cardsTab','eventsTab','calendarTab','bookingTab','lineSettingsTab']);
+  // DOM fixtures run in a separate JS realm; normalize only the array prototype.
+  expect([...order]).toEqual(['membersTab','cardsTab','eventsTab','calendarTab','bookingTab','lineSettingsTab']);
   expect(calls(info.fixture,'admin.integration-overview')).toHaveLength(0);
 });
 for(const [target,tab,panel] of [
