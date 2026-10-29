@@ -244,8 +244,12 @@ declare
 begin
   v_definition := pg_get_functiondef('public.admin_create_phone_booking_request(text,text,date,time without time zone,text,text,text,jsonb,text)'::regprocedure);
   v_guard_definition := pg_get_functiondef('public.booking_guard_phone_time_conflict()'::regprocedure);
-  select pg_get_triggerdef(oid) into strict v_trigger_definition from pg_trigger
-    where tgrelid='public.bookings'::regclass and tgname='bookings_phone_no_overlap';
+  -- Use an EXPLICIT function namespace. pg_get_triggerdef() may omit the
+  -- schema and bind an installed merchant trigger to the public function.
+  v_trigger_definition :=
+    'create trigger bookings_phone_no_overlap ' ||
+    'before insert or update of booking_date,start_time,total_duration_minutes,status ' ||
+    'on public.bookings for each row execute function public.booking_guard_phone_time_conflict()';
 
   update platform_private.business_templates
   set snapshot=jsonb_set(
