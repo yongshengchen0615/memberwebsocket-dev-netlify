@@ -299,6 +299,9 @@ test('BOOKING_PHONE_SERVICE_DURATION — member-style multi-service, exact store
   expect(created.totalDurationMinutes).toBe(130);
   expect(created.items).toHaveLength(3);
   expect(created.items[0].quantity).toBe(2);
+  const visible=p.locator('#bookingAdminQueue [data-booking-id="'+created.bookingId+'"]');
+  await expect(visible).toContainText('總服務時間');
+  await expect(visible).toContainText('130 分鐘');
   const repeat=transport(info.fixture,'admin.booking.phone.slots',{bookingDate:date,items:[{serviceId:'service-1',quantity:1}]},'booking-api',false);
   expect(repeat.slots.find(slot=>slot.startTime==='10:00')).toMatchObject({available:false,unavailableReason:'occupied'});
 });
