@@ -187,7 +187,6 @@
 #bookingPanel #bookingRiskSettings>p{margin:0;line-height:1.6;color:var(--theme-text-muted,#526a5f)}
 #bookingPanel #bookingRiskSettings>form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;min-width:0;padding:16px;border:1px solid var(--theme-border,rgba(23,53,46,.12));border-radius:15px;background:var(--theme-surface-raised,#fff)}
 #bookingPanel #bookingRiskSettings>form label{display:grid;gap:7px;min-width:0;font-size:13px;font-weight:700}
-#bookingPanel #bookingRiskSettings>form label:first-child,#bookingPanel #bookingRiskSettings>form label:last-of-type{grid-column:1/-1}
 #bookingPanel #bookingRiskSettings>form label:has(input[type=checkbox]){display:flex;align-items:center;gap:12px;min-height:44px}
 #bookingPanel #bookingRiskSettings>form input:not([type=checkbox]),#bookingPanel #bookingRiskSettings>form select{min-width:0;width:100%}
 #bookingPanel #bookingRiskSettings>form button[type=submit]{grid-column:1/-1;justify-self:start;min-height:44px}
@@ -248,7 +247,6 @@
 #bookingPanel .booking-risk-record-tools>.button{min-height:44px}
 #bookingPanel .booking-risk-records{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;min-width:0;align-items:start}
 #bookingPanel .booking-risk-record-section{min-width:0;padding:16px;border:1px solid var(--theme-border,rgba(23,53,46,.12));border-radius:14px;background:var(--theme-surface-raised,#fff)}
-#bookingPanel .booking-risk-record-section:last-child{grid-column:1/-1}
 #bookingPanel .booking-risk-record-section>h4{font-size:17px;margin:0 0 10px}
 #bookingPanel .booking-risk-record-hint{margin:0 0 12px;font-size:13px;line-height:1.6;color:var(--theme-text-muted,#60756a)}
 #bookingPanel .booking-risk-record-section>.booking-risk-record-list{border:0;padding:0;background:transparent}
@@ -256,10 +254,16 @@
   #bookingPanel #bookingRiskSettings>form.booking-risk-policy-form,
   #bookingPanel .booking-risk-records{grid-template-columns:minmax(0,1fr)}
   #bookingPanel .booking-risk-policy-form .booking-risk-field-group{grid-column:1/-1}
-  #bookingPanel .booking-risk-record-section:last-child{grid-column:auto}
 }
 @media(max-width:480px){
   #bookingPanel .booking-risk-record-tools{display:grid;grid-template-columns:minmax(0,1fr)}
   #bookingPanel .booking-risk-record-tools>.button{width:100%}
   #bookingPanel .booking-risk-record-section{padding:13px}
 }
+
+/* Restriction workspace: consistent labels, legibility, and independently sized records. */
+#bookingPanel .booking-risk-field label{font-size:14px;line-height:1.55;overflow-wrap:break-word}
+#bookingPanel .booking-risk-field-group p{font-size:13px;line-height:1.65}
+#bookingPanel .booking-risk-record-list>li>p{line-height:1.7;word-break:normal;overflow-wrap:anywhere}
+#bookingPanel .booking-risk-metric{align-content:start}
+#bookingPanel .booking-risk-record-section{overflow:hidden}

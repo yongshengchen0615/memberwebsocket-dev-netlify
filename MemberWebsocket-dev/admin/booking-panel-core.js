@@ -198,7 +198,7 @@
 
         <section id="bookingAdminRiskPanel" class="booking-admin-card booking-admin-risk-panel hidden" role="tabpanel" aria-labelledby="bookingAdminRiskSubtab">
           <div class="booking-admin-risk-intro">
-            <div><p class="kicker">Booking eligibility</p><h3>爽約與線上預約限制</h3><p>集中管理爽約累計、線上預約資格、人工解除與會員申覆。</p></div>
+            <div><p class="kicker">Booking eligibility</p><h3>爽約與線上預約限制</h3><p>集中管理爽約計次、線上預約限制，以及誤判撤銷與人工解除。</p></div>
             <button id="bookingAdminRiskOpenAdvanceSettings" type="button" class="button button-outline" aria-describedby="bookingAdminRiskAdvanceHint">查看提前預約設定</button>
           </div>
           <p id="bookingAdminRiskAdvanceHint" class="booking-admin-risk-note">提前預約天數與最遠可預約日期仍在「預約共用設定」；本頁爽約政策只限制新的線上預約。</p>
