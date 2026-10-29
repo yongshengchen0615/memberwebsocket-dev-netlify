@@ -34,8 +34,8 @@ test('AC-001/002/003: active reservations reject phone conflicts until cancelled
   // Follow the existing synthetic-member fixture: activate a test account
   // through the controlled bypass, then restore ordinary-member behavior.
   await h.db.query("update "+s+".members set is_test_account=false where id=$1",[member]);
-  const online=(id,time='10:00')=>h.db.query("select ("+s+".create_booking_bundle_request($1,$2,$3,$4,$5,$6)).id",
-    [id,member,date,time,serviceItems,'']);
+  const online=(id,time='10:00')=>h.db.query("select ("+s+".create_group_booking_request_v2($1,$2,$3,$4,$5,$6)).id",
+    [id,member,date,time,JSON.stringify([{technicianId:tech,items:[{serviceId:service,quantity:1}]}]),'']);
   const call=p=>h.db.query("select ("+s+".admin_create_phone_booking_request($1,$2,$3,$4,$5,$6,$7,$8,$9)).*",p);
   const first=(await online('BOOK-'+crypto.randomUUID())).rows[0].id;
   assert.ok(first);
