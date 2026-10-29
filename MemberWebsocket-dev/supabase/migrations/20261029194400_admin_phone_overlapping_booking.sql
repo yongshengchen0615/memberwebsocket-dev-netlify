@@ -1,6 +1,5 @@
--- AC-001..003: a merchant's active administrator may record a telephone booking
--- at an occupied time without weakening any member booking exclusion constraints.
--- This is an unassigned, confirmed, non-member appointment (not a member reward).
+-- AC-001..003: a telephone booking cannot overlap any active booking.
+-- Existing reservations must be cancelled before the administrator reuses a slot.
 create or replace function public.admin_create_phone_booking_request(
   p_request_id text,
   p_actor text,
@@ -10,8 +9,7 @@ create or replace function public.admin_create_phone_booking_request(
   p_contact_salutation text,
   p_contact_phone text,
   p_items jsonb,
-  p_admin_note text default '',
-  p_allow_overlap boolean default false
+  p_admin_note text default ''
 ) returns public.bookings
 language plpgsql
 security definer
@@ -42,7 +40,6 @@ begin
     select 1 from public.admins
     where line_user_id = p_actor and role = 'admin' and status = 'active'
   ) then raise exception 'ADMIN_REQUIRED'; end if;
-  if p_allow_overlap is distinct from true then raise exception 'BOOKING_OVERLAP_ACK_REQUIRED'; end if;
   if p_request_id !~ '^PHONE-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
     then raise exception 'INVALID_REQUEST_ID'; end if;
   if char_length(v_surname) not between 1 and 40
@@ -121,8 +118,7 @@ begin
     return v_saved;
   end if;
 
-  -- Unassigned technician intentionally permits concurrent telephone clients at
-  -- the same time. Member-side GIST exclusions and capacity checks are unchanged.
+  -- The booking trigger rejects all active overlaps before this insert.
   insert into public.bookings (
     request_id,service_id,member_id,booking_date,start_time,end_time,
     total_duration_minutes,status,member_note,admin_note,
@@ -174,7 +170,7 @@ begin
     actor_line_user_id,actor_role,action,target_type,target_id,result,metadata
   ) values (
     p_actor,'admin','BOOKING_PHONE_CREATED','booking',v_booking.id::text,'success',
-    jsonb_build_object('source','phone','allowOverlap',true,'partySize',1)
+    jsonb_build_object('source','phone','partySize',1)
   );
 
   return v_booking;
@@ -184,11 +180,56 @@ end;
 $phone$;
 
 revoke all on function public.admin_create_phone_booking_request(
-  text,text,date,time without time zone,text,text,text,jsonb,text,boolean
+  text,text,date,time without time zone,text,text,text,jsonb,text
 ) from public,anon,authenticated;
 grant execute on function public.admin_create_phone_booking_request(
-  text,text,date,time without time zone,text,text,text,jsonb,text,boolean
+  text,text,date,time without time zone,text,text,text,jsonb,text
 ) to service_role;
+
+
+-- Both admin and member inserts pass this trigger, including writes that
+-- bypass the UI. The member booking RPC already locks the business date.
+create or replace function public.booking_guard_phone_time_conflict()
+returns trigger language plpgsql set search_path to ''
+as $guard$
+declare
+  v_open time without time zone;
+  v_close time without time zone;
+  v_start timestamp without time zone;
+  v_end timestamp without time zone;
+  v_phone boolean;
+begin
+  if new.status not in ('pending','confirmed') then return new; end if;
+  if new.booking_date is null or new.start_time is null
+    or new.total_duration_minutes is null then return new; end if;
+  v_phone := left(coalesce(new.request_id,''),6)='PHONE-';
+  select work_start_time,work_end_time into v_open,v_close
+    from public.booking_settings where id=1;
+  if not found then raise exception 'BOOKING_SETTINGS_MISSING'; end if;
+  v_start := public.booking_slot_start_at(new.booking_date,new.start_time,v_open,v_close);
+  v_end := v_start + make_interval(mins=>new.total_duration_minutes);
+  perform pg_advisory_xact_lock(hashtextextended(new.booking_date::text,0));
+  if exists (
+    select 1 from public.bookings old_booking
+    where old_booking.id is distinct from new.id
+      and old_booking.status in ('pending','confirmed')
+      and (v_phone or left(coalesce(old_booking.request_id,''),6)='PHONE-')
+      and old_booking.start_at < v_end
+      and old_booking.end_at > v_start
+  ) then
+    if v_phone then raise exception 'PHONE_BOOKING_CONFLICT';
+    else raise exception 'BOOKING_SLOT_TAKEN'; end if;
+  end if;
+  return new;
+end;
+$guard$;
+
+revoke all on function public.booking_guard_phone_time_conflict() from public,anon,authenticated;
+grant execute on function public.booking_guard_phone_time_conflict() to service_role;
+
+create trigger bookings_phone_no_overlap
+before insert or update of booking_date,start_time,total_duration_minutes,status on public.bookings
+for each row execute function public.booking_guard_phone_time_conflict();
 
 -- Existing merchant schemas are isolated; install identical logic in each one.
 -- The immutable template also needs the function so newly approved merchants
@@ -197,17 +238,26 @@ do $install$
 declare
   v_schema text;
   v_definition text;
-  v_signature text := '(text,text,date,time without time zone,text,text,text,jsonb,text,boolean)';
+  v_guard_definition text;
+  v_trigger_definition text;
+  v_signature text := '(text,text,date,time without time zone,text,text,text,jsonb,text)';
 begin
-  v_definition := pg_get_functiondef('public.admin_create_phone_booking_request(text,text,date,time without time zone,text,text,text,jsonb,text,boolean)'::regprocedure);
+  v_definition := pg_get_functiondef('public.admin_create_phone_booking_request(text,text,date,time without time zone,text,text,text,jsonb,text)'::regprocedure);
+  v_guard_definition := pg_get_functiondef('public.booking_guard_phone_time_conflict()'::regprocedure);
+  select pg_get_triggerdef(oid) into strict v_trigger_definition from pg_trigger
+    where tgrelid='public.bookings'::regclass and tgname='bookings_phone_no_overlap';
 
   update platform_private.business_templates
   set snapshot=jsonb_set(
-    snapshot,'{functions}',
-    coalesce(snapshot->'functions','[]'::jsonb)
-      || jsonb_build_array(jsonb_build_object(
-        'name','admin_create_phone_booking_request','definition',v_definition
-      ))
+    jsonb_set(snapshot,'{functions}',
+      coalesce(snapshot->'functions','[]'::jsonb) || jsonb_build_array(
+        jsonb_build_object('name','admin_create_phone_booking_request','definition',v_definition),
+        jsonb_build_object('name','booking_guard_phone_time_conflict','definition',v_guard_definition)
+      )
+    ),'{triggers}',
+    coalesce(snapshot->'triggers','[]'::jsonb) || jsonb_build_array(
+      jsonb_build_object('name','bookings_phone_no_overlap','definition',v_trigger_definition)
+    )
   )
   where version='business-v1-20261019'
     and not exists (
@@ -222,6 +272,10 @@ begin
     where runtime_schema ~ '^business_[0-9a-f]{32}$'
   loop
     execute platform_private.business_sql(v_definition,v_schema);
+    execute platform_private.business_sql(v_guard_definition,v_schema);
+    execute platform_private.business_sql(v_trigger_definition,v_schema);
+    execute format('revoke all on function %I.booking_guard_phone_time_conflict() from public,anon,authenticated',v_schema);
+    execute format('grant execute on function %I.booking_guard_phone_time_conflict() to service_role',v_schema);
     execute format(
       'revoke all on function %I.admin_create_phone_booking_request%s from public,anon,authenticated',
       v_schema,v_signature
