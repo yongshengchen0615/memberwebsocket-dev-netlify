@@ -17,6 +17,11 @@ test('AC-001/002/003: active reservations reject phone conflicts until cancelled
   const tenant=await h.approve(actor,'phone-'+crypto.randomUUID().slice(0,8));
   await h.db.exec(migration); // Isolated PG17: provision an existing merchant first.
   const s=tenant.runtime_schema;
+  const trigger=(await h.db.query(
+    "select pg_get_triggerdef(t.oid) definition from pg_trigger t where t.tgrelid=$1::regclass and t.tgname='bookings_phone_no_overlap'",
+    [s+'.bookings']
+  )).rows[0]?.definition;
+  assert.ok(trigger?.includes(s+'.booking_guard_phone_time_conflict()'), 'Tenant trigger must invoke its own schema function');
   const date=(await h.db.query("select ((now() at time zone 'Asia/Taipei')::date+5)::text d")).rows[0].d;
   await h.db.query("insert into "+s+".booking_service_types(name) values('Phone services')");
   await h.db.query("insert into "+s+".booking_services(id,title,duration_minutes,price_amount,is_active,service_type,created_by) values($1,'Phone service',30,100,true,'Phone services','system')",[service]);
@@ -65,6 +70,11 @@ test('AC-001/002/003: active reservations reject phone conflicts until cancelled
     [fresh.runtime_schema+'.admin_create_phone_booking_request'+signature])).rows[0].fn);
   assert.equal((await h.db.query("select count(*)::int n from pg_trigger where tgrelid=$1::regclass and tgname='bookings_phone_no_overlap'",
     [fresh.runtime_schema+'.bookings'])).rows[0].n,1);
+  const freshTrigger=(await h.db.query(
+    "select pg_get_triggerdef(t.oid) definition from pg_trigger t where t.tgrelid=$1::regclass and t.tgname='bookings_phone_no_overlap'",
+    [fresh.runtime_schema+'.bookings']
+  )).rows[0]?.definition;
+  assert.ok(freshTrigger?.includes(fresh.runtime_schema+'.booking_guard_phone_time_conflict()'), 'New merchant trigger must not reference public');
   const rights=(await h.db.query(
     "select has_function_privilege('anon',$1,'EXECUTE') a,has_function_privilege('service_role',$1,'EXECUTE') s",
     [s+'.admin_create_phone_booking_request'+signature]
@@ -79,6 +89,11 @@ test('AC-002 concurrency: simultaneous telephone requests for same free slot com
   const tenant=await h.approve(actor,'phone-race-'+crypto.randomUUID().slice(0,8));
   await h.db.exec(migration);
   const s=tenant.runtime_schema;
+  const trigger=(await h.db.query(
+    "select pg_get_triggerdef(t.oid) definition from pg_trigger t where t.tgrelid=$1::regclass and t.tgname='bookings_phone_no_overlap'",
+    [s+'.bookings']
+  )).rows[0]?.definition;
+  assert.ok(trigger?.includes(s+'.booking_guard_phone_time_conflict()'), 'Tenant trigger must invoke its own schema function');
   const date=(await h.db.query("select ((now() at time zone 'Asia/Taipei')::date+5)::text d")).rows[0].d;
   await h.db.query("insert into "+s+".booking_service_types(name) values('Phone services')");
   await h.db.query("insert into "+s+".booking_services(id,title,duration_minutes,price_amount,is_active,service_type,created_by) values($1,'Phone service',30,100,true,'Phone services','system')",[service]);
