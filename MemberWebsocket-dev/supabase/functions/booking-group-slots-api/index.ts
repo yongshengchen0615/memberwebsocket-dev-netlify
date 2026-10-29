@@ -261,6 +261,17 @@ async function slots(supabase: ReturnType<typeof db>, member: any, body: Json) {
     .filter((row: any) => String(row.id) !== excludedBookingId)
     .map(occupiedRange);
 
+  // Telephone bookings have no technician assignment. A separate occupied-range
+  // check is required for group bookings (even when no technician is selected).
+  // This also mirrors the PostgreSQL phone reservation conflict trigger.
+  const phoneResult = await supabase.from("bookings")
+    .select("id,start_at,end_at")
+    .gte("booking_date", addDays(bookingDate, -1)).lte("booking_date", addDays(bookingDate, 1))
+    .like("request_id", "PHONE-%")
+    .in("status", ["pending", "confirmed"]);
+  if (phoneResult.error) throw new ApiError(500, "DATABASE_ERROR", "無法確認電話預約佔用時段。");
+  const phoneOccupied = (phoneResult.data || []).map(occupiedRange);
+
   const technicianIds = [...new Set(group.assignments.map((assignment: any) => String(assignment.technicianId)))];
   let reservationRows: any[] = [];
   if (technicianIds.length) {
@@ -293,8 +304,14 @@ async function slots(supabase: ReturnType<typeof db>, member: any, body: Json) {
       return (occupiedByTechnician.get(String(assignment.technicianId)) || [])
         .some((occupied: any) => candidate.start < occupied.end && participantEnd > occupied.start);
     });
+    const phoneOverlap = phoneOccupied.some((occupied: any) => candidate.start < occupied.end && candidate.end > occupied.start);
     const passed = slotHasPassed(bookingDate, start);
-    output.push({ startTime: clockTime(start), endTime: clockTime(groupEnd), startAt: timeOnBusinessDate(bookingDate, start), endAt: timeOnBusinessDate(bookingDate, groupEnd), available: !primaryOverlap && !assignmentOverlap && !passed });
+    output.push({
+      startTime: clockTime(start), endTime: clockTime(groupEnd),
+      startAt: timeOnBusinessDate(bookingDate, start), endAt: timeOnBusinessDate(bookingDate, groupEnd),
+      available: !primaryOverlap && !assignmentOverlap && !phoneOverlap && !passed,
+      unavailableReason: phoneOverlap ? "occupied" : (primaryOverlap || assignmentOverlap) ? "occupied" : passed ? "past" : null,
+    });
   }
 
   return {

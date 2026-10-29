@@ -1337,117 +1337,279 @@
 
   function openPhoneBookingModal() {
     const services = (state.catalog.services || []).filter((service) =>
-      service.isActive !== false && service.requiresCompanionService !== true &&
-      service.serviceId && service.serviceId !== STORE_SERVICE_ID
+      service.isActive !== false && service.serviceId && service.serviceId !== STORE_SERVICE_ID
     );
-    const todayParts = {};
+    const localParts = {};
     new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit',
     }).formatToParts(new Date()).forEach((part) => {
-      if (part.type !== 'literal') todayParts[part.type] = part.value;
+      if (part.type !== 'literal') localParts[part.type] = part.value;
     });
-    const today = `${todayParts.year}-${todayParts.month}-${todayParts.day}`;
+    const today = localParts.year + '-' + localParts.month + '-' + localParts.day;
     const settings = state.booking.settings || {};
-    const interval = Number(settings.slotIntervalMinutes || 30);
-    const earliest = new Date(today + 'T00:00:00Z');
-    earliest.setUTCDate(earliest.getUTCDate() + Number(settings.minAdvanceDays || 0));
-    const minDate = earliest.toISOString().slice(0, 10);
+    const addDays = (value, count) => {
+      const date = new Date(value + 'T00:00:00Z');
+      date.setUTCDate(date.getUTCDate() + Number(count || 0));
+      return date.toISOString().slice(0, 10);
+    };
+    const minDate = addDays(today, Number(settings.minAdvanceDays || 0));
     const maxAdvance = Number(settings.maxAdvanceDays || 0);
-    const maxDateObj = new Date(today + 'T00:00:00Z');
-    maxDateObj.setUTCDate(maxDateObj.getUTCDate() + maxAdvance);
-    const maxAttr = maxAdvance > 0 ? ` max="${maxDateObj.toISOString().slice(0, 10)}"` : '';
-    const clock = String(settings.workStartTime || '09:00').slice(0, 5);
+    const maxAttr = maxAdvance > 0 ? ' max="' + addDays(today, maxAdvance) + '"' : '';
 
     els.bookingAdminCrudModalTitle.textContent = '登記電話預約';
-    els.bookingAdminCrudModalBody.innerHTML = `
-      <form class="booking-admin-form" data-phone-booking-form>
-        <p class="booking-admin-time">供店家登記電話或現場客人。已被預約的時段不可重複登記，請先取消原預約再使用該時段；新預約會標示「現場安排」，不建立 LINE 會員、點數或票券。</p>
-        <label>預約日期<input data-phone-date type="date" min="${minDate}"${maxAttr} value="${minDate}" required></label>
-        <label>開始時間<input data-phone-time type="time" step="300" value="${clock}" required></label>
-        <label>服務項目<select data-phone-service required></select></label>
-        <label>客人姓氏<input data-phone-surname type="text" maxlength="40" autocomplete="off" required placeholder="例如：陳"></label>
-        <label>稱謂<select data-phone-salutation required><option value="mr">先生</option><option value="ms">小姐</option></select></label>
-        <label>聯絡電話<input data-phone-number type="tel" maxlength="25" autocomplete="tel" required placeholder="例如：0912345678"></label>
-        <label>管理端備註（選填）<textarea data-phone-note maxlength="500" rows="2"></textarea></label>
-        <div data-modal-message class="form-message hidden"></div>
-        <div class="booking-admin-modal-actions">
-          <button data-cancel class="button button-outline" type="button">取消</button>
-          <button class="button button-dark" type="submit" ${services.length ? '' : 'disabled'}>確認登記</button>
-        </div>
-      </form>`;
+    els.bookingAdminCrudModalBody.innerHTML = [
+      '<form class="booking-admin-form booking-phone-form" data-phone-booking-form>',
+      '<p class="booking-admin-time">比照用戶端選擇預約項目及開始時段。灰色表示已被預約、已過期或不可使用；必須取消原預約後才會開放。新登記不建立 LINE 會員、點數或票券。</p>',
+      '<fieldset class="booking-phone-fieldset"><legend>可選預約項目</legend>',
+      '<p class="booking-phone-help">依服務類型分類；按「增加」後會列入目前選擇。相同項目最多 2 份。</p>',
+      '<div data-phone-service-picker class="booking-phone-service-picker"></div></fieldset>',
+      '<fieldset class="booking-phone-fieldset"><legend>目前選擇</legend>',
+      '<div data-phone-selected-list class="booking-phone-selected-list"></div>',
+      '<p data-phone-duration class="booking-phone-duration" role="status" aria-live="polite">請先選擇預約項目。</p></fieldset>',
+      '<label>預約日期<input data-phone-date type="date" min="' + minDate + '"' + maxAttr + ' value="' + minDate + '" required></label>',
+      '<fieldset class="booking-phone-fieldset"><legend>可預約時間</legend>',
+      '<p data-phone-slot-hint class="booking-phone-help" role="status" aria-live="polite">請先選擇預約項目。</p>',
+      '<div data-phone-slot-grid class="booking-phone-slot-grid" role="group" aria-label="電話預約可選開始時段"></div></fieldset>',
+      '<label>客人姓氏<input data-phone-surname type="text" maxlength="40" autocomplete="off" required placeholder="例如：陳"></label>',
+      '<label>稱謂<select data-phone-salutation required><option value="mr">先生</option><option value="ms">小姐</option></select></label>',
+      '<label>聯絡電話<input data-phone-number type="tel" maxlength="25" autocomplete="tel" required placeholder="例如：0912345678"></label>',
+      '<label>管理端備註（選填）<textarea data-phone-note maxlength="500" rows="2"></textarea></label>',
+      '<div data-modal-message class="form-message hidden"></div>',
+      '<div class="booking-admin-modal-actions">',
+      '<button data-cancel class="button button-outline" type="button">取消</button>',
+      '<button class="button button-dark" type="submit" disabled>確認登記</button></div></form>',
+    ].join('');
     const form = els.bookingAdminCrudModalBody.querySelector('[data-phone-booking-form]');
-    const serviceSelect = form.querySelector('[data-phone-service]');
-    serviceSelect.append(new Option(services.length ? '請選擇服務項目' : '尚未建立可預約項目', '', true, true));
-    services.forEach((service) => {
-      const option = new Option(
-        `${service.title || '預約項目'} · ${Number(service.durationMinutes || 0)} 分鐘`,
-        String(service.serviceId)
-      );
-      serviceSelect.append(option);
-    });
-    // Preview only. The SQL trigger rechecks every booking within a date
-    // transaction lock so stale screens or simultaneous submissions cannot race.
-    const showPhoneConflict = () => {
-      const date = form.querySelector('[data-phone-date]').value;
-      const time = form.querySelector('[data-phone-time]').value;
-      const service = services.find((item) => item.serviceId === serviceSelect.value);
-      const submit = form.querySelector('button[type="submit"]');
-      const message = form.querySelector('[data-modal-message]');
-      if (!date || !time || !service) {
-        clearMessage(message);
-        submit.disabled = services.length === 0;
-        return false;
+    const servicePicker = form.querySelector('[data-phone-service-picker]');
+    const selectedList = form.querySelector('[data-phone-selected-list]');
+    const durationLabel = form.querySelector('[data-phone-duration]');
+    const slotGrid = form.querySelector('[data-phone-slot-grid]');
+    const slotHint = form.querySelector('[data-phone-slot-hint]');
+    const submit = form.querySelector('button[type="submit"]');
+    const message = form.querySelector('[data-modal-message]');
+    const selected = new Map();
+    let selectedSlot = null;
+    let loadingSlots = false;
+    let totalMinutes = null;
+    let storeMinutes = null;
+    let slotRequestSequence = 0;
+
+    const selectedItems = () => [...selected.entries()].map(([serviceId, quantity]) => ({ serviceId, quantity }));
+    const itemMinutes = () => [...selected.entries()].reduce((sum, [serviceId, quantity]) => {
+      const service = services.find((item) => item.serviceId === serviceId);
+      return sum + Number(service?.durationMinutes || 0) * quantity;
+    }, 0);
+    const hasCompanion = () => [...selected.keys()].some((serviceId) =>
+      services.some((service) => service.serviceId === serviceId && service.requiresCompanionService !== true));
+    const canSubmit = () => selected.size > 0 && !!selectedSlot && !loadingSlots && Number.isInteger(totalMinutes)
+      && totalMinutes > 0 && totalMinutes <= 1439 && !state.busy;
+    const updateSubmit = () => { submit.disabled = !canSubmit(); };
+    const showDuration = () => {
+      const minutes = itemMinutes();
+      if (Number.isInteger(totalMinutes) && Number.isInteger(storeMinutes)) {
+        durationLabel.textContent = '總服務時間：' + totalMinutes + ' 分鐘（項目 ' + minutes +
+          ' 分鐘＋店內服務 ' + storeMinutes + ' 分鐘，依伺服器計算）';
+      } else {
+        durationLabel.textContent = selected.size
+          ? '項目服務 ' + minutes + ' 分鐘；正在確認店內服務時間與總服務時間…'
+          : '請先選擇預約項目。';
       }
-      const civilStart = (day, clock) => {
-        const normalized = String(clock || '').slice(0, 5);
-        const base = Date.parse(day + 'T' + normalized + ':00Z');
-        if (!Number.isFinite(base)) return NaN;
-        const endClock = String(settings.workEndTime || '17:00').slice(0, 5);
-        const startClock = String(settings.workStartTime || '09:00').slice(0, 5);
-        return endClock < startClock && normalized < endClock ? base + 86400000 : base;
-      };
-      const readLocal = (value) => {
-        const normalized = String(value || '').replace(' ', 'T').slice(0, 16);
-        return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(normalized)
-          ? Date.parse(normalized + ':00Z') : NaN;
-      };
-      const start = civilStart(date, time);
-      const end = start + (Number(service.durationMinutes || 0) + Number(settings.storeServiceMinutes || 10)) * 60000;
-      const overlap = (state.booking.bookings || []).some((booking) => {
-        if (!['pending','confirmed'].includes(booking.status)) return false;
-        const oldStart = Number.isFinite(readLocal(booking.startAt)) ? readLocal(booking.startAt)
-          : civilStart(String(booking.bookingDate || ''), String(booking.startTime || ''));
-        const oldEnd = Number.isFinite(readLocal(booking.endAt)) ? readLocal(booking.endAt)
-          : oldStart + Number(booking.totalDurationMinutes || 0) * 60000;
-        return Number.isFinite(oldStart) && Number.isFinite(oldEnd) && start < oldEnd && end > oldStart;
-      });
-      submit.disabled = overlap;
-      if (overlap) showMessage(message, '此時段已有預約，請先取消原預約，或選擇其他時段。', 'error');
-      else clearMessage(message);
-      return overlap;
     };
-    form.querySelectorAll('[data-phone-date],[data-phone-time],[data-phone-service]').forEach((field) => {
-      field.addEventListener('input', showPhoneConflict);
-      field.addEventListener('change', showPhoneConflict);
+    const renderSelections = () => {
+      selectedList.replaceChildren();
+      if (!selected.size) {
+        const empty = document.createElement('p');
+        empty.className = 'booking-phone-help';
+        empty.textContent = '尚未選擇預約項目。';
+        selectedList.appendChild(empty);
+      }
+      for (const [serviceId, quantity] of selected) {
+        const service = services.find((item) => item.serviceId === serviceId);
+        if (!service) continue;
+        const row = document.createElement('div');
+        row.className = 'booking-phone-selected-item';
+        const summary = document.createElement('span');
+        const title = document.createElement('strong');
+        title.textContent = service.title + ' × ' + quantity;
+        const details = document.createElement('small');
+        details.textContent = (Number(service.durationMinutes || 0) * quantity) + ' 分鐘 · ' +
+          formatMoney(Number(service.priceAmount || 0) * quantity);
+        summary.append(title, details);
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'button button-outline';
+        remove.textContent = '移除';
+        remove.setAttribute('aria-label', '移除 ' + service.title);
+        remove.addEventListener('click', () => {
+          const next = new Map(selected);
+          if (quantity > 1) next.set(serviceId, quantity - 1);
+          else next.delete(serviceId);
+          if (![...next.keys()].some((id) => services.some((item) => item.serviceId === id && !item.requiresCompanionService))
+            && [...next.keys()].some((id) => services.some((item) => item.serviceId === id && item.requiresCompanionService))) {
+            return showMessage(message, '加購項目不能單獨保留，請先移除加購項目。', 'error');
+          }
+          selected.clear();
+          for (const [id, count] of next) selected.set(id, count);
+          clearMessage(message);
+          renderSelections();
+          refreshSlots();
+        });
+        row.append(summary, remove);
+        selectedList.appendChild(row);
+      }
+      showDuration();
+    };
+    const groups = new Map();
+    services.forEach((service) => {
+      const name = String(service.serviceType || '其他').trim() || '其他';
+      if (!groups.has(name)) groups.set(name, []);
+      groups.get(name).push(service);
     });
-    showPhoneConflict();
-    const requestId = `PHONE-${window.crypto.randomUUID()}`;
+    for (const [name, rows] of groups) {
+      const section = document.createElement('section');
+      section.className = 'booking-phone-service-group';
+      const heading = document.createElement('strong');
+      heading.textContent = name + '（' + rows.length + '）';
+      section.appendChild(heading);
+      for (const service of rows) {
+        const row = document.createElement('div');
+        row.className = 'booking-phone-service-option';
+        const description = document.createElement('span');
+        const title = document.createElement('strong');
+        title.textContent = service.title;
+        const detail = document.createElement('small');
+        detail.textContent = Number(service.durationMinutes || 0) + ' 分鐘 · ' +
+          formatMoney(service.priceAmount) + (service.requiresCompanionService ? ' · 加購／需搭配一般項目' : '');
+        description.append(title, detail);
+        const add = document.createElement('button');
+        add.className = 'button button-outline';
+        add.type = 'button';
+        add.textContent = '增加';
+        add.setAttribute('aria-label', '增加 ' + service.title);
+        add.addEventListener('click', () => {
+          if (service.requiresCompanionService && !hasCompanion()) {
+            return showMessage(message, '加購項目需要先選擇一般預約項目。', 'error');
+          }
+          const count = selected.get(service.serviceId) || 0;
+          if (count >= 2) return showMessage(message, '相同預約項目最多可選 2 份。', 'error');
+          selected.set(service.serviceId, count + 1);
+          clearMessage(message);
+          renderSelections();
+          refreshSlots();
+        });
+        row.append(description, add);
+        section.appendChild(row);
+      }
+      servicePicker.appendChild(section);
+    }
+    if (!services.length) {
+      const empty = document.createElement('p');
+      empty.className = 'booking-phone-help';
+      empty.textContent = '目前沒有開放的預約項目。';
+      servicePicker.appendChild(empty);
+    }
+    const renderPhoneSlots = (slots, requestedDate) => {
+      slotGrid.replaceChildren();
+      const available = slots.filter((slot) => slot.available === true).length;
+      const occupied = slots.filter((slot) => slot.unavailableReason === 'occupied').length;
+      slotHint.textContent = slots.length
+        ? '可選 ' + available + ' 個時段；已預約 ' + occupied + ' 個時段以灰色顯示，不可點選。'
+        : '此日期沒有可容納完整服務時間的時段。';
+      for (const slot of slots) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'booking-phone-slot';
+        const nextDay = String(slot.startAt || '').slice(0, 10) !== requestedDate;
+        const endNextDay = String(slot.endAt || '').slice(0, 10) !== requestedDate;
+        button.textContent = (nextDay ? '隔日 ' : '') + String(slot.startTime || '') + '–' +
+          String(slot.endTime || '') + (endNextDay ? '（隔日結束）' : '');
+        button.disabled = slot.available !== true;
+        button.setAttribute('aria-pressed', 'false');
+        if (button.disabled) {
+          button.title = slot.unavailableReason === 'occupied' ? '已預約，請先取消原預約' : '已過期或不可預約';
+          button.setAttribute('aria-label', button.textContent + '，' + button.title + '，不可選擇');
+          button.dataset.unavailableReason = String(slot.unavailableReason || 'unavailable');
+        } else {
+          button.setAttribute('aria-label', button.textContent + '，可選擇');
+          button.addEventListener('click', () => {
+            selectedSlot = String(slot.startTime || '');
+            slotGrid.querySelectorAll('.booking-phone-slot').forEach((item) => {
+              const isCurrent = item === button;
+              item.classList.toggle('selected', isCurrent);
+              item.setAttribute('aria-pressed', isCurrent ? 'true' : 'false');
+            });
+            updateSubmit();
+          });
+        }
+        slotGrid.appendChild(button);
+      }
+    };
+    async function refreshSlots() {
+      const seq = ++slotRequestSequence;
+      const date = form.querySelector('[data-phone-date]').value;
+      selectedSlot = null;
+      totalMinutes = null;
+      storeMinutes = null;
+      slotGrid.replaceChildren();
+      loadingSlots = Boolean(selected.size && date);
+      slotHint.textContent = loadingSlots ? '正在取得可預約時段…' : '請先選擇預約項目與日期。';
+      showDuration();
+      updateSubmit();
+      if (!loadingSlots) return;
+      try {
+        const result = await bookingRequest('admin.booking.phone.slots', { bookingDate: date, items: selectedItems() });
+        if (seq !== slotRequestSequence || !form.isConnected || els.bookingAdminCrudModal.classList.contains('hidden')) return;
+        const total = Number(result.totalDurationMinutes);
+        const store = Number(result.storeServiceMinutes);
+        if (!Number.isInteger(total) || total < 1 || total > 1439 ||
+            !Number.isInteger(store) || store < 0 || total !== itemMinutes() + store ||
+            !Array.isArray(result.slots)) {
+          throw clientError('INVALID_SLOT_RESPONSE', '無法確認服務時間，請重新整理後再試。');
+        }
+        totalMinutes = total;
+        storeMinutes = store;
+        renderPhoneSlots(result.slots, date);
+      } catch (error) {
+        if (seq !== slotRequestSequence || !form.isConnected || els.bookingAdminCrudModal.classList.contains('hidden')) return;
+        slotHint.textContent = error?.message || '無法取得可預約時段，請重新選擇日期。';
+      } finally {
+        if (seq === slotRequestSequence) {
+          loadingSlots = false;
+          showDuration();
+          updateSubmit();
+        }
+      }
+    }
+    form.querySelector('[data-phone-date]').addEventListener('change', refreshSlots);
+    form.querySelector('[data-phone-date]').addEventListener('input', refreshSlots);
     form.querySelector('[data-cancel]').addEventListener('click', closeModal);
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
-      if (!form.reportValidity() || showPhoneConflict()) return;
+      if (!form.reportValidity() || !canSubmit()) {
+        if (!canSubmit()) showMessage(message, '請先選好服務項目，並選取非灰色的可預約時段。', 'error');
+        return;
+      }
       const payload = {
-        requestId,
+        requestId: 'PHONE-' + requestId,
         bookingDate: form.querySelector('[data-phone-date]').value,
-        startTime: form.querySelector('[data-phone-time]').value,
+        startTime: selectedSlot,
         contactSurname: form.querySelector('[data-phone-surname]').value.trim(),
         contactSalutation: form.querySelector('[data-phone-salutation]').value,
         contactPhone: form.querySelector('[data-phone-number]').value.trim(),
         adminNote: form.querySelector('[data-phone-note]').value.trim(),
-        items: [{ serviceId: serviceSelect.value, quantity: 1 }],
+        items: selectedItems(),
       };
-      await runModalAction(async () => bookingRequest('admin.booking.phone.create', payload, true));
+      await runModalAction(async () => {
+        try {
+          await bookingRequest('admin.booking.phone.create', payload, true);
+        } catch (error) {
+          if (error?.code === 'PHONE_BOOKING_CONFLICT') refreshSlots();
+          throw error;
+        }
+      });
     });
+    const requestId = window.crypto.randomUUID();
+    renderSelections();
     showModal();
   }
 
@@ -1638,8 +1800,9 @@
         summaryMetaItem('會員編號', String(booking.memberCode || '未取得')),
       );
     }
+    const bookingTotalMinutes = isPhoneBooking(booking) ? booking.totalDurationMinutes : (group?.totalDurationMinutes ?? booking.totalDurationMinutes);
     memberMeta.append(
-      summaryMetaItem('總服務時間', `${Math.max(0, Number(group?.totalDurationMinutes || booking.totalDurationMinutes || 0))} 分鐘`),
+      summaryMetaItem('總服務時間', `${Math.max(0, Number(bookingTotalMinutes || 0))} 分鐘`),
       summaryMetaItem('總金額', formatMoney(Number(group?.totalAmount ?? booking.totalAmount ?? 0))),
     );
     if(group?.serviceRecipientMemberCode)memberMeta.append(summaryMetaItem('實際受服務者',`${group.serviceRecipientName||'好友'} · ${group.serviceRecipientMemberCode}（好友代約）`));

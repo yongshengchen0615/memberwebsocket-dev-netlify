@@ -66,7 +66,7 @@ test('group slots retain booking limits for a holiday', async () => {
 });
 
 test('group slots retain booking limits on a normally available date', async () => {
-  const builder = { select() { return this; }, eq() { return this; }, gte() { return this; }, lte() { return this; }, in() { return this; },
+  const builder = { select() { return this; }, eq() { return this; }, gte() { return this; }, lte() { return this; }, in() { return this; }, like() { return this; },
     then(resolve) { return Promise.resolve({ data: [], error: null }).then(resolve); } };
   const supabase = { from() { return builder; } };
   const result = await buildSlots()(supabase, null, { bookingDate: '2026-10-01' });
@@ -77,17 +77,35 @@ test('group slots retain booking limits on a normally available date', async () 
 
 test('optional onsite booking does not reserve or collide with an unselected primary technician', async () => {
   const optional={...group,settings:{...group.settings,require_primary_technician:false}};
-  const result=await buildSlots(false,optional)({from(){throw new Error('No technician was selected');}},null,{bookingDate:'2026-10-01'});
+  const builder={select(){return this;},gte(){return this;},lte(){return this;},like(){return this;},in(){return this;},then(resolve){return Promise.resolve({data:[],error:null}).then(resolve);}};
+  const supabase={from(table){assert.equal(table,'bookings','only non-technician phone occupancy may be queried');return builder;}};
+  const result=await buildSlots(false,optional)(supabase,null,{bookingDate:'2026-10-01'});
   assert.ok(result.slots.length>0);
   assert.ok(result.slots.every(slot=>slot.available));
   assert.equal(result.settings.requirePrimaryTechnician,false);
+});
+
+test('AC-007: group member slots grey out telephone reservations even without a technician', async () => {
+  const optional={...group,settings:{...group.settings,require_primary_technician:false}};
+  const bookingDate='2026-10-01';
+  const phone={id:'phone-1',start_at:'2026-10-01T09:30:00+08:00',end_at:'2026-10-01T10:00:00+08:00'};
+  const builder={
+    select(){return this;},gte(){return this;},lte(){return this;},like(field,value){
+      assert.equal(field,'request_id');assert.equal(value,'PHONE-%');return this;},
+    in(field,value){assert.equal(field,'status');assert.equal(value.join(','),'pending,confirmed');return this;},
+    then(resolve){return Promise.resolve({data:[phone],error:null}).then(resolve);}
+  };
+  const result=await buildSlots(false,optional)({from(table){assert.equal(table,'bookings');return builder;}},null,{bookingDate});
+  assert.equal(result.slots.find(slot=>slot.startTime==='09:00').available,true);
+  assert.equal(result.slots.find(slot=>slot.startTime==='09:30').available,false);
+  assert.equal(result.slots.find(slot=>slot.startTime==='09:30').unavailableReason,'occupied');
 });
 
 test('overnight slots carry the prior business date and reject midnight overlap', async () => {
   const bookingDate = '2026-09-30';
   const overnight = { ...group, settings: { ...group.settings, work_start_time: '14:00:00', work_end_time: '02:00:00', slot_interval_minutes: 15 } };
   const occupied = { id: 'another-booking', start_at: '2026-10-01T00:15:00', end_at: '2026-10-01T01:15:00' };
-  const builder = { select() { return this; }, eq() { return this; }, gte() { return this; }, lte() { return this; }, in() { return this; },
+  const builder = { select() { return this; }, eq() { return this; }, gte() { return this; }, lte() { return this; }, in() { return this; }, like() { return this; },
     then(resolve) { return Promise.resolve({ data: [occupied], error: null }).then(resolve); } };
   const result = await buildSlots(false, overnight)({ from() { return builder; } }, null, { bookingDate });
   const midnight = result.slots.find((slot) => slot.startTime === '00:30');

@@ -19,7 +19,7 @@ function fixture() {
     tierSettings:tiers.map((tierKey,i)=>({tierKey,requiredServiceMinutes:i*100,styleKey:'forest'})),
     terms:[{id:'terms-1',version:'1',title:'QA terms',summary:'QA summary',body:'QA terms body',effectiveAt:version,status:'active',required:true,reconsentExisting:false}],
     limits:{'pointcard-extension-api':{maxTicketsPerRedemption:1,updatedAt:version},'event-ticket-extension-api':{maxTicketsPerDay:1,updatedAt:version}},
-    settings:{workStartTime:'09:00',workEndTime:'18:00',minAdvanceDays:0,maxAdvanceDays:60,slotIntervalMinutes:30,bookingNotice:'QA notice',closedWeekdays:[],updatedAt:version,maxPartySize:2,primaryTechnicianId:'tech-1'},
+    settings:{workStartTime:'09:00',workEndTime:'18:00',minAdvanceDays:0,maxAdvanceDays:60,slotIntervalMinutes:30,storeServiceMinutes:10,bookingNotice:'QA notice',closedWeekdays:[],updatedAt:version,maxPartySize:2,primaryTechnicianId:'tech-1'},
     serviceTypes:[{id:'type-1',name:'Body',sortOrder:0}],
     services:[{serviceId:'service-1',title:'QA service',serviceType:'Body',durationMinutes:30,priceAmount:100,isActive:true,updatedAt:version,rewardRules:[]},{serviceId:'service-2',title:'QA second service',serviceType:'Body',durationMinutes:30,priceAmount:200,isActive:true,updatedAt:version,rewardRules:[]}],
     technicians:[{technicianId:'tech-1',name:'QA primary',sortOrder:0,isActive:true,updatedAt:version},{technicianId:'tech-2',name:'QA secondary',sortOrder:1,isActive:true,updatedAt:version}],
@@ -136,13 +136,39 @@ function transport(s, action, p={}, slug='api',record=true) {
   if(action==='admin.booking.benefits.list')return {booking:s.bookings.find(b=>b.bookingId===p.bookingId),catalog:s.benefitCatalog};
   if(action==='admin.booking.benefits.update'){const b=s.bookings.find(b=>b.bookingId===p.bookingId);b.benefits=p.benefits.map(i=>({...i,status:'pending',title:'QA selected benefit'}));b.updatedAt=stamp();return {booking:b};}
   if(action==='admin.booking.participants.items.update'||action==='admin.booking.participants.technicians.update'){const group=s.groups[p.bookingId];group.participants=p.participants.map((v,i)=>({...group.participants[i],...v}));s.bookings.find(b=>b.bookingId===p.bookingId).updatedAt=stamp();return {group};}
+  if(action==='admin.booking.phone.slots'){
+    const storeServiceMinutes=Number(s.settings.storeServiceMinutes??10);
+    const requested=(p.items||[]).map(item=>({service:s.services.find(x=>x.serviceId===item.serviceId),quantity:Number(item.quantity||1)}));
+    if(!requested.length||requested.some(item=>!item.service))throw Object.assign(new Error('無效項目'),{code:'INVALID_BOOKING_ITEMS'});
+    const serviceMinutes=requested.reduce((sum,item)=>sum+Number(item.service.durationMinutes||0)*item.quantity,0);
+    const totalDurationMinutes=serviceMinutes+storeServiceMinutes;
+    const slots=[];
+    const workStart=Number(s.settings.workStartTime.slice(0,2))*60+Number(s.settings.workStartTime.slice(3,5));
+    const workEnd=Number(s.settings.workEndTime.slice(0,2))*60+Number(s.settings.workEndTime.slice(3,5))+(s.settings.workEndTime<s.settings.workStartTime?1440:0);
+    const toTime=mins=>String(Math.floor(mins/60)%24).padStart(2,'0')+':'+String(mins%60).padStart(2,'0');
+    const toDate=mins=>new Date(Date.parse(p.bookingDate+'T00:00:00Z')+(mins>=1440?86400000:0)).toISOString().slice(0,10);
+    for(let cursor=workStart;cursor+totalDurationMinutes<=workEnd;cursor+=Number(s.settings.slotIntervalMinutes||30)){
+      const start=Date.parse(p.bookingDate+'T00:00:00Z')+cursor*60000;
+      const end=start+totalDurationMinutes*60000;
+      const overlap=s.bookings.some(b=>{
+        if(!['pending','confirmed'].includes(b.status))return false;
+        const from=Date.parse(b.bookingDate+'T'+b.startTime+':00Z');
+        const until=from+Number(b.totalDurationMinutes||0)*60000;
+        return start<until&&end>from;
+      });
+      slots.push({startTime:toTime(cursor),endTime:toTime(cursor+totalDurationMinutes),startAt:toDate(cursor),endAt:toDate(cursor+totalDurationMinutes),available:!overlap,unavailableReason:overlap?'occupied':null});
+    }
+    return {slots,totalDurationMinutes,storeServiceMinutes};
+  }
   if(action==='admin.booking.phone.create'){
     const old=s.bookings.find(b=>b.requestId===p.requestId);
     if(old)return {bookingId:old.bookingId,bookingSource:'phone',status:old.status};
     const requestedStart=Date.parse(p.bookingDate+'T'+p.startTime+':00Z');
-    const reqService=s.services.find(x=>x.serviceId===p.items?.[0]?.serviceId);
-    if(!reqService)throw Object.assign(new Error('無效項目'),{code:'INVALID_BOOKING_ITEMS'});
-    const requestedEnd=requestedStart+(Number(reqService.durationMinutes||0)+10)*60000;
+    const requested=p.items.map(item=>({service:s.services.find(x=>x.serviceId===item.serviceId),quantity:Number(item.quantity||1)}));
+    if(!requested.length||requested.some(item=>!item.service))throw Object.assign(new Error('無效項目'),{code:'INVALID_BOOKING_ITEMS'});
+    const itemMinutes=requested.reduce((sum,item)=>sum+Number(item.service.durationMinutes||0)*item.quantity,0);
+    const storeMinutes=Number(s.settings.storeServiceMinutes??10);
+    const requestedEnd=requestedStart+(itemMinutes+storeMinutes)*60000;
     const occupied=s.bookings.some(b=>{
       if(!['pending','confirmed'].includes(b.status))return false;
       const from=Date.parse(b.bookingDate+'T'+b.startTime+':00Z');
@@ -151,20 +177,18 @@ function transport(s, action, p={}, slug='api',record=true) {
     });
     if(occupied)throw Object.assign(new Error('此時段已有預約，請先取消原預約，或選擇其他時段。'),{code:'PHONE_BOOKING_CONFLICT'});
 
-    const service=s.services.find(x=>x.serviceId===p.items?.[0]?.serviceId);
-    if(!service)throw Object.assign(new Error('無效項目'),{code:'INVALID_BOOKING_ITEMS'});
     const bookingId='phone-'+(++s.seq);
     const start=Number(p.startTime.slice(0,2))*60+Number(p.startTime.slice(3,5));
-    const end=(start+Number(service.durationMinutes||30)+10)%(24*60);
+    const end=(start+itemMinutes+storeMinutes)%(24*60);
     const row={
       bookingId,requestId:p.requestId,bookingSource:'phone',memberId:null,memberCode:'',memberDisplayName:'',
       bookingDate:p.bookingDate,startTime:p.startTime,
       endTime:String(Math.floor(end/60)).padStart(2,'0')+':'+String(end%60).padStart(2,'0'),
       status:'confirmed',adminNote:p.adminNote,memberNote:'',
       contactSurname:p.contactSurname,contactSalutation:p.contactSalutation,contactPhone:p.contactPhone,
-      totalDurationMinutes:Number(service.durationMinutes||30)+10,totalAmount:Number(service.priceAmount||0),
-      items:[{serviceId:service.serviceId,serviceTitle:service.title,unitDurationMinutes:service.durationMinutes,
-        unitPriceAmount:service.priceAmount,quantity:1}],updatedAt:stamp(),
+      totalDurationMinutes:itemMinutes+storeMinutes,totalAmount:requested.reduce((sum,item)=>sum+Number(item.service.priceAmount||0)*item.quantity,0),
+      items:requested.map(item=>({serviceId:item.service.serviceId,serviceTitle:item.service.title,unitDurationMinutes:item.service.durationMinutes,
+        unitPriceAmount:item.service.priceAmount,quantity:item.quantity})),updatedAt:stamp(),
     };
     s.bookings.push(row);
     return {bookingId,bookingSource:'phone',status:'confirmed'};
