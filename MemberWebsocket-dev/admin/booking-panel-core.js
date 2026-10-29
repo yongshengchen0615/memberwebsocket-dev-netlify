@@ -57,8 +57,11 @@
     badge.setAttribute('aria-hidden', 'true');
     badge.hidden = true;
     tab.appendChild(badge);
+    // Booking mounts asynchronously: keep LINE settings as the final main tab.
+    const lineSettingsTab = document.getElementById('lineSettingsTab');
     const testModeTab = document.getElementById('testModeTab');
-    if (testModeTab && testModeTab.parentElement === nav) nav.insertBefore(tab, testModeTab);
+    const anchor = [lineSettingsTab, testModeTab].find(node => node?.parentElement === nav);
+    if (anchor) nav.insertBefore(tab, anchor);
     else nav.appendChild(tab);
 
     const panel = document.createElement('section');
