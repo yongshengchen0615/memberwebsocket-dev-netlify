@@ -1511,14 +1511,16 @@
           }
           actions.append(actionButton('修改預約票券', 'button button-outline', () => openBookingBenefitsModal(booking)));
         }
-        if (!isPhoneBooking(booking) && (booking.status === 'pending' || booking.status === 'confirmed')) {
+        if (booking.status === 'pending' || booking.status === 'confirmed') {
           const reason = noShowUnavailableReason(booking, state.booking.noShowRisk?.policy);
           const visibleReason = noShowDisplayReason(reason);
           const noShow = actionButton('無故未到', 'button button-danger', () => openNoShow(booking, textarea.value));
           noShow.dataset.noShowId=bookingId; noShow.disabled = Boolean(reason); noShow.title = visibleReason;
           noShow.setAttribute('aria-label', visibleReason ? `無故未到：${visibleReason}` : '無故未到');
-          actions.append(noShow);
-          if (visibleReason) { const hint = document.createElement('small'); hint.textContent = visibleReason; actions.append(hint); }
+          if (!isPhoneBooking(booking)) {
+            actions.append(noShow);
+            if (visibleReason) { const hint = document.createElement('small'); hint.textContent = visibleReason; actions.append(hint); }
+          }
         }
         if (booking.status === 'pending') {
           actions.append(
