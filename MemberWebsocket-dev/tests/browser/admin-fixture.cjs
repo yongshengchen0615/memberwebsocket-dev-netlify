@@ -155,7 +155,7 @@ function transport(s, action, p={}, slug='api',record=true) {
 }
 async function startFixture() {
   const sessions=new Map();let base;
-  const scripts=['theme.js','admin/admin-session.js','admin/coupon-location-editor.js','admin/app.js','admin/ticket-visibility.js','admin/member-workspace-tabs.js','admin/terms.js','admin/grant-automation.js','admin/fixed-ticket-admin-integration.js','admin/fixed-ticket-calendar-option.js','admin/fixed-ticket-admin.js','admin/pointcard-redemption-limit.js','admin/event-ticket-redemption-limit.js','booking-copy-text.js','booking-copy-format.js','admin/booking-panel.js','admin/booking-receipt-admin.js','admin/booking-accessible-admin.js','admin/integration-hub.js'];
+  const scripts=['theme.js','admin/admin-session.js','admin/coupon-location-editor.js','admin/app.js','admin/ticket-visibility.js','admin/member-workspace-tabs.js','admin/terms.js','admin/grant-automation.js','admin/fixed-ticket-admin-integration.js','admin/fixed-ticket-calendar-option.js','admin/fixed-ticket-admin.js','admin/pointcard-redemption-limit.js','admin/event-ticket-redemption-limit.js','booking-copy-text.js','booking-copy-format.js','admin/booking-panel.js','admin/booking-receipt-admin.js','admin/booking-accessible-admin.js'];
   const server=http.createServer(async(req,res)=>{
     const url=new URL(req.url,'http://localhost');const id=/qa=([^;]+)/.exec(req.headers.cookie||'')?.[1];
     const send=(status,type,body)=>{res.writeHead(status,{'Content-Type':type});res.end(body);};
