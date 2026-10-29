@@ -94,7 +94,7 @@ function mapDatabaseError(error: unknown): ApiError {
     ["BOOKING_NO_SHOW_NOT_ALLOWED",409,"BOOKING_NO_SHOW_NOT_ALLOWED","只有待確認的一般預約可標記無故未到，請重新整理。"],
     ["BOOKING_NOT_FOUND",404,"BOOKING_NOT_FOUND","找不到這筆預約。"],
     ["ADMIN_REQUIRED",403,"ADMIN_REQUIRED","目前沒有管理員權限。"],
-    ["BOOKING_OVERLAP_ACK_REQUIRED",400,"BOOKING_OVERLAP_ACK_REQUIRED","請先確認電話預約可能與現有預約重疊。"],
+    ["PHONE_BOOKING_CONFLICT",409,"PHONE_BOOKING_CONFLICT","此時段已有預約，請先取消原預約，或選擇其他時段。"],
     ["INVALID_BOOKING_CONTACT",400,"INVALID_BOOKING_CONTACT","請填寫客人姓氏、稱謂與有效的聯絡電話。"],
     ["INVALID_BOOKING_NOTE",400,"INVALID_BOOKING_NOTE","預約說明不得超過 500 字。"],
     ["INVALID_REQUEST_ID",400,"INVALID_REQUEST_ID","操作識別碼不正確，請重新開啟電話預約表單。"],
@@ -917,9 +917,6 @@ async function adminCreatePhoneBooking(supabase: SupabaseClient, identity: Ident
   if (!/^PHONE-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId)) {
     throw new ApiError(400, "INVALID_REQUEST_ID", "操作識別碼不正確，請重新開啟電話預約表單。");
   }
-  if (body.allowOverlap !== true) {
-    throw new ApiError(400, "BOOKING_OVERLAP_ACK_REQUIRED", "請先確認電話預約可能與現有預約重疊。");
-  }
   const surname = asText(body.contactSurname, 41);
   const salutation = asText(body.contactSalutation, 10);
   const phone = asText(body.contactPhone, 35);
@@ -952,7 +949,6 @@ async function adminCreatePhoneBooking(supabase: SupabaseClient, identity: Ident
     p_contact_phone: phone,
     p_items: items,
     p_admin_note: adminNote,
-    p_allow_overlap: true,
   });
   if (result.error) throw mapDatabaseError(result.error);
   const row = Array.isArray(result.data) ? result.data[0] : result.data;
