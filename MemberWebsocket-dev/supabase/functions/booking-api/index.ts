@@ -635,6 +635,7 @@ async function generateSlots(supabase: SupabaseClient, body: Json, member: any):
       startAt: timeOnBusinessDate(date, cursor),
       endAt: timeOnBusinessDate(date, candidateEnd),
       available: !overlap && !passed,
+      unavailableReason: overlap ? "occupied" : passed ? "past" : null,
     });
   }
 
@@ -647,6 +648,25 @@ async function generateSlots(supabase: SupabaseClient, body: Json, member: any):
     latestBookingDate: latestBookingDate || null,
     slots,
   };
+}
+
+// Admin phone reservations use the same service, business-hours, holiday and
+// occupied-range algorithm as member reservations. Never accept a member booking
+// exclusion ID from the admin: a phone reservation cannot override an existing one.
+async function adminPhoneSlots(supabase: SupabaseClient, body: Json): Promise<Json> {
+  const raw = Array.isArray(body.items) ? body.items : [];
+  if (!raw.length || raw.some((item: any) => String(item?.serviceId || "") === STORE_SERVICE_ID)) {
+    throw new ApiError(400, "INVALID_BOOKING_ITEMS", "請先選擇預約項目，店內服務時間由系統自動加入。");
+  }
+  const result = await generateSlots(supabase, {
+    bookingDate: body.bookingDate,
+    items: [...raw, { serviceId: STORE_SERVICE_ID, quantity: 1 }],
+  }, null);
+  // Phone booking SQL caps occupied duration at 1439 minutes.
+  if (Number(result.totalDurationMinutes) > 1439) {
+    throw new ApiError(400, "INVALID_BOOKING_DURATION", "預約服務總時間過長。");
+  }
+  return result;
 }
 
 async function audit(supabase: SupabaseClient, identity: Identity, role: "member" | "admin", action: string, targetType: string, targetId: string, metadata: Json = {}): Promise<void> {
@@ -1153,6 +1173,7 @@ async function route(supabase: SupabaseClient, identity: Identity, clientType: C
     if(businessContext()) data.noShowRisk=await bookingRisk(supabase,identity,"admin.booking.risk.get",{});
     return data;
   }
+  if (action === "admin.booking.phone.slots") return await adminPhoneSlots(supabase, body);
   if (action === "admin.booking.phone.create") return await adminCreatePhoneBooking(supabase, identity, body);
   if (action === "admin.booking.settings.save") return await adminSettingsSave(supabase, identity, body);
   if (action === "admin.booking.service.save") return await adminServiceSave(supabase, identity, body);
