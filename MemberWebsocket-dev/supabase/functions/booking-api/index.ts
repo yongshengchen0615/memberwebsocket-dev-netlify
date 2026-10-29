@@ -85,6 +85,8 @@ function mapDatabaseError(error: unknown): ApiError {
   const message = `${raw?.message || ""} ${raw?.details || ""}`;
   const rules: Array<[string, number, string, string]> = [
     ["BOOKING_RESTRICTED",403,"BOOKING_RESTRICTED","目前暫停線上預約，請重新整理查看到期時間與聯絡方式。"],
+    // Legacy SQL error also protects administrator revoke/release reason validation.
+    ["INVALID_APPEAL_REASON",400,"INVALID_RISK_ACTION_REASON","請填寫 1–500 字的撤銷或解除原因。"],
     ["booking_no_show_policy",400,"INVALID_BOOKING_POLICY","請完整設定計次期間、門檻、限制期限、寬限與聯絡方式。"],
     ["INVALID_BOOKING_ID",400,"INVALID_BOOKING_ID","預約識別格式不正確。"],
     ["BOOKING_NO_SHOW_TOO_EARLY",409,"BOOKING_NO_SHOW_TOO_EARLY","服務結束後才能標記無故未到。"],
