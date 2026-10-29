@@ -35,7 +35,7 @@ begin
  if start_at=0 then raise exception 'BOOKING_RISK_APPEAL_FEED_SOURCE_MISMATCH';end if;
  end_at:=position('));' in substring(definition from start_at));
  if end_at=0 then raise exception 'BOOKING_RISK_APPEAL_FEED_END_MISMATCH';end if;
- definition:=substring(definition from 1 for start_at-1)||substring(definition from start_at+end_at+1);
+ definition:=substring(definition from 1 for start_at-1)||substring(definition from start_at+end_at);
  execute definition;
  for t in select runtime_schema from platform_private.tenants where runtime_schema is not null loop
   perform platform_private.install_booking_risk(t.runtime_schema);
