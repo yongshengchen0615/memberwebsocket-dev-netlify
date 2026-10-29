@@ -924,7 +924,7 @@ async function adminCreatePhoneBooking(supabase: SupabaseClient, identity: Ident
   const salutation = asText(body.contactSalutation, 10);
   const phone = asText(body.contactPhone, 35);
   if (!surname || surname.length > 40 || !["mr", "ms"].includes(salutation) ||
-      !/^\\+?[0-9() -]{8,25}$/.test(phone)) {
+      !/^\+?[0-9() -]{8,25}$/.test(phone)) {
     throw new ApiError(400, "INVALID_BOOKING_CONTACT", "請填寫客人姓氏、稱謂與有效的聯絡電話。");
   }
   const adminNote = asText(body.adminNote, 501);
