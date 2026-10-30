@@ -36,15 +36,15 @@ for(const width of [390,1280])test('NOTIFICATION_PURPOSES_'+width+' — independ
   await expect(page.locator('[data-business-line-feature="membership"]')).toBeHidden();
   const admin=page.locator('#notification-booking-admin'),member=page.locator('#notification-booking-member');
   await page.locator('[data-business-line-feature="booking"] > details').filter({has:admin}).evaluate(d=>d.open=true);
-  await admin.locator('select').selectOption('custom');await admin.locator('[name=messagingChannelId]').fill('2010123456');await admin.locator('[name=channelAccessToken]').fill('synthetic-browser-notification-token-123456');
+  await expect(admin.locator('select')).toHaveCount(0);await admin.locator('[name=messagingChannelId]').fill('2010123456');await admin.locator('[name=channelAccessToken]').fill('synthetic-browser-notification-token-123456');
   await admin.getByRole('button',{name:'驗證並儲存通知設定'}).click();await expect(admin.locator('[role=status]')).toContainText('無法確認');
   await expect(member.getByRole('button',{name:'驗證並儲存通知設定'})).toBeDisabled();
   await admin.getByRole('button',{name:'重試相同儲存操作'}).click();await expect(admin.locator('[role=status]')).toContainText('已儲存');await expect(admin.locator('[name=channelAccessToken]')).toHaveValue('');
   let saved=(await h.db.query('select * from platform_private.tenants where id=$1',[tenant.id])).rows[0];expect(saved.version).toBe(2);expect(saved.module_line.booking.notifications.member).toBeUndefined();
   await admin.getByRole('button',{name:'傳送測試給我'}).click();await expect(admin.locator('[role=status]')).toContainText('LINE 已接受');
   const push=provider.find(c=>c.url.endsWith('/push'));expect(JSON.parse(push.options.body).to).toBe(owner);expect(push.options.headers['X-Line-Retry-Key']).toMatch(/^[a-f0-9-]{36}$/);
-  valid=false;await member.locator('select').selectOption('custom');await member.locator('[name=messagingChannelId]').fill('2010123456');await member.locator('[name=channelAccessToken]').fill('synthetic-invalid-channel-token-123456');await member.getByRole('button',{name:'驗證並儲存通知設定'}).click();await expect(member.locator('[role=status]')).toContainText('不屬於');
-  await member.locator('select').selectOption('disabled');await member.getByRole('button',{name:'驗證並儲存通知設定'}).click();await expect(member.locator('[role=status]')).toContainText('已儲存');await expect(member.getByRole('button',{name:'傳送測試給我'})).toBeDisabled();
+  valid=false;await expect(member.locator('select')).toHaveCount(0);await member.locator('[name=messagingChannelId]').fill('2010123456');await member.locator('[name=channelAccessToken]').fill('synthetic-invalid-channel-token-123456');await member.getByRole('button',{name:'驗證並儲存通知設定'}).click();await expect(member.locator('[role=status]')).toContainText('不屬於');
+  await member.locator('[name=notificationDisabled]').check();await member.getByRole('button',{name:'驗證並儲存通知設定'}).click();await expect(member.locator('[role=status]')).toContainText('已儲存');await expect(member.getByRole('button',{name:'傳送測試給我'})).toBeDisabled();
   saved=(await h.db.query('select * from platform_private.tenants where id=$1',[tenant.id])).rows[0];expect(saved.module_line.booking.notifications.admin.mode).toBe('custom');expect(saved.module_line.booking.notifications.member.mode).toBe('disabled');
   expect((await h.db.query("select count(*)::int n from platform_private.audit_events where action='NOTIFICATION_ROUTE_UPDATED'")).rows[0].n).toBe(2);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
