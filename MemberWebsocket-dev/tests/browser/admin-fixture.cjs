@@ -93,7 +93,13 @@ function transport(s, action, p={}, slug='api',record=true) {
     return {deleted:true,ticketTemplateId:p.ticketTemplateId,preservedTicketCount:0};
   }
   if(action==='admin.event-tickets.list')return bootstrap();
-  if(action==='admin.event-tickets.save')return {eventTicket:save('eventTickets','eventTicketId',p.eventTicket)};
+  if(action==='admin.event-tickets.save'){
+    // Emulate an out-of-date preview API that accepts a write but drops group rules.
+    const eventTicket=s.legacyTicketApiDropsGroups
+      ? {...p.eventTicket,requiredServiceMatchMode:'any',requiredServiceGroups:[]}
+      : p.eventTicket;
+    return {eventTicket:save('eventTickets','eventTicketId',eventTicket)};
+  }
   if(action==='admin.event-tickets.delete')return del('eventTickets','eventTicketId',p.eventTicketId);
   if(action==='admin.calendar-items.list')return {calendarItems:s.calendarItems};
   if(action==='admin.calendar-items.save')return {calendarItem:save('calendarItems','calendarItemId',p.calendarItem)};
