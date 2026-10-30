@@ -2,7 +2,8 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { JSDOM } = require('jsdom');
+const { JSDOM, VirtualConsole } = require('jsdom');
+const { pathToFileURL } = require('node:url');
 const root = path.resolve(__dirname, '../..');
 const read = name => fs.readFileSync(path.join(root, name), 'utf8');
 
@@ -133,3 +134,66 @@ test('date dialog hidden empty and holiday elements do not override the native h
     }
   } finally { f.w.close(); }
 });
+
+for (const testMode of [false, true]) {
+  test(`merchant calendar request passes the real booking action policy on entry and month changes (${testMode ? 'test session' : 'LINE'})`, async () => {
+    const { assertBusinessAction } = await import(pathToFileURL(path.join(root, 'supabase/functions/_shared/business-policy.mjs')));
+    const context = { status: 'active', runtime_schema: 'business_' + 'a'.repeat(32), features: { booking: true, calendar: false } };
+    const errors = [], observers = [];
+    const virtualConsole = new VirtualConsole();
+    virtualConsole.on('jsdomError', error => errors.push(error.message));
+    const dom = new JSDOM(read('booking/index.html'), { url: 'https://example.test/booking/?business=merchant-a', runScripts: 'outside-only', pretendToBeVisual: true, virtualConsole });
+    const w = dom.window, requests = [], denied = [];
+    const NativeObserver = w.MutationObserver;
+    w.MutationObserver = class extends NativeObserver {
+      constructor(callback) { super(callback); observers.push(this); }
+    };
+    let resolveRequest;
+    const nextRequest = () => new Promise(resolve => { resolveRequest = resolve; });
+    w.matchMedia = () => ({ matches: false });
+    w.liff = { isLoggedIn: () => true, getIDToken: () => 'synthetic-line-token' };
+    if (testMode) w.TestModeClient = { getSessionToken: () => 'synthetic-session', payload: body => ({ ...body, testSessionToken: 'synthetic-session' }) };
+    w.BookingSystem = { loadConfig: async () => ({ supabaseUrl: 'https://fixture.supabase.co', supabasePublishableKey: 'fixture-key' }), formatDate: date => date };
+    w.fetch = async (url, init) => {
+      const body = JSON.parse(init.body);
+      requests.push({ url, body });
+      let response;
+      try {
+        assertBusinessAction(context, body.action || '', body);
+        response = new Response(JSON.stringify({ ok: true, data: { occupiedDates: [{ date: body.month + '-01', intervals: [{ startTime: '09:00', endTime: '10:00' }] }] } }));
+      } catch (error) {
+        denied.push(error.code);
+        response = new Response(JSON.stringify({ ok: false, error: { code: error.code, message: error.message } }), { status: error.status });
+      }
+      resolveRequest?.();
+      return response;
+    };
+    w.eval(read('business-context.js'));
+    w.eval(read('booking/calendar-flow.js'));
+    try {
+      await new Promise(resolve => w.addEventListener('DOMContentLoaded', resolve, { once: true }));
+      for (const trigger of [() => w.dispatchEvent(new w.CustomEvent('booking:view-shown')), () => w.document.getElementById('previousMonthButton').click(), () => w.document.getElementById('nextMonthButton').click()]) {
+        const requestDone = nextRequest();
+        trigger();
+        await requestDone;
+        await new Promise(resolve => setTimeout(resolve, 0));
+        const { body } = requests.at(-1);
+        assert.deepEqual(denied, [], 'Authorized booking-only tenant must not hit FEATURE_ACTION_UNMAPPED');
+        assert.equal(body.action, 'user.booking.calendar');
+        assert.equal(body.business, 'merchant-a');
+        assert.equal(body.idToken, testMode ? '' : 'synthetic-line-token');
+        assert.equal(body.testSessionToken, testMode ? 'synthetic-session' : undefined);
+        assert.ok(w.document.querySelector(`[data-date="${body.month}-01"] .calendar-booking-times`));
+        assert.throws(() => assertBusinessAction({ ...context, features: { booking: false, calendar: true } }, body.action, body), error => error.code === 'FEATURE_DISABLED');
+        assert.throws(() => assertBusinessAction({ ...context, status: 'suspended' }, body.action, body), error => error.code === 'TENANT_SUSPENDED');
+      }
+      assert.notEqual(requests[0].body.month, requests[1].body.month);
+      assert.equal(requests[0].body.month, requests[2].body.month);
+    } finally {
+      observers.forEach(observer => observer.disconnect());
+      w.close();
+      await new Promise(resolve => setTimeout(resolve, 0));
+      assert.deepEqual(errors, [], 'Merchant fixture must have no uncaught browser errors');
+    }
+  });
+}
