@@ -99,6 +99,11 @@
   }
 
   function serviceRequirementMet(item) {
+    const groups = Array.isArray(item?.requiredServiceGroups) ? item.requiredServiceGroups : [];
+    if (groups.length) {
+      return groups.some(group => Array.isArray(group) && group.length > 0
+        && group.every(serviceId => currentServiceIds.has(serviceIdKey(serviceId))));
+    }
     const required = requiredServiceIds(item);
     if (!required.length) return true;
     const matchMode = item?.requiredServiceMatchMode === 'all' ? 'all' : 'any';
@@ -377,7 +382,7 @@
                     : item.kind === 'event' && (item.reservedInSnapshot || (item.reservedForBooking && !item.reservedForCurrentBooking))
                       ? '已登記，不能重複登記'
                     : serviceBlocked
-                      ? `需先預約：${requiredServiceTitles(item).join('、')}`
+                      ? `需先預約：${item.requiredServiceRequirementLabel || requiredServiceTitles(item).join('、')}`
                       : selectable ? '本次預約使用' : '目前不可勾選';
           choose.append(input, label);
           input.addEventListener('change', () => {
