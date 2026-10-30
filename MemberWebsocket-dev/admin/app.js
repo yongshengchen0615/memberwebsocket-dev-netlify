@@ -1809,7 +1809,7 @@
   function collectRewards() { return Array.from(els.rewardRows.querySelectorAll('[data-reward-row]')).map((row) => ({ thresholdStamps: Number(row.querySelector('[data-field="thresholdStamps"]')?.value), ticketTemplateId: String(row.querySelector('[data-field="ticketTemplateId"]')?.value || '').trim(), requiredServiceIds: collectRequiredServiceIds(row.querySelector('[data-reward-required-service-ids]')), requiredServiceMatchMode: row.querySelector('[data-field="requiredServiceMatchMode"]')?.value || 'any', requiredServiceGroups: collectRequiredServiceGroups(row.querySelector('[data-reward-required-service-groups]')) })); }
   function updateRewardEditorHint() {
     const rewards = collectRewards(); const duplicate = rewards.some((reward, index) => rewards.findIndex((item) => item.thresholdStamps === reward.thresholdStamps) !== index); const missingTicket = rewards.some((reward) => !reward.ticketTemplateId);
-    els.rewardRows.querySelectorAll('[data-reward-row]').forEach((row) => { const threshold = Number(row.querySelector('[data-field="thresholdStamps"]')?.value); const ticket = state.tickets.find((item) => item.ticketTemplateId === row.querySelector('[data-field="ticketTemplateId"]')?.value); const requiredServiceIds = collectRequiredServiceIds(row.querySelector('[data-reward-required-service-ids]')); const requiredServiceMatchMode = row.querySelector('[data-field="requiredServiceMatchMode"]')?.value === 'all' ? 'all' : 'any'; const serviceGroups = collectRequiredServiceGroups(row.querySelector('[data-reward-required-service-groups]')); const serviceSummary = ` · ${requiredServiceMatchMode === 'groups' ? groupRequirementLabel(serviceGroups) : bookingServiceRequirementLabel(requiredServiceIds, requiredServiceMatchMode)}`; const summary = row.querySelector('[data-reward-summary]'); if (summary) summary.textContent = Number.isInteger(threshold) && threshold > 0 ? `集到 ${threshold} 點即可兌換 · ${ticket ? ticket.title : '尚未選擇票券'}${serviceSummary}` : '請先設定點數節點'; });
+    els.rewardRows.querySelectorAll('[data-reward-row]').forEach((row) => { const threshold = Number(row.querySelector('[data-field="thresholdStamps"]')?.value); const ticket = state.tickets.find((item) => item.ticketTemplateId === row.querySelector('[data-field="ticketTemplateId"]')?.value); const requiredServiceIds = collectRequiredServiceIds(row.querySelector('[data-reward-required-service-ids]')); const requiredServiceMatchMode = row.querySelector('[data-field="requiredServiceMatchMode"]')?.value || 'any'; const serviceGroups = collectRequiredServiceGroups(row.querySelector('[data-reward-required-service-groups]')); const serviceSummary = ` · ${requiredServiceMatchMode === 'groups' ? groupRequirementLabel(serviceGroups) : bookingServiceRequirementLabel(requiredServiceIds, requiredServiceMatchMode)}`; const summary = row.querySelector('[data-reward-summary]'); if (summary) summary.textContent = Number.isInteger(threshold) && threshold > 0 ? `集到 ${threshold} 點即可兌換 · ${ticket ? ticket.title : '尚未選擇票券'}${serviceSummary}` : '請先設定點數節點'; });
     els.rewardEditorHint.textContent = duplicate ? '有節點使用相同點數，請調整後再儲存。' : missingTicket ? '每個節點都要選擇一張已啟用票券。' : `${rewards.length} 個兌換節點 · 兌換時會自動扣除該節點需要集到的點數。`; els.rewardEditorHint.classList.toggle('warning', duplicate || missingTicket);
   }
   function validateRewardEditor(title, rewards) { if (!title || title.length > 80) return '請填寫卡片名稱（最多 80 字）。'; if (!rewards.length || rewards.length > 30) return '請至少設定 1 個兌換節點，最多 30 個節點。'; const thresholds = new Set(); for (const reward of rewards) { if (!Number.isInteger(reward.thresholdStamps) || reward.thresholdStamps < 1 || reward.thresholdStamps > 100) return '需要集到的點數必須是 1–100 的整數。'; if (thresholds.has(reward.thresholdStamps)) return '每個點數只能設定一個節點。'; thresholds.add(reward.thresholdStamps); if (!reward.ticketTemplateId) return '請為每個節點選擇一張票券。'; if (reward.requiredServiceMatchMode === 'groups' && (!reward.requiredServiceGroups?.length || reward.requiredServiceGroups.some(group => !group.length))) return '請為每個預約組合至少勾選一個項目。'; } return ''; }
@@ -1964,6 +1964,9 @@
   function renderRequiredServiceOptions(root, selectedIds = []) {
     if (!root) return;
     const selected = new Set((Array.isArray(selectedIds) ? selectedIds : []).map((value) => String(value || '').trim()).filter(Boolean));
+    // A service catalogue may briefly be empty during merchant real-time refresh.
+    // Preserve the last saved selection until checkboxes are available again.
+    root.dataset.requiredServiceSelectedIds = JSON.stringify([...selected]);
     const services = state.bookingServices.filter((service) => service && service.serviceId && service.title);
     if (!services.length) {
       const empty = document.createElement('p');
@@ -1990,9 +1993,22 @@
   }
 
   function collectRequiredServiceIds(root) {
-    return Array.from(root?.querySelectorAll('input[type="checkbox"]:checked') || [])
-      .map((input) => String(input.value || '').trim())
-      .filter(Boolean);
+    if (!root) return [];
+    const choices = Array.from(root.querySelectorAll('input[type="checkbox"]'));
+    if (!choices.length) {
+      // Do not erase configured groups while an async service refresh renders
+      // the "no services" placeholder instead of real checkbox controls.
+      try {
+        const saved = JSON.parse(root.dataset.requiredServiceSelectedIds || '[]');
+        return Array.isArray(saved) ? saved.map(value => String(value || '').trim()).filter(Boolean) : [];
+      } catch (_) {
+        return [];
+      }
+    }
+    const selected = choices.filter(input => input.checked)
+      .map(input => String(input.value || '').trim()).filter(Boolean);
+    root.dataset.requiredServiceSelectedIds = JSON.stringify(selected);
+    return selected;
   }
 
 
