@@ -41,20 +41,19 @@ test('AC-302/303/304: LINE settings tab owns module forms, isolated saves, modul
   assert.equal(row.line_config.memberLiffId,line.memberLiffId);assert.equal(row.line_config.pointsLiffId,'');
   assert.equal(calls.filter(c=>c.action==='platform.line.save')[0].requestId,calls.filter(c=>c.action==='platform.line.save')[1].requestId);
   assert.equal((await h.db.query("select count(*)::int n from platform_private.audit_events where action='MODULE_LINE_UPDATED'")).rows[0].n,1);
-  assert.equal(points.elements.pointsLiffId.value,'2010787602-unsaved');assert.equal(member.elements.channelAccessToken.value,'');assert.equal(member.elements.channelSecret.value,'');
+  assert.equal(points.elements.pointsLiffId.value,'2010787602-unsaved');assert.equal(member.elements.namedItem('channelAccessToken'),null);assert.equal(member.elements.namedItem('channelSecret'),null);
   assert.equal(d.querySelector('#businessLineIdentity-membership').hidden,true,'shared Login identity must disappear after initial setup');
   assert.equal(d.querySelector('#businessLineIdentity-points').hidden,true,'other modules must not repeat business Login inputs');
   assert.equal(points.elements.adminChannelId.disabled,true,'shared Login identity must not be editable from another feature');
   fill(points,'memberChannelId','2099999999');
   fill(points,'pointsLiffId','2099999999-unsaved');
-  fill(points,'channelAccessToken','synthetic-points-token-123456789');fill(points,'channelSecret','b'.repeat(32));
   points.dispatchEvent(new w.Event('submit',{cancelable:true}));
   await until(()=>d.querySelector('[data-business-line-feature="points"] [role="status"]').textContent.includes('已儲存'));
   const saved=(await h.db.query('select module_line from platform_private.tenants')).rows[0].module_line;
   assert.equal(saved.membership.line.memberLiffId,line.memberLiffId);assert.equal(saved.points.line.pointsLiffId,'2099999999-unsaved');
   assert.equal(saved.points.line.memberChannelId,'2099999999','points can use its own member Login Channel');
   assert.equal(saved.membership.line.memberChannelId,line.memberChannelId,'membership Login Channel must remain isolated');
-  assert.equal(calls.filter(c=>c.action==='platform.line.save').at(-1).credentials.channelAccessToken,'synthetic-points-token-123456789');
+  assert.deepEqual(calls.filter(c=>c.action==='platform.line.save').at(-1).credentials,{channelAccessToken:'',channelSecret:''});
   await w.BusinessLineSettings.apply({features:{...features,membership:false},business:{slug:t.slug}});
   assert.equal(d.querySelector('[data-business-line-feature="membership"]'),null);
   assert.equal(d.querySelector('#businessLineFeatureTab-membership'),null);
@@ -133,6 +132,11 @@ test('AC-307: approved feature-specific LINE settings do not require unrelated n
     assert.equal(entry.elements.namedItem('channelSecret'),null);
   }
   assert.equal(d.body.textContent.includes('本功能通知接收用途（需要時設定）'),true);
+  const bookingNotification=d.querySelector('#notification-booking-admin');
+  assert.equal(bookingNotification.querySelector('select'),null,'no notification channel selector');
+  assert.ok(bookingNotification.elements.namedItem('messagingChannelId'));
+  assert.ok(bookingNotification.elements.namedItem('channelAccessToken'));
+  assert.equal(bookingNotification.elements.namedItem('notificationDisabled').type,'checkbox');
   assert.equal(d.querySelector('[data-business-line-feature="integrations"]'),null);
   assert.equal(d.querySelector('[data-business-line-feature="testing"]'),null);
   assert.equal(d.querySelector('[data-business-line-feature="usage"]'),null);
