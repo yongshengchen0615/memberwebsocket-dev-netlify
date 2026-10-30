@@ -36,7 +36,7 @@ The migration replaces only the known fixed-issuance branch of `platform_tick_bu
 
 Existing policies and workspace are extended; no framework, package, subscription or paid test environment is added. Late integration observation annotates descendants without remounting LINE settings. Optional disabled calendar calls are skipped. Hidden booking point settings are omitted from unrelated type edits, retaining stored rules.
 
-Same-host uncompressed asset-byte comparison over the seven modified browser JS/CSS sources: **578,540 → 582,174 bytes (+3,634 bytes)**. Baseline fixed at the SHA above. This is an asset-size measurement, not an API latency improvement claim. Stored-dependency queries run only on affected operations when relevant grants are absent; fully granted settlements retain their original query path.
+Same-host uncompressed asset-byte comparison over the seven modified browser JS/CSS sources: **578,540 → 582,298 bytes (+3,758 bytes)**. Baseline fixed at the SHA above. This is an asset-size measurement, not an API latency improvement claim. Stored-dependency queries run only on affected operations when relevant grants are absent; fully granted settlements retain their original query path.
 
 ## Release and recovery
 
@@ -49,3 +49,5 @@ Recovery: fix forward by reverting the reviewed frontend/Edge commit and redeplo
 Browser correction: the first Chromium run rejected Playwright toBeDisabled on an option despite its native disabled/hidden properties. The updated assertion checks the native property and actual keyboard/selection behavior. Revoking an already-selected service grant now resets the mode and hides its entire dependent section; its DOM test reproduced the missing reset before the fix. Full CI is re-run on the new candidate.
 
 Deployment routing check: BookingSystem still sent benefits/claims/profile/presence to the production API despite previewApiFunctionUrl. A behavioral test reproduced the wrong destination. The client now honors the existing override and retains the legacy URL when absent; this avoids overwriting production member APIs for preview acceptance.
+
+Disabled point/event overview counters also follow the same grant map; a DOM RED/GREEN assertion covers the point-card and daily-points tiles.

@@ -6,6 +6,9 @@
  // Keep each optional integration with the modules it actually consumes.
  // CSS/inert do not reset forms or overwrite the module's own disabled state.
  const integrations=[
+  ['#activeCardCount','points','div'],
+  ['#todayEntryCount','points','div'],
+  ['#activeEventTicketCount','events','div'],
   ['#grantStampsEnabled','points','fieldset'],
   ['#grantServiceTimeEnabled','membership','fieldset'],
   ['#grantMode option[value="services"]','membership points booking'],

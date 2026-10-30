@@ -13,6 +13,8 @@ function fixture(){
 test('AC-001/004: nested points controls and service mode track grants without disabling service-time grants',async()=>{
  const h=fixture();try{
   h.apply({membership:true});
+  assert.equal(h.d.getElementById('activeCardCount').closest('div').dataset.businessAllowed,'false');
+  assert.equal(h.d.getElementById('todayEntryCount').closest('div').dataset.businessAllowed,'false');
   assert.equal(h.d.getElementById('grantStampsEnabled').closest('fieldset').dataset.businessAllowed,'false');
   assert.equal(h.d.querySelector('#grantMode option[value="services"]').disabled,true);
   assert.notEqual(h.d.getElementById('grantServiceTimeEnabled').closest('fieldset').dataset.businessAllowed,'false');
