@@ -23,15 +23,15 @@
     "admin/booking-receipt-admin.js": "b5873c2753c0f2f9c267d0d13583405c2205cc70c0f2103f5899f741a74cf920",
     "admin/booking-accessible-admin.js": "5947f0328b3b27ff891760f72615024899a96b77467f7601842056f908ce5526",
     "admin/ticket-visibility.js": "bb1cf776a3bf1c69f75bbfa6a4b3e07cf9c9077444099533cb9c2883736dd5c0",
-    "admin/workspace.html": "3c209f7f27134be7e930f66ee46d93d2bdadeac3310ca0499f4d5460f5fc38e9",
-    "platform/app.js": "0d6fa18f34eebeddfd1973b966f4ce8c7e83a2064259c6431accaf3cac81ef8b",
+    "admin/workspace.html": "a947ce02a6d579ea823d0459989f29a9564f3e1cb1c1362f6ffa77f45dc5775e",
+    "platform/app.js": "8c2b1314c20ffa2a90fbe580b6e700872eccac83cd6b50ab7b4487a240903fa3",
     "admin/business-workspace.js": "ea9c37299751e43bdb3d8193e637130f659a311f7ecaf41f1bee2cc7f7ced8d8",
     "business-context.js": "ce986eecdb60781f8fa8bdc563f130785d53cde4cc56614200eebd3613e017d7",
     "admin/business-line-settings.js": "7bb6ae04d25ffdf5aa25eba5d75517b8a11c570d8c4c75c1979fb2fa234dd5f1",
     "admin/booking-risk.js": "76f61965b64eaa761b8e60074daf893551bc1bdafce7792d951159adac501a97",
-    "platform/index.html": "9947ad56ab0a57057a232e23f61f25982e0d72ae7268a17e8c5fff058a9f4b4e",
+    "platform/index.html": "82f8aeac6641f201794059fdfa8e84c586e117e5bde50c71c7493169a8335934",
     "admin/productized-workspace.js": "f8fc604c11a7d241c3b28d596057ad6c3377a052cccb0a3b12ef671cd277fd4a",
-    "platform/platform.css": "73497f91799a20d05918ad515f450e4a231e6b1afad2bb160cdaf842c9bdeb75",
+    "platform/platform.css": "c310b47a7d880fbcd5f8cc7ab260cc632d2e788fb39add66448faf3f3731e80d",
     "admin/business-line-settings.css": "4c9b5152985bda7798dc6404874f6e17e80017abdbdd93f28fa02c0ff6a0853b"
   },
   "features": [
@@ -670,5 +670,19 @@
       "AC-ADM-UX-006/007: responsive and keyboard shortcuts at 320/390/768/1280px"
     ],
     "scope": "2026-10-22 #64: new UI-only quick links reuse existing authorized legacy tabs and only show after adminView; productized merchant workspace keeps current permission-gated form/LINE navigation; CSS improves responsive focus states. No new backend mutation or additional feature grant. See admin-quick-actions.spec.cjs. Existing human inventory cases unchanged. Regression: remove text match collision with legacy 「狀態」 role locator; new browser assertion ensures scoped shortcuts don't match it."
+  },
+  "merchantApplicationJourney": {
+    "entry": "admin/workspace.html",
+    "scope": "合格管理員經 LINE 登入後，新增商家申請僅能由按鈕開啟 modal；pending 商家進入審核中商家區塊，不與其他狀態重複，也不得顯示管理入口；被拒申請可在相同 modal 修正送審並沿用原 ID/版本；撤權會清空草稿並關閉視窗。",
+    "cases": [
+      "AC-MERCHANT-UI-001",
+      "AC-MERCHANT-UI-002",
+      "AC-MERCHANT-UI-003"
+    ],
+    "tests": [
+      "tests/integration/merchant_workspace_ui.cjs",
+      "tests/browser/merchant-workspace-v2.spec.cjs"
+    ],
+    "security": "管理入口依 ready 伺服器狀態控制，商家申請 API 的身分和資料歸屬仍在後端檢查；pending 無管理連結。"
   }
 }

@@ -53,7 +53,7 @@
       const field=el('merchantLineForm')?.elements.namedItem(key);if(field)field.value='';
     }
     if(el('onboardingJourney'))el('onboardingJourney').hidden=true;
-    for(const id of ['tenantDialog','approvalDialog','grantDialog','expiryDialog','v2ReviewDialog']) {
+    for(const id of ['tenantDialog','approvalDialog','grantDialog','expiryDialog','v2ReviewDialog','merchantApplicationDialog']) {
       const dialog=el(id);
       if(dialog?.open)dialog.close();
     }
@@ -257,8 +257,9 @@
     state.ownerApplications=[];merchantApplicationPending=null;merchantApplicationTarget=null;qualificationPending=null;
     if(el('myMerchantsWorkspace'))el('myMerchantsWorkspace').hidden=true;
     if(el('qualificationWorkspace'))el('qualificationWorkspace').hidden=true;
-    el('myMerchantList')?.replaceChildren();el('merchantApplicationForm')?.reset();
-    for(const id of ['merchantApplicationMessage','qualificationReason','qualificationMessage'])if(el(id))el(id).textContent='';
+    el('myMerchantList')?.replaceChildren();el('pendingMerchantList')?.replaceChildren();
+    el('merchantApplicationForm')?.reset();if(el('merchantApplicationDialog')?.open)el('merchantApplicationDialog').close();
+    for(const id of ['merchantApplicationStatus','merchantApplicationMessage','qualificationReason','qualificationMessage'])if(el(id))el(id).textContent='';
   }
   const qualificationLabels={pending:'管理員資格等待總管理員審核',approved:'管理員資格已通過',rejected:'管理員資格未通過，可補充資料後重新申請',suspended:'管理員資格已停用，請聯絡總管理員'};
   function renderQualification(qualification){
@@ -270,7 +271,8 @@
     button.disabled=qualificationBusy;button.textContent=qualificationPending?'重試相同資格申請':qualification?.status==='rejected'?'重新申請管理員資格':'申請管理員資格';
     if(qualification?.status!=='approved'){
       state.ownerApplications=[];merchantApplicationPending=null;merchantApplicationTarget=null;
-      el('myMerchantsWorkspace').hidden=true;el('myMerchantList').replaceChildren();el('merchantApplicationForm').reset();
+      el('myMerchantsWorkspace').hidden=true;el('myMerchantList').replaceChildren();el('pendingMerchantList').replaceChildren();
+      el('merchantApplicationForm').reset();if(el('merchantApplicationDialog').open)el('merchantApplicationDialog').close();
       if(qualification?.status==='pending')qualificationPending=null;
     }
   }
@@ -290,9 +292,13 @@
   }
   function renderMyMerchants(){
     el('myMerchantsWorkspace').hidden=false;
-    const list=el('myMerchantList');list.replaceChildren();
-    if(!state.ownerApplications.length){const empty=document.createElement('p');empty.className='empty';empty.textContent='尚未申請商家，請填寫下方資料。';list.append(empty);}
-    for(const application of state.ownerApplications){
+    const list=el('myMerchantList'),pendingList=el('pendingMerchantList');
+    list.replaceChildren();pendingList.replaceChildren();
+    const otherApplications=state.ownerApplications.filter(item=>item.status!=='pending');
+    const pendingApplications=state.ownerApplications.filter(item=>item.status==='pending');
+    if(!otherApplications.length){const empty=document.createElement('p');empty.className='empty';empty.textContent='尚無已核准或待修正的商家。';list.append(empty);}
+    if(!pendingApplications.length){const empty=document.createElement('p');empty.className='empty';empty.textContent='目前沒有審核中的商家。';pendingList.append(empty);}
+    for(const application of [...pendingApplications,...otherApplications]){
       const card=document.createElement('article');card.className='tenant-card';card.dataset.applicationId=application.id;
       const title=document.createElement('h3');title.textContent=application.businessName;
       const info=document.createElement('p');info.textContent=application.slug;
@@ -311,9 +317,9 @@
       }
       if(application.status==='rejected'){
         const retry=document.createElement('button');retry.type='button';retry.className='secondary';retry.dataset.resubmitMerchant='true';retry.textContent='修正並重新申請';retry.disabled=Boolean(merchantApplicationPending)||merchantApplicationBusy;
-        retry.addEventListener('click',()=>resetMerchantApplication(application));actions.append(retry);
+        retry.addEventListener('click',()=>openMerchantApplication(application));actions.append(retry);
       }
-      card.append(actions);list.append(card);
+      card.append(actions);(application.status==='pending'?pendingList:list).append(card);
     }
     el('newMerchantApplication').disabled=Boolean(merchantApplicationPending)||merchantApplicationBusy;
   }
@@ -327,10 +333,24 @@
     merchantApplicationTarget=application;const form=el('merchantApplicationForm');form.reset();lockMerchantApplication(false);
     form.elements.namedItem('businessName').value=application?.businessName||'';
     el('merchantApplicationTitle').textContent=application?'修正商家申請：'+application.businessName:'新增商家申請';
-    el('cancelMerchantResubmit').hidden=!application;el('merchantApplicationMessage').textContent='';
+    el('merchantApplicationMessage').textContent='';
     el('submitMerchantApplication').textContent=application?'重新提交此商家':'提交商家申請';
-    form.elements.namedItem('businessName').focus();
   }
+  const merchantApplicationDialog=el('merchantApplicationDialog');
+  function openMerchantApplication(application=null){
+    if(!isAccount()||state.qualification?.status!=='approved'||merchantApplicationBusy||merchantApplicationPending)return;
+    resetMerchantApplication(application);
+    merchantApplicationDialog.showModal();
+    el('merchantApplicationForm').elements.namedItem('businessName').focus();
+  }
+  function closeMerchantApplication(){
+    if(merchantApplicationBusy||merchantApplicationPending)return;
+    merchantApplicationDialog.close();resetMerchantApplication();
+  }
+  merchantApplicationDialog?.addEventListener('cancel',event=>{
+    if(merchantApplicationBusy||merchantApplicationPending)event.preventDefault();
+    else resetMerchantApplication();
+  });
   el('submitQualification')?.addEventListener('click',async()=>{
     if(!isAccount()||qualificationBusy||state.qualification&&state.qualification.status!=='rejected')return;
     if(!qualificationPending)qualificationPending={requestId:crypto.randomUUID()};
@@ -344,10 +364,10 @@
       el('qualificationMessage').textContent=error.message;
     }finally{qualificationBusy=false;el('submitQualification').disabled=false;el('submitQualification').textContent=qualificationPending?'重試相同資格申請':'申請管理員資格';}
   });
-  el('newMerchantApplication')?.addEventListener('click',()=>resetMerchantApplication());
-  el('cancelMerchantResubmit')?.addEventListener('click',()=>resetMerchantApplication());
+  el('newMerchantApplication')?.addEventListener('click',()=>openMerchantApplication());
+  el('closeMerchantApplication')?.addEventListener('click',closeMerchantApplication);
   el('merchantApplicationForm')?.addEventListener('submit',async event=>{
-    event.preventDefault();if(!isAccount()||state.qualification?.status!=='approved'||merchantApplicationBusy)return;
+    event.preventDefault();if(!isAccount()||state.qualification?.status!=='approved'||merchantApplicationBusy||!merchantApplicationDialog.open)return;
     const form=el('merchantApplicationForm');
     if(!merchantApplicationPending){
       if(!form.reportValidity())return;
@@ -358,15 +378,20 @@
     try{
       const data=await request('platform.merchant.submit',merchantApplicationPending);
       state.ownerApplications=[...state.ownerApplications.filter(item=>item.id!==data.application.id),data.application];
-      merchantApplicationPending=null;merchantApplicationTarget=null;merchantApplicationBusy=false;resetMerchantApplication();renderMyMerchants();
-      el('merchantApplicationMessage').textContent='商家申請已送出，既有商家維持原狀。';
+      merchantApplicationPending=null;merchantApplicationTarget=null;merchantApplicationBusy=false;
+      merchantApplicationDialog.close();resetMerchantApplication();renderMyMerchants();
+      el('merchantApplicationStatus').textContent='商家申請已送出，既有商家維持原狀。';
     }catch(error){
       if(!error.uncertain)merchantApplicationPending=null;
-      if(error.status===409){merchantApplicationTarget=null;merchantApplicationBusy=false;await refreshAccount();}
-      el('merchantApplicationMessage').textContent=error.message;
+      if(error.status===409){
+        merchantApplicationTarget=null;merchantApplicationBusy=false;await refreshAccount();
+        merchantApplicationDialog.close();
+        el('merchantApplicationStatus').textContent='商家資料已更新，請重新開啟申請視窗確認。'+error.message;
+      }else el('merchantApplicationMessage').textContent=error.message;
     }finally{
       merchantApplicationBusy=false;lockMerchantApplication(Boolean(merchantApplicationPending));
-      el('submitMerchantApplication').disabled=false;el('submitMerchantApplication').textContent=merchantApplicationPending?'重試相同商家申請':'提交商家申請';
+      el('submitMerchantApplication').disabled=false;
+      el('submitMerchantApplication').textContent=merchantApplicationPending?'重試相同商家申請':merchantApplicationTarget?'重新提交此商家':'提交商家申請';
     }
   });
   function reviewButton(kind,item,decision,label){

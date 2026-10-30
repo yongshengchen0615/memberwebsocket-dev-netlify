@@ -245,7 +245,7 @@ test('v2 approved qualification keeps all merchants visible and only ready activ
  apps[3].tenant.status='suspended';apps[4].tenant.expired=true;apps[5].tenant.onboarding.adminReady=false;
  const h=await mount({q:qualification(),applications:apps});try{
   assert.deepEqual(h.calls.map(x=>x.action),['platform.qualification.bootstrap','platform.merchant.list']);
-  assert.equal(h.d.querySelectorAll('#myMerchantList article').length,6);
+  assert.equal(h.d.querySelectorAll('#myMerchantList article').length,5);assert.equal(h.d.querySelectorAll('#pendingMerchantList article').length,1);
   const manage=h.d.querySelector('[data-application-id="a"] [data-manage-merchant]');
   assert.equal(manage.getAttribute('href'),'/admin/?business=merchant-a');
   assert.equal(manage.textContent,'管理商家');
@@ -269,7 +269,7 @@ test('AC-CODE-UI: name-only new merchant after A; rejected B carries only its ve
   const saves=h.calls.filter(x=>x.action==='platform.merchant.submit');assert.deepEqual(saves[1],saves[0]);
   h.d.getElementById('newMerchantApplication').click();f.elements.namedItem('businessName').value='商家 C';assert.equal(f.checkValidity(),true);submit(h,'merchantApplicationForm');await settle();
   const last=h.calls.filter(x=>x.action==='platform.merchant.submit').at(-1);assert.equal(last.applicationId,undefined);assert.equal(last.expectedVersion,undefined);assert.equal(last.slug,undefined);assert.equal(last.businessName,'商家 C');
-  assert.equal(h.d.querySelectorAll('#myMerchantList article').length,2);
+  assert.equal(h.d.querySelectorAll('#myMerchantList article').length,1);assert.equal(h.d.querySelectorAll('#pendingMerchantList article').length,1);
  }finally{h.close();}
 });
 
@@ -351,7 +351,7 @@ test('v2 DOM with real handler and SQL keeps A approved while B is rejected and 
   platform=await mount({merchant:false,transport:db.handler});await wait(()=>platform.d.querySelector('#qualificationList [data-review-decision="approved"]'));
   platform.d.querySelector('#qualificationList [data-review-decision="approved"]').click();submit(platform,'v2ReviewForm');await wait(()=>!platform.d.getElementById('v2ReviewDialog').open);
   account.d.getElementById('refreshApplication').click();await wait(()=>!account.d.getElementById('myMerchantsWorkspace').hidden);
-  const send=async name=>{const f=account.d.getElementById('merchantApplicationForm');f.elements.namedItem('businessName').value=name;submit(account,'merchantApplicationForm');await wait(()=>account.d.getElementById('merchantApplicationMessage').textContent.includes('已送出'));};
+  const send=async name=>{const f=account.d.getElementById('merchantApplicationForm');account.d.getElementById('newMerchantApplication').click();assert.equal(account.d.getElementById('merchantApplicationDialog').open,true);f.elements.namedItem('businessName').value=name;submit(account,'merchantApplicationForm');await wait(()=>account.d.getElementById('merchantApplicationStatus').textContent.includes('已送出')&&!account.d.getElementById('merchantApplicationDialog').open);};
   await send('Merchant A');let a=(await db.list())[0];await db.review(a);
   account.d.getElementById('refreshApplication').click();await wait(()=>account.d.querySelector('[data-manage-merchant]'));
   await send('Merchant B');let b=(await db.list()).find(x=>x.businessName==='Merchant B');assert.notEqual(a.slug,b.slug);await db.review(b,'rejected',null,'補充商家資料');
@@ -386,4 +386,61 @@ test('v2 selected DOM uses actual BusinessContext, handler and SQL to save only 
   const entry=await db.platformCall({action:'platform.business.public',business:'real-line-a',feature:'points'});assert.equal(entry.status,200);assert.equal(entry.body.data.line.pointsLiffId,'2010123456-points-a');
   assert.equal(settings.d.querySelector('[data-business-switch="true"]').getAttribute('href'),'/admin/');assert.equal(settings.calls.some(x=>/^platform\.(qualification|merchant)\./.test(x.action)),false);
  }finally{settings?.close();await db.db.close();}
+});
+
+
+test('AC-MERCHANT-UI-001: only new merchant button opens one modal form and cancel never submits',async()=>{
+ const h=await mount({q:qualification()});try{
+  const form=h.d.getElementById('merchantApplicationForm'),dialog=h.d.getElementById('merchantApplicationDialog');
+  assert.ok(dialog);assert.equal(h.d.querySelectorAll('#merchantApplicationForm').length,1);
+  assert.equal(h.d.querySelector('#myMerchantsWorkspace > #merchantApplicationForm'),null,'remove inline application form');
+  assert.equal(dialog.contains(form),true);assert.equal(dialog.open,false);
+  assert.equal(h.d.getElementById('newMerchantApplication').getAttribute('type'),'button');
+  h.d.getElementById('newMerchantApplication').click();
+  assert.equal(dialog.open,true);assert.equal(h.d.getElementById('merchantApplicationTitle').textContent,'新增商家申請');
+  h.d.getElementById('closeMerchantApplication').click();
+  assert.equal(dialog.open,false);
+  assert.equal(h.calls.filter(x=>x.action==='platform.merchant.submit').length,0);
+ }finally{h.close();}
+});
+
+test('AC-MERCHANT-UI-002: waiting merchants have a separate list without duplicates',async()=>{
+ const apps=[application('a'),application('b','pending'),application('c','rejected'),application('d','pending')];
+ const h=await mount({q:qualification(),applications:apps});try{
+  assert.equal(h.d.getElementById('pendingMerchantSection').hidden,false);
+  assert.equal(h.d.querySelectorAll('#pendingMerchantList article').length,2);
+  assert.equal(h.d.querySelectorAll('#myMerchantList article').length,2);
+  assert.ok(h.d.querySelector('#pendingMerchantList [data-application-id="b"]'));
+  assert.ok(h.d.querySelector('#pendingMerchantList [data-application-id="d"]'));
+  assert.equal(h.d.querySelector('#myMerchantList [data-application-id="b"]'),null);
+  assert.equal(h.d.querySelectorAll('[data-application-id="b"]').length,1);
+  assert.equal(h.d.querySelectorAll('[data-manage-merchant]').length,1);
+  assert.equal(h.d.querySelectorAll('#pendingMerchantList [data-manage-merchant]').length,0);
+ }finally{h.close();}
+});
+
+test('AC-MERCHANT-UI-003: submit from modal closes it and adds one pending card; rejected resubmit uses original ID',async()=>{
+ const h=await mount({q:qualification(),applications:[application('r','rejected')],handler(input){
+  if(input.action==='platform.merchant.submit')return{application:input.applicationId?
+   application('r','pending',{businessName:input.businessName,slug:'merchant-r',version:4}):
+   application('n','pending',{businessName:input.businessName,slug:'m-generated',version:1})};
+ }});try{
+  const dialog=h.d.getElementById('merchantApplicationDialog'),form=h.d.getElementById('merchantApplicationForm');
+  h.d.getElementById('newMerchantApplication').click();
+  assert.equal(dialog.open,true);form.elements.namedItem('businessName').value='新商家';
+  submit(h,'merchantApplicationForm');await settle();
+  assert.equal(dialog.open,false);assert.ok(h.d.querySelector('#pendingMerchantList [data-application-id="n"]'));
+  assert.match(h.d.getElementById('merchantApplicationStatus').textContent,/已送出/);
+  h.d.querySelector('[data-application-id="r"] [data-resubmit-merchant]').click();
+  assert.equal(dialog.open,true);
+  assert.equal(form.elements.namedItem('businessName').value,'商家 r');
+  form.elements.namedItem('businessName').value='重新送審商家';
+  submit(h,'merchantApplicationForm');await settle();
+  const saves=h.calls.filter(x=>x.action==='platform.merchant.submit');
+  assert.equal(saves.length,2);assert.equal(saves[0].applicationId,undefined);
+  assert.equal(saves[1].applicationId,'r');assert.equal(saves[1].expectedVersion,3);
+  assert.equal(saves[1].slug,undefined);assert.equal(dialog.open,false);
+  assert.ok(h.d.querySelector('#pendingMerchantList [data-application-id="r"]'));
+  assert.equal(h.d.querySelectorAll('#myMerchantList [data-application-id="r"]').length,0);
+ }finally{h.close();}
 });
