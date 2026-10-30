@@ -448,10 +448,15 @@
     // A successful root mutation also increments this revision in request().
     const revision=background?rootRevision:++rootRevision;
     // Fetch both lists before committing either: never display a half-updated review snapshot.
-    const data=await request('platform.bootstrap');
-    const qualifications=isV2()
-      ? (await request('platform.qualification.list')).qualifications||[]
-      : [];
+    const results=await Promise.allSettled([
+      request('platform.bootstrap'),
+      isV2()?request('platform.qualification.list'):Promise.resolve({qualifications:[]})
+    ]);
+    // Keep the batch pending after an early failure until its sibling settles.
+    const failed=results.find(result=>result.status==='rejected');
+    if(failed)throw failed.reason;
+    const [data,qualificationData]=results.map(result=>result.value);
+    const qualifications=qualificationData.qualifications||[];
     if(revision!==rootRevision||!state.idToken)return null;
     if(background&&(state.busy||reviewBusy||reviewPending||document.hidden||rootDialogOpen()))return null;
     const snapshot=JSON.stringify([data.tenants||[],data.applications||[],data.features||{},qualifications]);
@@ -466,7 +471,7 @@
     return {...data,changed};
   }
   async function refreshRoot(){
-    if(merchantEntry||!state.idToken||el('platformWorkspace').hidden||document.hidden||rootRefreshBusy||state.busy||reviewBusy||reviewPending||rootDialogOpen())return;
+    if(merchantEntry||!state.idToken||el('platformWorkspace').hidden||document.hidden||navigator.onLine===false||rootRefreshBusy||state.busy||reviewBusy||reviewPending||rootDialogOpen())return;
     rootRefreshBusy=true;
     const button=el('rootSyncNow');if(button)button.disabled=true;
     try{
@@ -870,7 +875,7 @@
   });
 
   async function refreshMine() {
-    if(!merchantEntry||!state.idToken||refreshBusy||merchantSaving||(!isV2()&&state.merchantPending))return;
+    if(!merchantEntry||!state.idToken||navigator.onLine===false||refreshBusy||merchantSaving||(!isV2()&&state.merchantPending))return;
     if(isAccount()){await refreshAccount();return;}
     refreshBusy=true;
     try {
@@ -894,6 +899,7 @@
     if(latestMine&&window.confirm('捨棄尚未儲存的設定，載入最新版本？'))renderMine(latestMine);
   });
   document.addEventListener('visibilitychange',()=>{if(!document.hidden){if(merchantEntry)void refreshMine();else void refreshRoot();}});
+  window.addEventListener('online',()=>{if(!document.hidden){if(merchantEntry)void refreshMine();else void refreshRoot();}});
   window.addEventListener('focus',()=>{if(!merchantEntry&&!document.hidden)void refreshRoot();});
   window.addEventListener('pagehide',()=>{if(refreshTimer)clearInterval(refreshTimer);});
   window.addEventListener('pageshow',event=>{if(event.persisted&&merchantEntry){showLoginGate('正在重新確認 LINE 身分…');void start();}});

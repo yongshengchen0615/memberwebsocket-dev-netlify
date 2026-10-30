@@ -40,6 +40,92 @@ async function mount({merchant=true,business='',version=2,q=null,applications=[]
 }
 function submit(h,id){h.d.getElementById(id).dispatchEvent(new h.w.Event('submit',{bubbles:true,cancelable:true}));}
 
+test('AC-PERF-002: independent root reads start together and commit both lists only after success',async()=>{
+ let blocked=false;const releases=new Map();
+ const h=await mount({merchant:false,handler(input){
+  if(blocked&&['platform.bootstrap','platform.qualification.list'].includes(input.action))return new Promise(resolve=>releases.set(input.action,resolve));
+ }});
+ try{
+  blocked=true;h.intervals[0].fn();await settle();
+  assert.deepEqual([...releases.keys()].sort(),['platform.bootstrap','platform.qualification.list']);
+  releases.get('platform.bootstrap')({tenants:[],applications:[application('parallel','pending')],features,profile:{displayName:'Root'}});
+  await settle();assert.equal(h.d.querySelectorAll('#applicationList article').length,0,'no partial snapshot');
+  releases.get('platform.qualification.list')({qualifications:[qualification('pending',1)]});await settle();
+  assert.equal(h.d.querySelectorAll('#applicationList article').length,1);
+  assert.equal(h.d.querySelectorAll('#qualificationList article').length,1);
+ }finally{blocked=false;for(const resolve of releases.values())resolve({tenants:[],applications:[],features,qualifications:[]});await settle();h.close();}
+});
+
+for(const merchant of [false,true])test(`AC-PERF-003: ${merchant?'merchant':'root'} pauses offline and resumes one read batch online`,async()=>{
+ const h=await mount({merchant,q:qualification()});
+ try{
+  Object.defineProperty(h.w.navigator,'onLine',{configurable:true,value:false});const before=h.calls.length;
+  await h.tick();h.w.dispatchEvent(new h.w.Event('focus'));h.d.dispatchEvent(new h.w.Event('visibilitychange'));await settle();
+  assert.equal(h.calls.length,before,'offline lifecycle signals must not send requests');
+  Object.defineProperty(h.w.navigator,'onLine',{configurable:true,value:true});
+  h.w.dispatchEvent(new h.w.Event('online'));h.w.dispatchEvent(new h.w.Event('online'));await settle();
+  assert.equal(h.calls.length-before,2,'online events must share a single two-read batch');
+ }finally{h.close();}
+});
+
+test('AC-PERF-004: a failed sibling read cannot commit a partial root snapshot',async()=>{
+ let failed=false;const h=await mount({merchant:false,handler(input){
+  if(failed&&input.action==='platform.bootstrap')return{tenants:[],applications:[application('partial','pending')],features,profile:{displayName:'Root'}};
+  if(failed&&input.action==='platform.qualification.list')return{status:503,error:{code:'PLATFORM_UNAVAILABLE',message:'temporarily unavailable'}};
+ }});
+ try{failed=true;await h.tick();assert.equal(h.d.querySelectorAll('#applicationList article').length,0);assert.match(h.d.getElementById('rootSyncStatus').textContent,/同步失敗/);}
+ finally{h.close();}
+});
+
+test('AC-PERF-004: failure keeps the batch single-flight until its slow sibling settles',async()=>{
+ let blocked=false,release;
+ const h=await mount({merchant:false,handler(input){
+  if(blocked&&input.action==='platform.bootstrap')return{status:503,error:{code:'PLATFORM_UNAVAILABLE',message:'temporarily unavailable'}};
+  if(blocked&&input.action==='platform.qualification.list')return new Promise(resolve=>{release=resolve;});
+ }});
+ try{
+  blocked=true;h.intervals[0].fn();await settle();const before=h.calls.length;
+  h.w.dispatchEvent(new h.w.Event('online'));h.w.dispatchEvent(new h.w.Event('focus'));await h.tick();
+  assert.equal(h.calls.length,before,'failure must not unlock another batch while the sibling is pending');
+  release({qualifications:[]});await settle();
+  assert.equal(h.d.getElementById('rootSyncNow').disabled,false);
+  assert.match(h.d.getElementById('rootSyncStatus').textContent,/同步失敗/);
+ }finally{blocked=false;release?.({qualifications:[]});await settle();h.close();}
+});
+
+test('AC-PERF-004: revocation hides root immediately and delayed sibling success cannot restore access',async()=>{
+ let revoked=false,release;
+ const h=await mount({merchant:false,handler(input){
+  if(revoked&&input.action==='platform.bootstrap')return{status:403,error:{code:'PLATFORM_ADMIN_REQUIRED',message:'revoked'}};
+  if(revoked&&input.action==='platform.qualification.list')return new Promise(resolve=>{release=resolve;});
+ }});
+ try{
+  revoked=true;h.intervals[0].fn();await settle();
+  assert.equal(h.d.getElementById('platformWorkspace').hidden,true);
+  release({qualifications:[qualification('pending',1)]});await settle();
+  assert.equal(h.d.getElementById('platformWorkspace').hidden,true);
+  assert.equal(h.d.querySelectorAll('#qualificationList article').length,0);
+  const before=h.calls.length;await h.tick();h.w.dispatchEvent(new h.w.Event('online'));await settle();assert.equal(h.calls.length,before);
+ }finally{release?.({qualifications:[]});await settle();h.close();}
+});
+
+test('AC-PERF-003: hidden merchant ignores online events then refreshes when visible',async()=>{
+ const h=await mount({q:qualification()});try{
+  Object.defineProperty(h.d,'hidden',{configurable:true,value:true});const before=h.calls.length;
+  h.w.dispatchEvent(new h.w.Event('online'));await h.tick();assert.equal(h.calls.length,before);
+  Object.defineProperty(h.d,'hidden',{configurable:true,value:false});h.d.dispatchEvent(new h.w.Event('visibilitychange'));await settle();
+  assert.equal(h.calls.length-before,2);
+ }finally{h.close();}
+});
+
+test('AC-PERF-003: an explicit merchant refresh retains its existing behavior when visibility is unavailable',async()=>{
+ const h=await mount({q:qualification()});try{
+  Object.defineProperty(h.d,'hidden',{configurable:true,value:true});const before=h.calls.length;
+  h.d.getElementById('refreshApplication').click();await settle();
+  assert.equal(h.calls.length-before,2,'automatic hidden-page suppression must not swallow an explicit recheck');
+ }finally{h.close();}
+});
+
 test('AC-SYNC-001: root sees new qualification and merchant requests without reload, and does not overwrite an open review',async()=>{
  const h=await mount({merchant:false});
  try{
