@@ -14,6 +14,7 @@ export type CurrentPointOffer = {
   thresholdStamps: number;
   requiredServiceIds: string[];
   requiredServiceMatchMode: 'any' | 'all';
+  requiredServiceGroups?: string[][];
   sortOrder: number;
 };
 
@@ -34,6 +35,7 @@ export type CurrentEventOffer = {
   requiresLocation?: boolean;
   requiredServiceIds: string[];
   requiredServiceMatchMode: 'any' | 'all';
+  requiredServiceGroups?: string[][];
 };
 
 function text(value: unknown): string {
@@ -91,6 +93,7 @@ export function selectLatestPointOffers(
       ? reward.required_service_ids.map(text).filter(Boolean)
       : [];
     const requiredServiceMatchMode = text(reward.required_service_match_mode) === "all" ? "all" : "any";
+    const requiredServiceGroups = Array.isArray(reward.required_service_groups) ? reward.required_service_groups : [];
     const card = cardById.get(pointCardId);
     const template = templateById.get(ticketTemplateId);
     if (!rewardId || !pointCardId || !ticketTemplateId || thresholdStamps <= 0) continue;
@@ -116,8 +119,9 @@ export function selectLatestPointOffers(
       ticketTitle: text(template?.title) || "可用優惠",
       thresholdStamps,
       requiredServiceIds,
-      requiredServiceMatchMode,
-      sortOrder: number(card?.sort_order),
+       requiredServiceMatchMode,
+       requiredServiceGroups,
+       sortOrder: number(card?.sort_order),
     };
     if (availableTicket.ticketId) offer.ticketId = availableTicket.ticketId;
     offer.requiresLocation = availableTicket.requiresLocation;
@@ -176,6 +180,7 @@ export function selectLatestEventOffers(
         ? row.required_service_ids.map(text).filter(Boolean)
         : [],
       requiredServiceMatchMode: text(row.required_service_match_mode) === "all" ? "all" : "any",
+      ...(Array.isArray(row.required_service_groups) && row.required_service_groups.length ? { requiredServiceGroups: row.required_service_groups } : {}),
     };
     const claimId = claimed ? (memberAvailableClaims.get(eventId) || "") : "";
     if (claimId) offer.claimId = claimId;
@@ -311,6 +316,7 @@ export async function loadLatestEventOffers(
         ? event.required_service_ids.map(text).filter(Boolean)
         : [],
       requiredServiceMatchMode: text(event?.required_service_match_mode) === "all" ? "all" : "any",
+      ...(Array.isArray(event?.required_service_groups) && event.required_service_groups.length ? { requiredServiceGroups: event.required_service_groups } : {}),
     };
   });
 }

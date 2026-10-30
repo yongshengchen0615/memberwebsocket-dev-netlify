@@ -412,6 +412,38 @@ for(const mode of ['any','all'])test('SERVICE_RULE_'+mode+' — save concrete se
   await openCard(p);const row=p.locator('#rewardRows [data-reward-row]');await row.locator('[data-field="requiredServiceMatchMode"]').selectOption(mode);await row.locator('input[value="service-1"]').check();await click(p,'saveCardButton');await expect.poll(()=>info.fixture.cards.find(c=>c.title==='QA new card')?.rewards[0]?.requiredServiceMatchMode).toBe(mode);expect(info.fixture.cards.find(c=>c.title==='QA new card').rewards[0].requiredServiceIds).toEqual(['service-1']);await p.locator('#cardEditorModal .editor-modal-close').click();
   await openEvent(p);await select(p,'eventTicketRequiredServiceMatchMode',mode);await p.locator('#eventTicketRequiredServiceIds input[value="service-2"]').check();await click(p,'saveEventTicketButton');await expect.poll(()=>info.fixture.eventTickets[0]?.requiredServiceMatchMode).toBe(mode);expect(info.fixture.eventTickets[0].requiredServiceIds).toEqual(['service-2']);
 });
+for(const [caseId, width] of [['SERVICE_RULE_groups',1280],['SERVICE_RULE_groups_mobile',320]])test(caseId+' — grouped alternatives survive save/reload for points and events',async({page:p},info)=>{
+  if (typeof p.setViewportSize === 'function') await p.setViewportSize({width,height:900}); // DOM replay driver is viewport-agnostic; Chromium tests real mobile width.
+  await openCard(p);
+  const reward=p.locator('#rewardRows [data-reward-row]').first();
+  await reward.locator('[data-field="requiredServiceMatchMode"]').selectOption('groups');
+  const groups=reward.locator('[data-reward-required-service-groups]');
+  await expect(groups).toBeVisible();
+  await groups.locator('[data-service-combination]').first().locator('input[value="service-1"]').check();
+  await groups.locator('[data-service-combination]').first().locator('input[value="service-2"]').check();
+  await groups.locator('.ticket-service-group-add').click();
+  await expect(groups.locator('[data-service-combination]')).toHaveCount(2);
+  await groups.locator('[data-service-combination]').nth(1).locator('input[value="service-2"]').check();
+  await click(p,'saveCardButton');
+  const savedCard=()=>info.fixture.cards.find(c=>c.title==='QA new card');
+  await expect.poll(()=>savedCard()?.rewards[0]?.requiredServiceGroups).toEqual([['service-1','service-2'],['service-2']]);
+  await expect(reward.locator('[data-reward-required-service-groups] [data-service-combination]')).toHaveCount(2);
+  await p.locator('#cardEditorModal .editor-modal-close').click();
+
+  await openEvent(p);
+  await select(p,'eventTicketRequiredServiceMatchMode','groups');
+  const eventGroups=p.locator('#eventTicketRequiredServiceGroups');
+  await expect(eventGroups).toBeVisible();
+  await eventGroups.locator('[data-service-combination]').first().locator('input[value="service-1"]').check();
+  await eventGroups.locator('[data-service-combination]').first().locator('input[value="service-2"]').check();
+  await eventGroups.locator('.ticket-service-group-add').click();
+  await eventGroups.locator('[data-service-combination]').nth(1).locator('input[value="service-1"]').check();
+  await click(p,'saveEventTicketButton');
+  await expect.poll(()=>info.fixture.eventTickets[0]?.requiredServiceGroups).toEqual([['service-1','service-2'],['service-1']]);
+  await expect(eventGroups.locator('[data-service-combination]')).toHaveCount(2);
+  const dimensions=await eventGroups.evaluate(el=>({scroll:el.scrollWidth,viewport:el.clientWidth}));
+  expect(dimensions.scroll <= dimensions.viewport + 2).toBe(true);
+});
 test('BOOKING_ITEMS — reject empty selection, change quantities, save and reopen',async({page:p},info)=>{
   seedBooking(info.fixture);await booking(p,'bookingAdminQueueSubtab');await p.locator('[data-booking-id="booking-1"]').getByRole('button',{name:'修改服務項目'}).click();await p.locator('[data-booking-service="service-1"]').uncheck();await p.locator('#bookingAdminCrudModal button[type="submit"]').click();await expect(p.locator('[data-modal-message]')).toContainText('至少');expect(calls(info.fixture,'admin.booking.items.update')).toHaveLength(0);await p.locator('[data-booking-service="service-2"]').check();await p.locator('[data-booking-quantity="service-2"]').selectOption('2');await p.locator('#bookingAdminCrudModal button[type="submit"]').click();await expect(p.locator('#bookingAdminCrudModal')).toBeHidden();await p.locator('[data-booking-id="booking-1"]').getByRole('button',{name:'修改服務項目'}).click();await expect(p.locator('[data-booking-quantity="service-2"]')).toHaveValue('2');expect(info.fixture.bookings[0].startTime).toBe('10:00');
 });
