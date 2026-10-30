@@ -261,7 +261,7 @@
     for (const purpose of view.feature === 'booking' ? ['admin','member'] : ['member']) {
       const form = node('form'); form.noValidate=true;form.id = domId('notification-' + view.feature + '-' + purpose);
       form.append(node('h3',purpose === 'admin' ? '管理員接收通知' : '會員接收通知'));
-      const disabledLabel=node('label'),disabled=node('input');disabled.type='checkbox';disabled.name='notificationDisabled';
+      const disabledLabel=node('label');disabledLabel.className='business-notification-toggle';const disabled=node('input');disabled.type='checkbox';disabled.name='notificationDisabled';
       disabledLabel.append(disabled,node('span','停用此用途通知'));form.append(disabledLabel);
       const fields=node('div','','business-line-fields');fields.id=form.id+'-fields';
       const channel=addField(fields,'messagingChannelId','LINE 官方帳號 Messaging API Channel ID');
