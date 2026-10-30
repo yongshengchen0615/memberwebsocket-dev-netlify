@@ -215,7 +215,7 @@ export async function loadLatestPointOffers(
 
   const rewardsResult = await supabase
     .from("point_card_rewards")
-    .select("id,point_card_id,threshold_stamps,ticket_template_id,required_service_ids,required_service_match_mode")
+    .select("id,point_card_id,threshold_stamps,ticket_template_id,required_service_ids,required_service_match_mode,required_service_groups")
     .in("point_card_id", cardIds);
   if (rewardsResult.error) {
     if (strict) throw rewardsResult.error;
@@ -265,7 +265,7 @@ export async function loadLatestEventOffers(
   const today = taipeiDate();
   const eventsResult = await supabase
     .from("event_tickets")
-    .select("id,event_ticket_id,title,description,accent,ticket_type,status,starts_on,ends_on,quota,allowed_tier_keys,fixed_ticket_template_id,requires_location,required_service_ids,required_service_match_mode")
+    .select("id,event_ticket_id,title,description,accent,ticket_type,status,starts_on,ends_on,quota,allowed_tier_keys,fixed_ticket_template_id,requires_location,required_service_ids,required_service_match_mode,required_service_groups")
     .eq("status", "active")
     .is("deleted_at", null);
   if (eventsResult.error) {

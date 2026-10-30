@@ -351,6 +351,16 @@
         const condition = document.createElement('small');
         condition.className = 'booking-benefit-condition';
         condition.textContent = String(item.conditionLabel || '服務限制：目前未設定');
+        const hasServiceGroups = selectableKinds.has(item.kind) && Array.isArray(item.requiredServiceGroups) && item.requiredServiceGroups.length > 0;
+        const groupStatus = hasServiceGroups ? document.createElement('small') : null;
+        if (groupStatus) {
+          const met = serviceRequirementMet(item);
+          groupStatus.className = 'booking-benefit-condition booking-benefit-group-status';
+          groupStatus.dataset.groupRequirementMet = String(met);
+          groupStatus.textContent = met
+            ? '組合預約限制：目前選擇的預約項目已符合其中一組。'
+            : '組合預約限制：尚未符合任一完整組合，請同時預約其中一組的所有項目。';
+        }
 
         if (controlId && selectableKinds.has(item.kind)) {
           const choose = document.createElement('label');
@@ -392,11 +402,11 @@
             }
             void handleSelectionChange(item, input);
           });
-          if (card.classList.contains('event-ticket')) card.append(condition, choose);
-          else card.append(meta, title, copy, expires, condition, choose);
+          if (card.classList.contains('event-ticket')) card.append(condition, ...(groupStatus ? [groupStatus] : []), choose);
+          else card.append(meta, title, copy, expires, condition, ...(groupStatus ? [groupStatus] : []), choose);
         } else {
-          if (card.classList.contains('event-ticket')) card.append(condition);
-          else card.append(meta, title, copy, expires, condition);
+          if (card.classList.contains('event-ticket')) card.append(condition, ...(groupStatus ? [groupStatus] : []));
+          else card.append(meta, title, copy, expires, condition, ...(groupStatus ? [groupStatus] : []));
         }
 
         if (item.kind === 'points') {

@@ -12,7 +12,7 @@ for (const kind of ['member', 'booking']) {
       h.holdProbes(false); h.probes[0].resolve(); await h.tick();
       assert.equal(h.probes.length, 1, 'same foreground generation must not add a trailing request');
       assert.equal(h.updates.length, 1);
-      await h.tick(10000); assert.equal(h.probes.length, 2);
+      await h.tick(kind === 'booking' ? 3000 : 10000); assert.equal(h.probes.length, 2);
     } finally { stop(); }
   });
   test(`AC-002 ${kind}: late hidden response does not refresh and foreground rechecks authority`, async () => {
@@ -71,7 +71,7 @@ test('AC-005 booking: subscriptions isolate businesses and cleanup preserves the
   try {
     assert.notEqual(stopA, stopB);
     await h.tick(); assert.deepEqual(h.probes.map(p => p.body.business).sort(), ['shop-a', 'shop-b']);
-    stopA(); await h.tick(10000);
+    stopA(); await h.tick(3000);
     assert.deepEqual(h.probes.map(p => p.body.business), ['shop-a', 'shop-b', 'shop-b']);
   } finally { stopA(); stopB(); }
 });
@@ -79,4 +79,30 @@ test('AC-003 booking: disposal during refresh suppresses the late benefits callb
   const h = await businessSyncHarness('booking'); h.holdUpdates(); const stop = h.subscribe();
   await h.tick(); stop(); h.finishUpdate(); await flush();
   assert.equal(h.benefits.length, 0);
+});
+
+test('AC-006 booking: visible shop detects a changed booking revision within 3 seconds without repeated full reads', async () => {
+  const h = await businessSyncHarness('booking');
+  const stop = h.subscribe();
+  try {
+    await h.tick(0);
+    assert.deepEqual(h.updates, ['initial']);
+    h.setRevision('manager-booking-created');
+    await h.tick(2999);
+    assert.deepEqual(h.updates, ['initial'], 'a poll must not start before the bounded delay');
+    await h.tick(1);
+    assert.deepEqual(h.updates, ['initial', 'manager-booking-created']);
+    const observed = h.updates.length;
+    await h.tick(3000);
+    assert.equal(h.updates.length, observed, 'unchanged revisions do not re-fetch booking pages');
+    h.document.visibilityState = 'hidden';
+    h.emit('visibilitychange', true);
+    await h.tick(30000);
+    assert.equal(h.updates.length, observed, 'hidden windows must not poll or load member booking details');
+    h.setRevision('admin-booking-cancelled');
+    h.document.visibilityState = 'visible';
+    h.emit('visibilitychange', true);
+    await h.tick(0);
+    assert.equal(h.updates.at(-1), 'admin-booking-cancelled');
+  } finally { stop(); }
 });
