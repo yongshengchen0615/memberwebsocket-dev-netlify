@@ -382,7 +382,7 @@
                     : item.kind === 'event' && (item.reservedInSnapshot || (item.reservedForBooking && !item.reservedForCurrentBooking))
                       ? '已登記，不能重複登記'
                     : serviceBlocked
-                      ? `需先預約：${item.requiredServiceRequirementLabel || requiredServiceTitles(item).join('、')}`
+                      ? `需先預約：${Array.isArray(item.requiredServiceGroups) && item.requiredServiceGroups.length ? item.requiredServiceRequirementLabel : requiredServiceTitles(item).join('、')}`
                       : selectable ? '本次預約使用' : '目前不可勾選';
           choose.append(input, label);
           input.addEventListener('change', () => {
