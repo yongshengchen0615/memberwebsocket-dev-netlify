@@ -387,3 +387,60 @@ test('v2 selected DOM uses actual BusinessContext, handler and SQL to save only 
   assert.equal(settings.d.querySelector('[data-business-switch="true"]').getAttribute('href'),'/admin/');assert.equal(settings.calls.some(x=>/^platform\.(qualification|merchant)\./.test(x.action)),false);
  }finally{settings?.close();await db.db.close();}
 });
+
+
+test('AC-MERCHANT-UI-001: only new merchant button opens one modal form and cancel never submits',async()=>{
+ const h=await mount({q:qualification()});try{
+  const form=h.d.getElementById('merchantApplicationForm'),dialog=h.d.getElementById('merchantApplicationDialog');
+  assert.ok(dialog);assert.equal(h.d.querySelectorAll('#merchantApplicationForm').length,1);
+  assert.equal(h.d.querySelector('#myMerchantsWorkspace > #merchantApplicationForm'),null,'remove inline application form');
+  assert.equal(dialog.contains(form),true);assert.equal(dialog.open,false);
+  assert.equal(h.d.getElementById('newMerchantApplication').getAttribute('type'),'button');
+  h.d.getElementById('newMerchantApplication').click();
+  assert.equal(dialog.open,true);assert.equal(h.d.getElementById('merchantApplicationTitle').textContent,'新增商家申請');
+  h.d.getElementById('closeMerchantApplication').click();
+  assert.equal(dialog.open,false);
+  assert.equal(h.calls.filter(x=>x.action==='platform.merchant.submit').length,0);
+ }finally{h.close();}
+});
+
+test('AC-MERCHANT-UI-002: waiting merchants have a separate list without duplicates',async()=>{
+ const apps=[application('a'),application('b','pending'),application('c','rejected'),application('d','pending')];
+ const h=await mount({q:qualification(),applications:apps});try{
+  assert.equal(h.d.getElementById('pendingMerchantSection').hidden,false);
+  assert.equal(h.d.querySelectorAll('#pendingMerchantList article').length,2);
+  assert.equal(h.d.querySelectorAll('#myMerchantList article').length,2);
+  assert.ok(h.d.querySelector('#pendingMerchantList [data-application-id="b"]'));
+  assert.ok(h.d.querySelector('#pendingMerchantList [data-application-id="d"]'));
+  assert.equal(h.d.querySelector('#myMerchantList [data-application-id="b"]'),null);
+  assert.equal(h.d.querySelectorAll('[data-application-id="b"]').length,1);
+  assert.equal(h.d.querySelectorAll('[data-manage-merchant]').length,1);
+  assert.equal(h.d.querySelectorAll('#pendingMerchantList [data-manage-merchant]').length,0);
+ }finally{h.close();}
+});
+
+test('AC-MERCHANT-UI-003: submit from modal closes it and adds one pending card; rejected resubmit uses original ID',async()=>{
+ const h=await mount({q:qualification(),applications:[application('r','rejected')],handler(input){
+  if(input.action==='platform.merchant.submit')return{application:input.applicationId?
+   application('r','pending',{businessName:input.businessName,slug:'merchant-r',version:4}):
+   application('n','pending',{businessName:input.businessName,slug:'m-generated',version:1})};
+ }});try{
+  const dialog=h.d.getElementById('merchantApplicationDialog'),form=h.d.getElementById('merchantApplicationForm');
+  h.d.getElementById('newMerchantApplication').click();
+  assert.equal(dialog.open,true);form.elements.namedItem('businessName').value='新商家';
+  submit(h,'merchantApplicationForm');await settle();
+  assert.equal(dialog.open,false);assert.ok(h.d.querySelector('#pendingMerchantList [data-application-id="n"]'));
+  assert.match(h.d.getElementById('merchantApplicationStatus').textContent,/已送出/);
+  h.d.querySelector('[data-application-id="r"] [data-resubmit-merchant]').click();
+  assert.equal(dialog.open,true);
+  assert.equal(form.elements.namedItem('businessName').value,'商家 r');
+  form.elements.namedItem('businessName').value='重新送審商家';
+  submit(h,'merchantApplicationForm');await settle();
+  const saves=h.calls.filter(x=>x.action==='platform.merchant.submit');
+  assert.equal(saves.length,2);assert.equal(saves[0].applicationId,undefined);
+  assert.equal(saves[1].applicationId,'r');assert.equal(saves[1].expectedVersion,3);
+  assert.equal(saves[1].slug,undefined);assert.equal(dialog.open,false);
+  assert.ok(h.d.querySelector('#pendingMerchantList [data-application-id="r"]'));
+  assert.equal(h.d.querySelectorAll('#myMerchantList [data-application-id="r"]').length,0);
+ }finally{h.close();}
+});
