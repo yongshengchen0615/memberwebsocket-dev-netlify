@@ -12,11 +12,6 @@
     adminChannelId: '商家管理端 Login Channel ID',
     adminLiffId: '商家管理端 LIFF ID',
   };
-  const moduleMessaging = {
-    messagingChannelId: '本功能 Messaging API Channel ID',
-    channelAccessToken: '本功能 Channel access token',
-    channelSecret: '本功能 Channel secret',
-  };
   const featureGuides = {
     membership: '會員加入與會員卡入口：設定會員卡 LIFF；需要會員通知時再設定通知通道。',
     points: '集點與兌換入口：設定集點卡 LIFF；需要集點通知時再設定通知通道。',
@@ -147,25 +142,25 @@
     for (const [purpose, route] of view.routes || []) {
       const saved = tenant.moduleLine?.[view.feature]?.notifications?.[purpose];
       if (!route.dirty && !route.pending) {
-        route.mode.value = saved?.mode || 'inherit';
-        route.channel.value = saved?.channelId || '';
+        route.disabled.checked = saved?.mode === 'disabled';
+        route.channel.value = saved?.mode === 'custom' ? (saved.channelId || '') :
+          (tenant.moduleLine?.[view.feature]?.line?.messagingChannelId || tenant.line?.messagingChannelId || '');
         route.token.value = '';
       }
-      route.fields.hidden = route.mode.value !== 'custom';
-      route.channel.required = route.token.required = route.mode.value === 'custom';
+      route.fields.hidden = route.disabled.checked;
+      route.channel.required = route.token.required = !route.disabled.checked;
       route.summary.textContent = saved?.mode === 'disabled' ? '已停用：此用途不發送通知。'
         : saved?.mode === 'custom' ? '已驗證獨立 Channel ' + saved.channelId + '；Token 已加密保存。'
-        : (tenant.moduleLine?.[view.feature]?.credentialsConfigured || tenant.credentialsConfigured) ? '共用本模組的 Messaging API 憑證；尚未驗證通知連線。' : '未設定：請先設定本模組 Channel，或選用獨立通知 Channel。';
+        : (tenant.moduleLine?.[view.feature]?.credentialsConfigured || tenant.credentialsConfigured) ? '原設定沿用本功能官方帳號。要更換通知帳號，請輸入 Channel ID 及完整 Token。' : '尚未設定通知官方帳號，請輸入 Channel ID 及完整 Token。';
     }
     if (view.identityBlock) {
       // Other features should not ask again after the first module seeds shared Login identity.
       view.identityBlock.hidden = Boolean(tenant.line?.adminChannelId && tenant.line?.adminLiffId);
     }
     if (view.form) for (const input of view.form.querySelectorAll('input')) {
-      const secret = ['channelAccessToken','channelSecret'].includes(input.name);
       const sharedIdentity = Object.hasOwn(businessLogin, input.name);
-      if (reset || (!view.dirty.has(input.name)&&!view.derived.has(input.name))) input.value = secret ? '' : {...tenant.line,...tenant.moduleLine?.[view.feature]?.line}[input.name] || '';
-      input.required = !secret && input.name !== 'messagingChannelId'
+      if (reset || (!view.dirty.has(input.name)&&!view.derived.has(input.name))) input.value = {...tenant.line,...tenant.moduleLine?.[view.feature]?.line}[input.name] || '';
+      input.required = input.name !== 'messagingChannelId'
         && !(sharedIdentity && view.identityBlock?.hidden);
       input.disabled = sharedIdentity && Boolean(view.identityBlock?.hidden);
       if(['adminChannelId','adminLiffId'].includes(input.name))input.readOnly=Boolean(tenant.line?.[input.name]);
@@ -197,10 +192,11 @@
       const line = {...tenant.line,...tenant.moduleLine?.[view.feature]?.line};
       // Merge only this form's edited fields into the last server snapshot.
       // Other modules' unsaved drafts never enter this request.
-      for (const input of view.form.querySelectorAll('input')) if (!['channelAccessToken','channelSecret'].includes(input.name)
-        && (view.dirty.has(input.name) || view.derived.has(input.name) || !line[input.name])) line[input.name] = input.value.trim();
+      for (const input of view.form.querySelectorAll('input'))
+        if (view.dirty.has(input.name) || view.derived.has(input.name) || !line[input.name]) line[input.name] = input.value.trim();
+      // Preserve stored legacy module secrets; LINE entry only edits identity and LIFF.
       view.pending = {feature:view.feature, expectedVersion:tenant.version, requestId:crypto.randomUUID(), line,
-        credentials:{channelAccessToken:view.form.elements.channelAccessToken.value.trim(),channelSecret:view.form.elements.channelSecret.value.trim()}};
+        credentials:{channelAccessToken:'',channelSecret:''}};
     }
     saving = true; lock(); view.status.textContent = '正在儲存' + view.label + ' LINE 設定…';
     try {
@@ -224,8 +220,9 @@
     if (saving || (!route.pending && pendingOperation()) || !tenant || grants[view.feature] !== true) return;
     if (!route.pending) {
       if (!validForm(route.form)) return;
-      route.pending = {feature:view.feature,purpose:route.purpose,mode:route.mode.value,expectedVersion:tenant.version,
-        requestId:crypto.randomUUID(),messagingChannelId:route.channel.value.trim(),channelAccessToken:route.token.value.trim()};
+      route.pending = {feature:view.feature,purpose:route.purpose,mode:route.disabled.checked?'disabled':'custom',expectedVersion:tenant.version,
+        requestId:crypto.randomUUID(),messagingChannelId:route.disabled.checked?'':route.channel.value.trim(),
+        channelAccessToken:route.disabled.checked?'':route.token.value.trim()};
     }
     saving = true; lock(); route.status.textContent = '正在驗證並儲存通知設定…';
     try {
@@ -260,25 +257,27 @@
     if (view.feature === 'calendar') return; // There is no calendar push event yet.
     const details = node('details'); details.append(node('summary','本功能通知接收用途（需要時設定）'));
     const purposeHelp = {membership:'會員加入與權益',points:'集點與兌換',events:'活動與票券',booking:'預約狀態'}[view.feature];
-    details.append(node('p',purposeHelp + '通知可共用本功能憑證，或另設專用 Messaging API Channel。兩種 Channel 須屬於相同 LINE Provider；預約管理通知僅送給商家已授權管理員。'));
+    details.append(node('p',purposeHelp + '通知請直接輸入 LINE 官方帳號 Messaging API Channel ID 與完整 Channel access token。官方帳號與登入 Channel 須屬於相同 LINE Provider；預約管理通知僅送給商家已授權管理員。'));
     for (const purpose of view.feature === 'booking' ? ['admin','member'] : ['member']) {
       const form = node('form'); form.noValidate=true;form.id = domId('notification-' + view.feature + '-' + purpose);
       form.append(node('h3',purpose === 'admin' ? '管理員接收通知' : '會員接收通知'));
-      const label=node('label','通知通道'),mode=node('select'); mode.name='mode';
-      for (const [value,text] of [['inherit','使用此功能的官方帳號'],['custom','使用其他官方帳號（進階）'],['disabled','不發送此用途通知']]) {const o=node('option',text);o.value=value;mode.append(o);}
-      label.append(mode);form.append(label);
+      const disabledLabel=node('label'),disabled=node('input');disabled.type='checkbox';disabled.name='notificationDisabled';
+      disabledLabel.append(disabled,node('span','停用此用途通知'));form.append(disabledLabel);
       const fields=node('div','','business-line-fields');fields.id=form.id+'-fields';
-      const channel=addField(fields,'messagingChannelId','通知 Messaging API Channel ID');
-      const token=addField(fields,'channelAccessToken','通知 Channel access token（long-lived）',true);
-      token.nextElementSibling.textContent='Messaging API → Channel access token (long-lived)。重新驗證或輪替時需輸入完整 Token；儲存後不回填。';
+      const channel=addField(fields,'messagingChannelId','LINE 官方帳號 Messaging API Channel ID');
+      const token=addField(fields,'channelAccessToken','LINE 官方帳號 Channel access token（long-lived）',true);
+      token.nextElementSibling.textContent='Messaging API → Channel access token (long-lived)。已儲存 Token 不會回填；新增、啟用或更換帳號時請輸入完整 Token。';
       form.append(fields);
       const summary=node('p'),status=node('p'); status.setAttribute('role','status');status.setAttribute('aria-live','polite');
       const save=node('button','驗證並儲存通知設定','button button-outline');save.type='submit';
       const test=node('button','傳送測試給我','button button-outline');test.type='button';
-      const route={purpose,form,mode,channel,token,fields,summary,status,save,test,dirty:false,pending:null,testPending:null};
+      const route={purpose,form,disabled,channel,token,fields,summary,status,save,test,dirty:false,pending:null,testPending:null};
       test.onclick=()=>void testNotification(view,route);
       form.append(summary,save,test,status);form.addEventListener('submit',event=>void saveNotification(view,route,event));
-      form.addEventListener('input',()=>{route.dirty=true;fields.hidden=mode.value!=='custom';channel.required=token.required=mode.value==='custom';status.textContent='本用途有尚未儲存的設定。';lock();});
+      form.addEventListener('input',()=>{route.dirty=true;fields.hidden=disabled.checked;
+        channel.required=token.required=!disabled.checked;
+        if(disabled.checked)token.value='';
+        status.textContent='本用途有尚未儲存的設定。';lock();});
       view.routes.set(purpose,route);details.append(form);
     }
     view.section.append(details);
@@ -378,13 +377,6 @@
         for (const input of identityFields.querySelectorAll('input')) { input.id = form.id + '-' + input.name; input.setAttribute('aria-describedby',input.id+'-help'); input.nextElementSibling.id=input.id+'-help'; }
         identity.append(node('h3','商家共用登入設定（僅首次設定）'),node('p','商家管理端 LINE Login 身分跨功能共用；會員端 Login Channel 與 LIFF 則依功能獨立設定。'),identityFields);
         form.append(identity); view.identityBlock = identity;
-        const shared = node('details'); shared.open = false;
-        shared.append(node('summary','2. 通知帳號憑證（需要通知或 Webhook 時設定）'));
-        shared.append(node('p','有效的 Login Channel 與 LIFF 即可啟用本功能入口；不發送通知時，本區可全部留空。需要通知時請同時設定 Messaging API Channel、Token 與 Secret，再驗證通知通道。已設定的憑證留空即保留；更換 Channel 時必須同時更新憑證。'));
-        const grid = node('div','','business-line-fields');
-        for (const [name,text] of Object.entries(moduleMessaging)) addField(grid,name,text,['channelAccessToken','channelSecret'].includes(name));
-        for (const input of grid.querySelectorAll('input')) { input.id = form.id + '-' + input.name; input.setAttribute('aria-describedby',input.id+'-help'); input.nextElementSibling.id=input.id+'-help'; }
-        shared.append(grid); form.append(shared);
         const button = node('button','儲存' + label + '入口設定','button button-dark'); button.type='submit'; view.save=button;
         form.append(button); form.addEventListener('submit', event => void save(view,event));
         form.addEventListener('input', event => { view.dirty.add(event.target.name);view.derived.delete(event.target.name);normalizeEntry(view,event.target);status.textContent = '本區塊有尚未儲存的設定。'; lock(); });
