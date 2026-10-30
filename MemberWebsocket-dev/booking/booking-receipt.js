@@ -1096,7 +1096,10 @@
     state.listMemberId = memberId;
     invalidateReceiptList();
   });
-  window.addEventListener('booking:bookings-rendered', () => { void refreshListAndDecorate(); });
+  window.addEventListener('booking:bookings-rendered', event => {
+    if (event.detail?.recordsOnly) decorateCards();
+    else void refreshListAndDecorate();
+  });
   window.addEventListener('pageshow', () => {
     if (!document.getElementById('bookingView')?.classList.contains('hidden')) void refreshListAndDecorate();
   });

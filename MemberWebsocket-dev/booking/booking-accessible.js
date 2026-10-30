@@ -14,6 +14,8 @@
   let activeSnapshotHistoryGroup = 'pending';
   let snapshotHistoryTabSelected = false;
   let lastScrolledSnapshotId = '';
+  let historyDate = '';
+  let historySubmissions = [];
   function snapshotChatFeedback(result) {
     if (result?.alreadyApplied === true) return '此快照先前已送出，不會重複傳送 LINE 訊息。';
     if (result?.chatResult?.sent === true) return '已由你的 LINE 將「快照確認」傳送到官方帳號聊天。';
@@ -194,10 +196,16 @@
     const focusedTab = focused?.dataset.snapshotHistoryTab;
     const focusedReceiptId = focused?.matches('summary')
       ? focused.closest('details')?.dataset.receiptId : '';
-    const rows = Array.isArray(submissions) ? submissions : [];
+    historySubmissions = Array.isArray(submissions) ? submissions : [];
+    const rows = historyDate ? historySubmissions.filter(row => snapshotDate(row.createdAt) === historyDate) : historySubmissions;
     host.hidden = !rows.length;
+    const empty = el('bookingSnapshotDayEmpty');
+    if (empty) empty.hidden = rows.length > 0;
     host.replaceChildren();
-    if (!rows.length) return;
+    if (!rows.length) {
+      window.dispatchEvent(new CustomEvent('booking:snapshot-history-rendered'));
+      return;
+    }
 
     const heading = document.createElement('h2');
     heading.textContent = '快照預約明細';
@@ -211,6 +219,7 @@
       const details = document.createElement('details');
       details.className = 'member-booking-details';
       details.dataset.receiptId = String(row.receiptId || '');
+      details.dataset.recordDate = snapshotDate(row.createdAt);
       details.open = existingDetails.get(details.dataset.receiptId) === true;
       const summary = document.createElement('summary');
       summary.textContent = snapshotHistoryStatusLabel(row) + ' · ' + String(row.receiptId || '');
@@ -283,6 +292,7 @@
     }
     host.append(heading, tabs, ...panels);
     activateSnapshotHistoryGroup(host, activeSnapshotHistoryGroup);
+    window.dispatchEvent(new CustomEvent('booking:snapshot-history-rendered'));
     const focusTarget = focusedTab
       ? [...tabs.children].find(tab => tab.dataset.snapshotHistoryTab === focusedTab)
       : focusedReceiptId
@@ -298,6 +308,16 @@
       });
     }
   }
+  function snapshotDate(value) {
+    const date = new Date(value || '');
+    if (!Number.isFinite(date.getTime())) return '';
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+  }
+  window.addEventListener('booking:history-date-selected', event => {
+    historyDate = String(event.detail?.date || '');
+    snapshotHistoryTabSelected = false;
+    renderSnapshotHistory(historySubmissions);
+  });
   function renderStatus(submissions) {
     renderSnapshotHistory(submissions);
     const status = el('bookingAccessibleStatus');
@@ -355,6 +375,8 @@
     activeSnapshotHistoryGroup = 'pending';
     snapshotHistoryTabSelected = false;
     lastScrolledSnapshotId = '';
+    historyDate = '';
+    historySubmissions = [];
     const history = el('bookingSnapshotHistory');
     if (history) {
       history.replaceChildren();

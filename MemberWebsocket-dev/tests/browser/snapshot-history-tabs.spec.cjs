@@ -21,6 +21,7 @@ const fixtureScript = [
   "window.__renderSnapshotRows = rows => window.dispatchEvent(new CustomEvent('booking:receipts-updated', {detail:{submissions: rows}}));",
   "window.addEventListener('DOMContentLoaded', () => {",
   "  document.getElementById('bookingView').classList.remove('hidden');",
+  "  document.getElementById('bookingDayModal').classList.remove('hidden');",
   "  window.__renderSnapshotRows(window.__snapshotRows);",
   "});",
 ].join('\n');
