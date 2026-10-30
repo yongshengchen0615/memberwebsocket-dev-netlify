@@ -514,7 +514,7 @@
           }
           failures=0;
         }catch(_){if(!stale())failures++;}
-        finally{pending=false;refreshing=false;if(!stopped&&!paused()){const delay=queued?0:Math.min(60000,10000*2**Math.min(failures,3));queued=false;schedule(delay);}}
+        finally{pending=false;refreshing=false;if(!stopped&&!paused()){const delay=queued?0:Math.min(60000,(targetScope==='member'?3000:10000)*2**Math.min(failures,3));queued=false;schedule(delay);}}
       };
       const resume=()=>{
         if(stopped||paused())return;
