@@ -6,6 +6,8 @@
 .business-line-settings form{display:grid;gap:16px}
 .business-line-settings label{display:grid;gap:6px;font-weight:600;min-width:0}
 .business-line-settings input{width:100%;box-sizing:border-box;min-height:44px;padding:10px;border:1px solid #b7c6b9;border-radius:8px}
+.business-line-settings .business-notification-toggle{display:flex;align-items:center;gap:10px}
+.business-line-settings input[type="checkbox"]{width:20px;height:20px;min-height:20px;flex:none;margin:0;padding:0}
 .business-line-settings small{font-weight:400;color:#526256;overflow-wrap:anywhere}
 .business-line-settings details{padding:14px;border-radius:10px;background:#f5f7f3}
 .business-line-settings summary{cursor:pointer;font-weight:650;min-height:32px}
