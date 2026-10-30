@@ -58,7 +58,7 @@ test('reload discards a mismatch and restores a valid saved pair that can be sav
 
 for(const operation of ['reload','notification-test'])test('retained business transport clears secret drafts and controls on revoked access during '+operation,async()=>{
  const t=await setup();try{
-  const form=t.d.querySelector('#businessLine-membership'),notify=t.d.querySelector('#notification-booking-admin'),secret=notify.elements.channelAccessToken;fill(t.w,notify,'channelAccessToken','synthetic-unsaved-secret-token');
+  const form=t.d.querySelector('#businessLine-membership'),notify=t.d.querySelector(operation==='notification-test'?'#notification-booking-member':'#notification-booking-admin'),secret=notify.elements.channelAccessToken;fill(t.w,notify,'channelAccessToken','synthetic-unsaved-secret-token');
   await t.h.db.query("update platform_private.admin_qualifications set status='suspended' where applicant_line_user_id=$1",[owner]);
   if(operation==='reload')[...form.closest('section').querySelectorAll('button')].find(b=>b.textContent==='載入最新 LINE 設定').click();
   else [...t.d.querySelectorAll('#notification-booking-admin button')].find(b=>b.textContent==='傳送測試給我').click();
