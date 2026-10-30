@@ -38,14 +38,14 @@ begin
     execute format('alter table %1$I.point_card_rewards add constraint point_reward_service_groups_check check (%1$I.ticket_service_groups_valid(required_service_groups))',s);
 
     execute format($ddl$
-      create or replace function %1$I.booking_meets_required_service_groups(booking_id uuid, groups jsonb)
+      create or replace function %1$I.booking_meets_required_service_groups(p_booking_id uuid, groups jsonb)
       returns boolean language sql stable set search_path to '' as $body$
       with booked as (
-        select bi.service_id::text id from %1$I.booking_items bi where bi.booking_id=booking_id and bi.service_id is not null
+        select bi.service_id::text id from %1$I.booking_items bi where bi.booking_id=p_booking_id and bi.service_id is not null
         union
         select bpi.service_id::text from %1$I.booking_participants bp
         join %1$I.booking_participant_items bpi on bpi.participant_id=bp.id
-        where bp.booking_id=booking_id and bpi.service_id is not null
+        where bp.booking_id=p_booking_id and bpi.service_id is not null
       )
       select exists(
         select 1 from jsonb_array_elements(coalesce(groups,'[]'::jsonb)) grp(items)
