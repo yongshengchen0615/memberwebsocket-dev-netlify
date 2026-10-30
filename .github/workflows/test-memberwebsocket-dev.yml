@@ -301,6 +301,7 @@ jobs:
           --test-reporter=junit --test-reporter-destination=postgres-results.xml
           MemberWebsocket-dev/tests/integration/postgres/booking-risk.cjs
           MemberWebsocket-dev/tests/integration/postgres/booking-phone.cjs
+          MemberWebsocket-dev/tests/integration/postgres/ticket-service-groups.cjs
           MemberWebsocket-dev/tests/integration/postgres/member-activation.cjs
           MemberWebsocket-dev/tests/integration/postgres/line-capabilities.cjs
           MemberWebsocket-dev/tests/integration/postgres/line-webhook.cjs
