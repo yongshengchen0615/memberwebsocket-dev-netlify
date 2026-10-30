@@ -281,3 +281,14 @@
   .usage-policy-footer > span { flex-basis: 100%; }
   .usage-policy-buttons, .usage-policy-buttons > button, .usage-policy-footer > button { width: 100%; }
 }
+
+/* Alternative service combinations: each group requires all selected items, groups are OR. */
+.ticket-service-combination-editor, [data-reward-required-service-groups] { min-width: 0; }
+.ticket-service-groups { display: grid; gap: 12px; }
+.ticket-service-group { padding: 14px; border: 1px solid var(--theme-border, #dce7df); border-radius: 12px; background: var(--theme-surface-raised, #fff); min-width: 0; }
+.ticket-service-group-heading { display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.ticket-service-group-heading strong { font-size: 13px; }
+.ticket-service-group-heading button, .ticket-service-group-add { min-height: 44px; }
+.ticket-service-group [data-group-service-items] { width: 100%; }
+.ticket-service-group-add { margin-top: 12px; }
+@media (max-width: 520px) { .ticket-service-group { padding: 10px; } .ticket-service-group-heading { align-items: stretch; } }
