@@ -43,8 +43,8 @@ test('RB-ADMIN-004: both manager entrypoints load the restored settings and bust
   assert.match(html,/business-line-settings\.js\?v=member-card-admin-rollback-20261028-1/);
   assert.match(html,/business-line-settings\.css\?v=member-card-admin-rollback-20261028-1/);
  }
- assert.match(merchantEntry,/platform\/app\.js\?v=merchant-action-20261030-1/);
- assert.match(platformEntry,/\.\/app\.js\?v=merchant-action-20261030-1/);
+ assert.match(merchantEntry,/platform\/app\.js\?v=merchant-modal-20261030-1/);
+ assert.match(platformEntry,/\.\/app\.js\?v=merchant-modal-20261030-1/);
  assert.match(platformEntry,/id="rootSyncNow"/);
  assert.match(platformClient,/request\('platform\.qualification\.list'\)/);
  assert.match(platformClient,/url\.pathname\.replace\(\/\\\/api\\\/\?\$\/, '\/platform-api'\)/);
