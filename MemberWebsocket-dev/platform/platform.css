@@ -50,4 +50,43 @@
 #platformAuthorizationNotice h2{margin:0;color:#20352d}
 
 /* Account-level qualification and independent merchant applications. */
-.account-workspace{margin:32px auto;max-width:100%;min-width:0}.account-workspace>p[role="status"]{font-weight:650}#merchantApplicationForm{padding:24px;border:1px solid #dbe2d8;border-radius:16px;background:white}#myMerchantList .tenant-card{min-width:0}#myMerchantList footer,#qualificationList footer,#applicationList footer{flex-wrap:wrap;align-items:center}#myMerchantList footer a,.business-switch{display:inline-block;min-height:44px;padding:12px 4px}#v2ReviewDialog{max-width:680px}textarea{font:inherit;display:block;width:100%;max-width:100%;min-height:100px;border:1px solid #bfcdbf;border-radius:8px;padding:12px;color:inherit;background:#fff;resize:vertical}textarea:focus-visible{outline:3px solid #bd8b26;outline-offset:3px}.form-actions{gap:12px}#qualificationReason,#qualificationStatus,#v2ReviewDescription,#v2ReviewMessage{overflow-wrap:anywhere}@media(max-width:650px){#merchantApplicationForm{padding:16px}.tenant-card footer{flex-wrap:wrap}.form-actions{flex-wrap:wrap}.account-workspace .workspace-heading button{width:100%}.tenant-card{padding:18px}}
+.account-workspace{margin:32px auto;max-width:100%;min-width:0}.account-workspace>p[role="status"]{font-weight:650}#merchantApplicationForm{padding:24px;border:1px solid #dbe2d8;border-radius:16px;background:white}#myMerchantList .tenant-card{min-width:0}#myMerchantList footer,#qualificationList footer,#applicationList footer{flex-wrap:wrap;align-items:center}.business-switch{display:inline-block;min-height:44px;padding:12px 4px}#v2ReviewDialog{max-width:680px}textarea{font:inherit;display:block;width:100%;max-width:100%;min-height:100px;border:1px solid #bfcdbf;border-radius:8px;padding:12px;color:inherit;background:#fff;resize:vertical}textarea:focus-visible{outline:3px solid #bd8b26;outline-offset:3px}.form-actions{gap:12px}#qualificationReason,#qualificationStatus,#v2ReviewDescription,#v2ReviewMessage{overflow-wrap:anywhere}@media(max-width:650px){#merchantApplicationForm{padding:16px}.tenant-card footer{flex-wrap:wrap}.form-actions{flex-wrap:wrap}.account-workspace .workspace-heading button{width:100%}.tenant-card{padding:18px}}
+
+/* The approved merchant's single main action. Status and permissions remain server-controlled. */
+#myMerchantList [data-manage-merchant].tenant-action-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 12px 20px;
+  border: 1px solid #1e5941;
+  border-radius: 12px;
+  background: #1e5941;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.4;
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(30, 89, 65, .16);
+  transition: background-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+#myMerchantList [data-manage-merchant].tenant-action-primary::after {
+  content: '›';
+  font-size: 20px;
+  line-height: 1;
+}
+#myMerchantList [data-manage-merchant].tenant-action-primary:hover {
+  background: #174733;
+  border-color: #174733;
+  box-shadow: 0 6px 16px rgba(30, 89, 65, .22);
+}
+#myMerchantList [data-manage-merchant].tenant-action-primary:active {
+  transform: translateY(1px);
+}
+@media (max-width: 650px) {
+  #myMerchantList [data-manage-merchant].tenant-action-primary { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #myMerchantList [data-manage-merchant].tenant-action-primary { transition: none; }
+}

@@ -246,8 +246,12 @@ test('v2 approved qualification keeps all merchants visible and only ready activ
  const h=await mount({q:qualification(),applications:apps});try{
   assert.deepEqual(h.calls.map(x=>x.action),['platform.qualification.bootstrap','platform.merchant.list']);
   assert.equal(h.d.querySelectorAll('#myMerchantList article').length,6);
-  assert.equal(h.d.querySelector('[data-application-id="a"] [data-manage-merchant]').getAttribute('href'),'/admin/?business=merchant-a');
-  assert.equal(h.d.querySelector('[data-application-id="a"] [data-merchant-line]').getAttribute('href'),'/admin/workspace.html?business=merchant-a');
+  const manage=h.d.querySelector('[data-application-id="a"] [data-manage-merchant]');
+  assert.equal(manage.getAttribute('href'),'/admin/?business=merchant-a');
+  assert.equal(manage.textContent,'管理商家');
+  assert.equal(manage.classList.contains('tenant-action-primary'),true);
+  assert.equal(h.d.querySelectorAll('[data-merchant-line]').length,0,'LINE 設定捷徑不得出現在商家列表');
+  assert.equal(h.d.querySelectorAll('#myMerchantList .tenant-card footer a').length,1);
   assert.equal(h.d.querySelectorAll('[data-manage-merchant]').length,1);
   assert.match(h.d.querySelector('[data-application-id="c"]').textContent,/資料不足/);
   assert.equal(h.w.location.search,'');assert.equal(h.d.getElementById('merchantWorkspace').hidden,true);

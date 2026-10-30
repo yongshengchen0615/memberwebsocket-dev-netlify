@@ -304,8 +304,8 @@
       if(application.reviewReason){const reason=document.createElement('p');reason.textContent='審核理由：'+application.reviewReason;card.append(reason);}
       const actions=document.createElement('footer');
       if(ready){
-        const manage=document.createElement('a');manage.href='/admin/?business='+encodeURIComponent(application.slug);manage.textContent='管理商家';manage.dataset.manageMerchant='true';
-        const line=document.createElement('a');line.href='/admin/workspace.html?business='+encodeURIComponent(application.slug);line.textContent='LINE 設定';line.dataset.merchantLine='true';actions.append(manage,line);
+        const manage=document.createElement('a');manage.href='/admin/?business='+encodeURIComponent(application.slug);manage.textContent='管理商家';manage.dataset.manageMerchant='true';manage.className='tenant-action-primary';
+        actions.append(manage);
       }else{
         const unavailable=document.createElement('p');unavailable.textContent=application.status==='pending'?'審核通過並開通後，即可管理此商家。':application.status==='rejected'?'請依審核理由修正此申請。':'請聯絡總管理員確認開通、停用或使用期限。';actions.append(unavailable);
       }
