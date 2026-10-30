@@ -125,6 +125,14 @@ test('AC-307: approved feature-specific LINE settings do not require unrelated n
   assert.equal(d.querySelector('#businessLine-booking [name=calendarLiffId]'),null);
   assert.equal(d.querySelector('#notification-calendar-member'),null,'calendar has no active automatic push');
   assert.equal(d.querySelectorAll('form[id^="notification-booking-"]').length,2,'booking has admin and member notification purposes');
+  // AC-309: LINE entry forms must not duplicate notification credentials.
+  assert.equal(d.body.textContent.includes('通知帳號憑證（需要通知或 Webhook 時設定）'),false);
+  for(const entry of d.querySelectorAll('[data-business-line-feature] > form')) {
+    assert.equal(entry.elements.namedItem('messagingChannelId'),null);
+    assert.equal(entry.elements.namedItem('channelAccessToken'),null);
+    assert.equal(entry.elements.namedItem('channelSecret'),null);
+  }
+  assert.equal(d.body.textContent.includes('本功能通知接收用途（需要時設定）'),true);
   assert.equal(d.querySelector('[data-business-line-feature="integrations"]'),null);
   assert.equal(d.querySelector('[data-business-line-feature="testing"]'),null);
   assert.equal(d.querySelector('[data-business-line-feature="usage"]'),null);
