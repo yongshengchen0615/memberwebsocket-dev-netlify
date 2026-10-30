@@ -62,6 +62,8 @@ test('AC-005: backend validates group length, duplicate items and deleted servic
 test('AC-006: database checks service groups throughout all booking redemption entrypoints', () => {
   assert.match(migration, /nspname='public' or nspname ~ '\^business_/);
   assert.match(migration, /booking_meets_required_service_groups/);
+  assert.match(migration, /where bi\.booking_id=p_booking_id/);
+  assert.match(migration, /where bp\.booking_id=p_booking_id/);
   assert.match(migration, /not exists \(\s*select 1 from jsonb_array_elements_text\(grp\.items\)/);
   assert.match(migration, /ticket_has_service_requirement/);
   assert.match(migration, /booking_ticket_matches_services/);
