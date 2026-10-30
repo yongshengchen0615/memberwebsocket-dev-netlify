@@ -549,6 +549,7 @@
     const timer = window.setTimeout(() => controller.abort(), 15000);
     try {
       const endpoint = `${String(config.supabaseUrl).replace(/\/$/, '')}/functions/v1/booking-calendar-api`;
+      const body = { action: 'user.booking.calendar', idToken, month };
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -558,8 +559,8 @@
         cache: 'no-store',
         signal: controller.signal,
         body: JSON.stringify(window.TestModeClient && typeof window.TestModeClient.payload === 'function'
-          ? window.TestModeClient.payload({ idToken, month })
-          : { idToken, month }),
+          ? window.TestModeClient.payload(body)
+          : body),
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok || !payload || payload.ok !== true) {

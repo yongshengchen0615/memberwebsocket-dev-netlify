@@ -91,3 +91,45 @@ for (const width of [320, 390, 1280]) {
     await expect(cell.locator('.calendar-booking-times')).toHaveCount(0);
   });
 }
+
+for (const testMode of [false, true]) {
+  test('merchant calendar month requests use the booking grant (' + (testMode ? 'test session' : 'LINE') + ')', async ({ page }) => {
+    const { pathToFileURL } = require('node:url');
+    const { assertBusinessAction } = await import(pathToFileURL(path.join(root, 'supabase/functions/_shared/business-policy.mjs')));
+    const requests = [], denied = [];
+    const context = { status: 'active', runtime_schema: 'business_' + 'a'.repeat(32), features: { booking: true, calendar: false } };
+    await page.route('https://fixture.supabase.co/functions/v1/booking-calendar-api', async route => {
+      const body = route.request().postDataJSON();
+      requests.push(body);
+      try {
+        assertBusinessAction(context, body.action || '', body);
+        await route.fulfill({ json: { ok: true, data: { occupiedDates: [{ date: body.month + '-01', intervals: [{ startTime: '09:00', endTime: '10:00' }] }] } } });
+      } catch (error) {
+        denied.push(error.code);
+        await route.fulfill({ status: error.status, json: { ok: false, error: { code: error.code, message: error.message } } });
+      }
+    });
+    await page.setViewportSize({ width: testMode ? 1280 : 390, height: 900 });
+    await page.goto(baseUrl + '/booking/?business=merchant-a');
+    await page.addScriptTag({ url: baseUrl + '/business-context.js' });
+    await page.evaluate(testMode => {
+      window.BookingSystem.loadConfig = async () => ({ supabaseUrl: 'https://fixture.supabase.co', supabasePublishableKey: 'fixture-key' });
+      window.liff = { isLoggedIn: () => true, getIDToken: () => 'synthetic-line-token' };
+      if (testMode) window.TestModeClient = { getSessionToken: () => 'synthetic-session', payload: body => ({ ...body, testSessionToken: 'synthetic-session' }) };
+      window.dispatchEvent(new CustomEvent('booking:settings-updated', { detail: { today: '2026-10-30', settings: {} } }));
+    }, testMode);
+    await expect(page.locator('[data-date="2026-10-01"] .calendar-booking-times')).toBeVisible();
+    await page.locator('#previousMonthButton').click();
+    await expect(page.locator('[data-date="2026-09-01"] .calendar-booking-times')).toBeVisible();
+    await page.locator('#nextMonthButton').click();
+    await expect(page.locator('[data-date="2026-10-01"] .calendar-booking-times')).toBeVisible();
+    expect(denied).toEqual([]);
+    expect(requests.map(body => body.month)).toEqual(['2026-10', '2026-09', '2026-10']);
+    for (const body of requests) {
+      expect(body.action).toBe('user.booking.calendar');
+      expect(body.business).toBe('merchant-a');
+      expect(body.idToken).toBe(testMode ? '' : 'synthetic-line-token');
+      expect(body.testSessionToken).toBe(testMode ? 'synthetic-session' : undefined);
+    }
+  });
+}
