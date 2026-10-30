@@ -77,6 +77,7 @@ function ensureNoError(result: any): any {
 }
 
 export async function loadBookingConfirmationBenefits(db: any, job: any): Promise<Benefits> {
+  const allowed=(feature:string)=>!db.businessFeatures||db.businessFeatures[feature]===true;
   const bookingId = text(job?.booking_id, 80);
   if (!bookingId) throw new Error('BOOKING_ID_REQUIRED');
 
@@ -110,10 +111,10 @@ export async function loadBookingConfirmationBenefits(db: any, job: any): Promis
   const tierLabel = text(tierLabelRow?.tier_label || '一般會員', 40);
   const today = taipeiDate();
 
-  const cardsResult = await db.from('point_cards')
+  const cardsResult = allowed('points')?await db.from('point_cards')
     .select('id,title,status,expiry_mode,expires_on')
     .eq('status', 'active')
-    .order('sort_order', { ascending: true });
+    .order('sort_order', { ascending: true }):{data:[],error:null};
   const activeCards = (ensureNoError(cardsResult) || []).filter((card: any) =>
     isUsablePointCard(card, today)
   );
@@ -144,11 +145,11 @@ export async function loadBookingConfirmationBenefits(db: any, job: any): Promis
     return line([ticket.ticket_title, expiry, usage(ticket)]);
   }).filter(Boolean);
 
-  const eventClaimsResult = await db.from('event_ticket_claims')
+  const eventClaimsResult = allowed('events')?await db.from('event_ticket_claims')
     .select('ticket_title,usage_method,usage_instructions,status,event_ticket_id,event_tickets(*)')
     .eq('member_id', memberId)
     .eq('status', 'claimed')
-    .order('claimed_at', { ascending: true });
+    .order('claimed_at', { ascending: true }):{data:[],error:null};
   const eventClaims = ensureNoError(eventClaimsResult) || [];
   const eventTicketLines = eventClaims.flatMap((claim: any) => {
     const event = claim.event_tickets || {};
@@ -160,12 +161,12 @@ export async function loadBookingConfirmationBenefits(db: any, job: any): Promis
     ])];
   }).filter(Boolean);
 
-  const calendarResult = await db.from('calendar_items')
+  const calendarResult = allowed('calendar')?await db.from('calendar_items')
     .select('id,title,item_type,description,starts_on,ends_on,status,allowed_tier_keys,source_event_ticket_id,audience_type,audience_month')
     .eq('item_type', 'event')
     .in('status', ['active', 'targeted'])
-    .order('starts_on', { ascending: true });
-  const calendarItems = ensureNoError(calendarResult) || [];
+    .order('starts_on', { ascending: true }):{data:[],error:null};
+  const calendarItems = (ensureNoError(calendarResult) || []).filter((item:any)=>!item.source_event_ticket_id||allowed('events'));
 
   const sourceEventIds = [...new Set(
     calendarItems.map((item: any) => item.source_event_ticket_id).filter(Boolean).map(String)

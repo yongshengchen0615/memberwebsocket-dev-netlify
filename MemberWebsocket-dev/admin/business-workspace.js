@@ -3,6 +3,35 @@
  const panels={membership:'members',points:'cards',events:'events',calendar:'calendar',booking:'booking'};
  const lineFeatures=['membership','points','events','calendar','booking'];
  let latest=null;
+ // Keep each optional integration with the modules it actually consumes.
+ // CSS/inert do not reset forms or overwrite the module's own disabled state.
+ const integrations=[
+  ['#grantStampsEnabled','points','fieldset'],
+  ['#grantServiceTimeEnabled','membership','fieldset'],
+  ['#grantMode option[value="services"]','membership points booking'],
+  ['#calendarBonusPointsControls','calendar points'],
+  ['#eventTicketCalendarControls','events calendar'],
+  ['#fixedTicketCalendarEnabled','events calendar','.fixed-ticket-inline-actions'],
+  ['#eventTicketRequiredServiceIds','events booking','fieldset'],
+  ['[data-reward-service-rule]','points booking'],
+  ['[data-type-reward-enabled]','booking points','label'],
+  ['[data-type-reward-fields]','booking points'],
+  ['[data-record-filter="pointCards"]','membership points'],
+  ['[data-record-filter="eventTickets"]','membership events'],
+  ['[data-record-filter="calendar"]','membership calendar'],
+  ['[data-record-filter="bookings"]','membership booking'],
+  ['[data-record-filter="testAutomation"]','membership testing'],
+  ['#ticketVisibilitySettings','points events'],
+ ];
+ function applyIntegrations(){
+  if(!latest||typeof document==='undefined'||!document)return;
+  for(const [selector,required,container]of integrations)for(const match of document.querySelectorAll(selector)){
+   const node=container?match.closest(container):match;if(!node)continue;
+   const allowed=required.split(' ').every(feature=>latest.features?.[feature]===true);
+   node.dataset.businessAllowed=String(allowed);node.inert=!allowed;
+   if(node.tagName==='OPTION'){node.hidden=!allowed;node.disabled=!allowed;}
+  }
+ }
  function selectLineTab() {
   if(!latest || !lineFeatures.some(key=>latest.features?.[key]===true))return;
   const tab=document.getElementById('lineSettingsTab'),panel=document.getElementById('lineSettingsPanel');
@@ -35,6 +64,7 @@
    }
   }
   window.BusinessLineSettings?.apply(data);
+  applyIntegrations();
   if(lineTab?.getAttribute('aria-selected')==='true'){
    if(hasGrants)selectLineTab();else document.querySelector('#adminView .surface-nav button[data-business-allowed="true"]:not(#lineSettingsTab)')?.click();
   }
@@ -66,5 +96,9 @@
  const observer=new MutationObserver(()=>{if(latest)apply(latest);});
  for(const target of [document.getElementById('adminView'),document.querySelector('#adminView .surface-nav')])
   if(target)observer.observe(target,{childList:true});
- window.BusinessWorkspace=Object.freeze({apply});
+ // This observer only annotates integrations. Re-running the full workspace
+ // mount for every descendant mutation would recursively rebuild LINE panels.
+ const integrationObserver=new MutationObserver(applyIntegrations);
+ integrationObserver.observe(document.body,{childList:true,subtree:true});
+ window.BusinessWorkspace=Object.freeze({apply,allows:(...features)=>!latest||features.every(feature=>latest.features?.[feature]===true)});
 })();

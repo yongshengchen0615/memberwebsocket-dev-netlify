@@ -3081,7 +3081,7 @@
       state.memberRecords.childOpener = null;
     }
   }
-  function activeGrantCards() { return state.cards.filter((card) => card.status === 'active' && !card.expired); }
+  function activeGrantCards() { return window.BusinessWorkspace?.allows('points')===false?[]:state.cards.filter((card) => card.status === 'active' && !card.expired); }
   function renderGrantPointRows(points) { const grants = Array.isArray(points) ? points : []; els.grantPointRows.replaceChildren(...grants.map((grant, index) => createGrantPointRow(grant, index, grants))); updateGrantPointHint(); }
   function createGrantPointRow(grant, index, grants) {
     const row = document.createElement('article'); row.className = 'grant-point-row'; row.dataset.grantPointRow = 'true';
@@ -3141,6 +3141,7 @@
     });
   }
   async function changeGrantMode() {
+    if(els.grantMode.value==='services'&&window.BusinessWorkspace?.allows('membership','points','booking')===false)els.grantMode.value='manual';
     const services = els.grantMode.value === 'services';
     const version = ++serviceGrant.version;
     serviceGrant.preview = null;

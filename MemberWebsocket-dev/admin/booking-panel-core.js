@@ -908,7 +908,8 @@
       if (!name) return;
       let rewardMinutesPerPoint = null;
       let rewardPointCardId = null;
-      if (enabled.checked) {
+      const pointsAllowed=window.BusinessWorkspace?.allows('points')!==false;
+      if (pointsAllowed && enabled.checked) {
         rewardMinutesPerPoint = Number(minutesInput.value);
         rewardPointCardId = cardSelect.value;
         if (!Number.isInteger(rewardMinutesPerPoint) || rewardMinutesPerPoint < 1 || rewardMinutesPerPoint > 10080) {
@@ -918,7 +919,9 @@
           return showMessage(form.querySelector('[data-modal-message]'), '請選擇要自動加點的集點卡。', 'error');
         }
       }
-      const payload = { name, rewardMinutesPerPoint, rewardPointCardId };
+      // Omit the optional rule on unrelated edits while points is disabled;
+      // the server preserves the existing rule instead of silently clearing it.
+      const payload = { name, ...(pointsAllowed?{rewardMinutesPerPoint,rewardPointCardId}:{}) };
       if (type) payload.typeId = type.id;
       await runModalAction(async () => manageRequest(type ? 'admin.booking.type.update' : 'admin.booking.type.create', payload, true));
     });
