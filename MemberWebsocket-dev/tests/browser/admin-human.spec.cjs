@@ -413,7 +413,7 @@ for(const mode of ['any','all'])test('SERVICE_RULE_'+mode+' — save concrete se
   await openEvent(p);await select(p,'eventTicketRequiredServiceMatchMode',mode);await p.locator('#eventTicketRequiredServiceIds input[value="service-2"]').check();await click(p,'saveEventTicketButton');await expect.poll(()=>info.fixture.eventTickets[0]?.requiredServiceMatchMode).toBe(mode);expect(info.fixture.eventTickets[0].requiredServiceIds).toEqual(['service-2']);
 });
 for(const [caseId, width] of [['SERVICE_RULE_groups',1280],['SERVICE_RULE_groups_mobile',320]])test(caseId+' — grouped alternatives survive save/reload for points and events',async({page:p},info)=>{
-  await p.setViewportSize({width,height:900});
+  if (typeof p.setViewportSize === 'function') await p.setViewportSize({width,height:900}); // DOM replay driver is viewport-agnostic; Chromium tests real mobile width.
   await openCard(p);
   const reward=p.locator('#rewardRows [data-reward-row]').first();
   await reward.locator('[data-field="requiredServiceMatchMode"]').selectOption('groups');
