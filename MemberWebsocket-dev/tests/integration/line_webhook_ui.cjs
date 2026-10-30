@@ -7,7 +7,7 @@ test('#144 unsaved Messaging draft disables check and the invocation guard preve
   w.fetch=async(_url,options)=>{if(JSON.parse(options.body).action==='platform.webhook.check')checks++;return{ok:true,json:async()=>({ok:true,data:{application:{status:'approved'},tenant:{slug:'synthetic',version:1,features:{booking:true},line:{},moduleLine:{}}}})};};
   w.eval(fs.readFileSync(path.resolve(__dirname,'../../admin/business-line-settings.js'),'utf8'));await w.BusinessLineSettings.apply({features:{booking:true}});
   const form=w.document.querySelector('#businessLine-booking'),check=[...w.document.querySelectorAll('[data-line-webhook=booking] button')].find(b=>b.textContent==='檢查 LINE 連線');assert.equal(check.disabled,false);
-  form.elements.channelSecret.value='b'.repeat(32);form.elements.channelSecret.dispatchEvent(new w.Event('input',{bubbles:true}));assert.equal(check.disabled,true);
+  form.elements.bookingLiffId.value='2010787602-synthetic';form.elements.bookingLiffId.dispatchEvent(new w.Event('input',{bubbles:true}));assert.equal(check.disabled,true);
   await check.onclick();assert.equal(checks,0);
  }finally{w.close();}
 });

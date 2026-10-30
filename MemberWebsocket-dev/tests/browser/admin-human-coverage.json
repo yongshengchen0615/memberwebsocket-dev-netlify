@@ -23,16 +23,16 @@
     "admin/booking-receipt-admin.js": "b5873c2753c0f2f9c267d0d13583405c2205cc70c0f2103f5899f741a74cf920",
     "admin/booking-accessible-admin.js": "5947f0328b3b27ff891760f72615024899a96b77467f7601842056f908ce5526",
     "admin/ticket-visibility.js": "bb1cf776a3bf1c69f75bbfa6a4b3e07cf9c9077444099533cb9c2883736dd5c0",
-    "admin/workspace.html": "a947ce02a6d579ea823d0459989f29a9564f3e1cb1c1362f6ffa77f45dc5775e",
+    "admin/workspace.html": "0abc506873f09152b06daef7662029083f4b567e995ab31d8fce01643e785a30",
     "platform/app.js": "8c2b1314c20ffa2a90fbe580b6e700872eccac83cd6b50ab7b4487a240903fa3",
     "admin/business-workspace.js": "ea9c37299751e43bdb3d8193e637130f659a311f7ecaf41f1bee2cc7f7ced8d8",
     "business-context.js": "ce986eecdb60781f8fa8bdc563f130785d53cde4cc56614200eebd3613e017d7",
-    "admin/business-line-settings.js": "7bb6ae04d25ffdf5aa25eba5d75517b8a11c570d8c4c75c1979fb2fa234dd5f1",
+    "admin/business-line-settings.js": "5cd7b2de9c52cd881d0b23eb4b9698bc077e553d5b9b35d2f02c550c8c65b2ba",
     "admin/booking-risk.js": "76f61965b64eaa761b8e60074daf893551bc1bdafce7792d951159adac501a97",
     "platform/index.html": "82f8aeac6641f201794059fdfa8e84c586e117e5bde50c71c7493169a8335934",
     "admin/productized-workspace.js": "f8fc604c11a7d241c3b28d596057ad6c3377a052cccb0a3b12ef671cd277fd4a",
     "platform/platform.css": "c310b47a7d880fbcd5f8cc7ab260cc632d2e788fb39add66448faf3f3731e80d",
-    "admin/business-line-settings.css": "4c9b5152985bda7798dc6404874f6e17e80017abdbdd93f28fa02c0ff6a0853b"
+    "admin/business-line-settings.css": "2da5613b3137f63063052abf7792dbddcb469f0bb9cf97bdb462624aef6ec2e2"
   },
   "features": [
     {

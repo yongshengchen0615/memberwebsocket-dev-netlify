@@ -58,7 +58,7 @@ test('reload discards a mismatch and restores a valid saved pair that can be sav
 
 for(const operation of ['reload','notification-test'])test('retained business transport clears secret drafts and controls on revoked access during '+operation,async()=>{
  const t=await setup();try{
-  const form=t.d.querySelector('#businessLine-membership'),secret=form.elements.channelSecret;fill(t.w,form,'channelSecret','a'.repeat(32));
+  const form=t.d.querySelector('#businessLine-membership'),notify=t.d.querySelector(operation==='notification-test'?'#notification-booking-member':'#notification-booking-admin'),secret=notify.elements.channelAccessToken;fill(t.w,notify,'channelAccessToken','synthetic-unsaved-secret-token');
   await t.h.db.query("update platform_private.admin_qualifications set status='suspended' where applicant_line_user_id=$1",[owner]);
   if(operation==='reload')[...form.closest('section').querySelectorAll('button')].find(b=>b.textContent==='載入最新 LINE 設定').click();
   else [...t.d.querySelectorAll('#notification-booking-admin button')].find(b=>b.textContent==='傳送測試給我').click();
@@ -69,7 +69,7 @@ for(const operation of ['reload','notification-test'])test('retained business tr
 
 test('an authoritative suspended bootstrap clears the retained renderer instead of leaving editable drafts',async()=>{
  const t=await setup();try{
-  const form=t.d.querySelector('#businessLine-membership'),secret=form.elements.channelSecret;fill(t.w,form,'channelSecret','a'.repeat(32));
+  const form=t.d.querySelector('#businessLine-membership'),notify=t.d.querySelector('#notification-booking-admin'),secret=notify.elements.channelAccessToken;fill(t.w,notify,'channelAccessToken','synthetic-unsaved-secret-token');
   const bootstrap=(await t.h.call({action:'platform.application.bootstrap',business:t.tenant.slug},'manager')).body.data;
   t.w.fetch=async()=>Response.json({ok:true,data:{...bootstrap,tenant:{...bootstrap.tenant,status:'suspended'}}});
   [...form.closest('section').querySelectorAll('button')].find(b=>b.textContent==='載入最新 LINE 設定').click();
@@ -85,7 +85,7 @@ test('scoped adapter clears all secret drafts/pending state and rejects late res
   const tenant=slug=>({id:slug,slug,version:1,status:'active',features:{booking:true},line:{adminChannelId:'2010791619',adminLiffId:'2010791619-admin'},moduleLine:{}});
   let release;const delayed=new Promise(resolve=>release=resolve),mount=w.document.querySelector('#mount');
   w.BusinessLineSettings.mount({root:mount,data:{tenant:tenant('a-shop')},request:async()=>delayed});
-  const old=mount.querySelector('form'),secret=old.elements.channelSecret;fill(w,old,'channelSecret','a'.repeat(32));
+  const old=mount.querySelector('form'),secret=mount.querySelector('#merchant-notification-booking-member').elements.channelAccessToken;fill(w,secret.form,'channelAccessToken','synthetic-unsaved-secret-token');
   const route=mount.querySelector('#merchant-notification-booking-admin');assert.ok(route);fill(w,route,'channelAccessToken','unsaved-private-token');
   const statusButton=[...mount.querySelectorAll('button')].find(b=>b.textContent==='讀取 Webhook 狀態');statusButton.click();
   w.BusinessLineSettings.clear();assert.equal(secret.value,'');assert.equal(route.elements.channelAccessToken.value,'');
@@ -106,4 +106,24 @@ test('saving another feature preserves the draft LIFF and its automatically deri
   const saved=(await t.h.db.query('select module_line from platform_private.tenants')).rows[0].module_line;
   assert.equal(saved.membership.line.memberChannelId,'2010787602');assert.equal(saved.booking.line.memberChannelId,'2099999999');
  }finally{await t.close();}
+});
+
+test('AC-309: notification purpose directly accepts official account info without channel dropdown',async()=>{
+  const t=await setup();try{
+    const form=t.d.querySelector('#notification-booking-admin');
+    assert.ok(form,'booking administrator notification purpose exists');
+    assert.equal(form.querySelector('select'),null,'remove old notification channel selector');
+    assert.equal(form.elements.notificationDisabled.checked,false);
+    assert.equal(form.elements.messagingChannelId.required,true);
+    assert.equal(form.elements.channelAccessToken.required,true);
+    assert.equal(form.elements.channelAccessToken.value,'','never prefill private credentials');
+    fill(t.w,form,'messagingChannelId','2010123456');
+    fill(t.w,form,'channelAccessToken','synthetic-token-abcdefghijklmnop');
+    form.dispatchEvent(new t.w.Event('submit',{cancelable:true}));
+    await until(()=>t.calls.some(c=>c.action==='platform.notifications.save'));
+    const payload=t.calls.find(c=>c.action==='platform.notifications.save');
+    assert.equal(payload.feature,'booking');assert.equal(payload.purpose,'admin');
+    assert.equal(payload.mode,'custom');assert.equal(payload.messagingChannelId,'2010123456');
+    assert.equal(payload.channelAccessToken,'synthetic-token-abcdefghijklmnop');
+  }finally{await t.close();}
 });
