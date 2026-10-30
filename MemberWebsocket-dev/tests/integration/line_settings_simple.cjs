@@ -58,7 +58,7 @@ test('reload discards a mismatch and restores a valid saved pair that can be sav
 
 for(const operation of ['reload','notification-test'])test('retained business transport clears secret drafts and controls on revoked access during '+operation,async()=>{
  const t=await setup();try{
-  const form=t.d.querySelector('#businessLine-membership'),secret=form.elements.channelSecret;fill(t.w,form,'channelSecret','a'.repeat(32));
+  const form=t.d.querySelector('#businessLine-membership'),notify=t.d.querySelector('#notification-booking-admin'),secret=notify.elements.channelAccessToken;fill(t.w,notify,'channelAccessToken','synthetic-unsaved-secret-token');
   await t.h.db.query("update platform_private.admin_qualifications set status='suspended' where applicant_line_user_id=$1",[owner]);
   if(operation==='reload')[...form.closest('section').querySelectorAll('button')].find(b=>b.textContent==='載入最新 LINE 設定').click();
   else [...t.d.querySelectorAll('#notification-booking-admin button')].find(b=>b.textContent==='傳送測試給我').click();
@@ -69,7 +69,7 @@ for(const operation of ['reload','notification-test'])test('retained business tr
 
 test('an authoritative suspended bootstrap clears the retained renderer instead of leaving editable drafts',async()=>{
  const t=await setup();try{
-  const form=t.d.querySelector('#businessLine-membership'),secret=form.elements.channelSecret;fill(t.w,form,'channelSecret','a'.repeat(32));
+  const form=t.d.querySelector('#businessLine-membership'),notify=t.d.querySelector('#notification-booking-admin'),secret=notify.elements.channelAccessToken;fill(t.w,notify,'channelAccessToken','synthetic-unsaved-secret-token');
   const bootstrap=(await t.h.call({action:'platform.application.bootstrap',business:t.tenant.slug},'manager')).body.data;
   t.w.fetch=async()=>Response.json({ok:true,data:{...bootstrap,tenant:{...bootstrap.tenant,status:'suspended'}}});
   [...form.closest('section').querySelectorAll('button')].find(b=>b.textContent==='載入最新 LINE 設定').click();
@@ -85,7 +85,7 @@ test('scoped adapter clears all secret drafts/pending state and rejects late res
   const tenant=slug=>({id:slug,slug,version:1,status:'active',features:{booking:true},line:{adminChannelId:'2010791619',adminLiffId:'2010791619-admin'},moduleLine:{}});
   let release;const delayed=new Promise(resolve=>release=resolve),mount=w.document.querySelector('#mount');
   w.BusinessLineSettings.mount({root:mount,data:{tenant:tenant('a-shop')},request:async()=>delayed});
-  const old=mount.querySelector('form'),secret=old.elements.channelSecret;fill(w,old,'channelSecret','a'.repeat(32));
+  const old=mount.querySelector('form'),secret=mount.querySelector('#merchant-notification-booking-member').elements.channelAccessToken;fill(w,secret.form,'channelAccessToken','synthetic-unsaved-secret-token');
   const route=mount.querySelector('#merchant-notification-booking-admin');assert.ok(route);fill(w,route,'channelAccessToken','unsaved-private-token');
   const statusButton=[...mount.querySelectorAll('button')].find(b=>b.textContent==='讀取 Webhook 狀態');statusButton.click();
   w.BusinessLineSettings.clear();assert.equal(secret.value,'');assert.equal(route.elements.channelAccessToken.value,'');
