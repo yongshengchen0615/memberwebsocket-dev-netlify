@@ -4,7 +4,7 @@ const root=path.resolve(__dirname,'../..');let server,base;
 const fixture=`
 window.calls=[];window.MembershipProgress={render(){}};
 window.BookingSystem={loadConfig:async()=>({}),signIn:async()=>'fixture',memberProfile:async()=>({lineUserId:'a'}),formatDate:v=>v,subscribeRealtime:()=>()=>{},getSession:()=>({config:{},idToken:'fixture'}),addDays:(d,n)=>new Date(Date.parse(d+'T00:00:00Z')+n*86400000).toISOString().slice(0,10),request:async(c,t,k,action)=>{calls.push(action);
-if(action==='user.booking.bootstrap')return {today:'2026-10-30',settings:{minAdvanceDays:0,maxAdvanceDays:3},services:[],bookings:[
+if(action==='user.booking.bootstrap')return {serverNow:'2026-10-30T00:00:00Z',today:'2026-10-30',settings:{minAdvanceDays:0,maxAdvanceDays:3},services:[],bookings:[
 {bookingId:'today',bookingDate:'2026-10-30',status:'confirmed',startTime:'09:00',endTime:'10:00',items:[]},
 {bookingId:'tomorrow',bookingDate:'2026-10-31',status:'pending',startTime:'11:00',endTime:'12:00',items:[]},
 {bookingId:'old',bookingDate:'2026-09-02',status:'completed',startTime:'11:00',endTime:'12:00',items:[]}]};
