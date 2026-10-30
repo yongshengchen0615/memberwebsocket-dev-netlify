@@ -5,7 +5,7 @@ Candidate: `fix/feature-dependencies-20261030`; exact candidate/CI identity is r
 
 ## Result before CI
 
-Partial, not released. Local Node regression: **1199 pass / 0 fail / 0 skip**.
+Partial, not released. Local Node regression: **1200 pass / 0 fail / 0 skip**.
 All script/build contract tests: **137 pass / 0 fail / 0 skip** (`TMPDIR` set to the writable workspace; the host has no `/tmp`).
 Adjacent DOM/SQL tests: **32 pass / 0 fail / 0 skip**; feature/benefit/notification tests: **39 pass / 0 fail / 0 skip**.
 Static frontend build executed successfully. Local Chromium and Deno/PostgreSQL execution are unavailable; the existing exact-SHA GitHub CI remains mandatory, including the new Chromium and PostgreSQL tests. Real LINE login and delivery are not claimed by isolated transport tests.
@@ -36,7 +36,7 @@ The migration replaces only the known fixed-issuance branch of `platform_tick_bu
 
 Existing policies and workspace are extended; no framework, package, subscription or paid test environment is added. Late integration observation annotates descendants without remounting LINE settings. Optional disabled calendar calls are skipped. Hidden booking point settings are omitted from unrelated type edits, retaining stored rules.
 
-Same-host uncompressed asset-byte comparison over the six modified admin JS/CSS sources: **541,392 → 544,850 bytes (+3,458 bytes)**. Baseline fixed at the SHA above. This is an asset-size measurement, not an API latency improvement claim. Stored-dependency queries run only on affected operations when relevant grants are absent; fully granted settlements retain their original query path.
+Same-host uncompressed asset-byte comparison over the seven modified browser JS/CSS sources: **578,540 → 582,174 bytes (+3,634 bytes)**. Baseline fixed at the SHA above. This is an asset-size measurement, not an API latency improvement claim. Stored-dependency queries run only on affected operations when relevant grants are absent; fully granted settlements retain their original query path.
 
 ## Release and recovery
 
@@ -47,3 +47,5 @@ After approval by existing task authority and green CI: apply the additive sched
 Recovery: fix forward by reverting the reviewed frontend/Edge commit and redeploying the previous compatible bundles; scheduler modification changes only dispatch gating and preserves all rows. Do not delete merchant data or rewrite past migrations.
 
 Browser correction: the first Chromium run rejected Playwright toBeDisabled on an option despite its native disabled/hidden properties. The updated assertion checks the native property and actual keyboard/selection behavior. Revoking an already-selected service grant now resets the mode and hides its entire dependent section; its DOM test reproduced the missing reset before the fix. Full CI is re-run on the new candidate.
+
+Deployment routing check: BookingSystem still sent benefits/claims/profile/presence to the production API despite previewApiFunctionUrl. A behavioral test reproduced the wrong destination. The client now honors the existing override and retains the legacy URL when absent; this avoids overwriting production member APIs for preview acceptance.

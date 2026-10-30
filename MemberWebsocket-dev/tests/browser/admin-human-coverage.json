@@ -42,7 +42,8 @@
     "platform/index.html": "82f8aeac6641f201794059fdfa8e84c586e117e5bde50c71c7493169a8335934",
     "admin/productized-workspace.js": "f8fc604c11a7d241c3b28d596057ad6c3377a052cccb0a3b12ef671cd277fd4a",
     "platform/platform.css": "c310b47a7d880fbcd5f8cc7ab260cc632d2e788fb39add66448faf3f3731e80d",
-    "admin/business-line-settings.css": "2da5613b3137f63063052abf7792dbddcb469f0bb9cf97bdb462624aef6ec2e2"
+    "admin/business-line-settings.css": "2da5613b3137f63063052abf7792dbddcb469f0bb9cf97bdb462624aef6ec2e2",
+    "booking/common.js": "5f49e318c592937322858555c3bee9553767bca8b8bcd61c4ea18d4ca576b726"
   },
   "features": [
     {
@@ -700,12 +701,13 @@
     "security": "管理入口依 ready 伺服器狀態控制，商家申請 API 的身分和資料歸屬仍在後端檢查；pending 無管理連結。"
   },
   "featureDependencyJourney": {
-    "scope": "2026-10-30: nested feature integrations follow explicit current tenant grants; preserve saved rules and independent operations. Reviewed manual/service grants, automatic booking points, ticket booking restrictions, fixed/event calendar integrations, calendar bonus, history filters and optional requests.",
+    "scope": "2026-10-30: nested feature integrations follow explicit current tenant grants; preserve saved rules and independent operations. Reviewed manual/service grants, automatic booking points, ticket booking restrictions, fixed/event calendar integrations, calendar bonus, history filters and optional requests. Booking benefits/claims/profile/presence honor the existing preview API override; production without an override retains its URL.",
     "tests": [
       "tests/feature_dependencies.test.js",
       "tests/integration/feature_dependencies.cjs",
       "tests/browser/feature-dependencies.spec.cjs",
-      "tests/integration/postgres/feature-dependencies.cjs"
+      "tests/integration/postgres/feature-dependencies.cjs",
+      "tests/connection_efficiency.test.js"
     ],
     "evidence": "Related Node and DOM tests executed locally; full Chromium/PostgreSQL/Edge and dependency audit require exact-SHA CI. Provider LINE acceptance is not claimed."
   }

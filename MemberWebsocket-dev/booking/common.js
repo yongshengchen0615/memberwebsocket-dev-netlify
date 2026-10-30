@@ -235,7 +235,7 @@
   }
 
   function sendPresence(context, event, reason) {
-    const endpoint = String(context.config.supabaseFunctionUrl || '').trim();
+    const endpoint = String(context.config.previewApiFunctionUrl || context.config.supabaseFunctionUrl || '').trim();
     if (!endpoint) return Promise.resolve(null);
     return fetch(endpoint, {
       method: 'POST',
@@ -285,7 +285,7 @@
   }
 
   function sendPresenceExit(context, reason) {
-    const endpoint = String(context.config.supabaseFunctionUrl || '').trim();
+    const endpoint = String(context.config.previewApiFunctionUrl || context.config.supabaseFunctionUrl || '').trim();
     if (!/^https:\/\/[a-z0-9-]+\.supabase\.co\/functions\/v1\/[A-Za-z0-9_-]+$/i.test(endpoint)) return Promise.resolve(null);
     const jsonBody = JSON.stringify(presenceBody(context, 'offline', reason));
     // Beacon/simple POST skips a preflight which may be cancelled on LINE WebView close.
@@ -385,12 +385,12 @@
       idToken,
       ...(bookingId ? { bookingId: String(bookingId) } : {}),
     };
-    return postJson(String(config.supabaseFunctionUrl || '').trim(), config,
+    return postJson(String(config.previewApiFunctionUrl || config.supabaseFunctionUrl || '').trim(), config,
       window.TestModeClient?.payload ? window.TestModeClient.payload(body) : body, '可用活動與票券');
   }
 
   async function claimEventTicket(config, idToken, eventTicketId) {
-    const endpoint = String(config.supabaseFunctionUrl || '').trim();
+    const endpoint = String(config.previewApiFunctionUrl || config.supabaseFunctionUrl || '').trim();
     if (!endpoint) throw clientError('CONFIG_INVALID', '活動票券服務設定不完整。');
     const body = {
       action: 'user.booking.event-ticket.claim',
@@ -404,7 +404,7 @@
   }
 
   async function memberProfile(config, idToken) {
-    const endpoint = String(config.supabaseFunctionUrl || '').trim();
+    const endpoint = String(config.previewApiFunctionUrl || config.supabaseFunctionUrl || '').trim();
     if (!endpoint) throw clientError('CONFIG_INVALID', '會員資料服務設定不完整。');
     const requestBody = {
       action: 'user.member.bootstrap',
