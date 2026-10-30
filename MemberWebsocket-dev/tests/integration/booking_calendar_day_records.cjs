@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { JSDOM } = require('jsdom');
+const { JSDOM, VirtualConsole } = require('jsdom');
 const { pathToFileURL } = require('node:url');
 const root = path.resolve(__dirname, '../..');
 const read = name => fs.readFileSync(path.join(root, name), 'utf8');
@@ -139,8 +139,15 @@ for (const testMode of [false, true]) {
   test(`merchant calendar request passes the real booking action policy on entry and month changes (${testMode ? 'test session' : 'LINE'})`, async () => {
     const { assertBusinessAction } = await import(pathToFileURL(path.join(root, 'supabase/functions/_shared/business-policy.mjs')));
     const context = { status: 'active', runtime_schema: 'business_' + 'a'.repeat(32), features: { booking: true, calendar: false } };
-    const dom = new JSDOM(read('booking/index.html'), { url: 'https://example.test/booking/?business=merchant-a', runScripts: 'outside-only', pretendToBeVisual: true });
+    const errors = [], observers = [];
+    const virtualConsole = new VirtualConsole();
+    virtualConsole.on('jsdomError', error => errors.push(error.message));
+    const dom = new JSDOM(read('booking/index.html'), { url: 'https://example.test/booking/?business=merchant-a', runScripts: 'outside-only', pretendToBeVisual: true, virtualConsole });
     const w = dom.window, requests = [], denied = [];
+    const NativeObserver = w.MutationObserver;
+    w.MutationObserver = class extends NativeObserver {
+      constructor(callback) { super(callback); observers.push(this); }
+    };
     let resolveRequest;
     const nextRequest = () => new Promise(resolve => { resolveRequest = resolve; });
     w.matchMedia = () => ({ matches: false });
@@ -182,6 +189,11 @@ for (const testMode of [false, true]) {
       }
       assert.notEqual(requests[0].body.month, requests[1].body.month);
       assert.equal(requests[0].body.month, requests[2].body.month);
-    } finally { w.close(); }
+    } finally {
+      observers.forEach(observer => observer.disconnect());
+      w.close();
+      await new Promise(resolve => setTimeout(resolve, 0));
+      assert.deepEqual(errors, [], 'Merchant fixture must have no uncaught browser errors');
+    }
   });
 }
