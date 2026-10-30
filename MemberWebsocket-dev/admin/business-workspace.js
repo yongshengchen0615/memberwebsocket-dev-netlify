@@ -9,6 +9,7 @@
   ['#grantStampsEnabled','points','fieldset'],
   ['#grantServiceTimeEnabled','membership','fieldset'],
   ['#grantMode option[value="services"]','membership points booking'],
+  ['#grantServiceFields','membership points booking'],
   ['#calendarBonusPointsControls','calendar points'],
   ['#eventTicketCalendarControls','events calendar'],
   ['#fixedTicketCalendarEnabled','events calendar','.fixed-ticket-inline-actions'],
@@ -29,7 +30,10 @@
    const node=container?match.closest(container):match;if(!node)continue;
    const allowed=required.split(' ').every(feature=>latest.features?.[feature]===true);
    node.dataset.businessAllowed=String(allowed);node.inert=!allowed;
-   if(node.tagName==='OPTION'){node.hidden=!allowed;node.disabled=!allowed;}
+   if(node.tagName==='OPTION'){
+    node.hidden=!allowed;node.disabled=!allowed;
+    if(!allowed&&node.selected)node.parentElement.value='manual';
+   }
   }
  }
  function selectLineTab() {

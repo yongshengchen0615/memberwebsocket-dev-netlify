@@ -14,17 +14,22 @@ for(const width of [390,1280])test(`FEATURE_DEPENDENCIES_${width}: nested contro
  });
  await expect(page.locator('#grantServiceTimeEnabled')).toBeVisible();
  await expect(page.locator('#grantStampsEnabled')).toBeHidden();
- await expect(page.locator('#grantMode option[value=services]')).toBeDisabled();
+ await expect(page.locator('#grantMode option[value=services]')).toHaveJSProperty('disabled',true);
+ await page.locator('#grantMode').focus();await page.keyboard.press('ArrowDown');
+ await expect(page.locator('#grantMode')).toHaveValue('manual');
  await page.evaluate(()=>{
   const block=document.createElement('section');block.id='calendarBonusPointsControls';block.textContent='活動加贈點數';document.getElementById('grantForm').append(block);
  });
  await expect(page.locator('#calendarBonusPointsControls')).toBeHidden();
  await page.evaluate(()=>window.BusinessWorkspace.apply({features:{membership:true,points:true,events:true,booking:true,calendar:true},business:{slug:'fixture',name:'QA'}}));
  await expect(page.locator('#grantStampsEnabled')).toBeVisible();
- await expect(page.locator('#grantMode option[value=services]')).toBeEnabled();
+ await expect(page.locator('#grantMode option[value=services]')).toHaveJSProperty('disabled',false);
+ await page.locator('#grantMode').selectOption('services');
+ await expect(page.locator('#grantMode')).toHaveValue('services');
  await expect(page.locator('#calendarBonusPointsControls')).toBeVisible();
  await page.evaluate(()=>window.BusinessWorkspace.apply({features:{membership:true},business:{slug:'fixture',name:'QA'}}));
  await expect(page.locator('#grantStampsEnabled')).toBeHidden();
+ await expect(page.locator('#grantMode')).toHaveValue('manual');
  await expect(page.locator('#calendarBonusPointsControls')).toBeHidden();
  expect(errors).toEqual([]);
  await info.attach('feature-dependencies',{body:await page.screenshot({fullPage:true}),contentType:'image/png'});

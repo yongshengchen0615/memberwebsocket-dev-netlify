@@ -19,8 +19,11 @@ test('AC-001/004: nested points controls and service mode track grants without d
   h.apply({membership:true,points:true,booking:true});
   assert.equal(h.d.getElementById('grantStampsEnabled').closest('fieldset').dataset.businessAllowed,'true');
   assert.equal(h.d.querySelector('#grantMode option[value="services"]').disabled,false);
+  h.d.getElementById('grantMode').value='services';
   const late=h.d.createElement('section');late.id='calendarBonusPointsControls';h.d.getElementById('adminView').append(late);await tick();
   h.apply({membership:true,calendar:true});
+  assert.equal(h.d.getElementById('grantMode').value,'manual');
+  assert.equal(h.d.getElementById('grantServiceFields').dataset.businessAllowed,'false');
   assert.equal(late.dataset.businessAllowed,'false');
   h.apply({membership:true,calendar:true,points:true});
   assert.equal(late.dataset.businessAllowed,'true');

@@ -36,7 +36,7 @@ The migration replaces only the known fixed-issuance branch of `platform_tick_bu
 
 Existing policies and workspace are extended; no framework, package, subscription or paid test environment is added. Late integration observation annotates descendants without remounting LINE settings. Optional disabled calendar calls are skipped. Hidden booking point settings are omitted from unrelated type edits, retaining stored rules.
 
-Same-host uncompressed asset-byte comparison over the six modified admin JS/CSS sources: **541,392 → 544,720 bytes (+3,328 bytes)**. Baseline fixed at the SHA above. This is an asset-size measurement, not an API latency improvement claim. Stored-dependency queries run only on affected operations when relevant grants are absent; fully granted settlements retain their original query path.
+Same-host uncompressed asset-byte comparison over the six modified admin JS/CSS sources: **541,392 → 544,850 bytes (+3,458 bytes)**. Baseline fixed at the SHA above. This is an asset-size measurement, not an API latency improvement claim. Stored-dependency queries run only on affected operations when relevant grants are absent; fully granted settlements retain their original query path.
 
 ## Release and recovery
 
@@ -45,3 +45,5 @@ All required regression, integration, Chromium, PostgreSQL, Edge, wiring, depend
 After approval by existing task authority and green CI: apply the additive scheduler migration to MemberWebsocket-dev; deploy affected Edge bundles from this exact source; merge to Integrated-Marketing-Platform and verify the CI-gated Netlify preview identity and smoke. These actions are not claimed by this pre-CI record.
 
 Recovery: fix forward by reverting the reviewed frontend/Edge commit and redeploying the previous compatible bundles; scheduler modification changes only dispatch gating and preserves all rows. Do not delete merchant data or rewrite past migrations.
+
+Browser correction: the first Chromium run rejected Playwright toBeDisabled on an option despite its native disabled/hidden properties. The updated assertion checks the native property and actual keyboard/selection behavior. Revoking an already-selected service grant now resets the mode and hides its entire dependent section; its DOM test reproduced the missing reset before the fix. Full CI is re-run on the new candidate.
