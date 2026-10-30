@@ -14,7 +14,7 @@ export type CurrentPointOffer = {
   thresholdStamps: number;
   requiredServiceIds: string[];
   requiredServiceMatchMode: 'any' | 'all';
-  requiredServiceGroups: string[][];
+  requiredServiceGroups?: string[][];
   sortOrder: number;
 };
 
@@ -35,7 +35,7 @@ export type CurrentEventOffer = {
   requiresLocation?: boolean;
   requiredServiceIds: string[];
   requiredServiceMatchMode: 'any' | 'all';
-  requiredServiceGroups: string[][];
+  requiredServiceGroups?: string[][];
 };
 
 function text(value: unknown): string {
@@ -180,7 +180,7 @@ export function selectLatestEventOffers(
         ? row.required_service_ids.map(text).filter(Boolean)
         : [],
       requiredServiceMatchMode: text(row.required_service_match_mode) === "all" ? "all" : "any",
-      requiredServiceGroups: Array.isArray(row.required_service_groups) ? row.required_service_groups : [],
+      ...(Array.isArray(row.required_service_groups) && row.required_service_groups.length ? { requiredServiceGroups: row.required_service_groups } : {}),
     };
     const claimId = claimed ? (memberAvailableClaims.get(eventId) || "") : "";
     if (claimId) offer.claimId = claimId;
@@ -316,7 +316,7 @@ export async function loadLatestEventOffers(
         ? event.required_service_ids.map(text).filter(Boolean)
         : [],
       requiredServiceMatchMode: text(event?.required_service_match_mode) === "all" ? "all" : "any",
-      requiredServiceGroups: Array.isArray(event?.required_service_groups) ? event.required_service_groups : [],
+      ...(Array.isArray(event?.required_service_groups) && event.required_service_groups.length ? { requiredServiceGroups: event.required_service_groups } : {}),
     };
   });
 }
