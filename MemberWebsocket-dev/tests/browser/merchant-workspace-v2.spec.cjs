@@ -97,7 +97,7 @@ test('V2_REVOCATION — reads clear account cards and selected LINE secrets afte
 for(const width of [390,1280])test('LINE_SIMPLE_WORKSPACE_'+width+' — actual account-to-merchant setup, LIFF-only save, advanced validation and preserved links',async({page},info)=>{
  test.setTimeout(45000);await page.setViewportSize({width,height:900});const h=await setup({origins:[base]});try{
   await h.qualify();const slug='simple-line-'+width,a=await h.submit(h.owner,slug,'簡易 LINE 商家');await h.review(a,'approved',h.features(['membership','booking']));
-  const observed=await wire(page,h);await page.goto(base+'/admin/');await expect(page.locator('#myMerchantList [data-merchant-line]')).toHaveCount(0);await page.goto(base+'/admin/workspace.html?business='+slug);await expect(page).toHaveURL(base+'/admin/workspace.html?business='+slug);
+  const observed=await wire(page,h);await page.goto(base+'/admin/');await expect(page.locator('#myMerchantList [data-merchant-line]')).toHaveCount(0);await page.goto(base+'/admin/workspace.html?business='+slug);await expect(page).toHaveURL(base+'/admin/workspace.html?business='+slug+'&feature=membership');
   await page.locator('#merchantLineSettingsTab').click();const host=page.locator('#merchantSimpleLine');await expect(host).toBeVisible();await expect(page.locator('#merchantLineForm')).toBeHidden();await expect(host.getByRole('tab')).toHaveCount(2);
   const form=host.locator('[data-business-line-feature=membership] > form'),status=host.locator('[data-business-line-feature=membership] > [role=status]');
   await expect(form.locator('input:visible')).toHaveCount(2);
