@@ -16,6 +16,7 @@ test('AC-008: group selections survive an empty service-catalog refresh and pers
   await page.locator('#eventTicketDescription').fill('測試預約服務組合');
   await page.locator('#eventTicketUsageMethod').fill('預約使用');
   await page.locator('#eventTicketUsageInstructions').fill('符合任一組合才能使用');
+  await page.locator('#eventTicketStatus').selectOption('active');
   await page.locator('#eventTicketRequiredServiceMatchMode').selectOption('groups');
 
   const groups = page.locator('#eventTicketRequiredServiceGroups');
