@@ -107,3 +107,23 @@ test('saving another feature preserves the draft LIFF and its automatically deri
   assert.equal(saved.membership.line.memberChannelId,'2010787602');assert.equal(saved.booking.line.memberChannelId,'2099999999');
  }finally{await t.close();}
 });
+
+test('AC-309: notification purpose directly accepts official account info without channel dropdown',async()=>{
+  const t=await setup();try{
+    const form=t.d.querySelector('#notification-booking-admin');
+    assert.ok(form,'booking administrator notification purpose exists');
+    assert.equal(form.querySelector('select'),null,'remove old notification channel selector');
+    assert.equal(form.elements.notificationDisabled.checked,false);
+    assert.equal(form.elements.messagingChannelId.required,true);
+    assert.equal(form.elements.channelAccessToken.required,true);
+    assert.equal(form.elements.channelAccessToken.value,'','never prefill private credentials');
+    fill(t.w,form,'messagingChannelId','2010123456');
+    fill(t.w,form,'channelAccessToken','synthetic-token-abcdefghijklmnop');
+    form.dispatchEvent(new t.w.Event('submit',{cancelable:true}));
+    await until(()=>t.calls.some(c=>c.action==='platform.notifications.save'));
+    const payload=t.calls.find(c=>c.action==='platform.notifications.save');
+    assert.equal(payload.feature,'booking');assert.equal(payload.purpose,'admin');
+    assert.equal(payload.mode,'custom');assert.equal(payload.messagingChannelId,'2010123456');
+    assert.equal(payload.channelAccessToken,'synthetic-token-abcdefghijklmnop');
+  }finally{await t.close();}
+});
