@@ -442,7 +442,7 @@ for(const [caseId, width] of [['SERVICE_RULE_groups',1280],['SERVICE_RULE_groups
   await expect.poll(()=>info.fixture.eventTickets[0]?.requiredServiceGroups).toEqual([['service-1','service-2'],['service-1']]);
   await expect(eventGroups.locator('[data-service-combination]')).toHaveCount(2);
   const dimensions=await eventGroups.evaluate(el=>({scroll:el.scrollWidth,viewport:el.clientWidth}));
-  expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.viewport+2);
+  expect(dimensions.scroll <= dimensions.viewport + 2).toBe(true);
 });
 test('BOOKING_ITEMS — reject empty selection, change quantities, save and reopen',async({page:p},info)=>{
   seedBooking(info.fixture);await booking(p,'bookingAdminQueueSubtab');await p.locator('[data-booking-id="booking-1"]').getByRole('button',{name:'修改服務項目'}).click();await p.locator('[data-booking-service="service-1"]').uncheck();await p.locator('#bookingAdminCrudModal button[type="submit"]').click();await expect(p.locator('[data-modal-message]')).toContainText('至少');expect(calls(info.fixture,'admin.booking.items.update')).toHaveLength(0);await p.locator('[data-booking-service="service-2"]').check();await p.locator('[data-booking-quantity="service-2"]').selectOption('2');await p.locator('#bookingAdminCrudModal button[type="submit"]').click();await expect(p.locator('#bookingAdminCrudModal')).toBeHidden();await p.locator('[data-booking-id="booking-1"]').getByRole('button',{name:'修改服務項目'}).click();await expect(p.locator('[data-booking-quantity="service-2"]')).toHaveValue('2');expect(info.fixture.bookings[0].startTime).toBe('10:00');
