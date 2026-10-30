@@ -1073,7 +1073,12 @@
     refresh: refreshListAndDecorate,
   });
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && !document.getElementById('bookingReceiptModal')?.classList.contains('hidden')) closeModal();
+    const modal = document.getElementById('bookingReceiptModal');
+    if (event.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      closeModal();
+    }
   });
   window.addEventListener('DOMContentLoaded', ensureModal);
   window.addEventListener('pagehide', () => {

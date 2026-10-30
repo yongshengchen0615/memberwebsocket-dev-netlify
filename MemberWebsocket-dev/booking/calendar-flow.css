@@ -22,6 +22,7 @@
 #bookingDayHint{margin:8px 0 0;font-size:13px;line-height:1.6;color:var(--theme-text-muted)}
 .booking-day-records{overflow-y:auto;overscroll-behavior:contain;min-height:0;padding:20px 22px;display:grid;gap:24px}
 .booking-day-records .booking-snapshot-history{margin:0}
+.booking-day-records [hidden]{display:none!important}
 .booking-day-footer{flex-shrink:0;padding:14px 22px max(14px,env(safe-area-inset-bottom));border-top:1px solid var(--theme-border);background:var(--theme-surface)}
 .calendar-record-label{display:block;margin-top:5px;font-size:10px;color:var(--theme-accent);overflow-wrap:anywhere}
 .calendar-day.past-disabled,.calendar-day.advance-disabled{cursor:pointer}

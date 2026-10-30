@@ -12,6 +12,7 @@ async function fixture(search = '') {
   w.matchMedia = () => ({ matches: false });
   w.BookingSystem = { formatDate: value => value };
   w.eval(read('booking/booking-accessible.js'));
+  w.eval(read('booking/booking-receipt.js'));
   w.eval(read('booking/calendar-flow.js'));
   await new Promise(resolve => w.addEventListener('DOMContentLoaded', resolve, { once: true }));
   const emit = (name, detail) => w.dispatchEvent(new w.CustomEvent(name, { detail }));
@@ -100,5 +101,35 @@ test('holiday and maximum-range dates show records without enabling start, inclu
     f.click('2026-11-02');
     assert.equal(f.el('startDayBookingButton').disabled, true);
     assert.match(f.el('bookingDayHint').textContent, /超過可預約範圍/);
+  } finally { f.w.close(); }
+});
+
+test('Escape closes only the receipt over date records, leaving the selected day open', async () => {
+  const f = await fixture();
+  try {
+    f.click('2026-10-31');
+    f.w.BookingReceipts.openBooking('booking', 'version', false, { skipCamera: true });
+    f.w.document.dispatchEvent(new f.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert.equal(f.el('bookingReceiptModal').classList.contains('hidden'), true);
+    assert.equal(f.el('bookingDayModal').classList.contains('hidden'), false);
+  } finally { f.w.close(); }
+});
+
+test('date dialog hidden empty and holiday elements do not override the native hidden state', async () => {
+  const f = await fixture();
+  try {
+    for (const link of f.w.document.querySelectorAll('link[rel="stylesheet"]')) {
+      const href = link.getAttribute('href').split('?')[0];
+      if (!href.startsWith('.')) continue;
+      const style = f.w.document.createElement('style');
+      style.textContent = fs.readFileSync(path.resolve(root, 'booking', href), 'utf8');
+      f.w.document.head.append(style);
+    }
+    f.emit('booking:receipts-updated', { submissions: [{ receiptId: 'one', createdAt: '2026-10-30T00:00:00Z', status: 'bound' }] });
+    f.click('2026-10-30');
+    for (const id of ['bookingSnapshotDayEmpty', 'bookingDayHolidayDetails']) {
+      assert.equal(f.el(id).hidden, true);
+      assert.equal(f.w.getComputedStyle(f.el(id)).display, 'none', id);
+    }
   } finally { f.w.close(); }
 });
