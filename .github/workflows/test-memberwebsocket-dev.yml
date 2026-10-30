@@ -102,6 +102,7 @@ jobs:
             MemberWebsocket-dev/tests/integration/booking_risk_confirmation.cjs \
             MemberWebsocket-dev/tests/integration/admin_startup.cjs \
             MemberWebsocket-dev/tests/integration/admin_terms.cjs \
+            MemberWebsocket-dev/tests/integration/booking_calendar_day_records.cjs \
             MemberWebsocket-dev/tests/integration/booking_startup.cjs \
             MemberWebsocket-dev/tests/integration/booking_benefits.cjs \
             MemberWebsocket-dev/tests/integration/shared_event_ticket.cjs \

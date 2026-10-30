@@ -14,3 +14,17 @@
 
 /* Keep each of the signed-in member's booked start times visible on narrow day cells. */
 @media(max-width:520px){.calendar-booking-times small:nth-child(n+2){display:block}.calendar-booking-times small{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}.calendar-booking-times .calendar-booking-end{display:none}}
+
+/* Date records share the existing member-scoped cards and actions. */
+.booking-day-open{overflow:hidden}
+.booking-day-card{display:flex;flex-direction:column;width:min(760px,calc(100vw - 24px));max-height:calc(100dvh - 32px);padding:0;overflow:hidden}
+.booking-day-card>.booking-modal-heading{flex-shrink:0;padding:20px 22px;margin:0;border-bottom:1px solid var(--theme-border)}
+#bookingDayHint{margin:8px 0 0;font-size:13px;line-height:1.6;color:var(--theme-text-muted)}
+.booking-day-records{overflow-y:auto;overscroll-behavior:contain;min-height:0;padding:20px 22px;display:grid;gap:24px}
+.booking-day-records .booking-snapshot-history{margin:0}
+.booking-day-records [hidden]{display:none!important}
+.booking-day-footer{flex-shrink:0;padding:14px 22px max(14px,env(safe-area-inset-bottom));border-top:1px solid var(--theme-border);background:var(--theme-surface)}
+.calendar-record-label{display:block;margin-top:5px;font-size:10px;color:var(--theme-accent);overflow-wrap:anywhere}
+.calendar-day.past-disabled,.calendar-day.advance-disabled{cursor:pointer}
+.calendar-day:focus-visible{outline:3px solid var(--theme-focus-ring);outline-offset:2px}
+@media(max-width:520px){.booking-day-card{max-height:calc(100dvh - 16px);width:calc(100vw - 16px)}.booking-day-card>.booking-modal-heading,.booking-day-records{padding:16px}.booking-day-footer{padding:12px 16px max(12px,env(safe-area-inset-bottom))}.booking-day-card h2{font-size:19px}.calendar-record-label{font-size:9px}}

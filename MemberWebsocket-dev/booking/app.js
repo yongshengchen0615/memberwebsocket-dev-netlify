@@ -18,6 +18,8 @@
     editing: null,
     realtimeUnsubscribe: null,
     bookingRenderCount: 0,
+    historyDate: '',
+    historyMemberId: '',
     refreshSequence: 0,
     serverClockEpochMs: 0,
     serverClockMonotonicMs: 0,
@@ -50,6 +52,15 @@
     els.bookingForm.addEventListener('submit', openConfirmation);
     document.getElementById('cancelEditBookingButton').addEventListener('click', endEditing);
     window.addEventListener('booking:date-selected', beginNewBookingFromDateSelection);
+    window.addEventListener('booking:history-date-selected', (event) => {
+      state.historyDate = String(event.detail?.date || '');
+      renderBookings({ recordsOnly: true });
+    });
+    window.addEventListener('booking:member-loaded', event => {
+      const memberId = String(event.detail?.profile?.lineUserId || '');
+      if (memberId !== state.historyMemberId) state.historyDate = '';
+      state.historyMemberId = memberId;
+    });
     els.closeBookingConfirmButton.addEventListener('click', closeConfirmation);
     els.cancelBookingConfirmButton.addEventListener('click', closeConfirmation);
     els.confirmBookingButton.addEventListener('click', confirmBooking);
@@ -915,8 +926,9 @@
     return section;
   }
 
-  function renderBookings() {
-    const bookings = state.data.bookings || [];
+  function renderBookings({ recordsOnly = false } = {}) {
+    const allBookings = state.data.bookings || [];
+    const bookings = state.historyDate ? allBookings.filter(booking => booking.bookingDate === state.historyDate) : allBookings;
     els.bookingList.replaceChildren();
     els.bookingEmpty.classList.toggle('hidden', bookings.length > 0);
 
@@ -924,6 +936,7 @@
       const item = document.createElement('article');
       item.className = `booking-item member-booking-format-card status-${booking.status}`;
       item.dataset.bookingId = String(booking.bookingId || '');
+      item.dataset.bookingDate = String(booking.bookingDate || '');
       const hasParticipantDetails = Array.isArray(booking.participants) && booking.participants.length > 0;
       item.dataset.participantDetails = hasParticipantDetails ? '1' : '0';
 
@@ -1016,8 +1029,9 @@
     state.bookingRenderCount += 1;
     window.dispatchEvent(new CustomEvent('booking:bookings-rendered', { detail: {
       renderCount: state.bookingRenderCount,
+      recordsOnly,
       // Only the authenticated member's already-loaded booking times; do not expose profile or tokens.
-      bookings: bookings.map(({ bookingDate, startTime, endTime, startAt, endAt, status }) => ({
+      bookings: allBookings.map(({ bookingDate, startTime, endTime, startAt, endAt, status }) => ({
         bookingDate, startTime, endTime, startAt, endAt, status,
       })),
     } }));
