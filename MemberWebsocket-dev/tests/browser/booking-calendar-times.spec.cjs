@@ -94,6 +94,7 @@ for (const width of [320, 390, 1280]) {
 
 for (const testMode of [false, true]) {
   test('merchant calendar month requests use the booking grant (' + (testMode ? 'test session' : 'LINE') + ')', async ({ page }) => {
+    await page.clock.setFixedTime(new Date('2026-10-30T00:00:00Z'));
     const { pathToFileURL } = require('node:url');
     const { assertBusinessAction } = await import(pathToFileURL(path.join(root, 'supabase/functions/_shared/business-policy.mjs')));
     const requests = [], denied = [];
