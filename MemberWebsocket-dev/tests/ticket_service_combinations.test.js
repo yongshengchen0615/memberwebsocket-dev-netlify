@@ -74,7 +74,7 @@ test('AC-006: database checks service groups throughout all booking redemption e
 });
 
 test('AC-007: availability and booking benefit metadata retain group membership', () => {
-  assert.match(latest, /requiredServiceGroups: string\[\]\[\]/);
+  assert.match(latest, /requiredServiceGroups\?: string\[\]\[\]/);
   assert.match(latest, /required_service_groups/);
   assert.match(benefits, /groupRequirementLabelFor/);
   assert.match(benefits, /requiredServiceGroups, requiredServiceTitles/);
