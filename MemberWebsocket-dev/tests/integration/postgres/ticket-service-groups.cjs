@@ -31,12 +31,12 @@ test('AC-DB-001/002: real PostgreSQL 17 applies groups to public + tenant, prese
       assert.deepEqual(rights, { denied: false, permitted: true });
       const empty = await h.db.query(
         'select ' + prefix + 'booking_meets_required_services($1::uuid,$2::uuid[],$3,$4::jsonb) allowed',
-        [uuid(), [], 'any', '[]']
+        [uuid(), '{}', 'any', '[]']
       );
       assert.equal(empty.rows[0].allowed, true);
       const blocked = await h.db.query(
         'select ' + prefix + 'booking_meets_required_services($1::uuid,$2::uuid[],$3,$4::jsonb) allowed',
-        [uuid(), [], 'any', JSON.stringify([[uuid(),uuid()]])]
+        [uuid(), '{}', 'any', JSON.stringify([[uuid(),uuid()]])]
       );
       assert.equal(blocked.rows[0].allowed, false);
     }
@@ -70,7 +70,7 @@ test('AC-DB-003: A+B OR A+C matches real booking items and rejects B+C', async (
     const groupJson = JSON.stringify(combos);
     const check = async (id, rule) => (await h.db.query('select ' + s +
       '.booking_meets_required_services($1::uuid,$2::uuid[],$3,$4::jsonb) allowed',
-      [id,[], 'any', JSON.stringify(rule)])).rows[0].allowed;
+      [id,'{}', 'any', JSON.stringify(rule)])).rows[0].allowed;
     const ab = await book([serviceIds[0],serviceIds[1]],'10:00');
     const ac = await book([serviceIds[0],serviceIds[2]],'12:00');
     const bc = await book([serviceIds[1],serviceIds[2]],'14:00');
