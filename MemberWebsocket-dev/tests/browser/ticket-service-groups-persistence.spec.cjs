@@ -59,3 +59,37 @@ test('AC-008: group selections survive an empty service-catalog refresh and pers
   await expect(restored.nth(1).locator('input[value="service-1"]')).toBeChecked();
   expect(host.sessions.get(info.testId).unexpected).toEqual([]);
 });
+
+test('AC-009: a legacy API that drops groups cannot report a successful save or replace the draft with any', async ({ page }, info) => {
+  await page.route('https://**', route => route.abort());
+  await page.goto(host.base + '/admin/?run=' + encodeURIComponent(info.testId));
+  await expect(page.locator('#adminView')).toBeVisible();
+  const session = host.sessions.get(info.testId);
+  session.legacyTicketApiDropsGroups = true;
+  await page.locator('#eventsTab').click();
+  await page.locator('#newEventTicketButton').click();
+  await page.locator('#eventTicketTitle').fill('避免組合悄悄遺失');
+  await page.locator('#eventTicketDescription').fill('後端舊版模擬');
+  await page.locator('#eventTicketUsageMethod').fill('預約使用');
+  await page.locator('#eventTicketUsageInstructions').fill('需 A+B');
+  await page.locator('#eventTicketStatus').selectOption('active');
+  await page.locator('#eventTicketRequiredServiceMatchMode').selectOption('groups');
+  const items = page.locator('#eventTicketRequiredServiceGroups [data-service-combination]').first();
+  await items.locator('input[value="service-1"]').check();
+  await items.locator('input[value="service-2"]').check();
+  await page.locator('#saveEventTicketButton').click();
+
+  const alert = page.locator('#eventTicketFormMessage');
+  await expect(alert).toContainText('後端未保留預約組合設定');
+  await expect(alert).not.toHaveClass(/success/);
+  await expect(page.locator('#eventTicketRequiredServiceMatchMode')).toHaveValue('groups');
+  await expect(items.locator('input[value="service-1"]')).toBeChecked();
+  await expect(items.locator('input[value="service-2"]')).toBeChecked();
+  expect(session.eventTickets).toHaveLength(1);
+  expect(session.eventTickets[0].requiredServiceMatchMode).toBe('any');
+  const writes = session.calls.filter(call => call.action === 'admin.event-tickets.save');
+  expect(writes).toHaveLength(1);
+  expect(writes[0].payload.eventTicket.requiredServiceMatchMode).toBe('groups');
+  expect(writes[0].payload.eventTicket.requiredServiceGroups).toEqual([['service-1','service-2']]);
+  expect(session.unexpected).toEqual([]);
+});

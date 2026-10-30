@@ -2303,6 +2303,13 @@
     setSaving(els.saveEventTicketButton, true, '正在儲存活動票券…');
     try {
       const result = await window.MemberSystem.request(state.config, 'admin', state.idToken, 'admin.event-tickets.save', { eventTicket: ticket, expectedUpdatedAt: els.eventTicketExpectedUpdatedAt.value });
+      // Older deployed APIs silently normalize "groups" to "any". Reject that
+      // response before loading it into the editor and erasing the user's draft.
+      if (ticket.requiredServiceMatchMode === 'groups' && (!result.eventTicket ||
+          result.eventTicket.requiredServiceMatchMode !== 'groups' ||
+          JSON.stringify(result.eventTicket.requiredServiceGroups) !== JSON.stringify(ticket.requiredServiceGroups))) {
+        throw new Error('後端未保留預約組合設定，請勿使用此票券；請聯絡系統管理員確認 API 版本後重新儲存。');
+      }
       if (result.eventTicket) { state.eventTickets = replaceById(state.eventTickets, result.eventTicket, 'eventTicketId'); loadEventTicketForm(result.eventTicket.eventTicketId); }
       if (await refreshAfterSuccessfulWrite('活動票券已儲存', els.eventTicketFormMessage)) showMessage(els.eventTicketFormMessage, ticket.ticketType === 'referral' ? '好友邀請票券已儲存；每成功邀請一位尚未綁定邀請關係的會員，系統會自動發 1 張給邀請者。' : ticket.ticketType === 'membership_join' ? '加入會員票券已儲存；新會員完成加入後由系統自動發放。' : '活動票券已儲存；會員可在活動票券 LIFF 領取。', true);
     } catch (error) { handleActionError(error, els.eventTicketFormMessage); } finally { setSaving(els.saveEventTicketButton, false); }
