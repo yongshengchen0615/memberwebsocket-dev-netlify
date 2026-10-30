@@ -21,7 +21,7 @@ async function wire(page,h,token='manager',{loseAction=''}={}){
   return route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
  });return{errors,calls};
 }
-async function sendMerchant(page,name){await expect(page.locator('#merchantApplicationForm [name="slug"]')).toHaveCount(0);await page.locator('#merchantApplicationForm [name="businessName"]').fill(name);await page.locator('#submitMerchantApplication').click();}
+async function sendMerchant(page,name){if(!await page.locator('#merchantApplicationDialog').isVisible())await page.locator('#newMerchantApplication').click();await expect(page.locator('#merchantApplicationDialog')).toBeVisible();await expect(page.locator('#merchantApplicationForm [name="slug"]')).toHaveCount(0);await page.locator('#merchantApplicationForm [name="businessName"]').fill(name);await page.locator('#submitMerchantApplication').click();}
 async function reviewMerchant(page,slug,decision='approved',feature='points'){
  await page.reload();await page.locator('#applicationList article').filter({hasText:slug}).locator(`[data-review-decision="${decision}"]`).click();
  if(decision==='approved')await page.locator(`[data-v2-feature="${feature}"]`).check();else await page.locator('#reviewReason').fill('請補上商家證明');

@@ -7,13 +7,13 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' https://static.line-scdn.net; style-src 'self'; connect-src 'self' https://*.supabase.co https://api.line.me https://access.line.me https://liff.line.me https://*.line-scdn.net; img-src 'self' data:; frame-src https://access.line.me https://liff-subwindow.line.me; form-action 'self' https://access.line.me https://liff-subwindow.line.me">
   <title>一般管理員後台</title>
-  <link rel="stylesheet" href="../platform/platform.css?v=merchant-action-20261030-1">
+  <link rel="stylesheet" href="../platform/platform.css?v=merchant-modal-20261030-1">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
   <script src="../business-context.js"></script>
 <script src="../member-system.js" defer></script>
   <link rel="stylesheet" href="./business-line-settings.css?v=member-card-admin-rollback-20261028-1">
   <script src="./business-line-settings.js?v=member-card-admin-rollback-20261028-1" defer></script>
-  <script src="../platform/app.js?v=merchant-action-20261030-1" defer></script>
+  <script src="../platform/app.js?v=merchant-modal-20261030-1" defer></script>
   <link rel="stylesheet" href="../portal-navigation.css?v=unified-20261018-1">
   <script src="../portal-navigation.js?v=unified-20261018-1" defer></script>
 </head>
@@ -116,17 +116,28 @@
     </section>
     <section id="myMerchantsWorkspace" class="account-workspace" hidden aria-labelledby="myMerchantsTitle">
       <div class="workspace-heading"><div><h2 id="myMerchantsTitle">我的商家</h2><p>每個商家獨立審核。請選擇要管理的商家；新增申請不會更動既有商家。</p></div><button id="newMerchantApplication" type="button">新增商家申請</button></div>
-      <div id="myMerchantList" class="tenant-list"></div>
+      <p id="merchantApplicationStatus" role="status" aria-live="polite"></p>
+      <section id="pendingMerchantSection" class="pending-merchants" aria-labelledby="pendingMerchantTitle">
+        <h3 id="pendingMerchantTitle">審核中商家</h3>
+        <p>已提交的商家申請會顯示在這裡，總管理員審核並開通後才能管理。</p>
+        <div id="pendingMerchantList" class="tenant-list" aria-live="polite"></div>
+      </section>
+      <div id="myMerchantList" class="tenant-list" aria-label="其他商家"></div>
+    </section>
+    <dialog id="merchantApplicationDialog" aria-labelledby="merchantApplicationTitle">
       <form id="merchantApplicationForm">
-        <h3 id="merchantApplicationTitle">新增商家申請</h3>
+        <div class="dialog-heading">
+          <h2 id="merchantApplicationTitle">新增商家申請</h2>
+          <button id="closeMerchantApplication" type="button" class="secondary">取消</button>
+        </div>
         <div class="grid">
           <label>商家名稱<input name="businessName" maxlength="100" required autocomplete="organization"></label>
           <p>商家代碼由系統分配，送出後會顯示在商家列表；修正申請時保留原代碼。</p>
         </div>
         <p id="merchantApplicationMessage" role="status" aria-live="polite"></p>
-        <div class="form-actions"><button id="cancelMerchantResubmit" type="button" class="secondary" hidden>取消重新申請</button><button id="submitMerchantApplication" type="submit">提交商家申請</button></div>
+        <div class="form-actions"><button id="submitMerchantApplication" type="submit">提交商家申請</button></div>
       </form>
-    </section>
+    </dialog>
     <section id="onboardingJourney" class="onboarding-journey" hidden aria-labelledby="journeyTitle">
       <h2 id="journeyTitle">開通進度</h2>
       <ol>
