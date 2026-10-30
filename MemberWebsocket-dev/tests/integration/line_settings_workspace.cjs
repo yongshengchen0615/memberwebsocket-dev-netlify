@@ -37,7 +37,7 @@ test('actual selected-merchant workspace saves LIFF-only feature with no shared 
 test('actual merchant workspace clears simplified secret drafts and controls when qualification is revoked',async()=>{
  const h=await fixture();let ui;try{
   const tenant=await h.approve(owner,'simple-revoke',features);ui=await mount(h,tenant);
-  const secret=ui.d.querySelector('#merchantSimpleLine [name=channelSecret]');assert.ok(secret);secret.value='a'.repeat(32);secret.dispatchEvent(new ui.w.Event('input',{bubbles:true}));
+  const secret=ui.d.querySelector('#merchant-notification-booking-admin [name=channelAccessToken]');assert.ok(secret);secret.value='synthetic-unsaved-token';secret.dispatchEvent(new ui.w.Event('input',{bubbles:true}));
   await h.db.query("update platform_private.admin_qualifications set status='suspended' where applicant_line_user_id=$1",[owner]);
   ui.d.querySelector('#refreshApplication').click();await until(()=>ui.d.querySelector('#merchantWorkspace').hidden);
   assert.equal(secret.value,'');assert.equal(ui.d.querySelectorAll('#merchantSimpleLine form').length,0);assert.equal(ui.d.querySelector('#merchantLineForm [name=channelAccessToken]').value,'');assert.deepEqual(ui.errors,[]);
