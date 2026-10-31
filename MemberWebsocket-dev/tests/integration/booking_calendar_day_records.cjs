@@ -37,7 +37,7 @@ test('past and advance-blocked dates open records while start remains disabled; 
   } finally { f.w.close(); }
 });
 
-test('available day opens original form only after start; Escape restores calendar focus', async () => {
+test('available day opens original form only after start; close returns to the same day records', async () => {
   const f = await fixture();
   try {
     f.click('2026-10-31');
@@ -48,8 +48,48 @@ test('available day opens original form only after start; Escape restores calend
     assert.equal(f.el('appointmentPanel').classList.contains('hidden'), false);
     assert.equal(f.el('bookingDayModal').classList.contains('hidden'), true);
     f.el('closeAppointmentButton').click();
+    assert.equal(f.el('appointmentPanel').classList.contains('hidden'), true);
+    assert.equal(f.el('bookingDayModal').classList.contains('hidden'), false);
+    assert.match(f.el('bookingDayTitle').textContent, /2026-10-31/);
     await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(f.w.document.activeElement.id, 'closeBookingDayButton');
+    f.el('closeBookingDayButton').click();
+    await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(f.el('bookingDayModal').classList.contains('hidden'), true);
     assert.equal(f.w.document.activeElement.dataset.date, '2026-10-31');
+  } finally { f.w.close(); }
+});
+
+test('Escape and mobile backdrop return to selected day without closing the day history', async () => {
+  const f = await fixture();
+  try {
+    for (const mode of ['Escape', 'backdrop']) {
+      f.click('2026-10-31');
+      f.el('startDayBookingButton').click();
+      if (mode === 'Escape') {
+        f.w.document.dispatchEvent(new f.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      } else {
+        f.w.matchMedia = () => ({ matches: true });
+        f.el('appointmentPanel').dispatchEvent(new f.w.MouseEvent('click', { bubbles: true }));
+      }
+      assert.equal(f.el('appointmentPanel').classList.contains('hidden'), true, mode);
+      assert.equal(f.el('bookingDayModal').classList.contains('hidden'), false, mode);
+      assert.match(f.el('bookingDayTitle').textContent, /2026-10-31/, mode);
+      f.el('closeBookingDayButton').click();
+      assert.equal(f.el('bookingDayModal').classList.contains('hidden'), true, mode);
+    }
+  } finally { f.w.close(); }
+});
+
+test('booking creation returns from the appointment flow to updated day records', async () => {
+  const f = await fixture();
+  try {
+    f.click('2026-10-31');
+    f.el('startDayBookingButton').click();
+    f.emit('booking:created', { booking: { bookingDate: '2026-10-31' } });
+    assert.equal(f.el('appointmentPanel').classList.contains('hidden'), true);
+    assert.equal(f.el('bookingDayModal').classList.contains('hidden'), false);
+    assert.match(f.el('bookingDayTitle').textContent, /2026-10-31/);
   } finally { f.w.close(); }
 });
 
