@@ -14,16 +14,17 @@ test('activity timeline moves from Member 360 modal to usage workspace, retainin
   assert.doesNotMatch(modal, /id="memberRecordsList"/);
   assert.match(modal, /id="memberRecordsOpenUsage"/);
   assert.match(panel, /id="memberRecordsList"/);
-  for (const category of ['all','presence','pointCards','eventTickets','calendar','bookings','testAutomation']) {
+  for (const category of ['all','presence','pointCards','eventTickets','calendar','bookings']) {
     assert.match(panel, new RegExp('data-record-filter="' + category + '"'));
   }
 });
 
 test('member usage picker supports kinds, filtered API pagination and selecting a member', () => {
-  for (const id of ['memberUsageKind','memberUsageSearch','memberUsageSelect','memberUsagePrev','memberUsageNext','memberUsagePageStatus']) {
+  for (const id of ['memberUsageSearch','memberUsageSelect','memberUsagePrev','memberUsageNext','memberUsagePageStatus']) {
     assert.match(html, new RegExp('id="' + id + '"'));
   }
-  assert.match(app, /memberPageSize: 100, memberQuery: usage\.query, memberKind: usage\.kind/);
+  assert.match(app, /memberPageSize: 100, memberQuery: usage\.query, memberKind: 'real'/);
+  assert.doesNotMatch(html, /id="memberUsageKind"/);
   assert.match(app, /state\.memberUsage\.members\.find\(\(item\) => item\.lineUserId === els\.memberUsageSelect\.value\)/);
   assert.match(app, /openMemberRecordsModal\(member, false\)/);
 });
