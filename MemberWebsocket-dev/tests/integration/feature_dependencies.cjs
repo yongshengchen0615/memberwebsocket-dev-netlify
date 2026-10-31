@@ -56,6 +56,16 @@ test('AC-003: bootstrap and standalone event saves do not call unavailable calen
   assert.equal(external,0);
  }finally{h.close();}
 });
+test('review: hidden fixed-calendar choice is omitted so unrelated event edits retain stored configuration',async()=>{
+ const h=fixture();let saved;try{
+  h.apply({events:true});
+  h.d.body.insertAdjacentHTML('beforeend','<section id="fixedTicketScheduleFields"><input id="fixedTicketCalendarEnabled" type="checkbox" checked></section>');
+  h.w.fetch=async(_url,init)=>{saved=JSON.parse(init.body);return new Response('{"ok":true,"data":{}}');};
+  h.w.eval(fs.readFileSync(path.join(root,'admin/fixed-ticket-calendar-option.js'),'utf8'));
+  await h.w.fetch('https://fixture.supabase.co/functions/v1/fixed-ticket-automation',{body:JSON.stringify({action:'admin.fixed-tickets.save',template:{fixedTicketId:'FT-1',title:'Changed'}})});
+  assert.equal(Object.hasOwn(saved.template,'calendarEnabled'),false);
+ }finally{h.close();}
+});
 
 test('AC-004: scheduled fixed issuance observes stored calendar dependencies and preserves all other tenant jobs',async()=>{
  const {PGlite}=require('@electric-sql/pglite'),db=new PGlite();

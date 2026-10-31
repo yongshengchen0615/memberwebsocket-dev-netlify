@@ -54,7 +54,7 @@ test('AC-001/002: cross-module responses omit disabled data without mutating the
  assert.deepEqual(nested.catalog.items,[{kind:'event',id:'E'}]);
 });
 
-function storedDb(tables){return {from(table){let rows=tables[table]||[];const q={select(){return q;},eq(k,v){rows=rows.filter(r=>r[k]===v);return q;},in(k,v){rows=rows.filter(r=>v.includes(r[k]));return q;},then(resolve){return Promise.resolve({data:rows,error:null}).then(resolve);}};return q;}};}
+function storedDb(tables,tier='general'){return {rpc:async()=>({data:tier,error:null}),from(table){let rows=tables[table]||[];const q={select(){return q;},eq(k,v){rows=rows.filter(r=>r[k]===v);return q;},in(k,v){rows=rows.filter(r=>v.includes(r[k]));return q;},then(resolve){return Promise.resolve({data:rows,error:null}).then(resolve);}};return q;}};}
 test('AC-004: stored selections and automatic reward rules cannot bypass a revoked grant during completion',async()=>{
  const {assertBusinessRpc}=await policy();
  const params={p_booking_id:'B'};
@@ -69,9 +69,17 @@ test('AC-004: stored selections and automatic reward rules cannot bypass a revok
 });
 test('AC-004: stored calendar integrations guard fixed issuance and calendar bonus grants, while standalone grants remain usable',async()=>{
  const {assertBusinessRpc}=await policy();
- const db=storedDb({fixed_ticket_templates:[{status:'active',calendar_enabled:true}],calendar_items:[{status:'active',bonus_points_enabled:true,bonus_points:2,starts_on:'2000-01-01',ends_on:'2999-01-01'}]});
+ const db=storedDb({members:[{id:'M',line_user_id:'L'}],fixed_ticket_templates:[{status:'active',calendar_enabled:true}],calendar_items:[{item_type:'event',status:'active',bonus_points_enabled:true,bonus_points:2,starts_on:'2000-01-01',ends_on:'2999-01-01',allowed_tier_keys:[]}]});
  await assert.rejects(assertBusinessRpc(context({events:true}),'issue_fixed_tickets',{},db),e=>e.code==='FEATURE_DISABLED');
- await assert.rejects(assertBusinessRpc(context({membership:true,points:true}),'grant_member_benefits_with_event_bonus',{p_points:[{cardId:'P',amount:1}]},db),e=>e.code==='FEATURE_DISABLED');
+ await assert.rejects(assertBusinessRpc(context({membership:true,points:true}),'grant_member_benefits_with_event_bonus',{p_member_line_user_id:'L',p_points:[{cardId:'P',amount:1}]},db),e=>e.code==='FEATURE_DISABLED');
  await assert.doesNotReject(assertBusinessRpc(context({membership:true}),'grant_member_benefits_with_event_bonus',{p_points:[],p_service_minutes:30},db));
  await assert.doesNotReject(assertBusinessRpc(context({points:true}),'grant_member_benefits_with_event_bonus',{p_points:[{cardId:'P',amount:1}]},storedDb({})));
+});
+test('review: VIP-only calendar bonuses do not block unrelated ordinary-member point grants',async()=>{
+ const {assertBusinessRpc}=await policy(),params={p_member_line_user_id:'L',p_points:[{cardId:'P',amount:1}]};
+ const tables={members:[{id:'M',line_user_id:'L'}],calendar_items:[{item_type:'event',status:'active',bonus_points_enabled:true,bonus_points:2,starts_on:'2000-01-01',ends_on:'2999-01-01',allowed_tier_keys:['gold']}]};
+ await assert.doesNotReject(assertBusinessRpc(context({points:true}),'grant_member_benefits_with_event_bonus',params,storedDb(tables,'general')));
+ await assert.rejects(assertBusinessRpc(context({points:true}),'grant_member_benefits_with_event_bonus',params,storedDb(tables,'gold')),e=>e.code==='FEATURE_DISABLED');
+ tables.calendar_items[0].item_type='holiday';
+ await assert.doesNotReject(assertBusinessRpc(context({points:true}),'grant_member_benefits_with_event_bonus',params,storedDb(tables,'gold')));
 });

@@ -5,9 +5,9 @@ Candidate: `fix/feature-dependencies-20261030`; exact candidate/CI identity is r
 
 ## Result before CI
 
-Partial, not released. Local Node regression: **1200 pass / 0 fail / 0 skip**.
-All script/build contract tests: **137 pass / 0 fail / 0 skip** (`TMPDIR` set to the writable workspace; the host has no `/tmp`).
-Adjacent DOM/SQL tests: **32 pass / 0 fail / 0 skip**; feature/benefit/notification tests: **39 pass / 0 fail / 0 skip**.
+Partial, not released. Local Node regression: **1202 pass / 0 fail / 0 skip**.
+The broad parallel script run reported one existing shared-dist build race (duplicate calendar build badge; 136 pass / 1 fail). All 137 assertions are being re-run serially with `TMPDIR` set to the writable workspace: `node --test --test-concurrency=1 scripts/*.test.mjs`. CI/build checks remain required. No assertion or timeout was weakened.
+Adjacent DOM/SQL tests: **33 pass / 0 fail / 0 skip**.
 Static frontend build executed successfully. Local Chromium and Deno/PostgreSQL execution are unavailable; the existing exact-SHA GitHub CI remains mandatory, including the new Chromium and PostgreSQL tests. Real LINE login and delivery are not claimed by isolated transport tests.
 
 ## Contracts and evidence
@@ -36,7 +36,7 @@ The migration replaces only the known fixed-issuance branch of `platform_tick_bu
 
 Existing policies and workspace are extended; no framework, package, subscription or paid test environment is added. Late integration observation annotates descendants without remounting LINE settings. Optional disabled calendar calls are skipped. Hidden booking point settings are omitted from unrelated type edits, retaining stored rules.
 
-Same-host uncompressed asset-byte comparison over the seven modified browser JS/CSS sources: **578,540 → 582,298 bytes (+3,758 bytes)**. Baseline fixed at the SHA above. This is an asset-size measurement, not an API latency improvement claim. Stored-dependency queries run only on affected operations when relevant grants are absent; fully granted settlements retain their original query path.
+Same-host uncompressed asset-byte comparison over the eight modified browser JS/CSS sources: **587,944 → 591,802 bytes (+3,858 bytes)**. Baseline fixed at the SHA above. This is an asset-size measurement, not an API latency improvement claim. Stored-dependency queries run only on affected operations when relevant grants are absent; fully granted settlements retain their original query path.
 
 ## Release and recovery
 
@@ -51,3 +51,5 @@ Browser correction: the first Chromium run rejected Playwright toBeDisabled on a
 Deployment routing check: BookingSystem still sent benefits/claims/profile/presence to the production API despite previewApiFunctionUrl. A behavioral test reproduced the wrong destination. The client now honors the existing override and retains the legacy URL when absent; this avoids overwriting production member APIs for preview acceptance.
 
 Disabled point/event overview counters also follow the same grant map; a DOM RED/GREEN assertion covers the point-card and daily-points tiles.
+
+GitHub automated review findings 4423828799/4423828808 were verified and reproduced (three RED tests). The fixed-calendar fetch wrapper now omits a withheld setting and the server preserves an omitted stored flag on edits; forged enables still require calendar. Calendar bonus preflight now matches event type, dates and the target member tier using the existing current_tier_key RPC; VIP-only rules no longer block unrelated ordinary-member point grants. Related suite: 31 pass/0 fail/0 skip. Full candidate CI must run again before release.

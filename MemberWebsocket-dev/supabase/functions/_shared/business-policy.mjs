@@ -99,8 +99,16 @@ export async function assertBusinessRpc(context,name,params={},db){
  }
  if(name==='grant_member_benefits_with_event_bonus'&&f.calendar!==true&&params.p_points?.length){
   const today=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Taipei'});
-  const items=await read(db.from('calendar_items').select('starts_on,ends_on,bonus_points').eq('status','active').eq('bonus_points_enabled',true));
-  if(items.some(item=>Number(item.bonus_points)>0&&item.starts_on<=today&&(item.ends_on||item.starts_on)>=today))requireFeature('calendar');
+  const items=(await read(db.from('calendar_items').select('starts_on,ends_on,bonus_points,allowed_tier_keys').eq('item_type','event').eq('status','active').eq('bonus_points_enabled',true)))
+   .filter(item=>Number(item.bonus_points)>0&&item.starts_on<=today&&(item.ends_on||item.starts_on)>=today);
+  if(items.length){
+   const members=await read(db.from('members').select('id').eq('line_user_id',params.p_member_line_user_id));
+   if(members[0]){
+    const tier=await db.rpc('current_tier_key',{p_member_id:members[0].id});
+    if(tier.error)throw Object.assign(Error('目前無法確認連動功能權限。'),{code:'BUSINESS_ACCESS_UNAVAILABLE',status:503});
+    if(items.some(item=>!item.allowed_tier_keys?.length||item.allowed_tier_keys.includes(String(tier.data||'general'))))requireFeature('calendar');
+   }
+  }
  }
  const settlement=['complete_booking_with_benefits_request','complete_booking_with_rewards_request','admin_confirm_booking_receipt_request','correct_completed_booking_request','register_snapshot_receipt_v2'].includes(name);
  if(!settlement||['membership','points','events','calendar'].every(key=>f[key]===true))return;

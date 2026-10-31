@@ -22,7 +22,7 @@
     "admin/coupon-location-editor.js": "31fb9d8ab26519022ed20528f9ce7cba588826c4d20bf2cccc2c1a5f584d055f",
     "admin/fixed-ticket-admin.js": "c105feacd0c32d91ba6483fa045963da959339b14a545d574d8de5595180bfb5",
     "admin/fixed-ticket-admin-integration.js": "af65455cf96f6770fdbb0a72558d970b5a4377b0d42557ef55b2f5e70c43c190",
-    "admin/fixed-ticket-calendar-option.js": "947e5d1d56a8fb0054d8880b31f053c940505e116a566e13c2c931593870265c",
+    "admin/fixed-ticket-calendar-option.js": "0bbc53970ff0ec7408985b001113f64de718963bcfbc793f563a44f2e068f1f1",
     "admin/pointcard-redemption-limit.js": "fbba580c9babdac950b2f619c3f3b949fe89ae0c1365e2555f758d1a8818035c",
     "admin/event-ticket-redemption-limit.js": "263a564d64845c5abb4ed5167305b0bffefb064130a0268ab533b481d320b688",
     "admin/booking-panel.js": "ede7d702a4bfd686fcea54daa89319a8233975f8f2d580ea1e73b10b8c0b44f4",
@@ -701,7 +701,7 @@
     "security": "管理入口依 ready 伺服器狀態控制，商家申請 API 的身分和資料歸屬仍在後端檢查；pending 無管理連結。"
   },
   "featureDependencyJourney": {
-    "scope": "2026-10-30: nested feature integrations follow explicit current tenant grants; preserve saved rules and independent operations. Reviewed manual/service grants, automatic booking points, ticket booking restrictions, fixed/event calendar integrations, calendar bonus, history filters and optional requests. Booking benefits/claims/profile/presence honor the existing preview API override; production without an override retains its URL.",
+    "scope": "2026-10-30: nested feature integrations follow explicit current tenant grants; preserve saved rules and independent operations. Reviewed manual/service grants, automatic booking points, ticket booking restrictions, fixed/event calendar integrations, calendar bonus, history filters and optional requests. Booking benefits/claims/profile/presence honor the existing preview API override; production without an override retains its URL. Revoked fixed-calendar fields are omitted and the handler preserves their stored value; calendar bonuses match the recipient tier and event predicate.",
     "tests": [
       "tests/feature_dependencies.test.js",
       "tests/integration/feature_dependencies.cjs",

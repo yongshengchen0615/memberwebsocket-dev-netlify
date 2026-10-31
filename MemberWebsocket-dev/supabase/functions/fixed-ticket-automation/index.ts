@@ -300,6 +300,7 @@ serveBusiness('fixed-ticket-automation',async (request: Request) => {
           .maybeSingle();
         if (current.error || !current.data) throw new ApiError(404, "FIXED_TICKET_NOT_FOUND", "找不到指定固定票券。");
         if ((body.template as Json)?.notifyTime === undefined) patch.notify_time = current.data.notify_time || null;
+        if ((body.template as Json)?.calendarEnabled === undefined) patch.calendar_enabled = current.data.calendar_enabled === true;
         const expected = asText(body.expectedUpdatedAt, 100);
         if (expected && expected !== current.data.updated_at) throw new ApiError(409, "CONFLICT", "固定票券已被其他管理者更新，請重新整理後再試。");
 

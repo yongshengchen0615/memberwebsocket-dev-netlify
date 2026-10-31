@@ -264,7 +264,7 @@ export function businessHandler(name:string,handler:(request:Request)=>Response|
    };
    // Malformed resource IDs stay with the endpoint's existing 400 validator.
    if(settlementRpc[action]&&(!body.bookingId||/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(body.bookingId))))await scope.run(c,()=>assertBusinessRpc(c,settlementRpc[action],{
-    p_booking_id:body.bookingId,p_items:body.items,p_participants:body.participants,p_benefits:body.benefits,p_points:body.points,
+    p_booking_id:body.bookingId,p_items:body.items,p_participants:body.participants,p_benefits:body.benefits,p_points:body.points,p_member_line_user_id:body.lineUserId,
    },createClient(rawEnv('SUPABASE_URL'),rawEnv('SUPABASE_SERVICE_ROLE_KEY'))));
    await credentials(c,requestModule(name,body,c),sessionSurface.test(action));
    const response=await scope.run(c,()=>handler(request));
