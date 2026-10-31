@@ -74,16 +74,18 @@ export async function publishPreviewBranch({ token, siteId, branch, commit, zip,
     throw new Error('A competing preview deployment is still active');
   }
   const query = new URLSearchParams({ branch, title: `verified-platform-${commit}` });
-  // A POST is never retried: a timeout may have created a deploy already.
-  // An API "build" invokes the site's branch build/ignore hook and can be
-  // cancelled even when CI has already produced a verified ZIP. Submit the
-  // exact artifact as a branch-scoped ZIP *deploy* instead; no provider rebuild.
-  const upload = await request(`/sites/${siteId}/deploys?${query}`, { method: 'POST',
+  // A POST is never retried: a timeout may already have created a deploy.
+  // Netlify's ZIP branch-deploy API uses the /builds endpoint with a branch
+  // parameter (Netlify ZIP branch deploy support, November 2025).
+  // POST /deploys?branch= is not equivalent: it can return a non-branch context.
+  // The ZIP bytes are already built and tested by CI; do not rebuild from Git.
+  const upload = await request(`/sites/${siteId}/builds?${query}`, { method: 'POST',
     headers: { 'Content-Type': 'application/zip' }, body: zip }, 'upload');
-  if (!/^[a-f0-9]{24}$/.test(upload.id || '')) throw new Error('Preview upload did not return a deploy identity');
+  const deployId = upload?.deploy_id;
+  if (!/^[a-f0-9]{24}$/.test(deployId || '')) throw new Error('Preview upload did not return a deploy identity');
   for (let attempt = 0; attempt < attempts; attempt++) {
-    const deploy = await request(`/deploys/${upload.id}`, {}, 'deploy-status');
-    if (deploy.id !== upload.id || deploy.site_id !== siteId || deploy.branch !== branch
+    const deploy = await request(`/deploys/${deployId}`, {}, 'deploy-status');
+    if (deploy.id !== deployId || deploy.site_id !== siteId || deploy.branch !== branch
       || deploy.context !== 'branch-deploy') throw new Error('Published deploy does not belong to the verified preview branch');
     if (['error', 'rejected', 'canceled'].includes(deploy.state)) throw new Error('Preview deploy failed');
     if (deploy.state === 'ready') {
