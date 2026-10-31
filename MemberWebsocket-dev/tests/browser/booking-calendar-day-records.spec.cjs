@@ -22,3 +22,21 @@ const before=await page.evaluate(()=>calls.length);await page.locator('[data-dat
 await page.keyboard.press('Escape');await expect(modal).toBeHidden();await expect(page.locator('[data-date="2026-10-30"]')).toBeFocused();await page.locator('[data-date="2026-10-31"]').click();await expect(modal.locator('[data-booking-id]')).toHaveCount(1);await expect(modal.locator('[data-booking-id="tomorrow"]')).toBeVisible();await expect(page.locator('#bookingSnapshotDayEmpty')).toBeVisible();await page.locator('#startDayBookingButton').click();await expect(page.locator('#appointmentPanel')).toBeVisible();await expect(page.locator('#bookingDate')).toHaveValue('2026-10-31');await page.locator('#closeAppointmentButton').click();await page.locator('[data-date="2026-10-29"]').click();await expect(page.locator('#startDayBookingButton')).toBeDisabled();await expect(modal.locator('[data-receipt-id="yesterday"]')).toBeVisible();expect(await modal.locator('.booking-day-card').evaluate(e=>e.getBoundingClientRect().width<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath('day-records.png')});expect(errors).toEqual([]);
 });
 test('deep link opens historical date and snapshot mode keeps calendar',async({page})=>{await page.goto(base+'/booking/?bookingId=old');await expect(page.locator('#bookingDayModal')).toBeVisible();await expect(page.locator('#bookingDayTitle')).toContainText('2026-09-02');await expect(page.locator('[data-booking-id="old"]')).toBeVisible();await expect(page.locator('#startDayBookingButton')).toBeDisabled();await page.keyboard.press('Escape');await page.locator('#bookingAccessibleToggle').click();await expect(page.locator('#calendarGrid')).toBeVisible();await page.locator('#nextMonthButton').click();await page.locator('[data-date="2026-10-31"]').click();await page.locator('#startDayBookingButton').click();await expect(page.locator('#appointmentPanel')).toBeVisible();await expect(page.locator('#bookingAccessibleToggle')).toHaveAttribute('aria-pressed','false');});
+
+test('member booking allows per-appointment LINE reminder consent and previous-day time', async ({page}) => {
+  await page.goto(base + '/booking/');
+  await expect(page.locator('#calendarGrid')).toBeVisible();
+  await page.locator('[data-date="2026-10-31"]').click();
+  await page.locator('#startDayBookingButton').click();
+  await expect(page.locator('#appointmentPanel')).toBeVisible();
+  const consent = page.locator('#bookingReminderEnabled');
+  const time = page.locator('#bookingReminderTime');
+  await expect(consent).not.toBeChecked();
+  await expect(time).toBeDisabled();
+  await consent.check();
+  await expect(time).toBeEnabled();
+  await time.fill('19:30');
+  await expect(time).toHaveValue('19:30');
+  await consent.uncheck();
+  await expect(time).toBeDisabled();
+});
