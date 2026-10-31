@@ -14,8 +14,8 @@
     "outstanding": "Real LINE member-admin write is separately required after preview API v7 deployment."
   },
   "reviewedSources": {
-    "admin/index.html": "0a8217d46a7a8efc7bf4ea9591db1fd7d250a23a8c71cfdcc13e8c7f53f48e51",
-    "admin/app.js": "f31cf4fa4361d68db9914cae9c0f18dd40da49ce94fd43692350ef2a1f0f1731",
+    "admin/index.html": "812b38c788121da0d96ae864c5f621885f75997b88b9f5c8a6f3fc1cce13f285",
+    "admin/app.js": "7c4336f866e06f1b97f238e69caad90f8cd1a9a7a3e9716d7548c989a88f5c03",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
     "admin/grant-automation.js": "f3178a0bb26745d6cd7731b24ab8ab9aaec96a4dada62699a3609ae8b803e2b0",
