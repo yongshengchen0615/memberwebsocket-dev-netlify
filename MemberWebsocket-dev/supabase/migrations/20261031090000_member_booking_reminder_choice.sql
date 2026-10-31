@@ -38,7 +38,7 @@ declare
   v_existed boolean := false;
 begin
   if p_reminder_enabled is null or p_reminder_time is null
-     or pg_catalog.extract(second from p_reminder_time) <> 0 then
+     or extract(second from p_reminder_time) <> 0 then
     raise exception 'INVALID_BOOKING_REMINDER';
   end if;
   
@@ -100,7 +100,7 @@ declare
   
 begin
   if p_reminder_enabled is null or p_reminder_time is null
-     or pg_catalog.extract(second from p_reminder_time) <> 0 then
+     or extract(second from p_reminder_time) <> 0 then
     raise exception 'INVALID_BOOKING_REMINDER';
   end if;
   
@@ -149,7 +149,7 @@ declare
   v_existed boolean := false;
 begin
   if p_reminder_enabled is null or p_reminder_time is null
-     or pg_catalog.extract(second from p_reminder_time) <> 0 then
+     or extract(second from p_reminder_time) <> 0 then
     raise exception 'INVALID_BOOKING_REMINDER';
   end if;
   
@@ -214,7 +214,7 @@ declare
   
 begin
   if p_reminder_enabled is null or p_reminder_time is null
-     or pg_catalog.extract(second from p_reminder_time) <> 0 then
+     or extract(second from p_reminder_time) <> 0 then
     raise exception 'INVALID_BOOKING_REMINDER';
   end if;
   
@@ -264,7 +264,7 @@ declare
   v_existed boolean := false;
 begin
   if p_reminder_enabled is null or p_reminder_time is null
-     or pg_catalog.extract(second from p_reminder_time) <> 0 then
+     or extract(second from p_reminder_time) <> 0 then
     raise exception 'INVALID_BOOKING_REMINDER';
   end if;
   
@@ -330,7 +330,7 @@ declare
   
 begin
   if p_reminder_enabled is null or p_reminder_time is null
-     or pg_catalog.extract(second from p_reminder_time) <> 0 then
+     or extract(second from p_reminder_time) <> 0 then
     raise exception 'INVALID_BOOKING_REMINDER';
   end if;
   
@@ -381,7 +381,7 @@ declare
   v_existed boolean := false;
 begin
   if p_reminder_enabled is null or p_reminder_time is null
-     or pg_catalog.extract(second from p_reminder_time) <> 0 then
+     or extract(second from p_reminder_time) <> 0 then
     raise exception 'INVALID_BOOKING_REMINDER';
   end if;
   
