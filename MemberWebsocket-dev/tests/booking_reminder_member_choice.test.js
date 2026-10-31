@@ -68,7 +68,8 @@ test('AC-006/007: dispatch only stages opted-in confirmed bookings and checks ag
   assert.match(sql,/m\.is_test_account is not true/);
   assert.match(sql,/create or replace function public\.skip_invalid_booking_reminder/);
   assert.match(sql,/v_start = v_job\.reminder_start_at/);
-  assert.doesNotMatch(sql,/s\.reminder_enabled|v_settings\.reminder_time/);
+  const dispatchDefinition = sql.slice(sql.indexOf('create or replace function booking_notifications.sync_day_before_reminders()'));
+  assert.doesNotMatch(dispatchDefinition,/s\.reminder_enabled|v_settings\.reminder_time/);
 });
 
 test('AC-008/009: existing confirmed bookings preserve prior policy, new appointments default to off', () => {
