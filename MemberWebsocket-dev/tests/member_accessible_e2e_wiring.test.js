@@ -44,7 +44,7 @@ test('membership application terms have an isolated Chromium success path',()=>{
 
 test('all clients load the expanded user E2E controller and booking loads the receipt snapshot build',()=>{
   for(const entry of ['member','points','event','calendar','booking']){
-    assert.match(read(entry+'/index.html'),/\.\.\/user-test-control\.js\?v=qa-e2e-20261010-2/);
+    assert.match(read('tests/fixtures/'+entry+'-e2e.html'),/\.\.\/user-test-control\.js\?v=qa-e2e-20261010-2/);
   }
   assert.match(read('booking/index.html'),/\.\/booking-receipt\.js\?v=accessible-e2e-snapshot-20261005-1/);
 });
