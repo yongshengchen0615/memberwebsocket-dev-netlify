@@ -70,6 +70,12 @@ jobs:
         env:
           COMMIT_REF: ${{ github.sha }}
         run: |
+          # A failed native deploy has no real deploy ID. Do not pass a verified
+          # source epoch without the matching deploy identity to buildDate().
+          # The CI ZIP remains a single immutable built artifact for this SHA.
+          if [ "${PREVIEW_DEPLOY_MODE:-}" = ci-zip ]; then
+            unset VERIFIED_PREVIEW_SOURCE_EPOCH
+          fi
           node --test scripts/deploy.test.mjs scripts/netlify-publish-workflow.test.mjs scripts/check-preview-ci.test.mjs scripts/verify-platform-preview.test.mjs scripts/inspect-preview-source.test.mjs scripts/netlify-preview-source.test.mjs scripts/verify-netlify-cli-preview.test.mjs scripts/netlify-native-ci-gate.test.mjs scripts/verify-netlify-native-preview.test.mjs
           node scripts/build-site.mjs
           test -f dist/platform/index.html

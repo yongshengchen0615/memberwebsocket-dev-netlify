@@ -165,3 +165,17 @@ test('integrated branch keeps exact-SHA CI and production isolation with narrowl
     assert.ok(flow.includes('scripts/verify-netlify-native-preview.test.mjs'));
   }
 });
+
+
+test('failed-native CI ZIP avoids unpaired verified source timestamp during the build', () => {
+  const start = preview.indexOf('- name: Build and verify the exact platform frontend');
+  const end = preview.indexOf('- name: Retain the exact preview bundle for recovery', start);
+  const build = preview.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.match(build, /if \[ "\$\{PREVIEW_DEPLOY_MODE:-\}" = ci-zip \]; then\s+unset VERIFIED_PREVIEW_SOURCE_EPOCH\s+fi/);
+  assert.ok(build.indexOf('unset VERIFIED_PREVIEW_SOURCE_EPOCH') < build.indexOf('node --test scripts/deploy.test.mjs'));
+  assert.ok(build.indexOf('unset VERIFIED_PREVIEW_SOURCE_EPOCH') < build.indexOf('node scripts/build-site.mjs'));
+  assert.match(preview, /if node scripts\/verify-netlify-native-preview\.mjs/);
+  assert.match(preview, /echo "PREVIEW_DEPLOY_MODE=native"/);
+  assert.match(preview, /echo "PREVIEW_DEPLOY_MODE=ci-zip"/);
+});
