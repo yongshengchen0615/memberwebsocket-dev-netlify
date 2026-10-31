@@ -51,3 +51,16 @@ test('AC-005: server rejects retired test-member enumeration and synthetic profi
   assert.match(api, /current\.data\?\.is_test_account === true\) throw new ApiError\(410/);
   assert.match(api, /body\.profile != null\) throw new ApiError\(400,"PROFILE_EDIT_FORBIDDEN"/);
 });
+
+test('AC-009: real-member status editor preserves identity, tier and authorized status controls', () => {
+  const html = read('admin/index.html');
+  const app = read('admin/app.js');
+  for (const id of ['memberModal', 'memberForm', 'memberIdentity', 'memberTier', 'memberStatus',
+    'memberLineUserId', 'memberExpectedUpdatedAt', 'saveMemberButton']) {
+    assert.match(html, new RegExp('id="' + id + '"'), id);
+  }
+  assert.match(app, /els\.memberIdentity\.textContent/);
+  assert.match(app, /els\.memberTier\.textContent/);
+  assert.match(app, /els\.memberStatus\.value =/);
+  assert.doesNotMatch(html, /memberIsTestAccount|memberTestProfileFields/);
+});
