@@ -63,7 +63,8 @@ test('adaptive E2E asset versions and scenario graph are aligned across all surf
   assert.doesNotMatch(read('admin/index.html'), /e2e-control\.js\?v=qa-e2e-\d{8}-\d+/);
   assert.match(read('admin/e2e-control-loader.js'), /const E2E_CONTROL_SRC/);
   for (const surface of ['member', 'points', 'event', 'calendar', 'booking']) {
-    assert.match(read(surface + '/index.html'), /e2e-scenario-graph\.js\?v=e2e-graph-20261004-\d+/);
-    assert.match(read(surface + '/index.html'), /user-test-control\.js\?v=qa-e2e-\d{8}-\d+/);
+    assert.doesNotMatch(read(surface + '/index.html'), /e2e-scenario-graph\.js|user-test-control\.js/);
+    assert.match(read('tests/fixtures/' + surface + '-e2e.html'), /e2e-scenario-graph\.js\?v=e2e-graph-20261004-\d+/);
+    assert.match(read('tests/fixtures/' + surface + '-e2e.html'), /user-test-control\.js\?v=qa-e2e-\d{8}-\d+/);
   }
 });

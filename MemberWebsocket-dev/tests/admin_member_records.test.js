@@ -22,7 +22,7 @@ test('member directory exposes a records action beside existing actions', () => 
 });
 
 test('member usage history contains all requested activity categories', () => {
-  for (const filter of ['presence', 'pointCards', 'eventTickets', 'calendar', 'bookings', 'testAutomation']) {
+  for (const filter of ['presence', 'pointCards', 'eventTickets', 'calendar', 'bookings']) {
     assert.ok(html.includes('data-record-filter="' + filter + '"'), filter);
   }
   assert.match(app, /admin\.member-records\.list/);
@@ -85,9 +85,8 @@ test('test member QA runs are linked to roster records with safe expected and ac
   assert.match(userQa, /from\("automation_test_steps"\)\.insert/);
   assert.match(api, /from\("automation_test_cases"\).*member\.id/s);
   assert.match(api, /testAutomation:automationRecords/);
-  assert.match(app, /\['testAutomation', '測試操作'\]/);
-  assert.match(app, /Expected：/);
-  assert.match(app, /Actual：/);
+  assert.doesNotMatch(html, /data-record-filter="testAutomation"/);
+  assert.doesNotMatch(app, /\['testAutomation', '測試操作'\]/);
   assert.match(migration, /automation_test_cases/);
   assert.match(migration, /automation_test_steps/);
   assert.match(migration, /notify_member_record_realtime_change/);

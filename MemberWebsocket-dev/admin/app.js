@@ -32,14 +32,14 @@
       'app', 'loadingView', 'loadingProgress', 'loadingProgressBar', 'loadingProgressText', 'loadingStatus', 'errorView', 'errorTitle', 'errorMessage', 'pendingBox', 'pendingUserId', 'retryButton', 'adminView', 'displayName', 'roleLabel', 'logoutButton',
       'membersTab', 'cardsTab', 'eventsTab', 'calendarTab', 'cardSettingsTab', 'ticketSettingsTab', 'memberCount', 'activeMemberCount', 'activeCardCount', 'activeEventTicketCount', 'todayEntryCount', 'membersPanel', 'cardsPanel', 'eventsPanel', 'calendarPanel', 'cardSettingsPanel', 'ticketSettingsPanel', 'syncStatus', 'refreshButton',
       'tierSettingsForm', 'tierGeneralMinutes', 'tierSilverMinutes', 'tierGoldMinutes', 'tierPlatinumMinutes', 'tierGeneralStyle', 'tierSilverStyle', 'tierGoldStyle', 'tierPlatinumStyle', 'tierSettingsFormMessage', 'saveTierSettingsButton',
-      'realMembersSubtab', 'testMembersSubtab', 'memberSearch', 'memberResultCount', 'memberTableBody', 'memberEmptyState', 'memberPagination', 'memberPrevPageButton', 'memberPageStatus', 'memberNextPageButton',
+      'memberSearch', 'memberResultCount', 'memberTableBody', 'memberEmptyState', 'memberPagination', 'memberPrevPageButton', 'memberPageStatus', 'memberNextPageButton',
       'newCardButton', 'cardResultCount', 'cardListItems', 'cardEmptyState', 'editorKicker', 'editorTitle', 'editorStatus', 'cardForm', 'cardId', 'cardExpectedUpdatedAt', 'cardTitle', 'cardUsageMethod', 'cardUsageInstructions', 'cardBenefitDescription', 'cardStatus', 'cardExpiryMode', 'cardExpiresOnField', 'cardExpiresOn', 'cardExpiresOnSummary', 'cardAccent', 'accentValue', 'rewardRows', 'addRewardButton', 'rewardEditorHint', 'cardFormMessage', 'resetCardButton', 'archiveCardButton', 'deleteCardButton', 'saveCardButton',
       'newTicketButton', 'ticketResultCount', 'ticketListItems', 'ticketEmptyState', 'ticketEditorKicker', 'ticketEditorTitle', 'ticketEditorStatus', 'ticketForm', 'ticketTemplateId', 'ticketExpectedUpdatedAt', 'ticketTitle', 'ticketType', 'ticketDescription', 'ticketUsageMethod', 'ticketUsageInstructions', 'ticketStatus', 'ticketPrizeEditor', 'ticketPrizeRows', 'addTicketPrizeButton', 'balanceTicketPrizesButton', 'ticketPrizeTotal', 'ticketFormMessage', 'resetTicketButton', 'deleteTicketButton', 'saveTicketButton',
       'newEventTicketButton', 'eventTicketResultCount', 'eventTicketListItems', 'eventTicketEmptyState', 'eventTicketEditorKicker', 'eventTicketEditorTitle', 'eventTicketEditorStatus', 'eventTicketForm', 'eventTicketId', 'eventTicketExpectedUpdatedAt', 'eventTicketTitle', 'eventTicketType', 'eventTicketDescription', 'eventTicketUsageMethod', 'eventTicketUsageInstructions', 'eventTicketStatus', 'eventTicketRequiredServiceMatchMode', 'eventTicketRequiredServiceIds', 'eventTicketStartsOn', 'eventTicketEndsOn', 'eventTicketDateRangeSummary', 'eventTicketDateRangeMessage', 'eventTicketQuota', 'eventTicketAccent', 'eventTicketAccentValue', 'eventTicketPrizeEditor', 'eventTicketPrizeRows', 'addEventTicketPrizeButton', 'balanceEventTicketPrizesButton', 'eventTicketPrizeTotal', 'eventTicketFormMessage', 'resetEventTicketButton', 'deleteEventTicketButton', 'saveEventTicketButton', 'eventTicketLocationRule', 'eventTicketRequiresLocation', 'eventTicketLatitude', 'eventTicketLongitude', 'eventTicketRadius',
       'newCalendarItemButton', 'adminCalendarPreviousMonthButton', 'adminCalendarNextMonthButton', 'adminCalendarTodayButton', 'adminCalendarMonthTitle', 'adminCalendarGrid', 'calendarItemEditorKicker', 'calendarItemEditorTitle', 'calendarItemEditorStatus', 'calendarItemForm', 'calendarItemId', 'calendarItemExpectedUpdatedAt', 'calendarItemTitle', 'calendarItemType', 'calendarItemDescription', 'calendarItemLinkLabel', 'calendarItemLinkUrl', 'calendarItemEventLinkFields', 'calendarItemStatus', 'calendarItemStartsOn', 'calendarItemEndsOn', 'calendarItemAccent', 'calendarItemAccentValue', 'calendarItemFormMessage', 'resetCalendarItemButton', 'deleteCalendarItemButton', 'saveCalendarItemButton', 'addCalendarBatchItemButton', 'queueSelectedCalendarItemsButton', 'deleteSelectedCalendarItemsButton', 'calendarBatchSummary', 'calendarBatchRows', 'calendarBatchMessage', 'clearCalendarBatchButton', 'saveCalendarBatchButton',
-      'memberModal', 'closeMemberModal', 'memberForm', 'memberLineUserId', 'memberExpectedUpdatedAt', 'memberIsTestAccount', 'memberIdentity', 'memberTier', 'memberTestProfileFields', 'memberDisplayName', 'memberSurname', 'memberSalutation', 'memberBirthday', 'memberPhone', 'memberStatus', 'memberFormMessage', 'cancelMemberButton', 'saveMemberButton',
-      'memberRecordsModal', 'closeMemberRecordsModal', 'memberRecordsIdentity', 'memberRecordsOverview', 'memberRecordsModalMessage', 'memberRecordsOpenUsage', 'memberUsagePanel', 'memberUsageKind', 'memberUsageSearch', 'memberUsageSelect', 'memberUsagePrev', 'memberUsageNext', 'memberUsagePageStatus', 'memberUsageRosterMessage', 'memberUsageIntro', 'memberUsageSelectedLabel', 'memberRecordsSummary', 'memberRecordsTabs', 'memberRecordsList', 'memberRecordsEmpty', 'memberRecordsMessage',
-      'grantMode', 'grantServiceFields', 'grantServiceStatus', 'grantServiceList', 'previewServiceGrantButton', 'grantServicePreview', 'grantModal', 'closeGrantModal', 'grantForm', 'grantMemberId', 'grantMemberName', 'grantStampsEnabled', 'grantStampsFields', 'grantCardId', 'grantStampAmount', 'grantPointRows', 'addGrantPointButton', 'grantPointHint', 'grantServiceTimeEnabled', 'grantServiceTimeFields', 'grantServiceTimeMinutes', 'grantMessageSection', 'grantMessagePreset', 'grantMessagePreview', 'grantTestNotificationNote', 'manageGrantMessagesButton', 'grantFormMessage', 'cancelGrantButton', 'saveGrantButton', 'grantSuccessNotice',
+      'memberModal', 'closeMemberModal', 'memberForm', 'memberLineUserId', 'memberExpectedUpdatedAt', 'memberIdentity', 'memberTier', 'memberStatus', 'memberFormMessage', 'cancelMemberButton', 'saveMemberButton',
+      'memberRecordsModal', 'closeMemberRecordsModal', 'memberRecordsIdentity', 'memberRecordsOverview', 'memberRecordsModalMessage', 'memberRecordsOpenUsage', 'memberUsagePanel', 'memberUsageSearch', 'memberUsageSelect', 'memberUsagePrev', 'memberUsageNext', 'memberUsagePageStatus', 'memberUsageRosterMessage', 'memberUsageIntro', 'memberUsageSelectedLabel', 'memberRecordsSummary', 'memberRecordsTabs', 'memberRecordsList', 'memberRecordsEmpty', 'memberRecordsMessage',
+      'grantMode', 'grantServiceFields', 'grantServiceStatus', 'grantServiceList', 'previewServiceGrantButton', 'grantServicePreview', 'grantModal', 'closeGrantModal', 'grantForm', 'grantMemberId', 'grantMemberName', 'grantStampsEnabled', 'grantStampsFields', 'grantCardId', 'grantStampAmount', 'grantPointRows', 'addGrantPointButton', 'grantPointHint', 'grantServiceTimeEnabled', 'grantServiceTimeFields', 'grantServiceTimeMinutes', 'grantMessageSection', 'grantMessagePreset', 'grantMessagePreview', 'manageGrantMessagesButton', 'grantFormMessage', 'cancelGrantButton', 'saveGrantButton', 'grantSuccessNotice',
       'messagePresetModal', 'closeMessagePresetModal', 'messagePresetForm', 'messagePresetList', 'messagePresetId', 'messagePresetExpectedUpdatedAt', 'messagePresetTitle', 'messagePresetBody', 'messagePresetStatus', 'messagePresetFormMessage', 'newMessagePresetButton', 'saveMessagePresetButton'
     ].forEach((id) => { els[id] = document.getElementById(id); });
     window.TicketLocationEditors.init();
@@ -101,8 +101,6 @@
     els.cardSettingsTab.addEventListener('click', () => switchCardWorkspace('cards'));
     els.ticketSettingsTab.addEventListener('click', () => switchCardWorkspace('tickets'));
     els.refreshButton.addEventListener('click', () => { if (state.writeConfirmationRequired) return window.location.reload(); return refreshData(true).catch((error) => { els.syncStatus.textContent = error && error.message || '同步失敗，請稍後再試。'; els.syncStatus.classList.add('error'); }); });
-    els.realMembersSubtab.addEventListener('click', () => switchMemberKind('real'));
-    els.testMembersSubtab.addEventListener('click', () => switchMemberKind('test'));
     els.memberSearch.addEventListener('input', scheduleMemberSearch);
     els.memberPrevPageButton.addEventListener('click', () => loadMembersPage(state.memberPage.page - 1, state.memberPage.query));
     els.memberNextPageButton.addEventListener('click', () => loadMembersPage(state.memberPage.page + 1, state.memberPage.query));
@@ -176,26 +174,17 @@
       const member = state.memberRecords.member;
       if (!member) return;
       closeMemberRecordsModal();
-      state.memberUsage.kind = member.isTestAccount ? 'test' : 'real';
+      state.memberUsage.kind = 'real';
       state.memberUsage.page = 1;
       state.memberUsage.query = '';
       state.memberUsage.loaded = false;
-      els.memberUsageKind.value = state.memberUsage.kind;
-      els.memberUsageSearch.value = '';
+            els.memberUsageSearch.value = '';
       window.MemberWorkspaceTabs?.select('usage');
     });
     window.addEventListener('member-workspace-selected', (event) => {
       if (event.detail?.workspace === 'usage' && state.idToken && !state.memberUsage.loaded) {
         void loadMemberUsageRoster().catch(() => {});
       }
-    });
-    els.memberUsageKind.addEventListener('change', () => {
-      state.memberUsage.kind = els.memberUsageKind.value === 'test' ? 'test' : 'real';
-      state.memberUsage.page = 1;
-      state.memberUsage.query = '';
-      els.memberUsageSearch.value = '';
-      clearMemberUsageHistory();
-      void loadMemberUsageRoster().catch(() => {});
     });
     els.memberUsageSearch.addEventListener('input', () => {
       state.memberUsage.requestVersion++;
@@ -521,7 +510,6 @@
     }
     const tasks = [refreshData(false), refreshOpenMemberRecords()];
     await Promise.allSettled(tasks);
-    if (state.memberKind === 'test') await loadMembersPage(state.memberPage.page, state.memberPage.query).catch(() => {});
     await refreshMemberPresence().catch(() => {});
   }
 
@@ -784,7 +772,7 @@
   function renderMembers() {
     const members = state.members;
     const page = state.memberPage;
-    els.memberResultCount.textContent = `共 ${page.total} 位${state.memberKind === 'test' ? '測試' : '真實'}用戶`;
+    els.memberResultCount.textContent = `共 ${page.total} 位會員`;
     els.memberTableBody.replaceChildren(...members.map((member) => {
       const row = document.createElement('tr');
       const memberCell = document.createElement('td'); memberCell.append(createMemberIdentity(member));
@@ -804,7 +792,7 @@
     renderMemberPagination();
   }
 
-  function memberPagePayload(page, query) { return { memberPage: Math.max(1, Number(page) || 1), memberPageSize: state.memberPage.pageSize || 100, memberQuery: String(query || '').trim(), memberKind: state.memberKind }; }
+  function memberPagePayload(page, query) { return { memberPage: Math.max(1, Number(page) || 1), memberPageSize: state.memberPage.pageSize || 100, memberQuery: String(query || '').trim(), memberKind: 'real' }; }
   function applyMemberPage(value, fallback) {
     const source = value && typeof value === 'object' ? value : fallback || {};
     const pageSize = Math.max(1, Number(source.pageSize) || 100);
@@ -851,20 +839,6 @@
       if (await refreshAfterSuccessfulWrite('會員等級與卡面樣式已儲存', els.tierSettingsFormMessage)) showMessage(els.tierSettingsFormMessage, '會員等級與卡面樣式已儲存，會員卡會依目前等級顯示對應外觀。', true);
     } catch (error) { handleActionError(error, els.tierSettingsFormMessage); } finally { setSaving(els.saveTierSettingsButton, false); }
   }
-  async function switchMemberKind(kind) {
-    const nextKind = kind === 'test' ? 'test' : 'real';
-    if (state.memberKind === nextKind) return;
-    state.memberKind = nextKind;
-    els.realMembersSubtab.classList.toggle('active', nextKind === 'real');
-    els.realMembersSubtab.setAttribute('aria-selected', nextKind === 'real' ? 'true' : 'false');
-    els.testMembersSubtab.classList.toggle('active', nextKind === 'test');
-    els.testMembersSubtab.setAttribute('aria-selected', nextKind === 'test' ? 'true' : 'false');
-    els.memberSearch.value = '';
-    els.memberSearch.placeholder = nextKind === 'test' ? '搜尋測試用戶姓名、會員編號或等級' : '搜尋姓名、會員編號或等級';
-    state.memberPage = { ...state.memberPage, page: 1, total: 0, totalPages: 1, query: '' };
-    await loadMembersPage(1, '');
-  }
-
   function scheduleMemberSearch() {
     if (state.memberSearchTimer) window.clearTimeout(state.memberSearchTimer);
     const query = String(els.memberSearch.value || '').trim().toLowerCase();
@@ -939,7 +913,6 @@
     ['eventTickets', '活動票券'],
     ['calendar', '日曆'],
     ['bookings', '預約'],
-    ['testAutomation', '測試操作'],
   ]);
 
   async function openMemberRecordsModal(member, showModal = true) {
@@ -1031,7 +1004,7 @@
     const preferred = state.memberRecords.member;
     try {
       const result = await window.MemberSystem.request(state.config, 'admin', state.idToken, 'admin.members.list', {
-        memberPage: usage.page, memberPageSize: 100, memberQuery: usage.query, memberKind: usage.kind,
+        memberPage: usage.page, memberPageSize: 100, memberQuery: usage.query, memberKind: 'real',
       });
       if (requestVersion !== usage.requestVersion) return;
       const page = result.memberPage || {};
@@ -1044,7 +1017,7 @@
       usage.members.forEach((member) => {
         options.push(new Option(`${member.displayName || 'LINE 使用者'} · ${member.memberCode || '尚未建立'}`, String(member.lineUserId || '')));
       });
-      if (preferred && (preferred.isTestAccount ? 'test' : 'real') === usage.kind
+      if (preferred && usage.kind === 'real'
           && !options.some((option) => option.value === preferred.lineUserId)) {
         options.push(new Option(`${preferred.displayName || 'LINE 使用者'} · ${preferred.memberCode || '尚未建立'}（目前選取）`, preferred.lineUserId));
       }
@@ -1124,9 +1097,8 @@
       ['活動票券', counts.eventTickets],
       ['日曆', counts.calendar],
       ['預約', counts.bookings],
-      ['測試操作', counts.testAutomation],
     ];
-    const summaryFilters = ['presence', 'pointCards', 'eventTickets', 'calendar', 'bookings', 'testAutomation'];
+    const summaryFilters = ['presence', 'pointCards', 'eventTickets', 'calendar', 'bookings'];
     els.memberRecordsSummary.replaceChildren(...summary.map(([label, count], index) => {
       const filter = summaryFilters[index] || 'all';
       const pill = document.createElement('button');
@@ -1173,7 +1145,7 @@
     copy.className = 'member-records-overview-copy';
     const eyebrow = document.createElement('span');
     eyebrow.className = 'member-records-overview-eyebrow';
-    eyebrow.textContent = member.isTestAccount ? '測試會員' : '正式會員';
+    eyebrow.textContent = '會員';
     const title = document.createElement('strong');
     title.textContent = String(member.displayName || 'LINE 使用者');
     const meta = document.createElement('div');
@@ -1323,7 +1295,6 @@
     if (category === 'eventTickets') return String(record.title || '活動票券');
     if (category === 'calendar') return String(record.title || '日曆項目');
     if (category === 'bookings') return String(record.title || '預約');
-    if (category === 'testAutomation') return String(record.title || '測試操作');
     return String(record.title || '會員紀錄');
   }
 
@@ -1350,11 +1321,6 @@
       const endDate = String(record.endAt || '').slice(0, 10) || record.bookingDate;
       const time = `${startDate} ${String(record.startTime || '').slice(0, 5)}–${endDate} ${String(record.endTime || '').slice(0, 5)}`;
       return `營業日 ${date} · ${time} · ${memberRecordStatusLabel(record.status, 'booking')}`;
-    }
-    if (category === 'testAutomation') {
-      const surface = memberRecordPresenceSurfaceLabel(record.surface);
-      const status = memberRecordQaStatusLabel(record.status);
-      return `${surface} · ${status}${record.runCode ? ' · ' + record.runCode : ''}`;
     }
     return '會員使用紀錄';
   }
@@ -1393,17 +1359,6 @@
       if (record.relatedTicketStatus) details.push(`票券狀態：${memberRecordStatusLabel(record.relatedTicketStatus, 'ticket')}`);
       return details;
     }
-    if (category === 'testAutomation') {
-      if (record.caseKey) details.push(`案例：${record.caseKey}`);
-      if (record.runCode) details.push(`Run：${record.runCode}`);
-      if (record.domain) details.push(`Domain：${record.domain}`);
-      if (record.message) details.push(`結果：${record.message}`);
-      if (record.failureCode) details.push(`錯誤代碼：${record.failureCode}`);
-      if (record.failureMessage && record.failureMessage !== record.message) details.push(`錯誤：${record.failureMessage}`);
-      if (record.expected !== undefined) details.push(`Expected：${memberRecordJsonPreview(record.expected)}`);
-      if (record.actual !== undefined) details.push(`Actual：${memberRecordJsonPreview(record.actual)}`);
-      return details;
-    }
     if (category === 'bookings') {
       const participants = Array.isArray(record.participants) ? record.participants : [];
       if (participants.length) {
@@ -1430,20 +1385,6 @@
       return details;
     }
     return details;
-  }
-
-  function memberRecordQaStatusLabel(status) {
-    const labels = { passed:'通過', failed:'失敗', skipped:'略過', running:'執行中', queued:'等待中' };
-    return labels[String(status || '').toLowerCase()] || String(status || '未知');
-  }
-
-  function memberRecordJsonPreview(value) {
-    try {
-      const text = JSON.stringify(value === undefined ? null : value);
-      return text.length > 1200 ? text.slice(0, 1200) + '…' : text;
-    } catch (_) {
-      return String(value ?? '');
-    }
   }
 
   function memberRecordPresenceSurfaceLabel(surface) {
@@ -2875,24 +2816,14 @@
   function updateCalendarItemAccentValue() { els.calendarItemAccentValue.textContent = safeAccent(els.calendarItemAccent.value).toUpperCase(); }
 
   function openMemberModal(member) {
-    const isTestAccount = Boolean(member.isTestAccount);
     els.memberLineUserId.value = String(member.lineUserId);
     els.memberExpectedUpdatedAt.value = String(member.updatedAt || '');
-    els.memberIsTestAccount.value = isTestAccount ? 'true' : 'false';
     els.memberIdentity.textContent = `${member.displayName || 'LINE 使用者'} · ${member.memberCode || '尚未建立'}`;
     els.memberTier.textContent = String(member.tier || '一般會員');
     els.memberStatus.value = member.status === 'active' ? 'active' : 'disabled';
-    els.memberTestProfileFields.classList.toggle('hidden', !isTestAccount);
-    if (isTestAccount) {
-      els.memberDisplayName.value = String(member.displayName || '');
-      els.memberSurname.value = String(member.surname || '');
-      els.memberSalutation.value = ['mr', 'ms'].includes(String(member.salutation || '').toLowerCase()) ? String(member.salutation).toLowerCase() : 'mr';
-      els.memberBirthday.value = String(member.birthday || '');
-      els.memberPhone.value = String(member.phone || '');
-    }
     hideMessage(els.memberFormMessage);
     els.memberModal.classList.remove('hidden');
-    (isTestAccount ? els.memberDisplayName : els.memberStatus).focus();
+    els.memberStatus.focus();
   }
   function closeMemberModal() {
     if (state.memberSaving) return;
@@ -2911,15 +2842,6 @@
     setSaving(els.saveMemberButton, true, '正在儲存會員狀態…');
     try {
       const payload = { lineUserId: els.memberLineUserId.value, status: els.memberStatus.value, expectedUpdatedAt: els.memberExpectedUpdatedAt.value };
-      if (els.memberIsTestAccount.value === 'true') {
-        payload.profile = {
-          displayName: String(els.memberDisplayName.value || '').trim(),
-          surname: String(els.memberSurname.value || '').trim(),
-          salutation: String(els.memberSalutation.value || '').trim().toLowerCase(),
-          birthday: String(els.memberBirthday.value || '').trim(),
-          phone: String(els.memberPhone.value || '').trim()
-        };
-      }
       const result = await window.MemberSystem.request(state.config, 'admin', state.idToken, 'admin.member.update', payload);
       if (result.member) state.members = replaceById(state.members, result.member, 'lineUserId');
       state.memberSaving = false;
@@ -3051,10 +2973,7 @@
     els.grantStampAmount.value = '';
     els.grantServiceTimeMinutes.value = '';
     renderGrantMessagePresetOptions();
-    const isTestAccount = Boolean(member.isTestAccount);
-    els.grantMessageSection.classList.toggle('hidden', isTestAccount);
-    els.grantTestNotificationNote.classList.toggle('hidden', !isTestAccount);
-    if (isTestAccount) els.grantMessagePreset.value = '';
+    els.grantMessageSection.classList.remove('hidden');
     els.grantPointRows.replaceChildren();
     els.grantPointHint.textContent = '勾選「發放集點」後選擇集點卡與點數。';
     els.grantPointHint.classList.remove('warning');
@@ -3213,7 +3132,7 @@
   async function saveServiceItemGrant() {
     if (!serviceGrant.preview) return showMessage(els.grantFormMessage, '請先預覽並確認發放明細。');
     const targetMember = state.members.find(member => member.lineUserId === els.grantMemberId.value);
-    const payload = { lineUserId: els.grantMemberId.value, requestId: state.grantRequestId, items: collectServiceGrantItems(), expectedPreview: serviceGrant.preview, messagePresetId: targetMember?.isTestAccount ? '' : els.grantMessagePreset.value };
+    const payload = { lineUserId: els.grantMemberId.value, requestId: state.grantRequestId, items: collectServiceGrantItems(), expectedPreview: serviceGrant.preview, messagePresetId: els.grantMessagePreset.value };
     state.grantSaving = true;
     els.grantMode.disabled = true;
     els.grantServiceFields.querySelectorAll('input,button').forEach(node => node.disabled = true);
@@ -3244,7 +3163,7 @@
     if (!addStamps && !addServiceTime) return showMessage(els.grantFormMessage, '請至少勾選「發放集點」或「發放消費服務時間」。');
     if (addStamps && (!points.length || points.some((point) => !point.cardId || !Number.isInteger(point.amount) || point.amount < 1 || point.amount > 100) || new Set(points.map((point) => point.cardId)).size !== points.length)) return showMessage(els.grantFormMessage, '請為每張集點卡選擇不同卡片，並輸入 1–100 的整數點數。');
     if (addServiceTime && (!Number.isInteger(serviceTimeMinutes) || serviceTimeMinutes < 1 || serviceTimeMinutes > 1440)) return showMessage(els.grantFormMessage, '請輸入 1–1440 的整數分鐘數。');
-    const targetMember = state.members.find((member) => String(member.lineUserId || '') === String(els.grantMemberId.value || '')); const payload = { lineUserId: els.grantMemberId.value, requestId: state.grantRequestId || (state.grantRequestId = createRequestId()), messagePresetId: targetMember?.isTestAccount ? '' : String(els.grantMessagePreset.value || '') };
+    const targetMember = state.members.find((member) => String(member.lineUserId || '') === String(els.grantMemberId.value || '')); const payload = { lineUserId: els.grantMemberId.value, requestId: state.grantRequestId || (state.grantRequestId = createRequestId()), messagePresetId: String(els.grantMessagePreset.value || '') };
     if (addStamps) payload.points = points;
     if (addServiceTime) payload.serviceTime = { minutes: serviceTimeMinutes };
     state.grantSaving = true;

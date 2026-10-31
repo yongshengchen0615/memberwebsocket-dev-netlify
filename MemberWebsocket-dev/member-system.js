@@ -160,16 +160,10 @@
   }
 
   async function signIn(config, surface) {
-    let idToken;
-    if (surface !== 'admin' && window.TestModeClient && typeof window.TestModeClient.prepare === 'function') {
-      const prepared = await window.TestModeClient.prepare(config, surface, () => lineSignIn(config, surface));
-      idToken = String(prepared && prepared.idToken || '');
-    } else {
-      idToken = await lineSignIn(config, surface);
-    }
+    const idToken = await lineSignIn(config, surface);
     // Admin sessions are verified per request using the admin LINE channel
     // and server-side role; member single-device claims apply only to users.
-    if (idToken && surface !== 'admin' && !(window.TestModeClient?.getSessionToken?.())) {
+    if (idToken && surface !== 'admin') {
       await claimBrowserSession(config, surface, idToken);
     }
     sessions.set(surface, Object.freeze({ config, idToken: String(idToken || '') }));
@@ -432,12 +426,9 @@
         clientType: context.clientType,
         idToken: currentPresenceIdToken(context)
       };
-      const body = window.TestModeClient && typeof window.TestModeClient.payload === 'function'
-        ? window.TestModeClient.payload(payload)
-        : payload;
+      const jsonBody = JSON.stringify(payload);
       // Send a simple POST to avoid CORS preflight during WebView teardown.
-      // The Edge Function has verify_jwt=false and authenticates the LINE/test token in the body.
-      const jsonBody = JSON.stringify(body);
+      // The Edge Function validates LINE credentials in the body.
       if (navigator && typeof navigator.sendBeacon === 'function') {
         const beaconBody = new Blob([jsonBody], { type: 'text/plain;charset=UTF-8' });
         if (navigator.sendBeacon(endpoint, beaconBody)) return Promise.resolve(true);
@@ -480,9 +471,8 @@
       return sendRequest(config, clientType, idToken, action, payload).finally(() => pendingReads.clear());
     }
     const endpoint = requestEndpoint(config, clientType, action);
-    const testSessionToken = window.TestModeClient && typeof window.TestModeClient.getSessionToken === 'function' ? window.TestModeClient.getSessionToken() : '';
     const business = window.BusinessContext?.slug || config.business || '';
-    const key = JSON.stringify([endpoint, config.supabasePublishableKey, business, clientType, idToken, testSessionToken, action, payload]);
+    const key = JSON.stringify([endpoint, config.supabasePublishableKey, business, clientType, idToken, action, payload]);
     if (pendingReads.has(key)) return pendingReads.get(key);
     const pending = sendRequest(config, clientType, idToken, action, payload).finally(() => {
       if (pendingReads.get(key) === pending) pendingReads.delete(key);
@@ -540,9 +530,7 @@
             'apikey': String(config.supabasePublishableKey)
           },
           cache: 'no-store',
-          body: JSON.stringify(window.TestModeClient && typeof window.TestModeClient.payload === 'function'
-            ? window.TestModeClient.payload({ ...verifiedJoinPayload, action, clientType, idToken })
-            : { ...verifiedJoinPayload, action, clientType, idToken })
+          body: JSON.stringify({ ...verifiedJoinPayload, action, clientType, idToken })
         }, remaining, (response) => response.text());
 
         let data;
@@ -772,18 +760,7 @@
     const SAFETY_SYNC_MS = 30000;
     const queuedEventTypes = new Set();
     const queuedReasons = new Set();
-    const hasActiveTestSession = () => {
-      try {
-        return Boolean(window.TestModeClient
-          && typeof window.TestModeClient.getSessionToken === 'function'
-          && window.TestModeClient.getSessionToken());
-      } catch (_) {
-        return false;
-      }
-    };
-    // Production clients pause background refreshes to control traffic. Paired E2E
-    // uses real background windows, so test sessions must keep consuming Realtime.
-    const isPaused = () => (document.visibilityState === 'hidden' && !hasActiveTestSession())
+    const isPaused = () => (document.visibilityState === 'hidden')
       || (typeof navigator !== 'undefined' && navigator.onLine === false);
 
     // Realtime, reconnect and page-resume signals share one refresh queue.
@@ -960,9 +937,6 @@
     sessions.clear();
     clearPresenceHeartbeat();
     if (presenceContext) presenceContext.closed = true;
-    if (window.TestModeClient && typeof window.TestModeClient.clearSession === 'function') {
-      try { window.TestModeClient.clearSession(); } catch (_) {}
-    }
 
     const isRevoked = ['SESSION_REVOKED', 'SESSION_REPLACED', 'MEMBER_REMOVED'].includes(code);
     const notice = isRevoked
@@ -1003,7 +977,6 @@
       try { await withTimeout(stopPresence('logout', true), 1200, '上下線紀錄逾時。'); } catch (_) {}
       try { window.localStorage.removeItem(LOGIN_REGISTERED_KEY); window.localStorage.removeItem(LOGIN_BROWSER_KEY); } catch (_) {}
       sessions.clear();
-      if (window.TestModeClient && typeof window.TestModeClient.clearSession === 'function') window.TestModeClient.clearSession();
       if (window.liff && window.liff.isLoggedIn()) window.liff.logout();
     } finally { window.location.reload(); }
   }

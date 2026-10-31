@@ -10,6 +10,11 @@ const source = path.join(root, 'MemberWebsocket-dev');
 const output = path.join(root, 'dist');
 const publicDirectories = new Set(['admin', 'platform', 'booking', 'calendar', 'event', 'member', 'points', 'vendor']);
 const publicFile = /\.(?:html|css|js|json|svg|png|jpe?g|webp|gif|ico|txt|woff2?)$/i;
+const retiredPublicQaAssets = new Set([
+  'test-mode-client.js', 'test-mode.css', 'user-test-control.js',
+  'user-test-control.css', 'e2e-feature-coverage.js',
+  'e2e-scenario-graph.js', 'e2e-professional-tester.js',
+]);
 const retiredAdminAssets = new Set([
   'test-mode.js','test-mode.css','test-control.js','test-control.css',
   'test-workspace-tabs.js','test-workspace-tabs.css','e2e-control.js',
@@ -24,6 +29,7 @@ for (const entry of await readdir(source, { withFileTypes: true })) {
     await cp(path.join(source, entry.name), path.join(output, entry.name), {
       recursive: true,
       filter: async (file) => !path.basename(file).startsWith('.')
+        && !(path.dirname(file) === source && retiredPublicQaAssets.has(path.basename(file)))
         && !(path.relative(source,file).startsWith(`admin${path.sep}`) && retiredAdminAssets.has(path.basename(file)))
         && ((await stat(file)).isDirectory() || publicFile.test(file)),
     });

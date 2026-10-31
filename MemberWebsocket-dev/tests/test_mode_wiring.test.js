@@ -44,40 +44,16 @@ test('isolated QA fixture retains guarded maintenance and device login contracts
   assert.match(testMode, /test-account-avatar/);
 });
 
-test('all member-facing surfaces load the direct test-account client before app logic', () => {
-  for (const entry of [
-    'member/index.html',
-    'points/index.html',
-    'event/index.html',
-    'calendar/index.html',
-    'booking/index.html',
-  ]) {
-    const html = read(entry);
-    const clientMarker = '../test-mode-client.js?v=';
-    const appMarker = entry === 'booking/index.html' ? './common.js?v=' : '../member-system.js?v=';
-    const clientIndex = html.indexOf(clientMarker);
-    const appIndex = html.indexOf(appMarker);
-    assert.ok(clientIndex >= 0, `${entry}: missing test-mode-client.js cache-busted asset`);
-    assert.ok(appIndex >= 0, `${entry}: missing application bootstrap asset`);
-    assert.ok(clientIndex < appIndex, `${entry}: test-mode-client.js must load before application bootstrap`);
-    assert.match(html, /test-mode\.css\?v=[^"']+/, entry);
+test('test-account assets remain solely in non-published fixtures', () => {
+  for (const entry of ['member', 'points', 'event', 'calendar', 'booking']) {
+    const production = read(entry + '/index.html');
+    const fixture = read('tests/fixtures/' + entry + '-e2e.html');
+    assert.doesNotMatch(production, /test-mode-client\.js|test-mode\.css/);
+    assert.match(fixture, /test-mode-client\.js/);
   }
-
-  const client = read('test-mode-client.js');
   const core = read('member-system.js');
-  assert.match(client, /action: 'test-mode\.accounts'/);
-  assert.match(client, /action: 'test-mode\.login'/);
-  assert.doesNotMatch(client, /allowAdminUserLogin|ADMIN_REQUIRED/);
-  assert.match(client, /if \(!mode\.maintenanceEnabled\)/);
-  assert.doesNotMatch(client, /mode\.enabled/);
-  assert.match(client, /mode\.allowMobileTestLogin/);
-  assert.match(client, /mode\.allowPcTestLogin/);
-  assert.match(client, /isMobileDevice\(\)/);
-  assert.match(client, /selector\(config, surface, accounts, allowDuplicateTestLogin = false\)/);
-  assert.match(client, /renderAccountOptions\(select, currentAccounts, surface, duplicateLoginAllowed\)/);
-  assert.match(core, /TestModeClient\.prepare/);
-  assert.match(core, /TestModeClient\.payload/);
-  assert.match(core, /TestModeClient\.clearSession/);
+  assert.doesNotMatch(core, /TestModeClient/);
+  assert.match(core, /const idToken = await lineSignIn\(config, surface\)/);
 });
 
 test('direct test login is server-side restricted to active test accounts', () => {

@@ -124,72 +124,38 @@ test('badge CSS stays visible on mobile and does not obstruct touch or require i
 });
 
 
-const testModeAllowedOrigins = [
-  'https://yongshengchen0615.github.io',
-  'https://memberwebsocket-dev-netlify.netlify.app',
-  'https://develop--memberwebsocket-dev-netlify.netlify.app',
-];
-
-test('test-mode API source preserves explicit CORS allowlist and request authorization', () => {
-  const source = fs.readFileSync(path.join(root, 'MemberWebsocket-dev/supabase/functions/test-mode-api/index.ts'), 'utf8');
-  for (const origin of testModeAllowedOrigins) {
-    assert.ok(source.includes(JSON.stringify(origin)), 'Missing trusted origin: ' + origin);
+test('retired client-side QA resources are absent from the actual deploy bundle', () => {
+  const retired = [
+    'test-mode-client.js', 'test-mode.css', 'user-test-control.js',
+    'user-test-control.css', 'e2e-feature-coverage.js',
+    'e2e-scenario-graph.js', 'e2e-professional-tester.js',
+  ];
+  for (const asset of retired) {
+    assert.equal(fs.existsSync(path.join(output, asset)), false, asset);
   }
-  assert.match(source, /origin && allowedOrigins\(\)\.has\(origin\)/);
-  assert.match(source, /if \(request\.method === "OPTIONS"\)/);
-  assert.match(source, /if \(origin && !allowedOrigins\(\)\.has\(origin\)\)/);
-  assert.doesNotMatch(source, /"Access-Control-Allow-Origin":\s*"\*"/);
 });
 
-test('deployed test-mode API responds to browser preflight only for trusted origins', async () => {
-  const { supabaseUrl } = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/config.json'), 'utf8'));
-  const endpoint = new URL('/functions/v1/test-mode-api', supabaseUrl);
-  const preflight = async (origin) => fetch(endpoint, {
-    method: 'OPTIONS',
-    headers: {
-      Origin: origin,
-      'Access-Control-Request-Method': 'POST',
-      'Access-Control-Request-Headers': 'content-type,apikey',
-    },
-    signal: AbortSignal.timeout(15000),
-  });
-  for (const origin of testModeAllowedOrigins) {
-    const response = await preflight(origin);
-    assert.equal(response.status, 204, origin + ': preflight must return 204');
-    assert.equal(response.headers.get('access-control-allow-origin'), origin, origin);
-    const allowedHeaders = (response.headers.get('access-control-allow-headers') || '')
-      .toLowerCase().split(',').map(x => x.trim());
-    assert.ok(allowedHeaders.includes('apikey'), origin + ': apikey blocked');
-    assert.ok(allowedHeaders.includes('content-type'), origin + ': content-type blocked');
-    assert.ok((response.headers.get('access-control-allow-methods') || '').includes('POST'));
-    assert.match(response.headers.get('vary') || '', /\bOrigin\b/i);
-  }
-  const untrusted = 'https://untrusted.example';
-  const deniedResponse = await preflight(untrusted);
-  assert.notEqual(deniedResponse.headers.get('access-control-allow-origin'), untrusted);
-});
-
-
-test('deployed test-mode API returns a CORS-readable rejection for malformed POST requests', async () => {
+test('the five retired Supabase functions reject requests before authentication or parsing', async () => {
   const config = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/config.json'), 'utf8'));
-  const origin = 'https://develop--memberwebsocket-dev-netlify.netlify.app';
-  const response = await fetch(new URL('/functions/v1/test-mode-api', config.supabaseUrl), {
-    method: 'POST',
-    headers: {
-      Origin: origin,
-      'Content-Type': 'application/json',
-      apikey: config.supabasePublishableKey,
-    },
-    body: '{not valid JSON',
-    signal: AbortSignal.timeout(15000),
-  });
-  assert.equal(response.headers.get('access-control-allow-origin'), origin);
-  assert.equal(response.status, 400, 'Malformed body should be rejected before authentication');
-  const payload = await response.json();
-  assert.equal(payload.ok, false);
-  assert.equal(payload.error?.code, 'INVALID_JSON');
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/supabase/retirement/retired-endpoints.json'), 'utf8'));
+  assert.equal(manifest.retiredFunctions.length, 5);
+  for (const name of manifest.retiredFunctions) {
+    const url = new URL('/functions/v1/' + name, config.supabaseUrl);
+    for (const method of ['GET', 'OPTIONS', 'POST']) {
+      const response = await fetch(url, {
+        method,
+        headers: { Origin: 'https://untrusted.example', 'Content-Type': 'application/json' },
+        ...(method === 'POST' ? { body: '{not valid JSON' } : {}),
+        signal: AbortSignal.timeout(15000),
+      });
+      assert.equal(response.status, 410, name + ' ' + method + ': retired endpoint must always fail closed');
+      assert.equal(response.headers.get('cache-control'), 'no-store');
+      const payload = await response.json();
+      assert.equal(payload.ok, false);
+      assert.equal(payload.error?.code, 'TEST_FEATURE_RETIRED');
+    }
+  }
 });
-
 
 test('native and verifier builds reproduce exact bytes using one deploy and source timestamp', () => {
   const env = { ...process.env, COMMIT_REF: 'b'.repeat(40),
