@@ -226,8 +226,10 @@ async function settingsSave(supabase: SupabaseClient, identity: Identity, body: 
   const maxAdvanceDays = Number(body.maxAdvanceDays);
   const storeServiceMinutes = Number(body.storeServiceMinutes);
   const bookingNotice = preserveText(body.bookingNotice, 2001);
-  if (typeof body.reminderEnabled !== "boolean") throw new ApiError(400, "INVALID_REMINDER_ENABLED", "請選擇是否啟用預約提醒。");
-  const reminderTime = normalizeTime(body.reminderTime);
+  // Legacy columns remain for backwards compatibility. Members now control each booking.
+  const legacyReminder = await supabase.from("booking_settings")
+    .select("reminder_enabled,reminder_time").eq("id", 1).single();
+  if (legacyReminder.error) throw mapDatabaseError(legacyReminder.error);
   if (workStartTime === workEndTime || workWindow(workStartTime, workEndTime).end - timeToMinutes(workStartTime) < 5) throw new ApiError(400, "INVALID_WORK_HOURS", "工作時段不可為零長度。" );
   if (!Number.isInteger(slotIntervalMinutes) || slotIntervalMinutes < 5 || slotIntervalMinutes > 120 || slotIntervalMinutes % 5 !== 0) throw new ApiError(400, "INVALID_SLOT_INTERVAL", "切分間隔須為 5–120 分鐘的 5 分鐘倍數。" );
   if (!Number.isInteger(minAdvanceDays) || minAdvanceDays < 0 || minAdvanceDays > 365) throw new ApiError(400, "INVALID_ADVANCE_DAYS", "提前預約天數必須介於 0–365 天。" );
@@ -261,8 +263,8 @@ async function settingsSave(supabase: SupabaseClient, identity: Identity, body: 
     p_max_advance_days: maxAdvanceDays,
     p_booking_notice: bookingNotice,
     p_store_service_minutes: storeServiceMinutes,
-    p_reminder_enabled: body.reminderEnabled,
-    p_reminder_time: `${reminderTime}:00`,
+    p_reminder_enabled: legacyReminder.data.reminder_enabled === true,
+    p_reminder_time: legacyReminder.data.reminder_time,
     p_expected_updated_at: expectedUpdatedAt || null,
     p_actor: identity.lineUserId,
   });
