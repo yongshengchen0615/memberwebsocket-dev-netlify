@@ -1,0 +1,10 @@
+.booking-reminder-fieldset{margin:1rem 0;padding:1rem;border:1px solid var(--line,#b8c0cc);border-radius:12px;display:grid;gap:.65rem}
+.booking-reminder-fieldset legend{font-weight:700;padding:0 .35rem}
+.booking-reminder-fieldset .booking-reminder-toggle{display:flex;align-items:center;gap:.65rem;cursor:pointer}
+.booking-reminder-fieldset .booking-reminder-toggle input{width:1.2rem;height:1.2rem;flex:none}
+.booking-reminder-clock{display:flex;flex-direction:column;align-items:flex-start;gap:.35rem}
+.booking-reminder-clock input{max-width:12rem;min-height:2.75rem}
+.booking-reminder-clock input:disabled{opacity:.5}
+.booking-reminder-fieldset small{line-height:1.6}
+.booking-reminder-confirm{margin:.75rem 0;font-weight:600}
+@media(max-width:600px){.booking-reminder-fieldset{padding:.75rem}.booking-reminder-clock input{max-width:100%;width:100%}}
