@@ -57,6 +57,15 @@ jobs:
           set -euo pipefail
           node scripts/inspect-preview-source.mjs
           echo "VERIFIED_PREVIEW_SOURCE_EPOCH=$(git show -s --format=%ct "$GITHUB_SHA")" >> "$GITHUB_ENV"
+          if node scripts/verify-netlify-native-preview.mjs 2> /tmp/native-preview-error.txt; then
+            echo "PREVIEW_DEPLOY_MODE=native" >> "$GITHUB_ENV"
+            echo "DEPLOY_ID=$(jq -er '.deploy_id' evidence/platform-deploy.json)" >> "$GITHUB_ENV"
+          elif grep -Fxq 'Verified native branch preview failed: NATIVE_DEPLOY_FAILED' /tmp/native-preview-error.txt; then
+            echo "PREVIEW_DEPLOY_MODE=ci-zip" >> "$GITHUB_ENV"
+          else
+            echo "::error::Native branch verification blocked for a reason other than a failed build; no upload performed"
+            exit 1
+          fi
       - name: Build and verify the exact platform frontend
         env:
           COMMIT_REF: ${{ github.sha }}
@@ -96,16 +105,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if node scripts/verify-netlify-native-preview.mjs 2> /tmp/native-preview-error.txt; then
-            echo "PREVIEW_DEPLOY_MODE=native" >> "$GITHUB_ENV"
-          elif grep -Fxq 'Verified native branch preview failed: NATIVE_DEPLOY_FAILED' /tmp/native-preview-error.txt; then
+          if [ "$PREVIEW_DEPLOY_MODE" = ci-zip ]; then
             node scripts/netlify-preview-source.mjs --publish
-            echo "PREVIEW_DEPLOY_MODE=ci-zip" >> "$GITHUB_ENV"
+            echo "DEPLOY_ID=$(jq -er '.deploy_id' evidence/platform-deploy.json)" >> "$GITHUB_ENV"
           else
-            echo "::error::Native branch verification blocked for a reason other than a failed build; no upload performed"
-            exit 1
+            test "$PREVIEW_DEPLOY_MODE" = native
+            node scripts/verify-netlify-native-preview.mjs
+            test "$(jq -er '.deploy_id' evidence/platform-deploy.json)" = "$DEPLOY_ID"
           fi
-          echo "DEPLOY_ID=$(jq -er '.deploy_id' evidence/platform-deploy.json)" >> "$GITHUB_ENV"
       - name: Verify CI-gated Netlify branch deployment identity
         shell: bash
         run: |
