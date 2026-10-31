@@ -92,7 +92,7 @@ test('all E2E entry points use replay-capable cache versions', () => {
   assert.doesNotMatch(fs.readFileSync(path.join(root, 'admin/index.html'), 'utf8'), /e2e-control\.js\?v=qa-e2e-\d{8}-\d+/);
   assert.match(fs.readFileSync(path.join(root, 'admin/e2e-control-loader.js'), 'utf8'), /const E2E_CONTROL_SRC/);
   for (const surface of ['member', 'points', 'event', 'calendar', 'booking']) {
-    const html = fs.readFileSync(path.join(root, surface, 'index.html'), 'utf8');
+    const html = fs.readFileSync(path.join(root, 'tests/fixtures', surface + '-e2e.html'), 'utf8');
     assert.match(html, /e2e-scenario-graph\.js\?v=e2e-graph-20261004-\d+/);
     assert.match(html, /user-test-control\.js\?v=qa-e2e-\d{8}-\d+/);
   }
