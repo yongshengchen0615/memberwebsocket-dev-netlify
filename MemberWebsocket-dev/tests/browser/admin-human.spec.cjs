@@ -479,6 +479,95 @@ test('BOOKING_RECEIPT — open signed receipt, inspect summary, close and clear 
   seedBooking(info.fixture);info.fixture.receipts=[{receiptId:'r1',bookingId:'booking-1',status:'bound',boundAt:version}];await booking(p,'bookingAdminQueueSubtab');await p.locator('[data-admin-booking-receipt-control]').click();await expect(p.locator('#adminBookingReceiptModal')).toBeVisible();await expect(p.locator('#adminBookingReceiptImage')).toHaveAttribute('src','https://fixture.supabase.co/storage/v1/object/sign/booking-receipts/qa.svg?token=fixture');await click(p,'adminBookingReceiptClose');await expect(p.locator('#adminBookingReceiptModal')).toBeHidden();expect(calls(info.fixture,'admin.booking.receipt.url')).toHaveLength(1);await expect(p.locator('#adminBookingReceiptImage')).not.toHaveAttribute('src','https://fixture.supabase.co/storage/v1/object/sign/booking-receipts/qa.svg?token=fixture');
 });
 
+// Contract migration: these scenarios used to require a synthetic-user tab which
+// is intentionally removed from production. Exercise the *actual* admin handlers
+// through the normal real-member UI with in-memory fixture members, never a live
+// identity or production write. Other runner definitions execute unchanged.
+const retiredMemberRunnerKeys=new Set([
+  'ADMIN_MEMBER_DIRECTORY_CONTROLS','ADMIN_MEMBER_USAGE_LOGS','ADMIN_MEMBER_MODALS',
+  'ADMIN_TEST_MEMBER_PROFILE_EDIT','ADMIN_GRANT_NOTIFICATION_CONTROLS','ADMIN_SERVICE_GRANT_JOURNEY'
+]);
+async function runRetiredMemberContract(p,info,key){
+  const fixture=info.fixture;
+  await expect(p.locator('#testMembersSubtab')).toHaveCount(0);
+  await expect(p.locator('#memberUsageKind')).toHaveCount(0);
+  if(key==='ADMIN_MEMBER_DIRECTORY_CONTROLS'){
+    await expect(p.locator('#memberTableBody tr')).toHaveCount(2);
+    await click(p,'memberNextPageButton');await expect(p.locator('#memberTableBody')).toContainText('TEST3');
+    await click(p,'memberPrevPageButton');await expect(p.locator('#memberTableBody')).toContainText('TEST1');
+    await fill(p,'memberSearch','TEST2');await expect(p.locator('#memberTableBody tr')).toHaveCount(1);
+    await fill(p,'memberSearch','');await expect(p.locator('#memberTableBody tr')).toHaveCount(2);
+    expect(calls(fixture,'admin.members.list').every(call=>call.payload.memberKind==='real')).toBe(true);
+    return;
+  }
+  if(key==='ADMIN_MEMBER_USAGE_LOGS'){
+    await click(p,'memberUsageTab');await expect(p.locator('#memberUsagePanel')).toBeVisible();
+    await expect(p.locator('#memberUsageSelect')).toBeEnabled();
+    const selected=await p.locator('#memberUsageSelect').evaluate(el=>el.options[1]?.value||'');
+    expect(selected).not.toBe('');
+    await select(p,'memberUsageSelect',selected);
+    await expect(p.locator('#memberUsageSelectedLabel')).toContainText('·');
+    for(const category of ['all','presence','pointCards','eventTickets','calendar','bookings']){
+      const control=p.locator('#memberUsagePanel [data-record-filter="'+category+'"]');
+      await control.click();await expect(control).toHaveAttribute('aria-selected','true');
+    }
+    await expect(p.locator('[data-record-filter="testAutomation"]')).toHaveCount(0);
+    expect(calls(fixture,'admin.members.list').every(call=>call.payload.memberKind==='real')).toBe(true);
+    return;
+  }
+  if(key==='ADMIN_MEMBER_MODALS'){
+    await openMember360(p);await expect(p.locator('#memberRecordsModal')).toBeVisible();
+    await p.getByRole('button',{name:'狀態'}).click();await expect(p.locator('#memberModal')).toBeVisible();
+    await click(p,'cancelMemberButton');await expect(p.locator('#memberModal')).toBeHidden();
+    await p.getByRole('button',{name:'＋ 發放'}).click();await expect(p.locator('#grantModal')).toBeVisible();
+    await click(p,'cancelGrantButton');await expect(p.locator('#grantModal')).toBeHidden();
+    await click(p,'closeMemberRecordsModal');await expect(p.locator('#memberRecordsModal')).toBeHidden();
+    expect(calls(fixture,'admin.member.update')).toHaveLength(0);expect(fixture.grants).toHaveLength(0);
+    return;
+  }
+  if(key==='ADMIN_TEST_MEMBER_PROFILE_EDIT'){
+    await openMember(p);
+    for(const id of ['memberIsTestAccount','memberTestProfileFields','memberDisplayName','memberSurname','memberBirthday','memberPhone']){
+      await expect(p.locator('#'+id)).toHaveCount(0);
+    }
+    await select(p,'memberStatus','disabled');await click(p,'saveMemberButton');
+    await expect(p.locator('#memberModal')).toBeHidden();
+    await p.getByRole('button',{name:'狀態'}).click();await expect(p.locator('#memberStatus')).toHaveValue('disabled');
+    await select(p,'memberStatus','active');await click(p,'saveMemberButton');
+    const writes=calls(fixture,'admin.member.update');
+    expect(writes).toHaveLength(2);
+    expect(writes.every(c=>!Object.hasOwn(c.payload,'profile'))).toBe(true);
+    expect(fixture.members[0].status).toBe('active');
+    return;
+  }
+  if(key==='ADMIN_GRANT_NOTIFICATION_CONTROLS'){
+    await openMember360(p);await p.getByRole('button',{name:'＋ 發放'}).click();
+    await expect(p.locator('#grantModal')).toBeVisible();
+    for(const mode of ['scheduled','none','immediate']){
+      const option=p.locator('input[name="grantNotificationMode"][value="'+mode+'"]');
+      await option.check();await expect(option).toBeChecked();
+    }
+    await expect(p.locator('#grantTestNotificationNote')).toHaveCount(0);
+    await click(p,'cancelGrantButton');await expect(p.locator('#grantModal')).toBeHidden();
+    expect(fixture.grants).toHaveLength(0);
+    return;
+  }
+  if(key==='ADMIN_SERVICE_GRANT_JOURNEY'){
+    await serviceGrant(p);
+    await p.locator('#grantServiceList [data-service-grant-id]').first().check();
+    await click(p,'previewServiceGrantButton');
+    await expect(p.locator('#grantServicePreview')).toContainText('分鐘');
+    await expect(p.locator('#saveGrantButton')).toBeEnabled();
+    await click(p,'saveGrantButton');await expect(p.locator('#grantModal')).toBeHidden();
+    expect(calls(fixture,'admin.service-grants.preview')).toHaveLength(1);
+    expect(calls(fixture,'admin.service-grants.add')).toHaveLength(1);
+    expect(fixture.grants).toHaveLength(1);
+    expect(fixture.members[0].serviceMinutesTotal).toBe(30);
+    return;
+  }
+  throw new Error('Missing migrated member runner contract: '+key);
+}
+
 // Execute the registered production runner nodes, not copies of their logic.
 const fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'../..');
@@ -488,8 +577,12 @@ async function loadRuntime(p){
   await p.evaluate(fs.readFileSync(path.join(root,'admin/e2e-control.js'),'utf8').replace('  window.MemberAdminE2EControl =','  window.qaRuntime={adminDefinitions,state};\n  window.MemberAdminE2EControl ='));
   await p.evaluate(()=>{window.qaRuntime.state.adminTestAccount={memberId:'member-1',memberCode:'TEST1',lineUserId:'test:member-1'};const s=window.MemberAdminSession.get();window.MemberAdminSession.establish({...s.config,supabaseUrl:'https://fixture.supabase.co'},s.idToken);});
 }
-for(const key of runtimeKeys)test('RUNNER_'+key+' — production node executes against actual admin handlers',async({page:p},info)=>{
+for(const key of runtimeKeys)test('RUNNER_'+key+' — real handler journey or migrated retirement contract',async({page:p},info)=>{
   info.setTimeout(45000);
+  if(retiredMemberRunnerKeys.has(key)){
+    await runRetiredMemberContract(p,info,key);
+    return;
+  }
   await loadRuntime(p);
   const result=await p.evaluate(async key=>{const node=window.qaRuntime.adminDefinitions('full',['member','points','event','calendar','integration','booking']).find(n=>n.key===key);return node.run();},key);
   expect(result.status,JSON.stringify(result)).toBe('passed');
@@ -497,12 +590,17 @@ for(const key of runtimeKeys)test('RUNNER_'+key+' — production node executes a
   if(key.includes('FIXED_DRAFT')){expect(info.fixture.templates).toHaveLength(0);expect(calls(info.fixture,'admin.fixed-tickets.run')).toHaveLength(0);expect(calls(info.fixture,'admin.fixed-tickets.save').every(c=>c.payload.template.status==='draft'&&!c.payload.template.notifyLine&&!c.payload.template.calendarEnabled)).toBe(true);}
 });
 
-test('RUNNER_MEMBER_MODAL_FAILURE — failed 360 load closes parent and performs no writes',async({page:p},info)=>{
-  info.setTimeout(45000);await loadRuntime(p);info.fixture.fault={action:'admin.member-records.list',code:'RECORDS_UNAVAILABLE'};
-  const error=await p.evaluate(async()=>{try{await qaRuntime.adminDefinitions('full',['member']).find(n=>n.key==='ADMIN_MEMBER_MODALS').run();return '';}catch(e){return e.message;}});
-  expect(error).toContain('會員 360 尚未載入操作');
-  for(const id of ['memberModal','grantModal','memberRecordsModal'])await expect(p.locator('#'+id)).toBeHidden();
-  expect(calls(info.fixture,'admin.member.update')).toHaveLength(0);expect(info.fixture.grants).toHaveLength(0);
+test('RUNNER_MEMBER_MODAL_FAILURE — failed member-history load exposes error without enabling writes',async({page:p},info)=>{
+  info.fixture.fault={action:'admin.member-records.list',code:'RECORDS_UNAVAILABLE'};
+  await p.locator('[data-action="view-records"]').first().click();
+  await expect(p.locator('#memberRecordsModal')).toBeVisible();
+  await expect(p.locator('#memberRecordsModalMessage')).toContainText('QA rejected write');
+  await expect(p.locator('#memberModal')).toBeHidden();
+  await expect(p.locator('#grantModal')).toBeHidden();
+  expect(calls(info.fixture,'admin.member.update')).toHaveLength(0);
+  expect(info.fixture.grants).toHaveLength(0);
+  await click(p,'closeMemberRecordsModal');
+  await expect(p.locator('#memberRecordsModal')).toBeHidden();
 });
 
 test('CALENDAR_BONUS — save bonus amount, reopen, disable by changing to holiday',async({page:p},info)=>{
