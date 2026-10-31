@@ -614,9 +614,9 @@
   function reminderError() {
     const { reminderEnabled, reminderTime } = reminderPreference();
     if (!reminderEnabled) return '';
-    if (!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(reminderTime)) return '請選擇有效的前一天提醒時間。';
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(reminderTime)) return '請選擇有效的前一天提醒時間。';
     const actualStartDate = String(state.selectedSlot?.startAt || els.bookingDate.value).slice(0, 10);
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(actualStartDate)) return '請重新選擇預約時段。';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(actualStartDate)) return '請重新選擇預約時段。';
     const previous = new Date(`${actualStartDate}T00:00:00Z`);
     previous.setUTCDate(previous.getUTCDate() - 1);
     const due = Date.parse(`${previous.toISOString().slice(0, 10)}T${reminderTime}:00+08:00`);
