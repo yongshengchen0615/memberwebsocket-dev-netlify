@@ -137,6 +137,11 @@ test('integrated branch keeps exact-SHA CI and production isolation with narrowl
   assert.ok(beforeBuild.includes('exit 1'), 'Non-build-failure/native-identity errors must block every upload');
   assert.ok(beforeBuild.includes('PREVIEW_DEPLOY_MODE=native'));
   assert.ok(beforeBuild.includes('PREVIEW_DEPLOY_MODE=ci-zip'));
+  assert.ok(beforeBuild.includes('DEPLOY_ID=${GITHUB_SHA:0:24}'),
+    'CI ZIP must use a deterministic exact-commit build identity before Netlify allocates its deploy ID');
+  assert.ok(beforeBuild.indexOf('PREVIEW_DEPLOY_MODE=ci-zip') <
+    beforeBuild.indexOf('DEPLOY_ID=${GITHUB_SHA:0:24}'),
+    'Artifact identity may only be set on known native build failure');
   assert.ok(!beforeBuild.includes(zip), 'No ZIP may be uploaded before CI and artifact verification');
   assert.ok(afterBuild.includes('if [ "$PREVIEW_DEPLOY_MODE" = ci-zip ]; then'));
   assert.ok(afterBuild.includes(zip), 'Use existing single-POST branch ZIP uploader only for failed native build');
