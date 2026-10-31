@@ -55,7 +55,7 @@ async function handleMemberWrite(supabase: any, identity: Identity, member: any,
   const reminderEnabled = body.reminderEnabled === undefined ? false : body.reminderEnabled;
   const reminderTime = body.reminderTime === undefined ? "18:00" : body.reminderTime;
   if (typeof reminderEnabled !== "boolean" || typeof reminderTime !== "string"
-      || !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(reminderTime)) {
+      || !/^([01]\d|2[0-3]):[0-5]\d$/.test(reminderTime)) {
     throw new ApiError(400, "INVALID_BOOKING_REMINDER", "請選擇正確的前一天提醒時間。");
   }
   const reminder = {
