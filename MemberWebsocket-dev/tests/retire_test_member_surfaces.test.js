@@ -35,3 +35,12 @@ test('AC-003: admin directory and history cannot select virtual members or QA ac
   assert.match(code, /memberKind: 'real'/);
   assert.match(code, /admin\.members\.list/);
 });
+
+test('AC-004: production build excludes retired QA scripts and stylesheets', () => {
+  const built = require('node:fs').readFileSync(path.join(root, '..', 'scripts/build-site.mjs'), 'utf8');
+  assert.match(built, /retiredPublicQaAssets/);
+  for (const asset of ['test-mode-client.js', 'test-mode.css', 'user-test-control.js',
+    'user-test-control.css', 'e2e-feature-coverage.js', 'e2e-scenario-graph.js',
+    'e2e-professional-tester.js']) assert.ok(built.includes(`'${asset}'`), asset);
+  assert.match(built, /path\.dirname\(file\) === source && retiredPublicQaAssets\.has/);
+});
