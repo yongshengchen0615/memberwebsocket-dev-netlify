@@ -14,7 +14,7 @@ function provider(overrides = {}) {
     calls.push({ url, options });
     const endpoint = new URL(url);
     let value;
-    if (options.method === 'POST') value = overrides.build || { id: deployId };
+    if (options.method === 'POST') value = overrides.build || { id: '6ad120000000000000000000', deploy_id: deployId };
     else if (endpoint.pathname === `/api/v1/deploys/${deployId}`) value = overrides.deploy || deploy;
     else if (endpoint.pathname.endsWith('/deploys')) value = overrides.existing || [];
     else value = overrides.site || site;
@@ -38,9 +38,9 @@ test('uploads exactly once to the case-preserved nonproduction branch and retain
   assert.equal(posts.length, 1);
   const url = new URL(posts[0].url);
   assert.equal(url.origin, 'https://api.netlify.com');
-  assert.equal(url.pathname, `/api/v1/sites/${previewSite}/deploys`);
-  // The existing Netlify branch build is intentionally skipped; the exact CI ZIP
-  // must be installed as a deploy, not rebuilt with the provider's ignore hook.
+  assert.equal(url.pathname, `/api/v1/sites/${previewSite}/builds`);
+  // The branch-scoped ZIP build installs the exact prebuilt CI ZIP; it must not
+  // silently create a production or deploy-preview deployment.
   assert.equal(url.searchParams.get('branch'), previewBranch);
   assert.equal(url.searchParams.get('title'), `verified-platform-${input.commit}`);
   assert.equal(posts[0].options.body, input.zip);
@@ -52,11 +52,11 @@ test('uploads exactly once to the case-preserved nonproduction branch and retain
 });
 
 test('ZIP deploy response must identify one immutable deploy before status polling', async () => {
-  for (const build of [{}, { id: 'invalid' }, { deploy_id: deployId }, { id: '0'.repeat(24) }]) {
+  for (const build of [{}, { id: 'invalid' }, { id: deployId }, { deploy_id: '0'.repeat(24) }]) {
     const p = provider({ build });
     // The wrong returned id must not be guessed or replaced with a branch alias.
-    const failed = build.id === '0'.repeat(24) ? /publish/ : /identity/;
-    if (build.id === '0'.repeat(24)) {
+    const failed = build.deploy_id === '0'.repeat(24) ? /publish/ : /identity/;
+    if (build.deploy_id === '0'.repeat(24)) {
       await assert.rejects(publishPreviewBranch({ ...input, fetchImpl: p.fetchImpl }), /HTTP|publish|fetch|not belong/i);
     } else {
       await assert.rejects(publishPreviewBranch({ ...input, fetchImpl: p.fetchImpl }), failed);
@@ -148,4 +148,16 @@ test('safe local publish errors give useful codes without logging provider-suppl
   assert.match(describePreviewPublishFailure(new Error('Published deploy does not belong to the verified preview branch')), /WRONG_DEPLOY_SCOPE/);
   assert.match(describePreviewPublishFailure(new Error('Production identity changed during preview publication')), /PRODUCTION_CHANGED/);
   assert.doesNotMatch(describePreviewPublishFailure(new Error('secret provider body token=abc')), /secret provider|token=abc/);
+});
+
+
+test('Netlify branch-scoped ZIP builds use the deploy_id, not the build id', async () => {
+  const p = provider({ build: { id: 'f'.repeat(24), deploy_id: deployId } });
+  const result = await publishPreviewBranch({ ...input, fetchImpl: p.fetchImpl });
+  assert.equal(result.deploy_id, deployId);
+  const post = p.calls.find(call => call.options.method === 'POST');
+  const query = new URL(post.url);
+  assert.equal(query.pathname, `/api/v1/sites/${previewSite}/builds`);
+  assert.equal(query.searchParams.get('branch'), previewBranch);
+  assert.equal(p.calls.some(call => call.url.includes('/deploys/' + 'f'.repeat(24))), false);
 });
