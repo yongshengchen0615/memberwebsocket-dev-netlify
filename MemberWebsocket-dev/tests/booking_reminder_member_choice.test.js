@@ -47,9 +47,11 @@ test('AC-004/005: every member booking route writes consent in same SQL transact
   }
   for (const code of [api,contact,group]) {
     assert.match(code,/INVALID_BOOKING_REMINDER/);
-    assert.match(code,/REMINDER_TIME_PASSED/);
     assert.match(code,/p_reminder_enabled/);
     assert.match(code,/p_reminder_time/);
+  }
+  for (const code of [api,read('supabase/functions/booking-contact-api/booking.ts'),group]) {
+    assert.match(code,/REMINDER_TIME_PASSED/);
   }
   assert.match(sql,/BOOKING_REMINDER_OWNER_MISMATCH/);
   assert.match(sql,/REQUEST_ID_CONFLICT/);
