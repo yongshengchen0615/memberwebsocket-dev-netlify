@@ -35,24 +35,38 @@ const fill=(p,id,value)=>p.locator('#'+id).fill(String(value));
 const select=(p,id,value)=>p.locator('#'+id).selectOption(String(value));
 const calls=(s,a)=>s.calls.filter(c=>c.action===a);
 async function openMember360(p){await p.locator('[data-action="view-records"]').first().click();await expect(p.locator('#memberRecordsModal')).toBeVisible();}
-async function openMember(p){await click(p,'testMembersSubtab');await openMember360(p);await p.getByRole('button',{name:'狀態'}).click();await expect(p.locator('#memberModal')).toBeVisible();}
+async function openMember(p){await openMember360(p);await p.getByRole('button',{name:'狀態'}).click();await expect(p.locator('#memberModal')).toBeVisible();}
 async function openCard(p){await click(p,'cardsTab');await click(p,'newCardButton');await fill(p,'cardTitle','QA new card');await select(p,'cardStatus','draft');await p.locator('#rewardRows [data-field="ticketTemplateId"]').selectOption('ticket-1');}
 async function openEvent(p,type='coupon'){await click(p,'eventsTab');await click(p,'newEventTicketButton');await select(p,'eventTicketType',type);for(const [id,value] of Object.entries({eventTicketTitle:'QA event',eventTicketDescription:'QA description',eventTicketUsageMethod:'QA usage',eventTicketUsageInstructions:'QA instructions'}))await fill(p,id,value);await select(p,'eventTicketStatus','draft');}
 async function openCalendar(p,type='event'){await click(p,'calendarTab');await click(p,'newCalendarItemButton');await fill(p,'calendarItemTitle','QA calendar');await select(p,'calendarItemType',type);await select(p,'calendarItemStatus','draft');await fill(p,'calendarItemStartsOn',today());}
 async function booking(p,tab){await click(p,'bookingTab');await click(p,tab||'bookingAdminServicesSubtab');await expect(p.locator('#bookingAdminSyncStatus')).toContainText('已同步');}
 
-test('MEMBER_DIRECTORY — real/test roster, search, empty result and both pagination directions',async({page:p},info)=>{
-  await click(p,'testMembersSubtab');await expect(p.locator('#memberTableBody tr')).toHaveCount(2);
+test('MEMBER_DIRECTORY — only real-member roster, search, empty results and both pagination directions',async({page:p},info)=>{
+  await expect(p.locator('#testMembersSubtab')).toHaveCount(0);
+  await expect(p.locator('#realMembersSubtab')).toHaveCount(0);
+  await expect(p.locator('#memberTableBody tr')).toHaveCount(2);
   await click(p,'memberNextPageButton');await expect(p.locator('#memberTableBody')).toContainText('TEST3');
   await click(p,'memberPrevPageButton');await expect(p.locator('#memberTableBody')).toContainText('TEST1');
   await fill(p,'memberSearch','TEST2');await expect(p.locator('#memberTableBody tr')).toHaveCount(1);await expect(p.locator('#memberTableBody')).toContainText('TEST2');
   await fill(p,'memberSearch','no-match');await expect(p.locator('#memberEmptyState')).toBeVisible();
-  await fill(p,'memberSearch','');await click(p,'realMembersSubtab');expect(calls(info.fixture,'admin.members.list').some(c=>c.payload.memberKind==='real')).toBe(true);
+  await fill(p,'memberSearch','');
+  await expect(p.locator('#memberTableBody tr')).toHaveCount(2);
+  expect(calls(info.fixture,'admin.members.list').every(c=>c.payload.memberKind==='real')).toBe(true);
 });
-test('MEMBER_PROFILE_STATUS — edit all test profile fields, disable, reopen and restore',async({page:p},info)=>{
-  await openMember(p);await fill(p,'memberDisplayName','QA changed');await fill(p,'memberSurname','Chen');await select(p,'memberSalutation','ms');await fill(p,'memberBirthday','1990-02-03');await fill(p,'memberPhone','+886923456789');await select(p,'memberStatus','disabled');await click(p,'saveMemberButton');
-  await expect(p.locator('#memberModal')).toBeHidden();await expect(p.locator('#memberRecordsModal')).toBeVisible();await p.getByRole('button',{name:'狀態'}).click();await expect(p.locator('#memberDisplayName')).toHaveValue('QA changed');await expect(p.locator('#memberStatus')).toHaveValue('disabled');
-  await select(p,'memberStatus','active');await click(p,'saveMemberButton');await expect(p.locator('#memberModal')).toBeHidden();expect(calls(info.fixture,'admin.member.update')).toHaveLength(2);
+test('MEMBER_PROFILE_STATUS — status editable but test-profile fields forbidden, disable and restore',async({page:p},info)=>{
+  await openMember(p);
+  await expect(p.locator('#memberDisplayName')).toHaveCount(0);
+  await expect(p.locator('#memberTestProfileFields')).toHaveCount(0);
+  await expect(p.locator('#memberIsTestAccount')).toHaveCount(0);
+  await select(p,'memberStatus','disabled');await click(p,'saveMemberButton');
+  await expect(p.locator('#memberModal')).toBeHidden();await expect(p.locator('#memberRecordsModal')).toBeVisible();
+  await p.getByRole('button',{name:'狀態'}).click();await expect(p.locator('#memberStatus')).toHaveValue('disabled');
+  await select(p,'memberStatus','active');await click(p,'saveMemberButton');
+  await expect(p.locator('#memberModal')).toBeHidden();
+  const writes=calls(info.fixture,'admin.member.update');
+  expect(writes).toHaveLength(2);
+  expect(writes.every(c=>!Object.hasOwn(c.payload,'profile'))).toBe(true);
+  expect(info.fixture.members[0].status).toBe('active');
 });
 test('MEMBER_360 — status and grant actions, then history workspace member selector and categories',async({page:p},info)=>{
   await openMember360(p);
@@ -64,14 +78,15 @@ test('MEMBER_360 — status and grant actions, then history workspace member sel
   await expect(p.locator('#memberRecordsModal')).toBeHidden();
   await expect(p.locator('#memberUsagePanel')).toBeVisible();
   await expect(p.locator('#memberUsageSelect')).toBeEnabled();
-  for(const filter of ['all','presence','pointCards','eventTickets','calendar','bookings','testAutomation']) {
+  for(const filter of ['all','presence','pointCards','eventTickets','calendar','bookings']) {
     const b=p.locator('#memberUsagePanel [data-record-filter="'+filter+'"]');
     await b.click();
     await expect(b).toHaveAttribute('aria-selected','true');
   }
-  await select(p,'memberUsageKind','test');
+  await expect(p.locator('#memberUsageKind')).toHaveCount(0);
+  await expect(p.locator('[data-record-filter="testAutomation"]')).toHaveCount(0);
   await expect(p.locator('#memberUsageSelect')).toBeEnabled();
-  await expect.poll(()=>calls(info.fixture,'admin.members.list').some(c=>c.payload.memberKind==='test')).toBe(true);
+  await expect.poll(()=>calls(info.fixture,'admin.members.list').some(c=>c.payload.memberKind==='real')).toBe(true);
   const selectedMemberId=await p.locator('#memberUsageSelect').evaluate(el=>el.options[1]?.value||'');
   expect(selectedMemberId).not.toBe('');
   await select(p,'memberUsageSelect',selectedMemberId);
