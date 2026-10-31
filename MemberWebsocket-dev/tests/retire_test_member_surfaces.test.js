@@ -44,3 +44,10 @@ test('AC-004: production build excludes retired QA scripts and stylesheets', () 
     'e2e-professional-tester.js']) assert.ok(built.includes(`'${asset}'`), asset);
   assert.match(built, /path\.dirname\(file\) === source && retiredPublicQaAssets\.has/);
 });
+
+test('AC-005: server rejects retired test-member enumeration and synthetic profile edits', () => {
+  const api = read('supabase/functions/api/index.ts');
+  assert.match(api, /if \(isTestAccount\) throw new ApiError\(410,"TEST_MEMBERS_RETIRED"/);
+  assert.match(api, /current\.data\?\.is_test_account === true\) throw new ApiError\(410/);
+  assert.match(api, /body\.profile != null\) throw new ApiError\(400,"PROFILE_EDIT_FORBIDDEN"/);
+});
