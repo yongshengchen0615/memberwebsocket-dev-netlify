@@ -110,7 +110,7 @@ test('integrated branch keeps exact-SHA CI and production isolation with narrowl
   const native = 'node scripts/verify-netlify-native-preview.mjs';
   const inspect = 'node scripts/inspect-preview-source.mjs';
   const ci = 'node scripts/check-preview-ci.mjs';
-  const build = '- name: Build and verify the exact platform frontend';
+  const buildStep = '- name: Build and verify the exact platform frontend';
   const recover = '- name: Select native deploy or publish the exact tested branch bundle';
   const zip = 'node scripts/netlify-preview-source.mjs --publish';
   const netlify = readFileSync(new URL('../scripts/netlify-preview-source.mjs', import.meta.url), 'utf8');
@@ -120,8 +120,8 @@ test('integrated branch keeps exact-SHA CI and production isolation with narrowl
   assert.ok(preview.includes("'integrated-marketing-platform' || 'platform'"));
   assert.ok(preview.indexOf(ci) < preview.indexOf(inspect));
   assert.ok(preview.indexOf(inspect) < preview.indexOf(native));
-  assert.ok(preview.indexOf(native) < preview.indexOf(build));
-  assert.ok(preview.indexOf(build) < preview.indexOf(recover));
+  assert.ok(preview.indexOf(native) < preview.indexOf(buildStep));
+  assert.ok(preview.indexOf(buildStep) < preview.indexOf(recover));
   assert.ok(preview.indexOf(recover) < preview.indexOf('cat evidence/platform-deploy.json'));
   assert.ok(preview.includes('VERIFIED_PREVIEW_SOURCE_EPOCH=$(git show -s --format=%ct'));
   assert.ok(preview.includes('zip -qr ../evidence/platform-preview.zip'));
@@ -131,7 +131,7 @@ test('integrated branch keeps exact-SHA CI and production isolation with narrowl
   assert.ok(preview.includes(`test "$(jq -er '.production_deploy_unchanged' evidence/platform-deploy.json)" = "true"`));
   assert.ok(preview.includes(`test "$(jq -er '.source_branch' evidence/platform-deploy.json)" = "$GITHUB_REF_NAME"`));
   assert.ok(preview.includes(`test "$(jq -er '.context' evidence/platform-deploy.json)" = branch-deploy`));
-  const beforeBuild = preview.slice(preview.indexOf(inspect), preview.indexOf(build));
+  const beforeBuild = preview.slice(preview.indexOf(inspect), preview.indexOf(buildStep));
   const afterBuild = preview.slice(preview.indexOf(recover), preview.indexOf('cat evidence/platform-deploy.json'));
   assert.ok(beforeBuild.includes("grep -Fxq 'Verified native branch preview failed: NATIVE_DEPLOY_FAILED'"));
   assert.ok(beforeBuild.includes('exit 1'), 'Non-build-failure/native-identity errors must block every upload');
