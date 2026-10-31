@@ -50,14 +50,12 @@ jobs:
           done
           echo '::error::Required CI did not finish; preview was not published'
           exit 1
-      - name: Identify CI-gated native branch artifact
+      - name: Inspect platform source and pin release timestamp
         if: github.ref_name == 'Integrated-Marketing-Platform'
         shell: bash
         run: |
           set -euo pipefail
           node scripts/inspect-preview-source.mjs
-          node scripts/verify-netlify-native-preview.mjs
-          echo "DEPLOY_ID=$(jq -er '.deploy_id' evidence/platform-deploy.json)" >> "$GITHUB_ENV"
           echo "VERIFIED_PREVIEW_SOURCE_EPOCH=$(git show -s --format=%ct "$GITHUB_SHA")" >> "$GITHUB_ENV"
       - name: Build and verify the exact platform frontend
         env:
@@ -91,7 +89,24 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 7
-      - name: Verify CI-gated Netlify native branch deployment without upload
+      # Only an observed native build failure permits the CI-proven ZIP fallback.
+      # All other identity/network failures must stop the release, not weaken it.
+      - name: Select native deploy or publish the exact tested branch bundle
+        if: github.ref_name == 'Integrated-Marketing-Platform'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if node scripts/verify-netlify-native-preview.mjs 2> /tmp/native-preview-error.txt; then
+            echo "PREVIEW_DEPLOY_MODE=native" >> "$GITHUB_ENV"
+          elif grep -Fxq 'Verified native branch preview failed: NATIVE_DEPLOY_FAILED' /tmp/native-preview-error.txt; then
+            node scripts/netlify-preview-source.mjs --publish
+            echo "PREVIEW_DEPLOY_MODE=ci-zip" >> "$GITHUB_ENV"
+          else
+            echo "::error::Native branch verification blocked for a reason other than a failed build; no upload performed"
+            exit 1
+          fi
+          echo "DEPLOY_ID=$(jq -er '.deploy_id' evidence/platform-deploy.json)" >> "$GITHUB_ENV"
+      - name: Verify CI-gated Netlify branch deployment identity
         shell: bash
         run: |
           set -euo pipefail
@@ -99,9 +114,15 @@ jobs:
           current=$(gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/$GITHUB_REF_NAME" --jq '.object.sha')
           test "$current" = "$GITHUB_SHA"
           if [ "$GITHUB_REF_NAME" = Integrated-Marketing-Platform ]; then
-            # Netlify already publishes this native branch; verification is read-only.
-            # Never upload a competing ZIP or Draft alias to this branch.
-            node scripts/verify-netlify-native-preview.mjs
+            # Native is preferred. A known failed native build can only be replaced
+            # with the exact CI-built ZIP for this same branch, never production.
+            if [ "$PREVIEW_DEPLOY_MODE" = native ]; then
+              node scripts/verify-netlify-native-preview.mjs
+            else
+              test "$PREVIEW_DEPLOY_MODE" = ci-zip
+              test "$(jq -er '.context' evidence/platform-deploy.json)" = branch-deploy
+              test "$(jq -er '.source_branch' evidence/platform-deploy.json)" = "$GITHUB_REF_NAME"
+            fi
             test "$(jq -er '.deploy_id' evidence/platform-deploy.json)" = "$DEPLOY_ID"
             test "$(jq -er '.source_sha' evidence/platform-deploy.json)" = "$GITHUB_SHA"
             test "$(jq -er '.production_deploy_unchanged' evidence/platform-deploy.json)" = "true"
