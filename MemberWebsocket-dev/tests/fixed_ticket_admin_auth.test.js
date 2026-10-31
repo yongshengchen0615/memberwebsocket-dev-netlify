@@ -15,6 +15,16 @@ const verifier = stripTypeScriptTypes(source.slice(start, end));
 const handlerSource = stripTypeScriptTypes(source.replace(/^import[^\n]*\n/gm, ''));
 const lineClaims = () => import(pathToFileURL(path.join(root, '_shared/line-id-claims.mjs')));
 const now = 1_800_000_000_000;
+
+test('review: unrelated fixed-template edits preserve omitted calendar settings after grant revocation',async()=>{
+ let handler,saved;const current={id:'T',fixed_ticket_id:'FT-1',title:'Old',calendar_enabled:true,status:'active',updated_at:'v1'};
+ const db={from(){const q={select(){return q;},eq(){return q;},is(){return q;},maybeSingle:async()=>({data:current,error:null}),update(patch){saved=patch;return q;},single:async()=>({data:{...current,...saved},error:null})};return q;}};
+ const sandbox={Response,Request,Date,Intl,console,crypto:require('node:crypto').webcrypto,businessEnv:()=>'',serveBusiness(_name,fn){handler=fn;},fixtureDb:db};
+ const ctx=vm.createContext(sandbox);vm.runInContext(handlerSource,ctx);
+ vm.runInContext("dbClient=()=>fixtureDb;verifyAdmin=async()=>({lineUserId:'fixture'});audit=async()=>{};listTemplates=async()=>[]",ctx);
+ const response=await handler(new Request('https://fixture.test',{method:'POST',body:JSON.stringify({action:'admin.fixed-tickets.save',template:{fixedTicketId:'FT-1',title:'Archived title',description:'Description',usageMethod:'Use',usageInstructions:'Instructions',status:'archived',scheduleType:'birthday_month',accent:'#112233',allowedTierKeys:['general']}})}));
+ assert.equal(response.status,200);assert.equal(saved.title,'Archived title');assert.equal(saved.status,'archived');assert.equal(saved.calendar_enabled,true);
+});
 class FixtureDate extends Date { static now() { return now; } }
 const valid = {
   sub: 'U' + 'a'.repeat(32), aud: '2010791619',

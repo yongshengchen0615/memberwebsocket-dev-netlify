@@ -1,5 +1,5 @@
 import { createClient as baseClient } from 'npm:@supabase/supabase-js@2.57.0';
-import { assertBusinessAction,businessBootstrap,actionFeatures } from './business-policy.mjs';
+import { assertBusinessAction,assertBusinessRpc,businessResponse,actionFeatures } from './business-policy.mjs';
 import { openCredentials } from './platform-crypto.mjs';
 import { resolvePlatformEncryptionKey } from './platform-key.mjs';
 import { tenantExpired, assertTenantIdentity } from './tenant-access.mjs';
@@ -63,6 +63,7 @@ export function createClient(url:string,key:string,options?:any):import('npm:@su
    }
   }}} as any);
  return new Proxy(client,{get(target,key){
+  if(key==='businessFeatures')return c.features;
   if(key==='storage')return storageAdapter(target.storage,c);
   if(key==='schema')return(name:string)=>{if(name!==c.runtime_schema)throw Error('CROSS_BUSINESS_SCHEMA');return client;};
   if(key==='rpc')return(name:string,params?:any,options?:any)=>{
@@ -79,7 +80,12 @@ export function createClient(url:string,key:string,options?:any):import('npm:@su
     const keys:Record<string,string>={LINE_MEMBER_LIFF_ID:'memberLiffId',LINE_POINTS_LIFF_ID:'pointsLiffId',LINE_EVENT_LIFF_ID:'eventLiffId',LINE_CALENDAR_LIFF_ID:'calendarLiffId',LINE_BOOKING_LIFF_ID:'bookingLiffId',LINE_ADMIN_LIFF_ID:'adminLiffId'};
     if(keys[params?.p_key])return Promise.resolve({data:current.customLineReady?current.line_config?.[keys[params.p_key]]||null:null,error:null});
    }
-   return target.rpc(name,params,options);
+   return assertBusinessRpc(current,name,params,target).then(()=>target.rpc(name,params,options)).catch(error=>{
+    // Optional automatic issuance during reads must not block unrelated event
+    // records. Explicit manual issuance is rejected by the request preflight.
+    if(name==='issue_fixed_tickets'&&error.code==='FEATURE_DISABLED')return {data:0,error:null};
+    throw error;
+   });
   };
   const value=Reflect.get(target,key,target);return typeof value==='function'?value.bind(target):value;
  }}) as any;
@@ -248,11 +254,23 @@ export function businessHandler(name:string,handler:(request:Request)=>Response|
     if(c.status!=='active')throw Object.assign(Error('此商家已停用。'),{code:'TENANT_SUSPENDED',status:403});
     if(!jobAllowed(name,c))throw Object.assign(Error('此功能已停用。'),{code:'FEATURE_DISABLED',status:403});
    }else assertBusinessAction(c,action,body);
+   const settlementRpc:Record<string,string>={
+    'admin.booking.status.complete':'complete_booking_with_benefits_request',
+    'admin.booking.completed.preview':'correct_completed_booking_request',
+    'admin.booking.completed.correct':'correct_completed_booking_request',
+    'admin.booking.receipt.register':'register_snapshot_receipt_v2',
+    'admin.fixed-tickets.run':'issue_fixed_tickets',
+    'admin.member-grants.add':'grant_member_benefits_with_event_bonus',
+   };
+   // Malformed resource IDs stay with the endpoint's existing 400 validator.
+   if(settlementRpc[action]&&(!body.bookingId||/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(body.bookingId))))await scope.run(c,()=>assertBusinessRpc(c,settlementRpc[action],{
+    p_booking_id:body.bookingId,p_items:body.items,p_participants:body.participants,p_benefits:body.benefits,p_points:body.points,p_member_line_user_id:body.lineUserId,
+   },createClient(rawEnv('SUPABASE_URL'),rawEnv('SUPABASE_SERVICE_ROLE_KEY'))));
    await credentials(c,requestModule(name,body,c),sessionSurface.test(action));
    const response=await scope.run(c,()=>handler(request));
    await wakeBookingNotifications({name,context:c,body,response,dispatch:(id:string)=>control().rpc('platform_dispatch_booking',{p_tenant_id:id})});
-   if(body.action==='admin.bootstrap'&&response.ok){
-    const payload=await response.clone().json();if(payload.ok&&payload.data){payload.data=businessBootstrap(payload.data,c);return new Response(JSON.stringify(payload),{status:response.status,headers:response.headers});}
+   if(['admin.bootstrap','admin.member-records.list','user.booking.benefits','admin.booking.benefits.list','admin.booking.manage.bootstrap'].includes(action)&&response.ok){
+    const payload=await response.clone().json();if(payload.ok&&payload.data){payload.data=businessResponse(payload.data,c,action);return new Response(JSON.stringify(payload),{status:response.status,headers:response.headers});}
    }
    return response;
   }catch(error){

@@ -12,6 +12,25 @@ const verified=(init?:RequestInit)=>{
  const sub=JSON.parse(atob(idToken.split('.')[1])).sub;
  return {sub,aud:body.get('client_id'),iss:'https://access.line.me',iat:Math.floor(Date.now()/1000)-5,exp:Math.floor(Date.now()/1000)+300};
 };
+Deno.test('AC-004: stored dependencies reject with 403 before the real settlement handler and re-enable without deleting selections',async()=>{
+ const oldEnv=Deno.env.get,oldFetch=globalThis.fetch;let events=false,invoked=0;
+ Deno.env.get=(key:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture'} as Record<string,string>)[key];
+ globalThis.fetch=(async(input:RequestInfo|URL,init?:RequestInit)=>{
+  const url=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url);
+  const reply=(data:unknown)=>new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json'}});
+  if(url.pathname.endsWith('/platform_business_context_v2'))return reply({...a,features:{...a.features,events}});
+  if(url.pathname==='/oauth2/v2.1/verify')return reply(verified(init));
+  if(url.pathname.endsWith('/booking_items'))return reply([{service_type:'Massage',counts_toward_membership:true}]);
+  if(url.pathname.endsWith('/booking_benefit_selections'))return reply([{benefit_kind:'event'}]);
+  throw Error('unexpected path '+url.pathname);
+ }) as typeof fetch;
+ try{
+  const handler=businessHandler('booking-admin-operations',()=>{invoked++;return new Response('{"ok":true,"data":{}}');});
+  const request=()=>new Request('https://backend.test',{method:'POST',body:JSON.stringify({business:'merchant-a',idToken:token(ownerA),action:'admin.booking.status.complete',bookingId:'10000000-0000-4000-8000-000000000009'})});
+  const blocked=await handler(request());assert(blocked.status===403);assert((await blocked.json()).error.code==='FEATURE_DISABLED');assert(invoked===0);
+  events=true;assert((await handler(request())).status===200);assert(invoked===1);
+ }finally{Deno.env.get=oldEnv;globalThis.fetch=oldFetch;}
+});
 Deno.test('AC-186: dispatch resolves each purpose and never falls back from disabled or corrupt notification routes',async()=>{
  const oldEnv=Deno.env.get,oldFetch=globalThis.fetch,key=btoa(String.fromCharCode(...new Uint8Array(32).fill(9)));
  const base=await sealCredentials(a.id+':booking',{channelAccessToken:'synthetic-base',channelSecret:'a'.repeat(32)},key);

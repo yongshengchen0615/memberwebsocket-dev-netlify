@@ -152,8 +152,9 @@
       try {
         const body = JSON.parse(init.body);
         if (body && body.action === 'admin.fixed-tickets.save' && body.template && typeof body.template === 'object') {
-          const calendarEnabled = Boolean(ensureControl()?.checked);
-          body.template = { ...body.template, calendarEnabled };
+          body.template = { ...body.template };
+          if(window.BusinessWorkspace?.allows('calendar')===false)delete body.template.calendarEnabled;
+          else body.template.calendarEnabled = Boolean(ensureControl()?.checked);
           nextInit = { ...init, body: JSON.stringify(body) };
         }
       } catch (_) {}

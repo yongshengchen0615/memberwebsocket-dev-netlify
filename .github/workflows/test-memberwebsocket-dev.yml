@@ -69,6 +69,7 @@ jobs:
       - name: Check DOM, accessibility, and booking integration behavior
         run: |
           node --test \
+            MemberWebsocket-dev/tests/integration/feature_dependencies.cjs \
             MemberWebsocket-dev/tests/integration/product_platform.cjs \
             MemberWebsocket-dev/tests/integration/admin_qualification.cjs \
             MemberWebsocket-dev/tests/integration/admin_qualification_api.cjs \
@@ -301,6 +302,7 @@ jobs:
           --test-reporter=spec --test-reporter-destination=stdout
           --test-reporter=junit --test-reporter-destination=postgres-results.xml
           MemberWebsocket-dev/tests/integration/postgres/booking-risk.cjs
+          MemberWebsocket-dev/tests/integration/postgres/feature-dependencies.cjs
           MemberWebsocket-dev/tests/integration/postgres/booking-phone.cjs
           MemberWebsocket-dev/tests/integration/postgres/ticket-service-groups.cjs
           MemberWebsocket-dev/tests/integration/postgres/member-activation.cjs
