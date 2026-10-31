@@ -12,7 +12,8 @@ for (const surface of ['member', 'points', 'event', 'calendar', 'booking']) {
   test(`AC-001: ${surface} production page does not ship test-session or in-page QA assets`, () => {
     const html = read(`${surface}/index.html`);
     assert.doesNotMatch(html, retiredAssets);
-    assert.match(html, /\.\.\/member-system\.js/);
+    // Booking owns its authentication and request bridge in common.js.
+    assert.match(html, surface === 'booking' ? /src="\.\/common\.js/ : /\.\.\/member-system\.js/);
   });
 }
 
