@@ -591,6 +591,7 @@ async function membersPage(supabase: SupabaseClient, page = 1, pageSize = 100, q
   const safePage = Math.max(1,Math.floor(Number(page) || 1));
   const normalizedQuery = asText(query,100).toLowerCase();
   const isTestAccount = asText(memberKind,10).toLowerCase() === "test";
+  if (isTestAccount) throw new ApiError(410,"TEST_MEMBERS_RETIRED","測試會員功能已移除。");
   let q = supabase.from("members").select("*",{ count:"exact" }).eq("is_test_account",isTestAccount);
   if (normalizedQuery) q = q.or(`display_name.ilike.%${normalizedQuery.replaceAll(",","")}%,member_code.ilike.%${normalizedQuery.replaceAll(",","")}%`);
   const start = (safePage - 1) * safePageSize;
@@ -2643,6 +2644,8 @@ async function handleAction(supabase: SupabaseClient, identity: { lineUserId: st
     if (!["active","disabled"].includes(status)) throw new ApiError(400,"INVALID_STATUS","會員狀態不合法。");
     const current = await supabase.from("members").select("*").eq("line_user_id",lineUserId).single();
     if (current.error) throw new ApiError(404,"MEMBER_NOT_FOUND","找不到指定會員。");
+    if (current.data?.is_test_account === true) throw new ApiError(410,"TEST_MEMBERS_RETIRED","測試會員功能已移除。");
+    if (body.profile != null) throw new ApiError(400,"PROFILE_EDIT_FORBIDDEN","管理端不得修改會員私人基本資料。");
     const expected = asText(body.expectedUpdatedAt,100);
     if (expected && expected !== current.data.updated_at) throw new ApiError(409,"CONFLICT","會員資料已被其他管理者更新。");
 
