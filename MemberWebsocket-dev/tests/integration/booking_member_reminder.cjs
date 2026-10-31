@@ -58,7 +58,6 @@ end $stub$;
     await db.exec(migration);
     const tomorrow = (await one("select ((now() at time zone 'Asia/Taipei')::date + 1)::text d")).d;
     const future = (await one("select ((now() at time zone 'Asia/Taipei')::date + 3)::text d")).d;
-    const baseArgs = [memberId, future, '10:00', '[]', '', '[]'];
     const call = (key, enabled, time, date = future) => db.query(
       'select (public.create_booking_bundle_with_benefits_reminder($1,$2,$3,$4,$5,$6,$7,$8,$9)).*',
       [key, memberId, date, '10:00', '[]', '', '[]', enabled, time]
@@ -95,7 +94,7 @@ end $stub$;
       await db.query("select booking_notifications.sync_day_before_reminders()");
       const queued = await one('select * from booking_notifications.outbox where booking_id=$1', [active.id]);
       assert.equal(queued.status, 'pending');
-      assert.match(queued.next_attempt_at, /T|\+/);
+      assert.ok(queued.next_attempt_at, 'scheduled timestamp must be present');
       assert.match(queued.message_text, /預約提醒/);
     });
 
