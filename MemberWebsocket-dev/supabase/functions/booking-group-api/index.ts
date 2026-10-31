@@ -359,7 +359,7 @@ function reminderInput(body: Json) {
   const enabled = body.reminderEnabled === undefined ? false : body.reminderEnabled;
   const time = body.reminderTime === undefined ? "18:00" : body.reminderTime;
   if (typeof enabled !== "boolean" || typeof time !== "string"
-      || !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(time)) {
+      || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
     throw new ApiError(400,"INVALID_BOOKING_REMINDER","請選擇正確的前一天提醒時間。");
   }
   return {p_reminder_enabled:enabled,p_reminder_time:`${time}:00`};
