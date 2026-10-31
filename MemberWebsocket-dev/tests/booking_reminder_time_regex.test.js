@@ -46,3 +46,11 @@ test('AC-016: member booking accepts YYYY-MM-DD slot dates before checking prior
   assert.equal(pattern.test('2026/11/02'), false, 'invalid date separator rejected');
   assert.equal(pattern.test('2026-11-2'), false, 'non-padded date rejected');
 });
+
+test('AC-017: booking page pins the corrected reminder validator so cached broken JS is bypassed', () => {
+  const html = fs.readFileSync(path.join(root, 'booking/index.html'), 'utf8');
+  const match = html.match(/<script src="\.\/app\.js\?v=([^"]+)" defer><\/script>/);
+  assert.ok(match, 'booking page should load versioned member app');
+  assert.ok(match[1].endsWith('reminder-time-regex-20261031-2'),
+    'booking app must reference the corrected validator version');
+});
