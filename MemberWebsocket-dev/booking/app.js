@@ -41,7 +41,7 @@
       'loadingView', 'errorView', 'errorTitle', 'errorMessage', 'joinMemberButton', 'retryButton', 'bookingView',
       'memberName', 'memberProfileName', 'memberCode', 'memberTier', 'workHoursBadge',
       'bookingForm', 'servicePicker', 'serviceEmpty', 'selectedServiceList', 'selectedServiceEmpty', 'selectionSummary',
-      'bookingDate', 'slotHint', 'slotGrid', 'memberNote', 'formMessage', 'submitBookingButton',
+      'bookingDate', 'slotHint', 'slotGrid', 'memberNote', 'bookingReminderEnabled', 'bookingReminderTime', 'bookingReminderConfirmSummary', 'formMessage', 'submitBookingButton',
       'bookingList', 'bookingEmpty', 'bookingConfirmModal', 'closeBookingConfirmButton', 'cancelBookingConfirmButton',
       'bookingConfirmSummary', 'bookingConfirmMessage', 'confirmBookingButton'
     ].forEach((id) => { els[id] = document.getElementById(id); });
@@ -50,6 +50,11 @@
     els.joinMemberButton.addEventListener('click', () => window.BookingSystem.openMemberJoin(state.config));
     els.bookingDate.addEventListener('change', dateChanged);
     els.bookingForm.addEventListener('submit', openConfirmation);
+    els.bookingReminderEnabled.addEventListener('change', () => {
+      els.bookingReminderTime.disabled = !els.bookingReminderEnabled.checked;
+      state.pendingBookingWrite = null;
+    });
+    els.bookingReminderTime.addEventListener('change', () => { state.pendingBookingWrite = null; });
     document.getElementById('cancelEditBookingButton').addEventListener('click', endEditing);
     window.addEventListener('booking:date-selected', beginNewBookingFromDateSelection);
     window.addEventListener('booking:history-date-selected', (event) => {
@@ -593,6 +598,34 @@
     clearFormMessage();
   }
 
+  function reminderPreference() {
+    return {
+      reminderEnabled: els.bookingReminderEnabled.checked,
+      reminderTime: els.bookingReminderTime.value || '18:00',
+    };
+  }
+
+  function resetReminderPreference() {
+    els.bookingReminderEnabled.checked = false;
+    els.bookingReminderTime.value = '18:00';
+    els.bookingReminderTime.disabled = true;
+  }
+
+  function reminderError() {
+    const { reminderEnabled, reminderTime } = reminderPreference();
+    if (!reminderEnabled) return '';
+    if (!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(reminderTime)) return '請選擇有效的前一天提醒時間。';
+    const actualStartDate = String(state.selectedSlot?.startAt || els.bookingDate.value).slice(0, 10);
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(actualStartDate)) return '請重新選擇預約時段。';
+    const previous = new Date(`${actualStartDate}T00:00:00Z`);
+    previous.setUTCDate(previous.getUTCDate() - 1);
+    const due = Date.parse(`${previous.toISOString().slice(0, 10)}T${reminderTime}:00+08:00`);
+    if (!Number.isFinite(due) || due <= currentServerTimeMs()) {
+      return '所選前一天提醒時間已過，請調整提醒時間，或取消提醒後繼續預約。';
+    }
+    return '';
+  }
+
   function openConfirmation(event) {
     event.preventDefault();
     if (state.submitting) return;
@@ -601,6 +634,12 @@
     if (!items.length || !els.bookingDate.value || !state.selectedSlot) {
       return showFormMessage('請完整選擇預約項目、日期與時間。', 'error');
     }
+    const reminderValidation = reminderError();
+    if (reminderValidation) return showFormMessage(reminderValidation, 'error');
+    const { reminderEnabled, reminderTime } = reminderPreference();
+    els.bookingReminderConfirmSummary.textContent = reminderEnabled
+      ? `前一天 LINE 提醒：${reminderTime}（台北時間）`
+      : '前一天 LINE 提醒：不提醒';
     renderConfirmation(items);
     clearConfirmMessage();
     els.bookingConfirmModal.classList.remove('hidden');
@@ -686,6 +725,7 @@
       bookingDate,
       startTime,
       memberNote: String(els.memberNote.value || ''),
+      ...reminderPreference(),
       benefits: window.BookingBenefits?.selectionPayload?.() || [],
     });
   }
@@ -740,6 +780,8 @@
     const items = selectedItems();
     const bookingDate = els.bookingDate.value;
     const startTime = state.selectedSlot?.startTime || '';
+    const reminderValidation = reminderError();
+    if (reminderValidation) return showConfirmMessage(reminderValidation, 'error');
     if (!items.length || !bookingDate || !startTime) {
       showConfirmMessage('預約內容已變更，請返回重新選擇。', 'error');
       return;
@@ -765,6 +807,7 @@
         bookingDate,
         startTime,
         memberNote: els.memberNote.value,
+        ...reminderPreference(),
         benefits: window.BookingBenefits?.selectionPayload?.() || [],
       });
       state.pendingBookingWrite = null;
@@ -773,6 +816,7 @@
       state.editing = null;
       updateEditingLabel();
       els.memberNote.value = '';
+      resetReminderPreference();
       window.BookingBenefits?.setBookingContext?.('');
       window.BookingBenefits?.clearSelection?.();
       state.selections = [];
@@ -790,6 +834,7 @@
           state.pendingBookingWrite = null;
           els.bookingConfirmModal.classList.add('hidden');
           state.editing = null;
+          resetReminderPreference();
           updateEditingLabel();
           window.BookingBenefits?.setBookingContext?.('');
           window.BookingBenefits?.clearSelection?.();
@@ -1102,6 +1147,7 @@
     state.selectedSlot = null;
     ++state.slotRequestSequence;
     els.memberNote.value = '';
+    resetReminderPreference();
     window.BookingBenefits?.setBookingContext?.('');
     window.BookingBenefits?.clearSelection?.();
     updateEditingLabel();
@@ -1116,6 +1162,9 @@
     state.selections = bookingVisibleItems(booking).filter((item) => activeIds.has(item.serviceId))
       .flatMap((item) => Array.from({ length: Number(item.quantity || 1) }, () => ({ serviceId: item.serviceId, selectionId: crypto.randomUUID() })));
     els.memberNote.value = booking.memberNote || '';
+    els.bookingReminderEnabled.checked = booking.reminderEnabled === true;
+    els.bookingReminderTime.value = String(booking.reminderTime || '18:00').slice(0, 5);
+    els.bookingReminderTime.disabled = !els.bookingReminderEnabled.checked;
     window.BookingBenefits?.setBookingContext?.(booking.bookingId);
     window.BookingBenefits?.setSelection?.(booking.benefits || []);
     els.bookingDate.value = booking.bookingDate;
