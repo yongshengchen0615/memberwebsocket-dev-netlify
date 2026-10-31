@@ -4,9 +4,25 @@ import { readFileSync } from 'node:fs';
 const path = new URL('../.github/workflows/publish-netlify.yml', import.meta.url);
 const flow = readFileSync(path, 'utf8');
 const fullCI = readFileSync(new URL('../.github/workflows/test-memberwebsocket-dev.yml', import.meta.url), 'utf8');
+const preview = readFileSync(new URL('../.github/workflows/publish-platform-preview.yml', import.meta.url), 'utf8');
+const build = readFileSync(new URL('../.github/workflows/test-netlify-build.yml', import.meta.url), 'utf8');
+const policy = readFileSync(new URL('../.github/workflows/test-memberwebsocket-ticket-policy.yml', import.meta.url), 'utf8');
 
-test('production deploy targets only the existing Netlify site with protected credentials', () => {
-  assert.match(flow, /NETLIFY_SITE_ID: 23796c62-480a-4b46-ac90-bfbc5ad4d300/);
+test('PR merge runs cannot cancel a branch push release baseline', () => {
+  const concurrency = fullCI.split('concurrency:')[1].split('jobs:')[0];
+  assert.match(concurrency, /github\.event_name/);
+  assert.match(concurrency, /github\.event\.pull_request\.number/);
+  assert.match(concurrency, /github\.ref/);
+});
+
+test('preview retrieves exact SHA push evidence for its source branch', () => {
+  assert.match(preview, /-f event=push/);
+  assert.match(preview, /-f head_sha="\$GITHUB_SHA"/);
+  assert.match(preview, /-f branch="\$GITHUB_REF_NAME"/);
+});
+
+test('production deploy targets only the recreated Netlify site with protected credentials', () => {
+  assert.match(flow, /NETLIFY_SITE_ID: 196e1d2c-8216-4ba8-aeb9-1706660adc2b/);
   assert.match(flow, /NETLIFY_AUTH_TOKEN: \$\{\{ secrets\.NETLIFY_AUTH_TOKEN \}\}/);
   assert.match(flow, /if \[ -z .*NETLIFY_AUTH_TOKEN/);
   assert.match(flow, /--prod --no-build --dir=dist --site=/);
@@ -38,11 +54,128 @@ test('deploy emits recoverable artifact and verifies both page and JS after publ
   assert.match(flow, /after 30 checks/);
 });
 
-test('deployment changes trigger the same full suite on PR and develop push', () => {
-  const sources = fullCI.split('  pull_request:');
-  assert.equal(sources.length, 2);
-  for (const source of sources) {
-    assert.match(source, /'\.github\/workflows\/publish-netlify\.yml'/);
-    assert.match(source, /'scripts\/\*\*'/);
+test('deployment changes trigger the full suite on push and every pull request', () => {
+  const sections = fullCI.split('  pull_request:');
+  assert.equal(sections.length, 2);
+  const push = sections[0];
+  const pr = sections[1].split('permissions:')[0];
+  assert.match(push, /'\.github\/workflows\/publish-netlify\.yml'/);
+  assert.match(push, /'scripts\/\*\*'/);
+  assert.doesNotMatch(pr, /^\s+(?:paths|paths-ignore|branches|branches-ignore):/m);
+});
+
+test('preview uses the latest exact-commit CI gate before publishing and preserves alias scope', () => {
+  assert.ok(preview.indexOf('node scripts/check-preview-ci.mjs') < preview.indexOf('node scripts/verify-netlify-native-preview.mjs'));
+  assert.ok(preview.indexOf('node scripts/check-preview-ci.mjs') < preview.indexOf('netlify-cli@'));
+  assert.match(preview, /if \[ "\$result" != 2 \]/);
+  assert.match(preview, /--alias="\$PLATFORM_ALIAS"/);
+  assert.doesNotMatch(preview, /--prod/);
+});
+
+test('preview retains its exact bundle and smoke evidence even when verification fails', () => {
+  assert.match(preview, /name: platform-preview-dist-\$\{\{ github.sha \}\}/);
+  assert.match(preview, /COMMIT_REF: \$\{\{ github.sha \}\}/);
+  assert.match(preview, /run: node scripts\/verify-platform-preview.mjs/);
+  assert.match(preview, /if: always\(\)[\s\S]*path: evidence\/platform-\*\.json/);
+  for (const flow of [preview, build]) {
+    assert.match(flow, /scripts\/verify-platform-preview.test.mjs/);
+    assert.match(flow, /scripts\/check-preview-ci.test.mjs/);
   }
+});
+
+test('release-only changes trigger every required preview workflow on push and PR', () => {
+  const fullTriggers = fullCI.split('permissions:')[0];
+  const policyTriggers = policy.split('permissions:')[0];
+  for (const triggers of [fullTriggers, policyTriggers]) {
+    assert.match(triggers, /^  push:/m);
+    assert.match(triggers, /^  pull_request:/m);
+  }
+  for (const path of [
+    "'scripts/**'",
+    "'.github/workflows/publish-platform-preview.yml'",
+    "'.github/workflows/test-memberwebsocket-dev.yml'",
+  ]) {
+    assert.equal(fullTriggers.split(path).length - 1, 1, `full CI push: ${path}`);
+    assert.equal(policyTriggers.split(path).length - 1, 1, `policy push: ${path}`);
+  }
+  for (const triggers of [fullTriggers, policyTriggers]) {
+    const prSettings = triggers.slice(triggers.indexOf('  pull_request:')).split('\n').slice(1).join('\n').split(/^  [\w-]+:/m)[0];
+    assert.doesNotMatch(prSettings, /^\s+(?:paths|paths-ignore|branches|branches-ignore):/m);
+  }
+  assert.match(policy, /'feature\/productization-super-admin'/);
+  assert.match(preview.split('permissions:')[0], /'\.github\/workflows\/test-memberwebsocket-dev\.yml'/);
+});
+
+test('integrated branch keeps exact-SHA CI and production isolation with narrowly gated ZIP recovery', () => {
+  const native = 'node scripts/verify-netlify-native-preview.mjs';
+  const inspect = 'node scripts/inspect-preview-source.mjs';
+  const ci = 'node scripts/check-preview-ci.mjs';
+  const buildStep = '- name: Build and verify the exact platform frontend';
+  const recover = '- name: Select native deploy or publish the exact tested branch bundle';
+  const zip = 'node scripts/netlify-preview-source.mjs --publish';
+  const netlify = readFileSync(new URL('../scripts/netlify-preview-source.mjs', import.meta.url), 'utf8');
+  const sourceBranch = 'if [ "$GITHUB_REF_NAME" = Integrated-Marketing-Platform ]; then';
+
+  assert.ok(preview.includes(sourceBranch));
+  assert.ok(preview.includes("'integrated-marketing-platform' || 'platform'"));
+  assert.ok(preview.indexOf(ci) < preview.indexOf(inspect));
+  assert.ok(preview.indexOf(inspect) < preview.indexOf(native));
+  assert.ok(preview.indexOf(native) < preview.indexOf(buildStep));
+  assert.ok(preview.indexOf(buildStep) < preview.indexOf(recover));
+  assert.ok(preview.indexOf(recover) < preview.indexOf('cat evidence/platform-deploy.json'));
+  assert.ok(preview.includes('VERIFIED_PREVIEW_SOURCE_EPOCH=$(git show -s --format=%ct'));
+  assert.ok(preview.includes('zip -qr ../evidence/platform-preview.zip'));
+  assert.ok(preview.includes('DEPLOY_ID=$(jq -er'));
+  assert.ok(preview.includes('test "$current" = "$GITHUB_SHA"'));
+  assert.ok(preview.includes(`test "$(jq -er '.source_sha' evidence/platform-deploy.json)" = "$GITHUB_SHA"`));
+  assert.ok(preview.includes(`test "$(jq -er '.production_deploy_unchanged' evidence/platform-deploy.json)" = "true"`));
+  assert.ok(preview.includes(`test "$(jq -er '.source_branch' evidence/platform-deploy.json)" = "$GITHUB_REF_NAME"`));
+  assert.ok(preview.includes(`test "$(jq -er '.context' evidence/platform-deploy.json)" = branch-deploy`));
+  const beforeBuild = preview.slice(preview.indexOf(inspect), preview.indexOf(buildStep));
+  const afterBuild = preview.slice(preview.indexOf(recover), preview.indexOf('cat evidence/platform-deploy.json'));
+  assert.ok(beforeBuild.includes("grep -Fxq 'Verified native branch preview failed: NATIVE_DEPLOY_FAILED'"));
+  assert.ok(beforeBuild.includes('exit 1'), 'Non-build-failure/native-identity errors must block every upload');
+  assert.ok(beforeBuild.includes('PREVIEW_DEPLOY_MODE=native'));
+  assert.ok(beforeBuild.includes('PREVIEW_DEPLOY_MODE=ci-zip'));
+  assert.ok(!beforeBuild.includes(zip), 'No ZIP may be uploaded before CI and artifact verification');
+  assert.ok(afterBuild.includes('if [ "$PREVIEW_DEPLOY_MODE" = ci-zip ]; then'));
+  assert.ok(afterBuild.includes(zip), 'Use existing single-POST branch ZIP uploader only for failed native build');
+  assert.ok(afterBuild.includes('test "$PREVIEW_DEPLOY_MODE" = native'));
+  assert.ok(afterBuild.includes(native), 'Native success must retain exact SHA validation');
+  assert.ok(!afterBuild.includes('--prod'), 'No production publication allowed');
+  assert.doesNotMatch(preview,/--prod/);
+  assert.ok(netlify.includes('awaitVerifiedPreviewCI'), 'Native build must retain its exact-SHA CI gate');
+  assert.ok(netlify.includes('isNativeVerifiedPreview(process.env)'));
+  assert.ok(netlify.includes('if (!token || siteId !== previewSite || branch !== previewBranch'),
+    'Branch ZIP still needs private token, verified site and case-preserved branch');
+  assert.ok(netlify.includes("if (existing.some(") || netlify.includes("existing.some("),
+    'Never upload while an existing branch deployment is active');
+  assert.ok(netlify.includes("production"));
+  assert.ok(preview.includes("redirects = [] if os.environ['GITHUB_REF_NAME'] == 'Integrated-Marketing-Platform'"));
+  assert.ok(preview.includes("config['redirects']"));
+  assert.ok(preview.includes("config['headers']"));
+  assert.ok(preview.includes('dist/_headers'));
+  const config=readFileSync(new URL('../netlify.toml',import.meta.url),'utf8');
+  assert.ok(config.includes('command = "node scripts/netlify-preview-source.mjs --build"'));
+  assert.ok(config.includes('ignore = "node ./scripts/netlify-preview-source.mjs --ignore"'));
+  for (const flow of [preview, build]) {
+    assert.ok(flow.includes('scripts/netlify-preview-source.test.mjs'));
+    assert.ok(flow.includes('scripts/inspect-preview-source.test.mjs'));
+    assert.ok(flow.includes('scripts/netlify-native-ci-gate.test.mjs'));
+    assert.ok(flow.includes('scripts/verify-netlify-native-preview.test.mjs'));
+  }
+});
+
+
+test('failed-native CI ZIP avoids unpaired verified source timestamp during the build', () => {
+  const start = preview.indexOf('- name: Build and verify the exact platform frontend');
+  const end = preview.indexOf('- name: Retain the exact preview bundle for recovery', start);
+  const build = preview.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.match(build, /if \[ "\$\{PREVIEW_DEPLOY_MODE:-\}" = ci-zip \]; then\s+unset VERIFIED_PREVIEW_SOURCE_EPOCH\s+fi/);
+  assert.ok(build.indexOf('unset VERIFIED_PREVIEW_SOURCE_EPOCH') < build.indexOf('node --test scripts/deploy.test.mjs'));
+  assert.ok(build.indexOf('unset VERIFIED_PREVIEW_SOURCE_EPOCH') < build.indexOf('node scripts/build-site.mjs'));
+  assert.match(preview, /if node scripts\/verify-netlify-native-preview\.mjs/);
+  assert.match(preview, /echo "PREVIEW_DEPLOY_MODE=native"/);
+  assert.match(preview, /echo "PREVIEW_DEPLOY_MODE=ci-zip"/);
 });

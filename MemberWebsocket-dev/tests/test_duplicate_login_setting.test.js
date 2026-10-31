@@ -9,7 +9,9 @@ const sql = read('supabase/migrations/20261008083358_test_account_duplicate_logi
 const takeoverSql = read('supabase/migrations/20261008091007_test_login_takeover_single_session.sql');
 
 test('duplicate-login is explicitly admin controlled and disabled by default', () => {
-  const html = read('admin/index.html');
+  const productionHtml = read('admin/index.html');
+  const html = read('tests/fixtures/admin-test-center.html');
+  assert.doesNotMatch(productionHtml, /id="testModeTab"|id="testModePanel"/);
   const ui = read('admin/test-mode.js');
   const api = read('supabase/functions/test-mode-api/index.ts');
   assert.match(html, /id="testModeDuplicateLoginEnabled"/);
@@ -57,8 +59,10 @@ test('session issuance ignores untrusted toggle inputs and is virtual-member-onl
 });
 
 test('all five user surfaces load the updated selector and admin cache is refreshed', () => {
-  assert.match(read('admin/index.html'), /test-mode\.js\?v=test-login-takeover-20261008-2/);
+  assert.doesNotMatch(read('admin/index.html'), /test-mode\.js\?v=test-login-takeover-20261008-2/);
+  assert.match(read('admin/test-mode.js'), /allowDuplicateTestLogin: els\.testModeDuplicateLoginEnabled\.checked/);
   for (const surface of ['member','points','event','calendar','booking']) {
-    assert.match(read(surface + '/index.html'), /test-mode-client\.js\?v=test-login-takeover-20261008-2/);
+    assert.doesNotMatch(read(surface + '/index.html'), /test-mode-client\.js/);
+    assert.match(read('tests/fixtures/' + surface + '-e2e.html'), /test-mode-client\.js\?v=test-login-takeover-20261008-2/);
   }
 });

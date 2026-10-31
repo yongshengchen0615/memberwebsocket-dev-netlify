@@ -1,0 +1,178 @@
+<button id="testModeTab" type="button" role="tab" aria-selected="false" aria-controls="testModePanel">測試</button>
+      <section id="testModePanel" class="panel hidden test-mode-panel" role="tabpanel" aria-labelledby="testModeTab">
+        <div class="panel-heading test-mode-panel-heading">
+          <div>
+            <p class="kicker">Testing environment</p>
+            <h2>測試中心</h2>
+            <p>依功能切換環境與測試帳號、自動化測試及歷史紀錄；底層測試流程與資料來源維持不變。</p>
+          </div>
+          <div class="test-mode-status-group" aria-label="測試環境目前狀態">
+            <span id="systemMaintenanceBadge" class="test-mode-status-badge is-loading">系統維護：讀取中</span>
+            <span id="testModePcLoginBadge" class="test-mode-status-badge is-loading">PC 測試登入：讀取中</span>
+            <span id="testModeMobileLoginBadge" class="test-mode-status-badge is-loading">行動裝置測試登入：讀取中</span>
+          </div>
+        </div>
+
+        <div class="test-mode-panel-grid">
+          <section class="test-mode-settings-card" aria-labelledby="testModeSettingsTitle">
+            <div class="test-mode-card-heading">
+              <div>
+                <span class="test-mode-eyebrow">Environment controls</span>
+                <h3 id="testModeSettingsTitle">環境設定</h3>
+                <p>調整後需按下儲存才會套用；正式用戶端的存取判斷由後端維護閘門執行。</p>
+              </div>
+            </div>
+
+            <form id="testModeForm" novalidate>
+              <section class="test-mode-form-section" aria-labelledby="testModeControlTitle">
+                <div class="test-mode-section-heading">
+                  <div><strong id="testModeControlTitle">系統狀態</strong><small>系統維護是用戶端主開關；PC 與行動裝置登入權限只在系統維護開啟時生效。管理端不受影響。</small></div>
+                </div>
+                <div class="test-mode-toggle-list">
+                  <label class="test-mode-toggle">
+                    <span class="test-mode-toggle-copy"><strong>系統維護</strong><small>開啟後，用戶端進入維護狀態；若該裝置的登入開關同時開啟，則會顯示測試帳號入口。</small></span>
+                    <span class="test-mode-toggle-control"><input id="systemMaintenanceEnabled" type="checkbox"><span class="test-mode-switch" aria-hidden="true"></span></span>
+                  </label>
+                  <label class="test-mode-toggle">
+                    <span class="test-mode-toggle-copy"><strong>PC 可登入</strong><small>系統維護開啟且此開關啟用時，PC 可直接選擇測試帳號登入。</small></span>
+                    <span class="test-mode-toggle-control"><input id="testModePcLoginEnabled" type="checkbox"><span class="test-mode-switch" aria-hidden="true"></span></span>
+                  </label>
+                  <label class="test-mode-toggle">
+                    <span class="test-mode-toggle-copy"><strong>行動裝置可登入</strong><small>系統維護開啟且此開關啟用時，手機與平板可直接選擇測試帳號登入。</small></span>
+                    <span class="test-mode-toggle-control"><input id="testModeMobileLoginEnabled" type="checkbox"><span class="test-mode-switch" aria-hidden="true"></span></span>
+                  </label>
+                  <label class="test-mode-toggle">
+                    <span class="test-mode-toggle-copy"><strong>允許測試帳號接管登入（測試強制登出）</strong><small>開啟後，可在其他視窗／裝置再次登入同一測試帳號；新登入成功會撤銷舊 Session 並顯示強制登出通知，不會允許兩個連線同時有效。關閉時，已登入的用戶端將阻擋第二次登入；正式會員不受影響。</small></span>
+                    <span class="test-mode-toggle-control"><input id="testModeDuplicateLoginEnabled" type="checkbox"><span class="test-mode-switch" aria-hidden="true"></span></span>
+                  </label>
+                </div>
+              </section>
+
+              <section class="test-mode-form-section" aria-labelledby="testModeMaintenanceTitle">
+                <div class="test-mode-section-heading">
+                  <div><strong id="testModeMaintenanceTitle">維護畫面訊息</strong><small>系統維護期間，未被允許進入測試帳號的裝置會顯示這段內容；允許登入的裝置則顯示測試帳號選擇畫面。</small></div>
+                  <span class="test-mode-field-meta">最多 500 字</span>
+                </div>
+                <textarea id="testModeMaintenanceMessage" maxlength="500" rows="5" aria-label="系統維護訊息" placeholder="例如：系統維護中，服務調整完成後將重新開放。"></textarea>
+              </section>
+
+              <section class="test-mode-form-section test-mode-account-create-section" aria-labelledby="testModeCreateAccountsTitle">
+                <div class="test-mode-section-heading">
+                  <div><strong id="testModeCreateAccountsTitle">新增虛擬測試帳號</strong><small>只會建立測試會員，不會加入正式會員名冊或會員統計。</small></div>
+                </div>
+                <div class="test-mode-account-create-row">
+                  <label class="test-mode-count-field">本次新增數量
+                    <input id="testModeAddAccountCount" type="number" min="0" max="50" step="1" value="0" inputmode="numeric">
+                  </label>
+                  <div class="test-mode-quick-counts" aria-label="快速設定新增測試帳號數量">
+                    <button class="test-mode-count-chip" type="button" data-test-account-count="1">＋1</button>
+                    <button class="test-mode-count-chip" type="button" data-test-account-count="5">＋5</button>
+                    <button class="test-mode-count-chip" type="button" data-test-account-count="10">＋10</button>
+                  </div>
+                </div>
+                <small class="test-mode-account-create-hint">每次最多新增 50 個；儲存設定時會一併建立。</small>
+              </section>
+
+              <div class="test-mode-safety-note" role="note">
+                <span class="test-mode-safety-icon" aria-hidden="true">i</span>
+                <p><strong>測試資料與正式會員隔離</strong><span>關閉系統維護後，所有測試 session 會失效；關閉某類裝置登入後，該類既有測試 session 會立即失效。</span></p>
+              </div>
+
+              <div id="testModeFormMessage" class="form-message hidden" role="status" aria-live="polite"></div>
+              <div class="test-mode-actions">
+                <p>儲存後立即套用目前環境設定。</p>
+                <button id="saveTestModeButton" class="button button-dark" type="submit">儲存環境設定</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="test-mode-accounts-card" aria-labelledby="testModeAccountsTitle">
+            <div class="test-mode-account-heading">
+              <div>
+                <span class="test-mode-eyebrow">Test members</span>
+                <h3 id="testModeAccountsTitle">測試帳號</h3>
+                <p>系統維護啟用後，只有對應登入開關已啟用的裝置可直接選擇這裡建立的虛擬會員。</p>
+              </div>
+              <span id="testModeAccountCount" class="test-mode-account-count">0 個</span>
+            </div>
+            <div class="test-mode-account-list-shell">
+              <div class="test-mode-account-selection-toolbar">
+                <label class="test-mode-select-all"><input id="testModeSelectAllAccounts" type="checkbox"> 全選</label>
+                <span id="testModeSelectedCount" class="test-mode-selected-count">已選 0 個</span>
+                <button id="deleteSelectedTestAccountsButton" class="button button-danger" type="button" disabled>批次移除選取</button>
+              </div>
+              <div id="testModeAccountActionMessage" class="form-message hidden" role="status" aria-live="polite"></div>
+              <div id="testModeAccountList" class="test-mode-account-list"></div>
+              <div id="testModeAccountEmpty" class="empty-state compact test-mode-account-empty">
+                <span class="test-mode-empty-mark" aria-hidden="true">○</span>
+                <strong>尚未建立測試帳號</strong>
+                <small>設定左側新增數量並儲存後，帳號會顯示在這裡。</small>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section class="test-control-center" aria-labelledby="automationTestTitle">
+          <div class="test-control-heading">
+            <div>
+              <span class="test-mode-eyebrow">Unified E2E Results</span>
+              <h3 id="automationTestTitle">Test Control Center</h3>
+              <p>後端完整 QA 已整合進下方「完整 E2E」單一入口。此區專門顯示環境、測試會員、Session、集點、票券、預約、Presence 與 LINE 通知邊界的執行紀錄、Expected 與 Actual 數據。</p>
+            </div>
+            <div class="test-control-heading-actions">
+              <span id="automationTestRunnerBadge" class="test-mode-status-badge is-off">Runner：待命</span>
+              <label class="test-control-keep-history" for="keepTestHistoryOnPurge">
+                <input id="keepTestHistoryOnPurge" type="checkbox" checked>
+                保留 E2E 測試紀錄與失敗快照
+              </label>
+              <button id="purgeTestDataButton" class="button button-danger" type="button">移除測試資料</button>
+            </div>
+          </div>
+
+          <div class="test-mode-safety-note test-control-retention-note" role="note">
+            <span class="test-mode-safety-icon" aria-hidden="true">i</span>
+            <p><strong>測試資料與測試紀錄分開管理</strong><span>測試結束後，業務測試資料預設保留供檢查。使用「移除測試資料」時，可勾選保留 E2E 執行歷史、案例、步驟與失敗快照；無論是否勾選，測試帳號及環境設定都不會刪除。相關測試會員操作紀錄仍隨業務資料清理。</span></p>
+          </div>
+          <div id="automationTestMessage" class="form-message hidden" role="status" aria-live="polite"></div>
+
+          <div class="test-control-layout">
+            <section class="test-control-run-card" aria-labelledby="automationCurrentRunTitle">
+              <div class="test-control-run-head">
+                <div>
+                  <strong id="automationCurrentRunTitle">目前測試</strong>
+                  <small id="automationTestRunCode">尚未執行</small>
+                </div>
+                <span id="automationTestRunStatus" class="test-control-run-status is-queued">等待執行</span>
+              </div>
+
+              <div class="test-control-summary">
+                <div class="test-control-meta-row">
+                  <span class="test-control-meta-chip">環境：MemberWebsocket-dev</span>
+                  <span id="automationTestRunSuite" class="test-control-meta-chip">—</span>
+                </div>
+                <div class="test-control-progress-shell">
+                  <div id="automationTestProgress" class="test-control-progress" role="progressbar" aria-label="自動化測試進度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0%">
+                    <span id="automationTestProgressBar" class="test-control-progress-bar"></span>
+                  </div>
+                  <span id="automationTestProgressText" class="test-control-progress-text">0% · 0 / 0</span>
+                </div>
+                <div class="test-control-stat-grid" aria-label="自動化測試統計">
+                  <div class="test-control-stat"><span>Passed</span><strong id="automationTestPassedCount">0</strong></div>
+                  <div class="test-control-stat"><span>Failed</span><strong id="automationTestFailedCount">0</strong></div>
+                  <div class="test-control-stat"><span>Total</span><strong id="automationTestTotalCount">0</strong></div>
+                </div>
+              </div>
+
+              <div id="automationTestCaseList" class="test-control-case-list"></div>
+              <div id="automationTestCaseEmpty" class="test-control-empty">尚未建立測試案例。啟動下方「完整 E2E」後，後端 QA 執行過程與結果會顯示在這裡。</div>
+            </section>
+
+            <aside class="test-control-history-card" aria-labelledby="automationHistoryTitle">
+              <h4 id="automationHistoryTitle">歷史測試</h4>
+              <p>保留最近 12 次測試結果；新的失敗完整 E2E 會保存 Replay Manifest，可直接「重播失敗流程」並比對是否重現。</p>
+              <div id="automationTestHistoryList" class="test-control-history-list"></div>
+              <div id="automationTestHistoryEmpty" class="test-control-empty">目前尚無測試紀錄。</div>
+            </aside>
+          </div>
+        </section>
+      </section>

@@ -42,7 +42,6 @@
   const ADMIN_CASE_MODULES = Object.freeze({
     ADMIN_MEMBER_USAGE_LOGS: ['member'],
     ADMIN_BOOKING_NO_SHOW_CONTROLS: ['booking'],
-    ADMIN_OPERATION_AUDIT: ['integration'],
     ADMIN_SERVICE_GRANT_JOURNEY: ['member'],
     ADMIN_SETTINGS_COPY_CONTROLS: ['points','event'],
     ADMIN_TIER_EDITOR_JOURNEY: ['member'],
@@ -97,7 +96,6 @@
   const ADMIN_NODE_META = Object.freeze({
     ADMIN_MEMBER_USAGE_LOGS: {module:'member',phase:5,dependencies:['ADMIN_TEST_MEMBER_ROSTER']},
     ADMIN_BOOKING_NO_SHOW_CONTROLS: {module:'booking',phase:5,dependencies:['ADMIN_BOOKING_CONTROLS']},
-    ADMIN_OPERATION_AUDIT: {module:'integration',phase:5,dependencies:['ADMIN_AUTH_READY']},
     ADMIN_SERVICE_GRANT_JOURNEY: {module:'member',phase:4,risk:'mutation',dependencies:['ADMIN_TEST_MEMBER_ROSTER']},
     ADMIN_SETTINGS_COPY_CONTROLS: {module:'ticket',phase:4,dependencies:['ADMIN_RESOURCE_EDITORS']},
     ADMIN_TIER_EDITOR_JOURNEY: {module:'member',phase:4,dependencies:['ADMIN_PRIMARY_NAVIGATION']},
@@ -1864,7 +1862,6 @@
     return common.concat([
       caseDef('ADMIN_MEMBER_USAGE_LOGS', '使用紀錄：測試會員選取與七類歷程', 'Human E2E', adminMemberUsageLogsCase),
       caseDef('ADMIN_BOOKING_NO_SHOW_CONTROLS', '無故未到：分類與未到期按鈕邊界', 'Human E2E', adminBookingNoShowControlsCase),
-      caseDef('ADMIN_OPERATION_AUDIT', '操作稽核：日期驗證、測試會員查詢與詳情', 'Human E2E', adminOperationAuditCase),
       caseDef('ADMIN_SERVICE_GRANT_JOURNEY', '依服務項目發放：預覽／雙擊／會員回讀／清理', 'Human E2E', adminServiceGrantJourneyCase),
       caseDef('ADMIN_SETTINGS_COPY_CONTROLS', '設定複製：未儲存拒絕與取消', 'Human E2E', adminSettingsCopyControlsCase),
       caseDef('ADMIN_TIER_EDITOR_JOURNEY', '會員卡：全部樣式與預覽', 'Human E2E', adminTierEditorJourneyCase),
@@ -3069,13 +3066,12 @@
       overview: false,
       benefits: false,
       notifications: false,
-      audit: false,
+      auditAbsent: false,
       pointSourcesRendered: false,
       campaignContainerReady: false,
       settlementContainerReady: false,
       benefitSummaryReady: false,
       notificationFilterWorked: false,
-      auditFilterWorked: false,
       noReadModelError: false
     };
 
@@ -3103,20 +3099,10 @@
           && Boolean(document.getElementById('integrationNotifications'));
       }
 
-      actual.audit = await switchIntegrationView('audit');
-      const auditFilter = document.getElementById('integrationAuditFilter');
-      const auditSearch = document.getElementById('integrationAuditSearch');
-      if (auditFilter && auditSearch) {
-        auditFilter.value = 'booking';
-        auditFilter.dispatchEvent(new Event('change', { bubbles: true }));
-        await adminHumanTextInput(auditSearch, 'BOOKING', 'Audit 搜尋');
-        await adminHumanPause(50, 130);
-        await adminHumanTextInput(auditSearch, '', 'Audit 搜尋清除');
-        auditFilter.value = 'all';
-        auditFilter.dispatchEvent(new Event('change', { bubbles: true }));
-        actual.auditFilterWorked = auditFilter.value === 'all' && auditSearch.value === ''
-          && Boolean(document.getElementById('integrationAuditTimeline'));
-      }
+      actual.auditAbsent = !document.querySelector('[data-integration-view-tab="audit"]')
+        && !document.getElementById('integrationAuditFilter')
+        && !document.getElementById('integrationAuditSearch')
+        && !document.getElementById('integrationAuditTimeline');
 
       const message = document.getElementById('integrationHubMessage');
       actual.noReadModelError = !message || message.classList.contains('hidden') || !String(message.textContent || '').trim();
@@ -3137,17 +3123,16 @@
       && actual.overview
       && actual.benefits
       && actual.notifications
-      && actual.audit
+      && actual.auditAbsent
       && actual.pointSourcesRendered
       && actual.campaignContainerReady
       && actual.settlementContainerReady
       && actual.benefitSummaryReady
       && actual.notificationFilterWorked
-      && actual.auditFilterWorked
       && actual.noReadModelError;
 
     return ok
-      ? pass('整合中心總覽、權益自動化、通知中心與 Audit Timeline 已以真人 UI 操作完成，讀模型與篩選互動正常。', {
+      ? pass('整合中心總覽、權益自動化與通知中心已完成真人 UI 操作；已下架的稽核入口不存在。', {
           opened: true,
           metricsAtLeast: 6,
           allViews: true,
@@ -6334,39 +6319,6 @@
       : fail('無故未到分類或按鈕狀態異常。', {selected:true,wrongStatuses:0,invalidEarlyLabels:0}, actual);
   }
 
-  async function adminOperationAuditCase() {
-    const tab = await waitFor(() => document.getElementById('operationAuditTab'), 4000);
-    tab?.click();
-    await waitFor(() => document.getElementById('operationAuditPanel')?.getAttribute('aria-busy') !== 'true', 12000);
-    const form = document.getElementById('operationAuditForm');
-    const code = String(state.adminTestAccount?.memberCode || '');
-    if (!tab || !form || !code) return fail('操作稽核或本輪測試會員不存在。', {ready:true}, {ready:false});
-    const ids = ['auditFrom','auditTo','auditMemberCode','auditAction','auditResult'];
-    const before = Object.fromEntries(ids.map(id => [id,document.getElementById(id)?.value || '']));
-    try {
-      setField('auditFrom','2099-01-02'); setField('auditTo','2099-01-01');
-      form.dispatchEvent(new Event('submit', {bubbles:true,cancelable:true}));
-      const invalidRejected = /有效的日期範圍/.test(document.getElementById('operationAuditStatus')?.textContent || '');
-      setField('auditFrom',before.auditFrom); setField('auditTo',before.auditTo);
-      setField('auditMemberCode',code); setField('auditAction',''); setField('auditResult','');
-      document.getElementById('auditSearch')?.click();
-      const loaded = Boolean(await waitFor(() => {
-        const panel = document.getElementById('operationAuditPanel');
-        const status = document.getElementById('operationAuditStatus')?.textContent || '';
-        return panel?.getAttribute('aria-busy') === 'false' && /本頁.*筆|此條件下沒有紀錄/.test(status);
-      }, 12000));
-      const details = Array.from(document.querySelectorAll('#operationAuditList details'));
-      for (const detail of details.slice(0, 3)) {
-        detail.querySelector('summary')?.click();
-        if (!detail.open) return fail('稽核詳情無法展開。', {expandable:true}, {expandable:false});
-        detail.querySelector('summary')?.click();
-      }
-      return invalidRejected && loaded
-        ? pass('日期錯誤被拒絕，測試會員查詢成功且詳情可展開。', {invalidRejected:true,loaded:true}, {invalidRejected,loaded,detailCount:details.length})
-        : fail('操作稽核驗證或查詢失敗。', {invalidRejected:true,loaded:true}, {invalidRejected,loaded});
-    } finally { for (const id of ids) setField(id,before[id]); }
-  }
-
   async function adminTestAccountLifecycleCase() {
     document.getElementById('testModeTab')?.click();
     const before = await postAdminTestMode('admin.test-mode.bootstrap');
@@ -7573,7 +7525,6 @@
       ['integrationPointSources', '#integrationPointSources'],
       ['integrationBenefits', '#integrationBenefitSummary'],
       ['integrationNotifications', '#integrationNotifications'],
-      ['integrationAuditTimeline', '#integrationAuditTimeline'],
       ['eventDailyLimit', '#eventMaxTicketsPerDay'],
       ['bookingReceiptViewer', '#adminBookingReceiptModal']
     ];

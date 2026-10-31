@@ -1,0 +1,84 @@
+{
+  "scope": "Controlled scheduler benchmark; actual before/after production JS, synthetic authority, virtual clock, zero network/DB/provider latency. Not production SLO evidence.",
+  "samplesPerScenario": 120,
+  "scenarios": [
+    {
+      "surface": "member",
+      "before": {
+        "p50Ms": 15000,
+        "p95Ms": 29341,
+        "p99Ms": 29863,
+        "lostEvents": 0,
+        "fullReads": 181,
+        "revisionProbes": 0,
+        "sessionStatusReads": 181
+      },
+      "after": {
+        "p50Ms": 5000,
+        "p95Ms": 9615,
+        "p99Ms": 9889,
+        "lostEvents": 0,
+        "fullReads": 121,
+        "revisionProbes": 544,
+        "sessionStatusReads": 0
+      },
+      "p95ImprovementPercent": 67.23
+    },
+    {
+      "surface": "points",
+      "before": {
+        "p50Ms": 15000,
+        "p95Ms": 29341,
+        "p99Ms": 29863,
+        "lostEvents": 0,
+        "fullReads": 181,
+        "revisionProbes": 0,
+        "sessionStatusReads": 181
+      },
+      "after": {
+        "p50Ms": 5000,
+        "p95Ms": 9615,
+        "p99Ms": 9889,
+        "lostEvents": 0,
+        "fullReads": 121,
+        "revisionProbes": 544,
+        "sessionStatusReads": 0
+      },
+      "p95ImprovementPercent": 67.23
+    },
+    {
+      "surface": "admin",
+      "before": {
+        "p50Ms": 15000,
+        "p95Ms": 29341,
+        "p99Ms": 29863,
+        "lostEvents": 0,
+        "fullReads": 181,
+        "revisionProbes": 0,
+        "sessionStatusReads": 0
+      },
+      "after": {
+        "p50Ms": 5000,
+        "p95Ms": 9615,
+        "p99Ms": 9889,
+        "lostEvents": 0,
+        "fullReads": 121,
+        "revisionProbes": 544,
+        "sessionStatusReads": 0
+      },
+      "p95ImprovementPercent": 67.23
+    }
+  ],
+  "idle120Seconds": {
+    "before": {
+      "fullReads": 4,
+      "revisionProbes": 0,
+      "sessionStatusReads": 0
+    },
+    "after": {
+      "fullReads": 2,
+      "revisionProbes": 13,
+      "sessionStatusReads": 0
+    }
+  }
+}

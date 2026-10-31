@@ -6,13 +6,13 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 
-test('E2E live flow visualizer shows side, module, flow and feature from start to finish', () => {
+test('test-only E2E flow visualizer remains verified but is not loaded by admin UI', () => {
   const html = read('admin/index.html');
   const ui = read('admin/e2e-flow-visualizer.js');
   const css = read('admin/e2e-flow-visualizer.css');
 
-  assert.match(html, /e2e-flow-visualizer\.css\?v=e2e-flow-20261006-2/);
-  assert.match(html, /e2e-flow-visualizer\.js\?v=e2e-flow-20261006-1/);
+  assert.doesNotMatch(html, /e2e-flow-visualizer\.css\?v=e2e-flow-20261006-2/);
+  assert.doesNotMatch(html, /e2e-flow-visualizer\.js\?v=e2e-flow-20261006-1/);
   assert.match(ui, /E2E 即時流程圖/);
   for (const label of ['端別', '模組', '流程', '功能']) assert.match(ui, new RegExp(label));
   for (const stage of ['準備', '後端 QA', '管理端前置', '用戶端模組', '管理端完整', '跨端同步', '覆蓋驗證', '完成']) {

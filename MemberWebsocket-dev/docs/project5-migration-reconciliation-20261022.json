@@ -1,0 +1,3312 @@
+{
+  "sourceSha": "b66ca8334b011191867234dd596c543b2c177a66",
+  "projectId": "dbuquirnaskrwcamdxki",
+  "observedAt": "2026-10-22T08:21:01.196031Z",
+  "scope": "Read-only migration history reconciliation. Name matches are candidates, not SQL equivalence or authorization to repair history.",
+  "summary": {
+    "repositoryFiles": 268,
+    "remoteVersions": 291,
+    "exactVersionFiles": 122,
+    "nameCandidateFiles": 128,
+    "repositoryUnmatchedFiles": 18,
+    "remoteUnmatchedVersions": 41
+  },
+  "repository": [
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260910074953_fix_calendar_batch_operation_alias.sql",
+      "version": "20260910074953",
+      "name": "fix_calendar_batch_operation_alias",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260910074953",
+          "name": "fix_calendar_batch_operation_alias"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260910101157_reseed_required_settings_after_public_data_clear.sql",
+      "version": "20260910101157",
+      "name": "reseed_required_settings_after_public_data_clear",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260910101157",
+          "name": "reseed_required_settings_after_public_data_clear"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260910101217_ensure_required_system_settings_seeded.sql",
+      "version": "20260910101217",
+      "name": "ensure_required_system_settings_seeded",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260910101217",
+          "name": "ensure_required_system_settings_seeded"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260910175251_add_event_ticket_activity_url.sql",
+      "version": "20260910175251",
+      "name": "add_event_ticket_activity_url",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260910175251",
+          "name": "add_event_ticket_activity_url"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260910181822_add_event_ticket_activity_link_name.sql",
+      "version": "20260910181822",
+      "name": "add_event_ticket_activity_link_name",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260910181822",
+          "name": "add_event_ticket_activity_link_name"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260910182000_add_event_ticket_activity_link_name.sql",
+      "version": "20260910182000",
+      "name": "add_event_ticket_activity_link_name",
+      "classification": "unresolved-source-only",
+      "remoteCandidates": [
+        {
+          "version": "20260910181822",
+          "name": "add_event_ticket_activity_link_name"
+        },
+        {
+          "version": "20260910181955",
+          "name": "add_event_ticket_activity_link_name"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260910203100_booking_global_advance_days.sql",
+      "version": "20260910203100",
+      "name": "booking_global_advance_days",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260910125005",
+          "name": "booking_global_advance_days"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260910212500_booking_service_pricing.sql",
+      "version": "20260910212500",
+      "name": "booking_service_pricing",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260910140530",
+          "name": "booking_service_pricing"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260910224000_booking_service_types_and_store_service.sql",
+      "version": "20260910224000",
+      "name": "booking_service_types_and_store_service",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260910140545",
+          "name": "booking_service_types_and_store_service"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260910230000_booking_shared_service_types.sql",
+      "version": "20260910230000",
+      "name": "booking_shared_service_types",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260910144440",
+          "name": "booking_shared_service_types"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260910233000_booking_admin_crud_batch.sql",
+      "version": "20260910233000",
+      "name": "booking_admin_crud_batch",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260910152905",
+          "name": "booking_admin_crud_batch"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260910233100_booking_service_type_realtime.sql",
+      "version": "20260910233100",
+      "name": "booking_service_type_realtime",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260910152913",
+          "name": "booking_service_type_realtime"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260910233200_booking_deleted_service_guard.sql",
+      "version": "20260910233200",
+      "name": "booking_deleted_service_guard",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260910152921",
+          "name": "booking_deleted_service_guard"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260910234500_decouple_booking_settings_from_service_types.sql",
+      "version": "20260910234500",
+      "name": "decouple_booking_settings_from_service_types",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260910154528",
+          "name": "decouple_booking_settings_from_service_types"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260910235500_booking_notice_holiday_block.sql",
+      "version": "20260910235500",
+      "name": "booking_notice_holiday_block",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260910161301",
+          "name": "booking_notice_holiday_block"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260910_add_booking_system.sql",
+      "version": "20260910",
+      "name": "add_booking_system",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260910085141",
+          "name": "add_booking_system"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260910_add_grant_message_presets.sql",
+      "version": "20260910",
+      "name": "add_grant_message_presets",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260910030614",
+          "name": "add_grant_message_presets"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260910_add_grant_notification_schedule_calendar_bonus.sql",
+      "version": "20260910",
+      "name": "add_grant_notification_schedule_calendar_bonus",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260910070042",
+          "name": "add_grant_notification_schedule_calendar_bonus"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260910_booking_global_hours_multi_service_realtime.sql",
+      "version": "20260910",
+      "name": "booking_global_hours_multi_service_realtime",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260910093727",
+          "name": "booking_global_hours_multi_service_realtime"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260910_seed_membership_tier_settings.sql",
+      "version": "20260910",
+      "name": "seed_membership_tier_settings",
+      "classification": "unresolved-source-only",
+      "remoteCandidates": []
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260910_setup_grant_message_dispatch.sql",
+      "version": "20260910",
+      "name": "setup_grant_message_dispatch",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260910070058",
+          "name": "setup_grant_message_dispatch"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260910_transactional_realtime_invalidation.sql",
+      "version": "20260910",
+      "name": "transactional_realtime_invalidation",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260910072645",
+          "name": "transactional_realtime_invalidation"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260911002000_booking_holiday_single_day.sql",
+      "version": "20260911002000",
+      "name": "booking_holiday_single_day",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260910161737",
+          "name": "booking_holiday_single_day"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260911002500_calendar_holiday_member_realtime.sql",
+      "version": "20260911002500",
+      "name": "calendar_holiday_member_realtime",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260910162115",
+          "name": "calendar_holiday_member_realtime"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260911061802_booking_member_edit_and_completion.sql",
+      "version": "20260911061802",
+      "name": "booking_member_edit_and_completion",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260911073053",
+          "name": "booking_member_edit_and_completion"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260911080002_booking_admin_actual_items.sql",
+      "version": "20260911080002",
+      "name": "booking_admin_actual_items",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260911080002",
+          "name": "booking_admin_actual_items"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260911103022_booking_duration_consistency_guards.sql",
+      "version": "20260911103022",
+      "name": "booking_duration_consistency_guards",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260911103022",
+          "name": "booking_duration_consistency_guards"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260911123000_booking_cancellation_realtime_sync.sql",
+      "version": "20260911123000",
+      "name": "booking_cancellation_realtime_sync",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260911121723",
+          "name": "booking_cancellation_realtime_sync"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260911125000_booking_cancellation_approval_flow.sql",
+      "version": "20260911125000",
+      "name": "booking_cancellation_approval_flow",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260911120533",
+          "name": "booking_cancellation_approval_flow"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260911131500_enforce_booking_cancellation_approval.sql",
+      "version": "20260911131500",
+      "name": "enforce_booking_cancellation_approval",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260911121152",
+          "name": "enforce_booking_cancellation_approval"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260911234000_member_booking_contact_profile.sql",
+      "version": "20260911234000",
+      "name": "member_booking_contact_profile",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260911152002",
+          "name": "member_booking_contact_profile"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260912214000_sync_member_profile_to_active_booking_contacts.sql",
+      "version": "20260912214000",
+      "name": "sync_member_profile_to_active_booking_contacts",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260912134041",
+          "name": "sync_member_profile_to_active_booking_contacts"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260914065445_booking_line_notifications.sql",
+      "version": "20260914065445",
+      "name": "booking_line_notifications",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260914065445",
+          "name": "booking_line_notifications"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260914065806_booking_line_notification_transport_guards.sql",
+      "version": "20260914065806",
+      "name": "booking_line_notification_transport_guards",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260914065806",
+          "name": "booking_line_notification_transport_guards"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260914070053_booking_line_notification_edge_transport.sql",
+      "version": "20260914070053",
+      "name": "booking_line_notification_edge_transport",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260914070053",
+          "name": "booking_line_notification_edge_transport"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260914112308_booking_notification_message_format.sql",
+      "version": "20260914112308",
+      "name": "booking_notification_message_format",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260914112308",
+          "name": "booking_notification_message_format"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260914112800_booking_notification_lifecycle_labels.sql",
+      "version": "20260914112800",
+      "name": "booking_notification_lifecycle_labels",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260914112800",
+          "name": "booking_notification_lifecycle_labels"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260914114541_booking_notification_ignore_create_internal_update.sql",
+      "version": "20260914114541",
+      "name": "booking_notification_ignore_create_internal_update",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260914114541",
+          "name": "booking_notification_ignore_create_internal_update"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260914114916_booking_notification_route_by_actor.sql",
+      "version": "20260914114916",
+      "name": "booking_notification_route_by_actor",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260914114916",
+          "name": "booking_notification_route_by_actor"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260914121540_recalculate_booking_duration_on_admin_item_update.sql",
+      "version": "20260914121540",
+      "name": "recalculate_booking_duration_on_admin_item_update",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260914121540",
+          "name": "recalculate_booking_duration_on_admin_item_update"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260914124430_booking_notification_coalescing_columns.sql",
+      "version": "20260914124430",
+      "name": "booking_notification_coalescing_columns",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260914124430",
+          "name": "booking_notification_coalescing_columns"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260914124453_booking_notification_coalescing_route.sql",
+      "version": "20260914124453",
+      "name": "booking_notification_coalescing_route",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260914124453",
+          "name": "booking_notification_coalescing_route"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260914124500_booking_notification_dispatch_every_five_seconds.sql",
+      "version": "20260914124500",
+      "name": "booking_notification_dispatch_every_five_seconds",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260914124500",
+          "name": "booking_notification_dispatch_every_five_seconds"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260914212408_booking_public_notice.sql",
+      "version": "20260914212408",
+      "name": "booking_public_notice",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260914132421",
+          "name": "booking_public_notice"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260914213428_secure_booking_public_notice.sql",
+      "version": "20260914213428",
+      "name": "secure_booking_public_notice",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260914133438",
+          "name": "secure_booking_public_notice"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260914213507_booking_public_notice_id_privilege.sql",
+      "version": "20260914213507",
+      "name": "booking_public_notice_id_privilege",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260914133514",
+          "name": "booking_public_notice_id_privilege"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260915093000_fix_clear_public_data_booking_notifications.sql",
+      "version": "20260915093000",
+      "name": "fix_clear_public_data_booking_notifications",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260915092836",
+          "name": "fix_clear_public_data_booking_notifications"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260915233000_fix_reward_identity_and_line_message_sync.sql",
+      "version": "20260915233000",
+      "name": "fix_reward_identity_and_line_message_sync",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260915152635",
+          "name": "fix_reward_identity_and_line_message_sync"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260915235000_sync_unconsumed_point_tickets_to_latest_reward.sql",
+      "version": "20260915235000",
+      "name": "sync_unconsumed_point_tickets_to_latest_reward",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260915160803",
+          "name": "sync_unconsumed_point_tickets_to_latest_reward"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260916044451_global_point_ticket_redemption_limit.sql",
+      "version": "20260916044451",
+      "name": "global_point_ticket_redemption_limit",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260916044451",
+          "name": "global_point_ticket_redemption_limit"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260916044903_remove_per_card_ticket_redemption_limit.sql",
+      "version": "20260916044903",
+      "name": "remove_per_card_ticket_redemption_limit",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260916044903",
+          "name": "remove_per_card_ticket_redemption_limit"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260916045119_preserve_admin_reset_all_data.sql",
+      "version": "20260916045119",
+      "name": "preserve_admin_reset_all_data",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260916045119",
+          "name": "preserve_admin_reset_all_data"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260916045234_clear_realtime_events_after_data_reset.sql",
+      "version": "20260916045234",
+      "name": "clear_realtime_events_after_data_reset",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260916045234",
+          "name": "clear_realtime_events_after_data_reset"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260916162616_fixed_ticket_expiry_modes.sql",
+      "version": "20260916162616",
+      "name": "fixed_ticket_expiry_modes",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260916162616",
+          "name": "fixed_ticket_expiry_modes"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260916213000_birthday_benefit_automation.sql",
+      "version": "20260916213000",
+      "name": "birthday_benefit_automation",
+      "classification": "unresolved-source-only",
+      "remoteCandidates": []
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260916214500_birthday_benefit_service_role_grants.sql",
+      "version": "20260916214500",
+      "name": "birthday_benefit_service_role_grants",
+      "classification": "unresolved-source-only",
+      "remoteCandidates": []
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260916215000_birthday_benefit_indexes.sql",
+      "version": "20260916215000",
+      "name": "birthday_benefit_indexes",
+      "classification": "unresolved-source-only",
+      "remoteCandidates": []
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260916220000_fixed_recurring_event_tickets.sql",
+      "version": "20260916220000",
+      "name": "fixed_recurring_event_tickets",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260916141452",
+          "name": "fixed_recurring_event_tickets"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260916233000_birthday_fixed_ticket_once_per_year.sql",
+      "version": "20260916233000",
+      "name": "birthday_fixed_ticket_once_per_year",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260916152124",
+          "name": "birthday_fixed_ticket_once_per_year"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260916235500_fixed_ticket_delete_realtime.sql",
+      "version": "20260916235500",
+      "name": "fixed_ticket_delete_realtime",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260916160617",
+          "name": "fixed_ticket_delete_realtime"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260917150000_booking_group_parallel_duration.sql",
+      "version": "20260917150000",
+      "name": "booking_group_parallel_duration",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260917144231",
+          "name": "booking_group_parallel_duration"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260917151950_enable_booking_line_notifications.sql",
+      "version": "20260917151950",
+      "name": "enable_booking_line_notifications",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260917151950",
+          "name": "enable_booking_line_notifications"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260918093000_booking_lifecycle_notification_repair.sql",
+      "version": "20260918093000",
+      "name": "booking_lifecycle_notification_repair",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260918013943",
+          "name": "booking_lifecycle_notification_repair"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260918094500_booking_notification_outbox_booking_index.sql",
+      "version": "20260918094500",
+      "name": "booking_notification_outbox_booking_index",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260918014213",
+          "name": "booking_notification_outbox_booking_index"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260918095000_group_booking_v2_rpc_contract.sql",
+      "version": "20260918095000",
+      "name": "group_booking_v2_rpc_contract",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260918014816",
+          "name": "group_booking_v2_rpc_contract"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260918095200_close_booking_cancellation_review_gaps.sql",
+      "version": "20260918095200",
+      "name": "close_booking_cancellation_review_gaps",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260918014820",
+          "name": "close_booking_cancellation_review_gaps"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260918095400_harden_booking_cancellation_guard_privileges.sql",
+      "version": "20260918095400",
+      "name": "harden_booking_cancellation_guard_privileges",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260918015003",
+          "name": "harden_booking_cancellation_guard_privileges"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260918101500_booking_participant_notification_details.sql",
+      "version": "20260918101500",
+      "name": "booking_participant_notification_details",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260918042944",
+          "name": "booking_participant_notification_details"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260918123000_fix_booking_line_notification_reset.sql",
+      "version": "20260918123000",
+      "name": "fix_booking_line_notification_reset",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260918044938",
+          "name": "fix_booking_line_notification_reset"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260918140535_booking_notification_notes.sql",
+      "version": "20260918140535",
+      "name": "booking_notification_notes",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260918140816",
+          "name": "booking_notification_notes"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260918161000_admin_booking_participant_technicians.sql",
+      "version": "20260918161000",
+      "name": "admin_booking_participant_technicians",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260918081230",
+          "name": "admin_booking_participant_technicians"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260918161956_fix_group_booking_primary_participant_overlap.sql",
+      "version": "20260918161956",
+      "name": "fix_group_booking_primary_participant_overlap",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260918161956",
+          "name": "fix_group_booking_primary_participant_overlap"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260919003500_booking_max_advance_days.sql",
+      "version": "20260919003500",
+      "name": "booking_max_advance_days",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260918164057",
+          "name": "booking_max_advance_days"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260919012000_add_missing_fk_indexes.sql",
+      "version": "20260919012000",
+      "name": "add_missing_fk_indexes",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260918170914",
+          "name": "add_missing_fk_indexes"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260919062515_complete_realtime_invalidation_coverage.sql",
+      "version": "20260919062515",
+      "name": "complete_realtime_invalidation_coverage",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260919062515",
+          "name": "complete_realtime_invalidation_coverage"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260919074104_harden_booking_live_clock.sql",
+      "version": "20260919074104",
+      "name": "harden_booking_live_clock",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260919074104",
+          "name": "harden_booking_live_clock"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260919074433_harden_live_business_clock.sql",
+      "version": "20260919074433",
+      "name": "harden_live_business_clock",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260919074433",
+          "name": "harden_live_business_clock"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260919074608_bound_realtime_event_retention.sql",
+      "version": "20260919074608",
+      "name": "bound_realtime_event_retention",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260919074608",
+          "name": "bound_realtime_event_retention"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260919080500_booking_store_minutes_and_addon_rules.sql",
+      "version": "20260919080500",
+      "name": "booking_store_minutes_and_addon_rules",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260919080351",
+          "name": "booking_store_minutes_and_addon_rules"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260919081500_preserve_booking_addon_flag_in_batch.sql",
+      "version": "20260919081500",
+      "name": "preserve_booking_addon_flag_in_batch",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260919080938",
+          "name": "preserve_booking_addon_flag_in_batch"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260919084927_booking_service_type_completion_rewards.sql",
+      "version": "20260919084927",
+      "name": "booking_service_type_completion_rewards",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260919084927",
+          "name": "booking_service_type_completion_rewards"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260919114412_primary_technician_only_completion_rewards.sql",
+      "version": "20260919114412",
+      "name": "primary_technician_only_completion_rewards",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260919114412",
+          "name": "primary_technician_only_completion_rewards"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260919115128_booking_notification_participant_amount_time.sql",
+      "version": "20260919115128",
+      "name": "booking_notification_participant_amount_time",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260919115128",
+          "name": "booking_notification_participant_amount_time"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260920054312_test_mode_virtual_accounts.sql",
+      "version": "20260920054312",
+      "name": "test_mode_virtual_accounts",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260920054312",
+          "name": "test_mode_virtual_accounts"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260920054446_test_mode_admin_save_rpc.sql",
+      "version": "20260920054446",
+      "name": "test_mode_admin_save_rpc",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260920054446",
+          "name": "test_mode_admin_save_rpc"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260920081507_test_mode_direct_login_sessions.sql",
+      "version": "20260920081507",
+      "name": "test_mode_direct_login_sessions",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260920081507",
+          "name": "test_mode_direct_login_sessions"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260920083149_separate_system_maintenance_from_test_mode.sql",
+      "version": "20260920083149",
+      "name": "separate_system_maintenance_from_test_mode",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260920083149",
+          "name": "separate_system_maintenance_from_test_mode"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260920092214_split_test_login_by_device.sql",
+      "version": "20260920092214",
+      "name": "split_test_login_by_device",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260920092214",
+          "name": "split_test_login_by_device"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260920092340_bind_test_sessions_to_device_class.sql",
+      "version": "20260920092340",
+      "name": "bind_test_sessions_to_device_class",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260920092340",
+          "name": "bind_test_sessions_to_device_class"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260920092654_remove_test_mode_switch_runtime.sql",
+      "version": "20260920092654",
+      "name": "remove_test_mode_switch_runtime",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260920092654",
+          "name": "remove_test_mode_switch_runtime"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260920132731_admin_delete_test_accounts.sql",
+      "version": "20260920132731",
+      "name": "admin_delete_test_accounts",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260920132731",
+          "name": "admin_delete_test_accounts"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260920133911_complete_test_account_purge.sql",
+      "version": "20260920133911",
+      "name": "complete_test_account_purge",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260920133911",
+          "name": "complete_test_account_purge"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260920134141_purge_legacy_deleted_test_account_traces.sql",
+      "version": "20260920134141",
+      "name": "purge_legacy_deleted_test_account_traces",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260920134141",
+          "name": "purge_legacy_deleted_test_account_traces"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260920134516_grant_test_account_purge_notification_access.sql",
+      "version": "20260920134516",
+      "name": "grant_test_account_purge_notification_access",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260920134516",
+          "name": "grant_test_account_purge_notification_access"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260920134931_reset_test_member_number_after_delete_all.sql",
+      "version": "20260920134931",
+      "name": "reset_test_member_number_after_delete_all",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260920134931",
+          "name": "reset_test_member_number_after_delete_all"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260920143801_member_presence_realtime_tracking.sql",
+      "version": "20260920143801",
+      "name": "member_presence_realtime_tracking",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260920143801",
+          "name": "member_presence_realtime_tracking"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260920144515_member_record_realtime_indexes.sql",
+      "version": "20260920144515",
+      "name": "member_record_realtime_indexes",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260920144515",
+          "name": "member_record_realtime_indexes"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260920144715_member_presence_deny_client_policy.sql",
+      "version": "20260920144715",
+      "name": "member_presence_deny_client_policy",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260920144715",
+          "name": "member_presence_deny_client_policy"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260920145127_complete_member_record_realtime_invalidation.sql",
+      "version": "20260920145127",
+      "name": "complete_member_record_realtime_invalidation",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260920145127",
+          "name": "complete_member_record_realtime_invalidation"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260920150345_test_member_full_profile.sql",
+      "version": "20260920150345",
+      "name": "test_member_full_profile",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260920150345",
+          "name": "test_member_full_profile"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260920152808_randomize_test_member_profiles.sql",
+      "version": "20260920152808",
+      "name": "randomize_test_member_profiles",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260920152808",
+          "name": "randomize_test_member_profiles"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260920161928_test_member_line_notification_boundary.sql",
+      "version": "20260920161928",
+      "name": "test_member_line_notification_boundary",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260920161928",
+          "name": "test_member_line_notification_boundary"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260920162349_booking_line_test_member_dispatch_guard.sql",
+      "version": "20260920162349",
+      "name": "booking_line_test_member_dispatch_guard",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260920162349",
+          "name": "booking_line_test_member_dispatch_guard"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260920162357_fix_booking_line_test_member_dispatch_guard.sql",
+      "version": "20260920162357",
+      "name": "fix_booking_line_test_member_dispatch_guard",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260920162357",
+          "name": "fix_booking_line_test_member_dispatch_guard"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260921012651_automation_test_control_center.sql",
+      "version": "20260921012651",
+      "name": "automation_test_control_center",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260921012651",
+          "name": "automation_test_control_center"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260921012739_automation_test_notification_snapshot.sql",
+      "version": "20260921012739",
+      "name": "automation_test_notification_snapshot",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260921012739",
+          "name": "automation_test_notification_snapshot"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260921013324_automation_test_case_member_index.sql",
+      "version": "20260921013324",
+      "name": "automation_test_case_member_index",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260921013324",
+          "name": "automation_test_case_member_index"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260921061531_batch_issue_eligible_point_tickets.sql",
+      "version": "20260921061531",
+      "name": "batch_issue_eligible_point_tickets",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260921061531",
+          "name": "batch_issue_eligible_point_tickets"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260921143000_member_qa_record_realtime.sql",
+      "version": "20260921143000",
+      "name": "member_qa_record_realtime",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260921142455",
+          "name": "member_qa_record_realtime"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260921143500_purge_test_member_qa_history.sql",
+      "version": "20260921143500",
+      "name": "purge_test_member_qa_history",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260921142508",
+          "name": "purge_test_member_qa_history"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260922050719_restore_booking_line_notification_enablement_after_clear.sql",
+      "version": "20260922050719",
+      "name": "restore_booking_line_notification_enablement_after_clear",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260922050719",
+          "name": "restore_booking_line_notification_enablement_after_clear"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260922055500_preserve_test_data_manual_purge.sql",
+      "version": "20260922055500",
+      "name": "preserve_test_data_manual_purge",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260922055851",
+          "name": "preserve_test_data_manual_purge"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260922063942_enhance_e2e_fixture_and_test_surface_sessions_v2.sql",
+      "version": "20260922063942",
+      "name": "enhance_e2e_fixture_and_test_surface_sessions_v2",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260922063942",
+          "name": "enhance_e2e_fixture_and_test_surface_sessions_v2"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260922072102_fix_e2e_booking_primary_technician.sql",
+      "version": "20260922072102",
+      "name": "fix_e2e_booking_primary_technician",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260922072102",
+          "name": "fix_e2e_booking_primary_technician"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260922075534_skip_pending_cancellation_contact_sync.sql",
+      "version": "20260922075534",
+      "name": "skip_pending_cancellation_contact_sync",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260922075534",
+          "name": "skip_pending_cancellation_contact_sync"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260922081232_validate_member_grant_payloads.sql",
+      "version": "20260922081232",
+      "name": "validate_member_grant_payloads",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260922081232",
+          "name": "validate_member_grant_payloads"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260923061000_fix_paired_e2e_booking_fixture_primary.sql",
+      "version": "20260923061000",
+      "name": "fix_paired_e2e_booking_fixture_primary",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260923060217",
+          "name": "fix_paired_e2e_booking_fixture_primary"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260923081500_persist_e2e_evolution_state.sql",
+      "version": "20260923081500",
+      "name": "persist_e2e_evolution_state",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260923080607",
+          "name": "persist_e2e_evolution_state"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260923114000_add_e2e_failure_diagnostic_index.sql",
+      "version": "20260923114000",
+      "name": "add_e2e_failure_diagnostic_index",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260923114651",
+          "name": "add_e2e_failure_diagnostic_index"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260923115000_add_e2e_failure_code_fallback.sql",
+      "version": "20260923115000",
+      "name": "add_e2e_failure_code_fallback",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260923115009",
+          "name": "add_e2e_failure_code_fallback"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260923142815_e2e_failure_artifact_storage_v2.sql",
+      "version": "20260923142815",
+      "name": "e2e_failure_artifact_storage_v2",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260923142815",
+          "name": "e2e_failure_artifact_storage_v2"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260923150443_complete_test_data_purge_ephemera.sql",
+      "version": "20260923150443",
+      "name": "complete_test_data_purge_ephemera",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260923150443",
+          "name": "complete_test_data_purge_ephemera"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260923150806_self_contained_test_purge_booking_baseline.sql",
+      "version": "20260923150806",
+      "name": "self_contained_test_purge_booking_baseline",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260923150806",
+          "name": "self_contained_test_purge_booking_baseline"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260924115132_isolate_qa_rate_limit_buckets.sql",
+      "version": "20260924115132",
+      "name": "isolate_qa_rate_limit_buckets",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260924115132",
+          "name": "isolate_qa_rate_limit_buckets"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260925155000_schedule_realtime_event_retention.sql",
+      "version": "20260925155000",
+      "name": "schedule_realtime_event_retention",
+      "classification": "unresolved-source-only",
+      "remoteCandidates": []
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260928023000_booking_overnight_hours_and_slot_interval.sql",
+      "version": "20260928023000",
+      "name": "booking_overnight_hours_and_slot_interval",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260928023013",
+          "name": "booking_overnight_hours_and_slot_interval"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260928024200_booking_notifications_use_full_datetime.sql",
+      "version": "20260928024200",
+      "name": "booking_notifications_use_full_datetime",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260928024148",
+          "name": "booking_notifications_use_full_datetime"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260928024500_booking_overnight_clock_and_cancellation.sql",
+      "version": "20260928024500",
+      "name": "booking_overnight_clock_and_cancellation",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260928024555",
+          "name": "booking_overnight_clock_and_cancellation"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260928033822_membership_terms_consent.sql",
+      "version": "20260928033822",
+      "name": "membership_terms_consent",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260928033822",
+          "name": "membership_terms_consent"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260928034140_restrict_membership_consent_mutation.sql",
+      "version": "20260928034140",
+      "name": "restrict_membership_consent_mutation",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260928034140",
+          "name": "restrict_membership_consent_mutation"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260928034239_harden_membership_terms_history.sql",
+      "version": "20260928034239",
+      "name": "harden_membership_terms_history",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260928034239",
+          "name": "harden_membership_terms_history"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260928052220_require_test_account_terms_consent.sql",
+      "version": "20260928052220",
+      "name": "require_test_account_terms_consent",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260928052220",
+          "name": "require_test_account_terms_consent"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260928052425_require_explicit_test_account_terms_consent.sql",
+      "version": "20260928052425",
+      "name": "require_explicit_test_account_terms_consent",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260928052425",
+          "name": "require_explicit_test_account_terms_consent"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260928101903_event_coupon_inventory_location.sql",
+      "version": "20260928101903",
+      "name": "event_coupon_inventory_location",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260928101903",
+          "name": "event_coupon_inventory_location"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260928102644_event_coupon_idempotent_retry.sql",
+      "version": "20260928102644",
+      "name": "event_coupon_idempotent_retry",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260928102644",
+          "name": "event_coupon_idempotent_retry"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260929012256_event_coupon_multiple_redemption_locations.sql",
+      "version": "20260929012256",
+      "name": "event_coupon_multiple_redemption_locations",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260929012256",
+          "name": "event_coupon_multiple_redemption_locations"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260929025149_booking_day_before_reminder.sql",
+      "version": "20260929025149",
+      "name": "booking_day_before_reminder",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260929025149",
+          "name": "booking_day_before_reminder"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260929040000_all_ticket_gps_location_rules.sql",
+      "version": "20260929040000",
+      "name": "all_ticket_gps_location_rules",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260929034520",
+          "name": "all_ticket_gps_location_rules"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260929100509_reload_postgrest_membership_rpc_schema.sql",
+      "version": "20260929100509",
+      "name": "reload_postgrest_membership_rpc_schema",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260929100509",
+          "name": "reload_postgrest_membership_rpc_schema"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260929101730_membership_terms_api_wrapper.sql",
+      "version": "20260929101730",
+      "name": "membership_terms_api_wrapper",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260929101730",
+          "name": "membership_terms_api_wrapper"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260929103000_preserve_membership_legal_records_on_one_click_clear.sql",
+      "version": "20260929103000",
+      "name": "preserve_membership_legal_records_on_one_click_clear",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260929104708",
+          "name": "preserve_membership_legal_records_on_one_click_clear"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260929111500_restore_one_click_clear_scope.sql",
+      "version": "20260929111500",
+      "name": "restore_one_click_clear_scope",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260929110524",
+          "name": "restore_one_click_clear_scope"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260929221000_booking_confirmation_notification_preview_job.sql",
+      "version": "20260929221000",
+      "name": "booking_confirmation_notification_preview_job",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260929140740",
+          "name": "booking_confirmation_notification_preview_job"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260930020000_reduce_booking_notification_dispatch_polling.sql",
+      "version": "20260930020000",
+      "name": "reduce_booking_notification_dispatch_polling",
+      "classification": "unresolved-source-only",
+      "remoteCandidates": []
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260930030000_prune_cron_job_run_details.sql",
+      "version": "20260930030000",
+      "name": "prune_cron_job_run_details",
+      "classification": "unresolved-source-only",
+      "remoteCandidates": []
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260930040000_reduce_booking_reminder_sync_polling.sql",
+      "version": "20260930040000",
+      "name": "reduce_booking_reminder_sync_polling",
+      "classification": "unresolved-source-only",
+      "remoteCandidates": []
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260930050000_guard_scheduled_grant_dispatch.sql",
+      "version": "20260930050000",
+      "name": "guard_scheduled_grant_dispatch",
+      "classification": "unresolved-source-only",
+      "remoteCandidates": []
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260930124119_member_force_logout_boundary.sql",
+      "version": "20260930124119",
+      "name": "member_force_logout_boundary",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260930124119",
+          "name": "member_force_logout_boundary"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260930124711_maintenance_global_revocation_boundary.sql",
+      "version": "20260930124711",
+      "name": "maintenance_global_revocation_boundary",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260930124711",
+          "name": "maintenance_global_revocation_boundary"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260930125854_remove_unused_force_logout_index.sql",
+      "version": "20260930125854",
+      "name": "remove_unused_force_logout_index",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20260930125854",
+          "name": "remove_unused_force_logout_index"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260930150500_member_referral_rewards.sql",
+      "version": "20260930150500",
+      "name": "member_referral_rewards",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260930143018",
+          "name": "member_referral_rewards"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260930151500_point_transfer_atomic.sql",
+      "version": "20260930151500",
+      "name": "point_transfer_atomic",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260930143123",
+          "name": "point_transfer_atomic"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260930152500_booking_receipt_completion.sql",
+      "version": "20260930152500",
+      "name": "booking_receipt_completion",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260930143319",
+          "name": "booking_receipt_completion"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20260930153500_today_usable_event_ticket_count.sql",
+      "version": "20260930153500",
+      "name": "today_usable_event_ticket_count",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20260930143710",
+          "name": "today_usable_event_ticket_count"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261001043735_fix_booking_start_boundary_for_configurable_slots.sql",
+      "version": "20261001043735",
+      "name": "fix_booking_start_boundary_for_configurable_slots",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261001043735",
+          "name": "fix_booking_start_boundary_for_configurable_slots"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261001090433_event_ticket_redemption_limits.sql",
+      "version": "20261001090433",
+      "name": "event_ticket_redemption_limits",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261001090433",
+          "name": "event_ticket_redemption_limits"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261001092000_referral_idempotent_response.sql",
+      "version": "20261001092000",
+      "name": "referral_idempotent_response",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261001011511",
+          "name": "referral_idempotent_response"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261001092726_event_ticket_daily_redemption_limit.sql",
+      "version": "20261001092726",
+      "name": "event_ticket_daily_redemption_limit",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261001092726",
+          "name": "event_ticket_daily_redemption_limit"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261001092800_receipt_trigger_hardening.sql",
+      "version": "20261001092800",
+      "name": "receipt_trigger_hardening",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261001012801",
+          "name": "receipt_trigger_hardening"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261001094500_receipt_retention_cleanup.sql",
+      "version": "20261001094500",
+      "name": "receipt_retention_cleanup",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261001020545",
+          "name": "receipt_retention_cleanup"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261001103500_referral_event_ticket_type.sql",
+      "version": "20261001103500",
+      "name": "referral_event_ticket_type",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261001024044",
+          "name": "referral_event_ticket_type"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261001125500_booking_receipt_admin_confirmation.sql",
+      "version": "20261001125500",
+      "name": "booking_receipt_admin_confirmation",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261001050037",
+          "name": "booking_receipt_admin_confirmation"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261001131704_fix_booking_participant_items_ambiguous_columns.sql",
+      "version": "20261001131704",
+      "name": "fix_booking_participant_items_ambiguous_columns",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261001131704",
+          "name": "fix_booking_participant_items_ambiguous_columns"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261001134258_purge_test_growth_transfer_dependencies.sql",
+      "version": "20261001134258",
+      "name": "purge_test_growth_transfer_dependencies",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261001134258",
+          "name": "purge_test_growth_transfer_dependencies"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261001140000_booking_receipt_realtime_sync.sql",
+      "version": "20261001140000",
+      "name": "booking_receipt_realtime_sync",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261001060831",
+          "name": "booking_receipt_realtime_sync"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261001141229_fix_booking_participant_end_at_ambiguity.sql",
+      "version": "20261001141229",
+      "name": "fix_booking_participant_end_at_ambiguity",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261001141229",
+          "name": "fix_booking_participant_end_at_ambiguity"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261001183500_restore_referral_reward_after_one_click_clear.sql",
+      "version": "20261001183500",
+      "name": "restore_referral_reward_after_one_click_clear",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261001103244",
+          "name": "restore_referral_reward_after_one_click_clear"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261001221500_restore_event_ticket_settings_baseline.sql",
+      "version": "20261001221500",
+      "name": "restore_event_ticket_settings_baseline",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261001141614",
+          "name": "restore_event_ticket_settings_baseline"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261002014500_harden_booking_benefit_trigger.sql",
+      "version": "20261002014500",
+      "name": "harden_booking_benefit_trigger",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261002014117",
+          "name": "harden_booking_benefit_trigger"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261002093000_booking_benefit_selection_redemption.sql",
+      "version": "20261002093000",
+      "name": "booking_benefit_selection_redemption",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261002014038",
+          "name": "booking_benefit_selection_redemption"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261002144132_ticket_booking_service_requirements.sql",
+      "version": "20261002144132",
+      "name": "ticket_booking_service_requirements",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261002144132",
+          "name": "ticket_booking_service_requirements"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261002150000_ticket_service_requirement_type_integrity.sql",
+      "version": "20261002150000",
+      "name": "ticket_service_requirement_type_integrity",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261002145559",
+          "name": "ticket_service_requirement_type_integrity"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261002151000_booking_point_ticket_balance_guard.sql",
+      "version": "20261002151000",
+      "name": "booking_point_ticket_balance_guard",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261002072236",
+          "name": "booking_point_ticket_balance_guard"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261002152109_move_point_ticket_service_rules_to_reward_nodes.sql",
+      "version": "20261002152109",
+      "name": "move_point_ticket_service_rules_to_reward_nodes",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261002152109",
+          "name": "move_point_ticket_service_rules_to_reward_nodes"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261002160040_booking_receipt_replace_before_service_end.sql",
+      "version": "20261002160040",
+      "name": "booking_receipt_replace_before_service_end",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261002160040",
+          "name": "booking_receipt_replace_before_service_end"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261002194500_booking_reserved_ticket_state.sql",
+      "version": "20261002194500",
+      "name": "booking_reserved_ticket_state",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261002115738",
+          "name": "booking_reserved_ticket_state"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261002210000_booking_point_reservation_balance.sql",
+      "version": "20261002210000",
+      "name": "booking_point_reservation_balance",
+      "classification": "unresolved-source-only",
+      "remoteCandidates": []
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261002221500_ticket_usage_zero_means_unlimited.sql",
+      "version": "20261002221500",
+      "name": "ticket_usage_zero_means_unlimited",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261002141340",
+          "name": "ticket_usage_zero_means_unlimited"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261003000500_admin_booking_benefit_edit.sql",
+      "version": "20261003000500",
+      "name": "admin_booking_benefit_edit",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261002162039",
+          "name": "admin_booking_benefit_edit"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261003014000_membership_join_ticket_and_referral_configuration.sql",
+      "version": "20261003014000",
+      "name": "membership_join_ticket_and_referral_configuration",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261003035434",
+          "name": "membership_join_ticket_and_referral_configuration"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261003040500_restrict_membership_join_ticket_trigger.sql",
+      "version": "20261003040500",
+      "name": "restrict_membership_join_ticket_trigger",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261003035947",
+          "name": "restrict_membership_join_ticket_trigger"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261003074410_receipt_integrity_and_service_totals.sql",
+      "version": "20261003074410",
+      "name": "receipt_integrity_and_service_totals",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261003075618",
+          "name": "receipt_integrity_and_service_totals"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261003104741_booking_accessible_receipt_registration.sql",
+      "version": "20261003104741",
+      "name": "booking_accessible_receipt_registration",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261003104741",
+          "name": "booking_accessible_receipt_registration"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261003123000_referral_inviter_only_repeatable_rewards.sql",
+      "version": "20261003123000",
+      "name": "referral_inviter_only_repeatable_rewards",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261003042613",
+          "name": "referral_inviter_only_repeatable_rewards"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261003124936_test_account_phone_contract.sql",
+      "version": "20261003124936",
+      "name": "test_account_phone_contract",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261003124936",
+          "name": "test_account_phone_contract"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261003130000_ticket_booking_service_items.sql",
+      "version": "20261003130000",
+      "name": "ticket_booking_service_items",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261003050814",
+          "name": "ticket_booking_service_items"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261003143500_ticket_booking_service_match_mode.sql",
+      "version": "20261003143500",
+      "name": "ticket_booking_service_match_mode",
+      "classification": "unresolved-source-only",
+      "remoteCandidates": []
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261003152500_member_phone_e164_and_pending_booking_notice.sql",
+      "version": "20261003152500",
+      "name": "member_phone_e164_and_pending_booking_notice",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261003072503",
+          "name": "member_phone_e164_and_pending_booking_notice"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261003153940_harden_qa_cleanup_boundaries.sql",
+      "version": "20261003153940",
+      "name": "harden_qa_cleanup_boundaries",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261003155634",
+          "name": "harden_qa_cleanup_boundaries"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261003154000_reload_schema_after_member_phone_contract.sql",
+      "version": "20261003154000",
+      "name": "reload_schema_after_member_phone_contract",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261003073345",
+          "name": "reload_schema_after_member_phone_contract"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261003160000_phone_quality_and_member_sent_booking_chat.sql",
+      "version": "20261003160000",
+      "name": "phone_quality_and_member_sent_booking_chat",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261003074718",
+          "name": "phone_quality_and_member_sent_booking_chat"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261003211500_accessible_free_time_and_reward_service_guard.sql",
+      "version": "20261003211500",
+      "name": "accessible_free_time_and_reward_service_guard",
+      "classification": "unresolved-source-only",
+      "remoteCandidates": []
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261003214500_accessible_booking_start_boundary_exception.sql",
+      "version": "20261003214500",
+      "name": "accessible_booking_start_boundary_exception",
+      "classification": "unresolved-source-only",
+      "remoteCandidates": []
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261003221000_accessible_receipt_ticket_review.sql",
+      "version": "20261003221000",
+      "name": "accessible_receipt_ticket_review",
+      "classification": "unresolved-source-only",
+      "remoteCandidates": []
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261004013500_booking_ticket_source_snapshot.sql",
+      "version": "20261004013500",
+      "name": "booking_ticket_source_snapshot",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261004012855",
+          "name": "booking_ticket_source_snapshot"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261004051140_isolate_qa_fixed_ticket_automation.sql",
+      "version": "20261004051140",
+      "name": "isolate_qa_fixed_ticket_automation",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261004051728",
+          "name": "isolate_qa_fixed_ticket_automation"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261004051846_e2e_automation_health.sql",
+      "version": "20261004051846",
+      "name": "e2e_automation_health",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261004052148",
+          "name": "e2e_automation_health"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261004053220_qa_event_redemption_day_fixture.sql",
+      "version": "20261004053220",
+      "name": "qa_event_redemption_day_fixture",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261004053446",
+          "name": "qa_event_redemption_day_fixture"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261005101816_prepare_current_schema_contract.sql",
+      "version": "20261005101816",
+      "name": "prepare_current_schema_contract",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261005105018",
+          "name": "prepare_current_schema_contract"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261005101853_retire_unused_legacy_schema.sql",
+      "version": "20261005101853",
+      "name": "retire_unused_legacy_schema",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261005105101",
+          "name": "retire_unused_legacy_schema"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261005121343_fix_rate_limit_after_test_mode_cleanup.sql",
+      "version": "20261005121343",
+      "name": "fix_rate_limit_after_test_mode_cleanup",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261005121343",
+          "name": "fix_rate_limit_after_test_mode_cleanup"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261005131714_adaptive_e2e_learning_v2.sql",
+      "version": "20261005131714",
+      "name": "adaptive_e2e_learning_v2",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261005131714",
+          "name": "adaptive_e2e_learning_v2"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261005132510_accumulate_adaptive_e2e_learning.sql",
+      "version": "20261005132510",
+      "name": "accumulate_adaptive_e2e_learning",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261005132510",
+          "name": "accumulate_adaptive_e2e_learning"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261005135228_fix_qa_ticket_purge_residuals.sql",
+      "version": "20261005135228",
+      "name": "fix_qa_ticket_purge_residuals",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261005135228",
+          "name": "fix_qa_ticket_purge_residuals"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261005143849_fix_single_pass_test_purge_qa_provenance.sql",
+      "version": "20261005143849",
+      "name": "fix_single_pass_test_purge_qa_provenance",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261005143849",
+          "name": "fix_single_pass_test_purge_qa_provenance"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261005151234_e2e_membership_terms_scope.sql",
+      "version": "20261005151234",
+      "name": "e2e_membership_terms_scope",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261005151234",
+          "name": "e2e_membership_terms_scope"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261005152023_e2e_membership_terms_target_member.sql",
+      "version": "20261005152023",
+      "name": "e2e_membership_terms_target_member",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261005152023",
+          "name": "e2e_membership_terms_target_member"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261005163000_complete_test_data_purge.sql",
+      "version": "20261005163000",
+      "name": "complete_test_data_purge",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261005083056",
+          "name": "complete_test_data_purge"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261005165000_fix_test_purge_primary_technician.sql",
+      "version": "20261005165000",
+      "name": "fix_test_purge_primary_technician",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261005083535",
+          "name": "fix_test_purge_primary_technician"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261005174200_fix_test_purge_evolution_delete_guard.sql",
+      "version": "20261005174200",
+      "name": "fix_test_purge_evolution_delete_guard",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261005094136",
+          "name": "fix_test_purge_evolution_delete_guard"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261006023020_booking_ticket_usage_consistency.sql",
+      "version": "20261006023020",
+      "name": "booking_ticket_usage_consistency",
+      "classification": "unresolved-source-only",
+      "remoteCandidates": []
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261006044913_e2e_execution_lease_heartbeat.sql",
+      "version": "20261006044913",
+      "name": "e2e_execution_lease_heartbeat",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261006044913",
+          "name": "e2e_execution_lease_heartbeat"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261006045350_drop_unused_e2e_lease_heartbeat_index.sql",
+      "version": "20261006045350",
+      "name": "drop_unused_e2e_lease_heartbeat_index",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261006045350",
+          "name": "drop_unused_e2e_lease_heartbeat_index"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261006045939_reclaim_stale_e2e_leases_before_purge.sql",
+      "version": "20261006045939",
+      "name": "reclaim_stale_e2e_leases_before_purge",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261006045939",
+          "name": "reclaim_stale_e2e_leases_before_purge"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261006081433_booking_primary_requirement_fixed_notification_time.sql",
+      "version": "20261006081433",
+      "name": "booking_primary_requirement_fixed_notification_time",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261006101545",
+          "name": "booking_primary_requirement_fixed_notification_time"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261006133127_member_p2_features.sql",
+      "version": "20261006133127",
+      "name": "member_p2_features",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261006141715",
+          "name": "member_p2_features"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261008034343_admin_service_item_grants.sql",
+      "version": "20261008034343",
+      "name": "admin_service_item_grants",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261008040041",
+          "name": "admin_service_item_grants"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261008075553_single_active_member_login.sql",
+      "version": "20261008075553",
+      "name": "single_active_member_login",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261008075553",
+          "name": "single_active_member_login"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261008083358_test_account_duplicate_login_setting.sql",
+      "version": "20261008083358",
+      "name": "test_account_duplicate_login_setting",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261008083358",
+          "name": "test_account_duplicate_login_setting"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261008091007_test_login_takeover_single_session.sql",
+      "version": "20261008091007",
+      "name": "test_login_takeover_single_session",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261008091007",
+          "name": "test_login_takeover_single_session"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261008111000_referral_actor_gets_reward.sql",
+      "version": "20261008111000",
+      "name": "referral_actor_gets_reward",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261008025418",
+          "name": "referral_actor_gets_reward"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261008152922_member_removal_workflow.sql",
+      "version": "20261008152922",
+      "name": "member_removal_workflow",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261008152922",
+          "name": "member_removal_workflow"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261009180000_recycle_e2e_runtime_before_run.sql",
+      "version": "20261009180000",
+      "name": "recycle_e2e_runtime_before_run",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261009100856",
+          "name": "recycle_e2e_runtime_before_run"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261010021829_snapshot_location_policy.sql",
+      "version": "20261010021829",
+      "name": "snapshot_location_policy",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261010021829",
+          "name": "snapshot_location_policy"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261010030000_e2e_purge_history_option_and_qa_provenance.sql",
+      "version": "20261010030000",
+      "name": "e2e_purge_history_option_and_qa_provenance",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261010020539",
+          "name": "e2e_purge_history_option_and_qa_provenance"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261010031500_restore_primary_technician_before_e2e_recycle.sql",
+      "version": "20261010031500",
+      "name": "restore_primary_technician_before_e2e_recycle",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261010020941",
+          "name": "restore_primary_technician_before_e2e_recycle"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261010084712_membership_snapshot_and_completion_controls.sql",
+      "version": "20261010084712",
+      "name": "membership_snapshot_and_completion_controls",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261010092400",
+          "name": "membership_snapshot_and_completion_controls"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261010130000_admin_delete_point_ticket_template.sql",
+      "version": "20261010130000",
+      "name": "admin_delete_point_ticket_template",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261010045411",
+          "name": "admin_delete_point_ticket_template"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261010145511_snapshot_tickets_without_advance_booking.sql",
+      "version": "20261010145511",
+      "name": "snapshot_tickets_without_advance_booking",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261010145511",
+          "name": "snapshot_tickets_without_advance_booking"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261010233000_realtime_ticket_redemption_location_authority.sql",
+      "version": "20261010233000",
+      "name": "realtime_ticket_redemption_location_authority",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261010153030",
+          "name": "realtime_ticket_redemption_location_authority"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261012092000_snapshot_location_restriction_error.sql",
+      "version": "20261012092000",
+      "name": "snapshot_location_restriction_error",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261012013117",
+          "name": "snapshot_location_restriction_error"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261012095000_snapshot_configurable_geofence.sql",
+      "version": "20261012095000",
+      "name": "snapshot_configurable_geofence",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261012020412",
+          "name": "snapshot_configurable_geofence_20261012"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261012100000_snapshot_mode_ticket_geofence_proof.sql",
+      "version": "20261012100000",
+      "name": "snapshot_mode_ticket_geofence_proof",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261012021039",
+          "name": "snapshot_mode_ticket_geofence_proof_20261012"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261012133000_booking_selection_without_gps.sql",
+      "version": "20261012133000",
+      "name": "booking_selection_without_gps",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261012052412",
+          "name": "booking_selection_without_gps_20261012"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261012170000_snapshot_ticket_limits_and_point_budget.sql",
+      "version": "20261012170000",
+      "name": "snapshot_ticket_limits_and_point_budget",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261012091008",
+          "name": "snapshot_ticket_limits_and_point_budget_20261012"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261013031302_fix_snapshot_line_member_duration.sql",
+      "version": "20261013031302",
+      "name": "fix_snapshot_line_member_duration",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261013031302",
+          "name": "fix_snapshot_line_member_duration"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261013035417_fix_snapshot_event_open_dates_20261013.sql",
+      "version": "20261013035417",
+      "name": "fix_snapshot_event_open_dates_20261013",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261013035417",
+          "name": "fix_snapshot_event_open_dates_20261013"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261013043627_member_booking_selections_and_audit_query.sql",
+      "version": "20261013043627",
+      "name": "member_booking_selections_and_audit_query",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261013043627",
+          "name": "member_booking_selections_and_audit_query"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261013101500_member_presence_offline_timeout.sql",
+      "version": "20261013101500",
+      "name": "member_presence_offline_timeout",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261013021658",
+          "name": "member_presence_offline_timeout"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261013102334_member_cancel_snapshot_point_ticket.sql",
+      "version": "20261013102334",
+      "name": "member_cancel_snapshot_point_ticket",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261013102334",
+          "name": "member_cancel_snapshot_point_ticket"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261014011701_member_cancel_snapshot_event_ticket.sql",
+      "version": "20261014011701",
+      "name": "member_cancel_snapshot_event_ticket",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261014011701",
+          "name": "member_cancel_snapshot_event_ticket"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261014021208_snapshot_reserved_point_surplus.sql",
+      "version": "20261014021208",
+      "name": "snapshot_reserved_point_surplus",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261014021208",
+          "name": "snapshot_reserved_point_surplus"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261014030000_fix_point_balance_upsert_reservation_guard.sql",
+      "version": "20261014030000",
+      "name": "fix_point_balance_upsert_reservation_guard",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261014024948",
+          "name": "fix_point_balance_upsert_reservation_guard"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261014043730_booking_notifications_noshow_readable_audit.sql",
+      "version": "20261014043730",
+      "name": "booking_notifications_noshow_readable_audit",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261014043730",
+          "name": "booking_notifications_noshow_readable_audit"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261014083341_allow_confirmed_booking_no_show.sql",
+      "version": "20261014083341",
+      "name": "allow_confirmed_booking_no_show",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261014083341",
+          "name": "allow_confirmed_booking_no_show"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261015104000_optional_booking_ticket_after_cancel.sql",
+      "version": "20261015104000",
+      "name": "optional_booking_ticket_after_cancel",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261015025051",
+          "name": "optional_booking_ticket_after_cancel"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261015143000_snapshot_pending_future_booking_reservations.sql",
+      "version": "20261015143000",
+      "name": "snapshot_pending_future_booking_reservations",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261015061757",
+          "name": "snapshot_pending_future_booking_reservations"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261015190000_ticket_service_based_booking_requirement.sql",
+      "version": "20261015190000",
+      "name": "ticket_service_based_booking_requirement",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261015070833",
+          "name": "ticket_service_based_booking_requirement"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261015194000_event_ticket_cross_mode_exclusivity.sql",
+      "version": "20261015194000",
+      "name": "event_ticket_cross_mode_exclusivity",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261015075158",
+          "name": "event_ticket_cross_mode_exclusivity"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261016025009_background_e2e_lease_grace.sql",
+      "version": "20261016025009",
+      "name": "background_e2e_lease_grace",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261016025009",
+          "name": "background_e2e_lease_grace"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261016133147_sync_unredeemed_event_ticket_metadata.sql",
+      "version": "20261016133147",
+      "name": "sync_unredeemed_event_ticket_metadata",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261016133147",
+          "name": "sync_unredeemed_event_ticket_metadata"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261016151843_allow_multiple_point_reward_tickets.sql",
+      "version": "20261016151843",
+      "name": "allow_multiple_point_reward_tickets",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261016151843",
+          "name": "allow_multiple_point_reward_tickets"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261017131559_product_platform_control_plane.sql",
+      "version": "20261017131559",
+      "name": "product_platform_control_plane",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261017131559",
+          "name": "product_platform_control_plane"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261017140939_platform_line_identity.sql",
+      "version": "20261017140939",
+      "name": "platform_line_identity",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261017140939",
+          "name": "platform_line_identity"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261017151624_platform_credential_vault.sql",
+      "version": "20261017151624",
+      "name": "platform_credential_vault",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261017151624",
+          "name": "platform_credential_vault"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261017164510_platform_admin_applications.sql",
+      "version": "20261017164510",
+      "name": "platform_admin_applications",
+      "classification": "same-version-unverified-content",
+      "remoteCandidates": [
+        {
+          "version": "20261017164510",
+          "name": "platform_admin_applications"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261018012500_platform_feature_grants_only.sql",
+      "version": "20261018012500",
+      "name": "platform_feature_grants_only",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261018103521",
+          "name": "platform_feature_grants_only_20261018"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261018181500_platform_manual_super_admin_grant.sql",
+      "version": "20261018181500",
+      "name": "platform_manual_super_admin_grant",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261018103530",
+          "name": "platform_manual_super_admin_grant_20261018"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261018182000_remove_all_business_data.sql",
+      "version": "20261018182000",
+      "name": "remove_all_business_data",
+      "classification": "unresolved-source-only",
+      "remoteCandidates": []
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261019024033_business_runtime.sql",
+      "version": "20261019024033",
+      "name": "business_runtime",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261019071906",
+          "name": "business_runtime"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261019122719_admin_access_lifecycle.sql",
+      "version": "20261019122719",
+      "name": "admin_access_lifecycle",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261019125702",
+          "name": "admin_access_lifecycle_20261019"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261019122917_module_line_scope.sql",
+      "version": "20261019122917",
+      "name": "module_line_scope",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261019125704",
+          "name": "module_line_scope_20261019"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261019151200_fix_tenant_receipt_storage_guard.sql",
+      "version": "20261019151200",
+      "name": "fix_tenant_receipt_storage_guard",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261019151653",
+          "name": "fix_tenant_receipt_storage_guard_20261019"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261020140336_module_notification_routes.sql",
+      "version": "20261020140336",
+      "name": "module_notification_routes",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261020145244",
+          "name": "module_notification_routes_20261020"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261021045559_booking_notification_event_repair.sql",
+      "version": "20261021045559",
+      "name": "booking_notification_event_repair",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261021052630",
+          "name": "booking_notification_event_repair"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261021045611_booking_no_show_policy.sql",
+      "version": "20261021045611",
+      "name": "booking_no_show_policy",
+      "classification": "same-name-different-version-candidate",
+      "remoteCandidates": [
+        {
+          "version": "20261021052949",
+          "name": "booking_no_show_policy"
+        }
+      ]
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261021060609_booking_risk_appeal_resolution.sql",
+      "version": "20261021060609",
+      "name": "booking_risk_appeal_resolution",
+      "classification": "unresolved-source-only",
+      "remoteCandidates": []
+    },
+    {
+      "path": "MemberWebsocket-dev/supabase/migrations/20261021061400_booking_risk_member_lock.sql",
+      "version": "20261021061400",
+      "name": "booking_risk_member_lock",
+      "classification": "unresolved-source-only",
+      "remoteCandidates": []
+    }
+  ],
+  "remoteUnmatched": [
+    {
+      "version": "20260910021152",
+      "name": "native_membership"
+    },
+    {
+      "version": "20260910021156",
+      "name": "native_delete_point_card"
+    },
+    {
+      "version": "20260910021200",
+      "name": "harden_internal_rpc_permissions"
+    },
+    {
+      "version": "20260910021237",
+      "name": "harden_rpc_and_foreign_key_indexes"
+    },
+    {
+      "version": "20260910023627",
+      "name": "line_messaging_and_grant_idempotency"
+    },
+    {
+      "version": "20260910041105",
+      "name": "add_safe_public_data_clear_maintenance_function"
+    },
+    {
+      "version": "20260910041135",
+      "name": "harden_public_data_clear_no_cross_schema_cascade"
+    },
+    {
+      "version": "20260910095221",
+      "name": "move_btree_gist_to_extensions_schema"
+    },
+    {
+      "version": "20260910122357",
+      "name": "calendar_system_tables"
+    },
+    {
+      "version": "20260910122403",
+      "name": "calendar_system_table_privileges"
+    },
+    {
+      "version": "20260910122418",
+      "name": "calendar_system_batch_rpc"
+    },
+    {
+      "version": "20260910125953",
+      "name": "remove_calendar_system_from_member_project"
+    },
+    {
+      "version": "20260911152023",
+      "name": "fix_booking_contact_update_replay"
+    },
+    {
+      "version": "20260916040714",
+      "name": "point_ticket_batch_redemption"
+    },
+    {
+      "version": "20260916041220",
+      "name": "preserve_point_ticket_limit_on_legacy_save"
+    },
+    {
+      "version": "20260916041303",
+      "name": "fix_point_card_save_limit_compat"
+    },
+    {
+      "version": "20260916071821",
+      "name": "separate_point_card_style_presets"
+    },
+    {
+      "version": "20260917011640",
+      "name": "fixed_ticket_relative_expiry_modes"
+    },
+    {
+      "version": "20260917025640",
+      "name": "fix_fixed_ticket_relative_expiry_from_issue_date"
+    },
+    {
+      "version": "20260917070117",
+      "name": "fixed_ticket_calendar_sync"
+    },
+    {
+      "version": "20260917070955",
+      "name": "fixed_ticket_birthday_calendar_audience"
+    },
+    {
+      "version": "20260917072811",
+      "name": "fix_birthday_calendar_status_and_visibility_model"
+    },
+    {
+      "version": "20260917074230",
+      "name": "secure_birthday_calendar_with_targeted_status"
+    },
+    {
+      "version": "20260917080120",
+      "name": "reevaluate_fixed_tickets_on_member_eligibility_change"
+    },
+    {
+      "version": "20260917080329",
+      "name": "harden_fixed_ticket_reevaluation_triggers"
+    },
+    {
+      "version": "20260917122035",
+      "name": "booking_party_size_and_technicians"
+    },
+    {
+      "version": "20260917134014",
+      "name": "booking_primary_technician_participant_assignments"
+    },
+    {
+      "version": "20260917134554",
+      "name": "protect_booking_primary_technician_invariants"
+    },
+    {
+      "version": "20260918043014",
+      "name": "admin_booking_participant_items"
+    },
+    {
+      "version": "20260921021801",
+      "name": "fix_single_booking_primary_technician"
+    },
+    {
+      "version": "20260922044743",
+      "name": "clear_all_except_admins"
+    },
+    {
+      "version": "20260922045624",
+      "name": "restore_required_baseline_after_data_clear"
+    },
+    {
+      "version": "20260923121551",
+      "name": "repair_one_click_clear_system_baseline"
+    },
+    {
+      "version": "20260925141252",
+      "name": "converge_booking_domain_and_admin_unread_notifications"
+    },
+    {
+      "version": "20260928053418",
+      "name": "line_configuration_sql_editor"
+    },
+    {
+      "version": "20260928053755",
+      "name": "private_line_sql_commands"
+    },
+    {
+      "version": "20260928054010",
+      "name": "private_line_one_command"
+    },
+    {
+      "version": "20261002122955",
+      "name": "protect_booking_point_reservations"
+    },
+    {
+      "version": "20261006143948",
+      "name": "booking_ticket_usage_consistency_backfill"
+    },
+    {
+      "version": "20261012095506",
+      "name": "booking_receipt_least_privilege"
+    },
+    {
+      "version": "20261018103538",
+      "name": "maintenance_remove_all_business_data_20261018"
+    }
+  ]
+}

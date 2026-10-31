@@ -5,25 +5,23 @@ on:
     paths:
       - 'MemberWebsocket-dev/**'
       - 'scripts/**'
+      - 'AGENTS.md'
+      - 'docs/DEVELOPMENT_GUARDRAILS.md'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
       - 'netlify.toml'
       - '.github/workflows/publish-netlify.yml'
+      - '.github/workflows/publish-platform-preview.yml'
       - '.github/workflows/test-netlify-build.yml'
       - '.github/workflows/test-memberwebsocket-dev.yml'
   pull_request:
-    paths:
-      - 'MemberWebsocket-dev/**'
-      - 'scripts/**'
-      - 'netlify.toml'
-      - '.github/workflows/publish-netlify.yml'
-      - '.github/workflows/test-netlify-build.yml'
-      - '.github/workflows/test-memberwebsocket-dev.yml'
 
 permissions:
   contents: read
 
-# Normalize push and PR branch names so the same change does not run the full suite twice.
+# Keep release pushes independent of PR synthetic merge tests. Separate PRs can
+# target different base branches, so each PR also needs its own cancellation key.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -41,6 +39,8 @@ jobs:
           node --test --test-reporter=spec --test-reporter-destination=stdout
           --test-reporter=junit --test-reporter-destination=regression-results.xml
           MemberWebsocket-dev/tests/*.test.js
+      - name: Verify governance workflow gates
+        run: node --test scripts/governance-workflow.test.mjs
       - name: Save regression diagnostics and durations
         if: always()
         uses: actions/upload-artifact@v4
@@ -58,7 +58,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          # Node 24 V8 can abort while releasing PGlite WASM wrappers (nodejs/node#66366).
+          # Keep all SQL/browser assertions on the supported Node 22 runtime.
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: MemberWebsocket-dev/tests/integration/package-lock.json
       - name: Install DOM integration test dependencies
@@ -67,8 +69,40 @@ jobs:
       - name: Check DOM, accessibility, and booking integration behavior
         run: |
           node --test \
+            MemberWebsocket-dev/tests/integration/product_platform.cjs \
+            MemberWebsocket-dev/tests/integration/admin_qualification.cjs \
+            MemberWebsocket-dev/tests/integration/admin_qualification_api.cjs \
+            MemberWebsocket-dev/tests/integration/merchant_applications.cjs \
+            MemberWebsocket-dev/tests/integration/merchant_application_api.cjs \
+            MemberWebsocket-dev/tests/integration/merchant_context.cjs \
+            MemberWebsocket-dev/tests/integration/merchant_context_api.cjs \
+            MemberWebsocket-dev/tests/integration/merchant_workspace_ui.cjs \
+            MemberWebsocket-dev/tests/integration/platform_access_registration.cjs \
+            MemberWebsocket-dev/tests/integration/platform_login_ui.cjs \
+            MemberWebsocket-dev/tests/integration/platform_remove_all_data.cjs \
+            MemberWebsocket-dev/tests/integration/platform_postgrest_reset.cjs \
+            MemberWebsocket-dev/tests/integration/product_admin_ui.cjs \
+            MemberWebsocket-dev/tests/integration/business_line_settings.cjs \
+            MemberWebsocket-dev/tests/integration/line_settings_simple.cjs \
+            MemberWebsocket-dev/tests/integration/line_settings_workspace.cjs \
+            MemberWebsocket-dev/tests/integration/line_capabilities.cjs \
+            MemberWebsocket-dev/tests/integration/line_webhook_sql.cjs \
+            MemberWebsocket-dev/tests/integration/member_invitations_sql.cjs \
+            MemberWebsocket-dev/tests/integration/line_webhook_api.cjs \
+            MemberWebsocket-dev/tests/integration/line_webhook_ui.cjs \
+            MemberWebsocket-dev/tests/integration/line_capabilities_sql.cjs \
+            MemberWebsocket-dev/tests/integration/line_capabilities_ui.cjs \
+            MemberWebsocket-dev/tests/integration/line_settings_keyboard.cjs \
+            MemberWebsocket-dev/tests/integration/notification_routes.cjs \
+            MemberWebsocket-dev/tests/integration/booking_notification_events.cjs \
+            MemberWebsocket-dev/tests/integration/booking_no_show_policy.cjs \
+            MemberWebsocket-dev/tests/integration/booking_risk_boundaries.cjs \
+            MemberWebsocket-dev/tests/integration/booking_risk_ui.cjs \
+            MemberWebsocket-dev/tests/integration/booking_risk_workspace_ux.cjs \
+            MemberWebsocket-dev/tests/integration/booking_risk_confirmation.cjs \
             MemberWebsocket-dev/tests/integration/admin_startup.cjs \
             MemberWebsocket-dev/tests/integration/admin_terms.cjs \
+            MemberWebsocket-dev/tests/integration/booking_calendar_day_records.cjs \
             MemberWebsocket-dev/tests/integration/booking_startup.cjs \
             MemberWebsocket-dev/tests/integration/booking_benefits.cjs \
             MemberWebsocket-dev/tests/integration/shared_event_ticket.cjs \
@@ -90,6 +124,7 @@ jobs:
             MemberWebsocket-dev/tests/integration/test_duplicate_login_sql.cjs \
             MemberWebsocket-dev/tests/integration/login_session_sql.cjs \
             MemberWebsocket-dev/tests/integration/member_removal_sql.cjs \
+            MemberWebsocket-dev/tests/integration/receipt_storage_tenant_guard.cjs \
             MemberWebsocket-dev/tests/integration/service_grant_sql.cjs \
             MemberWebsocket-dev/tests/integration/referral_current_rule_sql.cjs \
             MemberWebsocket-dev/tests/integration/e2e_feature_nodes.cjs \
@@ -101,6 +136,7 @@ jobs:
             MemberWebsocket-dev/tests/integration/qa_cleanup_boundaries.cjs \
             MemberWebsocket-dev/tests/integration/member_p2_features.cjs \
             MemberWebsocket-dev/tests/integration/friends_ui.cjs \
+            MemberWebsocket-dev/tests/integration/member_invitations_ui.cjs \
             MemberWebsocket-dev/tests/integration/ongoing_ticket_audit.cjs \
             MemberWebsocket-dev/tests/integration/ticket_selection_ui.cjs \
             MemberWebsocket-dev/tests/integration/qr_modal_lifecycle.cjs \
@@ -110,6 +146,8 @@ jobs:
             MemberWebsocket-dev/tests/integration/friend_qr_scanner.cjs
           node --max-old-space-size=1024 --test MemberWebsocket-dev/tests/integration/admin_human_journeys.cjs
           node --test MemberWebsocket-dev/tests/integration/ongoing_release_20261014.cjs MemberWebsocket-dev/tests/integration/ongoing_release_ui.cjs
+          node --test MemberWebsocket-dev/tests/integration/booking_member_reminder.cjs
+          node --test MemberWebsocket-dev/tests/integration/business-runtime.cjs MemberWebsocket-dev/tests/integration/admin_access_lifecycle.cjs
           node MemberWebsocket-dev/tests/integration/booking_ui.cjs
           node MemberWebsocket-dev/tests/integration/booking_sql.cjs
           node MemberWebsocket-dev/tests/integration/event_coupon_sql.cjs
@@ -120,49 +158,42 @@ jobs:
     name: Chromium admin, member, receipt and GPS E2E
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      # Keep every shard running so one failure does not erase other evidence.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          # Node 24 V8 can abort while releasing PGlite WASM wrappers (nodejs/node#66366).
+          # Keep all SQL/browser assertions on the supported Node 22 runtime.
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: MemberWebsocket-dev/tests/browser/package-lock.json
       - name: Install browser test dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: MemberWebsocket-dev/tests/browser
+      - name: Install SQL fixture dependencies for platform browser tests
+        run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: MemberWebsocket-dev/tests/integration
       - name: Install Chromium and system dependencies
         run: npx playwright install --with-deps chromium --only-shell
         working-directory: MemberWebsocket-dev/tests/browser
-      - name: Check selected-scope production runner nodes first
-        run: >-
-          npm test -- admin-human.spec.cjs member-p2.spec.cjs
-          booking-history-tabs.spec.cjs snapshot-history-tabs.spec.cjs
-          --grep 'selected-scope|RUNNER_ADMIN_MEMBER_DIRECTORY|RUNNER_ADMIN_MEMBER_USAGE|RUNNER_ADMIN_OPERATION_AUDIT|RUNNER_ADMIN_BOOKING_NO_SHOW'
-        working-directory: MemberWebsocket-dev/tests/browser
-      - name: Check E2E refresh and purged-history recovery first
-        run: npm test -- e2e-refresh.spec.cjs
-        working-directory: MemberWebsocket-dev/tests/browser
-      - name: Fail fast on ticket selections and shared layouts
-        run: npm test -- ticket-selection.spec.cjs ui-layout.spec.cjs
-        working-directory: MemberWebsocket-dev/tests/browser
-      - name: Fail fast on mobile member pass and GPS permission retry
-        run: |
-          npm test -- member-p2.spec.cjs --grep "membership pass actions stay grouped"
-          npm test -- receipt-location.spec.cjs --grep "GPS permission denial"
-        working-directory: MemberWebsocket-dev/tests/browser
-      - name: Fail fast on no-show confirmation and readable audit
-        run: npm test -- admin-human.spec.cjs --grep "BOOKING_NO_SHOW|AUDIT_QUERY"
-        working-directory: MemberWebsocket-dev/tests/browser
       - name: Run real-browser admin, member, receipt and location flows
-        run: npm test
+        # All former priority subsets are included in this unfiltered baseline.
+        # File-level sharding preserves each spec's fixture and serial semantics.
+        run: npm test -- --shard=${{ matrix.shard }}/3
         working-directory: MemberWebsocket-dev/tests/browser
       - name: Save browser diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: memberwebsocket-browser-${{ github.run_attempt }}
+          name: memberwebsocket-browser-${{ matrix.shard }}-${{ github.run_attempt }}
           path: |
             MemberWebsocket-dev/tests/browser/browser-results.xml
+            MemberWebsocket-dev/tests/browser/playwright-report
             MemberWebsocket-dev/tests/browser/test-results
           retention-days: 7
           if-no-files-found: warn
@@ -179,6 +210,9 @@ jobs:
       - name: Check browser JavaScript syntax
         run: |
           printf '%s\n' \
+            MemberWebsocket-dev/platform/app.js \
+            MemberWebsocket-dev/admin/business-line-settings.js \
+            MemberWebsocket-dev/admin/business-workspace.js \
             MemberWebsocket-dev/friends.js \
             MemberWebsocket-dev/friend-qr-scanner.js \
             MemberWebsocket-dev/vendor/friend-qr-decoder.js \
@@ -233,6 +267,59 @@ jobs:
             MemberWebsocket-dev/booking/calendar-flow.js \
           | xargs -n1 -P4 node --check
 
+  postgres-integration:
+    name: PostgreSQL 17 transactions and recovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: synthetic-ci-only
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: MemberWebsocket-dev/tests/integration/package-lock.json
+      - name: Install pinned PostgreSQL test client
+        run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: MemberWebsocket-dev/tests/integration
+      - name: Test isolated database migrations, physical sessions and backup restore
+        env:
+          POSTGRES_TEST_PORT: ${{ job.services.postgres.ports[5432] }}
+          POSTGRES_TEST_CONTAINER: ${{ job.services.postgres.id }}
+        run: >-
+          node --test --test-concurrency=1
+          --test-reporter=spec --test-reporter-destination=stdout
+          --test-reporter=junit --test-reporter-destination=postgres-results.xml
+          MemberWebsocket-dev/tests/integration/postgres/booking-risk.cjs
+          MemberWebsocket-dev/tests/integration/postgres/booking-phone.cjs
+          MemberWebsocket-dev/tests/integration/postgres/ticket-service-groups.cjs
+          MemberWebsocket-dev/tests/integration/postgres/member-activation.cjs
+          MemberWebsocket-dev/tests/integration/postgres/line-capabilities.cjs
+          MemberWebsocket-dev/tests/integration/postgres/line-webhook.cjs
+          MemberWebsocket-dev/tests/integration/postgres/member-invitations.cjs
+          MemberWebsocket-dev/tests/integration/postgres/admin-qualification.cjs
+          MemberWebsocket-dev/tests/integration/postgres/merchant-applications.cjs
+          MemberWebsocket-dev/tests/integration/postgres/sandbox-fixture-lifecycle.cjs
+      - name: Save PostgreSQL acceptance results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-transactions-${{ github.run_attempt }}
+          path: postgres-results.xml
+          retention-days: 7
+          if-no-files-found: error
+
   edge-functions:
     name: Supabase Edge Function typecheck
     runs-on: ubuntu-latest
@@ -245,6 +332,8 @@ jobs:
       - name: Check Edge Functions
         run: |
           deno check \
+            MemberWebsocket-dev/supabase/functions/platform-api/index.ts \
+            MemberWebsocket-dev/supabase/functions/line-webhook/index.ts \
             MemberWebsocket-dev/supabase/functions/api/index.ts \
             MemberWebsocket-dev/supabase/functions/birthday-benefits/index.ts \
             MemberWebsocket-dev/supabase/functions/test-mode-api/index.ts \
@@ -464,10 +553,26 @@ jobs:
           grep -q 'notify_admin_config_realtime_change' MemberWebsocket-dev/supabase/migrations/20260910_transactional_realtime_invalidation.sql
           grep -q 'notify_admin_grant_realtime_change' MemberWebsocket-dev/supabase/migrations/20260910_transactional_realtime_invalidation.sql
 
+  dependency-audit:
+    name: Dependency vulnerability audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Audit browser and integration dependency trees
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund --prefix MemberWebsocket-dev/tests/browser
+          npm ci --ignore-scripts --no-audit --no-fund --prefix MemberWebsocket-dev/tests/integration
+          npm audit --prefix MemberWebsocket-dev/tests/browser --audit-level=low
+          npm audit --prefix MemberWebsocket-dev/tests/integration --audit-level=low
+
   validate:
     name: Validate MemberWebsocket Dev
     if: always()
-    needs: [regression, integration, browser-e2e, browser-syntax, edge-functions, wiring]
+    needs: [regression, integration, postgres-integration, browser-e2e, browser-syntax, edge-functions, wiring, dependency-audit]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -475,16 +580,20 @@ jobs:
         env:
           REGRESSION: ${{ needs.regression.result }}
           INTEGRATION: ${{ needs.integration.result }}
+          POSTGRES_INTEGRATION: ${{ needs.postgres-integration.result }}
           BROWSER_SYNTAX: ${{ needs.browser-syntax.result }}
           BROWSER_E2E: ${{ needs.browser-e2e.result }}
           EDGE_FUNCTIONS: ${{ needs.edge-functions.result }}
           WIRING: ${{ needs.wiring.result }}
+          DEPENDENCY_AUDIT: ${{ needs.dependency-audit.result }}
         run: |
           printf 'regression=%s\nintegration=%s\nbrowser-syntax=%s\nedge-functions=%s\nwiring=%s\n' \
             "$REGRESSION" "$INTEGRATION" "$BROWSER_SYNTAX" "$EDGE_FUNCTIONS" "$WIRING"
           test "$REGRESSION" = success
           test "$INTEGRATION" = success
+          test "$POSTGRES_INTEGRATION" = success
           test "$BROWSER_SYNTAX" = success
           test "$BROWSER_E2E" = success
           test "$EDGE_FUNCTIONS" = success
           test "$WIRING" = success
+          test "$DEPENDENCY_AUDIT" = success

@@ -87,7 +87,7 @@ test('member booking entry loads only the current single render pipeline', () =>
   assert.ok(html.includes('member-ui.js?v=test-mode-20260920-1'));
   assert.ok(html.includes('app.js?v=booking-member-chat-20261003-1'));
   assert.ok(html.includes('contact-details.js?v=test-mode-20260920-1'));
-  assert.ok(html.includes('calendar-flow.js?v=csp-hardening-20260929-1'));
+  assert.ok(html.includes('calendar-flow.js?v=member-reservation-times-20261021-1'));
 
   assert.ok(!html.includes('member-booking-format.js'));
   assert.ok(!html.includes('booking-confirm-details.js'));
@@ -127,10 +127,12 @@ test('calendar date fix keeps native date inputs shrinkable in LINE WebView', ()
 });
 
 
-test('member-facing pages load the current human E2E controller and refresh hooks', () => {
+test('production pages omit QA controllers and preserve runtime refresh hooks', () => {
   for (const relative of ['member/index.html','points/index.html','event/index.html','calendar/index.html','booking/index.html']) {
     const html = read(relative);
-    assert.match(html, /\.\.\/user-test-control\.js\?v=qa-e2e-\d{8}-\d+/, relative);
+    assert.doesNotMatch(html, /user-test-control\.js|test-mode-client\.js/, relative);
+    const fixture = read('tests/fixtures/' + relative.split('/')[0] + '-e2e.html');
+    assert.match(fixture, /user-test-control\.js\?v=qa-e2e-\d{8}-\d+/, relative);
   }
   const appVersions = {
     'points/index.html': './app.js?v=point-transfer-realtime-20261001-2',

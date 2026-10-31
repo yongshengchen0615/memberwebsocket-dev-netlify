@@ -12,6 +12,38 @@ const profileExtension = fs.readFileSync(path.join(root, 'member/profile-extensi
 const terms = { id: 'terms-2', version: '2026-10-v2', title: '新版條款', summary: '請閱讀', body: '完整條款內容' };
 const profile = { profileComplete: true, membershipRequired: false, joinedAt: '2026-01-01' };
 
+// The 10/28 client OA/recommendation UI is intentionally rolled back to 10/27.
+// Server-side friendship authorization remains covered by member_oa*.test.js.
+test('RB-001: October 27 signup renders its original form without calling the newer OA endpoint',async()=>{
+ const pending={lineUserId:'new-member',profileComplete:false,membershipRequired:true};
+ const {dom,w,calls}=await start(false,{config:{memberFriendshipFlowEnabled:true},profile:pending,
+  bootstrapResult:()=>({profile:pending,terms,memberOa:{required:true,configured:true,addFriendUrl:'https://line.me/R/ti/p/%40safe-oa'}}),
+  oaCheck:()=>{throw new Error('The rolled-back client must not call the newer OA check');}
+ });
+ try {
+  assert.equal(w.document.getElementById('profileForm').hidden,false);
+  assert.equal(w.document.getElementById('memberOaJoin'),null);
+  assert.equal(calls.filter(c=>c.action==='user.member.oa.check').length,0);
+  assert.equal(calls.filter(c=>c.action==='user.member.profile.save').length,0);
+  assert.match(w.document.getElementById('joinTermsBody').textContent,/完整條款/);
+ }finally{dom.window.close();}
+});
+
+test('RB-002: rolled-back member page does not mount native OA or new invitation controls',async()=>{
+ let requested=0;
+ const pending={profileComplete:false,membershipRequired:true};
+ const {dom,w}=await start(false,{config:{memberFriendshipFlowEnabled:true,memberInvitationsEnabled:true},profile:pending,
+  liff:{isInClient:()=>true,getContext:()=>({viewType:'full'}),requestFriendship:async()=>requested++},
+  bootstrapResult:()=>({profile:pending,terms,memberOa:{required:true,configured:false}})
+ });
+ try {
+  assert.equal(w.document.getElementById('memberOaJoin'),null);
+  assert.equal(requested,0);
+  assert.equal(w.document.querySelector('script[src*="member-invitations.js"]'),null);
+  assert.equal(w.document.getElementById('profileForm').hidden,false);
+ }finally{dom.window.close();}
+});
+
 async function start(consentRequired, options = {}) {
   const dom = new JSDOM(html, { runScripts: 'outside-only', url: 'https://example.test/member/' });
   const currentProfile = options.profile || profile;
@@ -20,7 +52,7 @@ async function start(consentRequired, options = {}) {
   const calls = [];
   w.MemberSystem = {
     bindDialogKeyboard() {},
-    loadConfig: async () => ({ brandName: 'Lumen Club' }),
+    loadConfig: async () => ({ brandName: 'Lumen Club', ...options.config }),
     signIn: async () => 'fixture-token',
     initials: () => '會',
     formatDate: (value) => value || '',
@@ -40,10 +72,12 @@ async function start(consentRequired, options = {}) {
         if (typeof options.profileSaveResult === 'function') return options.profileSaveResult(payload);
         return { profile: { ...currentProfile, profileComplete: true, membershipRequired: false } };
       }
+      if (action === 'user.member.oa.check' && options.oaCheck) return options.oaCheck();
       throw new Error(`Unexpected action: ${action}`);
     },
   };
   w.MembershipProgress = { render() {} };
+  if (options.liff) w.liff = options.liff;
   w.eval(memberPhone);
   if (options.loadProfileExtension) w.eval(profileExtension);
   w.eval(app);

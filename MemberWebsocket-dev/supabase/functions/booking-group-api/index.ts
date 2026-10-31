@@ -1,8 +1,9 @@
+import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
 import { hasCurrentTermsConsent } from "../_shared/membership-terms.ts";
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
 import { resolveUserTestIdentity, TestModeAuthError } from "../_shared/test-mode-auth.ts";
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 import { workWindow, clockTime, occupiedRange, localRange, slotHasPassed, timeOnBusinessDate, localTimestamp, currentBusinessDate } from "../_shared/booking-hours.ts";
 
 type Json = Record<string, any>;
@@ -27,7 +28,7 @@ class ApiError extends Error {
   }
 }
 
-const env = (name: string) => (Deno.env.get(name) || "").trim();
+const env = (name: string) => (businessEnv(name) || "").trim();
 function allowedOrigins() {
   return new Set([(env("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io"), "https://develop--memberwebsocket-dev-netlify.netlify.app"].join(",").split(",").map((v) => v.trim()).filter(Boolean));
 }
@@ -50,6 +51,7 @@ function mapDbError(error: any): ApiError {
     ["FRIEND_ACCEPTED_REQUIRED",403,"FRIEND_ACCEPTED_REQUIRED","好友需要接受邀請後才能代約。"],
     ["FRIEND_SINGLE_RECIPIENT_REQUIRED",400,"FRIEND_SINGLE_RECIPIENT_REQUIRED","代好友預約請選擇單人服務。"],
     ["REQUEST_ID_CONFLICT",409,"REQUEST_ID_CONFLICT","同一操作識別不可更換受服務者。"],
+    ["BOOKING_RESTRICTED",403,"BOOKING_RESTRICTED","目前暫停線上預約，請重新整理查看到期時間與聯絡方式。"],
     ["BOOKING_SLOT_TAKEN",409,"BOOKING_SLOT_TAKEN","選擇的技師在這段時間剛被預約，請選擇其他時間。"],
     ["INVALID_BOOKING_BENEFITS",400,"INVALID_BOOKING_BENEFITS","選用優惠資料格式不正確。"],
     ["EVENT_TICKET_ALREADY_REGISTERED",409,"EVENT_TICKET_ALREADY_REGISTERED","這張活動票券已在一般預約或快照模式登記，不能重複登記。"],
@@ -61,6 +63,9 @@ function mapDbError(error: any): ApiError {
     ["BOOKING_CONFLICT",409,"BOOKING_CONFLICT","預約已被更新，請重新整理後再操作。"],
     ["BOOKING_CANCELLATION_PENDING",409,"BOOKING_CANCELLATION_PENDING","這筆預約已有待確認的取消申請，請先完成取消審核後再修改。"],
     ["BOOKING_NOT_EDITABLE",409,"BOOKING_NOT_EDITABLE","這筆預約目前無法修改。"],
+    ["INVALID_BOOKING_REMINDER",400,"INVALID_BOOKING_REMINDER","請選擇正確的前一天提醒時間。"],
+    ["REMINDER_TIME_PASSED",409,"REMINDER_TIME_PASSED","所選前一天提醒時間已過，請關閉提醒或修改時間。"],
+    ["BOOKING_REMINDER_OWNER_MISMATCH",403,"BOOKING_REMINDER_OWNER_MISMATCH","無法修改不屬於你的預約。"],
     ["BOOKING_TOO_EARLY",409,"BOOKING_TOO_EARLY","尚未符合提前預約天數。"],
     ["BOOKING_TOO_FAR",409,"BOOKING_TOO_FAR","此日期超過可預約範圍。"],
     ["BOOKING_TIME_PASSED",409,"BOOKING_TIME_PASSED","這個預約時間已經過了。"],
@@ -221,7 +226,7 @@ async function fullBooking(s: SupabaseClient, id: string) {
   if (ir.error) throw mapDbError(ir.error);
   if (benefitResult.error) throw mapDbError(benefitResult.error);
   const items=(ir.data||[]).map(itemClient), benefits=(benefitResult.data||[]).filter((x:any)=>["points","event"].includes(String(x.benefit_kind||""))).map((x:any)=>({kind:x.benefit_kind,id:x.benefit_ref,title:x.title_snapshot||"可用權益",status:x.status||"pending",cancellationReason:x.result?.cancellationReason||"",redeemedAt:x.redeemed_at||null})), g=(await groupData(s,[id])).get(id)||{}, r=br.data;
-  return { bookingId:r.id, requestId:r.request_id, serviceId:r.service_id, serviceTitle:items.map((x:any)=>x.serviceTitle).join(" + ")||"預約項目", items, benefits, totalDurationMinutes:Number(r.total_duration_minutes||30), totalAmount:items.reduce((sum:number,x:any)=>sum+Number(x.subtotalAmount||0),0), memberId:r.member_id, memberDisplayName:r.members?.display_name||"", memberCode:r.members?.member_code||"", bookingDate:r.booking_date, startTime:String(r.start_time||"").slice(0,5), endTime:String(r.end_time||"").slice(0,5), startAt:localTimestamp(r.start_at), endAt:localTimestamp(r.end_at), status:r.status, memberNote:r.member_note||"", adminNote:r.admin_note||"", completedAt:r.completed_at||null, confirmedAt:r.confirmed_at, rejectedAt:r.rejected_at, cancelledAt:r.cancelled_at, createdAt:r.created_at, updatedAt:r.updated_at, contactSource:r.contact_source||"member", contactSurname:r.contact_surname||"", contactSalutation:r.contact_salutation||"", contactPhone:r.contact_phone||"", ...g };
+  return { bookingId:r.id, requestId:r.request_id, serviceId:r.service_id, serviceTitle:items.map((x:any)=>x.serviceTitle).join(" + ")||"預約項目", items, benefits, totalDurationMinutes:Number(r.total_duration_minutes||30), totalAmount:items.reduce((sum:number,x:any)=>sum+Number(x.subtotalAmount||0),0), memberId:r.member_id, memberDisplayName:r.members?.display_name||"", memberCode:r.members?.member_code||"", bookingDate:r.booking_date, startTime:String(r.start_time||"").slice(0,5), endTime:String(r.end_time||"").slice(0,5), startAt:localTimestamp(r.start_at), endAt:localTimestamp(r.end_at), status:r.status, memberNote:r.member_note||"", reminderEnabled:r.reminder_enabled===true, reminderTime:String(r.reminder_time||"18:00:00").slice(0,5), adminNote:r.admin_note||"", completedAt:r.completed_at||null, confirmedAt:r.confirmed_at, rejectedAt:r.rejected_at, cancelledAt:r.cancelled_at, createdAt:r.created_at, updatedAt:r.updated_at, contactSource:r.contact_source||"member", contactSurname:r.contact_surname||"", contactSalutation:r.contact_salutation||"", contactPhone:r.contact_phone||"", ...g };
 }
 
 async function normalizeGroup(s: SupabaseClient, body: Json) {
@@ -350,13 +355,22 @@ async function validateBookingBenefitSelectionLimit(s: SupabaseClient, value: un
   if (maxPoint>0&&pointCount>maxPoint) throw new ApiError(409,"POINT_TICKET_SELECTION_LIMIT_EXCEEDED",`集點卡票券每筆預約最多可選 ${maxPoint} 張。`);
   return benefits;
 }
+function reminderInput(body: Json) {
+  const enabled = body.reminderEnabled === undefined ? false : body.reminderEnabled;
+  const time = body.reminderTime === undefined ? "18:00" : body.reminderTime;
+  if (typeof enabled !== "boolean" || typeof time !== "string"
+      || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+    throw new ApiError(400,"INVALID_BOOKING_REMINDER","請選擇正確的前一天提醒時間。");
+  }
+  return {p_reminder_enabled:enabled,p_reminder_time:`${time}:00`};
+}
 async function createBooking(s: SupabaseClient, i: Identity, m: any, body: Json) {
   const g=await normalizeGroup(s,body), c=contact(body), requestId=asText(body.requestId,100), bookingDate=dateValue(body.bookingDate);
   assertBookingDateWindow(g.cfg,bookingDate);
   if (!/^BOOK-[A-Za-z0-9-]{8,95}$/.test(requestId)) throw new ApiError(400,"INVALID_REQUEST_ID","操作識別碼格式不正確。");
   const benefits=await validateBookingBenefitSelectionLimit(s,body.benefits);
   const friendCode=asText(body.serviceRecipientMemberCode,40);
-  const r=await s.rpc(friendCode ? "create_friend_booking_request" : "create_group_booking_with_benefits_request_v2", { ...(friendCode?{p_actor:i.lineUserId,p_friend_code:friendCode}:{p_member_id:m.id}), p_request_id:requestId, p_booking_date:bookingDate, p_start_time:`${timeValue(body.startTime)}:00`, p_participants:g.participants, p_member_note:asText(body.memberNote,500), p_contact_source:c.source, p_contact_surname:c.surname, p_contact_salutation:c.salutation, p_contact_phone:c.phone, p_benefits:benefits });
+  const r=await s.rpc(friendCode ? "create_friend_booking_with_reminder" : "create_group_booking_with_benefits_reminder_v2", { ...(friendCode?{p_actor:i.lineUserId,p_friend_code:friendCode}:{p_member_id:m.id}), p_request_id:requestId, p_booking_date:bookingDate, p_start_time:`${timeValue(body.startTime)}:00`, p_participants:g.participants, p_member_note:asText(body.memberNote,500), p_contact_source:c.source, p_contact_surname:c.surname, p_contact_salutation:c.salutation, p_contact_phone:c.phone, p_benefits:benefits, ...reminderInput(body) });
   if (r.error) throw mapDbError(r.error); const row=Array.isArray(r.data)?r.data[0]:r.data, booking=await fullBooking(s,row.id);
   await audit(s,i,"member","BOOKING_GROUP_REQUESTED","booking",row.id,{partySize:g.participants.length,requirePrimaryTechnician:g.cfg.require_primary_technician !== false,primaryTechnicianId:g.primaryId,participantTechnicians:g.participants.map((p:any)=>p.technicianId||null)});
   return {booking};
@@ -369,7 +383,7 @@ async function updateBooking(s: SupabaseClient, i: Identity, m: any, body: Json)
   if(existing.error)throw mapDbError(existing.error);
   if(existing.data?.service_recipient_member_id && g.participants.length!==1)throw new ApiError(400,"FRIEND_SINGLE_RECIPIENT_REQUIRED","代好友預約只支援單人服務。");
   const benefits=await validateBookingBenefitSelectionLimit(s,body.benefits);
-  const r=await s.rpc("update_group_booking_with_benefits_request_v2", { p_booking_id:bookingId, p_expected_updated_at:expected, p_actor:i.lineUserId, p_request_id:asText(body.requestId,100), p_member_id:m.id, p_booking_date:bookingDate, p_start_time:`${timeValue(body.startTime)}:00`, p_participants:g.participants, p_member_note:asText(body.memberNote,500), p_contact_source:c.source, p_contact_surname:c.surname, p_contact_salutation:c.salutation, p_contact_phone:c.phone, p_benefits:benefits });
+  const r=await s.rpc("update_group_booking_with_benefits_reminder_v2", { p_booking_id:bookingId, p_expected_updated_at:expected, p_actor:i.lineUserId, p_request_id:asText(body.requestId,100), p_member_id:m.id, p_booking_date:bookingDate, p_start_time:`${timeValue(body.startTime)}:00`, p_participants:g.participants, p_member_note:asText(body.memberNote,500), p_contact_source:c.source, p_contact_surname:c.surname, p_contact_salutation:c.salutation, p_contact_phone:c.phone, p_benefits:benefits, ...reminderInput(body) });
   if (r.error) throw mapDbError(r.error); return {booking:await fullBooking(s,bookingId)};
 }
 
@@ -426,7 +440,7 @@ async function route(s: SupabaseClient, i: Identity, clientType: ClientType, act
   throw new ApiError(404,"ACTION_NOT_FOUND","不支援的預約資源管理操作。");
 }
 
-Deno.serve(async (req: Request) => {
+serveBusiness('booking-group-api',async (req: Request) => {
   const origin=req.headers.get("Origin");
   if (req.method==="OPTIONS") return new Response(null,{status:204,headers:cors(origin)});
   if (req.method!=="POST") return reply(origin,{ok:false,error:{code:"METHOD_NOT_ALLOWED",message:"只支援 POST。"}},405);

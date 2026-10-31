@@ -1,0 +1,31 @@
+name: Project 5 PR Change Risk
+
+# No paths filter: even docs/workflow/SQL-only PRs must get a risk verdict.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  assess:
+    name: Change risk and evidence gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify risk classifier
+        run: node --test scripts/pr-change-risk.test.mjs
+      - name: Classify changed files and required PR evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/pr-change-risk.mjs --github

@@ -1,9 +1,10 @@
+import { businessEnv, businessContext, serveBusiness } from '../_shared/business-runtime.ts';
 import { linkedBooking } from "../_shared/linked-booking.ts";
 import { hasCurrentTermsConsent } from "../_shared/membership-terms.ts";
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
 import { resolveTestSession, TestModeAuthError } from "../_shared/test-mode-auth.ts";
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 import { workWindow, clockTime, occupiedRange, localRange, slotHasPassed, timeOnBusinessDate, localTimestamp, currentBusinessDate } from "../_shared/booking-hours.ts";
 
 type Json = Record<string, unknown>;
@@ -19,11 +20,15 @@ const STORE_SERVICE_ID = "00000000-0000-4000-8000-000000000010";
 const TYPE_PREFIX = "__TYPE__:";
 const WRITE_ACTIONS = new Set([
   "user.booking.create",
+  "admin.booking.risk.save",
+  "admin.booking.risk.revoke",
+  "admin.booking.risk.release",
   "user.booking.cancel",
   "user.booking.update",
   "admin.booking.settings.save",
   "admin.booking.service.save",
   "admin.booking.status.update",
+  "admin.booking.phone.create",
   "admin.booking.notifications.read",
 ]);
 
@@ -40,7 +45,7 @@ class ApiError extends Error {
 }
 
 function env(name: string): string {
-  return (Deno.env.get(name) || "").trim();
+  return (businessEnv(name) || "").trim();
 }
 
 function allowedOrigins(): Set<string> {
@@ -80,11 +85,19 @@ function mapDatabaseError(error: unknown): ApiError {
   const raw = error as { message?: string; details?: string; code?: string };
   const message = `${raw?.message || ""} ${raw?.details || ""}`;
   const rules: Array<[string, number, string, string]> = [
+    ["BOOKING_RESTRICTED",403,"BOOKING_RESTRICTED","目前暫停線上預約，請重新整理查看到期時間與聯絡方式。"],
+    // Legacy SQL error also protects administrator revoke/release reason validation.
+    ["INVALID_APPEAL_REASON",400,"INVALID_RISK_ACTION_REASON","請填寫 1–500 字的撤銷或解除原因。"],
+    ["booking_no_show_policy",400,"INVALID_BOOKING_POLICY","請完整設定計次期間、門檻、限制期限、寬限與聯絡方式。"],
     ["INVALID_BOOKING_ID",400,"INVALID_BOOKING_ID","預約識別格式不正確。"],
     ["BOOKING_NO_SHOW_TOO_EARLY",409,"BOOKING_NO_SHOW_TOO_EARLY","服務結束後才能標記無故未到。"],
     ["BOOKING_NO_SHOW_NOT_ALLOWED",409,"BOOKING_NO_SHOW_NOT_ALLOWED","只有待確認的一般預約可標記無故未到，請重新整理。"],
     ["BOOKING_NOT_FOUND",404,"BOOKING_NOT_FOUND","找不到這筆預約。"],
     ["ADMIN_REQUIRED",403,"ADMIN_REQUIRED","目前沒有管理員權限。"],
+    ["PHONE_BOOKING_CONFLICT",409,"PHONE_BOOKING_CONFLICT","此時段已有預約，請先取消原預約，或選擇其他時段。"],
+    ["INVALID_BOOKING_CONTACT",400,"INVALID_BOOKING_CONTACT","請填寫客人姓氏、稱謂與有效的聯絡電話。"],
+    ["INVALID_BOOKING_NOTE",400,"INVALID_BOOKING_NOTE","預約說明不得超過 500 字。"],
+    ["INVALID_REQUEST_ID",400,"INVALID_REQUEST_ID","操作識別碼不正確，請重新開啟電話預約表單。"],
     ["BOOKING_CONFLICT", 409, "BOOKING_CONFLICT", "預約已被更新，請重新整理後再操作。"],
     ["BOOKING_NOT_EDITABLE", 409, "BOOKING_NOT_EDITABLE", "這筆預約已開始或狀態已變更，無法修改。"],
     ["BOOKING_CANCELLATION_PENDING", 409, "BOOKING_CANCELLATION_PENDING", "這筆預約已有待確認的取消申請，請先完成取消審核後再變更預約。"],
@@ -120,6 +133,9 @@ function mapDatabaseError(error: unknown): ApiError {
     ["INVALID_BOOKING_DURATION", 400, "INVALID_BOOKING_DURATION", "預約服務總時間不正確。"],
     ["INVALID_BOOKING_SLOT", 400, "INVALID_BOOKING_SLOT", "這段預約時間超出管理員上班時間。"],
     ["REQUEST_ID_CONFLICT", 409, "REQUEST_ID_CONFLICT", "操作識別碼衝突，請重新操作。"],
+    ["INVALID_BOOKING_REMINDER", 400, "INVALID_BOOKING_REMINDER", "請選擇正確的前一天提醒時間。"],
+    ["REMINDER_TIME_PASSED", 409, "REMINDER_TIME_PASSED", "所選前一天提醒時間已過，請關閉提醒或修改時間。"],
+    ["BOOKING_REMINDER_OWNER_MISMATCH", 403, "BOOKING_REMINDER_OWNER_MISMATCH", "無法修改不屬於你的預約。"],
     ["MEMBERSHIP_REQUIRED", 403, "MEMBERSHIP_REQUIRED", "請先加入會員並完成會員資料後再使用預約功能。"],
     ["MEMBER_DISABLED", 403, "MEMBER_DISABLED", "此會員目前已停用，無法預約。"],
     ["MEMBER_NOT_FOUND", 403, "MEMBERSHIP_REQUIRED", "請先加入會員並完成會員資料後再使用預約功能。"],
@@ -380,6 +396,16 @@ async function validateBookingBenefitSelectionLimit(supabase: SupabaseClient, va
   return benefits;
 }
 
+function normalizeMemberReminder(body: Json): { enabled: boolean; time: string } {
+  const enabled = body.reminderEnabled === undefined ? false : body.reminderEnabled;
+  const time = body.reminderTime === undefined ? "18:00" : body.reminderTime;
+  if (typeof enabled !== "boolean" || typeof time !== "string"
+      || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+    throw new ApiError(400, "INVALID_BOOKING_REMINDER", "請選擇正確的前一天提醒時間。");
+  }
+  return { enabled, time: `${time}:00` };
+}
+
 function bookingClient(row: any, items: any[] = [], benefits: any[] = []): Json {
   const member = row.members || row.member || null;
   const mappedItems = items.map(itemClient);
@@ -393,6 +419,7 @@ function bookingClient(row: any, items: any[] = [], benefits: any[] = []): Json 
     totalDurationMinutes: Number(row.total_duration_minutes || 30),
     totalAmount: mappedItems.reduce((sum, item: any) => sum + Number(item.subtotalAmount || 0), 0),
     memberId: row.member_id,
+    bookingSource: !row.member_id && String(row.request_id || "").startsWith("PHONE-") ? "phone" : "member",
     memberDisplayName: member?.display_name || "",
     memberCode: member?.member_code || "",
     bookingDate: row.booking_date,
@@ -402,6 +429,8 @@ function bookingClient(row: any, items: any[] = [], benefits: any[] = []): Json 
     endAt: localTimestamp(row.end_at),
     status: row.status,
     memberNote: row.member_note || "",
+    reminderEnabled: row.reminder_enabled === true,
+    reminderTime: String(row.reminder_time || "18:00:00").slice(0, 5),
     adminNote: row.admin_note || "",
     completedAt: row.completed_at || null,
     receiptSubmissionId:row.receipt_submission_id || null,
@@ -562,6 +591,7 @@ async function generateSlots(supabase: SupabaseClient, body: Json, member: any):
   const items = await normalizeRequestedItems(supabase, body);
   const settings = await bookingSettings(supabase);
   const duration = totalDuration(items);
+  const storeServiceMinutes = Number(items.find((item) => item.serviceId === STORE_SERVICE_ID)?.service?.duration_minutes ?? 0);
   if (duration < 1 || duration > 1440) throw new ApiError(400, "INVALID_BOOKING_DURATION", "預約服務總時間不正確。");
 
   const today = currentBusinessDate(taipeiDate(), taipeiMinutes(), settings.work_start_time, settings.work_end_time);
@@ -573,6 +603,7 @@ async function generateSlots(supabase: SupabaseClient, body: Json, member: any):
       serverNow: new Date().toISOString(),
       settings: settingsClient(settings),
       totalDurationMinutes: duration,
+      storeServiceMinutes,
       totalAmount: totalAmount(items),
       earliestBookingDate,
       latestBookingDate: latestBookingDate || null,
@@ -584,6 +615,7 @@ async function generateSlots(supabase: SupabaseClient, body: Json, member: any):
       serverNow: new Date().toISOString(),
       settings: settingsClient(settings),
       totalDurationMinutes: duration,
+      storeServiceMinutes,
       totalAmount: totalAmount(items),
       earliestBookingDate,
       latestBookingDate: latestBookingDate || null,
@@ -621,6 +653,7 @@ async function generateSlots(supabase: SupabaseClient, body: Json, member: any):
       startAt: timeOnBusinessDate(date, cursor),
       endAt: timeOnBusinessDate(date, candidateEnd),
       available: !overlap && !passed,
+      unavailableReason: overlap ? "occupied" : passed ? "past" : null,
     });
   }
 
@@ -628,11 +661,31 @@ async function generateSlots(supabase: SupabaseClient, body: Json, member: any):
     serverNow: new Date().toISOString(),
     settings: settingsClient(settings),
     totalDurationMinutes: duration,
+      storeServiceMinutes,
     totalAmount: totalAmount(items),
     earliestBookingDate,
     latestBookingDate: latestBookingDate || null,
     slots,
   };
+}
+
+// Admin phone reservations use the same service, business-hours, holiday and
+// occupied-range algorithm as member reservations. Never accept a member booking
+// exclusion ID from the admin: a phone reservation cannot override an existing one.
+async function adminPhoneSlots(supabase: SupabaseClient, body: Json): Promise<Json> {
+  const raw = Array.isArray(body.items) ? body.items : [];
+  if (!raw.length || raw.some((item: any) => String(item?.serviceId || "") === STORE_SERVICE_ID)) {
+    throw new ApiError(400, "INVALID_BOOKING_ITEMS", "請先選擇預約項目，店內服務時間由系統自動加入。");
+  }
+  const result = await generateSlots(supabase, {
+    bookingDate: body.bookingDate,
+    items: [...raw, { serviceId: STORE_SERVICE_ID, quantity: 1 }],
+  }, null);
+  // Phone booking SQL caps occupied duration at 1439 minutes.
+  if (Number(result.totalDurationMinutes) > 1439) {
+    throw new ApiError(400, "INVALID_BOOKING_DURATION", "預約服務總時間過長。");
+  }
+  return result;
 }
 
 async function audit(supabase: SupabaseClient, identity: Identity, role: "member" | "admin", action: string, targetType: string, targetId: string, metadata: Json = {}): Promise<void> {
@@ -694,8 +747,9 @@ async function userCreate(supabase: SupabaseClient, identity: Identity, member: 
   const items = await normalizeRequestedItems(supabase, body);
   const rpcItems = items.map((item) => ({ serviceId: item.serviceId, quantity: item.quantity }));
   const benefits = await validateBookingBenefitSelectionLimit(supabase, body.benefits);
+  const reminder = normalizeMemberReminder(body);
 
-  const created = await supabase.rpc("create_booking_bundle_with_benefits_request", {
+  const created = await supabase.rpc("create_booking_bundle_with_benefits_reminder", {
     p_request_id: requestId,
     p_member_id: member.id,
     p_booking_date: bookingDate,
@@ -703,6 +757,8 @@ async function userCreate(supabase: SupabaseClient, identity: Identity, member: 
     p_items: rpcItems,
     p_member_note: memberNote,
     p_benefits: benefits,
+    p_reminder_enabled: reminder.enabled,
+    p_reminder_time: reminder.time,
   });
   if (created.error) throw mapDatabaseError(created.error);
   const row = Array.isArray(created.data) ? created.data[0] : created.data;
@@ -729,13 +785,16 @@ async function userUpdate(supabase: SupabaseClient, identity: Identity, member: 
   assertBookingDateWindow(bookingDate, settings);
   const items = await normalizeRequestedItems(supabase, body);
   const benefits = await validateBookingBenefitSelectionLimit(supabase, body.benefits);
-  const result = await supabase.rpc("update_booking_bundle_with_benefits_request", {
+  const reminder = normalizeMemberReminder(body);
+  const result = await supabase.rpc("update_booking_bundle_with_benefits_reminder", {
     p_booking_id: bookingId, p_member_id: member.id,
     p_expected_updated_at: expectedUpdatedAt, p_request_id: requestId,
     p_booking_date: bookingDate, p_start_time: `${normalizeTime(body.startTime)}:00`,
     p_items: items.map((item) => ({ serviceId: item.serviceId, quantity: item.quantity })),
     p_member_note: asText(body.memberNote, 500), p_actor: identity.lineUserId,
     p_benefits: benefits,
+    p_reminder_enabled: reminder.enabled,
+    p_reminder_time: reminder.time,
   });
   if (result.error) throw mapDatabaseError(result.error);
   const row = Array.isArray(result.data) ? result.data[0] : result.data;
@@ -893,6 +952,53 @@ async function adminServiceSave(supabase: SupabaseClient, identity: Identity, bo
     await audit(supabase, identity, "admin", "BOOKING_SERVICE_CREATED", "booking_service", String(savedService.id), { durationMinutes, priceAmount, serviceType });
   }
   return { service: serviceClient(savedService) };
+}
+
+
+async function adminCreatePhoneBooking(supabase: SupabaseClient, identity: Identity, body: Json): Promise<Json> {
+  // Authorization occurs in route() before any admin operation. The SQL RPC
+  // independently rechecks active administrator status within the tenant.
+  const requestId = asText(body.requestId, 100);
+  if (!/^PHONE-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId)) {
+    throw new ApiError(400, "INVALID_REQUEST_ID", "操作識別碼不正確，請重新開啟電話預約表單。");
+  }
+  const surname = asText(body.contactSurname, 41);
+  const salutation = asText(body.contactSalutation, 10);
+  const phone = asText(body.contactPhone, 35);
+  if (!surname || surname.length > 40 || !["mr", "ms"].includes(salutation) ||
+      !/^\+?[0-9() -]{8,25}$/.test(phone)) {
+    throw new ApiError(400, "INVALID_BOOKING_CONTACT", "請填寫客人姓氏、稱謂與有效的聯絡電話。");
+  }
+  const adminNote = asText(body.adminNote, 501);
+  if (adminNote.length > 500) throw new ApiError(400, "INVALID_BOOKING_NOTE", "預約說明不得超過 500 字。");
+  if (!Array.isArray(body.items) || body.items.length < 1 || body.items.length > 20) {
+    throw new ApiError(400, "INVALID_BOOKING_ITEMS", "請至少選擇一個預約項目。");
+  }
+  const items = body.items.map((raw: any) => ({
+    serviceId: requireUuid(raw?.serviceId, "服務項目"),
+    quantity: Number(raw?.quantity ?? 1),
+  }));
+  if (items.some((item) => item.serviceId === STORE_SERVICE_ID || !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 2) ||
+      new Set(items.map((item) => item.serviceId)).size !== items.length) {
+    throw new ApiError(400, "INVALID_BOOKING_ITEMS", "服務項目不得重複，每項數量限 1 或 2。");
+  }
+  const bookingDate = requireDate(body.bookingDate);
+  const startTime = normalizeTime(body.startTime);
+  const result = await supabase.rpc("admin_create_phone_booking_request", {
+    p_request_id: requestId,
+    p_actor: identity.lineUserId,
+    p_booking_date: bookingDate,
+    p_start_time: `${startTime}:00`,
+    p_contact_surname: surname,
+    p_contact_salutation: salutation,
+    p_contact_phone: phone,
+    p_items: items,
+    p_admin_note: adminNote,
+  });
+  if (result.error) throw mapDatabaseError(result.error);
+  const row = Array.isArray(result.data) ? result.data[0] : result.data;
+  if (!row?.id) throw new ApiError(500, "BOOKING_CREATE_FAILED", "電話預約尚未完成，請重新整理確認。");
+  return { bookingId: row.id, bookingSource: "phone", status: row.status };
 }
 
 async function adminBookings(supabase: SupabaseClient): Promise<Json[]> {
@@ -1057,10 +1163,25 @@ async function adminStatusUpdate(supabase: SupabaseClient, identity: Identity, b
   return { booking: hydrated[0] };
 }
 
+async function bookingRisk(supabase: SupabaseClient, identity: Identity, action: string, body: Json): Promise<Json> {
+  if (!businessContext()) throw new ApiError(403,"FEATURE_DISABLED","此功能僅供已開通商家使用。");
+  const member = action.startsWith("user.");
+  const result = member
+    ? await supabase.rpc("booking_no_show_status", {p_actor:identity.lineUserId})
+    : await supabase.rpc("admin_booking_no_show", {p_actor:identity.lineUserId,p_action:action.split(".").pop(),p_body:body.policy || body});
+  if (result.error) throw mapDatabaseError(result.error);
+  return result.data || {restricted:false};
+}
+
 async function route(supabase: SupabaseClient, identity: Identity, clientType: ClientType, action: string, body: Json): Promise<Json> {
   if (clientType === "member") {
     const member = await requireJoinedMember(supabase, identity);
-    if (action === "user.booking.bootstrap") return await userBootstrap(supabase, member, body);
+    if (action === "user.booking.risk.status") return await bookingRisk(supabase, identity, action, body);
+    if (action === "user.booking.bootstrap") {
+      const data=await userBootstrap(supabase,member,body);
+      if(businessContext()) data.bookingRestriction=await bookingRisk(supabase,identity,"user.booking.risk.status",{});
+      return data;
+    }
     if (action === "user.booking.slots") return await generateSlots(supabase, body, member);
     if (action === "user.booking.create") return await userCreate(supabase, identity, member, body);
     if (action === "user.booking.update") return await userUpdate(supabase, identity, member, body);
@@ -1071,14 +1192,21 @@ async function route(supabase: SupabaseClient, identity: Identity, clientType: C
   await authorizeAdmin(supabase, identity);
   if (action === "admin.booking.summary") return await adminBookingSummary(supabase, identity);
   if (action === "admin.booking.notifications.read") return await adminMarkBookingNotificationsRead(supabase, identity, body);
-  if (action === "admin.booking.bootstrap") return await adminBootstrap(supabase,body);
+  if (["admin.booking.risk.get","admin.booking.risk.save","admin.booking.risk.revoke","admin.booking.risk.release"].includes(action)) return await bookingRisk(supabase,identity,action,body);
+  if (action === "admin.booking.bootstrap") {
+    const data=await adminBootstrap(supabase,body);
+    if(businessContext()) data.noShowRisk=await bookingRisk(supabase,identity,"admin.booking.risk.get",{});
+    return data;
+  }
+  if (action === "admin.booking.phone.slots") return await adminPhoneSlots(supabase, body);
+  if (action === "admin.booking.phone.create") return await adminCreatePhoneBooking(supabase, identity, body);
   if (action === "admin.booking.settings.save") return await adminSettingsSave(supabase, identity, body);
   if (action === "admin.booking.service.save") return await adminServiceSave(supabase, identity, body);
   if (action === "admin.booking.status.update") return await adminStatusUpdate(supabase, identity, body);
   throw new ApiError(404, "ACTION_NOT_FOUND", "不支援的管理端預約操作。");
 }
 
-Deno.serve(async (request: Request) => {
+serveBusiness('booking-api',async (request: Request) => {
   const origin = request.headers.get("Origin");
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
   if (request.method !== "POST") return response(origin, { ok: false, error: { code: "METHOD_NOT_ALLOWED", message: "只支援 POST。" } }, 405);

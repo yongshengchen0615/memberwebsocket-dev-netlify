@@ -2,13 +2,25 @@ import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promi
 import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { formatBuildVersion } from './build-version.mjs';
+import { buildDate, formatBuildVersion } from './build-version.mjs';
+import { previewMemberRuntime } from './preview-member-runtime.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = path.join(root, 'MemberWebsocket-dev');
 const output = path.join(root, 'dist');
-const publicDirectories = new Set(['admin', 'booking', 'calendar', 'event', 'member', 'points', 'vendor']);
+const publicDirectories = new Set(['admin', 'platform', 'booking', 'calendar', 'event', 'member', 'points', 'vendor']);
 const publicFile = /\.(?:html|css|js|json|svg|png|jpe?g|webp|gif|ico|txt|woff2?)$/i;
+const retiredPublicQaAssets = new Set([
+  'test-mode-client.js', 'test-mode.css', 'user-test-control.js',
+  'user-test-control.css', 'e2e-feature-coverage.js',
+  'e2e-scenario-graph.js', 'e2e-professional-tester.js',
+]);
+const retiredAdminAssets = new Set([
+  'test-mode.js','test-mode.css','test-control.js','test-control.css',
+  'test-workspace-tabs.js','test-workspace-tabs.css','e2e-control.js',
+  'e2e-control.css','e2e-control-loader.js','e2e-flow-visualizer.js',
+  'e2e-flow-visualizer.css',
+]);
 
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
@@ -16,13 +28,20 @@ for (const entry of await readdir(source, { withFileTypes: true })) {
   if (entry.isDirectory() ? publicDirectories.has(entry.name) : publicFile.test(entry.name)) {
     await cp(path.join(source, entry.name), path.join(output, entry.name), {
       recursive: true,
-      filter: async (file) => !path.basename(file).startsWith('.') && ((await stat(file)).isDirectory() || publicFile.test(file)),
+      filter: async (file) => !path.basename(file).startsWith('.')
+        && !(path.dirname(file) === source && retiredPublicQaAssets.has(path.basename(file)))
+        && !(path.relative(source,file).startsWith(`admin${path.sep}`) && retiredAdminAssets.has(path.basename(file)))
+        && ((await stat(file)).isDirectory() || publicFile.test(file)),
     });
   }
 }
 
+const runtimeConfigPath = path.join(output, 'config.json');
+const runtimeConfig = JSON.parse(await readFile(runtimeConfigPath, 'utf8'));
+await writeFile(runtimeConfigPath, JSON.stringify(previewMemberRuntime(runtimeConfig, process.env), null, 2) + '\n');
+
 const siteVersion = formatBuildVersion(
-  new Date(),
+  buildDate(process.env),
   process.env.DEPLOY_ID || process.env.BUILD_ID || randomBytes(6).toString('hex'),
 );
 const commit = /^[a-f\d]{7,40}$/i.test(process.env.COMMIT_REF || '')
@@ -31,6 +50,8 @@ const commit = /^[a-f\d]{7,40}$/i.test(process.env.COMMIT_REF || '')
 const entryPages = [
   'index.html',
   'admin/index.html',
+  'admin/workspace.html',
+  'platform/index.html',
   'member/index.html',
   'points/index.html',
   'event/index.html',
@@ -56,3 +77,4 @@ for (const entry of entryPages) {
   );
 }
 console.log(`Built static frontend in dist (version ${siteVersion}); database source, tests and internal documentation excluded.`);
+

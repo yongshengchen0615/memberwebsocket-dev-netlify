@@ -1,3 +1,5 @@
+import { businessEnv, businessContext, businessFetch as fetch, businessHandler } from '../_shared/business-runtime.ts';
+import { syncRevision } from '../_shared/sync-revision.mjs';
 import { removeMember } from "../_shared/member-removal.ts";
 import { tierVisibility, loadVisibilityPolicy } from "../_shared/tier-visibility.ts";
 import { bookingTicketUsageError, ticketBookingId } from "../_shared/booking-ticket-usage.ts";
@@ -8,7 +10,7 @@ import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
 import { buildLineFlexNotice } from "../_shared/line-flex.ts";
 import { resolveTestSession, TestModeAuthError } from "../_shared/test-mode-auth.ts";
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 
@@ -90,13 +92,14 @@ class ApiError extends Error {
 }
 
 function env(name: string): string {
-  return (Deno.env.get(name) || "").trim();
+  return (businessEnv(name) || "").trim();
 }
 
 const DEFAULT_ALLOWED_ORIGINS = [
   "https://yongshengchen0615.github.io",
   "https://memberwebsocket-dev-netlify.netlify.app",
   "https://develop--memberwebsocket-dev-netlify.netlify.app",
+  "https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app",
 ];
 
 function allowedOrigins(): Set<string> {
@@ -203,6 +206,7 @@ function mapDatabaseError(error: unknown): ApiError {
     ["INVALID_TIER_SETTINGS",400,"INVALID_TIER_SETTINGS","會員等級門檻設定不合法。"],
     ["INVALID_CARD_ORDERS",400,"INVALID_CARD_ORDERS","集點卡排序資料不合法。"],
     ["INVALID_REQUIRED_SERVICE_IDS",400,"INVALID_REQUIRED_SERVICE_IDS","票券指定的預約項目無效，請重新選擇。"],
+    ["INVALID_REQUIRED_SERVICE_GROUPS",400,"INVALID_REQUIRED_SERVICE_GROUPS","票券預約組合無效，請重新設定。"],
     ["BOOKING_SERVICE_IN_USE",409,"BOOKING_SERVICE_IN_USE","此預約項目仍被票券使用條件引用，請先移除票券限制。"],
     ["INVALID_CALENDAR_BATCH",400,"INVALID_CALENDAR_BATCH","日曆批次操作必須是 1–20 筆。"],
     ["CALENDAR_ITEM_NOT_FOUND",404,"CALENDAR_ITEM_NOT_FOUND","找不到日曆項目。"],
@@ -230,6 +234,8 @@ function presenceActionInfo(action: string): { clientType: ClientType; surface: 
 }
 
 function clientTypeForAction(action: string): ClientType {
+  const sync = /^user\.(member|points|event|calendar|booking)\.sync\.status$/.exec(action);
+  if (sync) return sync[1] as ClientType;
   if (action.startsWith("user.pointcard.booking-selections.")) return "points";
   if (action === "user.pointcard.snapshot-ticket.cancel") return "points";
   if (action.startsWith("user.event.booking-selections.")) return "event";
@@ -369,6 +375,35 @@ async function normalizeRequiredServiceIds(supabase: SupabaseClient, value: unkn
     throw new ApiError(400,"INVALID_REQUIRED_SERVICE_IDS","票券指定的預約項目已不存在，請重新選擇。");
   }
   return requested;
+}
+
+
+async function normalizeRequiredServiceGroups(supabase: SupabaseClient, value: unknown): Promise<string[][]> {
+  if (value == null) return [];
+  if (!Array.isArray(value) || value.length > 10) {
+    throw new ApiError(400, "INVALID_REQUIRED_SERVICE_GROUPS", "最多可設定 10 組替代預約組合。");
+  }
+  if (!value.length) return [];
+  let count = 0;
+  const groups = value.map((group: unknown) => {
+    if (!Array.isArray(group) || group.length < 1 || group.length > 20) {
+      throw new ApiError(400, "INVALID_REQUIRED_SERVICE_GROUPS", "每組必須選擇 1–20 個預約項目。");
+    }
+    const ids = group.map((id: unknown) => asText(id, 80)).filter(Boolean);
+    if (ids.length !== group.length || new Set(ids).size !== ids.length) {
+      throw new ApiError(400, "INVALID_REQUIRED_SERVICE_GROUPS", "同一組不可重複或留空預約項目。");
+    }
+    count += ids.length;
+    return ids;
+  });
+  if (count > 40) {
+    throw new ApiError(400, "INVALID_REQUIRED_SERVICE_GROUPS", "所有組合最多共可設定 40 個預約項目。");
+  }
+  const allowed = new Set((await bookingServiceOptions(supabase)).map(service => service.serviceId));
+  if (groups.some(group => group.some(id => !allowed.has(id)))) {
+    throw new ApiError(400, "INVALID_REQUIRED_SERVICE_GROUPS", "預約組合包含已刪除的項目，請重新選擇。");
+  }
+  return groups;
 }
 
 async function serviceIdsForLegacyTypes(supabase: SupabaseClient, value: unknown): Promise<string[]> {
@@ -556,6 +591,7 @@ async function membersPage(supabase: SupabaseClient, page = 1, pageSize = 100, q
   const safePage = Math.max(1,Math.floor(Number(page) || 1));
   const normalizedQuery = asText(query,100).toLowerCase();
   const isTestAccount = asText(memberKind,10).toLowerCase() === "test";
+  if (isTestAccount) throw new ApiError(410,"TEST_MEMBERS_RETIRED","測試會員功能已移除。");
   let q = supabase.from("members").select("*",{ count:"exact" }).eq("is_test_account",isTestAccount);
   if (normalizedQuery) q = q.or(`display_name.ilike.%${normalizedQuery.replaceAll(",","")}%,member_code.ilike.%${normalizedQuery.replaceAll(",","")}%`);
   const start = (safePage - 1) * safePageSize;
@@ -1006,7 +1042,8 @@ async function adminCards(supabase: SupabaseClient): Promise<{ cards: any[]; tic
       usageInstructions: template.usage_instructions || "",
       prizes: Array.isArray(template.prizes) ? template.prizes : [],
       requiredServiceIds: Array.isArray(reward.required_service_ids) ? reward.required_service_ids : [],
-      requiredServiceMatchMode: reward.required_service_match_mode === "all" ? "all" : "any",
+      requiredServiceMatchMode: Array.isArray(reward.required_service_groups) && reward.required_service_groups.length ? "groups" : reward.required_service_match_mode === "all" ? "all" : "any",
+       requiredServiceGroups: Array.isArray(reward.required_service_groups) ? reward.required_service_groups : [],
       requiredServiceTypes: [],
       updatedAt: reward.updated_at,
     });
@@ -1212,7 +1249,8 @@ function eventTicketClient(row: any, claimedCount = 0, admin = false): Json {
     allowedTierKeys: Array.isArray(row.allowed_tier_keys) ? row.allowed_tier_keys : [...TIER_KEYS],
     allowedTierLabels: (Array.isArray(row.allowed_tier_keys) ? row.allowed_tier_keys : [...TIER_KEYS]).map((key:string) => TIER_LABELS[key]).filter(Boolean),
     requiredServiceIds: Array.isArray(row.required_service_ids) ? row.required_service_ids : [],
-    requiredServiceMatchMode: row.required_service_match_mode === "all" ? "all" : "any",
+    requiredServiceMatchMode: Array.isArray(row.required_service_groups) && row.required_service_groups.length ? "groups" : row.required_service_match_mode === "all" ? "all" : "any",
+    requiredServiceGroups: Array.isArray(row.required_service_groups) ? row.required_service_groups : [],
     requiredServiceTypes: [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -1781,6 +1819,9 @@ async function saveEventTicket(supabase: SupabaseClient, actor: string, body: Js
   const requiredServiceIds = input.requiredServiceIds !== undefined
     ? await normalizeRequiredServiceIds(supabase,input.requiredServiceIds)
     : await serviceIdsForLegacyTypes(supabase,input.requiredServiceTypes);
+  const groupMode = input.requiredServiceMatchMode === "groups";
+  const requiredServiceGroups = groupMode ? await normalizeRequiredServiceGroups(supabase, input.requiredServiceGroups) : [];
+  if (groupMode && !requiredServiceGroups.length) throw new ApiError(400,"INVALID_REQUIRED_SERVICE_GROUPS","請至少設定一個有效的預約組合。");
   const requiredServiceMatchMode = input.requiredServiceMatchMode === "all" ? "all" : "any";
   const payload = {
     title: requireText(input.title,"活動票券名稱",100),
@@ -1797,8 +1838,9 @@ async function saveEventTicket(supabase: SupabaseClient, actor: string, body: Js
     redemption_locations: locations,
     accent: requireAccent(input.accent),
     allowed_tier_keys: normalizeTierKeys(input.allowedTierKeys),
-    required_service_ids: requiredServiceIds,
+    required_service_ids: groupMode ? [] : requiredServiceIds,
     required_service_match_mode: requiredServiceMatchMode,
+    required_service_groups: requiredServiceGroups,
     updated_by: actor,
     updated_at: new Date().toISOString(),
     deleted_at: null,
@@ -1860,8 +1902,6 @@ async function adminIntegrationOverview(supabase: SupabaseClient): Promise<Json>
     calendarRes,
     eventTicketsRes,
     scheduledRes,
-    auditRes,
-    bookingAuditRes,
     settlementsRes,
   ] = await Promise.all([
     summaryStats(supabase),
@@ -1887,14 +1927,6 @@ async function adminIntegrationOverview(supabase: SupabaseClient): Promise<Json>
       .select("schedule_id,member_id,scheduled_for,status,attempt_count,last_error,created_at,sent_at")
       .order("created_at",{ ascending:false })
       .limit(60),
-    supabase.from("audit_logs")
-      .select("audit_id,actor_role,action,target_type,target_id,result,created_at")
-      .order("created_at",{ ascending:false })
-      .limit(80),
-    supabase.from("booking_audit_events")
-      .select("id,actor_role,action,target_type,target_id,result,created_at")
-      .order("created_at",{ ascending:false })
-      .limit(60),
     supabase.from("booking_completion_settlements")
       .select("booking_id,member_id,service_minutes,reward_details,created_at")
       .order("created_at",{ ascending:false })
@@ -1903,7 +1935,7 @@ async function adminIntegrationOverview(supabase: SupabaseClient): Promise<Json>
 
   for (const result of [
     pointCardsRes,serviceTypesRes,serviceRewardsRes,fixedTicketsRes,calendarRes,
-    eventTicketsRes,scheduledRes,auditRes,bookingAuditRes,settlementsRes,
+    eventTicketsRes,scheduledRes,settlementsRes,
   ]) {
     if (result.error) throw mapDatabaseError(result.error);
   }
@@ -1915,33 +1947,17 @@ async function adminIntegrationOverview(supabase: SupabaseClient): Promise<Json>
   const calendarRows = calendarRes.data || [];
   const eventTickets = eventTicketsRes.data || [];
   const scheduledRows = scheduledRes.data || [];
-  const auditRows = auditRes.data || [];
-  const bookingAuditRows = bookingAuditRes.data || [];
   const settlements = settlementsRes.data || [];
 
   const memberIds = [...new Set([
     ...scheduledRows.map((row:any) => row.member_id),
     ...settlements.map((row:any) => row.member_id),
   ].filter(Boolean))];
-  const memberTargetLineIds = [...new Set(
-    auditRows
-      .filter((row:any) => row.target_type === "member" && row.target_id)
-      .map((row:any) => String(row.target_id))
-  )];
-
-  const [membersByIdRes,membersByLineRes] = await Promise.all([
-    memberIds.length
-      ? supabase.from("members").select("id,display_name,member_code,is_test_account").in("id",memberIds)
-      : Promise.resolve({ data:[],error:null }),
-    memberTargetLineIds.length
-      ? supabase.from("members").select("line_user_id,display_name,member_code,is_test_account").in("line_user_id",memberTargetLineIds)
-      : Promise.resolve({ data:[],error:null }),
-  ]);
+  const membersByIdRes = memberIds.length
+    ? await supabase.from("members").select("id,display_name,member_code,is_test_account").in("id",memberIds)
+    : { data:[],error:null };
   if (membersByIdRes.error) throw mapDatabaseError(membersByIdRes.error);
-  if (membersByLineRes.error) throw mapDatabaseError(membersByLineRes.error);
-
   const memberById = new Map((membersByIdRes.data || []).map((row:any) => [row.id,row]));
-  const memberByLine = new Map((membersByLineRes.data || []).map((row:any) => [row.line_user_id,row]));
   const cardById = new Map(pointCards.map((row:any) => [row.id,row]));
   const typeById = new Map(serviceTypes.map((row:any) => [row.id,row]));
   const calendarByEventTicketId = new Map<string,any>();
@@ -2019,32 +2035,6 @@ async function adminIntegrationOverview(supabase: SupabaseClient): Promise<Json>
     };
   });
 
-  const auditTimeline = [
-    ...auditRows.map((row:any) => {
-      const member = row.target_type === "member" ? memberByLine.get(String(row.target_id || "")) : null;
-      return {
-        auditId:String(row.audit_id || ""),
-        domain:String(row.target_type || "system"),
-        actorRole:String(row.actor_role || ""),
-        action:String(row.action || ""),
-        targetLabel:member
-          ? `${String(member.display_name || "會員")} · ${String(member.member_code || "未編號")}`
-          : String(row.target_id || row.target_type || ""),
-        result:String(row.result || ""),
-        createdAt:row.created_at || "",
-      };
-    }),
-    ...bookingAuditRows.map((row:any) => ({
-      auditId:`BOOKING-${String(row.id || "")}`,
-      domain:"booking",
-      actorRole:String(row.actor_role || ""),
-      action:String(row.action || ""),
-      targetLabel:String(row.target_id || "預約"),
-      result:String(row.result || ""),
-      createdAt:row.created_at || "",
-    })),
-  ].sort((a:any,b:any) => Date.parse(String(b.createdAt || "")) - Date.parse(String(a.createdAt || ""))).slice(0,100);
-
   const settlementRows = settlements.map((row:any) => {
     const member = memberById.get(row.member_id);
     const rewards = Array.isArray(row.reward_details)
@@ -2087,13 +2077,15 @@ async function adminIntegrationOverview(supabase: SupabaseClient): Promise<Json>
     },
     campaigns:campaignRows,
     notifications,
-    auditTimeline,
     settlements:settlementRows,
     generatedAt:new Date().toISOString(),
   };
 }
 
 async function handleAction(supabase: SupabaseClient, identity: { lineUserId: string; displayName: string; issuedAtMs?: number }, action: string, body: Json): Promise<Json> {
+  if (action === 'admin.sync.status' || /^user\.(member|points|event|calendar|booking)\.sync\.status$/.test(action))
+    return await syncRevision(supabase, clientTypeForAction(action), identity.lineUserId,
+      (status:number,code:string,message:string) => new ApiError(status,code,message));
   if (action === "user.pointcard.snapshot-ticket.cancel" || action === "user.event.snapshot-ticket.cancel") {
     const member = await requireJoinedMember(supabase,identity);
     const receiptId = requireText(body.receiptId,"快照識別",80);
@@ -2296,6 +2288,10 @@ async function handleAction(supabase: SupabaseClient, identity: { lineUserId: st
     const phone = asText(body.phone,30).replace(/[()\s-]/g,"");
     if (!/^\d{4}-\d{2}-\d{2}$/.test(birthday)) throw new ApiError(400,"INVALID_BIRTHDAY","請填寫正確的生日。");
     if (!/^\+?\d{8,15}$/.test(phone)) throw new ApiError(400,"INVALID_PHONE","請填寫正確的電話。");
+    if (member.membership_status !== "active") {
+      if (body.accepted !== true) throw new ApiError(400,"TERMS_CONSENT_REQUIRED","請閱讀並勾選同意會員條款。");
+      // Rollback to pre-OA-enforcement join behavior; verified LINE identity and terms remain required.
+    }
     const joined = await supabase.rpc("accept_membership_terms",{
       p_line_user_id:identity.lineUserId,p_terms_id:body.termsId,p_version:body.termsVersion,
       p_accepted:body.accepted === true,p_birthday:birthday,p_phone:phone,
@@ -2453,21 +2449,6 @@ async function handleAction(supabase: SupabaseClient, identity: { lineUserId: st
 
   if (!action.startsWith("admin.")) throw new ApiError(404,"ACTION_NOT_FOUND","不支援的 API action。");
   const admin = await authorizeAdmin(supabase,identity);
-  if (action === "admin.audit.query") {
-    const from = asText(body.from,80), to = asText(body.to,80);
-    if (!Number.isFinite(Date.parse(from)) || !Number.isFinite(Date.parse(to)))
-      throw new ApiError(400,"INVALID_AUDIT_QUERY","請選擇有效的查詢日期。");
-    const cursor = body.cursor && typeof body.cursor === "object" ? body.cursor as Json : {};
-    const result = await supabase.rpc("admin_query_operation_audit", {
-      p_actor:identity.lineUserId,p_from:from,p_to:to,p_member_code:asText(body.memberCode,40),
-      p_action:asText(body.eventAction,80),p_result:asText(body.result,20),
-      p_before_time:asText(cursor.createdAt,80)||null,p_before_id:asText(cursor.id,100),
-      p_limit:50,p_request_id:requireText(body.requestId,"查詢識別",100),
-    });
-    if (result.error) throw mapDatabaseError(result.error);
-    return result.data;
-  }
-
   if (action === "admin.bootstrap") {
     // Share only within this authorized request; never cache member data globally.
     const settings = tierSettings(supabase);
@@ -2663,6 +2644,8 @@ async function handleAction(supabase: SupabaseClient, identity: { lineUserId: st
     if (!["active","disabled"].includes(status)) throw new ApiError(400,"INVALID_STATUS","會員狀態不合法。");
     const current = await supabase.from("members").select("*").eq("line_user_id",lineUserId).single();
     if (current.error) throw new ApiError(404,"MEMBER_NOT_FOUND","找不到指定會員。");
+    if (current.data?.is_test_account === true) throw new ApiError(410,"TEST_MEMBERS_RETIRED","測試會員功能已移除。");
+    if (body.profile != null) throw new ApiError(400,"PROFILE_EDIT_FORBIDDEN","管理端不得修改會員私人基本資料。");
     const expected = asText(body.expectedUpdatedAt,100);
     if (expected && expected !== current.data.updated_at) throw new ApiError(409,"CONFLICT","會員資料已被其他管理者更新。");
 
@@ -2727,8 +2710,11 @@ async function handleAction(supabase: SupabaseClient, identity: { lineUserId: st
       const requiredServiceIds = reward.requiredServiceIds !== undefined
         ? await normalizeRequiredServiceIds(supabase,reward.requiredServiceIds)
         : await serviceIdsForLegacyTypes(supabase,reward.requiredServiceTypes);
-      const requiredServiceMatchMode = reward.requiredServiceMatchMode === "all" ? "all" : "any";
-      normalizedRewards.push({ ...reward,thresholdStamps:threshold,ticketTemplateId,requiredServiceIds,requiredServiceMatchMode });
+      const groupMode = reward.requiredServiceMatchMode === "groups";
+       const requiredServiceGroups = groupMode ? await normalizeRequiredServiceGroups(supabase,reward.requiredServiceGroups) : [];
+       if (groupMode && !requiredServiceGroups.length) throw new ApiError(400,"INVALID_REQUIRED_SERVICE_GROUPS","請至少設定一個有效的預約組合。");
+       const requiredServiceMatchMode = reward.requiredServiceMatchMode === "all" ? "all" : "any";
+       normalizedRewards.push({ ...reward,thresholdStamps:threshold,ticketTemplateId,requiredServiceIds: groupMode ? [] : requiredServiceIds,requiredServiceMatchMode,requiredServiceGroups });
     }
     const normalized = { ...card,title:asText(card.title,100),status:asText(card.status,20),accent:requireAccent(card.accent),styleKey:safePointCardStyle(card.styleKey),expiryMode,expiresOn:expiryMode === "date" ? asText(card.expiresOn,20) : "",usageMethod:asText(card.usageMethod,120),usageInstructions:asText(card.usageInstructions,500),benefitDescription:asText(card.benefitDescription,500),rewards:normalizedRewards };
     const rpc = await supabase.rpc("save_point_card_service_items",{ p_actor_line_user_id:identity.lineUserId,p_card:normalized,p_expected_updated_at:asText(body.expectedUpdatedAt,100) || null });
@@ -2996,4 +2982,4 @@ async function handleRequest(request: Request): Promise<Response> {
   }
 }
 
-export default { fetch: handleRequest };
+export default { fetch: businessHandler('api', handleRequest) };

@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
+const fs = require('./helpers/edge-test-fs.cjs');
 const path = require('node:path');
 const vm = require('node:vm');
 const { webcrypto } = require('node:crypto');
@@ -67,6 +67,6 @@ test('admin exemption needs a server-verified admin identity and admin LINE audi
   assert.ok(auth.includes('const canBypassUserRestrictions = isActiveAdmin && expectedChannelId === adminChannelId'));
   assert.ok(auth.includes('if (!allowLoginClaim && !canBypassUserRestrictions) {'));
   assert.ok(auth.includes('SESSION_REPLACED'));
-  assert.ok(client.includes("idToken && surface !== 'admin' &&"));
+  assert.ok(client.includes("if (idToken && surface !== 'admin')"), 'only member sessions claim single-device login; admin bypass remains server-verified');
   assert.ok(client.includes("if (active && active[0] !== 'admin')"));
 });

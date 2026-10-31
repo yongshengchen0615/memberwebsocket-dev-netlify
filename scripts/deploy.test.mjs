@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { formatBuildVersion } from './build-version.mjs';
+import { buildDate, formatBuildVersion } from './build-version.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 execFileSync(process.execPath, ['scripts/build-site.mjs'], { cwd: root });
@@ -35,6 +35,23 @@ test('published HTML references resolve to files inside the frontend', () => {
   assert.ok(checked > 100, `Expected real asset validation; checked ${checked}`);
 });
 
+test('platform is a sibling of admin in the build output', () => {
+  for (const asset of ['index.html', 'app.js', 'platform.css']) {
+    assert.ok(fs.existsSync(path.join(output, 'platform', asset)), asset);
+  }
+  assert.equal(fs.existsSync(path.join(output, 'admin', 'platform')), false);
+  const html = fs.readFileSync(path.join(output, 'platform/index.html'), 'utf8');
+  const app = fs.readFileSync(path.join(output, 'platform/app.js'), 'utf8');
+  assert.match(html, /src="\.\.\/member-system\.js"/);
+  assert.match(app, /fetch\('\.\.\/config\.json'/);
+});
+
+test('retired admin test center assets are not published to Netlify', () => {
+  for (const name of ['test-mode.js','test-mode.css','test-control.js','test-control.css','test-workspace-tabs.js','test-workspace-tabs.css','e2e-control.js','e2e-control.css','e2e-control-loader.js','e2e-flow-visualizer.js','e2e-flow-visualizer.css']) {
+    assert.equal(fs.existsSync(path.join(output,'admin',name)),false,name);
+  }
+});
+
 test('server source, migrations, tests and local deployment state are not published', () => {
   for (const excluded of ['supabase', 'tests', 'docs', '.git', '.netlify', '.env']) {
     assert.equal(fs.existsSync(path.join(output, excluded)), false, excluded);
@@ -43,7 +60,14 @@ test('server source, migrations, tests and local deployment state are not publis
 });
 
 test('frontend backend settings are copied without changing identity or project', () => {
-  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(output, 'config.json'))), JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/config.json'))));
+  const expected = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/config.json')));
+  const branch = process.env.BRANCH || process.env.PREVIEW_SOURCE_BRANCH || process.env.GITHUB_REF_NAME;
+  if (branch === 'Integrated-Marketing-Platform' && process.env.CONTEXT !== 'production') {
+    expected.previewApiFunctionUrl = new URL('/functions/v1/api-preview', expected.supabaseUrl).href;
+    expected.memberProfileFunctionUrl = new URL('/functions/v1/member-profile-api-preview', expected.supabaseUrl).href;
+    expected.memberGrowthFunctionUrl = new URL('/functions/v1/member-growth-api-preview', expected.supabaseUrl).href;
+  }
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(output, 'config.json'))), expected);
 });
 
 
@@ -59,10 +83,10 @@ test('deployment versions are valid and change for each new deployment', () => {
   assert.throws(() => formatBuildVersion(fixed, 'oops'), TypeError);
 });
 
-test('all eight published entrypoints contain a static, CSP-compatible build badge', () => {
+test('all ten published entrypoints contain a static, CSP-compatible build badge', () => {
   const pages = [
-    'index.html', 'admin/index.html', 'member/index.html', 'points/index.html',
-    'event/index.html', 'calendar/index.html', 'booking/index.html', 'booking/admin/index.html',
+    'index.html', 'admin/index.html', 'admin/workspace.html', 'member/index.html', 'points/index.html',
+    'event/index.html', 'calendar/index.html', 'booking/index.html', 'booking/admin/index.html', 'platform/index.html',
   ];
   const versions = new Set();
   for (const page of pages) {
@@ -100,68 +124,61 @@ test('badge CSS stays visible on mobile and does not obstruct touch or require i
 });
 
 
-const testModeAllowedOrigins = [
-  'https://yongshengchen0615.github.io',
-  'https://memberwebsocket-dev-netlify.netlify.app',
-  'https://develop--memberwebsocket-dev-netlify.netlify.app',
-];
-
-test('test-mode API source preserves explicit CORS allowlist and request authorization', () => {
-  const source = fs.readFileSync(path.join(root, 'MemberWebsocket-dev/supabase/functions/test-mode-api/index.ts'), 'utf8');
-  for (const origin of testModeAllowedOrigins) {
-    assert.ok(source.includes(JSON.stringify(origin)), 'Missing trusted origin: ' + origin);
+test('retired client-side QA resources are absent from the actual deploy bundle', () => {
+  const retired = [
+    'test-mode-client.js', 'test-mode.css', 'user-test-control.js',
+    'user-test-control.css', 'e2e-feature-coverage.js',
+    'e2e-scenario-graph.js', 'e2e-professional-tester.js',
+  ];
+  for (const asset of retired) {
+    assert.equal(fs.existsSync(path.join(output, asset)), false, asset);
   }
-  assert.match(source, /origin && allowedOrigins\(\)\.has\(origin\)/);
-  assert.match(source, /if \(request\.method === "OPTIONS"\)/);
-  assert.match(source, /if \(origin && !allowedOrigins\(\)\.has\(origin\)\)/);
-  assert.doesNotMatch(source, /"Access-Control-Allow-Origin":\s*"\*"/);
 });
 
-test('deployed test-mode API responds to browser preflight only for trusted origins', async () => {
-  const { supabaseUrl } = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/config.json'), 'utf8'));
-  const endpoint = new URL('/functions/v1/test-mode-api', supabaseUrl);
-  const preflight = async (origin) => fetch(endpoint, {
-    method: 'OPTIONS',
-    headers: {
-      Origin: origin,
-      'Access-Control-Request-Method': 'POST',
-      'Access-Control-Request-Headers': 'content-type,apikey',
-    },
-    signal: AbortSignal.timeout(15000),
-  });
-  for (const origin of testModeAllowedOrigins) {
-    const response = await preflight(origin);
-    assert.equal(response.status, 204, origin + ': preflight must return 204');
-    assert.equal(response.headers.get('access-control-allow-origin'), origin, origin);
-    const allowedHeaders = (response.headers.get('access-control-allow-headers') || '')
-      .toLowerCase().split(',').map(x => x.trim());
-    assert.ok(allowedHeaders.includes('apikey'), origin + ': apikey blocked');
-    assert.ok(allowedHeaders.includes('content-type'), origin + ': content-type blocked');
-    assert.ok((response.headers.get('access-control-allow-methods') || '').includes('POST'));
-    assert.match(response.headers.get('vary') || '', /\bOrigin\b/i);
-  }
-  const untrusted = 'https://untrusted.example';
-  const deniedResponse = await preflight(untrusted);
-  assert.notEqual(deniedResponse.headers.get('access-control-allow-origin'), untrusted);
-});
-
-
-test('deployed test-mode API returns a CORS-readable rejection for malformed POST requests', async () => {
+test('the five retired Supabase functions reject requests before authentication or parsing', async () => {
   const config = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/config.json'), 'utf8'));
-  const origin = 'https://develop--memberwebsocket-dev-netlify.netlify.app';
-  const response = await fetch(new URL('/functions/v1/test-mode-api', config.supabaseUrl), {
-    method: 'POST',
-    headers: {
-      Origin: origin,
-      'Content-Type': 'application/json',
-      apikey: config.supabasePublishableKey,
-    },
-    body: '{not valid JSON',
-    signal: AbortSignal.timeout(15000),
-  });
-  assert.equal(response.headers.get('access-control-allow-origin'), origin);
-  assert.equal(response.status, 400, 'Malformed body should be rejected before authentication');
-  const payload = await response.json();
-  assert.equal(payload.ok, false);
-  assert.equal(payload.error?.code, 'INVALID_JSON');
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/supabase/retirement/retired-endpoints.json'), 'utf8'));
+  assert.equal(manifest.retiredFunctions.length, 5);
+  for (const name of manifest.retiredFunctions) {
+    const url = new URL('/functions/v1/' + name, config.supabaseUrl);
+    for (const method of ['GET', 'OPTIONS', 'POST']) {
+      const response = await fetch(url, {
+        method,
+        headers: { Origin: 'https://untrusted.example', 'Content-Type': 'application/json' },
+        ...(method === 'POST' ? { body: '{not valid JSON' } : {}),
+        signal: AbortSignal.timeout(15000),
+      });
+      assert.equal(response.status, 410, name + ' ' + method + ': retired endpoint must always fail closed');
+      assert.equal(response.headers.get('cache-control'), 'no-store');
+      const payload = await response.json();
+      assert.equal(payload.ok, false);
+      assert.equal(payload.error?.code, 'TEST_FEATURE_RETIRED');
+    }
+  }
 });
+
+test('native and verifier builds reproduce exact bytes using one deploy and source timestamp', () => {
+  const env = { ...process.env, COMMIT_REF: 'b'.repeat(40),
+    DEPLOY_ID: '6ad8954a695249e48e388cae', VERIFIED_PREVIEW_SOURCE_EPOCH: '1792136723' };
+  const build = changes => {
+    execFileSync(process.execPath, ['scripts/build-site.mjs'], { cwd: root, env: { ...env, ...changes } });
+    return fs.readFileSync(path.join(output, 'platform/index.html'), 'utf8');
+  };
+  const native = build({});
+  assert.ok(native.includes(formatBuildVersion(new Date(1792136723000), env.DEPLOY_ID)), 'release badge must use the source timestamp');
+  assert.equal(build({}), native, 'CI verifier must rebuild the exact native artifact, including its badge');
+  assert.notEqual(build({ DEPLOY_ID: '6ad8954a695249e48e388cab' }), native, 'new deploys retain distinct badges');
+  assert.notEqual(build({ VERIFIED_PREVIEW_SOURCE_EPOCH: '1792136724' }), native, 'wrong source timestamp cannot match');
+});
+
+test('reproducible build identity fails closed for malformed provenance', () => {
+  const now = new Date('2026-10-22T00:00:00Z');
+  assert.equal(buildDate({}, now), now);
+  const env = { COMMIT_REF: 'b'.repeat(40), DEPLOY_ID: 'a'.repeat(24), VERIFIED_PREVIEW_SOURCE_EPOCH: '1792136723' };
+  assert.equal(buildDate(env).getTime(), 1792136723000);
+  for (const change of [{ COMMIT_REF: 'short' }, { DEPLOY_ID: 'wrong' }, { VERIFIED_PREVIEW_SOURCE_EPOCH: '' },
+    { VERIFIED_PREVIEW_SOURCE_EPOCH: 'bad' }, { VERIFIED_PREVIEW_SOURCE_EPOCH: '1792136723.1' }]) {
+    assert.throws(() => buildDate({ ...env, ...change }), TypeError);
+  }
+});
+

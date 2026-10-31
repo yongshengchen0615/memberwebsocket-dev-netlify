@@ -7,9 +7,11 @@ const file = (path) => readFileSync(join(__dirname, '..', path), 'utf8');
 const migration = file('supabase/migrations/20261010030000_e2e_purge_history_option_and_qa_provenance.sql');
 const api = file('supabase/functions/test-control-api/index.ts');
 const client = file('admin/test-control.js');
-const html = file('admin/index.html');
+const productionHtml = file('admin/index.html');
+const html = file('tests/fixtures/admin-test-center.html');
 
 test('purge UI defaults to history retention and passes an explicit boolean', () => {
+  assert.doesNotMatch(productionHtml, /id="keepTestHistoryOnPurge"/);
   assert.match(html, /id="keepTestHistoryOnPurge" type="checkbox" checked/);
   assert.match(html, /保留 E2E 測試紀錄與失敗快照/);
   assert.match(client, /keepTestHistory = els\.keepTestHistoryOnPurge\?\.checked !== false/);

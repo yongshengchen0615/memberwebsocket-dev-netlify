@@ -86,9 +86,10 @@ test('booking admin refresh merges the richer admin settings contract', () => {
   assert.match(source, /settings:\s*\{\s*\.\.\.\(booking\.settings \|\| \{\}\),\s*\.\.\.\(catalog\.settings \|\| \{\}\),\s*\.\.\.\(resources\.settings \|\| \{\}\)\s*\}/);
 });
 
-test('admin entrypoint cache-busts the shared-settings E2E controller', () => {
+test('admin entrypoint does not expose the shared-settings E2E controller', () => {
   const html = read('admin/index.html');
-  assert.match(html, /\.\/e2e-control\.js\?v=qa-e2e-\d{8}-\d+/);
+  assert.doesNotMatch(html, /\.\/e2e-control\.js\?v=qa-e2e-\d{8}-\d+/);
+  assert.match(read('admin/e2e-control-loader.js'), /const E2E_CONTROL_SRC/);
 });
 
 
@@ -102,6 +103,6 @@ test('ticket service requirements replace the global booking switch in both mana
   assert.doesNotMatch(core, /bookingAdminTicketBookingRequired|bookingAdminTicketPolicyHeading/);
   assert.doesNotMatch(core, /handleTicketBookingPolicyNavigation|ticketBookingRequired:/);
   assert.match(core, /snapshotLocationRequired: els\.bookingAdminSnapshotLocationRequired\.checked/);
-  assert.match(loader, /booking-panel-core\.js', '.*service-ticket-rule-20261015-1'/);
+  assert.match(loader, /booking-panel-core\.js', '.*service-ticket-rule-20261015-1-booking-risk-20261021-1-risk-tab-20261023-1-risk-ux-20261023-2-layout-20261028-1-phone-slots-20261029-2'/);
   assert.match(html, /booking-panel\.js\?v=[^"']*service-ticket-rule-20261015-1/);
 });

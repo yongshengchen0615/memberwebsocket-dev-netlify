@@ -1,6 +1,7 @@
+import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
 import { loadAdminCopyText } from "./booking-actions.ts";
 import { completionSummary } from "./completion-summary.ts";
-import { createClient } from 'npm:@supabase/supabase-js@2.57.0';
+import { createClient } from '../_shared/business-runtime.ts';
 import { buildBookingFlexMessage, deliver, secureEqual } from './delivery.ts';
 import {
   isUsableEventClaim,
@@ -13,12 +14,12 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
   status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
 });
 
-Deno.serve(async (request: Request) => {
+serveBusiness('booking-line-notifications',async (request: Request) => {
   if (request.method !== 'POST') return json({ ok: false }, 405);
   const suppliedSecret = request.headers.get('x-dispatch-secret') || '';
   if (!suppliedSecret || suppliedSecret.length > 200) return json({ ok: false }, 401);
   try {
-    const db = createClient(Deno.env.get('SUPABASE_URL') || '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '', {
+    const db = createClient(businessEnv('SUPABASE_URL') || '', businessEnv('SUPABASE_SERVICE_ROLE_KEY') || '', {
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const config = await db.rpc('booking_notification_config');
@@ -163,6 +164,13 @@ Deno.serve(async (request: Request) => {
     // Bounded parallel work finishes comfortably inside the two-minute claim lease.
     for (let offset = 0; offset < jobs.length; offset += 5) {
       await Promise.all(jobs.slice(offset, offset + 5).map(async (job: any) => {
+        if (job.channel === 'admin' ? config.data.ADMIN_NOTIFICATIONS_DISABLED : config.data.MEMBER_NOTIFICATIONS_DISABLED) {
+          const suppressed = await db.from('notice_outbox').update({status:'skipped',last_error:'NOTIFICATIONS_DISABLED'})
+            .eq('id',job.id).eq('status','sending').eq('attempt_count',job.attempt_count).select('id');
+          if (suppressed.error || suppressed.data?.length !== 1) failed++;
+          else skipped++;
+          return;
+        }
         // Defense in depth: never allow a claimed legacy/manual outbox row to send LINE for a test member.
         const testGuard = await db.rpc('skip_booking_notification_for_test_member', {
           p_id: job.id,

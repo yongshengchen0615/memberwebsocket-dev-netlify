@@ -18,6 +18,8 @@
     editing: null,
     realtimeUnsubscribe: null,
     bookingRenderCount: 0,
+    historyDate: '',
+    historyMemberId: '',
     refreshSequence: 0,
     serverClockEpochMs: 0,
     serverClockMonotonicMs: 0,
@@ -39,7 +41,7 @@
       'loadingView', 'errorView', 'errorTitle', 'errorMessage', 'joinMemberButton', 'retryButton', 'bookingView',
       'memberName', 'memberProfileName', 'memberCode', 'memberTier', 'workHoursBadge',
       'bookingForm', 'servicePicker', 'serviceEmpty', 'selectedServiceList', 'selectedServiceEmpty', 'selectionSummary',
-      'bookingDate', 'slotHint', 'slotGrid', 'memberNote', 'formMessage', 'submitBookingButton',
+      'bookingDate', 'slotHint', 'slotGrid', 'memberNote', 'bookingReminderEnabled', 'bookingReminderTime', 'bookingReminderConfirmSummary', 'formMessage', 'submitBookingButton',
       'bookingList', 'bookingEmpty', 'bookingConfirmModal', 'closeBookingConfirmButton', 'cancelBookingConfirmButton',
       'bookingConfirmSummary', 'bookingConfirmMessage', 'confirmBookingButton'
     ].forEach((id) => { els[id] = document.getElementById(id); });
@@ -48,8 +50,22 @@
     els.joinMemberButton.addEventListener('click', () => window.BookingSystem.openMemberJoin(state.config));
     els.bookingDate.addEventListener('change', dateChanged);
     els.bookingForm.addEventListener('submit', openConfirmation);
+    els.bookingReminderEnabled.addEventListener('change', () => {
+      els.bookingReminderTime.disabled = !els.bookingReminderEnabled.checked;
+      state.pendingBookingWrite = null;
+    });
+    els.bookingReminderTime.addEventListener('change', () => { state.pendingBookingWrite = null; });
     document.getElementById('cancelEditBookingButton').addEventListener('click', endEditing);
     window.addEventListener('booking:date-selected', beginNewBookingFromDateSelection);
+    window.addEventListener('booking:history-date-selected', (event) => {
+      state.historyDate = String(event.detail?.date || '');
+      renderBookings({ recordsOnly: true });
+    });
+    window.addEventListener('booking:member-loaded', event => {
+      const memberId = String(event.detail?.profile?.lineUserId || '');
+      if (memberId !== state.historyMemberId) state.historyDate = '';
+      state.historyMemberId = memberId;
+    });
     els.closeBookingConfirmButton.addEventListener('click', closeConfirmation);
     els.cancelBookingConfirmButton.addEventListener('click', closeConfirmation);
     els.confirmBookingButton.addEventListener('click', confirmBooking);
@@ -130,6 +146,7 @@
       window.dispatchEvent(new CustomEvent('booking:member-loaded', { detail: { profile: state.profile } }));
       pruneSelections();
       renderMemberProfile();
+      renderBookingRestriction();
       renderSettings();
       renderServices();
       renderBookings();
@@ -159,6 +176,18 @@
     return (state.data.services || []).filter((service) => service.serviceId !== STORE_SERVICE_ID);
   }
 
+  function bookingRestricted() {
+    const r=state.data.bookingRestriction;
+    return !state.editing && r?.restricted===true && Date.parse(r.expiresAt)>currentServerTimeMs();
+  }
+  function renderBookingRestriction() {
+    document.getElementById('bookingRestrictionNotice')?.remove();
+    const r=state.data.bookingRestriction;if(r?.restricted!==true || Date.parse(r.expiresAt)<=currentServerTimeMs())return;
+    const notice=document.createElement('section');notice.id='bookingRestrictionNotice';notice.setAttribute('role','status');
+    const title=document.createElement('h3');title.textContent='線上預約暫時受限';
+    const text=document.createElement('p');text.textContent='到期時間：'+new Date(r.expiresAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'})+'。既有預約與會員權益仍可查詢。如需預約，請洽：'+(r.contactText||'店家客服或電話預約。');notice.append(title,text);
+    els.bookingForm.before(notice);
+  }
   function renderMemberProfile() {
     const profile = state.profile || {};
     const name = String(profile.displayName || els.memberName.textContent || 'LINE 會員');
@@ -565,17 +594,52 @@
       item.classList.toggle('selected', selected);
       item.setAttribute('aria-pressed', selected ? 'true' : 'false');
     });
-    els.submitBookingButton.disabled = state.submitting || !state.selectedSlot;
+    els.submitBookingButton.disabled = state.submitting || !state.selectedSlot || bookingRestricted();
     clearFormMessage();
+  }
+
+  function reminderPreference() {
+    return {
+      reminderEnabled: els.bookingReminderEnabled.checked,
+      reminderTime: els.bookingReminderTime.value || '18:00',
+    };
+  }
+
+  function resetReminderPreference() {
+    els.bookingReminderEnabled.checked = false;
+    els.bookingReminderTime.value = '18:00';
+    els.bookingReminderTime.disabled = true;
+  }
+
+  function reminderError() {
+    const { reminderEnabled, reminderTime } = reminderPreference();
+    if (!reminderEnabled) return '';
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(reminderTime)) return '請選擇有效的前一天提醒時間。';
+    const actualStartDate = String(state.selectedSlot?.startAt || els.bookingDate.value).slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(actualStartDate)) return '請重新選擇預約時段。';
+    const previous = new Date(`${actualStartDate}T00:00:00Z`);
+    previous.setUTCDate(previous.getUTCDate() - 1);
+    const due = Date.parse(`${previous.toISOString().slice(0, 10)}T${reminderTime}:00+08:00`);
+    if (!Number.isFinite(due) || due <= currentServerTimeMs()) {
+      return '所選前一天提醒時間已過，請調整提醒時間，或取消提醒後繼續預約。';
+    }
+    return '';
   }
 
   function openConfirmation(event) {
     event.preventDefault();
     if (state.submitting) return;
+    if (bookingRestricted()) return showFormMessage('目前暫停新的線上預約，請查看到期時間或聯絡店家。','error');
     const items = selectedServiceRows();
     if (!items.length || !els.bookingDate.value || !state.selectedSlot) {
       return showFormMessage('請完整選擇預約項目、日期與時間。', 'error');
     }
+    const reminderValidation = reminderError();
+    if (reminderValidation) return showFormMessage(reminderValidation, 'error');
+    const { reminderEnabled, reminderTime } = reminderPreference();
+    els.bookingReminderConfirmSummary.textContent = reminderEnabled
+      ? `前一天 LINE 提醒：${reminderTime}（台北時間）`
+      : '前一天 LINE 提醒：不提醒';
     renderConfirmation(items);
     clearConfirmMessage();
     els.bookingConfirmModal.classList.remove('hidden');
@@ -661,6 +725,7 @@
       bookingDate,
       startTime,
       memberNote: String(els.memberNote.value || ''),
+      ...reminderPreference(),
       benefits: window.BookingBenefits?.selectionPayload?.() || [],
     });
   }
@@ -711,9 +776,12 @@
 
   async function confirmBooking() {
     if (state.submitting) return;
+    if (bookingRestricted()) return showConfirmMessage('目前暫停新的線上預約，請聯絡店家。','error');
     const items = selectedItems();
     const bookingDate = els.bookingDate.value;
     const startTime = state.selectedSlot?.startTime || '';
+    const reminderValidation = reminderError();
+    if (reminderValidation) return showConfirmMessage(reminderValidation, 'error');
     if (!items.length || !bookingDate || !startTime) {
       showConfirmMessage('預約內容已變更，請返回重新選擇。', 'error');
       return;
@@ -739,6 +807,7 @@
         bookingDate,
         startTime,
         memberNote: els.memberNote.value,
+        ...reminderPreference(),
         benefits: window.BookingBenefits?.selectionPayload?.() || [],
       });
       state.pendingBookingWrite = null;
@@ -747,6 +816,7 @@
       state.editing = null;
       updateEditingLabel();
       els.memberNote.value = '';
+      resetReminderPreference();
       window.BookingBenefits?.setBookingContext?.('');
       window.BookingBenefits?.clearSelection?.();
       state.selections = [];
@@ -764,6 +834,7 @@
           state.pendingBookingWrite = null;
           els.bookingConfirmModal.classList.add('hidden');
           state.editing = null;
+          resetReminderPreference();
           updateEditingLabel();
           window.BookingBenefits?.setBookingContext?.('');
           window.BookingBenefits?.clearSelection?.();
@@ -790,7 +861,7 @@
       state.submitting = false;
       els.confirmBookingButton.disabled = false;
       els.confirmBookingButton.textContent = '確認送出';
-      els.submitBookingButton.disabled = !state.selectedSlot;
+      els.submitBookingButton.disabled = !state.selectedSlot || bookingRestricted();
     }
   }
 
@@ -900,8 +971,9 @@
     return section;
   }
 
-  function renderBookings() {
-    const bookings = state.data.bookings || [];
+  function renderBookings({ recordsOnly = false } = {}) {
+    const allBookings = state.data.bookings || [];
+    const bookings = state.historyDate ? allBookings.filter(booking => booking.bookingDate === state.historyDate) : allBookings;
     els.bookingList.replaceChildren();
     els.bookingEmpty.classList.toggle('hidden', bookings.length > 0);
 
@@ -909,6 +981,7 @@
       const item = document.createElement('article');
       item.className = `booking-item member-booking-format-card status-${booking.status}`;
       item.dataset.bookingId = String(booking.bookingId || '');
+      item.dataset.bookingDate = String(booking.bookingDate || '');
       const hasParticipantDetails = Array.isArray(booking.participants) && booking.participants.length > 0;
       item.dataset.participantDetails = hasParticipantDetails ? '1' : '0';
 
@@ -999,7 +1072,14 @@
 
     window.BookingMemberUI?.organizeBookingHistory?.();
     state.bookingRenderCount += 1;
-    window.dispatchEvent(new CustomEvent('booking:bookings-rendered', { detail: { renderCount: state.bookingRenderCount } }));
+    window.dispatchEvent(new CustomEvent('booking:bookings-rendered', { detail: {
+      renderCount: state.bookingRenderCount,
+      recordsOnly,
+      // Only the authenticated member's already-loaded booking times; do not expose profile or tokens.
+      bookings: allBookings.map(({ bookingDate, startTime, endTime, startAt, endAt, status }) => ({
+        bookingDate, startTime, endTime, startAt, endAt, status,
+      })),
+    } }));
   }
 
   function summaryRow(label, value) {
@@ -1067,6 +1147,7 @@
     state.selectedSlot = null;
     ++state.slotRequestSequence;
     els.memberNote.value = '';
+    resetReminderPreference();
     window.BookingBenefits?.setBookingContext?.('');
     window.BookingBenefits?.clearSelection?.();
     updateEditingLabel();
@@ -1081,6 +1162,9 @@
     state.selections = bookingVisibleItems(booking).filter((item) => activeIds.has(item.serviceId))
       .flatMap((item) => Array.from({ length: Number(item.quantity || 1) }, () => ({ serviceId: item.serviceId, selectionId: crypto.randomUUID() })));
     els.memberNote.value = booking.memberNote || '';
+    els.bookingReminderEnabled.checked = booking.reminderEnabled === true;
+    els.bookingReminderTime.value = String(booking.reminderTime || '18:00').slice(0, 5);
+    els.bookingReminderTime.disabled = !els.bookingReminderEnabled.checked;
     window.BookingBenefits?.setBookingContext?.(booking.bookingId);
     window.BookingBenefits?.setSelection?.(booking.benefits || []);
     els.bookingDate.value = booking.bookingDate;

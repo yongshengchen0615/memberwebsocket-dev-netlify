@@ -159,12 +159,13 @@ test('admin E2E API failures retain bounded transport context', () => {
 
 test('all affected entrypoints bust caches for the fixed controllers', () => {
   for (const surface of ['member','points','event','calendar','booking']) {
-    assert.match(read(surface + '/index.html'), /user-test-control\.js\?v=qa-e2e-\d{8}-\d+/);
+    assert.match(read('tests/fixtures/' + surface + '-e2e.html'), /user-test-control\.js\?v=qa-e2e-\d{8}-\d+/);
   }
   assert.match(read('booking/index.html'), /app\.js\?v=booking-member-chat-20261003-1/);
   assert.match(read('event/index.html'), /app\.js\?v=[^" ]+/);
-  assert.match(read('admin/index.html'), /test-control\.js\?v=test-control-[A-Za-z0-9._-]+/);
-  assert.match(read('admin/index.html'), /e2e-control\.js\?v=qa-e2e-\d{8}-\d+/);
+  assert.doesNotMatch(read('admin/index.html'), /test-control\.js\?v=test-control-[A-Za-z0-9._-]+/);
+  assert.doesNotMatch(read('admin/index.html'), /e2e-control\.js\?v=qa-e2e-\d{8}-\d+/);
+  assert.match(read('admin/e2e-control-loader.js'), /const E2E_CONTROL_SRC/);
 });
 
 

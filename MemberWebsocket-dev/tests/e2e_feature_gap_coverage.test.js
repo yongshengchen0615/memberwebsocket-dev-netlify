@@ -90,7 +90,9 @@ test('admin full E2E covers directory, test-account lifecycle, presets, batch ca
   assert.match(source, /adminIntegrationNavigationCase/);
   assert.match(source, /integrationMetricGrid/);
   assert.match(source, /integrationNotifications/);
-  assert.match(source, /integrationAuditTimeline/);
+  assert.match(source, /actual\.auditAbsent/);
+  assert.equal(fs.existsSync(path.join(root, 'admin/integration-hub.js')), false, 'Retired integration center must not ship');
+  assert.doesNotMatch(read('admin/index.html'), /integration-hub\.(?:js|css)/);
   assert.match(source, /完成結算預覽/);
   assert.match(source, /stayedConfirmedBeforeSubmit/);
   assert.match(source, /確認完成並結算/);
@@ -103,9 +105,10 @@ test('admin full E2E covers directory, test-account lifecycle, presets, batch ca
 
 test('all member clients and admin load the latest expanded E2E controllers', () => {
   for (const entry of ['member', 'points', 'event', 'calendar', 'booking']) {
-    const html = read(entry + '/index.html');
+    const html = read('tests/fixtures/' + entry + '-e2e.html');
     assert.match(html, /\.\.\/user-test-control\.js\?v=qa-e2e-\d{8}-\d+/);
   }
   const admin = read('admin/index.html');
-  assert.match(admin, /\.\/e2e-control\.js\?v=qa-e2e-\d{8}-\d+/);
+  assert.doesNotMatch(admin, /\.\/e2e-control\.js\?v=qa-e2e-\d{8}-\d+/);
+  assert.match(read('admin/e2e-control-loader.js'), /const E2E_CONTROL_SRC/);
 });

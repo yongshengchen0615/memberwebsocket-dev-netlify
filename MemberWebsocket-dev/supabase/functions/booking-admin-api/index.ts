@@ -1,6 +1,7 @@
+import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 import { workWindow, timeOnBusinessDate, clockTime } from "../_shared/booking-hours.ts";
 
 type Json = Record<string, unknown>;
@@ -23,7 +24,7 @@ class ApiError extends Error {
   }
 }
 
-function env(name: string): string { return (Deno.env.get(name) || "").trim(); }
+function env(name: string): string { return (businessEnv(name) || "").trim(); }
 function allowedOrigins(): Set<string> {
   return new Set([(env("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io"), "https://develop--memberwebsocket-dev-netlify.netlify.app"].join(",").split(",").map((v) => v.trim()).filter(Boolean));
 }
@@ -225,8 +226,10 @@ async function settingsSave(supabase: SupabaseClient, identity: Identity, body: 
   const maxAdvanceDays = Number(body.maxAdvanceDays);
   const storeServiceMinutes = Number(body.storeServiceMinutes);
   const bookingNotice = preserveText(body.bookingNotice, 2001);
-  if (typeof body.reminderEnabled !== "boolean") throw new ApiError(400, "INVALID_REMINDER_ENABLED", "請選擇是否啟用預約提醒。");
-  const reminderTime = normalizeTime(body.reminderTime);
+  // Legacy columns remain for backwards compatibility. Members now control each booking.
+  const legacyReminder = await supabase.from("booking_settings")
+    .select("reminder_enabled,reminder_time").eq("id", 1).single();
+  if (legacyReminder.error) throw mapDatabaseError(legacyReminder.error);
   if (workStartTime === workEndTime || workWindow(workStartTime, workEndTime).end - timeToMinutes(workStartTime) < 5) throw new ApiError(400, "INVALID_WORK_HOURS", "工作時段不可為零長度。" );
   if (!Number.isInteger(slotIntervalMinutes) || slotIntervalMinutes < 5 || slotIntervalMinutes > 120 || slotIntervalMinutes % 5 !== 0) throw new ApiError(400, "INVALID_SLOT_INTERVAL", "切分間隔須為 5–120 分鐘的 5 分鐘倍數。" );
   if (!Number.isInteger(minAdvanceDays) || minAdvanceDays < 0 || minAdvanceDays > 365) throw new ApiError(400, "INVALID_ADVANCE_DAYS", "提前預約天數必須介於 0–365 天。" );
@@ -260,8 +263,8 @@ async function settingsSave(supabase: SupabaseClient, identity: Identity, body: 
     p_max_advance_days: maxAdvanceDays,
     p_booking_notice: bookingNotice,
     p_store_service_minutes: storeServiceMinutes,
-    p_reminder_enabled: body.reminderEnabled,
-    p_reminder_time: `${reminderTime}:00`,
+    p_reminder_enabled: legacyReminder.data.reminder_enabled === true,
+    p_reminder_time: legacyReminder.data.reminder_time,
     p_expected_updated_at: expectedUpdatedAt || null,
     p_actor: identity.lineUserId,
   });
@@ -422,7 +425,7 @@ async function route(supabase: SupabaseClient, identity: Identity, action: strin
   throw new ApiError(404, "ACTION_NOT_FOUND", "不支援的預約管理操作。" );
 }
 
-Deno.serve(async (request: Request) => {
+serveBusiness('booking-admin-api',async (request: Request) => {
   const origin = request.headers.get("Origin");
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
   if (request.method !== "POST") return response(origin, { ok: false, error: { code: "METHOD_NOT_ALLOWED", message: "只支援 POST。" } }, 405);

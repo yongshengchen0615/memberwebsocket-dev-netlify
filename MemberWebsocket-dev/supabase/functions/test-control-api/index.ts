@@ -1,5 +1,6 @@
+import { businessEnv, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';
 import { summarizeE2EExecution, prepareE2EServiceRuleFixtures, normalizeFeatureCoverage, normalizeClientFeatureCoverage, evaluateSelectedScope } from "../_shared/e2e-coverage.js";
-import { createClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient } from '../_shared/business-runtime.ts';
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
 import { attachE2EDiagnosis, diagnoseE2EFailure, summarizeE2EFailureDiagnoses } from "../_shared/e2e-diagnostics.js";
 
@@ -32,7 +33,7 @@ class ApiError extends Error {
 }
 
 function env(name: string): string {
-  return (Deno.env.get(name) || "").trim();
+  return (businessEnv(name) || "").trim();
 }
 
 function asText(value: unknown, max = 1000): string {
@@ -1871,7 +1872,7 @@ async function executeRun(supabase: any, runId: string): Promise<Json> {
   return runView(supabase, runId);
 }
 
-Deno.serve(async (request: Request) => {
+serveBusiness('test-control-api',async (request: Request) => {
   const origin = request.headers.get("Origin");
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders(origin) });

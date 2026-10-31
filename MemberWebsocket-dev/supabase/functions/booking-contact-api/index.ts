@@ -1,3 +1,4 @@
+import { serveBusiness } from '../_shared/business-runtime.ts';
 import { readJsonObject } from "../_shared/request-body.ts";
 import { resolveUserTestIdentity, TestModeAuthError } from "../_shared/test-mode-auth.ts";
 import {
@@ -51,10 +52,20 @@ async function handleMemberWrite(supabase: any, identity: Identity, member: any,
   const items = normalizeItems(body.items);
   const memberNote = asText(body.memberNote, 500);
   const contact = requestContact(body);
+  const reminderEnabled = body.reminderEnabled === undefined ? false : body.reminderEnabled;
+  const reminderTime = body.reminderTime === undefined ? "18:00" : body.reminderTime;
+  if (typeof reminderEnabled !== "boolean" || typeof reminderTime !== "string"
+      || !/^([01]\d|2[0-3]):[0-5]\d$/.test(reminderTime)) {
+    throw new ApiError(400, "INVALID_BOOKING_REMINDER", "請選擇正確的前一天提醒時間。");
+  }
+  const reminder = {
+    p_reminder_enabled: reminderEnabled,
+    p_reminder_time: `${reminderTime}:00`,
+  };
 
   let rpc;
   if (action === "user.booking.create") {
-    rpc = await supabase.rpc("create_booking_bundle_with_contact", {
+    rpc = await supabase.rpc("create_booking_bundle_with_contact_reminder", {
       p_request_id: requestId,
       p_member_id: member.id,
       p_booking_date: bookingDate,
@@ -62,13 +73,14 @@ async function handleMemberWrite(supabase: any, identity: Identity, member: any,
       p_items: items,
       p_member_note: memberNote,
       ...contact,
+      ...reminder,
     });
   } else {
     const expectedUpdatedAt = asText(body.expectedUpdatedAt, 80);
     if (!expectedUpdatedAt || !Number.isFinite(Date.parse(expectedUpdatedAt))) {
       throw new ApiError(400, "INVALID_INPUT", "缺少預約版本，請重新整理。");
     }
-    rpc = await supabase.rpc("update_booking_bundle_with_contact", {
+    rpc = await supabase.rpc("update_booking_bundle_with_contact_reminder", {
       p_booking_id: requireUuid(body.bookingId),
       p_expected_updated_at: expectedUpdatedAt,
       p_actor: identity.lineUserId,
@@ -79,6 +91,7 @@ async function handleMemberWrite(supabase: any, identity: Identity, member: any,
       p_items: items,
       p_member_note: memberNote,
       ...contact,
+      ...reminder,
     });
   }
 
@@ -97,7 +110,7 @@ async function handleMemberWrite(supabase: any, identity: Identity, member: any,
   return { booking };
 }
 
-Deno.serve(async (request: Request) => {
+serveBusiness('booking-contact-api',async (request: Request) => {
   const origin = request.headers.get("Origin");
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
   if (request.method !== "POST") {

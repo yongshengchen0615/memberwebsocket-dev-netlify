@@ -7,9 +7,52 @@ const { JSDOM, VirtualConsole } = require('jsdom');
 
 const root = path.join(__dirname, '../..');
 
+test('AC-CONFIG-001: admin reads root public config independently of a business lookup error', async () => {
+  const dom = new JSDOM('<!doctype html><title>Admin</title>', {
+    url: 'https://example.test/admin/?business=deleted-merchant', runScripts: 'outside-only',
+  });
+  const w = dom.window;
+  const requests = [], lookups = [];
+  const example = { productizedAdmin: true, adminLiffId: '2010791619-vhevCvvD' };
+  w.BusinessContext = {
+    slug: 'deleted-merchant',
+    configure: async (config) => {
+      lookups.push(config);
+      throw Object.assign(new Error('找不到商家入口。'), { code: 'BUSINESS_NOT_FOUND' });
+    },
+  };
+  w.fetch = async (url, init) => {
+    requests.push({ url, cache: init.cache });
+    return new Response(JSON.stringify(example), { status: 200 });
+  };
+  try {
+    w.eval(fs.readFileSync(path.join(root, 'member-system.js'), 'utf8'));
+    await assert.rejects(w.MemberSystem.loadConfig(), (error) =>
+      error.code === 'BUSINESS_NOT_FOUND' && error.message === '找不到商家入口。'
+    );
+    assert.deepEqual(requests, [{ url: '/config.json', cache: 'no-store' }]);
+    assert.equal(lookups.length, 1, 'do not retry non-network business discovery');
+    assert.equal(lookups[0].productizedAdmin, true);
+  } finally { dom.window.close(); }
+});
+
+test('AC-CONFIG-002: unrelated public config transport errors stay fail-closed', async () => {
+  const dom = new JSDOM('<!doctype html>', { url: 'https://example.test/admin/', runScripts: 'outside-only' });
+  const w = dom.window;
+  let calls = 0;
+  w.fetch = async () => { calls++; throw new TypeError('fetch failed'); };
+  try {
+    w.eval(fs.readFileSync(path.join(root, 'member-system.js'), 'utf8'));
+    await assert.rejects(w.MemberSystem.loadConfig(), (error) =>
+      error.code === 'CONFIG_ERROR' && /無法讀取公開設定/.test(error.message)
+    );
+    assert.equal(calls, 2);
+  } finally { dom.window.close(); }
+});
+
 // Run in a separate process: an observer loop starves even in-process test timers.
 if (!process.argv.includes('--fixture')) {
-  for (const mode of ['early', 'late', 'forbidden']) {
+  for (const mode of ['early', 'late', 'forbidden', 'stale-business', 'stale-background-business']) {
     test(`admin startup and fixed-ticket observers settle (${mode})`, () => {
       const result = spawnSync(process.execPath, [__filename, '--fixture', mode], {
         encoding: 'utf8', timeout: 5000,
@@ -34,7 +77,10 @@ async function runFixture(mode) {
     else throw error;
   });
   const dom = new JSDOM(fs.readFileSync(path.join(root, 'admin/index.html'), 'utf8'), {
-    runScripts: 'outside-only', url: 'https://example.test/MemberWebsocket-dev/admin/', virtualConsole,
+    runScripts: 'outside-only', url: mode.startsWith('stale-')
+      ? 'https://example.test/admin/?business=missing-merchant&feature=membership' +
+        (mode === 'stale-background-business' ? '&e2eBackgroundRunner=1&e2eRunId=BG-missing' : '')
+      : 'https://example.test/MemberWebsocket-dev/admin/', virtualConsole,
   });
   const w = dom.window;
   const el = (id) => w.document.getElementById(id);
@@ -50,13 +96,26 @@ async function runFixture(mode) {
     calls.push({ url, init });
     return new Response(JSON.stringify({ ok: true, data: { templates: [] } }));
   };
+  if (mode.startsWith('stale-')) w.BusinessContext = { slug: 'missing-merchant' };
+  if (mode === 'stale-background-business') {
+    w.opener = { closed: false, MemberAdminE2EControl: {
+      provideBackgroundSession: (runId) => ({ runId, idToken: 'fixture-token',
+        config: { supabaseUrl: 'https://fixture.supabase.co', business: 'missing-merchant' } }),
+    } };
+  }
   w.liff = { getIDToken: () => 'fixture-token' };
   w.MemberSystem = {
     bindDialogKeyboard() {},
-    loadConfig: async () => ({ supabaseUrl: 'https://fixture.supabase.co' }),
+    loadConfig: async () => {
+      if (mode === 'stale-business') throw Object.assign(new Error('找不到商家入口。'), { code: 'BUSINESS_NOT_FOUND' });
+      return { supabaseUrl: 'https://fixture.supabase.co' };
+    },
     signIn: async () => 'fixture-token',
     request: async () => {
       adminRequests += 1;
+      if (mode === 'stale-background-business') {
+        throw Object.assign(new Error('找不到商家入口。'), { code: 'BUSINESS_NOT_FOUND' });
+      }
       if (mode === 'forbidden') throw Object.assign(new Error('Access denied'), { code: 'ADMIN_FORBIDDEN' });
       return {
         profile: { displayName: 'Fixture Admin' }, role: 'Admin',
@@ -80,6 +139,24 @@ async function runFixture(mode) {
     await tick();
 
     assert.deepEqual(errors, []);
+    if (mode === 'stale-background-business') {
+      assert.equal(navigationAttempts.length, 0, 'background failure must retain its merchant scope');
+      assert.equal(adminRequests, 1, 'do not retry bootstrap against an unscoped data plane');
+      assert.equal(subscriptions, 0);
+      assert.equal(w.document.documentElement.dataset.memberAdminReady, undefined);
+      assert.equal(el('adminView').classList.contains('hidden'), true);
+      assert.equal(el('errorView').classList.contains('hidden'), false);
+      assert.match(el('errorMessage').textContent, /找不到商家入口/);
+      return;
+    }
+    if (mode === 'stale-business') {
+      assert.equal(navigationAttempts.length, 1, 'missing business navigates once to clean admin entry');
+      assert.equal(adminRequests, 0, 'missing business must not access the shared admin data plane');
+      assert.equal(subscriptions, 0);
+      assert.equal(el('adminView').classList.contains('hidden'), true);
+      assert.equal(el('errorView').classList.contains('hidden'), true);
+      return;
+    }
     assert.equal(el('loadingView').classList.contains('hidden'), true);
     assert.equal(el('app').getAttribute('aria-busy'), 'false');
     if (mode === 'forbidden') {

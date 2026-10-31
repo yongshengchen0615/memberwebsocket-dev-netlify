@@ -74,6 +74,9 @@
     'user.event.ticket.claim',
     'user.event.ticket.redeem',
     'member.referral.bind',
+    'member.invitation.create',
+    'member.invitation.retry',
+    'user.member.invitation.claim',
     'points.transfer.create',
     'admin.booking.receipt.register',
     'admin.booking.receipt.dismiss'
@@ -85,21 +88,42 @@
     return error;
   }
 
+  // The legacy business API is a single-merchant data plane. A tenant URL must
+  // never silently fall through to another merchant's existing membership data.
+  function assertLegacyTenantScope() {
+    const search = String(window.location?.search || '').replace(/^\?/, '');
+    const isTenantScoped = search.split('&').some(segment => {
+      if (!segment) return false;
+      try { return decodeURIComponent(segment.split('=')[0].replace(/\+/g, ' ')).toLowerCase() === 'tenant'; }
+      catch { return true; } // Malformed query keys fail closed.
+    });
+    if (isTenantScoped) {
+      throw clientError('TENANT_NOT_READY', '此商家的會員資料環境尚未獨立開通，請由商家專用入口登入。');
+    }
+  }
+
   async function loadConfig() {
-    let lastError;
+    assertLegacyTenantScope();
+    let lastError, config;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        const result = await fetchWithTimeout('../config.json', { cache: 'no-cache' }, READ_TIMEOUT_MS, (response) => response.text());
+        // Same-origin absolute path is stable for LIFF callback URLs and /admin/ routes.
+        const result = await fetchWithTimeout('/config.json', { cache: 'no-store' }, READ_TIMEOUT_MS, (response) => response.text());
         if (!result.response.ok) throw clientError('CONFIG_ERROR', '讀取 config.json 失敗。');
-        const config = JSON.parse(result.body);
+        config = JSON.parse(result.body);
         if (!config || typeof config !== 'object' || Array.isArray(config)) throw clientError('CONFIG_ERROR', 'config.json 格式不正確。');
-        return config;
+        break;
       } catch (error) {
+        config = null;
         lastError = error && error.code === 'CONFIG_ERROR' ? error : clientError('CONFIG_ERROR', '無法讀取公開設定，請確認網路後重試。');
         if (attempt === 0) await wait(READ_RETRY_DELAY_MS);
       }
     }
-    throw lastError || clientError('CONFIG_ERROR', '無法讀取公開設定。');
+    if (!config) throw lastError || clientError('CONFIG_ERROR', '無法讀取公開設定。');
+    // Business discovery is separate from the public config request. Preserve
+    // BUSINESS_NOT_FOUND / authorization errors instead of misreporting network failure.
+    if (window.BusinessContext) await window.BusinessContext.configure(config);
+    return config;
   }
 
   function validateConfig(config, surface) {
@@ -136,16 +160,10 @@
   }
 
   async function signIn(config, surface) {
-    let idToken;
-    if (surface !== 'admin' && window.TestModeClient && typeof window.TestModeClient.prepare === 'function') {
-      const prepared = await window.TestModeClient.prepare(config, surface, () => lineSignIn(config, surface));
-      idToken = String(prepared && prepared.idToken || '');
-    } else {
-      idToken = await lineSignIn(config, surface);
-    }
+    const idToken = await lineSignIn(config, surface);
     // Admin sessions are verified per request using the admin LINE channel
     // and server-side role; member single-device claims apply only to users.
-    if (idToken && surface !== 'admin' && !(window.TestModeClient?.getSessionToken?.())) {
+    if (idToken && surface !== 'admin') {
       await claimBrowserSession(config, surface, idToken);
     }
     sessions.set(surface, Object.freeze({ config, idToken: String(idToken || '') }));
@@ -153,8 +171,8 @@
     return idToken;
   }
 
-  const LOGIN_BROWSER_KEY = 'member-login-browser-v1';
-  const LOGIN_REGISTERED_KEY = 'member-login-registered-v1';
+  const LOGIN_BROWSER_KEY = 'member-login-browser-v1' + (window.BusinessContext?.slug ? ':'+window.BusinessContext.slug : '');
+  const LOGIN_REGISTERED_KEY = 'member-login-registered-v1' + (window.BusinessContext?.slug ? ':'+window.BusinessContext.slug : '');
 
   function browserLoginKey() {
     try {
@@ -408,12 +426,9 @@
         clientType: context.clientType,
         idToken: currentPresenceIdToken(context)
       };
-      const body = window.TestModeClient && typeof window.TestModeClient.payload === 'function'
-        ? window.TestModeClient.payload(payload)
-        : payload;
+      const jsonBody = JSON.stringify(payload);
       // Send a simple POST to avoid CORS preflight during WebView teardown.
-      // The Edge Function has verify_jwt=false and authenticates the LINE/test token in the body.
-      const jsonBody = JSON.stringify(body);
+      // The Edge Function validates LINE credentials in the body.
       if (navigator && typeof navigator.sendBeacon === 'function') {
         const beaconBody = new Blob([jsonBody], { type: 'text/plain;charset=UTF-8' });
         if (navigator.sendBeacon(endpoint, beaconBody)) return Promise.resolve(true);
@@ -456,8 +471,8 @@
       return sendRequest(config, clientType, idToken, action, payload).finally(() => pendingReads.clear());
     }
     const endpoint = requestEndpoint(config, clientType, action);
-    const testSessionToken = window.TestModeClient && typeof window.TestModeClient.getSessionToken === 'function' ? window.TestModeClient.getSessionToken() : '';
-    const key = JSON.stringify([endpoint, clientType, idToken, testSessionToken, action, payload]);
+    const business = window.BusinessContext?.slug || config.business || '';
+    const key = JSON.stringify([endpoint, config.supabasePublishableKey, business, clientType, idToken, action, payload]);
     if (pendingReads.has(key)) return pendingReads.get(key);
     const pending = sendRequest(config, clientType, idToken, action, payload).finally(() => {
       if (pendingReads.get(key) === pending) pendingReads.delete(key);
@@ -467,28 +482,37 @@
   }
 
   function requestEndpoint(config, clientType, action) {
-    if (String(action || '').startsWith('member.friend.') || ['event.today-usable','member.referral.bind','points.transfer.options','points.transfer.receiver','points.transfer.create'].includes(action)) {
-      return String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/member-growth-api';
+    if (String(action || '').startsWith('member.friend.') || String(action || '').startsWith('member.invitation.') || ['event.today-usable','member.referral.bind','points.transfer.options','points.transfer.receiver','points.transfer.create'].includes(action)) {
+      return String(config.memberGrowthFunctionUrl || '').trim()
+        || String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/member-growth-api';
     }
     if (clientType === 'admin' && String(action || '').startsWith('admin.booking.receipt.')) {
       return String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/booking-receipt-api';
     }
-    if (clientType === 'member' && (action === 'user.member.bootstrap' || action === 'user.member.profile.save' || action === 'user.member.terms.accept' || action === 'user.member.card.open')) {
-      return String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/member-profile-api';
+    if (clientType === 'member' && (action === 'user.member.bootstrap' || action === 'user.member.profile.save' || action === 'user.member.terms.accept' || action === 'user.member.card.open' || action === 'user.member.invitation.claim' || action === 'user.member.oa.check')) {
+      return String(config.memberProfileFunctionUrl || '').trim()
+        || String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/member-profile-api';
     }
     if (clientType === 'calendar' && (action === 'user.calendar.bootstrap' || action === 'user.calendar.date.details')) {
       return String(config.memberCalendarFunctionUrl || '').trim();
     }
-    return String(config.supabaseFunctionUrl || '').trim();
+    return String(config.previewApiFunctionUrl || config.supabaseFunctionUrl || '').trim();
   }
 
   async function sendRequest(config, clientType, idToken, action, payload) {
+    assertLegacyTenantScope();
     if (isTerminatingAccess) throw clientError('SESSION_REVOKED', '連線已結束，請重新登入。');
     validateConfig(config, clientType);
     const endpoint = requestEndpoint(config, clientType, action);
     if (!SUPABASE_FUNCTION_PATTERN.test(endpoint) || endpoint.includes('REPLACE_')) {
       throw clientError('CONFIG_ERROR', '此功能的 Supabase Edge Function URL 尚未設定。');
     }
+    // LINE ID token authenticates identity, but the first membership join also
+    // needs a user access token for the server to check the linked member OA.
+    // Never persist this token or attach it to unrelated member requests.
+    const verifiedJoinPayload = (action === 'user.member.profile.save' && payload?.accepted === true) || action === 'user.member.oa.check'
+      ? { ...payload, lineAccessToken: typeof window.liff?.getAccessToken === 'function' ? (window.liff.getAccessToken() || '') : '' }
+      : payload;
     const isWrite = action.endsWith('.session.claim') || action.endsWith('.session.logout') || WRITE_ACTIONS.includes(action) || ['admin.settings.copy','admin.ticket-visibility.save','member.friend.request','member.friend.accept','member.friend.remove','member.friend.block'].includes(action);
     const timeoutMs = isWrite ? WRITE_TIMEOUT_MS : isFullBootstrap(clientType, action, payload) ? BOOTSTRAP_TIMEOUT_MS : READ_TIMEOUT_MS;
     const attempts = isWrite ? 1 : 2;
@@ -506,9 +530,7 @@
             'apikey': String(config.supabasePublishableKey)
           },
           cache: 'no-store',
-          body: JSON.stringify(window.TestModeClient && typeof window.TestModeClient.payload === 'function'
-            ? window.TestModeClient.payload({ ...payload, action, clientType, idToken })
-            : { ...payload, action, clientType, idToken })
+          body: JSON.stringify({ ...verifiedJoinPayload, action, clientType, idToken })
         }, remaining, (response) => response.text());
 
         let data;
@@ -603,7 +625,96 @@
         }
       });
     };
-    const client = realtimeClientFor(config);
+    // Private business schemas use authenticated reconciliation. No shared
+    // broadcast channel or anonymous subscription can carry another shop's data.
+    const client = config.business ? null : realtimeClientFor(config);
+    if (config.business) {
+      // Private schemas never subscribe to the shared anonymous event feed.
+      // Read an authorized opaque revision; reload full data only on change.
+      let timer, pending = false, queued = false, revision, lastFullAt = -Infinity;
+      let generation = 0, pendingGeneration = 0, refreshing = false, pageHidden = false;
+      let failures = 0, probes = 0, refreshes = 0;
+      const paused = () => pageHidden || document.visibilityState === 'hidden'
+        || (typeof navigator !== 'undefined' && navigator.onLine === false);
+      const status = value => {
+        if (disposed || realtimeStatuses.get(clientType) === value) return;
+        realtimeStatuses.set(clientType, value);
+        emitRealtimeEvent('member-system:realtime-status', {clientType,status:value});
+      };
+      const schedule = delay => {
+        if (disposed || paused()) return;
+        if (timer !== undefined) window.clearTimeout(timer);
+        timer = window.setTimeout(() => { timer = undefined; void probe(); }, delay);
+      };
+      const probe = async () => {
+        if (disposed || paused()) return;
+        if (pending) { queued = true; return; }
+        const active = sessions.get(clientType);
+        if (!active?.idToken) { schedule(10000); return; }
+        queued = false;
+        pending = true;
+        pendingGeneration = generation;
+        const stale = () => disposed || paused() || pendingGeneration !== generation;
+        const started = Date.now();
+        try {
+          probes++;
+          const action = clientType === 'admin' ? 'admin.sync.status' : 'user.' + clientType + '.sync.status';
+          const current = await sendRequest(active.config, clientType, active.idToken, action, {business:config.business});
+          if (stale()) return;
+          if (typeof current.revision !== 'string' || current.revision.length > 120) throw Error('INVALID_SYNC_REVISION');
+          const changed = revision !== current.revision || Date.now() - lastFullAt >= 120000;
+          if (changed) {
+            // Child booking/receipt modules consume the same invalidation feed.
+            emitRealtimeEvent('member-system:realtime-invalidation', {clientType,scope:clientType,eventType:clientType === 'admin' ? 'booking.receipt.reconcile' : 'business.reconcile'});
+            refreshing = true;
+            await onUpdate({clientType,eventTypes:[],reasons:['revision-changed']});
+            if (stale()) return;
+            revision = current.revision; lastFullAt = Date.now(); refreshes++;
+          }
+          failures = 0; status('SUBSCRIBED');
+          emitRealtimeEvent('member-system:sync-metrics', {clientType,transport:'authenticated-revision',durationMs:Date.now()-started,changed,probes,refreshes});
+        } catch (_) { if (!stale()) { failures++; status('CHANNEL_ERROR'); } }
+        finally {
+          pending = false; refreshing = false;
+          if (!disposed && !paused()) { const next = queued ? 0 : Math.min(60000,10000 * 2 ** Math.min(failures,3)); queued = false; schedule(next); }
+        }
+      };
+      const resume = () => {
+        if (disposed || paused()) return;
+        if (pending) {
+          // A current revision read can serve duplicate lifecycle signals. A
+          // pre-suspension read or an ongoing full refresh needs one fresh check.
+          if (pendingGeneration !== generation || refreshing) queued = true;
+        } else schedule(0);
+      };
+      const suspend = () => {
+        generation++;
+        if (pending) queued = true;
+        if (timer !== undefined) window.clearTimeout(timer);
+        timer = undefined;
+      };
+      const visibility = () => { if (paused()) suspend(); else resume(); };
+      const pageHide = () => { pageHidden = true; suspend(); };
+      const pageShow = () => { pageHidden = false; resume(); };
+      document.addEventListener('visibilitychange', visibility);
+      window.addEventListener('pagehide', pageHide);
+      window.addEventListener('pageshow', pageShow);
+      window.addEventListener('online', resume);
+      window.addEventListener('offline', suspend);
+      const unsubscribe = () => {
+        if (disposed) return; disposed = true;
+        if (timer !== undefined) window.clearTimeout(timer);
+        document.removeEventListener('visibilitychange', visibility);
+        window.removeEventListener('pagehide', pageHide);
+        window.removeEventListener('pageshow', pageShow);
+        window.removeEventListener('online', resume);
+        window.removeEventListener('offline', suspend);
+        realtimeSubscriptions.delete(clientType); realtimeStatuses.delete(clientType);
+        emitRealtimeEvent('member-system:realtime-status', {clientType,status:'CLOSED'});
+      };
+      realtimeSubscriptions.set(clientType,{unsubscribe}); status('SYNCING'); schedule(0);
+      return unsubscribe;
+    }
     if (!client) {
       // When the Realtime SDK/CDN is unavailable, keep member data synchronized
       // through the existing authenticated bootstrap instead of requiring reload.
@@ -649,18 +760,7 @@
     const SAFETY_SYNC_MS = 30000;
     const queuedEventTypes = new Set();
     const queuedReasons = new Set();
-    const hasActiveTestSession = () => {
-      try {
-        return Boolean(window.TestModeClient
-          && typeof window.TestModeClient.getSessionToken === 'function'
-          && window.TestModeClient.getSessionToken());
-      } catch (_) {
-        return false;
-      }
-    };
-    // Production clients pause background refreshes to control traffic. Paired E2E
-    // uses real background windows, so test sessions must keep consuming Realtime.
-    const isPaused = () => (document.visibilityState === 'hidden' && !hasActiveTestSession())
+    const isPaused = () => (document.visibilityState === 'hidden')
       || (typeof navigator !== 'undefined' && navigator.onLine === false);
 
     // Realtime, reconnect and page-resume signals share one refresh queue.
@@ -837,9 +937,6 @@
     sessions.clear();
     clearPresenceHeartbeat();
     if (presenceContext) presenceContext.closed = true;
-    if (window.TestModeClient && typeof window.TestModeClient.clearSession === 'function') {
-      try { window.TestModeClient.clearSession(); } catch (_) {}
-    }
 
     const isRevoked = ['SESSION_REVOKED', 'SESSION_REPLACED', 'MEMBER_REMOVED'].includes(code);
     const notice = isRevoked
@@ -880,7 +977,6 @@
       try { await withTimeout(stopPresence('logout', true), 1200, '上下線紀錄逾時。'); } catch (_) {}
       try { window.localStorage.removeItem(LOGIN_REGISTERED_KEY); window.localStorage.removeItem(LOGIN_BROWSER_KEY); } catch (_) {}
       sessions.clear();
-      if (window.TestModeClient && typeof window.TestModeClient.clearSession === 'function') window.TestModeClient.clearSession();
       if (window.liff && window.liff.isLoggedIn()) window.liff.logout();
     } finally { window.location.reload(); }
   }
@@ -888,7 +984,7 @@
   function openMemberJoin(config) {
     const memberLiffId = String(config && config.memberLiffId || '').trim();
     if (!/^[A-Za-z0-9_-]{1,100}$/.test(memberLiffId)) return false;
-    const url = `https://liff.line.me/${encodeURIComponent(memberLiffId)}`;
+    const url = `https://liff.line.me/${encodeURIComponent(memberLiffId)}` + (config.business ? `?business=${encodeURIComponent(config.business)}` : "");
     if (window.liff && typeof window.liff.openWindow === 'function') {
       window.liff.openWindow({ url, external: false });
       return true;
@@ -937,3 +1033,4 @@
     subscribeRealtime, getRealtimeStatus, logout, terminateAccessSession, openMemberJoin, formatDate, formatDateTime, initials
   });
 })();
+

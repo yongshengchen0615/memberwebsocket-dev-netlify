@@ -1,4 +1,6 @@
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import { businessContext } from '../_shared/business-scope.ts';
+import { withBusinessModule, businessEnv, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';
+import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 import { buildLineFlexNotice } from "../_shared/line-flex.ts";
 import { replaceCurrentGrantSections } from "../_shared/grant-message-sections.ts";
 import { buildLatestAvailableOffersSection } from "../_shared/latest-available-offers.ts";
@@ -8,7 +10,7 @@ type Json = Record<string, unknown>;
 const TIER_LABELS: Record<string,string> = { general:"一般會員",silver:"銀級會員",gold:"金級會員",platinum:"白金會員" };
 const DEFAULT_EVENT_LIFF_URL = "https://liff.line.me/2010787602-tuapstY3";
 
-function env(name: string): string { return (Deno.env.get(name) || "").trim(); }
+function env(name: string): string { return (businessEnv(name) || "").trim(); }
 function asText(value: unknown, max = 5000): string { return String(value ?? "").trim().slice(0,max); }
 function dbClient(): SupabaseClient {
   const url = env("SUPABASE_URL");
@@ -159,7 +161,7 @@ async function dispatchOne(supabase: SupabaseClient, token: string, row: any, ev
   }
 }
 
-Deno.serve(async (request: Request) => {
+serveBusiness('scheduled-grant-messages',async (request: Request) => {
   if (request.method !== "POST") return new Response(JSON.stringify({ ok:false,error:"METHOD_NOT_ALLOWED" }),{ status:405,headers:{ "Content-Type":"application/json" } });
 
   const supabase = dbClient();
@@ -174,7 +176,7 @@ Deno.serve(async (request: Request) => {
   const rows:any[] = Array.isArray(claim.data) ? claim.data : [];
   if (!rows.length) return new Response(JSON.stringify({ ok:true,claimed:0,sent:0,failed:0 }),{ status:200,headers:{ "Content-Type":"application/json","Cache-Control":"no-store" } });
 
-  const token = await lineToken(supabase);
+  const legacyToken = await lineToken(supabase);
   const eventLiffUrl = await lineSetting(supabase, "event_ticket_liff_url", DEFAULT_EVENT_LIFF_URL);
   let sent = 0;
   let failed = 0;
@@ -201,6 +203,15 @@ Deno.serve(async (request: Request) => {
       continue;
     }
 
+    const module = isFixedTicketNotification(row) ? "events" : businessContext()?.features?.membership === false ? "points" : "membership";
+    if (businessContext()?.module_line?.[module]?.notifications?.member?.mode === 'disabled') {
+      const suppressed=await supabase.from('scheduled_grant_messages').update({status:'cancelled',last_error:'NOTIFICATIONS_DISABLED',updated_at:new Date().toISOString()})
+        .eq('id',row.id).eq('status','sending');
+      if(suppressed.error){failed++;continue;}
+      await writeAudit(supabase,row,'success',{reason:'notifications_disabled',skipped:true});
+      continue;
+    }
+    const token = await withBusinessModule(module, () => lineToken(supabase)).catch(() => "") || (businessContext() ? "" : legacyToken);
     if (!token) {
       const attempts = Number(row.attempt_count || 0);
       const terminal = attempts >= 3;
@@ -215,7 +226,7 @@ Deno.serve(async (request: Request) => {
       continue;
     }
 
-    const result = await dispatchOne(supabase,token,row,eventLiffUrl);
+    const result = await withBusinessModule(module, () => dispatchOne(supabase,token,row,eventLiffUrl));
     if (result.suppressed) {
       if (result.action !== "skip") await supabase.from("scheduled_grant_messages").update({
         status:result.action === "defer" ? "pending" : "cancelled",last_error:result.error,

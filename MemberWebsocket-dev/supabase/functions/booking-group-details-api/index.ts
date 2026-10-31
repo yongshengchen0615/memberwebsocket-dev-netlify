@@ -1,6 +1,7 @@
+import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient } from '../_shared/business-runtime.ts';
 
 const STORE_SERVICE_ID = "00000000-0000-4000-8000-000000000010";
 const MAX_REQUEST_BYTES = 30000;
@@ -17,7 +18,7 @@ class ApiError extends Error {
   }
 }
 
-const env = (name: string) => (Deno.env.get(name) || "").trim();
+const env = (name: string) => (businessEnv(name) || "").trim();
 const allowedOrigins = () => new Set([(env("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io"), "https://develop--memberwebsocket-dev-netlify.netlify.app"].join(",").split(",").map((v) => v.trim()).filter(Boolean));
 const cors = (origin: string | null): HeadersInit => ({
   "Access-Control-Allow-Origin": origin && allowedOrigins().has(origin) ? origin : "",
@@ -155,7 +156,7 @@ async function groupDetails(supabase: ReturnType<typeof db>, body: Record<string
   return { bookingGroups, primaryTechnicianId, storeServiceMinutes };
 }
 
-Deno.serve(async (request: Request) => {
+serveBusiness('booking-group-details-api',async (request: Request) => {
   const origin = request.headers.get("Origin");
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(origin) });
   if (request.method !== "POST") return reply(origin, { ok: false, error: { code: "METHOD_NOT_ALLOWED", message: "只支援 POST。" } }, 405);

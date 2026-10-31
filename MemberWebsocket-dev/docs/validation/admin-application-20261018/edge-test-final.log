@@ -1,0 +1,36 @@
+Check MemberWebsocket-dev/supabase/functions/booking-line-notifications/delivery_test.ts
+Check MemberWebsocket-dev/supabase/functions/_shared/grant-message-sections_test.ts
+Check MemberWebsocket-dev/supabase/functions/_shared/latest-available-offers_test.ts
+Check MemberWebsocket-dev/supabase/functions/_shared/line-flex_test.ts
+running 14 tests from ./MemberWebsocket-dev/supabase/functions/booking-line-notifications/delivery_test.ts
+booking notification builds a structured mobile-friendly Flex Message ... ok (50ms)
+confirmed member notification contains the booking summary without a detail button ... ok (1ms)
+member confirmation shows each participant with its own services and technician ... ok (2ms)
+member confirmation supports single and additional participants ... ok (1ms)
+member legacy confirmation without participant sections retains service details ... ok (1ms)
+admin new booking notification shows only the copy button ... ok (821µs)
+admin copy action keeps the existing LIFF fallback for long text ... ok (1ms)
+legacy aggregate service notification remains compatible ... ok (1ms)
+legacy or unexpected booking text still uses a Flex fallback card ... ok (251µs)
+delivery preserves LINE retry idempotency while sending Flex ... ok (20ms)
+delivery marks 500 and 429 as retryable without changing the LINE retry key ... ok (1ms)
+delivery can retry the same job after a transient failure and succeed exactly once ... ok (2ms)
+LINE duplicate retry acknowledgement 409 is treated as accepted only with accepted request id ... ok (1ms)
+transport exception stays retryable and never exposes the channel access token ... ok (1ms)
+running 1 test from ./MemberWebsocket-dev/supabase/functions/_shared/grant-message-sections_test.ts
+replaceCurrentGrantSections keeps transaction snapshot and refreshes current sections ... ok (1ms)
+running 7 tests from ./MemberWebsocket-dev/supabase/functions/_shared/latest-available-offers_test.ts
+selectLatestPointOffers uses current reward/template definitions and hides historical duplicates ... ok (15ms)
+selectLatestPointOffers ignores deleted or inactive current definitions ... ok (131µs)
+selectLatestEventOffers only returns unused claimed or still-claimable event tickets ... ok (390µs)
+event offers preserve the owned claim, GPS and current service restrictions ... ok (157µs)
+unclaimed fixed and membership tickets stay hidden and cancelled claims consume quota ... ok (100µs)
+booking expands three distinct available tickets for the same reward without multiplying notification summaries ... ok (526µs)
+one visible point reward rotates its internal ticket across bookings ... ok (257µs)
+running 3 tests from ./MemberWebsocket-dev/supabase/functions/_shared/line-flex_test.ts
+buildLineFlexNotice creates a structured card layout with useful alt text ... ok (3ms)
+buildLineFlexNotice renders available offers with direct LIFF actions ... ok (1ms)
+buildLineFlexNotice falls back safely and chunks long text ... ok (25ms)
+
+ok | 25 passed | 0 failed (589ms)
+

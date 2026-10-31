@@ -48,8 +48,9 @@ test('both browser-run APIs persist a second failure-trace step only for failure
 });
 
 test('failure-trace assets are cache-busted on admin and every member surface', () => {
-  assert.match(read('admin/index.html'), /e2e-control\.js\?v=qa-e2e-\d{8}-\d+/);
+  assert.doesNotMatch(read('admin/index.html'), /e2e-control\.js\?v=qa-e2e-\d{8}-\d+/);
+  assert.match(read('admin/e2e-control-loader.js'), /const E2E_CONTROL_SRC/);
   for (const surface of ['member', 'points', 'event', 'calendar', 'booking']) {
-    assert.match(read(surface + '/index.html'), /user-test-control\.js\?v=qa-e2e-\d{8}-\d+/);
+    assert.match(read('tests/fixtures/' + surface + '-e2e.html'), /user-test-control\.js\?v=qa-e2e-\d{8}-\d+/);
   }
 });

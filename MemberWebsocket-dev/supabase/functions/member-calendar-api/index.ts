@@ -1,5 +1,6 @@
+import { businessEnv, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';
 import { tierVisibility, loadVisibilityPolicy } from "../_shared/tier-visibility.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient } from '../_shared/business-runtime.ts';
 
 type Json = Record<string, unknown>;
 type CalendarItem = Json & {
@@ -22,7 +23,7 @@ const TIER_LABELS: Record<string, string> = {
 };
 
 function env(name: string): string {
-  return (Deno.env.get(name) || "").trim();
+  return (businessEnv(name) || "").trim();
 }
 
 function asText(value: unknown, max = 1000): string {
@@ -217,7 +218,7 @@ async function verifyWithCoreApi(
   return verifiedPayload?.data && typeof verifiedPayload.data === "object" ? verifiedPayload.data : {};
 }
 
-Deno.serve(async (request: Request) => {
+serveBusiness('member-calendar-api',async (request: Request) => {
   const origin = request.headers.get("Origin");
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
   if (request.method !== "POST") return reply(origin, { ok:false,status:405,error:{ code:"METHOD_NOT_ALLOWED",message:"只支援 POST。" } }, 405);
