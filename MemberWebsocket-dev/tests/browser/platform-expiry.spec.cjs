@@ -47,7 +47,7 @@ test('AC-EXP-005: super-admin sets 30 days, sees remaining days and persists acr
   page.once('dialog',dialog=>dialog.accept());
   await page.locator('#saveExpiry').click();
   await expect(page.locator('#expiryDialog')).toBeHidden();
-  const row=(await h.db.query("select created_at,expires_at from platform_private.tenants where slug='expiry-browser'")).rows[0];
+  const row=(await h.db.query("select created_at::text as created_at,expires_at::text as expires_at from platform_private.tenants where slug='expiry-browser'")).rows[0];
   expect(new Date(row.expires_at).toISOString()).toBe(term.termExpiry(row.created_at,30));
   await expect(card.locator('.tenant-expiry-summary')).toContainText('剩餘天數：30 天');
   await card.getByRole('button',{name:'設定使用期限'}).click();
