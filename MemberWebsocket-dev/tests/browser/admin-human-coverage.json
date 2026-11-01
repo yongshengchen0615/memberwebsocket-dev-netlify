@@ -14,7 +14,7 @@
     "outstanding": "Real LINE member-admin write is separately required after preview API v7 deployment."
   },
   "reviewedSources": {
-    "admin/index.html": "497dd3f0ed627604d4a1e7555860c3d79c36412245ee899c0924b0e909974939",
+    "admin/index.html": "4ed86f71c42b64f0d3f06d91db873ba641169098755b5be7279026871b4bd2e7",
     "admin/app.js": "7c4336f866e06f1b97f238e69caad90f8cd1a9a7a3e9716d7548c989a88f5c03",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
@@ -40,7 +40,7 @@
     "admin/business-line-settings.js": "18466944a9897cc4b81954b8effa41f3324142a8b8bd559010baee992bac4fd2",
     "admin/booking-risk.js": "76f61965b64eaa761b8e60074daf893551bc1bdafce7792d951159adac501a97",
     "platform/index.html": "1f2169b6aa0462e9c9b63b10b61ccf9c134281d39325729e5b64806d753318e9",
-    "admin/productized-workspace.js": "f8fc604c11a7d241c3b28d596057ad6c3377a052cccb0a3b12ef671cd277fd4a",
+    "admin/productized-workspace.js": "12287349259f1d4d7097f1c934a178eb19f4b0fb7727ad082f1e7c7a12a7237c",
     "platform/platform.css": "eb9d95fc2dbcea4211f4e83df98addb636f83117bdbe7274831b1c770e182350",
     "admin/business-line-settings.css": "d7842a32467e257f6ac4309f45006c7fdfe8e2be27688cf00a88bae34681dc8a"
   },
