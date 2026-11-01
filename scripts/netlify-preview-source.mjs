@@ -78,9 +78,14 @@ export async function publishPreviewBranch({ token, siteId, branch, commit, zip,
   // Netlify's ZIP branch-deploy API uses the /builds endpoint with a branch
   // parameter (Netlify ZIP branch deploy support, November 2025).
   // POST /deploys?branch= is not equivalent: it can return a non-branch context.
-  // The ZIP bytes are already built and tested by CI; do not rebuild from Git.
-  const upload = await request(`/sites/${siteId}/builds?${query}`, { method: 'POST',
-    headers: { 'Content-Type': 'application/zip' }, body: zip }, 'upload');
+  // The builds API expects a multipart "zip" field, not a raw ZIP request.
+  // Keep the exact CI-tested bytes, and let fetch set the multipart boundary.
+  // An ambiguous POST result must never be automatically retried.
+  const form = new FormData();
+  form.set('zip', new Blob([zip], { type: 'application/zip' }), 'platform-preview.zip');
+  const upload = await request(`/sites/${siteId}/builds?${query}`, {
+    method: 'POST', body: form,
+  }, 'upload');
   const deployId = upload?.deploy_id;
   if (!/^[a-f0-9]{24}$/.test(deployId || '')) throw new Error('Preview upload did not return a deploy identity');
   for (let attempt = 0; attempt < attempts; attempt++) {
