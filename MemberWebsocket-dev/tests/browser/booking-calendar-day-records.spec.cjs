@@ -15,7 +15,12 @@ if(u.pathname==='/fixture.js'){res.setHeader('Content-Type','application/javascr
 const file=path.resolve(root,'.'+u.pathname);if(!file.startsWith(root+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile()){res.writeHead(404);res.end();return;}res.setHeader('Content-Type',file.endsWith('.css')?'text/css':'application/javascript');fs.createReadStream(file).pipe(res);
 });await new Promise(r=>server.listen(0,'127.0.0.1',r));base='http://127.0.0.1:'+server.address().port;});
 test.afterAll(async()=>new Promise(r=>server.close(r)));
-test.beforeEach(async({page})=>{await page.route('https://**',r=>r.abort());});
+test.beforeEach(async({page})=>{
+  // Fixtures assert on October dates; keep browser time deterministic across
+  // month boundaries without altering timers, server policy or expectations.
+  await page.clock.setFixedTime(new Date('2026-10-30T04:00:00.000Z'));
+  await page.route('https://**',r=>r.abort());
+});
 for(const width of [320,390,1280])test('date records and guarded start at '+width+'px',async({page},info)=>{
 const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.setViewportSize({width,height:840});await page.goto(base+'/booking/');await expect(page.locator('#calendarGrid')).toBeVisible();await expect(page.locator('#bookingList')).toBeHidden();await expect(page.locator('#bookingSnapshotHistory')).toBeHidden();
 const before=await page.evaluate(()=>calls.length);await page.locator('[data-date="2026-10-30"]').click();const modal=page.locator('#bookingDayModal');await expect(modal).toBeVisible();await expect(modal.locator('[data-booking-id]')).toHaveCount(1);await expect(modal.locator('[data-booking-id="today"]')).toBeVisible();await expect(modal.locator('[data-receipt-id]')).toHaveCount(1);await expect(modal.locator('[data-receipt-id="today"]')).toBeVisible();await modal.locator('.booking-item-top').click();await expect(modal.getByRole('button',{name:'修改預約',exact:true})).toBeVisible();await expect(modal.getByRole('button',{name:'申請取消',exact:true})).toBeVisible();expect(await page.evaluate(()=>calls.length)).toBe(before);
