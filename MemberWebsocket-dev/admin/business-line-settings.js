@@ -176,12 +176,18 @@
     const code = node('code', endpoint.href); code.dataset.featureEndpoint = view.feature;
     const copy = node('button', '複製用戶端連結', 'button button-outline'); copy.type = 'button';
     copy.onclick = async () => { try { await navigator.clipboard.writeText(endpoint.href); view.status.textContent = '已複製' + view.label + '用戶端連結。'; } catch { view.status.textContent = '請複製下方的完整網址。'; } };
-    view.links.append(a, copy, node('p', 'LIFF Endpoint URL（含商家代碼）'), code);
-    const id = {...tenant.line,...tenant.moduleLine?.[view.feature]?.line}[view.key];
-    if (id?.startsWith({...tenant.line,...tenant.moduleLine?.[view.feature]?.line}.memberChannelId+'-') && /^\d{5,30}-[A-Za-z0-9_-]+$/.test(id || '')) {
-      const liff = node('a', '開啟已儲存的 LINE 入口'); liff.href = 'https://liff.line.me/' + id;
-      liff.target = '_blank'; liff.rel = 'noopener noreferrer'; view.links.append(liff);
+    const actions = node('div', '', 'business-client-actions');
+    actions.setAttribute('role', 'group');
+    actions.setAttribute('aria-label', view.label + '用戶端快捷操作');
+    actions.append(a, copy);
+    const currentLine = {...tenant.line,...tenant.moduleLine?.[view.feature]?.line};
+    const id = currentLine[view.key];
+    if (id?.startsWith(currentLine.memberChannelId+'-') && /^\d{5,30}-[A-Za-z0-9_-]+$/.test(id || '')) {
+      const liff = node('a', '開啟已儲存的 LINE 入口', 'button business-client-line-link');
+      liff.href = 'https://liff.line.me/' + id;
+      liff.target = '_blank'; liff.rel = 'noopener noreferrer'; actions.append(liff);
     }
+    view.links.append(actions, node('p', 'LIFF Endpoint URL（含商家代碼）'), code);
   }
   async function save(view, event) {
     event.preventDefault();

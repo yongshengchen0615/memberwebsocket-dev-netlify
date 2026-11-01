@@ -13,10 +13,15 @@
 .business-line-settings summary{cursor:pointer;font-weight:650;min-height:32px}
 .business-line-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 .business-client-links{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:20px 0}
+.business-client-actions{display:flex;flex-wrap:nowrap;align-items:stretch;gap:12px;width:100%;max-width:100%;box-sizing:border-box;overflow-x:auto;overscroll-behavior-inline:contain;padding:2px 2px 8px}
+.business-client-actions .button{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:44px;flex:0 0 auto;white-space:nowrap;text-align:center;text-decoration:none}
+.business-client-actions .business-client-line-link{background:#087b46;border:1px solid #087b46;color:#fff}
+.business-client-actions .business-client-line-link:hover{background:#066438;border-color:#066438;color:#fff}
+.business-client-actions .business-client-line-link:focus-visible{outline:3px solid #c58e1b;outline-offset:2px}
 .business-client-links p,.business-client-links code{width:100%;margin:0;overflow-wrap:anywhere;white-space:normal}
 .business-line-settings [role=status]{overflow-wrap:anywhere}
 .business-line-settings [hidden]{display:none!important}
-@media(max-width:650px){.business-line-settings{padding:16px}.business-line-fields{grid-template-columns:1fr}.business-client-links .button{width:100%;text-align:center}}
+@media(max-width:650px){.business-line-settings{padding:16px}.business-line-fields{grid-template-columns:1fr}.business-client-actions .button{width:auto}}
 
 .business-line-feature-nav{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 24px}
 .business-line-feature-nav button{border:1px solid #bfcdbf;background:#eff4ee;color:#224c36;padding:12px 16px;border-radius:10px;min-height:44px;font-weight:650;cursor:pointer}
