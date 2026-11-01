@@ -10,6 +10,14 @@ const read = name => fs.readFileSync(path.join(root, name), 'utf8');
 async function fixture(search = '') {
   const dom = new JSDOM(read('booking/index.html'), { url: 'https://example.test/booking/' + search, runScripts: 'outside-only', pretendToBeVisual: true });
   const w = dom.window;
+  // Pin the fixture's clock to its declared October baseline so these
+  // navigation expectations also hold across month/year rollovers.
+  const BrowserDate = w.Date;
+  const fixedNow = BrowserDate.parse('2026-10-30T12:00:00+08:00');
+  w.Date = class extends BrowserDate {
+    constructor(...args) { super(...(args.length ? args : [fixedNow])); }
+    static now() { return fixedNow; }
+  };
   w.matchMedia = () => ({ matches: false });
   w.BookingSystem = { formatDate: value => value };
   w.eval(read('booking/booking-accessible.js'));
