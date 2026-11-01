@@ -7,14 +7,14 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' https://static.line-scdn.net; style-src 'self'; connect-src 'self' https://*.supabase.co https://api.line.me https://access.line.me https://liff.line.me https://*.line-scdn.net; img-src 'self' data:; frame-src https://access.line.me https://liff-subwindow.line.me; form-action 'self' https://access.line.me https://liff-subwindow.line.me">
   <title>一般管理員後台</title>
-  <link rel="stylesheet" href="../platform/platform.css?v=expiry-term-20261101-1">
+  <link rel="stylesheet" href="../platform/platform.css?v=merchant-expiry-readonly-20261101-1">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
   <script src="../business-context.js"></script>
 <script src="../member-system.js" defer></script>
   <link rel="stylesheet" href="./business-line-settings.css?v=line-entry-actions-20261101-1">
   <script src="./business-line-settings.js?v=line-entry-actions-20261101-1" defer></script>
   <script src="../platform/expiry-term.js?v=expiry-term-20261101-1" defer></script>
-  <script src="../platform/app.js?v=expiry-term-20261101-1" defer></script>
+  <script src="../platform/app.js?v=merchant-expiry-readonly-20261101-1" defer></script>
   <link rel="stylesheet" href="../portal-navigation.css?v=unified-20261018-1">
   <script src="../portal-navigation.js?v=unified-20261018-1" defer></script>
 </head>
@@ -171,6 +171,7 @@
       </nav>
       <div id="merchantOverviewPanel" role="tabpanel" aria-labelledby="merchantOverviewTab">
       <p id="merchantInfo"></p>
+      <div id="merchantUsagePeriod" class="tenant-expiry-summary" aria-label="商家使用期限" hidden></div>
       <p id="merchantReadiness" class="merchant-readiness" role="status" aria-live="polite"></p>
       <section id="merchantLaunchStatus" class="launch-status" data-ready="false" aria-labelledby="launchTitle">
         <h3 id="launchTitle">何時可以開始使用？</h3>
