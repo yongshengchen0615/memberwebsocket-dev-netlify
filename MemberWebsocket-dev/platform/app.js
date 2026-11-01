@@ -249,7 +249,7 @@
     el('expiryMessage').textContent='';updateExpiryPreview();expiryDialog.showModal();
   }
   expiryForm.querySelectorAll('input[name="expiryMode"]').forEach(input=>input.addEventListener('change',()=>{if(!expiryBusy&&!expiryPending)updateExpiryPreview();}));
-  for(const id of ['expiryDays','expiryAt'])el(id).addEventListener('input',()=>{if(!expiryBusy&&!expiryPending)updateExpiryPreview();});
+  for(const id of ['expiryDays','expiryAt'])el(id)?.addEventListener('input',()=>{if(!expiryBusy&&!expiryPending)updateExpiryPreview();});
   expiryForm.addEventListener('submit',async event=>{
     event.preventDefault();if(expiryBusy||!expiryTenant)return;
     if(!expiryPending){
