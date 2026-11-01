@@ -66,3 +66,39 @@
 .booking-recipient-help p {margin:6px 0;}
 .booking-recipient :is(a,button,summary):focus-visible {outline:3px solid var(--theme-focus-ring);outline-offset:3px;}
 @media(max-width:420px){.booking-recipient-heading{align-items:flex-start;}.booking-recipient-actions{width:100%;}.booking-recipient-actions .button{flex:1;}}
+
+/* Booking friend management: a distinct action that stays in the reservation flow. */
+.booking-recipient-actions .booking-manage-friends {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  min-height:44px;
+  padding:10px 16px;
+  border:1px solid #245c51;
+  border-radius:12px;
+  background:#245c51;
+  color:#fff;
+  font:inherit;
+  font-size:14px;
+  font-weight:800;
+  line-height:1.3;
+  box-shadow:0 4px 12px rgba(20,69,58,.18);
+  cursor:pointer;
+}
+.booking-recipient-actions .booking-manage-friends:hover {background:#1a473f;border-color:#1a473f;}
+.booking-recipient-actions .booking-manage-friends:focus-visible {outline:3px solid var(--theme-focus-ring,#89c6bb);outline-offset:3px;}
+.booking-recipient-actions .booking-manage-friends:disabled {opacity:.55;cursor:not-allowed;}
+.booking-friends-icon {font-size:18px;line-height:1;}
+.booking-friends-modal {z-index:1100;}
+.booking-friends-modal .booking-friends-card {width:min(100%,620px);max-height:min(88dvh,760px);}
+.booking-friends-list {margin-top:10px;color:var(--theme-text);}
+.booking-friends-list .friend-row:first-child {border-top:0;}
+.booking-friends-list .friend-actions button {min-height:44px;}
+.booking-friends-bookings {font-size:13px;color:var(--theme-text-muted);line-height:1.6;}
+.booking-friends-modal .friend-feedback {margin:14px 0 4px;}
+@media(max-width:420px) {
+  .booking-recipient-actions .booking-manage-friends {flex:1 1 100%;width:100%;}
+  .booking-friends-modal {padding:12px;}
+  .booking-friends-modal .booking-friends-card {padding:16px;}
+}
