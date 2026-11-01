@@ -12,7 +12,8 @@ async function mount(h,tenant){
   const input=JSON.parse(options.body);calls.push(input);return h.handler(new Request(String(url),{...options,headers:{...options.headers,Origin:'https://allowed.test'}}));
  };
  w.addEventListener('error',e=>errors.push(e.message));w.eval(fs.readFileSync(path.join(root,'business-context.js'),'utf8'));
- w.eval(fs.readFileSync(path.join(root,'admin/business-line-settings.js'),'utf8'));w.eval(fs.readFileSync(path.join(root,'platform/app.js'),'utf8'));
+ w.eval(fs.readFileSync(path.join(root,'admin/business-line-settings.js'),'utf8'));w.eval(fs.readFileSync(path.join(root,'platform/expiry-term.js'),'utf8'));
+ w.eval(fs.readFileSync(path.join(root,'platform/app.js'),'utf8'));
  await until(()=>!w.document.querySelector('#merchantWorkspace').hidden);w.document.querySelector('#merchantLineSettingsTab').click();
  return{dom,w,d:w.document,calls,errors,close:()=>w.close()};
 }

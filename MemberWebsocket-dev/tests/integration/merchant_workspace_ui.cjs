@@ -35,6 +35,7 @@ async function mount({merchant=true,business='',version=2,q=null,applications=[]
  };
  if(businessContext)w.eval(fs.readFileSync(path.join(root,'business-context.js'),'utf8'));
  if(merchant)w.eval(fs.readFileSync(path.join(root,'admin/business-line-settings.js'),'utf8'));
+ w.eval(fs.readFileSync(path.join(root,'platform/expiry-term.js'),'utf8'));
  w.eval(fs.readFileSync(path.join(root,'platform/app.js'),'utf8'));await settle();
  return{dom,w,d:w.document,calls,intervals,async tick(){for(const timer of intervals.filter(item=>item.active))timer.fn();await settle();},setQualification(value){currentQ=value;},setApplications(value){currentApps=value;},setQualifications(value){currentQualifications=value;},close(){for(const observer of observers)observer.disconnect();w.close();}};
 }
