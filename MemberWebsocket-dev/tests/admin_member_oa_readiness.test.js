@@ -40,8 +40,8 @@ test('RB-ADMIN-003: user-requested removal of unrelated testing and usage manage
 
 test('RB-ADMIN-004: both manager entrypoints load the restored settings and bust newer cached assets',()=>{
  for(const html of [adminEntry,merchantEntry]){
-  assert.match(html,/business-line-settings\.js\?v=member-card-admin-rollback-20261028-1/);
-  assert.match(html,/business-line-settings\.css\?v=member-card-admin-rollback-20261028-1/);
+  assert.match(html,/business-line-settings\.js\?v=line-entry-actions-20261101-1/);
+  assert.match(html,/business-line-settings\.css\?v=line-entry-actions-20261101-1/);
  }
  assert.match(merchantEntry,/platform\/app\.js\?v=merchant-modal-20261030-1/);
  assert.match(platformEntry,/\.\/app\.js\?v=merchant-modal-20261030-1/);

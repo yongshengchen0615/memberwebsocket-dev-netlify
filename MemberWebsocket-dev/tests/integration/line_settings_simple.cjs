@@ -15,6 +15,7 @@ async function setup(){
 test('simple entry saves exact LIFF URL using real handler/SQL without separately entering Login Channel or Messaging credentials',async()=>{
  const t=await setup();try{
   const form=t.d.querySelector('#businessLine-membership');
+  assert.equal(form.closest('section').querySelector('.business-client-line-link'),null,'unsaved LINE entry must not render a link');
   fill(t.w,form,'adminLiffId','2010791619-admin');fill(t.w,form,'memberLiffId','https://liff.line.me/2010787602-member');
   assert.equal(form.checkValidity(),true,'LIFF input derives matching Login IDs; Messaging is optional');
   form.dispatchEvent(new t.w.Event('submit',{cancelable:true}));await until(()=>t.d.querySelector('[data-business-line-feature=membership] > [role=status]').textContent.includes('已儲存'));
