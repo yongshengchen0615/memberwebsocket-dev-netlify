@@ -92,6 +92,8 @@
 }
 
 /* Super-admin usage period */
+/* General admins read their own period; only the Platform owner can edit. */
+.tenant-expiry-summary[hidden]{display:none}
 .tenant-expiry-summary{display:grid;gap:5px;margin:16px 0 2px;padding:12px 14px;background:#f5f8f3;border:1px solid #dce6d9;border-radius:12px;font-size:13px;color:#415649}
 .tenant-expiry-summary strong{color:#1d603f;font-size:14px}.tenant-expiry-summary strong.expired{color:#a23d31}
 .expiry-dialog{width:min(650px,calc(100% - 24px))}

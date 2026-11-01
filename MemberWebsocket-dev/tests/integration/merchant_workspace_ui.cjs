@@ -451,3 +451,43 @@ test('AC-MERCHANT-UI-003: submit from modal closes it and adds one pending card;
   assert.equal(h.d.querySelectorAll('#myMerchantList [data-application-id="r"]').length,0);
  }finally{h.close();}
 });
+
+test('AC-MEXP-001: merchant owner sees only their approved tenants usage period, including expired ones',async()=>{
+ const active=application('a'),expired=application('b'),pending=application('c','pending');
+ active.tenant={...active.tenant,createdAt:'2026-11-01T00:00:00Z',expiresAt:'2026-12-01T00:00:00Z'};
+ expired.tenant={...expired.tenant,createdAt:'2025-01-01T00:00:00Z',expiresAt:'2025-01-31T00:00:00Z',expired:true};
+ const h=await mount({merchant:true,q:qualification(),applications:[active,expired,pending]});
+ try{
+  const a=h.d.querySelector('#myMerchantList [data-application-id="a"]');
+  const b=h.d.querySelector('#myMerchantList [data-application-id="b"]');
+  assert.match(a.querySelector('.tenant-expiry-summary').textContent,/開通日期：/);
+  assert.match(a.querySelector('.tenant-expiry-summary').textContent,/使用期限：30 天/);
+  assert.match(a.querySelector('.tenant-expiry-summary').textContent,/到期時間：/);
+  assert.match(a.querySelector('.tenant-expiry-summary').textContent,/剩餘天數：/);
+  assert.match(b.querySelector('.tenant-expiry-summary').textContent,/剩餘天數：已到期/);
+  assert.equal(b.querySelector('[data-manage-merchant]'),null,'expired merchant cannot launch management');
+  assert.equal(h.d.querySelector('#pendingMerchantList [data-application-id="c"] .tenant-expiry-summary'),null);
+  assert.equal(h.d.querySelectorAll('#myMerchantList .tenant-expiry-summary').length,2);
+  assert.equal(h.d.querySelectorAll('#myMerchantList [data-application-id="a"] button').length,0,'general admin has no expiry edit control');
+ }finally{h.close();}
+});
+
+test('AC-MEXP-002: merchant overview is read-only and clears period when account access is revoked',async()=>{
+ const item=application('a'),tenant={...item.tenant,createdAt:'2026-11-01T00:00:00Z',expiresAt:'2026-12-01T00:00:00Z',
+  version:1,credentialsConfigured:true,line:{adminChannelId:'2010791619',adminLiffId:'2010791619-private'},
+  onboarding:{adminReady:true,configurationComplete:false,grantedCount:1,commonMissing:[],features:{points:{configured:false,missing:['pointsLiffId']}}}};
+ let denied=false;
+ const h=await mount({business:'merchant-a',handler(input){
+  if(input.action==='platform.application.bootstrap')return denied?{status:403,error:{code:'PLATFORM_QUALIFICATION_REQUIRED',message:'管理員資格已停用'}}:{application:item,tenant,features,profile:{displayName:'Owner'}};
+ }});
+ try{
+  const period=h.d.getElementById('merchantUsagePeriod');
+  assert.equal(period.hidden,false);
+  assert.match(period.textContent,/使用期限：30 天/);
+  assert.match(period.textContent,/剩餘天數：/);
+  assert.equal(period.querySelector('button,input'),null,'expiry summary must have no controls');
+  assert.equal(h.calls.filter(x=>x.action==='platform.tenant.expiry.save').length,0);
+  denied=true;h.d.getElementById('refreshApplication').click();await settle();
+  assert.equal(period.hidden,true);assert.equal(period.textContent,'','revoked view clears cached private fields');
+ }finally{h.close();}
+});

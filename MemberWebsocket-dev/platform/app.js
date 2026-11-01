@@ -161,6 +161,22 @@
     featureRequirements();el('saveTenant').textContent='儲存商家設定';lock(false);
     dialog.showModal();fields.namedItem('name').focus();
   }
+  // The period is always read-only outside the Platform owner UI; the server owns expiry writes.
+  function renderExpirySummary(container,tenant){
+    container.replaceChildren();
+    const started=document.createElement('span');
+    started.textContent='開通日期：'+window.PlatformExpiryTerm.taipeiDateTime(tenant.createdAt);
+    const duration=document.createElement('span');
+    const days=window.PlatformExpiryTerm.termDays(tenant.createdAt,tenant.expiresAt);
+    duration.textContent='使用期限：'+(days!==null?days+' 天':tenant.expiresAt?'指定到期時間':'無期限');
+    const expires=document.createElement('span');
+    expires.textContent='到期時間：'+(tenant.expiresAt?window.PlatformExpiryTerm.taipeiDateTime(tenant.expiresAt):'無到期日');
+    const daysLeft=window.PlatformExpiryTerm.remainingDays(tenant.expiresAt);
+    const remaining=document.createElement('strong');
+    remaining.textContent=daysLeft===null?'剩餘天數：無期限':daysLeft===0?'剩餘天數：已到期':'剩餘天數：'+daysLeft+' 天';
+    if(daysLeft===0)remaining.className='expired';
+    container.append(started,duration,expires,remaining);
+  }
   function render() {
     const list=el('tenantList');list.replaceChildren();
     if (!state.tenants.length) {const p=document.createElement('p');p.className='empty';p.textContent='尚無已審核的一般管理員。請從申請清單勾選功能並審核。';list.append(p);return;}
@@ -193,12 +209,7 @@
         }finally{working=false;access.disabled=false;if(!pending)for(const button of footer.querySelectorAll('button'))button.disabled=false;}
       });footer.append(access);
       const expiryInfo=document.createElement('div');expiryInfo.className='tenant-expiry-summary';
-      const started=document.createElement('span');started.textContent='開通日期：'+window.PlatformExpiryTerm.taipeiDateTime(tenant.createdAt);
-      const expires=document.createElement('span');expires.textContent='到期時間：'+(tenant.expiresAt?window.PlatformExpiryTerm.taipeiDateTime(tenant.expiresAt):'無到期日');
-      const daysLeft=window.PlatformExpiryTerm.remainingDays(tenant.expiresAt);
-      const remaining=document.createElement('strong');remaining.textContent=daysLeft===null?'剩餘天數：無期限':daysLeft===0?'剩餘天數：已到期':'剩餘天數：'+daysLeft+' 天';
-      if(daysLeft===0)remaining.className='expired';
-      expiryInfo.append(started,expires,remaining);
+      renderExpirySummary(expiryInfo,tenant);
       const setup=document.createElement('p');
       const onboarding=tenant.onboarding;
       setup.textContent=tenant.status==='suspended'?'已停用；管理員與用戶均不可使用。':tenant.expired?'使用期限已到；請由總管理員調整期限，延長後須重新登入。':onboarding?.adminReady?'已核准功能已開通，管理員可設定業務內容並分享專屬用戶連結。'
@@ -285,6 +296,7 @@
     for(const id of ['merchantInfo','merchantReadiness','merchantFeatures','merchantChecklist','merchantFeatureNav','merchantMessage','merchantSyncStatus'])el(id)?.replaceChildren();
     el('merchantLaunchStatus')?.querySelectorAll('[data-business-launch]').forEach(node=>node.remove());
     if(el('merchantWorkspace'))el('merchantWorkspace').hidden=true;
+    const period=el('merchantUsagePeriod');if(period){period.hidden=true;period.replaceChildren();}
     if(el('applicationWorkspace'))el('applicationWorkspace').hidden=true;
     if(el('onboardingJourney'))el('onboardingJourney').hidden=true;
   }
@@ -342,6 +354,11 @@
       const ready=application.status==='approved'&&tenant?.status==='active'&&!tenant.expired&&tenant.onboarding?.adminReady===true;
       badge.textContent=application.status==='pending'?'等待商家審核':application.status==='rejected'?'商家申請未通過':tenant?.status==='suspended'?'商家已停用':tenant?.expired?'商家使用期限已到':ready?'已核准・可管理':'已核准・等待開通';
       card.append(badge,title,info);
+      if(application.status==='approved'&&tenant){
+        const expiryInfo=document.createElement('div');expiryInfo.className='tenant-expiry-summary';
+        expiryInfo.setAttribute('aria-label','商家使用期限');
+        renderExpirySummary(expiryInfo,tenant);card.append(expiryInfo);
+      }
       if(application.reviewReason){const reason=document.createElement('p');reason.textContent='審核理由：'+application.reviewReason;card.append(reason);}
       const actions=document.createElement('footer');
       if(ready){
@@ -859,6 +876,8 @@
       location.replace(target.href);return;
     }
     el('merchantInfo').textContent=tenant.name+' · '+tenant.slug+' · '+(tenant.credentialsConfigured?'LINE 憑證已保存':'尚未設定 LINE 憑證');
+    const usagePeriod=el('merchantUsagePeriod');
+    if(usagePeriod){renderExpirySummary(usagePeriod,tenant);usagePeriod.hidden=false;}
     const readiness=el('merchantReadiness');
     if(readiness) {
       readiness.textContent=tenant.onboarding?.adminReady?'審核已通過，已核准功能與用戶端已開放。自有 LINE 入口與通知設定可隨時保存。':tenant.onboarding?.configurationComplete
