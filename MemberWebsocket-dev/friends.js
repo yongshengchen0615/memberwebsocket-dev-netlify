@@ -428,6 +428,9 @@
           select.disabled = true;
           panel.dataset.state = 'ready';
           if (showLoading) status('編輯既有預約，服務對象維持原會員。');
+          if (!el('bookingFriendsModal')?.classList.contains('hidden')) {
+            status('好友名單已更新；既有預約的服務對象不可更換。', 'success', 'friends');
+          }
           return;
         }
         select.disabled = false;
