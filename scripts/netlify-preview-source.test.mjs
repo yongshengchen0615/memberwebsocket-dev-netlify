@@ -43,12 +43,30 @@ test('uploads exactly once to the case-preserved nonproduction branch and retain
   // silently create a production or deploy-preview deployment.
   assert.equal(url.searchParams.get('branch'), previewBranch);
   assert.equal(url.searchParams.get('title'), `verified-platform-${input.commit}`);
-  assert.equal(posts[0].options.body, input.zip);
-  assert.equal(posts[0].options.headers['Content-Type'], 'application/zip');
+  // Netlify's /builds ZIP endpoint accepts a multipart file field. A raw
+  // application/zip POST can be treated as an ordinary branch build instead.
+  assert.ok(posts[0].options.body instanceof FormData);
+  const uploaded = posts[0].options.body.get('zip');
+  assert.ok(uploaded instanceof Blob);
+  assert.equal(uploaded.name, 'platform-preview.zip');
+  assert.equal(uploaded.type, 'application/zip');
+  assert.deepEqual(Buffer.from(await uploaded.arrayBuffer()), input.zip);
+  assert.equal(posts[0].options.headers['Content-Type'], undefined);
+  assert.equal(posts[0].options.body.has('branch'), false);
   assert.equal(result.source_sha, input.commit);
   assert.equal(result.production_deploy_unchanged, true);
   assert.doesNotMatch(JSON.stringify(result), /never-print-token/);
   for (const call of p.calls) assert.equal(call.options.redirect, 'error');
+});
+
+test('CI ZIP upload is multipart and never silently makes a second POST', async () => {
+  const p = provider({ deploy: { ...deploy, state: 'error' } });
+  await assert.rejects(publishPreviewBranch({ ...input, fetchImpl: p.fetchImpl }), /Preview deploy failed/);
+  const posts = p.calls.filter(call => call.options.method === 'POST');
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0].options.body.has('zip'), true);
+  assert.equal(posts[0].options.body.has('branch'), false);
+  assert.equal(new URL(posts[0].url).searchParams.get('branch'), previewBranch);
 });
 
 test('ZIP deploy response must identify one immutable deploy before status polling', async () => {
