@@ -22,15 +22,19 @@
     nav.setAttribute('aria-label','總管理員已核准功能的 LINE 設定');
     document.documentElement.dataset.workspace='merchant';
     const link=document.createElement('link');
-    link.rel='stylesheet';link.href='../platform/platform.css?v=merchant-action-20261030-1';
+    link.rel='stylesheet';link.href='../platform/platform.css?v=merchant-expiry-readonly-20261101-1';
     document.head.append(link);
     try {
-      await new Promise((resolve,reject)=>{
+      // /admin/ mounts only workspace body nodes; deferred scripts from workspace.html
+      // do NOT execute when imported. Load the period helper before platform/app.js.
+      const loadScript=(src)=>new Promise((resolve,reject)=>{
         const script=document.createElement('script');
-        script.src='../platform/app.js?v=merchant-action-20261030-1';
-        script.onload=resolve;script.onerror=()=>reject(new Error('管理端功能初始化失敗，請重新整理。'));
+        script.src=src;script.onload=resolve;
+        script.onerror=()=>reject(new Error('管理端功能初始化失敗，請重新整理。'));
         document.head.append(script);
       });
+      if(!window.PlatformExpiryTerm)await loadScript('../platform/expiry-term.js?v=expiry-term-20261101-1');
+      await loadScript('../platform/app.js?v=merchant-expiry-readonly-20261101-1');
       legacy.hidden=true;
       host.hidden=false;
       document.documentElement.dataset.productizedAdmin='true';
