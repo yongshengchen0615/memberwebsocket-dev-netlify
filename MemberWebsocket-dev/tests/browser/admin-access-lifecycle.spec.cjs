@@ -27,10 +27,10 @@ test('ACCESS_LIFECYCLE — suspended row survives reload, exact retry reinstates
   await page.getByRole('button',{name:'重試相同復權操作'}).click();await expect(page.locator('#platformStatus')).toContainText('已復權');
   const resume=requests.filter(x=>x.action==='platform.tenant.resume');expect(resume).toHaveLength(2);expect(resume[0]).toEqual(resume[1]);
   expect((await h.db.query("select count(*)::int n from platform_private.audit_events where action='TENANT_RESUMED'")).rows[0].n).toBe(1);
-  await page.getByRole('button',{name:'設定使用期限'}).click();await page.locator('#expiryUnlimited').uncheck();await page.locator('#expiryAt').fill('2020-01-02T00:30');
+  await page.getByRole('button',{name:'設定使用期限'}).click();await page.locator('input[name="expiryMode"][value="exact"]').check();await expect(page.locator('#expiryAt')).toBeVisible();await page.locator('#expiryAt').fill('2020-01-02T00:30');
   await page.getByRole('button',{name:'儲存使用期限',exact:true}).click();await expect(page.locator('#expiryDialog')).toBeHidden();await expect(page.locator('#tenantList')).toContainText('使用期限已到');
   const row=(await h.db.query('select * from platform_private.tenants where id=$1',[t.id])).rows[0];expect(new Date(row.expires_at).toISOString()).toBe('2020-01-01T16:30:00.000Z');expect(row.features).toEqual(t.features);
-  await page.getByRole('button',{name:'設定使用期限'}).click();await page.locator('#expiryUnlimited').check();await page.getByRole('button',{name:'儲存使用期限',exact:true}).click();await expect(page.locator('#tenantList')).toContainText('無到期日');
+  await page.getByRole('button',{name:'設定使用期限'}).click();await page.locator('input[name="expiryMode"][value="unlimited"]').check();await expect(page.locator('#expiryComputedAt')).toHaveText('無到期日');await page.getByRole('button',{name:'儲存使用期限',exact:true}).click();await expect(page.locator('#tenantList')).toContainText('無到期日');
   expect(errors).toEqual([]);await info.attach('access-lifecycle',{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
  }finally{await h.db.close();}
 });
