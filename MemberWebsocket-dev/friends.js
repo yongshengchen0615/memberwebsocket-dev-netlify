@@ -48,11 +48,7 @@
   }
 
   function status(message, state = 'info', target = 'action') {
-    const ids = booking
-      ? ['friendStatus']
-      : target === 'friends'
-        ? ['friendListStatus']
-        : ['friendStatus'];
+    const ids = target === 'friends' ? ['friendListStatus'] : ['friendStatus'];
     for (const id of ids) {
       const node = el(id);
       if (!node) continue;
@@ -117,6 +113,39 @@
     return { friendsPanel: el('memberReferralFriendsTabPanel') };
   }
 
+
+  function installBookingFriendsModal(main) {
+    const bookingFriendsModal = document.createElement('section');
+    bookingFriendsModal.id = 'bookingFriendsModal';
+    bookingFriendsModal.className = 'booking-modal booking-friends-modal hidden';
+    bookingFriendsModal.setAttribute('role', 'dialog');
+    bookingFriendsModal.setAttribute('aria-modal', 'true');
+    bookingFriendsModal.setAttribute('aria-labelledby', 'bookingFriendsTitle');
+    bookingFriendsModal.innerHTML = '<div class="booking-modal-card booking-friends-card"><div class="booking-modal-heading"><div><p class="kicker">My friends</p><h2 id="bookingFriendsTitle">我的好友名單</h2></div><button id="closeBookingFriends" type="button" class="booking-modal-close" aria-label="關閉好友名單">×</button></div><p id="friendListStatus" class="friend-feedback" role="status" aria-live="polite"></p><div id="friendList" class="booking-friends-list"></div><div id="friendReceivedBookings" class="booking-friends-bookings"></div></div>';
+    main.append(bookingFriendsModal);
+    const trigger = el('openBookingFriends');
+    const close = () => {
+      bookingFriendsModal.classList.add('hidden');
+      trigger.setAttribute('aria-expanded', 'false');
+      trigger.focus();
+    };
+    trigger.addEventListener('click', () => {
+      if (!profile) return;
+      bookingFriendsModal.classList.remove('hidden');
+      trigger.setAttribute('aria-expanded', 'true');
+      el('closeBookingFriends').focus();
+      status('正在更新好友名單…', 'loading', 'friends');
+      void refresh(false);
+    });
+    el('closeBookingFriends').addEventListener('click', close);
+    bookingFriendsModal.addEventListener('click', event => {
+      if (event.target === bookingFriendsModal) close();
+    });
+    bookingFriendsModal.addEventListener('keydown', event => {
+      if (event.key === 'Escape') { event.preventDefault(); close(); }
+    });
+  }
+
   function invalidate() {
     pendingCode = '';
     stopScan();
@@ -173,8 +202,9 @@
       const panel = document.createElement('section');
       panel.id = 'friendsPanel';
       panel.className = 'friends-panel booking-recipient';
-      panel.innerHTML = '<div class="booking-recipient-heading"><label for="friendBookingRecipient">服務對象</label><div class="booking-recipient-actions"><a href="../member/#friends" target="_blank" rel="noopener" class="button button-refresh" aria-label="管理好友（另開視窗，保留預約資料）">管理好友 ↗</a><button id="refreshFriends" type="button" class="button button-refresh">更新好友</button></div></div><select id="friendBookingRecipient" aria-describedby="friendStatus"><option value="">本人</option></select><details class="booking-recipient-help"><summary>代好友預約說明</summary><p>好友接受邀請後可代約單人服務。票券由建立者選用自己的票券；完成服務後，好友取得正常點數與服務分鐘，代約者取得每種已設定集點規則的服務類型 1 點及一半服務分鐘（不足 1 分鐘向下取整）。</p></details><p id="friendStatus" class="friend-feedback" role="status" aria-live="polite"></p>';
+      panel.innerHTML = '<div class="booking-recipient-heading"><label for="friendBookingRecipient">服務對象</label><div class="booking-recipient-actions"><button id="openBookingFriends" type="button" class="button booking-manage-friends" aria-haspopup="dialog" aria-controls="bookingFriendsModal" aria-expanded="false"><span class="booking-friends-icon" aria-hidden="true">👥</span>管理好友</button><button id="refreshFriends" type="button" class="button button-refresh">更新好友</button></div></div><select id="friendBookingRecipient" aria-describedby="friendStatus"><option value="">本人</option></select><details class="booking-recipient-help"><summary>代好友預約說明</summary><p>好友接受邀請後可代約單人服務。票券由建立者選用自己的票券；完成服務後，好友取得正常點數與服務分鐘，代約者取得每種已設定集點規則的服務類型 1 點及一半服務分鐘（不足 1 分鐘向下取整）。</p></details><p id="friendStatus" class="friend-feedback" role="status" aria-live="polite"></p>';
       (el('bookingRecipientHost') || el('bookingNotice')?.parentElement)?.append(panel);
+      installBookingFriendsModal(main);
       el('friendBookingRecipient').addEventListener('change', event => {
         selectedCode = event.target.value;
         status(selectedCode ? '將替所選好友預約；送出前請再次確認受服務者。' : '本次為本人預約。');
@@ -304,6 +334,76 @@
     }
   }
 
+  function renderFriendList(result) {
+    const list = el('friendList');
+    if (!list) return;
+    list.replaceChildren();
+
+    for (const friend of result.friends || []) {
+      const row = document.createElement('article');
+      row.className = 'friend-row';
+      const copy = document.createElement('div');
+      const name = document.createElement('strong');
+      const hint = document.createElement('small');
+      name.textContent = `${friend.displayName} · ${friend.memberCode}`;
+      hint.textContent = friend.status === 'accepted'
+        ? '已成為好友，可代約'
+        : friend.status === 'blocked'
+          ? '已封鎖'
+          : friend.incoming
+            ? '收到好友邀請'
+            : '已送出邀請，等待接受';
+      copy.append(name, hint);
+      row.append(copy);
+
+      const actions = document.createElement('div');
+      actions.className = 'friend-actions';
+      const choices = friend.status === 'pending' && friend.incoming
+        ? [['accept', '接受'], ['remove', '婉拒'], ['block', '封鎖']]
+        : friend.status === 'blocked'
+          ? [['remove', '解除封鎖']]
+          : [['remove', friend.status === 'pending' ? '撤回邀請' : '解除好友'], ['block', '封鎖']];
+
+      for (const [operation, label] of choices) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'button button-refresh';
+        button.textContent = label;
+        button.addEventListener('click', async () => {
+          const account = generation;
+          button.disabled = true;
+          try {
+            await request(operation, friend.memberCode);
+            if (account !== generation) return;
+            status('好友關係已更新。', 'success', 'friends');
+            await refresh(false);
+          } catch (error) {
+            if (account === generation) status(error?.message || '好友關係更新失敗。', 'error', 'friends');
+          } finally {
+            button.disabled = false;
+          }
+        });
+        actions.append(button);
+      }
+
+      row.append(actions);
+      list.append(row);
+    }
+
+    if (!list.children.length) {
+      list.textContent = booking ? '目前沒有好友；可至會員卡的好友中心新增好友。' : '目前沒有好友，可用上方「加好友」輸入會員編號或掃描好友碼。';
+    }
+
+    const received = el('friendReceivedBookings');
+    received.replaceChildren();
+    for (const item of result.receivedBookings || []) {
+      const line = document.createElement('p');
+      line.textContent = `好友代約服務：${item.bookingDate} ${item.startTime} · ${item.statusLabel} · ${item.serviceTitle}`;
+      received.append(line);
+    }
+
+  }
+
   async function refresh(showLoading = true) {
     if (!profile || loading) return;
     loading = true;
@@ -318,6 +418,7 @@
       const result = await request('list');
       if (current !== generation) return;
 
+      renderFriendList(result);
       let recipientRemoved = false;
       if (booking) {
         const select = el('friendBookingRecipient');
@@ -341,77 +442,14 @@
         select.value = selectedCode;
         recipientRemoved = Boolean(previous && previous !== selectedCode);
         if (recipientRemoved) status('原服務對象已不在有效好友名單中，已改為本人；請重新確認服務對象。', 'error');
-      } else {
-        const list = el('friendList');
-        list.replaceChildren();
-
-        for (const friend of result.friends || []) {
-          const row = document.createElement('article');
-          row.className = 'friend-row';
-          const copy = document.createElement('div');
-          const name = document.createElement('strong');
-          const hint = document.createElement('small');
-          name.textContent = `${friend.displayName} · ${friend.memberCode}`;
-          hint.textContent = friend.status === 'accepted'
-            ? '已成為好友，可代約'
-            : friend.status === 'blocked'
-              ? '已封鎖'
-              : friend.incoming
-                ? '收到好友邀請'
-                : '已送出邀請，等待接受';
-          copy.append(name, hint);
-          row.append(copy);
-
-          const actions = document.createElement('div');
-          actions.className = 'friend-actions';
-          const choices = friend.status === 'pending' && friend.incoming
-            ? [['accept', '接受'], ['remove', '婉拒'], ['block', '封鎖']]
-            : friend.status === 'blocked'
-              ? [['remove', '解除封鎖']]
-              : [['remove', friend.status === 'pending' ? '撤回邀請' : '解除好友'], ['block', '封鎖']];
-
-          for (const [operation, label] of choices) {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'button button-refresh';
-            button.textContent = label;
-            button.addEventListener('click', async () => {
-              const account = generation;
-              button.disabled = true;
-              try {
-                await request(operation, friend.memberCode);
-                if (account !== generation) return;
-                status('好友關係已更新。', 'success', 'friends');
-                await refresh(false);
-              } catch (error) {
-                if (account === generation) status(error?.message || '好友關係更新失敗。', 'error', 'friends');
-              } finally {
-                button.disabled = false;
-              }
-            });
-            actions.append(button);
-          }
-
-          row.append(actions);
-          list.append(row);
-        }
-
-        if (!list.children.length) {
-          list.textContent = '目前沒有好友，可用上方「加好友」輸入會員編號或掃描好友碼。';
-        }
-
-        const received = el('friendReceivedBookings');
-        received.replaceChildren();
-        for (const item of result.receivedBookings || []) {
-          const line = document.createElement('p');
-          line.textContent = `好友代約服務：${item.bookingDate} ${item.startTime} · ${item.statusLabel} · ${item.serviceTitle}`;
-          received.append(line);
-        }
       }
 
       panel.dataset.state = (result.friends || []).length ? 'ready' : 'empty';
       if (showLoading && !recipientRemoved) {
         status(booking && el('friendBookingRecipient').options.length === 1 ? '目前沒有可代約好友，本次為本人預約。' : '好友資料已更新。', 'success', booking ? 'action' : 'friends');
+      }
+      if (booking && !el('bookingFriendsModal')?.classList.contains('hidden')) {
+        status('好友名單已更新。', 'success', 'friends');
       }
     } catch (error) {
       if (current === generation) {
@@ -419,7 +457,7 @@
         status(
           error?.message || '好友資料載入失敗，請更新好友重試。',
           'error',
-          booking ? 'action' : 'friends'
+          booking && !el('bookingFriendsModal')?.classList.contains('hidden') ? 'friends' : booking ? 'action' : 'friends'
         );
       }
     } finally {
@@ -454,6 +492,7 @@
       lockedRecipient = null;
       window.MemberReferral?.close();
       el('closeMemberFriends')?.click();
+      el('closeBookingFriends')?.click();
       return;
     }
 
@@ -478,7 +517,10 @@
       for (const id of ['lookupFriend', 'confirmFriendRequest']) {
         if (el(id)) el(id).disabled = false;
       }
-      if (booking) el('friendsPanel')?.remove();
+      if (booking) {
+        el('bookingFriendsModal')?.remove();
+        el('friendsPanel')?.remove();
+      }
     }
 
     profile = next;
