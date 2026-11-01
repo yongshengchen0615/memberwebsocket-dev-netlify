@@ -192,7 +192,13 @@
           else{pending=null;await refresh().catch(()=>{});}
         }finally{working=false;access.disabled=false;if(!pending)for(const button of footer.querySelectorAll('button'))button.disabled=false;}
       });footer.append(access);
-      const expiryInfo=document.createElement('p');expiryInfo.textContent='使用期限：'+(tenant.expiresAt?new Date(tenant.expiresAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false})+'（台灣時間）':'無到期日');
+      const expiryInfo=document.createElement('div');expiryInfo.className='tenant-expiry-summary';
+      const started=document.createElement('span');started.textContent='開通日期：'+window.PlatformExpiryTerm.taipeiDateTime(tenant.createdAt);
+      const expires=document.createElement('span');expires.textContent='到期時間：'+(tenant.expiresAt?window.PlatformExpiryTerm.taipeiDateTime(tenant.expiresAt):'無到期日');
+      const daysLeft=window.PlatformExpiryTerm.remainingDays(tenant.expiresAt);
+      const remaining=document.createElement('strong');remaining.textContent=daysLeft===null?'剩餘天數：無期限':daysLeft===0?'剩餘天數：已到期':'剩餘天數：'+daysLeft+' 天';
+      if(daysLeft===0)remaining.className='expired';
+      expiryInfo.append(started,expires,remaining);
       const setup=document.createElement('p');
       const onboarding=tenant.onboarding;
       setup.textContent=tenant.status==='suspended'?'已停用；管理員與用戶均不可使用。':tenant.expired?'使用期限已到；請由總管理員調整期限，延長後須重新登入。':onboarding?.adminReady?'已核准功能已開通，管理員可設定業務內容並分享專屬用戶連結。'
@@ -202,27 +208,56 @@
     }
   }
   const expiryDialog=el('expiryDialog'),expiryForm=el('expiryForm');
+  const expiryTerm=window.PlatformExpiryTerm;
   let expiryTenant=null,expiryPending=null,expiryBusy=false;
+  function expiryMode(){return expiryForm.querySelector('input[name="expiryMode"]:checked')?.value||'unlimited';}
+  function selectedExpiry(){
+    if(expiryMode()==='unlimited')return null;
+    if(expiryMode()==='term')return expiryTerm.termExpiry(expiryTenant?.createdAt,Number(el('expiryDays').value));
+    const value=el('expiryAt').value;
+    if(!value)throw new RangeError('INVALID_EXPIRY');
+    const end=new Date(value+':00+08:00');
+    if(!Number.isFinite(end.getTime()))throw new RangeError('INVALID_EXPIRY');
+    return end.toISOString();
+  }
+  function updateExpiryPreview(){
+    const mode=expiryMode();
+    el('expiryTermFields').hidden=mode!=='term';
+    el('expiryStartHint').hidden=mode!=='term';el('expiryDaysHint').hidden=mode!=='term';
+    el('expiryExactFields').hidden=mode!=='exact';
+    el('expiryDays').disabled=mode!=='term';el('expiryDays').required=mode==='term';
+    el('expiryAt').disabled=mode!=='exact';el('expiryAt').required=mode==='exact';
+    let value;
+    try{value=selectedExpiry();}
+    catch{el('expiryComputedAt').textContent='請填寫有效期限';el('expiryRemainingDays').textContent='—';return;}
+    const remaining=expiryTerm.remainingDays(value);
+    el('expiryComputedAt').textContent=value?expiryTerm.taipeiDateTime(value)+'（台灣時間）':'無到期日';
+    el('expiryRemainingDays').textContent=remaining===null?'無期限':remaining===0?'已到期':'剩餘 '+remaining+' 天';
+  }
   function openExpiryDialog(tenant){
     expiryTenant=tenant;expiryPending=null;expiryBusy=false;
     for(const input of expiryForm.querySelectorAll('input'))input.disabled=false;
+    for(const button of expiryForm.querySelectorAll('button'))button.disabled=false;
     el('saveExpiry').textContent='儲存使用期限';
     el('expiryDescription').textContent=tenant.name+' · '+tenant.slug;
-    el('expiryUnlimited').checked=!tenant.expiresAt;
+    el('expiryStartedAt').value=expiryTerm.taipeiDateTime(tenant.createdAt)+'（台灣時間）';
+    const days=expiryTerm.termDays(tenant.createdAt,tenant.expiresAt);
+    el('expiryDays').value=days||30;
     el('expiryAt').value=tenant.expiresAt?new Date(Date.parse(tenant.expiresAt)+8*3600000).toISOString().slice(0,16):'';
-    el('expiryAt').disabled=!tenant.expiresAt;el('expiryAt').required=Boolean(tenant.expiresAt);
-    for(const button of expiryForm.querySelectorAll('button'))button.disabled=false;
-    el('expiryMessage').textContent='';expiryDialog.showModal();
+    const mode=!tenant.expiresAt?'unlimited':days?'term':'exact';
+    expiryForm.querySelector('input[name="expiryMode"][value="'+mode+'"]').checked=true;
+    el('expiryMessage').textContent='';updateExpiryPreview();expiryDialog.showModal();
   }
-  el('expiryUnlimited').addEventListener('change',()=>{
-    el('expiryAt').disabled=el('expiryUnlimited').checked;el('expiryAt').required=!el('expiryUnlimited').checked;
-  });
+  expiryForm.querySelectorAll('input[name="expiryMode"]').forEach(input=>input.addEventListener('change',()=>{if(!expiryBusy&&!expiryPending)updateExpiryPreview();}));
+  for(const id of ['expiryDays','expiryAt'])el(id).addEventListener('input',()=>{if(!expiryBusy&&!expiryPending)updateExpiryPreview();});
   expiryForm.addEventListener('submit',async event=>{
     event.preventDefault();if(expiryBusy||!expiryTenant)return;
     if(!expiryPending){
       if(!expiryForm.reportValidity())return;
-      const expiresAt=el('expiryUnlimited').checked?null:new Date(el('expiryAt').value+':00+08:00').toISOString();
-      if(!window.confirm(`更新「${expiryTenant.name}」的使用期限？${expiresAt?' 到期即停止管理員與用戶存取。':' 將設定為無到期日。'}`))return;
+      let expiresAt;
+      try{expiresAt=selectedExpiry();}
+      catch{el('expiryMessage').textContent='請輸入有效的期限天數或到期時間。';return;}
+      if(!window.confirm('更新「'+expiryTenant.name+'」的使用期限？'+(expiresAt?' 到期即停止管理員與用戶存取。':' 將設定為無到期日。')))return;
       expiryPending={tenantId:expiryTenant.id,expectedVersion:expiryTenant.version,requestId:crypto.randomUUID(),expiresAt};
     }
     expiryBusy=true;for(const node of expiryForm.querySelectorAll('input,button'))node.disabled=true;
@@ -233,7 +268,7 @@
     }catch(error){
       el('expiryMessage').textContent=error.message;
       if(error.uncertain){el('saveExpiry').textContent='重試相同期限操作';el('saveExpiry').disabled=false;}
-      else{expiryPending=null;for(const node of expiryForm.querySelectorAll('input,button'))node.disabled=false;el('expiryAt').disabled=el('expiryUnlimited').checked;}
+      else{expiryPending=null;for(const node of expiryForm.querySelectorAll('input,button'))node.disabled=false;updateExpiryPreview();}
     }finally{expiryBusy=false;}
   });
   el('closeExpiry').addEventListener('click',()=>{if(!expiryBusy&&!expiryPending)expiryDialog.close();});

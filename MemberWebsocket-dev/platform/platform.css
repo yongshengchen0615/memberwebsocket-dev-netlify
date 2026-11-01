@@ -90,3 +90,19 @@
 @media (prefers-reduced-motion: reduce) {
   #myMerchantList [data-manage-merchant].tenant-action-primary { transition: none; }
 }
+
+/* Super-admin usage period */
+.tenant-expiry-summary{display:grid;gap:5px;margin:16px 0 2px;padding:12px 14px;background:#f5f8f3;border:1px solid #dce6d9;border-radius:12px;font-size:13px;color:#415649}
+.tenant-expiry-summary strong{color:#1d603f;font-size:14px}.tenant-expiry-summary strong.expired{color:#a23d31}
+.expiry-dialog{width:min(650px,calc(100% - 24px))}
+.expiry-dialog-heading{padding-bottom:12px;border-bottom:1px solid #dfe7dc}.expiry-dialog-heading h2{margin:8px 0 2px}.expiry-dialog-heading p:last-child{margin:0 0 4px}
+.expiry-modes{border:0;margin:18px 0 14px;padding:0}.expiry-modes legend{margin-bottom:10px;padding:0}
+.expiry-mode-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.expiry-mode-options label{flex-direction:row;align-items:center;gap:8px;padding:11px;border:1px solid #cbdacb;border-radius:12px;cursor:pointer;font-weight:600;min-height:48px;background:#f9fbf8}
+.expiry-mode-options label:has(input:checked){background:#e6f2e9;border-color:#357451;color:#174b30}
+.expiry-mode-options input{accent-color:#1e5941;width:18px;height:18px;min-height:18px;margin:0;flex-shrink:0}
+.expiry-field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0 4px}
+.expiry-preview{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;background:#eff6ef;border:1px solid #d0e4d2;border-radius:14px;padding:16px;margin:18px 0}
+.expiry-preview>div{display:grid;gap:6px}.expiry-preview span{font-size:12px;color:#56705d}.expiry-preview strong{font-size:17px;color:#19563b;overflow-wrap:anywhere}
+.expiry-dialog .hint{margin:8px 0}.expiry-dialog .form-actions{border-top:1px solid #e3e9e0;padding-top:18px;margin-top:16px}
+@media(max-width:650px){.expiry-mode-options{grid-template-columns:1fr}.expiry-field-grid,.expiry-preview{grid-template-columns:1fr}.expiry-dialog{padding:20px 16px}.expiry-dialog .form-actions{display:grid;grid-template-columns:1fr}}
