@@ -491,3 +491,15 @@ test('AC-MEXP-002: merchant overview is read-only and clears period when account
   assert.equal(period.hidden,true);assert.equal(period.textContent,'','revoked view clears cached private fields');
  }finally{h.close();}
 });
+
+test('AC-MEXP-003: productized /admin/ loads expiry helper before app after importing workspace BODY only',()=>{
+ const shell=fs.readFileSync(path.join(root,'admin/productized-workspace.js'),'utf8');
+ const entry=fs.readFileSync(path.join(root,'admin/index.html'),'utf8');
+ const helper="../platform/expiry-term.js?v=expiry-term-20261101-1";
+ const app="../platform/app.js?v=merchant-expiry-readonly-20261101-1";
+ assert.match(shell,/document\.importNode\(node,true\)/,'import does not execute workspace head scripts');
+ assert.ok(shell.includes('if(!window.PlatformExpiryTerm)await loadScript('),'helper is required for the productized merchant portal');
+ assert.ok(shell.includes(helper));assert.ok(shell.includes(app));
+ assert.ok(shell.indexOf(helper)<shell.indexOf(app),'period calculator must be loaded before app rendering');
+ assert.ok(entry.includes('productized-workspace.js?v=merchant-expiry-readonly-20261101-1'),'new mounting code must bust the previous cached loader');
+});
