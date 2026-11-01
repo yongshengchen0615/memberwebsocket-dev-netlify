@@ -534,6 +534,8 @@ async function runRetiredMemberContract(p,info,key){
     await expect(p.locator('#memberModal')).toBeHidden();
     await p.getByRole('button',{name:'狀態'}).click();await expect(p.locator('#memberStatus')).toHaveValue('disabled');
     await select(p,'memberStatus','active');await click(p,'saveMemberButton');
+    // A second save is asynchronous: observe both actual API writes before inspecting their payloads.
+    await expect.poll(()=>calls(fixture,'admin.member.update').length).toBe(2);
     const writes=calls(fixture,'admin.member.update');
     expect(writes).toHaveLength(2);
     expect(writes.every(c=>!Object.hasOwn(c.payload,'profile'))).toBe(true);

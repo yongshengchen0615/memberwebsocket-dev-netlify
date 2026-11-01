@@ -7,11 +7,12 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' https://static.line-scdn.net; style-src 'self'; connect-src 'self' https://*.supabase.co https://api.line.me https://access.line.me https://liff.line.me https://*.line-scdn.net; img-src 'self' data:; frame-src https://access.line.me https://liff-subwindow.line.me; form-action 'self' https://access.line.me https://liff-subwindow.line.me">
   <title>管理員申請與商家管理</title>
-  <link rel="stylesheet" href="./platform.css?v=merchant-modal-20261030-1">
+  <link rel="stylesheet" href="./platform.css?v=expiry-term-20261101-1">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
   <script src="../business-context.js"></script>
 <script src="../member-system.js" defer></script>
-  <script src="./app.js?v=merchant-modal-20261030-1" defer></script>
+  <script src="./expiry-term.js?v=expiry-term-20261101-1" defer></script>
+  <script src="./app.js?v=expiry-term-20261101-1" defer></script>
   <link rel="stylesheet" href="../portal-navigation.css?v=unified-20261018-1">
   <script src="../portal-navigation.js?v=unified-20261018-1" defer></script>
 </head>
@@ -39,12 +40,28 @@
         <div class="form-actions"><button id="closeV2Review" type="button" class="secondary">取消</button><button id="confirmV2Review" type="submit">確認審核</button></div>
       </form>
     </dialog>
-    <dialog id="expiryDialog" aria-labelledby="expiryTitle">
+    <dialog id="expiryDialog" class="expiry-dialog" aria-labelledby="expiryTitle">
       <form id="expiryForm">
-        <h2 id="expiryTitle">設定使用期限</h2><p id="expiryDescription"></p>
-        <label><input id="expiryUnlimited" type="checkbox">無到期日</label>
-        <label>到期時間（台灣時間 UTC+8）<input id="expiryAt" type="datetime-local" min="2000-01-01T00:00" max="9999-12-31T23:59"></label>
-        <p class="hint">到期即停止管理員與用戶存取。復權不會延長期限；延長已到期資格後須重新使用 LINE 登入。</p>
+        <div class="expiry-dialog-heading"><p class="eyebrow">ACCESS PERIOD / 使用期間</p><h2 id="expiryTitle">設定使用期限</h2><p id="expiryDescription"></p></div>
+        <fieldset class="expiry-modes"><legend>期限設定方式</legend>
+          <div class="expiry-mode-options">
+            <label><input name="expiryMode" type="radio" value="term">依期限天數</label>
+            <label><input name="expiryMode" type="radio" value="exact">指定到期時間</label>
+            <label><input name="expiryMode" type="radio" value="unlimited">無到期日</label>
+          </div>
+        </fieldset>
+        <div id="expiryTermFields" class="expiry-field-grid">
+          <label>開通日期（商家建立日）<input id="expiryStartedAt" type="text" readonly aria-describedby="expiryStartHint"></label>
+          <label>設定期限天數<input id="expiryDays" type="number" min="1" max="36500" step="1" inputmode="numeric" aria-describedby="expiryDaysHint"></label>
+        </div>
+        <p class="hint" id="expiryStartHint">目前以商家建立時間作為固定起算點；每一天為 24 小時。</p>
+        <p class="hint" id="expiryDaysHint">例如設定 30 天，期限即從開通時間起算 30 × 24 小時。</p>
+        <div id="expiryExactFields" hidden><label>到期時間（台灣時間 UTC+8）<input id="expiryAt" type="datetime-local" min="2000-01-01T00:00" max="9999-12-31T23:59"></label></div>
+        <div class="expiry-preview" role="status" aria-live="polite">
+          <div><span>預計到期時間</span><strong id="expiryComputedAt">—</strong></div>
+          <div><span>剩餘天數</span><strong id="expiryRemainingDays">—</strong></div>
+        </div>
+        <p class="hint">到期即由伺服器停止管理員與用戶存取。復權不會延長期限；延長已到期資格後須重新使用 LINE 登入。</p>
         <p id="expiryMessage" role="status" aria-live="polite"></p>
         <div class="form-actions"><button id="closeExpiry" class="secondary" type="button">取消</button><button id="saveExpiry" type="submit">儲存使用期限</button></div>
       </form>
