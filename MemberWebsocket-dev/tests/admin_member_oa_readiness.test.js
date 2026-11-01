@@ -43,7 +43,8 @@ test('RB-ADMIN-004: both manager entrypoints load the restored settings and bust
   assert.match(html,/business-line-settings\.js\?v=line-entry-actions-20261101-1/);
   assert.match(html,/business-line-settings\.css\?v=line-entry-actions-20261101-1/);
  }
- assert.match(merchantEntry,/platform\/app\.js\?v=merchant-modal-20261030-1/);
+ assert.match(merchantEntry,/platform\/expiry-term\.js\?v=expiry-term-20261101-1/);
+ assert.match(merchantEntry,/platform\/app\.js\?v=expiry-term-20261101-1/);
  assert.match(platformEntry,/\.\/expiry-term\.js\?v=expiry-term-20261101-1/);
  assert.match(platformEntry,/\.\/app\.js\?v=expiry-term-20261101-1/);
  assert.match(platformEntry,/id="rootSyncNow"/);
