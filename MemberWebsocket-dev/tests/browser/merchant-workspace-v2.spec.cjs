@@ -190,7 +190,7 @@ for(const width of [390,1280]) test('AC-TITLE-INLINE-'+width+' — actual mercha
   await page.route(base+'/',route=>route.fulfill({status:200,contentType:'text/html',body:'<!doctype html><html><body></body></html>'}));
   await page.goto(base+'/');
   const full=fs.readFileSync(path.join(root,'admin/index.html'),'utf8');
-  const section=full.match(/<section id="clientPageTitleShortcut"[\\s\\S]*?<\\/section>/)?.[0];
+  const section=full.match(/<section id="clientPageTitleShortcut"[\s\S]*?<\/section>/)?.[0];
   expect(section).toBeTruthy();
   await page.setContent('<!doctype html><html><body>'+section+'</body></html>');
   await page.addScriptTag({url:base+'/admin/client-title-shortcut.js'});
