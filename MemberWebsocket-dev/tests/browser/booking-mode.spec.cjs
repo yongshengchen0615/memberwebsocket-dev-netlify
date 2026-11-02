@@ -58,14 +58,15 @@ for(const variant of [
   await expect(tier).toBeVisible();
   await expect(page.locator('[data-membership-current-tier]')).toHaveText('黃金會員');
   await expect(tier.locator('[data-membership-progress-track]')).toBeVisible();
-  expect(await tier.evaluate(el=>el.previousElementSibling?.classList.contains('booking-accessible-switch'))).toBe(true);
-  expect(await tier.evaluate(el=>el.nextElementSibling?.id)).toBe('bookingAccessiblePanel');
+  expect(await tier.evaluate(el=>el.previousElementSibling?.classList.contains('topbar'))).toBe(true);
+  expect(await tier.evaluate(el=>el.nextElementSibling?.classList.contains('booking-accessible-switch'))).toBe(true);
+  expect(await switcher.evaluate(el=>el.nextElementSibling?.id)).toBe('bookingAccessiblePanel');
   expect(await tier.count()).toBe(1);
   const tierBox=await tier.boundingBox();
   const switchBox=await switcher.boundingBox();
   const nextBox=await (mode==='snapshot' ? page.locator('#bookingAccessiblePanel') : calendar).boundingBox();
-  expect(tierBox.y).toBeGreaterThanOrEqual(switchBox.y+switchBox.height-1);
-  expect(nextBox.y).toBeGreaterThanOrEqual(tierBox.y+tierBox.height-1);
+  expect(switchBox.y).toBeGreaterThanOrEqual(tierBox.y+tierBox.height-1);
+  expect(nextBox.y).toBeGreaterThanOrEqual(switchBox.y+switchBox.height-1);
   expect(tierBox.x).toBeGreaterThanOrEqual(-1);
   expect(tierBox.x+tierBox.width).toBeLessThanOrEqual(variant.width+1);
  }
