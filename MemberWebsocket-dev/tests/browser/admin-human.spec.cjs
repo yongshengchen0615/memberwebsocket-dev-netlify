@@ -630,7 +630,7 @@ test('POINT_DRAG — pointer drag sorting, save and readback',async({page:p},inf
   await click(p,'cardsTab');await p.locator('[data-card-sort-item][data-card-id="card-2"]').dragTo(p.locator('[data-card-sort-item][data-card-id="card-1"]'));await expect(p.locator('#saveCardSortButton')).toBeEnabled();await click(p,'saveCardSortButton');await expect.poll(()=>info.fixture.cards[0].cardId).toBe('card-2');
 });
 test('BOOKING_COPY — copy complete booking details through the UI',async({page:p},info)=>{
-  seedBooking(info.fixture);await booking(p,'bookingAdminQueueSubtab');await p.locator('#bookingAdminQueue [data-booking-admin-action="copy-booking"]').click();const text=await p.evaluate(()=>navigator.clipboard.readText());expect(text).toContain('QA先生');expect(text).toContain('QA service');expect(text).toContain('10:00');
+  seedBooking(info.fixture);await booking(p,'bookingAdminQueueSubtab');await p.locator('#bookingAdminQueue [data-booking-admin-action="copy-booking"]').click();const text=await p.evaluate(()=>navigator.clipboard.readText());expect(text).toContain('日期：');expect(text).toContain('時間：10:00');expect(text).toContain('預約人：QA先生');expect(text).toContain('QA service');
 });
 
 for(const [key,action] of [['ADMIN_CALENDAR_CRUD','admin.calendar-items.save'],['ADMIN_FIXED_DRAFT_WEEKLY','admin.fixed-tickets.save']])test('RUNNER_REJECTED_'+key+' — rejected update fails evidence and cleans only owned QA draft',async({page:p},info)=>{
@@ -761,7 +761,7 @@ test('BOOKING_COMPLETED_CORRECTION — preview, reason, confirmation and persist
 for(const width of [390,1280])test('BOOKING_CANCELLATION_COPY_'+width+' — actual cancellation queue copy and overnight label do not mutate bookings',async({page:p},info)=>{
  if(typeof p.setViewportSize==='function')await p.setViewportSize({width,height:844});seedBooking(info.fixture,'confirmed');Object.assign(info.fixture.bookings[0],{bookingDate:'2026-12-31',startTime:'23:30',endTime:'00:00',startAt:'2026-12-31T23:30:00',endAt:'2027-01-01T00:00:00',cancellationRequestedAt:version});
  await booking(p,'bookingAdminQueueSubtab');await click(p,'bookingCancellationRequestFilter');await p.locator('#bookingCancellationReviewList .booking-copy-button').click();
- const text=await p.evaluate(()=>navigator.clipboard.readText());expect(text).toContain('23:30–00:00（隔日）');expect(text).toContain('QA先生');expect(text).toContain('QA service');
+ const text=await p.evaluate(()=>navigator.clipboard.readText());expect(text).toContain('日期：2026-12-31');expect(text).toContain('時間：23:30');expect(text).not.toContain('00:00');expect(text).toContain('預約人：QA先生');expect(text).toContain('QA service');
  expect(calls(info.fixture,'admin.approve')).toHaveLength(0);expect(calls(info.fixture,'admin.reject')).toHaveLength(0);expect(info.fixture.bookings[0].status).toBe('confirmed');
  if(typeof p.screenshot==='function')await info.attach('cancel-copy-layout',{body:await p.screenshot({fullPage:true}),contentType:'image/png'});
 });
