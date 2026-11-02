@@ -78,6 +78,17 @@
         <div><p class="kicker">Lumen Club / Booking</p><h1>預約服務</h1></div>
         <div class="account-menu"><span id="memberName">LINE 會員</span></div>
       </header>
+      <section id="membershipProgress" class="membership-progress" aria-labelledby="membershipProgressTitle" aria-live="polite">
+        <div>
+          <p class="membership-progress-kicker">Membership progress</p>
+          <h2 id="membershipProgressTitle">會員階級</h2>
+          <p id="memberTier" data-membership-current-tier class="membership-progress-current">載入中</p>
+        </div>
+        <p data-membership-summary class="membership-progress-summary">累積 0 分鐘・下一階段資料載入中</p>
+        <p data-membership-remaining class="membership-progress-remaining">正在計算升等進度</p>
+        <div data-membership-progress-track class="membership-progress-track" role="progressbar" aria-label="會員階級進度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-membership-progress-bar></span></div>
+      </section>
+
       <section class="booking-accessible-switch" aria-label="預約模式">
         <div class="booking-mode-description">
           <p class="booking-mode-current"><span aria-hidden="true"></span><strong id="bookingModeTitle">一般預約模式</strong></p>
@@ -102,17 +113,6 @@
       </section>
       <span id="memberProfileName" class="hidden" aria-hidden="true"></span>
       <span id="memberCode" class="hidden" aria-hidden="true"></span>
-
-      <section id="membershipProgress" class="membership-progress" aria-labelledby="membershipProgressTitle" aria-live="polite">
-        <div>
-          <p class="membership-progress-kicker">Membership progress</p>
-          <h2 id="membershipProgressTitle">會員階級</h2>
-          <p id="memberTier" data-membership-current-tier class="membership-progress-current">載入中</p>
-        </div>
-        <p data-membership-summary class="membership-progress-summary">累積 0 分鐘・下一階段資料載入中</p>
-        <p data-membership-remaining class="membership-progress-remaining">正在計算升等進度</p>
-        <div data-membership-progress-track class="membership-progress-track" role="progressbar" aria-label="會員階級進度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-membership-progress-bar></span></div>
-      </section>
 
       <section class="booking-card" data-booking-standard aria-labelledby="bookingTitle">
         <div class="section-heading">
