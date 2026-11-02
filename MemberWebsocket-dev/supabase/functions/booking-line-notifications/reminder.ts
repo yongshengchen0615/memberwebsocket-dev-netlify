@@ -22,25 +22,25 @@ export async function loadBookingReminderMessage(db: ScopedDb, bookingId: string
     throw new Error('REMINDER_BOOKING_INELIGIBLE');
   }
   const [member, settings, participants, bookingItems]: [any, any, any[], any[]] = await Promise.all([
-    required(db.from('members').select('id,surname,salutation,phone,is_test_account').eq('id', booking.member_id).single(), 'MEMBER'),
-    required(db.from('booking_settings').select('reminder_message').eq('id', 1).single(), 'SETTINGS'),
-    required(db.from('booking_participants').select('id,position,technician_id').eq('booking_id', bookingId).order('position'), 'PARTICIPANTS'),
-    required(db.from('booking_items').select('service_id,service_title,unit_duration_minutes,unit_price_amount,quantity').eq('booking_id', bookingId), 'ITEMS'),
+    required<any>(db.from('members').select('id,surname,salutation,phone,is_test_account').eq('id', booking.member_id).single(), 'MEMBER'),
+    required<any>(db.from('booking_settings').select('reminder_message').eq('id', 1).single(), 'SETTINGS'),
+    required<any[]>(db.from('booking_participants').select('id,position,technician_id').eq('booking_id', bookingId).order('position'), 'PARTICIPANTS'),
+    required<any[]>(db.from('booking_items').select('service_id,service_title,unit_duration_minutes,unit_price_amount,quantity').eq('booking_id', bookingId), 'ITEMS'),
   ]);
   if (member.is_test_account === true) throw new Error('REMINDER_TEST_MEMBER_BLOCKED');
   const participantIds = participants.map(item => item.id);
   const participantItems: any[] = participantIds.length
-    ? await required(db.from('booking_participant_items')
+    ? await required<any[]>(db.from('booking_participant_items')
       .select('participant_id,service_title,unit_duration_minutes,unit_price_amount,quantity')
       .in('participant_id', participantIds).order('created_at'), 'PARTICIPANT_ITEMS')
     : [];
   const technicianIds = Array.from(new Set(
     [...participants.map(item => item.technician_id), booking.technician_id].filter(Boolean)));
   const technicians: any[] = technicianIds.length
-    ? await required(db.from('booking_technicians').select('id,name').in('id', technicianIds), 'TECHNICIANS')
+    ? await required<any[]>(db.from('booking_technicians').select('id,name').in('id', technicianIds), 'TECHNICIANS')
     : [];
   return formatBookingReminderMessage({
     booking, member, participants, bookingItems, participantItems, technicians,
     reminderText: settings.reminder_message,
-  });
+  } as any);
 }
