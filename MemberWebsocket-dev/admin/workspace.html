@@ -171,6 +171,16 @@
       </nav>
       <div id="merchantOverviewPanel" role="tabpanel" aria-labelledby="merchantOverviewTab">
       <p id="merchantInfo"></p>
+      <form id="merchantTitleForm" class="setup-checklist" aria-label="用戶端網頁抬頭設定">
+        <h3>用戶端網頁抬頭</h3>
+        <p class="hint">所有已核准的用戶端共用這個名稱；只修改瀏覽器分頁標題，不影響商家名稱、LINE 設定或會員資料。</p>
+        <label>顯示名稱（最多 60 字）
+          <input name="title" maxlength="60" autocomplete="off" placeholder="留空則使用商家名稱">
+        </label>
+        <p class="hint">預覽：<output id="merchantTitlePreview">Lumen Club｜預約</output>（會員卡、集點卡、活動票券及活動日曆會使用同一名稱）</p>
+        <p id="merchantTitleStatus" role="status" aria-live="polite"></p>
+        <button id="saveMerchantTitle" type="submit">儲存網頁抬頭</button>
+      </form>
       <div id="merchantUsagePeriod" class="tenant-expiry-summary" aria-label="商家使用期限" hidden></div>
       <p id="merchantReadiness" class="merchant-readiness" role="status" aria-live="polite"></p>
       <section id="merchantLaunchStatus" class="launch-status" data-ready="false" aria-labelledby="launchTitle">
