@@ -1,5 +1,6 @@
 import { businessFetch as fetch } from '../_shared/business-scope.ts';
 import { bookingDetailUri } from "./booking-actions.ts";
+import { groupReminderNoticeFields, reminderNoticeCard } from "./reminder-notice.mjs";
 export type BookingBenefits = {
   pointTickets: string[];
   eventTickets: string[];
@@ -148,7 +149,7 @@ function parseBookingMessage(message: string): ParsedBookingMessage {
     fields.push({ label: '說明', value: truncate(line, 500) });
   }
 
-  return { title, fields, services, participants, fallbackText };
+  return { title, fields: title === '預約提醒' ? groupReminderNoticeFields(fields) : fields, services, participants, fallbackText };
 }
 
 function fieldRow(label: string, value: string): Record<string, unknown> {
@@ -423,9 +424,10 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
   const bodyContents: Array<Record<string, unknown>> = [];
 
   const schedule = scheduleCard(parsed, style.color);
-  const details = detailsCard(parsed.fields);
   const memberConfirmation = job.channel === 'member' && parsed.title === '預約確認';
   const memberReminder = job.channel === 'member' && parsed.title === '預約提醒';
+  const notice = memberReminder ? reminderNoticeCard(parsed.fields) : null;
+  const details = detailsCard(memberReminder ? parsed.fields.filter(field => field.label !== '提醒事項') : parsed.fields);
   const participants = participantsCard(parsed.participants, style.color, memberConfirmation || memberReminder);
   const services = parsed.participants.length ? null : servicesCard(parsed.services, style.color);
   if (schedule) bodyContents.push(schedule);
@@ -439,6 +441,7 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
     // Confirmation and reminders share participant cards; reminders also show the merchant's notice and contact details.
     bodyContents.length = 0;
     if (schedule) bodyContents.push(schedule);
+    if (memberReminder && notice) bodyContents.push(notice);
     if (memberReminder && details) bodyContents.push(details);
     if (participants) bodyContents.push(participants);
     else if (services) bodyContents.push(services); // Legacy notifications without participant sections.
