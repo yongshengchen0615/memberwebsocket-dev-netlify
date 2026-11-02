@@ -56,10 +56,21 @@ test('booking notifications use participant details and profile contact fallback
 
 test('clipboard copy shows labeled date, start time and contact without end time', () => {
   const vm = require('node:vm'), context = {};
-  vm.runInNewContext(fs.readFileSync(path.join(root,'booking-copy-text.js'),'utf8'),context);
-  const booking = {bookingDate:'2026-10-30',startTime:'11:30',endTime:'12:40',name:'Chen先生',phone:'+886912345678',partySize:1,
-    participants:[{items:[{serviceTitle:'a11',quantity:1}],technicianName:'10技師'}]};
-  assert.equal(context.BookingCopyText.formatClipboard(booking),
-    '日期：2026-10-30\n時間：11:30\n預約人：Chen先生\n電話：+886912345678\n預約人數：1 位\n第一位預約\n預約項目：a11\n預約技師：10技師'.replace(/\\\n/g, '\n'));
+  vm.runInNewContext(fs.readFileSync(path.join(root, 'booking-copy-text.js'), 'utf8'), context);
+  const booking = {
+    bookingDate: '2026-10-30', startTime: '11:30', endTime: '12:40',
+    name: 'Chen先生', phone: '+886912345678', partySize: 1,
+    participants: [{ items: [{ serviceTitle: 'a11', quantity: 1 }], technicianName: '10技師' }],
+  };
+  assert.equal(context.BookingCopyText.formatClipboard(booking), [
+    '日期：2026-10-30',
+    '時間：11:30',
+    '預約人：Chen先生',
+    '電話：+886912345678',
+    '預約人數：1 位',
+    '第一位預約',
+    '預約項目：a11',
+    '預約技師：10技師',
+  ].join('\n'));
   assert.match(context.BookingCopyText.format(booking), /^營業日 2026-10-30｜11:30–12:40/);
 });
