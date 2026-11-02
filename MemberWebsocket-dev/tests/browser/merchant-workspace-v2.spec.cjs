@@ -162,7 +162,12 @@ test('AC-TITLE-UI-001 — merchant may edit scoped title with real browser and i
     const context=await h.platformCall({action:'platform.business.public',business:slug,feature:'booking'});
     expect(context.status).toBe(200);
     expect(context.body.data.siteTitle).toBe('晨光工作室');
+    // The previously selected LINE feature survives reload in the feature query.
+    // Return to the overview before editing its intentionally hidden title form.
     await page.reload();
+    await expect(page.locator('#merchantWorkspace')).toBeVisible();
+    await page.locator('#merchantOverviewTab').click();
+    await expect(form).toBeVisible();
     await expect(form.locator('[name=title]')).toHaveValue('晨光工作室');
     await form.locator('[name=title]').fill('');
     await page.locator('#saveMerchantTitle').click();
