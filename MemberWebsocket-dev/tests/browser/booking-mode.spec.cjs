@@ -14,6 +14,11 @@ test.beforeAll(async()=>{
     window.BookingBenefits={getItems:()=>[],syncNow(){}};
     window.addEventListener('DOMContentLoaded',()=>{
       window.dispatchEvent(new CustomEvent('booking:member-loaded',{detail:{profile:{lineUserId:new URL(location.href).searchParams.get('member')||'test:mode-a'}}}));
+      // The calendar controller is deliberately excluded from this mode fixture.
+      // Give its grid a real day so visibility assertions measure ancestor display,
+      // not Playwright's zero-area empty-grid behavior.
+      const day=document.createElement('button');day.type='button';day.textContent='15';
+      document.getElementById('calendarGrid').append(day);
       document.getElementById('loadingView').classList.add('hidden');document.getElementById('bookingView').classList.remove('hidden');
     });`);return;
   }
@@ -37,6 +42,10 @@ for(const variant of [
  const toggle=page.locator('#bookingAccessibleToggle');
  await expect(toggle).toHaveAttribute('aria-pressed','false');
  await expect(page.locator('#bookingModeTitle')).toHaveText('一般預約模式');
+ const calendar=page.locator('[data-booking-standard]');
+ await expect(calendar).toBeVisible();
+ await expect(page.locator('#calendarGrid')).toBeVisible();
+ await expect(page.locator('#bookingAccessiblePanel')).toBeHidden();
  const switcher=page.locator('.booking-accessible-switch');
  async function checkModeLayout() {
   const bounds=await switcher.evaluate(el=>({left:el.getBoundingClientRect().left,right:el.getBoundingClientRect().right,viewport:innerWidth,overflow:el.scrollWidth-el.clientWidth}));
@@ -49,15 +58,27 @@ for(const variant of [
  await page.locator('#memberNote').evaluate(el=>el.value='unsent draft');
  await toggle.click();await expect(toggle).toHaveAttribute('aria-pressed','true');
  await expect(page.locator('#bookingModeTitle')).toHaveText('快照模式');
+ await expect(calendar).toBeHidden();
+ await expect(page.locator('#calendarGrid')).toBeHidden();
+ await expect(page.locator('#bookingAccessiblePanel')).toBeVisible();
  await checkModeLayout();
  expect(await page.evaluate(()=>localStorage.getItem('booking-mode:v2:test:mode-a'))).toBe('accessible');
- await toggle.click();expect(await page.locator('#memberNote').inputValue()).toBe('unsent draft');
+ await toggle.click();
+ await expect(calendar).toBeVisible();
+ await expect(page.locator('#calendarGrid')).toBeVisible();
+ await expect(page.locator('#bookingAccessiblePanel')).toBeHidden();
+ expect(await page.locator('#memberNote').inputValue()).toBe('unsent draft');
  await toggle.click();await page.reload();await expect(toggle).toHaveAttribute('aria-pressed','true');
+ await expect(calendar).toBeHidden();
+ await expect(page.locator('#bookingAccessiblePanel')).toBeVisible();
  const restoredImage=info.outputPath('booking-mode-restored.png');
  await page.screenshot({fullPage:true,path:restoredImage});await info.attach('booking-mode-restored',{path:restoredImage,contentType:'image/png'});
  await page.goto(base+'/booking/?member=test:mode-b');await expect(toggle).toHaveAttribute('aria-pressed','false');
+ await expect(calendar).toBeVisible();
  await page.goto(base+'/booking/?member=test:mode-a');await expect(toggle).toHaveAttribute('aria-pressed','true');
+ await expect(calendar).toBeHidden();
  await toggle.click();await page.reload();await expect(toggle).toHaveAttribute('aria-pressed','false');
+ await expect(calendar).toBeVisible();
  expect(await page.evaluate(()=>localStorage.getItem('booking-mode:v2:test:mode-b'))).toBe(null);
 });
 test('legacy or corrupt preference and unavailable storage fall back to general mode',async({page})=>{
