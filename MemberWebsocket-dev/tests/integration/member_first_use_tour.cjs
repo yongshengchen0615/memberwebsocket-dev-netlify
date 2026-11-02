@@ -73,6 +73,27 @@ test('AC-001/002: all five member surfaces stay hidden on regular entry and open
   }
 });
 
+test('AC-001: older tutorial completion and skip state never forces a normal visit open', async () => {
+  const hash = Buffer.from(await webcrypto.subtle.digest('SHA-256', new TextEncoder().encode('LINE_TEST_A'))).toString('hex');
+  const key = `user-tour:booking:${hash}`;
+  for (const persisted of [
+    { version: 1, outcome: 'complete', completedAt: '2026-09-27T15:59:00Z' },
+    { version: 1, outcome: 'skip', completedAt: '2026-09-27T15:59:00Z' },
+    { version: 2, disabled: true, outcome: 'skip', source: 'explicit', skippedAt: '2026-09-27T15:59:00Z' }
+  ]) {
+    const current = await page({ surface: 'booking', query: '', saved: { [key]: JSON.stringify(persisted) } });
+    try {
+      await current.ready();
+      assert.equal(current.dialog.classList.contains('hidden'), true);
+      assert.notEqual(current.w.document.getElementById('app').inert, true);
+      current.w.document.getElementById('openMemberTour').click();
+      assert.equal(current.dialog.classList.contains('hidden'), false);
+      current.w.document.getElementById('memberTourDismiss').click();
+      assert.equal(current.w.localStorage.getItem(key), JSON.stringify(persisted));
+    } finally { current.dom.window.close(); }
+  }
+});
+
 test('AC-001: incomplete profile also remains quiet until explicitly requested', async () => {
   const current = await page({ surface: 'member', query: '' });
   try {
