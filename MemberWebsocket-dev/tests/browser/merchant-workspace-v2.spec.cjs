@@ -178,29 +178,48 @@ test('AC-TITLE-UI-001 — merchant may edit scoped title with real browser and i
   }finally{await h.db.close();}
 });
 
-for (const width of [390,1280]) test('AC-TITLE-ENTRY-' + width + ' — browser exposes merchant title settings shortcut only for a scoped merchant', async ({page}) => {
+for(const width of [390,1280]) test('AC-TITLE-INLINE-'+width+' — actual merchant title save stays on the admin page',async({page})=>{
+ test.setTimeout(45000);
  await page.setViewportSize({width,height:900});
- // Provide a real same-origin document; about:blank has an opaque origin.
- await page.route(base+'/', route=>route.fulfill({status:200,contentType:'text/html',body:'<!doctype html><html><body></body></html>'}));
- await page.goto(base+'/');
- await page.setContent(`<!doctype html><main>
-   <section id="clientPageTitleShortcut" hidden>
-     <h2>用戶端網頁抬頭</h2><a id="clientPageTitleSettingsLink">修改用戶端網頁抬頭</a>
-   </section>
- </main>`);
- await page.addScriptTag({url:base+'/admin/client-title-shortcut.js'});
- const panel=page.locator('#clientPageTitleShortcut'),link=page.locator('#clientPageTitleSettingsLink');
- await expect(panel).toBeHidden();
- await page.evaluate(()=>window.ClientPageTitleShortcut.sync({productizedAdmin:true,business:'example-shop'}));
- await expect(panel).toBeVisible();
- await expect(link).toHaveAttribute('href','/admin/workspace.html?business=example-shop');
- await page.evaluate(()=>window.ClientPageTitleShortcut.sync({productizedAdmin:true,business:'other-shop'}));
- await expect(link).toHaveAttribute('href','/admin/workspace.html?business=other-shop');
- await page.evaluate(()=>window.ClientPageTitleShortcut.clear());
- await expect(panel).toBeHidden();
- await expect(link).not.toHaveAttribute('href');
- await page.evaluate(()=>window.ClientPageTitleShortcut.sync({productizedAdmin:true,business:'../../platform'}));
- await expect(panel).toBeHidden();
- await expect(link).not.toHaveAttribute('href');
- expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ const h=await setup({origins:[base]});
+ try{
+  await h.qualify();
+  const slug='inline-title-'+width,a=await h.submit(h.owner,slug,'原本商家名稱');
+  await h.review(a);
+  const observed=await wire(page,h);
+  await page.route(base+'/',route=>route.fulfill({status:200,contentType:'text/html',body:'<!doctype html><html><body></body></html>'}));
+  await page.goto(base+'/');
+  const full=fs.readFileSync(path.join(root,'admin/index.html'),'utf8');
+  const section=full.match(/<section id="clientPageTitleShortcut"[\\s\\S]*?<\\/section>/)?.[0];
+  expect(section).toBeTruthy();
+  await page.setContent('<!doctype html><html><body>'+section+'</body></html>');
+  await page.addScriptTag({url:base+'/admin/client-title-shortcut.js'});
+  const form=page.locator('#clientPageTitleForm'),panel=page.locator('#clientPageTitleShortcut');
+  await expect(panel).toBeHidden();
+  await page.evaluate(business=>window.ClientPageTitleShortcut.sync({
+   productizedAdmin:true,business,supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',
+   supabasePublishableKey:'sb_publishable_fixture'},'manager'),slug);
+  await expect(panel).toBeVisible();
+  await expect(form.locator('#clientPageTitleInput')).toBeEnabled();
+  await expect(page.locator('#clientPageTitlePreview')).toHaveText('原本商家名稱｜預約');
+  await form.locator('#clientPageTitleInput').fill('晨光工作室');
+  await expect(page.locator('#clientPageTitlePreview')).toHaveText('晨光工作室｜預約');
+  await form.locator('#clientPageTitleSave').click();
+  await expect(page.locator('#clientPageTitleStatus')).toContainText('已儲存');
+  const saved=(await h.db.query('select name,site_title,version from platform_private.tenants where slug=$1',[slug])).rows[0];
+  expect(saved.name).toBe('原本商家名稱');
+  expect(saved.site_title).toBe('晨光工作室');
+  expect(saved.version).toBeGreaterThan(1);
+  expect(observed.calls.filter(c=>c.action==='platform.title.save')).toHaveLength(1);
+  await form.locator('#clientPageTitleInput').fill('');
+  await form.locator('#clientPageTitleSave').click();
+  await expect(page.locator('#clientPageTitleStatus')).toContainText('已儲存');
+  await expect(page.locator('#clientPageTitlePreview')).toHaveText('原本商家名稱｜預約');
+  const reverted=(await h.db.query('select site_title from platform_private.tenants where slug=$1',[slug])).rows[0];
+  expect(reverted.site_title).toBeNull();
+  await page.evaluate(()=>window.ClientPageTitleShortcut.clear());
+  await expect(panel).toBeHidden();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  expect(observed.errors).toEqual([]);
+ }finally{await h.db.close();}
 });
