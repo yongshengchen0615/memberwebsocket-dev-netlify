@@ -10,16 +10,17 @@ test.beforeAll(async()=>{
 });
 test.afterAll(async()=>new Promise(resolve=>server.close(resolve)));
 async function wire(page,h,token='manager',{loseAction=''}={}){
- const errors=[],calls=[];let lost=false;page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
+ const errors=[],calls=[],responses=[];let lost=false;page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
  await page.route('**/config.json',route=>route.fulfill({json:{...JSON.parse(fs.readFileSync(path.join(root,'config.json'),'utf8')),merchantApprovalVersion:2,realtimeEnabled:false,supabaseUrl:'https://fixture.supabase.co',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'sb_publishable_fixture'}}));
  await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:`window.liff={init:async()=>{},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=>${JSON.stringify(token)}};`}));
  await page.route('https://*.tile.openstreetmap.org/**',route=>route.abort());
  await page.route('https://fixture.supabase.co/functions/v1/platform-api',async route=>{
   const req=route.request(),body=req.method()==='POST'?req.postDataJSON():undefined;if(body)calls.push(body);
   const headers=new Headers(req.headers());headers.set('Origin',base);const response=await h.handler(new Request(req.url(),{method:req.method(),headers,...(body?{body:JSON.stringify(body)}:{})}));
+  if(body?.action==='platform.title.save')responses.push({status:response.status,body:await response.clone().json().catch(()=>null)});
   if(!lost&&body?.action===loseAction&&response.ok){lost=true;return route.abort('failed');}
   return route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
- });return{errors,calls};
+ });return{errors,calls,responses};
 }
 async function sendMerchant(page,name){if(!await page.locator('#merchantApplicationDialog').isVisible())await page.locator('#newMerchantApplication').click();await expect(page.locator('#merchantApplicationDialog')).toBeVisible();await expect(page.locator('#merchantApplicationForm [name="slug"]')).toHaveCount(0);await page.locator('#merchantApplicationForm [name="businessName"]').fill(name);await page.locator('#submitMerchantApplication').click();}
 async function reviewMerchant(page,slug,decision='approved',feature='points'){
@@ -205,7 +206,12 @@ for(const width of [390,1280]) test('AC-TITLE-INLINE-'+width+' — actual mercha
   await form.locator('#clientPageTitleInput').fill('晨光工作室');
   await expect(page.locator('#clientPageTitlePreview')).toHaveText('晨光工作室｜預約');
   await form.locator('#clientPageTitleSave').click();
-  await expect(page.locator('#clientPageTitleStatus')).toContainText('已儲存');
+  await expect(page.locator('#clientPageTitleStatus')).not.toContainText('正在儲存');
+  const actual=await page.locator('#clientPageTitleStatus').textContent();
+  if(!actual.includes('已儲存'))throw new Error('Inline title save diagnostic: '+JSON.stringify({
+    feedback:actual,responses:observed.responses,actions:observed.calls.map(x=>({action:x.action,business:x.business,expectedVersion:x.expectedVersion,title:x.title})),
+    errors:observed.errors,
+  }));
   const saved=(await h.db.query('select name,site_title,version from platform_private.tenants where slug=$1',[slug])).rows[0];
   expect(saved.name).toBe('原本商家名稱');
   expect(saved.site_title).toBe('晨光工作室');
