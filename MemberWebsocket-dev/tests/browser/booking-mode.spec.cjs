@@ -19,6 +19,7 @@ test.beforeAll(async()=>{
       // not Playwright's zero-area empty-grid behavior.
       const day=document.createElement('button');day.type='button';day.textContent='15';
       document.getElementById('calendarGrid').append(day);
+      document.getElementById('memberTier').textContent='黃金會員';
       document.getElementById('loadingView').classList.add('hidden');document.getElementById('bookingView').classList.remove('hidden');
     });`);return;
   }
@@ -52,7 +53,24 @@ for(const variant of [
   expect(bounds.left).toBeGreaterThanOrEqual(0);expect(bounds.right).toBeLessThanOrEqual(bounds.viewport+1);expect(bounds.overflow).toBeLessThanOrEqual(1);
   expect((await toggle.boundingBox()).height).toBeGreaterThanOrEqual(48);
  }
+ async function checkTierPlacement(mode) {
+  const tier=page.locator('#membershipProgress');
+  await expect(tier).toBeVisible();
+  await expect(page.locator('[data-membership-current-tier]')).toHaveText('黃金會員');
+  await expect(tier.locator('[data-membership-progress-track]')).toBeVisible();
+  expect(await tier.evaluate(el=>el.previousElementSibling?.classList.contains('booking-accessible-switch'))).toBe(true);
+  expect(await tier.evaluate(el=>el.nextElementSibling?.id)).toBe('bookingAccessiblePanel');
+  expect(await tier.count()).toBe(1);
+  const tierBox=await tier.boundingBox();
+  const switchBox=await switcher.boundingBox();
+  const nextBox=await (mode==='snapshot' ? page.locator('#bookingAccessiblePanel') : calendar).boundingBox();
+  expect(tierBox.y).toBeGreaterThanOrEqual(switchBox.y+switchBox.height-1);
+  expect(nextBox.y).toBeGreaterThanOrEqual(tierBox.y+tierBox.height-1);
+  expect(tierBox.x).toBeGreaterThanOrEqual(-1);
+  expect(tierBox.x+tierBox.width).toBeLessThanOrEqual(variant.width+1);
+ }
  await checkModeLayout();
+ await checkTierPlacement('general');
  const generalImage=info.outputPath('booking-general-mode.png');
  await switcher.screenshot({path:generalImage});await info.attach('booking-general-mode',{path:generalImage,contentType:'image/png'});
  await page.locator('#memberNote').evaluate(el=>el.value='unsent draft');
@@ -62,15 +80,18 @@ for(const variant of [
  await expect(page.locator('#calendarGrid')).toBeHidden();
  await expect(page.locator('#bookingAccessiblePanel')).toBeVisible();
  await checkModeLayout();
+ await checkTierPlacement('snapshot');
  expect(await page.evaluate(()=>localStorage.getItem('booking-mode:v2:test:mode-a'))).toBe('accessible');
  await toggle.click();
  await expect(calendar).toBeVisible();
  await expect(page.locator('#calendarGrid')).toBeVisible();
  await expect(page.locator('#bookingAccessiblePanel')).toBeHidden();
+ await checkTierPlacement('general');
  expect(await page.locator('#memberNote').inputValue()).toBe('unsent draft');
  await toggle.click();await page.reload();await expect(toggle).toHaveAttribute('aria-pressed','true');
  await expect(calendar).toBeHidden();
  await expect(page.locator('#bookingAccessiblePanel')).toBeVisible();
+ await checkTierPlacement('snapshot');
  const restoredImage=info.outputPath('booking-mode-restored.png');
  await page.screenshot({fullPage:true,path:restoredImage});await info.attach('booking-mode-restored',{path:restoredImage,contentType:'image/png'});
  await page.goto(base+'/booking/?member=test:mode-b');await expect(toggle).toHaveAttribute('aria-pressed','false');
