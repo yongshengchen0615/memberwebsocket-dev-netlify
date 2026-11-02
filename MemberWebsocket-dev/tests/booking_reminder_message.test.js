@@ -56,6 +56,21 @@ test('AC-RM-002: confirmation-like reminder has current contact, dates, particip
   assert.ok(text.indexOf('第一位預約') < text.indexOf('第二位預約'));
 });
 
+test('AC-RM-002b: already included store service does not double count duration', async () => {
+  const { formatBookingReminderMessage } = await import(pathToFileURL(path.join(root, 'supabase/functions/booking-line-notifications/reminder-message.mjs')).href);
+  const message = formatBookingReminderMessage({
+    booking: {...booking,party_size:1}, member,
+    bookingItems: [{service_id:'00000000-0000-4000-8000-000000000010',unit_duration_minutes:10,quantity:1}],
+    participants: [{id:'p1',position:1,technician_id:null}],
+    participantItems: [
+      {participant_id:'p1',service_id:'s1',service_title:'服務 A',unit_duration_minutes:40,unit_price_amount:300,quantity:1},
+      {participant_id:'p1',service_id:'00000000-0000-4000-8000-000000000010',service_title:'店內服務',unit_duration_minutes:10,unit_price_amount:0,quantity:1},
+    ],
+  });
+  assert.match(message, /個別時間：50 分鐘/);
+  assert.doesNotMatch(message, /個別時間：60 分鐘/);
+});
+
 test('AC-RM-003: older single-person bookings and missing technician use safe fallback', async () => {
   const { formatBookingReminderMessage } = await import(pathToFileURL(path.join(root, 'supabase/functions/booking-line-notifications/reminder-message.mjs')).href);
   const text = formatBookingReminderMessage({ booking: {...booking,contact_surname:'',contact_salutation:'',party_size:1}, member,
