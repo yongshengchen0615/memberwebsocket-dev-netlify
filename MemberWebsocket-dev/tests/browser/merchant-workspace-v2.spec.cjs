@@ -177,3 +177,30 @@ test('AC-TITLE-UI-001 — merchant may edit scoped title with real browser and i
     expect(session.errors).toEqual([]);
   }finally{await h.db.close();}
 });
+
+for (const width of [390,1280]) test('AC-TITLE-ENTRY-' + width + ' — browser exposes merchant title settings shortcut only for a scoped merchant', async ({page}) => {
+ await page.setViewportSize({width,height:900});
+ // Provide a real same-origin document; about:blank has an opaque origin.
+ await page.route(base+'/', route=>route.fulfill({status:200,contentType:'text/html',body:'<!doctype html><html><body></body></html>'}));
+ await page.goto(base+'/');
+ await page.setContent(`<!doctype html><main>
+   <section id="clientPageTitleShortcut" hidden>
+     <h2>用戶端網頁抬頭</h2><a id="clientPageTitleSettingsLink">修改用戶端網頁抬頭</a>
+   </section>
+ </main>`);
+ await page.addScriptTag({url:base+'/admin/client-title-shortcut.js'});
+ const panel=page.locator('#clientPageTitleShortcut'),link=page.locator('#clientPageTitleSettingsLink');
+ await expect(panel).toBeHidden();
+ await page.evaluate(()=>window.ClientPageTitleShortcut.sync({productizedAdmin:true,business:'example-shop'}));
+ await expect(panel).toBeVisible();
+ await expect(link).toHaveAttribute('href','/admin/workspace.html?business=example-shop');
+ await page.evaluate(()=>window.ClientPageTitleShortcut.sync({productizedAdmin:true,business:'other-shop'}));
+ await expect(link).toHaveAttribute('href','/admin/workspace.html?business=other-shop');
+ await page.evaluate(()=>window.ClientPageTitleShortcut.clear());
+ await expect(panel).toBeHidden();
+ await expect(link).not.toHaveAttribute('href');
+ await page.evaluate(()=>window.ClientPageTitleShortcut.sync({productizedAdmin:true,business:'../../platform'}));
+ await expect(panel).toBeHidden();
+ await expect(link).not.toHaveAttribute('href');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});

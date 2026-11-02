@@ -15,8 +15,8 @@
     "outstanding": "Real LINE member-admin write is separately required after preview API v7 deployment."
   },
   "reviewedSources": {
-    "admin/index.html": "16fd852dc3ea9b54de1617d1a8d1279f4921277831bccf83c6db831ddb2245b1",
-    "admin/app.js": "7c4336f866e06f1b97f238e69caad90f8cd1a9a7a3e9716d7548c989a88f5c03",
+    "admin/index.html": "0ff6d569b573c2a024703087c10505b3e93c9dc99dcd1c3f4eb1b2609874e87d",
+    "admin/app.js": "98f45460a103eaba82f2ce512074c87c4a5c1d5f68e926694c042aebb4741df7",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
     "admin/grant-automation.js": "f3178a0bb26745d6cd7731b24ab8ab9aaec96a4dada62699a3609ae8b803e2b0",
@@ -718,11 +718,12 @@
     "security": "Browser test verifies manager denial and SQL expiry; existing access lifecycle covers replays, version conflicts, suspended access and audit transactions. No UI-only control grants permissions."
   },
   "merchantClientPageTitleReview": {
-    "entry": "admin/workspace.html selected business → merchantTitleForm → platform.title.save → scoped tenant.site_title",
-    "scope": "2026-11-02 #230: Reviewed new merchant overview title editor and all five public surfaces. Separate site_title does not modify merchant name, owner, LINE credentials or module grants. Initial blank is tenant name; unscoped legacy uses Lumen Club. New title is reflected in page.document.title using text only. Cross-business, revoked credentials, stale version, request replay, backend audit and public-safe projection remain required; actual LINE Provider and production database are separate QA.",
+    "entry": "admin/?business=slug → 用戶端網頁抬頭 → admin/workspace.html?business=slug → merchantTitleForm → platform.title.save → scoped tenant.site_title",
+    "scope": "2026-11-02 #230: Reviewed new merchant overview title editor and all five public surfaces. Separate site_title does not modify merchant name, owner, LINE credentials or module grants. Initial blank is tenant name; unscoped legacy uses Lumen Club. New title is reflected in page.document.title using text only. Cross-business, revoked credentials, stale version, request replay, backend audit and public-safe projection remain required; actual LINE Provider and production database are separate QA. PR #232: Reviewed new shortcut in actual business admin main workbench, visible only after authenticated admin view with productized and valid business scope; links to existing authorized title form without creating a second mutation. Browser desktop/mobile, anonymous/unscoped/malformed/no-link negatives and existing six admin human journeys covered. Existing title RPC, replay, audit, authorization, notification and provider data unchanged.",
     "tests": [
       "tests/merchant_client_page_titles.test.js",
-      "tests/browser/merchant-workspace-v2.spec.cjs: AC-TITLE-UI-001"
+      "tests/client_page_title_entry.test.js",
+      "tests/browser/merchant-workspace-v2.spec.cjs: AC-TITLE-UI-001 / AC-TITLE-ENTRY-390 / AC-TITLE-ENTRY-1280"
     ],
     "acceptance": [
       "AC-TITLE-UI-001",
@@ -730,7 +731,11 @@
       "AC-002",
       "AC-003",
       "AC-004",
-      "AC-005"
+      "AC-005",
+      "AC-006",
+      "AC-007",
+      "AC-008",
+      "AC-009"
     ],
     "impact": "Human inventory member/points/event/calendar/integration/booking node IDs unchanged; this is a new merchant control-plane setting, covered by new isolated real-handler PostgreSQL Chromium journey."
   }
