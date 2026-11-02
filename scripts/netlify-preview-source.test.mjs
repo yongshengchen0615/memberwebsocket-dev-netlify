@@ -41,7 +41,8 @@ test('uploads exactly once to the case-preserved nonproduction branch and retain
   assert.equal(url.pathname, `/api/v1/sites/${previewSite}/builds`);
   // The branch-scoped ZIP build installs the exact prebuilt CI ZIP; it must not
   // silently create a production or deploy-preview deployment.
-  assert.equal(url.searchParams.get('branch'), previewBranch);
+  assert.equal(url.searchParams.has('branch'), false);
+  assert.equal(posts[0].options.body.get('branch'), previewBranch);
   assert.equal(url.searchParams.get('title'), `verified-platform-${input.commit}`);
   // Netlify's /builds ZIP endpoint accepts a multipart file field. A raw
   // application/zip POST can be treated as an ordinary branch build instead.
@@ -52,7 +53,7 @@ test('uploads exactly once to the case-preserved nonproduction branch and retain
   assert.equal(uploaded.type, 'application/zip');
   assert.deepEqual(Buffer.from(await uploaded.arrayBuffer()), input.zip);
   assert.equal(posts[0].options.headers['Content-Type'], undefined);
-  assert.equal(posts[0].options.body.has('branch'), false);
+  assert.equal(posts[0].options.body.get('branch'), previewBranch);
   assert.equal(result.source_sha, input.commit);
   assert.equal(result.production_deploy_unchanged, true);
   assert.doesNotMatch(JSON.stringify(result), /never-print-token/);
@@ -65,8 +66,8 @@ test('CI ZIP upload is multipart and never silently makes a second POST', async 
   const posts = p.calls.filter(call => call.options.method === 'POST');
   assert.equal(posts.length, 1);
   assert.equal(posts[0].options.body.has('zip'), true);
-  assert.equal(posts[0].options.body.has('branch'), false);
-  assert.equal(new URL(posts[0].url).searchParams.get('branch'), previewBranch);
+  assert.equal(posts[0].options.body.get('branch'), previewBranch);
+  assert.equal(new URL(posts[0].url).searchParams.has('branch'), false);
 });
 
 test('ZIP deploy response must identify one immutable deploy before status polling', async () => {
@@ -176,6 +177,7 @@ test('Netlify branch-scoped ZIP builds use the deploy_id, not the build id', asy
   const post = p.calls.find(call => call.options.method === 'POST');
   const query = new URL(post.url);
   assert.equal(query.pathname, `/api/v1/sites/${previewSite}/builds`);
-  assert.equal(query.searchParams.get('branch'), previewBranch);
+  assert.equal(query.searchParams.has('branch'), false);
+  assert.equal(post.options.body.get('branch'), previewBranch);
   assert.equal(p.calls.some(call => call.url.includes('/deploys/' + 'f'.repeat(24))), false);
 });
