@@ -223,7 +223,8 @@ serveBusiness('booking-line-notifications',async (request: Request) => {
           } catch { failed++; return; }
         }
 
-        if (job.channel === 'member' && String(job.event_key || '').endsWith(':reminder:day_before') && job.booking_id) {
+        if (job.channel === 'member' && String(job.event_key || '').endsWith(':reminder:day_before')) {
+          if (!job.booking_id) { failed++; return; }
           try {
             // Populate after the existing eligibility guard, so reschedules use live booking details.
             deliveryJob = { ...deliveryJob, message_text: await loadBookingReminderMessage(db, job.booking_id) };
