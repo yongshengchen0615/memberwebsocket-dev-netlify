@@ -3233,7 +3233,15 @@
   }
   function handleActionError(error, element) { if (error && error.code === 'API_RESPONSE_UNCERTAIN') { state.writeConfirmationRequired = true; lockAdminWrites(); showOperationNotice('無法確認這次操作是否完成，請重新整理確認。', 'warning', 0); showUncertainWriteMessage(element); setSyncStatus('寫入結果尚未確認；請重新整理確認後再操作。', true); return; } showOperationNotice(error && error.code === 'CONFLICT' ? '資料已被其他管理者更新，請重新整理後再試。' : '操作未完成，請查看表單提示。', 'error', 4600); showMessage(element, error && error.code === 'CONFLICT' ? '資料已被另一位管理者更新，請重新整理後再儲存。' : error && error.message || '操作失敗，請稍後再試。'); }
   function handleBootError(error) { if (error && error.code === 'ADMIN_PENDING') { els.pendingUserId.textContent = String(error.details && error.details.lineUserId || '請查看 Admins 資料表'); els.pendingBox.classList.remove('hidden'); showError('此 LINE 帳號尚未授權', 'GAS 已記錄這次管理端登入，但目前不允許進入管理功能。'); return; } if (error && error.code === 'ADMIN_FORBIDDEN') { showError('沒有管理端權限', '此 LINE 帳號未啟用管理權限，請檢查 Admins 的 role 與 status。'); return; } showError(error && error.code === 'CONFIG_ERROR' ? '系統尚未完成設定' : '暫時無法進入管理端', error && error.message || '請稍後重新整理。'); }
-  function setView(view) { els.loadingView.classList.toggle('hidden', view !== 'loading'); els.errorView.classList.toggle('hidden', view !== 'error'); els.adminView.classList.toggle('hidden', view !== 'admin'); }
+  function setView(view) {
+    els.loadingView.classList.toggle('hidden', view !== 'loading');
+    els.errorView.classList.toggle('hidden', view !== 'error');
+    els.adminView.classList.toggle('hidden', view !== 'admin');
+    // Route-only shortcut: never show a business setting for unscoped, expired,
+    // unauthenticated or failed admin sessions. Server permission checks remain authoritative.
+    if (view === 'admin') window.ClientPageTitleShortcut?.sync(state.config);
+    else window.ClientPageTitleShortcut?.clear();
+  }
   function startLoginProgress(status, ceiling) { stopLoginProgress(); const maximum = Math.max(loginProgressValue, Math.min(98, Number(ceiling) || loginProgressValue)); setLoginProgress(loginProgressValue, status); loginProgressTimer = window.setInterval(() => { const remaining = maximum - loginProgressValue; if (remaining <= 0) return stopLoginProgress(); setLoginProgress(Math.min(maximum, loginProgressValue + Math.max(1, Math.ceil(remaining * .12))), status); }, LOGIN_PROGRESS_TICK_MS); }
   function stopLoginProgress() { if (loginProgressTimer !== null) window.clearInterval(loginProgressTimer); loginProgressTimer = null; }
   function completeLoginProgress(status) {
