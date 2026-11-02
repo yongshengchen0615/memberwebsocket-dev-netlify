@@ -3239,7 +3239,7 @@
     els.adminView.classList.toggle('hidden', view !== 'admin');
     // Route-only shortcut: never show a business setting for unscoped, expired,
     // unauthenticated or failed admin sessions. Server permission checks remain authoritative.
-    if (view === 'admin') window.ClientPageTitleShortcut?.sync(state.config);
+    if (view === 'admin') window.ClientPageTitleShortcut?.sync(state.config, state.idToken);
     else window.ClientPageTitleShortcut?.clear();
   }
   function startLoginProgress(status, ceiling) { stopLoginProgress(); const maximum = Math.max(loginProgressValue, Math.min(98, Number(ceiling) || loginProgressValue)); setLoginProgress(loginProgressValue, status); loginProgressTimer = window.setInterval(() => { const remaining = maximum - loginProgressValue; if (remaining <= 0) return stopLoginProgress(); setLoginProgress(Math.min(maximum, loginProgressValue + Math.max(1, Math.ceil(remaining * .12))), status); }, LOGIN_PROGRESS_TICK_MS); }
