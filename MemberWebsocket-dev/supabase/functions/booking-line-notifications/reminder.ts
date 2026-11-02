@@ -31,7 +31,7 @@ export async function loadBookingReminderMessage(db: ScopedDb, bookingId: string
   const participantIds = participants.map(item => item.id);
   const participantItems: any[] = participantIds.length
     ? await required<any[]>(db.from('booking_participant_items')
-      .select('participant_id,service_title,unit_duration_minutes,unit_price_amount,quantity')
+      .select('participant_id,service_id,service_title,unit_duration_minutes,unit_price_amount,quantity')
       .in('participant_id', participantIds).order('created_at'), 'PARTICIPANT_ITEMS')
     : [];
   const technicianIds = Array.from(new Set(
