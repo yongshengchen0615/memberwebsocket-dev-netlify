@@ -14,6 +14,11 @@ test.beforeAll(async()=>{
     window.BookingBenefits={getItems:()=>[],syncNow(){}};
     window.addEventListener('DOMContentLoaded',()=>{
       window.dispatchEvent(new CustomEvent('booking:member-loaded',{detail:{profile:{lineUserId:new URL(location.href).searchParams.get('member')||'test:mode-a'}}}));
+      // The calendar controller is deliberately excluded from this mode fixture.
+      // Give its grid a real day so visibility assertions measure ancestor display,
+      // not Playwright's zero-area empty-grid behavior.
+      const day=document.createElement('button');day.type='button';day.textContent='15';
+      document.getElementById('calendarGrid').append(day);
       document.getElementById('loadingView').classList.add('hidden');document.getElementById('bookingView').classList.remove('hidden');
     });`);return;
   }
