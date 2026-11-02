@@ -64,7 +64,7 @@ test('AC-004: missing LINE token and invalid title fail closed before tenant mut
   const {createPlatformHandler}=await shared('platform-handler.mjs');
   const names=[];
   const handler=createPlatformHandler({
-    db:{rpc:async name=>{names.push(name);return {data:true};}},
+    db:{rpc:async name=>{names.push(name);return {data:name==='platform_business_context'?{id:'10000000-0000-4000-8000-000000000001',slug:'merchant-a',name:'商家',status:'active',features:{membership:true},line_config:{adminChannelId:'2010791619',adminLiffId:'2010791619-admin'},isolation_verified_at:'2026-10-01',isolation_version:'business-v1-20261019',runtime_schema:'business_'+'1'.repeat(32)}:true};}},
     verifyIdentity:async()=>({lineUserId:'U'+'1'.repeat(32),issuedAtMs:Date.now()}),
     allowedOrigins:new Set(['https://example.test']),encryptionKey:()=> 'not-used',
   });
