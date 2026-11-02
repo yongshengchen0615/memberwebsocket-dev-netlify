@@ -177,6 +177,7 @@ test('Netlify branch-scoped ZIP builds use the deploy_id, not the build id', asy
   const post = p.calls.find(call => call.options.method === 'POST');
   const query = new URL(post.url);
   assert.equal(query.pathname, `/api/v1/sites/${previewSite}/builds`);
-  assert.equal(query.searchParams.get('branch'), previewBranch);
+  assert.equal(query.searchParams.has('branch'), false);
+  assert.equal(post.options.body.get('branch'), previewBranch);
   assert.equal(p.calls.some(call => call.url.includes('/deploys/' + 'f'.repeat(24))), false);
 });
