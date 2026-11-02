@@ -136,3 +136,44 @@ test('MEMBER_CARD_ADMIN_ROLLBACK: merchant member settings match October 27 with
   expect(session.errors).toEqual([]);
  } finally {await page.close();await h.db.close();}
 });
+
+test('AC-TITLE-UI-001 — merchant may edit scoped title with real browser and isolated PostgreSQL',async({page})=>{
+  const h=await setup({origins:[base]}),slug='merchant-title-ui';
+  try{
+    await h.qualify();
+    const app=await h.submit(h.owner,slug,'商家原本名稱');
+    await h.review(app,'approved',h.features(['booking','membership']));
+    await h.db.exec(fs.readFileSync(path.join(root,'supabase/migrations/20261102113000_merchant_client_page_titles.sql'),'utf8'));
+    const session=await wire(page,h);
+    await page.goto(base+'/admin/workspace.html?business='+slug);
+    const form=page.locator('#merchantTitleForm');
+    await expect(form).toBeVisible();
+    await expect(form.locator('[name=title]')).toHaveValue('');
+    await expect(page.locator('#merchantTitlePreview')).toHaveText('商家原本名稱｜預約');
+    await form.locator('[name=title]').fill('晨光工作室');
+    await expect(page.locator('#merchantTitlePreview')).toHaveText('晨光工作室｜預約');
+    await page.locator('#saveMerchantTitle').click();
+    await expect(page.locator('#merchantTitleStatus')).toContainText('已儲存');
+    const a=(await h.db.query('select name,site_title,version from platform_private.tenants where slug=$1',[slug])).rows[0];
+    expect(a.name).toBe('商家原本名稱');
+    expect(a.site_title).toBe('晨光工作室');
+    expect(a.version).toBeGreaterThan(1);
+    expect(session.calls.filter(x=>x.action==='platform.title.save')).toHaveLength(1);
+    const context=await h.platformCall({action:'platform.business.public',business:slug,feature:'booking'});
+    expect(context.status).toBe(200);
+    expect(context.body.data.siteTitle).toBe('晨光工作室');
+    // The previously selected LINE feature survives reload in the feature query.
+    // Return to the overview before editing its intentionally hidden title form.
+    await page.reload();
+    await expect(page.locator('#merchantWorkspace')).toBeVisible();
+    await page.locator('#merchantOverviewTab').click();
+    await expect(form).toBeVisible();
+    await expect(form.locator('[name=title]')).toHaveValue('晨光工作室');
+    await form.locator('[name=title]').fill('');
+    await page.locator('#saveMerchantTitle').click();
+    await expect(page.locator('#merchantTitleStatus')).toContainText('已儲存');
+    const reverted=(await h.db.query('select site_title from platform_private.tenants where slug=$1',[slug])).rows[0];
+    expect(reverted.site_title).toBeNull();
+    expect(session.errors).toEqual([]);
+  }finally{await h.db.close();}
+});

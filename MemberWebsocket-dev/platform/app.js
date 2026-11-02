@@ -293,6 +293,9 @@
     state.merchant=null;state.merchantPending=null;merchantDirty=false;latestMine=null;
     const settings=el('merchantLineForm');
     if(settings)for(const input of settings.querySelectorAll('input'))input.value='';
+    el('merchantTitleForm')?.reset();
+    if(el('merchantTitleStatus'))el('merchantTitleStatus').textContent='';
+    titleDirty=false;titlePending=null;titleSaving=false;
     for(const id of ['merchantInfo','merchantReadiness','merchantFeatures','merchantChecklist','merchantFeatureNav','merchantMessage','merchantSyncStatus'])el(id)?.replaceChildren();
     el('merchantLaunchStatus')?.querySelectorAll('[data-business-launch]').forEach(node=>node.remove());
     if(el('merchantWorkspace'))el('merchantWorkspace').hidden=true;
@@ -667,6 +670,7 @@
   const applicationForm=el('applicationForm'),merchantForm=el('merchantLineForm');
   const featureLiffNames={membership:'memberLiffId',points:'pointsLiffId',events:'eventLiffId',calendar:'calendarLiffId',booking:'bookingLiffId'};
   let merchantPanel='shared',merchantWorkspaceTab='overview',merchantDirty=false,merchantSaving=false,latestMine=null;
+  let titleDirty=false,titleSaving=false,titlePending=null;
   const hasFeatureLine = tenant => merchantEntry && tenant?.moduleLine !== undefined;
   const lineLabels={adminChannelId:'管理端 Login Channel ID',memberChannelId:'會員端 Login Channel ID',messagingChannelId:'Messaging API Channel ID',adminLiffId:'管理端 LIFF ID',memberLiffId:'會員卡 LIFF ID',pointsLiffId:'集點卡 LIFF ID',eventLiffId:'活動票券 LIFF ID',calendarLiffId:'營運日曆 LIFF ID',bookingLiffId:'預約 LIFF ID',credentials:'Messaging API token 與 secret'};
   function installFieldHelp() {
@@ -849,6 +853,8 @@
     state.mineSignature=JSON.stringify([data.application?.status,data.tenant?.version,data.tenant?.status,data.tenant?.expired]);
     state.merchant=data.tenant||null;state.features=data.features||state.features;
     state.merchantPending=null;merchantDirty=false;latestMine=null;lockMerchant(false);
+    titleDirty=false;titlePending=null;
+    if(el('merchantTitleStatus'))el('merchantTitleStatus').textContent='';
     if(el('merchantSyncStatus'))el('merchantSyncStatus').textContent='';
     if(el('reloadMerchantSettings'))el('reloadMerchantSettings').hidden=true;
     const application=data.application;
@@ -869,6 +875,10 @@
     if(isV2()&&(!data.tenant||data.application?.status!=='approved'||data.tenant.status==='suspended'||data.tenant.expired)){clearPrivateMerchant();return;}
     if(!data.tenant)return;
     const tenant=data.tenant;
+    const titleForm=el('merchantTitleForm');
+    if(titleForm){titleForm.elements.namedItem('title').value=tenant.siteTitle||'';
+      if(el('merchantTitlePreview'))el('merchantTitlePreview').textContent=(tenant.siteTitle||tenant.name)+'｜預約';
+      titleForm.hidden=!isV2();}
     if(!isV2()&&tenant.onboarding?.adminReady&&['/admin/','/admin/workspace.html'].includes(location.pathname)&&!new URLSearchParams(location.search).has('business')){
       const target=new URL('/admin/',location.origin);target.searchParams.set('business',tenant.slug);
       const requested=new URLSearchParams(location.search).get('feature');
@@ -953,8 +963,56 @@
     }
   });
 
+  const merchantTitleForm=el('merchantTitleForm');
+  merchantTitleForm?.addEventListener('input',()=>{
+    if(titleSaving||titlePending)return;
+    titleDirty=true;
+    const title=merchantTitleForm.elements.namedItem('title').value.trim();
+    if(el('merchantTitlePreview'))el('merchantTitlePreview').textContent=(title||state.merchant?.name||'Lumen Club')+'｜預約';
+    if(el('merchantTitleStatus'))el('merchantTitleStatus').textContent='尚未儲存網頁抬頭。';
+  });
+  merchantTitleForm?.addEventListener('submit',async event=>{
+    event.preventDefault();
+    if(titleSaving||!state.merchant||!selectedBusiness||!isV2())return;
+    if(!titlePending){
+      if(!merchantTitleForm.reportValidity())return;
+      const title=merchantTitleForm.elements.namedItem('title').value.trim();
+      if(Array.from(title).length>60||/[\u0000-\u001f\u007f]/.test(title)){
+        el('merchantTitleStatus').textContent='顯示名稱最多 60 字，且不能包含控制字元。';return;
+      }
+      titlePending={requestId:crypto.randomUUID(),expectedVersion:state.merchant.version,title,business:selectedBusiness};
+    }
+    titleSaving=true;
+    const input=merchantTitleForm.elements.namedItem('title'),button=el('saveMerchantTitle');
+    input.disabled=true;button.disabled=true;el('merchantTitleStatus').textContent='正在儲存網頁抬頭…';
+    try{
+      const result=await request('platform.title.save',titlePending);
+      const tenant=result.tenant;
+      state.merchant=tenant;
+      state.mineSignature=JSON.stringify(['approved',tenant.version,tenant.status,tenant.expired]);
+      input.value=tenant.siteTitle||'';
+      if(el('merchantTitlePreview'))el('merchantTitlePreview').textContent=(tenant.siteTitle||tenant.name)+'｜預約';
+      if(el('merchantInfo'))el('merchantInfo').textContent=tenant.name+' · '+tenant.slug+' · '+(tenant.credentialsConfigured?'LINE 憑證已保存':'尚未設定 LINE 憑證');
+      titlePending=null;titleDirty=false;
+      el('merchantTitleStatus').textContent='已儲存。用戶端重新開啟或重新整理後，分頁標題會套用新名稱。其他未儲存設定請先確認版本再儲存。';
+    }catch(error){
+      if(error.code==='PLATFORM_CONFLICT'||error.status===409){
+        titlePending=null;titleDirty=true;
+        el('merchantTitleStatus').textContent='設定已由其他工作階段更新，請重新載入商家資料後再儲存。';
+      }else if(error.uncertain){
+        el('merchantTitleStatus').textContent='尚無法確認儲存結果；可用相同操作識別碼重試。';
+      }else{
+        titlePending=null;
+        el('merchantTitleStatus').textContent=error.message;
+      }
+    }finally{
+      titleSaving=false;input.disabled=false;button.disabled=false;
+      button.textContent=titlePending?'重試相同儲存操作':'儲存網頁抬頭';
+    }
+  });
+
   async function refreshMine() {
-    if(!merchantEntry||!state.idToken||navigator.onLine===false||refreshBusy||merchantSaving||(!isV2()&&state.merchantPending))return;
+    if(!merchantEntry||!state.idToken||navigator.onLine===false||refreshBusy||merchantSaving||titleSaving||(!isV2()&&state.merchantPending))return;
     if(isAccount()){await refreshAccount();return;}
     refreshBusy=true;
     try {
@@ -963,7 +1021,7 @@
       const accessChanged=data.application?.status!=='approved'||(data.tenant?.status==='suspended'||data.tenant?.expired)
         ||JSON.stringify(data.tenant?.features)!==JSON.stringify(state.merchant?.features);
       if(signature!==state.mineSignature){
-        if((merchantDirty||state.merchantPending)&&!accessChanged){
+        if((merchantDirty||state.merchantPending||titleDirty||titlePending)&&!accessChanged){
           latestMine=data;
           if(el('merchantSyncStatus'))el('merchantSyncStatus').textContent='偵測到較新的已儲存設定。你的草稿已保留；儲存前請載入最新設定，避免覆蓋。';
           if(el('reloadMerchantSettings'))el('reloadMerchantSettings').hidden=false;

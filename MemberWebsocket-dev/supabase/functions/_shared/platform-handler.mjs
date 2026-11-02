@@ -75,7 +75,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         if(!tenant.capabilities.dataPlaneVerified)throw new PlatformError(403,'TENANT_SUSPENDED','此商家尚未開放或已停用。');
         const module=body.feature && tenant.features[body.feature]===true?tenant.moduleLine?.[body.feature]:null;
         if(body.feature!==undefined && (!Object.hasOwn(FEATURES,body.feature)||tenant.features[body.feature]!==true))throw new PlatformError(403,'FEATURE_DISABLED','此功能尚未開放。');
-        return json({ok:true,data:{business:tenant.slug,name:tenant.name,features:tenant.features,
+        return json({ok:true,data:{business:tenant.slug,name:tenant.name,siteTitle:tenant.siteTitle,features:tenant.features,
           line:body.feature && featureLineReady(body.feature,{...tenant.line,...module?.line})?{...tenant.line,...module?.line}:tenant.onboarding.configurationComplete?tenant.line:{adminChannelId:tenant.line?.adminChannelId||'',adminLiffId:tenant.line?.adminLiffId||''}}});
       }
       if (typeof body.idToken !== 'string' || !body.idToken || body.idToken.length > 10_000) throw new PlatformError(401,'AUTH_REQUIRED','請使用 LINE 帳號登入。');
@@ -83,7 +83,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       const merchantAction = ['platform.merchant.list','platform.merchant.get','platform.merchant.submit','platform.merchant.review'].includes(body.action);
       if ((qualificationAction || merchantAction) && body.business !== undefined)
         throw new PlatformError(400,'PLATFORM_INVALID_INPUT','資格與商家申請不接受商家入口。');
-      const applicantAction = ['platform.member-oa.inspect','platform.member-oa.readiness','platform.webhook.status','platform.webhook.check','platform.application.bootstrap','platform.application.ensure','platform.application.submit','platform.line.save','platform.notifications.save','platform.notifications.test','platform.qualification.bootstrap','platform.qualification.submit','platform.merchant.list','platform.merchant.get','platform.merchant.submit'].includes(body.action);
+      const applicantAction = ['platform.member-oa.inspect','platform.member-oa.readiness','platform.webhook.status','platform.webhook.check','platform.application.bootstrap','platform.application.ensure','platform.application.submit','platform.line.save','platform.notifications.save','platform.notifications.test','platform.qualification.bootstrap','platform.qualification.submit','platform.merchant.list','platform.merchant.get','platform.merchant.submit','platform.title.save'].includes(body.action);
       let trustedChannel;
       if (applicantAction && body.business !== undefined) {
         if (typeof body.business !== 'string' || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(body.business) || body.business.length > 40)
@@ -214,6 +214,25 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       }
       if (body.action === 'platform.application.bootstrap') {
         return json({ok:true,data:{profile:{displayName:identity.displayName},features:FEATURES,...await mine()}});
+      }
+      if (body.action === 'platform.title.save') {
+        if (!uuid.test(body.requestId || '') || !Number.isSafeInteger(body.expectedVersion) || body.expectedVersion < 1
+          || typeof body.title !== 'string' || Array.from(body.title.trim()).length > 60
+          || /[\u0000-\u001f\u007f]/.test(body.title))
+          throw new PlatformError(400,'PLATFORM_INVALID_INPUT','網頁抬頭限 60 字，且不可包含控制字元。');
+        const workspace=await mine(),current=workspace.tenant;
+        if (!current || workspace.application?.status !== 'approved' || current.status !== 'active' || current.expired)
+          throw new PlatformError(403,'BUSINESS_FORBIDDEN','目前無法修改此商家的網頁抬頭。');
+        const title=body.title.trim() || null;
+        const hash=await payloadHash({expectedVersion:body.expectedVersion,title});
+        if (!workspace.application?.qualificationId)
+          throw new PlatformError(403,'PLATFORM_QUALIFICATION_REQUIRED','請使用已核准的商家管理員入口。');
+        const result=await db.rpc('platform_save_title_for_merchant',{
+          p_actor:actor,p_tenant_id:current.id,p_issued_at:new Date(identity.issuedAtMs).toISOString(),
+          p_expected_version:body.expectedVersion,p_request_id:body.requestId,p_payload_hash:hash,p_title:title,
+        });
+        if(result.error)throw databaseError(result.error);
+        return json({ok:true,data:{tenant:publicTenant(result.data)}});
       }
       // This is an authenticated, per-business preflight; it exposes no secrets,
       // friend state or OA identity, and uses the same trusted binding resolver as activation.
