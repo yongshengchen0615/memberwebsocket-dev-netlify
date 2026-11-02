@@ -15,7 +15,7 @@
     "outstanding": "Real LINE member-admin write is separately required after preview API v7 deployment."
   },
   "reviewedSources": {
-    "admin/index.html": "46440f3fdf39182d776fc054d3ddf875c242d94b8a90705a0af4c0202e9025c9",
+    "admin/index.html": "74c8aef60e7f16fd07ed917ae363e90d8bdfd2f0286d29d74368ee4a12db779b",
     "admin/app.js": "3da17bea0561ae4f1509739578f14dd95dad0ac7e877c96dcf4372c7be2d2206",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
@@ -26,8 +26,8 @@
     "admin/fixed-ticket-calendar-option.js": "947e5d1d56a8fb0054d8880b31f053c940505e116a566e13c2c931593870265c",
     "admin/pointcard-redemption-limit.js": "fbba580c9babdac950b2f619c3f3b949fe89ae0c1365e2555f758d1a8818035c",
     "admin/event-ticket-redemption-limit.js": "263a564d64845c5abb4ed5167305b0bffefb064130a0268ab533b481d320b688",
-    "admin/booking-panel.js": "ede7d702a4bfd686fcea54daa89319a8233975f8f2d580ea1e73b10b8c0b44f4",
-    "admin/booking-panel-core.js": "5b26cb8ccefa2ceb6d4c45bd515827fd7936aaa425fdd2772ebceb28d04dc213",
+    "admin/booking-panel.js": "d29236e15d953b64f7d17d9ad2f520f9a20335fbc3ac60035cd82c98cf884cb2",
+    "admin/booking-panel-core.js": "2adebef8942fc15e8cb384ab61ea91915f2dad1fba226544c94f8ba4d29f14d0",
     "admin/booking-resources.js": "ea6901dc1020cbb85ead15107333e4b110e2b9a02854bffba856e410445bd852",
     "admin/booking-always-open.js": "9cb236902a7f3f36cf3fe4c3f13fbbac622f000c72d36ec34f7d4dde08e6e54a",
     "admin/booking-cancellation-sync.js": "a8367bb6565d054af976ec1ffdf950874a4e8f14a3917d2e036bc1744016db19",
@@ -365,7 +365,7 @@
     {
       "id": "booking.34",
       "module": "booking",
-      "name": "跨夜時段、提前日數、票券政策、快照可使用地點／半徑、瀏覽器 GPS 雙模式回退與說明（前一天提醒已移至會員預約表單）",
+      "name": "跨夜時段、提前日數、票券政策、快照可使用地點／半徑、瀏覽器 GPS 雙模式回退與說明（前一天提醒已移至會員預約表單）；新增獨立預約提醒文案編輯、示意預覽、儲存回報與版本衝突（AC-RM-001..004 對應 booking_reminder_message.test.js）",
       "cases": [
         "BOOKING_SHARED_SETTINGS",
         "TICKET_BOOKING_POLICY_ENTRY"
@@ -744,5 +744,6 @@
       "AC-015"
     ],
     "impact": "Human inventory six workspaces unchanged; new inline form reuses authenticated platform API and current merchant scope. No new backend mutation, code paths or DB schema."
-  }
+  },
+  "reminderMessageReview": "2026-11-02 PR #237: 已審閱預約共用設定新增的獨立 LINE 提醒文案欄位、400 字限制與示意預覽。保留既有的 booking.34 預約設定人工作業清單與瀏覽器行程，提醒送出前才由租戶範圍讀取完整預約（多人服務/技師）並沿用確認通知的 Flex 子卡。新增 booking_reminder_message.test.js 的正常、多人、舊資料回退、已取消與測試會員守衛、管理員 token、限流、樂觀鎖及長度約束；端對端真人 LINE 傳遞仍須另行驗收。不改動會員預約時自行勾選的提醒時間，也不刪除原有瀏覽器測試。"
 }

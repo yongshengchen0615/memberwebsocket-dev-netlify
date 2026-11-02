@@ -110,3 +110,32 @@ end $stub$;
     await db.close();
   }
 });
+
+
+test('AC-RM-005: reminder-message SQL migration installs root and tenant columns, keeps isolated edits and is idempotent', async () => {
+  const db = new PGlite();
+  const migration = fs.readFileSync(path.resolve(__dirname, '../../supabase/migrations/20261102210000_booking_reminder_message_template.sql'), 'utf8');
+  const tenantA = 'business_' + 'a'.repeat(32);
+  const tenantB = 'business_' + 'b'.repeat(32);
+  const one = async sql => (await db.query(sql)).rows[0];
+  try {
+    await db.exec('create schema platform_private; create table platform_private.tenants(runtime_schema text not null);');
+    await db.exec('create table public.booking_settings(id integer primary key); insert into public.booking_settings values(1);');
+    for (const tenant of [tenantA, tenantB]) {
+      await db.exec('create schema ' + tenant + '; create table ' + tenant + '.booking_settings(id integer primary key); insert into ' + tenant + '.booking_settings values(1);');
+      await db.query('insert into platform_private.tenants(runtime_schema) values ($1)', [tenant]);
+    }
+    await db.exec(migration);
+    const initial = await one('select reminder_message from public.booking_settings where id=1');
+    assert.match(initial.reminder_message, /請準時到場/);
+    assert.equal((await one('select reminder_message from ' + tenantA + '.booking_settings where id=1')).reminder_message, initial.reminder_message);
+    await db.query('update ' + tenantA + '.booking_settings set reminder_message=$1 where id=1', ['A 店的提醒']);
+    assert.equal((await one('select reminder_message from ' + tenantB + '.booking_settings where id=1')).reminder_message, initial.reminder_message);
+    await assert.rejects(db.query('update ' + tenantA + '.booking_settings set reminder_message=$1 where id=1', ['a'.repeat(401)]), /booking_reminder_message_length_check/);
+    await db.exec(migration);
+    assert.equal((await one('select reminder_message from ' + tenantA + '.booking_settings where id=1')).reminder_message, 'A 店的提醒');
+    assert.equal((await one('select reminder_message from ' + tenantB + '.booking_settings where id=1')).reminder_message, initial.reminder_message);
+  } finally {
+    await db.close();
+  }
+});

@@ -49,6 +49,7 @@ const TITLE_STYLES: Record<string, { color: string; eyebrow: string }> = {
   '修改預約': { color: '#C56E32', eyebrow: 'BOOKING UPDATED' },
   '取消預約申請': { color: '#9A711F', eyebrow: 'CANCELLATION REQUEST' },
   '預約確認': { color: '#2F8F61', eyebrow: 'BOOKING CONFIRMED' },
+  '預約提醒': { color: '#397AA3', eyebrow: 'BOOKING REMINDER' },
   '完成服務': { color: '#286553', eyebrow: 'SERVICE COMPLETED' },
   '預約未通過': { color: '#B35A50', eyebrow: 'BOOKING DECLINED' },
   '預約取消': { color: '#68756F', eyebrow: 'BOOKING CANCELLED' },
@@ -424,7 +425,8 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
   const schedule = scheduleCard(parsed, style.color);
   const details = detailsCard(parsed.fields);
   const memberConfirmation = job.channel === 'member' && parsed.title === '預約確認';
-  const participants = participantsCard(parsed.participants, style.color, memberConfirmation);
+  const memberReminder = job.channel === 'member' && parsed.title === '預約提醒';
+  const participants = participantsCard(parsed.participants, style.color, memberConfirmation || memberReminder);
   const services = parsed.participants.length ? null : servicesCard(parsed.services, style.color);
   if (schedule) bodyContents.push(schedule);
   if (details) bodyContents.push(details);
@@ -433,13 +435,14 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
   if (!bodyContents.length) bodyContents.push(fallbackCard(parsed.fallbackText));
 
   const footerActions: Array<Record<string, unknown>> = [];
-  if (memberConfirmation) {
-    // Show each participant's services and technician separately, without an external detail button.
+  if (memberConfirmation || memberReminder) {
+    // Confirmation and reminders share participant cards; reminders also show the merchant's notice and contact details.
     bodyContents.length = 0;
     if (schedule) bodyContents.push(schedule);
+    if (memberReminder && details) bodyContents.push(details);
     if (participants) bodyContents.push(participants);
     else if (services) bodyContents.push(services); // Legacy notifications without participant sections.
-    if (!bodyContents.length) bodyContents.push(fallbackCard('預約已確認。'));
+    if (!bodyContents.length) bodyContents.push(fallbackCard(memberReminder ? '請查看預約詳情。' : '預約已確認。'));
   }
   if (job.booking_id && job.channel === 'admin' && parsed.title === '預約') {
     const copy = String(job.copyText || '');
