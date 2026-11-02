@@ -223,6 +223,8 @@
     const explicitSkip = saved?.outcome === 'skip' && saved?.source === 'explicit';
     if(saved?.version===2 && saved?.disabled===true && saved?.source==='explicit') return;
     const isPairedE2ERunner = new URLSearchParams(window.location?.search || '').has('qaPair');
+    // Normal member visits stay quiet; only explicit paired QA sessions auto-open.
+    if (!isPairedE2ERunner) return;
     if (!isPairedE2ERunner && explicitSkip && skippedAt && taipeiDay(new Date(skippedAt)) === taipeiDay(new Date())) return;
     // Test accounts follow the same tutorial rules as real members. Paired E2E explicitly validates and dismisses the tour.
     queueAutoOpen(generation, key);
