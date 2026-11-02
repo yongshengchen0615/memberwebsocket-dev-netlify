@@ -86,6 +86,17 @@
         </div>
         <button id="bookingAccessibleToggle" class="button button-outline" type="button" aria-pressed="false" aria-controls="bookingAccessiblePanel" aria-describedby="bookingModePreference">開啟快照模式</button>
       </section>
+      <section id="membershipProgress" class="membership-progress" aria-labelledby="membershipProgressTitle" aria-live="polite">
+        <div>
+          <p class="membership-progress-kicker">Membership progress</p>
+          <h2 id="membershipProgressTitle">會員階級</h2>
+          <p id="memberTier" data-membership-current-tier class="membership-progress-current">載入中</p>
+        </div>
+        <p data-membership-summary class="membership-progress-summary">累積 0 分鐘・下一階段資料載入中</p>
+        <p data-membership-remaining class="membership-progress-remaining">正在計算升等進度</p>
+        <div data-membership-progress-track class="membership-progress-track" role="progressbar" aria-label="會員階級進度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-membership-progress-bar></span></div>
+      </section>
+
       <section id="bookingAccessiblePanel" class="booking-accessible-panel hidden" aria-labelledby="bookingAccessibleTitle">
         <h2 id="bookingAccessibleTitle">拍收據，讓管理員幫您登記</h2>
         <p>不必選日期或填寫預約。完成服務後，拍下收據就可以了。</p>
@@ -102,17 +113,6 @@
       </section>
       <span id="memberProfileName" class="hidden" aria-hidden="true"></span>
       <span id="memberCode" class="hidden" aria-hidden="true"></span>
-
-      <section id="membershipProgress" class="membership-progress" aria-labelledby="membershipProgressTitle" aria-live="polite">
-        <div>
-          <p class="membership-progress-kicker">Membership progress</p>
-          <h2 id="membershipProgressTitle">會員階級</h2>
-          <p id="memberTier" data-membership-current-tier class="membership-progress-current">載入中</p>
-        </div>
-        <p data-membership-summary class="membership-progress-summary">累積 0 分鐘・下一階段資料載入中</p>
-        <p data-membership-remaining class="membership-progress-remaining">正在計算升等進度</p>
-        <div data-membership-progress-track class="membership-progress-track" role="progressbar" aria-label="會員階級進度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-membership-progress-bar></span></div>
-      </section>
 
       <section class="booking-card" data-booking-standard aria-labelledby="bookingTitle">
         <div class="section-heading">
