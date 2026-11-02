@@ -180,6 +180,9 @@ test('AC-TITLE-UI-001 — merchant may edit scoped title with real browser and i
 
 for (const width of [390,1280]) test('AC-TITLE-ENTRY-' + width + ' — browser exposes merchant title settings shortcut only for a scoped merchant', async ({page}) => {
  await page.setViewportSize({width,height:900});
+ // Provide a real same-origin document; about:blank has an opaque origin.
+ await page.route(base+'/', route=>route.fulfill({status:200,contentType:'text/html',body:'<!doctype html><html><body></body></html>'}));
+ await page.goto(base+'/');
  await page.setContent(`<!doctype html><main>
    <section id="clientPageTitleShortcut" hidden>
      <h2>用戶端網頁抬頭</h2><a id="clientPageTitleSettingsLink">修改用戶端網頁抬頭</a>
