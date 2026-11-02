@@ -143,6 +143,7 @@ function settingsClient(row: any, storeService?: any): Json {
     maxAdvanceDays: Number(row?.max_advance_days || 0),
     storeServiceMinutes: Number(storeService?.duration_minutes || 10),
     bookingNotice: String(row?.booking_notice || ""),
+    reminderMessage: String(row?.reminder_message || "請準時到場；如需調整請至預約頁操作。"),
     reminderEnabled: row?.reminder_enabled === true,
     snapshotLocationRequired: row?.snapshot_location_required === true,
     snapshotLocations: Array.isArray(row?.snapshot_locations) ? row.snapshot_locations : [],
@@ -213,6 +214,28 @@ async function bootstrap(supabase: SupabaseClient): Promise<Json> {
     pointCards: availableCards.map(pointCardClient),
   };
 }
+async function reminderMessageSave(supabase: SupabaseClient, identity: Identity, body: Json): Promise<Json> {
+  if (typeof body.reminderMessage !== 'string') {
+    throw new ApiError(400, 'INVALID_REMINDER_MESSAGE', '請輸入預約提醒訊息。');
+  }
+  const reminderMessage = preserveText(body.reminderMessage, 401);
+  if (!reminderMessage.trim() || reminderMessage.length > 400) {
+    throw new ApiError(400, 'INVALID_REMINDER_MESSAGE', '提醒訊息必須為 1–400 字。');
+  }
+  const expectedUpdatedAt = asText(body.expectedUpdatedAt, 80);
+  if (!expectedUpdatedAt) throw new ApiError(409, 'BOOKING_SETTINGS_CONFLICT', '設定版本已變更，請重新載入。');
+  const result = await supabase.from('booking_settings')
+    .update({ reminder_message: reminderMessage, updated_by: identity.lineUserId })
+    .eq('id', 1).eq('updated_at', expectedUpdatedAt)
+    .select('reminder_message,updated_at').maybeSingle();
+  if (result.error) throw mapDatabaseError(result.error);
+  if (!result.data) throw new ApiError(409, 'BOOKING_SETTINGS_CONFLICT', '設定已由其他管理員變更，請重新載入。');
+  await audit(supabase, identity, 'BOOKING_REMINDER_MESSAGE_UPDATED', 'booking_settings', '1', {
+    length: reminderMessage.length,
+  });
+  return { reminderMessage: result.data.reminder_message, updatedAt: result.data.updated_at };
+}
+
 async function settingsSave(supabase: SupabaseClient, identity: Identity, body: Json): Promise<Json> {
   const workStartTime = normalizeTime(body.workStartTime);
   const workEndTime = normalizeTime(body.workEndTime);
@@ -416,6 +439,7 @@ async function servicesBatch(supabase: SupabaseClient, identity: Identity, body:
 async function route(supabase: SupabaseClient, identity: Identity, action: string, body: Json): Promise<Json> {
   if (action === "admin.booking.manage.bootstrap") return await bootstrap(supabase);
   if (action === "admin.booking.settings.save") return await settingsSave(supabase, identity, body);
+  if (action === "admin.booking.reminder-message.save") return await reminderMessageSave(supabase, identity, body);
   if (action === "admin.booking.type.create") return await typeCreate(supabase, identity, body);
   if (action === "admin.booking.type.update") return await typeUpdate(supabase, identity, body);
   if (action === "admin.booking.type.delete") return await typeDelete(supabase, identity, body);
