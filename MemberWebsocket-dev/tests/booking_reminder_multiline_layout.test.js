@@ -32,7 +32,7 @@ test('AC-RML-001: multiple merchant reminder lines render in one full-width sect
 
 test('AC-RML-002: 400-character notice stays intact, empty lines are ignored, and no notice produces no card', async () => {
   const { groupReminderNoticeFields, reminderNoticeCard } = await loadNotice();
-  const text = '請注意：' + '長'.repeat(394) + '！';
+  const text = '請注意：' + '長'.repeat(395) + '！';
   assert.equal(Array.from(text).length, 400);
   const grouped = groupReminderNoticeFields([
     { label: '提醒事項', value: text.slice(0, 200) },
