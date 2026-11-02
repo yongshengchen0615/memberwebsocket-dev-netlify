@@ -24,6 +24,14 @@ for(const variant of [
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   // Render production HTML, CSS and behavior against an isolated local transport.
   await page.route('https://**',route=>route.abort());
+  // The admin fixture advertises a deliberately non-existent Supabase host.
+  // Fail its optional grant-automation request deterministically without DNS:
+  // a live external timeout can otherwise prevent the admin shell from booting.
+  await page.route('https://fixture.supabase.co/functions/v1/grant-automation',route=>
+    route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({
+      ok:false,error:{code:'FIXTURE_SERVICE_UNAVAILABLE',message:'QA grant automation is intentionally unavailable'}
+    })})
+  );
   await page.goto(host.base+'/admin/?run='+info.testId);
   await expect(page.locator('#adminView')).toBeVisible();
   await page.evaluate(theme=>document.documentElement.dataset.theme=theme,variant.theme);
