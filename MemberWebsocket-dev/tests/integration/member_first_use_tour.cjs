@@ -55,7 +55,7 @@ test('AC-001/002: all five member surfaces stay hidden on regular entry and open
       await current.ready();
       const { w, dialog } = current;
       const overlay = w.document.getElementById('memberTourOverlay');
-      const app = w.document.getElementById('app');
+      const app = w.document.getElementById('app') || w.document.querySelector('.app-shell');
       const launcher = w.document.getElementById('openMemberTour');
       assert.equal(dialog.classList.contains('hidden'), true, surface + ': no automatic dialog');
       assert.equal(overlay.classList.contains('hidden'), true, surface + ': no automatic mask');
@@ -85,7 +85,7 @@ test('AC-001: older tutorial completion and skip state never forces a normal vis
     try {
       await current.ready();
       assert.equal(current.dialog.classList.contains('hidden'), true);
-      assert.notEqual(current.w.document.getElementById('app').inert, true);
+      assert.notEqual((current.w.document.getElementById('app') || current.w.document.querySelector('.app-shell')).inert, true);
       current.w.document.getElementById('openMemberTour').click();
       assert.equal(current.dialog.classList.contains('hidden'), false);
       current.w.document.getElementById('memberTourDismiss').click();
