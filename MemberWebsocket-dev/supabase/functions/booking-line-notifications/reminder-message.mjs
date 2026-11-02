@@ -38,7 +38,8 @@ export function formatBookingReminderMessage({booking, member, participants = []
     const order = Number(person.position) || 1;
     const own = person.id ? participantItems.filter(i => i.participant_id === person.id) : bookingItems.filter(i => i.service_id !== STORE_SERVICE_ID);
     const list = own.map(i => tidy(i.service_title) + (qty(i) > 1 ? ' × ' + qty(i) : '')).filter(Boolean).join('、') || '請至預約頁查看';
-    const duration = own.reduce((sum, i) => sum + Number(i.unit_duration_minutes || 0) * qty(i), 0) + storeMinutes;
+    const hasStoreService = own.some(i => i.service_id === STORE_SERVICE_ID);
+    const duration = own.reduce((sum, i) => sum + Number(i.unit_duration_minutes || 0) * qty(i), 0) + (hasStoreService ? 0 : storeMinutes);
     const amount = own.reduce((sum, i) => sum + Number(i.unit_price_amount || 0) * qty(i), 0);
     lines.push(
       (order <= 10 ? '第' + ORDINALS[order - 1] : '第 ' + order + ' ') + '位預約',
