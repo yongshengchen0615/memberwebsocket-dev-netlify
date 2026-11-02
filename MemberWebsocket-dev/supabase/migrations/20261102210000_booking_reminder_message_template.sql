@@ -26,7 +26,7 @@ BEGIN
     END IF;
     EXECUTE format(
       'ALTER TABLE %I.booking_settings ADD COLUMN IF NOT EXISTS reminder_message text NOT NULL DEFAULT %L',
-      v_schema, '請準時到場；如需調整請至預約頁操作.'
+      v_schema, '請準時到場；如需調整請至預約頁操作。'
     );
     IF NOT EXISTS (
       SELECT 1 FROM pg_catalog.pg_constraint
