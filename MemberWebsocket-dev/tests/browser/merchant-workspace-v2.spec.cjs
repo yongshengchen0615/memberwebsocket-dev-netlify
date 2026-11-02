@@ -187,6 +187,9 @@ for(const width of [390,1280]) test('AC-TITLE-INLINE-'+width+' — actual mercha
   await h.qualify();
   const slug='inline-title-'+width,a=await h.submit(h.owner,slug,'原本商家名稱');
   await h.review(a);
+  // Each isolated fixture must install the existing title migration before a
+  // real title write. The original workspace title test uses the same setup.
+  await h.db.exec(fs.readFileSync(path.join(root,'supabase/migrations/20261102113000_merchant_client_page_titles.sql'),'utf8'));
   const observed=await wire(page,h);
   await page.route(base+'/',route=>route.fulfill({status:200,contentType:'text/html',body:'<!doctype html><html><body></body></html>'}));
   await page.goto(base+'/');
