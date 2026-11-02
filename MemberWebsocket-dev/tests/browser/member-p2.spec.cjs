@@ -25,7 +25,11 @@ test.afterAll(async()=>new Promise(r=>server.close(r)));
 test.beforeEach(async({page})=>page.route('https://**',r=>r.abort()));
 for(const surface of ['booking','event'])for(const [width,theme] of [[320,'light'],[390,'dark'],[1280,'light'],[1280,'dark']])test('tour '+surface+' '+width+' '+theme+' target stays clear and opt-out survives replay',async({page},info)=>{
  await page.setViewportSize({width,height:844});await page.addInitScript(theme=>document.addEventListener('DOMContentLoaded',()=>document.documentElement.dataset.theme=theme),theme);
- await page.goto(base+'/'+surface+'/');await expect(page.locator('#memberTourDialog')).toBeVisible();
+ await page.goto(base+'/'+surface+'/');
+ await expect(page.locator(surface==='event'?'#eventList .event-ticket button':'.booking-accessible-switch')).toBeVisible();
+ await expect(page.locator('#memberTourDialog')).toBeHidden();
+ await page.locator('#openMemberTour').evaluate(button => button.click());
+ await expect(page.locator('#memberTourDialog')).toBeVisible();
  const target=surface==='event'?'#eventList .event-ticket button':'.booking-accessible-switch';
  for(let i=0;i<(surface==='event'?2:1);i++)await page.locator('#memberTourNext').click();
  await expect(page.locator('#memberTourTitle')).toContainText(surface==='event'?'查看並使用':'操作模式');
@@ -234,6 +238,9 @@ test('member onboarding spotlight reposition emits no blocked inline-style CSP v
     }
   });
   await page.goto(base + '/event/');
+  await expect(page.locator('#eventList .event-ticket button')).toBeVisible();
+  await expect(page.locator('#memberTourDialog')).toBeHidden();
+  await page.locator('#openMemberTour').evaluate(button => button.click());
   await expect(page.locator('#memberTourDialog')).toBeVisible();
   const masks = page.locator('[data-member-tour-mask]');
   await expect(masks).toHaveCount(4);
