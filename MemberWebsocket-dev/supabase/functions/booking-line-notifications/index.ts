@@ -3,6 +3,7 @@ import { loadAdminCopyText } from "./booking-actions.ts";
 import { completionSummary } from "./completion-summary.ts";
 import { createClient } from '../_shared/business-runtime.ts';
 import { buildBookingFlexMessage, deliver, secureEqual } from './delivery.ts';
+import { loadBookingReminderMessage } from './reminder.ts';
 import {
   isUsableEventClaim,
   isUsablePointCard,
@@ -220,6 +221,17 @@ serveBusiness('booking-line-notifications',async (request: Request) => {
             const current = await loadAdminCopyText(db, job.booking_id);
             deliveryJob = {...deliveryJob,...current,bookingStatus:current.status};
           } catch { failed++; return; }
+        }
+
+        if (job.channel === 'member' && String(job.event_key || '').endsWith(':reminder:day_before') && job.booking_id) {
+          try {
+            // Populate after the existing eligibility guard, so reschedules use live booking details.
+            deliveryJob = { ...deliveryJob, message_text: await loadBookingReminderMessage(db, job.booking_id) };
+          } catch {
+            // Do not send a partial or stale appointment notification when live details are unavailable.
+            failed++;
+            return;
+          }
         }
 
         const result = await deliver(deliveryJob, token || '');
