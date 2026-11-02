@@ -23,10 +23,10 @@ test('AC-RML-001: multiple merchant reminder lines render in one full-width sect
   assert.equal(grouped[1].label, '預約人');
   const card = reminderNoticeCard(grouped);
   assert.equal(card.layout, 'vertical');
-  assert.equal(card.contents.length, 2);
-  assert.equal(card.contents[0].text, '預約注意事項');
-  assert.equal(card.contents[1].text, paragraphs.join('\n'));
-  assert.equal(card.contents[1].wrap, true);
+  assert.equal(card.contents.length, 1); // Merchant already supplied a custom notice heading.
+  assert.equal(card.contents[0].text, paragraphs.join('\n'));
+  assert.equal(card.contents[0].wrap, true);
+  assert.equal((JSON.stringify(card).match(/預約注意事項/g) || []).length, 1);
   assert.doesNotMatch(JSON.stringify(card), /68px|layout":"horizontal|提醒事項/);
 });
 
@@ -41,6 +41,7 @@ test('AC-RML-002: 400-character notice stays intact, empty lines are ignored, an
   ]);
   assert.equal(grouped[0].value, text.slice(0, 200) + '\n' + text.slice(200));
   assert.equal(reminderNoticeCard(grouped).contents[1].text, grouped[0].value);
+  assert.equal(reminderNoticeCard(grouped).contents[0].text, '預約注意事項');
   assert.equal(reminderNoticeCard([{ label: '日期', value: '2026/11/02' }]), null);
 });
 
