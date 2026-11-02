@@ -195,7 +195,20 @@ test('accessible receipt camera sends a receipt without a booking and locks dupl
     const prepares=calls.filter(c=>c.action.endsWith('.prepare'));
     assert.equal(prepares.length,1); assert.equal(prepares[0].payload.accessible,true); assert.equal(prepares[0].payload.bookingId,undefined);
     assert.equal(submit.disabled,true);
-    resolveFinalize({receiptId:'receipt',status:'awaiting_review'}); await tick();
+    // Synchronize with the committed receipt event, rather than assuming a
+    // fixed 25ms timer means async finalization and UI teardown have completed.
+    const committed=new Promise((resolve,reject)=>{
+      const timeout=setTimeout(()=>reject(new Error(
+        'Receipt finalization event missing: '+w.document.getElementById('bookingReceiptMessage')?.textContent
+      )),1500);
+      w.addEventListener('booking:accessible-receipt-submitted',event=>{
+        clearTimeout(timeout);resolve(event.detail);
+      },{once:true});
+    });
+    resolveFinalize({receiptId:'receipt',status:'awaiting_review'});
+    const result=await committed;
+    assert.equal(result.status,'awaiting_review');
+    assert.equal(w.document.getElementById('bookingReceiptModal').classList.contains('hidden'),true);
     assert.equal(submit.disabled,true);
   } finally {w.dispatchEvent(new w.Event('pagehide')); w.close();}
 });
