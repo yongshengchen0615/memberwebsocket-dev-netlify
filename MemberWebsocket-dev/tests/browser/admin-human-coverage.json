@@ -34,10 +34,10 @@
     "admin/booking-receipt-admin.js": "b5873c2753c0f2f9c267d0d13583405c2205cc70c0f2103f5899f741a74cf920",
     "admin/booking-accessible-admin.js": "5947f0328b3b27ff891760f72615024899a96b77467f7601842056f908ce5526",
     "admin/ticket-visibility.js": "bb1cf776a3bf1c69f75bbfa6a4b3e07cf9c9077444099533cb9c2883736dd5c0",
-    "admin/workspace.html": "cb74bdeebacaefb84cc29b8a2460b545c85bb829c684193589b5b6595113ba85",
-    "platform/app.js": "9979072a53f06f6abab18acb080409798e4465e81f5a9b01e1ea57e293074065",
+    "admin/workspace.html": "3a293f2162b07a3b7e5642b9ec8b5a12f62f64e2538ffaa61367a929ec59aa90",
+    "platform/app.js": "b290829b726be51d53134e2082a8ba8f2eacc43effa76f83bce82e7b3e2b838f",
     "admin/business-workspace.js": "ea9c37299751e43bdb3d8193e637130f659a311f7ecaf41f1bee2cc7f7ced8d8",
-    "business-context.js": "ce986eecdb60781f8fa8bdc563f130785d53cde4cc56614200eebd3613e017d7",
+    "business-context.js": "3a4319099c8c118cb0c431abb239399bb295c47861bcae0aac2be16c8783696b",
     "admin/business-line-settings.js": "18466944a9897cc4b81954b8effa41f3324142a8b8bd559010baee992bac4fd2",
     "admin/booking-risk.js": "76f61965b64eaa761b8e60074daf893551bc1bdafce7792d951159adac501a97",
     "platform/index.html": "1f2169b6aa0462e9c9b63b10b61ccf9c134281d39325729e5b64806d753318e9",
@@ -716,5 +716,22 @@
       "tests/integration/admin_access_lifecycle.cjs"
     ],
     "security": "Browser test verifies manager denial and SQL expiry; existing access lifecycle covers replays, version conflicts, suspended access and audit transactions. No UI-only control grants permissions."
+  },
+  "merchantClientPageTitleReview": {
+    "entry": "admin/workspace.html selected business → merchantTitleForm → platform.title.save → scoped tenant.site_title",
+    "scope": "2026-11-02 #230: Reviewed new merchant overview title editor and all five public surfaces. Separate site_title does not modify merchant name, owner, LINE credentials or module grants. Initial blank is tenant name; unscoped legacy uses Lumen Club. New title is reflected in page.document.title using text only. Cross-business, revoked credentials, stale version, request replay, backend audit and public-safe projection remain required; actual LINE Provider and production database are separate QA.",
+    "tests": [
+      "tests/merchant_client_page_titles.test.js",
+      "tests/browser/merchant-workspace-v2.spec.cjs: AC-TITLE-UI-001"
+    ],
+    "acceptance": [
+      "AC-TITLE-UI-001",
+      "AC-001",
+      "AC-002",
+      "AC-003",
+      "AC-004",
+      "AC-005"
+    ],
+    "impact": "Human inventory member/points/event/calendar/integration/booking node IDs unchanged; this is a new merchant control-plane setting, covered by new isolated real-handler PostgreSQL Chromium journey."
   }
 }
