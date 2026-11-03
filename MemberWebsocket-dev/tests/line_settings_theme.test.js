@@ -5,9 +5,10 @@ const root=path.resolve(__dirname,'..');
 const css=fs.readFileSync(path.join(root,'admin/business-line-settings.css'),'utf8');
 const html=fs.readFileSync(path.join(root,'admin/index.html'),'utf8');
 const rule=selector=>{
- const begin=css.lastIndexOf(selector+'{');
- assert.ok(begin>=0,selector+' selector exists');
- return css.slice(begin,css.indexOf('}',begin));
+ const prefix=selector+'{';
+ const line=css.split('\n').find(line=>line.startsWith(prefix));
+ assert.ok(line,selector+' selector exists as a standalone CSS rule');
+ return line.slice(prefix.length,line.indexOf('}',prefix.length));
 };
 test('AC-001: merchant LINE settings inherit light/dark semantic surfaces',()=>{
  assert.ok(html.includes('business-line-settings.css?v=line-theme-20261103-1'));
