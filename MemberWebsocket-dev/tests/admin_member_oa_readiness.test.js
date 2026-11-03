@@ -46,7 +46,7 @@ test('RB-ADMIN-004: both manager entrypoints load the restored settings and bust
  assert.match(merchantEntry,/platform\/expiry-term\.js\?v=expiry-term-20261101-1/);
  assert.match(merchantEntry,/platform\/app\.js\?v=merchant-expiry-readonly-20261101-1/);
  assert.match(platformEntry,/\.\/expiry-term\.js\?v=expiry-term-20261101-1/);
- assert.match(platformEntry,/\.\/app\.js\?v=merchant-expiry-readonly-20261101-1/);
+ assert.match(platformEntry,/\.\/app\.js\?v=root-sync-flicker-20261103-1/);
  assert.match(platformEntry,/id="rootSyncNow"/);
  assert.match(platformClient,/request\('platform\.qualification\.list'\)/);
  assert.match(platformClient,/url\.pathname\.replace\(\/\\\/api\\\/\?\$\/, '\/platform-api'\)/);
