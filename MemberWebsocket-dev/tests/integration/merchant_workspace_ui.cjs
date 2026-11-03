@@ -172,9 +172,14 @@ test('AC-SYNC-002: focus, retry and manual sync update the root list; concurrent
   block=true;
   h.intervals[0].fn();h.intervals[0].fn();await settle();
   assert.equal(h.calls.filter(x=>x.action==='platform.bootstrap').length,5,'duplicate ticks must share one in-flight read');
-  assert.equal(h.d.getElementById('rootSyncNow').disabled,true);
+  assert.equal(h.d.getElementById('rootSyncNow').disabled,false,'automatic background polling must never dim the manual action');
+  h.d.getElementById('rootSyncNow').click();await settle();
+  assert.equal(h.d.getElementById('rootSyncNow').disabled,true,'explicit manual sync must show its in-flight state');
+  assert.equal(h.calls.filter(x=>x.action==='platform.bootstrap').length,5,'manual request must wait until the active poll settles');
+  block=false;
   slowResolve({tenants:[],applications:[application('new','pending')],features,profile:{displayName:'Root'}});
   await settle();
+  assert.equal(h.calls.filter(x=>x.action==='platform.bootstrap').length,6,'queued manual sync must run one new read batch');
   assert.equal(h.d.getElementById('rootSyncNow').disabled,false);
   assert.ok(h.calls.length>before);
  }finally{h.close();}
