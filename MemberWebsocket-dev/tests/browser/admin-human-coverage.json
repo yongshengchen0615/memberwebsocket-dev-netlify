@@ -14,8 +14,9 @@
     "permission": "No changes to server auth, tenant isolation, or booking SQL; compare only returned rule IDs with submitted ones.",
     "outstanding": "Real LINE member-admin write is separately required after preview API v7 deployment."
   },
+  "lineSettingsThemeReview": "2026-11-03 PR #241: Reviewed general manager LINE settings theme-only CSS, semantic light/dark card, details, help, input/select, tabs, status, endpoint and responsive action row. Updated both admin/index.html and admin/workspace.html CSS asset revisions; preserved LINE official green button, saved credentials, notifications, role/tenant scopes and original six human workflow journeys. New line_settings_theme.test.js and line-settings-theme.spec.cjs cover 390/1280 light-dark-light and no overflow; full original Chromium/integration baseline still required.",
   "reviewedSources": {
-    "admin/index.html": "74c8aef60e7f16fd07ed917ae363e90d8bdfd2f0286d29d74368ee4a12db779b",
+    "admin/index.html": "afd29d49fd6ec4d63631ce51abbdfa4fcaaeb316df762558cfb688aef81a36ba",
     "admin/app.js": "3da17bea0561ae4f1509739578f14dd95dad0ac7e877c96dcf4372c7be2d2206",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
@@ -34,7 +35,7 @@
     "admin/booking-receipt-admin.js": "b5873c2753c0f2f9c267d0d13583405c2205cc70c0f2103f5899f741a74cf920",
     "admin/booking-accessible-admin.js": "5947f0328b3b27ff891760f72615024899a96b77467f7601842056f908ce5526",
     "admin/ticket-visibility.js": "bb1cf776a3bf1c69f75bbfa6a4b3e07cf9c9077444099533cb9c2883736dd5c0",
-    "admin/workspace.html": "3a293f2162b07a3b7e5642b9ec8b5a12f62f64e2538ffaa61367a929ec59aa90",
+    "admin/workspace.html": "b825fcde0e247e1f48c8bdd8bb9f6a3ce77f32bc64dfade07993a5d53a04ee7c",
     "platform/app.js": "f68824208c879bc2e722f28f3ecf3fa7a516f822db49eb1ef3b4c3bf9ae11aa9",
     "admin/business-workspace.js": "ea9c37299751e43bdb3d8193e637130f659a311f7ecaf41f1bee2cc7f7ced8d8",
     "business-context.js": "3a4319099c8c118cb0c431abb239399bb295c47861bcae0aac2be16c8783696b",
@@ -43,7 +44,7 @@
     "platform/index.html": "7b5cea66aac68eb3adfb2cf42c6a6820619e18e083e1276edd7aa277fc34d5dd",
     "admin/productized-workspace.js": "12287349259f1d4d7097f1c934a178eb19f4b0fb7727ad082f1e7c7a12a7237c",
     "platform/platform.css": "eb9d95fc2dbcea4211f4e83df98addb636f83117bdbe7274831b1c770e182350",
-    "admin/business-line-settings.css": "d7842a32467e257f6ac4309f45006c7fdfe8e2be27688cf00a88bae34681dc8a"
+    "admin/business-line-settings.css": "21d8f7e7ca2ec2c8990236b2035536f847974e503fa8a06e50e357d33b89da5b"
   },
   "features": [
     {

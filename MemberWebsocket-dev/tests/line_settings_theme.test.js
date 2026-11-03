@@ -5,7 +5,7 @@ const root=path.resolve(__dirname,'..');
 const css=fs.readFileSync(path.join(root,'admin/business-line-settings.css'),'utf8');
 const html=fs.readFileSync(path.join(root,'admin/index.html'),'utf8');
 const rule=selector=>{
- const begin=css.indexOf(selector+'{');
+ const begin=css.lastIndexOf(selector+'{');
  assert.ok(begin>=0,selector+' selector exists');
  return css.slice(begin,css.indexOf('}',begin));
 };
