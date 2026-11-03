@@ -11,7 +11,7 @@ const rule=selector=>{
  return line.slice(prefix.length,line.indexOf('}',prefix.length));
 };
 test('AC-001: merchant LINE settings inherit light/dark semantic surfaces',()=>{
- assert.ok(html.includes('business-line-settings.css?v=line-theme-20261103-1'));
+ assert.ok(html.includes('business-line-settings.css?v=line-theme-20261103-2'));
  assert.ok(html.includes('../theme.js?v='));
  for(const [selector,token] of [
   ['.business-line-settings','--theme-surface-raised'],
@@ -32,4 +32,15 @@ test('AC-002: LINE inputs, selection and focus adapt without modifying LINE bran
  assert.ok(css.includes('var(--theme-focus-ring)'));
  assert.ok(rule('.business-line-settings input[type="checkbox"]').includes('accent-color:var(--theme-positive)'));
  assert.ok(rule('.business-client-actions .business-client-line-link').includes('background:#087b46'));
+});
+
+test('AC-003: legacy merchant shell has scoped light tokens without shared theme.css',()=>{
+ const merchant=fs.readFileSync(path.join(root,'admin/workspace.html'),'utf8');
+ assert.ok(merchant.includes('data-workspace="merchant"'));
+ assert.ok(merchant.includes('business-line-settings.css?v=line-theme-20261103-2'));
+ assert.ok(!merchant.includes('../theme.css'));
+ const scoped=css.match(/html\[data-workspace="merchant"\]:not\(\[data-theme\]\)\{([\s\S]*?)\}/);
+ assert.ok(scoped,'legacy workspace requires a scoped fallback palette');
+ for(const name of ['bg','surface-raised','surface-muted','text','text-muted','border','border-strong','positive','positive-soft','positive-text','link','focus-ring','placeholder'])
+  assert.ok(scoped[1].includes('--theme-'+name+':'),name+' must not be undefined');
 });

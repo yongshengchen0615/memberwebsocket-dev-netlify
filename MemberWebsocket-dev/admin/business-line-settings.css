@@ -1,3 +1,20 @@
+/* The legacy merchant workspace uses platform.css, not shared theme.css.
+   Keep its original light palette only when no global theme is present. */
+html[data-workspace="merchant"]:not([data-theme]){
+  --theme-bg:#f4f6f2;
+  --theme-surface-raised:#fff;
+  --theme-surface-muted:#f5f7f3;
+  --theme-text:#20352d;
+  --theme-text-muted:#526256;
+  --theme-border:#d6ded6;
+  --theme-border-strong:#b7c6b9;
+  --theme-positive:#225b40;
+  --theme-positive-soft:#edf5ed;
+  --theme-positive-text:#284d37;
+  --theme-link:#275b43;
+  --theme-focus-ring:#bd8b26;
+  --theme-placeholder:#7d8a83;
+}
 .business-line-settings{margin:0 0 24px;padding:24px;border:1px solid var(--theme-border-strong);border-radius:16px;background:var(--theme-surface-raised);color:var(--theme-text);min-width:0}
 .business-line-settings h2{margin:0 0 16px;font-size:1.15rem}
 .business-line-summary{padding:12px 16px;background:var(--theme-positive-soft);border-left:3px solid var(--theme-positive);border-radius:8px;margin:0;color:var(--theme-positive-text)}

@@ -71,3 +71,19 @@ for(const width of [390,1280])test('AC-001/002 LINE theme toggle in Chromium '+w
  const restored=await inspect(page);expect(restored.theme).toBe('light');matchTheme(restored);
  expect(restored.card).toBe(light.card);expect(restored.tab).toBe(light.tab);
 });
+
+test('AC-003: legacy merchant entry retains readable colors without theme.css',async({page})=>{
+ await page.setViewportSize({width:390,height:800});
+ await page.setContent('<!doctype html><html data-workspace="merchant"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><section class="business-line-settings"><h2>LINE 入口設定</h2><p class="business-line-summary">已儲存</p><details open><summary>帳號資料</summary><label>Channel ID<input value="1234567"></label><small>說明</small></details></section><nav class="business-line-feature-nav"><button aria-selected="true">會員卡</button><button aria-selected="false">集點卡</button></nav></body></html>');
+ await page.addStyleTag({content:read('platform/platform.css')});
+ await page.addStyleTag({content:read('admin/business-line-settings.css')});
+ const colors=await page.evaluate(()=>{
+  const get=selector=>{const s=getComputedStyle(document.querySelector(selector));return {background:s.backgroundColor,text:s.color};};
+  return {shell:get('.business-line-settings'),details:get('.business-line-settings details'),input:get('.business-line-settings input'),selected:get('.business-line-feature-nav button[aria-selected="true"]'),overflow:document.documentElement.scrollWidth>innerWidth+1};
+ });
+ expect(colors.shell).toEqual({background:'rgb(255, 255, 255)',text:'rgb(32, 53, 45)'});
+ expect(colors.details).toEqual({background:'rgb(245, 247, 243)',text:'rgb(32, 53, 45)'});
+ expect(colors.input).toEqual({background:'rgb(255, 255, 255)',text:'rgb(32, 53, 45)'});
+ expect(colors.selected).toEqual({background:'rgb(34, 91, 64)',text:'rgb(244, 246, 242)'});
+ expect(colors.overflow).toBe(false);
+});
