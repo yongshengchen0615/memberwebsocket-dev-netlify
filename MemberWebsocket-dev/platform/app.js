@@ -8,7 +8,7 @@
   const visibleFeatureKeys=featureKeys.filter(key=>key!=='integrations'&&key!=='testing'&&key!=='usage');
   const isV2=()=>state.config?.merchantApprovalVersion===2;
   const isAccount=()=>merchantEntry&&isV2()&&!selectedBusiness;
-  let refreshTimer=null,refreshBusy=false,rootRefreshBusy=false,rootSnapshot='',rootRevision=0;
+  let refreshTimer=null,refreshBusy=false,rootRefreshBusy=false,rootManualQueued=false,rootSnapshot='',rootRevision=0;
   const form = el('tenantForm'), dialog = el('tenantDialog');
   const fields = form.elements;
   const lineKeys = ['adminChannelId','memberChannelId','messagingChannelId','adminLiffId','memberLiffId','pointsLiffId','eventLiffId','calendarLiffId','bookingLiffId'];
@@ -44,6 +44,8 @@
     state.idToken='';
     rootRevision++;
     rootSnapshot='';
+    rootManualQueued=false;
+    if(el('rootSyncNow'))el('rootSyncNow').disabled=false;
     if(refreshTimer){clearInterval(refreshTimer);refreshTimer=null;}
     state.pending=null;
     state.approval=null;
@@ -541,7 +543,8 @@
     if(background&&(state.busy||reviewBusy||reviewPending||document.hidden||rootDialogOpen()))return null;
     const snapshot=JSON.stringify([data.tenants||[],data.applications||[],data.features||{},qualifications]);
     const changed=snapshot!==rootSnapshot;
-    if(!background||changed){
+    // Preserve existing list nodes and focus when a manual or scheduled read is unchanged.
+    if(changed){
       state.tenants=data.tenants||[];state.applications=data.applications||[];
       state.features=data.features;
       if(isV2()){state.qualifications=qualifications;renderQualifications();el('applicationListTitle').textContent='商家申請審核';}
@@ -550,21 +553,46 @@
     rootSnapshot=snapshot;
     return {...data,changed};
   }
-  async function refreshRoot(){
-    if(merchantEntry||!state.idToken||el('platformWorkspace').hidden||document.hidden||navigator.onLine===false||rootRefreshBusy||state.busy||reviewBusy||reviewPending||rootDialogOpen())return;
+  function rootCanRefresh(){
+    return !merchantEntry&&Boolean(state.idToken)&&!el('platformWorkspace').hidden&&!document.hidden
+      &&navigator.onLine!==false&&!state.busy&&!reviewBusy&&!reviewPending&&!rootDialogOpen();
+  }
+  async function refreshRoot({manual=false}={}){
+    if(!rootCanRefresh())return;
+    const button=el('rootSyncNow'),status=el('rootSyncStatus');
+    if(rootRefreshBusy){
+      // A manual click during a poll must not disappear. Run one fresh read afterward.
+      if(manual){
+        rootManualQueued=true;
+        if(button)button.disabled=true;
+        if(status)status.textContent='正在同步待審申請…';
+      }
+      return;
+    }
     rootRefreshBusy=true;
-    const button=el('rootSyncNow');if(button)button.disabled=true;
+    // Only an explicit click affects the button. Automatic five-second checks stay invisible.
+    if(manual){
+      if(button)button.disabled=true;
+      if(status)status.textContent='正在同步待審申請…';
+    }
     try{
-      const data=await refresh({background:true});
-      if(data&&el('rootSyncStatus')){
+      const data=await refresh({background:!manual});
+      if(data&&status&&!rootManualQueued){
         const message=data.changed?'已同步最新管理員資格與商家申請。':'審核清單已是最新資料。';
-        if(el('rootSyncStatus').textContent!==message)el('rootSyncStatus').textContent=message;
+        if(status.textContent!==message)status.textContent=message;
       }
     }catch(error){
-      if(state.idToken&&el('rootSyncStatus'))el('rootSyncStatus').textContent='同步失敗：'+error.message+'；將自動再試。';
-    }finally{rootRefreshBusy=false;if(button)button.disabled=false;}
+      if(state.idToken&&status&&!rootManualQueued)status.textContent='同步失敗：'+error.message+'；將自動再試。';
+    }finally{
+      rootRefreshBusy=false;
+      if(rootManualQueued){
+        rootManualQueued=false;
+        if(rootCanRefresh())void refreshRoot({manual:true});
+        else if(button)button.disabled=false;
+      }else if(manual&&button)button.disabled=false;
+    }
   }
-  el('rootSyncNow')?.addEventListener('click',()=>void refreshRoot());
+  el('rootSyncNow')?.addEventListener('click',()=>void refreshRoot({manual:true}));
   function collect() {return {name:fields.namedItem('name').value.trim(),slug:fields.namedItem('slug').value.trim(),ownerLineUserId:fields.namedItem('ownerLineUserId').value.trim(),
     features:Object.fromEntries(featureKeys.map(key=>[key,visibleFeatureKeys.includes(key) && Boolean(form.querySelector('[data-feature="'+key+'"]')?.checked)])),
     line:Object.fromEntries(lineKeys.map(key=>[key,fields.namedItem(key).value.trim()])),
