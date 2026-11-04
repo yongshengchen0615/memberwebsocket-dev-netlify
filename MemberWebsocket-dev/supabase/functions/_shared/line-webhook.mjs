@@ -1,4 +1,5 @@
 import { openCredentials } from './platform-crypto.mjs';
+import { readRequestBytes, RequestIngressError } from './request-ingress.mjs';
 
 const encoder = new TextEncoder();
 const botId = /^U[0-9a-f]{32}$/;
@@ -12,21 +13,13 @@ async function deadline(promise, ms, status=503) {
   finally { clearTimeout(timer); }
 }
 async function rawBody(request, timeout) {
-  const reader=request.body?.getReader();
-  if (!reader) throw new IngressError(400,'INVALID_BODY');
-  const chunks=[];let length=0;
+  if (!request.body) throw new IngressError(400,'INVALID_BODY');
   try {
-    const read=async()=>{while(true){
-      const {done,value}=await reader.read();if(done)break;
-      length+=value.byteLength;if(length>262144)throw new IngressError(413,'BODY_TOO_LARGE');
-      chunks.push(value);
-    }};
-    await deadline(read(),timeout,408);
-  } catch(error) { void reader.cancel().catch(()=>{}); throw error; }
-  finally { reader.releaseLock(); }
-  const bytes=new Uint8Array(length);let offset=0;
-  for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
-  return bytes;
+    return await readRequestBytes(request,262144,timeout);
+  } catch(error) {
+    if(error instanceof RequestIngressError)throw new IngressError(error.status,error.status===408?'TIMEOUT':error.code);
+    throw error;
+  }
 }
 export async function verifyLineSignature(raw, signature, secret) {
   if(typeof secret!=='string'||!secret) return false;
