@@ -213,7 +213,7 @@ async function twilioVerify(endpoint: "Verifications" | "VerificationCheck", val
 }
 async function sendPhoneOtp(supabase: SupabaseClient, identity: Identity, member: any, phone: string): Promise<void> {
   if (!requirePhoneOtp()) throw new ApiError(409, "PHONE_VERIFY_NOT_ENABLED", "目前未啟用首次入會手機驗證。");
-  if (member.status !== "active" || member.membership_status === "active") {
+  if (member.status !== "active" || member.membership_status === "active" || member.is_test_account === true) {
     throw new ApiError(403, "PHONE_VERIFY_NOT_ALLOWED", "此會員目前無法申請首次手機驗證。");
   }
   if (!isValidPhone(phone)) throw new ApiError(400, "INVALID_PHONE", "請輸入正確的手機號碼。");
@@ -231,7 +231,7 @@ async function sendPhoneOtp(supabase: SupabaseClient, identity: Identity, member
   if (sent.status !== "pending") throw new ApiError(503, "PHONE_VERIFY_UNAVAILABLE", "驗證碼未能成功發送，請稍後再試。");
 }
 async function verifyPhoneOtp(phone: string, code: string): Promise<void> {
-  if (!/^\d{4,10}$/.test(code)) throw new ApiError(400, "PHONE_OTP_REQUIRED", "請輸入正確的簡訊驗證碼。");
+  if (!/^\d{6}$/.test(code)) throw new ApiError(400, "PHONE_OTP_REQUIRED", "請輸入正確的簡訊驗證碼。");
   checkSmsCountry(phone);
   const checked = await twilioVerify("VerificationCheck", { To: phone, Code: code });
   if (checked.status !== "approved") {
