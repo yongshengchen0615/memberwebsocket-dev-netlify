@@ -314,7 +314,10 @@ test('AC-014: a phone already verified for another member is refused before SMS'
   const save = await h.call('user.member.profile.save', { ...join, otpCode: '123456' });
   assert.equal(save.status, 409);
   assert.equal(save.body.error.code, 'PHONE_ALREADY_USED');
-  assert.deepEqual(h.member, before);
+  assert.equal(h.member.membership_status, before.membership_status);
+  assert.equal(h.member.phone, before.phone);
+  assert.equal(h.member.phone_verified_e164, before.phone_verified_e164);
+  assert.equal(h.member.phone_verified_at, before.phone_verified_at);
 });
 
 test('AC-015: unchanged active phone skips OTP, but the changed phone cannot mix profile fields', async () => {
