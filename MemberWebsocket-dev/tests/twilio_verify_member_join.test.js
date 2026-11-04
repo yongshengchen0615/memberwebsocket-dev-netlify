@@ -107,6 +107,7 @@ function harness(options = {}) {
     setRateLimit(allowed) { limitAllowed = allowed; },
     setRequired(value) { required = value; },
     setTwilioUnavailable(value) { twilioUnavailable = value; },
+    setTestAccount(value) { member.is_test_account = value; }
   };
 }
 const join = {
@@ -197,7 +198,16 @@ test('AC-008: existing members are not forced to reverify when feature is enable
   assert.equal(h.requests.length, 0);
 });
 
-test('AC-009: disabled flag retains legacy join without performing Twilio calls', async () => {
+test('AC-009: test-only identities cannot trigger real paid SMS sends', async () => {
+  const h = harness();
+  h.setTestAccount(true);
+  const result = await h.call('user.member.phone.send', { phone: join.phone });
+  assert.equal(result.status, 403);
+  assert.equal(result.body.error.code, 'PHONE_VERIFY_NOT_ALLOWED');
+  assert.equal(h.requests.length, 0);
+});
+
+test('AC-010: disabled flag retains legacy join without performing Twilio calls', async () => {
   const h = harness({ required: false });
   assert.equal((await h.call('user.member.bootstrap')).body.data.phoneVerificationRequired, false);
   const result = await h.call('user.member.profile.save', join);
@@ -205,7 +215,7 @@ test('AC-009: disabled flag retains legacy join without performing Twilio calls'
   assert.equal(h.requests.length, 0);
 });
 
-test('AC-010: old generic API explicitly blocks unverified first-join route', () => {
+test('AC-011: old generic API explicitly blocks unverified first-join route', () => {
   const legacy = fs.readFileSync(path.join(__dirname, '../supabase/functions/api/index.ts'), 'utf8');
   assert.match(legacy, /PHONE_VERIFICATION_REQUIRED/);
   assert.match(legacy, /member\.membership_status !== "active"/);
