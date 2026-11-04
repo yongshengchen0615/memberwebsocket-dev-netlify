@@ -117,3 +117,44 @@ for(const kind of ['bytes','json'])test(`${kind}: many small chunks stay within 
   assert.equal(result.complete,true);
   assert.ok(result.retained<32*1024*1024,`200KB ingress retained ${result.retained} bytes; chunk count must not retain pending promise reactions`);
 });
+
+for(const kind of ['bytes','webhook']){
+  for(const allocation of ['individual','backing-view'])test(`${kind}: ${allocation} chunks cannot amplify retained request memory`,()=>{
+    const source=`
+      import {readRequestBytes} from ${JSON.stringify(pathToFileURL(path.join(shared,'request-ingress.mjs')).href)};
+      import {createLineWebhookHandler} from ${JSON.stringify(pathToFileURL(path.join(shared,'line-webhook.mjs')).href)};
+      import {getHeapStatistics} from 'node:v8';
+      global.gc();const initial=getHeapStatistics().used_heap_size;
+      const initialBuffers=getHeapStatistics().external_memory;
+      let count=0,retained,retainedBuffers;
+      const individual=${JSON.stringify(allocation)}==='individual';
+      const total=individual?200000:32;
+      const body=new ReadableStream({pull(c){
+        if(count++<total){
+          const chunk=new Uint8Array(individual?1:4*1024*1024);
+          chunk[0]=32;c.enqueue(chunk.subarray(0,1));
+        }else if(count===total+1)c.enqueue(new TextEncoder().encode('{}'));
+        else{
+          // V8 updates external backing-store accounting on the next GC cycle.
+          // Two collections measure live buffers rather than already-dead chunks.
+          global.gc();global.gc();retained=getHeapStatistics().used_heap_size-initial;
+          retainedBuffers=getHeapStatistics().external_memory-initialBuffers;c.close();
+        }
+      }});
+      const request=new Request('https://backend.test',{method:'POST',body,duplex:'half',headers:{'x-line-signature':'A'.repeat(43)+'='}});
+      let complete;
+      if(${JSON.stringify(kind)}==='bytes'){
+        const result=await readRequestBytes(request,8000000);
+        complete=result.length===total+2 && result[0]===32 && result[total]===123 && result[total+1]===125;
+      }else{
+        const handler=createLineWebhookHandler({db:{rpc(){throw Error('Unexpected DB access');}},encryptionKey(){throw Error('Unexpected key access');},bodyTimeoutMs:10000});
+        complete=(await handler(request)).status===400;
+      }
+      console.log(JSON.stringify({complete,retained,retainedBuffers}));
+    `;
+    const result=JSON.parse(execFileSync(process.execPath,['--expose-gc','--input-type=module','-e',source],{encoding:'utf8'}));
+    assert.equal(result.complete,true,'raw bytes and validation must be preserved');
+    assert.ok(result.retained<16*1024*1024,`small request retained ${result.retained} heap bytes`);
+    assert.ok(result.retainedBuffers<16*1024*1024,`small request retained ${result.retainedBuffers} buffer bytes`);
+  });
+}
