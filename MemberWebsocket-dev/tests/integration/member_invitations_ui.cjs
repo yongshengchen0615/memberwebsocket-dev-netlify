@@ -7,7 +7,7 @@ async function fixture({url='https://preview.test/member/?business=shop-a',pendi
  const profile={lineUserId:'user-a',memberCode:'AAAA',profileComplete:!pending,membershipRequired:pending};
  w.MemberSystem={getSession:()=>session,request:async(_c,_s,_t,action,payload)=>{
   calls.push({action,payload});
-  if(action==='member.invitation.create')return {invitationUrl:'https://preview.test/member/?business=shop-a&invitation='+'a'.repeat(64),expiresAt:'2026-11-04T00:00:00Z',campaign:{title:'邀請人優惠'}};
+  if(action==='member.invitation.create')return {invitationUrl:'https://preview.test/member/?business=shop-a&invitation='+'a'.repeat(64),expiresAt:new Date(Date.now()+60*60*1000).toISOString(),campaign:{title:'邀請人優惠'}};
   if(action==='member.invitation.summary')return {joinedCount:2,rewardedCount:1,pendingCount:1,rewards:[]};
   if(action==='user.member.invitation.claim')return {status:'claimed'};
   return {};
@@ -46,7 +46,7 @@ test('a late issued invitation cannot repaint another shop and copy fallback rem
   w.document.getElementById('copyMemberInvitation').click();await tick();
   session.config={...session.config,business:'shop-b'};
   w.dispatchEvent(new w.CustomEvent('member-profile-ready',{detail:{profile:{...profile,memberCode:'BBBB'}}}));
-  resolve({invitationUrl:'https://preview.test/member/?business=shop-a&invitation='+'a'.repeat(64),expiresAt:'2026-11-04T00:00:00Z'});await tick();
+  resolve({invitationUrl:'https://preview.test/member/?business=shop-a&invitation='+'a'.repeat(64),expiresAt:new Date(Date.now()+60*60*1000).toISOString()});await tick();
   assert.doesNotMatch(w.document.getElementById('memberInvitationStatus').textContent,/已複製/);
   assert.equal(w.document.querySelector('#memberInvitationManualLink').value,'');
  }finally{dom.window.close();}

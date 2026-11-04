@@ -11,8 +11,9 @@ window.MemberPhone={compose:(country,phone)=>{const digits=String(phone||'').rep
 window.MembershipProgress={render(){}};
 window.MemberSystem={bindDialogKeyboard(){},loadConfig:async()=>({brandName:'QA Lumen Club'}),signIn:async()=> 'fixture-id-token',
 request:async(_c,_t,_token,action,payload={})=>{window.qaJoinCalls.push({action,payload:structuredClone(payload)});
-if(action==='user.member.bootstrap')return {profile:structuredClone(incomplete),terms:structuredClone(terms),consentRequired:false};
-if(action==='user.member.profile.save'){if(payload.accepted!==true)throw Object.assign(new Error('必須同意條款'),{code:'TERMS_CONSENT_REQUIRED'});if(payload.termsId!==terms.id||payload.termsVersion!==terms.version)throw Object.assign(new Error('條款版本已更新'),{code:'TERMS_VERSION_STALE'});return {profile:{...structuredClone(incomplete),memberCode:'QA-JOIN-1',surname:payload.surname,salutation:payload.salutation,birthday:payload.birthday,phone:payload.phone,joinedAt:'2026-10-05T00:00:00.000Z',profileComplete:true,membershipRequired:false}};}throw Object.assign(new Error('Unknown action: '+action),{code:'UNKNOWN_ACTION'});},
+if(action==='user.member.bootstrap')return {profile:structuredClone(incomplete),terms:structuredClone(terms),consentRequired:false,phoneVerificationRequired:location.search.includes('otp=1')};
+if(action==='user.member.phone.send')return {sent:true};
+if(action==='user.member.profile.save'){if(location.search.includes('otp=1')&&payload.otpCode!=='123456')throw Object.assign(new Error('手機號碼尚未驗證'),{code:'PHONE_OTP_INVALID'});if(payload.accepted!==true)throw Object.assign(new Error('必須同意條款'),{code:'TERMS_CONSENT_REQUIRED'});if(payload.termsId!==terms.id||payload.termsVersion!==terms.version)throw Object.assign(new Error('條款版本已更新'),{code:'TERMS_VERSION_STALE'});return {profile:{...structuredClone(incomplete),memberCode:'QA-JOIN-1',surname:payload.surname,salutation:payload.salutation,birthday:payload.birthday,phone:payload.phone,joinedAt:'2026-10-05T00:00:00.000Z',profileComplete:true,membershipRequired:false}};}throw Object.assign(new Error('Unknown action: '+action),{code:'UNKNOWN_ACTION'});},
 subscribeRealtime:()=>()=>{},formatDate:v=>String(v||''),initials:()=> 'QA'};`);return;}
 const file=path.resolve(root,'.'+u.pathname);if(!file.startsWith(root+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile()){res.writeHead(404);res.end();return;}res.writeHead(200,{'Content-Type':file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'application/octet-stream'});fs.createReadStream(file).pipe(res);}catch(e){res.writeHead(500);res.end(e.message);}});await new Promise(r=>server.listen(0,'127.0.0.1',r));base='http://127.0.0.1:'+server.address().port;});
 test.afterAll(async()=>new Promise(r=>server.close(r)));
@@ -26,4 +27,35 @@ await page.locator('#saveProfileButton').click();await expect(page.locator('#mem
 await page.locator('#copyMemberCodeButton').click();await expect(page.locator('#copyMemberCodeButton')).toHaveText('已複製');expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('QA-JOIN-1');
 await expect(page.locator('#copyMemberCodeButton')).toBeEnabled();await page.evaluate(()=>history.replaceState(null,'','/MemberWebsocket-dev/member/'));await page.evaluate(fs.readFileSync(path.join(root,'user-test-control.js'),'utf8').replace('  window.MemberUserTestControl =','  window.qaNodes={memberCodeCopyCase};\n  window.MemberUserTestControl ='));expect((await page.evaluate(()=>qaNodes.memberCodeCopyCase())).status).toBe('passed');
 const saves=await page.evaluate(()=>qaJoinCalls.filter(x=>x.action==='user.member.profile.save'));expect(saves).toHaveLength(1);expect(saves[0].payload).toMatchObject({surname:'測',salutation:'mr',birthday:'1990-01-15',phone:'+886912345678',termsId:'terms-join-1',termsVersion:'7',accepted:true});
+});
+test('member phone OTP appears beneath number input and must be entered before joining', async ({page}) => {
+  await page.goto(base + '/member-join?otp=1');
+  await expect(page.locator('#profilePhoneVerification')).toBeVisible();
+  await page.locator('#profileSurname').fill('林');
+  await page.locator('#profileSalutation').selectOption('ms');
+  await page.evaluate(() => {
+    const input = document.querySelector('#profileBirthday');
+    input.value = '1991-01-01';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await page.locator('#profilePhone').fill('0912345678');
+  await page.locator('#joinTermsAccepted').check();
+  await page.locator('#saveProfileButton').click();
+  await expect(page.locator('#profileFormMessage')).toContainText('請先發送此手機號碼');
+  expect(await page.evaluate(() => qaJoinCalls.some(x => x.action === 'user.member.profile.save'))).toBe(false);
+  await page.locator('#profilePhoneSendCodeButton').click();
+  await expect(page.locator('#profilePhoneVerificationMessage')).toContainText('驗證碼已發送');
+  await page.locator('#profilePhoneCode').fill('123456');
+  await page.locator('#profilePhone').fill('0912345679');
+  await expect(page.locator('#profilePhoneCode')).toHaveValue('');
+  await expect(page.locator('#profilePhoneVerificationMessage')).toContainText('手機號碼已變更');
+  await page.locator('#profilePhoneSendCodeButton').click();
+  await page.locator('#profilePhoneCode').fill('123456');
+  await page.locator('#saveProfileButton').click();
+  await expect(page.locator('#memberView')).toBeVisible();
+  const calls = await page.evaluate(() => qaJoinCalls.filter(x => x.action === 'user.member.profile.save'));
+  expect(calls).toHaveLength(1);
+  expect(calls[0].payload.otpCode).toBe('123456');
+  expect(calls[0].payload.phone).toBe('+886912345679');
 });

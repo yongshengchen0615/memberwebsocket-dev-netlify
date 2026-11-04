@@ -47,6 +47,7 @@
     'user.booking.presence.offline',
     'user.booking.presence.heartbeat',
     'user.member.profile.save',
+    'user.member.phone.send',
     'user.member.terms.accept',
     'admin.terms.draft.save',
     'admin.terms.activate',
@@ -489,7 +490,7 @@
     if (clientType === 'admin' && String(action || '').startsWith('admin.booking.receipt.')) {
       return String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/booking-receipt-api';
     }
-    if (clientType === 'member' && (action === 'user.member.bootstrap' || action === 'user.member.profile.save' || action === 'user.member.terms.accept' || action === 'user.member.card.open' || action === 'user.member.invitation.claim' || action === 'user.member.oa.check')) {
+    if (clientType === 'member' && (action === 'user.member.bootstrap' || action === 'user.member.profile.save' || action === 'user.member.phone.send' || action === 'user.member.terms.accept' || action === 'user.member.card.open' || action === 'user.member.invitation.claim' || action === 'user.member.oa.check')) {
       return String(config.memberProfileFunctionUrl || '').trim()
         || String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/member-profile-api';
     }
