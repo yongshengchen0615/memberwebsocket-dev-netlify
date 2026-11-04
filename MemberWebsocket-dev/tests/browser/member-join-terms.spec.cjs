@@ -11,7 +11,7 @@ let activeProfile=structuredClone(active);
 window.qaJoinCalls=[];window.TestModeClient={getSessionToken:()=> 'qa-test-session'};
 window.MemberPhone={compose:(country,phone)=>{const digits=String(phone||'').replace(/\\D/g,'');return country==='+886'&&/^09\\d{8}$/.test(digits)?'+886'+digits.slice(1):'';},normalizeStored:v=>String(v||''),split:v=>({countryCode:'+886',localNumber:String(v||'').startsWith('+886')?'0'+String(v).slice(4):String(v||'')})};
 window.MembershipProgress={render(){}};
-window.MemberSystem={bindDialogKeyboard(){},loadConfig:async()=>({brandName:'QA Lumen Club'}),signIn:async()=> 'fixture-id-token',
+window.MemberSystem={bindDialogKeyboard(){},getSession:()=>({config:{brandName:'QA Lumen Club'},idToken:'fixture-id-token'}),loadConfig:async()=>({brandName:'QA Lumen Club'}),signIn:async()=> 'fixture-id-token',
 request:async(_c,_t,_token,action,payload={})=>{window.qaJoinCalls.push({action,payload:structuredClone(payload)});
 if(action==='user.member.bootstrap')return {profile:location.search.includes('active=1')?{...structuredClone(activeProfile),phoneVerificationRequired:location.search.includes('otp=1')}:structuredClone(incomplete),terms:structuredClone(terms),consentRequired:false,phoneVerificationRequired:location.search.includes('otp=1')};
 if(action==='user.member.phone.send')return {sent:true};
