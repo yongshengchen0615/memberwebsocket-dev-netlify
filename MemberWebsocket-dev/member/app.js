@@ -2,7 +2,7 @@
   'use strict';
 
   const MEMBER_TIER_STYLE_KEYS = Object.freeze(['forest', 'midnight', 'ocean', 'sunset', 'lavender', 'rose', 'gold', 'platinum', 'mint', 'cherry']);
-  const state = { config: null, idToken: '', profile: null, lineProfile: null, profileSaveLocked: false, terms: null, termsCheckPromise: null, birthdayPicker: { opener: null } };
+  const state = { config: null, idToken: '', profile: null, lineProfile: null, profileSaveLocked: false, phoneVerificationRequired: false, phoneOtpSentTo: '', phoneOtpSending: false, terms: null, termsCheckPromise: null, birthdayPicker: { opener: null } };
   const els = {};
   let cardOpenRecorded = false;
   const LOGIN_PROGRESS_TICK_MS = 650;
@@ -12,11 +12,14 @@
 
   window.addEventListener('DOMContentLoaded', () => {
     window.MemberSystem.bindDialogKeyboard();
-    ['app', 'loadingView', 'loadingProgress', 'loadingProgressBar', 'loadingProgressText', 'loadingStatus', 'errorView', 'errorTitle', 'errorMessage', 'retryButton', 'profileSetupView', 'profileForm', 'profileBirthday', 'profileBirthdayDisplay', 'profileBirthdayPickerButton', 'profileBirthdayPickerModal', 'profileBirthdayPickerTitle', 'closeProfileBirthdayPicker', 'cancelProfileBirthdayPicker', 'confirmProfileBirthdayPicker', 'profileBirthdayPickerMessage', 'profileBirthdayYear', 'profileBirthdayMonth', 'profileBirthdayDay', 'profileCountryCode', 'profilePhone', 'profileFormMessage', 'joinTermsSummary', 'joinTermsTitle', 'joinTermsBody', 'joinTermsAccepted', 'termsRenewView', 'renewTermsForm', 'renewTermsSummary', 'renewTermsTitle', 'renewTermsBody', 'renewTermsAccepted', 'renewTermsMessage', 'renewTermsButton', 'saveProfileButton', 'refreshProfileButton', 'memberView', 'memberPass', 'brandName', 'displayName', 'memberStatus', 'memberInitial', 'memberName', 'memberTier', 'memberCode', 'copyMemberCodeButton', 'joinedAt', 'memberBirthday', 'memberPhone', 'membershipProgress'].forEach((id) => { els[id] = document.getElementById(id); });
+    ['app', 'loadingView', 'loadingProgress', 'loadingProgressBar', 'loadingProgressText', 'loadingStatus', 'errorView', 'errorTitle', 'errorMessage', 'retryButton', 'profileSetupView', 'profileForm', 'profileBirthday', 'profileBirthdayDisplay', 'profileBirthdayPickerButton', 'profileBirthdayPickerModal', 'profileBirthdayPickerTitle', 'closeProfileBirthdayPicker', 'cancelProfileBirthdayPicker', 'confirmProfileBirthdayPicker', 'profileBirthdayPickerMessage', 'profileBirthdayYear', 'profileBirthdayMonth', 'profileBirthdayDay', 'profileCountryCode', 'profilePhone', 'profilePhoneVerification', 'profilePhoneSendCodeButton', 'profilePhoneCode', 'profilePhoneVerificationMessage', 'profileFormMessage', 'joinTermsSummary', 'joinTermsTitle', 'joinTermsBody', 'joinTermsAccepted', 'termsRenewView', 'renewTermsForm', 'renewTermsSummary', 'renewTermsTitle', 'renewTermsBody', 'renewTermsAccepted', 'renewTermsMessage', 'renewTermsButton', 'saveProfileButton', 'refreshProfileButton', 'memberView', 'memberPass', 'brandName', 'displayName', 'memberStatus', 'memberInitial', 'memberName', 'memberTier', 'memberCode', 'copyMemberCodeButton', 'joinedAt', 'memberBirthday', 'memberPhone', 'membershipProgress'].forEach((id) => { els[id] = document.getElementById(id); });
     els.retryButton.addEventListener('click', () => window.location.reload());
     els.refreshProfileButton.addEventListener('click', () => window.location.reload());
     els.copyMemberCodeButton.addEventListener('click', copyMemberCode);
     els.profileForm.addEventListener('submit', saveProfile);
+    els.profilePhoneSendCodeButton.addEventListener('click', sendPhoneVerificationCode);
+    els.profilePhone.addEventListener('input', resetPhoneVerificationForChangedNumber);
+    els.profileCountryCode.addEventListener('change', resetPhoneVerificationForChangedNumber);
     els.renewTermsForm.addEventListener('submit', acceptRenewedTerms);
     els.joinTermsAccepted.addEventListener('change', () => {
       if (els.joinTermsAccepted.checked) void verifyTermsSelection('join');
@@ -52,6 +55,8 @@
       startLoginProgress('正在同步會員資料…', 92);
       const result = await window.MemberSystem.request(state.config, 'member', state.idToken, 'user.member.bootstrap');
       state.profile = result.profile || {};
+      state.phoneVerificationRequired = result.phoneVerificationRequired === true;
+      renderPhoneVerificationControls();
       updateTerms(result.terms);
       // Subscribe regardless of the initial view so verification/activation and
       // profile changes appear without reopening the member LIFF page.
@@ -60,6 +65,8 @@
         const profile = latest && latest.profile && typeof latest.profile === 'object' ? latest.profile : null;
         if (!profile) return;
         state.profile = profile;
+        state.phoneVerificationRequired = latest.phoneVerificationRequired === true;
+        renderPhoneVerificationControls();
         updateTerms(latest.terms);
         if (latest.consentRequired && profile.profileComplete) {
           setView('termsRenew');
@@ -269,6 +276,55 @@
     image.src = url;
   }
 
+
+  function showPhoneVerificationMessage(message) {
+    els.profilePhoneVerificationMessage.textContent = message;
+  }
+
+  function renderPhoneVerificationControls() {
+    els.profilePhoneVerification.classList.toggle('hidden', !state.phoneVerificationRequired);
+    if (!state.profileSaveLocked) {
+      els.saveProfileButton.textContent = state.phoneVerificationRequired ? '驗證手機並加入會員' : '加入會員並開啟會員卡';
+    }
+  }
+
+  function resetPhoneVerificationForChangedNumber() {
+    const current = window.MemberPhone?.compose(els.profileCountryCode.value, els.profilePhone.value) || '';
+    if (state.phoneOtpSentTo && current !== state.phoneOtpSentTo) {
+      state.phoneOtpSentTo = '';
+      els.profilePhoneCode.value = '';
+      showPhoneVerificationMessage('手機號碼已變更，請重新發送驗證碼。');
+    }
+  }
+
+  async function sendPhoneVerificationCode() {
+    if (!state.phoneVerificationRequired || state.phoneOtpSending) return;
+    const phone = window.MemberPhone?.compose(els.profileCountryCode.value, els.profilePhone.value) || '';
+    if (!phone) return showPhoneVerificationMessage('請先輸入正確且可接收簡訊的手機號碼。');
+    state.phoneOtpSending = true;
+    els.profilePhoneSendCodeButton.disabled = true;
+    els.profilePhoneSendCodeButton.textContent = '正在發送…';
+    try {
+      await window.MemberSystem.request(state.config, 'member', state.idToken, 'user.member.phone.send', { phone });
+      const stillCurrent = window.MemberPhone?.compose(els.profileCountryCode.value, els.profilePhone.value) === phone;
+      if (stillCurrent) {
+        state.phoneOtpSentTo = phone;
+        els.profilePhoneCode.value = '';
+        showPhoneVerificationMessage('驗證碼已發送。請輸入收到的驗證碼，按「驗證手機並加入會員」。');
+        els.profilePhoneCode.focus();
+      } else {
+        state.phoneOtpSentTo = '';
+        showPhoneVerificationMessage('手機號碼已變更，請重新發送驗證碼。');
+      }
+    } catch (error) {
+      showPhoneVerificationMessage(error?.message || '驗證碼暫時無法發送，請稍後再試。');
+    } finally {
+      state.phoneOtpSending = false;
+      els.profilePhoneSendCodeButton.disabled = false;
+      els.profilePhoneSendCodeButton.textContent = '重新發送驗證碼';
+    }
+  }
+
   async function saveProfile(event) {
     event.preventDefault();
     if (state.profileSaveLocked) return showUncertainSaveMessage();
@@ -277,6 +333,12 @@
     const phone = window.MemberPhone?.compose(els.profileCountryCode.value, els.profilePhone.value) || '';
     if (!/^\d{4}-\d{2}-\d{2}$/.test(birthday)) return showMessage('請填寫正確的生日。');
     if (!phone) return showMessage('請選擇國碼並填寫正確的電話號碼。');
+    if (state.phoneVerificationRequired) {
+      if (state.phoneOtpSentTo !== phone) return showMessage('請先發送此手機號碼的簡訊驗證碼。');
+      if (!/^\\d{4,10}$/.test(String(els.profilePhoneCode.value || '').trim())) {
+        return showMessage('請輸入收到的簡訊驗證碼。');
+      }
+    }
     if (!state.terms) return showMessage('目前尚無有效會員條款，請稍後再試或聯繫管理員。');
     if (!els.joinTermsAccepted.checked) return showMessage('請閱讀並勾選同意會員條款。');
     if (state.termsCheckPromise) {
@@ -292,7 +354,7 @@
           : '目前尚無有效會員條款，請稍後再試或聯繫管理員。');
         return;
       }
-      const result = await window.MemberSystem.request(state.config, 'member', state.idToken, 'user.member.profile.save', { birthday, phone, surname: String(document.getElementById('profileSurname').value || '').trim(), salutation: document.getElementById('profileSalutation').value, termsId: state.terms.id, termsVersion: state.terms.version, accepted: true });
+      const result = await window.MemberSystem.request(state.config, 'member', state.idToken, 'user.member.profile.save', { birthday, phone, surname: String(document.getElementById('profileSurname').value || '').trim(), salutation: document.getElementById('profileSalutation').value, termsId: state.terms.id, termsVersion: state.terms.version, accepted: true, ...(state.phoneVerificationRequired ? { otpCode: String(els.profilePhoneCode.value || '').trim() } : {}) });
       state.profile = result.profile || {};
       renderProfile(state.profile);
       setView('member');
@@ -460,7 +522,7 @@
     } finally { els.renewTermsButton.disabled = !state.terms; }
   }
 
-  function setSaving(saving) { els.saveProfileButton.disabled = saving || state.profileSaveLocked || !state.terms; els.saveProfileButton.textContent = saving ? '加入中…' : state.profileSaveLocked ? '請重新整理確認' : '加入會員並開啟會員卡'; }
+  function setSaving(saving) { els.saveProfileButton.disabled = saving || state.profileSaveLocked || !state.terms; els.saveProfileButton.textContent = saving ? '加入中…' : state.profileSaveLocked ? '請重新整理確認' : state.phoneVerificationRequired ? '驗證手機並加入會員' : '加入會員並開啟會員卡'; }
   function showUncertainSaveMessage() { showMessage('無法確認資料是否已儲存。請先重新整理確認；在確認前請勿再次送出。'); els.refreshProfileButton.classList.remove('hidden'); els.saveProfileButton.disabled = true; els.saveProfileButton.textContent = '請重新整理確認'; }
   function showMessage(message) { els.profileFormMessage.textContent = message; els.profileFormMessage.classList.remove('hidden'); }
   function hideMessage() { els.profileFormMessage.textContent = ''; els.profileFormMessage.classList.add('hidden'); if (!state.profileSaveLocked) els.refreshProfileButton.classList.add('hidden'); }
