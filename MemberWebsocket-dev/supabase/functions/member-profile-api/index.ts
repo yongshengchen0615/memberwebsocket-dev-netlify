@@ -112,6 +112,8 @@ async function profileFor(supabase: SupabaseClient, member: any): Promise<Json> 
     joinedAt: member.joined_at || member.created_at,
     birthday: member.birthday || "",
     phone: normalizePhone(member.phone) || member.phone || "",
+    phoneVerified: Boolean(member.phone_verified_at && member.phone_verified_e164 === normalizePhone(member.phone)),
+    phoneVerificationRequired: requirePhoneOtp(),
     surname,
     salutation,
     salutationLabel: salutation === "mr" ? "先生" : salutation === "ms" ? "小姐" : "",
@@ -214,14 +216,27 @@ async function twilioVerify(endpoint: "Verifications" | "VerificationCheck", val
   }
   return data as Record<string, unknown>;
 }
-async function sendPhoneOtp(supabase: SupabaseClient, identity: Identity, member: any, phone: string): Promise<void> {
-  if (!requirePhoneOtp()) throw new ApiError(409, "PHONE_VERIFY_NOT_ENABLED", "目前未啟用首次入會手機驗證。");
-  if (member.status !== "active" || member.membership_status === "active" || member.is_test_account === true) {
-    throw new ApiError(403, "PHONE_VERIFY_NOT_ALLOWED", "此會員目前無法申請首次手機驗證。");
+async function sendPhoneOtp(supabase: SupabaseClient, identity: Identity, member: any, phone: string): Promise<{ sent: boolean; alreadyVerified: boolean }> {
+  if (!requirePhoneOtp()) throw new ApiError(409, "PHONE_VERIFY_NOT_ENABLED", "目前未啟用手機簡訊驗證。");
+  if (member.status !== "active" || member.is_test_account === true) {
+    throw new ApiError(403, "PHONE_VERIFY_NOT_ALLOWED", "此會員目前無法進行手機驗證。");
   }
   if (!isValidPhone(phone)) throw new ApiError(400, "INVALID_PHONE", "請輸入正確的手機號碼。");
   checkSmsCountry(phone);
-  // Two server-side limits: the authenticated LINE principal and the destination number.
+  // An already-verified binding is reusable by this same LINE member. Never
+  // send another paid SMS merely because the UI was reopened or refreshed.
+  if (member.phone_verified_at && member.phone_verified_e164 === phone) {
+    return { sent: false, alreadyVerified: true };
+  }
+  if (member.membership_status === "active" && normalizePhone(member.phone) === phone) {
+    return { sent: false, alreadyVerified: false };
+  }
+  // Fast failure prevents paying Twilio to verify another member's claimed phone.
+  // The unique index remains the authority for simultaneous claims.
+  const claimed = await supabase.from("members").select("id")
+    .eq("phone_verified_e164", phone).neq("id", member.id).maybeSingle();
+  if (claimed.error) throw new ApiError(503, "PHONE_BINDING_UNAVAILABLE", "暫時無法確認此電話的綁定狀態。");
+  if (claimed.data) throw new ApiError(409, "PHONE_ALREADY_USED", "此電話已完成其他會員綁定，請使用其他電話或聯繫管理員。");
   for (const target of [`otp-member:${identity.lineUserId}`, `otp-destination:${phone}`]) {
     const { data, error } = await supabase.rpc("consume_api_rate_limit", {
       p_principal_hash: await sha256(target),
@@ -232,6 +247,16 @@ async function sendPhoneOtp(supabase: SupabaseClient, identity: Identity, member
   }
   const sent = await twilioVerify("Verifications", { To: phone, Channel: "sms" });
   if (sent.status !== "pending") throw new ApiError(503, "PHONE_VERIFY_UNAVAILABLE", "驗證碼未能成功發送，請稍後再試。");
+  return { sent: true, alreadyVerified: false };
+}
+function verifiedPhoneWriteError(error: { code?: string; message?: string }): ApiError {
+  const msg = String(error?.message || "");
+  if (error?.code === "23505" || msg.includes("members_verified_phone_unique")) {
+    return new ApiError(409, "PHONE_ALREADY_USED", "此電話已完成其他會員綁定，請使用其他電話或聯繫管理員。");
+  }
+  if (msg.includes("PROFILE_CONFLICT")) return new ApiError(409, "PROFILE_CONFLICT", "會員資料已更新，請重新載入後再試。");
+  if (msg.includes("MEMBERSHIP_REQUIRED")) return new ApiError(403, "MEMBERSHIP_REQUIRED", "會員目前無法修改電話。");
+  return new ApiError(503, "PHONE_BINDING_UNAVAILABLE", "電話驗證已完成，但儲存狀態不明，請重新整理確認，勿重複提交。");
 }
 async function verifyPhoneOtp(phone: string, code: string): Promise<void> {
   if (!/^\d{6}$/.test(code)) throw new ApiError(400, "PHONE_OTP_REQUIRED", "請輸入正確的簡訊驗證碼。");
@@ -366,8 +391,8 @@ serveBusiness('member-profile-api',async (request: Request) => {
     }
     if (action === "user.member.bootstrap") return response(origin, { ok: true, status: 200, data: { profile: await profileFor(supabase, member), phoneVerificationRequired: requirePhoneOtp(), ...await termsForMember(supabase, member), memberOa:memberOaGuidance({tenant:businessContext(),expectedChannelId:env("LINE_MEMBER_CHANNEL_ID") || "2010787602",member,verifiedBindingsJson:env("MEMBER_OA_VERIFIED_LINKS_JSON")}) } });
     if (action === "user.member.phone.send") {
-      await sendPhoneOtp(supabase, identity, member, normalizePhone(body.phone));
-      return response(origin, { ok: true, status: 200, data: { sent: true } });
+      const sending = await sendPhoneOtp(supabase, identity, member, normalizePhone(body.phone));
+      return response(origin, { ok: true, status: 200, data: sending });
     }
     if (action === "user.member.terms.accept") {
       if (member.membership_status !== "active") throw new ApiError(403, "MEMBERSHIP_REQUIRED", "請先完成會員申請。");
@@ -409,6 +434,10 @@ serveBusiness('member-profile-api',async (request: Request) => {
       }
     }
     if (hasPhone && !isValidPhone(phone)) throw new ApiError(400, "INVALID_PHONE", "請選擇國碼並填寫正確的電話號碼。");
+    const phoneChanged = hasPhone && phone !== normalizePhone(member.phone);
+    if (member.membership_status === "active" && phoneChanged && requirePhoneOtp() && (hasBirthday || hasSurname || hasSalutation)) {
+      throw new ApiError(400, "PHONE_CHANGE_SEPARATE", "請單獨修改電話並完成簡訊認證，其他資料請另外儲存。");
+    }
     if (hasSurname && (!surname || surname.length > 40)) throw new ApiError(400, "INVALID_SURNAME", "請填寫姓氏。");
     if (hasSalutation && !["mr", "ms"].includes(salutation)) throw new ApiError(400, "INVALID_SALUTATION", "請選擇先生或小姐。");
 
@@ -437,6 +466,21 @@ serveBusiness('member-profile-api',async (request: Request) => {
       if (requirePhoneOtp()) {
         if (member.status !== "active") throw new ApiError(403, "MEMBER_SUSPENDED", "此會員帳號目前無法使用。");
         await verifyPhoneOtp(phone, asText(body.otpCode, 20));
+        const committed = await supabase.rpc("member_commit_verified_phone", {
+          p_actor: identity.lineUserId, p_phone: phone, p_expected_updated_at: null,
+          p_join_payload: {
+            lineUserId: identity.lineUserId, termsId: body.termsId,
+            termsVersion: body.termsVersion, accepted: true,
+            birthday, phone, surname, salutation,
+          },
+        });
+        if (committed.error) {
+          if (committed.error.code === "23505" || String(committed.error.message || "").includes("members_verified_phone_unique")) {
+            throw verifiedPhoneWriteError(committed.error);
+          }
+          await throwTermsOperationError(supabase, member, committed.error);
+        }
+        return response(origin, { ok: true, status: 200, data: { profile: await profileFor(supabase, committed.data) } });
       }
       // Temporary rollback to the pre-OA enforcement join flow (2026-10-22).
       // LINE ID token, current terms consent and the atomic membership RPC remain mandatory.
@@ -456,6 +500,18 @@ serveBusiness('member-profile-api',async (request: Request) => {
       const refreshed = await supabase.from("members").select("*").eq("id", member.id).single();
       if (refreshed.error) throw new ApiError(500, "DATABASE_ERROR", "會員資料暫時無法讀取。");
       return response(origin, { ok: true, status: 200, data: { profile: await profileFor(supabase, refreshed.data) } });
+    }
+    if (phoneChanged && requirePhoneOtp()) {
+      if (member.status !== "active" || member.is_test_account === true) {
+        throw new ApiError(403, "PHONE_VERIFY_NOT_ALLOWED", "此會員目前無法修改電話。");
+      }
+      await verifyPhoneOtp(phone, asText(body.otpCode, 20));
+      const committed = await supabase.rpc("member_commit_verified_phone", {
+        p_actor: identity.lineUserId, p_phone: phone,
+        p_expected_updated_at: member.updated_at, p_join_payload: null,
+      });
+      if (committed.error) throw verifiedPhoneWriteError(committed.error);
+      return response(origin, { ok: true, status: 200, data: { profile: await profileFor(supabase, committed.data) } });
     }
     const updated = await supabase.rpc("save_member_profile_audited", {
       p_actor:identity.lineUserId,p_expected_updated_at:member.updated_at,
