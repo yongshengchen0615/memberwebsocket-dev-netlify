@@ -2284,10 +2284,13 @@ async function handleAction(supabase: SupabaseClient, identity: { lineUserId: st
   }
   if (action === "user.member.profile.save") {
     const member = await ensureMember(supabase,identity);
-    // All new memberships must pass through member-profile-api when SMS verification is required.
-    // This legacy endpoint must not offer a bypass to the Twilio Verify gate.
-    if (member.membership_status !== "active" && (businessEnv("TWILIO_VERIFY_REQUIRED") || "").trim().toLowerCase() === "true") {
-      throw new ApiError(403, "PHONE_VERIFICATION_REQUIRED", "請在會員卡頁面完成手機簡訊認證後再加入會員。");
+    // The legacy endpoint must not bypass SMS verification for enrollment
+    // OR an existing member changing to a different phone number.
+    const incomingPhone = asText(body.phone, 30).replace(/[()\s.\-]/g, "");
+    const existingPhone = asText(member.phone, 30).replace(/[()\s.\-]/g, "");
+    if ((businessEnv("TWILIO_VERIFY_REQUIRED") || "").trim().toLowerCase() === "true"
+        && (member.membership_status !== "active" || incomingPhone !== existingPhone)) {
+      throw new ApiError(403, "PHONE_VERIFICATION_REQUIRED", "請至會員卡完成手機簡訊驗證後再儲存電話。");
     }
     const birthday = asText(body.birthday,20);
     const phone = asText(body.phone,30).replace(/[()\s-]/g,"");
