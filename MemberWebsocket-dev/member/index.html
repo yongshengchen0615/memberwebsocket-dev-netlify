@@ -24,7 +24,7 @@
   <script src="./profile-extension.js?v=member-phone-country-code-20261003-1" defer></script>
   <script src="./profile-birthday-edit.js?v=async-architecture-20260921-1" defer></script>
   <script src="./membership-progress.js?v=member-tier-style-20260908" defer></script>
-  <script src="./app.js?v=member-code-copy-20261007-1-p1-secure-20261008-1-live-sync-20261010-1-release-20261014-1" defer></script>
+  <script src="./app.js?v=twilio-join-20261104-1" defer></script>
   <script src="./member-growth.js?v=member-actions-20261010-2-ongoing-20261013-1" defer></script>
   <script src="../user-tour.js?v=participant-state-isolation-20261004-1-p2-20261006-1" defer></script>
   <link rel="stylesheet" href="../test-mode.css?v=test-mode-20260920-1">
@@ -131,6 +131,13 @@
             </label>
           </div>
           <small class="profile-field-help">請先選擇國碼；系統會以國際格式儲存，例如 +886912345678。</small>
+          <div id="profilePhoneVerification" class="profile-phone-verification hidden" aria-label="首次加入會員手機簡訊驗證">
+            <button id="profilePhoneSendCodeButton" class="button button-refresh" type="button">發送簡訊驗證碼</button>
+            <label for="profilePhoneCode">簡訊驗證碼
+              <input id="profilePhoneCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="6" placeholder="請輸入 6 位數驗證碼">
+            </label>
+            <small id="profilePhoneVerificationMessage" class="profile-field-help" role="status" aria-live="polite">輸入手機後點選「發送簡訊驗證碼」，收到後輸入驗證碼，入會時會完成認證。</small>
+          </div>
         </div>
         <section class="terms-box" aria-labelledby="joinTermsHeading">
           <h2 id="joinTermsHeading">使用同意與免責聲明</h2>

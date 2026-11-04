@@ -30,3 +30,14 @@ test('AC-204: bootstrap does not return unapproved business records',async()=>{
  const {businessBootstrap}=await source();const filtered=businessBootstrap({members:[{phone:'private'}],cards:[{id:'card'}],tickets:[{}],calendarItems:[{}],eventTickets:[{}],stats:{memberCount:4}}, {...ctx,features:{points:true}});
  assert.deepEqual(filtered.members,[]);assert.deepEqual(filtered.calendarItems,[]);assert.deepEqual(filtered.eventTickets,[]);assert.equal(filtered.cards[0].id,'card');assert.doesNotMatch(JSON.stringify(filtered),/private/);
 });
+
+test('AC-012: first-join SMS works through membership foundation in booking and points merchants',async()=>{
+ const {assertBusinessAction}=await source();
+ for(const enabled of ['membership','booking','points','events','calendar']){
+  const features={membership:false,points:false,events:false,calendar:false,integrations:false,booking:false,testing:false,usage:false,[enabled]:true};
+  assert.doesNotThrow(()=>assertBusinessAction({...ctx,features},'user.member.phone.send'),enabled);
+ }
+ const none={membership:false,points:false,events:false,calendar:false,booking:false,integrations:false,testing:false,usage:false};
+ assert.throws(()=>assertBusinessAction({...ctx,features:none},'user.member.phone.send'),e=>e.code==='FEATURE_DISABLED');
+ assert.throws(()=>assertBusinessAction({...ctx,status:'suspended'},'user.member.phone.send'),e=>e.code==='TENANT_SUSPENDED');
+});
