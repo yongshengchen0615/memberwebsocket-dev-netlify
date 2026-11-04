@@ -13,6 +13,7 @@ function harness(options = {}) {
     id: 'member-otp-test', line_user_id: 'line-otp-test', display_name: 'Member',
     member_code: 'M00001', status: 'active', membership_status: 'pending',
     joined_at: null, created_at: '2026-01-01T00:00:00Z', is_test_account: false,
+    updated_at: '2026-11-01T00:00:00Z', phone_verified_e164: null, phone_verified_at: null,
   };
   const terms = {
     id: 'terms-otp-test', version: 'v1', title: '會員條款', summary: '條款',
@@ -24,9 +25,38 @@ function harness(options = {}) {
   let limitAllowed = true;
   let twilioUnavailable = false;
   let required = options.required !== false;
+  let claimedPhone = null;
+  let conflictOnCommit = false;
   const verifiedCode = '123456';
   const db = {
     rpc(name, args) {
+      if (name === 'member_commit_verified_phone') {
+        if (conflictOnCommit) return Promise.resolve({ data: null, error: { code: '23505', message: 'members_verified_phone_unique' } });
+        if (args.p_join_payload) {
+          return db.rpc('accept_membership_terms_api', { p_payload: args.p_join_payload }).then(result => {
+            if (result.error) return result;
+            member.phone = args.p_phone;
+            member.phone_verified_e164 = args.p_phone;
+            member.phone_verified_at = '2026-11-04T00:00:00Z';
+            member.updated_at = '2026-11-04T00:00:00Z';
+            return { data: { ...member }, error: null };
+          });
+        }
+        if (args.p_expected_updated_at !== member.updated_at) return Promise.resolve({ data: null, error: { message: 'PROFILE_CONFLICT' } });
+        member.phone = args.p_phone;
+        member.phone_verified_e164 = args.p_phone;
+        member.phone_verified_at = '2026-11-04T00:00:00Z';
+        member.updated_at = '2026-11-04T00:00:00Z';
+        return Promise.resolve({ data: { ...member }, error: null });
+      }
+      if (name === 'save_member_profile_audited') {
+        const fields = args.p_fields || {};
+        if (args.p_expected_updated_at !== member.updated_at) return Promise.resolve({ data: null, error: { message: 'PROFILE_CONFLICT' } });
+        Object.assign(member, fields);
+        if ('phone' in fields) { member.phone_verified_e164 = null; member.phone_verified_at = null; }
+        member.updated_at = '2026-11-05T00:00:00Z';
+        return Promise.resolve({ data: { ...member }, error: null });
+      }
       if (name === 'consume_api_rate_limit') return Promise.resolve({ data: limitAllowed, error: null });
       if (name === 'member_service_minute_totals') return Promise.resolve({ data: [{ member_id: member.id, total_minutes: 0 }], error: null });
       if (name === 'accept_membership_terms_api') {
@@ -48,7 +78,13 @@ function harness(options = {}) {
       let row = table === 'members' ? member : table === 'membership_terms' ? terms : null;
       const query = {
         select() { return query; },
-        eq() { return query; },
+        eq(key, value) {
+          if (table === 'members' && key === 'phone_verified_e164') {
+            row = claimedPhone === value ? { id: 'another-member' } : null;
+          }
+          return query;
+        },
+        neq(key, value) { if (row && row[key] === value) row = null; return query; },
         maybeSingle() { return Promise.resolve({ data: row, error: null }); },
         single() { return Promise.resolve({ data: row, error: null }); },
         order() { return Promise.resolve({ data: [], error: null }); },
@@ -110,7 +146,9 @@ function harness(options = {}) {
     setRateLimit(allowed) { limitAllowed = allowed; },
     setRequired(value) { required = value; },
     setTwilioUnavailable(value) { twilioUnavailable = value; },
-    setTestAccount(value) { member.is_test_account = value; }
+    setTestAccount(value) { member.is_test_account = value; },
+    setClaimedPhone(value) { claimedPhone = value; },
+    setCommitConflict(value) { conflictOnCommit = value; }
   };
 }
 const join = {
@@ -196,8 +234,8 @@ test('AC-008: existing members are not forced to reverify when feature is enable
   const refresh = await h.call('user.member.bootstrap');
   assert.equal(refresh.body.data.phoneVerificationRequired, true);
   const send = await h.call('user.member.phone.send', { phone: join.phone });
-  assert.equal(send.status, 403);
-  assert.equal(send.body.error.code, 'PHONE_VERIFY_NOT_ALLOWED');
+  assert.equal(send.status, 200);
+  assert.equal(send.body.data.sent, false);
   assert.equal(h.requests.length, 0);
 });
 
@@ -224,4 +262,81 @@ test('AC-011: old generic API explicitly blocks unverified first-join route', ()
   assert.match(legacy, /PHONE_VERIFICATION_REQUIRED/);
   assert.match(legacy, /member\.membership_status !== "active"/);
   assert.match(legacy, /businessEnv\("TWILIO_VERIFY_REQUIRED"\)/);
+});
+
+test('AC-012: a verified phone is not sent another SMS and persists after bootstrap', async () => {
+  const h = harness();
+  assert.equal((await h.call('user.member.phone.send', { phone: join.phone })).status, 200);
+  const joined = await h.call('user.member.profile.save', { ...join, otpCode: '123456' });
+  assert.equal(joined.status, 200);
+  assert.equal(h.member.phone_verified_e164, join.phone);
+  assert.ok(h.member.phone_verified_at);
+  const bootstrap = await h.call('user.member.bootstrap');
+  assert.equal(bootstrap.body.data.profile.phoneVerified, true);
+  const count = h.requests.length;
+  const send = await h.call('user.member.phone.send', { phone: join.phone });
+  assert.equal(send.status, 200);
+  assert.equal(send.body.data.alreadyVerified, true);
+  assert.equal(send.body.data.sent, false);
+  assert.equal(h.requests.length, count);
+});
+
+test('AC-013: a changed phone requires fresh OTP and keeps the previous phone on failure', async () => {
+  const h = harness();
+  await h.call('user.member.profile.save', { ...join, otpCode: '123456' });
+  const old = h.member.phone;
+  const updatedPhone = '+886923456789';
+  const noOtp = await h.call('user.member.profile.save', { phone: updatedPhone });
+  assert.equal(noOtp.status, 400);
+  assert.equal(noOtp.body.error.code, 'PHONE_OTP_REQUIRED');
+  assert.equal(h.member.phone, old);
+  const bad = await h.call('user.member.profile.save', { phone: updatedPhone, otpCode: '987654' });
+  assert.equal(bad.status, 400);
+  assert.equal(h.member.phone, old);
+  const send = await h.call('user.member.phone.send', { phone: updatedPhone });
+  assert.equal(send.status, 200);
+  const saved = await h.call('user.member.profile.save', { phone: updatedPhone, otpCode: '123456' });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.data.profile.phoneVerified, true);
+  assert.equal(h.member.phone, updatedPhone);
+  assert.equal(h.member.phone_verified_e164, updatedPhone);
+});
+
+test('AC-014: a phone already verified for another member is refused before SMS', async () => {
+  const h = harness();
+  h.setClaimedPhone(join.phone);
+  const send = await h.call('user.member.phone.send', { phone: join.phone });
+  assert.equal(send.status, 409);
+  assert.equal(send.body.error.code, 'PHONE_ALREADY_USED');
+  assert.equal(h.requests.length, 0);
+  const before = { ...h.member };
+  h.setCommitConflict(true);
+  const save = await h.call('user.member.profile.save', { ...join, otpCode: '123456' });
+  assert.equal(save.status, 409);
+  assert.equal(save.body.error.code, 'PHONE_ALREADY_USED');
+  assert.deepEqual(h.member, before);
+});
+
+test('AC-015: unchanged active phone skips OTP, but the changed phone cannot mix profile fields', async () => {
+  const h = harness();
+  await h.call('user.member.profile.save', { ...join, otpCode: '123456' });
+  const count = h.requests.length;
+  const same = await h.call('user.member.profile.save', { phone: join.phone });
+  assert.equal(same.status, 200);
+  assert.equal(h.requests.length, count);
+  const mixed = await h.call('user.member.profile.save', {
+    phone: '+886923456789', surname: '許', otpCode: '123456',
+  });
+  assert.equal(mixed.status, 400);
+  assert.equal(mixed.body.error.code, 'PHONE_CHANGE_SEPARATE');
+  assert.equal(h.member.phone, join.phone);
+});
+
+test('AC-016: disabled gate preserves existing profile-edit rollback without SMS', async () => {
+  const h = harness({ required: false });
+  await h.call('user.member.profile.save', join);
+  const updated = await h.call('user.member.profile.save', { phone: '+886923456789' });
+  assert.equal(updated.status, 200);
+  assert.equal(h.member.phone, '+886923456789');
+  assert.equal(h.requests.length, 0);
 });
