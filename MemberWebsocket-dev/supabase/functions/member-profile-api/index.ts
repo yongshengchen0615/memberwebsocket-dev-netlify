@@ -171,11 +171,11 @@ function isValidPhone(value: string): boolean {
 function requirePhoneOtp(): boolean { return env("TWILIO_VERIFY_REQUIRED").toLowerCase() === "true"; }
 function checkSmsCountry(phone: string): void {
   const countries = (env("TWILIO_VERIFY_ALLOWED_COUNTRY_CODES") || "+886").split(",").map(s => s.trim()).filter(Boolean);
-  if (!countries.some(code => /^\\+[1-9]\\d{0,3}$/.test(code) && phone.startsWith(code))) {
+  if (!countries.some(code => /^\+[1-9]\d{0,3}$/.test(code) && phone.startsWith(code))) {
     throw new ApiError(400, "PHONE_COUNTRY_UNAVAILABLE", "目前尚未開放此國碼的手機簡訊驗證。");
   }
   // Taiwan SMS verification is for mobile numbers, not landlines.
-  if (phone.startsWith("+886") && !/^\\+8869\\d{8}$/.test(phone)) {
+  if (phone.startsWith("+886") && !/^\+8869\d{8}$/.test(phone)) {
     throw new ApiError(400, "PHONE_MOBILE_REQUIRED", "請輸入可接收簡訊的台灣手機號碼。");
   }
 }
@@ -231,7 +231,7 @@ async function sendPhoneOtp(supabase: SupabaseClient, identity: Identity, member
   if (sent.status !== "pending") throw new ApiError(503, "PHONE_VERIFY_UNAVAILABLE", "驗證碼未能成功發送，請稍後再試。");
 }
 async function verifyPhoneOtp(phone: string, code: string): Promise<void> {
-  if (!/^\\d{4,10}$/.test(code)) throw new ApiError(400, "PHONE_OTP_REQUIRED", "請輸入正確的簡訊驗證碼。");
+  if (!/^\d{4,10}$/.test(code)) throw new ApiError(400, "PHONE_OTP_REQUIRED", "請輸入正確的簡訊驗證碼。");
   checkSmsCountry(phone);
   const checked = await twilioVerify("VerificationCheck", { To: phone, Code: code });
   if (checked.status !== "approved") {
