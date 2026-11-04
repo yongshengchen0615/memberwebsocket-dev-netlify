@@ -37,7 +37,7 @@ test('member bootstrap and profile save use the dedicated profile API', () => {
   const system = read('member-system.js');
   const html = read('member/index.html');
 
-  assert.match(system, /clientType === 'member' && \(action === 'user\.member\.bootstrap' \|\| action === 'user\.member\.profile\.save' \|\| action === 'user\.member\.terms\.accept' \|\| action === 'user\.member\.card\.open'\)/);
+  assert.match(system, /clientType === 'member' && \(action === 'user\.member\.bootstrap' \|\| action === 'user\.member\.profile\.save' \|\| action === 'user\.member\.phone\.send' \|\| action === 'user\.member\.terms\.accept' \|\| action === 'user\.member\.card\.open'\)/);
   assert.match(system, /\/functions\/v1\/member-profile-api/);
   assert.match(html, /member-system\.js\?v=[^"'\\s>]+/);
 });
