@@ -50,7 +50,7 @@
 node --test MemberWebsocket-dev/tests/twilio_verify_member_join.test.js
 node --test MemberWebsocket-dev/tests/*.test.js
 node --test MemberWebsocket-dev/tests/integration/member_terms_startup.cjs
-npm test -- --grep "member phone OTP" --project=chromium
+(cd MemberWebsocket-dev/tests/browser && npm test -- --grep "member phone OTP")
 ```
 
-以上最後一條需在 `MemberWebsocket-dev/tests/browser` 目錄執行並依現有 Playwright 設定調整（完整流程由 GitHub CI 測試）；瀏覽器 fixture 與 Twilio stub 通過不代表 Twilio 真正能對台灣手機發送。
+以上瀏覽器案例使用專案既有 Playwright 設定執行；完整流程由 GitHub CI 測試；瀏覽器 fixture 與 Twilio stub 通過不代表 Twilio 真正能對台灣手機發送。
