@@ -49,7 +49,9 @@ test('profile edit actions use independent partial updates through the shared tr
 
   assert.match(profile, /saveProfilePayload\(\{ surname, salutation \}\)/);
   assert.match(profile, /MemberPhone\?\.compose\(valueOf\('phoneEditCountryCode'\), valueOf\('phoneEditInput'\)\)/);
-  assert.match(profile, /saveProfilePayload\(\{ phone \}\)/);
+  assert.match(profile, /saveProfilePayload\(\{ phone, \.\.\.\(required \? \{ otpCode \} : \{\}\) \}\)/);
+  assert.match(profile, /phoneOtpSentTo !== phone/);
+  assert.match(api, /await verifyPhoneOtp\(phone, asText\(body\.otpCode, 20\)\)/);
   assert.match(birthday, /requestProfile\('user\.member\.profile\.save', \{ birthday \}\)/);
   assert.match(profile, /member-profile-updated/);
   assert.match(birthday, /member-profile-updated/);

@@ -3,6 +3,8 @@
 
   let currentProfile = null;
   let modalOpener = null;
+  let phoneOtpSentTo = '';
+  let phoneOtpSending = false;
 
   window.addEventListener('DOMContentLoaded', () => {
     // Initial membership registration is owned by member/app.js because it
@@ -17,6 +19,9 @@
     document.getElementById('closePhoneEditButton')?.addEventListener('click', () => closeProfileModal('phone'));
     document.getElementById('cancelPhoneEditButton')?.addEventListener('click', () => closeProfileModal('phone'));
     document.getElementById('savePhoneEditButton')?.addEventListener('click', savePhoneProfile);
+    document.getElementById('phoneEditSendCodeButton')?.addEventListener('click', sendPhoneEditCode);
+    document.getElementById('phoneEditInput')?.addEventListener('input', resetPhoneEditCode);
+    document.getElementById('phoneEditCountryCode')?.addEventListener('change', resetPhoneEditCode);
 
     document.addEventListener('keydown', (event) => {
       if (event.key !== 'Escape') return;
@@ -98,6 +103,9 @@
       const profile = await ensureCurrentProfile();
       hideModalMessage('phone');
       applyPhoneInputs('phoneEditCountryCode', 'phoneEditInput', profile.phone);
+      phoneOtpSentTo = '';
+      setValue('phoneEditCode', '');
+      renderPhoneEditVerification();
       document.getElementById('phoneEditInput')?.focus();
     } catch (error) {
       showModalMessage('phone', error?.message || '會員資料尚在同步，請稍後再試。');
@@ -116,6 +124,10 @@
     if (!modal || modal.classList.contains('hidden')) return;
     modal.classList.add('hidden');
     hideModalMessage(type);
+    if (type === 'phone') {
+      phoneOtpSentTo = '';
+      setValue('phoneEditCode', '');
+    }
     if (document.getElementById('honorificEditModal')?.classList.contains('hidden') && document.getElementById('phoneEditModal')?.classList.contains('hidden')) {
       document.body.classList.remove('profile-modal-open');
     }
@@ -148,22 +160,93 @@
     }
   }
 
-  async function savePhoneProfile() {
-    const phone = window.MemberPhone?.compose(valueOf('phoneEditCountryCode'), valueOf('phoneEditInput')) || '';
+  function phoneEditCandidate() {
+    return window.MemberPhone?.compose(valueOf('phoneEditCountryCode'), valueOf('phoneEditInput')) || '';
+  }
 
+  function phoneEditHasChanged(phone) {
+    const previous = window.MemberPhone?.normalizeStored(currentProfile?.phone) || String(currentProfile?.phone || '').trim();
+    return Boolean(phone && phone !== previous);
+  }
+
+  function renderPhoneEditVerification() {
+    const phone = phoneEditCandidate();
+    const changed = phoneEditHasChanged(phone);
+    const required = currentProfile?.phoneVerificationRequired === true;
+    document.getElementById('phoneEditVerification')?.classList.toggle('hidden', !required || !changed);
+    const status = document.getElementById('phoneEditStatusMessage');
+    if (status) status.textContent = !required ? '' : changed
+      ? '新電話必須重新完成簡訊認證，原電話不會提前變更。'
+      : currentProfile?.phoneVerified === true
+        ? '目前電話已驗證，不必重複驗證。'
+        : '電話沒有變更，不需要重新發送簡訊。';
+  }
+
+  function resetPhoneEditCode() {
+    const phone = phoneEditCandidate();
+    if (phone !== phoneOtpSentTo) {
+      phoneOtpSentTo = '';
+      setValue('phoneEditCode', '');
+      const hint = document.getElementById('phoneEditVerificationMessage');
+      if (hint) hint.textContent = '請先發送新號碼的簡訊驗證碼，再輸入 6 位數驗證碼。';
+    }
+    renderPhoneEditVerification();
+  }
+
+  async function sendPhoneEditCode() {
+    if (phoneOtpSending) return;
+    const phone = phoneEditCandidate();
+    if (!phone) return showModalMessage('phone', '請先填寫正確的手機號碼。');
+    if (!phoneEditHasChanged(phone)) return showModalMessage('phone', '目前號碼未變更，不需要重複驗證。');
+    const button = document.getElementById('phoneEditSendCodeButton');
+    const hint = document.getElementById('phoneEditVerificationMessage');
+    phoneOtpSending = true;
+    if (button) { button.disabled = true; button.textContent = '正在發送…'; }
+    hideModalMessage('phone');
+    try {
+      const result = await requestProfile('user.member.phone.send', { phone });
+      if (phoneEditCandidate() !== phone) {
+        phoneOtpSentTo = '';
+        if (hint) hint.textContent = '電話號碼已變更，請重新發送驗證碼。';
+      } else if (result.alreadyVerified === true) {
+        phoneOtpSentTo = '';
+        if (hint) hint.textContent = '這支電話已完成驗證，不需要再次發送簡訊。';
+      } else {
+        phoneOtpSentTo = phone;
+        setValue('phoneEditCode', '');
+        if (hint) hint.textContent = '驗證碼已發送，輸入後點選「儲存」完成新電話綁定。';
+        document.getElementById('phoneEditCode')?.focus();
+      }
+    } catch (error) {
+      showModalMessage('phone', error?.message || '簡訊暫時無法發送，請稍後再試。');
+    } finally {
+      phoneOtpSending = false;
+      if (button) { button.disabled = false; button.textContent = '重新發送驗證碼'; }
+    }
+  }
+
+  async function savePhoneProfile() {
+    const phone = phoneEditCandidate();
     if (!phone) return showModalMessage('phone', '請選擇國碼並填寫正確的電話號碼。');
+    if (!phoneEditHasChanged(phone)) { closeProfileModal('phone'); return; }
+
+    const required = currentProfile?.phoneVerificationRequired === true;
+    const otpCode = valueOf('phoneEditCode');
+    if (required && (phoneOtpSentTo !== phone || !/^[0-9]{6}$/.test(otpCode))) {
+      return showModalMessage('phone', '請先發送新電話的簡訊驗證碼，並輸入收到的 6 位數驗證碼。');
+    }
 
     let uncertain = false;
     setModalSaving('phone', true);
     hideModalMessage('phone');
     try {
-      const result = await saveProfilePayload({ phone });
-      publishProfile(result.profile || { ...(currentProfile || {}), phone });
+      const result = await saveProfilePayload({ phone, ...(required ? { otpCode } : {}) });
+      publishProfile(result.profile || { ...(currentProfile || {}), phone, phoneVerified: required });
       closeProfileModal('phone');
     } catch (error) {
       uncertain = error?.code === 'API_RESPONSE_UNCERTAIN';
       showModalMessage('phone', uncertain
-        ? '無法確認這次修改是否完成。請關閉視窗後重新整理確認；系統不會自動重送。'
+        ? '無法確認新電話是否已儲存，請重新整理會員資料確認；系統不會自動重送。'
         : error?.message || '電話暫時無法儲存，請稍後再試。');
     } finally {
       if (uncertain) setModalWriteUncertain('phone');
@@ -244,7 +327,7 @@
     const closeButton = document.getElementById(type === 'honorific' ? 'closeHonorificEditButton' : 'closePhoneEditButton');
     const inputs = type === 'honorific'
       ? [document.getElementById('honorificSurnameInput'), document.getElementById('honorificSalutationSelect')]
-      : [document.getElementById('phoneEditCountryCode'), document.getElementById('phoneEditInput')];
+      : [document.getElementById('phoneEditCountryCode'), document.getElementById('phoneEditInput'), document.getElementById('phoneEditCode'), document.getElementById('phoneEditSendCodeButton')];
 
     if (saveButton) {
       saveButton.disabled = saving;
