@@ -335,7 +335,7 @@
     if (!phone) return showMessage('請選擇國碼並填寫正確的電話號碼。');
     if (state.phoneVerificationRequired) {
       if (state.phoneOtpSentTo !== phone) return showMessage('請先發送此手機號碼的簡訊驗證碼。');
-      if (!/^[0-9]{4,10}$/.test(String(els.profilePhoneCode.value || '').trim())) {
+      if (!/^[0-9]{6}$/.test(String(els.profilePhoneCode.value || '').trim())) {
         return showMessage('請輸入收到的簡訊驗證碼。');
       }
     }
