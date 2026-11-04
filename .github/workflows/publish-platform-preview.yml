@@ -62,6 +62,9 @@ jobs:
             echo "DEPLOY_ID=$(jq -er '.deploy_id' evidence/platform-deploy.json)" >> "$GITHUB_ENV"
           elif grep -Fxq 'Verified native branch preview failed: NATIVE_DEPLOY_FAILED' /tmp/native-preview-error.txt; then
             echo "PREVIEW_DEPLOY_MODE=ci-zip" >> "$GITHUB_ENV"
+            # The Netlify deploy ID does not exist until the ZIP is accepted.
+            # Reproducibly identify the CI artifact with its exact commit until then.
+            echo "DEPLOY_ID=${GITHUB_SHA:0:24}" >> "$GITHUB_ENV"
           else
             echo "::error::Native branch verification blocked for a reason other than a failed build; no upload performed"
             exit 1
