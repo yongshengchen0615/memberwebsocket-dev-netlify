@@ -111,7 +111,7 @@ BEGIN
           audit_id, actor_line_user_id, actor_role, action,
           target_type, target_id, result, detail
         ) VALUES (
-          public.new_public_id('AUD'), p_actor, 'member',
+          %1$I.new_public_id('AUD'), p_actor, 'member',
           'MEMBER_PHONE_VERIFIED', 'member', m.id::text,
           'success', jsonb_build_object('initialEnrollment', was_pending)
         );
@@ -131,5 +131,91 @@ BEGIN
   END LOOP;
 END;
 $migration$;
+
+
+-- Merchant provisioning uses an immutable JSON snapshot rather than cloning
+-- the live public schema. Extend the snapshot so future merchants get exactly
+-- the same verified-phone invariants; a live-schema-only migration is unsafe.
+DO $template$
+DECLARE
+  tpl jsonb;
+  t jsonb;
+  updated_tables jsonb;
+  definition text;
+BEGIN
+  SELECT snapshot INTO tpl
+  FROM platform_private.business_templates
+  WHERE version = 'business-v1-20261019' FOR UPDATE;
+
+  IF tpl IS NULL THEN RAISE EXCEPTION 'PHONE_TEMPLATE_NOT_FOUND'; END IF;
+
+  SELECT jsonb_agg(
+    CASE WHEN item.value->>'name' = 'members' THEN
+      jsonb_set(item.value, '{columns}', item.value->'columns' ||
+        (CASE WHEN EXISTS (
+          SELECT 1 FROM jsonb_array_elements(item.value->'columns') col
+          WHERE col->>'name' = 'phone_verified_e164'
+        ) THEN '[]'::jsonb ELSE jsonb_build_array(jsonb_build_object(
+          'name', 'phone_verified_e164', 'type', 'text', 'default', null,
+          'notNull', false, 'identity', '', 'generated', ''
+        )) END) ||
+        (CASE WHEN EXISTS (
+          SELECT 1 FROM jsonb_array_elements(item.value->'columns') col
+          WHERE col->>'name' = 'phone_verified_at'
+        ) THEN '[]'::jsonb ELSE jsonb_build_array(jsonb_build_object(
+          'name', 'phone_verified_at', 'type', 'timestamp with time zone',
+          'default', null, 'notNull', false, 'identity', '', 'generated', ''
+        )) END))
+    ELSE item.value END
+    ORDER BY item.ordinality
+  ) INTO updated_tables
+  FROM jsonb_array_elements(tpl->'tables') WITH ORDINALITY AS item(value,ordinality);
+  tpl := jsonb_set(tpl, '{tables}', updated_tables);
+
+  IF NOT EXISTS (SELECT 1 FROM jsonb_array_elements(tpl->'constraints') c
+     WHERE c->>'table' = 'members' AND c->>'name' = 'members_phone_verification_consistent') THEN
+    SELECT pg_get_constraintdef(c.oid) INTO definition
+    FROM pg_constraint c WHERE c.conrelid='public.members'::regclass
+      AND c.conname='members_phone_verification_consistent';
+    tpl := jsonb_set(tpl, '{constraints}', tpl->'constraints' || jsonb_build_array(
+      jsonb_build_object('table','members','name','members_phone_verification_consistent',
+                         'type','c','definition',definition)));
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM jsonb_array_elements(tpl->'indexes') idx
+      WHERE idx->>'name'='members_verified_phone_unique'
+         OR idx->>'definition' LIKE 'CREATE UNIQUE INDEX members_verified_phone_unique %') THEN
+    tpl := jsonb_set(tpl, '{indexes}', tpl->'indexes' || jsonb_build_array(
+      jsonb_build_object('name','members_verified_phone_unique','definition',
+        pg_get_indexdef('public.members_verified_phone_unique'::regclass))));
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM jsonb_array_elements(tpl->'functions') fn
+     WHERE fn->>'name'='invalidate_verified_phone_on_edit') THEN
+    tpl := jsonb_set(tpl, '{functions}', tpl->'functions' || jsonb_build_array(
+      jsonb_build_object('name','invalidate_verified_phone_on_edit','definition',
+      pg_get_functiondef('public.invalidate_verified_phone_on_edit()'::regprocedure))));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM jsonb_array_elements(tpl->'functions') fn
+     WHERE fn->>'name'='member_commit_verified_phone') THEN
+    tpl := jsonb_set(tpl, '{functions}', tpl->'functions' || jsonb_build_array(
+      jsonb_build_object('name','member_commit_verified_phone','definition',
+      pg_get_functiondef('public.member_commit_verified_phone(text,text,timestamptz,jsonb)'::regprocedure))));
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM jsonb_array_elements(tpl->'triggers') trg
+      WHERE trg->>'name'='members_invalidate_verified_phone') THEN
+    SELECT pg_get_triggerdef(t.oid) INTO definition
+    FROM pg_trigger t WHERE t.tgrelid='public.members'::regclass
+      AND t.tgname='members_invalidate_verified_phone';
+    tpl := jsonb_set(tpl, '{triggers}', tpl->'triggers' || jsonb_build_array(
+      jsonb_build_object('name','members_invalidate_verified_phone','definition',definition)));
+  END IF;
+
+  UPDATE platform_private.business_templates
+     SET snapshot = tpl
+   WHERE version='business-v1-20261019';
+END;
+$template$;
 
 NOTIFY pgrst, 'reload schema';
