@@ -216,7 +216,8 @@ test('AC-010: disabled flag retains legacy join without performing Twilio calls'
 });
 
 test('AC-011: old generic API explicitly blocks unverified first-join route', () => {
-  const legacy = fs.readFileSync(path.join(__dirname, '../supabase/functions/api/index.ts'), 'utf8');
+  // Read the unmodified source: edge-test-fs rewrites businessEnv for the VM harness.
+  const legacy = require('node:fs').readFileSync(path.join(__dirname, '../supabase/functions/api/index.ts'), 'utf8');
   assert.match(legacy, /PHONE_VERIFICATION_REQUIRED/);
   assert.match(legacy, /member\.membership_status !== "active"/);
   assert.match(legacy, /businessEnv\("TWILIO_VERIFY_REQUIRED"\)/);
