@@ -2284,6 +2284,11 @@ async function handleAction(supabase: SupabaseClient, identity: { lineUserId: st
   }
   if (action === "user.member.profile.save") {
     const member = await ensureMember(supabase,identity);
+    // All new memberships must pass through member-profile-api when SMS verification is required.
+    // This legacy endpoint must not offer a bypass to the Twilio Verify gate.
+    if (member.membership_status !== "active" && (businessEnv("TWILIO_VERIFY_REQUIRED") || "").trim().toLowerCase() === "true") {
+      throw new ApiError(403, "PHONE_VERIFICATION_REQUIRED", "請在會員卡頁面完成手機簡訊認證後再加入會員。");
+    }
     const birthday = asText(body.birthday,20);
     const phone = asText(body.phone,30).replace(/[()\s-]/g,"");
     if (!/^\d{4}-\d{2}-\d{2}$/.test(birthday)) throw new ApiError(400,"INVALID_BIRTHDAY","請填寫正確的生日。");

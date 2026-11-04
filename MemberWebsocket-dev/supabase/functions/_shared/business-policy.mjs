@@ -31,7 +31,7 @@ export function assertBusinessAction(context,action,body={},now=Date.now()) {
  const features=actionFeatures(action,body);
  if(features&&Array.isArray(body.benefits))for(const benefit of body.benefits){if(benefit?.kind==='points')features.push('points');if(benefit?.kind==='event')features.push('events');}
  if(features===null)throw Object.assign(Error('此功能尚未取得商家授權。'),{code:'FEATURE_ACTION_UNMAPPED',status:403});
- const foundation=/^admin\.terms\.|^user\.member\.(bootstrap|profile\.save|terms\.accept)$/.test(action)
+ const foundation=/^admin\.terms\.|^user\.member\.(bootstrap|profile\.save|phone\.send|terms\.accept)$/.test(action)
   && ['membership','points','events','calendar','booking'].some(key=>context.features?.[key]===true);
  if(!foundation&&features.some(feature=>context.features?.[feature]!==true))throw Object.assign(Error('總管理員尚未核准這項功能，請聯絡總管理員。'),{code:'FEATURE_DISABLED',status:403});
 }
