@@ -8,6 +8,11 @@ test('only the Integrated-Marketing-Platform branch uses isolated candidate APIs
  assert.equal(result.previewApiFunctionUrl,'https://example.supabase.co/functions/v1/api-preview');
  assert.equal(result.memberProfileFunctionUrl,'https://example.supabase.co/functions/v1/member-profile-api-preview');
  assert.equal(result.memberGrowthFunctionUrl,'https://example.supabase.co/functions/v1/member-growth-api-preview');
+ assert.equal(result.bookingPreviewApis,true);
+ assert.equal(result.pricePublishing,true);
+ assert.equal(config.pricePublishing,undefined);
+ assert.equal(result.pricePublishing,true);
+ assert.equal(config.pricePublishing,undefined);
  assert.equal(result.memberInvitationsEnabled,undefined);
  assert.equal(result.memberFriendshipFlowEnabled,undefined);
  assert.equal(result.memberLiffId,'1234567890-synthetic');

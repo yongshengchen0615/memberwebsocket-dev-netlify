@@ -1,3 +1,4 @@
+import { bookingPriceOptions, withBookingPrices, bookingPriceError } from '../_shared/booking-price-publishing.mjs';
 import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
 import { bookingTicketUsageError } from "../_shared/booking-ticket-usage.ts";
 import { readJsonObject } from "../_shared/request-body.ts";
@@ -44,10 +45,10 @@ function corsHeaders(origin: string | null): HeadersInit {
 function response(origin: string | null,payload:unknown,status=200):Response {
   return new Response(JSON.stringify(payload),{status,headers:{...corsHeaders(origin),"Content-Type":"application/json; charset=utf-8"}});
 }
-function dbClient(): SupabaseClient {
+function dbClient(body: Record<string, any> = {}): SupabaseClient {
   const url=env("SUPABASE_URL"); const key=env("SUPABASE_SERVICE_ROLE_KEY");
   if(!url||!key) throw new ApiError(503,"SUPABASE_CONFIG_MISSING","Supabase server 設定尚未完成。");
-  return createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
+  return withBookingPrices(createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false }, ...bookingPriceOptions(body) }), body);
 }
 async function sha256Hex(value: string):Promise<string>{
   const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));
@@ -100,6 +101,7 @@ async function requireMember(supabase:SupabaseClient,identity:Identity):Promise<
   return member;
 }
 function dbError(error:unknown):ApiError{
+  const priceError = bookingPriceError(error); if (priceError) return new ApiError(priceError.status, priceError.code, priceError.message);
   const ticketError=bookingTicketUsageError(error,(status,code,message)=>new ApiError(status,code,message));
   if(ticketError) return ticketError as ApiError;
   const raw=error as {message?:string;details?:string;code?:string};
@@ -893,7 +895,7 @@ async function registrationOptions(supabase:SupabaseClient,body:Json):Promise<Js
   }
 
   const [services,settings,bookings,rewardRules,memberResult,currentBenefitsResult]=await Promise.all([
-    supabase.from("booking_services").select("id,title,duration_minutes,service_type,counts_toward_membership").eq("is_active",true).is("deleted_at",null).neq("id","00000000-0000-4000-8000-000000000010").order("title"),
+    supabase.from("booking_services").select("id,title,duration_minutes,service_type,counts_toward_membership,price_amount,price_version").eq("is_active",true).is("deleted_at",null).neq("id","00000000-0000-4000-8000-000000000010").order("title"),
     supabase.from("booking_settings").select("primary_technician_id,require_primary_technician").eq("id",1).maybeSingle(),
     supabase.from("bookings").select("id,booking_date,start_time,status,booking_items(service_id,service_title),booking_receipts!booking_receipts_booking_id_fkey(status)").eq("member_id",receipt.data.member_id)
       .in("status",["confirmed","completed"]).order("booking_date",{ascending:false}).limit(80),
@@ -971,7 +973,7 @@ serveBusiness('booking-receipt-api',async(request:Request)=>{
     const adminActions=new Set(["admin.booking.receipt.list","admin.booking.receipt.url","admin.booking.receipt.options","admin.booking.receipt.register","admin.booking.receipt.dismiss"]);
     if(!userActions.has(action)&&!adminActions.has(action)) throw new ApiError(404,"ACTION_NOT_FOUND","不支援的收據操作。");
 
-    const supabase=dbClient();
+    const supabase = dbClient(body);
     const expiredReceipts=await supabase.rpc("expire_stale_booking_receipts");
     if(expiredReceipts.error) console.warn("booking receipt stale cleanup failed", expiredReceipts.error.message);
     await drainCleanupQueue(supabase);

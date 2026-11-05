@@ -1,3 +1,4 @@
+import { bookingPriceOptions, withBookingPrices, bookingPriceError } from '../_shared/booking-price-publishing.mjs';
 import { businessEnv, businessContext, serveBusiness } from '../_shared/business-runtime.ts';
 import { linkedBooking } from "../_shared/linked-booking.ts";
 import { hasCurrentTermsConsent } from "../_shared/membership-terms.ts";
@@ -82,6 +83,7 @@ function errorResponse(origin: string | null, error: unknown): Response {
 }
 
 function mapDatabaseError(error: unknown): ApiError {
+  const priceError = bookingPriceError(error); if (priceError) return new ApiError(priceError.status, priceError.code, priceError.message);
   const raw = error as { message?: string; details?: string; code?: string };
   const message = `${raw?.message || ""} ${raw?.details || ""}`;
   const rules: Array<[string, number, string, string]> = [
@@ -149,11 +151,11 @@ function mapDatabaseError(error: unknown): ApiError {
   return new ApiError(500, "DATABASE_ERROR", "資料庫暫時無法完成預約操作。");
 }
 
-function dbClient(): SupabaseClient {
+function dbClient(body: Record<string, any> = {}): SupabaseClient {
   const url = env("SUPABASE_URL");
   const key = env("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !key) throw new ApiError(503, "SUPABASE_CONFIG_MISSING", "Supabase server 設定尚未完成。");
-  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  return withBookingPrices(createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false }, ...bookingPriceOptions(body) }), body);
 }
 
 function channelIdFor(clientType: ClientType): string {
@@ -310,7 +312,7 @@ function serviceClient(row: any): Json {
     description: row.description || "",
     serviceType: row.service_type || "",
     durationMinutes: Number(row.duration_minutes || 30),
-    priceAmount: Number(row.price_amount || 0),
+    priceAmount: Number(row.price_amount || 0), priceVersion: row.price_version || null, nextPriceAt: row.next_price_at || null,
     requiresCompanionService: Boolean(row.requires_companion_service),
     isActive: Boolean(row.is_active),
     createdAt: row.created_at,
@@ -1230,7 +1232,7 @@ serveBusiness('booking-api',async (request: Request) => {
       throw new ApiError(401, "AUTH_REQUIRED", "請先使用 LINE 登入。");
     }
 
-    const supabase = dbClient();
+    const supabase = dbClient(body);
     if (clientType === "member") {
       const mode = await supabase.from("test_mode_settings")
         .select("maintenance_enabled,maintenance_message")

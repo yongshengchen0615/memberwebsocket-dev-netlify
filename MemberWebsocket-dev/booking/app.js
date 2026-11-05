@@ -130,6 +130,16 @@
     }
   }
 
+  function schedulePriceRefresh() {
+    window.clearTimeout(state.priceRefreshTimer);
+    if (state.config?.pricePublishing !== true) return;
+    const times = (state.data.services || []).map(s => Date.parse(s.nextPriceAt || '')).filter(Number.isFinite);
+    if (!times.length) return;
+    const serverNow = Date.parse(state.data.serverNow || '') || Date.now();
+    const delay = Math.max(1000, Math.min(2147483647, Math.min(...times) - serverNow + 150));
+    state.priceRefreshTimer = window.setTimeout(() => refresh(false), delay);
+  }
+
   async function refresh(showMessage = true) {
     const refreshSequence = ++state.refreshSequence;
     try {
@@ -141,6 +151,7 @@
       // 寫回畫面，避免較舊的 Bootstrap 回應覆蓋較新的預約狀態。
       if (refreshSequence !== state.refreshSequence) return false;
       state.data = bookingData || state.data;
+      schedulePriceRefresh();
       syncServerClock(state.data.serverNow);
       state.profile = profile || {};
       window.dispatchEvent(new CustomEvent('booking:member-loaded', { detail: { profile: state.profile } }));
@@ -647,6 +658,7 @@
   }
 
   function renderConfirmation(items) {
+    state.confirmationPrices = state.config?.pricePublishing === true ? window.BookingPricePublishing.payload(state.config,{items:selectedItems()},state.data.services).expectedPrices : null;
     if (window.BookingGroupUI?.renderConfirmation?.()) return;
 
     const box = document.createElement('div');
@@ -804,6 +816,7 @@
         expectedUpdatedAt: state.editing?.updatedAt,
         requestId,
         items,
+        ...(state.config.pricePublishing === true ? {pricePublishing:true,expectedPrices:state.confirmationPrices || []} : {}),
         bookingDate,
         startTime,
         memberNote: els.memberNote.value,
@@ -852,6 +865,14 @@
       }
 
       state.pendingBookingWrite = null;
+      if (error?.code === 'BOOKING_PRICE_CHANGED') {
+        await refresh(false);
+        if (state.selectedSlot) renderConfirmation(selectedServiceRows());
+        else els.bookingConfirmModal.classList.add('hidden');
+        showFormMessage('價格已更新，請重新確認項目、時間與總價。', 'error');
+        showConfirmMessage('價格已更新，請返回確認最新項目與總價後再送出。', 'error');
+        return;
+      }
       showConfirmMessage(error?.message || '預約送出失敗，請返回重新選擇時間。', 'error');
       if (error?.code === 'BOOKING_SLOT_TAKEN') {
         await loadSlots();
@@ -1246,6 +1267,8 @@
     catch { return null; }
   }
 
+  window.addEventListener('pagehide', () => window.clearTimeout(state.priceRefreshTimer));
+  window.addEventListener('pageshow', event => { if (event.persisted) schedulePriceRefresh(); });
   window.MemberClientQaHooks = Object.freeze({
     surface: 'booking',
     refresh: () => refresh(false),
