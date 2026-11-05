@@ -1,61 +1,66 @@
-name: Diagnose platform deploy logs
+name: Recover verified native platform preview
 on:
   push:
     branches: [chore/platform-deploy-diagnostic-20261105]
     paths: [.github/workflows/diagnose-platform-deploy.yml]
 permissions:
   contents: read
+  actions: read
 jobs:
-  inspect:
+  recover:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 4
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 8d8818f5d2832598f6e0f40070425ea4784ae3a7
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Read and classify only the two failed deploy logs
+      - name: Retry the exact verified native branch from Git without ZIP or settings changes
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           node --input-type=module <<'NODE'
-          const site='196e1d2c-8216-4ba8-aeb9-1706660adc2b';
-          const ids=['6aec680bc7445f9f186ecd08','6aec69b448b4150030e49571'];
-          const token=process.env.NETLIFY_AUTH_TOKEN;
-          if(!token)throw new Error('Missing existing deployment credential');
-          const get=async path=>{
-            const r=await fetch('https://api.netlify.com/api/v1'+path,{headers:{Authorization:'Bearer '+token},redirect:'error',signal:AbortSignal.timeout(20000)});
-            return {status:r.status,text:await r.text()};
+          import {awaitVerifiedPreviewCI} from './scripts/netlify-native-ci-gate.mjs';
+          const siteId='196e1d2c-8216-4ba8-aeb9-1706660adc2b';
+          const branch='Integrated-Marketing-Platform';
+          const sha='8d8818f5d2832598f6e0f40070425ea4784ae3a7';
+          const github=async path=>{
+            const r=await fetch('https://api.github.com/repos/yongshengchen0615/memberwebsocket-dev-netlify'+path,{headers:{Authorization:'Bearer '+process.env.GH_TOKEN,Accept:'application/vnd.github+json'},redirect:'error',signal:AbortSignal.timeout(20000)});
+            if(!r.ok)throw new Error('GitHub read HTTP '+r.status);
+            return r.json();
           };
-          for(const id of ids){
-            const meta=await get('/deploys/'+id);
-            if(meta.status!==200)throw new Error('Deploy metadata HTTP '+meta.status);
-            const d=JSON.parse(meta.text);
-            if(d.site_id!==site||d.context!=='branch-deploy'||d.branch!=='Integrated-Marketing-Platform')throw new Error('Unexpected deploy scope');
-            const auth=await fetch('https://app.netlify.com/access-control/generate-access-control-token?'+new URLSearchParams({site_id:site,deploy_id:id}),{headers:{Authorization:'Bearer '+token},redirect:'error',signal:AbortSignal.timeout(20000)});
-            if(auth.status!==200){console.log(JSON.stringify({deploy:id,logAuthHttp:auth.status}));continue;}
-            const access=(await auth.json()).accessControlToken;
-            if(typeof access!=='string')throw new Error('Missing log access response');
-            const collected=await new Promise(resolve=>{
-              const rows=[],ws=new WebSocket('wss://socketeer.services.netlify.com/build/logs');
-              const timer=setTimeout(()=>{ws.close();resolve(rows);},12000);
-              ws.addEventListener('open',()=>ws.send(JSON.stringify({site_id:site,deploy_id:id,access_token:access})));
-              ws.addEventListener('message',event=>{try{const row=JSON.parse(event.data);if(row.type==='error')rows.push('LOG_STREAM_ERROR_'+Number(row.status));else if(typeof row.message==='string')rows.push(row.message);}catch{}});
-              ws.addEventListener('error',()=>{clearTimeout(timer);resolve(rows.concat('LOG_STREAM_UNAVAILABLE'));});
-              ws.addEventListener('close',()=>{clearTimeout(timer);resolve(rows);});
-            });
-            const log={status:auth.status,text:JSON.stringify(collected)};
-            const s=log.text;
-            const codes=[...new Set(s.match(/CI_[A-Z_]+(?:[0-9]{3})?|MODULE_NOT_FOUND|ERR_MODULE_NOT_FOUND|ENOENT|COMMAND_NOT_FOUND|Cannot find module[^\r\n]{0,160}|Cannot find package[^\r\n]{0,160}|command not found[^\r\n]{0,160}|Missing script[^\r\n]{0,120}/g)||[])];
-            const selected=[];
-            let parsed;try{parsed=JSON.parse(s);}catch{}
-            const messages=Array.isArray(parsed)?parsed.map(x=>typeof x==='string'?x:x.message||x.msg||x.text||''):[];
-            for(const m of messages){
-              if(/CI_|Cannot find|Module|command not found|Error|error|Failed|failed|build.command|Configuration error|Build command/i.test(m)){
-                let safe=String(m).replaceAll(token,'[REDACTED]').replace(/(?:Bearer|Basic)\s+[^\s"']+/gi,'[REDACTED]').replace(/(?:sk_|sb_secret_|nfp_)[A-Za-z0-9_-]+/g,'[REDACTED]');
-                if(!/secret|password|token|authorization|environment|apikey|api_key/i.test(safe))selected.push(safe.slice(0,300));
-              }
+          const head=await github('/git/ref/heads/'+branch);
+          if(head.object.sha!==sha)throw new Error('Branch moved; no build started');
+          const ci=await awaitVerifiedPreviewCI({sha,token:process.env.GH_TOKEN,attempts:1});
+          const request=async(path,options={})=>{
+            const r=await fetch('https://api.netlify.com/api/v1'+path,{...options,headers:{Authorization:'Bearer '+process.env.NETLIFY_AUTH_TOKEN,...options.headers},redirect:'error',signal:AbortSignal.timeout(30000)});
+            if(!r.ok)throw new Error('Netlify HTTP '+r.status);
+            return r.json();
+          };
+          const before=await request('/sites/'+siteId);
+          if(before.id!==siteId||before.name!=='memberwebsocket-dev-netlify'||before.build_settings.repo_path!=='yongshengchen0615/memberwebsocket-dev-netlify'||before.build_settings.repo_branch===branch)throw new Error('Unexpected site or production identity');
+          const deploys=await request('/sites/'+siteId+'/deploys?per_page=30');
+          if(deploys.some(d=>d.branch===branch&&d.context==='branch-deploy'&&!['ready','error','rejected','canceled'].includes(d.state)))throw new Error('A native build is already active');
+          const query=new URLSearchParams({branch,commit_sha:sha,title:'verified-native-retry-'+sha});
+          const build=await request('/sites/'+siteId+'/builds?'+query,{method:'POST'});
+          const id=build.deploy_id;
+          if(!/^[a-f0-9]{24}$/.test(id||''))throw new Error('Build response missing deploy identity; do not retry POST');
+          console.log(JSON.stringify({buildId:build.id,deployId:id,source:sha,ciRuns:ci.runIds,productionBefore:before.published_deploy.id}));
+          for(let attempt=0;attempt<35;attempt++){
+            const d=await request('/deploys/'+id);
+            if(d.site_id!==siteId||d.branch!==branch||d.context!=='branch-deploy'||(d.commit_ref&&d.commit_ref!==sha))throw new Error('Build identity mismatch');
+            if(['error','rejected','canceled'].includes(d.state))throw new Error('Native build failed: '+id);
+            if(d.state==='ready'){
+              const after=await request('/sites/'+siteId);
+              if(after.published_deploy.id!==before.published_deploy.id||after.build_settings.repo_branch!==before.build_settings.repo_branch)throw new Error('Production identity changed');
+              console.log(JSON.stringify({deployId:id,state:d.state,sha:d.commit_ref,branch:d.branch,productionUnchanged:true}));
+              process.exit(0);
             }
-            console.log(JSON.stringify({deploy:id,metaError:d.error_message,logHttp:log.status,logBytes:s.length,codes,selected:selected.slice(-16)}));
+            await new Promise(resolve=>setTimeout(resolve,3000));
           }
+          throw new Error('Native build still pending: '+id);
           NODE
