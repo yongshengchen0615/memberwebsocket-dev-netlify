@@ -121,3 +121,89 @@ test('AC-004: merchant theme toggles actual card and form colors, persists, sync
   await page.close();
   await secondPage.close();
 });
+
+async function openProductizedMerchantTheme(page) {
+  // Exercise the real /admin/ host and its actual productized shell mounting.
+  // Suppress identity/API integrations; their authorization behavior has separate tests.
+  await page.route('**/*.js*', (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    if (pathname === '/theme.js' || pathname === '/admin/productized-workspace.js') {
+      return route.continue();
+    }
+    return route.fulfill({ contentType: 'text/javascript', body: '' });
+  });
+  await page.route('https://cdn.jsdelivr.net/**', (route) => route.abort());
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.goto(base + '/admin/');
+  await expect(page.locator('#app #themeToggleButton')).toHaveCount(1);
+  await page.evaluate(() => window.ProductizedAdminShell.mount());
+  await expect(page.locator('#productizedAdmin')).toBeVisible();
+}
+
+test('AC-006: actual /admin/ My Merchants has a visible working theme toggle, persists and survives remount on desktop/mobile', async ({ page }) => {
+  await openProductizedMerchantTheme(page);
+  const toggle = page.locator('#productizedAdmin #themeToggleButton');
+  await expect(toggle).toBeVisible();
+  await expect(toggle).toHaveText('☾ 暗色');
+  await expect(toggle).toHaveAttribute('aria-label', '切換為暗色調');
+  await expect(page.locator('#app #themeToggleButton')).toHaveCount(0);
+  await expect(page.locator('#themeToggleButton')).toHaveCount(1);
+
+  const header = page.locator('#productizedAdmin .topbar');
+  const lightColor = await header.evaluate((node) => getComputedStyle(node).backgroundColor);
+  await toggle.click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(toggle).toHaveText('☀ 亮色');
+  const darkColor = await header.evaluate((node) => getComputedStyle(node).backgroundColor);
+  expect(darkColor).not.toBe(lightColor);
+  expect(await page.evaluate(() => localStorage.getItem('lumen-color-theme-v1'))).toBe('dark');
+
+  // A productized re-mount must preserve the existing event-bound button.
+  await page.evaluate(() => window.ProductizedAdminShell.mount());
+  await expect(page.locator('#productizedAdmin #themeToggleButton')).toBeVisible();
+  await expect(page.locator('#themeToggleButton')).toHaveCount(1);
+  await page.reload();
+  await page.evaluate(() => window.ProductizedAdminShell.mount());
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(page.locator('#productizedAdmin #themeToggleButton')).toHaveText('☀ 亮色');
+
+  for (const width of [390, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    const bounds = await page.locator('#productizedAdmin #themeToggleButton').boundingBox();
+    expect(bounds).toBeTruthy();
+    expect(bounds.width).toBeGreaterThanOrEqual(80);
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(width + 1);
+  }
+  await page.locator('#productizedAdmin #themeToggleButton').click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+});
+
+test('AC-007: productized mount failure restores the original shared theme toggle to the legacy admin menu', async ({ page }) => {
+  await openProductizedMerchantThemeFailed(page);
+});
+
+async function openProductizedMerchantThemeFailed(page) {
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.route('**/*.js*', (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    if (pathname === '/theme.js' || pathname === '/admin/productized-workspace.js') {
+      return route.continue();
+    }
+    if (pathname === '/platform/app.js') return route.abort();
+    return route.fulfill({ contentType: 'text/javascript', body: '' });
+  });
+  await page.route('https://cdn.jsdelivr.net/**', (route) => route.abort());
+  await page.goto(base + '/admin/');
+  const error = await page.evaluate(async () => {
+    try { await window.ProductizedAdminShell.mount(); return ''; }
+    catch (failure) { return failure.message; }
+  });
+  expect(error).toContain('管理端功能初始化失敗');
+  await expect(page.locator('#app')).toBeVisible();
+  await expect(page.locator('#productizedAdmin')).toBeHidden();
+  await expect(page.locator('#app #themeToggleButton')).toHaveCount(1);
+  await expect(page.locator('#productizedAdmin #themeToggleButton')).toHaveCount(0);
+  await page.locator('#app #themeToggleButton').evaluate((button) => button.click());
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+}

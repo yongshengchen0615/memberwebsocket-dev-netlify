@@ -12,8 +12,14 @@
     const source=parsed.querySelector('main.shell');
     if(!source||!source.querySelector('#applicationWorkspace')||!source.querySelector('#merchantFeatureNav')||!source.querySelector('#merchantLineForm'))
       throw new Error('管理端功能設定版本不相容，請重新整理。');
+    // The shared theme controller first mounts in the legacy account menu.
+    // Move its existing, event-bound button into the visible merchant shell;
+    // importing HTML alone does not re-run theme.js or register its listener.
+    const themeToggle=document.getElementById('themeToggleButton');
     // Only import body nodes from the known same-origin static application page.
     host.replaceChildren(...Array.from(source.children,node=>document.importNode(node,true)));
+    const appearance=host.querySelector('.platform-appearance.account-menu');
+    if(themeToggle&&appearance)appearance.appendChild(themeToggle);
     const heading=host.querySelector('header.topbar h1');
     if(heading)heading.textContent='管理端｜Lumen Club';
     const subtitle=host.querySelector('header.topbar p:last-child');
@@ -40,6 +46,13 @@
       document.documentElement.dataset.productizedAdmin='true';
       document.dispatchEvent(new Event('productized-admin-ready'));
     }catch(error){
+      // Preserve the same working control if the productized shell falls back.
+      const legacyMenu=legacy.querySelector('.account-menu');
+      if(themeToggle&&legacyMenu&&!legacyMenu.contains(themeToggle)){
+        const logout=legacyMenu.querySelector('#logoutButton');
+        if(logout)legacyMenu.insertBefore(themeToggle,logout);
+        else legacyMenu.appendChild(themeToggle);
+      }
       host.hidden=true;legacy.hidden=false;
       delete document.documentElement.dataset.workspace;
       throw error;
