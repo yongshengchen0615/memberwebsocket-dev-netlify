@@ -52,6 +52,7 @@ module.exports=async(options={})=>{
   await db.exec(fs.readFileSync(path.join(dir,fs.readdirSync(dir).find(x=>x.startsWith('20261025013038_'))),'utf8'));
  }
  if(migration)await db.exec(migration);
+ for(const name of fs.readdirSync(dir).filter(x=>x.endsWith('_booking_immediate_price_publication_status.sql')))await db.exec(fs.readFileSync(path.join(dir,name),'utf8'));
  const one=async(sql,args=[]) =>(await db.query(sql,args)).rows[0];
  const resolve=async(id,s=tenant)=>(await one(`select ${s}.booking_price_resolve($1) value`,[id])).value;
  const publish=async(id,price,time=null,request=crypto.randomUUID(),version=null,s=tenant)=>{

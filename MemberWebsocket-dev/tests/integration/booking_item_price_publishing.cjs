@@ -15,6 +15,7 @@ test('AC-001..010: independent item prices, activation, quotes, history and tena
    await db.query(`insert into ${s}.booking_items(service_id,unit_price_amount,service_title) values($1,500,'A')`,[a]);
    const p=await h.publish(a,700);
    assert.equal(p.priceAmount,700);
+   assert.equal(p.status,'published','immediate publication response must already be labelled published');
    assert.equal((await h.resolve(a)).priceAmount,700);
    assert.equal((await h.resolve(b)).priceAmount,900);
    assert.equal((await h.resolve(a,other)).priceAmount,500);
@@ -114,6 +115,9 @@ test('AC-001/007: real existing group RPC and original snapshot triggers keep ef
   const actor='U'+'5'.repeat(32),tenant=await h.approve(actor,'price-real-core');const s=tenant.runtime_schema;
   await h.db.exec(migration);
   await h.db.exec(migration); // Idempotent upgrade must not replace the saved provisioning base.
+  const statusMigration=fs.readFileSync(path.join(dir,fs.readdirSync(dir).find(x=>x.endsWith('_booking_immediate_price_publication_status.sql'))),'utf8');
+  await h.db.exec(statusMigration);await h.db.exec(statusMigration);
+  assert.match((await h.db.query("select pg_get_functiondef('platform_private.install_booking_item_prices(text)'::regprocedure) def")).rows[0].def,/when p.publish_mode='immediate' or p.publish_at<=statement_timestamp/);
   const wrapper=(await h.db.query("select pg_get_functiondef(oid) def from pg_proc where pronamespace=$1::regnamespace and proname='register_snapshot_receipt_v2'",[s])).rows[0];
   assert.match(wrapper.def,/PERFORM .*booking_price_context_time/,'transitive receipt wrapper must acquire price lock before member/receipt rows');
   await h.db.query(`insert into ${s}.booking_service_types(name) values('QA')`);
@@ -189,4 +193,13 @@ test('review regressions: preview price edits, legacy isolation, admin revocatio
    await h.clock('2043-01-01T00:00:00Z');assert.equal((await h.resolve(a)).priceAmount,700);await h.clock('');
   });
  }finally{await db.close();}
+});
+
+test('immediate publication response is published at the controlled transaction clock',async()=>{
+ const h=await fixture();try{
+  await h.clock('2035-01-01T00:00:00Z');
+  const p=await h.publish(h.a,700);
+  assert.equal(p.mode,'immediate');assert.equal(p.status,'published');
+  assert.equal((await h.resolve(h.a)).priceAmount,700);
+ }finally{await h.db.close();}
 });

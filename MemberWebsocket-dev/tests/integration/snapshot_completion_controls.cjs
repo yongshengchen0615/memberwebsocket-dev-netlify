@@ -14,6 +14,7 @@ for(const itemPrices of [false,true])test(`ticket policy, snapshot intent/review
     create table platform_private.tenants(id uuid primary key,runtime_schema text,owner_line_user_id text,status text,features jsonb,expires_at timestamptz,access_revoked_before timestamptz);
     create function public.platform_provision_business(uuid) returns void language plpgsql as $$begin return;end$$;`);
    await db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations',fs.readdirSync(path.join(__dirname,'../../supabase/migrations')).find(x=>x.endsWith('_booking_item_price_publishing.sql'))),'utf8'));
+   await db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations',fs.readdirSync(path.join(__dirname,'../../supabase/migrations')).find(x=>x.endsWith('_booking_immediate_price_publication_status.sql'))),'utf8'));
   }
   const member=(await one("insert into members(line_user_id,member_code,status,membership_status,is_test_account,surname,salutation,phone)values('test:controls-member','QA-CONTROLS','active','active',true,'測試','mr','+886912345678')returning id")).id;
   const other=(await one("insert into members(line_user_id,member_code,status,membership_status,is_test_account)values('test:controls-other','QA-OTHER','active','active',true)returning id")).id;
