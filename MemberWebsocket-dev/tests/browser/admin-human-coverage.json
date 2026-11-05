@@ -42,9 +42,9 @@
     "business-context.js": "3a4319099c8c118cb0c431abb239399bb295c47861bcae0aac2be16c8783696b",
     "admin/business-line-settings.js": "18466944a9897cc4b81954b8effa41f3324142a8b8bd559010baee992bac4fd2",
     "admin/booking-risk.js": "76f61965b64eaa761b8e60074daf893551bc1bdafce7792d951159adac501a97",
-    "platform/index.html": "7b5cea66aac68eb3adfb2cf42c6a6820619e18e083e1276edd7aa277fc34d5dd",
+    "platform/index.html": "efaa6d9b7220ae7d7ee1f9e23e67d3e2aaf251fc64bb7aa49d25a0504c959a03",
     "admin/productized-workspace.js": "12287349259f1d4d7097f1c934a178eb19f4b0fb7727ad082f1e7c7a12a7237c",
-    "platform/platform.css": "eb9d95fc2dbcea4211f4e83df98addb636f83117bdbe7274831b1c770e182350",
+    "platform/platform.css": "ddffa369404c6505eb01935e0e401dbe9d031af070aba7b82036b211ce0a1a30",
     "admin/business-line-settings.css": "7657f293d3208adbbbbc67c27f128d6e74cc3b103ad6228fc8c03638f4f5df70"
   },
   "features": [
@@ -749,5 +749,16 @@
   },
   "reminderMessageReview": "2026-11-02 PR #237: 已審閱預約共用設定新增的獨立 LINE 提醒文案欄位、400 字限制與示意預覽。保留既有的 booking.34 預約設定人工作業清單與瀏覽器行程，提醒送出前才由租戶範圍讀取完整預約（多人服務/技師）並沿用確認通知的 Flex 子卡。新增 booking_reminder_message.test.js 的正常、多人、舊資料回退、已取消與測試會員守衛、管理員 token、限流、樂觀鎖及長度約束；端對端真人 LINE 傳遞仍須另行驗收。不改動會員預約時自行勾選的提醒時間，也不刪除原有瀏覽器測試。",
   "platformRootSyncReview": "2026-11-03 Issue #239 / PR #240: Reviewed Platform total-admin rootSyncNow five-second polling: the former automatic disabled/enabled cycle activated platform.css button:disabled opacity .55 and produced visible blinking; background reads now retain an enabled stable button, while explicit manual clicks alone show busy state. The rootSnapshot equality check retains application and qualification list DOM nodes and focus if data is unchanged. A manual click during an in-flight background read queues exactly one new sequential batch, using the existing rootRevision authentication/revocation protections; offline, hidden tab, open-review-dialog and unverified identity cannot bypass the gate. No new or retired admin workflow, grant, API, database, LINE channel, merchant write or access path. tests/browser/platform-connection-efficiency.spec.cjs AC-ROOT-SYNC-001 and AC-ROOT-SYNC-002 exercise visible button opacity/DOM node stability/serialized manual sync with two distinct API reads; existing AC-PERF-002/003, platform authentication, merchant entry and six admin human journeys are retained. Production LINE Provider / browser acceptance remains separately gated; complete same-SHA CI and Integrated Preview smoke required.",
-  "itemPricePublishingReview": "2026-11-05: Reviewed per-item current/future prices, immediate publish, Taipei scheduling, cancel/reschedule, preserved draft on conflict and keyboard/mobile modal. New standalone booking-item-prices.spec.cjs covers these journeys in real Chromium; existing admin-human.spec.cjs journeys and assertions are retained. Database and real PostgreSQL price quote/race tests are separate. Same API authorizations, historical bookings, points/tickets and LINE recipients remain required regression gates."
+  "itemPricePublishingReview": "2026-11-05: Reviewed per-item current/future prices, immediate publish, Taipei scheduling, cancel/reschedule, preserved draft on conflict and keyboard/mobile modal. New standalone booking-item-prices.spec.cjs covers these journeys in real Chromium; existing admin-human.spec.cjs journeys and assertions are retained. Database and real PostgreSQL price quote/race tests are separate. Same API authorizations, historical bookings, points/tickets and LINE recipients remain required regression gates.",
+  "platformThemeReview": {
+    "issue": 79,
+    "scope": "2026-11-05: Platform reuses theme.css/theme.js and the shared persisted preference. Appearance control stays available outside authorization-hidden content. Cards, notices, expiry modes, grant and v2 review dialogs use semantic colors with original standalone CSS fallbacks. No business, authorization, API, database or LINE change. Existing six admin human journeys are unchanged. Chromium found the shared stylesheet also affects the merchant action color; palette adapters are now scoped to html[data-portal-surface=platform], so existing merchant consumers retain exact fallback colors. The existing V2_REAL_HANDLER_JOURNEY assertion was preserved.",
+    "cases": [
+      "tests/browser/platform-theme.spec.cjs: 390/1280px light/dark contrast, expiry, grants, actual v2 review textarea, unsaved input retention, keyboard focus, reload and cross-tab sync, device preference, blocked storage, denied role",
+      "tests/integration/platform_login_ui.cjs: shared asset loading, mounted toggle, persisted preference, storage sync and hidden workspace",
+      "tests/browser/line-settings-theme.spec.cjs: standalone platform.css legacy fallback",
+      "tests/browser/platform-connection-efficiency.spec.cjs: polling and manual sync regression"
+    ],
+    "gate": "All existing same-SHA CI, Netlify build, Ticket Policy and Preview smoke required; synthetic identity is not live LINE acceptance."
+  }
 }
