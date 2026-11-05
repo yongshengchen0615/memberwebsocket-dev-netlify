@@ -1,5 +1,6 @@
-/* Scope shared palette values to the super-admin entry; other consumers keep their original fallback colors. */
-html[data-portal-surface="platform"]{
+/* Share semantic palette between the super-admin page and the separate merchant workspace. */
+html[data-portal-surface="platform"],
+html[data-workspace="merchant"]{
   --platform-text:var(--theme-text);
   --platform-bg:var(--theme-bg);
   --platform-primary:var(--ui-primary);
@@ -132,6 +133,8 @@ html[data-portal-surface="platform"]{
 /* Appearance is independent of LINE authorization and uses the shared preference. */
 .platform-appearance.account-menu{display:flex;width:fit-content;max-width:100%;margin:0 0 16px auto}
 .platform-appearance .theme-toggle-button{min-height:44px;min-width:88px;font-size:14px}
-html[data-portal-surface="platform"] :where(button,a,input,textarea):focus-visible{outline:3px solid var(--platform-positive-text,#1e5941);outline-offset:3px}
-html[data-portal-surface="platform"] input::placeholder,html[data-portal-surface="platform"] textarea::placeholder{color:var(--platform-text-muted,#617166);opacity:1}
+html[data-portal-surface="platform"] :where(button,a,input,textarea):focus-visible,
+html[data-workspace="merchant"] :where(button,a,input,textarea):focus-visible{outline:3px solid var(--platform-positive-text,#1e5941);outline-offset:3px}
+html[data-portal-surface="platform"] input::placeholder,html[data-portal-surface="platform"] textarea::placeholder,
+html[data-workspace="merchant"] input::placeholder,html[data-workspace="merchant"] textarea::placeholder{color:var(--platform-text-muted,#617166);opacity:1}
 @media(max-width:650px){.tenant-card footer button{max-width:100%}.tenant-card h3{overflow-wrap:anywhere}.dialog-heading>div,.workspace-heading>div{min-width:0}}
