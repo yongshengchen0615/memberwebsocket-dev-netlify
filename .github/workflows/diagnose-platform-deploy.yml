@@ -32,7 +32,19 @@ jobs:
             if(meta.status!==200)throw new Error('Deploy metadata HTTP '+meta.status);
             const d=JSON.parse(meta.text);
             if(d.site_id!==site||d.context!=='branch-deploy'||d.branch!=='Integrated-Marketing-Platform')throw new Error('Unexpected deploy scope');
-            const log=await get('/deploys/'+id+'/log');
+            const auth=await fetch('https://app.netlify.com/access-control/generate-access-control-token?'+new URLSearchParams({site_id:site,deploy_id:id}),{headers:{Authorization:'Bearer '+token},redirect:'error',signal:AbortSignal.timeout(20000)});
+            if(auth.status!==200){console.log(JSON.stringify({deploy:id,logAuthHttp:auth.status}));continue;}
+            const access=(await auth.json()).accessControlToken;
+            if(typeof access!=='string')throw new Error('Missing log access response');
+            const collected=await new Promise(resolve=>{
+              const rows=[],ws=new WebSocket('wss://socketeer.services.netlify.com/build/logs');
+              const timer=setTimeout(()=>{ws.close();resolve(rows);},12000);
+              ws.addEventListener('open',()=>ws.send(JSON.stringify({site_id:site,deploy_id:id,access_token:access})));
+              ws.addEventListener('message',event=>{try{const row=JSON.parse(event.data);if(row.type==='error')rows.push('LOG_STREAM_ERROR_'+Number(row.status));else if(typeof row.message==='string')rows.push(row.message);}catch{}});
+              ws.addEventListener('error',()=>{clearTimeout(timer);resolve(rows.concat('LOG_STREAM_UNAVAILABLE'));});
+              ws.addEventListener('close',()=>{clearTimeout(timer);resolve(rows);});
+            });
+            const log={status:auth.status,text:JSON.stringify(collected)};
             const s=log.text;
             const codes=[...new Set(s.match(/CI_[A-Z_]+(?:[0-9]{3})?|MODULE_NOT_FOUND|ERR_MODULE_NOT_FOUND|ENOENT|COMMAND_NOT_FOUND|Cannot find module[^\r\n]{0,160}|Cannot find package[^\r\n]{0,160}|command not found[^\r\n]{0,160}|Missing script[^\r\n]{0,120}/g)||[])];
             const selected=[];
