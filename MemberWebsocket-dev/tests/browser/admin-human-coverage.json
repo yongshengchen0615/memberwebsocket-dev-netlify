@@ -44,7 +44,7 @@
     "admin/booking-risk.js": "76f61965b64eaa761b8e60074daf893551bc1bdafce7792d951159adac501a97",
     "platform/index.html": "efaa6d9b7220ae7d7ee1f9e23e67d3e2aaf251fc64bb7aa49d25a0504c959a03",
     "admin/productized-workspace.js": "12287349259f1d4d7097f1c934a178eb19f4b0fb7727ad082f1e7c7a12a7237c",
-    "platform/platform.css": "458ed86aa9d9842e8a49a6df2d343e9ca3bc1153c121f0cf599f032271199317",
+    "platform/platform.css": "ddffa369404c6505eb01935e0e401dbe9d031af070aba7b82036b211ce0a1a30",
     "admin/business-line-settings.css": "7657f293d3208adbbbbc67c27f128d6e74cc3b103ad6228fc8c03638f4f5df70"
   },
   "features": [
@@ -752,7 +752,7 @@
   "itemPricePublishingReview": "2026-11-05: Reviewed per-item current/future prices, immediate publish, Taipei scheduling, cancel/reschedule, preserved draft on conflict and keyboard/mobile modal. New standalone booking-item-prices.spec.cjs covers these journeys in real Chromium; existing admin-human.spec.cjs journeys and assertions are retained. Database and real PostgreSQL price quote/race tests are separate. Same API authorizations, historical bookings, points/tickets and LINE recipients remain required regression gates.",
   "platformThemeReview": {
     "issue": 79,
-    "scope": "2026-11-05: Platform reuses theme.css/theme.js and the shared persisted preference. Appearance control stays available outside authorization-hidden content. Cards, notices, expiry modes, grant and v2 review dialogs use semantic colors with original standalone CSS fallbacks. No business, authorization, API, database or LINE change. Existing six admin human journeys are unchanged.",
+    "scope": "2026-11-05: Platform reuses theme.css/theme.js and the shared persisted preference. Appearance control stays available outside authorization-hidden content. Cards, notices, expiry modes, grant and v2 review dialogs use semantic colors with original standalone CSS fallbacks. No business, authorization, API, database or LINE change. Existing six admin human journeys are unchanged. Chromium found the shared stylesheet also affects the merchant action color; palette adapters are now scoped to html[data-portal-surface=platform], so existing merchant consumers retain exact fallback colors. The existing V2_REAL_HANDLER_JOURNEY assertion was preserved.",
     "cases": [
       "tests/browser/platform-theme.spec.cjs: 390/1280px light/dark contrast, expiry, grants, actual v2 review textarea, unsaved input retention, keyboard focus, reload and cross-tab sync, device preference, blocked storage, denied role",
       "tests/integration/platform_login_ui.cjs: shared asset loading, mounted toggle, persisted preference, storage sync and hidden workspace",

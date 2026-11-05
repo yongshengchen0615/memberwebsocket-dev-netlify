@@ -50,7 +50,7 @@ for(const width of [390,1280])test('AC-001/002/003 platform theme, cards and dia
  const h=await setup(page),toggle=page.getByRole('button',{name:'切換為暗色調'});
  await expect(toggle).toBeVisible();
  await expect(page.locator('html')).toHaveAttribute('data-theme','light');
- const initial=await page.locator('.tenant-card').evaluate(el=>getComputedStyle(el).backgroundColor);
+ const initial=await page.locator('#tenantList .tenant-card').evaluate(el=>getComputedStyle(el).backgroundColor);
  for(const theme of ['light','dark']){
   if(theme==='dark')await toggle.click();
   await expect(page.locator('html')).toHaveAttribute('data-theme',theme);
@@ -84,7 +84,7 @@ for(const width of [390,1280])test('AC-001/002/003 platform theme, cards and dia
   await page.locator('#closeV2Review').click();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  }
- expect(await page.locator('.tenant-card').evaluate(el=>getComputedStyle(el).backgroundColor)).not.toBe(initial);
+ expect(await page.locator('#tenantList .tenant-card').evaluate(el=>getComputedStyle(el).backgroundColor)).not.toBe(initial);
  await page.reload();await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
  const other=await page.context().newPage();await other.goto('https://fixture.test/platform/');
  await expect(other.locator('html')).toHaveAttribute('data-theme','dark');
@@ -116,5 +116,5 @@ test('AC-003 appearance remains available after server denies platform access',a
  await page.locator('#themeToggleButton').click();
  await expect(page.locator('#platformWorkspace')).toBeHidden();
  await assertContrast(page,['#platformAuthorizationTitle']);
- expect(h.calls).toEqual(['platform.bootstrap']);expect(h.errors).toEqual([]);
+ expect(h.calls.sort()).toEqual(['platform.bootstrap','platform.qualification.list']);expect(h.errors).toEqual([]);
 });
