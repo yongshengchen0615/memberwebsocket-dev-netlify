@@ -7,6 +7,9 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' https://static.line-scdn.net; style-src 'self'; connect-src 'self' https://*.supabase.co https://api.line.me https://access.line.me https://liff.line.me https://*.line-scdn.net; img-src 'self' data:; frame-src https://access.line.me https://liff-subwindow.line.me; form-action 'self' https://access.line.me https://liff-subwindow.line.me">
   <title>一般管理員後台</title>
+  <meta name="theme-color" content="#f9fbf9">
+  <link rel="stylesheet" href="../theme.css?v=merchant-workspace-theme-20261105-1">
+  <script src="../theme.js?v=m3-ui-20260929-1"></script>
   <link rel="stylesheet" href="../platform/platform.css?v=merchant-expiry-readonly-20261101-1">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
   <script src="../business-context.js"></script>
@@ -22,6 +25,7 @@
   <main class="shell">
     <a id="backToMyMerchants" class="business-switch" href="/admin/" data-business-switch="true" hidden>返回我的商家</a>
     <button id="refreshApplication" type="button" class="secondary">重新檢查申請與功能權限</button>
+    <div class="platform-appearance account-menu" role="group" aria-label="外觀設定"></div>
     <header class="topbar"><div><p class="eyebrow">ADMIN / WORKSPACE</p><h1>一般管理員後台</h1><p>首次登入可主動填寫並送出申請；審核通過後，可在獨立的 LINE 設定分頁設定已核准功能。</p></div></header>
     <p id="platformStatus" role="status" aria-live="polite">正在確認 LINE 身分…</p>
     <section id="platformLoginGate" class="login-gate" hidden aria-labelledby="platformLoginTitle">
