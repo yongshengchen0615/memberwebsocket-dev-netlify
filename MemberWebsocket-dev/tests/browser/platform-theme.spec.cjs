@@ -22,7 +22,7 @@ async function setup(page,{denied=false,empty=false,stored,blockedStorage=false}
   if(denied)return route.fulfill({status:403,json:{ok:false,error:{code:'PLATFORM_ADMIN_REQUIRED',message:'denied'}}});
   const data=input.action==='platform.bootstrap'?{features,profile:{displayName:'Root'},applications:[],tenants:empty?[]:[{
    id:'tenant-1',version:1,name:'測試商家・總管理員亮暗色驗收',slug:'theme-fixture',status:'active',ownerLineUserId:'synthetic-owner',features:{membership:true,booking:true},createdAt:'2026-01-01T00:00:00Z',expiresAt:'2026-01-02T00:00:00Z',expired:true,onboarding:{adminReady:true}
-  }]}:{qualifications:[]};
+  }]}:{qualifications:[{id:'qualification-1',version:1,status:'pending',displayName:'待審管理員',applicantLineUserId:'synthetic-applicant'}]};
   return route.fulfill({json:{ok:true,data}});
  });
  await page.goto('https://fixture.test/platform/');
@@ -59,6 +59,11 @@ for(const width of [390,1280])test('AC-001/002/003 platform theme, cards and dia
   await page.getByRole('button',{name:'設定使用期限',exact:true}).click();
   await expect(page.locator('#expiryDialog')).toBeVisible();
   await page.locator('input[name="expiryMode"][value="term"]').check();
+  await page.locator('#expiryDays').fill('30');
+  await page.evaluate(theme=>window.LumenTheme.set(theme==='dark'?'light':'dark'),theme);
+  await expect(page.locator('#expiryDays')).toHaveValue('30');
+  await expect(page.locator('input[name="expiryMode"][value="term"]')).toBeChecked();
+  await page.evaluate(theme=>window.LumenTheme.set(theme),theme);
   await assertContrast(page,['#expiryTitle','#expiryStartedAt','#expiryDays','#expiryStartHint','.expiry-mode-options label:has(input:checked)','#expiryComputedAt','#saveExpiry']);
   expect(await page.locator('#expiryDialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
   await info.attach('platform-expiry-'+theme+'-'+width,{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
@@ -67,13 +72,26 @@ for(const width of [390,1280])test('AC-001/002/003 platform theme, cards and dia
   await expect(page.locator('#grantDialog')).toBeVisible();
   await assertContrast(page,['#grantDialog h2','#grantDialog .features label','#grantDialog .hint']);
   await page.locator('#closeGrant').click();
+  await page.locator('#qualificationList [data-review-decision="rejected"]').click();
+  await expect(page.locator('#v2ReviewDialog')).toBeVisible();
+  await page.locator('#reviewReason').fill('待補充商家資料\n第二行審核說明');
+  await page.evaluate(theme=>window.LumenTheme.set(theme==='dark'?'light':'dark'),theme);
+  await expect(page.locator('#reviewReason')).toHaveValue('待補充商家資料\n第二行審核說明');
+  await page.evaluate(theme=>window.LumenTheme.set(theme),theme);
+  await assertContrast(page,['#v2ReviewTitle','#v2ReviewDescription','#reviewReason','#reviewReasonHint','#confirmV2Review','#closeV2Review']);
+  expect(await page.locator('#v2ReviewDialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
+  await info.attach('platform-review-'+theme+'-'+width,{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
+  await page.locator('#closeV2Review').click();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  }
  expect(await page.locator('.tenant-card').evaluate(el=>getComputedStyle(el).backgroundColor)).not.toBe(initial);
  await page.reload();await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
  const other=await page.context().newPage();await other.goto('https://fixture.test/platform/');
  await expect(other.locator('html')).toHaveAttribute('data-theme','dark');
- await page.locator('#themeToggleButton').focus();await page.keyboard.press('Enter');
+ await page.locator('#themeToggleButton').focus();
+ await expect(page.locator('#themeToggleButton')).toHaveCSS('outline-style','solid');
+ await expect(page.locator('#themeToggleButton')).toHaveCSS('outline-width','3px');
+ await page.keyboard.press('Enter');
  await expect(other.locator('html')).toHaveAttribute('data-theme','light');
  await page.emulateMedia({colorScheme:'dark'});await expect(page.locator('html')).toHaveAttribute('data-theme','light');
  await other.close();
