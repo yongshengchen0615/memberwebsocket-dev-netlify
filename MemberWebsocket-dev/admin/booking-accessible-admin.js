@@ -5,7 +5,7 @@
   async function request(action, payload = {}) {
     const session = window.MemberSystem?.getSession?.('admin');
     if (!session) throw new Error('管理端登入已失效，請重新登入。');
-    return window.MemberSystem.request(session.config, 'admin', session.idToken, action, payload);
+    return window.MemberSystem.request(session.config, 'admin', session.idToken, action, session.config?.pricePublishing === true ? window.BookingPricePublishing.payload(session.config,payload,(state.options?.services || []).map(s=>({serviceId:s.id,priceAmount:s.price_amount,priceVersion:s.price_version}))) : payload);
   }
   function message(text, error = false) {
     const target = el('accessibleAdminMessage');

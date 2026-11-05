@@ -51,6 +51,6 @@ test('AC-017: booking page pins the corrected reminder validator so cached broke
   const html = fs.readFileSync(path.join(root, 'booking/index.html'), 'utf8');
   const match = html.match(/<script src="\.\/app\.js\?v=([^"]+)" defer><\/script>/);
   assert.ok(match, 'booking page should load versioned member app');
-  assert.ok(match[1].endsWith('reminder-time-regex-20261031-2'),
+  assert.ok(match[1].endsWith('reminder-time-regex-20261031-2-item-prices-20261105-1'),
     'booking app must reference the corrected validator version');
 });

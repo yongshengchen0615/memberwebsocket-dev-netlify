@@ -153,6 +153,7 @@ jobs:
           node MemberWebsocket-dev/tests/integration/event_coupon_sql.cjs
           node MemberWebsocket-dev/tests/integration/coupon_location_editor.cjs
           node MemberWebsocket-dev/tests/integration/legacy_schema_cleanup.cjs
+          node --test MemberWebsocket-dev/tests/integration/booking_price_admin_quotes.cjs MemberWebsocket-dev/tests/integration/booking_item_price_publishing.cjs MemberWebsocket-dev/tests/integration/booking_price_editor.cjs MemberWebsocket-dev/tests/integration/booking_item_price_member.cjs
 
   browser-e2e:
     name: Chromium admin, member, receipt and GPS E2E
@@ -237,6 +238,8 @@ jobs:
             MemberWebsocket-dev/admin/fixed-ticket-calendar-option.js \
             MemberWebsocket-dev/admin/fixed-ticket-admin.js \
             MemberWebsocket-dev/admin/pointcard-redemption-limit.js \
+            MemberWebsocket-dev/booking-price-publishing.js \
+            MemberWebsocket-dev/admin/booking-price-editor.js \
             MemberWebsocket-dev/admin/booking-panel.js \
             MemberWebsocket-dev/admin/booking-panel-core.js \
             MemberWebsocket-dev/admin/booking-receipt-admin.js \
@@ -303,6 +306,7 @@ jobs:
           --test-reporter=junit --test-reporter-destination=postgres-results.xml
           MemberWebsocket-dev/tests/integration/postgres/booking-risk.cjs
           MemberWebsocket-dev/tests/integration/postgres/booking-phone.cjs
+          MemberWebsocket-dev/tests/integration/postgres/booking-item-prices.cjs
           MemberWebsocket-dev/tests/integration/postgres/member-verified-phone.cjs
           MemberWebsocket-dev/tests/integration/postgres/ticket-service-groups.cjs
           MemberWebsocket-dev/tests/integration/postgres/member-activation.cjs

@@ -488,7 +488,7 @@
         || String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/member-growth-api';
     }
     if (clientType === 'admin' && String(action || '').startsWith('admin.booking.receipt.')) {
-      return String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/booking-receipt-api';
+      return String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/booking-receipt-api' + (config.bookingPreviewApis === true ? '-preview' : '');
     }
     if (clientType === 'member' && (action === 'user.member.bootstrap' || action === 'user.member.profile.save' || action === 'user.member.phone.send' || action === 'user.member.terms.accept' || action === 'user.member.card.open' || action === 'user.member.invitation.claim' || action === 'user.member.oa.check')) {
       return String(config.memberProfileFunctionUrl || '').trim()

@@ -1,3 +1,4 @@
+import { bookingPriceOptions, withBookingPrices, bookingPriceError, pricePublishTime } from '../_shared/booking-price-publishing.mjs';
 import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
@@ -46,6 +47,7 @@ function errorResponse(origin: string | null, error: unknown): Response {
   return response(origin, { ok: false, status: apiError.status, error: { code: apiError.code, message: apiError.message, details: apiError.details } }, apiError.status);
 }
 function mapDatabaseError(error: unknown): ApiError {
+  const priceError = bookingPriceError(error); if (priceError) return new ApiError(priceError.status, priceError.code, priceError.message);
   const raw = error as { message?: string; details?: string; code?: string };
   const message = `${raw?.message || ""} ${raw?.details || ""}`;
   const rules: Array<[string, number, string, string]> = [
@@ -81,11 +83,11 @@ function mapDatabaseError(error: unknown): ApiError {
   if (raw?.code === "23505") return new ApiError(409, "DUPLICATE_VALUE", "資料重複，請使用其他名稱。" );
   return new ApiError(500, "DATABASE_ERROR", "資料庫暫時無法完成預約管理操作。" );
 }
-function dbClient(): SupabaseClient {
+function dbClient(body: Record<string, any> = {}): SupabaseClient {
   const url = env("SUPABASE_URL");
   const key = env("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !key) throw new ApiError(503, "SUPABASE_CONFIG_MISSING", "Supabase server 設定尚未完成。" );
-  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  return withBookingPrices(createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false }, ...bookingPriceOptions(body) }), body);
 }
 function asText(value: unknown, max = 1000): string { return String(value ?? "").trim().slice(0, max); }
 function preserveText(value: unknown, max = 2000): string { return String(value ?? "").replace(/\r\n?/g, "\n").slice(0, max); }
@@ -153,7 +155,7 @@ function settingsClient(row: any, storeService?: any): Json {
   };
 }
 function serviceClient(row: any): Json {
-  return { serviceId: row.id, title: row.title, serviceType: row.service_type || "", durationMinutes: Number(row.duration_minutes || 30), priceAmount: Number(row.price_amount || 0), requiresCompanionService: Boolean(row.requires_companion_service), isActive: Boolean(row.is_active), createdAt: row.created_at, updatedAt: row.updated_at };
+  return { serviceId: row.id, title: row.title, serviceType: row.service_type || "", durationMinutes: Number(row.duration_minutes || 30), priceAmount: Number(row.price_amount || 0), priceVersion: row.price_version || null, nextPriceAt: row.next_price_at || null, requiresCompanionService: Boolean(row.requires_companion_service), isActive: Boolean(row.is_active), createdAt: row.created_at, updatedAt: row.updated_at };
 }
 function typeClient(row: any, reward?: any, card?: any): Json {
   return {
@@ -210,6 +212,7 @@ async function bootstrap(supabase: SupabaseClient): Promise<Json> {
       const reward = rewardByType.get(String(row.id));
       return typeClient(row, reward, reward ? cardById.get(String(reward.point_card_id)) : null);
     }),
+    serverNow: new Date().toISOString(),
     services: (services.data || []).map(serviceClient),
     pointCards: availableCards.map(pointCardClient),
   };
@@ -436,7 +439,40 @@ async function servicesBatch(supabase: SupabaseClient, identity: Identity, body:
   return { summary: result.data };
 }
 
+async function priceAction(supabase: SupabaseClient, identity: Identity, action: string, body: Json): Promise<Json> {
+  if (body.pricePublishing !== true) throw new ApiError(403, 'PRICE_PUBLISHING_REQUIRED', '此入口尚未啟用價格發佈。');
+  if (action === 'admin.booking.price.catalog') {
+    const result = await supabase.rpc('booking_price_catalog', { p_service_id: requireUuid(body.serviceId, '預約項目') });
+    if (result.error) throw mapDatabaseError(result.error);
+    return { publications: result.data || [] };
+  }
+  const requestId = asText(body.requestId, 100);
+  if (!requestId || !/^[a-zA-Z0-9:_-]{1,80}$/.test(requestId)) throw new ApiError(400, 'INVALID_PRICE_REQUEST', '請重新開啟價格設定後再試。');
+  let name: string, args: Record<string, unknown>;
+  if (action === 'admin.booking.price.cancel') {
+    name = 'booking_price_cancel';
+    args = { p_id: requireUuid(body.publicationId, '價格紀錄'), p_expected_updated_at: asText(body.expectedUpdatedAt, 100), p_actor: identity.lineUserId, p_request_id: requestId };
+  } else {
+    const price = Number(body.priceAmount);
+    if (typeof body.priceAmount !== 'number' || !Number.isSafeInteger(price) || price < 0 || price > 10_000_000) throw new ApiError(400, 'INVALID_SERVICE_PRICE', '價格必須是 0–10,000,000 元的整數。');
+    if (!['immediate', 'scheduled'].includes(String(body.mode))) throw new ApiError(400, 'INVALID_PRICE_PUBLISH_TIME', '請選擇立即或定時發佈。');
+    const at = pricePublishTime(body.mode, body.publishAt);
+    const common = { p_price: price, p_publish_at: at, p_request_id: requestId, p_actor: identity.lineUserId, p_expected_version: requireUuid(body.expectedPriceVersion, '價格版本') };
+    if (action === 'admin.booking.price.reschedule') {
+      name = 'booking_price_reschedule';
+      args = { ...common, p_id: requireUuid(body.publicationId, '價格紀錄'), p_expected_updated_at: asText(body.expectedUpdatedAt, 100) };
+    } else {
+      name = 'booking_price_publish';
+      args = { ...common, p_service_id: requireUuid(body.serviceId, '預約項目') };
+    }
+  }
+  const result = await supabase.rpc(name, args);
+  if (result.error) throw mapDatabaseError(result.error);
+  return { publication: result.data };
+}
+
 async function route(supabase: SupabaseClient, identity: Identity, action: string, body: Json): Promise<Json> {
+  if (["admin.booking.price.catalog", "admin.booking.price.publish", "admin.booking.price.cancel", "admin.booking.price.reschedule"].includes(action)) return await priceAction(supabase, identity, action, body);
   if (action === "admin.booking.manage.bootstrap") return await bootstrap(supabase);
   if (action === "admin.booking.settings.save") return await settingsSave(supabase, identity, body);
   if (action === "admin.booking.reminder-message.save") return await reminderMessageSave(supabase, identity, body);
@@ -460,9 +496,9 @@ serveBusiness('booking-admin-api',async (request: Request) => {
     const action = asText(body.action, 100);
     if (!action.startsWith("admin.booking.")) throw new ApiError(403, "CLIENT_ACTION_MISMATCH", "操作端與功能不相符。" );
     const identity = await verifyLineIdToken(asText(body.idToken, 5000));
-    const supabase = dbClient();
+    const supabase = dbClient(body);
     await authorizeAdmin(supabase, identity);
-    await consumeRateLimit(supabase, identity, action !== "admin.booking.manage.bootstrap");
+    await consumeRateLimit(supabase, identity, !["admin.booking.manage.bootstrap", "admin.booking.price.catalog"].includes(action));
     const data = await route(supabase, identity, action, body);
     return response(origin, { ok: true, status: 200, data });
   } catch (error) { return errorResponse(origin, error); }

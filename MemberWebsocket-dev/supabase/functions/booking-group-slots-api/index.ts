@@ -1,3 +1,4 @@
+import { bookingPriceOptions, withBookingPrices, bookingPriceError } from '../_shared/booking-price-publishing.mjs';
 import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
 import { hasCurrentTermsConsent } from "../_shared/membership-terms.ts";
 import { readJsonObject } from "../_shared/request-body.ts";
@@ -80,11 +81,11 @@ const taipeiMinutes = () => {
   return Number(values.hour || 0) * 60 + Number(values.minute || 0);
 };
 
-function db() {
+function db(body: Record<string, any> = {}) {
   const url = env("SUPABASE_URL");
   const key = env("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !key) throw new ApiError(503, "SUPABASE_CONFIG_MISSING", "預約服務設定尚未完成。");
-  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  return withBookingPrices(createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false }, ...bookingPriceOptions(body) }), body);
 }
 
 async function verifyMember(idToken: string) {
@@ -333,7 +334,7 @@ serveBusiness('booking-group-slots-api',async (request: Request) => {
     if (asText(body.action, 100) !== "user.booking.group.slots" || asText(body.clientType, 20) !== "member") {
       throw new ApiError(403, "CLIENT_ACTION_MISMATCH", "操作端與功能不相符。");
     }
-    const supabase = db();
+    const supabase = db(body);
     let lineUserId: string;
     try {
       const testIdentity = await resolveUserTestIdentity(supabase, asText(body.testSessionToken, 200));

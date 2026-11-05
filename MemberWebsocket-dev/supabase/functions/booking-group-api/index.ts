@@ -1,3 +1,4 @@
+import { bookingPriceOptions, withBookingPrices, bookingPriceError } from '../_shared/booking-price-publishing.mjs';
 import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
 import { hasCurrentTermsConsent } from "../_shared/membership-terms.ts";
 import { readJsonObject } from "../_shared/request-body.ts";
@@ -45,6 +46,7 @@ function reply(origin: string | null, payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), { status, headers: { ...cors(origin), "Content-Type": "application/json; charset=utf-8" } });
 }
 function mapDbError(error: any): ApiError {
+  const priceError = bookingPriceError(error); if (priceError) return new ApiError(priceError.status, priceError.code, priceError.message);
   const text = `${error?.message || ""} ${error?.details || ""}`;
   const rules: Array<[string, number, string, string]> = [
     ["FRIEND_NOT_FOUND",404,"FRIEND_NOT_FOUND","受服務好友目前無法預約。"],
@@ -96,10 +98,10 @@ function fail(origin: string | null, error: unknown) {
   const e = error instanceof ApiError ? error : mapDbError(error);
   return reply(origin, { ok: false, error: { code: e.code, message: e.message, details: e.details } }, e.status);
 }
-function db(): SupabaseClient {
+function db(body: Record<string, any> = {}): SupabaseClient {
   const url = env("SUPABASE_URL"), key = env("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !key) throw new ApiError(503, "SUPABASE_CONFIG_MISSING", "Supabase server 設定尚未完成。");
-  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  return withBookingPrices(createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false }, ...bookingPriceOptions(body) }), body);
 }
 function asText(value: unknown, max = 1000) { return String(value ?? "").trim().slice(0, max); }
 function uuid(value: unknown, label: string) {
@@ -450,7 +452,7 @@ serveBusiness('booking-group-api',async (req: Request) => {
     if (!action || !["member","admin"].includes(clientType)) throw new ApiError(400,"INVALID_INPUT","請求格式不正確。");
     if (clientType==="member" && !action.startsWith("user.booking.group.")) throw new ApiError(403,"CLIENT_ACTION_MISMATCH","操作端與功能不相符。");
     if (clientType==="admin" && !action.startsWith("admin.booking.resources.")) throw new ApiError(403,"CLIENT_ACTION_MISMATCH","操作端與功能不相符。");
-    const supabase=db();
+    const supabase = db(body);
     let identity: Identity;
     if (clientType === "member") {
       try {

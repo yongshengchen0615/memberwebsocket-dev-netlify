@@ -510,14 +510,14 @@
 
   async function requestFunction(name, action, payload = {}, write = false) {
     const { config, idToken } = await context();
-    const endpoint = `${String(config.supabaseUrl || '').replace(/\/$/, '')}/functions/v1/${name}`;
+    const endpoint = `${String(config.supabaseUrl || '').replace(/\/$/, '')}/functions/v1/${config.bookingPreviewApis === true && ['booking-api','booking-admin-api','booking-admin-operations','booking-group-api'].includes(name) ? name + '-preview' : name}`;
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), write ? 30000 : 15000);
     try {
       const response = await fetch(endpoint, {
         method: 'POST', cache: 'no-store', signal: controller.signal,
         headers: { 'Content-Type': 'application/json', apikey: String(config.supabasePublishableKey || '') },
-        body: JSON.stringify({ ...payload, action, clientType: 'admin', idToken }),
+        body: JSON.stringify({ ...(config.pricePublishing === true ? window.BookingPricePublishing.payload(config, payload, state.catalog.services) : payload), action, clientType: 'admin', idToken }),
       });
       const text = await response.text();
       let data;
@@ -607,6 +607,12 @@
       state.booking = nextBooking;
       window.BookingRiskSettings?.mount(els.bookingAdminRiskMount,{data:state.booking.noShowRisk,request:bookingRiskRequest});
       state.catalog = nextCatalog;
+      window.clearTimeout(state.priceRefreshTimer);
+      if (state.config?.pricePublishing === true) {
+        const times = nextCatalog.services.map(service => Date.parse(service.nextPriceAt || '')).filter(Number.isFinite);
+        if (times.length) state.priceRefreshTimer = window.setTimeout(() => refreshAll(false), Math.max(1000, Math.min(2147483647, Math.min(...times) - (Date.parse(catalog.serverNow || '') || Date.now()) + 150)));
+      }
+
       state.selected = nextSelected;
       if (catalogChanged) {
         window.dispatchEvent(new CustomEvent('member-admin:booking-services-updated', {
@@ -821,9 +827,16 @@
       const text = document.createElement('span');
       const title = document.createElement('strong'); title.textContent = service.title;
       const meta = document.createElement('small'); meta.textContent = `類型 ${service.serviceType || '未設定'} · ${service.durationMinutes} 分鐘 · ${formatMoney(service.priceAmount)} · ${service.requiresCompanionService ? '加購／需搭配一般項目 · ' : ''}${service.isActive ? '開放' : '停用'}`;
-      text.append(title, meta); left.append(check, text);
+      text.append(title, meta);
+      if (service.nextPriceAt && state.config?.pricePublishing === true) {
+        const upcoming = document.createElement('small');
+        upcoming.textContent = '下次調價：' + new Intl.DateTimeFormat('zh-TW',{timeZone:'Asia/Taipei',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(service.nextPriceAt)) + '（台北時間）';
+        text.append(upcoming);
+      }
+      left.append(check, text);
       const actions = document.createElement('span'); actions.className = 'booking-admin-actions'; actions.style.margin = '0';
       actions.append(actionButton('修改', 'button button-outline', () => openServiceModal(service)), actionButton('刪除', 'button button-danger', () => deleteService(service)));
+      if (state.config?.pricePublishing === true) actions.prepend(actionButton('調整價格', 'button button-outline', () => window.BookingPriceEditor.open({ service, request: (action,payload) => manageRequest(action,payload,action !== 'admin.booking.price.catalog'), onSaved: () => refreshAll(false) })));
       row.append(left, actions); els.bookingAdminServiceList.appendChild(row);
     });
     updateBatchButtons();
@@ -1006,7 +1019,7 @@
 
   function serviceFormHtml(service = {}) {
     const options = ['<option value="">請選擇項目類型</option>', ...(state.catalog.serviceTypes || []).map((type) => `<option value="${escapeAttr(type.name)}">${escapeHtml(type.name)}</option>`)].join('');
-    return `<label>預約項目名稱<input data-field="title" maxlength="100" required value="${escapeAttr(service.title || '')}"></label><label>項目類型<select data-field="serviceType" required>${options}</select></label><label>服務時間（分鐘）<input data-field="durationMinutes" type="number" min="1" max="720" step="1" required value="${Number(service.durationMinutes || 30)}"></label><label>價格（NT$）<input data-field="priceAmount" type="number" min="0" max="10000000" step="1" required value="${Number(service.priceAmount || 0)}"></label><label class="booking-admin-toggle"><input data-field="requiresCompanionService" type="checkbox" ${service.requiresCompanionService ? 'checked' : ''}><span><strong>加購項目，需搭配其他項目</strong><small>開啟後不能單獨預約；同一位預約人至少還要選擇一個一般項目。</small></span></label><label class="booking-admin-toggle"><input data-field="isActive" type="checkbox" ${service.isActive === false ? '' : 'checked'}><span><strong>開放會員預約</strong><small>關閉後會員端不再顯示，既有預約紀錄仍保留。</small></span></label>`;
+    return `<label>預約項目名稱<input data-field="title" maxlength="100" required value="${escapeAttr(service.title || '')}"></label><label>項目類型<select data-field="serviceType" required>${options}</select></label><label>服務時間（分鐘）<input data-field="durationMinutes" type="number" min="1" max="720" step="1" required value="${Number(service.durationMinutes || 30)}"></label><label>價格（NT$）<input data-field="priceAmount" ${state.config?.pricePublishing === true && service.serviceId ? 'readonly aria-describedby="priceEditHint"' : ''} type="number" min="0" max="10000000" step="1" required value="${Number(service.priceAmount || 0)}"></label>${state.config?.pricePublishing === true && service.serviceId ? '<small id="priceEditHint">價格請使用「調整價格」立即發佈或設定時間。</small>' : ''}<label class="booking-admin-toggle"><input data-field="requiresCompanionService" type="checkbox" ${service.requiresCompanionService ? 'checked' : ''}><span><strong>加購項目，需搭配其他項目</strong><small>開啟後不能單獨預約；同一位預約人至少還要選擇一個一般項目。</small></span></label><label class="booking-admin-toggle"><input data-field="isActive" type="checkbox" ${service.isActive === false ? '' : 'checked'}><span><strong>開放會員預約</strong><small>關閉後會員端不再顯示，既有預約紀錄仍保留。</small></span></label>`;
   }
 
   function openServiceModal(service) {
@@ -1018,7 +1031,7 @@
     form.querySelector('[data-cancel]').addEventListener('click', closeModal);
     form.addEventListener('submit', async (event) => {
       event.preventDefault(); const payload = readServiceForm(form);
-      if (service) { payload.serviceId = service.serviceId; payload.expectedUpdatedAt = service.updatedAt || ''; }
+      if (service) { payload.serviceId = service.serviceId; payload.expectedUpdatedAt = service.updatedAt || ''; if (state.config?.pricePublishing === true) payload.expectedPrices = [{serviceId:service.serviceId,priceAmount:service.priceAmount,priceVersion:service.priceVersion}]; }
       await runModalAction(async () => manageRequest('admin.booking.service.save', payload, true));
     });
     showModal();
@@ -1059,7 +1072,7 @@
         return { op: mode, ...payload };
       });
       if (!operations.length) return;
-      await runModalAction(async () => manageRequest('admin.booking.services.batch', { operations }, true));
+      await runModalAction(async () => manageRequest('admin.booking.services.batch', { operations, ...(mode === 'update' && state.config?.pricePublishing === true ? {expectedPrices:source.map(service=>({serviceId:service.serviceId,priceAmount:service.priceAmount,priceVersion:service.priceVersion}))} : {}) }, true));
     });
     showModal();
   }
@@ -1173,7 +1186,7 @@
       await runModalAction(async () => operationsRequest('admin.booking.items.update', {
         bookingId: booking.bookingId,
         expectedUpdatedAt: booking.updatedAt,
-        items,
+        ...window.BookingPricePublishing?.payload(state.config,{items},services) || {items},
       }, true));
     });
     showModal();
@@ -1675,7 +1688,7 @@
       };
       await runModalAction(async () => {
         try {
-          await bookingRequest('admin.booking.phone.create', payload, true);
+          await bookingRequest('admin.booking.phone.create', window.BookingPricePublishing?.payload(state.config,payload,services) || payload, true);
         } catch (error) {
           if (error?.code === 'PHONE_BOOKING_CONFLICT') refreshSlots();
           throw error;
@@ -2022,7 +2035,7 @@
       await runModalAction(async () => operationsRequest('admin.booking.participants.items.update', {
         bookingId: booking.bookingId,
         expectedUpdatedAt: booking.updatedAt,
-        participants,
+        ...window.BookingPricePublishing?.payload(state.config,{participants},services) || {participants},
       }, true));
     });
     showModal();
@@ -2080,7 +2093,7 @@
       await runModalAction(async () => operationsRequest('admin.booking.participants.technicians.update', {
         bookingId: booking.bookingId,
         expectedUpdatedAt: booking.updatedAt,
-        participants,
+        ...window.BookingPricePublishing?.payload(state.config,{participants},services) || {participants},
       }, true));
     });
     showModal();
