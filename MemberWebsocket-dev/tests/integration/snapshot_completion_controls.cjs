@@ -95,7 +95,17 @@ for(const itemPrices of [false,true])test(`ticket policy, snapshot intent/review
   await t.test('admin approves once through canonical settlement and anonymous roles cannot access new writes',async()=>{
    const approve=async actor=>(await one("select register_snapshot_receipt_v2($1,updated_at,$2,$3,null,null,'[]',$4,'QA approval')result from booking_receipts where receipt_id=$1",[receipt,actor,booking,JSON.stringify(benefits)])).result;
    await assert.rejects(approve('test:controls-member'),/ADMIN_REQUIRED/);
+   if(itemPrices){
+    const v=(await one('select booking_price_resolve($1) p',[service])).p.priceVersion;
+    await one("select booking_price_publish($1,700,null,'linked-publication','test:controls-admin',$2)",[service,v]);
+    const q=(await one('select booking_price_resolve($1) p',[service])).p;
+    await run("select set_config('request.headers',$1,false)",[JSON.stringify({'x-booking-price-preview':'1','x-booking-price-check':'1','x-booking-price-quote':JSON.stringify([{serviceId:service,...q}])})]);
+   }
    await approve('test:controls-admin');assert.equal((await approve('test:controls-admin')).alreadyApplied,true);
+   if(itemPrices){
+    assert.equal((await one('select unit_price_amount from booking_items where booking_id=$1 and service_id=$2',[booking,service])).unit_price_amount,100,'linked reservation retains historical price');
+    await run("select set_config('request.headers','{}',false)");
+   }
    assert.equal((await one("select status from event_ticket_claims where claim_id='QA-SNAPSHOT-CLAIM'")).status,'used');
    for(const role of ['anon','authenticated']){
     await db.exec('set role '+role);await assert.rejects(save(false),/permission denied/);await assert.rejects(prepare('QA-DENIED'),/permission denied/);await db.exec('reset role');
@@ -178,7 +188,21 @@ for(const itemPrices of [false,true])test(`ticket policy, snapshot intent/review
     assert.equal(await save(true),true);
     await run('update booking_settings set require_primary_technician=false where id=1');
     const items=[{serviceId:service,quantity:1,minutes:60}];
+    if(itemPrices){
+     const old=(await one('select booking_price_resolve($1) p',[service])).p;
+     await one("select booking_price_publish($1,800,null,'receipt-publication','test:controls-admin',$2)",[service,old.priceVersion]);
+     await run("select set_config('request.headers',$1,false)",[JSON.stringify({'x-booking-price-preview':'1','x-booking-price-check':'1','x-booking-price-quote':JSON.stringify([{serviceId:service,...old}])})]);
+     await assert.rejects(one("select register_snapshot_receipt_v2($1,updated_at,'test:controls-admin',null,'2026-01-01','12:00',$2,$3,'QA retrospective review') result from booking_receipts where receipt_id=$1",[newReceipt,JSON.stringify(items),JSON.stringify(newBenefits)]),/BOOKING_PRICE_CHANGED/);
+     assert.equal((await one('select status from booking_receipts where receipt_id=$1',[newReceipt])).status,'awaiting_review');
+     const current=(await one('select booking_price_resolve($1) p',[service])).p;
+     await run("select set_config('request.headers',$1,false)",[JSON.stringify({'x-booking-price-preview':'1','x-booking-price-check':'1','x-booking-price-quote':JSON.stringify([{serviceId:service,...current}])})]);
+    }
     const result=(await one("select register_snapshot_receipt_v2($1,updated_at,'test:controls-admin',null,'2026-01-01','12:00',$2,$3,'QA retrospective review') result from booking_receipts where receipt_id=$1",[newReceipt,JSON.stringify(items),JSON.stringify(newBenefits)])).result;
+    if(itemPrices){
+     assert.equal((await one('select unit_price_amount from booking_items where booking_id=$1 and service_id=$2',[result.bookingId,service])).unit_price_amount,800);
+     assert.equal((await one('select i.unit_price_amount from booking_participant_items i join booking_participants p on p.id=i.participant_id where p.booking_id=$1 and i.service_id=$2',[result.bookingId,service])).unit_price_amount,800);
+     await run("select set_config('request.headers','{}',false)");
+    }
     assert.ok(result.bookingId);
     assert.equal((await one('select status from event_ticket_claims where claim_id=$1',['QA-SNAPSHOT-NO-BOOKING'])).status,'used');
     assert.equal((await one('select booking_id from booking_receipts where receipt_id=$1',[newReceipt])).booking_id,result.bookingId);

@@ -175,6 +175,12 @@ test('review regressions: preview price edits, legacy isolation, admin revocatio
     else await db.query(`update ${s}.admins set line_user_id=$1 where line_user_id=$2`,[actor,'U'+'9'.repeat(32)]);
    }
   });
+  await t.test('deleting a tenant cancels events in its retained runtime schema',async()=>{
+   const p=await h.publish(b,9999,'2046-01-01T00:00:00+08:00');
+   await db.query('delete from platform_private.tenants where runtime_schema=$1',[s]);
+   assert.equal((await one(`select cancelled_at is not null cancelled from ${s}.booking_service_price_publications where id=$1`,[p.id])).cancelled,true);
+   await db.query("insert into platform_private.tenants(id,runtime_schema,owner_line_user_id) values('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',$1,$2)",[s,actor]);
+  });
   await t.test('runtime admin suspension cancels future prices and reactivation does not restore them',async()=>{
    const p=await h.publish(a,9999,'2042-01-01T00:00:00+08:00');
    await db.query(`update ${s}.admins set status='suspended' where line_user_id=$1`,[actor]);

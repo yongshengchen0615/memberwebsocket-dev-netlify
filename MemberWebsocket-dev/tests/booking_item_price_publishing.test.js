@@ -36,6 +36,8 @@ test('quote headers are request-local, validate every item and require member wr
  assert.equal(opts.global.headers['x-booking-price-check'],'1');
  assert.deepEqual(JSON.parse(opts.global.headers['x-booking-price-quote']),body.expectedPrices);
  assert.equal(bookingPriceOptions({pricePublishing:true,action:'user.booking.bootstrap'}).global.headers['x-booking-price-check'],'0');
+ assert.equal(bookingPriceOptions({action:'admin.booking.receipt.register'}).global.headers['x-booking-price-check'],'1');
+ assert.equal(bookingPriceOptions({action:'admin.booking.completed.correct'}).global.headers['x-booking-price-check'],'0');
  assert.throws(()=>bookingPriceOptions({...body,expectedPrices:[{serviceId:id,priceAmount:-1,priceVersion:version}]}),/INVALID_BOOKING_PRICE_QUOTE/);
  assert.throws(()=>bookingPriceOptions({...body,expectedPrices:[...body.expectedPrices,...body.expectedPrices]}),/INVALID_BOOKING_PRICE_QUOTE/);
  assert.equal(opts.global.headers['x-booking-price-check'],'1','a later read must not mutate a previous write context');

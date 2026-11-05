@@ -1,7 +1,7 @@
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const QUOTED_WRITES=new Set([
  'user.booking.create','user.booking.update','user.booking.group.create','user.booking.group.update',
- 'admin.booking.phone.create','admin.booking.items.update','admin.booking.participants.items.update',
+ 'admin.booking.phone.create','admin.booking.items.update','admin.booking.participants.items.update','admin.booking.receipt.register',
  'admin.booking.service.save','admin.booking.services.batch',
 ]);
 export function pricePublishTime(mode,value){

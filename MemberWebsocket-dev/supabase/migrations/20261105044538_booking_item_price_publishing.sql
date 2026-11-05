@@ -327,6 +327,7 @@ begin
  for t in select runtime_schema from platform_private.tenants where runtime_schema is not null
   and ((tg_table_name='admin_qualifications' and owner_line_user_id=n->>'applicant_line_user_id')
    or (tg_table_name='tenants' and id=(n->>'id')::uuid))
+  union select o->>'runtime_schema' where tg_table_name='tenants' and tg_op='DELETE' and o->>'runtime_schema' is not null
  loop
   if to_regclass(format('%I.booking_service_price_publications',t.runtime_schema)) is null then continue;end if;
   perform pg_advisory_xact_lock(hashtextextended('booking-prices:'||t.runtime_schema,0));
