@@ -50,7 +50,26 @@ test('AC-004: merchant theme toggles actual card and form colors, persists, sync
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await expect(toggle).toHaveAttribute('aria-pressed', 'false');
   const surface = page.locator('#merchantTitleForm');
+  // Actual merchant card markup is normally populated only after a verified
+  // account response; render a visual fixture without bypassing authorization.
+  await page.locator('#myMerchantList').evaluate((node) => {
+    const card = document.createElement('article');
+    card.className = 'tenant-card';
+    const title = document.createElement('h3');
+    title.textContent = '主題測試商家';
+    const action = document.createElement('a');
+    action.className = 'tenant-action-primary';
+    action.dataset.manageMerchant = 'true';
+    action.href = '#myMerchantsTitle';
+    action.textContent = '管理商家';
+    card.append(title, action);
+    node.append(card);
+  });
+  const card = page.locator('#myMerchantList .tenant-card');
+  const button = card.locator('[data-manage-merchant]');
   const lightBackground = await surface.evaluate((node) => getComputedStyle(node).backgroundColor);
+  const lightCard = await card.evaluate((node) => getComputedStyle(node).backgroundColor);
+  const lightButton = await button.evaluate((node) => getComputedStyle(node).backgroundColor);
 
   const secondPage = await context.newPage();
   await openMerchantTheme(secondPage);
@@ -60,7 +79,33 @@ test('AC-004: merchant theme toggles actual card and form colors, persists, sync
   await expect(toggle).toHaveAttribute('aria-pressed', 'true');
   await expect(toggle).toHaveAttribute('aria-label', '切換為亮色調');
   const darkBackground = await surface.evaluate((node) => getComputedStyle(node).backgroundColor);
+  const darkCard = await card.evaluate((node) => getComputedStyle(node).backgroundColor);
+  const darkButton = await button.evaluate((node) => getComputedStyle(node).backgroundColor);
   expect(darkBackground).not.toBe(lightBackground);
+  expect(darkCard).not.toBe(lightCard);
+  expect(darkButton).not.toBe(lightButton);
+  const contrast = await page.evaluate(() => {
+    const ratio = (one, two) => {
+      const lum = (value) => {
+        const rgb = value.match(/[\\d.]+/g).slice(0, 3).map(Number).map((channel) => {
+          const x = channel / 255;
+          return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+      };
+      const a = lum(one), b = lum(two);
+      return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    };
+    const card = document.querySelector('#myMerchantList .tenant-card');
+    const heading = card.querySelector('h3');
+    const action = card.querySelector('[data-manage-merchant]');
+    return {
+      title: ratio(getComputedStyle(heading).color, getComputedStyle(card).backgroundColor),
+      action: ratio(getComputedStyle(action).color, getComputedStyle(action).backgroundColor)
+    };
+  });
+  expect(contrast.title).toBeGreaterThanOrEqual(4.5);
+  expect(contrast.action).toBeGreaterThanOrEqual(4.5);
   expect(await page.evaluate(() => localStorage.getItem('lumen-color-theme-v1'))).toBe('dark');
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
