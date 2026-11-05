@@ -7,7 +7,10 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' https://static.line-scdn.net; style-src 'self'; connect-src 'self' https://*.supabase.co https://api.line.me https://access.line.me https://liff.line.me https://*.line-scdn.net; img-src 'self' data:; frame-src https://access.line.me https://liff-subwindow.line.me; form-action 'self' https://access.line.me https://liff-subwindow.line.me">
   <title>管理員申請與商家管理</title>
-  <link rel="stylesheet" href="./platform.css?v=merchant-expiry-readonly-20261101-1">
+  <meta name="theme-color" content="#f9fbf9">
+  <link rel="stylesheet" href="../theme.css?v=platform-theme-20261105-1">
+  <script src="../theme.js?v=m3-ui-20260929-1"></script>
+  <link rel="stylesheet" href="./platform.css?v=platform-theme-20261105-1">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
   <script src="../business-context.js"></script>
 <script src="../member-system.js" defer></script>
@@ -18,6 +21,7 @@
 </head>
 <body>
   <main class="shell">
+    <div class="platform-appearance account-menu" role="group" aria-label="外觀設定"></div>
     <header class="topbar" id="platformHeader"><div><p class="eyebrow">PLATFORM / CONTROL CENTER</p><h1>商家與管理員</h1><p>總管理員專用：使用 LINE 登入，審核管理員申請並勾選可使用的功能。</p></div></header>
     <p id="platformStatus" role="status" aria-live="polite">正在確認 LINE 身分…</p>
     <section id="platformAuthorizationNotice" class="authorization-notice" hidden role="alert" aria-labelledby="platformAuthorizationTitle">
