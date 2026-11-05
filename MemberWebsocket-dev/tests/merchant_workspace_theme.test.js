@@ -41,8 +41,8 @@ test('AC-005: the actual /admin/ productized shell moves the event-bound control
   const index = read('admin/index.html');
   const shell = read('admin/productized-workspace.js');
   const css = read('admin/productized-workspace.css');
-  assert.match(index, /productized-workspace\.js\?v=admin-root-theme-control-20261105-1/);
-  assert.match(index, /productized-workspace\.css\?v=admin-root-theme-control-20261105-1/);
+  assert.match(index, /productized-workspace\.js\?v=merchant-expiry-readonly-20261101-1-admin-root-theme-control-20261105-1/);
+  assert.match(index, /productized-workspace\.css\?v=line-tab-20261020-1-quick-removal-20261028-1-admin-root-theme-control-20261105-1/);
   assert.match(shell, /const themeToggle=document\.getElementById\('themeToggleButton'\)/);
   assert.match(shell, /host\.querySelector\('\.platform-appearance\.account-menu'\)/);
   assert.match(shell, /appearance\.appendChild\(themeToggle\)/);
