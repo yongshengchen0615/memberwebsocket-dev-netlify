@@ -87,7 +87,7 @@ test('AC-004: merchant theme toggles actual card and form colors, persists, sync
   const contrast = await page.evaluate(() => {
     const ratio = (one, two) => {
       const lum = (value) => {
-        const rgb = value.match(/[\\d.]+/g).slice(0, 3).map(Number).map((channel) => {
+        const rgb = value.match(/[0-9.]+/g).slice(0, 3).map(Number).map((channel) => {
           const x = channel / 255;
           return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
         });
