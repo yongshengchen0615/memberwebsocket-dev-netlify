@@ -180,11 +180,11 @@ test('AC-006: actual /admin/ My Merchants has a visible working theme toggle, pe
 });
 
 test('AC-007: productized mount failure restores the original shared theme toggle to the legacy admin menu', async ({ page }) => {
-  await page.route('**/platform/app.js*', (route) => route.abort());
   await openProductizedMerchantThemeFailed(page);
 });
 
 async function openProductizedMerchantThemeFailed(page) {
+  await page.emulateMedia({ colorScheme: 'light' });
   await page.route('**/*.js*', (route) => {
     const pathname = new URL(route.request().url()).pathname;
     if (pathname === '/theme.js' || pathname === '/admin/productized-workspace.js') {
