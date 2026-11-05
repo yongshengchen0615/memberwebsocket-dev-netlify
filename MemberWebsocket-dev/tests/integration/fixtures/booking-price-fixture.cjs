@@ -14,20 +14,20 @@ module.exports=async(options={})=>{
  create schema platform_private;
  create table platform_private.tenants(id uuid primary key,runtime_schema text,owner_line_user_id text,status text default 'active',features jsonb default '{"booking":true}',expires_at timestamptz,access_revoked_before timestamptz);
  create table platform_private.admin_qualifications(applicant_line_user_id text primary key,status text,access_revoked_before timestamptz);
- create table public.admins(line_user_id text primary key,status text);
+ create table public.admins(line_user_id text primary key,status text,role text default 'admin');
  create table public.booking_services(id uuid primary key default gen_random_uuid(),title text not null,duration_minutes integer default 30,price_amount integer not null default 0,is_active boolean default true,deleted_at timestamptz,created_by text,updated_at timestamptz default clock_timestamp());
  create table public.booking_items(id uuid primary key default gen_random_uuid(),service_id uuid,unit_price_amount integer,service_title text);
  create table public.booking_participant_items(like public.booking_items including defaults);
  create table public.booking_audit_events(actor_line_user_id text,actor_role text,action text,target_type text,target_id text,result text,metadata jsonb);
  create function public.platform_provision_business(p_tenant_id uuid) returns void language plpgsql as $$begin return;end$$;
- insert into public.admins values('${actor}','active');
+ insert into public.admins(line_user_id,status) values('${actor}','active');
  insert into platform_private.admin_qualifications values('${actor}','approved',null);
  insert into platform_private.tenants(id,runtime_schema,owner_line_user_id) values('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','${tenant}','${actor}'),('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','${other}','U${'6'.repeat(32)}');
  create schema ${tenant}; create schema ${other};
  `);
  for(const s of [tenant,other]){
   for(const table of ['admins','booking_services','booking_items','booking_participant_items','booking_audit_events'])await db.exec(`create table ${s}.${table}(like public.${table} including all)`);
-  await db.query(`insert into ${s}.admins values($1,'active')`,[s===tenant?actor:'U'+'6'.repeat(32)]);
+  await db.query(`insert into ${s}.admins(line_user_id,status) values($1,'active')`,[s===tenant?actor:'U'+'6'.repeat(32)]);
  }
  for(const s of ['public',tenant,other])await db.query(`insert into ${s}.booking_services(id,title,price_amount,created_by) values($1,'A',500,$3),($2,'B',900,$3)`,[a,b,actor]);
  for(const s of ['public',tenant,other])await db.exec(`create function ${s}.create_price_fixture_booking(p_service uuid) returns void language plpgsql as $$declare svc ${s}.booking_services;begin select * into svc from ${s}.booking_services where id=p_service for share;insert into ${s}.booking_items(service_id,unit_price_amount) values(p_service,svc.price_amount);end$$`);
@@ -43,6 +43,14 @@ module.exports=async(options={})=>{
    perform 1 from ${s}.price_fixture_members where id=1 for update;
   end$$;
  `);
+ if(options.runtimePreRequest){
+  await db.exec(`create table platform_private.applications(tenant_id uuid,applicant_line_user_id text,status text);
+   insert into platform_private.applications select id,owner_line_user_id,'approved' from platform_private.tenants;
+   grant usage on schema public,platform_private,${tenant},${other} to service_role;
+   grant select,update on all tables in schema platform_private to service_role;
+   grant select,insert,update on all tables in schema public,${tenant},${other} to service_role;`);
+  await db.exec(fs.readFileSync(path.join(dir,fs.readdirSync(dir).find(x=>x.startsWith('20261025013038_'))),'utf8'));
+ }
  if(migration)await db.exec(migration);
  const one=async(sql,args=[]) =>(await db.query(sql,args)).rows[0];
  const resolve=async(id,s=tenant)=>(await one(`select ${s}.booking_price_resolve($1) value`,[id])).value;

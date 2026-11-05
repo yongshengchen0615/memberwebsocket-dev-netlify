@@ -69,7 +69,7 @@ begin
   language plpgsql security invoker set search_path='' as $body$
   declare t platform_private.tenants; q jsonb;
   begin
-   perform 1 from %1$I.admins where line_user_id=p_actor and status='active' for share;
+   perform 1 from %1$I.admins a where line_user_id=p_actor and status='active' and coalesce(to_jsonb(a)->>'role','admin')='admin' for share;
    if not found then raise exception 'ADMIN_REQUIRED';end if;
    if '%1$I'<>'public' then
     select * into t from platform_private.tenants where runtime_schema='%1$I' and owner_line_user_id=p_actor for share;
@@ -177,7 +177,7 @@ begin
   create or replace function %1$I.booking_price_admin_revoke() returns trigger
   language plpgsql security invoker set search_path='' as $body$
   begin
-   if tg_op='DELETE' or new.status is distinct from 'active' then
+   if tg_op='DELETE' or new.status is distinct from 'active' or coalesce(to_jsonb(new)->>'role','admin')<>'admin' or new.line_user_id is distinct from old.line_user_id then
     update %1$I.booking_service_price_publications set cancelled_at=clock_timestamp(),updated_at=clock_timestamp(),cancelled_by='system',cancellation_reason='authority_revoked'
      where actor_line_user_id=old.line_user_id and cancelled_at is null and publish_at>clock_timestamp();
    end if;
@@ -231,7 +231,7 @@ begin
   begin
    h:=coalesce(nullif(current_setting('request.headers',true),'')::jsonb,'{}'::jsonb);
    if new.service_id='00000000-0000-4000-8000-000000000010'::uuid then return new;end if;
-   if h->>'x-booking-price-preview' is distinct from '1' then return new;end if;
+   if h->>'x-booking-price-preview' is distinct from '1' or h->>'x-booking-price-check' is distinct from '1' then return new;end if;
    actual:=%1$I.booking_price_resolve(new.service_id);
    perform %1$I.booking_price_check_quote(new.service_id,actual);
    new.unit_price_amount:=(actual->>'priceAmount')::integer;
@@ -336,15 +336,20 @@ begin
  return new;
 end $revoke$;
 revoke all on function platform_private.cancel_future_booking_prices() from public,anon,authenticated,service_role;
-create or replace function platform_private.booking_price_authority_before_statement() returns trigger
+create or replace function platform_private.booking_price_authority_lock() returns void
 language plpgsql security definer set search_path='' as $locks$
 declare s text;begin
  for s in select schema_name from (select 'public'::text schema_name,0 priority union select runtime_schema,1 from platform_private.tenants where runtime_schema is not null) schemas order by priority,schema_name loop
   perform pg_advisory_xact_lock(hashtextextended('booking-prices:'||s,0));
  end loop;
- return null;
 end $locks$;
-revoke all on function platform_private.booking_price_authority_before_statement() from public,anon,authenticated,service_role;
+revoke all on function platform_private.booking_price_authority_lock() from public,anon,authenticated;
+grant execute on function platform_private.booking_price_authority_lock() to service_role;
+create or replace function platform_private.booking_price_authority_before_statement() returns trigger
+language plpgsql security definer set search_path='' as $statement$
+begin perform platform_private.booking_price_authority_lock();return null;end $statement$;
+revoke all on function platform_private.booking_price_authority_before_statement() from public,anon,authenticated;
+grant execute on function platform_private.booking_price_authority_before_statement() to service_role;
 drop trigger if exists booking_prices_authority_lock on platform_private.tenants;
 create trigger booking_prices_authority_lock before update or delete on platform_private.tenants for each statement execute function platform_private.booking_price_authority_before_statement();
 drop trigger if exists cancel_future_booking_prices on platform_private.tenants;
@@ -357,4 +362,34 @@ do $qual$ begin
   create trigger cancel_future_booking_prices after update or delete on platform_private.admin_qualifications for each row execute function platform_private.cancel_future_booking_prices();
  end if;
 end $qual$;
+
+-- PostgREST authorization must take the price lock BEFORE the qualification
+-- and tenant SHARE locks. A statement trigger is too late for pre-request.
+do $pre_request$
+declare definition text;begin
+ if to_regprocedure('platform_private.require_runtime_admin_request(jsonb)') is not null then
+  definition:=pg_get_functiondef('platform_private.require_runtime_admin_request(jsonb)'::regprocedure);
+  if position('booking-prices:' in definition)=0 then
+   definition:=regexp_replace(definition,'\mif readonly then\M',E'if not readonly then perform pg_advisory_xact_lock(hashtextextended(''booking-prices:''||profile,0));end if;\n if readonly then','i');
+   execute definition;
+  end if;
+ end if;
+end $pre_request$;
+-- Platform management RPCs can explicitly lock authority rows before UPDATE.
+-- Acquire the global (public then sorted tenant) lock order at entry, including
+-- wrappers, preserving original signatures, authorization, grants and bodies.
+do $control_guards$
+declare f record;definition text;begin
+ for f in select p.oid from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+  join pg_language l on l.oid=p.prolang where n.nspname='public' and l.lanname='plpgsql'
+   and p.provolatile='v' and p.prorettype<>'trigger'::regtype and p.proname like 'platform_%'
+   and p.proname<>'platform_business_pre_request'
+ loop
+  definition:=pg_get_functiondef(f.oid);
+  if position('platform_private.booking_price_authority_lock()' in definition)=0 then
+   definition:=regexp_replace(definition,'\mBEGIN\M',E'BEGIN\n PERFORM platform_private.booking_price_authority_lock();','i');
+   execute definition;
+  end if;
+ end loop;
+end $control_guards$;
 notify pgrst,'reload schema';

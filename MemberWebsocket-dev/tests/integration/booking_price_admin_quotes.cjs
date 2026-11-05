@@ -76,3 +76,22 @@ test('admin item editor submits the displayed price after a background catalog r
     w.close();
   }
 });
+
+test('changing a participant technician does not reference a price editor catalog',async()=>{
+ const root=path.resolve(__dirname,'../..');const source=fs.readFileSync(path.join(root,'admin/booking-panel-core.js'),'utf8');
+ const dom=new JSDOM('<h3 id="title"></h3><div id="body"></div>',{runScripts:'outside-only',url:'https://example.test/admin/'});const w=dom.window;
+ try{
+  let sent,finish;const completed=new Promise(resolve=>finish=resolve);
+  w.state={config:{pricePublishing:true},booking:{settings:{requirePrimaryTechnician:false}},catalog:{technicians:[]}};
+  w.els={bookingAdminCrudModalTitle:w.document.getElementById('title'),bookingAdminCrudModalBody:w.document.getElementById('body')};
+  w.canEditBooking=()=>true;w.participantLabel=()=> '同行者';w.showModal=()=>{};w.closeModal=()=>{};w.showMessage=()=>{};
+  w.runModalAction=async run=>{try{await run();}finally{finish();}};w.operationsRequest=async(action,payload)=>{sent={action,payload};};
+  w.eval(fs.readFileSync(path.join(root,'booking-price-publishing.js'),'utf8'));
+  const start=source.indexOf('  function openParticipantTechnicianEditor');const end=source.indexOf('  function participantItemsLabel',start);
+  w.eval(source.slice(start,end)+'\nwindow.openTest=openParticipantTechnicianEditor;');
+  w.openTest({bookingId:'qa'}, {participants:[{position:1,technicianId:''}]},0);
+  w.document.querySelector('form').dispatchEvent(new w.Event('submit',{cancelable:true}));await completed;
+  assert.equal(sent.action,'admin.booking.participants.technicians.update');
+  assert.deepEqual(JSON.parse(JSON.stringify(sent.payload.participants)),[{position:1,technicianId:''}]);
+ }finally{w.close();}
+});

@@ -54,3 +54,22 @@ test('AC-010: nested receipt wrapper and group member lock use one consistent ph
   assert.equal((await h.one(`select count(*)::int n from ${h.tenant}.booking_items`)).n,1);
  }finally{await barrier.query('select pg_advisory_unlock_all()');await h.db.close();}
 });
+
+
+test('AC-008/010: real PostgREST pre-request and qualification revocation cannot invert locks',async()=>{
+ const h=await fixture({...await database(),runtimePreRequest:true});const first=await h.db.connect(),second=await h.db.connect();
+ try{
+  const current=await h.resolve(h.a);
+  const headers=JSON.stringify({'content-profile':h.tenant,'x-platform-admin-actor':h.actor,'x-platform-admin-tenant':'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','x-platform-admin-issued-at':new Date().toISOString()});
+  await first.query('begin');await first.query('set local role service_role');await first.query("select set_config('request.headers',$1,true)",[headers]);
+  await first.query('select public.platform_business_pre_request()');
+  const pid=(await second.query('select pg_backend_pid() pid')).rows[0].pid;
+  const revoke=second.query("update platform_private.admin_qualifications set status='suspended' where applicant_line_user_id=$1",[h.actor]);revoke.catch(()=>{});
+  let blocked=false;const deadline=Date.now()+4000;
+  while(Date.now()<deadline){blocked=(await h.one("select wait_event_type='Lock' blocked from pg_stat_activity where pid=$1",[pid]))?.blocked;if(blocked)break;await new Promise(resolve=>setTimeout(resolve,10));}
+  assert.equal(blocked,true);
+  const published=(await first.query(`select ${h.tenant}.booking_price_publish($1,950,'2045-01-01T00:00:00+08:00','prehook-race',$2,$3) p`,[h.a,h.actor,current.priceVersion])).rows[0].p;
+  await first.query('commit');await revoke;
+  assert.equal((await h.one(`select cancelled_at is not null cancelled from ${h.tenant}.booking_service_price_publications where id=$1`,[published.id])).cancelled,true);
+ }finally{await h.db.close();}
+});

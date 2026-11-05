@@ -2093,7 +2093,7 @@
       await runModalAction(async () => operationsRequest('admin.booking.participants.technicians.update', {
         bookingId: booking.bookingId,
         expectedUpdatedAt: booking.updatedAt,
-        ...window.BookingPricePublishing?.payload(state.config,{participants},services) || {participants},
+        participants,
       }, true));
     });
     showModal();

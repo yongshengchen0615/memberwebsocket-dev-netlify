@@ -39,4 +39,7 @@ test('AC-004/011: pending price reschedule, cancellation and conflict keep the i
  await expect(d.getByRole('status')).toContainText('價格已被其他管理員更新');await expect(d.getByLabel('新價格（NT$）')).toHaveValue('850');
  await expect(d.getByRole('button',{name:'儲存改期',exact:true})).toBeEnabled();
  await page.keyboard.press('Escape');await expect(d).toHaveCount(0);await expect(page.getByRole('button',{name:'調整價格'})).toBeFocused();
+ await page.evaluate(()=>window.conflict=false);await page.getByRole('button',{name:'調整價格'}).click();
+ page.once('dialog',dialog=>dialog.accept());await d.getByRole('button',{name:'取消排程',exact:true}).click();
+ await expect(d.getByRole('status')).toContainText('排程已取消');expect(await page.evaluate(()=>calls.find(x=>x.action.endsWith('.cancel')).payload.publicationId)).toBe('future-1');
 });

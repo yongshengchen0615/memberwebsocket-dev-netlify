@@ -13,8 +13,9 @@
 - 以交易內生效時間 resolver + ledger 取代 tick/cron；不啟用原本停用的工作。不同項目、不同時間自動解析有效價。
 - Preview 普通項目編輯只修改原有資料，價格欄 readonly；調價一律走「調整價格」。資料庫保留 raw base，避免名稱編輯帶入驗收價格。刪除仍取消其未來事件。
 - 會員與管理員的單人／多人／電話改單皆凍結畫面呈現的逐項報價；改價後送出需409重新確認，不能用背景刷新版本默默成交。
-- 撤銷 tenant、qualification、runtime admin 身分時永久取消未來事件；已生效及歷史快照保留。刪除也涵蓋。
-- 相同 schema 的價格／預約交易先取同一 advisory lock；遞迴涵蓋間接呼叫寫入的收據 wrapper，保留既有授權與函式簽章。
+- 已完成服務更正與快照收據沿用歷史單價；只有伺服器列出的報價寫入 action 啟用新價格 snapshot guard。
+- 撤銷 tenant、qualification、runtime admin 身分（含 role 降權／換 ID）時永久取消未來事件；已生效及歷史快照保留。刪除也涵蓋。
+- 相同 schema 的價格／預約交易先取同一 advisory lock；遞迴涵蓋間接呼叫寫入的收據 wrapper；pre-request 在資格 SHARE 前取得商家價格鎖，平台控制 RPC 在入口先取得 public／排序商家鎖，再操作資格列。保留既有授權與函式簽章。
 
 ## 1. 本輪結果
 

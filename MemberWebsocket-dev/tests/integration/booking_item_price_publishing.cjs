@@ -165,6 +165,16 @@ test('review regressions: preview price edits, legacy isolation, admin revocatio
    await assert.rejects(one(sql,[second.id,second.updatedAt,...args.slice(2)]),/BOOKING_PRICE_REQUEST_CONFLICT/);
    assert.equal((await one(`select cancelled_at from ${s}.booking_service_price_publications where id=$1`,[second.id])).cancelled_at,null);
   });
+  await t.test('role downgrade and actor identity change cancel future prices',async()=>{
+   for(const field of ['role','line_user_id']){
+    const p=await h.publish(a,8888,'2044-01-01T00:00:00+08:00');
+    if(field==='role')await db.query(`update ${s}.admins set role='none' where line_user_id=$1`,[actor]);
+    else await db.query(`update ${s}.admins set line_user_id=$2 where line_user_id=$1`,[actor,'U'+'9'.repeat(32)]);
+    assert.equal((await one(`select cancelled_at is not null cancelled from ${s}.booking_service_price_publications where id=$1`,[p.id])).cancelled,true);
+    if(field==='role')await db.query(`update ${s}.admins set role='admin' where line_user_id=$1`,[actor]);
+    else await db.query(`update ${s}.admins set line_user_id=$1 where line_user_id=$2`,[actor,'U'+'9'.repeat(32)]);
+   }
+  });
   await t.test('runtime admin suspension cancels future prices and reactivation does not restore them',async()=>{
    const p=await h.publish(a,9999,'2042-01-01T00:00:00+08:00');
    await db.query(`update ${s}.admins set status='suspended' where line_user_id=$1`,[actor]);
