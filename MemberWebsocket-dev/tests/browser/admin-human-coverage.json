@@ -19,34 +19,35 @@
   "lineSettingsThemeReview": "2026-11-03 PR #241: Reviewed general manager LINE settings theme-only CSS, semantic light/dark card, details, help, input/select, tabs, status, endpoint and responsive action row. Updated both admin/index.html and admin/workspace.html CSS asset revisions; preserved LINE official green button, saved credentials, notifications, role/tenant scopes and original six human workflow journeys. New line_settings_theme.test.js and line-settings-theme.spec.cjs cover 390/1280 light-dark-light and no overflow; full original Chromium/integration baseline still required.",
   "reviewedSources": {
     "admin/index.html": "f13da78e3bb631b0c7062d19161b42e29a54b43e9ed86488179e6686e25c7e53",
-    "admin/app.js": "3da17bea0561ae4f1509739578f14dd95dad0ac7e877c96dcf4372c7be2d2206",
+    "admin/app.js": "f0dc8fe11e4c55565e9bd3d928924e38dbeb850c6d8e1260065de2a64616f935",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
-    "admin/grant-automation.js": "f3178a0bb26745d6cd7731b24ab8ab9aaec96a4dada62699a3609ae8b803e2b0",
+    "admin/grant-automation.js": "8030ff122a63533e5e3f91bc79e9bdf65b0bf6ec91f7d7b363e7e970c878cfc1",
     "admin/coupon-location-editor.js": "31fb9d8ab26519022ed20528f9ce7cba588826c4d20bf2cccc2c1a5f584d055f",
     "admin/fixed-ticket-admin.js": "c105feacd0c32d91ba6483fa045963da959339b14a545d574d8de5595180bfb5",
     "admin/fixed-ticket-admin-integration.js": "af65455cf96f6770fdbb0a72558d970b5a4377b0d42557ef55b2f5e70c43c190",
-    "admin/fixed-ticket-calendar-option.js": "947e5d1d56a8fb0054d8880b31f053c940505e116a566e13c2c931593870265c",
+    "admin/fixed-ticket-calendar-option.js": "0bbc53970ff0ec7408985b001113f64de718963bcfbc793f563a44f2e068f1f1",
     "admin/pointcard-redemption-limit.js": "fbba580c9babdac950b2f619c3f3b949fe89ae0c1365e2555f758d1a8818035c",
     "admin/event-ticket-redemption-limit.js": "263a564d64845c5abb4ed5167305b0bffefb064130a0268ab533b481d320b688",
     "admin/booking-panel.js": "58e0ef81701112d0178d85bb68a7984ee09442036856ad18d4ea5cca37da828e",
-    "admin/booking-panel-core.js": "740391a4edcd8fbb1a800f2f29ae4dd2bc7b298d726ce3bf2666bb5f101db3f5",
+    "admin/booking-panel-core.js": "e4308b5656708b0de0e6085707a9c0a3d24e376ec9100dc06025297bdcbada09",
     "admin/booking-resources.js": "ea6901dc1020cbb85ead15107333e4b110e2b9a02854bffba856e410445bd852",
     "admin/booking-always-open.js": "9cb236902a7f3f36cf3fe4c3f13fbbac622f000c72d36ec34f7d4dde08e6e54a",
     "admin/booking-cancellation-sync.js": "a8367bb6565d054af976ec1ffdf950874a4e8f14a3917d2e036bc1744016db19",
     "admin/booking-receipt-admin.js": "b5873c2753c0f2f9c267d0d13583405c2205cc70c0f2103f5899f741a74cf920",
     "admin/booking-accessible-admin.js": "73482b9e6f13c105d3ad6e7c32553b4d4afe6c498164a9430f8b876b74dd31ea",
-    "admin/ticket-visibility.js": "bb1cf776a3bf1c69f75bbfa6a4b3e07cf9c9077444099533cb9c2883736dd5c0",
+    "admin/ticket-visibility.js": "5f3218d1798f285d8b1c971a3658dd4c49525d8468ecd4c8a7fb79f653e7c85f",
     "admin/workspace.html": "2548fc98e75001c257fbffb794f3d49a3cd8a79215decd9c19fad6fa90c7f5b0",
     "platform/app.js": "f68824208c879bc2e722f28f3ecf3fa7a516f822db49eb1ef3b4c3bf9ae11aa9",
-    "admin/business-workspace.js": "ea9c37299751e43bdb3d8193e637130f659a311f7ecaf41f1bee2cc7f7ced8d8",
+    "admin/business-workspace.js": "8476d8f0e5153ec6724763520ae5e7daa023526dbe7a8349ac12ed31c7b46556",
     "business-context.js": "3a4319099c8c118cb0c431abb239399bb295c47861bcae0aac2be16c8783696b",
     "admin/business-line-settings.js": "18466944a9897cc4b81954b8effa41f3324142a8b8bd559010baee992bac4fd2",
     "admin/booking-risk.js": "76f61965b64eaa761b8e60074daf893551bc1bdafce7792d951159adac501a97",
     "platform/index.html": "efaa6d9b7220ae7d7ee1f9e23e67d3e2aaf251fc64bb7aa49d25a0504c959a03",
     "admin/productized-workspace.js": "f9a9809c7a5448f8de3ec46be1a0af2ca4e340038b7d2605dc50368eae39c2c3",
     "platform/platform.css": "6b9332f7b0c242709a7c998779536bb0742b6a5fbecb264334d2b52ad5ed70ac",
-    "admin/business-line-settings.css": "7657f293d3208adbbbbc67c27f128d6e74cc3b103ad6228fc8c03638f4f5df70"
+    "admin/business-line-settings.css": "7657f293d3208adbbbbc67c27f128d6e74cc3b103ad6228fc8c03638f4f5df70",
+    "booking/common.js": "41465db7aeffa6bca2e413b01072e33dbbc752c72aa0627edd32b3e9e8014a96"
   },
   "features": [
     {
@@ -761,5 +762,16 @@
       "tests/browser/platform-connection-efficiency.spec.cjs: polling and manual sync regression"
     ],
     "gate": "All existing same-SHA CI, Netlify build, Ticket Policy and Preview smoke required; synthetic identity is not live LINE acceptance."
+  },
+  "featureDependencyJourney": {
+    "scope": "2026-10-30: nested feature integrations follow explicit current tenant grants; preserve saved rules and independent operations. Reviewed manual/service grants, automatic booking points, ticket booking restrictions, fixed/event calendar integrations, calendar bonus, history filters and optional requests. Booking benefits/claims/profile/presence honor the existing preview API override; production without an override retains its URL. Revoked fixed-calendar fields are omitted and the handler preserves their stored value; calendar bonuses match the recipient tier and event predicate. 2026-11-06: latest-base merge reviewed; canonical benefit kinds, mixed-template dispatch, immutable withheld rules, nested booking response filtering and RPC preservation verified with new behavioral cases.",
+    "tests": [
+      "tests/feature_dependencies.test.js",
+      "tests/integration/feature_dependencies.cjs",
+      "tests/browser/feature-dependencies.spec.cjs",
+      "tests/integration/postgres/feature-dependencies.cjs",
+      "tests/connection_efficiency.test.js"
+    ],
+    "evidence": "Related Node and DOM tests executed locally; full Chromium/PostgreSQL/Edge and dependency audit require exact-SHA CI. Provider LINE acceptance is not claimed."
   }
 }

@@ -63,6 +63,18 @@ function harness(kind = 'booking') {
 }
 const succeed = (call, data = {}) => call.resolve({ ok: true, data });
 
+test('AC-002: booking cross-feature reads and claims use the configured preview API without changing legacy routing',async()=>{
+ const h=harness('booking');
+ for(const preview of [false,true]){
+  const settings={...config,...(preview?{previewApiFunctionUrl:'https://fixture.supabase.co/functions/v1/api-preview'}:{})};
+  for(const [method,args]of [['bookingBenefits',[]],['claimEventTicket',['EVENT']],['memberProfile',[]]]){
+   const pending=h.system[method](settings,'identity-A',...args);await flush();const call=h.calls.at(-1);
+   assert.equal(call.url,preview?'https://fixture.supabase.co/functions/v1/api-preview':'https://fixture.supabase.co/functions/v1/api');
+   succeed(call,{});await pending;
+  }
+ }
+});
+
 for (const kind of ['member', 'booking']) {
   const action = kind === 'member' ? 'user.member.bootstrap' : 'user.booking.slots';
   test(`AC-PERF-001 ${kind}: identical in-flight reads still coalesce and later reads stay fresh`, async () => {

@@ -14,6 +14,7 @@
   let eventCalendarSyncVersion = 0;
   let managedCalendarInfoOpener = null;
   let managedCalendarObserver = null;
+  const featureAllowed=(config,feature)=>!config?.grantedFeatures||config.grantedFeatures[feature]===true;
 
   function cacheCalendarResult(result) {
     if (!result || typeof result !== 'object') return result;
@@ -101,6 +102,8 @@
 
   async function mergeCalendarBonusList(config, idToken, result) {
     cacheCalendarResult(result);
+    if(result.features)config.grantedFeatures=result.features;
+    if(!featureAllowed(config,'calendar'))return result;
     try {
       const bonusResult = await automationRequest(config, idToken, 'admin.calendar-items.list', {});
       if (Array.isArray(bonusResult.calendarItems)) result.calendarItems = bonusResult.calendarItems;
@@ -385,6 +388,7 @@
   }
 
   async function syncEventTicketCalendarChoiceFromSelection(force = false) {
+    if(!featureAllowed(lastAdminConfig,'calendar'))return;
     const eventTicketId = String(document.getElementById('eventTicketId')?.value || '').trim();
     if (!force && eventTicketId === lastEventTicketId) return;
     lastEventTicketId = eventTicketId;
@@ -418,6 +422,7 @@
   }
 
   async function syncEventTicketCalendarAfterSave(config, idToken, result) {
+    if(!featureAllowed(config,'calendar'))return;
     const ticket = result && result.eventTicket && typeof result.eventTicket === 'object' ? result.eventTicket : null;
     if (!ticket || !ticket.eventTicketId) return;
     const checkbox = document.getElementById('eventTicketAddToCalendar');
@@ -481,7 +486,7 @@
   async function deleteEventTicketWithCalendarCleanup(config, clientType, idToken, action, payload) {
     const eventTicketId = String(payload && payload.eventTicketId || '').trim();
     const result = cacheCalendarResult(await originalRequest(config, clientType, idToken, action, payload));
-    if (!eventTicketId) return result;
+    if (!eventTicketId || !featureAllowed(config,'calendar')) return result;
     try {
       const rows = await fetchCalendarItemsForEventSync(config, idToken);
       const existing = rows.find((item) => isManagedEventTicketCalendarItem(item, eventTicketId));
@@ -508,6 +513,7 @@
       return automationRequest(config, idToken, action, decorateGrantPayload(payload));
     }
     if (clientType === 'admin' && action === 'admin.calendar-items.save') {
+      if(!featureAllowed(config,'points'))return originalRequest(config,clientType,idToken,action,payload);
       return automationRequest(config, idToken, action, decorateCalendarPayload(payload));
     }
     if (clientType === 'admin' && action === 'admin.calendar-items.list') {

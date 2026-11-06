@@ -10,6 +10,23 @@ const modulePromise = import(pathToFileURL(path.join(root, 'supabase/functions/_
 const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' });
 const member = { id: 'member-1', line_user_id: 'line-1', display_name: '會員', status: 'active', membership_status: 'active', birthday: '1990-01-01' };
 
+test('AC-002: booking benefits never query or expose disabled point, event and calendar modules',async()=>{
+ const {loadBookingBenefits}=await modulePromise,db=database();
+ db.businessFeatures={booking:true};
+ const result=await loadBookingBenefits(db,member,'silver',today);
+ assert.deepEqual(result.items,[]);
+ assert.equal(db.calls.some(call=>['point_cards','point_tickets','point_card_rewards','event_tickets','event_ticket_claims','calendar_items'].includes(call.table)),false);
+});
+
+test('AC-002: events-only bookings retain existing event-ticket reservation locks',async()=>{
+ const {loadBookingBenefits}=await modulePromise;
+ const db=database({event_ticket_claims:[{claim_id:'EC-1',event_ticket_id:'event',member_id:member.id,status:'available'}],booking_benefit_selections:[{booking_id:'other',member_id:member.id,status:'pending',benefit_kind:'event',benefit_ref:'EC-1'}]});
+ db.businessFeatures={booking:true,events:true};
+ const result=await loadBookingBenefits(db,member,'silver',today);
+ assert.equal(result.items.length,1);assert.equal(result.items[0].selectable,false);
+ assert.match(result.items[0].disabledReason,/預約/);
+});
+
 function database(overrides = {}, fail = '') {
   const data = {
     members: [member], membership_tier_settings: [{ tier_key: 'silver', tier_label: '銀級會員', required_service_minutes: 0 }], service_time_entries: [],

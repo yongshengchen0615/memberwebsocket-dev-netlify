@@ -7,6 +7,14 @@ const root = path.resolve(__dirname, '..');
 const offers = import(pathToFileURL(path.join(root, 'supabase/functions/_shared/latest-available-offers.ts')));
 const benefits = import(pathToFileURL(path.join(root, 'supabase/functions/booking-line-notifications/benefits.ts')));
 
+test('AC-002: booking notifications omit disabled entitlement categories and never issue disabled point tickets',async()=>{
+ const {loadBookingConfirmationBenefits}=await benefits,{db,calls}=fixture();
+ db.businessFeatures={booking:true};
+ const result=await loadBookingConfirmationBenefits(db,{booking_id:'booking-1',recipient:'LINE-1'});
+ assert.deepEqual([result.pointTickets,result.eventTickets,result.tierActivities],[[],[],[]]);
+ assert.equal(calls.some(call=>call.rpc==='issue_eligible_point_tickets_for_member'),false);
+});
+
 function fixture(overrides = {}, fail = '') {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' });
   const tables = {

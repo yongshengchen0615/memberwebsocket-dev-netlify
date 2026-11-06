@@ -5,28 +5,31 @@ import { isEligibleTierActivity } from './activity-eligibility.ts';
 import { chooseBookingPointOffers } from './booking-point-offer-choice.ts';
 
 export async function loadBookingBenefits(db: SupabaseClient, member: any, tier: string, today: string, currentBookingId = '') {
+  const features=(db as any).businessFeatures;
+  const allowed=(feature:string)=>!features||features[feature]===true;
+  const empty={data:[],error:null};
   // Member and tier are resolved by the authenticated handler, never the body.
   // Fixed-size batched reads; no ticket issuance, claim or redemption occurs here.
   const [allPointOffers, events, calendar, eventSettings, pointSettings, pendingPointSelections, pendingSnapshotReceipts] = await Promise.all([
     loadLatestPointOffers(db, String(member.id), true, true),
     loadLatestEventOffers(db, String(member.id), tier, true, true),
-    db.from('calendar_items')
+    allowed('calendar')?db.from('calendar_items')
       .select('calendar_item_id,title,item_type,starts_on,ends_on,status,allowed_tier_keys,source_event_ticket_id,audience_type,audience_month')
       .eq('item_type', 'event').in('status', ['active', 'targeted'])
       .is('source_event_ticket_id', null).lte('starts_on', today)
-      .order('starts_on', { ascending: true }),
-    db.from('event_ticket_settings')
+      .order('starts_on', { ascending: true }):Promise.resolve(empty),
+    allowed('events')?db.from('event_ticket_settings')
       .select('max_tickets_per_day')
       .eq('id', 1)
-      .maybeSingle(),
-    db.from('point_card_settings')
+      .maybeSingle():Promise.resolve({data:null,error:null}),
+    allowed('points')?db.from('point_card_settings')
       .select('max_tickets_per_redemption')
       .eq('id', 1)
-      .maybeSingle(),
-    db.from('booking_benefit_selections')
+      .maybeSingle():Promise.resolve({data:null,error:null}),
+    (allowed('points')||allowed('events'))?db.from('booking_benefit_selections')
       .select('booking_id,benefit_kind,benefit_ref')
       .eq('member_id', String(member.id))
-      .eq('status', 'pending'),
+      .eq('status', 'pending'):Promise.resolve(empty),
     db.from('booking_receipts')
       .select('requested_benefits')
       .eq('member_id', String(member.id))

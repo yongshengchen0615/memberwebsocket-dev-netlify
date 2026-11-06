@@ -197,6 +197,7 @@ export async function loadLatestPointOffers(
   strict: boolean,
   includeEveryTicket = false,
 ): Promise<Array<CurrentPointOffer & { cardId: string; expiresOn: string }>> {
+  if ((supabase as any).businessFeatures && (supabase as any).businessFeatures.points !== true) return [];
   const ticketsResult = await supabase
     .from("point_tickets")
     .select("ticket_id,reward_id,point_card_id,ticket_template_id,threshold_stamps,requires_location")
@@ -262,6 +263,7 @@ export async function loadLatestEventOffers(
   strict: boolean,
   includeTierPreview = false,
 ): Promise<Array<CurrentEventOffer & { eventTicketId: string; startsOn: string; endsOn: string; allowedTierKeys: string[]; description: string; accent: string; ticketType: string; quota: number | null; claimedCount: number; fixedTicketTemplateId: string }>> {
+  if ((supabase as any).businessFeatures && (supabase as any).businessFeatures.events !== true) return [];
   const today = taipeiDate();
   const eventsResult = await supabase
     .from("event_tickets")
