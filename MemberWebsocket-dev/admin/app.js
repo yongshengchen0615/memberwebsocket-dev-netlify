@@ -646,6 +646,10 @@
   }
 
   function applyAdminBootstrap(result, requestStartedAt) {
+    // Reconciliation updates lists and grants, not an editor's unsaved draft.
+    // Keep its original optimistic version so a conflicting save still fails.
+    const openEditors = new Set(Object.entries(state.editorModals)
+      .filter(([, entry]) => !entry.modal.classList.contains('hidden')).map(([key]) => key));
     if(result.features){state.config.grantedFeatures=result.features;window.BusinessWorkspace?.apply(result);}
     if (state.memberKind === 'real') {
       state.members = mergeNewerPresenceObservations(result.members, requestStartedAt);
@@ -663,9 +667,9 @@
     els.displayName.textContent = String(result.profile && result.profile.displayName || '管理員');
     els.roleLabel.textContent = String(result.role || 'Admin');
     renderAdminOverview();
-    applyAdminCards(result, false);
-    applyAdminEventTickets(result, false);
-    applyAdminCalendarItems(result);
+    applyAdminCards(result, false, openEditors);
+    applyAdminEventTickets(result, false, openEditors);
+    applyAdminCalendarItems(result, openEditors.has('calendar'));
   }
 
   function renderAdminOverview() {
@@ -726,7 +730,7 @@
     });
   }
 
-  function applyAdminCards(result, renderOverview = true) {
+  function applyAdminCards(result, renderOverview = true, openEditors = new Set()) {
     if (Array.isArray(result.bookingServices)) state.bookingServices = normalizeBookingServices(result.bookingServices);
     state.cards = Array.isArray(result.cards) ? result.cards : [];
     state.cardSortOriginalOrder = state.cards.map((card) => String(card.cardId || ''));
@@ -735,11 +739,15 @@
     state.stats = { ...state.stats, ...(result.stats && typeof result.stats === 'object' ? result.stats : {}) };
     if (renderOverview) renderAdminOverview();
     renderCardList(); renderTicketList();
-    if (state.selectedCardId && state.cards.some((card) => card.cardId === state.selectedCardId)) loadCardForm(state.selectedCardId); else resetCardForm();
-    if (state.selectedTicketId && state.tickets.some((ticket) => ticket.ticketTemplateId === state.selectedTicketId)) loadTicketForm(state.selectedTicketId); else resetTicketForm();
+    if (!openEditors.has('card')) {
+      if (state.selectedCardId && state.cards.some((card) => card.cardId === state.selectedCardId)) loadCardForm(state.selectedCardId); else resetCardForm();
+    }
+    if (!openEditors.has('ticket')) {
+      if (state.selectedTicketId && state.tickets.some((ticket) => ticket.ticketTemplateId === state.selectedTicketId)) loadTicketForm(state.selectedTicketId); else resetTicketForm();
+    }
   }
 
-  function applyAdminEventTickets(result, renderOverview = true) {
+  function applyAdminEventTickets(result, renderOverview = true, openEditors = new Set()) {
     if (Array.isArray(result.bookingServices)) state.bookingServices = normalizeBookingServices(result.bookingServices);
     const previousTickets = state.eventTickets;
     const nextTickets = Array.isArray(result.eventTickets) ? result.eventTickets : [];
@@ -749,7 +757,7 @@
     if (renderOverview) renderAdminOverview();
     if (listChanged || els.eventTicketListItems.children.length !== nextTickets.length) renderEventTicketList();
 
-    if (state.selectedEventTicketId) {
+    if (state.selectedEventTicketId && !openEditors.has('eventTicket')) {
       const selected = nextTickets.find((ticket) => ticket.eventTicketId === state.selectedEventTicketId);
       if (!selected) {
         resetEventTicketForm(false);
@@ -761,12 +769,14 @@
     }
   }
 
-  function applyAdminCalendarItems(result) {
+  function applyAdminCalendarItems(result, preserveEditor = false) {
     state.calendarItems = Array.isArray(result.calendarItems) ? result.calendarItems : [];
     const calendarIds = new Set(state.calendarItems.map((item) => String(item.calendarItemId || '')));
     state.selectedCalendarItemIds = new Set(Array.from(state.selectedCalendarItemIds).filter((calendarItemId) => calendarIds.has(calendarItemId)));
     renderAdminCalendar(); renderCalendarBatchRows();
-    if (state.selectedCalendarItemId && state.calendarItems.some((item) => item.calendarItemId === state.selectedCalendarItemId)) loadCalendarItemForm(state.selectedCalendarItemId); else resetCalendarItemForm();
+    if (!preserveEditor) {
+      if (state.selectedCalendarItemId && state.calendarItems.some((item) => item.calendarItemId === state.selectedCalendarItemId)) loadCalendarItemForm(state.selectedCalendarItemId); else resetCalendarItemForm();
+    }
   }
 
   function renderMembers() {
@@ -1164,6 +1174,7 @@
     metrics.forEach(([label, value], index) => {
       const item = document.createElement('span');
       item.className = index < 2 ? 'is-primary' : '';
+      if (index === 3) item.dataset.businessRequires = 'membership booking';
       const small = document.createElement('small'); small.textContent = label;
       const strong = document.createElement('strong'); strong.textContent = value;
       item.append(small, strong); metricGrid.append(item);
@@ -1251,6 +1262,8 @@
     const category = String(record.recordCategory || '');
     const article = document.createElement('article');
     article.className = `member-record-item category-${category}`;
+    const feature = {pointCards:'points',eventTickets:'events',calendar:'calendar',bookings:'booking',testAutomation:'testing'}[category];
+    article.dataset.businessRequires = feature ? 'membership ' + feature : 'membership';
 
     const heading = document.createElement('div');
     heading.className = 'member-record-item-heading';
@@ -1771,6 +1784,7 @@
         if(!source || requireRefreshBeforeWrite(els[messageId])) {showMessage(els[messageId],'請先選擇已儲存的設定。');return;}
         let modal=document.getElementById('settingsCopyModal');
         if(!modal){modal=document.createElement('div');modal.id='settingsCopyModal';modal.className='modal';modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','true');modal.setAttribute('aria-labelledby','settingsCopyTitle');modal.innerHTML='<section class="modal-card"><h2 id="settingsCopyTitle">複製設定為草稿</h2><p>複製已儲存的設定。請在複本確認規則與效期後再啟用。</p><label>複本名稱<input id="settingsCopyName" maxlength="100" required></label><p id="settingsCopyPreview"></p><p>會員點數、持有票券、使用紀錄及預約綁定不會複製。此操作不發券、不發 LINE 通知。</p><p id="settingsCopyStatus" role="status" aria-live="polite"></p><div class="form-actions"><button id="settingsCopyCancel" type="button" class="button button-refresh">取消</button><button id="settingsCopyConfirm" type="button" class="button button-dark">建立草稿複本</button></div></section>';document.body.append(modal);}
+        modal.dataset.businessRequires=kind==='event'?'events':'points';
         modal.classList.remove('hidden');const input=modal.querySelector('#settingsCopyName');input.disabled=false;input.value=(source.title+'（複本）').slice(0,100);
         modal.querySelector('#settingsCopyPreview').textContent=`來源：${source.title} · 效期：${source.expiresOn||[source.startsOn,source.endsOn].filter(Boolean).join('～')||'不限'}${source.quota!==undefined?' · 限量：'+(source.quota||'不限'):''}${source.rewards?' · '+source.rewards.length+' 個集點節點':''}${source.allowedTierKeys?' · 階級：'+source.allowedTierKeys.map(key=>({general:'一般',silver:'銀級',gold:'金級',platinum:'白金'})[key]||key).join('、'):''}。名稱可在此修改，其餘設定建立後在原編輯器調整。`;
         const status=modal.querySelector('#settingsCopyStatus');status.textContent='';const confirm=modal.querySelector('#settingsCopyConfirm');const cancel=modal.querySelector('#settingsCopyCancel');confirm.disabled=false;cancel.disabled=false;

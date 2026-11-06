@@ -63,6 +63,16 @@ test('AC-185: opaque revisions use private PostgreSQL schemas, authorized identi
   const other=await h.approve('U'+'3'.repeat(32),'sync-other',features);
   await assert.rejects(syncRevision(db(other.runtime_schema),'admin',owner,error),e=>e.status===403);
   assert.deepEqual(Object.keys(after),['revision']);
+  const events=(await h.db.query(`select count(*)::int n from ${h.t.runtime_schema}.realtime_events`)).rows[0].n;
+  const readGrants=async()=>scoped.businessFeatures=(await h.db.query('select features from platform_private.tenants where id=$1',[h.t.id])).rows[0].features;
+  await readGrants();const granted=await syncRevision(scoped,'admin',owner,error);
+  for(const feature of ['membership','points','events','calendar','booking']){
+   await h.db.query('update platform_private.tenants set features=$2 where id=$1',[h.t.id,{...features,[feature]:false}]);await readGrants();
+   assert.notEqual((await syncRevision(scoped,'admin',owner,error)).revision,granted.revision,feature);
+  }
+  await h.db.query('update platform_private.tenants set features=$2 where id=$1',[h.t.id,features]);await readGrants();
+  assert.deepEqual(await syncRevision(scoped,'admin',owner,error),granted);
+  assert.equal((await h.db.query(`select count(*)::int n from ${h.t.runtime_schema}.realtime_events`)).rows[0].n,events,'control-plane grants invalidate without private event writes');
  }finally{await h.db.close();}
 });
 test('AC-186: existing cron dispatches a custom-only notification module without requiring Login/LIFF credentials',async()=>{

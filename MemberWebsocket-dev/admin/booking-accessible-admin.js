@@ -87,6 +87,7 @@
     const view=benefitPresentation(benefit);
     const card=document.createElement('article');
     card.className=`booking-ticket-card kind-${view.kind||'other'}`;
+    card.dataset.businessRequires='booking '+(view.kind==='points'?'points':'events');
 
     const top=document.createElement('div');
     top.className='booking-ticket-card-top';
@@ -187,7 +188,7 @@
 
       info.append(heading,meta);
       if (receipt.requestedBenefits?.length) {
-        const requested = document.createElement('small'); requested.textContent = `會員登記票券：${receipt.requestedBenefits.map(item => item.title || item.id).join('、')}`; info.append(requested);
+        const requested = document.createElement('small'); requested.dataset.businessRequires='booking points events'; requested.textContent = `會員登記票券：${receipt.requestedBenefits.map(item => item.title || item.id).join('、')}`; info.append(requested);
       }
       if (receipt.reviewStatus === 'completed') {
         const summary = document.createElement('div'); summary.className = 'accessible-admin-record-summary';
@@ -195,6 +196,7 @@
         const serviceTitles = (receipt.services || []).map(item => item.title).filter(Boolean);
         service.textContent = serviceTitles.length ? serviceTitles.join('、') : '已完成服務';
         const settlement = document.createElement('small');
+        settlement.dataset.businessRequires='booking membership points events';
         settlement.textContent = `${Number(receipt.serviceMinutes || 0)} 分鐘 · 新增 ${Number(receipt.points || 0)} 點 · 核銷 ${(receipt.benefits || []).length} 張票券`;
         summary.append(service,settlement);
         info.append(summary);
@@ -248,8 +250,9 @@
     el('accessibleAdminRecordModal')?.classList.add('hidden');
     el('accessibleAdminRecordImage')?.removeAttribute('src');
   }
-  function appendRecordStat(root,label,value) {
+  function appendRecordStat(root,label,value,required) {
     const item = document.createElement('div');
+    item.dataset.businessRequires=required;
     const small = document.createElement('small'); small.textContent = label;
     const strong = document.createElement('strong'); strong.textContent = value;
     item.append(small,strong); root.append(item);
@@ -263,9 +266,9 @@
       ? `${record.bookingDate} ${record.startTime || ''}`
       : '未建立完成預約';
     const stats = el('accessibleAdminRecordStats'); stats.replaceChildren();
-    appendRecordStat(stats,'服務時間',`${Number(record.serviceMinutes || 0)} 分鐘`);
-    appendRecordStat(stats,'新增點數',`${Number(record.points || 0)} 點`);
-    appendRecordStat(stats,'核銷票券',`${(record.benefits || []).length} 張`);
+    appendRecordStat(stats,'服務時間',`${Number(record.serviceMinutes || 0)} 分鐘`,'booking membership');
+    appendRecordStat(stats,'新增點數',`${Number(record.points || 0)} 點`,'booking points');
+    appendRecordStat(stats,'核銷票券',`${(record.benefits || []).length} 張`,'booking points events');
 
     const services = el('accessibleAdminRecordServices'); services.replaceChildren();
     if (!(record.services || []).length) {
@@ -385,15 +388,19 @@
     const value = Number(raw ?? 0);
     return Number.isInteger(value) && value >= 0 ? value : 1;
   }
+  function benefitAllowed(kind) {
+    const feature=kind==='points'?'points':kind==='event'?'events':null;
+    return feature&&window.BusinessWorkspace?.allows('booking',feature)!==false;
+  }
   function collectBenefits() {
     return [...el('accessibleAdminBenefits').querySelectorAll('[data-benefit-check]:checked')]
       .map(input => ({kind:String(input.dataset.kind || ''),id:String(input.dataset.selectionId || '')}))
-      .filter(item => item.id && (item.kind === 'points' || item.kind === 'event'));
+      .filter(item => item.id && benefitAllowed(item.kind));
   }
   function pointBudgetSnapshot() {
     const root = el('accessibleAdminBenefits');
     const budgets = new Map();
-    if (!root) return budgets;
+    if (!root || !benefitAllowed('points')) return budgets;
     [...root.querySelectorAll('[data-benefit-check][data-kind="points"]')].forEach(input => {
       const cardKey = String(input.dataset.pointCard || input.dataset.pointCardTitle || '未分類集點卡');
       const cardTitle = String(input.dataset.pointCardTitle || cardKey || '集點卡');
@@ -468,6 +475,7 @@
       } else {
         currentBenefits.forEach(benefit => {
           const row = document.createElement('div'); row.className = 'accessible-admin-benefit';
+          row.dataset.businessRequires='booking '+(benefit.kind==='points'?'points':'events');
           const strong = document.createElement('strong'); strong.textContent = benefitRecordTitle(benefit);
           const small = document.createElement('small');
           small.textContent = `${benefitKindLabel(benefit)} · ${benefit.status === 'redeemed' || benefit.status === 'applied' ? '已完成核銷' : `狀態：${benefit.status || '已記錄'}`}`;
@@ -497,6 +505,7 @@
       const matchAll = item.requiredServiceMatchMode === 'all';
       const serviceEligible = !required.length || (matchAll ? required.every(id => selectedServices.has(id)) : required.some(id => selectedServices.has(id)));
       const row = document.createElement('div'); row.className = 'accessible-admin-benefit';
+      row.dataset.businessRequires='booking '+(item.kind==='points'?'points':'events');
       const label = document.createElement('label');
       const check = document.createElement('input'); check.type = 'checkbox'; check.dataset.benefitCheck = ''; check.dataset.kind = item.kind; check.dataset.selectionId = item.selectionId;
       check.checked = Boolean(item.selectionId) && pendingKeys.has(key) && item.selectable === true && serviceEligible;
@@ -551,6 +560,7 @@
       const key = `${item.kind}:${item.id}`;
       if (shownKeys.has(key)) return;
       const row = document.createElement('div'); row.className = 'accessible-admin-benefit accessible-admin-benefit-warning';
+      row.dataset.businessRequires='booking '+(item.kind==='points'?'points':'events');
       const strong = document.createElement('strong'); strong.textContent = item.title || '原預約票券';
       const small = document.createElement('small'); small.textContent = '此票券目前已不可使用；送出審核時會取消這筆預約的票券保留。';
       row.append(strong,small); root.append(row);
@@ -558,6 +568,7 @@
 
     const eventLimit = benefitLimit('event');
     const pointLimit = benefitLimit('points');
+    hint.dataset.businessRequires='booking points events';
     hint.textContent = `活動票券：${eventLimit === 0 ? '張數不限' : `最多 ${eventLimit} 張`}；集點卡票券：${pointLimit === 0 ? '張數不限' : `最多 ${pointLimit} 張`}。管理員不可代替會員領取尚未領取的活動票券。`;
     updatePointBudgetSummary();
   }
@@ -586,8 +597,8 @@
       if (generation === state.generation) el('accessibleAdminBenefitFields').disabled = false;
     }
   }
-  function close() {
-    if (state.busy) return;
+  function close(force = false) {
+    if (state.busy && force !== true) return;
     state.generation++;
     const modal = el('accessibleAdminModal');
     modal?.classList.add('hidden');
@@ -630,7 +641,10 @@
         el('accessibleAdminExisting').append(new Option(`${booking.bookingDate} ${booking.startTime} ${booking.status === 'completed' ? '已完成' : '已確認'} · ${booking.title}`,booking.bookingId));
       });
       if (options.requestedBookingId) el('accessibleAdminExisting').value = options.requestedBookingId;
-      if (options.requestedBenefits?.length) el('accessibleAdminReceiptMeta').textContent += ` · 會員登記：${options.requestedBenefits.map(item => item.title || item.id).join('、')}`;
+      if (options.requestedBenefits?.length) {
+        const requested=document.createElement('span');requested.dataset.businessRequires='booking points events';
+        requested.textContent=` · 會員登記：${options.requestedBenefits.map(item => item.title || item.id).join('、')}`;el('accessibleAdminReceiptMeta').append(requested);
+      }
       (options.services || []).forEach(service => {
         const row = document.createElement('div'); row.className = 'accessible-admin-item'; row.dataset.serviceId = service.id;
         const choice = document.createElement('label'); choice.className = 'accessible-admin-service-choice';
@@ -639,6 +653,7 @@
         const copy = document.createElement('span'); copy.className = 'accessible-admin-service-copy';
         const title = document.createElement('strong'); title.textContent = service.title || '服務項目';
         const meta = document.createElement('small');
+        meta.dataset.businessRequires='booking membership points';
         meta.textContent = `${service.service_type || '未分類'} · ${service.counts_toward_membership === false ? '不累計會員時間與點數' : rule ? `每 ${rule.minutesPerPoint} 分鐘集 1 點 · ${rule.cardTitle}` : '未設定集點規則，只記錄服務時間'}`;
         copy.append(title,meta); choice.append(check,copy);
         const minutesLabel = document.createElement('label'); minutesLabel.textContent = '每次實際分鐘';
@@ -656,7 +671,13 @@
       else renderBenefits();
       el('accessibleAdminDate').value = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
       el('accessibleAdminSubmit').disabled = false; el('accessibleAdminDismiss').disabled = false;
-      message(options.requirePrimaryTechnician === false && !options.primaryTechnicianConfigured ? '目前不必預約主要技師也能成立預約；此收據可登記為現場安排，依現有規則不新增主要技師集點與會員服務時間。' : options.primaryTechnicianConfigured ? (options.rewardRules?.length ? '請依序核對收據、實際服務、票券與點數後完成審核。' : '目前未設定服務集點規則，這次只記錄服務時間；請先在服務類型設定集點卡與每點分鐘數，才會自動發點。') : '尚未設定主要技師；請先設定，或連結已有預約。',options.requirePrimaryTechnician !== false && !options.primaryTechnicianConfigured);
+      if(options.requirePrimaryTechnician !== false && !options.primaryTechnicianConfigured)message('尚未設定主要技師；請先設定，或連結已有預約。',true);
+      else {
+        message('請核對收據與實際服務後完成審核。');
+        const help=document.createElement('span');help.dataset.businessRequires='booking membership points';
+        help.textContent=options.requirePrimaryTechnician === false && !options.primaryTechnicianConfigured ? '目前不必預約主要技師也能成立預約；此收據可登記為現場安排，依現有規則不新增主要技師集點與會員服務時間。' : options.rewardRules?.length ? '請依序核對收據、實際服務、票券與點數後完成審核。' : '目前未設定服務集點規則，這次只記錄服務時間；請先在服務類型設定集點卡與每點分鐘數，才會自動發點。';
+        el('accessibleAdminMessage').append(help);
+      }
     } catch (error) { if (generation === state.generation) message(error.message || '目前無法載入登記選項。',true); }
   }
   function lock(value) {
@@ -701,7 +722,7 @@
       el('accessibleAdminImage')?.removeAttribute('src');
       window.dispatchEvent(new CustomEvent('member-admin:booking-snapshot-request'));
       window.dispatchEvent(new CustomEvent('member-admin:booking-registration-completed',{detail:{bookingId:result.bookingId}}));
-    } catch (error) { message(error.code === 'API_RESPONSE_UNCERTAIN' ? '結果尚未確認。請用同一張收據重試；系統不會重複集點。' : error.message || '登記未完成。',true); }
+    } catch (error) { message(error.code === 'FEATURE_DISABLED' ? '這筆預約含有目前未開通的功能，請聯絡總管理員確認開通後再結算。' : error.code === 'API_RESPONSE_UNCERTAIN' ? '結果尚未確認。請用同一張收據重試；系統不會重複集點。' : error.message || '登記未完成。',true); }
     finally { lock(false); if (!state.selected) { el('accessibleAdminSubmit').disabled=true; el('accessibleAdminDismiss').disabled=true; } }
   }
   async function dismiss() {
@@ -715,6 +736,10 @@
     catch(error) { message(error.message || '目前無法退回收據。',true); }
     finally { lock(false); if (!state.selected) { el('accessibleAdminSubmit').disabled=true; el('accessibleAdminDismiss').disabled=true; } }
   }
+  document.addEventListener('business-access-revoked',event=>{
+    if(event.target.id==='accessibleAdminModal')close(true);
+    if(event.target.id==='accessibleAdminRecordModal')closeRecord();
+  });
   window.addEventListener('admin:accessible-receipts-updated', event => {
     state.submissions = Array.isArray(event.detail?.submissions) ? event.detail.submissions : [];
     state.records = Array.isArray(event.detail?.records) ? event.detail.records : state.submissions.map(receipt => ({...receipt,status:'awaiting_review',reviewStatus:'pending'}));

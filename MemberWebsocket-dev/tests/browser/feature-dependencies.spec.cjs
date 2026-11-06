@@ -7,6 +7,7 @@ for(const width of [390,1280])test(`FEATURE_DEPENDENCIES_${width}: nested contro
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.setContent(html);
  await page.addStyleTag({path:path.join(root,'admin/styles.css')});
+ await page.addStyleTag({path:path.join(root,'admin/booking-panel.css')});
  await page.addScriptTag({path:path.join(root,'admin/business-workspace.js')});
  await page.evaluate(()=>{
   document.getElementById('grantModal').classList.remove('hidden');
@@ -31,6 +32,14 @@ for(const width of [390,1280])test(`FEATURE_DEPENDENCIES_${width}: nested contro
  await expect(page.locator('#grantStampsEnabled')).toBeHidden();
  await expect(page.locator('#grantMode')).toHaveValue('manual');
  await expect(page.locator('#calendarBonusPointsControls')).toBeHidden();
+ await page.evaluate(()=>{
+  const modal=document.createElement('div');modal.className='booking-admin-modal';modal.setAttribute('role','dialog');
+  modal.innerHTML='<label class="booking-admin-toggle"><input data-type-reward-enabled type="checkbox"><span>完成服務自動集點</span></label><div data-type-reward-fields>分鐘／集點卡</div>';
+  document.body.append(modal);
+ });
+ await expect(page.locator('[data-type-reward-enabled]')).toBeHidden();
+ await page.evaluate(()=>window.BusinessWorkspace.apply({features:{membership:true,booking:true,points:true},business:{slug:'fixture',name:'QA'}}));
+ await expect(page.locator('[data-type-reward-enabled]')).toBeVisible();
  expect(errors).toEqual([]);
  await info.attach('feature-dependencies',{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
 });

@@ -2,10 +2,12 @@
  'use strict';
  const panels={membership:'members',points:'cards',events:'events',calendar:'calendar',booking:'booking'};
  const lineFeatures=['membership','points','events','calendar','booking'];
- let latest=null;
+ let latest=null,grantSignature='';
  // Keep each optional integration with the modules it actually consumes.
  // CSS/inert do not reset forms or overwrite the module's own disabled state.
  const integrations=[
+  ['#memberCount','membership','div'],
+  ['#activeMemberCount','membership','div'],
   ['#activeCardCount','points','div'],
   ['#todayEntryCount','points','div'],
   ['#activeEventTicketCount','events','div'],
@@ -16,6 +18,7 @@
   ['#calendarBonusPointsControls','calendar points'],
   ['#eventTicketCalendarControls','events calendar'],
   ['#fixedTicketCalendarEnabled','events calendar','.fixed-ticket-inline-actions'],
+  ['#fixedTicketCalendarSummary','events calendar'],
   ['#eventTicketRequiredServiceIds','events booking','fieldset'],
   ['[data-reward-service-rule]','points booking'],
   ['[data-type-reward-enabled]','booking points','label'],
@@ -25,31 +28,59 @@
   ['[data-record-filter="calendar"]','membership calendar'],
   ['[data-record-filter="bookings"]','membership booking'],
   ['[data-record-filter="testAutomation"]','membership testing'],
+  ['[data-record-summary-filter="pointCards"]','membership points'],
+  ['[data-record-summary-filter="eventTickets"]','membership events'],
+  ['[data-record-summary-filter="calendar"]','membership calendar'],
+  ['[data-record-summary-filter="bookings"]','membership booking'],
+  ['[data-record-summary-filter="testAutomation"]','membership testing'],
   ['#ticketVisibilitySettings','points events'],
   ['[data-booking-benefits-action]','booking points|events'],
+  ['#memberModal,#memberRecordsModal,#grantModal,#messagePresetModal','membership'],
+  ['#cardEditorModal,#ticketEditorModal','points'],
+  ['#eventTicketEditorModal','events'],
+  ['#calendarEditorModal','calendar'],
+  ['#eventTicketCalendarInfoModal','events calendar'],
+  ['#bookingAdminCrudModal,#bookingAdminTechnicianModal,#accessibleAdminModal,#accessibleAdminRecordModal','booking'],
+  ['#bookingAdminPrimaryRewardHint','booking membership points'],
+  ['#accessibleAdminBenefitFields,#accessibleAdminRecordBenefits','booking points|events','fieldset,section'],
+  ['#accessibleAdminPointSummary','booking points'],
  ];
+ function gate(node,required){
+  const allowed=required.split(' ').every(group=>group.split('|').some(feature=>latest.features?.[feature]===true));
+  if(!allowed&&node.matches('[role="dialog"],.modal,.booking-admin-modal')&&!node.hidden&&!node.classList.contains('hidden')){
+   // Run the owner's cleanup (focus/scroll/handlers) before making it inert.
+   node.dispatchEvent(new CustomEvent('business-access-revoked',{bubbles:true}));
+   if(!node.classList.contains('hidden'))node.querySelector('.close-button,.booking-admin-modal-close,#closeEventTicketCalendarInfoButton,#settingsCopyCancel')?.click();
+   node.classList.add('hidden');
+  }
+  node.dataset.businessAllowed=String(allowed);node.inert=!allowed;
+  if(node.tagName==='OPTION'){
+   node.hidden=!allowed;node.disabled=!allowed;
+   if(!allowed&&node.selected)node.parentElement.value='manual';
+  }
+ }
  function applyIntegrations(){
   if(!latest||typeof document==='undefined'||!document)return;
   for(const [selector,required,container]of integrations)for(const match of document.querySelectorAll(selector)){
    const node=container?match.closest(container):match;if(!node)continue;
-   const allowed=required.split(' ').every(group=>group.split('|').some(feature=>latest.features?.[feature]===true));
-   node.dataset.businessAllowed=String(allowed);node.inert=!allowed;
-   if(node.tagName==='OPTION'){
-    node.hidden=!allowed;node.disabled=!allowed;
-    if(!allowed&&node.selected)node.parentElement.value='manual';
-   }
+   gate(node,required);
   }
+  for(const node of document.querySelectorAll('[data-business-requires]'))gate(node,node.dataset.businessRequires);
+  const selected=document.querySelector('[data-record-filter][aria-selected="true"][data-business-allowed="false"]');
+  if(selected)document.querySelector('[data-record-filter="all"]')?.click();
  }
- function selectLineTab() {
-  if(!latest || !lineFeatures.some(key=>latest.features?.[key]===true))return;
-  const tab=document.getElementById('lineSettingsTab'),panel=document.getElementById('lineSettingsPanel');
+ function selectTab(tab) {
+  const panel=document.getElementById(tab?.getAttribute('aria-controls'));
   if(!tab||!panel||tab.disabled)return;
   for(const other of document.querySelectorAll('#adminView .surface-nav [role="tab"]'))other.setAttribute('aria-selected',String(other===tab));
   for(const surface of document.querySelectorAll('#adminView [role="tabpanel"].panel')){
    const selected=surface===panel;surface.hidden=!selected;surface.classList.toggle('hidden',!selected);
   }
  }
+ function selectLineTab(){selectTab(document.getElementById('lineSettingsTab'));}
  function apply(data){
+  const signature=Object.keys(panels).map(key=>data.features?.[key]===true?'1':'0').join('');
+  const changed=signature!==grantSignature;grantSignature=signature;
   latest=data;
   for(const [feature,name]of Object.entries(panels)){
    const tab=document.getElementById(name+'Tab'),panel=document.getElementById(name+'Panel'),allowed=data.features[feature]===true;
@@ -73,9 +104,15 @@
   }
   window.BusinessLineSettings?.apply(data);
   applyIntegrations();
-  if(lineTab?.getAttribute('aria-selected')==='true'){
-   if(hasGrants)selectLineTab();else document.querySelector('#adminView .surface-nav button[data-business-allowed="true"]:not(#lineSettingsTab)')?.click();
+  const selected=document.querySelector('#adminView .surface-nav [aria-selected="true"]');
+  if(selected?.dataset.businessAllowed==='false'){
+   const fallback=document.querySelector('#adminView .surface-nav button[data-business-allowed="true"]');
+   if(fallback){selectTab(fallback);fallback.click();}
+   else selected.setAttribute('aria-selected','false');
+  }else if(selected===lineTab){
+   selectLineTab();
   }
+  if(changed)window.dispatchEvent(new CustomEvent('member-admin:features-updated'));
  }
  function select(){
   if(!latest)return;

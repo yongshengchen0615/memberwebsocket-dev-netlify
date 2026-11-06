@@ -52,7 +52,7 @@ test('AC-CONFIG-002: unrelated public config transport errors stay fail-closed',
 
 // Run in a separate process: an observer loop starves even in-process test timers.
 if (!process.argv.includes('--fixture')) {
-  for (const mode of ['early', 'late', 'forbidden', 'stale-business', 'stale-background-business']) {
+  for (const mode of ['early', 'late', 'forbidden', 'stale-business', 'stale-background-business', 'grant-drafts']) {
     test(`admin startup and fixed-ticket observers settle (${mode})`, () => {
       const result = spawnSync(process.execPath, [__filename, '--fixture', mode], {
         encoding: 'utf8', timeout: 5000,
@@ -83,13 +83,16 @@ async function runFixture(mode) {
       : 'https://example.test/MemberWebsocket-dev/admin/', virtualConsole,
   });
   const w = dom.window;
+  const observers=[],Observer=w.MutationObserver;
+  if(mode==='grant-drafts')w.MutationObserver=class extends Observer{constructor(callback){super(callback);observers.push(this);}};
   const el = (id) => w.document.getElementById(id);
   const tick = () => new Promise((resolve) => w.setTimeout(resolve, 20));
   const calls = [];
   const errors = [];
   let subscriptions = 0;
   let stoppedSubscriptions = 0;
-  let adminRequests = 0;
+  let adminRequests = 0, realtimeUpdate;
+  let features={membership:true,points:true,events:true,calendar:true,booking:true};
   w.addEventListener('error', (event) => errors.push(event.message));
   w.Request = Request;
   w.fetch = async (url, init) => {
@@ -119,17 +122,21 @@ async function runFixture(mode) {
       if (mode === 'forbidden') throw Object.assign(new Error('Access denied'), { code: 'ADMIN_FORBIDDEN' });
       return {
         profile: { displayName: 'Fixture Admin' }, role: 'Admin',
+        ...(mode==='grant-drafts'?{features,business:{name:'Fixture',slug:'fixture'}}:{}),
         memberPage: { page: 1, pageSize: 100, total: 0, totalPages: 1 },
         members: [], tierSettings: [], cards: [], tickets: [], eventTickets: [],
         calendarItems: [], messagePresets: [], stats: {},
       };
     },
-    subscribeRealtime() { subscriptions += 1; return () => { stoppedSubscriptions += 1; }; },
+    subscribeRealtime(config,client,callback) { realtimeUpdate=callback; subscriptions += 1; return () => { stoppedSubscriptions += 1; }; },
   };
   const load = (name) => w.eval(fs.readFileSync(path.join(root, 'admin', name), 'utf8'));
   try {
     load('admin-session.js');
     load('coupon-location-editor.js');
+    // This lane isolates bootstrap/editor preservation. The full workspace and
+    // grant observers run in feature_dependencies.cjs and real Chromium; do not
+    // mount their unrelated LINE/DOM rebuilds inside the startup watchdog.
     load('app.js');
     if (mode === 'late') await tick();
     load('fixed-ticket-admin-integration.js');
@@ -169,6 +176,18 @@ async function runFixture(mode) {
     assert.equal(el('adminView').classList.contains('hidden'), false);
     assert.equal(el('errorView').classList.contains('hidden'), true);
     assert.equal(subscriptions, 1);
+    if(mode==='grant-drafts'){
+      for(const [tab,button,input,modal]of [['cards','newCardButton','cardTitle','cardEditorModal'],['cards','newTicketButton','ticketTitle','ticketEditorModal'],['events','newEventTicketButton','eventTicketTitle','eventTicketEditorModal'],['calendar','newCalendarItemButton','calendarItemTitle','calendarEditorModal']]){
+        features={membership:true,points:true,events:true,calendar:true,booking:true};
+        await realtimeUpdate({eventTypes:[],reasons:['revision-changed']});
+        el(tab+'Tab').click();el(button).click();el(input).value='未儲存草稿 '+input;
+        features={...features,booking:false};await realtimeUpdate({eventTypes:[],reasons:['revision-changed']});
+        assert.equal(el(input).value,'未儲存草稿 '+input,'unrelated grant refresh must preserve '+input);
+        assert.equal(el(modal).classList.contains('hidden'),false);
+        el(modal).querySelector('.close-button').click();
+      }
+      await tick();await tick();assert.deepEqual(errors,[]);return;
+    }
     el('eventsTab').click();
     el('newEventTicketButton').click();
     await tick();
@@ -250,6 +269,7 @@ async function runFixture(mode) {
     assert.equal(el('errorView').classList.contains('hidden'), true);
     assert.equal(subscriptions, 2, 'Realtime must be re-established only after BFCache revalidation');
   } finally {
+    observers.forEach(observer=>observer.disconnect());
     w.close();
   }
 }

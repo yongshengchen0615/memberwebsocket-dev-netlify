@@ -607,6 +607,7 @@
       state.booking = nextBooking;
       window.BookingRiskSettings?.mount(els.bookingAdminRiskMount,{data:state.booking.noShowRisk,request:bookingRiskRequest});
       state.catalog = nextCatalog;
+      syncTypeRewardCards();
       window.clearTimeout(state.priceRefreshTimer);
       if (state.config?.pricePublishing === true) {
         const times = nextCatalog.services.map(service => Date.parse(service.nextPriceAt || '')).filter(Number.isFinite);
@@ -946,6 +947,19 @@
     }
   }
 
+  window.addEventListener('member-admin:features-updated',()=>syncTypeRewardCards());
+  function syncTypeRewardCards() {
+    const select=els.bookingAdminCrudModalBody?.querySelector('[data-type-reward-card]');
+    if(!select||window.BusinessWorkspace?.allows('points')===false)return;
+    const value=select.value,previous=select.selectedOptions[0]?.textContent;
+    const cards=state.catalog.pointCards||[];
+    select.innerHTML='<option value="">請選擇集點卡</option>'+cards.map(card=>`<option value="${escapeAttr(card.id)}">${escapeHtml(card.title||card.cardId||'集點卡')}</option>`).join('');
+    if(value&&!cards.some(card=>String(card.id)===value)){
+      const retained=new Option(previous||'原選擇目前不可用',value);retained.disabled=true;select.append(retained);
+    }
+    select.value=value;
+  }
+
   function openTypeModal(type) {
     els.bookingAdminCrudModalTitle.textContent = type ? '修改項目類型' : '新增項目類型';
     const cards = state.catalog.pointCards || [];
@@ -972,13 +986,14 @@
     cardSelect.value = type?.rewardPointCardId || '';
     enabled.checked = Boolean(type?.rewardMinutesPerPoint && type?.rewardPointCardId);
 
+    syncTypeRewardCards();
     const syncRewardFields = () => {
       rewardFields.classList.toggle('hidden', !enabled.checked);
       minutesInput.disabled = !enabled.checked;
       cardSelect.disabled = !enabled.checked;
     };
     enabled.addEventListener('change', () => {
-      if (enabled.checked && !cards.length) {
+      if (enabled.checked && !(state.catalog.pointCards || []).length) {
         enabled.checked = false;
         syncRewardFields();
         return showMessage(form.querySelector('[data-modal-message]'), '目前沒有可使用的集點卡，請先建立並啟用集點卡。', 'error');
@@ -2196,27 +2211,27 @@
     const itemRows = preview.items.map((item) => `
       <div class="booking-completion-preview-item">
         <div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.serviceType || '未分類')} · ${item.quantity} 份 · ${item.subtotalMinutes} 分鐘</p></div>
-        <span class="integration-status ${item.countsTowardMembership ? 'is-active' : 'is-attention'}">${item.countsTowardMembership ? '計入' : '不計入'}</span>
+        <span data-business-requires="booking membership" class="integration-status ${item.countsTowardMembership ? 'is-active' : 'is-attention'}">${item.countsTowardMembership ? '計入' : '不計入'}</span>
       </div>`).join('');
     const rewardRows = preview.rewards.length
       ? preview.rewards.map((reward) => `<div class="booking-completion-preview-item"><div><strong>${escapeHtml(reward.pointCardTitle)}</strong><p>${escapeHtml(reward.typeName)}：${reward.minutes} 分鐘 ÷ ${reward.perPoint}</p></div><strong>+${reward.points} 點</strong></div>`).join('')
       : '<p class="integration-empty">依目前項目類型規則，本次沒有自動集點。</p>';
     const pendingBenefits = Array.isArray(booking.benefits) ? booking.benefits.filter((benefit) => benefit.status === 'pending') : [];
     const benefitRows = pendingBenefits.length
-      ? pendingBenefits.map((benefit) => `<div class="booking-completion-preview-item"><div><strong>${escapeHtml(bookingBenefitDisplayTitle(benefit))}</strong><p>${escapeHtml(bookingBenefitKindLabel(benefit))} · 完成服務時重新驗證</p></div><span class="integration-status is-attention">待核銷</span></div>`).join('')
+      ? pendingBenefits.map((benefit) => `<div data-business-requires="booking ${benefit.kind === 'points' ? 'points' : 'events'}" class="booking-completion-preview-item"><div><strong>${escapeHtml(bookingBenefitDisplayTitle(benefit))}</strong><p>${escapeHtml(bookingBenefitKindLabel(benefit))} · 完成服務時重新驗證</p></div><span class="integration-status is-attention">待核銷</span></div>`).join('')
       : '<p class="integration-empty">會員本次沒有選用優惠。</p>';
     els.bookingAdminCrudModalBody.innerHTML = `
       <form class="booking-admin-form booking-completion-preview">
         <div class="booking-completion-preview-summary">
           <div><span>受服務會員</span><strong>${escapeHtml(recipient?.serviceRecipientName || booking.memberDisplayName || '會員')}</strong></div>
-          <div><span>將計入服務時間</span><strong>${preview.serviceMinutes} 分鐘</strong></div>
-          <div><span>預估自動集點</span><strong>${preview.totalRewardPoints} 點</strong></div>
-          <div><span>待核銷優惠</span><strong>${pendingBenefits.length} 項</strong></div>
+          <div data-business-requires="booking membership"><span>將計入服務時間</span><strong>${preview.serviceMinutes} 分鐘</strong></div>
+          <div data-business-requires="booking points"><span>預估自動集點</span><strong>${preview.totalRewardPoints} 點</strong></div>
+          <div data-business-requires="booking points events"><span>待核銷優惠</span><strong>${pendingBenefits.length} 項</strong></div>
         </div>
-        ${recipient?.serviceRecipientMemberCode ? `<p>好友代約：正常集點與服務時間歸受服務好友；建立者 ${escapeHtml(booking.memberDisplayName||'會員')} 另取得每種已配置服務類型 1 點及 ${Math.floor(preview.serviceMinutes/2)} 分鐘。票券使用建立者自己的資產。</p>` : ''}
+        ${recipient?.serviceRecipientMemberCode ? `<p data-business-requires="booking membership points">好友代約：正常集點與服務時間歸受服務好友；建立者 ${escapeHtml(booking.memberDisplayName||'會員')} 另取得每種已配置服務類型 1 點及 ${Math.floor(preview.serviceMinutes/2)} 分鐘。票券使用建立者自己的資產。</p>` : ''}
         <section><p class="kicker">Service settlement</p><div class="booking-completion-preview-list">${itemRows || '<p class="integration-empty">沒有可結算的服務項目。</p>'}</div></section>
-        <section><p class="kicker">Point rewards</p><div class="booking-completion-preview-list">${rewardRows}</div></section>
-        <section><p class="kicker">Benefit redemption</p><div class="booking-completion-preview-list">${benefitRows}</div></section>
+        <section data-business-requires="booking points"><p class="kicker">Point rewards</p><div class="booking-completion-preview-list">${rewardRows}</div></section>
+        <section data-business-requires="booking points|events"><p class="kicker">Benefit redemption</p><div class="booking-completion-preview-list">${benefitRows}</div></section>
         <p class="booking-completion-preview-note">此畫面為送出前預覽。真正的服務時間、集點、LINE 通知與重複請求判斷仍由 Server-side 完成結算流程決定；同時會重新驗證票券擁有權、狀態、效期、點數與每日上限，並在同一交易內完成核銷與預約結算，任何一項失敗都不會產生半完成狀態。</p>
         <div data-modal-message class="form-message hidden"></div>
         <div class="booking-admin-modal-actions"><button data-cancel class="button button-outline" type="button">返回</button><button class="button button-dark" type="submit">確認完成並結算</button></div>
@@ -2388,6 +2403,7 @@
 
     const section = document.createElement('section');
     section.className = 'booking-ticket-summary';
+    section.dataset.businessRequires = 'booking points|events';
     section.setAttribute('aria-label', '使用票券');
 
     const heading = document.createElement('div');
@@ -2396,6 +2412,7 @@
     headingTitle.textContent = '使用票券';
     const count = document.createElement('span');
     count.className = 'booking-ticket-count';
+    count.dataset.businessRequires = 'booking points events';
     count.textContent = `${rows.length} 張`;
     heading.append(headingTitle, count);
 
@@ -2406,6 +2423,7 @@
       const view = bookingBenefitPresentation(benefit);
       const ticket = document.createElement('article');
       ticket.className = `booking-ticket-card kind-${view.kind || 'other'}`;
+      ticket.dataset.businessRequires = 'booking ' + (view.kind === 'points' ? 'points' : 'events');
 
       const top = document.createElement('div');
       top.className = 'booking-ticket-card-top';
@@ -2456,7 +2474,8 @@
   }
 
   function showModal() { els.bookingAdminCrudModal.classList.remove('hidden'); }
-  function closeModal() { if (!state.busy) els.bookingAdminCrudModal.classList.add('hidden'); }
+  function closeModal(force = false) { if (!state.busy || force === true) els.bookingAdminCrudModal.classList.add('hidden'); }
+  document.addEventListener('business-access-revoked',event=>{if(event.target.id==='bookingAdminCrudModal')closeModal(true);});
   function setSyncStatus(message, error) { els.bookingAdminSyncStatus.textContent = message; els.bookingAdminSyncStatus.classList.toggle('error', Boolean(error)); }
   function showMessage(element, message, type) { if (!element) return; element.textContent = message; element.className = `form-message ${type || ''}`; }
   function clearMessage(element) { if (!element) return; element.textContent = ''; element.className = 'form-message hidden'; }
