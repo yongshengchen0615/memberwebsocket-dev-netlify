@@ -44,6 +44,32 @@ test('AC-003: late booking rewards and ticket booking restrictions are hidden wh
   assert.equal(form.querySelector('label').dataset.businessAllowed,'true');
  }finally{h.close();}
 });
+test('AC-SYNC-004: revoke/re-enable covers summaries, dynamically rendered rules, records and parent dialogs',async()=>{
+ const h=fixture();try{
+  h.d.body.insertAdjacentHTML('beforeend','<div class="fixed-ticket-inline-actions"><input id="fixedTicketCalendarEnabled"></div><p id="fixedTicketCalendarSummary">saved calendar integration</p><section data-business-requires="booking points"><input data-synthetic-draft value="keep draft"></section><article data-business-requires="membership calendar"></article><div id="bookingAdminCrudModal" class="modal hidden"><button class="close-button">close</button></div>');
+  const all={membership:true,points:true,events:true,calendar:true,booking:true};h.apply(all);
+  const map=[['membership','#memberCount','div'],['membership','#activeMemberCount','div'],['calendar','#fixedTicketCalendarSummary'],['points','[data-synthetic-draft]','section'],['calendar','article[data-business-requires]'],['membership','#memberModal'],['membership','#memberRecordsModal'],['membership','#grantModal'],['booking','#bookingAdminCrudModal']];
+  for(const [feature,selector,parent]of map){
+   h.apply({...all,[feature]:false});const match=h.d.querySelector(selector),node=parent?match.closest(parent):match;
+   assert.equal(node.dataset.businessAllowed,'false',selector);assert.equal(node.inert,true,selector);
+   h.apply(all);assert.equal(node.dataset.businessAllowed,'true',selector);
+  }
+  assert.equal(h.d.querySelector('[data-synthetic-draft]').value,'keep draft');
+  const modal=h.d.getElementById('bookingAdminCrudModal');let closed=0;
+  modal.querySelector('button').addEventListener('click',()=>{closed++;modal.classList.add('hidden');});modal.classList.remove('hidden');
+  h.apply({...all,booking:false});assert.equal(closed,1,'revoking the owner closes its active modal before making it inert');
+ }finally{h.close();}
+});
+test('AC-SYNC-005: revoking the current main tab immediately selects an allowed workspace',()=>{
+ const h=fixture();try{
+  h.apply({membership:true,points:true});
+  for(const tab of h.d.querySelectorAll('.surface-nav [role="tab"]'))tab.setAttribute('aria-selected',String(tab.id==='cardsTab'));
+  h.apply({membership:true,points:false});
+  assert.equal(h.d.getElementById('membersTab').getAttribute('aria-selected'),'true');
+  assert.equal(h.d.getElementById('cardsTab').getAttribute('aria-selected'),'false');
+  assert.equal(h.d.getElementById('membersPanel').hidden,false);
+ }finally{h.close();}
+});
 test('review: booking ticket edit action is hidden with no ticket grant and restored for either grant',async()=>{
  const h=fixture();try{
   h.apply({booking:true});

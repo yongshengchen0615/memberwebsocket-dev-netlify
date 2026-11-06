@@ -4,7 +4,7 @@
   const current = document.currentScript?.src || new URL('./booking-panel.js', window.location.href).toString();
   const load = (name, version) => new Promise((resolve, reject) => {
     const script = document.createElement('script');
-    script.src = new URL(`./${name}?v=${version}`, current).toString();
+    script.src = new URL(`./${name}?v=${version}&grants=20261106-1`, current).toString();
     script.async = false;
     script.onload = resolve;
     script.onerror = () => reject(new Error(`載入 ${name} 失敗。`));

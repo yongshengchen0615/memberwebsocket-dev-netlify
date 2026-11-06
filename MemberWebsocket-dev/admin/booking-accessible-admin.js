@@ -87,6 +87,7 @@
     const view=benefitPresentation(benefit);
     const card=document.createElement('article');
     card.className=`booking-ticket-card kind-${view.kind||'other'}`;
+    card.dataset.businessRequires='booking '+(view.kind==='points'?'points':'events');
 
     const top=document.createElement('div');
     top.className='booking-ticket-card-top';
@@ -187,7 +188,7 @@
 
       info.append(heading,meta);
       if (receipt.requestedBenefits?.length) {
-        const requested = document.createElement('small'); requested.textContent = `會員登記票券：${receipt.requestedBenefits.map(item => item.title || item.id).join('、')}`; info.append(requested);
+        const requested = document.createElement('small'); requested.dataset.businessRequires='booking points events'; requested.textContent = `會員登記票券：${receipt.requestedBenefits.map(item => item.title || item.id).join('、')}`; info.append(requested);
       }
       if (receipt.reviewStatus === 'completed') {
         const summary = document.createElement('div'); summary.className = 'accessible-admin-record-summary';
@@ -195,6 +196,7 @@
         const serviceTitles = (receipt.services || []).map(item => item.title).filter(Boolean);
         service.textContent = serviceTitles.length ? serviceTitles.join('、') : '已完成服務';
         const settlement = document.createElement('small');
+        settlement.dataset.businessRequires='booking membership points events';
         settlement.textContent = `${Number(receipt.serviceMinutes || 0)} 分鐘 · 新增 ${Number(receipt.points || 0)} 點 · 核銷 ${(receipt.benefits || []).length} 張票券`;
         summary.append(service,settlement);
         info.append(summary);
@@ -248,8 +250,9 @@
     el('accessibleAdminRecordModal')?.classList.add('hidden');
     el('accessibleAdminRecordImage')?.removeAttribute('src');
   }
-  function appendRecordStat(root,label,value) {
+  function appendRecordStat(root,label,value,required) {
     const item = document.createElement('div');
+    item.dataset.businessRequires=required;
     const small = document.createElement('small'); small.textContent = label;
     const strong = document.createElement('strong'); strong.textContent = value;
     item.append(small,strong); root.append(item);
@@ -263,9 +266,9 @@
       ? `${record.bookingDate} ${record.startTime || ''}`
       : '未建立完成預約';
     const stats = el('accessibleAdminRecordStats'); stats.replaceChildren();
-    appendRecordStat(stats,'服務時間',`${Number(record.serviceMinutes || 0)} 分鐘`);
-    appendRecordStat(stats,'新增點數',`${Number(record.points || 0)} 點`);
-    appendRecordStat(stats,'核銷票券',`${(record.benefits || []).length} 張`);
+    appendRecordStat(stats,'服務時間',`${Number(record.serviceMinutes || 0)} 分鐘`,'booking membership');
+    appendRecordStat(stats,'新增點數',`${Number(record.points || 0)} 點`,'booking points');
+    appendRecordStat(stats,'核銷票券',`${(record.benefits || []).length} 張`,'booking points events');
 
     const services = el('accessibleAdminRecordServices'); services.replaceChildren();
     if (!(record.services || []).length) {
@@ -468,6 +471,7 @@
       } else {
         currentBenefits.forEach(benefit => {
           const row = document.createElement('div'); row.className = 'accessible-admin-benefit';
+          row.dataset.businessRequires='booking '+(benefit.kind==='points'?'points':'events');
           const strong = document.createElement('strong'); strong.textContent = benefitRecordTitle(benefit);
           const small = document.createElement('small');
           small.textContent = `${benefitKindLabel(benefit)} · ${benefit.status === 'redeemed' || benefit.status === 'applied' ? '已完成核銷' : `狀態：${benefit.status || '已記錄'}`}`;
@@ -497,6 +501,7 @@
       const matchAll = item.requiredServiceMatchMode === 'all';
       const serviceEligible = !required.length || (matchAll ? required.every(id => selectedServices.has(id)) : required.some(id => selectedServices.has(id)));
       const row = document.createElement('div'); row.className = 'accessible-admin-benefit';
+      row.dataset.businessRequires='booking '+(item.kind==='points'?'points':'events');
       const label = document.createElement('label');
       const check = document.createElement('input'); check.type = 'checkbox'; check.dataset.benefitCheck = ''; check.dataset.kind = item.kind; check.dataset.selectionId = item.selectionId;
       check.checked = Boolean(item.selectionId) && pendingKeys.has(key) && item.selectable === true && serviceEligible;

@@ -19,6 +19,15 @@ async function harness(surface='member'){
 for(const surface of ['member','points','event','calendar','admin'])test(`AC-185 revision ${surface}: changed data updates within 10s; idle polls avoid full reloads`,async()=>{
  const h=await harness(surface);try{await h.tick(0);const initial=h.refreshes;assert.equal(h.probes,1);await h.tick(30000);assert.equal(h.refreshes,initial);h.setRevision('new');await h.tick(10000);assert.equal(h.refreshes,initial+1);assert.ok(h.probes>=4);assert.ok(h.events.some(e=>e.type==='member-system:sync-metrics'));}finally{h.stop();}
 });
+test('AC-SYNC-003: foreground admin reconciles grants within 3 seconds and pauses while hidden',async()=>{
+ const h=await harness('admin');try{
+  await h.tick(0);const initial=h.refreshes;
+  h.setRevision('grants-revoked');await h.tick(3000);assert.equal(h.refreshes,initial+1);
+  const full=h.refreshes;await h.tick(30000);assert.equal(h.refreshes,full,'idle probes must not reload complete business data');
+  h.document.visibilityState='hidden';const probes=h.probes;h.setRevision('grants-restored');await h.tick(30000);assert.equal(h.probes,probes);
+  h.document.visibilityState='visible';h.emit('d:visibilitychange');await h.tick(0);assert.equal(h.refreshes,full+1);
+ }finally{h.stop();}
+});
 test('AC-185 recovery: paused, failed, in-flight and disposed probes retain changes without overlapping reloads',async()=>{
  const h=await harness();await h.tick(0);const before=h.probes;h.document.visibilityState='hidden';await h.tick(30000);assert.equal(h.probes,before);
  h.setRevision('1');h.document.visibilityState='visible';h.emit('d:visibilitychange');await h.tick(0);assert.equal(h.refreshes,2);

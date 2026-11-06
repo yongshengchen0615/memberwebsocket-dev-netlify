@@ -677,7 +677,11 @@
         } catch (_) { if (!stale()) { failures++; status('CHANNEL_ERROR'); } }
         finally {
           pending = false; refreshing = false;
-          if (!disposed && !paused()) { const next = queued ? 0 : Math.min(60000,10000 * 2 ** Math.min(failures,3)); queued = false; schedule(next); }
+          if (!disposed && !paused()) {
+            const healthyDelay = clientType === 'admin' ? 3000 : 10000;
+            const next = queued ? 0 : failures ? Math.min(60000,10000 * 2 ** Math.min(failures,3)) : healthyDelay;
+            queued = false; schedule(next);
+          }
         }
       };
       const resume = () => {

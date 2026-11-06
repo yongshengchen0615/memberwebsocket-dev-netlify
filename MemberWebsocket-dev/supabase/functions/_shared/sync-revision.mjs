@@ -10,5 +10,12 @@ export async function syncRevision(db, surface, actor, createError) {
   const latest = await db.from('realtime_events').select('id,created_at')
     .in('scope', surface === 'booking' ? ['booking','member','points','event','calendar','all'] : [surface, 'all']).order('id', {ascending:false}).limit(1).maybeSingle();
   if (latest.error) throw createError(503, 'SYNC_UNAVAILABLE', '同步服務暫時無法使用。');
-  return {revision:latest.data ? String(latest.data.id) + ':' + String(latest.data.created_at) : '0'};
+  const revision = latest.data ? String(latest.data.id) + ':' + String(latest.data.created_at) : '0';
+  // Grants live in the control plane and need not write a private business event.
+  // This trusted request context is refreshed by the tenant resolver; no extra
+  // query, user-supplied flags, or shared event subscription is needed here.
+  const grants = db.businessFeatures;
+  const signature = grants ? ':g' + ['membership','points','events','calendar','integrations','booking','testing','usage']
+    .map(feature => grants[feature] === true ? '1' : '0').join('') : '';
+  return {revision:revision + signature};
 }
