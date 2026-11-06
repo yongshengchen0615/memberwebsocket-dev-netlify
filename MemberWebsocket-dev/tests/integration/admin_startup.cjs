@@ -134,7 +134,9 @@ async function runFixture(mode) {
   try {
     load('admin-session.js');
     load('coupon-location-editor.js');
-    if(mode==='grant-drafts')load('business-workspace.js');
+    // This lane isolates bootstrap/editor preservation. The full workspace and
+    // grant observers run in feature_dependencies.cjs and real Chromium; do not
+    // mount their unrelated LINE/DOM rebuilds inside the startup watchdog.
     load('app.js');
     if (mode === 'late') await tick();
     load('fixed-ticket-admin-integration.js');
