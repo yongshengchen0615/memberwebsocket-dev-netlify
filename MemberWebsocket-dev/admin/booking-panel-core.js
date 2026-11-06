@@ -607,6 +607,7 @@
       state.booking = nextBooking;
       window.BookingRiskSettings?.mount(els.bookingAdminRiskMount,{data:state.booking.noShowRisk,request:bookingRiskRequest});
       state.catalog = nextCatalog;
+      syncTypeRewardCards();
       window.clearTimeout(state.priceRefreshTimer);
       if (state.config?.pricePublishing === true) {
         const times = nextCatalog.services.map(service => Date.parse(service.nextPriceAt || '')).filter(Number.isFinite);
@@ -946,6 +947,19 @@
     }
   }
 
+  window.addEventListener('member-admin:features-updated',()=>syncTypeRewardCards());
+  function syncTypeRewardCards() {
+    const select=els.bookingAdminCrudModalBody?.querySelector('[data-type-reward-card]');
+    if(!select||window.BusinessWorkspace?.allows('points')===false)return;
+    const value=select.value,previous=select.selectedOptions[0]?.textContent;
+    const cards=state.catalog.pointCards||[];
+    select.innerHTML='<option value="">請選擇集點卡</option>'+cards.map(card=>`<option value="${escapeAttr(card.id)}">${escapeHtml(card.title||card.cardId||'集點卡')}</option>`).join('');
+    if(value&&!cards.some(card=>String(card.id)===value)){
+      const retained=new Option(previous||'原選擇目前不可用',value);retained.disabled=true;select.append(retained);
+    }
+    select.value=value;
+  }
+
   function openTypeModal(type) {
     els.bookingAdminCrudModalTitle.textContent = type ? '修改項目類型' : '新增項目類型';
     const cards = state.catalog.pointCards || [];
@@ -972,13 +986,14 @@
     cardSelect.value = type?.rewardPointCardId || '';
     enabled.checked = Boolean(type?.rewardMinutesPerPoint && type?.rewardPointCardId);
 
+    syncTypeRewardCards();
     const syncRewardFields = () => {
       rewardFields.classList.toggle('hidden', !enabled.checked);
       minutesInput.disabled = !enabled.checked;
       cardSelect.disabled = !enabled.checked;
     };
     enabled.addEventListener('change', () => {
-      if (enabled.checked && !cards.length) {
+      if (enabled.checked && !(state.catalog.pointCards || []).length) {
         enabled.checked = false;
         syncRewardFields();
         return showMessage(form.querySelector('[data-modal-message]'), '目前沒有可使用的集點卡，請先建立並啟用集點卡。', 'error');
@@ -2459,7 +2474,8 @@
   }
 
   function showModal() { els.bookingAdminCrudModal.classList.remove('hidden'); }
-  function closeModal() { if (!state.busy) els.bookingAdminCrudModal.classList.add('hidden'); }
+  function closeModal(force = false) { if (!state.busy || force === true) els.bookingAdminCrudModal.classList.add('hidden'); }
+  document.addEventListener('business-access-revoked',event=>{if(event.target.id==='bookingAdminCrudModal')closeModal(true);});
   function setSyncStatus(message, error) { els.bookingAdminSyncStatus.textContent = message; els.bookingAdminSyncStatus.classList.toggle('error', Boolean(error)); }
   function showMessage(element, message, type) { if (!element) return; element.textContent = message; element.className = `form-message ${type || ''}`; }
   function clearMessage(element) { if (!element) return; element.textContent = ''; element.className = 'form-message hidden'; }

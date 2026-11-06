@@ -18,8 +18,8 @@
   "lineSettingsLegacyCompatibility": "2026-11-03: admin/workspace.html has platform.css, not shared theme.css/theme.js. The common business-line-settings.css now provides a strictly scoped light fallback palette only under html[data-workspace=merchant]:not([data-theme]), retaining readable legacy LINE settings without overriding global theme switching. New AC-003 checks computed legacy colors at 390px; no identity, grants, LINE notification, API or SQL behavior changed.",
   "lineSettingsThemeReview": "2026-11-03 PR #241: Reviewed general manager LINE settings theme-only CSS, semantic light/dark card, details, help, input/select, tabs, status, endpoint and responsive action row. Updated both admin/index.html and admin/workspace.html CSS asset revisions; preserved LINE official green button, saved credentials, notifications, role/tenant scopes and original six human workflow journeys. New line_settings_theme.test.js and line-settings-theme.spec.cjs cover 390/1280 light-dark-light and no overflow; full original Chromium/integration baseline still required.",
   "reviewedSources": {
-    "admin/index.html": "4bae9c3448ee82f1a3326d41828e864ad28717a8b477865bdd75bdb0a90c06c0",
-    "admin/app.js": "7ed7382a12f1014e5d38af5fc22e26aca33ae5bf46b2af9e04f4ebe8f6ede4ae",
+    "admin/index.html": "9c62f52150321cdddc04ef43421fe91db063da00e0a5c598281c8c7da9d44158",
+    "admin/app.js": "e7cb31f8fb7d40b09b52814f7bf476e191c85e65c933d008b006c35b9dcc22d3",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
     "admin/grant-automation.js": "8030ff122a63533e5e3f91bc79e9bdf65b0bf6ec91f7d7b363e7e970c878cfc1",
@@ -30,16 +30,16 @@
     "admin/pointcard-redemption-limit.js": "fbba580c9babdac950b2f619c3f3b949fe89ae0c1365e2555f758d1a8818035c",
     "admin/event-ticket-redemption-limit.js": "263a564d64845c5abb4ed5167305b0bffefb064130a0268ab533b481d320b688",
     "admin/booking-panel.js": "5610dd86b9a0479293ecde2744c7e59ccd4d57539d7a6348493c6760c21c0058",
-    "admin/booking-panel-core.js": "0ef46083ca473676a6a2205f7b9d4db197119517248150831472268505780bab",
-    "admin/booking-resources.js": "ea6901dc1020cbb85ead15107333e4b110e2b9a02854bffba856e410445bd852",
+    "admin/booking-panel-core.js": "0bf54dfca24d6a1f028ebe75acceb51380f08955c838128ef0b1db2072e671f2",
+    "admin/booking-resources.js": "01a066ef180a9d42d49b4250e51008f23a0d13368897f4e351883d592249faff",
     "admin/booking-always-open.js": "9cb236902a7f3f36cf3fe4c3f13fbbac622f000c72d36ec34f7d4dde08e6e54a",
     "admin/booking-cancellation-sync.js": "a8367bb6565d054af976ec1ffdf950874a4e8f14a3917d2e036bc1744016db19",
     "admin/booking-receipt-admin.js": "b5873c2753c0f2f9c267d0d13583405c2205cc70c0f2103f5899f741a74cf920",
-    "admin/booking-accessible-admin.js": "4416a43355dbf76f9883cd6248fae94aaba2825dd2fae724305ef320b1d32c64",
+    "admin/booking-accessible-admin.js": "707cf9bc3336f3a95082597fc562813574341db6062ccd41a90560ca4b50ea9b",
     "admin/ticket-visibility.js": "5f3218d1798f285d8b1c971a3658dd4c49525d8468ecd4c8a7fb79f653e7c85f",
     "admin/workspace.html": "2548fc98e75001c257fbffb794f3d49a3cd8a79215decd9c19fad6fa90c7f5b0",
     "platform/app.js": "f68824208c879bc2e722f28f3ecf3fa7a516f822db49eb1ef3b4c3bf9ae11aa9",
-    "admin/business-workspace.js": "32163324678856d3913ada96476f3a500fbc93b087300fde72446f1b69985ed6",
+    "admin/business-workspace.js": "89cd135fc0dab33114f9c898759345d2b0be66336993947025167cd5cf314cff",
     "business-context.js": "3a4319099c8c118cb0c431abb239399bb295c47861bcae0aac2be16c8783696b",
     "admin/business-line-settings.js": "18466944a9897cc4b81954b8effa41f3324142a8b8bd559010baee992bac4fd2",
     "admin/booking-risk.js": "76f61965b64eaa761b8e60074daf893551bc1bdafce7792d951159adac501a97",
@@ -774,5 +774,5 @@
     ],
     "evidence": "Related Node and DOM tests executed locally; full Chromium/PostgreSQL/Edge and dependency audit require exact-SHA CI. Provider LINE acceptance is not claimed."
   },
-  "featureGrantSyncReview": "2026-11-06: Reviewed live feature revocation in existing main tabs, member records, reward/type editors, fixed calendar summaries, booking completion and receipt review. AC-SYNC-001..005 cover real authenticated revision + root SQL grant changes + actual admin browser at 390/1280, dynamic dependency DOM and cleanup. Existing six human modules/journeys retained; no provider, role, tenant isolation, settlement or database changes. Healthy admin probes use 3 seconds; background pause and failure backoff preserved. Full final SHA CI and integration deploy remain required."
+  "featureGrantSyncReview": "2026-11-06: Reviewed live feature revocation in existing main tabs, member records, reward/type editors, fixed calendar summaries, booking completion and receipt review. AC-SYNC-001..005 cover real authenticated revision + root SQL grant changes + actual admin browser at 390/1280, dynamic dependency DOM and cleanup. Existing six human modules/journeys retained; no provider, role, tenant isolation, settlement or database changes. Healthy admin probes use 3 seconds; background pause and failure backoff preserved. Full final SHA CI and integration deploy remain required. Follow-up review: preserve every open editor during bootstrap with unchanged optimistic version; force owner cleanup during busy writes; exclude revoked draft benefits from new payload/budget; refresh open type card options on late first enable. Real Chromium reproduced CSS important specificity masking the gate; added scoped hiding specificity and exact booking modal CSS test. No backend settlement policy weakened."
 }

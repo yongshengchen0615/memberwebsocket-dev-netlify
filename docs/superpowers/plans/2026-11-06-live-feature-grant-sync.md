@@ -45,3 +45,9 @@
 執行現有 `.github/workflows/test-memberwebsocket-dev.yml` 全部 Node/DOM/PostgreSQL17/Chromium 三 shard/Edge/syntax/wiring/audit/aggregate，以及 Netlify build 和 Ticket Policy；本機 Chromium runtime 受 sandbox 限制，真實 browser 結果以最終 SHA 的 Actions 為準。既有外部 LINE/簡訊支付流程本輪不新增／變更，無真實訊息測試，不能將 fixture 宣稱為真人服務驗證。
 
 發布精確候選至 Integrated-Marketing-Platform；sync-revision 只有 api/index.ts 消費，更新共享 api 與 api-preview 的對應 bundle，保留各自 entrypoint 與其他現有檔案。無 migration、無正式會員資料變動。記錄 deploy IDs、讀回 source、未登入 401、同 SHA build/smoke。回復：revert 本 PR + 重發基線前端，Edge 使用部署前 API bundles；無資料回復／刪除步驟。
+
+## 審查修復及瀏覽器 RED
+
+初始候選37cf611在真實Chromium手機/桌面均重現 label 已 gate=false 仍 visible：booking-panel.css `.booking-admin-modal .booking-admin-toggle {display:flex!important}` specificity高於共用attribute gate。補上對adminView/dialog的較高 specificity，保留既有!important顯示契約並新增exact CSS browser案例。
+
+獨立審查4項Important已修：bootstrap保存開啟中的card/ticket/event/calendar草稿（admin_startup grant-drafts先RED再GREEN）；receipt隱藏勾選不送新payload、不列入budget；busy owner由定向撤權事件強制cleanup、失效generation及清除signed image；points初始off→on局部更新類型卡片選單和即時catalog判斷。兩個receipt DOM案例實測cleanup及payload；Chromium加入初次開通。既存reservation仍受原後端fail-closed政策保護，不會因隱藏而取消/核銷資產。

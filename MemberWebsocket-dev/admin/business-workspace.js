@@ -2,7 +2,7 @@
  'use strict';
  const panels={membership:'members',points:'cards',events:'events',calendar:'calendar',booking:'booking'};
  const lineFeatures=['membership','points','events','calendar','booking'];
- let latest=null;
+ let latest=null,grantSignature='';
  // Keep each optional integration with the modules it actually consumes.
  // CSS/inert do not reset forms or overwrite the module's own disabled state.
  const integrations=[
@@ -49,7 +49,9 @@
   const allowed=required.split(' ').every(group=>group.split('|').some(feature=>latest.features?.[feature]===true));
   if(!allowed&&node.matches('[role="dialog"],.modal,.booking-admin-modal')&&!node.hidden&&!node.classList.contains('hidden')){
    // Run the owner's cleanup (focus/scroll/handlers) before making it inert.
-   node.querySelector('.close-button,.booking-admin-modal-close,#closeEventTicketCalendarInfoButton,#settingsCopyCancel')?.click();
+   node.dispatchEvent(new CustomEvent('business-access-revoked',{bubbles:true}));
+   if(!node.classList.contains('hidden'))node.querySelector('.close-button,.booking-admin-modal-close,#closeEventTicketCalendarInfoButton,#settingsCopyCancel')?.click();
+   node.classList.add('hidden');
   }
   node.dataset.businessAllowed=String(allowed);node.inert=!allowed;
   if(node.tagName==='OPTION'){
@@ -77,6 +79,8 @@
  }
  function selectLineTab(){selectTab(document.getElementById('lineSettingsTab'));}
  function apply(data){
+  const signature=Object.keys(panels).map(key=>data.features?.[key]===true?'1':'0').join('');
+  const changed=signature!==grantSignature;grantSignature=signature;
   latest=data;
   for(const [feature,name]of Object.entries(panels)){
    const tab=document.getElementById(name+'Tab'),panel=document.getElementById(name+'Panel'),allowed=data.features[feature]===true;
@@ -108,6 +112,7 @@
   }else if(selected===lineTab){
    selectLineTab();
   }
+  if(changed)window.dispatchEvent(new CustomEvent('member-admin:features-updated'));
  }
  function select(){
   if(!latest)return;

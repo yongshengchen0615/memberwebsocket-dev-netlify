@@ -107,3 +107,38 @@ test('AC-004: scheduled fixed issuance observes stored calendar dependencies and
  const {PGlite}=require('@electric-sql/pglite'),db=new PGlite();
  try{await require('./fixtures/feature-dependencies.cjs')(db);}finally{await db.close();}
 });
+
+async function receiptFixture(holdWrite=false){
+ const dom=new JSDOM('<div id="adminView"><nav class="surface-nav"></nav></div><div id="bookingAdminQueuePanel" data-queue-mode="accessible"></div>',{url:'https://fixture.test/admin/?business=synthetic',runScripts:'outside-only'});
+ const w=dom.window,observers=[],Observer=w.MutationObserver;
+ w.MutationObserver=class extends Observer{constructor(fn){super(fn);observers.push(this);}};
+ let features={membership:true,points:true,events:true,calendar:true,booking:true},submitted,finish;
+ const options={services:[{id:'svc1',title:'Service',service_type:'Massage',duration_minutes:60}],rewardRules:[],currentBenefits:[{kind:'event',id:'ev1',status:'pending',title:'Event Ticket'}],benefitCatalog:{items:[{kind:'event',selectionId:'ev1',title:'Event Ticket',selectable:true}],eventTicketMaxPerDay:0,pointTicketMaxPerRedemption:0},primaryTechnicianConfigured:true};
+ w.MemberSystem={getSession:()=>({config:{business:'synthetic'},idToken:'fixture'}),request:async(_c,_t,_i,action,body)=>{
+  if(action==='admin.booking.receipt.url')return{signedUrl:'https://fixture.test/receipt.png'};
+  if(action==='admin.booking.receipt.options')return options;
+  if(action==='admin.booking.receipt.register'){submitted=body;if(holdWrite)return new Promise((_resolve,reject)=>{finish=()=>reject(Error('delayed failure'));});return{settlement:{}};}
+  return{};
+ }};
+ w.eval(fs.readFileSync(path.join(root,'admin/business-workspace.js'),'utf8'));w.eval(fs.readFileSync(path.join(root,'admin/booking-accessible-admin.js'),'utf8'));
+ const apply=patch=>{features={...features,...patch};w.BusinessWorkspace.apply({features});};apply({});
+ w.dispatchEvent(new w.CustomEvent('admin:accessible-receipts-updated',{detail:{submissions:[{receiptId:'r1',createdAt:'2026-11-06T00:00:00Z',memberName:'Synthetic'}]}}));
+ w.document.querySelector('.accessible-admin-review-button').click();await tick();await tick();
+ return{w,apply,payload:()=>submitted,finish:()=>finish?.(),submit(){w.document.querySelector('[data-service-check]').checked=true;w.document.getElementById('accessibleAdminForm').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));},close(){observers.forEach(o=>o.disconnect());w.close();}};
+}
+test('AC-SYNC-006: revoked checked receipt benefits remain drafts but never enter a new write',async()=>{
+ const h=await receiptFixture();try{
+  h.apply({events:false});await tick();const check=h.w.document.querySelector('[data-benefit-check]');
+  assert.equal(check.checked,true);assert.equal(check.closest('[data-business-requires]').dataset.businessAllowed,'false');
+  h.submit();await tick();assert.deepEqual(JSON.parse(JSON.stringify(h.payload().benefits)),[]);
+ }finally{h.close();}
+});
+test('AC-SYNC-007: revoking a busy receipt owner cleans up private image and cannot reopen on regrant',async()=>{
+ const h=await receiptFixture(true);try{
+  h.submit();await tick();assert.equal(h.w.document.getElementById('accessibleAdminClose').disabled,true);
+  h.apply({booking:false});await tick();const modal=h.w.document.getElementById('accessibleAdminModal');
+  assert.equal(modal.classList.contains('hidden'),true);assert.equal(modal.dataset.receiptId,undefined);assert.equal(h.w.document.getElementById('accessibleAdminImage').getAttribute('src'),null);
+  h.apply({booking:true});await tick();assert.equal(modal.classList.contains('hidden'),true);
+  h.finish();await tick();
+ }finally{h.close();}
+});

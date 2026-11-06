@@ -58,6 +58,13 @@ for(const width of [390,1280])test(`AC-SYNC-001..005_${width}: root SQL grant ch
   await expect(page.locator('[data-type-name]')).toHaveValue('尚未儲存的類型');await expect(page.locator('[data-type-reward-minutes]')).toHaveValue('75');
   await grants(all);await page.clock.runFor(3001);await expect(reward).toBeVisible();await expect(reward).toBeChecked();
   await page.locator('#bookingAdminCrudModalClose').click();
+  // Reopening while points is off must also recover a catalog that was withheld.
+  await grants({...all,points:false});await page.clock.runFor(3001);await expect(page.locator('#cardsTab')).toBeHidden();
+  await page.locator('#bookingAdminNewTypeButton').click();await page.locator('[data-type-name]').fill('初次開通保留');
+  await grants(all);await page.clock.runFor(3001);await expect(reward).toBeVisible();
+  await expect(page.locator('[data-type-reward-card] option[value="card-1"]')).toHaveCount(1);
+  await reward.check();await expect(reward).toBeChecked();await expect(page.locator('[data-type-name]')).toHaveValue('初次開通保留');
+  await page.locator('#bookingAdminCrudModalClose').click();
   const tabs={membership:'members',points:'cards',events:'events',calendar:'calendar',booking:'booking'};
   for(const [feature,name]of Object.entries(tabs)){
    await page.locator('#'+name+'Tab').click();await grants({...all,[feature]:false});await page.clock.runFor(3001);

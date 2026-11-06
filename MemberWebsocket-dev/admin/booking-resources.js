@@ -598,6 +598,8 @@
     window.requestAnimationFrame(() => document.getElementById(ids.technicianName)?.focus());
   }
 
+  document.addEventListener('business-access-revoked',event=>{if(event.target.id===ids.technicianModal)closeTechnicianModal(true);});
+
   function closeTechnicianModal(force = false) {
     if (!force && state.savingTechnician) return;
     document.getElementById(ids.technicianModal)?.classList.add('hidden');

@@ -646,6 +646,10 @@
   }
 
   function applyAdminBootstrap(result, requestStartedAt) {
+    // Reconciliation updates lists and grants, not an editor's unsaved draft.
+    // Keep its original optimistic version so a conflicting save still fails.
+    const openEditors = new Set(Object.entries(state.editorModals)
+      .filter(([, entry]) => !entry.modal.classList.contains('hidden')).map(([key]) => key));
     if(result.features){state.config.grantedFeatures=result.features;window.BusinessWorkspace?.apply(result);}
     if (state.memberKind === 'real') {
       state.members = mergeNewerPresenceObservations(result.members, requestStartedAt);
@@ -663,9 +667,9 @@
     els.displayName.textContent = String(result.profile && result.profile.displayName || '管理員');
     els.roleLabel.textContent = String(result.role || 'Admin');
     renderAdminOverview();
-    applyAdminCards(result, false);
-    applyAdminEventTickets(result, false);
-    applyAdminCalendarItems(result);
+    applyAdminCards(result, false, openEditors);
+    applyAdminEventTickets(result, false, openEditors);
+    applyAdminCalendarItems(result, openEditors.has('calendar'));
   }
 
   function renderAdminOverview() {
@@ -726,7 +730,7 @@
     });
   }
 
-  function applyAdminCards(result, renderOverview = true) {
+  function applyAdminCards(result, renderOverview = true, openEditors = new Set()) {
     if (Array.isArray(result.bookingServices)) state.bookingServices = normalizeBookingServices(result.bookingServices);
     state.cards = Array.isArray(result.cards) ? result.cards : [];
     state.cardSortOriginalOrder = state.cards.map((card) => String(card.cardId || ''));
@@ -735,11 +739,15 @@
     state.stats = { ...state.stats, ...(result.stats && typeof result.stats === 'object' ? result.stats : {}) };
     if (renderOverview) renderAdminOverview();
     renderCardList(); renderTicketList();
-    if (state.selectedCardId && state.cards.some((card) => card.cardId === state.selectedCardId)) loadCardForm(state.selectedCardId); else resetCardForm();
-    if (state.selectedTicketId && state.tickets.some((ticket) => ticket.ticketTemplateId === state.selectedTicketId)) loadTicketForm(state.selectedTicketId); else resetTicketForm();
+    if (!openEditors.has('card')) {
+      if (state.selectedCardId && state.cards.some((card) => card.cardId === state.selectedCardId)) loadCardForm(state.selectedCardId); else resetCardForm();
+    }
+    if (!openEditors.has('ticket')) {
+      if (state.selectedTicketId && state.tickets.some((ticket) => ticket.ticketTemplateId === state.selectedTicketId)) loadTicketForm(state.selectedTicketId); else resetTicketForm();
+    }
   }
 
-  function applyAdminEventTickets(result, renderOverview = true) {
+  function applyAdminEventTickets(result, renderOverview = true, openEditors = new Set()) {
     if (Array.isArray(result.bookingServices)) state.bookingServices = normalizeBookingServices(result.bookingServices);
     const previousTickets = state.eventTickets;
     const nextTickets = Array.isArray(result.eventTickets) ? result.eventTickets : [];
@@ -749,7 +757,7 @@
     if (renderOverview) renderAdminOverview();
     if (listChanged || els.eventTicketListItems.children.length !== nextTickets.length) renderEventTicketList();
 
-    if (state.selectedEventTicketId) {
+    if (state.selectedEventTicketId && !openEditors.has('eventTicket')) {
       const selected = nextTickets.find((ticket) => ticket.eventTicketId === state.selectedEventTicketId);
       if (!selected) {
         resetEventTicketForm(false);
@@ -761,12 +769,14 @@
     }
   }
 
-  function applyAdminCalendarItems(result) {
+  function applyAdminCalendarItems(result, preserveEditor = false) {
     state.calendarItems = Array.isArray(result.calendarItems) ? result.calendarItems : [];
     const calendarIds = new Set(state.calendarItems.map((item) => String(item.calendarItemId || '')));
     state.selectedCalendarItemIds = new Set(Array.from(state.selectedCalendarItemIds).filter((calendarItemId) => calendarIds.has(calendarItemId)));
     renderAdminCalendar(); renderCalendarBatchRows();
-    if (state.selectedCalendarItemId && state.calendarItems.some((item) => item.calendarItemId === state.selectedCalendarItemId)) loadCalendarItemForm(state.selectedCalendarItemId); else resetCalendarItemForm();
+    if (!preserveEditor) {
+      if (state.selectedCalendarItemId && state.calendarItems.some((item) => item.calendarItemId === state.selectedCalendarItemId)) loadCalendarItemForm(state.selectedCalendarItemId); else resetCalendarItemForm();
+    }
   }
 
   function renderMembers() {
