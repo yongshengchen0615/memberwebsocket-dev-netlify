@@ -2,6 +2,8 @@ import { tenantExpired } from './tenant-access.mjs';
 // One server-side action map for every existing management/member endpoint.
 // Unknown scoped actions fail closed. Bootstrap/session are workspace operations.
 export const businessFeatures=['membership','points','events','calendar','integrations','booking','testing','usage'];
+const benefitFeature=kind=>({points:'points',event:'events',calendar:'calendar'})[String(kind||'').trim().toLowerCase()];
+const disabled=()=>Object.assign(Error('總管理員尚未核准這項功能，請聯絡總管理員。'),{code:'FEATURE_DISABLED',status:403});
 function primaryFeatures(action,body={}) {
  if(action==='admin.sync.status')return [];
  const sync=/^user\.(member|points|event|calendar|booking)\.sync\.status$/.exec(action);
@@ -34,8 +36,9 @@ export function actionFeatures(action,body={}) {
  const benefits=[...(Array.isArray(body.benefits)?body.benefits:[]),
   ...(Array.isArray(body.participants)?body.participants:[]).flatMap(p=>Array.isArray(p?.benefits)?p.benefits:[])];
  for(const benefit of benefits){
-  const feature={points:'points',event:'events',calendar:'calendar'}[benefit?.kind];
-  if(feature)features.push(feature);
+  const feature=benefitFeature(benefit?.kind);
+  if(!feature)throw Object.assign(Error('票券種類不合法。'),{code:'INVALID_BENEFIT_KIND',status:400});
+  features.push(feature);
  }
  if(/^admin\.booking\.type\.(create|update)$/.test(action)
   && (Number(body.rewardMinutesPerPoint)>0||body.rewardPointCardId))features.push('points');
@@ -52,7 +55,8 @@ export function assertBusinessAction(context,action,body={},now=Date.now()) {
  if(tenantExpired(context,now))throw Object.assign(Error('使用期限已到，請聯絡總管理員。'),{code:'TENANT_EXPIRED',status:403});
  const features=actionFeatures(action,body);
  if(features===null)throw Object.assign(Error('此功能尚未取得商家授權。'),{code:'FEATURE_ACTION_UNMAPPED',status:403});
- const foundation=/^admin\.terms\.|^user\.member\.(bootstrap|profile\.save|terms\.accept)$/.test(action)
+ if(/^admin\.booking\.benefits\./.test(action)&&!['points','events'].some(key=>context.features?.[key]===true))throw disabled();
+ const foundation=/^admin\.terms\.|^user\.member\.(bootstrap|profile\.save|phone\.send|terms\.accept)$/.test(action)
   && ['membership','points','events','calendar','booking'].some(key=>context.features?.[key]===true);
  if(!foundation&&features.some(feature=>context.features?.[feature]!==true))throw Object.assign(Error('總管理員尚未核准這項功能，請聯絡總管理員。'),{code:'FEATURE_DISABLED',status:403});
 }
@@ -69,12 +73,17 @@ export function businessBootstrap(data,context){
 export function businessResponse(data,context,action){
  if(action==='admin.bootstrap')return businessBootstrap(data,context);
  const features=context.features||{},out={...data};
- const benefitAllowed=item=>features[({points:'points',event:'events',calendar:'calendar'})[item?.kind]]===true;
+ const benefitAllowed=item=>features[benefitFeature(item?.kind)]===true;
+ if(/^(admin|user)\.booking\./.test(action)){
+  const scrub=booking=>booking&&typeof booking==='object'?{...booking,...(Array.isArray(booking.benefits)?{benefits:booking.benefits.filter(benefitAllowed)}:{})}:booking;
+  if(data.booking)out.booking=scrub(data.booking);
+  if(Array.isArray(data.bookings))out.bookings=data.bookings.map(scrub);
+ }
  if(action==='user.booking.benefits'||action==='admin.booking.benefits.list'){
   for(const key of ['items','benefits','selectedBenefits'])if(Array.isArray(out[key]))out[key]=out[key].filter(benefitAllowed);
   if(data.catalog)out.catalog={...data.catalog,items:(data.catalog.items||[]).filter(benefitAllowed)};
  }
- if(action==='admin.booking.manage.bootstrap'&&features.points!==true){
+ if((action==='admin.booking.manage.bootstrap'||/^admin\.booking\.type\.(create|update|delete)$/.test(action))&&features.points!==true){
   out.pointCards=[];
   out.serviceTypes=(data.serviceTypes||[]).map(type=>({...type,rewardPointCardId:null,rewardPointCardTitle:'',rewardMinutesPerPoint:null}));
  }
@@ -87,6 +96,45 @@ export function businessResponse(data,context,action){
  return out;
 }
 
+// Existing hidden rules are read-only after revocation. Compare against trusted
+// tenant rows, preserve omitted fields, and pin the existing optimistic lock.
+export async function prepareBusinessAction(context,action,body,db){
+ const f=context.features||{};
+ if(!(f.booking!==true&&['admin.event-tickets.save','admin.pointcards.save'].includes(action))
+  &&!(f.points!==true&&action==='admin.booking.type.update')&&!(f.calendar!==true&&action==='admin.fixed-tickets.save'))return {body,policyBody:body};
+ const forward=structuredClone(body),policyBody=structuredClone(body);
+ const read=async query=>{const result=await query;if(result.error)throw Object.assign(Error('目前無法確認連動功能權限。'),{code:'BUSINESS_ACCESS_UNAVAILABLE',status:503});return result.data||[];};
+ const rules=['requiredServiceIds','requiredServiceMatchMode','requiredServiceGroups','requiredServiceTypes'];
+ const preserve=(input,policy,row={})=>{
+  const stored={requiredServiceIds:row.required_service_ids||[],requiredServiceGroups:row.required_service_groups||[],requiredServiceMatchMode:row.required_service_groups?.length?'groups':row.required_service_match_mode||'any',requiredServiceTypes:[]};
+  for(const key of rules){
+   if(Object.hasOwn(input,key)&&JSON.stringify(input[key])!==JSON.stringify(stored[key]))throw disabled();
+   input[key]=stored[key];delete policy[key];
+  }
+ };
+ if(f.booking!==true&&action==='admin.event-tickets.save'){
+  const input=forward.eventTicket||{};
+  const rows=input.eventTicketId?await read(db.from('event_tickets').select('required_service_ids,required_service_groups,required_service_match_mode,updated_at').eq('event_ticket_id',input.eventTicketId)):[];
+  preserve(input,policyBody.eventTicket||{},rows[0]);
+  if(rows[0]&&!forward.expectedUpdatedAt)forward.expectedUpdatedAt=rows[0].updated_at;
+ }
+ if(f.booking!==true&&action==='admin.pointcards.save'){
+  const card=forward.card||{};
+  const cards=card.cardId?await read(db.from('point_cards').select('id,updated_at').eq('card_id',card.cardId)):[];
+  const rewards=cards[0]?await read(db.from('point_card_rewards').select('threshold_stamps,required_service_ids,required_service_groups,required_service_match_mode').eq('point_card_id',cards[0].id)):[];
+  for(const [index,reward]of (Array.isArray(card.rewards)?card.rewards:[]).entries())preserve(reward,policyBody.card.rewards[index],rewards.find(row=>Number(row.threshold_stamps)===Number(reward.thresholdStamps)));
+  if(cards[0]&&!forward.expectedUpdatedAt)forward.expectedUpdatedAt=cards[0].updated_at;
+ }
+ if(f.points!==true&&action==='admin.booking.type.update'&&['rewardPointCardId','rewardMinutesPerPoint'].some(key=>Object.hasOwn(body,key))){
+  if((await read(db.from('booking_service_type_rewards').select('service_type_id').eq('service_type_id',body.typeId))).length)throw disabled();
+ }
+ if(f.calendar!==true&&action==='admin.fixed-tickets.save'&&body.template?.fixedTicketId&&Object.hasOwn(body.template,'calendarEnabled')){
+  const rows=await read(db.from('fixed_ticket_templates').select('calendar_enabled').eq('fixed_ticket_id',body.template.fixedTicketId));
+  if(rows[0]?.calendar_enabled===true&&!body.template.calendarEnabled)throw disabled();
+ }
+ return {body:forward,policyBody};
+}
+
 // The caller supplies the already tenant-scoped database client. Inspect stored
 // dependencies before invoking a settlement RPC: revocation must also cover
 // selections/rules saved before the current request, not just its JSON body.
@@ -95,7 +143,15 @@ export async function assertBusinessRpc(context,name,params={},db){
  const requireFeature=feature=>{if(f[feature]!==true)throw Object.assign(Error('總管理員尚未核准這項功能，請聯絡總管理員。'),{code:'FEATURE_DISABLED',status:403});};
  const read=async query=>{const result=await query;if(result.error)throw Object.assign(Error('目前無法確認連動功能權限。'),{code:'BUSINESS_ACCESS_UNAVAILABLE',status:503});return result.data||[];};
  if(name==='issue_fixed_tickets'&&f.calendar!==true){
-  if((await read(db.from('fixed_ticket_templates').select('calendar_enabled').eq('status','active').eq('calendar_enabled',true))).length)requireFeature('calendar');
+  let query=db.from('fixed_ticket_templates').select('calendar_enabled').eq('status','active').eq('calendar_enabled',true);
+  if(params.p_template_id)query=query.eq('id',params.p_template_id);
+  if(params.p_fixed_ticket_id)query=query.eq('fixed_ticket_id',params.p_fixed_ticket_id);
+  if((await read(query)).length)requireFeature('calendar');
+ }
+ if(name==='admin_replace_booking_benefit_selections_request'){
+  const current=await read(db.from('booking_benefit_selections').select('benefit_kind,benefit_ref').eq('booking_id',params.p_booking_id).eq('status','pending'));
+  const withheld=current.filter(row=>f[benefitFeature(row.benefit_kind)]!==true).map(row=>({kind:row.benefit_kind,id:row.benefit_ref}));
+  return {...params,p_selections:[...(params.p_selections||[]),...withheld]};
  }
  if(name==='grant_member_benefits_with_event_bonus'&&f.calendar!==true&&params.p_points?.length){
   const today=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Taipei'});

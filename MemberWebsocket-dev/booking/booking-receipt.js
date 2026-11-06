@@ -190,6 +190,11 @@
     state.previewUrl = '';
   }
 
+  function setCameraVisible(visible) {
+    const video = document.getElementById('bookingReceiptCamera');
+    if (video) video.hidden = !visible;
+  }
+
   function resetModalState({ preserveSnapshotAuthorization = false } = {}) {
     state.photoGeneration += 1;
     cleanupPreview();
@@ -219,6 +224,7 @@
     if (submit) submit.disabled = true;
     if (capture) { capture.disabled = true; capture.textContent = '啟動相機中…'; capture.classList.remove('hidden'); }
     retake?.classList.add('hidden');
+    setCameraVisible(true);
     setMessage('');
   }
 
@@ -657,6 +663,7 @@
     const video = document.getElementById('bookingReceiptCamera');
     const capture = document.getElementById('bookingReceiptCapture');
     if (!video || !capture) return;
+    setCameraVisible(true);
 
     capture.disabled = true;
     capture.textContent = '啟動相機中…';
@@ -746,6 +753,7 @@
       retake?.classList.remove('hidden');
       discard?.classList.remove('hidden');
       stopCamera();
+      setCameraVisible(false);
       setMessage('收據圖片已準備好。確認清楚可辨識後送出；管理端核對前不會完成預約。');
     };
     reader.onerror = () => {

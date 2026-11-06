@@ -168,7 +168,7 @@ test('both admin and user E2E entry points load and enforce the professional tes
   assert.match(userRunner, /registerCleanup/);
 
   for (const surface of ['member', 'points', 'event', 'calendar', 'booking']) {
-    const html = read(surface + '/index.html');
+    const html = read('tests/fixtures/' + surface + '-e2e.html');
     assert.match(html, /e2e-professional-tester\.js\?v=professional-qa-20261005-2/, surface);
     assert.match(html, /user-test-control\.js\?v=qa-e2e-20261010-2/, surface);
   }

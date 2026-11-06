@@ -14,7 +14,7 @@ const scenarioGraph = require(path.join(root, 'e2e-scenario-graph.js'));
 const profile = (id = 'LINE_TEST_A') => ({ lineUserId: id, profileComplete: true, membershipRequired: false });
 const tick = () => new Promise((resolve) => setTimeout(resolve, 40));
 
-async function page({ surface = 'member', saved = {}, now = '2026-09-27T15:59:00Z', missing = '', testSession = false, query = '', cryptoImpl = webcrypto.subtle } = {}) {
+async function page({ surface = 'member', saved = {}, now = '2026-09-27T15:59:00Z', missing = '', testSession = false, query = 'qaPair=integration-tour', cryptoImpl = webcrypto.subtle } = {}) {
   const html = fs.readFileSync(path.join(root, surface, 'index.html'), 'utf8');
   const suffix = query ? `?${String(query).replace(/^\?/, '')}` : '';
   const dom = new JSDOM(html, { runScripts: 'outside-only', pretendToBeVisual: true, url: `https://example.test/${surface}/${suffix}` });
@@ -48,6 +48,67 @@ async function page({ surface = 'member', saved = {}, now = '2026-09-27T15:59:00
   return { dom, w, ready, dialog: w.document.getElementById('memberTourDialog') };
 }
 
+test('AC-001/002: all five member surfaces stay hidden on regular entry and open only when requested', async () => {
+  for (const surface of ['member', 'points', 'event', 'calendar', 'booking']) {
+    const current = await page({ surface, query: '' });
+    try {
+      await current.ready();
+      const { w, dialog } = current;
+      const overlay = w.document.getElementById('memberTourOverlay');
+      const app = w.document.getElementById('app') || w.document.querySelector('.app-shell');
+      const launcher = w.document.getElementById('openMemberTour');
+      assert.equal(dialog.classList.contains('hidden'), true, surface + ': no automatic dialog');
+      assert.equal(overlay.classList.contains('hidden'), true, surface + ': no automatic mask');
+      assert.notEqual(app.inert, true, surface + ': main UI remains interactive');
+      assert.equal(w.localStorage.length, 0, surface + ': no implicit tutorial state');
+      assert.ok(launcher, surface + ': manual tutorial entry remains present');
+      launcher.click();
+      assert.equal(dialog.classList.contains('hidden'), false, surface + ': manual open');
+      assert.equal(app.inert, true, surface + ': modal focus protection');
+      dialog.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      assert.equal(dialog.classList.contains('hidden'), true, surface + ': manual dismiss');
+      assert.notEqual(app.inert, true, surface + ': dismiss restores interaction');
+      assert.equal(w.localStorage.length, 0, surface + ': dismiss leaves state unchanged');
+    } finally { current.dom.window.close(); }
+  }
+});
+
+test('AC-001: older tutorial completion and skip state never forces a normal visit open', async () => {
+  const hash = Buffer.from(await webcrypto.subtle.digest('SHA-256', new TextEncoder().encode('LINE_TEST_A'))).toString('hex');
+  const key = `user-tour:booking:${hash}`;
+  for (const persisted of [
+    { version: 1, outcome: 'complete', completedAt: '2026-09-27T15:59:00Z' },
+    { version: 1, outcome: 'skip', completedAt: '2026-09-27T15:59:00Z' },
+    { version: 2, disabled: true, outcome: 'skip', source: 'explicit', skippedAt: '2026-09-27T15:59:00Z' }
+  ]) {
+    const current = await page({ surface: 'booking', query: '', saved: { [key]: JSON.stringify(persisted) } });
+    try {
+      await current.ready();
+      assert.equal(current.dialog.classList.contains('hidden'), true);
+      assert.notEqual((current.w.document.getElementById('app') || current.w.document.querySelector('.app-shell')).inert, true);
+      current.w.document.getElementById('openMemberTour').click();
+      assert.equal(current.dialog.classList.contains('hidden'), false);
+      current.w.document.getElementById('memberTourDismiss').click();
+      assert.equal(current.w.localStorage.getItem(key), JSON.stringify(persisted));
+    } finally { current.dom.window.close(); }
+  }
+});
+
+test('AC-001: incomplete profile also remains quiet until explicitly requested', async () => {
+  const current = await page({ surface: 'member', query: '' });
+  try {
+    const { w, dialog } = current;
+    w.document.querySelector('main[data-user-tour]').classList.add('hidden');
+    w.document.getElementById('profileSetupView').classList.remove('hidden');
+    w.dispatchEvent(new w.CustomEvent('member-profile-ready', {
+      detail: { profile: { lineUserId: 'LINE_TEST_A', profileComplete: false, membershipRequired: true } }
+    }));
+    await tick();
+    assert.equal(dialog.classList.contains('hidden'), true);
+    assert.notEqual(w.document.getElementById('app').inert, true);
+  } finally { current.dom.window.close(); }
+});
+
 test('permanent opt-out survives another day and manual replay, isolated by member', async () => {
  const first=await page();await first.ready();assert.equal(first.dialog.classList.contains('hidden'),false);
  assert.equal(first.w.document.getElementById('memberTourSkip').textContent,'不再顯示');
@@ -61,7 +122,7 @@ test('permanent opt-out survives another day and manual replay, isolated by memb
  tomorrow.dialog.dispatchEvent(new tomorrow.w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));assert.equal(tomorrow.w.document.getElementById('app').inert,false);tomorrow.dom.window.close();
 });
 
-test('only an explicit current-format daily skip suppresses auto-start', async () => {
+test('paired QA auto-start preserves legacy tour migration fixtures', async () => {
   const hash = Buffer.from(await webcrypto.subtle.digest('SHA-256', new TextEncoder().encode('LINE_TEST_A'))).toString('hex');
   const key = `member-tour:${hash}`;
   const completed = await page({ saved: { [key]: JSON.stringify({ version: 1, outcome: 'complete', completedAt: '2026-09-27T15:59:00Z' }) } });
@@ -78,7 +139,7 @@ test('only an explicit current-format daily skip suppresses auto-start', async (
   const explicitSkip = { [key]: JSON.stringify({ outcome: 'skip', source: 'explicit', skippedAt: '2026-09-27T15:59:00Z' }) };
   const today = await page({ saved: explicitSkip });
   await today.ready();
-  assert.equal(today.dialog.classList.contains('hidden'), true);
+  assert.equal(today.dialog.classList.contains('hidden'), false, 'paired QA bypasses legacy daily skip');
   today.dom.window.close();
 
   const tomorrow = await page({ saved: explicitSkip, now: '2026-09-27T16:00:00Z' });

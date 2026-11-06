@@ -8,7 +8,7 @@
   const visibleFeatureKeys=featureKeys.filter(key=>key!=='integrations'&&key!=='testing'&&key!=='usage');
   const isV2=()=>state.config?.merchantApprovalVersion===2;
   const isAccount=()=>merchantEntry&&isV2()&&!selectedBusiness;
-  let refreshTimer=null,refreshBusy=false,rootRefreshBusy=false,rootSnapshot='',rootRevision=0;
+  let refreshTimer=null,refreshBusy=false,rootRefreshBusy=false,rootManualQueued=false,rootSnapshot='',rootRevision=0;
   const form = el('tenantForm'), dialog = el('tenantDialog');
   const fields = form.elements;
   const lineKeys = ['adminChannelId','memberChannelId','messagingChannelId','adminLiffId','memberLiffId','pointsLiffId','eventLiffId','calendarLiffId','bookingLiffId'];
@@ -44,6 +44,8 @@
     state.idToken='';
     rootRevision++;
     rootSnapshot='';
+    rootManualQueued=false;
+    if(el('rootSyncNow'))el('rootSyncNow').disabled=false;
     if(refreshTimer){clearInterval(refreshTimer);refreshTimer=null;}
     state.pending=null;
     state.approval=null;
@@ -161,6 +163,22 @@
     featureRequirements();el('saveTenant').textContent='儲存商家設定';lock(false);
     dialog.showModal();fields.namedItem('name').focus();
   }
+  // The period is always read-only outside the Platform owner UI; the server owns expiry writes.
+  function renderExpirySummary(container,tenant){
+    container.replaceChildren();
+    const started=document.createElement('span');
+    started.textContent='開通日期：'+window.PlatformExpiryTerm.taipeiDateTime(tenant.createdAt);
+    const duration=document.createElement('span');
+    const days=window.PlatformExpiryTerm.termDays(tenant.createdAt,tenant.expiresAt);
+    duration.textContent='使用期限：'+(days!==null?days+' 天':tenant.expiresAt?'指定到期時間':'無期限');
+    const expires=document.createElement('span');
+    expires.textContent='到期時間：'+(tenant.expiresAt?window.PlatformExpiryTerm.taipeiDateTime(tenant.expiresAt):'無到期日');
+    const daysLeft=window.PlatformExpiryTerm.remainingDays(tenant.expiresAt);
+    const remaining=document.createElement('strong');
+    remaining.textContent=daysLeft===null?'剩餘天數：無期限':daysLeft===0?'剩餘天數：已到期':'剩餘天數：'+daysLeft+' 天';
+    if(daysLeft===0)remaining.className='expired';
+    container.append(started,duration,expires,remaining);
+  }
   function render() {
     const list=el('tenantList');list.replaceChildren();
     if (!state.tenants.length) {const p=document.createElement('p');p.className='empty';p.textContent='尚無已審核的一般管理員。請從申請清單勾選功能並審核。';list.append(p);return;}
@@ -192,7 +210,8 @@
           else{pending=null;await refresh().catch(()=>{});}
         }finally{working=false;access.disabled=false;if(!pending)for(const button of footer.querySelectorAll('button'))button.disabled=false;}
       });footer.append(access);
-      const expiryInfo=document.createElement('p');expiryInfo.textContent='使用期限：'+(tenant.expiresAt?new Date(tenant.expiresAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false})+'（台灣時間）':'無到期日');
+      const expiryInfo=document.createElement('div');expiryInfo.className='tenant-expiry-summary';
+      renderExpirySummary(expiryInfo,tenant);
       const setup=document.createElement('p');
       const onboarding=tenant.onboarding;
       setup.textContent=tenant.status==='suspended'?'已停用；管理員與用戶均不可使用。':tenant.expired?'使用期限已到；請由總管理員調整期限，延長後須重新登入。':onboarding?.adminReady?'已核准功能已開通，管理員可設定業務內容並分享專屬用戶連結。'
@@ -202,27 +221,56 @@
     }
   }
   const expiryDialog=el('expiryDialog'),expiryForm=el('expiryForm');
+  const expiryTerm=window.PlatformExpiryTerm;
   let expiryTenant=null,expiryPending=null,expiryBusy=false;
+  function expiryMode(){return expiryForm.querySelector('input[name="expiryMode"]:checked')?.value||'unlimited';}
+  function selectedExpiry(){
+    if(expiryMode()==='unlimited')return null;
+    if(expiryMode()==='term')return expiryTerm.termExpiry(expiryTenant?.createdAt,Number(el('expiryDays').value));
+    const value=el('expiryAt').value;
+    if(!value)throw new RangeError('INVALID_EXPIRY');
+    const end=new Date(value+':00+08:00');
+    if(!Number.isFinite(end.getTime()))throw new RangeError('INVALID_EXPIRY');
+    return end.toISOString();
+  }
+  function updateExpiryPreview(){
+    const mode=expiryMode();
+    el('expiryTermFields').hidden=mode!=='term';
+    el('expiryStartHint').hidden=mode!=='term';el('expiryDaysHint').hidden=mode!=='term';
+    el('expiryExactFields').hidden=mode!=='exact';
+    el('expiryDays').disabled=mode!=='term';el('expiryDays').required=mode==='term';
+    el('expiryAt').disabled=mode!=='exact';el('expiryAt').required=mode==='exact';
+    let value;
+    try{value=selectedExpiry();}
+    catch{el('expiryComputedAt').textContent='請填寫有效期限';el('expiryRemainingDays').textContent='—';return;}
+    const remaining=expiryTerm.remainingDays(value);
+    el('expiryComputedAt').textContent=value?expiryTerm.taipeiDateTime(value)+'（台灣時間）':'無到期日';
+    el('expiryRemainingDays').textContent=remaining===null?'無期限':remaining===0?'已到期':'剩餘 '+remaining+' 天';
+  }
   function openExpiryDialog(tenant){
     expiryTenant=tenant;expiryPending=null;expiryBusy=false;
     for(const input of expiryForm.querySelectorAll('input'))input.disabled=false;
+    for(const button of expiryForm.querySelectorAll('button'))button.disabled=false;
     el('saveExpiry').textContent='儲存使用期限';
     el('expiryDescription').textContent=tenant.name+' · '+tenant.slug;
-    el('expiryUnlimited').checked=!tenant.expiresAt;
+    el('expiryStartedAt').value=expiryTerm.taipeiDateTime(tenant.createdAt)+'（台灣時間）';
+    const days=expiryTerm.termDays(tenant.createdAt,tenant.expiresAt);
+    el('expiryDays').value=days||30;
     el('expiryAt').value=tenant.expiresAt?new Date(Date.parse(tenant.expiresAt)+8*3600000).toISOString().slice(0,16):'';
-    el('expiryAt').disabled=!tenant.expiresAt;el('expiryAt').required=Boolean(tenant.expiresAt);
-    for(const button of expiryForm.querySelectorAll('button'))button.disabled=false;
-    el('expiryMessage').textContent='';expiryDialog.showModal();
+    const mode=!tenant.expiresAt?'unlimited':days?'term':'exact';
+    expiryForm.querySelector('input[name="expiryMode"][value="'+mode+'"]').checked=true;
+    el('expiryMessage').textContent='';updateExpiryPreview();expiryDialog.showModal();
   }
-  el('expiryUnlimited').addEventListener('change',()=>{
-    el('expiryAt').disabled=el('expiryUnlimited').checked;el('expiryAt').required=!el('expiryUnlimited').checked;
-  });
+  expiryForm.querySelectorAll('input[name="expiryMode"]').forEach(input=>input.addEventListener('change',()=>{if(!expiryBusy&&!expiryPending)updateExpiryPreview();}));
+  for(const id of ['expiryDays','expiryAt'])el(id)?.addEventListener('input',()=>{if(!expiryBusy&&!expiryPending)updateExpiryPreview();});
   expiryForm.addEventListener('submit',async event=>{
     event.preventDefault();if(expiryBusy||!expiryTenant)return;
     if(!expiryPending){
       if(!expiryForm.reportValidity())return;
-      const expiresAt=el('expiryUnlimited').checked?null:new Date(el('expiryAt').value+':00+08:00').toISOString();
-      if(!window.confirm(`更新「${expiryTenant.name}」的使用期限？${expiresAt?' 到期即停止管理員與用戶存取。':' 將設定為無到期日。'}`))return;
+      let expiresAt;
+      try{expiresAt=selectedExpiry();}
+      catch{el('expiryMessage').textContent='請輸入有效的期限天數或到期時間。';return;}
+      if(!window.confirm('更新「'+expiryTenant.name+'」的使用期限？'+(expiresAt?' 到期即停止管理員與用戶存取。':' 將設定為無到期日。')))return;
       expiryPending={tenantId:expiryTenant.id,expectedVersion:expiryTenant.version,requestId:crypto.randomUUID(),expiresAt};
     }
     expiryBusy=true;for(const node of expiryForm.querySelectorAll('input,button'))node.disabled=true;
@@ -233,7 +281,7 @@
     }catch(error){
       el('expiryMessage').textContent=error.message;
       if(error.uncertain){el('saveExpiry').textContent='重試相同期限操作';el('saveExpiry').disabled=false;}
-      else{expiryPending=null;for(const node of expiryForm.querySelectorAll('input,button'))node.disabled=false;el('expiryAt').disabled=el('expiryUnlimited').checked;}
+      else{expiryPending=null;for(const node of expiryForm.querySelectorAll('input,button'))node.disabled=false;updateExpiryPreview();}
     }finally{expiryBusy=false;}
   });
   el('closeExpiry').addEventListener('click',()=>{if(!expiryBusy&&!expiryPending)expiryDialog.close();});
@@ -247,9 +295,13 @@
     state.merchant=null;state.merchantPending=null;merchantDirty=false;latestMine=null;
     const settings=el('merchantLineForm');
     if(settings)for(const input of settings.querySelectorAll('input'))input.value='';
+    el('merchantTitleForm')?.reset();
+    if(el('merchantTitleStatus'))el('merchantTitleStatus').textContent='';
+    titleDirty=false;titlePending=null;titleSaving=false;
     for(const id of ['merchantInfo','merchantReadiness','merchantFeatures','merchantChecklist','merchantFeatureNav','merchantMessage','merchantSyncStatus'])el(id)?.replaceChildren();
     el('merchantLaunchStatus')?.querySelectorAll('[data-business-launch]').forEach(node=>node.remove());
     if(el('merchantWorkspace'))el('merchantWorkspace').hidden=true;
+    const period=el('merchantUsagePeriod');if(period){period.hidden=true;period.replaceChildren();}
     if(el('applicationWorkspace'))el('applicationWorkspace').hidden=true;
     if(el('onboardingJourney'))el('onboardingJourney').hidden=true;
   }
@@ -307,6 +359,11 @@
       const ready=application.status==='approved'&&tenant?.status==='active'&&!tenant.expired&&tenant.onboarding?.adminReady===true;
       badge.textContent=application.status==='pending'?'等待商家審核':application.status==='rejected'?'商家申請未通過':tenant?.status==='suspended'?'商家已停用':tenant?.expired?'商家使用期限已到':ready?'已核准・可管理':'已核准・等待開通';
       card.append(badge,title,info);
+      if(application.status==='approved'&&tenant){
+        const expiryInfo=document.createElement('div');expiryInfo.className='tenant-expiry-summary';
+        expiryInfo.setAttribute('aria-label','商家使用期限');
+        renderExpirySummary(expiryInfo,tenant);card.append(expiryInfo);
+      }
       if(application.reviewReason){const reason=document.createElement('p');reason.textContent='審核理由：'+application.reviewReason;card.append(reason);}
       const actions=document.createElement('footer');
       if(ready){
@@ -486,7 +543,8 @@
     if(background&&(state.busy||reviewBusy||reviewPending||document.hidden||rootDialogOpen()))return null;
     const snapshot=JSON.stringify([data.tenants||[],data.applications||[],data.features||{},qualifications]);
     const changed=snapshot!==rootSnapshot;
-    if(!background||changed){
+    // Preserve existing list nodes and focus when a manual or scheduled read is unchanged.
+    if(changed){
       state.tenants=data.tenants||[];state.applications=data.applications||[];
       state.features=data.features;
       if(isV2()){state.qualifications=qualifications;renderQualifications();el('applicationListTitle').textContent='商家申請審核';}
@@ -495,21 +553,46 @@
     rootSnapshot=snapshot;
     return {...data,changed};
   }
-  async function refreshRoot(){
-    if(merchantEntry||!state.idToken||el('platformWorkspace').hidden||document.hidden||navigator.onLine===false||rootRefreshBusy||state.busy||reviewBusy||reviewPending||rootDialogOpen())return;
+  function rootCanRefresh(){
+    return !merchantEntry&&Boolean(state.idToken)&&!el('platformWorkspace').hidden&&!document.hidden
+      &&navigator.onLine!==false&&!state.busy&&!reviewBusy&&!reviewPending&&!rootDialogOpen();
+  }
+  async function refreshRoot({manual=false}={}){
+    if(!rootCanRefresh())return;
+    const button=el('rootSyncNow'),status=el('rootSyncStatus');
+    if(rootRefreshBusy){
+      // A manual click during a poll must not disappear. Run one fresh read afterward.
+      if(manual){
+        rootManualQueued=true;
+        if(button)button.disabled=true;
+        if(status)status.textContent='正在同步待審申請…';
+      }
+      return;
+    }
     rootRefreshBusy=true;
-    const button=el('rootSyncNow');if(button)button.disabled=true;
+    // Only an explicit click affects the button. Automatic five-second checks stay invisible.
+    if(manual){
+      if(button)button.disabled=true;
+      if(status)status.textContent='正在同步待審申請…';
+    }
     try{
-      const data=await refresh({background:true});
-      if(data&&el('rootSyncStatus')){
+      const data=await refresh({background:!manual});
+      if(data&&status&&!rootManualQueued){
         const message=data.changed?'已同步最新管理員資格與商家申請。':'審核清單已是最新資料。';
-        if(el('rootSyncStatus').textContent!==message)el('rootSyncStatus').textContent=message;
+        if(status.textContent!==message)status.textContent=message;
       }
     }catch(error){
-      if(state.idToken&&el('rootSyncStatus'))el('rootSyncStatus').textContent='同步失敗：'+error.message+'；將自動再試。';
-    }finally{rootRefreshBusy=false;if(button)button.disabled=false;}
+      if(state.idToken&&status&&!rootManualQueued)status.textContent='同步失敗：'+error.message+'；將自動再試。';
+    }finally{
+      rootRefreshBusy=false;
+      if(rootManualQueued){
+        rootManualQueued=false;
+        if(rootCanRefresh())void refreshRoot({manual:true});
+        else if(button)button.disabled=false;
+      }else if(manual&&button)button.disabled=false;
+    }
   }
-  el('rootSyncNow')?.addEventListener('click',()=>void refreshRoot());
+  el('rootSyncNow')?.addEventListener('click',()=>void refreshRoot({manual:true}));
   function collect() {return {name:fields.namedItem('name').value.trim(),slug:fields.namedItem('slug').value.trim(),ownerLineUserId:fields.namedItem('ownerLineUserId').value.trim(),
     features:Object.fromEntries(featureKeys.map(key=>[key,visibleFeatureKeys.includes(key) && Boolean(form.querySelector('[data-feature="'+key+'"]')?.checked)])),
     line:Object.fromEntries(lineKeys.map(key=>[key,fields.namedItem(key).value.trim()])),
@@ -615,6 +698,7 @@
   const applicationForm=el('applicationForm'),merchantForm=el('merchantLineForm');
   const featureLiffNames={membership:'memberLiffId',points:'pointsLiffId',events:'eventLiffId',calendar:'calendarLiffId',booking:'bookingLiffId'};
   let merchantPanel='shared',merchantWorkspaceTab='overview',merchantDirty=false,merchantSaving=false,latestMine=null;
+  let titleDirty=false,titleSaving=false,titlePending=null;
   const hasFeatureLine = tenant => merchantEntry && tenant?.moduleLine !== undefined;
   const lineLabels={adminChannelId:'管理端 Login Channel ID',memberChannelId:'會員端 Login Channel ID',messagingChannelId:'Messaging API Channel ID',adminLiffId:'管理端 LIFF ID',memberLiffId:'會員卡 LIFF ID',pointsLiffId:'集點卡 LIFF ID',eventLiffId:'活動票券 LIFF ID',calendarLiffId:'營運日曆 LIFF ID',bookingLiffId:'預約 LIFF ID',credentials:'Messaging API token 與 secret'};
   function installFieldHelp() {
@@ -797,6 +881,8 @@
     state.mineSignature=JSON.stringify([data.application?.status,data.tenant?.version,data.tenant?.status,data.tenant?.expired]);
     state.merchant=data.tenant||null;state.features=data.features||state.features;
     state.merchantPending=null;merchantDirty=false;latestMine=null;lockMerchant(false);
+    titleDirty=false;titlePending=null;
+    if(el('merchantTitleStatus'))el('merchantTitleStatus').textContent='';
     if(el('merchantSyncStatus'))el('merchantSyncStatus').textContent='';
     if(el('reloadMerchantSettings'))el('reloadMerchantSettings').hidden=true;
     const application=data.application;
@@ -817,6 +903,10 @@
     if(isV2()&&(!data.tenant||data.application?.status!=='approved'||data.tenant.status==='suspended'||data.tenant.expired)){clearPrivateMerchant();return;}
     if(!data.tenant)return;
     const tenant=data.tenant;
+    const titleForm=el('merchantTitleForm');
+    if(titleForm){titleForm.elements.namedItem('title').value=tenant.siteTitle||'';
+      if(el('merchantTitlePreview'))el('merchantTitlePreview').textContent=(tenant.siteTitle||tenant.name)+'｜預約';
+      titleForm.hidden=!isV2();}
     if(!isV2()&&tenant.onboarding?.adminReady&&['/admin/','/admin/workspace.html'].includes(location.pathname)&&!new URLSearchParams(location.search).has('business')){
       const target=new URL('/admin/',location.origin);target.searchParams.set('business',tenant.slug);
       const requested=new URLSearchParams(location.search).get('feature');
@@ -824,6 +914,8 @@
       location.replace(target.href);return;
     }
     el('merchantInfo').textContent=tenant.name+' · '+tenant.slug+' · '+(tenant.credentialsConfigured?'LINE 憑證已保存':'尚未設定 LINE 憑證');
+    const usagePeriod=el('merchantUsagePeriod');
+    if(usagePeriod){renderExpirySummary(usagePeriod,tenant);usagePeriod.hidden=false;}
     const readiness=el('merchantReadiness');
     if(readiness) {
       readiness.textContent=tenant.onboarding?.adminReady?'審核已通過，已核准功能與用戶端已開放。自有 LINE 入口與通知設定可隨時保存。':tenant.onboarding?.configurationComplete
@@ -899,8 +991,56 @@
     }
   });
 
+  const merchantTitleForm=el('merchantTitleForm');
+  merchantTitleForm?.addEventListener('input',()=>{
+    if(titleSaving||titlePending)return;
+    titleDirty=true;
+    const title=merchantTitleForm.elements.namedItem('title').value.trim();
+    if(el('merchantTitlePreview'))el('merchantTitlePreview').textContent=(title||state.merchant?.name||'Lumen Club')+'｜預約';
+    if(el('merchantTitleStatus'))el('merchantTitleStatus').textContent='尚未儲存網頁抬頭。';
+  });
+  merchantTitleForm?.addEventListener('submit',async event=>{
+    event.preventDefault();
+    if(titleSaving||!state.merchant||!selectedBusiness||!isV2())return;
+    if(!titlePending){
+      if(!merchantTitleForm.reportValidity())return;
+      const title=merchantTitleForm.elements.namedItem('title').value.trim();
+      if(Array.from(title).length>60||/[\u0000-\u001f\u007f]/.test(title)){
+        el('merchantTitleStatus').textContent='顯示名稱最多 60 字，且不能包含控制字元。';return;
+      }
+      titlePending={requestId:crypto.randomUUID(),expectedVersion:state.merchant.version,title,business:selectedBusiness};
+    }
+    titleSaving=true;
+    const input=merchantTitleForm.elements.namedItem('title'),button=el('saveMerchantTitle');
+    input.disabled=true;button.disabled=true;el('merchantTitleStatus').textContent='正在儲存網頁抬頭…';
+    try{
+      const result=await request('platform.title.save',titlePending);
+      const tenant=result.tenant;
+      state.merchant=tenant;
+      state.mineSignature=JSON.stringify(['approved',tenant.version,tenant.status,tenant.expired]);
+      input.value=tenant.siteTitle||'';
+      if(el('merchantTitlePreview'))el('merchantTitlePreview').textContent=(tenant.siteTitle||tenant.name)+'｜預約';
+      if(el('merchantInfo'))el('merchantInfo').textContent=tenant.name+' · '+tenant.slug+' · '+(tenant.credentialsConfigured?'LINE 憑證已保存':'尚未設定 LINE 憑證');
+      titlePending=null;titleDirty=false;
+      el('merchantTitleStatus').textContent='已儲存。用戶端重新開啟或重新整理後，分頁標題會套用新名稱。其他未儲存設定請先確認版本再儲存。';
+    }catch(error){
+      if(error.code==='PLATFORM_CONFLICT'||error.status===409){
+        titlePending=null;titleDirty=true;
+        el('merchantTitleStatus').textContent='設定已由其他工作階段更新，請重新載入商家資料後再儲存。';
+      }else if(error.uncertain){
+        el('merchantTitleStatus').textContent='尚無法確認儲存結果；可用相同操作識別碼重試。';
+      }else{
+        titlePending=null;
+        el('merchantTitleStatus').textContent=error.message;
+      }
+    }finally{
+      titleSaving=false;input.disabled=false;button.disabled=false;
+      button.textContent=titlePending?'重試相同儲存操作':'儲存網頁抬頭';
+    }
+  });
+
   async function refreshMine() {
-    if(!merchantEntry||!state.idToken||navigator.onLine===false||refreshBusy||merchantSaving||(!isV2()&&state.merchantPending))return;
+    if(!merchantEntry||!state.idToken||navigator.onLine===false||refreshBusy||merchantSaving||titleSaving||(!isV2()&&state.merchantPending))return;
     if(isAccount()){await refreshAccount();return;}
     refreshBusy=true;
     try {
@@ -909,7 +1049,7 @@
       const accessChanged=data.application?.status!=='approved'||(data.tenant?.status==='suspended'||data.tenant?.expired)
         ||JSON.stringify(data.tenant?.features)!==JSON.stringify(state.merchant?.features);
       if(signature!==state.mineSignature){
-        if((merchantDirty||state.merchantPending)&&!accessChanged){
+        if((merchantDirty||state.merchantPending||titleDirty||titlePending)&&!accessChanged){
           latestMine=data;
           if(el('merchantSyncStatus'))el('merchantSyncStatus').textContent='偵測到較新的已儲存設定。你的草稿已保留；儲存前請載入最新設定，避免覆蓋。';
           if(el('reloadMerchantSettings'))el('reloadMerchantSettings').hidden=false;

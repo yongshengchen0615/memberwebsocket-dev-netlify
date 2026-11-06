@@ -40,11 +40,13 @@ test('RB-ADMIN-003: user-requested removal of unrelated testing and usage manage
 
 test('RB-ADMIN-004: both manager entrypoints load the restored settings and bust newer cached assets',()=>{
  for(const html of [adminEntry,merchantEntry]){
-  assert.match(html,/business-line-settings\.js\?v=member-card-admin-rollback-20261028-1/);
-  assert.match(html,/business-line-settings\.css\?v=member-card-admin-rollback-20261028-1/);
+  assert.match(html,/business-line-settings\.js\?v=line-entry-actions-20261101-1/);
+  assert.match(html,/business-line-settings\.css\?v=line-theme-20261103-2/);
  }
- assert.match(merchantEntry,/platform\/app\.js\?v=merchant-modal-20261030-1/);
- assert.match(platformEntry,/\.\/app\.js\?v=merchant-modal-20261030-1/);
+ assert.match(merchantEntry,/platform\/expiry-term\.js\?v=expiry-term-20261101-1/);
+ assert.match(merchantEntry,/platform\/app\.js\?v=merchant-expiry-readonly-20261101-1/);
+ assert.match(platformEntry,/\.\/expiry-term\.js\?v=expiry-term-20261101-1/);
+ assert.match(platformEntry,/\.\/app\.js\?v=root-sync-flicker-20261103-1/);
  assert.match(platformEntry,/id="rootSyncNow"/);
  assert.match(platformClient,/request\('platform\.qualification\.list'\)/);
  assert.match(platformClient,/url\.pathname\.replace\(\/\\\/api\\\/\?\$\/, '\/platform-api'\)/);

@@ -1,0 +1,66 @@
+'use strict';
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const fs = require('./helpers/edge-test-fs.cjs');
+
+const root = path.resolve(__dirname, '..');
+const read = (filename) => fs.readFileSync(path.join(root, filename), 'utf8');
+const retiredAssets = /(?:test-mode-client\.js|test-mode\.css|user-test-control\.css|user-test-control\.js|e2e-feature-coverage\.js|e2e-scenario-graph\.js|e2e-professional-tester\.js)/;
+
+for (const surface of ['member', 'points', 'event', 'calendar', 'booking']) {
+  test(`AC-001: ${surface} production page does not ship test-session or in-page QA assets`, () => {
+    const html = read(`${surface}/index.html`);
+    assert.doesNotMatch(html, retiredAssets);
+    // Booking owns its authentication and request bridge in common.js.
+    assert.match(html, surface === 'booking' ? /src="\.\/common\.js/ : /\.\.\/member-system\.js/);
+  });
+}
+
+test('AC-002: production member sign-in uses verified LINE credentials rather than test sessions', () => {
+  const code = read('member-system.js');
+  assert.doesNotMatch(code, /TestModeClient/);
+  assert.match(code, /const idToken = await lineSignIn\(config, surface\)/);
+  assert.match(code, /if \(idToken && surface !== 'admin'\)/);
+  assert.match(code, /claimBrowserSession\(config, surface, idToken\)/);
+});
+
+test('AC-003: admin directory and history cannot select virtual members or QA actions', () => {
+  const html = read('admin/index.html');
+  const code = read('admin/app.js');
+  assert.doesNotMatch(html, /testMembersSubtab|memberUsageKind|data-record-filter="testAutomation"|memberTestProfileFields|grantTestNotificationNote/);
+  assert.doesNotMatch(code, /testMembersSubtab|memberUsageKind|memberIsTestAccount|memberTestProfileFields|grantTestNotificationNote/);
+  assert.match(html, /id="memberTableBody"/);
+  assert.match(html, /id="memberUsageSelect"/);
+  assert.match(code, /memberKind: 'real'/);
+  assert.match(code, /admin\.members\.list/);
+});
+
+test('AC-004: production build excludes retired QA scripts and stylesheets', () => {
+  const built = require('node:fs').readFileSync(path.join(root, '..', 'scripts/build-site.mjs'), 'utf8');
+  assert.match(built, /retiredPublicQaAssets/);
+  for (const asset of ['test-mode-client.js', 'test-mode.css', 'user-test-control.js',
+    'user-test-control.css', 'e2e-feature-coverage.js', 'e2e-scenario-graph.js',
+    'e2e-professional-tester.js']) assert.ok(built.includes(`'${asset}'`), asset);
+  assert.match(built, /path\.dirname\(file\) === source && retiredPublicQaAssets\.has/);
+});
+
+test('AC-005: server rejects retired test-member enumeration and synthetic profile edits', () => {
+  const api = read('supabase/functions/api/index.ts');
+  assert.match(api, /if \(isTestAccount\) throw new ApiError\(410,"TEST_MEMBERS_RETIRED"/);
+  assert.match(api, /current\.data\?\.is_test_account === true\) throw new ApiError\(410/);
+  assert.match(api, /body\.profile != null\) throw new ApiError\(400,"PROFILE_EDIT_FORBIDDEN"/);
+});
+
+test('AC-009: real-member status editor preserves identity, tier and authorized status controls', () => {
+  const html = read('admin/index.html');
+  const app = read('admin/app.js');
+  for (const id of ['memberModal', 'memberForm', 'memberIdentity', 'memberTier', 'memberStatus',
+    'memberLineUserId', 'memberExpectedUpdatedAt', 'saveMemberButton']) {
+    assert.match(html, new RegExp('id="' + id + '"'), id);
+  }
+  assert.match(app, /els\.memberIdentity\.textContent/);
+  assert.match(app, /els\.memberTier\.textContent/);
+  assert.match(app, /els\.memberStatus\.value =/);
+  assert.doesNotMatch(html, /memberIsTestAccount|memberTestProfileFields/);
+});

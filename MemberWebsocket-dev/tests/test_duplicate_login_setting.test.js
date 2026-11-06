@@ -62,6 +62,7 @@ test('all five user surfaces load the updated selector and admin cache is refres
   assert.doesNotMatch(read('admin/index.html'), /test-mode\.js\?v=test-login-takeover-20261008-2/);
   assert.match(read('admin/test-mode.js'), /allowDuplicateTestLogin: els\.testModeDuplicateLoginEnabled\.checked/);
   for (const surface of ['member','points','event','calendar','booking']) {
-    assert.match(read(surface + '/index.html'), /test-mode-client\.js\?v=test-login-takeover-20261008-2/);
+    assert.doesNotMatch(read(surface + '/index.html'), /test-mode-client\.js/);
+    assert.match(read('tests/fixtures/' + surface + '-e2e.html'), /test-mode-client\.js\?v=test-login-takeover-20261008-2/);
   }
 });

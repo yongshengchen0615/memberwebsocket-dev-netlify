@@ -1,3 +1,4 @@
+import { bookingPriceOptions, withBookingPrices, bookingPriceError } from '../_shared/booking-price-publishing.mjs';
 import { businessEnv, businessContext, serveBusiness } from '../_shared/business-runtime.ts';
 import { linkedBooking } from "../_shared/linked-booking.ts";
 import { hasCurrentTermsConsent } from "../_shared/membership-terms.ts";
@@ -82,6 +83,7 @@ function errorResponse(origin: string | null, error: unknown): Response {
 }
 
 function mapDatabaseError(error: unknown): ApiError {
+  const priceError = bookingPriceError(error); if (priceError) return new ApiError(priceError.status, priceError.code, priceError.message);
   const raw = error as { message?: string; details?: string; code?: string };
   const message = `${raw?.message || ""} ${raw?.details || ""}`;
   const rules: Array<[string, number, string, string]> = [
@@ -133,6 +135,9 @@ function mapDatabaseError(error: unknown): ApiError {
     ["INVALID_BOOKING_DURATION", 400, "INVALID_BOOKING_DURATION", "預約服務總時間不正確。"],
     ["INVALID_BOOKING_SLOT", 400, "INVALID_BOOKING_SLOT", "這段預約時間超出管理員上班時間。"],
     ["REQUEST_ID_CONFLICT", 409, "REQUEST_ID_CONFLICT", "操作識別碼衝突，請重新操作。"],
+    ["INVALID_BOOKING_REMINDER", 400, "INVALID_BOOKING_REMINDER", "請選擇正確的前一天提醒時間。"],
+    ["REMINDER_TIME_PASSED", 409, "REMINDER_TIME_PASSED", "所選前一天提醒時間已過，請關閉提醒或修改時間。"],
+    ["BOOKING_REMINDER_OWNER_MISMATCH", 403, "BOOKING_REMINDER_OWNER_MISMATCH", "無法修改不屬於你的預約。"],
     ["MEMBERSHIP_REQUIRED", 403, "MEMBERSHIP_REQUIRED", "請先加入會員並完成會員資料後再使用預約功能。"],
     ["MEMBER_DISABLED", 403, "MEMBER_DISABLED", "此會員目前已停用，無法預約。"],
     ["MEMBER_NOT_FOUND", 403, "MEMBERSHIP_REQUIRED", "請先加入會員並完成會員資料後再使用預約功能。"],
@@ -146,11 +151,11 @@ function mapDatabaseError(error: unknown): ApiError {
   return new ApiError(500, "DATABASE_ERROR", "資料庫暫時無法完成預約操作。");
 }
 
-function dbClient(): SupabaseClient {
+function dbClient(body: Record<string, any> = {}): SupabaseClient {
   const url = env("SUPABASE_URL");
   const key = env("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !key) throw new ApiError(503, "SUPABASE_CONFIG_MISSING", "Supabase server 設定尚未完成。");
-  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  return withBookingPrices(createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false }, ...bookingPriceOptions(body) }), body);
 }
 
 function channelIdFor(clientType: ClientType): string {
@@ -307,7 +312,7 @@ function serviceClient(row: any): Json {
     description: row.description || "",
     serviceType: row.service_type || "",
     durationMinutes: Number(row.duration_minutes || 30),
-    priceAmount: Number(row.price_amount || 0),
+    priceAmount: Number(row.price_amount || 0), priceVersion: row.price_version || null, nextPriceAt: row.next_price_at || null,
     requiresCompanionService: Boolean(row.requires_companion_service),
     isActive: Boolean(row.is_active),
     createdAt: row.created_at,
@@ -393,6 +398,16 @@ async function validateBookingBenefitSelectionLimit(supabase: SupabaseClient, va
   return benefits;
 }
 
+function normalizeMemberReminder(body: Json): { enabled: boolean; time: string } {
+  const enabled = body.reminderEnabled === undefined ? false : body.reminderEnabled;
+  const time = body.reminderTime === undefined ? "18:00" : body.reminderTime;
+  if (typeof enabled !== "boolean" || typeof time !== "string"
+      || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+    throw new ApiError(400, "INVALID_BOOKING_REMINDER", "請選擇正確的前一天提醒時間。");
+  }
+  return { enabled, time: `${time}:00` };
+}
+
 function bookingClient(row: any, items: any[] = [], benefits: any[] = []): Json {
   const member = row.members || row.member || null;
   const mappedItems = items.map(itemClient);
@@ -416,6 +431,8 @@ function bookingClient(row: any, items: any[] = [], benefits: any[] = []): Json 
     endAt: localTimestamp(row.end_at),
     status: row.status,
     memberNote: row.member_note || "",
+    reminderEnabled: row.reminder_enabled === true,
+    reminderTime: String(row.reminder_time || "18:00:00").slice(0, 5),
     adminNote: row.admin_note || "",
     completedAt: row.completed_at || null,
     receiptSubmissionId:row.receipt_submission_id || null,
@@ -732,8 +749,9 @@ async function userCreate(supabase: SupabaseClient, identity: Identity, member: 
   const items = await normalizeRequestedItems(supabase, body);
   const rpcItems = items.map((item) => ({ serviceId: item.serviceId, quantity: item.quantity }));
   const benefits = await validateBookingBenefitSelectionLimit(supabase, body.benefits);
+  const reminder = normalizeMemberReminder(body);
 
-  const created = await supabase.rpc("create_booking_bundle_with_benefits_request", {
+  const created = await supabase.rpc("create_booking_bundle_with_benefits_reminder", {
     p_request_id: requestId,
     p_member_id: member.id,
     p_booking_date: bookingDate,
@@ -741,6 +759,8 @@ async function userCreate(supabase: SupabaseClient, identity: Identity, member: 
     p_items: rpcItems,
     p_member_note: memberNote,
     p_benefits: benefits,
+    p_reminder_enabled: reminder.enabled,
+    p_reminder_time: reminder.time,
   });
   if (created.error) throw mapDatabaseError(created.error);
   const row = Array.isArray(created.data) ? created.data[0] : created.data;
@@ -767,13 +787,16 @@ async function userUpdate(supabase: SupabaseClient, identity: Identity, member: 
   assertBookingDateWindow(bookingDate, settings);
   const items = await normalizeRequestedItems(supabase, body);
   const benefits = await validateBookingBenefitSelectionLimit(supabase, body.benefits);
-  const result = await supabase.rpc("update_booking_bundle_with_benefits_request", {
+  const reminder = normalizeMemberReminder(body);
+  const result = await supabase.rpc("update_booking_bundle_with_benefits_reminder", {
     p_booking_id: bookingId, p_member_id: member.id,
     p_expected_updated_at: expectedUpdatedAt, p_request_id: requestId,
     p_booking_date: bookingDate, p_start_time: `${normalizeTime(body.startTime)}:00`,
     p_items: items.map((item) => ({ serviceId: item.serviceId, quantity: item.quantity })),
     p_member_note: asText(body.memberNote, 500), p_actor: identity.lineUserId,
     p_benefits: benefits,
+    p_reminder_enabled: reminder.enabled,
+    p_reminder_time: reminder.time,
   });
   if (result.error) throw mapDatabaseError(result.error);
   const row = Array.isArray(result.data) ? result.data[0] : result.data;
@@ -1209,7 +1232,7 @@ serveBusiness('booking-api',async (request: Request) => {
       throw new ApiError(401, "AUTH_REQUIRED", "請先使用 LINE 登入。");
     }
 
-    const supabase = dbClient();
+    const supabase = dbClient(body);
     if (clientType === "member") {
       const mode = await supabase.from("test_mode_settings")
         .select("maintenance_enabled,maintenance_message")

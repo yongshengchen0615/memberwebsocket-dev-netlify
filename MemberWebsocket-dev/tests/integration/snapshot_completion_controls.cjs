@@ -3,12 +3,19 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
 const load=require('./fixtures/load-postgres-snapshot.cjs');
 const migration='20261010084712_membership_snapshot_and_completion_controls.sql';
-test('ticket policy, snapshot intent/review and append-only order corrections use PostgreSQL transactions',async t=>{
+for(const itemPrices of [false,true])test(`ticket policy, snapshot intent/review and append-only order corrections use PostgreSQL transactions (item prices ${itemPrices})`,async t=>{
  const db=await load();const one=async(q,args=[]) => (await db.query(q,args)).rows[0];
  const run=(q,args=[])=>db.query(q,args);
  try{
   for(const name of ['20261006023020_booking_ticket_usage_consistency.sql','20261006081433_booking_primary_requirement_fixed_notification_time.sql','20261006133127_member_p2_features.sql','20261010021829_snapshot_location_policy.sql',migration,'20261010145511_snapshot_tickets_without_advance_booking.sql','20261012092000_snapshot_location_restriction_error.sql','20261012095000_snapshot_configurable_geofence.sql']) await db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations',name),'utf8'));
   await db.exec("select maintenance.ensure_required_system_baseline();select maintenance.ensure_event_ticket_settings_baseline();insert into admins(line_user_id,role,status)values('test:controls-admin','admin','active');");
+  if(itemPrices){
+   await db.exec(`create schema platform_private;
+    create table platform_private.tenants(id uuid primary key,runtime_schema text,owner_line_user_id text,status text,features jsonb,expires_at timestamptz,access_revoked_before timestamptz);
+    create function public.platform_provision_business(uuid) returns void language plpgsql as $$begin return;end$$;`);
+   await db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations',fs.readdirSync(path.join(__dirname,'../../supabase/migrations')).find(x=>x.endsWith('_booking_item_price_publishing.sql'))),'utf8'));
+   await db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations',fs.readdirSync(path.join(__dirname,'../../supabase/migrations')).find(x=>x.endsWith('_booking_immediate_price_publication_status.sql'))),'utf8'));
+  }
   const member=(await one("insert into members(line_user_id,member_code,status,membership_status,is_test_account,surname,salutation,phone)values('test:controls-member','QA-CONTROLS','active','active',true,'測試','mr','+886912345678')returning id")).id;
   const other=(await one("insert into members(line_user_id,member_code,status,membership_status,is_test_account)values('test:controls-other','QA-OTHER','active','active',true)returning id")).id;
   const type=(await one("insert into booking_service_types(name)values('Controls QA')returning id")).id;
@@ -89,14 +96,27 @@ test('ticket policy, snapshot intent/review and append-only order corrections us
   await t.test('admin approves once through canonical settlement and anonymous roles cannot access new writes',async()=>{
    const approve=async actor=>(await one("select register_snapshot_receipt_v2($1,updated_at,$2,$3,null,null,'[]',$4,'QA approval')result from booking_receipts where receipt_id=$1",[receipt,actor,booking,JSON.stringify(benefits)])).result;
    await assert.rejects(approve('test:controls-member'),/ADMIN_REQUIRED/);
+   if(itemPrices){
+    const v=(await one('select booking_price_resolve($1) p',[service])).p.priceVersion;
+    await one("select booking_price_publish($1,700,null,'linked-publication','test:controls-admin',$2)",[service,v]);
+    const q=(await one('select booking_price_resolve($1) p',[service])).p;
+    await run("select set_config('request.headers',$1,false)",[JSON.stringify({'x-booking-price-preview':'1','x-booking-price-check':'1','x-booking-price-quote':JSON.stringify([{serviceId:service,...q}])})]);
+   }
    await approve('test:controls-admin');assert.equal((await approve('test:controls-admin')).alreadyApplied,true);
+   if(itemPrices){
+    assert.equal((await one('select unit_price_amount from booking_items where booking_id=$1 and service_id=$2',[booking,service])).unit_price_amount,100,'linked reservation retains historical price');
+    await run("select set_config('request.headers','{}',false)");
+   }
    assert.equal((await one("select status from event_ticket_claims where claim_id='QA-SNAPSHOT-CLAIM'")).status,'used');
    for(const role of ['anon','authenticated']){
     await db.exec('set role '+role);await assert.rejects(save(false),/permission denied/);await assert.rejects(prepare('QA-DENIED'),/permission denied/);await db.exec('reset role');
    }
   });
   const participants=minutes=>[{position:1,items:[{serviceId:service,quantity:1,minutes}]}];
-  const correction=async(key,values,apply=false,expected=null,actor='test:controls-admin',version=null)=>(await one("select correct_completed_booking_request($1,coalesce($2,updated_at),$3,$4,'QA correction',$5,$6,$7)result from bookings where id=$1",[booking,version,actor,key,JSON.stringify(values),apply,expected])).result;
+  const correction=async(key,values,apply=false,expected=null,actor='test:controls-admin',version=null)=>{
+   if(itemPrices)await run("select set_config('request.headers','{\"x-booking-price-preview\":\"1\",\"x-booking-price-check\":\"0\"}',false)");
+   try{return (await one("select correct_completed_booking_request($1,coalesce($2,updated_at),$3,$4,'QA correction',$5,$6,$7)result from bookings where id=$1",[booking,version,actor,key,JSON.stringify(values),apply,expected])).result;}finally{if(itemPrices)await run("select set_config('request.headers','{}',false)");}
+  };
   const totals=async()=>({points:Number((await one('select stamps from point_balances where member_id=$1 and point_card_id=$2',[member,card])).stamps),minutes:Number((await one('select coalesce(sum(minutes),0)::int n from service_time_entries where member_id=$1',[member])).n),adjustments:(await one('select count(*)::int n from booking_completion_adjustments')).n});
   await t.test('preview leaves no writes; positive/negative corrections append deltas and replay once',async()=>{
    const before=await totals();const original=(await one('select service_minutes from booking_completion_settlements where booking_id=$1',[booking])).service_minutes;
@@ -131,6 +151,11 @@ test('ticket policy, snapshot intent/review and append-only order corrections us
    const change=await correction('QA-CORRECT-SERVICE',changed);await correction('QA-CORRECT-SERVICE',changed,true,change);
    assert.equal((await one('select count(*)::int n from booking_participant_items where service_id=$1',[service])).n,0);
    await run('update booking_services set price_amount=999 where id=$1',[otherService]);
+   if(itemPrices){
+    const v=(await one('select booking_price_resolve($1) p',[otherService])).p.priceVersion;
+    await one("select booking_price_publish($1,700,null,'historic-publication','test:controls-admin',$2)",[otherService,v]);
+    assert.equal((await one('select booking_price_resolve($1) p',[otherService])).p.priceAmount,700);
+   }
    const retained=await correction('QA-CORRECT-HISTORICAL',changed);await correction('QA-CORRECT-HISTORICAL',changed,true,retained);
    assert.equal((await one('select unit_price_amount from booking_participant_items where service_id=$1',[otherService])).unit_price_amount,100);
    await run('update point_balances set stamps=0 where member_id=$1 and point_card_id=$2',[member,card]);
@@ -164,7 +189,21 @@ test('ticket policy, snapshot intent/review and append-only order corrections us
     assert.equal(await save(true),true);
     await run('update booking_settings set require_primary_technician=false where id=1');
     const items=[{serviceId:service,quantity:1,minutes:60}];
+    if(itemPrices){
+     const old=(await one('select booking_price_resolve($1) p',[service])).p;
+     await one("select booking_price_publish($1,800,null,'receipt-publication','test:controls-admin',$2)",[service,old.priceVersion]);
+     await run("select set_config('request.headers',$1,false)",[JSON.stringify({'x-booking-price-preview':'1','x-booking-price-check':'1','x-booking-price-quote':JSON.stringify([{serviceId:service,...old}])})]);
+     await assert.rejects(one("select register_snapshot_receipt_v2($1,updated_at,'test:controls-admin',null,'2026-01-01','12:00',$2,$3,'QA retrospective review') result from booking_receipts where receipt_id=$1",[newReceipt,JSON.stringify(items),JSON.stringify(newBenefits)]),/BOOKING_PRICE_CHANGED/);
+     assert.equal((await one('select status from booking_receipts where receipt_id=$1',[newReceipt])).status,'awaiting_review');
+     const current=(await one('select booking_price_resolve($1) p',[service])).p;
+     await run("select set_config('request.headers',$1,false)",[JSON.stringify({'x-booking-price-preview':'1','x-booking-price-check':'1','x-booking-price-quote':JSON.stringify([{serviceId:service,...current}])})]);
+    }
     const result=(await one("select register_snapshot_receipt_v2($1,updated_at,'test:controls-admin',null,'2026-01-01','12:00',$2,$3,'QA retrospective review') result from booking_receipts where receipt_id=$1",[newReceipt,JSON.stringify(items),JSON.stringify(newBenefits)])).result;
+    if(itemPrices){
+     assert.equal((await one('select unit_price_amount from booking_items where booking_id=$1 and service_id=$2',[result.bookingId,service])).unit_price_amount,800);
+     assert.equal((await one('select i.unit_price_amount from booking_participant_items i join booking_participants p on p.id=i.participant_id where p.booking_id=$1 and i.service_id=$2',[result.bookingId,service])).unit_price_amount,800);
+     await run("select set_config('request.headers','{}',false)");
+    }
     assert.ok(result.bookingId);
     assert.equal((await one('select status from event_ticket_claims where claim_id=$1',['QA-SNAPSHOT-NO-BOOKING'])).status,'used');
     assert.equal((await one('select booking_id from booking_receipts where receipt_id=$1',[newReceipt])).booking_id,result.bookingId);

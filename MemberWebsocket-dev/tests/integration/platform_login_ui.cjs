@@ -12,6 +12,30 @@ const config={
  supabaseFunctionUrl:'https://example.supabase.co/functions/v1/api',
  supabasePublishableKey:'test-public-key',
 };
+
+test('AC-THEME-001: platform loads the existing theme and mounts a working persistent toggle',()=>{
+ const dom=new JSDOM(html,{url:'https://platform.test/platform/',runScripts:'outside-only'});
+ try{
+  const win=dom.window,d=win.document;
+  const themeScript=[...d.scripts].find(script=>new URL(script.src).pathname==='/theme.js');
+  assert.ok(themeScript,'Platform must load the shared theme controller');
+  assert.ok(d.querySelector('link[href^="../theme.css?"]'),'Platform must load the shared palette');
+  win.eval(fs.readFileSync(path.join(root,'theme.js'),'utf8'));
+  d.dispatchEvent(new win.Event('DOMContentLoaded'));
+  const toggle=d.getElementById('themeToggleButton');
+  assert.ok(toggle,'Theme control must be available on the platform');
+  assert.equal(d.documentElement.dataset.theme,'light');
+  toggle.click();
+  assert.equal(d.documentElement.dataset.theme,'dark');
+  assert.equal(toggle.getAttribute('aria-pressed'),'true');
+  assert.equal(win.localStorage.getItem('lumen-color-theme-v1'),'dark');
+  d.getElementById('platformHeader').hidden=true;
+  assert.equal(toggle.closest('[hidden]'),null,'Denied identities can still change appearance');
+  win.dispatchEvent(new win.StorageEvent('storage',{key:'lumen-color-theme-v1',newValue:'light'}));
+  assert.equal(d.documentElement.dataset.theme,'light');
+  assert.equal(d.getElementById('platformWorkspace').hidden,true,'Theme never grants workspace access');
+ }finally{dom.window.close();}
+});
 async function until(check){
  for(let i=0;i<80;i++){
   if(check())return;

@@ -31,6 +31,17 @@ test('AC-204: bootstrap does not return unapproved business records',async()=>{
  assert.deepEqual(filtered.members,[]);assert.deepEqual(filtered.calendarItems,[]);assert.deepEqual(filtered.eventTickets,[]);assert.equal(filtered.cards[0].id,'card');assert.doesNotMatch(JSON.stringify(filtered),/private/);
 });
 
+test('AC-012: first-join SMS works through membership foundation in booking and points merchants',async()=>{
+ const {assertBusinessAction}=await source();
+ for(const enabled of ['membership','booking','points','events','calendar']){
+  const features={membership:false,points:false,events:false,calendar:false,integrations:false,booking:false,testing:false,usage:false,[enabled]:true};
+  assert.doesNotThrow(()=>assertBusinessAction({...ctx,features},'user.member.phone.send'),enabled);
+ }
+ const none={membership:false,points:false,events:false,calendar:false,booking:false,integrations:false,testing:false,usage:false};
+ assert.throws(()=>assertBusinessAction({...ctx,features:none},'user.member.phone.send'),e=>e.code==='FEATURE_DISABLED');
+ assert.throws(()=>assertBusinessAction({...ctx,status:'suspended'},'user.member.phone.send'),e=>e.code==='TENANT_SUSPENDED');
+});
+
 test('AC-RET-004: retired audit action fails closed, while member history requires membership grant',async()=>{
  const {actionFeatures,assertBusinessAction}=await source();
  assert.equal(actionFeatures('admin.audit.query'),null);

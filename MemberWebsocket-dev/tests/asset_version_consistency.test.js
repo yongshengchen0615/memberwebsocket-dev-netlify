@@ -127,10 +127,12 @@ test('calendar date fix keeps native date inputs shrinkable in LINE WebView', ()
 });
 
 
-test('member-facing pages load the current human E2E controller and refresh hooks', () => {
+test('production pages omit QA controllers and preserve runtime refresh hooks', () => {
   for (const relative of ['member/index.html','points/index.html','event/index.html','calendar/index.html','booking/index.html']) {
     const html = read(relative);
-    assert.match(html, /\.\.\/user-test-control\.js\?v=qa-e2e-\d{8}-\d+/, relative);
+    assert.doesNotMatch(html, /user-test-control\.js|test-mode-client\.js/, relative);
+    const fixture = read('tests/fixtures/' + relative.split('/')[0] + '-e2e.html');
+    assert.match(fixture, /user-test-control\.js\?v=qa-e2e-\d{8}-\d+/, relative);
   }
   const appVersions = {
     'points/index.html': './app.js?v=point-transfer-realtime-20261001-2',

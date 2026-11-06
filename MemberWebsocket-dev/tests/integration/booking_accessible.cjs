@@ -191,11 +191,26 @@ test('accessible receipt camera sends a receipt without a booking and locks dupl
     const video=w.document.getElementById('bookingReceiptCamera');
     Object.defineProperty(video,'videoWidth',{value:100}); Object.defineProperty(video,'videoHeight',{value:100});
     w.document.getElementById('bookingReceiptCapture').click(); await tick();
+    assert.equal(video.hidden,true,'captured receipt hides camera while preserving receipt preview');
+    assert.equal(w.document.getElementById('bookingReceiptPreviewWrap').classList.contains('hidden'),false);
     const submit=w.document.getElementById('bookingReceiptSubmit'); submit.click(); submit.dispatchEvent(new w.Event('click')); await tick();
     const prepares=calls.filter(c=>c.action.endsWith('.prepare'));
     assert.equal(prepares.length,1); assert.equal(prepares[0].payload.accessible,true); assert.equal(prepares[0].payload.bookingId,undefined);
     assert.equal(submit.disabled,true);
-    resolveFinalize({receiptId:'receipt',status:'awaiting_review'}); await tick();
+    // Synchronize with the committed receipt event, rather than assuming a
+    // fixed 25ms timer means async finalization and UI teardown have completed.
+    const committed=new Promise((resolve,reject)=>{
+      const timeout=setTimeout(()=>reject(new Error(
+        'Receipt finalization event missing: '+w.document.getElementById('bookingReceiptMessage')?.textContent
+      )),1500);
+      w.addEventListener('booking:accessible-receipt-submitted',event=>{
+        clearTimeout(timeout);resolve(event.detail);
+      },{once:true});
+    });
+    resolveFinalize({receiptId:'receipt',status:'awaiting_review'});
+    const result=await committed;
+    assert.equal(result.status,'awaiting_review');
+    assert.equal(w.document.getElementById('bookingReceiptModal').classList.contains('hidden'),true);
     assert.equal(submit.disabled,true);
   } finally {w.dispatchEvent(new w.Event('pagehide')); w.close();}
 });
@@ -224,6 +239,7 @@ test('accessible E2E screen snapshot hook is test-session gated and skips the ph
     assert.equal(w.document.getElementById('bookingReceiptModal').classList.contains('hidden'),false);
     assert.equal(w.document.getElementById('bookingReceiptSubmit').disabled,false);
     assert.match(w.document.getElementById('bookingReceiptPreview').getAttribute('src')||'',/^data:image\/webp/);
+    assert.equal(w.document.getElementById('bookingReceiptCamera').hidden,true,'E2E snapshot hides empty video');
   } finally {w.dispatchEvent(new w.Event('pagehide'));w.close();}
 });
 

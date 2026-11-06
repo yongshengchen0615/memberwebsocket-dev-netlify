@@ -364,10 +364,10 @@
 
   async function request(config, clientType, idToken, action, payload = {}) {
     const receiptAction = String(action || '').startsWith('user.booking.receipt.');
-    const endpoint = `${String(config.supabaseUrl).replace(/\/$/, '')}/functions/v1/${receiptAction ? 'booking-receipt-api' : 'booking-api'}`;
+    const endpoint = `${String(config.supabaseUrl).replace(/\/$/, '')}/functions/v1/${(receiptAction ? 'booking-receipt-api' : 'booking-api') + (config.bookingPreviewApis === true ? '-preview' : '')}`;
     const body = window.TestModeClient && typeof window.TestModeClient.payload === 'function'
-      ? window.TestModeClient.payload({ ...payload, action, clientType, idToken })
-      : { ...payload, action, clientType, idToken };
+      ? window.TestModeClient.payload({ ...payload, ...(config.pricePublishing === true ? {pricePublishing:true} : {}), action, clientType, idToken })
+      : { ...payload, ...(config.pricePublishing === true ? {pricePublishing:true} : {}), action, clientType, idToken };
     const data = await postJson(endpoint, config, body, '預約服務', { write: WRITE_ACTIONS.has(action) });
     if (clientType === 'member' && action === 'user.booking.bootstrap') {
       const notice = data?.settings && Object.prototype.hasOwnProperty.call(data.settings, 'bookingNotice')

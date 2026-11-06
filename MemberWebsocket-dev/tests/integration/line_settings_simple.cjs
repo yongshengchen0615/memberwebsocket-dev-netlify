@@ -15,6 +15,7 @@ async function setup(){
 test('simple entry saves exact LIFF URL using real handler/SQL without separately entering Login Channel or Messaging credentials',async()=>{
  const t=await setup();try{
   const form=t.d.querySelector('#businessLine-membership');
+  assert.equal(form.closest('section').querySelector('.business-client-line-link'),null,'unsaved LINE entry must not render a link');
   fill(t.w,form,'adminLiffId','2010791619-admin');fill(t.w,form,'memberLiffId','https://liff.line.me/2010787602-member');
   assert.equal(form.checkValidity(),true,'LIFF input derives matching Login IDs; Messaging is optional');
   form.dispatchEvent(new t.w.Event('submit',{cancelable:true}));await until(()=>t.d.querySelector('[data-business-line-feature=membership] > [role=status]').textContent.includes('已儲存'));
@@ -22,6 +23,21 @@ test('simple entry saves exact LIFF URL using real handler/SQL without separatel
   const entry=await t.h.call({action:'platform.business.public',business:t.tenant.slug,feature:'membership'});assert.equal(entry.status,200);assert.equal(entry.body.data.line.memberLiffId,'2010787602-member');
   assert.equal(t.d.querySelector('#businessLineIdentity-membership').hidden,true);assert.equal((await t.h.db.query('select count(*)::int n from platform_private.module_secrets')).rows[0].n,0);
   assert.equal(t.d.querySelector('[data-feature-client=membership]').search,'?business=simple-line');
+  const links=t.d.querySelector('[data-business-line-feature=membership] .business-client-links');
+  const actions=links.querySelector('.business-client-actions');
+  assert.ok(actions,'client and saved LINE entry controls must share one action row');
+  assert.equal(actions.getAttribute('role'),'group');
+  assert.deepEqual([...actions.children].map(el=>el.textContent),[
+    '開啟會員卡用戶端','複製用戶端連結','開啟已儲存的 LINE 入口'
+  ]);
+  assert.equal(links.querySelector(':scope > p').textContent,'LIFF Endpoint URL（含商家代碼）','endpoint description stays below action row');
+  const lineButton=actions.querySelector('.business-client-line-link');
+  assert.ok(lineButton.classList.contains('button'),'saved LINE entry must use button styling');
+  assert.equal(lineButton.href,'https://liff.line.me/2010787602-member');
+  assert.equal(lineButton.target,'_blank');
+  assert.equal(lineButton.rel,'noopener noreferrer');
+  assert.equal(actions.querySelector('[data-feature-client=membership]').href,'https://allowed.test/member/?business=simple-line');
+  assert.equal(actions.querySelector('button[type=button]').textContent,'複製用戶端連結');
  }finally{await t.close();}
 });
 

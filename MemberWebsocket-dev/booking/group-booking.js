@@ -160,9 +160,15 @@
   });
 
   async function groupRequest(action, payload = {}) {
-    const functionName = action === 'user.booking.group.slots' ? 'booking-group-slots-api' : 'booking-group-api';
+    // The group form displays all participants; its quote supersedes the
+    // single-person base form quote forwarded by app.js.
+    const { expectedPrices: baseQuote, ...groupPayload } = payload;
+    const pricePayload = state.config?.pricePublishing === true ? window.BookingPricePublishing.payload(state.config,groupPayload,state.services) : payload;
+    const functionName = (action === 'user.booking.group.slots' ? 'booking-group-slots-api' : 'booking-group-api') + (state.config?.bookingPreviewApis === true ? '-preview' : '');
     const endpoint = `${String(state.config?.supabaseUrl || '').replace(/\/$/, '')}/functions/v1/${functionName}`;
     const isWrite = action === 'user.booking.group.create' || action === 'user.booking.group.update';
+    if (isWrite && state.config?.pricePublishing === true) pricePayload.expectedPrices = state.confirmationPrices || [];
+
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), 15000);
     try {
@@ -175,8 +181,8 @@
           apikey: String(state.config?.supabasePublishableKey || ''),
         },
         body: JSON.stringify(window.TestModeClient && typeof window.TestModeClient.payload === 'function'
-          ? window.TestModeClient.payload({ ...payload, action, clientType: 'member', idToken: state.idToken })
-          : { ...payload, action, clientType: 'member', idToken: state.idToken }),
+          ? window.TestModeClient.payload({ ...pricePayload, action, clientType: 'member', idToken: state.idToken })
+          : { ...pricePayload, action, clientType: 'member', idToken: state.idToken }),
       });
       let data;
       try { data = await response.json(); }
@@ -849,6 +855,7 @@
   }
 
   function renderConfirmation() {
+    if (state.config?.pricePublishing === true) state.confirmationPrices = window.BookingPricePublishing.payload(state.config,{items:[...state.primaryItems,...state.extras.flatMap(extraSelectionsToItems)]},state.services).expectedPrices;
     const root = document.getElementById('bookingConfirmSummary');
     if (!root) return false;
 

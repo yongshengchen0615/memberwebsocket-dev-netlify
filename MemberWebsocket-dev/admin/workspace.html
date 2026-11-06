@@ -7,13 +7,17 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' https://static.line-scdn.net; style-src 'self'; connect-src 'self' https://*.supabase.co https://api.line.me https://access.line.me https://liff.line.me https://*.line-scdn.net; img-src 'self' data:; frame-src https://access.line.me https://liff-subwindow.line.me; form-action 'self' https://access.line.me https://liff-subwindow.line.me">
   <title>一般管理員後台</title>
-  <link rel="stylesheet" href="../platform/platform.css?v=merchant-modal-20261030-1">
+  <meta name="theme-color" content="#f9fbf9">
+  <link rel="stylesheet" href="../theme.css?v=merchant-workspace-theme-20261105-1">
+  <script src="../theme.js?v=m3-ui-20260929-1"></script>
+  <link rel="stylesheet" href="../platform/platform.css?v=merchant-expiry-readonly-20261101-1">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
   <script src="../business-context.js"></script>
 <script src="../member-system.js" defer></script>
-  <link rel="stylesheet" href="./business-line-settings.css?v=member-card-admin-rollback-20261028-1">
-  <script src="./business-line-settings.js?v=member-card-admin-rollback-20261028-1" defer></script>
-  <script src="../platform/app.js?v=merchant-modal-20261030-1" defer></script>
+  <link rel="stylesheet" href="./business-line-settings.css?v=line-theme-20261103-2">
+  <script src="./business-line-settings.js?v=line-entry-actions-20261101-1" defer></script>
+  <script src="../platform/expiry-term.js?v=expiry-term-20261101-1" defer></script>
+  <script src="../platform/app.js?v=merchant-expiry-readonly-20261101-1" defer></script>
   <link rel="stylesheet" href="../portal-navigation.css?v=unified-20261018-1">
   <script src="../portal-navigation.js?v=unified-20261018-1" defer></script>
 </head>
@@ -21,6 +25,7 @@
   <main class="shell">
     <a id="backToMyMerchants" class="business-switch" href="/admin/" data-business-switch="true" hidden>返回我的商家</a>
     <button id="refreshApplication" type="button" class="secondary">重新檢查申請與功能權限</button>
+    <div class="platform-appearance account-menu" role="group" aria-label="外觀設定"></div>
     <header class="topbar"><div><p class="eyebrow">ADMIN / WORKSPACE</p><h1>一般管理員後台</h1><p>首次登入可主動填寫並送出申請；審核通過後，可在獨立的 LINE 設定分頁設定已核准功能。</p></div></header>
     <p id="platformStatus" role="status" aria-live="polite">正在確認 LINE 身分…</p>
     <section id="platformLoginGate" class="login-gate" hidden aria-labelledby="platformLoginTitle">
@@ -170,6 +175,17 @@
       </nav>
       <div id="merchantOverviewPanel" role="tabpanel" aria-labelledby="merchantOverviewTab">
       <p id="merchantInfo"></p>
+      <form id="merchantTitleForm" class="setup-checklist" aria-label="用戶端網頁抬頭設定">
+        <h3>用戶端網頁抬頭</h3>
+        <p class="hint">所有已核准的用戶端共用這個名稱；只修改瀏覽器分頁標題，不影響商家名稱、LINE 設定或會員資料。</p>
+        <label>顯示名稱（最多 60 字）
+          <input name="title" maxlength="60" autocomplete="off" placeholder="留空則使用商家名稱">
+        </label>
+        <p class="hint">預覽：<output id="merchantTitlePreview">Lumen Club｜預約</output>（會員卡、集點卡、活動票券及活動日曆會使用同一名稱）</p>
+        <p id="merchantTitleStatus" role="status" aria-live="polite"></p>
+        <button id="saveMerchantTitle" type="submit">儲存網頁抬頭</button>
+      </form>
+      <div id="merchantUsagePeriod" class="tenant-expiry-summary" aria-label="商家使用期限" hidden></div>
       <p id="merchantReadiness" class="merchant-readiness" role="status" aria-live="polite"></p>
       <section id="merchantLaunchStatus" class="launch-status" data-ready="false" aria-labelledby="launchTitle">
         <h3 id="launchTitle">何時可以開始使用？</h3>

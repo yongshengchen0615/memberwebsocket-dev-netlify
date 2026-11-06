@@ -15,10 +15,54 @@ if(u.pathname==='/fixture.js'){res.setHeader('Content-Type','application/javascr
 const file=path.resolve(root,'.'+u.pathname);if(!file.startsWith(root+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile()){res.writeHead(404);res.end();return;}res.setHeader('Content-Type',file.endsWith('.css')?'text/css':'application/javascript');fs.createReadStream(file).pipe(res);
 });await new Promise(r=>server.listen(0,'127.0.0.1',r));base='http://127.0.0.1:'+server.address().port;});
 test.afterAll(async()=>new Promise(r=>server.close(r)));
-test.beforeEach(async({page})=>{await page.route('https://**',r=>r.abort());});
+test.beforeEach(async({page})=>{
+  // Fixtures assert on October dates; keep browser time deterministic across
+  // month boundaries without altering timers, server policy or expectations.
+  await page.clock.setFixedTime(new Date('2026-10-30T04:00:00.000Z'));
+  await page.route('https://**',r=>r.abort());
+});
 for(const width of [320,390,1280])test('date records and guarded start at '+width+'px',async({page},info)=>{
 const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.setViewportSize({width,height:840});await page.goto(base+'/booking/');await expect(page.locator('#calendarGrid')).toBeVisible();await expect(page.locator('#bookingList')).toBeHidden();await expect(page.locator('#bookingSnapshotHistory')).toBeHidden();
 const before=await page.evaluate(()=>calls.length);await page.locator('[data-date="2026-10-30"]').click();const modal=page.locator('#bookingDayModal');await expect(modal).toBeVisible();await expect(modal.locator('[data-booking-id]')).toHaveCount(1);await expect(modal.locator('[data-booking-id="today"]')).toBeVisible();await expect(modal.locator('[data-receipt-id]')).toHaveCount(1);await expect(modal.locator('[data-receipt-id="today"]')).toBeVisible();await modal.locator('.booking-item-top').click();await expect(modal.getByRole('button',{name:'修改預約',exact:true})).toBeVisible();await expect(modal.getByRole('button',{name:'申請取消',exact:true})).toBeVisible();expect(await page.evaluate(()=>calls.length)).toBe(before);
-await page.keyboard.press('Escape');await expect(modal).toBeHidden();await expect(page.locator('[data-date="2026-10-30"]')).toBeFocused();await page.locator('[data-date="2026-10-31"]').click();await expect(modal.locator('[data-booking-id]')).toHaveCount(1);await expect(modal.locator('[data-booking-id="tomorrow"]')).toBeVisible();await expect(page.locator('#bookingSnapshotDayEmpty')).toBeVisible();await page.locator('#startDayBookingButton').click();await expect(page.locator('#appointmentPanel')).toBeVisible();await expect(page.locator('#bookingDate')).toHaveValue('2026-10-31');await page.locator('#closeAppointmentButton').click();await page.locator('[data-date="2026-10-29"]').click();await expect(page.locator('#startDayBookingButton')).toBeDisabled();await expect(modal.locator('[data-receipt-id="yesterday"]')).toBeVisible();expect(await modal.locator('.booking-day-card').evaluate(e=>e.getBoundingClientRect().width<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath('day-records.png')});expect(errors).toEqual([]);
+await page.keyboard.press('Escape');await expect(modal).toBeHidden();await expect(page.locator('[data-date="2026-10-30"]')).toBeFocused();await page.locator('[data-date="2026-10-31"]').click();await expect(modal.locator('[data-booking-id]')).toHaveCount(1);await expect(modal.locator('[data-booking-id="tomorrow"]')).toBeVisible();await expect(page.locator('#bookingSnapshotDayEmpty')).toBeVisible();await page.locator('#startDayBookingButton').click();await expect(page.locator('#appointmentPanel')).toBeVisible();await expect(page.locator('#bookingDate')).toHaveValue('2026-10-31');await page.locator('#closeAppointmentButton').click();await expect(page.locator('#appointmentPanel')).toBeHidden();await expect(modal).toBeVisible();await expect(page.locator('#bookingDayTitle')).toContainText('2026-10-31');await expect(page.locator('#closeBookingDayButton')).toBeFocused();await page.locator('#closeBookingDayButton').click();await expect(modal).toBeHidden();await page.locator('[data-date="2026-10-29"]').click();await expect(page.locator('#startDayBookingButton')).toBeDisabled();await expect(modal.locator('[data-receipt-id="yesterday"]')).toBeVisible();expect(await modal.locator('.booking-day-card').evaluate(e=>e.getBoundingClientRect().width<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath('day-records.png')});expect(errors).toEqual([]);
 });
-test('deep link opens historical date and snapshot mode keeps calendar',async({page})=>{await page.goto(base+'/booking/?bookingId=old');await expect(page.locator('#bookingDayModal')).toBeVisible();await expect(page.locator('#bookingDayTitle')).toContainText('2026-09-02');await expect(page.locator('[data-booking-id="old"]')).toBeVisible();await expect(page.locator('#startDayBookingButton')).toBeDisabled();await page.keyboard.press('Escape');await page.locator('#bookingAccessibleToggle').click();await expect(page.locator('#calendarGrid')).toBeVisible();await page.locator('#nextMonthButton').click();await page.locator('[data-date="2026-10-31"]').click();await page.locator('#startDayBookingButton').click();await expect(page.locator('#appointmentPanel')).toBeVisible();await expect(page.locator('#bookingAccessibleToggle')).toHaveAttribute('aria-pressed','false');});
+test('deep link keeps history and snapshot mode hides calendar until returning to booking', async ({page}) => {
+  await page.goto(base+'/booking/?bookingId=old');
+  await expect(page.locator('#bookingDayModal')).toBeVisible();
+  await expect(page.locator('#bookingDayTitle')).toContainText('2026-09-02');
+  await expect(page.locator('[data-booking-id="old"]')).toBeVisible();
+  await expect(page.locator('#startDayBookingButton')).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#calendarGrid')).toBeVisible();
+  await page.locator('#bookingAccessibleToggle').click();
+  await expect(page.locator('#bookingAccessibleToggle')).toHaveAttribute('aria-pressed','true');
+  await expect(page.locator('#bookingAccessiblePanel')).toBeVisible();
+  await expect(page.locator('[data-booking-standard]')).toBeHidden();
+  await expect(page.locator('#calendarGrid')).toBeHidden();
+  await page.locator('#bookingAccessibleToggle').click();
+  await expect(page.locator('#bookingAccessibleToggle')).toHaveAttribute('aria-pressed','false');
+  await expect(page.locator('#calendarGrid')).toBeVisible();
+  await page.locator('#nextMonthButton').click();
+  await page.locator('[data-date="2026-10-31"]').click();
+  await page.locator('#startDayBookingButton').click();
+  await expect(page.locator('#appointmentPanel')).toBeVisible();
+  await expect(page.locator('#bookingAccessibleToggle')).toHaveAttribute('aria-pressed','false');
+});
+
+test('member booking allows per-appointment LINE reminder consent and previous-day time', async ({page}) => {
+  await page.goto(base + '/booking/');
+  await expect(page.locator('#calendarGrid')).toBeVisible();
+  await page.locator('[data-date="2026-10-31"]').click();
+  await page.locator('#startDayBookingButton').click();
+  await expect(page.locator('#appointmentPanel')).toBeVisible();
+  const consent = page.locator('#bookingReminderEnabled');
+  const time = page.locator('#bookingReminderTime');
+  await expect(consent).not.toBeChecked();
+  await expect(time).toBeDisabled();
+  await consent.check();
+  await expect(time).toBeEnabled();
+  await time.fill('19:30');
+  await expect(time).toHaveValue('19:30');
+  await consent.uncheck();
+  await expect(time).toBeDisabled();
+});

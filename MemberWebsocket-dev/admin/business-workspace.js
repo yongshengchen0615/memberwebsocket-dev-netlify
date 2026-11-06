@@ -26,12 +26,13 @@
   ['[data-record-filter="bookings"]','membership booking'],
   ['[data-record-filter="testAutomation"]','membership testing'],
   ['#ticketVisibilitySettings','points events'],
+  ['[data-booking-benefits-action]','booking points|events'],
  ];
  function applyIntegrations(){
   if(!latest||typeof document==='undefined'||!document)return;
   for(const [selector,required,container]of integrations)for(const match of document.querySelectorAll(selector)){
    const node=container?match.closest(container):match;if(!node)continue;
-   const allowed=required.split(' ').every(feature=>latest.features?.[feature]===true);
+   const allowed=required.split(' ').every(group=>group.split('|').some(feature=>latest.features?.[feature]===true));
    node.dataset.businessAllowed=String(allowed);node.inert=!allowed;
    if(node.tagName==='OPTION'){
     node.hidden=!allowed;node.disabled=!allowed;

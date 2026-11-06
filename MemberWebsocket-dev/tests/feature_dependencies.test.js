@@ -83,3 +83,58 @@ test('review: VIP-only calendar bonuses do not block unrelated ordinary-member p
  tables.calendar_items[0].item_type='holiday';
  await assert.doesNotReject(assertBusinessRpc(context({points:true}),'grant_member_benefits_with_event_bonus',params,storedDb(tables,'gold')));
 });
+
+test('review: canonical and nested benefit kinds cannot bypass revoked grants',async()=>{
+ const {assertBusinessAction}=await policy();
+ for(const benefits of [[{kind:' POINTS ',id:'P'}],[{kind:'EVent',id:'E'}],[{kind:' calendar ',id:'C'}]]){
+  for(const body of [{benefits},{participants:[{benefits}]}])
+   assert.throws(()=>assertBusinessAction(context({booking:true}),'user.booking.create',body),e=>e.code==='FEATURE_DISABLED');
+ }
+ for(const kind of ['unknown','',null])assert.throws(()=>assertBusinessAction(context({booking:true,points:true,events:true,calendar:true}),'user.booking.create',{benefits:[{kind}]}),e=>e.code==='INVALID_BENEFIT_KIND');
+});
+
+test('review: issuing a standalone template remains allowed beside a withheld linked template',async()=>{
+ const {assertBusinessRpc}=await policy();
+ const db=storedDb({fixed_ticket_templates:[{id:'linked',status:'active',calendar_enabled:true},{id:'standalone',status:'active',calendar_enabled:false}]});
+ await assert.doesNotReject(assertBusinessRpc(context({events:true}),'issue_fixed_tickets',{p_template_id:'standalone'},db));
+ await assert.rejects(assertBusinessRpc(context({events:true}),'issue_fixed_tickets',{p_template_id:'linked'},db),e=>e.code==='FEATURE_DISABLED');
+});
+
+test('review: actual booking and type-write response shapes omit revoked data and retain services/prices',async()=>{
+ const {businessResponse}=await policy();
+ const original={booking:{benefits:[{kind:'points',id:'P'},{kind:'event',id:'E'}]},catalog:{items:[{kind:'points',id:'P'},{kind:'event',id:'E'}]}};
+ const result=businessResponse(original,context({booking:true,events:true}),'admin.booking.benefits.list');
+ assert.deepEqual(result.booking.benefits,[{kind:'event',id:'E'}]);assert.equal(original.booking.benefits.length,2);
+ for(const action of ['admin.booking.type.create','admin.booking.type.update','admin.booking.type.delete']){
+  const result=businessResponse({pointCards:[{id:'P'}],serviceTypes:[{rewardPointCardId:'P',rewardMinutesPerPoint:30,price:100}],services:[{id:'S',price:100}]},context({booking:true}),action);
+  assert.deepEqual(result.pointCards,[]);assert.equal(result.serviceTypes[0].rewardPointCardId,null);assert.equal(result.services[0].price,100);
+ }
+});
+
+test('review: saving allowed booking tickets preserves withheld selections at the RPC boundary',async()=>{
+ const {assertBusinessRpc}=await policy(),params={p_booking_id:'B',p_selections:[{kind:'event',id:'E2'}]};
+ const db=storedDb({booking_benefit_selections:[{booking_id:'B',status:'pending',benefit_kind:'points',benefit_ref:'P'},{booking_id:'B',status:'pending',benefit_kind:'event',benefit_ref:'E1'}]});
+ const result=await assertBusinessRpc(context({booking:true,events:true}),'admin_replace_booking_benefit_selections_request',params,db);
+ assert.ok(result,'the authorization adapter must return the preserved RPC parameters');
+ assert.deepEqual(result.p_selections,[{kind:'event',id:'E2'},{kind:'points',id:'P'}]);assert.equal(params.p_selections.length,1);
+});
+
+test('review: unchanged withheld booking rules permit a rename, while forged clearing is rejected',async()=>{
+ const {prepareBusinessAction,assertBusinessAction}=await policy();assert.equal(typeof prepareBusinessAction,'function');
+ const db=storedDb({event_tickets:[{event_ticket_id:'E',updated_at:'v1',required_service_ids:['S'],required_service_match_mode:'all',required_service_groups:[]}],point_cards:[{card_id:'P',id:'uuid',updated_at:'v2'}],point_card_rewards:[{point_card_id:'uuid',threshold_stamps:5,required_service_ids:['S'],required_service_match_mode:'all',required_service_groups:[]}],fixed_ticket_templates:[{fixed_ticket_id:'F',calendar_enabled:true}],booking_service_type_rewards:[{service_type_id:'T',point_card_id:'P',minutes_per_point:30}]});
+ for(const [action,body,features] of [
+  ['admin.event-tickets.save',{eventTicket:{eventTicketId:'E',title:'New',requiredServiceIds:['S'],requiredServiceMatchMode:'all',requiredServiceGroups:[]}},{events:true}],
+  ['admin.pointcards.save',{card:{cardId:'P',title:'New',rewards:[{thresholdStamps:5,ticketTemplateId:'TT',requiredServiceIds:['S'],requiredServiceMatchMode:'all',requiredServiceGroups:[]}]}},{points:true}],
+ ]){
+  const result=await prepareBusinessAction(context(features),action,body,db);
+  assert.doesNotThrow(()=>assertBusinessAction(context(features),action,result.policyBody));
+  assert.equal((result.body.eventTicket||result.body.card).title,'New');
+  const forged=structuredClone(body);const rule=forged.eventTicket||forged.card.rewards[0];rule.requiredServiceIds=[];
+  await assert.rejects(prepareBusinessAction(context(features),action,forged,db),e=>e.code==='FEATURE_DISABLED');
+ }
+ const result=await prepareBusinessAction(context({events:true}),'admin.event-tickets.save',{eventTicket:{eventTicketId:'E',title:'New'}},db);
+ assert.deepEqual(result.body.eventTicket.requiredServiceIds,['S']);assert.equal(result.body.expectedUpdatedAt,'v1');
+ await assert.rejects(prepareBusinessAction(context({booking:true}),'admin.booking.type.update',{typeId:'T',name:'New',rewardPointCardId:null,rewardMinutesPerPoint:null},db),e=>e.code==='FEATURE_DISABLED');
+ await assert.rejects(prepareBusinessAction(context({events:true}),'admin.fixed-tickets.save',{template:{fixedTicketId:'F',calendarEnabled:false}},db),e=>e.code==='FEATURE_DISABLED');
+ await assert.doesNotReject(prepareBusinessAction(context({events:true}),'admin.fixed-tickets.save',{template:{calendarEnabled:false}},db));
+});

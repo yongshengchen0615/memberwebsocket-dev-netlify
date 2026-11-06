@@ -10,7 +10,8 @@ export async function readRequestBytes(request,maxBytes,timeoutMs=10000){
     throw new RequestIngressError(413,'BODY_TOO_LARGE','請求資料過大。');
   }
   if(!request.body)return new Uint8Array();
-  const reader=request.body.getReader(),chunks=[];
+  const reader=request.body.getReader();
+  let bytes=new Uint8Array();
   let size=0,complete=false,timer;
   const deadline=new Promise((_,reject)=>{
     timer=setTimeout(()=>reject(new RequestIngressError(408,'REQUEST_TIMEOUT','請求傳送逾時。')),timeoutMs);
@@ -22,13 +23,17 @@ export async function readRequestBytes(request,maxBytes,timeoutMs=10000){
       while(true){
         const {done,value}=await reader.read();
         if(done){complete=true;break;}
-        size+=value.byteLength;
-        if(size>maxBytes)throw new RequestIngressError(413,'BODY_TOO_LARGE','請求資料過大。');
-        chunks.push(value);
+        const nextSize=size+value.byteLength;
+        if(nextSize>maxBytes)throw new RequestIngressError(413,'BODY_TOO_LARGE','請求資料過大。');
+        // Copy only visible bytes. Keeping each chunk retains its entire backing
+        // buffer and makes memory depend on fragmentation rather than body size.
+        if(nextSize>bytes.length){
+          const grown=new Uint8Array(Math.min(maxBytes,Math.max(nextSize,bytes.length*2,1024)));
+          grown.set(bytes.subarray(0,size));bytes=grown;
+        }
+        bytes.set(value,size);size=nextSize;
       }
-      const bytes=new Uint8Array(size);let offset=0;
-      for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
-      return bytes;
+      return bytes.subarray(0,size);
     };
     return await Promise.race([consume(),deadline]);
   }finally{

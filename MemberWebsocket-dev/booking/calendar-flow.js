@@ -21,6 +21,7 @@
     historyDates: new Set(),
     snapshotDates: new Set(),
     linkedRecordOpened: false,
+    returnToDayAfterAppointment: false,
     memberId: '',
   };
 
@@ -49,6 +50,7 @@
     els.startDayBookingButton?.addEventListener('click', () => {
       const date = state.historyDate;
       if (bookingBlockReason(date)) return;
+      state.returnToDayAfterAppointment = true;
       closeDayModal(false);
       const modeToggle = document.getElementById('bookingAccessibleToggle');
       if (modeToggle?.getAttribute('aria-pressed') === 'true') modeToggle.click();
@@ -84,6 +86,7 @@
       scheduleMonthOccupancyReload();
     });
     window.addEventListener('booking:edit', (event) => {
+      state.returnToDayAfterAppointment = Boolean(els.bookingDayModal && !els.bookingDayModal.classList.contains('hidden'));
       closeDayModal(false);
       state.selectedDate = event.detail.date;
       state.month = state.selectedDate.slice(0, 7);
@@ -92,7 +95,7 @@
       scheduleMonthOccupancyReload();
     });
     window.addEventListener('booking:created', () => {
-      closeAppointmentModal(false);
+      closeAppointmentModal(state.returnToDayAfterAppointment);
       scheduleMonthOccupancyReload();
     });
 
@@ -654,9 +657,12 @@
 
   function closeAppointmentModal(returnFocus) {
     if (!els.appointmentPanel || els.appointmentPanel.classList.contains('hidden')) return;
+    const restoreDay = returnFocus && state.returnToDayAfterAppointment && state.historyDate;
+    state.returnToDayAfterAppointment = false;
     els.appointmentPanel.classList.add('hidden');
     document.body.classList.remove('booking-selection-open');
-    if (returnFocus) window.setTimeout(focusDateTrigger, 0);
+    if (restoreDay) openDayModal(state.historyDate, state.lastDateTrigger);
+    else if (returnFocus) window.setTimeout(focusDateTrigger, 0);
   }
 
   function syncAfterSelectionMutation() {

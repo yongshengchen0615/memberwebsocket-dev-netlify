@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "projectId": "dbuquirnaskrwcamdxki",
+  "retiredFunctions": [
+    "test-mode-api",
+    "test-control-api",
+    "user-test-api",
+    "e2e-artifact-api",
+    "e2e-artifact-retention"
+  ],
+  "expectedStatus": 410,
+  "expectedErrorCode": "TEST_FEATURE_RETIRED",
+  "note": "Deployment-only manifest: historical QA implementations remain under functions as compatibility and CI reference, but all five publicly deployed endpoints must be replaced with the fail-closed tombstone before this retirement is accepted."
+}

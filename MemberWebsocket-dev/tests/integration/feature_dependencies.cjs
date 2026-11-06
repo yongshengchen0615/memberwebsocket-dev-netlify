@@ -44,6 +44,16 @@ test('AC-003: late booking rewards and ticket booking restrictions are hidden wh
   assert.equal(form.querySelector('label').dataset.businessAllowed,'true');
  }finally{h.close();}
 });
+test('review: booking ticket edit action is hidden with no ticket grant and restored for either grant',async()=>{
+ const h=fixture();try{
+  h.apply({booking:true});
+  const button=h.d.createElement('button');button.dataset.bookingBenefitsAction='true';h.d.body.append(button);await tick();
+  assert.equal(button.dataset.businessAllowed,'false');
+  h.apply({booking:true,events:true});assert.equal(button.dataset.businessAllowed,'true');
+  h.apply({booking:true,points:true});assert.equal(button.dataset.businessAllowed,'true');
+  h.apply({booking:true});assert.equal(button.dataset.businessAllowed,'false');
+ }finally{h.close();}
+});
 test('AC-003: bootstrap and standalone event saves do not call unavailable calendar extensions',async()=>{
  const h=fixture(),calls=[];let external=0;try{
   h.w.MemberSystem={request:async(config,client,id,action)=>{calls.push(action);return action==='admin.bootstrap'?{features:{membership:true,events:true},calendarItems:[]}:{eventTicket:{eventTicketId:'E'}};}};

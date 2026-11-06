@@ -10,16 +10,17 @@ test.beforeAll(async()=>{
 });
 test.afterAll(async()=>new Promise(resolve=>server.close(resolve)));
 async function wire(page,h,token='manager',{loseAction=''}={}){
- const errors=[],calls=[];let lost=false;page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
+ const errors=[],calls=[],responses=[];let lost=false;page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
  await page.route('**/config.json',route=>route.fulfill({json:{...JSON.parse(fs.readFileSync(path.join(root,'config.json'),'utf8')),merchantApprovalVersion:2,realtimeEnabled:false,supabaseUrl:'https://fixture.supabase.co',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'sb_publishable_fixture'}}));
  await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:`window.liff={init:async()=>{},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=>${JSON.stringify(token)}};`}));
  await page.route('https://*.tile.openstreetmap.org/**',route=>route.abort());
  await page.route('https://fixture.supabase.co/functions/v1/platform-api',async route=>{
   const req=route.request(),body=req.method()==='POST'?req.postDataJSON():undefined;if(body)calls.push(body);
   const headers=new Headers(req.headers());headers.set('Origin',base);const response=await h.handler(new Request(req.url(),{method:req.method(),headers,...(body?{body:JSON.stringify(body)}:{})}));
+  if(body?.action==='platform.title.save')responses.push({status:response.status,body:await response.clone().json().catch(()=>null)});
   if(!lost&&body?.action===loseAction&&response.ok){lost=true;return route.abort('failed');}
   return route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
- });return{errors,calls};
+ });return{errors,calls,responses};
 }
 async function sendMerchant(page,name){if(!await page.locator('#merchantApplicationDialog').isVisible())await page.locator('#newMerchantApplication').click();await expect(page.locator('#merchantApplicationDialog')).toBeVisible();await expect(page.locator('#merchantApplicationForm [name="slug"]')).toHaveCount(0);await page.locator('#merchantApplicationForm [name="businessName"]').fill(name);await page.locator('#submitMerchantApplication').click();}
 async function reviewMerchant(page,slug,decision='approved',feature='points'){
@@ -67,12 +68,12 @@ test('V2_REAL_HANDLER_JOURNEY — explicit qualification, root decisions, indepe
   await rootPage.goto(base+'/platform/');await expect(rootPage.locator('#qualificationList article')).toHaveCount(1);await rootPage.locator('#qualificationList [data-review-decision="approved"]').click();await rootPage.locator('#confirmV2Review').click();await expect(rootPage.locator('#v2ReviewDialog')).not.toBeVisible();
   await page.locator('#refreshApplication').click();await expect(page.locator('#myMerchantsWorkspace')).toBeVisible();await expect(page.locator('#merchantApplicationDialog')).not.toBeVisible();await sendMerchant(page,'商家 A');await expect(page.locator('#submitMerchantApplication')).toHaveText('重試相同商家申請');await expect(page.locator('#merchantApplicationForm [name="businessName"]')).toBeDisabled();await page.locator('#submitMerchantApplication').click();
   await expect(page.locator('#pendingMerchantList article')).toHaveCount(1);await expect(page.locator('#myMerchantList article')).toHaveCount(0);expect(await h.count('applications')).toBe(1);const submits=account.calls.filter(x=>x.action==='platform.merchant.submit');expect(submits).toHaveLength(2);expect(submits[0]).toEqual(submits[1]);await expect(page.locator('[data-manage-merchant]')).toHaveCount(0);
-  const a=(await h.list()).find(x=>x.businessName==='商家 A');expect(a.slug).toMatch(/^m-[a-f0-9]{32}$/);await reviewMerchant(rootPage,a.slug);await page.locator('#refreshApplication').click();await expect(page.locator('[data-manage-merchant]')).toHaveCount(1);await expect(page.locator('[data-merchant-line]')).toHaveCount(0);const primaryAction=page.locator('[data-manage-merchant]').first();await expect(primaryAction).toHaveClass(/tenant-action-primary/);await expect(primaryAction).toHaveCSS('background-color','rgb(30, 89, 65)');await expect(primaryAction).toHaveCSS('min-height','44px');
+  const a=(await h.list()).find(x=>x.businessName==='商家 A');expect(a.slug).toMatch(/^m-[a-f0-9]{32}$/);await reviewMerchant(rootPage,a.slug);await page.locator('#refreshApplication').click();await expect(page.locator('[data-manage-merchant]')).toHaveCount(1);await expect(page.locator('[data-merchant-line]')).toHaveCount(0);const primaryAction=page.locator('[data-manage-merchant]').first();await expect(primaryAction).toHaveClass(/tenant-action-primary/);const mainColor=await page.evaluate(()=>{const node=document.createElement('div');node.style.backgroundColor='var(--platform-primary)';document.body.append(node);const color=getComputedStyle(node).backgroundColor;node.remove();return color;});await expect(primaryAction).toHaveCSS('background-color',mainColor);await expect(primaryAction).toHaveCSS('min-height','44px');
   await page.locator('#newMerchantApplication').click();await sendMerchant(page,'商家 B');await expect(page.locator('#myMerchantList article')).toHaveCount(1);await expect(page.locator('#pendingMerchantList article')).toHaveCount(1);await expect(page.locator('[data-manage-merchant]')).toHaveCount(1);const b=(await h.list()).find(x=>x.businessName==='商家 B');expect(b.slug).not.toBe(a.slug);await reviewMerchant(rootPage,b.slug,'rejected');
   await page.locator('#refreshApplication').click();const bCard=page.locator('#myMerchantList article').filter({hasText:b.slug});await expect(bCard).toContainText('請補上商家證明');await bCard.locator('[data-resubmit-merchant]').click();await page.locator('#merchantApplicationForm [name="businessName"]').fill('商家 B 修正');await page.locator('#submitMerchantApplication').click();await expect(page.locator('#pendingMerchantList article').filter({hasText:b.slug})).toContainText('等待商家審核');await expect(page.locator('#merchantApplicationDialog')).not.toBeVisible();
   await reviewMerchant(rootPage,b.slug,'approved','booking');await page.locator('#refreshApplication').click();await expect(page.locator('[data-manage-merchant]')).toHaveCount(2);await expect(page).toHaveURL(base+'/admin/');
   const last=account.calls.filter(x=>x.action==='platform.merchant.submit').at(-1);expect(last.expectedVersion).toBe(2);expect(last.slug).toBeUndefined();expect((await h.get(b.id)).slug).toBe(b.slug);expect(last.applicationId).toBeTruthy();for(const input of account.calls.filter(x=>/^platform\.(qualification|merchant)\./.test(x.action)))expect(input.business).toBeUndefined();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  await page.locator('#myMerchantList article').filter({hasText:a.slug}).locator('[data-manage-merchant]').click();await expect(page).toHaveURL(base+'/admin/?business='+a.slug);await page.goto(base+'/admin/workspace.html?business='+a.slug);await expect(page).toHaveURL(base+'/admin/workspace.html?business='+a.slug);await expect(page.locator('#merchantWorkspace')).toBeVisible();await expect(page.locator('#applicationWorkspace')).toBeHidden();await page.locator('#merchantLineSettingsTab').click();
+  await page.locator('#myMerchantList article').filter({hasText:a.slug}).locator('[data-manage-merchant]').click();await expect(page).toHaveURL(base+'/admin/?business='+a.slug);await page.goto(base+'/admin/workspace.html?business='+a.slug);/* The approved points panel canonicalizes its selected feature into the deep-link. */await expect(page).toHaveURL(base+'/admin/workspace.html?business='+a.slug+'&feature=points');await expect(page.locator('#merchantWorkspace')).toBeVisible();await expect(page.locator('#applicationWorkspace')).toBeHidden();await page.locator('#merchantLineSettingsTab').click();
   const lineForm=page.locator('#merchantSimpleLine [data-business-line-feature=points] > form'),lineStatus=page.locator('#merchantSimpleLine [data-business-line-feature=points] > [role=status]');
   await lineForm.locator('[name=adminLiffId]').fill('2010791619-admin');await lineForm.locator('[name=pointsLiffId]').fill('2010123456-points-first');
   await expect(lineForm.locator('[name=channelSecret], [name=channelAccessToken], [name=messagingChannelId]')).toHaveCount(0);
@@ -135,4 +136,99 @@ test('MEMBER_CARD_ADMIN_ROLLBACK: merchant member settings match October 27 with
   expect(session.calls.some(item=>['platform.member-oa.inspect','platform.member-oa.readiness'].includes(item.action))).toBe(false);
   expect(session.errors).toEqual([]);
  } finally {await page.close();await h.db.close();}
+});
+
+test('AC-TITLE-UI-001 — merchant may edit scoped title with real browser and isolated PostgreSQL',async({page})=>{
+  const h=await setup({origins:[base]}),slug='merchant-title-ui';
+  try{
+    await h.qualify();
+    const app=await h.submit(h.owner,slug,'商家原本名稱');
+    await h.review(app,'approved',h.features(['booking','membership']));
+    await h.db.exec(fs.readFileSync(path.join(root,'supabase/migrations/20261102113000_merchant_client_page_titles.sql'),'utf8'));
+    const session=await wire(page,h);
+    await page.goto(base+'/admin/workspace.html?business='+slug);
+    const form=page.locator('#merchantTitleForm');
+    await expect(form).toBeVisible();
+    await expect(form.locator('[name=title]')).toHaveValue('');
+    await expect(page.locator('#merchantTitlePreview')).toHaveText('商家原本名稱｜預約');
+    await form.locator('[name=title]').fill('晨光工作室');
+    await expect(page.locator('#merchantTitlePreview')).toHaveText('晨光工作室｜預約');
+    await page.locator('#saveMerchantTitle').click();
+    await expect(page.locator('#merchantTitleStatus')).toContainText('已儲存');
+    const a=(await h.db.query('select name,site_title,version from platform_private.tenants where slug=$1',[slug])).rows[0];
+    expect(a.name).toBe('商家原本名稱');
+    expect(a.site_title).toBe('晨光工作室');
+    expect(a.version).toBeGreaterThan(1);
+    expect(session.calls.filter(x=>x.action==='platform.title.save')).toHaveLength(1);
+    const context=await h.platformCall({action:'platform.business.public',business:slug,feature:'booking'});
+    expect(context.status).toBe(200);
+    expect(context.body.data.siteTitle).toBe('晨光工作室');
+    // The previously selected LINE feature survives reload in the feature query.
+    // Return to the overview before editing its intentionally hidden title form.
+    await page.reload();
+    await expect(page.locator('#merchantWorkspace')).toBeVisible();
+    await page.locator('#merchantOverviewTab').click();
+    await expect(form).toBeVisible();
+    await expect(form.locator('[name=title]')).toHaveValue('晨光工作室');
+    await form.locator('[name=title]').fill('');
+    await page.locator('#saveMerchantTitle').click();
+    await expect(page.locator('#merchantTitleStatus')).toContainText('已儲存');
+    const reverted=(await h.db.query('select site_title from platform_private.tenants where slug=$1',[slug])).rows[0];
+    expect(reverted.site_title).toBeNull();
+    expect(session.errors).toEqual([]);
+  }finally{await h.db.close();}
+});
+
+for(const width of [390,1280]) test('AC-TITLE-INLINE-'+width+' — actual merchant title save stays on the admin page',async({page})=>{
+ test.setTimeout(45000);
+ await page.setViewportSize({width,height:900});
+ const h=await setup({origins:[base]});
+ try{
+  await h.qualify();
+  const slug='inline-title-'+width,a=await h.submit(h.owner,slug,'原本商家名稱');
+  await h.review(a);
+  // Each isolated fixture must install the existing title migration before a
+  // real title write. The original workspace title test uses the same setup.
+  await h.db.exec(fs.readFileSync(path.join(root,'supabase/migrations/20261102113000_merchant_client_page_titles.sql'),'utf8'));
+  const observed=await wire(page,h);
+  await page.route(base+'/',route=>route.fulfill({status:200,contentType:'text/html',body:'<!doctype html><html><body></body></html>'}));
+  await page.goto(base+'/');
+  const full=fs.readFileSync(path.join(root,'admin/index.html'),'utf8');
+  const section=full.match(/<section id="clientPageTitleShortcut"[\s\S]*?<\/section>/)?.[0];
+  expect(section).toBeTruthy();
+  await page.setContent('<!doctype html><html><body>'+section+'</body></html>');
+  await page.addScriptTag({url:base+'/admin/client-title-shortcut.js'});
+  const form=page.locator('#clientPageTitleForm'),panel=page.locator('#clientPageTitleShortcut');
+  await expect(panel).toBeHidden();
+  await page.evaluate(business=>window.ClientPageTitleShortcut.sync({
+   productizedAdmin:true,business,supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',
+   supabasePublishableKey:'sb_publishable_fixture'},'manager'),slug);
+  await expect(panel).toBeVisible();
+  await expect(form.locator('#clientPageTitleInput')).toBeEnabled();
+  await expect(page.locator('#clientPageTitlePreview')).toHaveText('原本商家名稱｜預約');
+  await form.locator('#clientPageTitleInput').fill('晨光工作室');
+  await expect(page.locator('#clientPageTitlePreview')).toHaveText('晨光工作室｜預約');
+  await form.locator('#clientPageTitleSave').click();
+  await expect(page.locator('#clientPageTitleStatus')).not.toContainText('正在儲存');
+  const actual=await page.locator('#clientPageTitleStatus').textContent();
+  if(!actual.includes('已儲存'))throw new Error('Inline title save diagnostic: '+JSON.stringify({
+    feedback:actual,responses:observed.responses,actions:observed.calls.map(x=>({action:x.action,business:x.business,expectedVersion:x.expectedVersion,title:x.title})),
+    errors:observed.errors,
+  }));
+  const saved=(await h.db.query('select name,site_title,version from platform_private.tenants where slug=$1',[slug])).rows[0];
+  expect(saved.name).toBe('原本商家名稱');
+  expect(saved.site_title).toBe('晨光工作室');
+  expect(saved.version).toBeGreaterThan(1);
+  expect(observed.calls.filter(c=>c.action==='platform.title.save')).toHaveLength(1);
+  await form.locator('#clientPageTitleInput').fill('');
+  await form.locator('#clientPageTitleSave').click();
+  await expect(page.locator('#clientPageTitleStatus')).toContainText('已儲存');
+  await expect(page.locator('#clientPageTitlePreview')).toHaveText('原本商家名稱｜預約');
+  const reverted=(await h.db.query('select site_title from platform_private.tenants where slug=$1',[slug])).rows[0];
+  expect(reverted.site_title).toBeNull();
+  await page.evaluate(()=>window.ClientPageTitleShortcut.clear());
+  await expect(panel).toBeHidden();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  expect(observed.errors).toEqual([]);
+ }finally{await h.db.close();}
 });

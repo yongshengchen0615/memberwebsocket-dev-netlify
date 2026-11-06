@@ -37,7 +37,7 @@ test('member bootstrap and profile save use the dedicated profile API', () => {
   const system = read('member-system.js');
   const html = read('member/index.html');
 
-  assert.match(system, /clientType === 'member' && \(action === 'user\.member\.bootstrap' \|\| action === 'user\.member\.profile\.save' \|\| action === 'user\.member\.terms\.accept' \|\| action === 'user\.member\.card\.open' \|\| action === 'user\.member\.invitation\.claim' \|\| action === 'user\.member\.oa\.check'\)/);
+  assert.match(system, /clientType === 'member' && \(action === 'user\.member\.bootstrap' \|\| action === 'user\.member\.profile\.save' \|\| action === 'user\.member\.phone\.send' \|\| action === 'user\.member\.terms\.accept' \|\| action === 'user\.member\.card\.open' \|\| action === 'user\.member\.invitation\.claim' \|\| action === 'user\.member\.oa\.check'\)/);
   assert.match(system, /\/functions\/v1\/member-profile-api/);
   assert.match(html, /member-system\.js\?v=[^"'\\s>]+/);
 });
@@ -49,7 +49,9 @@ test('profile edit actions use independent partial updates through the shared tr
 
   assert.match(profile, /saveProfilePayload\(\{ surname, salutation \}\)/);
   assert.match(profile, /MemberPhone\?\.compose\(valueOf\('phoneEditCountryCode'\), valueOf\('phoneEditInput'\)\)/);
-  assert.match(profile, /saveProfilePayload\(\{ phone \}\)/);
+  assert.match(profile, /saveProfilePayload\(\{ phone, \.\.\.\(required \? \{ otpCode \} : \{\}\) \}\)/);
+  assert.match(profile, /phoneOtpSentTo !== phone/);
+  assert.match(api, /await verifyPhoneOtp\(phone, asText\(body\.otpCode, 20\)\)/);
   assert.match(birthday, /requestProfile\('user\.member\.profile\.save', \{ birthday \}\)/);
   assert.match(profile, /member-profile-updated/);
   assert.match(birthday, /member-profile-updated/);

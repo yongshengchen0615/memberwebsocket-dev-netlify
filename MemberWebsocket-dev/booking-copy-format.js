@@ -100,7 +100,7 @@
   }
 
   function buildCopyText(card, group) {
-    return window.BookingCopyText.format({
+    return window.BookingCopyText.formatClipboard({
       bookingDate:card.dataset.bookingDate,startAt:card.dataset.bookingStartAt,endAt:card.dataset.bookingEndAt,
       startTime:startTime(card),endTime:card.dataset.bookingEndTime,name:contactName(card),phone:contactPhone(card),
       partySize:group?.partySize,participants:normalizedParticipants(card,group),

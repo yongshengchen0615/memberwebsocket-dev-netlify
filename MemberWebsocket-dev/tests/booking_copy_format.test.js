@@ -14,7 +14,7 @@ test('participant-aware booking copy formatter is valid and wired', () => {
   assert.match(source, /booking-group-details-api/);
   const vm = require('node:vm'), context = {};
   vm.runInNewContext(fs.readFileSync(path.join(root,'booking-copy-text.js'),'utf8'),context);
-  assert.match(source,/window\.BookingCopyText\.format/);
+  assert.match(source,/window\.BookingCopyText\.formatClipboard/);
   assert.equal(context.BookingCopyText.format({bookingDate:'2026-10-14',startTime:'10:00',endTime:'11:00',name:'王先生',phone:'0912-345-678',partySize:1,participants:[{items:[{serviceTitle:'肩頸',quantity:2}],technicianName:'甲（主要技師）'}]}),
     '營業日 2026-10-14｜10:00–11:00\n王先生\n電話：0912345678\n預約人數：1 位\n\n第一位預約\n預約項目：肩頸 × 2\n預約技師：甲');
 });
@@ -52,4 +52,25 @@ test('booking notifications use participant details and profile contact fallback
   assert.match(contactApi, /source === "member"/);
   assert.match(delivery, /participantsCard/);
   assert.match(delivery, /每位預約明細/);
+});
+
+test('clipboard copy shows labeled date, start time and contact without end time', () => {
+  const vm = require('node:vm'), context = {};
+  vm.runInNewContext(fs.readFileSync(path.join(root, 'booking-copy-text.js'), 'utf8'), context);
+  const booking = {
+    bookingDate: '2026-10-30', startTime: '11:30', endTime: '12:40',
+    name: 'Chen先生', phone: '+886912345678', partySize: 1,
+    participants: [{ items: [{ serviceTitle: 'a11', quantity: 1 }], technicianName: '10技師' }],
+  };
+  assert.equal(context.BookingCopyText.formatClipboard(booking), [
+    '日期：2026-10-30',
+    '時間：11:30',
+    '預約人：Chen先生',
+    '電話：+886912345678',
+    '預約人數：1 位',
+    '第一位預約',
+    '預約項目：a11',
+    '預約技師：10技師',
+  ].join('\n'));
+  assert.match(context.BookingCopyText.format(booking), /^營業日 2026-10-30｜11:30–12:40/);
 });

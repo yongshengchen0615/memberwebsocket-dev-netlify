@@ -47,6 +47,55 @@ test('AC-PERF-002 Chromium: root starts both reads before either returns and coa
  }finally{h.release();}
 });
 
+
+test('AC-ROOT-SYNC-001 Chromium: scheduled checks do not dim the manual sync button or recreate unchanged cards',async({page})=>{
+ const h=await setup(page);
+ try{
+  const button=page.locator('#rootSyncNow');
+  await expect(button).toBeEnabled();
+  await expect(button).toHaveCSS('opacity','1');
+  await page.evaluate(()=>{window.initialRootEmpty=document.querySelector('#tenantList .empty');});
+  h.hold();
+  const before=h.calls.length;
+  await page.evaluate(()=>{
+   const timer=window.fixtureIntervals.find(item=>item.active&&item.delay===5000);
+   if(!timer)throw new Error('root poll timer missing');
+   timer.fn();timer.fn();
+  });
+  await expect.poll(()=>h.calls.length-before).toBe(2);
+  await expect(button).toBeEnabled();
+  await expect(button).toHaveCSS('opacity','1');
+  h.release();
+  await expect(page.locator('#rootSyncStatus')).toHaveText('審核清單已是最新資料。');
+  expect(await page.evaluate(()=>document.querySelector('#tenantList .empty')===window.initialRootEmpty)).toBe(true);
+  expect(h.errors).toEqual([]);
+ }finally{h.release();}
+});
+
+test('AC-ROOT-SYNC-002 Chromium: manual click during polling queues one fresh refresh without overlapping requests',async({page})=>{
+ const h=await setup(page);
+ try{
+  h.hold();
+  const before=h.calls.length;
+  await page.evaluate(()=>{
+   const timer=window.fixtureIntervals.find(item=>item.active&&item.delay===5000);
+   if(!timer)throw new Error('root poll timer missing');
+   timer.fn();
+  });
+  await expect.poll(()=>h.calls.length-before).toBe(2);
+  await expect(page.locator('#rootSyncNow')).toBeEnabled();
+  await page.locator('#rootSyncNow').click();
+  await expect(page.locator('#rootSyncNow')).toBeDisabled();
+  await expect(page.locator('#rootSyncStatus')).toHaveText('正在同步待審申請…');
+  expect(h.calls.length-before).toBe(2);
+  h.release();
+  await expect.poll(()=>h.calls.length-before).toBe(4);
+  await expect(page.locator('#rootSyncNow')).toBeEnabled();
+  await expect(page.locator('#rootSyncStatus')).toHaveText('審核清單已是最新資料。');
+  expect(h.errors).toEqual([]);
+ }finally{h.release();}
+});
+
 for(const merchant of [false,true])test(`AC-PERF-003 Chromium: ${merchant?'merchant mobile':'root desktop'} makes no offline polls and recovers online`,async({page})=>{
  if(merchant)await page.setViewportSize({width:390,height:844});
  const h=await setup(page,{merchant});const before=h.calls.length;

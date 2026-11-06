@@ -35,6 +35,7 @@ async function mount({merchant=true,business='',version=2,q=null,applications=[]
  };
  if(businessContext)w.eval(fs.readFileSync(path.join(root,'business-context.js'),'utf8'));
  if(merchant)w.eval(fs.readFileSync(path.join(root,'admin/business-line-settings.js'),'utf8'));
+ w.eval(fs.readFileSync(path.join(root,'platform/expiry-term.js'),'utf8'));
  w.eval(fs.readFileSync(path.join(root,'platform/app.js'),'utf8'));await settle();
  return{dom,w,d:w.document,calls,intervals,async tick(){for(const timer of intervals.filter(item=>item.active))timer.fn();await settle();},setQualification(value){currentQ=value;},setApplications(value){currentApps=value;},setQualifications(value){currentQualifications=value;},close(){for(const observer of observers)observer.disconnect();w.close();}};
 }
@@ -171,9 +172,14 @@ test('AC-SYNC-002: focus, retry and manual sync update the root list; concurrent
   block=true;
   h.intervals[0].fn();h.intervals[0].fn();await settle();
   assert.equal(h.calls.filter(x=>x.action==='platform.bootstrap').length,5,'duplicate ticks must share one in-flight read');
-  assert.equal(h.d.getElementById('rootSyncNow').disabled,true);
+  assert.equal(h.d.getElementById('rootSyncNow').disabled,false,'automatic background polling must never dim the manual action');
+  h.d.getElementById('rootSyncNow').click();await settle();
+  assert.equal(h.d.getElementById('rootSyncNow').disabled,true,'explicit manual sync must show its in-flight state');
+  assert.equal(h.calls.filter(x=>x.action==='platform.bootstrap').length,5,'manual request must wait until the active poll settles');
+  block=false;
   slowResolve({tenants:[],applications:[application('new','pending')],features,profile:{displayName:'Root'}});
   await settle();
+  assert.equal(h.calls.filter(x=>x.action==='platform.bootstrap').length,6,'queued manual sync must run one new read batch');
   assert.equal(h.d.getElementById('rootSyncNow').disabled,false);
   assert.ok(h.calls.length>before);
  }finally{h.close();}
@@ -449,4 +455,56 @@ test('AC-MERCHANT-UI-003: submit from modal closes it and adds one pending card;
   assert.ok(h.d.querySelector('#pendingMerchantList [data-application-id="r"]'));
   assert.equal(h.d.querySelectorAll('#myMerchantList [data-application-id="r"]').length,0);
  }finally{h.close();}
+});
+
+test('AC-MEXP-001: merchant owner sees only their approved tenants usage period, including expired ones',async()=>{
+ const active=application('a'),expired=application('b'),pending=application('c','pending');
+ active.tenant={...active.tenant,createdAt:'2026-11-01T00:00:00Z',expiresAt:'2026-12-01T00:00:00Z'};
+ expired.tenant={...expired.tenant,createdAt:'2025-01-01T00:00:00Z',expiresAt:'2025-01-31T00:00:00Z',expired:true};
+ const h=await mount({merchant:true,q:qualification(),applications:[active,expired,pending]});
+ try{
+  const a=h.d.querySelector('#myMerchantList [data-application-id="a"]');
+  const b=h.d.querySelector('#myMerchantList [data-application-id="b"]');
+  assert.match(a.querySelector('.tenant-expiry-summary').textContent,/開通日期：/);
+  assert.match(a.querySelector('.tenant-expiry-summary').textContent,/使用期限：30 天/);
+  assert.match(a.querySelector('.tenant-expiry-summary').textContent,/到期時間：/);
+  assert.match(a.querySelector('.tenant-expiry-summary').textContent,/剩餘天數：/);
+  assert.match(b.querySelector('.tenant-expiry-summary').textContent,/剩餘天數：已到期/);
+  assert.equal(b.querySelector('[data-manage-merchant]'),null,'expired merchant cannot launch management');
+  assert.equal(h.d.querySelector('#pendingMerchantList [data-application-id="c"] .tenant-expiry-summary'),null);
+  assert.equal(h.d.querySelectorAll('#myMerchantList .tenant-expiry-summary').length,2);
+  assert.equal(h.d.querySelectorAll('#myMerchantList [data-application-id="a"] button').length,0,'general admin has no expiry edit control');
+ }finally{h.close();}
+});
+
+test('AC-MEXP-002: merchant overview is read-only and clears period when account access is revoked',async()=>{
+ const item=application('a'),tenant={...item.tenant,createdAt:'2026-11-01T00:00:00Z',expiresAt:'2026-12-01T00:00:00Z',
+  version:1,credentialsConfigured:true,line:{adminChannelId:'2010791619',adminLiffId:'2010791619-private'},
+  onboarding:{adminReady:true,configurationComplete:false,grantedCount:1,commonMissing:[],features:{points:{configured:false,missing:['pointsLiffId']}}}};
+ let denied=false;
+ const h=await mount({business:'merchant-a',handler(input){
+  if(input.action==='platform.application.bootstrap')return denied?{status:403,error:{code:'PLATFORM_QUALIFICATION_REQUIRED',message:'管理員資格已停用'}}:{application:item,tenant,features,profile:{displayName:'Owner'}};
+ }});
+ try{
+  const period=h.d.getElementById('merchantUsagePeriod');
+  assert.equal(period.hidden,false);
+  assert.match(period.textContent,/使用期限：30 天/);
+  assert.match(period.textContent,/剩餘天數：/);
+  assert.equal(period.querySelector('button,input'),null,'expiry summary must have no controls');
+  assert.equal(h.calls.filter(x=>x.action==='platform.tenant.expiry.save').length,0);
+  denied=true;h.d.getElementById('refreshApplication').click();await settle();
+  assert.equal(period.hidden,true);assert.equal(period.textContent,'','revoked view clears cached private fields');
+ }finally{h.close();}
+});
+
+test('AC-MEXP-003: productized /admin/ loads expiry helper before app after importing workspace BODY only',()=>{
+ const shell=fs.readFileSync(path.join(root,'admin/productized-workspace.js'),'utf8');
+ const entry=fs.readFileSync(path.join(root,'admin/index.html'),'utf8');
+ const helper="../platform/expiry-term.js?v=expiry-term-20261101-1";
+ const app="../platform/app.js?v=merchant-expiry-readonly-20261101-1";
+ assert.match(shell,/document\.importNode\(node,true\)/,'import does not execute workspace head scripts');
+ assert.ok(shell.includes('if(!window.PlatformExpiryTerm)await loadScript('),'helper is required for the productized merchant portal');
+ assert.ok(shell.includes(helper));assert.ok(shell.includes(app));
+ assert.ok(shell.indexOf(helper)<shell.indexOf(app),'period calculator must be loaded before app rendering');
+ assert.ok(entry.includes('productized-workspace.js?v=merchant-expiry-readonly-20261101-1'),'new mounting code must bust the previous cached loader');
 });

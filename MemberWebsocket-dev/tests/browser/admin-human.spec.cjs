@@ -35,24 +35,38 @@ const fill=(p,id,value)=>p.locator('#'+id).fill(String(value));
 const select=(p,id,value)=>p.locator('#'+id).selectOption(String(value));
 const calls=(s,a)=>s.calls.filter(c=>c.action===a);
 async function openMember360(p){await p.locator('[data-action="view-records"]').first().click();await expect(p.locator('#memberRecordsModal')).toBeVisible();}
-async function openMember(p){await click(p,'testMembersSubtab');await openMember360(p);await p.getByRole('button',{name:'狀態'}).click();await expect(p.locator('#memberModal')).toBeVisible();}
+async function openMember(p){await openMember360(p);await p.getByRole('button',{name:'狀態'}).click();await expect(p.locator('#memberModal')).toBeVisible();}
 async function openCard(p){await click(p,'cardsTab');await click(p,'newCardButton');await fill(p,'cardTitle','QA new card');await select(p,'cardStatus','draft');await p.locator('#rewardRows [data-field="ticketTemplateId"]').selectOption('ticket-1');}
 async function openEvent(p,type='coupon'){await click(p,'eventsTab');await click(p,'newEventTicketButton');await select(p,'eventTicketType',type);for(const [id,value] of Object.entries({eventTicketTitle:'QA event',eventTicketDescription:'QA description',eventTicketUsageMethod:'QA usage',eventTicketUsageInstructions:'QA instructions'}))await fill(p,id,value);await select(p,'eventTicketStatus','draft');}
 async function openCalendar(p,type='event'){await click(p,'calendarTab');await click(p,'newCalendarItemButton');await fill(p,'calendarItemTitle','QA calendar');await select(p,'calendarItemType',type);await select(p,'calendarItemStatus','draft');await fill(p,'calendarItemStartsOn',today());}
 async function booking(p,tab){await click(p,'bookingTab');await click(p,tab||'bookingAdminServicesSubtab');await expect(p.locator('#bookingAdminSyncStatus')).toContainText('已同步');}
 
-test('MEMBER_DIRECTORY — real/test roster, search, empty result and both pagination directions',async({page:p},info)=>{
-  await click(p,'testMembersSubtab');await expect(p.locator('#memberTableBody tr')).toHaveCount(2);
+test('MEMBER_DIRECTORY — only real-member roster, search, empty results and both pagination directions',async({page:p},info)=>{
+  await expect(p.locator('#testMembersSubtab')).toHaveCount(0);
+  await expect(p.locator('#realMembersSubtab')).toHaveCount(0);
+  await expect(p.locator('#memberTableBody tr')).toHaveCount(2);
   await click(p,'memberNextPageButton');await expect(p.locator('#memberTableBody')).toContainText('TEST3');
   await click(p,'memberPrevPageButton');await expect(p.locator('#memberTableBody')).toContainText('TEST1');
   await fill(p,'memberSearch','TEST2');await expect(p.locator('#memberTableBody tr')).toHaveCount(1);await expect(p.locator('#memberTableBody')).toContainText('TEST2');
   await fill(p,'memberSearch','no-match');await expect(p.locator('#memberEmptyState')).toBeVisible();
-  await fill(p,'memberSearch','');await click(p,'realMembersSubtab');expect(calls(info.fixture,'admin.members.list').some(c=>c.payload.memberKind==='real')).toBe(true);
+  await fill(p,'memberSearch','');
+  await expect(p.locator('#memberTableBody tr')).toHaveCount(2);
+  expect(calls(info.fixture,'admin.members.list').every(c=>c.payload.memberKind==='real')).toBe(true);
 });
-test('MEMBER_PROFILE_STATUS — edit all test profile fields, disable, reopen and restore',async({page:p},info)=>{
-  await openMember(p);await fill(p,'memberDisplayName','QA changed');await fill(p,'memberSurname','Chen');await select(p,'memberSalutation','ms');await fill(p,'memberBirthday','1990-02-03');await fill(p,'memberPhone','+886923456789');await select(p,'memberStatus','disabled');await click(p,'saveMemberButton');
-  await expect(p.locator('#memberModal')).toBeHidden();await expect(p.locator('#memberRecordsModal')).toBeVisible();await p.getByRole('button',{name:'狀態'}).click();await expect(p.locator('#memberDisplayName')).toHaveValue('QA changed');await expect(p.locator('#memberStatus')).toHaveValue('disabled');
-  await select(p,'memberStatus','active');await click(p,'saveMemberButton');await expect(p.locator('#memberModal')).toBeHidden();expect(calls(info.fixture,'admin.member.update')).toHaveLength(2);
+test('MEMBER_PROFILE_STATUS — status editable but test-profile fields forbidden, disable and restore',async({page:p},info)=>{
+  await openMember(p);
+  await expect(p.locator('#memberDisplayName')).toHaveCount(0);
+  await expect(p.locator('#memberTestProfileFields')).toHaveCount(0);
+  await expect(p.locator('#memberIsTestAccount')).toHaveCount(0);
+  await select(p,'memberStatus','disabled');await click(p,'saveMemberButton');
+  await expect(p.locator('#memberModal')).toBeHidden();await expect(p.locator('#memberRecordsModal')).toBeVisible();
+  await p.getByRole('button',{name:'狀態'}).click();await expect(p.locator('#memberStatus')).toHaveValue('disabled');
+  await select(p,'memberStatus','active');await click(p,'saveMemberButton');
+  await expect(p.locator('#memberModal')).toBeHidden();
+  const writes=calls(info.fixture,'admin.member.update');
+  expect(writes).toHaveLength(2);
+  expect(writes.every(c=>!Object.hasOwn(c.payload,'profile'))).toBe(true);
+  expect(info.fixture.members[0].status).toBe('active');
 });
 test('MEMBER_360 — status and grant actions, then history workspace member selector and categories',async({page:p},info)=>{
   await openMember360(p);
@@ -64,14 +78,15 @@ test('MEMBER_360 — status and grant actions, then history workspace member sel
   await expect(p.locator('#memberRecordsModal')).toBeHidden();
   await expect(p.locator('#memberUsagePanel')).toBeVisible();
   await expect(p.locator('#memberUsageSelect')).toBeEnabled();
-  for(const filter of ['all','presence','pointCards','eventTickets','calendar','bookings','testAutomation']) {
+  for(const filter of ['all','presence','pointCards','eventTickets','calendar','bookings']) {
     const b=p.locator('#memberUsagePanel [data-record-filter="'+filter+'"]');
     await b.click();
     await expect(b).toHaveAttribute('aria-selected','true');
   }
-  await select(p,'memberUsageKind','test');
+  await expect(p.locator('#memberUsageKind')).toHaveCount(0);
+  await expect(p.locator('[data-record-filter="testAutomation"]')).toHaveCount(0);
   await expect(p.locator('#memberUsageSelect')).toBeEnabled();
-  await expect.poll(()=>calls(info.fixture,'admin.members.list').some(c=>c.payload.memberKind==='test')).toBe(true);
+  await expect.poll(()=>calls(info.fixture,'admin.members.list').some(c=>c.payload.memberKind==='real')).toBe(true);
   const selectedMemberId=await p.locator('#memberUsageSelect').evaluate(el=>el.options[1]?.value||'');
   expect(selectedMemberId).not.toBe('');
   await select(p,'memberUsageSelect',selectedMemberId);
@@ -362,8 +377,8 @@ test('TICKET_BOOKING_POLICY_ENTRY — point and event views explain service-spec
   await expect(p.locator('#bookingAdminTicketBookingRequired')).toHaveCount(0);
   await expect(p.locator('#bookingAdminSnapshotLocationRequired')).toBeVisible();
 });
-test('BOOKING_SHARED_SETTINGS — overnight hours, advance window, common time and reminder',async({page:p},info)=>{
-  await booking(p,'bookingAdminSettingsSubtab');await fill(p,'bookingAdminStartTime','20:00');await fill(p,'bookingAdminEndTime','02:00');await fill(p,'bookingAdminSlotInterval','15');await fill(p,'bookingAdminAdvanceDays','1');await fill(p,'bookingAdminMaxAdvanceDays','30');await fill(p,'bookingAdminStoreServiceMinutes','15');await p.locator('#bookingAdminSnapshotLocationRequired').check();await p.evaluate(() => window.TicketLocationEditors.snapshot.set([{name:'QA 指定門市',latitude:25.033964,longitude:121.564468,radiusMeters:100}]));await p.locator('#bookingAdminReminderEnabled').check();await fill(p,'bookingAdminReminderTime','17:30');await fill(p,'bookingAdminNotice','QA line 1\nQA line 2');await click(p,'bookingAdminSaveSettingsButton');await expect.poll(()=>calls(info.fixture,'admin.booking.settings.save').length).toBe(1);await expect(p.locator('#bookingAdminSettingsMessage')).toContainText('儲存');expect(info.fixture.settings.workEndTime).toBe('02:00');expect(info.fixture.settings.snapshotLocationRequired).toBe(true);await p.reload();await booking(p,'bookingAdminSettingsSubtab');await expect(p.locator('#bookingAdminSnapshotLocationRequired')).toBeChecked();await p.locator('#bookingAdminSnapshotLocationRequired').uncheck();await click(p,'bookingAdminSaveSettingsButton');await expect.poll(()=>info.fixture.settings.snapshotLocationRequired).toBe(false);
+test('BOOKING_SHARED_SETTINGS — overnight hours, advance window, common time without global reminder',async({page:p},info)=>{
+  await booking(p,'bookingAdminSettingsSubtab');await fill(p,'bookingAdminStartTime','20:00');await fill(p,'bookingAdminEndTime','02:00');await fill(p,'bookingAdminSlotInterval','15');await fill(p,'bookingAdminAdvanceDays','1');await fill(p,'bookingAdminMaxAdvanceDays','30');await fill(p,'bookingAdminStoreServiceMinutes','15');await p.locator('#bookingAdminSnapshotLocationRequired').check();await p.evaluate(() => window.TicketLocationEditors.snapshot.set([{name:'QA 指定門市',latitude:25.033964,longitude:121.564468,radiusMeters:100}]));await expect(p.locator('#bookingAdminReminderEnabled, #bookingAdminReminderTime')).toHaveCount(0);await fill(p,'bookingAdminNotice','QA line 1\nQA line 2');await click(p,'bookingAdminSaveSettingsButton');await expect.poll(()=>calls(info.fixture,'admin.booking.settings.save').length).toBe(1);await expect(p.locator('#bookingAdminSettingsMessage')).toContainText('儲存');expect(info.fixture.settings.workEndTime).toBe('02:00');expect(info.fixture.settings.snapshotLocationRequired).toBe(true);await p.reload();await booking(p,'bookingAdminSettingsSubtab');await expect(p.locator('#bookingAdminSnapshotLocationRequired')).toBeChecked();await p.locator('#bookingAdminSnapshotLocationRequired').uncheck();await click(p,'bookingAdminSaveSettingsButton');await expect.poll(()=>info.fixture.settings.snapshotLocationRequired).toBe(false);
 });
 function seedBooking(s,status='pending'){
   s.bookings=[{bookingId:'booking-1',memberId:'member-1',memberDisplayName:'QA booking member',contactSurname:'QA',contactSalutation:'mr',contactPhone:'+886912345678',memberCode:'TEST1',bookingDate:today(),startTime:'10:00',endTime:'10:30',status,totalDurationMinutes:30,updatedAt:version,createdAt:version,items:[{serviceId:'service-1',serviceTitle:'QA service',quantity:1,unitDurationMinutes:30,subtotalMinutes:30,serviceType:'Body'}],benefits:[]}];
@@ -406,7 +421,7 @@ for(const scope of ['template','event'])test('LOTTERY_EDITOR_'+scope+' — add/d
   let releaseTicket;if(!event)info.fixture.hold={action:'admin.tickets.save',wait:new Promise(resolve=>{releaseTicket=resolve;})};
   await click(p,'save'+cap+'Button');
   if(!event){try{await expect(p.locator('#ticketPrizeRows [data-remove-ticket-prize]').nth(1)).toBeDisabled();}finally{releaseTicket();}await expect(p.locator('#saveTicketButton')).toBeEnabled();}
-  await expect.poll(()=>calls(info.fixture,event?'admin.event-tickets.save':'admin.tickets.save').length).toBe(1);await p.locator('#'+prefix+'PrizeRows [data-remove-'+(event?'event-ticket':'ticket')+'-prize]').nth(1).click();await expect(p.locator('#'+prefix+'PrizeRows > div')).toHaveCount(1);await click(p,'balance'+cap+'PrizesButton');
+  await expect.poll(()=>calls(info.fixture,event?'admin.event-tickets.save':'admin.tickets.save').length).toBe(1);await expect(p.locator('#save'+cap+'Button')).toBeEnabled();await expect(p.locator('#'+prefix+'PrizeRows > div')).toHaveCount(2);await p.locator('#'+prefix+'PrizeRows [data-remove-'+(event?'event-ticket':'ticket')+'-prize]').nth(1).click();await expect(p.locator('#'+prefix+'PrizeRows > div')).toHaveCount(1);await click(p,'balance'+cap+'PrizesButton');
 });
 for(const mode of ['any','all'])test('SERVICE_RULE_'+mode+' — save concrete service restrictions on reward and event',async({page:p},info)=>{
   await openCard(p);const row=p.locator('#rewardRows [data-reward-row]');await row.locator('[data-field="requiredServiceMatchMode"]').selectOption(mode);await row.locator('input[value="service-1"]').check();await click(p,'saveCardButton');await expect.poll(()=>info.fixture.cards.find(c=>c.title==='QA new card')?.rewards[0]?.requiredServiceMatchMode).toBe(mode);expect(info.fixture.cards.find(c=>c.title==='QA new card').rewards[0].requiredServiceIds).toEqual(['service-1']);await p.locator('#cardEditorModal .editor-modal-close').click();
@@ -464,6 +479,97 @@ test('BOOKING_RECEIPT — open signed receipt, inspect summary, close and clear 
   seedBooking(info.fixture);info.fixture.receipts=[{receiptId:'r1',bookingId:'booking-1',status:'bound',boundAt:version}];await booking(p,'bookingAdminQueueSubtab');await p.locator('[data-admin-booking-receipt-control]').click();await expect(p.locator('#adminBookingReceiptModal')).toBeVisible();await expect(p.locator('#adminBookingReceiptImage')).toHaveAttribute('src','https://fixture.supabase.co/storage/v1/object/sign/booking-receipts/qa.svg?token=fixture');await click(p,'adminBookingReceiptClose');await expect(p.locator('#adminBookingReceiptModal')).toBeHidden();expect(calls(info.fixture,'admin.booking.receipt.url')).toHaveLength(1);await expect(p.locator('#adminBookingReceiptImage')).not.toHaveAttribute('src','https://fixture.supabase.co/storage/v1/object/sign/booking-receipts/qa.svg?token=fixture');
 });
 
+// Contract migration: these scenarios used to require a synthetic-user tab which
+// is intentionally removed from production. Exercise the *actual* admin handlers
+// through the normal real-member UI with in-memory fixture members, never a live
+// identity or production write. Other runner definitions execute unchanged.
+const retiredMemberRunnerKeys=new Set([
+  'ADMIN_MEMBER_DIRECTORY_CONTROLS','ADMIN_MEMBER_USAGE_LOGS','ADMIN_MEMBER_MODALS',
+  'ADMIN_TEST_MEMBER_PROFILE_EDIT','ADMIN_GRANT_NOTIFICATION_CONTROLS','ADMIN_SERVICE_GRANT_JOURNEY'
+]);
+async function runRetiredMemberContract(p,info,key){
+  const fixture=info.fixture;
+  await expect(p.locator('#testMembersSubtab')).toHaveCount(0);
+  await expect(p.locator('#memberUsageKind')).toHaveCount(0);
+  if(key==='ADMIN_MEMBER_DIRECTORY_CONTROLS'){
+    await expect(p.locator('#memberTableBody tr')).toHaveCount(2);
+    await click(p,'memberNextPageButton');await expect(p.locator('#memberTableBody')).toContainText('TEST3');
+    await click(p,'memberPrevPageButton');await expect(p.locator('#memberTableBody')).toContainText('TEST1');
+    await fill(p,'memberSearch','TEST2');await expect(p.locator('#memberTableBody tr')).toHaveCount(1);
+    await fill(p,'memberSearch','');await expect(p.locator('#memberTableBody tr')).toHaveCount(2);
+    expect(calls(fixture,'admin.members.list').every(call=>call.payload.memberKind==='real')).toBe(true);
+    return;
+  }
+  if(key==='ADMIN_MEMBER_USAGE_LOGS'){
+    await click(p,'memberUsageTab');await expect(p.locator('#memberUsagePanel')).toBeVisible();
+    await expect(p.locator('#memberUsageSelect')).toBeEnabled();
+    const selected=await p.locator('#memberUsageSelect').evaluate(el=>el.options[1]?.value||'');
+    expect(selected).not.toBe('');
+    await select(p,'memberUsageSelect',selected);
+    await expect(p.locator('#memberUsageSelectedLabel')).toContainText('·');
+    for(const category of ['all','presence','pointCards','eventTickets','calendar','bookings']){
+      const control=p.locator('#memberUsagePanel [data-record-filter="'+category+'"]');
+      await control.click();await expect(control).toHaveAttribute('aria-selected','true');
+    }
+    await expect(p.locator('[data-record-filter="testAutomation"]')).toHaveCount(0);
+    expect(calls(fixture,'admin.members.list').every(call=>call.payload.memberKind==='real')).toBe(true);
+    return;
+  }
+  if(key==='ADMIN_MEMBER_MODALS'){
+    await openMember360(p);await expect(p.locator('#memberRecordsModal')).toBeVisible();
+    await p.getByRole('button',{name:'狀態'}).click();await expect(p.locator('#memberModal')).toBeVisible();
+    await click(p,'cancelMemberButton');await expect(p.locator('#memberModal')).toBeHidden();
+    await p.getByRole('button',{name:'＋ 發放'}).click();await expect(p.locator('#grantModal')).toBeVisible();
+    await click(p,'cancelGrantButton');await expect(p.locator('#grantModal')).toBeHidden();
+    await click(p,'closeMemberRecordsModal');await expect(p.locator('#memberRecordsModal')).toBeHidden();
+    expect(calls(fixture,'admin.member.update')).toHaveLength(0);expect(fixture.grants).toHaveLength(0);
+    return;
+  }
+  if(key==='ADMIN_TEST_MEMBER_PROFILE_EDIT'){
+    await openMember(p);
+    for(const id of ['memberIsTestAccount','memberTestProfileFields','memberDisplayName','memberSurname','memberBirthday','memberPhone']){
+      await expect(p.locator('#'+id)).toHaveCount(0);
+    }
+    await select(p,'memberStatus','disabled');await click(p,'saveMemberButton');
+    await expect(p.locator('#memberModal')).toBeHidden();
+    await p.getByRole('button',{name:'狀態'}).click();await expect(p.locator('#memberStatus')).toHaveValue('disabled');
+    await select(p,'memberStatus','active');await click(p,'saveMemberButton');
+    // A second save is asynchronous: observe both actual API writes before inspecting their payloads.
+    await expect.poll(()=>calls(fixture,'admin.member.update').length).toBe(2);
+    const writes=calls(fixture,'admin.member.update');
+    expect(writes).toHaveLength(2);
+    expect(writes.every(c=>!Object.hasOwn(c.payload,'profile'))).toBe(true);
+    expect(fixture.members[0].status).toBe('active');
+    return;
+  }
+  if(key==='ADMIN_GRANT_NOTIFICATION_CONTROLS'){
+    await openMember360(p);await p.getByRole('button',{name:'＋ 發放'}).click();
+    await expect(p.locator('#grantModal')).toBeVisible();
+    for(const mode of ['scheduled','none','immediate']){
+      const option=p.locator('input[name="grantNotificationMode"][value="'+mode+'"]');
+      await option.check();await expect(option).toBeChecked();
+    }
+    await expect(p.locator('#grantTestNotificationNote')).toHaveCount(0);
+    await click(p,'cancelGrantButton');await expect(p.locator('#grantModal')).toBeHidden();
+    expect(fixture.grants).toHaveLength(0);
+    return;
+  }
+  if(key==='ADMIN_SERVICE_GRANT_JOURNEY'){
+    await serviceGrant(p);
+    await p.locator('#grantServiceList [data-service-grant-id]').first().check();
+    await click(p,'previewServiceGrantButton');
+    await expect(p.locator('#grantServicePreview')).toContainText('分鐘');
+    await expect(p.locator('#saveGrantButton')).toBeEnabled();
+    await click(p,'saveGrantButton');await expect(p.locator('#grantModal')).toBeHidden();
+    expect(calls(fixture,'admin.service-grants.preview')).toHaveLength(1);
+    expect(calls(fixture,'admin.service-grants.add')).toHaveLength(1);
+    expect(fixture.grants).toHaveLength(1);
+    expect(fixture.members[0].serviceMinutesTotal).toBe(30);
+    return;
+  }
+  throw new Error('Missing migrated member runner contract: '+key);
+}
+
 // Execute the registered production runner nodes, not copies of their logic.
 const fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'../..');
@@ -473,8 +579,12 @@ async function loadRuntime(p){
   await p.evaluate(fs.readFileSync(path.join(root,'admin/e2e-control.js'),'utf8').replace('  window.MemberAdminE2EControl =','  window.qaRuntime={adminDefinitions,state};\n  window.MemberAdminE2EControl ='));
   await p.evaluate(()=>{window.qaRuntime.state.adminTestAccount={memberId:'member-1',memberCode:'TEST1',lineUserId:'test:member-1'};const s=window.MemberAdminSession.get();window.MemberAdminSession.establish({...s.config,supabaseUrl:'https://fixture.supabase.co'},s.idToken);});
 }
-for(const key of runtimeKeys)test('RUNNER_'+key+' — production node executes against actual admin handlers',async({page:p},info)=>{
+for(const key of runtimeKeys)test('RUNNER_'+key+' — real handler journey or migrated retirement contract',async({page:p},info)=>{
   info.setTimeout(45000);
+  if(retiredMemberRunnerKeys.has(key)){
+    await runRetiredMemberContract(p,info,key);
+    return;
+  }
   await loadRuntime(p);
   const result=await p.evaluate(async key=>{const node=window.qaRuntime.adminDefinitions('full',['member','points','event','calendar','integration','booking']).find(n=>n.key===key);return node.run();},key);
   expect(result.status,JSON.stringify(result)).toBe('passed');
@@ -482,12 +592,17 @@ for(const key of runtimeKeys)test('RUNNER_'+key+' — production node executes a
   if(key.includes('FIXED_DRAFT')){expect(info.fixture.templates).toHaveLength(0);expect(calls(info.fixture,'admin.fixed-tickets.run')).toHaveLength(0);expect(calls(info.fixture,'admin.fixed-tickets.save').every(c=>c.payload.template.status==='draft'&&!c.payload.template.notifyLine&&!c.payload.template.calendarEnabled)).toBe(true);}
 });
 
-test('RUNNER_MEMBER_MODAL_FAILURE — failed 360 load closes parent and performs no writes',async({page:p},info)=>{
-  info.setTimeout(45000);await loadRuntime(p);info.fixture.fault={action:'admin.member-records.list',code:'RECORDS_UNAVAILABLE'};
-  const error=await p.evaluate(async()=>{try{await qaRuntime.adminDefinitions('full',['member']).find(n=>n.key==='ADMIN_MEMBER_MODALS').run();return '';}catch(e){return e.message;}});
-  expect(error).toContain('會員 360 尚未載入操作');
-  for(const id of ['memberModal','grantModal','memberRecordsModal'])await expect(p.locator('#'+id)).toBeHidden();
-  expect(calls(info.fixture,'admin.member.update')).toHaveLength(0);expect(info.fixture.grants).toHaveLength(0);
+test('RUNNER_MEMBER_MODAL_FAILURE — failed member-history load exposes error without enabling writes',async({page:p},info)=>{
+  info.fixture.fault={action:'admin.member-records.list',code:'RECORDS_UNAVAILABLE'};
+  await p.locator('[data-action="view-records"]').first().click();
+  await expect(p.locator('#memberRecordsModal')).toBeVisible();
+  await expect(p.locator('#memberRecordsModalMessage')).toContainText('QA rejected write');
+  await expect(p.locator('#memberModal')).toBeHidden();
+  await expect(p.locator('#grantModal')).toBeHidden();
+  expect(calls(info.fixture,'admin.member.update')).toHaveLength(0);
+  expect(info.fixture.grants).toHaveLength(0);
+  await click(p,'closeMemberRecordsModal');
+  await expect(p.locator('#memberRecordsModal')).toBeHidden();
 });
 
 test('CALENDAR_BONUS — save bonus amount, reopen, disable by changing to holiday',async({page:p},info)=>{
@@ -515,7 +630,7 @@ test('POINT_DRAG — pointer drag sorting, save and readback',async({page:p},inf
   await click(p,'cardsTab');await p.locator('[data-card-sort-item][data-card-id="card-2"]').dragTo(p.locator('[data-card-sort-item][data-card-id="card-1"]'));await expect(p.locator('#saveCardSortButton')).toBeEnabled();await click(p,'saveCardSortButton');await expect.poll(()=>info.fixture.cards[0].cardId).toBe('card-2');
 });
 test('BOOKING_COPY — copy complete booking details through the UI',async({page:p},info)=>{
-  seedBooking(info.fixture);await booking(p,'bookingAdminQueueSubtab');await p.locator('#bookingAdminQueue [data-booking-admin-action="copy-booking"]').click();const text=await p.evaluate(()=>navigator.clipboard.readText());expect(text).toContain('QA先生');expect(text).toContain('QA service');expect(text).toContain('10:00');
+  seedBooking(info.fixture);await booking(p,'bookingAdminQueueSubtab');await p.locator('#bookingAdminQueue [data-booking-admin-action="copy-booking"]').click();const text=await p.evaluate(()=>navigator.clipboard.readText());expect(text).toContain('日期：');expect(text).toContain('時間：10:00');expect(text).toContain('預約人：QA先生');expect(text).toContain('QA service');
 });
 
 for(const [key,action] of [['ADMIN_CALENDAR_CRUD','admin.calendar-items.save'],['ADMIN_FIXED_DRAFT_WEEKLY','admin.fixed-tickets.save']])test('RUNNER_REJECTED_'+key+' — rejected update fails evidence and cleans only owned QA draft',async({page:p},info)=>{
@@ -646,7 +761,7 @@ test('BOOKING_COMPLETED_CORRECTION — preview, reason, confirmation and persist
 for(const width of [390,1280])test('BOOKING_CANCELLATION_COPY_'+width+' — actual cancellation queue copy and overnight label do not mutate bookings',async({page:p},info)=>{
  if(typeof p.setViewportSize==='function')await p.setViewportSize({width,height:844});seedBooking(info.fixture,'confirmed');Object.assign(info.fixture.bookings[0],{bookingDate:'2026-12-31',startTime:'23:30',endTime:'00:00',startAt:'2026-12-31T23:30:00',endAt:'2027-01-01T00:00:00',cancellationRequestedAt:version});
  await booking(p,'bookingAdminQueueSubtab');await click(p,'bookingCancellationRequestFilter');await p.locator('#bookingCancellationReviewList .booking-copy-button').click();
- const text=await p.evaluate(()=>navigator.clipboard.readText());expect(text).toContain('23:30–00:00（隔日）');expect(text).toContain('QA先生');expect(text).toContain('QA service');
+ const text=await p.evaluate(()=>navigator.clipboard.readText());expect(text).toContain('日期：2026-12-31');expect(text).toContain('時間：23:30');expect(text).not.toContain('00:00');expect(text).toContain('預約人：QA先生');expect(text).toContain('QA service');
  expect(calls(info.fixture,'admin.approve')).toHaveLength(0);expect(calls(info.fixture,'admin.reject')).toHaveLength(0);expect(info.fixture.bookings[0].status).toBe('confirmed');
  if(typeof p.screenshot==='function')await info.attach('cancel-copy-layout',{body:await p.screenshot({fullPage:true}),contentType:'image/png'});
 });

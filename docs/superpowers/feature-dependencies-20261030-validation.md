@@ -53,3 +53,19 @@ Deployment routing check: BookingSystem still sent benefits/claims/profile/prese
 Disabled point/event overview counters also follow the same grant map; a DOM RED/GREEN assertion covers the point-card and daily-points tiles.
 
 GitHub automated review findings 4423828799/4423828808 were verified and reproduced (three RED tests). The fixed-calendar fetch wrapper now omits a withheld setting and the server preserves an omitted stored flag on edits; forged enables still require calendar. Calendar bonus preflight now matches event type, dates and the target member tier using the existing current_tier_key RPC; VIP-only rules no longer block unrelated ordinary-member point grants. Related suite: 31 pass/0 fail/0 skip. Full candidate CI must run again before release.
+
+## 2026-11-06 latest-base integration (supersedes the historical candidate above)
+
+Baseline: `13fb3b1695bc36b3f1b61a16f5a39557c5539d15`. Reused PR #206 and merged the latest base, preserving phone verification, price publication, themes and expiry features. Only the reviewed source checksum manifest conflicted; both journeys and actual final digests were retained.
+
+Current local evidence (Node v24.22.1): full Node regression **1307 pass / 0 fail / 0 skip**, adjacent DOM/isolated SQL **20 pass / 0 fail / 0 skip**, static build exit 0. Browser and integration dependency audits report zero vulnerabilities. Target-base RED: four dependency cases failed as expected; the candidate passes those cases.
+
+Independent review found five Important issues. Behavioral RED/GREEN fixes cover normalized/unknown benefit kinds, standalone fixed templates in mixed tenants, unchanged withheld booking restrictions and forged clears, actual nested booking responses with preserved RPC selections, and service-type write-response filtering. The nested ticket action disappears with no ticket grant and returns for either grant. New scheduler fixture executes mixed templates, repeat migration, revocation/re-enable and independent tenant jobs in isolated SQL.
+
+Ruling: retain the existing backend architecture and authenticated request adapter; compare hidden persisted rules against trusted tenant data, retain omitted fields and pin optimistic versions. No new permission is derived from a browser flag. A renamed point/event ticket preserves its hidden booking rules; an attempted clear is rejected. Scheduled issuance skips linked templates individually instead of pausing all templates in a tenant.
+
+Same-host raw bytes for the eight modified frontend sources: **589,540 → 593,600 (+4,060)**. No extra browser API request is added. Preservation queries run only for revoked dependencies on the relevant writes; ordinary requests retain their previous path. This measures payload size and makes no latency improvement claim.
+
+Local limitations: Chromium downloaded but process startup failed with SIGTRAP (2 browser cases not executed); the scripts suite ran 138 pass / 1 timeout because the live retired-endpoint HTTP test cannot reach Supabase from this sandbox. Neither is counted as passed; exact-candidate GitHub CI must supply Chromium, PostgreSQL, Deno, live HTTP and all remaining baselines before merge/deployment. No new Supabase migration or Edge deployment was performed during this local verification.
+
+Adjacent baseline finding: phone.send audience routing differs from shared profile bootstrap for merchants using separate LINE channels; it exists in the target base, and real LINE/SMS validation was not performed in this change. This task does not claim to resolve or externally verify that separate flow.

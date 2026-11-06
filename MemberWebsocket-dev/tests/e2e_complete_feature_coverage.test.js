@@ -85,7 +85,9 @@ test('new contract evidence keeps device and external-delivery limitations expli
     assert.ok(coverage.catalog.find(item=>item.id===id).limitation,id);
   assert.doesNotMatch(read('admin/index.html'), /e2e-feature-coverage\.js|e2e-scenario-graph\.js/);
   for(const entry of ['member','points','event','calendar','booking']) {
-    const html=read(entry+'/index.html');
+    const production=read(entry+'/index.html');
+    assert.doesNotMatch(production,/e2e-feature-coverage\.js|e2e-scenario-graph\.js/);
+    const html=read('tests/fixtures/'+entry+'-e2e.html');
     assert.ok(html.includes('e2e-feature-coverage.js'),entry + ': missing feature coverage');
     assert.ok(html.includes('e2e-scenario-graph.js'),entry + ': missing scenario graph');
     assert.ok(html.indexOf('e2e-feature-coverage.js')<html.indexOf('e2e-scenario-graph.js'),entry);
