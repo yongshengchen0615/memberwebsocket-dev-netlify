@@ -103,7 +103,7 @@ test('AC-005: phone number changes update the button and revocation removes stal
   h.state.phoneBookingNumber = '+886-6-9876543';
   const changed = action(h, '2026-11-09');
   assert.equal(changed.dialLabel, '撥打店家電話＋+886-6-9876543');
-  assert.equal(changed.href, 'tel:+886-6-9876543');
+  assert.equal(changed.href, 'tel:+88669876543');
   h.state.phoneBookingNumber = '';
   const disabled = action(h, '2026-11-09');
   assert.equal(disabled.phoneHidden, true);
