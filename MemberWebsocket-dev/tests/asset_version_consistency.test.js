@@ -87,7 +87,7 @@ test('member booking entry loads only the current single render pipeline', () =>
   assert.ok(html.includes('member-ui.js?v=test-mode-20260920-1'));
   assert.ok(html.includes('app.js?v=booking-member-chat-20261003-1'));
   assert.ok(html.includes('contact-details.js?v=test-mode-20260920-1'));
-  assert.ok(html.includes('calendar-flow.js?v=platform-phone-booking-20261107-1'));
+  assert.ok(html.includes('calendar-flow.js?v=phone-booking-window-20261107-2'));
 
   assert.ok(!html.includes('member-booking-format.js'));
   assert.ok(!html.includes('booking-confirm-details.js'));
