@@ -57,6 +57,8 @@ begin
 
   select phone_booking_number into v_original
   from public.booking_settings where id = 1 for update;
+  -- A legacy admin client that omits the new field must not erase a saved number.
+  if p_phone_booking_number is null then v_phone := v_original; end if;
 
   select * into v_saved
   from public.save_booking_shared_settings_v7(
