@@ -50,7 +50,7 @@ test('AC-001: lead-time is online-only; today and tomorrow may be booked by tele
     assert.equal(result.onlineDisabled, true, date);
     assert.equal(result.phoneHidden, false, date);
     assert.equal(result.href, 'tel:061234567');
-    assert.equal(result.dialLabel, '撥打店家電話＋06-1234567');
+    assert.equal(result.dialLabel, '撥打店家電話：06-1234567');
     assert.match(result.hint, /提前 2 天/);
   }
   for (const date of ['2026-11-09', '2026-12-07']) {
@@ -102,7 +102,7 @@ test('AC-005: phone number changes update the button and revocation removes stal
   action(h, '2026-11-09');
   h.state.phoneBookingNumber = '+886-6-9876543';
   const changed = action(h, '2026-11-09');
-  assert.equal(changed.dialLabel, '撥打店家電話＋+886-6-9876543');
+  assert.equal(changed.dialLabel, '撥打店家電話：+886-6-9876543');
   assert.equal(changed.href, 'tel:+88669876543');
   h.state.phoneBookingNumber = '';
   const disabled = action(h, '2026-11-09');
@@ -111,7 +111,7 @@ test('AC-005: phone number changes update the button and revocation removes stal
   assert.equal(disabled.dialLabel, '撥打店家電話');
 });
 
-test('AC-004: calendar telephone badge follows phone range, not online lead time', () => {
+test('AC-004: calendar never marks telephone availability, but today remains clickable', () => {
   const h = load();
   const doc = { createElement: element };
   // The calendar factory is defined inside the VM, so supply its document there by
@@ -129,13 +129,20 @@ test('AC-004: calendar telephone badge follows phone range, not online lead time
   x.els.calendarMonthLabel = element('span');
   x.renderCalendar();
   function day(date) { return x.els.calendarGrid.children.find(el => el.dataset.date === date); }
-  const badge = el => el.children.some(child => child.className === 'calendar-phone-badge');
-  assert.equal(badge(day('2026-11-07')), true);
-  assert.equal(badge(day('2026-11-08')), true);
-  assert.equal(badge(day('2026-11-09')), true);
-  assert.equal(badge(day('2026-11-06')), false);
+  const phoneBadge = el => el.children.some(child => child.className === 'calendar-phone-badge');
+  const today = day('2026-11-07');
+  assert.equal(today.classList.values.has('today'), true);
+  assert.equal(today.classList.values.has('advance-disabled'), true);
+  assert.equal(today.disabled, false);
+  assert.match(today.getAttribute('aria-label'), /點選查看當日紀錄/);
+  for (const date of ['2026-11-06', '2026-11-07', '2026-11-08', '2026-11-09']) {
+    assert.equal(phoneBadge(day(date)), false, date);
+    assert.doesNotMatch(day(date).getAttribute('aria-label'), /電話預約/, date);
+  }
   x.state.month = '2026-12';
   x.renderCalendar();
-  assert.equal(badge(day('2026-12-07')), true);
-  assert.equal(badge(day('2026-12-08')), false);
+  for (const date of ['2026-12-07', '2026-12-08']) {
+    assert.equal(phoneBadge(day(date)), false, date);
+    assert.doesNotMatch(day(date).getAttribute('aria-label'), /電話預約/, date);
+  }
 });
