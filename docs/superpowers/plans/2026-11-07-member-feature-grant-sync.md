@@ -84,6 +84,8 @@ Minor 的重複 cache query 由復原無行為改動的 admin/platform HTML 消�
 
 Chromium 首輪還發現 fixture 未載入已核准 grants 造成 inert，以及新 fixture 的泛用 URL route 未攔截公開設定而 DNS 失敗。保留原商家授權斷言，補上真正 configure 和精確 fixture host route，不提高 timeout／減弱斷言。另修正正式 CSP 相容性：gate CSS 以同源 business-context.css 載入，不加入被 style-src 拒絕的 inline style。
 
-本機審查修復的 11 個會員專屬 DOM 案例成功；含舊 booking/friends 等相關 DOM 共 53 pass/0 fail/0 skip。完整最終 SHA CI／發布仍須重跑，不引用初版成功。
+本機審查修復的 12 個會員專屬 DOM 案例成功；含舊 booking/friends 等相關 DOM 共 54 pass/0 fail/0 skip。完整最終 SHA CI／發布仍須重跑，不引用初版成功。
 
 同條件 asset byte 比較：基準受影響 JS 共 329446 bytes，新候選 JS + 新 gate CSS 約 339 KB（精確值記 PR）；成本約 +10 KB，沒有提速宣稱。既有 probe 間隔不變，changed 才額外一個 public 設定讀取；idle 不增加公開讀取的實際 browser 斷言由最終 CI 確認。
+
+最後文案邊界：calendar-only 且沒有權益／讀取失敗時，原空狀態仍提票券。已先 RED，再使用中性的「優惠」空狀態／錯誤文字，相關 DOM 54/54 與 Node1328/1328 重新執行成功。

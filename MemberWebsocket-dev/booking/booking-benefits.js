@@ -277,7 +277,7 @@
 
   function updateReadyMessage(cardCount) {
     if (!cardCount) {
-      state('empty', '目前沒有可用活動或票券，仍可正常預約。');
+      state('empty', '目前沒有可用優惠，仍可正常預約。');
       return;
     }
     const count = selected.size;
@@ -525,7 +525,7 @@
     } catch (_) {
       if (current !== sequence || disposed) return;
       if (renderedItems.length) state('ready', '可用權益同步失敗，已保留目前資料；可稍後重試。');
-      else state('error', '活動與票券暫時無法載入，仍可正常預約。');
+      else state('error', '優惠暫時無法載入，仍可正常預約。');
     } finally {
       inFlight = false;
       if (queued && !disposed) { queued = false; syncNow(); }

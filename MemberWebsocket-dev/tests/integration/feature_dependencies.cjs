@@ -194,6 +194,19 @@ test('review: friend booking help exposes only granted ticket/point rewards and 
   assert.match(visible(help),/點數|集點/);
  }finally{h.close();}
 });
+test('AC-MEMBER-002: calendar-only empty and error states never advertise disabled tickets or points',async()=>{
+ const h=await memberGrantFixture({booking:true,calendar:true});try{
+  h.w.BookingSystem={bookingBenefits:async()=>({items:[]})};
+  h.w.eval(fs.readFileSync(path.join(root,'booking/booking-benefits.js'),'utf8'));
+  h.w.BookingBenefits.start(h.config,'synthetic');await tick();
+  assert.equal(h.d.getElementById('bookingBenefits').dataset.state,'empty');
+  assert.doesNotMatch(h.d.getElementById('bookingBenefitsStatus').textContent,/票券|集點|點數/);
+  h.w.BookingSystem.bookingBenefits=async()=>{throw Error('provider unavailable');};
+  h.w.BookingBenefits.syncNow();await tick();
+  assert.equal(h.d.getElementById('bookingBenefits').dataset.state,'error');
+  assert.doesNotMatch(h.d.getElementById('bookingBenefitsStatus').textContent,/票券|集點|點數/);
+ }finally{h.close();}
+});
 function fixture(){
  const dom=new JSDOM(fs.readFileSync(path.join(root,'admin/index.html'),'utf8'),{url:'https://fixture.test/admin/?business=merchant-a',runScripts:'outside-only'});
  const observers=[],Observer=dom.window.MutationObserver;
