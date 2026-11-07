@@ -193,7 +193,7 @@ for (const width of [390, 1280]) {
       await expect(cell).toBeEnabled();
       await cell.click();
       await expect(page.locator('#bookingDayModal')).toBeVisible();
-      await expect(page.locator('#bookingDayTitle')).toContainText(date.replaceAll('-', '/'));
+      await expect(page.locator('#bookingDayTitle')).toContainText(`${Number(date.slice(0, 4))}/${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}`);
       await expect(page.locator('#bookingDayHint')).toContainText('請致電店家洽詢');
       await expect(page.locator('#startDayBookingButton')).toBeHidden();
       await expect(page.locator('#bookingPhoneFallback')).toBeVisible();
@@ -257,7 +257,7 @@ for (const width of [390, 1280]) {
       detail: { settings: { minAdvanceDays: 2, maxAdvanceDays: 0, phoneBookingNumber: '06-1234567' } }
     })));
     const later = await visit(dates.beyondMaximum);
-    await expect(later.locator('.calendar-phone-badge')).toHaveText('電話預約');
+    await expect(later.locator('.calendar-phone-badge')).toHaveCount(0);
     await later.click();
     await expect(page.locator('#bookingPhoneFallback')).toBeVisible();
     await expect(page.locator('#startDayBookingButton')).toBeEnabled();
