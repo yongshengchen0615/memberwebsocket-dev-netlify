@@ -41,8 +41,8 @@ test('member join completion sends the LINE message automatically without a memb
   assert.match(ui, /context\.type\s*!==\s*'utou'/);
   assert.match(ui, /liff\.sendMessages/);
   // The merchant's configurable webpage title is resolved from the active member session.
-  assert.match(ui, /MemberSystem\\?\\.getSession\\?\\.\\('member'\\)\\?\\.config\\?\\.brandName/);
-  assert.match(ui, /const message = `我已完成 \\${heading} 會員註冊`;/);
+  assert.ok(ui.includes("window.MemberSystem?.getSession?.('member')?.config?.brandName"));
+  assert.ok(ui.includes('const message = `我已完成 ${heading} 會員註冊`;'));
   assert.doesNotMatch(ui, /想開始使用會員服務。/);
   assert.doesNotMatch(ui, /member\.line\.official-account/);
   assert.doesNotMatch(ui, /仍需由你按下傳送/);
