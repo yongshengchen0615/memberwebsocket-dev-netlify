@@ -301,6 +301,7 @@ function settingsClient(row: any): Json {
     slotIntervalMinutes: Number(row?.slot_interval_minutes || 30),
     minAdvanceDays: Number(row?.min_advance_days || 0),
     maxAdvanceDays: Number(row?.max_advance_days || 0),
+    phoneBookingNumber: String(row?.phone_booking_number || ""),
     updatedAt: row?.updated_at || null,
   };
 }

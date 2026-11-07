@@ -143,6 +143,7 @@ function settingsClient(row: any, storeService?: any): Json {
     slotIntervalMinutes: Number(row?.slot_interval_minutes || 30),
     minAdvanceDays: Number(row?.min_advance_days || 0),
     maxAdvanceDays: Number(row?.max_advance_days || 0),
+    phoneBookingNumber: String(row?.phone_booking_number || ""),
     storeServiceMinutes: Number(storeService?.duration_minutes || 10),
     bookingNotice: String(row?.booking_notice || ""),
     reminderMessage: String(row?.reminder_message || "請準時到場；如需調整請至預約頁操作。"),
@@ -252,6 +253,7 @@ async function settingsSave(supabase: SupabaseClient, identity: Identity, body: 
   const maxAdvanceDays = Number(body.maxAdvanceDays);
   const storeServiceMinutes = Number(body.storeServiceMinutes);
   const bookingNotice = preserveText(body.bookingNotice, 2001);
+  const phoneBookingNumber = body.phoneBookingNumber === undefined ? null : String(body.phoneBookingNumber ?? "").trim();
   // Legacy columns remain for backwards compatibility. Members now control each booking.
   const legacyReminder = await supabase.from("booking_settings")
     .select("reminder_enabled,reminder_time").eq("id", 1).single();
@@ -262,6 +264,7 @@ async function settingsSave(supabase: SupabaseClient, identity: Identity, body: 
   if (!Number.isInteger(maxAdvanceDays) || maxAdvanceDays < 0 || maxAdvanceDays > 365) throw new ApiError(400, "INVALID_MAX_ADVANCE_DAYS", "最遠可預約天數必須介於 0–365 天；0 代表不限制。" );
   if (maxAdvanceDays > 0 && maxAdvanceDays < minAdvanceDays) throw new ApiError(400, "INVALID_ADVANCE_WINDOW", "最遠可預約天數不可小於需要提前的天數。" );
   if (!Number.isInteger(storeServiceMinutes) || storeServiceMinutes < 1 || storeServiceMinutes > 720) throw new ApiError(400, "INVALID_STORE_SERVICE_MINUTES", "店內服務分鐘必須介於 1–720 分鐘。" );
+  if (phoneBookingNumber && (phoneBookingNumber.length > 25 || !/^[+]?[0-9][0-9 ()-]{4,24}$/.test(phoneBookingNumber) || (phoneBookingNumber.match(/[0-9]/g) || []).length < 6 || (phoneBookingNumber.match(/[0-9]/g) || []).length > 15)) throw new ApiError(400, "INVALID_PHONE_BOOKING_NUMBER", "店家電話格式不正確。");
   if (bookingNotice.length > 2000) throw new ApiError(400, "INVALID_BOOKING_NOTICE", "預約說明不可超過 2,000 字。" );
   if (body.snapshotLocationRequired !== undefined && typeof body.snapshotLocationRequired !== "boolean") throw new ApiError(400, "INVALID_SNAPSHOT_LOCATION_POLICY", "請選擇是否要求快照定位。");
   if (body.ticketBookingRequired !== undefined && typeof body.ticketBookingRequired !== "boolean") throw new ApiError(400, "INVALID_TICKET_BOOKING_POLICY", "請選擇使用票券是否需要預約。");
@@ -278,7 +281,8 @@ async function settingsSave(supabase: SupabaseClient, identity: Identity, body: 
     throw new ApiError(400, "SNAPSHOT_LOCATION_NOT_CONFIGURED", "請先設定至少一個允許快照的地點。");
   }
   const expectedUpdatedAt = asText(body.expectedUpdatedAt, 80);
-  const result = await supabase.rpc("save_booking_shared_settings_v7", {
+  const result = await supabase.rpc("save_booking_shared_settings_v8", {
+    p_phone_booking_number: phoneBookingNumber,
     p_snapshot_locations: snapshotLocations,
     p_ticket_booking_required: body.ticketBookingRequired ?? null,
     p_snapshot_location_required: body.snapshotLocationRequired ?? null,

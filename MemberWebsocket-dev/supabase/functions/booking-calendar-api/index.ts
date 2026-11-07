@@ -159,7 +159,7 @@ function addDays(date: string, days: number): string {
 
 async function loadCalendar(supabase: SupabaseClient, month: string, memberId: string): Promise<Json> {
   const settingsResult = await supabase.from("booking_settings")
-    .select("min_advance_days,max_advance_days,booking_notice,work_start_time,work_end_time")
+    .select("min_advance_days,max_advance_days,booking_notice,work_start_time,work_end_time,phone_booking_number")
     .eq("id", 1)
     .maybeSingle();
   if (settingsResult.error || !settingsResult.data) {
@@ -239,7 +239,7 @@ async function loadCalendar(supabase: SupabaseClient, month: string, memberId: s
   return {
     month,
     today,
-    settings: { minAdvanceDays, maxAdvanceDays, bookingNotice },
+    settings: { minAdvanceDays, maxAdvanceDays, bookingNotice, phoneBookingNumber: String(settingsResult.data.phone_booking_number || "") },
     earliestBookingDate: addDays(today, minAdvanceDays),
     latestBookingDate,
     occupiedDates: [...grouped.entries()].map(([date, intervals]) => ({ date, intervals })),
