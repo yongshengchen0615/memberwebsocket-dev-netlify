@@ -253,7 +253,7 @@ async function settingsSave(supabase: SupabaseClient, identity: Identity, body: 
   const maxAdvanceDays = Number(body.maxAdvanceDays);
   const storeServiceMinutes = Number(body.storeServiceMinutes);
   const bookingNotice = preserveText(body.bookingNotice, 2001);
-  const phoneBookingNumber = String(body.phoneBookingNumber ?? "").trim();
+  const phoneBookingNumber = body.phoneBookingNumber === undefined ? null : String(body.phoneBookingNumber ?? "").trim();
   // Legacy columns remain for backwards compatibility. Members now control each booking.
   const legacyReminder = await supabase.from("booking_settings")
     .select("reminder_enabled,reminder_time").eq("id", 1).single();
