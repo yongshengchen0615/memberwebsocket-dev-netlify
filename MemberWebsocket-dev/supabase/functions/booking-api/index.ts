@@ -302,6 +302,7 @@ function settingsClient(row: any): Json {
     minAdvanceDays: Number(row?.min_advance_days || 0),
     maxAdvanceDays: Number(row?.max_advance_days || 0),
     phoneBookingNumber: String(row?.phone_booking_number || ""),
+    bookingNotice: String(row?.booking_notice ?? ""),
     updatedAt: row?.updated_at || null,
   };
 }
