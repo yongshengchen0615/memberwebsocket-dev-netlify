@@ -193,7 +193,7 @@ for (const width of [390, 1280]) {
       await expect(cell).toBeEnabled();
       await cell.click();
       await expect(page.locator('#bookingDayModal')).toBeVisible();
-      await expect(page.locator('#bookingDayTitle')).toContainText(new RegExp(`${date.replaceAll('-', '-')}(?:｜|$)|${Number(date.slice(0, 4))}/${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}(?:｜|$)`));
+      await expect(page.locator('#bookingDayTitle')).toContainText(new RegExp(`${date}(?:｜|$)|${Number(date.slice(0, 4))}/${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}(?:｜|$)`));
       await expect(page.locator('#bookingDayHint')).toContainText('請致電店家洽詢');
       await expect(page.locator('#startDayBookingButton')).toBeHidden();
       await expect(page.locator('#bookingPhoneFallback')).toBeVisible();
