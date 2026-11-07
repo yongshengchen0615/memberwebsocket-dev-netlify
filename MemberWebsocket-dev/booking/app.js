@@ -455,6 +455,7 @@
   }
 
   function serviceTypeRewardText(label) {
+    if(window.BusinessContext?.allows?.('points')===false)return '';
     const reward = serviceTypeRewardOf(label);
     const minutes = Number(reward?.minutesPerPoint || 0);
     const card = String(reward?.pointCardTitle || '').trim();
@@ -923,7 +924,7 @@
 
   function renderBookingBenefitCards(benefits, options = {}) {
     const rows = (Array.isArray(benefits) ? benefits : [])
-      .filter((benefit) => benefit?.kind === 'points' || benefit?.kind === 'event');
+      .filter((benefit) => (benefit?.kind === 'points' || benefit?.kind === 'event') && window.BusinessContext?.allowsBenefit?.(benefit.kind)!==false);
     if (!rows.length) return null;
 
     const section = document.createElement('section');

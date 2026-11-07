@@ -19,6 +19,7 @@
   const selectableKinds = new Set(['points', 'event']);
   const el = (id) => document.getElementById(id);
   const keyFor = (kind, id) => `${String(kind || '')}:${String(id || '')}`;
+  const allowed=item=>window.BusinessContext?.allowsBenefit?.(item?.kind)!==false;
 
   function state(value, message) {
     const section = el('bookingBenefits');
@@ -37,11 +38,11 @@
   }
 
   function selectionPayload() {
-    return [...selected.values()].map((item) => ({ kind: item.kind, id: item.id }));
+    return [...selected.values()].filter(allowed).map((item) => ({ kind: item.kind, id: item.id }));
   }
 
   function selectionSummary() {
-    return [...selected.values()].map((item) => ({
+    return [...selected.values()].filter(allowed).map((item) => ({
       kind: item.kind,
       id: item.id,
       title: item.title || kinds[item.kind] || '可用權益',
@@ -276,13 +277,18 @@
       return;
     }
     const count = selected.size;
+    const rules=[
+      allowed({kind:'calendar'})?'活動僅顯示':'',
+      allowed({kind:'points'})?`集點卡票券單次 ${limitLabel(pointTicketMaxPerRedemption, '0 代表不限')}`:'',
+      allowed({kind:'event'})?`活動票券每日 ${limitLabel(eventTicketMaxPerDay, '0 代表不限')}`:'',
+    ].filter(Boolean).join('；');
     state('ready', count
       ? `已選擇 ${count} 張票券；服務完成時由管理端重新驗證並核銷。`
-      : `${cardCount} 項活動／票券 · 活動僅顯示；集點卡票券單次 ${limitLabel(pointTicketMaxPerRedemption, '0 代表不限')};活動票券每日 ${limitLabel(eventTicketMaxPerDay, '0 代表不限')}。`);
+      : `${cardCount} 項可用優惠 · ${rules}。`);
   }
 
   function render(items = renderedItems) {
-    renderedItems = Array.isArray(items) ? items : [];
+    renderedItems = (Array.isArray(items) ? items : []).filter(allowed);
     window.dispatchEvent(new CustomEvent('booking:benefits-loaded', { detail: { items: renderedItems } }));
     const list = el('bookingBenefitsList');
     if (!list) return;
@@ -465,7 +471,7 @@
     for (const item of Array.isArray(items) ? items : []) {
       const kind = String(item?.kind || item?.benefitKind || '');
       const id = String(item?.id || item?.benefitRef || '');
-      if (!selectableKinds.has(kind) || !id) continue;
+      if (!selectableKinds.has(kind) || !id || !allowed({kind})) continue;
       selected.set(keyFor(kind, id), {
         kind, id,
         title: String(item?.title || item?.titleSnapshot || ''),
@@ -502,7 +508,7 @@
       if (current !== sequence || disposed) return;
       const nextEventLimit = normalizeLimit(result?.eventTicketMaxPerDay);
       const nextPointLimit = normalizeLimit(result?.pointTicketMaxPerRedemption);
-      const nextItems = Array.isArray(result?.items) ? result.items : [];
+      const nextItems = (Array.isArray(result?.items) ? result.items : []).filter(allowed);
       const selectionChanged = reconcileSelectedItems(nextItems);
       const changed = nextEventLimit !== eventTicketMaxPerDay
         || nextPointLimit !== pointTicketMaxPerRedemption
@@ -556,6 +562,12 @@
   }
 
   let freshness = null;
+  window.addEventListener('business:features-changed',()=>{
+    for(const [key,item]of selected)if(!allowed(item))selected.delete(key);
+    render(renderedItems.filter(allowed));
+    emitSelectionChange();
+    if(!inFlight)syncNow();
+  });
   function scheduleMidnight() {
     const day = 86_400_000;
     const localTime = (Date.now() + 8 * 3_600_000) % day;

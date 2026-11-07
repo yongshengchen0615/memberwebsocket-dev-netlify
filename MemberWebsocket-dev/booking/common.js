@@ -506,6 +506,8 @@
           if(stale())return;
           if(typeof current.revision!=='string'||current.revision.length>120)throw Error('INVALID_SYNC_REVISION');
           if(revision!==current.revision||Date.now()-lastFull>=120000){
+            if(targetScope==='member')await window.BusinessContext?.refresh?.(config);
+            if(stale())return;
             refreshing=true;
             await onUpdate();if(stale())return;
             if(typeof onBenefitsUpdate==='function')await onBenefitsUpdate({scope:'all',eventType:'business.reconcile'});
@@ -513,7 +515,12 @@
             revision=current.revision;lastFull=Date.now();
           }
           failures=0;
-        }catch(_){if(!stale())failures++;}
+        }catch(error){
+          if(!stale()&&error?.code==='FEATURE_DISABLED'&&targetScope==='member'){
+            try{await window.BusinessContext?.refresh?.(config);}catch(_){}
+          }
+          if(!stale())failures++;
+        }
         finally{pending=false;refreshing=false;if(!stopped&&!paused()){const delay=queued?0:Math.min(60000,(targetScope==='member'?3000:10000)*2**Math.min(failures,3));queued=false;schedule(delay);}}
       };
       const resume=()=>{

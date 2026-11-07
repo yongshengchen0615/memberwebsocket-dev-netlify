@@ -406,7 +406,7 @@
       window.dispatchEvent(new CustomEvent('booking:snapshot-benefit-options', { detail: { items: catalog.items || [] } }));
       // Show eligible unclaimed event tickets so the member can claim them first.
       // Only an issued claim ID is permitted in a snapshot redemption request.
-      const items = (catalog.items || []).filter(item =>
+      const items = (catalog.items || []).filter(item => window.BusinessContext?.allowsBenefit?.(item.kind)!==false).filter(item =>
         (item.kind === 'points' || item.kind === 'event')
         && (item.selectionId || (item.kind === 'event' && item.claimRequired === true)));
       const selectionSummary = document.getElementById('snapshotTicketSelectionSummary');
@@ -591,8 +591,10 @@
             const card = balanceByCard.get(id);
             return card.title + '預計扣 ' + amount + ' 點（可用 ' + card.balance + ' 點）';
           });
-          const limits = '集點卡單次 ' + (pointLimit === 0 ? '不限張數' : '最多 ' + pointLimit + ' 張') +
-            '；活動票券今日' + (eventLimit === 0 ? '不限張數' : '剩餘 ' + Math.max(0, eventLimit - usedEventsToday) + ' 張');
+          const limits = [
+            window.BusinessContext?.allows?.('points')!==false?'集點卡單次 ' + (pointLimit === 0 ? '不限張數' : '最多 ' + pointLimit + ' 張'):'',
+            window.BusinessContext?.allows?.('events')!==false?'活動票券今日' + (eventLimit === 0 ? '不限張數' : '剩餘 ' + Math.max(0, eventLimit - usedEventsToday) + ' 張'):'',
+          ].filter(Boolean).join('；');
           selectionSummary.textContent = checked.length
             ? '本次已選擇 ' + checked.length + ' 張票券；' + (budgets.length ? '預計扣點：' + budgets.join('、') + '。' : '') +
               limits + '。送出後由管理員審核，不會立即核銷，也不需要事先預約。'
@@ -877,7 +879,7 @@
   async function submitReceipt() {
     if (state.busy || !state.selectedFile || (!state.selectedBookingId && !state.accessible)) return;
     if (state.accessible && state.ticketsLoading) { setMessage('票券仍在讀取中，請稍候。', true); return; }
-    const selectedBenefits = state.accessible ? [...document.querySelectorAll('[data-snapshot-id]:checked')].map(check => ({ kind: check.dataset.snapshotKind, id: check.dataset.snapshotId })) : [];
+    const selectedBenefits = state.accessible ? [...document.querySelectorAll('[data-snapshot-id]:checked')].filter(check=>window.BusinessContext?.allowsBenefit?.(check.dataset.snapshotKind)!==false).map(check => ({ kind: check.dataset.snapshotKind, id: check.dataset.snapshotId })) : [];
     const currentSession = session();
     if (!currentSession) return setMessage('登入狀態已失效，請重新整理後再試。', true);
 
@@ -1089,6 +1091,14 @@
     }
   });
   window.addEventListener('DOMContentLoaded', ensureModal);
+  window.addEventListener('business:features-changed',()=>{
+    for(const check of document.querySelectorAll('[data-snapshot-id]')){
+      if(window.BusinessContext?.allowsBenefit?.(check.dataset.snapshotKind)===false){
+        check.checked=false;check.disabled=true;check.closest('.snapshot-ticket-option')?.remove();
+      }
+    }
+    if(state.accessible&&!state.busy)void loadSnapshotTickets();
+  });
   window.addEventListener('pagehide', () => {
     state.photoGeneration += 1;
     endSnapshotMode();

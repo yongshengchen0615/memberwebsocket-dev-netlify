@@ -106,7 +106,10 @@ test('booking activities are display-only while point and event tickets remain s
   assert.match(source, /kind: 'calendar'[\s\S]*selectable: false, selectionId: ''/);
   assert.match(source, /活動資訊僅供預約參考/);
   assert.match(ui, /selectableKinds = new Set\(\['points', 'event'\]\)/);
-  assert.match(ui, /活動僅顯示；集點卡票券單次/);
+  // These independent grants now produce separate conditional phrases. The
+  // real DOM grant/revoke cases in feature_dependencies.cjs verify visibility.
+  assert.match(ui, /活動僅顯示/);
+  assert.match(ui, /集點卡票券單次/);
   assert.match(ui, /活動票券每日/);
   assert.match(ui, /if \(item\?\.kind !== 'calendar'\) return ''/);
   assert.doesNotMatch(bookingApi, /\["points","event","calendar"\]\.includes\(kind\)/);

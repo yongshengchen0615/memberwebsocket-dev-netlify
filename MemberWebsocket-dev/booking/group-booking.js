@@ -1068,6 +1068,7 @@
   }
 
   function serviceTypeRewardText(label) {
+    if(window.BusinessContext?.allows?.('points')===false)return '';
     const reward = serviceTypeRewardOf(label);
     const minutes = Number(reward?.minutesPerPoint || 0);
     const card = String(reward?.pointCardTitle || '').trim();

@@ -665,6 +665,8 @@
           if (typeof current.revision !== 'string' || current.revision.length > 120) throw Error('INVALID_SYNC_REVISION');
           const changed = revision !== current.revision || Date.now() - lastFullAt >= 120000;
           if (changed) {
+            if (clientType !== 'admin') await window.BusinessContext?.refresh?.(active.config);
+            if (stale()) return;
             // Child booking/receipt modules consume the same invalidation feed.
             emitRealtimeEvent('member-system:realtime-invalidation', {clientType,scope:clientType,eventType:clientType === 'admin' ? 'booking.receipt.reconcile' : 'business.reconcile'});
             refreshing = true;
@@ -674,7 +676,12 @@
           }
           failures = 0; status('SUBSCRIBED');
           emitRealtimeEvent('member-system:sync-metrics', {clientType,transport:'authenticated-revision',durationMs:Date.now()-started,changed,probes,refreshes});
-        } catch (_) { if (!stale()) { failures++; status('CHANNEL_ERROR'); } }
+        } catch (error) {
+          if (!stale() && error?.code === 'FEATURE_DISABLED' && clientType !== 'admin') {
+            try { await window.BusinessContext?.refresh?.(active.config); } catch (_) {}
+          }
+          if (!stale()) { failures++; status('CHANNEL_ERROR'); }
+        }
         finally {
           pending = false; refreshing = false;
           if (!disposed && !paused()) {

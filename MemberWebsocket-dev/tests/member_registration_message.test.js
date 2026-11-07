@@ -74,9 +74,15 @@ test('AC-005 never sends outside direct LINE in-app chat', () => {
   }
 });
 
-test('AC-006 frontend business config prefers configured siteTitle over business name', () => {
+test('AC-006 frontend business config prefers configured siteTitle over business name', async () => {
   const businessContext = fs.readFileSync(path.join(__dirname, '../business-context.js'), 'utf8');
-  assert.match(businessContext, /config\.brandName\s*=\s*body\.data\.siteTitle\s*\|\|\s*body\.data\.name/);
+  const location={pathname:'/member/',search:'?business=merchant-a',origin:'https://fixture.test'};
+  const document={title:'',documentElement:{},addEventListener(){},querySelectorAll:()=>[]};
+  const window={location,fetch:async()=>({ok:true,json:async()=>({ok:true,data:{business:'merchant-a',siteTitle:'自訂網頁抬頭',name:'商家原名',features:{membership:true},line:{}}})})};
+  vm.runInNewContext(businessContext,{window,document,location,URL,URLSearchParams});
+  const config={supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api'};
+  await window.BusinessContext.configure(config);
+  assert.equal(config.brandName,'自訂網頁抬頭');
 });
 
 test('AC-007 removes whitespace injection and handles Unicode title limit safely', () => {
