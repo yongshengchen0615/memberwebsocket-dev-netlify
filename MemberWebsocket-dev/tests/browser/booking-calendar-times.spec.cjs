@@ -134,3 +134,69 @@ for (const testMode of [false, true]) {
     }
   });
 }
+
+
+for (const width of [390, 1280]) {
+  test('merchant phone fallback keeps day records and blocks online booking at ' + width + 'px', async ({page}) => {
+    await page.setViewportSize({width,height:900});
+    await page.goto(baseUrl+'/booking/');
+    const dates = await page.evaluate(() => {
+      const parts = {};
+      new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).forEach(item=>{
+        if(item.type!=='literal')parts[item.type]=item.value;
+      });
+      const today=parts.year+'-'+parts.month+'-'+parts.day;
+      const offset=days=>{
+        const d=new Date(today+'T00:00:00Z');
+        d.setUTCDate(d.getUTCDate()+days);
+        return d.toISOString().slice(0,10);
+      };
+      window.dispatchEvent(new CustomEvent('booking:settings-updated',{detail:{
+        today,settings:{minAdvanceDays:2,maxAdvanceDays:5,phoneBookingNumber:'06-1234567'}
+      }}));
+      return {today,tomorrow:offset(1),online:offset(2),tooFar:offset(6)};
+    });
+    const visit = async date => {
+      for(let i=0;i<4;i++){
+        const label=await page.locator('#calendarMonthLabel').textContent();
+        const match=/([0-9]{4}) 年 ([0-9]{1,2}) 月/.exec(label||'');
+        const current=match ? match[1]+'-'+match[2].padStart(2,'0') : '';
+        const target=date.slice(0,7);
+        if(current===target)return;
+        await page.locator(current<target?'#nextMonthButton':'#previousMonthButton').click();
+      }
+      throw new Error('Failed to navigate to month '+date);
+    };
+    for(const date of [dates.today,dates.tomorrow,dates.tooFar]){
+      await visit(date);
+      const cell=page.locator('[data-date="'+date+'"]');
+      await expect(cell).toBeVisible();
+      await expect(cell).toContainText('電話預約');
+      await cell.click();
+      await expect(page.locator('#bookingDayModal')).toBeVisible();
+      await expect(page.locator('#startDayBookingButton')).toBeDisabled();
+      await expect(page.locator('#bookingPhoneFallback')).toBeVisible();
+      await expect(page.locator('#bookingPhoneFallbackNumber')).toHaveText('06-1234567');
+      await expect(page.locator('#bookingPhoneDial')).toHaveAttribute('href','tel:061234567');
+      await page.locator('#closeBookingDayButton').click();
+      await expect(page.locator('#bookingDayModal')).toBeHidden();
+    }
+    await visit(dates.online);
+    const normal=page.locator('[data-date="'+dates.online+'"]');
+    await expect(normal).not.toContainText('電話預約');
+    await normal.click();
+    await expect(page.locator('#startDayBookingButton')).toBeEnabled();
+    await expect(page.locator('#bookingPhoneFallback')).toBeHidden();
+    await page.locator('#closeBookingDayButton').click();
+    await page.evaluate(()=>{
+      window.dispatchEvent(new CustomEvent('booking:settings-updated',{
+        detail:{settings:{minAdvanceDays:2,maxAdvanceDays:5,phoneBookingNumber:''}}
+      }));
+    });
+    await visit(dates.tooFar);
+    await page.locator('[data-date="'+dates.tooFar+'"]').click();
+    await expect(page.locator('#bookingPhoneFallback')).toBeHidden();
+    await expect(page.locator('#bookingPhoneDial')).not.toHaveAttribute('href',/tel:/);
+    await expect(page.locator('#startDayBookingButton')).toBeDisabled();
+  });
+}
