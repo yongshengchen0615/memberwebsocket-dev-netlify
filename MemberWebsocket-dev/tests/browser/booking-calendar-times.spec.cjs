@@ -158,6 +158,9 @@ for (const width of [390, 1280]) {
       };
     });
 
+    await expect(page.locator('#startDayBookingButton')).toHaveText('線上預約');
+    await expect(page.locator('#bookingPhoneFallback h3, #bookingPhoneFallback p, #bookingPhoneFallback strong')).toHaveCount(0);
+
     const visit = async (date) => {
       for (let i = 0; i < 4; i++) {
         const label = await page.locator('#calendarMonthLabel').textContent();
@@ -190,6 +193,7 @@ for (const width of [390, 1280]) {
       await cell.click();
       await expect(page.locator('#startDayBookingButton')).toBeDisabled();
       await expect(page.locator('#bookingPhoneFallback')).toBeVisible();
+      await expect(page.locator('.booking-day-footer > #startDayBookingButton + #bookingPhoneFallback > #bookingPhoneDial')).toHaveText('撥打店家電話＋06-1234567');
       await expect(page.locator('#bookingPhoneDial')).toHaveAttribute('href', 'tel:061234567');
       await page.locator('#closeBookingDayButton').click();
     }
@@ -203,8 +207,17 @@ for (const width of [390, 1280]) {
       await cell.click();
       await expect(page.locator('#startDayBookingButton')).toBeEnabled();
       await expect(page.locator('#bookingPhoneFallback')).toBeVisible();
-      await expect(page.locator('#bookingPhoneFallbackNumber')).toHaveText('06-1234567');
+      await expect(page.locator('.booking-day-footer > #startDayBookingButton + #bookingPhoneFallback > #bookingPhoneDial')).toHaveText('撥打店家電話＋06-1234567');
+      await expect(page.locator('#bookingPhoneDial')).toHaveAttribute('aria-label', '撥打店家電話＋06-1234567');
       await expect(page.locator('#bookingPhoneDial')).toHaveAttribute('href', 'tel:061234567');
+      const rects = await page.evaluate(() => {
+        const online = document.getElementById('startDayBookingButton').getBoundingClientRect();
+        const phone = document.getElementById('bookingPhoneDial').getBoundingClientRect();
+        return { onlineLeft: online.left, phoneLeft: phone.left, onlineWidth: online.width, phoneWidth: phone.width, phoneBelow: phone.top > online.bottom };
+      });
+      expect(rects.phoneBelow).toBe(true);
+      expect(Math.abs(rects.onlineLeft - rects.phoneLeft)).toBeLessThan(2);
+      expect(Math.abs(rects.onlineWidth - rects.phoneWidth)).toBeLessThan(2);
       await page.locator('#closeBookingDayButton').click();
     }
 
