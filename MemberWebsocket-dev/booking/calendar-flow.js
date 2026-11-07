@@ -362,8 +362,8 @@
         button.title = '休假日，無法預約；點選查看說明';
         button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，休假日，無法預約，點選查看休假說明`);
       } else if (isAdvanceBlocked) {
-        const reason = `需提前 ${state.minAdvanceDays} 天，最早可預約 ${formatDate(minimumDate)}`;
-        button.title = reason;
+        const reason = `需提前 ${state.minAdvanceDays} 天，最早可線上預約 ${formatDate(minimumDate)}`;
+        button.title = state.phoneBookingNumber ? `${reason}；此日可電話預約` : reason;
         button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，${button.title}`);
       } else if (isRangeBlocked) {
         const reason = `超過可預約範圍，最遠可預約 ${formatDate(maximumDate)}`;
@@ -373,7 +373,7 @@
         const occupiedText = intervals.length ? `，有 ${intervals.length} 個我的預約時段` : '';
         button.setAttribute('aria-label', `${formatDate(date)}${occupiedText}${bookedTimesDescription}，可開啟預約${state.phoneBookingNumber ? '或電話預約' : ''}`);
       }
-      if (!isPast && !isHoliday && !isAdvanceBlocked && !isRangeBlocked && state.phoneBookingNumber) {
+      if (!isPast && !isHoliday && !isRangeBlocked && state.phoneBookingNumber) {
         const label = document.createElement('small');
         label.className = 'calendar-phone-badge';
         label.textContent = '電話預約';
@@ -419,6 +419,16 @@
     return '';
   }
 
+  // Phone enquiries can bypass the online advance-notice window, never the merchant's booking horizon.
+  function phoneBookingBlockReason(date) {
+    if (!date) return '請先選擇日期';
+    if (date < state.today) return '日期已過，無法預約';
+    const holidays = state.holidaysByDate.get(date) || [];
+    if (holidays.length) return '休假日，無法預約';
+    if (state.maximumDate && date > state.maximumDate) return '超過可預約範圍';
+    return '';
+  }
+
   function openDayModal(date, trigger) {
     if (!els.bookingDayModal) return;
     closeAppointmentModal(false);
@@ -438,8 +448,8 @@
     if (els.bookingDayHint) els.bookingDayHint.textContent = reason || '查看當天紀錄，或開始新的預約。';
     const phone = safePhoneBookingNumber(state.phoneBookingNumber);
     const date = state.historyDate;
-    // Use the same minimum/maximum date and holiday rules as the online booking action.
-    const phoneAllowed = Boolean(phone && date && !reason);
+    // Online lead-time rules do not block merchant-assisted phone enquiries.
+    const phoneAllowed = Boolean(phone && date && !phoneBookingBlockReason(date));
     if (els.bookingPhoneFallback) els.bookingPhoneFallback.hidden = !phoneAllowed;
     if (phoneAllowed) {
       els.bookingPhoneFallbackNumber.textContent = phone;
