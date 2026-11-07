@@ -101,10 +101,13 @@ test('AC-MEMBER-003: MemberSystem updates member cross-module links on revision 
  await expect.poll(()=>page.evaluate(()=>window.syncMetrics.length)).toBeGreaterThan(0);
  await expect(page.locator('#pointsLink')).toBeVisible();
  const initialReads=reads,initialProbes=await page.evaluate(()=>window.syncMetrics.length);
- await page.clock.runFor(30000);
- // HTTP completion happens outside the virtual clock. Drain the real probe
- // before changing authority or advancing again, as in business-sync.spec.cjs.
- await expect.poll(()=>page.evaluate(()=>window.syncMetrics.length)).toBeGreaterThan(initialProbes);
+ // Three healthy 10s intervals cover the same idle 30s. Advancing 30s in one
+ // jump also fires the real read's 15s deadline before HTTP can settle.
+ for(let i=0;i<3;i++){
+  const completed=await page.evaluate(()=>window.syncMetrics.length);
+  await page.clock.runFor(10000);
+  await expect.poll(()=>page.evaluate(()=>window.syncMetrics.length)).toBeGreaterThan(completed);
+ }
  expect(reads).toBe(initialReads);
  expect(await page.evaluate(n=>window.syncMetrics.slice(n).every(m=>m.changed===false),initialProbes)).toBe(true);
  features={membership:true,events:true};revision='2';await page.clock.runFor(10001);
