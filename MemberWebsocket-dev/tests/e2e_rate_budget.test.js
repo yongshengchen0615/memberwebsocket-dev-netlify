@@ -55,6 +55,7 @@ test('paired E2E starts every configured participant while preserving rate and s
 test('admin rate-budget assets are cache-busted', () => {
   const html = read('admin/index.html');
   assert.match(html, /app\.js\?v=[^"'\\s>]+/);
-  assert.match(html, /e2e-control\.js\?v=[^"'\\s>]+/);
+  assert.doesNotMatch(html, /e2e-control\.js\?v=[^"'\\s>]+/);
+  assert.match(read('admin/e2e-control-loader.js'), /const E2E_CONTROL_SRC/);
   assert.match(html, /booking-panel\.js\?v=[^"']+/);
 });

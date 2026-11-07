@@ -6,11 +6,11 @@ const path = require('node:path');
 const ROOT = path.resolve(__dirname, '..');
 const read = (relative) => fs.readFileSync(path.join(ROOT, relative), 'utf8');
 
-test('admin exposes only the unified background full E2E entrypoint', () => {
+test('test-only unified background full E2E source is retained outside admin UI', () => {
   const html = read('admin/index.html');
   const runner = read('admin/e2e-control.js');
-  assert.match(html, /e2e-control\.css\?v=[^"'\s]+/);
-  assert.match(html, /e2e-control\.js\?v=qa-e2e-\d{8}-\d+/);
+  assert.doesNotMatch(html, /e2e-control\.css\?v=[^"'\s]+/);
+  assert.doesNotMatch(html, /e2e-control\.js\?v=qa-e2e-\d{8}-\d+/);
   assert.match(runner, /runPairedFullE2EButton/);
   assert.match(runner, /模組 E2E · 後端 QA \+ 管理端 ↔ 用戶端協同/);
   assert.match(runner, /stopAdminE2EButton/);
@@ -126,7 +126,7 @@ test('test control API records browser results only behind admin authorization',
 });
 
 
-test('test data is retained until an admin manually purges it', () => {
+test('test data purge remains server-guarded and is no longer exposed in admin UI', () => {
   const html = read('admin/index.html');
   const control = read('admin/test-control.js');
   const api = read('supabase/functions/test-control-api/index.ts');
@@ -134,9 +134,9 @@ test('test data is retained until an admin manually purges it', () => {
   const adminRunner = read('admin/e2e-control.js');
   const migration = read('supabase/migrations/20260922055500_preserve_test_data_manual_purge.sql');
 
-  assert.match(html, /id="purgeTestDataButton"/);
-  assert.match(html, /測試資料與測試紀錄分開管理/);
-  assert.match(html, /id="keepTestHistoryOnPurge"/);
+  assert.doesNotMatch(html, /id="purgeTestDataButton"/);
+  assert.doesNotMatch(html, /測試資料與測試紀錄分開管理/);
+  assert.doesNotMatch(html, /id="keepTestHistoryOnPurge"/);
   assert.match(control, /admin\.test-control\.purge-test-data/);
   assert.match(control, /測試帳號與測試模式環境設定會保留/);
   assert.match(api, /action === "admin\.test-control\.purge-test-data"/);

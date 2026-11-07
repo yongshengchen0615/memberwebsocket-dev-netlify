@@ -1,0 +1,41 @@
+LOCATION_template — search, select, rename, radius, adjust, clear, remove and persist Attribute inert
+
+false !== true
+ [] [] 
+▶ admin human journeys — DOM integration, not Chromium evidence
+  ✖ LOCATION_template — search, select, rename, radius, adjust, clear, remove and persist (8248.250025ms)
+✖ admin human journeys — DOM integration, not Chromium evidence (8293.536755ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9795.050618
+
+✖ failing tests:
+
+test at MemberWebsocket-dev/tests/integration/admin_human_journeys.cjs:106:15
+✖ LOCATION_template — search, select, rename, radius, adjust, clear, remove and persist (8248.250025ms)
+  AssertionError [ERR_ASSERTION]: Attribute inert
+  
+  false !== true
+  
+      at truth (/workspace/scratch/c10180b38abd/member-system/MemberWebsocket-dev/tests/integration/admin_human_journeys.cjs:74:36)
+      at /workspace/scratch/c10180b38abd/member-system/MemberWebsocket-dev/tests/integration/admin_human_journeys.cjs:91:37
+      at /workspace/scratch/c10180b38abd/member-system/MemberWebsocket-dev/tests/integration/admin_human_journeys.cjs:73:70
+      at eventually (/workspace/scratch/c10180b38abd/member-system/MemberWebsocket-dev/tests/integration/admin_human_journeys.cjs:13:81)
+      at async Object.fn (/workspace/scratch/c10180b38abd/member-system/MemberWebsocket-dev/tests/browser/admin-human.spec.cjs:269:18)
+      at async TestContext.<anonymous> (/workspace/scratch/c10180b38abd/member-system/MemberWebsocket-dev/tests/integration/admin_human_journeys.cjs:108:62)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async TestContext.<anonymous> (/workspace/scratch/c10180b38abd/member-system/MemberWebsocket-dev/tests/integration/admin_human_journeys.cjs:106:7)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

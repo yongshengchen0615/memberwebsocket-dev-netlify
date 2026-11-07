@@ -1,0 +1,209 @@
+{
+  "format": 1,
+  "scope": "Source references only; no configuration values are read",
+  "variables": [
+    {
+      "key": "ALLOWED_ORIGINS",
+      "scope": "platform",
+      "secret": false,
+      "disposition": "retain pending verified live inventory and provider smoke",
+      "references": [
+        "MemberWebsocket-dev/supabase/functions/_shared/business-runtime.ts:159",
+        "MemberWebsocket-dev/supabase/functions/api/index.ts:107",
+        "MemberWebsocket-dev/supabase/functions/birthday-benefits/index.ts:3",
+        "MemberWebsocket-dev/supabase/functions/booking-admin-api/index.ts:29",
+        "MemberWebsocket-dev/supabase/functions/booking-admin-operations/index.ts:42",
+        "MemberWebsocket-dev/supabase/functions/booking-api/index.ts:48",
+        "MemberWebsocket-dev/supabase/functions/booking-calendar-api/index.ts:36",
+        "MemberWebsocket-dev/supabase/functions/booking-cancellation-api/index.ts:39",
+        "MemberWebsocket-dev/supabase/functions/booking-contact-api/shared.ts:36",
+        "MemberWebsocket-dev/supabase/functions/booking-group-api/index.ts:33",
+        "MemberWebsocket-dev/supabase/functions/booking-group-details-api/index.ts:22",
+        "MemberWebsocket-dev/supabase/functions/booking-group-slots-api/index.ts:30",
+        "MemberWebsocket-dev/supabase/functions/booking-receipt-api/index.ts:32",
+        "MemberWebsocket-dev/supabase/functions/booking-technician-delete/index.ts:3",
+        "MemberWebsocket-dev/supabase/functions/e2e-artifact-api/index.ts:27",
+        "MemberWebsocket-dev/supabase/functions/event-ticket-extension-api/index.ts:19",
+        "MemberWebsocket-dev/supabase/functions/event-ticket-links/index.ts:32",
+        "MemberWebsocket-dev/supabase/functions/fixed-ticket-automation/index.ts:41",
+        "MemberWebsocket-dev/supabase/functions/grant-automation/index.ts:42",
+        "MemberWebsocket-dev/supabase/functions/member-calendar-api/index.ts:34",
+        "MemberWebsocket-dev/supabase/functions/member-growth-api/index.ts:28",
+        "MemberWebsocket-dev/supabase/functions/member-profile-api/index.ts:34",
+        "MemberWebsocket-dev/supabase/functions/platform-api/index.ts:13",
+        "MemberWebsocket-dev/supabase/functions/pointcard-extension-api/index.ts:19",
+        "MemberWebsocket-dev/supabase/functions/test-control-api/index.ts:45",
+        "MemberWebsocket-dev/supabase/functions/test-mode-api/index.ts:41",
+        "MemberWebsocket-dev/supabase/functions/user-test-api/index.ts:43"
+      ]
+    },
+    {
+      "key": "GRANT_MESSAGE_DISPATCH_SECRET",
+      "scope": "server jobs or application",
+      "secret": true,
+      "disposition": "retain pending verified live inventory and provider smoke",
+      "references": [
+        "MemberWebsocket-dev/supabase/functions/scheduled-grant-messages/index.ts:168"
+      ]
+    },
+    {
+      "key": "LINE_ADMIN_CHANNEL_ID",
+      "scope": "legacy platform defaults; business/module override",
+      "secret": false,
+      "disposition": "retain pending verified live inventory and provider smoke",
+      "references": [
+        "MemberWebsocket-dev/supabase/functions/_shared/auth-contract.ts:76",
+        "MemberWebsocket-dev/supabase/functions/booking-admin-api/index.ts:113",
+        "MemberWebsocket-dev/supabase/functions/booking-admin-operations/index.ts:138",
+        "MemberWebsocket-dev/supabase/functions/booking-group-details-api/index.ts:172",
+        "MemberWebsocket-dev/supabase/functions/booking-receipt-api/index.ts:88",
+        "MemberWebsocket-dev/supabase/functions/e2e-artifact-api/index.ts:60",
+        "MemberWebsocket-dev/supabase/functions/fixed-ticket-automation/index.ts:66",
+        "MemberWebsocket-dev/supabase/functions/grant-automation/index.ts:81",
+        "MemberWebsocket-dev/supabase/functions/test-control-api/index.ts:170"
+      ]
+    },
+    {
+      "key": "LINE_BOOKING_CHANNEL_ID",
+      "scope": "legacy platform defaults; business/module override",
+      "secret": false,
+      "disposition": "retain pending verified live inventory and provider smoke",
+      "references": [
+        "MemberWebsocket-dev/supabase/functions/booking-receipt-api/index.ts:77",
+        "MemberWebsocket-dev/supabase/functions/member-growth-api/index.ts:53"
+      ]
+    },
+    {
+      "key": "LINE_EVENT_CHANNEL_ID",
+      "scope": "legacy platform defaults; business/module override",
+      "secret": false,
+      "disposition": "retain pending verified live inventory and provider smoke",
+      "references": [
+        "MemberWebsocket-dev/supabase/functions/member-growth-api/index.ts:55"
+      ]
+    },
+    {
+      "key": "LINE_MEMBER_CHANNEL_ID",
+      "scope": "legacy platform defaults; business/module override",
+      "secret": false,
+      "disposition": "retain pending verified live inventory and provider smoke",
+      "references": [
+        "MemberWebsocket-dev/supabase/functions/_shared/business-runtime_test.ts:96",
+        "MemberWebsocket-dev/supabase/functions/booking-calendar-api/index.ts:80",
+        "MemberWebsocket-dev/supabase/functions/booking-group-slots-api/index.ts:93",
+        "MemberWebsocket-dev/supabase/functions/member-growth-api/index.ts:56",
+        "MemberWebsocket-dev/supabase/functions/member-profile-api/index.ts:56"
+      ]
+    },
+    {
+      "key": "LINE_MESSAGING_CHANNEL_ACCESS_TOKEN",
+      "scope": "legacy platform defaults; business/module override",
+      "secret": true,
+      "disposition": "retain pending verified live inventory and provider smoke",
+      "references": [
+        "MemberWebsocket-dev/supabase/functions/_shared/business-runtime_test.ts:46"
+      ]
+    },
+    {
+      "key": "LINE_POINTS_CHANNEL_ID",
+      "scope": "legacy platform defaults; business/module override",
+      "secret": false,
+      "disposition": "retain pending verified live inventory and provider smoke",
+      "references": [
+        "MemberWebsocket-dev/supabase/functions/member-growth-api/index.ts:54"
+      ]
+    },
+    {
+      "key": "PLATFORM_CREDENTIAL_ENCRYPTION_KEY",
+      "scope": "platform",
+      "secret": true,
+      "disposition": "retain pending verified live inventory and provider smoke",
+      "references": [
+        "MemberWebsocket-dev/supabase/functions/_shared/business-runtime.ts:86",
+        "MemberWebsocket-dev/supabase/functions/platform-api/index.ts:18"
+      ]
+    },
+    {
+      "key": "SUPABASE_SERVICE_ROLE_KEY",
+      "scope": "platform",
+      "secret": true,
+      "disposition": "retain pending verified live inventory and provider smoke",
+      "references": [
+        "MemberWebsocket-dev/supabase/functions/_shared/auth-contract.ts:52",
+        "MemberWebsocket-dev/supabase/functions/_shared/business-runtime.ts:11",
+        "MemberWebsocket-dev/supabase/functions/_shared/business-runtime_test.ts:28",
+        "MemberWebsocket-dev/supabase/functions/_shared/business-runtime_test.ts:42",
+        "MemberWebsocket-dev/supabase/functions/api/index.ts:286",
+        "MemberWebsocket-dev/supabase/functions/booking-admin-api/index.ts:86",
+        "MemberWebsocket-dev/supabase/functions/booking-admin-operations/index.ts:133",
+        "MemberWebsocket-dev/supabase/functions/booking-api/index.ts:139",
+        "MemberWebsocket-dev/supabase/functions/booking-calendar-api/index.ts:74",
+        "MemberWebsocket-dev/supabase/functions/booking-cancellation-api/index.ts:34",
+        "MemberWebsocket-dev/supabase/functions/booking-contact-api/shared.ts:67",
+        "MemberWebsocket-dev/supabase/functions/booking-group-api/index.ts:96",
+        "MemberWebsocket-dev/supabase/functions/booking-group-details-api/index.ts:43",
+        "MemberWebsocket-dev/supabase/functions/booking-group-slots-api/index.ts:85",
+        "MemberWebsocket-dev/supabase/functions/booking-line-notifications/index.ts:22",
+        "MemberWebsocket-dev/supabase/functions/booking-receipt-api/index.ts:48",
+        "MemberWebsocket-dev/supabase/functions/e2e-artifact-api/index.ts:55",
+        "MemberWebsocket-dev/supabase/functions/e2e-artifact-retention/index.ts:12",
+        "MemberWebsocket-dev/supabase/functions/event-ticket-extension-api/index.ts:37",
+        "MemberWebsocket-dev/supabase/functions/event-ticket-links/index.ts:106",
+        "MemberWebsocket-dev/supabase/functions/fixed-ticket-automation/index.ts:35",
+        "MemberWebsocket-dev/supabase/functions/grant-automation/index.ts:37",
+        "MemberWebsocket-dev/supabase/functions/member-calendar-api/index.ts:252",
+        "MemberWebsocket-dev/supabase/functions/member-growth-api/index.ts:48",
+        "MemberWebsocket-dev/supabase/functions/member-profile-api/index.ts:45",
+        "MemberWebsocket-dev/supabase/functions/platform-api/index.ts:15",
+        "MemberWebsocket-dev/supabase/functions/pointcard-extension-api/index.ts:37",
+        "MemberWebsocket-dev/supabase/functions/scheduled-grant-messages/index.ts:17",
+        "MemberWebsocket-dev/supabase/functions/test-control-api/index.ts:160",
+        "MemberWebsocket-dev/supabase/functions/test-mode-api/index.ts:119",
+        "MemberWebsocket-dev/supabase/functions/user-test-api/index.ts:109",
+        "MemberWebsocket-dev/supabase/functions/user-test-api/index.ts:79"
+      ]
+    },
+    {
+      "key": "SUPABASE_URL",
+      "scope": "platform",
+      "secret": false,
+      "disposition": "retain pending verified live inventory and provider smoke",
+      "references": [
+        "MemberWebsocket-dev/supabase/functions/_shared/auth-contract.ts:51",
+        "MemberWebsocket-dev/supabase/functions/_shared/business-runtime.ts:11",
+        "MemberWebsocket-dev/supabase/functions/_shared/business-runtime_test.ts:28",
+        "MemberWebsocket-dev/supabase/functions/_shared/business-runtime_test.ts:42",
+        "MemberWebsocket-dev/supabase/functions/_shared/business-scope.ts:23",
+        "MemberWebsocket-dev/supabase/functions/api/index.ts:285",
+        "MemberWebsocket-dev/supabase/functions/booking-admin-api/index.ts:85",
+        "MemberWebsocket-dev/supabase/functions/booking-admin-operations/index.ts:132",
+        "MemberWebsocket-dev/supabase/functions/booking-api/index.ts:138",
+        "MemberWebsocket-dev/supabase/functions/booking-calendar-api/index.ts:73",
+        "MemberWebsocket-dev/supabase/functions/booking-cancellation-api/index.ts:33",
+        "MemberWebsocket-dev/supabase/functions/booking-contact-api/shared.ts:66",
+        "MemberWebsocket-dev/supabase/functions/booking-group-api/index.ts:96",
+        "MemberWebsocket-dev/supabase/functions/booking-group-details-api/index.ts:42",
+        "MemberWebsocket-dev/supabase/functions/booking-group-slots-api/index.ts:84",
+        "MemberWebsocket-dev/supabase/functions/booking-line-notifications/index.ts:22",
+        "MemberWebsocket-dev/supabase/functions/booking-receipt-api/index.ts:48",
+        "MemberWebsocket-dev/supabase/functions/e2e-artifact-api/index.ts:54",
+        "MemberWebsocket-dev/supabase/functions/e2e-artifact-retention/index.ts:11",
+        "MemberWebsocket-dev/supabase/functions/event-ticket-extension-api/index.ts:36",
+        "MemberWebsocket-dev/supabase/functions/event-ticket-links/index.ts:105",
+        "MemberWebsocket-dev/supabase/functions/fixed-ticket-automation/index.ts:34",
+        "MemberWebsocket-dev/supabase/functions/grant-automation/index.ts:36",
+        "MemberWebsocket-dev/supabase/functions/member-calendar-api/index.ts:251",
+        "MemberWebsocket-dev/supabase/functions/member-growth-api/index.ts:47",
+        "MemberWebsocket-dev/supabase/functions/member-profile-api/index.ts:45",
+        "MemberWebsocket-dev/supabase/functions/platform-api/index.ts:15",
+        "MemberWebsocket-dev/supabase/functions/pointcard-extension-api/index.ts:36",
+        "MemberWebsocket-dev/supabase/functions/scheduled-grant-messages/index.ts:16",
+        "MemberWebsocket-dev/supabase/functions/test-control-api/index.ts:1219",
+        "MemberWebsocket-dev/supabase/functions/test-control-api/index.ts:159",
+        "MemberWebsocket-dev/supabase/functions/test-mode-api/index.ts:118",
+        "MemberWebsocket-dev/supabase/functions/user-test-api/index.ts:108",
+        "MemberWebsocket-dev/supabase/functions/user-test-api/index.ts:78"
+      ]
+    }
+  ]
+}

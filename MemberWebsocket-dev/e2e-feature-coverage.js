@@ -68,7 +68,6 @@
     ['booking.accessible-admin', '快照待確認、真人審核、服務／票券／點數結算與冪等重送', 'booking', 'admin', 'lifecycle', ['ADMIN_BOOKING_ACCESSIBLE_QUEUE','ADMIN_BOOKING_ACCESSIBLE_REVIEW','ADMIN_BOOKING_ACCESSIBLE_IDEMPOTENCY'], [], 'E2E 使用測試會員的去識別化螢幕快照；實體相機權限仍需裝置驗收'],
     ['booking.sources', '預約紀錄的集點卡／活動票券來源卡片', 'booking', 'both', 'contract', ['ADMIN_BOOKING_HISTORY_TICKET_SOURCES'], ['BOOKING_HISTORY_TICKET_SOURCES']],
     ['integration.overview', '整合總覽、權益、通知與 Audit', 'integration', 'admin', 'interaction', ['ADMIN_INTEGRATION_CENTER','ADMIN_INTEGRATION_NAVIGATION'], []],
-    ['integration.audit', '操作稽核：日期驗證、測試會員查詢與詳情', 'integration', 'admin', 'interaction', ['ADMIN_OPERATION_AUDIT'], []],
     ['testing.accounts', '測試帳號新增、選取與移除', 'testing', 'admin', 'lifecycle', ['ADMIN_TEST_MODE_CONTROLS','ADMIN_TEST_ACCOUNT_LIFECYCLE'], []],
   ].map(([id, name, module, side, level, admin, user, limitation = '', scopes = {}, levels = {}]) => Object.freeze({id,name,module,side,level,admin:Object.freeze(admin),user:Object.freeze(user),limitation,scopes,levels}));
 

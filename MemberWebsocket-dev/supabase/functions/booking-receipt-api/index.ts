@@ -1,10 +1,12 @@
+import { bookingPriceOptions, withBookingPrices, bookingPriceError } from '../_shared/booking-price-publishing.mjs';
+import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
 import { bookingTicketUsageError } from "../_shared/booking-ticket-usage.ts";
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
 import { resolveUserTestIdentity, TestModeAuthError } from "../_shared/test-mode-auth.ts";
 import { hasCurrentTermsConsent } from "../_shared/membership-terms.ts";
 import { loadBookingBenefits } from "../_shared/booking-benefits.ts";
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 
 type Json = Record<string, unknown>;
 type Identity = { lineUserId: string; displayName: string };
@@ -25,7 +27,7 @@ class ApiError extends Error {
   }
 }
 
-function env(name: string): string { return (Deno.env.get(name) || "").trim(); }
+function env(name: string): string { return (businessEnv(name) || "").trim(); }
 function asText(value: unknown, max=1000): string { return String(value ?? "").trim().slice(0,max); }
 function allowedOrigins(): Set<string> {
   return new Set([(env("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io"), "https://develop--memberwebsocket-dev-netlify.netlify.app"].join(",").split(",").map(v=>v.trim()).filter(Boolean));
@@ -43,10 +45,10 @@ function corsHeaders(origin: string | null): HeadersInit {
 function response(origin: string | null,payload:unknown,status=200):Response {
   return new Response(JSON.stringify(payload),{status,headers:{...corsHeaders(origin),"Content-Type":"application/json; charset=utf-8"}});
 }
-function dbClient(): SupabaseClient {
+function dbClient(body: Record<string, any> = {}): SupabaseClient {
   const url=env("SUPABASE_URL"); const key=env("SUPABASE_SERVICE_ROLE_KEY");
   if(!url||!key) throw new ApiError(503,"SUPABASE_CONFIG_MISSING","Supabase server 設定尚未完成。");
-  return createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
+  return withBookingPrices(createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false }, ...bookingPriceOptions(body) }), body);
 }
 async function sha256Hex(value: string):Promise<string>{
   const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));
@@ -99,6 +101,7 @@ async function requireMember(supabase:SupabaseClient,identity:Identity):Promise<
   return member;
 }
 function dbError(error:unknown):ApiError{
+  const priceError = bookingPriceError(error); if (priceError) return new ApiError(priceError.status, priceError.code, priceError.message);
   const ticketError=bookingTicketUsageError(error,(status,code,message)=>new ApiError(status,code,message));
   if(ticketError) return ticketError as ApiError;
   const raw=error as {message?:string;details?:string;code?:string};
@@ -279,13 +282,15 @@ async function prepare(supabase:SupabaseClient,identity:Identity,member:any,body
   }
   const path=asText(prepared.objectPath,500);
   const signed=await supabase.storage.from(BUCKET).createSignedUploadUrl(path,{upsert:false});
-  if(signed.error||!signed.data?.token) {
+  if(signed.error||!signed.data?.token||!signed.data?.path) {
     await supabase.rpc("fail_booking_receipt_request",{p_receipt_id:prepared.receiptId,p_member_id:member.id,p_actor_line_user_id:identity.lineUserId,p_reason:"signed-upload-url-failed"});
     throw new ApiError(503,"RECEIPT_UPLOAD_UNAVAILABLE","目前無法建立安全上傳連結。");
   }
   return {
     receiptId:prepared.receiptId,
-    objectPath:path,
+    // The scoped Storage adapter prefixes the tenant UUID. Browsers upload
+    // directly, so they need the exact signed path, not the DB-relative path.
+    objectPath:signed.data.path,
     uploadToken:signed.data.token,
     uploadExpiresInSeconds:7200,
     alreadyPrepared:Boolean(prepared.alreadyPrepared),
@@ -890,7 +895,7 @@ async function registrationOptions(supabase:SupabaseClient,body:Json):Promise<Js
   }
 
   const [services,settings,bookings,rewardRules,memberResult,currentBenefitsResult]=await Promise.all([
-    supabase.from("booking_services").select("id,title,duration_minutes,service_type,counts_toward_membership").eq("is_active",true).is("deleted_at",null).neq("id","00000000-0000-4000-8000-000000000010").order("title"),
+    supabase.from("booking_services").select("id,title,duration_minutes,service_type,counts_toward_membership,price_amount,price_version").eq("is_active",true).is("deleted_at",null).neq("id","00000000-0000-4000-8000-000000000010").order("title"),
     supabase.from("booking_settings").select("primary_technician_id,require_primary_technician").eq("id",1).maybeSingle(),
     supabase.from("bookings").select("id,booking_date,start_time,status,booking_items(service_id,service_title),booking_receipts!booking_receipts_booking_id_fkey(status)").eq("member_id",receipt.data.member_id)
       .in("status",["confirmed","completed"]).order("booking_date",{ascending:false}).limit(80),
@@ -955,7 +960,7 @@ async function registrationOptions(supabase:SupabaseClient,body:Json):Promise<Js
   };
 }
 
-Deno.serve(async(request:Request)=>{
+serveBusiness('booking-receipt-api',async(request:Request)=>{
   const origin=request.headers.get("Origin");
   if(request.method==="OPTIONS") return new Response(null,{status:204,headers:corsHeaders(origin)});
   if(request.method!=="POST") return response(origin,{ok:false,error:{code:"METHOD_NOT_ALLOWED",message:"只支援 POST。"}},405);
@@ -968,7 +973,7 @@ Deno.serve(async(request:Request)=>{
     const adminActions=new Set(["admin.booking.receipt.list","admin.booking.receipt.url","admin.booking.receipt.options","admin.booking.receipt.register","admin.booking.receipt.dismiss"]);
     if(!userActions.has(action)&&!adminActions.has(action)) throw new ApiError(404,"ACTION_NOT_FOUND","不支援的收據操作。");
 
-    const supabase=dbClient();
+    const supabase = dbClient(body);
     const expiredReceipts=await supabase.rpc("expire_stale_booking_receipts");
     if(expiredReceipts.error) console.warn("booking receipt stale cleanup failed", expiredReceipts.error.message);
     await drainCleanupQueue(supabase);

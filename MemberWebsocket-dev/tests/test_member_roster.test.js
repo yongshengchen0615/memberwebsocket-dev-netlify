@@ -6,15 +6,12 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 
-test('member directory splits real and test users with one shared renderer', () => {
+test('retired test-member UI: only real-member roster is selectable', () => {
   const html = read('admin/index.html');
   const app = read('admin/app.js');
-  assert.match(html, /id="realMembersSubtab"/);
-  assert.match(html, /id="testMembersSubtab"/);
+  assert.doesNotMatch(html, /id="realMembersSubtab"|id="testMembersSubtab"/);
+  assert.doesNotMatch(app, /switchMemberKind\('test'\)|memberKind: state\.memberKind/);
   assert.match(app, /memberKind: 'real'/);
-  assert.match(app, /switchMemberKind\('real'\)/);
-  assert.match(app, /switchMemberKind\('test'\)/);
-  assert.match(app, /memberKind: state\.memberKind/);
   assert.equal((app.match(/function renderMembers\(/g) || []).length, 1);
 });
 
@@ -28,29 +25,21 @@ test('admin API pages real and test members through the same domain model', () =
   }
 });
 
-test('only test member virtual profile is editable from admin', () => {
+test('retired test-member UI cannot edit synthetic personal profiles', () => {
   const html = read('admin/index.html');
   const app = read('admin/app.js');
-  const api = read('supabase/functions/api/index.ts');
-  assert.match(html, /id="memberTestProfileFields"/);
-  assert.match(html, /id="memberDisplayName"/);
-  assert.match(html, /id="memberSurname"/);
-  assert.match(html, /id="memberSalutation"/);
-  assert.match(html, /id="memberBirthday"/);
-  assert.match(html, /id="memberPhone"/);
-  assert.match(app, /els\.memberIsTestAccount\.value === 'true'/);
-  assert.match(api, /current\.data\.is_test_account === true && profile/);
-  assert.match(api, /TEST_PROFILE_ONLY/);
-  assert.match(api, /action:"ADMIN_MEMBER_UPDATE"/);
+  assert.doesNotMatch(html, /memberTestProfileFields|memberIsTestAccount|id="memberDisplayName"/);
+  assert.doesNotMatch(app, /memberTestProfileFields|els\.memberIsTestAccount/);
+  assert.match(app, /status: els\.memberStatus\.value/);
+  assert.match(app, /admin\.member\.update/);
 });
 
 test('test grants never enter LINE push notification path', () => {
   const html = read('admin/index.html');
   const app = read('admin/app.js');
   const api = read('supabase/functions/api/index.ts');
-  assert.match(html, /id="grantTestNotificationNote"/);
-  assert.match(html, /測試用戶僅建立測試資料，不會傳送 LINE 訊息/);
-  assert.match(app, /grantMessageSection\.classList\.toggle\('hidden', isTestAccount\)/);
+  assert.doesNotMatch(html, /id="grantTestNotificationNote"/);
+  assert.doesNotMatch(app, /grantMessageSection\.classList\.toggle\('hidden', isTestAccount\)/);
   assert.match(api, /isTestAccount[\s\S]*測試用戶不發送 LINE 通知/);
   assert.match(api, /Boolean\(grantResult\.applied\) && !isTestAccount/);
   assert.match(api, /messagePresetId && !isTestAccount/);

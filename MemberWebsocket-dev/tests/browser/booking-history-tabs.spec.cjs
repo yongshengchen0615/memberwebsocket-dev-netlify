@@ -29,6 +29,7 @@ const fixtureScript = [
   "};",
   "window.addEventListener('DOMContentLoaded', () => {",
   "  document.getElementById('bookingView').classList.remove('hidden');",
+  "  document.getElementById('bookingDayModal').classList.remove('hidden');",
   "  window.renderFixtureHistory(['pending', 'confirmed', 'cancel_requested', 'completed', 'cancelled', 'rejected', 'no_show']);",
   "});",
 ].join('\n');

@@ -18,8 +18,8 @@ internal documents and local Netlify state are excluded from `dist`.
 
 ## Netlify configuration
 
-Use the existing project `memberwebsocket-dev-netlify`
-(`23796c62-480a-4b46-ac90-bfbc5ad4d300`). Connect this repository's `main` branch.
+Use the recreated project `memberwebsocket-dev-netlify`
+(`196e1d2c-8216-4ba8-aeb9-1706660adc2b`). The currently connected production branch is `master`. The `Integrated-Marketing-Platform` development branch uses a **native Netlify branch deploy**, published after exact-SHA CI succeeds, at `https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app/platform/`. The GitHub release workflow validates the existing native deploy, reproduces its build artifact, verifies public files, CORS, and read-only Chromium E2E, and never uploads a competing branch ZIP. The production `master` deploy is unchanged.
 Leave the base and package directories empty. The root `netlify.toml` sets:
 
 - Build command: `node scripts/build-site.mjs`
@@ -76,5 +76,5 @@ Browser fixture tests do not establish that external LINE login works on Netlify
 ## Recovery
 
 For an incorrect published version, revert the relevant Git commit and push the
-correction to `main` so continuous deployment builds the correction. A failed
+correction to the currently configured production branch `master` so continuous deployment builds the correction. A failed
 Netlify deploy leaves the previously published version in place.

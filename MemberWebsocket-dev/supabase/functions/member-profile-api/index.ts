@@ -1,7 +1,11 @@
+import { businessEnv, businessContext, serveBusiness } from '../_shared/business-runtime.ts';
+import { requireMemberOaBeforeActivation, memberOaGuidance, strictLineAccessToken } from '../_shared/member-oa-registration-gate.mjs';
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract } from "../_shared/auth-contract.ts";
 import { resolveUserTestIdentity, TestModeAuthError } from "../_shared/test-mode-auth.ts";
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
+
+import { hashInvitationToken, invitationDatabaseError, InvitationError } from '../_shared/member-invitations.mjs';
 
 type Json = Record<string, unknown>;
 type Identity = { lineUserId: string; displayName: string };
@@ -19,12 +23,13 @@ class ApiError extends Error {
   }
 }
 
-function env(name: string): string { return (Deno.env.get(name) || "").trim(); }
+function env(name: string): string { return (businessEnv(name) || "").trim(); }
 function asText(value: unknown, max = 1000): string { return String(value ?? "").trim().slice(0, max); }
 const DEFAULT_ALLOWED_ORIGINS = [
   "https://yongshengchen0615.github.io",
   "https://memberwebsocket-dev-netlify.netlify.app",
   "https://develop--memberwebsocket-dev-netlify.netlify.app",
+  "https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app",
 ];
 function allowedOrigins(): Set<string> {
   return new Set([
@@ -107,6 +112,8 @@ async function profileFor(supabase: SupabaseClient, member: any): Promise<Json> 
     joinedAt: member.joined_at || member.created_at,
     birthday: member.birthday || "",
     phone: normalizePhone(member.phone) || member.phone || "",
+    phoneVerified: Boolean(member.phone_verified_at && member.phone_verified_e164 === normalizePhone(member.phone)),
+    phoneVerificationRequired: requirePhoneOtp(),
     surname,
     salutation,
     salutationLabel: salutation === "mr" ? "先生" : salutation === "ms" ? "小姐" : "",
@@ -163,6 +170,101 @@ function isValidPhone(value: string): boolean {
   if (!isValidE164(value) || hasSuspiciousPhoneRepetition(value)) return false;
   if (value.startsWith("+886")) return /^\+886(?:9\d{8}|[2-8]\d{7,8})$/.test(value);
   return true;
+}
+
+
+function requirePhoneOtp(): boolean { return env("TWILIO_VERIFY_REQUIRED").toLowerCase() === "true"; }
+function checkSmsCountry(phone: string): void {
+  const countries = (env("TWILIO_VERIFY_ALLOWED_COUNTRY_CODES") || "+886").split(",").map(s => s.trim()).filter(Boolean);
+  if (!countries.some(code => /^\+[1-9]\d{0,3}$/.test(code) && phone.startsWith(code))) {
+    throw new ApiError(400, "PHONE_COUNTRY_UNAVAILABLE", "目前尚未開放此國碼的手機簡訊驗證。");
+  }
+  // Taiwan SMS verification is for mobile numbers, not landlines.
+  if (phone.startsWith("+886") && !/^\+8869\d{8}$/.test(phone)) {
+    throw new ApiError(400, "PHONE_MOBILE_REQUIRED", "請輸入可接收簡訊的台灣手機號碼。");
+  }
+}
+async function twilioVerify(endpoint: "Verifications" | "VerificationCheck", values: Record<string, string>): Promise<Record<string, unknown>> {
+  const serviceSid = env("TWILIO_VERIFY_SERVICE_SID");
+  const keySid = env("TWILIO_API_KEY_SID");
+  const keySecret = env("TWILIO_API_KEY_SECRET");
+  if (!/^VA[a-fA-F0-9]{32}$/.test(serviceSid) || !/^SK[a-fA-F0-9]{32}$/.test(keySid) || !keySecret) {
+    throw new ApiError(503, "PHONE_VERIFY_UNAVAILABLE", "手機認證尚未設定完成，請聯繫管理員。");
+  }
+  let remote: Response;
+  try {
+    remote = await fetch(`https://verify.twilio.com/v2/Services/${serviceSid}/${endpoint}`, {
+      method: "POST",
+      headers: {
+        Authorization: "Basic " + btoa(`${keySid}:${keySecret}`),
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams(values),
+      signal: AbortSignal.timeout(12_000),
+    });
+  } catch {
+    throw new ApiError(503, "PHONE_VERIFY_UNAVAILABLE", "暫時無法連線簡訊驗證服務，請稍後再試。");
+  }
+  const data = await remote.json().catch(() => null);
+  if (!remote.ok || !data || typeof data !== "object") {
+    if (remote.status === 429) throw new ApiError(429, "PHONE_VERIFY_RATE_LIMITED", "驗證要求過於頻繁，請稍後再試。");
+    if (remote.status === 404 && endpoint === "VerificationCheck") throw new ApiError(400, "PHONE_OTP_EXPIRED", "驗證碼已失效，請重新發送。");
+    if (remote.status >= 400 && remote.status < 500 && endpoint === "VerificationCheck") {
+      throw new ApiError(400, "PHONE_OTP_INVALID", "驗證碼不正確或已失效，請重新確認。");
+    }
+    throw new ApiError(503, "PHONE_VERIFY_UNAVAILABLE", "簡訊驗證服務暫時無法使用，請稍後再試。");
+  }
+  return data as Record<string, unknown>;
+}
+async function sendPhoneOtp(supabase: SupabaseClient, identity: Identity, member: any, phone: string): Promise<{ sent: boolean; alreadyVerified: boolean }> {
+  if (!requirePhoneOtp()) throw new ApiError(409, "PHONE_VERIFY_NOT_ENABLED", "目前未啟用手機簡訊驗證。");
+  if (member.status !== "active" || member.is_test_account === true) {
+    throw new ApiError(403, "PHONE_VERIFY_NOT_ALLOWED", "此會員目前無法進行手機驗證。");
+  }
+  if (!isValidPhone(phone)) throw new ApiError(400, "INVALID_PHONE", "請輸入正確的手機號碼。");
+  checkSmsCountry(phone);
+  // An already-verified binding is reusable by this same LINE member. Never
+  // send another paid SMS merely because the UI was reopened or refreshed.
+  if (member.phone_verified_at && member.phone_verified_e164 === phone) {
+    return { sent: false, alreadyVerified: true };
+  }
+  if (member.membership_status === "active" && normalizePhone(member.phone) === phone) {
+    return { sent: false, alreadyVerified: false };
+  }
+  // Fast failure prevents paying Twilio to verify another member's claimed phone.
+  // The unique index remains the authority for simultaneous claims.
+  const claimed = await supabase.from("members").select("id")
+    .eq("phone_verified_e164", phone).neq("id", member.id).maybeSingle();
+  if (claimed.error) throw new ApiError(503, "PHONE_BINDING_UNAVAILABLE", "暫時無法確認此電話的綁定狀態。");
+  if (claimed.data) throw new ApiError(409, "PHONE_ALREADY_USED", "此電話已完成其他會員綁定，請使用其他電話或聯繫管理員。");
+  for (const target of [`otp-member:${identity.lineUserId}`, `otp-destination:${phone}`]) {
+    const { data, error } = await supabase.rpc("consume_api_rate_limit", {
+      p_principal_hash: await sha256(target),
+      p_is_write: true, p_cost: 1, p_read_limit: 90, p_write_limit: 3,
+    });
+    if (error) throw new ApiError(503, "RATE_LIMIT_UNAVAILABLE", "無法確認發送頻率限制。");
+    if (!data) throw new ApiError(429, "PHONE_VERIFY_RATE_LIMITED", "驗證碼發送過於頻繁，請稍後再試。");
+  }
+  const sent = await twilioVerify("Verifications", { To: phone, Channel: "sms" });
+  if (sent.status !== "pending") throw new ApiError(503, "PHONE_VERIFY_UNAVAILABLE", "驗證碼未能成功發送，請稍後再試。");
+  return { sent: true, alreadyVerified: false };
+}
+function verifiedPhoneWriteError(error: { code?: string; message?: string }): ApiError {
+  const msg = String(error?.message || "");
+  if (error?.code === "23505" || msg.includes("members_verified_phone_unique")) {
+    return new ApiError(409, "PHONE_ALREADY_USED", "此電話已完成其他會員綁定，請使用其他電話或聯繫管理員。");
+  }
+  if (msg.includes("PROFILE_CONFLICT")) return new ApiError(409, "PROFILE_CONFLICT", "會員資料已更新，請重新載入後再試。");
+  if (msg.includes("MEMBERSHIP_REQUIRED")) return new ApiError(403, "MEMBERSHIP_REQUIRED", "會員目前無法修改電話。");
+  return new ApiError(503, "PHONE_BINDING_UNAVAILABLE", "電話驗證已完成，但儲存狀態不明，請重新整理確認，勿重複提交。");
+}
+async function verifyPhoneOtp(phone: string, code: string): Promise<void> {
+  if (!/^\d{6}$/.test(code)) throw new ApiError(400, "PHONE_OTP_REQUIRED", "請輸入正確的簡訊驗證碼。");
+  checkSmsCountry(phone);
+  const checked = await twilioVerify("VerificationCheck", { To: phone, Code: code });
+  if (checked.status !== "approved") {
+    throw new ApiError(400, "PHONE_OTP_INVALID", "驗證碼不正確、已失效或嘗試次數過多，請重新確認。");
+  }
 }
 
 async function requireCurrentSubmittedTerms(
@@ -234,7 +336,7 @@ function termsError(error: { code?: string; message?: string; details?: string; 
   return new ApiError(500, "DATABASE_ERROR", "會員資料暫時無法儲存。");
 }
 
-Deno.serve(async (request: Request) => {
+serveBusiness('member-profile-api',async (request: Request) => {
   const origin = request.headers.get("Origin");
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
   if (request.method !== "POST") return response(origin, { ok: false, error: { code: "METHOD_NOT_ALLOWED", message: "只支援 POST。" } }, 405);
@@ -243,11 +345,17 @@ Deno.serve(async (request: Request) => {
     const body = await readJsonObject(request, MAX_REQUEST_BYTES, ApiError);
 
     const action = asText(body.action, 80);
-    if (!["user.member.bootstrap", "user.member.profile.save", "user.member.terms.accept", "user.member.card.open"].includes(action) || asText(body.clientType, 20) !== "member") throw new ApiError(403, "CLIENT_ACTION_MISMATCH", "操作端與功能不相符。");
+    if (!["user.member.invitation.claim", "user.member.oa.check", "user.member.bootstrap", "user.member.profile.save", "user.member.phone.send", "user.member.terms.accept", "user.member.card.open"].includes(action) || asText(body.clientType, 20) !== "member") throw new ApiError(403, "CLIENT_ACTION_MISMATCH", "操作端與功能不相符。");
+    if (["user.member.invitation.claim","user.member.oa.check"].includes(action) && !businessContext()) {
+      throw new ApiError(403,"INVITATION_TENANT_UNAVAILABLE","請由商家會員入口使用此功能。");
+    }
     const supabase = dbClient();
     let identity: Identity;
     try {
       const testIdentity = await resolveUserTestIdentity(supabase, asText(body.testSessionToken, 200));
+      if (testIdentity && ["user.member.invitation.claim","user.member.oa.check"].includes(action) && testIdentity.surface !== "member") {
+        throw new ApiError(403,"TEST_SESSION_SURFACE_MISMATCH","測試登入與目前功能不相符。");
+      }
       identity = testIdentity
         ? { lineUserId: testIdentity.lineUserId, displayName: testIdentity.displayName }
         : await verifyLineIdToken(asText(body.idToken, 10_000));
@@ -257,12 +365,35 @@ Deno.serve(async (request: Request) => {
     }
     await consumeRateLimit(supabase, identity, action !== "user.member.bootstrap");
     const member = await ensureMember(supabase, identity);
+    if (action === "user.member.invitation.claim") {
+      const hash = await hashInvitationToken(body.invitationToken);
+      const result = await supabase.rpc("member_invitation_claim",{p_actor:identity.lineUserId,p_token_hash:hash});
+      if (result.error) throw invitationDatabaseError(result.error);
+      return response(origin,{ok:true,status:200,data:result.data});
+    }
+    if (action === "user.member.oa.check") {
+      if (member.status !== "active") throw new ApiError(403,"MEMBERSHIP_REQUIRED","會員目前無法使用此功能。");
+      if (member.membership_status === "active") return response(origin,{ok:true,status:200,data:{memberOa:{required:false}}});
+      try {
+        await requireMemberOaBeforeActivation({tenant:businessContext(),expectedChannelId:env("LINE_MEMBER_CHANNEL_ID") || "2010787602",
+          identity,member,lineAccessToken:strictLineAccessToken(body.lineAccessToken),verifiedBindingsJson:env("MEMBER_OA_VERIFIED_LINKS_JSON")});
+      } catch (error) {
+        const failure = error as {status?:number;code?:string;message?:string};
+        if (failure.status && failure.code) throw new ApiError(failure.status,failure.code,failure.message || "LINE 驗證失敗。");
+        throw error;
+      }
+      return response(origin,{ok:true,status:200,data:{memberOa:{required:true,configured:true,friend:true}}});
+    }
     if (action === "user.member.card.open") {
       const logged = await supabase.rpc("record_member_card_open", {p_actor:identity.lineUserId});
       if (logged.error) throw new ApiError(503,"AUDIT_UNAVAILABLE","會員卡開啟紀錄暫時無法儲存。");
       return response(origin,{ok:true,status:200,data:{recorded:true}});
     }
-    if (action === "user.member.bootstrap") return response(origin, { ok: true, status: 200, data: { profile: await profileFor(supabase, member), ...await termsForMember(supabase, member) } });
+    if (action === "user.member.bootstrap") return response(origin, { ok: true, status: 200, data: { profile: await profileFor(supabase, member), phoneVerificationRequired: requirePhoneOtp(), ...await termsForMember(supabase, member), memberOa:memberOaGuidance({tenant:businessContext(),expectedChannelId:env("LINE_MEMBER_CHANNEL_ID") || "2010787602",member,verifiedBindingsJson:env("MEMBER_OA_VERIFIED_LINKS_JSON")}) } });
+    if (action === "user.member.phone.send") {
+      const sending = await sendPhoneOtp(supabase, identity, member, normalizePhone(body.phone));
+      return response(origin, { ok: true, status: 200, data: sending });
+    }
     if (action === "user.member.terms.accept") {
       if (member.membership_status !== "active") throw new ApiError(403, "MEMBERSHIP_REQUIRED", "請先完成會員申請。");
       await requireCurrentSubmittedTerms(supabase, member, body);
@@ -303,6 +434,10 @@ Deno.serve(async (request: Request) => {
       }
     }
     if (hasPhone && !isValidPhone(phone)) throw new ApiError(400, "INVALID_PHONE", "請選擇國碼並填寫正確的電話號碼。");
+    const phoneChanged = hasPhone && phone !== normalizePhone(member.phone);
+    if (member.membership_status === "active" && phoneChanged && requirePhoneOtp() && (hasBirthday || hasSurname || hasSalutation)) {
+      throw new ApiError(400, "PHONE_CHANGE_SEPARATE", "請單獨修改電話並完成簡訊認證，其他資料請另外儲存。");
+    }
     if (hasSurname && (!surname || surname.length > 40)) throw new ApiError(400, "INVALID_SURNAME", "請填寫姓氏。");
     if (hasSalutation && !["mr", "ms"].includes(salutation)) throw new ApiError(400, "INVALID_SALUTATION", "請選擇先生或小姐。");
 
@@ -327,6 +462,28 @@ Deno.serve(async (request: Request) => {
     if (member.membership_status !== "active") {
       if (!mergedComplete) throw new ApiError(400, "PROFILE_FIELDS_REQUIRED", "請填妥完整資料再申請會員。");
       await requireCurrentSubmittedTerms(supabase, member, body);
+      if (body.accepted !== true) throw new ApiError(400, "TERMS_CONSENT_REQUIRED", "請閱讀並勾選同意會員條款。");
+      if (requirePhoneOtp()) {
+        if (member.status !== "active") throw new ApiError(403, "MEMBER_SUSPENDED", "此會員帳號目前無法使用。");
+        await verifyPhoneOtp(phone, asText(body.otpCode, 20));
+        const committed = await supabase.rpc("member_commit_verified_phone", {
+          p_actor: identity.lineUserId, p_phone: phone, p_expected_updated_at: null,
+          p_join_payload: {
+            lineUserId: identity.lineUserId, termsId: body.termsId,
+            termsVersion: body.termsVersion, accepted: true,
+            birthday, phone, surname, salutation,
+          },
+        });
+        if (committed.error) {
+          if (committed.error.code === "23505" || String(committed.error.message || "").includes("members_verified_phone_unique")) {
+            throw verifiedPhoneWriteError(committed.error);
+          }
+          await throwTermsOperationError(supabase, member, committed.error);
+        }
+        return response(origin, { ok: true, status: 200, data: { profile: await profileFor(supabase, committed.data) } });
+      }
+      // Temporary rollback to the pre-OA enforcement join flow (2026-10-22).
+      // LINE ID token, current terms consent and the atomic membership RPC remain mandatory.
       const joined = await supabase.rpc("accept_membership_terms_api", {
         p_payload: {
           lineUserId: identity.lineUserId,
@@ -344,6 +501,18 @@ Deno.serve(async (request: Request) => {
       if (refreshed.error) throw new ApiError(500, "DATABASE_ERROR", "會員資料暫時無法讀取。");
       return response(origin, { ok: true, status: 200, data: { profile: await profileFor(supabase, refreshed.data) } });
     }
+    if (phoneChanged && requirePhoneOtp()) {
+      if (member.status !== "active" || member.is_test_account === true) {
+        throw new ApiError(403, "PHONE_VERIFY_NOT_ALLOWED", "此會員目前無法修改電話。");
+      }
+      await verifyPhoneOtp(phone, asText(body.otpCode, 20));
+      const committed = await supabase.rpc("member_commit_verified_phone", {
+        p_actor: identity.lineUserId, p_phone: phone,
+        p_expected_updated_at: member.updated_at, p_join_payload: null,
+      });
+      if (committed.error) throw verifiedPhoneWriteError(committed.error);
+      return response(origin, { ok: true, status: 200, data: { profile: await profileFor(supabase, committed.data) } });
+    }
     const updated = await supabase.rpc("save_member_profile_audited", {
       p_actor:identity.lineUserId,p_expected_updated_at:member.updated_at,
       p_fields:Object.fromEntries(profileFields.map(field => [field,patch[field]])),
@@ -352,7 +521,7 @@ Deno.serve(async (request: Request) => {
     return response(origin, { ok:true, status:200, data:{ profile:await profileFor(supabase,updated.data) } });
 
   } catch (error) {
-    const e = error instanceof ApiError ? error : new ApiError(500, "INTERNAL_ERROR", "會員資料服務暫時無法完成操作。");
+    const e = error instanceof ApiError || error instanceof InvitationError ? error : new ApiError(500, "INTERNAL_ERROR", "會員資料服務暫時無法完成操作。");
     return response(origin, { ok: false, status: e.status, error: { code: e.code, message: e.message, details: e.details } }, e.status);
   }
 });

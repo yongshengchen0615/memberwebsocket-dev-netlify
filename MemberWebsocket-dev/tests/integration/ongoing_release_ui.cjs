@@ -14,16 +14,19 @@ test('member history renders inside the card without a nested details toggle and
   const chat=bookingMemberChatText(booking);assert.doesNotMatch(chat,/營業日|我的備註/);assert.match(chat,/預約日期：2026-10-15/);assert.match(chat,/10:00/);assert.match(chat,/查看預約明細/);
  }finally{dom.window.close();}
 });
-test('readable audit handles legacy and malformed values without raw payload exposure',()=>{
- const dom=new JSDOM('<main></main>',{runScripts:'outside-only'}),w=dom.window;
- w.eval(source('admin/operation-audit.js').replace('  function date(offset)', '  window.__audit={renderItem};\n  function date(offset)'));
- try{
-  const row=w.__audit.renderItem({action:'user.pointcard.transfer',result:'success',actorRole:'member',actor:'M…001',targetType:'point_transfer',target:'PT-123',createdAt:'invalid',detail:{amount:5,sender:'甲…001',receiver:'乙…002',cardTitle:'集點卡',token:'DO-NOT-EXPOSE',nested:{password:'SECRET'}}});
-  assert.match(row.textContent,/點數轉贈 · 成功/);assert.match(row.textContent,/转|轉入會員/);assert.match(row.textContent,/5 點/);assert.doesNotMatch(row.textContent,/DO-NOT-EXPOSE|SECRET|\{\"|undefined|\[object Object\]/);assert.equal(row.querySelector('pre'),null);
-  const profile=w.__audit.renderItem({action:'MEMBER_PROFILE_UPDATED',result:'success',detail:{profileFields:['surname','token','phone']}});assert.match(profile.textContent,/姓氏、電話/);assert.doesNotMatch(profile.textContent,/token/);
-  const legacy=w.__audit.renderItem({action:'SOMETHING_UNKNOWN',detail:'raw secret'});assert.match(legacy.textContent,/其他操作/);assert.doesNotMatch(legacy.textContent,/raw secret/);
- }finally{dom.window.close();}
+test('retired operation-audit renderer is absent while database audit RPC is permission-restricted',()=>{
+ const html=source('admin/index.html');
+ const api=source('supabase/functions/api/index.ts');
+ const sql=source('supabase/migrations/20261013043627_member_booking_selections_and_audit_query.sql');
+ assert.equal(fs.existsSync(path.join(root,'admin/operation-audit.js')),false);
+ assert.equal(fs.existsSync(path.join(root,'admin/operation-audit.css')),false);
+ assert.doesNotMatch(html,/operation-audit\.(?:js|css)/);
+ assert.doesNotMatch(api,/if \(action === "admin\.audit\.query"\)/);
+ assert.match(api,/supabase\.from\("audit_logs"\)\.insert/);
+ assert.match(sql,/revoke all on function public\.admin_query_operation_audit\([^;]+\) from public,anon,authenticated;/i);
+ assert.match(sql,/grant execute on function public\.admin_query_operation_audit\([^;]+\) to service_role;/i);
 });
+
 test('no-show frontend uses Taipei end time and rejects snapshot, missing time, future and pending cancellation',()=>{
  const dom=new JSDOM('<main></main>',{runScripts:'outside-only',url:'https://example.test/admin/'}),w=dom.window;
  const add=w.addEventListener.bind(w);w.addEventListener=(type,...args)=>{if(type!=='DOMContentLoaded')add(type,...args);};

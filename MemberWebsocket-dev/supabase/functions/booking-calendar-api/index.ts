@@ -1,8 +1,9 @@
+import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
 import { hasCurrentTermsConsent } from "../_shared/membership-terms.ts";
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract } from "../_shared/auth-contract.ts";
 import { resolveUserTestIdentity, TestModeAuthError } from "../_shared/test-mode-auth.ts";
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 import { currentBusinessDate } from "../_shared/booking-hours.ts";
 
 type Json = Record<string, unknown>;
@@ -28,7 +29,7 @@ class ApiError extends Error {
 }
 
 function env(name: string): string {
-  return (Deno.env.get(name) || "").trim();
+  return (businessEnv(name) || "").trim();
 }
 
 function allowedOrigins(): Set<string> {
@@ -158,7 +159,7 @@ function addDays(date: string, days: number): string {
 
 async function loadCalendar(supabase: SupabaseClient, month: string, memberId: string): Promise<Json> {
   const settingsResult = await supabase.from("booking_settings")
-    .select("min_advance_days,max_advance_days,booking_notice,work_start_time,work_end_time")
+    .select("min_advance_days,max_advance_days,booking_notice,work_start_time,work_end_time,phone_booking_number")
     .eq("id", 1)
     .maybeSingle();
   if (settingsResult.error || !settingsResult.data) {
@@ -238,7 +239,7 @@ async function loadCalendar(supabase: SupabaseClient, month: string, memberId: s
   return {
     month,
     today,
-    settings: { minAdvanceDays, maxAdvanceDays, bookingNotice },
+    settings: { minAdvanceDays, maxAdvanceDays, bookingNotice, phoneBookingNumber: String(settingsResult.data.phone_booking_number || "") },
     earliestBookingDate: addDays(today, minAdvanceDays),
     latestBookingDate,
     occupiedDates: [...grouped.entries()].map(([date, intervals]) => ({ date, intervals })),
@@ -246,7 +247,7 @@ async function loadCalendar(supabase: SupabaseClient, month: string, memberId: s
   };
 }
 
-Deno.serve(async (request) => {
+serveBusiness('booking-calendar-api',async (request) => {
   const origin = request.headers.get("origin");
   if (origin && !allowedOrigins().has(origin)) {
     return response(null, { ok: false, error: { code: "ORIGIN_NOT_ALLOWED", message: "不允許的來源。" } }, 403);

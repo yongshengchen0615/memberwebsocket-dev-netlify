@@ -1,0 +1,3 @@
+# LINE authenticates the raw request with x-line-signature inside the handler.
+[functions.line-webhook]
+verify_jwt = false

@@ -320,3 +320,48 @@ test('AC-003: fifth booking displays an unfunded reward once and prevents select
     assert.match(h.el('bookingBenefitsList').textContent, /點數不足/);
   } finally { h.close(); }
 });
+
+test('AC-SERVICE-GROUP-UI-002: member tickets visibly state A+B or A+C and live service changes update eligibility', async () => {
+  const groups = [['A', 'B'], ['A', 'C']];
+  const label = 'A 項目＋B 項目 或 A 項目＋C 項目，符合其中一組即可';
+  const point = { ...items[0], requiredServiceIds: [], requiredServiceGroups: groups,
+    requiredServiceMatchMode: 'any', requiredServiceRequirementLabel: label,
+    conditionLabel: '預約項目限制：' + label };
+  const event = { ...items[1], id: 'EVENT-GROUP', selectionId: 'EC-GROUP', claimRequired: false,
+    requiredServiceIds: [], requiredServiceGroups: groups, requiredServiceMatchMode: 'any',
+    requiredServiceRequirementLabel: label, conditionLabel: '預約項目限制：' + label };
+  const h = fixture(async () => ({ pointTicketMaxPerRedemption: 2, eventTicketMaxPerDay: 2, items: [point, event] }));
+  try {
+    h.start(); await tick(10);
+    const cards = h.el('bookingBenefitsList');
+    assert.equal(cards.querySelectorAll('.booking-benefit-group-status').length, 2);
+    assert.match(cards.textContent, /A 項目＋B 項目 或 A 項目＋C 項目/);
+    for (const checkbox of cards.querySelectorAll('input[type="checkbox"]')) assert.equal(checkbox.disabled, true);
+    for (const status of cards.querySelectorAll('.booking-benefit-group-status')) {
+      assert.equal(status.dataset.groupRequirementMet, 'false');
+      assert.match(status.textContent, /尚未符合任一完整組合/);
+    }
+
+    h.w.BookingBenefits.setServiceContext(['A']);
+    assert.equal(cards.querySelectorAll('input:not(:disabled)').length, 0, 'A alone cannot unlock');
+    h.w.BookingBenefits.setServiceContext(['B', 'C']);
+    assert.equal(cards.querySelectorAll('input:not(:disabled)').length, 0, 'B+C cannot unlock');
+
+    h.w.BookingBenefits.setServiceContext(['A', 'B']);
+    for (const checkbox of cards.querySelectorAll('input[type="checkbox"]')) assert.equal(checkbox.disabled, false);
+    for (const status of cards.querySelectorAll('.booking-benefit-group-status')) {
+      assert.equal(status.dataset.groupRequirementMet, 'true');
+      assert.match(status.textContent, /已符合其中一組/);
+    }
+    cards.querySelector('input[data-booking-benefit-id="PT-001"]').click();
+    assert.deepEqual(JSON.parse(JSON.stringify(h.w.BookingBenefits.selectionPayload())), [{ kind: 'points', id: 'PT-001' }]);
+    h.w.BookingBenefits.setServiceContext(['A', 'C']);
+    assert.deepEqual(JSON.parse(JSON.stringify(h.w.BookingBenefits.selectionPayload())), [{ kind: 'points', id: 'PT-001' }],
+      'switching to a second complete group retains a legitimately selected ticket');
+
+    h.w.BookingBenefits.setServiceContext(['A']);
+    assert.deepEqual(JSON.parse(JSON.stringify(h.w.BookingBenefits.selectionPayload())), [],
+      'when live booking selection loses a complete group, the ticket must be removed');
+    for (const checkbox of cards.querySelectorAll('input[type="checkbox"]')) assert.equal(checkbox.disabled, true);
+  } finally { h.close(); }
+});

@@ -18,7 +18,8 @@
     if (items.some((item) => !item.tab || !item.panel)) return;
 
     const selectWorkspace = (key, focusTab = false) => {
-      const next = items.some((item) => item.key === key) ? key : 'directory';
+      const available = items.filter((item) => !item.tab.disabled && item.tab.dataset.businessAllowed !== 'false');
+      const next = available.some((item) => item.key === key) ? key : available[0]?.key;
 
       items.forEach((item) => {
         const selected = item.key === next;
@@ -34,14 +35,16 @@
     items.forEach((item, index) => {
       item.tab.addEventListener('click', () => selectWorkspace(item.key));
       item.tab.addEventListener('keydown', (event) => {
+        const available = items.filter((entry) => !entry.tab.disabled && entry.tab.dataset.businessAllowed !== 'false');
+        const currentIndex = available.indexOf(item);
         let targetIndex = -1;
-        if (event.key === 'ArrowRight' || event.key === 'ArrowDown') targetIndex = (index + 1) % items.length;
-        if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') targetIndex = (index - 1 + items.length) % items.length;
+        if (event.key === 'ArrowRight' || event.key === 'ArrowDown') targetIndex = (currentIndex + 1) % available.length;
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') targetIndex = (currentIndex - 1 + available.length) % available.length;
         if (event.key === 'Home') targetIndex = 0;
-        if (event.key === 'End') targetIndex = items.length - 1;
+        if (event.key === 'End') targetIndex = available.length - 1;
         if (targetIndex < 0) return;
         event.preventDefault();
-        selectWorkspace(items[targetIndex].key, true);
+        if (available[targetIndex]) selectWorkspace(available[targetIndex].key, true);
       });
     });
 

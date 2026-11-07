@@ -8,7 +8,7 @@ const read = (relative) => fs.readFileSync(path.join(ROOT, relative), 'utf8');
 
 test('all five user surfaces load the human-evidence E2E runner asset', () => {
   for (const surface of ['member', 'points', 'event', 'calendar', 'booking']) {
-    const html = read(surface + '/index.html');
+    const html = read('tests/fixtures/' + surface + '-e2e.html');
     assert.match(html, /e2e-scenario-graph\.js\?v=e2e-graph-20261004-\d+/);
     assert.match(html, /user-test-control\.js\?v=qa-e2e-\d{8}-\d+/);
   }
@@ -42,7 +42,8 @@ test('user full E2E requires observable UI events for Human E2E cases', () => {
 test('admin paired full E2E requires human UI evidence and covers every client surface', () => {
   const html = read('admin/index.html');
   const runner = read('admin/e2e-control.js');
-  assert.match(html, /e2e-control\.js\?v=qa-e2e-\d{8}-\d+/);
+  assert.doesNotMatch(html, /e2e-control\.js\?v=qa-e2e-\d{8}-\d+/);
+  assert.match(read('admin/e2e-control-loader.js'), /const E2E_CONTROL_SRC/);
   assert.match(runner, /const VERSION = '2026-10-\d{2}\.\d+'/);
   assert.match(runner, /captureAdminHumanInteraction/);
   assert.match(runner, /adminHumanRequired/);

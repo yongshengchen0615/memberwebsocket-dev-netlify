@@ -1,0 +1,31 @@
+{
+  "scope": "Controlled actual-JS-runtime request-count benchmark; virtual clock, synthetic delayed API. Not production latency or load evidence.",
+  "baselineSha": "b817bb1439b6549658e9eb05d8558aa130fd8acd",
+  "samplesPerRuntime": 120,
+  "scenarios": [
+    {
+      "kind": "member",
+      "before": {
+        "probes": 240,
+        "fullRefreshes": 1
+      },
+      "after": {
+        "probes": 120,
+        "fullRefreshes": 1
+      },
+      "probeReductionPercent": 50
+    },
+    {
+      "kind": "booking",
+      "before": {
+        "probes": 240,
+        "fullRefreshes": 1
+      },
+      "after": {
+        "probes": 120,
+        "fullRefreshes": 1
+      },
+      "probeReductionPercent": 50
+    }
+  ]
+}

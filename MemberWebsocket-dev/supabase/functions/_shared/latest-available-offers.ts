@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import type { SupabaseClient } from './business-runtime.ts';
 
 type JsonRow = Record<string, any>;
 
@@ -14,6 +14,7 @@ export type CurrentPointOffer = {
   thresholdStamps: number;
   requiredServiceIds: string[];
   requiredServiceMatchMode: 'any' | 'all';
+  requiredServiceGroups?: string[][];
   sortOrder: number;
 };
 
@@ -34,6 +35,7 @@ export type CurrentEventOffer = {
   requiresLocation?: boolean;
   requiredServiceIds: string[];
   requiredServiceMatchMode: 'any' | 'all';
+  requiredServiceGroups?: string[][];
 };
 
 function text(value: unknown): string {
@@ -91,6 +93,7 @@ export function selectLatestPointOffers(
       ? reward.required_service_ids.map(text).filter(Boolean)
       : [];
     const requiredServiceMatchMode = text(reward.required_service_match_mode) === "all" ? "all" : "any";
+    const requiredServiceGroups = Array.isArray(reward.required_service_groups) ? reward.required_service_groups : [];
     const card = cardById.get(pointCardId);
     const template = templateById.get(ticketTemplateId);
     if (!rewardId || !pointCardId || !ticketTemplateId || thresholdStamps <= 0) continue;
@@ -116,8 +119,9 @@ export function selectLatestPointOffers(
       ticketTitle: text(template?.title) || "可用優惠",
       thresholdStamps,
       requiredServiceIds,
-      requiredServiceMatchMode,
-      sortOrder: number(card?.sort_order),
+       requiredServiceMatchMode,
+       requiredServiceGroups,
+       sortOrder: number(card?.sort_order),
     };
     if (availableTicket.ticketId) offer.ticketId = availableTicket.ticketId;
     offer.requiresLocation = availableTicket.requiresLocation;
@@ -176,6 +180,7 @@ export function selectLatestEventOffers(
         ? row.required_service_ids.map(text).filter(Boolean)
         : [],
       requiredServiceMatchMode: text(row.required_service_match_mode) === "all" ? "all" : "any",
+      ...(Array.isArray(row.required_service_groups) && row.required_service_groups.length ? { requiredServiceGroups: row.required_service_groups } : {}),
     };
     const claimId = claimed ? (memberAvailableClaims.get(eventId) || "") : "";
     if (claimId) offer.claimId = claimId;
@@ -192,6 +197,7 @@ export async function loadLatestPointOffers(
   strict: boolean,
   includeEveryTicket = false,
 ): Promise<Array<CurrentPointOffer & { cardId: string; expiresOn: string }>> {
+  if ((supabase as any).businessFeatures && (supabase as any).businessFeatures.points !== true) return [];
   const ticketsResult = await supabase
     .from("point_tickets")
     .select("ticket_id,reward_id,point_card_id,ticket_template_id,threshold_stamps,requires_location")
@@ -210,7 +216,7 @@ export async function loadLatestPointOffers(
 
   const rewardsResult = await supabase
     .from("point_card_rewards")
-    .select("id,point_card_id,threshold_stamps,ticket_template_id,required_service_ids,required_service_match_mode")
+    .select("id,point_card_id,threshold_stamps,ticket_template_id,required_service_ids,required_service_match_mode,required_service_groups")
     .in("point_card_id", cardIds);
   if (rewardsResult.error) {
     if (strict) throw rewardsResult.error;
@@ -257,10 +263,11 @@ export async function loadLatestEventOffers(
   strict: boolean,
   includeTierPreview = false,
 ): Promise<Array<CurrentEventOffer & { eventTicketId: string; startsOn: string; endsOn: string; allowedTierKeys: string[]; description: string; accent: string; ticketType: string; quota: number | null; claimedCount: number; fixedTicketTemplateId: string }>> {
+  if ((supabase as any).businessFeatures && (supabase as any).businessFeatures.events !== true) return [];
   const today = taipeiDate();
   const eventsResult = await supabase
     .from("event_tickets")
-    .select("id,event_ticket_id,title,description,accent,ticket_type,status,starts_on,ends_on,quota,allowed_tier_keys,fixed_ticket_template_id,requires_location,required_service_ids,required_service_match_mode")
+    .select("id,event_ticket_id,title,description,accent,ticket_type,status,starts_on,ends_on,quota,allowed_tier_keys,fixed_ticket_template_id,requires_location,required_service_ids,required_service_match_mode,required_service_groups")
     .eq("status", "active")
     .is("deleted_at", null);
   if (eventsResult.error) {
@@ -311,6 +318,7 @@ export async function loadLatestEventOffers(
         ? event.required_service_ids.map(text).filter(Boolean)
         : [],
       requiredServiceMatchMode: text(event?.required_service_match_mode) === "all" ? "all" : "any",
+      ...(Array.isArray(event?.required_service_groups) && event.required_service_groups.length ? { requiredServiceGroups: event.required_service_groups } : {}),
     };
   });
 }

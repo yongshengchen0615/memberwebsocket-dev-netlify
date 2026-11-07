@@ -1,18 +1,21 @@
 name: MemberWebsocket Ticket Policy UI Tests
 
 on:
+  # Required by the development ruleset: docs-only PRs must receive a result.
   pull_request:
-    paths:
-      - 'MemberWebsocket-dev/admin/**'
-      - 'MemberWebsocket-dev/tests/**'
-      - '.github/workflows/test-memberwebsocket-ticket-policy.yml'
   push:
     branches:
       - 'feat/member-ticket-policy-admin-ui-20261014'
       - 'main'
+      - 'Integrated-Marketing-Platform'
+      - 'feature/productization-super-admin'
     paths:
-      - 'MemberWebsocket-dev/admin/**'
-      - 'MemberWebsocket-dev/tests/**'
+      - 'scripts/**'
+      - 'netlify.toml'
+      - '.github/workflows/publish-platform-preview.yml'
+      - '.github/workflows/test-netlify-build.yml'
+      - '.github/workflows/test-memberwebsocket-dev.yml'
+      - 'MemberWebsocket-dev/**'
       - '.github/workflows/test-memberwebsocket-ticket-policy.yml'
 
 permissions:

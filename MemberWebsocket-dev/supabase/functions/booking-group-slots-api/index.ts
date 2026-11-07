@@ -1,8 +1,10 @@
+import { bookingPriceOptions, withBookingPrices, bookingPriceError } from '../_shared/booking-price-publishing.mjs';
+import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
 import { hasCurrentTermsConsent } from "../_shared/membership-terms.ts";
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract } from "../_shared/auth-contract.ts";
 import { resolveUserTestIdentity, TestModeAuthError } from "../_shared/test-mode-auth.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient } from '../_shared/business-runtime.ts';
 import { workWindow, clockTime, occupiedRange, localRange, slotHasPassed, timeOnBusinessDate, currentBusinessDate } from "../_shared/booking-hours.ts";
 
 type Json = Record<string, any>;
@@ -24,7 +26,7 @@ class ApiError extends Error {
   }
 }
 
-const env = (name: string) => (Deno.env.get(name) || "").trim();
+const env = (name: string) => (businessEnv(name) || "").trim();
 const asText = (value: unknown, max = 1000) => String(value ?? "").trim().slice(0, max);
 const allowedOrigins = () => new Set([(env("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io"), "https://develop--memberwebsocket-dev-netlify.netlify.app"].join(",").split(",").map((value) => value.trim()).filter(Boolean));
 const cors = (origin: string | null): HeadersInit => ({
@@ -79,11 +81,11 @@ const taipeiMinutes = () => {
   return Number(values.hour || 0) * 60 + Number(values.minute || 0);
 };
 
-function db() {
+function db(body: Record<string, any> = {}) {
   const url = env("SUPABASE_URL");
   const key = env("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !key) throw new ApiError(503, "SUPABASE_CONFIG_MISSING", "預約服務設定尚未完成。");
-  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  return withBookingPrices(createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false }, ...bookingPriceOptions(body) }), body);
 }
 
 async function verifyMember(idToken: string) {
@@ -260,6 +262,17 @@ async function slots(supabase: ReturnType<typeof db>, member: any, body: Json) {
     .filter((row: any) => String(row.id) !== excludedBookingId)
     .map(occupiedRange);
 
+  // Telephone bookings have no technician assignment. A separate occupied-range
+  // check is required for group bookings (even when no technician is selected).
+  // This also mirrors the PostgreSQL phone reservation conflict trigger.
+  const phoneResult = await supabase.from("bookings")
+    .select("id,start_at,end_at")
+    .gte("booking_date", addDays(bookingDate, -1)).lte("booking_date", addDays(bookingDate, 1))
+    .like("request_id", "PHONE-%")
+    .in("status", ["pending", "confirmed"]);
+  if (phoneResult.error) throw new ApiError(500, "DATABASE_ERROR", "無法確認電話預約佔用時段。");
+  const phoneOccupied = (phoneResult.data || []).map(occupiedRange);
+
   const technicianIds = [...new Set(group.assignments.map((assignment: any) => String(assignment.technicianId)))];
   let reservationRows: any[] = [];
   if (technicianIds.length) {
@@ -292,8 +305,14 @@ async function slots(supabase: ReturnType<typeof db>, member: any, body: Json) {
       return (occupiedByTechnician.get(String(assignment.technicianId)) || [])
         .some((occupied: any) => candidate.start < occupied.end && participantEnd > occupied.start);
     });
+    const phoneOverlap = phoneOccupied.some((occupied: any) => candidate.start < occupied.end && candidate.end > occupied.start);
     const passed = slotHasPassed(bookingDate, start);
-    output.push({ startTime: clockTime(start), endTime: clockTime(groupEnd), startAt: timeOnBusinessDate(bookingDate, start), endAt: timeOnBusinessDate(bookingDate, groupEnd), available: !primaryOverlap && !assignmentOverlap && !passed });
+    output.push({
+      startTime: clockTime(start), endTime: clockTime(groupEnd),
+      startAt: timeOnBusinessDate(bookingDate, start), endAt: timeOnBusinessDate(bookingDate, groupEnd),
+      available: !primaryOverlap && !assignmentOverlap && !phoneOverlap && !passed,
+      unavailableReason: phoneOverlap ? "occupied" : (primaryOverlap || assignmentOverlap) ? "occupied" : passed ? "past" : null,
+    });
   }
 
   return {
@@ -305,7 +324,7 @@ async function slots(supabase: ReturnType<typeof db>, member: any, body: Json) {
   };
 }
 
-Deno.serve(async (request: Request) => {
+serveBusiness('booking-group-slots-api',async (request: Request) => {
   const origin = request.headers.get("Origin");
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(origin) });
   if (request.method !== "POST") return reply(origin, { ok: false, error: { code: "METHOD_NOT_ALLOWED", message: "只支援 POST。" } }, 405);
@@ -315,7 +334,7 @@ Deno.serve(async (request: Request) => {
     if (asText(body.action, 100) !== "user.booking.group.slots" || asText(body.clientType, 20) !== "member") {
       throw new ApiError(403, "CLIENT_ACTION_MISMATCH", "操作端與功能不相符。");
     }
-    const supabase = db();
+    const supabase = db(body);
     let lineUserId: string;
     try {
       const testIdentity = await resolveUserTestIdentity(supabase, asText(body.testSessionToken, 200));

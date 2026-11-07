@@ -23,10 +23,20 @@ test('member create/update paths persist exact benefit intent', () => {
   assert.match(app, /BookingBenefits\?\.selectionPayload/);
   assert.match(app, /benefits:\s*window\.BookingBenefits/);
   assert.match(app, /setSelection\?\.\(booking\.benefits/);
-  assert.match(bookingApi, /create_booking_bundle_with_benefits_request/);
-  assert.match(bookingApi, /update_booking_bundle_with_benefits_request/);
-  assert.match(groupApi, /create_group_booking_with_benefits_request_v2/);
-  assert.match(groupApi, /update_group_booking_with_benefits_request_v2/);
+  const reminderAdapter = read('supabase/migrations/20261031090000_member_booking_reminder_choice.sql');
+  assert.match(bookingApi, /create_booking_bundle_with_benefits_reminder/);
+  assert.match(bookingApi, /update_booking_bundle_with_benefits_reminder/);
+  assert.match(groupApi, /create_group_booking_with_benefits_reminder_v2/);
+  assert.match(groupApi, /update_group_booking_with_benefits_reminder_v2/);
+  for (const canonicalRpc of [
+    'create_booking_bundle_with_benefits_request',
+    'update_booking_bundle_with_benefits_request',
+    'create_group_booking_with_benefits_request_v2',
+    'update_group_booking_with_benefits_request_v2',
+  ]) {
+    assert.ok(reminderAdapter.includes('v_booking := public.' + canonicalRpc + '('),
+      'Reminder adapter must retain the existing atomic benefit transaction: ' + canonicalRpc);
+  }
   assert.match(groupApi, /booking_benefit_selections/);
 });
 

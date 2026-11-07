@@ -1,7 +1,8 @@
+import { businessEnv, businessHandler } from '../_shared/business-runtime.ts';
 import { hasCurrentTermsConsent } from "../_shared/membership-terms.ts";
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 
 type Json = Record<string, unknown>;
 type ClientType = "admin" | "event";
@@ -24,7 +25,7 @@ class ApiError extends Error {
 }
 
 function env(name: string): string {
-  return (Deno.env.get(name) || "").trim();
+  return (businessEnv(name) || "").trim();
 }
 
 function allowedOrigins(): Set<string> {
@@ -315,5 +316,5 @@ async function handleRequest(request: Request): Promise<Response> {
   }
 }
 
-export default { fetch: handleRequest };
+export default { fetch: businessHandler('event-ticket-links', handleRequest) };
 

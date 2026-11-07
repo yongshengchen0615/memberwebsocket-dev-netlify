@@ -19,7 +19,7 @@ function fixture() {
     tierSettings:tiers.map((tierKey,i)=>({tierKey,requiredServiceMinutes:i*100,styleKey:'forest'})),
     terms:[{id:'terms-1',version:'1',title:'QA terms',summary:'QA summary',body:'QA terms body',effectiveAt:version,status:'active',required:true,reconsentExisting:false}],
     limits:{'pointcard-extension-api':{maxTicketsPerRedemption:1,updatedAt:version},'event-ticket-extension-api':{maxTicketsPerDay:1,updatedAt:version}},
-    settings:{workStartTime:'09:00',workEndTime:'18:00',minAdvanceDays:0,maxAdvanceDays:60,slotIntervalMinutes:30,bookingNotice:'QA notice',closedWeekdays:[],updatedAt:version,maxPartySize:2,primaryTechnicianId:'tech-1'},
+    settings:{workStartTime:'09:00',workEndTime:'18:00',minAdvanceDays:0,maxAdvanceDays:60,slotIntervalMinutes:30,storeServiceMinutes:10,bookingNotice:'QA notice',closedWeekdays:[],updatedAt:version,maxPartySize:2,primaryTechnicianId:'tech-1'},
     serviceTypes:[{id:'type-1',name:'Body',sortOrder:0}],
     services:[{serviceId:'service-1',title:'QA service',serviceType:'Body',durationMinutes:30,priceAmount:100,isActive:true,updatedAt:version,rewardRules:[]},{serviceId:'service-2',title:'QA second service',serviceType:'Body',durationMinutes:30,priceAmount:200,isActive:true,updatedAt:version,rewardRules:[]}],
     technicians:[{technicianId:'tech-1',name:'QA primary',sortOrder:0,isActive:true,updatedAt:version},{technicianId:'tech-2',name:'QA secondary',sortOrder:1,isActive:true,updatedAt:version}],
@@ -28,13 +28,13 @@ function fixture() {
 }
 function transport(s, action, p={}, slug='api',record=true) {
   if(record)s.calls.push({action,payload:structuredClone(p),slug});
+  if(s.hold?.action===action&&action!=='admin.booking.receipt.register'){const wait=s.hold.wait;s.hold=null;return wait.then(()=>transport(s,action,p,slug,false));}
   if(s.fault && !s.fault.afterCommit && s.fault.action===action && (!s.fault.onCall || s.calls.filter(c=>c.action===action).length===s.fault.onCall)){const f=s.fault;s.fault=null;throw Object.assign(new Error(f.message||'QA rejected write'),{code:f.code||'CONFLICT'});}
   const stamp=()=>new Date(Date.parse(version)+(++s.seq)*1000).toISOString();
   const save=(table,key,value)=>{const row={...value,[key]:value[key]||'qa-'+(++s.seq),updatedAt:stamp()};const i=s[table].findIndex(x=>x[key]===row[key]);if(i<0)s[table].push(row);else s[table][i]=row;return structuredClone(row);};
   const del=(table,key,id)=>{s[table]=s[table].filter(x=>x[key]!==id);return {deleted:true};};
   const page=()=>{const members=s.members.filter(m=>!p.memberQuery||JSON.stringify(m).toLowerCase().includes(p.memberQuery.toLowerCase()));const n=p.memberPage||1;return {members:members.slice((n-1)*2,n*2),memberPage:{page:n,pageSize:2,total:members.length,totalPages:Math.max(1,Math.ceil(members.length/2)),query:p.memberQuery||''}};};
   const bootstrap=()=>({...page(),profile:{displayName:'QA Admin'},role:'Admin',tierSettings:s.tierSettings,cards:s.cards,tickets:s.tickets,eventTickets:s.eventTickets,calendarItems:s.calendarItems,messagePresets:s.messagePresets,bookingServices:s.services,stats:{memberCount:s.members.length,activeMemberCount:s.members.length,activeCardCount:s.cards.length,todayEntryCount:0,activeEventTicketCount:s.eventTickets.length}});
-  if(action==='admin.audit.query') return {items:p.cursor ? [] : [{id:'booking:1',actorRole:'member',actor:'QA:m…ber',action:'BOOKING_BENEFITS_UPDATED',targetType:'booking',target:'QA-BOOKING',result:'success',createdAt:version,detail:{selectedCount:2}}],hasMore:!p.cursor};
   if(action==='admin.ticket-visibility.get')return {visibilityPolicy:s.visibilityPolicy,updatedAt:s.visibilityVersion};
   if(action==='admin.ticket-visibility.save'){if(p.expectedUpdatedAt!==s.visibilityVersion)throw Object.assign(new Error('設定已更新'),{code:'CONFLICT'});s.visibilityPolicy=p.visibilityPolicy;s.visibilityVersion=stamp();return {visibilityPolicy:s.visibilityPolicy,updatedAt:s.visibilityVersion};}
   if(action==='admin.settings.copy'){
@@ -93,7 +93,13 @@ function transport(s, action, p={}, slug='api',record=true) {
     return {deleted:true,ticketTemplateId:p.ticketTemplateId,preservedTicketCount:0};
   }
   if(action==='admin.event-tickets.list')return bootstrap();
-  if(action==='admin.event-tickets.save')return {eventTicket:save('eventTickets','eventTicketId',p.eventTicket)};
+  if(action==='admin.event-tickets.save'){
+    // Emulate an out-of-date preview API that accepts a write but drops group rules.
+    const eventTicket=s.legacyTicketApiDropsGroups
+      ? {...p.eventTicket,requiredServiceMatchMode:'any',requiredServiceGroups:[]}
+      : p.eventTicket;
+    return {eventTicket:save('eventTickets','eventTicketId',eventTicket)};
+  }
   if(action==='admin.event-tickets.delete')return del('eventTickets','eventTicketId',p.eventTicketId);
   if(action==='admin.calendar-items.list')return {calendarItems:s.calendarItems};
   if(action==='admin.calendar-items.save')return {calendarItem:save('calendarItems','calendarItemId',p.calendarItem)};
@@ -110,7 +116,10 @@ function transport(s, action, p={}, slug='api',record=true) {
   if(action==='admin.booking.bootstrap')return {settings:s.settings,bookings:s.bookings};
   if(action==='admin.booking.manage.bootstrap')return {settings:s.settings,services:s.services,serviceTypes:s.serviceTypes,pointCards:s.cards.map(c=>({...c,id:c.cardId}))};
   if(action==='admin.booking.resources.bootstrap')return {settings:s.settings,technicians:s.technicians};
-  if(action==='admin.booking.contacts')return {contacts:[]};
+  if(action==='admin.booking.contacts')return {contacts:s.bookings.filter(b=>p.bookingIds?.includes(b.bookingId) && b.bookingSource==='phone').map(b=>({
+    bookingId:b.bookingId,contactSource:'custom',contactSurname:b.contactSurname,
+    contactSalutation:b.contactSalutation,contactPhone:b.contactPhone
+  }))};
   if(action==='admin.booking.group.details')return {bookingGroups:s.groups,technicians:s.technicians,primaryTechnicianId:s.settings.primaryTechnicianId};
   if(action==='admin.booking.settings.save'||action==='admin.booking.resources.settings.save'){s.settings={...s.settings,...p,updatedAt:stamp()};return {settings:s.settings};}
   if(action==='admin.booking.resources.technician.save')return {technician:save('technicians','technicianId',p)};
@@ -133,6 +142,63 @@ function transport(s, action, p={}, slug='api',record=true) {
   if(action==='admin.booking.benefits.list')return {booking:s.bookings.find(b=>b.bookingId===p.bookingId),catalog:s.benefitCatalog};
   if(action==='admin.booking.benefits.update'){const b=s.bookings.find(b=>b.bookingId===p.bookingId);b.benefits=p.benefits.map(i=>({...i,status:'pending',title:'QA selected benefit'}));b.updatedAt=stamp();return {booking:b};}
   if(action==='admin.booking.participants.items.update'||action==='admin.booking.participants.technicians.update'){const group=s.groups[p.bookingId];group.participants=p.participants.map((v,i)=>({...group.participants[i],...v}));s.bookings.find(b=>b.bookingId===p.bookingId).updatedAt=stamp();return {group};}
+  if(action==='admin.booking.phone.slots'){
+    const storeServiceMinutes=Number(s.settings.storeServiceMinutes??10);
+    const requested=(p.items||[]).map(item=>({service:s.services.find(x=>x.serviceId===item.serviceId),quantity:Number(item.quantity||1)}));
+    if(!requested.length||requested.some(item=>!item.service))throw Object.assign(new Error('無效項目'),{code:'INVALID_BOOKING_ITEMS'});
+    const serviceMinutes=requested.reduce((sum,item)=>sum+Number(item.service.durationMinutes||0)*item.quantity,0);
+    const totalDurationMinutes=serviceMinutes+storeServiceMinutes;
+    const slots=[];
+    const workStart=Number(s.settings.workStartTime.slice(0,2))*60+Number(s.settings.workStartTime.slice(3,5));
+    const workEnd=Number(s.settings.workEndTime.slice(0,2))*60+Number(s.settings.workEndTime.slice(3,5))+(s.settings.workEndTime<s.settings.workStartTime?1440:0);
+    const toTime=mins=>String(Math.floor(mins/60)%24).padStart(2,'0')+':'+String(mins%60).padStart(2,'0');
+    const toDate=mins=>new Date(Date.parse(p.bookingDate+'T00:00:00Z')+(mins>=1440?86400000:0)).toISOString().slice(0,10);
+    for(let cursor=workStart;cursor+totalDurationMinutes<=workEnd;cursor+=Number(s.settings.slotIntervalMinutes||30)){
+      const start=Date.parse(p.bookingDate+'T00:00:00Z')+cursor*60000;
+      const end=start+totalDurationMinutes*60000;
+      const overlap=s.bookings.some(b=>{
+        if(!['pending','confirmed'].includes(b.status))return false;
+        const from=Date.parse(b.bookingDate+'T'+b.startTime+':00Z');
+        const until=from+Number(b.totalDurationMinutes||0)*60000;
+        return start<until&&end>from;
+      });
+      slots.push({startTime:toTime(cursor),endTime:toTime(cursor+totalDurationMinutes),startAt:toDate(cursor),endAt:toDate(cursor+totalDurationMinutes),available:!overlap,unavailableReason:overlap?'occupied':null});
+    }
+    return {slots,totalDurationMinutes,storeServiceMinutes};
+  }
+  if(action==='admin.booking.phone.create'){
+    const old=s.bookings.find(b=>b.requestId===p.requestId);
+    if(old)return {bookingId:old.bookingId,bookingSource:'phone',status:old.status};
+    const requestedStart=Date.parse(p.bookingDate+'T'+p.startTime+':00Z');
+    const requested=p.items.map(item=>({service:s.services.find(x=>x.serviceId===item.serviceId),quantity:Number(item.quantity||1)}));
+    if(!requested.length||requested.some(item=>!item.service))throw Object.assign(new Error('無效項目'),{code:'INVALID_BOOKING_ITEMS'});
+    const itemMinutes=requested.reduce((sum,item)=>sum+Number(item.service.durationMinutes||0)*item.quantity,0);
+    const storeMinutes=Number(s.settings.storeServiceMinutes??10);
+    const requestedEnd=requestedStart+(itemMinutes+storeMinutes)*60000;
+    const occupied=s.bookings.some(b=>{
+      if(!['pending','confirmed'].includes(b.status))return false;
+      const from=Date.parse(b.bookingDate+'T'+b.startTime+':00Z');
+      const until=from+Number(b.totalDurationMinutes||0)*60000;
+      return requestedStart<until&&requestedEnd>from;
+    });
+    if(occupied)throw Object.assign(new Error('此時段已有預約，請先取消原預約，或選擇其他時段。'),{code:'PHONE_BOOKING_CONFLICT'});
+
+    const bookingId='phone-'+(++s.seq);
+    const start=Number(p.startTime.slice(0,2))*60+Number(p.startTime.slice(3,5));
+    const end=(start+itemMinutes+storeMinutes)%(24*60);
+    const row={
+      bookingId,requestId:p.requestId,bookingSource:'phone',memberId:null,memberCode:'',memberDisplayName:'',
+      bookingDate:p.bookingDate,startTime:p.startTime,
+      endTime:String(Math.floor(end/60)).padStart(2,'0')+':'+String(end%60).padStart(2,'0'),
+      status:'confirmed',adminNote:p.adminNote,memberNote:'',
+      contactSurname:p.contactSurname,contactSalutation:p.contactSalutation,contactPhone:p.contactPhone,
+      totalDurationMinutes:itemMinutes+storeMinutes,totalAmount:requested.reduce((sum,item)=>sum+Number(item.service.priceAmount||0)*item.quantity,0),
+      items:requested.map(item=>({serviceId:item.service.serviceId,serviceTitle:item.service.title,unitDurationMinutes:item.service.durationMinutes,
+        unitPriceAmount:item.service.priceAmount,quantity:item.quantity})),updatedAt:stamp(),
+    };
+    s.bookings.push(row);
+    return {bookingId,bookingSource:'phone',status:'confirmed'};
+  }
   if(action==='admin.booking.status.update'||action==='admin.booking.status.complete'){const b=s.bookings.find(b=>b.bookingId===p.bookingId);Object.assign(b,p,{status:action.endsWith('.complete')?'completed':p.status,updatedAt:stamp()});return {booking:b};}
   if(action==='admin.booking.receipt.list')return {submissions:s.submissions,accessibleRecords:s.accessibleRecords,bookings:s.bookings,receipts:s.receipts};
   if(action==='admin.booking.receipt.url')return {signedUrl:'https://fixture.supabase.co/storage/v1/object/sign/booking-receipts/qa.svg?token=fixture'};
@@ -150,12 +216,12 @@ function transport(s, action, p={}, slug='api',record=true) {
     return result;
   }
   if(action==='admin.booking.receipt.dismiss'){s.submissions=[];return {dismissed:true};}
-  if(action==='admin.integration-overview')return {generatedAt:version,stats:bootstrap().stats,pointSources:[{title:'QA source',detail:'30 分鐘',pointCardTitle:'QA card 1',status:'active'}],campaigns:s.eventTickets,settlements:[],automation:{fixedTickets:s.templates},notifications:['pending','sent','failed'].map(status=>({status,memberDisplayName:'QA '+status,memberCode:status,scheduledFor:version,attemptCount:1})),auditTimeline:['member','booking','event_ticket','calendar','system'].map(domain=>({domain,action:'QA '+domain,targetLabel:'Target '+domain,actorRole:'Admin',result:'success',createdAt:version}))};
+  if(action==='admin.integration-overview')return {generatedAt:version,stats:bootstrap().stats,pointSources:[{title:'QA source',detail:'30 分鐘',pointCardTitle:'QA card 1',status:'active'}],campaigns:s.eventTickets,settlements:[],automation:{fixedTickets:s.templates},notifications:['pending','sent','failed'].map(status=>({status,memberDisplayName:'QA '+status,memberCode:status,scheduledFor:version,attemptCount:1}))};
   s.unexpected.push({action,slug});throw Object.assign(new Error('Unimplemented fixture action '+action),{code:'FIXTURE_UNEXPECTED_ACTION'});
 }
 async function startFixture() {
   const sessions=new Map();let base;
-  const scripts=['theme.js','admin/admin-session.js','admin/coupon-location-editor.js','admin/app.js','admin/ticket-visibility.js','admin/member-workspace-tabs.js','admin/terms.js','admin/grant-automation.js','admin/fixed-ticket-admin-integration.js','admin/fixed-ticket-calendar-option.js','admin/fixed-ticket-admin.js','admin/pointcard-redemption-limit.js','admin/event-ticket-redemption-limit.js','booking-copy-text.js','booking-copy-format.js','admin/booking-panel.js','admin/booking-receipt-admin.js','admin/booking-accessible-admin.js','admin/integration-hub.js','admin/operation-audit.js'];
+  const scripts=['theme.js','admin/admin-session.js','admin/coupon-location-editor.js','admin/app.js','admin/ticket-visibility.js','admin/member-workspace-tabs.js','admin/terms.js','admin/grant-automation.js','admin/fixed-ticket-admin-integration.js','admin/fixed-ticket-calendar-option.js','admin/fixed-ticket-admin.js','admin/pointcard-redemption-limit.js','admin/event-ticket-redemption-limit.js','booking-copy-text.js','booking-copy-format.js','admin/booking-panel.js','admin/booking-receipt-admin.js','admin/booking-accessible-admin.js'];
   const server=http.createServer(async(req,res)=>{
     const url=new URL(req.url,'http://localhost');const id=/qa=([^;]+)/.exec(req.headers.cookie||'')?.[1];
     const send=(status,type,body)=>{res.writeHead(status,{'Content-Type':type});res.end(body);};

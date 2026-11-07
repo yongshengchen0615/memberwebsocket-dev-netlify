@@ -80,6 +80,8 @@
       status.textContent = '正在同步最新顯示規則…';
       try {
         session = await window.MemberAdminSession.wait();
+        const features=session.config.grantedFeatures;
+        if(features&&(features.points!==true||features.events!==true)){status.textContent='';return;}
         const result = await request('admin.ticket-visibility.get');
         if (!Object.hasOwn(labels, result.visibilityPolicy)) throw new Error('顯示規則資料不正確，請檢查設定。');
         version = String(result.updatedAt || '');

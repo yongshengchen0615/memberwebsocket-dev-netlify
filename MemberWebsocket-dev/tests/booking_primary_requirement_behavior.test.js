@@ -1,5 +1,5 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');
-const fs=require('node:fs');const path=require('node:path');const vm=require('node:vm');
+const fs=require('./helpers/edge-test-fs.cjs');const path=require('node:path');const vm=require('node:vm');
 const {stripTypeScriptTypes}=require('node:module');
 const primary='10000000-0000-4000-8000-000000000001',other='10000000-0000-4000-8000-000000000002',service='20000000-0000-4000-8000-000000000001';
 const store='00000000-0000-4000-8000-000000000010';

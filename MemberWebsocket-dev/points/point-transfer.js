@@ -381,7 +381,7 @@
     if (submit) submit.disabled = state.busy || (!state.pending && transferableBalance(cardId) <= 0);
     modal.classList.remove('hidden');
     document.body.classList.add('point-transfer-modal-open');
-    window.setTimeout(() => document.getElementById('pointTransferMemberCode')?.focus(), 0);
+    document.getElementById('pointTransferMemberCode')?.focus();
   }
 
   function closeModal() {

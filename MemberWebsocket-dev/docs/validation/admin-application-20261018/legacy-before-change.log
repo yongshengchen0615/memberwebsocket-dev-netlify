@@ -1,0 +1,42 @@
+▶ admin human journeys — DOM integration, not Chromium evidence
+  ✔ BOOKING_RESOURCE_SETTINGS — primary technician and party size save and reload (3130.123302ms)
+LOTTERY_EDITOR_template — add/delete prizes, reject invalid total and evenly balance Count 2 expected 1
+
+false !== true
+ [] [] 
+  ✖ LOTTERY_EDITOR_template — add/delete prizes, reject invalid total and evenly balance (5848.26171ms)
+✖ admin human journeys — DOM integration, not Chromium evidence (9005.364866ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 1
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10014.806285
+
+✖ failing tests:
+
+test at MemberWebsocket-dev/tests/integration/admin_human_journeys.cjs:106:15
+✖ LOTTERY_EDITOR_template — add/delete prizes, reject invalid total and evenly balance (5848.26171ms)
+  AssertionError [ERR_ASSERTION]: Count 2 expected 1
+  
+  false !== true
+  
+      at truth (/workspace/scratch/c10180b38abd/member-system/MemberWebsocket-dev/tests/integration/admin_human_journeys.cjs:74:36)
+      at /workspace/scratch/c10180b38abd/member-system/MemberWebsocket-dev/tests/integration/admin_human_journeys.cjs:87:29
+      at /workspace/scratch/c10180b38abd/member-system/MemberWebsocket-dev/tests/integration/admin_human_journeys.cjs:73:70
+      at eventually (/workspace/scratch/c10180b38abd/member-system/MemberWebsocket-dev/tests/integration/admin_human_journeys.cjs:13:81)
+      at async Object.fn (/workspace/scratch/c10180b38abd/member-system/MemberWebsocket-dev/tests/browser/admin-human.spec.cjs:269:376)
+      at async TestContext.<anonymous> (/workspace/scratch/c10180b38abd/member-system/MemberWebsocket-dev/tests/integration/admin_human_journeys.cjs:108:62)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async TestContext.<anonymous> (/workspace/scratch/c10180b38abd/member-system/MemberWebsocket-dev/tests/integration/admin_human_journeys.cjs:106:7)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

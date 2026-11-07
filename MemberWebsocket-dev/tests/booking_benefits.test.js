@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
+const fs = require('./helpers/edge-test-fs.cjs');
 const path = require('node:path');
 const vm = require('node:vm');
 const { stripTypeScriptTypes } = require('node:module');
@@ -9,6 +9,23 @@ const root = path.resolve(__dirname, '..');
 const modulePromise = import(pathToFileURL(path.join(root, 'supabase/functions/_shared/booking-benefits.ts')));
 const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' });
 const member = { id: 'member-1', line_user_id: 'line-1', display_name: '會員', status: 'active', membership_status: 'active', birthday: '1990-01-01' };
+
+test('AC-002: booking benefits never query or expose disabled point, event and calendar modules',async()=>{
+ const {loadBookingBenefits}=await modulePromise,db=database();
+ db.businessFeatures={booking:true};
+ const result=await loadBookingBenefits(db,member,'silver',today);
+ assert.deepEqual(result.items,[]);
+ assert.equal(db.calls.some(call=>['point_cards','point_tickets','point_card_rewards','event_tickets','event_ticket_claims','calendar_items'].includes(call.table)),false);
+});
+
+test('AC-002: events-only bookings retain existing event-ticket reservation locks',async()=>{
+ const {loadBookingBenefits}=await modulePromise;
+ const db=database({event_ticket_claims:[{claim_id:'EC-1',event_ticket_id:'event',member_id:member.id,status:'available'}],booking_benefit_selections:[{booking_id:'other',member_id:member.id,status:'pending',benefit_kind:'event',benefit_ref:'EC-1'}]});
+ db.businessFeatures={booking:true,events:true};
+ const result=await loadBookingBenefits(db,member,'silver',today);
+ assert.equal(result.items.length,1);assert.equal(result.items[0].selectable,false);
+ assert.match(result.items[0].disabledReason,/預約/);
+});
 
 function database(overrides = {}, fail = '') {
   const data = {
@@ -30,7 +47,7 @@ function database(overrides = {}, fail = '') {
   return { calls, from(table) {
     let rows = data[table] || [], single = false;
     const q = {
-      select() { return q; }, order() { return q; }, update() { return q; }, single() { single = true; return q; },
+      select(columns) { calls.push({ table, select: columns }); return q; }, order() { return q; }, update() { return q; }, single() { single = true; return q; },
       eq(key, value) { calls.push({ table, key, value }); rows = rows.filter(row => row[key] === value); return q; },
       is(key, value) { rows = rows.filter(row => (row[key] ?? null) === value); return q; },
       in(key, values) { rows = rows.filter(row => values.includes(row[key])); return q; },
@@ -319,4 +336,33 @@ test('AC-006: distinct rewards stay independently available instead of being col
   }), member, 'silver', today);
   assert.equal(r.items.length, 2);
   assert.deepEqual(r.items.map(item => item.selectionId), ['PT-A', 'PT-B']);
+});
+
+test('AC-SERVICE-GROUP-UI-001: both point and event offers query the actual booking groups and expose named OR-of-AND conditions', async () => {
+  const { loadBookingBenefits } = await modulePromise;
+  const groups = [['service-a', 'service-b'], ['service-a', 'service-c']];
+  const source = database({
+    booking_services: [
+      { id: 'service-a', title: 'A 項目', service_type: '組合' },
+      { id: 'service-b', title: 'B 項目', service_type: '組合' },
+      { id: 'service-c', title: 'C 項目', service_type: '組合' },
+    ],
+    point_card_rewards: [{ id: 'reward', point_card_id: 'card', ticket_template_id: 'template', threshold_stamps: 5,
+      required_service_ids: [], required_service_match_mode: 'any', required_service_groups: groups }],
+    event_tickets: [{ id: 'event', event_ticket_id: 'EVENT', title: '組合活動票券', status: 'active',
+      allowed_tier_keys: ['silver'], quota: 2, required_service_ids: [], required_service_match_mode: 'any', required_service_groups: groups }],
+  });
+  const { items } = await loadBookingBenefits(source, member, 'silver', today);
+  for (const table of ['point_card_rewards', 'event_tickets']) {
+    assert.ok(source.calls.some(call => call.table === table && typeof call.select === 'string'
+      && call.select.split(',').includes('required_service_groups')),
+      table + ' must SELECT group data from PostgREST, not just map an undefined property');
+  }
+  for (const kind of ['points', 'event']) {
+    const item = items.find(value => value.kind === kind);
+    assert.ok(item, kind + ' offer exists');
+    assert.deepEqual(item.requiredServiceGroups, groups);
+    assert.equal(item.requiredServiceRequirementLabel, 'A 項目＋B 項目 或 A 項目＋C 項目，符合其中一組即可');
+    assert.match(item.conditionLabel, /預約項目限制：A 項目＋B 項目 或 A 項目＋C 項目，符合其中一組即可/);
+  }
 });

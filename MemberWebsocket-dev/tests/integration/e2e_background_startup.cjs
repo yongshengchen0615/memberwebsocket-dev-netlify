@@ -12,7 +12,7 @@ const loader = process.env.E2E_LOADER_SOURCE
 const tick = () => new Promise((resolve) => setTimeout(resolve, 20));
 
 async function page(query = '') {
-  const dom = new JSDOM(read('admin/index.html'), {
+  const dom = new JSDOM(read('admin/index.html').replace('\n</main>', '\n' + read('tests/fixtures/admin-test-center.html') + '\n</main>'), {
     runScripts: 'outside-only', pretendToBeVisual: true,
     url: 'https://example.test/MemberWebsocket-dev/admin/' + query,
   });

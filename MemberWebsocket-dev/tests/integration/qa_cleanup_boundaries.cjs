@@ -181,3 +181,39 @@ test('canonical QA provenance recognizes colon, ui and state families and conver
   assert.match(sql, /'cleanupComplete'/);
   assert.match(sql, /'remainingQaArtifacts'/);
 });
+
+
+test('QA purge in one disposable database never removes another runner fixtures', async () => {
+  const first = await fixture();
+  let second;
+  try {
+    second = await fixture();
+    for (const db of [first, second]) {
+      await db.exec(read(fix));
+      await db.exec(read(ticketPurgeFix));
+      await db.exec(read(provenancePurgeFix));
+    }
+    await first.exec("insert into point_cards(created_by,card_id,title) values ('qa:e2e:run-one','RUN-ONE','synthetic run one')");
+    await second.exec("insert into point_cards(created_by,card_id,title) values ('qa:e2e:run-two','RUN-TWO','synthetic run two')");
+
+    const count = async (db, cardId) => (await db.query(
+      'select count(*)::int n from point_cards where card_id=$1', [cardId]
+    )).rows[0].n;
+
+    assert.equal(await count(first, 'RUN-ONE'), 1);
+    assert.equal(await count(second, 'RUN-TWO'), 1);
+    await first.query('select admin_purge_test_data()');
+    await first.query('select admin_purge_extended_qa_artifacts()');
+    assert.equal(await count(first, 'RUN-ONE'), 0, 'first isolated fixture is cleared');
+    assert.equal(await count(second, 'RUN-TWO'), 1, 'second runner still has its unpurged fixture');
+    assert.equal(await count(first, 'QA-real'), 1, 'first formal resource remains');
+    assert.equal(await count(second, 'QA-real'), 1, 'second formal resource remains');
+
+    await second.query('select admin_purge_test_data()');
+    await second.query('select admin_purge_extended_qa_artifacts()');
+    assert.equal(await count(second, 'RUN-TWO'), 0, 'second fixture clears independently');
+    assert.equal(await count(second, 'QA-real'), 1, 'second formal resource remains');
+  } finally {
+    await Promise.allSettled([first.close(), second?.close()]);
+  }
+});

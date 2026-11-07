@@ -20,12 +20,14 @@ if (!process.argv.includes('--fixture')) {
 
 async function fixture(mode) {
   const errors = [];
+  const bookingRenderEvents = [];
   const vc = new VirtualConsole();
   vc.on('jsdomError', error => errors.push(error.message));
   const dom = new JSDOM(fs.readFileSync(path.join(root, 'booking/index.html'), 'utf8'), {
     url: 'https://example.test/MemberWebsocket-dev/booking/', runScripts: 'outside-only', pretendToBeVisual: true, virtualConsole: vc,
   });
   const w = dom.window;
+  w.addEventListener('booking:bookings-rendered', (event) => bookingRenderEvents.push(event.detail));
   const el = id => w.document.getElementById(id);
   const tick = ms => new Promise(resolve => setTimeout(resolve, ms));
   let subscriptions = 0;
@@ -80,6 +82,13 @@ async function fixture(mode) {
     }
     assert.equal(el('bookingView').classList.contains('hidden'), false);
     assert.equal(subscriptions, 1);
+    assert.ok(bookingRenderEvents.length > 0, 'Bootstrap must publish the signed-in member booking times to calendar');
+    assert.deepEqual(
+      JSON.parse(JSON.stringify(bookingRenderEvents.at(-1).bookings)),
+      [{ bookingDate: booking.bookingDate, startTime: booking.startTime, endTime: booking.endTime,
+        status: booking.status }],
+      'Only booking date/time/status should be published, not member identity or private notes'
+    );
     const bookingCard = el('bookingList').querySelector('.booking-item[data-booking-id]');
     assert.ok(bookingCard, 'Booking history card should render');
     assert.equal(bookingCard.querySelector('details.member-booking-details'), null, 'Booking history should not contain a second details toggle');
@@ -90,15 +99,20 @@ async function fixture(mode) {
     assert.equal(bookingHeader.getAttribute('aria-expanded'), 'true', 'Card header expands booking details directly');
     bookingHeader.click();
     assert.equal(bookingHeader.getAttribute('aria-expanded'), 'false', 'Card header collapses booking details');
-    const date = w.document.querySelector('.calendar-day:not(:disabled)');
+    assert.equal(w.document.querySelectorAll('[data-group-history]').length, 1);
+    const date = w.document.querySelector('.calendar-day.today');
     assert.ok(date);
     date.click();
+    assert.equal(el('bookingDayModal')?.classList.contains('hidden'), false, 'Date opens records before booking');
+    assert.equal(el('appointmentPanel').classList.contains('hidden'), true);
+    assert.equal(el('bookingList').querySelectorAll('[data-booking-id]').length, 0, 'Other dates do not leak into the selected day');
+    el('startDayBookingButton').click();
     assert.equal(el('appointmentPanel').classList.contains('hidden'), false);
     w.document.querySelector('.service-add-button').click();
     await tick(100);
     assert.ok(calls.includes('user.booking.group.slots'));
     assert.ok(el('slotGrid').querySelector('button'));
-    assert.equal(w.document.querySelectorAll('[data-group-history]').length, 1);
+    assert.equal(w.document.querySelectorAll('[data-group-history]').length, 0, 'Other-day group cards stay out of the date dialog');
     const before = calls.length;
     await tick(500);
     assert.ok(calls.length - before <= 1, 'Idle UI must not repeatedly fetch');

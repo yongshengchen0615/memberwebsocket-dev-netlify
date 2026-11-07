@@ -49,7 +49,7 @@ test('primary technician settings and fixed notification scheduling use canonica
   });
   const formal=(await one("insert into members(line_user_id,member_code,status,membership_status,is_test_account) values('fixture:formal','QA-FORMAL','active','active',true) returning id")).id;
   await rows('update members set is_test_account=false where id=$1',[formal]);
-  const template=(await one("insert into fixed_ticket_templates(fixed_ticket_id,title,status,schedule_type,schedule_weekday,notify_line,created_by,updated_by) values('QA-FIXED-TIME','QA notification','active','weekly',1,true,'fixture:admin','fixture:admin') returning id")).id;
+  const template=(await one("insert into fixed_ticket_templates(fixed_ticket_id,title,status,schedule_type,schedule_weekday,notify_line,expiry_mode,expiry_days,created_by,updated_by) values('QA-FIXED-TIME','QA notification','active','weekly',1,true,'days_after_issue',7,'fixture:admin','fixture:admin') returning id")).id;
   await t.test('notification time, midnight, disable, enable, retime, eligibility and idempotency',async()=>{
    const issue=()=>one('select issue_fixed_tickets((now() at time zone \'Asia/Taipei\')::date,$1,$2) result',[formal,template]);
    await issue();

@@ -8,7 +8,7 @@ const core = fs.readFileSync(path.join(root, 'admin/booking-panel-core.js'), 'ut
 const migration = fs.readFileSync(path.join(root, 'supabase/migrations/20261014083341_allow_confirmed_booking_no_show.sql'), 'utf8');
 
 test('pending and confirmed regular bookings share the no-show button and retain distinct follow-up actions', () => {
-  assert.match(core, /if \(booking\.status === 'pending' \|\| booking\.status === 'confirmed'\) \{\s*const reason = noShowUnavailableReason\(booking\)/);
+  assert.match(core, /if \(booking\.status === 'pending' \|\| booking\.status === 'confirmed'\) \{\s*const reason = noShowUnavailableReason\(booking, state\.booking\.noShowRisk\?\.policy\)/);
   assert.match(core, /if \(booking\.status === 'pending'\) \{\s*actions\.append\(\s*actionButton\('不通過'/);
   assert.match(core, /actionButton\('確認服務完成', 'button button-dark'/);
   assert.match(core, /if \(!\['pending', 'confirmed'\]\.includes\(booking\.status\)\)/);
@@ -16,6 +16,17 @@ test('pending and confirmed regular bookings share the no-show button and retain
   assert.match(core, /booking\.cancellationRequestedAt && !booking\.cancellationReviewedAt/);
   assert.match(core, /服務結束後才能標記無故未到/);
   assert.doesNotMatch(core, /我已人工核對，確認這筆仍待確認的預約無故未到/);
+});
+
+test('enabled risk policy delays no-show until after service end plus grace; disabled policy keeps original boundary',()=>{
+ const start=core.indexOf('  function noShowUnavailableReason('),end=core.indexOf('  function openNoShow(',start);
+ const now=Date.parse('2026-10-25T10:15:00+08:00');
+ const context={Date:class extends Date{static now(){return now;}},NO_SHOW_EARLY_REASON:'服務結束後才能標記無故未到。'};
+ vm.createContext(context);vm.runInContext(core.slice(start,end),context);
+ const booking={status:'confirmed',endAt:'2026-10-25T10:00:00'};
+ assert.match(context.noShowUnavailableReason(booking,{enabled:true,grace_minutes:15}),/15 分鐘寬限/);
+ assert.equal(context.noShowUnavailableReason({...booking,endAt:'2026-10-25T09:59:59.999+08:00'},{enabled:true,grace_minutes:15}),'');
+ assert.equal(context.noShowUnavailableReason(booking,{enabled:false,grace_minutes:60}),'');
 });
 
 test('server-side no-show transition remains privileged, time-gated and audited', () => {

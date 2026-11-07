@@ -1,10 +1,17 @@
 [build]
   base = "."
-  command = "node scripts/build-site.mjs"
+  command = "node scripts/netlify-preview-source.mjs --build"
+  ignore = "node ./scripts/netlify-preview-source.mjs --ignore"
   publish = "dist"
 
 [build.environment]
   NODE_VERSION = "24"
+
+# Preserve old links while keeping platform as a separate application.
+[[redirects]]
+  from = "/admin/platform/*"
+  to = "/platform/:splat"
+  status = 301
 
 # Keep links that include the former monorepo directory usable.
 [[redirects]]
@@ -18,3 +25,7 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "no-referrer"
     Cache-Control = "public, max-age=0, must-revalidate"
+
+# Opt-in full baseline on PR 17; production keeps the static build above.
+[context.deploy-preview]
+  command = "node scripts/verify-preview.mjs"

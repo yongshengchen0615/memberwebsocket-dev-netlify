@@ -62,9 +62,12 @@ for(const width of [320,390,1280])for(const theme of ['light','dark'])test(`shar
   await page.evaluate(()=>scrollTo(0,0));expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await capture(page,info,`${surface}-${width}-${theme}`,{fullPage:true});
  }
  await page.goto(admin.base+'/admin/?run='+info.testId);await expect(page.locator('#adminView')).toBeVisible();await expect(page.locator('#syncStatus')).toContainText('已完整同步');await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
- for(const id of ['membersTab','cardsTab','eventsTab','calendarTab','operationsHubTab','bookingTab']){
+ await expect(page.locator('#operationsHubTab, #operationsHubPanel')).toHaveCount(0);
+ await expect(page.locator('#bookingTab')).toHaveCount(1);
+ expect(await page.locator('#adminView .surface-nav > button[role="tab"]').evaluateAll(nodes=>nodes.map(node=>node.id)))
+  .toEqual(['membersTab','cardsTab','eventsTab','calendarTab','bookingTab','lineSettingsTab']);
+ for(const id of ['membersTab','cardsTab','eventsTab','calendarTab','bookingTab']){
   const tab=page.locator('#'+id);await expect(tab).toBeVisible();await tab.click();await expect(tab).toHaveAttribute('aria-selected','true');await expect(page.locator('#'+await tab.getAttribute('aria-controls'))).toBeVisible();
-  if(id==='operationsHubTab')await expect(page.locator('#integrationHubFreshness')).toContainText('同步於');
   if(id==='bookingTab')await expect(page.locator('#bookingAdminSyncStatus')).toContainText('已同步');
   await fits(page.locator('#adminView>.topbar'));expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await capture(page,info,`admin-${id}-${width}-${theme}`,{fullPage:true});
  }

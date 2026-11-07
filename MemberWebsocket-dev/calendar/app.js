@@ -186,7 +186,7 @@
       const labels = Array.isArray(item.allowedTierLabels) && item.allowedTierLabels.length ? item.allowedTierLabels.join('、') : '未設定';
       tierAccess.textContent = item.tierEligible === false ? `可參加階級：${labels}。目前會員階級尚無法參加。` : `可參加階級：${labels}。`;
       detail.append(tierAccess);
-      const linkUrl = String(item.linkUrl || '').trim();
+      const linkUrl = resolveCalendarLink(item.linkUrl);
       const linkLabel = String(item.linkLabel || '').trim();
       if (item.tierEligible !== false && linkLabel && isSafeCalendarLink(linkUrl)) {
         const link = document.createElement('a');
@@ -201,6 +201,22 @@
       }
     }
     return detail;
+  }
+
+  function resolveCalendarLink(value) {
+    const storedUrl = String(value || '').trim();
+    if (!isSafeCalendarLink(storedUrl)) return '';
+    let parsed;
+    try { parsed = new URL(storedUrl); } catch (_) { return ''; }
+    if (parsed.searchParams.get('source') !== 'event-ticket-calendar') return storedUrl;
+    const eventTicketId = String(parsed.searchParams.get('eventTicketId') || '').trim();
+    if (!eventTicketId) return '';
+    // Database links may refer to an older deployment. Navigate to the current
+    // website's event page, preserving the ticket ID and deployment path.
+    const localEventUrl = new URL('../event/', window.location.href);
+    localEventUrl.searchParams.set('source', 'event-ticket-calendar');
+    localEventUrl.searchParams.set('eventTicketId', eventTicketId);
+    return localEventUrl.toString();
   }
 
   function openCalendarLinkInLine(url) {

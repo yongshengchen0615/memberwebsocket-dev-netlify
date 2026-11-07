@@ -1,0 +1,37 @@
+name: Inspect platform preview source
+
+on:
+  push:
+    branches: [fix/preview-source-unification-20261021]
+    paths:
+      - 'scripts/inspect-preview-source*'
+      - '.github/workflows/inspect-platform-preview-source.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify diagnostic redaction and read-only API contract
+        run: node --test scripts/inspect-preview-source.test.mjs
+      - name: Inspect the existing preview source without changing settings
+        env:
+          NETLIFY_SITE_ID: 23796c62-480a-4b46-ac90-bfbc5ad4d300
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          PREVIEW_SOURCE_BRANCH: Integrated-Marketing-Platform
+          PLATFORM_ALIAS: integrated-marketing-platform
+        run: node scripts/inspect-preview-source.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: platform-source-${{ github.sha }}
+          path: evidence/platform-source.json
+          if-no-files-found: error
+          retention-days: 7

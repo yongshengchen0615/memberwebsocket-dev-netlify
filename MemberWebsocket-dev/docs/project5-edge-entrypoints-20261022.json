@@ -1,0 +1,1301 @@
+{
+  "sourceSha": "b66ca8334b011191867234dd596c543b2c177a66",
+  "projectId": "dbuquirnaskrwcamdxki",
+  "observedDate": "2026-10-22",
+  "scope": "32 deployed entrypoints. Static references do not prove authorization. Delegated handlers and SQL RPCs must be traced per action. No live data writes or security configuration changes.",
+  "fixedTicketDeploymentGap": "Deployed fixed-ticket-automation v11 does not contain isVerifiedLineIdClaim; source includes merged PR #66. This is a deployment difference, not proof of exploitability.",
+  "entries": [
+    {
+      "name": "api",
+      "version": 94,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/api/index.ts",
+      "sha256": "3f860b64eae77246fb1d67fe1bfde7436af54e7bc0d1b8f96595c9104e402017",
+      "actionLiterals": [
+        "admin.audit.query",
+        "admin.bootstrap",
+        "admin.calendar-items.",
+        "admin.calendar-items.batch",
+        "admin.calendar-items.delete",
+        "admin.calendar-items.list",
+        "admin.calendar-items.save",
+        "admin.event-tickets.",
+        "admin.event-tickets.delete",
+        "admin.event-tickets.list",
+        "admin.event-tickets.save",
+        "admin.grant-message-presets.",
+        "admin.grant-message-presets.save",
+        "admin.integration-overview",
+        "admin.member-grants.add",
+        "admin.member-records.list",
+        "admin.member-tiers.save",
+        "admin.member.force-logout",
+        "admin.member.remove",
+        "admin.member.update",
+        "admin.members.list",
+        "admin.members.presence.list",
+        "admin.pointcards.",
+        "admin.pointcards.archive",
+        "admin.pointcards.delete",
+        "admin.pointcards.list",
+        "admin.pointcards.remove",
+        "admin.pointcards.reorder",
+        "admin.pointcards.save",
+        "admin.service-grants.add",
+        "admin.service-grants.catalog",
+        "admin.service-grants.preview",
+        "admin.service_minutes.add",
+        "admin.session.claim",
+        "admin.session.logout",
+        "admin.settings.copy",
+        "admin.stamps.add",
+        "admin.summary",
+        "admin.sync.status",
+        "admin.terms.activate",
+        "admin.terms.draft.save",
+        "admin.terms.list",
+        "admin.ticket-visibility.get",
+        "admin.ticket-visibility.save",
+        "admin.tickets.",
+        "admin.tickets.delete",
+        "admin.tickets.save",
+        "user.booking.benefits",
+        "user.booking.event-ticket.claim",
+        "user.booking.presence.heartbeat",
+        "user.booking.presence.offline",
+        "user.booking.presence.online",
+        "user.calendar.",
+        "user.calendar.bootstrap",
+        "user.calendar.date.details",
+        "user.calendar.presence.heartbeat",
+        "user.calendar.presence.offline",
+        "user.calendar.presence.online",
+        "user.event.",
+        "user.event.booking-selections.",
+        "user.event.booking-selections.update",
+        "user.event.bootstrap",
+        "user.event.presence.heartbeat",
+        "user.event.presence.offline",
+        "user.event.presence.online",
+        "user.event.snapshot-ticket.cancel",
+        "user.event.ticket.",
+        "user.event.ticket.claim",
+        "user.event.ticket.detail",
+        "user.event.ticket.redeem",
+        "user.member.bootstrap",
+        "user.member.presence.heartbeat",
+        "user.member.presence.offline",
+        "user.member.presence.online",
+        "user.member.profile.save",
+        "user.member.terms.accept",
+        "user.pointcard",
+        "user.pointcard.",
+        "user.pointcard.booking-selections.",
+        "user.pointcard.booking-selections.update",
+        "user.pointcard.bootstrap",
+        "user.pointcard.detail",
+        "user.pointcard.presence.heartbeat",
+        "user.pointcard.presence.offline",
+        "user.pointcard.presence.online",
+        "user.pointcard.snapshot-ticket.cancel",
+        "user.pointcard.ticket.",
+        "user.pointcard.ticket.redeem"
+      ],
+      "authReferences": [
+        {
+          "line": 10,
+          "source": "import { verifyLineIdTokenContract, requireActiveAdminContract } from \"../_shared/auth-contract.ts\";"
+        },
+        {
+          "line": 278,
+          "source": "async function verifyLineIdToken(idToken: string, clientType: ClientType, allowLoginClaim = false): Promise<{ lineUserId: string; displayName: string; issuedAtMs: number }> {"
+        },
+        {
+          "line": 279,
+          "source": "return await verifyLineIdTokenContract({"
+        },
+        {
+          "line": 469,
+          "source": "async function requireJoinedMember(supabase: SupabaseClient, identity: { lineUserId: string; displayName: string }): Promise<any> {"
+        },
+        {
+          "line": 551,
+          "source": "async function authorizeAdmin(supabase: SupabaseClient, identity: { lineUserId: string; displayName: string }): Promise<any> {"
+        },
+        {
+          "line": 552,
+          "source": "return await requireActiveAdminContract({"
+        },
+        {
+          "line": 1208,
+          "source": "// Current admin-defined centres/radii: the server RPC still makes the authorization decision."
+        },
+        {
+          "line": 2106,
+          "source": "const member = await requireJoinedMember(supabase,identity);"
+        },
+        {
+          "line": 2124,
+          "source": "const member = await requireJoinedMember(supabase, identity);"
+        },
+        {
+          "line": 2163,
+          "source": "await authorizeAdmin(supabase, identity);"
+        },
+        {
+          "line": 2329,
+          "source": "const member = await requireJoinedMember(supabase, identity);"
+        },
+        {
+          "line": 2358,
+          "source": "await requireJoinedMember(supabase, identity);"
+        },
+        {
+          "line": 2378,
+          "source": "const member = await requireJoinedMember(supabase,identity);"
+        },
+        {
+          "line": 2418,
+          "source": "const member = await requireJoinedMember(supabase,identity);"
+        },
+        {
+          "line": 2450,
+          "source": "const member = await requireJoinedMember(supabase,identity);"
+        },
+        {
+          "line": 2463,
+          "source": "const admin = await authorizeAdmin(supabase,identity);"
+        },
+        {
+          "line": 2541,
+          "source": "await authorizeAdmin(supabase, identity);"
+        },
+        {
+          "line": 2996,
+          "source": "identity = await verifyLineIdToken(idToken,clientType,action.endsWith(\".session.claim\"));"
+        }
+      ]
+    },
+    {
+      "name": "scheduled-grant-messages",
+      "version": 22,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/scheduled-grant-messages/index.ts",
+      "sha256": "99cadde6553ff80cebdfb0ace55fdba8a349366c08b2da83376d69a12ee47fcc",
+      "actionLiterals": [],
+      "authReferences": [
+        {
+          "line": 2,
+          "source": "import { withBusinessModule, businessEnv, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 164,
+          "source": "serveBusiness('scheduled-grant-messages',async (request: Request) => {"
+        }
+      ]
+    },
+    {
+      "name": "grant-automation",
+      "version": 24,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/grant-automation/index.ts",
+      "sha256": "9b4f0d5b7e6ce61848209cfda664c15696c1bf59b69b5df40a021142a9a0d00d",
+      "actionLiterals": [
+        "admin.calendar-items.list",
+        "admin.calendar-items.save",
+        "admin.member-grants.add"
+      ],
+      "authReferences": [
+        {
+          "line": 1,
+          "source": "import { businessEnv, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 3,
+          "source": "import { verifyLineIdTokenContract, requireActiveAdminContract } from \"../_shared/auth-contract.ts\";"
+        },
+        {
+          "line": 78,
+          "source": "async function verifyAdminIdToken(idToken: string): Promise<{ lineUserId:string;displayName:string }> {"
+        },
+        {
+          "line": 79,
+          "source": "return await verifyLineIdTokenContract({"
+        },
+        {
+          "line": 86,
+          "source": "async function authorizeAdmin(supabase: SupabaseClient, identity: { lineUserId:string;displayName:string }): Promise<void> {"
+        },
+        {
+          "line": 87,
+          "source": "await requireActiveAdminContract({"
+        },
+        {
+          "line": 281,
+          "source": "serveBusiness('grant-automation',async (request: Request) => {"
+        },
+        {
+          "line": 289,
+          "source": "const identity = await verifyAdminIdToken(requireText(body.idToken,\"LINE ID token\",5000));"
+        },
+        {
+          "line": 291,
+          "source": "await authorizeAdmin(supabase,identity);"
+        }
+      ]
+    },
+    {
+      "name": "booking-api",
+      "version": 51,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/booking-api/index.ts",
+      "sha256": "144f370ad2b339d5a8145b0a63214c7e95c6e6c89bda146a19a94046078dbf0b",
+      "actionLiterals": [
+        "admin.booking.",
+        "admin.booking.bootstrap",
+        "admin.booking.notifications.read",
+        "admin.booking.risk.get",
+        "admin.booking.risk.release",
+        "admin.booking.risk.resolve",
+        "admin.booking.risk.revoke",
+        "admin.booking.risk.save",
+        "admin.booking.service.save",
+        "admin.booking.settings.save",
+        "admin.booking.status.update",
+        "admin.booking.summary",
+        "user.booking.",
+        "user.booking.bootstrap",
+        "user.booking.cancel",
+        "user.booking.create",
+        "user.booking.risk.appeal",
+        "user.booking.risk.status",
+        "user.booking.slots",
+        "user.booking.update"
+      ],
+      "authReferences": [
+        {
+          "line": 1,
+          "source": "import { businessEnv, businessContext, serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 5,
+          "source": "import { verifyLineIdTokenContract, requireActiveAdminContract } from \"../_shared/auth-contract.ts\";"
+        },
+        {
+          "line": 161,
+          "source": "async function verifyLineIdToken(idToken: string, clientType: ClientType): Promise<Identity> {"
+        },
+        {
+          "line": 162,
+          "source": "return await verifyLineIdTokenContract({"
+        },
+        {
+          "line": 186,
+          "source": "async function requireJoinedMember(supabase: SupabaseClient, identity: Identity): Promise<any> {"
+        },
+        {
+          "line": 198,
+          "source": "async function authorizeAdmin(supabase: SupabaseClient, identity: Identity): Promise<any> {"
+        },
+        {
+          "line": 199,
+          "source": "return await requireActiveAdminContract({"
+        },
+        {
+          "line": 1082,
+          "source": "const member = await requireJoinedMember(supabase, identity);"
+        },
+        {
+          "line": 1096,
+          "source": "await authorizeAdmin(supabase, identity);"
+        },
+        {
+          "line": 1111,
+          "source": "serveBusiness('booking-api',async (request: Request) => {"
+        },
+        {
+          "line": 1157,
+          "source": "identity = await verifyLineIdToken(idToken, clientType);"
+        }
+      ]
+    },
+    {
+      "name": "calendar-system-api",
+      "version": 9,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/calendar-system-api/index.ts",
+      "sha256": "e5d821589af0a56f3b376fd914f74e719482126adc1d1652253992244ba8ce2b",
+      "actionLiterals": [],
+      "authReferences": []
+    },
+    {
+      "name": "booking-calendar-api",
+      "version": 27,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/booking-calendar-api/index.ts",
+      "sha256": "b25389e8a92ca1aeb81c5edefb66fefb7f795830d472e3bfd49977466641c9af",
+      "actionLiterals": [],
+      "authReferences": [
+        {
+          "line": 1,
+          "source": "import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 4,
+          "source": "import { verifyLineIdTokenContract } from \"../_shared/auth-contract.ts\";"
+        },
+        {
+          "line": 85,
+          "source": "async function verifyLineIdToken(idToken: string): Promise<Identity> {"
+        },
+        {
+          "line": 86,
+          "source": "const identity = await verifyLineIdTokenContract({"
+        },
+        {
+          "line": 111,
+          "source": "async function requireJoinedMember(supabase: SupabaseClient, identity: Identity): Promise<{ id: string; membership_status: string; status: string }> {"
+        },
+        {
+          "line": 250,
+          "source": "serveBusiness('booking-calendar-api',async (request) => {"
+        },
+        {
+          "line": 274,
+          "source": ": await verifyLineIdToken(idToken);"
+        },
+        {
+          "line": 280,
+          "source": "const member = await requireJoinedMember(supabase, identity);"
+        }
+      ]
+    },
+    {
+      "name": "booking-admin-api",
+      "version": 21,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/booking-admin-api/index.ts",
+      "sha256": "b5a2c180e452d496e7478bd52f9e8ed9dd5b213b3b778e74ab90a96fce440d6d",
+      "actionLiterals": [
+        "admin.booking.",
+        "admin.booking.manage.bootstrap",
+        "admin.booking.service.delete",
+        "admin.booking.service.save",
+        "admin.booking.services.batch",
+        "admin.booking.settings.save",
+        "admin.booking.type.create",
+        "admin.booking.type.delete",
+        "admin.booking.type.update"
+      ],
+      "authReferences": [
+        {
+          "line": 1,
+          "source": "import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 3,
+          "source": "import { verifyLineIdTokenContract, requireActiveAdminContract } from \"../_shared/auth-contract.ts\";"
+        },
+        {
+          "line": 110,
+          "source": "async function verifyLineIdToken(idToken: string): Promise<Identity> {"
+        },
+        {
+          "line": 111,
+          "source": "return await verifyLineIdTokenContract({"
+        },
+        {
+          "line": 118,
+          "source": "async function authorizeAdmin(supabase: SupabaseClient, identity: Identity): Promise<void> {"
+        },
+        {
+          "line": 119,
+          "source": "await requireActiveAdminContract({"
+        },
+        {
+          "line": 426,
+          "source": "serveBusiness('booking-admin-api',async (request: Request) => {"
+        },
+        {
+          "line": 436,
+          "source": "const identity = await verifyLineIdToken(asText(body.idToken, 5000));"
+        },
+        {
+          "line": 438,
+          "source": "await authorizeAdmin(supabase, identity);"
+        }
+      ]
+    },
+    {
+      "name": "event-ticket-links",
+      "version": 13,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/event-ticket-links/index.ts",
+      "sha256": "f67ba640b85350b141e23edbaacb7224c6c05f3a56468291a0df4345d573e4ab",
+      "actionLiterals": [
+        "admin.event-ticket-link.save",
+        "admin.event-ticket-links.list",
+        "admin.event-ticket-links.save",
+        "user.event-ticket-links.list"
+      ],
+      "authReferences": [
+        {
+          "line": 4,
+          "source": "import { verifyLineIdTokenContract, requireActiveAdminContract } from \"../_shared/auth-contract.ts\";"
+        },
+        {
+          "line": 119,
+          "source": "async function verifyLineIdToken(idToken: string, clientType: ClientType): Promise<{ lineUserId: string; displayName: string }> {"
+        },
+        {
+          "line": 120,
+          "source": "return await verifyLineIdTokenContract({"
+        },
+        {
+          "line": 140,
+          "source": "async function authorizeAdmin(supabase: SupabaseClient, lineUserId: string): Promise<any> {"
+        },
+        {
+          "line": 141,
+          "source": "return await requireActiveAdminContract({"
+        },
+        {
+          "line": 297,
+          "source": "const identity = await verifyLineIdToken(idToken, clientType);"
+        },
+        {
+          "line": 304,
+          "source": "await authorizeAdmin(supabase, identity.lineUserId);"
+        }
+      ]
+    },
+    {
+      "name": "booking-admin-operations",
+      "version": 27,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/booking-admin-operations/index.ts",
+      "sha256": "9e1bd69d61617ef95d8d14091281cc8fd7d7878ecf2981bdbe0a5ebb4fc98983",
+      "actionLiterals": [
+        "admin.booking.",
+        "admin.booking.benefits.list",
+        "admin.booking.benefits.update",
+        "admin.booking.completed.correct",
+        "admin.booking.completed.preview",
+        "admin.booking.items.update",
+        "admin.booking.participants.items.update",
+        "admin.booking.participants.technicians.update",
+        "admin.booking.status.complete"
+      ],
+      "authReferences": [
+        {
+          "line": 1,
+          "source": "import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 4,
+          "source": "import { verifyLineIdTokenContract, requireActiveAdminContract } from \"../_shared/auth-contract.ts\";"
+        },
+        {
+          "line": 144,
+          "source": "async function verifyLineIdToken(idToken: string): Promise<Identity> {"
+        },
+        {
+          "line": 145,
+          "source": "return await verifyLineIdTokenContract({"
+        },
+        {
+          "line": 151,
+          "source": "async function authorizeAdmin(supabase: SupabaseClient, identity: Identity): Promise<void> {"
+        },
+        {
+          "line": 152,
+          "source": "return await requireActiveAdminContract({"
+        },
+        {
+          "line": 606,
+          "source": "serveBusiness('booking-admin-operations',async (request: Request) => {"
+        },
+        {
+          "line": 618,
+          "source": "const identity = await verifyLineIdToken(asText(body.idToken, 5000));"
+        },
+        {
+          "line": 620,
+          "source": "await authorizeAdmin(supabase, identity);"
+        }
+      ]
+    },
+    {
+      "name": "booking-cancellation-api",
+      "version": 24,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/booking-cancellation-api/index.ts",
+      "sha256": "f7df821d0471628da2b6d97a2a8276c9714773293bce3655cc5d0b718f62363c",
+      "actionLiterals": [
+        "admin.approve",
+        "admin.list",
+        "admin.reject"
+      ],
+      "authReferences": [
+        {
+          "line": 1,
+          "source": "import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 4,
+          "source": "import { verifyLineIdTokenContract, requireActiveAdminContract } from \"../_shared/auth-contract.ts\";"
+        },
+        {
+          "line": 85,
+          "source": "async function verifyLineIdToken(idToken: string, clientType: ClientType): Promise<Identity> {"
+        },
+        {
+          "line": 86,
+          "source": "return await verifyLineIdTokenContract({"
+        },
+        {
+          "line": 113,
+          "source": "return await requireActiveAdminContract({"
+        },
+        {
+          "line": 358,
+          "source": "serveBusiness('booking-cancellation-api',async (request: Request) => {"
+        },
+        {
+          "line": 380,
+          "source": ": await verifyLineIdToken(asText(body.idToken, 5000), clientType);"
+        },
+        {
+          "line": 386,
+          "source": "identity = await verifyLineIdToken(asText(body.idToken, 5000), clientType);"
+        }
+      ]
+    },
+    {
+      "name": "member-profile-api",
+      "version": 33,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/member-profile-api/index.ts",
+      "sha256": "f5469e7d24756f7d0e2403eba3cf8e00598fee378d726b21164ef777b3268490",
+      "actionLiterals": [
+        "user.member.bootstrap",
+        "user.member.card.open",
+        "user.member.profile.save",
+        "user.member.terms.accept"
+      ],
+      "authReferences": [
+        {
+          "line": 1,
+          "source": "import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 3,
+          "source": "import { verifyLineIdTokenContract } from \"../_shared/auth-contract.ts\";"
+        },
+        {
+          "line": 53,
+          "source": "async function verifyLineIdToken(idToken: string): Promise<Identity> {"
+        },
+        {
+          "line": 54,
+          "source": "return await verifyLineIdTokenContract({"
+        },
+        {
+          "line": 239,
+          "source": "serveBusiness('member-profile-api',async (request: Request) => {"
+        },
+        {
+          "line": 255,
+          "source": ": await verifyLineIdToken(asText(body.idToken, 10_000));"
+        }
+      ]
+    },
+    {
+      "name": "booking-contact-api",
+      "version": 21,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/booking-contact-api/index.ts",
+      "sha256": "2776e383505aceb77bc62dea59a862141ebb4e58f1084bcd7a25f80148c7f152",
+      "actionLiterals": [
+        "admin.booking.contacts",
+        "user.booking.contacts",
+        "user.booking.create",
+        "user.booking.update"
+      ],
+      "authReferences": [
+        {
+          "line": 1,
+          "source": "import { serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 7,
+          "source": "authorizeAdmin,"
+        },
+        {
+          "line": 16,
+          "source": "requireJoinedMember,"
+        },
+        {
+          "line": 18,
+          "source": "verifyLineIdToken,"
+        },
+        {
+          "line": 101,
+          "source": "serveBusiness('booking-contact-api',async (request: Request) => {"
+        },
+        {
+          "line": 133,
+          "source": ": await verifyLineIdToken(asText(body.idToken, 10_000), clientType);"
+        },
+        {
+          "line": 139,
+          "source": "identity = await verifyLineIdToken(asText(body.idToken, 10_000), clientType);"
+        },
+        {
+          "line": 144,
+          "source": "await authorizeAdmin(supabase, identity);"
+        },
+        {
+          "line": 149,
+          "source": "const member = await requireJoinedMember(supabase, identity);"
+        }
+      ]
+    },
+    {
+      "name": "booking-line-notifications",
+      "version": 23,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/booking-line-notifications/index.ts",
+      "sha256": "0787338b6ed402fa25f415f5e8176451aad01e05bac7e8377ca7be322bacd590",
+      "actionLiterals": [],
+      "authReferences": [
+        {
+          "line": 1,
+          "source": "import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 17,
+          "source": "serveBusiness('booking-line-notifications',async (request: Request) => {"
+        }
+      ]
+    },
+    {
+      "name": "point-ticket-batch-api",
+      "version": 8,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/point-ticket-batch-api/index.ts",
+      "sha256": "a7274749cce921531ca6468dcb4d2b011302f33b89789180f7b460b23090f537",
+      "actionLiterals": [],
+      "authReferences": [
+        {
+          "line": 1,
+          "source": "import { serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 6,
+          "source": "serveBusiness('point-ticket-batch-api',(request: Request) => {"
+        }
+      ]
+    },
+    {
+      "name": "pointcard-extension-api",
+      "version": 22,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/pointcard-extension-api/index.ts",
+      "sha256": "e6c69be1f5e8871d46567a25617563b80a6baf86ca1050f6eeeb3df51ebda326",
+      "actionLiterals": [
+        "admin.pointcard.settings.save",
+        "admin.settings.get",
+        "admin.settings.save"
+      ],
+      "authReferences": [
+        {
+          "line": 1,
+          "source": "import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 5,
+          "source": "import { verifyLineIdTokenContract, requireActiveAdminContract } from \"../_shared/auth-contract.ts\";"
+        },
+        {
+          "line": 46,
+          "source": "async function verifyLineIdToken(idToken: string, kind: \"points\" | \"admin\") {"
+        },
+        {
+          "line": 47,
+          "source": "return await verifyLineIdTokenContract({"
+        },
+        {
+          "line": 64,
+          "source": "return await verifyLineIdToken(asText(body.idToken, 10000), \"points\");"
+        },
+        {
+          "line": 78,
+          "source": "await requireActiveAdminContract({"
+        },
+        {
+          "line": 162,
+          "source": "const identity = await verifyLineIdToken(asText(body.idToken, 10000), \"admin\");"
+        },
+        {
+          "line": 170,
+          "source": "const identity = await verifyLineIdToken(asText(body.idToken, 10000), \"admin\");"
+        },
+        {
+          "line": 204,
+          "source": "serveBusiness('pointcard-extension-api',async (request) => {"
+        }
+      ]
+    },
+    {
+      "name": "birthday-benefits",
+      "version": 6,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/birthday-benefits/index.ts",
+      "sha256": "48cca608dad02b096febc6bb29e991ca509a343c9e3a48032b696588be452fb1",
+      "actionLiterals": [],
+      "authReferences": []
+    },
+    {
+      "name": "fixed-ticket-automation",
+      "version": 11,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/fixed-ticket-automation/index.ts",
+      "sha256": "0f34054ce37456cbf517526441fa676936efd8ee77a031c860807dc440056ed9",
+      "actionLiterals": [
+        "admin.fixed-tickets.delete",
+        "admin.fixed-tickets.list",
+        "admin.fixed-tickets.run",
+        "admin.fixed-tickets.save"
+      ],
+      "authReferences": [
+        {
+          "line": 4,
+          "source": "import { businessEnv, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 65,
+          "source": "async function verifyAdmin(supabase: SupabaseClient, idToken: unknown): Promise<{ lineUserId: string; displayName: string }> {"
+        },
+        {
+          "line": 271,
+          "source": "serveBusiness('fixed-ticket-automation',async (request: Request) => {"
+        },
+        {
+          "line": 283,
+          "source": "const identity = await verifyAdmin(supabase, body.idToken);"
+        }
+      ]
+    },
+    {
+      "name": "calendar-member-api",
+      "version": 8,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/calendar-member-api/index.ts",
+      "sha256": "23e27ac243aa1e8659b75a309a6c680f13c819b26c6f956308314176a16d1618",
+      "actionLiterals": [],
+      "authReferences": []
+    },
+    {
+      "name": "member-calendar-api",
+      "version": 10,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/member-calendar-api/index.ts",
+      "sha256": "064f97950827630413262362f6aa8336cd962a79eb4b26040be9fbc549c79e0e",
+      "actionLiterals": [
+        "user.calendar.bootstrap",
+        "user.calendar.date.details"
+      ],
+      "authReferences": [
+        {
+          "line": 1,
+          "source": "import { businessEnv, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 221,
+          "source": "serveBusiness('member-calendar-api',async (request: Request) => {"
+        }
+      ]
+    },
+    {
+      "name": "booking-group-api",
+      "version": 39,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/booking-group-api/index.ts",
+      "sha256": "1b0fd74688ce5cba3e174aecdb59ff7c2bb739901d4ce3d37730f6d43823b96b",
+      "actionLiterals": [
+        "admin.booking.resources.",
+        "admin.booking.resources.bootstrap",
+        "admin.booking.resources.settings.save",
+        "admin.booking.resources.technician.save",
+        "user.booking.group.",
+        "user.booking.group.bootstrap",
+        "user.booking.group.create",
+        "user.booking.group.slots",
+        "user.booking.group.update"
+      ],
+      "authReferences": [
+        {
+          "line": 1,
+          "source": "import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 4,
+          "source": "import { verifyLineIdTokenContract, requireActiveAdminContract } from \"../_shared/auth-contract.ts\";"
+        },
+        {
+          "line": 128,
+          "source": "return await verifyLineIdTokenContract({"
+        },
+        {
+          "line": 159,
+          "source": "return await requireActiveAdminContract({"
+        },
+        {
+          "line": 431,
+          "source": "serveBusiness('booking-group-api',async (req: Request) => {"
+        }
+      ]
+    },
+    {
+      "name": "booking-technician-delete",
+      "version": 7,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/booking-technician-delete/index.ts",
+      "sha256": "9139a5768255c2f83c922e0c1734ed1c978ac34e8332cf55d6f6a9c064726fd2",
+      "actionLiterals": [],
+      "authReferences": [
+        {
+          "line": 1,
+          "source": "import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 20,
+          "source": "serveBusiness('booking-technician-delete',(request: Request) => {"
+        }
+      ]
+    },
+    {
+      "name": "booking-group-details-api",
+      "version": 13,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/booking-group-details-api/index.ts",
+      "sha256": "afc71c028af3b3ce003cc62ea07291f8f785e6f8e5f44c9506c9bb3a595150c7",
+      "actionLiterals": [
+        "admin.booking.group.details"
+      ],
+      "authReferences": [
+        {
+          "line": 1,
+          "source": "import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 3,
+          "source": "import { verifyLineIdTokenContract, requireActiveAdminContract } from \"../_shared/auth-contract.ts\";"
+        },
+        {
+          "line": 159,
+          "source": "serveBusiness('booking-group-details-api',async (request: Request) => {"
+        },
+        {
+          "line": 170,
+          "source": "const identity = await verifyLineIdTokenContract({"
+        },
+        {
+          "line": 176,
+          "source": "await requireActiveAdminContract({"
+        }
+      ]
+    },
+    {
+      "name": "booking-group-slots-api",
+      "version": 29,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/booking-group-slots-api/index.ts",
+      "sha256": "da85eb3cec099b4ca9177141ed9fcc47d762fd5c8ac934f43425767e0c115c55",
+      "actionLiterals": [
+        "user.booking.group.slots"
+      ],
+      "authReferences": [
+        {
+          "line": 1,
+          "source": "import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 4,
+          "source": "import { verifyLineIdTokenContract } from \"../_shared/auth-contract.ts\";"
+        },
+        {
+          "line": 91,
+          "source": "const identity = await verifyLineIdTokenContract({"
+        },
+        {
+          "line": 309,
+          "source": "serveBusiness('booking-group-slots-api',async (request: Request) => {"
+        }
+      ]
+    },
+    {
+      "name": "test-mode-api",
+      "version": 23,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/test-mode-api/index.ts",
+      "sha256": "98b25ab055cfc3bce9ed2b70694cefa4e3aac0cdc7a2c838e506093f34280968",
+      "actionLiterals": [
+        "admin.test-mode.bootstrap",
+        "admin.test-mode.delete-accounts",
+        "admin.test-mode.save"
+      ],
+      "authReferences": [
+        {
+          "line": 1,
+          "source": "import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 3,
+          "source": "import { verifyLineIdTokenContract, requireActiveAdminContract } from \"../_shared/auth-contract.ts\";"
+        },
+        {
+          "line": 141,
+          "source": "async function verifyLineIdToken(idToken: string, surface: Surface): Promise<Identity> {"
+        },
+        {
+          "line": 142,
+          "source": "return await verifyLineIdTokenContract({"
+        },
+        {
+          "line": 149,
+          "source": "async function authorizeAdmin(supabase: any, identity: Identity): Promise<any> {"
+        },
+        {
+          "line": 150,
+          "source": "return await requireActiveAdminContract({"
+        },
+        {
+          "line": 368,
+          "source": "serveBusiness('test-mode-api',async (request: Request) => {"
+        },
+        {
+          "line": 497,
+          "source": "const identity = await verifyLineIdToken(asText(body.idToken, 10_000), clientType);"
+        },
+        {
+          "line": 498,
+          "source": "await authorizeAdmin(supabase, identity);"
+        }
+      ]
+    },
+    {
+      "name": "test-control-api",
+      "version": 52,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/test-control-api/index.ts",
+      "sha256": "6642c0d70d0d6fdb5383da0c528e42bea094bb7502d38ab3a3606fd1393178ce",
+      "actionLiterals": [
+        "admin.test-control.acquire-e2e-lease",
+        "admin.test-control.automation-health",
+        "admin.test-control.cleanup-ticket-template",
+        "admin.test-control.create",
+        "admin.test-control.e2e-profile",
+        "admin.test-control.execute",
+        "admin.test-control.heartbeat-e2e-lease",
+        "admin.test-control.list",
+        "admin.test-control.prepare-e2e-fixtures",
+        "admin.test-control.prepare-test-account-consents",
+        "admin.test-control.purge-test-data",
+        "admin.test-control.record-browser-run",
+        "admin.test-control.recycle-e2e-runtime",
+        "admin.test-control.release-e2e-lease",
+        "admin.test-control.replay-manifest",
+        "admin.test-control.status"
+      ],
+      "authReferences": [
+        {
+          "line": 1,
+          "source": "import { businessEnv, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 4,
+          "source": "import { verifyLineIdTokenContract, requireActiveAdminContract } from \"../_shared/auth-contract.ts\";"
+        },
+        {
+          "line": 1875,
+          "source": "serveBusiness('test-control-api',async (request: Request) => {"
+        },
+        {
+          "line": 1901,
+          "source": "const identity = await verifyLineIdTokenContract({"
+        },
+        {
+          "line": 1906,
+          "source": "await requireActiveAdminContract({"
+        }
+      ]
+    },
+    {
+      "name": "user-test-api",
+      "version": 35,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/user-test-api/index.ts",
+      "sha256": "1c65eb91024b22b3dd02bdb0ccaefae2acbf22a466a66f8d763e2801294bcc40",
+      "actionLiterals": [
+        "admin.calendar-items.save",
+        "user.booking.bootstrap",
+        "user.booking.cancel",
+        "user.booking.create",
+        "user.booking.group.bootstrap",
+        "user.booking.group.create",
+        "user.booking.group.slots",
+        "user.booking.group.update",
+        "user.booking.slots",
+        "user.booking.update",
+        "user.event.ticket.claim",
+        "user.event.ticket.redeem",
+        "user.member.profile.save",
+        "user.pointcard.ticket.redeem",
+        "user.qa.browser-run.record",
+        "user.qa.event-day.prepare",
+        "user.qa.fixture.cleanup",
+        "user.qa.fixture.prepare",
+        "user.qa.mutations",
+        "user.qa.usage-state.prepare"
+      ],
+      "authReferences": [
+        {
+          "line": 1,
+          "source": "import { businessEnv, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 1978,
+          "source": "// authorization, ticket redemption, geofencing, or a production member session."
+        },
+        {
+          "line": 2161,
+          "source": "serveBusiness('user-test-api',async (request: Request) => {"
+        }
+      ]
+    },
+    {
+      "name": "e2e-artifact-retention",
+      "version": 5,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/e2e-artifact-retention/index.ts",
+      "sha256": "6a982380c90850ef8e69667f283176575c5dcd1bb3abd9db5964a640b94f5106",
+      "actionLiterals": [],
+      "authReferences": [
+        {
+          "line": 1,
+          "source": "import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 24,
+          "source": "serveBusiness('e2e-artifact-retention',async (request: Request) => {"
+        }
+      ]
+    },
+    {
+      "name": "e2e-artifact-api",
+      "version": 9,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/e2e-artifact-api/index.ts",
+      "sha256": "6058d86b19642a746c7ebc9a574eb5212c5f118167a4734d49d45f458b81dee1",
+      "actionLiterals": [
+        "admin.e2e-artifact.signed-url"
+      ],
+      "authReferences": [
+        {
+          "line": 1,
+          "source": "import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 3,
+          "source": "import { verifyLineIdTokenContract, requireActiveAdminContract } from \"../_shared/auth-contract.ts\";"
+        },
+        {
+          "line": 64,
+          "source": "async function verifyAdminIdentity(idToken: string): Promise<{ lineUserId: string }> {"
+        },
+        {
+          "line": 65,
+          "source": "const identity = await verifyLineIdTokenContract({"
+        },
+        {
+          "line": 71,
+          "source": "async function authorizeAdmin(supabase: any, identity: { lineUserId: string }): Promise<void> {"
+        },
+        {
+          "line": 72,
+          "source": "await requireActiveAdminContract({"
+        },
+        {
+          "line": 119,
+          "source": "const identity = await verifyAdminIdentity(asText(form.get(\"idToken\"), 10_000));"
+        },
+        {
+          "line": 120,
+          "source": "await authorizeAdmin(supabase, identity);"
+        },
+        {
+          "line": 173,
+          "source": "const identity = await verifyAdminIdentity(asText(body.idToken, 10_000));"
+        },
+        {
+          "line": 174,
+          "source": "await authorizeAdmin(supabase, identity);"
+        },
+        {
+          "line": 185,
+          "source": "serveBusiness('e2e-artifact-api',async (request: Request) => {"
+        }
+      ]
+    },
+    {
+      "name": "member-growth-api",
+      "version": 16,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/member-growth-api/index.ts",
+      "sha256": "89307fba85ccc6fc0cf011be0fccf3e2a0a4a91b9be4e65d3e5074f3d1eefb27",
+      "actionLiterals": [],
+      "authReferences": [
+        {
+          "line": 1,
+          "source": "import { businessEnv, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 3,
+          "source": "import { verifyLineIdTokenContract } from \"../_shared/auth-contract.ts\";"
+        },
+        {
+          "line": 80,
+          "source": "return await verifyLineIdTokenContract({"
+        },
+        {
+          "line": 248,
+          "source": "serveBusiness('member-growth-api',async (request: Request) => {"
+        }
+      ]
+    },
+    {
+      "name": "booking-receipt-api",
+      "version": 41,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/booking-receipt-api/index.ts",
+      "sha256": "b74ec93fe751b7d81e01995a09d7dfdf33ac2a5e7773c027fb382d0ab4ca1f62",
+      "actionLiterals": [
+        "admin.booking.receipt.dismiss",
+        "admin.booking.receipt.list",
+        "admin.booking.receipt.options",
+        "admin.booking.receipt.register",
+        "admin.booking.receipt.url",
+        "user.booking.receipt.cancel",
+        "user.booking.receipt.finalize",
+        "user.booking.receipt.list",
+        "user.booking.receipt.options",
+        "user.booking.receipt.prepare"
+      ],
+      "authReferences": [
+        {
+          "line": 1,
+          "source": "import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 4,
+          "source": "import { verifyLineIdTokenContract, requireActiveAdminContract } from \"../_shared/auth-contract.ts\";"
+        },
+        {
+          "line": 75,
+          "source": "return await verifyLineIdTokenContract({"
+        },
+        {
+          "line": 86,
+          "source": "return await verifyLineIdTokenContract({"
+        },
+        {
+          "line": 560,
+          "source": "// Only snapshot mode uses this preview. Actual authorization is repeated inside"
+        },
+        {
+          "line": 735,
+          "source": "// that truncated catalog as the authorization source for review."
+        },
+        {
+          "line": 961,
+          "source": "serveBusiness('booking-receipt-api',async(request:Request)=>{"
+        },
+        {
+          "line": 1001,
+          "source": "await requireActiveAdminContract({supabase,identity,createError:(status,code,message,details=null)=>new ApiError(status,code,message,details)});"
+        }
+      ]
+    },
+    {
+      "name": "event-ticket-extension-api",
+      "version": 17,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/event-ticket-extension-api/index.ts",
+      "sha256": "d96c22f83aee9da5a92e43e28aac4539b3ab615d4bfb8ddfa825607a692bf6ca",
+      "actionLiterals": [
+        "admin.event-ticket.settings.save",
+        "admin.settings.get",
+        "admin.settings.save",
+        "user.event.tickets.redeem"
+      ],
+      "authReferences": [
+        {
+          "line": 1,
+          "source": "import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';"
+        },
+        {
+          "line": 5,
+          "source": "import { verifyLineIdTokenContract, requireActiveAdminContract } from \"../_shared/auth-contract.ts\";"
+        },
+        {
+          "line": 46,
+          "source": "async function verifyLineIdToken(idToken: string, kind: \"event\" | \"admin\") {"
+        },
+        {
+          "line": 47,
+          "source": "return await verifyLineIdTokenContract({"
+        },
+        {
+          "line": 61,
+          "source": "return await verifyLineIdToken(asText(body.idToken, 10000), \"event\");"
+        },
+        {
+          "line": 75,
+          "source": "await requireActiveAdminContract({"
+        },
+        {
+          "line": 172,
+          "source": "const identity = await verifyLineIdToken(asText(body.idToken, 10000), \"admin\");"
+        },
+        {
+          "line": 179,
+          "source": "const identity = await verifyLineIdToken(asText(body.idToken, 10000), \"admin\");"
+        },
+        {
+          "line": 234,
+          "source": "serveBusiness('event-ticket-extension-api',async (request) => {"
+        }
+      ]
+    },
+    {
+      "name": "platform-api",
+      "version": 12,
+      "status": "source inventory only; per-action reachability, SQL ownership, revocation and live negative results remain unverified",
+      "source": "MemberWebsocket-dev/supabase/functions/platform-api/index.ts",
+      "sha256": "f37831f468604ac02bec74a91b63b7ad63e0d35a6cda9bd8c0389abc8896c8a6",
+      "actionLiterals": [],
+      "authReferences": [
+        {
+          "line": 19,
+          "source": "verifyIdentity:(idToken: string) => verifyPlatformIdToken({idToken}),"
+        },
+        {
+          "line": 20,
+          "source": "verifyApplicantIdentity:(idToken: string, channelId?: string) => verifyMerchantAdminIdToken({idToken}, channelId),"
+        }
+      ]
+    }
+  ]
+}

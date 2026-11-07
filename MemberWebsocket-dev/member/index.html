@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hant" data-ui-system="material-3">
+<html lang="zh-Hant" data-ui-system="material-3" data-portal-surface="member">
 <head>
   <meta name="robots" content="noindex,nofollow">
   <meta charset="utf-8">
@@ -7,7 +7,7 @@
   <meta name="referrer" content="no-referrer">
   <meta name="theme-color" content="#f6f1e8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' https://static.line-scdn.net https://cdn.jsdelivr.net; style-src 'self'; connect-src 'self' https://api.line.me https://access.line.me https://liff.line.me https://*.line-scdn.net https://*.supabase.co wss://*.supabase.co; media-src 'self' blob:; img-src 'self' data: blob: https://profile.line-scdn.net; frame-src https://liff-subwindow.line.me https://access.line.me; form-action https://liff-subwindow.line.me https://access.line.me">
-  <title>會員卡｜Lumen Club</title>
+  <title>Lumen Club｜會員卡</title>
   <link rel="preconnect" href="https://static.line-scdn.net" crossorigin>
   <link rel="stylesheet" href="./styles.css?v=member-code-copy-20261007-1">
   <link rel="stylesheet" href="./terms.css?v=membership-terms-20260928-1">
@@ -17,23 +17,17 @@
   <link rel="stylesheet" href="../user-tour.css?v=user-tour-20260928-10-p2-20261006-1">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0/dist/umd/supabase.js" integrity="sha384-lDkWTkrzxBtYvBtgQmPcLBhTbJdqB11igYtWVcCIVXO0Lv4+XuKKdd4razodiyzk" crossorigin="anonymous" defer></script>
-  <script src="../test-mode-client.js?v=test-login-takeover-20261008-2-p1-secure-20261008-1" defer></script>
-  <script src="../member-system.js?v=layout-stability-20261001-1-accessible-20261003-1-p2-20261006-1-p1-secure-20261008-1-live-sync-20261010-1-line-offline-20261012-1-takeover-20261013-1-silent-takeover-20261013-2-booking-selections-20261013-1-release-20261014-1-connection-efficiency-20261014-1" defer></script>
+  <script src="../business-context.js"></script>
+  <script src="../member-system.js?v=layout-stability-20261001-1-accessible-20261003-1-p2-20261006-1-p1-secure-20261008-1-live-sync-20261010-1-line-offline-20261012-1-takeover-20261013-1-silent-takeover-20261013-2-booking-selections-20261013-1-release-20261014-1-connection-efficiency-20261014-1-request-scope-20261029-2" defer></script>
   <script src="./member-phone.js?v=member-phone-country-code-20261003-1" defer></script>
-  <script src="./profile-extension.js?v=member-phone-country-code-20261003-1" defer></script>
+  <script src="./profile-extension.js?v=member-phone-otp-change-20261104-1" defer></script>
   <script src="./profile-birthday-edit.js?v=async-architecture-20260921-1" defer></script>
   <script src="./membership-progress.js?v=member-tier-style-20260908" defer></script>
-  <script src="./app.js?v=member-code-copy-20261007-1-p1-secure-20261008-1-live-sync-20261010-1-release-20261014-1" defer></script>
-  <script src="./member-growth.js?v=member-actions-20261010-2-ongoing-20261013-1" defer></script>
+  <script src="./app.js?v=twilio-join-20261104-integrated-1" defer></script>
+  <script src="./member-growth.js?v=member-actions-20261010-2-ongoing-20261013-1-site-title-20261107-1" defer></script>
   <script src="../user-tour.js?v=participant-state-isolation-20261004-1-p2-20261006-1" defer></script>
-  <link rel="stylesheet" href="../test-mode.css?v=test-mode-20260920-1">
-  <link rel="stylesheet" href="../user-test-control.css?v=user-qa-observer-20260921-2">
   <link rel="stylesheet" href="../responsive.css?v=20260914-line-form-1">
   <script src="../dialog-accessibility.js?v=20260913" defer></script>
-  <script src="../e2e-feature-coverage.js?v=feature-coverage-20261009-1-ongoing-20261010-1-scope-complete-20261015-1" defer></script>
-  <script src="../e2e-scenario-graph.js?v=e2e-graph-20261004-2" defer></script>
-  <script src="../e2e-professional-tester.js?v=professional-qa-20261005-2" defer></script>
-  <script src="../user-test-control.js?v=qa-e2e-20261010-2-consent-scope-ongoing-20261013-1-gps-screenshot-20261015-2" defer></script>
   <link rel="stylesheet" href="../theme.css?v=m3-ui-20261001-booking-topbar-parity-3-ui-20261007-1">
   <link rel="stylesheet" href="../experience.css?v=ui-consolidation-20261007-1">
   <script src="../membership-milestones.js?v=lumen-experience-20260924-1" defer></script>
@@ -128,6 +122,13 @@
             </label>
           </div>
           <small class="profile-field-help">請先選擇國碼；系統會以國際格式儲存，例如 +886912345678。</small>
+          <div id="profilePhoneVerification" class="profile-phone-verification hidden" aria-label="首次加入會員手機簡訊驗證">
+            <button id="profilePhoneSendCodeButton" class="button button-refresh" type="button">發送簡訊驗證碼</button>
+            <label for="profilePhoneCode">簡訊驗證碼
+              <input id="profilePhoneCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="6" placeholder="請輸入 6 位數驗證碼">
+            </label>
+            <small id="profilePhoneVerificationMessage" class="profile-field-help" role="status" aria-live="polite">輸入手機後點選「發送簡訊驗證碼」，收到後輸入驗證碼，入會時會完成認證。</small>
+          </div>
         </div>
         <section class="terms-box" aria-labelledby="joinTermsHeading">
           <h2 id="joinTermsHeading">使用同意與免責聲明</h2>
@@ -358,6 +359,14 @@
               </label>
             </div>
             <small class="profile-field-help">修改後會以國際格式儲存，並同步到尚未完成的會員資料預約。</small>
+            <small id="phoneEditStatusMessage" class="profile-field-help" role="status"></small>
+            <div id="phoneEditVerification" class="profile-phone-verification hidden" aria-label="修改電話簡訊認證">
+              <button id="phoneEditSendCodeButton" class="button button-refresh" type="button">發送新電話驗證碼</button>
+              <label for="phoneEditCode">簡訊驗證碼
+                <input id="phoneEditCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="6" placeholder="請輸入 6 位數驗證碼">
+              </label>
+              <small id="phoneEditVerificationMessage" class="profile-field-help" role="status" aria-live="polite">修改電話必須驗證新號碼，驗證成功前原電話保持不變。</small>
+            </div>
           </div>
           <p id="phoneEditMessage" class="profile-modal-message hidden" role="alert"></p>
           <div class="profile-edit-modal-actions">

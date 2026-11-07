@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
+const fs = require('./helpers/edge-test-fs.cjs');
 const path = require('node:path');
 const { stripTypeScriptTypes } = require('node:module');
 const root = path.resolve(__dirname, '..');

@@ -1,8 +1,10 @@
+import { bookingPriceOptions, withBookingPrices, bookingPriceError } from '../_shared/booking-price-publishing.mjs';
+import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
 import { bookingTicketUsageError } from "../_shared/booking-ticket-usage.ts";
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
 import { loadBookingBenefits } from "../_shared/booking-benefits.ts";
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 
 type Json = Record<string, unknown>;
 type Identity = { lineUserId: string; displayName: string };
@@ -24,7 +26,7 @@ class ApiError extends Error {
   }
 }
 
-function env(name: string): string { return (Deno.env.get(name) || "").trim(); }
+function env(name: string): string { return (businessEnv(name) || "").trim(); }
 function createRequestId(): string {
   return globalThis.crypto?.randomUUID?.()
     || `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
@@ -54,6 +56,7 @@ function response(origin: string | null, payload: unknown, status = 200): Respon
   return new Response(JSON.stringify(payload), { status, headers: { ...corsHeaders(origin), "Content-Type": "application/json; charset=utf-8" } });
 }
 function mapDatabaseError(error: unknown): ApiError {
+  const priceError = bookingPriceError(error); if (priceError) return new ApiError(priceError.status, priceError.code, priceError.message);
   const bookingError = bookingTicketUsageError(error, (status, code, message) => new ApiError(status, code, message));
   if (bookingError) return bookingError as ApiError;
   const raw = error as { message?: string; details?: string; code?: string };
@@ -127,11 +130,11 @@ function errorResponse(origin: string | null, apiError: ApiError, requestId: str
     error: { code: apiError.code, message: apiError.message, details: apiError.details },
   }, apiError.status);
 }
-function dbClient(): SupabaseClient {
+function dbClient(body: Record<string, any> = {}): SupabaseClient {
   const url = env("SUPABASE_URL");
   const key = env("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !key) throw new ApiError(503, "SUPABASE_CONFIG_MISSING", "Supabase server 設定尚未完成。");
-  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  return withBookingPrices(createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false }, ...bookingPriceOptions(body) }), body);
 }
 function channelId(): string {
   const value = env("LINE_ADMIN_CHANNEL_ID") || "2010791619";
@@ -602,7 +605,7 @@ async function route(supabase: SupabaseClient, identity: Identity, action: strin
   throw new ApiError(404, "ACTION_NOT_FOUND", "不支援的管理端預約操作。");
 }
 
-Deno.serve(async (request: Request) => {
+serveBusiness('booking-admin-operations',async (request: Request) => {
   const origin = request.headers.get("Origin");
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
   if (request.method !== "POST") return response(origin, { ok: false, error: { code: "METHOD_NOT_ALLOWED", message: "只支援 POST。" } }, 405);
@@ -615,7 +618,7 @@ Deno.serve(async (request: Request) => {
     action = asText(body.action, 100);
     if (!action.startsWith("admin.booking.")) throw new ApiError(403, "CLIENT_ACTION_MISMATCH", "操作端與功能不相符。");
     const identity = await verifyLineIdToken(asText(body.idToken, 5000));
-    const supabase = dbClient();
+    const supabase = dbClient(body);
     await authorizeAdmin(supabase, identity);
     await consumeRateLimit(supabase, identity);
     const data = await route(supabase, identity, action, body);

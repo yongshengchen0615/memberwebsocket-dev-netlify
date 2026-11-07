@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import type { SupabaseClient } from './business-runtime.ts';
 
 // All queries are scoped to the authenticated member, never a supplied owner id.
 export async function loadMemberBookingSelections(db: SupabaseClient, memberId: string) {

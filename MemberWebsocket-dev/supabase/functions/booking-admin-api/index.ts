@@ -1,6 +1,8 @@
+import { bookingPriceOptions, withBookingPrices, bookingPriceError, pricePublishTime } from '../_shared/booking-price-publishing.mjs';
+import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 import { workWindow, timeOnBusinessDate, clockTime } from "../_shared/booking-hours.ts";
 
 type Json = Record<string, unknown>;
@@ -23,7 +25,7 @@ class ApiError extends Error {
   }
 }
 
-function env(name: string): string { return (Deno.env.get(name) || "").trim(); }
+function env(name: string): string { return (businessEnv(name) || "").trim(); }
 function allowedOrigins(): Set<string> {
   return new Set([(env("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io"), "https://develop--memberwebsocket-dev-netlify.netlify.app"].join(",").split(",").map((v) => v.trim()).filter(Boolean));
 }
@@ -45,6 +47,7 @@ function errorResponse(origin: string | null, error: unknown): Response {
   return response(origin, { ok: false, status: apiError.status, error: { code: apiError.code, message: apiError.message, details: apiError.details } }, apiError.status);
 }
 function mapDatabaseError(error: unknown): ApiError {
+  const priceError = bookingPriceError(error); if (priceError) return new ApiError(priceError.status, priceError.code, priceError.message);
   const raw = error as { message?: string; details?: string; code?: string };
   const message = `${raw?.message || ""} ${raw?.details || ""}`;
   const rules: Array<[string, number, string, string]> = [
@@ -80,11 +83,11 @@ function mapDatabaseError(error: unknown): ApiError {
   if (raw?.code === "23505") return new ApiError(409, "DUPLICATE_VALUE", "資料重複，請使用其他名稱。" );
   return new ApiError(500, "DATABASE_ERROR", "資料庫暫時無法完成預約管理操作。" );
 }
-function dbClient(): SupabaseClient {
+function dbClient(body: Record<string, any> = {}): SupabaseClient {
   const url = env("SUPABASE_URL");
   const key = env("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !key) throw new ApiError(503, "SUPABASE_CONFIG_MISSING", "Supabase server 設定尚未完成。" );
-  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  return withBookingPrices(createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false }, ...bookingPriceOptions(body) }), body);
 }
 function asText(value: unknown, max = 1000): string { return String(value ?? "").trim().slice(0, max); }
 function preserveText(value: unknown, max = 2000): string { return String(value ?? "").replace(/\r\n?/g, "\n").slice(0, max); }
@@ -140,8 +143,10 @@ function settingsClient(row: any, storeService?: any): Json {
     slotIntervalMinutes: Number(row?.slot_interval_minutes || 30),
     minAdvanceDays: Number(row?.min_advance_days || 0),
     maxAdvanceDays: Number(row?.max_advance_days || 0),
+    phoneBookingNumber: String(row?.phone_booking_number || ""),
     storeServiceMinutes: Number(storeService?.duration_minutes || 10),
     bookingNotice: String(row?.booking_notice || ""),
+    reminderMessage: String(row?.reminder_message || "請準時到場；如需調整請至預約頁操作。"),
     reminderEnabled: row?.reminder_enabled === true,
     snapshotLocationRequired: row?.snapshot_location_required === true,
     snapshotLocations: Array.isArray(row?.snapshot_locations) ? row.snapshot_locations : [],
@@ -151,7 +156,7 @@ function settingsClient(row: any, storeService?: any): Json {
   };
 }
 function serviceClient(row: any): Json {
-  return { serviceId: row.id, title: row.title, serviceType: row.service_type || "", durationMinutes: Number(row.duration_minutes || 30), priceAmount: Number(row.price_amount || 0), requiresCompanionService: Boolean(row.requires_companion_service), isActive: Boolean(row.is_active), createdAt: row.created_at, updatedAt: row.updated_at };
+  return { serviceId: row.id, title: row.title, serviceType: row.service_type || "", durationMinutes: Number(row.duration_minutes || 30), priceAmount: Number(row.price_amount || 0), priceVersion: row.price_version || null, nextPriceAt: row.next_price_at || null, requiresCompanionService: Boolean(row.requires_companion_service), isActive: Boolean(row.is_active), createdAt: row.created_at, updatedAt: row.updated_at };
 }
 function typeClient(row: any, reward?: any, card?: any): Json {
   return {
@@ -208,10 +213,33 @@ async function bootstrap(supabase: SupabaseClient): Promise<Json> {
       const reward = rewardByType.get(String(row.id));
       return typeClient(row, reward, reward ? cardById.get(String(reward.point_card_id)) : null);
     }),
+    serverNow: new Date().toISOString(),
     services: (services.data || []).map(serviceClient),
     pointCards: availableCards.map(pointCardClient),
   };
 }
+async function reminderMessageSave(supabase: SupabaseClient, identity: Identity, body: Json): Promise<Json> {
+  if (typeof body.reminderMessage !== 'string') {
+    throw new ApiError(400, 'INVALID_REMINDER_MESSAGE', '請輸入預約提醒訊息。');
+  }
+  const reminderMessage = preserveText(body.reminderMessage, 401);
+  if (!reminderMessage.trim() || reminderMessage.length > 400) {
+    throw new ApiError(400, 'INVALID_REMINDER_MESSAGE', '提醒訊息必須為 1–400 字。');
+  }
+  const expectedUpdatedAt = asText(body.expectedUpdatedAt, 80);
+  if (!expectedUpdatedAt) throw new ApiError(409, 'BOOKING_SETTINGS_CONFLICT', '設定版本已變更，請重新載入。');
+  const result = await supabase.from('booking_settings')
+    .update({ reminder_message: reminderMessage, updated_by: identity.lineUserId })
+    .eq('id', 1).eq('updated_at', expectedUpdatedAt)
+    .select('reminder_message,updated_at').maybeSingle();
+  if (result.error) throw mapDatabaseError(result.error);
+  if (!result.data) throw new ApiError(409, 'BOOKING_SETTINGS_CONFLICT', '設定已由其他管理員變更，請重新載入。');
+  await audit(supabase, identity, 'BOOKING_REMINDER_MESSAGE_UPDATED', 'booking_settings', '1', {
+    length: reminderMessage.length,
+  });
+  return { reminderMessage: result.data.reminder_message, updatedAt: result.data.updated_at };
+}
+
 async function settingsSave(supabase: SupabaseClient, identity: Identity, body: Json): Promise<Json> {
   const workStartTime = normalizeTime(body.workStartTime);
   const workEndTime = normalizeTime(body.workEndTime);
@@ -225,14 +253,18 @@ async function settingsSave(supabase: SupabaseClient, identity: Identity, body: 
   const maxAdvanceDays = Number(body.maxAdvanceDays);
   const storeServiceMinutes = Number(body.storeServiceMinutes);
   const bookingNotice = preserveText(body.bookingNotice, 2001);
-  if (typeof body.reminderEnabled !== "boolean") throw new ApiError(400, "INVALID_REMINDER_ENABLED", "請選擇是否啟用預約提醒。");
-  const reminderTime = normalizeTime(body.reminderTime);
+  const phoneBookingNumber = body.phoneBookingNumber === undefined ? null : String(body.phoneBookingNumber ?? "").trim();
+  // Legacy columns remain for backwards compatibility. Members now control each booking.
+  const legacyReminder = await supabase.from("booking_settings")
+    .select("reminder_enabled,reminder_time").eq("id", 1).single();
+  if (legacyReminder.error) throw mapDatabaseError(legacyReminder.error);
   if (workStartTime === workEndTime || workWindow(workStartTime, workEndTime).end - timeToMinutes(workStartTime) < 5) throw new ApiError(400, "INVALID_WORK_HOURS", "工作時段不可為零長度。" );
   if (!Number.isInteger(slotIntervalMinutes) || slotIntervalMinutes < 5 || slotIntervalMinutes > 120 || slotIntervalMinutes % 5 !== 0) throw new ApiError(400, "INVALID_SLOT_INTERVAL", "切分間隔須為 5–120 分鐘的 5 分鐘倍數。" );
   if (!Number.isInteger(minAdvanceDays) || minAdvanceDays < 0 || minAdvanceDays > 365) throw new ApiError(400, "INVALID_ADVANCE_DAYS", "提前預約天數必須介於 0–365 天。" );
   if (!Number.isInteger(maxAdvanceDays) || maxAdvanceDays < 0 || maxAdvanceDays > 365) throw new ApiError(400, "INVALID_MAX_ADVANCE_DAYS", "最遠可預約天數必須介於 0–365 天；0 代表不限制。" );
   if (maxAdvanceDays > 0 && maxAdvanceDays < minAdvanceDays) throw new ApiError(400, "INVALID_ADVANCE_WINDOW", "最遠可預約天數不可小於需要提前的天數。" );
   if (!Number.isInteger(storeServiceMinutes) || storeServiceMinutes < 1 || storeServiceMinutes > 720) throw new ApiError(400, "INVALID_STORE_SERVICE_MINUTES", "店內服務分鐘必須介於 1–720 分鐘。" );
+  if (phoneBookingNumber && (phoneBookingNumber.length > 25 || !/^[+]?[0-9][0-9 ()-]{4,24}$/.test(phoneBookingNumber) || (phoneBookingNumber.match(/[0-9]/g) || []).length < 6 || (phoneBookingNumber.match(/[0-9]/g) || []).length > 15)) throw new ApiError(400, "INVALID_PHONE_BOOKING_NUMBER", "店家電話格式不正確。");
   if (bookingNotice.length > 2000) throw new ApiError(400, "INVALID_BOOKING_NOTICE", "預約說明不可超過 2,000 字。" );
   if (body.snapshotLocationRequired !== undefined && typeof body.snapshotLocationRequired !== "boolean") throw new ApiError(400, "INVALID_SNAPSHOT_LOCATION_POLICY", "請選擇是否要求快照定位。");
   if (body.ticketBookingRequired !== undefined && typeof body.ticketBookingRequired !== "boolean") throw new ApiError(400, "INVALID_TICKET_BOOKING_POLICY", "請選擇使用票券是否需要預約。");
@@ -249,7 +281,8 @@ async function settingsSave(supabase: SupabaseClient, identity: Identity, body: 
     throw new ApiError(400, "SNAPSHOT_LOCATION_NOT_CONFIGURED", "請先設定至少一個允許快照的地點。");
   }
   const expectedUpdatedAt = asText(body.expectedUpdatedAt, 80);
-  const result = await supabase.rpc("save_booking_shared_settings_v7", {
+  const result = await supabase.rpc("save_booking_shared_settings_v8", {
+    p_phone_booking_number: phoneBookingNumber,
     p_snapshot_locations: snapshotLocations,
     p_ticket_booking_required: body.ticketBookingRequired ?? null,
     p_snapshot_location_required: body.snapshotLocationRequired ?? null,
@@ -260,8 +293,8 @@ async function settingsSave(supabase: SupabaseClient, identity: Identity, body: 
     p_max_advance_days: maxAdvanceDays,
     p_booking_notice: bookingNotice,
     p_store_service_minutes: storeServiceMinutes,
-    p_reminder_enabled: body.reminderEnabled,
-    p_reminder_time: `${reminderTime}:00`,
+    p_reminder_enabled: legacyReminder.data.reminder_enabled === true,
+    p_reminder_time: legacyReminder.data.reminder_time,
     p_expected_updated_at: expectedUpdatedAt || null,
     p_actor: identity.lineUserId,
   });
@@ -410,9 +443,43 @@ async function servicesBatch(supabase: SupabaseClient, identity: Identity, body:
   return { summary: result.data };
 }
 
+async function priceAction(supabase: SupabaseClient, identity: Identity, action: string, body: Json): Promise<Json> {
+  if (body.pricePublishing !== true) throw new ApiError(403, 'PRICE_PUBLISHING_REQUIRED', '此入口尚未啟用價格發佈。');
+  if (action === 'admin.booking.price.catalog') {
+    const result = await supabase.rpc('booking_price_catalog', { p_service_id: requireUuid(body.serviceId, '預約項目') });
+    if (result.error) throw mapDatabaseError(result.error);
+    return { publications: result.data || [] };
+  }
+  const requestId = asText(body.requestId, 100);
+  if (!requestId || !/^[a-zA-Z0-9:_-]{1,80}$/.test(requestId)) throw new ApiError(400, 'INVALID_PRICE_REQUEST', '請重新開啟價格設定後再試。');
+  let name: string, args: Record<string, unknown>;
+  if (action === 'admin.booking.price.cancel') {
+    name = 'booking_price_cancel';
+    args = { p_id: requireUuid(body.publicationId, '價格紀錄'), p_expected_updated_at: asText(body.expectedUpdatedAt, 100), p_actor: identity.lineUserId, p_request_id: requestId };
+  } else {
+    const price = Number(body.priceAmount);
+    if (typeof body.priceAmount !== 'number' || !Number.isSafeInteger(price) || price < 0 || price > 10_000_000) throw new ApiError(400, 'INVALID_SERVICE_PRICE', '價格必須是 0–10,000,000 元的整數。');
+    if (!['immediate', 'scheduled'].includes(String(body.mode))) throw new ApiError(400, 'INVALID_PRICE_PUBLISH_TIME', '請選擇立即或定時發佈。');
+    const at = pricePublishTime(body.mode, body.publishAt);
+    const common = { p_price: price, p_publish_at: at, p_request_id: requestId, p_actor: identity.lineUserId, p_expected_version: requireUuid(body.expectedPriceVersion, '價格版本') };
+    if (action === 'admin.booking.price.reschedule') {
+      name = 'booking_price_reschedule';
+      args = { ...common, p_id: requireUuid(body.publicationId, '價格紀錄'), p_expected_updated_at: asText(body.expectedUpdatedAt, 100) };
+    } else {
+      name = 'booking_price_publish';
+      args = { ...common, p_service_id: requireUuid(body.serviceId, '預約項目') };
+    }
+  }
+  const result = await supabase.rpc(name, args);
+  if (result.error) throw mapDatabaseError(result.error);
+  return { publication: result.data };
+}
+
 async function route(supabase: SupabaseClient, identity: Identity, action: string, body: Json): Promise<Json> {
+  if (["admin.booking.price.catalog", "admin.booking.price.publish", "admin.booking.price.cancel", "admin.booking.price.reschedule"].includes(action)) return await priceAction(supabase, identity, action, body);
   if (action === "admin.booking.manage.bootstrap") return await bootstrap(supabase);
   if (action === "admin.booking.settings.save") return await settingsSave(supabase, identity, body);
+  if (action === "admin.booking.reminder-message.save") return await reminderMessageSave(supabase, identity, body);
   if (action === "admin.booking.type.create") return await typeCreate(supabase, identity, body);
   if (action === "admin.booking.type.update") return await typeUpdate(supabase, identity, body);
   if (action === "admin.booking.type.delete") return await typeDelete(supabase, identity, body);
@@ -422,7 +489,7 @@ async function route(supabase: SupabaseClient, identity: Identity, action: strin
   throw new ApiError(404, "ACTION_NOT_FOUND", "不支援的預約管理操作。" );
 }
 
-Deno.serve(async (request: Request) => {
+serveBusiness('booking-admin-api',async (request: Request) => {
   const origin = request.headers.get("Origin");
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
   if (request.method !== "POST") return response(origin, { ok: false, error: { code: "METHOD_NOT_ALLOWED", message: "只支援 POST。" } }, 405);
@@ -433,9 +500,9 @@ Deno.serve(async (request: Request) => {
     const action = asText(body.action, 100);
     if (!action.startsWith("admin.booking.")) throw new ApiError(403, "CLIENT_ACTION_MISMATCH", "操作端與功能不相符。" );
     const identity = await verifyLineIdToken(asText(body.idToken, 5000));
-    const supabase = dbClient();
+    const supabase = dbClient(body);
     await authorizeAdmin(supabase, identity);
-    await consumeRateLimit(supabase, identity, action !== "admin.booking.manage.bootstrap");
+    await consumeRateLimit(supabase, identity, !["admin.booking.manage.bootstrap", "admin.booking.price.catalog"].includes(action));
     const data = await route(supabase, identity, action, body);
     return response(origin, { ok: true, status: 200, data });
   } catch (error) { return errorResponse(origin, error); }

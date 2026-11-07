@@ -7,9 +7,52 @@ const { JSDOM, VirtualConsole } = require('jsdom');
 
 const root = path.join(__dirname, '../..');
 
+test('AC-CONFIG-001: admin reads root public config independently of a business lookup error', async () => {
+  const dom = new JSDOM('<!doctype html><title>Admin</title>', {
+    url: 'https://example.test/admin/?business=deleted-merchant', runScripts: 'outside-only',
+  });
+  const w = dom.window;
+  const requests = [], lookups = [];
+  const example = { productizedAdmin: true, adminLiffId: '2010791619-vhevCvvD' };
+  w.BusinessContext = {
+    slug: 'deleted-merchant',
+    configure: async (config) => {
+      lookups.push(config);
+      throw Object.assign(new Error('找不到商家入口。'), { code: 'BUSINESS_NOT_FOUND' });
+    },
+  };
+  w.fetch = async (url, init) => {
+    requests.push({ url, cache: init.cache });
+    return new Response(JSON.stringify(example), { status: 200 });
+  };
+  try {
+    w.eval(fs.readFileSync(path.join(root, 'member-system.js'), 'utf8'));
+    await assert.rejects(w.MemberSystem.loadConfig(), (error) =>
+      error.code === 'BUSINESS_NOT_FOUND' && error.message === '找不到商家入口。'
+    );
+    assert.deepEqual(requests, [{ url: '/config.json', cache: 'no-store' }]);
+    assert.equal(lookups.length, 1, 'do not retry non-network business discovery');
+    assert.equal(lookups[0].productizedAdmin, true);
+  } finally { dom.window.close(); }
+});
+
+test('AC-CONFIG-002: unrelated public config transport errors stay fail-closed', async () => {
+  const dom = new JSDOM('<!doctype html>', { url: 'https://example.test/admin/', runScripts: 'outside-only' });
+  const w = dom.window;
+  let calls = 0;
+  w.fetch = async () => { calls++; throw new TypeError('fetch failed'); };
+  try {
+    w.eval(fs.readFileSync(path.join(root, 'member-system.js'), 'utf8'));
+    await assert.rejects(w.MemberSystem.loadConfig(), (error) =>
+      error.code === 'CONFIG_ERROR' && /無法讀取公開設定/.test(error.message)
+    );
+    assert.equal(calls, 2);
+  } finally { dom.window.close(); }
+});
+
 // Run in a separate process: an observer loop starves even in-process test timers.
 if (!process.argv.includes('--fixture')) {
-  for (const mode of ['early', 'late', 'forbidden']) {
+  for (const mode of ['early', 'late', 'forbidden', 'stale-business', 'stale-background-business', 'grant-drafts']) {
     test(`admin startup and fixed-ticket observers settle (${mode})`, () => {
       const result = spawnSync(process.execPath, [__filename, '--fixture', mode], {
         encoding: 'utf8', timeout: 5000,
@@ -34,43 +77,66 @@ async function runFixture(mode) {
     else throw error;
   });
   const dom = new JSDOM(fs.readFileSync(path.join(root, 'admin/index.html'), 'utf8'), {
-    runScripts: 'outside-only', url: 'https://example.test/MemberWebsocket-dev/admin/', virtualConsole,
+    runScripts: 'outside-only', url: mode.startsWith('stale-')
+      ? 'https://example.test/admin/?business=missing-merchant&feature=membership' +
+        (mode === 'stale-background-business' ? '&e2eBackgroundRunner=1&e2eRunId=BG-missing' : '')
+      : 'https://example.test/MemberWebsocket-dev/admin/', virtualConsole,
   });
   const w = dom.window;
+  const observers=[],Observer=w.MutationObserver;
+  if(mode==='grant-drafts')w.MutationObserver=class extends Observer{constructor(callback){super(callback);observers.push(this);}};
   const el = (id) => w.document.getElementById(id);
   const tick = () => new Promise((resolve) => w.setTimeout(resolve, 20));
   const calls = [];
   const errors = [];
   let subscriptions = 0;
   let stoppedSubscriptions = 0;
-  let adminRequests = 0;
+  let adminRequests = 0, realtimeUpdate;
+  let features={membership:true,points:true,events:true,calendar:true,booking:true};
   w.addEventListener('error', (event) => errors.push(event.message));
   w.Request = Request;
   w.fetch = async (url, init) => {
     calls.push({ url, init });
     return new Response(JSON.stringify({ ok: true, data: { templates: [] } }));
   };
+  if (mode.startsWith('stale-')) w.BusinessContext = { slug: 'missing-merchant' };
+  if (mode === 'stale-background-business') {
+    w.opener = { closed: false, MemberAdminE2EControl: {
+      provideBackgroundSession: (runId) => ({ runId, idToken: 'fixture-token',
+        config: { supabaseUrl: 'https://fixture.supabase.co', business: 'missing-merchant' } }),
+    } };
+  }
   w.liff = { getIDToken: () => 'fixture-token' };
   w.MemberSystem = {
     bindDialogKeyboard() {},
-    loadConfig: async () => ({ supabaseUrl: 'https://fixture.supabase.co' }),
+    loadConfig: async () => {
+      if (mode === 'stale-business') throw Object.assign(new Error('找不到商家入口。'), { code: 'BUSINESS_NOT_FOUND' });
+      return { supabaseUrl: 'https://fixture.supabase.co' };
+    },
     signIn: async () => 'fixture-token',
     request: async () => {
       adminRequests += 1;
+      if (mode === 'stale-background-business') {
+        throw Object.assign(new Error('找不到商家入口。'), { code: 'BUSINESS_NOT_FOUND' });
+      }
       if (mode === 'forbidden') throw Object.assign(new Error('Access denied'), { code: 'ADMIN_FORBIDDEN' });
       return {
         profile: { displayName: 'Fixture Admin' }, role: 'Admin',
+        ...(mode==='grant-drafts'?{features,business:{name:'Fixture',slug:'fixture'}}:{}),
         memberPage: { page: 1, pageSize: 100, total: 0, totalPages: 1 },
         members: [], tierSettings: [], cards: [], tickets: [], eventTickets: [],
         calendarItems: [], messagePresets: [], stats: {},
       };
     },
-    subscribeRealtime() { subscriptions += 1; return () => { stoppedSubscriptions += 1; }; },
+    subscribeRealtime(config,client,callback) { realtimeUpdate=callback; subscriptions += 1; return () => { stoppedSubscriptions += 1; }; },
   };
   const load = (name) => w.eval(fs.readFileSync(path.join(root, 'admin', name), 'utf8'));
   try {
     load('admin-session.js');
     load('coupon-location-editor.js');
+    // This lane isolates bootstrap/editor preservation. The full workspace and
+    // grant observers run in feature_dependencies.cjs and real Chromium; do not
+    // mount their unrelated LINE/DOM rebuilds inside the startup watchdog.
     load('app.js');
     if (mode === 'late') await tick();
     load('fixed-ticket-admin-integration.js');
@@ -80,6 +146,24 @@ async function runFixture(mode) {
     await tick();
 
     assert.deepEqual(errors, []);
+    if (mode === 'stale-background-business') {
+      assert.equal(navigationAttempts.length, 0, 'background failure must retain its merchant scope');
+      assert.equal(adminRequests, 1, 'do not retry bootstrap against an unscoped data plane');
+      assert.equal(subscriptions, 0);
+      assert.equal(w.document.documentElement.dataset.memberAdminReady, undefined);
+      assert.equal(el('adminView').classList.contains('hidden'), true);
+      assert.equal(el('errorView').classList.contains('hidden'), false);
+      assert.match(el('errorMessage').textContent, /找不到商家入口/);
+      return;
+    }
+    if (mode === 'stale-business') {
+      assert.equal(navigationAttempts.length, 1, 'missing business navigates once to clean admin entry');
+      assert.equal(adminRequests, 0, 'missing business must not access the shared admin data plane');
+      assert.equal(subscriptions, 0);
+      assert.equal(el('adminView').classList.contains('hidden'), true);
+      assert.equal(el('errorView').classList.contains('hidden'), true);
+      return;
+    }
     assert.equal(el('loadingView').classList.contains('hidden'), true);
     assert.equal(el('app').getAttribute('aria-busy'), 'false');
     if (mode === 'forbidden') {
@@ -92,6 +176,18 @@ async function runFixture(mode) {
     assert.equal(el('adminView').classList.contains('hidden'), false);
     assert.equal(el('errorView').classList.contains('hidden'), true);
     assert.equal(subscriptions, 1);
+    if(mode==='grant-drafts'){
+      for(const [tab,button,input,modal]of [['cards','newCardButton','cardTitle','cardEditorModal'],['cards','newTicketButton','ticketTitle','ticketEditorModal'],['events','newEventTicketButton','eventTicketTitle','eventTicketEditorModal'],['calendar','newCalendarItemButton','calendarItemTitle','calendarEditorModal']]){
+        features={membership:true,points:true,events:true,calendar:true,booking:true};
+        await realtimeUpdate({eventTypes:[],reasons:['revision-changed']});
+        el(tab+'Tab').click();el(button).click();el(input).value='未儲存草稿 '+input;
+        features={...features,booking:false};await realtimeUpdate({eventTypes:[],reasons:['revision-changed']});
+        assert.equal(el(input).value,'未儲存草稿 '+input,'unrelated grant refresh must preserve '+input);
+        assert.equal(el(modal).classList.contains('hidden'),false);
+        el(modal).querySelector('.close-button').click();
+      }
+      await tick();await tick();assert.deepEqual(errors,[]);return;
+    }
     el('eventsTab').click();
     el('newEventTicketButton').click();
     await tick();
@@ -173,6 +269,7 @@ async function runFixture(mode) {
     assert.equal(el('errorView').classList.contains('hidden'), true);
     assert.equal(subscriptions, 2, 'Realtime must be re-established only after BFCache revalidation');
   } finally {
+    observers.forEach(observer=>observer.disconnect());
     w.close();
   }
 }

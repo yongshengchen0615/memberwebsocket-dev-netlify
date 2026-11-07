@@ -1,5 +1,6 @@
+import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
 const ALLOWED_ORIGINS = new Set(
-  [(Deno.env.get("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io"), "https://develop--memberwebsocket-dev-netlify.netlify.app"].join(",")
+  [(businessEnv("ALLOWED_ORIGINS") || "https://yongshengchen0615.github.io"), "https://develop--memberwebsocket-dev-netlify.netlify.app"].join(",")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean),
@@ -16,7 +17,7 @@ function corsHeaders(origin: string | null): HeadersInit {
   };
 }
 
-Deno.serve((request: Request) => {
+serveBusiness('booking-technician-delete',(request: Request) => {
   const origin = request.headers.get("Origin");
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders(origin) });

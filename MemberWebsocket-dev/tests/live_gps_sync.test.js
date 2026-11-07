@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { readFileSync } = require('node:fs');
+const { readFileSync } = require('./helpers/edge-test-fs.cjs');
 const { join } = require('node:path');
 const vm = require('node:vm');
 

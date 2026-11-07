@@ -1,0 +1,39 @@
+.unified-portal-nav {
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: .55rem;
+  flex-wrap: wrap;
+  padding: .7rem max(1rem, env(safe-area-inset-right)) .7rem max(1rem, env(safe-area-inset-left));
+  background: #172b34;
+  color: #f0f6f7;
+  font: 500 .9rem/1.4 system-ui, -apple-system, "Noto Sans TC", sans-serif;
+  position: relative;
+  z-index: 2;
+}
+.unified-portal-nav .unified-portal-caption { margin-right: .5rem; opacity: .8; }
+.unified-portal-nav .unified-portal-link {
+  border: 1px solid #78909a;
+  border-radius: 999px;
+  text-decoration: none;
+  color: #f0f6f7;
+  padding: .38rem .85rem;
+  white-space: nowrap;
+}
+.unified-portal-nav .unified-portal-link:hover,
+.unified-portal-nav .unified-portal-link:focus-visible {
+  outline: 2px solid #d1e4e8;
+  outline-offset: 2px;
+}
+.unified-portal-nav .unified-portal-link[aria-current="page"] {
+  color: #172b34;
+  background: #eff7f8;
+  border-color: #eff7f8;
+  font-weight: 700;
+}
+@media (max-width: 420px) {
+  .unified-portal-nav { gap: .35rem; font-size: .77rem; }
+  .unified-portal-nav .unified-portal-caption { flex-basis: 100%; text-align: center; }
+  .unified-portal-nav .unified-portal-link { padding: .35rem .6rem; }
+}

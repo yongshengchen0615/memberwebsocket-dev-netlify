@@ -21,7 +21,7 @@ const group = { partySize: 2, participants: [
   { technicianName: '甲（主要技師）', items: [{ serviceTitle: '腳底40', quantity: 1 }] },
   { technicianName: '乙', items: [{ serviceTitle: '肩頸', quantity: 2 }] },
 ] };
-const expected = '營業日 2026-09-17｜09:00–10:00\n王先生\n電話：0912345678\n預約人數：2 位\n\n第一位預約\n預約項目：腳底40\n預約技師：甲\n\n第二位預約\n預約項目：肩頸 × 2\n預約技師：乙';
+const expected = '日期：2026-09-17\n時間：09:00\n預約人：王先生\n電話：0912345678\n預約人數：2 位\n第一位預約\n預約項目：腳底40\n預約技師：甲\n\n第二位預約\n預約項目：肩頸 × 2\n預約技師：乙';
 
 for (const entry of ['admin']) {
   test(`${entry}: real copy button uses participant format exactly once`, async () => {

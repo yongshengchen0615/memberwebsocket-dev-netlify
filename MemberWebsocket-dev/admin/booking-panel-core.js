@@ -29,7 +29,14 @@
     accessiblePendingCount: 0,
     latestNotificationId: 0,
     bookingRenderSignatures: new Map(),
+    settingsBaseline: null,
+    settingsDraftVersion: '',
+    settingsDirty: false,
+    reminderMessageDirty: false,
+    reminderMessageVersion: '',
+    reminderMessageSaving: false,
   };
+  const SETTINGS_INPUT_IDS = ['bookingAdminStartTime','bookingAdminEndTime','bookingAdminSlotInterval','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminPhoneNumber','bookingAdminStoreServiceMinutes','bookingAdminSnapshotLocationRequired','bookingAdminNotice'];
   const els = {};
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
@@ -53,8 +60,11 @@
     badge.setAttribute('aria-hidden', 'true');
     badge.hidden = true;
     tab.appendChild(badge);
+    // Booking mounts asynchronously: keep LINE settings as the final main tab.
+    const lineSettingsTab = document.getElementById('lineSettingsTab');
     const testModeTab = document.getElementById('testModeTab');
-    if (testModeTab && testModeTab.parentElement === nav) nav.insertBefore(tab, testModeTab);
+    const anchor = [lineSettingsTab, testModeTab].find(node => node?.parentElement === nav);
+    if (anchor) nav.insertBefore(tab, anchor);
     else nav.appendChild(tab);
 
     const panel = document.createElement('section');
@@ -64,7 +74,7 @@
     panel.setAttribute('aria-labelledby', 'bookingTab');
     panel.innerHTML = `
       <div class="panel-heading booking-admin-heading">
-        <div><p class="kicker">Booking operations</p><h2>預約管理</h2><p>技師、預約項目、共用設定與用戶預約分頁管理，降低單頁資訊密度。</p></div>
+        <div><p class="kicker">Booking operations</p><h2>預約管理</h2><p>技師、預約項目、共用設定、爽約限制與用戶預約分頁管理，依工作任務快速找到設定。</p></div>
         <div class="heading-actions"><span id="bookingAdminSyncStatus" class="sync-status">尚未同步</span></div>
       </div>
 
@@ -75,10 +85,11 @@
         <div><span>已確認</span><strong id="bookingAdminConfirmedCount">0</strong><small>已確認的一般預約</small></div>
       </section>
 
-      <nav class="booking-admin-filter booking-admin-subtabs" role="tablist" aria-label="預約管理分類">
+      <nav id="bookingAdminSubtabs" class="booking-admin-filter booking-admin-subtabs" role="tablist" aria-label="預約管理分類">
         <button id="bookingAdminTechniciansSubtab" class="booking-admin-filter-button active" type="button" role="tab" aria-selected="true" aria-controls="bookingAdminTechniciansPanel">技師設定</button>
         <button id="bookingAdminServicesSubtab" class="booking-admin-filter-button" type="button" role="tab" aria-selected="false" aria-controls="bookingAdminServicesPanel">預約項目</button>
         <button id="bookingAdminSettingsSubtab" class="booking-admin-filter-button" type="button" role="tab" aria-selected="false" aria-controls="bookingAdminSettingsPanel">預約共用設定</button>
+        <button id="bookingAdminRiskSubtab" class="booking-admin-filter-button" type="button" role="tab" aria-selected="false" aria-controls="bookingAdminRiskPanel">爽約與預約限制</button>
         <button id="bookingAdminQueueSubtab" class="booking-admin-filter-button" type="button" role="tab" aria-selected="false" aria-controls="bookingAdminQueuePanel">用戶預約<span id="bookingAdminQueueSubtabCount"></span></button>
       </nav>
 
@@ -142,6 +153,11 @@
                 </label>
               </section>
 
+              <section class="booking-admin-settings-block booking-admin-settings-rule" aria-labelledby="bookingAdminPhoneBookingHeading">
+                <div class="booking-admin-settings-block-heading"><div><span class="booking-admin-settings-eyebrow">電話預約</span><h4 id="bookingAdminPhoneBookingHeading">可預約範圍內開放</h4></div></div>
+                <label class="booking-admin-settings-field"><span>店家電話（選填）</span><input id="bookingAdminPhoneNumber" type="tel" inputmode="tel" maxlength="25" autocomplete="tel" placeholder="例如 06-1234567 或 +886-6-1234567"><small>設定後，只有在商家可預約日期範圍內且非休假日，用戶才能撥打店家電話預約；超出提前天數或最遠日期限制則不顯示。留空即停用；電話洽詢不會自動建立預約紀錄。</small></label>
+              </section>
+
               <section class="booking-admin-settings-block booking-admin-settings-rule" aria-labelledby="bookingAdminStoreServiceHeading">
                 <div class="booking-admin-settings-block-heading">
                   <div><span class="booking-admin-settings-eyebrow">共同服務時間</span><h4 id="bookingAdminStoreServiceHeading">店內服務</h4></div>
@@ -159,15 +175,6 @@
                 <label class="booking-admin-toggle"><input id="bookingAdminSnapshotLocationRequired" type="checkbox"><span><strong>快照前必須取得定位</strong><small>啟用後，會員拍攝及送出快照前必須位於下方任一指定地點的範圍內；請先新增至少一個地點。一般預約與票券的獨立定位規則不受影響。</small></span></label><div id="bookingAdminSnapshotLocationControls" class="coupon-location-controls hidden"><div class="coupon-map-search"><label for="bookingAdminSnapshotAddressSearch">地址搜尋</label><div><input id="bookingAdminSnapshotAddressSearch" type="search" maxlength="240" autocomplete="street-address" placeholder="輸入地址或地標，例如：台南火車站"><button id="bookingAdminSnapshotAddressSearchButton" type="button" class="button button-outline">搜尋地址</button><button id="bookingAdminSnapshotUseCurrentLocationButton" type="button" class="button button-outline">使用目前 GPS 選點</button></div><div id="bookingAdminSnapshotAddressResults" class="coupon-map-results" aria-live="polite"></div></div><div id="bookingAdminSnapshotLocationMap" class="coupon-location-map" role="region" aria-label="使用地點地圖，點選可選擇候選位置"></div><p id="bookingAdminSnapshotMapStatus" class="field-help" aria-live="polite">先用地址搜尋、目前 GPS 或地圖點選位置；找不到精確地址時會自動顯示附近／近似候選，再確認地點與半徑範圍後新增。</p><section id="bookingAdminSnapshotLocationDraft" class="coupon-location-draft hidden" aria-label="待確認使用地點"><div class="coupon-location-draft-heading"><div><strong>待確認位置</strong><small>地圖圓圈即快照半徑範圍，可拖曳地圖標記微調位置。</small></div><span>尚未加入</span></div><div class="coupon-location-draft-fields"><label>地點名稱<input id="bookingAdminSnapshotLocationDraftName" type="text" maxlength="100" placeholder="例如：台南門市"></label><label>快照半徑（公尺）<input id="bookingAdminSnapshotLocationDraftRadius" type="number" min="50" max="2000" step="10" value="100"></label></div><div class="coupon-location-draft-actions"><button id="clearBookingAdminSnapshotLocationDraftButton" class="button button-outline" type="button">取消選點</button><button id="addBookingAdminSnapshotLocationButton" class="button button-dark" type="button">＋ 新增地點</button></div></section><div class="coupon-location-heading"><strong>允許快照地點</strong><span id="bookingAdminSnapshotLocationCount">0 / 20 個使用地點</span></div><div id="bookingAdminSnapshotLocationRows" class="coupon-location-rows"></div><p class="field-help">符合任一地點的快照半徑即可使用。座標只在背景保存供快照判斷，不在管理介面顯示。地圖與地址搜尋資料由 OpenStreetMap 提供。</p></div>
               </section>
 
-              <section class="booking-admin-settings-block booking-admin-settings-rule" aria-labelledby="bookingAdminReminderHeading">
-                <div class="booking-admin-settings-block-heading">
-                  <div><span class="booking-admin-settings-eyebrow">營運通知</span><h4 id="bookingAdminReminderHeading">預約前一天提醒</h4></div>
-                  <span class="booking-admin-settings-badge">台北時間</span>
-                </div>
-                <label class="booking-admin-toggle"><input id="bookingAdminReminderEnabled" type="checkbox"><span><strong>啟用前一天 LINE 提醒</strong><small>僅提醒已確認且仍有效的預約；測試會員不會收到 LINE 訊息。</small></span></label>
-                <label class="booking-admin-settings-field"><span>前一天提醒時間</span><input id="bookingAdminReminderTime" type="time" step="60" value="18:00" required><small>依實際預約開始日期的前一天計算，包含跨夜營業時段。</small></label>
-              </section>
-
               <section class="booking-admin-settings-block booking-admin-settings-notice" aria-labelledby="bookingAdminNoticeHeading">
                 <div class="booking-admin-settings-block-heading">
                   <div><span class="booking-admin-settings-eyebrow">會員端內容</span><h4 id="bookingAdminNoticeHeading">預約說明</h4></div>
@@ -182,12 +189,44 @@
             </div>
             <div id="bookingAdminSettingsMessage" class="form-message hidden" role="status" aria-live="polite"></div>
             <div class="booking-admin-settings-actions">
-              <p><strong>儲存後立即套用</strong><span>這些設定會套用到所有預約項目，不需逐項調整。</span></p>
-              <button id="bookingAdminSaveSettingsButton" class="button button-dark" type="submit">儲存預約與票券設定</button>
+              <p><strong>儲存後立即套用</strong><span>這些設定會套用到所有預約項目，不需逐項調整。</span><span id="bookingAdminDraftStatus" class="booking-admin-settings-draft-status" role="status" aria-live="polite">設定載入中…</span></p>
+              <div class="booking-admin-settings-action-buttons">
+                <button id="bookingAdminDiscardSettingsButton" class="button button-outline" type="button" disabled>還原未儲存變更</button>
+                <button id="bookingAdminSaveSettingsButton" class="button button-dark" type="submit">儲存預約與票券設定</button>
+              </div>
             </div>
+          </form>
+          <form id="bookingAdminReminderMessageForm" class="booking-admin-form booking-admin-settings-form" novalidate>
+            <section class="booking-admin-settings-block booking-admin-settings-notice" aria-labelledby="bookingAdminReminderMessageHeading">
+              <div class="booking-admin-settings-block-heading">
+                <div><span class="booking-admin-settings-eyebrow">LINE 會員通知</span><h4 id="bookingAdminReminderMessageHeading">預約提醒訊息</h4></div>
+                <span class="booking-admin-settings-badge">管理員自訂</span>
+              </div>
+              <label class="booking-admin-settings-field booking-admin-settings-notice-field">
+                <span>提醒文字（可換行，最多 400 字）</span>
+                <textarea id="bookingAdminReminderMessage" maxlength="400" rows="4" required placeholder="例如：請於預約前 10 分鐘抵達。若需異動請提前聯繫。"></textarea>
+                <small>只修改提醒文字。系統會在發送時自動補上最新預約人、日期、完整時段、人數、電話，以及各位預約人的服務項目、時間、金額與技師。提醒時間仍由會員預約時選擇。</small>
+              </label>
+              <div class="booking-admin-settings-field">
+                <strong>LINE 訊息預覽（示意預約資料）</strong>
+                <output id="bookingAdminReminderMessagePreview" class="booking-admin-hours-preview" aria-live="polite"></output>
+              </div>
+              <p id="bookingAdminReminderMessageStatus" class="form-message hidden" role="status" aria-live="polite"></p>
+              <div class="booking-admin-settings-action-buttons">
+                <button id="bookingAdminReminderMessageSave" class="button button-dark" type="submit">儲存預約提醒訊息</button>
+              </div>
+            </section>
           </form>
         </section>
 
+        <section id="bookingAdminRiskPanel" class="booking-admin-card booking-admin-risk-panel hidden" role="tabpanel" aria-labelledby="bookingAdminRiskSubtab">
+          <div class="booking-admin-risk-intro">
+            <div><p class="kicker">Booking eligibility</p><h3>爽約與線上預約限制</h3><p>集中管理爽約計次、線上預約限制，以及誤判撤銷與人工解除。</p></div>
+            <button id="bookingAdminRiskOpenAdvanceSettings" type="button" class="button button-outline" aria-describedby="bookingAdminRiskAdvanceHint">查看提前預約設定</button>
+          </div>
+          <p id="bookingAdminRiskAdvanceHint" class="booking-admin-risk-note">提前預約天數與最遠可預約日期仍在「預約共用設定」；本頁爽約政策只限制新的線上預約。</p>
+          <div id="bookingAdminRiskMount" class="booking-admin-risk-mount"></div>
+        </section>
         <section id="bookingAdminQueuePanel" class="booking-admin-card booking-admin-operations-panel hidden" role="tabpanel" aria-labelledby="bookingAdminQueueSubtab">
           <div class="booking-admin-section-heading booking-admin-operations-heading">
             <div><p class="kicker">Booking operations</p><h3>預約處理</h3><p>一般預約與快照收據採不同審核流程，請先選擇要處理的工作類型。</p></div>
@@ -203,6 +242,7 @@
           <section id="bookingAdminStandardQueueView" class="booking-admin-queue-view" role="tabpanel" aria-labelledby="bookingAdminStandardMode">
             <div class="booking-admin-queue-toolbar">
               <div><strong>一般預約</strong><small>依預約狀態篩選需要處理的會員預約。</small></div>
+              <button id="bookingAdminPhoneCreateButton" class="button button-dark" type="button">登記電話預約</button>
               <div class="booking-admin-filter" role="group" aria-label="一般預約狀態篩選">
                 <button class="booking-admin-filter-button active" data-booking-filter="pending" type="button">待確認</button>
                 <button class="booking-admin-filter-button" data-booking-filter="confirmed" type="button">已確認</button>
@@ -248,9 +288,9 @@
 
   function cacheElements() {
     [
-      'bookingTab','bookingPanel','bookingAdminSyncStatus','bookingAdminSettingsForm','bookingAdminStartTime','bookingAdminEndTime','bookingAdminSlotInterval','bookingAdminHoursPreview','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminStoreServiceMinutes','bookingAdminReminderEnabled','bookingAdminSnapshotLocationRequired','bookingAdminReminderTime','bookingAdminNotice','bookingAdminSettingsMessage','bookingAdminSaveSettingsButton',
+      'bookingTab','bookingPanel','bookingAdminSyncStatus','bookingAdminSettingsForm','bookingAdminStartTime','bookingAdminEndTime','bookingAdminSlotInterval','bookingAdminHoursPreview','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminPhoneNumber','bookingAdminStoreServiceMinutes','bookingAdminSnapshotLocationRequired','bookingAdminNotice','bookingAdminReminderMessageForm','bookingAdminReminderMessage','bookingAdminReminderMessagePreview','bookingAdminReminderMessageStatus','bookingAdminReminderMessageSave','bookingAdminSettingsMessage','bookingAdminDraftStatus','bookingAdminDiscardSettingsButton','bookingAdminSaveSettingsButton',
       'bookingAdminNewTypeButton','bookingAdminTypeMessage','bookingAdminTypeList','bookingAdminTypeEmpty','bookingAdminServiceCount','bookingAdminPendingCount','bookingAdminAccessiblePendingCount','bookingAdminConfirmedCount',
-      'bookingAdminTechniciansSubtab','bookingAdminServicesSubtab','bookingAdminSettingsSubtab','bookingAdminQueueSubtab','bookingAdminQueueSubtabCount','bookingAdminTechniciansPanel','bookingAdminServicesPanel','bookingAdminSettingsPanel','bookingAdminQueuePanel','bookingAdminStandardMode','bookingAdminAccessibleMode','bookingAdminStandardModeCount','bookingAdminAccessibleModeCount','bookingAdminStandardQueueView','bookingAdminNewServiceButton','bookingAdminBatchAddButton','bookingAdminBatchEditButton','bookingAdminBatchDeleteButton','bookingAdminServiceMessage','bookingAdminServiceList','bookingAdminServiceEmpty','bookingAdminQueue','bookingAdminQueueEmpty',
+      'bookingAdminSubtabs','bookingAdminTechniciansSubtab','bookingAdminServicesSubtab','bookingAdminSettingsSubtab','bookingAdminRiskSubtab','bookingAdminRiskPanel','bookingAdminRiskMount','bookingAdminRiskOpenAdvanceSettings','bookingAdminQueueSubtab','bookingAdminQueueSubtabCount','bookingAdminTechniciansPanel','bookingAdminServicesPanel','bookingAdminSettingsPanel','bookingAdminQueuePanel','bookingAdminStandardMode','bookingAdminAccessibleMode','bookingAdminStandardModeCount','bookingAdminAccessibleModeCount','bookingAdminStandardQueueView','bookingAdminNewServiceButton','bookingAdminBatchAddButton','bookingAdminBatchEditButton','bookingAdminBatchDeleteButton','bookingAdminServiceMessage','bookingAdminServiceList','bookingAdminServiceEmpty','bookingAdminQueue','bookingAdminQueueEmpty','bookingAdminPhoneCreateButton',
       'bookingAdminCrudModal','bookingAdminCrudModalTitle','bookingAdminCrudModalBody','bookingAdminCrudModalClose'
     ].forEach((id) => { els[id] = document.getElementById(id); });
   }
@@ -259,13 +299,43 @@
     els.bookingTab.addEventListener('click', activateBookingPanel);
     PRIMARY_TAB_IDS.forEach((id) => document.getElementById(id)?.addEventListener('click', deactivateBookingPanel));
     els.bookingAdminSettingsForm.addEventListener('submit', saveSettings);
+    els.bookingAdminReminderMessageForm.addEventListener('submit', saveReminderMessage);
+    els.bookingAdminReminderMessage.addEventListener('input', () => {
+      state.reminderMessageDirty = true;
+      renderReminderMessagePreview();
+    });
+    els.bookingAdminSettingsForm.addEventListener('input', (event) => { if (SETTINGS_INPUT_IDS.includes(event.target?.id)) updateSettingsDraft(); });
+    els.bookingAdminSettingsForm.addEventListener('change', (event) => { if (SETTINGS_INPUT_IDS.includes(event.target?.id)) updateSettingsDraft(); });
+    els.bookingAdminDiscardSettingsButton.addEventListener('click', () => {
+      if (state.busy || !state.settingsDirty) return;
+      renderSettings(true);
+      showMessage(els.bookingAdminSettingsMessage, '已還原至目前伺服器設定；未儲存的更改已捨棄。', 'success');
+    });
+    const snapshotRows = document.getElementById('bookingAdminSnapshotLocationRows');
+    if (snapshotRows) new MutationObserver(() => updateSettingsDraft()).observe(snapshotRows, { childList: true, subtree: true });
     window.TicketLocationEditors?.snapshot?.init();
     ['bookingAdminStartTime','bookingAdminEndTime','bookingAdminSlotInterval'].forEach((id) => els[id].addEventListener('input', renderHoursPreview));
     els.bookingAdminNewTypeButton.addEventListener('click', () => openTypeModal(null));
     els.bookingAdminTechniciansSubtab.addEventListener('click', () => setSubtab('technicians'));
     els.bookingAdminServicesSubtab.addEventListener('click', () => setSubtab('services'));
     els.bookingAdminSettingsSubtab.addEventListener('click', () => setSubtab('settings'));
+    els.bookingAdminRiskSubtab.addEventListener('click', () => setSubtab('risk'));
+    els.bookingAdminRiskOpenAdvanceSettings.addEventListener('click', () => {
+      setSubtab('settings');
+      els.bookingAdminAdvanceDays.focus();
+    });
+    els.bookingAdminSubtabs.addEventListener('keydown', (event) => {
+      const tabs = [els.bookingAdminTechniciansSubtab, els.bookingAdminServicesSubtab, els.bookingAdminSettingsSubtab, els.bookingAdminRiskSubtab, els.bookingAdminQueueSubtab];
+      const index = tabs.indexOf(document.activeElement);
+      if (index < 0 || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1
+        : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+      tabs[next].click();
+      tabs[next].focus();
+    });
     els.bookingAdminQueueSubtab.addEventListener('click', () => setSubtab('queue'));
+    els.bookingAdminPhoneCreateButton.addEventListener('click', openPhoneBookingModal);
     els.bookingAdminStandardMode.addEventListener('click', () => setQueueMode('standard'));
     els.bookingAdminAccessibleMode.addEventListener('click', () => setQueueMode('accessible'));
     els.bookingAdminNewServiceButton.addEventListener('click', () => openServiceModal(null));
@@ -298,12 +368,13 @@
   }
 
   function setSubtab(subtab) {
-    const allowed = ['technicians', 'services', 'settings', 'queue'];
+    const allowed = ['technicians', 'services', 'settings', 'risk', 'queue'];
     state.subtab = allowed.includes(subtab) ? subtab : 'technicians';
     const tabs = {
       technicians: [els.bookingAdminTechniciansSubtab, els.bookingAdminTechniciansPanel],
       services: [els.bookingAdminServicesSubtab, els.bookingAdminServicesPanel],
       settings: [els.bookingAdminSettingsSubtab, els.bookingAdminSettingsPanel],
+      risk: [els.bookingAdminRiskSubtab, els.bookingAdminRiskPanel],
       queue: [els.bookingAdminQueueSubtab, els.bookingAdminQueuePanel],
     };
     Object.entries(tabs).forEach(([key, pair]) => {
@@ -311,6 +382,7 @@
       const active = key === state.subtab;
       tab?.classList.toggle('active', active);
       tab?.setAttribute('aria-selected', String(active));
+      if (tab) tab.tabIndex = active ? 0 : -1;
       panel?.classList.toggle('hidden', !active);
     });
     if (state.subtab === 'queue') setQueueMode(state.queueMode);
@@ -443,14 +515,14 @@
 
   async function requestFunction(name, action, payload = {}, write = false) {
     const { config, idToken } = await context();
-    const endpoint = `${String(config.supabaseUrl || '').replace(/\/$/, '')}/functions/v1/${name}`;
+    const endpoint = `${String(config.supabaseUrl || '').replace(/\/$/, '')}/functions/v1/${config.bookingPreviewApis === true && ['booking-api','booking-admin-api','booking-admin-operations','booking-group-api'].includes(name) ? name + '-preview' : name}`;
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), write ? 30000 : 15000);
     try {
       const response = await fetch(endpoint, {
         method: 'POST', cache: 'no-store', signal: controller.signal,
         headers: { 'Content-Type': 'application/json', apikey: String(config.supabasePublishableKey || '') },
-        body: JSON.stringify({ ...payload, action, clientType: 'admin', idToken }),
+        body: JSON.stringify({ ...(config.pricePublishing === true ? window.BookingPricePublishing.payload(config, payload, state.catalog.services) : payload), action, clientType: 'admin', idToken }),
       });
       const text = await response.text();
       let data;
@@ -509,6 +581,7 @@
         ...(contactsById.get(String(item.bookingId || '')) || {}),
       }));
       const nextBooking = {
+        noShowRisk: booking.noShowRisk,
         settings: { ...(booking.settings || {}), ...(catalog.settings || {}), ...(resources.settings || {}) },
         bookings,
         groups: groupData?.bookingGroups && typeof groupData.bookingGroups === 'object' ? groupData.bookingGroups : {},
@@ -537,7 +610,15 @@
       const selectionChanged = [...state.selected].sort().join('|') !== [...nextSelected].sort().join('|');
 
       state.booking = nextBooking;
+      window.BookingRiskSettings?.mount(els.bookingAdminRiskMount,{data:state.booking.noShowRisk,request:bookingRiskRequest});
       state.catalog = nextCatalog;
+      syncTypeRewardCards();
+      window.clearTimeout(state.priceRefreshTimer);
+      if (state.config?.pricePublishing === true) {
+        const times = nextCatalog.services.map(service => Date.parse(service.nextPriceAt || '')).filter(Number.isFinite);
+        if (times.length) state.priceRefreshTimer = window.setTimeout(() => refreshAll(false), Math.max(1000, Math.min(2147483647, Math.min(...times) - (Date.parse(catalog.serverNow || '') || Date.now()) + 150)));
+      }
+
       state.selected = nextSelected;
       if (catalogChanged) {
         window.dispatchEvent(new CustomEvent('member-admin:booking-services-updated', {
@@ -620,20 +701,75 @@
   }
 
   function renderAll() { renderSettings(); renderTypes(); renderServices(); renderStats(); renderBookings(); }
-  function renderSettings() {
+  function currentSettingsSignature() {
+    return JSON.stringify({
+      fields: SETTINGS_INPUT_IDS.map((id) => {
+        const input = els[id];
+        return input?.type === 'checkbox' ? Boolean(input.checked) : String(input?.value || '');
+      }),
+      locations: window.TicketLocationEditors?.snapshot?.get?.() || [],
+    });
+  }
+  function updateSettingsDraft() {
+    if (state.settingsBaseline === null || !els.bookingAdminDraftStatus) return;
+    state.settingsDirty = currentSettingsSignature() !== state.settingsBaseline;
+    els.bookingAdminDiscardSettingsButton.disabled = state.busy || !state.settingsDirty;
+    if (!state.busy) {
+      const serverVersion = String(state.booking.settings?.updatedAt || '');
+      els.bookingAdminDraftStatus.textContent = state.settingsDirty
+        ? (serverVersion !== state.settingsDraftVersion
+          ? '伺服器已有新版設定；本頁草稿已保留。請先記下變更並重新載入，避免覆寫他人修改。'
+          : '有未儲存的變更，離開前請儲存或還原。')
+        : '目前設定已載入，尚未修改。';
+    }
+  }
+  function renderReminderMessagePreview() {
+    const message = String(els.bookingAdminReminderMessage.value || '').replace(/\r\n?/g, '\n').trim();
+    const example = [
+      '【預約提醒】',
+      ...message.split('\n').filter(Boolean).map((line) => '提醒事項：' + line),
+      '日期：2026/12/12',
+      '預約人：陳先生',
+      '營業日：2026/12/12',
+      '時段：2026/12/12 11:30–2026/12/12 12:40（台北時間）',
+      '電話：09********',
+      '預約人數：1 位',
+      '',
+      '第一位預約',
+      '預約項目：示意服務',
+      '個別時間：70 分鐘',
+      '個別金額：NT$1,000',
+      '預約技師：示意技師',
+    ];
+    els.bookingAdminReminderMessagePreview.textContent = example.join('\n');
+  }
+  function renderSettings(force = false) {
     const settings = state.booking.settings || {};
+    window.BookingRiskSettings?.mount(els.bookingAdminRiskMount,{data:state.booking.noShowRisk,request:bookingRiskRequest});
+    if (state.settingsDirty && !force) {
+      updateSettingsDraft();
+      return;
+    }
     els.bookingAdminStartTime.value = String(settings.workStartTime || '09:00');
     els.bookingAdminEndTime.value = String(settings.workEndTime || '17:00');
     els.bookingAdminSlotInterval.value = String(Number(settings.slotIntervalMinutes || 30));
     els.bookingAdminAdvanceDays.value = String(Number(settings.minAdvanceDays || 0));
     els.bookingAdminMaxAdvanceDays.value = String(Number(settings.maxAdvanceDays || 0));
+    els.bookingAdminPhoneNumber.value = String(settings.phoneBookingNumber || '');
     els.bookingAdminStoreServiceMinutes.value = String(Number(settings.storeServiceMinutes || 10));
     els.bookingAdminNotice.value = String(settings.bookingNotice || '');
-    els.bookingAdminReminderEnabled.checked = settings.reminderEnabled === true;
+    if (!state.reminderMessageDirty) {
+      els.bookingAdminReminderMessage.value = String(settings.reminderMessage || '請準時到場；如需調整請至預約頁操作。');
+      state.reminderMessageVersion = String(settings.updatedAt || '');
+      renderReminderMessagePreview();
+    }
     els.bookingAdminSnapshotLocationRequired.checked = settings.snapshotLocationRequired === true;
     window.TicketLocationEditors?.snapshot?.set(Array.isArray(settings.snapshotLocations) ? settings.snapshotLocations : []);
-    els.bookingAdminReminderTime.value = String(settings.reminderTime || '18:00');
     renderHoursPreview();
+    state.settingsBaseline = currentSettingsSignature();
+    state.settingsDraftVersion = String(settings.updatedAt || '');
+    state.settingsDirty = false;
+    updateSettingsDraft();
   }
   function renderHoursPreview() {
     const start = els.bookingAdminStartTime.value;
@@ -698,9 +834,16 @@
       const text = document.createElement('span');
       const title = document.createElement('strong'); title.textContent = service.title;
       const meta = document.createElement('small'); meta.textContent = `類型 ${service.serviceType || '未設定'} · ${service.durationMinutes} 分鐘 · ${formatMoney(service.priceAmount)} · ${service.requiresCompanionService ? '加購／需搭配一般項目 · ' : ''}${service.isActive ? '開放' : '停用'}`;
-      text.append(title, meta); left.append(check, text);
+      text.append(title, meta);
+      if (service.nextPriceAt && state.config?.pricePublishing === true) {
+        const upcoming = document.createElement('small');
+        upcoming.textContent = '下次調價：' + new Intl.DateTimeFormat('zh-TW',{timeZone:'Asia/Taipei',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(service.nextPriceAt)) + '（台北時間）';
+        text.append(upcoming);
+      }
+      left.append(check, text);
       const actions = document.createElement('span'); actions.className = 'booking-admin-actions'; actions.style.margin = '0';
       actions.append(actionButton('修改', 'button button-outline', () => openServiceModal(service)), actionButton('刪除', 'button button-danger', () => deleteService(service)));
+      if (state.config?.pricePublishing === true) actions.prepend(actionButton('調整價格', 'button button-outline', () => window.BookingPriceEditor.open({ service, request: (action,payload) => manageRequest(action,payload,action !== 'admin.booking.price.catalog'), onSaved: () => refreshAll(false) })));
       row.append(left, actions); els.bookingAdminServiceList.appendChild(row);
     });
     updateBatchButtons();
@@ -714,6 +857,41 @@
     els.bookingAdminBatchDeleteButton.textContent = count ? `批次刪除（${count}）` : '批次刪除';
   }
 
+  async function saveReminderMessage(event) {
+    event.preventDefault();
+    if (state.reminderMessageSaving) return;
+    const reminderMessage = String(els.bookingAdminReminderMessage.value || '').replace(/\r\n?/g, '\n');
+    if (!reminderMessage.trim() || reminderMessage.length > 400) {
+      showMessage(els.bookingAdminReminderMessageStatus, '提醒訊息必須為 1–400 字。', 'error');
+      return;
+    }
+    state.reminderMessageSaving = true;
+    els.bookingAdminReminderMessageSave.disabled = true;
+    els.bookingAdminReminderMessageSave.textContent = '儲存中…';
+    clearMessage(els.bookingAdminReminderMessageStatus);
+    try {
+      const result = await manageRequest('admin.booking.reminder-message.save', {
+        reminderMessage,
+        expectedUpdatedAt: state.reminderMessageVersion,
+      }, true);
+      if (!result.updatedAt) throw clientError('API_RESPONSE_UNCERTAIN', '無法確認提醒訊息是否已儲存，請重新載入核對。');
+      state.booking.settings = { ...state.booking.settings, reminderMessage: String(result.reminderMessage || reminderMessage), updatedAt: result.updatedAt };
+      state.reminderMessageDirty = false;
+      state.reminderMessageVersion = String(result.updatedAt);
+      if (!state.settingsDirty) renderSettings(true);
+      showMessage(els.bookingAdminReminderMessageStatus, '預約提醒訊息已儲存，後續提醒會套用最新文字。', 'success');
+    } catch (error) {
+      showMessage(els.bookingAdminReminderMessageStatus,
+        /CONFLICT/i.test(String(error?.code || ''))
+          ? '其他管理員已更新設定，請重新載入後確認內容再儲存。'
+          : error?.message || '儲存失敗，已保留目前輸入內容。', 'error');
+    } finally {
+      state.reminderMessageSaving = false;
+      els.bookingAdminReminderMessageSave.disabled = false;
+      els.bookingAdminReminderMessageSave.textContent = '儲存預約提醒訊息';
+    }
+  }
+
   async function saveSettings(event) {
     event.preventDefault();
     if (state.busy) return;
@@ -724,18 +902,25 @@
     const workStartTime = els.bookingAdminStartTime.value;
     const workEndTime = els.bookingAdminEndTime.value;
     const bookingNotice = String(els.bookingAdminNotice.value || '').replace(/\r\n?/g, '\n');
+    const phoneBookingNumber = String(els.bookingAdminPhoneNumber.value || '').trim();
     if (!Number.isInteger(minAdvanceDays) || minAdvanceDays < 0 || minAdvanceDays > 365) return showMessage(els.bookingAdminSettingsMessage, '提前預約天數必須介於 0–365 天。', 'error');
     if (!Number.isInteger(maxAdvanceDays) || maxAdvanceDays < 0 || maxAdvanceDays > 365) return showMessage(els.bookingAdminSettingsMessage, '最遠可預約天數必須介於 0–365 天；0 代表不限制。', 'error');
     if (maxAdvanceDays > 0 && maxAdvanceDays < minAdvanceDays) return showMessage(els.bookingAdminSettingsMessage, '最遠可預約天數不可小於需要提前的天數。', 'error');
+    if (phoneBookingNumber && (phoneBookingNumber.length > 25 || !/^[+]?[0-9][0-9 ()-]{4,24}$/.test(phoneBookingNumber) || (phoneBookingNumber.match(/[0-9]/g) || []).length < 6 || (phoneBookingNumber.match(/[0-9]/g) || []).length > 15)) return showMessage(els.bookingAdminSettingsMessage, '店家電話格式錯誤，請使用 6–15 位數字，可搭配 +、空格、括號或連字號。', 'error');
     if (!Number.isInteger(storeServiceMinutes) || storeServiceMinutes < 1 || storeServiceMinutes > 720) return showMessage(els.bookingAdminSettingsMessage, '店內服務分鐘必須介於 1–720 分鐘。', 'error');
     if (!/^\d{2}:\d{2}$/.test(workStartTime) || !/^\d{2}:\d{2}$/.test(workEndTime) || workStartTime === workEndTime || [workStartTime, workEndTime].some((time) => Number(time.slice(0, 2)) > 23 || Number(time.slice(3)) > 59 || Number(time.slice(3)) % 5 !== 0)) return showMessage(els.bookingAdminSettingsMessage, '工作時間格式錯誤或時段長度為零。', 'error');
     if (!Number.isInteger(slotIntervalMinutes) || slotIntervalMinutes < 5 || slotIntervalMinutes > 120 || slotIntervalMinutes % 5 !== 0) return showMessage(els.bookingAdminSettingsMessage, '切分間隔須為 5–120 分鐘的 5 分鐘倍數。', 'error');
     if (bookingNotice.length > 2000) return showMessage(els.bookingAdminSettingsMessage, '預約說明不可超過 2,000 字。', 'error');
-    const reminderTime = els.bookingAdminReminderTime.value;
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(reminderTime)) return showMessage(els.bookingAdminSettingsMessage, '請設定有效的前一天提醒時間。', 'error');
     const snapshotLocations = window.TicketLocationEditors?.snapshot?.get() || [];
     if (els.bookingAdminSnapshotLocationRequired.checked && !snapshotLocations.length) return showMessage(els.bookingAdminSettingsMessage, '請先新增至少一個快照允許地點，才能啟用定位限制。', 'error');
     state.busy = true; clearMessage(els.bookingAdminSettingsMessage);
+    const previousDisabled = new Map([...els.bookingAdminSettingsForm.querySelectorAll('input,select,textarea,button')].map((control) => [control, control.disabled]));
+    for (const control of previousDisabled.keys()) control.disabled = true;
+    els.bookingAdminSettingsForm.setAttribute('aria-busy', 'true');
+    els.bookingAdminSaveSettingsButton.disabled = true;
+    els.bookingAdminSaveSettingsButton.textContent = '儲存中…';
+    els.bookingAdminDiscardSettingsButton.disabled = true;
+    els.bookingAdminDraftStatus.textContent = '正在儲存，請勿重複送出。';
     try {
       const result = await manageRequest('admin.booking.settings.save', {
         workStartTime: els.bookingAdminStartTime.value,
@@ -743,18 +928,45 @@
         slotIntervalMinutes,
         minAdvanceDays,
         maxAdvanceDays,
+        phoneBookingNumber,
         storeServiceMinutes,
         bookingNotice,
-        reminderEnabled: els.bookingAdminReminderEnabled.checked,
         snapshotLocationRequired: els.bookingAdminSnapshotLocationRequired.checked,
         snapshotLocations,
-        reminderTime,
-        expectedUpdatedAt: state.booking.settings?.updatedAt || '',
+        expectedUpdatedAt: state.settingsDraftVersion,
       }, true);
-      state.booking.settings = result.settings || state.booking.settings;
-      renderSettings(); showMessage(els.bookingAdminSettingsMessage, '預約與票券共用設定已儲存。', 'success');
-    } catch (error) { showMessage(els.bookingAdminSettingsMessage, error?.message || '儲存失敗。', 'error'); }
-    finally { state.busy = false; }
+      if (!result.settings || !result.settings.updatedAt) throw clientError('API_RESPONSE_UNCERTAIN', '儲存回應缺少可確認的版本；請重新載入核對後再操作。');
+      state.booking.settings = result.settings;
+      renderSettings(true);
+      showMessage(els.bookingAdminSettingsMessage, '預約與票券共用設定已儲存。', 'success');
+    } catch (error) {
+      const conflict = /CONFLICT|STALE_VERSION|VERSION_MISMATCH/i.test(String(error?.code || ''));
+      const uncertain = error?.code === 'API_RESPONSE_UNCERTAIN';
+      showMessage(els.bookingAdminSettingsMessage, conflict
+        ? '設定版本已變更，未儲存草稿仍保留。請先記下變更，再重新載入比較，勿直接覆寫。'
+        : uncertain ? '無法確認這次是否已儲存；目前輸入仍保留。請重新載入核對結果，避免重複送出。'
+          : error?.message || '儲存失敗；目前輸入仍保留。', 'error');
+    } finally {
+      state.busy = false;
+      for (const [control, disabled] of previousDisabled) control.disabled = disabled;
+      els.bookingAdminSettingsForm.removeAttribute('aria-busy');
+      els.bookingAdminSaveSettingsButton.disabled = false;
+      els.bookingAdminSaveSettingsButton.textContent = '儲存預約與票券設定';
+      updateSettingsDraft();
+    }
+  }
+
+  window.addEventListener('member-admin:features-updated',()=>syncTypeRewardCards());
+  function syncTypeRewardCards() {
+    const select=els.bookingAdminCrudModalBody?.querySelector('[data-type-reward-card]');
+    if(!select||window.BusinessWorkspace?.allows('points')===false)return;
+    const value=select.value,previous=select.selectedOptions[0]?.textContent;
+    const cards=state.catalog.pointCards||[];
+    select.innerHTML='<option value="">請選擇集點卡</option>'+cards.map(card=>`<option value="${escapeAttr(card.id)}">${escapeHtml(card.title||card.cardId||'集點卡')}</option>`).join('');
+    if(value&&!cards.some(card=>String(card.id)===value)){
+      const retained=new Option(previous||'原選擇目前不可用',value);retained.disabled=true;select.append(retained);
+    }
+    select.value=value;
   }
 
   function openTypeModal(type) {
@@ -783,13 +995,14 @@
     cardSelect.value = type?.rewardPointCardId || '';
     enabled.checked = Boolean(type?.rewardMinutesPerPoint && type?.rewardPointCardId);
 
+    syncTypeRewardCards();
     const syncRewardFields = () => {
       rewardFields.classList.toggle('hidden', !enabled.checked);
       minutesInput.disabled = !enabled.checked;
       cardSelect.disabled = !enabled.checked;
     };
     enabled.addEventListener('change', () => {
-      if (enabled.checked && !cards.length) {
+      if (enabled.checked && !(state.catalog.pointCards || []).length) {
         enabled.checked = false;
         syncRewardFields();
         return showMessage(form.querySelector('[data-modal-message]'), '目前沒有可使用的集點卡，請先建立並啟用集點卡。', 'error');
@@ -806,7 +1019,8 @@
       if (!name) return;
       let rewardMinutesPerPoint = null;
       let rewardPointCardId = null;
-      if (enabled.checked) {
+      const pointsAllowed=window.BusinessWorkspace?.allows('points')!==false;
+      if (pointsAllowed && enabled.checked) {
         rewardMinutesPerPoint = Number(minutesInput.value);
         rewardPointCardId = cardSelect.value;
         if (!Number.isInteger(rewardMinutesPerPoint) || rewardMinutesPerPoint < 1 || rewardMinutesPerPoint > 10080) {
@@ -816,7 +1030,9 @@
           return showMessage(form.querySelector('[data-modal-message]'), '請選擇要自動加點的集點卡。', 'error');
         }
       }
-      const payload = { name, rewardMinutesPerPoint, rewardPointCardId };
+      // Omit the optional rule on unrelated edits while points is disabled;
+      // the server preserves the existing rule instead of silently clearing it.
+      const payload = { name, ...(pointsAllowed?{rewardMinutesPerPoint,rewardPointCardId}:{}) };
       if (type) payload.typeId = type.id;
       await runModalAction(async () => manageRequest(type ? 'admin.booking.type.update' : 'admin.booking.type.create', payload, true));
     });
@@ -830,7 +1046,7 @@
 
   function serviceFormHtml(service = {}) {
     const options = ['<option value="">請選擇項目類型</option>', ...(state.catalog.serviceTypes || []).map((type) => `<option value="${escapeAttr(type.name)}">${escapeHtml(type.name)}</option>`)].join('');
-    return `<label>預約項目名稱<input data-field="title" maxlength="100" required value="${escapeAttr(service.title || '')}"></label><label>項目類型<select data-field="serviceType" required>${options}</select></label><label>服務時間（分鐘）<input data-field="durationMinutes" type="number" min="1" max="720" step="1" required value="${Number(service.durationMinutes || 30)}"></label><label>價格（NT$）<input data-field="priceAmount" type="number" min="0" max="10000000" step="1" required value="${Number(service.priceAmount || 0)}"></label><label class="booking-admin-toggle"><input data-field="requiresCompanionService" type="checkbox" ${service.requiresCompanionService ? 'checked' : ''}><span><strong>加購項目，需搭配其他項目</strong><small>開啟後不能單獨預約；同一位預約人至少還要選擇一個一般項目。</small></span></label><label class="booking-admin-toggle"><input data-field="isActive" type="checkbox" ${service.isActive === false ? '' : 'checked'}><span><strong>開放會員預約</strong><small>關閉後會員端不再顯示，既有預約紀錄仍保留。</small></span></label>`;
+    return `<label>預約項目名稱<input data-field="title" maxlength="100" required value="${escapeAttr(service.title || '')}"></label><label>項目類型<select data-field="serviceType" required>${options}</select></label><label>服務時間（分鐘）<input data-field="durationMinutes" type="number" min="1" max="720" step="1" required value="${Number(service.durationMinutes || 30)}"></label><label>價格（NT$）<input data-field="priceAmount" ${state.config?.pricePublishing === true && service.serviceId ? 'readonly aria-describedby="priceEditHint"' : ''} type="number" min="0" max="10000000" step="1" required value="${Number(service.priceAmount || 0)}"></label>${state.config?.pricePublishing === true && service.serviceId ? '<small id="priceEditHint">價格請使用「調整價格」立即發佈或設定時間。</small>' : ''}<label class="booking-admin-toggle"><input data-field="requiresCompanionService" type="checkbox" ${service.requiresCompanionService ? 'checked' : ''}><span><strong>加購項目，需搭配其他項目</strong><small>開啟後不能單獨預約；同一位預約人至少還要選擇一個一般項目。</small></span></label><label class="booking-admin-toggle"><input data-field="isActive" type="checkbox" ${service.isActive === false ? '' : 'checked'}><span><strong>開放會員預約</strong><small>關閉後會員端不再顯示，既有預約紀錄仍保留。</small></span></label>`;
   }
 
   function openServiceModal(service) {
@@ -842,7 +1058,7 @@
     form.querySelector('[data-cancel]').addEventListener('click', closeModal);
     form.addEventListener('submit', async (event) => {
       event.preventDefault(); const payload = readServiceForm(form);
-      if (service) { payload.serviceId = service.serviceId; payload.expectedUpdatedAt = service.updatedAt || ''; }
+      if (service) { payload.serviceId = service.serviceId; payload.expectedUpdatedAt = service.updatedAt || ''; if (state.config?.pricePublishing === true) payload.expectedPrices = [{serviceId:service.serviceId,priceAmount:service.priceAmount,priceVersion:service.priceVersion}]; }
       await runModalAction(async () => manageRequest('admin.booking.service.save', payload, true));
     });
     showModal();
@@ -883,7 +1099,7 @@
         return { op: mode, ...payload };
       });
       if (!operations.length) return;
-      await runModalAction(async () => manageRequest('admin.booking.services.batch', { operations }, true));
+      await runModalAction(async () => manageRequest('admin.booking.services.batch', { operations, ...(mode === 'update' && state.config?.pricePublishing === true ? {expectedPrices:source.map(service=>({serviceId:service.serviceId,priceAmount:service.priceAmount,priceVersion:service.priceVersion}))} : {}) }, true));
     });
     showModal();
   }
@@ -997,7 +1213,7 @@
       await runModalAction(async () => operationsRequest('admin.booking.items.update', {
         bookingId: booking.bookingId,
         expectedUpdatedAt: booking.updatedAt,
-        items,
+        ...window.BookingPricePublishing?.payload(state.config,{items},services) || {items},
       }, true));
     });
     showModal();
@@ -1232,6 +1448,285 @@
     showModal();
   }
 
+
+  function openPhoneBookingModal() {
+    const services = (state.catalog.services || []).filter((service) =>
+      service.isActive !== false && service.serviceId && service.serviceId !== STORE_SERVICE_ID
+    );
+    const localParts = {};
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(new Date()).forEach((part) => {
+      if (part.type !== 'literal') localParts[part.type] = part.value;
+    });
+    const today = localParts.year + '-' + localParts.month + '-' + localParts.day;
+    const settings = state.booking.settings || {};
+    const addDays = (value, count) => {
+      const date = new Date(value + 'T00:00:00Z');
+      date.setUTCDate(date.getUTCDate() + Number(count || 0));
+      return date.toISOString().slice(0, 10);
+    };
+    const minDate = addDays(today, Number(settings.minAdvanceDays || 0));
+    const maxAdvance = Number(settings.maxAdvanceDays || 0);
+    const maxAttr = maxAdvance > 0 ? ' max="' + addDays(today, maxAdvance) + '"' : '';
+
+    els.bookingAdminCrudModalTitle.textContent = '登記電話預約';
+    els.bookingAdminCrudModalBody.innerHTML = [
+      '<form class="booking-admin-form booking-phone-form" data-phone-booking-form>',
+      '<p class="booking-admin-time">比照用戶端選擇預約項目及開始時段。灰色表示已被預約、已過期或不可使用；必須取消原預約後才會開放。新登記不建立 LINE 會員、點數或票券。</p>',
+      '<fieldset class="booking-phone-fieldset"><legend>可選預約項目</legend>',
+      '<p class="booking-phone-help">依服務類型分類；按「增加」後會列入目前選擇。相同項目最多 2 份。</p>',
+      '<div data-phone-service-picker class="booking-phone-service-picker"></div></fieldset>',
+      '<fieldset class="booking-phone-fieldset"><legend>目前選擇</legend>',
+      '<div data-phone-selected-list class="booking-phone-selected-list"></div>',
+      '<p data-phone-duration class="booking-phone-duration" role="status" aria-live="polite">請先選擇預約項目。</p></fieldset>',
+      '<label>預約日期<input data-phone-date type="date" min="' + minDate + '"' + maxAttr + ' value="' + minDate + '" required></label>',
+      '<fieldset class="booking-phone-fieldset"><legend>可預約時間</legend>',
+      '<p data-phone-slot-hint class="booking-phone-help" role="status" aria-live="polite">請先選擇預約項目。</p>',
+      '<div data-phone-slot-grid class="booking-phone-slot-grid" role="group" aria-label="電話預約可選開始時段"></div></fieldset>',
+      '<label>客人姓氏<input data-phone-surname type="text" maxlength="40" autocomplete="off" required placeholder="例如：陳"></label>',
+      '<label>稱謂<select data-phone-salutation required><option value="mr">先生</option><option value="ms">小姐</option></select></label>',
+      '<label>聯絡電話<input data-phone-number type="tel" maxlength="25" autocomplete="tel" required placeholder="例如：0912345678"></label>',
+      '<label>管理端備註（選填）<textarea data-phone-note maxlength="500" rows="2"></textarea></label>',
+      '<div data-modal-message class="form-message hidden"></div>',
+      '<div class="booking-admin-modal-actions">',
+      '<button data-cancel class="button button-outline" type="button">取消</button>',
+      '<button class="button button-dark" type="submit" disabled>確認登記</button></div></form>',
+    ].join('');
+    const form = els.bookingAdminCrudModalBody.querySelector('[data-phone-booking-form]');
+    const servicePicker = form.querySelector('[data-phone-service-picker]');
+    const selectedList = form.querySelector('[data-phone-selected-list]');
+    const durationLabel = form.querySelector('[data-phone-duration]');
+    const slotGrid = form.querySelector('[data-phone-slot-grid]');
+    const slotHint = form.querySelector('[data-phone-slot-hint]');
+    const submit = form.querySelector('button[type="submit"]');
+    const message = form.querySelector('[data-modal-message]');
+    const selected = new Map();
+    let selectedSlot = null;
+    let loadingSlots = false;
+    let totalMinutes = null;
+    let storeMinutes = null;
+    let slotRequestSequence = 0;
+
+    const selectedItems = () => [...selected.entries()].map(([serviceId, quantity]) => ({ serviceId, quantity }));
+    const itemMinutes = () => [...selected.entries()].reduce((sum, [serviceId, quantity]) => {
+      const service = services.find((item) => item.serviceId === serviceId);
+      return sum + Number(service?.durationMinutes || 0) * quantity;
+    }, 0);
+    const hasCompanion = () => [...selected.keys()].some((serviceId) =>
+      services.some((service) => service.serviceId === serviceId && service.requiresCompanionService !== true));
+    const canSubmit = () => selected.size > 0 && !!selectedSlot && !loadingSlots && Number.isInteger(totalMinutes)
+      && totalMinutes > 0 && totalMinutes <= 1439 && !state.busy;
+    const updateSubmit = () => { submit.disabled = !canSubmit(); };
+    const showDuration = () => {
+      const minutes = itemMinutes();
+      if (Number.isInteger(totalMinutes) && Number.isInteger(storeMinutes)) {
+        durationLabel.textContent = '總服務時間：' + totalMinutes + ' 分鐘（項目 ' + minutes +
+          ' 分鐘＋店內服務 ' + storeMinutes + ' 分鐘，依伺服器計算）';
+      } else {
+        durationLabel.textContent = selected.size
+          ? '項目服務 ' + minutes + ' 分鐘；正在確認店內服務時間與總服務時間…'
+          : '請先選擇預約項目。';
+      }
+    };
+    const renderSelections = () => {
+      selectedList.replaceChildren();
+      if (!selected.size) {
+        const empty = document.createElement('p');
+        empty.className = 'booking-phone-help';
+        empty.textContent = '尚未選擇預約項目。';
+        selectedList.appendChild(empty);
+      }
+      for (const [serviceId, quantity] of selected) {
+        const service = services.find((item) => item.serviceId === serviceId);
+        if (!service) continue;
+        const row = document.createElement('div');
+        row.className = 'booking-phone-selected-item';
+        const summary = document.createElement('span');
+        const title = document.createElement('strong');
+        title.textContent = service.title + ' × ' + quantity;
+        const details = document.createElement('small');
+        details.textContent = (Number(service.durationMinutes || 0) * quantity) + ' 分鐘 · ' +
+          formatMoney(Number(service.priceAmount || 0) * quantity);
+        summary.append(title, details);
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'button button-outline';
+        remove.textContent = '移除';
+        remove.setAttribute('aria-label', '移除 ' + service.title);
+        remove.addEventListener('click', () => {
+          const next = new Map(selected);
+          if (quantity > 1) next.set(serviceId, quantity - 1);
+          else next.delete(serviceId);
+          if (![...next.keys()].some((id) => services.some((item) => item.serviceId === id && !item.requiresCompanionService))
+            && [...next.keys()].some((id) => services.some((item) => item.serviceId === id && item.requiresCompanionService))) {
+            return showMessage(message, '加購項目不能單獨保留，請先移除加購項目。', 'error');
+          }
+          selected.clear();
+          for (const [id, count] of next) selected.set(id, count);
+          clearMessage(message);
+          renderSelections();
+          refreshSlots();
+        });
+        row.append(summary, remove);
+        selectedList.appendChild(row);
+      }
+      showDuration();
+    };
+    const groups = new Map();
+    services.forEach((service) => {
+      const name = String(service.serviceType || '其他').trim() || '其他';
+      if (!groups.has(name)) groups.set(name, []);
+      groups.get(name).push(service);
+    });
+    for (const [name, rows] of groups) {
+      const section = document.createElement('section');
+      section.className = 'booking-phone-service-group';
+      const heading = document.createElement('strong');
+      heading.textContent = name + '（' + rows.length + '）';
+      section.appendChild(heading);
+      for (const service of rows) {
+        const row = document.createElement('div');
+        row.className = 'booking-phone-service-option';
+        const description = document.createElement('span');
+        const title = document.createElement('strong');
+        title.textContent = service.title;
+        const detail = document.createElement('small');
+        detail.textContent = Number(service.durationMinutes || 0) + ' 分鐘 · ' +
+          formatMoney(service.priceAmount) + (service.requiresCompanionService ? ' · 加購／需搭配一般項目' : '');
+        description.append(title, detail);
+        const add = document.createElement('button');
+        add.className = 'button button-outline';
+        add.type = 'button';
+        add.textContent = '增加';
+        add.setAttribute('aria-label', '增加 ' + service.title);
+        add.addEventListener('click', () => {
+          if (service.requiresCompanionService && !hasCompanion()) {
+            return showMessage(message, '加購項目需要先選擇一般預約項目。', 'error');
+          }
+          const count = selected.get(service.serviceId) || 0;
+          if (count >= 2) return showMessage(message, '相同預約項目最多可選 2 份。', 'error');
+          selected.set(service.serviceId, count + 1);
+          clearMessage(message);
+          renderSelections();
+          refreshSlots();
+        });
+        row.append(description, add);
+        section.appendChild(row);
+      }
+      servicePicker.appendChild(section);
+    }
+    if (!services.length) {
+      const empty = document.createElement('p');
+      empty.className = 'booking-phone-help';
+      empty.textContent = '目前沒有開放的預約項目。';
+      servicePicker.appendChild(empty);
+    }
+    const renderPhoneSlots = (slots, requestedDate) => {
+      slotGrid.replaceChildren();
+      const available = slots.filter((slot) => slot.available === true).length;
+      const occupied = slots.filter((slot) => slot.unavailableReason === 'occupied').length;
+      slotHint.textContent = slots.length
+        ? '可選 ' + available + ' 個時段；已預約 ' + occupied + ' 個時段以灰色顯示，不可點選。'
+        : '此日期沒有可容納完整服務時間的時段。';
+      for (const slot of slots) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'booking-phone-slot';
+        const nextDay = String(slot.startAt || '').slice(0, 10) !== requestedDate;
+        const endNextDay = String(slot.endAt || '').slice(0, 10) !== requestedDate;
+        button.textContent = (nextDay ? '隔日 ' : '') + String(slot.startTime || '') + '–' +
+          String(slot.endTime || '') + (endNextDay ? '（隔日結束）' : '');
+        button.disabled = slot.available !== true;
+        button.setAttribute('aria-pressed', 'false');
+        if (button.disabled) {
+          button.title = slot.unavailableReason === 'occupied' ? '已預約，請先取消原預約' : '已過期或不可預約';
+          button.setAttribute('aria-label', button.textContent + '，' + button.title + '，不可選擇');
+          button.dataset.unavailableReason = String(slot.unavailableReason || 'unavailable');
+        } else {
+          button.setAttribute('aria-label', button.textContent + '，可選擇');
+          button.addEventListener('click', () => {
+            selectedSlot = String(slot.startTime || '');
+            slotGrid.querySelectorAll('.booking-phone-slot').forEach((item) => {
+              const isCurrent = item === button;
+              item.classList.toggle('selected', isCurrent);
+              item.setAttribute('aria-pressed', isCurrent ? 'true' : 'false');
+            });
+            updateSubmit();
+          });
+        }
+        slotGrid.appendChild(button);
+      }
+    };
+    async function refreshSlots() {
+      const seq = ++slotRequestSequence;
+      const date = form.querySelector('[data-phone-date]').value;
+      selectedSlot = null;
+      totalMinutes = null;
+      storeMinutes = null;
+      slotGrid.replaceChildren();
+      loadingSlots = Boolean(selected.size && date);
+      slotHint.textContent = loadingSlots ? '正在取得可預約時段…' : '請先選擇預約項目與日期。';
+      showDuration();
+      updateSubmit();
+      if (!loadingSlots) return;
+      try {
+        const result = await bookingRequest('admin.booking.phone.slots', { bookingDate: date, items: selectedItems() });
+        if (seq !== slotRequestSequence || !form.isConnected || els.bookingAdminCrudModal.classList.contains('hidden')) return;
+        const total = Number(result.totalDurationMinutes);
+        const store = Number(result.storeServiceMinutes);
+        if (!Number.isInteger(total) || total < 1 || total > 1439 ||
+            !Number.isInteger(store) || store < 0 || total !== itemMinutes() + store ||
+            !Array.isArray(result.slots)) {
+          throw clientError('INVALID_SLOT_RESPONSE', '無法確認服務時間，請重新整理後再試。');
+        }
+        totalMinutes = total;
+        storeMinutes = store;
+        renderPhoneSlots(result.slots, date);
+      } catch (error) {
+        if (seq !== slotRequestSequence || !form.isConnected || els.bookingAdminCrudModal.classList.contains('hidden')) return;
+        slotHint.textContent = error?.message || '無法取得可預約時段，請重新選擇日期。';
+      } finally {
+        if (seq === slotRequestSequence) {
+          loadingSlots = false;
+          showDuration();
+          updateSubmit();
+        }
+      }
+    }
+    form.querySelector('[data-phone-date]').addEventListener('change', refreshSlots);
+    form.querySelector('[data-phone-date]').addEventListener('input', refreshSlots);
+    form.querySelector('[data-cancel]').addEventListener('click', closeModal);
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!form.reportValidity() || !canSubmit()) {
+        if (!canSubmit()) showMessage(message, '請先選好服務項目，並選取非灰色的可預約時段。', 'error');
+        return;
+      }
+      const payload = {
+        requestId: 'PHONE-' + requestId,
+        bookingDate: form.querySelector('[data-phone-date]').value,
+        startTime: selectedSlot,
+        contactSurname: form.querySelector('[data-phone-surname]').value.trim(),
+        contactSalutation: form.querySelector('[data-phone-salutation]').value,
+        contactPhone: form.querySelector('[data-phone-number]').value.trim(),
+        adminNote: form.querySelector('[data-phone-note]').value.trim(),
+        items: selectedItems(),
+      };
+      await runModalAction(async () => {
+        try {
+          await bookingRequest('admin.booking.phone.create', window.BookingPricePublishing?.payload(state.config,payload,services) || payload, true);
+        } catch (error) {
+          if (error?.code === 'PHONE_BOOKING_CONFLICT') refreshSlots();
+          throw error;
+        }
+      });
+    });
+    const requestId = window.crypto.randomUUID();
+    renderSelections();
+    showModal();
+  }
+
   function renderBookings() {
     const bookings = (state.booking.bookings || [])
       .filter((booking) => state.filter === 'all' || booking.status === state.filter)
@@ -1295,6 +1790,12 @@
 
       const heading = document.createElement('div');
       heading.className = 'booking-admin-booking-heading';
+      if (isPhoneBooking(booking)) {
+        const source = document.createElement('span');
+        source.className = 'booking-admin-status';
+        source.textContent = '電話預約 · 現場安排';
+        heading.appendChild(source);
+      }
       const status = document.createElement('span');
       status.className = `booking-admin-status status-${booking.status}`;
       status.textContent = STATUS_LABELS[booking.status] || booking.status;
@@ -1308,7 +1809,7 @@
       const cancellationPending = Boolean(booking.cancellationRequestedAt && !booking.cancellationReviewedAt);
       if (cancellationPending) appendNote(card, '會員已提出取消申請，請至「取消申請」分頁選擇保留預約或確認取消；審核完成前不可修改、確認或完成此預約。', true);
 
-      if (booking.status === 'completed') {
+      if (booking.status === 'completed' && !isPhoneBooking(booking)) {
         card.appendChild(actionButton('更正已完成訂單', 'button button-outline', () => openCompletedBookingModal(booking, group)));
       }
       if (canEditBooking(booking)) {
@@ -1324,24 +1825,33 @@
 
         const actions = document.createElement('div');
         actions.className = 'booking-admin-actions';
-        if (!hasStoredParticipants) {
-          actions.append(actionButton('修改服務項目', 'button button-outline', () => openBookingItemsModal(booking)));
+        if (!isPhoneBooking(booking)) {
+          if (!hasStoredParticipants) {
+            actions.append(actionButton('修改服務項目', 'button button-outline', () => openBookingItemsModal(booking)));
+          }
+          const benefitsAction=actionButton('修改預約票券', 'button button-outline', () => openBookingBenefitsModal(booking));
+          benefitsAction.dataset.bookingBenefitsAction='true';
+          actions.append(benefitsAction);
         }
-        actions.append(actionButton('修改預約票券', 'button button-outline', () => openBookingBenefitsModal(booking)));
         if (booking.status === 'pending' || booking.status === 'confirmed') {
-          const reason = noShowUnavailableReason(booking);
+          const reason = noShowUnavailableReason(booking, state.booking.noShowRisk?.policy);
           const visibleReason = noShowDisplayReason(reason);
           const noShow = actionButton('無故未到', 'button button-danger', () => openNoShow(booking, textarea.value));
           noShow.dataset.noShowId=bookingId; noShow.disabled = Boolean(reason); noShow.title = visibleReason;
           noShow.setAttribute('aria-label', visibleReason ? `無故未到：${visibleReason}` : '無故未到');
-          actions.append(noShow);
-          if (visibleReason) { const hint = document.createElement('small'); hint.textContent = visibleReason; actions.append(hint); }
+          if (!isPhoneBooking(booking)) {
+            actions.append(noShow);
+            if (visibleReason) { const hint = document.createElement('small'); hint.textContent = visibleReason; actions.append(hint); }
+          }
         }
         if (booking.status === 'pending') {
           actions.append(
             actionButton('不通過', 'button button-outline', () => updateBookingStatus(booking, 'rejected', textarea.value)),
             actionButton('確認預約', 'button button-dark', () => updateBookingStatus(booking, 'confirmed', textarea.value)),
           );
+        } else if (isPhoneBooking(booking)) {
+          actions.append(actionButton('取消電話預約', 'button button-danger', () =>
+            updateBookingStatus(booking, 'cancelled', textarea.value)));
         } else {
           actions.append(
             actionButton('確認服務完成', 'button button-dark', () => updateBookingStatus(booking, 'completed', textarea.value)),
@@ -1360,6 +1870,11 @@
       if (!retainedCards.has(card)) card.remove();
     });
     state.bookingRenderSignatures = nextSignatures;
+  }
+
+
+  function isPhoneBooking(booking) {
+    return Boolean(booking && booking.bookingSource === 'phone');
   }
 
   function canEditBooking(booking) {
@@ -1393,10 +1908,17 @@
 
     const memberMeta = document.createElement('div');
     memberMeta.className = 'booking-member-meta';
+    if (isPhoneBooking(booking)) {
+      memberMeta.append(summaryMetaItem('預約來源', '電話登記 · 非會員'));
+    } else {
+      memberMeta.append(
+        summaryMetaItem('LINE 名稱', String(booking.memberDisplayName || '未取得')),
+        summaryMetaItem('會員編號', String(booking.memberCode || '未取得')),
+      );
+    }
+    const bookingTotalMinutes = isPhoneBooking(booking) ? booking.totalDurationMinutes : (group?.totalDurationMinutes ?? booking.totalDurationMinutes);
     memberMeta.append(
-      summaryMetaItem('LINE 名稱', String(booking.memberDisplayName || '未取得')),
-      summaryMetaItem('會員編號', String(booking.memberCode || '未取得')),
-      summaryMetaItem('總服務時間', `${Math.max(0, Number(group?.totalDurationMinutes || booking.totalDurationMinutes || 0))} 分鐘`),
+      summaryMetaItem('總服務時間', `${Math.max(0, Number(bookingTotalMinutes || 0))} 分鐘`),
       summaryMetaItem('總金額', formatMoney(Number(group?.totalAmount ?? booking.totalAmount ?? 0))),
     );
     if(group?.serviceRecipientMemberCode)memberMeta.append(summaryMetaItem('實際受服務者',`${group.serviceRecipientName||'好友'} · ${group.serviceRecipientMemberCode}（好友代約）`));
@@ -1468,7 +1990,7 @@
       tech.textContent = `預約技師：${techName}`;
       block.append(heading, items, tech);
 
-      if (hasStoredParticipants && canEditBooking(booking)) {
+      if (hasStoredParticipants && canEditBooking(booking) && !isPhoneBooking(booking)) {
         const actions = document.createElement('div');
         actions.className = 'booking-admin-actions';
         actions.style.margin = '4px 0 0';
@@ -1542,7 +2064,7 @@
       await runModalAction(async () => operationsRequest('admin.booking.participants.items.update', {
         bookingId: booking.bookingId,
         expectedUpdatedAt: booking.updatedAt,
-        participants,
+        ...window.BookingPricePublishing?.payload(state.config,{participants},services) || {participants},
       }, true));
     });
     showModal();
@@ -1698,27 +2220,27 @@
     const itemRows = preview.items.map((item) => `
       <div class="booking-completion-preview-item">
         <div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.serviceType || '未分類')} · ${item.quantity} 份 · ${item.subtotalMinutes} 分鐘</p></div>
-        <span class="integration-status ${item.countsTowardMembership ? 'is-active' : 'is-attention'}">${item.countsTowardMembership ? '計入' : '不計入'}</span>
+        <span data-business-requires="booking membership" class="integration-status ${item.countsTowardMembership ? 'is-active' : 'is-attention'}">${item.countsTowardMembership ? '計入' : '不計入'}</span>
       </div>`).join('');
     const rewardRows = preview.rewards.length
       ? preview.rewards.map((reward) => `<div class="booking-completion-preview-item"><div><strong>${escapeHtml(reward.pointCardTitle)}</strong><p>${escapeHtml(reward.typeName)}：${reward.minutes} 分鐘 ÷ ${reward.perPoint}</p></div><strong>+${reward.points} 點</strong></div>`).join('')
       : '<p class="integration-empty">依目前項目類型規則，本次沒有自動集點。</p>';
     const pendingBenefits = Array.isArray(booking.benefits) ? booking.benefits.filter((benefit) => benefit.status === 'pending') : [];
     const benefitRows = pendingBenefits.length
-      ? pendingBenefits.map((benefit) => `<div class="booking-completion-preview-item"><div><strong>${escapeHtml(bookingBenefitDisplayTitle(benefit))}</strong><p>${escapeHtml(bookingBenefitKindLabel(benefit))} · 完成服務時重新驗證</p></div><span class="integration-status is-attention">待核銷</span></div>`).join('')
+      ? pendingBenefits.map((benefit) => `<div data-business-requires="booking ${benefit.kind === 'points' ? 'points' : 'events'}" class="booking-completion-preview-item"><div><strong>${escapeHtml(bookingBenefitDisplayTitle(benefit))}</strong><p>${escapeHtml(bookingBenefitKindLabel(benefit))} · 完成服務時重新驗證</p></div><span class="integration-status is-attention">待核銷</span></div>`).join('')
       : '<p class="integration-empty">會員本次沒有選用優惠。</p>';
     els.bookingAdminCrudModalBody.innerHTML = `
       <form class="booking-admin-form booking-completion-preview">
         <div class="booking-completion-preview-summary">
           <div><span>受服務會員</span><strong>${escapeHtml(recipient?.serviceRecipientName || booking.memberDisplayName || '會員')}</strong></div>
-          <div><span>將計入服務時間</span><strong>${preview.serviceMinutes} 分鐘</strong></div>
-          <div><span>預估自動集點</span><strong>${preview.totalRewardPoints} 點</strong></div>
-          <div><span>待核銷優惠</span><strong>${pendingBenefits.length} 項</strong></div>
+          <div data-business-requires="booking membership"><span>將計入服務時間</span><strong>${preview.serviceMinutes} 分鐘</strong></div>
+          <div data-business-requires="booking points"><span>預估自動集點</span><strong>${preview.totalRewardPoints} 點</strong></div>
+          <div data-business-requires="booking points events"><span>待核銷優惠</span><strong>${pendingBenefits.length} 項</strong></div>
         </div>
-        ${recipient?.serviceRecipientMemberCode ? `<p>好友代約：正常集點與服務時間歸受服務好友；建立者 ${escapeHtml(booking.memberDisplayName||'會員')} 另取得每種已配置服務類型 1 點及 ${Math.floor(preview.serviceMinutes/2)} 分鐘。票券使用建立者自己的資產。</p>` : ''}
+        ${recipient?.serviceRecipientMemberCode ? `<p data-business-requires="booking membership points">好友代約：正常集點與服務時間歸受服務好友；建立者 ${escapeHtml(booking.memberDisplayName||'會員')} 另取得每種已配置服務類型 1 點及 ${Math.floor(preview.serviceMinutes/2)} 分鐘。票券使用建立者自己的資產。</p>` : ''}
         <section><p class="kicker">Service settlement</p><div class="booking-completion-preview-list">${itemRows || '<p class="integration-empty">沒有可結算的服務項目。</p>'}</div></section>
-        <section><p class="kicker">Point rewards</p><div class="booking-completion-preview-list">${rewardRows}</div></section>
-        <section><p class="kicker">Benefit redemption</p><div class="booking-completion-preview-list">${benefitRows}</div></section>
+        <section data-business-requires="booking points"><p class="kicker">Point rewards</p><div class="booking-completion-preview-list">${rewardRows}</div></section>
+        <section data-business-requires="booking points|events"><p class="kicker">Benefit redemption</p><div class="booking-completion-preview-list">${benefitRows}</div></section>
         <p class="booking-completion-preview-note">此畫面為送出前預覽。真正的服務時間、集點、LINE 通知與重複請求判斷仍由 Server-side 完成結算流程決定；同時會重新驗證票券擁有權、狀態、效期、點數與每日上限，並在同一交易內完成核銷與預約結算，任何一項失敗都不會產生半完成狀態。</p>
         <div data-modal-message class="form-message hidden"></div>
         <div class="booking-admin-modal-actions"><button data-cancel class="button button-outline" type="button">返回</button><button class="button button-dark" type="submit">確認完成並結算</button></div>
@@ -1736,11 +2258,17 @@
     showModal();
   }
 
+  async function bookingRiskRequest(action, body) {
+    const result = await bookingRequest('admin.booking.risk.'+action, body, action !== 'get');
+    if (result?.policy) { state.booking.noShowRisk = result; updateNoShowButtons(); }
+    return result;
+  }
+
   function updateNoShowButtons() {
     for(const button of document.querySelectorAll('[data-no-show-id]')) {
       const booking=state.booking.bookings.find(b=>String(b.bookingId)===button.dataset.noShowId);
       if(!booking) continue;
-      const reason=noShowUnavailableReason(booking);
+      const reason=noShowUnavailableReason(booking, state.booking.noShowRisk?.policy);
       const visibleReason=noShowDisplayReason(reason);
       button.disabled=Boolean(reason)||state.busy;button.title=visibleReason;
       button.setAttribute('aria-label',visibleReason ? `無故未到：${visibleReason}` : '無故未到');
@@ -1753,21 +2281,24 @@
     return reason === NO_SHOW_EARLY_REASON ? '' : reason;
   }
 
-  function noShowUnavailableReason(booking) {
+  function noShowUnavailableReason(booking, policy = {}) {
     if (booking.receiptSubmissionId || String(booking.requestId || '').startsWith('receipt-register:')) return '快照請使用獨立審核流程。';
     if (!['pending', 'confirmed'].includes(booking.status)) return '只有待確認或已確認的一般預約可標記。';
     if (booking.cancellationRequestedAt && !booking.cancellationReviewedAt) return '請先處理取消申請。';
     const raw = String(booking.endAt || '');
     const end = Date.parse(/(?:Z|[+-]\d{2}:?\d{2})$/.test(raw) ? raw : `${raw}+08:00`);
     if (!raw || !Number.isFinite(end)) return '缺少有效服務結束時間，請先核對排程。';
-    return end >= Date.now() ? NO_SHOW_EARLY_REASON : '';
+    const grace = policy.enabled && Number.isInteger(policy.grace_minutes) && policy.grace_minutes >= 0 ? policy.grace_minutes : 0;
+    return end + grace * 60000 >= Date.now() ? grace > 0 ? `服務結束與 ${grace} 分鐘寬限後才能標記無故未到。` : NO_SHOW_EARLY_REASON : '';
   }
 
   function openNoShow(booking, adminNote) {
-    const reason = noShowUnavailableReason(booking);
+    const reason = noShowUnavailableReason(booking, state.booking.noShowRisk?.policy);
     if (reason) { showMessage(els.bookingAdminServiceMessage, reason, 'error'); return; }
     els.bookingAdminCrudModalTitle.textContent = '確認標記無故未到';
-    els.bookingAdminCrudModalBody.innerHTML = `<form class="booking-admin-form"><p>${escapeHtml(booking.memberDisplayName || '會員')} · ${escapeHtml(booking.memberCode || '')}</p><p>${escapeHtml(booking.startAt || '')}–${escapeHtml(booking.endAt || '')}</p><p>確認此會員未到場？此操作不核銷票券、不扣點、不計入違規；僅解除本筆未使用票券的保留。</p><label><input type="checkbox" required> 我已人工核對，確認這筆預約無故未到。</label><div data-modal-message class="form-message hidden"></div><div class="booking-admin-modal-actions"><button data-cancel type="button" class="button button-outline">返回</button><button type="submit" class="button button-danger">確認標記無故未到</button></div></form>`;
+    const policy = state.booking.noShowRisk?.policy;
+    const impact = policy?.enabled ? `爽約會依目前政策計次；服務結束後須經 ${Number(policy.grace_minutes) || 0} 分鐘寬限，達門檻時限制新的線上預約。` : '爽約政策目前停用；保留這筆爽約紀錄，不依政策執行限制。';
+    els.bookingAdminCrudModalBody.innerHTML = `<form class="booking-admin-form"><p>${escapeHtml(booking.memberDisplayName || '會員')} · ${escapeHtml(booking.memberCode || '')}</p><p>預約：${escapeHtml(booking.bookingId || '')}</p><p>${escapeHtml(booking.startAt || '')}–${escapeHtml(booking.endAt || '')}（台北）</p><p>確認此會員未到場？此操作不核銷票券、不扣點；僅解除本筆未使用票券的保留。</p><p>${escapeHtml(impact)}</p><label><input type="checkbox" required> 我已人工核對，確認這筆預約無故未到。</label><div data-modal-message class="form-message hidden"></div><div class="booking-admin-modal-actions"><button data-cancel type="button" class="button button-outline">返回</button><button type="submit" class="button button-danger">確認標記無故未到</button></div></form>`;
     const form = els.bookingAdminCrudModalBody.querySelector('form');
     form.querySelector('[data-cancel]').addEventListener('click', closeModal);
     form.addEventListener('submit', async e => {
@@ -1881,6 +2412,7 @@
 
     const section = document.createElement('section');
     section.className = 'booking-ticket-summary';
+    section.dataset.businessRequires = 'booking points|events';
     section.setAttribute('aria-label', '使用票券');
 
     const heading = document.createElement('div');
@@ -1889,6 +2421,7 @@
     headingTitle.textContent = '使用票券';
     const count = document.createElement('span');
     count.className = 'booking-ticket-count';
+    count.dataset.businessRequires = 'booking points events';
     count.textContent = `${rows.length} 張`;
     heading.append(headingTitle, count);
 
@@ -1899,6 +2432,7 @@
       const view = bookingBenefitPresentation(benefit);
       const ticket = document.createElement('article');
       ticket.className = `booking-ticket-card kind-${view.kind || 'other'}`;
+      ticket.dataset.businessRequires = 'booking ' + (view.kind === 'points' ? 'points' : 'events');
 
       const top = document.createElement('div');
       top.className = 'booking-ticket-card-top';
@@ -1949,7 +2483,8 @@
   }
 
   function showModal() { els.bookingAdminCrudModal.classList.remove('hidden'); }
-  function closeModal() { if (!state.busy) els.bookingAdminCrudModal.classList.add('hidden'); }
+  function closeModal(force = false) { if (!state.busy || force === true) els.bookingAdminCrudModal.classList.add('hidden'); }
+  document.addEventListener('business-access-revoked',event=>{if(event.target.id==='bookingAdminCrudModal')closeModal(true);});
   function setSyncStatus(message, error) { els.bookingAdminSyncStatus.textContent = message; els.bookingAdminSyncStatus.classList.toggle('error', Boolean(error)); }
   function showMessage(element, message, type) { if (!element) return; element.textContent = message; element.className = `form-message ${type || ''}`; }
   function clearMessage(element) { if (!element) return; element.textContent = ''; element.className = 'form-message hidden'; }

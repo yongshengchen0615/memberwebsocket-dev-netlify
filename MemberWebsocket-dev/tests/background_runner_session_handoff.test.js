@@ -36,8 +36,8 @@ test('background admin runner does not place the admin token in URL or persisten
   assert.doesNotMatch(app, /sessionStorage\.setItem\([^\n]*idToken/i);
 });
 
-test('background runner asset versions force the session-handoff fix to load', () => {
+test('admin production entry no longer loads background runner but retains admin app', () => {
   const html = read('admin/index.html');
   assert.match(html, /app\.js\?v=[^"'\\s>]+/);
-  assert.match(html, /e2e-control\.js\?v=[^"'\\s>]+/);
+  assert.doesNotMatch(html, /e2e-control\.js\?v=[^"'\\s>]+/);
 });

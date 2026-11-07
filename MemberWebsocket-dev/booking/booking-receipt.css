@@ -126,6 +126,11 @@
   background: #0b0f0d;
 }
 
+/* Hide the captured camera preview while preserving the receipt image. */
+.booking-receipt-camera-video[hidden] {
+  display: none;
+}
+
 .booking-receipt-camera-actions {
   display: flex;
   gap: 10px;

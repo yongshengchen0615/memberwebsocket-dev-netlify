@@ -1,0 +1,23 @@
+✔ AC-017/018 DOM + real handler/SQL: admin applies, root checks only grants, admin saves each approved LINE page (4808.090911ms)
+✔ AC-001/004/016: old root merchant create is denied; approved owner encrypts own LINE credentials (3434.529391ms)
+✔ AC-005/016: root feature grant is idempotent, optimistic-locked, audited, and cannot alter LINE (2785.227591ms)
+✔ AC-005: two competing grant updates preserve one committed version and one audit (2226.963725ms)
+✔ AC-001/006: root revocation and isolation gate remain enforced (1980.78709ms)
+✔ AC-001/013: private tables and root RPC deny direct anonymous access (1491.493233ms)
+✔ AC-004: invalid ciphertext is rolled back atomically (2357.421163ms)
+✔ ambiguous legacy installation never selects one of two root candidates (2129.786391ms)
+✔ merchant encryption key is resolved before writing encrypted LINE secrets (3757.595054ms)
+✔ AC-009: platform-only LINE channel and root UID binding both required (4646.487631ms)
+✔ rollback removes platform while preserving legacy member data (6024.337514ms)
+✔ AC-010/011: applicant is isolated; root approves selected features; applicant cannot grant their own permissions (1709.174105ms)
+✔ AC-012: manager updates own LINE credentials only, secrets stay encrypted and feature grants unchanged (2312.372798ms)
+✔ AC-013: suspended merchant, unauthenticated and SQL public roles cannot change tenant LINE metadata (1881.404953ms)
+✔ AC-017: initial application uses verified profile, is idempotent under parallel visits and ignores forged identity (1914.22688ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 39091.675777

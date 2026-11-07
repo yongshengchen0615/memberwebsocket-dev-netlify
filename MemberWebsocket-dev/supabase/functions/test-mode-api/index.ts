@@ -1,4 +1,5 @@
-import { createClient } from "npm:@supabase/supabase-js@2.57.0";
+import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
+import { createClient } from '../_shared/business-runtime.ts';
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
 import { resolveTestSession, TestModeAuthError } from "../_shared/test-mode-auth.ts";
 
@@ -24,13 +25,14 @@ class ApiError extends Error {
 }
 
 function env(name: string): string {
-  return (Deno.env.get(name) || "").trim();
+  return (businessEnv(name) || "").trim();
 }
 
 const DEFAULT_ALLOWED_ORIGINS = [
   "https://yongshengchen0615.github.io",
   "https://memberwebsocket-dev-netlify.netlify.app",
   "https://develop--memberwebsocket-dev-netlify.netlify.app",
+  "https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app",
 ];
 
 function allowedOrigins(): Set<string> {
@@ -363,7 +365,7 @@ async function readBody(request: Request): Promise<Json> {
   }
 }
 
-Deno.serve(async (request: Request) => {
+serveBusiness('test-mode-api',async (request: Request) => {
   const origin = request.headers.get("Origin");
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
   if (request.method !== "POST") return errorReply(origin, new ApiError(405, "METHOD_NOT_ALLOWED", "只支援 POST。"));

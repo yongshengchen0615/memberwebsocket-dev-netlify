@@ -31,3 +31,37 @@ test('scheduler health reports missing/stale/disabled/failed jobs and protects c
     assert.equal((await db.query("select has_function_privilege('service_role','admin_e2e_automation_health()','execute') allowed")).rows[0].allowed,true);
   }finally{await db.close();}
 });
+
+test('tenant birthday notification recovery enables only platform runtime and monitors it', async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`create role anon; create role authenticated; create role service_role;
+      create schema cron;
+      create table cron.job(jobid bigint, jobname text, schedule text, active boolean, command text);
+      create table cron.job_run_details(jobid bigint, runid bigint, status text, start_time timestamptz, end_time timestamptz, return_message text);
+      create function cron.alter_job(job_id bigint, active boolean default null)
+      returns void language plpgsql as $alter$
+      begin
+        execute 'update cron.job set active = $1 where jobid = $2' using active, job_id;
+      end $alter$;
+      insert into cron.job values
+        (1,'dispatch-scheduled-grant-messages','* * * * *',false,'SECRET-LEGACY'),
+        (5,'issue-fixed-tickets','5 16 * * *',false,'SECRET-LEGACY'),
+        (14,'platform-business-runtime','* * * * *',false,'select public.platform_tick_businesses();');
+      insert into cron.job_run_details values (14,14,'succeeded',now()-interval '10 minutes',now()-interval '10 minutes','SECRET-ERROR');`);
+    const before = (await db.query("select active from cron.job where jobid=14")).rows[0].active;
+    assert.equal(before, false);
+    await db.exec(fs.readFileSync(path.join(__dirname, '../../supabase/migrations/20261101040000_restore_platform_business_runtime.sql'),'utf8'));
+    const after = (await db.query("select jobid,active from cron.job order by jobid")).rows;
+    assert.deepEqual(after.map(({jobid,active})=>[Number(jobid),active]),[[1,false],[5,false],[14,true]]);
+    const health=(await db.query("select public.admin_e2e_automation_health() as value")).rows[0].value;
+    assert.equal(health.jobs.length,6);
+    const job=health.jobs.find(row=>row.name==='platform-business-runtime');
+    assert.equal(job.active,true);
+    assert.equal(job.fresh,false);
+    assert.equal(job.schedule,'* * * * *');
+    assert.doesNotMatch(JSON.stringify(health),/SECRET|command|return_message/);
+    assert.equal((await db.query("select has_function_privilege('anon','admin_e2e_automation_health()','execute') allowed")).rows[0].allowed,false);
+    assert.equal((await db.query("select has_function_privilege('service_role','admin_e2e_automation_health()','execute') allowed")).rows[0].allowed,true);
+  } finally {await db.close();}
+});

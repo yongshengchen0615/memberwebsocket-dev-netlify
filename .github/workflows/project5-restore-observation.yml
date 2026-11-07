@@ -1,0 +1,68 @@
+name: Project 5 Restore Issue 40 Observation
+
+# One-time correction: the Issue #40 Project status was already 觀察中,
+# but an automated label transition moved it backwards to QA / E2E.
+# Fail closed on any other issue, source repository, prior status or actor.
+on:
+  push:
+    branches: [Integrated-Marketing-Platform]
+    paths:
+      - '.github/workflows/project5-restore-observation.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: project5-restore-observation
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    if: github.actor == 'yongshengchen0615' && github.ref == 'refs/heads/Integrated-Marketing-Platform'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PROJECTS_V2_TOKEN: ${{ secrets.PROJECTS_V2_TOKEN }}
+    steps:
+      - name: Checkout validated workflow source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout pinned approved Project status automation
+        uses: actions/checkout@v4
+        with:
+          ref: 8d1b624876947e178f8fa078ddf02b4258dbb7ad
+          path: project-status-tooling
+          persist-credentials: false
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Restore only Issue 40 from QA to Observation and read back
+        env:
+          GITHUB_REPOSITORY: yongshengchen0615/memberwebsocket-dev-netlify
+        run: |
+          node --input-type=module <<'NODE'
+          import { createGraphqlClient, getProjectIssue, changeProjectStatus } from './project-status-tooling/scripts/project-v2-status.mjs';
+
+          if (process.env.GITHUB_REPOSITORY !== 'yongshengchen0615/memberwebsocket-dev-netlify') {
+            throw new Error('Unexpected repository');
+          }
+          const token = process.env.PROJECTS_V2_TOKEN;
+          if (!token) throw new Error('Missing PROJECTS_V2_TOKEN');
+          const graphql = createGraphqlClient(token);
+          const issue = 40;
+          const target = '觀察中';
+          const record = await getProjectIssue(graphql, issue, target);
+          const before = record.item.fieldValueByName?.name ?? null;
+          if (before !== 'QA / E2E' && before !== target) {
+            throw new Error('Unexpected Issue #40 prior Status; no update performed');
+          }
+          const result = await changeProjectStatus(graphql, {
+            issueNumber: issue, status: target, apply: true, event: 'workflow_dispatch',
+          });
+          if (result.to !== target || !['updated', 'unchanged'].includes(result.action)) {
+            throw new Error('Project mutation / read-back did not confirm target status');
+          }
+          console.log(JSON.stringify(result));
+          NODE

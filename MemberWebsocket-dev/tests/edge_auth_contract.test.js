@@ -32,11 +32,15 @@ test('deployed shared-auth function set stays source-controlled', () => {
   }
 });
 
-test('shared LINE identity contract validates issuer audience and expiry', () => {
+test('shared LINE identity contract validates issuer, audience, issue time and expiry', () => {
   const source = read('supabase/functions/_shared/auth-contract.ts');
-  assert.match(source, /aud !== expectedChannelId/);
-  assert.match(source, /iss !== "https:\/\/access\.line\.me"/);
-  assert.match(source, /exp \* 1000 <= Date\.now\(\)/);
+  const guard = read('supabase/functions/_shared/line-id-claims.mjs');
+  assert.match(source, /isVerifiedLineIdClaim\(payload, expectedChannelId\)/);
+  assert.match(guard, /aud === expectedChannelId/);
+  assert.match(guard, /iss === 'https:\/\/access\.line\.me'/);
+  assert.match(guard, /exp > nowSeconds && exp > iat/);
+  assert.match(guard, /iat > 0 && iat <= nowSeconds \+ 60/);
+  assert.match(guard, /\^U\[0-9a-f\]\{32\}\$/);
   assert.match(source, /requireActiveAdminContract/);
 });
 

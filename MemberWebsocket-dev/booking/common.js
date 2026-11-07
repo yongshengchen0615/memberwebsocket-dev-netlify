@@ -47,6 +47,7 @@
     if (!response.ok) throw clientError('CONFIG_LOAD_FAILED', '無法載入系統設定。');
     const config = await response.json();
     if (!config.supabaseUrl || !config.supabasePublishableKey) throw clientError('CONFIG_INVALID', 'Supabase 設定不完整。');
+    if(window.BusinessContext)await window.BusinessContext.configure(config);
     return config;
   }
 
@@ -86,8 +87,8 @@
     return token;
   }
 
-  const LOGIN_BROWSER_KEY = 'member-login-browser-v1';
-  const LOGIN_REGISTERED_KEY = 'member-login-registered-v1';
+  const LOGIN_BROWSER_KEY = 'member-login-browser-v1' + (window.BusinessContext?.slug ? ':'+window.BusinessContext.slug : '');
+  const LOGIN_REGISTERED_KEY = 'member-login-registered-v1' + (window.BusinessContext?.slug ? ':'+window.BusinessContext.slug : '');
 
   async function claimBrowserSession(config, clientType, idToken) {
     if (clientType === 'admin') return;
@@ -234,7 +235,7 @@
   }
 
   function sendPresence(context, event, reason) {
-    const endpoint = String(context.config.supabaseFunctionUrl || '').trim();
+    const endpoint = String(context.config.previewApiFunctionUrl || context.config.supabaseFunctionUrl || '').trim();
     if (!endpoint) return Promise.resolve(null);
     return fetch(endpoint, {
       method: 'POST',
@@ -284,7 +285,7 @@
   }
 
   function sendPresenceExit(context, reason) {
-    const endpoint = String(context.config.supabaseFunctionUrl || '').trim();
+    const endpoint = String(context.config.previewApiFunctionUrl || context.config.supabaseFunctionUrl || '').trim();
     if (!/^https:\/\/[a-z0-9-]+\.supabase\.co\/functions\/v1\/[A-Za-z0-9_-]+$/i.test(endpoint)) return Promise.resolve(null);
     const jsonBody = JSON.stringify(presenceBody(context, 'offline', reason));
     // Beacon/simple POST skips a preflight which may be cancelled on LINE WebView close.
@@ -363,10 +364,10 @@
 
   async function request(config, clientType, idToken, action, payload = {}) {
     const receiptAction = String(action || '').startsWith('user.booking.receipt.');
-    const endpoint = `${String(config.supabaseUrl).replace(/\/$/, '')}/functions/v1/${receiptAction ? 'booking-receipt-api' : 'booking-api'}`;
+    const endpoint = `${String(config.supabaseUrl).replace(/\/$/, '')}/functions/v1/${(receiptAction ? 'booking-receipt-api' : 'booking-api') + (config.bookingPreviewApis === true ? '-preview' : '')}`;
     const body = window.TestModeClient && typeof window.TestModeClient.payload === 'function'
-      ? window.TestModeClient.payload({ ...payload, action, clientType, idToken })
-      : { ...payload, action, clientType, idToken };
+      ? window.TestModeClient.payload({ ...payload, ...(config.pricePublishing === true ? {pricePublishing:true} : {}), action, clientType, idToken })
+      : { ...payload, ...(config.pricePublishing === true ? {pricePublishing:true} : {}), action, clientType, idToken };
     const data = await postJson(endpoint, config, body, '預約服務', { write: WRITE_ACTIONS.has(action) });
     if (clientType === 'member' && action === 'user.booking.bootstrap') {
       const notice = data?.settings && Object.prototype.hasOwnProperty.call(data.settings, 'bookingNotice')
@@ -384,12 +385,12 @@
       idToken,
       ...(bookingId ? { bookingId: String(bookingId) } : {}),
     };
-    return postJson(String(config.supabaseFunctionUrl || '').trim(), config,
+    return postJson(String(config.previewApiFunctionUrl || config.supabaseFunctionUrl || '').trim(), config,
       window.TestModeClient?.payload ? window.TestModeClient.payload(body) : body, '可用活動與票券');
   }
 
   async function claimEventTicket(config, idToken, eventTicketId) {
-    const endpoint = String(config.supabaseFunctionUrl || '').trim();
+    const endpoint = String(config.previewApiFunctionUrl || config.supabaseFunctionUrl || '').trim();
     if (!endpoint) throw clientError('CONFIG_INVALID', '活動票券服務設定不完整。');
     const body = {
       action: 'user.booking.event-ticket.claim',
@@ -403,7 +404,7 @@
   }
 
   async function memberProfile(config, idToken) {
-    const endpoint = String(config.supabaseFunctionUrl || '').trim();
+    const endpoint = String(config.previewApiFunctionUrl || config.supabaseFunctionUrl || '').trim();
     if (!endpoint) throw clientError('CONFIG_INVALID', '會員資料服務設定不完整。');
     const requestBody = {
       action: 'user.member.bootstrap',
@@ -426,7 +427,8 @@
     }
     if (!SHARED_READ_ACTIONS.has(body.action)) return sendJson(endpoint, config, body, serviceLabel, options);
     // The serialized body includes the exact LINE/test identity and parameters.
-    const key = JSON.stringify([endpoint, config.supabasePublishableKey, body]);
+    const business = window.BusinessContext?.slug || config.business || '';
+    const key = JSON.stringify([endpoint, config.supabasePublishableKey, business, body]);
     if (pendingReads.has(key)) return pendingReads.get(key);
     const pending = sendJson(endpoint, config, body, serviceLabel, options).finally(() => {
       if (pendingReads.get(key) === pending) pendingReads.delete(key);
@@ -484,9 +486,57 @@
   function subscribeRealtime(config, onUpdate, scope = 'member', onBenefitsUpdate = null) {
     if (typeof onUpdate !== 'function') return () => {};
     const targetScope = scope === 'admin' ? 'admin' : 'member';
-    const subscriptionKey = JSON.stringify([config.supabaseUrl, config.supabasePublishableKey, targetScope]);
+    const subscriptionKey = JSON.stringify([config.supabaseUrl, config.supabasePublishableKey, targetScope, config.business || '']);
     const existing = realtimeSubscriptions.get(subscriptionKey);
     if (existing) return existing.unsubscribe;
+
+    if (config.business && config.realtimeEnabled !== false) {
+      let stopped=false,timer,pending=false,queued=false,revision,lastFull=-Infinity,failures=0;
+      let generation=0,pendingGeneration=0,refreshing=false,pageHidden=false;
+      const paused=()=>pageHidden||!navigator.onLine||document.visibilityState==='hidden';
+      const schedule=delay=>{if(stopped||paused())return;if(timer!==undefined)window.clearTimeout(timer);timer=window.setTimeout(()=>{timer=undefined;void probe();},delay);};
+      const probe=async()=>{
+        if(stopped||paused())return;if(pending){queued=true;return;}queued=false;pending=true;
+        pendingGeneration=generation;
+        const stale=()=>stopped||paused()||pendingGeneration!==generation;
+        try{
+          const session=getSession();if(!session?.idToken)throw Error('AUTH_REQUIRED');
+          const current=await postJson(String(config.supabaseUrl).replace(/\/$/,'')+'/functions/v1/api',config,
+            {action:targetScope==='admin'?'admin.sync.status':'user.booking.sync.status',clientType:targetScope==='admin'?'admin':'booking',idToken:session.idToken,business:config.business},'同步服務',{write:false});
+          if(stale())return;
+          if(typeof current.revision!=='string'||current.revision.length>120)throw Error('INVALID_SYNC_REVISION');
+          if(revision!==current.revision||Date.now()-lastFull>=120000){
+            refreshing=true;
+            await onUpdate();if(stale())return;
+            if(typeof onBenefitsUpdate==='function')await onBenefitsUpdate({scope:'all',eventType:'business.reconcile'});
+            if(stale())return;
+            revision=current.revision;lastFull=Date.now();
+          }
+          failures=0;
+        }catch(_){if(!stale())failures++;}
+        finally{pending=false;refreshing=false;if(!stopped&&!paused()){const delay=queued?0:Math.min(60000,(targetScope==='member'?3000:10000)*2**Math.min(failures,3));queued=false;schedule(delay);}}
+      };
+      const resume=()=>{
+        if(stopped||paused())return;
+        if(pending){if(pendingGeneration!==generation||refreshing)queued=true;}
+        else schedule(0);
+      };
+      const suspend=()=>{generation++;if(pending)queued=true;if(timer!==undefined)window.clearTimeout(timer);timer=undefined;};
+      const visibility=()=>{if(paused())suspend();else resume();};
+      const pageHide=()=>{pageHidden=true;suspend();};
+      const pageShow=()=>{pageHidden=false;resume();};
+      document.addEventListener('visibilitychange',visibility);
+      window.addEventListener('pagehide',pageHide);window.addEventListener('pageshow',pageShow);
+      window.addEventListener('offline',suspend);window.addEventListener('online',resume);
+      const unsubscribe=()=>{
+        if(stopped)return;stopped=true;if(timer!==undefined)window.clearTimeout(timer);
+        document.removeEventListener('visibilitychange',visibility);
+        window.removeEventListener('pagehide',pageHide);window.removeEventListener('pageshow',pageShow);
+        window.removeEventListener('offline',suspend);window.removeEventListener('online',resume);
+        realtimeSubscriptions.delete(subscriptionKey);
+      };
+      realtimeSubscriptions.set(subscriptionKey,{unsubscribe});schedule(0);return unsubscribe;
+    }
 
     let disposed = false;
     let channel = null;
@@ -613,7 +663,7 @@
     window.addEventListener('pageshow', onPageShow);
     window.addEventListener('online', onOnline);
 
-    if (config.realtimeEnabled !== false && window.supabase && typeof window.supabase.createClient === 'function') {
+    if (!config.business && config.realtimeEnabled !== false && window.supabase && typeof window.supabase.createClient === 'function') {
       const clientKey = JSON.stringify([config.supabaseUrl, config.supabasePublishableKey]);
       if (!realtimeClient || realtimeClientKey !== clientKey) {
         realtimeClient = window.supabase.createClient(config.supabaseUrl, config.supabasePublishableKey, {
@@ -671,7 +721,7 @@
   function openMemberJoin(config) {
     const memberLiffId = String(config && config.memberLiffId || '').trim();
     if (!/^[A-Za-z0-9_-]{1,100}$/.test(memberLiffId)) return false;
-    const url = `https://liff.line.me/${encodeURIComponent(memberLiffId)}`;
+    const url = `https://liff.line.me/${encodeURIComponent(memberLiffId)}` + (config.business ? `?business=${encodeURIComponent(config.business)}` : "");
     if (window.liff && typeof window.liff.openWindow === 'function') {
       window.liff.openWindow({ url, external: false });
       return true;

@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
+const fs = require('./helpers/edge-test-fs.cjs');
 const path = require('node:path');
 const vm = require('node:vm');
 const { stripTypeScriptTypes } = require('node:module');
@@ -13,11 +13,18 @@ function harness() {
   let terms = { id:'terms-1', version:'v1', title:'會員條款', summary:'摘要', body:'條款全文', status:'active', required:true, effective_at:'2020-01-01T00:00:00Z', activated_at:'2026-09-28T00:00:00Z', reconsent_existing:false };
   const consents = new Set();
   let forcedTermsRpcError = null;
+  let gateError = null;
+  let gateCalls = 0;
   let handler;
   const db = {
     rpc(name, args) {
       if (name === 'consume_api_rate_limit') return Promise.resolve({ data:true, error:null });
       if (name === 'member_service_minute_totals') return Promise.resolve({ data:[{ member_id:member.id,total_minutes:0 }],error:null });
+      if (name === 'save_member_profile_audited') {
+        assert.equal(member.membership_status,'active','profile edit is only allowed after membership activation');
+        Object.assign(member,args.p_fields);
+        return Promise.resolve({data:member,error:null});
+      }
       assert.equal(name, 'accept_membership_terms_api');
       const payload=args.p_payload || {};
       if (forcedTermsRpcError) return Promise.resolve({ data:null, error:forcedTermsRpcError });
@@ -39,15 +46,19 @@ function harness() {
     }
   };
   const context = vm.createContext({
+    ...require('../supabase/functions/_shared/member-invitations.mjs'),
+    ...require('../supabase/functions/_shared/member-oa-registration-gate.mjs'),
     Deno:{ serve(callback) { handler=callback; }, env:{ get(name) { if (name==='SUPABASE_URL') return 'https://example.supabase.co'; if (name==='SUPABASE_SERVICE_ROLE_KEY') return 'test-only'; return ''; } } },
     createClient:() => db, readJsonObject:(request) => request.json(),
     resolveUserTestIdentity:async () => ({ lineUserId:'line-1',displayName:'Member' }),
+    businessContext:() => ({ id:'tenant-fixture', features:{ membership:true } }),
+    requireMemberOaBeforeActivation:async () => { gateCalls++; if (gateError) throw gateError; return {required:true}; },
     TestModeAuthError:class extends Error {}, verifyLineIdTokenContract:async () => ({ lineUserId:'line-1',displayName:'Member' }),
     crypto:require('node:crypto').webcrypto, TextEncoder, Date, Response, console,
   });
   vm.runInContext(stripTypeScriptTypes(source),context);
   async function call(action, payload={}) {
-    const response=await handler(new Request('https://example.invalid',{ method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action,clientType:'member',testSessionToken:'fixture',...payload}) }));
+    const response=await handler(new Request('https://example.invalid',{ method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action,clientType:'member',testSessionToken:'fixture',lineAccessToken:'synthetic-user-token',...payload}) }));
     return { status:response.status,body:await response.json() };
   }
   return {
@@ -55,6 +66,8 @@ function harness() {
     member,
     consents,
     forceTermsRpcError(error) { forcedTermsRpcError=error; },
+    forceGateError(error) { gateError=error; },
+    gateCalls() { return gateCalls; },
     setTestAccount() { member.is_test_account=true; },
     setJoinedAt(value) { member.joined_at=value; },
     switchTerms() { terms={...terms,id:'terms-2',version:'v2',activated_at:'2026-09-28T01:00:00Z',reconsent_existing:true}; },
@@ -142,4 +155,40 @@ test('PostgREST stale RPC schema is surfaced as a retryable membership service e
   assert.match(result.body.error.message,/重新送出/);
   assert.equal(h.member.membership_status,'pending');
   assert.equal(h.consents.size,0);
+});
+
+// AC-RB-001/002: Explicit temporary rollback of the newly introduced OA
+// prerequisite. Existing LINE identity and current terms remain required.
+test('rollback: a previously failing OA configuration no longer blocks verified join',async()=>{
+ const h=harness();
+ h.forceGateError({status:503,code:'MEMBER_OA_CONFIG_INCOMPLETE',message:'unconfigured OA'});
+ const result=await h.call('user.member.profile.save',{
+  birthday:'1990-01-01',phone:'0912345678',surname:'林',salutation:'mr',
+  termsId:'terms-1',termsVersion:'v1',accepted:true,
+ });
+ assert.equal(result.status,200,JSON.stringify(result.body));
+ assert.equal(h.member.membership_status,'active');
+ assert.deepEqual([...h.consents],['terms-1']);
+ assert.equal(h.gateCalls(),0,'previously unavailable OA check must not block enrollment');
+});
+test('rollback: terms consent is still required before activation',async()=>{
+ const h=harness();
+ const result=await h.call('user.member.profile.save',{
+  birthday:'1990-01-01',phone:'0912345678',surname:'林',salutation:'mr',
+  termsId:'terms-1',termsVersion:'v1',accepted:false,
+ });
+ assert.equal(result.status,400);
+ assert.equal(result.body.error.code,'TERMS_CONSENT_REQUIRED');
+ assert.equal(h.member.membership_status,'pending');
+ assert.equal(h.consents.size,0);
+});
+test('rollback: an existing member can still edit profile without LINE OA configuration',async()=>{
+ const h=harness();
+ const profile={birthday:'1990-01-01',phone:'0912345678',surname:'林',salutation:'mr',termsId:'terms-1',termsVersion:'v1',accepted:true};
+ assert.equal((await h.call('user.member.profile.save',profile)).status,200);
+ h.forceGateError({status:503,code:'MEMBER_OA_CONFIG_INCOMPLETE',message:'unconfigured OA'});
+ const result=await h.call('user.member.profile.save',{surname:'陳'});
+ assert.equal(result.status,200);
+ assert.equal(h.gateCalls(),0);
+ assert.equal(h.member.membership_status,'active');
 });
