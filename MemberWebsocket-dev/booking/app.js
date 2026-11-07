@@ -151,6 +151,8 @@
       // 寫回畫面，避免較舊的 Bootstrap 回應覆蓋較新的預約狀態。
       if (refreshSequence !== state.refreshSequence) return false;
       state.data = bookingData || state.data;
+      // Render only the most recent accepted bootstrap (see refreshSequence guard).
+      window.BookingSystem.setBookingNotice(state.data?.settings?.bookingNotice);
       schedulePriceRefresh();
       syncServerClock(state.data.serverNow);
       state.profile = profile || {};
