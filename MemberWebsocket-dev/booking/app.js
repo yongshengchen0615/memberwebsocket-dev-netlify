@@ -151,15 +151,15 @@
       // 寫回畫面，避免較舊的 Bootstrap 回應覆蓋較新的預約狀態。
       if (refreshSequence !== state.refreshSequence) return false;
       state.data = bookingData || state.data;
+      schedulePriceRefresh();
+      syncServerClock(state.data.serverNow);
+      state.profile = profile || {};
+      window.dispatchEvent(new CustomEvent('booking:member-loaded', { detail: { profile: state.profile } }));
       // Older booking-api versions omit the notice; the scoped calendar API supplies it.
       // Never clear a valid calendar notice merely because this field is absent.
       if (Object.prototype.hasOwnProperty.call(state.data?.settings || {}, 'bookingNotice')) {
         window.BookingSystem.setBookingNotice(state.data.settings.bookingNotice);
       }
-      schedulePriceRefresh();
-      syncServerClock(state.data.serverNow);
-      state.profile = profile || {};
-      window.dispatchEvent(new CustomEvent('booking:member-loaded', { detail: { profile: state.profile } }));
       pruneSelections();
       renderMemberProfile();
       renderBookingRestriction();
