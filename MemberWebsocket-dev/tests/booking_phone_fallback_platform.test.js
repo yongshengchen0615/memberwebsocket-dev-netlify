@@ -35,7 +35,9 @@ test('AC-003 both member bootstrap and calendar month return the shop telephone 
   assert.match(calendar,/detail\.settings\?\.phoneBookingNumber !== undefined/);
 });
 test('AC-004 phone respects merchant horizon and holidays, not online-only lead time',()=>{
-  assert.match(calendar,/if \(!isPast && !isHoliday && !isRangeBlocked && state\.phoneBookingNumber\)/);
+  assert.doesNotMatch(calendar,/calendar-phone-badge/);
+  assert.match(calendar,/const phoneOnly = Boolean\(phoneAllowed && reason && date < state\.minimumDate\)/);
+  assert.match(calendar,/els\.startDayBookingButton\.hidden = phoneOnly/);
   assert.match(calendar,/const phoneAllowed = Boolean\(phone && date && !phoneBookingBlockReason\(date\)\)/);
   assert.match(calendar,/if \(date < state\.minimumDate\) return/);
   assert.match(calendar,/if \(state\.maximumDate && date > state\.maximumDate\) return/);
@@ -51,7 +53,7 @@ test('AC-004 phone respects merchant horizon and holidays, not online-only lead 
   assert.match(html,/id="bookingPhoneDial" class="button button-dark button-wide"/);
   assert.doesNotMatch(html,/id="bookingPhoneFallbackTitle"|id="bookingPhoneFallbackNumber"/);
   assert.doesNotMatch(html,/此日期在商家設定的可預約範圍內|不會自動建立線上預約紀錄/);
-  assert.match(calendar,/const dialLabel = `撥打店家電話＋\$\{phone\}`/);
+  assert.match(calendar,/const dialLabel = `撥打店家電話：\$\{phone\}`/);
   assert.match(calendar,/els\.bookingPhoneDial\.textContent = dialLabel/);
   assert.match(calendar,/els\.bookingPhoneDial\.textContent = '撥打店家電話'/);
   assert.match(admin,/只有在商家可預約日期範圍內且非休假日/);
