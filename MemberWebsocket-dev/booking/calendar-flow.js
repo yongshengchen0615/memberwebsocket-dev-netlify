@@ -438,13 +438,22 @@
   }
 
   function updateDayAction() {
-    const reason = bookingBlockReason(state.historyDate);
-    if (els.startDayBookingButton) els.startDayBookingButton.disabled = Boolean(reason);
-    if (els.bookingDayHint) els.bookingDayHint.textContent = reason || '查看當天紀錄，或開始新的預約。';
-    const phone = safePhoneBookingNumber(state.phoneBookingNumber);
     const date = state.historyDate;
+    const reason = bookingBlockReason(date);
+    const phone = safePhoneBookingNumber(state.phoneBookingNumber);
     // Online lead-time rules do not block merchant-assisted phone enquiries.
     const phoneAllowed = Boolean(phone && date && !phoneBookingBlockReason(date));
+    // Hide online booking only when the date permits telephone service but not online self-service.
+    const phoneOnly = Boolean(phoneAllowed && reason && date < state.minimumDate);
+    if (els.startDayBookingButton) {
+      els.startDayBookingButton.disabled = Boolean(reason);
+      els.startDayBookingButton.hidden = phoneOnly;
+    }
+    if (els.bookingDayHint) {
+      els.bookingDayHint.textContent = phoneOnly
+        ? '此日期尚未開放線上預約，請致電店家洽詢。'
+        : reason || '查看當天紀錄，或開始新的預約。';
+    }
     if (els.bookingPhoneFallback) els.bookingPhoneFallback.hidden = !phoneAllowed;
     if (phoneAllowed) {
       const dialLabel = `撥打店家電話：${phone}`;
