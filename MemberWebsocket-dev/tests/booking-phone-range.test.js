@@ -24,7 +24,7 @@ function load() {
     phoneBookingNumber: '06-1234567',
     month: '2026-11',
   });
-  h.els.startDayBookingButton = { disabled: false };
+  h.els.startDayBookingButton = { disabled: false, hidden: false };
   h.els.bookingDayHint = { textContent: '' };
   h.els.bookingPhoneFallback = { hidden: true };
   h.els.bookingPhoneDial = { href: '', textContent: '', setAttribute(name, value) { this[name] = value; }, removeAttribute(name) { delete this[name]; } };
@@ -36,6 +36,7 @@ function action(h, date) {
   h.updateDayAction();
   return {
     onlineDisabled: h.els.startDayBookingButton.disabled,
+    onlineHidden: h.els.startDayBookingButton.hidden,
     phoneHidden: h.els.bookingPhoneFallback.hidden,
     href: h.els.bookingPhoneDial.href,
     dialLabel: h.els.bookingPhoneDial.textContent,
@@ -48,14 +49,16 @@ test('AC-001: lead-time is online-only; today and tomorrow may be booked by tele
   for (const date of ['2026-11-07', '2026-11-08']) {
     const result = action(h, date);
     assert.equal(result.onlineDisabled, true, date);
+    assert.equal(result.onlineHidden, true, date);
     assert.equal(result.phoneHidden, false, date);
     assert.equal(result.href, 'tel:061234567');
     assert.equal(result.dialLabel, '撥打店家電話：06-1234567');
-    assert.match(result.hint, /提前 2 天/);
+    assert.match(result.hint, /請致電店家洽詢/);
   }
   for (const date of ['2026-11-09', '2026-12-07']) {
     const result = action(h, date);
     assert.equal(result.onlineDisabled, false, date);
+    assert.equal(result.onlineHidden, false, date);
     assert.equal(result.phoneHidden, false, date);
   }
 });
@@ -66,6 +69,7 @@ test('AC-002: past, holiday and beyond merchant horizon deny online AND telephon
   for (const date of ['2026-11-06', '2026-11-10', '2026-12-08']) {
     const result = action(h, date);
     assert.equal(result.onlineDisabled, true, date);
+    assert.equal(result.onlineHidden, false, date);
     assert.equal(result.phoneHidden, true, date);
     assert.equal(result.href, undefined, date);
     assert.equal(result.dialLabel, '撥打店家電話', date);
@@ -79,6 +83,8 @@ test('AC-003: invalid or missing number must not offer a callable link', () => {
     h.state.phoneBookingNumber = phone;
     const result = action(h, '2026-11-08');
     assert.equal(result.phoneHidden, true);
+    assert.equal(result.onlineHidden, false);
+    assert.equal(result.onlineDisabled, true);
     assert.equal(result.href, undefined);
     assert.equal(result.dialLabel, '撥打店家電話');
   }
@@ -109,6 +115,25 @@ test('AC-005: phone number changes update the button and revocation removes stal
   assert.equal(disabled.phoneHidden, true);
   assert.equal(disabled.href, undefined);
   assert.equal(disabled.dialLabel, '撥打店家電話');
+});
+
+test('AC-006: changing availability restores online action when phone-only window ends', () => {
+  const h = load();
+  let result = action(h, '2026-11-08');
+  assert.equal(result.onlineHidden, true);
+  assert.equal(result.phoneHidden, false);
+  h.state.minimumDate = '2026-11-08';
+  result = action(h, '2026-11-08');
+  assert.equal(result.onlineHidden, false);
+  assert.equal(result.onlineDisabled, false);
+  assert.equal(result.phoneHidden, false);
+  h.state.minimumDate = '2026-11-09';
+  h.state.phoneBookingNumber = '';
+  result = action(h, '2026-11-08');
+  assert.equal(result.onlineHidden, false);
+  assert.equal(result.onlineDisabled, true);
+  assert.equal(result.phoneHidden, true);
+  assert.equal(result.href, undefined);
 });
 
 test('AC-004: calendar never marks telephone availability, but today remains clickable', () => {
