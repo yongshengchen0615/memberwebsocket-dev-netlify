@@ -1,0 +1,2 @@
+/* Grant visibility is independent of each component's own open/closed state. */
+html body [data-member-allowed="false"] { display: none !important; }

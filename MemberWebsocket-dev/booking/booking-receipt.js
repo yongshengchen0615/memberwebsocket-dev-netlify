@@ -22,6 +22,7 @@
     previousShellInert: null,
     photoGeneration: 0,
     ticketGeneration: 0,
+    featureGeneration: 0,
     ticketsLoading: false,
     busy: false,
     listLoading: false,
@@ -271,9 +272,7 @@
     document.getElementById('snapshotTicketSelectionSummary').textContent = '正在確認可登記的票券…';
     document.getElementById('snapshotTicketFields').classList.toggle('hidden', !accessible);
     document.getElementById('bookingReceiptTitle').textContent = accessible ? '拍收據，請管理員登記' : '拍攝收據並送出審核';
-    modal.querySelector('.booking-receipt-help').textContent = accessible
-      ? '拍下本次收據並送出即可，不必填寫預約。管理員核對服務項目後，才會登記服務時間與點數。等待登記時重新拍攝，會取代目前收據。'
-      : '預約確認後即可拍攝收據。重新上傳會覆蓋目前快照；管理員核對前不會完成預約。';
+    updateReceiptHelp();
     state.selectedBookingId = String(bookingId || '');
     state.selectedExpectedUpdatedAt = String(expectedUpdatedAt || '');
     modal.classList.remove('hidden');
@@ -406,7 +405,7 @@
       window.dispatchEvent(new CustomEvent('booking:snapshot-benefit-options', { detail: { items: catalog.items || [] } }));
       // Show eligible unclaimed event tickets so the member can claim them first.
       // Only an issued claim ID is permitted in a snapshot redemption request.
-      const items = (catalog.items || []).filter(item =>
+      const items = (catalog.items || []).filter(item => window.BusinessContext?.allowsBenefit?.(item.kind)!==false).filter(item =>
         (item.kind === 'points' || item.kind === 'event')
         && (item.selectionId || (item.kind === 'event' && item.claimRequired === true)));
       const selectionSummary = document.getElementById('snapshotTicketSelectionSummary');
@@ -591,8 +590,10 @@
             const card = balanceByCard.get(id);
             return card.title + '預計扣 ' + amount + ' 點（可用 ' + card.balance + ' 點）';
           });
-          const limits = '集點卡單次 ' + (pointLimit === 0 ? '不限張數' : '最多 ' + pointLimit + ' 張') +
-            '；活動票券今日' + (eventLimit === 0 ? '不限張數' : '剩餘 ' + Math.max(0, eventLimit - usedEventsToday) + ' 張');
+          const limits = [
+            window.BusinessContext?.allows?.('points')!==false?'集點卡單次 ' + (pointLimit === 0 ? '不限張數' : '最多 ' + pointLimit + ' 張'):'',
+            window.BusinessContext?.allows?.('events')!==false?'活動票券今日' + (eventLimit === 0 ? '不限張數' : '剩餘 ' + Math.max(0, eventLimit - usedEventsToday) + ' 張'):'',
+          ].filter(Boolean).join('；');
           selectionSummary.textContent = checked.length
             ? '本次已選擇 ' + checked.length + ' 張票券；' + (budgets.length ? '預計扣點：' + budgets.join('、') + '。' : '') +
               limits + '。送出後由管理員審核，不會立即核銷，也不需要事先預約。'
@@ -857,8 +858,8 @@
       '【快照確認】',
       '狀態：收據已送出，等待管理員審核',
       receiptId ? `快照編號：${receiptId}` : '',
-      `登記票券：${ticketCount} 張（待審核，尚未核銷）`,
-      '管理員核對服務後才會登記服務時間、點數及票券核銷。',
+      (window.BusinessContext?.allows?.('points')!==false||window.BusinessContext?.allows?.('events')!==false)?`登記票券：${ticketCount} 張（待審核，尚未核銷）`:'',
+      '管理員核對服務後才會完成服務登記。',
       receiptId ? `查看預約明細：https://liff.line.me/2010787602-sgiB0ETj?receiptId=${encodeURIComponent(receiptId)}` : '',
     ].filter(Boolean).join('\n');
   }
@@ -877,7 +878,6 @@
   async function submitReceipt() {
     if (state.busy || !state.selectedFile || (!state.selectedBookingId && !state.accessible)) return;
     if (state.accessible && state.ticketsLoading) { setMessage('票券仍在讀取中，請稍候。', true); return; }
-    const selectedBenefits = state.accessible ? [...document.querySelectorAll('[data-snapshot-id]:checked')].map(check => ({ kind: check.dataset.snapshotKind, id: check.dataset.snapshotId })) : [];
     const currentSession = session();
     if (!currentSession) return setMessage('登入狀態已失效，請重新整理後再試。', true);
 
@@ -891,7 +891,6 @@
     [submit, cancel, close, imageInput].forEach((button) => { if (button) button.disabled = true; });
 
     const file = state.selectedFile;
-    const requestId = state.requestId || (state.requestId = newRequestId());
     let submitted = false;
     const retake = document.getElementById('bookingReceiptRetake');
     if (retake) retake.disabled = true;
@@ -900,6 +899,13 @@
         setMessage('正在重新確認定位政策…');
         state.location = await snapshotLocation();
       }
+      const selectedBenefits = state.accessible ? [...document.querySelectorAll('[data-snapshot-id]:checked')].filter(check=>window.BusinessContext?.allowsBenefit?.(check.dataset.snapshotKind)!==false).map(check=>({kind:check.dataset.snapshotKind,id:check.dataset.snapshotId})) : [];
+      const featureGeneration=state.featureGeneration;
+      const assertCurrentFeatures=()=>{
+        if(featureGeneration!==state.featureGeneration||window.BusinessContext?.allows?.('booking')===false)throw Object.assign(Error('功能開通設定已更新，請確認可用項目後重新送出；收據照片已保留。'),{code:'FEATURES_CHANGED'});
+      };
+      assertCurrentFeatures();
+      const requestId = state.requestId || (state.requestId = newRequestId());
       setMessage('正在建立安全上傳連結…');
       const prepared = state.prepared || await window.BookingSystem.request(
         currentSession.config,
@@ -914,14 +920,17 @@
         }
       );
 
+      assertCurrentFeatures();
       state.prepared = prepared;
       if (!state.uploaded && prepared.uploadToken) {
         setMessage('正在上傳收據圖片…');
         await uploadSigned(currentSession.config, prepared, file);
+        assertCurrentFeatures();
         state.uploaded = true;
       }
 
       setMessage('正在驗證圖片並送交管理端確認…');
+      assertCurrentFeatures();
       const finalized = await window.BookingSystem.request(
         currentSession.config,
         'booking',
@@ -1089,6 +1098,23 @@
     }
   });
   window.addEventListener('DOMContentLoaded', ensureModal);
+  function updateReceiptHelp(){
+    const help=document.querySelector('#bookingReceiptModal .booking-receipt-help');if(!help)return;
+    const records=[window.BusinessContext?.allows?.('membership')!==false?'服務時間':'',window.BusinessContext?.allows?.('points')!==false?'點數':''].filter(Boolean);
+    help.textContent=state.accessible?'拍下本次收據並送出即可，不必填寫預約。管理員核對服務項目後，才會完成服務登記'+(records.length?'並記錄'+records.join('與'):'')+'。等待登記時重新拍攝，會取代目前收據。':'預約確認後即可拍攝收據。重新上傳會覆蓋目前快照；管理員核對前不會完成預約。';
+  }
+  window.addEventListener('business:features-changed',()=>{
+    state.featureGeneration++;
+    state.prepared=null;state.requestId='';state.uploaded=false;
+    updateReceiptHelp();
+    for(const check of document.querySelectorAll('[data-snapshot-id]')){
+      if(window.BusinessContext?.allowsBenefit?.(check.dataset.snapshotKind)===false){
+        check.checked=false;check.disabled=true;check.closest('.snapshot-ticket-option')?.remove();
+      }
+    }
+    if(state.busy){const summary=document.getElementById('snapshotTicketSelectionSummary');if(summary)summary.textContent='功能設定已更新，正在重新確認可用項目。';}
+    if(state.accessible&&!state.busy)void loadSnapshotTickets();
+  });
   window.addEventListener('pagehide', () => {
     state.photoGeneration += 1;
     endSnapshotMode();

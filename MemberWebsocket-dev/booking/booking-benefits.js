@@ -12,6 +12,7 @@
   let pointTicketMaxPerRedemption = 1;
   let currentBookingId = '';
   let claimingEventTicketId = '';
+  let featureGeneration = 0;
   let currentServiceIds = new Set();
   const selected = new Map();
   const kinds = { points: '集點卡票券', event: '活動票券', calendar: '會員活動' };
@@ -19,6 +20,7 @@
   const selectableKinds = new Set(['points', 'event']);
   const el = (id) => document.getElementById(id);
   const keyFor = (kind, id) => `${String(kind || '')}:${String(id || '')}`;
+  const allowed=item=>window.BusinessContext?.allowsBenefit?.(item?.kind)!==false;
 
   function state(value, message) {
     const section = el('bookingBenefits');
@@ -37,11 +39,11 @@
   }
 
   function selectionPayload() {
-    return [...selected.values()].map((item) => ({ kind: item.kind, id: item.id }));
+    return [...selected.values()].filter(allowed).map((item) => ({ kind: item.kind, id: item.id }));
   }
 
   function selectionSummary() {
-    return [...selected.values()].map((item) => ({
+    return [...selected.values()].filter(allowed).map((item) => ({
       kind: item.kind,
       id: item.id,
       title: item.title || kinds[item.kind] || '可用權益',
@@ -189,6 +191,7 @@
   }
 
   async function handleSelectionChange(item, input) {
+    if(!allowed(item)){input.checked=false;return;}
     const selectionId = String(item.selectionId || '');
     const selectedKey = selectionId ? keyFor(item.kind, selectionId) : '';
     if (!input.checked) {
@@ -238,9 +241,11 @@
         return;
       }
       claimingEventTicketId = String(item.id || '');
+      const claimGeneration=featureGeneration;
       render(renderedItems);
       try {
         const result = await window.BookingSystem.claimEventTicket(config, idToken, item.id);
+        if(disposed||claimGeneration!==featureGeneration||!allowed(item))return;
         const claimId = String(result?.ticket?.claimId || '');
         if (!claimId) throw new Error('票券已領取，但無法取得票券識別，請重新整理後再試。');
         renderedItems = renderedItems.map((current) => current?.kind === 'event' && current?.id === item.id
@@ -272,17 +277,22 @@
 
   function updateReadyMessage(cardCount) {
     if (!cardCount) {
-      state('empty', '目前沒有可用活動或票券，仍可正常預約。');
+      state('empty', '目前沒有可用優惠，仍可正常預約。');
       return;
     }
     const count = selected.size;
+    const rules=[
+      allowed({kind:'calendar'})?'活動僅顯示':'',
+      allowed({kind:'points'})?`集點卡票券單次 ${limitLabel(pointTicketMaxPerRedemption, '0 代表不限')}`:'',
+      allowed({kind:'event'})?`活動票券每日 ${limitLabel(eventTicketMaxPerDay, '0 代表不限')}`:'',
+    ].filter(Boolean).join('；');
     state('ready', count
       ? `已選擇 ${count} 張票券；服務完成時由管理端重新驗證並核銷。`
-      : `${cardCount} 項活動／票券 · 活動僅顯示；集點卡票券單次 ${limitLabel(pointTicketMaxPerRedemption, '0 代表不限')};活動票券每日 ${limitLabel(eventTicketMaxPerDay, '0 代表不限')}。`);
+      : `${cardCount} 項可用優惠 · ${rules}。`);
   }
 
   function render(items = renderedItems) {
-    renderedItems = Array.isArray(items) ? items : [];
+    renderedItems = (Array.isArray(items) ? items : []).filter(allowed);
     window.dispatchEvent(new CustomEvent('booking:benefits-loaded', { detail: { items: renderedItems } }));
     const list = el('bookingBenefitsList');
     if (!list) return;
@@ -465,7 +475,7 @@
     for (const item of Array.isArray(items) ? items : []) {
       const kind = String(item?.kind || item?.benefitKind || '');
       const id = String(item?.id || item?.benefitRef || '');
-      if (!selectableKinds.has(kind) || !id) continue;
+      if (!selectableKinds.has(kind) || !id || !allowed({kind})) continue;
       selected.set(keyFor(kind, id), {
         kind, id,
         title: String(item?.title || item?.titleSnapshot || ''),
@@ -502,7 +512,7 @@
       if (current !== sequence || disposed) return;
       const nextEventLimit = normalizeLimit(result?.eventTicketMaxPerDay);
       const nextPointLimit = normalizeLimit(result?.pointTicketMaxPerRedemption);
-      const nextItems = Array.isArray(result?.items) ? result.items : [];
+      const nextItems = (Array.isArray(result?.items) ? result.items : []).filter(allowed);
       const selectionChanged = reconcileSelectedItems(nextItems);
       const changed = nextEventLimit !== eventTicketMaxPerDay
         || nextPointLimit !== pointTicketMaxPerRedemption
@@ -515,7 +525,7 @@
     } catch (_) {
       if (current !== sequence || disposed) return;
       if (renderedItems.length) state('ready', '可用權益同步失敗，已保留目前資料；可稍後重試。');
-      else state('error', '活動與票券暫時無法載入，仍可正常預約。');
+      else state('error', '優惠暫時無法載入，仍可正常預約。');
     } finally {
       inFlight = false;
       if (queued && !disposed) { queued = false; syncNow(); }
@@ -540,7 +550,7 @@
       window.clearTimeout(timer);
       timer = null;
     }
-    setRefreshing('正在同步最新點數與可用票券…');
+    setRefreshing('正在同步最新可用優惠…');
     void load();
   }
 
@@ -556,6 +566,13 @@
   }
 
   let freshness = null;
+  window.addEventListener('business:features-changed',()=>{
+    featureGeneration++;
+    for(const [key,item]of selected)if(!allowed(item))selected.delete(key);
+    render(renderedItems.filter(allowed));
+    emitSelectionChange();
+    if(!inFlight)syncNow();
+  });
   function scheduleMidnight() {
     const day = 86_400_000;
     const localTime = (Date.now() + 8 * 3_600_000) % day;

@@ -257,7 +257,8 @@
     const primary = technicianById(state.primaryTechnicianId);
     if (!state.requirePrimaryTechnician) {
       rule.className = 'group-booking-rule';
-      rule.textContent = '目前不必預約主要技師也能成立預約，可選其他開放技師或現場安排；未預約主要技師的服務不計入主要技師集點與會員服務時間。';
+      const excluded=[window.BusinessContext?.allows?.('points')!==false?'主要技師集點':'',window.BusinessContext?.allows?.('membership')!==false?'會員服務時間':''].filter(Boolean);
+      rule.textContent = '目前不必預約主要技師也能成立預約，可選其他開放技師或現場安排。'+(excluded.length?'未預約主要技師的服務不計入'+excluded.join('與')+'。':'');
       return;
     }
     if (!primary) {
@@ -936,6 +937,7 @@
       ticketList.className = 'booking-confirm-ticket-list';
       benefits.forEach((item) => {
         const ticket = document.createElement('li');
+        ticket.dataset.benefitKind=item.kind;
         const sourceTitle = item.kind === 'points' && item.cardTitle ? `${item.cardTitle}｜` : '';
         ticket.textContent = `${ticketKinds[item.kind] || '票券'}：${sourceTitle}${item.title || '未命名票券'}`;
         ticketList.appendChild(ticket);
@@ -1033,6 +1035,7 @@
     renderBookingHistoryCard,
     renderControls: renderGroupControls,
   });
+  window.addEventListener('business:features-changed',renderPrimaryRule);
 
   function syncBenefitServiceContext() {
     const serviceIds = [];
@@ -1068,6 +1071,7 @@
   }
 
   function serviceTypeRewardText(label) {
+    if(window.BusinessContext?.allows?.('points')===false)return '';
     const reward = serviceTypeRewardOf(label);
     const minutes = Number(reward?.minutesPerPoint || 0);
     const card = String(reward?.pointCardTitle || '').trim();

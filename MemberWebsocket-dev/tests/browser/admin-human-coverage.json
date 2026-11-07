@@ -41,14 +41,14 @@
     "admin/workspace.html": "2548fc98e75001c257fbffb794f3d49a3cd8a79215decd9c19fad6fa90c7f5b0",
     "platform/app.js": "f68824208c879bc2e722f28f3ecf3fa7a516f822db49eb1ef3b4c3bf9ae11aa9",
     "admin/business-workspace.js": "89cd135fc0dab33114f9c898759345d2b0be66336993947025167cd5cf314cff",
-    "business-context.js": "3a4319099c8c118cb0c431abb239399bb295c47861bcae0aac2be16c8783696b",
+    "business-context.js": "c6d464174341b0ac10b2bf6938c9e8a69927979e9f00f589f3325f7660cafb7b",
     "admin/business-line-settings.js": "18466944a9897cc4b81954b8effa41f3324142a8b8bd559010baee992bac4fd2",
     "admin/booking-risk.js": "76f61965b64eaa761b8e60074daf893551bc1bdafce7792d951159adac501a97",
     "platform/index.html": "efaa6d9b7220ae7d7ee1f9e23e67d3e2aaf251fc64bb7aa49d25a0504c959a03",
     "admin/productized-workspace.js": "f9a9809c7a5448f8de3ec46be1a0af2ca4e340038b7d2605dc50368eae39c2c3",
     "platform/platform.css": "6b9332f7b0c242709a7c998779536bb0742b6a5fbecb264334d2b52ad5ed70ac",
     "admin/business-line-settings.css": "7657f293d3208adbbbbc67c27f128d6e74cc3b103ad6228fc8c03638f4f5df70",
-    "booking/common.js": "41465db7aeffa6bca2e413b01072e33dbbc752c72aa0627edd32b3e9e8014a96"
+    "booking/common.js": "ee31a6e097f78df4210e541076dce696b3edfb168a4335aa7615836a91f2a921"
   },
   "features": [
     {
@@ -775,5 +775,6 @@
     ],
     "evidence": "Related Node and DOM tests executed locally; full Chromium/PostgreSQL/Edge and dependency audit require exact-SHA CI. Provider LINE acceptance is not claimed."
   },
-  "featureGrantSyncReview": "2026-11-06: Reviewed live feature revocation in existing main tabs, member records, reward/type editors, fixed calendar summaries, booking completion and receipt review. AC-SYNC-001..005 cover real authenticated revision + root SQL grant changes + actual admin browser at 390/1280, dynamic dependency DOM and cleanup. Existing six human modules/journeys retained; no provider, role, tenant isolation, settlement or database changes. Healthy admin probes use 3 seconds; background pause and failure backoff preserved. Full final SHA CI and integration deploy remain required. Follow-up review: preserve every open editor during bootstrap with unchanged optimistic version; force owner cleanup during busy writes; exclude revoked draft benefits from new payload/budget; refresh open type card options on late first enable. Real Chromium reproduced CSS important specificity masking the gate; added scoped hiding specificity and exact booking modal CSS test. No backend settlement policy weakened."
+  "featureGrantSyncReview": "2026-11-06: Reviewed live feature revocation in existing main tabs, member records, reward/type editors, fixed calendar summaries, booking completion and receipt review. AC-SYNC-001..005 cover real authenticated revision + root SQL grant changes + actual admin browser at 390/1280, dynamic dependency DOM and cleanup. Existing six human modules/journeys retained; no provider, role, tenant isolation, settlement or database changes. Healthy admin probes use 3 seconds; background pause and failure backoff preserved. Full final SHA CI and integration deploy remain required. Follow-up review: preserve every open editor during bootstrap with unchanged optimistic version; force owner cleanup during busy writes; exclude revoked draft benefits from new payload/budget; refresh open type card options on late first enable. Real Chromium reproduced CSS important specificity masking the gate; added scoped hiding specificity and exact booking modal CSS test. No backend settlement policy weakened.",
+  "memberFeatureGrantsReview": "2026-11-07 Issue #264: reviewed member-only grant UI and existing admin compatibility. BusinessContext reuses public grants on changed authenticated revision; MemberSystem admin cadence and BusinessWorkspace permissions unchanged. No API, DB, LINE authentication, transactions or notification changes. feature_dependencies.cjs and member-feature-grants.spec.cjs cover late dialogs, selective grants, revoke/regrant, stale responses, snapshot payload and drafts. All existing admin-human journeys retained; final full CI required."
 }
