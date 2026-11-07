@@ -34,9 +34,9 @@ test('AC-003 both member bootstrap and calendar month return the shop telephone 
   assert.match(monthApi,/phoneBookingNumber: String\(settingsResult\.data\.phone_booking_number \|\| ""\)/);
   assert.match(calendar,/detail\.settings\?\.phoneBookingNumber !== undefined/);
 });
-test('AC-004 phone booking shares the exact inclusive online date, holiday, and phone rules',()=>{
-  assert.match(calendar,/if \(!isPast && !isHoliday && !isAdvanceBlocked && !isRangeBlocked && state\.phoneBookingNumber\)/);
-  assert.match(calendar,/const phoneAllowed = Boolean\(phone && date && !reason\)/);
+test('AC-004 phone respects merchant horizon and holidays, not online-only lead time',()=>{
+  assert.match(calendar,/if \(!isPast && !isHoliday && !isRangeBlocked && state\.phoneBookingNumber\)/);
+  assert.match(calendar,/const phoneAllowed = Boolean\(phone && date && !phoneBookingBlockReason\(date\)\)/);
   assert.match(calendar,/if \(date < state\.minimumDate\) return/);
   assert.match(calendar,/if \(state\.maximumDate && date > state\.maximumDate\) return/);
   assert.match(calendar,/if \(date < state\.today\) return/);
