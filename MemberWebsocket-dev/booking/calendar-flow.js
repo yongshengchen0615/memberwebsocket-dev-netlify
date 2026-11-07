@@ -363,7 +363,7 @@
         button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，休假日，無法預約，點選查看休假說明`);
       } else if (isAdvanceBlocked) {
         const reason = `需提前 ${state.minAdvanceDays} 天，最早可線上預約 ${formatDate(minimumDate)}`;
-        button.title = state.phoneBookingNumber ? `${reason}；此日可電話預約` : reason;
+        button.title = reason;
         button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，${button.title}`);
       } else if (isRangeBlocked) {
         const reason = `超過可預約範圍，最遠可預約 ${formatDate(maximumDate)}`;
@@ -371,13 +371,7 @@
         button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，${button.title}`);
       } else {
         const occupiedText = intervals.length ? `，有 ${intervals.length} 個我的預約時段` : '';
-        button.setAttribute('aria-label', `${formatDate(date)}${occupiedText}${bookedTimesDescription}，可開啟預約${state.phoneBookingNumber ? '或電話預約' : ''}`);
-      }
-      if (!isPast && !isHoliday && !isRangeBlocked && state.phoneBookingNumber) {
-        const label = document.createElement('small');
-        label.className = 'calendar-phone-badge';
-        label.textContent = '電話預約';
-        button.appendChild(label);
+        button.setAttribute('aria-label', `${formatDate(date)}${occupiedText}${bookedTimesDescription}，可開啟預約`);
       }
       button.setAttribute('aria-label', `${button.getAttribute('aria-label')}，點選查看當日紀錄`);
       button.addEventListener('click', () => openDayModal(date, button));
@@ -435,10 +429,11 @@
     state.historyDate = date;
     state.lastDateTrigger = trigger || null;
     els.bookingDayTitle.textContent = `${formatDate(date)}｜當日紀錄`;
-    window.dispatchEvent(new CustomEvent('booking:history-date-selected', { detail: { date } }));
-    updateDayAction();
+    // Open the prompt first, then let the (potentially expensive) record render update it.
     els.bookingDayModal.classList.remove('hidden');
     document.body.classList.add('booking-day-open');
+    updateDayAction();
+    window.dispatchEvent(new CustomEvent('booking:history-date-selected', { detail: { date } }));
     window.setTimeout(() => els.closeBookingDayButton?.focus(), 0);
   }
 
@@ -452,7 +447,7 @@
     const phoneAllowed = Boolean(phone && date && !phoneBookingBlockReason(date));
     if (els.bookingPhoneFallback) els.bookingPhoneFallback.hidden = !phoneAllowed;
     if (phoneAllowed) {
-      const dialLabel = `撥打店家電話＋${phone}`;
+      const dialLabel = `撥打店家電話：${phone}`;
       els.bookingPhoneDial.textContent = dialLabel;
       els.bookingPhoneDial.href = `tel:${phone.replace(/[ ()-]/g, '')}`;
       els.bookingPhoneDial.setAttribute('aria-label', dialLabel);
