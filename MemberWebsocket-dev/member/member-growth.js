@@ -449,9 +449,9 @@
 
     // The member page shares the configured business title with its LINE join notice.
     const config = window.MemberSystem?.getSession?.('member')?.config || {};
-    const fallbackTitle = String(document.title || '').replace(/^\\s*會員卡\\s*[｜|:：-]\\s*/, '');
+    const fallbackTitle = String(document.title || '').replace(/^\s*會員卡\s*[｜|:：-]\s*/, '');
     const heading = String(config.pageTitle || config.webpageTitle || config.brandName || fallbackTitle || 'Lumen Club')
-      .replace(/\\s+/g, ' ').trim().slice(0, 100) || 'Lumen Club';
+      .replace(/\s+/g, ' ').trim().slice(0, 100) || 'Lumen Club';
     const message = `我已完成 ${heading} 會員註冊`;
     try {
       if (!window.liff || typeof window.liff.sendMessages !== 'function' || !window.liff.isInClient?.()) return;
