@@ -155,6 +155,11 @@
       syncServerClock(state.data.serverNow);
       state.profile = profile || {};
       window.dispatchEvent(new CustomEvent('booking:member-loaded', { detail: { profile: state.profile } }));
+      // Older booking-api versions omit the notice; the scoped calendar API supplies it.
+      // Never clear a valid calendar notice merely because this field is absent.
+      if (Object.prototype.hasOwnProperty.call(state.data?.settings || {}, 'bookingNotice')) {
+        window.BookingSystem.setBookingNotice(state.data.settings.bookingNotice);
+      }
       pruneSelections();
       renderMemberProfile();
       renderBookingRestriction();

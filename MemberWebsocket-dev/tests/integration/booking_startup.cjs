@@ -31,13 +31,14 @@ async function fixture(mode) {
   const el = id => w.document.getElementById(id);
   const tick = ms => new Promise(resolve => setTimeout(resolve, ms));
   let subscriptions = 0;
+  let bookingNotice = null;
   const calls = [];
   const serviceId = '20000000-0000-4000-8000-000000000001';
   const bookingId = '30000000-0000-4000-8000-000000000001';
   const technicianId = '40000000-0000-4000-8000-000000000001';
   const item = { serviceId, serviceTitle: '腳底40', unitDurationMinutes: 40, unitPriceAmount: 800, quantity: 1 };
   const booking = { bookingId, bookingDate: '2099-01-02', startTime: '09:00', endTime: '09:50', status: 'confirmed', totalDurationMinutes: 50, totalAmount: 800, items: [item] };
-  const base = { today: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' }), settings: { minAdvanceDays: 0, workStartTime: '09:00', workEndTime: '18:00' }, services: [{ serviceId, title: '腳底40', durationMinutes: 40, priceAmount: 800, isActive: true }], bookings: [booking] };
+  const base = { today: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' }), settings: { minAdvanceDays: 0, workStartTime: '09:00', workEndTime: '18:00', bookingNotice: '測試商家預約說明\n請準時到場' }, services: [{ serviceId, title: '腳底40', durationMinutes: 40, priceAmount: 800, isActive: true }], bookings: [booking] };
   const config = { supabaseUrl: 'https://fixture.supabase.co', supabasePublishableKey: 'fixture-key', bookingLiffId: 'fixture-liff' };
   w.matchMedia = () => ({ matches: false });
   w.HTMLElement.prototype.scrollIntoView = () => {};
@@ -57,6 +58,7 @@ async function fixture(mode) {
   w.BookingSystem = {
     loadConfig: async () => config, signIn: async () => 'fixture-token', completeSignIn: async (_config, _type, idToken) => idToken, memberProfile: async () => ({}),
     subscribeRealtime: () => { subscriptions++; return () => {}; },
+    setBookingNotice: value => { bookingNotice = value; },
     addDays: (date, days) => new Date(Date.parse(date + 'T00:00:00Z') + days * 86400000).toISOString().slice(0, 10),
     formatDate: date => date, clientError: (code, message) => Object.assign(new Error(message), { code }),
     request: async () => {
@@ -82,6 +84,7 @@ async function fixture(mode) {
     }
     assert.equal(el('bookingView').classList.contains('hidden'), false);
     assert.equal(subscriptions, 1);
+    assert.equal(bookingNotice, '測試商家預約說明\n請準時到場', 'Member bootstrap must pass its scoped multiline notice to the renderer');
     assert.ok(bookingRenderEvents.length > 0, 'Bootstrap must publish the signed-in member booking times to calendar');
     assert.deepEqual(
       JSON.parse(JSON.stringify(bookingRenderEvents.at(-1).bookings)),

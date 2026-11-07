@@ -24,8 +24,6 @@
   const realtimeSubscriptions = new Map();
   let realtimeClient = null;
   let realtimeClientKey = '';
-  let publicNoticeClient = null;
-  let publicNoticeSequence = 0;
   let presenceContext = null;
   let authenticatedSession = null;
   let presenceHooksBound = false;
@@ -340,26 +338,10 @@
     notice.replaceChildren(label, document.createTextNode(' '), body);
   }
 
-  async function syncPublicBookingNotice(config, preferredValue) {
-    const sequence = ++publicNoticeSequence;
-    if (typeof preferredValue === 'string') {
-      renderBookingNotice(preferredValue);
-      return;
-    }
-    try {
-      if (!window.supabase?.createClient) return;
-      if (!publicNoticeClient) {
-        publicNoticeClient = window.supabase.createClient(config.supabaseUrl, config.supabasePublishableKey, {
-          auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
-        });
-      }
-      const { data, error } = await publicNoticeClient.rpc('get_booking_public_notice');
-      if (error) throw error;
-      if (sequence !== publicNoticeSequence) return;
-      renderBookingNotice(typeof data === 'string' ? data : '');
-    } catch (error) {
-      console.warn('booking notice load failed', error);
-    }
+  // Only the authorized member bootstrap may supply this merchant's public notice.
+  // Never fall back to a global anonymous RPC: multi-merchant tenants may differ.
+  function setBookingNotice(value) {
+    renderBookingNotice(typeof value === 'string' ? value : '');
   }
 
   async function request(config, clientType, idToken, action, payload = {}) {
@@ -369,12 +351,7 @@
       ? window.TestModeClient.payload({ ...payload, ...(config.pricePublishing === true ? {pricePublishing:true} : {}), action, clientType, idToken })
       : { ...payload, ...(config.pricePublishing === true ? {pricePublishing:true} : {}), action, clientType, idToken };
     const data = await postJson(endpoint, config, body, '預約服務', { write: WRITE_ACTIONS.has(action) });
-    if (clientType === 'member' && action === 'user.booking.bootstrap') {
-      const notice = data?.settings && Object.prototype.hasOwnProperty.call(data.settings, 'bookingNotice')
-        ? data.settings.bookingNotice
-        : undefined;
-      void syncPublicBookingNotice(config, typeof notice === 'string' ? notice : undefined);
-    }
+
     return data;
   }
 
@@ -841,6 +818,6 @@
     return { config: authenticatedSession.config, idToken: authenticatedSession.idToken };
   }
 
-  window.BookingSystem = { loadConfig, signIn, completeSignIn, startPresence, claimBrowserSession, getSession, request, memberProfile, bookingBenefits, claimEventTicket, sendMemberChatMessage, subscribeRealtime, openMemberJoin, logout, showNotice, formatDate, addDays, clientError };
+  window.BookingSystem = { loadConfig, signIn, completeSignIn, startPresence, claimBrowserSession, getSession, request, setBookingNotice, memberProfile, bookingBenefits, claimEventTicket, sendMemberChatMessage, subscribeRealtime, openMemberJoin, logout, showNotice, formatDate, addDays, clientError };
 })();
 

@@ -48,7 +48,7 @@
     "admin/productized-workspace.js": "f9a9809c7a5448f8de3ec46be1a0af2ca4e340038b7d2605dc50368eae39c2c3",
     "platform/platform.css": "6b9332f7b0c242709a7c998779536bb0742b6a5fbecb264334d2b52ad5ed70ac",
     "admin/business-line-settings.css": "7657f293d3208adbbbbc67c27f128d6e74cc3b103ad6228fc8c03638f4f5df70",
-    "booking/common.js": "ee31a6e097f78df4210e541076dce696b3edfb168a4335aa7615836a91f2a921"
+    "booking/common.js": "064bb68ddf408ac70d25d18013ce3ebd2062ea1b7dbfe09d3b2a343f128ea474"
   },
   "features": [
     {
@@ -370,7 +370,7 @@
     {
       "id": "booking.34",
       "module": "booking",
-      "name": "跨夜時段、提前日數、票券政策、快照可使用地點／半徑、瀏覽器 GPS 雙模式回退與說明（前一天提醒已移至會員預約表單）；新增獨立預約提醒文案編輯、示意預覽、儲存回報與版本衝突（AC-RM-001..004 對應 booking_reminder_message.test.js）；新增商家電話及不可線上預約日期的電話洽詢入口",
+      "name": "跨夜時段、提前日數、票券政策、快照可使用地點／半徑、瀏覽器 GPS 雙模式回退與說明（前一天提醒已移至會員預約表單）；新增獨立預約提醒文案編輯、示意預覽、儲存回報與版本衝突（AC-RM-001..004 對應 booking_reminder_message.test.js）；新增商家電話及不可線上預約日期的電話洽詢入口；會員端預約說明必須讀取所屬商家的設定，保留換行且在清空時隱藏（AC-001～004：member_booking_notice_sync.test.js）",
       "cases": [
         "BOOKING_SHARED_SETTINGS",
         "TICKET_BOOKING_POLICY_ENTRY"

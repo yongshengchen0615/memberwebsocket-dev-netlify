@@ -486,6 +486,9 @@
   }
 
   function resetMemberHistory() {
+    // Invalidate in-flight requests and discard the previous member's merchant notice.
+    state.occupancyRequestSeq += 1;
+    window.BookingSystem?.setBookingNotice?.('');
     closeDayModal(false);
     closeAppointmentModal(false);
     state.historyDate = '';
@@ -527,6 +530,10 @@
 
       if (result.settings || result.today) {
         applyGlobalSettings({ settings: result.settings || {}, today: result.today || state.today });
+      }
+      // The existing scoped calendar endpoint also serves the notice on older booking-api deployments.
+      if (Object.prototype.hasOwnProperty.call(result.settings || {}, 'bookingNotice')) {
+        window.BookingSystem?.setBookingNotice?.(result.settings.bookingNotice);
       }
       if (typeof result.earliestBookingDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(result.earliestBookingDate)) {
         state.minimumDate = result.earliestBookingDate;
