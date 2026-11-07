@@ -447,7 +447,12 @@
     if (!state.joinSubmitted) return;
     state.joinSubmitted = false;
 
-    const message = '我已完成 Lumen Club 會員註冊，想開始使用會員服務。';
+    // The member page shares the configured business title with its LINE join notice.
+    const config = window.MemberSystem?.getSession?.('member')?.config || {};
+    const fallbackTitle = String(document.title || '').replace(/^\\s*會員卡\\s*[｜|:：-]\\s*/, '');
+    const heading = String(config.pageTitle || config.webpageTitle || config.brandName || fallbackTitle || 'Lumen Club')
+      .replace(/\\s+/g, ' ').trim().slice(0, 100) || 'Lumen Club';
+    const message = `我已完成 ${heading} 會員註冊`;
     try {
       if (!window.liff || typeof window.liff.sendMessages !== 'function' || !window.liff.isInClient?.()) return;
       const context = typeof window.liff.getContext === 'function' ? window.liff.getContext() : null;
