@@ -189,11 +189,15 @@ for (const width of [390, 1280]) {
     // The lead-time window blocks online self-service, but remains inside the merchant's phone window.
     for (const date of [dates.today, dates.beforeMinimum]) {
       const cell = await visit(date);
-      await expect(cell.locator('.calendar-phone-badge')).toHaveText('電話預約');
+      await expect(cell.locator('.calendar-phone-badge')).toHaveCount(0);
+      await expect(cell).toBeEnabled();
       await cell.click();
-      await expect(page.locator('#startDayBookingButton')).toBeDisabled();
+      await expect(page.locator('#bookingDayModal')).toBeVisible();
+      await expect(page.locator('#bookingDayTitle')).toContainText(new RegExp(`${date}(?:｜|$)|${Number(date.slice(0, 4))}/${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}(?:｜|$)`));
+      await expect(page.locator('#bookingDayHint')).toContainText('請致電店家洽詢');
+      await expect(page.locator('#startDayBookingButton')).toBeHidden();
       await expect(page.locator('#bookingPhoneFallback')).toBeVisible();
-      await expect(page.locator('.booking-day-footer > #startDayBookingButton + #bookingPhoneFallback > #bookingPhoneDial')).toHaveText('撥打店家電話＋06-1234567');
+      await expect(page.locator('.booking-day-footer > #startDayBookingButton + #bookingPhoneFallback > #bookingPhoneDial')).toHaveText('撥打店家電話：06-1234567');
       await expect(page.locator('#bookingPhoneDial')).toHaveAttribute('href', 'tel:061234567');
       await page.locator('#closeBookingDayButton').click();
     }
@@ -202,13 +206,15 @@ for (const width of [390, 1280]) {
     for (const date of [dates.minimum, dates.middle, dates.maximum]) {
       const cell = await visit(date);
       await expect(cell).toBeVisible();
-      await expect(cell.locator('.calendar-phone-badge')).toHaveText('電話預約');
-      await expect(cell).toHaveAttribute('aria-label', /電話預約/);
+      await expect(cell.locator('.calendar-phone-badge')).toHaveCount(0);
+      await expect(cell).not.toHaveAttribute('aria-label', /電話預約/);
       await cell.click();
+      await expect(page.locator('#bookingDayModal')).toBeVisible();
+      await expect(page.locator('#startDayBookingButton')).toBeVisible();
       await expect(page.locator('#startDayBookingButton')).toBeEnabled();
       await expect(page.locator('#bookingPhoneFallback')).toBeVisible();
-      await expect(page.locator('.booking-day-footer > #startDayBookingButton + #bookingPhoneFallback > #bookingPhoneDial')).toHaveText('撥打店家電話＋06-1234567');
-      await expect(page.locator('#bookingPhoneDial')).toHaveAttribute('aria-label', '撥打店家電話＋06-1234567');
+      await expect(page.locator('.booking-day-footer > #startDayBookingButton + #bookingPhoneFallback > #bookingPhoneDial')).toHaveText('撥打店家電話：06-1234567');
+      await expect(page.locator('#bookingPhoneDial')).toHaveAttribute('aria-label', '撥打店家電話：06-1234567');
       await expect(page.locator('#bookingPhoneDial')).toHaveAttribute('href', 'tel:061234567');
       const rects = await page.evaluate(() => {
         const online = document.getElementById('startDayBookingButton').getBoundingClientRect();
@@ -226,13 +232,14 @@ for (const width of [390, 1280]) {
     await page.evaluate(() => window.dispatchEvent(new CustomEvent('booking:settings-updated', {
       detail: { settings: { minAdvanceDays: 4, maxAdvanceDays: 5, phoneBookingNumber: '06-1234567' } }
     })));
-    await expect(page.locator('#startDayBookingButton')).toBeDisabled();
+    await expect(page.locator('#startDayBookingButton')).toBeHidden();
     await expect(page.locator('#bookingPhoneFallback')).toBeVisible();
     await expect(page.locator('#bookingPhoneDial')).toHaveAttribute('href', 'tel:061234567');
 
     await page.evaluate(() => window.dispatchEvent(new CustomEvent('booking:settings-updated', {
       detail: { settings: { minAdvanceDays: 2, maxAdvanceDays: 5, phoneBookingNumber: '06-1234567' } }
     })));
+    await expect(page.locator('#startDayBookingButton')).toBeVisible();
     await expect(page.locator('#startDayBookingButton')).toBeEnabled();
     await expect(page.locator('#bookingPhoneFallback')).toBeVisible();
 
@@ -250,7 +257,7 @@ for (const width of [390, 1280]) {
       detail: { settings: { minAdvanceDays: 2, maxAdvanceDays: 0, phoneBookingNumber: '06-1234567' } }
     })));
     const later = await visit(dates.beyondMaximum);
-    await expect(later.locator('.calendar-phone-badge')).toHaveText('電話預約');
+    await expect(later.locator('.calendar-phone-badge')).toHaveCount(0);
     await later.click();
     await expect(page.locator('#bookingPhoneFallback')).toBeVisible();
     await expect(page.locator('#startDayBookingButton')).toBeEnabled();
