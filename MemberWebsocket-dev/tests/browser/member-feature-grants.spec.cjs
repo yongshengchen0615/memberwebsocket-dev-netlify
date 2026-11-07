@@ -91,12 +91,22 @@ test('AC-MEMBER-003: MemberSystem updates member cross-module links on revision 
   window.liff={init:async()=>{},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=> 'synthetic'};
   const config={supabaseUrl:'https://fixture.supabase.co',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'fixture',memberLiffId:'member'};
   await BusinessContext.configure(config);await MemberSystem.signIn(config,'member');
+  window.syncMetrics=[];
+  window.addEventListener('member-system:sync-metrics',event=>window.syncMetrics.push(event.detail));
   const view=document.getElementById('memberView');view.classList.remove('hidden');
   view.insertAdjacentHTML('beforeend','<a id="pointsLink" href="/points/?business=merchant-a">集點卡</a><a id="eventsLink" href="/event/?business=merchant-a">活動票券</a>');
   window.stopSync=MemberSystem.subscribeRealtime(config,'member',async()=>{});
  });
- await page.clock.runFor(1);await expect(page.locator('#pointsLink')).toBeVisible();
- const initialReads=reads;await page.clock.runFor(30000);expect(reads).toBe(initialReads);
+ await page.clock.runFor(1);
+ await expect.poll(()=>page.evaluate(()=>window.syncMetrics.length)).toBeGreaterThan(0);
+ await expect(page.locator('#pointsLink')).toBeVisible();
+ const initialReads=reads,initialProbes=await page.evaluate(()=>window.syncMetrics.length);
+ await page.clock.runFor(30000);
+ // HTTP completion happens outside the virtual clock. Drain the real probe
+ // before changing authority or advancing again, as in business-sync.spec.cjs.
+ await expect.poll(()=>page.evaluate(()=>window.syncMetrics.length)).toBeGreaterThan(initialProbes);
+ expect(reads).toBe(initialReads);
+ expect(await page.evaluate(n=>window.syncMetrics.slice(n).every(m=>m.changed===false),initialProbes)).toBe(true);
  features={membership:true,events:true};revision='2';await page.clock.runFor(10001);
  await expect(page.locator('#pointsLink')).toBeHidden();await expect(page.locator('#eventsLink')).toBeVisible();
  features={membership:true,points:true};revision='3';await page.clock.runFor(10001);
