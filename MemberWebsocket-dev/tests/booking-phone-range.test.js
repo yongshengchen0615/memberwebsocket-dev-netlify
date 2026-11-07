@@ -27,8 +27,7 @@ function load() {
   h.els.startDayBookingButton = { disabled: false };
   h.els.bookingDayHint = { textContent: '' };
   h.els.bookingPhoneFallback = { hidden: true };
-  h.els.bookingPhoneFallbackNumber = { textContent: '' };
-  h.els.bookingPhoneDial = { href: '', setAttribute(name, value) { this[name] = value; }, removeAttribute(name) { delete this[name]; } };
+  h.els.bookingPhoneDial = { href: '', textContent: '', setAttribute(name, value) { this[name] = value; }, removeAttribute(name) { delete this[name]; } };
   return h;
 }
 
@@ -39,6 +38,7 @@ function action(h, date) {
     onlineDisabled: h.els.startDayBookingButton.disabled,
     phoneHidden: h.els.bookingPhoneFallback.hidden,
     href: h.els.bookingPhoneDial.href,
+    dialLabel: h.els.bookingPhoneDial.textContent,
     hint: h.els.bookingDayHint.textContent,
   };
 }
@@ -50,6 +50,7 @@ test('AC-001: lead-time is online-only; today and tomorrow may be booked by tele
     assert.equal(result.onlineDisabled, true, date);
     assert.equal(result.phoneHidden, false, date);
     assert.equal(result.href, 'tel:061234567');
+    assert.equal(result.dialLabel, '撥打店家電話＋06-1234567');
     assert.match(result.hint, /提前 2 天/);
   }
   for (const date of ['2026-11-09', '2026-12-07']) {
@@ -67,6 +68,7 @@ test('AC-002: past, holiday and beyond merchant horizon deny online AND telephon
     assert.equal(result.onlineDisabled, true, date);
     assert.equal(result.phoneHidden, true, date);
     assert.equal(result.href, undefined, date);
+    assert.equal(result.dialLabel, '撥打店家電話', date);
   }
   assert.match(action(h, '2026-12-08').hint, /超過可預約範圍/);
 });
@@ -78,6 +80,7 @@ test('AC-003: invalid or missing number must not offer a callable link', () => {
     const result = action(h, '2026-11-08');
     assert.equal(result.phoneHidden, true);
     assert.equal(result.href, undefined);
+    assert.equal(result.dialLabel, '撥打店家電話');
   }
 });
 
@@ -93,6 +96,20 @@ function element(tag) {
   };
   return el;
 }
+
+test('AC-005: phone number changes update the button and revocation removes stale text', () => {
+  const h = load();
+  action(h, '2026-11-09');
+  h.state.phoneBookingNumber = '+886-6-9876543';
+  const changed = action(h, '2026-11-09');
+  assert.equal(changed.dialLabel, '撥打店家電話＋+886-6-9876543');
+  assert.equal(changed.href, 'tel:+88669876543');
+  h.state.phoneBookingNumber = '';
+  const disabled = action(h, '2026-11-09');
+  assert.equal(disabled.phoneHidden, true);
+  assert.equal(disabled.href, undefined);
+  assert.equal(disabled.dialLabel, '撥打店家電話');
+});
 
 test('AC-004: calendar telephone badge follows phone range, not online lead time', () => {
   const h = load();

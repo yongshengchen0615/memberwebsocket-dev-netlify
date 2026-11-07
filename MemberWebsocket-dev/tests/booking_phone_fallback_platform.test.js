@@ -46,9 +46,14 @@ test('AC-004 phone respects merchant horizon and holidays, not online-only lead 
   assert.match(calendar,/else if \(els\.bookingPhoneDial\) \{\s*els\.bookingPhoneDial\.removeAttribute\('href'\)/);
   assert.match(calendar,/if \(els\.startDayBookingButton\) els\.startDayBookingButton\.disabled = Boolean\(reason\)/);
   assert.match(calendar,/button\.addEventListener\('click', \(\) => openDayModal\(date, button\)\)/);
-  assert.match(html,/id="bookingPhoneFallback"[^>]*hidden/);
-  assert.match(html,/此日期在商家設定的可預約範圍內/);
-  assert.match(html,/不會自動建立線上預約紀錄/);
+  assert.match(html,/<button id="startDayBookingButton"[^>]*>線上預約<\/button>/);
+  assert.match(html,/<div class="booking-day-footer">[\s\S]*?id="startDayBookingButton"[\s\S]*?id="bookingPhoneFallback"[^>]*hidden[\s\S]*?id="bookingPhoneDial"/);
+  assert.match(html,/id="bookingPhoneDial" class="button button-dark button-wide"/);
+  assert.doesNotMatch(html,/id="bookingPhoneFallbackTitle"|id="bookingPhoneFallbackNumber"/);
+  assert.doesNotMatch(html,/此日期在商家設定的可預約範圍內|不會自動建立線上預約紀錄/);
+  assert.match(calendar,/const dialLabel = `撥打店家電話＋\$\{phone\}`/);
+  assert.match(calendar,/els\.bookingPhoneDial\.textContent = dialLabel/);
+  assert.match(calendar,/els\.bookingPhoneDial\.textContent = '撥打店家電話'/);
   assert.match(admin,/只有在商家可預約日期範圍內且非休假日/);
   assert.match(memberApi,/function assertBookingDateWindow\(/);
 });

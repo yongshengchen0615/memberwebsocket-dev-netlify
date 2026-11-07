@@ -34,7 +34,7 @@
       'appointmentPanel', 'appointmentModalTitle', 'selectedDateSummary', 'closeAppointmentButton',
       'bookingDate', 'servicePicker', 'selectedServiceList', 'bookingList', 'bookingConfirmModal',
       'bookingDayModal', 'bookingDayTitle', 'bookingDayHint', 'closeBookingDayButton', 'startDayBookingButton', 'bookingDayHolidayDetails',
-      'bookingPhoneFallback', 'bookingPhoneFallbackNumber', 'bookingPhoneDial'
+      'bookingPhoneFallback', 'bookingPhoneDial'
     ].forEach((id) => { els[id] = document.getElementById(id); });
 
     if (!els.calendarGrid || !els.bookingDate || !els.servicePicker || !els.appointmentPanel) return;
@@ -452,12 +452,14 @@
     const phoneAllowed = Boolean(phone && date && !phoneBookingBlockReason(date));
     if (els.bookingPhoneFallback) els.bookingPhoneFallback.hidden = !phoneAllowed;
     if (phoneAllowed) {
-      els.bookingPhoneFallbackNumber.textContent = phone;
+      const dialLabel = `撥打店家電話＋${phone}`;
+      els.bookingPhoneDial.textContent = dialLabel;
       els.bookingPhoneDial.href = `tel:${phone.replace(/[ ()-]/g, '')}`;
-      els.bookingPhoneDial.setAttribute('aria-label', `撥打店家電話 ${phone}`);
+      els.bookingPhoneDial.setAttribute('aria-label', dialLabel);
     } else if (els.bookingPhoneDial) {
       els.bookingPhoneDial.removeAttribute('href');
-      els.bookingPhoneFallbackNumber.textContent = '';
+      els.bookingPhoneDial.textContent = '撥打店家電話';
+      els.bookingPhoneDial.setAttribute('aria-label', '撥打店家電話');
     }
     const holidays = state.holidaysByDate.get(state.historyDate) || [];
     if (els.bookingDayHolidayDetails) {
