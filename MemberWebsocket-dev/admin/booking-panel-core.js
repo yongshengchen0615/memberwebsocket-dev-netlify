@@ -142,6 +142,17 @@
                 </label>
               </section>
 
+              <section class="booking-admin-settings-block booking-admin-settings-rule" aria-labelledby="bookingAdminPhoneBookingHeading">
+                <div class="booking-admin-settings-block-heading">
+                  <div><span class="booking-admin-settings-eyebrow">電話預約</span><h4 id="bookingAdminPhoneBookingHeading">不在可線上預約範圍時</h4></div>
+                </div>
+                <label class="booking-admin-settings-field">
+                  <span>店家電話（選填）</span>
+                  <input id="bookingAdminPhoneNumber" type="tel" inputmode="tel" autocomplete="tel" maxlength="25" placeholder="例如 06-1234567 或 +886-6-1234567">
+                  <small>填寫後，用戶選擇未達提前天數或超過最遠日期時，可查看電話並一鍵撥號。留空即停用電話入口；電話接洽不會自動新增預約。</small>
+                </label>
+              </section>
+
               <section class="booking-admin-settings-block booking-admin-settings-rule" aria-labelledby="bookingAdminStoreServiceHeading">
                 <div class="booking-admin-settings-block-heading">
                   <div><span class="booking-admin-settings-eyebrow">共同服務時間</span><h4 id="bookingAdminStoreServiceHeading">店內服務</h4></div>
@@ -248,7 +259,7 @@
 
   function cacheElements() {
     [
-      'bookingTab','bookingPanel','bookingAdminSyncStatus','bookingAdminSettingsForm','bookingAdminStartTime','bookingAdminEndTime','bookingAdminSlotInterval','bookingAdminHoursPreview','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminStoreServiceMinutes','bookingAdminReminderEnabled','bookingAdminSnapshotLocationRequired','bookingAdminReminderTime','bookingAdminNotice','bookingAdminSettingsMessage','bookingAdminSaveSettingsButton',
+      'bookingTab','bookingPanel','bookingAdminSyncStatus','bookingAdminSettingsForm','bookingAdminStartTime','bookingAdminEndTime','bookingAdminSlotInterval','bookingAdminHoursPreview','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminPhoneNumber','bookingAdminStoreServiceMinutes','bookingAdminReminderEnabled','bookingAdminSnapshotLocationRequired','bookingAdminReminderTime','bookingAdminNotice','bookingAdminSettingsMessage','bookingAdminSaveSettingsButton',
       'bookingAdminNewTypeButton','bookingAdminTypeMessage','bookingAdminTypeList','bookingAdminTypeEmpty','bookingAdminServiceCount','bookingAdminPendingCount','bookingAdminAccessiblePendingCount','bookingAdminConfirmedCount',
       'bookingAdminTechniciansSubtab','bookingAdminServicesSubtab','bookingAdminSettingsSubtab','bookingAdminQueueSubtab','bookingAdminQueueSubtabCount','bookingAdminTechniciansPanel','bookingAdminServicesPanel','bookingAdminSettingsPanel','bookingAdminQueuePanel','bookingAdminStandardMode','bookingAdminAccessibleMode','bookingAdminStandardModeCount','bookingAdminAccessibleModeCount','bookingAdminStandardQueueView','bookingAdminNewServiceButton','bookingAdminBatchAddButton','bookingAdminBatchEditButton','bookingAdminBatchDeleteButton','bookingAdminServiceMessage','bookingAdminServiceList','bookingAdminServiceEmpty','bookingAdminQueue','bookingAdminQueueEmpty',
       'bookingAdminCrudModal','bookingAdminCrudModalTitle','bookingAdminCrudModalBody','bookingAdminCrudModalClose'
@@ -630,6 +641,7 @@
     els.bookingAdminSlotInterval.value = String(Number(settings.slotIntervalMinutes || 30));
     els.bookingAdminAdvanceDays.value = String(Number(settings.minAdvanceDays || 0));
     els.bookingAdminMaxAdvanceDays.value = String(Number(settings.maxAdvanceDays || 0));
+    els.bookingAdminPhoneNumber.value = String(settings.phoneBookingNumber || '');
     els.bookingAdminStoreServiceMinutes.value = String(Number(settings.storeServiceMinutes || 10));
     els.bookingAdminNotice.value = String(settings.bookingNotice || '');
     els.bookingAdminReminderEnabled.checked = settings.reminderEnabled === true;
@@ -727,9 +739,11 @@
     const workStartTime = els.bookingAdminStartTime.value;
     const workEndTime = els.bookingAdminEndTime.value;
     const bookingNotice = String(els.bookingAdminNotice.value || '').replace(/\r\n?/g, '\n');
+    const phoneBookingNumber = String(els.bookingAdminPhoneNumber.value || '').trim();
     if (!Number.isInteger(minAdvanceDays) || minAdvanceDays < 0 || minAdvanceDays > 365) return showMessage(els.bookingAdminSettingsMessage, '提前預約天數必須介於 0–365 天。', 'error');
     if (!Number.isInteger(maxAdvanceDays) || maxAdvanceDays < 0 || maxAdvanceDays > 365) return showMessage(els.bookingAdminSettingsMessage, '最遠可預約天數必須介於 0–365 天；0 代表不限制。', 'error');
     if (maxAdvanceDays > 0 && maxAdvanceDays < minAdvanceDays) return showMessage(els.bookingAdminSettingsMessage, '最遠可預約天數不可小於需要提前的天數。', 'error');
+    if (phoneBookingNumber && (!/^[+]?[0-9][0-9 ()-]{4,24}$/.test(phoneBookingNumber) || phoneBookingNumber.length > 25 || (phoneBookingNumber.match(/[0-9]/g) || []).length < 6 || (phoneBookingNumber.match(/[0-9]/g) || []).length > 15)) return showMessage(els.bookingAdminSettingsMessage, '店家電話格式錯誤，請輸入 6–15 位數字，可使用 +、空格、括號或連字號。', 'error');
     if (!Number.isInteger(storeServiceMinutes) || storeServiceMinutes < 1 || storeServiceMinutes > 720) return showMessage(els.bookingAdminSettingsMessage, '店內服務分鐘必須介於 1–720 分鐘。', 'error');
     if (!/^\d{2}:\d{2}$/.test(workStartTime) || !/^\d{2}:\d{2}$/.test(workEndTime) || workStartTime === workEndTime || [workStartTime, workEndTime].some((time) => Number(time.slice(0, 2)) > 23 || Number(time.slice(3)) > 59 || Number(time.slice(3)) % 5 !== 0)) return showMessage(els.bookingAdminSettingsMessage, '工作時間格式錯誤或時段長度為零。', 'error');
     if (!Number.isInteger(slotIntervalMinutes) || slotIntervalMinutes < 5 || slotIntervalMinutes > 120 || slotIntervalMinutes % 5 !== 0) return showMessage(els.bookingAdminSettingsMessage, '切分間隔須為 5–120 分鐘的 5 分鐘倍數。', 'error');
@@ -746,6 +760,7 @@
         slotIntervalMinutes,
         minAdvanceDays,
         maxAdvanceDays,
+        phoneBookingNumber,
         storeServiceMinutes,
         bookingNotice,
         reminderEnabled: els.bookingAdminReminderEnabled.checked,
