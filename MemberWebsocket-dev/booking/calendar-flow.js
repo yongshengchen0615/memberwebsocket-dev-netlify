@@ -9,6 +9,8 @@
     maxAdvanceDays: 0,
     minimumDate: '',
     maximumDate: '',
+    phoneBookingNumber: '',
+    phoneTrigger: null,
     config: null,
     occupancyRequestSeq: 0,
     reloadTimer: 0,
@@ -31,6 +33,7 @@
     if (!els.calendarGrid || !els.bookingDate || !els.servicePicker || !els.appointmentPanel) return;
 
     ensureHolidayUi();
+    ensurePhoneBookingUi();
     state.today = taipeiDate();
     state.minimumDate = state.today;
     state.month = state.today.slice(0, 7);
@@ -125,6 +128,59 @@
 
   }
 
+  // Keep the phone fallback independent from the booking form and its server-side guards.
+  function validPhoneBookingNumber(value) {
+    const text = String(value || '').trim();
+    const digitCount = (text.match(/[0-9]/g) || []).length;
+    return text.length <= 25 && /^[+]?[0-9][0-9 ()-]{4,24}$/.test(text) && digitCount >= 6 && digitCount <= 15 ? text : '';
+  }
+
+  function ensurePhoneBookingUi() {
+    const legend = els.calendarGrid.parentElement?.querySelector('.calendar-legend');
+    if (legend) {
+      const item = document.createElement('span');
+      item.className = 'booking-phone-legend';
+      item.hidden = true;
+      item.innerHTML = '<i class="legend-dot booking-phone-dot" aria-hidden="true"></i>電話預約（線上範圍之外）';
+      legend.appendChild(item);
+      els.phoneLegend = item;
+    }
+    const dialog = document.createElement('dialog');
+    dialog.id = 'bookingPhoneDialog';
+    dialog.className = 'booking-phone-dialog';
+    dialog.setAttribute('aria-labelledby', 'bookingPhoneTitle');
+    dialog.innerHTML = `<div class="booking-phone-dialog-content">
+      <div class="booking-phone-dialog-header"><div><p class="kicker">Phone booking</p><h2 id="bookingPhoneTitle">電話預約</h2></div><button type="button" class="booking-selection-modal-close" data-phone-close aria-label="關閉電話預約視窗">×</button></div>
+      <p id="bookingPhoneDate" class="booking-phone-date"></p>
+      <p class="booking-phone-explain">這個日期不在開放線上預約的範圍內，您可以致電店家洽詢。電話預約需由店家確認，不會自動建立線上預約紀錄。</p>
+      <p id="bookingPhoneNumber" class="booking-phone-number"></p>
+      <a id="bookingPhoneDial" class="button button-dark booking-phone-dial" href="#" aria-label="撥打店家電話">撥打店家電話</a>
+    </div>`;
+    dialog.querySelector('[data-phone-close]').addEventListener('click', () => dialog.close());
+    dialog.addEventListener('close', () => {
+      const trigger = state.phoneTrigger;
+      state.phoneTrigger = null;
+      if (trigger && document.contains(trigger)) trigger.focus();
+    });
+    document.body.appendChild(dialog);
+    els.phoneDialog = dialog;
+    els.phoneDate = dialog.querySelector('#bookingPhoneDate');
+    els.phoneNumber = dialog.querySelector('#bookingPhoneNumber');
+    els.phoneDial = dialog.querySelector('#bookingPhoneDial');
+  }
+
+  function showPhoneBooking(date, reason, trigger) {
+    const number = validPhoneBookingNumber(state.phoneBookingNumber);
+    if (!number || !els.phoneDialog) return;
+    closeAppointmentModal(false);
+    state.phoneTrigger = trigger;
+    els.phoneDate.textContent = `${formatDate(date)}｜${reason}`;
+    els.phoneNumber.textContent = number;
+    els.phoneDial.href = `tel:${number.replace(/[ ()-]/g, '')}`;
+    els.phoneDial.setAttribute('aria-label', `撥打店家電話 ${number}`);
+    if (!els.phoneDialog.open) els.phoneDialog.showModal();
+  }
+
   function taipeiDate() {
     const parts = {};
     new Intl.DateTimeFormat('en-CA', {
@@ -186,6 +242,8 @@
     state.today = /^\d{4}-\d{2}-\d{2}$/.test(today) ? today : taipeiDate();
     state.minAdvanceDays = minAdvanceDays;
     state.maxAdvanceDays = maxAdvanceDays > 0 && maxAdvanceDays < minAdvanceDays ? 0 : maxAdvanceDays;
+    if (detail.settings?.phoneBookingNumber !== undefined) state.phoneBookingNumber = validPhoneBookingNumber(detail.settings.phoneBookingNumber);
+    if (els.phoneLegend) els.phoneLegend.hidden = !state.phoneBookingNumber;
     state.minimumDate = addDays(state.today, minAdvanceDays);
     state.maximumDate = state.maxAdvanceDays > 0 ? addDays(state.today, state.maxAdvanceDays) : '';
     const actualDate = String(els.bookingDate?.value || '');
@@ -218,7 +276,9 @@
 
     els.calendarMonthLabel.textContent = `${year} 年 ${month} 月`;
     if (els.previousMonthButton) els.previousMonthButton.disabled = state.month <= today.slice(0, 7);
-    if (els.nextMonthButton) els.nextMonthButton.disabled = Boolean(maximumDate && state.month >= maximumDate.slice(0, 7));
+    if (els.nextMonthButton) els.nextMonthButton.disabled = state.phoneBookingNumber
+      ? state.month >= shiftMonth(today.slice(0, 7), 12)
+      : Boolean(maximumDate && state.month >= maximumDate.slice(0, 7));
     els.calendarGrid.replaceChildren();
 
     for (let index = 0; index < 42; index += 1) {
@@ -243,7 +303,8 @@
       button.dataset.date = date;
       button.setAttribute('role', 'gridcell');
       button.setAttribute('aria-selected', state.selectedDate === date ? 'true' : 'false');
-      button.disabled = isPast || ((isAdvanceBlocked || isRangeBlocked) && !isHoliday);
+      button.disabled = isPast || ((isAdvanceBlocked || isRangeBlocked) && !isHoliday && !state.phoneBookingNumber);
+      if (!isHoliday && !isPast && (isAdvanceBlocked || isRangeBlocked) && state.phoneBookingNumber) button.classList.add('phone-available');
       if (isPast) button.classList.add('past-disabled');
       if ((isAdvanceBlocked || isRangeBlocked) && !isHoliday) button.classList.add('advance-disabled');
       if (isHoliday) {
@@ -305,16 +366,24 @@
         button.addEventListener('click', () => showHolidayNotice(date, holidays, button));
       } else if (isAdvanceBlocked) {
         const reason = `需提前 ${state.minAdvanceDays} 天，最早可預約 ${formatDate(minimumDate)}`;
-        button.title = reason;
-        button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，${reason}`);
+        button.title = state.phoneBookingNumber ? `${reason}，可致電店家預約` : reason;
+        button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，${button.title}`);
+        if (state.phoneBookingNumber) button.addEventListener('click', () => showPhoneBooking(date, reason, button));
       } else if (isRangeBlocked) {
         const reason = `超過可預約範圍，最遠可預約 ${formatDate(maximumDate)}`;
-        button.title = reason;
-        button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，${reason}`);
+        button.title = state.phoneBookingNumber ? `${reason}，可致電店家預約` : reason;
+        button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，${button.title}`);
+        if (state.phoneBookingNumber) button.addEventListener('click', () => showPhoneBooking(date, reason, button));
       } else {
         const occupiedText = intervals.length ? `，有 ${intervals.length} 個我的預約時段` : '';
         button.setAttribute('aria-label', `${formatDate(date)}${occupiedText}${bookedTimesDescription}，可開啟預約`);
         button.addEventListener('click', () => selectDate(date, button));
+      }
+      if (button.classList.contains('phone-available')) {
+        const badge = document.createElement('small');
+        badge.className = 'calendar-phone-badge';
+        badge.textContent = '致電預約';
+        button.appendChild(badge);
       }
       els.calendarGrid.appendChild(button);
     }
