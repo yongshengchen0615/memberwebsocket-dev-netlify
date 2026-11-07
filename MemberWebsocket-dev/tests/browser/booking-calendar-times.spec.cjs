@@ -170,7 +170,7 @@ for (const width of [390, 1280]) {
       throw new Error('Cannot navigate to month ' + date);
     };
 
-    for (const date of [dates.past, dates.today, dates.beforeMinimum, dates.beyondMaximum]) {
+    for (const date of [dates.past, dates.beyondMaximum]) {
       const cell = await visit(date);
       await expect(cell).toBeVisible();
       await expect(cell.locator('.calendar-phone-badge')).toHaveCount(0);
@@ -180,6 +180,17 @@ for (const width of [390, 1280]) {
       await expect(page.locator('#startDayBookingButton')).toBeDisabled();
       await expect(page.locator('#bookingPhoneFallback')).toBeHidden();
       await expect(page.locator('#bookingPhoneDial')).not.toHaveAttribute('href', /tel:/);
+      await page.locator('#closeBookingDayButton').click();
+    }
+
+    // The lead-time window blocks online self-service, but remains inside the merchant's phone window.
+    for (const date of [dates.today, dates.beforeMinimum]) {
+      const cell = await visit(date);
+      await expect(cell.locator('.calendar-phone-badge')).toHaveText('電話預約');
+      await cell.click();
+      await expect(page.locator('#startDayBookingButton')).toBeDisabled();
+      await expect(page.locator('#bookingPhoneFallback')).toBeVisible();
+      await expect(page.locator('#bookingPhoneDial')).toHaveAttribute('href', 'tel:061234567');
       await page.locator('#closeBookingDayButton').click();
     }
 
@@ -203,8 +214,8 @@ for (const width of [390, 1280]) {
       detail: { settings: { minAdvanceDays: 4, maxAdvanceDays: 5, phoneBookingNumber: '06-1234567' } }
     })));
     await expect(page.locator('#startDayBookingButton')).toBeDisabled();
-    await expect(page.locator('#bookingPhoneFallback')).toBeHidden();
-    await expect(page.locator('#bookingPhoneDial')).not.toHaveAttribute('href', /tel:/);
+    await expect(page.locator('#bookingPhoneFallback')).toBeVisible();
+    await expect(page.locator('#bookingPhoneDial')).toHaveAttribute('href', 'tel:061234567');
 
     await page.evaluate(() => window.dispatchEvent(new CustomEvent('booking:settings-updated', {
       detail: { settings: { minAdvanceDays: 2, maxAdvanceDays: 5, phoneBookingNumber: '06-1234567' } }
