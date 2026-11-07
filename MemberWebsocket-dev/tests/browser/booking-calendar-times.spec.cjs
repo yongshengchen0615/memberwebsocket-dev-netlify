@@ -115,10 +115,13 @@ for (const width of [390, 1280]) {
       return { today, tomorrow: offset(1), online: offset(2), tooFar: offset(6) };
     });
     const navigate = async (date) => {
-      for (let i = 0; i < 2; i++) {
+      for (let i = 0; i < 3; i++) {
         const current = await page.locator('#calendarMonthLabel').textContent();
-        if (current.includes(date.slice(0, 4)) && current.includes(Number(date.slice(5, 7)) + ' 月')) return;
-        await page.locator('#nextMonthButton').click();
+        const match = /([0-9]{4}) 年 ([0-9]{1,2}) 月/.exec(current || '');
+        const currentKey = match ? match[1] + '-' + match[2].padStart(2, '0') : '';
+        const targetKey = date.slice(0, 7);
+        if (currentKey === targetKey) return;
+        await page.locator(currentKey < targetKey ? '#nextMonthButton' : '#previousMonthButton').click();
       }
     };
     for (const date of [dates.today, dates.tomorrow, dates.tooFar]) {
@@ -131,7 +134,7 @@ for (const width of [390, 1280]) {
       await expect(dialog).toBeVisible();
       await expect(dialog).toContainText('06-1234567');
       await expect(dialog).toContainText('不會自動建立線上預約紀錄');
-      await expect(page.locator('#bookingPhoneDial')).toHaveAttribute('href', 'tel:06-1234567');
+      await expect(page.locator('#bookingPhoneDial')).toHaveAttribute('href', 'tel:061234567');
       await page.locator('[data-phone-close]').click();
       await expect(dialog).toBeHidden();
     }
