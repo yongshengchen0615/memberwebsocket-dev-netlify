@@ -42,7 +42,7 @@ assert.doesNotMatch(bookingIndex, /changeDateButton/);
 assert.doesNotMatch(bookingIndex, /選其他日期/);
 assert.doesNotMatch(calendarFlow, /changeDateButton/);
 assert.match(bookingIndex, /calendar-flow\.css\?v=platform-phone-booking-20261107-1/);
-assert.ok(bookingIndex.includes('calendar-flow.js?v=platform-phone-booking-20261107-1'));
+assert.ok(bookingIndex.includes('calendar-flow.js?v=phone-booking-window-20261107-2'));
 assert.doesNotMatch(calendarFlow, /ackBookingHolidayButton/);
 assert.doesNotMatch(calendarFlow, />知道了</);
 assert.match(bookingIndex, /calendar-holiday-theme\.css\?v=booking-calendar-holiday-theme-20260916-2/);
