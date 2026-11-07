@@ -49,7 +49,7 @@ test('AC-001: lead-time is online-only; today and tomorrow may be booked by tele
     const result = action(h, date);
     assert.equal(result.onlineDisabled, true, date);
     assert.equal(result.phoneHidden, false, date);
-    assert.equal(result.href, 'tel:06-1234567');
+    assert.equal(result.href, 'tel:061234567');
     assert.match(result.hint, /提前 2 天/);
   }
   for (const date of ['2026-11-09', '2026-12-07']) {
