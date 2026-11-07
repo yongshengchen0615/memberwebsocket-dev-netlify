@@ -154,8 +154,8 @@
               </section>
 
               <section class="booking-admin-settings-block booking-admin-settings-rule" aria-labelledby="bookingAdminPhoneBookingHeading">
-                <div class="booking-admin-settings-block-heading"><div><span class="booking-admin-settings-eyebrow">電話預約</span><h4 id="bookingAdminPhoneBookingHeading">不在可線上預約範圍時</h4></div></div>
-                <label class="booking-admin-settings-field"><span>店家電話（選填）</span><input id="bookingAdminPhoneNumber" type="tel" inputmode="tel" maxlength="25" autocomplete="tel" placeholder="例如 06-1234567 或 +886-6-1234567"><small>設定後，用戶選擇未達提前天數或超過最遠日期時，可以直接撥打店家電話。留空即停用；電話洽詢不會自動建立預約紀錄。</small></label>
+                <div class="booking-admin-settings-block-heading"><div><span class="booking-admin-settings-eyebrow">電話預約</span><h4 id="bookingAdminPhoneBookingHeading">可預約範圍內開放</h4></div></div>
+                <label class="booking-admin-settings-field"><span>店家電話（選填）</span><input id="bookingAdminPhoneNumber" type="tel" inputmode="tel" maxlength="25" autocomplete="tel" placeholder="例如 06-1234567 或 +886-6-1234567"><small>設定後，只有在商家可預約日期範圍內且非休假日，用戶才能撥打店家電話預約；超出提前天數或最遠日期限制則不顯示。留空即停用；電話洽詢不會自動建立預約紀錄。</small></label>
               </section>
 
               <section class="booking-admin-settings-block booking-admin-settings-rule" aria-labelledby="bookingAdminStoreServiceHeading">
