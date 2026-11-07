@@ -52,6 +52,8 @@ test('AC-005 migration retains legacy RPC and changes new settings atomically wi
   assert.match(migration,/public\.save_booking_shared_settings_v7\(/);
   assert.match(migration,/set phone_booking_number = v_phone/);
   assert.match(migration,/PHONE_BOOKING_NUMBER_UPDATED/);
+  assert.match(migration,/if p_phone_booking_number is null then v_phone := v_original; end if/);
+  assert.match(adminApi,/body\\.phoneBookingNumber === undefined \\? null/);
   assert.match(migration,/revoke all on function public\.save_booking_shared_settings_v8/);
   assert.match(migration,/to service_role/);
 });
