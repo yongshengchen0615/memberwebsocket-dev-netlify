@@ -17,10 +17,10 @@ assert.ok(validator, 'The calendar should validate merchant phone numbers before
 const validPhoneBookingNumber = vm.runInNewContext(validator[0] + '\nvalidPhoneBookingNumber');
 
 test('telephone link only accepts sane 6-15 digit merchant contact numbers', () => {
-  for (const valid of ['06-1234567', '02 2345 6789', '+886-6-1234567', '(06) 1234567', '0912345678']) {
+  for (const valid of ['06-1234567', '02 2345 6789', '+886-6-1234567', '06 (2) 1234567', '0912345678']) {
     assert.equal(validPhoneBookingNumber(valid), valid);
   }
-  for (const unsafe of ['', '12', '12345', '1'.repeat(16), 'tel:0912345678', '+886;ext=123', '09\n12345678', 'javascript:alert(1)', '09+12345678', '09/12345678']) {
+  for (const unsafe of ['', '12', '12345', '1'.repeat(16), 'tel:0912345678', '+886;ext=123', '09\n12345678', 'javascript:alert(1)', '09+12345678', '09/12345678', '(06) 1234567']) {
     assert.equal(validPhoneBookingNumber(unsafe), '', unsafe);
   }
 });
