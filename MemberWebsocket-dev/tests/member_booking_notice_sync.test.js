@@ -10,6 +10,8 @@ const bookingApi = read('supabase/functions/booking-api/index.ts');
 const adminApi = read('supabase/functions/booking-admin-api/index.ts');
 const memberCommon = read('booking/common.js');
 const memberApp = read('booking/app.js');
+const memberCalendar = read('booking/calendar-flow.js');
+const calendarApi = read('supabase/functions/booking-calendar-api/index.ts');
 const memberHtml = read('booking/index.html');
 
 test('AC-001: admin writes booking instructions to the merchant booking settings with length checks', () => {
@@ -29,7 +31,7 @@ test('AC-003: member only renders the latest accepted bootstrap; no global tenan
   assert.doesNotMatch(memberCommon, /get_booking_public_notice|publicNoticeClient|syncPublicBookingNotice/);
   assert.match(memberCommon, /function setBookingNotice\(value\)/);
   assert.match(memberCommon, /request, setBookingNotice, memberProfile/);
-  assert.match(memberApp, /if \(refreshSequence !== state\.refreshSequence\) return false;[\s\S]*?state\.data = bookingData \|\| state\.data;[\s\S]*?BookingSystem\.setBookingNotice\(state\.data\?\.settings\?\.bookingNotice\)/);
+  assert.match(memberApp, /if \(refreshSequence !== state\.refreshSequence\) return false;[\s\S]*?state\.data = bookingData \|\| state\.data;[\s\S]*?hasOwnProperty\.call\(state\.data\?\.settings \|\| \{\}, 'bookingNotice'\)[\s\S]*?BookingSystem\.setBookingNotice\(state\.data\.settings\.bookingNotice\)/);
   assert.match(memberHtml, /id="bookingNotice"[^>]*role="note"/);
   assert.match(memberHtml, /common\.js\?v=[^"]*booking-notice-20261107-1/);
   assert.match(memberHtml, /app\.js\?v=[^"]*booking-notice-20261107-1/);
@@ -70,4 +72,15 @@ test('AC-004: multiline notices are text-only, and clearing instructions hides t
   vm.runInContext('renderBookingNotice("   ");', context);
   assert.equal(notice.hidden, true);
   assert.equal(notice.children.length, 0);
+});
+
+test('AC-005: existing tenant-scoped calendar API provides notice until booking-api deployment catches up', () => {
+  assert.match(calendarApi, /booking_notice,work_start_time/);
+  assert.match(calendarApi, /const bookingNotice = String\(settingsResult\.data\.booking_notice \|\| ""\)/);
+  assert.match(calendarApi, /settings: \{ minAdvanceDays, maxAdvanceDays, bookingNotice/);
+  assert.match(memberCalendar, /requestSeq !== state\.occupancyRequestSeq \|\| month !== state\.month/);
+  assert.match(memberCalendar, /hasOwnProperty\.call\(result\.settings \|\| \{\}, 'bookingNotice'\)/);
+  assert.match(memberCalendar, /window\.BookingSystem\?\.setBookingNotice\?\.\(result\.settings\.bookingNotice\)/);
+  assert.match(memberCalendar, /state\.occupancyRequestSeq \+= 1;\s*window\.BookingSystem\?\.setBookingNotice\?\.\(''\)/);
+  assert.match(memberApp, /Never clear a valid calendar notice merely because this field is absent/);
 });
