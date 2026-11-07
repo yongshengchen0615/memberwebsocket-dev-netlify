@@ -9,6 +9,7 @@
     maxAdvanceDays: 0,
     minimumDate: '',
     maximumDate: '',
+    phoneBookingNumber: '',
     config: null,
     occupancyRequestSeq: 0,
     reloadTimer: 0,
@@ -32,7 +33,8 @@
       'bookingView', 'calendarMonthLabel', 'calendarGrid', 'previousMonthButton', 'nextMonthButton',
       'appointmentPanel', 'appointmentModalTitle', 'selectedDateSummary', 'closeAppointmentButton',
       'bookingDate', 'servicePicker', 'selectedServiceList', 'bookingList', 'bookingConfirmModal',
-      'bookingDayModal', 'bookingDayTitle', 'bookingDayHint', 'closeBookingDayButton', 'startDayBookingButton', 'bookingDayHolidayDetails'
+      'bookingDayModal', 'bookingDayTitle', 'bookingDayHint', 'closeBookingDayButton', 'startDayBookingButton', 'bookingDayHolidayDetails',
+      'bookingPhoneFallback', 'bookingPhoneFallbackNumber', 'bookingPhoneDial'
     ].forEach((id) => { els[id] = document.getElementById(id); });
 
     if (!els.calendarGrid || !els.bookingDate || !els.servicePicker || !els.appointmentPanel) return;
@@ -171,6 +173,12 @@
 
   }
 
+  function safePhoneBookingNumber(value) {
+    const text = String(value || '').trim();
+    const count = (text.match(/[0-9]/g) || []).length;
+    return text.length <= 25 && /^[+]?[0-9][0-9 ()-]{4,24}$/.test(text) && count >= 6 && count <= 15 ? text : '';
+  }
+
   function taipeiDate(value = new Date()) {
     const parts = {};
     new Intl.DateTimeFormat('en-CA', {
@@ -229,6 +237,7 @@
     state.today = /^\d{4}-\d{2}-\d{2}$/.test(today) ? today : taipeiDate();
     state.minAdvanceDays = minAdvanceDays;
     state.maxAdvanceDays = maxAdvanceDays > 0 && maxAdvanceDays < minAdvanceDays ? 0 : maxAdvanceDays;
+    if (detail.settings?.phoneBookingNumber !== undefined) state.phoneBookingNumber = safePhoneBookingNumber(detail.settings.phoneBookingNumber);
     state.minimumDate = addDays(state.today, minAdvanceDays);
     state.maximumDate = state.maxAdvanceDays > 0 ? addDays(state.today, state.maxAdvanceDays) : '';
     const actualDate = String(els.bookingDate?.value || '');
@@ -354,15 +363,21 @@
         button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，休假日，無法預約，點選查看休假說明`);
       } else if (isAdvanceBlocked) {
         const reason = `需提前 ${state.minAdvanceDays} 天，最早可預約 ${formatDate(minimumDate)}`;
-        button.title = reason;
-        button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，${reason}`);
+        button.title = state.phoneBookingNumber ? `${reason}，可電話預約` : reason;
+        button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，${button.title}`);
       } else if (isRangeBlocked) {
         const reason = `超過可預約範圍，最遠可預約 ${formatDate(maximumDate)}`;
-        button.title = reason;
-        button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，${reason}`);
+        button.title = state.phoneBookingNumber ? `${reason}，可電話預約` : reason;
+        button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，${button.title}`);
       } else {
         const occupiedText = intervals.length ? `，有 ${intervals.length} 個我的預約時段` : '';
         button.setAttribute('aria-label', `${formatDate(date)}${occupiedText}${bookedTimesDescription}，可開啟預約`);
+      }
+      if (!isPast && !isHoliday && (isAdvanceBlocked || isRangeBlocked) && state.phoneBookingNumber) {
+        const label = document.createElement('small');
+        label.className = 'calendar-phone-badge';
+        label.textContent = '電話預約';
+        button.appendChild(label);
       }
       button.setAttribute('aria-label', `${button.getAttribute('aria-label')}，點選查看當日紀錄`);
       button.addEventListener('click', () => openDayModal(date, button));
@@ -421,6 +436,20 @@
     const reason = bookingBlockReason(state.historyDate);
     if (els.startDayBookingButton) els.startDayBookingButton.disabled = Boolean(reason);
     if (els.bookingDayHint) els.bookingDayHint.textContent = reason || '查看當天紀錄，或開始新的預約。';
+    const phone = safePhoneBookingNumber(state.phoneBookingNumber);
+    const date = state.historyDate;
+    const phoneAllowed = Boolean(phone && date && date >= state.today
+      && !state.holidaysByDate.has(date)
+      && (date < state.minimumDate || (state.maximumDate && date > state.maximumDate)));
+    if (els.bookingPhoneFallback) els.bookingPhoneFallback.hidden = !phoneAllowed;
+    if (phoneAllowed) {
+      els.bookingPhoneFallbackNumber.textContent = phone;
+      els.bookingPhoneDial.href = `tel:${phone.replace(/[ ()-]/g, '')}`;
+      els.bookingPhoneDial.setAttribute('aria-label', `撥打店家電話 ${phone}`);
+    } else if (els.bookingPhoneDial) {
+      els.bookingPhoneDial.removeAttribute('href');
+      els.bookingPhoneFallbackNumber.textContent = '';
+    }
     const holidays = state.holidaysByDate.get(state.historyDate) || [];
     if (els.bookingDayHolidayDetails) {
       els.bookingDayHolidayDetails.hidden = !holidays.length;
