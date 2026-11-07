@@ -46,7 +46,7 @@ test('AC-004 phone respects merchant horizon and holidays, not online-only lead 
   assert.match(calendar,/els\.bookingPhoneFallback\.hidden = !phoneAllowed/);
   assert.match(calendar,/els\.bookingPhoneDial\.href = `tel:\$\{phone\.replace/);
   assert.match(calendar,/else if \(els\.bookingPhoneDial\) \{\s*els\.bookingPhoneDial\.removeAttribute\('href'\)/);
-  assert.match(calendar,/if \(els\.startDayBookingButton\) els\.startDayBookingButton\.disabled = Boolean\(reason\)/);
+  assert.match(calendar,/els\.startDayBookingButton\.disabled = Boolean\(reason\)/);
   assert.match(calendar,/button\.addEventListener\('click', \(\) => openDayModal\(date, button\)\)/);
   assert.match(html,/<button id="startDayBookingButton"[^>]*>線上預約<\/button>/);
   assert.match(html,/<div class="booking-day-footer">[\s\S]*?id="startDayBookingButton"[\s\S]*?id="bookingPhoneFallback"[^>]*hidden[\s\S]*?id="bookingPhoneDial"/);
