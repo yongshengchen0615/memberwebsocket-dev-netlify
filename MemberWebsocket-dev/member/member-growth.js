@@ -447,7 +447,12 @@
     if (!state.joinSubmitted) return;
     state.joinSubmitted = false;
 
-    const message = '我已完成 Lumen Club 會員註冊，想開始使用會員服務。';
+    // BusinessContext sets config.brandName from the merchant's configured siteTitle.
+    const configuredHeading = window.MemberSystem?.getSession?.('member')?.config?.brandName;
+    const pageHeading = String(document.title || '').replace(/\s*｜\s*會員卡\s*$/, '');
+    const heading = Array.from(String(configuredHeading || pageHeading || 'Lumen Club')
+      .replace(/\s+/g, ' ').trim()).slice(0, 60).join('') || 'Lumen Club';
+    const message = `我已完成 ${heading} 會員註冊`;
     try {
       if (!window.liff || typeof window.liff.sendMessages !== 'function' || !window.liff.isInClient?.()) return;
       const context = typeof window.liff.getContext === 'function' ? window.liff.getContext() : null;
