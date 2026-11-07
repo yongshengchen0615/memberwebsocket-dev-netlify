@@ -7,8 +7,9 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
 async function memberGrantFixture(features){
  const dom=new JSDOM(fs.readFileSync(path.join(root,'booking/index.html'),'utf8'),{url:'https://fixture.test/booking/?business=merchant-a',runScripts:'outside-only'});
  const w=dom.window,calls=[],observers=[],Observer=w.MutationObserver;let current=features,reply;
+ const style=w.document.createElement('style');style.textContent=fs.readFileSync(path.join(root,'business-context.css'),'utf8');w.document.head.append(style);
  w.MutationObserver=class extends Observer{constructor(callback){super(callback);observers.push(this);}};
- w.fetch=async(_url,init)=>{const body=JSON.parse(init.body);calls.push(body);if(reply)return reply(body);return {ok:true,json:async()=>({ok:true,data:{business:'merchant-a',name:'A',features:current,line:{}}})};};
+ w.fetch=async(_url,init)=>{const body=JSON.parse(init.body);calls.push(body);if(reply)return reply(body,init);return {ok:true,json:async()=>({ok:true,data:{business:'merchant-a',name:'A',features:current,line:{}}})};};
  w.eval(fs.readFileSync(path.join(root,'business-context.js'),'utf8'));
  const config={supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'fixture'};
  await w.BusinessContext.configure(config);
@@ -82,21 +83,23 @@ test('AC-MEMBER-004: failed or other-shop responses never replace known grants o
 test('AC-MEMBER-003: delayed configure keeps tenant scope and cannot roll newer grants back',async()=>{
  const h=await memberGrantFixture({booking:true,points:true});try{
   let finish;const delayed=new Promise(r=>{finish=r;});
-  h.reply(body=>body.feature?delayed:Promise.resolve({ok:true,json:async()=>({ok:true,data:{business:'merchant-a',features:{booking:true},line:{}}})}));
+  h.reply(body=>body.feature?delayed:Promise.resolve({ok:true,json:async()=>({ok:true,data:{business:'merchant-a',features:{booking:true},line:{bookingLiffId:'shared-liff'}}})}));
   const second={...h.config};delete second.business;
   const old=h.w.BusinessContext.configure(second);await h.w.BusinessContext.refresh(h.config);
-  finish({ok:true,json:async()=>({ok:true,data:{business:'merchant-a',features:{booking:true,points:true},line:{}}})});await old;
+  finish({ok:true,json:async()=>({ok:true,data:{business:'merchant-a',features:{booking:true,points:true},line:{bookingLiffId:'module-liff'}}})});await old;
   assert.equal(second.business,'merchant-a');assert.equal(second.grantedFeatures.points,false);
+  assert.equal(second.bookingLiffId,'module-liff','grant freshness never substitutes shared LINE metadata for module-specific identity');
   assert.equal(h.w.BusinessContext.allows('points'),false);
  }finally{h.close();}
 });
 test('AC-MEMBER-003: open snapshot keeps photo/event draft but revoked or forged point selections never enter prepare',async()=>{
  const h=await memberGrantFixture({booking:true,points:true,events:true});try{
-  const w=h.w,calls=[];
+  const w=h.w,calls=[];let holdPolicy=false,releasePolicy;
   const items=[{kind:'points',id:'R',selectionId:'P',selectable:true,title:'point',cardId:'C',pointCost:1,pointBalance:10},{kind:'event',id:'E',selectionId:'E',selectable:true,title:'event'}];
   w.TestModeClient={getSessionToken:()=> 'synthetic'};
   w.BookingSystem={getSession:()=>({config:h.config,idToken:'synthetic'}),request:async(_c,_t,_token,action,payload)=>{
    calls.push({action,payload});
+   if(action.endsWith('.list')&&holdPolicy){holdPolicy=false;return new Promise(r=>{releasePolicy=()=>r({snapshotLocationRequired:false,snapshotLocations:[],bookings:[],submissions:[]});});}
    if(action.endsWith('.prepare'))return {receiptId:'synthetic-receipt',objectPath:'synthetic',uploadToken:'synthetic'};
    if(action.endsWith('.finalize'))return {receiptId:'synthetic-receipt',status:'awaiting_review'};
    return {items,snapshotLocationRequired:false,snapshotLocations:[],bookings:[],submissions:[]};
@@ -106,17 +109,90 @@ test('AC-MEMBER-003: open snapshot keeps photo/event draft but revoked or forged
   await w.BookingReceipts.openAccessibleE2ESnapshot(new w.Blob(['synthetic-photo'],{type:'image/webp'}));await tick();
   await h.change({booking:true,points:true,events:true,calendar:true});await tick();
   h.d.querySelector('[data-snapshot-kind="points"]').click();h.d.querySelector('[data-snapshot-kind="event"]').click();
+  holdPolicy=true;
+  h.d.getElementById('snapshotTicketChoices').insertAdjacentHTML('beforeend','<input type="checkbox" checked data-snapshot-kind="points" data-snapshot-id="forged">');
+  h.d.getElementById('bookingReceiptSubmit').click();await tick();
+  assert.equal(typeof releasePolicy,'function','submission waits on actual policy read');
   await h.change({booking:true,events:true});await tick();
-  assert.equal(h.d.querySelector('[data-snapshot-kind="points"]'),null);
+  assert.equal(h.d.querySelector('[data-snapshot-kind="points"]:checked'),null);
   assert.equal(h.d.querySelector('[data-snapshot-kind="event"]').checked,true);
   assert.doesNotMatch(h.d.getElementById('snapshotTicketSelectionSummary').textContent,/集點卡|扣點/);
-  h.d.getElementById('snapshotTicketChoices').insertAdjacentHTML('beforeend','<input type="checkbox" checked data-snapshot-kind="points" data-snapshot-id="forged">');
-  h.d.getElementById('bookingReceiptSubmit').click();
+  assert.doesNotMatch(h.d.querySelector('.booking-receipt-help').textContent,/點數|服務時間/);
+  releasePolicy();
   for(let n=0;n<20&&!calls.some(c=>c.action.endsWith('.prepare'));n++)await tick();
   const prepared=calls.find(c=>c.action.endsWith('.prepare'));
   assert.ok(prepared,'the existing photo remains submittable after grant revocation');
   assert.equal(JSON.stringify(prepared.payload.benefits),'[{"kind":"event","id":"E"}]');
  }finally{h.w.dispatchEvent(new h.w.Event('pagehide'));h.close();}
+});
+test('review: delayed event claims cannot restore revoked selection intent or selected counts',async()=>{
+ const h=await memberGrantFixture({booking:true,points:true,events:true});try{
+  let finish,item={kind:'event',id:'E',claimRequired:true,title:'event',selectable:true};
+  const point={kind:'points',id:'R',selectionId:'P',selectable:true,title:'point',cardId:'C',pointCost:1,pointBalance:10};
+  h.w.confirm=()=>true;
+  h.w.BookingSystem={bookingBenefits:async()=>({items:[point,item]}),claimEventTicket:()=>new Promise(r=>{finish=r;})};
+  h.w.eval(fs.readFileSync(path.join(root,'ui-components.js'),'utf8'));
+  h.w.eval(fs.readFileSync(path.join(root,'booking/booking-benefits.js'),'utf8'));
+  h.w.BookingBenefits.start(h.config,'synthetic');await tick();
+  h.d.querySelector('[data-booking-benefit-kind="event"]').click();await tick();
+  assert.equal(typeof finish,'function');await h.change({booking:true,points:true});
+  item={...item,selectionId:'CLAIM',claimRequired:false};
+  finish({ticket:{claimId:'CLAIM'}});await tick();
+  assert.equal(h.w.BookingBenefits.selectionPayload().length,0);
+  assert.equal(h.w.BookingBenefits.selectionSummary().length,0);
+  assert.doesNotMatch(h.d.getElementById('bookingBenefitsStatus').textContent,/已選擇 1/);
+  await h.change({booking:true,points:true,events:true});await tick();
+  assert.equal(h.w.BookingBenefits.selectionPayload().length,0);
+ }finally{h.close();}
+});
+test('review: public grant refresh aborts at its deadline and a later refresh recovers',async()=>{
+ const h=await memberGrantFixture({booking:true});try{
+  let expire,delay,aborted=false;
+  const oldTimeout=h.w.setTimeout,oldClear=h.w.clearTimeout;
+  h.w.setTimeout=(fn,ms)=>{expire=fn;delay=ms;return 123;};h.w.clearTimeout=()=>{};
+  h.reply((_body,init)=>new Promise((_resolve,reject)=>{
+   init.signal?.addEventListener('abort',()=>{aborted=true;reject(Object.assign(Error('aborted'),{name:'AbortError'}));});
+  }));
+  const pending=h.w.BusinessContext.refresh(h.config);await tick();
+  assert.equal(delay,15000);expire();await assert.rejects(pending);
+  assert.equal(aborted,true);assert.equal(h.w.BusinessContext.allows('points'),false);
+  h.w.setTimeout=oldTimeout;h.w.clearTimeout=oldClear;h.reply(null);
+  await h.change({booking:true,points:true});assert.equal(h.w.BusinessContext.allows('points'),true);
+ }finally{h.close();}
+});
+for(const group of [false,true])test('review: open '+(group?'group':'single')+' confirmation rerenders revoked per-kind tickets',async()=>{
+ const h=await memberGrantFixture({booking:true,points:true,events:true});try{
+  const w=h.w;
+  w.BookingSystem={formatDate:x=>x,request:async()=>({}),bookingBenefits:async()=>({items:[]})};
+  w.eval(fs.readFileSync(path.join(root,'booking/booking-benefits.js'),'utf8'));
+  const source=fs.readFileSync(path.join(root,'booking/app.js'),'utf8').replace('  window.MemberClientQaHooks =','  window.__confirmationTest={state,els,renderConfirmation};\n  window.MemberClientQaHooks =');
+  w.eval(source);
+  const t=w.__confirmationTest,service={serviceId:'S',title:'service',durationMinutes:30,priceAmount:100,isActive:true};
+  t.state.config=h.config;t.state.data={services:[service],settings:{}};t.state.selections=[{serviceId:'S',quantity:1}];t.state.selectedSlot={startTime:'10:00',endTime:'10:40'};
+  for(const id of ['bookingDate','bookingConfirmModal','bookingConfirmSummary','memberNote','bookingReminderEnabled','bookingReminderTime'])t.els[id]=h.d.getElementById(id);
+  if(group){
+   const script=fs.readFileSync(path.join(root,'booking/group-booking.js'),'utf8').replace('  window.BookingGroupUI =','  window.__groupState=state;\n  window.BookingGroupUI =');w.eval(script);
+   Object.assign(w.__groupState,{config:h.config,services:[service],primaryItems:[{serviceId:'S',quantity:1}],partySize:1});
+  }
+  w.BookingBenefits.setSelection([{kind:'points',id:'P',title:'point draft'},{kind:'event',id:'E',title:'event draft'}]);
+  t.els.bookingConfirmModal.classList.remove('hidden');t.renderConfirmation([{service,quantity:1}]);
+  assert.match(t.els.bookingConfirmSummary.textContent,/point draft/);
+  await h.change({booking:true,events:true});
+  assert.doesNotMatch(t.els.bookingConfirmSummary.textContent,/point draft|集點卡/);
+  assert.match(t.els.bookingConfirmSummary.textContent,/event draft/);
+ }finally{h.close();}
+});
+test('review: friend booking help exposes only granted ticket/point rewards and restores on regrant',async()=>{
+ const h=await memberGrantFixture({booking:true,membership:true});try{
+  h.w.BookingSystem={getSession:()=>({config:h.config,idToken:'synthetic'})};
+  h.w.eval(fs.readFileSync(path.join(root,'friends.js'),'utf8'));
+  h.w.dispatchEvent(new h.w.CustomEvent('booking:member-loaded',{detail:{profile:{lineUserId:'synthetic',memberCode:'M',profileComplete:true}}}));await tick();
+  const visible=node=>node.nodeType===3?node.textContent:h.w.getComputedStyle(node).display==='none'?'':Array.from(node.childNodes,visible).join('');
+  const help=h.d.querySelector('.booking-recipient-help');
+  assert.ok(help);assert.doesNotMatch(visible(help),/點數|集點|票券/);
+  await h.change({booking:true,membership:true,points:true});
+  assert.match(visible(help),/點數|集點/);
+ }finally{h.close();}
 });
 function fixture(){
  const dom=new JSDOM(fs.readFileSync(path.join(root,'admin/index.html'),'utf8'),{url:'https://fixture.test/admin/?business=merchant-a',runScripts:'outside-only'});

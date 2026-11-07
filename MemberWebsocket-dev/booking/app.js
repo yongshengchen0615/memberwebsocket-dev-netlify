@@ -699,6 +699,7 @@
       ticketList.className = 'booking-confirm-ticket-list';
       benefits.forEach((item) => {
         const ticket = document.createElement('li');
+        ticket.dataset.benefitKind=item.kind;
         const sourceTitle = item.kind === 'points' && item.cardTitle ? `${item.cardTitle}｜` : '';
         ticket.textContent = `${ticketKinds[item.kind] || '票券'}：${sourceTitle}${item.title || '未命名票券'}`;
         ticketList.appendChild(ticket);
@@ -1269,6 +1270,10 @@
   }
 
   window.addEventListener('pagehide', () => window.clearTimeout(state.priceRefreshTimer));
+  window.addEventListener('booking:benefits-changed',()=>{
+    if(!state.submitting)state.pendingBookingWrite=null;
+    if(els.bookingConfirmModal&&!els.bookingConfirmModal.classList.contains('hidden')&&state.selectedSlot)renderConfirmation(selectedServiceRows());
+  });
   window.addEventListener('pageshow', event => { if (event.persisted) schedulePriceRefresh(); });
   window.MemberClientQaHooks = Object.freeze({
     surface: 'booking',

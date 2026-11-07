@@ -12,6 +12,7 @@
   let pointTicketMaxPerRedemption = 1;
   let currentBookingId = '';
   let claimingEventTicketId = '';
+  let featureGeneration = 0;
   let currentServiceIds = new Set();
   const selected = new Map();
   const kinds = { points: '集點卡票券', event: '活動票券', calendar: '會員活動' };
@@ -190,6 +191,7 @@
   }
 
   async function handleSelectionChange(item, input) {
+    if(!allowed(item)){input.checked=false;return;}
     const selectionId = String(item.selectionId || '');
     const selectedKey = selectionId ? keyFor(item.kind, selectionId) : '';
     if (!input.checked) {
@@ -239,9 +241,11 @@
         return;
       }
       claimingEventTicketId = String(item.id || '');
+      const claimGeneration=featureGeneration;
       render(renderedItems);
       try {
         const result = await window.BookingSystem.claimEventTicket(config, idToken, item.id);
+        if(disposed||claimGeneration!==featureGeneration||!allowed(item))return;
         const claimId = String(result?.ticket?.claimId || '');
         if (!claimId) throw new Error('票券已領取，但無法取得票券識別，請重新整理後再試。');
         renderedItems = renderedItems.map((current) => current?.kind === 'event' && current?.id === item.id
@@ -546,7 +550,7 @@
       window.clearTimeout(timer);
       timer = null;
     }
-    setRefreshing('正在同步最新點數與可用票券…');
+    setRefreshing('正在同步最新可用優惠…');
     void load();
   }
 
@@ -563,6 +567,7 @@
 
   let freshness = null;
   window.addEventListener('business:features-changed',()=>{
+    featureGeneration++;
     for(const [key,item]of selected)if(!allowed(item))selected.delete(key);
     render(renderedItems.filter(allowed));
     emitSelectionChange();

@@ -16,6 +16,8 @@
   let lastScrolledSnapshotId = '';
   let historyDate = '';
   let historySubmissions = [];
+  let lastLocationState={};
+  const ticketFeaturesEnabled=()=>window.BusinessContext?.allows?.('points')!==false||window.BusinessContext?.allows?.('events')!==false;
   function snapshotChatFeedback(result) {
     if (result?.alreadyApplied === true) return '此快照先前已送出，不會重複傳送 LINE 訊息。';
     if (result?.chatResult?.sent === true) return '已由你的 LINE 將「快照確認」傳送到官方帳號聊天。';
@@ -25,6 +27,7 @@
   }
   window.BookingAccessibility = Object.freeze({ getPreferenceKey: () => memberId ? keyPrefix + memberId : '' });
   function renderLocationState({ status = 'idle', message = '' } = {}) {
+    lastLocationState={status,message};
     const statusLabel = el('bookingSnapshotLocationStatus');
     const retry = el('bookingSnapshotLocationRetry');
     const upload = el('bookingAccessibleUpload');
@@ -33,7 +36,7 @@
     if (!statusLabel) return;
     statusLabel.textContent = status === 'ready'
       ? 'GPS 已定位，可以拍攝快照收據。送出時會再次確認定位有效性。'
-      : status === 'optional' ? '管理端未要求快照定位，可直接拍攝收據。部分票券仍有獨立的定位限制。'
+      : status === 'optional' ? '管理端未要求快照定位，可直接拍攝收據。'+(ticketFeaturesEnabled()?'部分票券仍有獨立的定位限制。':'')
       : status === 'checking' ? '正在確認管理端的快照定位設定…'
       : status === 'requesting' ? '正在取得 GPS 定位，請允許裝置提供位置…'
       : status === 'error' ? (message || '目前無法確認定位設定，請按「重新定位」。')
@@ -236,7 +239,7 @@
       const benefits = (Array.isArray(row.requestedBenefits) ? row.requestedBenefits : []).filter(item=>window.BusinessContext?.allowsBenefit?.(item.kind)!==false);
       if(window.BusinessContext?.allows?.('points')!==false||window.BusinessContext?.allows?.('events')!==false)add('本次登記票券：' + (benefits.map(item => String(item.title || item.id || '票券')).join('、') || '未選用'));
       const settlement = Array.isArray(row.settlement) ? row.settlement[0] : row.settlement;
-      if (settlement) add('已核准服務時間：' + Number(settlement.service_minutes || 0) + ' 分鐘');
+      if (settlement&&window.BusinessContext?.allows?.('membership')!==false) add('已核准服務時間：' + Number(settlement.service_minutes || 0) + ' 分鐘');
       if (requestedId && requestedId === details.dataset.receiptId) {
         details.classList.add('booking-detail-target');
         if (!existingDetails.has(details.dataset.receiptId)) details.open = true;
@@ -330,7 +333,7 @@
       if (benefits.length) status.textContent += ` 登記票券：${benefits.map(item => item.title || item.id).join('、')}。`;
       const cancel = document.createElement('button'); cancel.type='button'; cancel.className='button button-outline'; cancel.textContent='撤回登記';
       cancel.addEventListener('click', async () => {
-        if (!window.confirm('撤回這次收據與票券登記？尚未核准的票券不會核銷。')) return;
+        if (!window.confirm(ticketFeaturesEnabled()?'撤回這次收據與票券登記？尚未核准的票券不會核銷。':'撤回這次收據登記？')) return;
         cancel.disabled=true;
         try { const session=window.BookingSystem.getSession(); await window.BookingSystem.request(session.config,'booking',session.idToken,'user.booking.receipt.cancel',{receiptId:latest.receiptId,expectedUpdatedAt:latest.updatedAt}); await window.BookingReceipts.refresh(); }
         catch(error) {status.textContent=error?.message||'無法撤回，請重新整理後確認狀態。';}
@@ -340,7 +343,7 @@
         status.append(document.createTextNode(' ' + lastChatFeedback.message));
       }
     } else if (latest.cancelled) {
-      status.textContent = '已撤回收據與票券登記，未執行核銷。';
+      status.textContent = ticketFeaturesEnabled()?'已撤回收據與票券登記，未執行核銷。':'已撤回收據登記。';
     } else if (latest.dismissed) {
       status.textContent = '管理員請您重新提供收據，請確認內容後再次拍攝。';
     } else {
@@ -393,6 +396,10 @@
     setMode(preferred);
   });
   window.addEventListener('booking:benefits-loaded', event => renderTickets(event.detail?.items));
+  window.addEventListener('business:features-changed',()=>{
+    renderLocationState(lastLocationState);renderStatus(historySubmissions);
+    renderTickets(window.BookingBenefits?.getItems?.()||[]);
+  });
   window.addEventListener('booking:snapshot-benefit-options', event => { if (enabled) renderTickets(event.detail?.items); });
   window.addEventListener('booking:receipts-updated', event => renderStatus(event.detail?.submissions));
   window.addEventListener('booking:receipt-load-error', () => {

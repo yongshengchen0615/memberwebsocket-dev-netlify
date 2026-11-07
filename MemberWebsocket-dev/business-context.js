@@ -23,6 +23,7 @@
   mark('#memberView,#pointsView,#eventView,#calendarView,#bookingView',[memberSurface]);
   mark('[role="dialog"]',[memberSurface]);
   mark('#membershipProgress',['membership']);
+  mark('#friendsPanel,#bookingFriendsModal',['membership']);
   mark('#bookingBenefits',['points','events','calendar'],true);
   mark('#bookingAccessibleTickets,#bookingAccessibleTicketsStatus,#bookingAccessibleTicketHeading,#bookingAccessibleTicketHelp,#bookingTicketRedemptionHint,#snapshotTicketFields,.booking-confirm-benefits',['points','events'],true);
   for(const [kind,feature]of Object.entries({points:'points',event:'events',calendar:'calendar'})){
@@ -30,6 +31,7 @@
   }
   mark('.service-type-reward,.group-service-reward',['points']);
   for(const node of document.querySelectorAll('[data-member-requires]'))setAllowed(node,node.dataset.memberRequires.split(' ').every(allows));
+  for(const node of document.querySelectorAll('[data-member-any]'))setAllowed(node,node.dataset.memberAny.split(' ').some(allows));
   for(const node of document.querySelectorAll('a[href]')){
    try{const u=new URL(node.href,location.href),feature=({member:'membership',points:'points',event:'events',calendar:'calendar',booking:'booking'})[u.pathname.split('/')[1]];
     if(u.origin===location.origin&&feature&&u.searchParams.get('business')===slug){node.dataset.memberAllowed=String(allows(feature));node.inert=!allows(feature);}
@@ -42,8 +44,8 @@
   const changed=JSON.stringify(next)!==JSON.stringify(grants);grants=next;
   for(const config of configs)config.grantedFeatures={...next};
   if(memberSurface&&slug&&document.createElement&&!document.getElementById('memberFeatureGateStyle')){
-   const style=document.createElement('style');style.id='memberFeatureGateStyle';
-   style.textContent='html body [data-member-allowed="false"]{display:none!important}';document.head.append(style);
+   const style=document.createElement('link');style.id='memberFeatureGateStyle';style.rel='stylesheet';
+   style.href=new URL('../business-context.css?v=member-grants-20261107-1',location.href).href;document.head.append(style);
   }
   gate();
   if(changed&&memberSurface&&typeof window.dispatchEvent==='function')window.dispatchEvent(new CustomEvent('business:features-changed',{detail:{features:{...next}}}));
@@ -58,8 +60,14 @@
   if(!slug){updatePageTitle(config);return config;}
   const sequence=++requestSequence,requestedSlug=slug;
   const url=new URL(config.supabaseFunctionUrl);url.pathname=url.pathname.replace(/\/api\/?$/,'/platform-api');
-  const response=await original(url.href,{method:'POST',headers:{'Content-Type':'application/json',apikey:config.supabasePublishableKey},body:JSON.stringify({action:'platform.business.public',business:slug,...(!refresh&&memberSurface?{feature:memberSurface}:{})}),cache:'no-store'});
-  const body=await response.json();if(!response.ok||!body.ok)throw Object.assign(Error(body.error?.message||'無法取得商家設定。'),{code:body.error?.code||'BUSINESS_UNAVAILABLE'});
+  const controller=refresh?new AbortController():null;
+  const timer=controller?window.setTimeout(()=>controller.abort(),15000):null;
+  let response,body;
+  try{
+   response=await original(url.href,{method:'POST',headers:{'Content-Type':'application/json',apikey:config.supabasePublishableKey},body:JSON.stringify({action:'platform.business.public',business:slug,...(!refresh&&memberSurface?{feature:memberSurface}:{})}),cache:'no-store',...(controller?{signal:controller.signal}:{})});
+   body=await response.json();
+  }finally{if(timer!==null)window.clearTimeout(timer);}
+  if(!response.ok||!body.ok)throw Object.assign(Error(body.error?.message||'無法取得商家設定。'),{code:body.error?.code||'BUSINESS_UNAVAILABLE'});
   if(body.data.business!==requestedSlug)throw Error('商家設定不一致。');
   if(requestedSlug!==slug)throw Error('商家入口已變更。');
   if(sequence===requestSequence)latestPublic=body.data;
@@ -68,8 +76,10 @@
   configs.add(config);
   config.business=data.business;config.brandName=data.siteTitle||data.name;config.grantedFeatures=data.features;
   if(!refresh)for(const key of ['adminLiffId','memberLiffId','pointsLiffId','eventLiffId','calendarLiffId','bookingLiffId']){
-   if(data.line?.[key])config[key]=data.line[key];
-   else if(key!=='adminLiffId'&&data.line?.memberChannelId&&data.line.memberChannelId!=='2010787602')config[key]='';
+   // Grants may be newer than this module-specific response. Its LINE identity
+   // must still come from the feature-scoped request, never an unscoped refresh.
+   if(body.data.line?.[key])config[key]=body.data.line[key];
+   else if(key!=='adminLiffId'&&body.data.line?.memberChannelId&&body.data.line.memberChannelId!=='2010787602')config[key]='';
   }
   updatePageTitle(config);
   applyFeatures(data.features);

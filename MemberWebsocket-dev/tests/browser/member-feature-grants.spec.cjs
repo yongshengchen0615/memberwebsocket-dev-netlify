@@ -18,7 +18,7 @@ for(const width of [390,1280])test(`AC-MEMBER-001..004_${width}: real booking re
  let features={booking:true,membership:true,points:true,events:true,calendar:true},revision='1';const calls=[],errors=[];
  await page.setViewportSize({width,height:900});await page.clock.install({time:new Date('2026-11-07T00:00:00Z')});
  page.on('pageerror',e=>errors.push(e.message));
- await page.route('https://**',route=>{
+ await page.route('https://fixture.supabase.co/**',route=>{
   if(!route.request().url().startsWith('https://fixture.supabase.co/'))return route.abort();
   const body=route.request().postDataJSON();calls.push(body);
   if(body.action==='platform.business.public')return route.fulfill({json:{ok:true,data:{business:'merchant-a',name:'QA',features,line:{}}}});
@@ -78,7 +78,7 @@ for(const width of [390,1280])test(`AC-MEMBER-001..004_${width}: real booking re
 test('AC-MEMBER-003: MemberSystem updates member cross-module links on revision changes with no idle public reads',async({page})=>{
  let features={membership:true,points:true,events:true},revision='1';let reads=0;
  await page.clock.install({time:new Date('2026-11-07T00:00:00Z')});
- await page.route('https://**',route=>{
+ await page.route('https://fixture.supabase.co/**',route=>{
   if(!route.request().url().startsWith('https://fixture.supabase.co/'))return route.abort();
   const b=route.request().postDataJSON();
   if(b.action==='platform.business.public'){reads++;return route.fulfill({json:{ok:true,data:{business:'merchant-a',name:'QA',features,line:{}}}});}

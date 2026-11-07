@@ -99,6 +99,7 @@ for (const testMode of [false, true]) {
     const { assertBusinessAction } = await import(pathToFileURL(path.join(root, 'supabase/functions/_shared/business-policy.mjs')));
     const requests = [], denied = [];
     const context = { status: 'active', runtime_schema: 'business_' + 'a'.repeat(32), features: { booking: true, calendar: false } };
+    await page.route('https://fixture.supabase.co/functions/v1/platform-api',route=>route.fulfill({json:{ok:true,data:{business:'merchant-a',name:'QA',features:context.features,line:{}}}}));
     await page.route('https://fixture.supabase.co/functions/v1/booking-calendar-api', async route => {
       const body = route.request().postDataJSON();
       requests.push(body);
@@ -113,7 +114,8 @@ for (const testMode of [false, true]) {
     await page.setViewportSize({ width: testMode ? 1280 : 390, height: 900 });
     await page.goto(baseUrl + '/booking/?business=merchant-a');
     await page.addScriptTag({ url: baseUrl + '/business-context.js' });
-    await page.evaluate(testMode => {
+    await page.evaluate(async testMode => {
+      await window.BusinessContext.configure({supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'fixture-key'});
       window.BookingSystem.loadConfig = async () => ({ supabaseUrl: 'https://fixture.supabase.co', supabasePublishableKey: 'fixture-key' });
       window.liff = { isLoggedIn: () => true, getIDToken: () => 'synthetic-line-token' };
       if (testMode) window.TestModeClient = { getSessionToken: () => 'synthetic-session', payload: body => ({ ...body, testSessionToken: 'synthetic-session' }) };

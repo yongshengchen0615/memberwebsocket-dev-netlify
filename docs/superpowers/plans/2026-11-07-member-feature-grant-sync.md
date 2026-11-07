@@ -66,3 +66,24 @@ Files: booking/index.html、booking-benefits.js、booking-accessible.js、bookin
 回復：revert 本 PR 並重新跑同版 CI／branch deploy；無 DB／歷史交易回復。
 
 基線實測：Node 1328 pass / 0 fail / 0 skip；其他層尚未執行，不能當通過。
+
+## 獨立審查與修復紀錄
+
+Issue #264 / PR #265。初候選 68a7d2e86735ea83bc4cfd00af83eae452064407 的 Node/DOM/PG/Edge/syntax/wiring/audit 已在 Actions 實際成功，但 Chromium、build、risk 尚有失敗，沒有合併或發布。
+
+獨立 read-only whole-change review 指出六項 Important，已逐項建立／擴充真實行為測試並 RED→GREEN：
+
+1. 快照在 policy/GPS await 後重新取當前允許選擇，prepare／upload 後查驗 feature generation；過期 prepared/request 不重用，保留照片。
+2. 已開啟單人／多人確認窗依 benefits-changed 重繪；票券列也有各自 kind gate。
+3. 領券 await 使用 grant generation，撤權後的 late claim 不重建選擇，重新開通只重載資格。
+4. 公開 grants refresh 15 秒 abort；失敗回到既有 backoff，可重試恢復。
+5. configure 的 module LINE metadata 始終取自原 feature-scoped response；較新 unscoped grants 不替換 module LIFF。
+6. 快照、primary-technician、同步狀態與好友說明依各自 grants 更新；保留其他可用功能。
+
+Minor 的重複 cache query 由復原無行為改動的 admin/platform HTML 消除，沒有延後項目。審查未判定的真 LINE/部署／remote CI 由本輪相應驗收獨立追蹤；原後端／DB 契約未改，仍跑其完整基線。
+
+Chromium 首輪還發現 fixture 未載入已核准 grants 造成 inert，以及新 fixture 的泛用 URL route 未攔截公開設定而 DNS 失敗。保留原商家授權斷言，補上真正 configure 和精確 fixture host route，不提高 timeout／減弱斷言。另修正正式 CSP 相容性：gate CSS 以同源 business-context.css 載入，不加入被 style-src 拒絕的 inline style。
+
+本機審查修復的 11 個會員專屬 DOM 案例成功；含舊 booking/friends 等相關 DOM 共 53 pass/0 fail/0 skip。完整最終 SHA CI／發布仍須重跑，不引用初版成功。
+
+同條件 asset byte 比較：基準受影響 JS 共 329446 bytes，新候選 JS + 新 gate CSS 約 339 KB（精確值記 PR）；成本約 +10 KB，沒有提速宣稱。既有 probe 間隔不變，changed 才額外一個 public 設定讀取；idle 不增加公開讀取的實際 browser 斷言由最終 CI 確認。
