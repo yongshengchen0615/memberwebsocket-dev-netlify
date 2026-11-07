@@ -34,7 +34,8 @@ test('AC-003: member only renders the latest accepted bootstrap; no global tenan
   assert.match(memberApp, /if \(refreshSequence !== state\.refreshSequence\) return false;[\s\S]*?state\.data = bookingData \|\| state\.data;[\s\S]*?hasOwnProperty\.call\(state\.data\?\.settings \|\| \{\}, 'bookingNotice'\)[\s\S]*?BookingSystem\.setBookingNotice\(state\.data\.settings\.bookingNotice\)/);
   assert.match(memberHtml, /id="bookingNotice"[^>]*role="note"/);
   assert.match(memberHtml, /common\.js\?v=[^"]*booking-notice-20261107-1/);
-  assert.match(memberHtml, /app\.js\?v=[^"]*booking-notice-20261107-1/);
+  assert.match(memberHtml, /app\.js\?v=[^"]*booking-notice-20261107-2/);
+  assert.match(memberHtml, /calendar-flow\.js\?v=[^"]*booking-notice-20261107-2/);
 });
 
 test('AC-004: multiline notices are text-only, and clearing instructions hides the notice', () => {
