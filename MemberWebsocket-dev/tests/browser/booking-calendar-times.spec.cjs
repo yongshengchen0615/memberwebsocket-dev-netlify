@@ -91,3 +91,59 @@ for (const width of [320, 390, 1280]) {
     await expect(cell.locator('.calendar-booking-times')).toHaveCount(0);
   });
 }
+
+for (const width of [390, 1280]) {
+  test('telephone booking routes dates before min advance and after max advance at ' + width + 'px', async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(baseUrl + '/booking/');
+    const dates = await page.evaluate(() => {
+      const parts = {};
+      new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit',
+      }).formatToParts(new Date()).forEach((item) => {
+        if (item.type !== 'literal') parts[item.type] = item.value;
+      });
+      const today = parts.year + '-' + parts.month + '-' + parts.day;
+      const offset = (days) => {
+        const value = new Date(today + 'T00:00:00Z');
+        value.setUTCDate(value.getUTCDate() + days);
+        return value.toISOString().slice(0, 10);
+      };
+      window.dispatchEvent(new CustomEvent('booking:settings-updated', {
+        detail: { today, settings: { minAdvanceDays: 2, maxAdvanceDays: 5, phoneBookingNumber: '06-1234567' } },
+      }));
+      return { today, tomorrow: offset(1), online: offset(2), tooFar: offset(6) };
+    });
+    const navigate = async (date) => {
+      for (let i = 0; i < 2; i++) {
+        const current = await page.locator('#calendarMonthLabel').textContent();
+        if (current.includes(date.slice(0, 4)) && current.includes(Number(date.slice(5, 7)) + ' 月')) return;
+        await page.locator('#nextMonthButton').click();
+      }
+    };
+    for (const date of [dates.today, dates.tomorrow, dates.tooFar]) {
+      await navigate(date);
+      const cell = page.locator('[data-date="' + date + '"]');
+      await expect(cell).toBeEnabled();
+      await expect(cell).toContainText('致電預約');
+      await cell.click();
+      const dialog = page.locator('#bookingPhoneDialog');
+      await expect(dialog).toBeVisible();
+      await expect(dialog).toContainText('06-1234567');
+      await expect(dialog).toContainText('不會自動建立線上預約紀錄');
+      await expect(page.locator('#bookingPhoneDial')).toHaveAttribute('href', 'tel:06-1234567');
+      await page.locator('[data-phone-close]').click();
+      await expect(dialog).toBeHidden();
+    }
+    await navigate(dates.online);
+    await expect(page.locator('[data-date="' + dates.online + '"]')).toBeEnabled();
+    await expect(page.locator('[data-date="' + dates.online + '"]')).not.toContainText('致電預約');
+    await page.evaluate(() => {
+      window.dispatchEvent(new CustomEvent('booking:settings-updated', {
+        detail: { settings: { minAdvanceDays: 2, maxAdvanceDays: 5, phoneBookingNumber: '' } },
+      }));
+    });
+    await navigate(dates.tooFar);
+    await expect(page.locator('[data-date="' + dates.tooFar + '"]')).toBeDisabled();
+  });
+}
