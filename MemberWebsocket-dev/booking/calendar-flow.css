@@ -30,7 +30,7 @@
 @media(max-width:520px){.booking-day-card{max-height:calc(100dvh - 16px);width:calc(100vw - 16px)}.booking-day-card>.booking-modal-heading,.booking-day-records{padding:16px}.booking-day-footer{padding:12px 16px max(12px,env(safe-area-inset-bottom))}.booking-day-card h2{font-size:19px}.calendar-record-label{font-size:9px}}
 
 
-/* Telephone assistance is available only when a date fails online advance rules. */
+/* Telephone booking is offered only on dates within the online booking window. */
 .calendar-phone-badge{display:block;margin-top:4px;padding:3px 5px;border-radius:6px;background:#f9dbab;color:#684116;font-size:10px;font-weight:850;line-height:1.3}
 .booking-phone-fallback{display:grid;gap:10px;padding:16px;margin:14px 0;border-radius:14px;border:1px solid #d0ac6a;background:#fff8e9;color:#45351e}
 .booking-phone-fallback[hidden]{display:none!important}

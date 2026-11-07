@@ -136,67 +136,131 @@ for (const testMode of [false, true]) {
 }
 
 
+
 for (const width of [390, 1280]) {
-  test('merchant phone fallback keeps day records and blocks online booking at ' + width + 'px', async ({page}) => {
-    await page.setViewportSize({width,height:900});
-    await page.goto(baseUrl+'/booking/');
+  test('phone booking is available only inside the inclusive date window at ' + width + 'px', async ({ page }) => {
+    await page.clock.setFixedTime(new Date('2026-11-07T03:00:00Z'));
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(baseUrl + '/booking/');
     const dates = await page.evaluate(() => {
-      const parts = {};
-      new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).forEach(item=>{
-        if(item.type!=='literal')parts[item.type]=item.value;
-      });
-      const today=parts.year+'-'+parts.month+'-'+parts.day;
-      const offset=days=>{
-        const d=new Date(today+'T00:00:00Z');
-        d.setUTCDate(d.getUTCDate()+days);
-        return d.toISOString().slice(0,10);
+      const today = '2026-11-07';
+      const offset = (days) => {
+        const date = new Date(today + 'T00:00:00Z');
+        date.setUTCDate(date.getUTCDate() + days);
+        return date.toISOString().slice(0, 10);
       };
-      window.dispatchEvent(new CustomEvent('booking:settings-updated',{detail:{
-        today,settings:{minAdvanceDays:2,maxAdvanceDays:5,phoneBookingNumber:'06-1234567'}
-      }}));
-      return {today,tomorrow:offset(1),online:offset(2),tooFar:offset(6)};
+      window.dispatchEvent(new CustomEvent('booking:settings-updated', { detail: {
+        today, settings: { minAdvanceDays: 2, maxAdvanceDays: 5, phoneBookingNumber: '06-1234567' }
+      } }));
+      return {
+        past: offset(-1), today, beforeMinimum: offset(1),
+        minimum: offset(2), middle: offset(3), maximum: offset(5), beyondMaximum: offset(6)
+      };
     });
-    const visit = async date => {
-      for(let i=0;i<4;i++){
-        const label=await page.locator('#calendarMonthLabel').textContent();
-        const match=/([0-9]{4}) 年 ([0-9]{1,2}) 月/.exec(label||'');
-        const current=match ? match[1]+'-'+match[2].padStart(2,'0') : '';
-        const target=date.slice(0,7);
-        if(current===target)return;
-        await page.locator(current<target?'#nextMonthButton':'#previousMonthButton').click();
+
+    const visit = async (date) => {
+      for (let i = 0; i < 4; i++) {
+        const label = await page.locator('#calendarMonthLabel').textContent();
+        const match = /([0-9]{4}) 年 ([0-9]{1,2}) 月/.exec(label || '');
+        const current = match ? match[1] + '-' + match[2].padStart(2, '0') : '';
+        const target = date.slice(0, 7);
+        if (current === target) return page.locator('[data-date="' + date + '"]');
+        await page.locator(current < target ? '#nextMonthButton' : '#previousMonthButton').click();
       }
-      throw new Error('Failed to navigate to month '+date);
+      throw new Error('Cannot navigate to month ' + date);
     };
-    for(const date of [dates.today,dates.tomorrow,dates.tooFar]){
-      await visit(date);
-      const cell=page.locator('[data-date="'+date+'"]');
+
+    for (const date of [dates.past, dates.today, dates.beforeMinimum, dates.beyondMaximum]) {
+      const cell = await visit(date);
       await expect(cell).toBeVisible();
-      await expect(cell).toContainText('電話預約');
+      await expect(cell.locator('.calendar-phone-badge')).toHaveCount(0);
+      await expect(cell).not.toHaveAttribute('aria-label', /可電話預約/);
       await cell.click();
       await expect(page.locator('#bookingDayModal')).toBeVisible();
       await expect(page.locator('#startDayBookingButton')).toBeDisabled();
+      await expect(page.locator('#bookingPhoneFallback')).toBeHidden();
+      await expect(page.locator('#bookingPhoneDial')).not.toHaveAttribute('href', /tel:/);
+      await page.locator('#closeBookingDayButton').click();
+    }
+
+    // Both boundaries and dates between them permit online booking and a phone CTA.
+    for (const date of [dates.minimum, dates.middle, dates.maximum]) {
+      const cell = await visit(date);
+      await expect(cell).toBeVisible();
+      await expect(cell.locator('.calendar-phone-badge')).toHaveText('電話預約');
+      await expect(cell).toHaveAttribute('aria-label', /電話預約/);
+      await cell.click();
+      await expect(page.locator('#startDayBookingButton')).toBeEnabled();
       await expect(page.locator('#bookingPhoneFallback')).toBeVisible();
       await expect(page.locator('#bookingPhoneFallbackNumber')).toHaveText('06-1234567');
-      await expect(page.locator('#bookingPhoneDial')).toHaveAttribute('href','tel:061234567');
+      await expect(page.locator('#bookingPhoneDial')).toHaveAttribute('href', 'tel:061234567');
       await page.locator('#closeBookingDayButton').click();
-      await expect(page.locator('#bookingDayModal')).toBeHidden();
     }
-    await visit(dates.online);
-    const normal=page.locator('[data-date="'+dates.online+'"]');
-    await expect(normal).not.toContainText('電話預約');
-    await normal.click();
+
+    // Settings changes must revoke or restore dialing immediately, including an open modal.
+    await (await visit(dates.middle)).click();
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('booking:settings-updated', {
+      detail: { settings: { minAdvanceDays: 4, maxAdvanceDays: 5, phoneBookingNumber: '06-1234567' } }
+    })));
+    await expect(page.locator('#startDayBookingButton')).toBeDisabled();
+    await expect(page.locator('#bookingPhoneFallback')).toBeHidden();
+    await expect(page.locator('#bookingPhoneDial')).not.toHaveAttribute('href', /tel:/);
+
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('booking:settings-updated', {
+      detail: { settings: { minAdvanceDays: 2, maxAdvanceDays: 5, phoneBookingNumber: '06-1234567' } }
+    })));
+    await expect(page.locator('#startDayBookingButton')).toBeEnabled();
+    await expect(page.locator('#bookingPhoneFallback')).toBeVisible();
+
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('booking:settings-updated', {
+      detail: { settings: { minAdvanceDays: 2, maxAdvanceDays: 5, phoneBookingNumber: '' } }
+    })));
     await expect(page.locator('#startDayBookingButton')).toBeEnabled();
     await expect(page.locator('#bookingPhoneFallback')).toBeHidden();
+    await expect(page.locator('#bookingPhoneDial')).not.toHaveAttribute('href', /tel:/);
     await page.locator('#closeBookingDayButton').click();
-    await page.evaluate(()=>{
-      window.dispatchEvent(new CustomEvent('booking:settings-updated',{
-        detail:{settings:{minAdvanceDays:2,maxAdvanceDays:5,phoneBookingNumber:''}}
-      }));
-    });
-    await visit(dates.tooFar);
-    await page.locator('[data-date="'+dates.tooFar+'"]').click();
-    await expect(page.locator('#bookingPhoneFallback')).toBeHidden();
-    await expect(page.locator('#bookingPhoneDial')).not.toHaveAttribute('href',/tel:/);
-    await expect(page.locator('#startDayBookingButton')).toBeDisabled();
+    await expect((await visit(dates.minimum)).locator('.calendar-phone-badge')).toHaveCount(0);
+
+    // A zero maximum means no upper date limit, not an invalid date range.
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('booking:settings-updated', {
+      detail: { settings: { minAdvanceDays: 2, maxAdvanceDays: 0, phoneBookingNumber: '06-1234567' } }
+    })));
+    const later = await visit(dates.beyondMaximum);
+    await expect(later.locator('.calendar-phone-badge')).toHaveText('電話預約');
+    await later.click();
+    await expect(page.locator('#bookingPhoneFallback')).toBeVisible();
+    await expect(page.locator('#startDayBookingButton')).toBeEnabled();
   });
 }
+
+test('holiday inside booking range disables online and phone booking', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-11-07T03:00:00Z'));
+  await page.route('https://fixture.supabase.co/functions/v1/booking-calendar-api', (route) => route.fulfill({
+    json: { ok: true, data: {
+      today: '2026-11-07',
+      settings: { minAdvanceDays: 2, maxAdvanceDays: 5, phoneBookingNumber: '06-1234567' },
+      holidays: [{ startsOn: '2026-11-10', endsOn: '2026-11-10', title: '公休日' }],
+      occupiedDates: []
+    } }
+  }));
+  await page.goto(baseUrl + '/booking/');
+  await page.evaluate(() => {
+    window.BookingSystem.loadConfig = async () => ({
+      supabaseUrl: 'https://fixture.supabase.co', supabasePublishableKey: 'fixture-key'
+    });
+    window.liff = { isLoggedIn: () => true, getIDToken: () => 'synthetic-line-token' };
+    window.dispatchEvent(new CustomEvent('booking:settings-updated', { detail: {
+      today: '2026-11-07',
+      settings: { minAdvanceDays: 2, maxAdvanceDays: 5, phoneBookingNumber: '06-1234567' }
+    } }));
+    window.dispatchEvent(new CustomEvent('booking:view-shown'));
+  });
+  const holiday = page.locator('[data-date="2026-11-10"]');
+  await expect(holiday).toContainText('公休日');
+  await expect(holiday.locator('.calendar-phone-badge')).toHaveCount(0);
+  await holiday.click();
+  await expect(page.locator('#startDayBookingButton')).toBeDisabled();
+  await expect(page.locator('#bookingPhoneFallback')).toBeHidden();
+  await expect(page.locator('#bookingPhoneDial')).not.toHaveAttribute('href', /tel:/);
+  await expect(page.locator('#bookingDayHolidayDetails')).toContainText('公休日');
+});

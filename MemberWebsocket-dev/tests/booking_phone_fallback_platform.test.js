@@ -34,16 +34,23 @@ test('AC-003 both member bootstrap and calendar month return the shop telephone 
   assert.match(monthApi,/phoneBookingNumber: String\(settingsResult\.data\.phone_booking_number \|\| ""\)/);
   assert.match(calendar,/detail\.settings\?\.phoneBookingNumber !== undefined/);
 });
-test('AC-004 day modal exposes dial control only when outside min or max advance day window',()=>{
-  assert.match(calendar,/date < state\.minimumDate \|\| \(state\.maximumDate && date > state\.maximumDate\)/);
-  assert.match(calendar,/date >= state\.today/);
-  assert.match(calendar,/!state\.holidaysByDate\.has\(date\)/);
+test('AC-004 phone booking shares the exact inclusive online date, holiday, and phone rules',()=>{
+  assert.match(calendar,/if \(!isPast && !isHoliday && !isAdvanceBlocked && !isRangeBlocked && state\.phoneBookingNumber\)/);
+  assert.match(calendar,/const phoneAllowed = Boolean\(phone && date && !reason\)/);
+  assert.match(calendar,/if \(date < state\.minimumDate\) return/);
+  assert.match(calendar,/if \(state\.maximumDate && date > state\.maximumDate\) return/);
+  assert.match(calendar,/if \(date < state\.today\) return/);
+  assert.match(calendar,/if \(holidays\.length\) return/);
   assert.match(calendar,/els\.bookingPhoneFallback\.hidden = !phoneAllowed/);
   assert.match(calendar,/els\.bookingPhoneDial\.href = `tel:\$\{phone\.replace/);
-  assert.match(html,/id="bookingPhoneFallback"[^>]*hidden/);
-  assert.match(html,/不會自動建立線上預約紀錄/);
+  assert.match(calendar,/else if \(els\.bookingPhoneDial\) \{\s*els\.bookingPhoneDial\.removeAttribute\('href'\)/);
   assert.match(calendar,/if \(els\.startDayBookingButton\) els\.startDayBookingButton\.disabled = Boolean\(reason\)/);
   assert.match(calendar,/button\.addEventListener\('click', \(\) => openDayModal\(date, button\)\)/);
+  assert.match(html,/id="bookingPhoneFallback"[^>]*hidden/);
+  assert.match(html,/此日期在商家設定的可預約範圍內/);
+  assert.match(html,/不會自動建立線上預約紀錄/);
+  assert.match(admin,/只有在商家可預約日期範圍內且非休假日/);
+  assert.match(memberApi,/function assertBookingDateWindow\(/);
 });
 test('AC-005 migration retains legacy RPC and changes new settings atomically with restricted access',()=>{
   assert.match(migration,/phone_booking_number text not null default ''/);

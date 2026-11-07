@@ -34,7 +34,7 @@ test('member booking entrypoint loads the single render pipeline only', () => {
     'member-ui.js?v=test-mode-20260920-1',
     'app.js?v=booking-member-chat-20261003-1',
     'contact-details.js?v=test-mode-20260920-1',
-    'calendar-flow.js?v=platform-phone-booking-20261107-1',
+    'calendar-flow.js?v=phone-booking-window-20261107-2',
   ]) assert.ok(html.includes(asset), asset);
 
   assert.ok(!html.includes('booking-confirm-details.js'));
