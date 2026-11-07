@@ -32,6 +32,8 @@
 
 /* Telephone booking follows the merchant date horizon, independent of online advance notice. */
 /* The phone action is a plain full-width button directly under the online action. */
+.booking-day-footer #startDayBookingButton[hidden]{display:none!important}
 .booking-day-footer .booking-phone-fallback{margin-top:10px}
+.booking-day-footer #startDayBookingButton[hidden]+.booking-phone-fallback{margin-top:0}
 .booking-day-footer .booking-phone-fallback[hidden]{display:none!important}
 .booking-day-footer .booking-phone-fallback .button{display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;margin-top:0;text-align:center;text-decoration:none;overflow-wrap:anywhere}
