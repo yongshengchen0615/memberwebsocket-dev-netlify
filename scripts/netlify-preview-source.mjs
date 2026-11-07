@@ -73,21 +73,17 @@ export async function publishPreviewBranch({ token, siteId, branch, commit, zip,
     && item.context === 'branch-deploy' && !['ready', 'error', 'rejected', 'canceled'].includes(item.state))) {
     throw new Error('A competing preview deployment is still active');
   }
-  const query = new URLSearchParams({ title: `verified-platform-${commit}` });
+  const query = new URLSearchParams({ branch, title: `verified-platform-${commit}` });
   // A POST is never retried: a timeout may already have created a deploy.
-  // Netlify's ZIP branch-deploy API uses the /builds endpoint with a branch
-  // multipart form field (Netlify ZIP branch deploy support, November 2025).
-  // POST /deploys?branch= is not equivalent: it can return a non-branch context.
-  // The builds API expects a multipart "zip" field, not a raw ZIP request.
-  // Keep the exact CI-tested bytes, and let fetch set the multipart boundary.
-  // An ambiguous POST result must never be automatically retried.
-  const form = new FormData();
-  form.set('branch', branch);
-  form.set('zip', new Blob([zip], { type: 'application/zip' }), 'platform-preview.zip');
-  const upload = await request(`/sites/${siteId}/builds?${query}`, {
-    method: 'POST', body: form,
+  // The /builds endpoint starts the site's build command even when given
+  // a ZIP, which can fail and rebuild the already-verified artifact.
+  // /deploys accepts an application/zip payload and a branch query without
+  // executing the remote build command (Netlify createSiteDeploy contract).
+  // Refuse wrong scope, a draft, or production identity changes below.
+  const upload = await request(`/sites/${siteId}/deploys?${query}`, {
+    method: 'POST', body: zip, headers: { 'Content-Type': 'application/zip' },
   }, 'upload');
-  const deployId = upload?.deploy_id;
+  const deployId = upload?.id;
   if (!/^[a-f0-9]{24}$/.test(deployId || '')) throw new Error('Preview upload did not return a deploy identity');
   for (let attempt = 0; attempt < attempts; attempt++) {
     const deploy = await request(`/deploys/${deployId}`, {}, 'deploy-status');

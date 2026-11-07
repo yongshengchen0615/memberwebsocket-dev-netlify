@@ -14,7 +14,7 @@ function provider(overrides = {}) {
     calls.push({ url, options });
     const endpoint = new URL(url);
     let value;
-    if (options.method === 'POST') value = overrides.build || { id: '6ad120000000000000000000', deploy_id: deployId };
+    if (options.method === 'POST') value = overrides.created || { id: deployId };
     else if (endpoint.pathname === `/api/v1/deploys/${deployId}`) value = overrides.deploy || deploy;
     else if (endpoint.pathname.endsWith('/deploys')) value = overrides.existing || [];
     else value = overrides.site || site;
@@ -38,48 +38,36 @@ test('uploads exactly once to the case-preserved nonproduction branch and retain
   assert.equal(posts.length, 1);
   const url = new URL(posts[0].url);
   assert.equal(url.origin, 'https://api.netlify.com');
-  assert.equal(url.pathname, `/api/v1/sites/${previewSite}/builds`);
-  // The branch-scoped ZIP build installs the exact prebuilt CI ZIP; it must not
-  // silently create a production or deploy-preview deployment.
-  assert.equal(url.searchParams.has('branch'), false);
-  assert.equal(posts[0].options.body.get('branch'), previewBranch);
+  assert.equal(url.pathname, `/api/v1/sites/${previewSite}/deploys`);
+  // Direct ZIP uploads must not invoke a second Netlify build. The branch
+  // query selects a nonproduction branch deploy, not the site's main branch.
+  assert.equal(url.searchParams.get('branch'), previewBranch);
   assert.equal(url.searchParams.get('title'), `verified-platform-${input.commit}`);
-  // Netlify's /builds ZIP endpoint accepts a multipart file field. A raw
-  // application/zip POST can be treated as an ordinary branch build instead.
-  assert.ok(posts[0].options.body instanceof FormData);
-  const uploaded = posts[0].options.body.get('zip');
-  assert.ok(uploaded instanceof Blob);
-  assert.equal(uploaded.name, 'platform-preview.zip');
-  assert.equal(uploaded.type, 'application/zip');
-  assert.deepEqual(Buffer.from(await uploaded.arrayBuffer()), input.zip);
-  assert.equal(posts[0].options.headers['Content-Type'], undefined);
-  assert.equal(posts[0].options.body.get('branch'), previewBranch);
+  assert.equal(posts[0].options.headers['Content-Type'], 'application/zip');
+  assert.ok(Buffer.isBuffer(posts[0].options.body));
+  assert.deepEqual(posts[0].options.body, input.zip);
+  assert.ok(p.calls.some(call => call.url.endsWith('/deploys/' + deployId)));
   assert.equal(result.source_sha, input.commit);
   assert.equal(result.production_deploy_unchanged, true);
   assert.doesNotMatch(JSON.stringify(result), /never-print-token/);
   for (const call of p.calls) assert.equal(call.options.redirect, 'error');
 });
 
-test('CI ZIP upload is multipart and never silently makes a second POST', async () => {
+test('direct ZIP upload is never retried after a failed deploy', async () => {
   const p = provider({ deploy: { ...deploy, state: 'error' } });
   await assert.rejects(publishPreviewBranch({ ...input, fetchImpl: p.fetchImpl }), /Preview deploy failed/);
   const posts = p.calls.filter(call => call.options.method === 'POST');
   assert.equal(posts.length, 1);
-  assert.equal(posts[0].options.body.has('zip'), true);
-  assert.equal(posts[0].options.body.get('branch'), previewBranch);
-  assert.equal(new URL(posts[0].url).searchParams.has('branch'), false);
+  assert.deepEqual(posts[0].options.body, input.zip);
+  assert.equal(posts[0].options.headers['Content-Type'], 'application/zip');
+  assert.equal(new URL(posts[0].url).searchParams.get('branch'), previewBranch);
 });
 
-test('ZIP deploy response must identify one immutable deploy before status polling', async () => {
-  for (const build of [{}, { id: 'invalid' }, { id: deployId }, { deploy_id: '0'.repeat(24) }]) {
-    const p = provider({ build });
-    // The wrong returned id must not be guessed or replaced with a branch alias.
-    const failed = build.deploy_id === '0'.repeat(24) ? /publish/ : /identity/;
-    if (build.deploy_id === '0'.repeat(24)) {
-      await assert.rejects(publishPreviewBranch({ ...input, fetchImpl: p.fetchImpl }), /HTTP|publish|fetch|not belong/i);
-    } else {
-      await assert.rejects(publishPreviewBranch({ ...input, fetchImpl: p.fetchImpl }), failed);
-    }
+test('ZIP deploy response must identify exactly one immutable deploy before status polling', async () => {
+  for (const created of [{}, { id: 'invalid' }, { deploy_id: deployId }, { id: '0'.repeat(24) }]) {
+    const p = provider({ created });
+    await assert.rejects(publishPreviewBranch({ ...input, fetchImpl: p.fetchImpl }),
+      created.id === '0'.repeat(24) ? /not belong/ : /deploy identity/);
     assert.equal(p.calls.filter(call => call.options.method === 'POST').length, 1);
   }
 });
@@ -170,14 +158,16 @@ test('safe local publish errors give useful codes without logging provider-suppl
 });
 
 
-test('Netlify branch-scoped ZIP builds use the deploy_id, not the build id', async () => {
-  const p = provider({ build: { id: 'f'.repeat(24), deploy_id: deployId } });
+test('Netlify direct ZIP deploy uses response id and cannot confuse it with build id', async () => {
+  const p = provider({ created: { id: deployId, deploy_id: 'f'.repeat(24) } });
   const result = await publishPreviewBranch({ ...input, fetchImpl: p.fetchImpl });
   assert.equal(result.deploy_id, deployId);
+  assert.equal(result.context, 'branch-deploy');
   const post = p.calls.find(call => call.options.method === 'POST');
   const query = new URL(post.url);
-  assert.equal(query.pathname, `/api/v1/sites/${previewSite}/builds`);
-  assert.equal(query.searchParams.has('branch'), false);
-  assert.equal(post.options.body.get('branch'), previewBranch);
+  assert.equal(query.pathname, `/api/v1/sites/${previewSite}/deploys`);
+  assert.equal(query.searchParams.get('branch'), previewBranch);
+  assert.equal(post.options.headers['Content-Type'], 'application/zip');
+  assert.deepEqual(post.options.body, input.zip);
   assert.equal(p.calls.some(call => call.url.includes('/deploys/' + 'f'.repeat(24))), false);
 });
