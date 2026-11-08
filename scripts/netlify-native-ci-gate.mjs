@@ -5,6 +5,16 @@ export const verifiedBranch = 'Integrated-Marketing-Platform';
 export function isNativeVerifiedPreview(env) {
   return env.NETLIFY === 'true' && env.BRANCH === verifiedBranch && env.CONTEXT === 'branch-deploy';
 }
+// This marker is written only by the exact-SHA, post-CI GitHub Actions release
+// job into Netlify's branch-scoped build environment. Unlike a source-controlled
+// value it cannot be changed by untrusted repository content. Auto-builds before
+// the gate finishes do not satisfy this marker and retain the API CI check.
+export function hasCiAttestedReleaseMarker(env) {
+  return isNativeVerifiedPreview(env)
+    && /^[a-f0-9]{40}$/.test(env.COMMIT_REF || '')
+    && env.NETLIFY_VERIFIED_PREVIEW_SHA === env.COMMIT_REF;
+}
+
 export class NativeCiGateError extends Error {
   constructor(code) { super(code); this.name = 'NativeCiGateError'; this.code = code; }
 }
