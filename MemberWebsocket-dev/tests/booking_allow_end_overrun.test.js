@@ -24,6 +24,7 @@ test('AC-004: midnight shift preserves original business date and single/multipl
   assert.equal(slotFitsClosingTime(25*60+30,90,end,false),false);
   assert.equal(slotFitsClosingTime(25*60+30,90,end,true),true);
   assert.equal(slotFitsClosingTime(end,30,end,true),false);
+  assert.equal(slotFitsClosingTime(23*60+50+1440,60,2875,true),false,'offset beyond next-day timestamp capacity is denied');
   assert.equal(timeOnBusinessDate('2026-12-31',25*60+30),'2027-01-01T01:30:00+08:00');
   const sources=[
     read('supabase/functions/booking-api/index.ts'),
