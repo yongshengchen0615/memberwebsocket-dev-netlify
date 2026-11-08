@@ -153,3 +153,32 @@ test('pre-CI native failure cannot be mistaken for a successful release',()=>{
  assert.doesNotMatch(build,/unset VERIFIED_PREVIEW_SOURCE_EPOCH/);
  assert.ok(build.indexOf('test -n "$DEPLOY_ID"')<build.indexOf('node scripts/build-site.mjs'));
 });
+
+test('post-CI native recovery keeps shell continuation and the other preview branch contract',()=> {
+  const recovery=preview.slice(
+    preview.indexOf("elif grep -Fxq 'Verified native branch preview failed"),
+    preview.indexOf('\n          else\n',preview.indexOf("elif grep -Fxq 'Verified native branch preview failed")));
+  assert.ok(recovery.length>200);
+  assert.equal(recovery.includes(String.fromCharCode(92,92,10)),false,'No doubled Bash line-continuation backslashes');
+  for (const fragment of ['env:set PLATFORM_CI_VERIFIED_SHA', '--scope builds --force',
+    "curl --fail --silent --show-error --retry 0", '--header "Authorization: Bearer $NETLIFY_AUTH_TOKEN"',
+    '--request POST --data', '--output /tmp/native-recovery-build.json']) assert.ok(recovery.includes(fragment),fragment);
+  assert.ok(recovery.includes(String.fromCharCode(92,10)),'Multiline commands use single backslash/newline');
+
+  const buildStep=preview.slice(preview.indexOf('- name: Build and verify the exact platform frontend'),
+    preview.indexOf('- name: Retain the exact preview bundle for recovery'));
+  assert.match(buildStep,/if \[ "\$GITHUB_REF_NAME" = Integrated-Marketing-Platform \]; then/);
+  assert.match(buildStep,/test "\$PREVIEW_DEPLOY_MODE" = native/);
+  assert.match(buildStep,/test -n "\$DEPLOY_ID"/);
+  assert.ok(buildStep.indexOf('fi')>buildStep.indexOf('test -n "$DEPLOY_ID"'));
+  assert.ok(preview.includes('npx --yes netlify-cli@23.11.0 deploy --no-build --dir=dist --site="$NETLIFY_SITE_ID" --alias="$PLATFORM_ALIAS"'));
+});
+
+test('both attested and GitHub-API native build paths derive source epoch from validated commit',()=>{
+  const src=readFileSync(new URL('../scripts/netlify-preview-source.mjs',import.meta.url),'utf8');
+  const buildCode=src.slice(src.indexOf("else if (mode === '--build')"),src.indexOf("} else if (mode === '--publish')"));
+  assert.ok(buildCode.includes('hasCiAttestedReleaseMarker(process.env)'));
+  assert.ok(buildCode.includes('awaitVerifiedPreviewCI'));
+  assert.ok(buildCode.includes("['show', '-s', '--format=%ct', process.env.COMMIT_REF]"));
+  assert.doesNotMatch(buildCode,/format=%ct', verified\.sha/);
+});
