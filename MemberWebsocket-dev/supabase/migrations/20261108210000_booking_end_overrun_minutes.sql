@@ -29,7 +29,7 @@ as $function$
     and public.booking_slot_start_at(p_date,p_time,p_open,p_close) + make_interval(mins => p_duration)
       <= p_date + p_close + case when p_close < p_open then interval '1 day' else interval '0 days' end
       + make_interval(mins => coalesce(
-        (select max_end_overrun_minutes from public.booking_settings where id = 1), 0
+        (select (to_jsonb(s)->>'max_end_overrun_minutes')::integer from public.booking_settings s where s.id = 1), 0
       ))
     and (extract(epoch from (public.booking_slot_start_at(p_date,p_time,p_open,p_close)
       - (p_date + p_open)))::integer / 60) % p_step = 0,
@@ -37,7 +37,7 @@ as $function$
   )
 $function$;
 
--- v9 owns permission checks, optimistic concurrency and other shared fields.
+-- Read the new setting via the row JSON in the SQL predicate: the base\n-- tenant provisioner may clone SQL functions before installing the new column.\n-- A missing key fails closed at 0, so provisioner ordering stays safe.\n-- v9 owns permission checks, optimistic concurrency and other shared fields.
 -- Its boolean field is set to (minutes > 0) for old-client compatibility.
 create or replace function public.save_booking_shared_settings_v10(
   p_work_start_time time without time zone,
