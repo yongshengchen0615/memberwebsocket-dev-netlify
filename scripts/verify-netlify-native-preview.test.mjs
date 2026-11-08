@@ -73,3 +73,18 @@ test('invalid input and provider failures are safely categorized, never leak sec
  await fail(verifyNativePreview({...input,attempts:1,fetchImpl:async()=>{throw Error('secret provider body');}}),'PROVIDER_UNAVAILABLE');
  await fail(verifyNativePreview({...input,attempts:1,fetchImpl:async()=>({ok:false,status:403})}),'PROVIDER_HTTP_403');
 });
+
+// Regression: after the publisher triggers a new native build, an older failed
+// autobuild for this *same* commit must not mask the newly authorized attempt.
+test('post-CI native rebuild ignores stale failed attempts but rejects a new failure',async()=>{
+ const stale={...native,id:'6ad892118bc22a8a08d1e9d4',state:'error',created_at:'2026-11-08T13:26:00.000Z'};
+ const fresh={...native,created_at:'2026-11-08T13:36:01.000Z'};
+ const m=mock({items:[stale,fresh]});
+ const result=await verifyNativePreview({...input,notBefore:'2026-11-08T13:36:00Z',fetchImpl:m.fetchImpl,attempts:1});
+ assert.equal(result.deploy_id,id);
+ const pending=mock({items:[stale]});
+ await fail(verifyNativePreview({...input,notBefore:'2026-11-08T13:36:00Z',fetchImpl:pending.fetchImpl,attempts:1}),'DEPLOY_NOT_READY');
+ const bad=mock({items:[stale,{...fresh,state:'error'}]});
+ await fail(verifyNativePreview({...input,notBefore:'2026-11-08T13:36:00Z',fetchImpl:bad.fetchImpl,attempts:1}),'NATIVE_DEPLOY_FAILED');
+ await fail(verifyNativePreview({...input,notBefore:'invalid-date',fetchImpl:mock().fetchImpl}),'INVALID_INPUT');
+});

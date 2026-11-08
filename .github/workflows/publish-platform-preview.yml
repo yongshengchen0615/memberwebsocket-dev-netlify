@@ -61,7 +61,25 @@ jobs:
             echo "PREVIEW_DEPLOY_MODE=native" >> "$GITHUB_ENV"
             echo "DEPLOY_ID=$(jq -er '.deploy_id' evidence/platform-deploy.json)" >> "$GITHUB_ENV"
           elif grep -Fxq 'Verified native branch preview failed: NATIVE_DEPLOY_FAILED' /tmp/native-preview-error.txt; then
-            echo "PREVIEW_DEPLOY_MODE=ci-zip" >> "$GITHUB_ENV"
+            # The native build may have failed before all three push CI workflows
+            # finished, or due to Netlify's shared unauthenticated GitHub API quota.
+            # This branch-specific marker is issued ONLY after the exact-SHA CI
+            # gate above has passed. It is never set for production or PRs.
+            test "$GITHUB_REF_NAME" = Integrated-Marketing-Platform
+            npx --yes netlify-cli@23.11.0 env:set PLATFORM_CI_VERIFIED_SHA "$GITHUB_SHA" \
+              --site="$NETLIFY_SITE_ID" --context "branch:$GITHUB_REF_NAME" --scope builds --force
+            export NATIVE_NOT_BEFORE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "NATIVE_NOT_BEFORE=$NATIVE_NOT_BEFORE" >> "$GITHUB_ENV"
+            curl --fail --silent --show-error --retry 0 \
+              --header "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \
+              --header 'Content-Type: application/json' \
+              --request POST --data '{}' \
+              "https://api.netlify.com/api/v1/sites/$NETLIFY_SITE_ID/builds?branch=$GITHUB_REF_NAME&commit_sha=$GITHUB_SHA" \
+              --output /tmp/native-recovery-build.json
+            jq -e '.id | strings | test("^[a-f0-9]{24}$")' /tmp/native-recovery-build.json > /dev/null
+            node scripts/verify-netlify-native-preview.mjs
+            echo "PREVIEW_DEPLOY_MODE=native" >> "$GITHUB_ENV"
+            echo "DEPLOY_ID=$(jq -er '.deploy_id' evidence/platform-deploy.json)" >> "$GITHUB_ENV"
           else
             echo "::error::Native branch verification blocked for a reason other than a failed build; no upload performed"
             exit 1
@@ -70,11 +88,11 @@ jobs:
         env:
           COMMIT_REF: ${{ github.sha }}
         run: |
-          # A failed native deploy has no real deploy ID. Do not pass a verified
-          # source epoch without the matching deploy identity to buildDate().
-          # The CI ZIP remains a single immutable built artifact for this SHA.
-          if [ "${PREVIEW_DEPLOY_MODE:-}" = ci-zip ]; then
-            unset VERIFIED_PREVIEW_SOURCE_EPOCH
+          # The platform alias branch retains its existing CLI preview release.
+          # Native provenance is mandatory only for Integrated-Marketing-Platform.
+          if [ "$GITHUB_REF_NAME" = Integrated-Marketing-Platform ]; then
+            test "$PREVIEW_DEPLOY_MODE" = native
+            test -n "$DEPLOY_ID"
           fi
           node --test scripts/deploy.test.mjs scripts/netlify-publish-workflow.test.mjs scripts/check-preview-ci.test.mjs scripts/verify-platform-preview.test.mjs scripts/inspect-preview-source.test.mjs scripts/netlify-preview-source.test.mjs scripts/verify-netlify-cli-preview.test.mjs scripts/netlify-native-ci-gate.test.mjs scripts/verify-netlify-native-preview.test.mjs
           node scripts/build-site.mjs
@@ -104,21 +122,17 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 7
-      # Only an observed native build failure permits the CI-proven ZIP fallback.
-      # All other identity/network failures must stop the release, not weaken it.
-      - name: Select native deploy or publish the exact tested branch bundle
+      # All Integrated-Marketing-Platform releases must be native branch-deploys.
+      # A ready ZIP with a lowercased branch did not update this site’s fixed
+      # branch URL. Never accept that artifact as a successful branch release.
+      - name: Verify exact-SHA native branch deployment
         if: github.ref_name == 'Integrated-Marketing-Platform'
         shell: bash
         run: |
           set -euo pipefail
-          if [ "$PREVIEW_DEPLOY_MODE" = ci-zip ]; then
-            node scripts/netlify-preview-source.mjs --publish
-            echo "DEPLOY_ID=$(jq -er '.deploy_id' evidence/platform-deploy.json)" >> "$GITHUB_ENV"
-          else
-            test "$PREVIEW_DEPLOY_MODE" = native
-            node scripts/verify-netlify-native-preview.mjs
-            test "$(jq -er '.deploy_id' evidence/platform-deploy.json)" = "$DEPLOY_ID"
-          fi
+          test "$PREVIEW_DEPLOY_MODE" = native
+          node scripts/verify-netlify-native-preview.mjs
+          test "$(jq -er '.deploy_id' evidence/platform-deploy.json)" = "$DEPLOY_ID"
       - name: Verify CI-gated Netlify branch deployment identity
         shell: bash
         run: |
@@ -127,15 +141,10 @@ jobs:
           current=$(gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/$GITHUB_REF_NAME" --jq '.object.sha')
           test "$current" = "$GITHUB_SHA"
           if [ "$GITHUB_REF_NAME" = Integrated-Marketing-Platform ]; then
-            # Native is preferred. A known failed native build can only be replaced
-            # with the exact CI-built ZIP for this same branch, never production.
-            if [ "$PREVIEW_DEPLOY_MODE" = native ]; then
-              node scripts/verify-netlify-native-preview.mjs
-            else
-              test "$PREVIEW_DEPLOY_MODE" = ci-zip
-              test "$(jq -er '.context' evidence/platform-deploy.json)" = branch-deploy
-              test "$(jq -er '.source_branch' evidence/platform-deploy.json)" = "$GITHUB_REF_NAME"
-            fi
+            # A previous failed native build is explicitly recovered only after
+            # exact-SHA CI; the fixed branch alias must serve this native release.
+            test "$PREVIEW_DEPLOY_MODE" = native
+            node scripts/verify-netlify-native-preview.mjs
             test "$(jq -er '.deploy_id' evidence/platform-deploy.json)" = "$DEPLOY_ID"
             test "$(jq -er '.source_sha' evidence/platform-deploy.json)" = "$GITHUB_SHA"
             test "$(jq -er '.production_deploy_unchanged' evidence/platform-deploy.json)" = "true"

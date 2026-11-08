@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isNativeVerifiedPreview, awaitVerifiedPreviewCI, NativeCiGateError } from './netlify-native-ci-gate.mjs';
+import { isNativeVerifiedPreview, hasCiAttestedReleaseMarker, awaitVerifiedPreviewCI, NativeCiGateError } from './netlify-native-ci-gate.mjs';
 
 const sha='b'.repeat(40), branch='Integrated-Marketing-Platform';
 const required=['test-memberwebsocket-dev.yml','test-netlify-build.yml','test-memberwebsocket-ticket-policy.yml'];
@@ -72,4 +72,17 @@ test('malformed provider data and network error do not leak response secrets',as
  const p=provider([{body:{token:'secret-must-not-leak'}}]);
  await rejects(awaitVerifiedPreviewCI({sha,fetchImpl:p.fetchImpl,attempts:1}),'CI_INVALID_RESPONSE');
  await rejects(awaitVerifiedPreviewCI({sha,fetchImpl:async()=>{throw Error('secret!')},attempts:1}),'CI_FETCH_UNAVAILABLE');
+});
+
+// Regression: a native auto-build must not accidentally publish before the CI
+// publisher grants the exact-SHA marker on this one protected branch.
+test('CI attestation is exact-SHA and restricted to the intended native branch context',()=>{
+ const env={NETLIFY:'true',BRANCH:branch,CONTEXT:'branch-deploy',COMMIT_REF:sha,PLATFORM_CI_VERIFIED_SHA:sha};
+ assert.equal(hasCiAttestedReleaseMarker(env),true);
+ for(const patch of [
+  {PLATFORM_CI_VERIFIED_SHA:'a'.repeat(40)}, {PLATFORM_CI_VERIFIED_SHA:''},
+  {COMMIT_REF:'not-a-sha'}, {NETLIFY:'false'}, {BRANCH:branch.toLowerCase()},
+  {BRANCH:'master'}, {CONTEXT:'production'}, {CONTEXT:'deploy-preview'},
+ ]) assert.equal(hasCiAttestedReleaseMarker({...env,...patch}),false,JSON.stringify(patch));
+ assert.equal(hasCiAttestedReleaseMarker({}),false);
 });
