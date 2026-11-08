@@ -130,7 +130,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
       }
       // Rebuild verification uses this same Git timestamp and native deploy ID.
       process.env.VERIFIED_PREVIEW_SOURCE_EPOCH = execFileSync('git',
-        ['show', '-s', '--format=%ct', verified.sha], { encoding: 'utf8' }).trim();
+        ['show', '-s', '--format=%ct', process.env.COMMIT_REF], { encoding: 'utf8' }).trim();
     }
     await import('./build-site.mjs');
   } else if (mode === '--publish') {
