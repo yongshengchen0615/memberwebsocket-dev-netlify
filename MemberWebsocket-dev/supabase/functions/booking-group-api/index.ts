@@ -311,7 +311,7 @@ async function slots(s: SupabaseClient, m: any, body: Json) {
   for (const row of reservationRows) { const a=occupiedByTech.get(row.technician_id)||[]; a.push(occupiedRange(row)); occupiedByTech.set(row.technician_id,a); }
 
   const workStart=toMinutes(cfg.work_start_time), workEnd=workWindow(cfg.work_start_time,cfg.work_end_time).end, interval=Number(cfg.slot_interval_minutes||SLOT_INTERVAL), out:Json[]=[];
-  for (let cursor=workStart; cursor+g.duration<=workEnd; cursor+=interval) {
+  for (let cursor=workStart; (cfg.allow_end_overrun === true ? cursor < workEnd : cursor+g.duration<=workEnd); cursor+=interval) {
     const groupEnd=cursor+g.duration;
     const candidate=localRange(date,cursor,g.duration);
     const mainOverlap=primaryOccupied.some((x:any)=>candidate.start<x.end && candidate.end>x.start);
