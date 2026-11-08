@@ -56,8 +56,8 @@ test('member removal blocks writes, retries cross-service failures, removes priv
   });
   await t.test('administrator self-removal deletes only their member card and retains administrator security history',async()=>{
     await db.exec("insert into admins(line_user_id,role,status)values('qa-removal-peer-admin','admin','active');");
-    await one("insert into members(line_user_id,member_code,invite_code,status,membership_status,display_name,is_test_account)values('qa-removal-peer-admin','PEER','PEER000000','active','active','Peer admin member',true) returning id");
-    const self=(await one("insert into members(line_user_id,member_code,invite_code,status,membership_status,display_name,is_test_account)values('qa-removal-admin','SELF','SELF000000','active','active','Admin member card',true) returning id")).id;
+    await one("insert into members(line_user_id,member_code,invite_code,status,membership_status,display_name,is_test_account)values('qa-removal-peer-admin','PEER','AABB000000','active','active','Peer admin member',true) returning id");
+    const self=(await one("insert into members(line_user_id,member_code,invite_code,status,membership_status,display_name,is_test_account)values('qa-removal-admin','SELF','CCDD000000','active','active','Admin member card',true) returning id")).id;
     await db.exec("insert into audit_logs(audit_id,actor_line_user_id,actor_role,action,target_type,target_id,result,detail)values(new_public_id('AUD'),'qa-removal-admin','admin','ADMIN_SETTINGS_UPDATED','business','business-settings','success','{}'::jsonb);");
     await assert.rejects(one("select begin_member_removal('qa-removal-admin','qa-removal-peer-admin','PEER')"),/ADMIN_PROTECTED/);
     await assert.rejects(one("select begin_member_removal('qa-removal-outsider','qa-removal-admin','SELF')"),/ADMIN_REQUIRED/);
