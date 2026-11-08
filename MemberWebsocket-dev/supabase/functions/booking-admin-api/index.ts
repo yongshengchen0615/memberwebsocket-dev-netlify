@@ -140,6 +140,7 @@ function settingsClient(row: any, storeService?: any): Json {
   return {
     workStartTime: String(row?.work_start_time || "09:00:00").slice(0, 5),
     workEndTime: String(row?.work_end_time || "17:00:00").slice(0, 5),
+    allowEndOverrun: row?.allow_end_overrun === true,
     slotIntervalMinutes: Number(row?.slot_interval_minutes || 30),
     minAdvanceDays: Number(row?.min_advance_days || 0),
     maxAdvanceDays: Number(row?.max_advance_days || 0),
@@ -243,6 +244,9 @@ async function reminderMessageSave(supabase: SupabaseClient, identity: Identity,
 async function settingsSave(supabase: SupabaseClient, identity: Identity, body: Json): Promise<Json> {
   const workStartTime = normalizeTime(body.workStartTime);
   const workEndTime = normalizeTime(body.workEndTime);
+  if (body.allowEndOverrun !== undefined && typeof body.allowEndOverrun !== "boolean") {
+    throw new ApiError(400, "INVALID_BOOKING_END_OVERRUN", "請選擇是否允許服務超過結束工作時間。");
+  }
   let slotIntervalMinutes = Number(body.slotIntervalMinutes);
   if (body.slotIntervalMinutes === undefined) {
     const current = await supabase.from("booking_settings").select("slot_interval_minutes").eq("id", 1).single();
@@ -281,7 +285,8 @@ async function settingsSave(supabase: SupabaseClient, identity: Identity, body: 
     throw new ApiError(400, "SNAPSHOT_LOCATION_NOT_CONFIGURED", "請先設定至少一個允許快照的地點。");
   }
   const expectedUpdatedAt = asText(body.expectedUpdatedAt, 80);
-  const result = await supabase.rpc("save_booking_shared_settings_v8", {
+  const result = await supabase.rpc("save_booking_shared_settings_v9", {
+    p_allow_end_overrun: body.allowEndOverrun ?? null,
     p_phone_booking_number: phoneBookingNumber,
     p_snapshot_locations: snapshotLocations,
     p_ticket_booking_required: body.ticketBookingRequired ?? null,
