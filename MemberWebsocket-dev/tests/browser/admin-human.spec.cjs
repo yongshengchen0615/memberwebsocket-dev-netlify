@@ -411,7 +411,14 @@ for(const scope of ['template','event'])test('LOCATION_'+scope+' — search, sel
   let releaseLocation;if(!event)info.fixture.hold={action:'admin.tickets.save',wait:new Promise(resolve=>{releaseLocation=resolve;})};
   await click(p,event?'saveEventTicketButton':'saveTicketButton');
   if(!event){try{await expect(p.locator('#ticketForm')).toHaveAttribute('inert','');}finally{releaseLocation();}}
-  const saved=()=>event?info.fixture.eventTickets[0]:info.fixture.tickets.find(t=>t.title==='QA GPS template');await expect.poll(()=>saved()?.redemptionLocations?.[0]?.radiusMeters).toBe(300);expect(saved().requiresLocation).toBe(true);await row.getByRole('button',{name:'調整位置／範圍'}).click();await click(p,event?'clearEventTicketLocationDraftButton':'clearTicketLocationDraftButton');await expect(p.locator('#'+prefix+'LocationDraft')).toBeHidden();await row.getByRole('button',{name:'刪除',exact:true}).click();await expect(row).toHaveCount(0);await p.locator('#'+prefix+'RequiresLocation').uncheck();await click(p,event?'saveEventTicketButton':'saveTicketButton');await expect.poll(()=>saved()?.requiresLocation).toBe(false);
+  const saved=()=>event?info.fixture.eventTickets[0]:info.fixture.tickets.find(t=>t.title==='QA GPS template');await expect.poll(()=>saved()?.redemptionLocations?.[0]?.radiusMeters).toBe(300);expect(saved().requiresLocation).toBe(true);
+// The test transport updates its fixture before the async save handler runs
+// loadEventTicketForm() and refreshAfterSuccessfulWrite(). Wait for the real
+// UI save completion or that late refresh can clear a newly opened draft.
+await expect(p.locator(event?'#saveEventTicketButton':'#saveTicketButton')).toBeEnabled();
+await row.getByRole('button',{name:'調整位置／範圍'}).click();
+await expect(p.locator('#'+prefix+'LocationDraft')).toBeVisible();
+await click(p,event?'clearEventTicketLocationDraftButton':'clearTicketLocationDraftButton');await expect(p.locator('#'+prefix+'LocationDraft')).toBeHidden();await row.getByRole('button',{name:'刪除',exact:true}).click();await expect(row).toHaveCount(0);await p.locator('#'+prefix+'RequiresLocation').uncheck();await click(p,event?'saveEventTicketButton':'saveTicketButton');await expect.poll(()=>saved()?.requiresLocation).toBe(false);
 });
 for(const scope of ['template','event'])test('LOTTERY_EDITOR_'+scope+' — add/delete prizes, reject invalid total and evenly balance',async({page:p},info)=>{
   const event=scope==='event',prefix=event?'eventTicket':'ticket',cap=event?'EventTicket':'Ticket';

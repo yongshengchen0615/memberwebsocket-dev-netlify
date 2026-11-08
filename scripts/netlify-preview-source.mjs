@@ -87,7 +87,12 @@ export async function publishPreviewBranch({ token, siteId, branch, commit, zip,
   if (!/^[a-f0-9]{24}$/.test(deployId || '')) throw new Error('Preview upload did not return a deploy identity');
   for (let attempt = 0; attempt < attempts; attempt++) {
     const deploy = await request(`/deploys/${deployId}`, {}, 'deploy-status');
-    if (deploy.id !== deployId || deploy.site_id !== siteId || deploy.branch !== branch
+    // Netlify canonicalizes ZIP-upload branch names to lowercase even when the
+    // request used the case-preserved GitHub branch. Accept ONLY these two
+    // representations; keep the requested branch, deploy ID, site, context and
+    // production identity checks unchanged.
+    if (deploy.id !== deployId || deploy.site_id !== siteId
+      || (deploy.branch !== branch && deploy.branch !== branch.toLowerCase())
       || deploy.context !== 'branch-deploy') throw new Error('Published deploy does not belong to the verified preview branch');
     if (['error', 'rejected', 'canceled'].includes(deploy.state)) throw new Error('Preview deploy failed');
     if (deploy.state === 'ready') {

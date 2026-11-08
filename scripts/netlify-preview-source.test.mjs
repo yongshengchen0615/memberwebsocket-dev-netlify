@@ -53,6 +53,19 @@ test('uploads exactly once to the case-preserved nonproduction branch and retain
   for (const call of p.calls) assert.equal(call.options.redirect, 'error');
 });
 
+test('real Netlify ZIP canonicalization preserves verified GitHub scope and immutable deploy identity', async () => {
+  const p = provider({ deploy: { ...deploy, branch: previewBranch.toLowerCase() } });
+  const result = await publishPreviewBranch({ ...input, fetchImpl: p.fetchImpl });
+  assert.equal(result.source_branch, previewBranch, 'evidence retains canonical GitHub ref');
+  assert.equal(result.source_sha, input.commit);
+  assert.equal(result.context, 'branch-deploy');
+  assert.equal(result.deploy_id, deployId);
+  assert.equal(result.production_deploy_unchanged, true);
+  const posts = p.calls.filter(call => call.options.method === 'POST');
+  assert.equal(posts.length, 1);
+  assert.equal(new URL(posts[0].url).searchParams.get('branch'), previewBranch);
+});
+
 test('direct ZIP upload is never retried after a failed deploy', async () => {
   const p = provider({ deploy: { ...deploy, state: 'error' } });
   await assert.rejects(publishPreviewBranch({ ...input, fetchImpl: p.fetchImpl }), /Preview deploy failed/);
@@ -84,7 +97,9 @@ test('missing branch, other site, wrong commit or invalid ZIP cannot make any AP
 test('production collision, changed repository and active competing publisher prevent POST', async () => {
   for (const changed of [{ site: { ...site, build_settings: { ...site.build_settings, repo_branch: previewBranch.toLowerCase() } } },
     { site: { ...site, build_settings: { ...site.build_settings, repo_path: 'another/repo' } } },
-    { existing: [{ ...deploy, state: 'building' }] }, { existing: {} }]) {
+    { existing: [{ ...deploy, state: 'building' }] },
+    { existing: [{ ...deploy, branch: previewBranch.toLowerCase(), state: 'building' }] },
+    { existing: {} }]) {
     const p = provider(changed);
     await assert.rejects(publishPreviewBranch({ ...input, fetchImpl: p.fetchImpl }));
     assert.equal(p.calls.filter(call => call.options.method === 'POST').length, 0);
@@ -92,7 +107,7 @@ test('production collision, changed repository and active competing publisher pr
 });
 
 test('wrong branch, site or production context and terminal failures cannot pass readiness', async () => {
-  for (const changed of [{ branch: 'integrated-marketing-platform' }, { site_id: 'wrong' }, { context: 'production' }, { state: 'error' }, { state: 'canceled' }]) {
+  for (const changed of [{ branch: 'master' }, { branch: 'INTEGRATED-MARKETING-PLATFORM' }, { branch: ' integrated-marketing-platform' }, { site_id: 'wrong' }, { context: 'production' }, { state: 'error' }, { state: 'canceled' }]) {
     const p = provider({ deploy: { ...deploy, ...changed } });
     await assert.rejects(publishPreviewBranch({ ...input, fetchImpl: p.fetchImpl }));
     assert.equal(p.calls.filter(call => call.options.method === 'POST').length, 1);
