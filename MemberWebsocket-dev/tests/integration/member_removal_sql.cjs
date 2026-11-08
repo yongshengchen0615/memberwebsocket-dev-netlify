@@ -6,6 +6,18 @@ test('member removal blocks writes, retries cross-service failures, removes priv
   for(const name of ['20261006023020_booking_ticket_usage_consistency.sql','20261006081433_booking_primary_requirement_fixed_notification_time.sql','20261006133127_member_p2_features.sql','20261008034343_admin_service_item_grants.sql','20261008075553_single_active_member_login.sql','20261008083358_test_account_duplicate_login_setting.sql','20261008091007_test_login_takeover_single_session.sql','20261005151234_e2e_membership_terms_scope.sql','20261005152023_e2e_membership_terms_target_member.sql'])await exec(name);
   await db.exec('create schema storage;create table storage.objects(id uuid default gen_random_uuid(),bucket_id text,name text);');
   await exec('20261008152922_member_removal_workflow.sql');
+  // Simulate the versioned source of all future provisioned business schemas.
+  await db.exec(`create schema if not exists platform_private;
+    create table platform_private.business_templates(version text primary key,snapshot jsonb not null);
+    insert into platform_private.business_templates(version,snapshot)
+    select 'business-v1-20261019',jsonb_build_object('functions',jsonb_build_array(
+      jsonb_build_object('name','begin_member_removal','definition',pg_get_functiondef('public.begin_member_removal(text,text,text)'::regprocedure)),
+      jsonb_build_object('name','finish_member_removal','definition',pg_get_functiondef('public.finish_member_removal(text,uuid)'::regprocedure))
+    ));`);
+  await exec('20261108094500_admin_self_member_card_removal.sql');
+  const provisioned=(await db.query("select snapshot->'functions' as functions from platform_private.business_templates where version='business-v1-20261019'")).rows[0].functions;
+  assert.match(provisioned[0].definition,/if p_actor<>p_target and exists\(select 1 from admins/);
+  assert.match(provisioned[1].definition,/if not exists\(select 1 from admins where line_user_id=m.line_user_id\) then/);
   await db.exec("select maintenance.ensure_required_system_baseline();insert into admins(line_user_id,role,status)values('qa-removal-admin','admin','active');");
   const one=async(q,v=[])=>(await db.query(q,v)).rows[0];
   const make=async code=>(await one("insert into members(line_user_id,member_code,invite_code,status,membership_status,display_name,is_test_account)values($1,$2,$3,'active','active','Private member',true)returning id",['qa-removal-'+code,code,code+'000000'])).id;
@@ -26,7 +38,7 @@ test('member removal blocks writes, retries cross-service failures, removes priv
   await t.test('authorization and exact confirmation precede every mutation',async()=>{
    await assert.rejects(begin('qa-removal-outsider'),/ADMIN_REQUIRED/);await assert.rejects(begin(undefined,'BBBB'),/CONFIRMATION_MISMATCH/);
    assert.equal((await one('select status from members where id=$1',[a])).status,'active');
-   await assert.rejects(one("select begin_member_removal('qa-removal-admin','qa-removal-admin','ADMIN')"),/ADMIN_PROTECTED/);
+   await assert.rejects(one("select begin_member_removal('qa-removal-admin','qa-removal-admin','ADMIN')"),/MEMBER_NOT_FOUND/);
   });
   const job=await begin();assert.equal(job.state,'deleting');assert.equal((await begin()).jobId,job.jobId);
   await t.test('pending storage failure keeps identity disabled and rejects writes and stale signed uploads',async()=>{
@@ -52,6 +64,25 @@ test('member removal blocks writes, retries cross-service failures, removes priv
    await assert.rejects(one("select member_login_claim('qa-removal-AAAA',$1,$2,1,'login')",['a'.repeat(64),'b'.repeat(64)]),/MEMBER_REMOVED/);
    await one("select member_login_claim('qa-removal-AAAA',$1,$2,$3,'login')",['a'.repeat(64),'b'.repeat(64),Date.now()+10000]);
    const next=await make('AAAA');assert.notEqual(next,a);assert.equal((await one('select count(*)::int n from point_balances where member_id=$1',[next])).n,0);
+  });
+  await t.test('administrator self-removal deletes only their member card and retains administrator security history',async()=>{
+    await db.exec("insert into admins(line_user_id,role,status)values('qa-removal-peer-admin','admin','active');");
+    await one("insert into members(line_user_id,member_code,invite_code,status,membership_status,display_name,is_test_account)values('qa-removal-peer-admin','PEER','AABB000000','active','active','Peer admin member',true) returning id");
+    const self=(await one("insert into members(line_user_id,member_code,invite_code,status,membership_status,display_name,is_test_account)values('qa-removal-admin','SELF','CCDD000000','active','active','Admin member card',true) returning id")).id;
+    await db.exec("insert into audit_logs(audit_id,actor_line_user_id,actor_role,action,target_type,target_id,result,detail)values(new_public_id('AUD'),'qa-removal-admin','admin','ADMIN_SETTINGS_UPDATED','business','business-settings','success','{}'::jsonb);");
+    await assert.rejects(one("select begin_member_removal('qa-removal-admin','qa-removal-peer-admin','PEER')"),/ADMIN_PROTECTED/);
+    await assert.rejects(one("select begin_member_removal('qa-removal-outsider','qa-removal-admin','SELF')"),/ADMIN_REQUIRED/);
+    const priorRemovalAudits=(await one("select count(*)::int n from audit_logs where actor_line_user_id='qa-removal-admin' and action='MEMBER_REMOVAL_COMPLETE'")).n;
+    const begun=(await one("select begin_member_removal('qa-removal-admin','qa-removal-admin','SELF') result")).result;
+    assert.equal(begun.state,'deleting');
+    const removed=(await one("select finish_member_removal('qa-removal-admin',$1) result",[begun.jobId])).result;
+    assert.equal(removed.state,'complete');
+    assert.equal((await one('select count(*)::int n from members where id=$1',[self])).n,0);
+    const retained=await one("select role,status from admins where line_user_id='qa-removal-admin'");
+    assert.deepEqual({role:retained.role,status:retained.status},{role:'admin',status:'active'});
+    assert.equal((await one("select count(*)::int n from audit_logs where actor_line_user_id='qa-removal-admin' and action='ADMIN_SETTINGS_UPDATED'")).n,1);
+    assert.equal((await one("select count(*)::int n from audit_logs where actor_line_user_id='qa-removal-admin' and action='MEMBER_REMOVAL_COMPLETE'")).n,priorRemovalAudits+1);
+    assert.equal((await one("select count(*)::int n from members where line_user_id='qa-removal-peer-admin'")).n,1);
   });
   for(const role of ['anon','authenticated']){await db.exec('set role '+role);await assert.rejects(begin(),/permission denied/);await assert.rejects(db.query('select * from member_removal_jobs'),/permission denied/);await db.exec('reset role');}
  }finally{await db.close();}
