@@ -12,6 +12,10 @@ test('AC-001/002: the closing policy changes finish time only, never start eligi
   assert.equal(slotFitsClosingTime(start,30,end,false),true);
   assert.equal(slotFitsClosingTime(18*60+30,60,end,false),false);
   assert.equal(slotFitsClosingTime(18*60+30,60,end,true),true);
+  assert.equal(slotFitsClosingTime(start,1440,end,true),false,'a 1440-minute selection cannot be persisted');
+  assert.equal(slotFitsClosingTime(start,1439,end,true),true,'1439 minutes is accepted by the shared contract');
+  assert.equal(slotFitsClosingTime(start,0,end,true),false);
+  assert.equal(slotFitsClosingTime(start,30.5,end,true),false);
   assert.equal(slotFitsClosingTime(end,30,end,true),false);
   assert.equal(slotFitsClosingTime(end+30,30,end,true),false);
   assert.equal(timeOnBusinessDate('2026-12-31',18*60+30),'2026-12-31T18:30:00+08:00');
