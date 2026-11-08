@@ -6,7 +6,7 @@ import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
 import { resolveTestSession, TestModeAuthError } from "../_shared/test-mode-auth.ts";
 import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
-import { workWindow, clockTime, occupiedRange, localRange, slotHasPassed, timeOnBusinessDate, localTimestamp, currentBusinessDate } from "../_shared/booking-hours.ts";
+import { workWindow, slotFitsClosingTime, clockTime, occupiedRange, localRange, slotHasPassed, timeOnBusinessDate, localTimestamp, currentBusinessDate } from "../_shared/booking-hours.ts";
 
 type Json = Record<string, unknown>;
 type Identity = { lineUserId: string; displayName: string };
@@ -647,7 +647,7 @@ async function generateSlots(supabase: SupabaseClient, body: Json, member: any):
   const workEnd = workWindow(settings.work_start_time, settings.work_end_time).end;
   const interval = Number(settings.slot_interval_minutes || SLOT_START_INTERVAL_MINUTES);
   const slots: Json[] = [];
-  for (let cursor = workStart; (settings.allow_end_overrun === true ? cursor < workEnd : cursor + duration <= workEnd); cursor += interval) {
+  for (let cursor = workStart; slotFitsClosingTime(cursor, duration, workEnd, settings.allow_end_overrun === true); cursor += interval) {
     const candidateEnd = cursor + duration;
     const candidate = localRange(date, cursor, duration);
     const overlap = occupied.some((range: any) => candidate.start < range.end && candidate.end > range.start);
