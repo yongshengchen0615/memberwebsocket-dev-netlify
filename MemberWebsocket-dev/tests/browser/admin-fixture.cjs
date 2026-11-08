@@ -19,7 +19,7 @@ function fixture() {
     tierSettings:tiers.map((tierKey,i)=>({tierKey,requiredServiceMinutes:i*100,styleKey:'forest'})),
     terms:[{id:'terms-1',version:'1',title:'QA terms',summary:'QA summary',body:'QA terms body',effectiveAt:version,status:'active',required:true,reconsentExisting:false}],
     limits:{'pointcard-extension-api':{maxTicketsPerRedemption:1,updatedAt:version},'event-ticket-extension-api':{maxTicketsPerDay:1,updatedAt:version}},
-    settings:{workStartTime:'09:00',workEndTime:'18:00',minAdvanceDays:0,maxAdvanceDays:60,slotIntervalMinutes:30,storeServiceMinutes:10,bookingNotice:'QA notice',closedWeekdays:[],updatedAt:version,maxPartySize:2,primaryTechnicianId:'tech-1'},
+    settings:{workStartTime:'09:00',workEndTime:'18:00',allowEndOverrun:false,minAdvanceDays:0,maxAdvanceDays:60,slotIntervalMinutes:30,storeServiceMinutes:10,bookingNotice:'QA notice',closedWeekdays:[],updatedAt:version,maxPartySize:2,primaryTechnicianId:'tech-1'},
     serviceTypes:[{id:'type-1',name:'Body',sortOrder:0}],
     services:[{serviceId:'service-1',title:'QA service',serviceType:'Body',durationMinutes:30,priceAmount:100,isActive:true,updatedAt:version,rewardRules:[]},{serviceId:'service-2',title:'QA second service',serviceType:'Body',durationMinutes:30,priceAmount:200,isActive:true,updatedAt:version,rewardRules:[]}],
     technicians:[{technicianId:'tech-1',name:'QA primary',sortOrder:0,isActive:true,updatedAt:version},{technicianId:'tech-2',name:'QA secondary',sortOrder:1,isActive:true,updatedAt:version}],
@@ -153,7 +153,7 @@ function transport(s, action, p={}, slug='api',record=true) {
     const workEnd=Number(s.settings.workEndTime.slice(0,2))*60+Number(s.settings.workEndTime.slice(3,5))+(s.settings.workEndTime<s.settings.workStartTime?1440:0);
     const toTime=mins=>String(Math.floor(mins/60)%24).padStart(2,'0')+':'+String(mins%60).padStart(2,'0');
     const toDate=mins=>new Date(Date.parse(p.bookingDate+'T00:00:00Z')+(mins>=1440?86400000:0)).toISOString().slice(0,10);
-    for(let cursor=workStart;cursor+totalDurationMinutes<=workEnd;cursor+=Number(s.settings.slotIntervalMinutes||30)){
+    for(let cursor=workStart;(s.settings.allowEndOverrun === true ? cursor<workEnd : cursor+totalDurationMinutes<=workEnd);cursor+=Number(s.settings.slotIntervalMinutes||30)){
       const start=Date.parse(p.bookingDate+'T00:00:00Z')+cursor*60000;
       const end=start+totalDurationMinutes*60000;
       const overlap=s.bookings.some(b=>{

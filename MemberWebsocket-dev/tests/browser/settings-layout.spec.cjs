@@ -50,6 +50,14 @@ for(const variant of [
   const originalNotice=await draftNotice.inputValue();
   await expect(draftStatus).toContainText('尚未修改');
   await expect(page.locator('#bookingAdminDiscardSettingsButton')).toBeDisabled();
+  const lateEndToggle=page.locator('#bookingAdminAllowEndOverrun');
+  await expect(lateEndToggle).not.toBeChecked();
+  await lateEndToggle.check();
+  await expect(draftStatus).toContainText('未儲存');
+  await expect(page.locator('#bookingAdminHoursPreview')).toContainText('服務可於工作結束後完成');
+  await page.locator('#bookingAdminDiscardSettingsButton').click();
+  await expect(lateEndToggle).not.toBeChecked();
+  await lateEndToggle.check();
   await fitsViewport(page,settingsForm);
   await draftNotice.fill('QA booking settings unsaved draft');
   await expect(draftStatus).toContainText('未儲存');
@@ -59,6 +67,7 @@ for(const variant of [
   await page.locator('#bookingAdminDiscardSettingsButton').click();
   await expect(draftNotice).toHaveValue(originalNotice);
   await expect(draftStatus).toContainText('尚未修改');
+  await lateEndToggle.check(); // Re-enable the policy after the discard test intentionally reverted it.
   await draftNotice.fill('QA booking settings persisted '+variant.name);
   if(variant.name==='desktop light') {
     const transport=host.sessions.get(info.testId);
@@ -78,6 +87,10 @@ for(const variant of [
   await expect(page.locator('#bookingAdminSettingsMessage')).toContainText('已儲存');
   await expect(draftStatus).toContainText('尚未修改');
   await expect(host.sessions.get(info.testId).settings.bookingNotice).toBe('QA booking settings persisted '+variant.name);
+  const policyWrites=host.sessions.get(info.testId).calls.filter(item=>item.action==='admin.booking.settings.save');
+  expect(policyWrites.at(-1).payload.allowEndOverrun).toBe(true);
+  expect(host.sessions.get(info.testId).settings.allowEndOverrun).toBe(true);
+  await expect(lateEndToggle).toBeChecked();
   // Transport failure may represent an unknown write result: leave the input intact.
   host.sessions.get(info.testId).fault={action:'admin.booking.settings.save',code:'API_RESPONSE_UNCERTAIN'};
   await draftNotice.fill('QA uncertain draft '+variant.name);

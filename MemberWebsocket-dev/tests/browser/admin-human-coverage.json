@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "bookingEndOverrunReview": "2026-11-08 PR #271：審閱既有 booking.34 管理員工作時間、booking.phone-conflict 電話佔用與相鄰多人預約；新增預設關閉的服務晚結束開關。原有測試案例保留，並加入 PostgreSQL 租戶隔離、Node 時段、管理員草稿與手機瀏覽器測試。後續以同 SHA CI、PG、Edge、部署 Preview 實際結果驗收。",
   "merchantAppearanceReview": "2026-11-05 PR #252: Reviewed general-admin My Merchants list, merchant overview, LINE settings and forms in both light/dark modes. Reuses the shared theme controller, retains no-theme merchant fallback, existing permissions, approved feature journeys and business-scoped URLs. New merchant-workspace-theme.spec.cjs covers actual browser theme persistence, cross-tab synchronization and mobile; existing merchant-workspace-v2.spec.cjs, line-settings-theme.spec.cjs and human inventory remain required. No LINE credentials, API, tenant DB, membership or auth changes. Full same-SHA CI and live deployment smoke still required. 2026-11-05 root-entry correction: /admin/ imports the merchant workspace body after theme.js attached its only toggle to hidden #app. Reused the same event-bound toggle in the visible #productizedAdmin account menu, restored it to legacy on mount failure and kept it on remount. Productized merchant navigation now uses semantic light/dark tokens; /admin/ actual Chromium AC-006/007 and static AC-005 cover desktop, 390px, persistence, control uniqueness and failure path. No API, LINE credentials, tenant data, database or permission changes; full same-SHA release CI and live deploy remain required. DOM integration AC-MEXP-003 found that an earlier expiry loader asset identifier was overwritten; corrected to an additive cache suffix rather than weakening the preexisting test, and rerunning all CI.",
   "scope": "Six admin workspaces (member, points, event, calendar, integration and booking); standalone operation-audit workspace removed, test-control workspace excluded",
   "evidence": "isolated Chromium UI with production handlers and explicit in-memory transport; not live Supabase/LINE delivery 2026-11-01 PR #223: Reviewed platform expiry dialog three modes and independently documented existing merchant createdAt as activation baseline; 30-day calculation, ceil remaining days, exact expiry fallback, unlimited and unauthorized manager are covered by platform_expiry_term.test.js, platform-expiry.spec.cjs and existing admin_access_lifecycle.cjs. Saved expiry remains the existing server-protected expires_at; no new roles, schema or LINE credential routes. Full CI required before merge. 2026-11-01 PR #223 asset consistency correction: /admin/workspace.html also loads the shared platform controller, so it now loads the new expiry helper before that script and versions both assets. RB-ADMIN-004 explicitly verifies both the merchant entrypoint and platform entrypoint include the same helper and controller versions; real Chromium merchant settings retained as a release gate. 2026-11-01 PR #223 DOM fixture compatibility: the existing merchant-only test surfaces do not mount the new optional expiryDays node. Registering the input event uses null-safe lookup only for this new control; real root expiry form retains required browser-side validation and Chromium acceptance. No existing assertion removed or server requirement relaxed.",
@@ -19,7 +20,7 @@
   "lineSettingsThemeReview": "2026-11-03 PR #241: Reviewed general manager LINE settings theme-only CSS, semantic light/dark card, details, help, input/select, tabs, status, endpoint and responsive action row. Updated both admin/index.html and admin/workspace.html CSS asset revisions; preserved LINE official green button, saved credentials, notifications, role/tenant scopes and original six human workflow journeys. New line_settings_theme.test.js and line-settings-theme.spec.cjs cover 390/1280 light-dark-light and no overflow; full original Chromium/integration baseline still required.",
   "phoneBookingWindowReview": "2026-11-07 PR #258: Reviewed existing booking settings and phone appointment admin journeys. Merchant phone configuration is text-only and retains the same field, validation and save handler; existing BOOKING settings browser journeys remain mapped. Member booking date modal now permits phone CTA only when the same inclusive min/max/holiday online eligibility passes; out-of-range, past, holiday and no-phone cases remove dialing href. booking-calendar-times.spec.cjs checks 390/1280 viewport, both date boundaries, out-of-range, live settings revocation, zero max and holiday. booking_phone_fallback_platform.test.js guards UI and existing API phone contract. No new admin flows, tenant scope, authorization, database writes or provider sends. Full exact-SHA baseline and preview acceptance still required.",
   "reviewedSources": {
-    "admin/index.html": "9c62f52150321cdddc04ef43421fe91db063da00e0a5c598281c8c7da9d44158",
+    "admin/index.html": "c6ed0974425ef2bcbb11835343452ef874b41e559de68c947a0b9c8d6b5c7044",
     "admin/app.js": "e7cb31f8fb7d40b09b52814f7bf476e191c85e65c933d008b006c35b9dcc22d3",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
@@ -30,8 +31,8 @@
     "admin/fixed-ticket-calendar-option.js": "0bbc53970ff0ec7408985b001113f64de718963bcfbc793f563a44f2e068f1f1",
     "admin/pointcard-redemption-limit.js": "fbba580c9babdac950b2f619c3f3b949fe89ae0c1365e2555f758d1a8818035c",
     "admin/event-ticket-redemption-limit.js": "263a564d64845c5abb4ed5167305b0bffefb064130a0268ab533b481d320b688",
-    "admin/booking-panel.js": "5610dd86b9a0479293ecde2744c7e59ccd4d57539d7a6348493c6760c21c0058",
-    "admin/booking-panel-core.js": "267f39db4dec7706a23b85461431f6e1534034c1eb725d6479bd2370f6bec67a",
+    "admin/booking-panel.js": "3ccf612cbd0cfc675b812ef0b1d5e863fbaf90feed9c407c7edf853fba897edf",
+    "admin/booking-panel-core.js": "a040e888a02ef247ca7a73fa6773e5534f8b7686149206672592ee864b0001a1",
     "admin/booking-resources.js": "01a066ef180a9d42d49b4250e51008f23a0d13368897f4e351883d592249faff",
     "admin/booking-always-open.js": "9cb236902a7f3f36cf3fe4c3f13fbbac622f000c72d36ec34f7d4dde08e6e54a",
     "admin/booking-cancellation-sync.js": "a8367bb6565d054af976ec1ffdf950874a4e8f14a3917d2e036bc1744016db19",
@@ -370,7 +371,7 @@
     {
       "id": "booking.34",
       "module": "booking",
-      "name": "跨夜時段、提前日數、票券政策、快照可使用地點／半徑、瀏覽器 GPS 雙模式回退與說明（前一天提醒已移至會員預約表單）；新增獨立預約提醒文案編輯、示意預覽、儲存回報與版本衝突（AC-RM-001..004 對應 booking_reminder_message.test.js）；新增商家電話及不可線上預約日期的電話洽詢入口；會員端預約說明必須讀取所屬商家的設定，保留換行且在清空時隱藏（AC-001～004：member_booking_notice_sync.test.js）",
+      "name": "跨夜時段、提前日數、票券政策、快照可使用地點／半徑、瀏覽器 GPS 雙模式回退與說明（前一天提醒已移至會員預約表單）；新增獨立預約提醒文案編輯、示意預覽、儲存回報與版本衝突（AC-RM-001..004 對應 booking_reminder_message.test.js）；新增商家電話及不可線上預約日期的電話洽詢入口；新增服務可超過工作結束時間的選項（AC-001～006：預設關閉、商家設定保存與衝突、單人／多人／電話和跨午夜採相同時段邊界）；會員端預約說明必須讀取所屬商家的設定，保留換行且在清空時隱藏（AC-001～004：member_booking_notice_sync.test.js）",
       "cases": [
         "BOOKING_SHARED_SETTINGS",
         "TICKET_BOOKING_POLICY_ENTRY"

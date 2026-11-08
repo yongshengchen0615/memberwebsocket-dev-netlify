@@ -5,7 +5,7 @@ import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
 import { resolveUserTestIdentity, TestModeAuthError } from "../_shared/test-mode-auth.ts";
 import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
-import { workWindow, clockTime, occupiedRange, localRange, slotHasPassed, timeOnBusinessDate, localTimestamp, currentBusinessDate } from "../_shared/booking-hours.ts";
+import { workWindow, slotFitsClosingTime, clockTime, occupiedRange, localRange, slotHasPassed, timeOnBusinessDate, localTimestamp, currentBusinessDate } from "../_shared/booking-hours.ts";
 
 type Json = Record<string, any>;
 type Identity = { lineUserId: string; displayName: string };
@@ -311,7 +311,7 @@ async function slots(s: SupabaseClient, m: any, body: Json) {
   for (const row of reservationRows) { const a=occupiedByTech.get(row.technician_id)||[]; a.push(occupiedRange(row)); occupiedByTech.set(row.technician_id,a); }
 
   const workStart=toMinutes(cfg.work_start_time), workEnd=workWindow(cfg.work_start_time,cfg.work_end_time).end, interval=Number(cfg.slot_interval_minutes||SLOT_INTERVAL), out:Json[]=[];
-  for (let cursor=workStart; cursor+g.duration<=workEnd; cursor+=interval) {
+  for (let cursor=workStart; slotFitsClosingTime(cursor, g.duration, workEnd, cfg.allow_end_overrun === true); cursor+=interval) {
     const groupEnd=cursor+g.duration;
     const candidate=localRange(date,cursor,g.duration);
     const mainOverlap=primaryOccupied.some((x:any)=>candidate.start<x.end && candidate.end>x.start);
