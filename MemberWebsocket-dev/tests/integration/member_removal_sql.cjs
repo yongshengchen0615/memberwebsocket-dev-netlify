@@ -14,7 +14,7 @@ test('member removal blocks writes, retries cross-service failures, removes priv
       jsonb_build_object('name','begin_member_removal','definition',pg_get_functiondef('public.begin_member_removal(text,text,text)'::regprocedure)),
       jsonb_build_object('name','finish_member_removal','definition',pg_get_functiondef('public.finish_member_removal(text,uuid)'::regprocedure))
     ));`);
-  await exec('20261108094500_admin_self_member_card_removal.sql');
+  await exec('20261108020933_admin_self_member_card_removal.sql');
   const provisioned=(await db.query("select snapshot->'functions' as functions from platform_private.business_templates where version='business-v1-20261019'")).rows[0].functions;
   assert.match(provisioned[0].definition,/if p_actor<>p_target and exists\(select 1 from admins/);
   assert.match(provisioned[1].definition,/if not exists\(select 1 from admins where line_user_id=m.line_user_id\) then/);
