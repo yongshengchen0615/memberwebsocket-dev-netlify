@@ -116,6 +116,44 @@ async function fixture(mode) {
     assert.ok(calls.includes('user.booking.group.slots'));
     assert.ok(el('slotGrid').querySelector('button'));
     assert.equal(w.document.querySelectorAll('[data-group-history]').length, 0, 'Other-day group cards stay out of the date dialog');
+
+    // AC-001–004: group booking is a single-open accordion, without losing selections.
+    const partySize = el('bookingPartySize');
+    const cards = () => [...el('participantCardList').querySelectorAll('details.participant-card')];
+    const assertOnlyExpanded = (active, message) => {
+      assert.deepEqual(cards().map((card) => card.open), cards().map((_, index) => index === active), message);
+    };
+    const setPartySize = (size) => {
+      partySize.value = String(size);
+      partySize.dispatchEvent(new w.Event('change', { bubbles: true }));
+    };
+    setPartySize(3);
+    assertOnlyExpanded(0, 'First participant opens by default');
+    cards()[1].querySelector('summary').click();
+    assertOnlyExpanded(1, 'Opening second participant closes first');
+    if (typeof w.crypto.randomUUID !== 'function') {
+      Object.defineProperty(w.crypto, 'randomUUID', { value: () => 'fixture-selection-id', configurable: true });
+    }
+    const secondAdd = cards()[1].querySelector('.service-add-button');
+    assert.ok(secondAdd, 'Second participant must be able to choose a service');
+    secondAdd.click();
+    assertOnlyExpanded(1, 'Adding an item preserves the active participant');
+    assert.match(cards()[1].querySelector('.selected-service-list').textContent, /腳底40/);
+    cards()[2].querySelector('summary').click();
+    assertOnlyExpanded(2, 'Opening third participant closes second');
+    cards()[1].querySelector('summary').click();
+    assertOnlyExpanded(1, 'Returning to second participant closes third');
+    assert.match(cards()[1].querySelector('.selected-service-list').textContent, /腳底40/, 'Switching participants keeps previously selected services');
+    cards()[1].querySelector('summary').click();
+    assertOnlyExpanded(1, 'Clicking active participant does not collapse the last open card');
+    cards()[1].querySelector('.participant-technician-field select').dispatchEvent(new w.Event('change', { bubbles: true }));
+    assertOnlyExpanded(1, 'Changing a technician preserves the single expanded participant');
+    cards()[2].querySelector('summary').click();
+    setPartySize(2);
+    assertOnlyExpanded(1, 'Reducing the number of participants clamps the active card');
+    setPartySize(1);
+    assertOnlyExpanded(0, 'Returning to a single participant keeps that card expanded');
+    await tick(100);
     const before = calls.length;
     await tick(500);
     assert.ok(calls.length - before <= 1, 'Idle UI must not repeatedly fetch');

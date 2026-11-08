@@ -26,7 +26,7 @@
     editingBookingId: '',
     primaryPicker: null,
     primarySelected: null,
-    openCards: new Set([0]),
+    openCardIndex: 0,
   };
 
   system.request = async function groupBookingRequest(config, clientType, idToken, action, payload = {}) {
@@ -293,15 +293,13 @@
   function renderParticipantCards() {
     const root = document.getElementById('participantCardList');
     if (!root) return;
+    state.openCardIndex = clamp(state.openCardIndex, 0, state.partySize - 1);
     root.replaceChildren();
     for (let index = 0; index < state.partySize; index += 1) {
       const details = document.createElement('details');
       details.className = 'participant-card';
       details.dataset.participantIndex = String(index);
-      details.open = state.openCards.has(index) || index === 0;
-      details.addEventListener('toggle', () => {
-        if (details.open) state.openCards.add(index); else state.openCards.delete(index);
-      });
+      details.open = state.openCardIndex === index;
 
       const summary = document.createElement('summary');
       const heading = document.createElement('span');
@@ -316,6 +314,15 @@
       chevron.setAttribute('aria-hidden', 'true');
       chevron.textContent = '⌄';
       summary.append(heading, chevron);
+      summary.addEventListener('click', (event) => {
+        // Keep the active participant open and collapse the others in one synchronous update.
+        event.preventDefault();
+        if (state.openCardIndex === index) return;
+        state.openCardIndex = index;
+        root.querySelectorAll('.participant-card').forEach((card) => {
+          card.open = Number(card.dataset.participantIndex) === index;
+        });
+      });
       details.appendChild(summary);
 
       const body = document.createElement('div');
@@ -359,7 +366,7 @@
     select.value = state.participantTechnicians[index] || '';
     select.addEventListener('change', () => {
       state.participantTechnicians[index] = String(select.value || '');
-      state.openCards.add(index);
+      state.openCardIndex = index;
       renderParticipantCards();
       reloadSlots();
     });
@@ -506,7 +513,7 @@
       clearParticipantFormMessage();
       selections.push({ selectionId: crypto.randomUUID(), serviceId: service.serviceId });
       state.extras[extraIndex] = selections;
-      state.openCards.add(index);
+      state.openCardIndex = index;
       renderParticipantCards();
       updateSelectionSummary();
       reloadSlots();
@@ -549,7 +556,7 @@
       selections.splice(selectionIndex, 1);
       clearParticipantFormMessage();
       state.extras[extraIndex] = selections;
-      state.openCards.add(index);
+      state.openCardIndex = index;
       renderParticipantCards();
       updateSelectionSummary();
       reloadSlots();
@@ -719,7 +726,7 @@
       : [];
     state.extras = participants.slice(1).map((participant) => participantSelections(participant));
     ensureParticipantCount(false);
-    state.openCards = new Set([0]);
+    state.openCardIndex = 0;
     renderGroupControls();
   }
 
@@ -729,7 +736,7 @@
     state.primaryItems = [];
     state.extras = [];
     state.participantTechnicians = [state.requirePrimaryTechnician && state.primaryTechnicianId && technicianById(state.primaryTechnicianId) ? state.primaryTechnicianId : ''];
-    state.openCards = new Set([0]);
+    state.openCardIndex = 0;
     renderGroupControls();
   }
 
