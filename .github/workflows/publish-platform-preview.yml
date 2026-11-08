@@ -68,7 +68,8 @@ jobs:
             test "$GITHUB_REF_NAME" = Integrated-Marketing-Platform
             npx --yes netlify-cli@23.11.0 env:set PLATFORM_CI_VERIFIED_SHA "$GITHUB_SHA" \\
               --site="$NETLIFY_SITE_ID" --context "branch:$GITHUB_REF_NAME" --scope builds --force
-            echo "NATIVE_NOT_BEFORE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+            export NATIVE_NOT_BEFORE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "NATIVE_NOT_BEFORE=$NATIVE_NOT_BEFORE" >> "$GITHUB_ENV"
             curl --fail --silent --show-error --retry 0 \\
               --header "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \\
               --header 'Content-Type: application/json' \\
