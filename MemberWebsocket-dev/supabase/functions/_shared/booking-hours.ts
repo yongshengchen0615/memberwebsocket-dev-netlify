@@ -15,6 +15,11 @@ export function workWindow(start: string, end: string): { start: number; end: nu
   return { start: opening, end: closing <= opening ? closing + 1440 : closing, overnight: closing < opening };
 }
 
+// Starts must remain within the working shift; only the service finish may overrun.
+export function slotFitsClosingTime(start: number, duration: number, closing: number, allowEndOverrun: boolean): boolean {
+  return start < closing && (allowEndOverrun || start + duration <= closing);
+}
+
 export function currentBusinessDate(today: string, currentMinutes: number, open: string, close: string): string {
   if (workWindow(open, close).overnight && currentMinutes < minutes(close)) {
     const day = Date.parse(`${today}T00:00:00Z`);
