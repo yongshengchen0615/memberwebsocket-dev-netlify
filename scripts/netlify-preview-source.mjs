@@ -1,4 +1,4 @@
-import { isNativeVerifiedPreview, awaitVerifiedPreviewCI } from './netlify-native-ci-gate.mjs';
+import { isNativeVerifiedPreview, hasCiAttestedReleaseMarker, awaitVerifiedPreviewCI } from './netlify-native-ci-gate.mjs';
 import { execFileSync } from 'node:child_process';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -115,10 +115,19 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     // A build hook can bypass Netlify's ignore command; block it here as well.
     if (blockNativePreview(process.env)) throw new Error('This preview branch has an invalid branch or context identity');
     if (isNativeVerifiedPreview(process.env)) {
-      const verified = await awaitVerifiedPreviewCI({
-        sha: process.env.COMMIT_REF, token: process.env.NETLIFY_GITHUB_READ_TOKEN || '',
-      });
-      console.log(JSON.stringify({ nativePreviewVerified: true, sha: verified.sha, ciRuns: verified.runIds }));
+      // Netlify's shared outbound GitHub API quota can reject the native build
+      // even though the exact-SHA required CI passed in the release workflow.
+      // The release workflow sets a branch-only marker AFTER that CI completes.
+      // Other builds still require the original independent GitHub API gate.
+      if (hasCiAttestedReleaseMarker(process.env)) {
+        console.log(JSON.stringify({ nativePreviewVerified: true, sha: process.env.COMMIT_REF,
+          releaseGate: 'github-actions-exact-sha' }));
+      } else {
+        const verified = await awaitVerifiedPreviewCI({
+          sha: process.env.COMMIT_REF, token: process.env.NETLIFY_GITHUB_READ_TOKEN || '',
+        });
+        console.log(JSON.stringify({ nativePreviewVerified: true, sha: verified.sha, ciRuns: verified.runIds }));
+      }
       // Rebuild verification uses this same Git timestamp and native deploy ID.
       process.env.VERIFIED_PREVIEW_SOURCE_EPOCH = execFileSync('git',
         ['show', '-s', '--format=%ct', verified.sha], { encoding: 'utf8' }).trim();
