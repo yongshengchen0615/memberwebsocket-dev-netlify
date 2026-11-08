@@ -296,7 +296,7 @@ async function slots(supabase: ReturnType<typeof db>, member: any, body: Json) {
   const workEnd = workWindow(group.settings.work_start_time, group.settings.work_end_time).end;
   const interval = Number(group.settings.slot_interval_minutes || SLOT_INTERVAL);
   const output: Json[] = [];
-  for (let start = workStart; slotFitsClosingTime(start, group.totalDurationMinutes, workEnd, group.settings.allow_end_overrun === true); start += interval) {
+  for (let start = workStart; slotFitsClosingTime(start, group.totalDurationMinutes, workEnd, Number(group.settings.max_end_overrun_minutes ?? 0)); start += interval) {
     const groupEnd = start + group.totalDurationMinutes;
     const candidate = localRange(bookingDate, start, group.totalDurationMinutes);
     const primaryOverlap = primaryOccupied.some((occupied: any) => candidate.start < occupied.end && candidate.end > occupied.start);
