@@ -19,6 +19,7 @@ class FakeElement {
   append(...elements) { this.children.push(...elements); }
   replaceChildren(...elements) { this.children = [...elements]; }
   addEventListener(name, handler) { this.listeners[name] = handler; }
+  setAttribute(name, value) { (this.attributes ||= {})[name] = String(value); }
   querySelectorAll(selector) {
     assert.equal(selector, 'details.participant-card');
     return this.children.filter((element) => element.tagName === 'details' && element.className === 'participant-card');
