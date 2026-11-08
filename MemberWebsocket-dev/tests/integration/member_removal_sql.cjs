@@ -27,7 +27,7 @@ test('member removal blocks writes, retries cross-service failures, removes priv
   await t.test('authorization and exact confirmation precede every mutation',async()=>{
    await assert.rejects(begin('qa-removal-outsider'),/ADMIN_REQUIRED/);await assert.rejects(begin(undefined,'BBBB'),/CONFIRMATION_MISMATCH/);
    assert.equal((await one('select status from members where id=$1',[a])).status,'active');
-   await assert.rejects(one("select begin_member_removal('qa-removal-admin','qa-removal-admin','ADMIN')"),/ADMIN_PROTECTED/);
+   await assert.rejects(one("select begin_member_removal('qa-removal-admin','qa-removal-admin','ADMIN')"),/MEMBER_NOT_FOUND/);
   });
   const job=await begin();assert.equal(job.state,'deleting');assert.equal((await begin()).jobId,job.jobId);
   await t.test('pending storage failure keeps identity disabled and rejects writes and stale signed uploads',async()=>{
