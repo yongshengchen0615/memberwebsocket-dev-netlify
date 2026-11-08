@@ -63,6 +63,8 @@ test('AC-001..006: tenant upgrade, secure admin toggle, close boundary and futur
     assert.equal((await h.db.query(slot(a),slotArgs('19:00',30))).rows[0].ok,false,'closing time cannot be a start');
     assert.equal((await h.db.query(slot(a),slotArgs('08:30',30))).rows[0].ok,false,'before opening cannot be a start');
     assert.equal((await h.db.query(slot(a),slotArgs('18:45',60))).rows[0].ok,false,'slot alignment still enforced');
+    assert.equal((await h.db.query(slot(a),slotArgs('09:00',1439))).rows[0].ok,true,'1439-minute SQL boundary remains valid');
+    assert.equal((await h.db.query(slot(a),slotArgs('09:00',1440))).rows[0].ok,false,'1440-minute slots are not persistable');
     assert.equal((await h.db.query(slot(a),slotArgs('18:30',1440))).rows[0].ok,false,'existing duration cap still applies');
     assert.equal((await h.db.query(slot(a),slotArgs('01:30',90,'14:00','02:00'))).rows[0].ok,true,'overnight business date rollover');
     assert.equal((await h.db.query(slot(a),slotArgs('02:00',30,'14:00','02:00'))).rows[0].ok,false,'overnight closing start denied');
