@@ -58,7 +58,7 @@ test('AC-001..006: tenant upgrade, secure admin toggle, close boundary and futur
     assert.equal((await h.db.query(slot(a),slotArgs('18:30',1440))).rows[0].ok,false,'existing duration cap still applies');
     assert.equal((await h.db.query(slot(a),slotArgs('01:30',90,'14:00','02:00'))).rows[0].ok,true,'overnight business date rollover');
     assert.equal((await h.db.query(slot(a),slotArgs('02:00',30,'14:00','02:00'))).rows[0].ok,false,'overnight closing start denied');
-    assert.equal((await h.db.query(slot(a),slotArgs('23:30',120,'23:00','23:55'))).rows[0].ok,false,'next-next-day timestamps are not representable');
+    assert.equal((await h.db.query(slot(a),slotArgs('23:00',120,'23:30','23:25'))).rows[0].ok,false,'next-next-day timestamps are not representable');
     assert.equal((await h.db.query(slot(b),slotArgs('18:30',60))).rows[0].ok,false,'merchant B stays disabled');
 
     await assert.rejects(h.db.query(sql,args),/BOOKING_SETTINGS_CONFLICT/,'stale version cannot overwrite policy');
