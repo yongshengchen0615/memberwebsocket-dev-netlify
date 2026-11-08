@@ -27,7 +27,7 @@ test('AC-002 admin phone is part of draft detection, validation, save, readback'
   assert.match(adminApi,/phoneBookingNumber: String\(row\?\.phone_booking_number \|\| ""\)/);
   // v9 delegates to v8 so phone number authorization and preservation remain intact.
   assert.match(adminApi,/save_booking_shared_settings_v9/);
-  assert.match(read('supabase/migrations/20261108173000_booking_allow_end_overrun.sql'),/save_booking_shared_settings_v8\\(/);
+  assert.match(read('supabase/migrations/20261108173000_booking_allow_end_overrun.sql'),/save_booking_shared_settings_v8\(/);
   assert.match(adminApi,/p_phone_booking_number: phoneBookingNumber/);
 });
 test('AC-003 both member bootstrap and calendar month return the shop telephone number',()=>{
