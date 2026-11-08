@@ -12,10 +12,11 @@ export class NativeDeployError extends Error {
 }
 const fail = code => { throw new NativeDeployError(code); };
 export async function verifyNativePreview({ commit, token, source, fetchImpl = fetch,
-  delay = pause, attempts = 60, delayMs = 4000 }) {
+  delay = pause, attempts = 60, delayMs = 4000, notBefore = null }) {
   if (!/^[a-f0-9]{40}$/.test(commit || '') || !token ||
     !Number.isInteger(attempts) || attempts < 1 || attempts > 120 ||
-    !Number.isInteger(delayMs) || delayMs < 0 || delayMs > 30000) fail('INVALID_INPUT');
+    !Number.isInteger(delayMs) || delayMs < 0 || delayMs > 30000 ||
+    (notBefore !== null && (!Number.isFinite(Date.parse(notBefore)) || typeof notBefore !== 'string'))) fail('INVALID_INPUT');
   if (source?.siteId !== siteId || source.branch !== branch ||
     source.production?.branch !== 'master' || !/^[a-f0-9]{24}$/.test(source.production?.deployId || '') ||
     source.build?.repository !== repo) fail('INVALID_SOURCE');
@@ -35,7 +36,9 @@ export async function verifyNativePreview({ commit, token, source, fetchImpl = f
     const items = await request(`/sites/${siteId}/deploys?per_page=100`);
     if (!Array.isArray(items)) fail('DEPLOY_LIST_INVALID');
     const matching = items.filter(x => x.branch === branch && x.context === 'branch-deploy'
-      && x.commit_ref === commit && x.site_id === siteId);
+      && x.commit_ref === commit && x.site_id === siteId
+      && (notBefore === null || (typeof x.created_at === 'string'
+        && Number.isFinite(Date.parse(x.created_at)) && Date.parse(x.created_at) >= Date.parse(notBefore) - 2000)));
     const valid = matching.find(x => x.state === 'ready' && /^[a-f0-9]{24}$/.test(x.id || ''));
     if (valid) {
       const detail = await request(`/deploys/${valid.id}`);
@@ -61,7 +64,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   try {
     const source = JSON.parse(await readFile('evidence/platform-source.json', 'utf8'));
     const result = await verifyNativePreview({ source,
-      commit: process.env.COMMIT_REF, token: process.env.NETLIFY_AUTH_TOKEN });
+      commit: process.env.COMMIT_REF, token: process.env.NETLIFY_AUTH_TOKEN,
+      notBefore: process.env.NATIVE_NOT_BEFORE || null });
     await mkdir('evidence', { recursive: true });
     await writeFile('evidence/platform-deploy.json', JSON.stringify(result, null, 2) + '\n');
     console.log(JSON.stringify(result));
