@@ -48,6 +48,12 @@ begin
       for item in select value from jsonb_array_elements(patches) loop
         old_fragment := item->>0;
         new_fragment := item->>1;
+        -- Existing tenants store a concrete schema in the historical dynamic actor scrub.
+        -- Match that original shape, while the replacement uses the function search_path.
+        if tenant.nspname<>'public' then
+          old_fragment := replace(old_fragment, 'table_schema=''public''', 'table_schema='''||tenant.nspname||'''');
+          old_fragment := replace(old_fragment, 'update public.%I', 'update '||tenant.nspname||'.%I');
+        end if;
         if strpos(ddl,old_fragment)=0 then
           raise exception 'MEMBER_REMOVAL_CONTRACT_DRIFT: %.% missing expected section',tenant.nspname,fn_name;
         end if;
