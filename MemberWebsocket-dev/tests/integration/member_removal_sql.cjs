@@ -6,7 +6,18 @@ test('member removal blocks writes, retries cross-service failures, removes priv
   for(const name of ['20261006023020_booking_ticket_usage_consistency.sql','20261006081433_booking_primary_requirement_fixed_notification_time.sql','20261006133127_member_p2_features.sql','20261008034343_admin_service_item_grants.sql','20261008075553_single_active_member_login.sql','20261008083358_test_account_duplicate_login_setting.sql','20261008091007_test_login_takeover_single_session.sql','20261005151234_e2e_membership_terms_scope.sql','20261005152023_e2e_membership_terms_target_member.sql'])await exec(name);
   await db.exec('create schema storage;create table storage.objects(id uuid default gen_random_uuid(),bucket_id text,name text);');
   await exec('20261008152922_member_removal_workflow.sql');
+  // Simulate the versioned source of all future provisioned business schemas.
+  await db.exec(`create schema if not exists platform_private;
+    create table platform_private.business_templates(version text primary key,snapshot jsonb not null);
+    insert into platform_private.business_templates(version,snapshot)
+    select 'business-v1-20261019',jsonb_build_object('functions',jsonb_build_array(
+      jsonb_build_object('name','begin_member_removal','definition',pg_get_functiondef('public.begin_member_removal(text,text,text)'::regprocedure)),
+      jsonb_build_object('name','finish_member_removal','definition',pg_get_functiondef('public.finish_member_removal(text,uuid)'::regprocedure))
+    ));`);
   await exec('20261108094500_admin_self_member_card_removal.sql');
+  const provisioned=(await db.query("select snapshot->'functions' as functions from platform_private.business_templates where version='business-v1-20261019'")).rows[0].functions;
+  assert.match(provisioned[0].definition,/if p_actor<>p_target and exists\(select 1 from admins/);
+  assert.match(provisioned[1].definition,/if not exists\(select 1 from admins where line_user_id=m.line_user_id\) then/);
   await db.exec("select maintenance.ensure_required_system_baseline();insert into admins(line_user_id,role,status)values('qa-removal-admin','admin','active');");
   const one=async(q,v=[])=>(await db.query(q,v)).rows[0];
   const make=async code=>(await one("insert into members(line_user_id,member_code,invite_code,status,membership_status,display_name,is_test_account)values($1,$2,$3,'active','active','Private member',true)returning id",['qa-removal-'+code,code,code+'000000'])).id;
