@@ -67,6 +67,7 @@ for(const variant of [
   await page.locator('#bookingAdminDiscardSettingsButton').click();
   await expect(draftNotice).toHaveValue(originalNotice);
   await expect(draftStatus).toContainText('尚未修改');
+  await lateEndToggle.check(); // Re-enable the policy after the discard test intentionally reverted it.
   await draftNotice.fill('QA booking settings persisted '+variant.name);
   if(variant.name==='desktop light') {
     const transport=host.sessions.get(info.testId);
