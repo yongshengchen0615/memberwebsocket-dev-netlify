@@ -12,7 +12,7 @@ export function isNativeVerifiedPreview(env) {
 export function hasCiAttestedReleaseMarker(env) {
   return isNativeVerifiedPreview(env)
     && /^[a-f0-9]{40}$/.test(env.COMMIT_REF || '')
-    && env.NETLIFY_VERIFIED_PREVIEW_SHA === env.COMMIT_REF;
+    && env.PLATFORM_CI_VERIFIED_SHA === env.COMMIT_REF;
 }
 
 export class NativeCiGateError extends Error {
