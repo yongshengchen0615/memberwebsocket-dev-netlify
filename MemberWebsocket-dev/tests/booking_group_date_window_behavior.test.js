@@ -35,6 +35,7 @@ function buildSlots(holiday = false, configuredGroup = group) {
     toMinutes: (value) => Number(value.slice(0, 2)) * 60 + Number(value.slice(3, 5)),
     toTime: (value) => `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`,
     workWindow: hours.workWindow,
+    slotFitsClosingTime: hours.slotFitsClosingTime,
     currentBusinessDate: hours.currentBusinessDate,
     clockTime: hours.clockTime,
     occupiedRange: hours.occupiedRange,
