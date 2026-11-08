@@ -39,7 +39,12 @@ test('AC-001..006: tenant upgrade, secure admin toggle, close boundary and futur
       assert.deepEqual(rights,{anon:false,member:false,service:true},schema+' v9 settings must be service-only');
       const volatility = (await h.db.query('select p.provolatile from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname=$1 and p.proname=$2',[schema,'booking_slot_fits'])).rows[0].provolatile;
       assert.equal(volatility,'s',schema+' setting-dependent slot predicate must be STABLE');
-      assert.equal((await h.db.query(`select allow_end_overrun from ${schema}.booking_settings where id=1`)).rows[0].allow_end_overrun,false);
+      // The isolated public template has no global settings row; merchant
+      // provisioning seeds the real settings rows. Test default/ACL in public,
+      // and the policy's actual persisted row in each merchant schema.
+      if (schema !== 'public') {
+        assert.equal((await h.db.query(`select allow_end_overrun from ${schema}.booking_settings where id=1`)).rows[0].allow_end_overrun,false);
+      }
       assert.equal((await h.db.query(slot(schema),slotArgs('18:30',60))).rows[0].ok,false,schema+' default denies late finish');
     }
 
