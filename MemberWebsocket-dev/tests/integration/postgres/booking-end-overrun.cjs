@@ -6,6 +6,7 @@ const path = require('node:path');
 const database = require('./database.cjs');
 const fixture = require('../business-runtime-fixture.cjs');
 
+const priorMigration = fs.readFileSync(path.resolve(__dirname, '../../../supabase/migrations/20261107093000_booking_phone_fallback.sql'), 'utf8');
 const migration = fs.readFileSync(path.resolve(__dirname, '../../../supabase/migrations/20261108173000_booking_allow_end_overrun.sql'), 'utf8');
 const id = n => 'U' + String(n).repeat(32);
 const signature = '(time without time zone,time without time zone,integer,integer,integer,text,integer,boolean,time without time zone,timestamp with time zone,text,boolean,boolean,jsonb,text,boolean)';
@@ -26,6 +27,8 @@ test('AC-001..006: tenant upgrade, secure admin toggle, close boundary and futur
     const second = await h.approve(id(6), 'end-overrun-b-' + crypto.randomUUID().slice(0, 6));
     const a = first.runtime_schema, b = second.runtime_schema;
     assert.notEqual(a, b);
+    // The isolated template predates v8. Reproduce production's migration order.
+    await h.db.exec(priorMigration);
     await h.db.exec(migration);
 
     for (const schema of ['public', a, b]) {
