@@ -66,15 +66,15 @@ jobs:
             # This branch-specific marker is issued ONLY after the exact-SHA CI
             # gate above has passed. It is never set for production or PRs.
             test "$GITHUB_REF_NAME" = Integrated-Marketing-Platform
-            npx --yes netlify-cli@23.11.0 env:set PLATFORM_CI_VERIFIED_SHA "$GITHUB_SHA" \\
+            npx --yes netlify-cli@23.11.0 env:set PLATFORM_CI_VERIFIED_SHA "$GITHUB_SHA" \
               --site="$NETLIFY_SITE_ID" --context "branch:$GITHUB_REF_NAME" --scope builds --force
             export NATIVE_NOT_BEFORE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
             echo "NATIVE_NOT_BEFORE=$NATIVE_NOT_BEFORE" >> "$GITHUB_ENV"
-            curl --fail --silent --show-error --retry 0 \\
-              --header "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \\
-              --header 'Content-Type: application/json' \\
-              --request POST --data '{}' \\
-              "https://api.netlify.com/api/v1/sites/$NETLIFY_SITE_ID/builds?branch=$GITHUB_REF_NAME&commit_sha=$GITHUB_SHA" \\
+            curl --fail --silent --show-error --retry 0 \
+              --header "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \
+              --header 'Content-Type: application/json' \
+              --request POST --data '{}' \
+              "https://api.netlify.com/api/v1/sites/$NETLIFY_SITE_ID/builds?branch=$GITHUB_REF_NAME&commit_sha=$GITHUB_SHA" \
               --output /tmp/native-recovery-build.json
             jq -e '.id | strings | test("^[a-f0-9]{24}$")' /tmp/native-recovery-build.json > /dev/null
             node scripts/verify-netlify-native-preview.mjs
@@ -88,9 +88,12 @@ jobs:
         env:
           COMMIT_REF: ${{ github.sha }}
         run: |
-          # Only a verified native deploy ID may be paired with the source epoch.
-          test "$PREVIEW_DEPLOY_MODE" = native
-          test -n "$DEPLOY_ID"
+          # The platform alias branch retains its existing CLI preview release.
+          # Native provenance is mandatory only for Integrated-Marketing-Platform.
+          if [ "$GITHUB_REF_NAME" = Integrated-Marketing-Platform ]; then
+            test "$PREVIEW_DEPLOY_MODE" = native
+            test -n "$DEPLOY_ID"
+          fi
           node --test scripts/deploy.test.mjs scripts/netlify-publish-workflow.test.mjs scripts/check-preview-ci.test.mjs scripts/verify-platform-preview.test.mjs scripts/inspect-preview-source.test.mjs scripts/netlify-preview-source.test.mjs scripts/verify-netlify-cli-preview.test.mjs scripts/netlify-native-ci-gate.test.mjs scripts/verify-netlify-native-preview.test.mjs
           node scripts/build-site.mjs
           test -f dist/platform/index.html
