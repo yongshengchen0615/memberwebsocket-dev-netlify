@@ -24,6 +24,8 @@ as $function$
     and public.booking_slot_start_at(p_date,p_time,p_open,p_close) >= p_date + p_open
     and public.booking_slot_start_at(p_date,p_time,p_open,p_close)
       < p_date + p_close + case when p_close < p_open then interval '1 day' else interval '0 days' end
+    and public.booking_slot_start_at(p_date,p_time,p_open,p_close) + make_interval(mins => p_duration)
+      < p_date + interval '2 days'
     and (
       coalesce((select allow_end_overrun from public.booking_settings where id=1),false)
       or public.booking_slot_start_at(p_date,p_time,p_open,p_close) + make_interval(mins => p_duration)
