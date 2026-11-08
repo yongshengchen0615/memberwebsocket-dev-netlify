@@ -61,6 +61,7 @@ test('member removal blocks writes, retries cross-service failures, removes priv
     await db.exec("insert into audit_logs(audit_id,actor_line_user_id,actor_role,action,target_type,target_id,result,detail)values(new_public_id('AUD'),'qa-removal-admin','admin','ADMIN_SETTINGS_UPDATED','business','business-settings','success','{}'::jsonb);");
     await assert.rejects(one("select begin_member_removal('qa-removal-admin','qa-removal-peer-admin','PEER')"),/ADMIN_PROTECTED/);
     await assert.rejects(one("select begin_member_removal('qa-removal-outsider','qa-removal-admin','SELF')"),/ADMIN_REQUIRED/);
+    const priorRemovalAudits=(await one("select count(*)::int n from audit_logs where actor_line_user_id='qa-removal-admin' and action='MEMBER_REMOVAL_COMPLETE'")).n;
     const begun=(await one("select begin_member_removal('qa-removal-admin','qa-removal-admin','SELF') result")).result;
     assert.equal(begun.state,'deleting');
     const removed=(await one("select finish_member_removal('qa-removal-admin',$1) result",[begun.jobId])).result;
@@ -69,7 +70,7 @@ test('member removal blocks writes, retries cross-service failures, removes priv
     const retained=await one("select role,status from admins where line_user_id='qa-removal-admin'");
     assert.deepEqual({role:retained.role,status:retained.status},{role:'admin',status:'active'});
     assert.equal((await one("select count(*)::int n from audit_logs where actor_line_user_id='qa-removal-admin' and action='ADMIN_SETTINGS_UPDATED'")).n,1);
-    assert.equal((await one("select count(*)::int n from audit_logs where actor_line_user_id='qa-removal-admin' and action='MEMBER_REMOVAL_COMPLETE'")).n,1);
+    assert.equal((await one("select count(*)::int n from audit_logs where actor_line_user_id='qa-removal-admin' and action='MEMBER_REMOVAL_COMPLETE'")).n,priorRemovalAudits+1);
     assert.equal((await one("select count(*)::int n from members where line_user_id='qa-removal-peer-admin'")).n,1);
   });
   for(const role of ['anon','authenticated']){await db.exec('set role '+role);await assert.rejects(begin(),/permission denied/);await assert.rejects(db.query('select * from member_removal_jobs'),/permission denied/);await db.exec('reset role');}
