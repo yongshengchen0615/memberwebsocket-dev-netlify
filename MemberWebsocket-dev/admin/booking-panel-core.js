@@ -36,7 +36,7 @@
     reminderMessageVersion: '',
     reminderMessageSaving: false,
   };
-  const SETTINGS_INPUT_IDS = ['bookingAdminStartTime','bookingAdminEndTime','bookingAdminAllowEndOverrun','bookingAdminSlotInterval','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminPhoneNumber','bookingAdminStoreServiceMinutes','bookingAdminSnapshotLocationRequired','bookingAdminNotice'];
+  const SETTINGS_INPUT_IDS = ['bookingAdminStartTime','bookingAdminEndTime','bookingAdminMaxEndOverrunMinutes','bookingAdminSlotInterval','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminPhoneNumber','bookingAdminStoreServiceMinutes','bookingAdminSnapshotLocationRequired','bookingAdminNotice'];
   const els = {};
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
@@ -134,10 +134,7 @@
                   <label class="booking-admin-settings-field"><span>結束工作時間</span><input id="bookingAdminEndTime" type="time" step="300" value="17:00" required><small>早於開始時間代表隔日結束，例如 14:00–02:00。</small></label>
                   <label class="booking-admin-settings-field"><span>時段切分間隔</span><div class="booking-admin-number-field"><input id="bookingAdminSlotInterval" type="number" min="5" max="120" step="5" value="30" required><span aria-hidden="true">分鐘</span></div><small>可設 5–120 分鐘，服務長度仍依各項目計算。</small></label>
                 </div>
-                <label class="booking-admin-toggle">
-                  <input id="bookingAdminAllowEndOverrun" type="checkbox">
-                  <span><strong>允許服務超過結束工作時間</strong><small>只有預約「開始時間」必須早於結束工作時間，服務可延後結束。例如 19:00 打烊，18:30 開始的 60 分鐘服務可預約至 19:30；19:00 之後仍不可開始預約。</small></span>
-                </label>
+                <label class="booking-admin-settings-field"><span>最多超過結束工作時間</span><div class="booking-admin-number-field"><input id="bookingAdminMaxEndOverrunMinutes" type="number" min="0" max="1439" step="1" value="0" required><span aria-hidden="true">分鐘</span></div><small>0 分鐘代表不可超過。例：19:00 結束工作、設定 30 分鐘，服務最晚可於 19:30 完成；預約仍須在 19:00 前開始。</small></label>
                 <p id="bookingAdminHoursPreview" class="booking-admin-hours-preview" role="status" aria-live="polite"></p>
               </section>
 
@@ -292,7 +289,7 @@
 
   function cacheElements() {
     [
-      'bookingTab','bookingPanel','bookingAdminSyncStatus','bookingAdminSettingsForm','bookingAdminStartTime','bookingAdminEndTime','bookingAdminAllowEndOverrun','bookingAdminSlotInterval','bookingAdminHoursPreview','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminPhoneNumber','bookingAdminStoreServiceMinutes','bookingAdminSnapshotLocationRequired','bookingAdminNotice','bookingAdminReminderMessageForm','bookingAdminReminderMessage','bookingAdminReminderMessagePreview','bookingAdminReminderMessageStatus','bookingAdminReminderMessageSave','bookingAdminSettingsMessage','bookingAdminDraftStatus','bookingAdminDiscardSettingsButton','bookingAdminSaveSettingsButton',
+      'bookingTab','bookingPanel','bookingAdminSyncStatus','bookingAdminSettingsForm','bookingAdminStartTime','bookingAdminEndTime','bookingAdminMaxEndOverrunMinutes','bookingAdminSlotInterval','bookingAdminHoursPreview','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminPhoneNumber','bookingAdminStoreServiceMinutes','bookingAdminSnapshotLocationRequired','bookingAdminNotice','bookingAdminReminderMessageForm','bookingAdminReminderMessage','bookingAdminReminderMessagePreview','bookingAdminReminderMessageStatus','bookingAdminReminderMessageSave','bookingAdminSettingsMessage','bookingAdminDraftStatus','bookingAdminDiscardSettingsButton','bookingAdminSaveSettingsButton',
       'bookingAdminNewTypeButton','bookingAdminTypeMessage','bookingAdminTypeList','bookingAdminTypeEmpty','bookingAdminServiceCount','bookingAdminPendingCount','bookingAdminAccessiblePendingCount','bookingAdminConfirmedCount',
       'bookingAdminSubtabs','bookingAdminTechniciansSubtab','bookingAdminServicesSubtab','bookingAdminSettingsSubtab','bookingAdminRiskSubtab','bookingAdminRiskPanel','bookingAdminRiskMount','bookingAdminRiskOpenAdvanceSettings','bookingAdminQueueSubtab','bookingAdminQueueSubtabCount','bookingAdminTechniciansPanel','bookingAdminServicesPanel','bookingAdminSettingsPanel','bookingAdminQueuePanel','bookingAdminStandardMode','bookingAdminAccessibleMode','bookingAdminStandardModeCount','bookingAdminAccessibleModeCount','bookingAdminStandardQueueView','bookingAdminNewServiceButton','bookingAdminBatchAddButton','bookingAdminBatchEditButton','bookingAdminBatchDeleteButton','bookingAdminServiceMessage','bookingAdminServiceList','bookingAdminServiceEmpty','bookingAdminQueue','bookingAdminQueueEmpty','bookingAdminPhoneCreateButton',
       'bookingAdminCrudModal','bookingAdminCrudModalTitle','bookingAdminCrudModalBody','bookingAdminCrudModalClose'
@@ -319,7 +316,7 @@
     if (snapshotRows) new MutationObserver(() => updateSettingsDraft()).observe(snapshotRows, { childList: true, subtree: true });
     window.TicketLocationEditors?.snapshot?.init();
     ['bookingAdminStartTime','bookingAdminEndTime','bookingAdminSlotInterval'].forEach((id) => els[id].addEventListener('input', renderHoursPreview));
-    els.bookingAdminAllowEndOverrun.addEventListener('change', renderHoursPreview);
+    els.bookingAdminMaxEndOverrunMinutes.addEventListener('input', renderHoursPreview);
     els.bookingAdminNewTypeButton.addEventListener('click', () => openTypeModal(null));
     els.bookingAdminTechniciansSubtab.addEventListener('click', () => setSubtab('technicians'));
     els.bookingAdminServicesSubtab.addEventListener('click', () => setSubtab('services'));
@@ -757,7 +754,7 @@
     }
     els.bookingAdminStartTime.value = String(settings.workStartTime || '09:00');
     els.bookingAdminEndTime.value = String(settings.workEndTime || '17:00');
-    els.bookingAdminAllowEndOverrun.checked = settings.allowEndOverrun === true;
+    els.bookingAdminMaxEndOverrunMinutes.value = String(settings.maxEndOverrunMinutes ?? 0);
     els.bookingAdminSlotInterval.value = String(Number(settings.slotIntervalMinutes || 30));
     els.bookingAdminAdvanceDays.value = String(Number(settings.minAdvanceDays || 0));
     els.bookingAdminMaxAdvanceDays.value = String(Number(settings.maxAdvanceDays || 0));
@@ -795,7 +792,9 @@
       const minute = (opening + index * step) % 1440;
       return `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
     });
-    els.bookingAdminHoursPreview.textContent = `${today} 營業班次：${today} ${start} → ${overnight ? next.toISOString().slice(0, 10) : today} ${end}。切分起點：${first.join('、')}${closing - opening > step * 4 ? '…' : ''}。${els.bookingAdminAllowEndOverrun.checked ? '服務可於工作結束後完成，預約開始時間不得晚於或等於結束工作時間。' : '服務必須在結束工作時間前完成。'}`;
+    const extraMinutes = Number(els.bookingAdminMaxEndOverrunMinutes.value);
+    const validExtra = els.bookingAdminMaxEndOverrunMinutes.value !== '' && Number.isInteger(extraMinutes) && extraMinutes >= 0 && extraMinutes <= 1439;
+    els.bookingAdminHoursPreview.textContent = `${today} 營業班次：${today} ${start} → ${overnight ? next.toISOString().slice(0, 10) : today} ${end}。切分起點：${first.join('、')}${closing - opening > step * 4 ? '…' : ''}。${!validExtra ? '請輸入 0–1439 分鐘的超時上限。' : extraMinutes === 0 ? '服務必須在結束工作時間前完成。' : `服務最多可在結束工作時間後 ${extraMinutes} 分鐘完成，預約開始時間仍須早於結束工作時間。`}`;
   }
   function renderStats() {
     const bookings = state.booking.bookings || [];
@@ -905,6 +904,7 @@
     const maxAdvanceDays = Number(els.bookingAdminMaxAdvanceDays.value);
     const storeServiceMinutes = Number(els.bookingAdminStoreServiceMinutes.value);
     const slotIntervalMinutes = Number(els.bookingAdminSlotInterval.value);
+    const maxEndOverrunMinutes = Number(els.bookingAdminMaxEndOverrunMinutes.value);
     const workStartTime = els.bookingAdminStartTime.value;
     const workEndTime = els.bookingAdminEndTime.value;
     const bookingNotice = String(els.bookingAdminNotice.value || '').replace(/\r\n?/g, '\n');
@@ -916,6 +916,7 @@
     if (!Number.isInteger(storeServiceMinutes) || storeServiceMinutes < 1 || storeServiceMinutes > 720) return showMessage(els.bookingAdminSettingsMessage, '店內服務分鐘必須介於 1–720 分鐘。', 'error');
     if (!/^\d{2}:\d{2}$/.test(workStartTime) || !/^\d{2}:\d{2}$/.test(workEndTime) || workStartTime === workEndTime || [workStartTime, workEndTime].some((time) => Number(time.slice(0, 2)) > 23 || Number(time.slice(3)) > 59 || Number(time.slice(3)) % 5 !== 0)) return showMessage(els.bookingAdminSettingsMessage, '工作時間格式錯誤或時段長度為零。', 'error');
     if (!Number.isInteger(slotIntervalMinutes) || slotIntervalMinutes < 5 || slotIntervalMinutes > 120 || slotIntervalMinutes % 5 !== 0) return showMessage(els.bookingAdminSettingsMessage, '切分間隔須為 5–120 分鐘的 5 分鐘倍數。', 'error');
+    if (els.bookingAdminMaxEndOverrunMinutes.value === '' || !Number.isInteger(maxEndOverrunMinutes) || maxEndOverrunMinutes < 0 || maxEndOverrunMinutes > 1439) return showMessage(els.bookingAdminSettingsMessage, '最多超過結束工作時間必須介於 0–1439 分鐘。', 'error');
     if (bookingNotice.length > 2000) return showMessage(els.bookingAdminSettingsMessage, '預約說明不可超過 2,000 字。', 'error');
     const snapshotLocations = window.TicketLocationEditors?.snapshot?.get() || [];
     if (els.bookingAdminSnapshotLocationRequired.checked && !snapshotLocations.length) return showMessage(els.bookingAdminSettingsMessage, '請先新增至少一個快照允許地點，才能啟用定位限制。', 'error');
@@ -931,7 +932,7 @@
       const result = await manageRequest('admin.booking.settings.save', {
         workStartTime: els.bookingAdminStartTime.value,
         workEndTime: els.bookingAdminEndTime.value,
-        allowEndOverrun: els.bookingAdminAllowEndOverrun.checked,
+        maxEndOverrunMinutes,
         slotIntervalMinutes,
         minAdvanceDays,
         maxAdvanceDays,

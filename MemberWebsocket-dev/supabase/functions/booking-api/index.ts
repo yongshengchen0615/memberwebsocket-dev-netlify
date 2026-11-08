@@ -299,6 +299,7 @@ function settingsClient(row: any): Json {
     workStartTime: String(row?.work_start_time || "09:00:00").slice(0, 5),
     workEndTime: String(row?.work_end_time || "17:00:00").slice(0, 5),
     allowEndOverrun: row?.allow_end_overrun === true,
+    maxEndOverrunMinutes: Number(row?.max_end_overrun_minutes ?? 0),
     slotIntervalMinutes: Number(row?.slot_interval_minutes || 30),
     minAdvanceDays: Number(row?.min_advance_days || 0),
     maxAdvanceDays: Number(row?.max_advance_days || 0),
@@ -647,7 +648,7 @@ async function generateSlots(supabase: SupabaseClient, body: Json, member: any):
   const workEnd = workWindow(settings.work_start_time, settings.work_end_time).end;
   const interval = Number(settings.slot_interval_minutes || SLOT_START_INTERVAL_MINUTES);
   const slots: Json[] = [];
-  for (let cursor = workStart; slotFitsClosingTime(cursor, duration, workEnd, settings.allow_end_overrun === true); cursor += interval) {
+  for (let cursor = workStart; slotFitsClosingTime(cursor, duration, workEnd, Number(settings.max_end_overrun_minutes ?? 0)); cursor += interval) {
     const candidateEnd = cursor + duration;
     const candidate = localRange(date, cursor, duration);
     const overlap = occupied.some((range: any) => candidate.start < range.end && candidate.end > range.start);

@@ -16,11 +16,12 @@ export function workWindow(start: string, end: string): { start: number; end: nu
 }
 
 // Starts must remain within the working shift; only the service finish may overrun.
-export function slotFitsClosingTime(start: number, duration: number, closing: number, allowEndOverrun: boolean): boolean {
-  // PostgreSQL booking_slot_fits and bookings storage cap total duration at 1439 minutes.
-  return Number.isInteger(duration) && duration >= 1 && duration <= 1439
+export function slotFitsClosingTime(start: number, duration: number, closing: number, maxEndOverrunMinutes: number): boolean {
+  // Fail closed for an invalid limit; PostgreSQL also constrains 0..1439.
+  return Number.isInteger(maxEndOverrunMinutes) && maxEndOverrunMinutes >= 0 && maxEndOverrunMinutes <= 1439
+    && Number.isInteger(duration) && duration >= 1 && duration <= 1439
     && start < closing && start + duration < 2880
-    && (allowEndOverrun || start + duration <= closing);
+    && start + duration <= closing + maxEndOverrunMinutes;
 }
 
 export function currentBusinessDate(today: string, currentMinutes: number, open: string, close: string): string {
