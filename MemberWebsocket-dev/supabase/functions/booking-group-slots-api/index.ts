@@ -5,7 +5,7 @@ import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract } from "../_shared/auth-contract.ts";
 import { resolveUserTestIdentity, TestModeAuthError } from "../_shared/test-mode-auth.ts";
 import { createClient } from '../_shared/business-runtime.ts';
-import { workWindow, clockTime, occupiedRange, localRange, slotHasPassed, timeOnBusinessDate, currentBusinessDate } from "../_shared/booking-hours.ts";
+import { workWindow, slotFitsClosingTime, clockTime, occupiedRange, localRange, slotHasPassed, timeOnBusinessDate, currentBusinessDate } from "../_shared/booking-hours.ts";
 
 type Json = Record<string, any>;
 const STORE_SERVICE_ID = "00000000-0000-4000-8000-000000000010";
@@ -296,7 +296,7 @@ async function slots(supabase: ReturnType<typeof db>, member: any, body: Json) {
   const workEnd = workWindow(group.settings.work_start_time, group.settings.work_end_time).end;
   const interval = Number(group.settings.slot_interval_minutes || SLOT_INTERVAL);
   const output: Json[] = [];
-  for (let start = workStart; (group.settings.allow_end_overrun === true ? start < workEnd : start + group.totalDurationMinutes <= workEnd); start += interval) {
+  for (let start = workStart; slotFitsClosingTime(start, group.totalDurationMinutes, workEnd, group.settings.allow_end_overrun === true); start += interval) {
     const groupEnd = start + group.totalDurationMinutes;
     const candidate = localRange(bookingDate, start, group.totalDurationMinutes);
     const primaryOverlap = primaryOccupied.some((occupied: any) => candidate.start < occupied.end && candidate.end > occupied.start);
