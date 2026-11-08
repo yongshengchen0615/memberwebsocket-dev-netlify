@@ -67,13 +67,15 @@ export async function verifyLineIdTokenContract(args: {
     throw createError(503, "ACCESS_CONTROL_UNAVAILABLE", "目前無法確認會員存取狀態。");
   }
 
-  if (removalResult.data && (removalResult.data.state !== 'complete' || identity.issuedAtMs <= new Date(removalResult.data.revoked_before).getTime())) {
-    throw createError(401, 'MEMBER_REMOVED', '此會員資料已移除，原登入連線已失效。');
-  }
-
   const isActiveAdmin = adminResult.data?.role === "admin" && adminResult.data?.status === "active";
   const adminChannelId = (businessEnv("LINE_ADMIN_CHANNEL_ID") || "2010791619").trim();
   const canBypassUserRestrictions = isActiveAdmin && expectedChannelId === adminChannelId;
+  // A completed or pending member-card removal revokes only the member channel.
+  // An active admin verified through the separately configured admin LINE channel
+  // retains management access, including recovery after partial Storage cleanup.
+  if (!canBypassUserRestrictions && removalResult.data && (removalResult.data.state !== 'complete' || identity.issuedAtMs <= new Date(removalResult.data.revoked_before).getTime())) {
+    throw createError(401, 'MEMBER_REMOVED', '此會員資料已移除，原登入連線已失效。');
+  }
   if (!canBypassUserRestrictions && settingsResult.data?.maintenance_enabled === true) {
     throw createError(503, "SYSTEM_MAINTENANCE", String(settingsResult.data?.maintenance_message || "").trim() || "系統維護中，請稍後再試。");
   }
