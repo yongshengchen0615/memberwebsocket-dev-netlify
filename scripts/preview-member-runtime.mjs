@@ -1,16 +1,9 @@
-// Preview code shares the existing data project, but must not replace the live
-// API functions while the new registration gate is being accepted.
+// All environments use the canonical Supabase APIs in the development project.
+// The Integrated preview keeps its UI feature switch but no longer calls isolated
+// *-preview endpoints or switches booking operations to preview functions.
 export function previewMemberRuntime(config, env) {
   const branch = env.BRANCH || env.PREVIEW_SOURCE_BRANCH || env.GITHUB_REF_NAME;
   if (branch !== 'Integrated-Marketing-Platform' || env.CONTEXT === 'production') return { ...config };
-  const base = new URL(config.supabaseUrl);
-  if (base.protocol !== 'https:' || !/^[a-z0-9-]+\.supabase\.co$/i.test(base.hostname)
-      || base.username || base.password || base.pathname !== '/') throw new Error('Invalid preview Supabase URL');
-  return { ...config,
-    pricePublishing: true,
-    bookingPreviewApis: true,
-    previewApiFunctionUrl: new URL('/functions/v1/api-preview', base).href,
-    memberProfileFunctionUrl: new URL('/functions/v1/member-profile-api-preview', base).href,
-    memberGrowthFunctionUrl: new URL('/functions/v1/member-growth-api-preview', base).href,
-  };
+  const { previewApiFunctionUrl, memberProfileFunctionUrl, memberGrowthFunctionUrl, bookingPreviewApis, ...canonical } = config;
+  return { ...canonical, pricePublishing: true };
 }
