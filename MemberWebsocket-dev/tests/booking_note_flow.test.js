@@ -59,7 +59,7 @@ test('confirmation modal shows the note in the current single and group renderer
 
   assert.ok(app.includes("noteBox.className = 'group-confirm-participant booking-confirm-note'"));
   assert.ok(app.includes("note.textContent = els.memberNote.value.trim() || '未填寫'"));
-  assert.ok(group.includes("title.textContent = '個別備註（選填)'".replace(')', '）')));
+  assert.ok(group.includes("title.textContent = '個別備註（選填）'"));
   assert.ok(group.includes('card.append(title, items, technician, duration, amount, note)'));
   assert.ok(group.includes('state.participantNotes[index]'));
   assert.ok(group.includes("'未填寫'"));
