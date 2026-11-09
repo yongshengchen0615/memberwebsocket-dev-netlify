@@ -197,7 +197,7 @@ async function groupData(s: SupabaseClient, bookingIds: string[]) {
   if (!bookingIds.length) return new Map<string,Json>();
   const [bookings, parts] = await Promise.all([
     s.from("bookings").select("id,technician_id,party_size,service_recipient_member_id,booking_technicians(name),recipient:members!bookings_service_recipient_member_id_fkey(member_code,display_name)").in("id",bookingIds),
-    s.from("booking_participants").select("id,booking_id,position,technician_id,booking_technicians(name)").in("booking_id",bookingIds).order("position",{ascending:true}),
+    s.from("booking_participants").select("id,booking_id,position,technician_id,member_note,booking_technicians(name)").in("booking_id",bookingIds).order("position",{ascending:true}),
   ]);
   if (bookings.error) throw mapDbError(bookings.error); if (parts.error) throw mapDbError(parts.error);
   const partIds = (parts.data || []).map((p:any) => p.id); let itemRows:any[] = [];
@@ -210,7 +210,7 @@ async function groupData(s: SupabaseClient, bookingIds: string[]) {
   const byBookingParts = new Map<string,any[]>();
   for (const p of parts.data || []) {
     const a = byBookingParts.get(p.booking_id) || [];
-    a.push({ position:Number(p.position), technicianId:p.technician_id || "", technicianName:(p.booking_technicians as any)?.name || "現場安排", items:byPart.get(p.id) || [] });
+    a.push({ position:Number(p.position), technicianId:p.technician_id || "", technicianName:(p.booking_technicians as any)?.name || "現場安排", memberNote:p.member_note || "", items:byPart.get(p.id) || [] });
     byBookingParts.set(p.booking_id,a);
   }
   const out = new Map<string,Json>();
@@ -257,7 +257,11 @@ async function normalizeGroup(s: SupabaseClient, body: Json) {
       if (seen.has(id)) throw new ApiError(400,"DUPLICATE_BOOKING_SERVICE","同一位預約人的相同項目不可重複列出。");
       seen.add(id); serviceIds.add(id); items.push({serviceId:id,quantity:q});
     }
-    normalized.push({ technicianId:techId || null, items });
+    const hasNote = Object.prototype.hasOwnProperty.call(p, "memberNote");
+    if (hasNote && (typeof p.memberNote !== "string" || Array.from(p.memberNote).length > 500)) {
+      throw new ApiError(400,"INVALID_BOOKING_NOTE","個別備註最多 500 字。");
+    }
+    normalized.push({ technicianId:techId || null, items, ...(hasNote ? {memberNote:p.memberNote.trim()} : {}) });
   }
   if (cfg.require_primary_technician !== false && !primarySelected) throw new ApiError(400,"BOOKING_PRIMARY_TECHNICIAN_REQUIRED","每筆預約至少要有一位選擇主要技師。");
 

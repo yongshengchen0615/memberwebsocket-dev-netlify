@@ -17,6 +17,7 @@
     requirePrimaryTechnician: true,
     technicians: [],
     participantTechnicians: [],
+    participantNotes: [],
     services: [],
     serviceTypeRewards: [],
     primaryItems: [],
@@ -228,6 +229,9 @@
       <div id="primaryTechnicianRule" class="group-booking-rule" role="note"></div>
       <div id="participantCardList" class="participant-card-list"></div>`;
     picker.insertAdjacentElement('beforebegin', section);
+    // The original whole-booking note stays in the DOM only for legacy fallback.
+    const legacyNote = document.getElementById('memberNote');
+    if (legacyNote?.closest('label')) legacyNote.closest('label').hidden = true;
     document.getElementById('bookingPartySize').addEventListener('change', partySizeChanged);
     renderGroupControls();
   }
@@ -284,6 +288,8 @@
     if (state.participantTechnicians.length > state.partySize) state.participantTechnicians.length = state.partySize;
     while (state.extras.length < Math.max(0, state.partySize - 1)) state.extras.push([]);
     if (state.extras.length > Math.max(0, state.partySize - 1)) state.extras.length = Math.max(0, state.partySize - 1);
+    while (state.participantNotes.length < state.partySize) state.participantNotes.push('');
+    if (state.participantNotes.length > state.partySize) state.participantNotes.length = state.partySize;
 
     if (initial || !previous.length) {
       state.participantTechnicians[0] = state.requirePrimaryTechnician && state.primaryTechnicianId && technicianById(state.primaryTechnicianId) ? state.primaryTechnicianId : '';
@@ -335,11 +341,31 @@
       } else {
         body.appendChild(createExtraServicePicker(index));
       }
+      body.appendChild(createParticipantNoteField(index));
       details.appendChild(body);
       root.appendChild(details);
     }
     updateCardSummaries();
     updateSelectionSummary();
+  }
+
+  function createParticipantNoteField(index) {
+    const label = document.createElement('label');
+    label.className = 'participant-note-field';
+    const title = document.createElement('span');
+    title.textContent = '個別備註（選填）';
+    const textarea = document.createElement('textarea');
+    textarea.rows = 3;
+    textarea.maxLength = 500;
+    textarea.dataset.participantNote = String(index);
+    textarea.setAttribute('aria-label', `${participantLabel(index)}個別備註`);
+    textarea.placeholder = '例如：這位預約人的個別服務需求';
+    textarea.value = state.participantNotes[index] || '';
+    textarea.addEventListener('input', () => {
+      state.participantNotes[index] = textarea.value;
+    });
+    label.append(title, textarea);
+    return label;
   }
 
   function createTechnicianField(index) {
@@ -691,6 +717,7 @@
     const participants = [{
       technicianId: state.participantTechnicians[0] || null,
       items: state.primaryItems,
+      memberNote: String(state.participantNotes[0] || '').trim(),
     }];
     for (let index = 0; index < state.extras.length; index += 1) {
       const items = extraSelectionsToItems(state.extras[index]);
@@ -702,6 +729,7 @@
       participants.push({
         technicianId: state.participantTechnicians[index + 1] || null,
         items,
+        memberNote: String(state.participantNotes[index + 1] || '').trim(),
       });
     }
     return participants;
@@ -721,6 +749,7 @@
     state.partySize = clamp(Number(group.partySize || 1), 1, state.maxPartySize);
     const participants = Array.isArray(group.participants) ? group.participants : [];
     state.participantTechnicians = participants.map((participant) => String(participant.technicianId || ''));
+    state.participantNotes = participants.map((participant) => String(participant.memberNote || ''));
     state.primaryItems = Array.isArray(participants[0]?.items)
       ? participants[0].items.map((item) => ({ serviceId: item.serviceId, quantity: Number(item.quantity || 1) }))
       : [];
@@ -736,6 +765,7 @@
     state.primaryItems = [];
     state.extras = [];
     state.participantTechnicians = [state.requirePrimaryTechnician && state.primaryTechnicianId && technicianById(state.primaryTechnicianId) ? state.primaryTechnicianId : ''];
+    state.participantNotes = [''];
     state.openCardIndex = 0;
     renderGroupControls();
   }
@@ -904,7 +934,9 @@
       const amount = document.createElement('p');
       amount.textContent = `個別金額：${formatMoney(metric.amount)}`;
 
-      card.append(title, items, technician, duration, amount);
+      const note = document.createElement('p');
+      note.textContent = `個別備註：${String(state.participantNotes[index] || '').trim() || '未填寫'}`;
+      card.append(title, items, technician, duration, amount, note);
       box.appendChild(card);
     });
 
@@ -956,15 +988,6 @@
       benefitBox.appendChild(benefitCopy);
     }
     box.appendChild(benefitBox);
-
-    const noteBox = document.createElement('div');
-    noteBox.className = 'group-confirm-participant booking-confirm-note';
-    const noteTitle = document.createElement('strong');
-    noteTitle.textContent = '預約備註';
-    const note = document.createElement('p');
-    note.textContent = String(document.getElementById('memberNote')?.value || '').trim() || '未填寫';
-    noteBox.append(noteTitle, note);
-    box.appendChild(noteBox);
 
     root.replaceChildren(box);
     return true;
@@ -1027,7 +1050,9 @@
       amount.textContent = `金額：${formatMoney(storedParticipantAmount(participant))}`;
       const tech = document.createElement('p');
       tech.textContent = `技師：${participant.technicianName || '現場安排'}`;
-      card.append(title, itemLine, duration, amount, tech);
+      const note = document.createElement('p');
+      note.textContent = `個別備註：${String(participant.memberNote || '').trim() || '未填寫'}`;
+      card.append(title, itemLine, duration, amount, tech, note);
       box.appendChild(card);
     });
 
@@ -1041,6 +1066,8 @@
     renderConfirmation,
     renderBookingHistoryCard,
     renderControls: renderGroupControls,
+    notesSnapshot: () => state.participantNotes.slice(0, state.partySize),
+    primaryMemberNote: () => String(state.participantNotes[0] || '').trim(),
   });
   window.addEventListener('business:features-changed',renderPrimaryRule);
 

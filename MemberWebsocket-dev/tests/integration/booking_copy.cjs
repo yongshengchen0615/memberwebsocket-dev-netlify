@@ -16,12 +16,12 @@ async function waitFor(getValue, timeoutMs = 1600) {
   return getValue();
 }
 const bookingId = '30000000-0000-4000-8000-000000000001';
-const booking = { bookingId, bookingDate: '2026-09-17', startTime: '09:00:00', endTime: '10:00:00', memberDisplayName: '測試會員', memberCode: 'M001', contactSurname: '王', contactSalutation: 'mr', contactPhone: '0912-345-678', items: [{ serviceId: '10000000-0000-4000-8000-000000000001', serviceTitle: '腳底40', quantity: 1, unitDurationMinutes: 40, subtotalAmount: 800 }], totalDurationMinutes: 40, totalAmount: 800, status: 'pending', updatedAt: '2026-09-17T00:00:00.000Z' };
+const booking = { bookingId, bookingDate: '2026-09-17', startTime: '09:00:00', endTime: '10:00:00', memberDisplayName: '測試會員', memberCode: 'M001', contactSurname: '王', contactSalutation: 'mr', contactPhone: '0912-345-678', items: [{ serviceId: '10000000-0000-4000-8000-000000000001', serviceTitle: '腳底40', quantity: 1, unitDurationMinutes: 40, subtotalAmount: 800 }], totalDurationMinutes: 40, totalAmount: 800, status: 'pending', memberNote:'舊整筆備註', adminNote:'已確認加強服務', updatedAt: '2026-09-17T00:00:00.000Z' };
 const group = { partySize: 2, participants: [
-  { technicianName: '甲（主要技師）', items: [{ serviceTitle: '腳底40', quantity: 1 }] },
-  { technicianName: '乙', items: [{ serviceTitle: '肩頸', quantity: 2 }] },
+  { technicianName: '甲（主要技師）', memberNote:'第一位偏好安靜', items: [{ serviceTitle: '腳底40', quantity: 1 }] },
+  { technicianName: '乙', memberNote:'第二位請減輕力道', items: [{ serviceTitle: '肩頸', quantity: 2 }] },
 ] };
-const expected = '日期：2026-09-17\n時間：09:00\n預約人：王先生\n電話：0912345678\n預約人數：2 位\n第一位預約\n預約項目：腳底40\n預約技師：甲\n\n第二位預約\n預約項目：肩頸 × 2\n預約技師：乙';
+const expected = '日期：2026-09-17\n時間：09:00\n預約人：王先生\n電話：0912345678\n預約人數：2 位\n第一位預約\n預約項目：腳底40\n預約技師：甲\n個別備註：第一位偏好安靜\n\n第二位預約\n預約項目：肩頸 × 2\n預約技師：乙\n個別備註：第二位請減輕力道\n\n管理端說明：已確認加強服務';
 
 for (const entry of ['admin']) {
   test(`${entry}: real copy button uses participant format exactly once`, async () => {

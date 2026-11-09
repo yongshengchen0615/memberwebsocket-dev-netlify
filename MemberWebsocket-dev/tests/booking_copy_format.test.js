@@ -74,3 +74,27 @@ test('clipboard copy shows labeled date, start time and contact without end time
   ].join('\n'));
   assert.match(context.BookingCopyText.format(booking), /^營業日 2026-10-30｜11:30–12:40/);
 });
+
+test('clipboard and LINE formats keep optional notes attached to the correct participant', () => {
+  const vm = require('node:vm'), context = {};
+  vm.runInNewContext(fs.readFileSync(path.join(root, 'booking-copy-text.js'), 'utf8'), context);
+  const payload = {
+    bookingDate: '2026-11-09', startTime:'09:00', endTime:'10:00',
+    name:'王先生', phone:'0900123456', partySize:2,
+    participants:[
+      {items:[{serviceTitle:'肩頸'}],technicianName:'甲',memberNote:'怕冷，請加毯'},
+      {items:[{serviceTitle:'腳底'}],technicianName:'乙',memberNote:'力道輕一點'},
+    ],
+    adminNote:'櫃檯已確認',
+  };
+  const copy = context.BookingCopyText.formatClipboard(payload);
+  const first = copy.indexOf('第一位預約'), second = copy.indexOf('第二位預約');
+  assert.ok(first > 0 && second > first);
+  assert.ok(copy.indexOf('個別備註：怕冷，請加毯') > first);
+  assert.ok(copy.indexOf('個別備註：怕冷，請加毯') < second);
+  assert.ok(copy.indexOf('個別備註：力道輕一點') > second);
+  assert.ok(copy.endsWith('管理端說明：櫃檯已確認'));
+  assert.ok(context.BookingCopyText.format(payload).includes('個別備註：力道輕一點'));
+  const empty = context.BookingCopyText.formatClipboard({ ...payload, participants:payload.participants.map(p=>({...p,memberNote:''})), adminNote:'' });
+  assert.doesNotMatch(empty,/個別備註：|管理端說明：/);
+});

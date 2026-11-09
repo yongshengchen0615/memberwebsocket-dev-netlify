@@ -20,7 +20,7 @@
   "lineSettingsThemeReview": "2026-11-03 PR #241: Reviewed general manager LINE settings theme-only CSS, semantic light/dark card, details, help, input/select, tabs, status, endpoint and responsive action row. Updated both admin/index.html and admin/workspace.html CSS asset revisions; preserved LINE official green button, saved credentials, notifications, role/tenant scopes and original six human workflow journeys. New line_settings_theme.test.js and line-settings-theme.spec.cjs cover 390/1280 light-dark-light and no overflow; full original Chromium/integration baseline still required.",
   "phoneBookingWindowReview": "2026-11-07 PR #258: Reviewed existing booking settings and phone appointment admin journeys. Merchant phone configuration is text-only and retains the same field, validation and save handler; existing BOOKING settings browser journeys remain mapped. Member booking date modal now permits phone CTA only when the same inclusive min/max/holiday online eligibility passes; out-of-range, past, holiday and no-phone cases remove dialing href. booking-calendar-times.spec.cjs checks 390/1280 viewport, both date boundaries, out-of-range, live settings revocation, zero max and holiday. booking_phone_fallback_platform.test.js guards UI and existing API phone contract. No new admin flows, tenant scope, authorization, database writes or provider sends. Full exact-SHA baseline and preview acceptance still required. 2026-11-09 PR #275: Reviewed admin booking queue button/modal, surname and salutation, optional admin note, service durations and calendar conflict, existing phone-booking records and member-side phone fallback. Counter registration no longer requests a customer's phone or sends it; legacy internal PHONE- ID and bookingSource remain to preserve collision locking, member exclusion and existing records. BOOKING_PHONE_CONFLICT and BOOKING_PHONE_SERVICE_DURATION browser journeys now explicitly assert no phone field, no contactPhone payload, unchanged confirmed booking and cancelled/rebooked slot; tenant RPC rejects malformed provided phone but accepts absent phone as SQL NULL. Added API/static/SQL migration regression; no new roles, tables, credentials, LINE sends or deletion of prior phone data. Full exact-SHA CI and live tenant deployment must be separately verified.",
   "reviewedSources": {
-    "admin/index.html": "fb52796bfdc7d0a51be677f3d09c96cf6c06178ca7b758f1d3a5f32e1117c3ab",
+    "admin/index.html": "41b84343d66bdeedd0a69ccf35f3e696198fc44d2369bd9bd82a62b5e91fd53f",
     "admin/app.js": "e7cb31f8fb7d40b09b52814f7bf476e191c85e65c933d008b006c35b9dcc22d3",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
@@ -31,8 +31,8 @@
     "admin/fixed-ticket-calendar-option.js": "0bbc53970ff0ec7408985b001113f64de718963bcfbc793f563a44f2e068f1f1",
     "admin/pointcard-redemption-limit.js": "fbba580c9babdac950b2f619c3f3b949fe89ae0c1365e2555f758d1a8818035c",
     "admin/event-ticket-redemption-limit.js": "263a564d64845c5abb4ed5167305b0bffefb064130a0268ab533b481d320b688",
-    "admin/booking-panel.js": "bed95eea8772882ad8ffcf72dc8773516b439ec541e3f62d1af14a595ec55c22",
-    "admin/booking-panel-core.js": "ad9350e0686fd340c6fdbc7c02ad0dc2262e5acf2e870cb0059bd77c2fdcf796",
+    "admin/booking-panel.js": "fc0532d36b8aac5e26de10632665f296f20d4ff05aa9fe54d22dfacbd531380e",
+    "admin/booking-panel-core.js": "832632682f98b081a954bf9f7734b3086ed4c5abe759e68263f49238db805f56",
     "admin/booking-resources.js": "01a066ef180a9d42d49b4250e51008f23a0d13368897f4e351883d592249faff",
     "admin/booking-always-open.js": "9cb236902a7f3f36cf3fe4c3f13fbbac622f000c72d36ec34f7d4dde08e6e54a",
     "admin/booking-cancellation-sync.js": "a8367bb6565d054af976ec1ffdf950874a4e8f14a3917d2e036bc1744016db19",
@@ -407,7 +407,7 @@
     {
       "id": "booking.38",
       "module": "booking",
-      "name": "多人逐位項目與技師調整、重複與主要技師驗證",
+      "name": "多人逐位項目與技師調整、重複與主要技師驗證；逐位個別備註在切換、修改、重開時分別儲存",
       "cases": [
         "BOOKING_PARTICIPANTS"
       ]
@@ -468,7 +468,7 @@
     {
       "id": "booking.44",
       "module": "booking",
-      "name": "複製完整預約資訊",
+      "name": "複製完整預約資訊、逐位個別備註與管理端說明；保留單人及多人資料歸屬",
       "cases": [
         "BOOKING_COPY"
       ]

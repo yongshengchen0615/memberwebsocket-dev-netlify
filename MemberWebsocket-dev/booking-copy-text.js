@@ -22,8 +22,10 @@
         return quantity > 1 ? `${title} × ${quantity}` : title;
       }).join('、') || '—';
       lines.push(`${names[i] || `第 ${i+1} `}位預約`,`預約項目：${items}`,`預約技師：${String(p.technicianName || '現場安排').replace(/（主要技師）/g,'').trim() || '現場安排'}`);
+      if (String(p.memberNote || '').trim()) lines.push(`個別備註：${String(p.memberNote).trim()}`);
       if(i < participants.length-1) lines.push('');
     });
+    if (String(b.adminNote || '').trim()) lines.push('', `管理端說明：${String(b.adminNote).trim()}`);
     return lines.join('\n');
   }
   root.BookingCopyText = Object.freeze({format, formatClipboard: (booking) => format(booking, true)});
