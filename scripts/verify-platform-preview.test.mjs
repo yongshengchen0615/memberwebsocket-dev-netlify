@@ -75,6 +75,14 @@ test('canonical member APIs must pass preflight and reject missing LINE identity
   const fetchImpl = async (url, options = {}) => {
     if (!endpoints.includes(String(url))) return f.options.fetchImpl(url, options);
     calls.push({ url: String(url), method: options.method });
+    // The canonical /api checks action-to-clientType before missing credentials.
+    // A mismatched smoke request must fail, exactly as the real handler does.
+    if (String(url).endsWith('/api') && options.method === 'POST') {
+      const body = JSON.parse(options.body);
+      if (body.action !== 'user.member.profile.save' || body.clientType !== 'member') {
+        return Response.json({ error: { code: 'CLIENT_TYPE_MISMATCH' } }, { status: 400 });
+      }
+    }
     // Growth validates its action allowlist before authentication. A profile
     // write cannot prove that the growth endpoint rejects missing identity.
     if (String(url).endsWith('/member-growth-api') && options.method === 'POST'
