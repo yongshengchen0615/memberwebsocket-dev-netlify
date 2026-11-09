@@ -128,12 +128,14 @@ test('older pending native branch build cannot race over a ready release',async(
  await fail(verifyNativePreview({...input,fetchImpl:m.fetchImpl,attempts:1}),'NATIVE_SIBLING_BUILD_PENDING');
  assert.equal(m.calls.length,1,'Do not accept the URL while another branch build is in flight');
  let reads=0;const waits=[];
+ const stable=mock({items:[native]});
  const out=await verifyNativePreview({...input,attempts:2,delayMs:10,
   delay:async ms=>waits.push(ms),
   fetchImpl:(url,opts)=>{
    if(url.includes('per_page=100') && reads++===0)
     return Promise.resolve({ok:true,json:async()=>[native,competing]});
-   return m.fetchImpl(url,opts);
+   // Second provider read represents the older build actually finishing.
+   return stable.fetchImpl(url,opts);
   }});
  assert.equal(out.source_sha,commit);
  assert.deepEqual(waits,[10]);
