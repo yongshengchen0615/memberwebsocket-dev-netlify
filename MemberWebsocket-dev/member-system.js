@@ -484,20 +484,18 @@
 
   function requestEndpoint(config, clientType, action) {
     if (String(action || '').startsWith('member.friend.') || String(action || '').startsWith('member.invitation.') || ['event.today-usable','member.referral.bind','points.transfer.options','points.transfer.receiver','points.transfer.create'].includes(action)) {
-      return String(config.memberGrowthFunctionUrl || '').trim()
-        || String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/member-growth-api';
+      return String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/member-growth-api';
     }
     if (clientType === 'admin' && String(action || '').startsWith('admin.booking.receipt.')) {
-      return String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/booking-receipt-api' + (config.bookingPreviewApis === true ? '-preview' : '');
+      return String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/booking-receipt-api';
     }
     if (clientType === 'member' && (action === 'user.member.bootstrap' || action === 'user.member.profile.save' || action === 'user.member.phone.send' || action === 'user.member.terms.accept' || action === 'user.member.card.open' || action === 'user.member.invitation.claim' || action === 'user.member.oa.check')) {
-      return String(config.memberProfileFunctionUrl || '').trim()
-        || String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/member-profile-api';
+      return String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/member-profile-api';
     }
     if (clientType === 'calendar' && (action === 'user.calendar.bootstrap' || action === 'user.calendar.date.details')) {
       return String(config.memberCalendarFunctionUrl || '').trim();
     }
-    return String(config.previewApiFunctionUrl || config.supabaseFunctionUrl || '').trim();
+    return String(config.supabaseFunctionUrl || '').trim();
   }
 
   async function sendRequest(config, clientType, idToken, action, payload) {
