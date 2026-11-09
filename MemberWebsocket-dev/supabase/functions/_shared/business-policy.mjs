@@ -20,6 +20,7 @@ function primaryFeatures(action,body={}) {
  // Member-card history is a membership operation, not the retired audit product.
  if(action==='admin.member-records.list')return ['membership'];
  if(action==='admin.integration-overview')return ['integrations'];
+ if(/^points\.transfer\.(options|receiver|create)$/.test(action))return ['points'];
  if(/^admin\.(pointcards?|tickets|stamps)\./.test(action)||action.startsWith('user.pointcard'))return ['points'];
  if(/^admin\.(event-|fixed-tickets)/.test(action)||/^user\.event/.test(action))return ['events'];
  if(action.startsWith('admin.calendar-items.')||action.startsWith('user.calendar.'))return ['calendar'];
