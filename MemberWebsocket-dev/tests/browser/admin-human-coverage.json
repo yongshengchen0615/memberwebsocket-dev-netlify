@@ -2,9 +2,9 @@
   "version": 1,
   "scope": "Seven admin workspaces, including operation audit; test-control workspace excluded",
   "evidence": "isolated Chromium UI with production handlers and explicit in-memory transport; not live Supabase/LINE delivery",
-  "portalIntegrationReview": "2026-10-20: Reviewed separate per-purpose notification forms, masked token replacement, provider channel validation, lost-response retry, test-to-current-manager only, disabled routing and existing module LIFF journeys. NOTIFICATION_PURPOSES_390/1280 in notification-settings.spec.cjs use production handler, real isolated SQL and explicit LINE transport; BUSINESS_APPROVAL_ACTIVATES selectors now distinguish identity forms from notification forms. Live LINE delivery remains external QA. 2026-10-20: LINE 設定改為獨立主分頁，只有核准功能顯示子分頁；審閱開通/撤權/模組獨立儲存/切回管理頁的回歸，補充 business_line_settings.cjs、product_admin_ui.cjs 與 business-activation.spec.cjs。 2026-10-21: Reviewed booking risk policy, blank disabled defaults, separate tenant SQL, reason-required revoke/release, member expiry/contact/appeal; booking-risk.spec.cjs provides separate component journeys using real isolated PostgreSQL; booking_risk_ui.cjs checks validation and no accidental activation. Existing booking/admin flows and inventory cases remain required. 2026-10-22: Reviewed LINE module arrow/Home/End navigation with grant removal and draft retention; reviewed booking risk in-flight control locking, failed-action retry and reason preservation. line_settings_keyboard.cjs, booking_risk_ui.cjs, notification-settings.spec.cjs and booking-risk-recovery.spec.cjs cover these incremental paths. No API, policy, identity or notification routing changes; full card and live Provider acceptance remain outstanding. 2026-10-22: Reviewed admin quick-actions route and tab navigation: only the asset revision query in admin/index.html changed (no controls/workflow removal); existing six admin browser journeys remain mapped. admin-quick-actions.spec.cjs now checks current location, dynamic tab replacement and disabled state; no separate write/API path.",
+  "portalIntegrationReview": "2026-10-20: Reviewed separate per-purpose notification forms, masked token replacement, provider channel validation, lost-response retry, test-to-current-manager only, disabled routing and existing module LIFF journeys. NOTIFICATION_PURPOSES_390/1280 in notification-settings.spec.cjs use production handler, real isolated SQL and explicit LINE transport; BUSINESS_APPROVAL_ACTIVATES selectors now distinguish identity forms from notification forms. Live LINE delivery remains external QA. 2026-10-20: LINE 設定改為獨立主分頁，只有核准功能顯示子分頁；審閱開通/撤權/模組獨立儲存/切回管理頁的回歸，補充 business_line_settings.cjs、product_admin_ui.cjs 與 business-activation.spec.cjs。 2026-10-21: Reviewed booking risk policy, blank disabled defaults, separate tenant SQL, reason-required revoke/release, member expiry/contact/appeal; booking-risk.spec.cjs provides separate component journeys using real isolated PostgreSQL; booking_risk_ui.cjs checks validation and no accidental activation. Existing booking/admin flows and inventory cases remain required. 2026-10-22: Reviewed LINE module arrow/Home/End navigation with grant removal and draft retention; reviewed booking risk in-flight control locking, failed-action retry and reason preservation. line_settings_keyboard.cjs, booking_risk_ui.cjs, notification-settings.spec.cjs and booking-risk-recovery.spec.cjs cover these incremental paths. No API, policy, identity or notification routing changes; full card and live Provider acceptance remain outstanding. 2026-10-22: Reviewed admin quick-actions route and tab navigation: only the asset revision query in admin/index.html changed (no controls/workflow removal); existing six admin browser journeys remain mapped. admin-quick-actions.spec.cjs now checks current location, dynamic tab replacement and disabled state; no separate write/API path. 2026-11-09: Reviewed booking completion preview showing per-person snapshot unit minutes, quantities, amounts, technician eligibility and primary-technician-only credit, as well as recorded booking notes and service recipient. Existing BOOKING_STATUS_completed browser journey remains mapped; additional snapshot arithmetic and fail-closed missing-detail tests are in booking_completion_preview_detail.test.js. Real provider/production booking acceptance remains pending.",
   "reviewedSources": {
-    "admin/index.html": "da4d8970a09b01322169e64137ce4aefc30b168ed69c11f4d97ff9c506d801e8",
+    "admin/index.html": "90f3e2f961396ed06cfb758001026640d91574a38fd7b1d4b5738d4763653a65",
     "admin/app.js": "83e4359ec62ede92d4607bcd718f90f869b2806406c0a76b3bb838c172db494e",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
@@ -16,8 +16,8 @@
     "admin/pointcard-redemption-limit.js": "fbba580c9babdac950b2f619c3f3b949fe89ae0c1365e2555f758d1a8818035c",
     "admin/event-ticket-redemption-limit.js": "263a564d64845c5abb4ed5167305b0bffefb064130a0268ab533b481d320b688",
     "admin/integration-hub.js": "696f38801b5e8755e706c3e0153aa023a1d47f01a3f68456dd8e5a7fec868b33",
-    "admin/booking-panel.js": "b8ce9f896b0789d27cde4c2980ea7c85af2438f8ffac26f671523336a6c7dd96",
-    "admin/booking-panel-core.js": "063232a2ab7c7c1132e8f6e54ec23b6e0ada93ca75ecdd362666a38b1c1f0bed",
+    "admin/booking-panel.js": "ee9fa6a3123ee8b359202daa04d22d4cbcf89fe0bf4fd038dda0430204412370",
+    "admin/booking-panel-core.js": "b7c4b28f386f4318806adb5454f165690d0b0eb2f8b0f85b6ba67ffb07c9c05c",
     "admin/booking-resources.js": "ea6901dc1020cbb85ead15107333e4b110e2b9a02854bffba856e410445bd852",
     "admin/booking-always-open.js": "9cb236902a7f3f36cf3fe4c3f13fbbac622f000c72d36ec34f7d4dde08e6e54a",
     "admin/booking-cancellation-sync.js": "a8367bb6565d054af976ec1ffdf950874a4e8f14a3917d2e036bc1744016db19",
@@ -357,7 +357,7 @@
     {
       "id": "booking.35",
       "module": "booking",
-      "name": "確認、不通過、取消、完成、無故未到分類與結算視窗",
+      "name": "確認、不通過、取消、完成、無故未到分類與結算視窗；完成預覽逐位項目、分鐘與金額，僅主要技師項目累積會員時間，保留歷史快照與備註",
       "cases": [
         "BOOKING_STATUS_confirmed",
         "BOOKING_STATUS_rejected",
