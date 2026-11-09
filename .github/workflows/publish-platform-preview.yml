@@ -60,9 +60,11 @@ jobs:
           if node scripts/verify-netlify-native-preview.mjs 2> /tmp/native-preview-error.txt; then
             echo "PREVIEW_DEPLOY_MODE=native" >> "$GITHUB_ENV"
             echo "DEPLOY_ID=$(jq -er '.deploy_id' evidence/platform-deploy.json)" >> "$GITHUB_ENV"
-          elif grep -Fxq 'Verified native branch preview failed: NATIVE_DEPLOY_FAILED' /tmp/native-preview-error.txt; then
-            # The native build may have failed before all three push CI workflows
-            # finished, or due to Netlify's shared unauthenticated GitHub API quota.
+          elif grep -Fxq 'Verified native branch preview failed: NATIVE_DEPLOY_FAILED' /tmp/native-preview-error.txt ||
+               grep -Fxq 'Verified native branch preview failed: DEPLOY_NOT_READY' /tmp/native-preview-error.txt; then
+            # A test-only change can leave the branch without a native build;
+            # a native build can also fail before all push CI workflows finish.
+            # Both cases may recover only after exact-SHA CI succeeds above.
             # This branch-specific marker is issued ONLY after the exact-SHA CI
             # gate above has passed. It is never set for production or PRs.
             test "$GITHUB_REF_NAME" = Integrated-Marketing-Platform
@@ -81,7 +83,7 @@ jobs:
             echo "PREVIEW_DEPLOY_MODE=native" >> "$GITHUB_ENV"
             echo "DEPLOY_ID=$(jq -er '.deploy_id' evidence/platform-deploy.json)" >> "$GITHUB_ENV"
           else
-            echo "::error::Native branch verification blocked for a reason other than a failed build; no upload performed"
+            echo "::error::Native branch verification failed for an unrecoverable reason; no upload performed"
             exit 1
           fi
       - name: Build and verify the exact platform frontend
