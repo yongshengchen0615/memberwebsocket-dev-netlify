@@ -7,7 +7,7 @@ const migration = fs.readFileSync(path.join(__dirname,
   '../supabase/migrations/20261109175000_restore_tenant_ticket_service_groups.sql'), 'utf8');
 
 test('restore missed service-group migration in business schemas only', () => {
-  assert.match(migration, /where nspname ~ '\\^business_\\[0-9a-f\\]\\{32\\}\\$'/);
+  assert.ok(migration.includes("where nspname ~ '^business_[0-9a-f]{32}$'"));
   assert.doesNotMatch(migration, /where nspname='public' or/);
   assert.match(migration, /PARTIAL_TENANT_TICKET_SERVICE_GROUPS/);
   assert.equal((migration.match(/notify pgrst/g) || []).length, 1);
