@@ -1647,89 +1647,162 @@
     return `${month}/${day}（${weekday}）`;
   }
 
-  function completionPreviewData(booking) {
-    const typeByName = new Map((state.catalog.serviceTypes || []).map((type) => [String(type.name || ''), type]));
+
+  // Derive preview from the same per-participant snapshots used by the
+  // complete_booking_with_rewards_base RPC. Booking-level items are an aggregate
+  // and cannot establish which services were performed by the primary technician.
+  function completionPreviewData(booking, group) {
     const serviceById = new Map((state.catalog.services || []).map((service) => [String(service.serviceId || ''), service]));
+    const snapshotById = new Map(bookingVisibleItems(booking).map((item) => [String(item.serviceId || ''), item]));
+    const typeByName = new Map((state.catalog.serviceTypes || []).map((type) => [String(type.name || '').trim().toLowerCase(), type]));
     const typeMinutes = new Map();
+    const primaryTechnicianId = String(state.booking.primaryTechnicianId || '');
+    const rawPeople = Array.isArray(group?.participants) ? group.participants : [];
     let serviceMinutes = 0;
-    const items = bookingVisibleItems(booking).map((item) => {
-      const fallback = serviceById.get(String(item.serviceId || ''));
-      const countsTowardMembership = item.countsTowardMembership !== undefined
-        ? Boolean(item.countsTowardMembership)
-        : fallback?.countsTowardMembership !== false;
-      const quantity = Math.max(1, Number(item.quantity || 1));
-      const unitMinutes = Math.max(0, Number(item.unitDurationMinutes || fallback?.durationMinutes || 0));
-      const subtotalMinutes = Math.max(0, Number(item.subtotalMinutes || unitMinutes * quantity));
-      const serviceType = String(item.serviceType || fallback?.serviceType || '');
-      if (countsTowardMembership) {
-        serviceMinutes += subtotalMinutes;
-        if (serviceType) typeMinutes.set(serviceType, (typeMinutes.get(serviceType) || 0) + subtotalMinutes);
-      }
+    let allServiceMinutes = 0;
+    let totalAmount = 0;
+    let hasDurationDifference = false;
+
+    const people = rawPeople.map((person, index) => {
+      const isPrimary = Boolean(person.isPrimaryTechnician === true
+        || (primaryTechnicianId && String(person.technicianId || '') === primaryTechnicianId));
+      let personMinutes = 0;
+      let personAmount = 0;
+      let eligibleMinutes = 0;
+      const items = (Array.isArray(person.items) ? person.items : [])
+        .filter((item) => String(item.serviceId || '') !== STORE_SERVICE_ID)
+        .map((item) => {
+          const serviceId = String(item.serviceId || '');
+          const snapshot = snapshotById.get(serviceId);
+          const catalog = serviceById.get(serviceId);
+          const quantity = Math.max(1, Number(item.quantity ?? 1) || 1);
+          // Zero is meaningful here; never use || to replace a stored 0-minute snapshot.
+          const unitMinutes = Math.max(0, Number(item.unitDurationMinutes ?? snapshot?.unitDurationMinutes ?? catalog?.durationMinutes ?? 0) || 0);
+          const unitPrice = Math.max(0, Number(item.unitPriceAmount ?? snapshot?.unitPriceAmount ?? catalog?.priceAmount ?? 0) || 0);
+          const subtotalMinutes = unitMinutes * quantity;
+          const subtotalAmount = unitPrice * quantity;
+          const serviceType = String(snapshot?.serviceType || item.serviceType || catalog?.serviceType || '');
+          const countsTowardMembership = Boolean(snapshot?.countsTowardMembership ?? item.countsTowardMembership ?? catalog?.countsTowardMembership ?? true);
+          const isEligible = isPrimary && countsTowardMembership;
+          personMinutes += subtotalMinutes;
+          personAmount += subtotalAmount;
+          if (isEligible) {
+            eligibleMinutes += subtotalMinutes;
+            serviceMinutes += subtotalMinutes;
+            const typeKey = serviceType.trim().toLowerCase();
+            if (typeKey) typeMinutes.set(typeKey, (typeMinutes.get(typeKey) || 0) + subtotalMinutes);
+          }
+          if (catalog && Number(catalog.durationMinutes) !== unitMinutes) hasDurationDifference = true;
+          return {
+            title: String(item.serviceTitle || snapshot?.serviceTitle || catalog?.title || '預約項目'),
+            serviceType, quantity, unitMinutes, subtotalMinutes, unitPrice, subtotalAmount,
+            countsTowardMembership, isEligible,
+          };
+        });
+      allServiceMinutes += personMinutes;
+      totalAmount += personAmount;
       return {
-        title: String(item.serviceTitle || fallback?.title || '預約項目'),
-        serviceType,
-        quantity,
-        subtotalMinutes,
-        countsTowardMembership,
+        label: participantLabel(index),
+        technicianName: String(person.technicianName || '現場安排'),
+        isPrimary, items, personMinutes, personAmount, eligibleMinutes,
+        storeServiceMinutes: Math.max(0, Number(person.storeServiceMinutes || 0)),
       };
     });
     const rewards = [];
     let totalRewardPoints = 0;
-    typeMinutes.forEach((minutes, typeName) => {
-      const type = typeByName.get(typeName);
+    typeMinutes.forEach((minutes, typeKey) => {
+      const type = typeByName.get(typeKey);
       const perPoint = Number(type?.rewardMinutesPerPoint || 0);
       const cardId = String(type?.rewardPointCardId || '');
       if (!perPoint || !cardId) return;
-      const points = Math.floor(Number(minutes || 0) / perPoint);
+      const points = Math.floor(minutes / perPoint);
       if (points < 1) return;
       totalRewardPoints += points;
       rewards.push({
-        typeName,
-        minutes:Number(minutes || 0),
-        perPoint,
-        points,
-        pointCardTitle:String(type?.rewardPointCardTitle || '指定集點卡'),
+        typeName: String(type?.name || typeKey),
+        minutes, perPoint, points,
+        pointCardTitle: String(type?.rewardPointCardTitle || '指定集點卡'),
       });
     });
-    return { items,serviceMinutes,rewards,totalRewardPoints };
+    return {
+      people, hasParticipantDetails: people.length > 0, hasDurationDifference,
+      serviceMinutes, allServiceMinutes, totalAmount,
+      scheduleMinutes: Math.max(0, Number(group?.totalDurationMinutes ?? booking.totalDurationMinutes ?? 0) || 0),
+      rewards, totalRewardPoints,
+    };
   }
 
   function openCompletionPreview(booking, adminNote) {
-    const preview = completionPreviewData(booking);
-    const recipient=state.booking.groups?.[booking.bookingId];
+    const group = state.booking.groups?.[booking.bookingId];
+    const preview = completionPreviewData(booking, group);
+    const pendingBenefits = Array.isArray(booking.benefits)
+      ? booking.benefits.filter((benefit) => benefit.status === 'pending') : [];
     els.bookingAdminCrudModalTitle.textContent = `完成結算預覽｜${booking.memberDisplayName || '會員'}`;
-    const itemRows = preview.items.map((item) => `
-      <div class="booking-completion-preview-item">
-        <div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.serviceType || '未分類')} · ${item.quantity} 份 · ${item.subtotalMinutes} 分鐘</p></div>
-        <span class="integration-status ${item.countsTowardMembership ? 'is-active' : 'is-attention'}">${item.countsTowardMembership ? '計入' : '不計入'}</span>
-      </div>`).join('');
+    const itemRows = preview.people.map((person) => {
+      const rows = person.items.map((item) => `
+        <div class="booking-completion-preview-item">
+          <div>
+            <strong>${escapeHtml(item.title)}</strong>
+            <p>${escapeHtml(item.serviceType || '未分類')} · ${item.unitMinutes} 分鐘／份 × ${item.quantity} 份 = ${item.subtotalMinutes} 分鐘</p>
+            <p>單價 ${formatMoney(item.unitPrice)} × ${item.quantity} = ${formatMoney(item.subtotalAmount)}</p>
+          </div>
+          <span class="integration-status ${item.isEligible ? 'is-active' : 'is-attention'}">${item.isEligible ? '計入' : person.isPrimary ? '不計入' : '非主要技師'}</span>
+        </div>`).join('');
+      return `<section class="booking-completion-preview-person">
+        <h4>${escapeHtml(person.label)} · ${escapeHtml(person.technicianName)}${person.isPrimary ? '（主要技師）' : ''}</h4>
+        <div class="booking-completion-preview-list">${rows || '<p class="integration-empty">本位沒有服務項目。</p>'}</div>
+        <p class="booking-completion-preview-person-total">項目合計：${person.personMinutes} 分鐘 · ${formatMoney(person.personAmount)} · 計入會員時間 ${person.eligibleMinutes} 分鐘${person.storeServiceMinutes ? ` · 店內預留 ${person.storeServiceMinutes} 分鐘（不計入）` : ''}</p>
+      </section>`;
+    }).join('');
     const rewardRows = preview.rewards.length
       ? preview.rewards.map((reward) => `<div class="booking-completion-preview-item"><div><strong>${escapeHtml(reward.pointCardTitle)}</strong><p>${escapeHtml(reward.typeName)}：${reward.minutes} 分鐘 ÷ ${reward.perPoint}</p></div><strong>+${reward.points} 點</strong></div>`).join('')
       : '<p class="integration-empty">依目前項目類型規則，本次沒有自動集點。</p>';
-    const pendingBenefits = Array.isArray(booking.benefits) ? booking.benefits.filter((benefit) => benefit.status === 'pending') : [];
     const benefitRows = pendingBenefits.length
       ? pendingBenefits.map((benefit) => `<div class="booking-completion-preview-item"><div><strong>${escapeHtml(bookingBenefitDisplayTitle(benefit))}</strong><p>${escapeHtml(bookingBenefitKindLabel(benefit))} · 完成服務時重新驗證</p></div><span class="integration-status is-attention">待核銷</span></div>`).join('')
       : '<p class="integration-empty">會員本次沒有選用優惠。</p>';
+    const caution = !preview.hasParticipantDetails
+      ? '<p class="booking-completion-preview-warning" role="alert">無法取得逐位預約項目，為避免計入錯誤，請關閉畫面並重新同步預約資料後再結算。</p>'
+      : `<p class="booking-completion-preview-note">會員時間與集點只計算主要技師服務且符合會員資格的項目；其他技師的項目仍顯示在明細及總金額內，不會重複入帳。${!preview.people.some((person) => person.isPrimary) ? ' 本筆沒有主要技師，預估計入會員時間為 0 分鐘。' : ''}</p>`;
+    const differenceNote = preview.hasDurationDifference
+      ? '<p class="booking-completion-preview-warning">部分項目的預約快照分鐘數不同於目前項目設定；預覽及結算以當時保存的單位分鐘為準，請先核對實際服務時數。</p>'
+      : '';
     els.bookingAdminCrudModalBody.innerHTML = `
       <form class="booking-admin-form booking-completion-preview">
         <div class="booking-completion-preview-summary">
-          <div><span>受服務會員</span><strong>${escapeHtml(recipient?.serviceRecipientName || booking.memberDisplayName || '會員')}</strong></div>
-          <div><span>將計入服務時間</span><strong>${preview.serviceMinutes} 分鐘</strong></div>
-          <div><span>預估自動集點</span><strong>${preview.totalRewardPoints} 點</strong></div>
-          <div><span>待核銷優惠</span><strong>${pendingBenefits.length} 項</strong></div>
+          <div><span>受服務會員</span><strong>${escapeHtml(group?.serviceRecipientName || booking.memberDisplayName || '會員')}</strong></div>
+          <div data-business-requires="booking membership"><span>將計入會員時間（主要技師）</span><strong>${preview.serviceMinutes} 分鐘</strong></div>
+          <div><span>所有服務項目分鐘（含其他技師）</span><strong>${preview.allServiceMinutes} 分鐘</strong></div>
+          <div><span>預約占用時段（含店內預留）</span><strong>${preview.scheduleMinutes} 分鐘</strong></div>
+          <div><span>服務總金額（未扣優惠）</span><strong>${formatMoney(preview.totalAmount)}</strong></div>
+          <div data-business-requires="booking points"><span>預估自動集點</span><strong>${preview.totalRewardPoints} 點</strong></div>
+          <div data-business-requires="booking points|events"><span>待核銷優惠</span><strong>${pendingBenefits.length} 項</strong></div>
         </div>
-        ${recipient?.serviceRecipientMemberCode ? `<p>好友代約：正常集點與服務時間歸受服務好友；建立者 ${escapeHtml(booking.memberDisplayName||'會員')} 另取得每種已配置服務類型 1 點及 ${Math.floor(preview.serviceMinutes/2)} 分鐘。票券使用建立者自己的資產。</p>` : ''}
-        <section><p class="kicker">Service settlement</p><div class="booking-completion-preview-list">${itemRows || '<p class="integration-empty">沒有可結算的服務項目。</p>'}</div></section>
-        <section><p class="kicker">Point rewards</p><div class="booking-completion-preview-list">${rewardRows}</div></section>
-        <section><p class="kicker">Benefit redemption</p><div class="booking-completion-preview-list">${benefitRows}</div></section>
+        <section class="booking-completion-preview-context">
+          <p><strong>預約人：</strong>${escapeHtml(booking.memberDisplayName || '會員')}${booking.memberCode ? `（${escapeHtml(booking.memberCode)}）` : ''}</p>
+          <p><strong>聯絡人：</strong>${escapeHtml(bookingContactName(booking))} · ${escapeHtml(booking.contactPhone || '未提供電話')}</p>
+          <p><strong>預約時間：</strong>${escapeHtml(booking.bookingDate || '—')} · ${escapeHtml(booking.startTime || '—')}–${escapeHtml(booking.endTime || '—')}</p>
+          <p><strong>服務人數：</strong>${preview.people.length || '資料未取得'} 位</p>
+          ${booking.memberNote ? `<p><strong>會員備註：</strong>${escapeHtml(booking.memberNote)}</p>` : ''}
+          ${adminNote ? `<p><strong>管理端備註：</strong>${escapeHtml(adminNote)}</p>` : ''}
+        </section>
+        ${group?.serviceRecipientMemberCode ? `<p>好友代約：正常集點與服務時間歸受服務好友（${escapeHtml(group.serviceRecipientMemberCode)}）；預約建立者另取得符合條件的好友代約獎勵，預估服務時間 ${Math.floor(preview.serviceMinutes / 2)} 分鐘。票券使用建立者的資產。</p>` : ''}
+        ${caution}
+        ${differenceNote}
+        <section><p class="kicker">Service settlement · 逐位服務明細</p>${itemRows || '<p class="integration-empty">無法取得逐位服務明細。</p>'}</section>
+        <section data-business-requires="booking points"><p class="kicker">Point rewards</p><div class="booking-completion-preview-list">${rewardRows}</div></section>
+        <section data-business-requires="booking points|events"><p class="kicker">Benefit redemption</p><div class="booking-completion-preview-list">${benefitRows}</div></section>
         <p class="booking-completion-preview-note">此畫面為送出前預覽。真正的服務時間、集點、LINE 通知與重複請求判斷仍由 Server-side 完成結算流程決定；同時會重新驗證票券擁有權、狀態、效期、點數與每日上限，並在同一交易內完成核銷與預約結算，任何一項失敗都不會產生半完成狀態。</p>
         <div data-modal-message class="form-message hidden"></div>
-        <div class="booking-admin-modal-actions"><button data-cancel class="button button-outline" type="button">返回</button><button class="button button-dark" type="submit">確認完成並結算</button></div>
+        <div class="booking-admin-modal-actions">
+          <button data-cancel class="button button-outline" type="button">返回</button>
+          <button class="button button-dark" type="submit" ${preview.hasParticipantDetails ? '' : 'disabled'}>確認完成並結算</button>
+        </div>
       </form>`;
     const form = els.bookingAdminCrudModalBody.querySelector('form');
     form.querySelector('[data-cancel]').addEventListener('click', closeModal);
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
+      if (!preview.hasParticipantDetails) return;
       await runModalAction(async () => operationsRequest('admin.booking.status.complete', {
         bookingId: booking.bookingId,
         expectedUpdatedAt: booking.updatedAt,
