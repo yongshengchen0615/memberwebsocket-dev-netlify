@@ -2264,71 +2264,81 @@
     };
   }
 
+
   function openCompletionPreview(booking, adminNote) {
     const group = state.booking.groups?.[booking.bookingId];
     const preview = completionPreviewData(booking, group);
     const pendingBenefits = Array.isArray(booking.benefits)
       ? booking.benefits.filter((benefit) => benefit.status === 'pending') : [];
-    els.bookingAdminCrudModalTitle.textContent = `完成結算預覽｜${booking.memberDisplayName || '會員'}`;
-    const itemRows = preview.people.map((person) => {
+    els.bookingAdminCrudModalTitle.textContent = '完成結算預覽';
+    const itemRows = preview.people.map((person, index) => {
       const rows = person.items.map((item) => `
         <div class="booking-completion-preview-item">
-          <div>
-            <strong>${escapeHtml(item.title)}</strong>
-            <p>${escapeHtml(item.serviceType || '未分類')} · ${item.unitMinutes} 分鐘／份 × ${item.quantity} 份 = ${item.subtotalMinutes} 分鐘</p>
-            <p>單價 ${formatMoney(item.unitPrice)} × ${item.quantity} = ${formatMoney(item.subtotalAmount)}</p>
+          <div class="booking-completion-preview-item-main">
+            <div class="booking-completion-preview-item-name">
+              <strong>${escapeHtml(item.title)}</strong>
+              <small>${escapeHtml(item.serviceType || '未分類')}</small>
+            </div>
+            <p>${item.unitMinutes} 分鐘／份 × ${item.quantity} 份 = <strong>${item.subtotalMinutes} 分鐘</strong></p>
+            <p>單價 ${formatMoney(item.unitPrice)} × ${item.quantity}</p>
           </div>
-          <span data-business-requires="booking membership" class="integration-status ${item.isEligible ? 'is-active' : 'is-attention'}">${item.isEligible ? '計入' : person.isPrimary ? '不計入' : '非主要技師'}</span>
+          <strong class="booking-completion-preview-item-amount">${formatMoney(item.subtotalAmount)}</strong>
         </div>`).join('');
-      return `<section class="booking-completion-preview-person">
-        <h4>${escapeHtml(person.label)} · ${escapeHtml(person.technicianName)}${person.isPrimary ? '（主要技師）' : ''}</h4>
-        ${person.memberNote ? `<p class="booking-completion-preview-person-note"><strong>個別備註：</strong>${escapeHtml(person.memberNote)}</p>` : ''}
-        <div class="booking-completion-preview-list">${rows || '<p class="integration-empty">本位沒有服務項目。</p>'}</div>
-        <p class="booking-completion-preview-person-total">項目合計：${person.personMinutes} 分鐘 · ${formatMoney(person.personAmount)} · 計入會員時間 ${person.eligibleMinutes} 分鐘${person.storeServiceMinutes ? ` · 目前店內預留設定 ${person.storeServiceMinutes} 分鐘（不計入；預約占用以原快照為準）` : ''}</p>
+      return `<section class="booking-completion-preview-person" aria-label="${escapeHtml(person.label)}的預約項目">
+        <header class="booking-completion-preview-person-heading">
+          <span class="booking-completion-preview-person-index" aria-hidden="true">${index + 1}</span>
+          <div><h4>${escapeHtml(person.label)}</h4><p>技師：${escapeHtml(person.technicianName)}</p></div>
+          ${person.isPrimary ? '<span class="booking-completion-preview-primary">主要技師</span>' : ''}
+        </header>
+        ${person.memberNote ? `<div class="booking-completion-preview-person-note"><strong>個別備註</strong><p>${escapeHtml(person.memberNote)}</p></div>` : ''}
+        <div class="booking-completion-preview-list">${rows || '<p class="booking-completion-preview-empty">本位沒有服務項目。</p>'}</div>
+        <div class="booking-completion-preview-person-total">
+          <span>服務 ${person.personMinutes} 分鐘</span>
+          <strong>小計 ${formatMoney(person.personAmount)}</strong>
+        </div>
       </section>`;
     }).join('');
-    const rewardRows = preview.rewards.length
-      ? preview.rewards.map((reward) => `<div class="booking-completion-preview-item"><div><strong>${escapeHtml(reward.pointCardTitle)}</strong><p>${escapeHtml(reward.typeName)}：${reward.minutes} 分鐘 ÷ ${reward.perPoint}</p></div><strong>+${reward.points} 點</strong></div>`).join('')
-      : '<p class="integration-empty">依目前項目類型規則，本次沒有自動集點。</p>';
     const benefitRows = pendingBenefits.length
-      ? pendingBenefits.map((benefit) => `<div data-business-requires="booking ${benefit.kind === 'points' ? 'points' : 'events'}" class="booking-completion-preview-item"><div><strong>${escapeHtml(bookingBenefitDisplayTitle(benefit))}</strong><p>${escapeHtml(bookingBenefitKindLabel(benefit))} · 完成服務時重新驗證</p></div><span class="integration-status is-attention">待核銷</span></div>`).join('')
-      : '<p class="integration-empty">會員本次沒有選用優惠。</p>';
+      ? pendingBenefits.map((benefit) => `<div data-business-requires="booking ${benefit.kind === 'points' ? 'points' : 'events'}" class="booking-completion-preview-benefit-row">
+          <div><strong>${escapeHtml(bookingBenefitDisplayTitle(benefit))}</strong><p>${escapeHtml(bookingBenefitKindLabel(benefit))}</p></div>
+          <span class="booking-completion-preview-pending">待核銷</span>
+        </div>`).join('')
+      : '<p class="booking-completion-preview-empty">本次沒有使用票券。</p>';
     const caution = !preview.hasParticipantDetails
-      ? '<p class="booking-completion-preview-warning" role="alert">無法取得逐位預約項目，為避免計入錯誤，請關閉畫面並重新同步預約資料後再結算。</p>'
-      : `<p class="booking-completion-preview-note">會員時間與集點只計算主要技師服務且符合會員資格的項目；其他技師的項目仍顯示在明細及總金額內，不會重複入帳。${!preview.people.some((person) => person.isPrimary) ? ' 本筆沒有主要技師，預估計入會員時間為 0 分鐘。' : ''}</p>`;
+      ? '<p class="booking-completion-preview-warning" role="alert">無法取得逐位預約項目，為避免計入錯誤，請關閉畫面並重新同步預約資料後再結算。</p>' : '';
     const differenceNote = preview.hasDurationDifference
-      ? '<p class="booking-completion-preview-warning">部分項目的預約快照分鐘數不同於目前項目設定；預覽及結算以當時保存的單位分鐘為準，請先核對實際服務時數。</p>'
-      : '';
+      ? '<p class="booking-completion-preview-warning">部分項目的預約快照分鐘數不同於目前項目設定；預覽及結算以當時保存的單位分鐘為準，請先核對實際服務時數。</p>' : '';
     const reserveNote = preview.hasStoreReserveDifference
-      ? '<p class="booking-completion-preview-warning">店內預留分鐘設定已變動；預約占用時間依建立預約時保存的分鐘及原時段，不會改用目前設定。</p>'
-      : '';
+      ? '<p class="booking-completion-preview-warning">店內預留分鐘設定已變動；預約占用時間依建立預約時保存的分鐘及原時段，不會改用目前設定。</p>' : '';
     els.bookingAdminCrudModalBody.innerHTML = `
       <form class="booking-admin-form booking-completion-preview">
-        <div class="booking-completion-preview-summary">
-          <div><span>受服務會員</span><strong>${escapeHtml(group?.serviceRecipientName || booking.memberDisplayName || '會員')}</strong></div>
-          <div data-business-requires="booking membership"><span>將計入會員時間（主要技師）</span><strong>${preview.serviceMinutes} 分鐘</strong></div>
-          <div><span>所有服務項目分鐘（含其他技師）</span><strong>${preview.allServiceMinutes} 分鐘</strong></div>
-          <div><span>預約占用時段（含店內預留）</span><strong>${preview.scheduleMinutes} 分鐘</strong></div>
-          <div><span>服務總金額（未扣優惠）</span><strong>${formatMoney(preview.totalAmount)}</strong></div>
-          <div data-business-requires="booking points"><span>預估自動集點</span><strong>${preview.totalRewardPoints} 點</strong></div>
-          <div data-business-requires="booking points|events"><span>待核銷優惠</span><strong>${pendingBenefits.length} 項</strong></div>
-        </div>
-        <section class="booking-completion-preview-context">
-          <p><strong>預約人：</strong>${escapeHtml(booking.memberDisplayName || '會員')}${booking.memberCode ? `（${escapeHtml(booking.memberCode)}）` : ''}</p>
-          <p><strong>聯絡人：</strong>${escapeHtml(bookingContactName(booking))} · ${escapeHtml(booking.contactPhone || '未提供電話')}</p>
-          <p><strong>預約時間：</strong>${escapeHtml(booking.bookingDate || '—')} · ${escapeHtml(booking.startTime || '—')}–${escapeHtml(booking.endTime || '—')}</p>
-          <p><strong>服務人數：</strong>${preview.people.length || '資料未取得'} 位</p>
-          ${booking.memberNote ? `<p><strong>會員備註：</strong>${escapeHtml(booking.memberNote)}</p>` : ''}
-          ${adminNote ? `<p><strong>管理端備註：</strong>${escapeHtml(adminNote)}</p>` : ''}
+        <section class="booking-completion-preview-section" aria-labelledby="bookingCompletionInfoTitle">
+          <h3 id="bookingCompletionInfoTitle"><span aria-hidden="true">01</span> 預約資料</h3>
+          <dl class="booking-completion-preview-context">
+            <div><dt>受服務會員</dt><dd>${escapeHtml(group?.serviceRecipientName || booking.memberDisplayName || '會員')}</dd></div>
+            <div><dt>預約人</dt><dd>${escapeHtml(booking.memberDisplayName || '會員')}${booking.memberCode ? `（${escapeHtml(booking.memberCode)}）` : ''}</dd></div>
+            <div><dt>預約日期</dt><dd>${escapeHtml(booking.bookingDate || '—')}</dd></div>
+            <div><dt>預約時段</dt><dd>${escapeHtml(booking.startTime || '—')}–${escapeHtml(booking.endTime || '—')}</dd></div>
+            <div><dt>聯絡人</dt><dd>${escapeHtml(bookingContactName(booking))}</dd></div>
+            <div><dt>聯絡電話</dt><dd>${escapeHtml(booking.contactPhone || '未提供電話')}</dd></div>
+            <div><dt>預約人數</dt><dd>${preview.people.length || '資料未取得'} 位</dd></div>
+          </dl>
+          ${booking.memberNote ? `<div class="booking-completion-preview-note"><strong>會員備註</strong><p>${escapeHtml(booking.memberNote)}</p></div>` : ''}
+          ${adminNote ? `<div class="booking-completion-preview-note"><strong>管理端備註</strong><p>${escapeHtml(adminNote)}</p></div>` : ''}
+          ${group?.serviceRecipientMemberCode ? `<p class="booking-completion-preview-assignment">好友代約：受服務會員 ${escapeHtml(group.serviceRecipientMemberCode)}；票券使用預約建立者的資產。</p>` : ''}
         </section>
-        ${group?.serviceRecipientMemberCode ? `<p>好友代約：正常集點與服務時間歸受服務好友（${escapeHtml(group.serviceRecipientMemberCode)}）；預約建立者另取得符合條件的好友代約獎勵，預估服務時間 ${Math.floor(preview.serviceMinutes / 2)} 分鐘。票券使用建立者的資產。</p>` : ''}
+        <section class="booking-completion-preview-section" aria-labelledby="bookingCompletionItemsTitle">
+          <h3 id="bookingCompletionItemsTitle"><span aria-hidden="true">02</span> 預約項目</h3>
+          <div class="booking-completion-preview-people">${itemRows || '<p class="booking-completion-preview-empty">無法取得逐位服務明細。</p>'}</div>
+          <div class="booking-completion-preview-grand-total"><span>服務總金額（未扣優惠）</span><strong>${formatMoney(preview.totalAmount)}</strong></div>
+        </section>
+        <section class="booking-completion-preview-section" data-business-requires="booking points|events" aria-labelledby="bookingCompletionTicketsTitle">
+          <h3 id="bookingCompletionTicketsTitle"><span aria-hidden="true">03</span> 票券使用資料 <small>${pendingBenefits.length} 張</small></h3>
+          <div class="booking-completion-preview-list">${benefitRows}</div>
+        </section>
         ${caution}
         ${differenceNote}
         ${reserveNote}
-        <section><p class="kicker">Service settlement · 逐位服務明細</p>${itemRows || '<p class="integration-empty">無法取得逐位服務明細。</p>'}</section>
-        <section data-business-requires="booking points"><p class="kicker">Point rewards</p><div class="booking-completion-preview-list">${rewardRows}</div></section>
-        <section data-business-requires="booking points|events"><p class="kicker">Benefit redemption</p><div class="booking-completion-preview-list">${benefitRows}</div></section>
-        <p class="booking-completion-preview-note">此畫面為送出前預覽。真正的服務時間、集點、LINE 通知與重複請求判斷仍由 Server-side 完成結算流程決定；同時會重新驗證票券擁有權、狀態、效期、點數與每日上限，並在同一交易內完成核銷與預約結算，任何一項失敗都不會產生半完成狀態。</p>
         <div data-modal-message class="form-message hidden"></div>
         <div class="booking-admin-modal-actions">
           <button data-cancel class="button button-outline" type="button">返回</button>

@@ -402,6 +402,46 @@ for(const [initial,label,status] of [['pending','確認預約','confirmed'],['pe
   }
   await booking(p,'bookingAdminQueueSubtab');await p.locator('[data-booking-filter="'+initial+'"]').click();const row=p.locator('[data-booking-id="booking-1"]');await row.locator('textarea').fill('QA admin note');await row.getByRole('button',{name:label}).click();if(status==='completed'){await expect(p.locator('#bookingAdminCrudModal')).toContainText('30 分鐘');await expect(p.locator('#bookingAdminCrudModal')).toContainText('QA per-person note');await expect(p.locator('#bookingAdminCrudModal button[type="submit"]')).toBeEnabled();await p.locator('#bookingAdminCrudModal button[type="submit"]').click();}await expect.poll(()=>info.fixture.bookings[0].status).toBe(status);await p.locator('[data-booking-filter="all"]').click();await expect(p.locator('#bookingAdminQueue')).toContainText('QA booking member');
 });
+for(const width of [390,1280])test('BOOKING_COMPLETION_REVIEW_'+width+' — booking details, per-person items, tickets, responsive review and cancel without write',async({page:p},info)=>{
+  const isRealBrowser=typeof p.setViewportSize==='function';
+  if(isRealBrowser)await p.setViewportSize({width,height:860});
+  seedBooking(info.fixture,'confirmed');
+  Object.assign(info.fixture.bookings[0],{totalDurationMinutes:45,endTime:'10:45',memberNote:'QA booking note'});
+  const first={...info.fixture.bookings[0].items[0],unitPriceAmount:300,countsTowardMembership:true};
+  const second={...first,serviceTitle:'QA second service',unitDurationMinutes:45,quantity:1,unitPriceAmount:450};
+  info.fixture.groups['booking-1']={partySize:2,totalDurationMinutes:45,participants:[
+    {position:1,technicianId:'tech-1',technicianName:'QA primary',isPrimaryTechnician:true,memberNote:'QA person A note',items:[first]},
+    {position:2,technicianId:'tech-2',technicianName:'QA other',isPrimaryTechnician:false,memberNote:'QA person B note',items:[second]},
+  ]};
+  info.fixture.bookings[0].benefits=[{kind:'event',id:'coupon1',title:'QA event coupon',status:'pending'}];
+  await booking(p,'bookingAdminQueueSubtab');
+  await p.locator('[data-booking-filter="confirmed"]').click();
+  await p.locator('[data-booking-id="booking-1"]').getByRole('button',{name:'確認服務完成'}).click();
+  const modal=p.locator('#bookingAdminCrudModal');
+  await expect(modal.locator('.booking-completion-preview-section')).toHaveCount(3);
+  await expect(modal.locator('#bookingCompletionInfoTitle')).toContainText('預約資料');
+  await expect(modal.locator('#bookingCompletionItemsTitle')).toContainText('預約項目');
+  await expect(modal.locator('#bookingCompletionTicketsTitle')).toContainText('票券使用資料');
+  await expect(modal.locator('.booking-completion-preview-person')).toHaveCount(2);
+  await expect(modal).toContainText('QA person A note');
+  await expect(modal).toContainText('QA person B note');
+  await expect(modal).toContainText('QA event coupon');
+  await expect(modal.locator('.booking-completion-preview-grand-total')).toContainText('NT');
+  if(isRealBrowser){
+    const styles=await modal.evaluate(node=>{
+      const card=node.querySelector('.booking-admin-modal-card'),section=node.querySelector('.booking-completion-preview-section'),context=node.querySelector('.booking-completion-preview-context');
+      return {modalParent:node.parentElement===document.body,cardWidth:card.getBoundingClientRect().width,viewportWidth:innerWidth,sectionBackground:getComputedStyle(section).backgroundColor,contextDisplay:getComputedStyle(context).display};
+    });
+    expect(styles.modalParent).toBe(true);
+    expect(styles.cardWidth).toBeLessThanOrEqual(styles.viewportWidth);
+    expect(styles.contextDisplay).toBe('grid');
+    expect(styles.sectionBackground).not.toBe('rgba(0, 0, 0, 0)');
+  }
+  await modal.getByRole('button',{name:'返回'}).click();
+  await expect(modal).toBeHidden();
+  expect(calls(info.fixture,'admin.booking.status.complete')).toHaveLength(0);
+});
+
 for(const mode of ['register','dismiss'])test('BOOKING_ACCESSIBLE_'+mode+' — receipt review, submit, history and filters',async({page:p},info)=>{
   const receipt={receiptId:'receipt-1',memberId:'member-1',memberName:'QA Member',memberCode:'TEST1',createdAt:version,updatedAt:version,status:'awaiting_review',reviewStatus:'pending'};info.fixture.submissions=[receipt];info.fixture.accessibleRecords=[receipt];await booking(p,'bookingAdminQueueSubtab');await click(p,'bookingAdminAccessibleMode');await p.locator('#accessibleAdminQueueList button').click();await expect(p.locator('#accessibleAdminModal')).toBeVisible();
   if(mode==='dismiss')await click(p,'accessibleAdminDismiss');else{await p.locator('[data-service-check]').first().check();await p.locator('[data-minutes]').first().fill('60');await fill(p,'accessibleAdminDate',today());await fill(p,'accessibleAdminTime','10:03');await fill(p,'accessibleAdminNote','QA review');await click(p,'accessibleAdminSubmit');}
