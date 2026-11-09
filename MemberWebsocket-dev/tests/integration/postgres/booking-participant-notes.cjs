@@ -69,3 +69,82 @@ test('AC-PNOTE-001..006: notes survive existing-tenant upgrade, multiple people,
       ['public','booking_participants','member_note'])).rows[0].n,1);
   } finally {await h.db.close();}
 });
+
+test('AC-PNOTE-007: member removal erases notes on surviving friend bookings but not unrelated bookings',async()=>{
+  const h=await fixture({...await database()});
+  try {
+    const tenant=await h.approve(id(5),'individual-notes-removal-'+crypto.randomUUID().slice(0,7));
+    await h.db.exec(migration);
+    const s=tenant.runtime_schema;
+    const removalMigration=fs.readFileSync(path.resolve(__dirname,
+      '../../../supabase/migrations/20261109123500_member_removal_scrub_participant_notes.sql'),'utf8');
+    await h.db.exec(removalMigration);
+    const functionDef=(await h.db.query('select pg_get_functiondef($1::regprocedure) def',
+      [s+'.finish_member_removal(text,uuid)'])).rows[0].def;
+    assert.match(functionDef,/update booking_participants\s+set member_note=''/);
+    const rights=(await h.db.query(
+      "select has_function_privilege('anon',$1,'execute') anon,has_function_privilege('service_role',$1,'execute') service",
+      [s+'.finish_member_removal(text,uuid)'])).rows[0];
+    assert.deepEqual(rights,{anon:false,service:true});
+
+    await h.db.query('insert into '+s+".booking_service_types(name) values('Removal services')");
+    await h.db.query('insert into '+s+
+      ".booking_services(id,title,duration_minutes,price_amount,is_active,service_type,created_by) values($1,'Removal service',30,100,true,'Removal services','system')",[serviceId]);
+    const tech=(await h.db.query('insert into '+s+
+      ".booking_technicians(name,is_active) values('Removal technician',true) returning id")).rows[0].id;
+    await h.db.query('update '+s+'.booking_settings set primary_technician_id=$1 where id=1',[tech]);
+    const makeMember=async(n,code)=>{
+      const row=(await h.db.query('insert into '+s+
+        ".members(line_user_id,display_name,member_code,membership_status,status,is_test_account) values($1,'Removal QA', $2,'active','active',true) returning id",
+        [id(n),code])).rows[0];
+      await h.db.query('update '+s+'.members set is_test_account=false where id=$1',[row.id]);
+      return row.id;
+    };
+    const memberA=await makeMember(6,'NOTE-REMAIN-A');
+    const memberB=await makeMember(7,'NOTE-REMOVE-B');
+    const date=(await h.db.query("select ((now() at time zone 'Asia/Taipei')::date+5)::text d")).rows[0].d;
+    const create=async(owner,time,note)=>{
+      const parts=JSON.stringify([{technicianId:tech,items:[{serviceId,quantity:1}],memberNote:note}]);
+      return (await h.db.query('select ('+s+'.create_group_booking_request_v2($1,$2,$3,$4,$5,$6)).id value',
+        ['BOOK-'+crypto.randomUUID(),owner,date,time,parts,'root '+note])).rows[0].value;
+    };
+    const actorRemoved=await create(memberB,'10:00','PRIVATE actor removal');
+    const recipientRemoved=await create(memberA,'11:00','PRIVATE recipient removal');
+    const unrelated=await create(memberA,'12:00','KEEP unrelated note');
+    await h.db.query('update '+s+'.bookings set service_recipient_member_id=$1 where id=$2',
+      [memberA,actorRemoved]);
+    await h.db.query('update '+s+'.bookings set service_recipient_member_id=$1 where id=$2',
+      [memberB,recipientRemoved]);
+    const participantNotes=async(bookingId)=>(await h.db.query(
+      'select p.member_note note from '+s+'.booking_participants p where p.booking_id=$1 order by p.position',[bookingId])).rows.map(x=>x.note);
+    assert.deepEqual(await participantNotes(actorRemoved),['PRIVATE actor removal']);
+    assert.deepEqual(await participantNotes(recipientRemoved),['PRIVATE recipient removal']);
+
+    const begun=(await h.db.query('select '+s+'.begin_member_removal($1,$2,$3) result',
+      [id(5),id(7),'NOTE-REMOVE-B'])).rows[0].result;
+    assert.equal(begun.state,'deleting');
+    await assert.rejects(h.db.query('select '+s+'.finish_member_removal($1,$2)',
+      [id(9),begun.jobId]),/ADMIN_REQUIRED/);
+    const done=(await h.db.query('select '+s+'.finish_member_removal($1,$2) result',
+      [id(5),begun.jobId])).rows[0].result;
+    assert.equal(done.state,'complete');
+    assert.deepEqual(await participantNotes(actorRemoved),['']);
+    assert.deepEqual(await participantNotes(recipientRemoved),['']);
+    assert.deepEqual(await participantNotes(unrelated),['KEEP unrelated note']);
+    const surviving=(await h.db.query('select id,member_note,admin_note,member_id,service_recipient_member_id from '+s+
+      '.bookings where id=any($1::uuid[]) order by id',
+      [[actorRemoved,recipientRemoved]])).rows;
+    assert.equal(surviving.length,2,'both shared reservations remain');
+    assert.ok(surviving.every(x=>x.member_note===''&&x.admin_note===''));
+    assert.ok(surviving.every(x=>x.member_id!==memberB&&x.service_recipient_member_id!==memberB));
+    assert.equal((await h.db.query('select count(*)::int n from '+s+'.members where id=$1',[memberB])).rows[0].n,0);
+    assert.equal((await h.db.query('select member_note from '+s+'.bookings where id=$1',[unrelated])).rows[0].member_note,
+      'root KEEP unrelated note');
+
+    const future=await h.approve(id(8),'individual-notes-removal-future-'+crypto.randomUUID().slice(0,7));
+    const futureDef=(await h.db.query('select pg_get_functiondef($1::regprocedure) def',
+      [future.runtime_schema+'.finish_member_removal(text,uuid)'])).rows[0].def;
+    assert.match(futureDef,/update booking_participants\s+set member_note=''/,
+      'new merchant must inherit note cleanup');
+  } finally {await h.db.close();}
+});
