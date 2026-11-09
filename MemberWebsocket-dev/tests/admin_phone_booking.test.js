@@ -100,7 +100,10 @@ test('AC-007: counter registration does not request or require a customer phone'
   assert.match(optionalPhoneSql, /v_phone text := nullif\(regexp_replace/);
   assert.match(optionalPhoneSql, /v_phone is not null and v_phone !~/);
   assert.match(optionalPhoneSql, /platform_private\.business_templates/);
-  assert.match(optionalPhoneSql, /platform_private\.business_sql\(v_updated, v_schema\)/);
+  assert.match(optionalPhoneSql, /pg_get_functiondef\(v_tenant_signature::regprocedure\)/);
+  assert.match(optionalPhoneSql, /execute v_tenant_updated/);
+  assert.match(optionalPhoneSql, /TENANT_ADMIN_BOOKING_PHONE_CONTRACT_CHANGED/);
+  assert.doesNotMatch(optionalPhoneSql, /execute platform_private\.business_sql\(v_updated, v_schema\)/);
   assert.match(optionalPhoneSql, /ADMIN_BOOKING_PHONE_CONTRACT_CHANGED/);
   assert.doesNotMatch(optionalPhoneSql, /drop column|truncate table|delete from public\.bookings/i);
 });
