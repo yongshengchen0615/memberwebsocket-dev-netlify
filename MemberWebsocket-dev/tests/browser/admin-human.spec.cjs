@@ -386,7 +386,21 @@ function seedBooking(s,status='pending'){
   s.bookings=[{bookingId:'booking-1',memberId:'member-1',memberDisplayName:'QA booking member',contactSurname:'QA',contactSalutation:'mr',contactPhone:'+886912345678',memberCode:'TEST1',bookingDate:today(),startTime:'10:00',endTime:'10:30',status,totalDurationMinutes:30,updatedAt:version,createdAt:version,items:[{serviceId:'service-1',serviceTitle:'QA service',quantity:1,unitDurationMinutes:30,subtotalMinutes:30,serviceType:'Body'}],benefits:[]}];
 }
 for(const [initial,label,status] of [['pending','確認預約','confirmed'],['pending','不通過','rejected'],['confirmed','取消預約','cancelled'],['confirmed','確認服務完成','completed']])test('BOOKING_STATUS_'+status+' — UI transition, note and readback',async({page:p},info)=>{
-  seedBooking(info.fixture,initial);await booking(p,'bookingAdminQueueSubtab');await p.locator('[data-booking-filter="'+initial+'"]').click();const row=p.locator('[data-booking-id="booking-1"]');await row.locator('textarea').fill('QA admin note');await row.getByRole('button',{name:label}).click();if(status==='completed'){await expect(p.locator('#bookingAdminCrudModal')).toContainText('30 分鐘');await p.locator('#bookingAdminCrudModal button[type="submit"]').click();}await expect.poll(()=>info.fixture.bookings[0].status).toBe(status);await p.locator('[data-booking-filter="all"]').click();await expect(p.locator('#bookingAdminQueue')).toContainText('QA booking member');
+  seedBooking(info.fixture,initial);
+  // A real confirmed booking has a persisted participant/item snapshot. Keep the
+  // fixture valid: incomplete group data is explicitly blocked by the preview.
+  if (status === 'completed') {
+    const item = info.fixture.bookings[0].items[0];
+    info.fixture.groups['booking-1'] = {
+      partySize: 1, totalDurationMinutes: 30,
+      participants: [{
+        position: 1, technicianId: 'tech-1', technicianName: 'QA primary',
+        isPrimaryTechnician: true, memberNote: 'QA per-person note',
+        items: [{ ...item, unitPriceAmount: 300, countsTowardMembership: true }],
+      }],
+    };
+  }
+  await booking(p,'bookingAdminQueueSubtab');await p.locator('[data-booking-filter="'+initial+'"]').click();const row=p.locator('[data-booking-id="booking-1"]');await row.locator('textarea').fill('QA admin note');await row.getByRole('button',{name:label}).click();if(status==='completed'){await expect(p.locator('#bookingAdminCrudModal')).toContainText('30 分鐘');await expect(p.locator('#bookingAdminCrudModal')).toContainText('QA per-person note');await expect(p.locator('#bookingAdminCrudModal button[type="submit"]')).toBeEnabled();await p.locator('#bookingAdminCrudModal button[type="submit"]').click();}await expect.poll(()=>info.fixture.bookings[0].status).toBe(status);await p.locator('[data-booking-filter="all"]').click();await expect(p.locator('#bookingAdminQueue')).toContainText('QA booking member');
 });
 for(const mode of ['register','dismiss'])test('BOOKING_ACCESSIBLE_'+mode+' — receipt review, submit, history and filters',async({page:p},info)=>{
   const receipt={receiptId:'receipt-1',memberId:'member-1',memberName:'QA Member',memberCode:'TEST1',createdAt:version,updatedAt:version,status:'awaiting_review',reviewStatus:'pending'};info.fixture.submissions=[receipt];info.fixture.accessibleRecords=[receipt];await booking(p,'bookingAdminQueueSubtab');await click(p,'bookingAdminAccessibleMode');await p.locator('#accessibleAdminQueueList button').click();await expect(p.locator('#accessibleAdminModal')).toBeVisible();
