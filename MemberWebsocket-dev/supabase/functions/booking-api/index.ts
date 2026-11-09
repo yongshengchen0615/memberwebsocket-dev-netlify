@@ -330,6 +330,8 @@ function itemClient(row: any): Json {
   return {
     serviceId: row.service_id,
     serviceTitle: row.service_title || "預約項目",
+    serviceType: String(row.service_type || ""),
+    countsTowardMembership: Boolean(row.counts_toward_membership),
     unitDurationMinutes: Number(row.unit_duration_minutes || 0),
     unitPriceAmount,
     quantity,
@@ -457,7 +459,7 @@ async function hydrateBookings(supabase: SupabaseClient, rows: any[]): Promise<J
   const bookingIds = rows.map((row) => row.id);
   const [itemResult, benefitResult] = await Promise.all([
     supabase.from("booking_items")
-      .select("booking_id,service_id,service_title,unit_duration_minutes,unit_price_amount,quantity")
+      .select("booking_id,service_id,service_title,service_type,counts_toward_membership,unit_duration_minutes,unit_price_amount,quantity")
       .in("booking_id", bookingIds)
       .order("created_at", { ascending: true }),
     supabase.from("booking_benefit_selections")
