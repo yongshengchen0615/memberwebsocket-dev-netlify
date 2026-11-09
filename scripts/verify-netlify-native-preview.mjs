@@ -32,6 +32,24 @@ export async function verifyNativePreview({ commit, token, source, fetchImpl = f
     try { return await response.json(); } catch { fail('PROVIDER_JSON_INVALID'); }
   }
   const expected = 'https://' + branch.toLowerCase() + '--' + siteName + '.netlify.app';
+
+  // Netlify may finish an older native build after this commit becomes ready.
+  // Check the branch's actual public HTML, never just a ready deploy record.
+  async function branchAliasMatchesCommit(attempt) {
+    let response;
+    try {
+      response = await fetchImpl(expected + '/?native_release_check=' + commit + '-' + attempt, {
+        method: 'GET', redirect: 'error', cache: 'no-store',
+        signal: AbortSignal.timeout(20000),
+        headers: { 'Cache-Control': 'no-cache' },
+      });
+    } catch { fail('ALIAS_UNAVAILABLE'); }
+    if (!response?.ok) fail('ALIAS_HTTP_' + (response?.status >= 400 && response?.status <= 599 ? response.status : 'unknown'));
+    let html;
+    try { html = await response.text(); } catch { fail('ALIAS_INVALID_HTML'); }
+    return typeof html === 'string' && html.includes('data-commit="' + commit.slice(0, 7) + '"');
+  }
+
   for (let n = 0; n < attempts; n++) {
     const items = await request(`/sites/${siteId}/deploys?per_page=100`);
     if (!Array.isArray(items)) fail('DEPLOY_LIST_INVALID');
@@ -41,6 +59,15 @@ export async function verifyNativePreview({ commit, token, source, fetchImpl = f
         && Number.isFinite(Date.parse(x.created_at)) && Date.parse(x.created_at) >= Date.parse(notBefore) - 2000)));
     const valid = matching.find(x => x.state === 'ready' && /^[a-f0-9]{24}$/.test(x.id || ''));
     if (valid) {
+      // A different native build can still publish after ours, reverting the
+      // fixed branch alias. Do not report success until those builds finish.
+      const competing = items.some(x => x.site_id === siteId && x.branch === branch
+        && x.context === 'branch-deploy' && x.id !== valid.id
+        && !['ready', 'error', 'rejected', 'canceled'].includes(x.state));
+      if (competing) {
+        if (n + 1 < attempts) { await delay(delayMs); continue; }
+        fail('NATIVE_SIBLING_BUILD_PENDING');
+      }
       const detail = await request(`/deploys/${valid.id}`);
       if (detail.id !== valid.id || detail.site_id !== siteId || detail.context !== 'branch-deploy'
         || detail.branch !== branch || detail.commit_ref !== commit || detail.state !== 'ready'
@@ -50,6 +77,10 @@ export async function verifyNativePreview({ commit, token, source, fetchImpl = f
         site.published_deploy?.id !== source.production.deployId ||
         site.build_settings?.repo_branch !== 'master' ||
         site.build_settings?.repo_path !== repo) fail('PRODUCTION_IDENTITY_CHANGED');
+      if (!await branchAliasMatchesCommit(n)) {
+        if (n + 1 < attempts) { await delay(delayMs); continue; }
+        fail('NATIVE_ALIAS_STALE');
+      }
       return { deploy_id: valid.id, deploy_url: expected,
         immutable_url: `https://${valid.id}--${siteName}.netlify.app`,
         source_branch: branch, source_sha: commit, context: 'branch-deploy',

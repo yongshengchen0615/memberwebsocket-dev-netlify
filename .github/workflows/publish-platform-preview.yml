@@ -61,10 +61,12 @@ jobs:
             echo "PREVIEW_DEPLOY_MODE=native" >> "$GITHUB_ENV"
             echo "DEPLOY_ID=$(jq -er '.deploy_id' evidence/platform-deploy.json)" >> "$GITHUB_ENV"
           elif grep -Fxq 'Verified native branch preview failed: NATIVE_DEPLOY_FAILED' /tmp/native-preview-error.txt ||
-               grep -Fxq 'Verified native branch preview failed: DEPLOY_NOT_READY' /tmp/native-preview-error.txt; then
+               grep -Fxq 'Verified native branch preview failed: DEPLOY_NOT_READY' /tmp/native-preview-error.txt ||
+               grep -Fxq 'Verified native branch preview failed: NATIVE_ALIAS_STALE' /tmp/native-preview-error.txt; then
             # A test-only change can leave the branch without a native build;
             # a native build can also fail before all push CI workflows finish.
-            # Both cases may recover only after exact-SHA CI succeeds above.
+            # A stale public branch alias also requires a fresh native build.
+            # All three cases may recover only after exact-SHA CI succeeds above.
             # This branch-specific marker is issued ONLY after the exact-SHA CI
             # gate above has passed. It is never set for production or PRs.
             test "$GITHUB_REF_NAME" = Integrated-Marketing-Platform
@@ -174,6 +176,19 @@ jobs:
           COMMIT_REF: ${{ github.sha }}
         working-directory: MemberWebsocket-dev/tests/browser
         run: npx playwright test --config=preview.playwright.config.cjs
+      - name: Final exact-SHA branch alias and asset verification after browser acceptance
+        if: github.ref_name == 'Integrated-Marketing-Platform'
+        env:
+          PREVIEW_BASE_URL: https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app
+        shell: bash
+        run: |
+          set -euo pipefail
+          current=$(gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/$GITHUB_REF_NAME" --jq '.object.sha')
+          test "$current" = "$GITHUB_SHA"
+          node scripts/verify-netlify-native-preview.mjs
+          test "$(jq -er '.deploy_id' evidence/platform-deploy.json)" = "$DEPLOY_ID"
+          test "$(jq -er '.source_sha' evidence/platform-deploy.json)" = "$GITHUB_SHA"
+          node scripts/verify-platform-preview.mjs
       - name: Retain preview browser HTML, JUnit, traces and failure videos
         if: always() && github.ref_name == 'Integrated-Marketing-Platform'
         uses: actions/upload-artifact@v4

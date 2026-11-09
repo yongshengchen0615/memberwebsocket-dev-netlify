@@ -116,6 +116,7 @@ test('integrated branch recovers native builds only after the exact-SHA CI and k
  assert.ok(preview.indexOf(inspect)<preview.indexOf(native));
  assert.match(preview,/grep -Fxq 'Verified native branch preview failed: NATIVE_DEPLOY_FAILED'/);
  assert.match(preview,/grep -Fxq 'Verified native branch preview failed: DEPLOY_NOT_READY'/);
+ assert.match(preview,/grep -Fxq 'Verified native branch preview failed: NATIVE_ALIAS_STALE'/);
  assert.match(preview,/env:set PLATFORM_CI_VERIFIED_SHA "\$GITHUB_SHA"/);
  assert.match(preview,/--context "branch:\$GITHUB_REF_NAME" --scope builds --force/);
  assert.match(preview,/--request POST --data '\{\}'/);
@@ -200,4 +201,29 @@ test('both attested and GitHub-API native build paths derive source epoch from v
   assert.ok(buildCode.includes('awaitVerifiedPreviewCI'));
   assert.ok(buildCode.includes("['show', '-s', '--format=%ct', process.env.COMMIT_REF]"));
   assert.doesNotMatch(buildCode,/format=%ct', verified\.sha/);
+});
+
+
+test('stale public alias is recoverable only after exact SHA CI and final acceptance rechecks the live version',()=>{
+ const ci=preview.indexOf('node scripts/check-preview-ci.mjs');
+ const release=preview.indexOf('node scripts/inspect-preview-source.mjs');
+ const recovery=preview.indexOf("grep -Fxq 'Verified native branch preview failed: NATIVE_ALIAS_STALE'");
+ const build=preview.indexOf('curl --fail --silent --show-error --retry 0');
+ const browser=preview.indexOf('- name: Run read-only Chromium preview acceptance');
+ const final=preview.indexOf('- name: Final exact-SHA branch alias and asset verification after browser acceptance');
+ const evidence=preview.indexOf('- name: Retain preview browser HTML');
+ assert.ok(ci>=0 && ci<release && release<recovery && recovery<build);
+ assert.ok(browser>=0 && browser<final && final<evidence);
+ const finalStep=preview.slice(final,evidence);
+ assert.match(finalStep,/test "\$current" = "\$GITHUB_SHA"/);
+ assert.match(finalStep,/node scripts\/verify-netlify-native-preview\.mjs/);
+ assert.match(finalStep,/node scripts\/verify-platform-preview\.mjs/);
+ assert.match(finalStep,/\.source_sha' evidence\/platform-deploy\.json/);
+ assert.match(finalStep,/\.deploy_id' evidence\/platform-deploy\.json/);
+ const verifier=readFileSync(new URL('../scripts/verify-netlify-native-preview.mjs',import.meta.url),'utf8');
+ assert.match(verifier,/NATIVE_ALIAS_STALE/);
+ assert.match(verifier,/NATIVE_SIBLING_BUILD_PENDING/);
+ assert.match(verifier,/native_release_check/);
+ assert.match(verifier,/data-commit/);
+ assert.doesNotMatch(preview,/--prod\b/);
 });
