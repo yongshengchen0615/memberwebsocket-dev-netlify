@@ -218,3 +218,24 @@ test('legacy service classifications remain authoritative after catalog type and
   assert.equal(preview.people[0].items[0].serviceType, '原類型');
   assert.equal(preview.people[0].items[0].countsTowardMembership, false);
 });
+
+
+test('saved occupied slot does not change when current store reserved minutes change', () => {
+  const preview = calculate({
+    booking: { totalDurationMinutes: 70, items: [
+      { serviceId: 'a', unitDurationMinutes: 60, quantity: 1, serviceType: '腳底', countsTowardMembership: true },
+    ] },
+    group: {
+      totalDurationMinutes: 80, // group-details recomputes from *current* store reserve 20
+      participants: [{
+        technicianId: 'main-tech', isPrimaryTechnician: true, storeServiceMinutes: 20,
+        items: [{ serviceId: 'a', unitDurationMinutes: 60, quantity: 1, unitPriceAmount: 600 }],
+      }],
+    },
+  });
+  assert.equal(preview.allServiceMinutes, 60);
+  assert.equal(preview.serviceMinutes, 60);
+  assert.equal(preview.scheduleMinutes, 70, 'persisted booking duration wins over mutable group reconstruction');
+  assert.equal(preview.hasStoreReserveDifference, true);
+  assert.match(source, /預約占用時間依建立預約時保存的分鐘及原時段/);
+});
