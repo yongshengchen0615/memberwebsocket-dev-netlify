@@ -177,7 +177,7 @@ test('real settlement renderer shows three readable sections, per-person totals,
     adminNote: '<管理備註>',
   });
   assert.match(result.title, /完成結算預覽/);
-  assert.match(result.html, /30 分鐘／份 × 2 份 = 60 分鐘/);
+  assert.match(result.html, /30 分鐘／份 × 2 份 = <strong>60 分鐘<\/strong>/);
   assert.match(result.html, /NT\$300 × 2/);
   assert.match(result.html, /NT\$600/);
   assert.match(result.html, /NT\$400/);
