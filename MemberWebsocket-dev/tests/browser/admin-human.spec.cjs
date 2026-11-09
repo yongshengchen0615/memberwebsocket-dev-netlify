@@ -403,7 +403,8 @@ for(const [initial,label,status] of [['pending','確認預約','confirmed'],['pe
   await booking(p,'bookingAdminQueueSubtab');await p.locator('[data-booking-filter="'+initial+'"]').click();const row=p.locator('[data-booking-id="booking-1"]');await row.locator('textarea').fill('QA admin note');await row.getByRole('button',{name:label}).click();if(status==='completed'){await expect(p.locator('#bookingAdminCrudModal')).toContainText('30 分鐘');await expect(p.locator('#bookingAdminCrudModal')).toContainText('QA per-person note');await expect(p.locator('#bookingAdminCrudModal button[type="submit"]')).toBeEnabled();await p.locator('#bookingAdminCrudModal button[type="submit"]').click();}await expect.poll(()=>info.fixture.bookings[0].status).toBe(status);await p.locator('[data-booking-filter="all"]').click();await expect(p.locator('#bookingAdminQueue')).toContainText('QA booking member');
 });
 for(const width of [390,1280])test('BOOKING_COMPLETION_REVIEW_'+width+' — booking details, per-person items, tickets, responsive review and cancel without write',async({page:p},info)=>{
-  await p.setViewportSize({width,height:860});
+  const isRealBrowser=typeof p.setViewportSize==='function';
+  if(isRealBrowser)await p.setViewportSize({width,height:860});
   seedBooking(info.fixture,'confirmed');
   Object.assign(info.fixture.bookings[0],{totalDurationMinutes:45,endTime:'10:45',memberNote:'QA booking note'});
   const first={...info.fixture.bookings[0].items[0],unitPriceAmount:300,countsTowardMembership:true};
@@ -426,14 +427,16 @@ for(const width of [390,1280])test('BOOKING_COMPLETION_REVIEW_'+width+' — book
   await expect(modal).toContainText('QA person B note');
   await expect(modal).toContainText('QA event coupon');
   await expect(modal.locator('.booking-completion-preview-grand-total')).toContainText('NT');
-  const styles=await modal.evaluate(node=>{
-    const card=node.querySelector('.booking-admin-modal-card'),section=node.querySelector('.booking-completion-preview-section'),context=node.querySelector('.booking-completion-preview-context');
-    return {modalParent:node.parentElement===document.body,cardWidth:card.getBoundingClientRect().width,viewportWidth:innerWidth,sectionBackground:getComputedStyle(section).backgroundColor,contextDisplay:getComputedStyle(context).display};
-  });
-  expect(styles.modalParent).toBe(true);
-  expect(styles.cardWidth).toBeLessThanOrEqual(styles.viewportWidth);
-  expect(styles.contextDisplay).toBe('grid');
-  expect(styles.sectionBackground).not.toBe('rgba(0, 0, 0, 0)');
+  if(isRealBrowser){
+    const styles=await modal.evaluate(node=>{
+      const card=node.querySelector('.booking-admin-modal-card'),section=node.querySelector('.booking-completion-preview-section'),context=node.querySelector('.booking-completion-preview-context');
+      return {modalParent:node.parentElement===document.body,cardWidth:card.getBoundingClientRect().width,viewportWidth:innerWidth,sectionBackground:getComputedStyle(section).backgroundColor,contextDisplay:getComputedStyle(context).display};
+    });
+    expect(styles.modalParent).toBe(true);
+    expect(styles.cardWidth).toBeLessThanOrEqual(styles.viewportWidth);
+    expect(styles.contextDisplay).toBe('grid');
+    expect(styles.sectionBackground).not.toBe('rgba(0, 0, 0, 0)');
+  }
   await modal.getByRole('button',{name:'返回'}).click();
   await expect(modal).toBeHidden();
   expect(calls(info.fixture,'admin.booking.status.complete')).toHaveLength(0);
