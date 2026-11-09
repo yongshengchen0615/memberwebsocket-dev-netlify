@@ -66,28 +66,18 @@ begin
     raise exception 'ADMIN_BOOKING_TEMPLATE_UPDATE_FAILED: %', v_template_updates;
   end if;
 
-  -- Patch each installed tenant from its OWN definition. Rebinding public.bookings
-  -- through business_sql() changes the existing tenant RPC return type (42P13).
+  -- Preserve tenant-specific return types; replacing from public SQL changes
+  -- the installed tenant function's result type (PostgreSQL 42P13).
   for v_schema in
     select runtime_schema from platform_private.tenants
-    where runtime_schema ~ '^business_[0-9a-f]{32}
-
-  perform pg_notify('pgrst', 'reload schema');
-end;
-$booking_optional_phone$;
-
+    where runtime_schema ~ '^business_[0-9a-f]{32}$'
   loop
     v_tenant_signature := format(
       '%I.admin_create_phone_booking_request(text,text,date,time without time zone,text,text,text,jsonb,text)', v_schema
     );
     v_tenant_original := pg_get_functiondef(v_tenant_signature::regprocedure);
     if strpos(v_tenant_original, $old_init$v_phone text := regexp_replace(btrim(coalesce(p_contact_phone,'')),'[()[:space:]-]','','g');$old_init$) = 0
-      or strpos(v_tenant_original, $old_guard$or v_phone !~ '^\+?[0-9]{8,15}
-
-  perform pg_notify('pgrst', 'reload schema');
-end;
-$booking_optional_phone$;
-$old_guard$) = 0 then
+      or strpos(v_tenant_original, $old_guard$or v_phone !~ '^\+?[0-9]{8,15}$'$old_guard$) = 0 then
       raise exception 'TENANT_ADMIN_BOOKING_PHONE_CONTRACT_CHANGED: %', v_schema;
     end if;
     v_tenant_updated := replace(
@@ -97,18 +87,8 @@ $old_guard$) = 0 then
     );
     v_tenant_updated := replace(
       v_tenant_updated,
-      $old_guard$or v_phone !~ '^\+?[0-9]{8,15}
-
-  perform pg_notify('pgrst', 'reload schema');
-end;
-$booking_optional_phone$;
-$old_guard$,
-      $new_guard$or (v_phone is not null and v_phone !~ '^\+?[0-9]{8,15}
-
-  perform pg_notify('pgrst', 'reload schema');
-end;
-$booking_optional_phone$;
-)$new_guard$
+      $old_guard$or v_phone !~ '^\+?[0-9]{8,15}$'$old_guard$,
+      $new_guard$or (v_phone is not null and v_phone !~ '^\+?[0-9]{8,15}$')$new_guard$
     );
     execute v_tenant_updated;
   end loop;
