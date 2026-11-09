@@ -104,12 +104,14 @@
       bookingDate:card.dataset.bookingDate,startAt:card.dataset.bookingStartAt,endAt:card.dataset.bookingEndAt,
       startTime:startTime(card),endTime:card.dataset.bookingEndTime,name:contactName(card),phone:contactPhone(card),
       partySize:group?.partySize,participants:normalizedParticipants(card,group),
+      adminNote:card.dataset.bookingCopyAdminNote || '',
     });
   }
 
   function normalizedParticipants(card, group) {
     if (Array.isArray(group?.participants) && group.participants.length) {
-      return group.participants.map((participant) => ({
+      return group.participants.map((participant, index) => ({
+        memberNote: String(participant?.memberNote || (index === 0 ? card.dataset.bookingCopyMemberNote || '' : '')).trim(),
         technicianName: String(participant?.technicianName || '現場安排'),
         items: Array.isArray(participant?.items) ? participant.items : [],
       }));
@@ -117,14 +119,14 @@
 
     const storedItems = copyItemsFromCard(card);
     if (storedItems.length) {
-      return [{ technicianName: '現場安排', items: storedItems }];
+      return [{ technicianName: '現場安排', memberNote:card.dataset.bookingCopyMemberNote||'', items: storedItems }];
     }
 
     const serviceTitles = [...card.querySelectorAll('.booking-received-services span')]
       .map((node) => String(node.textContent || '').trim())
       .filter(Boolean);
     return [{
-      technicianName: '現場安排',
+      technicianName: '現場安排', memberNote:card.dataset.bookingCopyMemberNote||'',
       items: serviceTitles.map((serviceTitle) => ({ serviceTitle, quantity: 1 })),
     }];
   }
@@ -147,6 +149,7 @@
       const parsed = JSON.parse(String(card.dataset.bookingCopyGroup || ''));
       if (!parsed || !Array.isArray(parsed.participants) || !parsed.participants.length) return null;
       const participants = parsed.participants.map((participant) => ({
+        memberNote: String(participant?.memberNote || ''),
         technicianName: String(participant?.technicianName || '現場安排'),
         items: Array.isArray(participant?.items) ? participant.items.map((item) => ({
           serviceTitle: String(item?.serviceTitle || '').trim(),
@@ -169,8 +172,10 @@
       const rows = [...block.querySelectorAll('p')].map((node) => String(node.textContent || '').trim());
       const itemText = rows.find((text) => text.startsWith('預約項目：'))?.slice('預約項目：'.length) || '';
       const technicianName = rows.find((text) => text.startsWith('預約技師：'))?.slice('預約技師：'.length) || '現場安排';
+      const memberNote = rows.find((text) => text.startsWith('個別備註：'))?.slice('個別備註：'.length) || '';
       return {
         technicianName: technicianName.replace(/（主要技師）/g, '').trim() || '現場安排',
+        memberNote,
         items: itemText.split('、').map((text) => ({
           serviceTitle: text.replace(/（\d+分鐘）/g, '').replace(/\s*×\s*\d+\s*$/g, '').trim(),
           quantity: Number(/×\s*(\d+)\s*$/.exec(text)?.[1] || 1),
