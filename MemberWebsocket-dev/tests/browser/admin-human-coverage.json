@@ -18,7 +18,7 @@
   },
   "lineSettingsLegacyCompatibility": "2026-11-03: admin/workspace.html has platform.css, not shared theme.css/theme.js. The common business-line-settings.css now provides a strictly scoped light fallback palette only under html[data-workspace=merchant]:not([data-theme]), retaining readable legacy LINE settings without overriding global theme switching. New AC-003 checks computed legacy colors at 390px; no identity, grants, LINE notification, API or SQL behavior changed.",
   "lineSettingsThemeReview": "2026-11-03 PR #241: Reviewed general manager LINE settings theme-only CSS, semantic light/dark card, details, help, input/select, tabs, status, endpoint and responsive action row. Updated both admin/index.html and admin/workspace.html CSS asset revisions; preserved LINE official green button, saved credentials, notifications, role/tenant scopes and original six human workflow journeys. New line_settings_theme.test.js and line-settings-theme.spec.cjs cover 390/1280 light-dark-light and no overflow; full original Chromium/integration baseline still required.",
-  "phoneBookingWindowReview": "2026-11-07 PR #258: Reviewed existing booking settings and phone appointment admin journeys. Merchant phone configuration is text-only and retains the same field, validation and save handler; existing BOOKING settings browser journeys remain mapped. Member booking date modal now permits phone CTA only when the same inclusive min/max/holiday online eligibility passes; out-of-range, past, holiday and no-phone cases remove dialing href. booking-calendar-times.spec.cjs checks 390/1280 viewport, both date boundaries, out-of-range, live settings revocation, zero max and holiday. booking_phone_fallback_platform.test.js guards UI and existing API phone contract. No new admin flows, tenant scope, authorization, database writes or provider sends. Full exact-SHA baseline and preview acceptance still required.",
+  "phoneBookingWindowReview": "2026-11-07 PR #258: Reviewed existing booking settings and phone appointment admin journeys. Merchant phone configuration is text-only and retains the same field, validation and save handler; existing BOOKING settings browser journeys remain mapped. Member booking date modal now permits phone CTA only when the same inclusive min/max/holiday online eligibility passes; out-of-range, past, holiday and no-phone cases remove dialing href. booking-calendar-times.spec.cjs checks 390/1280 viewport, both date boundaries, out-of-range, live settings revocation, zero max and holiday. booking_phone_fallback_platform.test.js guards UI and existing API phone contract. No new admin flows, tenant scope, authorization, database writes or provider sends. Full exact-SHA baseline and preview acceptance still required. 2026-11-09 PR #275: Reviewed admin booking queue button/modal, surname and salutation, optional admin note, service durations and calendar conflict, existing phone-booking records and member-side phone fallback. Counter registration no longer requests a customer's phone or sends it; legacy internal PHONE- ID and bookingSource remain to preserve collision locking, member exclusion and existing records. BOOKING_PHONE_CONFLICT and BOOKING_PHONE_SERVICE_DURATION browser journeys now explicitly assert no phone field, no contactPhone payload, unchanged confirmed booking and cancelled/rebooked slot; tenant RPC rejects malformed provided phone but accepts absent phone as SQL NULL. Added API/static/SQL migration regression; no new roles, tables, credentials, LINE sends or deletion of prior phone data. Full exact-SHA CI and live tenant deployment must be separately verified.",
   "reviewedSources": {
     "admin/index.html": "fb52796bfdc7d0a51be677f3d09c96cf6c06178ca7b758f1d3a5f32e1117c3ab",
     "admin/app.js": "e7cb31f8fb7d40b09b52814f7bf476e191c85e65c933d008b006c35b9dcc22d3",
@@ -32,7 +32,7 @@
     "admin/pointcard-redemption-limit.js": "fbba580c9babdac950b2f619c3f3b949fe89ae0c1365e2555f758d1a8818035c",
     "admin/event-ticket-redemption-limit.js": "263a564d64845c5abb4ed5167305b0bffefb064130a0268ab533b481d320b688",
     "admin/booking-panel.js": "bed95eea8772882ad8ffcf72dc8773516b439ec541e3f62d1af14a595ec55c22",
-    "admin/booking-panel-core.js": "9f332bcb49c7303b826719ffdd8773621c2c5bb79e4546c0f87e53e13ae5603f",
+    "admin/booking-panel-core.js": "ad9350e0686fd340c6fdbc7c02ad0dc2262e5acf2e870cb0059bd77c2fdcf796",
     "admin/booking-resources.js": "01a066ef180a9d42d49b4250e51008f23a0d13368897f4e351883d592249faff",
     "admin/booking-always-open.js": "9cb236902a7f3f36cf3fe4c3f13fbbac622f000c72d36ec34f7d4dde08e6e54a",
     "admin/booking-cancellation-sync.js": "a8367bb6565d054af976ec1ffdf950874a4e8f14a3917d2e036bc1744016db19",
@@ -610,7 +610,7 @@
     {
       "id": "booking.phone-conflict",
       "module": "booking",
-      "name": "電話預約：與會員相同的服務選取及總分鐘數、灰色不可選時段、取消後重訂、用戶端單人與多人預約佔用",
+      "name": "管理端登記預約：無須客人電話，沿用會員等效服務時間、灰色不可選時段、取消後重訂與單人／多人預約佔用（BOOKING_PHONE_CONFLICT／BOOKING_PHONE_SERVICE_DURATION）",
       "cases": [
         "BOOKING_PHONE_CONFLICT",
         "BOOKING_PHONE_SERVICE_DURATION"

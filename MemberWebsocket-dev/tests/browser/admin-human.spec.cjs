@@ -222,9 +222,12 @@ test('BOOKING_PHONE_CONFLICT — occupied slot is grey and disabled; cancel then
     updatedAt:version,benefits:[],
   });
   await booking(p,'bookingAdminQueueSubtab');
+  await expect(p.locator('#bookingAdminPhoneCreateButton')).toHaveText('登記預約');
   await click(p,'bookingAdminPhoneCreateButton');
   const form=p.locator('[data-phone-booking-form]');
   await expect(form).toBeVisible();
+  await expect(p.locator('#bookingAdminCrudModalTitle')).toHaveText('登記預約');
+  await expect(form.locator('[data-phone-number]')).toHaveCount(0);
   await form.locator('[data-phone-date]').fill(date);
   await form.locator('button[aria-label="增加 QA service"]').click();
   await expect(form.locator('[data-phone-duration]')).toContainText('總服務時間：40 分鐘（項目 30 分鐘＋店內服務 10 分鐘');
@@ -238,7 +241,7 @@ test('BOOKING_PHONE_CONFLICT — occupied slot is grey and disabled; cancel then
   const rejected={
     requestId:'PHONE-00000000-0000-4000-8000-000000000001',
     bookingDate:date,startTime:'10:00',contactSurname:'陳',contactSalutation:'ms',
-    contactPhone:'0912345678',items:[{serviceId:'service-1',quantity:1}],adminNote:'',
+    items:[{serviceId:'service-1',quantity:1}],adminNote:'',
   };
   let conflictError = null;
   try { transport(info.fixture,'admin.booking.phone.create',rejected,'booking-api',false); }
@@ -261,21 +264,21 @@ test('BOOKING_PHONE_CONFLICT — occupied slot is grey and disabled; cancel then
   await expect(next.getByRole('button',{name:'確認登記'})).toBeEnabled();
   await next.locator('[data-phone-surname]').fill('陳');
   await next.locator('[data-phone-salutation]').selectOption('ms');
-  await next.locator('[data-phone-number]').fill('0912345678');
-  await next.locator('[data-phone-note]').fill('來電預約');
+  await next.locator('[data-phone-note]').fill('櫃檯登記');
   await next.getByRole('button',{name:'確認登記'}).click();
   await expect(p.locator('#bookingAdminCrudModal')).toBeHidden();
   const createdCalls=calls(info.fixture,'admin.booking.phone.create');
   expect(createdCalls).toHaveLength(1);
   const payload=createdCalls[0].payload;
   expect(payload).toMatchObject({bookingDate:date,startTime:'10:00',contactSurname:'陳',items:[{serviceId:'service-1',quantity:1}]});
+  expect(Object.prototype.hasOwnProperty.call(payload,'contactPhone')).toBe(false);
   expect(Object.prototype.hasOwnProperty.call(payload,'allowOverlap')).toBe(false);
   expect(info.fixture.bookings.filter(b=>b.status==='confirmed'&&b.startTime==='10:00')).toHaveLength(1);
   const phone=p.locator('#bookingAdminQueue [data-booking-id^="phone-"]');
-  await expect(phone).toContainText('電話預約 · 現場安排');
+  await expect(phone).toContainText('管理端登記 · 現場安排');
   await expect(phone.getByRole('button',{name:'確認服務完成'})).toHaveCount(0);
   await expect(phone.getByRole('button',{name:'修改預約票券'})).toHaveCount(0);
-  await expect(phone.getByRole('button',{name:'取消電話預約'})).toHaveCount(1);
+  await expect(phone.getByRole('button',{name:'取消登記預約'})).toHaveCount(1);
   transport(info.fixture,'admin.booking.phone.create',payload);
   expect(info.fixture.bookings.filter(b=>b.bookingSource==='phone')).toHaveLength(1);
   const reread=transport(info.fixture,'admin.booking.phone.slots',{bookingDate:date,items:[{serviceId:'service-1',quantity:1}]},'booking-api',false);
@@ -307,7 +310,6 @@ test('BOOKING_PHONE_SERVICE_DURATION — member-style multi-service, exact store
   await expect(first).toBeEnabled();
   await first.click();
   await form.locator('[data-phone-surname]').fill('林');
-  await form.locator('[data-phone-number]').fill('0912345678');
   await form.getByRole('button',{name:'確認登記'}).click();
   await expect(p.locator('#bookingAdminCrudModal')).toBeHidden();
   const created=info.fixture.bookings.find(b=>b.bookingSource==='phone');

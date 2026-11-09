@@ -97,9 +97,9 @@ function mapDatabaseError(error: unknown): ApiError {
     ["BOOKING_NOT_FOUND",404,"BOOKING_NOT_FOUND","找不到這筆預約。"],
     ["ADMIN_REQUIRED",403,"ADMIN_REQUIRED","目前沒有管理員權限。"],
     ["PHONE_BOOKING_CONFLICT",409,"PHONE_BOOKING_CONFLICT","此時段已有預約，請先取消原預約，或選擇其他時段。"],
-    ["INVALID_BOOKING_CONTACT",400,"INVALID_BOOKING_CONTACT","請填寫客人姓氏、稱謂與有效的聯絡電話。"],
+    ["INVALID_BOOKING_CONTACT",400,"INVALID_BOOKING_CONTACT","請填寫客人姓氏與稱謂；若提供聯絡電話，請確認格式正確。"],
     ["INVALID_BOOKING_NOTE",400,"INVALID_BOOKING_NOTE","預約說明不得超過 500 字。"],
-    ["INVALID_REQUEST_ID",400,"INVALID_REQUEST_ID","操作識別碼不正確，請重新開啟電話預約表單。"],
+    ["INVALID_REQUEST_ID",400,"INVALID_REQUEST_ID","操作識別碼不正確，請重新開啟登記預約表單。"],
     ["BOOKING_CONFLICT", 409, "BOOKING_CONFLICT", "預約已被更新，請重新整理後再操作。"],
     ["BOOKING_NOT_EDITABLE", 409, "BOOKING_NOT_EDITABLE", "這筆預約已開始或狀態已變更，無法修改。"],
     ["BOOKING_CANCELLATION_PENDING", 409, "BOOKING_CANCELLATION_PENDING", "這筆預約已有待確認的取消申請，請先完成取消審核後再變更預約。"],
@@ -966,14 +966,14 @@ async function adminCreatePhoneBooking(supabase: SupabaseClient, identity: Ident
   // independently rechecks active administrator status within the tenant.
   const requestId = asText(body.requestId, 100);
   if (!/^PHONE-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId)) {
-    throw new ApiError(400, "INVALID_REQUEST_ID", "操作識別碼不正確，請重新開啟電話預約表單。");
+    throw new ApiError(400, "INVALID_REQUEST_ID", "操作識別碼不正確，請重新開啟登記預約表單。");
   }
   const surname = asText(body.contactSurname, 41);
   const salutation = asText(body.contactSalutation, 10);
   const phone = asText(body.contactPhone, 35);
   if (!surname || surname.length > 40 || !["mr", "ms"].includes(salutation) ||
-      !/^\+?[0-9() -]{8,25}$/.test(phone)) {
-    throw new ApiError(400, "INVALID_BOOKING_CONTACT", "請填寫客人姓氏、稱謂與有效的聯絡電話。");
+      (phone && !/^\+?[0-9() -]{8,25}$/.test(phone))) {
+    throw new ApiError(400, "INVALID_BOOKING_CONTACT", "請填寫客人姓氏與稱謂；若提供聯絡電話，請確認格式正確。");
   }
   const adminNote = asText(body.adminNote, 501);
   if (adminNote.length > 500) throw new ApiError(400, "INVALID_BOOKING_NOTE", "預約說明不得超過 500 字。");
@@ -997,13 +997,13 @@ async function adminCreatePhoneBooking(supabase: SupabaseClient, identity: Ident
     p_start_time: `${startTime}:00`,
     p_contact_surname: surname,
     p_contact_salutation: salutation,
-    p_contact_phone: phone,
+    p_contact_phone: phone || null,
     p_items: items,
     p_admin_note: adminNote,
   });
   if (result.error) throw mapDatabaseError(result.error);
   const row = Array.isArray(result.data) ? result.data[0] : result.data;
-  if (!row?.id) throw new ApiError(500, "BOOKING_CREATE_FAILED", "電話預約尚未完成，請重新整理確認。");
+  if (!row?.id) throw new ApiError(500, "BOOKING_CREATE_FAILED", "登記預約尚未完成，請重新整理確認。");
   return { bookingId: row.id, bookingSource: "phone", status: row.status };
 }
 

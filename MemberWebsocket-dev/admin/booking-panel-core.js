@@ -243,7 +243,7 @@
           <section id="bookingAdminStandardQueueView" class="booking-admin-queue-view" role="tabpanel" aria-labelledby="bookingAdminStandardMode">
             <div class="booking-admin-queue-toolbar">
               <div><strong>一般預約</strong><small>依預約狀態篩選需要處理的會員預約。</small></div>
-              <button id="bookingAdminPhoneCreateButton" class="button button-dark" type="button">登記電話預約</button>
+              <button id="bookingAdminPhoneCreateButton" class="button button-dark" type="button">登記預約</button>
               <div class="booking-admin-filter" role="group" aria-label="一般預約狀態篩選">
                 <button class="booking-admin-filter-button active" data-booking-filter="pending" type="button">待確認</button>
                 <button class="booking-admin-filter-button" data-booking-filter="confirmed" type="button">已確認</button>
@@ -1478,7 +1478,7 @@
     const maxAdvance = Number(settings.maxAdvanceDays || 0);
     const maxAttr = maxAdvance > 0 ? ' max="' + addDays(today, maxAdvance) + '"' : '';
 
-    els.bookingAdminCrudModalTitle.textContent = '登記電話預約';
+    els.bookingAdminCrudModalTitle.textContent = '登記預約';
     els.bookingAdminCrudModalBody.innerHTML = [
       '<form class="booking-admin-form booking-phone-form" data-phone-booking-form>',
       '<p class="booking-admin-time">比照用戶端選擇預約項目及開始時段。灰色表示已被預約、已過期或不可使用；必須取消原預約後才會開放。新登記不建立 LINE 會員、點數或票券。</p>',
@@ -1491,10 +1491,9 @@
       '<label>預約日期<input data-phone-date type="date" min="' + minDate + '"' + maxAttr + ' value="' + minDate + '" required></label>',
       '<fieldset class="booking-phone-fieldset"><legend>可預約時間</legend>',
       '<p data-phone-slot-hint class="booking-phone-help" role="status" aria-live="polite">請先選擇預約項目。</p>',
-      '<div data-phone-slot-grid class="booking-phone-slot-grid" role="group" aria-label="電話預約可選開始時段"></div></fieldset>',
+      '<div data-phone-slot-grid class="booking-phone-slot-grid" role="group" aria-label="登記預約可選開始時段"></div></fieldset>',
       '<label>客人姓氏<input data-phone-surname type="text" maxlength="40" autocomplete="off" required placeholder="例如：陳"></label>',
       '<label>稱謂<select data-phone-salutation required><option value="mr">先生</option><option value="ms">小姐</option></select></label>',
-      '<label>聯絡電話<input data-phone-number type="tel" maxlength="25" autocomplete="tel" required placeholder="例如：0912345678"></label>',
       '<label>管理端備註（選填）<textarea data-phone-note maxlength="500" rows="2"></textarea></label>',
       '<div data-modal-message class="form-message hidden"></div>',
       '<div class="booking-admin-modal-actions">',
@@ -1717,7 +1716,6 @@
         startTime: selectedSlot,
         contactSurname: form.querySelector('[data-phone-surname]').value.trim(),
         contactSalutation: form.querySelector('[data-phone-salutation]').value,
-        contactPhone: form.querySelector('[data-phone-number]').value.trim(),
         adminNote: form.querySelector('[data-phone-note]').value.trim(),
         items: selectedItems(),
       };
@@ -1801,7 +1799,7 @@
       if (isPhoneBooking(booking)) {
         const source = document.createElement('span');
         source.className = 'booking-admin-status';
-        source.textContent = '電話預約 · 現場安排';
+        source.textContent = '管理端登記 · 現場安排';
         heading.appendChild(source);
       }
       const status = document.createElement('span');
@@ -1858,7 +1856,7 @@
             actionButton('確認預約', 'button button-dark', () => updateBookingStatus(booking, 'confirmed', textarea.value)),
           );
         } else if (isPhoneBooking(booking)) {
-          actions.append(actionButton('取消電話預約', 'button button-danger', () =>
+          actions.append(actionButton('取消登記預約', 'button button-danger', () =>
             updateBookingStatus(booking, 'cancelled', textarea.value)));
         } else {
           actions.append(
@@ -1917,7 +1915,7 @@
     const memberMeta = document.createElement('div');
     memberMeta.className = 'booking-member-meta';
     if (isPhoneBooking(booking)) {
-      memberMeta.append(summaryMetaItem('預約來源', '電話登記 · 非會員'));
+      memberMeta.append(summaryMetaItem('預約來源', '管理端登記 · 非會員'));
     } else {
       memberMeta.append(
         summaryMetaItem('LINE 名稱', String(booking.memberDisplayName || '未取得')),
