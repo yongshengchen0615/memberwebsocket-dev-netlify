@@ -441,280 +441,191 @@
 }
 
 
-/* Settlement review lives under document.body, not inside #bookingPanel.
-   Keep this scope bound to the settlement form, including light/dark theme tokens. */
-#bookingAdminCrudModal .booking-completion-preview {
-  display:grid;
-  gap:18px;
-  min-width:0;
-  color:var(--theme-text,#17352e);
-}
-#bookingAdminCrudModal .booking-admin-modal-card:has(.booking-completion-preview) {
-  width:min(100%,860px);
-  max-height:min(94dvh,920px);
-  padding:24px 26px;
+/* Complete-booking review is mounted under document.body, not #bookingPanel. */
+#bookingAdminCrudModal .booking-admin-modal-card:has(.booking-completion-preview){
+  width:min(100%,760px);max-height:min(92dvh,880px);padding:22px 24px;
   scrollbar-gutter:stable;
 }
-#bookingAdminCrudModal .booking-completion-preview .booking-completion-preview-heading {
-  margin:0;
-  font-size:16px;
-  font-weight:850;
-  letter-spacing:-.02em;
-  color:var(--theme-text,#17352e);
+#bookingAdminCrudModal .booking-completion-preview{
+  display:grid;gap:17px;min-width:0;color:var(--theme-text,#17352e);
 }
-#bookingAdminCrudModal .booking-completion-preview .booking-completion-preview-helper {
-  margin:-12px 0 0;
-  color:var(--theme-text-muted,#68786f);
-  font-size:12px;
-  line-height:1.6;
-}
-#bookingAdminCrudModal .booking-completion-preview-summary {
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:11px;
-  min-width:0;
-}
-#bookingAdminCrudModal .booking-completion-preview-summary>div {
-  display:flex;
-  flex-direction:column;
-  justify-content:space-between;
-  gap:8px;
-  padding:16px;
-  min-width:0;
-  min-height:103px;
-  border:1px solid var(--theme-border,rgba(23,53,46,.13));
-  border-radius:15px;
-  background:var(--theme-surface-muted,#f6f8f6);
-}
-#bookingAdminCrudModal .booking-completion-preview-summary>div:first-child {
-  background:var(--theme-surface-raised,#fff);
-}
-#bookingAdminCrudModal .booking-completion-preview-summary>div:nth-child(2) {
-  border-color:var(--theme-positive-text,#3a7455);
-  background:var(--theme-positive-soft,#e7f5ec);
-}
-#bookingAdminCrudModal .booking-completion-preview-summary>div:nth-child(5) {
-  border-color:var(--theme-accent,#a97552);
-  background:color-mix(in srgb,var(--theme-accent,#a97552) 9%,var(--theme-surface-raised,#fff));
-}
-#bookingAdminCrudModal .booking-completion-preview-summary>div>span {
-  color:var(--theme-text-muted,#68786f);
-  font-size:12px;
-  font-weight:750;
-  line-height:1.5;
-}
-#bookingAdminCrudModal .booking-completion-preview-summary>div>strong {
-  color:var(--theme-text,#17352e);
-  font-size:clamp(19px,2.2vw,27px);
-  font-weight:850;
-  letter-spacing:-.035em;
-  font-variant-numeric:tabular-nums;
-  line-height:1.2;
-  overflow-wrap:anywhere;
-}
-#bookingAdminCrudModal .booking-completion-preview-summary>div:nth-child(2)>strong {
-  color:var(--theme-positive-text,#245b3f);
-  font-size:clamp(26px,3.2vw,35px);
-}
-#bookingAdminCrudModal .booking-completion-preview-context {
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:10px;
-  min-width:0;
-  padding:14px;
+#bookingAdminCrudModal .booking-completion-preview-section{
+  display:grid;gap:11px;min-width:0;
   border:1px solid var(--theme-border,rgba(23,53,46,.12));
-  border-radius:15px;
-  background:var(--theme-surface-muted,#f7f9f6);
-}
-#bookingAdminCrudModal .booking-completion-preview-context p {
-  display:grid;
-  gap:4px;
-  min-width:0;
-  margin:0;
-  padding:9px 11px;
-  border-radius:10px;
-  background:var(--theme-surface-raised,#fff);
-  font-size:13px;
-  line-height:1.55;
-  overflow-wrap:anywhere;
-}
-#bookingAdminCrudModal .booking-completion-preview-context p>strong {
-  display:block;
-  color:var(--theme-text-muted,#68786f);
-  font-size:11px;
-  font-weight:750;
-}
-#bookingAdminCrudModal .booking-completion-preview-person {
-  display:grid;
-  gap:12px;
-  min-width:0;
-  padding:17px;
-  margin-top:11px;
-  border:1px solid var(--theme-border,rgba(23,53,46,.15));
-  border-radius:17px;
+  border-radius:16px;padding:15px;
   background:var(--theme-surface-raised,#fffdf8);
-  box-shadow:0 5px 16px rgba(13,29,24,.035);
 }
-#bookingAdminCrudModal .booking-completion-preview-person h4 {
-  display:flex;
-  align-items:center;
-  gap:8px;
-  margin:0 0 2px;
-  font-size:16px;
-  font-weight:850;
-  letter-spacing:-.02em;
-  color:var(--theme-text,#17352e);
+#bookingAdminCrudModal .booking-completion-preview-section>h3{
+  display:flex;align-items:center;gap:9px;margin:0;
+  color:var(--theme-text,#17352e);font-size:16px;font-weight:850;letter-spacing:-.02em;
 }
-#bookingAdminCrudModal .booking-completion-preview-person h4::before {
-  content:'';
-  display:inline-block;
-  width:6px;
-  height:21px;
-  border-radius:5px;
-  background:var(--theme-accent,#c88956);
-  flex:0 0 auto;
+#bookingAdminCrudModal .booking-completion-preview-section>h3>span{
+  display:grid;place-items:center;flex:0 0 auto;
+  width:29px;height:29px;border-radius:9px;
+  background:var(--theme-surface-muted,#e9f1eb);
+  color:var(--theme-text,#17352e);font-size:12px;font-weight:850;
 }
-#bookingAdminCrudModal .booking-completion-preview-person-note {
-  display:grid;
-  gap:4px;
-  padding:10px 12px;
-  margin:0;
-  border:1px solid var(--theme-border,rgba(23,53,46,.12));
+#bookingAdminCrudModal .booking-completion-preview-section>h3>small{
+  margin-inline-start:auto;color:var(--theme-text-muted,#68786f);
+  font-size:12px;font-weight:750;letter-spacing:normal;
+}
+#bookingAdminCrudModal .booking-completion-preview-context{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;margin:0;padding:0;
+}
+#bookingAdminCrudModal .booking-completion-preview-context>div{
+  display:grid;gap:4px;min-width:0;padding:10px 12px;
+  border:1px solid var(--theme-border,rgba(23,53,46,.08));
+  border-radius:10px;background:var(--theme-surface-muted,#f7f9f6);
+}
+#bookingAdminCrudModal .booking-completion-preview-context dt{
+  color:var(--theme-text-muted,#66786e);font-size:11px;font-weight:750;
+}
+#bookingAdminCrudModal .booking-completion-preview-context dd{
+  margin:0;color:var(--theme-text,#17352e);font-size:14px;
+  font-weight:760;line-height:1.5;overflow-wrap:anywhere;font-variant-numeric:tabular-nums;
+}
+#bookingAdminCrudModal .booking-completion-preview-note,
+#bookingAdminCrudModal .booking-completion-preview-person-note{
+  display:grid;gap:4px;margin:0;padding:10px 12px;
+  border:1px solid var(--theme-border,rgba(23,53,46,.13));
   border-inline-start:3px solid var(--theme-accent,#c88956);
-  border-radius:10px;
-  background:var(--theme-surface-muted,#f7f9f6);
+  border-radius:10px;background:var(--theme-surface-muted,#f7f9f6);
+  font-size:13px;line-height:1.55;overflow-wrap:anywhere;
+}
+#bookingAdminCrudModal .booking-completion-preview-note strong,
+#bookingAdminCrudModal .booking-completion-preview-person-note strong{
+  color:var(--theme-text,#17352e);font-size:11px;
+}
+#bookingAdminCrudModal .booking-completion-preview-note p,
+#bookingAdminCrudModal .booking-completion-preview-person-note p{
+  margin:0;color:var(--theme-text,#17352e);
+}
+#bookingAdminCrudModal .booking-completion-preview-assignment{
+  margin:0;color:var(--theme-text-muted,#68786f);
+  font-size:12px;line-height:1.6;overflow-wrap:anywhere;
+}
+#bookingAdminCrudModal .booking-completion-preview-people,
+#bookingAdminCrudModal .booking-completion-preview-list{display:grid;gap:9px;min-width:0}
+#bookingAdminCrudModal .booking-completion-preview-person{
+  display:grid;gap:11px;min-width:0;padding:13px;
+  border:1px solid var(--theme-border,rgba(23,53,46,.14));
+  border-radius:13px;background:var(--theme-surface-muted,#f7f9f6);
+}
+#bookingAdminCrudModal .booking-completion-preview-person-heading{
+  display:flex;align-items:center;gap:10px;min-width:0;
+}
+#bookingAdminCrudModal .booking-completion-preview-person-index{
+  display:grid;place-items:center;flex:0 0 auto;width:34px;height:34px;
+  border-radius:50%;background:var(--theme-text,#17352e);
+  color:var(--theme-surface-raised,#fff);font-size:14px;font-weight:850;
+}
+#bookingAdminCrudModal .booking-completion-preview-person-heading>div{display:grid;gap:2px;min-width:0}
+#bookingAdminCrudModal .booking-completion-preview-person-heading h4{
+  margin:0;color:var(--theme-text,#17352e);font-size:15px;font-weight:850;
+}
+#bookingAdminCrudModal .booking-completion-preview-person-heading p{
+  margin:0;color:var(--theme-text-muted,#68786f);font-size:12px;
+}
+#bookingAdminCrudModal .booking-completion-preview-primary{
+  margin-inline-start:auto;flex:0 0 auto;
+  padding:5px 9px;border-radius:99px;
+  background:var(--theme-positive-soft,#e4f4e8);
+  color:var(--theme-positive-text,#25603e);font-size:11px;font-weight:850;
+}
+#bookingAdminCrudModal .booking-completion-preview-item,
+#bookingAdminCrudModal .booking-completion-preview-benefit-row{
+  display:flex;justify-content:space-between;align-items:center;
+  gap:12px;min-width:0;padding:12px;
+  border:1px solid var(--theme-border,rgba(23,53,46,.10));
+  border-radius:11px;background:var(--theme-surface-raised,#fff);
+}
+#bookingAdminCrudModal .booking-completion-preview-item-main{display:grid;gap:5px;min-width:0}
+#bookingAdminCrudModal .booking-completion-preview-item-name{
+  display:flex;align-items:center;flex-wrap:wrap;gap:7px;
+}
+#bookingAdminCrudModal .booking-completion-preview-item-name strong,
+#bookingAdminCrudModal .booking-completion-preview-benefit-row strong{
+  font-size:14px;color:var(--theme-text,#17352e);
+}
+#bookingAdminCrudModal .booking-completion-preview-item-name small{
+  padding:3px 7px;border-radius:6px;
+  color:var(--theme-text-muted,#68786f);
+  background:var(--theme-surface-muted,#f2f4f1);font-size:11px;
+}
+#bookingAdminCrudModal .booking-completion-preview-item p,
+#bookingAdminCrudModal .booking-completion-preview-benefit-row p{
+  margin:0;color:var(--theme-text-muted,#68786f);
+  font-size:12px;line-height:1.6;overflow-wrap:anywhere;
+}
+#bookingAdminCrudModal .booking-completion-preview-item p strong{
   color:var(--theme-text,#17352e);
-  font-size:13px;
-  line-height:1.6;
-  overflow-wrap:anywhere;
 }
-#bookingAdminCrudModal .booking-completion-preview-person-note>strong {
-  display:block;
-  font-size:12px;
+#bookingAdminCrudModal .booking-completion-preview-item-amount{
+  flex:0 0 auto;color:var(--theme-text,#17352e);
+  font-size:15px;font-weight:850;font-variant-numeric:tabular-nums;
 }
-#bookingAdminCrudModal .booking-completion-preview-list {
-  display:grid;
-  gap:8px;
-  min-width:0;
+#bookingAdminCrudModal .booking-completion-preview-person-total,
+#bookingAdminCrudModal .booking-completion-preview-grand-total{
+  display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:8px;margin:0;padding:11px 12px;
+  border-radius:10px;background:var(--theme-positive-soft,#e6f4e9);
+  color:var(--theme-positive-text,#245b3f);
+  font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;
 }
-#bookingAdminCrudModal .booking-completion-preview-item {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  min-width:0;
-  padding:12px 14px;
-  border:1px solid var(--theme-border,rgba(23,53,46,.11));
-  border-radius:12px;
-  background:var(--theme-surface-muted,#f7f9f6);
+#bookingAdminCrudModal .booking-completion-preview-grand-total{
+  padding:14px;border:1px solid var(--theme-positive-text,#245b3f);
 }
-#bookingAdminCrudModal .booking-completion-preview-item>div:first-child {
-  display:grid;
-  gap:4px;
-  min-width:0;
+#bookingAdminCrudModal .booking-completion-preview-grand-total strong{
+  font-size:21px;letter-spacing:-.035em;
 }
-#bookingAdminCrudModal .booking-completion-preview-item>div:first-child>strong {
-  color:var(--theme-text,#17352e);
-  font-size:14px;
-}
-#bookingAdminCrudModal .booking-completion-preview-item p {
-  margin:0;
-  color:var(--theme-text-muted,#62736a);
-  font-size:12px;
-  line-height:1.6;
-  overflow-wrap:anywhere;
-}
-#bookingAdminCrudModal .booking-completion-preview-item>span {
-  flex:0 0 auto;
-  max-width:130px;
-  text-align:center;
-  font-size:11px;
-  font-weight:850;
-}
-#bookingAdminCrudModal .booking-completion-preview-person-total {
-  margin:0;
-  padding:12px 14px;
-  border-radius:11px;
-  background:var(--theme-positive-soft,#e7f5ec);
-  color:var(--theme-positive-text,#23573d);
-  font-size:13px;
-  font-weight:800;
-  line-height:1.8;
-  overflow-wrap:anywhere;
-  font-variant-numeric:tabular-nums;
-}
-#bookingAdminCrudModal .booking-completion-preview-warning {
-  margin:0;
-  padding:13px 15px;
-  border:1px solid var(--theme-warning-text,#94701c);
-  border-inline-start:4px solid var(--theme-warning-text,#94701c);
-  border-radius:11px;
+#bookingAdminCrudModal .booking-completion-preview-benefit-row>div{display:grid;gap:4px;min-width:0}
+#bookingAdminCrudModal .booking-completion-preview-pending{
+  flex:0 0 auto;padding:5px 9px;border-radius:99px;
   background:var(--theme-warning-soft,#fff4d9);
   color:var(--theme-warning-text,#795817);
-  font-size:13px;
-  font-weight:650;
-  line-height:1.65;
+  font-size:11px;font-weight:850;
 }
-#bookingAdminCrudModal .booking-completion-preview-note {
-  margin:0;
-  padding:12px 14px;
-  border:1px solid var(--theme-border,rgba(23,53,46,.1));
-  border-radius:11px;
+#bookingAdminCrudModal .booking-completion-preview-empty{
+  margin:0;padding:12px;border-radius:10px;
+  color:var(--theme-text-muted,#68786f);
   background:var(--theme-surface-muted,#f7f9f6);
-  color:var(--theme-text-muted,#617268);
-  font-size:12px;
-  line-height:1.75;
-  overflow-wrap:anywhere;
+  font-size:13px;
 }
-#bookingAdminCrudModal .booking-completion-preview > section {
-  min-width:0;
+#bookingAdminCrudModal .booking-completion-preview-warning{
+  margin:0;padding:12px 14px;
+  border:1px solid var(--theme-warning-text,#94701c);
+  border-inline-start:4px solid var(--theme-warning-text,#94701c);
+  border-radius:10px;background:var(--theme-warning-soft,#fff4d9);
+  color:var(--theme-warning-text,#795817);
+  font-size:13px;font-weight:700;line-height:1.6;
 }
-#bookingAdminCrudModal .booking-completion-preview > section > .kicker {
-  margin:0 0 8px;
-  color:var(--theme-text,#17352e);
-  font-size:15px;
-  font-weight:850;
-  letter-spacing:normal;
-  text-transform:none;
-}
-#bookingAdminCrudModal .booking-completion-preview .booking-admin-modal-actions {
-  position:sticky;
-  bottom:-24px;
-  z-index:3;
-  display:flex;
-  justify-content:flex-end;
-  gap:10px;
-  padding:15px 0 0;
-  margin-top:0;
-  border-top:1px solid var(--theme-border,rgba(23,53,46,.13));
+#bookingAdminCrudModal .booking-completion-preview .booking-admin-modal-actions{
+  position:sticky;z-index:3;bottom:-24px;
+  display:flex;justify-content:flex-end;gap:9px;
+  padding:13px 0 0;margin:0;
+  border-top:1px solid var(--theme-border,rgba(23,53,46,.15));
   background:var(--theme-surface-raised,#fffdf8);
 }
-#bookingAdminCrudModal .booking-completion-preview .booking-admin-modal-actions button {
-  min-height:44px;
-  font-size:14px;
-  font-weight:800;
+#bookingAdminCrudModal .booking-completion-preview .booking-admin-modal-actions button{
+  min-height:44px;font-weight:800;
 }
-#bookingAdminCrudModal .booking-completion-preview .booking-admin-modal-actions button:focus-visible {
-  outline:3px solid var(--theme-accent,#c88956);
-  outline-offset:3px;
+#bookingAdminCrudModal .booking-completion-preview .booking-admin-modal-actions button:focus-visible{
+  outline:3px solid var(--theme-accent,#c88956);outline-offset:3px;
 }
-@media(max-width:640px) {
-  #bookingAdminCrudModal .booking-admin-modal-card:has(.booking-completion-preview) {
-    width:100%;
-    max-height:94dvh;
-    padding:18px 15px 15px;
-    scrollbar-gutter:auto;
+@media(max-width:640px){
+  #bookingAdminCrudModal .booking-admin-modal-card:has(.booking-completion-preview){
+    max-height:94dvh;padding:18px 15px 15px;scrollbar-gutter:auto;
   }
-  #bookingAdminCrudModal .booking-completion-preview {gap:15px}
-  #bookingAdminCrudModal .booking-completion-preview-summary {gap:8px}
-  #bookingAdminCrudModal .booking-completion-preview-summary>div {padding:12px;min-height:92px}
-  #bookingAdminCrudModal .booking-completion-preview-context {gap:8px;padding:9px}
-  #bookingAdminCrudModal .booking-completion-preview-person {padding:13px;gap:10px}
-  #bookingAdminCrudModal .booking-completion-preview-item {align-items:flex-start;flex-wrap:wrap}
-  #bookingAdminCrudModal .booking-completion-preview .booking-admin-modal-actions {bottom:-15px;padding:12px 0 0}
+  #bookingAdminCrudModal .booking-completion-preview{gap:12px}
+  #bookingAdminCrudModal .booking-completion-preview-section{padding:12px}
+  #bookingAdminCrudModal .booking-completion-preview-context{gap:7px}
+  #bookingAdminCrudModal .booking-completion-preview-context>div{padding:9px 10px}
+  #bookingAdminCrudModal .booking-completion-preview-person{padding:11px}
+  #bookingAdminCrudModal .booking-completion-preview .booking-admin-modal-actions{bottom:-15px;padding:12px 0 0}
 }
-@media(max-width:380px) {
-  #bookingAdminCrudModal .booking-completion-preview-summary {grid-template-columns:minmax(0,1fr)}
-  #bookingAdminCrudModal .booking-completion-preview-context {grid-template-columns:minmax(0,1fr)}
-  #bookingAdminCrudModal .booking-completion-preview-item>span {max-width:none}
+@media(max-width:380px){
+  #bookingAdminCrudModal .booking-completion-preview-context{grid-template-columns:minmax(0,1fr)}
+  #bookingAdminCrudModal .booking-completion-preview-item{align-items:flex-start}
+  #bookingAdminCrudModal .booking-completion-preview-item-amount{align-self:flex-end}
 }
