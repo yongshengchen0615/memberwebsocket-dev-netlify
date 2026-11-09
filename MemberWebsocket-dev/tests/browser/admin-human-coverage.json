@@ -380,12 +380,14 @@
     {
       "id": "booking.35",
       "module": "booking",
-      "name": "確認、不通過、取消、完成、無故未到分類與結算視窗；完成預覽逐位技師／項目分鐘與金額，僅主要技師合格項目入帳，保留個別備註與歷史服務快照",
+      "name": "確認、不通過、取消、完成、無故未到分類與結算視窗；完成預覽逐位技師／項目分鐘與金額，僅主要技師合格項目入帳，保留個別備註與歷史服務快照；精簡三區（預約資料／預約項目／票券使用資料）實際 390／1280px 瀏覽器驗收",
       "cases": [
         "BOOKING_STATUS_confirmed",
         "BOOKING_STATUS_rejected",
         "BOOKING_STATUS_cancelled",
-        "BOOKING_STATUS_completed"
+        "BOOKING_STATUS_completed",
+        "BOOKING_COMPLETION_REVIEW_390",
+        "BOOKING_COMPLETION_REVIEW_1280"
       ]
     },
     {
