@@ -188,3 +188,31 @@ test('renderer blocks confirmation when one participant is missing item details'
   assert.match(result.html, /請關閉畫面並重新同步預約資料後再結算/);
   assert.match(result.html, /type="submit" disabled/);
 });
+
+
+test('booking bootstrap exposes immutable classification and eligible flag from booking_items', () => {
+  const api = fs.readFileSync(path.join(__dirname, '..', 'supabase/functions/booking-api/index.ts'), 'utf8');
+  assert.match(api, /serviceType: String\(row\.service_type \|\| ""\)/);
+  assert.match(api, /countsTowardMembership: Boolean\(row\.counts_toward_membership\)/);
+  assert.match(api, /select\("booking_id,service_id,service_title,service_type,counts_toward_membership,unit_duration_minutes,unit_price_amount,quantity"\)/);
+});
+
+test('legacy service classifications remain authoritative after catalog type and eligibility changes', () => {
+  const preview = calculate({
+    booking: { items: [{
+      serviceId: 'a', serviceTitle: '舊服務', serviceType: '原類型',
+      countsTowardMembership: false, unitDurationMinutes: 30, unitPriceAmount: 300, quantity: 2,
+    }] },
+    group: { participants: [{
+      technicianId: 'main-tech', isPrimaryTechnician: true,
+      items: [{ serviceId: 'a', unitDurationMinutes: 30, unitPriceAmount: 300, quantity: 2 }],
+    }] },
+    services: [{ serviceId: 'a', durationMinutes: 40, serviceType: '新類型', countsTowardMembership: true }],
+    types: [{ name: '新類型', rewardMinutesPerPoint: 30, rewardPointCardId: 'new-reward' }],
+  });
+  assert.equal(preview.allServiceMinutes, 60);
+  assert.equal(preview.serviceMinutes, 0, 'a historical ineligible item must not be newly eligible');
+  assert.equal(preview.totalRewardPoints, 0, 'catalog edits must not grant retroactive points');
+  assert.equal(preview.people[0].items[0].serviceType, '原類型');
+  assert.equal(preview.people[0].items[0].countsTowardMembership, false);
+});
