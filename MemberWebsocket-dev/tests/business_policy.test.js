@@ -50,3 +50,15 @@ test('AC-RET-004: retired audit action fails closed, while member history requir
  assert.doesNotThrow(()=>assertBusinessAction({...ctx,features:{...ctx.features,usage:false}},'admin.member-records.list'));
  assert.throws(()=>assertBusinessAction({...ctx,features:{...ctx.features,membership:false}},'admin.member-records.list'),e=>e.code==='FEATURE_DISABLED');
 });
+
+test('AC-PT-001: transfer lookup and debit require active points grant',async()=>{
+ const {actionFeatures,assertBusinessAction}=await source();
+ for(const action of ['points.transfer.options','points.transfer.receiver','points.transfer.create']){
+  assert.deepEqual(actionFeatures(action),['points'],action+' must be mapped');
+  assert.doesNotThrow(()=>assertBusinessAction({...ctx,features:{...ctx.features,membership:false}},action),action);
+  assert.throws(()=>assertBusinessAction({...ctx,features:{...ctx.features,points:false}},action),e=>e.code==='FEATURE_DISABLED',action);
+  assert.throws(()=>assertBusinessAction({...ctx,status:'suspended'},action),e=>e.code==='TENANT_SUSPENDED',action);
+ }
+ assert.equal(actionFeatures('points.transfer.adminDebit'),null);
+ assert.throws(()=>assertBusinessAction(ctx,'points.transfer.adminDebit'),e=>e.code==='FEATURE_ACTION_UNMAPPED');
+});
