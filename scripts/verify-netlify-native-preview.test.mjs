@@ -10,10 +10,15 @@ const native={id,site_id:siteId,branch,context:'branch-deploy',commit_ref:commit
 const site={id:siteId,name:siteName,published_deploy:{id:old},build_settings:{repo_branch:'master',repo_path:repo}};
 const input={commit,token:'secret-never-log',source};
 const fail=(p,code)=>assert.rejects(p,x=>x instanceof NativeDeployError&&x.code===code);
-function mock({items=[native],detail=native,project=site}={}){
+function mock({items=[native],detail=native,project=site,
+ aliasHTML='<html data-commit="'+commit.slice(0,7)+'"></html>'}={}){
  const calls=[];
  return {calls,fetchImpl:async(url,opts)=>{
-  calls.push({url,opts});const endpoint=new URL(url).pathname;
+  calls.push({url,opts});
+  if(url.startsWith(native.deploy_ssl_url+'/?native_release_check=')){
+   return {ok:true,status:200,text:async()=>aliasHTML};
+  }
+  const endpoint=new URL(url).pathname;
   const data=endpoint.endsWith('/deploys')?items:endpoint.includes('/deploys/')?detail:project;
   return {ok:true,json:async()=>data};
  }};
@@ -21,8 +26,11 @@ function mock({items=[native],detail=native,project=site}={}){
 test('native exact SHA and site are accepted without any upload',async()=>{
  const m=mock(),v=await verifyNativePreview({...input,fetchImpl:m.fetchImpl,attempts:1});
  assert.equal(v.deploy_id,id);assert.equal(v.source_sha,commit);assert.equal(v.production_deploy_unchanged,true);
- assert.equal(v.deploy_url,native.deploy_ssl_url);assert.equal(m.calls.length,3);
+ assert.equal(v.deploy_url,native.deploy_ssl_url);assert.equal(m.calls.length,4);
  assert.ok(m.calls.every(x=>x.opts.method==='GET'&&x.opts.redirect==='error'));
+ assert.ok(m.calls.slice(0,3).every(x=>x.opts.headers.Authorization==='Bearer secret-never-log'));
+ assert.equal(m.calls[3].opts.headers.Authorization,undefined,'Public alias must never receive the Netlify token');
+ assert.equal(m.calls[3].opts.cache,'no-store');
  assert.doesNotMatch(JSON.stringify(v),/secret-never-log/);
 });
 test('wrong SHA, PR preview, legacy Draft alias cannot satisfy native branch identity',async()=>{
@@ -87,4 +95,61 @@ test('post-CI native rebuild ignores stale failed attempts but rejects a new fai
  const bad=mock({items:[stale,{...fresh,state:'error'}]});
  await fail(verifyNativePreview({...input,notBefore:'2026-11-08T13:36:00Z',fetchImpl:bad.fetchImpl,attempts:1}),'NATIVE_DEPLOY_FAILED');
  await fail(verifyNativePreview({...input,notBefore:'invalid-date',fetchImpl:mock().fetchImpl}),'INVALID_INPUT');
+});
+
+test('stale fixed alias blocks release even if the exact-SHA native deploy is ready',async()=>{
+ const m=mock({aliasHTML:'<html data-commit="aaaaaaa"></html>'});
+ await fail(verifyNativePreview({...input,fetchImpl:m.fetchImpl,attempts:1}),'NATIVE_ALIAS_STALE');
+ assert.equal(m.calls.length,4);
+ const alias=m.calls.at(-1);
+ assert.ok(alias.url.startsWith(native.deploy_ssl_url+'/?native_release_check='+commit));
+ assert.equal(alias.opts.redirect,'error');
+ assert.equal(alias.opts.headers.Authorization,undefined);
+});
+test('stale alias eventually changes to target SHA without accepting it prematurely',async()=>{
+ const m=mock(),waits=[];let checks=0;
+ const out=await verifyNativePreview({...input,attempts:2,delayMs:20,
+  delay:async ms=>waits.push(ms),
+  fetchImpl:async(url,opts)=>{
+   if(url.startsWith(native.deploy_ssl_url+'/?native_release_check=')){
+    checks++;
+    return {ok:true,status:200,text:async()=>checks===1?
+     '<html data-commit="aaaaaaa"></html>':'<html data-commit="'+commit.slice(0,7)+'"></html>'};
+   }
+   return m.fetchImpl(url,opts);
+  }});
+ assert.equal(out.source_sha,commit);
+ assert.equal(checks,2);
+ assert.deepEqual(waits,[20]);
+});
+test('older pending native branch build cannot race over a ready release',async()=>{
+ const competing={...native,id:'6ad892118bc22a8a08d1e90',state:'building',commit_ref:'a'.repeat(40)};
+ const m=mock({items:[native,competing]});
+ await fail(verifyNativePreview({...input,fetchImpl:m.fetchImpl,attempts:1}),'NATIVE_SIBLING_BUILD_PENDING');
+ assert.equal(m.calls.length,1,'Do not accept the URL while another branch build is in flight');
+ let reads=0;const waits=[];
+ const out=await verifyNativePreview({...input,attempts:2,delayMs:10,
+  delay:async ms=>waits.push(ms),
+  fetchImpl:(url,opts)=>{
+   if(url.includes('per_page=100') && reads++===0)
+    return Promise.resolve({ok:true,json:async()=>[native,competing]});
+   return m.fetchImpl(url,opts);
+  }});
+ assert.equal(out.source_sha,commit);
+ assert.deepEqual(waits,[10]);
+});
+test('public alias transport failures are not treated as a good release',async()=>{
+ for(const [response,code] of [
+  [{ok:false,status:503},'ALIAS_HTTP_503'],
+  [{ok:true,status:200,text:async()=>{throw Error('private-error');}},'ALIAS_INVALID_HTML'],
+ ]) {
+  const m=mock();
+  await fail(verifyNativePreview({...input,attempts:1,
+   fetchImpl:(url,opts)=>url.startsWith(native.deploy_ssl_url+'/?native_release_check=')?
+    Promise.resolve(response):m.fetchImpl(url,opts)}),code);
+ }
+ await fail(verifyNativePreview({...input,attempts:1,fetchImpl:async(url,opts)=>{
+  if(url.startsWith(native.deploy_ssl_url+'/?native_release_check='))throw Error('secret-network-detail');
+  return mock().fetchImpl(url,opts);
+ }}),'ALIAS_UNAVAILABLE');
 });
