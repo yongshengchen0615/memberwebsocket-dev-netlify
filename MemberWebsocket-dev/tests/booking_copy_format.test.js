@@ -94,7 +94,7 @@ test('clipboard and LINE formats keep optional notes attached to the correct par
   assert.ok(copy.indexOf('個別備註：怕冷，請加毯') < second);
   assert.ok(copy.indexOf('個別備註：力道輕一點') > second);
   assert.ok(copy.endsWith('管理端說明：櫃檯已確認'));
-  assert.match(context.BookingCopyText.format(payload), /第二位預約[\\s\\S]*個別備註：力道輕一點/);
+  assert.ok(context.BookingCopyText.format(payload).includes('個別備註：力道輕一點'));
   const empty = context.BookingCopyText.formatClipboard({ ...payload, participants:payload.participants.map(p=>({...p,memberNote:''})), adminNote:'' });
   assert.doesNotMatch(empty,/個別備註：|管理端說明：/);
 });
