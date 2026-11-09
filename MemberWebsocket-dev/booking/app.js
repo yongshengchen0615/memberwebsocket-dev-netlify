@@ -743,7 +743,8 @@
       items: items.map((item) => ({ serviceId: item.serviceId, quantity: item.quantity })),
       bookingDate,
       startTime,
-      memberNote: String(els.memberNote.value || ''),
+      memberNote: window.BookingGroupUI?.primaryMemberNote?.() ?? String(els.memberNote.value || ''),
+      participantNotes: window.BookingGroupUI?.notesSnapshot?.() || [],
       ...reminderPreference(),
       benefits: window.BookingBenefits?.selectionPayload?.() || [],
     });
@@ -826,7 +827,7 @@
         ...(state.config.pricePublishing === true ? {pricePublishing:true,expectedPrices:state.confirmationPrices || []} : {}),
         bookingDate,
         startTime,
-        memberNote: els.memberNote.value,
+        memberNote: window.BookingGroupUI?.primaryMemberNote?.() ?? els.memberNote.value,
         ...reminderPreference(),
         benefits: window.BookingBenefits?.selectionPayload?.() || [],
       });
@@ -1062,7 +1063,7 @@
 
       const benefitCards = renderBookingBenefitCards(booking.benefits, { heading: '本次使用票券', showStatus: true });
       if (benefitCards) item.appendChild(benefitCards);
-      if (booking.memberNote) {
+      if (booking.memberNote && !hasParticipantDetails) {
         const note = document.createElement('p');
         note.className = 'booking-note';
         note.textContent = `備註：${booking.memberNote}`;
