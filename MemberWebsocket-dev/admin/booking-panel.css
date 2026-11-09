@@ -162,3 +162,55 @@
 
 /* Regular booking no-show status is distinct from cancellation. */
 #bookingPanel .booking-admin-status.status-no_show{background:#fff0eb;color:#a34832}
+
+
+/* Completion preview: preserve an auditable per-person settlement breakdown. */
+#bookingPanel .booking-completion-preview-person {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px;
+  margin-top: 10px;
+  border: 1px solid var(--theme-border, rgba(23,53,46,.13));
+  border-radius: 14px;
+  background: var(--theme-surface-muted, #f7f9f6);
+}
+#bookingPanel .booking-completion-preview-person h4 {
+  margin: 0;
+  color: var(--theme-text, #17352e);
+  font-size: 15px;
+}
+#bookingPanel .booking-completion-preview-item {
+  min-width: 0;
+  gap: 10px;
+}
+#bookingPanel .booking-completion-preview-item p {
+  overflow-wrap: anywhere;
+}
+#bookingPanel .booking-completion-preview-person-total {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--theme-text, #17352e);
+  line-height: 1.6;
+}
+#bookingPanel .booking-completion-preview-context {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid var(--theme-border, rgba(23,53,46,.12));
+  border-radius: 12px;
+}
+#bookingPanel .booking-completion-preview-context p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+#bookingPanel .booking-completion-preview-warning {
+  padding: 11px 13px;
+  border-radius: 10px;
+  border: 1px solid rgba(159,92,38,.4);
+  background: var(--theme-surface-muted, #fff5e6);
+  color: var(--theme-text, #704b27);
+  line-height: 1.5;
+}
