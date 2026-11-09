@@ -7,6 +7,7 @@ const { execFileSync } = require('node:child_process');
 const root = path.resolve(__dirname, '..');
 const sql = fs.readFileSync(path.join(root, 'supabase/migrations/20261029194400_admin_phone_overlapping_booking.sql'), 'utf8');
 const api = fs.readFileSync(path.join(root, 'supabase/functions/booking-api/index.ts'), 'utf8');
+const optionalPhoneSql = fs.readFileSync(path.join(root, 'supabase/migrations/20261109090500_admin_booking_optional_contact_phone.sql'), 'utf8');
 const ui = fs.readFileSync(path.join(root, 'admin/booking-panel-core.js'), 'utf8');
 const groupSlots = fs.readFileSync(path.join(root, 'supabase/functions/booking-group-slots-api/index.ts'), 'utf8');
 const memberUi = fs.readFileSync(path.join(root, 'booking/app.js'), 'utf8');
@@ -41,7 +42,7 @@ test('AC-002: admin phone booking rejects occupied time until cancellation', () 
   assert.match(api, /admin\.booking\.phone\.create/);
   assert.match(api, /請先取消原預約/);
   assert.doesNotMatch(api, /p_allow_overlap|body.allowOverlap/);
-  assert.match(ui, /登記電話預約/);
+  assert.match(ui, /id="bookingAdminPhoneCreateButton"[^>]*>登記預約<\/button>/);
   assert.match(ui, /bookingRequest\('admin\.booking\.phone\.slots'/);
   assert.match(ui, /data-phone-slot-grid/);
   assert.match(ui, /button\.disabled = slot\.available !== true/);
@@ -84,4 +85,22 @@ test('AC-006: member single and group availability include active phone reservat
 
 test('AC-004: browser source stays syntactically valid', () => {
   assert.doesNotThrow(() => execFileSync(process.execPath, ['--check', path.join(root, 'admin/booking-panel-core.js')]));
+});
+
+test('AC-007: counter registration does not request or require a customer phone', () => {
+  assert.match(ui, /bookingAdminCrudModalTitle\.textContent = '登記預約'/);
+  assert.doesNotMatch(ui, /data-phone-number/);
+  assert.doesNotMatch(ui, /contactPhone:\s*form\.querySelector/);
+  assert.match(ui, /contactSurname: form\.querySelector/);
+  assert.match(ui, /contactSalutation: form\.querySelector/);
+  assert.match(ui, /bookingRequest\('admin\.booking\.phone\.create'/);
+  assert.match(api, /const phone = asText\(body\.contactPhone, 35\)/);
+  assert.match(api, /\(phone && !\/\^\\\+\?\[0-9\(\) -\]\{8,25\}\$\/\.test\(phone\)\)/);
+  assert.match(api, /p_contact_phone: phone \|\| null/);
+  assert.match(optionalPhoneSql, /v_phone text := nullif\(regexp_replace/);
+  assert.match(optionalPhoneSql, /v_phone is not null and v_phone !~/);
+  assert.match(optionalPhoneSql, /platform_private\.business_templates/);
+  assert.match(optionalPhoneSql, /platform_private\.business_sql\(v_updated, v_schema\)/);
+  assert.match(optionalPhoneSql, /ADMIN_BOOKING_PHONE_CONTRACT_CHANGED/);
+  assert.doesNotMatch(optionalPhoneSql, /drop column|truncate table|delete from public\.bookings/i);
 });
