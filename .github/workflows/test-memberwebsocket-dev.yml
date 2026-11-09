@@ -108,6 +108,7 @@ jobs:
             MemberWebsocket-dev/tests/integration/booking_benefits.cjs \
             MemberWebsocket-dev/tests/integration/shared_event_ticket.cjs \
             MemberWebsocket-dev/tests/integration/booking_copy.cjs \
+            MemberWebsocket-dev/tests/integration/booking_participant_notes.cjs \
             MemberWebsocket-dev/tests/integration/dialog_accessibility.cjs \
             MemberWebsocket-dev/tests/integration/e2e_background_startup.cjs \
             MemberWebsocket-dev/tests/integration/e2e_background_sync.cjs \
