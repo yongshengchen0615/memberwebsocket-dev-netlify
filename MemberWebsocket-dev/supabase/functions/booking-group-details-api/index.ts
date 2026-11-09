@@ -129,6 +129,7 @@ async function groupDetails(supabase: ReturnType<typeof db>, body: Record<string
     list.push({
       position: Number(row.position || list.length + 1),
       technicianId,
+      memberNote: String(row.member_note || ''),
       technicianName: technicianId ? String((row.booking_technicians as any)?.name || "未命名技師") : "現場安排",
       isPrimaryTechnician: Boolean(technicianId && technicianId === primaryTechnicianId),
       items,
