@@ -190,6 +190,7 @@ for(const itemPrices of [false,true])test(`ticket policy, snapshot intent/review
     const separateEvent=(await one("insert into event_tickets(event_ticket_id,title,ticket_type,status,starts_on,ends_on,created_by,updated_by)values('QA-SNAPSHOT-NO-BOOKING-EVENT','QA extra snapshot event','coupon','active',(clock_timestamp()at time zone'Asia/Taipei')::date-1,(clock_timestamp()at time zone'Asia/Taipei')::date+1,'test:controls-admin','test:controls-admin')returning id")).id;
     await run("insert into event_ticket_claims(claim_id,event_ticket_id,member_id,ticket_type,ticket_title)values('QA-SNAPSHOT-NO-BOOKING',$1,$2,'coupon','QA snapshot no booking')",[separateEvent,member]);
     const newBenefits=[{kind:'event',id:'QA-SNAPSHOT-NO-BOOKING'}];
+    await run("insert into calendar_items(calendar_item_id,title,item_type,status,starts_on,ends_on,bonus_points_enabled,bonus_points,created_by,updated_by) values('QA-NO-BOOKING-BONUS','QA retrospective bonus','event','active','2026-01-01','2026-01-01',true,2,'test:controls-admin','test:controls-admin')");
     // Snapshot submission and review are independent of the NORMAL
     // redemption booking policy, even when an admin flips it in between.
     assert.equal(await save(false),false);
@@ -214,6 +215,8 @@ for(const itemPrices of [false,true])test(`ticket policy, snapshot intent/review
      await run("select set_config('request.headers','{}',false)");
     }
     assert.ok(result.bookingId);
+    assert.equal(result.settlement.calendarBonusTotalPerCard,2,'retrospective snapshot matches service day');
+    assert.equal((await one("select coalesce(sum(amount),0)::int amount from point_entries where reference_type='calendar_bonus' and reference_id=$1",[result.bookingId])).amount,2);
     assert.equal((await one('select status from event_ticket_claims where claim_id=$1',['QA-SNAPSHOT-NO-BOOKING'])).status,'used');
     assert.equal((await one('select booking_id from booking_receipts where receipt_id=$1',[newReceipt])).booking_id,result.bookingId);
     assert.equal((await one('select ticket_booking_required as enabled from booking_settings where id=1')).enabled,true);
