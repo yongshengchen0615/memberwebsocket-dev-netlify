@@ -2304,6 +2304,8 @@
       : '';
     els.bookingAdminCrudModalBody.innerHTML = `
       <form class="booking-admin-form booking-completion-preview">
+        <h3 class="booking-completion-preview-heading">結算重點</h3>
+        <p class="booking-completion-preview-helper">請核對會員時間、服務總額與預約占用時段；下方可逐位查看服務內容與備註。</p>
         <div class="booking-completion-preview-summary">
           <div><span>受服務會員</span><strong>${escapeHtml(group?.serviceRecipientName || booking.memberDisplayName || '會員')}</strong></div>
           <div data-business-requires="booking membership"><span>將計入會員時間（主要技師）</span><strong>${preview.serviceMinutes} 分鐘</strong></div>
@@ -2313,6 +2315,7 @@
           <div data-business-requires="booking points"><span>預估自動集點</span><strong>${preview.totalRewardPoints} 點</strong></div>
           <div data-business-requires="booking points|events"><span>待核銷優惠</span><strong>${pendingBenefits.length} 項</strong></div>
         </div>
+        <h3 class="booking-completion-preview-heading">預約與聯絡資料</h3>
         <section class="booking-completion-preview-context">
           <p><strong>預約人：</strong>${escapeHtml(booking.memberDisplayName || '會員')}${booking.memberCode ? `（${escapeHtml(booking.memberCode)}）` : ''}</p>
           <p><strong>聯絡人：</strong>${escapeHtml(bookingContactName(booking))} · ${escapeHtml(booking.contactPhone || '未提供電話')}</p>
@@ -2325,9 +2328,9 @@
         ${caution}
         ${differenceNote}
         ${reserveNote}
-        <section><p class="kicker">Service settlement · 逐位服務明細</p>${itemRows || '<p class="integration-empty">無法取得逐位服務明細。</p>'}</section>
-        <section data-business-requires="booking points"><p class="kicker">Point rewards</p><div class="booking-completion-preview-list">${rewardRows}</div></section>
-        <section data-business-requires="booking points|events"><p class="kicker">Benefit redemption</p><div class="booking-completion-preview-list">${benefitRows}</div></section>
+        <section><p class="kicker">逐位服務明細 · Service settlement</p>${itemRows || '<p class="integration-empty">無法取得逐位服務明細。</p>'}</section>
+        <section data-business-requires="booking points"><p class="kicker">預估自動集點 · Point rewards</p><div class="booking-completion-preview-list">${rewardRows}</div></section>
+        <section data-business-requires="booking points|events"><p class="kicker">待核銷優惠 · Benefit redemption</p><div class="booking-completion-preview-list">${benefitRows}</div></section>
         <p class="booking-completion-preview-note">此畫面為送出前預覽。真正的服務時間、集點、LINE 通知與重複請求判斷仍由 Server-side 完成結算流程決定；同時會重新驗證票券擁有權、狀態、效期、點數與每日上限，並在同一交易內完成核銷與預約結算，任何一項失敗都不會產生半完成狀態。</p>
         <div data-modal-message class="form-message hidden"></div>
         <div class="booking-admin-modal-actions">
