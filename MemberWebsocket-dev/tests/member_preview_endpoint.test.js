@@ -23,8 +23,8 @@ test('AC-PT-005: friends, point transfers and member profile use canonical APIs'
  for(const action of ['member.invitation.create','member.invitation.summary','member.invitation.retry','member.friend.list','user.member.invitation.claim','user.member.oa.check','points.transfer.options'])await context.window.MemberSystem.request(config,action.startsWith('points.transfer.')?'points':'member','id',action,{});
  assert.deepEqual(urls,[...Array(4).fill('https://example.supabase.co/functions/v1/member-growth-api'),...Array(2).fill('https://example.supabase.co/functions/v1/member-profile-api'),'https://example.supabase.co/functions/v1/member-growth-api']);
  assert.ok(urls.every(url=>!url.endsWith('-preview')));
- assert.equal(bodies.at(-1).lineAccessToken,'volatile-access');
- assert.ok(bodies.slice(0,-1).every(body=>!Object.hasOwn(body,'lineAccessToken')));
+ assert.equal(bodies[5].lineAccessToken,'volatile-access');
+ assert.ok(bodies.every((body,index)=>index===5 || !Object.hasOwn(body,'lineAccessToken')));
 });
 
 test('canonical development config discovers merchant through platform API before member API',async()=>{
