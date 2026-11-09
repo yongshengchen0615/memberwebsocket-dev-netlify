@@ -14,7 +14,9 @@ test('booking service type UI exposes completion reward settings', () => {
   assert.match(source, /data-type-reward-card/);
   assert.match(source, /店內服務時間不計入/);
   assert.match(source, /完成結算預覽/);
-  assert.match(source, /真正的服務時間、集點、LINE 通知與重複請求判斷仍由 Server-side 完成結算流程決定/);
+  assert.match(source, /operationsRequest\('admin\.booking\.status\.complete'/);
+  assert.match(source, /data-business-requires="booking points\|events"/);
+  assert.doesNotMatch(source.slice(source.indexOf('  function openCompletionPreview('), source.indexOf('  async function bookingRiskRequest(')), /Point rewards|預估自動集點/);
   assert.match(source, /確認完成並結算/);
 });
 
