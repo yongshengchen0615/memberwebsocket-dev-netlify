@@ -110,3 +110,81 @@ test('completion preview exposes itemized minutes, amount, notes, and business f
   assert.match(source, /data-business-requires="booking points\|events"/);
   assert.match(source, /真正的服務時間、集點、LINE 通知與重複請求判斷仍由 Server-side 完成結算流程決定/);
 });
+
+
+function render({ booking: value, group, services = [], types = [], primaryTechnicianId = 'main-tech', adminNote = '管理端補充' }) {
+  const start = source.indexOf('  function openCompletionPreview(booking, adminNote) {');
+  const end = source.indexOf('\n  function updateNoShowButtons()', start);
+  assert.ok(start >= 0 && end > start);
+  const documentBody = {
+    innerHTML: '',
+    querySelector() { return { querySelector() { return { addEventListener() {} }; }, addEventListener() {} }; },
+  };
+  const element = { bookingAdminCrudModalTitle: { textContent: '' }, bookingAdminCrudModalBody: documentBody };
+  const escapeHtml = (input) => String(input ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+  const context = {
+    els: element,
+    state: { booking: { groups: { [value.bookingId]: group } } },
+    completionPreviewData: () => calculate({ booking: value, group, services, types, primaryTechnicianId }),
+    escapeHtml,
+    bookingContactName: () => '陳先生',
+    formatMoney: (number) => 'NT$' + Number(number),
+    bookingBenefitDisplayTitle: (benefit) => benefit.title,
+    bookingBenefitKindLabel: (benefit) => benefit.kind,
+    closeModal() {},
+    showModal() {},
+  };
+  vm.runInNewContext('(' + source.slice(start, end).trim() + ')', context)(value, adminNote);
+  return { html: documentBody.innerHTML, title: element.bookingAdminCrudModalTitle.textContent };
+}
+
+test('real settlement renderer shows separate participant totals, correct eligibility, contact and notes', () => {
+  const result = render({
+    booking: {
+      ...booking, bookingId: 'test-booking', memberDisplayName: '小胖', memberCode: 'M001',
+      bookingDate: '2026-11-09', startTime: '13:00', endTime: '14:10',
+      memberNote: '<私人備註>', contactPhone: '09xx-xxx-xxx',
+    },
+    group: { participants: [
+      { technicianId: 'main-tech', technicianName: 'A 技師', isPrimaryTechnician: true, items: [
+        { serviceId: 'a', serviceTitle: '腳40', unitDurationMinutes: 30, unitPriceAmount: 300, quantity: 2 },
+      ] },
+      { technicianId: 'secondary', technicianName: 'B 技師', items: [
+        { serviceId: 'b', serviceTitle: '手部服務', unitDurationMinutes: 40, unitPriceAmount: 400, quantity: 1 },
+      ] },
+    ] },
+    services: [{ serviceId: 'a', durationMinutes: 40 }, { serviceId: 'b', durationMinutes: 40 }],
+    adminNote: '<管理備註>',
+  });
+  assert.match(result.title, /完成結算預覽/);
+  assert.match(result.html, /30 分鐘／份 × 2 份 = 60 分鐘/);
+  assert.match(result.html, /NT\$300 × 2 = NT\$600/);
+  assert.match(result.html, /NT\$400/);
+  assert.match(result.html, /非主要技師/);
+  assert.match(result.html, /將計入會員時間（主要技師）/);
+  assert.match(result.html, /所有服務項目分鐘（含其他技師）/);
+  assert.match(result.html, /100 分鐘/);
+  assert.match(result.html, /60 分鐘/);
+  assert.match(result.html, /NT\$1000/);
+  assert.match(result.html, /&lt;私人備註&gt;/);
+  assert.match(result.html, /&lt;管理備註&gt;/);
+  assert.doesNotMatch(result.html, /<私人備註>|<管理備註>/);
+  assert.match(result.html, /快照分鐘數不同於目前項目設定/);
+  assert.doesNotMatch(result.html, /type="submit" disabled/);
+});
+
+test('renderer blocks confirmation when one participant is missing item details', () => {
+  const result = render({
+    booking: { ...booking, bookingId: 'test-missing' },
+    group: { participants: [
+      { technicianId: 'main-tech', isPrimaryTechnician: true, items: [
+        { serviceId: 'a', unitDurationMinutes: 30, unitPriceAmount: 300, quantity: 2 },
+      ] },
+      { technicianId: 'other', items: [] },
+    ] },
+  });
+  assert.match(result.html, /請關閉畫面並重新同步預約資料後再結算/);
+  assert.match(result.html, /type="submit" disabled/);
+});
