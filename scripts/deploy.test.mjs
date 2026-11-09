@@ -64,10 +64,7 @@ test('frontend backend settings are copied without changing identity or project'
   const branch = process.env.BRANCH || process.env.PREVIEW_SOURCE_BRANCH || process.env.GITHUB_REF_NAME;
   if (branch === 'Integrated-Marketing-Platform' && process.env.CONTEXT !== 'production') {
     expected.pricePublishing = true;
-    expected.bookingPreviewApis = true;
-    expected.previewApiFunctionUrl = new URL('/functions/v1/api-preview', expected.supabaseUrl).href;
-    expected.memberProfileFunctionUrl = new URL('/functions/v1/member-profile-api-preview', expected.supabaseUrl).href;
-    expected.memberGrowthFunctionUrl = new URL('/functions/v1/member-growth-api-preview', expected.supabaseUrl).href;
+    // All development builds now use the canonical API endpoints.
   }
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(output, 'config.json'))), expected);
 });

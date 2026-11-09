@@ -68,16 +68,16 @@ test('each changed UI script must match exact artifact bytes', async t => {
   }
 });
 
-test('isolated member preview APIs must pass preflight and reject missing LINE identity', async t => {
+test('canonical member APIs must pass preflight and reject missing LINE identity', async t => {
   const f = await fixture(t);
-  const endpoints = ['api-preview', 'member-profile-api-preview', 'member-growth-api-preview'].map(name => `https://backend.example/functions/v1/${name}`);
+  const endpoints = ['api', 'member-profile-api', 'member-growth-api'].map(name => `https://backend.example/functions/v1/${name}`);
   const calls = [];
   const fetchImpl = async (url, options = {}) => {
     if (!endpoints.includes(String(url))) return f.options.fetchImpl(url, options);
     calls.push({ url: String(url), method: options.method });
     // Growth validates its action allowlist before authentication. A profile
     // write cannot prove that the growth endpoint rejects missing identity.
-    if (String(url).endsWith('/member-growth-api-preview') && options.method === 'POST'
+    if (String(url).endsWith('/member-growth-api') && options.method === 'POST'
       && JSON.parse(options.body).action !== 'member.friend.list') {
       return Response.json({ error: { code: 'CLIENT_ACTION_MISMATCH' } }, { status: 403 });
     }
@@ -104,9 +104,24 @@ test('isolated member preview APIs must pass preflight and reject missing LINE i
   }), /must reject without identity/);
 });
 
-test('Integrated-Marketing-Platform verification refuses missing preview config before any HTTP calls',async t=>{
+test('Integrated verification refuses missing canonical config before any HTTP calls',async t=>{
  const f=await fixture(t);
- await assert.rejects(verifyPlatformPreview({...f.options,memberRuntimeRequired:true}),/required member preview routes/);
+ await assert.rejects(verifyPlatformPreview({...f.options,memberRuntimeRequired:true}),/required canonical development API routes/);
+ assert.equal(f.calls.length,0);
+});
+
+
+test('AC-PT-003: Integrated rejects a legacy preview API route before any network calls',async t=>{
+ const f=await fixture(t);
+ const file=path.join(f.dist,'config.json');
+ await writeFile(file,JSON.stringify({
+  platformLiffId:'2012065297-VunxFBj8',pricePublishing:true,
+  supabaseFunctionUrl:'https://backend.example/functions/v1/api',
+  memberGrowthFunctionUrl:'https://backend.example/functions/v1/member-growth-api-preview'
+ }));
+ await assert.rejects(verifyPlatformPreview({...f.options,memberRuntimeRequired:true,
+  memberApis:['api','member-profile-api','member-growth-api'].map(name=>'https://backend.example/functions/v1/'+name)}),
+  /required canonical development API routes/);
  assert.equal(f.calls.length,0);
 });
 
