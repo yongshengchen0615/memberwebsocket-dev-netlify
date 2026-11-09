@@ -32,8 +32,8 @@ export async function verifyPlatformPreview({
   const origin = new URL(base).origin;
   for (const endpoint of memberApis) {
     const url = new URL(endpoint);
-    if (url.origin !== new URL(api).origin || !/^\/functions\/v1\/(api-preview|member-profile-api-preview|member-growth-api-preview)$/.test(url.pathname)
-      || url.search || url.hash || url.username || url.password) throw new Error('Unexpected member preview API');
+    if (url.origin !== new URL(api).origin || !/^\/functions\/v1\/(api|member-profile-api|member-growth-api)$/.test(url.pathname)
+      || url.search || url.hash || url.username || url.password) throw new Error('Unexpected non-canonical member API');
   }
   const expected = [];
   // Read and validate the whole local artifact before making any network calls.
@@ -52,12 +52,15 @@ export async function verifyPlatformPreview({
       const config = JSON.parse(body);
       if (config.platformLiffId !== '2012065297-VunxFBj8') throw new Error('config.json: incorrect platform LIFF identity');
       if (memberRuntimeRequired) {
-        const expectedApis = ['api-preview', 'member-profile-api-preview', 'member-growth-api-preview'].map(name => new URL('/functions/v1/' + name, new URL(api).origin).href);
-        if (config.supabaseFunctionUrl !== new URL('/functions/v1/api', new URL(api).origin).href
-          || config.previewApiFunctionUrl !== expectedApis[0] || config.memberProfileFunctionUrl !== expectedApis[1]
-          || config.memberGrowthFunctionUrl !== expectedApis[2]
+        const expectedApis = ['api', 'member-profile-api', 'member-growth-api']
+          .map(name => new URL('/functions/v1/' + name, new URL(api).origin).href);
+        if (config.supabaseFunctionUrl !== expectedApis[0]
+          || config.previewApiFunctionUrl
+          || (config.memberProfileFunctionUrl && config.memberProfileFunctionUrl !== expectedApis[1])
+          || (config.memberGrowthFunctionUrl && config.memberGrowthFunctionUrl !== expectedApis[2])
+          || config.bookingPreviewApis === true || config.pricePublishing !== true
           || memberApis.length !== 3 || memberApis.some((url,index) => url !== expectedApis[index])) {
-          throw new Error('config.json: required member preview routes are missing or incorrect');
+          throw new Error('config.json: required canonical development API routes are missing or incorrect');
         }
       }
     }
@@ -133,17 +136,17 @@ export async function verifyPlatformPreview({
       if (response.status !== 204 || response.headers.get('access-control-allow-origin') !== origin
         || !/\bPOST\b/.test(response.headers.get('access-control-allow-methods') || '')
         || !headers.includes('content-type') || !headers.includes('apikey')
-        || !/\bOrigin\b/i.test(response.headers.get('vary') || '')) throw new Error('member preview preflight contract failed');
+        || !/\bOrigin\b/i.test(response.headers.get('vary') || '')) throw new Error('member API preflight contract failed');
     }, 1);
     await check(endpoint, { method: 'POST', redirect: 'error', headers: { Origin: origin, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: new URL(endpoint).pathname.endsWith('/member-growth-api-preview')
-        ? 'member.friend.list' : 'user.member.profile.save', clientType: 'member' }),
+      body: JSON.stringify({ action: new URL(endpoint).pathname.endsWith('/member-growth-api')
+        ? 'member.friend.list' : new URL(endpoint).pathname.endsWith('/api') ? 'user.pointcard.bootstrap' : 'user.member.profile.save', clientType: 'member' }),
     }, (response, body) => {
       let payload;
-      try { payload = JSON.parse(body); } catch { throw new Error('member preview authentication response must contain valid JSON'); }
+      try { payload = JSON.parse(body); } catch { throw new Error('member API authentication response must contain valid JSON'); }
       if (response.status !== 401 || response.headers.get('access-control-allow-origin') !== origin
         || !/\bno-store\b/i.test(response.headers.get('cache-control') || '')
-        || payload.error?.code !== 'AUTH_REQUIRED') throw new Error('member preview authentication must reject without identity');
+        || payload.error?.code !== 'AUTH_REQUIRED') throw new Error('member API authentication must reject without identity');
     }, 1);
   }
   return { commit, origin, passedChecks: checks };
@@ -157,7 +160,8 @@ async function main() {
     const config = JSON.parse(await readFile('dist/config.json', 'utf8'));
     const result = await verifyPlatformPreview({ base: process.env.PREVIEW_BASE_URL, commit: process.env.COMMIT_REF,
       dist: 'dist', api: new URL('/functions/v1/platform-api', config.supabaseUrl).href,
-      memberApis: config.memberProfileFunctionUrl ? [config.previewApiFunctionUrl, config.memberProfileFunctionUrl, config.memberGrowthFunctionUrl] : [],
+      memberApis: (process.env.PREVIEW_SOURCE_BRANCH || process.env.GITHUB_REF_NAME) === 'Integrated-Marketing-Platform'
+        ? ['api','member-profile-api','member-growth-api'].map(name => new URL('/functions/v1/' + name, config.supabaseUrl).href) : [],
       memberRuntimeRequired: (process.env.PREVIEW_SOURCE_BRANCH || process.env.GITHUB_REF_NAME) === 'Integrated-Marketing-Platform',
       onCheck: check => { checks.push(check); console.log(JSON.stringify(check)); },
     });
