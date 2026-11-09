@@ -132,8 +132,8 @@ test('AC-PNOTE-007: member removal erases notes on surviving friend bookings but
     assert.deepEqual(await participantNotes(recipientRemoved),['']);
     assert.deepEqual(await participantNotes(unrelated),['KEEP unrelated note']);
     const surviving=(await h.db.query('select id,member_note,admin_note,member_id,service_recipient_member_id from '+s+
-      '.bookings where id=any($1::uuid[]) order by id',
-      [[actorRemoved,recipientRemoved]])).rows;
+      '.bookings where id in ($1::uuid,$2::uuid) order by id',
+      [actorRemoved,recipientRemoved])).rows;
     assert.equal(surviving.length,2,'both shared reservations remain');
     assert.ok(surviving.every(x=>x.member_note===''&&x.admin_note===''));
     assert.ok(surviving.every(x=>x.member_id!==memberB&&x.service_recipient_member_id!==memberB));
