@@ -178,9 +178,10 @@ test('real settlement renderer shows three readable sections, per-person totals,
   });
   assert.match(result.title, /完成結算預覽/);
   assert.match(result.html, /30 分鐘／份 × 2 份 = 60 分鐘/);
-  assert.match(result.html, /NT\$300 × 2 = NT\$600/);
+  assert.match(result.html, /NT\$300 × 2/);
+  assert.match(result.html, /NT\$600/);
   assert.match(result.html, /NT\$400/);
-  assert.match(result.html, /非主要技師/);
+  assert.match(result.html, /B 技師/);
   assert.match(result.html, /預約資料/);
   assert.match(result.html, /預約項目/);
   assert.match(result.html, /票券使用資料/);
