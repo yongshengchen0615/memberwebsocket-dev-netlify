@@ -1783,6 +1783,7 @@
         partySize: Math.max(1, Number(group?.partySize || group?.participants?.length || 1)),
         participants: (group?.participants || []).map((participant) => ({
           technicianName: String(participant?.technicianName || '現場安排'),
+          memberNote: String(participant?.memberNote || ''),
           items: Array.isArray(participant?.items) ? participant.items.map((item) => ({
             serviceTitle: String(item?.serviceTitle || '預約項目').trim(),
             quantity: Math.max(1, Number(item?.quantity || 1)),
@@ -1791,6 +1792,8 @@
       });
       card.dataset.bookingCopyContactName = bookingContactName(booking);
       card.dataset.bookingCopyPhone = String(booking.contactPhone || '—');
+      card.dataset.bookingCopyMemberNote = String(booking.memberNote || '');
+      card.dataset.bookingCopyAdminNote = String(booking.adminNote || '');
 
       card.appendChild(renderBookingSummary(booking, group, hasStoredParticipants));
 
@@ -1810,7 +1813,7 @@
 
       const benefitCards = renderBookingBenefitCards(booking.benefits);
       if (benefitCards) card.appendChild(benefitCards);
-      if (booking.memberNote) appendNote(card, `會員備註：${booking.memberNote}`, false);
+      if (booking.memberNote && !hasStoredParticipants) appendNote(card, `會員備註：${booking.memberNote}`, false);
       if (booking.adminNote) appendNote(card, `管理端說明：${booking.adminNote}`, true);
       const cancellationPending = Boolean(booking.cancellationRequestedAt && !booking.cancellationReviewedAt);
       if (cancellationPending) appendNote(card, '會員已提出取消申請，請至「取消申請」分頁選擇保留預約或確認取消；審核完成前不可修改、確認或完成此預約。', true);
@@ -1995,6 +1998,11 @@
       const techName = String(participant.technicianName || '現場安排').replace(/（主要技師）/g, '').trim() || '現場安排';
       tech.textContent = `預約技師：${techName}`;
       block.append(heading, items, tech);
+      if (participant.memberNote) {
+        const note = document.createElement('p');
+        note.textContent = `個別備註：${participant.memberNote}`;
+        block.appendChild(note);
+      }
 
       if (hasStoredParticipants && canEditBooking(booking) && !isPhoneBooking(booking)) {
         const actions = document.createElement('div');
