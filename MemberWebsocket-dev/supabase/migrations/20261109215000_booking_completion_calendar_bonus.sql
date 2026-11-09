@@ -29,7 +29,10 @@ BEGIN
     card record;
     affected integer;
    BEGIN
-    PERFORM %1$I.booking_price_context_time();
+    -- Legacy receipt schemas predate price publication; current schemas retain the guard.
+    IF to_regprocedure('%1$I.booking_price_context_time()') IS NOT NULL THEN
+     PERFORM %1$I.booking_price_context_time();
+    END IF;
     PERFORM 1 FROM %1$I.booking_settings WHERE id=1 FOR SHARE;
     PERFORM 1 FROM %1$I.booking_service_type_rewards ORDER BY service_type_id FOR SHARE;
     result:=%1$I.complete_booking_with_rewards_base(p_booking_id,p_expected_updated_at,p_actor,p_admin_note);
