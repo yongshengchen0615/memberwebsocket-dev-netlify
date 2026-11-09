@@ -44,9 +44,9 @@ test('repair fails closed on partially upgraded tenants and never changes member
   const refusal = migration.indexOf("raise exception 'PARTIAL_TENANT_TICKET_SERVICE_GROUPS: %',s;");
   const firstAlter = migration.indexOf("alter table %I.event_tickets add column if not exists");
   assert.ok(detection !== -1 && detection < refusal && refusal < firstAlter);
-  assert.doesNotMatch(migration, /(?:truncate|delete\\s+from|drop\\s+table|update\\s+members|update\\s+bookings)\\b/i);
-  assert.match(migration, /coalesce\\(r\\.required_service_groups,''\\[\\]''::jsonb\\)/);
-  assert.match(migration, /coalesce\\(et\\.required_service_groups,''\\[\\]''::jsonb\\)/);
+  assert.doesNotMatch(migration, /(?:truncate|delete\s+from|drop\s+table|update\s+members|update\s+bookings)\b/i);
+  assert.match(migration, /coalesce\(r\.required_service_groups,''\[\]''::jsonb\)/);
+  assert.match(migration, /coalesce\(et\.required_service_groups,''\[\]''::jsonb\)/);
   assert.match(migration, /create trigger event_ticket_service_groups_guard/);
   assert.match(migration, /create trigger point_reward_service_groups_guard/);
 });
