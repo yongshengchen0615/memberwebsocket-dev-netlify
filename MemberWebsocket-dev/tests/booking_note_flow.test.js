@@ -13,10 +13,13 @@ test('member note is displayed, submitted and hydrated across booking flows', ()
   const groupApi = read('supabase/functions/booking-group-api/index.ts');
   const admin = read('admin/booking-panel-core.js');
 
-  assert.ok(app.includes('memberNote: els.memberNote.value'));
+  assert.ok(app.includes('memberNote: window.BookingGroupUI?.primaryMemberNote?.() ?? els.memberNote.value'));
+  assert.ok(app.includes('participantNotes: window.BookingGroupUI?.notesSnapshot?.() || []'));
   assert.ok(app.includes("els.memberNote.value = booking.memberNote || ''"));
   assert.ok(app.includes('備註：'));
-  assert.ok(group.includes('participants'));
+  assert.ok(group.includes('memberNote: String(state.participantNotes[0] || \'\').trim()'));
+  assert.ok(group.includes('state.participantNotes = participants.map'));
+  assert.ok(group.includes('createParticipantNoteField(index)'));
 
   assert.ok(bookingApi.includes('memberNote: row.member_note || ""'));
   assert.ok(bookingApi.includes('adminNote: row.admin_note || ""'));
@@ -56,10 +59,36 @@ test('confirmation modal shows the note in the current single and group renderer
 
   assert.ok(app.includes("noteBox.className = 'group-confirm-participant booking-confirm-note'"));
   assert.ok(app.includes("note.textContent = els.memberNote.value.trim() || '未填寫'"));
-  assert.ok(group.includes("noteBox.className = 'group-confirm-participant booking-confirm-note'"));
-  assert.ok(group.includes("getElementById('memberNote')"));
+  assert.ok(group.includes("title.textContent = '個別備註（選填)'".replace(')', '）')));
+  assert.ok(group.includes('card.append(title, items, technician, duration, amount, note)'));
+  assert.ok(group.includes('state.participantNotes[index]'));
   assert.ok(group.includes("'未填寫'"));
 
   assert.ok(!html.includes('booking-confirm-details.js'));
   assert.ok(!html.includes('member-booking-format.js'));
+});
+
+test('individual notes have a bounded tenant-aware database contract and server hydration', () => {
+  const migration = read('supabase/migrations/20261109115000_booking_participant_individual_notes.sql');
+  const groupApi = read('supabase/functions/booking-group-api/index.ts');
+  const detailsApi = read('supabase/functions/booking-group-details-api/index.ts');
+  const notification = read('supabase/functions/booking-line-notifications/booking-actions.ts');
+  const admin = read('admin/booking-panel-core.js');
+
+  assert.match(migration, /ADD COLUMN IF NOT EXISTS member_note text NOT NULL DEFAULT/);
+  assert.match(migration, /char_length\(member_note\) <= 500/);
+  assert.match(migration, /p\.position = 1/);
+  assert.match(migration, /runtime_schema FROM platform_private\.tenants/);
+  assert.match(migration, /business_templates/);
+  for (const name of ['create_group_booking_request_v2', 'update_group_booking_request_v2']) {
+    assert.ok(migration.includes(name), name);
+  }
+  assert.match(migration, /WHEN v_participant \? 'memberNote'/);
+  assert.match(migration, /WHEN v_position = 1/);
+  assert.match(groupApi, /Array\.from\(p\.memberNote\)\.length > 500/);
+  assert.match(groupApi, /memberNote:p\.member_note \|\| ""/);
+  assert.match(detailsApi, /memberNote: String\(row\.member_note \|\| ''\)/);
+  assert.match(notification, /memberNote:p\.member_note \|\| ''/);
+  assert.match(admin, /個別備註：/);
+  assert.match(admin, /bookingCopyMemberNote/);
 });
