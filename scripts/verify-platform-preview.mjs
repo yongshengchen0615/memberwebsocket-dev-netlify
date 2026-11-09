@@ -139,8 +139,9 @@ export async function verifyPlatformPreview({
         || !/\bOrigin\b/i.test(response.headers.get('vary') || '')) throw new Error('member API preflight contract failed');
     }, 1);
     await check(endpoint, { method: 'POST', redirect: 'error', headers: { Origin: origin, 'Content-Type': 'application/json' },
+      // Match the handler's action-to-clientType contract before asserting missing-auth rejection.
       body: JSON.stringify({ action: new URL(endpoint).pathname.endsWith('/member-growth-api')
-        ? 'member.friend.list' : new URL(endpoint).pathname.endsWith('/api') ? 'user.pointcard.bootstrap' : 'user.member.profile.save', clientType: 'member' }),
+        ? 'member.friend.list' : 'user.member.profile.save', clientType: 'member' }),
     }, (response, body) => {
       let payload;
       try { payload = JSON.parse(body); } catch { throw new Error('member API authentication response must contain valid JSON'); }
