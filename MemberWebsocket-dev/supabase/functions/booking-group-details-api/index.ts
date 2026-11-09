@@ -89,7 +89,7 @@ async function groupDetails(supabase: ReturnType<typeof db>, body: Record<string
     supabase.from("booking_settings").select("primary_technician_id").eq("id", 1).single(),
     supabase.from("booking_services").select("duration_minutes").eq("id", STORE_SERVICE_ID).maybeSingle(),
     supabase.from("booking_participants")
-      .select("id,booking_id,position,technician_id,booking_technicians(name)")
+      .select("id,booking_id,position,technician_id,member_note,booking_technicians(name)")
       .in("booking_id", bookingIds)
       .order("position", { ascending: true }),
     supabase.from("bookings").select("id,recipient:members!bookings_service_recipient_member_id_fkey(member_code,display_name)").in("id",bookingIds),
