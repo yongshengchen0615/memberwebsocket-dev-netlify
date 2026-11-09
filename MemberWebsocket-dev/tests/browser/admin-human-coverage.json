@@ -17,7 +17,7 @@
     "admin/event-ticket-redemption-limit.js": "263a564d64845c5abb4ed5167305b0bffefb064130a0268ab533b481d320b688",
     "admin/integration-hub.js": "696f38801b5e8755e706c3e0153aa023a1d47f01a3f68456dd8e5a7fec868b33",
     "admin/booking-panel.js": "ee9fa6a3123ee8b359202daa04d22d4cbcf89fe0bf4fd038dda0430204412370",
-    "admin/booking-panel-core.js": "b7c4b28f386f4318806adb5454f165690d0b0eb2f8b0f85b6ba67ffb07c9c05c",
+    "admin/booking-panel-core.js": "50f8326d3ccebfcb56db2a8996b25c02b850b7543d84bd48beb729a1e3ed6376",
     "admin/booking-resources.js": "ea6901dc1020cbb85ead15107333e4b110e2b9a02854bffba856e410445bd852",
     "admin/booking-always-open.js": "9cb236902a7f3f36cf3fe4c3f13fbbac622f000c72d36ec34f7d4dde08e6e54a",
     "admin/booking-cancellation-sync.js": "a8367bb6565d054af976ec1ffdf950874a4e8f14a3917d2e036bc1744016db19",
