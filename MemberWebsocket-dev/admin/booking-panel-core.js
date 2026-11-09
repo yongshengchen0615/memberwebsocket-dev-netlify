@@ -1725,7 +1725,7 @@
       });
     });
     return {
-      people, hasParticipantDetails: people.length > 0, hasDurationDifference,
+      people, hasParticipantDetails: people.length > 0 && people.every((person) => person.items.length > 0), hasDurationDifference,
       serviceMinutes, allServiceMinutes, totalAmount,
       scheduleMinutes: Math.max(0, Number(group?.totalDurationMinutes ?? booking.totalDurationMinutes ?? 0) || 0),
       rewards, totalRewardPoints,
