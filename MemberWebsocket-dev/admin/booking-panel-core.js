@@ -2257,7 +2257,9 @@
     return {
       people, hasParticipantDetails: people.length > 0 && people.every((person) => person.items.length > 0), hasDurationDifference,
       serviceMinutes, allServiceMinutes, totalAmount,
-      scheduleMinutes: Math.max(0, Number(group?.totalDurationMinutes ?? booking.totalDurationMinutes ?? 0) || 0),
+      scheduleMinutes: Math.max(0, Number(booking.totalDurationMinutes ?? group?.totalDurationMinutes ?? 0) || 0),
+      hasStoreReserveDifference: group?.totalDurationMinutes != null && booking.totalDurationMinutes != null
+        && Number(group.totalDurationMinutes) !== Number(booking.totalDurationMinutes),
       rewards, totalRewardPoints,
     };
   }
@@ -2282,7 +2284,7 @@
         <h4>${escapeHtml(person.label)} · ${escapeHtml(person.technicianName)}${person.isPrimary ? '（主要技師）' : ''}</h4>
         ${person.memberNote ? `<p class="booking-completion-preview-person-note"><strong>個別備註：</strong>${escapeHtml(person.memberNote)}</p>` : ''}
         <div class="booking-completion-preview-list">${rows || '<p class="integration-empty">本位沒有服務項目。</p>'}</div>
-        <p class="booking-completion-preview-person-total">項目合計：${person.personMinutes} 分鐘 · ${formatMoney(person.personAmount)} · 計入會員時間 ${person.eligibleMinutes} 分鐘${person.storeServiceMinutes ? ` · 店內預留 ${person.storeServiceMinutes} 分鐘（不計入）` : ''}</p>
+        <p class="booking-completion-preview-person-total">項目合計：${person.personMinutes} 分鐘 · ${formatMoney(person.personAmount)} · 計入會員時間 ${person.eligibleMinutes} 分鐘${person.storeServiceMinutes ? ` · 目前店內預留設定 ${person.storeServiceMinutes} 分鐘（不計入；預約占用以原快照為準）` : ''}</p>
       </section>`;
     }).join('');
     const rewardRows = preview.rewards.length
@@ -2296,6 +2298,9 @@
       : `<p class="booking-completion-preview-note">會員時間與集點只計算主要技師服務且符合會員資格的項目；其他技師的項目仍顯示在明細及總金額內，不會重複入帳。${!preview.people.some((person) => person.isPrimary) ? ' 本筆沒有主要技師，預估計入會員時間為 0 分鐘。' : ''}</p>`;
     const differenceNote = preview.hasDurationDifference
       ? '<p class="booking-completion-preview-warning">部分項目的預約快照分鐘數不同於目前項目設定；預覽及結算以當時保存的單位分鐘為準，請先核對實際服務時數。</p>'
+      : '';
+    const reserveNote = preview.hasStoreReserveDifference
+      ? '<p class="booking-completion-preview-warning">店內預留分鐘設定已變動；預約占用時間依建立預約時保存的分鐘及原時段，不會改用目前設定。</p>'
       : '';
     els.bookingAdminCrudModalBody.innerHTML = `
       <form class="booking-admin-form booking-completion-preview">
@@ -2319,6 +2324,7 @@
         ${group?.serviceRecipientMemberCode ? `<p>好友代約：正常集點與服務時間歸受服務好友（${escapeHtml(group.serviceRecipientMemberCode)}）；預約建立者另取得符合條件的好友代約獎勵，預估服務時間 ${Math.floor(preview.serviceMinutes / 2)} 分鐘。票券使用建立者的資產。</p>` : ''}
         ${caution}
         ${differenceNote}
+        ${reserveNote}
         <section><p class="kicker">Service settlement · 逐位服務明細</p>${itemRows || '<p class="integration-empty">無法取得逐位服務明細。</p>'}</section>
         <section data-business-requires="booking points"><p class="kicker">Point rewards</p><div class="booking-completion-preview-list">${rewardRows}</div></section>
         <section data-business-requires="booking points|events"><p class="kicker">Benefit redemption</p><div class="booking-completion-preview-list">${benefitRows}</div></section>
