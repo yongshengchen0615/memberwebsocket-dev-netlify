@@ -115,6 +115,7 @@ test('integrated branch recovers native builds only after the exact-SHA CI and k
  assert.ok(preview.indexOf(ci)<preview.indexOf(inspect));
  assert.ok(preview.indexOf(inspect)<preview.indexOf(native));
  assert.match(preview,/grep -Fxq 'Verified native branch preview failed: NATIVE_DEPLOY_FAILED'/);
+ assert.match(preview,/grep -Fxq 'Verified native branch preview failed: DEPLOY_NOT_READY'/);
  assert.match(preview,/env:set PLATFORM_CI_VERIFIED_SHA "\$GITHUB_SHA"/);
  assert.match(preview,/--context "branch:\$GITHUB_REF_NAME" --scope builds --force/);
  assert.match(preview,/--request POST --data '\{\}'/);
@@ -135,6 +136,24 @@ test('integrated branch recovers native builds only after the exact-SHA CI and k
  assert.ok(nativeSource.includes('awaitVerifiedPreviewCI'));
  assert.ok(gate.includes('env.NETLIFY === \'true\''));
  assert.ok(gate.includes('env.PLATFORM_CI_VERIFIED_SHA === env.COMMIT_REF'));
+});
+
+test('missing native branch deploy recovers only through exact-SHA CI-attested branch build',()=>{
+ const ci=preview.indexOf('node scripts/check-preview-ci.mjs');
+ const inspect=preview.indexOf('- name: Inspect platform source and pin release timestamp');
+ const build=preview.indexOf('- name: Build and verify the exact platform frontend');
+ const recovery=preview.slice(inspect,build);
+ const guard=recovery.slice(recovery.indexOf('elif grep -Fxq'),recovery.indexOf('; then',recovery.indexOf('elif grep -Fxq')));
+ assert.ok(ci>=0 && ci<inspect && inspect<build);
+ assert.match(guard,/NATIVE_DEPLOY_FAILED/);
+ assert.match(guard,/DEPLOY_NOT_READY/);
+ assert.match(guard,/\|\|\s*grep -Fxq/);
+ assert.doesNotMatch(guard,/PROVIDER_UNAVAILABLE|DEPLOY_IDENTITY_MISMATCH|PRODUCTION_IDENTITY_CHANGED/);
+ assert.ok(recovery.indexOf('env:set PLATFORM_CI_VERIFIED_SHA "$GITHUB_SHA"')>recovery.indexOf('elif grep -Fxq'));
+ assert.ok(recovery.indexOf('--request POST --data')>recovery.indexOf('env:set PLATFORM_CI_VERIFIED_SHA'));
+ assert.ok(recovery.includes('commit_sha=$GITHUB_SHA'));
+ assert.ok(recovery.includes('test "$GITHUB_REF_NAME" = Integrated-Marketing-Platform'));
+ assert.ok(recovery.includes('node scripts/verify-netlify-native-preview.mjs'));
 });
 
 test('pre-CI native failure cannot be mistaken for a successful release',()=>{
