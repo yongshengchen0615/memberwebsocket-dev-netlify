@@ -16,6 +16,7 @@ for(const itemPrices of [false,true])test(`ticket policy, snapshot intent/review
    await db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations',fs.readdirSync(path.join(__dirname,'../../supabase/migrations')).find(x=>x.endsWith('_booking_item_price_publishing.sql'))),'utf8'));
    await db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations',fs.readdirSync(path.join(__dirname,'../../supabase/migrations')).find(x=>x.endsWith('_booking_immediate_price_publication_status.sql'))),'utf8'));
   }
+  await db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261109215000_booking_completion_calendar_bonus.sql'),'utf8'));
   const member=(await one("insert into members(line_user_id,member_code,status,membership_status,is_test_account,surname,salutation,phone)values('test:controls-member','QA-CONTROLS','active','active',true,'測試','mr','+886912345678')returning id")).id;
   const other=(await one("insert into members(line_user_id,member_code,status,membership_status,is_test_account)values('test:controls-other','QA-OTHER','active','active',true)returning id")).id;
   const type=(await one("insert into booking_service_types(name)values('Controls QA')returning id")).id;
@@ -24,7 +25,7 @@ for(const itemPrices of [false,true])test(`ticket policy, snapshot intent/review
   const service=(await one("insert into booking_services(title,duration_minutes,price_amount,service_type,created_by)values('QA service',60,100,'Controls QA','test:controls-admin')returning id")).id;
   const otherService=(await one("insert into booking_services(title,duration_minutes,price_amount,service_type,created_by)values('QA alternative',30,100,'Controls QA','test:controls-admin')returning id")).id;
   const store='00000000-0000-4000-8000-000000000010';
-  const create=async key=>(await one("select (create_booking_bundle_request($1,$2,'2099-01-01','10:00',$3,'QA')).id id",[key,member,JSON.stringify([{serviceId:service,quantity:1},{serviceId:store,quantity:1}])])).id;
+  const create=async(key,time='10:00')=>(await one("select (create_booking_bundle_request($1,$2,'2099-01-01',$4,$3,'QA')).id id",[key,member,JSON.stringify([{serviceId:service,quantity:1},{serviceId:store,quantity:1}]),time])).id;
   const booking=await create('QA-CONTROLS-BOOKING');
   // Simulate time elapsing after a valid reservation; production triggers remain enabled for every tested operation.
   await db.exec('alter table bookings disable trigger user');await run("update bookings set status='confirmed',booking_date='2026-01-31' where id=$1",[booking]);await db.exec('alter table bookings enable trigger user');
@@ -93,6 +94,8 @@ for(const itemPrices of [false,true])test(`ticket policy, snapshot intent/review
    await one("select dismiss_accessible_receipt_request($1,updated_at,'test:controls-admin') from booking_receipts where receipt_id=$1",[receipt]);
    receipt=(await prepare('QA-SNAPSHOT-REQUEST-THIRD')).receiptId;await finalize();
   });
+  await run("insert into calendar_items(calendar_item_id,title,item_type,status,starts_on,ends_on,bonus_points_enabled,bonus_points,created_by,updated_by) values('QA-BOOKING-BONUS','QA calendar bonus','event','active','2026-01-31','2026-01-31',true,3,'test:controls-admin','test:controls-admin')");
+  const balanceBeforeReview=Number((await one('select stamps from point_balances where member_id=$1 and point_card_id=$2',[member,card])).stamps);
   await t.test('admin approves once through canonical settlement and anonymous roles cannot access new writes',async()=>{
    const approve=async actor=>(await one("select register_snapshot_receipt_v2($1,updated_at,$2,$3,null,null,'[]',$4,'QA approval')result from booking_receipts where receipt_id=$1",[receipt,actor,booking,JSON.stringify(benefits)])).result;
    await assert.rejects(approve('test:controls-member'),/ADMIN_REQUIRED/);
@@ -102,7 +105,13 @@ for(const itemPrices of [false,true])test(`ticket policy, snapshot intent/review
     const q=(await one('select booking_price_resolve($1) p',[service])).p;
     await run("select set_config('request.headers',$1,false)",[JSON.stringify({'x-booking-price-preview':'1','x-booking-price-check':'1','x-booking-price-quote':JSON.stringify([{serviceId:service,...q}])})]);
    }
-   await approve('test:controls-admin');assert.equal((await approve('test:controls-admin')).alreadyApplied,true);
+   const applied=await approve('test:controls-admin');
+   assert.equal(applied.settlement.calendarBonusTotalPerCard,3);
+   assert.equal(applied.settlement.calendarBonusDetails.length,1);
+   assert.equal((await one('select stamps from point_balances where member_id=$1 and point_card_id=$2',[member,card])).stamps,balanceBeforeReview+5);
+   assert.deepEqual((await one("select count(*)::int n,coalesce(sum(amount),0)::int amount from point_entries where reference_type='calendar_bonus' and reference_id=$1",[booking])),{n:1,amount:3});
+   assert.equal((await approve('test:controls-admin')).alreadyApplied,true);
+   assert.equal((await one("select count(*)::int n from point_entries where reference_type='calendar_bonus' and reference_id=$1",[booking])).n,1);
    if(itemPrices){
     assert.equal((await one('select unit_price_amount from booking_items where booking_id=$1 and service_id=$2',[booking,service])).unit_price_amount,100,'linked reservation retains historical price');
     await run("select set_config('request.headers','{}',false)");
@@ -209,5 +218,28 @@ for(const itemPrices of [false,true])test(`ticket policy, snapshot intent/review
     assert.equal((await one('select booking_id from booking_receipts where receipt_id=$1',[newReceipt])).booking_id,result.bookingId);
     assert.equal((await one('select ticket_booking_required as enabled from booking_settings where id=1')).enabled,true);
    });
+  await t.test('normal booking completion awards the same bonus and refuses replay or disabled campaign',async()=>{
+   const normal=await create('QA-NORMAL-CALENDAR-BONUS','11:00');
+   await db.exec('alter table bookings disable trigger user');
+   await run("update bookings set status='confirmed',booking_date='2026-01-31' where id=$1",[normal]);
+   await db.exec('alter table bookings enable trigger user');
+   const prior=Number((await one('select stamps from point_balances where member_id=$1 and point_card_id=$2',[member,card])).stamps);
+   const settled=(await one("select complete_booking_with_rewards_request($1,updated_at,'test:controls-admin','QA normal') result from bookings where id=$1",[normal])).result;
+   assert.equal(settled.calendarBonusTotalPerCard,3);
+   assert.equal(settled.calendarBonusDetails.length,1);
+   assert.equal((await one('select stamps from point_balances where member_id=$1 and point_card_id=$2',[member,card])).stamps,prior+5);
+   assert.equal((await one("select count(*)::int n from point_entries where reference_type='calendar_bonus' and reference_id=$1",[normal])).n,1);
+   await assert.rejects(one("select complete_booking_with_rewards_request($1,updated_at,'test:controls-admin','replay') from bookings where id=$1",[normal]),/INVALID_BOOKING_TRANSITION|BOOKING_COMPLETION_ALREADY_SETTLED/);
+   assert.equal((await one("select count(*)::int n from point_entries where reference_type='calendar_bonus' and reference_id=$1",[normal])).n,1);
+   await run("update calendar_items set bonus_points_enabled=false where calendar_item_id='QA-BOOKING-BONUS'");
+   const disabled=await create('QA-NORMAL-CALENDAR-DISABLED','12:00');
+   await db.exec('alter table bookings disable trigger user');
+   await run("update bookings set status='confirmed',booking_date='2026-01-31' where id=$1",[disabled]);
+   await db.exec('alter table bookings enable trigger user');
+   const without=(await one("select complete_booking_with_rewards_request($1,updated_at,'test:controls-admin','QA disabled') result from bookings where id=$1",[disabled])).result;
+   assert.equal(without.calendarBonusTotalPerCard,0);
+   assert.deepEqual(without.calendarBonusDetails,[]);
+   assert.equal((await one("select count(*)::int n from point_entries where reference_type='calendar_bonus' and reference_id=$1",[disabled])).n,0);
+  });
  }finally{await db.close();}
 });
