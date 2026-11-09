@@ -761,7 +761,18 @@ test('BOOKING_RELEASED_TICKET — booking and accessible history explain why a h
 for(const kind of ['card','ticket','event','fixed'])test('SETTINGS_COPY_'+kind+' — preview, name, draft and independent source',async({page:p},info)=>{
  if(kind==='card'){await click(p,'cardsTab');await p.locator('#cardListItems .card-list-item-main').first().click();}
  else if(kind==='ticket'){await click(p,'cardsTab');await click(p,'ticketSettingsTab');await p.locator('[data-ticket-template-id]').first().click();}
- else{await openEvent(p,kind==='fixed'?'fixed':'coupon');await click(p,'saveEventTicketButton');await expect.poll(()=>kind==='fixed'?info.fixture.templates.length:info.fixture.eventTickets.length).toBe(1);}
+ else{
+  await openEvent(p,kind==='fixed'?'fixed':'coupon');
+  await click(p,'saveEventTicketButton');
+  await expect.poll(()=>kind==='fixed'?info.fixture.templates.length:info.fixture.eventTickets.length).toBe(1);
+  // The fixture records the commit before the browser has finished loading the
+  // saved editor. Never test a copy of an unsaved draft as a saved source.
+  if(kind==='event'){
+    await expect(p.locator('#eventTicketId')).toHaveValue(info.fixture.eventTickets[0].eventTicketId);
+    await expect(p.locator('#saveEventTicketButton')).toBeEnabled();
+    await expect(p.locator('#eventTicketFormMessage')).toContainText('活動票券已儲存');
+  }
+ }
  const [table,key,field]=({card:['cards','cardId','cardId'],ticket:['tickets','ticketTemplateId','ticketTemplateId'],event:['eventTickets','eventTicketId','eventTicketId'],fixed:['templates','fixedTicketId','eventTicketTitle']})[kind];
  const source=structuredClone(info.fixture[table][0]);await click(p,'copySettings-'+(kind==='fixed'?'event':kind));await expect(p.locator('#settingsCopyModal')).toBeVisible();await expect(p.locator('#settingsCopyPreview')).toContainText(source.title);
  await fill(p,'settingsCopyName','QA copied '+kind);await click(p,'settingsCopyConfirm');await expect(p.locator('#settingsCopyModal')).toBeHidden();await expect.poll(()=>info.fixture[table].length).toBe(kind==='card'?3:2);
