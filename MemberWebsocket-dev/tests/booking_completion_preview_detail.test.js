@@ -101,14 +101,32 @@ test('missing participant details are recognized as unsafe for settlement confir
   assert.match(source, /if \(!preview\.hasParticipantDetails\) return;/);
 });
 
-test('completion preview exposes itemized minutes, amount, notes, and business feature gates', () => {
+test('completion preview keeps only booking details, booked items, and ticket usage', () => {
+  assert.match(source, /id="bookingCompletionInfoTitle"[^>]*>.*預約資料/);
+  assert.match(source, /id="bookingCompletionItemsTitle"[^>]*>.*預約項目/);
+  assert.match(source, /id="bookingCompletionTicketsTitle"[^>]*>.*票券使用資料/);
   assert.match(source, /item\.unitMinutes.*分鐘／份.*item\.quantity.*item\.subtotalMinutes/);
-  assert.match(source, /formatMoney\(item\.unitPrice\).*formatMoney\(item\.subtotalAmount\)/);
+  assert.match(source, /formatMoney\(item\.unitPrice\)/);
+  assert.match(source, /formatMoney\(item\.subtotalAmount\)/);
   assert.match(source, /booking\.memberNote/);
+  assert.match(source, /person\.memberNote/);
   assert.match(source, /bookingContactName\(booking\)/);
-  assert.match(source, /data-business-requires="booking points"/);
   assert.match(source, /data-business-requires="booking points\|events"/);
-  assert.match(source, /真正的服務時間、集點、LINE 通知與重複請求判斷仍由 Server-side 完成結算流程決定/);
+  assert.doesNotMatch(source.slice(source.indexOf('  function openCompletionPreview('), source.indexOf('  async function bookingRiskRequest(')), /將計入會員時間（主要技師）|預估自動集點|Point rewards/);
+  assert.match(source, /if \(!preview\.hasParticipantDetails\) return;/);
+  assert.match(source, /expectedUpdatedAt: booking\.updatedAt/);
+  assert.match(source, /operationsRequest\('admin\.booking\.status\.complete'/);
+});
+
+test('completion review styles target the body-mounted modal and preserve responsive layout', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'admin/booking-panel.css'), 'utf8');
+  assert.match(source, /document\.body\.appendChild\(modal\)/);
+  assert.match(css, /#bookingAdminCrudModal \.booking-completion-preview-section/);
+  assert.match(css, /#bookingAdminCrudModal \.booking-completion-preview-person/);
+  assert.match(css, /#bookingAdminCrudModal \.booking-completion-preview-benefit-row/);
+  assert.match(css, /@media\(max-width:640px\)/);
+  assert.match(css, /var\(--theme-surface-raised/);
+  assert.doesNotMatch(css, /^#bookingPanel \.booking-completion-preview/m);
 });
 
 
@@ -140,7 +158,7 @@ function render({ booking: value, group, services = [], types = [], primaryTechn
   return { html: documentBody.innerHTML, title: element.bookingAdminCrudModalTitle.textContent };
 }
 
-test('real settlement renderer shows separate participant totals, correct eligibility, contact and notes', () => {
+test('real settlement renderer shows three readable sections, per-person totals, contact and escaped notes', () => {
   const result = render({
     booking: {
       ...booking, bookingId: 'test-booking', memberDisplayName: '小胖', memberCode: 'M001',
@@ -163,9 +181,12 @@ test('real settlement renderer shows separate participant totals, correct eligib
   assert.match(result.html, /NT\$300 × 2 = NT\$600/);
   assert.match(result.html, /NT\$400/);
   assert.match(result.html, /非主要技師/);
-  assert.match(result.html, /將計入會員時間（主要技師）/);
-  assert.match(result.html, /所有服務項目分鐘（含其他技師）/);
-  assert.match(result.html, /100 分鐘/);
+  assert.match(result.html, /預約資料/);
+  assert.match(result.html, /預約項目/);
+  assert.match(result.html, /票券使用資料/);
+  assert.match(result.html, /小計/);
+  assert.match(result.html, /服務總金額（未扣優惠）/);
+  assert.doesNotMatch(result.html, /預估自動集點|將計入會員時間/);
   assert.match(result.html, /60 分鐘/);
   assert.match(result.html, /NT\$1000/);
   assert.match(result.html, /&lt;私人備註&gt;/);
