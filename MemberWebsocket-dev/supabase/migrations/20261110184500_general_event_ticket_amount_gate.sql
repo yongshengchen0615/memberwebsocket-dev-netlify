@@ -11,7 +11,7 @@ declare
   old_part text;
   new_part text;
   old_count integer;
-  replacement_count integer;
+  new_trigger jsonb;
   tpl jsonb;
   cols jsonb;
   funcs jsonb;
@@ -24,7 +24,9 @@ declare
     'redeem_member_tickets_for_booking_request',
     'complete_booking_with_benefits_request',
     'reconcile_booking_ticket_services',
-    'member_ticket_booking_options_with_booking'
+    'member_ticket_booking_options_with_booking',
+    'prevent_delete_ticket_required_service_item',
+    'validate_ticket_required_service_ids'
   ];
 begin
   for s in
@@ -87,7 +89,7 @@ begin
     $function$,s);
 
     -- Existing normal-booking transactions remain the authorization boundary.
-    for fn in select unnest(func_names[3:8]) loop
+    for fn in select unnest(func_names[3:10]) loop
       select pg_get_functiondef(p.oid) into strict def from pg_proc p
       join pg_namespace n on n.oid=p.pronamespace
       where n.nspname=s and p.proname=fn and p.prokind='f';
@@ -119,6 +121,15 @@ begin
       elsif fn='member_ticket_booking_options_with_booking' then
         old_part := '      and '||prefix||'booking_ticket_matches_services(b.id,p_member_id,t.kind,t.ref)';
         new_part := old_part||E'\n'||'      and '||prefix||'booking_ticket_meets_amount(b.id,p_member_id,t.kind,t.ref)';
+      elsif fn='prevent_delete_ticket_required_service_item' then
+        old_part := 'where (old.id = any(coalesce(et.required_service_ids, ''{}''::uuid[]))';
+        new_part := 'where (old.id = any(coalesce(et.required_service_ids, ''{}''::uuid[])) or old.id=any(coalesce(et.min_booking_service_ids, ''{}''::uuid[]))';
+      elsif fn='validate_ticket_required_service_ids' then
+        old_part := '  return new;';
+        new_part := '  if TG_TABLE_NAME=''event_tickets'' and exists('||
+          'select 1 from unnest(coalesce(new.min_booking_service_ids,''{}''::uuid[])) chosen(service_id) '||
+          'left join '||prefix||'booking_services bs on bs.id=chosen.service_id where bs.id is null'||
+          ') then raise exception ''INVALID_BOOKING_AMOUNT_RULE''; end if;'||E'\n'||old_part;
       end if;
       if strpos(def,old_part)=0 then
         raise exception 'GENERAL_AMOUNT_PATCH_SOURCE_CHANGED: %.%',s,fn;
@@ -129,6 +140,7 @@ begin
       end if;
       execute replace(def,old_part,new_part);
     end loop;
+    execute format('create trigger event_ticket_min_booking_services_guard before insert or update of min_booking_service_ids on %I.event_tickets for each row execute function %I.validate_ticket_required_service_ids()',s,s);
     execute format('revoke all on function %I.booking_ticket_meets_amount(uuid,uuid,text,text), %I.assert_general_booking_event_amount(uuid,uuid,jsonb) from public,anon,authenticated',s,s);
     execute format('grant execute on function %I.booking_ticket_meets_amount(uuid,uuid,text,text), %I.assert_general_booking_event_amount(uuid,uuid,jsonb) to service_role',s,s);
   end loop;
@@ -142,13 +154,13 @@ begin
     select jsonb_agg(
       case when t->>'name'='event_tickets' then
         jsonb_set(t,'{columns}',(t->'columns')||
-          (select jsonb_agg(v)
+          coalesce((select jsonb_agg(v)
            from (values
              (jsonb_build_object('name','min_booking_amount_mode','type','text','default','''none''::text','notNull',true,'identity','','generated','')),
              (jsonb_build_object('name','min_booking_amount','type','integer','default','0','notNull',true,'identity','','generated','')),
              (jsonb_build_object('name','min_booking_service_ids','type','uuid[]','default','''{}''::uuid[]','notNull',true,'identity','','generated',''))
            ) x(v)
-           where not exists(select 1 from jsonb_array_elements(t->'columns') prior where prior->>'name'=v->>'name')))
+           where not exists(select 1 from jsonb_array_elements(t->'columns') prior where prior->>'name'=v->>'name')),'[]'::jsonb))
       else t end order by ordinal)
     into cols from jsonb_array_elements(tpl->'tables') with ordinality a(t,ordinal);
     tpl:=jsonb_set(tpl,'{tables}',cols);
@@ -169,6 +181,17 @@ begin
       coalesce((select jsonb_agg(c order by ordinal) from jsonb_array_elements(tpl->'constraints') with ordinality a(c,ordinal)
         where c->>'name'<>'event_ticket_min_booking_amount_check'),'[]'::jsonb)
       || jsonb_build_array(constraints));
+    select jsonb_build_object('name',t.tgname,'definition',pg_get_triggerdef(t.oid)) into new_trigger
+    from pg_trigger t join pg_class c on c.oid=t.tgrelid
+    join pg_namespace n on n.oid=c.relnamespace
+    where n.nspname='public' and c.relname='event_tickets'
+      and t.tgname='event_ticket_min_booking_services_guard' and not t.tgisinternal;
+    if new_trigger is null then raise exception 'BUSINESS_TEMPLATE_AMOUNT_TRIGGER_MISSING'; end if;
+    tpl:=jsonb_set(tpl,'{triggers}',
+      coalesce((select jsonb_agg(t order by ordinal)
+        from jsonb_array_elements(tpl->'triggers') with ordinality a(t,ordinal)
+        where t->>'name'<>'event_ticket_min_booking_services_guard'),'[]'::jsonb)
+      || jsonb_build_array(new_trigger));
     update platform_private.business_templates set snapshot=tpl where version='business-v1-20261019';
   end if;
 end;
