@@ -57,6 +57,20 @@ Deno.test("selectLatestPointOffers ignores deleted or inactive current definitio
   assertEquals(offers, []);
 });
 
+Deno.test("event amount limits are published only for configured general-booking tickets", () => {
+  const offers = selectLatestEventOffers([
+    { id:"event-old",title:"舊票券",quota:0 },
+    { id:"event-total",title:"滿額券",quota:0,min_booking_amount_mode:"total",min_booking_amount:500,min_booking_service_ids:[] },
+    { id:"event-selected",title:"指定項目滿額券",quota:0,min_booking_amount_mode:"selected_services",min_booking_amount:800,min_booking_service_ids:["item-A"] },
+  ],[],"member-a");
+  assertEquals(offers[0].minBookingAmountMode,undefined);
+  assertEquals(offers[1].minBookingAmountMode,"total");
+  assertEquals(offers[1].minBookingAmount,500);
+  assertEquals(offers[2].minBookingAmountMode,"selected_services");
+  assertEquals(offers[2].minBookingAmount,800);
+  assertEquals(offers[2].minBookingServiceIds,["item-A"]);
+});
+
 Deno.test("selectLatestEventOffers only returns unused claimed or still-claimable event tickets", () => {
   const offers = selectLatestEventOffers(
     [
