@@ -201,6 +201,14 @@ for (const width of [390, 1280]) {
       await expect(page.locator('#bookingPhoneFallback')).toBeVisible();
       await expect(page.locator('.booking-day-footer > #startDayBookingButton + #bookingPhoneFallback > #bookingPhoneDial')).toHaveText('撥打店家電話：06-1234567');
       await expect(page.locator('#bookingPhoneDial')).toHaveAttribute('href', 'tel:061234567');
+      const phoneLayout = await page.evaluate(() => {
+        const fallback = document.getElementById('bookingPhoneFallback').getBoundingClientRect();
+        const phone = document.getElementById('bookingPhoneDial').getBoundingClientRect();
+        return { leftDelta: Math.abs(phone.left - fallback.left), widthDelta: Math.abs(phone.width - fallback.width), height: phone.height };
+      });
+      expect(phoneLayout.leftDelta).toBeLessThan(2);
+      expect(phoneLayout.widthDelta).toBeLessThan(2);
+      expect(phoneLayout.height).toBeGreaterThanOrEqual(48);
       await page.locator('#closeBookingDayButton').click();
     }
 
