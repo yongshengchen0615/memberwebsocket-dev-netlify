@@ -164,7 +164,7 @@
     // single-person base form quote forwarded by app.js.
     const { expectedPrices: baseQuote, ...groupPayload } = payload;
     const pricePayload = state.config?.pricePublishing === true ? window.BookingPricePublishing.payload(state.config,groupPayload,state.services) : payload;
-    const functionName = (action === 'user.booking.group.slots' ? 'booking-group-slots-api' : 'booking-group-api') + (state.config?.bookingPreviewApis === true ? '-preview' : '');
+    const functionName = action === 'user.booking.group.slots' ? 'booking-group-slots-api' : 'booking-group-api';
     const endpoint = `${String(state.config?.supabaseUrl || '').replace(/\/$/, '')}/functions/v1/${functionName}`;
     const isWrite = action === 'user.booking.group.create' || action === 'user.booking.group.update';
     if (isWrite && state.config?.pricePublishing === true) pricePayload.expectedPrices = state.confirmationPrices || [];

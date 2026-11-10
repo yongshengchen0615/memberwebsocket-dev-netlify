@@ -132,6 +132,14 @@ deno test MemberWebsocket-dev/supabase/functions/_shared/*_test.ts MemberWebsock
 
 **歷史 CI 失敗紀錄（非目前狀態）：** [#40](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/issues/40) 於 2026-10-21 記錄 Chromium `PLATFORM_APPLY` 導覽逾時；2026-10-22 的 PR #84 合併版本已留下分片 Chromium、全套 CI 與 Preview 成功證據。不可將任何舊失敗或舊成功直接套用至新的提交；任何測試異常必須保留實際證據，不能藉增加 retry、略過案例或降低發布門檻掩飾。
 
+### 6.1 API 單一路由與退役驗收
+
+1. `MemberWebsocket-dev/config.json` 的開發專案為應用程式 API 來源；會員、管理端、多人預約、收據與 presence 均使用對應正式函式。功能旗標只控制功能，不決定 API 環境；不得重新加入 `previewApiFunctionUrl` 或 `bookingPreviewApis` 路由。
+2. 所有建置身分（local、feature、develop、Integrated、production）清除已退役的 API 覆寫值。部署產物檢查與實際傳輸測試覆蓋舊設定，確認不存在通往測試／preview 的入口。
+3. 隔離測試與故障 stub 繼續保留；不得因撤下線上 QA API 而削減既有完整 CI。真實 LINE 驗收仍需合成帳號及授權環境，不能把 fixture 通過當作外部登入已驗證。
+4. 歷史 QA 原始碼僅作回歸輸入；部署前按 `supabase/retirement/retired-endpoints.json` 排除，禁止 blanket deploy 使其復活。退役 handler 不得解析身分、讀寫資料庫、發送通知或呼叫外部服務。
+5. 先確認正式函式具備相容契約、發布同 SHA 且通過完整 CI 的消費端，再依線上呼叫盤點退役 preview。驗收至少包含來源版本、函式版本、HTTP 方法／狀態／錯誤碼、無資料副作用、發布與回復記錄；未部署、未驗證或仍有消費端者列為待完成。
+
 ## 7. PR 合併與上線閘門
 
 1. 每個 PR 都必須填寫 [PR 範本](../.github/PULL_REQUEST_TEMPLATE.md)：連結 Issue、改前/改後、差異清單、受影響原功能、AC、測試矩陣、實際結果、未執行項與回復方式。

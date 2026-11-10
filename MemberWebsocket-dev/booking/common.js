@@ -233,7 +233,7 @@
   }
 
   function sendPresence(context, event, reason) {
-    const endpoint = String(context.config.previewApiFunctionUrl || context.config.supabaseFunctionUrl || '').trim();
+    const endpoint = String(context.config.supabaseFunctionUrl || '').trim();
     if (!endpoint) return Promise.resolve(null);
     return fetch(endpoint, {
       method: 'POST',
@@ -283,7 +283,7 @@
   }
 
   function sendPresenceExit(context, reason) {
-    const endpoint = String(context.config.previewApiFunctionUrl || context.config.supabaseFunctionUrl || '').trim();
+    const endpoint = String(context.config.supabaseFunctionUrl || '').trim();
     if (!/^https:\/\/[a-z0-9-]+\.supabase\.co\/functions\/v1\/[A-Za-z0-9_-]+$/i.test(endpoint)) return Promise.resolve(null);
     const jsonBody = JSON.stringify(presenceBody(context, 'offline', reason));
     // Beacon/simple POST skips a preflight which may be cancelled on LINE WebView close.
@@ -346,7 +346,7 @@
 
   async function request(config, clientType, idToken, action, payload = {}) {
     const receiptAction = String(action || '').startsWith('user.booking.receipt.');
-    const endpoint = `${String(config.supabaseUrl).replace(/\/$/, '')}/functions/v1/${(receiptAction ? 'booking-receipt-api' : 'booking-api') + (config.bookingPreviewApis === true ? '-preview' : '')}`;
+    const endpoint = `${String(config.supabaseUrl).replace(/\/$/, '')}/functions/v1/${receiptAction ? 'booking-receipt-api' : 'booking-api'}`;
     const body = window.TestModeClient && typeof window.TestModeClient.payload === 'function'
       ? window.TestModeClient.payload({ ...payload, ...(config.pricePublishing === true ? {pricePublishing:true} : {}), action, clientType, idToken })
       : { ...payload, ...(config.pricePublishing === true ? {pricePublishing:true} : {}), action, clientType, idToken };
@@ -362,12 +362,12 @@
       idToken,
       ...(bookingId ? { bookingId: String(bookingId) } : {}),
     };
-    return postJson(String(config.previewApiFunctionUrl || config.supabaseFunctionUrl || '').trim(), config,
+    return postJson(String(config.supabaseFunctionUrl || '').trim(), config,
       window.TestModeClient?.payload ? window.TestModeClient.payload(body) : body, '可用活動與票券');
   }
 
   async function claimEventTicket(config, idToken, eventTicketId) {
-    const endpoint = String(config.previewApiFunctionUrl || config.supabaseFunctionUrl || '').trim();
+    const endpoint = String(config.supabaseFunctionUrl || '').trim();
     if (!endpoint) throw clientError('CONFIG_INVALID', '活動票券服務設定不完整。');
     const body = {
       action: 'user.booking.event-ticket.claim',
@@ -381,7 +381,7 @@
   }
 
   async function memberProfile(config, idToken) {
-    const endpoint = String(config.previewApiFunctionUrl || config.supabaseFunctionUrl || '').trim();
+    const endpoint = String(config.supabaseFunctionUrl || '').trim();
     if (!endpoint) throw clientError('CONFIG_INVALID', '會員資料服務設定不完整。');
     const requestBody = {
       action: 'user.member.bootstrap',

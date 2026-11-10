@@ -20,3 +20,13 @@ test('non-Integrated, production and ambiguous build identities preserve origina
  for(const env of [{},{BRANCH:'main'},{BRANCH:'develop'},{BRANCH:'feature/test'},{BRANCH:'Integrated-Marketing-Platform',CONTEXT:'production'},{BRANCH:'main',PREVIEW_SOURCE_BRANCH:'Integrated-Marketing-Platform'}])assert.deepEqual(previewMemberRuntime(config,env),config);
  assert.deepEqual(previewMemberRuntime(config,{PREVIEW_SOURCE_BRANCH:'Integrated-Marketing-Platform'}),{...config,pricePublishing:true});
 });
+
+test('AC-004: every environment removes stale preview overrides without mutating config', () => {
+ const stale={...config,previewApiFunctionUrl:'https://example.supabase.co/functions/v1/api-preview',memberProfileFunctionUrl:'https://example.supabase.co/functions/v1/member-profile-api-preview',memberGrowthFunctionUrl:'https://example.supabase.co/functions/v1/member-growth-api-preview',bookingPreviewApis:true};
+ const before=structuredClone(stale);
+ for(const env of [{},{BRANCH:'main'},{BRANCH:'develop'},{BRANCH:'feature/test'},{BRANCH:'Integrated-Marketing-Platform',CONTEXT:'production'},{BRANCH:'main',PREVIEW_SOURCE_BRANCH:'Integrated-Marketing-Platform'}]){
+  assert.deepEqual(previewMemberRuntime(stale,env),config);
+ }
+ assert.deepEqual(stale,before);
+ assert.equal(previewMemberRuntime({...stale,pricePublishing:false},{BRANCH:'main'}).pricePublishing,false);
+});

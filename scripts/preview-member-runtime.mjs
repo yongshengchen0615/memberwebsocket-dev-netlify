@@ -2,8 +2,10 @@
 // The Integrated preview keeps its UI feature switch but no longer calls isolated
 // *-preview endpoints or switches booking operations to preview functions.
 export function previewMemberRuntime(config, env) {
-  const branch = env.BRANCH || env.PREVIEW_SOURCE_BRANCH || env.GITHUB_REF_NAME;
-  if (branch !== 'Integrated-Marketing-Platform' || env.CONTEXT === 'production') return { ...config };
+  // Strip obsolete routing overrides for every build identity, including local
+  // and production builds. Feature flags must never choose another backend.
   const { previewApiFunctionUrl, memberProfileFunctionUrl, memberGrowthFunctionUrl, bookingPreviewApis, ...canonical } = config;
+  const branch = env.BRANCH || env.PREVIEW_SOURCE_BRANCH || env.GITHUB_REF_NAME;
+  if (branch !== 'Integrated-Marketing-Platform' || env.CONTEXT === 'production') return canonical;
   return { ...canonical, pricePublishing: true };
 }
