@@ -244,7 +244,15 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
         const minBookingServiceIds = Array.isArray(offer.minBookingServiceIds) ? offer.minBookingServiceIds : [];
         const minBookingServiceTitles = minBookingServiceIds.map((id) =>
           requiredServiceTitleById.get(String(id)) || '已停用項目');
-        const amountText = 'NT
+        const amountText = 'NT' + String.fromCharCode(36) + minBookingAmount.toLocaleString('en-US');
+        const minBookingAmountLabel = minBookingAmountMode === 'none' ? '不限金額'
+          : !Number.isSafeInteger(minBookingAmount) || minBookingAmount < 1
+            ? '一般預約金額條件資料異常，請洽店家確認'
+          : minBookingAmountMode === 'total'
+            ? '一般預約總金額滿 ' + amountText
+          : minBookingAmountMode === 'selected_services' && minBookingServiceIds.length
+            ? '一般預約指定項目「' + minBookingServiceTitles.join('、') + '」合計滿 ' + amountText
+          : '一般預約指定項目金額條件資料異常，請洽店家確認';
         return {
           kind: 'event', id: offer.eventTicketId, title: offer.title,
           description: offer.description, accent: offer.accent, ticketType: offer.ticketType, quota: offer.quota, claimedCount: offer.claimedCount,
