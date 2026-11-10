@@ -383,13 +383,18 @@ test('AC-AMOUNT-DISPLAY: event ticket shows a distinct amount condition, never o
   const h = fixture(async () => ({ items: tickets, eventTicketMaxPerDay: 0 }));
   try {
     h.start(); await tick(15);
-    const cards = [...h.el('bookingBenefitsList').querySelectorAll('.booking-benefit')];
-    assert.equal(cards.length, 4);
-    assert.equal(cards[0].querySelector('.booking-benefit-amount-condition')?.textContent, '金額使用條件：一般預約總金額滿 NT$300');
-    assert.equal(cards[1].querySelector('.booking-benefit-amount-condition')?.textContent, '金額使用條件：一般預約指定項目「美髮」合計滿 NT$500');
-    assert.ok(!cards[0].querySelector('.booking-benefit-condition:not(.booking-benefit-amount-condition)')?.textContent.includes('NT$300'), 'do not repeat amount in long description');
-    assert.equal(cards[2].querySelector('.booking-benefit-amount-condition'), null);
-    assert.equal(cards[3].querySelector('.booking-benefit-amount-condition'), null);
-    assert.match(cards[0].textContent, /預約項目限制：不限/);
+    const list = h.el('bookingBenefitsList');
+    assert.equal(list.querySelectorAll('.booking-benefit').length, 4);
+    // The real component groups calendar / points / event tickets; locate by ID,
+    // not input array order.
+    const card = (id) => list.querySelector(`input[data-booking-benefit-id="${id}"]`)?.closest('.booking-benefit');
+    const total = card('TOTAL-1'), selected = card('ITEMS-1');
+    assert.ok(total && selected && card('LEGACY-1') && card('POINTS-1'));
+    assert.equal(total.querySelector('.booking-benefit-amount-condition')?.textContent, '金額使用條件：一般預約總金額滿 NT$300');
+    assert.equal(selected.querySelector('.booking-benefit-amount-condition')?.textContent, '金額使用條件：一般預約指定項目「美髮」合計滿 NT$500');
+    assert.ok(!total.querySelector('.booking-benefit-condition:not(.booking-benefit-amount-condition)')?.textContent.includes('NT$300'), 'do not repeat amount in long description');
+    assert.equal(card('LEGACY-1').querySelector('.booking-benefit-amount-condition'), null);
+    assert.equal(card('POINTS-1').querySelector('.booking-benefit-amount-condition'), null);
+    assert.match(total.textContent, /預約項目限制：不限/);
   } finally { h.close(); }
 });
