@@ -68,6 +68,30 @@ test('available day opens original form only after start; close returns to the s
   } finally { f.w.close(); }
 });
 
+test('telephone booking appears only on dates blocked from online booking within the merchant horizon', async () => {
+  const f = await fixture();
+  try {
+    f.emit('booking:settings-updated', { today: '2026-10-30', settings: { minAdvanceDays: 2, maxAdvanceDays: 4, phoneBookingNumber: '06-1234567' } });
+    f.click('2026-10-30');
+    assert.equal(f.el('startDayBookingButton').disabled, true);
+    assert.equal(f.el('startDayBookingButton').hidden, true);
+    assert.equal(f.el('bookingPhoneFallback').hidden, false);
+    assert.equal(f.el('bookingPhoneDial').getAttribute('href'), 'tel:061234567');
+
+    f.el('nextMonthButton').click();
+    f.click('2026-11-01');
+    assert.equal(f.el('startDayBookingButton').disabled, false);
+    assert.equal(f.el('startDayBookingButton').hidden, false);
+    assert.equal(f.el('bookingPhoneFallback').hidden, true);
+    assert.equal(f.el('bookingPhoneDial').hasAttribute('href'), false);
+
+    f.click('2026-11-04');
+    assert.equal(f.el('startDayBookingButton').disabled, true);
+    assert.equal(f.el('bookingPhoneFallback').hidden, true);
+    assert.equal(f.el('bookingPhoneDial').hasAttribute('href'), false);
+  } finally { f.w.close(); }
+});
+
 test('Escape and mobile backdrop return to selected day without closing the day history', async () => {
   const f = await fixture();
   try {
