@@ -1321,7 +1321,7 @@ function ticketBookingAmountLabel(row: any, serviceTitles: Map<string,string>): 
     const ids = Array.isArray(row.min_booking_service_ids)
       ? [...new Set(row.min_booking_service_ids.map(String).filter(Boolean))] : [];
     if (!ids.length) return "一般預約指定項目金額條件資料異常，請洽店家確認";
-    const names = ids.map((id: string) => serviceTitles.get(id) || "已停用項目");
+    const names = ids.map((id) => serviceTitles.get(String(id)) || "已停用項目");
     return `一般預約指定項目「${names.join("、")}」合計滿 ${amount}`;
   }
   return "一般預約金額條件資料異常，請洽店家確認";
