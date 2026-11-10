@@ -70,8 +70,10 @@ jobs:
             # This branch-specific marker is issued ONLY after the exact-SHA CI
             # gate above has passed. It is never set for production or PRs.
             test "$GITHUB_REF_NAME" = Integrated-Marketing-Platform
+            # NETLIFY_SITE_ID is set in the job environment and links the CLI to this site.
+            # The pinned CLI's env:set does not accept --site; deploy commands still do.
             npx --yes netlify-cli@23.11.0 env:set PLATFORM_CI_VERIFIED_SHA "$GITHUB_SHA" \
-              --site="$NETLIFY_SITE_ID" --context "branch:$GITHUB_REF_NAME" --scope builds --force
+              --context "branch:$GITHUB_REF_NAME" --scope builds --force
             export NATIVE_NOT_BEFORE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
             echo "NATIVE_NOT_BEFORE=$NATIVE_NOT_BEFORE" >> "$GITHUB_ENV"
             curl --fail --silent --show-error --retry 0 \

@@ -227,3 +227,12 @@ test('stale public alias is recoverable only after exact SHA CI and final accept
  assert.match(verifier,/data-commit/);
  assert.doesNotMatch(preview,/--prod\b/);
 });
+
+test('AC-NATIVE-ENV-001: native recovery uses NETLIFY_SITE_ID without unsupported env:set --site flag',()=>{
+  const command=preview.match(/npx --yes netlify-cli@23\.11\.0 env:set PLATFORM_CI_VERIFIED_SHA[\s\S]*?--force/);
+  assert.ok(command,'native recovery must pin verified SHA before starting a branch build');
+  assert.match(preview,/NETLIFY_SITE_ID: 196e1d2c-8216-4ba8-aeb9-1706660adc2b/);
+  assert.match(command[0],/--context "branch:\$GITHUB_REF_NAME"/);
+  assert.match(command[0],/--scope builds --force/);
+  assert.doesNotMatch(command[0],/--site(?:=|\s)/,'env:set reads site from NETLIFY_SITE_ID instead');
+});
