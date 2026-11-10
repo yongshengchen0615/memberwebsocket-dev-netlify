@@ -36,9 +36,9 @@ export type CurrentEventOffer = {
   requiredServiceIds: string[];
   requiredServiceMatchMode: 'any' | 'all';
   requiredServiceGroups?: string[][];
-  minBookingAmountMode: 'none' | 'total' | 'selected_services';
-  minBookingAmount: number;
-  minBookingServiceIds: string[];
+  minBookingAmountMode?: 'total' | 'selected_services';
+  minBookingAmount?: number;
+  minBookingServiceIds?: string[];
 };
 
 function text(value: unknown): string {
@@ -183,9 +183,11 @@ export function selectLatestEventOffers(
         ? row.required_service_ids.map(text).filter(Boolean)
         : [],
       requiredServiceMatchMode: text(row.required_service_match_mode) === "all" ? "all" : "any",
-      minBookingAmountMode: ['total','selected_services'].includes(text(row.min_booking_amount_mode)) ? row.min_booking_amount_mode : 'none',
-      minBookingAmount: number(row.min_booking_amount),
-      minBookingServiceIds: Array.isArray(row.min_booking_service_ids) ? row.min_booking_service_ids.map(text).filter(Boolean) : [],
+      ...(['total','selected_services'].includes(text(row.min_booking_amount_mode)) ? {
+        minBookingAmountMode: text(row.min_booking_amount_mode) as 'total' | 'selected_services',
+        minBookingAmount: number(row.min_booking_amount),
+        minBookingServiceIds: Array.isArray(row.min_booking_service_ids) ? row.min_booking_service_ids.map(text).filter(Boolean) : [],
+      } : {}),
       ...(Array.isArray(row.required_service_groups) && row.required_service_groups.length ? { requiredServiceGroups: row.required_service_groups } : {}),
     };
     const claimId = claimed ? (memberAvailableClaims.get(eventId) || "") : "";
@@ -325,9 +327,11 @@ export async function loadLatestEventOffers(
         : [],
       requiredServiceMatchMode: text(event?.required_service_match_mode) === "all" ? "all" : "any",
       ...(Array.isArray(event?.required_service_groups) && event.required_service_groups.length ? { requiredServiceGroups: event.required_service_groups } : {}),
-      minBookingAmountMode: ['total','selected_services'].includes(text(event?.min_booking_amount_mode)) ? event.min_booking_amount_mode : 'none',
-      minBookingAmount: number(event?.min_booking_amount),
-      minBookingServiceIds: Array.isArray(event?.min_booking_service_ids) ? event.min_booking_service_ids.map(text).filter(Boolean) : [],
+      ...(['total','selected_services'].includes(text(event?.min_booking_amount_mode)) ? {
+        minBookingAmountMode: text(event.min_booking_amount_mode) as 'total' | 'selected_services',
+        minBookingAmount: number(event.min_booking_amount),
+        minBookingServiceIds: Array.isArray(event.min_booking_service_ids) ? event.min_booking_service_ids.map(text).filter(Boolean) : [],
+      } : {}),
     };
   });
 }
