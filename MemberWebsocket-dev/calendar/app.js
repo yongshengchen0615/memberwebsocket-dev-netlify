@@ -76,13 +76,23 @@
   function renderCalendar() {
     const visibleRange = visibleRangeForMonth(state.visibleMonth);
     const monthRange = calendarMonthRange(state.visibleMonth);
-    const visibleItems = state.items.filter((item) => calendarItemOverlapsRange(item, monthRange.start, monthRange.end));
-    const holidayCount = visibleItems.filter((item) => item.itemType === 'holiday').length;
-    const eventCount = visibleItems.filter((item) => item.itemType === 'event').length;
+    const displayedDates = [];
+    let day = parseIsoDate(monthRange.start);
+    const lastDay = parseIsoDate(monthRange.end);
+    while (day && lastDay && day <= lastDay) {
+      const entries = visibleCalendarItemsOnDate(state.items, toIsoDate(day));
+      if (entries.length) displayedDates.push(entries);
+      day.setUTCDate(day.getUTCDate() + 1);
+    }
+    const holidayCount = displayedDates.filter((entries) => entries.some((item) => item.itemType === 'holiday')).length;
+    const eventCount = new Set(displayedDates.flat().filter((item) => item.itemType === 'event')
+      .map((item) => item.calendarDisplaySourceId || item.calendarItemId || item)).size;
     els.monthTitle.textContent = calendarMonthLabel(state.visibleMonth);
     els.calendarGrid.replaceChildren(...weekdayHeaders(), ...calendarDays(visibleRange));
-    els.calendarSummary.textContent = visibleItems.length ? String(visibleItems.length) + ' 個日期 · ' + String(holidayCount) + ' 個休假日 · ' + String(eventCount) + ' 個活動' : '這個月尚未設定日期';
-    els.emptyView.classList.toggle('hidden', visibleItems.length !== 0);
+    els.calendarSummary.textContent = displayedDates.length
+      ? String(displayedDates.length) + ' 個日期 · ' + String(holidayCount) + ' 個休假日 · ' + String(eventCount) + ' 個活動'
+      : '這個月尚未設定日期';
+    els.emptyView.classList.toggle('hidden', displayedDates.length !== 0);
   }
 
   function weekdayHeaders() {
@@ -94,6 +104,14 @@
     });
   }
 
+  // A holiday owns its date in both the grid and the details modal.
+  // Keep the original events in the snapshot so removing the holiday restores them.
+  function visibleCalendarItemsOnDate(items, isoDate) {
+    const entries = items.filter((item) => itemOnDate(item, isoDate));
+    const holidays = entries.filter((item) => item.itemType === 'holiday' && (!item.status || item.status === 'active'));
+    return holidays.length ? holidays : entries;
+  }
+
   function calendarDays(range) {
     const result = [];
     let current = parseIsoDate(range.start);
@@ -101,7 +119,7 @@
     const today = taipeiToday();
     while (current && end && current <= end) {
       const isoDate = toIsoDate(current);
-      const entries = state.items.filter((item) => itemOnDate(item, isoDate));
+      const entries = visibleCalendarItemsOnDate(state.items, isoDate);
       const cell = document.createElement(entries.length ? 'button' : 'article');
       cell.className = 'calendar-day' + (current.getUTCMonth() !== state.visibleMonth.getUTCMonth() ? ' outside' : '') + (isoDate === today ? ' today' : '');
       if (entries.length) {
@@ -161,7 +179,7 @@
   }
 
   async function openCalendarDateDetails(isoDate, trigger) {
-    const items = state.items.filter((item) => itemOnDate(item, isoDate));
+    const items = visibleCalendarItemsOnDate(state.items, isoDate);
     if (!items.length) return;
     state.detailTrigger = trigger instanceof HTMLElement ? trigger : null;
     els.calendarDetailTitle.textContent = calendarDateLabel(isoDate);
