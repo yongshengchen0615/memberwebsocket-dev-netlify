@@ -7,8 +7,12 @@ export async function syncRevision(db, surface, actor, createError) {
   if (access.error) throw createError(503, 'SYNC_UNAVAILABLE', '目前無法確認同步權限。');
   if (access.data?.status !== 'active' || (admin && access.data.role !== 'admin'))
     throw createError(403, admin ? 'ADMIN_REQUIRED' : 'MEMBER_DISABLED', '目前沒有同步資料的權限。');
-  const latest = await db.from('realtime_events').select('id,created_at')
-    .in('scope', surface === 'booking' ? ['booking','member','points','event','calendar','all'] : [surface, 'all']).order('id', {ascending:false}).limit(1).maybeSingle();
+  let latestQuery = db.from('realtime_events').select('id,created_at')
+    .in('scope', surface === 'booking' ? ['booking','member','points','event','calendar','all'] : [surface, 'all']);
+  // Admin presence is reconciled independently; presence-only events must not
+  // trigger expensive full-panel refreshes during the 3-second revision poll.
+  if (admin) latestQuery = latestQuery.not('event_type', 'like', '%.presence.%');
+  const latest = await latestQuery.order('id', {ascending:false}).limit(1).maybeSingle();
   if (latest.error) throw createError(503, 'SYNC_UNAVAILABLE', '同步服務暫時無法使用。');
   const revision = latest.data ? String(latest.data.id) + ':' + String(latest.data.created_at) : '0';
   // Grants live in the control plane and need not write a private business event.
