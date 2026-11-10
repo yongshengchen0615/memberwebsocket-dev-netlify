@@ -238,6 +238,13 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
         const requiredServiceGroups = Array.isArray(offer.requiredServiceGroups) ? offer.requiredServiceGroups : [];
          const requiredServiceTitles = requiredServiceTitlesFor(requiredServiceGroups.length ? [...new Set(requiredServiceGroups.flat())] : requiredServiceIds);
         const requiredServiceRequirementLabel = requiredServiceGroups.length ? groupRequirementLabelFor(requiredServiceGroups) : requiredServiceRequirementLabelFor(requiredServiceIds, requiredServiceMatchMode);
+        const minBookingAmountMode = offer.minBookingAmountMode || 'none';
+        const minBookingAmount = Number(offer.minBookingAmount || 0);
+        const minBookingServiceIds = Array.isArray(offer.minBookingServiceIds) ? offer.minBookingServiceIds : [];
+        const minBookingServiceTitles = requiredServiceTitlesFor(minBookingServiceIds);
+        const minBookingAmountLabel = minBookingAmountMode === 'none' ? '不限金額'
+          : minBookingAmountMode === 'total' ? `一般預約總金額滿 NT$${minBookingAmount}`
+          : `一般預約指定項目（${minBookingServiceTitles.join('、')}）金額滿 NT$${minBookingAmount}`;
         return {
           kind: 'event', id: offer.eventTicketId, title: offer.title,
           description: offer.description, accent: offer.accent, ticketType: offer.ticketType, quota: offer.quota, claimedCount: offer.claimedCount,
@@ -251,7 +258,8 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
           selectionId: offer.claimId || '',
           claimRequired: visibility.tierEligible && !offer.claimed,
           requiredServiceIds, requiredServiceMatchMode, requiredServiceGroups, requiredServiceTitles, requiredServiceRequirementLabel,
-          conditionLabel: `${eventTicketMaxPerDay === 0 ? '每日使用張數不限' : `每日最多使用 ${eventTicketMaxPerDay} 張`} · ${requiredServiceRequirementLabel ? `預約項目限制：${requiredServiceRequirementLabel}` : '預約項目限制：不限'}${offer.requiresLocation === true ? ' · 現場單獨使用需 GPS 定位' : ''}`,
+          minBookingAmountMode, minBookingAmount, minBookingServiceIds, minBookingServiceTitles, minBookingAmountLabel,
+          conditionLabel: `${eventTicketMaxPerDay === 0 ? '每日使用張數不限' : `每日最多使用 ${eventTicketMaxPerDay} 張`} · ${requiredServiceRequirementLabel ? `預約項目限制：${requiredServiceRequirementLabel}` : '預約項目限制：不限'} · ${minBookingAmountLabel}${offer.requiresLocation === true ? ' · 現場單獨使用需 GPS 定位' : ''}`,
           disabledReason: visibility.locked ? visibility.lockReason : reservedForOtherBooking ? '此票券已在一般預約登記，不能重複登記。' : reservedInSnapshot ? '此票券已在快照模式登記，待審核期間不能重複登記。' : '',
         };
       }),
