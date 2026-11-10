@@ -1862,6 +1862,9 @@ async function saveEventTicket(supabase: SupabaseClient, actor: string, body: Js
   const requiredServiceGroups = groupMode ? await normalizeRequiredServiceGroups(supabase, input.requiredServiceGroups) : [];
   if (groupMode && !requiredServiceGroups.length) throw new ApiError(400,"INVALID_REQUIRED_SERVICE_GROUPS","請至少設定一個有效的預約組合。");
   const requiredServiceMatchMode = input.requiredServiceMatchMode === "all" ? "all" : "any";
+  // An older admin tab must not silently clear an existing amount gate.
+  if (id && input.minBookingAmountMode === undefined)
+    throw new ApiError(409,"INVALID_BOOKING_AMOUNT_RULE","管理端版本過舊，請重新整理後再修改活動票券。");
   const minBookingAmountMode = input.minBookingAmountMode === undefined ? "none" : String(input.minBookingAmountMode);
   const minBookingAmount = Number(input.minBookingAmount ?? 0);
   if (!["none","total","selected_services"].includes(minBookingAmountMode)
