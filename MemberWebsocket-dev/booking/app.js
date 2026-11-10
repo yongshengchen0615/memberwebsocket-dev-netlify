@@ -112,7 +112,7 @@
       window.requestAnimationFrame(() => document.querySelector('.booking-detail-target')?.scrollIntoView?.({block:'center'}));
       window.dispatchEvent(new CustomEvent('user-tour:ready', { detail: { surface: 'booking', profile: state.profile } }));
       window.BookingBenefits?.setServiceContext?.(
-        selectedServiceRows().map((item) => String(item.service?.serviceId || item.serviceId || '').trim()).filter(Boolean)
+        bookingBenefitServiceContext()
       );
       window.BookingBenefits?.start(state.config, state.idToken);
       state.realtimeUnsubscribe = window.BookingSystem.subscribeRealtime(state.config, () => refresh(false), 'member', (signal = {}) => {
@@ -251,7 +251,7 @@
 
     renderSelectedServices();
     window.BookingBenefits?.setServiceContext?.(
-      selectedServiceRows().map((item) => String(item.service?.serviceId || item.serviceId || '').trim()).filter(Boolean)
+      bookingBenefitServiceContext()
     );
   }
 
@@ -421,6 +421,21 @@
     return state.selections
       .map((selection) => ({ ...selection, service: byId.get(selection.serviceId) }))
       .filter((item) => item.service);
+  }
+
+  // Match the server's canonical booking_items unit-price × quantity rule,
+  // including the automatically inserted in-store service when priced.
+  function bookingBenefitServiceContext() {
+    const selectedServiceIds = new Set(selectedServiceRows()
+      .map((item) => String(item.service?.serviceId || item.serviceId || '').trim())
+      .filter(Boolean));
+    const priceById = new Map((state.data.services || []).map((service) => [String(service.serviceId), Number(service.priceAmount || 0)]));
+    return selectedItems()
+      .filter((item) => selectedServiceIds.has(String(item.serviceId)) || item.serviceId === STORE_SERVICE_ID)
+      .map((item) => ({
+        serviceId: String(item.serviceId),
+        amount: Math.max(0, priceById.get(String(item.serviceId)) || 0) * Number(item.quantity || 1),
+      }));
   }
 
   function serviceDurationMinutes() {
