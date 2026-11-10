@@ -20,7 +20,7 @@
   <script src="./membership-progress.js?v=event-tier-style-20260908" defer></script>
   <script src="../ticket-booking-choice.js?v=ticket-booking-choice-20261006-1-controls-20261010-2"></script>
   <script src="../ticket-live-location.js?v=admin-geofence-20261010-2" defer></script>
-  <script src="./app.js?v=booking-reserved-20261002-1-admin-geofence-20261010-2-booking-selections-20261013-1-reservation-disclosure-20261014-1-live-ticket-sync-20261016-1" defer></script>
+  <script src="./app.js?v=booking-reserved-20261002-1-admin-geofence-20261010-2-booking-selections-20261013-1-reservation-disclosure-20261014-1-live-ticket-sync-20261016-1-service-condition-20261110-1" defer></script>
   <script src="./today-usable.js?v=ticket-unlimited-zero-20261002-1" defer></script>
   <script src="../user-tour.js?v=participant-state-isolation-20261004-1-p2-20261006-1" defer></script>
   <link rel="stylesheet" href="../responsive.css?v=20260914-line-form-1">
@@ -30,7 +30,7 @@
   <script src="../membership-milestones.js?v=lumen-experience-20260924-1" defer></script>
   <script src="../theme.js?v=m3-ui-20260929-1"></script>
   <link rel="stylesheet" href="../event-ticket-ui.css?v=ongoing-20261008-1">
-  <script src="../event-ticket-ui.js?v=ongoing-20261008-1" defer></script>
+  <script src="../event-ticket-ui.js?v=ongoing-20261008-1-service-condition-20261110-1" defer></script>
   <link rel="stylesheet" href="../ticket-booking-selections.css?v=booking-selections-20261013-1-reservation-disclosure-20261014-1">
   <script src="../ticket-booking-selections.js?v=booking-selections-20261013-1-reservation-disclosure-20261014-1-event-panel-removed-20261014-1-booking-range-20261015-1" defer></script>
 </head>
@@ -57,6 +57,7 @@
       <h2 id="ticketModalTitle">票券詳情</h2>
       <p id="ticketModalDate" class="ticket-date"></p>
       <p id="ticketModalDescription" class="ticket-description"></p>
+      <p id="ticketModalServiceRequirement" class="ticket-description hidden"></p>
       <section class="instructions" aria-label="票券使用說明"><strong id="ticketModalUsageMethod"></strong><p id="ticketModalUsageInstructions"></p></section>
       <div id="ticketModalPrizes" class="modal-prizes hidden"></div>
       <p id="ticketModalStatus" class="ticket-status-message"></p>

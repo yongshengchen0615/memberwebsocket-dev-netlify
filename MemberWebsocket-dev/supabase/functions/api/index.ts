@@ -1287,6 +1287,20 @@ async function adminEventTickets(supabase: SupabaseClient): Promise<any[]> {
   return (rows || []).map((row:any) => eventTicketClient(row,counts.get(row.id)||0,true));
 }
 
+function ticketRequiredServiceLabel(row: any, serviceTitles: Map<string,string>): string {
+  const names = (ids: any[]) => ids.map((id) => serviceTitles.get(String(id)) || "已停用項目");
+  const groups = Array.isArray(row.required_service_groups)
+    ? row.required_service_groups.filter((group: any) => Array.isArray(group) && group.length) : [];
+  if (groups.length) {
+    return `需預約${groups.map((group: any[]) => `「${names(group).join("＋")}」`).join("或")}其中一組的所有項目`;
+  }
+  const ids = Array.isArray(row.required_service_ids) ? [...new Set(row.required_service_ids.map(String).filter(Boolean))] : [];
+  if (!ids.length) return "";
+  const titles = names(ids);
+  if (row.required_service_match_mode === "all") return `需預約所有指定項目：「${titles.join("、")}」`;
+  return titles.length === 1 ? `需預約「${titles[0]}」項目` : `需預約「${titles.join("、")}」其中一個項目`;
+}
+
 async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Json> {
   const [profile,{ data: eventRows, error },allHistoryRes,pendingSelectionsRes,bookingOptions,bookingSelections,snapshotReceipts] = await Promise.all([
     profileFor(supabase,member),
@@ -1330,6 +1344,19 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
   const claimByEvent = new Map((claimsRes.data || []).map((row:any) => [row.event_ticket_id,row]));
   const counts = new Map<string,number>();
   for (const row of countRes.data || []) counts.set(row.event_ticket_id,Number(row.claimed_count));
+  const requiredServiceIds = [...new Set((eventRows || []).flatMap((row: any) => [
+    ...(Array.isArray(row.required_service_ids) ? row.required_service_ids : []),
+    ...(Array.isArray(row.required_service_groups)
+      ? row.required_service_groups.flatMap((group: any) => Array.isArray(group) ? group : [])
+      : []),
+  ]).map((id: any) => String(id || "")).filter(Boolean))];
+  const serviceRows = requiredServiceIds.length
+    ? await supabase.from("booking_services").select("id,title").in("id",requiredServiceIds)
+    : { data: [], error: null };
+  if (serviceRows.error) throw mapDatabaseError(serviceRows.error);
+  const serviceTitles = new Map<string,string>((serviceRows.data || [])
+    .map((service: any): [string,string] => [String(service.id), String(service.title || "").trim()]));
+
   const today = taipeiDate();
   const visibilityPolicy = await loadVisibilityPolicy(supabase);
   const offers = (eventRows || []).flatMap((row:any) => {
@@ -1338,7 +1365,10 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
     // Never expose a fixed-ticket event to a member unless that member owns its claim.
     if ((row.fixed_ticket_template_id || row.ticket_type === "referral" || row.ticket_type === "membership_join") && !claimRow) return [];
     if (claimRow && String(claimRow.status || "") === "used") return [];
-    const ticket = eventTicketClient(row,counts.get(row.id)||0) as any;
+    const ticket = {
+      ...eventTicketClient(row,counts.get(row.id)||0),
+      requiredServiceRequirementLabel: ticketRequiredServiceLabel(row,serviceTitles),
+    } as any;
     const claim = claimRow ? claimClient(claimRow,row.event_ticket_id) : null;
     const scheduled = Boolean(row.starts_on && today < row.starts_on);
     const ended = Boolean(row.ends_on && today > row.ends_on);
