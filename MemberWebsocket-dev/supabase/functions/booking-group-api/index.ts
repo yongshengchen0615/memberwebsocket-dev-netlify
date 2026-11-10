@@ -170,7 +170,7 @@ async function admin(s: SupabaseClient, i: Identity) {
 
 async function audit(s: SupabaseClient, i: Identity, role: string, action: string, targetType: string, targetId: string, metadata: Json = {}) {
   const r = await s.from("booking_audit_events").insert({ actor_line_user_id:i.lineUserId, actor_role:role, action, target_type:targetType, target_id:targetId, result:"success", metadata });
-  if (r.error) console.error("audit failed", r.error.message);
+  if (r.error) console.error("audit failed");
 }
 function techClient(row: any) { return { technicianId:row.id, name:row.name, isActive:Boolean(row.is_active), sortOrder:Number(row.sort_order || 0), updatedAt:row.updated_at }; }
 function itemClient(row: any) { const q=Number(row.quantity||1), price=Number(row.unit_price_amount||0), mins=Number(row.unit_duration_minutes||0); return { serviceId:row.service_id, serviceTitle:row.service_title, unitDurationMinutes:mins, unitPriceAmount:price, quantity:q, subtotalMinutes:mins*q, subtotalAmount:price*q }; }

@@ -706,7 +706,7 @@ async function audit(supabase: SupabaseClient, identity: Identity, role: "member
     result: "success",
     metadata,
   });
-  if (result.error) console.error("booking audit insert failed", result.error.message);
+  if (result.error) console.error("booking audit insert failed");
 }
 
 async function userBootstrap(supabase: SupabaseClient, member: any, body:Json={}): Promise<Json> {

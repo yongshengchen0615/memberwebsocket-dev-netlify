@@ -118,7 +118,7 @@ async function requireAdmin(supabase: SupabaseClient, identity: Identity): Promi
 }
 async function audit(supabase: SupabaseClient, identity: Identity, role: "member" | "admin", action: string, bookingId: string, metadata: Json = {}): Promise<void> {
   const result = await supabase.from("booking_audit_events").insert({ actor_line_user_id: identity.lineUserId, actor_role: role, action, target_type: "booking", target_id: bookingId, result: "success", metadata });
-  if (result.error) console.error("booking cancellation audit failed", result.error.message);
+  if (result.error) console.error("booking cancellation audit failed");
 }
 function cancellationClient(row: any): Json {
   return {

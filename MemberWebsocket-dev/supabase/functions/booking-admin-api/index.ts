@@ -182,7 +182,7 @@ function taipeiDateText(): string {
 }
 async function audit(supabase: SupabaseClient, identity: Identity, action: string, targetType: string, targetId: string, metadata: Json = {}): Promise<void> {
   const result = await supabase.from("booking_audit_events").insert({ actor_line_user_id: identity.lineUserId, actor_role: "admin", action, target_type: targetType, target_id: targetId, result: "success", metadata });
-  if (result.error) console.error("booking admin audit failed", result.error.message);
+  if (result.error) console.error("booking admin audit failed");
 }
 async function bootstrap(supabase: SupabaseClient): Promise<Json> {
   const [settings, types, services, storeService, rewards, cards] = await Promise.all([

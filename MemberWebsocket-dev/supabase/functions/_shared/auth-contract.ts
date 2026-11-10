@@ -26,6 +26,13 @@ export async function verifyLineIdTokenContract(args: {
     throw createError(503, "LINE_AUTH_UNAVAILABLE", "LINE 身分驗證服務暫時無法使用。");
   }
 
+  // Provider overload/outages do not invalidate the member's credentials.
+  // Classify by HTTP status before considering any error-body claims.
+  if (response.status === 429 || response.status >= 500) {
+    void response.body?.cancel().catch(() => {});
+    throw createError(503, "LINE_AUTH_UNAVAILABLE", "LINE 身分驗證服務暫時無法使用。");
+  }
+
   let payload: Record<string, unknown>;
   try {
     payload = await response.json();

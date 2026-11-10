@@ -38,7 +38,7 @@ async function audit(supabase: any, identity: Identity, action: string, bookingI
     result: "success",
     metadata,
   });
-  if (result.error) console.error("booking contact audit insert failed", result.error.message);
+  if (result.error) console.error("booking contact audit insert failed");
 }
 
 async function handleMemberWrite(supabase: any, identity: Identity, member: any, action: string, body: Json): Promise<Json> {

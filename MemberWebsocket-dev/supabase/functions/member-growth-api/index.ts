@@ -145,7 +145,7 @@ function mapDatabaseError(error: unknown): ApiError {
   for (const [needle,status,code,userMessage] of rules) {
     if (message.includes(needle)) return new ApiError(status,code,userMessage);
   }
-  console.error(JSON.stringify({ event: "member_growth_db_error", code: raw?.code || "", message: String(raw?.message || "").slice(0,300) }));
+  console.error(JSON.stringify({ event: "member_growth_db_error", code: "DATABASE_ERROR" }));
   return new ApiError(500, "DATABASE_ERROR", "目前無法完成會員操作。");
 }
 

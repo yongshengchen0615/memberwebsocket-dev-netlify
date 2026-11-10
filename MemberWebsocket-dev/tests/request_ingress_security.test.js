@@ -19,10 +19,12 @@ async function ingress(kind){
   // Evaluate the real adapter. Only its external provider/database dependencies
   // are excluded; parsing, streaming, routing and Request replay remain real.
   const ingressModule=fs.existsSync(path.join(shared,'request-ingress.mjs'))?await import(pathToFileURL(path.join(shared,'request-ingress.mjs'))):{};
+  const {serverFailureTrace}=await import(pathToFileURL(path.join(shared,'server-errors.mjs')));
   const context=vm.createContext({Request,Response,Headers,URL,TextDecoder,Uint8Array,AbortSignal,console,
     setTimeout:(...args)=>setTimeout(...args),clearTimeout:(...args)=>clearTimeout(...args),
     rawEnv:name=>name==='ALLOWED_ORIGINS'?'https://allowed.test':'',baseClient:unexpected,scope:{getStore:()=>undefined},
     readRequestBytes:ingressModule.readRequestBytes,
+    serverFailureTrace,
   });
   const code=fs.readFileSync(path.join(shared,'business-runtime.ts'),'utf8').replace(/^import[^;]+;\n/gm,'').replace(/^export type[^;]+;\n/gm,'').replace(/^export \{[^;]+;\n/gm,'').replace(/^export /gm,'');
   vm.runInContext(stripTypeScriptTypes(code),context);
