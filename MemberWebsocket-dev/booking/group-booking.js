@@ -127,7 +127,6 @@
 
   window.addEventListener('booking:selection-changed', (event) => {
     syncPrimaryItems(event?.detail?.items);
-    syncBenefitServiceContext();
     updateCardSummaries();
     updateSelectionSummary();
   });
@@ -798,6 +797,9 @@
   }
 
   function updateSelectionSummary() {
+    // Called after primary and each additional participant edit: keep
+    // ticket amount eligibility in sync with the entire current reservation.
+    syncBenefitServiceContext();
     const root = document.getElementById('selectionSummary');
     if (!root) return;
     if (!state.primaryItems.length) {
