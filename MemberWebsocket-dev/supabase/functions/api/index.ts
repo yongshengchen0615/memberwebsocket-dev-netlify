@@ -1310,6 +1310,23 @@ function ticketRequiredServiceLabel(row: any, serviceTitles: Map<string,string>)
   return titles.length === 1 ? `需預約「${titles[0]}」項目` : `需預約「${titles.join("、")}」其中一個項目`;
 }
 
+function ticketBookingAmountLabel(row: any, serviceTitles: Map<string,string>): string {
+  const mode = String(row.min_booking_amount_mode || "none");
+  if (mode === "none") return "";
+  const minimum = Number(row.min_booking_amount);
+  if (!Number.isSafeInteger(minimum) || minimum < 1) return "一般預約金額條件資料異常，請洽店家確認";
+  const amount = "NT$" + minimum.toLocaleString("en-US");
+  if (mode === "total") return `一般預約總金額滿 ${amount}`;
+  if (mode === "selected_services") {
+    const ids = Array.isArray(row.min_booking_service_ids)
+      ? [...new Set(row.min_booking_service_ids.map(String).filter(Boolean))] : [];
+    if (!ids.length) return "一般預約指定項目金額條件資料異常，請洽店家確認";
+    const names = ids.map((id) => serviceTitles.get(String(id)) || "已停用項目");
+    return `一般預約指定項目「${names.join("、")}」合計滿 ${amount}`;
+  }
+  return "一般預約金額條件資料異常，請洽店家確認";
+}
+
 async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Json> {
   const [profile,{ data: eventRows, error },allHistoryRes,pendingSelectionsRes,bookingOptions,bookingSelections,snapshotReceipts] = await Promise.all([
     profileFor(supabase,member),
@@ -1358,6 +1375,7 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
     ...(Array.isArray(row.required_service_groups)
       ? row.required_service_groups.flatMap((group: any) => Array.isArray(group) ? group : [])
       : []),
+    ...(Array.isArray(row.min_booking_service_ids) ? row.min_booking_service_ids : []),
   ]).map((id: any) => String(id || "")).filter(Boolean))];
   const serviceRows = requiredServiceIds.length
     ? await supabase.from("booking_services").select("id,title").in("id",requiredServiceIds)
@@ -1377,6 +1395,7 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
     const ticket = {
       ...eventTicketClient(row,counts.get(row.id)||0),
       requiredServiceRequirementLabel: ticketRequiredServiceLabel(row,serviceTitles),
+      minBookingAmountLabel: ticketBookingAmountLabel(row,serviceTitles),
     } as any;
     const claim = claimRow ? claimClient(claimRow,row.event_ticket_id) : null;
     const scheduled = Boolean(row.starts_on && today < row.starts_on);
