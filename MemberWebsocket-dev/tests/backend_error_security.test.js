@@ -148,3 +148,40 @@ test('AC-003: secondary logout audit failure never prints an untrusted error cod
   assert.equal(result.revoked,true);assert.ok(edge.logs.length>0);
   assert.doesNotMatch(require('node:util').inspect(edge.logs),/private-audit-token|synthetic-token|synthetic-user/);
 });
+
+function diagnosticFunction(endpoint,name){
+  const source=fs.readFileSync(path.join(shared,'..',endpoint,'index.ts'),'utf8');
+  const start=source.search(new RegExp(`^(?:async )?function ${name}\\b`,'m'));
+  assert.ok(start>=0,`${endpoint}.${name} exists`);
+  const remaining=source.slice(start);const next=remaining.slice(1).search(/\n(?:async function|function|serveBusiness)\b/);
+  const code=next<0?remaining:remaining.slice(0,next+1);
+  const logs=[];const context=vm.createContext({console:{error:(...args)=>logs.push(args)},
+    ApiError:class extends Error{constructor(status,code,message){super(message);Object.assign(this,{status,code});}},
+    asText:(value,max)=>String(value||'').slice(0,max),requestId:()=> 'synthetic-request',
+    bookingPriceError:require('../supabase/functions/_shared/booking-price-publishing.mjs').bookingPriceError,
+    bookingTicketUsageError:require('../supabase/functions/_shared/booking-ticket-usage.ts').bookingTicketUsageError,
+  });
+  vm.runInContext(stripTypeScriptTypes(code),context);
+  return {run:context[name],logs};
+}
+for(const [endpoint,name] of [['member-growth-api','mapDatabaseError'],['booking-receipt-api','dbError'],['member-profile-api','termsError']]){
+  test(`AC-003: ${endpoint} database mapper keeps private message/hint/code out of diagnostics`,()=>{
+    const edge=diagnosticFunction(endpoint,name);
+    const result=edge.run({message:'private-database-value',hint:'private-database-hint',code:'private-database-code'});
+    assert.equal(result.status,500);assert.equal(result.code,'DATABASE_ERROR');assert.ok(edge.logs.length>0);
+    assert.doesNotMatch(require('node:util').inspect(edge.logs),/private-database/);
+  });
+}
+test('AC-003: schema cache diagnostics preserve the safe class without logging provider messages',()=>{
+  const edge=diagnosticFunction('member-profile-api','termsError');
+  assert.equal(edge.run({code:'PGRST202',message:'private-database-value',hint:'private-database-hint'}).status,503);
+  assert.doesNotMatch(require('node:util').inspect(edge.logs),/private-database/);
+});
+for(const endpoint of ['booking-api','booking-admin-api','booking-admin-operations','booking-contact-api','booking-group-api','booking-cancellation-api']){
+  test(`AC-003: ${endpoint} audit failure remains observable without raw DB content`,async()=>{
+    const edge=diagnosticFunction(endpoint,'audit');
+    const db={from:()=>({insert:async()=>({error:{message:'private-audit-value'}})})};
+    await edge.run(db,{lineUserId:'synthetic-user'},'member','synthetic-action','booking','synthetic-id',{});
+    assert.ok(edge.logs.length>0);assert.doesNotMatch(require('node:util').inspect(edge.logs),/private-audit-value|synthetic-user/);
+  });
+}

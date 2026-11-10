@@ -47,7 +47,7 @@
 
 ### Task 3: Safe diagnostics and delivery
 
-- [ ] Add tests for endpoint/routing 5xx correlation, caller-ID rejection, concurrency, code allowlist and secret redaction; observe missing diagnostics first.
+- [ ] Add tests for endpoint/routing 5xx correlation, caller-ID rejection, concurrency, code allowlist and secret redaction; observe missing diagnostics first. Extend behavioral redaction coverage to existing booking audit, receipt, growth and profile database error paths after the source audit confirms raw message/hint logging.
 - [ ] Add a small shared failure metadata helper and use it only for 5xx paths in main API and tenant routing. Never log raw errors or request input.
 - [ ] Run full local regression/build, dependency audit and available integration checks; push isolated PR and obtain all required CI results on final SHA.
 - [ ] Independent review; fix important findings with RED → GREEN. Merge only with a green gate, then use existing branch deployment workflow and compatible Edge deployment; verify live read-only smoke and retain rollback identities.

@@ -317,22 +317,14 @@ function termsError(error: { code?: string; message?: string; details?: string; 
   const code = asText(error.code, 40).toUpperCase();
   const message = String(error.message || "");
   if (code === "PGRST202") {
-    console.error("membership terms RPC schema cache miss", {
-      code,
-      message: message.slice(0, 500),
-      hint: asText(error.hint, 300),
-    });
+    console.error("membership terms RPC schema cache miss", { code: "PGRST202" });
     return new ApiError(503, "MEMBERSHIP_RPC_UNAVAILABLE", "會員服務正在同步，請重新送出一次。");
   }
   if (message.includes("TERMS_CONSENT_REQUIRED")) return new ApiError(400, "TERMS_CONSENT_REQUIRED", "請閱讀並勾選同意會員條款。");
   if (message.includes("TERMS_VERSION_STALE")) return new ApiError(409, "TERMS_VERSION_STALE", "會員條款已更新，請重新閱讀並確認。");
   if (message.includes("TERMS_UNAVAILABLE")) return new ApiError(503, "TERMS_UNAVAILABLE", "目前尚無有效會員條款，請聯繫管理員。");
   if (message.includes("INVALID_PROFILE")) return new ApiError(400, "INVALID_PROFILE", "會員資料不完整或格式不正確。");
-  console.error("membership terms RPC failed", {
-    code,
-    message: message.slice(0, 500),
-    hint: asText(error.hint, 300),
-  });
+  console.error("membership terms RPC failed", { code: "DATABASE_ERROR" });
   return new ApiError(500, "DATABASE_ERROR", "會員資料暫時無法儲存。");
 }
 

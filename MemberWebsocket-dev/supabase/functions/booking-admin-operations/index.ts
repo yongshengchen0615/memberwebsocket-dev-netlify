@@ -287,7 +287,7 @@ async function audit(supabase: SupabaseClient, identity: Identity, action: strin
     actor_line_user_id: identity.lineUserId, actor_role: "admin", action,
     target_type: "booking", target_id: bookingId, result: "success", metadata,
   });
-  if (result.error) console.error("booking admin audit failed", result.error.message);
+  if (result.error) console.error("booking admin audit failed");
 }
 async function updateParticipantTechnicians(supabase: SupabaseClient, identity: Identity, body: Json): Promise<Json> {
   const bookingId = requireUuid(body.bookingId, "預約");

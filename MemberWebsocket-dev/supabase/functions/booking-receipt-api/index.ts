@@ -158,7 +158,7 @@ function dbError(error:unknown):ApiError{
     ["INVALID_REQUEST_ID",400,"INVALID_REQUEST_ID","操作識別格式不正確。"],
   ];
   for(const [needle,status,code,userMessage] of rules) if(message.includes(needle)) return new ApiError(status,code,userMessage);
-  console.error(JSON.stringify({event:"booking_receipt_db_error",code:raw?.code||"",message:String(raw?.message||"").slice(0,300)}));
+  console.error(JSON.stringify({event:"booking_receipt_db_error",code:"DATABASE_ERROR"}));
   return new ApiError(500,"DATABASE_ERROR","目前無法完成收據與預約操作。");
 }
 function extensionFor(mime:string):string{
@@ -975,7 +975,7 @@ serveBusiness('booking-receipt-api',async(request:Request)=>{
 
     const supabase = dbClient(body);
     const expiredReceipts=await supabase.rpc("expire_stale_booking_receipts");
-    if(expiredReceipts.error) console.warn("booking receipt stale cleanup failed", expiredReceipts.error.message);
+    if(expiredReceipts.error) console.warn("booking receipt stale cleanup failed");
     await drainCleanupQueue(supabase);
 
     let data:Json;
