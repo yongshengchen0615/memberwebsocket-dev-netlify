@@ -211,6 +211,8 @@ function mapDatabaseError(error: unknown): ApiError {
     ["INVALID_CARD_ORDERS",400,"INVALID_CARD_ORDERS","集點卡排序資料不合法。"],
     ["INVALID_REQUIRED_SERVICE_IDS",400,"INVALID_REQUIRED_SERVICE_IDS","票券指定的預約項目無效，請重新選擇。"],
     ["INVALID_REQUIRED_SERVICE_GROUPS",400,"INVALID_REQUIRED_SERVICE_GROUPS","票券預約組合無效，請重新設定。"],
+    ["INVALID_BOOKING_AMOUNT_RULE",400,"INVALID_BOOKING_AMOUNT_RULE","活動票券金額門檻設定不正確。"],
+    ["BOOKING_BENEFIT_AMOUNT_REQUIRED",409,"BOOKING_BENEFIT_AMOUNT_REQUIRED","本次一般預約金額未達活動票券的最低門檻。"],
     ["BOOKING_SERVICE_IN_USE",409,"BOOKING_SERVICE_IN_USE","此預約項目仍被票券使用條件引用，請先移除票券限制。"],
     ["INVALID_CALENDAR_BATCH",400,"INVALID_CALENDAR_BATCH","日曆批次操作必須是 1–20 筆。"],
     ["CALENDAR_ITEM_NOT_FOUND",404,"CALENDAR_ITEM_NOT_FOUND","找不到日曆項目。"],
@@ -1255,6 +1257,9 @@ function eventTicketClient(row: any, claimedCount = 0, admin = false): Json {
     requiredServiceIds: Array.isArray(row.required_service_ids) ? row.required_service_ids : [],
     requiredServiceMatchMode: Array.isArray(row.required_service_groups) && row.required_service_groups.length ? "groups" : row.required_service_match_mode === "all" ? "all" : "any",
     requiredServiceGroups: Array.isArray(row.required_service_groups) ? row.required_service_groups : [],
+    minBookingAmountMode: row.min_booking_amount_mode || 'none',
+    minBookingAmount: Number(row.min_booking_amount || 0),
+    minBookingServiceIds: Array.isArray(row.min_booking_service_ids) ? row.min_booking_service_ids : [],
     requiredServiceTypes: [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -1857,6 +1862,18 @@ async function saveEventTicket(supabase: SupabaseClient, actor: string, body: Js
   const requiredServiceGroups = groupMode ? await normalizeRequiredServiceGroups(supabase, input.requiredServiceGroups) : [];
   if (groupMode && !requiredServiceGroups.length) throw new ApiError(400,"INVALID_REQUIRED_SERVICE_GROUPS","請至少設定一個有效的預約組合。");
   const requiredServiceMatchMode = input.requiredServiceMatchMode === "all" ? "all" : "any";
+  const minBookingAmountMode = input.minBookingAmountMode === undefined ? "none" : String(input.minBookingAmountMode);
+  const minBookingAmount = Number(input.minBookingAmount ?? 0);
+  if (!["none","total","selected_services"].includes(minBookingAmountMode)
+      || !Number.isSafeInteger(minBookingAmount)
+      || (minBookingAmountMode === "none" ? minBookingAmount !== 0 : minBookingAmount < 1 || minBookingAmount > 10000000)) {
+    throw new ApiError(400,"INVALID_BOOKING_AMOUNT_RULE","最低預約金額條件無效。");
+  }
+  const minBookingServiceIds = minBookingAmountMode === "selected_services"
+    ? await normalizeRequiredServiceIds(supabase,input.minBookingServiceIds) : [];
+  if (minBookingAmountMode === "selected_services" && minBookingServiceIds.length === 0) {
+    throw new ApiError(400,"INVALID_BOOKING_AMOUNT_RULE","指定項目最低消費必須勾選預約項目。");
+  }
   const payload = {
     title: requireText(input.title,"活動票券名稱",100),
     ticket_type: ticketType,
@@ -1875,6 +1892,9 @@ async function saveEventTicket(supabase: SupabaseClient, actor: string, body: Js
     required_service_ids: groupMode ? [] : requiredServiceIds,
     required_service_match_mode: requiredServiceMatchMode,
     required_service_groups: requiredServiceGroups,
+    min_booking_amount_mode: minBookingAmountMode,
+    min_booking_amount: minBookingAmount,
+    min_booking_service_ids: minBookingServiceIds,
     updated_by: actor,
     updated_at: new Date().toISOString(),
     deleted_at: null,
