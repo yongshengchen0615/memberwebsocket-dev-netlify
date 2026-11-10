@@ -41,7 +41,7 @@ test('AC-004 phone respects merchant horizon and holidays, not online-only lead 
   assert.doesNotMatch(calendar,/calendar-phone-badge/);
   assert.match(calendar,/const phoneOnly = Boolean\(phoneAllowed && reason && date < state\.minimumDate\)/);
   assert.match(calendar,/els\.startDayBookingButton\.hidden = phoneOnly/);
-  assert.match(calendar,/const phoneAllowed = Boolean\(phone && date && !phoneBookingBlockReason\(date\)\)/);
+  assert.match(calendar,/const phoneAllowed = Boolean\(phone && date && reason && !phoneBookingBlockReason\(date\)\)/);
   assert.match(calendar,/if \(date < state\.minimumDate\) return/);
   assert.match(calendar,/if \(state\.maximumDate && date > state\.maximumDate\) return/);
   assert.match(calendar,/if \(date < state\.today\) return/);
