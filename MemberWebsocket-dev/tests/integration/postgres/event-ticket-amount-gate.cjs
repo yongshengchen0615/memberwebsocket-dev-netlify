@@ -51,7 +51,7 @@ test('PG17 AC-AMOUNT-001..009: actual migration, existing and future tenant, thr
      assert.equal(await met(),true);
      await h.db.query('update '+s+'.event_tickets set min_booking_amount=551 where id=$1',[ticket]);
      assert.equal(await met(),false);
-     await h.db.query('update '+s+".event_tickets set min_booking_amount_mode='selected_services',min_booking_amount=400,min_booking_service_ids=$2 where id=$1",[ticket,[ids[1]]]);
+     await h.db.query('update '+s+".event_tickets set min_booking_amount_mode='selected_services',min_booking_amount=400,min_booking_service_ids=$2 where id=$1",[ticket,'{'+ids[1]+'}']);
      assert.equal(await met(),true);
      await h.db.query('update '+s+'.event_tickets set min_booking_amount=401 where id=$1',[ticket]);
      assert.equal(await met(),false);
@@ -63,7 +63,7 @@ test('PG17 AC-AMOUNT-001..009: actual migration, existing and future tenant, thr
      assert.equal((await h.db.query('select '+s+'.booking_ticket_meets_amount($1,$2,$3,$4) allowed',[booking,member,'event','AMT-FAKE'])).rows[0].allowed,false);
    });
    await t.test('invalid referenced item and deleting a referenced service are rejected',async()=>{
-     await assert.rejects(h.db.query('update '+s+'.event_tickets set min_booking_service_ids=$2 where id=$1',[ticket,[uuid()]]),/INVALID_BOOKING_AMOUNT_RULE/);
+     await assert.rejects(h.db.query('update '+s+'.event_tickets set min_booking_service_ids=$2 where id=$1',[ticket,'{'+uuid()+'}']),/INVALID_BOOKING_AMOUNT_RULE/);
      await assert.rejects(h.db.query('delete from '+s+'.booking_services where id=$1',[ids[1]]),/BOOKING_SERVICE_IN_USE/);
    });
    await t.test('snapshot receipt and standalone ticket use remain unchanged',async()=>{
