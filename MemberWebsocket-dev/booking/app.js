@@ -426,11 +426,16 @@
   // Match the server's canonical booking_items unit-price × quantity rule,
   // including the automatically inserted in-store service when priced.
   function bookingBenefitServiceContext() {
+    const selectedServiceIds = new Set(selectedServiceRows()
+      .map((item) => String(item.service?.serviceId || item.serviceId || '').trim())
+      .filter(Boolean));
     const priceById = new Map((state.data.services || []).map((service) => [String(service.serviceId), Number(service.priceAmount || 0)]));
-    return selectedItems().map((item) => ({
-      serviceId: String(item.serviceId),
-      amount: Math.max(0, priceById.get(String(item.serviceId)) || 0) * Number(item.quantity || 1),
-    }));
+    return selectedItems()
+      .filter((item) => selectedServiceIds.has(String(item.serviceId)) || item.serviceId === STORE_SERVICE_ID)
+      .map((item) => ({
+        serviceId: String(item.serviceId),
+        amount: Math.max(0, priceById.get(String(item.serviceId)) || 0) * Number(item.quantity || 1),
+      }));
   }
 
   function serviceDurationMinutes() {
