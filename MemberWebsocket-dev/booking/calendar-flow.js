@@ -442,7 +442,7 @@
     const reason = bookingBlockReason(date);
     const phone = safePhoneBookingNumber(state.phoneBookingNumber);
     // Online lead-time rules do not block merchant-assisted phone enquiries.
-    const phoneAllowed = Boolean(phone && date && !phoneBookingBlockReason(date));
+    const phoneAllowed = Boolean(phone && date && reason && !phoneBookingBlockReason(date));
     // Hide online booking only when the date permits telephone service but not online self-service.
     const phoneOnly = Boolean(phoneAllowed && reason && date < state.minimumDate);
     if (els.startDayBookingButton) {
