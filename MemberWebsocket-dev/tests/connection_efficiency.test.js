@@ -63,13 +63,13 @@ function harness(kind = 'booking') {
 }
 const succeed = (call, data = {}) => call.resolve({ ok: true, data });
 
-test('AC-002: booking cross-feature reads and claims use the configured preview API without changing legacy routing',async()=>{
+test('AC-002: booking cross-feature reads and claims ignore retired preview overrides',async()=>{
  const h=harness('booking');
  for(const preview of [false,true]){
   const settings={...config,...(preview?{previewApiFunctionUrl:'https://fixture.supabase.co/functions/v1/api-preview'}:{})};
   for(const [method,args]of [['bookingBenefits',[]],['claimEventTicket',['EVENT']],['memberProfile',[]]]){
    const pending=h.system[method](settings,'identity-A',...args);await flush();const call=h.calls.at(-1);
-   assert.equal(call.url,preview?'https://fixture.supabase.co/functions/v1/api-preview':'https://fixture.supabase.co/functions/v1/api');
+   assert.equal(call.url,'https://fixture.supabase.co/functions/v1/api');
    succeed(call,{});await pending;
   }
  }

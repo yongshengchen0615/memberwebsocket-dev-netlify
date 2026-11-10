@@ -63,6 +63,14 @@
 
 ## 五、V2 核心規則（R01–R10）
 
+### API 開發與退役規則
+
+- 所有應用程式入口統一使用 `config.json` 指定之開發專案的正式 API；UI 功能旗標不得切換至 `*-preview`、測試會員或 QA API。舊 preview 覆寫設定必須在所有建置環境清除。
+- 保留隔離單元、DOM、SQL 與瀏覽器測試；「移除測試 API」不代表刪除測試、改用真實會員作破壞性測試，或放寬 LINE／商家權限。
+- `supabase/retirement/retired-endpoints.json` 所列函式只能發布退役 handler；歷史 QA 實作僅供回歸測試參考。禁止不分函式的 blanket deploy；每次先列出部署函式及相依檔案，排除退役服務。
+- 移除線上 preview 前，先發布通過完整 CI 的正式 API 消費端、核對呼叫來源與相容性、保留回復點，再逐個驗證 410／404。列表中的 `ACTIVE`、設定已移除或原始碼已提交，均不能單獨證明退役完成。
+- 路由變更以實際傳輸測試驗證 endpoint、身分／商家 payload、拒絕及不自動重送；同版產物檢查需阻止測試 API 與 preview 分流重新出現。
+
 本節是 AI 日常任務的精簡入口；測試、權限及操作細則仍以 `docs/DEVELOPMENT_GUARDRAILS.md` 為準。風險分級由 PR #131 的 `scripts/pr-change-risk.mjs` 提供實作，**在配置並核實 Required Checks 之前，不得宣稱規則已由 GitHub 強制執行**。
 
 - **R01｜確認需求與明確驗收：** 每次任務先確認 Issue、目標角色、不做範圍和 Given/When/Then。

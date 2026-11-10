@@ -517,7 +517,7 @@
 
   async function requestFunction(name, action, payload = {}, write = false) {
     const { config, idToken } = await context();
-    const endpoint = `${String(config.supabaseUrl || '').replace(/\/$/, '')}/functions/v1/${config.bookingPreviewApis === true && ['booking-api','booking-admin-api','booking-admin-operations','booking-group-api'].includes(name) ? name + '-preview' : name}`;
+    const endpoint = `${String(config.supabaseUrl || '').replace(/\/$/, '')}/functions/v1/${name}`;
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), write ? 30000 : 15000);
     try {

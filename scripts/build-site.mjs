@@ -40,6 +40,23 @@ const runtimeConfigPath = path.join(output, 'config.json');
 const runtimeConfig = JSON.parse(await readFile(runtimeConfigPath, 'utf8'));
 await writeFile(runtimeConfigPath, JSON.stringify(previewMemberRuntime(runtimeConfig, process.env), null, 2) + '\n');
 
+// A stale config or a reintroduced switch must fail the release build, even
+// when the current source config would leave that branch dormant.
+const retiredApiRoute = /\/functions\/v1\/(?:[\w-]+-preview|test-mode-api|test-control-api|user-test-api|e2e-artifact-api|e2e-artifact-retention)\b/;
+const publishedConfig = JSON.parse(await readFile(runtimeConfigPath, 'utf8'));
+for (const [key, value] of Object.entries(publishedConfig)) {
+  if (typeof value === 'string' && retiredApiRoute.test(value)) {
+    throw new Error(`Retired API routing in runtime config: ${key}`);
+  }
+}
+for (const file of await readdir(output, { recursive: true })) {
+  if (!/\.(?:js|html)$/i.test(file)) continue;
+  const contents = await readFile(path.join(output, file), 'utf8');
+  if (retiredApiRoute.test(contents) || /\b(?:bookingPreviewApis|previewApiFunctionUrl)\b/.test(contents)) {
+    throw new Error(`Retired API routing in public asset: ${file}`);
+  }
+}
+
 const siteVersion = formatBuildVersion(
   buildDate(process.env),
   process.env.DEPLOY_ID || process.env.BUILD_ID || randomBytes(6).toString('hex'),
