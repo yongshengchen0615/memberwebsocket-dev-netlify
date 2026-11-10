@@ -391,7 +391,7 @@
         const hasServiceGroups = selectableKinds.has(item.kind) && Array.isArray(item.requiredServiceGroups) && item.requiredServiceGroups.length > 0;
         const groupStatus = hasServiceGroups ? document.createElement('small') : null;
         if (groupStatus) {
-          const met = ticketRequirementMet(item);
+          const met = serviceRequirementMet(item);
           groupStatus.className = 'booking-benefit-condition booking-benefit-group-status';
           groupStatus.dataset.groupRequirementMet = String(met);
           groupStatus.textContent = met
@@ -429,7 +429,7 @@
                     : item.kind === 'event' && (item.reservedInSnapshot || (item.reservedForBooking && !item.reservedForCurrentBooking))
                       ? '已登記，不能重複登記'
                     : serviceBlocked
-                      ? `需先預約：${Array.isArray(item.requiredServiceGroups) && item.requiredServiceGroups.length ? item.requiredServiceRequirementLabel : requiredServiceTitles(item).join('、')}`
+                      ? ticketRequirementMessage(item)
                       : selectable ? '本次預約使用' : '目前不可勾選';
           choose.append(input, label);
           input.addEventListener('change', () => {
