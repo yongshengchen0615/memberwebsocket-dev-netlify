@@ -90,3 +90,33 @@ test('AC-006: API resolves selected service ids for ticket cards; booking UI ret
   assert.match(benefits,/conditionLabel: [^\n]*minBookingAmountLabel/);
   assert.doesNotMatch(read('event-ticket-ui.js'),/innerHTML/);
 });
+
+function bookingAmountLabel(offer, entries) {
+  const benefits=read('supabase/functions/_shared/booking-benefits.ts');
+  const start=benefits.indexOf("const minBookingAmountMode = offer.minBookingAmountMode || 'none';");
+  const end=benefits.indexOf('\n        return {',start);
+  assert.ok(start>=0 && end>start, 'booking benefits formats event ticket amount conditions');
+  const format=new Function('offer','requiredServiceTitleById',
+    benefits.slice(start,end) + '\nreturn { minBookingAmountLabel,minBookingServiceTitles };');
+  return format(offer,new Map(entries));
+}
+
+test('AC-007: booking selected-amount ticket resolves service titles even without a separate service restriction',()=>{
+  const benefits=read('supabase/functions/_shared/booking-benefits.ts');
+  assert.match(benefits,/events\.flatMap\(\(offer\) => Array\.isArray\(offer\.minBookingServiceIds\)/);
+  const result=bookingAmountLabel({
+    minBookingAmountMode:'selected_services',minBookingAmount:800,minBookingServiceIds:['service-only-amount']
+  },[['service-only-amount','美甲護理']]);
+  assert.deepEqual(result.minBookingServiceTitles,['美甲護理']);
+  assert.equal(result.minBookingAmountLabel,'一般預約指定項目「美甲護理」合計滿 NT$800');
+  assert.equal(bookingAmountLabel({minBookingAmountMode:'none',minBookingAmount:0},[]).minBookingAmountLabel,'不限金額');
+});
+
+test('AC-008: booking amount label hides identifiers and fails visibly on invalid configuration',()=>{
+  const missing=bookingAmountLabel({
+    minBookingAmountMode:'selected_services',minBookingAmount:1500,minBookingServiceIds:['opaque-uuid']
+  },[]);
+  assert.equal(missing.minBookingAmountLabel,'一般預約指定項目「已停用項目」合計滿 NT$1,500');
+  assert.doesNotMatch(missing.minBookingAmountLabel,/opaque-uuid/);
+  assert.match(bookingAmountLabel({minBookingAmountMode:'selected_services',minBookingAmount:800,minBookingServiceIds:[]},[]).minBookingAmountLabel,/資料異常/);
+});
