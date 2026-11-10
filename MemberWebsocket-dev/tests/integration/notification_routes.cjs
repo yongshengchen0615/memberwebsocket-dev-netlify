@@ -54,10 +54,13 @@ test('AC-185: opaque revisions use private PostgreSQL schemas, authorized identi
  const h=await setup();try{
   const {syncRevision}=await import('../../supabase/functions/_shared/sync-revision.mjs');
   const error=(status,code,message)=>Object.assign(Error(message),{status,code});
-  const db=schema=>({from(table){let columns,conditions=[],args=[],limit='';const q={select(value){columns=value;return q;},eq(k,v){args.push(v);conditions.push(`${k}=$${args.length}`);return q;},in(k,values){args.push(values);conditions.push(`${k}=any($${args.length})`);return q;},order(){limit=' order by id desc';return q;},limit(n){limit+=' limit '+n;return q;},async maybeSingle(){try{return{data:(await h.db.query(`select ${columns} from ${schema}.${table} where ${conditions.join(' and ')}${limit}`,args)).rows[0]||null,error:null};}catch(e){return{data:null,error:e};}}};return q;}});
+  const db=schema=>({from(table){let columns,conditions=[],args=[],limit='';const q={select(value){columns=value;return q;},eq(k,v){args.push(v);conditions.push(`${k}=$${args.length}`);return q;},in(k,values){args.push(values);conditions.push(`${k}=any(${args.length})`);return q;} ,not(k,operator,v){args.push(v);conditions.push(`${k} not ${operator} ${args.length}`);return q;},order(){limit=' order by id desc';return q;},limit(n){limit+=' limit '+n;return q;},async maybeSingle(){try{return{data:(await h.db.query(`select ${columns} from ${schema}.${table} where ${conditions.join(' and ')}${limit}`,args)).rows[0]||null,error:null};}catch(e){return{data:null,error:e};}}};return q;}});
   const scoped=db(h.t.runtime_schema),before=await syncRevision(scoped,'admin',owner,error);
   await h.db.query(`insert into ${h.t.runtime_schema}.realtime_events(scope,event_type)values('admin','booking.fixture')`);
   const after=await syncRevision(scoped,'admin',owner,error);assert.notEqual(before.revision,after.revision);
+  assert.deepEqual(await syncRevision(scoped,'admin',owner,error),after);
+  // Presence-only events must not bump admin's full-panel revision.
+  await h.db.query(`insert into ${h.t.runtime_schema}.realtime_events(scope,event_type) values('admin','member.presence.changed')`);
   assert.deepEqual(await syncRevision(scoped,'admin',owner,error),after);
   await assert.rejects(syncRevision(scoped,'admin','U'+'f'.repeat(32),error),e=>e.status===403);
   const other=await h.approve('U'+'3'.repeat(32),'sync-other',features);
