@@ -49,3 +49,27 @@ test('AC-011: group booking repeated service across members aggregates rather th
 test('AC-012: empty booking has no store charge or eligible event amount',()=>{
   assert.deepEqual(generalBookingAmountContext(state([],[])),{});
 });
+
+test('AC-013: adding and removing another participant immediately updates amount eligibility',()=>{
+  const summaryStart = source.indexOf('  function updateSelectionSummary() {');
+  const summaryEnd = source.indexOf('\n  function participantMetrics(',summaryStart);
+  assert.ok(summaryStart>=0 && summaryEnd>summaryStart);
+  const stateValue = state([{serviceId:'A',quantity:1}],[]);
+  const emissions=[];
+  const window={BookingBenefits:{setServiceContext(rows){emissions.push(rows)}}};
+  const document={getElementById(){return null}};
+  const STORE_SERVICE_ID='00000000-0000-4000-8000-000000000010';
+  const update = new Function('state','window','document','STORE_SERVICE_ID',
+    source.slice(start,end)+'\n'+source.slice(summaryStart,summaryEnd)+'\nreturn updateSelectionSummary;')(
+      stateValue,window,document,STORE_SERVICE_ID);
+  const total = () => emissions.at(-1).reduce((sum,row)=>sum+row.amount,0);
+  update();
+  assert.equal(total(),150);
+  stateValue.extras=[[{serviceId:'B'},{serviceId:'B'}]];
+  update();
+  assert.equal(total(),550);
+  stateValue.extras=[];
+  update();
+  assert.equal(total(),150);
+  assert.equal(emissions.length,3);
+});
