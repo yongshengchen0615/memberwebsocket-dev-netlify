@@ -1,5 +1,5 @@
 -- General-booking-only event-ticket amount gate.
--- Snapshot validation and receipt registration functions are intentionally untouched.
+-- Snapshot validation, direct-use/no-booking eligibility and receipt registration functions are intentionally untouched.
 -- Canonical sums use booking_items (also aggregates group participants) once.
 begin;
 do $migration$
@@ -24,8 +24,7 @@ declare
     'redeem_member_tickets_for_booking_request',
     'complete_booking_with_benefits_request',
     'reconcile_booking_ticket_services',
-    'member_ticket_booking_options_with_booking',
-    'ticket_has_service_requirement'
+    'member_ticket_booking_options_with_booking'
   ];
 begin
   for s in
@@ -88,7 +87,7 @@ begin
     $function$,s);
 
     -- Existing normal-booking transactions remain the authorization boundary.
-    for fn in select unnest(func_names[3:9]) loop
+    for fn in select unnest(func_names[3:8]) loop
       select pg_get_functiondef(p.oid) into strict def from pg_proc p
       join pg_namespace n on n.oid=p.pronamespace
       where n.nspname=s and p.proname=fn and p.prokind='f';
@@ -120,9 +119,6 @@ begin
       elsif fn='member_ticket_booking_options_with_booking' then
         old_part := '      and '||prefix||'booking_ticket_matches_services(b.id,p_member_id,t.kind,t.ref)';
         new_part := old_part||E'\n'||'      and '||prefix||'booking_ticket_meets_amount(b.id,p_member_id,t.kind,t.ref)';
-      elsif fn='ticket_has_service_requirement' then
-        old_part := 'jsonb_array_length(coalesce(e.required_service_groups,''[]''::jsonb))>0)';
-        new_part := 'jsonb_array_length(coalesce(e.required_service_groups,''[]''::jsonb))>0 or e.min_booking_amount_mode<>''none'')';
       end if;
       if strpos(def,old_part)=0 then
         raise exception 'GENERAL_AMOUNT_PATCH_SOURCE_CHANGED: %.%',s,fn;
