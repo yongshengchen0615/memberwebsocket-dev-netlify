@@ -140,7 +140,7 @@ for (const testMode of [false, true]) {
 
 
 for (const width of [390, 1280]) {
-  test('phone booking is available only inside the inclusive date window at ' + width + 'px', async ({ page }) => {
+  test('phone booking is an exclusive fallback inside the merchant date window at ' + width + 'px', async ({ page }) => {
     await page.clock.setFixedTime(new Date('2026-11-07T03:00:00Z'));
     await page.setViewportSize({ width, height: 900 });
     await page.goto(baseUrl + '/booking/');
@@ -201,10 +201,18 @@ for (const width of [390, 1280]) {
       await expect(page.locator('#bookingPhoneFallback')).toBeVisible();
       await expect(page.locator('.booking-day-footer > #startDayBookingButton + #bookingPhoneFallback > #bookingPhoneDial')).toHaveText('撥打店家電話：06-1234567');
       await expect(page.locator('#bookingPhoneDial')).toHaveAttribute('href', 'tel:061234567');
+      const phoneLayout = await page.evaluate(() => {
+        const fallback = document.getElementById('bookingPhoneFallback').getBoundingClientRect();
+        const phone = document.getElementById('bookingPhoneDial').getBoundingClientRect();
+        return { leftDelta: Math.abs(phone.left - fallback.left), widthDelta: Math.abs(phone.width - fallback.width), height: phone.height };
+      });
+      expect(phoneLayout.leftDelta).toBeLessThan(2);
+      expect(phoneLayout.widthDelta).toBeLessThan(2);
+      expect(phoneLayout.height).toBeGreaterThanOrEqual(48);
       await page.locator('#closeBookingDayButton').click();
     }
 
-    // Both boundaries and dates between them permit online booking and a phone CTA.
+    // Online-eligible dates show the online action only, including both inclusive boundaries.
     for (const date of [dates.minimum, dates.middle, dates.maximum]) {
       const cell = await visit(date);
       await expect(cell).toBeVisible();
@@ -214,18 +222,8 @@ for (const width of [390, 1280]) {
       await expect(page.locator('#bookingDayModal')).toBeVisible();
       await expect(page.locator('#startDayBookingButton')).toBeVisible();
       await expect(page.locator('#startDayBookingButton')).toBeEnabled();
-      await expect(page.locator('#bookingPhoneFallback')).toBeVisible();
-      await expect(page.locator('.booking-day-footer > #startDayBookingButton + #bookingPhoneFallback > #bookingPhoneDial')).toHaveText('撥打店家電話：06-1234567');
-      await expect(page.locator('#bookingPhoneDial')).toHaveAttribute('aria-label', '撥打店家電話：06-1234567');
-      await expect(page.locator('#bookingPhoneDial')).toHaveAttribute('href', 'tel:061234567');
-      const rects = await page.evaluate(() => {
-        const online = document.getElementById('startDayBookingButton').getBoundingClientRect();
-        const phone = document.getElementById('bookingPhoneDial').getBoundingClientRect();
-        return { onlineLeft: online.left, phoneLeft: phone.left, onlineWidth: online.width, phoneWidth: phone.width, phoneBelow: phone.top > online.bottom };
-      });
-      expect(rects.phoneBelow).toBe(true);
-      expect(Math.abs(rects.onlineLeft - rects.phoneLeft)).toBeLessThan(2);
-      expect(Math.abs(rects.onlineWidth - rects.phoneWidth)).toBeLessThan(2);
+      await expect(page.locator('#bookingPhoneFallback')).toBeHidden();
+      await expect(page.locator('#bookingPhoneDial')).not.toHaveAttribute('href', /tel:/);
       await page.locator('#closeBookingDayButton').click();
     }
 
@@ -243,7 +241,8 @@ for (const width of [390, 1280]) {
     })));
     await expect(page.locator('#startDayBookingButton')).toBeVisible();
     await expect(page.locator('#startDayBookingButton')).toBeEnabled();
-    await expect(page.locator('#bookingPhoneFallback')).toBeVisible();
+    await expect(page.locator('#bookingPhoneFallback')).toBeHidden();
+    await expect(page.locator('#bookingPhoneDial')).not.toHaveAttribute('href', /tel:/);
 
     await page.evaluate(() => window.dispatchEvent(new CustomEvent('booking:settings-updated', {
       detail: { settings: { minAdvanceDays: 2, maxAdvanceDays: 5, phoneBookingNumber: '' } }
@@ -261,7 +260,7 @@ for (const width of [390, 1280]) {
     const later = await visit(dates.beyondMaximum);
     await expect(later.locator('.calendar-phone-badge')).toHaveCount(0);
     await later.click();
-    await expect(page.locator('#bookingPhoneFallback')).toBeVisible();
+    await expect(page.locator('#bookingPhoneFallback')).toBeHidden();
     await expect(page.locator('#startDayBookingButton')).toBeEnabled();
   });
 }

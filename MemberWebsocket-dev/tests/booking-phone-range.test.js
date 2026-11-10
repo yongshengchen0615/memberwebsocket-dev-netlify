@@ -59,7 +59,9 @@ test('AC-001: lead-time is online-only; today and tomorrow may be booked by tele
     const result = action(h, date);
     assert.equal(result.onlineDisabled, false, date);
     assert.equal(result.onlineHidden, false, date);
-    assert.equal(result.phoneHidden, false, date);
+    assert.equal(result.phoneHidden, true, date);
+    assert.equal(result.href, undefined, date);
+    assert.equal(result.dialLabel, '撥打店家電話', date);
   }
 });
 
@@ -90,6 +92,27 @@ test('AC-003: invalid or missing number must not offer a callable link', () => {
   }
 });
 
+
+test('AC-007: phone fallback and online button never appear as active alternatives for the same date', () => {
+  const h = load();
+  let result = action(h, '2026-11-10');
+  assert.equal(result.onlineDisabled, false);
+  assert.equal(result.phoneHidden, true);
+  assert.equal(result.href, undefined);
+
+  result = action(h, '2026-11-08');
+  assert.equal(result.onlineHidden, true);
+  assert.equal(result.onlineDisabled, true);
+  assert.equal(result.phoneHidden, false);
+  assert.equal(result.href, 'tel:061234567');
+
+  result = action(h, '2026-11-09');
+  assert.equal(result.onlineDisabled, false);
+  assert.equal(result.onlineHidden, false);
+  assert.equal(result.phoneHidden, true);
+  assert.equal(result.href, undefined);
+});
+
 function element(tag) {
   const el = {
     tag, children: [], dataset: {}, attributes: {},
@@ -105,13 +128,13 @@ function element(tag) {
 
 test('AC-005: phone number changes update the button and revocation removes stale text', () => {
   const h = load();
-  action(h, '2026-11-09');
+  action(h, '2026-11-08');
   h.state.phoneBookingNumber = '+886-6-9876543';
-  const changed = action(h, '2026-11-09');
+  const changed = action(h, '2026-11-08');
   assert.equal(changed.dialLabel, '撥打店家電話：+886-6-9876543');
   assert.equal(changed.href, 'tel:+88669876543');
   h.state.phoneBookingNumber = '';
-  const disabled = action(h, '2026-11-09');
+  const disabled = action(h, '2026-11-08');
   assert.equal(disabled.phoneHidden, true);
   assert.equal(disabled.href, undefined);
   assert.equal(disabled.dialLabel, '撥打店家電話');
@@ -126,7 +149,8 @@ test('AC-006: changing availability restores online action when phone-only windo
   result = action(h, '2026-11-08');
   assert.equal(result.onlineHidden, false);
   assert.equal(result.onlineDisabled, false);
-  assert.equal(result.phoneHidden, false);
+  assert.equal(result.phoneHidden, true);
+  assert.equal(result.href, undefined);
   h.state.minimumDate = '2026-11-09';
   h.state.phoneBookingNumber = '';
   result = action(h, '2026-11-08');
