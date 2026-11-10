@@ -90,6 +90,10 @@ for(const width of [390,1280]) {
     });
     const rows=page.locator('#bookingBenefitsList .booking-benefit');
     await expect(rows).toHaveCount(2);
+    const visibleConditions = rows.locator('.booking-benefit-amount-condition');
+    await expect(visibleConditions).toHaveCount(2);
+    await expect(visibleConditions.nth(0)).toHaveText('金額使用條件：一般預約總金額滿 NT$300');
+    await expect(visibleConditions.nth(1)).toHaveText('金額使用條件：一般預約指定項目 B 滿 NT$200');
     await expect(rows.locator('input[type="checkbox"]:disabled')).toHaveCount(2);
     await page.evaluate(()=>window.BookingBenefits.setServiceContext([{serviceId:'A',amount:100},{serviceId:'B',amount:199}]));
     await expect(rows.locator('input[type="checkbox"]:disabled')).toHaveCount(2);
