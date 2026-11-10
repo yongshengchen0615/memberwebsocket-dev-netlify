@@ -387,7 +387,20 @@
 
         const condition = document.createElement('small');
         condition.className = 'booking-benefit-condition';
-        condition.textContent = String(item.conditionLabel || '服務限制：目前未設定');
+        const amountLabel = item.kind === 'event' && ['total', 'selected_services'].includes(String(item.minBookingAmountMode || ''))
+          ? String(item.minBookingAmountLabel || '').trim()
+          : '';
+        // Separate the amount threshold from the legacy combined description so
+        // it remains visible as its own rule without displaying it twice.
+        const originalCondition = String(item.conditionLabel || '服務限制：目前未設定');
+        condition.textContent = amountLabel
+          ? originalCondition.split(' · ').filter((part) => part.trim() !== amountLabel).join(' · ')
+          : originalCondition;
+        const amountCondition = amountLabel ? document.createElement('small') : null;
+        if (amountCondition) {
+          amountCondition.className = 'booking-benefit-condition booking-benefit-amount-condition';
+          amountCondition.textContent = `金額使用條件：${amountLabel}`;
+        }
         const hasServiceGroups = selectableKinds.has(item.kind) && Array.isArray(item.requiredServiceGroups) && item.requiredServiceGroups.length > 0;
         const groupStatus = hasServiceGroups ? document.createElement('small') : null;
         if (groupStatus) {
@@ -441,11 +454,11 @@
             }
             void handleSelectionChange(item, input);
           });
-          if (card.classList.contains('event-ticket')) card.append(condition, ...(groupStatus ? [groupStatus] : []), choose);
-          else card.append(meta, title, copy, expires, condition, ...(groupStatus ? [groupStatus] : []), choose);
+          if (card.classList.contains('event-ticket')) card.append(condition, ...(amountCondition ? [amountCondition] : []), ...(groupStatus ? [groupStatus] : []), choose);
+          else card.append(meta, title, copy, expires, condition, ...(amountCondition ? [amountCondition] : []), ...(groupStatus ? [groupStatus] : []), choose);
         } else {
-          if (card.classList.contains('event-ticket')) card.append(condition, ...(groupStatus ? [groupStatus] : []));
-          else card.append(meta, title, copy, expires, condition, ...(groupStatus ? [groupStatus] : []));
+          if (card.classList.contains('event-ticket')) card.append(condition, ...(amountCondition ? [amountCondition] : []), ...(groupStatus ? [groupStatus] : []));
+          else card.append(meta, title, copy, expires, condition, ...(amountCondition ? [amountCondition] : []), ...(groupStatus ? [groupStatus] : []));
         }
 
         if (item.kind === 'points') {

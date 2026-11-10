@@ -23,6 +23,7 @@
 .booking-benefit .booking-benefit-meta { color: var(--theme-accent); font-weight: 700; font-size: .72rem; }
 .booking-benefit small { color: var(--theme-text-muted); font-size: .72rem; }
 .booking-benefit-condition { display: block; line-height: 1.45; }
+.booking-benefit .booking-benefit-amount-condition { color: var(--theme-text); font-weight: 750; border-left: 3px solid var(--theme-accent); padding: 6px 9px; background: var(--theme-surface-muted); border-radius: 0 7px 7px 0; overflow-wrap: anywhere; }
 .booking-benefit-select { display: flex; align-items: center; gap: 9px; min-height: 44px; font-size: .82rem; font-weight: 700; cursor: pointer; }
 .booking-benefit-select input { width: 20px; height: 20px; margin: 0; accent-color: var(--theme-accent); }
 .booking-benefit-select input:disabled { cursor: not-allowed; opacity: .6; }
