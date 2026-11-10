@@ -365,3 +365,31 @@ test('AC-SERVICE-GROUP-UI-002: member tickets visibly state A+B or A+C and live 
     for (const checkbox of cards.querySelectorAll('input[type="checkbox"]')) assert.equal(checkbox.disabled, true);
   } finally { h.close(); }
 });
+
+
+test('AC-AMOUNT-DISPLAY: event ticket shows a distinct amount condition, never on unconfigured or point tickets', async () => {
+  const tickets = [
+    { kind: 'event', id: 'total', selectionId: 'TOTAL-1', selectable: true, title: '整筆滿額券', statusLabel: '可使用',
+      minBookingAmountMode: 'total', minBookingAmount: 300, minBookingAmountLabel: '一般預約總金額滿 NT$300',
+      conditionLabel: '每日使用張數不限 · 預約項目限制：不限 · 一般預約總金額滿 NT$300' },
+    { kind: 'event', id: 'items', selectionId: 'ITEMS-1', selectable: true, title: '指定項目券', statusLabel: '可使用',
+      minBookingAmountMode: 'selected_services', minBookingAmount: 500, minBookingServiceIds: ['B'],
+      minBookingAmountLabel: '一般預約指定項目「美髮」合計滿 NT$500',
+      conditionLabel: '預約項目限制：不限 · 一般預約指定項目「美髮」合計滿 NT$500' },
+    { kind: 'event', id: 'legacy', selectionId: 'LEGACY-1', selectable: true, title: '舊票券', statusLabel: '可使用',
+      minBookingAmountMode: 'none', minBookingAmountLabel: '不限金額', conditionLabel: '預約項目限制：不限 · 不限金額' },
+    { kind: 'points', id: 'points', selectionId: 'POINTS-1', selectable: true, title: '集點券', conditionLabel: '本卡可用 10 點' },
+  ];
+  const h = fixture(async () => ({ items: tickets, eventTicketMaxPerDay: 0 }));
+  try {
+    h.start(); await tick(15);
+    const cards = [...h.el('bookingBenefitsList').querySelectorAll('.booking-benefit')];
+    assert.equal(cards.length, 4);
+    assert.equal(cards[0].querySelector('.booking-benefit-amount-condition')?.textContent, '金額使用條件：一般預約總金額滿 NT$300');
+    assert.equal(cards[1].querySelector('.booking-benefit-amount-condition')?.textContent, '金額使用條件：一般預約指定項目「美髮」合計滿 NT$500');
+    assert.ok(!cards[0].querySelector('.booking-benefit-condition:not(.booking-benefit-amount-condition)')?.textContent.includes('NT$300'), 'do not repeat amount in long description');
+    assert.equal(cards[2].querySelector('.booking-benefit-amount-condition'), null);
+    assert.equal(cards[3].querySelector('.booking-benefit-amount-condition'), null);
+    assert.match(cards[0].textContent, /預約項目限制：不限/);
+  } finally { h.close(); }
+});
