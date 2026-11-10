@@ -145,7 +145,9 @@ function holidayDateSet(items: CalendarItem[]): Set<string> {
 }
 
 function splitManagedEventAroundHolidays(item: CalendarItem, holidays: Set<string>): CalendarItem[] {
-  if (!isManagedEventTicketCalendarItem(item)) return [item];
+  // All member-visible events (including ticket-synced events) yield to holidays.
+  const managedEventTicket = isManagedEventTicketCalendarItem(item);
+  if (String(item.itemType || "") !== "event") return [item];
   const start = parseIsoDate(item.startsOn);
   const end = parseIsoDate(item.endsOn || item.startsOn);
   if (!start || !end || end < start) return [item];
@@ -162,7 +164,7 @@ function splitManagedEventAroundHolidays(item: CalendarItem, holidays: Set<strin
       ...item,
       startsOn: segmentStart,
       endsOn: segmentEnd === segmentStart ? "" : segmentEnd,
-      calendarDisplaySourceId: String(item.calendarItemId || ""),
+      ...(managedEventTicket ? { calendarDisplaySourceId: String(item.calendarItemId || "") } : {}),
     });
     segmentStart = "";
     segmentEnd = "";
