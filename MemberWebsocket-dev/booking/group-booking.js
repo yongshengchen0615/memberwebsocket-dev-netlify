@@ -1072,18 +1072,27 @@
   window.addEventListener('business:features-changed',renderPrimaryRule);
 
   function syncBenefitServiceContext() {
-    const serviceIds = [];
-    for (const item of state.primaryItems) {
-      const serviceId = String(item?.serviceId || '').trim();
-      if (serviceId) serviceIds.push(serviceId);
-    }
+    const quantities = new Map();
+    const include = (serviceId, quantity) => {
+      const id = String(serviceId || '').trim();
+      const count = Number(quantity);
+      if (!id || !Number.isSafeInteger(count) || count < 1) return;
+      quantities.set(id, (quantities.get(id) || 0) + count);
+    };
+    for (const item of state.primaryItems) include(item?.serviceId, item?.quantity || 1);
     for (const selections of state.extras) {
-      for (const selection of Array.isArray(selections) ? selections : []) {
-        const serviceId = String(selection?.serviceId || '').trim();
-        if (serviceId) serviceIds.push(serviceId);
-      }
+      for (const selection of Array.isArray(selections) ? selections : [])
+        include(selection?.serviceId, 1);
     }
-    window.BookingBenefits?.setServiceContext?.([...new Set(serviceIds)]);
+    // The store service is inserted once per booking, not per participant.
+    if (quantities.size && state.services.some((service) => service.serviceId === STORE_SERVICE_ID))
+      include(STORE_SERVICE_ID, 1);
+    const amounts = new Map(state.services.map((service) => [String(service.serviceId), Number(service.priceAmount || 0)]));
+    const context = [...quantities].map(([serviceId, quantity]) => ({
+      serviceId,
+      amount: Math.max(0, amounts.get(serviceId) || 0) * quantity,
+    }));
+    window.BookingBenefits?.setServiceContext?.(context);
   }
 
   function participantServiceNames(index) {
