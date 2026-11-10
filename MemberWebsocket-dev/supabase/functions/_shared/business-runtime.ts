@@ -8,6 +8,7 @@ import { merchantOnboarding, featureLineReady } from './merchant-onboarding.mjs'
 import { wakeBookingNotifications } from './booking-notification-wake.mjs';
 import { notificationToken } from './notification-routes.mjs';
 import { readRequestBytes } from './request-ingress.mjs';
+import { serverFailureTrace } from './server-errors.mjs';
 export type { SupabaseClient } from 'npm:@supabase/supabase-js@2.57.0';
 type Context=Record<string,any>;
 import { scope, rawEnv, businessContext, businessEnv, businessFetch } from './business-scope.ts';
@@ -220,11 +221,16 @@ function policyAction(name:string,body:any):string{
  if(name==='booking-cancellation-api')return body.clientType==='member'&&['member.list','member.request'].includes(body.action)?'user.booking.cancellation':'admin.booking.cancellation';
  return action;
 }
-export function businessHandler(name:string,handler:(request:Request)=>Response|Promise<Response>){
+export function businessHandler(name:string,handler:(request:Request)=>Response|Promise<Response>,options:{maxRequestBytes?:number;allowedOrigins?:()=>Set<string>}={}){
  return async(request:Request):Promise<Response>=>{
   if(request.method!=='POST')return handler(request);
   try{
-   const bytes=await readRequestBytes(request,8_000_000);
+   const origin=request.headers.get('Origin');
+   if(origin&&options.allowedOrigins&&!options.allowedOrigins().has(origin)){
+    void request.body?.cancel().catch(()=>{});
+    throw Object.assign(Error('此網站來源未被允許使用會員 API。'),{status:403,code:'ORIGIN_NOT_ALLOWED'});
+   }
+   const bytes=await readRequestBytes(request,options.maxRequestBytes??8_000_000);
    // Consume once: cloning tees the untrusted stream and retains a second
    // queued copy while routing. Replay exact bytes for endpoint validation.
    request=new Request(request,{body:bytes});
@@ -279,9 +285,10 @@ export function businessHandler(name:string,handler:(request:Request)=>Response|
    return response;
   }catch(error){
    const e=error as any,status=e.status||503;
+   const requestId=serverFailureTrace('business-router',status,e.code);
    const allowed=new Set(['https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app','https://platform--memberwebsocket-dev-netlify.netlify.app','https://develop--memberwebsocket-dev-netlify.netlify.app','https://memberwebsocket-dev-netlify.netlify.app',...rawEnv('ALLOWED_ORIGINS').split(',')]);
    const origin=request.headers.get('Origin')||'';
-   return new Response(JSON.stringify({ok:false,status,error:{code:e.code||'BUSINESS_UNAVAILABLE',message:e.status?e.message:'商家服務暫時無法使用，請稍後重試。'}}),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store','Access-Control-Allow-Origin':allowed.has(origin)?origin:'','Vary':'Origin'}});
+   return new Response(JSON.stringify({ok:false,status,error:{code:e.code||'BUSINESS_UNAVAILABLE',message:e.status?e.message:'商家服務暫時無法使用，請稍後重試。',...(requestId?{requestId}:{})}}),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store','Access-Control-Allow-Origin':allowed.has(origin)?origin:'','Vary':'Origin',...(requestId?{'X-Request-Id':requestId}:{})}});
   }
  };
 }

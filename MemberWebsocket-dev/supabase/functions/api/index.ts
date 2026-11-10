@@ -7,6 +7,7 @@ import { loadBookingBenefits } from "../_shared/booking-benefits.ts";
 import { loadMemberBookingSelections, contextsForTicket } from "../_shared/booking-selection-context.ts";
 import { hasCurrentTermsConsent } from "../_shared/membership-terms.ts";
 import { readJsonObject } from "../_shared/request-body.ts";
+import { serverFailureTrace } from "../_shared/server-errors.mjs";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
 import { buildLineFlexNotice } from "../_shared/line-flex.ts";
 import { resolveTestSession, TestModeAuthError } from "../_shared/test-mode-auth.ts";
@@ -130,11 +131,14 @@ function json(origin: string | null, payload: unknown, status = 200): Response {
 
 function errorResponse(origin: string | null, error: unknown): Response {
   const apiError = error instanceof ApiError ? error : mapDatabaseError(error);
-  return json(origin, {
+  const requestId = apiError.status >= 500 ? serverFailureTrace('api', apiError.status, apiError.code) : undefined;
+  const response = json(origin, {
     ok: false,
     status: apiError.status,
-    error: { code: apiError.code, message: apiError.message, details: apiError.details },
+    error: { code: apiError.code, message: apiError.message, details: apiError.details, ...(requestId ? { requestId } : {}) },
   }, apiError.status);
+  if (requestId) response.headers.set('X-Request-Id', requestId);
+  return response;
 }
 
 function mapDatabaseError(error: unknown): ApiError {
@@ -3020,4 +3024,4 @@ async function handleRequest(request: Request): Promise<Response> {
   }
 }
 
-export default { fetch: businessHandler('api', handleRequest) };
+export default { fetch: businessHandler('api', handleRequest, { maxRequestBytes: MAX_REQUEST_BYTES, allowedOrigins }) };
