@@ -3,7 +3,7 @@ const error=(status,code,message)=>Object.assign(Error(message),{status,code});
 function fixture(){
  const features={membership:true,points:true,events:true,calendar:true,booking:true};
  let active=true,reads=0;
- const db={businessFeatures:features,from(table){reads++;const q={select(){return q;},eq(){return q;},in(){return q;},order(){return q;},limit(){return q;},async maybeSingle(){return {data:table==='admins'?{role:'admin',status:active?'active':'disabled'}:{id:42,created_at:'2026-11-06T00:00:00Z'},error:null};}};return q;}};
+ const db={businessFeatures:features,from(table){reads++;const q={select(){return q;},eq(){return q;},in(){return q;},not(field,operator,pattern){assert.equal(field,'event_type');assert.equal(operator,'like');assert.equal(pattern,'%.presence.%');return q;},order(){return q;},limit(){return q;},async maybeSingle(){return {data:table==='admins'?{role:'admin',status:active?'active':'disabled'}:{id:42,created_at:'2026-11-06T00:00:00Z'},error:null};}};return q;}};
  return {db,features,get reads(){return reads;},disable(){active=false;}};
 }
 test('AC-SYNC-001: every grant revoke/re-enable changes the authenticated revision without a business event',async()=>{
