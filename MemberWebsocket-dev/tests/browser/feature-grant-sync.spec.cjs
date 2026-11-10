@@ -44,7 +44,7 @@ for(const width of [390,1280])test(`AC-SYNC-001..005_${width}: root SQL grant ch
     assertBusinessAction(current,action,body);
     const data=action==='admin.sync.status'?await syncRevision(scoped(current.features),'admin',owner,(status,code,message)=>Object.assign(Error(message),{status,code})):businessResponse(await transport(s,action,body,new URL(route.request().url()).pathname.split('/').at(-1)),current,action);
     return route.fulfill({json:{ok:true,data}});
-   }catch(e){return route.fulfill({status:e.status||400,json:{ok:false,error:{code:e.code,message:e.message}}});}
+   }catch(e){if(action==='admin.sync.status')errors.push({action,code:e.code||'',message:e.message||'',status:e.status||400});return route.fulfill({status:e.status||400,json:{ok:false,error:{code:e.code,message:e.message}}});}
   });
   await page.goto(base+'/admin/?business='+t.slug);await expect(page.locator('#adminView')).toBeVisible();
   await page.locator('#bookingTab').click();await page.locator('#bookingAdminServicesSubtab').click();await page.locator('#bookingAdminNewTypeButton').click();
@@ -54,7 +54,7 @@ for(const width of [390,1280])test(`AC-SYNC-001..005_${width}: root SQL grant ch
   await page.clock.pauseAt(await page.evaluate(()=>Date.now()+100));
   const events=(await h.db.query(`select count(*)::int n from ${t.runtime_schema}.realtime_events`)).rows[0].n;
   await grants({...all,points:false});await page.clock.runFor(3001);
-  await expect(reward).toBeHidden();await expect(page.locator('#bookingAdminCrudModal')).toBeVisible();
+  try { await expect(reward).toBeHidden(); } catch (e) { throw new Error(`${e.message}\nGRANT_SYNC_DIAGNOSTICS ${JSON.stringify({ errors, syncCalls: calls.filter(a=>a==='admin.sync.status').length, tailActions: calls.slice(-25), tenantFeatures: (await h.db.query('select features from platform_private.tenants where id=$1',[t.id])).rows[0].features, adminSyncStatus: await page.evaluate(()=>window.MemberSystem?.getRealtimeStatus?.('admin')) })}`); } await expect(page.locator('#bookingAdminCrudModal')).toBeVisible();
   await expect(page.locator('[data-type-name]')).toHaveValue('尚未儲存的類型');await expect(page.locator('[data-type-reward-minutes]')).toHaveValue('75');
   await grants(all);await page.clock.runFor(3001);await expect(reward).toBeVisible();await expect(reward).toBeChecked();
   await page.locator('#bookingAdminCrudModalClose').click();
