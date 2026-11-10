@@ -8,7 +8,7 @@ let host, server, base;
 test.beforeAll(async () => {
   host = await startFixture();
   server = http.createServer((req,res) => {
-    res.setHeader('Content-Type', req.url === '/benefits.js' ? 'text/javascript' : 'text/html');
+    res.setHeader('Content-Type', req.url === '/benefits.js' ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8');
     res.end(req.url === '/benefits.js'
       ? fs.readFileSync(path.resolve(__dirname,'../../booking/booking-benefits.js'),'utf8')
       : '<!doctype html><html lang="zh-Hant"><body><section id="bookingBenefits"><p id="bookingBenefitsStatus" tabindex="-1"></p><button id="bookingBenefitsRetry"></button><div id="bookingBenefitsList"></div></section><script src="/benefits.js"></script></body></html>');
