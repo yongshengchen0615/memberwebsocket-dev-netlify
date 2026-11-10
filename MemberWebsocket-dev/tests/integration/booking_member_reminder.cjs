@@ -8,6 +8,12 @@ const migration = fs.readFileSync(path.resolve(__dirname, '../../supabase/migrat
 const memberId = '10000000-0000-4000-8000-000000000001';
 const memberLine = 'U' + 'a'.repeat(32);
 
+test('AC-002: existing and future tenant reminder messages preserve text, bounds, rollback and permissions', async () => {
+  const db = new PGlite();
+  try { await require('./fixtures/reminder-message-contract.cjs')(db); }
+  finally { await db.close(); }
+});
+
 test('booking reminder SQL migration: atomic preferences, idempotency, opt-out and dispatch gate', async t => {
   const db = new PGlite();
   const rows = async (sql, params = []) => (await db.query(sql, params)).rows;
