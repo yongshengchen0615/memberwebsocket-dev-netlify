@@ -98,7 +98,10 @@ function transport(s, action, p={}, slug='api',record=true) {
     const eventTicket=s.legacyTicketApiDropsGroups
       ? {...p.eventTicket,requiredServiceMatchMode:'any',requiredServiceGroups:[]}
       : p.eventTicket;
-    return {eventTicket:save('eventTickets','eventTicketId',eventTicket)};
+    const amountPreserved=s.legacyTicketApiDropsAmount
+      ? {...eventTicket,minBookingAmountMode:undefined,minBookingAmount:undefined,minBookingServiceIds:undefined}
+      : eventTicket;
+    return {eventTicket:save('eventTickets','eventTicketId',amountPreserved)};
   }
   if(action==='admin.event-tickets.delete')return del('eventTickets','eventTicketId',p.eventTicketId);
   if(action==='admin.calendar-items.list')return {calendarItems:s.calendarItems};
