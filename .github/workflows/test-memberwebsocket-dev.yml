@@ -149,6 +149,7 @@ jobs:
           node --max-old-space-size=1024 --test MemberWebsocket-dev/tests/integration/admin_human_journeys.cjs
           node --test MemberWebsocket-dev/tests/integration/ongoing_release_20261014.cjs MemberWebsocket-dev/tests/integration/ongoing_release_ui.cjs
           node --test MemberWebsocket-dev/tests/integration/booking_member_reminder.cjs
+          node --test MemberWebsocket-dev/tests/integration/business_provisioning_contract.cjs
           node --test MemberWebsocket-dev/tests/integration/business-runtime.cjs MemberWebsocket-dev/tests/integration/admin_access_lifecycle.cjs
           node MemberWebsocket-dev/tests/integration/booking_ui.cjs
           node MemberWebsocket-dev/tests/integration/booking_sql.cjs
@@ -312,6 +313,8 @@ jobs:
           MemberWebsocket-dev/tests/integration/postgres/booking-phone-fallback.cjs
           MemberWebsocket-dev/tests/integration/postgres/booking-end-overrun.cjs
           MemberWebsocket-dev/tests/integration/postgres/booking-participant-notes.cjs
+          MemberWebsocket-dev/tests/integration/postgres/reminder-message.cjs
+          MemberWebsocket-dev/tests/integration/postgres/provisioning-contract.cjs
           MemberWebsocket-dev/tests/integration/postgres/booking-item-prices.cjs
           MemberWebsocket-dev/tests/integration/postgres/member-verified-phone.cjs
           MemberWebsocket-dev/tests/integration/postgres/ticket-service-groups.cjs

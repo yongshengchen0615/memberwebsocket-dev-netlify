@@ -1,6 +1,18 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const source=()=>import('../supabase/functions/_shared/business-policy.mjs');
 const ctx={status:'active',runtime_schema:'business_'+'a'.repeat(32),features:{membership:true,points:true,events:true,calendar:true,integrations:true,booking:true,testing:true,usage:true}};
+test('AC-001: point transfer actions use the points grant and fail closed after revocation',async()=>{
+ const {actionFeatures,assertBusinessAction}=await source();
+ for(const action of ['points.transfer.options','points.transfer.receiver','points.transfer.create']){
+  assert.deepEqual(actionFeatures(action),['points'],action);
+  assert.doesNotThrow(()=>assertBusinessAction(ctx,action));
+  assert.throws(()=>assertBusinessAction({...ctx,features:{...ctx.features,points:false}},action),e=>e.code==='FEATURE_DISABLED');
+  assert.throws(()=>assertBusinessAction({...ctx,status:'suspended'},action),e=>e.code==='TENANT_SUSPENDED');
+  assert.throws(()=>assertBusinessAction({...ctx,expires_at:'2020-01-01T00:00:00Z'},action),e=>e.code==='TENANT_EXPIRED');
+ }
+ for(const action of ['points.transfer.admin','points.transfer','points.transfer.create.extra'])
+  assert.throws(()=>assertBusinessAction(ctx,action),e=>e.code==='FEATURE_ACTION_UNMAPPED');
+});
 test('every endpoint using business data enters the request-scoped authorization adapter',()=>{
  const fs=require('node:fs'),path=require('node:path'),root=path.resolve(__dirname,'../supabase/functions');
  for(const name of fs.readdirSync(root)){
