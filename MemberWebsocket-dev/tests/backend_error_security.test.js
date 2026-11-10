@@ -36,15 +36,23 @@ for(const status of [400,401,403])test(`AC-001: actual invalid LINE token (${sta
   assert.equal(edge.downstream(),0);
 });
 
-async function mainApi(){
+test('AC-001: provider failure releases an open response body without waiting for its cancellation',async()=>{
+  let cancelled=false;
+  const response=new Response(new ReadableStream({cancel(){cancelled=true;return new Promise(()=>{});}}),{status:503});
+  const edge=await verifier(response);
+  await assert.rejects(edge.run(),{status:503,code:'LINE_AUTH_UNAVAILABLE'});
+  assert.equal(cancelled,true);assert.equal(edge.downstream(),0);
+});
+
+async function mainApi(configuredOrigins='https://allowed.test'){
   let queries=0;const logs=[];
   const {readRequestBytes}=await import(pathToFileURL(path.join(shared,'request-ingress.mjs')));
   const {readJsonObject}=await import(pathToFileURL(path.join(shared,'request-body.ts')));
   const context=vm.createContext({Request,Response,Headers,URL,URLSearchParams,TextDecoder,TextEncoder,Uint8Array,AbortSignal,
-    crypto,console:{error:value=>logs.push(value)},setTimeout,clearTimeout,
+    crypto,console:{error:(...values)=>logs.push(values)},setTimeout,clearTimeout,
     readRequestBytes,readJsonObject,
-    rawEnv:name=>name==='ALLOWED_ORIGINS'?'https://allowed.test':'',
-    businessEnv:name=>name==='ALLOWED_ORIGINS'?'https://allowed.test':'',
+    rawEnv:name=>name==='ALLOWED_ORIGINS'?configuredOrigins:'',
+    businessEnv:name=>name==='ALLOWED_ORIGINS'?configuredOrigins:'',
     baseClient:()=>{queries++;throw Error('unexpected privileged query');},scope:{getStore:()=>undefined},
   });
   if(fs.existsSync(path.join(shared,'server-errors.mjs'))){
@@ -86,6 +94,12 @@ test('AC-002: valid-shaped in-limit tenant requests still reach existing routing
   const edge=await mainApi();const response=await edge.run(request(JSON.stringify({business:'merchant-a',action:'user.member.bootstrap',idToken:'synthetic-token'})));
   assert.equal(response.status,503);assert.equal(edge.queries(),1);assert.equal((await response.json()).ok,false);
 });
+for(const origin of ['https://yongshengchen0615.github.io','https://custom.test'])test(`AC-002: early size rejection remains readable with the existing endpoint code for ${origin}`,async()=>{
+  const edge=await mainApi('https://allowed.test, https://custom.test');
+  const response=await edge.run(request(JSON.stringify({padding:'x'.repeat(40000)}),{Origin:origin}));
+  assert.equal(response.status,413);assert.equal(response.headers.get('Access-Control-Allow-Origin'),origin);
+  assert.equal((await response.json()).error.code,'REQUEST_TOO_LARGE');assert.equal(edge.queries(),0);
+});
 
 test('AC-003: main API 5xx has a server trace with no raw failure or private details',async()=>{
   const edge=await mainApi();
@@ -109,4 +123,28 @@ test('AC-003: trace metadata rejects unknown codes and logging failure preserves
   assert.match(id,uuid);assert.deepEqual(logs,[{event:'backend_request_failed',request_id:id,service:'business-router',status:503,code:'SERVER_ERROR'}]);
   assert.match(serverFailureTrace('api',500,'DATABASE_ERROR',{log:()=>{throw Error('logger unavailable');}}),uuid);
   assert.equal(serverFailureTrace('api',401,'AUTH_INVALID',{log:()=>assert.fail('4xx must not emit server failures')}),undefined);
+});
+
+for(const throws of [false,true])test(`AC-003: presence cleanup ${throws?'exceptions':'database errors'} cannot log raw private data`,async()=>{
+  const edge=await mainApi();const background=[];
+  edge.context.EdgeRuntime={waitUntil:promise=>background.push(promise)};
+  edge.context.ensureMember=async()=>({id:'synthetic-member'});
+  const db={from(table){
+    if(table==='audit_logs')return {insert:async()=>({error:null})};
+    assert.equal(table,'member_presence_sessions');
+    const query={upsert:async()=>({error:null}),delete:()=>query,eq:()=>query,
+      lt:async()=>{if(throws)throw Error('private-cleanup-token');return {error:{message:'private-cleanup-token',code:'private-code'}};}};
+    return query;
+  },rpc:async()=>({data:true,error:null})};
+  await edge.context.handleAction(db,{lineUserId:'synthetic-user',displayName:'synthetic'},'user.member.presence.online',{sessionId:'synthetic_session_123456',reason:'signin'});
+  await Promise.all(background);assert.ok(edge.logs.length>0,'background failure must stay observable');
+  assert.doesNotMatch(require('node:util').inspect(edge.logs),/private-cleanup-token|private-code|synthetic-member|synthetic-user/);
+});
+
+test('AC-003: secondary logout audit failure never prints an untrusted error code',async()=>{
+  const edge=await mainApi();
+  const db={rpc:async()=>({data:true,error:null}),from:()=>({insert:async()=>({error:{code:'private-audit-token'}})})};
+  const result=await edge.context.handleAction(db,{lineUserId:'synthetic-user'},'user.member.session.logout',{idToken:'synthetic-token'});
+  assert.equal(result.revoked,true);assert.ok(edge.logs.length>0);
+  assert.doesNotMatch(require('node:util').inspect(edge.logs),/private-audit-token|synthetic-token|synthetic-user/);
 });

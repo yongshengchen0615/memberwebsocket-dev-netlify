@@ -2158,7 +2158,7 @@ async function handleAction(supabase: SupabaseClient, identity: { lineUserId: st
           actor_line_user_id:identity.lineUserId,actor_role:"member",action:"BOOKING_BENEFITS_UPDATE_FAILED",
           target_type:"booking",target_id:bookingId,result:"failed",metadata:{errorCode:error.code},
         });
-        if (failure.error) console.error("selection rejection audit unavailable",failure.error.code);
+        if (failure.error) console.error("selection rejection audit unavailable");
         throw error;
       }
       change = updated.data;
@@ -2214,7 +2214,7 @@ async function handleAction(supabase: SupabaseClient, identity: { lineUserId: st
         target_type:"member",target_id:identity.lineUserId,result:"success",
         detail:{ clientType:clientTypeForAction(action) },
       });
-      if (audit.error) console.error("login session audit unavailable",audit.error.code);
+      if (audit.error) console.error("login session audit unavailable");
     }
     return { state:String(result.data) };
   }
@@ -2234,7 +2234,7 @@ async function handleAction(supabase: SupabaseClient, identity: { lineUserId: st
         target_id:identity.lineUserId,result:"success",
         detail:{clientType:clientTypeForAction(action)},
       });
-      if (audit.error) console.error("session logout audit unavailable",audit.error.code);
+      if (audit.error) console.error("session logout audit unavailable");
     }
     return { revoked: result.data === true };
   }
@@ -2277,9 +2277,9 @@ async function handleAction(supabase: SupabaseClient, identity: { lineUserId: st
             .delete()
             .eq("member_id",member.id)
             .lt("last_seen_at",staleCutoff);
-          if (cleanup.error) console.error("member presence cleanup failed", cleanup.error.message);
-        } catch (error) {
-          console.error("member presence cleanup failed", error);
+          if (cleanup.error) console.error("member presence cleanup failed");
+        } catch {
+          console.error("member presence cleanup failed");
         }
       })());
     } else if (presence.event === "heartbeat") {

@@ -285,10 +285,11 @@ export function businessHandler(name:string,handler:(request:Request)=>Response|
    return response;
   }catch(error){
    const e=error as any,status=e.status||503;
-   const requestId=serverFailureTrace('business-router',status,e.code);
-   const allowed=new Set(['https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app','https://platform--memberwebsocket-dev-netlify.netlify.app','https://develop--memberwebsocket-dev-netlify.netlify.app','https://memberwebsocket-dev-netlify.netlify.app',...rawEnv('ALLOWED_ORIGINS').split(',')]);
+   const code=e.code==='BODY_TOO_LARGE'&&options.maxRequestBytes!==undefined?'REQUEST_TOO_LARGE':e.code;
+   const requestId=serverFailureTrace('business-router',status,code);
+   const allowed=options.allowedOrigins?.()??new Set(['https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app','https://platform--memberwebsocket-dev-netlify.netlify.app','https://develop--memberwebsocket-dev-netlify.netlify.app','https://memberwebsocket-dev-netlify.netlify.app',...rawEnv('ALLOWED_ORIGINS').split(',')]);
    const origin=request.headers.get('Origin')||'';
-   return new Response(JSON.stringify({ok:false,status,error:{code:e.code||'BUSINESS_UNAVAILABLE',message:e.status?e.message:'商家服務暫時無法使用，請稍後重試。',...(requestId?{requestId}:{})}}),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store','Access-Control-Allow-Origin':allowed.has(origin)?origin:'','Vary':'Origin',...(requestId?{'X-Request-Id':requestId}:{})}});
+   return new Response(JSON.stringify({ok:false,status,error:{code:code||'BUSINESS_UNAVAILABLE',message:e.status?e.message:'商家服務暫時無法使用，請稍後重試。',...(requestId?{requestId}:{})}}),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store','Access-Control-Allow-Origin':allowed.has(origin)?origin:'','Vary':'Origin',...(requestId?{'X-Request-Id':requestId}:{})}});
   }
  };
 }
