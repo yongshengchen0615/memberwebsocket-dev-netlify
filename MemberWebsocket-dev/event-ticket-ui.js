@@ -27,6 +27,9 @@
       row(options.fixed ? '發放方式' : '限量張數', options.fixed ? '系統自動發放' : quota > 0 ? `${quota} 張（剩餘 ${Math.max(0, quota - claimed)} 張）` : '不限量');
       const labels = ticket.allowedTierLabels || (ticket.allowedTierKeys || []).map(key => tiers[key]).filter(Boolean);
       row('適用等級', labels.length ? labels.join('、') : '全部會員等級');
+      if (options.showServiceRequirement && String(ticket.requiredServiceRequirementLabel || '').trim()) {
+        row('預約項目條件', String(ticket.requiredServiceRequirementLabel).trim());
+      }
     }
     card.append(head, title, copy, meta);
     return card;
