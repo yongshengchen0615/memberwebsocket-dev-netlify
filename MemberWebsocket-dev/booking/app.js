@@ -112,7 +112,7 @@
       window.requestAnimationFrame(() => document.querySelector('.booking-detail-target')?.scrollIntoView?.({block:'center'}));
       window.dispatchEvent(new CustomEvent('user-tour:ready', { detail: { surface: 'booking', profile: state.profile } }));
       window.BookingBenefits?.setServiceContext?.(
-        selectedServiceRows().map((item) => String(item.service?.serviceId || item.serviceId || '').trim()).filter(Boolean)
+        selectedServiceRows().map((item) => ({ serviceId: String(item.service?.serviceId || item.serviceId || '').trim(), amount: Number(item.service?.priceAmount || 0) })).filter((item) => item.serviceId)
       );
       window.BookingBenefits?.start(state.config, state.idToken);
       state.realtimeUnsubscribe = window.BookingSystem.subscribeRealtime(state.config, () => refresh(false), 'member', (signal = {}) => {
@@ -251,7 +251,7 @@
 
     renderSelectedServices();
     window.BookingBenefits?.setServiceContext?.(
-      selectedServiceRows().map((item) => String(item.service?.serviceId || item.serviceId || '').trim()).filter(Boolean)
+      selectedServiceRows().map((item) => ({ serviceId: String(item.service?.serviceId || item.serviceId || '').trim(), amount: Number(item.service?.priceAmount || 0) })).filter((item) => item.serviceId)
     );
   }
 
