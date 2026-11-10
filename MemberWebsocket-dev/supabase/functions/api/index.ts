@@ -1315,7 +1315,7 @@ function ticketBookingAmountLabel(row: any, serviceTitles: Map<string,string>): 
   if (mode === "none") return "";
   const minimum = Number(row.min_booking_amount);
   if (!Number.isSafeInteger(minimum) || minimum < 1) return "一般預約金額條件資料異常，請洽店家確認";
-  const amount = `NT${minimum.toLocaleString("en-US")}`;
+  const amount = "NT$" + minimum.toLocaleString("en-US");
   if (mode === "total") return `一般預約總金額滿 ${amount}`;
   if (mode === "selected_services") {
     const ids = Array.isArray(row.min_booking_service_ids)
