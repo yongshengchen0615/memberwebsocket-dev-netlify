@@ -51,9 +51,13 @@ jobs:
           if-no-files-found: warn
 
   integration:
-    name: DOM integration tests
+    name: DOM integration tests (${{ matrix.suite }})
     runs-on: ubuntu-latest
     timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [core, extended]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -67,6 +71,7 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: MemberWebsocket-dev/tests/integration
       - name: Check DOM, accessibility, and booking integration behavior
+        if: matrix.suite == 'core'
         run: |
           node --test \
             MemberWebsocket-dev/tests/integration/feature_dependencies.cjs \
@@ -147,6 +152,9 @@ jobs:
             MemberWebsocket-dev/tests/integration/snapshot_completion_controls.cjs \
             MemberWebsocket-dev/tests/integration/receipt_refresh_state.cjs \
             MemberWebsocket-dev/tests/integration/friend_qr_scanner.cjs
+      - name: Check extended DOM, SQL and human journeys
+        if: matrix.suite == 'extended'
+        run: |
           node --max-old-space-size=1024 --test MemberWebsocket-dev/tests/integration/admin_human_journeys.cjs
           node --test MemberWebsocket-dev/tests/integration/ongoing_release_20261014.cjs MemberWebsocket-dev/tests/integration/ongoing_release_ui.cjs
           node --test MemberWebsocket-dev/tests/integration/booking_member_reminder.cjs

@@ -21,3 +21,5 @@ AC-007：Given 最終版本，When 執行全部既有基線，Then 所有必要�
 兩次 CI 實際失敗均為 Ubuntu mirror DNS 解析失敗，瀏覽器案例尚未啟動。比較「繼續在 runner 下載系統套件」與「使用含瀏覽器及依賴的官方容器」後，採後者：版本與既有 Playwright 1.56.1 相符，固定官方 MCR manifest digest，保留全部測試、資料庫 fixtures 與斷言，不增加測試重試。容器採非 root 使用者與獨立 shared memory；預覽發布的 gh／Netlify 指令仍在 host 執行，只有唯讀 Chromium smoke 放入容器，僅掛載 browser 測試目錄並傳入公開 URL、提交識別與 CI 旗標。
 
 AC-009：Given 瀏覽器 SDK 版本固定，When 執行三條瀏覽器測試／驗收流程，Then 使用相符且 digest 固定的官方 runtime，能實際啟動 Chromium，不再以 APT 安裝成功與否決定能否開始測試。這是 CI 環境調整，不宣稱產品執行期效能提升。
+
+同版本 PR CI 全部成功，但 push 的 DOM 工作在既有8分鐘上限被取消：日誌顯示核心554項約272秒，接續的人類操作136項約153秒，其餘延伸案例執行後合計超過工作額度，沒有案例斷言失敗。改將原有14個命令、96個 fixture檔案分為core及extended兩個平行組別；每組仍為8分鐘、fail-fast=false，原命令與旗標逐項比對既有基線，彙總 gate 仍要求整個 integration matrix 成功。不可用提高上限或反覆重跑代替此容量修復。
