@@ -82,6 +82,15 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         return {application:application && {...application,tenant:undefined},
           tenant:application?.tenant ? publicTenant(application.tenant) : null};
       };
+      // Only the authenticated LINE profile may set a manager's display name.
+      // Never accept a name or actor from request JSON.
+      const syncApplicantName = async () => {
+        const name = typeof identity.displayName === 'string'
+          ? Array.from(identity.displayName.trim()).slice(0,100).join('') : '';
+        if (!name) return;
+        const result = await db.rpc('platform_record_applicant_name',{p_actor:actor,p_display_name:name});
+        if (result.error) throw databaseError(result.error);
+      };
       if (body.action === 'platform.application.ensure') {
         // Identity and initial name come only from LINE verification. The SQL
         // actor lock and unique constraint make simultaneous first visits safe.
@@ -94,6 +103,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
           if (result.error) throw databaseError(result.error);
           workspace = await mine();
         }
+        await syncApplicantName();
         return json({ok:true,data:{profile:{displayName:identity.displayName},features:FEATURES,...workspace}});
       }
       if (body.action === 'platform.application.bootstrap') {
@@ -106,7 +116,9 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
           throw new PlatformError(400,'PLATFORM_INVALID_INPUT','請填寫正確的商家名稱與代碼。');
         const result = await db.rpc('platform_submit_application',{p_actor:actor,p_name:body.businessName.trim(),p_slug:body.slug});
         if (result.error) throw databaseError(result.error);
-        return json({ok:true,data:{...await mine()}});
+        const workspace = await mine();
+        await syncApplicantName();
+        return json({ok:true,data:{...workspace}});
       }
       if (body.action === 'platform.notifications.test') {
         validateNotificationRoute({...body,mode:'inherit'});
@@ -225,14 +237,20 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       if (auth.error) throw databaseError(auth.error);
       if (auth.data !== true) throw new PlatformError(403,'PLATFORM_ADMIN_REQUIRED','僅總管理員可管理商家。');
       if (body.action === 'platform.bootstrap') {
-        const [tenants,applications] = await Promise.all([
+        const [tenants,applications,names] = await Promise.all([
           db.rpc('platform_list_tenants',{p_actor:actor}),
           db.rpc('platform_list_applications',{p_actor:actor}),
+          db.rpc('platform_list_applicant_names',{p_actor:actor}),
         ]);
         if (tenants.error) throw databaseError(tenants.error);
         if (applications.error) throw databaseError(applications.error);
+        if (names.error) throw databaseError(names.error);
+        const displayNames = names.data || {};
+        const nameFor = id => typeof displayNames[id] === 'string' ? displayNames[id] : null;
         return json({ok:true,data:{profile:{displayName:identity.displayName},
-          features:FEATURES,tenants:(tenants.data || []).map(publicTenant),applications:applications.data || []}});
+          features:FEATURES,
+          tenants:(tenants.data || []).map(row=>({...publicTenant(row),ownerDisplayName:nameFor(row.owner_line_user_id)})),
+          applications:(applications.data || []).map(row=>({...row,applicantDisplayName:nameFor(row.applicantLineUserId)}))}});
       }
       if (body.action === 'platform.application.approve') {
         if (!uuid.test(body.requestId || '') || !uuid.test(body.applicationId || ''))
