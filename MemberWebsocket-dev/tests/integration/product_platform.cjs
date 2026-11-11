@@ -240,3 +240,52 @@ test('AC-021: platform grant is denied until explicitly enabled in the database'
   assert.equal((await h.call({action:'platform.bootstrap'})).status,403);
  }finally{await h.db.close();}
 });
+
+test('AC-075: verified LINE name is captured, visible only to root, and cannot be overridden by request JSON',async()=>{
+  const h=await fixture();
+  try {
+    const entered=await h.call({action:'platform.application.ensure',displayName:'偽造的姓名'},'manager');
+    assert.equal(entered.status,200,JSON.stringify(entered));
+    assert.equal(entered.body.data.application.status,'pending');
+    const stored=await h.db.query('select applicant_display_name from platform_private.applications where applicant_line_user_id=$1',[manager]);
+    assert.equal(stored.rows[0].applicant_display_name,'商家管理員');
+
+    const pending=await h.call({action:'platform.bootstrap'});
+    assert.equal(pending.status,200,JSON.stringify(pending));
+    assert.equal(pending.body.data.applications[0].applicantDisplayName,'商家管理員');
+    assert.equal(pending.body.data.tenants.length,0);
+
+    const submitted=await h.call({action:'platform.application.submit',businessName:'有名稱商家',slug:'named-shop'},'manager');
+    assert.equal(submitted.status,200,JSON.stringify(submitted));
+    const approval=await h.call({action:'platform.application.approve',
+      applicationId:pending.body.data.applications[0].id,features:h.tenant.features,requestId:crypto.randomUUID()});
+    assert.equal(approval.status,200,JSON.stringify(approval));
+    const listed=await h.call({action:'platform.bootstrap'});
+    assert.equal(listed.status,200,JSON.stringify(listed));
+    assert.equal(listed.body.data.tenants[0].ownerDisplayName,'商家管理員');
+    assert.equal(listed.body.data.tenants[0].ownerLineUserId,manager);
+    assert.equal(listed.body.data.applications[0].applicantDisplayName,'商家管理員');
+
+    const other=await h.call({action:'platform.bootstrap'},'manager');
+    assert.equal(other.status,403);
+    const forbidden=await h.rpc('platform_list_applicant_names',{p_actor:manager});
+    assert.match(String(forbidden.error?.message),/PLATFORM_ADMIN_REQUIRED/);
+    const invalid=await h.rpc('platform_record_applicant_name',{p_actor:manager,p_display_name:'  '});
+    assert.match(String(invalid.error?.message),/PLATFORM_INVALID_INPUT/);
+    assert.equal((await h.db.query('select applicant_display_name from platform_private.applications where applicant_line_user_id=$1',[manager])).rows[0].applicant_display_name,'商家管理員');
+
+    // Legacy admin names remain available until the next verified LINE login.
+    await h.db.query('update admins set display_name=$1 where line_user_id=$2',['舊資料姓名',manager]);
+    await h.db.query('update platform_private.applications set applicant_display_name=null where applicant_line_user_id=$1',[manager]);
+    const legacy=await h.call({action:'platform.bootstrap'});
+    assert.equal(legacy.body.data.tenants[0].ownerDisplayName,'舊資料姓名');
+    assert.equal((await h.call({action:'platform.application.ensure'},'manager')).status,200);
+    const renewed=await h.call({action:'platform.bootstrap'});
+    assert.equal(renewed.body.data.tenants[0].ownerDisplayName,'商家管理員');
+
+    await h.db.exec('set role authenticated');
+    await assert.rejects(h.db.query('select public.platform_list_applicant_names($1)',[root]),/permission denied/);
+    await assert.rejects(h.db.query('select public.platform_record_applicant_name($1,$2)',[manager,'偽造']),/permission denied/);
+    await h.db.exec('reset role');
+  }finally{await h.db.close();}
+});
