@@ -1,8 +1,8 @@
-name: Publish verified develop to Netlify
+name: Publish verified master to Netlify
 
 on:
   push:
-    branches: [develop]
+    branches: [master]
     paths:
       - '.github/workflows/publish-netlify.yml'
       - 'MemberWebsocket-dev/**'
@@ -15,30 +15,41 @@ permissions:
   actions: read
 
 concurrency:
-  group: publish-netlify-develop
+  group: publish-netlify-master
   cancel-in-progress: false
 
 jobs:
   publish:
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
       NETLIFY_SITE_ID: 196e1d2c-8216-4ba8-aeb9-1706660adc2b
       NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Build the exact develop commit
-        env:
-          COMMIT_REF: ${{ github.sha }}
-        run: node scripts/build-site.mjs
       - name: Verify deployable static output
         run: |
           node --test scripts/deploy.test.mjs scripts/netlify-publish-workflow.test.mjs
           grep -Fq 'booking-multi-details-20261017-1' dist/points/index.html
           grep -Fq 'bookingById' dist/points/pointcard-ticket-overview.js
+      - name: Build the exact master commit
+        env:
+          COMMIT_REF: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Deploy tests deliberately rebuild dist with synthetic release IDs.
+          # Only this final build may enter the retained and published bundle.
+          node scripts/build-site.mjs
+          short_sha="${COMMIT_REF:0:7}"
+          for page in dist/index.html dist/{admin,platform,member,points,event,calendar,booking}/index.html dist/admin/workspace.html dist/booking/admin/index.html; do
+            grep -Fq "data-commit=\"$short_sha\"" "$page"
+          done
       - name: Retain the exact production bundle for recovery
         uses: actions/upload-artifact@v4
         with:
@@ -53,28 +64,27 @@ jobs:
             echo '::error::NETLIFY_AUTH_TOKEN is unavailable. Configure it as a GitHub Repository Actions Secret (not a GitHub variable or a Netlify site environment variable). If set after an earlier run, start a new workflow run. The site bundle artifact is ready but production was not published.'
             exit 1
           fi
-      - name: Wait for successful full-project CI on this exact commit
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Wait for all established CI on this exact master commit
         shell: bash
         run: |
           set -euo pipefail
           for attempt in $(seq 1 85); do
-            conclusion=$(gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/test-memberwebsocket-dev.yml/runs?branch=develop&event=push&per_page=50" \
-              | jq -r --arg sha "$GITHUB_SHA" '[.workflow_runs[] | select(.head_sha == $sha)][0].conclusion // "pending"')
-            case "$conclusion" in
-              success) echo 'Exact develop commit passed full CI'; exit 0 ;;
-              failure|cancelled|timed_out|action_required|startup_failure) echo "::error::Full CI did not pass: $conclusion"; exit 1 ;;
-              *) sleep 20 ;;
-            esac
+            gh api --method GET "/repos/${GITHUB_REPOSITORY}/actions/runs" -f branch="$GITHUB_REF_NAME" -f event=push -f head_sha="$GITHUB_SHA" -f per_page=50 > /tmp/master-ci.json
+            result=0
+            node scripts/check-preview-ci.mjs /tmp/master-ci.json || result=$?
+            if [ "$result" = 0 ]; then exit 0; fi
+            if [ "$result" != 2 ]; then echo '::error::Required CI failed; master was not published'; exit 1; fi
+            sleep 20
           done
-          echo '::error::Full project CI did not finish before the deploy timeout'
+          echo '::error::Required CI did not finish; master was not published'
           exit 1
       - name: Publish the verified bundle to the existing Netlify production site
         shell: bash
         run: |
           set -euo pipefail
-          npx --yes netlify-cli@23.11.0 deploy --prod --no-build --dir=dist --site="$NETLIFY_SITE_ID" --message="verified-develop-$GITHUB_SHA"
+          current=$(gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/master" --jq ' .object.sha')
+          test "$current" = "$GITHUB_SHA"
+          npx --yes netlify-cli@23.11.0 deploy --prod --no-build --dir=dist --site="$NETLIFY_SITE_ID" --message="verified-master-$GITHUB_SHA"
       - name: Confirm published page and JS contain the same fix
         shell: bash
         run: |
@@ -94,7 +104,7 @@ jobs:
               if grep -Fq 'bookingById' /tmp/verified-overview.js; then js_ok=1; fi
             fi
             if [[ "$html_ok" == 1 && "$js_ok" == 1 && "$version_ok" == 1 ]]; then
-              echo "Published production site matches develop $GITHUB_SHA (attempt $attempt)"
+              echo "Published production site matches master $GITHUB_SHA (attempt $attempt)"
               exit 0
             fi
             echo "Production CDN verification $attempt/30: html=$html_ok js=$js_ok commit=$version_ok"

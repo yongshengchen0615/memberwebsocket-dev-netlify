@@ -81,6 +81,17 @@ function previewWorkflowEventPaths(filename, event) {
   return patterns;
 }
 
+test('master publishing paths always trigger the exact-SHA Ticket Policy baseline', () => {
+  const publishedPaths = previewWorkflowEventPaths('publish-netlify.yml', 'push');
+  const policyPaths = previewWorkflowEventPaths('test-memberwebsocket-ticket-policy.yml', 'push');
+  assert.ok(publishedPaths.length > 0);
+  for (const publishPath of publishedPaths) {
+    assert.ok(policyPaths.some(policyPath => policyPath === publishPath
+      || (policyPath.endsWith('/**') && publishPath.startsWith(policyPath.slice(0, -2)))),
+    `Ticket Policy push must cover master publishing path ${publishPath}`);
+  }
+});
+
 test('Preview publishing change paths always trigger exact-SHA Ticket Policy push and PR CI', () => {
   const publishedPaths = previewWorkflowEventPaths('publish-platform-preview.yml', 'push');
   assert.ok(publishedPaths.length > 0, 'Preview publisher must declare push paths');
