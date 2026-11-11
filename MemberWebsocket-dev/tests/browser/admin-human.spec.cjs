@@ -7,7 +7,7 @@ test.beforeEach(async({page},info)=>{
   const run=String(info.testId);const errors=[];
   page.on('pageerror',e=>errors.push(e.message));
   page.on('dialog',dialog=>dialog.accept());
-  await page.route('https://fixture.supabase.co/**',async route=>{
+  const handleFixtureRoute=async route=>{
     if(route.request().url().includes('/storage/'))return route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><text y="40">QA receipt</text></svg>'});
     const {action,operation,...payload}=route.request().postDataJSON();
     try {
@@ -16,7 +16,11 @@ test.beforeEach(async({page},info)=>{
       await route.fulfill({json:{ok:true,data}});
     }
     catch(e){await route.fulfill({status:400,json:{ok:false,error:{code:e.code,message:e.message}}});}
-  });
+  };
+  await page.route('https://fixture.supabase.co/**',handleFixtureRoute);
+  // The shared fixture keeps synthetic grant traffic local. Preserve this
+  // spec's fault injection and delayed-response gates on that transport too.
+  await page.route(host.base+'/functions/v1/grant-automation',handleFixtureRoute);
   await page.route('https://nominatim.openstreetmap.org/**',r=>r.fulfill({json:[{lat:'25.033',lon:'121.5654',display_name:'QA Taipei'}]}));
   // No real member, LINE message, map service or database is reachable.
   await page.route(/https?:\/\/(?!127\.0\.0\.1|fixture\.supabase\.co|nominatim\.openstreetmap\.org)/,r=>r.abort());
