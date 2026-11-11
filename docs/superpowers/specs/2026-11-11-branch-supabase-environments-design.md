@@ -15,3 +15,9 @@ AC-006：Given 發布，When 必要 CI 失敗或未完成，Then 不發布正式
 AC-007：Given 最終版本，When 執行全部既有基線，Then 所有必要層實際成功；真實 LINE 登入需要獨立測試設定，未配置前不宣稱通過。
 
 回復以前一個已驗證的 Netlify deploy／來源 SHA 為準，回復測試端點不得改指正式。效能不作提升宣稱：只改建置選擇與發布組態，沒有新增執行期查詢。
+
+## CI 瀏覽器環境修復
+
+兩次 CI 實際失敗均為 Ubuntu mirror DNS 解析失敗，瀏覽器案例尚未啟動。比較「繼續在 runner 下載系統套件」與「使用含瀏覽器及依賴的官方容器」後，採後者：版本與既有 Playwright 1.56.1 相符，固定官方 MCR manifest digest，保留全部測試、資料庫 fixtures 與斷言，不增加測試重試。容器採非 root 使用者與獨立 shared memory；預覽發布的 gh／Netlify 指令仍在 host 執行，只有唯讀 Chromium smoke 放入容器，僅掛載 browser 測試目錄並傳入公開 URL、提交識別與 CI 旗標。
+
+AC-009：Given 瀏覽器 SDK 版本固定，When 執行三條瀏覽器測試／驗收流程，Then 使用相符且 digest 固定的官方 runtime，能實際啟動 Chromium，不再以 APT 安裝成功與否決定能否開始測試。這是 CI 環境調整，不宣稱產品執行期效能提升。

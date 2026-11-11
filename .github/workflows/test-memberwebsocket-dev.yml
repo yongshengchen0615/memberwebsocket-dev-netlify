@@ -164,6 +164,9 @@ jobs:
   browser-e2e:
     name: Chromium admin, member, receipt and GPS E2E
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-noble@sha256:42f02d323c310069b4d54c94bd91a608966a486c3492c48ae0b1cea747ec5ca2
+      options: --user 1001 --shm-size=1g
     timeout-minutes: 15
     strategy:
       # Keep every shard running so one failure does not erase other evidence.
@@ -185,8 +188,8 @@ jobs:
       - name: Install SQL fixture dependencies for platform browser tests
         run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: MemberWebsocket-dev/tests/integration
-      - name: Install Chromium and system dependencies
-        run: npx playwright install --with-deps chromium --only-shell
+      - name: Verify bundled Chromium and system dependencies
+        run: node -e "require('playwright').chromium.launch().then(browser => browser.close())"
         working-directory: MemberWebsocket-dev/tests/browser
       - name: Run real-browser admin, member, receipt and location flows
         # All former priority subsets are included in this unfiltered baseline.
