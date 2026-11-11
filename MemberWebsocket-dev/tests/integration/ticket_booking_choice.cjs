@@ -41,7 +41,7 @@ for(const owned of [true,false])test('real event page loads '+(owned?'owned usag
   const doc=w.document;await wait(()=>!!doc.querySelector('[data-event-ticket-id]'));assert.equal(doc.getElementById('errorView').classList.contains('hidden'),true);
   doc.querySelector('[data-event-ticket-id]').click();const choice=doc.querySelector('[data-ticket-booking-choice]'),button=doc.getElementById('ticketModalAction');
   if(owned){assert.equal(button.disabled,true);const select=choice.querySelector('select');select.value='B';select.dispatchEvent(new w.Event('change'));assert.equal(button.disabled,false);
-   button.click();await wait(()=>button.textContent==='確認使用這張票券');assert.equal(calls.length,1);assert.equal(calls[0].payload.bookingId,'B');assert.equal(calls[0].payload.claimId,'CLAIM');
+   button.click();await wait(()=>button.textContent==='確認使用這張票券');const redeemCalls=calls.filter(call=>call.action==='user.event.ticket.redeem');assert.equal(redeemCalls.length,1);assert.ok(calls.some(call=>call.action==='member.friend.list'),'claimed ticket loads friend options without affecting redemption');assert.equal(redeemCalls[0].payload.bookingId,'B');assert.equal(redeemCalls[0].payload.claimId,'CLAIM');
   }else{assert.equal(choice.hidden,true);assert.equal(button.disabled,false);assert.match(button.textContent,/領取/);assert.equal(calls.length,0);}
  }finally{dom.window.close();}
 });

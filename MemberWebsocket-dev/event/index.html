@@ -66,6 +66,12 @@
       <div id="ticketModalResult" class="ticket-result hidden"></div>
       <p id="ticketModalLocationStatus" class="ticket-status-message hidden" role="status" aria-live="polite"></p>
       <button id="ticketModalLocationButton" class="modal-action modal-refresh-button hidden" type="button">重新檢查是否位於可使用地點</button>
+      <section id="ticketTransferPanel" class="ticket-transfer-panel" aria-label="轉贈好友" hidden>
+        <label for="ticketTransferFriendSelect">轉贈好友</label>
+        <select id="ticketTransferFriendSelect" disabled><option value="">請先載入好友</option></select>
+        <p id="ticketTransferStatus" role="status" aria-live="polite">只能轉贈給已加入並接受邀請的好友。</p>
+        <button id="ticketTransferButton" class="modal-action modal-refresh-button" type="button" disabled>確認轉贈好友</button>
+      </section>
       <button id="ticketModalAction" class="modal-action" type="button">領取活動票券</button>
       <button id="refreshTicketButton" class="modal-action modal-refresh-button hidden" type="button">重新整理確認</button>
       <div id="ticketModalMessage" class="modal-message hidden" role="status"></div>

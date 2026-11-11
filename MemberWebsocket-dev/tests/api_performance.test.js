@@ -139,6 +139,28 @@ test('event bootstrap exposes fixed tickets only to members who own the issued c
   assert.equal(result.offers[1].claim.claimId, 'FIXED-CLAIM');
   assert.equal(result.offers.some(offer => offer.ticket.eventTicketId === 'FIXED-UNISSUED'), false);
 });
+test('transferred-out event ticket cannot be claimed a second time', async () => {
+  const db = database({ rows: { event_ticket_transfers: [{ event_ticket_id: event.id, sender_member_id: member.id }] } });
+  const result = await api().eventBootstrap(db, member);
+  assert.equal(result.offers[0].transferredOut, true);
+  assert.equal(result.offers[0].canClaim, false);
+  assert.equal(result.offers[0].claim, null);
+  assert.equal(db.calls.filter(c => c.table === 'event_ticket_transfers').length, 1);
+});
+
+test('event transfer action ignores caller-supplied sender and forwards verified identity', async () => {
+  const db = database();
+  await api().handleAction(db, identity, 'user.event.ticket.transfer', {
+    claimId: 'CLAIM', receiverMemberCode: 'MEMBERB1', requestId: 'TRANSFER123456',
+    lineUserId: 'forged-owner', memberId: 'forged-member'
+  });
+  const rpc = db.calls.find(c => c.table === 'transfer_event_ticket_to_friend');
+  assert.ok(rpc, 'the transfer must run the SQL guard');
+  assert.equal(rpc.args.p_actor_line_user_id, identity.lineUserId);
+  assert.equal(rpc.args.p_claim_id, 'CLAIM');
+  assert.equal(rpc.args.p_receiver_member_code, 'MEMBERB1');
+});
+
 test('no active events still returns historical tickets and skips active-claim queries', async () => {
   const db = database({ rows: { event_tickets: [] } }); const result = await api().eventBootstrap(db, member);
   assert.equal(result.offers.length, 0); assert.equal(result.usedTicketCount, 1);
