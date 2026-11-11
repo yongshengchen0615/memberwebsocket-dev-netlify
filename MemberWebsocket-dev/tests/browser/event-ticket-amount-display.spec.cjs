@@ -15,10 +15,13 @@ const ids = [
   'ticketModalServiceRequirement','ticketModalAmountRequirement','ticketModalPrizes',
   'ticketModalStatus','ticketModalProcessing','ticketModalProcessingText','ticketModalResult',
   'ticketModalAction','refreshTicketButton','ticketModalMessage','ticketModalLocationStatus',
-  'ticketModalLocationButton'
+  'ticketModalLocationButton', 'ticketTransferPanel', 'ticketTransferFriendSelect',
+  'ticketTransferStatus', 'ticketTransferButton'
 ];
 const nodes = (names) => names.map((id) => {
   const isButton = id.includes('Button') || ['closeTicketModal','joinMemberButton','retryButton'].includes(id);
+  if (id === 'ticketTransferFriendSelect') return '<select id="ticketTransferFriendSelect"><option value="">請選擇好友</option></select>';
+  if (id === 'ticketTransferPanel') return '<section id="ticketTransferPanel" hidden></section>';
   return isButton ? '<button type="button" id="'+id+'">'+id+'</button>' : '<div id="'+id+'"></div>';
 }).join('\n');
 
