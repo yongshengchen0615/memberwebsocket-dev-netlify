@@ -13,7 +13,9 @@ export function previewMemberRuntime(config, env) {
     && (branch !== 'Integrated-Marketing-Platform' || env.CONTEXT === 'production')) {
     throw new Error('Invalid Integrated branch deployment identity');
   }
-  const project = Object.hasOwn(projects, branch) ? projects[branch] : null;
+  const isReviewBuild = env.NETLIFY === 'true' && ['branch-deploy','deploy-preview'].includes(env.CONTEXT);
+  const project = Object.hasOwn(projects, branch) ? projects[branch]
+    : isReviewBuild ? projects['Integrated-Marketing-Platform'] : null;
   if (!project) return canonical;
   const selected = Object.fromEntries(Object.entries(canonical).map(([key,value]) => [key,
     typeof value === 'string' ? value.replace(/^((?:https|wss):\/\/)[a-z0-9-]+\.supabase\.co(?=\/|$)/i,

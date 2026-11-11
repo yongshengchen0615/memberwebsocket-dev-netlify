@@ -45,7 +45,7 @@ export function describePreviewPublishFailure(error) {
 }
 
 export function blockNativePreview(env) {
-  return env.NETLIFY === 'true' && (env.BRANCH === 'master'
+  return env.NETLIFY === 'true' && (env.BRANCH === 'master' || env.CONTEXT === 'production'
     || env.BRANCH?.toLowerCase() === previewBranch.toLowerCase()
       && (env.BRANCH !== previewBranch || !['branch-deploy', 'deploy-preview'].includes(env.CONTEXT)));
 }

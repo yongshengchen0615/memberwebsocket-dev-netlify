@@ -64,6 +64,9 @@ test('frontend backend settings are copied without changing identity or project'
   const branch = process.env.BRANCH || process.env.PREVIEW_SOURCE_BRANCH || process.env.GITHUB_REF_NAME;
   if (branch === 'Integrated-Marketing-Platform' && process.env.CONTEXT !== 'production') {
     expected.pricePublishing = true;
+  }
+  if ((branch === 'Integrated-Marketing-Platform' && process.env.CONTEXT !== 'production')
+    || (branch !== 'master' && process.env.NETLIFY === 'true' && ['branch-deploy','deploy-preview'].includes(process.env.CONTEXT))) {
     expected.supabaseUrl = 'https://bmwhojszsnxliekkhrka.supabase.co';
     expected.supabaseFunctionUrl = expected.supabaseUrl + '/functions/v1/api';
     expected.supabaseGrantAutomationUrl = expected.supabaseUrl + '/functions/v1/grant-automation';

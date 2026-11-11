@@ -40,6 +40,13 @@ test('other branch names cannot select inherited object properties as projects',
  assert.deepEqual(previewMemberRuntime(original,{BRANCH:'constructor'}),original);
 });
 
+test('PR previews use the testing project and unexpected native production builds fail closed',()=>{
+ const result=previewMemberRuntime(original,{NETLIFY:'true',BRANCH:'chore/review',CONTEXT:'deploy-preview'});
+ assert.equal(result.supabaseUrl,testing);
+ assert.equal(JSON.stringify(result).includes('dbuquirnaskrwcamdxki'),false);
+ assert.equal(blockNativePreview({NETLIFY:'true',BRANCH:'chore/review',CONTEXT:'production'}),true);
+});
+
 test('AC-006: native master builds are blocked while CI can build the release',()=>{
  assert.equal(blockNativePreview({NETLIFY:'true',BRANCH:'master',CONTEXT:'production'}),true);
  assert.equal(blockNativePreview({BRANCH:'master',GITHUB_ACTIONS:'true'}),false);
