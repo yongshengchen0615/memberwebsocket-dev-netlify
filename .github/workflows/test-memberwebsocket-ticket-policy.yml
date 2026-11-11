@@ -7,6 +7,7 @@ on:
     branches:
       - 'feat/member-ticket-policy-admin-ui-20261014'
       - 'main'
+      - 'master'
       - 'Integrated-Marketing-Platform'
       - 'feature/productization-super-admin'
     paths:

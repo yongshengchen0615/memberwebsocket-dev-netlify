@@ -29,12 +29,15 @@ test('production deploy targets only the recreated Netlify site with protected c
   assert.doesNotMatch(flow, /--allow-anonymous|--alias=develop/);
 });
 
-test('deployment is gated by the entire test baseline of its exact develop commit', () => {
-  assert.match(flow, /branches: \[develop\]/);
-  assert.match(flow, /test-memberwebsocket-dev\.yml\/runs/);
-  assert.match(flow, /select\(\.head_sha == \$sha\)/);
-  assert.match(flow, /success\) echo/);
-  assert.match(flow, /failure\|cancelled\|timed_out/);
+test('production release is master-only and waits for all exact-SHA branch push baselines', () => {
+  assert.match(flow, /branches: \[master\]/);
+  assert.match(flow, /if: github\.ref == 'refs\/heads\/master'/);
+  assert.match(flow, /node scripts\/check-preview-ci\.mjs/);
+  assert.match(flow, /-f event=push/);
+  assert.match(flow, /-f head_sha="\$GITHUB_SHA"/);
+  assert.match(flow, /if \[ "\$result" != 2 \]/);
+  assert.match(flow, /test "\$current" = "\$GITHUB_SHA"/);
+  assert.ok(flow.indexOf('node scripts/check-preview-ci.mjs') < flow.indexOf('npx --yes netlify-cli'));
 });
 
 test('deploy emits recoverable artifact and verifies both page and JS after publishing', () => {

@@ -64,7 +64,11 @@ test('frontend backend settings are copied without changing identity or project'
   const branch = process.env.BRANCH || process.env.PREVIEW_SOURCE_BRANCH || process.env.GITHUB_REF_NAME;
   if (branch === 'Integrated-Marketing-Platform' && process.env.CONTEXT !== 'production') {
     expected.pricePublishing = true;
-    // All development builds now use the canonical API endpoints.
+    expected.supabaseUrl = 'https://bmwhojszsnxliekkhrka.supabase.co';
+    expected.supabaseFunctionUrl = expected.supabaseUrl + '/functions/v1/api';
+    expected.supabaseGrantAutomationUrl = expected.supabaseUrl + '/functions/v1/grant-automation';
+    expected.memberCalendarFunctionUrl = expected.supabaseUrl + '/functions/v1/member-calendar-api';
+    expected.supabasePublishableKey = 'sb_publishable_Dk6cKyJ5ssJRxf7GGTlZug_K_J3GbK-';
   }
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(output, 'config.json'))), expected);
 });

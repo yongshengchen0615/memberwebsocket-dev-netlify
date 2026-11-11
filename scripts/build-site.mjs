@@ -80,7 +80,8 @@ for (const entry of entryPages) {
   const page = path.join(output, entry);
   const relative = path.relative(path.dirname(page), output).split(path.sep).join('/');
   const base = relative ? `${relative}/` : './';
-  const html = await readFile(page, 'utf8');
+  // Receipt images must be allowed from the same project as the built API.
+  const html = (await readFile(page, 'utf8')).replaceAll(runtimeConfig.supabaseUrl, publishedConfig.supabaseUrl);
   if (!html.includes('</head>') || !html.includes('</body>')) {
     throw new Error(`Missing HTML head or body: ${entry}`);
   }

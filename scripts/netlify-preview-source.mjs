@@ -45,8 +45,9 @@ export function describePreviewPublishFailure(error) {
 }
 
 export function blockNativePreview(env) {
-  return env.NETLIFY === 'true' && env.BRANCH?.toLowerCase() === previewBranch.toLowerCase()
-    && (env.BRANCH !== previewBranch || !['branch-deploy', 'deploy-preview'].includes(env.CONTEXT));
+  return env.NETLIFY === 'true' && (env.BRANCH === 'master'
+    || env.BRANCH?.toLowerCase() === previewBranch.toLowerCase()
+      && (env.BRANCH !== previewBranch || !['branch-deploy', 'deploy-preview'].includes(env.CONTEXT)));
 }
 
 // ZIP uploads use a real, case-preserved branch, never the conflicting CLI alias.
@@ -113,7 +114,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   if (mode === '--ignore') process.exitCode = blockNativePreview(process.env) ? 0 : 1;
   else if (mode === '--build') {
     // A build hook can bypass Netlify's ignore command; block it here as well.
-    if (blockNativePreview(process.env)) throw new Error('This preview branch has an invalid branch or context identity');
+    if (blockNativePreview(process.env)) throw new Error('This release branch has an invalid or ungated build identity');
     if (isNativeVerifiedPreview(process.env)) {
       // Netlify's shared outbound GitHub API quota can reject the native build
       // even though the exact-SHA required CI passed in the release workflow.
