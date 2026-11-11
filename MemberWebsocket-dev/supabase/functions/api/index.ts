@@ -1338,7 +1338,7 @@ function ticketBookingAmountLabel(row: any, serviceTitles: Map<string,string>): 
 }
 
 async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Json> {
-  const [profile,{ data: eventRows, error },allHistoryRes,pendingSelectionsRes,bookingOptions,bookingSelections,snapshotReceipts,transferHistoryRes] = await Promise.all([
+  const [profile,{ data: eventRows, error },allHistoryRes,pendingSelectionsRes,bookingOptions,bookingSelections,snapshotReceipts,transferHistoryRes,receivedGiftRes] = await Promise.all([
     profileFor(supabase,member),
     supabase.from("event_tickets").select("*").eq("status","active").is("deleted_at",null).order("created_at",{ ascending:false }),
     supabase.from("event_ticket_claims").select("*,event_tickets(*)").eq("member_id",member.id).eq("status","used").order("used_at",{ ascending:false }),
@@ -1350,9 +1350,12 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
       .eq("member_id",member.id).eq("submission_mode","accessible")
       .eq("status","awaiting_review").order("created_at",{ascending:false}).limit(100),
     supabase.from("event_ticket_transfers").select("event_ticket_id").eq("sender_member_id",member.id),
+    supabase.from("event_ticket_transfers").select("claim_id").eq("receiver_member_id",member.id),
   ]);
   if (snapshotReceipts.error) throw mapDatabaseError(snapshotReceipts.error);
   if (transferHistoryRes.error) throw mapDatabaseError(transferHistoryRes.error);
+  if (receivedGiftRes.error) throw mapDatabaseError(receivedGiftRes.error);
+  const receivedGiftClaimIds = new Set((receivedGiftRes.data || []).map((row:any) => String(row.claim_id)));
   const transferredOutEventIds = new Set((transferHistoryRes.data || []).map((row:any) => String(row.event_ticket_id)));
   const pendingSnapshotsByClaim = new Map<string,Json[]>();
   for (const receipt of snapshotReceipts.data || []) {
@@ -1402,6 +1405,7 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
   const offers = (eventRows || []).flatMap((row:any) => {
     const claimRow = claimByEvent.get(row.id);
     const transferredOut = transferredOutEventIds.has(String(row.id)) && !claimRow;
+    const receivedAsGift = Boolean(claimRow && receivedGiftClaimIds.has(String(claimRow.claim_id)));
     // Fixed tickets are server-issued member benefits, not public claimable offers.
     // Never expose a fixed-ticket event to a member unless that member owns its claim.
     if ((row.fixed_ticket_template_id || row.ticket_type === "referral" || row.ticket_type === "membership_join") && !claimRow) return [];
@@ -1416,8 +1420,8 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
     const ended = Boolean(row.ends_on && today > row.ends_on);
     const availability = scheduled ? "scheduled" : ended ? "ended" : "active";
     const visibility = tierVisibility(row.allowed_tier_keys,profile.tierKey,visibilityPolicy);
-    if (!visibility.visible) return [];
-    const tierEligible = visibility.tierEligible;
+    if (!visibility.visible && !claimRow) return [];
+    const tierEligible = visibility.tierEligible || receivedAsGift;
     const soldOut = Number(row.quota || 0) > 0 && (counts.get(row.id)||0) >= Number(row.quota);
     const reservedForBooking = Boolean(claimRow && reservedEventClaimIds.has(String(claimRow.claim_id || "")));
     const pendingSnapshots = claimRow ? pendingSnapshotsByClaim.get(String(claimRow.claim_id || "")) || [] : [];
@@ -1426,7 +1430,7 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
       claim,
       availability,
       tierEligible,
-      locked:visibility.locked, lockReason:visibility.lockReason, requiredTierLabels:visibility.requiredTierLabels,
+      locked:receivedAsGift ? false : visibility.locked, lockReason:receivedAsGift ? "" : visibility.lockReason, requiredTierLabels:visibility.requiredTierLabels,
       canClaim: !transferredOut && !["referral","membership_join"].includes(String(row.ticket_type || "")) && !claim && tierEligible && availability === "active" && !soldOut,
       canUse: Boolean(claim && claim.status === "available" && tierEligible && availability === "active" && !reservedForBooking && !pendingSnapshots.length && (bookingOptions.data as any)?.event?.[claimRow.claim_id]?.length),
       eligibleBookings: claimRow ? (bookingOptions.data as any)?.event?.[claimRow.claim_id] || [] : [],
@@ -1437,6 +1441,7 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
       bookingSelections: claimRow ? contextsForTicket(bookingSelections,"event",claimRow.claim_id) : [],
       soldOut,
       transferredOut,
+      receivedAsGift,
       history: false,
     }];
   });
