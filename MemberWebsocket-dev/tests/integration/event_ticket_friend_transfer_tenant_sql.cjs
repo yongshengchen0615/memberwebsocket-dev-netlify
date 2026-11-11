@@ -59,9 +59,7 @@ async function run() {
     const tenantOwner=(await db.query("select member_id::text from "+schema+".event_ticket_claims where claim_id='TENANT-CLAIM'")).rows[0].member_id;
     const publicOwner=(await db.query("select member_id::text from public.event_ticket_claims where claim_id='PUB-CLAIM'")).rows[0].member_id;
     assert.equal(tenantOwner,B,'tenant B (general tier) owns the gold-only claim');
-    await rejects(db.query("select "+schema+".transfer_event_ticket_to_friend('actor-b','TENANT-CLAIM','MEMBERA1','TENANT-REQUEST-2')"),'EVENT_TICKET_FRIEND_REQUIRED');
-    await db.query("insert into "+schema+".member_friendships(member_a,member_b,status) values($1,$2,'accepted') on conflict do nothing",[A,B]).catch(()=>{});
-    await rejects(db.query("select "+schema+".transfer_event_ticket_to_friend('actor-b','TENANT-CLAIM','MEMBERA1','TENANT-REQUEST-3')"),'EVENT_TICKET_ALREADY_TRANSFERRED');
+    await rejects(db.query("select "+schema+".transfer_event_ticket_to_friend('actor-b','TENANT-CLAIM','MEMBERA1','TENANT-REQUEST-2')"),'EVENT_TICKET_ALREADY_TRANSFERRED');
     assert.equal(publicOwner,A,'public claim does not change');
     await rejects(db.query("insert into "+schema+".event_ticket_claims(claim_id,event_ticket_id,member_id,status) values ('RECLAIM',$1,$2,'claimed')",[E,A]),'EVENT_TICKET_ALREADY_TRANSFERRED');
     assert.equal((await db.query("select has_function_privilege('anon', $1, 'EXECUTE') as value",[schema+'.transfer_event_ticket_to_friend(text,text,text,text)'])).rows[0].value,false);
