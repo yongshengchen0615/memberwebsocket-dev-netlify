@@ -47,7 +47,8 @@ test('PLATFORM_APPLICANT_ROOT_GRANTS — review applicant, grant features only, 
   const submitted=await h.call({action:'platform.application.submit',businessName:'申請商家 A',slug:'merchant-a'},'manager');
   expect(submitted.status).toBe(200);
   await page.reload();
-  await expect(page.locator('#applicationList .tenant-card')).toContainText('LINE 使用者 U');
+  await expect(page.locator('#applicationList .tenant-card')).toContainText('管理員：商家管理員');
+  await expect(page.locator('#applicationList .tenant-card')).toContainText('LINE User ID：U');
   await page.getByRole('button',{name:'審核與選擇功能'}).click();
   await page.locator('[data-approve-feature="membership"]').check();
   await page.locator('[data-approve-feature="booking"]').check();
