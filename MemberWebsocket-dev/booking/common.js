@@ -7,6 +7,8 @@
     'user.booking.create',
     'user.booking.update',
     'user.booking.cancel',
+    'user.booking.group.create',
+    'user.booking.group.update',
     'admin.booking.settings.save',
     'admin.booking.service.save',
     'admin.booking.status.update',
@@ -19,6 +21,7 @@
   const SHARED_READ_ACTIONS = new Set([
     'user.booking.bootstrap', 'user.booking.slots', 'user.booking.benefits',
     'user.booking.receipt.list', 'user.booking.receipt.options', 'user.member.bootstrap',
+    'user.booking.group.bootstrap', 'user.booking.group.slots',
   ]);
   const pendingReads = new Map();
   const realtimeSubscriptions = new Map();
@@ -346,7 +349,11 @@
 
   async function request(config, clientType, idToken, action, payload = {}) {
     const receiptAction = String(action || '').startsWith('user.booking.receipt.');
-    const endpoint = `${String(config.supabaseUrl).replace(/\/$/, '')}/functions/v1/${receiptAction ? 'booking-receipt-api' : 'booking-api'}`;
+    const groupAction = String(action || '').startsWith('user.booking.group.');
+    const functionName = groupAction
+      ? (action === 'user.booking.group.slots' ? 'booking-group-slots-api' : 'booking-group-api')
+      : receiptAction ? 'booking-receipt-api' : 'booking-api';
+    const endpoint = `${String(config.supabaseUrl).replace(/\/$/, '')}/functions/v1/${functionName}`;
     const body = window.TestModeClient && typeof window.TestModeClient.payload === 'function'
       ? window.TestModeClient.payload({ ...payload, ...(config.pricePublishing === true ? {pricePublishing:true} : {}), action, clientType, idToken })
       : { ...payload, ...(config.pricePublishing === true ? {pricePublishing:true} : {}), action, clientType, idToken };

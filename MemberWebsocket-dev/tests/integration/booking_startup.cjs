@@ -61,8 +61,14 @@ async function fixture(mode) {
     setBookingNotice: value => { bookingNotice = value; },
     addDays: (date, days) => new Date(Date.parse(date + 'T00:00:00Z') + days * 86400000).toISOString().slice(0, 10),
     formatDate: date => date, clientError: (code, message) => Object.assign(new Error(message), { code }),
-    request: async () => {
+    request: async (_config, _type, _token, action, payload) => {
       if (mode === 'unauthorized') throw Object.assign(new Error('登入已失效'), { code: 'AUTH_INVALID' });
+      if (action.startsWith('user.booking.group.')) {
+        const response = await w.fetch('', { body: JSON.stringify({ ...payload, action }) });
+        const result = await response.json();
+        if (!result.ok) throw Object.assign(new Error(result.error.message), { code: result.error.code });
+        return result.data;
+      }
       return structuredClone(base);
     },
   };

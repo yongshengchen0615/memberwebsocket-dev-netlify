@@ -164,50 +164,11 @@
     // single-person base form quote forwarded by app.js.
     const { expectedPrices: baseQuote, ...groupPayload } = payload;
     const pricePayload = state.config?.pricePublishing === true ? window.BookingPricePublishing.payload(state.config,groupPayload,state.services) : payload;
-    const functionName = action === 'user.booking.group.slots' ? 'booking-group-slots-api' : 'booking-group-api';
-    const endpoint = `${String(state.config?.supabaseUrl || '').replace(/\/$/, '')}/functions/v1/${functionName}`;
     const isWrite = action === 'user.booking.group.create' || action === 'user.booking.group.update';
     if (isWrite && state.config?.pricePublishing === true) pricePayload.expectedPrices = state.confirmationPrices || [];
-
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), 15000);
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        cache: 'no-store',
-        signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: String(state.config?.supabasePublishableKey || ''),
-        },
-        body: JSON.stringify(window.TestModeClient && typeof window.TestModeClient.payload === 'function'
-          ? window.TestModeClient.payload({ ...pricePayload, action, clientType: 'member', idToken: state.idToken })
-          : { ...pricePayload, action, clientType: 'member', idToken: state.idToken }),
-      });
-      let data;
-      try { data = await response.json(); }
-      catch {
-        if (isWrite) throw system.clientError('API_RESPONSE_UNCERTAIN', '無法確認這次多人預約操作的回應；請重新整理確認。');
-        throw system.clientError('API_INVALID_RESPONSE', '多人預約服務回傳格式不正確。');
-      }
-      if (!response.ok || data?.ok !== true) {
-        const error = new Error(String(data?.error?.message || '多人預約服務暫時無法完成操作。'));
-        error.code = String(data?.error?.code || 'API_ERROR');
-        error.details = data?.error?.details || null;
-        throw error;
-      }
-      return data.data || {};
-    } catch (error) {
-      if (error?.code === 'API_RESPONSE_UNCERTAIN') throw error;
-      if (isWrite && (error?.name === 'AbortError' || !error?.code)) {
-        throw system.clientError('API_RESPONSE_UNCERTAIN', '無法確認這次多人預約操作是否已送達；系統不會自動重送，請重新整理確認。');
-      }
-      if (error?.name === 'AbortError') throw system.clientError('API_TIMEOUT', '多人預約服務回應逾時，請稍後再試。');
-      if (error?.code) throw error;
-      throw system.clientError('NETWORK_ERROR', '多人預約服務目前無法連線，請檢查網路後再試。');
-    } finally {
-      window.clearTimeout(timer);
-    }
+    // One transport owns scoped read sharing, write invalidation, uncertain
+    // responses and revoked sessions for both single and group bookings.
+    return originalRequest(state.config, 'member', state.idToken, action, pricePayload);
   }
 
   function injectGroupControls() {

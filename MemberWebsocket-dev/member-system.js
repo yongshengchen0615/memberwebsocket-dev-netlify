@@ -31,6 +31,7 @@
   });
 
   const WRITE_ACTIONS = Object.freeze([
+    'user.member.card.open',
     'user.member.presence.online',
     'user.member.presence.offline',
     'user.member.presence.heartbeat',
@@ -465,8 +466,12 @@
     }
   }
 
+  function isWriteAction(action) {
+    return action.endsWith('.session.claim') || action.endsWith('.session.logout') || WRITE_ACTIONS.includes(action) || ['admin.settings.copy','admin.ticket-visibility.save','member.friend.request','member.friend.accept','member.friend.remove','member.friend.block'].includes(action);
+  }
+
   function request(config, clientType, idToken, action, payload = {}) {
-    const isWrite = action === 'user.member.card.open' || action.endsWith('.session.claim') || action.endsWith('.session.logout') || WRITE_ACTIONS.includes(action) || ['admin.settings.copy','admin.ticket-visibility.save','member.friend.request','member.friend.accept','member.friend.remove','member.friend.block'].includes(action);
+    const isWrite = isWriteAction(action);
     if (isWrite) {
       pendingReads.clear();
       return sendRequest(config, clientType, idToken, action, payload).finally(() => pendingReads.clear());
@@ -512,7 +517,7 @@
     const verifiedJoinPayload = (action === 'user.member.profile.save' && payload?.accepted === true) || action === 'user.member.oa.check'
       ? { ...payload, lineAccessToken: typeof window.liff?.getAccessToken === 'function' ? (window.liff.getAccessToken() || '') : '' }
       : payload;
-    const isWrite = action.endsWith('.session.claim') || action.endsWith('.session.logout') || WRITE_ACTIONS.includes(action) || ['admin.settings.copy','admin.ticket-visibility.save','member.friend.request','member.friend.accept','member.friend.remove','member.friend.block'].includes(action);
+    const isWrite = isWriteAction(action);
     const timeoutMs = isWrite ? WRITE_TIMEOUT_MS : isFullBootstrap(clientType, action, payload) ? BOOTSTRAP_TIMEOUT_MS : READ_TIMEOUT_MS;
     const attempts = isWrite ? 1 : 2;
     const deadline = Date.now() + timeoutMs;

@@ -18,14 +18,12 @@ test('two member notes remain isolated when collapsing, resizing, editing and ca
   const w = dom.window;
   let bookingGroups = {};
   w.BookingSystem = {
-    request: async () => ({ bookings:[], settings:{}, services:[] }),
+    request: async (_config, _type, _token, action) => action === 'user.booking.group.bootstrap'
+      ? { settings:{maxPartySize:2,requirePrimaryTechnician:false}, technicians:[],bookingGroups }
+      : { bookings:[], settings:{}, services:[] },
     formatDate: date => date,
     clientError: (code, message) => Object.assign(new Error(message), { code }),
   };
-  w.fetch = async () => new Response(JSON.stringify({ok:true,data:{
-    settings:{maxPartySize:2,requirePrimaryTechnician:false},
-    technicians:[],bookingGroups,
-  }}),{status:200,headers:{'Content-Type':'application/json'}});
 
   try {
     w.eval(fs.readFileSync(path.join(root, 'booking/group-booking.js'), 'utf8'));

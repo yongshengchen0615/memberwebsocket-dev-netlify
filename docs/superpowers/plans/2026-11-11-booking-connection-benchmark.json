@@ -1,0 +1,93 @@
+{
+  "baselineSha": "092afa8306e674b17d45d23a076c1fee1d953fdc",
+  "candidateHeadSha": "860e287ea5c746ac3cf1fe1968e024eee35bd85f",
+  "candidateRuntimeSha256": {
+    "booking/common.js": "1c243eb4011974ba9ad48aae19fe3a3457eb790d0949196ed566aca54ae14c9a",
+    "booking/group-booking.js": "fba369eb1aa1d1358a2d8d90be0b7c34343c393279741aa853f69f1a6867427e"
+  },
+  "node": "v24.22.1",
+  "generatedAt": "2026-11-11T02:31:10.265Z",
+  "workload": {
+    "bursts": 30,
+    "concurrentIdenticalReads": 100,
+    "nextFreshReadPerBurst": 1,
+    "syntheticIdentity": true
+  },
+  "limits": "Actual common + group browser JavaScript in the same JSDOM; synthetic HTTP. Counts demonstrate duplicate suppression, not production latency or capacity.",
+  "results": {
+    "baseline": {
+      "duplicateBurstRequestCounts": [
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "duplicateBurstTotal": 3000,
+      "freshRequests": 30,
+      "runtimeSourceBytes": 90467
+    },
+    "candidate": {
+      "duplicateBurstRequestCounts": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "duplicateBurstTotal": 30,
+      "freshRequests": 30,
+      "runtimeSourceBytes": 88764
+    }
+  }
+}
