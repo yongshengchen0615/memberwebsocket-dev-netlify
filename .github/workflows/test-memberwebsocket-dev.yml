@@ -155,6 +155,7 @@ jobs:
           node MemberWebsocket-dev/tests/integration/booking_ui.cjs
           node MemberWebsocket-dev/tests/integration/booking_sql.cjs
           node MemberWebsocket-dev/tests/integration/event_coupon_sql.cjs
+          node MemberWebsocket-dev/tests/integration/event_ticket_friend_transfer_sql.cjs
           node MemberWebsocket-dev/tests/integration/coupon_location_editor.cjs
           node MemberWebsocket-dev/tests/integration/legacy_schema_cleanup.cjs
           node --test MemberWebsocket-dev/tests/integration/booking_price_admin_quotes.cjs MemberWebsocket-dev/tests/integration/booking_item_price_publishing.cjs MemberWebsocket-dev/tests/integration/booking_price_editor.cjs MemberWebsocket-dev/tests/integration/booking_item_price_member.cjs
