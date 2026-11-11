@@ -9,8 +9,10 @@ const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'u
 
 test('member booking routes group requests without global fetch monkey patching', () => {
   const groupBooking = read('booking/group-booking.js');
-  assert.ok(groupBooking.includes("action === 'user.booking.group.slots' ? 'booking-group-slots-api' : 'booking-group-api'"));
-  assert.ok(groupBooking.includes('/functions/v1/'));
+  const common = read('booking/common.js');
+  assert.ok(common.includes("action === 'user.booking.group.slots' ? 'booking-group-slots-api' : 'booking-group-api'"));
+  assert.ok(groupBooking.includes("return originalRequest(state.config, 'member', state.idToken, action, pricePayload)"));
+  assert.ok(!groupBooking.includes('fetch('), 'group booking must use the shared transport');
   assert.ok(!groupBooking.includes('window.fetch ='));
 });
 

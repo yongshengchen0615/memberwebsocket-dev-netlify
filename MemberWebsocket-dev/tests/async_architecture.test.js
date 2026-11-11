@@ -20,7 +20,8 @@ test('booking writes classify uncertain responses and reuse idempotency keys', (
   const app = read('booking/app.js');
   assert.match(common, /const WRITE_ACTIONS = new Set/);
   assert.match(common, /API_RESPONSE_UNCERTAIN/);
-  assert.match(group, /API_RESPONSE_UNCERTAIN/);
+  assert.match(group, /return originalRequest\(state\.config, 'member', state\.idToken, action, pricePayload\)/);
+  assert.doesNotMatch(group, /fetch\(|new AbortController/);
   assert.match(app, /pendingBookingWrite/);
   assert.match(app, /bookingWriteFingerprint/);
   assert.match(app, /recoverUncertainBookingWrite/);

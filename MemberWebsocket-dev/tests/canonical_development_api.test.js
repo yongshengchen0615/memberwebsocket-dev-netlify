@@ -38,6 +38,10 @@ function transport(file, fragment) {
   });
   const source = fs.readFileSync(path.join(root, file), 'utf8');
   if (fragment) {
+    if (file === 'booking/group-booking.js') {
+      vm.runInContext(fs.readFileSync(path.join(root, 'booking/common.js'), 'utf8'), context);
+      context.originalRequest = window.BookingSystem.request.bind(window.BookingSystem);
+    }
     const start = source.indexOf(fragment.start), end = source.indexOf(fragment.end, start);
     assert.ok(start >= 0 && end > start, 'transport fragment must resolve');
     vm.runInContext(source.slice(start, end), context);
@@ -87,6 +91,7 @@ test('AC-001: online presence and page-exit beacon ignore stale preview config',
 
 test('AC-002: group bootstrap, slots, create and update use canonical endpoints with no write replay', async () => {
   const h = transport('booking/group-booking.js', { start: '  async function groupRequest(', end: '  function injectGroupControls()' });
+  h.window.TestModeClient = { payload: body => ({ ...body, testSessionToken: 'isolated-fixture-session' }) };
   for (const action of ['user.booking.group.bootstrap', 'user.booking.group.slots', 'user.booking.group.create', 'user.booking.group.update']) {
     const data = await h.context.groupRequest(action, { participants: [{ memberNote: 'note-a' }] });
     assert.equal(data.marker, 'canonical');
@@ -98,6 +103,7 @@ test('AC-002: group bootstrap, slots, create and update use canonical endpoints 
     'https://fixture.supabase.co/functions/v1/booking-group-api',
   ]);
   assert.ok(h.calls.every(call => call.body.idToken === 'synthetic-identity' && call.body.participants[0].memberNote === 'note-a'));
+  assert.ok(h.calls.every(call => call.body.testSessionToken === 'isolated-fixture-session'));
   h.reject();
   await assert.rejects(h.context.groupRequest('user.booking.group.create'), { code: 'FORBIDDEN' });
   assert.equal(h.calls.length, 5);

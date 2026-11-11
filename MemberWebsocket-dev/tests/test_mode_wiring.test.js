@@ -145,13 +145,14 @@ test('browser APIs either forward test sessions directly or use the shared membe
   for (const relative of [
     'points/pointcard-ticket-overview.js',
     'booking/common.js',
-    'booking/group-booking.js',
     'booking/contact-details.js',
     'booking/member-ui.js',
     'booking/calendar-flow.js',
   ]) {
     assert.match(read(relative), /TestModeClient/, relative);
   }
+  assert.match(read('booking/group-booking.js'), /return originalRequest\(state\.config, 'member', state\.idToken, action, pricePayload\)/);
+  assert.doesNotMatch(read('booking/group-booking.js'), /fetch\(/);
 
   for (const relative of [
     'member/profile-extension.js',
