@@ -34,5 +34,6 @@
 - [x] 固定與 SDK 相符的官方 Playwright runtime；三項相容性案例先 RED，再 GREEN；本機完整1639項通過。
 - [ ] 最終 SHA 的完整三條產品 CI、獨立審查及實際發布驗收。
 - [x] 找出 push DOM 工作8分鐘容量不足；保留原14個命令與96個fixture，拆為core/extended平行工作，每組維持8分鐘。
+- [x] 4befd9b push全成功、PR單一手機案例失敗後，追查到fixture先前進假時間但HTTP probe未完成；控制初始HTTP回覆並逐輪等待同步回呼，不改產品、斷言或timeout。最終Chromium結果仍以新提交遠端執行為準。
 
 目前 test 的 API 10/10、合成 DB 讀寫與回復、WSS heartbeat、五項自訂環境變數及獨立 Vault 金鑰已驗證。三項 Twilio 值依使用者要求保留空白，實際 OTP 驗收待填值後進行。

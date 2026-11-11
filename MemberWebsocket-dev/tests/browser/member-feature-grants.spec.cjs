@@ -16,12 +16,15 @@ const items=[{kind:'points',id:'R',selectionId:'P',selectable:true,title:'合成
  {kind:'event',id:'E',selectionId:'E',selectable:true,title:'合成活動券'}];
 for(const width of [390,1280])test(`AC-MEMBER-001..004_${width}: real booking revision updates grants, open snapshot dialog and stale selections`,async({page},info)=>{
  let features={booking:true,membership:true,points:true,events:true,calendar:true},revision='1';const calls=[],errors=[];
+ let syncProbes=0,releaseInitialProbe;
+ const initialProbeGate=new Promise(resolve=>{releaseInitialProbe=resolve;});
  await page.setViewportSize({width,height:900});await page.clock.install({time:new Date('2026-11-07T00:00:00Z')});
  page.on('pageerror',e=>errors.push(e.message));
- await page.route('https://fixture.supabase.co/**',route=>{
+ await page.route('https://fixture.supabase.co/**',async route=>{
   if(!route.request().url().startsWith('https://fixture.supabase.co/'))return route.abort();
   const body=route.request().postDataJSON();calls.push(body);
   if(body.action==='platform.business.public')return route.fulfill({json:{ok:true,data:{business:'merchant-a',name:'QA',features,line:{}}}});
+  if(body.action.endsWith('.sync.status')&&++syncProbes===1)await initialProbeGate;
   if(body.action.endsWith('.sync.status')&&!features.booking)return route.fulfill({status:403,json:{ok:false,error:{code:'FEATURE_DISABLED',message:'未開通'}}});
   return route.fulfill({json:{ok:true,data:{revision,items,snapshotLocationRequired:false,snapshotLocations:[],bookings:[],submissions:[]}}});
  });
@@ -35,13 +38,23 @@ for(const width of [390,1280])test(`AC-MEMBER-001..004_${width}: real booking re
   document.getElementById('loadingView').classList.add('hidden');document.getElementById('bookingView').classList.remove('hidden');
   document.getElementById('appointmentPanel').classList.remove('hidden');
   BookingBenefits.start(cfg,'synthetic-token');
-  window.stopSync=BookingSystem.subscribeRealtime(cfg,()=>{BookingBenefits.syncNow();});
+  window.completedBookingSyncs=0;
+  window.stopSync=BookingSystem.subscribeRealtime(cfg,()=>{BookingBenefits.syncNow();},'member',()=>{window.completedBookingSyncs++;});
  });
  await page.clock.runFor(1);
  await expect(page.locator('.booking-benefit-group[data-benefit-kind="points"]')).toBeVisible();
+ // Benefits load independently of the revision probe. A paused clock cannot
+ // advance the next poll until this HTTP read and its reconciliation finish.
+ await expect.poll(()=>syncProbes).toBe(1);
+ await page.clock.runFor(3001);
+ expect(syncProbes).toBe(1);
+ expect(await page.evaluate(()=>window.completedBookingSyncs)).toBe(0);
+ releaseInitialProbe();
+ await expect.poll(()=>page.evaluate(()=>window.completedBookingSyncs)).toBe(1);
  await page.evaluate(()=>BookingBenefits.setSelection([{kind:'points',id:'P'},{kind:'event',id:'E'}]));
  await page.locator('#memberNote').fill('保留的預約草稿');
  features={booking:true,events:true};revision='2';await page.clock.runFor(3001);
+ await expect.poll(()=>page.evaluate(()=>window.completedBookingSyncs)).toBe(2);
  await expect(page.locator('.booking-benefit-group[data-benefit-kind="points"]')).toHaveCount(0);
  await expect(page.locator('.booking-benefit-group[data-benefit-kind="event"]')).toBeVisible();
  await expect(page.locator('#membershipProgress')).toBeHidden();
@@ -57,10 +70,12 @@ for(const width of [390,1280])test(`AC-MEMBER-001..004_${width}: real booking re
  await page.locator('[data-snapshot-kind="event"]').check();
  await expect(page.locator('#snapshotTicketSelectionSummary')).not.toContainText('集點卡');
  features={booking:true};revision='3';await page.clock.runFor(3001);
+ await expect.poll(()=>page.evaluate(()=>window.completedBookingSyncs)).toBe(3);
  await expect(page.locator('#snapshotTicketFields')).toBeHidden();
  await expect(page.locator('#bookingAccessibleTicketHeading')).toBeHidden();
  expect(await page.locator('[data-snapshot-id]:checked').count()).toBe(0);
  features={booking:true,points:true};revision='4';await page.clock.runFor(3001);
+ await expect.poll(()=>page.evaluate(()=>window.completedBookingSyncs)).toBe(4);
  await expect(page.locator('#snapshotTicketFields')).toBeVisible();
  await expect(page.locator('[data-snapshot-kind="points"]')).toHaveCount(1);
  await expect(page.locator('[data-snapshot-kind="event"]')).toHaveCount(0);

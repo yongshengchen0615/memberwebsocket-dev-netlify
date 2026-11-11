@@ -23,3 +23,5 @@ AC-007：Given 最終版本，When 執行全部既有基線，Then 所有必要�
 AC-009：Given 瀏覽器 SDK 版本固定，When 執行三條瀏覽器測試／驗收流程，Then 使用相符且 digest 固定的官方 runtime，能實際啟動 Chromium，不再以 APT 安裝成功與否決定能否開始測試。這是 CI 環境調整，不宣稱產品執行期效能提升。
 
 同版本 PR CI 全部成功，但 push 的 DOM 工作在既有8分鐘上限被取消：日誌顯示核心554項約272秒，接續的人類操作136項約153秒，其餘延伸案例執行後合計超過工作額度，沒有案例斷言失敗。改將原有14個命令、96個 fixture檔案分為core及extended兩個平行組別；每組仍為8分鐘、fail-fast=false，原命令與旗標逐項比對既有基線，彙總 gate 仍要求整個 integration matrix 成功。不可用提高上限或反覆重跑代替此容量修復。
+
+4befd9b來源push全成功，但PR Chromium手機案例在features撤銷後仍看到points group。追查證明BookingBenefits.start與subscribeRealtime各自發HTTP，benefits可見不等於revision probe完成；下一輪3000ms timer只在status→grants refresh→callbacks完成後finally建立。原fixture在HTTP尚未完成時推進3001ms，timer會被排在新假時間之後，凍結時鐘的wall-clock斷言無法觸發它。修正僅在fixture控制第一個status HTTP，驗證未完成時不重疊輪詢，釋放後等待每輪onBenefitsUpdate回呼再推進假時間；保留全部原UI／selection／draft／disabled斷言及timeout。business_sync_lifecycle新增受控初始grants回覆案例，重現clock jump無法settle HTTP且下一輪由完成時起算；連同booking_realtime_resilience共21個時鐘／慢請求案例作同步契約依據，無產品程式變更。
