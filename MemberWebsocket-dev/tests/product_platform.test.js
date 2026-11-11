@@ -152,7 +152,7 @@ test('AC-075: manager names are only projected to privileged workspace, never pu
   const fs=require('node:fs');
   const source=fs.readFileSync(path.join(__dirname,'../platform/app.js'),'utf8');
   assert.match(source,/tenant\.ownerDisplayName/);
-  assert.match(source,/applicant\.applicantDisplayName/);
+  assert.match(source,/application\.applicantDisplayName/);
   assert.match(source,/名稱待確認/);
   assert.match(source,/LINE User ID/);
   assert.match(source,/info\.textContent/);
