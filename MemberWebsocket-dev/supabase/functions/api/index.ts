@@ -1122,11 +1122,8 @@ async function pointBootstrap(supabase: SupabaseClient, member: any): Promise<Js
       .select("receipt_id,created_at,updated_at,requested_benefits")
       .eq("member_id",member.id).eq("submission_mode","accessible")
       .eq("status","awaiting_review").order("created_at",{ascending:false}).limit(100),
-    supabase.from("event_ticket_transfers").select("event_ticket_id").eq("sender_member_id",member.id),
   ]);
   if (snapshotReceipts.error) throw mapDatabaseError(snapshotReceipts.error);
-  if (transferHistoryRes.error) throw mapDatabaseError(transferHistoryRes.error);
-  const transferredOutEventIds = new Set((transferHistoryRes.data || []).map((row:any) => String(row.event_ticket_id)));
   const snapshotByPointTicket = new Map<string,Json[]>();
   for (const receipt of snapshotReceipts.data || []) {
     for (const benefit of Array.isArray(receipt.requested_benefits) ? receipt.requested_benefits : []) {
@@ -1352,8 +1349,11 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
     supabase.from("booking_receipts").select("receipt_id,created_at,updated_at,requested_benefits")
       .eq("member_id",member.id).eq("submission_mode","accessible")
       .eq("status","awaiting_review").order("created_at",{ascending:false}).limit(100),
+    supabase.from("event_ticket_transfers").select("event_ticket_id").eq("sender_member_id",member.id),
   ]);
   if (snapshotReceipts.error) throw mapDatabaseError(snapshotReceipts.error);
+  if (transferHistoryRes.error) throw mapDatabaseError(transferHistoryRes.error);
+  const transferredOutEventIds = new Set((transferHistoryRes.data || []).map((row:any) => String(row.event_ticket_id)));
   const pendingSnapshotsByClaim = new Map<string,Json[]>();
   for (const receipt of snapshotReceipts.data || []) {
     for (const benefit of Array.isArray(receipt.requested_benefits) ? receipt.requested_benefits : []) {
