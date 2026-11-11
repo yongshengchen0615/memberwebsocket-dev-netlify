@@ -111,27 +111,33 @@ test('badge CSS stays visible on mobile and does not obstruct touch or require i
 });
 
 
-const testModeAllowedOrigins = [
+// Validate the currently deployed development API, not the retired test-mode
+// API. All live checks remain fail-closed and require the exact status,
+ // origin-scoped CORS policy, and malformed-request contract.
+const platformAllowedOrigins = [
   'https://yongshengchen0615.github.io',
   'https://memberwebsocket-dev-netlify.netlify.app',
   'https://develop--memberwebsocket-dev-netlify.netlify.app',
 ];
 
-test('test-mode API source preserves explicit CORS allowlist and request authorization', () => {
-  const source = fs.readFileSync(path.join(root, 'MemberWebsocket-dev/supabase/functions/test-mode-api/index.ts'), 'utf8');
-  for (const origin of testModeAllowedOrigins) {
-    assert.ok(source.includes(JSON.stringify(origin)), 'Missing trusted origin: ' + origin);
+test('production platform API source enforces an explicit origin allowlist and authenticated actions', () => {
+  const entry = fs.readFileSync(path.join(root, 'MemberWebsocket-dev/supabase/functions/platform-api/index.ts'), 'utf8');
+  const handler = fs.readFileSync(path.join(root, 'MemberWebsocket-dev/supabase/functions/_shared/platform-handler.mjs'), 'utf8');
+  for (const origin of platformAllowedOrigins) {
+    assert.ok(entry.includes("'" + origin + "'"), 'Missing trusted platform origin: ' + origin);
   }
-  assert.match(source, /origin && allowedOrigins\(\)\.has\(origin\)/);
-  assert.match(source, /if \(request\.method === "OPTIONS"\)/);
-  assert.match(source, /if \(origin && !allowedOrigins\(\)\.has\(origin\)\)/);
-  assert.doesNotMatch(source, /"Access-Control-Allow-Origin":\s*"\*"/);
+  assert.match(handler, /origin && allowedOrigins\.has\(origin\)/);
+  assert.match(handler, /if \(request\.method === 'OPTIONS'\)/);
+  assert.match(handler, /if \(origin && !allowedOrigins\.has\(origin\)\)/);
+  assert.match(handler, /if \(typeof body\.idToken !== 'string'/);
+  assert.match(handler, /AUTH_REQUIRED/);
+  assert.doesNotMatch(handler, /'Access-Control-Allow-Origin':'\*'/);
 });
 
-test('deployed test-mode API responds to browser preflight only for trusted origins', async () => {
+test('deployed production platform API allows only trusted browser preflights', async () => {
   const { supabaseUrl } = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/config.json'), 'utf8'));
-  const endpoint = new URL('/functions/v1/test-mode-api', supabaseUrl);
-  const preflight = async (origin) => fetch(endpoint, {
+  const endpoint = new URL('/functions/v1/platform-api', supabaseUrl);
+  const preflight = origin => fetch(endpoint, {
     method: 'OPTIONS',
     headers: {
       Origin: origin,
@@ -140,43 +146,47 @@ test('deployed test-mode API responds to browser preflight only for trusted orig
     },
     signal: AbortSignal.timeout(15000),
   });
-  for (const origin of testModeAllowedOrigins) {
+  for (const origin of platformAllowedOrigins) {
     const response = await preflight(origin);
-    assert.equal(response.status, 204, origin + ': preflight must return 204');
+    assert.equal(response.status, 204, origin + ': platform preflight must return 204');
     assert.equal(response.headers.get('access-control-allow-origin'), origin, origin);
-    const allowedHeaders = (response.headers.get('access-control-allow-headers') || '')
-      .toLowerCase().split(',').map(x => x.trim());
-    assert.ok(allowedHeaders.includes('apikey'), origin + ': apikey blocked');
-    assert.ok(allowedHeaders.includes('content-type'), origin + ': content-type blocked');
+    const headers = (response.headers.get('access-control-allow-headers') || '').toLowerCase().split(',').map(x => x.trim());
+    assert.ok(headers.includes('apikey'), origin + ': apikey blocked');
+    assert.ok(headers.includes('content-type'), origin + ': content-type blocked');
     assert.ok((response.headers.get('access-control-allow-methods') || '').includes('POST'));
     assert.match(response.headers.get('vary') || '', /\bOrigin\b/i);
   }
-  const untrusted = 'https://untrusted.example';
-  const deniedResponse = await preflight(untrusted);
-  assert.notEqual(deniedResponse.headers.get('access-control-allow-origin'), untrusted);
+  const rejected = await preflight('https://untrusted.example');
+  assert.equal(rejected.status, 403, 'Untrusted origin must be rejected');
+  assert.notEqual(rejected.headers.get('access-control-allow-origin'), 'https://untrusted.example');
 });
 
-
-test('deployed test-mode API returns a CORS-readable rejection for malformed POST requests', async () => {
+test('deployed production platform API rejects malformed payload before login', async () => {
   const config = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/config.json'), 'utf8'));
   const origin = 'https://develop--memberwebsocket-dev-netlify.netlify.app';
-  const response = await fetch(new URL('/functions/v1/test-mode-api', config.supabaseUrl), {
+  const response = await fetch(new URL('/functions/v1/platform-api', config.supabaseUrl), {
     method: 'POST',
-    headers: {
-      Origin: origin,
-      'Content-Type': 'application/json',
-      apikey: config.supabasePublishableKey,
-    },
+    headers: { Origin: origin, 'Content-Type': 'application/json', apikey: config.supabasePublishableKey },
     body: '{not valid JSON',
     signal: AbortSignal.timeout(15000),
   });
   assert.equal(response.headers.get('access-control-allow-origin'), origin);
-  assert.equal(response.status, 400, 'Malformed body should be rejected before authentication');
+  assert.equal(response.status, 400, 'Malformed JSON must be rejected before login');
   const payload = await response.json();
   assert.equal(payload.ok, false);
   assert.equal(payload.error?.code, 'INVALID_JSON');
 });
 
+test('deployed legacy test-mode endpoint is retired rather than accepting test accounts', async () => {
+  const { supabaseUrl } = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/config.json'), 'utf8'));
+  const response = await fetch(new URL('/functions/v1/test-mode-api', supabaseUrl), {
+    method: 'OPTIONS',
+    headers: { Origin: 'https://develop--memberwebsocket-dev-netlify.netlify.app',
+      'Access-Control-Request-Method': 'POST' },
+    signal: AbortSignal.timeout(15000),
+  });
+  assert.equal(response.status, 410, 'A retired test-mode API must never grant access');
+});
 
 test('native and verifier builds reproduce exact bytes using one deploy and source timestamp', () => {
   const env = { ...process.env, COMMIT_REF: 'b'.repeat(40),
