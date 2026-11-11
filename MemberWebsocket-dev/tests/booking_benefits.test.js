@@ -222,8 +222,9 @@ test('reads are member-scoped, batched and strict on backend failure', async () 
   const db = database();
   await loadBookingBenefits(db, member, 'silver', today);
   for (const table of ['point_tickets', 'point_balances', 'event_ticket_claims']) assert.ok(db.calls.some(call => call.table === table && call.key === 'member_id' && call.value === member.id));
-  assert.equal(db.calls.filter(call => call.read).length, 13);
-  for (const fail of ['point_tickets', 'point_balances', 'booking_benefit_selections', 'booking_receipts', 'event_ticket_claim_counts', 'calendar_items', 'event_ticket_settings', 'point_card_settings']) await assert.rejects(loadBookingBenefits(database({}, fail), member, 'silver', today));
+  assert.equal(db.calls.filter(call => call.read).length, 14, 'one additional member-scoped gift history read');
+  assert.ok(db.calls.some(call => call.table === 'event_ticket_transfers' && call.key === 'receiver_member_id' && call.value === member.id));
+  for (const fail of ['point_tickets', 'point_balances', 'booking_benefit_selections', 'booking_receipts', 'event_ticket_claim_counts', 'calendar_items', 'event_ticket_settings', 'point_card_settings', 'event_ticket_transfers']) await assert.rejects(loadBookingBenefits(database({}, fail), member, 'silver', today));
 });
 
 test('API authorization resolves membership/tier from identity and rejects disabled/unjoined/stale-consent members', async () => {
@@ -365,4 +366,35 @@ test('AC-SERVICE-GROUP-UI-001: both point and event offers query the actual book
     assert.equal(item.requiredServiceRequirementLabel, 'A 項目＋B 項目 或 A 項目＋C 項目，符合其中一組即可');
     assert.match(item.conditionLabel, /預約項目限制：A 項目＋B 項目 或 A 項目＋C 項目，符合其中一組即可/);
   }
+});
+
+test('AC-GIFT-CATALOG: a gifted gold-only event is selectable by silver members in booking and snapshot catalogs',async()=>{
+  const {loadBookingBenefits}=await modulePromise;
+  const gold={id:'event',event_ticket_id:'EVENT',title:'金級票券',status:'active',allowed_tier_keys:['gold'],quota:2,requires_location:false};
+  const claim={claim_id:'GOLD-GIFT',event_ticket_id:'event',member_id:member.id,status:'claimed'};
+  const base={point_cards:[],point_tickets:[],point_card_rewards:[],calendar_items:[],event_tickets:[gold],event_ticket_claims:[claim]};
+  const none=await loadBookingBenefits(database(base),member,'silver',today);
+  assert.equal(none.items.filter(item=>item.kind==='event').length,0,'non-gifted gold claim remains tier-restricted');
+  const db=database({...base,event_ticket_transfers:[{claim_id:'GOLD-GIFT',receiver_member_id:member.id}]});
+  const result=await loadBookingBenefits(db,member,'silver',today);
+  const gift=result.items.find(item=>item.kind==='event');
+  assert.ok(gift,'eligible-only visibility must include received gifts');
+  assert.equal(gift.receivedAsGift,true);
+  assert.equal(gift.selectable,true);
+  assert.equal(gift.locked,false);
+  assert.equal(gift.claimRequired,false);
+  assert.equal(gift.selectionId,'GOLD-GIFT');
+  assert.match(gift.conditionLabel,/使用不限會員階級/);
+  assert.ok(db.calls.some(call=>call.table==='event_ticket_transfers'&&call.key==='receiver_member_id'&&call.value===member.id));
+});
+
+test('AC-GIFT-CATALOG-NEGATIVE: a transfer to another member does not waive this member\'s tier',async()=>{
+  const {loadBookingBenefits}=await modulePromise;
+  const result=await loadBookingBenefits(database({
+    point_cards:[],point_tickets:[],point_card_rewards:[],calendar_items:[],
+    event_tickets:[{id:'event',event_ticket_id:'EVENT',title:'金級票券',status:'active',allowed_tier_keys:['gold'],quota:2}],
+    event_ticket_claims:[{claim_id:'FOREIGN-GIFT',event_ticket_id:'event',member_id:member.id,status:'claimed'}],
+    event_ticket_transfers:[{claim_id:'FOREIGN-GIFT',receiver_member_id:'another-member'}]
+  }),member,'silver',today);
+  assert.equal(result.items.filter(item=>item.kind==='event').length,0);
 });

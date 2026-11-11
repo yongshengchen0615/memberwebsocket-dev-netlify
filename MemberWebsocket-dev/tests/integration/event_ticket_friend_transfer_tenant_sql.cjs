@@ -4,6 +4,7 @@ const { join }=require('node:path');
 const assert=require('node:assert/strict');
 const base=readFileSync(join(__dirname,'../../supabase/migrations/20261111122500_event_ticket_friend_transfer.sql'),'utf8');
 const tenantPatch=readFileSync(join(__dirname,'../../supabase/migrations/20261111122600_event_ticket_friend_transfer_tenant.sql'),'utf8');
+const giftPolicy=readFileSync(join(__dirname,'../../supabase/migrations/20261111134000_event_ticket_one_time_gift_tier_exemption.sql'),'utf8');
 const schema='business_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const A='00000000-0000-0000-0000-000000000001', B='00000000-0000-0000-0000-000000000002';
 const E='10000000-0000-0000-0000-000000000001';
@@ -38,6 +39,7 @@ async function run() {
     }
     await db.exec("create function "+schema+".current_tier_key(uuid) returns text language sql stable as $$select 'general'::text$$;");
     await db.exec(tenantPatch);
+    await db.exec(giftPolicy);
     assert.equal((await db.query("select to_regprocedure('"+schema+".transfer_event_ticket_to_friend(text,text,text,text)') is not null as available")).rows[0].available,true);
     assert.equal((await db.query("select relrowsecurity as protected from pg_class where oid=$1::regclass",[schema+'.event_ticket_transfers'])).rows[0].protected,true);
     for(const s of ['public',schema]){
@@ -50,12 +52,14 @@ async function run() {
     }
     await db.query('insert into '+schema+".member_friendships(member_a,member_b,status) values($1,$2,'accepted')",[A,B]);
     await rejects(db.query("select public.transfer_event_ticket_to_friend('actor-a','PUB-CLAIM','MEMBERB1','PUBLIC-REQUEST-1')"),'EVENT_TICKET_FRIEND_REQUIRED');
+    await db.exec("update "+schema+".event_tickets set allowed_tier_keys=array['gold'] where event_ticket_id='TENANT-TICKET'");
     const res=await db.query("select "+schema+".transfer_event_ticket_to_friend('actor-a','TENANT-CLAIM','MEMBERB1','TENANT-REQUEST-1') as result");
     assert.equal(res.rows[0].result.claimId,'TENANT-CLAIM');
     assert.equal(res.rows[0].result.alreadyTransferred,false);
     const tenantOwner=(await db.query("select member_id::text from "+schema+".event_ticket_claims where claim_id='TENANT-CLAIM'")).rows[0].member_id;
     const publicOwner=(await db.query("select member_id::text from public.event_ticket_claims where claim_id='PUB-CLAIM'")).rows[0].member_id;
-    assert.equal(tenantOwner,B,'tenant B owns the claim');
+    assert.equal(tenantOwner,B,'tenant B (general tier) owns the gold-only claim');
+    await rejects(db.query("select "+schema+".transfer_event_ticket_to_friend('actor-b','TENANT-CLAIM','MEMBERA1','TENANT-REQUEST-2')"),'EVENT_TICKET_ALREADY_TRANSFERRED');
     assert.equal(publicOwner,A,'public claim does not change');
     await rejects(db.query("insert into "+schema+".event_ticket_claims(claim_id,event_ticket_id,member_id,status) values ('RECLAIM',$1,$2,'claimed')",[E,A]),'EVENT_TICKET_ALREADY_TRANSFERRED');
     assert.equal((await db.query("select has_function_privilege('anon', $1, 'EXECUTE') as value",[schema+'.transfer_event_ticket_to_friend(text,text,text,text)'])).rows[0].value,false);

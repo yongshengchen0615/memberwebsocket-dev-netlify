@@ -4,6 +4,7 @@ const { join } = require('node:path');
 const assert = require('node:assert/strict');
 
 const migration = readFileSync(join(__dirname, '../../supabase/migrations/20261111122500_event_ticket_friend_transfer.sql'), 'utf8');
+const giftPolicy = readFileSync(join(__dirname, '../../supabase/migrations/20261111134000_event_ticket_one_time_gift_tier_exemption.sql'), 'utf8');
 const db = new PGlite();
 
 const A = '00000000-0000-0000-0000-000000000001';
@@ -113,12 +114,27 @@ async function run() {
         ('${F}','actor-f','MEMBERF1',true);
     `);
     await db.exec(migration);
+    // A previous release allowed A->B->C. Preserve that historical ledger while
+    // rejecting a third gift after the upgraded one-time policy.
+    await createTicket(12,'coupon',C);
+    await db.query(
+      "insert into public.event_ticket_transfers(event_ticket_id,claim_id,sender_member_id,receiver_member_id,request_id,created_at) values ($1,'CLAIM-12',$2,$3,'LEGACY-12-A',now()-interval '2 days'),($1,'CLAIM-12',$3,$4,'LEGACY-12-B',now()-interval '1 day')",
+      [ticketId(12),A,B,C]
+    );
+    await db.exec(giftPolicy);
+    const legacy=(await db.query("select transfer_ordinal from public.event_ticket_transfers where claim_id='CLAIM-12' order by transfer_ordinal")).rows;
+    assert.deepEqual(legacy.map(row=>row.transfer_ordinal),[1,2],'historical forwarding remains auditable');
+    await mustReject(db.query(
+      "insert into public.event_ticket_transfers(event_ticket_id,claim_id,sender_member_id,receiver_member_id,request_id) values($1,'CLAIM-12',$2,$3,'LEGACY-12-C')",
+      [ticketId(12),C,B]
+    ),'event_ticket_transfers_claim_once_idx');
     await friendship(A, B, 'accepted');
     await friendship(A, C, 'accepted');
     await friendship(A, D, 'pending');
     await friendship(A, E, 'blocked');
     await friendship(A, F, 'accepted');
     await friendship(B, C, 'accepted');
+    await mustReject(transfer(C,'CLAIM-12',B,'LEGACY-12-TRY'),'EVENT_TICKET_ALREADY_TRANSFERRED');
 
     await createTicket(1);
     await mustReject(transfer(A,'CLAIM-1',D,'transfer-pending-1'), 'EVENT_TICKET_FRIEND_REQUIRED');
@@ -142,11 +158,10 @@ async function run() {
       "insert into public.event_ticket_claims(claim_id,event_ticket_id,member_id,status) values('NEW-OWNER',$1,$2,'claimed')",
       [ticketId(1),A]
     ), 'EVENT_TICKET_ALREADY_TRANSFERRED');
-    await mustReject(transfer(B,'CLAIM-1',A,'transfer-return-1'), 'EVENT_TICKET_RECEIVER_ALREADY_OWNED');
-    const second = await transfer(B,'CLAIM-1',C,'transfer-forward-1');
-    assert.equal(second.alreadyTransferred, false);
-    assert.equal(await claimOwner('CLAIM-1'), C);
-    assert.equal(await ledgerCount(1), 2, 'safe forwarding preserves one physical ticket');
+    await mustReject(transfer(B,'CLAIM-1',A,'transfer-return-1'), 'EVENT_TICKET_ALREADY_TRANSFERRED');
+    await mustReject(transfer(B,'CLAIM-1',C,'transfer-forward-1'), 'EVENT_TICKET_ALREADY_TRANSFERRED');
+    assert.equal(await claimOwner('CLAIM-1'), B, 'the gifted recipient retains the ticket');
+    assert.equal(await ledgerCount(1), 1, 'each physical claim can only be gifted once');
     await mustReject(db.query(
       "insert into public.event_ticket_claims(claim_id,event_ticket_id,member_id,status) values('GIFT-RECLAIM',$1,$2,'claimed')",
       [ticketId(1),B]
@@ -183,7 +198,10 @@ async function run() {
     await mustReject(transfer(A,'CLAIM-7',B,'transfer-expired-1'),'EVENT_TICKET_TRANSFER_NOT_AVAILABLE');
     await createTicket(8);
     await db.exec("update public.event_tickets set allowed_tier_keys=array['gold'] where event_ticket_id='EVENT-8'");
-    await mustReject(transfer(A,'CLAIM-8',B,'transfer-tier-1'),'TIER_NOT_ALLOWED');
+    const goldToGeneral = await transfer(A,'CLAIM-8',B,'transfer-tier-1');
+    assert.equal(goldToGeneral.alreadyTransferred,false,'a general-tier friend receives a gold-tier claim');
+    assert.equal(await claimOwner('CLAIM-8'),B);
+    await mustReject(transfer(B,'CLAIM-8',C,'transfer-tier-2'),'EVENT_TICKET_ALREADY_TRANSFERRED');
 
     await createTicket(9);
     await db.query(
@@ -205,7 +223,7 @@ async function run() {
     await db.query("update public.members set status='suspended' where id=$1",[A]);
     await createTicket(11);
     await mustReject(transfer(A,'CLAIM-11',B,'transfer-suspended-1'),'MEMBERSHIP_REQUIRED');
-    console.log('event ticket friend transfer migration: 11 tickets, rejection/atomicity/idempotency/authorization paths passed');
+    console.log('event ticket friend transfer and one-time gift policy: 12 tickets, legacy-forwarding retention, lower-tier recipient, re-gifting rejection, atomicity and authorization passed');
   } finally {
     await db.close();
   }

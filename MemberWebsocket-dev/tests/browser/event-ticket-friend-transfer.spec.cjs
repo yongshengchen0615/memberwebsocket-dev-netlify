@@ -28,9 +28,10 @@ function nodes(names) {
 const mock = [
   'window.__requests=[];window.__transferred=false;',
   'window.__hasFriends=new URLSearchParams(location.search).get("friends")!=="0";',
-  'window.confirm=()=>true;',
+  'window.__gifted=new URLSearchParams(location.search).get("gift")==="1";',
+  'window.confirm=(message)=>{window.__confirmMessage=message;return true;};',
   'const ticket={eventTicketId:"EVENT-GIFT-1",title:"好友轉贈測試票券",description:"未使用活動券",',
-  'ticketType:"coupon",startsOn:"2026-11-01",endsOn:"2026-12-31",allowedTierKeys:["general"]};',
+  'ticketType:"coupon",startsOn:"2026-11-01",endsOn:"2026-12-31",allowedTierKeys:window.__gifted?["gold"]:["general"]};',
   'window.MemberSystem={bindDialogKeyboard(){},loadConfig:async()=>({}),signIn:async()=>"token",',
   'subscribeRealtime(){},request:async(_cfg,client,token,action,payload={})=>{',
   'window.__requests.push({client,token,action,payload});',
@@ -38,7 +39,7 @@ const mock = [
   'profile:{displayName:"測試會員",memberCode:"MEMBERA1"},',
   'usedTickets:[],usedTicketCount:0,bookingSelections:[],',
   'offers:[{ticket,claim:window.__transferred?null:{claimId:"CLAIM-GIFT-1",status:"available",ticketType:"coupon"},',
-  'availability:"active",tierEligible:true,canClaim:false,canUse:false,history:false,transferredOut:window.__transferred}]};',
+  'availability:"active",tierEligible:true,canClaim:false,canUse:false,history:false,receivedAsGift:window.__gifted,transferredOut:window.__transferred}]};',
   'if(action==="member.friend.list")return{friends:window.__hasFriends?[',
   '{memberCode:"MEMBERB1",displayName:"好友小明",status:"accepted"},',
   '{memberCode:"MEMBERC1",displayName:"未接受",status:"pending"},',
@@ -90,7 +91,13 @@ test('AC-GIFT-UI-001: only accepted friend can be chosen, and ticket transfers o
   await expect(select.locator('option[value=MEMBERD1]')).toHaveCount(0);
   await select.selectOption('MEMBERB1');
   await expect(page.locator('#ticketTransferButton')).toBeEnabled();
+  await expect(page.locator('#ticketTransferStatus')).toContainText('限轉贈一次');
+  await expect(page.locator('#ticketTransferStatus')).toContainText('不受原票券會員階級限制');
   await page.locator('#ticketTransferButton').click();
+  const disclosure=await page.evaluate(()=>window.__confirmMessage);
+  expect(disclosure).toContain('每張票券限轉贈一次');
+  expect(disclosure).toContain('無會員階級使用限制');
+  expect(disclosure).toContain('不可再次轉贈');
   await expect(page.locator('#eventList')).toContainText('已轉贈');
   const transferred=await page.evaluate(()=>window.__requests.filter(r=>r.action==='user.event.ticket.transfer'));
   expect(transferred).toHaveLength(1);
@@ -110,4 +117,13 @@ test('AC-GIFT-UI-002: without accepted friends the transfer stays disabled',asyn
   await expect(page.locator('#ticketTransferFriendSelect option')).toHaveCount(1);
   expect(await page.evaluate(()=>window.__requests.filter(r=>r.action==='user.event.ticket.transfer'))).toHaveLength(0);
   expect(errors).toEqual([]);
+});
+
+test('AC-GIFT-UI-003: a previously received gift is tier-exempt and cannot be transferred again',async({page})=>{
+  await page.goto(base+'/?gift=1');
+  await expect(page.locator('#eventList .event-ticket')).toHaveCount(1);
+  await expect(page.getByRole('button',{name:'轉贈好友'})).toHaveCount(0);
+  await page.locator('#eventList button').first().click();
+  await expect(page.locator('#ticketModalStatus')).toContainText('不受會員階級限制');
+  expect(await page.evaluate(()=>window.__requests.filter(r=>r.action==='user.event.ticket.transfer'))).toHaveLength(0);
 });

@@ -247,8 +247,8 @@
     return Boolean(
       offer && offer.claim && offer.claim.claimId && offer.claim.status === 'available'
       && !offer.history && !offer.reservedForBooking && !offer.pendingSnapshot
-      && !offer.transferredOut && offer.availability === 'active'
-      && eventTicketTierEligible(offer) && !isFixedOffer(offer)
+      && !offer.transferredOut && !offer.receivedAsGift && offer.availability === 'active'
+      && !isFixedOffer(offer)
       && ['coupon', 'lottery'].includes(String(ticket.ticketType || ''))
     );
   }
@@ -274,7 +274,7 @@
       }
       select.disabled = !friends.length || state.processing || state.actionLocked;
       els.ticketTransferStatus.textContent = friends.length
-        ? '只能轉贈給已互相接受邀請的好友。轉贈後自己無法再領取或使用。'
+        ? '每張票券限轉贈一次，受贈好友不受原票券會員階級限制；轉贈後無法撤銷，自己也無法使用。'
         : '目前沒有已接受的好友，請先到會員中心加入好友，等對方接受後再轉贈。';
       if (focusTransfer && friends.length) select.focus();
     } catch (error) {
@@ -292,7 +292,7 @@
     if (!canTransferTicket(offer) || state.processing || state.actionLocked
       || !/^[A-Za-z0-9_-]{4,40}$/.test(receiverMemberCode)) return;
     const recipient = els.ticketTransferFriendSelect.selectedOptions[0]?.textContent || '此好友';
-    if (!window.confirm(`確定將「${ticketForOffer(offer).title || '活動票券'}」轉贈給 ${recipient}？\n轉贈後無法撤銷，自己也無法再領取或使用。`)) return;
+    if (!window.confirm(`確定將「${ticketForOffer(offer).title || '活動票券'}」轉贈給 ${recipient}？\n每張票券限轉贈一次，好友收到後無會員階級使用限制，但仍須符合有效期與其他使用條件。\n確認後不可撤銷、不可再次轉贈，你也無法再使用。`)) return;
     state.processing = true;
     setProcessing(true);
     els.ticketModalProcessingText.textContent = '正在確認好友關係及票券所有權…';
@@ -538,7 +538,7 @@
       prizes: Array.isArray(claim.prizes) ? claim.prizes : ticket.prizes
     };
   }
-  function modalStatusText(offer) { if (offer.transferredOut) return '這張票券已轉贈給好友，無法再次領取或使用。'; if (offer.history) return `這張票券已於 ${eventTicketTimestamp(offer.claim && offer.claim.usedAt)} 使用；內容與結果會保留在此紀錄。`; if (offer.reservedForBooking) return '這張票券已預約使用，將於該次預約服務完成時自動核銷。'; if (offer.pendingSnapshot) return '這張票券已選入快照預約，正等待管理員審核。'; if (!eventTicketTierEligible(offer)) return `這張票券只適用於${eventTicketAllowedTiers(ticketForOffer(offer))}；目前會員等級無法領取或使用。`; if (isFixedOffer(offer) && !offer.claim) return '符合固定票券的發放條件後，系統會自動發到你的會員帳戶，不需要手動領取。'; if (offer.claim) return offer.canUse ? '你已領取這張票券；選擇對應預約並確認後，票券會完成核銷。' : String(offer.usageDisabledReason || '需先有管理員已確認、尚未完成且符合項目條件的預約。'); if (offer.soldOut) return '這張活動票券的限量張數已全數領取。'; if (offer.availability === 'scheduled') return '活動尚未開始，開始後即可領取。'; if (offer.availability === 'ended') return '活動已結束，這張票券目前無法領取。'; return '領取後票券會綁定你的 LINE 會員，且每位會員限領一次。'; }
+  function modalStatusText(offer) { if (offer.receivedAsGift) return offer.canUse ? '好友贈送票券：使用時不受會員階級限制，仍須符合預約與活動規則；每張票券只能轉贈一次。' : '好友贈送票券：不受會員階級限制，仍須符合原活動期限、預約及其他使用條件；不可再次轉贈。'; if (offer.transferredOut) return '這張票券已轉贈給好友，無法再次領取或使用。'; if (offer.history) return `這張票券已於 ${eventTicketTimestamp(offer.claim && offer.claim.usedAt)} 使用；內容與結果會保留在此紀錄。`; if (offer.reservedForBooking) return '這張票券已預約使用，將於該次預約服務完成時自動核銷。'; if (offer.pendingSnapshot) return '這張票券已選入快照預約，正等待管理員審核。'; if (!eventTicketTierEligible(offer)) return `這張票券只適用於${eventTicketAllowedTiers(ticketForOffer(offer))}；目前會員等級無法領取或使用。`; if (isFixedOffer(offer) && !offer.claim) return '符合固定票券的發放條件後，系統會自動發到你的會員帳戶，不需要手動領取。'; if (offer.claim) return offer.canUse ? '你已領取這張票券；選擇對應預約並確認後，票券會完成核銷。' : String(offer.usageDisabledReason || '需先有管理員已確認、尚未完成且符合項目條件的預約。'); if (offer.soldOut) return '這張活動票券的限量張數已全數領取。'; if (offer.availability === 'scheduled') return '活動尚未開始，開始後即可領取。'; if (offer.availability === 'ended') return '活動已結束，這張票券目前無法領取。'; return '領取後票券會綁定你的 LINE 會員，且每位會員限領一次。'; }
   function claimLabel(status) { return status === 'used' ? '已使用' : '已領取，可使用'; }
   function eventTicketTierEligible(offer) { return offer && offer.tierEligible !== false; }
   function eventTicketAllowedTiers(ticket) { const labels = ticket && ticket.allowedTierLabels; return Array.isArray(labels) && labels.length ? labels.join('、') : '全部會員等級'; }
