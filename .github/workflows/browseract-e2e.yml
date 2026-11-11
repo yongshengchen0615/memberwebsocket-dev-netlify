@@ -1,0 +1,111 @@
+name: BrowserAct E2E readiness and opt-in smoke
+# Browser creation requires explicit manual workflow_dispatch approval.
+
+on:
+  push:
+    branches:
+      - fix/browseract-e2e-bootstrap-20261025
+    paths:
+      - .github/workflows/browseract-e2e.yml
+      - scripts/browseract-e2e-smoke.sh
+      - scripts/browseract-mobile-compat.cjs
+      - scripts/browseract-live-handoff.sh
+  pull_request:
+    paths:
+      - .github/workflows/browseract-e2e.yml
+      - scripts/browseract-e2e-smoke.sh
+      - scripts/browseract-mobile-compat.cjs
+      - scripts/browseract-live-handoff.sh
+  workflow_dispatch:
+    inputs:
+      preview_url:
+        description: "HTTPS Netlify preview root (never production)"
+        type: string
+        required: true
+        default: https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app
+      approve_browser_creation:
+        description: "I explicitly authorize creation of an isolated CI browser and read-only page checks"
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: browseract-e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browseract:
+    name: CLI setup, diagnostics and optional read-only browser test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure Python 3.12 (avoid uv managed-Python download)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: false
+      - name: Install BrowserAct and inspect runtime
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p evidence/browseract
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.local/bin:$PATH"
+          python --version
+          uv --version
+          UV_PYTHON_PREFERENCE=only-system uv tool install browser-act-cli --python 3.12
+          browser-act --version | tee evidence/browseract/version.txt
+          browser-act get-skills core --skill-version 2.0.2 > evidence/browseract/core.txt
+          cat evidence/browseract/core.txt
+          browser-act browser list > evidence/browseract/browsers.txt
+          cat evidence/browseract/browsers.txt
+      - name: Verify script syntax and reject production targets
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/browseract-e2e-smoke.sh
+          bash -n scripts/browseract-live-handoff.sh
+          node --check scripts/browseract-mobile-compat.cjs
+          if bash scripts/browseract-live-handoff.sh https://memberwebsocket-dev-netlify.netlify.app; then
+            echo "::error::Production URL passed local Remote Assist safety guard"
+            exit 1
+          fi
+          if bash scripts/browseract-e2e-smoke.sh https://memberwebsocket-dev-netlify.netlify.app; then
+            echo "::error::Production URL passed BrowserAct safety guard"
+            exit 1
+          fi
+      - name: Optional BrowserAct E2E (requires explicit approval)
+        if: github.event_name == 'workflow_dispatch' && inputs.approve_browser_creation == true
+        env:
+          TARGET_URL: ${{ inputs.preview_url }}
+        shell: bash
+        run: bash scripts/browseract-e2e-smoke.sh "$TARGET_URL"
+      - name: Install pinned Playwright for real mobile viewport checks
+        if: always() && (github.event_name == 'workflow_dispatch' && inputs.approve_browser_creation == true)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund --prefix MemberWebsocket-dev/tests/browser
+          cd MemberWebsocket-dev/tests/browser
+          npx playwright install --with-deps chromium --only-shell
+      - name: Mobile viewport, JavaScript errors and HTTP response checks
+        if: always() && (github.event_name == 'workflow_dispatch' && inputs.approve_browser_creation == true)
+        env:
+          TARGET_URL: ${{ inputs.preview_url }}
+        run: node scripts/browseract-mobile-compat.cjs
+      - name: Upload BrowserAct diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browseract-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: evidence/browseract/
+          retention-days: 7
+          if-no-files-found: warn
