@@ -14,6 +14,7 @@ on:
       - 'scripts/**'
       - 'netlify.toml'
       - '.github/workflows/publish-platform-preview.yml'
+      - '.github/workflows/publish-netlify.yml'
       - '.github/workflows/test-netlify-build.yml'
       - '.github/workflows/test-memberwebsocket-dev.yml'
       - 'MemberWebsocket-dev/**'

@@ -32,15 +32,24 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Build the exact master commit
-        env:
-          COMMIT_REF: ${{ github.sha }}
-        run: node scripts/build-site.mjs
       - name: Verify deployable static output
         run: |
           node --test scripts/deploy.test.mjs scripts/netlify-publish-workflow.test.mjs
           grep -Fq 'booking-multi-details-20261017-1' dist/points/index.html
           grep -Fq 'bookingById' dist/points/pointcard-ticket-overview.js
+      - name: Build the exact master commit
+        env:
+          COMMIT_REF: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Deploy tests deliberately rebuild dist with synthetic release IDs.
+          # Only this final build may enter the retained and published bundle.
+          node scripts/build-site.mjs
+          short_sha="${COMMIT_REF:0:7}"
+          for page in dist/index.html dist/{admin,platform,member,points,event,calendar,booking}/index.html dist/admin/workspace.html dist/booking/admin/index.html; do
+            grep -Fq "data-commit=\"$short_sha\"" "$page"
+          done
       - name: Retain the exact production bundle for recovery
         uses: actions/upload-artifact@v4
         with:

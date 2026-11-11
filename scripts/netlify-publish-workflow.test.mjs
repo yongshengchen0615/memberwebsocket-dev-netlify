@@ -8,6 +8,17 @@ const preview = readFileSync(new URL('../.github/workflows/publish-platform-prev
 const build = readFileSync(new URL('../.github/workflows/test-netlify-build.yml', import.meta.url), 'utf8');
 const policy = readFileSync(new URL('../.github/workflows/test-memberwebsocket-ticket-policy.yml', import.meta.url), 'utf8');
 
+test('production artifact is rebuilt with the release SHA after tests can overwrite dist', () => {
+  const tests = flow.indexOf('node --test scripts/deploy.test.mjs');
+  const finalBuild = flow.lastIndexOf('node scripts/build-site.mjs');
+  const artifact = flow.indexOf('uses: actions/upload-artifact@v4');
+  assert.ok(tests >= 0 && finalBuild > tests && artifact > finalBuild,
+    'Tests may leave synthetic dist bytes; rebuild the real commit before retaining or publishing them');
+  const step = flow.slice(flow.lastIndexOf('- name:', finalBuild), artifact);
+  assert.match(step, /COMMIT_REF: \$\{\{ github.sha \}\}/);
+  assert.match(step, /data-commit=/, 'Reject a synthetic badge before uploading the artifact');
+});
+
 test('PR merge runs cannot cancel a branch push release baseline', () => {
   const concurrency = fullCI.split('concurrency:')[1].split('jobs:')[0];
   assert.match(concurrency, /github\.event_name/);
