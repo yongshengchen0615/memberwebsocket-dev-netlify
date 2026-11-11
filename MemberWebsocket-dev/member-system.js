@@ -74,6 +74,7 @@
     'user.event.booking-selections.update',
     'user.pointcard.ticket.redeem',
     'user.event.ticket.claim',
+    'user.event.ticket.transfer',
     'user.event.ticket.redeem',
     'member.referral.bind',
     'member.invitation.create',
