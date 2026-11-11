@@ -260,7 +260,7 @@ serveBusiness('member-growth-api',async (request: Request) => {
     const allowed: Record<ClientType, Set<string>> = {
       member: new Set(["member.invitation.create","member.invitation.summary","member.invitation.retry","member.referral.bind","member.line.official-account","member.friend.list","member.friend.lookup","member.friend.request","member.friend.accept","member.friend.remove","member.friend.block"]),
       booking:new Set(["member.friend.list"]),
-      event: new Set(["event.today-usable"]),
+      event: new Set(["event.today-usable","member.friend.list"]),
       points: new Set(["points.transfer.options","points.transfer.receiver","points.transfer.create","member.friend.list"]),
     };
     if (!["member","event","points","booking"].includes(clientType) || !allowed[clientType]?.has(action)) {
