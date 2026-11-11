@@ -56,12 +56,15 @@ test('PLATFORM_APPLICANT_ROOT_GRANTS — review applicant, grant features only, 
   const submitted=await h.call({action:'platform.application.submit',businessName:'申請商家 A',slug:'merchant-a'},'manager');
   expect(submitted.status).toBe(200);
   await page.reload();
-  await expect(page.locator('#applicationList .tenant-card')).toContainText('LINE 使用者 U');
+  await expect(page.locator('#applicationList .tenant-card')).toContainText('管理員：名稱待確認');
+  await expect(page.locator('#applicationList .tenant-card')).toContainText('LINE User ID：U');
   await page.getByRole('button',{name:'審核與選擇功能'}).click();
   await page.locator('[data-approve-feature="membership"]').check();
   await page.locator('[data-approve-feature="booking"]').check();
   await page.getByRole('button',{name:'審核通過'}).click();
   await expect(page.locator('#tenantList .tenant-card')).toContainText('申請商家 A');
+  await expect(page.locator('#tenantList .tenant-card')).toContainText('管理員：名稱待確認');
+  await expect(page.locator('#tenantList .tenant-card')).toContainText('LINE User ID：U');
   const before=(await h.db.query('select * from platform_private.tenants')).rows[0];
   expect(before.credentials_configured).toBe(false);
   await page.getByRole('button',{name:'調整開放功能'}).click();

@@ -147,3 +147,16 @@ test('AC-037: Lumen admin reuses its existing URL and hides unapproved top featu
  assert.match(mount,/legacy\.hidden=true/);
  assert.match(platform,/tenant\.features\?\.\[feature\]!==true/);
 });
+
+test('AC-075: root cards resolve names by immutable LINE ID and render untrusted text safely',()=>{
+  const fs=require('node:fs');
+  const src=fs.readFileSync(path.join(__dirname,'../platform/app.js'),'utf8');
+  assert.match(src,/state\.qualifications\.find\(item=>item\.applicantLineUserId===lineUserId\)/);
+  assert.match(src,/typeof qualification\?\.displayName==='string'/);
+  assert.match(src,/return name&&name!==lineUserId\?name:'名稱待確認'/);
+  assert.match(src,/info\.textContent=\x60\$\{tenant\.slug\} · 管理員：/);
+  assert.match(src,/adminDisplayName\(tenant\.ownerLineUserId\)/);
+  assert.match(src,/adminDisplayName\(application\.applicantLineUserId\)/);
+  assert.match(src,/LINE User ID：/);
+  assert.doesNotMatch(src,/info\.innerHTML=/);
+});
