@@ -69,3 +69,20 @@ test('AC-006: restrict direct database invocation and protect gift ledger rows',
   assert.match(migration, /revoke all on function public\.transfer_event_ticket_to_friend\(text,text,text,text\)/);
   assert.match(migration, /grant execute on function public\.transfer_event_ticket_to_friend\(text,text,text,text\)\s+to service_role/);
 });
+
+test('AC-GIFT-POLICY: claim tier remains, gifts are one-time and all use paths grant recipient-only tier exemption', () => {
+  const policy=read('supabase/migrations/20261111134000_event_ticket_one_time_gift_tier_exemption.sql');
+  assert.match(policy,/create unique index if not exists event_ticket_transfers_claim_once_idx/);
+  assert.match(policy,/EVENT_TICKET_ALREADY_TRANSFERRED/);
+  assert.match(policy,/receiver_member_id = v_member.id/);
+  assert.match(policy,/receiver_member_id = p_member_id/);
+  assert.match(policy,/receiver_member_id = p_member/);
+  assert.match(policy,/count_today_usable_event_tickets/);
+  assert.match(policy,/validate_snapshot_ticket_selection/);
+  assert.match(policy,/replace_booking_benefit_selections_request/);
+  assert.match(policy,/redeem_event_tickets_for_booking_request/);
+  assert.match(policy,/redeem_event_tickets_with_location/);
+  assert.match(policy,/business_templates/);
+  assert.match(api,/receivedAsGift/);
+  assert.match(eventApp,/每張票券限轉贈一次/);
+});

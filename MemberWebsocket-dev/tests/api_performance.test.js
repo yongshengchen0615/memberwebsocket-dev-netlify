@@ -145,9 +145,37 @@ test('transferred-out event ticket cannot be claimed a second time', async () =>
   assert.equal(result.offers[0].transferredOut, true);
   assert.equal(result.offers[0].canClaim, false);
   assert.equal(result.offers[0].claim, null);
-  assert.equal(db.calls.filter(c => c.table === 'event_ticket_transfers').length, 1);
+  assert.equal(db.calls.filter(c => c.table === 'event_ticket_transfers').length, 2);
 });
 
+test('received gold-only ticket is visible and usable for a general-tier member, but cannot be re-gifted', async () => {
+  const goldEvent = { ...event, allowed_tier_keys: ['gold'] };
+  const claim = { member_id: member.id, event_ticket_id: event.id, claim_id:'GIFT-CLAIM', status:'claimed', ticket_type:'coupon', ticket_title:'Gifted Gold' };
+  const rows = {
+    event_tickets:[goldEvent],
+    event_ticket_claims:[claim],
+    event_ticket_transfers:[{ event_ticket_id:event.id, claim_id:'GIFT-CLAIM', receiver_member_id:member.id }],
+    bookingOptions:{points:{},event:{'GIFT-CLAIM':[{bookingId:'BOOK-1'}]}}
+  };
+  const result = await api().eventBootstrap(database({rows}),member);
+  assert.equal(result.offers.length,1);
+  assert.equal(result.offers[0].receivedAsGift,true);
+  assert.equal(result.offers[0].tierEligible,true);
+  assert.equal(result.offers[0].locked,false);
+  assert.equal(result.offers[0].canUse,true);
+  assert.equal(result.offers[0].canClaim,false);
+});
+test('an owned non-gifted gold-only ticket retains tier restrictions', async () => {
+  const result = await api().eventBootstrap(database({rows:{
+    event_tickets:[{...event,allowed_tier_keys:['gold']}],
+    event_ticket_claims:[{member_id:member.id,event_ticket_id:event.id,claim_id:'NOT-GIFT',status:'claimed'}],
+    bookingOptions:{points:{},event:{'NOT-GIFT':[{bookingId:'BOOK-1'}]}}
+  }}),member);
+  assert.equal(result.offers.length,1);
+  assert.equal(result.offers[0].receivedAsGift,false);
+  assert.equal(result.offers[0].tierEligible,false);
+  assert.equal(result.offers[0].canUse,false);
+});
 test('event transfer action ignores caller-supplied sender and forwards verified identity', async () => {
   const db = database();
   await api().handleAction(db, identity, 'user.event.ticket.transfer', {
