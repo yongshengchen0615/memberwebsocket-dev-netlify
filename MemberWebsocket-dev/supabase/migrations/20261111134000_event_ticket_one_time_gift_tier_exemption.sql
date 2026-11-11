@@ -59,6 +59,8 @@ declare
   updated_functions jsonb;
   function_hits integer;
   idxdef text;
+  current_columns jsonb;
+  updated_tables jsonb;
 begin
   -- Tenant isolation is preserved by patching schema-local functions only.
   for s in select nspname from pg_namespace
@@ -68,7 +70,18 @@ begin
     if to_regclass(format('%I.event_ticket_transfers',s)) is null then
       raise exception 'GIFT_LEDGER_MISSING: %',s;
     end if;
-    execute format('create unique index if not exists event_ticket_transfers_claim_once_idx on %I.event_ticket_transfers (claim_id)',s);
+    -- Old releases permitted A->B->C. Preserve both historical ledger rows.
+    -- Every new transfer inserts ordinal=1, and the RPC blocks any prior claim history.
+    execute format('alter table %I.event_ticket_transfers add column if not exists transfer_ordinal integer not null default 1',s);
+    execute format($ordinal$
+      with ranked as (
+        select id, row_number() over(partition by claim_id order by created_at,id)::integer as ordinal
+        from %1$I.event_ticket_transfers
+      )
+      update %1$I.event_ticket_transfers t set transfer_ordinal=ranked.ordinal
+      from ranked where t.id=ranked.id and t.transfer_ordinal is distinct from ranked.ordinal
+    $ordinal$,s);
+    execute format('create unique index if not exists event_ticket_transfers_claim_once_idx on %I.event_ticket_transfers (claim_id,transfer_ordinal)',s);
     for policy in select * from gift_policy_rules loop
       old_fragment:=replace(policy.before_text,'__SCHEMA__',s);
       new_fragment:=replace(policy.after_text,'__SCHEMA__',s);
@@ -122,6 +135,26 @@ begin
       where n.nspname='public' and c.relname='event_ticket_transfers'
         and ic.relname='event_ticket_transfers_claim_once_idx';
     if idxdef is null then raise exception 'GIFT_POLICY_UNIQUE_INDEX_MISSING'; end if;
+    -- Keep the future-merchant blueprint table definition in sync with the new ordinal.
+    select jsonb_agg(jsonb_build_object(
+      'name',a.attname,'type',format_type(a.atttypid,a.atttypmod),
+      'default',pg_get_expr(d.adbin,d.adrelid),
+      'notNull',a.attnotnull,'identity',a.attidentity::text,'generated',a.attgenerated::text
+    ) order by a.attnum) into current_columns
+    from pg_class c join pg_namespace n on n.oid=c.relnamespace
+    join pg_attribute a on a.attrelid=c.oid and a.attnum>0 and not a.attisdropped
+    left join pg_attrdef d on d.adrelid=c.oid and d.adnum=a.attnum
+    where n.nspname='public' and c.relname='event_ticket_transfers';
+    if current_columns is null then raise exception 'GIFT_POLICY_TABLE_TEMPLATE_COLUMNS_MISSING'; end if;
+    select coalesce(jsonb_agg(
+      case when t->>'name'='event_ticket_transfers'
+        then jsonb_set(t,'{columns}',current_columns) else t end order by ord),'[]'::jsonb)
+      into updated_tables
+    from jsonb_array_elements(template->'tables') with ordinality x(t,ord);
+    if not exists(select 1 from jsonb_array_elements(template->'tables') t where t->>'name'='event_ticket_transfers') then
+      raise exception 'GIFT_POLICY_TEMPLATE_TRANSFER_TABLE_MISSING';
+    end if;
+    template:=jsonb_set(template,'{tables}',updated_tables);
     template:=jsonb_set(template,'{indexes}',(
       select coalesce(jsonb_agg(x order by ord),'[]'::jsonb)
       from jsonb_array_elements(template->'indexes') with ordinality a(x,ord)

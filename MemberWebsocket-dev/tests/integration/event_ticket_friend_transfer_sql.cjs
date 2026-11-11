@@ -114,13 +114,27 @@ async function run() {
         ('${F}','actor-f','MEMBERF1',true);
     `);
     await db.exec(migration);
+    // A previous release allowed A->B->C. Preserve that historical ledger while
+    // rejecting a third gift after the upgraded one-time policy.
+    await createTicket(12,'coupon',C);
+    await db.query(
+      "insert into public.event_ticket_transfers(event_ticket_id,claim_id,sender_member_id,receiver_member_id,request_id,created_at) values ($1,'CLAIM-12',$2,$3,'LEGACY-12-A',now()-interval '2 days'),($1,'CLAIM-12',$3,$4,'LEGACY-12-B',now()-interval '1 day')",
+      [ticketId(12),A,B,C]
+    );
     await db.exec(giftPolicy);
+    const legacy=(await db.query("select transfer_ordinal from public.event_ticket_transfers where claim_id='CLAIM-12' order by transfer_ordinal")).rows;
+    assert.deepEqual(legacy.map(row=>row.transfer_ordinal),[1,2],'historical forwarding remains auditable');
+    await mustReject(db.query(
+      "insert into public.event_ticket_transfers(event_ticket_id,claim_id,sender_member_id,receiver_member_id,request_id) values($1,'CLAIM-12',$2,$3,'LEGACY-12-C')",
+      [ticketId(12),C,B]
+    ),'event_ticket_transfers_claim_once_idx');
     await friendship(A, B, 'accepted');
     await friendship(A, C, 'accepted');
     await friendship(A, D, 'pending');
     await friendship(A, E, 'blocked');
     await friendship(A, F, 'accepted');
     await friendship(B, C, 'accepted');
+    await mustReject(transfer(C,'CLAIM-12',B,'LEGACY-12-TRY'),'EVENT_TICKET_ALREADY_TRANSFERRED');
 
     await createTicket(1);
     await mustReject(transfer(A,'CLAIM-1',D,'transfer-pending-1'), 'EVENT_TICKET_FRIEND_REQUIRED');
@@ -209,7 +223,7 @@ async function run() {
     await db.query("update public.members set status='suspended' where id=$1",[A]);
     await createTicket(11);
     await mustReject(transfer(A,'CLAIM-11',B,'transfer-suspended-1'),'MEMBERSHIP_REQUIRED');
-    console.log('event ticket friend transfer and one-time gift policy: 11 tickets, lower-tier recipient, re-gifting rejection, atomicity and authorization paths passed');
+    console.log('event ticket friend transfer and one-time gift policy: 12 tickets, legacy-forwarding retention, lower-tier recipient, re-gifting rejection, atomicity and authorization passed');
   } finally {
     await db.close();
   }
