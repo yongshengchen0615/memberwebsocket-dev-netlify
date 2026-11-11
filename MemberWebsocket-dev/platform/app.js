@@ -179,6 +179,13 @@
     if(daysLeft===0)remaining.className='expired';
     container.append(started,duration,expires,remaining);
   }
+  // Names are sourced from the root-authorized qualification list. The LINE
+  // user ID remains the immutable account identity, never the display name.
+  function adminDisplayName(lineUserId){
+    const qualification=state.qualifications.find(item=>item.applicantLineUserId===lineUserId);
+    const name=typeof qualification?.displayName==='string'?qualification.displayName.trim():'';
+    return name&&name!==lineUserId?name:'名稱待確認';
+  }
   function render() {
     const list=el('tenantList');list.replaceChildren();
     if (!state.tenants.length) {const p=document.createElement('p');p.className='empty';p.textContent='尚無已審核的一般管理員。請從申請清單勾選功能並審核。';list.append(p);return;}
@@ -187,7 +194,7 @@
       const badge=document.createElement('span');badge.className='badge';badge.textContent=tenant.status==='suspended'?'已停用':tenant.expired?'使用期限已到':tenant.onboarding?.adminReady?'已核准・可立即使用'
         :tenant.onboarding?.configurationComplete?'設定齊全・待平台開通':'已核准・待 LINE 設定';
       const title=document.createElement('h3');title.textContent=tenant.name;
-      const info=document.createElement('p');info.textContent=`${tenant.slug} · 管理員 ${tenant.ownerLineUserId}`;
+      const info=document.createElement('p');info.textContent=`${tenant.slug} · 管理員：${adminDisplayName(tenant.ownerLineUserId)} · LINE User ID：${tenant.ownerLineUserId}`;
       const featureList=document.createElement('div');featureList.className='tenant-features';
       for (const [key,label] of Object.entries(state.features)) if (visibleFeatureKeys.includes(key) && tenant.features[key]) {const tag=document.createElement('span');tag.textContent=label;featureList.append(tag);}
       if (!featureList.childNodes.length) featureList.textContent='尚未開放任何功能';
@@ -476,7 +483,7 @@
     for(const application of state.applications){
       const card=document.createElement('article');card.className='tenant-card';card.dataset.applicationId=application.id;
       const title=document.createElement('h3');title.textContent=application.businessName;
-      const info=document.createElement('p');info.textContent=application.slug+' · '+({pending:'等待商家審核',approved:'已核准',rejected:'未通過'}[application.status]||application.status)+' · LINE 使用者 '+(application.applicantLineUserId||'資料待確認');
+      const info=document.createElement('p');info.textContent=application.slug+' · '+({pending:'等待商家審核',approved:'已核准',rejected:'未通過'}[application.status]||application.status)+' · 管理員：'+adminDisplayName(application.applicantLineUserId)+' · LINE User ID：'+(application.applicantLineUserId||'資料待確認');
       const reason=document.createElement('p');reason.textContent=application.reviewReason?'審核理由：'+application.reviewReason:'';
       const actions=document.createElement('footer');
       if(application.status==='pending')actions.append(reviewButton('merchant',application,'approved','核准商家與功能'),reviewButton('merchant',application,'rejected','拒絕商家申請'));
@@ -660,7 +667,7 @@
     for(const application of pending) {
       const card=document.createElement('article');card.className='tenant-card';
       const title=document.createElement('h3');title.textContent=application.businessName;
-      const info=document.createElement('p');info.textContent=application.slug+' · LINE 使用者 '+(application.applicantLineUserId||'資料待確認')+' · 申請時間 '+new Date(application.requestedAt).toLocaleString('zh-TW');
+      const info=document.createElement('p');info.textContent=application.slug+' · 管理員：'+adminDisplayName(application.applicantLineUserId)+' · LINE User ID：'+(application.applicantLineUserId||'資料待確認')+' · 申請時間 '+new Date(application.requestedAt).toLocaleString('zh-TW');
       const approve=document.createElement('button');approve.type='button';approve.textContent='審核與選擇功能';
       approve.addEventListener('click',()=>{
         state.approval={applicationId:application.id,requestId:crypto.randomUUID(),features:null};
