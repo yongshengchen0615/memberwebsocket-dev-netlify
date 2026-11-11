@@ -54,6 +54,8 @@ test('PLATFORM_APPLICANT_ROOT_GRANTS — review applicant, grant features only, 
   await page.locator('[data-approve-feature="booking"]').check();
   await page.getByRole('button',{name:'審核通過'}).click();
   await expect(page.locator('#tenantList .tenant-card')).toContainText('申請商家 A');
+  await expect(page.locator('#tenantList .tenant-card')).toContainText('管理員：商家管理員');
+  await expect(page.locator('#tenantList .tenant-card')).toContainText('LINE User ID：U');
   const before=(await h.db.query('select * from platform_private.tenants')).rows[0];
   expect(before.credentials_configured).toBe(false);
   await page.getByRole('button',{name:'調整開放功能'}).click();
