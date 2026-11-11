@@ -142,3 +142,18 @@ test('AC-037: Lumen admin reuses its existing URL and hides unapproved top featu
  assert.match(mount,/legacy\.hidden=true/);
  assert.match(platform,/tenant\.features\?\.\[feature\]!==true/);
 });
+
+test('AC-075: manager names are only projected to privileged workspace, never public tenant context',async()=>{
+  const {publicTenant}=await shared('platform-policy.mjs');
+  const publicData=publicTenant({id:tenantId,owner_line_user_id:'U'+'2'.repeat(32),
+    owner_display_name:'不公開的管理員名稱',status:'pending_provisioning',features:{}});
+  assert.equal(publicData.ownerDisplayName,undefined);
+  assert.doesNotMatch(JSON.stringify(publicData),/不公開的管理員名稱/);
+  const fs=require('node:fs');
+  const source=fs.readFileSync(path.join(__dirname,'../platform/app.js'),'utf8');
+  assert.match(source,/tenant\.ownerDisplayName/);
+  assert.match(source,/applicant\.applicantDisplayName/);
+  assert.match(source,/名稱待確認/);
+  assert.match(source,/LINE User ID/);
+  assert.match(source,/info\.textContent/);
+});
