@@ -11,7 +11,7 @@ const root = 'MemberWebsocket-dev/';
 const config = { supabaseUrl: 'https://fixture.supabase.co', supabasePublishableKey: 'public-fixture' };
 const report = {
   baselineSha: execFileSync('git', ['rev-parse', base], { encoding: 'utf8' }).trim(),
-  candidateTree: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+  candidateHeadSha: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
   candidateRuntimeSha256: {}, node: process.version, generatedAt: new Date().toISOString(),
   workload: { bursts: 30, concurrentIdenticalReads: 100, nextFreshReadPerBurst: 1, syntheticIdentity: true },
   limits: 'Actual common + group browser JavaScript in the same JSDOM; synthetic HTTP. Counts demonstrate duplicate suppression, not production latency or capacity.',

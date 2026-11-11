@@ -100,6 +100,28 @@ for (const [kind, actions] of [['member', ['user.member.card.open', 'user.member
       const h = harness(kind), writes = [h.request(action), h.request(action)];
       h.calls.forEach(succeed); await Promise.all(writes); assert.equal(h.calls.length, 2);
     });
+    test(`AC-004 ${action}: controlled deadline aborts once and clears the timer`, async () => {
+      let aborted = false;
+      const h = harness(kind, call => new Promise((_resolve, reject) => {
+        call.options.signal.addEventListener('abort', () => {
+          aborted = true;
+          reject(Object.assign(new Error('fixture abort'), { name: 'AbortError' }));
+        });
+      }));
+      const pending = h.request(action);
+      const rejection = assert.rejects(pending, { code: 'API_RESPONSE_UNCERTAIN' });
+      const timers = [...h.timers.values()]; assert.equal(timers.length, 1);
+      assert.equal(timers[0].delay, kind === 'member' ? 30000 : 15000);
+      timers[0].fn(); await rejection; await flush();
+      assert.equal(aborted, true); assert.equal(h.calls.length, 1); assert.equal(h.timers.size, 0);
+    });
+    for (const status of [403, 429, 503]) test(`AC-003 ${action}: explicit HTTP ${status} refusal is never replayed`, async () => {
+      const h = harness(kind);
+      const pending = h.request(action);
+      h.calls[0].resolve({ ok: false, error: { code: 'REFUSED', message: 'fixture' } }, status);
+      await assert.rejects(pending, { code: 'REFUSED' }); await flush();
+      assert.equal(h.calls.length, 1); assert.equal(h.timers.size, 0);
+    });
   }
 }
 

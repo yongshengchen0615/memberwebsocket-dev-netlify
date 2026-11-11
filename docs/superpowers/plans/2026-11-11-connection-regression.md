@@ -37,19 +37,29 @@
 
 ## Task 1: Centralize group request transport
 
-- [ ] Add failing group read deduplication, scope separation, mutation invalidation, errors and revocation tests using actual browser runtime code.
-- [ ] Run RED and preserve failure log.
-- [ ] Extend existing BookingSystem route/read/write sets for group actions; have groupRequest delegate with the existing payload/price preparation.
-- [ ] Update fixture seams and structural assertions to verify the same canonical endpoint contract through the shared transport; retain all behavioral assertions.
-- [ ] Run focused Node/DOM/Chromium tests and compare baseline/candidate HTTP counts for identical workloads.
+- [x] Add failing group read deduplication, scope separation, mutation invalidation, errors and revocation tests using actual browser runtime code.
+- [x] Run RED and preserve failure log.
+- [x] Extend existing BookingSystem route/read/write sets for group actions; have groupRequest delegate with the existing payload/price preparation.
+- [x] Update fixture seams and structural assertions to verify the same canonical endpoint contract through the shared transport; retain all behavioral assertions.
+- [x] Run focused Node/DOM/Chromium tests and compare baseline/candidate HTTP counts for identical workloads.
 
 ## Task 2: Unify member mutation classification
 
-- [ ] Add failing card.open / invitation.claim single-send and uncertain-result cases.
-- [ ] Use one mutation predicate in request and sendRequest, including card.open; preserve invitation.claim as an existing control.
+- [x] Add failing card.open / invitation.claim single-send and uncertain-result cases.
+- [x] Use one mutation predicate in request and sendRequest, including card.open; preserve invitation.claim as an existing control.
 - [ ] Run targeted tests and all established regression, integration, PostgreSQL, browser, syntax, Edge, wiring, audit and build lanes on the final candidate.
 - [ ] Request independent whole-branch review, fix findings with RED/GREEN evidence, and create a reviewable PR with exact version/evidence and rollback.
 
 ## Recovery and delivery
 
 Revert this PR through normal CI. No database or Edge deployment is required for these client transport changes. Preserve the current integrated frontend as rollback point; do not bypass required checks or overwrite unrelated changes. GitHub Project connector returned 403 during inventory; card status cannot be claimed updated.
+
+## Execution ledger
+
+- Task 1: runtime and focused verification complete; HTTP burst comparison 3,000 → 30, with 30 fresh reads in both versions.
+- Task 2: mutation predicate and fault matrix complete. Independent review found no production defect; requested explicit controlled timeout and protected DOM revocation cases. Both added, 35/35 Node and 4/4 Chromium pass.
+- Review fixes: baseline source copy reproduces 14 failing / 21 passing / 0 skipped cases; candidate 35/0/0. Timeout tests assert actual abort, exactly one HTTP send, uncertainty and timer cleanup.
+- Ruling: invitation.claim was already protected; retain it as a control, fix only the reproduced card.open mismatch. Cost if wrong is incomplete mutation coverage; fault/timeout/refusal controls now run for both.
+- Ruling: use the connected GitHub Git Data API because local git push has no credentials. Upload the complete verified tree on an independent feature branch with expected-head protection. No shared history rewritten.
+- Ruling: direct Deno npm fetch failed; use the same pinned Supabase SDK installed via npm with Deno manual node_modules resolution. Local Edge typecheck and 55 tests pass; normal GitHub Edge lane remains required.
+- PR #303 tracks final full CI and release status: https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/pull/303 . No full-completion claim is made by this ledger.
