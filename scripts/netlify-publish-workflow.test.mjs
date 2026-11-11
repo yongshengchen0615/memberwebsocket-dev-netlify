@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 const path = new URL('../.github/workflows/publish-netlify.yml', import.meta.url);
 const flow = readFileSync(path, 'utf8');
 const fullCI = readFileSync(new URL('../.github/workflows/test-memberwebsocket-dev.yml', import.meta.url), 'utf8');
@@ -235,4 +235,14 @@ test('AC-NATIVE-ENV-001: native recovery uses NETLIFY_SITE_ID without unsupporte
   assert.match(command[0],/--context "branch:\$GITHUB_REF_NAME"/);
   assert.match(command[0],/--scope builds --force/);
   assert.doesNotMatch(command[0],/--site(?:=|\s)/,'env:set reads site from NETLIFY_SITE_ID instead');
+});
+
+test('legacy importer remains retired so it cannot overwrite reviewed sources', () => {
+  // ARCH-01: the old import-source workflow copied a pinned, outdated repo tree
+  // and directly pushed to main. Its removal must not regress.
+  assert.equal(
+    existsSync(new URL('../.github/workflows/import-source.yml', import.meta.url)),
+    false,
+    'Legacy import-source.yml must stay retired; use an independently reviewed PR instead',
+  );
 });
