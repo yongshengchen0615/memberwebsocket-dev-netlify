@@ -58,7 +58,8 @@ test('completion uses one database transaction to redeem and settle', () => {
 test('booking selection does not require GPS while direct ticket redemption still validates location', () => {
   const source = read('supabase/functions/_shared/booking-benefits.ts');
   const migration = read('supabase/migrations/20261012133000_booking_selection_without_gps.sql');
-  assert.match(source, /selectable: visibility\.tierEligible && !reservedForOtherBooking && !reservedInSnapshot,/);
+  assert.match(source, /selectable: tierEligible && !reservedForOtherBooking && !reservedInSnapshot,/);
+  assert.match(source, /const tierEligible=visibility\.tierEligible \|\| receivedAsGift;/);
   assert.match(source, /selectable: hasTicket && hasEnoughPoints && !reservedForOtherBooking,/);
   assert.match(source, /現場單獨使用需 GPS 定位/);
   assert.doesNotMatch(source, /!offer\.requiresLocation|!reservedForOtherBooking && !locationRestricted/);

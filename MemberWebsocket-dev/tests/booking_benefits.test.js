@@ -222,8 +222,9 @@ test('reads are member-scoped, batched and strict on backend failure', async () 
   const db = database();
   await loadBookingBenefits(db, member, 'silver', today);
   for (const table of ['point_tickets', 'point_balances', 'event_ticket_claims']) assert.ok(db.calls.some(call => call.table === table && call.key === 'member_id' && call.value === member.id));
-  assert.equal(db.calls.filter(call => call.read).length, 13);
-  for (const fail of ['point_tickets', 'point_balances', 'booking_benefit_selections', 'booking_receipts', 'event_ticket_claim_counts', 'calendar_items', 'event_ticket_settings', 'point_card_settings']) await assert.rejects(loadBookingBenefits(database({}, fail), member, 'silver', today));
+  assert.equal(db.calls.filter(call => call.read).length, 14, 'one additional member-scoped gift history read');
+  assert.ok(db.calls.some(call => call.table === 'event_ticket_transfers' && call.key === 'receiver_member_id' && call.value === member.id));
+  for (const fail of ['point_tickets', 'point_balances', 'booking_benefit_selections', 'booking_receipts', 'event_ticket_claim_counts', 'calendar_items', 'event_ticket_settings', 'point_card_settings', 'event_ticket_transfers']) await assert.rejects(loadBookingBenefits(database({}, fail), member, 'silver', today));
 });
 
 test('API authorization resolves membership/tier from identity and rejects disabled/unjoined/stale-consent members', async () => {
