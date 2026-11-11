@@ -74,6 +74,7 @@ const WRITE_ACTIONS = new Set([
   "user.pointcard.snapshot-ticket.cancel",
   "user.event.snapshot-ticket.cancel",
   "user.event.ticket.claim",
+  "user.event.ticket.transfer",
   "user.event.ticket.redeem",
   "user.booking.event-ticket.claim",
   "user.pointcard.booking-selections.update",
@@ -192,6 +193,15 @@ function mapDatabaseError(error: unknown): ApiError {
     ["event_tickets_one_active_referral_idx",409,"REFERRAL_REWARD_ALREADY_ACTIVE","同時間只能啟用一個好友邀請票券。"],
     ["event_tickets_one_active_membership_join_idx",409,"MEMBERSHIP_JOIN_REWARD_ALREADY_ACTIVE","同時間只能啟用一個加入會員票券。"],
     ["TIER_NOT_ALLOWED",403,"TIER_NOT_ALLOWED","目前會員等級不適用這張票券。"],
+    ["INVALID_TICKET_TRANSFER_REQUEST",400,"INVALID_TICKET_TRANSFER_REQUEST","轉贈資料不正確，請重新操作。"],
+    ["EVENT_TICKET_FRIEND_REQUIRED",403,"EVENT_TICKET_FRIEND_REQUIRED","只能轉贈給已互相加入且接受邀請的好友。"],
+    ["EVENT_TICKET_TRANSFER_NOT_OWNED",403,"EVENT_TICKET_TRANSFER_NOT_OWNED","這張票券不屬於目前登入的會員。"],
+    ["EVENT_TICKET_TRANSFER_NOT_AVAILABLE",409,"EVENT_TICKET_TRANSFER_NOT_AVAILABLE","這張票券已使用、過期或無法轉贈。"],
+    ["EVENT_TICKET_TRANSFER_RESTRICTED",409,"EVENT_TICKET_TRANSFER_RESTRICTED","這類系統發放的票券不開放轉贈。"],
+    ["EVENT_TICKET_TRANSFER_RESERVED",409,"EVENT_TICKET_TRANSFER_RESERVED","票券已選入一般預約或快照，請先取消使用意願再轉贈。"],
+    ["EVENT_TICKET_RECEIVER_ALREADY_OWNED",409,"EVENT_TICKET_RECEIVER_ALREADY_OWNED","好友已領取或曾持有這張活動票券，不能重複取得。"],
+    ["EVENT_TICKET_ALREADY_TRANSFERRED",409,"EVENT_TICKET_ALREADY_TRANSFERRED","這張活動票券曾轉贈，無法再次領取。"],
+    ["TICKET_TRANSFER_REQUEST_CONFLICT",409,"TICKET_TRANSFER_REQUEST_CONFLICT","轉贈交易內容不同，請重新整理再操作。"],
     ["CLAIM_NOT_FOUND",404,"CLAIM_NOT_FOUND","找不到已領取的活動票券。"],
     ["CLAIM_NOT_AVAILABLE",409,"CLAIM_NOT_AVAILABLE","這張活動票券目前無法使用。"],
     ["LOCATION_REQUIRED",400,"LOCATION_REQUIRED","核銷前請允許定位並取得目前位置。"],
@@ -1112,8 +1122,11 @@ async function pointBootstrap(supabase: SupabaseClient, member: any): Promise<Js
       .select("receipt_id,created_at,updated_at,requested_benefits")
       .eq("member_id",member.id).eq("submission_mode","accessible")
       .eq("status","awaiting_review").order("created_at",{ascending:false}).limit(100),
+    supabase.from("event_ticket_transfers").select("event_ticket_id").eq("sender_member_id",member.id),
   ]);
   if (snapshotReceipts.error) throw mapDatabaseError(snapshotReceipts.error);
+  if (transferHistoryRes.error) throw mapDatabaseError(transferHistoryRes.error);
+  const transferredOutEventIds = new Set((transferHistoryRes.data || []).map((row:any) => String(row.event_ticket_id)));
   const snapshotByPointTicket = new Map<string,Json[]>();
   for (const receipt of snapshotReceipts.data || []) {
     for (const benefit of Array.isArray(receipt.requested_benefits) ? receipt.requested_benefits : []) {
@@ -1328,7 +1341,7 @@ function ticketBookingAmountLabel(row: any, serviceTitles: Map<string,string>): 
 }
 
 async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Json> {
-  const [profile,{ data: eventRows, error },allHistoryRes,pendingSelectionsRes,bookingOptions,bookingSelections,snapshotReceipts] = await Promise.all([
+  const [profile,{ data: eventRows, error },allHistoryRes,pendingSelectionsRes,bookingOptions,bookingSelections,snapshotReceipts,transferHistoryRes] = await Promise.all([
     profileFor(supabase,member),
     supabase.from("event_tickets").select("*").eq("status","active").is("deleted_at",null).order("created_at",{ ascending:false }),
     supabase.from("event_ticket_claims").select("*,event_tickets(*)").eq("member_id",member.id).eq("status","used").order("used_at",{ ascending:false }),
@@ -1388,6 +1401,7 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
   const visibilityPolicy = await loadVisibilityPolicy(supabase);
   const offers = (eventRows || []).flatMap((row:any) => {
     const claimRow = claimByEvent.get(row.id);
+    const transferredOut = transferredOutEventIds.has(String(row.id)) && !claimRow;
     // Fixed tickets are server-issued member benefits, not public claimable offers.
     // Never expose a fixed-ticket event to a member unless that member owns its claim.
     if ((row.fixed_ticket_template_id || row.ticket_type === "referral" || row.ticket_type === "membership_join") && !claimRow) return [];
@@ -1413,7 +1427,7 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
       availability,
       tierEligible,
       locked:visibility.locked, lockReason:visibility.lockReason, requiredTierLabels:visibility.requiredTierLabels,
-      canClaim: !["referral","membership_join"].includes(String(row.ticket_type || "")) && !claim && tierEligible && availability === "active" && !soldOut,
+      canClaim: !transferredOut && !["referral","membership_join"].includes(String(row.ticket_type || "")) && !claim && tierEligible && availability === "active" && !soldOut,
       canUse: Boolean(claim && claim.status === "available" && tierEligible && availability === "active" && !reservedForBooking && !pendingSnapshots.length && (bookingOptions.data as any)?.event?.[claimRow.claim_id]?.length),
       eligibleBookings: claimRow ? (bookingOptions.data as any)?.event?.[claimRow.claim_id] || [] : [],
       usageDisabledReason: "請先有管理員已確認、尚未完成且符合票券項目條件的預約。",
@@ -1422,6 +1436,7 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
       pendingSnapshots,
       bookingSelections: claimRow ? contextsForTicket(bookingSelections,"event",claimRow.claim_id) : [],
       soldOut,
+      transferredOut,
       history: false,
     }];
   });
@@ -2502,6 +2517,19 @@ async function handleAction(supabase: SupabaseClient, identity: { lineUserId: st
       const claimRes = await supabase.from("event_ticket_claims").select("*,event_tickets(event_ticket_id)").eq("claim_id",claimId).single();
       if (claimRes.error) throw mapDatabaseError(claimRes.error);
       return { ticket:claimClient(claimRes.data,claimRes.data.event_tickets?.event_ticket_id || eventTicketId),alreadyClaimed:Boolean((rpc.data as Json)?.alreadyClaimed) };
+    }
+    if (action === "user.event.ticket.transfer") {
+      const claimId = requireText(body.claimId,"已領取票券識別",120);
+      const receiverMemberCode = requireText(body.receiverMemberCode,"好友會員編號",40);
+      const requestId = requireText(body.requestId,"轉贈操作識別",120);
+      const rpc = await supabase.rpc("transfer_event_ticket_to_friend", {
+        p_actor_line_user_id: identity.lineUserId,
+        p_claim_id: claimId,
+        p_receiver_member_code: receiverMemberCode,
+        p_request_id: requestId,
+      });
+      if (rpc.error) throw mapDatabaseError(rpc.error);
+      return (rpc.data || {}) as Json;
     }
     if (action === "user.event.ticket.redeem") {
       const claimId = requireText(body.claimId,"已領取票券識別",120);
