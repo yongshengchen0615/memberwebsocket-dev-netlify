@@ -129,7 +129,10 @@
       const badge=document.createElement('span');badge.className='badge';badge.textContent=tenant.status==='suspended'?'已停用':tenant.expired?'使用期限已到':tenant.onboarding?.adminReady?'已核准・可立即使用'
         :tenant.onboarding?.configurationComplete?'設定齊全・待平台開通':'已核准・待 LINE 設定';
       const title=document.createElement('h3');title.textContent=tenant.name;
-      const info=document.createElement('p');info.textContent=`${tenant.slug} · 管理員 ${tenant.ownerLineUserId}`;
+      const applicant=state.applications.find(item=>item.applicantLineUserId===tenant.ownerLineUserId);
+      const managerName=String(tenant.ownerDisplayName||applicant?.applicantDisplayName||'').trim();
+      const info=document.createElement('p');
+      info.textContent=`${tenant.slug} · 管理員：${managerName||'名稱待確認'} · LINE User ID：${tenant.ownerLineUserId}`;
       const featureList=document.createElement('div');featureList.className='tenant-features';
       for (const [key,label] of Object.entries(state.features)) if (tenant.features[key]) {const tag=document.createElement('span');tag.textContent=label;featureList.append(tag);}
       if (!featureList.childNodes.length) featureList.textContent='尚未開放任何功能';
@@ -265,7 +268,9 @@
     for(const application of pending) {
       const card=document.createElement('article');card.className='tenant-card';
       const title=document.createElement('h3');title.textContent=application.businessName;
-      const info=document.createElement('p');info.textContent=application.slug+' · LINE 使用者 '+(application.applicantLineUserId||'資料待確認')+' · 申請時間 '+new Date(application.requestedAt).toLocaleString('zh-TW');
+      const applicantName=String(application.applicantDisplayName||'').trim();
+      const info=document.createElement('p');
+      info.textContent=application.slug+' · 管理員：'+(applicantName||'名稱待確認')+' · LINE User ID：'+(application.applicantLineUserId||'資料待確認')+' · 申請時間 '+new Date(application.requestedAt).toLocaleString('zh-TW');
       const approve=document.createElement('button');approve.type='button';approve.textContent='審核與選擇功能';
       approve.addEventListener('click',()=>{
         state.approval={applicationId:application.id,requestId:crypto.randomUUID(),features:null};
