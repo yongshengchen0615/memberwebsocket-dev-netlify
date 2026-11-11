@@ -21,7 +21,9 @@ const extra = path.join(fixture, 'MemberWebsocket-dev/member/obsolete-api.js');
 after(() => fs.rmSync(fixture, { recursive: true, force: true }));
 function build() {
   return spawnSync(process.execPath, ['scripts/build-site.mjs'], {
-    cwd: fixture, encoding: 'utf8', env: { ...process.env, CONTEXT: 'production' },
+    // This fixture tests a production build. Do not inherit the CI source
+    // branch and accidentally combine Integrated with production identity.
+    cwd: fixture, encoding: 'utf8', env: { ...process.env, BRANCH: 'master', CONTEXT: 'production' },
   });
 }
 
