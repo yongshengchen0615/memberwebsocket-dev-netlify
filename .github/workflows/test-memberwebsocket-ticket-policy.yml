@@ -7,12 +7,14 @@ on:
     branches:
       - 'feat/member-ticket-policy-admin-ui-20261014'
       - 'main'
+      - 'master'
       - 'Integrated-Marketing-Platform'
       - 'feature/productization-super-admin'
     paths:
       - 'scripts/**'
       - 'netlify.toml'
       - '.github/workflows/publish-platform-preview.yml'
+      - '.github/workflows/publish-netlify.yml'
       - '.github/workflows/test-netlify-build.yml'
       - '.github/workflows/test-memberwebsocket-dev.yml'
       - 'MemberWebsocket-dev/**'
@@ -24,6 +26,9 @@ permissions:
 jobs:
   unit-and-regression:
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-noble@sha256:42f02d323c310069b4d54c94bd91a608966a486c3492c48ae0b1cea747ec5ca2
+      options: --user 1001 --shm-size=1g
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -45,7 +50,7 @@ jobs:
         working-directory: MemberWebsocket-dev/tests/browser
         run: |
           npm ci
-          npx playwright install --with-deps chromium
+          node -e "require('playwright').chromium.launch().then(browser => browser.close())"
       - name: Browser regression across desktop and mobile
         working-directory: MemberWebsocket-dev/tests/browser
         run: npx playwright test ticket-policy-settings.spec.cjs settings-layout.spec.cjs ticket-selection.spec.cjs

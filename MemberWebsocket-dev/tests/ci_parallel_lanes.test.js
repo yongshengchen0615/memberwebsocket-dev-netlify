@@ -6,6 +6,21 @@ const path = require('node:path');
 const ROOT = path.resolve(__dirname, '..', '..');
 const workflow = fs.readFileSync(path.join(ROOT, '.github/workflows/test-memberwebsocket-dev.yml'), 'utf8');
 
+test('DOM integration partitions preserve every established command within the existing time limit', () => {
+  const integration = workflow.split('\n  integration:')[1].split('\n  browser-e2e:')[0];
+  assert.match(integration, /timeout-minutes: 8\n/);
+  assert.match(integration, /fail-fast: false\n/);
+  assert.match(integration, /suite: \[core, extended\]/);
+  for (const suite of ['core','extended']) {
+    assert.ok(integration.includes(`if: matrix.suite == '${suite}'`), `${suite} must execute its own complete partition`);
+  }
+  const actual = integration.replace(/\\\r?\n\s*/g, ' ').split(/\r?\n/)
+    .map(line => line.trim()).filter(line => line.startsWith('node ')).map(line => line.split(/\s+/));
+  const expected = JSON.parse(fs.readFileSync(path.join(ROOT, 'scripts/fixtures/integration-ci-baseline.json'), 'utf8'));
+  assert.deepEqual(actual, expected, 'Partitioning cannot remove, duplicate, reorder or weaken an established command');
+  assert.doesNotMatch(integration, /continue-on-error|--retries/);
+});
+
 test('MemberWebsocket CI cancels stale runs within the same event and branch or PR', () => {
   assert.match(workflow, /concurrency:/);
   assert.match(workflow, /cancel-in-progress: true/);

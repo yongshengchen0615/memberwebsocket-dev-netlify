@@ -235,6 +235,16 @@ async function startFixture() {
         return send(200,'text/html',html.replace('</body>',`<script src="/fixture.js"></script>${scripts.map(src=>`<script src="/${src}"></script>`).join('')}</body>`));
       }
       if(url.pathname==='/fixture.js')return send(200,'text/javascript',`
+        // Keep synthetic Supabase traffic inside this per-test HTTP fixture.
+        // The product URL guard still receives its original HTTPS endpoint.
+        const originalFetch=window.fetch.bind(window);
+        window.fetch=(input,init)=>{
+          if(typeof input==='string'){
+            const url=new URL(input,location.href);
+            if(url.origin==='https://fixture.supabase.co'&&url.pathname.startsWith('/functions/v1/'))input=location.origin+url.pathname+url.search;
+          }
+          return originalFetch(input,init);
+        };
         const config={supabaseUrl:location.origin,supabasePublishableKey:'local-fixture',supabaseGrantAutomationUrl:'https://fixture.supabase.co/functions/v1/grant-automation'};
         const token='local-fixture';
         async function request(c,t,k,action,payload={}){const r=await fetch('/functions/v1/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...payload})});const v=await r.json();if(!v.ok)throw Object.assign(new Error(v.error.message),{code:v.error.code});return v.data;}

@@ -8,6 +8,17 @@ const preview = readFileSync(new URL('../.github/workflows/publish-platform-prev
 const build = readFileSync(new URL('../.github/workflows/test-netlify-build.yml', import.meta.url), 'utf8');
 const policy = readFileSync(new URL('../.github/workflows/test-memberwebsocket-ticket-policy.yml', import.meta.url), 'utf8');
 
+test('production artifact is rebuilt with the release SHA after tests can overwrite dist', () => {
+  const tests = flow.indexOf('node --test scripts/deploy.test.mjs');
+  const finalBuild = flow.lastIndexOf('node scripts/build-site.mjs');
+  const artifact = flow.indexOf('uses: actions/upload-artifact@v4');
+  assert.ok(tests >= 0 && finalBuild > tests && artifact > finalBuild,
+    'Tests may leave synthetic dist bytes; rebuild the real commit before retaining or publishing them');
+  const step = flow.slice(flow.lastIndexOf('- name:', finalBuild), artifact);
+  assert.match(step, /COMMIT_REF: \$\{\{ github.sha \}\}/);
+  assert.match(step, /data-commit=/, 'Reject a synthetic badge before uploading the artifact');
+});
+
 test('PR merge runs cannot cancel a branch push release baseline', () => {
   const concurrency = fullCI.split('concurrency:')[1].split('jobs:')[0];
   assert.match(concurrency, /github\.event_name/);
@@ -29,12 +40,15 @@ test('production deploy targets only the recreated Netlify site with protected c
   assert.doesNotMatch(flow, /--allow-anonymous|--alias=develop/);
 });
 
-test('deployment is gated by the entire test baseline of its exact develop commit', () => {
-  assert.match(flow, /branches: \[develop\]/);
-  assert.match(flow, /test-memberwebsocket-dev\.yml\/runs/);
-  assert.match(flow, /select\(\.head_sha == \$sha\)/);
-  assert.match(flow, /success\) echo/);
-  assert.match(flow, /failure\|cancelled\|timed_out/);
+test('production release is master-only and waits for all exact-SHA branch push baselines', () => {
+  assert.match(flow, /branches: \[master\]/);
+  assert.match(flow, /if: github\.ref == 'refs\/heads\/master'/);
+  assert.match(flow, /node scripts\/check-preview-ci\.mjs/);
+  assert.match(flow, /-f event=push/);
+  assert.match(flow, /-f head_sha="\$GITHUB_SHA"/);
+  assert.match(flow, /if \[ "\$result" != 2 \]/);
+  assert.match(flow, /test "\$current" = "\$GITHUB_SHA"/);
+  assert.ok(flow.indexOf('node scripts/check-preview-ci.mjs') < flow.indexOf('npx --yes netlify-cli'));
 });
 
 test('deploy emits recoverable artifact and verifies both page and JS after publishing', () => {

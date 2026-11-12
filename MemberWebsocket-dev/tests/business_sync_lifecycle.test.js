@@ -106,3 +106,25 @@ test('AC-006 booking: visible shop detects a changed booking revision within 3 s
     assert.equal(h.updates.at(-1), 'admin-booking-cancelled');
   } finally { stop(); }
 });
+
+test('AC-007 booking: a delayed initial grants read schedules the next probe after HTTP completion', async () => {
+  const h = await businessSyncHarness('booking');
+  let releaseInitialRefresh;
+  h.window.BusinessContext = { refresh: () => new Promise(resolve => { releaseInitialRefresh = resolve; }) };
+  const stop = h.subscribe();
+  try {
+    await h.tick(1);
+    assert.equal(h.probes.length, 1);
+    h.setRevision('revoked-points');
+    await h.tick(3001);
+    assert.equal(h.probes.length, 1, 'advancing a fake clock cannot settle an outstanding HTTP read');
+    assert.equal(h.updates.length, 0);
+    releaseInitialRefresh(); await flush();
+    h.window.BusinessContext.refresh = async () => {};
+    await h.tick(2999);
+    assert.equal(h.probes.length, 1, 'the healthy interval starts when reconciliation finishes');
+    await h.tick(1);
+    assert.equal(h.probes.length, 2);
+    assert.equal(h.benefits.length, 2, 'the next revision still reconciles without a retry or longer timeout');
+  } finally { stop(); }
+});

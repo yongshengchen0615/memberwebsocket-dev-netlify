@@ -27,12 +27,16 @@ test('AC-PT-005: friends, point transfers and member profile use canonical APIs'
  assert.ok(bodies.every((body,index)=>index===5 || !Object.hasOwn(body,'lineAccessToken')));
 });
 
-test('canonical development config discovers merchant through platform API before member API',async()=>{
+test('branch runtime discovers merchants and sends member requests to its isolated project',async()=>{
+ for(const [branch,origin,key] of [
+  ['Integrated-Marketing-Platform','https://bmwhojszsnxliekkhrka.supabase.co','sb_publishable_Dk6cKyJ5ssJRxf7GGTlZug_K_J3GbK-'],
+  ['master','https://dbuquirnaskrwcamdxki.supabase.co','sb_publishable_W492suU5Hb7LJIJ2DmHbZw_KVp9vB4S'],
+ ]) {
  const {previewMemberRuntime}=await import('../../scripts/preview-member-runtime.mjs');
- const config=previewMemberRuntime({supabaseUrl:'https://example.supabase.co',supabaseFunctionUrl:'https://example.supabase.co/functions/v1/api',supabasePublishableKey:'synthetic',memberLiffId:'1234567890-synthetic'},{BRANCH:'Integrated-Marketing-Platform'});
+ const config=previewMemberRuntime({supabaseUrl:'https://example.supabase.co',supabaseFunctionUrl:'https://example.supabase.co/functions/v1/api',supabasePublishableKey:'synthetic',memberLiffId:'1234567890-synthetic'},{BRANCH:branch});
  const calls=[],location={origin:'https://preview.example',href:'https://preview.example/member/?business=test',pathname:'/member/',search:'?business=test'};
  const window={location,setTimeout,clearTimeout,fetch:async(url,options={})=>{
-  const address=String(url),body=options.body?JSON.parse(options.body):null;calls.push({url:address,body});
+  const address=String(url),body=options.body?JSON.parse(options.body):null;calls.push({url:address,body,headers:options.headers});
   const result=address==='/config.json'?config:address.endsWith('/platform-api')?{ok:true,data:{business:'test',name:'Synthetic',features:{membership:true},line:{memberLiffId:'1234567890-synthetic'}}}:address.endsWith('/member-profile-api')?{ok:true,data:{saved:true}}:{ok:false,error:{message:'Wrong control-plane endpoint'}};
   return{ok:result.ok!==false,status:result.ok===false?400:200,text:async()=>JSON.stringify(result),json:async()=>result};
  }};
@@ -41,8 +45,10 @@ test('canonical development config discovers merchant through platform API befor
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../member-system.js'),'utf8'),context);
  const configured=await window.MemberSystem.loadConfig();
  await window.MemberSystem.request(configured,'member','id','user.member.profile.save',{accepted:true});
- assert.equal(calls[1].url,'https://example.supabase.co/functions/v1/platform-api');
- assert.equal(calls[2].url,'https://example.supabase.co/functions/v1/member-profile-api');
+ assert.equal(calls[1].url,origin+'/functions/v1/platform-api');
+ assert.equal(calls[2].url,origin+'/functions/v1/member-profile-api');
+ assert.equal(calls[2].headers.apikey,key);
  assert.equal(calls[2].body.business,'test');
  assert.ok(calls.every(call=>!call.url.includes('-preview')));
+ }
 });

@@ -170,14 +170,19 @@ jobs:
         if: github.ref_name == 'Integrated-Marketing-Platform'
         run: |
           npm ci --ignore-scripts --no-audit --no-fund --prefix MemberWebsocket-dev/tests/browser
-          (cd MemberWebsocket-dev/tests/browser && npx playwright install --with-deps chromium --only-shell)
       - name: Run read-only Chromium preview acceptance
         if: github.ref_name == 'Integrated-Marketing-Platform'
         env:
           PREVIEW_BASE_URL: https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app
           COMMIT_REF: ${{ github.sha }}
         working-directory: MemberWebsocket-dev/tests/browser
-        run: npx playwright test --config=preview.playwright.config.cjs
+        run: |
+          docker run --rm --init --user "$(id -u):$(id -g)" --shm-size=1g \
+            --env PREVIEW_BASE_URL --env COMMIT_REF --env CI=true \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/MemberWebsocket-dev/tests/browser,target=/tests" \
+            --workdir /tests \
+            mcr.microsoft.com/playwright:v1.56.1-noble@sha256:42f02d323c310069b4d54c94bd91a608966a486c3492c48ae0b1cea747ec5ca2 \
+            npx --no-install playwright test --config=preview.playwright.config.cjs
       - name: Final exact-SHA branch alias and asset verification after browser acceptance
         if: github.ref_name == 'Integrated-Marketing-Platform'
         env:

@@ -27,7 +27,8 @@ test('native branch build proceeds, but wrong identity and production still fail
   assert.equal(blockNativePreview(base), false);
   assert.equal(blockNativePreview({ ...base, CONTEXT: 'production' }), true);
   assert.equal(blockNativePreview({ ...base, BRANCH: 'integrated-marketing-platform' }), true);
-  for (const env of [{ ...base, BRANCH: 'master', CONTEXT: 'production' }, { ...base, BRANCH: 'develop' },
+  assert.equal(blockNativePreview({ ...base, BRANCH: 'master', CONTEXT: 'production' }), true);
+  for (const env of [{ ...base, BRANCH: 'develop' },
     { ...base, CONTEXT: 'deploy-preview' }, { ...base, NETLIFY: undefined }, {}]) assert.equal(blockNativePreview(env), false);
 });
 
