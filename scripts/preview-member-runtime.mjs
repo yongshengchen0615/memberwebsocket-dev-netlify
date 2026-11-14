@@ -7,7 +7,7 @@ const projects = {
 export function previewMemberRuntime(config, env) {
   // Strip obsolete routing overrides for every build identity, including local
   // and production builds. Feature flags must never choose another backend.
-  const { previewApiFunctionUrl, memberProfileFunctionUrl, memberGrowthFunctionUrl, bookingPreviewApis, ...canonical } = config;
+  const { __environmentNotes, previewApiFunctionUrl, memberProfileFunctionUrl, memberGrowthFunctionUrl, bookingPreviewApis, ...canonical } = config;
   const branch = env.BRANCH || env.PREVIEW_SOURCE_BRANCH || env.GITHUB_REF_NAME;
   if (branch?.toLowerCase() === 'integrated-marketing-platform'
     && (branch !== 'Integrated-Marketing-Platform' || env.CONTEXT === 'production')) {

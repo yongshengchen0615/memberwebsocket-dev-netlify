@@ -60,7 +60,9 @@ test('server source, migrations, tests and local deployment state are not publis
 });
 
 test('frontend backend settings are copied without changing identity or project', () => {
-  const expected = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/config.json')));
+  const source = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/config.json')));
+  const { __environmentNotes, ...expected } = source;
+  assert.ok(__environmentNotes && typeof __environmentNotes === 'object', 'editable config must explain the environment-specific fields');
   const branch = process.env.BRANCH || process.env.PREVIEW_SOURCE_BRANCH || process.env.GITHUB_REF_NAME;
   if (branch === 'Integrated-Marketing-Platform' && process.env.CONTEXT !== 'production') {
     expected.pricePublishing = true;
@@ -73,6 +75,7 @@ test('frontend backend settings are copied without changing identity or project'
   }
   const published = JSON.parse(fs.readFileSync(path.join(output, 'config.json')));
   assert.deepEqual(published, expected);
+  assert.equal(published.__environmentNotes, undefined, 'GitHub editor guidance must not be published');
   assert.equal(published.supabaseGrantAutomationUrl, undefined);
   assert.equal(published.memberCalendarFunctionUrl, undefined);
 });
