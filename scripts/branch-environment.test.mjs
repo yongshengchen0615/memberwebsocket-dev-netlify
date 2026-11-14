@@ -12,6 +12,27 @@ const production='https://dbuquirnaskrwcamdxki.supabase.co';
 const testing='https://bmwhojszsnxliekkhrka.supabase.co';
 const original={supabaseUrl:production,supabaseFunctionUrl:production+'/functions/v1/api',supabasePublishableKey:'sb_publishable_W492suU5Hb7LJIJ2DmHbZw_KVp9vB4S',memberLiffId:'synthetic'};
 
+test('AC-007: JSON configuration annotates 3 Supabase and 7 LIFF environment-specific fields but publishes no notes',()=>{
+ const repo=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+ const source=JSON.parse(readFileSync(path.join(repo,'MemberWebsocket-dev/config.json'),'utf8'));
+ const expectedKeys=["supabaseUrl","supabaseFunctionUrl","supabasePublishableKey","memberLiffId","pointsLiffId","adminLiffId","platformLiffId","eventLiffId","calendarLiffId","bookingLiffId"];
+ assert.equal(Object.keys(source).length,15,'14 runtime settings plus one authoring-only annotation');
+ assert.ok(source.__environmentNotes && typeof source.__environmentNotes === 'object');
+ for(const key of expectedKeys){
+  assert.ok(Object.hasOwn(source,key),'runtime setting missing: '+key);
+  assert.equal(typeof source.__environmentNotes[key],'string','missing environment guidance: '+key);
+  assert.ok(source.__environmentNotes[key].length>15,'insufficient annotation: '+key);
+ }
+ for(const [branch,context,project] of [['master','production','dbuquirnaskrwcamdxki'],['Integrated-Marketing-Platform','branch-deploy','bmwhojszsnxliekkhrka']]){
+  const runtime=previewMemberRuntime(source,{BRANCH:branch,CONTEXT:context});
+  assert.equal(runtime.__environmentNotes,undefined,'authoring notes must not reach published client');
+  assert.equal(runtime.supabaseUrl,'https://'+project+'.supabase.co');
+  assert.equal(runtime.supabaseFunctionUrl,runtime.supabaseUrl+'/functions/v1/api');
+  assert.equal(Object.keys(runtime).length,branch==='master'?14:15);
+  for(const key of expectedKeys.slice(3))assert.equal(runtime[key],source[key],'LIFF values must not silently change for '+branch);
+ }
+});
+
 test('AC-001: Integrated build connects all canonical APIs and Realtime to the testing project',()=>{
  const actual=previewMemberRuntime(original,{BRANCH:'Integrated-Marketing-Platform',CONTEXT:'branch-deploy'});
  assert.equal(actual.supabaseUrl,testing);
@@ -65,6 +86,7 @@ test('AC-001/002: complete bundles contain only their branch project including r
    const output=path.join(fixture,'dist');
    const config=JSON.parse(readFileSync(path.join(output,'config.json'),'utf8'));
    assert.equal(config.supabaseUrl,'https://'+ref+'.supabase.co');
+   assert.equal(config.__environmentNotes,undefined,'authoring notes must not leak to Netlify');
    assert.equal(readFileSync(path.join(output,'admin/index.html'),'utf8').includes('https://'+ref+'.supabase.co'),true,'receipt CSP uses the same project');
    for(const file of readdirSync(output,{recursive:true}).filter(f=>/\.(html|js|json|css)$/.test(f)))assert.equal(readFileSync(path.join(output,file),'utf8').includes(forbidden),false,branch+': '+file+' leaks another project');
   }

@@ -1,4 +1,20 @@
 {
+  "__environmentNotes": {
+    "_說明": "下列文字是供 GitHub 編輯用的合法 JSON 註解區；建置時自動移除，不會發佈到網站的 /config.json。請勿加入 // 或 /* */ 註解，也不要放 LINE Channel Secret、Supabase service_role、Twilio Auth Token。",
+    "_分支規則": "master = 正式 MemberWebsocket-main；Integrated-Marketing-Platform = 測試 MemberWebsocket-test。Supabase 三個欄位建置時依分支自動切換；LIFF 七個欄位目前尚未自動分支切換。",
+    "supabaseUrl": "【正式／測試必須不同・建置自動覆寫】正式：https://dbuquirnaskrwcamdxki.supabase.co；測試：https://bmwhojszsnxliekkhrka.supabase.co。僅在原始 config.json 改值，不會改變 Netlify 既有分支的 Supabase 連線。",
+    "supabaseFunctionUrl": "【正式／測試必須不同・建置自動覆寫】各自使用相同專案 supabaseUrl + /functions/v1/api，請勿跨專案混用。",
+    "supabasePublishableKey": "【正式／測試必須不同・建置自動覆寫】各自 Supabase 專案的 publishable key；不得填入 service_role、secret key 或其他私密權杖。",
+    "memberLiffId": "【建議分開】會員卡 /member/；測試請在 LINE Developers 建立對應測試網域的 LIFF App 並填入其 LIFF ID。",
+    "pointsLiffId": "【建議分開】集點卡 /points/；確認測試 LIFF Endpoint URL 指向測試網站。",
+    "adminLiffId": "【建議分開】管理端 /admin/；確認 LINE Login Channel 與後端驗證的 Channel ID 一致。",
+    "platformLiffId": "【建議分開】總管理平台 /platform/；不同 LINE Login Channel 時必須同步調整測試 Supabase 的 Channel 驗證設定。",
+    "eventLiffId": "【建議分開】活動票券 /event/；測試 LIFF Endpoint URL 應指向測試網站。",
+    "calendarLiffId": "【建議分開】活動日曆 /calendar/；測試 LIFF Endpoint URL 應指向測試網站。",
+    "bookingLiffId": "【建議分開】線上預約 /booking/；測試 LIFF Endpoint URL 應指向測試網站。",
+    "_LINE修改提醒": "目前正式／測試共用這七個 LIFF ID。要真正區隔，需先建立測試 LIFF App，修改測試分支的 LIFF ID，合併至 master 時保留正式 LIFF ID；並核對 LINE Developers 的 Endpoint URL 與 openid/profile scopes。",
+    "_不必區隔": "brandName、realtimeEnabled、productizedAdmin、merchantApprovalVersion 通常兩環境可相同，除非業務需求另有規定。"
+  },
   "brandName": "Lumen Club",
   "supabaseUrl": "https://dbuquirnaskrwcamdxki.supabase.co",
   "supabaseFunctionUrl": "https://dbuquirnaskrwcamdxki.supabase.co/functions/v1/api",
