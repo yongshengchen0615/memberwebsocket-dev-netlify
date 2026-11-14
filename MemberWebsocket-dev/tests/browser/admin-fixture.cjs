@@ -245,7 +245,7 @@ async function startFixture() {
           }
           return originalFetch(input,init);
         };
-        const config={supabaseUrl:location.origin,supabasePublishableKey:'local-fixture',supabaseGrantAutomationUrl:'https://fixture.supabase.co/functions/v1/grant-automation'};
+        const config={supabaseUrl:'https://fixture.supabase.co',supabasePublishableKey:'local-fixture'};
         const token='local-fixture';
         async function request(c,t,k,action,payload={}){const r=await fetch('/functions/v1/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...payload})});const v=await r.json();if(!v.ok)throw Object.assign(new Error(v.error.message),{code:v.error.code});return v.data;}
         window.MemberSystem={loadConfig:async()=>config,signIn:async()=>token,getSession:()=>({config,idToken:token}),request,subscribeRealtime:()=>()=>{},bindDialogKeyboard(){},initials:v=>String(v||'QA').slice(0,2),formatDateTime:v=>String(v||''),formatDate:v=>String(v||''),logout(){location.href='/logged-out';}};

@@ -2,7 +2,6 @@
   "brandName": "Lumen Club",
   "supabaseUrl": "https://dbuquirnaskrwcamdxki.supabase.co",
   "supabaseFunctionUrl": "https://dbuquirnaskrwcamdxki.supabase.co/functions/v1/api",
-  "supabaseGrantAutomationUrl": "https://dbuquirnaskrwcamdxki.supabase.co/functions/v1/grant-automation",
   "supabasePublishableKey": "sb_publishable_W492suU5Hb7LJIJ2DmHbZw_KVp9vB4S",
   "realtimeEnabled": true,
   "memberLiffId": "2010787602-kaiSm2eq",
@@ -12,7 +11,6 @@
   "eventLiffId": "2010787602-tuapstY3",
   "calendarLiffId": "2010787602-4UKzslco",
   "bookingLiffId": "2010787602-sgiB0ETj",
-  "memberCalendarFunctionUrl": "https://dbuquirnaskrwcamdxki.supabase.co/functions/v1/member-calendar-api",
   "productizedAdmin": true,
   "merchantApprovalVersion": 2
 }
