@@ -32,7 +32,9 @@ test('member surfaces use one browser core without runtime monkey patches', () =
 test('shared browser core owns API routing and realtime lifecycle', () => {
   const source = read('member-system.js');
   assert.match(source, /function requestEndpoint\(/);
-  assert.match(source, /memberCalendarFunctionUrl/);
+  assert.match(source, /clientType === 'calendar'/);
+  assert.match(source, /\/functions\/v1\/member-calendar-api/);
+  assert.doesNotMatch(source, /memberCalendarFunctionUrl/);
   assert.match(source, /table: 'realtime_events'/);
   assert.match(source, /addEventListener\('visibilitychange'/);
   assert.match(source, /addEventListener\('online'/);
@@ -42,7 +44,9 @@ test('shared browser core owns API routing and realtime lifecycle', () => {
 
 test('calendar backend returns final display contract', () => {
   const config = JSON.parse(read('config.json'));
-  assert.match(config.memberCalendarFunctionUrl, /\/functions\/v1\/member-calendar-api$/);
+  assert.match(config.supabaseUrl, /^https:\/\/[a-z0-9-]+\.supabase\.co$/i);
+  assert.equal(config.memberCalendarFunctionUrl, undefined);
+  assert.match(read('member-system.js'), /\/functions\/v1\/member-calendar-api/);
 
   const source = read('supabase/functions/member-calendar-api/index.ts');
   assert.match(source, /verifyWithCoreApi/);

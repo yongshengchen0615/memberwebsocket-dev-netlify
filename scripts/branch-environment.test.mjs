@@ -10,14 +10,14 @@ import {fileURLToPath} from 'node:url';
 
 const production='https://dbuquirnaskrwcamdxki.supabase.co';
 const testing='https://bmwhojszsnxliekkhrka.supabase.co';
-const original={supabaseUrl:production,supabaseFunctionUrl:production+'/functions/v1/api',supabaseGrantAutomationUrl:production+'/functions/v1/grant-automation',memberCalendarFunctionUrl:production+'/functions/v1/member-calendar-api',supabasePublishableKey:'sb_publishable_W492suU5Hb7LJIJ2DmHbZw_KVp9vB4S',memberLiffId:'synthetic'};
+const original={supabaseUrl:production,supabaseFunctionUrl:production+'/functions/v1/api',supabasePublishableKey:'sb_publishable_W492suU5Hb7LJIJ2DmHbZw_KVp9vB4S',memberLiffId:'synthetic'};
 
 test('AC-001: Integrated build connects all canonical APIs and Realtime to the testing project',()=>{
  const actual=previewMemberRuntime(original,{BRANCH:'Integrated-Marketing-Platform',CONTEXT:'branch-deploy'});
  assert.equal(actual.supabaseUrl,testing);
  assert.equal(actual.supabaseFunctionUrl,testing+'/functions/v1/api');
- assert.equal(actual.supabaseGrantAutomationUrl,testing+'/functions/v1/grant-automation');
- assert.equal(actual.memberCalendarFunctionUrl,testing+'/functions/v1/member-calendar-api');
+ assert.equal(actual.supabaseGrantAutomationUrl,undefined);
+ assert.equal(actual.memberCalendarFunctionUrl,undefined);
  assert.equal(actual.supabasePublishableKey,'sb_publishable_Dk6cKyJ5ssJRxf7GGTlZug_K_J3GbK-');
  assert.equal(actual.memberLiffId,'synthetic');
  assert.equal(JSON.stringify(actual).includes('dbuquirnaskrwcamdxki'),false);
@@ -28,6 +28,8 @@ test('AC-002: master restores the production project even if source config was t
  const actual=previewMemberRuntime({...original,supabaseUrl:testing,supabaseFunctionUrl:testing+'/functions/v1/api',supabasePublishableKey:'sb_publishable_Dk6cKyJ5ssJRxf7GGTlZug_K_J3GbK-'},{BRANCH:'master',CONTEXT:'production'});
  assert.equal(actual.supabaseUrl,production);
  assert.equal(actual.supabaseFunctionUrl,production+'/functions/v1/api');
+ assert.equal(actual.supabaseGrantAutomationUrl,undefined);
+ assert.equal(actual.memberCalendarFunctionUrl,undefined);
  assert.equal(actual.supabasePublishableKey,'sb_publishable_W492suU5Hb7LJIJ2DmHbZw_KVp9vB4S');
  assert.equal(JSON.stringify(actual).includes('bmwhojszsnxliekkhrka'),false);
 });

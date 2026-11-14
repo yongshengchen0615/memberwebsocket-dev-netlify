@@ -143,12 +143,6 @@
     if (!SUPABASE_FUNCTION_PATTERN.test(functionUrl) || functionUrl.includes('REPLACE_')) {
       throw clientError('CONFIG_ERROR', '尚未設定 Supabase Edge Function URL。');
     }
-    if (surface === 'calendar') {
-      const calendarFunctionUrl = String(config && config.memberCalendarFunctionUrl || '').trim();
-      if (!SUPABASE_FUNCTION_PATTERN.test(calendarFunctionUrl) || calendarFunctionUrl.includes('REPLACE_')) {
-        throw clientError('CONFIG_ERROR', '尚未設定會員日曆 Supabase Edge Function URL。');
-      }
-    }
     if (!publishableKey || publishableKey.includes('REPLACE_')) {
       throw clientError('CONFIG_ERROR', '尚未設定 Supabase Publishable Key。');
     }
@@ -499,7 +493,7 @@
       return String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/member-profile-api';
     }
     if (clientType === 'calendar' && (action === 'user.calendar.bootstrap' || action === 'user.calendar.date.details')) {
-      return String(config.memberCalendarFunctionUrl || '').trim();
+      return String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/member-calendar-api';
     }
     return String(config.supabaseFunctionUrl || '').trim();
   }

@@ -19,9 +19,11 @@ function browserFixture(){
 test('admin fixture routes the fake grant API locally without changing request semantics',async()=>{
  const {context,calls}=browserFixture();
  const config=await context.MemberSystem.loadConfig();
- assert.equal(config.supabaseGrantAutomationUrl,'https://fixture.supabase.co/functions/v1/grant-automation');
+ assert.equal(config.supabaseUrl,'https://fixture.supabase.co');
+ assert.equal(config.supabaseGrantAutomationUrl,undefined,'public fixture should not restore the obsolete field');
+ const grantUrl=config.supabaseUrl+'/functions/v1/grant-automation';
  const options={method:'POST',headers:{apikey:'synthetic-fixture'},body:JSON.stringify({action:'admin.calendar-items.list'}),signal:new AbortController().signal};
- await context.fetch(config.supabaseGrantAutomationUrl+'?diagnostic=1',options);
+ await context.fetch(grantUrl+'?diagnostic=1',options);
  assert.equal(calls[0].input,'http://127.0.0.1:12345/functions/v1/grant-automation?diagnostic=1');
  assert.equal(calls[0].init,options,'method, headers, body and cancellation signal must be retained');
 });

@@ -37,7 +37,10 @@
   }
 
   async function automationRequest(config, idToken, action, payload) {
-    const url = String(config && config.supabaseGrantAutomationUrl || '').trim();
+    // Always address the automation endpoint in the selected Supabase project.
+    const projectUrl = String(config && config.supabaseUrl || '').trim();
+    const url = /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(projectUrl)
+      ? projectUrl + '/functions/v1/grant-automation' : '';
     if (!/^https:\/\/[a-z0-9-]+\.supabase\.co\/functions\/v1\/grant-automation$/i.test(url)) {
       throw clientError('CONFIG_ERROR', '尚未設定發放自動化 Edge Function URL。');
     }

@@ -412,7 +412,8 @@ jobs:
       - name: Check grant automation wiring
         run: |
           grep -q 'grant-automation.js' MemberWebsocket-dev/admin/index.html
-          grep -q 'supabaseGrantAutomationUrl' MemberWebsocket-dev/config.json
+          ! grep -q 'supabaseGrantAutomationUrl' MemberWebsocket-dev/config.json
+          grep -q "'/functions/v1/grant-automation'" MemberWebsocket-dev/admin/grant-automation.js
           grep -q 'fixed-ticket-admin-integration.js?v=fixed-ticket-sync-20260916-1' MemberWebsocket-dev/admin/index.html
           grep -q 'fixed-ticket-calendar-option.js?v=fixed-ticket-calendar-20260917-4' MemberWebsocket-dev/admin/index.html
           grep -q 'fixed-ticket-admin.js?v=qa-purge-sync-20261005-1' MemberWebsocket-dev/admin/index.html
@@ -433,7 +434,8 @@ jobs:
           grep -q 'member-system.js?v=layout-stability-20261001-1' MemberWebsocket-dev/calendar/index.html
           ! grep -q 'tier-sync.js' MemberWebsocket-dev/calendar/index.html
           ! grep -q 'realtime-resync.js' MemberWebsocket-dev/calendar/index.html
-          grep -q 'memberCalendarFunctionUrl' MemberWebsocket-dev/config.json
+          ! grep -q 'memberCalendarFunctionUrl' MemberWebsocket-dev/config.json
+          grep -q "'/functions/v1/member-calendar-api'" MemberWebsocket-dev/member-system.js
           grep -q 'allowedTierLabels' MemberWebsocket-dev/supabase/functions/member-calendar-api/index.ts
           grep -q 'tierEligible' MemberWebsocket-dev/supabase/functions/member-calendar-api/index.ts
           grep -q 'applyCalendarDisplayRules' MemberWebsocket-dev/supabase/functions/member-calendar-api/index.ts
