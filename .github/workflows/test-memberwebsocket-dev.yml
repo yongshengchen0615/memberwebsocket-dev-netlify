@@ -444,7 +444,7 @@ jobs:
         run: |
           grep -q './booking/' MemberWebsocket-dev/index.html
           grep -q './admin/#booking' MemberWebsocket-dev/index.html
-          node -e 'for(const profile of ["production","testing"]){const value=require("./MemberWebsocket-dev/config/"+profile+"/config.json");if(!/^\\d{10}-[A-Za-z0-9]+$/.test(value.bookingLiffId))process.exit(1)}'
+          node -e 'for(const profile of ["production","testing"]){const value=require("./MemberWebsocket-dev/config/"+profile+"/config.json");if(!/^\d{10}-[A-Za-z0-9]+$/.test(value.bookingLiffId))process.exit(1)}'
           grep -q 'config.bookingLiffId' MemberWebsocket-dev/booking/common.js
           grep -q "signIn(state.config, 'booking')" MemberWebsocket-dev/booking/app.js
           grep -q 'memberProfile' MemberWebsocket-dev/booking/app.js
