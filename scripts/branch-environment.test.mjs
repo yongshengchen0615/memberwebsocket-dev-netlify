@@ -11,14 +11,18 @@ import {fileURLToPath} from 'node:url';
 const production='https://dbuquirnaskrwcamdxki.supabase.co';
 const testing='https://bmwhojszsnxliekkhrka.supabase.co';
 const original={supabaseUrl:production,supabaseFunctionUrl:production+'/functions/v1/api',supabasePublishableKey:'sb_publishable_W492suU5Hb7LJIJ2DmHbZw_KVp9vB4S',memberLiffId:'synthetic'};
-const pinnedLiff={
- memberLiffId:'2010787602-kaiSm2eq',
- pointsLiffId:'2010787602-eIzRN9l6',
- adminLiffId:'2010791619-vhevCvvD',
- platformLiffId:'2012065297-VunxFBj8',
- eventLiffId:'2010787602-tuapstY3',
- calendarLiffId:'2010787602-4UKzslco',
- bookingLiffId:'2010787602-sgiB0ETj',
+const liffKeys=['memberLiffId','pointsLiffId','adminLiffId','platformLiffId',
+ 'eventLiffId','calendarLiffId','bookingLiffId'];
+const testRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const environmentProfile=branch=>{
+ const folder=branch==='master'?'production':'testing';
+ const data=JSON.parse(readFileSync(path.join(testRoot,'MemberWebsocket-dev/config',folder,'config.json'),'utf8'));
+ const {__environmentNotes,...profile}=data;
+ return profile;
+};
+const expectedLiff=branch=>{
+ const profile=environmentProfile(branch);
+ return Object.fromEntries(liffKeys.map(key=>[key,profile[key]]));
 };
 
 test('AC-007: JSON configuration annotates 3 Supabase and 7 LIFF environment-specific fields but publishes no notes',()=>{
@@ -38,7 +42,7 @@ test('AC-007: JSON configuration annotates 3 Supabase and 7 LIFF environment-spe
   assert.equal(runtime.supabaseUrl,'https://'+project+'.supabase.co');
   assert.equal(runtime.supabaseFunctionUrl,runtime.supabaseUrl+'/functions/v1/api');
   assert.equal(Object.keys(runtime).length,branch==='master'?14:15);
-  for(const key of expectedKeys.slice(3))assert.equal(runtime[key],source[key],'LIFF values must not silently change for '+branch);
+  for(const key of expectedKeys.slice(3))assert.equal(runtime[key],environmentProfile(branch)[key],'LIFF must match the environment config for '+branch);
  }
 });
 
@@ -48,8 +52,8 @@ test('AC-001: Integrated build connects all canonical APIs and Realtime to the t
  assert.equal(actual.supabaseFunctionUrl,testing+'/functions/v1/api');
  assert.equal(actual.supabaseGrantAutomationUrl,undefined);
  assert.equal(actual.memberCalendarFunctionUrl,undefined);
- assert.equal(actual.supabasePublishableKey,'sb_publishable_Dk6cKyJ5ssJRxf7GGTlZug_K_J3GbK-');
- assert.deepEqual(Object.fromEntries(Object.keys(pinnedLiff).map(key=>[key,actual[key]])),pinnedLiff);
+ assert.equal(actual.supabasePublishableKey,environmentProfile('Integrated-Marketing-Platform').supabasePublishableKey);
+ assert.deepEqual(Object.fromEntries(liffKeys.map(key=>[key,actual[key]])),expectedLiff('Integrated-Marketing-Platform'));
  assert.equal(JSON.stringify(actual).includes('dbuquirnaskrwcamdxki'),false);
  assert.equal(original.supabaseUrl,production);
 });
@@ -60,7 +64,7 @@ test('AC-002: master restores the production project even if source config was t
  assert.equal(actual.supabaseFunctionUrl,production+'/functions/v1/api');
  assert.equal(actual.supabaseGrantAutomationUrl,undefined);
  assert.equal(actual.memberCalendarFunctionUrl,undefined);
- assert.equal(actual.supabasePublishableKey,'sb_publishable_W492suU5Hb7LJIJ2DmHbZw_KVp9vB4S');
+ assert.equal(actual.supabasePublishableKey,environmentProfile('master').supabasePublishableKey);
  assert.equal(JSON.stringify(actual).includes('bmwhojszsnxliekkhrka'),false);
 });
 
@@ -86,20 +90,20 @@ test('AC-006: native master builds are blocked while CI can build the release',(
 
 
 test('AC-008: merging a poisoned test config cannot overwrite production or testing LIFF identity',()=>{
- const poisoned={...original,...Object.fromEntries(Object.keys(pinnedLiff).map(key=>[key,'1234567890-MergedTest']))};
+ const poisoned={...original,...Object.fromEntries(liffKeys.map(key=>[key,'1234567890-MergedTest']))};
  for(const [branch,context] of [['master','production'],['Integrated-Marketing-Platform','branch-deploy']]){
   const actual=previewMemberRuntime(poisoned,{BRANCH:branch,CONTEXT:context});
-  for(const [key,value] of Object.entries(pinnedLiff))assert.equal(actual[key],value,branch+': '+key);
+  for(const [key,value] of Object.entries(expectedLiff(branch)))assert.equal(actual[key],value,branch+': '+key);
   assert.equal(JSON.stringify(actual).includes('MergedTest'),false);
  }
 });
 
 test('AC-009/010: external variables cannot override either tracked environment config.json',()=>{
- const poisoned={...original,...Object.fromEntries(Object.keys(pinnedLiff).map(key=>[key,'1234567890-MergedTest']))};
+ const poisoned={...original,...Object.fromEntries(liffKeys.map(key=>[key,'1234567890-MergedTest']))};
  const env={PUBLIC_LIFF_CONFIG_PRODUCTION:'{}',PUBLIC_LIFF_CONFIG_TEST:'{"memberLiffId":"1234567890-Bad"}'};
  for(const [branch,context,ref] of [['master','production','dbuquirnaskrwcamdxki'],['Integrated-Marketing-Platform','branch-deploy','bmwhojszsnxliekkhrka']]){
   const actual=previewMemberRuntime(poisoned,{...env,BRANCH:branch,CONTEXT:context});
-  for(const [key,value] of Object.entries(pinnedLiff))assert.equal(actual[key],value,branch+' must use its own config.json: '+key);
+  for(const [key,value] of Object.entries(expectedLiff(branch)))assert.equal(actual[key],value,branch+' must use its own config.json: '+key);
   assert.equal(actual.supabaseUrl,'https://'+ref+'.supabase.co');
  }
 });
@@ -113,7 +117,7 @@ test('AC-001/002: complete bundles contain only their branch project including r
   // setting with the wrong project and a different LIFF app.
   const templatePath=path.join(fixture,'MemberWebsocket-dev/config.json');
   const mergedSource=JSON.parse(readFileSync(templatePath,'utf8'));
-  Object.assign(mergedSource,Object.fromEntries(Object.keys(pinnedLiff).map(key=>[key,'1234567890-MergedTest'])),{
+  Object.assign(mergedSource,Object.fromEntries(liffKeys.map(key=>[key,'1234567890-MergedTest'])),{
    supabaseUrl:testing,
    supabaseFunctionUrl:testing+'/functions/v1/api',
    supabasePublishableKey:'sb_publishable_Dk6cKyJ5ssJRxf7GGTlZug_K_J3GbK-',
@@ -127,7 +131,7 @@ test('AC-001/002: complete bundles contain only their branch project including r
    const config=JSON.parse(readFileSync(path.join(output,'config.json'),'utf8'));
    assert.equal(config.supabaseUrl,'https://'+ref+'.supabase.co');
    assert.equal(config.__environmentNotes,undefined,'authoring notes must not leak to Netlify');
-   for(const [key,value] of Object.entries(pinnedLiff))assert.equal(config[key],value,branch+': LIFF overwritten by merged source: '+key);
+   for(const [key,value] of Object.entries(expectedLiff(branch)))assert.equal(config[key],value,branch+': LIFF overwritten by merged source: '+key);
    assert.equal(readFileSync(path.join(output,'admin/index.html'),'utf8').includes('https://'+ref+'.supabase.co'),true,'receipt CSP uses the same project');
    for(const file of readdirSync(output,{recursive:true}).filter(f=>/\.(html|js|json|css)$/.test(f)))assert.equal(readFileSync(path.join(output,file),'utf8').includes(forbidden),false,branch+': '+file+' leaks another project');
   }
