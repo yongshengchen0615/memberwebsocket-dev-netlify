@@ -49,10 +49,14 @@ or server secrets to frontend code or the publish directory.
 `config/production/config.json`；正式設定檔被同步到測試分支時亦同。
 **這是部署設定隔離，不是 Git 不會複製檔案：合併後兩份檔案仍會存在於同一程式碼樹。**
 
-原本的 `MemberWebsocket-dev/config.json` **只供本機開發及舊版程式相容**，
-不是部署來源。修改該共用檔不會更動正式或測試網站。
-`dist/config.json` 是建置器在每次發布時從目標環境完整 JSON 重建的輸出檔，
-不可直接提交。所有入口頁面繼續載入相同的 `/config.json` URL。
+外層的 `MemberWebsocket-dev/config.json` **完全不再參與任何建置**（包含本機建置、CI、Netlify）。
+正式與測試只讀 `MemberWebsocket-dev/config/production/config.json` 或
+`MemberWebsocket-dev/config/testing/config.json`，由分支／部署環境選取。
+建置器只發布被選中的完整設定到 `dist/config/config.json`；
+總管理員頁面和 MemberSystem 直接取得 `/config/config.json`。
+為了避免已開啟的舊版頁面失效，`dist/config.json` 暫時保留為
+**同內容、建置時自動生成的相容副本**；絕不從外層原始 JSON 讀取它。
+不會把兩份環境專屬來源同時發布到瀏覽器。
 
 ### 修改與驗收
 
@@ -61,8 +65,8 @@ or server secrets to frontend code or the publish directory.
    secret 或缺漏 LIFF ID 放入目標設定檔。建置將在產出網站前拒絕錯誤設定。
 3. 先比對兩種建置：`BRANCH=master CONTEXT=production node scripts/build-site.mjs`
    與 `BRANCH=Integrated-Marketing-Platform CONTEXT=branch-deploy node scripts/build-site.mjs`。
-   兩次都會覆寫本機 `dist/`，因此要分別檢查各次 `dist/config.json`。
-4. 合併及部署後，使用公開站台 `/config.json` 和已發布的 Git SHA
+   兩次都會覆寫本機 `dist/`，因此要分別檢查各次 `dist/config/config.json`；舊版 `dist/config.json` 必須與它完全相同。
+4. 合併及部署後，使用公開站台 `/config/config.json` 和已發布的 Git SHA
    核對實際 Supabase ref、LIFF、品牌及功能旗標；另外驗證 LINE Developers
    Endpoint、Supabase 後端 allowlist/LINE Channel 設定。
 
@@ -74,8 +78,8 @@ node --test scripts/branch-environment.test.mjs scripts/preview-member-runtime.t
 
 > LINE LIFF ID 是公開用戶端識別碼，可以存於上述公開設定檔。
 > **不要**在任一 JSON 放入 LINE Channel Secret、Supabase service-role/secret key、
-> Twilio Auth Token 或密碼。兩個環境目前仍使用同一組既有 LIFF IDs
-> 以維持相容性；真正將 LINE 登入獨立，仍需自行建立並填入測試 LIFF App IDs，
+> Twilio Auth Token 或密碼。正式與測試目前**有部分 LIFF ID 不同**，
+> 不代表 LINE Channel、Endpoint 及後端驗證已全部獨立；如需進一步隔離，應在測試設定檔填入測試 LIFF App IDs，
 > 配合 LINE Developers Endpoint 與後端 Channel 驗證。
 
 ## LINE LIFF configuration
@@ -87,12 +91,13 @@ Changing these shared LIFF endpoints also changes where existing LINE entry link
 
 | Surface | Existing LIFF ID | Target endpoint |
 | --- | --- | --- |
-| Member | 2010787602-kaiSm2eq | https://memberwebsocket-dev-netlify.netlify.app/member/ |
+| Member | 2005939681-f0xklhVy | https://memberwebsocket-dev-netlify.netlify.app/member/ |
 | Points | 2010787602-eIzRN9l6 | https://memberwebsocket-dev-netlify.netlify.app/points/ |
 | Event | 2010787602-tuapstY3 | https://memberwebsocket-dev-netlify.netlify.app/event/ |
 | Calendar | 2010787602-4UKzslco | https://memberwebsocket-dev-netlify.netlify.app/calendar/ |
 | Booking | 2010787602-sgiB0ETj | https://memberwebsocket-dev-netlify.netlify.app/booking/ |
 | Admin | 2010791619-vhevCvvD | https://memberwebsocket-dev-netlify.netlify.app/admin/ |
+| Platform root admin | 2011356226-uCfdWtVp | https://memberwebsocket-dev-netlify.netlify.app/platform/ |
 
 Endpoint settings have not been verified or changed as part of preparing this copy.
 No backend schema or production member records are changed by this static deployment.

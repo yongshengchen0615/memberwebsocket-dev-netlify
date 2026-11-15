@@ -7,7 +7,7 @@ const { JSDOM, VirtualConsole } = require('jsdom');
 
 const root = path.join(__dirname, '../..');
 
-test('AC-CONFIG-001: admin reads root public config independently of a business lookup error', async () => {
+test('AC-CONFIG-001: admin reads folder-based public config independently of a business lookup error', async () => {
   const dom = new JSDOM('<!doctype html><title>Admin</title>', {
     url: 'https://example.test/admin/?business=deleted-merchant', runScripts: 'outside-only',
   });
@@ -30,7 +30,7 @@ test('AC-CONFIG-001: admin reads root public config independently of a business 
     await assert.rejects(w.MemberSystem.loadConfig(), (error) =>
       error.code === 'BUSINESS_NOT_FOUND' && error.message === '找不到商家入口。'
     );
-    assert.deepEqual(requests, [{ url: '/config.json', cache: 'no-store' }]);
+    assert.deepEqual(requests, [{ url: '/config/config.json', cache: 'no-store' }]);
     assert.equal(lookups.length, 1, 'do not retry non-network business discovery');
     assert.equal(lookups[0].productizedAdmin, true);
   } finally { dom.window.close(); }

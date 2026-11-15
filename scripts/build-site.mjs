@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDate, formatBuildVersion } from './build-version.mjs';
-import { previewMemberRuntime } from './preview-member-runtime.mjs';
+import { buildMemberRuntime } from './preview-member-runtime.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = path.join(root, 'MemberWebsocket-dev');
@@ -25,7 +25,7 @@ const retiredAdminAssets = new Set([
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
 for (const entry of await readdir(source, { withFileTypes: true })) {
-  if (entry.isDirectory() ? publicDirectories.has(entry.name) : publicFile.test(entry.name)) {
+  if (entry.isDirectory() ? publicDirectories.has(entry.name) : publicFile.test(entry.name) && entry.name !== 'config.json') {
     await cp(path.join(source, entry.name), path.join(output, entry.name), {
       recursive: true,
       filter: async (file) => !path.basename(file).startsWith('.')
@@ -36,14 +36,22 @@ for (const entry of await readdir(source, { withFileTypes: true })) {
   }
 }
 
-const runtimeConfigPath = path.join(output, 'config.json');
-const runtimeConfig = JSON.parse(await readFile(runtimeConfigPath, 'utf8'));
-await writeFile(runtimeConfigPath, JSON.stringify(previewMemberRuntime(runtimeConfig, process.env), null, 2) + '\n');
+// This is the only deployed configuration source; do not read/copy the
+// legacy top-level MemberWebsocket-dev/config.json, even for local builds.
+const publishedRuntime = buildMemberRuntime(process.env);
+const serializedRuntime = JSON.stringify(publishedRuntime, null, 2) + '\n';
+const runtimeConfigPath = path.join(output, 'config', 'config.json');
+await mkdir(path.dirname(runtimeConfigPath), { recursive: true });
+await writeFile(runtimeConfigPath, serializedRuntime);
+// Compatibility for older clients still requesting /config.json; all new
+// application reads use /config/config.json. Both contain identical values.
+await writeFile(path.join(output, 'config.json'), serializedRuntime);
+const runtimeConfig = publishedRuntime;
 
 // A stale config or a reintroduced switch must fail the release build, even
 // when the current source config would leave that branch dormant.
 const retiredApiRoute = /\/functions\/v1\/(?:[\w-]+-preview|test-mode-api|test-control-api|user-test-api|e2e-artifact-api|e2e-artifact-retention)\b/;
-const publishedConfig = JSON.parse(await readFile(runtimeConfigPath, 'utf8'));
+const publishedConfig = publishedRuntime;
 for (const [key, value] of Object.entries(publishedConfig)) {
   if (typeof value === 'string' && retiredApiRoute.test(value)) {
     throw new Error(`Retired API routing in runtime config: ${key}`);

@@ -11,7 +11,7 @@ test.beforeAll(async()=>{
 test.afterAll(async()=>new Promise(resolve=>server.close(resolve)));
 async function wire(page,h,token='manager',{loseAction=''}={}){
  const errors=[],calls=[],responses=[];let lost=false;page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
- await page.route('**/config.json',route=>route.fulfill({json:{...JSON.parse(fs.readFileSync(path.join(root,'config.json'),'utf8')),merchantApprovalVersion:2,realtimeEnabled:false,supabaseUrl:'https://fixture.supabase.co',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'sb_publishable_fixture'}}));
+ await page.route('**/config.json',route=>route.fulfill({json:{...JSON.parse(fs.readFileSync(path.join(root,'config/production/config.json'),'utf8')),merchantApprovalVersion:2,realtimeEnabled:false,supabaseUrl:'https://fixture.supabase.co',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'sb_publishable_fixture'}}));
  await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:`window.liff={init:async()=>{},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=>${JSON.stringify(token)}};`}));
  await page.route('https://*.tile.openstreetmap.org/**',route=>route.abort());
  await page.route('https://fixture.supabase.co/functions/v1/platform-api',async route=>{

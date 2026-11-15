@@ -10,7 +10,7 @@ const endPosition=source.lastIndexOf('  void start();');
 assert.ok(startPosition>0&&endPosition>startPosition,'platform must retain a named async start function');
 const startExpression='('+source.slice(startPosition,endPosition).trim()+')';
 
-function entry({merchantEntry, inClient=false, returned=false, rejected=false, loggedIn=true, idToken='synthetic-line-id-token',version=1,business='',configuredLiff}={}) {
+function entry({merchantEntry, inClient=false, returned=false, rejected=false, loggedIn=true, idToken='synthetic-line-id-token',version=1,business='',configuredLiff,platformLiffId='2012065297-testPlatform'}={}) {
   const calls=[];
   const status={textContent:''};
   const featureFields={append(){}};
@@ -33,7 +33,7 @@ function entry({merchantEntry, inClient=false, returned=false, rejected=false, l
   if(configuredLiff)window.BusinessContext={configure:async config=>{calls.push(['configure-business']);return{...config,adminLiffId:configuredLiff};}};
   const context={
     window,URL,AbortSignal,Promise,Date,setTimeout,clearTimeout,
-    fetch:async()=>({ok:true,json:async()=>({merchantApprovalVersion:version,adminLiffId:'2010791619-testAdmin',platformLiffId:'2012065297-testPlatform'})}),
+    fetch:async url=>{calls.push(['fetch-config',url]);return{ok:true,json:async()=>({merchantApprovalVersion:version,adminLiffId:'2010791619-testAdmin',platformLiffId})};},
     merchantEntry, rejectedLoginReturn:rejected, refreshTimer:null,
     state:{config:null,idToken:'',features:{}},
     isV2:()=>version===2,isAccount:()=>false,selectedBusiness:business,
@@ -99,4 +99,22 @@ test('AC-MMA-LOGIN-001: selected LINE workspace initializes the server-selected 
  assert.ok(names(e).includes('configure-business'));
  assert.deepEqual(e.calls.filter(([name])=>name==='init').map(([,id])=>id),['2099999999-customAdmin']);
  assert.ok(names(e).includes('request'));assert.ok(names(e).includes('authorized-ui'));
+});
+
+test('AC-PLATFORM-LIFF-001: master uses the new configured root-admin LIFF ID from config folder',async()=>{
+  const id='2011356226-uCfdWtVp';
+  const e=entry({merchantEntry:false,inClient:true,platformLiffId:id});
+  await e.run();
+  assert.deepEqual(e.calls.filter(([name])=>name==='fetch-config').map(([,url])=>url),['../config/config.json']);
+  assert.deepEqual(e.calls.filter(([name])=>name==='init').map(([,value])=>value),[id]);
+  assert.ok(names(e).includes('refresh-root'),'authorization still occurs server-side');
+  assert.ok(!names(e).includes('gate'));
+});
+
+test('AC-PLATFORM-LIFF-002: malformed LIFF is blocked before init or privileged API',async()=>{
+  const e=entry({merchantEntry:false,inClient:true,platformLiffId:'not-a-liff'});
+  await e.run();
+  assert.equal(names(e).includes('init'),false);
+  assert.equal(names(e).includes('refresh-root'),false);
+  assert.ok(e.calls.some(([name,message])=>name==='gate'&&message.includes('總管理員專用 LIFF')));
 });
