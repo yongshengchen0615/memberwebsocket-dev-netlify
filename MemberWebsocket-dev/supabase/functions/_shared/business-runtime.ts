@@ -13,11 +13,15 @@ export type { SupabaseClient } from 'npm:@supabase/supabase-js@2.57.0';
 type Context=Record<string,any>;
 import { scope, rawEnv, businessContext, businessEnv, businessFetch } from './business-scope.ts';
 export { businessContext, businessEnv, businessFetch } from './business-scope.ts';
-const deployedAdminChannels = createDeploymentLineVerifiers({
- projectUrl:rawEnv('SUPABASE_PUBLIC_URL') || rawEnv('SUPABASE_URL'),
-});
-// One bounded cache for both merchant preflight and API identity verification.
-export const deploymentAdminChannelId = () => deployedAdminChannels.adminChannelId();
+// Resolve only on authenticated admin traffic; unit tests and disabled
+// administration paths must never need env permissions just to import runtime.
+let deployedAdminChannels: ReturnType<typeof createDeploymentLineVerifiers> | null = null;
+export const deploymentAdminChannelId = () => {
+ if (!deployedAdminChannels) deployedAdminChannels = createDeploymentLineVerifiers({
+  projectUrl:rawEnv('SUPABASE_PUBLIC_URL') || rawEnv('SUPABASE_URL'),
+ });
+ return deployedAdminChannels.adminChannelId();
+};
 const control=()=>baseClient(rawEnv('SUPABASE_URL'),rawEnv('SUPABASE_SERVICE_ROLE_KEY'),{auth:{persistSession:false,autoRefreshToken:false}});
 const relative=(path:unknown,c:Context)=>{
  const p=String(path||'');if(!p||p.startsWith('/')||p.split('/').some(x=>x==='..'||x==='.')||p.includes('\\'))throw Error('INVALID_STORAGE_PATH');

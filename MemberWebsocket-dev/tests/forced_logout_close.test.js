@@ -30,7 +30,9 @@ test('admin force logout keeps admin surface but revokes the same identity on us
   const auth = read('supabase/functions/_shared/auth-contract.ts');
   const api = read('supabase/functions/api/index.ts');
   assert.match(auth, /const adminChannelId =/);
-  assert.match(auth, /const canBypassUserRestrictions = isActiveAdmin && expectedChannelId === adminChannelId/);
+  assert.match(auth, /const canBypassUserRestrictions = isActiveAdmin && \(/);
+  assert.match(auth, /isAdminLogin === undefined \? expectedChannelId === adminChannelId : isAdminLogin === true/);
+  assert.match(api, /isAdminLogin: clientType === "admin"/, 'only verified admin actions bypass member-only revocations');
   assert.match(auth, /if \(!canBypassUserRestrictions && revokedAtMs > 0/);
   assert.doesNotMatch(api, /SELF_FORCE_LOGOUT_BLOCKED/);
   assert.match(api, /\["member","points","event","calendar","booking","admin"\]/);
