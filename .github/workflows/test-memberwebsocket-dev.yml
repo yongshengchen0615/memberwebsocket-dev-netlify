@@ -412,7 +412,8 @@ jobs:
       - name: Check grant automation wiring
         run: |
           grep -q 'grant-automation.js' MemberWebsocket-dev/admin/index.html
-          ! grep -q 'supabaseGrantAutomationUrl' MemberWebsocket-dev/config.json
+          test ! -e MemberWebsocket-dev/config.json
+          ! grep -q 'supabaseGrantAutomationUrl' MemberWebsocket-dev/config/{production,testing}/config.json
           grep -q "'/functions/v1/grant-automation'" MemberWebsocket-dev/admin/grant-automation.js
           grep -q 'fixed-ticket-admin-integration.js?v=fixed-ticket-sync-20260916-1' MemberWebsocket-dev/admin/index.html
           grep -q 'fixed-ticket-calendar-option.js?v=fixed-ticket-calendar-20260917-4' MemberWebsocket-dev/admin/index.html
@@ -434,7 +435,7 @@ jobs:
           grep -q 'member-system.js?v=layout-stability-20261001-1' MemberWebsocket-dev/calendar/index.html
           ! grep -q 'tier-sync.js' MemberWebsocket-dev/calendar/index.html
           ! grep -q 'realtime-resync.js' MemberWebsocket-dev/calendar/index.html
-          ! grep -q 'memberCalendarFunctionUrl' MemberWebsocket-dev/config.json
+          ! grep -q 'memberCalendarFunctionUrl' MemberWebsocket-dev/config/{production,testing}/config.json
           grep -q "'/functions/v1/member-calendar-api'" MemberWebsocket-dev/member-system.js
           grep -q 'allowedTierLabels' MemberWebsocket-dev/supabase/functions/member-calendar-api/index.ts
           grep -q 'tierEligible' MemberWebsocket-dev/supabase/functions/member-calendar-api/index.ts
@@ -443,7 +444,7 @@ jobs:
         run: |
           grep -q './booking/' MemberWebsocket-dev/index.html
           grep -q './admin/#booking' MemberWebsocket-dev/index.html
-          grep -q '"bookingLiffId": "2010787602-sgiB0ETj"' MemberWebsocket-dev/config.json
+          node -e 'for(const profile of ["production","testing"]){const value=require("./MemberWebsocket-dev/config/"+profile+"/config.json");if(!/^\\d{10}-[A-Za-z0-9]+$/.test(value.bookingLiffId))process.exit(1)}'
           grep -q 'config.bookingLiffId' MemberWebsocket-dev/booking/common.js
           grep -q "signIn(state.config, 'booking')" MemberWebsocket-dev/booking/app.js
           grep -q 'memberProfile' MemberWebsocket-dev/booking/app.js
