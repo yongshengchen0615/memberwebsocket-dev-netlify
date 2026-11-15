@@ -307,7 +307,7 @@ test('ADMIN_INCLIENT_RECOVERY — automatic LIFF reinit restores login without m
 });
 test('ADMIN_EXTERNAL_UNAUTH — external visitor launches LINE login, callback authenticates without auto-submitting review',async({page})=>{
  const h=await setup(page,'manager',{entry:'admin',inClient:false,loggedIn:false});try{
-  await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[]]);
+  await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[{redirectUri:page.url()}]]);
   await expect(page.locator('#applicationForm')).toBeHidden();
   expect((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n).toBe(0);
   await page.evaluate(()=>sessionStorage.setItem('qaLoggedIn','1'));
@@ -321,7 +321,7 @@ test('ADMIN_EXTERNAL_UNAUTH — external visitor launches LINE login, callback a
 });
 test('ADMIN_EXTERNAL_CALLBACK_FAILED — rejected or missing session stops without repeated redirects',async({page})=>{
  const h=await setup(page,'manager',{entry:'admin',inClient:false,loggedIn:false});try{
-  await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[]]);
+  await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[{redirectUri:page.url()}]]);
   await page.reload();
   await expect(page.locator('#platformStatus')).toContainText('LINE 登入未完成');
   expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
@@ -419,7 +419,7 @@ test('PLATFORM_EXTERNAL_LOGIN — external browser uses the configured LIFF endp
  // A first login cannot already have a successful callback marker.
  const h=await setup(page,'root',{inClient:false,loggedIn:false,rootLoginReturn:false});try{
   await expect(page.locator('#platformStatus')).toContainText('正在前往 LINE 登入');
-  expect(await page.evaluate(()=>window.loginCalls)).toEqual([[]]);
+  expect(await page.evaluate(()=>window.loginCalls)).toEqual([[{redirectUri:page.url()}]]);
   expect(new URL(page.url()).searchParams.has('member_system_reauth')).toBe(false);
   expect(h.providerCalls).toEqual([]);await expect(page.locator('#platformWorkspace')).toBeHidden();expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
@@ -462,7 +462,7 @@ test('PLATFORM_ROOT_REAUTH — LIFF visits and BFCache restore reverify the serv
 });
 test('PLATFORM_ROOT_EXTERNAL_REAUTH — external LINE authentication starts automatically on each visit',async({page})=>{
  const h=await setup(page,'root',{rootLoginReturn:false,inClient:false,loggedIn:true});try{
-  await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[]]);
+  await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[{redirectUri:page.url()}]]);
   await expect(page.locator('#platformWorkspace')).toBeHidden();
   expect(await page.evaluate(()=>window.logoutCalls)).toBe(1);
   await page.reload(); // LINE callback with its one-use return marker
@@ -470,7 +470,7 @@ test('PLATFORM_ROOT_EXTERNAL_REAUTH — external LINE authentication starts auto
   await expect(page.locator('#platformLoginGate,#platformLoginButton')).toHaveCount(0);
   expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
   await page.reload(); // A new visit must reauthenticate without any extra click.
-  await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[]]);
+  await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[{redirectUri:page.url()}]]);
   await expect(page.locator('#platformWorkspace')).toBeHidden();
   await page.reload(); // Next LINE callback
   await expect(page.locator('#platformWorkspace')).toBeVisible();
@@ -494,7 +494,7 @@ test('PLATFORM_BAD_TOKEN_RECOVERY — wrong-channel LINE token never exposes wor
 test('PLATFORM_EXTERNAL_FIRST_SIGNIN — signed-out entry and subsequent visits automatically launch LINE',async({page})=>{
  const h=await setup(page,'root',{inClient:false,loggedIn:false,rootLoginReturn:false});try{
   await expect(page.locator('#platformWorkspace')).toBeHidden();
-  expect(await page.evaluate(()=>window.loginCalls)).toEqual([[]]);
+  expect(await page.evaluate(()=>window.loginCalls)).toEqual([[{redirectUri:page.url()}]]);
   expect(await page.evaluate(()=>sessionStorage.getItem('platform-line-login-return-v1'))).not.toBeNull();
   await page.evaluate(()=>sessionStorage.setItem('qaLoggedIn','1'));
   await page.reload();
@@ -502,7 +502,7 @@ test('PLATFORM_EXTERNAL_FIRST_SIGNIN — signed-out entry and subsequent visits 
   await expect(page.locator('#platformLoginGate,#platformLoginButton')).toHaveCount(0);
   expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
   await page.reload();
-  await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[]]);
+  await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[{redirectUri:page.url()}]]);
   await expect(page.locator('#platformWorkspace')).toBeHidden();
   await page.reload();
   await expect(page.locator('#platformWorkspace')).toBeVisible();
@@ -511,7 +511,7 @@ test('PLATFORM_EXTERNAL_FIRST_SIGNIN — signed-out entry and subsequent visits 
 });
 test('PLATFORM_EXTERNAL_CALLBACK_FAILED — failed callback is rejected without repeated login redirects or extra UI',async({page})=>{
  const h=await setup(page,'root',{inClient:false,loggedIn:false,rootLoginReturn:false});try{
-  await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[]]);
+  await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[{redirectUri:page.url()}]]);
   expect(await page.evaluate(()=>sessionStorage.getItem('platform-line-login-return-v1'))).not.toBeNull();
   await page.reload(); // LINE returned without a signed-in session.
   await expect(page.locator('#platformStatus')).toContainText('LINE 登入未完成');

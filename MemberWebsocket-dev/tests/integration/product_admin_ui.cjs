@@ -2,7 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {JSDOM}=require('jsdom');const {fixture}=require('./platform-fixture.cjs');
 const root=path.resolve(__dirname,'../..');
 async function waitFor(check){const end=Date.now()+5000;while(Date.now()<end){if(check())return;await new Promise(r=>setTimeout(r,15));}assert.ok(check(),'UI did not reach expected state');}
-async function page(h,merchant=true){
+async function page(h,merchant=true,profile){
  const errors=[],calls=[];const dom=new JSDOM(fs.readFileSync(path.join(root,merchant?'admin/workspace.html':'platform/index.html'),'utf8'),{url:'https://allowed.test/'+(merchant?'admin/workspace.html':'platform/'),runScripts:'outside-only'});
  const w=dom.window;w.AbortController=AbortController;w.AbortSignal=AbortSignal;
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
@@ -11,7 +11,7 @@ async function page(h,merchant=true){
  w.fetch=async(url,options)=>{
   // This suite pins the retained legacy portal contract. The coordinated v2
   // journey is exercised by merchant_workspace_ui and merchant-workspace-v2.
-  if(String(url).includes('config.json'))return Response.json({...JSON.parse(fs.readFileSync(path.join(root,'config/production/config.json'),'utf8')),merchantApprovalVersion:1});
+  if(String(url).includes('config.json'))return Response.json({...profile,merchantApprovalVersion:1});
   return h.handler(new Request(String(url),{...options,headers:{...options.headers,Origin:'https://allowed.test'}}));
  };
  w.addEventListener('error',e=>errors.push(e.message));
@@ -21,10 +21,11 @@ async function page(h,merchant=true){
  await waitFor(()=>merchant?(calls.length===1&&!w.document.querySelector('#applicationForm').hidden&&w.document.querySelector('#platformStatus').textContent.includes('已登入')):!w.document.querySelector('#platformWorkspace').hidden);
  return {dom,w,d:w.document,errors,calls};
 }
-test('AC-017/018 DOM + real handler/SQL: admin applies, root checks only grants, admin saves each approved LINE page',async()=>{
+for(const environment of ['production','testing'])test('AC-017/018 DOM + real handler/SQL ('+environment+'): admin applies, root checks only grants, admin saves each approved LINE page',async()=>{
+ const profile=JSON.parse(fs.readFileSync(path.join(root,'config',environment,'config.json'),'utf8'));
  const h=await fixture();let admin,platform;try{
-  admin=await page(h);const d=admin.d;
-  assert.deepEqual(admin.calls,['2010791619-vhevCvvD']);
+  admin=await page(h,true,profile);const d=admin.d;
+  assert.deepEqual(admin.calls,[profile.adminLiffId],'admin must initialize the configured role LIFF, including operator edits');
   // Verified LINE login reads status only; explicit submit owns the first write.
   assert.equal((await h.db.query('select count(*)::int n from platform_private.applications')).rows[0].n,0);
   assert.equal(d.querySelector('#applicationForm').hidden,false);
@@ -39,7 +40,8 @@ test('AC-017/018 DOM + real handler/SQL: admin applies, root checks only grants,
   assert.match(d.querySelector('#onboardingJourney')?.textContent||'',/送出申請/);
   assert.match(d.querySelector('#applicationNextStep')?.textContent||'',/總管理員/);
   assert.equal(d.querySelector('#applicationForm').hidden,true);assert.equal(d.querySelector('#merchantWorkspace').hidden,true);
-  platform=await page(h,false);const p=platform.d;
+  platform=await page(h,false,profile);const p=platform.d;
+  assert.deepEqual(platform.calls,[profile.platformLiffId],'root must initialize its dedicated configured LIFF');
   assert.match(p.querySelector('#applicationList').textContent,/商家管理員/);
   p.querySelector('#applicationList button').click();
   p.querySelector('[data-approve-feature="membership"]').checked=true;
