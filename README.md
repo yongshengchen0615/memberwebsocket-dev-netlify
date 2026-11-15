@@ -31,68 +31,52 @@ The client config contains a public publishable key. Do not add a service-role k
 or server secrets to frontend code or the publish directory.
 `.netlify/` is ignored because linking writes local project state there.
 
-## Branch-proof `config.json`
+## 正式與測試 `config.json` 完全獨立
 
-`MemberWebsocket-dev/config.json` is a shared authoring/local-development
-configuration, **not** the release authority for environment-specific values.
-Both Netlify and GitHub Actions generate a new `dist/config.json` on every
-build. Merging a feature branch can change the source JSON, but cannot select
-another Supabase database or replace the selected release's seven LIFF IDs.
+請只修改所屬環境的完整 JSON。**兩個檔案都叫做 config.json，但路徑不同**；
+部署時只會讀取對應檔案，沒有共用的環境設定值，也不依賴 Netlify
+環境變數，或 GitHub 的特殊合併驅動程式。
 
-| Release identity | Supabase project | LIFF source |
+| Git 分支／部署目的 | 應編輯的檔案 | 固定 Supabase 專案 |
 | --- | --- | --- |
-| `master` (production) | `MemberWebsocket-main` | `PUBLIC_LIFF_CONFIG_PRODUCTION` |
-| `Integrated-Marketing-Platform` (branch deploy) | `MemberWebsocket-test` | `PUBLIC_LIFF_CONFIG_TEST` |
-| Other Netlify deploy previews | `MemberWebsocket-test` | `PUBLIC_LIFF_CONFIG_TEST` |
+| `master` 正式網站 | `MemberWebsocket-dev/config/production/config.json` | `MemberWebsocket-main` (`dbuquirnaskrwcamdxki`) |
+| `Integrated-Marketing-Platform` 測試網站 | `MemberWebsocket-dev/config/testing/config.json` | `MemberWebsocket-test` (`bmwhojszsnxliekkhrka`) |
+| 其他 Netlify Deploy Previews | 同 `config/testing/config.json` | `MemberWebsocket-test` |
 
-The Supabase URL, canonical API URL and publishable key are pinned to the
-selected project in `scripts/preview-member-runtime.mjs`. The seven LIFF IDs
-are loaded from the corresponding **site-level Netlify Build environment
-variable**. If that variable has not yet been configured, the resolver uses
-seven known-good IDs pinned separately from source `config.json`, preserving
-existing behavior. A partially populated, invalid or unexpected JSON profile
-fails the build rather than publishing a mixed configuration.
+兩個環境檔皆含 `brandName`、`realtimeEnabled`、各項 Supabase 設定、
+七組 LIFF ID、`productizedAdmin` 與 `merchantApprovalVersion`。
+即使測試設定檔隨功能分支合併到 `master`，正式建置仍只讀取
+`config/production/config.json`；正式設定檔被同步到測試分支時亦同。
+**這是部署設定隔離，不是 Git 不會複製檔案：合併後兩份檔案仍會存在於同一程式碼樹。**
 
-To configure independent LINE apps, go to Netlify → Project configuration →
-Environment variables and add the following **two separate, non-secret,
-Build-scope** variables. Set production to the production context and testing
-to `branch:Integrated-Marketing-Platform` (or `branch-deploy` plus
-`deploy-preview` if the same test IDs should be used for all previews):
+原本的 `MemberWebsocket-dev/config.json` **只供本機開發及舊版程式相容**，
+不是部署來源。修改該共用檔不會更動正式或測試網站。
+`dist/config.json` 是建置器在每次發布時從目標環境完整 JSON 重建的輸出檔，
+不可直接提交。所有入口頁面繼續載入相同的 `/config.json` URL。
 
-- `PUBLIC_LIFF_CONFIG_PRODUCTION` — full seven-ID production JSON
-- `PUBLIC_LIFF_CONFIG_TEST` — full seven-ID testing JSON
+### 修改與驗收
 
-Each value must be valid compact JSON with **exactly** these seven keys:
+1. 在 GitHub 選擇對應分支，進入表格列出的對應 `config.json`，修改所屬環境的公開設定。
+2. 以 PR 走原有 CI；不可將測試的 Supabase 網址、錯誤的 publishable key、
+   secret 或缺漏 LIFF ID 放入目標設定檔。建置將在產出網站前拒絕錯誤設定。
+3. 先比對兩種建置：`BRANCH=master CONTEXT=production node scripts/build-site.mjs`
+   與 `BRANCH=Integrated-Marketing-Platform CONTEXT=branch-deploy node scripts/build-site.mjs`。
+   兩次都會覆寫本機 `dist/`，因此要分別檢查各次 `dist/config.json`。
+4. 合併及部署後，使用公開站台 `/config.json` 和已發布的 Git SHA
+   核對實際 Supabase ref、LIFF、品牌及功能旗標；另外驗證 LINE Developers
+   Endpoint、Supabase 後端 allowlist/LINE Channel 設定。
 
-```json
-{
-  "memberLiffId": "1234567890-ExampleA",
-  "pointsLiffId": "1234567890-ExampleB",
-  "adminLiffId": "1234567890-ExampleC",
-  "platformLiffId": "1234567890-ExampleD",
-  "eventLiffId": "1234567890-ExampleE",
-  "calendarLiffId": "1234567890-ExampleF",
-  "bookingLiffId": "1234567890-ExampleG"
-}
-```
-
-Replace the example IDs with actual LIFF app IDs in LINE Developers.
-Changing source `config.json` does **not** update either deployed LIFF
-profile. The verified GitHub Actions release workflows read these same values
-from Netlify using `env:get` before building, and fail on unrecognized provider
-errors. Never store LINE Channel Secrets, Supabase service-role/secret keys,
-Twilio tokens or other credentials in public config or these public LIFF vars.
-
-**Current compatibility note:** the built-in test LIFF fallback still shares
-the original production LIFF IDs; that does not prove LINE sign-in will work
-on both origins. Create separate test LIFF apps and configure the test profile
-and LINE endpoints before claiming end-to-end environment independence.
-The configuration regression checks include poisoned-merge simulation,
-unknown/partial profile rejection and cross-project asset scanning:
+可執行的隔離與錯誤測試：
 
 ```bash
-node --test scripts/branch-environment.test.mjs scripts/preview-member-runtime.test.mjs scripts/load-netlify-liff-profile.test.mjs
+node --test scripts/branch-environment.test.mjs scripts/preview-member-runtime.test.mjs scripts/development-api-build.test.mjs
 ```
+
+> LINE LIFF ID 是公開用戶端識別碼，可以存於上述公開設定檔。
+> **不要**在任一 JSON 放入 LINE Channel Secret、Supabase service-role/secret key、
+> Twilio Auth Token 或密碼。兩個環境目前仍使用同一組既有 LIFF IDs
+> 以維持相容性；真正將 LINE 登入獨立，仍需自行建立並填入測試 LIFF App IDs，
+> 配合 LINE Developers Endpoint 與後端 Channel 驗證。
 
 ## LINE LIFF configuration
 
