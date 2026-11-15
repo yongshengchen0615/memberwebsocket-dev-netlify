@@ -201,3 +201,26 @@ test('AC-016: malformed, secret-key or cross-project environment config blocks r
   assertBuildFails({unrecognized:'123'},/Invalid production deployment config/);
  }finally{rmSync(fixture,{recursive:true,force:true});}
 });
+
+test('AC-CONFIG-FOLDER-001: build never reads the outer legacy config.json',()=>{
+ const repo=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+ const fixture=mkdtempSync(path.join(tmpdir(),'source-config-ignore-'));
+ try {
+  for(const name of ['scripts','MemberWebsocket-dev'])
+   cpSync(path.join(repo,name),path.join(fixture,name),{recursive:true,filter:p=>!p.split(path.sep).includes('node_modules')});
+  writeFileSync(path.join(fixture,'MemberWebsocket-dev/config.json'),'NOT VALID JSON AND MUST NEVER BE READ');
+  for(const [branch,context,expected] of [
+    ['master','production',environmentProfile('master')],
+    ['Integrated-Marketing-Platform','branch-deploy',{...environmentProfile('Integrated-Marketing-Platform'),pricePublishing:true}]
+  ]){
+    const run=spawnSync(process.execPath,['scripts/build-site.mjs'],{
+      cwd:fixture,encoding:'utf8',env:{...process.env,BRANCH:branch,CONTEXT:context,COMMIT_REF:'b'.repeat(40)}
+    });
+    assert.equal(run.status,0,run.stderr);
+    const published=JSON.parse(readFileSync(path.join(fixture,'dist/config/config.json'),'utf8'));
+    assert.deepEqual(published,expected,branch+' must use only config/'+(branch==='master'?'production':'testing')+'/config.json');
+    assert.deepEqual(JSON.parse(readFileSync(path.join(fixture,'dist/config.json'),'utf8')),published);
+    assert.equal(readdirSync(path.join(fixture,'dist/config')).length,1,'must publish only chosen config profile');
+  }
+ } finally {rmSync(fixture,{recursive:true,force:true});}
+});
