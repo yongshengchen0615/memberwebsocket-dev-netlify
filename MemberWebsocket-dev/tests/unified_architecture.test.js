@@ -43,7 +43,16 @@ test('shared browser core owns API routing and realtime lifecycle', () => {
 });
 
 test('calendar backend returns final display contract', () => {
-  const config = JSON.parse(read('config.json'));
+  assert.equal(fs.existsSync(path.join(root, 'config.json')), false,
+    'unused outer config.json must remain deleted');
+  const productionConfig = JSON.parse(read('config/production/config.json'));
+  const testingConfig = JSON.parse(read('config/testing/config.json'));
+  assert.notEqual(productionConfig.supabaseUrl, testingConfig.supabaseUrl);
+  for (const config of [productionConfig, testingConfig]) {
+    assert.match(config.supabaseUrl, /^https:\/\/[a-z0-9-]+\.supabase\.co$/i);
+    assert.equal(config.memberCalendarFunctionUrl, undefined);
+  }
+  const config = productionConfig;
   assert.match(config.supabaseUrl, /^https:\/\/[a-z0-9-]+\.supabase\.co$/i);
   assert.equal(config.memberCalendarFunctionUrl, undefined);
   assert.match(read('member-system.js'), /\/functions\/v1\/member-calendar-api/);
