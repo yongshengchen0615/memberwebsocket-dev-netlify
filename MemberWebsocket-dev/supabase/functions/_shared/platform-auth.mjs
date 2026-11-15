@@ -51,6 +51,8 @@ export function createDeploymentLineVerifiers({ projectUrl, fetchImpl = globalTh
     finally { pending = null; }
   }
   return Object.freeze({
+    // A validated, server-pinned admin audience shared with the business API.
+    async adminChannelId() { return (await channels()).admin; },
     async verifyIdentity(idToken) {
       requireIdToken(idToken);
       return verifyChannelToken({ idToken, fetchImpl, now }, (await channels()).platform, '總管理員');
