@@ -57,21 +57,6 @@ for (const file of await readdir(output, { recursive: true })) {
   }
 }
 
-// Fail the whole build if a stale frontend asset still points at the
-// opposite database, even if the generated /config.json is correct.
-const forbiddenRef = publishedConfig.supabaseUrl.includes('dbuquirnaskrwcamdxki')
-  ? 'bmwhojszsnxliekkhrka' : publishedConfig.supabaseUrl.includes('bmwhojszsnxliekkhrka')
-    ? 'dbuquirnaskrwcamdxki' : null;
-if (forbiddenRef) {
-  for (const file of await readdir(output, { recursive: true })) {
-    if (!/\.(?:html|js|json|css)$/i.test(file)) continue;
-    const content = await readFile(path.join(output, file), 'utf8');
-    if (content.includes(`https://${forbiddenRef}.supabase.co`)) {
-      throw new Error(`Cross-environment Supabase URL in published asset: ${file}`);
-    }
-  }
-}
-
 const siteVersion = formatBuildVersion(
   buildDate(process.env),
   process.env.DEPLOY_ID || process.env.BUILD_ID || randomBytes(6).toString('hex'),
@@ -113,5 +98,20 @@ for (const entry of entryPages) {
     html.replace('</head>', `${stylesheet}\n</head>`).replace('</body>', `${badge}\n</body>`),
   );
 }
+// Fail the whole build if a stale frontend asset still points at the
+// opposite database, even if the generated /config.json is correct.
+const forbiddenRef = publishedConfig.supabaseUrl.includes('dbuquirnaskrwcamdxki')
+  ? 'bmwhojszsnxliekkhrka' : publishedConfig.supabaseUrl.includes('bmwhojszsnxliekkhrka')
+    ? 'dbuquirnaskrwcamdxki' : null;
+if (forbiddenRef) {
+  for (const file of await readdir(output, { recursive: true })) {
+    if (!/\.(?:html|js|json|css)$/i.test(file)) continue;
+    const content = await readFile(path.join(output, file), 'utf8');
+    if (content.includes(`https://${forbiddenRef}.supabase.co`)) {
+      throw new Error(`Cross-environment Supabase URL in published asset: ${file}`);
+    }
+  }
+}
+
 console.log(`Built static frontend in dist (version ${siteVersion}); database source, tests and internal documentation excluded.`);
 
