@@ -129,7 +129,7 @@ test('AC-034: verified but unapproved Platform LINE identity sees only the pendi
  assert.doesNotMatch(html,/id="platformLogin(?:Gate|Button)"/,'Platform enters LINE automatically; no separate login card or button');
  assert.match(js,/body\.error\?\.code==='PLATFORM_ADMIN_REQUIRED'&&!merchantEntry/);
  assert.match(js,/function showAuthorizationDenied\(\)/);
- assert.match(js,/window\.liff\.login\(\{redirectUri:window\.location\.href\}\)/,'automatic LINE sign-in remains wired');
+ assert.match(js,/window\.liff\.login\(\)/,'automatic LINE sign-in remains wired');
  assert.doesNotMatch(html,/<button[^>]*>[^<]*開通總管理員/);
 });
 
