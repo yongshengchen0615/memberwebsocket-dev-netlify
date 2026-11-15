@@ -94,28 +94,13 @@ test('AC-008: merging a poisoned test config cannot overwrite production or test
  }
 });
 
-test('AC-009: independent Netlify LIFF profiles override all seven source values without cross-contamination',()=>{
- const makeProfile=(prefix)=>Object.fromEntries(Object.keys(pinnedLiff).map((key,index)=>[key,'1234567890-'+prefix+String(index)]));
- const productionProfile=makeProfile('Production');
- const testProfile=makeProfile('Testing');
- const env={PUBLIC_LIFF_CONFIG_PRODUCTION:JSON.stringify(productionProfile),PUBLIC_LIFF_CONFIG_TEST:JSON.stringify(testProfile)};
- const poisoned={...original,...makeProfile('Merged')};
- const prod=previewMemberRuntime(poisoned,{...env,BRANCH:'master',CONTEXT:'production'});
- const testRuntime=previewMemberRuntime(poisoned,{...env,BRANCH:'Integrated-Marketing-Platform',CONTEXT:'branch-deploy'});
- for(const key of Object.keys(pinnedLiff)){
-  assert.equal(prod[key],productionProfile[key]);
-  assert.equal(testRuntime[key],testProfile[key]);
-  assert.notEqual(prod[key],testRuntime[key]);
- }
- assert.equal(prod.supabaseUrl,production);
- assert.equal(testRuntime.supabaseUrl,testing);
-});
-
-test('AC-010: invalid or partial site profiles fail closed before publishing',()=>{
- const baseline={...original,BRANCH:'master'};
- for(const value of ['', 'not json', '{}', '[]', JSON.stringify({...pinnedLiff,memberLiffId:'sb_secret_not_a_liff'}), JSON.stringify({...pinnedLiff,unknown:'extra'})]){
-  assert.throws(()=>previewMemberRuntime(baseline,{BRANCH:'master',CONTEXT:'production',PUBLIC_LIFF_CONFIG_PRODUCTION:value}),/Invalid PUBLIC_LIFF_CONFIG_PRODUCTION/);
-  assert.throws(()=>previewMemberRuntime(baseline,{BRANCH:'Integrated-Marketing-Platform',CONTEXT:'branch-deploy',PUBLIC_LIFF_CONFIG_TEST:value}),/Invalid PUBLIC_LIFF_CONFIG_TEST/);
+test('AC-009/010: external variables cannot override either tracked environment config.json',()=>{
+ const poisoned={...original,...Object.fromEntries(Object.keys(pinnedLiff).map(key=>[key,'1234567890-MergedTest']))};
+ const env={PUBLIC_LIFF_CONFIG_PRODUCTION:'{}',PUBLIC_LIFF_CONFIG_TEST:'{"memberLiffId":"1234567890-Bad"}'};
+ for(const [branch,context,ref] of [['master','production','dbuquirnaskrwcamdxki'],['Integrated-Marketing-Platform','branch-deploy','bmwhojszsnxliekkhrka']]){
+  const actual=previewMemberRuntime(poisoned,{...env,BRANCH:branch,CONTEXT:context});
+  for(const [key,value] of Object.entries(pinnedLiff))assert.equal(actual[key],value,branch+' must use its own config.json: '+key);
+  assert.equal(actual.supabaseUrl,'https://'+ref+'.supabase.co');
  }
 });
 
