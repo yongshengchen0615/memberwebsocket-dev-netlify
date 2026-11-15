@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { buildDate, formatBuildVersion } from './build-version.mjs';
+import { previewMemberRuntime } from './preview-member-runtime.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 execFileSync(process.execPath, ['scripts/build-site.mjs'], { cwd: root });
@@ -61,18 +62,9 @@ test('server source, migrations, tests and local deployment state are not publis
 
 test('frontend backend settings are copied without changing identity or project', () => {
   const source = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/config.json')));
-  const { __environmentNotes, ...expected } = source;
-  assert.ok(__environmentNotes && typeof __environmentNotes === 'object', 'editable config must explain the environment-specific fields');
-  const branch = process.env.BRANCH || process.env.PREVIEW_SOURCE_BRANCH || process.env.GITHUB_REF_NAME;
-  if (branch === 'Integrated-Marketing-Platform' && process.env.CONTEXT !== 'production') {
-    expected.pricePublishing = true;
-  }
-  if ((branch === 'Integrated-Marketing-Platform' && process.env.CONTEXT !== 'production')
-    || (branch !== 'master' && process.env.NETLIFY === 'true' && ['branch-deploy','deploy-preview'].includes(process.env.CONTEXT))) {
-    expected.supabaseUrl = 'https://bmwhojszsnxliekkhrka.supabase.co';
-    expected.supabaseFunctionUrl = expected.supabaseUrl + '/functions/v1/api';
-    expected.supabasePublishableKey = 'sb_publishable_Dk6cKyJ5ssJRxf7GGTlZug_K_J3GbK-';
-  }
+  assert.ok(source.__environmentNotes && typeof source.__environmentNotes === 'object',
+    'editable config must explain environment-specific fields');
+  const expected = previewMemberRuntime(source, process.env);
   const published = JSON.parse(fs.readFileSync(path.join(output, 'config.json')));
   assert.deepEqual(published, expected);
   assert.equal(published.__environmentNotes, undefined, 'GitHub editor guidance must not be published');

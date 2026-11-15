@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { verifyPlatformPreview, previewPages, previewAssets } from './verify-platform-preview.mjs';
@@ -9,6 +9,8 @@ const commit = 'a'.repeat(40);
 const base = 'https://preview.example';
 const api = 'https://backend.example/functions/v1/platform-api';
 
+const testingConfig = JSON.parse(await readFile(new URL('../MemberWebsocket-dev/config/testing/config.json', import.meta.url), 'utf8'));
+
 async function fixture(t, mutate = () => {}) {
   const dist = await mkdtemp(path.join(tmpdir(), 'preview-smoke-'));
   t.after(() => rm(dist, { recursive: true, force: true }));
@@ -16,7 +18,7 @@ async function fixture(t, mutate = () => {}) {
   for (const [url, file] of [...previewPages, ...previewAssets]) {
     const body = file.endsWith('.html')
       ? `<html><small id="site-build-version" data-commit="${commit.slice(0, 7)}">v261021.000000-abcdef</small></html>`
-      : file === 'config.json' ? JSON.stringify({ platformLiffId: '2012065297-VunxFBj8' }) : `asset:${file}`;
+      : file === 'config.json' ? JSON.stringify({ ...testingConfig, pricePublishing: true }) : `asset:${file}`;
     await mkdir(path.dirname(path.join(dist, file)), { recursive: true });
     await writeFile(path.join(dist, file), body);
     files.set(url, body);
@@ -123,7 +125,7 @@ test('AC-PT-003: Integrated rejects a legacy preview API route before any networ
  const f=await fixture(t);
  const file=path.join(f.dist,'config.json');
  await writeFile(file,JSON.stringify({
-  platformLiffId:'2012065297-VunxFBj8',pricePublishing:true,
+  ...testingConfig,pricePublishing:true,
   supabaseFunctionUrl:'https://backend.example/functions/v1/api',
   memberGrowthFunctionUrl:'https://backend.example/functions/v1/member-growth-api-preview'
  }));
