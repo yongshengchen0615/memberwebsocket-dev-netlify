@@ -64,7 +64,9 @@ test('admin-specific claim and logout handlers never touch member session RPCs',
 
 test('admin exemption needs a server-verified admin identity and admin LINE audience', () => {
   assert.ok(auth.includes('adminResult.data?.role === "admin" && adminResult.data?.status === "active"'));
-  assert.ok(auth.includes('const canBypassUserRestrictions = isActiveAdmin && expectedChannelId === adminChannelId'));
+  assert.ok(auth.includes('const canBypassUserRestrictions = isActiveAdmin && ('));
+  assert.ok(auth.includes('isAdminLogin === undefined ? expectedChannelId === adminChannelId : isAdminLogin === true'));
+  assert.ok(api.includes('isAdminLogin: clientType === "admin"'), 'only server-routed admin actions may qualify for member-only exemption');
   assert.ok(auth.includes('if (!allowLoginClaim && !canBypassUserRestrictions) {'));
   assert.ok(auth.includes('SESSION_REPLACED'));
   assert.ok(client.includes("if (idToken && surface !== 'admin')"), 'only member sessions claim single-device login; admin bypass remains server-verified');

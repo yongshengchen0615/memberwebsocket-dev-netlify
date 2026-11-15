@@ -1,4 +1,4 @@
-import { businessEnv, businessContext, businessFetch as fetch, businessHandler } from '../_shared/business-runtime.ts';
+import { businessEnv, businessContext, businessFetch as fetch, businessHandler, deploymentAdminChannelId } from '../_shared/business-runtime.ts';
 import { syncRevision } from '../_shared/sync-revision.mjs';
 import { removeMember } from "../_shared/member-removal.ts";
 import { tierVisibility, loadVisibilityPolicy } from "../_shared/tier-visibility.ts";
@@ -270,7 +270,7 @@ function clientTypeForAction(action: string): ClientType {
   throw new ApiError(404,"ACTION_NOT_FOUND","不支援的 API action。");
 }
 
-function channelIdFor(clientType: ClientType): string {
+async function channelIdFor(clientType: ClientType): Promise<string> {
   const keys: Record<ClientType,string> = {
     member: "LINE_MEMBER_CHANNEL_ID",
     points: "LINE_POINTS_CHANNEL_ID",
@@ -287,7 +287,13 @@ function channelIdFor(clientType: ClientType): string {
     booking: "2010787602",
     admin: "2010791619",
   };
-  const value = env(keys[clientType]) || defaults[clientType];
+  let value: string;
+  if (clientType === "admin" && !businessContext()?.adminCustomLineReady) {
+    try { value = await deploymentAdminChannelId(); }
+    catch { throw new ApiError(503,"LINE_CONFIG_UNAVAILABLE","無法確認本環境一般管理員 LINE 設定。"); }
+  } else {
+    value = env(keys[clientType]) || defaults[clientType];
+  }
   if (!/^\d{5,30}$/.test(value)) throw new ApiError(503,"AUTH_CONFIG_MISSING","LINE 驗證設定尚未完成。");
   return value;
 }
@@ -295,7 +301,8 @@ function channelIdFor(clientType: ClientType): string {
 async function verifyLineIdToken(idToken: string, clientType: ClientType, allowLoginClaim = false): Promise<{ lineUserId: string; displayName: string; issuedAtMs: number }> {
   return await verifyLineIdTokenContract({
     idToken,
-    expectedChannelId: channelIdFor(clientType),
+    expectedChannelId: await channelIdFor(clientType),
+    isAdminLogin: clientType === "admin",
     allowLoginClaim,
     createError: (status, code, message, details = null) => new ApiError(status, code, message, details),
   });

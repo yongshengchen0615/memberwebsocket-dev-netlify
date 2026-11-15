@@ -14,8 +14,13 @@ const verified=(init?:RequestInit)=>{
 };
 Deno.test('AC-004: stored dependencies reject with 403 before the real settlement handler and re-enable without deleting selections',async()=>{
  const oldEnv=Deno.env.get,oldFetch=globalThis.fetch;let events=false,invoked=0;
- Deno.env.get=(key:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture'} as Record<string,string>)[key];
+ Deno.env.get=(key:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_PUBLIC_URL:'https://bmwhojszsnxliekkhrka.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture'} as Record<string,string>)[key];
  globalThis.fetch=(async(input:RequestInfo|URL,init?:RequestInit)=>{
+  // Exercise the real server-pinned config resolver without a network call.
+  // The synthetic environment is this test project's LIFF, not caller input.
+  const pinnedUrl=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url);
+  if(pinnedUrl.href==='https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app/config/config.json')
+   return Response.json({supabaseUrl:'https://bmwhojszsnxliekkhrka.supabase.co',supabaseFunctionUrl:'https://bmwhojszsnxliekkhrka.supabase.co/functions/v1/api',adminLiffId:'2010791619-TestAdmin',platformLiffId:'2012065297-TestRoot'});
   const url=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url);
   const reply=(data:unknown)=>new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json'}});
   if(url.pathname.endsWith('/platform_business_context_v2'))return reply({...a,features:{...a.features,events}});
@@ -37,8 +42,13 @@ Deno.test('AC-186: dispatch resolves each purpose and never falls back from disa
  const pointBase=await sealCredentials(a.id+':points',{channelAccessToken:'synthetic-points',channelSecret:'a'.repeat(32)},key);
  const envelopes:Record<string,unknown>={};for(const purpose of ['admin','member'])envelopes[purpose]=await sealCredentials(a.id+':booking:notify:'+purpose,{channelAccessToken:'synthetic-'+purpose},key);
  let disabled=false,broken=false;
- Deno.env.get=(name:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture',PLATFORM_CREDENTIAL_ENCRYPTION_KEY:key} as Record<string,string>)[name];
+ Deno.env.get=(name:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_PUBLIC_URL:'https://bmwhojszsnxliekkhrka.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture',PLATFORM_CREDENTIAL_ENCRYPTION_KEY:key} as Record<string,string>)[name];
  globalThis.fetch=(async(input:RequestInfo|URL,init?:RequestInit)=>{
+  // Exercise the real server-pinned config resolver without a network call.
+  // The synthetic environment is this test project's LIFF, not caller input.
+  const pinnedUrl=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url);
+  if(pinnedUrl.href==='https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app/config/config.json')
+   return Response.json({supabaseUrl:'https://bmwhojszsnxliekkhrka.supabase.co',supabaseFunctionUrl:'https://bmwhojszsnxliekkhrka.supabase.co/functions/v1/api',adminLiffId:'2010791619-TestAdmin',platformLiffId:'2012065297-TestRoot'});
   const p=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url).pathname;
   const body=typeof init?.body==='string'?JSON.parse(init.body):{};
   const reply=(data:unknown)=>new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json'}});
@@ -65,9 +75,14 @@ Deno.test('AC-186: dispatch resolves each purpose and never falls back from disa
 });
 Deno.test('AC-210: production request adapter enforces fresh grants, private schemas, storage prefixes and concurrent isolation',async()=>{
  const previousEnv=Deno.env.get;
- Deno.env.get=(key:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'server-only-fixture'} as Record<string,string>)[key];
+ Deno.env.get=(key:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_PUBLIC_URL:'https://bmwhojszsnxliekkhrka.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'server-only-fixture'} as Record<string,string>)[key];
  const previous=globalThis.fetch,calls:any[]=[];let latestA=structuredClone(a);
  globalThis.fetch=(async(input:RequestInfo|URL,init?:RequestInit)=>{
+  // Exercise the real server-pinned config resolver without a network call.
+  // The synthetic environment is this test project's LIFF, not caller input.
+  const pinnedUrl=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url);
+  if(pinnedUrl.href==='https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app/config/config.json')
+   return Response.json({supabaseUrl:'https://bmwhojszsnxliekkhrka.supabase.co',supabaseFunctionUrl:'https://bmwhojszsnxliekkhrka.supabase.co/functions/v1/api',adminLiffId:'2010791619-TestAdmin',platformLiffId:'2012065297-TestRoot'});
   const url=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url),headers=new Headers(init?.headers);
   const body=typeof init?.body==='string'?JSON.parse(init.body):{};
   calls.push({path:url.pathname,headers,body});
@@ -115,10 +130,15 @@ Deno.test('AC-210: production request adapter enforces fresh grants, private sch
 Deno.test('AC-181-002/AC-184-03: production verification rejects old provider-verified tokens after resume and expired requests never execute',async()=>{
  const {verifyLineIdTokenContract}=await import('./auth-contract.ts');
  const previousEnv=Deno.env.get,previous=globalThis.fetch;
- Deno.env.get=(key:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture'} as Record<string,string>)[key];
+ Deno.env.get=(key:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_PUBLIC_URL:'https://bmwhojszsnxliekkhrka.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture'} as Record<string,string>)[key];
  let issued=Math.floor(Date.now()/1000)-30;const cutoff=new Date((issued+10)*1000).toISOString();
  let expired=false,executed=0;
  globalThis.fetch=(async(input:RequestInfo|URL)=>{
+  // Exercise the real server-pinned config resolver without a network call.
+  // The synthetic environment is this test project's LIFF, not caller input.
+  const pinnedUrl=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url);
+  if(pinnedUrl.href==='https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app/config/config.json')
+   return Response.json({supabaseUrl:'https://bmwhojszsnxliekkhrka.supabase.co',supabaseFunctionUrl:'https://bmwhojszsnxliekkhrka.supabase.co/functions/v1/api',adminLiffId:'2010791619-TestAdmin',platformLiffId:'2012065297-TestRoot'});
   const path=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url).pathname;
   const response=(data:unknown)=>new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json'}});
   if(path.endsWith('/platform_business_context_v2'))return response({...a,access_revoked_before:cutoff,expires_at:expired?'2000-01-01T00:00:00Z':null});
@@ -142,9 +162,14 @@ Deno.test('AC-ENV-002/003: request adapter reads only the action module credenti
  const {sealCredentials}=await import('./platform-crypto.mjs');
  const previousEnv=Deno.env.get,previous=globalThis.fetch,key=btoa(String.fromCharCode(...new Uint8Array(32).fill(7)));
  const envelopes:Record<string,unknown>={};for(const f of ['membership','points'])envelopes[f]=await sealCredentials(a.id+':'+f,{channelAccessToken:'synthetic-'+f,channelSecret:'a'.repeat(32)},key);
- Deno.env.get=(name:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture',PLATFORM_CREDENTIAL_ENCRYPTION_KEY:key} as Record<string,string>)[name];
+ Deno.env.get=(name:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_PUBLIC_URL:'https://bmwhojszsnxliekkhrka.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture',PLATFORM_CREDENTIAL_ENCRYPTION_KEY:key} as Record<string,string>)[name];
  let broken=false;
  globalThis.fetch=(async(input:RequestInfo|URL,init?:RequestInit)=>{
+  // Exercise the real server-pinned config resolver without a network call.
+  // The synthetic environment is this test project's LIFF, not caller input.
+  const pinnedUrl=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url);
+  if(pinnedUrl.href==='https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app/config/config.json')
+   return Response.json({supabaseUrl:'https://bmwhojszsnxliekkhrka.supabase.co',supabaseFunctionUrl:'https://bmwhojszsnxliekkhrka.supabase.co/functions/v1/api',adminLiffId:'2010791619-TestAdmin',platformLiffId:'2012065297-TestRoot'});
   const path=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url).pathname;
   const body=typeof init?.body==='string'?JSON.parse(init.body):{};
   const response=(data:unknown)=>new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json'}});
@@ -167,6 +192,11 @@ Deno.test('AC-187-003: real Storage SDK keeps signed upload paths scoped and rej
  const {scope}=await import('./business-scope.ts');
  const previous=globalThis.fetch,grants=new Map<string,string>(),objects=new Map<string,unknown>();
  globalThis.fetch=(async(input:RequestInfo|URL,init?:RequestInit)=>{
+  // Exercise the real server-pinned config resolver without a network call.
+  // The synthetic environment is this test project's LIFF, not caller input.
+  const pinnedUrl=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url);
+  if(pinnedUrl.href==='https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app/config/config.json')
+   return Response.json({supabaseUrl:'https://bmwhojszsnxliekkhrka.supabase.co',supabaseFunctionUrl:'https://bmwhojszsnxliekkhrka.supabase.co/functions/v1/api',adminLiffId:'2010791619-TestAdmin',platformLiffId:'2012065297-TestRoot'});
   const u=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url);
   const prefix='/storage/v1/object/upload/sign/booking-receipts/';
   assert(u.pathname.startsWith(prefix),'unexpected Storage operation');
@@ -203,8 +233,13 @@ Deno.test('AC-187-003: real Storage SDK keeps signed upload paths scoped and rej
 
 Deno.test('#124 LIFF-only runtime uses the module Login/LIFF without loading any Messaging secret',async()=>{
  const previousEnv=Deno.env.get,previous=globalThis.fetch;
- Deno.env.get=(name:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture',LINE_CALENDAR_CHANNEL_ID:'2099999999'} as Record<string,string>)[name];
+ Deno.env.get=(name:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_PUBLIC_URL:'https://bmwhojszsnxliekkhrka.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture',LINE_CALENDAR_CHANNEL_ID:'2099999999'} as Record<string,string>)[name];
  globalThis.fetch=(async(input:RequestInfo|URL)=>{
+  // Exercise the real server-pinned config resolver without a network call.
+  // The synthetic environment is this test project's LIFF, not caller input.
+  const pinnedUrl=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url);
+  if(pinnedUrl.href==='https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app/config/config.json')
+   return Response.json({supabaseUrl:'https://bmwhojszsnxliekkhrka.supabase.co',supabaseFunctionUrl:'https://bmwhojszsnxliekkhrka.supabase.co/functions/v1/api',adminLiffId:'2010791619-TestAdmin',platformLiffId:'2012065297-TestRoot'});
   const path=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url).pathname;
   if(path.endsWith('/platform_business_context_v2'))return new Response(JSON.stringify({...a,features:{...a.features,calendar:true},credentials_configured:false,line_config:{adminChannelId:'2010791619',adminLiffId:'2010791619-admin'},module_line:{calendar:{credentialsConfigured:false,line:{memberChannelId:'2010787602',calendarLiffId:'2010787602-calendar',messagingChannelId:''}}}}));
   throw Error('LIFF-only runtime must not load Messaging credentials: '+path);
@@ -231,8 +266,13 @@ async function liffIdentityFixture(run:(fixture:any)=>Promise<void>){
  const claims=new Map<string,string>();
  const issue=(channel:string,suffix='valid')=>{const value='e30.'+btoa(JSON.stringify({sub:ownerA,aud:channel,jti:suffix}))+'.signature';claims.set(value,channel);return value;};
  const context={...a,features:Object.fromEntries(definition.map(([,feature])=>[feature,true])),credentials_configured:false,line_config:{adminChannelId:'2010791619',adminLiffId:'2010791619-admin'},module_line:Object.fromEntries(definition.map(([,feature,liff,,channel])=>[feature,{credentialsConfigured:false,line:{memberChannelId:channel,[liff]:channel+'-'+feature,messagingChannelId:''}}]))};
- Deno.env.get=(name:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture',LINE_MEMBER_CHANNEL_ID:'2010787602',LINE_POINTS_CHANNEL_ID:'2010787602',LINE_EVENT_CHANNEL_ID:'2010787602',LINE_CALENDAR_CHANNEL_ID:'2010787602'} as Record<string,string>)[name];
+ Deno.env.get=(name:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_PUBLIC_URL:'https://bmwhojszsnxliekkhrka.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture',LINE_MEMBER_CHANNEL_ID:'2010787602',LINE_POINTS_CHANNEL_ID:'2010787602',LINE_EVENT_CHANNEL_ID:'2010787602',LINE_CALENDAR_CHANNEL_ID:'2010787602'} as Record<string,string>)[name];
  globalThis.fetch=(async(input:RequestInfo|URL,init?:RequestInit)=>{
+  // Exercise the real server-pinned config resolver without a network call.
+  // The synthetic environment is this test project's LIFF, not caller input.
+  const pinnedUrl=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url);
+  if(pinnedUrl.href==='https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app/config/config.json')
+   return Response.json({supabaseUrl:'https://bmwhojszsnxliekkhrka.supabase.co',supabaseFunctionUrl:'https://bmwhojszsnxliekkhrka.supabase.co/functions/v1/api',adminLiffId:'2010791619-TestAdmin',platformLiffId:'2012065297-TestRoot'});
   const path=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url).pathname;
   const reply=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json'}});
   if(path.endsWith('/platform_business_context_v2'))return reply(context);
