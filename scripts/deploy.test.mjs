@@ -144,7 +144,10 @@ test('retired client-side QA resources are absent from the actual deploy bundle'
 });
 
 test('the five retired Supabase functions reject requests before authentication or parsing', async () => {
-  const config = buildMemberRuntime(process.env);
+  // This external regression contract was always against the production
+  // Supabase project, regardless of which static site branch CI is building.
+  // Read that exact environment file from config/, never the legacy outer JSON.
+  const config = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/config/production/config.json'), 'utf8'));
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/supabase/retirement/retired-endpoints.json'), 'utf8'));
   assert.equal(manifest.retiredFunctions.length, 5);
   for (const name of manifest.retiredFunctions) {
