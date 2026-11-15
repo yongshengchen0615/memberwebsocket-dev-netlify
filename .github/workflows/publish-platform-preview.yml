@@ -36,6 +36,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Load the Netlify testing LIFF profile before artifact verification
+        if: github.ref_name == 'Integrated-Marketing-Platform'
+        run: node scripts/load-netlify-liff-profile.mjs Integrated-Marketing-Platform
       - name: Wait for all established CI on this exact commit
         shell: bash
         run: |
@@ -104,7 +107,13 @@ jobs:
           node scripts/build-site.mjs
           test -f dist/platform/index.html
           test ! -e dist/admin/platform/index.html
-          grep -Fq '2012065297-VunxFBj8' dist/config.json
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const config = JSON.parse(readFileSync("dist/config.json", "utf8"));
+            const profile = process.env.PUBLIC_LIFF_CONFIG_TEST;
+            const expected = profile ? JSON.parse(profile).platformLiffId : "2012065297-VunxFBj8";
+            if (config.platformLiffId !== expected) throw new Error("Wrong testing LIFF profile in published artifact");
+          '
           python3 - <<'PY'
           import os, pathlib, tomllib
           config = tomllib.loads(pathlib.Path('netlify.toml').read_text())
