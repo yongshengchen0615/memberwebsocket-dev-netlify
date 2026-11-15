@@ -32,8 +32,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Load the Netlify production LIFF profile before building
-        run: node scripts/load-netlify-liff-profile.mjs master
       - name: Verify deployable static output
         run: |
           node --test scripts/deploy.test.mjs scripts/netlify-publish-workflow.test.mjs
