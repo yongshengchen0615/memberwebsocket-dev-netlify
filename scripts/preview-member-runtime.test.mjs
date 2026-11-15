@@ -10,7 +10,7 @@ test('AC-PT-002: Integrated preview uses canonical development APIs without isol
  assert.equal(result.previewApiFunctionUrl,undefined);
  assert.equal(result.memberProfileFunctionUrl,undefined);
  assert.equal(result.memberGrowthFunctionUrl,undefined);
- assert.equal(result.memberLiffId,config.memberLiffId);
+ assert.equal(result.memberLiffId,'2010787602-kaiSm2eq');
  assert.equal(config.pricePublishing,undefined);
  const fromPreview=previewMemberRuntime({...config,previewApiFunctionUrl:'https://example.supabase.co/functions/v1/api-preview',memberProfileFunctionUrl:'https://example.supabase.co/functions/v1/member-profile-api-preview',memberGrowthFunctionUrl:'https://example.supabase.co/functions/v1/member-growth-api-preview',bookingPreviewApis:true},{BRANCH:'Integrated-Marketing-Platform'});
  for(const key of ['previewApiFunctionUrl','memberProfileFunctionUrl','memberGrowthFunctionUrl','bookingPreviewApis'])assert.equal(fromPreview[key],undefined,key);
@@ -18,7 +18,7 @@ test('AC-PT-002: Integrated preview uses canonical development APIs without isol
 });
 test('non-Integrated, production and ambiguous build identities preserve original routes',()=>{
  for(const env of [{},{BRANCH:'main'},{BRANCH:'develop'},{BRANCH:'feature/test'},{BRANCH:'main',PREVIEW_SOURCE_BRANCH:'Integrated-Marketing-Platform'}])assert.deepEqual(previewMemberRuntime(config,env),config);
- assert.deepEqual(previewMemberRuntime(config,{PREVIEW_SOURCE_BRANCH:'Integrated-Marketing-Platform'}),{...config,supabaseUrl:'https://bmwhojszsnxliekkhrka.supabase.co',supabaseFunctionUrl:'https://bmwhojszsnxliekkhrka.supabase.co/functions/v1/api',supabasePublishableKey:'sb_publishable_Dk6cKyJ5ssJRxf7GGTlZug_K_J3GbK-',pricePublishing:true});
+ assert.deepEqual(previewMemberRuntime(config,{PREVIEW_SOURCE_BRANCH:'Integrated-Marketing-Platform'}),{...config,supabaseUrl:'https://bmwhojszsnxliekkhrka.supabase.co',supabaseFunctionUrl:'https://bmwhojszsnxliekkhrka.supabase.co/functions/v1/api',supabasePublishableKey:'sb_publishable_Dk6cKyJ5ssJRxf7GGTlZug_K_J3GbK-',memberLiffId:'2010787602-kaiSm2eq',pointsLiffId:'2010787602-eIzRN9l6',adminLiffId:'2010791619-vhevCvvD',platformLiffId:'2012065297-VunxFBj8',eventLiffId:'2010787602-tuapstY3',calendarLiffId:'2010787602-4UKzslco',bookingLiffId:'2010787602-sgiB0ETj',pricePublishing:true});
 });
 
 test('AC-004: every environment removes stale preview overrides without mutating config', () => {
