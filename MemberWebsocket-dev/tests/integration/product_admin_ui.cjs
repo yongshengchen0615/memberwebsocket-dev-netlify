@@ -11,7 +11,7 @@ async function page(h,merchant=true){
  w.fetch=async(url,options)=>{
   // This suite pins the retained legacy portal contract. The coordinated v2
   // journey is exercised by merchant_workspace_ui and merchant-workspace-v2.
-  if(String(url).includes('config.json'))return Response.json({...JSON.parse(fs.readFileSync(path.join(root,'config.json'),'utf8')),merchantApprovalVersion:1});
+  if(String(url).includes('config.json'))return Response.json({...JSON.parse(fs.readFileSync(path.join(root,'config/production/config.json'),'utf8')),merchantApprovalVersion:1});
   return h.handler(new Request(String(url),{...options,headers:{...options.headers,Origin:'https://allowed.test'}}));
  };
  w.addEventListener('error',e=>errors.push(e.message));
