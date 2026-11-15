@@ -31,6 +31,69 @@ The client config contains a public publishable key. Do not add a service-role k
 or server secrets to frontend code or the publish directory.
 `.netlify/` is ignored because linking writes local project state there.
 
+## Branch-proof `config.json`
+
+`MemberWebsocket-dev/config.json` is a shared authoring/local-development
+configuration, **not** the release authority for environment-specific values.
+Both Netlify and GitHub Actions generate a new `dist/config.json` on every
+build. Merging a feature branch can change the source JSON, but cannot select
+another Supabase database or replace the selected release's seven LIFF IDs.
+
+| Release identity | Supabase project | LIFF source |
+| --- | --- | --- |
+| `master` (production) | `MemberWebsocket-main` | `PUBLIC_LIFF_CONFIG_PRODUCTION` |
+| `Integrated-Marketing-Platform` (branch deploy) | `MemberWebsocket-test` | `PUBLIC_LIFF_CONFIG_TEST` |
+| Other Netlify deploy previews | `MemberWebsocket-test` | `PUBLIC_LIFF_CONFIG_TEST` |
+
+The Supabase URL, canonical API URL and publishable key are pinned to the
+selected project in `scripts/preview-member-runtime.mjs`. The seven LIFF IDs
+are loaded from the corresponding **site-level Netlify Build environment
+variable**. If that variable has not yet been configured, the resolver uses
+seven known-good IDs pinned separately from source `config.json`, preserving
+existing behavior. A partially populated, invalid or unexpected JSON profile
+fails the build rather than publishing a mixed configuration.
+
+To configure independent LINE apps, go to Netlify → Project configuration →
+Environment variables and add the following **two separate, non-secret,
+Build-scope** variables. Set production to the production context and testing
+to `branch:Integrated-Marketing-Platform` (or `branch-deploy` plus
+`deploy-preview` if the same test IDs should be used for all previews):
+
+- `PUBLIC_LIFF_CONFIG_PRODUCTION` — full seven-ID production JSON
+- `PUBLIC_LIFF_CONFIG_TEST` — full seven-ID testing JSON
+
+Each value must be valid compact JSON with **exactly** these seven keys:
+
+```json
+{
+  "memberLiffId": "1234567890-ExampleA",
+  "pointsLiffId": "1234567890-ExampleB",
+  "adminLiffId": "1234567890-ExampleC",
+  "platformLiffId": "1234567890-ExampleD",
+  "eventLiffId": "1234567890-ExampleE",
+  "calendarLiffId": "1234567890-ExampleF",
+  "bookingLiffId": "1234567890-ExampleG"
+}
+```
+
+Replace the example IDs with actual LIFF app IDs in LINE Developers.
+Changing source `config.json` does **not** update either deployed LIFF
+profile. The verified GitHub Actions release workflows read these same values
+from Netlify using `env:get` before building, and fail on unrecognized provider
+errors. Never store LINE Channel Secrets, Supabase service-role/secret keys,
+Twilio tokens or other credentials in public config or these public LIFF vars.
+
+**Current compatibility note:** the built-in test LIFF fallback still shares
+the original production LIFF IDs; that does not prove LINE sign-in will work
+on both origins. Create separate test LIFF apps and configure the test profile
+and LINE endpoints before claiming end-to-end environment independence.
+The configuration regression checks include poisoned-merge simulation,
+unknown/partial profile rejection and cross-project asset scanning:
+
+```bash
+node --test scripts/branch-environment.test.mjs scripts/preview-member-runtime.test.mjs scripts/load-netlify-liff-profile.test.mjs
+```
+
 ## LINE LIFF configuration
 
 Before declaring real LINE sign-in verified on the new domain, inspect the existing
