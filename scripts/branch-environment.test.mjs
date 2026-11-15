@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {previewMemberRuntime} from './preview-member-runtime.mjs';
 import {blockNativePreview} from './netlify-preview-source.mjs';
-import {cpSync,mkdtempSync,readFileSync,readdirSync,rmSync} from 'node:fs';
+import {cpSync,mkdtempSync,readFileSync,readdirSync,rmSync,writeFileSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
@@ -124,6 +124,17 @@ test('AC-001/002: complete bundles contain only their branch project including r
  const fixture=mkdtempSync(path.join(tmpdir(),'branch-environment-'));
  try {
   for(const name of ['scripts','MemberWebsocket-dev'])cpSync(path.join(repo,name),path.join(fixture,name),{recursive:true,filter:p=>!p.split(path.sep).includes('node_modules')});
+  // Simulate a feature merge that replaces every tracked source environment
+  // setting with the wrong project and a different LIFF app.
+  const templatePath=path.join(fixture,'MemberWebsocket-dev/config.json');
+  const mergedSource=JSON.parse(readFileSync(templatePath,'utf8'));
+  Object.assign(mergedSource,Object.fromEntries(Object.keys(pinnedLiff).map(key=>[key,'1234567890-MergedTest'])),{
+   supabaseUrl:testing,
+   supabaseFunctionUrl:testing+'/functions/v1/api',
+   supabasePublishableKey:'sb_publishable_Dk6cKyJ5ssJRxf7GGTlZug_K_J3GbK-',
+  });
+  writeFileSync(templatePath,JSON.stringify(mergedSource));
+
   for(const [branch,context,ref,forbidden] of [['Integrated-Marketing-Platform','branch-deploy','bmwhojszsnxliekkhrka','dbuquirnaskrwcamdxki'],['master','production','dbuquirnaskrwcamdxki','bmwhojszsnxliekkhrka']]){
    const run=spawnSync(process.execPath,['scripts/build-site.mjs'],{cwd:fixture,encoding:'utf8',env:{...process.env,BRANCH:branch,CONTEXT:context,COMMIT_REF:'b'.repeat(40)}});
    assert.equal(run.status,0,run.stderr);
@@ -131,6 +142,7 @@ test('AC-001/002: complete bundles contain only their branch project including r
    const config=JSON.parse(readFileSync(path.join(output,'config.json'),'utf8'));
    assert.equal(config.supabaseUrl,'https://'+ref+'.supabase.co');
    assert.equal(config.__environmentNotes,undefined,'authoring notes must not leak to Netlify');
+   for(const [key,value] of Object.entries(pinnedLiff))assert.equal(config[key],value,branch+': LIFF overwritten by merged source: '+key);
    assert.equal(readFileSync(path.join(output,'admin/index.html'),'utf8').includes('https://'+ref+'.supabase.co'),true,'receipt CSP uses the same project');
    for(const file of readdirSync(output,{recursive:true}).filter(f=>/\.(html|js|json|css)$/.test(f)))assert.equal(readFileSync(path.join(output,file),'utf8').includes(forbidden),false,branch+': '+file+' leaks another project');
   }
