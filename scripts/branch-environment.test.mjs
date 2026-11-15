@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {previewMemberRuntime} from './preview-member-runtime.mjs';
+import {previewMemberRuntime,buildMemberRuntime} from './preview-member-runtime.mjs';
 import {blockNativePreview} from './netlify-preview-source.mjs';
-import {cpSync,mkdtempSync,readFileSync,readdirSync,rmSync,writeFileSync} from 'node:fs';
+import {cpSync,existsSync,mkdtempSync,readFileSync,readdirSync,rmSync,writeFileSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
@@ -25,24 +25,25 @@ const expectedLiff=branch=>{
  return Object.fromEntries(liffKeys.map(key=>[key,profile[key]]));
 };
 
-test('AC-007: JSON configuration annotates 3 Supabase and 7 LIFF environment-specific fields but publishes no notes',()=>{
+test('AC-007: the outer config.json is deleted and each scoped profile retains 3 Supabase and 7 LIFF annotations',()=>{
  const repo=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
- const source=JSON.parse(readFileSync(path.join(repo,'MemberWebsocket-dev/config.json'),'utf8'));
- const expectedKeys=["supabaseUrl","supabaseFunctionUrl","supabasePublishableKey","memberLiffId","pointsLiffId","adminLiffId","platformLiffId","eventLiffId","calendarLiffId","bookingLiffId"];
- assert.equal(Object.keys(source).length,15,'14 runtime settings plus one authoring-only annotation');
- assert.ok(source.__environmentNotes && typeof source.__environmentNotes === 'object');
- for(const key of expectedKeys){
-  assert.ok(Object.hasOwn(source,key),'runtime setting missing: '+key);
-  assert.equal(typeof source.__environmentNotes[key],'string','missing environment guidance: '+key);
-  assert.ok(source.__environmentNotes[key].length>15,'insufficient annotation: '+key);
- }
+ assert.equal(existsSync(path.join(repo,'MemberWebsocket-dev/config.json')),false,'unused outer config.json must not return');
+ const expectedKeys=['supabaseUrl','supabaseFunctionUrl','supabasePublishableKey',...liffKeys];
  for(const [branch,context,project] of [['master','production','dbuquirnaskrwcamdxki'],['Integrated-Marketing-Platform','branch-deploy','bmwhojszsnxliekkhrka']]){
-  const runtime=previewMemberRuntime(source,{BRANCH:branch,CONTEXT:context});
+  const folder=branch==='master'?'production':'testing';
+  const source=JSON.parse(readFileSync(path.join(repo,'MemberWebsocket-dev/config',folder,'config.json'),'utf8'));
+  assert.equal(Object.keys(source).length,15,'14 runtime settings and one editor annotation');
+  assert.equal(typeof source.__environmentNotes,'object');
+  for(const key of expectedKeys){
+   assert.ok(Object.hasOwn(source,key),'runtime setting missing: '+key);
+  }
+  const runtime=buildMemberRuntime({BRANCH:branch,CONTEXT:context});
   assert.equal(runtime.__environmentNotes,undefined,'authoring notes must not reach published client');
   assert.equal(runtime.supabaseUrl,'https://'+project+'.supabase.co');
   assert.equal(runtime.supabaseFunctionUrl,runtime.supabaseUrl+'/functions/v1/api');
   assert.equal(Object.keys(runtime).length,branch==='master'?14:15);
-  for(const key of expectedKeys.slice(3))assert.equal(runtime[key],environmentProfile(branch)[key],'LIFF must match the environment config for '+branch);
+  const {__environmentNotes,...profile}=source;
+  assert.deepEqual(runtime,branch==='master'?profile:{...profile,pricePublishing:true});
  }
 });
 
@@ -113,16 +114,10 @@ test('AC-001/002: complete bundles contain only their branch project including r
  const fixture=mkdtempSync(path.join(tmpdir(),'branch-environment-'));
  try {
   for(const name of ['scripts','MemberWebsocket-dev'])cpSync(path.join(repo,name),path.join(fixture,name),{recursive:true,filter:p=>!p.split(path.sep).includes('node_modules')});
-  // Simulate a feature merge that replaces every tracked source environment
-  // setting with the wrong project and a different LIFF app.
-  const templatePath=path.join(fixture,'MemberWebsocket-dev/config.json');
-  const mergedSource=JSON.parse(readFileSync(templatePath,'utf8'));
-  Object.assign(mergedSource,Object.fromEntries(liffKeys.map(key=>[key,'1234567890-MergedTest'])),{
-   supabaseUrl:testing,
-   supabaseFunctionUrl:testing+'/functions/v1/api',
-   supabasePublishableKey:'sb_publishable_Dk6cKyJ5ssJRxf7GGTlZug_K_J3GbK-',
-  });
-  writeFileSync(templatePath,JSON.stringify(mergedSource));
+  // A stale legacy file is not allowed to override either scoped config.
+  // It is deliberately created only inside this disposable negative-test fixture.
+  writeFileSync(path.join(fixture,'MemberWebsocket-dev/config.json'),
+    'INVALID legacy JSON that the build must ignore');
 
   for(const [branch,context,ref,forbidden] of [['Integrated-Marketing-Platform','branch-deploy','bmwhojszsnxliekkhrka','dbuquirnaskrwcamdxki'],['master','production','dbuquirnaskrwcamdxki','bmwhojszsnxliekkhrka']]){
    const run=spawnSync(process.execPath,['scripts/build-site.mjs'],{cwd:fixture,encoding:'utf8',env:{...process.env,BRANCH:branch,CONTEXT:context,COMMIT_REF:'b'.repeat(40)}});
