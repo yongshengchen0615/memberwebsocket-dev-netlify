@@ -9,7 +9,6 @@ const html=fs.readFileSync(path.join(root,'platform/index.html'),'utf8');
 const app=fs.readFileSync(path.join(root,'platform/app.js'),'utf8');
 const config={
  platformLiffId:'2012065297-VunxFBj8',
- adminLiffId:'2099999999-SyntheticAdmin',
  supabaseFunctionUrl:'https://example.supabase.co/functions/v1/api',
  supabasePublishableKey:'test-public-key',
 };
@@ -44,11 +43,10 @@ async function until(check){
  }
  throw new Error('Platform initialization did not reach expected UI state');
 }
-async function boot({loggedIn=false,returning=false,apiStatus=403,url='https://platform.test/platform/'}={}){
- const pageHtml=new URL(url).pathname.startsWith('/admin/')?fs.readFileSync(path.join(root,'admin/workspace.html'),'utf8'):html;
- const dom=new JSDOM(pageHtml,{url,runScripts:'outside-only'});
+async function boot({loggedIn=false,returning=false,apiStatus=403}={}){
+ const dom=new JSDOM(html,{url:'https://platform.test/platform/',runScripts:'outside-only'});
  const win=dom.window;
- const calls={init:0,login:0,logout:0,api:0,redirects:[]};
+ const calls={init:0,login:0,logout:0,api:0};
  if(!win.AbortSignal.timeout)win.AbortSignal.timeout=()=>new win.AbortController().signal;
  win.MemberSystem={validateConfig(){}};
  win.liff={
@@ -57,7 +55,7 @@ async function boot({loggedIn=false,returning=false,apiStatus=403,url='https://p
   isInClient:()=>false,
   getIDToken:()=>loggedIn?'synthetic-verified-token':'',
   logout:()=>{calls.logout++;},
-  login:options=>{calls.login++;calls.redirects.push(options?.redirectUri);},
+  login:()=>{calls.login++;},
  };
  if(returning)win.sessionStorage.setItem('platform-line-login-return-v1',String(Date.now()));
  win.fetch=async(url,options)=>{
@@ -72,23 +70,6 @@ async function boot({loggedIn=false,returning=false,apiStatus=403,url='https://p
  };
  win.eval(app);
  return {dom,win,calls};
-}
-
-for(const site of ['https://memberwebsocket-dev-netlify.netlify.app','https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app']){
- for(const route of ['/platform/?feature=membership#overview','/admin/workspace.html?business=merchant-a&feature=points#settings']){
-  for(const loggedIn of [false,true]){
-   const url=site+route;
-   test('AC-ROUTING-002: '+url+' preserves external login destination (existing session: '+loggedIn+')',async()=>{
-    const h=await boot({loggedIn,url});
-    try{
-     await until(()=>h.calls.login===1);
-     assert.deepEqual(h.calls.redirects,[url]);
-     assert.equal(h.calls.api,0,'no privileged access before fresh LINE verification');
-     assert.equal(h.calls.logout,loggedIn?1:0);
-    }finally{h.dom.window.close();}
-   });
-  }
- }
 }
 
 test('AC-UI-001: direct Platform visit starts LINE login without gate or login button',async()=>{

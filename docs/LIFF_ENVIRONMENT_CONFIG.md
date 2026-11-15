@@ -27,6 +27,8 @@
 
 **仍需個別設定：** 當前兩份 JSON 的 pointsLiffId、eventLiffId、calendarLiffId、bookingLiffId 相同。已查核共用 points LIFF 的 Endpoint 指向測試商家。使用這些入口前須建立或選用各環境專用 LIFF，再填入對應 JSON；本次不猜測或建立 LINE ID。
 
+測試總管理員既有 LIFF 的 Endpoint 仍為 `/admin/platform/`，網站會相容導向 `/platform/`。登入保留 SDK 原生 Endpoint 回跳；不要直接指定不在該 Endpoint 路徑下的 redirectUri，否則 LINE 會拒絕。可於 LINE Developers 將此既有 Endpoint 更新為 `/platform/`，但本輪不改寫 LINE 後台設定。
+
 ## 後端 Channel 與身分驗證
 
 `platform-api` 依伺服器的 Supabase 專案 URL，僅從上表固定的所屬 Netlify 網站讀取 `/config/config.json`，並檢查 Supabase URL 和 API URL 均符合本環境。總管理員取 platformLiffId 的 Channel 前綴；一般管理員帳號入口取 adminLiffId。讀取不接受 request body、Origin、轉址或使用者提供的設定網址。
