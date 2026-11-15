@@ -1,0 +1,22 @@
+{
+  "__environmentNotes": {
+    "_用途": "正式 master 專用設定；只編輯這個檔案不會影響 Integrated-Marketing-Platform 測試站。",
+    "_發布": "部署從此目錄讀取完整設定並生成 dist/config.json。合併分支時本檔會隨 Git 一起合併，但另一環境不會讀取本檔。",
+    "_安全": "不可加入 LINE Channel Secret、Supabase secret/service_role、Twilio Token、私人金鑰。Supabase URL 必須維持所屬專案，錯誤則建置拒絕。",
+    "_覆寫": "若 Netlify 另外設定該環境的 PUBLIC_LIFF_CONFIG_*，Netlify LIFF profile 優先；沒有時使用此檔七組 LIFF ID。"
+  },
+  "brandName": "Lumen Club",
+  "supabaseUrl": "https://dbuquirnaskrwcamdxki.supabase.co",
+  "supabaseFunctionUrl": "https://dbuquirnaskrwcamdxki.supabase.co/functions/v1/api",
+  "supabasePublishableKey": "sb_publishable_W492suU5Hb7LJIJ2DmHbZw_KVp9vB4S",
+  "realtimeEnabled": true,
+  "memberLiffId": "2010787602-kaiSm2eq",
+  "pointsLiffId": "2010787602-eIzRN9l6",
+  "adminLiffId": "2010791619-vhevCvvD",
+  "platformLiffId": "2012065297-VunxFBj8",
+  "eventLiffId": "2010787602-tuapstY3",
+  "calendarLiffId": "2010787602-4UKzslco",
+  "bookingLiffId": "2010787602-sgiB0ETj",
+  "productizedAdmin": true,
+  "merchantApprovalVersion": 2
+}
