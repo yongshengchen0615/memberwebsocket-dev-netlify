@@ -1,8 +1,52 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const {fixture,root,manager}=require('./platform-fixture.cjs');
+const fs=require('node:fs'),path=require('node:path');
 const count=async(db,t)=>Number((await db.query('select count(*)::int n from '+t)).rows[0].n);
 const row=async(db,id)=>(await db.query('select line_user_id,display_name,singleton,admin_id,enabled,first_seen_at,last_seen_at from platform_private.super_admins where line_user_id=$1',[id])).rows[0];
+
+test('AC-LOGIN-GRANTS-001: repair missing login column grants without allowing self approval or changing root identity',async()=>{
+ const h=await fixture();try{
+  await h.db.exec('revoke insert(line_user_id,display_name), update(display_name,last_seen_at) on platform_private.super_admins from service_role');
+  const failed=await h.call({action:'platform.bootstrap'});
+  assert.equal(failed.status,503);assert.equal(failed.body.error.code,'PLATFORM_DATABASE_UNAVAILABLE');
+  const repair=path.resolve(__dirname,'../../supabase/migrations/20261115124713_restore_platform_login_column_grants.sql');
+  await h.db.exec(fs.readFileSync(repair,'utf8'));
+  const existing=await h.call({action:'platform.bootstrap'});
+  assert.equal(existing.status,200,'existing approved root must load after the limited column grants are restored');
+  const pending=await h.call({action:'platform.bootstrap'},'manager');
+  assert.equal(pending.status,403);assert.equal(pending.body.error.code,'PLATFORM_ADMIN_REQUIRED');
+  assert.equal((await row(h.db,manager)).enabled,false,'recording a verified visit never approves the user');
+  const original=await row(h.db,root);assert.equal(original.singleton,true);assert.equal(original.enabled,true);assert.ok(original.admin_id);
+  for(const column of ['enabled','admin_id','singleton'])for(const privilege of ['INSERT','UPDATE']){
+   assert.equal((await h.db.query("select has_column_privilege('service_role','platform_private.super_admins',$1,$2) allowed",[column,privilege])).rows[0].allowed,false,column+' '+privilege);
+  }
+  await h.db.exec(fs.readFileSync(repair,'utf8'));
+  assert.equal((await h.call({action:'platform.bootstrap'},'manager')).status,403);
+  assert.equal(await count(h.db,'platform_private.super_admins'),2,'reapplying repair and login do not duplicate identities');
+ }finally{await h.db.close();}
+});
+
+for(const empty of [true,false])test('AC-LOGIN-GRANTS-003: repair '+(empty?'an empty reset table with missing grants':'an already-correct upgraded table')+' without approving any new identity',async()=>{
+ const h=await fixture();try{
+  if(empty){
+   await h.db.exec('delete from platform_private.super_admins');
+   await h.db.exec('revoke insert(line_user_id,display_name), update(display_name,last_seen_at) on platform_private.super_admins from service_role');
+  }
+  const before=await count(h.db,'platform_private.super_admins');
+  assert.equal(before,empty?0:1);
+  const repair=fs.readFileSync(path.resolve(__dirname,'../../supabase/migrations/20261115124713_restore_platform_login_column_grants.sql'),'utf8');
+  await h.db.exec(repair);
+  assert.equal(await count(h.db,'platform_private.super_admins'),before,'GRANT-only migration never inserts identities');
+  const first=await h.call({action:'platform.bootstrap'},'manager');
+  assert.equal(first.status,403);assert.equal(first.body.error.code,'PLATFORM_ADMIN_REQUIRED');
+  assert.equal((await h.call({action:'platform.bootstrap'},'manager')).status,403);
+  assert.equal(await count(h.db,'platform_private.super_admins'),before+1);
+  const pending=await row(h.db,manager);assert.equal(pending.enabled,false);assert.equal(pending.singleton,null);assert.equal(pending.admin_id,null);
+  if(empty)assert.equal((await h.db.query('select count(*)::int n from platform_private.super_admins where enabled')).rows[0].n,0);
+  else assert.equal((await row(h.db,root)).enabled,true);
+ }finally{await h.db.close();}
+});
 
 test('AC-PLAT-201: validated Platform LINE login writes a pending super_admins record and never grants itself',async()=>{
  const h=await fixture();
