@@ -1,5 +1,36 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {fixture,shared,root,manager,key}=require('./platform-fixture.cjs');
+test('AC-ROUTING-009: deployed config channels use real LINE verification, handler and SQL role boundaries',async()=>{
+ const {createDeploymentLineVerifiers}=await shared('platform-auth.mjs');
+ const {createPlatformHandler}=await shared('platform-handler.mjs');
+ for(const [projectUrl,rootChannel,adminChannel]of [
+  ['https://dbuquirnaskrwcamdxki.supabase.co','2011356226','2011356226'],
+  ['https://bmwhojszsnxliekkhrka.supabase.co','2012065297','2010791619'],
+ ]){
+  const h=await fixture();try{
+   const verifiers=createDeploymentLineVerifiers({projectUrl,fetchImpl:async(url,options)=>{
+    if(!url.includes('oauth2'))return Response.json({supabaseUrl:projectUrl,supabaseFunctionUrl:projectUrl+'/functions/v1/api',platformLiffId:rootChannel+'-Root',adminLiffId:adminChannel+'-Admin'});
+    const token=options.body.get('id_token');
+    // Provider claims come from the synthetic token, not the requested channel.
+    const identity=token==='root'?{sub:root,aud:rootChannel}:token==='manager'?{sub:manager,aud:adminChannel}:{sub:root,aud:'2000000000'};
+    return Response.json({...identity,iss:'https://access.line.me',iat:Date.now()/1000-30,exp:Date.now()/1000+300});
+   }});
+   const handler=createPlatformHandler({db:{rpc:h.rpc},encryptionKey:()=>key,allowedOrigins:new Set(['https://allowed.test']),...verifiers});
+   const call=async(action,idToken,extra={})=>{
+    const response=await handler(new Request('https://backend.test',{method:'POST',headers:{Origin:'https://allowed.test'},body:JSON.stringify({action,idToken,...extra})}));
+    return {status:response.status,body:await response.json()};
+   };
+   assert.equal((await call('platform.bootstrap','root')).status,200);
+   assert.equal((await call('platform.application.bootstrap','manager')).status,200);
+   const denied=await call('platform.bootstrap','manager');
+   assert.equal(denied.status,rootChannel===adminChannel?403:401,'shared Channel never grants the manager root permissions');
+   const forged=await call('platform.bootstrap','wrong',{channelId:rootChannel,platformLiffId:rootChannel+'-Root'});
+   assert.equal(forged.status,401,'request parameters cannot choose an audience');
+   assert.equal((await call('platform.bootstrap','')).status,401);
+   assert.equal((await h.db.query('select count(*)::int n from platform_private.tenants')).rows[0].n,0);
+  }finally{await h.db.close();}
+ }
+});
 async function approve(h,features=h.tenant.features){
  const app=await h.call({action:'platform.application.submit',businessName:'商家 A',slug:'merchant-a'},'manager');
  assert.equal(app.status,200,JSON.stringify(app));

@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.57.0';
-import { verifyPlatformIdToken, verifyMerchantAdminIdToken } from '../_shared/platform-auth.mjs';
+import { createDeploymentLineVerifiers } from '../_shared/platform-auth.mjs';
 import { createPlatformHandler } from '../_shared/platform-handler.mjs';
 import { resolvePlatformEncryptionKey } from '../_shared/platform-key.mjs';
 
@@ -13,11 +13,12 @@ const allowedOrigins = new Set([
   ...env('ALLOWED_ORIGINS').split(',').map(x => x.trim()).filter(Boolean),
 ]);
 const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), {auth:{persistSession:false,autoRefreshToken:false}});
+const lineVerifiers = createDeploymentLineVerifiers({projectUrl:env('SUPABASE_PUBLIC_URL') || env('SUPABASE_URL')});
 export const handler = createPlatformHandler({
   db, allowedOrigins, publicSupabaseUrl:env('SUPABASE_PUBLIC_URL') || env('SUPABASE_URL'),
   encryptionKey:() => resolvePlatformEncryptionKey({configuredKey:env('PLATFORM_CREDENTIAL_ENCRYPTION_KEY'),db}),
-  verifyIdentity:(idToken: string) => verifyPlatformIdToken({idToken}),
-  verifyApplicantIdentity:(idToken: string, channelId?: string) => verifyMerchantAdminIdToken({idToken}, channelId),
+  verifyIdentity:lineVerifiers.verifyIdentity,
+  verifyApplicantIdentity:lineVerifiers.verifyApplicantIdentity,
   verifiedMemberOaBindingsJson:env('MEMBER_OA_VERIFIED_LINKS_JSON'),
 });
 Deno.serve(handler);
