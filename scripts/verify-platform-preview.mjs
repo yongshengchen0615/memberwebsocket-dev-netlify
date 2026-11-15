@@ -50,10 +50,12 @@ export async function verifyPlatformPreview({
     }
     if (file === 'config.json') {
       const config = JSON.parse(body);
-      const configuredProfile = process.env.PUBLIC_LIFF_CONFIG_TEST;
-      const expectedPlatformLiff = configuredProfile
-        ? JSON.parse(configuredProfile).platformLiffId : '2012065297-VunxFBj8';
-      if (config.platformLiffId !== expectedPlatformLiff) throw new Error('config.json: incorrect platform LIFF identity');
+      const testingProfile = JSON.parse(await readFile(new URL('../MemberWebsocket-dev/config/testing/config.json', import.meta.url), 'utf8'));
+      const liffKeys = ['memberLiffId', 'pointsLiffId', 'adminLiffId', 'platformLiffId',
+        'eventLiffId', 'calendarLiffId', 'bookingLiffId'];
+      for (const key of liffKeys) {
+        if (config[key] !== testingProfile[key]) throw new Error('config.json: incorrect testing LIFF identity: ' + key);
+      }
       if (memberRuntimeRequired) {
         const expectedApis = ['api', 'member-profile-api', 'member-growth-api']
           .map(name => new URL('/functions/v1/' + name, new URL(api).origin).href);
