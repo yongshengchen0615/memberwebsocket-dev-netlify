@@ -127,7 +127,13 @@
       let body;
       try { body=await response.json(); } catch { throw uncertainError(); }
       if (!response.ok || !body.ok) {
-        if (response.status>=500 && ['PLATFORM_DATABASE_UNAVAILABLE','PLATFORM_UNAVAILABLE'].includes(body.error?.code)) throw uncertainError();
+        // An Edge gateway failure during a review may occur after the server
+        // committed the mutation. Keep the same requestId for an explicit retry;
+        // never silently issue a second review with a new requestId.
+        if (response.status>=500 && (
+          ['platform.qualification.review','platform.merchant.review'].includes(action)
+          || ['PLATFORM_DATABASE_UNAVAILABLE','PLATFORM_UNAVAILABLE'].includes(body.error?.code)
+        )) throw uncertainError();
         if(response.status===403 && body.error?.code==='PLATFORM_ADMIN_REQUIRED'&&!merchantEntry)showAuthorizationDenied();
         if(isV2()&&merchantEntry&&[403,404].includes(response.status)){
           clearPrivateMerchant();clearAccount();
