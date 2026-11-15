@@ -11,6 +11,15 @@ import {fileURLToPath} from 'node:url';
 const production='https://dbuquirnaskrwcamdxki.supabase.co';
 const testing='https://bmwhojszsnxliekkhrka.supabase.co';
 const original={supabaseUrl:production,supabaseFunctionUrl:production+'/functions/v1/api',supabasePublishableKey:'sb_publishable_W492suU5Hb7LJIJ2DmHbZw_KVp9vB4S',memberLiffId:'synthetic'};
+const pinnedLiff={
+ memberLiffId:'2010787602-kaiSm2eq',
+ pointsLiffId:'2010787602-eIzRN9l6',
+ adminLiffId:'2010791619-vhevCvvD',
+ platformLiffId:'2012065297-VunxFBj8',
+ eventLiffId:'2010787602-tuapstY3',
+ calendarLiffId:'2010787602-4UKzslco',
+ bookingLiffId:'2010787602-sgiB0ETj',
+};
 
 test('AC-007: JSON configuration annotates 3 Supabase and 7 LIFF environment-specific fields but publishes no notes',()=>{
  const repo=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -40,7 +49,7 @@ test('AC-001: Integrated build connects all canonical APIs and Realtime to the t
  assert.equal(actual.supabaseGrantAutomationUrl,undefined);
  assert.equal(actual.memberCalendarFunctionUrl,undefined);
  assert.equal(actual.supabasePublishableKey,'sb_publishable_Dk6cKyJ5ssJRxf7GGTlZug_K_J3GbK-');
- assert.equal(actual.memberLiffId,'synthetic');
+ assert.deepEqual(Object.fromEntries(Object.keys(pinnedLiff).map(key=>[key,actual[key]])),pinnedLiff);
  assert.equal(JSON.stringify(actual).includes('dbuquirnaskrwcamdxki'),false);
  assert.equal(original.supabaseUrl,production);
 });
@@ -73,6 +82,41 @@ test('PR previews use the testing project and unexpected native production build
 test('AC-006: native master builds are blocked while CI can build the release',()=>{
  assert.equal(blockNativePreview({NETLIFY:'true',BRANCH:'master',CONTEXT:'production'}),true);
  assert.equal(blockNativePreview({BRANCH:'master',GITHUB_ACTIONS:'true'}),false);
+});
+
+
+test('AC-008: merging a poisoned test config cannot overwrite production or testing LIFF identity',()=>{
+ const poisoned={...original,...Object.fromEntries(Object.keys(pinnedLiff).map(key=>[key,'1234567890-MergedTest']))};
+ for(const [branch,context] of [['master','production'],['Integrated-Marketing-Platform','branch-deploy']]){
+  const actual=previewMemberRuntime(poisoned,{BRANCH:branch,CONTEXT:context});
+  for(const [key,value] of Object.entries(pinnedLiff))assert.equal(actual[key],value,branch+': '+key);
+  assert.equal(JSON.stringify(actual).includes('MergedTest'),false);
+ }
+});
+
+test('AC-009: independent Netlify LIFF profiles override all seven source values without cross-contamination',()=>{
+ const makeProfile=(prefix)=>Object.fromEntries(Object.keys(pinnedLiff).map((key,index)=>[key,'1234567890-'+prefix+String(index)]));
+ const productionProfile=makeProfile('Production');
+ const testProfile=makeProfile('Testing');
+ const env={PUBLIC_LIFF_CONFIG_PRODUCTION:JSON.stringify(productionProfile),PUBLIC_LIFF_CONFIG_TEST:JSON.stringify(testProfile)};
+ const poisoned={...original,...makeProfile('Merged')};
+ const prod=previewMemberRuntime(poisoned,{...env,BRANCH:'master',CONTEXT:'production'});
+ const testRuntime=previewMemberRuntime(poisoned,{...env,BRANCH:'Integrated-Marketing-Platform',CONTEXT:'branch-deploy'});
+ for(const key of Object.keys(pinnedLiff)){
+  assert.equal(prod[key],productionProfile[key]);
+  assert.equal(testRuntime[key],testProfile[key]);
+  assert.notEqual(prod[key],testRuntime[key]);
+ }
+ assert.equal(prod.supabaseUrl,production);
+ assert.equal(testRuntime.supabaseUrl,testing);
+});
+
+test('AC-010: invalid or partial site profiles fail closed before publishing',()=>{
+ const baseline={...original,BRANCH:'master'};
+ for(const value of ['', 'not json', '{}', '[]', JSON.stringify({...pinnedLiff,memberLiffId:'sb_secret_not_a_liff'}), JSON.stringify({...pinnedLiff,unknown:'extra'})]){
+  assert.throws(()=>previewMemberRuntime(baseline,{BRANCH:'master',CONTEXT:'production',PUBLIC_LIFF_CONFIG_PRODUCTION:value}),/Invalid PUBLIC_LIFF_CONFIG_PRODUCTION/);
+  assert.throws(()=>previewMemberRuntime(baseline,{BRANCH:'Integrated-Marketing-Platform',CONTEXT:'branch-deploy',PUBLIC_LIFF_CONFIG_TEST:value}),/Invalid PUBLIC_LIFF_CONFIG_TEST/);
+ }
 });
 
 test('AC-001/002: complete bundles contain only their branch project including receipt image CSP',()=>{
