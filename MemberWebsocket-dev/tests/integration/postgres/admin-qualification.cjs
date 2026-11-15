@@ -29,6 +29,27 @@ async function setup(){
 const submit='select public.platform_submit_admin_qualification($1,$2,$3) result';
 const review='select public.platform_review_admin_qualification($1,$2,$3,$4,$5,$6) result';
 
+test('PostgreSQL 17 LOGIN-GRANTS-002: drift repair permits concurrent pending registration while root approval columns remain denied',async()=>{
+ const h=await setup();try{
+  await h.db.exec('revoke insert(line_user_id,display_name), update(display_name,last_seen_at) on platform_private.super_admins from service_role');
+  const register='select public.platform_record_access_request($1,$2) result';
+  await assert.rejects(h.first.query(register,[root,'Synthetic root']),/permission denied/);
+  const repair=fs.readFileSync(path.resolve(__dirname,'../../../supabase/migrations/20261115124713_restore_platform_login_column_grants.sql'),'utf8');
+  await h.db.exec(repair);await h.db.exec(repair);
+  assert.equal((await h.first.query(register,[root,'Synthetic root'])).rows[0].result.enabled,true);
+  await h.first.query('begin');await h.first.query(register,[manager,'Synthetic pending']);
+  const repeated=h.second.query(register,[manager,'Synthetic pending']);repeated.catch(()=>{});
+  await h.blocked();await h.first.query('commit');assert.equal((await repeated).rows[0].result.enabled,false);
+  assert.equal((await h.db.query('select count(*)::int n from platform_private.super_admins where line_user_id=$1',[manager])).rows[0].n,1);
+  for(const column of ['enabled','admin_id','singleton'])for(const privilege of ['INSERT','UPDATE']){
+   assert.equal((await h.db.query("select has_column_privilege('service_role','platform_private.super_admins',$1,$2) allowed",[column,privilege])).rows[0].allowed,false);
+  }
+  await assert.rejects(h.first.query('update platform_private.super_admins set enabled=true where line_user_id=$1',[manager]),/permission denied/);
+  assert.equal((await h.db.query('select enabled from platform_private.super_admins where line_user_id=$1',[manager])).rows[0].enabled,false);
+  assert.equal((await h.db.query('select enabled from platform_private.super_admins where line_user_id=$1',[root])).rows[0].enabled,true);
+ }finally{await h.db.close();}
+});
+
 test('PostgreSQL 17 Q010: simultaneous explicit submissions create one pending qualification and one audit',async()=>{
  const h=await setup();try{
   await h.first.query('begin');const q=(await h.first.query(submit,[manager,'合成管理員',crypto.randomUUID()])).rows[0].result;
