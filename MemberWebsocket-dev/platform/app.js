@@ -1077,7 +1077,7 @@
   window.addEventListener('pageshow',event=>{if(event.persisted&&merchantEntry){showLoginGate('正在重新確認 LINE 身分…');void start();}});
   async function start() {
     try {
-      const response=await fetch('../config.json',{cache:'no-cache',signal:AbortSignal.timeout(15000)});
+      const response=await fetch('../config/config.json',{cache:'no-cache',signal:AbortSignal.timeout(15000)});
       if(!response.ok)throw new Error('無法讀取平台公開設定。');
       state.config=await response.json();
       if(isV2()&&merchantEntry&&selectedBusiness){
@@ -1086,8 +1086,8 @@
       }
       if(isV2()&&merchantEntry){const subtitle=document.querySelector('header.topbar p:last-child');if(subtitle)subtitle.textContent=selectedBusiness?'此頁設定所選商家的 LINE。返回我的商家可切換其他商家。':'先完成管理員資格，再獨立申請商家。選擇商家後可管理內容或設定 LINE。';}
       const platformLiffId=String((merchantEntry?state.config.adminLiffId:state.config.platformLiffId) || '').trim();
-      const merchantLiffPattern=isV2()&&selectedBusiness?/^\d{5,30}-[A-Za-z0-9_-]+$/:/^2010791619-[A-Za-z0-9]+$/;
-      if(!(merchantEntry?merchantLiffPattern:/^2012065297-[A-Za-z0-9]+$/).test(platformLiffId))throw new Error(merchantEntry?'尚未正確設定一般管理員 LIFF ID。':'尚未正確設定總管理員專用 LIFF ID。');
+      const merchantLiffPattern=isV2()&&selectedBusiness?/^\d{5,30}-[A-Za-z0-9_-]+$/:/^\d{10}-[A-Za-z0-9_-]+$/;
+      if(!(merchantEntry?merchantLiffPattern:/^\d{10}-[A-Za-z0-9_-]+$/).test(platformLiffId))throw new Error(merchantEntry?'尚未正確設定一般管理員 LIFF ID。':'尚未正確設定總管理員專用 LIFF ID。');
       window.MemberSystem.validateConfig({...state.config,adminLiffId:platformLiffId},'admin');
       if(!window.liff)throw new Error('LIFF SDK 載入失敗，請確認網路後重試。');
       let initTimer;

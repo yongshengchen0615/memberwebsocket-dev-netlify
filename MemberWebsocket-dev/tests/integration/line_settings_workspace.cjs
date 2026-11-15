@@ -8,7 +8,7 @@ async function mount(h,tenant){
  w.MemberSystem={validateConfig(){}};w.liff={init:async()=>{},isLoggedIn:()=>true,isInClient:()=>true,getIDToken:()=>'manager'};
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
  w.fetch=async(url,options)=>{
-  if(String(url).includes('config.json'))return Response.json({...JSON.parse(fs.readFileSync(path.join(root,'config.json'),'utf8')),merchantApprovalVersion:2,supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api'});
+  if(String(url).includes('config.json'))return Response.json({...JSON.parse(fs.readFileSync(path.join(root,'config/production/config.json'),'utf8')),merchantApprovalVersion:2,supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api'});
   const input=JSON.parse(options.body);calls.push(input);return h.handler(new Request(String(url),{...options,headers:{...options.headers,Origin:'https://allowed.test'}}));
  };
  w.addEventListener('error',e=>errors.push(e.message));w.eval(fs.readFileSync(path.join(root,'business-context.js'),'utf8'));

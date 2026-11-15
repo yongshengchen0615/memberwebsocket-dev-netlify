@@ -18,7 +18,7 @@ async function fixture(t, mutate = () => {}) {
   for (const [url, file] of [...previewPages, ...previewAssets]) {
     const body = file.endsWith('.html')
       ? `<html><small id="site-build-version" data-commit="${commit.slice(0, 7)}">v261021.000000-abcdef</small></html>`
-      : file === 'config.json' ? JSON.stringify({ ...testingConfig, pricePublishing: true }) : `asset:${file}`;
+      : (file === 'config.json' || file === 'config/config.json') ? JSON.stringify({ ...testingConfig, pricePublishing: true }) : `asset:${file}`;
     await mkdir(path.dirname(path.join(dist, file)), { recursive: true });
     await writeFile(path.join(dist, file), body);
     files.set(url, body);

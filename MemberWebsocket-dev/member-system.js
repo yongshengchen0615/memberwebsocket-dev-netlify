@@ -111,7 +111,7 @@
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
         // Same-origin absolute path is stable for LIFF callback URLs and /admin/ routes.
-        const result = await fetchWithTimeout('/config.json', { cache: 'no-store' }, READ_TIMEOUT_MS, (response) => response.text());
+        const result = await fetchWithTimeout('/config/config.json', { cache: 'no-store' }, READ_TIMEOUT_MS, (response) => response.text());
         if (!result.response.ok) throw clientError('CONFIG_ERROR', '讀取 config.json 失敗。');
         config = JSON.parse(result.body);
         if (!config || typeof config !== 'object' || Array.isArray(config)) throw clientError('CONFIG_ERROR', 'config.json 格式不正確。');

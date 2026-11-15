@@ -59,6 +59,18 @@ function loadDeploymentProfile(project) {
   return profile;
 }
 
+// Release builds read only environment-scoped files under config/. The
+// legacy MemberWebsocket-dev/config.json is never a build input, including
+// local development and CI builds. Native Netlify previews use testing.
+export function buildMemberRuntime(env) {
+  const branch = env.BRANCH || env.PREVIEW_SOURCE_BRANCH || env.GITHUB_REF_NAME;
+  const isReviewBuild = env.NETLIFY === 'true'
+    && ['branch-deploy', 'deploy-preview'].includes(env.CONTEXT);
+  const profile = branch === 'Integrated-Marketing-Platform' || isReviewBuild && branch !== 'master'
+    ? projects['Integrated-Marketing-Platform'] : projects.master;
+  return previewMemberRuntime(loadDeploymentProfile(profile), env);
+}
+
 export function previewMemberRuntime(config, env) {
   const { __environmentNotes, previewApiFunctionUrl, memberProfileFunctionUrl,
     memberGrowthFunctionUrl, bookingPreviewApis, ...canonical } = config;

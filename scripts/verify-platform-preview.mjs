@@ -13,6 +13,7 @@ export const previewPages = [
 ];
 export const previewAssets = [
   ['/platform/app.js', 'platform/app.js'], ['/config.json', 'config.json'],
+  ['/config/config.json', 'config/config.json'],
   ['/booking/calendar-flow.js', 'booking/calendar-flow.js'],
   ['/booking/member-ui.js', 'booking/member-ui.js'], ['/version-badge.css', 'version-badge.css'],
   ['/admin/business-line-settings.js', 'admin/business-line-settings.js'],
@@ -48,8 +49,12 @@ export async function verifyPlatformPreview({
     if (file === 'platform/app.js' && /platformLogin(?:Gate|Button)/.test(body.toString())) {
       throw new Error('platform/app.js: retired LINE login gate handlers must not be published');
     }
-    if (file === 'config.json') {
+    if (file === 'config.json' || file === 'config/config.json') {
       const config = JSON.parse(body);
+      if (file === 'config/config.json') {
+        const legacy = await readFile(path.join(dist, 'config.json'), 'utf8');
+        if (legacy !== body.toString('utf8')) throw new Error('config/config.json: root compatibility alias mismatch');
+      }
       const testingProfile = JSON.parse(await readFile(new URL('../MemberWebsocket-dev/config/testing/config.json', import.meta.url), 'utf8'));
       const liffKeys = ['memberLiffId', 'pointsLiffId', 'adminLiffId', 'platformLiffId',
         'eventLiffId', 'calendarLiffId', 'bookingLiffId'];

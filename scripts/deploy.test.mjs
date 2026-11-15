@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { buildDate, formatBuildVersion } from './build-version.mjs';
-import { previewMemberRuntime } from './preview-member-runtime.mjs';
+import { buildMemberRuntime } from './preview-member-runtime.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 execFileSync(process.execPath, ['scripts/build-site.mjs'], { cwd: root });
@@ -44,7 +44,7 @@ test('platform is a sibling of admin in the build output', () => {
   const html = fs.readFileSync(path.join(output, 'platform/index.html'), 'utf8');
   const app = fs.readFileSync(path.join(output, 'platform/app.js'), 'utf8');
   assert.match(html, /src="\.\.\/member-system\.js"/);
-  assert.match(app, /fetch\('\.\.\/config\.json'/);
+  assert.match(app, /fetch\('\.\.\/config\/config\.json'/);
 });
 
 test('retired admin test center assets are not published to Netlify', () => {
@@ -61,12 +61,18 @@ test('server source, migrations, tests and local deployment state are not publis
 });
 
 test('frontend backend settings are copied without changing identity or project', () => {
-  const source = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/config.json')));
+  const expected = buildMemberRuntime(process.env);
+  const selectedEnvironment = (process.env.BRANCH || process.env.GITHUB_REF_NAME) === 'Integrated-Marketing-Platform'
+    || (process.env.NETLIFY === 'true' && ['branch-deploy','deploy-preview'].includes(process.env.CONTEXT))
+    ? 'testing' : 'production';
+  const source = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/config', selectedEnvironment, 'config.json')));
   assert.ok(source.__environmentNotes && typeof source.__environmentNotes === 'object',
-    'editable config must explain environment-specific fields');
-  const expected = previewMemberRuntime(source, process.env);
+    'selected environment config must explain its origin');
   const published = JSON.parse(fs.readFileSync(path.join(output, 'config.json')));
   assert.deepEqual(published, expected);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(output, 'config/config.json'), 'utf8')), expected);
+  assert.equal(fs.existsSync(path.join(output, 'config/production/config.json')), false);
+  assert.equal(fs.existsSync(path.join(output, 'config/testing/config.json')), false);
   assert.equal(published.__environmentNotes, undefined, 'GitHub editor guidance must not be published');
   assert.equal(published.supabaseGrantAutomationUrl, undefined);
   assert.equal(published.memberCalendarFunctionUrl, undefined);
@@ -138,7 +144,10 @@ test('retired client-side QA resources are absent from the actual deploy bundle'
 });
 
 test('the five retired Supabase functions reject requests before authentication or parsing', async () => {
-  const config = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/config.json'), 'utf8'));
+  // This external regression contract was always against the production
+  // Supabase project, regardless of which static site branch CI is building.
+  // Read that exact environment file from config/, never the legacy outer JSON.
+  const config = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/config/production/config.json'), 'utf8'));
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/supabase/retirement/retired-endpoints.json'), 'utf8'));
   assert.equal(manifest.retiredFunctions.length, 5);
   for (const name of manifest.retiredFunctions) {
