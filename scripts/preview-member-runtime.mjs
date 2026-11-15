@@ -73,14 +73,6 @@ export function previewMemberRuntime(config, env) {
   // Local/unknown builds keep existing source-config semantics.
   if (!project) return canonical;
   const selected = loadDeploymentProfile(project);
-  const profileKey = project === projects.master
-    ? 'PUBLIC_LIFF_CONFIG_PRODUCTION' : 'PUBLIC_LIFF_CONFIG_TEST';
-  if (env[profileKey] !== undefined) {
-    let profile;
-    try { profile = JSON.parse(env[profileKey]); }
-    catch { throw new Error('Invalid ' + profileKey + ': expected valid JSON'); }
-    Object.assign(selected, validateLiffProfile(profile, profileKey));
-  }
   return branch === 'Integrated-Marketing-Platform'
     ? { ...selected, pricePublishing: true } : selected;
 }
