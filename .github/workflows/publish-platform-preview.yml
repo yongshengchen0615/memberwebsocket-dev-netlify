@@ -104,7 +104,14 @@ jobs:
           node scripts/build-site.mjs
           test -f dist/platform/index.html
           test ! -e dist/admin/platform/index.html
-          grep -Fq '2012065297-VunxFBj8' dist/config.json
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const expected = JSON.parse(readFileSync("MemberWebsocket-dev/config/testing/config.json", "utf8"));
+            const actual = JSON.parse(readFileSync("dist/config.json", "utf8"));
+            for (const key of ["memberLiffId","pointsLiffId","adminLiffId","platformLiffId","eventLiffId","calendarLiffId","bookingLiffId"]) {
+              if (actual[key] !== expected[key]) throw new Error("Testing config.json mismatch: " + key);
+            }
+          '
           python3 - <<'PY'
           import os, pathlib, tomllib
           config = tomllib.loads(pathlib.Path('netlify.toml').read_text())

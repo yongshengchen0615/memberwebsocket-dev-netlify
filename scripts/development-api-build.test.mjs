@@ -15,7 +15,7 @@ for (const name of ['build-site.mjs', 'build-version.mjs', 'preview-member-runti
 fs.cpSync(path.join(root, 'MemberWebsocket-dev'), path.join(fixture, 'MemberWebsocket-dev'), {
   recursive: true, filter: file => !file.split(path.sep).includes('node_modules'),
 });
-const sourceConfig = path.join(fixture, 'MemberWebsocket-dev/config.json');
+const sourceConfig = path.join(fixture, 'MemberWebsocket-dev/config/production/config.json');
 const config = JSON.parse(fs.readFileSync(sourceConfig, 'utf8'));
 const extra = path.join(fixture, 'MemberWebsocket-dev/member/obsolete-api.js');
 after(() => fs.rmSync(fixture, { recursive: true, force: true }));
@@ -53,7 +53,7 @@ test('AC-005: runtime config cannot publish a preview or retired API URL', () =>
     fs.writeFileSync(sourceConfig, JSON.stringify({ ...config, supabaseFunctionUrl: config.supabaseUrl + '/functions/v1/' + name }));
     const result = build();
     assert.notEqual(result.status, 0, name);
-    assert.match(result.stderr, /Retired API routing in runtime config: supabaseFunctionUrl/);
+    assert.match(result.stderr, /Cross-environment Supabase URL in production deployment config/);
   }
   } finally { fs.writeFileSync(sourceConfig, JSON.stringify(config)); }
 });
