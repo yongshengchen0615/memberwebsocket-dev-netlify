@@ -53,7 +53,10 @@ test('client-visible admin authorization errors do not echo LINE identity PII', 
 
 test('member-card removal revokes the member LINE channel, never a separately verified active admin session', () => {
   const source = read('supabase/functions/_shared/auth-contract.ts');
-  const adminGuard = source.indexOf('const canBypassUserRestrictions = isActiveAdmin && expectedChannelId === adminChannelId;');
+  const adminGuard = source.indexOf('const canBypassUserRestrictions = isActiveAdmin && (');
+  assert.match(source, /isAdminLogin === undefined \? expectedChannelId === adminChannelId : isAdminLogin === true/);
+  const apiSource = read('supabase/functions/api/index.ts');
+  assert.match(apiSource, /isAdminLogin: clientType === "admin"/, 'member actions must not bypass member revocation');
   const removedMemberGuard = source.indexOf('if (!canBypassUserRestrictions && removalResult.data &&');
   assert.ok(adminGuard >= 0 && removedMemberGuard > adminGuard, 'admin-channel and active-role check must precede member removal revocation');
   assert.match(source, /const isActiveAdmin = adminResult\.data\?\.role === "admin" && adminResult\.data\?\.status === "active";/);

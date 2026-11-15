@@ -3,7 +3,7 @@ import { assertBusinessAction,assertBusinessRpc,businessResponse,actionFeatures,
 import { openCredentials } from './platform-crypto.mjs';
 import { resolvePlatformEncryptionKey } from './platform-key.mjs';
 import { tenantExpired, assertTenantIdentity } from './tenant-access.mjs';
-import { verifyMerchantAdminIdToken } from './platform-auth.mjs';
+import { verifyMerchantAdminIdToken, createDeploymentLineVerifiers } from './platform-auth.mjs';
 import { merchantOnboarding, featureLineReady } from './merchant-onboarding.mjs';
 import { wakeBookingNotifications } from './booking-notification-wake.mjs';
 import { notificationToken } from './notification-routes.mjs';
@@ -13,6 +13,15 @@ export type { SupabaseClient } from 'npm:@supabase/supabase-js@2.57.0';
 type Context=Record<string,any>;
 import { scope, rawEnv, businessContext, businessEnv, businessFetch } from './business-scope.ts';
 export { businessContext, businessEnv, businessFetch } from './business-scope.ts';
+// Resolve only on authenticated admin traffic; unit tests and disabled
+// administration paths must never need env permissions just to import runtime.
+let deployedAdminChannels: ReturnType<typeof createDeploymentLineVerifiers> | null = null;
+export const deploymentAdminChannelId = () => {
+ if (!deployedAdminChannels) deployedAdminChannels = createDeploymentLineVerifiers({
+  projectUrl:rawEnv('SUPABASE_PUBLIC_URL') || rawEnv('SUPABASE_URL'),
+ });
+ return deployedAdminChannels.adminChannelId();
+};
 const control=()=>baseClient(rawEnv('SUPABASE_URL'),rawEnv('SUPABASE_SERVICE_ROLE_KEY'),{auth:{persistSession:false,autoRefreshToken:false}});
 const relative=(path:unknown,c:Context)=>{
  const p=String(path||'');if(!p||p.startsWith('/')||p.split('/').some(x=>x==='..'||x==='.')||p.includes('\\'))throw Error('INVALID_STORAGE_PATH');
@@ -120,7 +129,12 @@ async function assertBusinessAdmin(c:Context,body:any){
  // Resolve the trusted admin channel without loading any merchant credentials.
  // This is the same readiness rule credentials() uses for downstream handlers.
  c.adminCustomLineReady=Boolean(c.line_config?.adminLiffId?.startsWith(c.line_config?.adminChannelId+'-'));
- const identity=await scope.run(c,()=>verifyMerchantAdminIdToken({idToken:body.idToken},businessEnv('LINE_ADMIN_CHANNEL_ID')));
+ const adminChannel=c.adminCustomLineReady
+  ? scope.run(c,()=>businessEnv('LINE_ADMIN_CHANNEL_ID'))
+  : await deploymentAdminChannelId();
+ // Tenant audiences come from trusted DB scope; default audiences from this environment's pinned LIFF.
+ if (!/^\d{5,30}$/.test(adminChannel || '')) throw Object.assign(Error('無法確認管理員 LINE 設定。'),{status:503,code:'LINE_CONFIG_UNAVAILABLE'});
+ const identity=await scope.run(c,()=>verifyMerchantAdminIdToken({idToken:body.idToken},adminChannel));
  if(identity.lineUserId!==c.owner_line_user_id)throw Object.assign(Error('你沒有此商家的管理權限。'),{code:'BUSINESS_ADMIN_REQUIRED',status:403});
  assertTenantIdentity(c,identity);
  c.verifiedAdmin={actor:identity.lineUserId,issuedAt:new Date(identity.issuedAtMs).toISOString()};

@@ -14,8 +14,13 @@ type Fixture={context:any;issued:number;verifiedSub:string;verifiedAudience?:str
 async function transport(run:(f:Fixture)=>Promise<void>){
  const oldEnv=Deno.env.get,oldFetch=globalThis.fetch;
  const f:Fixture={context:structuredClone(tenant),issued:now-10,verifiedSub:owner,verifyStatus:200,rpcStatus:200,current:true,calls:[]};
- Deno.env.get=(key:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'synthetic-service'} as Record<string,string>)[key];
+ Deno.env.get=(key:string)=>({SUPABASE_URL:'https://runtime-fixture.supabase.co',SUPABASE_PUBLIC_URL:'https://bmwhojszsnxliekkhrka.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'synthetic-service'} as Record<string,string>)[key];
  globalThis.fetch=(async(input:RequestInfo|URL,init?:RequestInit)=>{
+  // Exercise the real server-pinned config resolver without a network call.
+  // The synthetic environment is this test project's LIFF, not caller input.
+  const pinnedUrl=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url);
+  if(pinnedUrl.href==='https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app/config/config.json')
+   return Response.json({supabaseUrl:'https://bmwhojszsnxliekkhrka.supabase.co',supabaseFunctionUrl:'https://bmwhojszsnxliekkhrka.supabase.co/functions/v1/api',adminLiffId:'2010791619-TestAdmin',platformLiffId:'2012065297-TestRoot'});
   const url=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url);
   const body=init?.body instanceof URLSearchParams?Object.fromEntries(init.body):typeof init?.body==='string'?JSON.parse(init.body):{};
   f.calls.push({path:url.pathname,body,headers:new Headers(init?.headers)});

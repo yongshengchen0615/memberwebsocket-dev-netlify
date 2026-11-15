@@ -10,8 +10,10 @@ export async function verifyLineIdTokenContract(args: {
   expectedChannelId: string;
   createError: ErrorFactory;
   allowLoginClaim?: boolean;
+  // Set by server-side action dispatch, never copied from the caller's body.
+  isAdminLogin?: boolean;
 }): Promise<ContractIdentity> {
-  const { idToken, expectedChannelId, createError, allowLoginClaim = false } = args;
+  const { idToken, expectedChannelId, createError, allowLoginClaim = false, isAdminLogin } = args;
   if (typeof idToken !== "string" || !idToken || idToken.length > 10_000) throw createError(401, "AUTH_REQUIRED", "請先使用 LINE 登入。");
 
   let response: Response;
@@ -76,7 +78,11 @@ export async function verifyLineIdTokenContract(args: {
 
   const isActiveAdmin = adminResult.data?.role === "admin" && adminResult.data?.status === "active";
   const adminChannelId = (businessEnv("LINE_ADMIN_CHANNEL_ID") || "2010791619").trim();
-  const canBypassUserRestrictions = isActiveAdmin && expectedChannelId === adminChannelId;
+  // Only verified, server-routed admin actions bypass member-only revocations.
+  // Callers without an explicit role flag keep the historical channel check.
+  const canBypassUserRestrictions = isActiveAdmin && (
+    isAdminLogin === undefined ? expectedChannelId === adminChannelId : isAdminLogin === true
+  );
   // A completed or pending member-card removal revokes only the member channel.
   // An active admin verified through the separately configured admin LINE channel
   // retains management access, including recovery after partial Storage cleanup.
