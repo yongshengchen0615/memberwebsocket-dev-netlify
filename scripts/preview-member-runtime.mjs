@@ -32,7 +32,7 @@ function resolveLiffProfile(profileKey, env) {
   if (!profile || typeof profile !== 'object' || Array.isArray(profile)
     || Object.keys(profile).length !== liffFields.length
     || Object.keys(profile).some(key => !liffFields.includes(key))
-    || liffFields.some(key => !/^\\d{10}-[A-Za-z0-9]+$/.test(profile[key] || ''))) {
+    || liffFields.some(key => !/^\d{10}-[A-Za-z0-9]+$/.test(profile[key] || ''))) {
     throw new Error(`Invalid ${profileKey}: expected exactly seven LIFF IDs`);
   }
   return profile;
