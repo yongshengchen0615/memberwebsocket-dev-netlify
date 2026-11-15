@@ -28,7 +28,7 @@ test('AC-401-002: cross-project and malformed config fail closed before authoriz
 test('AC-401-003: default and tenant admin routes remain distinct and verified server-side',()=>{
  const business=read('supabase/functions/_shared/business-runtime.ts');
  const api=read('supabase/functions/api/index.ts'),contract=read('supabase/functions/_shared/auth-contract.ts');
- assert.match(business,/c\.adminCustomLineReady\s*\? businessEnv\('LINE_ADMIN_CHANNEL_ID'\)\s*: await deploymentAdminChannelId\(\)/);
+ assert.match(business,/c\.adminCustomLineReady\s*\? scope\.run\(c,\(\)=>businessEnv\('LINE_ADMIN_CHANNEL_ID'\)\)\s*: await deploymentAdminChannelId\(\)/);
  assert.match(business,/verifyMerchantAdminIdToken\(\{idToken:body\.idToken\},adminChannel\)/);
  assert.match(api,/clientType === "admin" && !businessContext\(\)\?\.adminCustomLineReady/);
  assert.match(api,/expectedChannelId: await channelIdFor\(clientType\)/);
