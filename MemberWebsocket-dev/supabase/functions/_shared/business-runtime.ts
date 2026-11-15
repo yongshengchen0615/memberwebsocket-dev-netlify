@@ -130,7 +130,7 @@ async function assertBusinessAdmin(c:Context,body:any){
  // This is the same readiness rule credentials() uses for downstream handlers.
  c.adminCustomLineReady=Boolean(c.line_config?.adminLiffId?.startsWith(c.line_config?.adminChannelId+'-'));
  const adminChannel=c.adminCustomLineReady
-  ? businessEnv('LINE_ADMIN_CHANNEL_ID')
+  ? scope.run(c,()=>businessEnv('LINE_ADMIN_CHANNEL_ID'))
   : await deploymentAdminChannelId();
  // Tenant audiences come from trusted DB scope; default audiences from this environment's pinned LIFF.
  if (!/^\d{5,30}$/.test(adminChannel || '')) throw Object.assign(Error('無法確認管理員 LINE 設定。'),{status:503,code:'LINE_CONFIG_UNAVAILABLE'});
