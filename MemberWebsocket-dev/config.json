@@ -1,7 +1,7 @@
 {
   "__environmentNotes": {
-    "_說明": "此檔僅供本機開發和舊版程式相容，不是 Netlify/GitHub Actions 的部署設定來源。正式請編輯 MemberWebsocket-dev/config/production/config.json；測試請編輯 MemberWebsocket-dev/config/testing/config.json。兩份都是完整獨立設定。此註記會在網站建置時移除，絕不可填入任何秘密。",
-    "_分支規則": "master 發布僅讀取 config/production/config.json 並固定使用 MemberWebsocket-main；Integrated-Marketing-Platform 僅讀取 config/testing/config.json 並固定使用 MemberWebsocket-test。修改本共用檔不會改變已發布環境，兩份環境設定互不覆蓋。",
+    "_說明": "【已停用的外層設定】任何本機／CI／Netlify 建置都不會讀取此 MemberWebsocket-dev/config.json。請至 MemberWebsocket-dev/config/production/config.json 或 MemberWebsocket-dev/config/testing/config.json 編輯。",
+    "_分支規則": "master 專讀 config/production/config.json；Integrated-Marketing-Platform 專讀 config/testing/config.json。公開瀏覽器由 /config/config.json 讀取建置後被選中的檔案；/config.json 為舊版相容副本。",
     "supabaseUrl": "【正式／測試獨立】此欄只作本機預設；正式請修改 config/production/config.json 同名欄位，測試請修改 config/testing/config.json 同名欄位。部署絕不從此共用檔採用這個值。",
     "supabaseFunctionUrl": "【正式／測試獨立】此欄只作本機預設；正式請修改 config/production/config.json 同名欄位，測試請修改 config/testing/config.json 同名欄位。部署絕不從此共用檔採用這個值。",
     "supabasePublishableKey": "【正式／測試獨立】此欄只作本機預設；正式請修改 config/production/config.json 同名欄位，測試請修改 config/testing/config.json 同名欄位。部署絕不從此共用檔採用這個值。",
