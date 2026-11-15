@@ -148,3 +148,67 @@ test('AC-001/002: complete bundles contain only their branch project including r
   }
  } finally {rmSync(fixture,{recursive:true,force:true});}
 });
+
+
+test('AC-014/015: editing one environment config.json changes only its own complete release config',()=>{
+ const repo=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+ const fixture=mkdtempSync(path.join(tmpdir(),'config-profiles-'));
+ try{
+  for(const name of ['scripts','MemberWebsocket-dev'])cpSync(path.join(repo,name),path.join(fixture,name),{recursive:true,filter:p=>!p.split(path.sep).includes('node_modules')});
+  const {PUBLIC_LIFF_CONFIG_PRODUCTION:excludedProd,PUBLIC_LIFF_CONFIG_TEST:excludedTest,...baseEnv}=process.env;
+  const build=(branch,context)=>{
+   const run=spawnSync(process.execPath,['scripts/build-site.mjs'],{cwd:fixture,encoding:'utf8',env:{...baseEnv,BRANCH:branch,CONTEXT:context,COMMIT_REF:'b'.repeat(40)}});
+   assert.equal(run.status,0,run.stderr);
+   return JSON.parse(readFileSync(path.join(fixture,'dist/config.json'),'utf8'));
+  };
+  const prodPath=path.join(fixture,'MemberWebsocket-dev/config/production/config.json');
+  const testPath=path.join(fixture,'MemberWebsocket-dev/config/testing/config.json');
+  const initialProd=build('master','production');
+  const initialTest=build('Integrated-Marketing-Platform','branch-deploy');
+  const testSource=JSON.parse(readFileSync(testPath,'utf8'));
+  testSource.brandName='TEST_ONLY_CUSTOM_BRAND';
+  testSource.realtimeEnabled=false;
+  testSource.memberLiffId='1234567890-TestingOnly';
+  writeFileSync(testPath,JSON.stringify(testSource));
+  const changedTest=build('Integrated-Marketing-Platform','branch-deploy');
+  const prodAfterTestMerge=build('master','production');
+  assert.equal(changedTest.brandName,'TEST_ONLY_CUSTOM_BRAND');
+  assert.equal(changedTest.realtimeEnabled,false);
+  assert.equal(changedTest.memberLiffId,'1234567890-TestingOnly');
+  assert.deepEqual(prodAfterTestMerge,initialProd,'testing config edit must not change production output');
+  const prodSource=JSON.parse(readFileSync(prodPath,'utf8'));
+  prodSource.brandName='PRODUCTION_ONLY_CUSTOM_BRAND';
+  prodSource.realtimeEnabled=false;
+  prodSource.memberLiffId='1234567890-ProductionOnly';
+  writeFileSync(prodPath,JSON.stringify(prodSource));
+  const changedProd=build('master','production');
+  const testAfterProdMerge=build('Integrated-Marketing-Platform','branch-deploy');
+  assert.equal(changedProd.brandName,'PRODUCTION_ONLY_CUSTOM_BRAND');
+  assert.equal(changedProd.realtimeEnabled,false);
+  assert.equal(changedProd.memberLiffId,'1234567890-ProductionOnly');
+  assert.deepEqual(testAfterProdMerge,changedTest,'production config edit must not change testing output');
+  assert.notDeepEqual(changedProd,initialProd,'production edits must actually take effect in production');
+  assert.notDeepEqual(changedTest,initialTest,'testing edits must actually take effect in testing');
+ }finally{rmSync(fixture,{recursive:true,force:true});}
+});
+
+test('AC-016: malformed, secret-key or cross-project environment config blocks release',()=>{
+ const repo=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+ const fixture=mkdtempSync(path.join(tmpdir(),'config-profile-failure-'));
+ try{
+  for(const name of ['scripts','MemberWebsocket-dev'])cpSync(path.join(repo,name),path.join(fixture,name),{recursive:true,filter:p=>!p.split(path.sep).includes('node_modules')});
+  const prodPath=path.join(fixture,'MemberWebsocket-dev/config/production/config.json');
+  const source=JSON.parse(readFileSync(prodPath,'utf8'));
+  const {PUBLIC_LIFF_CONFIG_PRODUCTION:excludedProd,PUBLIC_LIFF_CONFIG_TEST:excludedTest,...baseEnv}=process.env;
+  const assertBuildFails=(changes,pattern)=>{
+   writeFileSync(prodPath,JSON.stringify({...source,...changes}));
+   const run=spawnSync(process.execPath,['scripts/build-site.mjs'],{cwd:fixture,encoding:'utf8',env:{...baseEnv,BRANCH:'master',CONTEXT:'production'}});
+   assert.notEqual(run.status,0,'malformed profile must not create a deployable bundle');
+   assert.match(run.stderr,pattern);
+  };
+  assertBuildFails({supabaseUrl:testing},/Cross-environment Supabase URL in production deployment config/);
+  assertBuildFails({supabasePublishableKey:'sb_secret_dont_publish'},/Invalid production publishable key/);
+  assertBuildFails({memberLiffId:'invalid'},/Invalid production: expected exactly seven LIFF IDs/);
+  assertBuildFails({unrecognized:'123'},/Invalid production deployment config/);
+ }finally{rmSync(fixture,{recursive:true,force:true});}
+});
