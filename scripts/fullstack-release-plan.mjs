@@ -83,8 +83,9 @@ export function makePromotionPlan(changes, { root = repoRoot, base = '', head = 
       else if (retired.has(functionName)) fail('retired function requires a separately approved tombstone release: ' + functionName);
       else if (active.includes(functionName)) affected.add(functionName);
       else fail('changed function has no deployable entrypoint: ' + filename);
-    } else if (filename.startsWith(prefix) &&
-      (filename === prefix + 'config.toml' || filename.startsWith(prefix + 'retirement/'))) {
+    } else if (filename.startsWith(prefix) && !/\\.(md|txt)$/i.test(filename)) {
+      // No unclassified Supabase configuration, seed, type, or runtime changes
+      // may be treated as a frontend-only production release.
       fail('Supabase runtime/security or retirement configuration requires separate review: ' + filename);
     }
   }
