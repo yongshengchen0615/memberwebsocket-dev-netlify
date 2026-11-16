@@ -7,8 +7,7 @@ const projects = Object.freeze({
   master: { ref: 'dbuquirnaskrwcamdxki', folder: 'production' },
 });
 const liffFields = Object.freeze([
-  'memberLiffId', 'pointsLiffId', 'adminLiffId', 'platformLiffId',
-  'eventLiffId', 'calendarLiffId', 'bookingLiffId',
+  'adminLiffId', 'platformLiffId',
 ]);
 const profileFields = Object.freeze([
   'brandName', 'supabaseUrl', 'supabaseFunctionUrl', 'supabasePublishableKey',
@@ -21,7 +20,7 @@ function validateLiffProfile(value, source) {
     || Object.keys(value).some(key => !liffFields.includes(key))
     || liffFields.some(key => typeof value[key] !== 'string'
       || !/^\d{10}-[A-Za-z0-9]+$/.test(value[key]))) {
-    throw new Error('Invalid ' + source + ': expected exactly seven LIFF IDs');
+    throw new Error('Invalid ' + source + ': expected exactly two management LIFF IDs');
   }
   return value;
 }

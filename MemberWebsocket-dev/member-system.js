@@ -150,7 +150,7 @@
     // SDK fails to load, subscribeRealtime uses authenticated periodic reads.
     if (!key || !liffId || liffId.includes('REPLACE_WITH_')) {
       const label = surface === 'admin' ? 'Admin' : surface === 'points' ? 'Points' : surface === 'event' ? 'Event' : surface === 'calendar' ? 'Calendar' : surface === 'booking' ? 'Booking' : 'Member';
-      throw clientError('CONFIG_ERROR', `尚未設定 ${label} LIFF ID。`);
+      throw clientError('CONFIG_ERROR', `尚未設定 ${label} LIFF ID。` + (surface === 'admin' ? '' : '請使用商家專屬入口，並請管理員在商家的 LINE 設定完成此功能入口。'));
     }
     const ids = Object.values(keys).map((name) => String(config && config[name] || '').trim()).filter(Boolean);
     if (new Set(ids).size !== ids.length) throw clientError('CONFIG_ERROR', '會員、集點卡、活動票券、日曆、預約與管理端必須使用不同的 LIFF ID。');
@@ -993,8 +993,18 @@
 
   function openMemberJoin(config) {
     const memberLiffId = String(config && config.memberLiffId || '').trim();
-    if (!/^[A-Za-z0-9_-]{1,100}$/.test(memberLiffId)) return false;
-    const url = `https://liff.line.me/${encodeURIComponent(memberLiffId)}` + (config.business ? `?business=${encodeURIComponent(config.business)}` : "");
+    let url;
+    if (/^[A-Za-z0-9_-]{1,100}$/.test(memberLiffId)) {
+      url = `https://liff.line.me/${encodeURIComponent(memberLiffId)}` + (config.business ? `?business=${encodeURIComponent(config.business)}` : "");
+    } else {
+      // A feature-scoped response may omit membership's separate LINE identity.
+      // Let the same merchant's membership page discover its own saved LIFF.
+      const business = String(config && config.business || '');
+      if (!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(business)) return false;
+      const entry = new URL('/member/', window.location.href);
+      entry.searchParams.set('business', business);
+      url = entry.href;
+    }
     if (window.liff && typeof window.liff.openWindow === 'function') {
       window.liff.openWindow({ url, external: false });
       return true;

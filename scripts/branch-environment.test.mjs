@@ -11,8 +11,8 @@ import {fileURLToPath} from 'node:url';
 const production='https://dbuquirnaskrwcamdxki.supabase.co';
 const testing='https://bmwhojszsnxliekkhrka.supabase.co';
 const original={supabaseUrl:production,supabaseFunctionUrl:production+'/functions/v1/api',supabasePublishableKey:'sb_publishable_W492suU5Hb7LJIJ2DmHbZw_KVp9vB4S',memberLiffId:'synthetic'};
-const liffKeys=['memberLiffId','pointsLiffId','adminLiffId','platformLiffId',
- 'eventLiffId','calendarLiffId','bookingLiffId'];
+const liffKeys=['adminLiffId','platformLiffId'];
+const featureLiffKeys=['memberLiffId','pointsLiffId','eventLiffId','calendarLiffId','bookingLiffId'];
 const testRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const environmentProfile=branch=>{
  const folder=branch==='master'?'production':'testing';
@@ -25,23 +25,24 @@ const expectedLiff=branch=>{
  return Object.fromEntries(liffKeys.map(key=>[key,profile[key]]));
 };
 
-test('AC-007: the outer config.json is deleted and each scoped profile retains 3 Supabase and 7 LIFF annotations',()=>{
+test('AC-007: the outer config.json is deleted and each scoped profile retains 3 Supabase and only 2 management LIFF settings',()=>{
  const repo=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
  assert.equal(existsSync(path.join(repo,'MemberWebsocket-dev/config.json')),false,'unused outer config.json must not return');
  const expectedKeys=['supabaseUrl','supabaseFunctionUrl','supabasePublishableKey',...liffKeys];
  for(const [branch,context,project] of [['master','production','dbuquirnaskrwcamdxki'],['Integrated-Marketing-Platform','branch-deploy','bmwhojszsnxliekkhrka']]){
   const folder=branch==='master'?'production':'testing';
   const source=JSON.parse(readFileSync(path.join(repo,'MemberWebsocket-dev/config',folder,'config.json'),'utf8'));
-  assert.equal(Object.keys(source).length,15,'14 runtime settings and one editor annotation');
+  assert.equal(Object.keys(source).length,10,'9 runtime settings and one editor annotation');
   assert.equal(typeof source.__environmentNotes,'object');
   for(const key of expectedKeys){
    assert.ok(Object.hasOwn(source,key),'runtime setting missing: '+key);
   }
+  for(const key of featureLiffKeys)assert.equal(Object.hasOwn(source,key),false,'merchant feature must not be global: '+key);
   const runtime=buildMemberRuntime({BRANCH:branch,CONTEXT:context});
   assert.equal(runtime.__environmentNotes,undefined,'authoring notes must not reach published client');
   assert.equal(runtime.supabaseUrl,'https://'+project+'.supabase.co');
   assert.equal(runtime.supabaseFunctionUrl,runtime.supabaseUrl+'/functions/v1/api');
-  assert.equal(Object.keys(runtime).length,branch==='master'?14:15);
+  assert.equal(Object.keys(runtime).length,branch==='master'?9:10);
   const {__environmentNotes,...profile}=source;
   assert.deepEqual(runtime,branch==='master'?profile:{...profile,pricePublishing:true});
  }
@@ -192,7 +193,9 @@ test('AC-016: malformed, secret-key or cross-project environment config blocks r
   };
   assertBuildFails({supabaseUrl:testing},/Cross-environment Supabase URL in production deployment config/);
   assertBuildFails({supabasePublishableKey:'sb_secret_dont_publish'},/Invalid production publishable key/);
-  assertBuildFails({memberLiffId:'invalid'},/Invalid production: expected exactly seven LIFF IDs/);
+  assertBuildFails({adminLiffId:'invalid'},/Invalid production: expected exactly two management LIFF IDs/);
+  assertBuildFails({platformLiffId:''},/Invalid production: expected exactly two management LIFF IDs/);
+  assertBuildFails({memberLiffId:'2010787602-Old'},/Invalid production deployment config/);
   assertBuildFails({unrecognized:'123'},/Invalid production deployment config/);
  }finally{rmSync(fixture,{recursive:true,force:true});}
 });

@@ -44,7 +44,7 @@ or server secrets to frontend code or the publish directory.
 | 其他 Netlify Deploy Previews | 同 `config/testing/config.json` | `MemberWebsocket-test` |
 
 兩個環境檔皆含 `brandName`、`realtimeEnabled`、各項 Supabase 設定、
-七組 LIFF ID、`productizedAdmin` 與 `merchantApprovalVersion`。
+兩組管理端 LIFF ID（`adminLiffId`、`platformLiffId`）、`productizedAdmin` 與 `merchantApprovalVersion`。
 即使測試設定檔隨功能分支合併到 `master`，正式建置仍只讀取
 `config/production/config.json`；正式設定檔被同步到測試分支時亦同。
 **這是部署設定隔離，不是 Git 不會複製檔案：合併後兩份檔案仍會存在於同一程式碼樹。**
@@ -62,7 +62,7 @@ or server secrets to frontend code or the publish directory.
 
 1. 在 GitHub 選擇對應分支，進入表格列出的對應 `config.json`，修改所屬環境的公開設定。
 2. 以 PR 走原有 CI；不可將測試的 Supabase 網址、錯誤的 publishable key、
-   secret 或缺漏 LIFF ID 放入目標設定檔。建置將在產出網站前拒絕錯誤設定。
+   secret 或缺漏管理端 LIFF ID 放入目標設定檔。建置將在產出網站前拒絕錯誤設定。
 3. 先比對兩種建置：`BRANCH=master CONTEXT=production node scripts/build-site.mjs`
    與 `BRANCH=Integrated-Marketing-Platform CONTEXT=branch-deploy node scripts/build-site.mjs`。
    兩次都會覆寫本機 `dist/`，因此要分別檢查各次 `dist/config/config.json`；舊版 `dist/config.json` 必須與它完全相同。
@@ -84,23 +84,20 @@ node --test scripts/branch-environment.test.mjs scripts/preview-member-runtime.t
 
 ## LINE LIFF configuration
 
-Before declaring real LINE sign-in verified on the new domain, inspect the existing
-LINE Developers endpoint settings and test each enabled surface. If the same LIFF
-IDs are moved to this domain, update their endpoint URLs to the matching paths.
-Changing these shared LIFF endpoints also changes where existing LINE entry links open.
+全域 `config.json` 僅保留 `platformLiffId`（總管理端）與 `adminLiffId`
+（一般管理員登入、申請與商家選擇）。正式與測試各自使用所屬環境檔案的值。
 
-| Surface | Existing LIFF ID | Target endpoint |
-| --- | --- | --- |
-| Member | 2005939681-f0xklhVy | https://memberwebsocket-dev-netlify.netlify.app/member/ |
-| Points | 2010787602-eIzRN9l6 | https://memberwebsocket-dev-netlify.netlify.app/points/ |
-| Event | 2010787602-tuapstY3 | https://memberwebsocket-dev-netlify.netlify.app/event/ |
-| Calendar | 2010787602-4UKzslco | https://memberwebsocket-dev-netlify.netlify.app/calendar/ |
-| Booking | 2010787602-sgiB0ETj | https://memberwebsocket-dev-netlify.netlify.app/booking/ |
-| Admin | 2010791619-vhevCvvD | https://memberwebsocket-dev-netlify.netlify.app/admin/ |
-| Platform root admin | 2011356226-uCfdWtVp | https://memberwebsocket-dev-netlify.netlify.app/platform/ |
+會員卡 `memberLiffId`、集點卡 `pointsLiffId`、票券 `eventLiffId`、日曆
+`calendarLiffId`、預約 `bookingLiffId` 一律在商家管理端的 LINE 設定中維護。
+商家設定內另有自己的管理入口 `adminLiffId`，與全域帳號入口層級不同。
+缺少功能 LIFF 時不再回退全域值；頁面提示補齊商家 LINE 設定。
 
-Endpoint settings have not been verified or changed as part of preparing this copy.
-No backend schema or production member records are changed by this static deployment.
+功能 LIFF 的 LINE Developers Endpoint 必須使用設定頁提供的完整網址，
+包含 `?business=<商家代碼>`，並對應正式或測試站台。
+沒有商家代碼的功能網址不再提供全域功能登入；請使用商家專屬入口。
+本次僅精簡公開設定，不刪除 LINE Developers 上的 App、不修改商家資料或憑證。
+
+實際 LINE 登入需另外使用授權帳號驗收；自動化 fixture 不代表外部登入通過。
 
 ## Backend origin allowlist
 
