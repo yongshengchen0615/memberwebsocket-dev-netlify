@@ -173,9 +173,9 @@ function isValidPhone(value: string): boolean {
 }
 
 
-function requirePhoneOtp(): boolean { return env("TWILIO_VERIFY_REQUIRED").toLowerCase() === "true"; }
+function requirePhoneOtp(): boolean { return (env("PHONE_VERIFY_REQUIRED") || env("TWILIO_VERIFY_REQUIRED")).toLowerCase() === "true"; }
 function checkSmsCountry(phone: string): void {
-  const countries = (env("TWILIO_VERIFY_ALLOWED_COUNTRY_CODES") || "+886").split(",").map(s => s.trim()).filter(Boolean);
+  const countries = (env("PHONE_VERIFY_ALLOWED_COUNTRY_CODES") || env("TWILIO_VERIFY_ALLOWED_COUNTRY_CODES") || "+886").split(",").map(s => s.trim()).filter(Boolean);
   if (!countries.some(code => /^\+[1-9]\d{0,3}$/.test(code) && phone.startsWith(code))) {
     throw new ApiError(400, "PHONE_COUNTRY_UNAVAILABLE", "目前尚未開放此國碼的手機簡訊驗證。");
   }
@@ -216,6 +216,42 @@ async function twilioVerify(endpoint: "Verifications" | "VerificationCheck", val
   }
   return data as Record<string, unknown>;
 }
+async function phoneVerification(endpoint: "Verifications" | "VerificationCheck", values: Record<string, string>): Promise<Record<string, unknown>> {
+  const provider = (env("PHONE_VERIFY_PROVIDER") || "twilio").toLowerCase();
+  if (provider === "twilio") return twilioVerify(endpoint, values);
+  const key = env("BIRD_API_KEY");
+  const region = key.match(/^bk_(us1|eu1)_[A-Za-z0-9_-]+$/)?.[1];
+  if (provider !== "bird" || !region) {
+    throw new ApiError(503, "PHONE_VERIFY_UNAVAILABLE", "手機認證尚未設定完成，請聯繫管理員。");
+  }
+  const checking = endpoint === "VerificationCheck";
+  let remote: Response;
+  try {
+    remote = await fetch(`https://${region}.platform.bird.com/v1/verify/verifications${checking ? "/check" : ""}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ to: { phone_number: values.To }, ...(checking ? { code: values.Code } : {}) }),
+      signal: AbortSignal.timeout(12_000),
+    });
+  } catch {
+    throw new ApiError(503, "PHONE_VERIFY_UNAVAILABLE", "暫時無法連線簡訊驗證服務，請稍後再試。");
+  }
+  const data = await remote.json().catch(() => null);
+  if (remote.status === 429) throw new ApiError(429, "PHONE_VERIFY_RATE_LIMITED", "驗證要求過於頻繁，請稍後再試。");
+  if (remote.status === 404 && checking) throw new ApiError(400, "PHONE_OTP_EXPIRED", "驗證碼已失效，請重新發送。");
+  // Credentials, upstream error bodies and OTPs never appear in client responses.
+  if (!remote.ok || !data || typeof data !== "object" || Array.isArray(data)) {
+    throw new ApiError(503, "PHONE_VERIFY_UNAVAILABLE", "簡訊驗證服務暫時無法使用，請稍後再試。");
+  }
+  if (checking) {
+    if (data.success !== true) {
+      if (data.reason === "expired") throw new ApiError(400, "PHONE_OTP_EXPIRED", "驗證碼已失效，請重新發送。");
+      throw new ApiError(400, "PHONE_OTP_INVALID", "驗證碼不正確、已失效或嘗試次數過多，請重新確認。");
+    }
+    return { status: "approved" };
+  }
+  return data as Record<string, unknown>;
+}
 async function sendPhoneOtp(supabase: SupabaseClient, identity: Identity, member: any, phone: string): Promise<{ sent: boolean; alreadyVerified: boolean }> {
   if (!requirePhoneOtp()) throw new ApiError(409, "PHONE_VERIFY_NOT_ENABLED", "目前未啟用手機簡訊驗證。");
   if (member.status !== "active" || member.is_test_account === true) {
@@ -231,7 +267,7 @@ async function sendPhoneOtp(supabase: SupabaseClient, identity: Identity, member
   if (member.membership_status === "active" && normalizePhone(member.phone) === phone) {
     return { sent: false, alreadyVerified: false };
   }
-  // Fast failure prevents paying Twilio to verify another member's claimed phone.
+  // Fast failure prevents paying to verify another member's claimed phone.
   // The unique index remains the authority for simultaneous claims.
   const claimed = await supabase.from("members").select("id")
     .eq("phone_verified_e164", phone).neq("id", member.id).maybeSingle();
@@ -245,7 +281,7 @@ async function sendPhoneOtp(supabase: SupabaseClient, identity: Identity, member
     if (error) throw new ApiError(503, "RATE_LIMIT_UNAVAILABLE", "無法確認發送頻率限制。");
     if (!data) throw new ApiError(429, "PHONE_VERIFY_RATE_LIMITED", "驗證碼發送過於頻繁，請稍後再試。");
   }
-  const sent = await twilioVerify("Verifications", { To: phone, Channel: "sms" });
+  const sent = await phoneVerification("Verifications", { To: phone, Channel: "sms" });
   if (sent.status !== "pending") throw new ApiError(503, "PHONE_VERIFY_UNAVAILABLE", "驗證碼未能成功發送，請稍後再試。");
   return { sent: true, alreadyVerified: false };
 }
@@ -261,7 +297,7 @@ function verifiedPhoneWriteError(error: { code?: string; message?: string }): Ap
 async function verifyPhoneOtp(phone: string, code: string): Promise<void> {
   if (!/^\d{6}$/.test(code)) throw new ApiError(400, "PHONE_OTP_REQUIRED", "請輸入正確的簡訊驗證碼。");
   checkSmsCountry(phone);
-  const checked = await twilioVerify("VerificationCheck", { To: phone, Code: code });
+  const checked = await phoneVerification("VerificationCheck", { To: phone, Code: code });
   if (checked.status !== "approved") {
     throw new ApiError(400, "PHONE_OTP_INVALID", "驗證碼不正確、已失效或嘗試次數過多，請重新確認。");
   }
