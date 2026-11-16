@@ -3,20 +3,16 @@
     "_用途": "正式 master 專用設定；只編輯這個檔案不會影響 Integrated-Marketing-Platform 測試站。",
     "_發布": "建置只從此環境專屬 config.json 取值，並發布為 /config/config.json（舊版 /config.json 僅為相同內容的相容路徑）。外層 MemberWebsocket-dev/config.json 完全不參與任何建置。",
     "_安全": "不可加入 LINE Channel Secret、Supabase secret/service_role、Twilio Token、私人金鑰。Supabase URL 必須維持所屬專案，錯誤則建置拒絕。",
-    "_覆寫": "不使用 Netlify PUBLIC_LIFF_CONFIG_* 或外層 config.json 覆寫此檔。要變更登入 LIFF 請編輯本檔，確認 LINE Developers Endpoint 和後端驗證 Channel 設定。"
+    "_覆寫": "不使用 Netlify PUBLIC_LIFF_CONFIG_* 或外層 config.json 覆寫此檔。要變更登入 LIFF 請編輯本檔，確認 LINE Developers Endpoint 和後端驗證 Channel 設定。",
+    "_LIFF": "全域只設定總管理端 platformLiffId 與一般管理端 adminLiffId；會員卡、集點、活動票券、日曆及預約 LIFF 請在各商家的 LINE 設定填寫。"
   },
   "brandName": "Lumen Club",
   "supabaseUrl": "https://dbuquirnaskrwcamdxki.supabase.co",
   "supabaseFunctionUrl": "https://dbuquirnaskrwcamdxki.supabase.co/functions/v1/api",
   "supabasePublishableKey": "sb_publishable_W492suU5Hb7LJIJ2DmHbZw_KVp9vB4S",
   "realtimeEnabled": true,
-  "memberLiffId": "2005939681-f0xklhVy",
-  "pointsLiffId": "2010787602-eIzRN9l6",
   "adminLiffId": "2011356226-8ztJZFaz",
   "platformLiffId": "2011356226-uCfdWtVp",
-  "eventLiffId": "2010787602-tuapstY3",
-  "calendarLiffId": "2010787602-4UKzslco",
-  "bookingLiffId": "2010787602-sgiB0ETj",
   "productizedAdmin": true,
   "merchantApprovalVersion": 2
 }

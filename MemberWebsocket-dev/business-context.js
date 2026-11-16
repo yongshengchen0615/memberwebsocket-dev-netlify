@@ -76,10 +76,12 @@
   configs.add(config);
   config.business=data.business;config.brandName=data.siteTitle||data.name;config.grantedFeatures=data.features;
   if(!refresh)for(const key of ['adminLiffId','memberLiffId','pointsLiffId','eventLiffId','calendarLiffId','bookingLiffId']){
+   // Feature authentication always uses merchant settings. Missing IDs must
+   // clear stale global defaults, including the former legacy LINE Channel.
    // Grants may be newer than this module-specific response. Its LINE identity
    // must still come from the feature-scoped request, never an unscoped refresh.
    if(body.data.line?.[key])config[key]=body.data.line[key];
-   else if(key!=='adminLiffId'&&body.data.line?.memberChannelId&&body.data.line.memberChannelId!=='2010787602')config[key]='';
+   else if(key!=='adminLiffId')config[key]='';
   }
   updatePageTitle(config);
   applyFeatures(data.features);
