@@ -22,6 +22,9 @@ function fixture(run) {
   writeFileSync(path.join(functions, 'test-mode-api/index.ts'), 'export default 2;');
   writeFileSync(path.join(functions, '_shared/runtime.ts'), "export { x } from './helpers.ts';");
   writeFileSync(path.join(functions, '_shared/helpers.ts'), 'export const x = 1;');
+  const migrations = path.join(root, 'MemberWebsocket-dev/supabase/migrations');
+  mkdirSync(migrations, { recursive: true });
+  writeFileSync(path.join(migrations, '20261116103000_safe_addition.sql'), 'SELECT 1;');
   try { run(root); } finally { rmSync(root, { recursive: true, force: true }); }
 }
 const changed = (status, filename) => ({ status, path: filename });
@@ -33,6 +36,20 @@ test('AC-001 release accepts only newly added, ordered SQL migrations', () => fi
   assert.deepEqual(plan.migrations, [migration]);
   assert.deepEqual(plan.functions, []);
   assert.equal(plan.environment, 'production');
+}));
+
+test('AC-001b testing Supabase project, preview URL, or reset SQL cannot enter production', () => fixture(root => {
+  const file = path.join(root, migration);
+  for (const literal of [
+    'https://bmwhojszsnxliekkhrka.supabase.co',
+    'https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app',
+    'MemberWebsocket-test',
+    'RESET MEMBERWEBSOCKET TEST DATA',
+  ]) {
+    writeFileSync(file, "SELECT '" + literal + "';");
+    assert.throws(() => makePromotionPlan([changed('A', migration)], { root }),
+      /testing environment URL, project, or reset marker/);
+  }
 }));
 
 test('AC-002 previous migrations cannot be edited, renamed, or deleted', () => fixture(root => {
