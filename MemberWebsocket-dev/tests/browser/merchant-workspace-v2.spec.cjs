@@ -9,10 +9,10 @@ test.beforeAll(async()=>{
  });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));base='http://127.0.0.1:'+server.address().port;
 });
 test.afterAll(async()=>new Promise(resolve=>server.close(resolve)));
-async function wire(page,h,token='manager',{loseAction=''}={}){
+async function wire(page,h,token='manager',{loseAction='',environment='production'}={}){
  const errors=[],calls=[],responses=[];let lost=false;page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
- await page.route('**/config.json',route=>route.fulfill({json:{...JSON.parse(fs.readFileSync(path.join(root,'config/production/config.json'),'utf8')),merchantApprovalVersion:2,realtimeEnabled:false,supabaseUrl:'https://fixture.supabase.co',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'sb_publishable_fixture'}}));
- await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:`window.liff={init:async()=>{},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=>${JSON.stringify(token)}};`}));
+ await page.route('**/config.json*',route=>route.fulfill({json:{...JSON.parse(fs.readFileSync(path.join(root,'config',environment,'config.json'),'utf8')),merchantApprovalVersion:2,realtimeEnabled:false,supabaseUrl:'https://fixture.supabase.co',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'sb_publishable_fixture'}}));
+ await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:`window.liffInitIds=[];window.liff={init:async({liffId})=>{window.liffInitIds.push(liffId);},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=>${JSON.stringify(token)}};`}));
  await page.route('https://*.tile.openstreetmap.org/**',route=>route.abort());
  await page.route('https://fixture.supabase.co/functions/v1/platform-api',async route=>{
   const req=route.request(),body=req.method()==='POST'?req.postDataJSON():undefined;if(body)calls.push(body);
@@ -236,4 +236,28 @@ for(const width of [390,1280]) test('AC-TITLE-INLINE-'+width+' — actual mercha
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   expect(observed.errors).toEqual([]);
  }finally{await h.db.close();}
+});
+
+for(const environment of ['production','testing'])test('GLOBAL_LIFF_'+environment+' — minimal global profile preserves management and missing merchant feature IDs never initialize LINE',async({page})=>{
+ test.setTimeout(45000);
+ const h=await setup({origins:[base]});
+ try{
+  await h.qualify();const slug='global-liff-'+environment,a=await h.submit(h.owner,slug,'商家 LINE 設定');
+  await h.review(a,'approved',h.features(['membership','points','events','calendar','booking']));
+  const observed=await wire(page,h,'manager',{environment});
+  await page.route('https://cdn.jsdelivr.net/**',route=>route.abort());
+  await page.goto(base+'/admin/');await expect(page.locator('#myMerchantsWorkspace')).toBeVisible();
+  const profile=JSON.parse(fs.readFileSync(path.join(root,'config',environment,'config.json'),'utf8'));
+  expect(await page.evaluate(()=>window.liffInitIds)).toEqual([profile.adminLiffId]);
+  for(const surface of ['member','points','event','calendar','booking']){
+   await page.goto(base+'/'+surface+'/?business='+slug);
+   await expect(page.locator('#errorMessage')).toContainText('商家的 LINE 設定');
+   expect(await page.evaluate(()=>window.liffInitIds)).toEqual([]);
+  }
+  await page.goto(base+'/member/');
+  await expect(page.locator('#errorMessage')).toContainText('商家專屬入口');
+  expect(await page.evaluate(()=>window.liffInitIds)).toEqual([]);
+  expect(observed.calls.filter(c=>c.action==='platform.business.public')).toHaveLength(5);
+  expect(observed.errors).toEqual([]);
+ }finally{await page.close();await h.db.close();}
 });

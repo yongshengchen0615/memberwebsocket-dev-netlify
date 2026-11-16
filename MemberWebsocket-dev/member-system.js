@@ -150,7 +150,7 @@
     // SDK fails to load, subscribeRealtime uses authenticated periodic reads.
     if (!key || !liffId || liffId.includes('REPLACE_WITH_')) {
       const label = surface === 'admin' ? 'Admin' : surface === 'points' ? 'Points' : surface === 'event' ? 'Event' : surface === 'calendar' ? 'Calendar' : surface === 'booking' ? 'Booking' : 'Member';
-      throw clientError('CONFIG_ERROR', `尚未設定 ${label} LIFF ID。`);
+      throw clientError('CONFIG_ERROR', `尚未設定 ${label} LIFF ID。` + (surface === 'admin' ? '' : '請使用商家專屬入口，並請管理員在商家的 LINE 設定完成此功能入口。'));
     }
     const ids = Object.values(keys).map((name) => String(config && config[name] || '').trim()).filter(Boolean);
     if (new Set(ids).size !== ids.length) throw clientError('CONFIG_ERROR', '會員、集點卡、活動票券、日曆、預約與管理端必須使用不同的 LIFF ID。');
