@@ -42,7 +42,9 @@ test('production deploy targets only the recreated Netlify site with protected c
 
 test('production release is master-only and waits for all exact-SHA branch push baselines', () => {
   assert.match(flow, /branches: \[master\]/);
-  assert.match(flow, /if: github\.ref == 'refs\/heads\/master'/);
+  // Recovery dependencies add a cancellation/result guard before the unchanged
+  // master-only predicate. The separate recovery tests reject every other ref.
+  assert.match(flow, /!cancelled\(\) && github\.ref == 'refs\/heads\/master'/);
   assert.match(flow, /node scripts\/check-preview-ci\.mjs/);
   assert.match(flow, /-f event=push/);
   assert.match(flow, /-f head_sha="\$GITHUB_SHA"/);

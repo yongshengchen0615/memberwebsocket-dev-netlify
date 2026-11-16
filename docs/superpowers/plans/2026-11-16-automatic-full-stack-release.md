@@ -43,3 +43,12 @@ Files: publish-netlify.yml、publish-platform-preview.yml、netlify-native-ci-ga
 - [ ] 保留後端 evidence artifact，憑證缺失前置失敗；取消舊部署不能中斷已開始的後端寫入。
 - [ ] 文件列出秘密來源、流程、首次啟用邊界、migration 規則與回復。
 - [ ] 最終完整基線、審查、兩個隔離 PR；若必要 secrets 不可取得，明確交付阻礙與可執行下一步。
+
+### Task 4: GitHub push 事件遺失的完整恢復
+Files: 三個 test workflow 加 workflow_call；兩個 publish workflow 加手動 recovery baseline jobs；scripts/release-recovery.mjs/tests；既有 workflow 合約測試與 README。
+Interface: requireRecoveryBaselines({event,ref,sha,needs})，三個明確結果均 success、合法發布 ref 與 exact SHA 才通過；CLI 消費 GitHub needs JSON。
+- [ ] 先寫正常/失敗/取消/skip/缺失/錯誤 ref 與 SHA 的 RED 測試。
+- [ ] 加入不帶 secrets、相同 commit 的三條 reusable 完整基線；手動才用此 gate，push 保留原 gate。
+- [ ] 調整既有文字合約以保留 master-only、取消拒絕和同 SHA 意義；不改測試基線命令、案例或 timeout。
+- [ ] 完整 CI 與獨立審查後合併測試；從 Actions UI 選測試分支執行恢復，驗證實際 SQL/Edge/Netlify。
+- [ ] 相同修正套到正式 PR，測試驗收成功後合併與驗證正式發布。

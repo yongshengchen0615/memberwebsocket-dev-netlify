@@ -3,6 +3,7 @@ name: MemberWebsocket Ticket Policy UI Tests
 on:
   # Required by the development ruleset: docs-only PRs must receive a result.
   pull_request:
+  workflow_call:
   push:
     branches:
       - 'feat/member-ticket-policy-admin-ui-20261014'

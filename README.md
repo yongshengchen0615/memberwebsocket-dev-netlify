@@ -34,6 +34,8 @@ as selected by the scoped configuration below.
 
 兩個發布 workflow 先等待同一 SHA 的三條完整 CI，然後套用新資料庫遷移、部署明列的 28 個 canonical Edge Functions，確認 ledger／函式版本後才發布前端。`master` 更新正式站，`Integrated-Marketing-Platform` 更新測試站；功能分支與 PR 不寫入線上資料庫。不要把測試會員、Auth、Storage、Vault、LINE／簡訊秘密當作架構一起複製。
 
+若 GitHub 服務異常使合併後沒有產生 push 工作，可到 Actions 選對應的 Publish verified workflow → Run workflow → 選 `Integrated-Marketing-Platform` 或 `master`。人工恢復會在同一發布提交重新呼叫三條完整既有基線，全部 success 才部署；不接受舊 PR／其他 SHA 的測試結果。取消、缺失、skipped 或失敗皆不放行。測試工作不繼承部署秘密；一般 push 仍保留原同 SHA push gate。
+
 首次啟用前，在 **GitHub repository → Settings → Secrets and variables → Actions → New repository secret** 設定：
 
 | Actions Secret | 來源與用途 |
