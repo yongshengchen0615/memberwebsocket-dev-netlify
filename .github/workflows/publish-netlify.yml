@@ -115,9 +115,11 @@ jobs:
           fi
       - name: Install official Supabase CLI for production promotion
         if: steps.backend_plan.outputs.migrations != '0' || steps.backend_plan.outputs.functions != '0'
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@v3
         with:
-          version: latest
+          # v3 CLI switched hosted commands to --remote/--yes in November 2026.
+          # Pin the v2 stable channel until migration-history reconciliation.
+          version: v2.stable
       - name: Preflight and apply only verified production SQL migrations
         if: steps.backend_plan.outputs.migrations != '0'
         working-directory: MemberWebsocket-dev
