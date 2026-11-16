@@ -56,6 +56,20 @@ function dependenciesFor(entry, functionRoot, seen = new Set()) {
   return seen;
 }
 
+const testingOnlySqlMarkers = [
+  /bmwhojszsnxliekkhrka/i,
+  /integrated-marketing-platform--memberwebsocket-dev-netlify\\.netlify\\.app/i,
+  /MemberWebsocket-test/i,
+  /RESET MEMBERWEBSOCKET TEST DATA/i,
+];
+
+function verifyProductionMigration(filename, root) {
+  const sql = readFileSync(path.join(root, filename), 'utf8');
+  if (testingOnlySqlMarkers.some(marker => marker.test(sql))) {
+    fail('testing environment URL, project, or reset marker found in SQL: ' + filename);
+  }
+}
+
 export function makePromotionPlan(changes, { root = repoRoot, base = '', head = '' } = {}) {
   if (!Array.isArray(changes)) fail('changes must be an array');
   const functionRoot = path.join(root, functionPrefix);
@@ -75,6 +89,7 @@ export function makePromotionPlan(changes, { root = repoRoot, base = '', head = 
     if (filename.startsWith(migrationPrefix)) {
       if (status !== 'A' || !/^\d{14}_[a-z0-9_]+\.sql$/.test(filename.slice(migrationPrefix.length)))
         fail('historical migration modified, removed, renamed, or invalid: ' + filename);
+      verifyProductionMigration(filename, root);
       migrations.push(filename);
     } else if (filename.startsWith(functionPrefix)) {
       const remainder = filename.slice(functionPrefix.length);
