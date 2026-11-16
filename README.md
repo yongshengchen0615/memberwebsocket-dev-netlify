@@ -13,7 +13,7 @@ node scripts/build-site.mjs
 python -m http.server 8080 --directory dist
 ```
 
-The build publishes only frontend assets. Supabase functions, migrations, tests,
+The static build publishes only frontend assets. Supabase functions, migrations, tests,
 internal documents and local Netlify state are excluded from `dist`.
 
 ## Netlify configuration
@@ -29,6 +29,38 @@ Leave the base and package directories empty. The root `netlify.toml` sets:
 
 Production uses `dbuquirnaskrwcamdxki`; the testing branch uses `bmwhojszsnxliekkhrka`,
 as selected by the scoped configuration below.
+
+## 合併後自動發布（SQL → Edge → 前端）
+
+兩個發布 workflow 先等待同一 SHA 的三條完整 CI，然後套用新資料庫遷移、部署明列的 28 個 canonical Edge Functions，確認 ledger／函式版本後才發布前端。`master` 更新正式站，`Integrated-Marketing-Platform` 更新測試站；功能分支與 PR 不寫入線上資料庫。不要把測試會員、Auth、Storage、Vault、LINE／簡訊秘密當作架構一起複製。
+
+首次啟用前，在 **GitHub repository → Settings → Secrets and variables → Actions → New repository secret** 設定：
+
+| Actions Secret | 來源與用途 |
+|---|---|
+| `SUPABASE_ACCESS_TOKEN_TEST` | 管理 MemberWebsocket-test 的 Supabase 帳號 → Account preferences → Access tokens；僅授權測試專案及資料庫讀寫、函式部署／讀取、專案讀取 |
+| `SUPABASE_ACCESS_TOKEN_PRODUCTION` | 管理 MemberWebsocket-main 的 Supabase 帳號 → Account preferences → Access tokens；僅授權正式專案及相同部署權限 |
+| `NETLIFY_AUTH_TOKEN` | 沿用既有 Repository Secret，用於發布前端及寫入測試分支的後端完成標記 |
+
+Supabase 連接器登入不會把權杖供應給 GitHub Actions。上述 access token 不是 publishable key 或 service-role key；不要放入 `config.json`、Git、公開產物或對話。缺任一必要值會停止後續發布，合併前先完成設定。管道存在與首次真實發布成功是不同驗收。
+
+歷史 SQL 已由 `MemberWebsocket-dev/supabase/deployment-baseline.json` 凍結（截至 `20261111134000`），不自動重播。正式 history 與測試 clone history 不相同，因此新流程使用私有 `deployment_private.schema_releases` 紀錄 SQL 的 SHA256、檔名及來源提交，**不修改或修復舊 Supabase migration history**。不應再直接向這兩個既有專案執行整個歷史目錄的 `db push`。此流程使用官方 Management query API；該 API 目前標記 beta，首次啟用必須在測試專案驗證完整 transaction／rollback 契約。
+
+未來新增 SQL：
+
+```bash
+supabase migration new feature_name --workdir MemberWebsocket-dev
+# 編輯產生的檔案：不可自行 BEGIN/COMMIT，保留外層發布交易；
+# 列出依賴表/欄位/RPC、舊版相容、合成資料升級與回復案例。
+GITHUB_REF_NAME=Integrated-Marketing-Platform node scripts/supabase-release.mjs --plan
+node --test scripts/supabase-release.test.mjs
+```
+
+新版本須晚於已發布最大版本；已套用檔案不可刪除、改名或修改，修正要新增 migration。相同提交重跑不重複套用 SQL；SQL 失敗會 rollback 全批及紀錄。POST 結果不明時不自動 retry，先由授權操作者查 ledger。新增 Edge 必須加入明確部署名單；退休 QA、`*-preview`、`sql-full-reset-worker` 不會被此流程部署。
+
+測試原生建置還要求 `PLATFORM_BACKEND_VERIFIED_SHA` 等於 `COMMIT_REF`。這是 GitHub 在後端成功後寫入 Netlify 的 branch build 標記，不是讓使用者手動填寫的秘密。舊標記不能放行新版本，CI 全綠本身也不能跳過 SQL／Edge。
+
+失敗證據保留在 Actions 的 `production-backend-*`／`testing-backend-*` artifacts；其中含來源 SHA、SQL checksum、實際 Edge 版本及錯誤代碼，不含秘密。資料庫、Edge、Netlify 不是跨服務原子交易：Edge 中途失敗可能已有部分新版函式，但不發布新前端。SQL 必須相容舊版；前端回復前次已驗證 Netlify deploy，Edge 回復前次相容來源，資料庫用新 migration 前進修復。破壞性資料復原需另外核對備份與授權。
 The client config contains a public publishable key. Do not add a service-role key
 or server secrets to frontend code or the publish directory.
 `.netlify/` is ignored because linking writes local project state there.

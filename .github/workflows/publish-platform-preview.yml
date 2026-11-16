@@ -17,7 +17,9 @@ permissions:
 
 concurrency:
   group: publish-platform-preview-${{ github.ref_name }}
-  cancel-in-progress: true
+  # Do not interrupt an in-flight SQL/Edge/frontend release. A newer head waits
+  # and the stale-head checks prevent an older source from starting new writes.
+  cancel-in-progress: false
 
 jobs:
   publish:
@@ -36,6 +38,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - uses: supabase/setup-cli@v1
+        if: github.ref_name == 'Integrated-Marketing-Platform'
+        with:
+          version: 2.122.1
+      - name: Require backend and frontend release credentials before any mutation
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN_TEST }}
+        if: github.ref_name == 'Integrated-Marketing-Platform'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${SUPABASE_ACCESS_TOKEN:-}" || { echo '::error::Missing GitHub Actions Secret SUPABASE_ACCESS_TOKEN_TEST'; exit 1; }
+          test -n "${NETLIFY_AUTH_TOKEN:-}" || { echo '::error::Missing GitHub Actions Secret NETLIFY_AUTH_TOKEN'; exit 1; }
       - name: Wait for all established CI on this exact commit
         shell: bash
         run: |
@@ -50,6 +65,20 @@ jobs:
           done
           echo '::error::Required CI did not finish; preview was not published'
           exit 1
+      - name: Deploy exact-SHA testing database and explicit Edge Functions
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN_TEST }}
+        if: github.ref_name == 'Integrated-Marketing-Platform'
+        shell: bash
+        run: |
+          set -euo pipefail
+          current=$(gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/$GITHUB_REF_NAME" --jq '.object.sha')
+          test "$current" = "$GITHUB_SHA"
+          node scripts/supabase-release.mjs --deploy
+          current=$(gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/$GITHUB_REF_NAME" --jq '.object.sha')
+          test "$current" = "$GITHUB_SHA"
+          npx --yes netlify-cli@23.11.0 env:set PLATFORM_BACKEND_VERIFIED_SHA "$GITHUB_SHA" \
+            --context "branch:$GITHUB_REF_NAME" --scope builds --force
       - name: Inspect platform source and pin release timestamp
         if: github.ref_name == 'Integrated-Marketing-Platform'
         shell: bash
@@ -220,5 +249,13 @@ jobs:
         with:
           name: platform-preview-evidence-${{ github.sha }}-${{ github.run_attempt }}
           path: evidence/platform-*.json
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Retain backend release identity and failure diagnostics
+        if: always() && github.ref_name == 'Integrated-Marketing-Platform'
+        uses: actions/upload-artifact@v4
+        with:
+          name: testing-backend-${{ github.sha }}-${{ github.run_attempt }}
+          path: evidence/backend-release.json
           if-no-files-found: warn
           retention-days: 7
