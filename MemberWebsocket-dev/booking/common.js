@@ -57,7 +57,7 @@
     const isBooking = clientType === 'booking';
     const liffId = isAdmin ? config.adminLiffId : isBooking ? config.bookingLiffId : config.memberLiffId;
     const label = isAdmin ? '管理端' : isBooking ? '預約' : '會員';
-    if (!liffId) throw clientError('LIFF_CONFIG_MISSING', `尚未設定${label} LIFF ID。`);
+    if (!liffId) throw clientError('LIFF_CONFIG_MISSING', `尚未設定${label} LIFF ID。` + (isAdmin ? '' : '請使用商家專屬入口，並請管理員在商家的 LINE 設定完成此功能入口。'));
     if (!window.liff) throw clientError('LIFF_SDK_MISSING', 'LINE LIFF SDK 尚未載入。');
     await window.liff.init({ liffId });
     if (!window.liff.isLoggedIn()) {
@@ -711,8 +711,18 @@
 
   function openMemberJoin(config) {
     const memberLiffId = String(config && config.memberLiffId || '').trim();
-    if (!/^[A-Za-z0-9_-]{1,100}$/.test(memberLiffId)) return false;
-    const url = `https://liff.line.me/${encodeURIComponent(memberLiffId)}` + (config.business ? `?business=${encodeURIComponent(config.business)}` : "");
+    let url;
+    if (/^[A-Za-z0-9_-]{1,100}$/.test(memberLiffId)) {
+      url = `https://liff.line.me/${encodeURIComponent(memberLiffId)}` + (config.business ? `?business=${encodeURIComponent(config.business)}` : "");
+    } else {
+      // A feature-scoped response may omit membership's separate LINE identity.
+      // Let the same merchant's membership page discover its own saved LIFF.
+      const business = String(config && config.business || '');
+      if (!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(business)) return false;
+      const entry = new URL('/member/', window.location.href);
+      entry.searchParams.set('business', business);
+      url = entry.href;
+    }
     if (window.liff && typeof window.liff.openWindow === 'function') {
       window.liff.openWindow({ url, external: false });
       return true;
