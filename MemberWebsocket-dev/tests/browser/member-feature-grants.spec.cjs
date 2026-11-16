@@ -96,14 +96,15 @@ test('AC-MEMBER-003: MemberSystem updates member cross-module links on revision 
  await page.route('https://fixture.supabase.co/**',route=>{
   if(!route.request().url().startsWith('https://fixture.supabase.co/'))return route.abort();
   const b=route.request().postDataJSON();
-  if(b.action==='platform.business.public'){reads++;return route.fulfill({json:{ok:true,data:{business:'merchant-a',name:'QA',features,line:{}}}});}
+  if(b.action==='platform.business.public'){reads++;return route.fulfill({json:{ok:true,data:{business:'merchant-a',name:'QA',features,line:{memberChannelId:'2010787602',memberLiffId:'2010787602-Merchant'}}}});}
   return route.fulfill({json:{ok:true,data:{revision,state:'claimed'}}});
  });
  await page.goto(base+'/member/?business=merchant-a');
  for(const file of ['business-context.js','member-system.js'])await page.addScriptTag({url:base+'/'+file});
  await page.clock.pauseAt(new Date('2026-11-07T00:01:00Z'));
  await page.evaluate(async()=>{
-  window.liff={init:async()=>{},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=> 'synthetic'};
+  window.initializedLiffIds=[];
+  window.liff={init:async({liffId})=>{window.initializedLiffIds.push(liffId);},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=> 'synthetic'};
   const config={supabaseUrl:'https://fixture.supabase.co',supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'fixture',memberLiffId:'member'};
   await BusinessContext.configure(config);await MemberSystem.signIn(config,'member');
   window.syncMetrics=[];
