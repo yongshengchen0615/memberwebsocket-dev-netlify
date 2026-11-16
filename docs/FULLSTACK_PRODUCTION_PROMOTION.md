@@ -23,6 +23,14 @@
 | Decision | **Fail closed until a one-time audited migration reconciliation**, then use Supabase CLI migration history; do not execute the entire SQL folder as raw `psql` |
 | Alternative rejected | Blind `supabase db push --include-all`, wholesale schema clone or blanket Edge deployment: high data, rights and regression risk |
 
+## Read-only baseline findings (2026-11-16 UTC)
+
+- Repository `master`: **309** checked-in SQL migrations; live `MemberWebsocket-main` ledger: **341** entries. **125** migration timestamp IDs match; **184** checked-in SQL filenames are absent under their source timestamp in the production ledger and **216** production ledger timestamps do not occur in the Git tree. The history may reflect imported/re-stamped migrations, not 184 necessarily missing schema changes. Never interpret these counts as a command to replay SQL.
+- Production and test `public` each contain 64 tables/734 columns/341 functions. `platform_private` and `line_config` column signatures also match. Of the **383** compared function signatures in `public`, `maintenance`, and `platform_private`, **7** source-definition fingerprints differ: five `maintenance.*sandbox*` reset helpers, `public.maintenance_sql_reset_claim`, and `public.sync_fixed_ticket_calendar_item`.
+- The exact single differing line inside `public.sync_fixed_ticket_calendar_item` contains an environment-specific activity-ticket URL: production points to the existing public GitHub Pages event site and testing to the Integrated Netlify branch. These must **not** be blindly synchronized as identical SQL bodies. Confirm the intended production event domain with actual business and LINE links before any URL change.
+- `master` currently has `protected=false`, and the `production-fullstack` release tag does not exist. These are **blockers**, not assumptions. Repository ruleset and approved baseline bootstrapping are necessary to provide an enforceable release gate.
+- This release planner blocks new SQL containing the known testing project ref, testing branch URL, test project name, and SQL reset confirmation marker. It does not prove that all possible unsafe migrations have been detected.
+
 ## Release procedure
 
 1. **Testing acceptance**: Verify the Integrated branch against `MemberWebsocket-test`: all existing CI, Postgres, browser E2E, LINE/LIFF and Bird OTP sandbox where applicable. Confirm new migration SQL has really run on the isolated testing database (cloned testing migration version numbers differ from production).
