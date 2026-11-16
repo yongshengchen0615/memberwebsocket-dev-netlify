@@ -55,3 +55,5 @@ BusinessContext.configure(config) -> merchant-scoped feature IDs; existing signI
 - Same-format public config measurement: production and testing 634 -> 427 bytes (editor notes excluded); no added discovery request, no latency claim.
 - Admin workflow inventory reviewed and only changed source digests refreshed; existing journey mappings and assertions retained.
 - Full established remote CI, final branch review and both releases remain pending.
+
+- GitHub review found an adjacent MEMBERSHIP_REQUIRED recovery gap when the selected feature response omits separately saved membership identity. Verified both helpers returned false; 6-case unit RED reproduced 2 failures. Fix routes to the same merchant membership page, without restoring a global authentication default. Four real-browser points/booking production/testing journeys verify click -> merchant-scoped discovery -> correct membership LIFF -> profile setup.

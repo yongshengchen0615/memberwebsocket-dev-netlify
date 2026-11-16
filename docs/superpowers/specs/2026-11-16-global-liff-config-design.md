@@ -29,6 +29,7 @@ No new configuration service or abstraction is needed.
 | AC-001 | Given either environment, when built, then only adminLiffId/platformLiffId are published; invalid or missing admin/root IDs still reject the build | branch-environment tests, both builds |
 | AC-002 | Given a merchant feature, when public configuration loads, then its own saved ID replaces any stale global value; missing IDs become empty regardless of legacy Channel | business_context_routing unit tests |
 | AC-003 | Given actual production/testing profiles, when management pages load, then each uses its retained role ID and supports existing approval/settings workflows | product_admin_ui DOM/handler/SQL, Chromium baseline |
+| AC-005 | Given a feature-scoped response omits a separately configured membership LIFF, when a new user presses join, then navigate to the same merchant membership page and discover its own membership LIFF | member_join_routing unit and member-join-routing browser tests |
 | AC-004 | Given a merchant missing a feature ID or an unscoped member URL, when sign-in starts, then show a clear setup/merchant-entry instruction before calling LINE | existing missing-ID validation plus browser cases |
 
 ## Known deployment preconditions

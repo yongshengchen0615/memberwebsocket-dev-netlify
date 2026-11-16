@@ -49,7 +49,7 @@
     "admin/productized-workspace.js": "f9a9809c7a5448f8de3ec46be1a0af2ca4e340038b7d2605dc50368eae39c2c3",
     "platform/platform.css": "6b9332f7b0c242709a7c998779536bb0742b6a5fbecb264334d2b52ad5ed70ac",
     "admin/business-line-settings.css": "7657f293d3208adbbbbc67c27f128d6e74cc3b103ad6228fc8c03638f4f5df70",
-    "booking/common.js": "4517d752314c5d3bf7953db090ddb98ad333299a90fd89dce10482b4674f0ce8"
+    "booking/common.js": "f7acdf473f9aeb5632e947086eaa0d995e47866206456bcf50c96c5cc3c7591b"
   },
   "features": [
     {
@@ -784,5 +784,5 @@
   "canonicalApiReview": "2026-11-10：檢查 booking/common.js 會員登入、presence、預約、收據、活動與個資傳輸，以及管理員 booking-panel-core.js 的預約/管理/多人資源操作。只移除舊 preview 選路；既有 UI 控制、LINE 身分、商家 payload、寫入不重送與錯誤語意保留。管理入口及 loader 僅遞增快取版本；所有既有 browser journey 對照不變。新增 canonical_development_api.test.js 驗證實際請求與拒絕路徑；最終 SHA 完整 CI 及線上退役仍須另行驗證。",
   "managerDisplayNameReview": "2026-11-11 PR #302 AC-075: Reviewed platform tenant card, V2 merchant review and legacy applicant review. Root-only platform.qualification.list returns verified admin_qualifications.display_name; front-end cross-references applicantLineUserId against tenant.ownerLineUserId without changing authorization or persistence. Name is rendered via textContent, unknown/blank names use 名稱待確認, and immutable LINE User ID remains visible. Real Chromium merchant-workspace-v2.spec.cjs covers qualification, review, approved tenant card and ID; product-platform.spec.cjs covers legacy unknown-name fallback. No user/tenant API or permission mutations.",
   "connectionTransportReview": "2026-11-11: Reviewed shared MemberSystem and BookingSystem entrypoints, group booking slots/create/update, price confirmation, individual notes, uncertain write recovery, canonical endpoints, session revocation and test fixture session forwarding. Reused existing scoped in-flight transport; all admin/member/booking workflows and assertions remain. New connection_transport_regression.test.js and booking-connection-transport.spec.cjs cover duplicate bursts, identity/key/business/parameter isolation, 429/403/503, fresh reads, mutation invalidation and desktop/mobile price payloads. Existing invitation.claim protection is confirmed, card.open retry mismatch repaired. Hash updates attest review only; complete same-SHA CI and external LINE acceptance remain separate requirements.",
-  "globalLiffConfigReview": "2026-11-16：全域正式與測試 config 僅保留總管理端與一般管理端 LIFF。審閱商家 LINE 設定、會員/集點/票券/日曆/預約登入及管理員核准流程；商家欄位保留，缺漏功能 ID 清除全域備援並在呼叫 SDK 前提示補齊。既有 admin-human 旅程與斷言不變；新增 GLOBAL_LIFF_production/testing 瀏覽器案例使用實際設定、handler 與隔離 SQL 驗證管理登入及五個未設定入口。沒有 LINE Console、憑證、DB/權限變更。"
+  "globalLiffConfigReview": "2026-11-16：全域正式與測試 config 僅保留總管理端與一般管理端 LIFF。審閱商家 LINE 設定、會員/集點/票券/日曆/預約登入及管理員核准流程；商家欄位保留，缺漏功能 ID 清除全域備援並在呼叫 SDK 前提示補齊。既有 admin-human 旅程與斷言不變；新增 GLOBAL_LIFF_production/testing 瀏覽器案例使用實際設定、handler 與隔離 SQL 驗證管理登入及五個未設定入口。沒有 LINE Console、憑證、DB/權限變更。 補充審查：保留跨功能 MEMBERSHIP_REQUIRED 加入會員路徑。當功能回應不含會員 LIFF，兩個既有 openMemberJoin helper 轉至同網域 /member/?business=...，由會員頁重新取得該商家的會員 LIFF；未恢復全域驗證備援。新增 6 個單元與正式/測試 × 集點/預約共 4 個完整瀏覽器案例。"
 }
