@@ -149,7 +149,7 @@ export async function deployBackend({ root = process.cwd(), branch, sha, token, 
   if (!/^[a-f0-9]{40}$/.test(sha || '')) fail('EXACT_COMMIT_REQUIRED');
   const plan = loadReleasePlan(root);
   if (!token) fail('SUPABASE_RELEASE_CREDENTIAL_REQUIRED');
-  async function request(method, resource, body) {
+  async function request(method, resource, body, expectedSqlState) {
     let response;
     try {
       response = await fetchImpl(`https://api.supabase.com/v1/projects/${target.projectRef}${resource}`, {
@@ -158,11 +158,48 @@ export async function deployBackend({ root = process.cwd(), branch, sha, token, 
         ...(body ? { body: JSON.stringify(body) } : {}),
       });
     } catch { fail(method === 'POST' ? 'DATABASE_OUTCOME_UNKNOWN_INSPECT_LEDGER' : 'PROJECT_LOOKUP_UNAVAILABLE'); }
-    if (!response.ok) fail((method === 'POST' ? 'DATABASE' : 'PROJECT') + '_HTTP_' + response.status);
+    if (!response.ok) {
+      // Only the deliberately induced PostgreSQL error proves this probe reached
+      // its failing statement. An unrelated provider error never counts as proof.
+      if (expectedSqlState && [400, 500].includes(response.status)) {
+        const errorBody = await response.text();
+        if (errorBody.includes(expectedSqlState)) return { expectedFailure: true };
+      }
+      fail((method === 'POST' ? 'DATABASE' : 'PROJECT') + '_HTTP_' + response.status);
+    }
+    if (expectedSqlState) fail('TRANSACTION_PROBE_EXPECTED_FAILURE_MISSING');
     try { return await response.json(); } catch { fail(method === 'POST' ? 'DATABASE_OUTCOME_UNKNOWN_INSPECT_LEDGER' : 'PROJECT_RESPONSE_INVALID'); }
   }
   const project = await request('GET', '');
   if (project.id !== target.projectRef || project.status !== 'ACTIVE_HEALTHY') fail('PROJECT_IDENTITY_OR_HEALTH_INVALID');
+  let transactionProbe = 'not-run-production';
+  if (target.environment === 'testing') {
+    // Exercise the real provider's multi-statement semantics before app SQL.
+    // This schema contains synthetic data only. Never use production data or
+    // drop an existing namespace, and never retry a mutation with unknown outcome.
+    const scope = 'release_probe_' + sha.slice(0, 12);
+    const existing = await request('POST', '/database/query', {
+      query: `SELECT to_regnamespace('${scope}') IS NOT NULL AS exists;`, read_only: true,
+    });
+    if (!Array.isArray(existing) || existing.length !== 1 || existing[0].exists !== false) fail('TRANSACTION_PROBE_SCOPE_NOT_EMPTY');
+    await request('POST', '/database/query', { query: `BEGIN; CREATE SCHEMA ${scope}; REVOKE ALL ON SCHEMA ${scope} FROM PUBLIC, anon, authenticated, service_role; CREATE TABLE ${scope}.marker(value int); INSERT INTO ${scope}.marker VALUES (1); COMMIT;` });
+    let probeError;
+    try {
+      const read = () => request('POST', '/database/query', {
+        query: `SELECT marker.value AS marker, to_regclass('${scope}.partial')::text AS partial_table FROM ${scope}.marker AS marker;`, read_only: true,
+      });
+      const committed = await read();
+      if (!Array.isArray(committed) || committed.length !== 1 || committed[0].marker !== 1 || committed[0].partial_table !== null) fail('TRANSACTION_PROBE_COMMIT_FAILED');
+      await request('POST', '/database/query', { query: `BEGIN; UPDATE ${scope}.marker SET value=2; CREATE TABLE ${scope}.partial(value int); SELECT 1/0; COMMIT;` }, '22012');
+      const rolledBack = await read();
+      if (!Array.isArray(rolledBack) || rolledBack.length !== 1 || rolledBack[0].marker !== 1 || rolledBack[0].partial_table !== null) fail('TRANSACTION_PROBE_ROLLBACK_FAILED');
+      transactionProbe = 'commit-and-rollback-verified';
+    } catch (error) { probeError = error; }
+    // No CASCADE: an unexpected object prevents cleanup instead of deleting it.
+    try { await request('POST', '/database/query', { query: `BEGIN; DROP TABLE ${scope}.marker; DROP SCHEMA ${scope}; COMMIT;` }); }
+    catch { fail('TRANSACTION_PROBE_CLEANUP_INCOMPLETE'); }
+    if (probeError) throw probeError;
+  }
   await request('POST', '/database/query', { query: migrationSQL(plan, sha) });
   const ledger = await request('POST', '/database/query', {
     query: 'SELECT version, filename, checksum FROM deployment_private.schema_releases ORDER BY version;', read_only: true,
@@ -186,7 +223,7 @@ export async function deployBackend({ root = process.cwd(), branch, sha, token, 
   const active = await request('GET', '/functions');
   if (!Array.isArray(active) || plan.functions.some(name => !active.some(fn => fn.slug === name && fn.status === 'ACTIVE'
     && Number.isInteger(fn.version) && fn.version > 0 && fn.verify_jwt === false))) fail('EDGE_READBACK_FAILED');
-  return { status: 'backend-ready', sha, branch, ...target,
+  return { status: 'backend-ready', sha, branch, ...target, transactionProbe,
     migrations: plan.migrations.map(({ filename, checksum }) => ({ filename, checksum })),
     functions: plan.functions.map(name => { const fn = active.find(row => row.slug === name); return { name, version: fn.version }; }) };
 }

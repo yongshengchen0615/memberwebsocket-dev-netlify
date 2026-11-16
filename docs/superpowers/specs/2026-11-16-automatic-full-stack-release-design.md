@@ -22,6 +22,7 @@ Integrated-Marketing-Platform 推進時部署 MemberWebsocket-test；master 合�
 - 固定 project ref 與獨立 TEST/PRODUCTION access token。缺失、專案驗證失敗或分支已前進立即停止。
 - 遷移 transaction 使用 advisory lock、lock/statement timeout；SQL 與 checksum 紀錄一起提交。失敗全批 rollback；同版重跑不重放；改寫或刪除已套用 migration 拒絕。
 - 新 migration 需保持舊前端/Edge 相容；部署不是跨 Supabase/Netlify 的原子交易。Edge 中途失敗可能有部分新版函式，因此不自動倒退或刪除資料，只保留舊前端並修復前進。
+- 測試發布先在獨立 release_probe_<SHA> 合成 schema 實測 Management query API 成功提交、22012 故障 rollback、寫後讀回及無 CASCADE 清理。結果或清理不符即停止，不執行應用 SQL；正式專案不執行故障探測。同名 scope 已存在時拒絕覆寫。
 - 新 SQL 禁止頂層交易控制，避免破壞外層原子性。BEGIN/COMMIT 只有既有授權修復的外層包裝可移除。不提供通用 SQL 安全沙箱；具寫權的審核者仍需審查破壞性變更。
 - 部署名單只包含現有 canonical active 函式，排除 retirement、*-preview、sql-full-reset-worker。新增函式需在名單宣告；不執行 blanket deploy。
 - Integrated 原生建置除了原 CI gate，必須取得同 SHA 後端完成標記。標記僅 GitHub 在後端成功後寫入 Netlify branch build scope。

@@ -85,19 +85,58 @@ test('AC-006 SQL failure/unknown POST result never deploys Edge and provider bod
 test('AC-006 backend completes only after verified project, committed SQL and every explicit Edge function', async t => {
   const f = fixture(t); const order = [];
   const fetchImpl = async (url, options) => {
-    assert.match(url, /^https:\/\/api.supabase.com\/v1\/projects\/bmwhojszsnxliekkhrka/);
+    assert.match(url, /^https:\/\/api.supabase.com\/v1\/projects\/dbuquirnaskrwcamdxki/);
     order.push(options.method);
     if (url.endsWith('/functions')) return Response.json([{ slug: 'api', version: 2, status: 'ACTIVE', verify_jwt: false }]);
-    if (options.method === 'GET') return Response.json({ id: 'bmwhojszsnxliekkhrka', status: 'ACTIVE_HEALTHY' });
+    if (options.method === 'GET') return Response.json({ id: 'dbuquirnaskrwcamdxki', status: 'ACTIVE_HEALTHY' });
     if (JSON.parse(options.body).query.startsWith('SELECT version')) return Response.json([]);
     assert.match(JSON.parse(options.body).query, /pg_advisory_xact_lock/);
     return Response.json([]);
   };
-  const result = await deployBackend({ root: f.root, branch: 'Integrated-Marketing-Platform', sha, token: 'private', fetchImpl, deployFunction: async name => order.push(name) });
+  const result = await deployBackend({ root: f.root, branch: 'master', sha, token: 'private', fetchImpl, deployFunction: async name => order.push(name) });
   assert.deepEqual(order, ['GET', 'POST', 'POST', 'api', 'GET']);
   assert.equal(result.sha, sha);
   assert.equal(result.status, 'backend-ready');
   assert.doesNotMatch(JSON.stringify(result), /private/);
+});
+
+test('AC-009 testing API must prove commit and failure rollback in its own synthetic schema before deployment', async t => {
+  const f = fixture(t); const calls = []; let rollbackRequests = 0;
+  const fetchImpl = async (url, options) => {
+    if (url.endsWith('/functions')) return Response.json([{ slug: 'api', version: 2, status: 'ACTIVE', verify_jwt: false }]);
+    if (options.method === 'GET') return Response.json({ id: 'bmwhojszsnxliekkhrka', status: 'ACTIVE_HEALTHY' });
+    const { query } = JSON.parse(options.body); calls.push(query);
+    if (query.includes('to_regnamespace')) return Response.json([{ exists: false }]);
+    if (query.startsWith('SELECT marker')) return Response.json([{ marker: 1, partial_table: null }]);
+    if (query.includes('SELECT 1/0')) { rollbackRequests++; return new Response('ERROR: 22012: division by zero', { status: 400 }); }
+    return Response.json([]);
+  };
+  const result = await deployBackend({ root: f.root, branch: 'Integrated-Marketing-Platform', sha, token: 'private', fetchImpl, deployFunction: async () => {} });
+  assert.equal(rollbackRequests, 1);
+  assert.equal(result.transactionProbe, 'commit-and-rollback-verified');
+  const setup = calls.findIndex(q => q.startsWith('BEGIN; CREATE SCHEMA release_probe_'));
+  const failed = calls.findIndex(q => q.includes('SELECT 1/0'));
+  const cleanup = calls.findIndex(q => q.startsWith('BEGIN; DROP TABLE release_probe_'));
+  const migration = calls.findIndex(q => q.includes('CREATE TABLE IF NOT EXISTS deployment_private.schema_releases'));
+  assert.ok(setup >= 0 && setup < failed && failed < cleanup && cleanup < migration);
+});
+
+test('AC-009 transaction probe refuses wrong rollback state or unrelated API errors before migrations', async t => {
+  for (const broken of ['state', 'provider']) {
+    const f = fixture(t); let deploymentStarted = false, markerReads = 0;
+    await assert.rejects(deployBackend({ root: f.root, branch: 'Integrated-Marketing-Platform', sha, token: 'private',
+      fetchImpl: async (url, options) => {
+        if (options.method === 'GET') return Response.json({ id: 'bmwhojszsnxliekkhrka', status: 'ACTIVE_HEALTHY' });
+        const { query } = JSON.parse(options.body);
+        if (query.includes('deployment_private.schema_releases')) deploymentStarted = true;
+        if (query.includes('to_regnamespace')) return Response.json([{ exists: false }]);
+        if (query.startsWith('SELECT marker')) { markerReads++; return Response.json([{ marker: markerReads === 2 ? 2 : 1, partial_table: null }]); }
+        if (query.includes('SELECT 1/0')) return new Response(broken === 'provider' ? 'SECRET provider failure' : 'ERROR: 22012: division by zero', { status: 400 });
+        return Response.json([]);
+      }, deployFunction: async () => { deploymentStarted = true; },
+    }), error => /TRANSACTION_PROBE|DATABASE_HTTP/.test(error.message) && !error.message.includes('SECRET'));
+    assert.equal(deploymentStarted, false);
+  }
 });
 
 test('AC-006 failed Edge deployment does not produce a backend-ready result', async t => {

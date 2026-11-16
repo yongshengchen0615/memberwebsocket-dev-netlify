@@ -46,6 +46,10 @@ Supabase 連接器登入不會把權杖供應給 GitHub Actions。上述 access 
 
 歷史 SQL 已由 `MemberWebsocket-dev/supabase/deployment-baseline.json` 凍結（截至 `20261111134000`），不自動重播。正式 history 與測試 clone history 不相同，因此新流程使用私有 `deployment_private.schema_releases` 紀錄 SQL 的 SHA256、檔名及來源提交，**不修改或修復舊 Supabase migration history**。不應再直接向這兩個既有專案執行整個歷史目錄的 `db push`。此流程使用官方 Management query API；該 API 目前標記 beta，首次啟用必須在測試專案驗證完整 transaction／rollback 契約。
 
+測試分支每次發布都會先用專屬 `release_probe_<commit>` 合成 schema 驗證實際 API：成功交易能提交，故意觸發 PostgreSQL 22012 的失敗交易能回復先前寫入及 DDL，最後清除自身測試 schema。未通過則不執行應用程式 migration；正式環境不執行此故障探測。不使用 `CASCADE`，同名 scope 已存在時拒絕覆寫。API 結果不明時停止並保留 scope 供檢查。
+
+2026-11-16 已建立兩個專案限定權杖並存為上述 GitHub Secrets，權限為 Project Settings Read、Database Read-write、Edge Functions Read-write。兩個權杖有效期限為 2027-02-14；到期前需替換對應 Secret，不須修改程式碼。
+
 未來新增 SQL：
 
 ```bash
