@@ -23,6 +23,7 @@ test('AC-012 production SQL preflight precedes Edge Functions and frontend', () 
     && edgeDeploy > sqlApply && frontend > edgeDeploy);
   assert.doesNotMatch(flow, /supabase db (reset|push .*--include-all)|supabase migration repair/);
   assert.match(flow, /PROJECT_REF: dbuquirnaskrwcamdxki/);
+  assert.match(flow, /environment: production/);
 });
 
 test('AC-013 only production-scoped deployment credentials are referenced', () => {
