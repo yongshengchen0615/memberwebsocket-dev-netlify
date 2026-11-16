@@ -68,7 +68,9 @@ test('AC-006 retired QA APIs are never deployed as live implementations', () => 
 
 test('AC-007 Supabase auth config and retirement manifest require separate review', () => fixture(root => {
   for (const item of ['MemberWebsocket-dev/supabase/config.toml',
-    'MemberWebsocket-dev/supabase/retirement/retired-endpoints.json']) {
+    'MemberWebsocket-dev/supabase/retirement/retired-endpoints.json',
+    'MemberWebsocket-dev/supabase/seed.sql',
+    'MemberWebsocket-dev/supabase/import_map.json']) {
     assert.throws(() => makePromotionPlan([changed('M', item)], { root }), /separate review/);
   }
 }));
