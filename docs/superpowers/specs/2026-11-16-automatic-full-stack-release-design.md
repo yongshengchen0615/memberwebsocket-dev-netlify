@@ -50,3 +50,15 @@ GitHub Repository Actions Secrets：SUPABASE_ACCESS_TOKEN_TEST、SUPABASE_ACCESS
 前端回復至前次已驗證 deploy；Edge 回復至前次相容來源名單；DB 以新 migration 前進修復，破壞性回復需另行備份與授權。重跑已提交 SQL 是 no-op；未知 POST 結果不自動 retry，先查 ledger。
 
 完整完成需最終兩 PR/分支 CI、真 PostgreSQL 新測試與既有全部基線成功，以及每個環境同 SHA 真實發布/冒煙。缺少 credentials 或真實環境驗收時標部分完成且受阻，不宣稱自動部署已啟用。
+
+## GitHub push 事件遺失時的恢復
+
+已確認 436bc477c9af09cc75d6bdf09348c0463492832a 已合併，但 Actions/check runs 為 0；同期官方通報 Actions/PR 效能異常。等待事件與提供完整驗證的恢復入口相比，採後者；不修改舊 push CI gate、不把 PR synthetic merge 測試當作發布證據。
+
+發布 workflow 的 workflow_dispatch 會以相同 commit 的本地 reusable workflow 呼叫三條既有完整基線，不傳遞部署 secrets。三條全部 success 才可進 publish；失敗、取消、skipped 或缺少結果都拒絕。一般 push 仍使用原有三條同 SHA push gate。所有模式保留發布前 HEAD、固定環境、SQL/Edge/後端標記、Netlify 與 smoke；取消中的 workflow 不得開始發布。正式環境仍須等測試實際發布驗證。
+
+AC-010：Given push 工作未建立，When 手動恢復，Then 在同一發布 run 完整執行三條原基線，通過後才寫後端。
+AC-011：Given 任一 reusable baseline 非 success／結果遺失，When 恢復，Then 不發布；空結果及非發布分支亦拒絕。
+AC-012：Given 一般 push，When recovery jobs 不適用而跳過，Then 原本同 SHA push CI gate 仍完整執行。
+AC-013：Given 被取消或 HEAD 已前進的恢復 run，When 即將寫後端/前端，Then 拒絕發布。
+AC-014：Given 恢復測試，When 呼叫 reusable workflows，Then 使用相同 commit 的 ./ 相對路徑，部署 secrets 不傳給測試。

@@ -19,8 +19,21 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  recovery_member:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
+    uses: ./.github/workflows/test-memberwebsocket-dev.yml
+  recovery_netlify:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
+    uses: ./.github/workflows/test-netlify-build.yml
+  recovery_ticket:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
+    uses: ./.github/workflows/test-memberwebsocket-ticket-policy.yml
   publish:
-    if: github.ref == 'refs/heads/master'
+    needs: [recovery_member, recovery_netlify, recovery_ticket]
+    if: >-
+      ${{ !cancelled() && github.ref == 'refs/heads/master' &&
+          (github.event_name != 'workflow_dispatch' ||
+           (needs.recovery_member.result == 'success' && needs.recovery_netlify.result == 'success' && needs.recovery_ticket.result == 'success')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
@@ -32,6 +45,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Verify complete same-SHA manual recovery baselines
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          RECOVERY_NEEDS: ${{ toJSON(needs) }}
+        run: node scripts/release-recovery.mjs
       - uses: supabase/setup-cli@v1
         with:
           version: 2.122.1
@@ -76,6 +94,7 @@ jobs:
             exit 1
           fi
       - name: Wait for all established CI on this exact master commit
+        if: github.event_name != 'workflow_dispatch'
         shell: bash
         run: |
           set -euo pipefail
