@@ -39,7 +39,7 @@ jobs:
           }
           try {
             const data=await get(`https://app.netlify.com/access-control/generate-access-control-token?site_id=${siteId}&deploy_id=${deployId}`);
-            const jwt=typeof data==='string'?data:data.access_token||data.token;
+            const jwt=typeof data==='string'?data:data.accessControlToken||data.access_token||data.token;
             if(typeof jwt!=='string') {console.log(JSON.stringify({logTokenKeys:Object.keys(data)}));}
             else {
               await new Promise(resolve=>{
@@ -63,4 +63,4 @@ jobs:
           NETLIFY_SITE_ID: 196e1d2c-8216-4ba8-aeb9-1706660adc2b
         run: |
           npx --yes netlify-cli@23.11.0 --version
-          npx --yes netlify-cli@23.11.0 env:get PLATFORM_BACKEND_VERIFIED_SHA --context branch:Integrated-Marketing-Platform --scope builds
+          npx --yes netlify-cli@23.11.0 env:get PLATFORM_BACKEND_VERIFIED_SHA --context branch:Integrated-Marketing-Platform --scope builds --force
