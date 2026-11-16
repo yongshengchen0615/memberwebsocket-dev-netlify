@@ -22,6 +22,7 @@ jobs:
   publish:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
+    environment: production # configure required reviewers in GitHub Environments
     timeout-minutes: 35
     env:
       NETLIFY_SITE_ID: 196e1d2c-8216-4ba8-aeb9-1706660adc2b
