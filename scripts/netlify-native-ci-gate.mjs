@@ -15,6 +15,12 @@ export function hasCiAttestedReleaseMarker(env) {
     && env.PLATFORM_CI_VERIFIED_SHA === env.COMMIT_REF;
 }
 
+export function requireBackendReleaseMarker(env) {
+  if (!isNativeVerifiedPreview(env) || !/^[a-f0-9]{40}$/.test(env.COMMIT_REF || '')
+    || env.PLATFORM_BACKEND_VERIFIED_SHA !== env.COMMIT_REF) throw new NativeCiGateError('BACKEND_RELEASE_NOT_READY');
+  return true;
+}
+
 export class NativeCiGateError extends Error {
   constructor(code) { super(code); this.name = 'NativeCiGateError'; this.code = code; }
 }

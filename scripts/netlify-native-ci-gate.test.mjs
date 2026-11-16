@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isNativeVerifiedPreview, hasCiAttestedReleaseMarker, awaitVerifiedPreviewCI, NativeCiGateError } from './netlify-native-ci-gate.mjs';
+import { isNativeVerifiedPreview, hasCiAttestedReleaseMarker, awaitVerifiedPreviewCI, NativeCiGateError, requireBackendReleaseMarker } from './netlify-native-ci-gate.mjs';
 
 const sha='b'.repeat(40), branch='Integrated-Marketing-Platform';
 const required=['test-memberwebsocket-dev.yml','test-netlify-build.yml','test-memberwebsocket-ticket-policy.yml'];
@@ -85,4 +85,11 @@ test('CI attestation is exact-SHA and restricted to the intended native branch c
   {BRANCH:'master'}, {CONTEXT:'production'}, {CONTEXT:'deploy-preview'},
  ]) assert.equal(hasCiAttestedReleaseMarker({...env,...patch}),false,JSON.stringify(patch));
  assert.equal(hasCiAttestedReleaseMarker({}),false);
+});
+
+test('AC-007 successful CI alone cannot publish before the exact-SHA backend release',()=>{
+ const env={NETLIFY:'true',BRANCH:branch,CONTEXT:'branch-deploy',COMMIT_REF:sha,PLATFORM_CI_VERIFIED_SHA:sha};
+ for(const marker of [undefined,'','a'.repeat(40)])assert.throws(()=>requireBackendReleaseMarker({...env,PLATFORM_BACKEND_VERIFIED_SHA:marker}),/BACKEND_RELEASE_NOT_READY/);
+ assert.equal(requireBackendReleaseMarker({...env,PLATFORM_BACKEND_VERIFIED_SHA:sha}),true);
+ assert.throws(()=>requireBackendReleaseMarker({...env,COMMIT_REF:'bad',PLATFORM_BACKEND_VERIFIED_SHA:'bad'}),/BACKEND_RELEASE_NOT_READY/);
 });
