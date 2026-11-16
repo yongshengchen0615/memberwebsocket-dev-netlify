@@ -711,8 +711,18 @@
 
   function openMemberJoin(config) {
     const memberLiffId = String(config && config.memberLiffId || '').trim();
-    if (!/^[A-Za-z0-9_-]{1,100}$/.test(memberLiffId)) return false;
-    const url = `https://liff.line.me/${encodeURIComponent(memberLiffId)}` + (config.business ? `?business=${encodeURIComponent(config.business)}` : "");
+    let url;
+    if (/^[A-Za-z0-9_-]{1,100}$/.test(memberLiffId)) {
+      url = `https://liff.line.me/${encodeURIComponent(memberLiffId)}` + (config.business ? `?business=${encodeURIComponent(config.business)}` : "");
+    } else {
+      // A feature-scoped response may omit membership's separate LINE identity.
+      // Let the same merchant's membership page discover its own saved LIFF.
+      const business = String(config && config.business || '');
+      if (!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(business)) return false;
+      const entry = new URL('/member/', window.location.href);
+      entry.searchParams.set('business', business);
+      url = entry.href;
+    }
     if (window.liff && typeof window.liff.openWindow === 'function') {
       window.liff.openWindow({ url, external: false });
       return true;
