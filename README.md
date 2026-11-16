@@ -16,6 +16,8 @@ python -m http.server 8080 --directory dist
 The build publishes only frontend assets. Supabase functions, migrations, tests,
 internal documents and local Netlify state are excluded from `dist`.
 
+> **正式環境全端同步／合併阻擋：** 網站、Supabase SQL/RLS/RPC/Trigger 與 Edge Functions 的發布程序、尚未完成的一次性 migration 歷史對帳、需要的 GitHub Secrets 和回復條件，請參考 [完整正式發布規範](docs/FULLSTACK_PRODUCTION_PROMOTION.md)。在正式資料庫基線驗證完成前，不可宣稱「合併 master 即已同步後端」。
+
 ## Netlify configuration
 
 Use the recreated project `memberwebsocket-dev-netlify`

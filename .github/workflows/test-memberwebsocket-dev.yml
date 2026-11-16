@@ -40,7 +40,9 @@ jobs:
           --test-reporter=junit --test-reporter-destination=regression-results.xml
           MemberWebsocket-dev/tests/*.test.js
       - name: Verify governance workflow gates
-        run: node --test scripts/governance-workflow.test.mjs
+        run: >-
+          node --test scripts/governance-workflow.test.mjs
+          scripts/fullstack-release-plan.test.mjs scripts/fullstack-release-workflow.test.mjs
       - name: Save regression diagnostics and durations
         if: always()
         uses: actions/upload-artifact@v4

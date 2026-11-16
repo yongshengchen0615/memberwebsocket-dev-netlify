@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write # advance production-fullstack tag only after all production smoke checks
   actions: read
 
 concurrency:
@@ -22,6 +22,7 @@ jobs:
   publish:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
+    environment: production # configure required reviewers in GitHub Environments
     timeout-minutes: 35
     env:
       NETLIFY_SITE_ID: 196e1d2c-8216-4ba8-aeb9-1706660adc2b
@@ -29,6 +30,8 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # release comparison uses an audited production tag
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -78,6 +81,98 @@ jobs:
           done
           echo '::error::Required CI did not finish; master was not published'
           exit 1
+      # Never publish the frontend when required database or Edge code has not
+      # been promoted. No implicit first-run baseline: an authorized operator
+      # must reconcile remote migration history and establish this tag first.
+      - name: Inspect full-stack release baseline and deployment delta
+        id: backend_plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          if ! git fetch --no-tags origin 'refs/tags/production-fullstack:refs/tags/production-fullstack'; then
+            echo '::error::Missing audited production-fullstack baseline. Reconcile Supabase history and initialize the release tag before enabling production promotion.'
+            exit 1
+          fi
+          base=$(git rev-parse 'refs/tags/production-fullstack^{commit}')
+          git merge-base --is-ancestor "$base" "$GITHUB_SHA" || {
+            echo '::error::Release tag is not an ancestor of master'; exit 1;
+          }
+          node scripts/fullstack-release-plan.mjs "$base" "$GITHUB_SHA" > evidence/fullstack-release-plan.json
+          echo "migrations=$(jq '.migrations|length' evidence/fullstack-release-plan.json)" >> "$GITHUB_OUTPUT"
+          echo "functions=$(jq '.functions|length' evidence/fullstack-release-plan.json)" >> "$GITHUB_OUTPUT"
+          cat evidence/fullstack-release-plan.json
+      - name: Require separate Supabase production deployment credentials
+        if: steps.backend_plan.outputs.migrations != '0' || steps.backend_plan.outputs.functions != '0'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_PRODUCTION_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_PRODUCTION_DB_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${SUPABASE_ACCESS_TOKEN:-}" || { echo '::error::Missing SUPABASE_PRODUCTION_ACCESS_TOKEN'; exit 1; }
+          if [ "${{ steps.backend_plan.outputs.migrations }}" != 0 ]; then
+            test -n "${SUPABASE_DB_PASSWORD:-}" || { echo '::error::Missing SUPABASE_PRODUCTION_DB_PASSWORD'; exit 1; }
+          fi
+      - name: Install official Supabase CLI for production promotion
+        if: steps.backend_plan.outputs.migrations != '0' || steps.backend_plan.outputs.functions != '0'
+        uses: supabase/setup-cli@v3
+        with:
+          # v3 CLI switched hosted commands to --remote/--yes in November 2026.
+          # Pin the v2 stable channel until migration-history reconciliation.
+          version: v2.stable
+      - name: Preflight and apply only verified production SQL migrations
+        if: steps.backend_plan.outputs.migrations != '0'
+        working-directory: MemberWebsocket-dev
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_PRODUCTION_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_PRODUCTION_DB_PASSWORD }}
+          PROJECT_REF: dbuquirnaskrwcamdxki
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase db push --help | grep -Fq -- '--dry-run'
+          supabase link --project-ref "$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+          # Historical source vs remote migration drift must be reconciled
+          # separately; never use --include-all or migration repair automatically.
+          supabase db push --linked --dry-run
+          supabase db push --linked --yes
+      - name: Deploy only changed production Edge Functions and shared dependents
+        if: steps.backend_plan.outputs.functions != '0'
+        working-directory: MemberWebsocket-dev
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_PRODUCTION_ACCESS_TOKEN }}
+          PROJECT_REF: dbuquirnaskrwcamdxki
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r function_name; do
+            echo "Deploying verified canonical Edge Function: $function_name"
+            supabase functions deploy "$function_name" --project-ref "$PROJECT_REF"
+          done < <(jq -r '.functions[]' ../evidence/fullstack-release-plan.json)
+      - name: Confirm changed Edge Functions appear in the target project
+        if: steps.backend_plan.outputs.functions != '0'
+        working-directory: MemberWebsocket-dev
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_PRODUCTION_ACCESS_TOKEN }}
+          PROJECT_REF: dbuquirnaskrwcamdxki
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase functions list --project-ref "$PROJECT_REF" > /tmp/promoted-functions.txt
+          while IFS= read -r function_name; do
+            grep -Fq "$function_name" /tmp/promoted-functions.txt || {
+              echo "::error::Published function missing: $function_name"; exit 1;
+            }
+          done < <(jq -r '.functions[]' ../evidence/fullstack-release-plan.json)
+      - name: Retain backend promotion manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-backend-plan-${{ github.sha }}
+          path: evidence/fullstack-release-plan.json
+          if-no-files-found: warn
+          retention-days: 14
       - name: Publish the verified bundle to the existing Netlify production site
         shell: bash
         run: |
@@ -112,3 +207,12 @@ jobs:
           done
           echo "::error::Published production files did not match the exact commit and point-card fix after 30 checks"
           exit 1
+      - name: Advance full-stack production baseline only after successful website smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          current=$(gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/master" --jq '.object.sha')
+          test "$current" = "$GITHUB_SHA"
+          old=$(git rev-parse refs/tags/production-fullstack)
+          git tag -f production-fullstack "$GITHUB_SHA"
+          git push --force-with-lease="refs/tags/production-fullstack:$old" origin refs/tags/production-fullstack
