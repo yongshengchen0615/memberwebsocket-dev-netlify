@@ -58,7 +58,7 @@ function dependenciesFor(entry, functionRoot, seen = new Set()) {
 
 const testingOnlySqlMarkers = [
   /bmwhojszsnxliekkhrka/i,
-  /integrated-marketing-platform--memberwebsocket-dev-netlify\\.netlify\\.app/i,
+  /integrated-marketing-platform--memberwebsocket-dev-netlify\.netlify\.app/i,
   /MemberWebsocket-test/i,
   /RESET MEMBERWEBSOCKET TEST DATA/i,
 ];
