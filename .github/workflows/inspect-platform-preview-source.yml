@@ -1,16 +1,11 @@
 name: Inspect platform preview source
-
 on:
   push:
-    branches: [fix/preview-source-unification-20261021]
-    paths:
-      - 'scripts/inspect-preview-source*'
-      - '.github/workflows/inspect-platform-preview-source.yml'
+    branches: [diagnostic/netlify-release-87d3ec5]
+    paths: ['.github/workflows/inspect-platform-preview-source.yml']
   workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
   inspect:
     runs-on: ubuntu-latest
@@ -20,18 +15,52 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Verify diagnostic redaction and read-only API contract
-        run: node --test scripts/inspect-preview-source.test.mjs
-      - name: Inspect the existing preview source without changing settings
+      - name: Read only release-marker and build-failure diagnostics
         env:
-          NETLIFY_SITE_ID: 23796c62-480a-4b46-ac90-bfbc5ad4d300
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          PREVIEW_SOURCE_BRANCH: Integrated-Marketing-Platform
-          PLATFORM_ALIAS: integrated-marketing-platform
-        run: node scripts/inspect-preview-source.mjs
-      - uses: actions/upload-artifact@v4
-        with:
-          name: platform-source-${{ github.sha }}
-          path: evidence/platform-source.json
-          if-no-files-found: error
-          retention-days: 7
+          NETLIFY_SITE_ID: 196e1d2c-8216-4ba8-aeb9-1706660adc2b
+        run: |
+          node --input-type=module <<'JS'
+          const siteId=process.env.NETLIFY_SITE_ID;
+          const sha='87d3ec582d3771570aeac6b8a1e9bb61f2803ce3';
+          const deployId='6afb2de519e2b9a1179146ec';
+          const token=process.env.NETLIFY_AUTH_TOKEN;
+          async function get(url) {
+            const r=await fetch(url,{headers:{Authorization:`Bearer ${token}`},redirect:'error',signal:AbortSignal.timeout(20000)});
+            if(!r.ok) throw Error('HTTP_'+r.status);
+            return r.json();
+          }
+          const site=await get(`https://api.netlify.com/api/v1/sites/${siteId}`);
+          if(site.id!==siteId || site.build_settings?.repo_path!=='yongshengchen0615/memberwebsocket-dev-netlify') throw Error('WRONG_SITE');
+          const env=await get(`https://api.netlify.com/api/v1/accounts/${site.account_slug}/env?site_id=${siteId}`);
+          for(const key of ['PLATFORM_BACKEND_VERIFIED_SHA','PLATFORM_CI_VERIFIED_SHA']) {
+            const row=env.find(x=>x.key===key);
+            console.log(JSON.stringify({key,present:!!row,scopes:row?.scopes,values:row?.values?.map(v=>({context:v.context,branch:v.context_parameter,matchesSha:v.value===sha}))}));
+          }
+          try {
+            const data=await get(`https://app.netlify.com/access-control/generate-access-control-token?site_id=${siteId}&deploy_id=${deployId}`);
+            const jwt=typeof data==='string'?data:data.access_token||data.token;
+            if(typeof jwt!=='string') {console.log(JSON.stringify({logTokenKeys:Object.keys(data)}));}
+            else {
+              await new Promise(resolve=>{
+                const ws=new WebSocket('wss://socketeer.services.netlify.com/build/logs');
+                const found=new Set();
+                const timer=setTimeout(()=>{ws.close();resolve();},15000);
+                ws.addEventListener('open',()=>ws.send(JSON.stringify({access_token:jwt,site_id:siteId,deploy_id:deployId})));
+                ws.addEventListener('message',e=>{
+                  const text=String(e.data);
+                  for(const code of ['BACKEND_RELEASE_NOT_READY','CI_PROVIDER_HTTP_403','CI_NOT_COMPLETE','CI_REQUIRED_CHECK_FAILED','github-actions-exact-sha','MODULE_NOT_FOUND','ERR_MODULE_NOT_FOUND']) if(text.includes(code)&&!found.has(code)) {found.add(code);console.log(JSON.stringify({buildFailureCode:code}));}
+                });
+                ws.addEventListener('error',()=>{console.log('BUILD_LOG_SOCKET_ERROR');clearTimeout(timer);resolve();});
+                ws.addEventListener('close',()=>{clearTimeout(timer);resolve();});
+              });
+            }
+          } catch(e) {console.log(/^HTTP_[0-9]+$/.test(e.message)?'BUILD_LOG_'+e.message:'BUILD_LOG_UNAVAILABLE');}
+          JS
+      - name: Verify pinned CLI actually executes read commands
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: 196e1d2c-8216-4ba8-aeb9-1706660adc2b
+        run: |
+          npx --yes netlify-cli@23.11.0 --version
+          npx --yes netlify-cli@23.11.0 env:get PLATFORM_BACKEND_VERIFIED_SHA --context branch:Integrated-Marketing-Platform --scope builds
