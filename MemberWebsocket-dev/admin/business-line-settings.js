@@ -20,7 +20,7 @@
     booking: '線上預約入口：設定預約 LIFF；預約管理員通知與會員通知可分開設定。',
   };
   let grants = {}, tenant = null, loading = false, saving = false, activeFeature = null, navSignature = '';
-  let adapter = null, generation = 0;
+  let adapter = null, generation = 0, shared = null;
   const views = new Map();
   const revokedCodes=new Set(['AUTH_REQUIRED','AUTH_INVALID','TENANT_REAUTH_REQUIRED','TENANT_EXPIRED','TENANT_SUSPENDED','FEATURE_DISABLED','BUSINESS_FORBIDDEN','PLATFORM_APPLICATION_NOT_APPROVED','PLATFORM_APPLICATION_NOT_FOUND','PLATFORM_QUALIFICATION_REQUIRED','PLATFORM_QUALIFICATION_SUSPENDED']);
   const find = id => adapter?.root.querySelector('#' + id) || (!adapter ? document.getElementById(id) : null);
@@ -35,6 +35,7 @@
   }
   function clear() {
     generation++;for(const view of views.values())discard(view);views.clear();
+    if(shared){for(const input of shared.form.querySelectorAll('input'))input.value='';shared.section.remove();shared=null;}
     navNode()?.replaceChildren();tenant=null;grants={};activeFeature=null;navSignature='';saving=false;loading=false;adapter=null;
   }
   function revoke(error) {
@@ -82,8 +83,7 @@
     for (const view of views.values()) {
       const blocked = saving || pendingOperation();
       for (const input of view.form?.querySelectorAll('input') || []) {
-        const sharedIdentity = Object.hasOwn(businessLogin, input.name);
-        input.disabled = blocked || (sharedIdentity && Boolean(view.identityBlock?.hidden));
+        input.disabled = blocked;
       }
       if (view.save) { view.save.disabled = saving || (blocked && !view.pending); view.save.textContent = view.pending ? '重試相同儲存操作' : '儲存' + view.label + '入口設定'; }
       view.reload.disabled = blocked;
@@ -101,19 +101,83 @@
         route.save.textContent = route.pending ? '重試相同儲存操作' : '驗證並儲存通知設定';
       }
     }
+    if(shared){
+      const configured=Boolean(tenant?.line?.adminChannelId && tenant?.line?.adminLiffId);
+      for(const input of shared.form.querySelectorAll('input'))input.disabled=saving || pendingOperation();
+      shared.save.disabled=saving || pendingOperation() || configured;
+      shared.save.textContent=[...views.values()].some(view=>view.pending)?'重試相同儲存操作':'儲存首次共用登入與目前功能入口';
+    }
   }
   function liffValue(value) {
     const text=value.trim();if(/^\d{5,30}-[A-Za-z0-9_-]+$/.test(text))return text;
     return /^https:\/\/liff\.line\.me\/(\d{5,30}-[A-Za-z0-9_-]+)$/.exec(text)?.[1]||null;
   }
   function normalizeEntry(view,input) {
-    for(const [key,channel] of [[view.key,'memberChannelId'],['adminLiffId','adminChannelId']]){
+    for(const [key,channel] of [[view.key,'memberChannelId']]){
       const liff=view.form.elements.namedItem(key),id=view.form.elements.namedItem(channel);
       if(!liff||!id)continue;
       const normalized=liffValue(liff.value);
       if(input===liff && normalized){liff.value=normalized;if(!view.dirty.has(channel)||!id.value){id.value=normalized.split('-')[0];view.derived.add(channel);}}
       id.setCustomValidity(normalized && id.value && !normalized.startsWith(id.value+'-')?'Login Channel 與 LIFF ID 不一致，請確認此入口所屬帳號。':'');
     }
+  }
+  function normalizeShared(input) {
+    if(!shared)return;
+    const liff=shared.form.elements.namedItem('adminLiffId');
+    const channel=shared.form.elements.namedItem('adminChannelId');
+    const normalized=liffValue(liff.value);
+    if(input===liff && normalized){
+      liff.value=normalized;
+      if(!shared.dirty.has('adminChannelId') || !channel.value){
+        channel.value=normalized.split('-')[0];
+        shared.derived.add('adminChannelId');
+      }
+    }
+    channel.setCustomValidity(normalized && channel.value && !normalized.startsWith(channel.value+'-')?'商家管理端 Login Channel 與 LIFF ID 不一致。':'');
+  }
+  function updateShared() {
+    if(!shared || !tenant)return;
+    for(const input of shared.form.querySelectorAll('input')){
+      if(!shared.dirty.has(input.name) && !shared.derived.has(input.name))
+        input.value=tenant.line?.[input.name] || '';
+      input.required=!tenant.line?.[input.name];
+      input.readOnly=Boolean(tenant.line?.[input.name]);
+    }
+    normalizeShared();
+    shared.status.textContent=tenant.line?.adminChannelId && tenant.line?.adminLiffId
+      ? '商家共用登入設定已儲存。資料保持顯示供核對；既有登入身分不可由功能頁修改。'
+      : '尚未完成首次設定：請同時填寫下方所選功能的會員 Login Channel 與 LIFF 入口，再儲存。';
+    lock();
+  }
+  function renderShared() {
+    const container=contentNode();
+    if(!container)return;
+    if(!views.size){shared?.section.remove();shared=null;return;}
+    if(!shared){
+      const section=node('section','','business-line-settings business-line-shared');
+      section.id=domId('businessLineSharedSection');
+      section.dataset.businessLineShared='true';
+      section.append(node('h2','商家共用登入設定（僅首次設定）'),
+        node('p','此設定跨功能共用，已儲存資料會持續顯示供核對。管理端 Login 身分首次設定後不可任意更換。'));
+      const form=node('form');
+      form.id=domId('businessLineSharedForm');form.noValidate=true;
+      addField(form,'adminLiffId','商家管理端 LIFF ID 或 LINE 入口網址');
+      addField(form,'adminChannelId',businessLogin.adminChannelId);
+      const status=node('p');status.setAttribute('role','status');status.setAttribute('aria-live','polite');
+      const save=node('button','儲存首次共用登入與目前功能入口','button button-dark');
+      save.type='submit';form.append(save,status);section.append(form);
+      shared={section,form,status,save,dirty:new Set(),derived:new Set()};
+      form.addEventListener('input',event=>{
+        shared.dirty.add(event.target.name);shared.derived.delete(event.target.name);
+        normalizeShared(event.target);status.textContent='共用登入設定尚未儲存，請同時完成目前功能入口。';lock();
+      });
+      form.addEventListener('submit',event=>{
+        const view=[...views.values()].find(item=>item.pending)||views.get(activeFeature)||views.values().next().value;
+        if(view)void saveEntry(view,event);
+      });
+    }
+    if(shared.section.parentElement!==container)container.prepend(shared.section);
+    updateShared();
   }
   function validForm(form) {
     const invalid=[...form.querySelectorAll('input,select')].find(input=>!input.disabled&&!input.validity.valid);
@@ -147,23 +211,16 @@
           (tenant.moduleLine?.[view.feature]?.line?.messagingChannelId || tenant.line?.messagingChannelId || '');
         route.token.value = '';
       }
-      route.fields.hidden = route.disabled.checked;
+      route.fields.hidden = false; // Keep the configured Channel visible even when notifications are disabled.
       route.channel.required = route.token.required = !route.disabled.checked;
       route.summary.textContent = saved?.mode === 'disabled' ? '已停用：此用途不發送通知。'
         : saved?.mode === 'custom' ? '已驗證獨立 Channel ' + saved.channelId + '；Token 已加密保存。'
         : (tenant.moduleLine?.[view.feature]?.credentialsConfigured || tenant.credentialsConfigured) ? '原設定沿用本功能官方帳號。要更換通知帳號，請輸入 Channel ID 及完整 Token。' : '尚未設定通知官方帳號，請輸入 Channel ID 及完整 Token。';
     }
-    if (view.identityBlock) {
-      // Other features should not ask again after the first module seeds shared Login identity.
-      view.identityBlock.hidden = Boolean(tenant.line?.adminChannelId && tenant.line?.adminLiffId);
-    }
     if (view.form) for (const input of view.form.querySelectorAll('input')) {
-      const sharedIdentity = Object.hasOwn(businessLogin, input.name);
       if (reset || (!view.dirty.has(input.name)&&!view.derived.has(input.name))) input.value = {...tenant.line,...tenant.moduleLine?.[view.feature]?.line}[input.name] || '';
-      input.required = input.name !== 'messagingChannelId'
-        && !(sharedIdentity && view.identityBlock?.hidden);
-      input.disabled = sharedIdentity && Boolean(view.identityBlock?.hidden);
-      if(['adminChannelId','adminLiffId'].includes(input.name))input.readOnly=Boolean(tenant.line?.[input.name]);
+      input.required = input.name !== 'messagingChannelId';
+      input.disabled = false;
     }
     if(view.form)normalizeEntry(view);
     if(view.entryState){const current={...tenant.line,...tenant.moduleLine?.[view.feature]?.line};view.entryState.textContent=current[view.key]?'入口設定已儲存；實際 LINE 登入仍需驗收。':'尚未設定入口：先貼上此功能的 LIFF ID 或 LINE 入口網址。';}
@@ -189,17 +246,24 @@
     }
     view.links.append(actions, node('p', 'LIFF Endpoint URL（含商家代碼）'), code);
   }
-  async function save(view, event) {
+  async function saveEntry(view, event) {
     event.preventDefault();
     const epoch=generation;
     if (saving || (!view.pending && pendingOperation()) || !tenant || grants[view.feature] !== true || tenant.features?.[view.feature] !== true) return;
     if (!view.pending) {
-      normalizeEntry(view);if (!validForm(view.form)) return;
+      normalizeEntry(view);normalizeShared();
+      if(shared && !validForm(shared.form))return;
+      if(!validForm(view.form)){
+        if(shared)shared.status.textContent='請先填寫目前功能的 LIFF ID 與會員 Login Channel，才能完成首次共用登入設定。';
+        return;
+      }
       const line = {...tenant.line,...tenant.moduleLine?.[view.feature]?.line};
       // Merge only this form's edited fields into the last server snapshot.
       // Other modules' unsaved drafts never enter this request.
       for (const input of view.form.querySelectorAll('input'))
         if (view.dirty.has(input.name) || view.derived.has(input.name) || !line[input.name]) line[input.name] = input.value.trim();
+      for (const input of shared?.form.querySelectorAll('input') || [])
+        if(shared.dirty.has(input.name) || shared.derived.has(input.name) || !line[input.name])line[input.name]=input.value.trim();
       // Preserve stored legacy module secrets; LINE entry only edits identity and LIFF.
       view.pending = {feature:view.feature, expectedVersion:tenant.version, requestId:crypto.randomUUID(), line,
         credentials:{channelAccessToken:'',channelSecret:''}};
@@ -207,12 +271,16 @@
     saving = true; lock(); view.status.textContent = '正在儲存' + view.label + ' LINE 設定…';
     try {
       const result = await request('platform.line.save', view.pending);
-      tenant = result.tenant; view.pending = null; view.dirty.clear();view.derived.clear();adapter?.onUpdate?.(tenant);
+      tenant = result.tenant; view.pending = null; view.dirty.clear();view.derived.clear();
+      if(shared){shared.dirty.clear();shared.derived.clear();}
+      adapter?.onUpdate?.(tenant);
       for (const v of views.values()) update(v, v === view);
+      updateShared();
       view.status.textContent = view.label + ' LINE 設定已儲存，其他功能的 Channel、LIFF 與憑證均維持原設定。';
     } catch (error) {
       if(epoch!==generation)return;
       view.status.textContent = error.message;
+      if(shared)shared.status.textContent=error.message;
       if (!error.uncertain) view.pending = null;
       if (['FEATURE_DISABLED','TENANT_SUSPENDED','PLATFORM_APPLICATION_NOT_APPROVED','BUSINESS_FORBIDDEN','AUTH_INVALID','TENANT_EXPIRED','TENANT_REAUTH_REQUIRED'].includes(error.code)) {
         clear();
@@ -261,7 +329,7 @@
     view.routes = new Map();
     if (!view.path) return;
     if (view.feature === 'calendar') return; // There is no calendar push event yet.
-    const details = node('details'); details.append(node('summary','本功能通知接收用途（需要時設定）'));
+    const details = node('details'); details.open=true;details.append(node('summary','本功能通知接收用途（需要時設定）'));
     const purposeHelp = {membership:'會員加入與權益',points:'集點與兌換',events:'活動與票券',booking:'預約狀態'}[view.feature];
     details.append(node('p',purposeHelp + '通知請直接輸入 LINE 官方帳號 Messaging API Channel ID 與完整 Channel access token。官方帳號與登入 Channel 須屬於相同 LINE Provider；預約管理通知僅送給商家已授權管理員。'));
     for (const purpose of view.feature === 'booking' ? ['admin','member'] : ['member']) {
@@ -280,7 +348,7 @@
       const route={purpose,form,disabled,channel,token,fields,summary,status,save,test,dirty:false,pending:null,testPending:null};
       test.onclick=()=>void testNotification(view,route);
       form.append(summary,save,test,status);form.addEventListener('submit',event=>void saveNotification(view,route,event));
-      form.addEventListener('input',()=>{route.dirty=true;fields.hidden=disabled.checked;
+      form.addEventListener('input',()=>{route.dirty=true;
         channel.required=token.required=!disabled.checked;
         if(disabled.checked)token.value='';
         status.textContent='本用途有尚未儲存的設定。';lock();});
@@ -324,7 +392,7 @@
     selectFeature(activeFeature);
   }
   function webhookPanel(view){
-    const panel=node('details');panel.dataset.lineWebhook=view.feature;
+    const panel=node('details');panel.open=true;panel.dataset.lineWebhook=view.feature;
     panel.append(node('summary','Webhook 連線診斷'));
     panel.append(node('p','僅使用 LIFF 入口時可略過。需要接收事件時，先儲存 Messaging API 設定，再檢查連線。設定 Webhook URL 前，請確認該 Channel 的現有回呼用途。'));
     const refresh=node('button','讀取 Webhook 狀態','button button-outline'),check=node('button','檢查 LINE 連線','button button-outline'),copy=node('button','複製 Webhook URL','button button-outline');
@@ -374,24 +442,16 @@
         const form = node('form'); form.noValidate=true;form.id = domId('businessLine-' + feature); view.form = form;
         const entryState=node('p','','business-line-summary');view.entryState=entryState;form.append(entryState);
         addField(form, key, '1. 貼上' + label + ' LIFF ID 或 LINE 入口網址');
-        const account=node('details');account.id=form.id+'-account-details';account.append(node('summary','登入帳號細節（自動帶入）'));
-        addField(account,'memberChannelId',label+'會員 Login Channel ID');form.append(account);
-        const identity = node('div','','business-line-identity'); identity.id = domId('businessLineIdentity-' + feature);
-        const identityFields = node('div','','business-line-fields');
-        addField(identityFields,'adminLiffId','商家管理端 LIFF ID（僅首次）');
-        const adminDetails=node('details');adminDetails.append(node('summary','管理端登入帳號細節（自動帶入）'));addField(adminDetails,'adminChannelId',businessLogin.adminChannelId);identityFields.append(adminDetails);
-        for (const input of identityFields.querySelectorAll('input')) { input.id = form.id + '-' + input.name; input.setAttribute('aria-describedby',input.id+'-help'); input.nextElementSibling.id=input.id+'-help'; }
-        identity.append(node('h3','商家共用登入設定（僅首次設定）'),node('p','商家管理端 LINE Login 身分跨功能共用；會員端 Login Channel 與 LIFF 則依功能獨立設定。'),identityFields);
-        form.append(identity); view.identityBlock = identity;
+        addField(form,'memberChannelId',label+'會員 Login Channel ID');
         const button = node('button','儲存' + label + '入口設定','button button-dark'); button.type='submit'; view.save=button;
-        form.append(button); form.addEventListener('submit', event => void save(view,event));
+        form.append(button); form.addEventListener('submit', event => void saveEntry(view,event));
         form.addEventListener('input', event => { view.dirty.add(event.target.name);view.derived.delete(event.target.name);normalizeEntry(view,event.target);status.textContent = '本區塊有尚未儲存的設定。'; lock(); });
         section.append(form);
       }
       section.append(status); notificationForms(view);webhookPanel(view);
       section.append(view.links, reload); container.append(section); views.set(feature,view);created.add(view);update(view);
     }
-    renderNav();
+    renderShared();renderNav();
     return created;
   }
   async function load(force = false, source = null) {
@@ -402,6 +462,7 @@
       const result = await request('platform.application.bootstrap');
       if (!result.tenant || result.tenant.slug !== business || result.application?.status !== 'approved' || (result.tenant.status === 'suspended' || result.tenant.expired)) throw Object.assign(Error('此商家的 LINE 設定權限尚未開放。'),{code:'BUSINESS_FORBIDDEN'});
       tenant = result.tenant; const created=render();
+      updateShared();
       for (const view of views.values()) {
         if (force && view === source) {view.dirty.clear();view.derived.clear();}
         if(!created.has(view)||force&&view===source)update(view, force && view === source);
