@@ -24,3 +24,7 @@ test('QR dialog preserves the identifier, copy action and success feedback', () 
   assert.match(qrDialog, /navigator\.clipboard\.writeText\(code\)/);
   assert.match(qrDialog, /會員編號已複製/);
 });
+
+test('membership page loads the refreshed shared QR dialog after copy feedback race fix', () => {
+  assert.match(html, /qr-scan-dialog\\.js\\?v=qr-dialog-20261008-1-receipt-camera-20261008-1-ongoing-20261010-1-copy-feedback-20261117-1/);
+});
