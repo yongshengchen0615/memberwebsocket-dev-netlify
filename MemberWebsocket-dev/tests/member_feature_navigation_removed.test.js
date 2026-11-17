@@ -10,7 +10,7 @@ const html = fs.readFileSync(path.join(memberRoot, 'index.html'), 'utf8');
 const css = fs.readFileSync(path.join(memberRoot, 'member-card-refresh.css'), 'utf8');
 
 test('AC-001: member profile has no exploration feature navigation', () => {
-  assert.doesNotMatch(html, /<nav\\b[^>]*\\bid=["']memberFeatureLinks["']/i);
+  assert.doesNotMatch(html, /<nav\b[^>]*\bid=["']memberFeatureLinks["']/i);
   assert.doesNotMatch(html, /探索會員功能|會員功能入口|member-feature-links/);
 });
 
@@ -24,5 +24,5 @@ test('AC-002: the member profile and its edit dialogs remain available', () => {
 });
 
 test('AC-003: the retired navigation has no orphaned responsive CSS rules', () => {
-  assert.doesNotMatch(css, /\\.member-feature-links\\b/);
+  assert.doesNotMatch(css, /\.member-feature-links\b/);
 });
