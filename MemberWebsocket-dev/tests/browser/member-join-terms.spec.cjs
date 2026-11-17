@@ -3,7 +3,7 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'../..');let server,base;
 const terms={id:'terms-join-1',version:'7',title:'會員申請條款',summary:'QA 會員申請測試條款',body:'完整條款內容：會員申請前必須閱讀並同意目前有效版本。',required:true};
 const incomplete={memberId:'member-join-qa',memberCode:'',displayName:'QA Join Member',surname:'',salutation:'',birthday:'',phone:'',tier:'一般會員',status:'active',profileComplete:false,membershipRequired:true};
-function html(){return fs.readFileSync(path.join(root,'member/index.html'),'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'').replace(/href="\.\.\//g,'href="/').replace(/href="\.\//g,'href="/member/').replace('</body>','<script src="/fixture.js"></script><script src="/member/app.js"></script><script src="/member/profile-extension.js"></script></body>');}
+function html(){return fs.readFileSync(path.join(root,'member/index.html'),'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'').replace(/href="\.\.\//g,'href="/').replace(/href="\.\//g,'href="/member/').replace('</body>','<script src="/fixture.js"></script><script src="/member/app.js"></script><script src="/member/profile-extension.js"></script><script src="/vendor/friend-qrcode.js"></script><script src="/qr-scan-dialog.js"></script><script src="/member/member-growth.js"></script></body>');}
 test.beforeAll(async()=>{server=http.createServer((req,res)=>{try{const u=new URL(req.url,'http://localhost');if(u.pathname==='/member-join'){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});res.end(html());return;}if(u.pathname==='/fixture.js'){res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8'});res.end(`
 const terms=${JSON.stringify(terms)},incomplete=${JSON.stringify(incomplete)};
 const active={...incomplete,memberCode:'QA-VERIFIED-1',surname:'林',salutation:'ms',birthday:'1991-01-01',phone:'+886912345678',phoneVerified:true,membershipRequired:false,profileComplete:true,joinedAt:'2026-10-05T00:00:00Z'};
@@ -26,8 +26,16 @@ await page.locator('#profileSurname').fill('測');await page.locator('#profileSa
 await page.locator('#saveProfileButton').click();await expect(page.locator('#profileFormMessage')).toContainText('請閱讀並勾選同意會員條款');expect(await page.evaluate(()=>qaJoinCalls.filter(x=>x.action==='user.member.profile.save').length)).toBe(0);
 await page.locator('#joinTermsAccepted').check();await expect.poll(()=>page.evaluate(()=>qaJoinCalls.filter(x=>x.action==='user.member.bootstrap').length)).toBeGreaterThanOrEqual(2);await expect(page.locator('#joinTermsAccepted')).toBeChecked();
 await page.locator('#saveProfileButton').click();await expect(page.locator('#memberView')).toBeVisible();await expect(page.locator('#profileSetupView')).toBeHidden();
-await page.locator('#copyMemberCodeButton').click();await expect(page.locator('#copyMemberCodeButton')).toHaveText('已複製');expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('QA-JOIN-1');
-await expect(page.locator('#copyMemberCodeButton')).toBeEnabled();await page.evaluate(()=>history.replaceState(null,'','/MemberWebsocket-dev/member/'));await page.evaluate(fs.readFileSync(path.join(root,'user-test-control.js'),'utf8').replace('  window.MemberUserTestControl =','  window.qaNodes={memberCodeCopyCase};\n  window.MemberUserTestControl ='));expect((await page.evaluate(()=>qaNodes.memberCodeCopyCase())).status).toBe('passed');
+await expect(page.locator('#copyMemberCodeButton')).toHaveCount(0);
+await expect(page.locator('#showMemberIdentityQr')).toBeEnabled();await page.locator('#showMemberIdentityQr').click();
+await expect(page.locator('#qrDisplayPanel strong')).toHaveText('QA-JOIN-1');
+await page.locator('#qrDisplayPanel button', {hasText:'複製會員編號'}).click();
+await expect(page.locator('#qrDisplayPanel [role="status"]')).toContainText('會員編號已複製');
+expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('QA-JOIN-1');
+await page.locator('[aria-label="關閉 QR Code 視窗"]').click();await expect(page.locator('#qrDisplayPanel')).toBeHidden();
+await page.evaluate(()=>history.replaceState(null,'','/MemberWebsocket-dev/member/'));
+await page.evaluate(fs.readFileSync(path.join(root,'user-test-control.js'),'utf8').replace('  window.MemberUserTestControl =','  window.qaNodes={memberCodeCopyCase};\n  window.MemberUserTestControl ='));
+expect((await page.evaluate(()=>qaNodes.memberCodeCopyCase())).status).toBe('passed');
 const saves=await page.evaluate(()=>qaJoinCalls.filter(x=>x.action==='user.member.profile.save'));expect(saves).toHaveLength(1);expect(saves[0].payload).toMatchObject({surname:'測',salutation:'mr',birthday:'1990-01-15',phone:'+886912345678',termsId:'terms-join-1',termsVersion:'7',accepted:true});
 });
 test('member phone OTP appears beneath number input and must be entered before joining', async ({page}) => {
