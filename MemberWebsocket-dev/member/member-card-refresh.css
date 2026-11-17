@@ -40,26 +40,10 @@ html[data-theme] #memberView .member-pass {
 #memberView .identity .label { margin-bottom: 4px; }
 #memberView .tier { display: inline-flex; max-width: 100%; margin-top: 12px; padding: 6px 11px; border-radius: 999px; color: #fff; background: rgba(255,255,255,.14); font-size: 12px; overflow-wrap: anywhere; }
 #memberView .pass-stamp { width: 58px; height: 58px; flex: 0 0 auto; }
-#memberView .pass-member-code { position: relative; z-index: 1; margin: auto 0 0; padding: 16px 0 0; border-top: 1px solid rgba(255,255,255,.24); }
-#memberView .pass-member-code > div { min-width: 0; }
-#memberView .pass-member-code dt { color: rgba(255,255,255,.72); font-size: 11px; font-weight: 800; letter-spacing: .06em; }
-#memberView .pass-member-code dt span { color: rgba(255,255,255,.55); font-size: 10px; }
-#memberView .pass-member-code dd { justify-content: flex-start; flex-wrap: wrap; gap: 10px; margin: 8px 0 0; color: #fff; }
-#memberView #memberCode { flex: 0 1 auto; max-width: 100%; color: #fff; font-size: clamp(19px, 2.4vw, 26px); font-weight: 850; letter-spacing: .055em; line-height: 1.4; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-#memberView .pass-member-code .profile-inline-edit-button {
-  min-height: 36px;
-  padding: 6px 14px;
-  border: 1px solid rgba(255,255,255,.44);
-  color: #fff;
-  background: rgba(255,255,255,.15);
-  font-size: 12px;
-}
-#memberView .pass-member-code .profile-inline-edit-button:hover { background: rgba(255,255,255,.25); }
-#memberView .pass-member-code .profile-inline-edit-button:focus-visible,
 #memberView .pass-actions .member-referral-trigger:focus-visible { outline: 3px solid var(--pass-soft); outline-offset: 3px; box-shadow: none; }
-#memberView .pass-member-code .profile-inline-edit-button:disabled { opacity: .6; }
 /* One semantic action group for membership QR, friends and referral benefits. */
 #memberView .pass-actions {
+  margin-top: auto;
   position: relative;
   z-index: 1;
   display: grid;
@@ -168,8 +152,6 @@ html[data-theme] #memberView .profile-details { margin-top: 0; border-radius: 22
   #memberView .pass-stamp { display: none; }
   #memberView .avatar { width: 58px; height: 58px; }
   #memberView .identity h2 { font-size: clamp(24px, 7vw, 32px); }
-  #memberView #memberCode { font-size: 19px; }
-  #memberView .pass-member-code dt span { display: none; }
   #memberView .pass-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   #memberView .pass-actions #showMemberIdentityQr { grid-column: 1 / -1; }
   #memberView .pass-actions .member-referral-trigger { padding-inline: 8px; }

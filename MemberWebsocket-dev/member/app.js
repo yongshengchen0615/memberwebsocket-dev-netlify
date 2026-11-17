@@ -8,14 +8,12 @@
   const LOGIN_PROGRESS_TICK_MS = 650;
   let loginProgressTimer = null;
   let loginProgressValue = 8;
-  let memberCodeCopyResetTimer = null;
 
   window.addEventListener('DOMContentLoaded', () => {
     window.MemberSystem.bindDialogKeyboard();
-    ['app', 'loadingView', 'loadingProgress', 'loadingProgressBar', 'loadingProgressText', 'loadingStatus', 'errorView', 'errorTitle', 'errorMessage', 'retryButton', 'profileSetupView', 'profileForm', 'profileBirthday', 'profileBirthdayDisplay', 'profileBirthdayPickerButton', 'profileBirthdayPickerModal', 'profileBirthdayPickerTitle', 'closeProfileBirthdayPicker', 'cancelProfileBirthdayPicker', 'confirmProfileBirthdayPicker', 'profileBirthdayPickerMessage', 'profileBirthdayYear', 'profileBirthdayMonth', 'profileBirthdayDay', 'profileCountryCode', 'profilePhone', 'profileFormMessage', 'joinTermsSummary', 'joinTermsTitle', 'joinTermsBody', 'joinTermsAccepted', 'termsRenewView', 'renewTermsForm', 'renewTermsSummary', 'renewTermsTitle', 'renewTermsBody', 'renewTermsAccepted', 'renewTermsMessage', 'renewTermsButton', 'saveProfileButton', 'refreshProfileButton', 'memberView', 'memberPass', 'brandName', 'displayName', 'memberStatus', 'memberInitial', 'memberName', 'memberTier', 'memberCode', 'copyMemberCodeButton', 'joinedAt', 'memberBirthday', 'memberPhone', 'membershipProgress'].forEach((id) => { els[id] = document.getElementById(id); });
+    ['app', 'loadingView', 'loadingProgress', 'loadingProgressBar', 'loadingProgressText', 'loadingStatus', 'errorView', 'errorTitle', 'errorMessage', 'retryButton', 'profileSetupView', 'profileForm', 'profileBirthday', 'profileBirthdayDisplay', 'profileBirthdayPickerButton', 'profileBirthdayPickerModal', 'profileBirthdayPickerTitle', 'closeProfileBirthdayPicker', 'cancelProfileBirthdayPicker', 'confirmProfileBirthdayPicker', 'profileBirthdayPickerMessage', 'profileBirthdayYear', 'profileBirthdayMonth', 'profileBirthdayDay', 'profileCountryCode', 'profilePhone', 'profileFormMessage', 'joinTermsSummary', 'joinTermsTitle', 'joinTermsBody', 'joinTermsAccepted', 'termsRenewView', 'renewTermsForm', 'renewTermsSummary', 'renewTermsTitle', 'renewTermsBody', 'renewTermsAccepted', 'renewTermsMessage', 'renewTermsButton', 'saveProfileButton', 'refreshProfileButton', 'memberView', 'memberPass', 'brandName', 'displayName', 'memberStatus', 'memberInitial', 'memberName', 'memberTier', 'joinedAt', 'memberBirthday', 'memberPhone', 'membershipProgress'].forEach((id) => { els[id] = document.getElementById(id); });
     els.retryButton.addEventListener('click', () => window.location.reload());
     els.refreshProfileButton.addEventListener('click', () => window.location.reload());
-    els.copyMemberCodeButton.addEventListener('click', copyMemberCode);
     els.profileForm.addEventListener('submit', saveProfile);
     els.renewTermsForm.addEventListener('submit', acceptRenewedTerms);
     els.joinTermsAccepted.addEventListener('change', () => {
@@ -154,9 +152,6 @@
     MEMBER_TIER_STYLE_KEYS.forEach((styleKey) => els.memberPass.classList.remove(`tier-style-${styleKey}`));
     els.memberPass.classList.add(`tier-style-${tierStyleKey}`);
     els.memberPass.dataset.tierStyle = tierStyleKey;
-    const memberCode = String(profile.memberCode || '').trim();
-    els.memberCode.textContent = memberCode || '尚未建立';
-    if (els.copyMemberCodeButton.textContent === '複製') els.copyMemberCodeButton.disabled = !memberCode;
     els.joinedAt.textContent = window.MemberSystem.formatDate(profile.joinedAt);
     const surname = String(profile.surname || '').trim();
     const salutation = String(profile.salutation || '').trim().toLowerCase();
@@ -169,71 +164,6 @@
     window.MembershipProgress.render(els.membershipProgress, profile);
     els.memberStatus.textContent = isActive ? '使用中' : '暫停';
     els.memberStatus.parentElement.classList.toggle('inactive', !isActive);
-  }
-
-  function currentMemberCode() {
-    return String(state.profile && state.profile.memberCode || '').trim();
-  }
-
-  async function copyMemberCode() {
-    const memberCode = currentMemberCode();
-    if (!memberCode) {
-      setMemberCodeCopyFeedback('無可複製編號');
-      scheduleMemberCodeCopyReset();
-      return;
-    }
-
-    if (memberCodeCopyResetTimer !== null) {
-      window.clearTimeout(memberCodeCopyResetTimer);
-      memberCodeCopyResetTimer = null;
-    }
-    els.copyMemberCodeButton.disabled = true;
-
-    try {
-      await writeClipboardText(memberCode);
-      setMemberCodeCopyFeedback('已複製');
-    } catch (_) {
-      setMemberCodeCopyFeedback('複製失敗');
-    } finally {
-      scheduleMemberCodeCopyReset();
-    }
-  }
-
-  async function writeClipboardText(value) {
-    if (window.isSecureContext && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-      await navigator.clipboard.writeText(value);
-      return;
-    }
-
-    const textarea = document.createElement('textarea');
-    textarea.className = 'clipboard-fallback-input';
-    textarea.value = value;
-    textarea.readOnly = true;
-    textarea.setAttribute('aria-hidden', 'true');
-    document.body.appendChild(textarea);
-
-    try {
-      textarea.focus({ preventScroll: true });
-      textarea.select();
-      textarea.setSelectionRange(0, textarea.value.length);
-      const copied = typeof document.execCommand === 'function' && document.execCommand('copy');
-      if (!copied) throw new Error('Clipboard copy is unavailable.');
-    } finally {
-      textarea.remove();
-    }
-  }
-
-  function setMemberCodeCopyFeedback(label) {
-    els.copyMemberCodeButton.textContent = label;
-  }
-
-  function scheduleMemberCodeCopyReset() {
-    if (memberCodeCopyResetTimer !== null) window.clearTimeout(memberCodeCopyResetTimer);
-    memberCodeCopyResetTimer = window.setTimeout(() => {
-      memberCodeCopyResetTimer = null;
-      els.copyMemberCodeButton.textContent = '複製';
-      els.copyMemberCodeButton.disabled = !currentMemberCode();
-    }, 1800);
   }
 
   function announceTourReady(profile) {
