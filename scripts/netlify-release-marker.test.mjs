@@ -4,7 +4,7 @@ let setReleaseMarker;
 try { ({setReleaseMarker}=await import('./netlify-release-marker.mjs')); } catch(e) {if(e.code!=='ERR_MODULE_NOT_FOUND')throw e;}
 const sha='87d3ec582d3771570aeac6b8a1e9bb61f2803ce3',key='PLATFORM_BACKEND_VERIFIED_SHA',branch='Integrated-Marketing-Platform';
 const siteId='196e1d2c-8216-4ba8-aeb9-1706660adc2b';
-const row=value=>({key,is_secret:false,scopes:['builds'],values:[{context:'branch',context_parameter:'integrated-marketing-platform',value}]});
+const row=value=>({key,is_secret:false,scopes:['builds'],values:[{context:'branch',context_parameter:'Integrated-Marketing-Platform',value}]});
 const site={id:siteId,name:'memberwebsocket-dev-netlify',account_slug:'yongshengchen0615',build_settings:{repo_path:'yongshengchen0615/memberwebsocket-dev-netlify',repo_branch:'master'}};
 function provider({initial=null,noOp=false,wrongSite=false,writeError=false}={}) {
  let saved=initial;const calls=[];
@@ -19,11 +19,11 @@ function provider({initial=null,noOp=false,wrongSite=false,writeError=false}={})
    const body=JSON.parse(opts.body);
    if(opts.method==='POST') {
     assert.equal(url,`${root}?site_id=${siteId}`);
-    assert.deepEqual(body,[{key,is_secret:false,values:[{context:'branch',context_parameter:'integrated-marketing-platform',value:sha}]}]);
+    assert.deepEqual(body,[{key,is_secret:false,values:[{context:'branch',context_parameter:'Integrated-Marketing-Platform',value:sha}]}]);
     if(!noOp)saved={...structuredClone(body[0]),scopes:['builds','functions','post_processing','runtime']};
    }else{
     assert.equal(url,`${root}/${key}?site_id=${siteId}`);
-    assert.deepEqual(body,{context:'branch',context_parameter:'integrated-marketing-platform',value:sha});
+    assert.deepEqual(body,{context:'branch',context_parameter:'Integrated-Marketing-Platform',value:sha});
     if(!noOp)saved=row(sha);
    }
    return Response.json(opts.method==='POST'?[row(sha)]:row(sha),{status:201});
@@ -76,6 +76,21 @@ test('AC-016 current plan can persist public branch attestations without paid gr
  assert.equal(typeof setReleaseMarker,'function');
  const result=await setReleaseMarker({branch,sha,key,token:'secret-token',fetchImpl});
  assert.equal(result.status,'marker-verified');assert.equal(writes,1);
- assert.deepEqual(saved.values,[{context:'branch',context_parameter:'integrated-marketing-platform',value:sha}]);
+ assert.deepEqual(saved.values,[{context:'branch',context_parameter:'Integrated-Marketing-Platform',value:sha}]);
  assert.equal(saved.is_secret,false);
+});
+
+test('AC-017 the exact Git branch can consume the persisted release marker',async()=>{
+ let saved=null;
+ const fetchImpl=async(url,options)=>{
+  if(url.endsWith('/sites/'+siteId))return Response.json(site);
+  if(options.method==='GET')return saved?Response.json(saved):new Response('',{status:404});
+  saved={...JSON.parse(options.body)[0],scopes:['builds','functions','post_processing','runtime']};
+  return Response.json([saved],{status:201});
+ };
+ await setReleaseMarker({branch,sha,key,token:'secret-token',fetchImpl});
+ // Characterize the observed native consumer: custom-branch context matching
+ // is case-sensitive even though the CLI normalizes its branch input.
+ const consumed=saved.values.find(v=>v.context==='branch'&&v.context_parameter===branch)?.value;
+ assert.equal(consumed,sha,'the case-preserved Git branch must receive the attestation');
 });

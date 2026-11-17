@@ -66,3 +66,10 @@ Interface: requireRecoveryBaselines({event,ref,sha,needs})，三個明確結果�
 2. 建立只含公開SHA、唯一測試分支context的標記時省略付費scope選項，讀回僅接受標準預設scope或既有builds-only。
 3. 保留所有CI、後端、HEAD、來源、分支與讀回檢查；用負向測試確認預設scope不能繞過production/all context限制。
 4. 完整CI與實際發布成功後才合併正式版；不新增付費承諾，無產品runtime效能變更。
+
+### Task 7 — 保留原 Git 分支大小寫
+
+1. 以44015170184原生錯誤與44015475946同SHA控制實驗定位context消費差異。
+2. AC-017先重現saved-but-not-consumable，再只改context_parameter為已驗證原Gitbranch，保留所有負向與安全檢查。
+3. 既有兩個公開標記已轉為唯一正確context，不新增不必要相容邏輯。
+4. 最終SHA完整CI與合併自動發布成功後才正式合併，保留Native/alias/production身分與smoke證據。

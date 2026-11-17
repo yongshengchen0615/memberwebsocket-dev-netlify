@@ -66,7 +66,7 @@ node --test scripts/supabase-release.test.mjs
 
 測試原生建置還要求 `PLATFORM_BACKEND_VERIFIED_SHA` 等於 `COMMIT_REF`。這是 GitHub 在後端成功後寫入 Netlify 的 branch build 標記，不是讓使用者手動填寫的秘密。舊標記不能放行新版本，CI 全綠本身也不能跳過 SQL／Edge。
 
-發布標記透過 Netlify 官方 environment API 寫入並讀回核對，值僅限測試分支。這兩個非秘密標記只保存公開提交 SHA，首次建立沿用現有方案的預設 scopes，不使用付費的細分 scope；正式與其他分支沒有此值。回應成功但值未保存仍會失敗；首次建立及後續更新皆不依賴 CLI 退出碼，不重試不明寫入。
+發布標記透過 Netlify 官方 environment API 寫入並讀回核對，值僅限大小寫完全一致的 `Integrated-Marketing-Platform` 分支 context。這兩個非秘密標記只保存公開提交 SHA，首次建立沿用現有方案的預設 scopes，不使用付費的細分 scope；正式與其他分支沒有此值。回應成功但值未保存仍會失敗；首次建立及後續更新皆不依賴 CLI 退出碼，不重試不明寫入。
 
 失敗證據保留在 Actions 的 `production-backend-*`／`testing-backend-*` artifacts；其中含來源 SHA、SQL checksum、實際 Edge 版本及錯誤代碼，不含秘密。資料庫、Edge、Netlify 不是跨服務原子交易：Edge 中途失敗可能已有部分新版函式，但不發布新前端。SQL 必須相容舊版；前端回復前次已驗證 Netlify deploy，Edge 回復前次相容來源，資料庫用新 migration 前進修復。破壞性資料復原需另外核對備份與授權。
 The client config contains a public publishable key. Do not add a service-role key
