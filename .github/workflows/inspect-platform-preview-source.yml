@@ -3,50 +3,34 @@ on:
   push:
     branches: [diagnostic/netlify-release-87d3ec5]
     paths: ['.github/workflows/inspect-platform-preview-source.yml']
-  workflow_dispatch:
 permissions:
   contents: read
-  actions: read
 jobs:
   inspect:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Classify marker API denial for the already validated testing release
+      - name: Read-only production release credential preflight
         env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          GH_TOKEN: ${{ github.token }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN_PRODUCTION }}
         run: |
           node --input-type=module <<'JS'
-          import {evaluatePreviewCI} from './scripts/check-preview-ci.mjs';
-          const sha='c8587c91cb1293fbba05a5d3121340ed503d5924';
-          const siteId='196e1d2c-8216-4ba8-aeb9-1706660adc2b';
-          const repo='yongshengchen0615/memberwebsocket-dev-netlify';
-          async function getGh(resource){const r=await fetch(`https://api.github.com/repos/${repo}/${resource}`,{headers:{Authorization:`Bearer ${process.env.GH_TOKEN}`},redirect:'error'});if(!r.ok)throw Error('GH_HTTP_'+r.status);return r.json();}
-          const head=await getGh('git/ref/heads/Integrated-Marketing-Platform');
-          const runs=await getGh(`actions/runs?head_sha=${sha}&event=push&per_page=50`);
-          if(head.object.sha!==sha||evaluatePreviewCI(runs.workflow_runs,sha,'Integrated-Marketing-Platform').status!=='success')throw Error('TESTING_GATE_REQUIRED');
-          async function request(method,path,body){return fetch('https://api.netlify.com/api/v1'+path,{method,headers:{Authorization:`Bearer ${process.env.NETLIFY_AUTH_TOKEN}`,'Content-Type':'application/json'},redirect:'error',signal:AbortSignal.timeout(20000),...(body?{body:JSON.stringify(body)}:{})});}
-          const sr=await request('GET',`/sites/${siteId}`);if(!sr.ok)throw Error('SITE_HTTP_'+sr.status);const site=await sr.json();
-          if(site.id!==siteId||site.build_settings?.repo_branch!=='master'||site.build_settings?.repo_path!==repo)throw Error('SITE_IDENTITY');
-          console.log(JSON.stringify({plan:site.plan,accountIdPresent:!!site.account_id,accountSlugPresent:!!site.account_slug}));
-          const key='PLATFORM_BACKEND_VERIFIED_SHA';
-          const er=await request('GET',`/accounts/${site.account_slug}/env/${key}?site_id=${siteId}`);
-          if(er.status!==404){console.log(JSON.stringify({existingMarkerHttp:er.status}));process.exit(0);}
-          const response=await request('POST',`/accounts/${site.account_slug}/env?site_id=${siteId}`,[{key,is_secret:false,values:[{context:'branch',context_parameter:'integrated-marketing-platform',value:sha}]}]);
-          const text=await response.text();
-          if(response.ok){
-            const rr=await request('GET',`/accounts/${site.account_slug}/env/${key}?site_id=${siteId}`);
-            if(!rr.ok)throw Error('READBACK_HTTP_'+rr.status);
-            const row=await rr.json();
-            const values=row.values?.map(v=>({context:v.context,branch:v.context_parameter,matchesSha:v.value===sha}));
-            console.log(JSON.stringify({persistedScopes:row.scopes,persistedValues:values}));
-            if(values?.length!==1||values[0].context!=='branch'||values[0].branch!=='integrated-marketing-platform'||!values[0].matchesSha)throw Error('READBACK_MISMATCH');
+          const ref='dbuquirnaskrwcamdxki';
+          const token=process.env.SUPABASE_ACCESS_TOKEN;
+          if(!token)throw Error('PRODUCTION_CREDENTIAL_MISSING');
+          async function request(method,path,body){
+            const r=await fetch('https://api.supabase.com/v1/projects/'+ref+path,{method,redirect:'error',signal:AbortSignal.timeout(20000),headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
+            if(!r.ok)throw Error('PRODUCTION_PREFLIGHT_HTTP_'+r.status);
+            return r.json();
           }
-          const allowedWords=['granular','scopes','scope','plan','plans','upgrade','permissions','permission','forbidden','access','paid','pro','free','context','branch','quota','capabilities','unauthorized'];
-          console.log(JSON.stringify({createHttp:response.status,knownErrorWords:response.ok?[]:allowedWords.filter(w=>new RegExp('\\b'+w+'\\b','i').test(text))}));
+          const p=await request('GET','');
+          if(p.id!==ref||p.status!=='ACTIVE_HEALTHY')throw Error('PRODUCTION_IDENTITY_OR_HEALTH');
+          const rows=await request('POST','/database/query',{query:'SELECT 1 AS deployment_preflight;',read_only:true});
+          if(!Array.isArray(rows)||rows.length!==1||rows[0].deployment_preflight!==1)throw Error('PRODUCTION_DATABASE_READ_FAILED');
+          const f=await request('GET','/functions');
+          if(!Array.isArray(f))throw Error('PRODUCTION_FUNCTION_LOOKUP_FAILED');
+          console.log(JSON.stringify({project:ref,health:p.status,databaseReadOnly:true,functionMetadataReadable:true}));
           JS
