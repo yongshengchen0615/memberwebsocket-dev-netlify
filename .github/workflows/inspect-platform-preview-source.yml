@@ -5,33 +5,48 @@ on:
     paths: ['.github/workflows/inspect-platform-preview-source.yml']
 permissions:
   contents: read
+  actions: read
 jobs:
   inspect:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 8
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Read native build failure without exposing log contents or credentials
+      - name: Verify exact-case test branch context after successful CI and backend
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           node --input-type=module <<'JS'
-          const site_id='196e1d2c-8216-4ba8-aeb9-1706660adc2b',deploy_id='6afbd2ddceccf9f94d680feb';
-          const r=await fetch('https://app.netlify.com/access-control/generate-access-control-token?site_id='+site_id+'&deploy_id='+deploy_id,{headers:{Authorization:'Bearer '+process.env.NETLIFY_AUTH_TOKEN},redirect:'error',signal:AbortSignal.timeout(20000)});
-          if(!r.ok)throw Error('LOG_ACCESS_HTTP_'+r.status);
-          const data=await r.json();if(typeof data.accessControlToken!=='string')throw Error('LOG_ACCESS_TOKEN_MISSING');
-          const patterns=['BACKEND_RELEASE_NOT_READY','CI_PROVIDER_HTTP_403','CI_NOT_COMPLETE','CI_REQUIRED_CHECK_FAILED','github-actions-exact-sha','MODULE_NOT_FOUND','ERR_MODULE_NOT_FOUND','SyntaxError','TypeError','invalid or ungated build identity','PLATFORM_BACKEND_VERIFIED_SHA','PLATFORM_CI_VERIFIED_SHA','Integrated-Marketing-Platform','integrated-marketing-platform'];
-          const found=new Set();let frames=0;
-          await new Promise(resolve=>{
-            const ws=new WebSocket('wss://socketeer.services.netlify.com/build/logs');
-            const finish=()=>{clearTimeout(timer);resolve();};
-            const timer=setTimeout(()=>{ws.close();resolve();},15000);
-            ws.addEventListener('open',()=>ws.send(JSON.stringify({access_token:data.accessControlToken,site_id,deploy_id})));
-            ws.addEventListener('message',e=>{frames++;for(const label of patterns)if(String(e.data).includes(label))found.add(label);});
-            ws.addEventListener('error',()=>{console.log('LOG_SOCKET_ERROR');finish();});
-            ws.addEventListener('close',finish);
-          });
-          console.log(JSON.stringify({deploy_id,frames,observedLabels:[...found]}));
+          import {evaluatePreviewCI} from './scripts/check-preview-ci.mjs';
+          import {verifyNativePreview} from './scripts/verify-netlify-native-preview.mjs';
+          const sha='b9863f64f471487312d1a836a8575ab5bcefbff5',branch='Integrated-Marketing-Platform',siteId='196e1d2c-8216-4ba8-aeb9-1706660adc2b',repo='yongshengchen0615/memberwebsocket-dev-netlify';
+          async function gh(path){const r=await fetch('https://api.github.com/repos/'+repo+'/'+path,{headers:{Authorization:'Bearer '+process.env.GH_TOKEN},redirect:'error'});if(!r.ok)throw Error('GH_HTTP_'+r.status);return r.json();}
+          async function head(){if((await gh('git/ref/heads/'+branch)).object.sha!==sha)throw Error('STALE_HEAD');}
+          await head();
+          const runs=await gh('actions/runs?head_sha='+sha+'&event=push&per_page=50');
+          if(evaluatePreviewCI(runs.workflow_runs,sha,branch).status!=='success')throw Error('FULL_CI_REQUIRED');
+          const run=await gh('actions/runs/44013883096');
+          const jobs=await gh('actions/runs/44013883096/jobs?per_page=30');
+          if(run.head_sha!==sha||!jobs.jobs.some(j=>j.name==='publish'&&j.steps.some(s=>s.name==='Deploy exact-SHA testing database and explicit Edge Functions'&&s.conclusion==='success')))throw Error('BACKEND_REQUIRED');
+          async function api(method,path,body){const r=await fetch('https://api.netlify.com/api/v1'+path,{method,headers:{Authorization:'Bearer '+process.env.NETLIFY_AUTH_TOKEN,'Content-Type':'application/json'},redirect:'error',signal:AbortSignal.timeout(20000),...(body?{body:JSON.stringify(body)}:{})});if(!r.ok)throw Error('NETLIFY_HTTP_'+r.status);return r.json();}
+          const site=await api('GET','/sites/'+siteId);
+          if(site.id!==siteId||site.build_settings?.repo_branch!=='master'||site.build_settings?.repo_path!==repo)throw Error('SITE_IDENTITY');
+          for(const key of ['PLATFORM_BACKEND_VERIFIED_SHA','PLATFORM_CI_VERIFIED_SHA']){
+            const path='/accounts/'+site.account_slug+'/env/'+key+'?site_id='+siteId;
+            const row=await api('GET',path);
+            if(row.key!==key||row.is_secret===true||row.values?.length!==1||row.values[0].context!=='branch'||row.values[0].context_parameter!==branch.toLowerCase()||row.values[0].value!==sha)throw Error('UNEXPECTED_MARKER');
+            await api('PUT',path,{key,is_secret:false,values:[{context:'branch',context_parameter:branch,value:sha}]});
+            const saved=await api('GET',path);
+            if(saved.values?.length!==1||saved.values[0].context!=='branch'||saved.values[0].context_parameter!==branch||saved.values[0].value!==sha)throw Error('EXACT_CONTEXT_NOT_PERSISTED');
+            console.log(JSON.stringify({key,context:branch,sha,verified:true}));
+          }
+          await head();
+          const notBefore=new Date().toISOString();
+          await api('POST','/sites/'+siteId+'/builds?branch='+branch+'&commit_sha='+sha,{});
+          const result=await verifyNativePreview({commit:sha,token:process.env.NETLIFY_AUTH_TOKEN,notBefore,source:{siteId,branch,production:{branch:'master',deployId:site.published_deploy.id},build:{repository:repo}}});
+          console.log(JSON.stringify({caseProbe:'native-ready',...result}));
           JS
