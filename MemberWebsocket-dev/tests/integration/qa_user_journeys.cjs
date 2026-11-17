@@ -16,14 +16,16 @@ function nodes(w){
  return w.qaNodes;
 }
 
-test('member code runner uses the production copy handler and fails denied clipboard',async()=>{
+test('member code runner exercises QR dialog copy and fails denied clipboard',async()=>{
  const d=await page('member'),w=d.window;let clipboard='';
  try{
   Object.defineProperty(w,'isSecureContext',{value:true});
   Object.defineProperty(w.navigator,'clipboard',{value:{writeText:async value=>{clipboard=value;}}});
   w.MemberSystem={bindDialogKeyboard(){},loadConfig:async()=>({}),signIn:async()=> 'isolated',initials:()=> 'QA',formatDate:value=>value,subscribeRealtime:()=>()=>{},request:async()=>({profile:{memberCode:'QA-CODE',displayName:'QA',profileComplete:true,membershipRequired:false,joinedAt:'2026-01-01'}})};
   w.MembershipProgress={render(){}};
-  w.eval(read('member/app.js'));w.dispatchEvent(new w.Event('DOMContentLoaded'));await tick();
+  w.FriendQRCode={toCanvas:async()=>{}};
+  for(const file of ['qr-scan-dialog.js','member/member-growth.js','member/app.js'])w.eval(read(file));
+  w.dispatchEvent(new w.Event('DOMContentLoaded'));await tick();
   const n=nodes(w),result=await n.memberCodeCopyCase();
   assert.equal(result.status,'passed',JSON.stringify(result));assert.equal(clipboard,'QA-CODE');
   w.navigator.clipboard.writeText=async()=>{throw new Error('denied');};w.document.execCommand=()=>false;

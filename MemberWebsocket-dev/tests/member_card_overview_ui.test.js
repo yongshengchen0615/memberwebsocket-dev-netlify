@@ -10,14 +10,14 @@ const styles = read('member/member-card-refresh.css');
 const growth = read('member/member-growth.js');
 const friends = read('friends.js');
 
-test('member overview shows one member code, copy action, and tier progress', () => {
+test('member overview retains QR and progress but hides the redundant identifier and copy button', () => {
   assert.match(html, /class="member-overview"/);
-  assert.match(html, /<dl class="pass-member-code">/);
-  assert.equal((html.match(/id="memberCode"/g) || []).length, 1);
-  assert.equal((html.match(/id="copyMemberCodeButton"/g) || []).length, 1);
-  assert.match(html, /<span id="memberCode">—<\/span><button id="copyMemberCodeButton"/);
+  assert.match(html, /id="memberPass"/);
+  assert.doesNotMatch(html, /pass-member-code|id="memberCode"|id="copyMemberCodeButton"/);
   assert.match(html, /id="memberPassActions"/);
   assert.match(html, /id="membershipProgress"/);
+  assert.match(growth, /identityQr\.textContent = '顯示會員 QR Code'/);
+  assert.match(growth, /QRDisplayDialog\?\.show\(\{memberCode: state\.profile\?\.memberCode, opener: identityQr\}\)/);
 });
 
 test('quick actions are grouped inside the card without losing their handlers', () => {
@@ -31,7 +31,7 @@ test('quick actions are grouped inside the card without losing their handlers', 
 });
 
 test('scoped style retains tier background, mobile layout, accessible focus and motion', () => {
-  assert.match(html, /member-card-refresh\.css\?v=member-overview-20261010-2/);
+  assert.match(html, /member-card-refresh\.css\?v=member-overview-20261117-1/);
   assert.match(styles, /var\(--pass-background\)/);
   assert.match(styles, /data-membership-tier-style/);
   assert.match(styles, /@media \(max-width: 420px\)/);

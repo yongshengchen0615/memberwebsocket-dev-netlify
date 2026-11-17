@@ -2,22 +2,29 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-
 const root = path.join(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'member', 'index.html'), 'utf8');
-const app = fs.readFileSync(path.join(root, 'member', 'app.js'), 'utf8');
-const styles = fs.readFileSync(path.join(root, 'member', 'styles.css'), 'utf8');
+const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8');
+const html = read('member', 'index.html');
+const app = read('member', 'app.js');
+const growth = read('member', 'member-growth.js');
+const qrDialog = read('qr-scan-dialog.js');
 
-test('member code renders a copy action beside the identifier', () => {
-  assert.match(html, /<span id="memberCode">—<\/span><button id="copyMemberCodeButton"/);
-  assert.match(html, /copyMemberCodeButton[^>]+aria-live="polite"[^>]+disabled>複製<\/button>/);
+test('member card no longer renders the separate member identifier or copy button', () => {
+  assert.doesNotMatch(html, /pass-member-code|id="memberCode"|id="copyMemberCodeButton"/);
+  assert.doesNotMatch(app, /copyMemberCodeButton|els\.memberCode\b|copyMemberCode\(|currentMemberCode\(|memberCodeCopyResetTimer/);
+});
+test('member QR button still opens the shared dialog using the profile identifier', () => {
+  assert.match(growth, /identityQr\.textContent = '顯示會員 QR Code'/);
+  assert.match(growth, /QRDisplayDialog\?\.show\(\{memberCode: state\.profile\?\.memberCode, opener: identityQr\}\)/);
+  assert.match(growth, /identityButton\.disabled = !code/);
+});
+test('QR dialog preserves the identifier, copy action and success feedback', () => {
+  assert.match(qrDialog, /show\(\{ title = '會員 QR Code', memberCode, value = memberCode/);
+  assert.match(qrDialog, /copy\.textContent = '複製會員編號'/);
+  assert.match(qrDialog, /navigator\.clipboard\.writeText\(code\)/);
+  assert.match(qrDialog, /會員編號已複製/);
 });
 
-test('member code copy uses Clipboard API with a legacy fallback and visible feedback', () => {
-  assert.match(app, /copyMemberCodeButton\.addEventListener\('click', copyMemberCode\)/);
-  assert.match(app, /navigator\.clipboard\.writeText\(value\)/);
-  assert.match(app, /document\.execCommand\('copy'\)/);
-  assert.match(app, /setMemberCodeCopyFeedback\('已複製'\)/);
-  assert.match(app, /setMemberCodeCopyFeedback\('複製失敗'\)/);
-  assert.match(styles, /\.clipboard-fallback-input/);
+test('membership page loads the refreshed shared QR dialog after copy feedback race fix', () => {
+  assert.ok(html.includes('qr-scan-dialog.js?v=qr-dialog-20261008-1-receipt-camera-20261008-1-ongoing-20261010-1-copy-feedback-20261117-1'));
 });

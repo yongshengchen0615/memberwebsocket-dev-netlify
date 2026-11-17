@@ -1121,7 +1121,7 @@
         caseDef('會員資料完整性', 'Member', memberProfileCase, 'MEMBER_PROFILE_DATA'),
         caseDef('會員條款：有效版本與拒絕邊界', 'Member / Legal', membershipTermsConsentCase, 'MEMBER_TERMS_CONSENT'),
         caseDef('會員申請條款：未同意阻擋與目前版本確認', 'Human E2E', memberJoinTermsFlowCase, 'MEMBER_JOIN_TERMS_FLOW'),
-        caseDef('會員編號：複製與明確回饋', 'Member / Clipboard', memberCodeCopyCase, 'MEMBER_CODE_COPY'),
+        caseDef('會員 QR Code：顯示與複製回饋', 'Member / Clipboard', memberCodeCopyCase, 'MEMBER_CODE_COPY'),
         caseDef('好友與邀請優惠：QR 入口與外站拒絕', 'Member / QR', memberQrControlsCase, 'MEMBER_QR_CONTROLS'),
         caseDef('好友邀請：邀請碼／Modal／自邀前端拒絕', 'Member / Growth', memberReferralBoundaryCase, 'MEMBER_REFERRAL_BOUNDARY'),
         caseDef('加入會員後 LINE 自動訊息 UI 契約', 'Member / Notification', memberJoinLineAutomationContractCase, 'MEMBER_JOIN_LINE_AUTOMATION_CONTRACT'),
@@ -3291,7 +3291,7 @@
     const buttons = Array.from(document.querySelectorAll('button')).filter((button) => !qaPanel?.contains(button) && button.id !== LAUNCHER_ID);
     const navigationIds = new Set(['retryButton','logoutButton','joinMemberButton','refreshProfileButton','refreshTicketButton']);
     const patterns = {
-      member: /^(copyMemberCodeButton|showMemberIdentityQr|openMemberFriends|friendQrScanImage|scanMemberReferralQr|stopMemberReferralQr|uploadMemberReferralQr|refreshFriends|confirmFriendRequest|lookupFriend|scanFriendQr|uploadFriendQr|stopFriendQr|edit|close|cancel|save|profileBirthdayPicker|confirmProfileBirthdayPicker|openMemberReferral|closeMemberReferral|bindMemberReferral|renewTermsButton)/,
+      member: /^(showMemberIdentityQr|openMemberFriends|friendQrScanImage|scanMemberReferralQr|stopMemberReferralQr|uploadMemberReferralQr|refreshFriends|confirmFriendRequest|lookupFriend|scanFriendQr|uploadFriendQr|stopFriendQr|edit|close|cancel|save|profileBirthdayPicker|confirmProfileBirthdayPicker|openMemberReferral|closeMemberReferral|bindMemberReferral|renewTermsButton)/,
       points: /^(retryButton|joinMemberButton|logoutButton|pointTransferButton|pointTransferClose|pointTransferCopyOwnCode|pointTransferLookup|pointTransferSubmit|pointTransferChooseFriend|pointTransferUseFriend|pointTransferScanQr|pointTransferQrImageButton|pointTransferQrClose|pointTransferShowOwnQr|pointTransferFriendCancel)$|qr-scan-dialog-close|card-tab|ticket-overview-use|ticket-batch-(cancel|confirm)|ticket-live-location-confirm/, 
       event: /^(retryButton|joinMemberButton|logoutButton|closeTicketModal|ticketModalAction|refreshTicketButton)$|ticket-button|event-history-button|ticketModalLocationButton/,
       calendar: /^(retryButton|joinMemberButton|logoutButton|previousMonthButton|todayButton|nextMonthButton|closeCalendarDetailButton)$|calendar-day/,
@@ -3594,16 +3594,28 @@
 
 
   async function memberCodeCopyCase() {
-    const button = document.getElementById('copyMemberCodeButton');
-    const code = document.getElementById('memberCode')?.textContent.trim();
-    if (!button || !code || code === '—') return fail('會員編號複製入口或編號未就緒。',{ready:true},{ready:false});
-    if (button.disabled) await waitFor(() => !button.disabled, 2500);
-    button.click();
-    const feedback = await waitFor(() => /已複製|複製失敗/.test(button.textContent), 2500);
-    const copied = Boolean(feedback) && button.textContent === '已複製';
-    await waitFor(() => !button.disabled, 2500);
-    return copied ? pass('已點擊複製且顯示成功回饋；剪貼簿內容另由隔離 Chromium 驗證。',{copied:true},{copied:true})
-      : fail('複製未成功或未提供明確回饋。',{copied:true},{copied:false,feedback:button.textContent});
+    const trigger = document.getElementById('showMemberIdentityQr');
+    if (!trigger || trigger.disabled || typeof window.QRDisplayDialog?.show !== 'function') {
+      return fail('會員 QR Code 入口或識別碼未就緒。', { ready: true }, { ready: false });
+    }
+    trigger.click();
+    const panel = document.getElementById('qrDisplayPanel');
+    const memberCode = panel?.querySelector('strong')?.textContent.trim();
+    const copy = Array.from(panel?.querySelectorAll('button') || []).find(button => button.textContent.trim() === '複製會員編號');
+    if (!panel || !memberCode || !copy || panel.hidden) {
+      window.QRDisplayDialog.close();
+      return fail('會員 QR 視窗未顯示識別碼或複製操作。', { ready: true }, { ready: false });
+    }
+    try {
+      copy.click();
+      const feedback = await waitFor(() => /會員編號已複製|無法複製/.test(panel.textContent), 2500);
+      const copied = Boolean(feedback) && /會員編號已複製/.test(panel.textContent);
+      return copied
+        ? pass('透過會員 QR 視窗顯示編號、點擊複製並提供成功回饋；剪貼簿內容由隔離 Chromium 另驗。', { copied: true, codeShown: true }, { copied: true, codeShown: true })
+        : fail('QR 視窗的複製未成功或未提供明確回饋。', { copied: true, codeShown: true }, { copied: false, codeShown: true, feedback: panel.textContent.slice(-100) });
+    } finally {
+      window.QRDisplayDialog.close();
+    }
   }
 
   async function memberQrControlsCase() {

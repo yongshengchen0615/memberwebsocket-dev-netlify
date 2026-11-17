@@ -89,3 +89,51 @@ test('points page exposes its own QR button outside the transfer modal',()=>{
  assert.doesNotMatch(transfer,/<button id="pointTransferShowOwnQr"/,'QR button must not be nested in transfer markup');
  assert.match(transfer,/qrButton\.addEventListener\('click'/,'outside QR button must have its own listener');
 });
+
+test('member QR dialog still copies the member identifier without the card copy button', async () => {
+ const f=page();try {
+  const copied=[];
+  Object.defineProperty(f.w.navigator,'clipboard',{configurable:true,value:{writeText:async value=>copied.push(value)}});
+  f.w.FriendQRCode={toCanvas:async()=>{}};
+  assert.equal(f.w.QRDisplayDialog.show({memberCode:'MEMB1234',opener:f.opener}),true);
+  await tick();
+  const dialog=f.w.document.getElementById('qrDisplayPanel');
+  assert.equal(dialog.querySelector('strong').textContent,'MEMB1234');
+  const copy=Array.from(dialog.querySelectorAll('button')).find(button=>button.textContent==='複製會員編號');
+  assert.ok(copy);
+  copy.click();await tick();
+  assert.deepEqual(copied,['MEMB1234']);
+  assert.match(dialog.textContent,/會員編號已複製/);
+ }finally{f.w.close();}
+});
+
+test('member QR clipboard success survives deferred QR rendering, and denied clipboard reports failure', async () => {
+ const f=page();try {
+  let finishRender;
+  const copied=[];
+  f.w.FriendQRCode={toCanvas:()=>new Promise(resolve=>{finishRender=resolve;})};
+  Object.defineProperty(f.w.navigator,'clipboard',{configurable:true,value:{writeText:async value=>copied.push(value)}});
+  assert.equal(f.w.QRDisplayDialog.show({memberCode:'SLOW1234',opener:f.opener}),true);
+  await tick();
+  const panel=f.w.document.getElementById('qrDisplayPanel');
+  const copy=Array.from(panel.querySelectorAll('button')).find(button=>button.textContent==='複製會員編號');
+  assert.ok(copy);
+  copy.click();await tick();
+  assert.match(panel.textContent,/會員編號已複製/);
+  assert.deepEqual(copied,['SLOW1234']);
+  assert.equal(typeof finishRender,'function');
+  finishRender();await tick();
+  assert.match(panel.textContent,/會員編號已複製/,'late QR rendering must not overwrite clipboard success');
+  assert.equal(panel.querySelector('canvas').hidden,false);
+  f.w.QRDisplayDialog.close();
+  f.w.FriendQRCode.toCanvas=async()=>{};
+  f.w.navigator.clipboard.writeText=async()=>{throw new Error('permission denied');};
+  assert.equal(f.w.QRDisplayDialog.show({memberCode:'SLOW1234',opener:f.opener}),true);
+  await tick();
+  const second=f.w.document.getElementById('qrDisplayPanel');
+  Array.from(second.querySelectorAll('button')).find(button=>button.textContent==='複製會員編號').click();
+  await tick();
+  assert.match(second.textContent,/無法複製/,'denied Clipboard API must report failure');
+  assert.doesNotMatch(second.textContent,/會員編號已複製/);
+ }finally{f.w.close();}
+});

@@ -106,9 +106,21 @@
       const copy = document.createElement('button'); copy.type = 'button';
       copy.className = 'qr-scan-dialog-close'; copy.textContent = '複製會員編號';
       const current = ++qrGeneration;
+      // Clipboard feedback has priority over a QR render finishing later.
+      let copyFeedbackShown = false;
       copy.addEventListener('click', async () => {
-        try { await navigator.clipboard.writeText(code); if (current === qrGeneration) status.textContent = '會員編號已複製。'; }
-        catch { if (current === qrGeneration) status.textContent = '無法複製，請使用畫面上的會員編號。'; }
+        try {
+          await navigator.clipboard.writeText(code);
+          if (current === qrGeneration) {
+            copyFeedbackShown = true;
+            status.textContent = '會員編號已複製。';
+          }
+        } catch {
+          if (current === qrGeneration) {
+            copyFeedbackShown = true;
+            status.textContent = '無法複製，請使用畫面上的會員編號。';
+          }
+        }
       });
       panel.append(canvas, text, copy, status);
       return open(panel, { title, opener, closeLabel: '關閉 QR Code 視窗',
@@ -118,9 +130,10 @@
             if (!window.FriendQRCode?.toCanvas) throw new Error('QR 元件未載入');
             await window.FriendQRCode.toCanvas(canvas, String(value), { width: 256, margin: 4 });
             if (current !== qrGeneration) return;
-            canvas.hidden = false; status.textContent = 'QR 只用於會員識別；操作仍需確認。';
+            canvas.hidden = false;
+            if (!copyFeedbackShown) status.textContent = 'QR 只用於會員識別；操作仍需確認。';
           } catch {
-            if (current === qrGeneration) status.textContent = 'QR Code 暫時無法顯示，請關閉重試或使用會員編號。';
+            if (current === qrGeneration && !copyFeedbackShown) status.textContent = 'QR Code 暫時無法顯示，請關閉重試或使用會員編號。';
           }
         }
       });
