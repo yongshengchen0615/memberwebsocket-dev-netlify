@@ -25,7 +25,7 @@ Integrated-Marketing-Platform 推進時部署 MemberWebsocket-test；master 合�
 - 測試發布先在獨立 release_probe_<SHA> 合成 schema 實測 Management query API 成功提交、22012 故障 rollback、寫後讀回及無 CASCADE 清理。結果或清理不符即停止，不執行應用 SQL；正式專案不執行故障探測。同名 scope 已存在時拒絕覆寫。
 - 新 SQL 禁止頂層交易控制，避免破壞外層原子性。BEGIN/COMMIT 只有既有授權修復的外層包裝可移除。不提供通用 SQL 安全沙箱；具寫權的審核者仍需審查破壞性變更。
 - 部署名單只包含現有 canonical active 函式，排除 retirement、*-preview、sql-full-reset-worker。新增函式需在名單宣告；不執行 blanket deploy。
-- Integrated 原生建置除了原 CI gate，必須取得同 SHA 後端完成標記。標記僅 GitHub 在後端成功後寫入 Netlify branch build scope。
+- Integrated 原生建置除了原 CI gate，必須取得同 SHA 後端完成標記。標記僅 GitHub 在後端成功後寫入 Netlify 測試分支 context，scope 相容規則見 AC-016。
 
 ## 驗收與影響矩陣
 
@@ -68,3 +68,11 @@ AC-014：Given 恢復測試，When 呼叫 reusable workflows，Then 使用相同
 實際合併 87d3ec5 的 SQL/Edge 與全部 CI 成功，但原生建置回報 BACKEND_RELEASE_NOT_READY。唯讀診斷確認兩個標記不存在，原 CLI 步驟的成功退出不能證明已保存。比較保留 CLI 加讀回與直接官方 API 後，選 API，以明確驗證首次建立、後續 PATCH、分支及 scope。
 
 AC-015：Given 成功回應卻未保存、範圍錯誤、錯誤網站或不明寫入結果，When 設定發布標記，Then 不得啟動前端建置；只有固定網站、測試分支、builds scope 與相同 SHA 的讀回成功可放行。不更新其他環境，不重試不明寫入。
+
+## 現有 Netlify 方案相容性（AC-016）
+
+實際 c8587c9 的 SQL/Edge 與完整 CI 成功，建立標記 POST 回覆403；診斷44012509631確認回應提及 scopes/upgrade。官方環境變數文件說明細分 scopes 需要 Pro/Enterprise，現有站台為 nf_team_dev。這是服務方案限制，不能將它誤判成資料庫或測試失敗。
+
+比較升級方案保留 builds-only 與沿用預設 scopes：選後者，不產生額外付費。標記仍只含公開40位提交SHA、只設定 canonical 測試分支context，沒有 production/all/其他分支值，Native gate 仍驗證精確 Git branch、SHA 與後端成功。此例外只適用兩個 allowlist attestation key，不適用任何秘密或應用設定。
+
+AC-016：Given 服務拒絕細分scope但支援預設scopes，When 建立非秘密測試發布標記，Then 不傳入付費scope選項，並讀回確認 provider 預設scopes與唯一測試分支值；正式/all context、隱藏值、不明scope與不同SHA仍拒絕。AC-015中的scope要求由此明確相容規則補充，其餘條件保留。

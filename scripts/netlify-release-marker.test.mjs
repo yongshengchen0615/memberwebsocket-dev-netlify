@@ -19,8 +19,8 @@ function provider({initial=null,noOp=false,wrongSite=false,writeError=false}={})
    const body=JSON.parse(opts.body);
    if(opts.method==='POST') {
     assert.equal(url,`${root}?site_id=${siteId}`);
-    assert.deepEqual(body,[{key,is_secret:false,scopes:['builds'],values:[{context:'branch',context_parameter:'integrated-marketing-platform',value:sha}]}]);
-    if(!noOp)saved=structuredClone(body[0]);
+    assert.deepEqual(body,[{key,is_secret:false,values:[{context:'branch',context_parameter:'integrated-marketing-platform',value:sha}]}]);
+    if(!noOp)saved={...structuredClone(body[0]),scopes:['builds','functions','post_processing','runtime']};
    }else{
     assert.equal(url,`${root}/${key}?site_id=${siteId}`);
     assert.deepEqual(body,{context:'branch',context_parameter:'integrated-marketing-platform',value:sha});
@@ -35,7 +35,7 @@ async function run(p,extra={}) {
  assert.equal(typeof setReleaseMarker,'function','release marker must persist and read back the provider value');
  return setReleaseMarker({branch,sha,key,token:'secret-token',fetchImpl:p.fetch,...extra});
 }
-test('AC-015 creates a build-only canonical branch marker and verifies persisted value',async()=>{
+test('AC-015 creates a canonical branch marker and verifies persisted value',async()=>{
  const p=provider();const result=await run(p);assert.equal(result.status,'marker-verified');assert.equal(result.sha,sha);
  assert.deepEqual(p.calls.map(x=>x.method),['GET','GET','POST','GET']);assert.equal(p.saved.values[0].value,sha);assert.doesNotMatch(JSON.stringify(result),/secret-token|PRIVATE/);
 });
@@ -46,10 +46,12 @@ test('AC-015 updates only the existing branch value and is idempotent',async()=>
 test('AC-015 success response without persisted marker cannot unlock a native build',async()=>{
  for(const initial of [null,row('a'.repeat(40))]){const p=provider({initial,noOp:true});await assert.rejects(run(p),/MARKER_READBACK_MISMATCH/);assert.equal(p.calls.filter(x=>['POST','PATCH'].includes(x.method)).length,1);}
 });
-test('AC-015 refuses broader scopes, production/all contexts, hidden values and wrong site before writes',async()=>{
+test('AC-015 refuses unexpected scopes, production/all contexts, hidden values and wrong site before writes',async()=>{
  const invalid=[{...row(sha),scopes:['builds','functions']},{...row(sha),is_secret:true},{...row(sha),key:'OTHER'},
  {...row(sha),values:[{context:'all',value:sha}]},{...row(sha),values:[{context:'production',value:sha}]},
- {...row(sha),values:[{context:'branch',context_parameter:'master',value:sha}]}];
+ {...row(sha),values:[{context:'branch',context_parameter:'master',value:sha}]},
+ {...row(sha),scopes:['builds','functions','post_processing','runtime'],values:[{context:'production',value:sha}]},
+ {...row(sha),scopes:['builds','functions','post_processing','runtime'],values:[{context:'all',value:sha}]}];
  for(const initial of invalid){const p=provider({initial});await assert.rejects(run(p),/MARKER_SCOPE_INVALID/);assert.ok(p.calls.every(x=>x.method==='GET'));}
  const p=provider({wrongSite:true});await assert.rejects(run(p),/MARKER_SITE_INVALID/);assert.equal(p.calls.length,1);
 });
@@ -58,4 +60,22 @@ test('AC-015 rejects unauthorized branch/key/SHA or missing credential without p
 });
 test('AC-015 unknown write outcomes are never retried and diagnostic errors hide credentials',async()=>{
  const p=provider({writeError:true});await assert.rejects(run(p),e=>/MARKER_WRITE_OUTCOME_UNKNOWN/.test(e.message)&&!/secret|PRIVATE/.test(e.message));assert.equal(p.calls.filter(x=>x.method==='POST').length,1);
+});
+
+test('AC-016 current plan can persist public branch attestations without paid granular scopes',async()=>{
+ let saved=null;let writes=0;
+ const fetchImpl=async(url,options)=>{
+  if(url.endsWith('/sites/'+siteId))return Response.json(site);
+  if(options.method==='GET')return saved?Response.json(saved):new Response('',{status:404});
+  writes++;
+  const body=JSON.parse(options.body)[0];
+  if(body.scopes)return new Response('Setting scopes requires an upgrade',{status:403});
+  saved={...body,scopes:['builds','functions','post_processing','runtime']};
+  return Response.json([saved],{status:201});
+ };
+ assert.equal(typeof setReleaseMarker,'function');
+ const result=await setReleaseMarker({branch,sha,key,token:'secret-token',fetchImpl});
+ assert.equal(result.status,'marker-verified');assert.equal(writes,1);
+ assert.deepEqual(saved.values,[{context:'branch',context_parameter:'integrated-marketing-platform',value:sha}]);
+ assert.equal(saved.is_secret,false);
 });
