@@ -11,7 +11,7 @@ const rule=selector=>{
  return line.slice(prefix.length,line.indexOf('}',prefix.length));
 };
 test('AC-001: merchant LINE settings inherit light/dark semantic surfaces',()=>{
- assert.ok(html.includes('business-line-settings.css?v=line-theme-20261103-2'));
+ assert.ok(html.includes('business-line-settings.css?v=line-visible-20261117-1'));
  assert.ok(html.includes('../theme.js?v='));
  for(const [selector,token] of [
   ['.business-line-settings','--theme-surface-raised'],
@@ -37,7 +37,7 @@ test('AC-002: LINE inputs, selection and focus adapt without modifying LINE bran
 test('AC-003: merchant shell uses shared color preference while preserving no-theme fallback tokens',()=>{
  const merchant=fs.readFileSync(path.join(root,'admin/workspace.html'),'utf8');
  assert.ok(merchant.includes('data-workspace="merchant"'));
- assert.ok(merchant.includes('business-line-settings.css?v=line-theme-20261103-2'));
+ assert.ok(merchant.includes('business-line-settings.css?v=line-visible-20261117-1'));
  assert.ok(merchant.includes('../theme.css?v=merchant-workspace-theme-20261105-1'));
  assert.ok(merchant.includes('../theme.js?v=m3-ui-20260929-1'));
  assert.ok(merchant.includes('aria-label="外觀設定"'));
