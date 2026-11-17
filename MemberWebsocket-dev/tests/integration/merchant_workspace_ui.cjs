@@ -383,7 +383,8 @@ test('v2 selected DOM uses actual BusinessContext, handler and SQL to save only 
   const wait=async check=>{const end=Date.now()+5000;while(!check()&&Date.now()<end)await new Promise(r=>setTimeout(r,10));assert.ok(check(),settings.d.getElementById('platformStatus').textContent+' / '+settings.d.getElementById('merchantMessage').textContent+' / '+[...settings.d.querySelectorAll('#merchantSimpleLine [role=status]')].map(n=>n.textContent).join(' | '));};
   await wait(()=>!settings.d.getElementById('merchantWorkspace').hidden);settings.d.getElementById('merchantLineSettingsTab').click();
   const form=settings.d.querySelector('#merchantSimpleLine [data-business-line-feature=points] form'),status=settings.d.querySelector('#merchantSimpleLine [data-business-line-feature=points] > [role=status]');
-  const fill=(key,value)=>{const input=form.elements.namedItem(key);input.value=value;input.dispatchEvent(new settings.w.Event('input',{bubbles:true}));};
+  const shared=settings.d.querySelector('#merchant-businessLineSharedForm');assert.ok(shared,'shared Login settings remain visible beside selected feature');
+  const fill=(key,value)=>{const target=['adminChannelId','adminLiffId'].includes(key)?shared:form;const input=target.elements.namedItem(key);assert.ok(input,'expected '+key+' in its own form');input.value=value;input.dispatchEvent(new settings.w.Event('input',{bubbles:true}));};
   for(const [key,value]of Object.entries({adminChannelId:'2010791619',memberChannelId:'2010123456',adminLiffId:'2010791619-admin',pointsLiffId:'2010123456-points-first'}))fill(key,value);
   assert.equal(form.elements.namedItem('channelAccessToken'),null,'no duplicate notification credentials in LIFF entry form');
   const notification=settings.d.querySelector('#merchant-notification-points-member');
@@ -393,6 +394,7 @@ test('v2 selected DOM uses actual BusinessContext, handler and SQL to save only 
   assert.ok(notification.elements.namedItem('channelAccessToken'));
   submit(settings,form.id);await wait(()=>status.textContent.includes('已儲存'));
   fill('pointsLiffId','2010123456-points-a');submit(settings,form.id);await wait(()=>status.textContent.includes('已儲存'));
+  assert.equal(shared.elements.adminLiffId.value,'2010791619-admin');assert.equal(shared.elements.adminLiffId.readOnly,true);
   assert.equal(settings.calls.filter(x=>x.action==='platform.line.save').length,2);assert.ok(settings.calls.filter(x=>x.action==='platform.line.save').every(x=>x.feature==='points'));
   const rows=(await db.db.query('select slug,line_config,module_line,features from platform_private.tenants order by slug')).rows;assert.equal(rows.length,2);assert.equal(rows[0].module_line.points.line.pointsLiffId,'2010123456-points-a');assert.deepEqual(rows[1].line_config,{});assert.deepEqual(rows[1].module_line,{});assert.equal(rows[1].features.booking,true);
   const entry=await db.platformCall({action:'platform.business.public',business:'real-line-a',feature:'points'});assert.equal(entry.status,200);assert.equal(entry.body.data.line.pointsLiffId,'2010123456-points-a');

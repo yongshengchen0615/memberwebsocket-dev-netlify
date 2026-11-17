@@ -21,7 +21,7 @@ for(const width of [390,1280])test('#144 WEBHOOK_DIAGNOSTICS_'+width+' real hand
    window.grants={membership:true,points:true,events:true,calendar:true,booking:true};
   },h.tenant);
   await page.addScriptTag({url:base+'/settings.js'});await page.evaluate(()=>window.BusinessLineSettings.apply({features:window.grants}));
-  await page.locator('#businessLineFeatureTab-booking').click();const panel=page.locator('[data-line-webhook=booking]');await panel.locator('summary').click();
+  await page.locator('#businessLineFeatureTab-booking').click();const panel=page.locator('[data-line-webhook=booking]');await expect(panel).toHaveAttribute('open','');
   await panel.getByRole('button',{name:'讀取 Webhook 狀態'}).click();await expect(panel.getByRole('status')).toContainText('LINE API：尚未確認');expect(h.provider).toEqual([]);
   await panel.getByRole('button',{name:'檢查 LINE 連線'}).click();await expect(panel.getByRole('status')).toContainText('LINE API：已接受連線檢查');await expect(panel.getByRole('status')).toContainText('真人收件：待驗收');
   await expect(panel.locator('input')).toHaveValue('https://fixture.supabase.co/functions/v1/line-webhook');
@@ -31,7 +31,7 @@ for(const width of [390,1280])test('#144 WEBHOOK_DIAGNOSTICS_'+width+' real hand
   await expect(page.locator('#businessLine-booking [name=channelSecret]')).toHaveCount(0);
   await page.locator('#businessLine-booking [name=bookingLiffId]').fill('2010787602-unsaved');
   await expect(panel.getByRole('button',{name:'檢查 LINE 連線'})).toBeDisabled();
-  await page.locator('#businessLineFeatureTab-points').click();const optional=page.locator('[data-line-webhook=points]');await optional.locator('summary').click();
+  await page.locator('#businessLineFeatureTab-points').click();const optional=page.locator('[data-line-webhook=points]');await expect(optional).toHaveAttribute('open','');
   await optional.getByRole('button',{name:'讀取 Webhook 狀態'}).click();await expect(optional.getByRole('status')).toContainText('LIFF 入口可獨立使用');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
   await info.attach('webhook-diagnostics-'+width,{body:await page.screenshot({fullPage:true}),contentType:'image/png'});

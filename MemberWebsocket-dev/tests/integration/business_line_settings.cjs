@@ -27,11 +27,17 @@ test('AC-302/303/304: LINE settings tab owns module forms, isolated saves, modul
   assert.equal(d.querySelector('#businessLineFeatureContent [data-business-line-feature="membership"] [data-feature-client]').getAttribute('href'),'https://allowed.test/member/?business=inline-shop');
   assert.equal(d.querySelector('#businessLineFeatureContent [data-business-line-feature="points"] [data-feature-client]').getAttribute('href'),'https://allowed.test/points/?business=inline-shop');
   const member=d.querySelector('#businessLine-membership'),points=d.querySelector('#businessLine-points');
+  const shared=d.querySelector('#businessLineSharedForm');
+  assert.ok(shared,'shared Login identity has its own always-visible form');
+  assert.equal(d.querySelectorAll('[data-business-line-shared]').length,1);
   const fill=(form,key,value)=>{form.elements.namedItem(key).value=value;form.elements.namedItem(key).dispatchEvent(new w.Event('input',{bubbles:true}));};
   for(const input of d.querySelectorAll('input[pattern]'))assert.doesNotThrow(()=>new RegExp(input.pattern,'v'));
   fill(member,'memberLiffId','2010787602-invalid@');assert.equal(member.elements.memberLiffId.validity.patternMismatch,true);
   fill(points,'pointsLiffId','2010787602-unsaved');
-  for(const [key,value]of Object.entries({...line,...credentials}))if(member.elements.namedItem(key))fill(member,key,value);
+  for(const [key,value]of Object.entries({...line,...credentials})){
+    if(member.elements.namedItem(key))fill(member,key,value);
+    if(shared.elements.namedItem(key))fill(shared,key,value);
+  }
   member.dispatchEvent(new w.Event('submit',{cancelable:true}));
   await until(()=>d.querySelector('[data-business-line-feature="membership"] [role="status"]').textContent.includes('無法確認'));
   assert.equal(points.querySelector('button[type=submit]').disabled,true);
@@ -42,9 +48,15 @@ test('AC-302/303/304: LINE settings tab owns module forms, isolated saves, modul
   assert.equal(calls.filter(c=>c.action==='platform.line.save')[0].requestId,calls.filter(c=>c.action==='platform.line.save')[1].requestId);
   assert.equal((await h.db.query("select count(*)::int n from platform_private.audit_events where action='MODULE_LINE_UPDATED'")).rows[0].n,1);
   assert.equal(points.elements.pointsLiffId.value,'2010787602-unsaved');assert.equal(member.elements.namedItem('channelAccessToken'),null);assert.equal(member.elements.namedItem('channelSecret'),null);
-  assert.equal(d.querySelector('#businessLineIdentity-membership').hidden,true,'shared Login identity must disappear after initial setup');
-  assert.equal(d.querySelector('#businessLineIdentity-points').hidden,true,'other modules must not repeat business Login inputs');
-  assert.equal(points.elements.adminChannelId.disabled,true,'shared Login identity must not be editable from another feature');
+  assert.equal(d.querySelectorAll('#businessLineSharedForm').length,1,'shared identity must never be repeated for modules');
+  assert.equal(shared.elements.adminChannelId.value,line.adminChannelId,'saved Channel must remain visible');
+  assert.equal(shared.elements.adminLiffId.value,line.adminLiffId,'saved LIFF must remain visible');
+  assert.equal(shared.elements.adminChannelId.readOnly,true,'shared Login Channel remains immutable after setup');
+  assert.equal(shared.elements.adminLiffId.readOnly,true,'shared LIFF remains immutable after setup');
+  assert.equal(points.elements.namedItem('adminChannelId'),null,'feature forms must not duplicate shared identity');
+  assert.equal(d.querySelector('#businessLine-membership [name=memberChannelId]').value,line.memberChannelId);
+  assert.equal(d.querySelector('[data-line-webhook="membership"]').open,true,'Webhook status should be expanded by default');
+  assert.equal(d.querySelector('[data-business-line-feature="membership"] details').open,true,'notification details should be expanded');
   fill(points,'memberChannelId','2099999999');
   fill(points,'pointsLiffId','2099999999-unsaved');
   points.dispatchEvent(new w.Event('submit',{cancelable:true}));
@@ -140,7 +152,10 @@ test('AC-307: approved feature-specific LINE settings do not require unrelated n
   assert.equal(d.querySelector('[data-business-line-feature="integrations"]'),null);
   assert.equal(d.querySelector('[data-business-line-feature="testing"]'),null);
   assert.equal(d.querySelector('[data-business-line-feature="usage"]'),null);
-  assert.equal(d.querySelector('#businessLineIdentity-booking').hidden,false,'first-time shared Login identity remains configurable');
+  assert.equal(d.querySelector('#businessLineSharedForm input[name=adminLiffId]').readOnly,false,'first-time shared Login identity remains configurable');
+  assert.equal(d.querySelectorAll('[data-business-line-shared]').length,1);
+  assert.equal(d.querySelector('#notification-booking-admin').closest('details').open,true);
+  assert.equal(d.querySelector('[data-line-webhook="booking"]').open,true);
  } finally {dom?.window.close();await h.db.close();}
 });
 test('AC-308: utility-only merchants cannot open an empty LINE settings tab',async()=>{
