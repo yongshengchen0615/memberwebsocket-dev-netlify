@@ -1,6 +1,9 @@
 name: Test Netlify build
 
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  workflow_call:
 
 permissions:
   contents: read
@@ -15,6 +18,8 @@ jobs:
           node-version: '24'
       - name: Reject retired API routes in all publishable builds
         run: node --test scripts/development-api-build.test.mjs
+      - name: Verify automatic SQL, Edge and frontend release contracts
+        run: node --test scripts/supabase-release.test.mjs scripts/release-recovery.test.mjs scripts/netlify-release-marker.test.mjs
       - name: Verify pinned browser CI runtime
         run: node --test scripts/ci-browser-environment.test.mjs
       - name: Verify branch database isolation and master release gate

@@ -42,7 +42,9 @@ test('production deploy targets only the recreated Netlify site with protected c
 
 test('production release is master-only and waits for all exact-SHA branch push baselines', () => {
   assert.match(flow, /branches: \[master\]/);
-  assert.match(flow, /if: github\.ref == 'refs\/heads\/master'/);
+  // Recovery dependencies add a cancellation/result guard before the unchanged
+  // master-only predicate. The separate recovery tests reject every other ref.
+  assert.match(flow, /!cancelled\(\) && github\.ref == 'refs\/heads\/master'/);
   assert.match(flow, /node scripts\/check-preview-ci\.mjs/);
   assert.match(flow, /-f event=push/);
   assert.match(flow, /-f head_sha="\$GITHUB_SHA"/);
@@ -131,8 +133,8 @@ test('integrated branch recovers native builds only after the exact-SHA CI and k
  assert.match(preview,/grep -Fxq 'Verified native branch preview failed: NATIVE_DEPLOY_FAILED'/);
  assert.match(preview,/grep -Fxq 'Verified native branch preview failed: DEPLOY_NOT_READY'/);
  assert.match(preview,/grep -Fxq 'Verified native branch preview failed: NATIVE_ALIAS_STALE'/);
- assert.match(preview,/env:set PLATFORM_CI_VERIFIED_SHA "\$GITHUB_SHA"/);
- assert.match(preview,/--context "branch:\$GITHUB_REF_NAME" --scope builds --force/);
+ assert.ok(preview.includes('node scripts/netlify-release-marker.mjs PLATFORM_CI_VERIFIED_SHA'));
+ assert.doesNotMatch(preview,/netlify-cli@23[.]11[.]0 env:set/);
  assert.match(preview,/--request POST --data '\{\}'/);
  assert.ok(preview.includes('/builds?branch=$GITHUB_REF_NAME&commit_sha=$GITHUB_SHA'));
  assert.ok(preview.includes('NATIVE_NOT_BEFORE'));
@@ -164,8 +166,8 @@ test('missing native branch deploy recovers only through exact-SHA CI-attested b
  assert.match(guard,/DEPLOY_NOT_READY/);
  assert.match(guard,/\|\|\s*grep -Fxq/);
  assert.doesNotMatch(guard,/PROVIDER_UNAVAILABLE|DEPLOY_IDENTITY_MISMATCH|PRODUCTION_IDENTITY_CHANGED/);
- assert.ok(recovery.indexOf('env:set PLATFORM_CI_VERIFIED_SHA "$GITHUB_SHA"')>recovery.indexOf('elif grep -Fxq'));
- assert.ok(recovery.indexOf('--request POST --data')>recovery.indexOf('env:set PLATFORM_CI_VERIFIED_SHA'));
+ assert.ok(recovery.indexOf('node scripts/netlify-release-marker.mjs PLATFORM_CI_VERIFIED_SHA')>recovery.indexOf('elif grep -Fxq'));
+ assert.ok(recovery.indexOf('--request POST --data')>recovery.indexOf('node scripts/netlify-release-marker.mjs PLATFORM_CI_VERIFIED_SHA'));
  assert.ok(recovery.includes('commit_sha=$GITHUB_SHA'));
  assert.ok(recovery.includes('test "$GITHUB_REF_NAME" = Integrated-Marketing-Platform'));
  assert.ok(recovery.includes('node scripts/verify-netlify-native-preview.mjs'));
@@ -177,7 +179,7 @@ test('pre-CI native failure cannot be mistaken for a successful release',()=>{
  assert.ok(before.includes('node scripts/inspect-preview-source.mjs'));
  assert.ok(before.includes('if node scripts/verify-netlify-native-preview.mjs'));
  assert.ok(before.includes('elif grep -Fxq'));
- assert.ok(before.indexOf('env:set PLATFORM_CI_VERIFIED_SHA') > before.indexOf('elif grep -Fxq'));
+ assert.ok(before.indexOf('node scripts/netlify-release-marker.mjs PLATFORM_CI_VERIFIED_SHA') > before.indexOf('elif grep -Fxq'));
  assert.ok(before.indexOf('node scripts/verify-netlify-native-preview.mjs',before.indexOf('--request POST'))>before.indexOf('--request POST'));
  assert.ok(before.includes('exit 1'));
  const build=preview.slice(preview.indexOf('- name: Build and verify the exact platform frontend'),
@@ -194,7 +196,7 @@ test('post-CI native recovery keeps shell continuation and the other preview bra
     preview.indexOf('\n          else\n',preview.indexOf("elif grep -Fxq 'Verified native branch preview failed")));
   assert.ok(recovery.length>200);
   assert.equal(recovery.includes(String.fromCharCode(92,92,10)),false,'No doubled Bash line-continuation backslashes');
-  for (const fragment of ['env:set PLATFORM_CI_VERIFIED_SHA', '--scope builds --force',
+  for (const fragment of ['node scripts/netlify-release-marker.mjs PLATFORM_CI_VERIFIED_SHA',
     "curl --fail --silent --show-error --retry 0", '--header "Authorization: Bearer $NETLIFY_AUTH_TOKEN"',
     '--request POST --data', '--output /tmp/native-recovery-build.json']) assert.ok(recovery.includes(fragment),fragment);
   assert.ok(recovery.includes(String.fromCharCode(92,10)),'Multiline commands use single backslash/newline');
@@ -242,11 +244,10 @@ test('stale public alias is recoverable only after exact SHA CI and final accept
  assert.doesNotMatch(preview,/--prod\b/);
 });
 
-test('AC-NATIVE-ENV-001: native recovery uses NETLIFY_SITE_ID without unsupported env:set --site flag',()=>{
-  const command=preview.match(/npx --yes netlify-cli@23\.11\.0 env:set PLATFORM_CI_VERIFIED_SHA[\s\S]*?--force/);
-  assert.ok(command,'native recovery must pin verified SHA before starting a branch build');
+test('AC-NATIVE-ENV-001: native recovery verifies persisted branch markers before starting a build',()=>{
+  const recovery=preview.slice(preview.indexOf('elif grep -Fxq'),preview.indexOf('- name: Build and verify the exact platform frontend'));
   assert.match(preview,/NETLIFY_SITE_ID: 196e1d2c-8216-4ba8-aeb9-1706660adc2b/);
-  assert.match(command[0],/--context "branch:\$GITHUB_REF_NAME"/);
-  assert.match(command[0],/--scope builds --force/);
-  assert.doesNotMatch(command[0],/--site(?:=|\s)/,'env:set reads site from NETLIFY_SITE_ID instead');
+  assert.ok(recovery.indexOf('node scripts/netlify-release-marker.mjs PLATFORM_CI_VERIFIED_SHA')>=0);
+  assert.ok(recovery.indexOf('node scripts/netlify-release-marker.mjs PLATFORM_CI_VERIFIED_SHA')<recovery.indexOf('--request POST'));
+  assert.doesNotMatch(preview,/netlify-cli@23[.]11[.]0 env:set/);
 });

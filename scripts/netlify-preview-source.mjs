@@ -1,4 +1,4 @@
-import { isNativeVerifiedPreview, hasCiAttestedReleaseMarker, awaitVerifiedPreviewCI } from './netlify-native-ci-gate.mjs';
+import { isNativeVerifiedPreview, hasCiAttestedReleaseMarker, awaitVerifiedPreviewCI, requireBackendReleaseMarker } from './netlify-native-ci-gate.mjs';
 import { execFileSync } from 'node:child_process';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -116,6 +116,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     // A build hook can bypass Netlify's ignore command; block it here as well.
     if (blockNativePreview(process.env)) throw new Error('This release branch has an invalid or ungated build identity');
     if (isNativeVerifiedPreview(process.env)) {
+      // CI success does not imply SQL/Edge success. This condition is mandatory
+      // before both CI-attested and independent API-check build paths.
+      requireBackendReleaseMarker(process.env);
       // Netlify's shared outbound GitHub API quota can reject the native build
       // even though the exact-SHA required CI passed in the release workflow.
       // The release workflow sets a branch-only marker AFTER that CI completes.

@@ -14,6 +14,7 @@ on:
       - '.github/workflows/test-netlify-build.yml'
       - '.github/workflows/test-memberwebsocket-dev.yml'
   pull_request:
+  workflow_call:
 
 permissions:
   contents: read
@@ -321,6 +322,7 @@ jobs:
           node --test --test-concurrency=1
           --test-reporter=spec --test-reporter-destination=stdout
           --test-reporter=junit --test-reporter-destination=postgres-results.xml
+          scripts/supabase-release-sql.test.mjs
           MemberWebsocket-dev/tests/integration/postgres/booking-risk.cjs
           MemberWebsocket-dev/tests/integration/postgres/feature-dependencies.cjs
           MemberWebsocket-dev/tests/integration/postgres/booking-phone.cjs
@@ -340,6 +342,7 @@ jobs:
           MemberWebsocket-dev/tests/integration/postgres/admin-qualification.cjs
           MemberWebsocket-dev/tests/integration/postgres/merchant-applications.cjs
           MemberWebsocket-dev/tests/integration/postgres/sandbox-fixture-lifecycle.cjs
+          MemberWebsocket-dev/tests/integration/postgres/deployment-release.cjs
       - name: Save PostgreSQL acceptance results
         if: always()
         uses: actions/upload-artifact@v4
