@@ -25,6 +25,31 @@
 - 修缺陷先以測試固定「改前會失敗」的情境（RED）；若舊版已失敗，明確列為既存缺陷，不把它歸咎於本次改動，也不以此免除回歸責任。
 - 對跨模組變更建立 contract map：入口頁面 → 前端事件 → Edge/RPC → transaction/outbox → RLS → 通知／同步。單純畫面正常不能當後端正確。
 
+## 2.1 開發環境優先與正式授權
+
+**預設規則：除非使用者針對本任務明確指示修改正式環境，所有開發都從開發分支與開發環境開始。** 本節適用新功能、缺陷、重構、設定、migration、Edge、部署及外部服務；優先於歷史文件中未區分環境的操作指引。
+
+| 用途 | 分支／PR 目標 | Supabase 專案／ref | 設定／站台 |
+|---|---|---|---|
+| 預設開發與驗收 | 最新 `Integrated-Marketing-Platform` → 獨立工作分支 → PR 回 `Integrated-Marketing-Platform` | MemberWebsocket-test／`bmwhojszsnxliekkhrka` | `MemberWebsocket-dev/config/testing/config.json`；`https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app/` |
+| 明確授權後的正式作業 | `master`；正式 PR／發布須依本任務授權 | MemberWebsocket-main／`dbuquirnaskrwcamdxki` | `MemberWebsocket-dev/config/production/config.json`；Netlify production context |
+
+- 開工及每次寫入前，核對 source/target branch、完整 SHA、實際 URL／project ref、服務帳號連線與資料範圍。repository default branch、目錄名稱或舊沙盒描述不能代替核對；目標不明先停該寫入，繼續可獨立完成的開發工作。
+- 正式變更包括推送／合併 `master`、部署／回復正式前後端、修改正式設定檔（即使該檔在工作分支）、正式資料庫結構／資料／Edge／Secrets，以及正式 Netlify、LINE／LIFF、Bird 設定。正式唯讀診斷可以協助定位，但不能延伸為寫入或使用正式會員進行破壞性測試。
+- 「繼續」「修好」「實作完成」「部署完成」未明確指定正式環境時，僅授權開發範圍。開發驗收成功、可用憑證、既有自動部署或其他任務的歷史正式授權，均不自動授權本任務改正式。本任務已明確核可的正式範圍持續有效，無須逐步重複詢問。
+- 先完成可審查的開發候選、適用完整測試、變更影響與回復方案，再就尚未授權的正式操作取得指示。明確要求合併 `master` 時，須告知會觸發既有正式 SQL → Edge → 前端流程；不得為了「兩邊同步」自動開啟或執行正式合併／發布。
+- 開發資料、設定、憑證與外部服務須核對所屬環境；不能因共用供應商帳號而覆寫正式用途。緊急程度不能取代正式授權、安全、備份及測試 Gate。本規則為工作約定，本輪不新增機器阻擋或修改發布 workflow。
+
+### 環境與授權驗收案例
+
+| AC | Given／When／Then | 證據 |
+|---|---|---|
+| AC-ENV-001 | Given 新任務未指定正式環境，When 開始實作，Then 從最新開發分支建立工作分支、PR 回開發分支，使用 test ref 與 testing config | branch／SHA、PR base、URL／ref |
+| AC-ENV-002 | Given 只有「繼續」或「部署完成」，When 決定操作範圍，Then 不推送／合併 master、不寫正式服務或 production config | 任務授權與實際操作清單 |
+| AC-ENV-003 | Given 開發候選已驗收且正式操作尚未授權，When 準備正式發布，Then 先提供候選 SHA、測試、影響與回復，再取得明確正式指示 | 開發證據、正式指示及發布清單 |
+| AC-ENV-004 | Given 正式授權已明確存在於本任務，When 繼續該範圍工作，Then 不重複詢問，仍完成原有測試與發布 Gate | 原授權、範圍核對與同版證據 |
+| AC-ENV-005 | Given 分支、ref 或外部服務用途無法確認，When 即將寫入，Then 停止不明目標寫入且繼續獨立開發；正式唯讀查詢不擴張為寫入 | 寫入前核對及阻礙紀錄 |
+
 ## 3. 既有功能保護矩陣（最低驗收，不得縮減已存在案例）
 
 | 領域 | 不變條件／檢查重點 | 優先對應既有測試或工作卡 |

@@ -2,6 +2,19 @@
 
 適用本 repository 全部目錄；產品範圍與卡片狀態依 [Project #5 Charter / Issue #39](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/issues/39)；完整操作規格見 [docs/DEVELOPMENT_GUARDRAILS.md](docs/DEVELOPMENT_GUARDRAILS.md)。
 
+## 零、預設開發環境與正式環境例外（2026-11-17）
+
+**除非使用者針對本任務明確指示修改正式環境，所有新功能、修復、重構、設定變更與驗證，都先從開發分支與開發環境開始。**
+
+1. **預設分支**：以最新 `Integrated-Marketing-Platform` 建立獨立工作分支，PR 目標同為 `Integrated-Marketing-Platform`；不得因 repository 預設分支、歷史習慣或便利性改從 `master` 開發。
+2. **預設環境**：使用 MemberWebsocket-test（`bmwhojszsnxliekkhrka`）、`MemberWebsocket-dev/config/testing/config.json` 與開發站；開工先核對實際 URL、project ref、分支、SHA、帳號連線及資料範圍。
+3. **正式操作須明確授權**：推送或合併至 `master`、正式部署／回復、修改 `config/production/config.json`、MemberWebsocket-main（`dbuquirnaskrwcamdxki`）的 SQL／資料／Edge／Secrets，以及正式 Netlify、LINE／LIFF、Bird 設定，均屬正式環境變更。即使在開發分支編輯正式設定檔，也須有對應授權。
+4. **一般指令不擴權**：「繼續」「修好」「實作完成」「部署完成」未指定正式環境時，只推進開發範圍；開發驗收成功、歷史其他任務的正式授權、已有自動發布流程或可用憑證，都不等於本任務獲准修改正式環境。若本任務已有明確正式授權，在該範圍內持續執行，不重複詢問。
+5. **先完成可驗收的開發版本**：在開發環境完成適用測試、證據與回復方案；準備正式發布時先列出候選 SHA、變更及影響，再取得缺少的正式授權。明確要求合併至 `master` 時，須說明該合併將觸發既有正式 SQL → Edge → 前端自動發布。
+6. **隔離與不明目標**：不得為方便開發共用或覆寫正式資料、憑證及外部服務設定。必要的正式唯讀診斷不代表允許寫入；目標無法確認時先停止該寫入，繼續可獨立進行的開發工作。緊急修復仍受此授權界線與既有測試 Gate 約束。
+
+操作與驗收細則見 [開發環境優先與正式授權](docs/DEVELOPMENT_GUARDRAILS.md#21-開發環境優先與正式授權)。
+
 ## 一、第一性原理：先定義不變條件，再修改實作
 
 1. **目標**：這次要修正或交付什麼可觀察行為？不做什麼？
