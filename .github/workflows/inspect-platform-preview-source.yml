@@ -37,8 +37,16 @@ jobs:
           const key='PLATFORM_BACKEND_VERIFIED_SHA';
           const er=await request('GET',`/accounts/${site.account_slug}/env/${key}?site_id=${siteId}`);
           if(er.status!==404){console.log(JSON.stringify({existingMarkerHttp:er.status}));process.exit(0);}
-          const response=await request('POST',`/accounts/${site.account_slug}/env?site_id=${siteId}`,[{key,is_secret:false,scopes:['builds'],values:[{context:'branch',context_parameter:'integrated-marketing-platform',value:sha}]}]);
+          const response=await request('POST',`/accounts/${site.account_slug}/env?site_id=${siteId}`,[{key,is_secret:false,values:[{context:'branch',context_parameter:'integrated-marketing-platform',value:sha}]}]);
           const text=await response.text();
+          if(response.ok){
+            const rr=await request('GET',`/accounts/${site.account_slug}/env/${key}?site_id=${siteId}`);
+            if(!rr.ok)throw Error('READBACK_HTTP_'+rr.status);
+            const row=await rr.json();
+            const values=row.values?.map(v=>({context:v.context,branch:v.context_parameter,matchesSha:v.value===sha}));
+            console.log(JSON.stringify({persistedScopes:row.scopes,persistedValues:values}));
+            if(values?.length!==1||values[0].context!=='branch'||values[0].branch!=='integrated-marketing-platform'||!values[0].matchesSha)throw Error('READBACK_MISMATCH');
+          }
           const allowedWords=['granular','scopes','scope','plan','plans','upgrade','permissions','permission','forbidden','access','paid','pro','free','context','branch','quota','capabilities','unauthorized'];
           console.log(JSON.stringify({createHttp:response.status,knownErrorWords:response.ok?[]:allowedWords.filter(w=>new RegExp('\\b'+w+'\\b','i').test(text))}));
           JS
