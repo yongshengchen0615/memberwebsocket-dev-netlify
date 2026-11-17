@@ -32,6 +32,8 @@
 - 跨商家功能須分別定義 A 店／B 店、管理端 OA／會員端 OA 的授權、資料和 LINE 路由邊界。
 - 不確定可先建立有時間限制的探索 Spike；Spike 以結論、風險或最小實驗為驗收，不等於完成產品功能。
 
+**開發環境優先是 DoR 的必要條件：** 未取得本任務明確正式指示時，以最新 `Integrated-Marketing-Platform` 建立工作分支、PR 回同一開發分支，使用 MemberWebsocket-test（`bmwhojszsnxliekkhrka`）與 testing config。「繼續／修好／部署完成」、開發驗收或其他任務的歷史授權不自動擴及 `master`、production config、正式 DB／Edge／Secrets、Netlify、LINE／LIFF 或 Bird。正式發布先完成可驗收的開發候選、測試、影響與回復，再取得缺少的明確授權；本任務既有正式授權在原範圍內持續有效。詳見 [開發環境優先與正式授權](DEVELOPMENT_GUARDRAILS.md#21-開發環境優先與正式授權)。
+
 ## 4. WIP 上限與緊急插單
 
 - **WIP 上限**：同時主動修改中的程式 PR 最多 2 個，以收斂功能交付為先。長期保留的 Draft 不計入主動 WIP，但必須註明等待原因和下一個檢查點。
