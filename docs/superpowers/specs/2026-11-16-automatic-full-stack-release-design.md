@@ -76,3 +76,11 @@ AC-015：Given 成功回應卻未保存、範圍錯誤、錯誤網站或不明�
 比較升級方案保留 builds-only 與沿用預設 scopes：選後者，不產生額外付費。標記仍只含公開40位提交SHA、只設定 canonical 測試分支context，沒有 production/all/其他分支值，Native gate 仍驗證精確 Git branch、SHA 與後端成功。此例外只適用兩個 allowlist attestation key，不適用任何秘密或應用設定。
 
 AC-016：Given 服務拒絕細分scope但支援預設scopes，When 建立非秘密測試發布標記，Then 不傳入付費scope選項，並讀回確認 provider 預設scopes與唯一測試分支值；正式/all context、隱藏值、不明scope與不同SHA仍拒絕。AC-015中的scope要求由此明確相容規則補充，其餘條件保留。
+
+## 原生建置的精確分支大小寫（AC-017）
+
+b9863f6 的 CI、SQL/Edge、兩個標記的寫後讀回皆成功，但原生建置仍 BACKEND_RELEASE_NOT_READY。唯讀日誌44015170184固定此結果。實際控制實驗44015475946重新驗證同SHA完整CI、HEAD與成功backend step後，只將兩個公開標記的context_parameter由小寫改為原Git分支大小寫，重新啟動同提交原生建置，即取得native-ready、正確branch URL/HTML與production_deploy_unchanged=true。部署ID6afbd411962c7cbd525a123b，來源仍b9863f6。
+
+因此 API 直接寫入須保留 Git 分支大小寫，不複製 CLI 的小寫正規化。既有兩個受控標記已實際轉為唯一精確大小寫context；不新增通用migration相容層。只保留完全相等的branch/SHA/context讀回規則。
+
+AC-017：Given Git分支為Integrated-Marketing-Platform，When 保存發布標記，Then 實際Native分支消費端可依大小寫精確匹配取得同SHA。只有成功保存而原生分支讀不到不得算成功；不改branch URL、正式站或既有CI/後端閘門。
