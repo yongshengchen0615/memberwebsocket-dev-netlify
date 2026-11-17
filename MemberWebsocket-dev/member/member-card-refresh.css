@@ -135,32 +135,10 @@ html[data-theme] #memberView .profile-details { margin-top: 0; border-radius: 22
 #memberView .profile-detail-list { gap: 12px; }
 #memberView .profile-detail-list > div { min-width: 0; }
 #memberView .profile-value-line > span { overflow-wrap: anywhere; }
-#memberView .member-feature-links { margin-top: 20px; }
-#memberView .member-feature-links h2 { margin: 0 0 14px; color: var(--theme-text, var(--ink)); font-size: clamp(21px, 3vw, 27px); letter-spacing: -.04em; }
-#memberView .member-feature-links > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-#memberView .member-feature-links a {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  min-height: 94px;
-  padding: 18px 16px;
-  border: 1px solid var(--theme-border, rgba(23,53,46,.12));
-  border-radius: 18px;
-  color: var(--theme-text, var(--ink));
-  background: var(--theme-surface-raised, #fffdf8);
-  box-shadow: 0 6px 16px rgba(23,53,46,.04);
-  font-weight: 850;
-  text-decoration: none;
-  transition: border-color .16s ease, transform .16s ease;
-}
-#memberView .member-feature-links a::after { content: "↗"; position: absolute; top: 12px; right: 14px; color: var(--theme-text-muted, #71817a); font-size: 18px; }
-#memberView .member-feature-links a:hover { border-color: var(--theme-accent, #df6b4d); transform: translateY(-2px); }
-#memberView .member-feature-links a:focus-visible { outline: 3px solid var(--theme-accent, #df6b4d); outline-offset: 3px; }
 @media (max-width: 860px) {
   #memberView .member-overview { grid-template-columns: minmax(0, 1fr); gap: 14px; }
   html[data-theme] #memberView .member-pass { min-height: 325px; }
   html[data-theme] #memberView .membership-progress[data-membership-tier-style] { min-height: 0; gap: 10px; }
-  #memberView .member-feature-links > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 420px) {
   html[data-theme] #memberView .member-pass { min-height: 315px; gap: 16px; padding: 18px; border-radius: 21px; }
@@ -175,17 +153,12 @@ html[data-theme] #memberView .profile-details { margin-top: 0; border-radius: 22
   #memberView .pass-actions .member-referral-trigger { padding-inline: 8px; }
   #memberView .pass-actions-heading { margin-bottom: 0; }
   html[data-theme] #memberView .membership-progress[data-membership-tier-style] { padding: 19px; border-radius: 21px; }
-  #memberView .member-feature-links > div { gap: 9px; }
-  #memberView .member-feature-links a { min-height: 82px; padding: 15px 12px; border-radius: 15px; font-size: 14px; }
 }
 @media (max-width: 320px) {
   #memberView .pass-topline { flex-wrap: wrap; }
   #memberView .pass-actions { grid-template-columns: repeat(2, minmax(70px, 1fr)); }
   #memberView .pass-actions .member-referral-trigger { min-height: 48px; padding-inline: 6px; font-size: 12px; }
-  #memberView .member-feature-links > div { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {
-  #memberView .member-feature-links a,
   #memberView .pass-actions .member-referral-trigger { transition: none; }
-  #memberView .member-feature-links a:hover { transform: none; }
 }
