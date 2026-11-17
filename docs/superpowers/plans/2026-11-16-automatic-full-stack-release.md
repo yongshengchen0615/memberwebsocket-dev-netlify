@@ -52,3 +52,10 @@ Interface: requireRecoveryBaselines({event,ref,sha,needs})，三個明確結果�
 - [ ] 調整既有文字合約以保留 master-only、取消拒絕和同 SHA 意義；不改測試基線命令、案例或 timeout。
 - [ ] 完整 CI 與獨立審查後合併測試；從 Actions UI 選測試分支執行恢復，驗證實際 SQL/Edge/Netlify。
 - [ ] 相同修正套到正式 PR，測試驗收成功後合併與驗證正式發布。
+
+### Task 5 — 發布標記寫後讀回
+
+1. 保留真實失敗 run 43905366583、唯讀診斷 43908860262，根因為標記未保存。
+2. 先建立成功但未保存的失敗測試，再實作固定網站／分支、builds scope 的官方 API 寫入與讀回；不重試不明寫入。
+3. 接回原 SQL/Edge → 後端標記 → CI 標記 → 原生建置序列；更新原有流程斷言，加入持久化行為測試。
+4. 最終 SHA 執行全部 CI，真實測試發布成功後才合併正式 PR；不宣稱 runtime 提速，此變更只影響部署控制。
