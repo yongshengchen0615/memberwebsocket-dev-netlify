@@ -93,23 +93,40 @@ function harness(options = {}) {
       return query;
     },
   };
-  async function mockTwilioFetch(url, options) {
+  async function mockTwilioFetch(url, request) {
+    if (options.provider === 'bird') {
+      const payload = JSON.parse(request.body);
+      requests.push({ address: String(url), payload, method: request.method, authorization: request.headers.Authorization, timeout: request.signal });
+      if (options.networkError) throw new Error('fixture network failure');
+      if (options.rawResponse) return new Response(options.rawResponse, { status: options.remoteStatus || 200 });
+      if (options.remoteStatus) return new Response(JSON.stringify({ error: { message: 'fixture-upstream-secret' } }), { status: options.remoteStatus });
+      if (options.remoteBody) return new Response(JSON.stringify(options.remoteBody), { status: 200 });
+      if (String(url).endsWith('/check')) return new Response(JSON.stringify({ success: payload.code === verifiedCode, reason: payload.code === verifiedCode ? null : 'incorrect_code' }), { status: 200 });
+      return new Response(JSON.stringify({ status: 'pending', last_channel: 'sms' }), { status: 200 });
+    }
     const address = String(url);
     assert.match(address, /^https:\/\/verify\.twilio\.com\/v2\/Services\/VA[a-f0-9]{32}\/Verification/);
-    assert.equal(options.method, 'POST');
-    assert.match(String(options.headers.Authorization), /^Basic /);
-    requests.push({ address, to: options.body.get('To'), code: options.body.get('Code'), channel: options.body.get('Channel') });
+    assert.equal(request.method, 'POST');
+    assert.match(String(request.headers.Authorization), /^Basic /);
+    requests.push({ address, to: request.body.get('To'), code: request.body.get('Code'), channel: request.body.get('Channel') });
     if (twilioUnavailable) return new Response(JSON.stringify({ code: 500 }), { status: 500 });
     if (address.endsWith('/Verifications')) {
       return new Response(JSON.stringify({ status: 'pending' }), { status: 201 });
     }
-    return new Response(JSON.stringify({ status: options.body.get('Code') === verifiedCode ? 'approved' : 'pending' }), { status: 200 });
+    return new Response(JSON.stringify({ status: request.body.get('Code') === verifiedCode ? 'approved' : 'pending' }), { status: 200 });
   }
   const context = vm.createContext({
     Deno: {
       serve(callback) { handler = callback; },
       env: {
         get(name) {
+          if (Object.hasOwn(options.env || {}, name)) return options.env[name];
+          if (options.provider === 'bird') {
+            if (name === 'PHONE_VERIFY_PROVIDER') return 'bird';
+            if (name === 'PHONE_VERIFY_REQUIRED') return required ? 'true' : 'false';
+            if (name === 'BIRD_API_KEY') return 'bk_us1_fixture-not-a-real-key';
+            if (name === 'TWILIO_VERIFY_REQUIRED') return 'false';
+          }
           if (name === 'SUPABASE_URL') return 'https://example.supabase.co';
           if (name === 'SUPABASE_SERVICE_ROLE_KEY') return 'fixture-service-key';
           if (name === 'TWILIO_VERIFY_REQUIRED') return required ? 'true' : 'false';
@@ -342,4 +359,181 @@ test('AC-016: disabled gate preserves existing profile-edit rollback without SMS
   assert.equal(updated.status, 200);
   assert.equal(h.member.phone, '+886923456789');
   assert.equal(h.requests.length, 0);
+});
+
+
+for (const region of ['us1', 'eu1']) {
+  test(`Bird AC-001: normalized SMS uses the ${region} HTTPS host and bearer authentication`, async () => {
+    const h = harness({ provider: 'bird', env: { BIRD_API_KEY: `bk_${region}_fixture-not-a-real-key` } });
+    const result = await h.call('user.member.phone.send', { phone: '0912345678' });
+    assert.equal(result.status, 200);
+    assert.equal(result.body.data.sent, true);
+    assert.equal(h.requests.length, 1);
+    assert.equal(h.requests[0].address, `https://${region}.platform.bird.com/v1/verify/verifications`);
+    assert.deepEqual(h.requests[0].payload, { to: { phone_number: join.phone } });
+    assert.equal(h.requests[0].method, 'POST');
+    assert.equal(h.requests[0].authorization, `Bearer bk_${region}_fixture-not-a-real-key`);
+    assert.ok(h.requests[0].timeout);
+    assert.doesNotMatch(JSON.stringify(result.body), /bk_|fixture-not-a-real-key|123456/);
+    assert.equal(h.member.membership_status, 'pending');
+  });
+}
+
+test('Bird AC-002/003: only successful check activates and persists verified binding', async () => {
+  const h = harness({ provider: 'bird' });
+  const before = { ...h.member };
+  const wrong = await h.call('user.member.profile.save', { ...join, otpCode: '654321' });
+  assert.equal(wrong.status, 400);
+  assert.equal(wrong.body.error.code, 'PHONE_OTP_INVALID');
+  assert.equal(h.member.membership_status, before.membership_status);
+  assert.equal(h.member.phone_verified_at, before.phone_verified_at);
+  const result = await h.call('user.member.profile.save', { ...join, otpCode: '123456' });
+  assert.equal(result.status, 200);
+  assert.equal(h.member.membership_status, 'active');
+  assert.equal(h.member.phone_verified_e164, join.phone);
+  assert.ok(h.member.phone_verified_at);
+  const check = h.requests.at(-1);
+  assert.equal(check.address, 'https://us1.platform.bird.com/v1/verify/verifications/check');
+  assert.deepEqual(check.payload, { to: { phone_number: join.phone }, code: '123456' });
+  const count = h.requests.length;
+  const resend = await h.call('user.member.phone.send', { phone: join.phone });
+  assert.equal(resend.body.data.alreadyVerified, true);
+  assert.equal(h.requests.length, count);
+});
+
+for (const scenario of [
+  { name: 'expired', remoteBody: { success: false, reason: 'expired' }, status: 400, code: 'PHONE_OTP_EXPIRED' },
+  { name: 'attempts exhausted', remoteBody: { success: false, reason: 'attempts_exhausted' }, status: 400, code: 'PHONE_OTP_INVALID' },
+  { name: 'non-boolean success', remoteBody: { success: 'true' }, status: 400, code: 'PHONE_OTP_INVALID' },
+  { name: 'untrusted status only', remoteBody: { status: 'verified' }, status: 400, code: 'PHONE_OTP_INVALID' },
+  { name: 'already consumed or absent', remoteStatus: 404, status: 400, code: 'PHONE_OTP_EXPIRED' },
+  { name: 'rate limit', remoteStatus: 429, status: 429, code: 'PHONE_VERIFY_RATE_LIMITED' },
+  { name: 'unauthorized', remoteStatus: 401, status: 503, code: 'PHONE_VERIFY_UNAVAILABLE' },
+  { name: 'forbidden', remoteStatus: 403, status: 503, code: 'PHONE_VERIFY_UNAVAILABLE' },
+  { name: 'upstream failure', remoteStatus: 500, status: 503, code: 'PHONE_VERIFY_UNAVAILABLE' },
+  { name: 'bad JSON', rawResponse: '{', status: 503, code: 'PHONE_VERIFY_UNAVAILABLE' },
+  { name: 'network timeout', networkError: true, status: 503, code: 'PHONE_VERIFY_UNAVAILABLE' },
+]) {
+  test(`Bird AC-002: ${scenario.name} leaves existing phone and verification unchanged`, async () => {
+    const h = harness({ provider: 'bird', ...scenario });
+    Object.assign(h.member, { membership_status: 'active', phone: join.phone, phone_verified_e164: join.phone, phone_verified_at: '2026-11-01T00:00:00Z' });
+    const result = await h.call('user.member.profile.save', { phone: '+886923456789', otpCode: '123456' });
+    assert.equal(result.status, scenario.status);
+    assert.equal(result.body.error.code, scenario.code);
+    assert.equal(h.member.phone, join.phone);
+    assert.equal(h.member.phone_verified_e164, join.phone);
+    assert.equal(h.member.phone_verified_at, '2026-11-01T00:00:00Z');
+    assert.equal(h.requests.length, 1, 'never retries a consume-once check');
+    assert.doesNotMatch(JSON.stringify(result.body), /fixture-upstream-secret|123456|bk_/);
+  });
+}
+
+for (const config of [
+  { PHONE_VERIFY_PROVIDER: 'unknown' },
+  { BIRD_API_KEY: '' },
+  { BIRD_API_KEY: 'bk_invalid_fixture' },
+  { BIRD_API_KEY: 'https://attacker.invalid' },
+]) {
+  test(`Bird AC-005: invalid server configuration ${Object.keys(config).join()} fails closed`, async () => {
+    const h = harness({ provider: 'bird', env: config });
+    const result = await h.call('user.member.phone.send', { phone: join.phone });
+    assert.equal(result.status, 503);
+    assert.equal(result.body.error.code, 'PHONE_VERIFY_UNAVAILABLE');
+    assert.equal(h.requests.length, 0, 'no fallback to another provider');
+  });
+}
+
+test('Bird AC-003: same-tenant duplicate phone and transactional conflict stay rejected', async () => {
+  const h = harness({ provider: 'bird' });
+  h.setClaimedPhone(join.phone);
+  assert.equal((await h.call('user.member.phone.send', { phone: join.phone })).status, 409);
+  assert.equal(h.requests.length, 0);
+  h.setCommitConflict(true);
+  const result = await h.call('user.member.profile.save', { ...join, otpCode: '123456' });
+  assert.equal(result.status, 409);
+  assert.equal(result.body.error.code, 'PHONE_ALREADY_USED');
+  assert.equal(h.member.membership_status, 'pending');
+  assert.equal(h.member.phone_verified_e164, null);
+});
+
+test('Bird AC-001/005: default country, synthetic identity and local rate guards precede paid calls', async () => {
+  const h = harness({ provider: 'bird' });
+  assert.equal((await h.call('user.member.phone.send', { phone: '+14155552671' })).body.error.code, 'PHONE_COUNTRY_UNAVAILABLE');
+  assert.equal((await h.call('user.member.phone.send', { phone: '+886223456789' })).body.error.code, 'PHONE_MOBILE_REQUIRED');
+  h.setTestAccount(true);
+  assert.equal((await h.call('user.member.phone.send', { phone: join.phone })).status, 403);
+  h.setTestAccount(false);
+  h.setRateLimit(false);
+  assert.equal((await h.call('user.member.phone.send', { phone: join.phone })).status, 429);
+  assert.equal(h.requests.length, 0);
+});
+
+test('Bird AC-004: provider-neutral requirement overrides legacy flag in profile and legacy API', async () => {
+  const h = harness({ required: true, env: { PHONE_VERIFY_REQUIRED: 'false' } });
+  assert.equal((await h.call('user.member.bootstrap')).body.data.phoneVerificationRequired, false);
+  assert.equal((await h.call('user.member.profile.save', join)).status, 200);
+  assert.equal(h.requests.length, 0);
+  const legacy = require('node:fs').readFileSync(path.join(__dirname, '../supabase/functions/api/index.ts'), 'utf8');
+  assert.match(legacy, /businessEnv\("PHONE_VERIFY_REQUIRED"\)/);
+});
+
+
+test('Bird AC-004: legacy enrollment and changed-phone writes reject the new required flag', async () => {
+  const legacy = fs.readFileSync(path.join(__dirname, '../supabase/functions/api/index.ts'), 'utf8')
+    .replace(/^import .*\n/gm, '').replace(/^export default .*$/m, '');
+  for (const flags of [{ PHONE_VERIFY_REQUIRED: 'true', TWILIO_VERIFY_REQUIRED: 'false' }, { PHONE_VERIFY_REQUIRED: '   ', TWILIO_VERIFY_REQUIRED: 'true' }]) {
+  for (const membership of ['pending', 'active']) {
+    let writes = 0;
+    const context = vm.createContext({
+      Deno: { env: { get: name => flags[name] || '' } },
+      fixtureMember: { id: 'fixture', membership_status: membership, phone: join.phone },
+    });
+    vm.runInContext(stripTypeScriptTypes(legacy) + '\nensureMember = async () => fixtureMember;', context);
+    const db = { rpc() { writes++; throw new Error('unexpected profile write'); } };
+    await assert.rejects(
+      context.handleAction(db, { lineUserId: 'fixture' }, 'user.member.profile.save', { ...join, phone: '+886923456789' }),
+      error => error.status === 403 && error.code === 'PHONE_VERIFICATION_REQUIRED',
+    );
+    assert.equal(writes, 0);
+  }
+  }
+});
+
+test('Bird AC-001: server country allowlist can explicitly enable an international destination', async () => {
+  const h = harness({ provider: 'bird', env: { PHONE_VERIFY_ALLOWED_COUNTRY_CODES: '+886,+1' } });
+  const result = await h.call('user.member.phone.send', { phone: '+14155552671' });
+  assert.equal(result.status, 200);
+  assert.equal(h.requests[0].payload.to.phone_number, '+14155552671');
+});
+
+for (const remoteBody of [{ status: 'failed' }, { status: 'blocked' }, [], null]) {
+  test(`Bird AC-002: unsuccessful or malformed send ${JSON.stringify(remoteBody)} cannot claim SMS sent`, async () => {
+    const h = harness({ provider: 'bird', rawResponse: JSON.stringify(remoteBody) });
+    const result = await h.call('user.member.phone.send', { phone: join.phone });
+    assert.equal(result.status, 503);
+    assert.equal(result.body.error.code, 'PHONE_VERIFY_UNAVAILABLE');
+    assert.equal(h.member.membership_status, 'pending');
+    assert.equal(h.requests.length, 1, 'paid send never retries');
+  });
+}
+
+test('Bird production: required enrollment works with every Twilio environment variable absent', async () => {
+  const env = Object.fromEntries([
+    'TWILIO_VERIFY_SERVICE_SID', 'TWILIO_API_KEY_SID', 'TWILIO_API_KEY_SECRET',
+    'TWILIO_VERIFY_REQUIRED', 'TWILIO_VERIFY_ALLOWED_COUNTRY_CODES',
+    'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN',
+  ].map(name => [name, '']));
+  const h = harness({ provider: 'bird', env });
+  const bootstrap = await h.call('user.member.bootstrap');
+  assert.equal(bootstrap.body.data.phoneVerificationRequired, true);
+  const sent = await h.call('user.member.phone.send', { phone: join.phone });
+  assert.equal(sent.status, 200);
+  assert.equal(sent.body.data.sent, true);
+  const saved = await h.call('user.member.profile.save', { ...join, otpCode: '123456' });
+  assert.equal(saved.status, 200);
+  assert.equal(h.member.membership_status, 'active');
+  assert.equal(h.member.phone_verified_e164, join.phone);
+  assert.ok(h.member.phone_verified_at);
+  assert.equal(h.requests.length, 2);
+  assert.ok(h.requests.every(request => request.address.startsWith('https://us1.platform.bird.com/')));
 });
