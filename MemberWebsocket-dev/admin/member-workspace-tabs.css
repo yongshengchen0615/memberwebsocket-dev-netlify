@@ -150,5 +150,11 @@ html[data-theme="dark"] .member-workspace-tab[aria-selected="true"] {
 .member-usage-selected:empty { display: none; }
 .member-usage-panel .member-records-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .member-usage-panel .member-records-list { max-height: none; overflow: visible; }
+.member-record-subfilters { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 20px; margin: 16px 0 8px; }
+.member-record-subfilters label { display: grid; flex: 0 1 320px; min-width: 0; max-width: 100%; gap: 6px; color: var(--ink); font-size: 13px; font-weight: 700; }
+.member-record-subfilters select { width: 100%; min-width: 0; min-height: 44px; box-sizing: border-box; }
+.member-record-subfilters p { margin: 0 0 10px; color: var(--muted); font-size: 13px; }
+.member-record-subcategory { color: var(--ink); font-size: 12px; font-weight: 700; }
+.member-usage-panel .member-record-item-heading { flex-wrap: wrap; }
 @media (max-width: 760px) { .member-usage-toolbar { grid-template-columns: repeat(2,minmax(0,1fr)); } .member-usage-member-field { grid-column: 1 / -1; } }
 @media (max-width: 480px) { .member-usage-toolbar { grid-template-columns: minmax(0,1fr); } .member-usage-member-field { grid-column: auto; } .member-usage-panel .member-records-summary { grid-template-columns: repeat(2,minmax(0,1fr)); } .member-usage-page-controls { align-items: flex-start; flex-direction: column; } }
