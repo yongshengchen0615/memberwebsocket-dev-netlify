@@ -62,3 +62,9 @@ AC-011：Given 任一 reusable baseline 非 success／結果遺失，When 恢復
 AC-012：Given 一般 push，When recovery jobs 不適用而跳過，Then 原本同 SHA push CI gate 仍完整執行。
 AC-013：Given 被取消或 HEAD 已前進的恢復 run，When 即將寫後端/前端，Then 拒絕發布。
 AC-014：Given 恢復測試，When 呼叫 reusable workflows，Then 使用相同 commit 的 ./ 相對路徑，部署 secrets 不傳給測試。
+
+## 發布標記持久化修復
+
+實際合併 87d3ec5 的 SQL/Edge 與全部 CI 成功，但原生建置回報 BACKEND_RELEASE_NOT_READY。唯讀診斷確認兩個標記不存在，原 CLI 步驟的成功退出不能證明已保存。比較保留 CLI 加讀回與直接官方 API 後，選 API，以明確驗證首次建立、後續 PATCH、分支及 scope。
+
+AC-015：Given 成功回應卻未保存、範圍錯誤、錯誤網站或不明寫入結果，When 設定發布標記，Then 不得啟動前端建置；只有固定網站、測試分支、builds scope 與相同 SHA 的讀回成功可放行。不更新其他環境，不重試不明寫入。
