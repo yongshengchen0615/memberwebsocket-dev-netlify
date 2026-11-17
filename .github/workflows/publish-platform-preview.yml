@@ -117,7 +117,7 @@ jobs:
             # This branch-specific marker is issued ONLY after the exact-SHA CI
             # gate above has passed. It is never set for production or PRs.
             test "$GITHUB_REF_NAME" = Integrated-Marketing-Platform
-            # Verify persisted branch/build-only marker before a native build.
+            # Verify the persisted test-branch marker before a native build.
             node scripts/netlify-release-marker.mjs PLATFORM_CI_VERIFIED_SHA
             export NATIVE_NOT_BEFORE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
             echo "NATIVE_NOT_BEFORE=$NATIVE_NOT_BEFORE" >> "$GITHUB_ENV"

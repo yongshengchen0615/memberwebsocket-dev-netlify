@@ -59,3 +59,10 @@ Interface: requireRecoveryBaselines({event,ref,sha,needs})，三個明確結果�
 2. 先建立成功但未保存的失敗測試，再實作固定網站／分支、builds scope 的官方 API 寫入與讀回；不重試不明寫入。
 3. 接回原 SQL/Edge → 後端標記 → CI 標記 → 原生建置序列；更新原有流程斷言，加入持久化行為測試。
 4. 最終 SHA 執行全部 CI，真實測試發布成功後才合併正式 PR；不宣稱 runtime 提速，此變更只影響部署控制。
+
+### Task 6 — 相容現有 Netlify 方案
+
+1. 保存44011300383的403與44012509631診斷，先以相同403契約建立AC-016 RED。
+2. 建立只含公開SHA、唯一測試分支context的標記時省略付費scope選項，讀回僅接受標準預設scope或既有builds-only。
+3. 保留所有CI、後端、HEAD、來源、分支與讀回檢查；用負向測試確認預設scope不能繞過production/all context限制。
+4. 完整CI與實際發布成功後才合併正式版；不新增付費承諾，無產品runtime效能變更。
