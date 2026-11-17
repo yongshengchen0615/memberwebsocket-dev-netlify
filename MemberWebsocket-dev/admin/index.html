@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
   <link rel="stylesheet" href="./styles.css?v=pointcard-style-preview-20261001-2-ongoing-20261008-1&grants=20261106-1">
   <link rel="stylesheet" href="./ticket-policy-settings.css?v=policy-admin-ui-20261014-1">
-  <link rel="stylesheet" href="./member-workspace-tabs.css?v=member-workspace-tabs-20261014-2">
+  <link rel="stylesheet" href="./member-workspace-tabs.css?v=member-workspace-tabs-20261014-2&activity=20261117-1">
   <link rel="stylesheet" href="./calendar-responsive.css?v=calendar-responsive-20260914-mobile-fit-2">
   <link rel="stylesheet" href="./calendar-date-fix.css?v=20260914-line-date-1">
   <link rel="stylesheet" href="./booking-panel.css?v=booking-standard-filter-parity-20261005-1-ui-20261007-1-badge-20261009-1-no-show-history-20261014-1-risk-tab-20261023-1-risk-ux-20261023-2-layout-20261028-1-figma-20261029-1-phone-slot-grey-20261029-2-settlement-detail-20261109-1-settlement-ui-20261109-1-canonical-api-20261110-1" data-booking-admin-panel-style>
@@ -44,7 +44,7 @@
   <link rel="stylesheet" href="./productized-workspace.css?v=line-tab-20261020-1-quick-removal-20261028-1-admin-root-theme-control-20261105-1">
   <script src="./productized-workspace.js?v=merchant-expiry-readonly-20261101-1-admin-root-theme-control-20261105-1" defer></script>
   <script src="./client-title-shortcut.js?v=inline-title-20261102-1" defer></script>
-  <script src="./app.js?v=inline-title-20261102-1-item-prices-20261105-1&grants=20261106-1&amount=20261110-1" defer></script>
+  <script src="./app.js?v=inline-title-20261102-1-item-prices-20261105-1&grants=20261106-1&amount=20261110-1&activity=20261117-1" defer></script>
   <script src="./member-workspace-tabs.js?v=member-workspace-tabs-20261014-2" defer></script>
   <script src="./terms.js?v=membership-terms-ui-20261005-2" defer></script>
   <script src="./grant-automation.js?v=grant-automation-20260910" defer></script>
@@ -128,7 +128,7 @@
           <p id="memberUsageSelectedLabel" class="member-usage-selected" aria-live="polite"></p>
       <div class="member-records-section-heading">
         <div><p class="kicker">Activity timeline</p><h3>會員活動歷程</h3></div>
-        <span>最新紀錄優先</span>
+        <span>依類型查看細項</span>
       </div>
       <div id="memberRecordsSummary" class="member-records-summary" aria-label="紀錄數量"></div>
       <div id="memberRecordsTabs" class="member-records-tabs" role="tablist" aria-label="會員紀錄分類">
@@ -139,6 +139,11 @@
         <button class="member-record-tab" type="button" role="tab" aria-selected="false" data-record-filter="calendar">日曆 0</button>
         <button class="member-record-tab" type="button" role="tab" aria-selected="false" data-record-filter="bookings">預約 0</button>
       </div>
+      <div class="member-record-subfilters">
+        <label for="memberRecordsSubfilter">細分類<select id="memberRecordsSubfilter" aria-describedby="memberRecordsSubfilterHint" disabled><option value="all">先選擇上方分類</option></select></label>
+        <p id="memberRecordsFilterStatus" role="status" aria-live="polite">請先選擇會員</p>
+      </div>
+      <p id="memberRecordsSubfilterHint" class="member-records-note">選擇上方分類後可再篩選細項；分類依現有紀錄的類型或目前狀態顯示。</p>
       <div id="memberRecordsMessage" class="form-message hidden" role="alert"></div>
       <div id="memberRecordsList" class="member-records-list" aria-live="polite"></div>
       <div id="memberRecordsEmpty" class="member-records-empty hidden">

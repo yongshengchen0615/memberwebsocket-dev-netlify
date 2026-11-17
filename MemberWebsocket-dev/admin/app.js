@@ -9,7 +9,7 @@
   const POINT_CARD_STYLE_KEYS = Object.freeze(['citrus', 'coral', 'lagoon', 'skyline', 'violet', 'berry', 'cocoa', 'lime', 'denim', 'peach']);
   const POINT_CARD_STYLE_LABELS = Object.freeze({ citrus: '柑橘氣泡', coral: '珊瑚蘇打', lagoon: '潟湖水光', skyline: '晴空城市', violet: '電光紫', berry: '莓果霓虹', cocoa: '可可拿鐵', lime: '萊姆汽水', denim: '丹寧晴藍', peach: '蜜桃冰沙' });
   const LEGACY_POINT_CARD_STYLE_MAP = Object.freeze({ forest: 'lagoon', midnight: 'skyline', ocean: 'denim', sunset: 'coral', lavender: 'violet', rose: 'berry', gold: 'citrus', platinum: 'cocoa', mint: 'lime', cherry: 'peach' });
-  const state = { config: null, idToken: '', members: [], memberPage: { page: 1, pageSize: 100, total: 0, totalPages: 1, query: '' }, memberKind: 'real', memberSearchTimer: null, memberRequestVersion: 0, tierSettings: [], cards: [], cardSortOriginalOrder: [], tickets: [], bookingServices: [], eventTickets: [], calendarItems: [], messagePresets: [], adminCalendarMonth: '', selectedCalendarDates: new Set(), selectedCalendarItemIds: new Set(), calendarBatchItems: [], calendarBatchNextKey: 1, stats: {}, activePanel: 'members', activeCardWorkspace: 'cards', loadedPanels: { members: true, cards: false, events: false, calendar: false }, panelLoads: Object.create(null), summaryLoaded: false, selectedCardId: '', selectedTicketId: '', selectedEventTicketId: '', selectedCalendarItemId: '', grantRequestId: '', grantSuccessTimer: null, editorModals: Object.create(null), cardSortBusy: false, cardSortDirty: false, cardSortDrag: null, suppressCardClick: false, writeConfirmationRequired: false, memberRecords: { lineUserId: '', filter: 'all', data: null, member: null, requestVersion: 0 }, memberUsage: { kind: 'real', page: 1, query: '', members: [], totalPages: 1, total: 0, requestVersion: 0, searchTimer: null, loaded: false }, operationalBookings: [] };
+  const state = { config: null, idToken: '', members: [], memberPage: { page: 1, pageSize: 100, total: 0, totalPages: 1, query: '' }, memberKind: 'real', memberSearchTimer: null, memberRequestVersion: 0, tierSettings: [], cards: [], cardSortOriginalOrder: [], tickets: [], bookingServices: [], eventTickets: [], calendarItems: [], messagePresets: [], adminCalendarMonth: '', selectedCalendarDates: new Set(), selectedCalendarItemIds: new Set(), calendarBatchItems: [], calendarBatchNextKey: 1, stats: {}, activePanel: 'members', activeCardWorkspace: 'cards', loadedPanels: { members: true, cards: false, events: false, calendar: false }, panelLoads: Object.create(null), summaryLoaded: false, selectedCardId: '', selectedTicketId: '', selectedEventTicketId: '', selectedCalendarItemId: '', grantRequestId: '', grantSuccessTimer: null, editorModals: Object.create(null), cardSortBusy: false, cardSortDirty: false, cardSortDrag: null, suppressCardClick: false, writeConfirmationRequired: false, memberRecords: { lineUserId: '', filter: 'all', subfilter: 'all', data: null, member: null, requestVersion: 0 }, memberUsage: { kind: 'real', page: 1, query: '', members: [], totalPages: 1, total: 0, requestVersion: 0, searchTimer: null, loaded: false }, operationalBookings: [] };
   const els = {};
   const LOGIN_PROGRESS_TICK_MS = 650;
   const MEMBER_PRESENCE_POLL_MS = 15_000;
@@ -38,7 +38,7 @@
       'newEventTicketButton', 'eventTicketResultCount', 'eventTicketListItems', 'eventTicketEmptyState', 'eventTicketEditorKicker', 'eventTicketEditorTitle', 'eventTicketEditorStatus', 'eventTicketForm', 'eventTicketId', 'eventTicketExpectedUpdatedAt', 'eventTicketTitle', 'eventTicketType', 'eventTicketDescription', 'eventTicketUsageMethod', 'eventTicketUsageInstructions', 'eventTicketStatus', 'eventTicketRequiredServiceMatchMode', 'eventTicketRequiredServiceIds', 'eventTicketMinBookingAmountMode', 'eventTicketMinBookingAmount', 'eventTicketMinBookingServiceIds', 'eventTicketStartsOn', 'eventTicketEndsOn', 'eventTicketDateRangeSummary', 'eventTicketDateRangeMessage', 'eventTicketQuota', 'eventTicketAccent', 'eventTicketAccentValue', 'eventTicketPrizeEditor', 'eventTicketPrizeRows', 'addEventTicketPrizeButton', 'balanceEventTicketPrizesButton', 'eventTicketPrizeTotal', 'eventTicketFormMessage', 'resetEventTicketButton', 'deleteEventTicketButton', 'saveEventTicketButton', 'eventTicketLocationRule', 'eventTicketRequiresLocation', 'eventTicketLatitude', 'eventTicketLongitude', 'eventTicketRadius',
       'newCalendarItemButton', 'adminCalendarPreviousMonthButton', 'adminCalendarNextMonthButton', 'adminCalendarTodayButton', 'adminCalendarMonthTitle', 'adminCalendarGrid', 'calendarItemEditorKicker', 'calendarItemEditorTitle', 'calendarItemEditorStatus', 'calendarItemForm', 'calendarItemId', 'calendarItemExpectedUpdatedAt', 'calendarItemTitle', 'calendarItemType', 'calendarItemDescription', 'calendarItemLinkLabel', 'calendarItemLinkUrl', 'calendarItemEventLinkFields', 'calendarItemStatus', 'calendarItemStartsOn', 'calendarItemEndsOn', 'calendarItemAccent', 'calendarItemAccentValue', 'calendarItemFormMessage', 'resetCalendarItemButton', 'deleteCalendarItemButton', 'saveCalendarItemButton', 'addCalendarBatchItemButton', 'queueSelectedCalendarItemsButton', 'deleteSelectedCalendarItemsButton', 'calendarBatchSummary', 'calendarBatchRows', 'calendarBatchMessage', 'clearCalendarBatchButton', 'saveCalendarBatchButton',
       'memberModal', 'closeMemberModal', 'memberForm', 'memberLineUserId', 'memberExpectedUpdatedAt', 'memberIdentity', 'memberTier', 'memberStatus', 'memberFormMessage', 'cancelMemberButton', 'saveMemberButton',
-      'memberRecordsModal', 'closeMemberRecordsModal', 'memberRecordsIdentity', 'memberRecordsOverview', 'memberRecordsModalMessage', 'memberRecordsOpenUsage', 'memberUsagePanel', 'memberUsageSearch', 'memberUsageSelect', 'memberUsagePrev', 'memberUsageNext', 'memberUsagePageStatus', 'memberUsageRosterMessage', 'memberUsageIntro', 'memberUsageSelectedLabel', 'memberRecordsSummary', 'memberRecordsTabs', 'memberRecordsList', 'memberRecordsEmpty', 'memberRecordsMessage',
+      'memberRecordsModal', 'closeMemberRecordsModal', 'memberRecordsIdentity', 'memberRecordsOverview', 'memberRecordsModalMessage', 'memberRecordsOpenUsage', 'memberUsagePanel', 'memberUsageSearch', 'memberUsageSelect', 'memberUsagePrev', 'memberUsageNext', 'memberUsagePageStatus', 'memberUsageRosterMessage', 'memberUsageIntro', 'memberUsageSelectedLabel', 'memberRecordsSummary', 'memberRecordsTabs', 'memberRecordsSubfilter', 'memberRecordsFilterStatus', 'memberRecordsList', 'memberRecordsEmpty', 'memberRecordsMessage',
       'grantMode', 'grantServiceFields', 'grantServiceStatus', 'grantServiceList', 'previewServiceGrantButton', 'grantServicePreview', 'grantModal', 'closeGrantModal', 'grantForm', 'grantMemberId', 'grantMemberName', 'grantStampsEnabled', 'grantStampsFields', 'grantCardId', 'grantStampAmount', 'grantPointRows', 'addGrantPointButton', 'grantPointHint', 'grantServiceTimeEnabled', 'grantServiceTimeFields', 'grantServiceTimeMinutes', 'grantMessageSection', 'grantMessagePreset', 'grantMessagePreview', 'manageGrantMessagesButton', 'grantFormMessage', 'cancelGrantButton', 'saveGrantButton', 'grantSuccessNotice',
       'messagePresetModal', 'closeMessagePresetModal', 'messagePresetForm', 'messagePresetList', 'messagePresetId', 'messagePresetExpectedUpdatedAt', 'messagePresetTitle', 'messagePresetBody', 'messagePresetStatus', 'messagePresetFormMessage', 'newMessagePresetButton', 'saveMessagePresetButton'
     ].forEach((id) => { els[id] = document.getElementById(id); });
@@ -170,6 +170,11 @@
     els.closeMemberRecordsModal.addEventListener('click', closeMemberRecordsModal);
     els.memberRecordsModal.addEventListener('click', (event) => { if (shouldDismissModalFromBackdrop(event, els.memberRecordsModal)) closeMemberRecordsModal(); });
     els.memberRecordsTabs.addEventListener('click', handleMemberRecordsTabClick);
+    els.memberRecordsSubfilter.addEventListener('change', () => {
+      if (!state.memberRecords.data || els.memberRecordsSubfilter.disabled) return;
+      state.memberRecords.subfilter = els.memberRecordsSubfilter.value;
+      renderMemberRecordList();
+    });
     els.memberRecordsSummary.addEventListener('click', handleMemberRecordsSummaryClick);
     els.memberRecordsOpenUsage.addEventListener('click', () => {
       const member = state.memberRecords.member;
@@ -927,10 +932,68 @@
     ['bookings', '預約'],
   ]);
 
+  const MEMBER_RECORD_SUBFILTERS = Object.freeze({
+    presence: [['online', '上線'], ['offline', '下線']],
+    pointCards: [
+      ['grant', '管理員發放'], ['earn', '獲得點數'], ['redeem', '兌換扣點'],
+      ['booking_reward', '預約回饋'], ['calendar_bonus', '日曆回饋'], ['adjustment', '點數調整'],
+      ['transfer_in', '轉入點數'], ['transfer_out', '轉出點數'], ['point_ticket', '集點票券'],
+    ],
+    eventTickets: [['coupon', '優惠券'], ['lottery', '抽獎券'], ['referral', '好友邀請券'], ['membership_join', '加入會員券']],
+    calendar: [['event', '活動'], ['holiday', '休假日']],
+    bookings: [
+      ['pending', '待確認'], ['confirmed', '已確認'], ['cancellation_requested', '取消申請'],
+      ['cancelled', '已取消'], ['completed', '已完成'], ['rejected', '已拒絕'], ['no_show', '無故未到'],
+    ],
+  });
+
+  function memberRecordSubcategory(record, category) {
+    const row = record && typeof record === 'object' ? record : {};
+    const normalize = (value) => String(value || '').trim().toLowerCase();
+    let value = '';
+    if (category === 'presence') value = normalize(row.event);
+    if (category === 'pointCards') {
+      if (row.recordType === 'point_ticket') value = 'point_ticket';
+      if (row.recordType === 'point_entry') {
+        value = normalize(row.entryType);
+        if (value === 'redemption') value = 'redeem';
+        if (value === 'grant' && normalize(row.referenceType) === 'booking') value = 'booking_reward';
+        if (value === 'grant' && normalize(row.referenceType) === 'calendar_bonus') value = 'calendar_bonus';
+      }
+    }
+    if (category === 'eventTickets') value = normalize(row.ticketType);
+    if (category === 'calendar') value = normalize(row.itemType);
+    if (category === 'bookings') {
+      value = normalize(row.status);
+      if (value === 'cancel_requested'
+        || (['pending', 'confirmed'].includes(value) && row.cancellationRequestedAt && !row.cancellationReviewedAt)) {
+        value = 'cancellation_requested';
+      }
+    }
+    return (MEMBER_RECORD_SUBFILTERS[category] || []).some(([key]) => key === value) ? value : 'other';
+  }
+
+  function memberRecordSubfilterOptions(category, records) {
+    const rows = Array.isArray(records) ? records : [];
+    const counts = Object.create(null);
+    for (const record of rows) {
+      const key = memberRecordSubcategory(record, category);
+      counts[key] = (counts[key] || 0) + 1;
+    }
+    return [['all', '全部細項', rows.length], ...(MEMBER_RECORD_SUBFILTERS[category] || [])
+      .concat([['other', '其他']]).map(([key, label]) => [key, label, counts[key] || 0])];
+  }
+
+  function memberRecordSubcategoryLabel(record, category) {
+    const key = memberRecordSubcategory(record, category);
+    return (MEMBER_RECORD_SUBFILTERS[category] || []).find(([value]) => value === key)?.[1] || '其他';
+  }
+
   async function openMemberRecordsModal(member, showModal = true) {
     const requestVersion = ++state.memberRecords.requestVersion;
     state.memberRecords.lineUserId = String(member.lineUserId || '');
     state.memberRecords.filter = 'all';
+    state.memberRecords.subfilter = 'all';
     state.memberRecords.data = null;
     state.memberRecords.member = member;
     els.memberRecordsIdentity.textContent = `${member.displayName || 'LINE 使用者'} · ${member.memberCode || '尚未建立'}`;
@@ -946,6 +1009,7 @@
     loading.textContent = '正在讀取會員紀錄…';
     els.memberRecordsList.append(loading);
     renderMemberRecordTabs();
+    els.memberRecordsFilterStatus.textContent = '正在讀取會員紀錄…';
     if (showModal) {
       els.memberRecordsModal.classList.remove('hidden');
       window.requestAnimationFrame(() => {
@@ -966,6 +1030,7 @@
       if (requestVersion !== state.memberRecords.requestVersion) return;
       els.memberRecordsList.replaceChildren();
       els.memberRecordsEmpty.classList.add('hidden');
+      els.memberRecordsFilterStatus.textContent = '紀錄載入失敗';
       showMessage(els.memberRecordsMessage, error && error.message || '無法讀取會員紀錄，請稍後再試。');
       if (showModal) showMessage(els.memberRecordsModalMessage, error && error.message || '無法讀取會員紀錄，請稍後再試。');
     }
@@ -993,6 +1058,7 @@
     state.memberRecords.member = null;
     state.memberRecords.data = null;
     state.memberRecords.filter = 'all';
+    state.memberRecords.subfilter = 'all';
     els.memberUsageSelect.value = '';
     els.memberUsageSelectedLabel.textContent = '';
     els.memberRecordsSummary.replaceChildren();
@@ -1001,6 +1067,7 @@
     els.memberUsageIntro.classList.remove('hidden');
     hideMessage(els.memberRecordsMessage);
     renderMemberRecordTabs();
+    els.memberRecordsFilterStatus.textContent = '請先選擇會員';
   }
 
   async function loadMemberUsageRoster() {
@@ -1057,8 +1124,8 @@
     const filter = String(button.dataset.recordFilter || 'all');
     if (!MEMBER_RECORD_FILTERS.some(([value]) => value === filter)) return;
     state.memberRecords.filter = filter;
-    renderMemberRecordTabs();
-    renderMemberRecordList();
+    state.memberRecords.subfilter = 'all';
+    renderMemberRecords();
   }
 
   function handleMemberRecordsSummaryClick(event) {
@@ -1067,7 +1134,7 @@
     const filter = String(button.dataset.recordSummaryFilter || '');
     if (!MEMBER_RECORD_FILTERS.some(([value]) => value === filter)) return;
     state.memberRecords.filter = filter;
-    renderMemberRecordTabs();
+    state.memberRecords.subfilter = 'all';
     renderMemberRecords();
     const activeTab = els.memberRecordsTabs.querySelector('[data-record-filter="' + filter + '"]');
     try { activeTab?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }); } catch (_) {}
@@ -1097,6 +1164,23 @@
       button.classList.toggle('active', selected);
       button.setAttribute('aria-selected', selected ? 'true' : 'false');
     });
+    renderMemberRecordSubfilters();
+  }
+
+  function renderMemberRecordSubfilters() {
+    const category = state.memberRecords.filter;
+    const records = state.memberRecords.data?.records?.[category];
+    const options = memberRecordSubfilterOptions(category, records);
+    const disabled = category === 'all' || !state.memberRecords.data;
+    if (disabled || !options.some(([key]) => key === state.memberRecords.subfilter)) state.memberRecords.subfilter = 'all';
+    els.memberRecordsSubfilter.disabled = disabled;
+    els.memberRecordsSubfilter.replaceChildren(...(disabled ? [['all', '先選擇上方分類']] : options).map(([key, label, count]) => {
+      const option = document.createElement('option');
+      option.value = key;
+      option.textContent = count === undefined ? label : `${label} ${count}`;
+      return option;
+    }));
+    els.memberRecordsSubfilter.value = state.memberRecords.subfilter;
   }
 
   function renderMemberRecords() {
@@ -1236,14 +1320,15 @@
   function memberRecordsForFilter() {
     const data = state.memberRecords.data || {};
     const records = data.records && typeof data.records === 'object' ? data.records : {};
-    if (state.memberRecords.filter !== 'all') {
-      return (Array.isArray(records[state.memberRecords.filter]) ? records[state.memberRecords.filter] : [])
-        .map((record) => ({ ...record, recordCategory: state.memberRecords.filter }));
-    }
     const combined = [];
     for (const [category] of MEMBER_RECORD_FILTERS) {
       if (category === 'all') continue;
-      for (const record of Array.isArray(records[category]) ? records[category] : []) combined.push({ ...record, recordCategory: category });
+      if (state.memberRecords.filter !== 'all' && category !== state.memberRecords.filter) continue;
+      for (const record of Array.isArray(records[category]) ? records[category] : []) {
+        if (state.memberRecords.filter !== 'all' && state.memberRecords.subfilter && state.memberRecords.subfilter !== 'all'
+          && memberRecordSubcategory(record, category) !== state.memberRecords.subfilter) continue;
+        combined.push({ ...record, recordCategory: category });
+      }
     }
     return combined.sort((a, b) => memberRecordSortValue(b) - memberRecordSortValue(a));
   }
@@ -1251,13 +1336,15 @@
   function memberRecordSortValue(record) {
     const raw = String(record && record.occurredAt || '');
     const parsed = Date.parse(raw);
-    return Number.isFinite(parsed) ? parsed : 0;
+    return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
   }
 
   function renderMemberRecordList() {
     const records = memberRecordsForFilter();
     els.memberRecordsList.replaceChildren(...records.map(createMemberRecordItem));
     els.memberRecordsEmpty.classList.toggle('hidden', records.length !== 0);
+    const total = memberRecordCounts()[state.memberRecords.filter] || 0;
+    els.memberRecordsFilterStatus.textContent = `顯示 ${records.length} / ${total} 筆 · 最新紀錄優先`;
   }
 
   function createMemberRecordItem(record) {
@@ -1274,7 +1361,10 @@
     categoryPill.textContent = memberRecordCategoryLabel(category);
     const time = document.createElement('time');
     time.textContent = formatMemberRecordDateTime(record.occurredAt);
-    heading.append(categoryPill, time);
+    const subtype = document.createElement('span');
+    subtype.className = 'member-record-subcategory';
+    subtype.textContent = memberRecordSubcategoryLabel(record, category);
+    heading.append(categoryPill, subtype, time);
 
     const title = document.createElement('strong');
     title.className = 'member-record-title';
@@ -1304,7 +1394,7 @@
   }
 
   function memberRecordTitle(record, category) {
-    if (category === 'presence') return record.event === 'offline' ? '會員下線' : '會員上線';
+    if (category === 'presence') return { online: '會員上線', offline: '會員下線' }[memberRecordSubcategory(record, category)] || '會員連線紀錄';
     if (category === 'pointCards' && record.recordType === 'point_entry') return String(record.title || '集點卡點數');
     if (category === 'pointCards' && record.recordType === 'point_ticket') return String(record.title || '集點卡票券');
     if (category === 'eventTickets') return String(record.title || '活動票券');
@@ -1315,7 +1405,8 @@
 
   function memberRecordSummary(record, category) {
     if (category === 'presence') {
-      return `${record.event === 'offline' ? '下線' : '上線'} · ${memberRecordPresenceSurfaceLabel(record.surface)}`;
+      const event = { online: '上線', offline: '下線' }[memberRecordSubcategory(record, category)] || '未識別的連線事件';
+      return `${event} · ${memberRecordPresenceSurfaceLabel(record.surface)}`;
     }
     if (category === 'pointCards' && record.recordType === 'point_entry') {
       const amount = Number(record.amount || 0);
@@ -1348,7 +1439,7 @@
       return details;
     }
     if (category === 'pointCards' && record.recordType === 'point_entry') {
-      if (record.entryType) details.push(`類型：${memberRecordPointEntryLabel(record.entryType)}`);
+      if (record.entryType) details.push(`類型：${memberRecordSubcategoryLabel(record, category)}`);
       if (record.note) details.push(`備註：${record.note}`);
       if (record.referenceType) details.push(`來源：${memberRecordReferenceLabel(record.referenceType)}`);
       return details;
@@ -1423,7 +1514,8 @@
       hidden:'LINE 頁面轉入背景或關閉',
       bfcache:'頁面暫存離開',
     };
-    return labels[String(reason || '').toLowerCase()] || (event === 'offline' ? '離線' : '上線');
+    return labels[String(reason || '').toLowerCase()]
+      || { online: '上線', offline: '離線' }[String(event || '').trim().toLowerCase()] || '未識別的連線事件';
   }
 
   function memberRecordStatusLabel(status, kind) {
@@ -1458,7 +1550,7 @@
 
   function memberRecordReferenceLabel(type) {
     const value = String(type || '').toLowerCase();
-    const labels = { booking:'預約', calendar:'日曆', event_ticket:'活動票券', admin:'管理員操作', point_ticket:'集點票券' };
+    const labels = { booking:'預約', calendar:'日曆', calendar_bonus:'日曆活動回饋', point_transfer:'會員點數轉贈', event_ticket:'活動票券', admin:'管理員操作', point_ticket:'集點票券' };
     return labels[value] || String(type || '');
   }
 
