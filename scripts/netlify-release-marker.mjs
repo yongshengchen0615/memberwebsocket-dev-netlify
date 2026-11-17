@@ -27,7 +27,11 @@ export async function setReleaseMarker({branch,sha,key,token,fetchImpl=fetch}) {
  // The build still requires the exact case-preserved Git branch above.
  const context={context:'branch',context_parameter:'integrated-marketing-platform',value:sha};
  function checkScope(row){
-  if(row?.key!==key || row.is_secret===true || !Array.isArray(row.scopes) || row.scopes.length!==1 || row.scopes[0]!=='builds'
+  const scopes=Array.isArray(row?.scopes)?row.scopes.map(s=>s==='post-processing'?'post_processing':s).sort().join(','):'';
+  // These are public commit attestations, never credentials. Free plans expose
+  // the default scopes; branch contexts remain strictly isolated on every plan.
+  const supportedScopes=scopes==='builds'||scopes==='builds,functions,post_processing,runtime';
+  if(row?.key!==key || row.is_secret===true || !supportedScopes
    || !Array.isArray(row.values) || row.values.length!==1 || row.values[0]?.context!=='branch'
    || row.values[0].context_parameter!==context.context_parameter)fail('MARKER_SCOPE_INVALID');
  }
@@ -35,7 +39,7 @@ export async function setReleaseMarker({branch,sha,key,token,fetchImpl=fetch}) {
  if(row)checkScope(row);
  if(!row || row.values[0].value!==sha){
   if(row)await request('PATCH',item,context);
-  else await request('POST',`${base}?site_id=${siteId}`,[{key,is_secret:false,scopes:['builds'],values:[context]}]);
+  else await request('POST',`${base}?site_id=${siteId}`,[{key,is_secret:false,values:[context]}]);
   row=await request('GET',item,null,true);
   if(!row)fail('MARKER_READBACK_MISMATCH');
   checkScope(row);
