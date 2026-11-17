@@ -23,9 +23,9 @@ export async function setReleaseMarker({branch,sha,key,token,fetchImpl=fetch}) {
  if(site?.id!==siteId || site.name!=='memberwebsocket-dev-netlify' || site.build_settings?.repo_path!=='yongshengchen0615/memberwebsocket-dev-netlify'
   || site.build_settings?.repo_branch!=='master' || !/^[a-zA-Z0-9_-]+$/.test(site.account_slug||''))fail('MARKER_SITE_INVALID');
  const base=`/accounts/${site.account_slug}/env`, item=`${base}/${key}?site_id=${siteId}`;
- // Netlify's custom-branch environment uses the CLI's lowercase normalization.
- // The build still requires the exact case-preserved Git branch above.
- const context={context:'branch',context_parameter:'integrated-marketing-platform',value:sha};
+ // Native builds match the case-preserved Git branch. Copying the CLI's
+ // lowercase normalization made saved markers invisible to this branch.
+ const context={context:'branch',context_parameter:branch,value:sha};
  function checkScope(row){
   const scopes=Array.isArray(row?.scopes)?row.scopes.map(s=>s==='post-processing'?'post_processing':s).sort().join(','):'';
   // These are public commit attestations, never credentials. Free plans expose
