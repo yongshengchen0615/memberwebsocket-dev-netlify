@@ -204,7 +204,7 @@ test('tour advances when its current anchor disappears and releases the page if 
     w.document.querySelector('#memberPass').remove();
     await tick();
     assert.match(dialog.textContent, /查看升等進度/);
-    for (const selector of ['#membershipProgress', '.profile-details', '#memberFeatureLinks']) {
+    for (const selector of ['#membershipProgress', '.profile-details']) {
       w.document.querySelector(selector)?.remove();
     }
     await tick();
@@ -358,7 +358,7 @@ test('refresh during the tour restarts safely, and absent anchors leave the page
   refreshed.dom.window.close();
 
   const noAnchors = await page();
-  for (const selector of ['#memberPass', '#membershipProgress', '.profile-details', '#memberFeatureLinks']) {
+  for (const selector of ['#memberPass', '#membershipProgress', '.profile-details']) {
     noAnchors.w.document.querySelector(selector).remove();
   }
   await noAnchors.ready();
