@@ -120,7 +120,7 @@ node --test scripts/branch-environment.test.mjs scripts/preview-member-runtime.t
 
 > LINE LIFF ID 是公開用戶端識別碼，可以存於上述公開設定檔。
 > **不要**在任一 JSON 放入 LINE Channel Secret、Supabase service-role/secret key、
-> Twilio Auth Token 或密碼。正式與測試目前**有部分 LIFF ID 不同**，
+> Bird API key 或密碼。正式與測試目前**有部分 LIFF ID 不同**，
 > 不代表 LINE Channel、Endpoint 及後端驗證已全部獨立；如需進一步隔離，應在測試設定檔填入測試 LIFF App IDs，
 > 配合 LINE Developers Endpoint 與後端 Channel 驗證。
 
@@ -213,7 +213,7 @@ Netlify 的變數不會自動傳到 Supabase Edge Functions，也不會取代環
 | `MEMBER_OA_VERIFIED_LINKS_JSON` | 新會員的官方帳號好友驗證對應；使用目前首次入會流程時須完成。缺漏會阻止首次啟用，不能靠前端勾選略過 | 先在 LINE Login Channel → Basic settings → Linked LINE Official Account 確認實際綁定，再組合下方經確認的商家 UUID、Login Channel ID、官方帳號 ID |
 | `PLATFORM_CREDENTIAL_ENCRYPTION_KEY` | 既有明確設定的加密金鑰優先；若未設，程式由 `platform_credential_key()` 讀 Vault，通常不必再新增 | 沿用目前實際生效的 32-byte Base64 金鑰。migration 已可在所屬專案 Vault 建立 `platform_credential_encryption_v1`；不要拿另一環境或新產生的金鑰覆蓋已使用的值，否則既有商家憑證無法解密 |
 | `ALLOWED_ORIGINS` | 新增自訂網域時才需要；精確 Origin 以逗號分隔，不含路徑／結尾斜線 | 從實際使用的網站網址取得，例如 `https://your-domain.example`。目前程式內建既有 Netlify 來源；此值是**追加**白名單，不能靠它刪除內建來源，不使用 `*` |
-| `GRANT_MESSAGE_DISPATCH_SECRET` | 選用的排程派發覆寫；未設時讀資料庫 `get_grant_dispatch_secret()` | 沿用同專案 Vault 中 `GRANT_MESSAGE_DISPATCH_SECRET` 與排程使用的密鑰；不要另填不一致的值。它不是 LINE 或 Twilio token |
+| `GRANT_MESSAGE_DISPATCH_SECRET` | 選用的排程派發覆寫；未設時讀資料庫 `get_grant_dispatch_secret()` | 沿用同專案 Vault 中 `GRANT_MESSAGE_DISPATCH_SECRET` 與排程使用的密鑰；不要另填不一致的值。它不是 LINE 或 Bird token |
 
 `MEMBER_OA_VERIFIED_LINKS_JSON` 的格式如下，僅為格式範例；須替換為**已確認綁定**的資料：
 
@@ -233,22 +233,36 @@ Netlify 的變數不會自動傳到 Supabase Edge Functions，也不會取代環
 - `memberOaId`：所綁定 LINE 官方帳號的 Basic ID／Premium ID（`@` 開頭），在 LINE Official Account Manager 的帳號設定確認；不是 Messaging API Channel ID。
 - 不能以猜測或只抄 LIFF 前綴視為官方帳號綁定已驗證；不要把同一會員 Login Channel 對應到不同商家。
 
-#### Twilio：啟用手機驗證才設定
+#### Bird Verify：正式與測試的手機驗證
 
-這五項同樣放在對應 Supabase 專案的 **Edge Functions → Secrets**。
-本專案目前使用 API Key SID／Secret，不讀取 `TWILIO_ACCOUNT_SID` 或 `TWILIO_AUTH_TOKEN`。
+以下變數只放在各自 Supabase 專案的 **Edge Functions → Secrets**，不放進前端 JSON、GitHub 程式碼或 Netlify 建置變數。
 
-| 名稱 | 取得位置／內容 | 啟用條件 |
-|---|---|---|
-| `TWILIO_VERIFY_SERVICE_SID` | [Twilio Console](https://console.twilio.com/) → Verify → Services → 選擇或建立服務 → Service SID（`VA...`） | 啟用 OTP 時必填 |
-| `TWILIO_API_KEY_SID` | Twilio Console → Settings → Account settings → API keys & auth tokens → Create API key，取得 `SK...`；舊版介面為 Admin → Account management → Keys & credentials → API keys & tokens | 啟用 OTP 時必填；須屬於該 Verify Service 的帳號 |
-| `TWILIO_API_KEY_SECRET` | 建立上述 API Key 時顯示的 Secret；只顯示一次，建立時安全保存，遺失時不能從 Secret 名稱讀回 | 啟用 OTP 時必填，不可公開或放進 JSON |
-| `TWILIO_VERIFY_ALLOWED_COUNTRY_CODES` | 由業務決定的 E.164 國碼，以逗號分隔；未設時預設 `+886` | 與 Twilio Verify 的 Geo Permissions 配合，只開需要的國家 |
-| `TWILIO_VERIFY_REQUIRED` | 未設時不啟用；準備期間維持 `false`，完成憑證與實際驗證測試後才設 `true` | 三個必要值缺漏或留空時，不要啟用，否則新入會／換號驗證會受阻 |
+| 環境 | 分支 | Supabase 專案 | Bird 金鑰 |
+|---|---|---|---|
+| 正式 | `master` | `MemberWebsocket-main` / `dbuquirnaskrwcamdxki` | 使用正式專用 Verify key |
+| 測試 | `Integrated-Marketing-Platform` | `MemberWebsocket-test` / `bmwhojszsnxliekkhrka` | 保留測試專用 Verify key |
 
-完整 OTP 流程、開關影響與測試見
-[`twilio-verify-first-join.md`](MemberWebsocket-dev/docs/twilio-verify-first-join.md)。
-Secrets 名稱存在或 CI fixture 通過，不代表 Twilio 真正發送成功。
+| 名稱 | 值／取得位置 |
+|---|---|
+| `PHONE_VERIFY_PROVIDER` | 明確設定 `bird` |
+| `PHONE_VERIFY_REQUIRED` | `true` 要求首次入會／換號驗證；切換時承接該環境原有必驗設定，不可因移除舊旗標而略過驗證 |
+| `PHONE_VERIFY_ALLOWED_COUNTRY_CODES` | 承接該環境原國碼白名單；未設定時預設 `+886`。國際門號需明確加入，例如 `+886,+1`，並在 Bird 開啟目的地 |
+| `BIRD_API_KEY` | [Bird 工作區](https://bird.com/dashboard/w/ws_01m7hp16zvfbmvhxk2p2x8deq4) → API keys → 建立正式專用、僅 Verify 必要權限的 key；完整值只顯示一次，直接安全保存到正式專案 Secrets |
+
+此串接使用 bird.com 新平台 Verify API。後端依 `bk_us1_...`／`bk_eu1_...` 前綴選擇官方區域 HTTPS 主機，不接受任意 URL。Bird Verify 的目的地須啟用 SMS，保留六位數驗證碼。`pending` 只代表已接受請求；只有 Check 回傳布林 `success: true` 才透過原有交易寫入驗證標記。保留原有 LINE 身分、商家歸屬、電話唯一限制與限流；不新增資料表或 migration，也不自動重送付費請求。
+
+正式切換順序：
+
+1. 完整 CI 通過後，部署同一版本的 `member-profile-api` 與 `api`，避免舊 API 繞過必驗旗標。
+2. 保存原必驗開關與國碼白名單（不將秘密寫入報告），先設定 `BIRD_API_KEY` 及三個 `PHONE_VERIFY_*`。Bird 故障時保留必驗要求，不得靜默略過驗證。
+3. 以核可測試門號驗證實際發送、錯碼拒絕、正確碼入會／換號及驗證後唯一綁定。Stub／CI 成功不能代替實際簡訊送達證據。
+4. 確認正式端使用 Bird 後，從正式專案移除全部 `TWILIO_*` Secrets，包含 `TWILIO_VERIFY_SERVICE_SID`、`TWILIO_API_KEY_SID`、`TWILIO_API_KEY_SECRET`、`TWILIO_VERIFY_ALLOWED_COUNTRY_CODES`、`TWILIO_VERIFY_REQUIRED`，若有 `TWILIO_ACCOUNT_SID`、`TWILIO_AUTH_TOKEN` 也移除；列出名稱再次確認無殘留。檢查 GitHub／Netlify 如有同名舊變數，一併移除。
+
+程式暫保留舊供應商相容邏輯，讓「先部署程式、再切換設定」可以不中斷進行；Bird 設定失敗不會自動 fallback。完成切換後不需任何 Twilio 環境變數。歷史設計保留於 [`twilio-verify-first-join.md`](MemberWebsocket-dev/docs/twilio-verify-first-join.md)，不再作為現行設定清單。
+
+回復：切換前保留現有設定；切換後如需回復，須先恢復經驗證的供應商憑證與相應必驗旗標，再回復程式，不能只刪掉新旗標或關閉驗證。既有手機驗證欄位與紀錄保留。
+
+官方參考：[API keys](https://bird.com/docs/guides/authentication)、[發送驗證碼](https://bird.com/docs/api/reference/create-verification)、[檢查驗證碼](https://bird.com/docs/api/reference/create-verification-check)。
 
 #### 平台自動提供／舊版相容項目
 
@@ -267,7 +281,7 @@ Secrets 名稱存在或 CI fixture 通過，不代表 Twilio 真正發送成功�
 | 通知用 Messaging API Channel ID | 該 Messaging API Channel → Basic settings → Channel ID | 商家的通知帳號設定 |
 | 通知用 Channel access token | 該 Messaging API Channel → Messaging API → Channel access token (long-lived) | 商家的通知憑證欄位；它不是 LIFF ID token |
 | 通知／Webhook 的 Channel secret | 同一 Messaging API Channel → Basic settings → Channel secret | 商家的通知憑證欄位；需要通知／Webhook 時才填 |
-| `platform_credential_encryption_v1`、`GRANT_MESSAGE_DISPATCH_SECRET`、`BOOKING_NOTIFICATION_DISPATCH_SECRET` | 由既有 migration 在對應專案 Vault 建立；不是到 LINE／Twilio 申請 | Vault／既有 RPC 管理；`BOOKING_NOTIFICATION_DISPATCH_SECRET` 由 `booking_notification_config()` 讀取，不必另外加 Edge Secret |
+| `platform_credential_encryption_v1`、`GRANT_MESSAGE_DISPATCH_SECRET`、`BOOKING_NOTIFICATION_DISPATCH_SECRET` | 由既有 migration 在對應專案 Vault 建立；不是到 LINE／Bird 申請 | Vault／既有 RPC 管理；`BOOKING_NOTIFICATION_DISPATCH_SECRET` 由 `booking_notification_config()` 讀取，不必另外加 Edge Secret |
 | Vault 的 `project_url` | 本頁環境表對應的 Supabase 公開 URL | 同專案 Vault 的排程目標；不是瀏覽器的 Netlify 網址。不得把正式 URL 複製成測試專案的排程目標 |
 
 商家通知憑證以加密形式儲存，儲存後的空白欄位通常表示保留既有秘密。
@@ -280,7 +294,7 @@ Secrets 名稱存在或 CI fixture 通過，不代表 Twilio 真正發送成功�
 2. 核對公開 publishable key 與兩個管理 LIFF；LIFF 的 Endpoint 亦須對應該環境。
 3. 核對 GitHub `NETLIFY_AUTH_TOKEN`；需要 Netlify 原生建置查詢時，再設 Builds scope 的 `NETLIFY_GITHUB_READ_TOKEN`。
 4. 在商家 LINE 設定填各功能入口；首次入會再完成經確認的 `MEMBER_OA_VERIFIED_LINKS_JSON`。
-5. 需要手機 OTP 時，填 Twilio 三個必要值並實測，最後才啟用 `TWILIO_VERIFY_REQUIRED`。
+5. 需要手機 OTP 時，依上方設定 Bird 四個變數並實測，保留該環境必驗規則，確認切換後移除全部 `TWILIO_*`。
 6. 自訂網域依需要追加 `ALLOWED_ORIGINS`。設定錯誤時查所屬 Edge Function Logs；不要把所有 403 都當成 Origin 問題。
 7. JSON 變更走既有建置／CI／發布流程；Netlify 建置變數變更後重新建置。Supabase 自訂 Secrets 更新後，依官方文件不必僅為此重新部署函式，但仍須測試受影響路徑。
 8. 以公開 `/config/config.json`、部署版本和受保護 API 的拒絕結果核對；最後用授權帳號驗收 LINE 登入／簡訊，不能以未執行或 stub 通過代替。
@@ -296,8 +310,7 @@ Secrets 名稱存在或 CI fixture 通過，不代表 Twilio 真正發送成功�
 [GitHub Projects API](https://docs.github.com/en/issues/planning-and-tracking-with-projects/automating-your-project/using-the-api-to-manage-projects)、
 [LINE Login 與官方帳號連結](https://developers.line.biz/en/docs/line-login/link-a-bot/)、
 [LINE Channel access token](https://developers.line.biz/en/docs/basics/channel-access-token/)、
-[Twilio API Keys](https://www.twilio.com/docs/iam/api-keys/keys-in-console)、
-[Twilio Verify](https://www.twilio.com/docs/verify/api)。
+[Bird Verify](https://bird.com/docs/api/reference/create-verification)。
 
 ## Tests
 

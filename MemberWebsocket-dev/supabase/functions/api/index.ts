@@ -2391,7 +2391,7 @@ async function handleAction(supabase: SupabaseClient, identity: { lineUserId: st
     // OR an existing member changing to a different phone number.
     const incomingPhone = asText(body.phone, 30).replace(/[()\s.\-]/g, "");
     const existingPhone = asText(member.phone, 30).replace(/[()\s.\-]/g, "");
-    if ((businessEnv("TWILIO_VERIFY_REQUIRED") || "").trim().toLowerCase() === "true"
+    if (((businessEnv("PHONE_VERIFY_REQUIRED") || "").trim() || (businessEnv("TWILIO_VERIFY_REQUIRED") || "").trim()).toLowerCase() === "true"
         && (member.membership_status !== "active" || incomingPhone !== existingPhone)) {
       throw new ApiError(403, "PHONE_VERIFICATION_REQUIRED", "請至會員卡完成手機簡訊驗證後再儲存電話。");
     }
