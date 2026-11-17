@@ -17,7 +17,7 @@ async function mount(h,tenant){
  await until(()=>!w.document.querySelector('#merchantWorkspace').hidden);w.document.querySelector('#merchantLineSettingsTab').click();
  return{dom,w,d:w.document,calls,errors,close:()=>w.close()};
 }
-const fill=(h,form,name,value)=>{const input=form.elements.namedItem(name);input.value=value;input.dispatchEvent(new h.w.Event('input',{bubbles:true}));};
+const fill=(h,form,name,value)=>{const actual=['adminChannelId','adminLiffId'].includes(name)?h.d.querySelector('#merchant-businessLineSharedForm'):form;const input=actual?.elements.namedItem(name);assert.ok(input,name+' must exist in its correct form');input.value=value;input.dispatchEvent(new h.w.Event('input',{bubbles:true}));};
 
 test('actual selected-merchant workspace saves LIFF-only feature with no shared Messaging prerequisite and exposes purpose/diagnostic controls',async()=>{
  const h=await fixture();let ui;try{
@@ -25,6 +25,7 @@ test('actual selected-merchant workspace saves LIFF-only feature with no shared 
   const form=ui.d.querySelector('#merchantSimpleLine [data-business-line-feature=membership] form');assert.ok(form,'actual merchant settings exposes the same simplified feature renderer');
   assert.equal(ui.d.querySelector('#merchantLineForm').hidden,true);assert.equal(ui.d.querySelector('#merchantLineForm [name=channelAccessToken]').disabled,true);
   fill(ui,form,'adminLiffId','2010791619-admin');fill(ui,form,'memberLiffId','https://liff.line.me/2010787602-member');
+  assert.ok(ui.d.querySelector('#merchant-businessLineSharedForm'),'shared identity stays inside LINE settings but independent from feature forms');
   form.dispatchEvent(new ui.w.Event('submit',{cancelable:true}));await until(()=>ui.d.querySelector('#merchantSimpleLine [data-business-line-feature=membership] > [role=status]').textContent.includes('已儲存'));
   const saves=ui.calls.filter(c=>c.action==='platform.line.save');assert.equal(saves.length,1);assert.equal(saves[0].feature,'membership');assert.equal(saves[0].business,tenant.slug);assert.equal(saves[0].idToken,'manager');assert.equal(saves[0].expectedVersion,1);assert.equal(saves[0].credentials.channelAccessToken,'');
   assert.equal(ui.d.querySelector('#merchantSimpleLine [data-feature-client=membership]').search,'?business=simple-workspace');
