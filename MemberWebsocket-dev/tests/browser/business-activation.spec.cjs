@@ -82,9 +82,13 @@ test('BUSINESS_APPROVAL_ACTIVATES — real approval/SQL immediately opens grant-
   expect(await memberLine.locator('[name=memberLiffId]').evaluate(input=>input.validity.patternMismatch)).toBe(true);
   await memberLine.locator('details').evaluateAll(nodes=>nodes.forEach(x=>x.open=true));
   const fields={adminChannelId:'2010791619',memberChannelId:'2010787602',adminLiffId:'2010791619-admin',memberLiffId:'2010787602-member'};
-  for(const [key,value]of Object.entries(fields))await memberLine.locator('[name="'+key+'"]').fill(value);
+  const sharedLogin=manager.locator('#businessLineSharedForm');await expect(sharedLogin).toBeVisible();
+  for(const [key,value]of Object.entries(fields))await (['adminChannelId','adminLiffId'].includes(key)?sharedLogin:memberLine).locator('[name="'+key+'"]').fill(value);
+  await expect(sharedLogin.locator('[name=adminChannelId]')).toHaveValue(fields.adminChannelId);
   await memberLine.getByRole('button',{name:'儲存會員卡入口設定',exact:true}).click();
   await expect(memberSection.locator(':scope > [role=status]')).toContainText('已儲存');
+  await expect(sharedLogin.locator('[name=adminLiffId]')).toHaveValue(fields.adminLiffId);
+  await expect(sharedLogin.locator('[name=adminLiffId]')).toHaveAttribute('readonly','');
   await expect(memberLine.locator('[name=channelAccessToken]')).toHaveCount(0);
   await expect(memberSection.locator('#notification-membership-member [name=channelAccessToken]')).toHaveCount(1);
   expect((await h.db.query('select module_line from platform_private.tenants')).rows[0].module_line.points).toBeUndefined();
