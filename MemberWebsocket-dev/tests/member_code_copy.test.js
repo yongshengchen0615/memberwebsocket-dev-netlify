@@ -26,5 +26,5 @@ test('QR dialog preserves the identifier, copy action and success feedback', () 
 });
 
 test('membership page loads the refreshed shared QR dialog after copy feedback race fix', () => {
-  assert.match(html, /qr-scan-dialog\\.js\\?v=qr-dialog-20261008-1-receipt-camera-20261008-1-ongoing-20261010-1-copy-feedback-20261117-1/);
+  assert.ok(html.includes('qr-scan-dialog.js?v=qr-dialog-20261008-1-receipt-camera-20261008-1-ongoing-20261010-1-copy-feedback-20261117-1'));
 });
