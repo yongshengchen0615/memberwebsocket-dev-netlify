@@ -13,24 +13,25 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Read-only production release credential preflight
+      - name: Read native build failure without exposing log contents or credentials
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN_PRODUCTION }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
         run: |
           node --input-type=module <<'JS'
-          const ref='dbuquirnaskrwcamdxki';
-          const token=process.env.SUPABASE_ACCESS_TOKEN;
-          if(!token)throw Error('PRODUCTION_CREDENTIAL_MISSING');
-          async function request(method,path,body){
-            const r=await fetch('https://api.supabase.com/v1/projects/'+ref+path,{method,redirect:'error',signal:AbortSignal.timeout(20000),headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
-            if(!r.ok)throw Error('PRODUCTION_PREFLIGHT_HTTP_'+r.status);
-            return r.json();
-          }
-          const p=await request('GET','');
-          if(p.id!==ref||p.status!=='ACTIVE_HEALTHY')throw Error('PRODUCTION_IDENTITY_OR_HEALTH');
-          const rows=await request('POST','/database/query',{query:'SELECT 1 AS deployment_preflight;',read_only:true});
-          if(!Array.isArray(rows)||rows.length!==1||rows[0].deployment_preflight!==1)throw Error('PRODUCTION_DATABASE_READ_FAILED');
-          const f=await request('GET','/functions');
-          if(!Array.isArray(f))throw Error('PRODUCTION_FUNCTION_LOOKUP_FAILED');
-          console.log(JSON.stringify({project:ref,health:p.status,databaseReadOnly:true,functionMetadataReadable:true}));
+          const site_id='196e1d2c-8216-4ba8-aeb9-1706660adc2b',deploy_id='6afbd2ddceccf9f94d680feb';
+          const r=await fetch('https://app.netlify.com/access-control/generate-access-control-token?site_id='+site_id+'&deploy_id='+deploy_id,{headers:{Authorization:'Bearer '+process.env.NETLIFY_AUTH_TOKEN},redirect:'error',signal:AbortSignal.timeout(20000)});
+          if(!r.ok)throw Error('LOG_ACCESS_HTTP_'+r.status);
+          const data=await r.json();if(typeof data.accessControlToken!=='string')throw Error('LOG_ACCESS_TOKEN_MISSING');
+          const patterns=['BACKEND_RELEASE_NOT_READY','CI_PROVIDER_HTTP_403','CI_NOT_COMPLETE','CI_REQUIRED_CHECK_FAILED','github-actions-exact-sha','MODULE_NOT_FOUND','ERR_MODULE_NOT_FOUND','SyntaxError','TypeError','invalid or ungated build identity','PLATFORM_BACKEND_VERIFIED_SHA','PLATFORM_CI_VERIFIED_SHA','Integrated-Marketing-Platform','integrated-marketing-platform'];
+          const found=new Set();let frames=0;
+          await new Promise(resolve=>{
+            const ws=new WebSocket('wss://socketeer.services.netlify.com/build/logs');
+            const finish=()=>{clearTimeout(timer);resolve();};
+            const timer=setTimeout(()=>{ws.close();resolve();},15000);
+            ws.addEventListener('open',()=>ws.send(JSON.stringify({access_token:data.accessControlToken,site_id,deploy_id})));
+            ws.addEventListener('message',e=>{frames++;for(const label of patterns)if(String(e.data).includes(label))found.add(label);});
+            ws.addEventListener('error',()=>{console.log('LOG_SOCKET_ERROR');finish();});
+            ws.addEventListener('close',finish);
+          });
+          console.log(JSON.stringify({deploy_id,frames,observedLabels:[...found]}));
           JS
