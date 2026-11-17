@@ -11,14 +11,19 @@ test('#124 LIFF-only form saves valid Calendar Login/LIFF and exposes its saved 
   w.fetch=(url,options)=>h.handler(new Request(url,{...options,headers:{...options.headers,Origin:'https://allowed.test'}}));
   w.eval(fs.readFileSync(process.env.LINE_UI_TEST_SOURCE||path.join(__dirname,'../../admin/business-line-settings.js'),'utf8'));
   await w.BusinessLineSettings.apply({features});const d=w.document;await until(()=>d.querySelector('#businessLine-calendar'));
-  const form=d.querySelector('#businessLine-calendar');
+  const form=d.querySelector('#businessLine-calendar'),shared=d.querySelector('#businessLineSharedForm');
+  assert.ok(shared,'shared identity must have an independent form');
   for(const [key,value]of Object.entries({adminChannelId:'2010791619',adminLiffId:'2010791619-admin',memberChannelId:'2010787602',calendarLiffId:'2010787602-calendar'})){
-   form.elements[key].value=value;form.elements[key].dispatchEvent(new w.Event('input',{bubbles:true}));
+   const target=['adminChannelId','adminLiffId'].includes(key)?shared:form;
+   target.elements[key].value=value;target.elements[key].dispatchEvent(new w.Event('input',{bubbles:true}));
   }
+  assert.equal(shared.checkValidity(),true);
   assert.equal(form.checkValidity(),true,'a complete Login/LIFF entry must be submittable without Messaging credentials');
   form.dispatchEvent(new w.Event('submit',{cancelable:true}));
   await until(()=>d.querySelector('[data-business-line-feature="calendar"] > [role=status]').textContent.includes('已儲存'));
   const saved=[...d.querySelectorAll('[data-business-line-feature="calendar"] a')].find(a=>a.textContent==='開啟已儲存的 LINE 入口');
+  assert.equal(shared.elements.adminLiffId.value,'2010791619-admin');
+  assert.equal(shared.elements.adminLiffId.readOnly,true);
   assert.equal(saved.href,'https://liff.line.me/2010787602-calendar');assert.equal(d.querySelector('#notification-calendar-member'),null);
   assert.equal((await h.db.query('select count(*)::int n from platform_private.module_secrets')).rows[0].n,0);
  }finally{dom?.window.close();await h.db.close();}
