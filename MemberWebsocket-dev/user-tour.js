@@ -17,7 +17,6 @@
       { selector: '#memberPass', title: '這是你的會員卡', description: '在這裡確認會員狀態、姓名與目前階級。' },
       { selector: '#membershipProgress', title: '查看升等進度', description: '服務時間會累積在這裡，下一個會員階級也會顯示在此。' },
       { selector: '.profile-details', title: '確認個人資料', description: '可以查看會員編號、聯絡資料，也能修改稱呼、生日和電話。' },
-      { selector: '#memberFeatureLinks', title: '探索其他功能', description: '從這裡前往集點卡、活動票券、活動日曆與預約服務。' },
     ],
     points: [
       { selector: '#membershipProgress', title: '查看會員階級', description: '先確認目前階級與下一階段所需的服務時間。' },
