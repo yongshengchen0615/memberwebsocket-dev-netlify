@@ -96,8 +96,7 @@ jobs:
           node scripts/supabase-release.mjs --deploy
           current=$(gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/$GITHUB_REF_NAME" --jq '.object.sha')
           test "$current" = "$GITHUB_SHA"
-          npx --yes netlify-cli@23.11.0 env:set PLATFORM_BACKEND_VERIFIED_SHA "$GITHUB_SHA" \
-            --context "branch:$GITHUB_REF_NAME" --scope builds --force
+          node scripts/netlify-release-marker.mjs PLATFORM_BACKEND_VERIFIED_SHA
       - name: Inspect platform source and pin release timestamp
         if: github.ref_name == 'Integrated-Marketing-Platform'
         shell: bash
@@ -118,10 +117,8 @@ jobs:
             # This branch-specific marker is issued ONLY after the exact-SHA CI
             # gate above has passed. It is never set for production or PRs.
             test "$GITHUB_REF_NAME" = Integrated-Marketing-Platform
-            # NETLIFY_SITE_ID is set in the job environment and links the CLI to this site.
-            # The pinned CLI's env:set does not accept --site; deploy commands still do.
-            npx --yes netlify-cli@23.11.0 env:set PLATFORM_CI_VERIFIED_SHA "$GITHUB_SHA" \
-              --context "branch:$GITHUB_REF_NAME" --scope builds --force
+            # Verify persisted branch/build-only marker before a native build.
+            node scripts/netlify-release-marker.mjs PLATFORM_CI_VERIFIED_SHA
             export NATIVE_NOT_BEFORE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
             echo "NATIVE_NOT_BEFORE=$NATIVE_NOT_BEFORE" >> "$GITHUB_ENV"
             curl --fail --silent --show-error --retry 0 \
