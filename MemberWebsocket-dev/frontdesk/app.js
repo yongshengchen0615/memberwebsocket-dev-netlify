@@ -5,6 +5,19 @@
  const status=document.getElementById('status'),account=document.getElementById('account'),list=document.getElementById('bookings'),refresh=document.getElementById('refresh');
  let config,idToken,oaId,busy=false,epoch=0;const pending=new Map();
  const node=(tag,text)=>{const n=document.createElement(tag);if(text)n.textContent=text;return n;};
+ const progress=document.getElementById('progress'),toolbar=document.querySelector('.frontdesk-toolbar');
+ function showProgress(stage){
+  if(!progress)return;
+  progress.replaceChildren();
+  for(const [index,title] of ['1. LINE 身分登入','2. 申請櫃檯資格','3. 管理員審核'].entries()){
+   const step=node('li',title),state=index<stage?'done':index===stage?'current':'waiting';
+   step.dataset.state=state;
+   if(index===stage)step.setAttribute('aria-current','step');
+   step.append(node('small',state==='done'?'已完成':state==='current'?'目前階段':'尚未完成'));
+   progress.append(step);
+  }
+ }
+ function showBookingToolbar(visible){if(toolbar){toolbar.hidden=false;const heading=toolbar.querySelector('h2');if(heading)heading.hidden=!visible;}}
  function lock(value){busy=value;for(const b of document.querySelectorAll('button'))b.disabled=value;}
  async function request(action,body={}){
   let response,data;try{response=await fetch(config.supabaseFunctionUrl.replace(/\/api\/?$/,'/frontdesk-api'),{method:'POST',cache:'no-store',signal:AbortSignal.timeout(15000),headers:{'Content-Type':'application/json',apikey:config.supabasePublishableKey},body:JSON.stringify({...body,action,business,idToken})});data=await response.json();}
@@ -34,26 +47,55 @@
  }
  async function load(){
   const generation=++epoch,data=await request('frontdesk.bootstrap');if(generation!==epoch)return;
-  account.replaceChildren();list.replaceChildren();if(oaId){const link=node('a','加入櫃檯官方帳號');link.href='https://line.me/R/ti/p/'+encodeURIComponent(oaId);account.append(link);}const person=data.staff;
-  if(!person){const b=node('button','申請成為櫃檯人員');b.type='button';b.className='frontdesk-primary';b.onclick=async()=>{if(busy)return;lock(true);try{await request('frontdesk.apply');await load();}catch(e){failure(e);}finally{lock(false);}};account.append(node('p','請先加入本商家的櫃檯官方帳號，再送出申請，由商家管理員審核。'),b);return;}
+  account.replaceChildren();list.replaceChildren();showBookingToolbar(false);
+  const person=data.staff;
+  if(oaId){const link=node('a','加入櫃檯官方帳號');link.href='https://line.me/R/ti/p/'+encodeURIComponent(oaId);link.target='_blank';link.rel='noopener noreferrer';account.append(link);}
+  if(!person){
+   showProgress(1);
+   account.append(node('h2','申請櫃檯人員資格'));
+   account.append(node('p','使用 LINE 登入後，請先加入此商家的櫃檯官方帳號，再按下方按鈕提出申請。商家管理員核准前，你無法收通知、查看或處理任何預約。'));
+   const b=node('button','送出櫃檯人員申請');b.type='button';b.className='frontdesk-primary';
+   b.onclick=async()=>{if(busy)return;lock(true);try{await request('frontdesk.apply');await load();}catch(e){failure(e);}finally{lock(false);}};
+   account.append(b);status.textContent='尚未申請櫃檯資格。';
+   return;
+  }
   const state={pending:'等待商家管理員審核',approved:person.permissionMode==='review'?'可確認／拒絕預約':'僅接收預約訊息',rejected:'申請未通過，請聯絡商家管理員',suspended:'櫃檯權限已停用，請聯絡商家管理員'}[person.status];
-  account.append(node('p',(person.displayName||'櫃檯人員')+'｜'+state));
-  if(person.status==='approved'&&person.permissionMode==='review'){const result=await request('frontdesk.bookings',bookingId?{bookingId}:{});if(generation!==epoch)return;renderBookings(result.bookings||[]);}
-  else list.append(node('p','此帳號目前不提供預約處理功能。'));
+  account.append(node('h2',person.displayName||'櫃檯人員'),node('p','審核狀態：'+(state||'尚未取得使用資格')));
+  if(person.status==='pending'){
+   showProgress(2);
+   account.append(node('p','申請已送出。請商家管理員前往「LINE 設定 → 預約 → 櫃檯官方帳號與人員權限」核准資格。核准前無法收通知或操作預約。'));
+   status.textContent='資格審核中，可以按「重新整理」查看結果。';return;
+  }
+  if(person.status!=='approved'){
+   showProgress(2);
+   account.append(node('p','此身分目前無法使用櫃檯功能。請聯絡商家管理員。'));
+   status.textContent='尚未取得櫃檯使用資格。';return;
+  }
+  showProgress(3);
+  if(person.permissionMode==='review'){
+   showBookingToolbar(true);
+   const result=await request('frontdesk.bookings',bookingId?{bookingId}:{});if(generation!==epoch)return;
+   renderBookings(result.bookings||[]);
+   status.textContent='審核已通過，可處理目前商家的待確認預約。';
+  }else{
+   account.append(node('p','管理員已核准「僅接收預約訊息」，不會顯示會員資料與預約操作。'));
+   status.textContent='審核已通過，已開通 LINE 預約通知權限。';
+  }
  }
  async function start(){
   lock(true);try{
+   showProgress(0);showBookingToolbar(false);
    if(!business)throw Error('請使用商家提供的完整櫃檯入口。');
    const r=await fetch('/config/config.json',{cache:'no-store'});if(!r.ok)throw Error('無法取得本環境設定。');config=await r.json();
    const data=await request('frontdesk.public');document.getElementById('businessName').textContent=data.name+'｜櫃檯';
-   if(!data.frontdesk?.enabled||!data.frontdesk.liffId)throw Error('此商家的櫃檯入口尚未啟用。');
+   if(!data.frontdesk?.enabled||!data.frontdesk.liffId)throw Error('商家尚未啟用櫃檯入口，請聯絡管理員完成 LINE 設定後再申請。');
    oaId=data.frontdesk.oaId;
    if(data.frontdesk.oaId){const a=node('a','加入櫃檯官方帳號');a.href='https://line.me/R/ti/p/'+encodeURIComponent(data.frontdesk.oaId);account.append(a);}
    await window.liff.init({liffId:data.frontdesk.liffId});if(!window.liff.isLoggedIn()){window.liff.login({redirectUri:location.href});return;}
-   idToken=window.liff.getIDToken();await load();status.textContent='已確認目前權限。';
+   idToken=window.liff.getIDToken();await load();
   }catch(error){failure(error);}finally{lock(false);window.dispatchEvent(new CustomEvent('frontdesk-ready'));}
  }
- refresh.onclick=async()=>{if(busy||pending.size){status.textContent='請先完成目前操作或重試相同操作。';return;}lock(true);try{await load();status.textContent='已更新目前權限與預約。';}catch(e){failure(e);}finally{lock(false);}};
+ refresh.onclick=async()=>{if(busy||pending.size){status.textContent='請先完成目前操作或重試相同操作。';return;}lock(true);try{await load();status.textContent='已更新櫃檯人員資格與預約權限。';}catch(e){failure(e);}finally{lock(false);}};
  window.addEventListener('pagehide',()=>{epoch++;idToken=null;list.replaceChildren();},{once:true});
  void start();
 })();

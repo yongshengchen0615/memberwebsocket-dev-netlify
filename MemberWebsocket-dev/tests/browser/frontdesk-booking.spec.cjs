@@ -50,3 +50,63 @@ test('FRONTDESK_SETTINGS_RETRY — lost first settings response replays the froz
  await page.getByRole('button',{name:'驗證並儲存櫃檯設定'}).click();await expect(page.getByRole('button',{name:'重試相同儲存操作'})).toBeVisible();await page.getByRole('button',{name:'重試相同儲存操作'}).click();await expect(page.locator('[role=status]')).toContainText('已儲存',{timeout:3000});
  const calls=await page.evaluate(()=>window.savedSettings);expect(calls).toHaveLength(2);expect(calls[0]).toEqual(calls[1]);
 });
+
+test('FRONTDESK_APPLICANT — LINE user submits application; bookings remain unavailable until merchant approval',async({page})=>{
+ const calls=[];let staffStatus=null,mode='notify_only';
+ await page.setViewportSize({width:390,height:844});
+ await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:'window.liff={init:async()=>{},isLoggedIn:()=>true,getIDToken:()=>"verified-staff",login:()=>{},logout:()=>{}};'}));
+ await page.route('https://fixture.supabase.co/**',async route=>{
+  const body=route.request().postDataJSON();calls.push(body.action);
+  let data;
+  if(body.action==='frontdesk.public')data={name:'商家測試',frontdesk:{enabled:true,liffId:'2010999999-desk',oaId:'@desk'}};
+  else if(body.action==='frontdesk.bootstrap')data={staff:staffStatus?{displayName:'新進櫃檯',status:staffStatus,permissionMode:mode}:null};
+  else if(body.action==='frontdesk.apply'){staffStatus='pending';data={staff:{status:'pending'}};}
+  else if(body.action==='frontdesk.bookings')data={bookings:[{id:'10000000-0000-4000-8000-000000000001',status:'pending',updatedAt:'2026-11-18T12:00:00+08:00',services:[]}]};
+  else throw Error('Unexpected action '+body.action);
+  await route.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,data})});
+ });
+ await page.goto(base+'/frontdesk/?business=shop-a');
+ await expect(page.getByRole('button',{name:'送出櫃檯人員申請'})).toBeVisible();
+ await expect(page.locator('#progress li[data-state=current]')).toContainText('申請櫃檯資格');
+ await expect(page.locator('.frontdesk-toolbar h2')).toBeHidden();
+ expect(calls).not.toContain('frontdesk.bookings');
+ await page.getByRole('button',{name:'送出櫃檯人員申請'}).click();
+ await expect(page.locator('#account')).toContainText('等待商家管理員審核');
+ await expect(page.locator('#progress li[data-state=current]')).toContainText('管理員審核');
+ expect(calls).not.toContain('frontdesk.bookings');
+ staffStatus='approved';
+ await page.getByRole('button',{name:'重新整理'}).click();
+ await expect(page.locator('#account')).toContainText('僅接收預約訊息');
+ await expect(page.locator('.frontdesk-toolbar h2')).toBeHidden();
+ expect(calls).not.toContain('frontdesk.bookings');
+ mode='review';
+ await page.getByRole('button',{name:'重新整理'}).click();
+ await expect(page.getByRole('button',{name:'確認預約'})).toBeVisible();
+ expect(calls.filter(x=>x==='frontdesk.apply')).toHaveLength(1);
+ expect(calls.filter(x=>x==='frontdesk.bookings')).toHaveLength(1);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+test('FRONTDESK_CONFIG_GUIDE — LINE sources, notification-card parity and automatic LIFF channel extraction',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.goto(base+'/frontdesk/');
+ await page.setContent('<link rel="stylesheet" href="'+base+'/frontdesk/styles.css"><main id="root"></main>');
+ await page.addScriptTag({url:base+'/admin/frontdesk-settings.js'});
+ await page.evaluate(()=>window.FrontdeskSettings.mount({
+  root:document.getElementById('root'),business:'shop-a',
+  request:async()=>({version:1,frontdesk:{},staff:[{id:'pending',displayName:'待審櫃檯',status:'pending',permissionMode:'notify_only',version:1}]})
+ }));
+ await page.locator('summary').click();
+ await expect(page.locator('.frontdesk-notification-card')).toContainText('櫃檯接收 LINE 預約通知');
+ await expect(page.locator('.business-notification-toggle')).toHaveCount(1);
+ await expect(page.locator('.business-line-summary')).toContainText(['尚未設定櫃檯官方帳號','待審核 1 人']);
+ await expect(page.locator('#root')).toContainText('LINE Developers → LINE Login Channel → LIFF');
+ await expect(page.locator('#root')).toContainText('LINE Official Account Manager');
+ await expect(page.locator('.frontdesk-endpoint')).toHaveText(base+'/frontdesk/?business=shop-a');
+ await page.locator('[name=liffId]').fill('https://liff.line.me/2010999999-desk');
+ await page.locator('[name=liffId]').press('Tab');
+ await expect(page.locator('[name=liffId]')).toHaveValue('2010999999-desk');
+ await expect(page.locator('[name=loginChannelId]')).toHaveValue('2010999999');
+ await expect(page.locator('.frontdesk-person [name=permissionMode]')).toHaveValue('notify_only');
+ await expect(page.locator('.frontdesk-person')).toContainText('待審核');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
