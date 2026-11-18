@@ -16,11 +16,11 @@ async function renderTitle(page, tenant, scoped = true) {
     href:'https://example.test'+pathname+(scoped?'?business=merchant-a':'')};
   const calls=[];
   const document={title:'',documentElement:{},addEventListener(){},querySelectorAll(){return [];}};
-  const window={location,fetch:async(url,options)=>{
+  const window={location,setTimeout,clearTimeout,fetch:async(url,options)=>{
     calls.push({url,body:JSON.parse(options.body)});
     return {ok:true,json:async()=>({ok:true,data:tenant})};
   }};
-  const context={window,document,location,URL,URLSearchParams};
+  const context={window,document,location,URL,URLSearchParams,AbortController};
   vm.runInNewContext(read('business-context.js'),context);
   await window.BusinessContext.configure({
     supabaseFunctionUrl:'https://db.example.supabase.co/functions/v1/api',

@@ -77,6 +77,11 @@
 | 例如 API p95（不是只靠 1 次測量） |  |  |  |  |
 -->
 
+### 連線與非同步設計
+
+<!-- 每次實作必填：開工前品質/效能/連線盤點與基準；固定條件的請求數、適用的連線/等待/API p50/p95 前後量測及證據；Promise/完成事件/狀態協調、去重隔離、取消/最後刷新/重連與資源回收。新增或修改 timer 列用途、替代方案、timer-policy 與實際行為測試，禁止固定 sleep 猜測完成。執行 node scripts/runtime-quality.mjs --base <基準SHA>。純治理可說明 runtime 不適用及合約測試，不得虛報速度提升。 -->
+待補
+
 ## 驗收案例（Given / When / Then）
 
 | AC | Given / When / Then | 測試檔與層級 | 結果／證據 |

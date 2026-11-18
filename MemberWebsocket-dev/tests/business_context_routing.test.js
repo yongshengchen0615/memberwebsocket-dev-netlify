@@ -28,8 +28,8 @@ test('return-to-my-merchants link drops selected business; ordinary module navig
 function publicFixture(surface,line){
  const location=new URL('https://app.test/'+surface+'/?business=merchant-a');
  const document={documentElement:{},querySelectorAll:()=>[],addEventListener(){}};
- const window={location,fetch:async()=>Response.json({ok:true,data:{business:'merchant-a',name:'Merchant',features:{membership:true,points:true,events:true,calendar:true,booking:true},line}})};
- vm.runInNewContext(fs.readFileSync(path.resolve(__dirname,'../business-context.js'),'utf8'),{window,location,document,URL,URLSearchParams,Response});
+ const window={location,setTimeout,clearTimeout,fetch:async()=>Response.json({ok:true,data:{business:'merchant-a',name:'Merchant',features:{membership:true,points:true,events:true,calendar:true,booking:true},line}})};
+ vm.runInNewContext(fs.readFileSync(path.resolve(__dirname,'../business-context.js'),'utf8'),{window,location,document,URL,URLSearchParams,Response,AbortController});
  return window.BusinessContext;
 }
 const featureKeys=['memberLiffId','pointsLiffId','eventLiffId','calendarLiffId','bookingLiffId'];

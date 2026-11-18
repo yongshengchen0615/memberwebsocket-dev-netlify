@@ -14,7 +14,7 @@ const config = {
   memberCalendarFunctionUrl: 'https://example.supabase.co/functions/v1/member-calendar-api',
 };
 
-function createWebViewHarness(relative) {
+function createWebViewHarness(relative, tenantRouting = false) {
   const events = { window: new Map(), document: new Map() };
   const fetches = [];
   const beacons = [];
@@ -47,8 +47,14 @@ function createWebViewHarness(relative) {
   assert.ok(close !== -1, 'WebView script should be an IIFE');
   const instrumented = file.slice(0, close) +
     '\n  window.__presenceTest = { startPresence };\n' + file.slice(close);
+  window.fetch=fetch;
+  const location=new URL('https://fixture.test/member/?business=shop-a');
+  if(tenantRouting){
+    window.location=location;document.documentElement={};document.querySelectorAll=()=>[];
+    vm.runInNewContext(fs.readFileSync(path.join(base,'business-context.js'),'utf8'),{window,document,location,URL,URLSearchParams});
+  }
   vm.runInNewContext(instrumented, {
-    window, document, navigator, fetch, Blob, AbortController, console,
+    window, document, navigator, fetch: (...args)=>window.fetch(...args), Blob, AbortController, console,
     URL, setTimeout, clearTimeout,
   }, { filename: relative });
   return { window, document, navigator, fetches, beacons, events };
@@ -64,6 +70,7 @@ for (const [surface, file] of [
     assert.equal(ctx.fetches.length, 1, 'initial online request');
     const first = JSON.parse(ctx.fetches[0].options.body);
     assert.equal(first.action, 'user.' + surface + '.presence.online');
+    assert.equal(first.business, undefined, 'unscoped legacy requests omit the business field');
     ctx.document.visibilityState = 'hidden';
     ctx.events.document.get('visibilitychange')();
     ctx.events.window.get('pagehide')({ persisted: false });
@@ -73,6 +80,7 @@ for (const [surface, file] of [
     assert.equal(offline.reason, 'hidden');
     assert.equal(offline.sessionId, first.sessionId);
     assert.equal(offline.idToken, 'test-line-id-token');
+    assert.equal(offline.business, undefined, 'unscoped cleanup must not send an invalid empty slug');
     assert.equal(ctx.beacons[0].url, config.supabaseFunctionUrl);
     assert.equal(ctx.beacons[0].body.type, 'text/plain;charset=utf-8');
 
@@ -99,5 +107,16 @@ for (const [surface, file] of [
     assert.equal(last.options.keepalive, true);
     assert.equal(last.options.headers['Content-Type'], 'text/plain;charset=UTF-8');
     assert.equal(last.options.headers.apikey, undefined, 'simple POST avoids CORS preflight');
+  });
+
+  for (const beaconAccepted of [true, false]) test(surface + ': offline transport retains its captured merchant after a global switch, beacon=' + beaconAccepted, async () => {
+    const ctx = createWebViewHarness(file, true);
+    await ctx.window.__presenceTest.startPresence({ ...config, business: 'shop-a' }, surface, 'test-line-id-token');
+    ctx.window.BusinessContext.set('shop-b');
+    ctx.navigator.sendBeacon = (url, body) => { ctx.beacons.push({ url, body }); return beaconAccepted; };
+    ctx.document.visibilityState = 'hidden'; ctx.events.document.get('visibilitychange')();
+    await new Promise(resolve => setImmediate(resolve));
+    const payload = beaconAccepted ? JSON.parse(await ctx.beacons[0].body.text()) : JSON.parse(ctx.fetches.at(-1).options.body);
+    assert.equal(payload.business, 'shop-a'); assert.equal(payload.idToken, 'test-line-id-token');
   });
 }

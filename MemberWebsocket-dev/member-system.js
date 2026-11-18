@@ -318,6 +318,7 @@
         return;
       }
       await withTimeout(sendRequest(context.config, context.clientType, currentPresenceIdToken(context), context.prefix + '.heartbeat', {
+        ...(context.config.business ? { business: context.config.business } : {}),
         sessionId: context.sessionId,
         reason: 'heartbeat'
       }), 1200, '上線狀態同步逾時。');
@@ -372,6 +373,7 @@
       if (presenceContext.onlineRecorded) return;
       try {
         await withTimeout(sendRequest(config, definition.clientType, idToken, definition.prefix + '.online', {
+          ...(presenceContext.config.business ? { business: presenceContext.config.business } : {}),
           sessionId: presenceContext.sessionId,
           reason
         }), 1200, '上線紀錄逾時。');
@@ -385,7 +387,7 @@
     }
 
     const context = {
-      config,
+      config: { ...config },
       surface,
       clientType: definition.clientType,
       prefix: definition.prefix,
@@ -399,6 +401,7 @@
     bindPresenceLifecycle();
     try {
       await withTimeout(sendRequest(config, context.clientType, context.idToken, context.prefix + '.online', {
+        ...(context.config.business ? { business: context.config.business } : {}),
         sessionId: context.sessionId,
         reason
       }), 1200, '上線紀錄逾時。');
@@ -417,6 +420,7 @@
       const endpoint = requestEndpoint(context.config, context.clientType, context.prefix + '.offline');
       if (!SUPABASE_FUNCTION_PATTERN.test(endpoint) || endpoint.includes('REPLACE_')) return Promise.resolve(null);
       const payload = {
+        ...(context.config.business ? { business: context.config.business } : {}),
         sessionId: context.sessionId,
         reason,
         action: context.prefix + '.offline',
