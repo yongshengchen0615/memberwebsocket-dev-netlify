@@ -162,3 +162,129 @@ button { line-height: 1.35; }
   .event-ticket-action-buttons { grid-template-columns: minmax(0, 1fr); }
   .event-ticket-action-buttons > :only-child { grid-column: auto; }
 }
+
+/* Activity ticket actions: give gifting an unmistakable, accessible visual affordance. */
+.event-ticket-action-buttons .ticket-button {
+  min-height: 48px;
+  border-radius: 12px;
+}
+.event-ticket-action-buttons .ticket-button.accent {
+  color: #ffffff;
+  background-color: #245346;
+  border: 1px solid #245346;
+}
+.event-ticket-action-buttons .ticket-button-secondary {
+  color: #ffffff;
+  background-color: #a3432a;
+  border: 1px solid #a3432a;
+  box-shadow: 0 2px 8px rgba(105, 41, 25, .18);
+}
+@media (hover: hover) {
+  .event-ticket-action-buttons .ticket-button-secondary:hover {
+    color: #ffffff;
+    background-color: #87351f;
+    border-color: #87351f;
+  }
+}
+html[data-theme="dark"] .event-ticket-action-buttons .ticket-button.accent {
+  color: #11231b;
+  background-color: #d1eee0;
+  border-color: #d1eee0;
+}
+html[data-theme="dark"] .event-ticket-action-buttons .ticket-button-secondary {
+  color: #20140e;
+  background-color: #ef8968;
+  border-color: #ef8968;
+  box-shadow: none;
+}
+@media (hover: hover) {
+  html[data-theme="dark"] .event-ticket-action-buttons .ticket-button-secondary:hover {
+    color: #20140e;
+    background-color: #ffad90;
+    border-color: #ffad90;
+  }
+}
+html[data-theme] .event-ticket-action-buttons .ticket-button:focus-visible,
+html[data-theme] .ticket-transfer-panel :is(select, button):focus-visible {
+  outline: 3px solid var(--theme-accent);
+  outline-offset: 3px;
+}
+
+/* Match all ticket surfaces to the shared dark palette instead of mixing light peach and dark green. */
+html[data-theme="dark"] .event-ticket-type,
+html[data-theme="dark"] .ticket-type,
+html[data-theme="dark"] .event-ticket-state.tier-locked {
+  color: #ffb89c;
+  background-color: var(--theme-accent-soft);
+}
+html[data-theme="dark"] .event-ticket-state {
+  color: #d7e5dc;
+  background-color: #23342a;
+}
+html[data-theme="dark"] .event-ticket-state.open {
+  color: #a9e9c2;
+  background-color: #163626;
+}
+html[data-theme="dark"] .event-ticket-state.scheduled,
+html[data-theme="dark"] .event-ticket-state.reserved {
+  color: var(--theme-warning-text);
+  background-color: var(--theme-warning-soft);
+  border-color: var(--theme-border-strong);
+}
+html[data-theme="dark"] .ticket-modal-card {
+  color: var(--theme-text);
+  background-color: var(--theme-surface-raised);
+  box-shadow: var(--theme-modal-shadow);
+}
+html[data-theme="dark"] .instructions {
+  background-color: var(--theme-surface-muted);
+}
+html[data-theme="dark"] .modal-prizes,
+html[data-theme="dark"] .processing,
+html[data-theme="dark"] .lottery-reveal {
+  color: var(--theme-warning-text);
+  background-color: var(--theme-warning-soft);
+}
+html[data-theme="dark"] .modal-prizes li {
+  color: var(--theme-text-muted);
+}
+html[data-theme="dark"] .ticket-modal[data-ticket-mode="transfer"] .ticket-transfer-panel {
+  color: var(--theme-text);
+  background-color: #242b25;
+  border-color: rgba(239, 137, 104, .46);
+}
+html[data-theme="dark"] .ticket-modal[data-ticket-mode="transfer"] .ticket-transfer-panel .modal-action {
+  color: #20140e;
+  background-color: #ef8968;
+}
+html[data-theme="dark"] .ticket-booking-choice select {
+  color: var(--theme-text);
+  background-color: var(--theme-surface-raised);
+  border-color: var(--theme-border-strong);
+}
+html[data-theme="dark"] .history-summary::after {
+  color: var(--theme-text-muted);
+  border-color: var(--theme-border-strong);
+}
+html[data-theme="dark"] .event-history-button:hover {
+  color: var(--theme-text);
+  background-color: var(--theme-surface-muted);
+  border-color: var(--theme-border-strong);
+}
+html[data-theme="dark"] .event-history-button small {
+  color: var(--theme-text-muted);
+}
+html[data-theme="dark"] :is(.ticket-result, .ticket-success, .lottery-result, .ticket-modal .modal-message.success) {
+  color: var(--theme-positive-text);
+  background-color: var(--theme-positive-soft);
+}
+html[data-theme="dark"] .sync-notice {
+  color: var(--theme-positive-text);
+  background-color: var(--theme-positive-soft);
+  border-color: var(--theme-border-strong);
+}
+html[data-theme="dark"] .sync-notice.is-error {
+  color: var(--theme-warning-text);
+  background-color: var(--theme-warning-soft);
+  border-color: var(--theme-border-strong);
+}
