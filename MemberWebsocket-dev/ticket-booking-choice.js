@@ -6,6 +6,23 @@
     const lists = tickets.map(ticket => Array.isArray(ticket.eligibleBookings) ? ticket.eligibleBookings : []);
     return lists[0].filter(booking => lists.every(list => list.some(item => item.bookingId === booking.bookingId)));
   }
+  // Server-supplied booking options are authoritative for booking eligibility.
+  // A ticket without an amount or service rule is redeemed directly; all other
+  // event tickets must be linked to an eligible, confirmed booking.
+  function eventOptions(ticket = {}, bookings = []) {
+    const requiresBooking = String(ticket?.minBookingAmountMode || 'none') !== 'none'
+      || Number(ticket?.minBookingAmount || 0) > 0
+      || Boolean(String(ticket?.minBookingAmountLabel || '').trim())
+      || (Array.isArray(ticket?.requiredServiceIds) && ticket.requiredServiceIds.length > 0)
+      || (Array.isArray(ticket?.requiredServiceGroups) && ticket.requiredServiceGroups.length > 0)
+      || Boolean(String(ticket?.requiredServiceRequirementLabel || '').trim());
+    return {
+      requiresBooking,
+      bookings: (Array.isArray(bookings) ? bookings : []).filter(booking =>
+        booking && typeof booking.bookingId === 'string'
+        && (requiresBooking ? booking.bookingId !== 'no-booking' : booking.bookingId === 'no-booking')),
+    };
+  }
   function mount(container, bookings, onChange = () => {}) {
     if (!container) return;
     const previous = fields.get(container)?.value || '';
@@ -32,5 +49,5 @@
   }
   function selected(container) { return fields.get(container)?.value || ''; }
   function lock(container, value) { const select = fields.get(container); if (select) select.disabled = value; }
-  window.TicketBookingChoice = Object.freeze({common, mount, selected, lock});
+  window.TicketBookingChoice = Object.freeze({common, eventOptions, mount, selected, lock});
 })();
