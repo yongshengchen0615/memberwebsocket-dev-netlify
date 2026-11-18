@@ -17,7 +17,7 @@
    progress.append(step);
   }
  }
- function showBookingToolbar(visible){if(toolbar)toolbar.hidden=!visible;}
+ function showBookingToolbar(visible){if(toolbar){toolbar.hidden=false;const heading=toolbar.querySelector('h2');if(heading)heading.hidden=!visible;}}
  function lock(value){busy=value;for(const b of document.querySelectorAll('button'))b.disabled=value;}
  async function request(action,body={}){
   let response,data;try{response=await fetch(config.supabaseFunctionUrl.replace(/\/api\/?$/,'/frontdesk-api'),{method:'POST',cache:'no-store',signal:AbortSignal.timeout(15000),headers:{'Content-Type':'application/json',apikey:config.supabasePublishableKey},body:JSON.stringify({...body,action,business,idToken})});data=await response.json();}
