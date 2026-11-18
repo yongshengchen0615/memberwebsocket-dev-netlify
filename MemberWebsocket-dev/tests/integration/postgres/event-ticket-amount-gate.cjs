@@ -56,7 +56,7 @@ test('PG17 AC-AMOUNT-001..009: actual migration, existing and future tenant, thr
      assert.equal(await directVisible(),false,'money-gated offer may not include direct-use option');
      await assert.rejects(
        h.db.query('select '+s+'.redeem_member_tickets_for_booking_request($1,null::uuid,$2,$3::text[],$4,null::jsonb)',[
-         'U'+'7'.repeat(32),'event',['AMT-CLAIM'],'AMT-'+uuid()
+         'U'+'7'.repeat(32),'event','{AMT-CLAIM}','AMT-'+uuid()
        ]),
        /BOOKING_BENEFIT_AMOUNT_REQUIRED/,
        'bypassing the selector must not redeem amount-restricted tickets'
