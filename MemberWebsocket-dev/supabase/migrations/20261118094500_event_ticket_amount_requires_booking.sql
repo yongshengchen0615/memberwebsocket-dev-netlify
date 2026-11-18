@@ -1,7 +1,6 @@
 -- Direct event-ticket use must never bypass an amount requirement.
 -- Preserve service-only rules, per-booking amount validation, snapshot flows and point tickets.
 -- booking_ticket_meets_amount(NULL, ...) returns true only for unrestricted event tickets.
-begin;
 do $migration$
 declare
   s text;
@@ -85,4 +84,3 @@ begin
 end;
 $migration$;
 notify pgrst,'reload schema';
-commit;
