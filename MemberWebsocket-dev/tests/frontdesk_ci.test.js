@@ -12,3 +12,13 @@ test('frontdesk staff and service-role RPCs never expose direct anonymous access
  assert.match(migration,/public\.platform_frontdesk_request\(uuid,text,text,timestamptz,text,jsonb\)[\s\S]*?from public,anon,authenticated;/);
  assert.match(migration,/public\.platform_frontdesk_delivery\(uuid,text\)[\s\S]*?from public,anon,authenticated;/);
 });
+
+test('AC-FD-021: hosted safeupdate must never reject recipient projection on registration or approval',()=>{
+ const migration=fs.readFileSync(path.resolve(__dirname,'../supabase/migrations/20261118190000_frontdesk_safeupdate_projection.sql'),'utf8');
+ assert.match(migration,/create or replace function public\.platform_frontdesk_admin/);
+ assert.match(migration,/delete from %I\.frontdesk_notice_recipients r where not exists/);
+ assert.match(migration,/delete from %I\.frontdesk_notice_recipients where line_user_id is not null/);
+ assert.match(migration,/select distinct line_user_id from platform_private\.frontdesk_staff/);
+ assert.match(migration,/on conflict \(line_user_id\) do nothing/);
+ assert.doesNotMatch(migration,/delete from %I\.frontdesk_notice_recipients'[,)]/);
+});
