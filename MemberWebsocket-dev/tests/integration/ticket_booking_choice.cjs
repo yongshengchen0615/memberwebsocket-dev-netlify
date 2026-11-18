@@ -26,13 +26,14 @@ test('real points modal requires booking selection and retries the identical usa
  const writes=calls.filter(c=>c.operation==='member.redeem');assert.equal(writes.length,2);assert.equal(writes[0].bookingId,'B');assert.equal(writes[0].requestId,writes[1].requestId);assert.deepEqual(writes[0].ticketIds,['POINT']);
  }finally{dom.window.close();}});
 
-for(const owned of [true,false])test('real event page loads '+(owned?'owned usage choices':'unclaimed offers without a booking'),async()=>{
+for(const scenario of ['restricted','unrestricted','unclaimed'])test('real event page loads '+(scenario==='restricted'?'restricted booking choices':scenario==='unrestricted'?'direct use with no selector':'unclaimed offers without a booking'),async()=>{
+ const owned=scenario!=='unclaimed', unrestricted=scenario==='unrestricted';
  const html=fs.readFileSync(path.join(__dirname,'../../event/index.html'),'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'');
  const dom=new JSDOM(html,{runScripts:'outside-only',url:'https://qa.local/event/'}),w=dom.window,calls=[];
  try{
   await new Promise(r=>setTimeout(r,0));w.eval(source);w.confirm=()=>true;w.MembershipProgress={render(){}};
   w.MemberSystem={bindDialogKeyboard(){},loadConfig:async()=>({supabaseUrl:'https://fixture.supabase.co'}),signIn:async()=> 'fixture',subscribeRealtime(){},request:async(_c,_surface,_token,action,payload)=>{
-   if(action==='user.event.bootstrap')return {profile:{displayName:'QA',tierKey:'general'},usedTickets:[],usedTicketCount:0,offers:[{ticket:{eventTicketId:'EVENT',title:'QA event',ticketType:'coupon',description:'QA',usageMethod:'QA',usageInstructions:'QA'},claim:owned?{claimId:'CLAIM',status:'available',ticketDescription:'QA'}:null,eligibleBookings:owned?[booking('A'),booking('B')]:[],canUse:owned,canClaim:!owned,tierEligible:true,availability:'active'}]};
+   if(action==='user.event.bootstrap')return {profile:{displayName:'QA',tierKey:'general'},usedTickets:[],usedTicketCount:0,offers:[{ticket:{eventTicketId:'EVENT',title:'QA event',ticketType:'coupon',description:'QA',usageMethod:'QA',usageInstructions:'QA',...(scenario==='restricted'?{minBookingAmountMode:'total',minBookingAmount:500,minBookingAmountLabel:'一般預約總金額滿 NT$500'}:{})},claim:owned?{claimId:'CLAIM',status:'available',ticketDescription:'QA'}:null,eligibleBookings:scenario==='restricted'?[booking('A'),booking('B')]:unrestricted?[booking('A'),booking('no-booking','不綁定預約，直接使用票券')]:[],canUse:owned,canClaim:!owned,tierEligible:true,availability:'active'}]};
    calls.push({action,payload});throw Object.assign(new Error('QA location retry'),{code:'LOCATION_OUT_OF_RANGE'});
   }};
   w.eval(fs.readFileSync(path.join(__dirname,'../../event-ticket-ui.js'),'utf8'));
@@ -40,8 +41,16 @@ for(const owned of [true,false])test('real event page loads '+(owned?'owned usag
   const wait=async check=>{for(let i=0;i<100;i++){if(check())return;await new Promise(r=>setTimeout(r,1));}throw Error(w.document.getElementById('errorMessage').textContent||'UI did not settle');};
   const doc=w.document;await wait(()=>!!doc.querySelector('[data-event-ticket-id]'));assert.equal(doc.getElementById('errorView').classList.contains('hidden'),true);
   doc.querySelector('[data-event-ticket-id]').click();const choice=doc.querySelector('[data-ticket-booking-choice]'),button=doc.getElementById('ticketModalAction');
-  if(owned){assert.equal(button.disabled,true);const select=choice.querySelector('select');select.value='B';select.dispatchEvent(new w.Event('change'));assert.equal(button.disabled,false);
+  if(scenario==='restricted'){assert.equal(choice.hidden,false);assert.equal(button.disabled,true);const select=choice.querySelector('select');select.value='B';select.dispatchEvent(new w.Event('change'));assert.equal(button.disabled,false);
    button.click();await wait(()=>button.textContent==='確認使用這張票券');const redeemCalls=calls.filter(call=>call.action==='user.event.ticket.redeem');assert.equal(redeemCalls.length,1);assert.ok(calls.some(call=>call.action==='member.friend.list'),'claimed ticket loads friend options without affecting redemption');assert.equal(redeemCalls[0].payload.bookingId,'B');assert.equal(redeemCalls[0].payload.claimId,'CLAIM');
+  }else if(unrestricted){
+    assert.equal(choice.hidden,true,'unrestricted ticket must hide the entire booking panel');
+    assert.equal(button.disabled,false,'implicit direct-use booking must enable redemption');
+    button.click();await wait(()=>calls.some(call=>call.action==='user.event.ticket.redeem'));
+    const redemptions=calls.filter(call=>call.action==='user.event.ticket.redeem');
+    assert.equal(redemptions.length,1);
+    assert.equal(redemptions[0].payload.bookingId,'no-booking');
+    assert.equal(redemptions[0].payload.claimId,'CLAIM');
   }else{assert.equal(choice.hidden,true);assert.equal(button.disabled,false);assert.match(button.textContent,/領取/);assert.equal(calls.length,0);}
  }finally{dom.window.close();}
 });
