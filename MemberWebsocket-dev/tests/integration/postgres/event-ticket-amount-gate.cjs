@@ -74,6 +74,11 @@ test('PG17 AC-AMOUNT-001..009: actual migration, existing and future tenant, thr
      assert.equal(await met(),true);
      await h.db.query('update '+s+'.event_tickets set min_booking_amount=401 where id=$1',[ticket]);
      assert.equal(await met(),false);
+     const choices=(await h.db.query('select '+s+'.member_ticket_booking_options($1::uuid) result',[member])).rows[0].result;
+     assert.equal((choices.event?.['AMT-CLAIM'] || []).some(option=>option.bookingId==='no-booking'),false,
+       'selected-services amount threshold must also block direct redemption');
+     const canUseWithoutBooking=(await h.db.query('select '+s+'.booking_ticket_meets_amount(null::uuid,$1,$2,$3) allowed',[member,'event','AMT-CLAIM'])).rows[0].allowed;
+     assert.equal(canUseWithoutBooking,false);
    });
    await t.test('server denial; borrowed member and forged ticket are not valid',async()=>{
      await assert.rejects(h.db.query('select '+s+'.assert_general_booking_event_amount($1,$2,$3::jsonb)',[booking,member,JSON.stringify([{kind:'event',id:'AMT-CLAIM'}])]),/BOOKING_BENEFIT_AMOUNT_REQUIRED/);
