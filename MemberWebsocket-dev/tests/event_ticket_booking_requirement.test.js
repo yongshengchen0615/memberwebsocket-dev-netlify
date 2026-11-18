@@ -97,7 +97,18 @@ test('AC-006: migration guards direct-use listing and server-side redemption, in
   assert.match(sql, /BOOKING_BENEFIT_AMOUNT_REQUIRED/);
   assert.match(sql, /platform_private\.business_templates/);
   assert.doesNotMatch(sql, /update\s+.*event_ticket_claims\s+set/i);
+  assert.doesNotMatch(sql, /^\s*(?:BEGIN|COMMIT|ROLLBACK)\s*;/gim,
+    'migration must not take over transactions managed by scripts/supabase-release.mjs');
   const html = read('event/index.html');
   assert.match(html, /ticket-booking-choice\.js\?v=[^"]*event-booking-20261118-1/);
   assert.match(html, /app\.js\?v=[^"]*event-booking-20261118-1/);
+});
+
+
+test('AC-007: actual deployment release plan accepts the new SQL migration', async () => {
+  const { pathToFileURL } = require('node:url');
+  const release = await import(pathToFileURL(path.resolve(root, '../scripts/supabase-release.mjs')).href);
+  const plan = release.loadReleasePlan(path.resolve(root, '..'));
+  assert.equal(plan.migrations.filter(item =>
+    item.filename === '20261118094500_event_ticket_amount_requires_booking.sql').length, 1);
 });
