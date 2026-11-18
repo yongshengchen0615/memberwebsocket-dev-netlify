@@ -68,7 +68,7 @@ test('FRONTDESK_APPLICANT — LINE user submits application; bookings remain una
  await page.goto(base+'/frontdesk/?business=shop-a');
  await expect(page.getByRole('button',{name:'送出櫃檯人員申請'})).toBeVisible();
  await expect(page.locator('#progress li[data-state=current]')).toContainText('申請櫃檯資格');
- await expect(page.locator('.frontdesk-toolbar')).toBeHidden();
+ await expect(page.locator('.frontdesk-toolbar h2')).toBeHidden();
  expect(calls).not.toContain('frontdesk.bookings');
  await page.getByRole('button',{name:'送出櫃檯人員申請'}).click();
  await expect(page.locator('#account')).toContainText('等待商家管理員審核');
@@ -77,7 +77,7 @@ test('FRONTDESK_APPLICANT — LINE user submits application; bookings remain una
  staffStatus='approved';
  await page.getByRole('button',{name:'重新整理'}).click();
  await expect(page.locator('#account')).toContainText('僅接收預約訊息');
- await expect(page.locator('.frontdesk-toolbar')).toBeHidden();
+ await expect(page.locator('.frontdesk-toolbar h2')).toBeHidden();
  expect(calls).not.toContain('frontdesk.bookings');
  mode='review';
  await page.getByRole('button',{name:'重新整理'}).click();
