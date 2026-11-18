@@ -109,6 +109,7 @@ test('AC-009 testing API must prove commit and failure rollback in its own synth
     if (query.includes('to_regnamespace')) return Response.json([{ exists: false }]);
     if (query.startsWith('SELECT marker')) return Response.json([{ marker: 1, partial_table: null }]);
     if (query.includes('SELECT 1/0')) { rollbackRequests++; return new Response('ERROR: 22012: division by zero', { status: 400 }); }
+    if (query.includes('BOOKING_DISPATCH_DEPENDENCIES_MISSING')) return Response.json([{ready:true}]);
     return Response.json([]);
   };
   const result = await deployBackend({ root: f.root, branch: 'Integrated-Marketing-Platform', sha, token: 'private', fetchImpl, deployFunction: async () => {} });
@@ -119,6 +120,8 @@ test('AC-009 testing API must prove commit and failure rollback in its own synth
   const cleanup = calls.findIndex(q => q.startsWith('BEGIN; DROP TABLE release_probe_'));
   const migration = calls.findIndex(q => q.includes('CREATE TABLE IF NOT EXISTS deployment_private.schema_releases'));
   assert.ok(setup >= 0 && setup < failed && failed < cleanup && cleanup < migration);
+  const health = calls.findIndex(q => q.includes('BOOKING_DISPATCH_DEPENDENCIES_MISSING'));
+  assert.ok(health > migration, 'transport recovery follows committed ledger');
 });
 
 test('AC-009 transaction probe refuses wrong rollback state or unrelated API errors before migrations', async t => {
@@ -177,4 +180,21 @@ test('AC-001 wrong project identity prevents every write', async t => {
 
 test('migration SQL refuses invalid release identities', () => {
   assert.throws(() => migrationSQL({ migrations: [] }, 'bad'), /COMMIT/);
+});
+
+test('AC-BN-006: missing or ambiguous testing transport health refuses all Edge deploys',async t=>{
+ const f=fixture(t),events=[];
+ const fetchImpl=async(url,options)=>{
+  if(options.method==='GET')return Response.json({id:'bmwhojszsnxliekkhrka',status:'ACTIVE_HEALTHY'});
+  const query=JSON.parse(options.body).query;events.push(query);
+  if(query.includes('to_regnamespace'))return Response.json([{exists:false}]);
+  if(query.startsWith('SELECT marker'))return Response.json([{marker:1,partial_table:null}]);
+  if(query.includes('SELECT 1/0'))return new Response('ERROR: 22012: division by zero',{status:400});
+  if(query.includes('BOOKING_DISPATCH_DEPENDENCIES_MISSING'))return Response.json([{ready:false}]);
+  return Response.json([]);
+ };
+ let deployments=0;
+ await assert.rejects(deployBackend({root:f.root,branch:'Integrated-Marketing-Platform',sha,token:'private',fetchImpl,deployFunction:async()=>{deployments++;}}),/BOOKING_DISPATCH_HEALTH_NOT_CONFIRMED/);
+ assert.equal(deployments,0);
+ assert.equal(events.filter(q=>q.includes('BOOKING_DISPATCH_DEPENDENCIES_MISSING')).length,1,'no unbounded retry on failed health');
 });
