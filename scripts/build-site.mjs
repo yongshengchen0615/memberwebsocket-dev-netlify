@@ -8,7 +8,7 @@ import { buildMemberRuntime } from './preview-member-runtime.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = path.join(root, 'MemberWebsocket-dev');
 const output = path.join(root, 'dist');
-const publicDirectories = new Set(['admin', 'platform', 'booking', 'calendar', 'event', 'member', 'points', 'vendor']);
+const publicDirectories = new Set(['admin', 'platform', 'booking', 'frontdesk', 'calendar', 'event', 'member', 'points', 'vendor']);
 const publicFile = /\.(?:html|css|js|json|svg|png|jpe?g|webp|gif|ico|txt|woff2?)$/i;
 const retiredPublicQaAssets = new Set([
   'test-mode-client.js', 'test-mode.css', 'user-test-control.js',
@@ -82,6 +82,7 @@ const entryPages = [
   'event/index.html',
   'calendar/index.html',
   'booking/index.html',
+  'frontdesk/index.html',
   'booking/admin/index.html',
 ];
 for (const entry of entryPages) {
