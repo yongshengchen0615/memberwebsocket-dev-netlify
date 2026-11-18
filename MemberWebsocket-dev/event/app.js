@@ -387,7 +387,7 @@
     state.processing = true; els.ticketModalAction.disabled = true; els.ticketModalAction.textContent = '領取中…'; els.ticketModalProcessingText.textContent = '正在確認活動名額，請稍候…'; setProcessing(true); hideMessage();
     try {
       const result = await window.MemberSystem.request(state.config, 'event', state.idToken, 'user.event.ticket.claim', { eventTicketId: offer.ticket.eventTicketId });
-      if (result.ticket) { updateOfferClaim(offer.ticket.eventTicketId, result.ticket); await loadOffers(true); renderOffers(); const current = findOffer(offer.ticket.eventTicketId); if (current) renderTicketModal(current); showMessage(result.alreadyClaimed ? '你已經領取過這張活動票券。' : '活動票券已領取，請在活動期間使用。', true); }
+      if (result.ticket) { updateOfferClaim(offer.ticket.eventTicketId, result.ticket); window.dispatchEvent(new CustomEvent('event-ticket:changed')); await loadOffers(true); renderOffers(); const current = findOffer(offer.ticket.eventTicketId); if (current) renderTicketModal(current); showMessage(result.alreadyClaimed ? '你已經領取過這張活動票券。' : '活動票券已領取，請在活動期間使用。', true); }
     } catch (error) { handleTicketError(error, '領取票券失敗，請稍後再試。'); } finally { setProcessing(false); state.processing = false; const current = findOffer(offer.ticket.eventTicketId); if (current) renderTicketModal(current); }
   }
 

@@ -224,6 +224,7 @@
 
   function presenceBody(context, event, reason) {
     const payload = {
+      ...(context.config.business ? { business: context.config.business } : {}),
       sessionId: context.sessionId,
       reason,
       action: 'user.booking.presence.' + event,
@@ -267,7 +268,7 @@
       return;
     }
     const context = {
-      config,
+      config: { ...config },
       idToken: String(idToken || ''),
       sessionId: createPresenceSessionId(),
       onlineRecorded: false,

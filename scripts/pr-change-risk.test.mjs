@@ -23,11 +23,21 @@ const fullBody = `## 變更風險評估
 ### 既有功能回歸
 保留原有 CI eight lanes，新增變更前後的測試證據與必要跳過阻擋。
 ### 程式碼品質與效能
-只調整 GitHub PR 管理流程，沒有產品執行路徑，故 runtime 指標不適用；品質檢查為可維護性及 Node 測試。`;
+只調整 GitHub PR 管理流程，沒有產品執行路徑，故 runtime 指標不適用；品質檢查為可維護性及 Node 測試。
+### 連線與非同步設計
+治理變更無連線執行路徑；保留請求截止、事件完成與回收檢查，使用工作流程行為測試驗證。`;
 
 test('empty or invalid GitHub file list fails closed', () => {
   assert.throws(() => classifyChangeSet([]), /non-empty/);
   assert.throws(() => classifyChangeSet([{ filename: '' }]), /Invalid/);
+});
+
+test('connection design evidence is mandatory for executable changes, with placeholders rejected',()=>{
+ const risk=classifyChangeSet(files('MemberWebsocket-dev/event/app.js'));
+ const without=fullBody.replace(/\n### 連線與非同步設計\n[^\n]+/,'');
+ assert.ok(evaluateEvidence(risk,without).missing.includes('連線與非同步設計'));
+ assert.ok(evaluateEvidence(risk,without+'\n### 連線與非同步設計\n待補').missing.includes('連線與非同步設計'));
+ assert.equal(evaluateEvidence(risk,without+'\n### 連線與非同步設計\n使用完成事件與單一請求協調；記錄請求數、連線時間、截止及釋放案例。').passed,true);
 });
 test('docs-only change is small, no mandatory impact fields', () => {
   const r = classifyChangeSet(files('docs/guide.md', 'README.md'));

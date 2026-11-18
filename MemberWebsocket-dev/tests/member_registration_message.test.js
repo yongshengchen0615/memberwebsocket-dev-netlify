@@ -78,8 +78,8 @@ test('AC-006 frontend business config prefers configured siteTitle over business
   const businessContext = fs.readFileSync(path.join(__dirname, '../business-context.js'), 'utf8');
   const location={pathname:'/member/',search:'?business=merchant-a',origin:'https://fixture.test'};
   const document={title:'',documentElement:{},addEventListener(){},querySelectorAll:()=>[]};
-  const window={location,fetch:async()=>({ok:true,json:async()=>({ok:true,data:{business:'merchant-a',siteTitle:'自訂網頁抬頭',name:'商家原名',features:{membership:true},line:{}}})})};
-  vm.runInNewContext(businessContext,{window,document,location,URL,URLSearchParams});
+  const window={location,setTimeout,clearTimeout,fetch:async()=>({ok:true,json:async()=>({ok:true,data:{business:'merchant-a',siteTitle:'自訂網頁抬頭',name:'商家原名',features:{membership:true},line:{}}})})};
+  vm.runInNewContext(businessContext,{window,document,location,URL,URLSearchParams,AbortController});
   const config={supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api'};
   await window.BusinessContext.configure(config);
   assert.equal(config.brandName,'自訂網頁抬頭');

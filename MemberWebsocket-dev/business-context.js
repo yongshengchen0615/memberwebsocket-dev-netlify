@@ -6,8 +6,10 @@
  if(slug&&!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(slug))throw Error('商家入口格式不正確。');
  const original=window.fetch.bind(window);
  const memberSurface=({member:'membership',points:'points',event:'events',calendar:'calendar',booking:'booking'})[location.pathname.split('/')[1]];
- let grants=null,requestSequence=0,latestPublic=null;
+ let grants=null,businessGeneration=0;
  const configs=new Set();
+ const pendingPublic=new Map();
+ const publicStates=new Map();
  const allows=feature=>!slug||!memberSurface||grants?.[feature]===true;
  const allowsBenefit=kind=>allows(({points:'points',event:'events',calendar:'calendar'})[kind]);
  function gate(){
@@ -56,23 +58,37 @@
   const brand=String(config.brandName||'Lumen Club').trim().slice(0,60)||'Lumen Club';
   document.title=brand+'｜'+page;
  }
+ function readPublic(config,refresh){
+  const requestedSlug=slug,generation=businessGeneration;
+  const url=new URL(config.supabaseFunctionUrl);url.pathname=url.pathname.replace(/\/api\/?$/,'/platform-api');
+  const scope=JSON.stringify([url.href,config.supabasePublishableKey,requestedSlug,generation]);
+  const key=JSON.stringify([scope,refresh,memberSurface]);
+  if(pendingPublic.has(key))return pendingPublic.get(key);
+  if(!publicStates.has(scope))publicStates.set(scope,{sequence:0,latestSequence:0,latest:null});
+  const state=publicStates.get(scope),sequence=++state.sequence;
+  const pending=Promise.resolve().then(async()=>{
+   const controller=new AbortController();
+   // timer-policy: deadline; reason=bound startup and refresh including body reads; cleanup=finally; test=business_context_connection.test.js
+   const timer=window.setTimeout(()=>controller.abort(),15000);
+   try{
+    const response=await original(url.href,{method:'POST',headers:{'Content-Type':'application/json',apikey:config.supabasePublishableKey},body:JSON.stringify({action:'platform.business.public',business:requestedSlug,...(!refresh&&memberSurface?{feature:memberSurface}:{})}),cache:'no-store',signal:controller.signal});
+    const body=await response.json();
+    return {response,body,sequence,requestedSlug,generation,state};
+   }finally{window.clearTimeout(timer);}
+  }).finally(()=>{if(pendingPublic.get(key)===pending)pendingPublic.delete(key);});
+  pendingPublic.set(key,pending);
+  return pending;
+ }
  async function configure(config,refresh=false){
   if(!slug){updatePageTitle(config);return config;}
-  const sequence=++requestSequence,requestedSlug=slug;
-  const url=new URL(config.supabaseFunctionUrl);url.pathname=url.pathname.replace(/\/api\/?$/,'/platform-api');
-  const controller=refresh?new AbortController():null;
-  const timer=controller?window.setTimeout(()=>controller.abort(),15000):null;
-  let response,body;
-  try{
-   response=await original(url.href,{method:'POST',headers:{'Content-Type':'application/json',apikey:config.supabasePublishableKey},body:JSON.stringify({action:'platform.business.public',business:slug,...(!refresh&&memberSurface?{feature:memberSurface}:{})}),cache:'no-store',...(controller?{signal:controller.signal}:{})});
-   body=await response.json();
-  }finally{if(timer!==null)window.clearTimeout(timer);}
+  const {response,body,sequence,requestedSlug,generation,state}=await readPublic(config,refresh);
   if(!response.ok||!body.ok)throw Object.assign(Error(body.error?.message||'無法取得商家設定。'),{code:body.error?.code||'BUSINESS_UNAVAILABLE'});
   if(body.data.business!==requestedSlug)throw Error('商家設定不一致。');
-  if(requestedSlug!==slug)throw Error('商家入口已變更。');
-  if(sequence===requestSequence)latestPublic=body.data;
-  const data=sequence===requestSequence?body.data:latestPublic;
-  if(!data)throw Error('商家設定仍在更新，請重試。');
+  if(requestedSlug!==slug||generation!==businessGeneration)throw Error('商家入口已變更。');
+  if(sequence>state.latestSequence){state.latestSequence=sequence;state.latest=body.data;}
+  // A pending or failed refresh must not invalidate a valid startup response.
+  // Once newer grants arrive, older feature identity still uses its own body.
+  const data=state.latest||body.data;
   configs.add(config);
   config.business=data.business;config.brandName=data.siteTitle||data.name;config.grantedFeatures=data.features;
   if(!refresh)for(const key of ['adminLiffId','memberLiffId','pointsLiffId','eventLiffId','calendarLiffId','bookingLiffId']){
@@ -87,14 +103,20 @@
   applyFeatures(data.features);
   return config;
  }
- window.BusinessContext=Object.freeze({configure,refresh:config=>configure(config,true),allows,allowsBenefit,get slug(){return slug;},set(value){if(!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(value))throw Error('Invalid business');slug=value;grants=null;latestPublic=null;configs.clear();gate();}});
+ window.BusinessContext=Object.freeze({configure,refresh:config=>configure(config,true),allows,allowsBenefit,get slug(){return slug;},set(value){if(!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(value))throw Error('Invalid business');slug=value;businessGeneration++;grants=null;publicStates.clear();configs.clear();gate();}});
  window.fetch=function(input,init){
   if(slug&&init&&typeof init.body==='string'){
    try{
     const u=new URL(typeof input==='string'?input:input.url||input.href,window.location.href);
     if(/^https:\/\/[a-z0-9]+\.supabase\.co\/functions\/v1\//.test(u.href)){
      const body=JSON.parse(init.body);
-     if(body&&typeof body==='object'&&!Array.isArray(body)&&!/^platform\.(qualification|merchant)\./.test(String(body.action||'')))init={...init,body:JSON.stringify({...body,business:slug})};
+     if(body&&typeof body==='object'&&!Array.isArray(body)&&!/^platform\.(qualification|merchant)\./.test(String(body.action||''))){
+      // Presence owns a captured tenant/session even after navigation switches.
+      // Other operations continue to follow the currently selected business.
+      const presence=/^user\.(?:member|pointcard|event|calendar|booking)\.presence\.(?:online|heartbeat|offline)$/.test(String(body.action||''));
+      const business=presence&&/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(String(body.business||''))?body.business:slug;
+      init={...init,body:JSON.stringify({...body,business})};
+     }
     }
    }catch{}
   }
