@@ -194,7 +194,7 @@ test('AC-TICKET-ACTION-003: responsive actions are stacked on phones and side by
 
 function uiContrast(foreground, background) {
   const luminance = (color) => {
-    const rgb = color.match(/[\\d.]+/g)?.slice(0, 3).map(Number);
+    const rgb = color.match(/[0-9.]+/g)?.slice(0, 3).map(Number);
     if (!rgb || rgb.length !== 3) throw new Error('Unexpected CSS color: ' + color);
     const channels = rgb.map(value => {
       const component = value / 255;
