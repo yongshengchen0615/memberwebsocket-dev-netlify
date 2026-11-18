@@ -102,6 +102,9 @@ button { line-height: 1.35; }
 /* Ticket action hierarchy: separate use/claim from gifting on every viewport. */
 .event-ticket .event-ticket-action {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  justify-self: stretch;
   align-items: stretch;
   gap: 11px;
   margin-top: 7px;
@@ -116,6 +119,8 @@ button { line-height: 1.35; }
 .event-ticket-action-buttons {
   order: 1;
   display: grid;
+  width: 100%;
+  justify-self: stretch;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   min-width: 0;
