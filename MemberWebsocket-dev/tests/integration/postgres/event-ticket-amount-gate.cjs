@@ -7,6 +7,7 @@ const fixture = require('../business-runtime-fixture.cjs');
 const root = path.resolve(__dirname, '../../../supabase/migrations');
 const groupMigration = fs.readFileSync(path.join(root,'20261030050000_ticket_booking_service_groups.sql'),'utf8');
 const migration = fs.readFileSync(path.join(root,'20261110184500_general_event_ticket_amount_gate.sql'),'utf8');
+const directGateMigration = fs.readFileSync(path.join(root,'20261118094500_event_ticket_amount_requires_booking.sql'),'utf8');
 const uuid = () => crypto.randomUUID();
 
 test('PG17 AC-AMOUNT-001..009: actual migration, existing and future tenant, thresholds, roles and snapshot isolation',async t=>{
@@ -16,6 +17,7 @@ test('PG17 AC-AMOUNT-001..009: actual migration, existing and future tenant, thr
    const tenant = await h.approve(actor,'amount-existing-'+uuid().slice(0,8));
    await h.db.exec(groupMigration);
    await h.db.exec(migration);
+   await h.db.exec(directGateMigration);
    const names=['public',tenant.runtime_schema];
    for(const s of names){
      await t.test(s+' new fields and internal authorization',async()=>{
@@ -47,6 +49,23 @@ test('PG17 AC-AMOUNT-001..009: actual migration, existing and future tenant, thr
       ['AMT-'+uuid(),'Amount QA','coupon','active','system','system'])).rows[0].id;
    await h.db.query('insert into '+s+".event_ticket_claims(claim_id,event_ticket_id,member_id,ticket_type,ticket_title) values($1,$2,$3,'coupon','Amount QA')",['AMT-CLAIM',ticket,member]);
    const met=async()=> (await h.db.query('select '+s+'.booking_ticket_meets_amount($1,$2,$3,$4) allowed',[booking,member,'event','AMT-CLAIM'])).rows[0].allowed;
+   await t.test('amount gate: direct options withheld, unbound redemption rejected, unrestricted direct use preserved',async()=>{
+     const options=async()=> (await h.db.query('select '+s+'.member_ticket_booking_options($1::uuid) choices',[member])).rows[0].choices;
+     const directVisible=async()=> (Array.isArray((await options()).event?.['AMT-CLAIM'])
+       && (await options()).event['AMT-CLAIM'].some(option=>option.bookingId==='no-booking'));
+     assert.equal(await directVisible(),false,'money-gated offer may not include direct-use option');
+     await assert.rejects(
+       h.db.query('select '+s+'.redeem_member_tickets_for_booking_request($1,null::uuid,$2,$3::text[],$4,null::jsonb)',[
+         'U'+'7'.repeat(32),'event',['AMT-CLAIM'],'AMT-'+uuid()
+       ]),
+       /BOOKING_BENEFIT_AMOUNT_REQUIRED/,
+       'bypassing the selector must not redeem amount-restricted tickets'
+     );
+     assert.equal((await h.db.query('select status from '+s+'.event_ticket_claims where claim_id=$1',['AMT-CLAIM'])).rows[0].status,'claimed');
+     await h.db.query('update '+s+".event_tickets set min_booking_amount_mode='none',min_booking_amount=0,min_booking_service_ids='{}' where id=$1",[ticket]);
+     assert.equal(await directVisible(),true,'unrestricted offer retains direct redemption');
+     await h.db.query('update '+s+".event_tickets set min_booking_amount_mode='total',min_booking_amount=550 where id=$1",[ticket]);
+   });
    await t.test('exact total threshold, quantity and selected subtotal',async()=>{
      assert.equal(await met(),true);
      await h.db.query('update '+s+'.event_tickets set min_booking_amount=551 where id=$1',[ticket]);
@@ -78,6 +97,10 @@ test('PG17 AC-AMOUNT-001..009: actual migration, existing and future tenant, thr
      assert.equal(rows.length,3);
      const fn=(await h.db.query("select to_regprocedure($1) as function",[n+'.booking_ticket_meets_amount(uuid,uuid,text,text)'])).rows[0].function;
      assert.ok(fn);
+     const source=(await h.db.query("select pg_get_functiondef($1::regprocedure) definition",[
+       n+'.member_ticket_booking_options(uuid)'
+     ])).rows[0].definition;
+     assert.match(source,/booking_ticket_meets_amount\(null::uuid/);
    });
  }finally {await h.db.close();}
 });
