@@ -42,7 +42,7 @@ for(const scenario of ['restricted','unrestricted','unclaimed'])test('real event
   const doc=w.document;await wait(()=>!!doc.querySelector('[data-event-ticket-id]'));assert.equal(doc.getElementById('errorView').classList.contains('hidden'),true);
   doc.querySelector('[data-event-ticket-id]').click();const choice=doc.querySelector('[data-ticket-booking-choice]'),button=doc.getElementById('ticketModalAction');
   if(scenario==='restricted'){assert.equal(choice.hidden,false);assert.equal(button.disabled,true);const select=choice.querySelector('select');select.value='B';select.dispatchEvent(new w.Event('change'));assert.equal(button.disabled,false);
-   button.click();await wait(()=>button.textContent==='確認使用這張票券');const redeemCalls=calls.filter(call=>call.action==='user.event.ticket.redeem');assert.equal(redeemCalls.length,1);assert.ok(calls.some(call=>call.action==='member.friend.list'),'claimed ticket loads friend options without affecting redemption');assert.equal(redeemCalls[0].payload.bookingId,'B');assert.equal(redeemCalls[0].payload.claimId,'CLAIM');
+   button.click();await wait(()=>button.textContent==='確認使用這張票券');const redeemCalls=calls.filter(call=>call.action==='user.event.ticket.redeem');assert.equal(redeemCalls.length,1);assert.equal(calls.filter(call=>call.action==='member.friend.list').length,0,'redemption must not load friend data when the transfer flow is not open');assert.equal(redeemCalls[0].payload.bookingId,'B');assert.equal(redeemCalls[0].payload.claimId,'CLAIM');
   }else if(unrestricted){
     assert.equal(choice.hidden,true,'unrestricted ticket must hide the entire booking panel');
     assert.equal(button.disabled,false,'implicit direct-use booking must enable redemption');
