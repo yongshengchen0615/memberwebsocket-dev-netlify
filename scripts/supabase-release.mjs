@@ -3,6 +3,7 @@ import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from 
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { bookingTransportSQL } from './booking-transport.mjs';
 
 const targets = new Map([
   ['master', { projectRef: 'dbuquirnaskrwcamdxki', environment: 'production' }],
@@ -206,6 +207,17 @@ export async function deployBackend({ root = process.cwd(), branch, sha, token, 
   });
   if (!Array.isArray(ledger) || ledger.length !== plan.migrations.length || plan.migrations.some(m =>
     !ledger.some(row => row.version === m.version && row.filename === m.filename && row.checksum === m.checksum))) fail('DATABASE_LEDGER_NOT_COMMITTED');
+  // A data reset can leave the schema and LINE notification channels intact
+  // while removing pg_cron and Vault. Restore only the approved testing tenant
+  // transport on every deployment, not just when a migration version is new.
+  // This guards against silently publishing a site with an inert outbox.
+  if (target.environment === 'testing') {
+    const health = await request('POST','/database/query',{
+      query: bookingTransportSQL(branch, target.projectRef),
+    });
+    if (!Array.isArray(health) || health.length!==1 || health[0].ready!==true)
+      fail('BOOKING_DISPATCH_HEALTH_NOT_CONFIRMED');
+  }
   for (const name of plan.functions) {
     if (deployFunction) await deployFunction(name, target);
     else {
