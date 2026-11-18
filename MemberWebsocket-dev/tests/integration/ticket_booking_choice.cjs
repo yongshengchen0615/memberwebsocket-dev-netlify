@@ -46,7 +46,7 @@ for(const scenario of ['restricted','unrestricted','unclaimed'])test('real event
   }else if(unrestricted){
     assert.equal(choice.hidden,true,'unrestricted ticket must hide the entire booking panel');
     assert.equal(button.disabled,false,'implicit direct-use booking must enable redemption');
-    button.click();await wait(()=>calls.some(call=>call.action==='user.event.ticket.redeem'));
+    button.click();await wait(()=>calls.some(call=>call.action==='user.event.ticket.redeem') && button.textContent==='確認使用這張票券');
     const redemptions=calls.filter(call=>call.action==='user.event.ticket.redeem');
     assert.equal(redemptions.length,1);
     assert.equal(redemptions[0].payload.bookingId,'no-booking');
