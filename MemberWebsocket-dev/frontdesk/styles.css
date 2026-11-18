@@ -1,3 +1,51 @@
 .frontdesk-shell,.frontdesk-settings{--fd-bg:#f6f7f9;--fd-card:#fff;--fd-text:#172c39;--fd-muted:#526574;--fd-border:#ccd6df;--fd-primary:#175fa5;--fd-danger:#a12530;color:var(--fd-text);font-family:system-ui,-apple-system,sans-serif;line-height:1.6;overflow-wrap:anywhere}.frontdesk-shell{max-width:880px;margin:0 auto;padding:24px 16px 60px}.frontdesk-kicker{letter-spacing:.15em;font-size:.8rem;color:var(--fd-primary);font-weight:750}.frontdesk-shell h1{font-size:clamp(1.5rem,5vw,2rem)}.frontdesk-shell button,.frontdesk-settings button{min-height:44px;border:1px solid var(--fd-border);border-radius:10px;padding:10px 16px;background:var(--fd-card);color:var(--fd-text);font:inherit;cursor:pointer}.frontdesk-shell button:disabled,.frontdesk-settings button:disabled{opacity:.55;cursor:wait}.frontdesk-shell button:focus-visible,.frontdesk-settings :is(button,input,select,a):focus-visible{outline:3px solid var(--fd-primary);outline-offset:3px}.frontdesk-shell .frontdesk-primary,.frontdesk-settings .frontdesk-primary{background:var(--fd-primary);color:#fff;border-color:var(--fd-primary)}.frontdesk-shell .frontdesk-danger{color:var(--fd-danger);border-color:var(--fd-danger)}.frontdesk-card{padding:20px;margin:16px 0;background:var(--fd-card);border:1px solid var(--fd-border);border-radius:16px;box-shadow:0 5px 18px #172c3908}.frontdesk-actions,.frontdesk-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.frontdesk-toolbar{justify-content:space-between}.frontdesk-actions button{flex:1}.frontdesk-settings{margin-top:24px;padding:18px;border:1px solid var(--fd-border);border-radius:12px;background:var(--fd-card)}.frontdesk-settings form{display:grid;gap:12px;margin:12px 0}.frontdesk-settings label{display:grid;gap:4px}.frontdesk-settings :is(input,select){font:inherit;min-height:44px;max-width:100%;width:100%;box-sizing:border-box;border:1px solid var(--fd-border);border-radius:8px;padding:8px;background:var(--fd-card);color:var(--fd-text)}.frontdesk-settings input[type=checkbox]{width:24px;min-height:24px}.frontdesk-settings a,.frontdesk-shell a{color:var(--fd-link,var(--fd-primary))}.frontdesk-settings summary{font-size:1.15rem;font-weight:700;cursor:pointer;min-height:44px}.frontdesk-settings .frontdesk-person{border-top:1px solid var(--fd-border);padding:16px 0}.frontdesk-settings small{color:var(--fd-muted)}
 @media(prefers-color-scheme:dark){.frontdesk-shell,.frontdesk-settings{--fd-bg:#101922;--fd-card:#192733;--fd-text:#eef4fa;--fd-muted:#b1c1ce;--fd-border:#42576b;--fd-primary:#246ab0;--fd-link:#9acbff;--fd-danger:#ffb3b9}body:has(.frontdesk-shell){background:#101922}}
 [data-theme=dark] .frontdesk-settings,.theme-dark .frontdesk-settings{--fd-card:#192733;--fd-text:#eef4fa;--fd-muted:#b1c1ce;--fd-border:#42576b;--fd-primary:#246ab0;--fd-link:#9acbff}
+
+/* Match the existing booking member/admin notification cards in the merchant workspace. */
+.business-line-settings .frontdesk-settings{
+  --fd-card:var(--theme-surface-raised,#fff);
+  --fd-text:var(--theme-text,#20352d);
+  --fd-muted:var(--theme-text-muted,#526256);
+  --fd-border:var(--theme-border-strong,#b7c6b9);
+  --fd-primary:var(--theme-positive,#225b40);
+  --fd-link:var(--theme-link,#275b43);
+  background:var(--theme-surface-raised,#fff);
+  margin-top:18px;
+}
+.frontdesk-settings-content{min-width:0;display:grid;gap:18px;margin-top:18px}
+.frontdesk-settings-content h3{margin:0 0 10px;font-size:1.05rem}
+.frontdesk-setup-guide,.frontdesk-approvals{padding:16px;border:1px solid var(--fd-border);border-radius:12px;background:var(--fd-card)}
+.frontdesk-setup-guide ol{margin:8px 0 0;padding-inline-start:23px}
+.frontdesk-setup-guide li{padding:4px 0}
+.frontdesk-config-form{display:grid;gap:16px;margin:0}
+.frontdesk-setup-card{border:1px solid var(--theme-border,var(--fd-border));background:var(--theme-surface-muted,var(--fd-card));border-radius:12px;padding:16px;min-width:0;display:grid;gap:14px}
+.frontdesk-setup-card legend{font-weight:700;padding:0 5px;color:var(--fd-text)}
+.frontdesk-setup-card p{margin:0}
+.frontdesk-setup-card .business-line-fields,.frontdesk-person .business-line-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.frontdesk-setup-card label,.frontdesk-person label{min-width:0;font-weight:600}
+.frontdesk-setup-card .frontdesk-notification-toggle{display:flex;align-items:center;gap:10px;font-weight:600}
+.frontdesk-setup-card .frontdesk-notification-toggle input[type=checkbox]{width:20px;height:20px;min-height:20px;flex:none;accent-color:var(--fd-primary)}
+.frontdesk-settings .business-line-summary{padding:12px 16px;border-radius:8px;border-inline-start:3px solid var(--theme-positive,var(--fd-primary));background:var(--theme-positive-soft,var(--fd-card));color:var(--theme-positive-text,var(--fd-text));margin:0}
+.frontdesk-settings .frontdesk-endpoint{display:block;width:100%;box-sizing:border-box;padding:10px;background:var(--theme-surface-raised,var(--fd-card));border:1px solid var(--fd-border);border-radius:8px;overflow-wrap:anywhere;white-space:normal;user-select:all}
+.frontdesk-settings :is(input[readonly]){background:var(--theme-surface-muted,var(--fd-card));cursor:default}
+.frontdesk-quick-links{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
+.frontdesk-quick-links a{min-height:44px;display:inline-flex;align-items:center;padding:8px 12px;box-sizing:border-box;border-radius:10px;border:1px solid var(--fd-border);text-decoration:none}
+.frontdesk-approvals .frontdesk-person{background:var(--theme-surface-muted,var(--fd-card));padding:16px;border:1px solid var(--theme-border,var(--fd-border));border-radius:10px;margin:12px 0}
+.frontdesk-approvals .frontdesk-person h4{margin:0}
+.frontdesk-approvals .frontdesk-person p{margin:0}
+.frontdesk-settings [hidden],.frontdesk-shell [hidden]{display:none!important}
+/* Applicant sees an explicit identity -> application -> approval -> access flow. */
+.frontdesk-progress{list-style:none;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0 24px}
+.frontdesk-progress li{background:var(--fd-card);border:1px solid var(--fd-border);padding:10px;border-radius:10px;font-size:.85rem;line-height:1.45}
+.frontdesk-progress li[data-state="current"]{border:2px solid var(--fd-primary);font-weight:700}
+.frontdesk-progress li[data-state="done"]{border-color:var(--fd-primary)}
+.frontdesk-progress small{display:block;color:var(--fd-muted);font-weight:400}
+.frontdesk-shell #account{padding:18px;border:1px solid var(--fd-border);border-radius:12px;background:var(--fd-card)}
+.frontdesk-shell #account p{margin-top:0}
+.frontdesk-shell #account .frontdesk-primary{margin-top:12px}
+@media(max-width:650px){
+ .frontdesk-setup-card .business-line-fields,.frontdesk-person .business-line-fields{grid-template-columns:1fr}
+ .frontdesk-progress{grid-template-columns:1fr}
+ .frontdesk-settings .frontdesk-setup-card{padding:12px}
+}
