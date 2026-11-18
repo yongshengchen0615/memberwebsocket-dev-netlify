@@ -121,6 +121,7 @@ button { line-height: 1.35; }
   min-width: 0;
 }
 .event-ticket-action-buttons > :only-child { grid-column: 1 / -1; }
+.ticket-booking-choice[hidden] { display: none !important; }
 .event-ticket-action-buttons .ticket-button {
   width: 100%;
   min-width: 0;
