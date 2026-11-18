@@ -7,6 +7,7 @@ test('frontdesk: tenant-scoped applications, modes, revocation, outbox, transiti
   const t=await h.approve(owner,'desk-shop');
   await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261026050904_line_webhook.sql'),'utf8'));
   await h.db.exec(migration());
+  await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261118190000_frontdesk_safeupdate_projection.sql'),'utf8'));
   const call=async(name,args)=>(await h.db.query(`select public.${name}(${args.map((_,i)=>'$'+(i+1)).join(',')}) result`,args)).rows[0].result;
   const now=()=>new Date().toISOString();
   const admin=(action,body={})=>call('platform_frontdesk_admin',[owner,t.id,now(),action,{requestId:crypto.randomUUID(),payloadHash:'a'.repeat(64),...body}]);
