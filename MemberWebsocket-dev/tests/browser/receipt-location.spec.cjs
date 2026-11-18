@@ -90,7 +90,7 @@ test.beforeAll(async()=>{
         if(action==='user.booking.receipt.list')return json(res,{snapshotLocationRequired:['location-required','unclaimed-event'].includes(url.searchParams.get('mode')),snapshotLocations:[{name:'QA 指定門市',latitude:25.033964,longitude:121.564468,radiusMeters:100}],bookings:[],submissions:[]});
         if(action==='user.event.bootstrap')return json(res,{profile:{displayName:'QA',tierKey:'general'},usedTickets:[],usedTicketCount:0,offers:[{
           ticket:{eventTicketId:'QA-GEO',title:'GPS QA',ticketType:'coupon',description:'GPS receipt QA',usageMethod:'Once',usageInstructions:'Once',requiresLocation:true,redemptionLocations:[{name:'QA 指定門市',latitude:25.033964,longitude:121.564468,radiusMeters:100}],allowedTierKeys:['general'],prizes:[]},
-          claim:{claimId:'QA-CLAIM',status:'claimed',ticketTitle:'GPS QA',ticketDescription:'GPS receipt QA',ticketType:'coupon'},eligibleBookings:[{bookingId:'00000000-0000-4000-8000-000000000001',bookingDate:'2099-01-01',startTime:'10:00',title:'GPS booking'}],canUse:true,availability:'open',tierEligible:true
+          claim:{claimId:'QA-CLAIM',status:'claimed',ticketTitle:'GPS QA',ticketDescription:'GPS receipt QA',ticketType:'coupon'},eligibleBookings:[{bookingId:'no-booking',bookingDate:'',startTime:'',title:'不綁定預約，直接使用票券'}],canUse:true,availability:'open',tierEligible:true
         }]});
         if(action==='user.event.ticket.redeem') {
           state.redeem.push(payload);
@@ -243,7 +243,7 @@ test('double submit is locked until upload/finalize finishes',async({page})=>{
   await expect(page.locator('#bookingReceiptModal')).toBeHidden();expect(runs.get('double').prepare).toHaveLength(1);expect(runs.get('double').finalize).toHaveLength(1);
 });
 test('GPS permission denial cannot dispatch redemption; permission retry sends actual coordinates',async({page,context})=>{
-  await page.goto(base+'/geo?run=gps-permission');await page.locator('[data-event-ticket-id="QA-GEO"]').first().click();
+  await page.goto(base+'/geo?run=gps-permission');await page.locator('[data-event-ticket-id="QA-GEO"]').first().click(); await expect(page.locator('[data-ticket-booking-choice]')).toBeHidden();
   await expect(page.locator('#ticketModalLocationStatus')).toContainText('定位遭拒');
   await expect(page.locator('#ticketModalAction')).toBeDisabled();
   expect(runs.get('gps-permission').redeem).toHaveLength(0);
@@ -256,7 +256,7 @@ test('GPS permission denial cannot dispatch redemption; permission retry sends a
 });
 test('GPS out of range keeps ticket usable and a new in-range fix can retry',async({page,context})=>{
   await context.grantPermissions(['geolocation']);await context.setGeolocation({latitude:24,longitude:120,accuracy:10});
-  await page.goto(base+'/geo?run=gps-range');await page.locator('[data-event-ticket-id="QA-GEO"]').first().click();
+  await page.goto(base+'/geo?run=gps-range');await page.locator('[data-event-ticket-id="QA-GEO"]').first().click(); await expect(page.locator('[data-ticket-booking-choice]')).toBeHidden();
   await expect(page.locator('#ticketModalLocationStatus')).toContainText('目前不在可使用範圍');
   await expect(page.locator('#ticketModalAction')).toBeDisabled();
   expect(runs.get('gps-range').redeem).toHaveLength(0);
@@ -265,7 +265,7 @@ test('GPS out of range keeps ticket usable and a new in-range fix can retry',asy
   await expect(page.locator('#ticketModalAction')).toBeEnabled();
   await page.locator('#ticketModalAction').click();
   await expect(page.locator('#ticketModalResult')).toBeVisible();expect(runs.get('gps-range').redeem).toHaveLength(1);
-  const attempt=runs.get('gps-range').redeem[0];expect(attempt.bookingId).toBe('00000000-0000-4000-8000-000000000001');
+  const attempt=runs.get('gps-range').redeem[0];expect(attempt.bookingId).toBe('no-booking');
 });
 
 
