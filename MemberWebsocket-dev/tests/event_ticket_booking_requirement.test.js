@@ -61,6 +61,7 @@ test('AC-003: fully unrestricted event ticket skips the booking panel and select
   assert.match(app, /bookingChoice\.hidden\s*=\s*history\s*\|\|\s*!claim\s*\|\|\s*reserved\s*\|\|\s*!choiceMode\.requiresBooking/);
   assert.match(app, /TicketBookingChoice\?\.mount\(bookingChoice,\s*choiceMode\.bookings/);
   assert.match(app, /TicketBookingChoice\?\.selected\(bookingChoice\)/);
+  assert.match(app, /確認後可直接使用並核銷/);
 });
 
 test('AC-004: rule metadata that indicates a restriction fails closed; no eligible direct use stays disabled', () => {
