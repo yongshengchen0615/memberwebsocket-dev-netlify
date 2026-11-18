@@ -109,7 +109,8 @@ test('AC-009 testing API must prove commit and failure rollback in its own synth
     if (query.includes('to_regnamespace')) return Response.json([{ exists: false }]);
     if (query.startsWith('SELECT marker')) return Response.json([{ marker: 1, partial_table: null }]);
     if (query.includes('SELECT 1/0')) { rollbackRequests++; return new Response('ERROR: 22012: division by zero', { status: 400 }); }
-    if (query.includes('$restore_booking_transport
+    if (query.includes('BOOKING_DISPATCH_DEPENDENCIES_MISSING')) return Response.json([{ready:true}]);
+    return Response.json([]);
   };
   const result = await deployBackend({ root: f.root, branch: 'Integrated-Marketing-Platform', sha, token: 'private', fetchImpl, deployFunction: async () => {} });
   assert.equal(rollbackRequests, 1);
@@ -119,7 +120,9 @@ test('AC-009 testing API must prove commit and failure rollback in its own synth
   const cleanup = calls.findIndex(q => q.startsWith('BEGIN; DROP TABLE release_probe_'));
   const migration = calls.findIndex(q => q.includes('CREATE TABLE IF NOT EXISTS deployment_private.schema_releases'));
   assert.ok(setup >= 0 && setup < failed && failed < cleanup && cleanup < migration);
-  const health = calls.findIndex(q => q.includes('$restore_booking_transport});
+  const health = calls.findIndex(q => q.includes('BOOKING_DISPATCH_DEPENDENCIES_MISSING'));
+  assert.ok(health > migration, 'transport recovery follows the committed ledger');
+});
 
 test('AC-009 transaction probe refuses wrong rollback state or unrelated API errors before migrations', async t => {
   for (const broken of ['state', 'provider']) {
