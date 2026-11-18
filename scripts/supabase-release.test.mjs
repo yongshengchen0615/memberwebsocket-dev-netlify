@@ -109,6 +109,76 @@ test('AC-009 testing API must prove commit and failure rollback in its own synth
     if (query.includes('to_regnamespace')) return Response.json([{ exists: false }]);
     if (query.startsWith('SELECT marker')) return Response.json([{ marker: 1, partial_table: null }]);
     if (query.includes('SELECT 1/0')) { rollbackRequests++; return new Response('ERROR: 22012: division by zero', { status: 400 }); }
+    if (query.includes('$restore_booking_transport
+  };
+  const result = await deployBackend({ root: f.root, branch: 'Integrated-Marketing-Platform', sha, token: 'private', fetchImpl, deployFunction: async () => {} });
+  assert.equal(rollbackRequests, 1);
+  assert.equal(result.transactionProbe, 'commit-and-rollback-verified');
+  const setup = calls.findIndex(q => q.startsWith('BEGIN; CREATE SCHEMA release_probe_'));
+  const failed = calls.findIndex(q => q.includes('SELECT 1/0'));
+  const cleanup = calls.findIndex(q => q.startsWith('BEGIN; DROP TABLE release_probe_'));
+  const migration = calls.findIndex(q => q.includes('CREATE TABLE IF NOT EXISTS deployment_private.schema_releases'));
+  assert.ok(setup >= 0 && setup < failed && failed < cleanup && cleanup < migration);
+  const health = calls.findIndex(q => q.includes('$restore_booking_transport});
+
+test('AC-009 transaction probe refuses wrong rollback state or unrelated API errors before migrations', async t => {
+  for (const broken of ['state', 'provider']) {
+    const f = fixture(t); let deploymentStarted = false, markerReads = 0;
+    await assert.rejects(deployBackend({ root: f.root, branch: 'Integrated-Marketing-Platform', sha, token: 'private',
+      fetchImpl: async (url, options) => {
+        if (options.method === 'GET') return Response.json({ id: 'bmwhojszsnxliekkhrka', status: 'ACTIVE_HEALTHY' });
+        const { query } = JSON.parse(options.body);
+        if (query.includes('deployment_private.schema_releases')) deploymentStarted = true;
+        if (query.includes('to_regnamespace')) return Response.json([{ exists: false }]);
+        if (query.startsWith('SELECT marker')) { markerReads++; return Response.json([{ marker: markerReads === 2 ? 2 : 1, partial_table: null }]); }
+        if (query.includes('SELECT 1/0')) return new Response(broken === 'provider' ? 'SECRET provider failure' : 'ERROR: 22012: division by zero', { status: 400 });
+        return Response.json([]);
+      }, deployFunction: async () => { deploymentStarted = true; },
+    }), error => /TRANSACTION_PROBE|DATABASE_HTTP/.test(error.message) && !error.message.includes('SECRET'));
+    assert.equal(deploymentStarted, false);
+  }
+});
+
+test('AC-006 failed Edge deployment does not produce a backend-ready result', async t => {
+  const f = fixture(t);
+  let functionsRead = false;
+  await assert.rejects(deployBackend({ root: f.root, branch: 'master', sha, token: 'token',
+    fetchImpl: async (url, options) => {
+      if (url.endsWith('/functions')) { functionsRead = true; return Response.json([]); }
+      return options.method === 'GET' ? Response.json({ id: 'dbuquirnaskrwcamdxki', status: 'ACTIVE_HEALTHY' }) : Response.json([]);
+    }, deployFunction: async () => { throw new Error('EDGE_TEST_FAILURE'); },
+  }), /EDGE_TEST_FAILURE/);
+  assert.equal(functionsRead, false);
+});
+
+test('AC-006 missing committed ledger or inactive Edge status prevents release readiness', async t => {
+  for (const missingLedger of [true, false]) {
+    const f = fixture(t);
+    f.add('20261116000100_add.sql', 'SELECT 1;');
+    const planned = loadReleasePlan(f.root).migrations;
+    let deploys = 0;
+    await assert.rejects(deployBackend({ root: f.root, branch: 'master', sha, token: 'token',
+      fetchImpl: async (url, options) => {
+        if (url.endsWith('/functions')) return Response.json([{ slug: 'api', version: 2, status: 'INACTIVE', verify_jwt: false }]);
+        if (options.method === 'GET') return Response.json({ id: 'dbuquirnaskrwcamdxki', status: 'ACTIVE_HEALTHY' });
+        if (JSON.parse(options.body).query.startsWith('SELECT version')) return Response.json(missingLedger ? [] : planned);
+        return Response.json([]);
+      }, deployFunction: async () => { deploys++; },
+    }), /DATABASE_LEDGER_NOT_COMMITTED|EDGE_READBACK_FAILED/);
+    assert.equal(deploys, missingLedger ? 0 : 1);
+  }
+});
+
+test('AC-001 wrong project identity prevents every write', async t => {
+  const f = fixture(t); let count = 0;
+  await assert.rejects(deployBackend({ root: f.root, branch: 'master', sha, token: 'test-token', fetchImpl: async () => { count++; return Response.json({ id: 'bmwhojszsnxliekkhrka', status: 'ACTIVE_HEALTHY' }); } }), /PROJECT_IDENTITY/);
+  assert.equal(count, 1);
+});
+
+test('migration SQL refuses invalid release identities', () => {
+  assert.throws(() => migrationSQL({ migrations: [] }, 'bad'), /COMMIT/);
+});
+)) return Response.json([{ ready: true }]);
     return Response.json([]);
   };
   const result = await deployBackend({ root: f.root, branch: 'Integrated-Marketing-Platform', sha, token: 'private', fetchImpl, deployFunction: async () => {} });
@@ -177,4 +247,152 @@ test('AC-001 wrong project identity prevents every write', async t => {
 
 test('migration SQL refuses invalid release identities', () => {
   assert.throws(() => migrationSQL({ migrations: [] }, 'bad'), /COMMIT/);
+});
+));
+  assert.ok(health > migration, 'tenant dispatch recovery follows committed migration ledger');
+});
+
+test('AC-009 transaction probe refuses wrong rollback state or unrelated API errors before migrations', async t => {
+  for (const broken of ['state', 'provider']) {
+    const f = fixture(t); let deploymentStarted = false, markerReads = 0;
+    await assert.rejects(deployBackend({ root: f.root, branch: 'Integrated-Marketing-Platform', sha, token: 'private',
+      fetchImpl: async (url, options) => {
+        if (options.method === 'GET') return Response.json({ id: 'bmwhojszsnxliekkhrka', status: 'ACTIVE_HEALTHY' });
+        const { query } = JSON.parse(options.body);
+        if (query.includes('deployment_private.schema_releases')) deploymentStarted = true;
+        if (query.includes('to_regnamespace')) return Response.json([{ exists: false }]);
+        if (query.startsWith('SELECT marker')) { markerReads++; return Response.json([{ marker: markerReads === 2 ? 2 : 1, partial_table: null }]); }
+        if (query.includes('SELECT 1/0')) return new Response(broken === 'provider' ? 'SECRET provider failure' : 'ERROR: 22012: division by zero', { status: 400 });
+        return Response.json([]);
+      }, deployFunction: async () => { deploymentStarted = true; },
+    }), error => /TRANSACTION_PROBE|DATABASE_HTTP/.test(error.message) && !error.message.includes('SECRET'));
+    assert.equal(deploymentStarted, false);
+  }
+});
+
+test('AC-006 failed Edge deployment does not produce a backend-ready result', async t => {
+  const f = fixture(t);
+  let functionsRead = false;
+  await assert.rejects(deployBackend({ root: f.root, branch: 'master', sha, token: 'token',
+    fetchImpl: async (url, options) => {
+      if (url.endsWith('/functions')) { functionsRead = true; return Response.json([]); }
+      return options.method === 'GET' ? Response.json({ id: 'dbuquirnaskrwcamdxki', status: 'ACTIVE_HEALTHY' }) : Response.json([]);
+    }, deployFunction: async () => { throw new Error('EDGE_TEST_FAILURE'); },
+  }), /EDGE_TEST_FAILURE/);
+  assert.equal(functionsRead, false);
+});
+
+test('AC-006 missing committed ledger or inactive Edge status prevents release readiness', async t => {
+  for (const missingLedger of [true, false]) {
+    const f = fixture(t);
+    f.add('20261116000100_add.sql', 'SELECT 1;');
+    const planned = loadReleasePlan(f.root).migrations;
+    let deploys = 0;
+    await assert.rejects(deployBackend({ root: f.root, branch: 'master', sha, token: 'token',
+      fetchImpl: async (url, options) => {
+        if (url.endsWith('/functions')) return Response.json([{ slug: 'api', version: 2, status: 'INACTIVE', verify_jwt: false }]);
+        if (options.method === 'GET') return Response.json({ id: 'dbuquirnaskrwcamdxki', status: 'ACTIVE_HEALTHY' });
+        if (JSON.parse(options.body).query.startsWith('SELECT version')) return Response.json(missingLedger ? [] : planned);
+        return Response.json([]);
+      }, deployFunction: async () => { deploys++; },
+    }), /DATABASE_LEDGER_NOT_COMMITTED|EDGE_READBACK_FAILED/);
+    assert.equal(deploys, missingLedger ? 0 : 1);
+  }
+});
+
+test('AC-001 wrong project identity prevents every write', async t => {
+  const f = fixture(t); let count = 0;
+  await assert.rejects(deployBackend({ root: f.root, branch: 'master', sha, token: 'test-token', fetchImpl: async () => { count++; return Response.json({ id: 'bmwhojszsnxliekkhrka', status: 'ACTIVE_HEALTHY' }); } }), /PROJECT_IDENTITY/);
+  assert.equal(count, 1);
+});
+
+test('migration SQL refuses invalid release identities', () => {
+  assert.throws(() => migrationSQL({ migrations: [] }, 'bad'), /COMMIT/);
+});
+)) return Response.json([{ ready: true }]);
+    return Response.json([]);
+  };
+  const result = await deployBackend({ root: f.root, branch: 'Integrated-Marketing-Platform', sha, token: 'private', fetchImpl, deployFunction: async () => {} });
+  assert.equal(rollbackRequests, 1);
+  assert.equal(result.transactionProbe, 'commit-and-rollback-verified');
+  const setup = calls.findIndex(q => q.startsWith('BEGIN; CREATE SCHEMA release_probe_'));
+  const failed = calls.findIndex(q => q.includes('SELECT 1/0'));
+  const cleanup = calls.findIndex(q => q.startsWith('BEGIN; DROP TABLE release_probe_'));
+  const migration = calls.findIndex(q => q.includes('CREATE TABLE IF NOT EXISTS deployment_private.schema_releases'));
+  assert.ok(setup >= 0 && setup < failed && failed < cleanup && cleanup < migration);
+});
+
+test('AC-009 transaction probe refuses wrong rollback state or unrelated API errors before migrations', async t => {
+  for (const broken of ['state', 'provider']) {
+    const f = fixture(t); let deploymentStarted = false, markerReads = 0;
+    await assert.rejects(deployBackend({ root: f.root, branch: 'Integrated-Marketing-Platform', sha, token: 'private',
+      fetchImpl: async (url, options) => {
+        if (options.method === 'GET') return Response.json({ id: 'bmwhojszsnxliekkhrka', status: 'ACTIVE_HEALTHY' });
+        const { query } = JSON.parse(options.body);
+        if (query.includes('deployment_private.schema_releases')) deploymentStarted = true;
+        if (query.includes('to_regnamespace')) return Response.json([{ exists: false }]);
+        if (query.startsWith('SELECT marker')) { markerReads++; return Response.json([{ marker: markerReads === 2 ? 2 : 1, partial_table: null }]); }
+        if (query.includes('SELECT 1/0')) return new Response(broken === 'provider' ? 'SECRET provider failure' : 'ERROR: 22012: division by zero', { status: 400 });
+        return Response.json([]);
+      }, deployFunction: async () => { deploymentStarted = true; },
+    }), error => /TRANSACTION_PROBE|DATABASE_HTTP/.test(error.message) && !error.message.includes('SECRET'));
+    assert.equal(deploymentStarted, false);
+  }
+});
+
+test('AC-006 failed Edge deployment does not produce a backend-ready result', async t => {
+  const f = fixture(t);
+  let functionsRead = false;
+  await assert.rejects(deployBackend({ root: f.root, branch: 'master', sha, token: 'token',
+    fetchImpl: async (url, options) => {
+      if (url.endsWith('/functions')) { functionsRead = true; return Response.json([]); }
+      return options.method === 'GET' ? Response.json({ id: 'dbuquirnaskrwcamdxki', status: 'ACTIVE_HEALTHY' }) : Response.json([]);
+    }, deployFunction: async () => { throw new Error('EDGE_TEST_FAILURE'); },
+  }), /EDGE_TEST_FAILURE/);
+  assert.equal(functionsRead, false);
+});
+
+test('AC-006 missing committed ledger or inactive Edge status prevents release readiness', async t => {
+  for (const missingLedger of [true, false]) {
+    const f = fixture(t);
+    f.add('20261116000100_add.sql', 'SELECT 1;');
+    const planned = loadReleasePlan(f.root).migrations;
+    let deploys = 0;
+    await assert.rejects(deployBackend({ root: f.root, branch: 'master', sha, token: 'token',
+      fetchImpl: async (url, options) => {
+        if (url.endsWith('/functions')) return Response.json([{ slug: 'api', version: 2, status: 'INACTIVE', verify_jwt: false }]);
+        if (options.method === 'GET') return Response.json({ id: 'dbuquirnaskrwcamdxki', status: 'ACTIVE_HEALTHY' });
+        if (JSON.parse(options.body).query.startsWith('SELECT version')) return Response.json(missingLedger ? [] : planned);
+        return Response.json([]);
+      }, deployFunction: async () => { deploys++; },
+    }), /DATABASE_LEDGER_NOT_COMMITTED|EDGE_READBACK_FAILED/);
+    assert.equal(deploys, missingLedger ? 0 : 1);
+  }
+});
+
+test('AC-001 wrong project identity prevents every write', async t => {
+  const f = fixture(t); let count = 0;
+  await assert.rejects(deployBackend({ root: f.root, branch: 'master', sha, token: 'test-token', fetchImpl: async () => { count++; return Response.json({ id: 'bmwhojszsnxliekkhrka', status: 'ACTIVE_HEALTHY' }); } }), /PROJECT_IDENTITY/);
+  assert.equal(count, 1);
+});
+
+test('migration SQL refuses invalid release identities', () => {
+  assert.throws(() => migrationSQL({ migrations: [] }, 'bad'), /COMMIT/);
+});
+
+test('AC-BN-006: missing or ambiguous testing transport health refuses all Edge deploys',async t=>{
+ const f=fixture(t),events=[];
+ const fetchImpl=async(url,options)=>{
+  if(options.method==='GET')return Response.json({id:'bmwhojszsnxliekkhrka',status:'ACTIVE_HEALTHY'});
+  const query=JSON.parse(options.body).query;events.push(query);
+  if(query.includes('to_regnamespace'))return Response.json([{exists:false}]);
+  if(query.startsWith('SELECT marker'))return Response.json([{marker:1,partial_table:null}]);
+  if(query.includes('SELECT 1/0'))return new Response('ERROR: 22012: division by zero',{status:400});
+  if(query.includes('$restore_booking_transport$'))return Response.json([{ready:false}]);
+  return Response.json([]);
+ };
+ let deployments=0;
+ await assert.rejects(deployBackend({root:f.root,branch:'Integrated-Marketing-Platform',sha,token:'private',fetchImpl,deployFunction:async()=>{deployments++;}}),/BOOKING_DISPATCH_HEALTH_NOT_CONFIRMED/);
+ assert.equal(deployments,0);
+ assert.equal(events.filter(q=>q.includes('$restore_booking_transport$')).length,1,'no unbounded retry on failed health');
 });
