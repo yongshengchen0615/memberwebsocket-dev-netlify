@@ -2,7 +2,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 test('frontdesk API + real SQL: owner-scoped configuration, encrypted bot, verified applicant, per-person authorization and disable',async()=>{
  const h=await fixture();try{
   const owner='U'+'2'.repeat(32),staff='U'+'4'.repeat(32),t=await h.approve(owner,'desk-api');
-  for(const name of ['20261026050904_line_webhook.sql','20261118122150_frontdesk_booking_access.sql'])await h.db.exec(fs.readFileSync(path.resolve(__dirname,'../../supabase/migrations',name),'utf8'));
+  for(const name of ['20261026050904_line_webhook.sql','20261118122150_frontdesk_booking_access.sql','20261118190000_frontdesk_safeupdate_projection.sql'])await h.db.exec(fs.readFileSync(path.resolve(__dirname,'../../supabase/migrations',name),'utf8'));
   const {createPlatformHandler}=await import('../../supabase/functions/_shared/platform-handler.mjs'),{createFrontdeskHandler}=await import('../../supabase/functions/_shared/frontdesk-handler.mjs');
   const provider=[];let reachable=true;
   const fetchImpl=async(url,options)=>{provider.push({url,options});return new Response(JSON.stringify(url.endsWith('/verify')?{client_id:'2010888888',expires_in:3600}:url.endsWith('/bot/info')?{basicId:'@desk',userId:'U'+'a'.repeat(32)}:{userId:reachable?staff:'U'+'f'.repeat(32)}));};
