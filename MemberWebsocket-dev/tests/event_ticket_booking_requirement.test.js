@@ -54,7 +54,7 @@ test('AC-003: fully unrestricted event ticket skips the booking panel and select
   const result = choice.eventOptions({ minBookingAmountMode: 'none', requiredServiceIds: [], requiredServiceGroups: [] }, [eligible, direct]);
   assert.equal(result.requiresBooking, false);
   assert.deepEqual(Array.from(result.bookings, item => item.bookingId), ['no-booking']);
-  const host = {};
+  const host = { children: [], replaceChildren(...nodes) { this.children = nodes; } };
   choice.mount(host, result.bookings);
   assert.equal(choice.selected(host), 'no-booking');
   const app = read('event/app.js');
