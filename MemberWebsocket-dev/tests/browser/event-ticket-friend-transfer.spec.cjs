@@ -30,7 +30,7 @@ const mock = [
   'window.__hasFriends=new URLSearchParams(location.search).get("friends")!=="0";',
   'window.__gifted=new URLSearchParams(location.search).get("gift")==="1";',
   'window.__canUse=new URLSearchParams(location.search).get("use")==="1";',
-  'window.TicketBookingChoice={eventOptions:()=>({requiresBooking:false,bookings:[]}),mount(){},selected:()=>"BOOKING1",lock(){}};','
+  'window.TicketBookingChoice={eventOptions:()=>({requiresBooking:false,bookings:[]}),mount(){},selected:()=>"BOOKING1",lock(){}};',
   'window.confirm=(message)=>{window.__confirmMessage=message;return true;};',
   'const ticket={eventTicketId:"EVENT-GIFT-1",title:"好友轉贈測試票券",description:"未使用活動券",',
   'ticketType:"coupon",startsOn:"2026-11-01",endsOn:"2026-12-31",allowedTierKeys:window.__gifted?["gold"]:["general"]};',
