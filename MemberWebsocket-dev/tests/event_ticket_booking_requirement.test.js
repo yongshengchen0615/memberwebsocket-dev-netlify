@@ -58,8 +58,9 @@ test('AC-003: fully unrestricted event ticket skips the booking panel and select
   choice.mount(host, result.bookings);
   assert.equal(choice.selected(host), 'no-booking');
   const app = read('event/app.js');
-  assert.match(app, /bookingChoice\.hidden\s*=\s*history\s*\|\|\s*!claim\s*\|\|\s*reserved\s*\|\|\s*!choiceMode\.requiresBooking/);
-  assert.match(app, /TicketBookingChoice\?\.mount\(bookingChoice,\s*choiceMode\.bookings/);
+  assert.match(app, /bookingChoice\.hidden\s*=\s*transferMode\s*\|\|\s*history\s*\|\|\s*!claim\s*\|\|\s*reserved\s*\|\|\s*!choiceMode\.requiresBooking/);
+  assert.match(app, /if \(transferMode\) bookingChoice\.replaceChildren\(\)/);
+  assert.match(app, /else window\.TicketBookingChoice\?\.mount\(bookingChoice,\s*choiceMode\.bookings/);
   assert.match(app, /TicketBookingChoice\?\.selected\(bookingChoice\)/);
   assert.match(app, /確認後可直接使用並核銷/);
 });

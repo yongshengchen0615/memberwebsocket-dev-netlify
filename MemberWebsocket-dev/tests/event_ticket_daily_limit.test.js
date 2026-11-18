@@ -39,8 +39,9 @@ test('event tickets keep the daily server-enforced redemption limit without the 
   assert.match(todayCss, /--theme-danger-soft/);
 
   assert.match(app, /const stateLabel = used \? '已使用'/);
-  assert.match(app, /if \(!used \|\| history\) action\.append\(button\)/);
+  assert.match(app, /if \(!used \|\| history\) buttons\.append\(button\)/);
   assert.match(app, /event-ticket:redeemed/);
+  assert.match(app, /action\.append\(buttons\)/);
 
   assert.match(api, /EVENT_TICKET_DAILY_LIMIT_REACHED/);
   assert.match(api, /claimRow && String\(claimRow\.status \|\| ""\) === "used"/);

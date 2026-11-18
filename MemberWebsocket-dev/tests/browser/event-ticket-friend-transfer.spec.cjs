@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
 const root = path.resolve(__dirname, '../..');
-const scripts = { '/event-ticket-ui.js':'event-ticket-ui.js', '/app.js':'event/app.js' };
+const scripts = { '/event-ticket-ui.js':'event-ticket-ui.js', '/app.js':'event/app.js', '/styles.css':'event/styles.css', '/event-ticket-ui.css':'event-ticket-ui.css' };
 const ids = [
   'app','loadingView','loadingProgress','loadingProgressBar','loadingProgressText','loadingStatus',
   'errorView','errorTitle','errorMessage','joinMemberButton','retryButton','eventView',
@@ -19,9 +19,16 @@ const ids = [
 ];
 function nodes(names) {
   return names.map(id => {
-    if(id==='ticketTransferFriendSelect') return '<select id="'+id+'"><option value="">載入中</option></select>';
-    if(id==='ticketTransferPanel') return '<section id="'+id+'" hidden></section>';
-    if(id==='ticketTransferButton'||id==='ticketModalAction'||id==='closeTicketModal'||id.includes('Button')) return '<button id="'+id+'" type="button">'+id+'</button>';
+    if(id==='eventList') return '<div id="eventList" class="event-list"></div>';
+    if(id==='ticketTransferPanel') return [
+      '<section id="ticketTransferPanel" class="ticket-transfer-panel" hidden>',
+      '<h3>轉贈給好友</h3><label for="ticketTransferFriendSelect">選擇已加入的好友</label>',
+      '<select id="ticketTransferFriendSelect"><option value="">載入中</option></select>',
+      '<p id="ticketTransferStatus"></p>',
+      '<button id="ticketTransferButton" type="button">確認轉贈好友</button></section>'
+    ].join('');
+    if(['ticketTransferFriendSelect','ticketTransferStatus','ticketTransferButton'].includes(id)) return '';
+    if(id==='ticketModalAction'||id==='closeTicketModal'||id.includes('Button')) return '<button id="'+id+'" type="button">'+id+'</button>';
     return '<div id="'+id+'"></div>';
   }).join('\n');
 }
@@ -29,6 +36,8 @@ const mock = [
   'window.__requests=[];window.__transferred=false;',
   'window.__hasFriends=new URLSearchParams(location.search).get("friends")!=="0";',
   'window.__gifted=new URLSearchParams(location.search).get("gift")==="1";',
+  'window.__canUse=new URLSearchParams(location.search).get("use")==="1";',
+  'window.TicketBookingChoice={eventOptions:()=>({requiresBooking:false,bookings:[]}),mount(){},selected:()=>"BOOKING1",lock(){}};',
   'window.confirm=(message)=>{window.__confirmMessage=message;return true;};',
   'const ticket={eventTicketId:"EVENT-GIFT-1",title:"好友轉贈測試票券",description:"未使用活動券",',
   'ticketType:"coupon",startsOn:"2026-11-01",endsOn:"2026-12-31",allowedTierKeys:window.__gifted?["gold"]:["general"]};',
@@ -39,7 +48,7 @@ const mock = [
   'profile:{displayName:"測試會員",memberCode:"MEMBERA1"},',
   'usedTickets:[],usedTicketCount:0,bookingSelections:[],',
   'offers:[{ticket,claim:window.__transferred?null:{claimId:"CLAIM-GIFT-1",status:"available",ticketType:"coupon"},',
-  'availability:"active",tierEligible:true,canClaim:false,canUse:false,history:false,receivedAsGift:window.__gifted,transferredOut:window.__transferred}]};',
+  'availability:"active",tierEligible:true,canClaim:false,canUse:window.__canUse,history:false,receivedAsGift:window.__gifted,transferredOut:window.__transferred}]};',
   'if(action==="member.friend.list")return{friends:window.__hasFriends?[',
   '{memberCode:"MEMBERB1",displayName:"好友小明",status:"accepted"},',
   '{memberCode:"MEMBERC1",displayName:"未接受",status:"pending"},',
@@ -55,14 +64,15 @@ test.beforeAll(async () => {
   server=http.createServer((request,response)=>{
     const requestPath=request.url.split('?')[0];
     if(scripts[requestPath]){
-      response.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8'});
+      response.writeHead(200,{'Content-Type':requestPath.endsWith('.css')?'text/css; charset=utf-8':'text/javascript; charset=utf-8'});
       response.end(fs.readFileSync(path.join(root,scripts[requestPath]),'utf8'));
       return;
     }
     response.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});
     response.end([
       '<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">',
-      '<style>.hidden{display:none!important}.event-ticket{border:1px solid #ccc;padding:10px}</style>',
+      '<style>.hidden{display:none!important}</style>',
+      '<link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/event-ticket-ui.css">',
       '<script>',mock,'</script>',
       '<script defer src="/event-ticket-ui.js"></script><script defer src="/app.js"></script></head><body>',
       nodes(ids.slice(0,ids.indexOf('ticketModal'))),
@@ -126,4 +136,56 @@ test('AC-GIFT-UI-003: a previously received gift is tier-exempt and cannot be tr
   await page.locator('#eventList button').first().click();
   await expect(page.locator('#ticketModalStatus')).toContainText('不受會員階級限制');
   expect(await page.evaluate(()=>window.__requests.filter(r=>r.action==='user.event.ticket.transfer'))).toHaveLength(0);
+});
+
+test('AC-TICKET-ACTION-001: using a ticket opens only the redemption flow',async({page})=>{
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await page.goto(base+'/?friends=1&use=1');
+  const actions=page.locator('#eventList .event-ticket-action-buttons');
+  await expect(actions.locator('button')).toHaveCount(2);
+  await expect(actions.locator('[data-ticket-action="use"]')).toHaveText('使用票券');
+  await expect(actions.locator('[data-ticket-action="transfer"]')).toHaveText('轉贈好友');
+  await actions.locator('[data-ticket-action="use"]').click();
+  await expect(page.locator('#ticketModal')).toHaveAttribute('data-ticket-mode','use');
+  await expect(page.locator('#ticketModalAction')).toBeVisible();
+  await expect(page.locator('#ticketTransferPanel')).toBeHidden();
+  expect(await page.evaluate(()=>window.__requests.filter(r=>r.action==='member.friend.list'))).toHaveLength(0);
+  expect(await page.evaluate(()=>window.__requests.filter(r=>r.action==='user.event.ticket.transfer'))).toHaveLength(0);
+  expect(errors).toEqual([]);
+});
+
+test('AC-TICKET-ACTION-002: gifting opens only the friend transfer flow and preserves separation after close',async({page})=>{
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await page.goto(base+'/?friends=1&use=1');
+  const actions=page.locator('#eventList .event-ticket-action-buttons');
+  await actions.locator('[data-ticket-action="transfer"]').click();
+  await expect(page.locator('#ticketModal')).toHaveAttribute('data-ticket-mode','transfer');
+  await expect(page.locator('#ticketTransferPanel')).toBeVisible();
+  await expect(page.locator('#ticketModalAction')).toBeHidden();
+  await expect(page.locator('[data-ticket-booking-choice]')).toBeHidden();
+  await expect(page.locator('#ticketTransferStatus')).toContainText('限轉贈一次');
+  await expect(page.locator('#ticketModalStatus')).toContainText('轉贈後不可撤銷');
+  const requests=await page.evaluate(()=>window.__requests.filter(r=>r.action==='member.friend.list'));
+  expect(requests).toHaveLength(1);
+  await page.locator('#closeTicketModal').click();
+  await actions.locator('[data-ticket-action="use"]').click();
+  await expect(page.locator('#ticketModal')).toHaveAttribute('data-ticket-mode','use');
+  await expect(page.locator('#ticketTransferPanel')).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test('AC-TICKET-ACTION-003: responsive actions are stacked on phones and side by side on desktop',async({page})=>{
+  await page.setViewportSize({width:375,height:812});
+  await page.goto(base+'/?friends=1&use=1');
+  const use=page.locator('[data-ticket-action="use"]');
+  const transfer=page.locator('[data-ticket-action="transfer"]');
+  const phoneUse=await use.boundingBox(),phoneTransfer=await transfer.boundingBox();
+  expect(phoneUse&&phoneTransfer).toBeTruthy();
+  expect(phoneTransfer.y).toBeGreaterThanOrEqual(phoneUse.y+phoneUse.height-1);
+  expect(phoneUse.width).toBeGreaterThan(250);
+  await page.setViewportSize({width:1200,height:900});
+  const desktopUse=await use.boundingBox(),desktopTransfer=await transfer.boundingBox();
+  expect(desktopUse&&desktopTransfer).toBeTruthy();
+  expect(Math.abs(desktopUse.y-desktopTransfer.y)).toBeLessThan(3);
+  expect(desktopTransfer.x).toBeGreaterThan(desktopUse.x+desktopUse.width-1);
 });
