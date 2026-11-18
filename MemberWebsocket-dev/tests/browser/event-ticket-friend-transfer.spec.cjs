@@ -19,9 +19,16 @@ const ids = [
 ];
 function nodes(names) {
   return names.map(id => {
-    if(id==='ticketTransferFriendSelect') return '<select id="'+id+'"><option value="">載入中</option></select>';
-    if(id==='ticketTransferPanel') return '<section id="'+id+'" hidden></section>';
-    if(id==='ticketTransferButton'||id==='ticketModalAction'||id==='closeTicketModal'||id.includes('Button')) return '<button id="'+id+'" type="button">'+id+'</button>';
+    if(id==='eventList') return '<div id="eventList" class="event-list"></div>';
+    if(id==='ticketTransferPanel') return [
+      '<section id="ticketTransferPanel" class="ticket-transfer-panel" hidden>',
+      '<h3>轉贈給好友</h3><label for="ticketTransferFriendSelect">選擇已加入的好友</label>',
+      '<select id="ticketTransferFriendSelect"><option value="">載入中</option></select>',
+      '<p id="ticketTransferStatus"></p>',
+      '<button id="ticketTransferButton" type="button">確認轉贈好友</button></section>'
+    ].join('');
+    if(['ticketTransferFriendSelect','ticketTransferStatus','ticketTransferButton'].includes(id)) return '';
+    if(id==='ticketModalAction'||id==='closeTicketModal'||id.includes('Button')) return '<button id="'+id+'" type="button">'+id+'</button>';
     return '<div id="'+id+'"></div>';
   }).join('\n');
 }
