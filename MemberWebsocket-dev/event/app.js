@@ -222,8 +222,10 @@
     if (claim && ticket.requiresLocation && !history) els.ticketModalLocationStatus.textContent = `可使用地點：${window.TicketLiveLocation.allowedLocationLabel(ticket.redemptionLocations)}。正在檢查 GPS；領取票券不需定位。`;
     let bookingChoice = els.ticketModal.querySelector('[data-ticket-booking-choice]');
     if (!bookingChoice) { bookingChoice = document.createElement('div'); bookingChoice.dataset.ticketBookingChoice = ''; els.ticketModalStatus.before(bookingChoice); }
-    bookingChoice.hidden = history || !claim || reserved;
-    window.TicketBookingChoice?.mount(bookingChoice, Array.isArray(offer.eligibleBookings) ? offer.eligibleBookings : [], () => { els.ticketModalAction.disabled = !offer.canUse || !window.TicketBookingChoice.selected(bookingChoice); if (needsGps) syncLiveLocationState(offer); });
+    const choiceMode = window.TicketBookingChoice?.eventOptions?.(ticket, offer.eligibleBookings)
+      || { requiresBooking: true, bookings: [] };
+    bookingChoice.hidden = history || !claim || reserved || !choiceMode.requiresBooking;
+    window.TicketBookingChoice?.mount(bookingChoice, choiceMode.bookings, () => { els.ticketModalAction.disabled = !offer.canUse || !window.TicketBookingChoice.selected(bookingChoice); if (needsGps) syncLiveLocationState(offer); });
     const canTransfer = canTransferTicket(offer);
     els.ticketTransferPanel.hidden = !canTransfer;
     els.ticketTransferFriendSelect.disabled = state.processing || state.actionLocked || !canTransfer || els.ticketTransferFriendSelect.options.length <= 1;
