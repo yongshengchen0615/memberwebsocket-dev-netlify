@@ -165,7 +165,7 @@ serveBusiness('booking-line-notifications',async (request: Request) => {
     // Bounded parallel work finishes comfortably inside the two-minute claim lease.
     for (let offset = 0; offset < jobs.length; offset += 5) {
       await Promise.all(jobs.slice(offset, offset + 5).map(async (job: any) => {
-        if (job.channel === 'admin' ? config.data.ADMIN_NOTIFICATIONS_DISABLED : config.data.MEMBER_NOTIFICATIONS_DISABLED) {
+        if (job.channel === 'admin' ? config.data.ADMIN_NOTIFICATIONS_DISABLED : job.channel === 'frontdesk' ? config.data.FRONTDESK_NOTIFICATIONS_DISABLED : config.data.MEMBER_NOTIFICATIONS_DISABLED) {
           const suppressed = await db.from('notice_outbox').update({status:'skipped',last_error:'NOTIFICATIONS_DISABLED'})
             .eq('id',job.id).eq('status','sending').eq('attempt_count',job.attempt_count).select('id');
           if (suppressed.error || suppressed.data?.length !== 1) failed++;
@@ -200,8 +200,20 @@ serveBusiness('booking-line-notifications',async (request: Request) => {
           return;
         }
 
-        const token = job.channel === 'admin' ? config.data.LINE_BOOKING_ADMIN_CHANNEL_ACCESS_TOKEN : config.data.LINE_BOOKING_MEMBER_CHANNEL_ACCESS_TOKEN;
+        const token = job.channel === 'admin' ? config.data.LINE_BOOKING_ADMIN_CHANNEL_ACCESS_TOKEN : job.channel === 'frontdesk' ? config.data.LINE_BOOKING_FRONTDESK_CHANNEL_ACCESS_TOKEN : config.data.LINE_BOOKING_MEMBER_CHANNEL_ACCESS_TOKEN;
         let deliveryJob = job;
+        if(job.channel==='frontdesk'){
+          const current=await db.rpc('platform_frontdesk_delivery',{p_actor:job.recipient});
+          if(current.error){failed++;return;}
+          if(current.data?.allowed!==true){
+            const skippedRow=await db.from('notice_outbox').update({status:'skipped',last_error:'FRONTDESK_ACCESS_REVOKED'}).eq('id',job.id).eq('status','sending').eq('attempt_count',job.attempt_count).select('id');
+            if(skippedRow.error||skippedRow.data?.length!==1)failed++;else skipped++;
+            return;
+          }
+          const entry=current.data;
+          const params=new URLSearchParams({business:entry.business,bookingId:job.booking_id});
+          deliveryJob={...job,frontdeskCanReview:entry.permissionMode==='review',frontdeskUri:`https://liff.line.me/${entry.liffId}?${params}`};
+        }
         if (job.channel === 'member' && String(job.event_key || '').includes(':completed:') && job.booking_id) {
           const settlement = await db.from('booking_completion_settlements')
             .select('service_minutes,reward_details')

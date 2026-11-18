@@ -85,7 +85,9 @@ export function createClient(url:string,key:string,options?:any):import('npm:@su
    if(name==='booking_notification_config')return control().rpc(name).then(({data,error}:any)=>({error,data:error?null:{BOOKING_NOTIFICATION_DISPATCH_SECRET:data?.BOOKING_NOTIFICATION_DISPATCH_SECRET,
     LINE_BOOKING_ADMIN_CHANNEL_ACCESS_TOKEN:notificationToken(current,'admin'),LINE_BOOKING_MEMBER_CHANNEL_ACCESS_TOKEN:notificationToken(current,'member'),
     ADMIN_NOTIFICATIONS_DISABLED:current.module_line?.booking?.notifications?.admin?.mode==='disabled',
-    MEMBER_NOTIFICATIONS_DISABLED:current.module_line?.booking?.notifications?.member?.mode==='disabled'}}));
+    MEMBER_NOTIFICATIONS_DISABLED:current.module_line?.booking?.notifications?.member?.mode==='disabled',
+    LINE_BOOKING_FRONTDESK_CHANNEL_ACCESS_TOKEN:notificationToken(current,'frontdesk'),FRONTDESK_NOTIFICATIONS_DISABLED:current.module_line?.booking?.frontdesk?.enabled!==true}}));
+   if(name==='platform_frontdesk_delivery')return control().rpc(name,{p_tenant_id:current.id,p_actor:params?.p_actor});
    if(name==='get_line_setting'){
     const keys:Record<string,string>={LINE_MEMBER_LIFF_ID:'memberLiffId',LINE_POINTS_LIFF_ID:'pointsLiffId',LINE_EVENT_LIFF_ID:'eventLiffId',LINE_CALENDAR_LIFF_ID:'calendarLiffId',LINE_BOOKING_LIFF_ID:'bookingLiffId',LINE_ADMIN_LIFF_ID:'adminLiffId'};
     if(keys[params?.p_key])return Promise.resolve({data:current.customLineReady?current.line_config?.[keys[params.p_key]]||null:null,error:null});
@@ -167,7 +169,7 @@ async function credentials(c:Context,feature?:string,identityOnly=false){
  c.notificationCredentials={};
  if(module?.notifications && Object.keys(module.notifications).length){
   const result=await db.rpc('platform_notification_credentials',{p_tenant_id:c.id,p_feature:feature});
-  for(const purpose of ['admin','member']){
+  for(const purpose of ['admin','member','frontdesk']){
    const mode=module.notifications[purpose]?.mode;
    if(mode==='disabled')c.notificationCredentials[purpose]='';
    else if(mode==='custom'){

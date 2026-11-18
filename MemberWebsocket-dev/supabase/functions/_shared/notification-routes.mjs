@@ -22,6 +22,7 @@ export async function verifyNotificationToken(token, channelId, fetchImpl = fetc
     throw new PlatformError(400,'LINE_NOTIFICATION_INVALID','Token 已失效或不屬於此 Messaging API Channel。請重新發行 long-lived token。');
 }
 export function notificationToken(context, purpose = 'member') {
+  if (purpose === 'frontdesk') return context.notificationCredentials?.frontdesk || '';
   if (Object.hasOwn(context.notificationCredentials || {}, purpose)) return context.notificationCredentials[purpose];
   return context.credentials?.channelAccessToken || '';
 }

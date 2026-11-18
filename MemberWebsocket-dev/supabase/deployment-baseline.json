@@ -332,6 +332,7 @@
     "event-ticket-extension-api",
     "event-ticket-links",
     "fixed-ticket-automation",
+    "frontdesk-api",
     "grant-automation",
     "line-webhook",
     "member-calendar-api",

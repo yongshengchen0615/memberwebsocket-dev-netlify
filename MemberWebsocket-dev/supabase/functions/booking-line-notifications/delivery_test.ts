@@ -1,5 +1,13 @@
 import { buildBookingFlexMessage, deliver } from './delivery.ts';
 
+Deno.test('frontdesk review has only its trusted tenant entry; notify-only has no action',()=>{
+ const job={id:'11111111-1111-4111-8111-111111111111',recipient:'U'+'a'.repeat(32),message_text:'【預約】\n預約人：測試\n日期：2026/11/18',channel:'frontdesk',attempt_count:1,booking_id:'22222222-2222-4222-8222-222222222222'};
+ const read=JSON.stringify(buildBookingFlexMessage({...job,frontdeskCanReview:false}));
+ assert(!read.includes('處理預約'),'notify-only must have no management action');
+ const review=JSON.stringify(buildBookingFlexMessage({...job,frontdeskCanReview:true,frontdeskUri:'https://liff.line.me/2010999999-desk?business=shop-a&bookingId='+job.booking_id}));
+ assert(review.includes('處理預約')&&review.includes('shop-a'),'review must use its actual tenant LIFF');
+});
+
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }

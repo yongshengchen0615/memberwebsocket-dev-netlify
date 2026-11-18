@@ -1,7 +1,7 @@
 const fixture=require('./business-runtime-fixture.cjs');
 const {shared,key}=require('./platform-fixture.cjs');
-module.exports=async()=>{
- const h=await fixture();
+module.exports=async(options={})=>{
+ const h=await fixture(options);
  // This cross-module browser fixture uses the production platform handler.
  // Apply the new platform registration migration to its physical SQL DB too.
  const fs=require('node:fs'),path=require('node:path');

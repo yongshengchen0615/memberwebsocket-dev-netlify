@@ -1,3 +1,7 @@
 # LINE authenticates the raw request with x-line-signature inside the handler.
 [functions.line-webhook]
 verify_jwt = false
+
+# LINE ID tokens are verified against each merchant frontdesk audience in the handler.
+[functions.frontdesk-api]
+verify_jwt = false

@@ -8,6 +8,10 @@ export const MERCHANT_ADMIN_CHANNEL_ID = '2010791619';
 export const verifyPlatformIdToken = options => verifyChannelToken(options, PLATFORM_CHANNEL_ID, '總管理員');
 // channelId is resolved from the trusted business record by the handler.
 export const verifyMerchantAdminIdToken = (options, channelId = MERCHANT_ADMIN_CHANNEL_ID) => verifyChannelToken(options, channelId, '一般管理員');
+export const verifyFrontdeskIdToken = (options, channelId) => {
+  if (!/^\d{5,30}$/.test(channelId || '')) throw new PlatformError(403,'FRONTDESK_UNAVAILABLE','櫃檯登入入口尚未設定。');
+  return verifyChannelToken(options, channelId, '櫃檯');
+};
 
 function requireIdToken(idToken) {
   if (typeof idToken !== 'string' || !idToken || idToken.length > 10_000) {

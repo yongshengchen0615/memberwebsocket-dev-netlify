@@ -164,6 +164,9 @@ jobs:
             MemberWebsocket-dev/tests/integration/snapshot_completion_controls.cjs \
             MemberWebsocket-dev/tests/integration/receipt_refresh_state.cjs \
             MemberWebsocket-dev/tests/integration/friend_qr_scanner.cjs
+      - name: Check frontdesk tenant and UI contracts
+        if: matrix.suite == 'core'
+        run: node --test MemberWebsocket-dev/tests/integration/frontdesk_access.cjs MemberWebsocket-dev/tests/integration/frontdesk_api.cjs MemberWebsocket-dev/tests/integration/frontdesk_legacy.cjs MemberWebsocket-dev/tests/integration/frontdesk_race.cjs MemberWebsocket-dev/tests/integration/frontdesk_ui.cjs
       - name: Check extended DOM, SQL and human journeys
         if: matrix.suite == 'extended'
         run: |
@@ -351,6 +354,7 @@ jobs:
           MemberWebsocket-dev/tests/integration/postgres/line-webhook.cjs
           MemberWebsocket-dev/tests/integration/postgres/member-invitations.cjs
           MemberWebsocket-dev/tests/integration/postgres/admin-qualification.cjs
+          MemberWebsocket-dev/tests/integration/postgres/frontdesk-access.cjs
           MemberWebsocket-dev/tests/integration/postgres/merchant-applications.cjs
           MemberWebsocket-dev/tests/integration/postgres/sandbox-fixture-lifecycle.cjs
           MemberWebsocket-dev/tests/integration/postgres/deployment-release.cjs
@@ -376,6 +380,7 @@ jobs:
         run: |
           deno check \
             MemberWebsocket-dev/supabase/functions/platform-api/index.ts \
+            MemberWebsocket-dev/supabase/functions/frontdesk-api/index.ts \
             MemberWebsocket-dev/supabase/functions/line-webhook/index.ts \
             MemberWebsocket-dev/supabase/functions/api/index.ts \
             MemberWebsocket-dev/supabase/functions/birthday-benefits/index.ts \

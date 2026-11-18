@@ -450,6 +450,7 @@
       }
       section.append(status); notificationForms(view);webhookPanel(view);
       section.append(view.links, reload); container.append(section); views.set(feature,view);created.add(view);update(view);
+      if(feature==='booking')window.FrontdeskSettings?.mount({root:section,request,business:tenant.slug});
     }
     renderShared();renderNav();
     return created;

@@ -19,6 +19,8 @@ export type Job = {
   benefits?: BookingBenefits;
   copyText?: string;
   bookingStatus?: string;
+  frontdeskCanReview?: boolean;
+  frontdeskUri?: string;
 };
 export type Delivery = { accepted: boolean; retryable: boolean; status: number | null; lineRequestId: string };
 
@@ -420,7 +422,7 @@ function makeAltText(parsed: ParsedBookingMessage): string {
 export function buildBookingFlexMessage(job: Job): LineFlexMessage {
   const parsed = parseBookingMessage(job.message_text);
   const style = TITLE_STYLES[parsed.title] || { color: '#315D50', eyebrow: 'BOOKING NOTICE' };
-  const channelLabel = job.channel === 'admin' ? '管理端預約通知' : '會員預約通知';
+  const channelLabel = job.channel === 'admin' ? '管理端預約通知' : job.channel === 'frontdesk' ? '櫃檯預約通知' : '會員預約通知';
   const bodyContents: Array<Record<string, unknown>> = [];
 
   const schedule = scheduleCard(parsed, style.color);
@@ -437,6 +439,9 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
   if (!bodyContents.length) bodyContents.push(fallbackCard(parsed.fallbackText));
 
   const footerActions: Array<Record<string, unknown>> = [];
+  if (job.channel === 'frontdesk' && job.frontdeskCanReview === true && /^https:\/\/liff\.line\.me\/\d{5,30}-[A-Za-z0-9_-]+\?/.test(job.frontdeskUri || '')) {
+    footerActions.push({type:'button',height:'sm',style:'primary',action:{type:'uri',label:'查看／處理預約',uri:job.frontdeskUri}});
+  }
   if (memberConfirmation || memberReminder) {
     // Confirmation and reminders share participant cards; reminders also show the merchant's notice and contact details.
     bodyContents.length = 0;
