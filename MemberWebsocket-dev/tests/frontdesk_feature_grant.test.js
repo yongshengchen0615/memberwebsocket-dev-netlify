@@ -14,7 +14,7 @@ const workspace = read('admin/business-workspace.js');
 test('AC-FD-GRANT-001: platform grants a distinct frontdesk feature and defaults missing grants to denied',()=>{
   assert.match(policy,/frontdesk:\s*'櫃檯設定'/);
   assert.match(root,/featureKeys=\[[^\]]*'frontdesk'/);
-  assert.match(root,/frontdesk\s*&&\s*application/); // updated implementation can ensure qualified ready link
+  assert.match(root,/if\(tenant\?\.features\?\.booking===true && tenant\?\.features\?\.frontdesk===true\)/);
   assert.match(migration,/create or replace function public\.platform_features_valid/);
   assert.match(migration,/p \? 'frontdesk'/);
   assert.match(root,/data\-grant\-feature/);
