@@ -46,7 +46,7 @@ test('AC-FD-NAV-003: separate page validates LINE identity and server-side merch
   assert.match(script,/features\?\.booking\s*!==\s*true/);
   assert.match(script,/features\?\.frontdesk\s*!==\s*true/);
   assert.match(script,/FrontdeskSettings\.mount\(/);
-  assert.match(script,/FrontdeskSettings\.clear\(/);
+  assert.match(script,/FrontdeskSettings\?\.clear\(/);
   assert.match(script,/idToken/);
   assert.doesNotMatch(script,/localStorage\.setItem\([^\n]*[Tt]oken/);
 });
