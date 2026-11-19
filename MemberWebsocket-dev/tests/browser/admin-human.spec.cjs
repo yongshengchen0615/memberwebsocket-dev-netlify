@@ -225,6 +225,34 @@ test('MOBILE_SURFACE_NAV — 390px feature tabs swipe in one row and unscoped ti
   await expect(p.locator('#clientPageTitleShortcut')).toBeHidden();
 });
 
+test('TITLE_BOOKING_EXCLUSIVE — booking and title panels never overlap on repeated navigation',async({page:p})=>{
+  const titleTab=p.locator('#clientPageTitleTab'),titlePanel=p.locator('#clientPageTitleShortcut');
+  const bookingTab=p.locator('#bookingTab'),bookingPanel=p.locator('#bookingPanel');
+  // The isolated fixture has no approved merchant. Enable only the test's
+  // navigation control; backend title-save authorization is tested separately.
+  await p.evaluate(()=>{
+    const tab=document.getElementById('clientPageTitleTab');
+    tab.hidden=false;tab.disabled=false;tab.dataset.businessAllowed='true';
+  });
+  await titleTab.click();
+  await expect(titleTab).toHaveAttribute('aria-selected','true');
+  await expect(titlePanel).toBeVisible();
+  await expect(bookingTab).toHaveAttribute('aria-selected','false');
+  await expect(bookingPanel).toBeHidden();
+
+  await bookingTab.click();
+  await expect(bookingTab).toHaveAttribute('aria-selected','true');
+  await expect(bookingPanel).toBeVisible();
+  await expect(titleTab).toHaveAttribute('aria-selected','false');
+  await expect(titlePanel).toBeHidden();
+
+  await titleTab.click();
+  await expect(titlePanel).toBeVisible();
+  await expect(titleTab).toHaveAttribute('aria-selected','true');
+  await expect(bookingPanel).toBeHidden();
+  await expect(bookingTab).toHaveAttribute('aria-selected','false');
+});
+
 for(const [target,tab,panel] of [
   ['member-grant','membersTab','membersPanel'],
   ['booking-services','bookingTab','bookingAdminServicesPanel'],
