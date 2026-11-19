@@ -479,9 +479,13 @@
     try {
       const result = await request('platform.application.bootstrap');
       if (!result.tenant || result.tenant.slug !== business || result.application?.status !== 'approved' || (result.tenant.status === 'suspended' || result.tenant.expired)) throw Object.assign(Error('此商家的 LINE 設定權限尚未開放。'),{code:'BUSINESS_FORBIDDEN'});
-      const grantsChanged = JSON.stringify(grants) !== JSON.stringify(result.tenant.features);
+      // Never re-enable a grant that a newer workspace update revoked while
+      // this bootstrap was in flight. Both snapshots must allow the feature.
+      const nextGrants = Object.fromEntries(Object.entries(result.tenant.features)
+        .map(([key, enabled]) => [key, enabled === true && grants[key] === true]));
+      const grantsChanged = JSON.stringify(grants) !== JSON.stringify(nextGrants);
       tenant = result.tenant;
-      grants = { ...result.tenant.features };
+      grants = nextGrants;
       if (grantsChanged) {
         // Reconcile merchant tabs with the same authoritative tenant snapshot.
         window.BusinessWorkspace?.apply({ business: tenant, features: grants });
