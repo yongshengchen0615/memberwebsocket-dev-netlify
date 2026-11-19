@@ -186,6 +186,46 @@ for(const width of [390,1280])test('FRONTDESK_SETTINGS_STANDALONE_'+width+' — 
  await expect(page.locator('#frontdeskManageBusiness')).toHaveAttribute('href','/admin/?business=shop-a');
  expect(calls.some(c=>c.action==='platform.application.bootstrap')).toBe(true);
  expect(calls.some(c=>c.action==='platform.frontdesk.get')).toBe(true);
+ // The explicit app theme, not OS color preference, owns every standalone color.
+ await page.emulateMedia({colorScheme:'dark'});
+ const palette=[];
+ for(const theme of ['light','dark']){
+  await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
+  const sample=await page.evaluate(()=>{
+   const rgb=s=>s.match(/[\d.]+/g).slice(0,3).map(Number);
+   const luminance=color=>rgb(color).map(x=>{
+    x/=255;return x<=.04045?x/12.92:((x+.055)/1.055)**2.4;
+   }).reduce((sum,x,i)=>sum+x*[.2126,.7152,.0722][i],0);
+   const contrast=(a,b)=>{const x=luminance(a),y=luminance(b);return(Math.max(x,y)+.05)/(Math.min(x,y)+.05);};
+   const shell=getComputedStyle(document.querySelector('.frontdesk-settings-standalone'));
+   const form=getComputedStyle(document.querySelector('.frontdesk-settings-content'));
+   const input=getComputedStyle(document.querySelector('[name=liffId]'));
+   const save=getComputedStyle(document.querySelector('.frontdesk-config-form button[type=submit]'));
+   const headings=getComputedStyle(document.querySelector('#frontdeskPageHeading'));
+   const pageStatus=getComputedStyle(document.querySelector('#frontdeskPageStatus'));
+   return{
+    primary:shell.getPropertyValue('--fd-primary').trim(),
+    expectedPrimary:shell.getPropertyValue('--ui-primary').trim(),
+    background:getComputedStyle(document.body).backgroundColor,
+    fieldBackground:input.backgroundColor,
+    columns:form.gridTemplateColumns.split(' ').length,
+    saveContrast:contrast(save.color,save.backgroundColor),
+    titleContrast:contrast(headings.color,getComputedStyle(document.querySelector('.frontdesk-page-header')).backgroundColor),
+    statusContrast:contrast(pageStatus.color,pageStatus.backgroundColor),
+    overflows:document.documentElement.scrollWidth>innerWidth
+   };
+  });
+  expect(sample.primary).toBe(sample.expectedPrimary);
+  expect(sample.columns).toBe(width===1280?2:1);
+  expect(sample.saveContrast).toBeGreaterThanOrEqual(4.5);
+  expect(sample.titleContrast).toBeGreaterThanOrEqual(4.5);
+  expect(sample.statusContrast).toBeGreaterThanOrEqual(4.5);
+  expect(sample.overflows).toBe(false);
+  palette.push(sample);
+ }
+ expect(palette[0].background).not.toBe(palette[1].background);
+ expect(palette[0].fieldBackground).not.toBe(palette[1].fieldBackground);
+
  // Simulate remote staff application without same-browser broadcast or focus.
  applicant=true;
  await page.clock.fastForward(16000);
