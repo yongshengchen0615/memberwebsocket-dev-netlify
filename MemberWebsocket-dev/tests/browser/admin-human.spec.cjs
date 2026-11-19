@@ -731,7 +731,7 @@ test('BOOKING_ACCESSIBLE_GROUP — no existing booking link, two people choose d
   await expect(p.locator('#accessibleAdminModal')).toBeHidden();
   const writes=calls(info.fixture,'admin.booking.receipt.register');
   expect(writes).toHaveLength(1);
-  expect(writes[0].payload).not.toHaveProperty('bookingId');
+  expect(Object.hasOwn(writes[0].payload,'bookingId')).toBe(false);
   expect(writes[0].payload.participants).toEqual([
     {technicianId:'tech-1',memberNote:'A note',items:[{serviceId:'service-1',minutes:60,quantity:1}]},
     {technicianId:'tech-2',memberNote:'B note',items:[{serviceId:'service-2',minutes:90,quantity:1}]},
