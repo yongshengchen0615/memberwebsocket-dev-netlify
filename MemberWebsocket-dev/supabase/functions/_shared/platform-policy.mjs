@@ -27,7 +27,7 @@ export function validateTenant(input, creating = true, { allowIncompleteFeatureL
     || ![Object.keys(FEATURES).length - 1, Object.keys(FEATURES).length].includes(Object.keys(features).length)
     || Object.keys(FEATURES).some(k => k !== 'frontdesk' && typeof features[k] !== 'boolean')
     || (features.frontdesk !== undefined && typeof features.frontdesk !== 'boolean')
-    || Object.keys(features).some(k => !(k in FEATURES))) invalid('請明確設定全部核心功能權限；櫃檯設定未提供時預設關閉。');
+    || Object.keys(features).some(k => !(k in FEATURES))) invalid('請明確設定全部八項核心功能權限；櫃檯設定未提供時預設關閉。');
   const line = input.line;
   const lineKeys = ['adminChannelId','memberChannelId','messagingChannelId','adminLiffId','memberLiffId','pointsLiffId','eventLiffId','calendarLiffId','bookingLiffId'];
   if (!line || typeof line !== 'object' || Array.isArray(line) || Object.keys(line).some(k => !lineKeys.includes(k))) invalid('LINE 設定格式不正確。');
