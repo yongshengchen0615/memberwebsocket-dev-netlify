@@ -4,7 +4,7 @@
   const merchantEntry = document.documentElement.dataset.workspace === 'merchant';
   const selectedBusiness=window.BusinessContext?.slug || new URLSearchParams(location.search).get('business') || '';
   // Preserve the legacy API contract while retiring these management features.
-  const featureKeys=['membership','points','events','calendar','integrations','booking','testing','usage'];
+  const featureKeys=['membership','points','events','calendar','integrations','booking','testing','usage','frontdesk'];
   const visibleFeatureKeys=featureKeys.filter(key=>key!=='integrations'&&key!=='testing'&&key!=='usage');
   const isV2=()=>state.config?.merchantApprovalVersion===2;
   const isAccount=()=>merchantEntry&&isV2()&&!selectedBusiness;
@@ -382,6 +382,10 @@
       if(ready){
         const manage=document.createElement('a');manage.href='/admin/?business='+encodeURIComponent(application.slug);manage.textContent='管理商家';manage.dataset.manageMerchant='true';manage.className='tenant-action-primary';
         actions.append(manage);
+        if(tenant?.features?.booking===true && tenant?.features?.frontdesk===true){
+          const frontdesk=document.createElement('a');frontdesk.href='/admin/?business='+encodeURIComponent(application.slug)+'&settings=frontdesk';frontdesk.textContent='櫃檯設定';frontdesk.dataset.frontdeskSettingsEntry='true';frontdesk.className='tenant-action-secondary';
+          actions.append(frontdesk);
+        }
       }else{
         const unavailable=document.createElement('p');unavailable.textContent=application.status==='pending'?'審核通過並開通後，即可管理此商家。':application.status==='rejected'?'請依審核理由修正此申請。':'請聯絡總管理員確認開通、停用或使用期限。';actions.append(unavailable);
       }
@@ -756,12 +760,16 @@
     const row=(name,detail,panel)=>{
       const article=document.createElement('article'),body=document.createElement('div'),title=document.createElement('strong'),p=document.createElement('p');
       title.textContent=name;p.textContent=detail;body.append(title,p);article.append(body);
-      if(panel){const button=document.createElement('button');button.type='button';button.className='secondary';button.dataset.setupFeature=panel;button.textContent='前往設定';button.addEventListener('click',()=>{selectMerchantPanel(panel);merchantForm.scrollIntoView?.({block:'start'});});article.append(button);}
+      if(panel){const button=document.createElement('button');button.type='button';button.className='secondary';button.dataset.setupFeature=panel;button.textContent='前往設定';button.addEventListener('click',()=>{if(panel==='frontdesk')selectMerchantWorkspaceTab('frontdesk');else{selectMerchantPanel(panel);merchantForm.scrollIntoView?.({block:'start'});}});article.append(button);}
       list.append(article);
     };
     const missing=status?.commonMissing;
     row(hasFeatureLine(tenant)?'商家管理端登入（僅首次設定）':'共用 LINE 設定',!status?'設定檢查服務尚未更新，請重新整理後再試。':missing.length?'尚缺：'+missing.map(key=>lineLabels[key]||key).join('、'):'必填資料已保存，仍需實際 LINE 驗證。','shared');
     for(const [key,label] of Object.entries(state.features))if(visibleFeatureKeys.includes(key)&&tenant.features?.[key]===true) {
+      if(key==='frontdesk'){
+        row(label,tenant.features.booking===true?'須在櫃檯設定分頁完成 LINE 入口、官方帳號與人員審核。':'須先由總管理員開通預約功能才能使用。',tenant.features.booking===true?'frontdesk':null);
+        continue;
+      }
       const feature=status?.features?.[key];
       row(label,status?.adminReady?'管理功能已開放。'+(feature?.missing.length?'自有 LINE 入口尚缺：'+feature.missing.map(name=>lineLabels[name]||name).join('、'):'可使用下方專屬入口。'):!feature?'等待伺服器確認設定。':feature.missing.length?'尚缺：'+feature.missing.map(name=>lineLabels[name]||name).join('、')
         :featureLiffNames[key]?'LIFF ID 已保存；用戶入口尚未開放。':'沿用共用 LINE 設定，無需額外 LIFF；功能尚未開放。',key);
@@ -805,34 +813,46 @@
     catch{el('copySetupMessage').textContent='無法自動複製，請將本頁顯示的商家代碼與開通狀態提供給平台聯絡人。';}
   });
   function selectMerchantWorkspaceTab(requested) {
-    const granted = (hasFeatureLine(state.merchant)?Object.keys(featureLiffNames):visibleFeatureKeys).some(key => state.merchant?.features?.[key] === true);
-    merchantWorkspaceTab = requested === 'line' && granted ? 'line' : 'overview';
-    const lineTab = el('merchantLineSettingsTab'),overviewTab = el('merchantOverviewTab');
-    if (!lineTab || !overviewTab || !el('merchantOverviewPanel') || !el('merchantLineSettingsPanel')) return;
-    lineTab.hidden = !granted; lineTab.disabled = !granted;
-    lineTab.setAttribute('aria-selected',String(merchantWorkspaceTab === 'line'));
-    overviewTab.setAttribute('aria-selected',String(merchantWorkspaceTab === 'overview'));
-    // Roving tab stops let keyboard users enter only the currently selected panel.
-    lineTab.tabIndex = merchantWorkspaceTab === 'line' ? 0 : -1;
-    overviewTab.tabIndex = merchantWorkspaceTab === 'overview' ? 0 : -1;
-    el('merchantLineSettingsPanel').hidden = merchantWorkspaceTab !== 'line';
-    el('merchantOverviewPanel').hidden = merchantWorkspaceTab !== 'overview';
+    const tenant=state.merchant;
+    const granted=Object.keys(featureLiffNames).some(key=>tenant?.features?.[key]===true);
+    const frontdeskGranted=tenant?.features?.booking===true && tenant?.features?.frontdesk===true;
+    merchantWorkspaceTab=requested==='frontdesk'&&frontdeskGranted?'frontdesk':requested==='line'&&granted?'line':'overview';
+    const tabs=[
+      {key:'overview',tab:el('merchantOverviewTab'),panel:el('merchantOverviewPanel'),allowed:true},
+      {key:'line',tab:el('merchantLineSettingsTab'),panel:el('merchantLineSettingsPanel'),allowed:granted},
+      {key:'frontdesk',tab:el('merchantFrontdeskSettingsTab'),panel:el('merchantFrontdeskSettingsPanel'),allowed:frontdeskGranted}
+    ];
+    if(tabs.some(item=>!item.tab||!item.panel))return;
+    for(const item of tabs){
+      item.tab.hidden=!item.allowed;
+      item.tab.disabled=!item.allowed;
+      const active=item.key===merchantWorkspaceTab;
+      item.tab.setAttribute('aria-selected',String(active));
+      item.tab.tabIndex=active?0:-1;
+      item.panel.hidden=!active;
+    }
+    if(merchantWorkspaceTab==='frontdesk')
+      el('merchantFrontdeskSettingsContent')?.querySelector?.('[data-frontdesk-settings]')?.setAttribute('open','');
   }
   function handleMerchantWorkspaceTabKeydown(event) {
-    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-    const lineTab = el('merchantLineSettingsTab');
-    // A withheld module never becomes visible or keyboard-reachable.
-    if (!lineTab || lineTab.hidden || lineTab.disabled) return;
+    if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+    const tabs=[
+      ['overview',el('merchantOverviewTab')],
+      ['line',el('merchantLineSettingsTab')],
+      ['frontdesk',el('merchantFrontdeskSettingsTab')]
+    ].filter(([,tab])=>tab&&!tab.hidden&&!tab.disabled);
+    if(tabs.length<2)return;
     event.preventDefault();
-    const next = event.key === 'Home' ? 'overview' : event.key === 'End' ? 'line'
-      : merchantWorkspaceTab === 'overview' ? 'line' : 'overview';
-    selectMerchantWorkspaceTab(next);
-    el(next === 'line' ? 'merchantLineSettingsTab' : 'merchantOverviewTab')?.focus();
+    const current=tabs.findIndex(([key])=>key===merchantWorkspaceTab);
+    const next=event.key==='Home'?0:event.key==='End'?tabs.length-1
+      :event.key==='ArrowRight'?(current+1)%tabs.length:(current+tabs.length-1)%tabs.length;
+    selectMerchantWorkspaceTab(tabs[next][0]);
+    tabs[next][1].focus();
   }
-  el('merchantOverviewTab')?.addEventListener('click',()=>selectMerchantWorkspaceTab('overview'));
-  el('merchantLineSettingsTab')?.addEventListener('click',()=>selectMerchantWorkspaceTab('line'));
-  el('merchantOverviewTab')?.addEventListener('keydown',handleMerchantWorkspaceTabKeydown);
-  el('merchantLineSettingsTab')?.addEventListener('keydown',handleMerchantWorkspaceTabKeydown);
+  for(const id of ['merchantOverviewTab','merchantLineSettingsTab','merchantFrontdeskSettingsTab']){
+    el(id)?.addEventListener('click',()=>selectMerchantWorkspaceTab(id==='merchantOverviewTab'?'overview':id==='merchantLineSettingsTab'?'line':'frontdesk'));
+    el(id)?.addEventListener('keydown',handleMerchantWorkspaceTabKeydown);
+  }
   function selectMerchantPanel(feature, reveal = true) {
     if(merchantSaving||state.merchantPending)return;
     const tenant=state.merchant;
@@ -841,7 +861,7 @@
       window.BusinessLineSettings?.select(feature);return;
     }
     // A stale bookmark or a forged query string never exposes an unapproved feature.
-    merchantPanel=feature==='shared'||(visibleFeatureKeys.includes(feature)&&tenant?.features?.[feature]===true)?feature:'shared';
+    merchantPanel=feature==='shared'||(Object.keys(featureLiffNames).includes(feature)&&tenant?.features?.[feature]===true)?feature:'shared';
     if (reveal) selectMerchantWorkspaceTab('line');
     for(const panel of merchantForm.querySelectorAll('[data-merchant-panel]'))
       panel.hidden=panel.dataset.merchantPanel!==merchantPanel;
@@ -880,7 +900,7 @@
     const nav=el('merchantFeatureNav');nav.replaceChildren();
     // Fail closed: only server-returned grants are rendered on the top bar.
     // Productized business mutations remain unavailable until isolated APIs exist.
-    for(const [feature,label] of [['shared','共用 LINE 設定'],...Object.entries(state.features).filter(([key])=>visibleFeatureKeys.includes(key))]) {
+    for(const [feature,label] of [['shared','共用 LINE 設定'],...Object.entries(state.features).filter(([key])=>Object.keys(featureLiffNames).includes(key))]) {
       if(feature!=='shared'&&tenant.features?.[feature]!==true)continue;
       const button=document.createElement('button');
       button.type='button';button.dataset.lineFeature=feature;button.textContent=label;
@@ -952,7 +972,7 @@
     el('merchantMessage').textContent='';state.merchantPending=null;
     const deepLink=new URLSearchParams(location.search).get('feature');
     renderMerchantNav(tenant);
-    selectMerchantWorkspaceTab(deepLink && tenant.features?.[deepLink]===true ? 'line' : merchantWorkspaceTab);
+    selectMerchantWorkspaceTab(new URLSearchParams(location.search).get('settings')==='frontdesk' ? 'frontdesk' : deepLink && tenant.features?.[deepLink]===true ? 'line' : merchantWorkspaceTab);
     renderChecklist(tenant);
   }
   applicationForm.addEventListener('submit',async event=>{

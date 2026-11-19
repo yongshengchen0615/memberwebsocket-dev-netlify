@@ -19,7 +19,7 @@ test('AC-203: legacy grants cannot re-enable retired testing and audit products 
  const app=read('platform/app.js');
  assert.match(app,/const visibleFeatureKeys=featureKeys\.filter/);
  assert.match(app,/visibleFeatureKeys\.includes\(key\) &&/);
- assert.match(app,/merchantPanel=feature==='shared'\|\|\(visibleFeatureKeys\.includes\(feature\)/);
+ assert.match(app,/merchantPanel=feature==='shared'\|\|\(Object\.keys\(featureLiffNames\)\.includes\(feature\)/);
 });
 test('AC-204: admin QA scripts are excluded from public Netlify builds',()=>{
  const build=fs.readFileSync(path.join(repo,'scripts/build-site.mjs'),'utf8');

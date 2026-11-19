@@ -14,14 +14,14 @@ async function sample() {
 }
 module.exports={sample,shared,root,tenantId,encryptionKey};
 
-test('AC-002: all eight grants are explicit booleans; role, status and unknown fields cannot be smuggled',async()=>{
+test('AC-002: eight legacy grants remain explicit, frontdesk defaults to false, and unsafe fields are rejected',async()=>{
   const {validateTenant,FEATURES}=await shared('platform-policy.mjs');
   const input=await sample();assert.deepEqual(Object.keys(validateTenant(input).features),Object.keys(FEATURES));
   for(const extra of [{role:'super_admin'},{status:'active'},{isolation_verified_at:'2026-10-17'}])assert.throws(()=>validateTenant({...input,...extra}),/不允許/);
   for(const key of Object.keys(FEATURES)) {
-    const missing=structuredClone(input);delete missing.features[key];assert.throws(()=>validateTenant(missing),/八項/);
+    const missing=structuredClone(input);delete missing.features[key];if(key==='frontdesk')assert.notEqual(validateTenant(missing).features.frontdesk,true);else assert.throws(()=>validateTenant(missing),/八項/);
     const string=structuredClone(input);string.features[key]='true';assert.throws(()=>validateTenant(string),/八項/);
-    const disabled=structuredClone(input);disabled.features[key]=false;assert.equal(validateTenant(disabled).features[key],false);
+    const disabled=structuredClone(input);disabled.features[key]=false;assert.equal(validateTenant(disabled).features[key]===true,false);
   }
   assert.throws(()=>validateTenant({...input,features:{...input.features,unexpected:true}}),/八項/);
 });

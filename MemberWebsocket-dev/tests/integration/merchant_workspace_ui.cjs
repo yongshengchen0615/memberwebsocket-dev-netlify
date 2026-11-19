@@ -1,5 +1,5 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),{JSDOM}=require('jsdom'),fs=require('node:fs'),path=require('node:path');
-const root=path.resolve(__dirname,'../..'),featureKeys=['membership','points','events','calendar','integrations','booking','testing','usage'];
+const root=path.resolve(__dirname,'../..'),featureKeys=['membership','points','events','calendar','integrations','booking','testing','usage','frontdesk'];
 const features=Object.fromEntries(featureKeys.map(k=>[k,k]));
 const qualification=(status='approved',version=2)=>({id:'q-1',status,version,displayName:'Owner',applicantLineUserId:'owner',reviewReason:'補充證明'});
 const application=(id,status='approved',overrides={})=>({id,businessName:'商家 '+id,slug:'merchant-'+id,status,version:3,requestedAt:'2026-10-01T00:00:00Z',reviewReason:status==='rejected'?'資料不足':'',tenant:status==='approved'?{id:'tenant-'+id,name:'商家 '+id,slug:'merchant-'+id,status:'active',expired:false,runtimeReady:true,onboarding:{adminReady:true},features:{points:true}}:null,...overrides});
@@ -290,7 +290,7 @@ test('v2 revoked qualification clears merchant cards and application draft witho
  }finally{h.close();}
 });
 
-test('v2 root separates qualification and merchant decisions with reasons, current versions and exact eight boolean grants',async()=>{
+test('v2 root separates qualification and merchant decisions with reasons, current versions and explicit separate frontdesk boolean grant',async()=>{
  const h=await mount({merchant:false,qualifications:[qualification('pending',4),{...qualification('suspended',7),id:'q-2'}],applications:[application('b','pending')],handler(input){
   if(input.action==='platform.qualification.review')return{qualification:{...qualification(input.decision,input.expectedVersion+1),id:input.qualificationId}};
   if(input.action==='platform.merchant.review')return{application:application('b',input.decision)};

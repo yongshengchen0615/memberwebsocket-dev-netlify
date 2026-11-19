@@ -219,7 +219,10 @@ test('AC-012: manager updates own LINE credentials only, secrets stay encrypted 
   assert.equal(bad.status,200); // extra grants are ignored by self-service action
   assert.equal(bad.body.data.tenant.features.booking,false);
   const featuresRow=(await h.db.query('select features,status from platform_private.tenants where id=$1',[savedId])).rows[0];
-  assert.deepEqual(featuresRow.features,features);assert.equal(featuresRow.status,'pending_provisioning');
+  const expectedLegacyFeatures={...features};delete expectedLegacyFeatures.frontdesk;
+  assert.deepEqual(featuresRow.features,expectedLegacyFeatures,'merchant save must not modify any of eight original grants');
+  assert.notEqual(featuresRow.features.frontdesk,true,'ungranted frontdesk must remain denied');
+  assert.equal(featuresRow.status,'pending_provisioning');
  }finally{await h.db.close();}
 });
 test('AC-013: suspended merchant, unauthenticated and SQL public roles cannot change tenant LINE metadata',async()=>{

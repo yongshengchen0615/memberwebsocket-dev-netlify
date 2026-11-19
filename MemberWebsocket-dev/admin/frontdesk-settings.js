@@ -270,5 +270,10 @@
     reload.onclick = () => void load();
     details.addEventListener('toggle', () => { if (details.open && !data) void load(); });
   }
-  window.FrontdeskSettings = Object.freeze({ mount });
+  function clear(root) {
+    if(!root)return;
+    mounted.delete(root);
+    root.querySelector('[data-frontdesk-settings]')?.remove();
+  }
+  window.FrontdeskSettings = Object.freeze({ mount, clear });
 })();

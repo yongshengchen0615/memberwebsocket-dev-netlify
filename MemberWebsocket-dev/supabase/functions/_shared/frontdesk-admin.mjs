@@ -6,6 +6,8 @@ const digest=async value=>Array.from(new Uint8Array(await crypto.subtle.digest('
 export async function frontdeskAdmin({db,body,actor,issuedAt,tenant,encryptionKey,fetchImpl}){
  const action={'platform.frontdesk.get':'get','platform.frontdesk.settings.save':'settings.save','platform.frontdesk.staff.save':'staff.save'}[body.action];
  if(!tenant?.id)throw new PlatformError(403,'BUSINESS_FORBIDDEN','請先選擇自己的商家。');
+ if(tenant.features?.frontdesk!==true || tenant.features?.booking!==true)
+  throw new PlatformError(403,'FEATURE_DISABLED','此商家尚未開通櫃檯設定或預約功能。');
  let input={};
  if(action!=='get'){
   if(!/^[0-9a-f-]{36}$/i.test(body.requestId||'')||!Number.isSafeInteger(body.expectedVersion))throw new PlatformError(400,'PLATFORM_INVALID_INPUT','操作識別碼或版本不正確。');

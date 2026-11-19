@@ -3,7 +3,7 @@ import { merchantOnboarding, featureLineReady } from './merchant-onboarding.mjs'
 import { tenantExpired } from './tenant-access.mjs';
 export const FEATURES = Object.freeze({
   membership: '會員卡', points: '集點卡', events: '活動票券', calendar: '營運日曆',
-  integrations: '整合中心', booking: '預約', testing: '測試', usage: '使用紀錄',
+  integrations: '整合中心', booking: '預約', frontdesk: '櫃檯設定', testing: '測試', usage: '使用紀錄',
 });
 export class PlatformError extends Error {
   constructor(status, code, message) { super(message); this.status = status; this.code = code; }
@@ -24,9 +24,10 @@ export function validateTenant(input, creating = true, { allowIncompleteFeatureL
   if (!/^U[0-9a-f]{32}$/.test(ownerLineUserId)) invalid('管理員 LINE User ID 格式不正確。');
   const features = input.features;
   if (!features || typeof features !== 'object' || Array.isArray(features)
-    || Object.keys(features).length !== Object.keys(FEATURES).length
-    || Object.keys(FEATURES).some(k => typeof features[k] !== 'boolean')
-    || Object.keys(features).some(k => !(k in FEATURES))) invalid('請明確設定全部八項功能權限。');
+    || ![Object.keys(FEATURES).length - 1, Object.keys(FEATURES).length].includes(Object.keys(features).length)
+    || Object.keys(FEATURES).some(k => k !== 'frontdesk' && typeof features[k] !== 'boolean')
+    || (features.frontdesk !== undefined && typeof features.frontdesk !== 'boolean')
+    || Object.keys(features).some(k => !(k in FEATURES))) invalid('請明確設定全部八項核心功能權限；櫃檯設定未提供時預設關閉。');
   const line = input.line;
   const lineKeys = ['adminChannelId','memberChannelId','messagingChannelId','adminLiffId','memberLiffId','pointsLiffId','eventLiffId','calendarLiffId','bookingLiffId'];
   if (!line || typeof line !== 'object' || Array.isArray(line) || Object.keys(line).some(k => !lineKeys.includes(k))) invalid('LINE 設定格式不正確。');
@@ -51,7 +52,7 @@ export function validateTenant(input, creating = true, { allowIncompleteFeatureL
     || (channelSecret && !/^[a-fA-F0-9]{32}$/.test(channelSecret))) invalid('LINE 憑證格式不正確。');
   if (channelAccessToken && !normalized.messagingChannelId) invalid('請提供憑證所屬的 Messaging API Channel ID。');
   if (Boolean(channelAccessToken) !== Boolean(channelSecret)) invalid('更新憑證時請同時提供 access token 與 secret。');
-  return { name, slug, ownerLineUserId, features: Object.fromEntries(Object.keys(FEATURES).map(k => [k, features[k]])), line: normalized, credentials: { channelAccessToken, channelSecret } };
+  return { name, slug, ownerLineUserId, features: Object.fromEntries(Object.keys(FEATURES).filter(k => k !== 'frontdesk' || features.frontdesk === true).map(k => [k, features[k]])), line: normalized, credentials: { channelAccessToken, channelSecret } };
 }
 export function requireFeature(tenant, feature) {
   if (!tenant || tenant.status !== 'active' || tenantExpired(tenant) || !tenant.isolation_verified_at || !/^business_[a-f0-9]{32}$/.test(tenant.runtime_schema||'')) {

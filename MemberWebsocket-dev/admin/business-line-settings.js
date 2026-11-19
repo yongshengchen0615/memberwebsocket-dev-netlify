@@ -33,8 +33,15 @@
     for(const route of view.routes?.values()||[]){route.pending=null;route.testPending=null;route.dirty=false;}
     view.section.remove();
   }
+  function frontdeskRoot() {
+    // /admin/ retains the hidden legacy shell while the visible merchant shell
+    // is imported. Never mount merchant-specific settings in the other shell.
+    const workspace=adapter?.root?.closest?.('#merchantWorkspace');
+    return (workspace || document.querySelector('#adminView'))?.querySelector('[data-frontdesk-settings-root]') || null;
+  }
   function clear() {
-    generation++;for(const view of views.values())discard(view);views.clear();
+    generation++;window.FrontdeskSettings?.clear(frontdeskRoot());
+    for(const view of views.values())discard(view);views.clear();
     if(shared){for(const input of shared.form.querySelectorAll('input'))input.value='';shared.section.remove();shared=null;}
     navNode()?.replaceChildren();tenant=null;grants={};activeFeature=null;navSignature='';saving=false;loading=false;adapter=null;
   }
@@ -453,7 +460,14 @@
       }
       section.append(status); notificationForms(view);webhookPanel(view);
       section.append(view.links, reload); container.append(section); views.set(feature,view);created.add(view);update(view);
-      if(feature==='booking')window.FrontdeskSettings?.mount({root:section,request,business:tenant.slug});
+    }
+    const targetFrontdesk=frontdeskRoot();
+    if(targetFrontdesk){
+      if(grants.booking===true && grants.frontdesk===true && tenant?.features?.booking===true && tenant?.features?.frontdesk===true){
+        window.FrontdeskSettings?.mount({root:targetFrontdesk,request,business:tenant.slug});
+        if(!targetFrontdesk.closest('[role="tabpanel"]')?.hidden)
+          targetFrontdesk.querySelector('[data-frontdesk-settings]')?.setAttribute('open','');
+      }else window.FrontdeskSettings?.clear(targetFrontdesk);
     }
     renderShared();renderNav();
     return created;

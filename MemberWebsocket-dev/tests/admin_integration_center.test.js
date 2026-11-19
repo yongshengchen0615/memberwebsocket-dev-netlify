@@ -20,11 +20,11 @@ test('AC-IC-001: integration center assets, navigation and standalone panel are 
   }
 });
 
-test('AC-IC-002: navigation order is membership, points, events, calendar, booking, LINE settings', () => {
+test('AC-IC-002: navigation preserves membership, points, events, calendar, booking and LINE settings; frontdesk is separate', () => {
   const nav = html.match(/<nav class="surface-nav"[^>]*>[\s\S]*?<\/nav>/)?.[0];
   assert.ok(nav, 'admin navigation must exist');
   const staticIds = [...nav.matchAll(/<button\s+id="([^"]+)"[^>]*role="tab"/g)].map(match => match[1]);
-  assert.deepEqual(staticIds, ['membersTab', 'cardsTab', 'eventsTab', 'calendarTab', 'lineSettingsTab']);
+  assert.deepEqual(staticIds, ['membersTab', 'cardsTab', 'eventsTab', 'calendarTab', 'lineSettingsTab', 'frontdeskSettingsTab']);
   assert.match(booking, /tab\.id = 'bookingTab'/);
   assert.match(booking, /const lineSettingsTab = document\.getElementById\('lineSettingsTab'\)/);
   assert.match(booking, /const anchor = \[lineSettingsTab, testModeTab\]/);
@@ -37,7 +37,7 @@ test('AC-IC-003: integration center cannot reappear through merchant LINE or gra
   assert.doesNotMatch(businessWorkspace, /operationsHub|integrations:/);
   assert.doesNotMatch(businessLine, /operationsHub|integrations:|整合中心/);
   assert.match(platform, /visibleFeatureKeys=featureKeys\.filter\(key=>key!=='integrations'&&key!=='testing'&&key!=='usage'\)/);
-  assert.match(platform, /featureKeys=\['membership','points','events','calendar','integrations','booking','testing','usage'\]/);
+  assert.match(platform, /featureKeys=\['membership','points','events','calendar','integrations','booking','testing','usage','frontdesk'\]/);
   assert.match(platform, /visibleFeatureKeys\.includes\(key\) && Boolean\(form\.querySelector/);
 });
 
