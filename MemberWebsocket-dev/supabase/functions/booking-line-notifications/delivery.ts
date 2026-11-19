@@ -346,6 +346,89 @@ function participantsCard(participants: ParsedBookingParticipant[], accent: stri
   };
 }
 
+// Frontdesk notices intentionally contain only the operational booking facts.
+// The other channels retain their richer member/admin cards and private notes.
+function frontdeskValue(parsed: ParsedBookingMessage, ...labels: string[]): string {
+  for (const label of labels) {
+    const value = parsed.fields.find((field) => field.label === label)?.value;
+    if (value) return value;
+  }
+  return '';
+}
+
+function frontdeskDate(value: string): string {
+  const match = value.match(/(?:^|\D)(\d{4})[/-](\d{1,2})[/-](\d{1,2})(?=\D|$)/);
+  if (!match) return '—';
+  const [, year, month, day] = match;
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+}
+
+function frontdeskStartTime(value: string): string {
+  const match = value.match(/(?:^|\D)([01]\d|2[0-3]):([0-5]\d)(?=\D|$)/);
+  return match ? `${match[1]}:${match[2]}` : '—';
+}
+
+function frontdeskSummaryLines(parsed: ParsedBookingMessage): string[] {
+  // Overnight shifts can have a business date one day before the appointment.
+  // Prefer the actual start timestamp embedded in 時段; use 營業日 only when
+  // the source has no full start date (legacy notices with a time-only range).
+  const start = frontdeskValue(parsed, '時段', '預約時間', '時間');
+  const startDate = frontdeskDate(start);
+  const date = startDate !== '—' ? startDate
+    : frontdeskDate(frontdeskValue(parsed, '預約日期', '日期', '營業日'));
+  const time = frontdeskStartTime(start);
+  return [
+    `預約日期：${date}`,
+    `預約時間：${time}`,
+    `預約人：${frontdeskValue(parsed, '預約人', '聯絡人') || '—'}`,
+    `電話：${frontdeskValue(parsed, '電話') || '—'}`,
+    `預約人數：${frontdeskValue(parsed, '預約人數') || '—'}`,
+  ];
+}
+
+function frontdeskLine(text: string, emphasized = false): Record<string, unknown> {
+  return { type: 'text', text: truncate(text, 600), size: 'sm', color: TEXT_COLOR,
+    ...(emphasized ? { weight: 'bold' } : {}), wrap: true };
+}
+
+function frontdeskCards(parsed: ParsedBookingMessage): Array<Record<string, unknown>> {
+  // A legacy notice may parse free-form text into a generic 說明 field.
+  // Only synthesize the compact summary if at least one recognized booking fact exists.
+  const known = new Set(['預約日期', '營業日', '日期', '預約時間', '時段', '時間',
+    '預約人', '聯絡人', '電話', '預約人數', '預約項目']);
+  if (!parsed.fields.some((field) => known.has(field.label))
+    && !parsed.participants.length && !parsed.services.length) {
+    return [fallbackCard(parsed.fallbackText)];
+  }
+  const summary: Record<string, unknown> = {
+    type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '14px',
+    backgroundColor: SURFACE_COLOR, cornerRadius: '12px',
+    contents: frontdeskSummaryLines(parsed).map((line) => frontdeskLine(line)),
+  };
+  const people = parsed.participants.length ? parsed.participants :
+    parsed.services.length ? [{
+      label: '第一位預約', items: parsed.services, technician: frontdeskValue(parsed, '預約技師'),
+      duration: '', amount: '',
+    }] : [];
+  if (!people.length) return [summary];
+  const contents: Array<Record<string, unknown>> = [];
+  for (const person of people) {
+    if (contents.length) contents.push({ type: 'separator', margin: 'md', color: '#E5EAE7' });
+    contents.push({
+      type: 'box', layout: 'vertical', spacing: 'sm',
+      contents: [
+        frontdeskLine(person.label, true),
+        frontdeskLine(`預約項目：${person.items.length ? person.items.join('、') : '—'}`),
+        frontdeskLine(`預約技師：${person.technician || '現場安排'}`),
+      ],
+    });
+  }
+  return [summary, {
+    type: 'box', layout: 'vertical', spacing: 'md', paddingAll: '14px',
+    backgroundColor: SURFACE_COLOR, cornerRadius: '12px', contents,
+  }];
+}
+
 function entitlementCard(title: string, items: string[], accent: string): Record<string, unknown> {
   const visible = items.slice(0, 6);
   const hidden = Math.max(0, items.length - visible.length);
@@ -432,11 +515,15 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
   const details = detailsCard(memberReminder ? parsed.fields.filter(field => field.label !== '提醒事項') : parsed.fields);
   const participants = participantsCard(parsed.participants, style.color, memberConfirmation || memberReminder);
   const services = parsed.participants.length ? null : servicesCard(parsed.services, style.color);
-  if (schedule) bodyContents.push(schedule);
-  if (details) bodyContents.push(details);
-  if (participants) bodyContents.push(participants);
-  else if (services) bodyContents.push(services);
-  if (!bodyContents.length) bodyContents.push(fallbackCard(parsed.fallbackText));
+  if (job.channel === 'frontdesk') {
+    bodyContents.push(...frontdeskCards(parsed));
+  } else {
+    if (schedule) bodyContents.push(schedule);
+    if (details) bodyContents.push(details);
+    if (participants) bodyContents.push(participants);
+    else if (services) bodyContents.push(services);
+    if (!bodyContents.length) bodyContents.push(fallbackCard(parsed.fallbackText));
+  }
 
   const footerActions: Array<Record<string, unknown>> = [];
   if (job.channel === 'frontdesk' && job.frontdeskCanReview === true && /^https:\/\/liff\.line\.me\/\d{5,30}-[A-Za-z0-9_-]+\?/.test(job.frontdeskUri || '')) {
@@ -485,7 +572,9 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
 
   return {
     type: 'flex',
-    altText: makeAltText(parsed),
+    altText: job.channel === 'frontdesk'
+      ? truncate([parsed.title, ...frontdeskSummaryLines(parsed).slice(0, 2)].join('｜'), MAX_ALT_TEXT)
+      : makeAltText(parsed),
     contents: {
       type: 'bubble',
       header: {
