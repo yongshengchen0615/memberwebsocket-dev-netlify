@@ -386,8 +386,12 @@ function frontdeskLine(text: string, emphasized = false): Record<string, unknown
 }
 
 function frontdeskCards(parsed: ParsedBookingMessage): Array<Record<string, unknown>> {
-  // Do not manufacture a booking schedule from free-form, unrecognized legacy notices.
-  if (!parsed.fields.length && !parsed.participants.length && !parsed.services.length) {
+  // A legacy notice may parse free-form text into a generic 說明 field.
+  // Only synthesize the compact summary if at least one recognized booking fact exists.
+  const known = new Set(['預約日期', '營業日', '日期', '預約時間', '時段', '時間',
+    '預約人', '聯絡人', '電話', '預約人數', '預約項目']);
+  if (!parsed.fields.some((field) => known.has(field.label))
+    && !parsed.participants.length && !parsed.services.length) {
     return [fallbackCard(parsed.fallbackText)];
   }
   const summary: Record<string, unknown> = {
