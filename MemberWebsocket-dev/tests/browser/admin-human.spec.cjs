@@ -176,14 +176,43 @@ for(const type of ['holiday','event'])test('CALENDAR_'+type+' — create, date r
   await openCalendar(p,type);await fill(p,'calendarItemEndsOn',today());if(type==='event'){await p.locator('#calendarItemAllowedTiers input[value="general"]').uncheck();await p.locator('#calendarItemAllowedTiers input[value="silver"]').uncheck();await fill(p,'calendarItemLinkLabel','QA link');await fill(p,'calendarItemLinkUrl','https://example.test/qa');}
   await click(p,'saveCalendarItemButton');await expect(p.locator('#calendarItemId')).not.toHaveValue('');await expect(p.locator('#saveCalendarItemButton')).toBeEnabled();await fill(p,'calendarItemTitle','QA calendar edited');await click(p,'saveCalendarItemButton');await expect.poll(()=>info.fixture.calendarItems[0]?.title).toBe('QA calendar edited');await click(p,'deleteCalendarItemButton');await expect(p.locator('#calendarItemId')).toHaveValue('');expect(info.fixture.calendarItems).toHaveLength(0);
 });
-test('RETIRED_CENTER — the removed panel is absent and seven top tabs remain ordered',async({page:p},info)=>{
+test('RETIRED_CENTER — the removed panel is absent and eight top tabs remain ordered',async({page:p},info)=>{
   await expect(p.locator('#operationsHubTab, #operationsHubPanel, [data-integration-view-tab], [data-integration-target]')).toHaveCount(0);
   await expect(p.locator('#bookingTab')).toHaveCount(1);
   const order=await p.evaluate(()=>Array.from(document.querySelectorAll('#adminView .surface-nav > button[role="tab"]'),node=>node.id));
   // DOM fixtures run in a separate JS realm; normalize only the array prototype.
-  expect([...order]).toEqual(['membersTab','cardsTab','eventsTab','calendarTab','bookingTab','lineSettingsTab','frontdeskSettingsTab']);
+  expect([...order]).toEqual(['membersTab','cardsTab','eventsTab','calendarTab','bookingTab','clientPageTitleTab','lineSettingsTab','frontdeskSettingsTab']);
   expect(calls(info.fixture,'admin.integration-overview')).toHaveLength(0);
 });
+
+test('MOBILE_SURFACE_NAV — 390px feature tabs swipe in one row and unscoped title stays unavailable', async ({page:p}) => {
+  await p.setViewportSize({width:390,height:844});
+  const nav=p.locator('#adminView > .surface-nav');
+  await expect(nav).toBeVisible();
+  const layout=await nav.evaluate(node=>{
+    const style=getComputedStyle(node);
+    const items=[...node.querySelectorAll('button[role="tab"]')].filter(tab=>getComputedStyle(tab).display!=='none');
+    const tops=items.map(tab=>tab.getBoundingClientRect().top);
+    return {
+      display:style.display,wrap:style.flexWrap,overflowX:style.overflowX,
+      topSpread:tops.length?Math.max(...tops)-Math.min(...tops):0,
+      scrollWidth:node.scrollWidth,clientWidth:node.clientWidth
+    };
+  });
+  expect(layout.display).toBe('flex');
+  expect(layout.wrap).toBe('nowrap');
+  expect(layout.overflowX).toBe('auto');
+  expect(layout.topSpread).toBeLessThan(3);
+  expect(layout.scrollWidth).toBeGreaterThan(layout.clientWidth);
+  await nav.evaluate(node=>{node.scrollLeft=node.scrollWidth;});
+  await expect.poll(()=>nav.evaluate(node=>node.scrollLeft)).toBeGreaterThan(0);
+  await expect(p.locator('#clientPageTitleTab')).toBeHidden();
+  await expect(p.locator('#clientPageTitleShortcut')).toBeHidden();
+  await click(p,'cardsTab');
+  await expect(p.locator('#cardsPanel')).toBeVisible();
+  await expect(p.locator('#clientPageTitleShortcut')).toBeHidden();
+});
+
 for(const [target,tab,panel] of [
   ['member-grant','membersTab','membersPanel'],
   ['booking-services','bookingTab','bookingAdminServicesPanel'],
