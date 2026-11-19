@@ -96,7 +96,7 @@ test('FRONTDESK_CONFIG_GUIDE — LINE sources, notification-card parity and auto
   request:async()=>({version:1,frontdesk:{},staff:[{id:'pending',displayName:'待審櫃檯',status:'pending',permissionMode:'notify_only',version:1}]})
  }));
  await page.locator('summary').click();
- await expect(page.locator('.frontdesk-notification-card')).toContainText('櫃檯接收 LINE 預約通知');
+ await expect(page.locator('.frontdesk-notification-card legend')).toHaveText('2. 預約通知');
  await expect(page.locator('.business-notification-toggle')).toHaveCount(1);
  await expect(page.locator('.business-line-summary')).toContainText(['尚未設定櫃檯官方帳號','待審核 1 人']);
  await expect(page.locator('#root')).toContainText('LINE Developers → LINE Login Channel → LIFF');
