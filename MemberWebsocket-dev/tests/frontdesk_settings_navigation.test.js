@@ -14,7 +14,9 @@ test('AC-FD-NAV-001: each approved merchant has distinct manage-business and fro
   assert.match(platform,/manage\.textContent='管理商家'/);
   assert.match(platform,/frontdesk\.textContent='櫃檯設定'/);
   assert.match(platform,/frontdesk\.href='\/admin\/\?business='\+encodeURIComponent\(application\.slug\)\+'&settings=frontdesk'/);
-  assert.match(platform,/actions\.append\(manage,frontdesk\)/);
+  assert.match(platform,/actions\.append\(manage\)/);
+  assert.match(platform,/actions\.append\(frontdesk\)/);
+  assert.match(platform,/tenant\?\.features\?\.frontdesk===true/);
 });
 
 test('AC-FD-NAV-002: frontdesk gets its own accessible tab/panel outside LINE settings on both merchant workspaces',()=>{
