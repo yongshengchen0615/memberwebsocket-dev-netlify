@@ -430,3 +430,13 @@ html[data-frontdesk-page] [hidden] { display: none !important; }
     width: 100%;
   }
 }
+
+/* Theme colors must change atomically. Shared buttons animate foreground and
+   background independently, temporarily reducing text contrast after a toggle. */
+html[data-frontdesk-page] :is(
+  .frontdesk-settings button,
+  .frontdesk-settings input,
+  .frontdesk-settings select,
+  .frontdesk-page-links a,
+  .theme-toggle-button
+) { transition: none; }
