@@ -78,6 +78,12 @@
   }
  }
  function selectLineTab(){selectTab(document.getElementById('lineSettingsTab'));}
+ function selectFrontdeskTab(){
+  const tab=document.getElementById('frontdeskSettingsTab');
+  if(!tab||tab.disabled)return;
+  selectTab(tab);
+  document.getElementById('frontdeskSettingsContent')?.querySelector('[data-frontdesk-settings]')?.setAttribute('open','');
+ }
  function apply(data){
   const signature=Object.keys(panels).map(key=>data.features?.[key]===true?'1':'0').join('');
   const changed=signature!==grantSignature;grantSignature=signature;
@@ -91,6 +97,10 @@
   const hasGrants=lineFeatures.some(key=>data.features?.[key]===true);
   if(lineTab){lineTab.hidden=!hasGrants;lineTab.disabled=!hasGrants;lineTab.dataset.businessAllowed=String(hasGrants);}
   if(!hasGrants && linePanel){linePanel.hidden=true;linePanel.classList.add('hidden');}
+  const frontdeskTab=document.getElementById('frontdeskSettingsTab'),frontdeskPanel=document.getElementById('frontdeskSettingsPanel');
+  const frontdeskGranted=data.features.booking===true;
+  if(frontdeskTab){frontdeskTab.hidden=!frontdeskGranted;frontdeskTab.disabled=!frontdeskGranted;frontdeskTab.dataset.businessAllowed=String(frontdeskGranted);}
+  if(!frontdeskGranted && frontdeskPanel){frontdeskPanel.hidden=true;frontdeskPanel.classList.add('hidden');}
   const usage=document.getElementById('memberUsageTab');if(usage){usage.hidden=!data.features.membership;usage.disabled=!data.features.membership;usage.dataset.businessAllowed=String(!!data.features.membership);}
   if(!document.getElementById('businessWorkspaceStatus')){
    const status=document.createElement('section');status.id='businessWorkspaceStatus';status.className='form-message success';status.setAttribute('role','status');
@@ -111,6 +121,8 @@
    else selected.setAttribute('aria-selected','false');
   }else if(selected===lineTab){
    selectLineTab();
+  }else if(selected===frontdeskTab){
+   selectFrontdeskTab();
   }
   if(changed)window.dispatchEvent(new CustomEvent('member-admin:features-updated'));
  }
@@ -118,16 +130,21 @@
   if(!latest)return;
   apply(latest);
   const requested=new URLSearchParams(location.search).get('feature');
-  const chosen=requested&&panels[requested]&&latest.features?.[requested]?document.getElementById(panels[requested]+'Tab'):null;
+  const frontdeskRequested=new URLSearchParams(location.search).get('settings')==='frontdesk';
+  const chosen=frontdeskRequested&&latest.features?.booking===true?document.getElementById('frontdeskSettingsTab')
+    :requested&&panels[requested]&&latest.features?.[requested]?document.getElementById(panels[requested]+'Tab'):null;
   const current=document.querySelector('.surface-nav [aria-selected="true"]:not([hidden]):not(:disabled)');
   (chosen||current||document.querySelector('.surface-nav button[data-business-allowed="true"]'))?.click();
  }
  document.getElementById('lineSettingsTab')?.addEventListener('click',selectLineTab);
+ document.getElementById('frontdeskSettingsTab')?.addEventListener('click',selectFrontdeskTab);
  document.querySelector('#adminView .surface-nav')?.addEventListener('click',event=>{
-  if(event.target.closest('#lineSettingsTab'))return;
-  const tab=document.getElementById('lineSettingsTab'),panel=document.getElementById('lineSettingsPanel');
-  if(tab)tab.setAttribute('aria-selected','false');
-  if(panel){panel.hidden=true;panel.classList.add('hidden');}
+  if(event.target.closest('#lineSettingsTab,#frontdeskSettingsTab'))return;
+  for(const id of ['lineSettings','frontdeskSettings']){
+   const tab=document.getElementById(id+'Tab'),panel=document.getElementById(id+'Panel');
+   if(tab)tab.setAttribute('aria-selected','false');
+   if(panel){panel.hidden=true;panel.classList.add('hidden');}
+  }
   const selected=event.target.closest('button[role="tab"]');
   const selectedPanel=selected?.getAttribute('aria-controls');
   if(selectedPanel && selected?.dataset.businessAllowed!=='false'){
