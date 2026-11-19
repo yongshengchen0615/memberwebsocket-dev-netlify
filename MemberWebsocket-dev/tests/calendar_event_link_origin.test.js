@@ -12,10 +12,10 @@ function extractFunction(name) {
   return matched[0];
 }
 
-function resolveFrom(currentPage) {
+function resolveFrom(currentPage, activeMerchant = '') {
   const functions = extractFunction('isSafeCalendarLink') + '\n' + extractFunction('resolveCalendarLink');
   return new Function('window', 'URL', functions + '\nreturn resolveCalendarLink;')(
-    { location: { href: currentPage } }, URL
+    { location: { href: currentPage }, ...(activeMerchant ? { BusinessContext: { slug: activeMerchant } } : {}) }, URL
   );
 }
 
@@ -48,8 +48,46 @@ test('AC-004: unsafe or incomplete managed ticket links are not rendered as navi
 test('AC-005: calendar link rendering and LIFF click both use the resolved URL, and ticket page supports the deep-link', () => {
   assert.ok(calendarSource.includes('const linkUrl = resolveCalendarLink(item.linkUrl);'));
   assert.ok(calendarSource.includes('link.href = linkUrl;'));
-  assert.ok(calendarSource.includes('openCalendarLinkInLine(linkUrl);'));
+  assert.ok(calendarSource.includes('openCalendarLinkInLine(link.href);'), 'click must use the rendered merchant-scoped anchor');
   assert.ok(calendarSource.includes('item.tierEligible !== false && linkLabel'));
   assert.ok(eventSource.includes("params.get('source') !== 'event-ticket-calendar'"));
   assert.ok(eventSource.includes("params.get('eventTicketId')"));
+});
+
+test('AC-006: calendar event ticket navigation preserves the active merchant instead of a stale saved merchant', () => {
+  const currentPage = 'https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app/calendar/?business=merchant-current';
+  const olderOtherMerchantLink = 'https://old.example/event/?source=event-ticket-calendar&eventTicketId=EVT-01b19b09a6b4479fb2db32352b906bde&business=merchant-other';
+  const link = new URL(resolveFrom(currentPage)(olderOtherMerchantLink));
+  assert.equal(link.origin, new URL(currentPage).origin);
+  assert.equal(link.pathname, '/event/');
+  assert.equal(link.searchParams.get('eventTicketId'), 'EVT-01b19b09a6b4479fb2db32352b906bde');
+  assert.equal(link.searchParams.get('business'), 'merchant-current');
+});
+
+test('AC-007: clicking the calendar ticket action opens the actual rendered anchor URL, not an older unscoped local variable', () => {
+  assert.ok(calendarSource.includes('openCalendarLinkInLine(link.href);'),
+    'the click handler must open the href exposed to the user (which carries merchant business scope)');
+  assert.ok(!calendarSource.includes('openCalendarLinkInLine(linkUrl);'),
+    'the click handler must not use a stale business-less linkUrl captured before link enrichment');
+});
+
+test('AC-008: an unscoped calendar does not inherit a stale merchant stored inside the historical ticket URL', () => {
+  const url = resolveFrom('https://preview.example/calendar/')(
+    'https://old.example/event/?source=event-ticket-calendar&eventTicketId=EVT-test&business=merchant-stale'
+  );
+  const link = new URL(url);
+  assert.equal(link.searchParams.get('business'), null, 'never infer tenant identity from an old persisted event link');
+});
+
+test('AC-009: a LINE callback with merchant restored in BusinessContext creates a scoped calendar ticket URL', () => {
+  const resolve = resolveFrom('https://preview.example/calendar/?code=callback&state=opaque', 'merchant-restored');
+  const link = new URL(resolve('https://old.example/event/?source=event-ticket-calendar&eventTicketId=EVT-ticket'));
+  assert.equal(link.searchParams.get('business'), 'merchant-restored');
+  assert.equal(link.searchParams.get('eventTicketId'), 'EVT-ticket');
+});
+
+test('AC-010: LINE WebView receives a new versioned calendar script with the merchant-scope fix', () => {
+  const html = fs.readFileSync('MemberWebsocket-dev/calendar/index.html', 'utf8');
+  assert.ok(html.includes('merchant-scope-20261119-1'), 'Calendar script needs cache-busting version');
+  assert.ok(html.includes('business-context.js?grants=20261107-1&callback=20261119-1'), 'merchant context must also load the latest callback handling');
 });
