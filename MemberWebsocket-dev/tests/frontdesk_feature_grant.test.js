@@ -43,7 +43,7 @@ test('AC-FD-GRANT-004: SQL protects public context, staff application, booking o
 test('AC-FD-GRANT-005: revocation drains pending frontdesk deliveries and regrant reprojects approved staff',()=>{
   assert.match(migration,/frontdesk_notice_recipients/);
   assert.match(migration,/FRONTDESK_FEATURE_DISABLED/);
-  assert.match(migration,/status in \('pending','sending'\)/);
+  assert.match(migration,/status in \(''pending'',''sending''\)/);
   assert.match(migration,/on conflict \(line_user_id\) do nothing/);
   assert.match(migration,/TENANT_FEATURES_UPDATED/);
 });
