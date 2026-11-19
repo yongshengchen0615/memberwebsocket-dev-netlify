@@ -48,7 +48,7 @@ test('AC-004: unsafe or incomplete managed ticket links are not rendered as navi
 test('AC-005: calendar link rendering and LIFF click both use the resolved URL, and ticket page supports the deep-link', () => {
   assert.ok(calendarSource.includes('const linkUrl = resolveCalendarLink(item.linkUrl);'));
   assert.ok(calendarSource.includes('link.href = linkUrl;'));
-  assert.ok(calendarSource.includes('openCalendarLinkInLine(linkUrl);'));
+  assert.ok(calendarSource.includes('openCalendarLinkInLine(link.href);'), 'click must use the rendered merchant-scoped anchor');
   assert.ok(calendarSource.includes('item.tierEligible !== false && linkLabel'));
   assert.ok(eventSource.includes("params.get('source') !== 'event-ticket-calendar'"));
   assert.ok(eventSource.includes("params.get('eventTicketId')"));
