@@ -182,3 +182,44 @@ test('AC-017: mobile admin tabs use a single native sideways-swiping row with th
   assert.match(mobile, /\.surface-tab[\s\S]*?white-space:\s*nowrap/);
   assert.doesNotMatch(mobile, /setInterval|setTimeout/);
 });
+
+test('AC-018: booking and title tabs are mutually exclusive in both directions', () => {
+  const booking=read('admin/booking-panel-core.js');
+  const app=read('admin/app.js');
+  assert.match(booking, /PRIMARY_TAB_IDS = \[[^\]]*'clientPageTitleTab'/);
+  assert.match(booking, /PRIMARY_PANEL_IDS = \[[^\]]*'clientPageTitleShortcut'/);
+  assert.ok(booking.includes("PRIMARY_TAB_IDS.forEach((id) => document.getElementById(id)?.addEventListener('click', deactivateBookingPanel));"),
+    'title click must detach the active booking panel');
+  assert.ok(app.includes("els.clientPageTitleTab.addEventListener('click', () => switchPanel('clientPageTitle'));"));
+  const ids=['membersTab','cardsTab','eventsTab','calendarTab','clientPageTitleTab','testModeTab',
+    'membersPanel','cardsPanel','eventsPanel','calendarPanel','clientPageTitleShortcut','testModePanel','bookingTab','bookingPanel'];
+  const nodes=Object.fromEntries(ids.map(id=>[id,{
+    attrs:{},hidden:false,classes:new Set(),
+    setAttribute(name,value){this.attrs[name]=String(value);},
+    classList:null
+  }]));
+  for(const node of Object.values(nodes))node.classList={
+    add(name){node.classes.add(name);},remove(name){node.classes.delete(name);},
+    contains(name){return node.classes.has(name);}
+  };
+  const declaration=booking.slice(booking.indexOf('  const PRIMARY_TAB_IDS ='),booking.indexOf('  const NO_SHOW_EARLY_REASON'));
+  const begin=booking.indexOf('  function activateBookingPanel() {'),end=booking.indexOf('  async function context() {',begin);
+  assert.ok(begin>0&&end>begin);
+  const context={
+    document:{getElementById:id=>nodes[id]||null},
+    els:{bookingTab:nodes.bookingTab,bookingPanel:nodes.bookingPanel},
+    state:{loading:true,subtab:'technicians'},
+    setSubtab(){},refreshAll(){}
+  };
+  vm.runInNewContext(declaration+booking.slice(begin,end)+'\nthis.activate = activateBookingPanel; this.deactivate = deactivateBookingPanel;',context);
+  nodes.clientPageTitleTab.setAttribute('aria-selected','true');
+  context.activate();
+  assert.equal(nodes.clientPageTitleTab.attrs['aria-selected'],'false');
+  assert.equal(nodes.clientPageTitleShortcut.classes.has('hidden'),true);
+  assert.equal(nodes.bookingTab.attrs['aria-selected'],'true');
+  assert.equal(nodes.bookingPanel.classes.has('hidden'),false);
+  // The registered title click deactivates booking before the title controller opens.
+  context.deactivate();
+  assert.equal(nodes.bookingTab.attrs['aria-selected'],'false');
+  assert.equal(nodes.bookingPanel.classes.has('hidden'),true);
+});
