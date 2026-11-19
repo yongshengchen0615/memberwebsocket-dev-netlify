@@ -65,7 +65,7 @@ for(const width of [320,390,1280])for(const theme of ['light','dark'])test(`shar
  await expect(page.locator('#operationsHubTab, #operationsHubPanel')).toHaveCount(0);
  await expect(page.locator('#bookingTab')).toHaveCount(1);
  expect(await page.locator('#adminView .surface-nav > button[role="tab"]').evaluateAll(nodes=>nodes.map(node=>node.id)))
-  .toEqual(['membersTab','cardsTab','eventsTab','calendarTab','bookingTab','lineSettingsTab','frontdeskSettingsTab']);
+  .toEqual(['membersTab','cardsTab','eventsTab','calendarTab','bookingTab','lineSettingsTab','frontdeskSettingsTab','clientPageTitleTab']);
  for(const id of ['membersTab','cardsTab','eventsTab','calendarTab','bookingTab']){
   const tab=page.locator('#'+id);await expect(tab).toBeVisible();await tab.click();await expect(tab).toHaveAttribute('aria-selected','true');await expect(page.locator('#'+await tab.getAttribute('aria-controls'))).toBeVisible();
   if(id==='bookingTab')await expect(page.locator('#bookingAdminSyncStatus')).toContainText('已同步');
