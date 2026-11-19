@@ -1,7 +1,6 @@
 -- AC-001..006. Snapshot review always creates a new retrospective booking.
 -- Preserve confirmed/completed historical records and all ticket settlement SQL.
 -- In-place patch current source, not a stale redefinition of auth/benefit logic.
-begin;
 do $snapshot_group$
 declare
   v_schema text;
@@ -220,4 +219,3 @@ begin
   if v_rows<>1 then raise exception 'SNAPSHOT_GROUP_TEMPLATE_WRITE_FAILED'; end if;
   perform pg_notify('pgrst','reload schema');
 end $snapshot_group$;
-commit;
