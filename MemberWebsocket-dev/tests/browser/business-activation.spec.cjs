@@ -60,7 +60,7 @@ test('BUSINESS_APPROVAL_ACTIVATES — real approval/SQL immediately opens grant-
   await expect(manager.locator('#bookingTab')).toHaveCount(1);
   expect(await manager.locator('#adminView .surface-nav > button[role="tab"]').evaluateAll(
     nodes => nodes.map(node => node.id)
-  )).toEqual(['membersTab','cardsTab','eventsTab','calendarTab','bookingTab','lineSettingsTab']);
+  )).toEqual(['membersTab','cardsTab','eventsTab','calendarTab','bookingTab','lineSettingsTab','frontdeskSettingsTab']);
   await expect(manager.locator('#membersTab')).toBeVisible();await expect(manager.locator('#cardsTab')).toBeVisible();await expect(manager.locator('#eventsTab')).toBeHidden();await expect(manager.locator('#bookingTab')).toBeHidden();
   await expect(manager.locator('#memberUsageTab')).toBeVisible();
   await manager.locator('#memberDirectoryTab').focus();await manager.keyboard.press('ArrowRight');
