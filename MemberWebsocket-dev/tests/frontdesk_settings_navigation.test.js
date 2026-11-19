@@ -27,6 +27,7 @@ test('AC-FD-NAV-002: frontdesk settings is a standalone document, not a workbenc
   assert.match(page,/<main[^>]*id="frontdeskSettingsPage"/);
   assert.match(page,/id="frontdeskSettingsRoot"[^>]*data-frontdesk-settings-root/);
   assert.match(page,/frontdesk-settings-page\.js/);
+  assert.match(page,/<a[^>]*id="frontdeskBackToMerchants"[^>]*data-business-switch="true"/);
   assert.doesNotMatch(page,/id="adminView"|id="merchantWorkspace"|管理工作台|productizedAdmin/);
   for(const html of [admin,merchant]){
     assert.doesNotMatch(html,/id="frontdeskSettingsTab"|id="frontdeskSettingsPanel"|id="merchantFrontdeskSettingsTab"|id="merchantFrontdeskSettingsPanel"/);

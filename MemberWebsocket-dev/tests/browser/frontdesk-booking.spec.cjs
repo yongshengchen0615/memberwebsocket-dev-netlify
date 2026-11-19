@@ -160,7 +160,8 @@ test('FRONTDESK_SETTINGS_THEME — explicit merchant light/dark palette override
 for(const width of [390,1280])test('FRONTDESK_SETTINGS_STANDALONE_'+width+' — separate page checks merchant grant and clears on revocation',async({page})=>{
  await page.setViewportSize({width,height:900});
  const calls=[];
- let granted=true;
+ let granted=true, applicant=false;
+ await page.clock.install();
  await page.route('https://static.line-scdn.net/**',route=>route.fulfill({
   contentType:'text/javascript',
   body:'window.liff={init:async()=>{},isLoggedIn:()=>true,isInClient:()=>true,getIDToken:()=>"synthetic-admin-token",login:()=>{},logout:()=>{}};'
@@ -172,7 +173,7 @@ for(const width of [390,1280])test('FRONTDESK_SETTINGS_STANDALONE_'+width+' — 
   const data=input.action==='platform.application.bootstrap'
    ? {application:{status:'approved'},tenant:{name:'測試商家',slug:'shop-a',status:'active',expired:false,onboarding:{adminReady:true},features:{booking:true,frontdesk:granted}}}
    :input.action==='platform.frontdesk.get'
-   ? {version:1,frontdesk:{enabled:true,liffId:'2010999999-desk',loginChannelId:'2010999999',messagingChannelId:'2010888888'},staff:[]}
+   ? {version:1,frontdesk:{enabled:true,liffId:'2010999999-desk',loginChannelId:'2010999999',messagingChannelId:'2010888888'},staff:applicant?[{id:'staff-new',version:1,status:'pending',displayName:'新申請櫃檯',permissionMode:'notify_only'}]:[]}
    :null;
   if(!data)throw Error('UNEXPECTED_ACTION '+input.action);
   return route.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,data})});
@@ -185,6 +186,11 @@ for(const width of [390,1280])test('FRONTDESK_SETTINGS_STANDALONE_'+width+' — 
  await expect(page.locator('#frontdeskManageBusiness')).toHaveAttribute('href','/admin/?business=shop-a');
  expect(calls.some(c=>c.action==='platform.application.bootstrap')).toBe(true);
  expect(calls.some(c=>c.action==='platform.frontdesk.get')).toBe(true);
+ // Simulate remote staff application without same-browser broadcast or focus.
+ applicant=true;
+ await page.clock.fastForward(16000);
+ await expect(page.locator('.frontdesk-person')).toHaveCount(1);
+ await expect(page.locator('.frontdesk-person')).toContainText('新申請櫃檯');
  // Revocation must purge the previously visible settings, not merely hide buttons.
  granted=false;
  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));

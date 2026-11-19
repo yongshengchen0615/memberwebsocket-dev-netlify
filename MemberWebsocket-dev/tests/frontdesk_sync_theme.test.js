@@ -31,3 +31,14 @@ test('AC-FD-THEME-001: merchant frontdesk follows explicit light and dark tokens
   assert.doesNotMatch(css, /@media\(prefers-color-scheme:dark\)\{\.frontdesk-shell,\.frontdesk-settings/);
   assert.doesNotMatch(css, /\.theme-dark \.frontdesk-settings\{--fd-card:#/);
 });
+
+test('AC-FD-SYNC-003: standalone page reconciles cross-device applications and releases its heartbeat', () => {
+  const page = read('admin/frontdesk-settings/frontdesk-settings-page.js');
+  const check = page.slice(page.indexOf('async function checkAccess()'), page.indexOf('async function start()'));
+  assert.match(check,/assertAccess\(data\);[\s\S]*?window\.FrontdeskSettings\.refresh\(\{ business \}\)/);
+  assert.match(page,/window\.setInterval\(/);
+  assert.match(page,/window\.clearInterval\(/);
+  assert.match(page,/timer-policy: heartbeat; reason=/);
+  assert.match(page,/function dismiss\([\s\S]*?stopReconciliation\(\)/);
+  assert.match(page,/addEventListener\('pagehide',[\s\S]*?stopReconciliation\(\)/);
+});
