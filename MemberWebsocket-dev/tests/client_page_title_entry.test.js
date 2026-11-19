@@ -135,3 +135,50 @@ test('AC-015: stale version refuses auto-retry and forbidden write clears editor
     else{assert.equal(f.panel.hidden,true);assert.equal(f.save.disabled,true);}
   }
 });
+
+test('AC-016: dedicated title tab switches its own panel without loading unrelated data', () => {
+  const script=read('admin/app.js');
+  const start=script.indexOf('  function switchPanel(panel) {');
+  const end=script.indexOf('  function switchCardWorkspace(',start);
+  assert.ok(start>=0 && end>start,'surface controller must be testable');
+  const ids=['members','cards','events','calendar'];
+  const fields={};
+  function element(id) {
+    return fields[id] ||= {
+      hidden:false,disabled:false,attrs:{},
+      classList:{last:null,toggle(name,value){this.last={name,value};}},
+      setAttribute(name,value){this.attrs[name]=String(value);}
+    };
+  }
+  const els={clientPageTitleTab:element('clientPageTitleTab'),clientPageTitleShortcut:element('clientPageTitleShortcut')};
+  for(const id of ids){els[id+'Tab']=element(id+'Tab');els[id+'Panel']=element(id+'Panel');}
+  const state={activePanel:'members',loadedPanels:Object.fromEntries(ids.map(id=>[id,true]))};
+  let loads=0;
+  const context={state,els,ensureAdminPanelData(){loads++;return Promise.resolve();},setSyncStatus(){}};
+  vm.runInNewContext(script.slice(start,end)+'\nthis.choose = switchPanel;',context);
+  context.choose('clientPageTitle');
+  assert.equal(els.clientPageTitleShortcut.hidden,false);
+  assert.equal(els.clientPageTitleTab.attrs['aria-selected'],'true');
+  for(const id of ids)assert.equal(els[id+'Panel'].classList.last.value,true);
+  assert.equal(loads,0,'reusing the title loader avoids extra booking/member requests');
+  context.choose('cards');
+  assert.equal(els.clientPageTitleShortcut.hidden,true);
+  assert.equal(els.clientPageTitleTab.attrs['aria-selected'],'false');
+  assert.equal(els.cardsPanel.classList.last.value,false);
+  els.clientPageTitleTab.disabled=true;
+  context.choose('clientPageTitle');
+  assert.equal(state.activePanel,'cards','disabled title tab cannot open the editor');
+});
+
+test('AC-017: mobile admin tabs use a single native sideways-swiping row with theme parity', () => {
+  const css=read('admin/ui-polish-responsive.css');
+  const mobile=css.slice(css.indexOf('/* Mobile surface navigation'));
+  assert.match(mobile, /@media \(max-width: 760px\)/);
+  assert.match(mobile, /html\[data-theme\] #adminView > \.surface-nav/);
+  assert.match(mobile, /display:\s*flex/);
+  assert.match(mobile, /flex-wrap:\s*nowrap/);
+  assert.match(mobile, /overflow-x:\s*auto/);
+  assert.match(mobile, /-webkit-overflow-scrolling:\s*touch/);
+  assert.match(mobile, /\.surface-tab[\s\S]*?white-space:\s*nowrap/);
+  assert.doesNotMatch(mobile, /setInterval|setTimeout/);
+});
