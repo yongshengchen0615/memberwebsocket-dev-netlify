@@ -180,8 +180,8 @@ begin
  if not found then raise exception 'PLATFORM_TENANT_NOT_FOUND'; end if;
  if v_tenant.version<>p_expected_version then raise exception 'PLATFORM_CONFLICT'; end if;
  -- Preserve the previous eight grants; missing frontdesk is explicitly false.
- v_grants:=p_features||jsonb_build_object('frontdesk',p_features->>'frontdesk'='true');
- v_revoked:=(v_tenant.features->>'frontdesk'='true' and v_grants->>'frontdesk'='false')
+ v_grants:=p_features||jsonb_build_object('frontdesk',coalesce(p_features->>'frontdesk'='true',false));
+ v_revoked:=(coalesce(v_tenant.features->>'frontdesk'='true',false) and v_grants->>'frontdesk'='false')
   or (v_tenant.features->>'booking'='true' and v_grants->>'booking'='false');
  -- An entitlement revocation is atomic with outbox removal, staff token cutoff,
  -- and the new grant; the booking feature itself is otherwise untouched.
@@ -198,10 +198,10 @@ begin
      set access_revoked_before=clock_timestamp(),updated_at=clock_timestamp()
      where tenant_id=p_tenant_id and status='approved';
  end if;
- if v_grants->>'frontdesk' is distinct from 'true' or v_grants->>'booking' is distinct from 'true' then
+ if v_tenant.runtime_schema is not null and (v_grants->>'frontdesk' is distinct from 'true' or v_grants->>'booking' is distinct from 'true') then
    execute format('update %I.notice_outbox set status=''skipped'',last_error=''FRONTDESK_FEATURE_DISABLED'' where channel=''frontdesk'' and status in (''pending'',''sending'')',v_tenant.runtime_schema);
    execute format('delete from %I.frontdesk_notice_recipients where line_user_id is not null',v_tenant.runtime_schema);
- elsif v_tenant.module_line->'booking'->'frontdesk'->>'enabled'='true' then
+ elsif v_tenant.runtime_schema is not null and v_tenant.module_line->'booking'->'frontdesk'->>'enabled'='true' then
    execute format('insert into %I.frontdesk_notice_recipients(line_user_id) select distinct line_user_id from platform_private.frontdesk_staff where tenant_id=$1 and login_channel_id=$2 and status=''approved'' and oa_verified_at is not null on conflict (line_user_id) do nothing',v_tenant.runtime_schema)
      using p_tenant_id,v_tenant.module_line->'booking'->'frontdesk'->>'loginChannelId';
  end if;
