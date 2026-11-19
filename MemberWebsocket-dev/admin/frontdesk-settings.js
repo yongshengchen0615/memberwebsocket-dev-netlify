@@ -8,15 +8,6 @@
     if (className) result.className = className;
     return result;
   };
-  const link = (label, url) => {
-    const element = node('a', label);
-    element.href = url;
-    element.target = '_blank';
-    element.rel = 'noopener noreferrer';
-    return element;
-  };
-  const developersUrl = 'https://developers.line.biz/console/';
-  const managerUrl = 'https://manager.line.biz/';
   function mount({ root, request, business }) {
     if (mounted.has(root)) return;
     mounted.add(root);
@@ -27,7 +18,7 @@
     status.setAttribute('role', 'status');
     status.setAttribute('aria-live', 'polite');
     const content = node('div', '', 'frontdesk-settings-content');
-    const reload = node('button', '同步最新櫃檯設定', 'button button-outline');
+    const reload = node('button', '重新整理', 'button button-outline');
     reload.type = 'button';
     const syncState = node('p', '尚未取得最新櫃檯設定。', 'frontdesk-sync-state');
     // The primary status is the sole live region; this is a visual sync hint.
@@ -100,23 +91,12 @@
       const overview = node('div', '', 'frontdesk-settings-overview');
       overview.append(node('strong', cfg.enabled === false ? '櫃檯入口已停用' :
         hasSettings ? '櫃檯已設定 LINE 入口' : '尚待完成櫃檯設定'));
-      overview.append(node('p', '總管理員負責開通功能；商家管理員負責 LINE 設定、申請審核與逐人授權。各管理端以伺服器儲存的版本為準。'));
+      overview.append(node('p', '總管理員控制開通；商家管理員設定 LINE 與逐人授權。'));
       content.append(overview);
-      const guide = node('section', '', 'frontdesk-setup-guide');
-      guide.append(node('h3', '櫃檯開通流程'));
-      const steps = node('ol');
-      for (const line of [
-        '管理員設定櫃檯 LINE 登入入口與通知官方帳號。',
-        '櫃檯人員開啟專屬 frontdesk 頁面，用 LINE 登入並申請資格。',
-        '商家管理員逐人審核；只有核准人員可接收通知或依權限審核預約。'
-      ]) steps.append(node('li', line));
-      guide.append(steps);
-      content.append(guide);
-
       const form = node('form', '', 'frontdesk-config-form');
       const login = node('fieldset', '', 'frontdesk-setup-card');
-      login.append(node('legend', '1. 設定櫃檯 LINE 登入入口'));
-      login.append(node('p', '在 LINE Developers 的同一個 Provider 中選擇 LINE Login Channel，新增 LIFF App。可以直接貼上完整 LIFF 網址，系統會自動辨識 ID。'));
+      login.append(node('legend', '1. 櫃檯登入'));
+      login.append(node('p', '填入 LINE Login Channel 與 LIFF ID，也可以貼上完整 LIFF 網址。'));
       const entry = node('div', '', 'business-line-fields');
       const liff = field('liffId', 'LIFF ID 或 LIFF 入口網址', 'LINE Developers → LINE Login Channel → LIFF → LIFF ID。', cfg.liffId || '');
       const channel = field('loginChannelId', 'LINE Login Channel ID', 'LINE Developers → LINE Login Channel → Basic settings → Channel ID。貼入 LIFF 後可自動帶入。', cfg.loginChannelId || '');
@@ -140,9 +120,6 @@
       channel.input.addEventListener('input', normalizeLiff);
       entry.append(liff.wrap, channel.wrap);
       login.append(entry);
-      const dev = node('p');
-      dev.append(link('開啟 LINE Developers 取得登入參數', developersUrl));
-      login.append(dev);
       const endpoint = location.origin + '/frontdesk/?business=' + encodeURIComponent(business);
       login.append(node('p', 'LIFF Endpoint URL（貼到 LINE Developers → LIFF → Endpoint URL）'));
       const code = node('code', endpoint, 'frontdesk-endpoint');
@@ -160,7 +137,7 @@
       form.append(login);
 
       const notifications = node('fieldset', '', 'frontdesk-setup-card frontdesk-notification-card');
-      notifications.append(node('legend', '2. 櫃檯接收 LINE 預約通知'));
+      notifications.append(node('legend', '2. 預約通知'));
       const summary = node('p', cfg.enabled === false ? '已停用：此櫃檯入口不開放申請及推播通知。'
         : hasSettings ? '已驗證獨立 Channel ' + cfg.messagingChannelId + '；Token 已加密保存。'
         : '尚未設定櫃檯官方帳號；完成驗證後才能讓人員申請。', 'business-line-summary');
@@ -181,9 +158,6 @@
         '', cfg.enabled !== false);
       noticeFields.append(messaging.wrap, token.wrap);
       notifications.append(noticeFields);
-      const noticeLinks = node('p');
-      noticeLinks.append(link('開啟 LINE Official Account Manager', managerUrl), node('span', '　｜　'), link('開啟 LINE Developers', developersUrl));
-      notifications.append(noticeLinks);
       notifications.append(node('small', '櫃檯 LINE Login 與通知 Messaging API 必須屬於同一 Provider；系統驗證 Channel 後才會儲存。櫃檯通知只發送給已核准且加入官方帳號的人員。'));
       const saveButton = node('button', '驗證並儲存櫃檯設定', 'button button-outline frontdesk-primary');
       saveButton.type = 'submit';
@@ -223,19 +197,13 @@
       });
       content.append(form);
 
-      const links = node('div', '', 'frontdesk-quick-links');
-      if (cfg.liffId) links.append(link('開啟櫃檯 LINE 入口', 'https://liff.line.me/' + cfg.liffId + '?business=' + encodeURIComponent(business)));
-      links.append(link('開啟櫃檯專屬申請頁', endpoint));
-      if (cfg.oaId) links.append(link('加入櫃檯官方帳號 ' + cfg.oaId, 'https://line.me/R/ti/p/' + encodeURIComponent(cfg.oaId)));
-      content.append(links);
-
       const approvals = node('section', '', 'frontdesk-approvals');
-      approvals.append(node('h3', '3. 審核櫃檯人員與逐人授權'));
-      approvals.append(node('p', '人員無法從此處自行新增：必須先開啟自己的 frontdesk 頁面，使用 LINE 登入並提出申請。核准前不能收通知、查看預約或執行操作。'));
+      approvals.append(node('h3', '3. 人員審核與權限'));
+      approvals.append(node('p', '櫃檯人員透過商家專屬 frontdesk 頁面登入並申請；未核准者不能查看預約或接收通知。'));
       const people = [...(data.staff || [])].sort((a, b) => (a.status === 'pending' ? -1 : 0) - (b.status === 'pending' ? -1 : 0));
       const waiting = people.filter(person => person.status === 'pending').length;
       approvals.append(node('p', '待審核 ' + waiting + ' 人｜已記錄申請 ' + people.length + ' 人', 'business-line-summary'));
-      if (!people.length) approvals.append(node('p', '目前沒有申請。請分享上方「櫃檯專屬申請頁」給人員。'));
+      if (!people.length) approvals.append(node('p', '目前沒有申請。櫃檯人員請透過商家專屬 frontdesk 頁面提出申請。'));
       for (const person of people) {
         const row = node('form', '', 'frontdesk-person');
         const current = {pending:'待審核',approved:'已核准',rejected:'申請未通過',suspended:'已停用'}[person.status] || person.status;
@@ -281,7 +249,7 @@
     async function load({ force = false } = {}) {
       if (busy || pending || !alive()) return;
       if (dirty && !force) {
-        syncState.textContent = '偵測到資料同步需求；請先儲存草稿，或使用「同步最新櫃檯設定」捨棄修改。';
+        syncState.textContent = '偵測到資料同步需求；請先儲存草稿，或使用「重新整理」捨棄修改。';
         return;
       }
       busy = true;

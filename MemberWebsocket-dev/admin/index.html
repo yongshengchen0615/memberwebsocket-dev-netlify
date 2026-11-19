@@ -75,7 +75,7 @@
       <nav class="surface-nav" role="tablist" aria-label="管理功能"><button id="membersTab" class="surface-tab" type="button" role="tab" aria-selected="true" aria-controls="membersPanel">會員卡</button><button id="cardsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="cardsPanel">集點卡</button><button id="eventsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="eventsPanel">活動票券</button><button id="calendarTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="calendarPanel">營運日曆</button><button id="lineSettingsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="lineSettingsPanel" data-business-allowed="false" hidden disabled>LINE 設定</button><button id="frontdeskSettingsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="frontdeskSettingsPanel" data-business-allowed="false" hidden disabled>櫃檯設定</button></nav>
 
       <section id="lineSettingsPanel" class="panel hidden" role="tabpanel" aria-labelledby="lineSettingsTab" hidden><div class="panel-heading"><div><p class="kicker">LINE / Integrations</p><h2>LINE 設定</h2><p>只顯示總管理員已核准的功能。各功能的 LIFF、訊息 Channel 與通知設定獨立儲存。</p></div></div><nav id="businessLineFeatureNav" class="business-line-feature-nav" aria-label="已核准功能的 LINE 設定"></nav><div id="businessLineFeatureContent"></div><p id="businessLineLoadStatus" role="status" aria-live="polite"></p></section>
-      <section id="frontdeskSettingsPanel" class="panel hidden" role="tabpanel" aria-labelledby="frontdeskSettingsTab" hidden><div class="panel-heading"><div><p class="kicker">Frontdesk / Staff Access</p><h2>櫃檯設定</h2><p>獨立管理櫃檯 LINE 入口、官方帳號通知與逐人授權，不影響商家的其他 LINE 設定。</p></div></div><div id="frontdeskSettingsContent" data-frontdesk-settings-root></div></section>
+      <section id="frontdeskSettingsPanel" class="panel hidden" role="tabpanel" aria-labelledby="frontdeskSettingsTab" hidden><div class="panel-heading"><div><p class="kicker">Frontdesk / Staff Access</p><h2>櫃檯設定</h2><p>設定櫃檯登入、預約通知與人員授權。</p></div></div><div id="frontdeskSettingsContent" data-frontdesk-settings-root></div></section>
       <section id="clientPageTitleShortcut" class="panel" aria-labelledby="clientPageTitleShortcutHeading" hidden>
         <div class="panel-heading">
           <div>
@@ -350,7 +350,7 @@
   <div id="grantSuccessNotice" class="operation-notice hidden" role="status" aria-live="polite" aria-atomic="true"></div>
 <link rel="stylesheet" href="./business-line-settings.css?v=line-visible-20261117-1">
 <link rel="stylesheet" href="../frontdesk/styles.css?v=frontdesk-sync-theme-20261119-1">
-<script src="./frontdesk-settings.js?v=frontdesk-sync-theme-20261119-1"></script>
+<script src="./frontdesk-settings.js?v=frontdesk-simplified-20261119-1&sync=20261119-2"></script>
 <script src="./business-line-settings.js?v=line-visible-20261117-1-tenant-liff-20261119-1-frontdesk-20261119-1&sync=20261119-2"></script>
 <script src="./business-workspace.js?v=line-tab-20261020-1&grants=20261106-1&frontdesk=20261119-1"></script>
 </body>
