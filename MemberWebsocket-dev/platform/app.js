@@ -4,7 +4,7 @@
   const merchantEntry = document.documentElement.dataset.workspace === 'merchant';
   const selectedBusiness=window.BusinessContext?.slug || new URLSearchParams(location.search).get('business') || '';
   // Preserve the legacy API contract while retiring these management features.
-  const featureKeys=['membership','points','events','calendar','integrations','booking','testing','usage'];
+  const featureKeys=['membership','points','events','calendar','integrations','booking','testing','usage','frontdesk'];
   const visibleFeatureKeys=featureKeys.filter(key=>key!=='integrations'&&key!=='testing'&&key!=='usage');
   const isV2=()=>state.config?.merchantApprovalVersion===2;
   const isAccount=()=>merchantEntry&&isV2()&&!selectedBusiness;
@@ -381,8 +381,11 @@
       const actions=document.createElement('footer');
       if(ready){
         const manage=document.createElement('a');manage.href='/admin/?business='+encodeURIComponent(application.slug);manage.textContent='管理商家';manage.dataset.manageMerchant='true';manage.className='tenant-action-primary';
-        const frontdesk=document.createElement('a');frontdesk.href='/admin/?business='+encodeURIComponent(application.slug)+'&settings=frontdesk';frontdesk.textContent='櫃檯設定';frontdesk.dataset.frontdeskSettingsEntry='true';frontdesk.className='tenant-action-secondary';
-        actions.append(manage,frontdesk);
+        actions.append(manage);
+        if(tenant?.features?.booking===true && tenant?.features?.frontdesk===true){
+          const frontdesk=document.createElement('a');frontdesk.href='/admin/?business='+encodeURIComponent(application.slug)+'&settings=frontdesk';frontdesk.textContent='櫃檯設定';frontdesk.dataset.frontdeskSettingsEntry='true';frontdesk.className='tenant-action-secondary';
+          actions.append(frontdesk);
+        }
       }else{
         const unavailable=document.createElement('p');unavailable.textContent=application.status==='pending'?'審核通過並開通後，即可管理此商家。':application.status==='rejected'?'請依審核理由修正此申請。':'請聯絡總管理員確認開通、停用或使用期限。';actions.append(unavailable);
       }
@@ -757,12 +760,16 @@
     const row=(name,detail,panel)=>{
       const article=document.createElement('article'),body=document.createElement('div'),title=document.createElement('strong'),p=document.createElement('p');
       title.textContent=name;p.textContent=detail;body.append(title,p);article.append(body);
-      if(panel){const button=document.createElement('button');button.type='button';button.className='secondary';button.dataset.setupFeature=panel;button.textContent='前往設定';button.addEventListener('click',()=>{selectMerchantPanel(panel);merchantForm.scrollIntoView?.({block:'start'});});article.append(button);}
+      if(panel){const button=document.createElement('button');button.type='button';button.className='secondary';button.dataset.setupFeature=panel;button.textContent='前往設定';button.addEventListener('click',()=>{if(panel==='frontdesk')selectMerchantWorkspaceTab('frontdesk');else{selectMerchantPanel(panel);merchantForm.scrollIntoView?.({block:'start'});}});article.append(button);}
       list.append(article);
     };
     const missing=status?.commonMissing;
     row(hasFeatureLine(tenant)?'商家管理端登入（僅首次設定）':'共用 LINE 設定',!status?'設定檢查服務尚未更新，請重新整理後再試。':missing.length?'尚缺：'+missing.map(key=>lineLabels[key]||key).join('、'):'必填資料已保存，仍需實際 LINE 驗證。','shared');
     for(const [key,label] of Object.entries(state.features))if(visibleFeatureKeys.includes(key)&&tenant.features?.[key]===true) {
+      if(key==='frontdesk'){
+        row(label,tenant.features.booking===true?'須在櫃檯設定分頁完成 LINE 入口、官方帳號與人員審核。':'須先由總管理員開通預約功能才能使用。',tenant.features.booking===true?'frontdesk':null);
+        continue;
+      }
       const feature=status?.features?.[key];
       row(label,status?.adminReady?'管理功能已開放。'+(feature?.missing.length?'自有 LINE 入口尚缺：'+feature.missing.map(name=>lineLabels[name]||name).join('、'):'可使用下方專屬入口。'):!feature?'等待伺服器確認設定。':feature.missing.length?'尚缺：'+feature.missing.map(name=>lineLabels[name]||name).join('、')
         :featureLiffNames[key]?'LIFF ID 已保存；用戶入口尚未開放。':'沿用共用 LINE 設定，無需額外 LIFF；功能尚未開放。',key);
@@ -807,8 +814,8 @@
   });
   function selectMerchantWorkspaceTab(requested) {
     const tenant=state.merchant;
-    const granted=(hasFeatureLine(tenant)?Object.keys(featureLiffNames):visibleFeatureKeys).some(key=>tenant?.features?.[key]===true);
-    const frontdeskGranted=tenant?.features?.booking===true;
+    const granted=Object.keys(featureLiffNames).some(key=>tenant?.features?.[key]===true);
+    const frontdeskGranted=tenant?.features?.booking===true && tenant?.features?.frontdesk===true;
     merchantWorkspaceTab=requested==='frontdesk'&&frontdeskGranted?'frontdesk':requested==='line'&&granted?'line':'overview';
     const tabs=[
       {key:'overview',tab:el('merchantOverviewTab'),panel:el('merchantOverviewPanel'),allowed:true},
