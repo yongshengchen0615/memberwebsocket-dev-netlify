@@ -38,7 +38,7 @@ test('simple entry saves exact LIFF URL using real handler/SQL without separatel
   assert.equal(links.querySelector(':scope > p').textContent,'LIFF Endpoint URL（含商家代碼）','endpoint description stays below action row');
   const lineButton=actions.querySelector('.business-client-line-link');
   assert.ok(lineButton.classList.contains('button'),'saved LINE entry must use button styling');
-  assert.equal(lineButton.href,'https://liff.line.me/2010787602-member');
+  assert.equal(lineButton.href,'https://liff.line.me/2010787602-member/?business='+t.tenant.slug);
   assert.equal(lineButton.target,'_blank');
   assert.equal(lineButton.rel,'noopener noreferrer');
   assert.equal(actions.querySelector('[data-feature-client=membership]').href,'https://allowed.test/member/?business=simple-line');
