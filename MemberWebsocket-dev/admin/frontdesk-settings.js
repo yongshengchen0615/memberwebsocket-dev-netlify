@@ -236,8 +236,10 @@
         remove.type = 'button';
         remove.setAttribute('aria-label', '移除 ' + (person.displayName || '此櫃檯人員') + ' 的櫃檯帳號');
         remove.onclick = () => {
-          if (busy || pending) return;
-          if (!window.confirm('確定永久移除「' + (person.displayName || '此櫃檯人員') + '」的櫃檯資格、申請資料及通知紀錄？此動作無法復原；如需使用，必須重新提出申請並經管理員核准。')) return;
+          if (busy || (pending && pending.action !== 'platform.frontdesk.staff.delete')) return;
+          // An uncertain response must reuse the original requestId; do not re-confirm
+          // or generate another destructive request while the first outcome is unknown.
+          if (!pending && !window.confirm('確定永久移除「' + (person.displayName || '此櫃檯人員') + '」的櫃檯資格、申請資料及通知紀錄？此動作無法復原；如需使用，必須重新提出申請並經管理員核准。')) return;
           void save('platform.frontdesk.staff.delete', {staffId:person.id,expectedVersion:person.version}, remove);
         };
         row.append(remove);

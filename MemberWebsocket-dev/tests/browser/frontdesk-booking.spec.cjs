@@ -209,11 +209,13 @@ test('FRONTDESK_STAFF_DELETE — real browser confirms deletion, cancels safely 
  await page.addScriptTag({url:base+'/admin/frontdesk-settings.js'});
  await page.evaluate(()=>{
   window.frontdeskDeleteCalls=[];
+  let firstDeleteResponseLost=true;
   let staff=[{id:'10000000-0000-4000-8000-000000000006',displayName:'待移除櫃檯',status:'approved',permissionMode:'review',version:3}];
   window.FrontdeskSettings.mount({root:document.getElementById('root'),business:'shop-a',request:async(action,body)=>{
     window.frontdeskDeleteCalls.push({action,body});
     if(action==='platform.frontdesk.staff.delete'){
       if(body.staffId!==staff[0]?.id||body.expectedVersion!==3)throw Error('unexpected staff identity');
+      if(firstDeleteResponseLost){firstDeleteResponseLost=false;throw Object.assign(Error('模擬第一次回應遺失'),{uncertain:true});}
       staff=[];return{version:2,frontdesk:{},staff};
     }
     if(action!=='platform.frontdesk.get')throw Error('unknown action '+action);
@@ -229,11 +231,16 @@ test('FRONTDESK_STAFF_DELETE — real browser confirms deletion, cancels safely 
  await expect(remove).toBeVisible();
  page.once('dialog',dialog=>{expect(dialog.message()).toContain('必須重新提出申請');return dialog.accept();});
  await remove.click();
+ const retry=page.getByRole('button',{name:'重試相同儲存操作'});
+ await expect(retry).toBeEnabled();
+ await expect(page.locator('.frontdesk-person button[type=submit]')).toBeDisabled();
+ await retry.click();
  await expect(page.locator('.frontdesk-person')).toHaveCount(0);
  await expect(page.locator('#root')).toContainText('目前沒有申請');
  await expect(page.locator('[role=status]')).toContainText('須重新申請並審核');
  const sent=await page.evaluate(()=>window.frontdeskDeleteCalls.filter(c=>c.action==='platform.frontdesk.staff.delete'));
- expect(sent).toHaveLength(1);
+ expect(sent).toHaveLength(2);
+ expect(sent[0].body).toEqual(sent[1].body);
  expect(sent[0].body.staffId).toBe('10000000-0000-4000-8000-000000000006');
  expect(sent[0].body.expectedVersion).toBe(3);
  expect(sent[0].body.requestId).toMatch(/^[0-9a-f-]{36}$/);
