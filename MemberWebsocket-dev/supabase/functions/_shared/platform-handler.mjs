@@ -36,6 +36,14 @@ export function databaseError(error) {
   for (const [code,[status,message]] of Object.entries(SQL_ERRORS)) if (String(error?.message || '').includes(code)) return new PlatformError(status,code,message);
   return new PlatformError(503,'PLATFORM_DATABASE_UNAVAILABLE','目前無法儲存或讀取商家設定。');
 }
+// Compatible with legacy eight-feature clients; a missing new grant is always denied.
+const coreFeatures = Object.keys(FEATURES).filter(key => key !== 'frontdesk');
+const normalizeGrantInput = value => {
+  if(!value || typeof value !== 'object' || Array.isArray(value)
+    || Object.keys(value).some(key=>!Object.hasOwn(FEATURES,key) || typeof value[key] !== 'boolean')
+    || coreFeatures.some(key=>typeof value[key] !== 'boolean'))return null;
+  return Object.fromEntries(Object.keys(FEATURES).map(key=>[key,value[key] === true]));
+};
 export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdentity = verifyIdentity, encryptionKey, allowedOrigins, fetchImpl = fetch, publicSupabaseUrl, verifiedMemberOaBindingsJson = '', allowedActions = null }) {
   const moduleCredentials = async (current, feature) => {
     const stored=await db.rpc('platform_module_credentials',{p_tenant_id:current.id,p_feature:feature});
@@ -446,15 +454,13 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       if (auth.data !== true) throw new PlatformError(403,'PLATFORM_ADMIN_REQUIRED','僅總管理員可管理商家。');
       if (body.action === 'platform.merchant.review') {
         const reason = body.reason === undefined ? '' : body.reason;
-        const grants = body.features;
-        const validGrants = grants && typeof grants === 'object' && !Array.isArray(grants)
-          && Object.keys(grants).length === Object.keys(FEATURES).length
-          && Object.keys(FEATURES).every(key => Object.hasOwn(grants,key) && typeof grants[key] === 'boolean');
+        const grants = body.decision === 'approved' ? normalizeGrantInput(body.features) : null;
+        const validGrants = grants !== null;
         if (!validId(body.requestId) || !validId(body.applicationId) || !validVersion(body.expectedVersion)
           || !['approved','rejected'].includes(body.decision)
           || typeof reason !== 'string' || Array.from(reason.trim()).length > 500
           || (body.decision === 'approved' ? !validGrants : !reason.trim() || grants != null))
-          throw new PlatformError(400,'PLATFORM_INVALID_INPUT','請確認商家申請、資料版本、審核理由與八項功能。');
+          throw new PlatformError(400,'PLATFORM_INVALID_INPUT','請確認商家申請、資料版本、審核理由與功能開通狀態。');
         const result = await db.rpc('platform_review_merchant_application',{
           p_actor:actor,p_application_id:body.applicationId,p_expected_version:body.expectedVersion,
           p_decision:body.decision,p_reason:reason.trim(),p_features:grants ?? null,p_request_id:body.requestId,
@@ -504,12 +510,8 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       if (body.action === 'platform.application.approve') {
         if (!uuid.test(body.requestId || '') || !uuid.test(body.applicationId || ''))
           throw new PlatformError(400,'INVALID_REQUEST_ID','操作識別碼格式不正確。');
-        const features = body.features;
-        if (!features || typeof features !== 'object' || Array.isArray(features)
-          || Object.keys(features).length !== Object.keys(FEATURES).length
-          || Object.keys(FEATURES).some(k => typeof features[k] !== 'boolean')
-          || Object.keys(features).some(k => !Object.hasOwn(FEATURES,k)))
-          throw new PlatformError(400,'PLATFORM_INVALID_INPUT','請勾選此管理員可使用的功能。');
+        const features=normalizeGrantInput(body.features);
+        if (!features) throw new PlatformError(400,'PLATFORM_INVALID_INPUT','請勾選此管理員可使用的功能。');
         const result = await db.rpc('platform_approve_application',{
           p_actor:actor,p_application_id:body.applicationId,p_features:features,p_request_id:body.requestId,
         });
@@ -520,12 +522,8 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         if (!uuid.test(body.requestId || '') || !uuid.test(body.tenantId || '')
           || !Number.isSafeInteger(body.expectedVersion) || body.expectedVersion < 1)
           throw new PlatformError(400,'PLATFORM_INVALID_INPUT','商家 ID、版本或操作識別碼不正確。');
-        const features=body.features;
-        if (!features || typeof features !== 'object' || Array.isArray(features)
-          || Object.keys(features).length !== Object.keys(FEATURES).length
-          || Object.keys(FEATURES).some(key=>typeof features[key]!=='boolean')
-          || Object.keys(features).some(key=>!Object.hasOwn(FEATURES,key)))
-          throw new PlatformError(400,'PLATFORM_INVALID_INPUT','請逐項勾選有效功能。');
+        const features=normalizeGrantInput(body.features);
+        if (!features) throw new PlatformError(400,'PLATFORM_INVALID_INPUT','請逐項勾選有效功能。');
         const hash=await payloadHash({tenantId:body.tenantId,expectedVersion:body.expectedVersion,features});
         const result=await db.rpc('platform_update_tenant_features',{
           p_actor:actor,p_tenant_id:body.tenantId,p_expected_version:body.expectedVersion,
