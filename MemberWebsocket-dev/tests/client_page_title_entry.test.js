@@ -9,7 +9,9 @@ const read = file => fs.readFileSync(path.join(root,file),'utf8');
 const flush = async () => { for(let i=0;i<8;i++)await new Promise(resolve=>setImmediate(resolve)); };
 function fixture(responder = null) {
   const fields = {};
-  const node = id => fields[id] ||= { hidden:true,disabled:true,value:'',textContent:'',placeholder:'',
+  const node = id => fields[id] ||= { hidden:true,disabled:true,value:'',textContent:'',placeholder:'',dataset:{},attrs:{},
+    classList:{add(){},remove(){},toggle(){}},setAttribute(name,value){this.attrs[name]=String(value);},
+    getAttribute(name){return this.attrs[name]??null;},click(){this.clicked=true;},
     listeners:{},addEventListener(name,fn){this.listeners[name]=fn;} };
   const form=node('clientPageTitleForm');
   form.reset=()=>{node('clientPageTitleInput').value='';};
@@ -37,9 +39,10 @@ function fixture(responder = null) {
   return {client,config,fields,input,save,panel,form,requests,flush,submit};
 }
 
-test('AC-010: regular admin has an inline form, preview, save and no redirection',()=>{
+test('AC-010: regular admin has a dedicated title tab, preview, save and no redirection',()=>{
   const html=read('admin/index.html'),js=read('admin/app.js');
-  assert.match(html,/id="clientPageTitleShortcut"[^>]*hidden/);
+  assert.match(html,/id="clientPageTitleTab"[^>]*role="tab"[^>]*aria-controls="clientPageTitleShortcut"[^>]*hidden disabled/);
+  assert.match(html,/id="clientPageTitleShortcut"[^>]*role="tabpanel"[^>]*aria-labelledby="clientPageTitleTab"[^>]*hidden/);
   assert.match(html,/id="clientPageTitleForm"/);
   assert.match(html,/id="clientPageTitleInput"[^>]*maxlength="60"/);
   assert.match(html,/id="clientPageTitleSave"[^>]*>儲存網頁抬頭/);
@@ -53,7 +56,9 @@ test('AC-010: regular admin has an inline form, preview, save and no redirection
 test('AC-011: approved merchant can edit and clear title in the same page without changing name',async()=>{
   const f=fixture();
   f.client.sync(f.config('merchant-a'),'verified-id-token');await f.flush();
-  assert.equal(f.panel.hidden,false);
+  assert.equal(f.panel.hidden,true,'title editor must stay hidden outside its tab');
+  assert.equal(f.fields.clientPageTitleTab.hidden,false);
+  assert.equal(f.fields.clientPageTitleTab.disabled,false);
   assert.equal(f.input.disabled,false);
   assert.equal(f.input.value,'');
   assert.equal(f.fields.clientPageTitlePreview.textContent,'原商家｜預約');
@@ -83,8 +88,9 @@ test('AC-012: unscoped, legacy, malformed slug or missing identity cannot read o
   }
   assert.equal(f.requests.length,0);
   f.client.sync(f.config('merchant-a'),'token');await f.flush();
-  assert.equal(f.panel.hidden,false);
+  assert.equal(f.fields.clientPageTitleTab.hidden,false);
   f.client.clear();assert.equal(f.panel.hidden,true);
+  assert.equal(f.fields.clientPageTitleTab.hidden,true);
   assert.equal(f.save.disabled,true);
 });
 
