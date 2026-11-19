@@ -101,6 +101,11 @@
   [
     "node",
     "--test",
+    "MemberWebsocket-dev/tests/integration/e2e_runtime_recycle_sql.cjs"
+  ],
+  [
+    "node",
+    "--test",
     "MemberWebsocket-dev/tests/integration/business_provisioning_contract.cjs"
   ],
   [
