@@ -457,7 +457,7 @@
     }
     const frontdeskRoot=document.querySelector('[data-frontdesk-settings-root]');
     if(frontdeskRoot){
-      if(grants.booking===true && tenant?.features?.booking===true){
+      if(grants.booking===true && grants.frontdesk===true && tenant?.features?.booking===true && tenant?.features?.frontdesk===true){
         window.FrontdeskSettings?.mount({root:frontdeskRoot,request,business:tenant.slug});
         if(!frontdeskRoot.closest('[role="tabpanel"]')?.hidden)
           frontdeskRoot.querySelector('[data-frontdesk-settings]')?.setAttribute('open','');
