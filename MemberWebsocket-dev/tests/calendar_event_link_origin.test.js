@@ -85,3 +85,9 @@ test('AC-009: a LINE callback with merchant restored in BusinessContext creates 
   assert.equal(link.searchParams.get('business'), 'merchant-restored');
   assert.equal(link.searchParams.get('eventTicketId'), 'EVT-ticket');
 });
+
+test('AC-010: LINE WebView receives a new versioned calendar script with the merchant-scope fix', () => {
+  const html = fs.readFileSync('MemberWebsocket-dev/calendar/index.html', 'utf8');
+  assert.match(html, /<script src="\\.\\/app\\.js\\?v=[^"]*merchant-scope-20261119-1" defer><\\/script>/);
+  assert.match(html, /<script src="\\.\\.\\/business-context\\.js\\?grants=20261107-1&callback=20261119-1"/);
+});
