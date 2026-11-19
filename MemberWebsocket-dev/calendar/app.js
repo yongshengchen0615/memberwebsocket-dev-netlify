@@ -213,7 +213,7 @@
         link.textContent = linkLabel;
         link.addEventListener('click', (event) => {
           event.preventDefault();
-          openCalendarLinkInLine(linkUrl);
+          openCalendarLinkInLine(link.href);
         });
         detail.append(link);
       }
@@ -234,6 +234,11 @@
     const localEventUrl = new URL('../event/', window.location.href);
     localEventUrl.searchParams.set('source', 'event-ticket-calendar');
     localEventUrl.searchParams.set('eventTicketId', eventTicketId);
+    // A calendar ticket link belongs to the current merchant, never to a
+    // possibly stale business saved in the original calendar record.
+    // Include it before opening: LINE's click handler uses this URL directly.
+    const activeBusiness = window.BusinessContext?.slug || new URL(window.location.href).searchParams.get('business') || '';
+    if (/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(activeBusiness)) localEventUrl.searchParams.set('business', activeBusiness);
     return localEventUrl.toString();
   }
 
