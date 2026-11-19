@@ -330,6 +330,13 @@
   font-size:12px;
   line-height:1.55;
 }
+.accessible-admin-party{max-width:220px;margin:12px 0}
+.accessible-admin-participants{display:grid;gap:14px}
+.accessible-admin-participant{display:grid;gap:12px;min-width:0;padding:14px;border:1px solid var(--theme-border,rgba(23,53,46,.15));border-radius:15px;background:var(--theme-surface-raised,#fffdf8)}
+.accessible-admin-participant h4{margin:0;color:var(--theme-text,#17352e);font-size:16px}
+.accessible-admin-participant .accessible-admin-field{max-width:100%}
+.accessible-admin-participant .accessible-admin-field select{width:100%}
+.accessible-admin-participant textarea{width:100%;resize:vertical}
 .accessible-admin-service-list,
 .accessible-admin-benefit-list{
   display:grid;

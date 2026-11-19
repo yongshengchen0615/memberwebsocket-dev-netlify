@@ -711,8 +711,33 @@ test('BOOKING_ACCESSIBLE_BENEFITS — owned tickets, concrete services, shared p
   info.fixture.benefitCatalog={pointTicketMaxPerRedemption:0,eventTicketMaxPerDay:1,items:[{kind:'points',selectionId:'p1',id:'p1',selectable:true,title:'QA points A',cardId:'card-1',pointCost:3,pointBalance:5,requiredServiceIds:['service-1']},{kind:'points',selectionId:'p2',id:'p2',selectable:true,title:'QA points B',cardId:'card-1',pointCost:3,pointBalance:5},{kind:'event',selectionId:'e1',id:'e1',selectable:true,title:'QA owned event'},{kind:'event',selectionId:'',id:'offer',selectable:true,title:'QA unclaimed'}]};
   await seedAccessible(p,info.fixture);await fill(p,'accessibleAdminDate',today());await fill(p,'accessibleAdminTime','10:03');await p.locator('[data-service-check]').first().check();await p.locator('[data-benefit-check][data-selection-id="p1"]').check();await expect(p.locator('[data-benefit-check][data-selection-id="p2"]')).toBeDisabled();await p.locator('[data-benefit-check][data-selection-id="p1"]').uncheck();await expect(p.locator('[data-benefit-check][data-selection-id="p2"]')).toBeEnabled();await p.locator('[data-benefit-check][data-selection-id="p2"]').check();await p.locator('[data-benefit-check][data-selection-id="e1"]').check();await expect(p.locator('#accessibleAdminBenefits').filter({hasText:'QA unclaimed'}).locator('input[data-selection-id=""]')).toBeDisabled();await click(p,'accessibleAdminSubmit');await expect(p.locator('#accessibleAdminModal')).toBeHidden();expect(calls(info.fixture,'admin.booking.receipt.register')[0].payload.benefits).toEqual([{kind:'points',id:'p2'},{kind:'event',id:'e1'}]);
 });
-test('BOOKING_ACCESSIBLE_EXISTING — bind existing completed booking and recheck current tickets',async({page:p},info)=>{
-  seedBooking(info.fixture,'completed');await seedAccessible(p,info.fixture);await select(p,'accessibleAdminExisting','booking-1');await expect(p.locator('#accessibleAdminSubmit')).toBeEnabled();await expect(p.locator('#accessibleAdminNewFields')).toHaveAttribute('disabled','');await expect(p.locator('#accessibleAdminDate')).toBeDisabled();await expect(p.locator('#accessibleAdminMessage')).toContainText('已完成');await click(p,'accessibleAdminSubmit');await expect(p.locator('#accessibleAdminModal')).toBeHidden();expect(calls(info.fixture,'admin.booking.receipt.register')[0].payload.bookingId).toBe('booking-1');expect(calls(info.fixture,'admin.booking.receipt.options').some(c=>c.payload.bookingId==='booking-1')).toBe(true);
+test('BOOKING_ACCESSIBLE_GROUP — no existing booking link, two people choose distinct technician and services',async({page:p},info)=>{
+  seedBooking(info.fixture,'completed');
+  await seedAccessible(p,info.fixture);
+  await expect(p.locator('#accessibleAdminExisting')).toHaveCount(0);
+  await select(p,'accessibleAdminPartySize','2');
+  const people=p.locator('[data-snapshot-participant]');
+  await expect(people).toHaveCount(2);
+  await people.nth(0).locator('[data-technician-select]').selectOption('tech-1');
+  await people.nth(1).locator('[data-technician-select]').selectOption('tech-2');
+  await people.nth(0).locator('[data-service-check]').first().check();
+  await people.nth(1).locator('[data-service-check]').nth(1).check();
+  await people.nth(0).locator('[data-minutes]').first().fill('60');
+  await people.nth(1).locator('[data-minutes]').nth(1).fill('90');
+  await people.nth(0).locator('[data-member-note]').fill('A note');
+  await people.nth(1).locator('[data-member-note]').fill('B note');
+  await fill(p,'accessibleAdminDate',today());await fill(p,'accessibleAdminTime','10:03');
+  await click(p,'accessibleAdminSubmit');
+  await expect(p.locator('#accessibleAdminModal')).toBeHidden();
+  const writes=calls(info.fixture,'admin.booking.receipt.register');
+  expect(writes).toHaveLength(1);
+  expect(Object.hasOwn(writes[0].payload,'bookingId')).toBe(false);
+  expect(writes[0].payload.participants).toEqual([
+    {technicianId:'tech-1',memberNote:'A note',items:[{serviceId:'service-1',minutes:60,quantity:1}]},
+    {technicianId:'tech-2',memberNote:'B note',items:[{serviceId:'service-2',minutes:90,quantity:1}]},
+  ]);
+  await expect(p.locator('#accessibleAdminQueueList')).toContainText('150 分鐘');
+  expect(calls(info.fixture,'admin.booking.receipt.options').every(c=>!c.payload.bookingId)).toBe(true);
 });
 
 async function prepareAccessibleReview(p,s){

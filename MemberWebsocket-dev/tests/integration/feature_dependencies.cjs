@@ -318,7 +318,7 @@ async function receiptFixture(holdWrite=false){
  const w=dom.window,observers=[],Observer=w.MutationObserver;
  w.MutationObserver=class extends Observer{constructor(fn){super(fn);observers.push(this);}};
  let features={membership:true,points:true,events:true,calendar:true,booking:true},submitted,finish;
- const options={services:[{id:'svc1',title:'Service',service_type:'Massage',duration_minutes:60}],rewardRules:[],currentBenefits:[{kind:'event',id:'ev1',status:'pending',title:'Event Ticket'}],benefitCatalog:{items:[{kind:'event',selectionId:'ev1',title:'Event Ticket',selectable:true}],eventTicketMaxPerDay:0,pointTicketMaxPerRedemption:0},primaryTechnicianConfigured:true};
+ const options={services:[{id:'svc1',title:'Service',service_type:'Massage',duration_minutes:60}],rewardRules:[],currentBenefits:[{kind:'event',id:'ev1',status:'pending',title:'Event Ticket'}],benefitCatalog:{items:[{kind:'event',selectionId:'ev1',title:'Event Ticket',selectable:true}],eventTicketMaxPerDay:0,pointTicketMaxPerRedemption:0},primaryTechnicianConfigured:true,primaryTechnicianId:'tech-1',requirePrimaryTechnician:true,maxPartySize:1,technicians:[{technicianId:'tech-1',name:'主要技師'}]};
  w.MemberSystem={getSession:()=>({config:{business:'synthetic'},idToken:'fixture'}),request:async(_c,_t,_i,action,body)=>{
   if(action==='admin.booking.receipt.url')return{signedUrl:'https://fixture.test/receipt.png'};
   if(action==='admin.booking.receipt.options')return options;

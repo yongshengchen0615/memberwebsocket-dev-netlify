@@ -205,16 +205,21 @@ function transport(s, action, p={}, slug='api',record=true) {
   if(action==='admin.booking.status.update'||action==='admin.booking.status.complete'){const b=s.bookings.find(b=>b.bookingId===p.bookingId);Object.assign(b,p,{status:action.endsWith('.complete')?'completed':p.status,updatedAt:stamp()});return {booking:b};}
   if(action==='admin.booking.receipt.list')return {submissions:s.submissions,accessibleRecords:s.accessibleRecords,bookings:s.bookings,receipts:s.receipts};
   if(action==='admin.booking.receipt.url')return {signedUrl:'https://fixture.supabase.co/storage/v1/object/sign/booking-receipts/qa.svg?token=fixture'};
-  if(action==='admin.booking.receipt.options')return {services:s.services.map(x=>({id:x.serviceId,title:x.title,service_type:x.serviceType,duration_minutes:x.durationMinutes})),bookings:s.bookings,primaryTechnicianConfigured:true,rewardRules:[],benefitCatalog:s.benefitCatalog,currentBenefits:s.bookings.find(b=>b.bookingId===p.bookingId)?.benefits||[],currentBookingStatus:s.bookings.find(b=>b.bookingId===p.bookingId)?.status||''};
+  if(action==='admin.booking.receipt.options')return {services:s.services.map(x=>({id:x.serviceId,title:x.title,service_type:x.serviceType,duration_minutes:x.durationMinutes})),technicians:s.technicians.filter(x=>x.isActive),primaryTechnicianId:s.settings.primaryTechnicianId,requirePrimaryTechnician:true,maxPartySize:s.settings.maxPartySize,primaryTechnicianConfigured:true,rewardRules:[],benefitCatalog:s.benefitCatalog};
   if(action==='admin.booking.receipt.register'){
     if(s.hold?.action===action){const wait=s.hold.wait;s.hold=null;return wait.then(()=>transport(s,action,p,slug,false));}
     if(s.receiptResults[p.receiptId])return {...structuredClone(s.receiptResults[p.receiptId]),alreadyApplied:true};
-    const serviceMinutes=p.bookingId?s.bookings.find(b=>b.bookingId===p.bookingId)?.totalDurationMinutes||0:p.items.reduce((n,i)=>n+i.minutes*i.quantity,0);
+    if(p.bookingId)throw Object.assign(new Error('existing booking linking disabled'),{code:'SNAPSHOT_EXISTING_BOOKING_LINK_DISABLED'});
+    const participants=Array.isArray(p.participants)?p.participants:[];
+    if(participants.length<1||participants.length>s.settings.maxPartySize||participants.some(person=>!person.items?.length)) {
+      throw Object.assign(new Error('invalid snapshot participants'),{code:'INVALID_BOOKING_PARTICIPANTS'});
+    }
+    const serviceMinutes=participants.reduce((sum,person)=>sum+person.items.reduce((n,i)=>n+i.minutes*i.quantity,0),0);
     // Explicit test reward: two points per review. This fixture is UI evidence only.
     const result={bookingId:p.bookingId||'qa-completed',settlement:{serviceMinutes,rewards:[{points:2}],redemptions:p.benefits||[]}};
     s.receiptResults[p.receiptId]=structuredClone(result);s.settlements.push(result.settlement);
     s.submissions=s.submissions.filter(r=>r.receiptId!==p.receiptId);
-    s.accessibleRecords=s.accessibleRecords.filter(r=>r.receiptId!==p.receiptId).concat({receiptId:p.receiptId,bookingId:result.bookingId,status:'bound',reviewStatus:'completed',memberName:'QA Member',memberCode:'TEST1',createdAt:version,completedAt:stamp(),bookingDate:p.bookingDate,startTime:p.startTime,serviceMinutes,points:2,services:p.items.map(i=>({title:s.services.find(service=>service.serviceId===i.serviceId)?.title,minutes:i.minutes,quantity:i.quantity})),benefits:p.benefits||[]});
+    s.accessibleRecords=s.accessibleRecords.filter(r=>r.receiptId!==p.receiptId).concat({receiptId:p.receiptId,bookingId:result.bookingId,status:'bound',reviewStatus:'completed',memberName:'QA Member',memberCode:'TEST1',createdAt:version,completedAt:stamp(),bookingDate:p.bookingDate,startTime:p.startTime,serviceMinutes,points:2,services:participants.flatMap(person=>person.items.map(i=>({title:s.services.find(service=>service.serviceId===i.serviceId)?.title,minutes:i.minutes,quantity:i.quantity}))),benefits:p.benefits||[]});
     if(s.fault?.action===action&&s.fault.afterCommit){const fault=s.fault;s.fault=null;throw Object.assign(new Error('QA response lost after commit'),{code:fault.code});}
     return result;
   }

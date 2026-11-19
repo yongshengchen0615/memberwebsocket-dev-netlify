@@ -729,7 +729,8 @@ async function validateAccessibleBenefits(
     serviceIds=(booking.data.booking_items||[]).map((row:any)=>String(row.service_id||"")).filter(Boolean);
   }else{
     serviceIds=(Array.isArray(rawItems)?rawItems:[])
-      .map((row:any)=>asText(row?.serviceId,60)).filter(Boolean);
+      .flatMap((person:any)=>Array.isArray(person?.items)?person.items:[person])
+      .map((item:any)=>asText(item?.serviceId,60)).filter(Boolean);
   }
 
   // The display catalog intentionally contains only the latest offer per
@@ -882,34 +883,20 @@ async function registrationOptions(supabase:SupabaseClient,body:Json):Promise<Js
   if(receipt.error) throw new ApiError(500,"DATABASE_ERROR","收據資料暫時無法讀取。");
   if(!receipt.data) throw new ApiError(404,"RECEIPT_NOT_FOUND","找不到這筆收據。");
 
-  const requestedBookingId=asText(body.bookingId,80);
-  let currentBooking:any=null;
-  if(requestedBookingId){
-    const current=await supabase.from("bookings")
-      .select("id,member_id,status,booking_items(service_id)")
-      .eq("id",requestedBookingId)
-      .maybeSingle();
-    if(current.error) throw dbError(current.error);
-    if(!current.data||String(current.data.member_id)!==String(receipt.data.member_id)) throw new ApiError(403,"BOOKING_NOT_OWNED","不可操作其他會員的預約。");
-    currentBooking=current.data;
-  }
+  if(asText(body.bookingId,80)) throw new ApiError(400,"SNAPSHOT_EXISTING_BOOKING_LINK_DISABLED","快照審核不再提供連結既有預約。");
+  const requestedBookingId="";
+  const currentBooking:any=null;
 
-  const [services,settings,bookings,rewardRules,memberResult,currentBenefitsResult]=await Promise.all([
+  const [services,settings,bookings,rewardRules,memberResult,currentBenefitsResult,technicians]=await Promise.all([
     supabase.from("booking_services").select("id,title,duration_minutes,service_type,counts_toward_membership,price_amount,price_version").eq("is_active",true).is("deleted_at",null).neq("id","00000000-0000-4000-8000-000000000010").order("title"),
-    supabase.from("booking_settings").select("primary_technician_id,require_primary_technician").eq("id",1).maybeSingle(),
-    supabase.from("bookings").select("id,booking_date,start_time,status,booking_items(service_id,service_title),booking_receipts!booking_receipts_booking_id_fkey(status)").eq("member_id",receipt.data.member_id)
-      .in("status",["confirmed","completed"]).order("booking_date",{ascending:false}).limit(80),
+    supabase.from("booking_settings").select("primary_technician_id,require_primary_technician,max_party_size").eq("id",1).maybeSingle(),
+    Promise.resolve({data:[],error:null}),
     supabase.from("booking_service_type_rewards").select("minutes_per_point,booking_service_types(name),point_cards(title)"),
     supabase.from("members").select("id,birthday").eq("id",receipt.data.member_id).maybeSingle(),
-    requestedBookingId
-      ? supabase.from("booking_benefit_selections")
-          .select("benefit_kind,benefit_ref,title_snapshot,status,redeemed_at,result")
-          .eq("booking_id",requestedBookingId)
-          .in("benefit_kind",["points","event"])
-          .order("selected_at",{ascending:true})
-      : Promise.resolve({data:[],error:null}),
+    Promise.resolve({data:[],error:null}),
+    supabase.from("booking_technicians").select("id,name,sort_order").eq("is_active",true).order("sort_order",{ascending:true}),
   ]);
-  if(services.error||settings.error||bookings.error||rewardRules.error||memberResult.error||currentBenefitsResult.error) throw new ApiError(500,"DATABASE_ERROR","服務登記選項暫時無法讀取。");
+  if(services.error||settings.error||bookings.error||rewardRules.error||memberResult.error||currentBenefitsResult.error||technicians.error) throw new ApiError(500,"DATABASE_ERROR","服務登記選項暫時無法讀取。");
   if(!memberResult.data) throw new ApiError(404,"MEMBER_NOT_FOUND","找不到會員資料。");
 
   const benefitCatalog=await accessibleBenefitCatalog(
@@ -930,11 +917,16 @@ async function registrationOptions(supabase:SupabaseClient,body:Json):Promise<Js
   ];
 
   return {
-    requestedBenefits:receipt.data.requested_benefits||[],requestedBookingId:receipt.data.requested_booking_id||"",
+    requestedBenefits:receipt.data.requested_benefits||[],
     rewardRules:(rewardRules.data||[]).map((r:any)=>({serviceType:r.booking_service_types?.name||"",minutesPerPoint:r.minutes_per_point,cardTitle:r.point_cards?.title||""})),
     services:services.data||[],
     primaryTechnicianConfigured:Boolean(settings.data?.primary_technician_id),
+    primaryTechnicianId:String(settings.data?.primary_technician_id||""),
     requirePrimaryTechnician:settings.data?.require_primary_technician !== false,
+    maxPartySize:Math.max(1,Math.min(10,Number(settings.data?.max_party_size||1))),
+    technicians:(technicians.data||[]).map((row:any)=>({
+      technicianId:String(row.id||""),name:String(row.name||"技師"),sortOrder:Number(row.sort_order||0),
+    })),
     benefitCatalog,
     currentBookingStatus:currentBooking?String(currentBooking.status||""):"",
     currentBookingServiceIds:currentBooking
@@ -1008,21 +1000,29 @@ serveBusiness('booking-receipt-api',async(request:Request)=>{
       else {
         const receiptId=asText(body.receiptId,80);
         const bookingId=asText(body.bookingId,80);
+        if(bookingId && action==="admin.booking.receipt.register") {
+          throw new ApiError(400,"SNAPSHOT_EXISTING_BOOKING_LINK_DISABLED","快照審核不再提供連結既有預約。");
+        }
+        const participants=Array.isArray(body.participants)?body.participants:Array.isArray(body.items)?body.items:[];
+        if(action==="admin.booking.receipt.register" &&
+            (!Array.isArray(participants)||participants.length<1||participants.length>10)) {
+          throw new ApiError(400,"INVALID_BOOKING_PARTICIPANTS","預約人數必須為 1～10 位，每位需設定有效服務項目。");
+        }
         const benefits=action==="admin.booking.receipt.dismiss"
           ? []
           : await validateAccessibleBenefits(
               supabase,
               receiptId,
               bookingId,
-              Array.isArray(body.items)?body.items:[],
+              participants,
               body.benefits,
             );
         const result=action==="admin.booking.receipt.dismiss"
           ? await supabase.rpc("dismiss_accessible_receipt_request",{p_receipt_id:receiptId,p_expected_updated_at:asText(body.expectedUpdatedAt,100)||null,p_actor:identity.lineUserId})
           : await supabase.rpc("register_snapshot_receipt_v2",{
             p_receipt_id:receiptId,p_expected_receipt_updated_at:asText(body.expectedUpdatedAt,100)||null,p_actor:identity.lineUserId,
-            p_booking_id:bookingId||null,p_booking_date:asText(body.bookingDate,10)||null,
-            p_start_time:asText(body.startTime,8)||null,p_items:Array.isArray(body.items)?body.items:[],
+            p_booking_id:null,p_booking_date:asText(body.bookingDate,10)||null,
+            p_start_time:asText(body.startTime,8)||null,p_items:participants,
             p_benefits:benefits,p_admin_note:asText(body.adminNote,500)
           });
         if(result.error) throw dbError(result.error);
