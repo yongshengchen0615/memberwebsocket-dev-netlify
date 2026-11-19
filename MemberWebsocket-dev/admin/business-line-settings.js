@@ -479,10 +479,15 @@
     try {
       const result = await request('platform.application.bootstrap');
       if (!result.tenant || result.tenant.slug !== business || result.application?.status !== 'approved' || (result.tenant.status === 'suspended' || result.tenant.expired)) throw Object.assign(Error('此商家的 LINE 設定權限尚未開放。'),{code:'BUSINESS_FORBIDDEN'});
-      // Never re-enable a grant that a newer workspace update revoked while
-      // this bootstrap was in flight. Both snapshots must allow the feature.
+      // A newer server tenant version can unlock a newly approved module.
+      // At the same/older version, keep local revocations fail-closed, since a
+      // bootstrap may have raced a more recent workspace permission update.
+      const serverVersion = Number(result.tenant.version);
+      const localVersion = Number(tenant?.version);
+      const serverIsNewer = Boolean(tenant) && Number.isFinite(serverVersion)
+        && Number.isFinite(localVersion) && serverVersion > localVersion;
       const nextGrants = Object.fromEntries(Object.entries(result.tenant.features)
-        .map(([key, enabled]) => [key, enabled === true && grants[key] === true]));
+        .map(([key, enabled]) => [key, enabled === true && (serverIsNewer || grants[key] === true)]));
       const grantsChanged = JSON.stringify(grants) !== JSON.stringify(nextGrants);
       tenant = result.tenant;
       grants = nextGrants;
