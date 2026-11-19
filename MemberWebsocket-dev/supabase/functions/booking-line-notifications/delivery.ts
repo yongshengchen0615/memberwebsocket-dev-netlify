@@ -30,6 +30,7 @@ type ParsedBookingParticipant = {
   duration: string;
   amount: string;
   technician: string;
+  note: string;
 };
 
 type ParsedBookingMessage = {
@@ -101,7 +102,7 @@ function parseBookingMessage(message: string): ParsedBookingMessage {
     }
 
     if (/^第(?:[一二三四五六七八九十]+|\s*\d+\s*)位預約$/.test(line)) {
-      currentParticipant = { label: truncate(line, 40), items: [], duration: '', amount: '', technician: '' };
+      currentParticipant = { label: truncate(line, 40), items: [], duration: '', amount: '', technician: '', note: '' };
       participants.push(currentParticipant);
       readingServices = false;
       continue;
@@ -127,6 +128,10 @@ function parseBookingMessage(message: string): ParsedBookingMessage {
       }
       if (label === '預約技師') {
         currentParticipant.technician = value || '現場安排';
+        continue;
+      }
+      if (label === '個別備註' || label === '個別備注') {
+        currentParticipant.note = value;
         continue;
       }
     }
@@ -332,6 +337,7 @@ function participantsCard(participants: ParsedBookingParticipant[], accent: stri
           fieldRow('個別金額', participant.amount || '—'),
         ]),
         fieldRow('預約技師', participant.technician || '現場安排'),
+        ...(participant.note ? [fieldRow('個別備註', participant.note)] : []),
       ],
     });
   });
@@ -408,7 +414,7 @@ function frontdeskCards(parsed: ParsedBookingMessage): Array<Record<string, unkn
   const people = parsed.participants.length ? parsed.participants :
     parsed.services.length ? [{
       label: '第一位預約', items: parsed.services, technician: frontdeskValue(parsed, '預約技師'),
-      duration: '', amount: '',
+      duration: '', amount: '', note: '',
     }] : [];
   if (!people.length) return [summary];
   const contents: Array<Record<string, unknown>> = [];
@@ -420,6 +426,7 @@ function frontdeskCards(parsed: ParsedBookingMessage): Array<Record<string, unkn
         frontdeskLine(person.label, true),
         frontdeskLine(`預約項目：${person.items.length ? person.items.join('、') : '—'}`),
         frontdeskLine(`預約技師：${person.technician || '現場安排'}`),
+        ...(person.note ? [frontdeskLine(`個別備註：${person.note}`)] : []),
       ],
     });
   }
@@ -504,6 +511,8 @@ function makeAltText(parsed: ParsedBookingMessage): string {
 
 export function buildBookingFlexMessage(job: Job): LineFlexMessage {
   const parsed = parseBookingMessage(job.message_text);
+  // The frontdesk-only display title does not change cancellation approval state.
+  const displayTitle = job.channel === 'frontdesk' && parsed.title === '取消預約申請' ? '預約取消' : parsed.title;
   const style = TITLE_STYLES[parsed.title] || { color: '#315D50', eyebrow: 'BOOKING NOTICE' };
   const channelLabel = job.channel === 'admin' ? '管理端預約通知' : job.channel === 'frontdesk' ? '櫃檯預約通知' : '會員預約通知';
   const bodyContents: Array<Record<string, unknown>> = [];
@@ -556,7 +565,7 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
     },
     {
       type: 'text',
-      text: parsed.title,
+      text: displayTitle,
       size: 'xl',
       weight: 'bold',
       color: '#FFFFFF',
@@ -573,7 +582,7 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
   return {
     type: 'flex',
     altText: job.channel === 'frontdesk'
-      ? truncate([parsed.title, ...frontdeskSummaryLines(parsed).slice(0, 2)].join('｜'), MAX_ALT_TEXT)
+      ? truncate([displayTitle, ...frontdeskSummaryLines(parsed).slice(0, 2)].join('｜'), MAX_ALT_TEXT)
       : makeAltText(parsed),
     contents: {
       type: 'bubble',
