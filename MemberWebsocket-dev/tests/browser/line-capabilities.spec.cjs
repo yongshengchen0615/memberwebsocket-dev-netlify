@@ -28,7 +28,7 @@ for(const width of [390,1280])test('#124 LIFF_ONLY_'+width+' — all feature ent
     expect(await page.locator('#businessLineSharedForm').evaluate(f=>f.checkValidity()),'shared Login identity remains valid').toBe(true);
    await form.getByRole('button',{name:/儲存.*入口設定/}).click();
    const section=page.locator('[data-business-line-feature="'+feature+'"]');await expect(section.locator(':scope > [role=status]')).toContainText('已儲存');
-   await expect(section.getByRole('link',{name:'開啟已儲存的 LINE 入口'})).toHaveAttribute('href','https://liff.line.me/2010787602-'+feature);
+   await expect(section.getByRole('link',{name:'開啟已儲存的 LINE 入口'})).toHaveAttribute('href','https://liff.line.me/2010787602-'+feature+'/?business='+tenant.slug);
    const result=await h.call({action:'platform.business.public',business:tenant.slug,feature});expect(result.status).toBe(200);expect(result.body.data.line[key]).toBe('2010787602-'+feature);
   }
   await expect(page.locator('#notification-calendar-member')).toHaveCount(0);

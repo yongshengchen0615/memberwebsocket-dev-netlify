@@ -87,6 +87,7 @@ test('BUSINESS_APPROVAL_ACTIVATES — real approval/SQL immediately opens grant-
   await expect(sharedLogin.locator('[name=adminChannelId]')).toHaveValue(fields.adminChannelId);
   await memberLine.getByRole('button',{name:'儲存會員卡入口設定',exact:true}).click();
   await expect(memberSection.locator(':scope > [role=status]')).toContainText('已儲存');
+  await expect(memberSection.locator('.business-client-line-link')).toHaveAttribute('href','https://liff.line.me/2010787602-member/?business='+row.slug);
   await expect(sharedLogin.locator('[name=adminLiffId]')).toHaveValue(fields.adminLiffId);
   await expect(sharedLogin.locator('[name=adminLiffId]')).toHaveAttribute('readonly','');
   await expect(memberLine.locator('[name=channelAccessToken]')).toHaveCount(0);
@@ -100,6 +101,7 @@ test('BUSINESS_APPROVAL_ACTIVATES — real approval/SQL immediately opens grant-
   await expect(pointsSection.locator('#notification-points-member [name=messagingChannelId]')).toHaveCount(1);
   await pointsLine.getByRole('button',{name:'儲存集點卡入口設定',exact:true}).click();
   await expect(pointsSection.locator(':scope > [role=status]')).toContainText('已儲存');
+  await expect(pointsSection.locator('.business-client-line-link')).toHaveAttribute('href','https://liff.line.me/2010787602-points/?business='+row.slug);
   expect((await h.db.query('select module_line from platform_private.tenants')).rows[0].module_line.membership.line.memberLiffId).toBe(fields.memberLiffId);
   await manager.locator('#cardsTab').click();
   await expect(manager.locator('#lineSettingsPanel')).toBeHidden();
