@@ -43,7 +43,7 @@ test('AC-FD-NAV-004: deep links do not bypass booking grants or force LINE setti
   assert.match(business,/data\.features\.booking===true/);
   assert.match(business,/get\('settings'\)==='frontdesk'/);
   assert.match(business,/selectFrontdeskTab\(\)/);
-  assert.match(platform,/tenant\.features\?\.booking===true/);
+  assert.match(platform,/tenant\?\.features\?\.booking===true/);
   assert.match(platform,/get\('settings'\)==='frontdesk'/);
 });
 
