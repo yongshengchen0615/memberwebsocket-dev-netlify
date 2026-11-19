@@ -10,6 +10,7 @@ const handler = read('supabase/functions/_shared/platform-handler.mjs');
 const frontdesk = read('supabase/functions/_shared/frontdesk-admin.mjs');
 const settings = read('admin/business-line-settings.js');
 const workspace = read('admin/business-workspace.js');
+const standalone = read('admin/frontdesk-settings/frontdesk-settings-page.js');
 
 test('AC-FD-GRANT-001: platform grants a distinct frontdesk feature and defaults missing grants to denied',()=>{
   assert.match(policy,/frontdesk:\s*'櫃檯設定'/);
@@ -20,10 +21,12 @@ test('AC-FD-GRANT-001: platform grants a distinct frontdesk feature and defaults
   assert.match(root,/data\-grant\-feature/);
 });
 
-test('AC-FD-GRANT-002: merchant portal and admin shell require both booking and frontdesk grants',()=>{
+test('AC-FD-GRANT-002: standalone merchant page requires both booking and frontdesk grants',()=>{
   assert.match(root,/tenant\?\.features\?\.booking===true\s*&&\s*tenant\?\.features\?\.frontdesk===true/);
-  assert.match(workspace,/data\.features\.booking===true\s*&&\s*data\.features\.frontdesk===true/);
-  assert.match(settings,/grants\.booking===true\s*&&\s*grants\.frontdesk===true/);
+  assert.ok(standalone.includes('data.tenant?.features?.booking !== true'));
+  assert.ok(standalone.includes('data.tenant?.features?.frontdesk !== true'));
+  assert.doesNotMatch(workspace,/frontdeskSettingsTab/);
+  assert.doesNotMatch(settings,/FrontdeskSettings\?\.mount/);
 });
 
 test('AC-FD-GRANT-003: merchant API denies frontdesk read/write before replay or provider calls',()=>{
