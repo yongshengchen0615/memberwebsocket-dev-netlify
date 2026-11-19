@@ -889,7 +889,7 @@ async function registrationOptions(supabase:SupabaseClient,body:Json):Promise<Js
 
   const [services,settings,bookings,rewardRules,memberResult,currentBenefitsResult,technicians]=await Promise.all([
     supabase.from("booking_services").select("id,title,duration_minutes,service_type,counts_toward_membership,price_amount,price_version").eq("is_active",true).is("deleted_at",null).neq("id","00000000-0000-4000-8000-000000000010").order("title"),
-    supabase.from("booking_settings").select("primary_technician_id,require_primary_technician").eq("id",1).maybeSingle(),
+    supabase.from("booking_settings").select("primary_technician_id,require_primary_technician,max_party_size").eq("id",1).maybeSingle(),
     Promise.resolve({data:[],error:null}),
     supabase.from("booking_service_type_rewards").select("minutes_per_point,booking_service_types(name),point_cards(title)"),
     supabase.from("members").select("id,birthday").eq("id",receipt.data.member_id).maybeSingle(),
@@ -923,6 +923,7 @@ async function registrationOptions(supabase:SupabaseClient,body:Json):Promise<Js
     primaryTechnicianConfigured:Boolean(settings.data?.primary_technician_id),
     primaryTechnicianId:String(settings.data?.primary_technician_id||""),
     requirePrimaryTechnician:settings.data?.require_primary_technician !== false,
+    maxPartySize:Math.max(1,Math.min(10,Number(settings.data?.max_party_size||1))),
     technicians:(technicians.data||[]).map((row:any)=>({
       technicianId:String(row.id||""),name:String(row.name||"技師"),sortOrder:Number(row.sort_order||0),
     })),
@@ -1004,7 +1005,7 @@ serveBusiness('booking-receipt-api',async(request:Request)=>{
         }
         const participants=Array.isArray(body.participants)?body.participants:Array.isArray(body.items)?body.items:[];
         if(action==="admin.booking.receipt.register" &&
-            (!Array.isArray(participants)||participants.length<1||participants.length>20)) {
+            (!Array.isArray(participants)||participants.length<1||participants.length>10)) {
           throw new ApiError(400,"INVALID_BOOKING_PARTICIPANTS","預約人數必須為 1～10 位，每位需設定有效服務項目。");
         }
         const benefits=action==="admin.booking.receipt.dismiss"
