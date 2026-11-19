@@ -1,20 +1,432 @@
-html[data-frontdesk-page] body{margin:0;background:var(--theme-background,#f6f7f9);color:var(--theme-text,#172c39);min-height:100vh}
-html[data-frontdesk-page] .frontdesk-settings-standalone{max-width:1000px;padding:clamp(16px,3vw,32px) 16px 64px}
-html[data-frontdesk-page] .frontdesk-page-header{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}
-html[data-frontdesk-page] .frontdesk-page-header h1{margin:6px 0 8px}
-html[data-frontdesk-page] .frontdesk-page-header p:last-child{margin:0;color:var(--theme-text-muted,#526574)}
-html[data-frontdesk-page] .frontdesk-page-links{display:flex;flex-wrap:wrap;gap:12px;margin:20px 0}
-html[data-frontdesk-page] .frontdesk-page-links a{min-height:44px;display:inline-flex;align-items:center;padding:8px 16px;border:1px solid var(--theme-border,#ccd6df);border-radius:10px;color:var(--theme-text,#172c39);background:var(--theme-surface-raised,#fff);font-weight:700;text-decoration:none}
-html[data-frontdesk-page] .frontdesk-page-links a:focus-visible{outline:3px solid var(--theme-focus-ring,#175fa5);outline-offset:2px}
-html[data-frontdesk-page] #frontdeskPageStatus{padding:12px 16px;background:var(--theme-surface-muted,#f0f4f7);border-radius:10px;color:var(--theme-text-muted,#526574)}
-html[data-frontdesk-page] #frontdeskPageGate{max-width:600px}
-html[data-frontdesk-page] .frontdesk-card{box-shadow:0 7px 28px #172c390a}
-html[data-frontdesk-page] .frontdesk-page-description{margin:0;color:var(--theme-text-muted,#526574)}
-html[data-frontdesk-page] .frontdesk-settings{margin-top:12px}
-html[data-frontdesk-page] [hidden]{display:none!important}
-html[data-theme="dark"][data-frontdesk-page] body{background:var(--theme-background,#141a20)}
-@media(max-width:600px){html[data-frontdesk-page] .frontdesk-page-header{flex-direction:column}html[data-frontdesk-page] .frontdesk-page-links a{flex:1;justify-content:center}}
-
-html[data-frontdesk-page] .frontdesk-remove-staff{color:var(--theme-danger,#b42318);border-color:currentColor;background:transparent;margin-top:8px}
-html[data-frontdesk-page] .frontdesk-remove-staff:hover{background:var(--theme-surface-muted,#f0f4f7)}
-html[data-frontdesk-page] .frontdesk-remove-staff:focus-visible{outline:3px solid var(--theme-focus-ring,#175fa5);outline-offset:2px}
+/* Standalone merchant frontdesk settings. Keep all visual overrides page-scoped:
+   the staff-facing /frontdesk/ page retains its own OS-based appearance. */
+html[data-frontdesk-page] {
+  color-scheme: light;
+}
+html[data-frontdesk-page][data-theme="dark"] {
+  color-scheme: dark;
+}
+html[data-frontdesk-page] body {
+  min-height: 100vh;
+  margin: 0;
+  background: var(--theme-bg, #f2f5f3);
+  color: var(--theme-text, #17231f);
+}
+html[data-frontdesk-page] .frontdesk-settings-standalone {
+  --fd-bg: var(--theme-bg, #f2f5f3);
+  --fd-card: var(--theme-surface-raised, #fff);
+  --fd-text: var(--theme-text, #17231f);
+  --fd-muted: var(--theme-text-muted, #637169);
+  --fd-border: var(--theme-border-strong, #cbd5ce);
+  --fd-primary: var(--ui-primary, #1d4a3b);
+  --fd-on-primary: var(--ui-primary-contrast, #fff);
+  --fd-link: var(--theme-link, #9c3d31);
+  --fd-danger: var(--theme-danger-text, #9c3d31);
+  max-width: 1220px;
+  box-sizing: border-box;
+  padding: clamp(16px, 3.4vw, 44px) clamp(16px, 3vw, 36px) 80px;
+  color: var(--fd-text);
+}
+html[data-frontdesk-page] .frontdesk-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  min-width: 0;
+  padding: clamp(20px, 3vw, 32px);
+  border: 1px solid var(--theme-border, #dce4de);
+  border-radius: 20px;
+  background: var(--theme-surface, #fff);
+  box-shadow: var(--ui-shadow-card, 0 8px 24px #18241f0a);
+}
+html[data-frontdesk-page] .frontdesk-page-header > div:first-child { min-width: 0; }
+html[data-frontdesk-page] .frontdesk-page-header .frontdesk-kicker {
+  margin: 0 0 8px;
+  color: var(--theme-link, #9c3d31);
+  font-size: .75rem;
+  letter-spacing: .13em;
+}
+html[data-frontdesk-page] .frontdesk-page-header h1 {
+  margin: 0 0 8px;
+  font-size: clamp(1.75rem, 3.2vw, 2.5rem);
+  line-height: 1.2;
+  letter-spacing: -.025em;
+  color: var(--theme-text);
+}
+html[data-frontdesk-page] .frontdesk-page-header p:last-child {
+  max-width: 64ch;
+  margin: 0;
+  color: var(--theme-text-muted);
+}
+html[data-frontdesk-page] .platform-appearance {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+html[data-frontdesk-page] .frontdesk-page-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0;
+}
+html[data-frontdesk-page] .frontdesk-page-links a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 9px 16px;
+  border: 1px solid var(--theme-border-strong);
+  border-radius: 10px;
+  color: var(--theme-text);
+  background: var(--theme-surface-raised);
+  font-weight: 650;
+  text-decoration: none;
+  transition: background-color .15s, border-color .15s;
+}
+html[data-frontdesk-page] .frontdesk-page-links a:hover {
+  background: var(--theme-surface-muted);
+  border-color: var(--theme-border-strong);
+}
+html[data-frontdesk-page] .frontdesk-page-links a:focus-visible,
+html[data-frontdesk-page] .frontdesk-settings :is(summary, button, input, select):focus-visible {
+  outline: 3px solid var(--theme-focus-ring, #b64f39);
+  outline-offset: 3px;
+}
+html[data-frontdesk-page] #frontdeskPageStatus {
+  margin: 0 0 18px;
+  padding: 12px 16px;
+  border: 1px solid var(--theme-border);
+  border-radius: 12px;
+  color: var(--theme-text);
+  background: var(--theme-surface-muted);
+  font-size: .925rem;
+}
+html[data-frontdesk-page] #frontdeskPageGate {
+  max-width: 640px;
+  margin: 0;
+  padding: 24px;
+  border: 1px solid var(--theme-border-strong);
+  border-radius: 16px;
+  background: var(--theme-surface-raised);
+}
+html[data-frontdesk-page] #frontdeskPageGate h2 { margin-top: 0; }
+html[data-frontdesk-page] #frontdeskPageContent {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+html[data-frontdesk-page] #frontdeskMerchantTitle {
+  margin: 0 0 4px;
+  font-size: clamp(1.25rem, 2.1vw, 1.6rem);
+  line-height: 1.4;
+  color: var(--theme-text);
+}
+html[data-frontdesk-page] .frontdesk-page-description {
+  margin: 0;
+  color: var(--theme-text-muted);
+}
+html[data-frontdesk-page] .frontdesk-settings {
+  --fd-card: var(--theme-surface-raised);
+  --fd-text: var(--theme-text);
+  --fd-muted: var(--theme-text-muted);
+  --fd-border: var(--theme-border-strong);
+  --fd-primary: var(--ui-primary);
+  --fd-on-primary: var(--ui-primary-contrast);
+  --fd-danger: var(--theme-danger-text);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "heading reload"
+    "status status"
+    "sync sync"
+    "content content";
+  align-items: center;
+  column-gap: 16px;
+  row-gap: 6px;
+  min-width: 0;
+  margin-top: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--theme-text);
+}
+html[data-frontdesk-page] .frontdesk-settings > summary {
+  grid-area: heading;
+  min-width: 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  color: var(--theme-text);
+  font-size: 1.05rem;
+  font-weight: 750;
+  list-style: none;
+}
+html[data-frontdesk-page] .frontdesk-settings > summary::-webkit-details-marker { display: none; }
+html[data-frontdesk-page] .frontdesk-settings > summary::after {
+  content: "⌄";
+  margin-left: 3px;
+  color: var(--theme-text-muted);
+  font-size: 1.15rem;
+  line-height: 1;
+  transition: transform .15s;
+}
+html[data-frontdesk-page] .frontdesk-settings[open] > summary::after {
+  transform: rotate(180deg);
+}
+html[data-frontdesk-page] .frontdesk-settings > button {
+  grid-area: reload;
+  justify-self: end;
+  min-height: 44px;
+  white-space: nowrap;
+}
+html[data-frontdesk-page] .frontdesk-settings > [role="status"] {
+  grid-area: status;
+  margin: 0;
+  color: var(--theme-text);
+  font-size: .925rem;
+}
+html[data-frontdesk-page] .frontdesk-settings > .frontdesk-sync-state {
+  grid-area: sync;
+  margin: 0;
+  color: var(--theme-text-muted);
+  font-size: .85rem;
+}
+html[data-frontdesk-page] .frontdesk-settings-content {
+  grid-area: content;
+  min-width: 0;
+  display: grid;
+  gap: 18px;
+  margin-top: 12px;
+  align-items: start;
+}
+html[data-frontdesk-page] .frontdesk-settings-overview {
+  grid-column: 1 / -1;
+  padding: 16px 20px;
+  border: 1px solid var(--theme-border);
+  border-left: 4px solid var(--theme-positive);
+  border-radius: 14px;
+  background: var(--theme-positive-soft);
+}
+html[data-frontdesk-page] .frontdesk-settings-overview strong {
+  color: var(--theme-positive-text);
+}
+html[data-frontdesk-page] .frontdesk-settings-overview p {
+  color: var(--theme-text-muted);
+}
+html[data-frontdesk-page] .frontdesk-config-form {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+  margin: 0;
+}
+html[data-frontdesk-page] .frontdesk-setup-card,
+html[data-frontdesk-page] .frontdesk-approvals {
+  min-width: 0;
+  padding: clamp(16px, 2.4vw, 24px);
+  margin: 0;
+  border: 1px solid var(--theme-border-strong);
+  border-radius: 16px;
+  background: var(--theme-surface-raised);
+  box-shadow: var(--ui-shadow-card, 0 8px 24px #18241f0a);
+}
+html[data-frontdesk-page] .frontdesk-setup-card {
+  display: grid;
+  gap: 16px;
+}
+html[data-frontdesk-page] .frontdesk-setup-card legend {
+  padding: 0 8px;
+  color: var(--theme-text);
+  font-size: 1.08rem;
+  font-weight: 750;
+}
+html[data-frontdesk-page] .frontdesk-setup-card p,
+html[data-frontdesk-page] .frontdesk-approvals > p {
+  margin: 0;
+  color: var(--theme-text-muted);
+  line-height: 1.6;
+}
+html[data-frontdesk-page] .frontdesk-setup-card .business-line-fields,
+html[data-frontdesk-page] .frontdesk-person .business-line-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  min-width: 0;
+}
+html[data-frontdesk-page] .frontdesk-setup-card label,
+html[data-frontdesk-page] .frontdesk-person label {
+  min-width: 0;
+  gap: 7px;
+  color: var(--theme-text);
+  font-size: .925rem;
+  font-weight: 650;
+}
+html[data-frontdesk-page] .frontdesk-settings :is(input:not([type="checkbox"]), select) {
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid var(--theme-border-strong);
+  border-radius: 10px;
+  color: var(--theme-text);
+  background: var(--theme-surface-raised);
+}
+html[data-frontdesk-page] .frontdesk-settings input[readonly] {
+  background: var(--theme-surface-muted);
+}
+html[data-frontdesk-page] .frontdesk-settings small {
+  color: var(--theme-text-muted);
+  font-size: .8rem;
+  line-height: 1.55;
+  font-weight: 450;
+}
+html[data-frontdesk-page] .frontdesk-settings .frontdesk-endpoint {
+  padding: 12px;
+  border: 1px solid var(--theme-border-strong);
+  border-radius: 10px;
+  color: var(--theme-text);
+  background: var(--theme-surface-muted);
+  font-size: .85rem;
+  overflow-wrap: anywhere;
+}
+html[data-frontdesk-page] .frontdesk-settings .business-line-summary {
+  padding: 12px 14px;
+  border: 1px solid var(--theme-border);
+  border-left: 3px solid var(--theme-positive);
+  border-radius: 10px;
+  background: var(--theme-positive-soft);
+  color: var(--theme-positive-text);
+}
+html[data-frontdesk-page] .frontdesk-setup-card .frontdesk-notification-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--theme-border);
+  border-radius: 10px;
+  background: var(--theme-surface-muted);
+  color: var(--theme-text);
+}
+html[data-frontdesk-page] .frontdesk-settings .frontdesk-primary {
+  min-height: 48px;
+  justify-self: stretch;
+  border: 1px solid var(--ui-primary);
+  border-radius: 10px;
+  background: var(--ui-primary);
+  color: var(--ui-primary-contrast);
+  font-weight: 750;
+}
+html[data-frontdesk-page] .frontdesk-settings .frontdesk-primary:hover:not(:disabled) {
+  color: var(--ui-primary-contrast);
+  background: var(--ui-primary-hover);
+  border-color: var(--ui-primary-hover);
+}
+html[data-frontdesk-page] .frontdesk-approvals {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+html[data-frontdesk-page] .frontdesk-approvals h3 {
+  margin: 0;
+  font-size: 1.08rem;
+}
+html[data-frontdesk-page] .frontdesk-approvals .frontdesk-person {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 16px;
+  margin: 0;
+  border: 1px solid var(--theme-border);
+  border-radius: 12px;
+  background: var(--theme-surface);
+}
+html[data-frontdesk-page] .frontdesk-person > h4,
+html[data-frontdesk-page] .frontdesk-person > p,
+html[data-frontdesk-page] .frontdesk-person > .business-line-fields {
+  grid-column: 1 / -1;
+}
+html[data-frontdesk-page] .frontdesk-person h4 {
+  color: var(--theme-text);
+  font-size: 1rem;
+  line-height: 1.4;
+}
+html[data-frontdesk-page] .frontdesk-person p {
+  color: var(--theme-text-muted);
+  font-size: .875rem;
+}
+html[data-frontdesk-page] .frontdesk-person > button[type="submit"] {
+  min-width: 0;
+  font-weight: 700;
+  background: var(--theme-surface-raised);
+}
+html[data-frontdesk-page] .frontdesk-person > .frontdesk-remove-staff {
+  min-width: 0;
+  margin: 0;
+  color: var(--theme-danger-text);
+  border: 1px solid var(--theme-danger-text);
+  background: transparent;
+  font-weight: 700;
+}
+html[data-frontdesk-page] .frontdesk-person > .frontdesk-remove-staff:hover:not(:disabled) {
+  color: var(--theme-danger-text);
+  background: var(--theme-danger-soft);
+}
+html[data-frontdesk-page] .frontdesk-settings [hidden],
+html[data-frontdesk-page] [hidden] { display: none !important; }
+@media (min-width: 1080px) {
+  html[data-frontdesk-page] .frontdesk-settings-content {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+  }
+  html[data-frontdesk-page] .frontdesk-settings .frontdesk-config-form {
+    grid-column: 1;
+  }
+  html[data-frontdesk-page] .frontdesk-settings .frontdesk-approvals {
+    grid-column: 2;
+  }
+  html[data-frontdesk-page] .frontdesk-setup-card .business-line-fields,
+  html[data-frontdesk-page] .frontdesk-person .business-line-fields {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 700px) {
+  html[data-frontdesk-page] .frontdesk-page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+  html[data-frontdesk-page] .platform-appearance {
+    align-self: flex-start;
+  }
+  html[data-frontdesk-page] .frontdesk-setup-card .business-line-fields,
+  html[data-frontdesk-page] .frontdesk-person .business-line-fields {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 520px) {
+  html[data-frontdesk-page] .frontdesk-page-links a {
+    flex: 1 1 auto;
+  }
+  html[data-frontdesk-page] .frontdesk-settings {
+    column-gap: 8px;
+  }
+  html[data-frontdesk-page] .frontdesk-settings > summary {
+    font-size: .95rem;
+  }
+  html[data-frontdesk-page] .frontdesk-settings > button {
+    padding-inline: 12px;
+  }
+  html[data-frontdesk-page] .frontdesk-approvals .frontdesk-person {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  html[data-frontdesk-page] .frontdesk-person > button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
