@@ -861,7 +861,7 @@
       window.BusinessLineSettings?.select(feature);return;
     }
     // A stale bookmark or a forged query string never exposes an unapproved feature.
-    merchantPanel=feature==='shared'||(visibleFeatureKeys.includes(feature)&&tenant?.features?.[feature]===true)?feature:'shared';
+    merchantPanel=feature==='shared'||(Object.keys(featureLiffNames).includes(feature)&&tenant?.features?.[feature]===true)?feature:'shared';
     if (reveal) selectMerchantWorkspaceTab('line');
     for(const panel of merchantForm.querySelectorAll('[data-merchant-panel]'))
       panel.hidden=panel.dataset.merchantPanel!==merchantPanel;
@@ -900,7 +900,7 @@
     const nav=el('merchantFeatureNav');nav.replaceChildren();
     // Fail closed: only server-returned grants are rendered on the top bar.
     // Productized business mutations remain unavailable until isolated APIs exist.
-    for(const [feature,label] of [['shared','共用 LINE 設定'],...Object.entries(state.features).filter(([key])=>visibleFeatureKeys.includes(key))]) {
+    for(const [feature,label] of [['shared','共用 LINE 設定'],...Object.entries(state.features).filter(([key])=>Object.keys(featureLiffNames).includes(key))]) {
       if(feature!=='shared'&&tenant.features?.[feature]!==true)continue;
       const button=document.createElement('button');
       button.type='button';button.dataset.lineFeature=feature;button.textContent=label;
