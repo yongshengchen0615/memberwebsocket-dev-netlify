@@ -369,8 +369,14 @@ function frontdeskStartTime(value: string): string {
 }
 
 function frontdeskSummaryLines(parsed: ParsedBookingMessage): string[] {
-  const date = frontdeskDate(frontdeskValue(parsed, '預約日期', '營業日', '日期') || frontdeskValue(parsed, '時段'));
-  const time = frontdeskStartTime(frontdeskValue(parsed, '預約時間', '時段', '時間'));
+  // Overnight shifts can have a business date one day before the appointment.
+  // Prefer the actual start timestamp embedded in 時段; use 營業日 only when
+  // the source has no full start date (legacy notices with a time-only range).
+  const start = frontdeskValue(parsed, '時段', '預約時間', '時間');
+  const startDate = frontdeskDate(start);
+  const date = startDate !== '—' ? startDate
+    : frontdeskDate(frontdeskValue(parsed, '預約日期', '日期', '營業日'));
+  const time = frontdeskStartTime(start);
   return [
     `預約日期：${date}`,
     `預約時間：${time}`,
