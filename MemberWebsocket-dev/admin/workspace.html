@@ -16,10 +16,10 @@
 <script src="../member-system.js" defer></script>
   <link rel="stylesheet" href="./business-line-settings.css?v=line-visible-20261117-1">
   <link rel="stylesheet" href="../frontdesk/styles.css?v=frontdesk-20261118-1">
-<script src="./frontdesk-settings.js?v=frontdesk-20261118-1"></script>
-<script src="./business-line-settings.js?v=line-visible-20261117-1-tenant-liff-20261119-1" defer></script>
+<script src="./frontdesk-settings.js?v=frontdesk-separate-20261119-1"></script>
+<script src="./business-line-settings.js?v=line-visible-20261117-1-tenant-liff-20261119-1-frontdesk-20261119-1" defer></script>
   <script src="../platform/expiry-term.js?v=expiry-term-20261101-1" defer></script>
-  <script src="../platform/app.js?v=merchant-expiry-readonly-20261101-1" defer></script>
+  <script src="../platform/app.js?v=merchant-expiry-readonly-20261101-1-frontdesk-20261119-1" defer></script>
   <link rel="stylesheet" href="../portal-navigation.css?v=unified-20261018-1">
   <script src="../portal-navigation.js?v=unified-20261018-1" defer></script>
 </head>
@@ -174,6 +174,7 @@
       <nav id="merchantWorkspaceNav" class="merchant-workspace-tabs" role="tablist" aria-label="商家管理分頁">
         <button type="button" id="merchantOverviewTab" role="tab" aria-controls="merchantOverviewPanel" aria-selected="true">商家總覽</button>
         <button type="button" id="merchantLineSettingsTab" role="tab" aria-controls="merchantLineSettingsPanel" aria-selected="false" hidden disabled>LINE 設定</button>
+        <button type="button" id="merchantFrontdeskSettingsTab" role="tab" aria-controls="merchantFrontdeskSettingsPanel" aria-selected="false" hidden disabled>櫃檯設定</button>
       </nav>
       <div id="merchantOverviewPanel" role="tabpanel" aria-labelledby="merchantOverviewTab">
       <p id="merchantInfo"></p>
@@ -251,6 +252,7 @@
         <button type="submit" id="saveMerchantLine">儲存此頁 LINE 設定</button>
       </form>
       </section>
+      <section id="merchantFrontdeskSettingsPanel" role="tabpanel" aria-labelledby="merchantFrontdeskSettingsTab" hidden><h3>櫃檯設定</h3><p class="hint">此處獨立設定櫃檯官方帳號、申請審核及逐人預約權限；商家 LINE 設定維持在原分頁。</p><div id="merchantFrontdeskSettingsContent" data-frontdesk-settings-root></div></section>
     </section>
   </main>
 </body>
