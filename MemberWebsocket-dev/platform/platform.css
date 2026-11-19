@@ -138,3 +138,15 @@ html[data-workspace="merchant"] :where(button,a,input,textarea):focus-visible{ou
 html[data-portal-surface="platform"] input::placeholder,html[data-portal-surface="platform"] textarea::placeholder,
 html[data-workspace="merchant"] input::placeholder,html[data-workspace="merchant"] textarea::placeholder{color:var(--platform-text-muted,#617166);opacity:1}
 @media(max-width:650px){.tenant-card footer button{max-width:100%}.tenant-card h3{overflow-wrap:anywhere}.dialog-heading>div,.workspace-heading>div{min-width:0}}
+
+/* Secondary action sits beside Manage business; both remain merchant-scoped. */
+#myMerchantList [data-frontdesk-settings-entry].tenant-action-secondary{
+  display:inline-flex;align-items:center;justify-content:center;min-height:44px;
+  padding:12px 20px;border:1px solid var(--platform-primary,#1e5941);border-radius:12px;
+  background:var(--platform-surface-raised,#fff);color:var(--platform-primary,#1e5941);
+  font-size:14px;font-weight:700;line-height:1.4;text-decoration:none;
+}
+#myMerchantList [data-frontdesk-settings-entry].tenant-action-secondary:hover{
+  background:var(--platform-surface-muted,#e8eee7);
+}
+@media(max-width:650px){#myMerchantList [data-frontdesk-settings-entry].tenant-action-secondary{width:100%}}
