@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 const CORE_MODULES = new Set(['admin', 'platform', 'booking', 'member', 'points', 'event', 'calendar']);
 const EVIDENCE_HEADINGS = ['受影響模組', '測試與驗收', '回退方案'];
 const HIGH_EVIDENCE_HEADINGS = ['架構審查', '發布及資料庫相容性'];
-const QUALITY_EVIDENCE_HEADINGS = ['既有功能回歸', '程式碼品質與效能', '連線與非同步設計'];
+const QUALITY_EVIDENCE_HEADINGS = ['既有功能回歸', '程式碼品質與效能', '連線與非同步設計', '架構審查'];
 const READINESS_HEADINGS = ['需求與驗收條件', '基線與目標環境', '資安與資料邊界', '測試與驗收', '回退方案'];
 
 const normalize = (file) => {
@@ -20,7 +20,7 @@ const isBackendRisk = (name) => /(?:^|\/)supabase\/(?:migrations|functions)\//.t
   || /(^|\/)\.env(?:\.|$)/.test(name);
 const isDeployRisk = (name) => name === 'netlify.toml'
   || /^\.github\/(?:workflows\/|PULL_REQUEST_TEMPLATE\.md$)/i.test(name)
-  || /^scripts\/(?:build-site|netlify-preview-source|verify-preview|check-preview-ci|netlify-native-ci-gate|verify-platform-preview|pr-change-risk(?:\.test)?|runtime-quality(?:\.test)?)\.mjs$/.test(name);
+  || /^scripts\/(?:build-site|build-version|netlify-preview-source|verify-preview|check-preview-ci|netlify-native-ci-gate|verify-platform-preview|verify-netlify-native-preview|verify-netlify-cli-preview|inspect-preview-source|preview-member-runtime|supabase-release(?:-sql)?|netlify-release-marker|release-recovery|booking-transport|pr-change-risk|runtime-quality|ci-test-inventory)(?:\.test)?\.mjs$/.test(name);
 const isShared = (name) => /(?:^|\/)(?:shared|common|api)(?:\/|[.-])/i.test(name)
   || /^MemberWebsocket-dev\/(?!admin\/|platform\/|booking\/|member\/|points\/|event\/|calendar\/|tests\/|supabase\/)[^/]+\.js$/i.test(name);
 // Paths are conservative signals only; manual review can raise the risk.

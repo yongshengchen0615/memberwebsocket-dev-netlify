@@ -39,6 +39,17 @@ test('connection design evidence is mandatory for executable changes, with place
  assert.ok(evaluateEvidence(risk,without+'\n### 連線與非同步設計\n待補').missing.includes('連線與非同步設計'));
  assert.equal(evaluateEvidence(risk,without+'\n### 連線與非同步設計\n使用完成事件與單一請求協調；記錄請求數、連線時間、截止及釋放案例。').passed,true);
 });
+test('AC-003: every executable, configuration and governance change requires architecture impact evidence', () => {
+  const absent = fullBody.replace(/\n### 架構審查\n[^\n]+/, '');
+  for (const name of ['MemberWebsocket-dev/booking/index.html', 'docs/example.json', 'AGENTS.md']) {
+    const risk = classifyChangeSet(files(name));
+    for (const body of [absent, absent + '\n### 架構審查\n待補', absent + '\n<!--\n### 架構審查\n沿用既有模組但本段只是隱藏範例，不能作為審查證據。\n-->']) {
+      assert.ok(evaluateEvidence(risk, body).missing.includes('架構審查'), name);
+    }
+    assert.equal(evaluateEvidence(risk, fullBody).passed, true, name);
+  }
+  assert.equal(evaluateEvidence(classifyChangeSet(files('docs/guide.md')), '').passed, true);
+});
 test('docs-only change is small, no mandatory impact fields', () => {
   const r = classifyChangeSet(files('docs/guide.md', 'README.md'));
   assert.equal(r.level, '小改');
@@ -62,6 +73,17 @@ test('three modules is a big cross-module change', () => {
 test('single migration, edge function, authorization or deployment workflow is big', () => {
   for (const filename of ['MemberWebsocket-dev/supabase/migrations/20261025000000_change.sql', 'supabase/functions/api/index.ts', 'MemberWebsocket-dev/admin/admin-session.js', '.github/workflows/publish-netlify.yml', 'netlify.toml']) {
     assert.equal(classifyChangeSet(files(filename)).level, '大改', filename);
+  }
+});
+test('AC-004: release implementations and their tests stay L3, including renamed paths', () => {
+  for (const stem of ['supabase-release', 'netlify-release-marker', 'release-recovery', 'booking-transport', 'verify-netlify-native-preview', 'verify-netlify-cli-preview', 'build-version', 'inspect-preview-source', 'preview-member-runtime', 'ci-test-inventory']) {
+    for (const suffix of ['.mjs', '.test.mjs']) {
+      const filename = 'scripts/' + stem + suffix;
+      const risk = classifyChangeSet(files(filename));
+      assert.equal(risk.tier, 'L3', filename);
+      assert.ok(evaluateEvidence(risk, '').missing.includes('發布及資料庫相容性'), filename);
+      assert.equal(classifyChangeSet([{ filename: 'docs/moved.md', previous_filename: filename, status: 'renamed' }]).tier, 'L3', filename);
+    }
   }
 });
 test('renamed/deleted sensitive path remains big', () => {
