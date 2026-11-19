@@ -37,7 +37,7 @@ test('AC-IC-003: integration center cannot reappear through merchant LINE or gra
   assert.doesNotMatch(businessWorkspace, /operationsHub|integrations:/);
   assert.doesNotMatch(businessLine, /operationsHub|integrations:|整合中心/);
   assert.match(platform, /visibleFeatureKeys=featureKeys\.filter\(key=>key!=='integrations'&&key!=='testing'&&key!=='usage'\)/);
-  assert.match(platform, /featureKeys=\['membership','points','events','calendar','integrations','booking','testing','usage'\]/);
+  assert.match(platform, /featureKeys=\['membership','points','events','calendar','integrations','booking','testing','usage','frontdesk'\]/);
   assert.match(platform, /visibleFeatureKeys\.includes\(key\) && Boolean\(form\.querySelector/);
 });
 
