@@ -12,10 +12,10 @@ function extractFunction(name) {
   return matched[0];
 }
 
-function resolveFrom(currentPage) {
+function resolveFrom(currentPage, activeMerchant = '') {
   const functions = extractFunction('isSafeCalendarLink') + '\n' + extractFunction('resolveCalendarLink');
   return new Function('window', 'URL', functions + '\nreturn resolveCalendarLink;')(
-    { location: { href: currentPage } }, URL
+    { location: { href: currentPage }, ...(activeMerchant ? { BusinessContext: { slug: activeMerchant } } : {}) }, URL
   );
 }
 
@@ -77,4 +77,11 @@ test('AC-008: an unscoped calendar does not inherit a stale merchant stored insi
   );
   const link = new URL(url);
   assert.equal(link.searchParams.get('business'), null, 'never infer tenant identity from an old persisted event link');
+});
+
+test('AC-009: a LINE callback with merchant restored in BusinessContext creates a scoped calendar ticket URL', () => {
+  const resolve = resolveFrom('https://preview.example/calendar/?code=callback&state=opaque', 'merchant-restored');
+  const link = new URL(resolve('https://old.example/event/?source=event-ticket-calendar&eventTicketId=EVT-ticket'));
+  assert.equal(link.searchParams.get('business'), 'merchant-restored');
+  assert.equal(link.searchParams.get('eventTicketId'), 'EVT-ticket');
 });
