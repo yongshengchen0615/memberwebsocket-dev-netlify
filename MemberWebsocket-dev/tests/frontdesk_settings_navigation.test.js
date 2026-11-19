@@ -37,6 +37,9 @@ test('AC-FD-NAV-003: frontdesk no longer mounts inside the booking LINE feature 
   assert.doesNotMatch(line,/if\(feature==='booking'\)window\.FrontdeskSettings\?\.mount\(\{root:section/);
   assert.match(line,/querySelector\('\[data-frontdesk-settings-root\]'\)/);
   assert.match(line,/window\.FrontdeskSettings\?\.clear\(/);
+  assert.match(line,/adapter\?\.root\?\.closest\?\.\('#merchantWorkspace'\)/);
+  assert.match(line,/document\.querySelector\('#adminView'\)/);
+  assert.doesNotMatch(line,/document\.querySelector\('\[data-frontdesk-settings-root\]'\)/);
   assert.match(frontdesk,/mounted\.delete\(root\)/);
   assert.match(frontdesk,/if\s*\(!alive\(\)\)\s*return/);
 });
