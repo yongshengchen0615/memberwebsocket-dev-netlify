@@ -259,7 +259,9 @@
         const result = await request('platform.frontdesk.get');
         if (!alive()) return;
         const next = JSON.stringify([result.version, result.frontdesk, result.staff]);
-        if (next !== snapshot) {
+        // An explicit discard must reconstruct the form even if the server
+        // version did not change, or abandoned input values remain editable.
+        if (force || next !== snapshot) {
           data = result;
           snapshot = next;
           dirty = false;
