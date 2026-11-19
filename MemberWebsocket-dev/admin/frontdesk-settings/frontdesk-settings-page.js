@@ -21,6 +21,13 @@
     'PLATFORM_QUALIFICATION_SUSPENDED'
   ]);
   let config = null, business = '', idToken = '', epoch = 0, checking = false;
+  let reconcileTimer = null;
+  function stopReconciliation() {
+    if (reconcileTimer !== null) {
+      window.clearInterval(reconcileTimer);
+      reconcileTimer = null;
+    }
+  }
 
   function setStatus(message) { status.textContent = message; }
   function hint() {
@@ -48,6 +55,7 @@
     return business;
   }
   function dismiss(message, allowLogin = true) {
+    stopReconciliation();
     epoch++;
     idToken = '';
     window.FrontdeskSettings?.clear(root);
@@ -142,6 +150,9 @@
       const data = await request('platform.application.bootstrap');
       if (epoch !== currentEpoch) return;
       assertAccess(data);
+      // Reconcile new applications from other devices only after the tenant
+      // and administrator grants have been verified by the server.
+      window.FrontdeskSettings.refresh({ business });
       setStatus('已確認 ' + data.tenant.name + ' 的櫃檯設定權限。');
     } catch (error) {
       if (epoch !== currentEpoch) return;
@@ -152,6 +163,7 @@
     }
   }
   async function start() {
+    stopReconciliation();
     const currentEpoch = ++epoch;
     content.hidden = true;
     gate.hidden = true;
@@ -199,6 +211,12 @@
       const details = root.querySelector('[data-frontdesk-settings]');
       if (details) details.open = true;
       window.FrontdeskSettings.refresh({ business });
+      // A cross-device application cannot publish a same-browser event. Retain
+      // the original 15-second server reconciliation while this page is visible.
+      // timer-policy: heartbeat; reason=Reconcile remote staff applications against verified tenant rights; cleanup=dismiss and pagehide; test=frontdesk-booking.spec.cjs
+      reconcileTimer = window.setInterval(() => {
+        if (!document.hidden) void checkAccess();
+      }, 15000);
     } catch (error) {
       if (epoch === currentEpoch) dismiss(error.message || '櫃檯設定驗證未完成。');
     }
@@ -219,6 +237,7 @@
     }
   });
   window.addEventListener('pagehide', () => {
+    stopReconciliation();
     epoch++;
     idToken = '';
     window.FrontdeskSettings?.clear(root);
