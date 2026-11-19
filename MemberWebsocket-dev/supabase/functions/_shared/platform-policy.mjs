@@ -52,7 +52,7 @@ export function validateTenant(input, creating = true, { allowIncompleteFeatureL
     || (channelSecret && !/^[a-fA-F0-9]{32}$/.test(channelSecret))) invalid('LINE 憑證格式不正確。');
   if (channelAccessToken && !normalized.messagingChannelId) invalid('請提供憑證所屬的 Messaging API Channel ID。');
   if (Boolean(channelAccessToken) !== Boolean(channelSecret)) invalid('更新憑證時請同時提供 access token 與 secret。');
-  return { name, slug, ownerLineUserId, features: Object.fromEntries(Object.keys(FEATURES).map(k => [k, k === 'frontdesk' ? features[k] === true : features[k]])), line: normalized, credentials: { channelAccessToken, channelSecret } };
+  return { name, slug, ownerLineUserId, features: Object.fromEntries(Object.keys(FEATURES).filter(k => k !== 'frontdesk' || features.frontdesk === true).map(k => [k, features[k]])), line: normalized, credentials: { channelAccessToken, channelSecret } };
 }
 export function requireFeature(tenant, feature) {
   if (!tenant || tenant.status !== 'active' || tenantExpired(tenant) || !tenant.isolation_verified_at || !/^business_[a-f0-9]{32}$/.test(tenant.runtime_schema||'')) {
