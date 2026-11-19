@@ -33,7 +33,7 @@ test('AC-IC-002: navigation preserves membership, points, events, calendar, book
   assert.match(html, /id="lineSettingsPanel"[^>]*aria-labelledby="lineSettingsTab"/);
   assert.doesNotMatch(html,/id="frontdeskSettingsTab"|id="frontdeskSettingsPanel"/);
   assert.match(source('admin/frontdesk-settings/index.html'),/id="frontdeskSettingsPage"/);
-  assert.match(platform,/frontdesk.href='\\/admin\\/frontdesk-settings\\/\\?business='/);
+  assert.ok(platform.includes("frontdesk.href='/admin/frontdesk-settings/?business='"));
 });
 
 test('AC-IC-003: integration center cannot reappear through merchant LINE or grant UI', () => {
