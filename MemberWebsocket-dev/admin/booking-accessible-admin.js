@@ -682,6 +682,8 @@
       ]);
       if (generation !== state.generation) return;
       state.options = options;
+      const allowedPartySize = Math.max(1,Math.min(10,Number(options.maxPartySize||1)));
+      [...el('accessibleAdminPartySize').options].forEach(option => { option.disabled = Number(option.value)>allowedPartySize; });
       el('accessibleAdminImage').src = image.signedUrl; el('accessibleAdminImage').classList.remove('hidden'); el('accessibleAdminImageLoading').classList.add('hidden');
       if (options.requestedBenefits?.length) {
         const requested=document.createElement('span');requested.dataset.businessRequires='booking points events';
@@ -734,6 +736,9 @@
         message('同一預約項目如由多人使用，實際分鐘數須一致，才能正確計算結算明細。', true); return;
       }
       minutesByService.set(item.serviceId,item.minutes);
+    }
+    if (participants.length > Math.max(1,Math.min(10,Number(state.options.maxPartySize||1)))) {
+      message('超過商家一般預約設定的預約人數上限。',true); return;
     }
     const techIds = participants.map(person => person.technicianId).filter(Boolean);
     if (new Set(techIds).size !== techIds.length) {
