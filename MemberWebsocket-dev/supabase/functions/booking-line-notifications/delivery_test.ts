@@ -25,7 +25,7 @@ Deno.test('AC-FD-001: frontdesk LINE card uses exactly the requested booking fie
     '個別時間：60 分鐘',
     '個別金額：NT$2,500',
     '預約技師：10技師',
-  ].join('\\n');
+  ].join('\n');
   const notice = buildBookingFlexMessage({
     ...sampleJob, channel: 'frontdesk', message_text: text,
   });
@@ -55,7 +55,7 @@ Deno.test('AC-FD-002: multiple frontdesk participants remain ordered and isolate
     '', '第一位預約', '預約項目：身體60', '個別金額：NT$1,000',
     '預約技師：10技師', '', '第二位預約',
     '預約項目：肩頸30、頭部20', '預約技師：現場安排',
-  ].join('\\n');
+  ].join('\n');
   const card = buildBookingFlexMessage({ ...sampleJob, channel: 'frontdesk', message_text: text });
   const body = card.contents.body as Record<string, unknown>;
   const cards = body.contents as Array<Record<string, unknown>>;
@@ -77,7 +77,7 @@ Deno.test('AC-FD-003: frontdesk legacy services and unknown schedules are safely
   const legacy = buildBookingFlexMessage({
     ...sampleJob, channel: 'frontdesk',
     message_text: ['【修改預約】', '日期：2026/11/20', '預約人：王小姐', '電話：0912345678',
-      '預約人數：1 位', '預約項目：', '身體60'].join('\\n'),
+      '預約人數：1 位', '預約項目：', '身體60'].join('\n'),
   });
   const text = JSON.stringify(legacy.contents.body);
   assert(text.includes('預約日期：2026-11-20') && text.includes('預約時間：—'),
