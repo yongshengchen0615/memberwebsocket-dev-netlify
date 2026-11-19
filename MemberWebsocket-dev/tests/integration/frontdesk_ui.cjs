@@ -19,7 +19,7 @@ test('authoritative revocation clears previously rendered booking details and ac
 });
 
 test('merchant frontdesk settings reconcile server changes without overwriting drafts',async()=>{
- const dom=new JSDOM('<div id="root"></div>',{url:'https://desk.test/admin/?business=shop-a',runScripts:'outside-only'});
+ const dom=new JSDOM('<div id="root"></div>',{url:'https://desk.test/admin/?business=shop-a',runScripts:'outside-only',pretendToBeVisual:true});
  const w=dom.window,root=w.document.getElementById('root'),calls=[];
  let current={version:1,frontdesk:{enabled:true,liffId:'2010999999-desk',loginChannelId:'2010999999',messagingChannelId:'2010888888'},staff:[]};
  const request=async action=>{
