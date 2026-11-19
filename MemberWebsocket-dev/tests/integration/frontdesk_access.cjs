@@ -8,6 +8,9 @@ test('frontdesk: tenant-scoped applications, modes, revocation, outbox, transiti
   await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261026050904_line_webhook.sql'),'utf8'));
   await h.db.exec(migration());
   await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261118190000_frontdesk_safeupdate_projection.sql'),'utf8'));
+  await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261119150000_frontdesk_independent_feature_grant.sql'),'utf8'));
+  await assert.rejects(h.db.query('select public.platform_frontdesk_context($1)',['desk-shop']),/FRONTDESK_UNAVAILABLE/);
+  await h.db.query("update platform_private.tenants set features=features||'{\"frontdesk\":true}'::jsonb where id=$1",[t.id]);
   const call=async(name,args)=>(await h.db.query(`select public.${name}(${args.map((_,i)=>'$'+(i+1)).join(',')}) result`,args)).rows[0].result;
   const now=()=>new Date().toISOString();
   const admin=(action,body={})=>call('platform_frontdesk_admin',[owner,t.id,now(),action,{requestId:crypto.randomUUID(),payloadHash:'a'.repeat(64),...body}]);
@@ -69,7 +72,20 @@ test('frontdesk: tenant-scoped applications, modes, revocation, outbox, transiti
    ["update platform_private.tenants set status='suspended' where id=$1","update platform_private.tenants set status='active' where id=$1"],
    ["update platform_private.tenants set expires_at=now()-interval '1 day' where id=$1",null],
   ]){await h.db.query(change,[t.id]);await assert.rejects(req('bootstrap'),/FRONTDESK_UNAVAILABLE/);assert.equal((await call('platform_frontdesk_delivery',[t.id,staff])).allowed,false);if(restore)await h.db.query(restore,[t.id]);else await h.db.query('update platform_private.tenants set expires_at=$2 where id=$1',[t.id,beforeTenant.expires_at]);}
-  for(const role of ['anon','authenticated']){await h.db.exec('set role '+role);await assert.rejects(call('platform_frontdesk_request',[t.id,staff,channel,now(),'bootstrap',{}]),/permission denied/);await h.db.exec('reset role');}
+  // The super-admin revokes frontdesk independently of booking, atomically
+  // draining old notifications while keeping unrelated booking access.
+  const oldIssued=now(),beforeGrant=(await h.db.query('select version,features from platform_private.tenants where id=$1',[t.id])).rows[0];
+  await call('platform_update_tenant_features',[h.root,t.id,beforeGrant.version,{...beforeGrant.features,frontdesk:false},crypto.randomUUID(),'a'.repeat(64)]);
+  await assert.rejects(req('bootstrap'),/FRONTDESK_UNAVAILABLE/);
+  assert.equal((await call('platform_frontdesk_delivery',[t.id,staff])).allowed,false);
+  assert.equal((await q("select count(*)::int n from S.frontdesk_notice_recipients"))[0].n,0);
+  assert.equal((await q("select count(*)::int n from S.notice_outbox where channel='frontdesk' and status in ('pending','sending')"))[0].n,0);
+  const disabledGrant=(await h.db.query('select version,features from platform_private.tenants where id=$1',[t.id])).rows[0];
+  assert.equal(disabledGrant.features.booking,true);
+  await call('platform_update_tenant_features',[h.root,t.id,disabledGrant.version,{...disabledGrant.features,frontdesk:true},crypto.randomUUID(),'b'.repeat(64)]);
+  await assert.rejects(call('platform_frontdesk_request',[t.id,staff,channel,oldIssued,'bootstrap',{}]),/FRONTDESK_AUTH_INVALID/);
+  assert.equal((await call('platform_frontdesk_delivery',[t.id,staff])).allowed,true);
+    for(const role of ['anon','authenticated']){await h.db.exec('set role '+role);await assert.rejects(call('platform_frontdesk_request',[t.id,staff,channel,now(),'bootstrap',{}]),/permission denied/);await h.db.exec('reset role');}
   assert.equal(JSON.stringify(await admin('get')).includes('envelope'),false);
  }finally{await h.db.close();}
 });
