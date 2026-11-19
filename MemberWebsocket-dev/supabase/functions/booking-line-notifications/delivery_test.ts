@@ -15,7 +15,7 @@ Deno.test('AC-FD-001: frontdesk LINE card uses exactly the requested booking fie
     '預約人：陳先生',
     '營業日：2026/11/20',
     '時段：2026/11/20 09:30–2026/11/20 10:30（台北時間）',
-    '電話：+886900638213',
+    '電話：+886900000000',
     '預約人數：1 位',
     '會員備註：不該出現在櫃檯通知',
     '管理端說明：僅限管理員閱讀',
@@ -37,7 +37,7 @@ Deno.test('AC-FD-001: frontdesk LINE card uses exactly the requested booking fie
     .map((item) => String(item.text));
   const expected = [
     '預約日期：2026-11-20', '預約時間：09:30',
-    '預約人：陳先生', '電話：+886900638213', '預約人數：1 位',
+    '預約人：陳先生', '電話：+886900000000', '預約人數：1 位',
     '第一位預約', '預約項目：身體60', '預約技師：10技師',
   ];
   assert(JSON.stringify(visible) === JSON.stringify(expected),
