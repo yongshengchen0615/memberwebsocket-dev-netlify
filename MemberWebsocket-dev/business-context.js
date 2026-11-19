@@ -1,9 +1,21 @@
 (() => {
  'use strict';
  const params=new URLSearchParams(window.location.search);
+ const surface=({member:'membership',points:'points',event:'events',calendar:'calendar',booking:'booking'})[window.location.pathname.split('/')[1]];
+ const scopeKey=surface?'merchant-liff-scope:'+window.location.pathname.split('/')[1]:null;
  let slug=params.get('business')||'';
  if(!slug&&params.get('liff.state')){try{slug=new URL(params.get('liff.state'),window.location.origin).searchParams.get('business')||'';}catch{}}
+ // LINE's secondary OAuth redirect can omit the original query string. Keep
+ // only this tab's recently selected merchant, and only for a real callback.
+ if(!slug&&scopeKey&&(params.has('liff.state')||(params.has('code')&&params.has('state')))){
+  try{
+   const saved=JSON.parse(window.sessionStorage?.getItem(scopeKey)||'null');
+   const age=Date.now()-saved?.savedAt;
+   if(saved?.surface===window.location.pathname.split('/')[1]&&age>=0&&age<10*60*1000)slug=saved.business||'';
+  }catch{}
+ }
  if(slug&&!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(slug))throw Error('商家入口格式不正確。');
+ if(slug&&scopeKey){try{window.sessionStorage?.setItem(scopeKey,JSON.stringify({business:slug,surface:window.location.pathname.split('/')[1],savedAt:Date.now()}));}catch{}}
  const original=window.fetch.bind(window);
  const memberSurface=({member:'membership',points:'points',event:'events',calendar:'calendar',booking:'booking'})[location.pathname.split('/')[1]];
  let grants=null,businessGeneration=0;

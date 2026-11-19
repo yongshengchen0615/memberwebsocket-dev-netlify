@@ -64,3 +64,39 @@ test('AC-004: missing feature LIFF fails before SDK initialization and explains 
  await assert.rejects(window.BookingSystem.signIn(config,'booking'),e=>e.code==='LIFF_CONFIG_MISSING'&&/商家.*LINE.*設定/.test(e.message));
  await assert.rejects(window.BookingSystem.signIn(config,'member'),e=>e.code==='LIFF_CONFIG_MISSING'&&/商家.*LINE.*設定/.test(e.message));
 });
+
+function merchantRedirect(url, sessionStorage) {
+ const location=new URL(url),calls=[];
+ const window={location,sessionStorage,setTimeout,clearTimeout,fetch:async(input,init)=>{
+  calls.push({input,body:JSON.parse(init.body)});
+  return Response.json({ok:true,data:{business:'merchant-a',name:'Merchant A',features:{events:true},line:{eventLiffId:'2010787602-MerchantEvent'}}});
+ }};
+ const document={documentElement:{},querySelectorAll:()=>[],addEventListener(){}};
+ vm.runInNewContext(fs.readFileSync(path.resolve(__dirname,'../business-context.js'),'utf8'),{window,location,document,URL,URLSearchParams,Response,AbortController});
+ return {context:window.BusinessContext,calls};
+}
+function merchantTabStorage(){
+ const values=new Map();
+ return {getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,String(value))};
+}
+test('AC-005: Event LIFF OAuth callback restores only its previously selected business before reading merchant LIFF ID',async()=>{
+ const storage=merchantTabStorage(),initial=merchantRedirect('https://app.test/event/?source=event-ticket-calendar&eventTicketId=EVT-test&business=merchant-a',storage);
+ assert.equal(initial.context.slug,'merchant-a');
+ const callback=merchantRedirect('https://app.test/event/?code=synthetic-code&state=synthetic-state',storage);
+ assert.equal(callback.context.slug,'merchant-a');
+ const config=globalConfig();await callback.context.configure(config);
+ assert.equal(config.eventLiffId,'2010787602-MerchantEvent');
+ assert.equal(callback.calls[0].body.action,'platform.business.public');
+ assert.equal(callback.calls[0].body.feature,'events');
+ assert.equal(callback.calls[0].body.business,'merchant-a');
+ assert.equal(merchantRedirect('https://app.test/event/',storage).context.slug,'','normal unscoped visits must not inherit merchant identity');
+ assert.equal(merchantRedirect('https://app.test/points/?code=a&state=b',storage).context.slug,'','other surfaces cannot inherit event scope');
+});
+test('AC-006: restored Event LIFF merchant context is bounded and explicit URL scope overrides stale tab state',()=>{
+ const storage=merchantTabStorage();
+ storage.setItem('merchant-liff-scope:event',JSON.stringify({business:'merchant-a',surface:'event',savedAt:Date.now()-11*60*1000}));
+ assert.equal(merchantRedirect('https://app.test/event/?code=c&state=s',storage).context.slug,'','expired context must not be used');
+ storage.setItem('merchant-liff-scope:event',JSON.stringify({business:'merchant-a',surface:'event',savedAt:Date.now()}));
+ assert.equal(merchantRedirect('https://app.test/event/?business=merchant-b&code=c&state=s',storage).context.slug,'merchant-b','explicit business always wins');
+ assert.equal(merchantRedirect('https://app.test/event/?liff.state='+encodeURIComponent('/event/?business=merchant-a'),storage).context.slug,'merchant-a','LINE primary redirect state wins');
+});
