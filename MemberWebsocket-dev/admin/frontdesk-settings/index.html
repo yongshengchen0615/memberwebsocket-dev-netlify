@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-Hant" data-frontdesk-page="true">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' https://static.line-scdn.net; style-src 'self'; connect-src 'self' https://*.supabase.co https://api.line.me https://access.line.me https://liff.line.me https://*.line-scdn.net; img-src 'self' data:; frame-src https://access.line.me https://liff-subwindow.line.me; form-action 'self' https://access.line.me https://liff-subwindow.line.me">
+  <meta name="theme-color" content="#f9fbf9">
+  <title>櫃檯設定｜Lumen Club</title>
+  <link rel="stylesheet" href="../../theme.css?v=frontdesk-settings-standalone-20261119">
+  <link rel="stylesheet" href="../../frontdesk/styles.css?v=frontdesk-sync-theme-20261119-1">
+  <link rel="stylesheet" href="./frontdesk-settings-page.css?v=frontdesk-settings-standalone-20261119">
+  <script src="../../theme.js?v=m3-ui-20260929-1" defer></script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
+  <script src="../../business-context.js"></script>
+  <script src="../../member-system.js" defer></script>
+  <script src="../frontdesk-settings.js?v=frontdesk-simplified-20261119-1" defer></script>
+  <script src="./frontdesk-settings-page.js?v=frontdesk-settings-standalone-20261119" defer></script>
+</head>
+<body>
+  <main id="frontdeskSettingsPage" class="frontdesk-shell frontdesk-settings-standalone" aria-labelledby="frontdeskPageHeading">
+    <header class="frontdesk-page-header">
+      <div>
+        <p class="frontdesk-kicker">BUSINESS / FRONTDESK</p>
+        <h1 id="frontdeskPageHeading">櫃檯設定</h1>
+        <p>獨立管理櫃檯 LINE 登入、預約通知與人員申請審核。</p>
+      </div>
+      <div class="platform-appearance account-menu" role="group" aria-label="外觀設定"></div>
+    </header>
+    <nav class="frontdesk-page-links" aria-label="管理導覽">
+      <a href="/admin/" id="frontdeskBackToMerchants" data-business-switch="true">返回我的商家</a>
+      <a href="/admin/" id="frontdeskManageBusiness" hidden>管理商家</a>
+    </nav>
+    <p id="frontdeskPageStatus" role="status" aria-live="polite">正在確認 LINE 身分與商家授權…</p>
+    <section id="frontdeskPageGate" class="frontdesk-card" hidden aria-labelledby="frontdeskGateTitle">
+      <h2 id="frontdeskGateTitle">需要確認管理員身分</h2>
+      <p>只有審核通過且已獲櫃檯功能授權的商家管理員可以使用此頁面。</p>
+      <button id="frontdeskPageLogin" type="button">重新使用 LINE 登入</button>
+    </section>
+    <section id="frontdeskPageContent" class="frontdesk-card" hidden aria-labelledby="frontdeskMerchantTitle">
+      <h2 id="frontdeskMerchantTitle">櫃檯服務設定</h2>
+      <p class="frontdesk-page-description">設定會與商家管理端即時共用；人員權限由伺服器逐次確認。</p>
+      <div id="frontdeskSettingsRoot" data-frontdesk-settings-root></div>
+    </section>
+  </main>
+</body>
+</html>

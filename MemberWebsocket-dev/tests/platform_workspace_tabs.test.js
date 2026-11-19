@@ -14,9 +14,9 @@ assert.ok(start >= 0 && end > start, 'Merchant tab controller must remain testab
 function createFixture(granted) {
   const nodes = {};
   let focused = '';
-  for (const id of ['merchantOverviewTab', 'merchantLineSettingsTab', 'merchantFrontdeskSettingsTab', 'merchantOverviewPanel', 'merchantLineSettingsPanel', 'merchantFrontdeskSettingsPanel']) {
-    nodes[id] = { id, hidden: id === 'merchantLineSettingsTab' || id === 'merchantLineSettingsPanel' || id === 'merchantFrontdeskSettingsTab' || id === 'merchantFrontdeskSettingsPanel',
-      disabled: id === 'merchantLineSettingsTab' || id === 'merchantFrontdeskSettingsTab', tabIndex: 0, attrs: {}, listeners: {},
+  for (const id of ['merchantOverviewTab', 'merchantLineSettingsTab', 'merchantOverviewPanel', 'merchantLineSettingsPanel']) {
+    nodes[id] = { id, hidden: id === 'merchantLineSettingsTab' || id === 'merchantLineSettingsPanel',
+      disabled: id === 'merchantLineSettingsTab', tabIndex: 0, attrs: {}, listeners: {},
       setAttribute(k, v) { this.attrs[k] = v; },
       addEventListener(k, fn) { this.listeners[k] = fn; },
       focus() { focused = id; } };
@@ -48,11 +48,8 @@ test('AC-ADM-UX-006: Arrow keys and Home/End select the visible panel, focus it 
   assert.equal(view.press('merchantLineSettingsTab', 'Home'), true);
   assert.equal(view.focus(), 'merchantOverviewTab');
   assert.equal(view.press('merchantOverviewTab', 'End'), true);
-  assert.equal(view.focus(), 'merchantFrontdeskSettingsTab');
-  assert.equal(n.merchantFrontdeskSettingsPanel.hidden, false);
-  assert.equal(n.merchantLineSettingsPanel.hidden, true);
-  assert.equal(view.press('merchantFrontdeskSettingsTab', 'ArrowLeft'), true);
   assert.equal(view.focus(), 'merchantLineSettingsTab');
+  assert.equal(n.merchantLineSettingsPanel.hidden, false);
   assert.equal(view.press('merchantLineSettingsTab', 'ArrowLeft'), true);
   assert.equal(n.merchantOverviewTab.attrs['aria-selected'], 'true');
   assert.equal(view.press('merchantOverviewTab', 'Escape'), false);
@@ -61,9 +58,7 @@ test('AC-ADM-UX-006: Arrow keys and Home/End select the visible panel, focus it 
 test('AC-ADM-UX-002: withheld features stay hidden and disabled even with forged tab selection or keyboard input', () => {
   const view = createFixture(false), n = view.nodes;
   view.context.chooseTab('frontdesk');
-  assert.equal(n.merchantFrontdeskSettingsTab.hidden, true);
-  assert.equal(n.merchantFrontdeskSettingsTab.disabled, true);
-  assert.equal(n.merchantFrontdeskSettingsPanel.hidden, true);
+  assert.equal(n.merchantOverviewPanel.hidden, false, 'removed frontdesk tab cannot be selected by key');
   view.context.chooseTab('line');
   assert.equal(n.merchantOverviewTab.attrs['aria-selected'], 'true');
   assert.equal(n.merchantLineSettingsTab.hidden, true);
@@ -76,9 +71,10 @@ test('AC-ADM-UX-002: withheld features stay hidden and disabled even with forged
 });
 
 test('AC-ADM-UX-006: existing accessible tab labels and controlled panel associations remain unchanged', () => {
-  for (const [id, panel] of [['merchantOverviewTab', 'merchantOverviewPanel'], ['merchantLineSettingsTab', 'merchantLineSettingsPanel'], ['merchantFrontdeskSettingsTab','merchantFrontdeskSettingsPanel']]) {
+  for (const [id, panel] of [['merchantOverviewTab', 'merchantOverviewPanel'], ['merchantLineSettingsTab', 'merchantLineSettingsPanel']]) {
     assert.match(html, new RegExp('id="' + id + '"[^>]*role="tab"[^>]*aria-controls="' + panel + '"'));
     assert.match(html, new RegExp('id="' + panel + '"[^>]*role="tabpanel"[^>]*aria-labelledby="' + id + '"'));
   }
   assert.match(html, /id="merchantWorkspaceNav"[^>]*role="tablist"/);
+  assert.doesNotMatch(html,/merchantFrontdeskSettingsTab|merchantFrontdeskSettingsPanel/);
 });
