@@ -1,6 +1,7 @@
 (() => {
   'use strict';
   const mounted = new WeakSet();
+  const active = new Map();
   const node = (tag, text, className) => {
     const result = document.createElement(tag);
     if (text) result.textContent = text;
@@ -19,10 +20,16 @@
     const content = node('div', '', 'frontdesk-settings-content');
     const reload = node('button', '重新整理', 'button button-outline');
     reload.type = 'button';
-    details.append(status, reload, content);
+    const syncState = node('p', '尚未取得最新櫃檯設定。', 'frontdesk-sync-state');
+    // The primary status is the sole live region; this is a visual sync hint.
+    details.append(status, syncState, reload, content);
     root.append(details);
-    let data = null, busy = false, pending = null;
+    let data = null, busy = false, pending = null, dirty = false, snapshot = '';
+    const channel = typeof window.BroadcastChannel === 'function'
+      ? new window.BroadcastChannel('frontdesk-settings-v1') : null;
     const alive = () => details.isConnected;
+    const visible = () => alive() && details.open && !document.hidden &&
+      !details.closest('[role="tabpanel"]')?.hidden;
     function lock() {
       for (const control of details.querySelectorAll('input,select,button')) control.disabled = busy || Boolean(pending);
       const retry = details.querySelector('[data-frontdesk-retry]');
@@ -40,9 +47,14 @@
         const result = await request(action, body);
         if (!alive()) return;
         pending = null;
+        dirty = false;
+        snapshot = JSON.stringify([result.version, result.frontdesk, result.staff]);
         data = result;
         render();
+        syncState.textContent = '最新版本已儲存並同步。';
         status.textContent = '櫃檯設定與人員權限已儲存。';
+        // Invalidate other open tabs; never send credentials or staff data.
+        channel?.postMessage({ business });
       } catch (error) {
         if (!alive()) return;
         if (!error.uncertain) pending = null;
@@ -76,6 +88,11 @@
       content.replaceChildren();
       const cfg = data.frontdesk || {};
       const hasSettings = Boolean(cfg.liffId && cfg.messagingChannelId);
+      const overview = node('div', '', 'frontdesk-settings-overview');
+      overview.append(node('strong', cfg.enabled === false ? '櫃檯入口已停用' :
+        hasSettings ? '櫃檯已設定 LINE 入口' : '尚待完成櫃檯設定'));
+      overview.append(node('p', '總管理員控制開通；商家管理員設定 LINE 與逐人授權。'));
+      content.append(overview);
       const form = node('form', '', 'frontdesk-config-form');
       const login = node('fieldset', '', 'frontdesk-setup-card');
       login.append(node('legend', '1. 櫃檯登入'));
@@ -152,6 +169,13 @@
       }
       disabled.addEventListener('change', toggleFields);
       toggleFields();
+      const markDirty = () => {
+        if (busy || pending) return;
+        dirty = true;
+        syncState.textContent = '有尚未儲存的修改；自動同步不會覆蓋草稿。';
+      };
+      form.addEventListener('input', markDirty);
+      form.addEventListener('change', markDirty);
       form.addEventListener('submit', event => {
         event.preventDefault();
         if (pending) {
@@ -208,6 +232,11 @@
         const button = node('button', person.status === 'pending' ? '核准／更新此人員權限' : '儲存此人員權限', 'button button-outline');
         button.type = 'submit';
         row.append(controls, button);
+        row.addEventListener('change', () => {
+          if (busy || pending) return;
+          dirty = true;
+          syncState.textContent = '人員權限尚未儲存；自動同步不會覆蓋草稿。';
+        });
         row.addEventListener('submit', event => {
           event.preventDefault();
           void save('platform.frontdesk.staff.save', {staffId:person.id,expectedVersion:person.version,status:state.value,permissionMode:mode.value}, button);
@@ -217,31 +246,82 @@
       content.append(approvals);
       lock();
     }
-    async function load() {
-      if (busy || pending) return;
+    async function load({ force = false } = {}) {
+      if (busy || pending || !alive()) return;
+      if (dirty && !force) {
+        syncState.textContent = '偵測到資料同步需求；請先儲存草稿，或使用「重新整理」捨棄修改。';
+        return;
+      }
       busy = true;
       lock();
-      status.textContent = '正在讀取櫃檯設定與人員申請…';
+      status.textContent = '正在確認伺服器上的最新櫃檯設定…';
       try {
         const result = await request('platform.frontdesk.get');
         if (!alive()) return;
-        data = result;
-        render();
-        status.textContent = '已載入此商家的櫃檯設定與申請名單。';
+        const next = JSON.stringify([result.version, result.frontdesk, result.staff]);
+        // An explicit discard must reconstruct the form even if the server
+        // version did not change, or abandoned input values remain editable.
+        if (force || next !== snapshot) {
+          data = result;
+          snapshot = next;
+          dirty = false;
+          render();
+          status.textContent = '已同步最新櫃檯設定與人員申請。';
+        } else {
+          status.textContent = '櫃檯設定與伺服器一致。';
+        }
+        syncState.textContent = '最後確認：' + new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
       } catch (error) {
-        if (alive()) status.textContent = error.message || '暫時無法取得櫃檯設定。';
+        if (alive()) {
+          status.textContent = error.message || '暫時無法取得櫃檯設定。';
+          syncState.textContent = '同步失敗；目前顯示的資料可能已過期。';
+        }
       } finally {
         busy = false;
         if (alive()) lock();
       }
     }
-    reload.onclick = () => void load();
-    details.addEventListener('toggle', () => { if (details.open && !data) void load(); });
+    reload.onclick = () => {
+      if (dirty && !window.confirm('確定捨棄尚未儲存的修改並載入伺服器最新版本？')) return;
+      dirty = false;
+      void load({ force: true });
+    };
+    details.addEventListener('toggle', () => { if (details.open) void load(); });
+    const onFocus = () => { if (visible()) void load(); };
+    const onVisibility = () => { if (!document.hidden) onFocus(); };
+    const onRefresh = event => {
+      if (!event.detail?.business || event.detail.business === business) onFocus();
+    };
+    const onBroadcast = event => {
+      if (event.data?.business === business) onFocus();
+    };
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onFocus);
+    window.addEventListener('frontdesk:refresh', onRefresh);
+    document.addEventListener('visibilitychange', onVisibility);
+    channel?.addEventListener('message', onBroadcast);
+    active.set(root, {
+      business,
+      load: onFocus,
+      dispose() {
+        window.removeEventListener('focus', onFocus);
+        window.removeEventListener('online', onFocus);
+        window.removeEventListener('frontdesk:refresh', onRefresh);
+        document.removeEventListener('visibilitychange', onVisibility);
+        channel?.removeEventListener('message', onBroadcast);
+        channel?.close();
+      }
+    });
   }
   function clear(root) {
-    if(!root)return;
+    if (!root) return;
+    active.get(root)?.dispose();
+    active.delete(root);
     mounted.delete(root);
     root.querySelector('[data-frontdesk-settings]')?.remove();
   }
-  window.FrontdeskSettings = Object.freeze({ mount, clear });
+  function refresh({ business } = {}) {
+    for (const entry of active.values()) if (!business || entry.business === business) entry.load();
+  }
+  window.FrontdeskSettings = Object.freeze({ mount, clear, refresh });
 })();

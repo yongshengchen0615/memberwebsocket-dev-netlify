@@ -18,3 +18,34 @@ test('AC-LINE-UX-007: arrow and Home/End keys follow granted modules, keep draft
   const remaining=d.querySelector('[role=tab]');remaining.focus();remaining.dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true,cancelable:true}));assert.equal(d.activeElement,remaining);assert.equal(remaining.tabIndex,0);
  }finally{w.close();}
 });
+
+test('AC-FD-SYNC-003: a strictly newer server version may re-enable approved modules',async()=>{
+ const dom=new JSDOM('<nav id="businessLineFeatureNav" role="tablist"></nav><div id="businessLineFeatureContent"></div>',{
+   url:'https://fixture.test/admin/?business=synthetic',runScripts:'outside-only',pretendToBeVisual:true
+ }),w=dom.window;
+ try{
+   w.AbortSignal=AbortSignal;
+   w.MemberAdminSession={get:()=>({config:{business:'synthetic',supabaseFunctionUrl:'https://fixture.test/functions/v1/api'},idToken:'synthetic'})};
+   const features={membership:true,points:false,booking:false};
+   let version=1,remoteFeatures={...features};
+   w.fetch=async()=>({ok:true,json:async()=>({ok:true,data:{
+     application:{status:'approved'},
+     tenant:{slug:'synthetic',version,features:remoteFeatures,line:{},moduleLine:{}}
+   }})});
+   w.eval(fs.readFileSync(path.resolve(__dirname,'../../admin/business-line-settings.js'),'utf8'));
+   await w.BusinessLineSettings.apply({features});
+   assert.equal(w.document.querySelector('#businessLineFeatureTab-points'),null);
+   // Root approval changes the authoritative tenant version.
+   version=2;remoteFeatures={...features,points:true};
+   w.dispatchEvent(new w.Event('focus'));
+   for(let i=0;i<5;i++)await new Promise(resolve=>setImmediate(resolve));
+   assert.ok(w.document.querySelector('#businessLineFeatureTab-points'),
+     'new server version must unlock a newly authorized module without re-login');
+   // A subsequently revoked grant must remain revoked when a stale server
+   // response reports the same version.
+   await w.BusinessLineSettings.apply({features:{...remoteFeatures,points:false},business:{slug:'synthetic'}});
+   for(let i=0;i<5;i++)await new Promise(resolve=>setImmediate(resolve));
+   assert.equal(w.document.querySelector('#businessLineFeatureTab-points'),null,
+     'same-version old response must never undo local revocation');
+ }finally{w.close();}
+});

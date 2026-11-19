@@ -1088,6 +1088,12 @@
           if(el('reloadMerchantSettings'))el('reloadMerchantSettings').hidden=false;
         }else renderMine(data);
       }
+      // Reuse the existing authenticated 15-second reconciliation loop for
+      // frontdesk settings as well. No separate timer or stale local cache.
+      if (data.application?.status === 'approved' && data.tenant?.features?.booking === true
+        && data.tenant?.features?.frontdesk === true) {
+        window.FrontdeskSettings?.refresh({ business: data.tenant.slug });
+      }
       el('platformStatus').textContent=data.application?.status==='pending'?'申請已送出，等待總管理員審核。':'已更新目前的功能權限。';
     }catch(error){el('platformStatus').textContent=error.message;}
     finally{refreshBusy=false;}

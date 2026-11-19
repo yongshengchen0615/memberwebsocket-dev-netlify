@@ -479,8 +479,25 @@
     try {
       const result = await request('platform.application.bootstrap');
       if (!result.tenant || result.tenant.slug !== business || result.application?.status !== 'approved' || (result.tenant.status === 'suspended' || result.tenant.expired)) throw Object.assign(Error('此商家的 LINE 設定權限尚未開放。'),{code:'BUSINESS_FORBIDDEN'});
-      tenant = result.tenant; const created=render();
+      // A newer server tenant version can unlock a newly approved module.
+      // At the same/older version, keep local revocations fail-closed, since a
+      // bootstrap may have raced a more recent workspace permission update.
+      const serverVersion = Number(result.tenant.version);
+      const localVersion = Number(tenant?.version);
+      const serverIsNewer = Boolean(tenant) && Number.isFinite(serverVersion)
+        && Number.isFinite(localVersion) && serverVersion > localVersion;
+      const nextGrants = Object.fromEntries(Object.entries(result.tenant.features)
+        .map(([key, enabled]) => [key, enabled === true && (serverIsNewer || grants[key] === true)]));
+      const grantsChanged = JSON.stringify(grants) !== JSON.stringify(nextGrants);
+      tenant = result.tenant;
+      grants = nextGrants;
+      if (grantsChanged) {
+        // Reconcile merchant tabs with the same authoritative tenant snapshot.
+        window.BusinessWorkspace?.apply({ business: tenant, features: grants });
+      }
+      const created=render();
       updateShared();
+      window.FrontdeskSettings?.refresh({ business });
       for (const view of views.values()) {
         if (force && view === source) {view.dirty.clear();view.derived.clear();}
         if(!created.has(view)||force&&view===source)update(view, force && view === source);
@@ -502,5 +519,13 @@
     if (!tenant || changed) return load();
   }
   window.addEventListener('member-admin-ready', () => void load());
+  // Legacy /admin/ has no merchant-side heartbeat. Revalidate on resumed use
+  // rather than inventing another polling interval.
+  const refreshOnResume = () => {
+    if (!document.hidden && (tenant || adapter)) void load();
+  };
+  window.addEventListener('focus', refreshOnResume);
+  window.addEventListener('online', refreshOnResume);
+  document.addEventListener('visibilitychange', refreshOnResume);
   window.BusinessLineSettings = Object.freeze({apply,select:selectFeature,mount,clear});
 })();
