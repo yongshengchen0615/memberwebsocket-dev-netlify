@@ -24,7 +24,7 @@ test('AC-IC-002: navigation preserves membership, points, events, calendar, book
   const nav = html.match(/<nav class="surface-nav"[^>]*>[\s\S]*?<\/nav>/)?.[0];
   assert.ok(nav, 'admin navigation must exist');
   const staticIds = [...nav.matchAll(/<button\s+id="([^"]+)"[^>]*role="tab"/g)].map(match => match[1]);
-  assert.deepEqual(staticIds, ['membersTab', 'cardsTab', 'eventsTab', 'calendarTab', 'clientPageTitleTab', 'lineSettingsTab', 'frontdeskSettingsTab']);
+  assert.deepEqual(staticIds, ['membersTab', 'cardsTab', 'eventsTab', 'calendarTab', 'lineSettingsTab', 'frontdeskSettingsTab', 'clientPageTitleTab']);
   assert.match(html, /id="clientPageTitleTab"[^>]*aria-controls="clientPageTitleShortcut"/);
   assert.match(booking, /tab\.id = 'bookingTab'/);
   assert.match(booking, /const lineSettingsTab = document\.getElementById\('lineSettingsTab'\)/);
