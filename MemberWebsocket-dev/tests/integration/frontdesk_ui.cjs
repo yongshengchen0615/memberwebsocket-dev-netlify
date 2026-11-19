@@ -78,3 +78,35 @@ test('merchant frontdesk settings reconcile server changes without overwriting d
  assert.equal(calls.length,beforeDispose,'revoked root must not retain listeners');
  dom.window.close();
 });
+
+test('frontdesk removal requires confirmation, sends scoped delete, and clears staff UI',async()=>{
+ const dom=new JSDOM('<div id="root"></div>',{url:'https://desk.test/admin/frontdesk-settings/?business=shop-a',runScripts:'outside-only',pretendToBeVisual:true});
+ const w=dom.window,root=w.document.getElementById('root'),staffId='10000000-0000-4000-8000-000000000006';
+ let data={version:2,frontdesk:{enabled:true,loginChannelId:'2010999999',liffId:'2010999999-desk',messagingChannelId:'2010888888'},staff:[{id:staffId,version:3,status:'approved',permissionMode:'review',displayName:'刪除測試人員'}]};
+ const calls=[];let allowed=false,confirmations=0,attempts=0;w.confirm=()=>{confirmations++;return allowed;};w.crypto.randomUUID=()=>crypto.randomUUID();
+ const request=async(action,body)=>{calls.push({action,body});if(action==='platform.frontdesk.get')return structuredClone(data);
+  if(action==='platform.frontdesk.staff.delete'){assert.equal(body.staffId,staffId);assert.equal(body.expectedVersion,3);if(++attempts===1)throw Object.assign(Error('網路回應未知'),{uncertain:true});data={...data,staff:[]};return structuredClone(data);}
+  throw Error('unexpected action '+action);};
+ w.eval(fs.readFileSync(path.join(__dirname,'../../admin/frontdesk-settings.js'),'utf8'));
+ w.FrontdeskSettings.mount({root,request,business:'shop-a'});
+ root.querySelector('details').open=true;root.querySelector('details').dispatchEvent(new w.Event('toggle'));await new Promise(r=>setImmediate(r));
+ assert.equal(root.querySelectorAll('.frontdesk-remove-staff').length,1);
+ root.querySelector('.frontdesk-remove-staff').click();await new Promise(r=>setImmediate(r));
+ assert.equal(calls.filter(x=>x.action==='platform.frontdesk.staff.delete').length,0,'cancelled confirmation must be inert');
+ allowed=true;root.querySelector('.frontdesk-remove-staff').click();await new Promise(r=>setImmediate(r));
+ const retry=root.querySelector('.frontdesk-remove-staff');
+ assert.equal(calls.filter(x=>x.action==='platform.frontdesk.staff.delete').length,1);
+ assert.equal(retry.disabled,false,'an uncertain removal must offer an enabled retry');
+ assert.equal(retry.textContent,'重試相同儲存操作');
+ assert.equal(retry.getAttribute('aria-label'),'重試相同儲存操作','screen readers must identify the retry');
+ assert.equal(root.querySelector('.frontdesk-person button[type=submit]').disabled,true,'different writes stay locked');
+ retry.click();await new Promise(r=>setImmediate(r));
+ const deletions=calls.filter(x=>x.action==='platform.frontdesk.staff.delete');
+ assert.equal(deletions.length,2,'same deletion re-sent exactly once');
+ assert.deepEqual(deletions[0].body,deletions[1].body,'retry must preserve requestId, version and person');
+ assert.equal(confirmations,2,'only initial cancel and initial approval should prompt');
+ assert.equal(root.querySelectorAll('.frontdesk-remove-staff').length,0);
+ assert.match(root.textContent,/目前沒有申請/);
+ assert.match(root.textContent,/須重新申請並審核/);
+ w.FrontdeskSettings.clear(root);dom.window.close();
+});

@@ -52,13 +52,18 @@
         data = result;
         render();
         syncState.textContent = '最新版本已儲存並同步。';
-        status.textContent = '櫃檯設定與人員權限已儲存。';
+        status.textContent = action === 'platform.frontdesk.staff.delete' ? '櫃檯帳號已移除；如需重新使用，須重新申請並審核。' : '櫃檯設定與人員權限已儲存。';
         // Invalidate other open tabs; never send credentials or staff data.
         channel?.postMessage({ business });
       } catch (error) {
         if (!alive()) return;
         if (!error.uncertain) pending = null;
-        else button.textContent = '重試相同儲存操作';
+        else {
+          button.textContent = '重試相同儲存操作';
+          // A destructive retry must have the same accessible label as its
+          // current action; the original per-person aria-label is now stale.
+          if (action === 'platform.frontdesk.staff.delete') button.setAttribute('aria-label', '重試相同儲存操作');
+        }
         status.textContent = error.message || '儲存失敗，請確認設定。';
       } finally {
         busy = false;
@@ -232,6 +237,17 @@
         const button = node('button', person.status === 'pending' ? '核准／更新此人員權限' : '儲存此人員權限', 'button button-outline');
         button.type = 'submit';
         row.append(controls, button);
+        const remove = node('button', '移除帳號', 'button button-outline frontdesk-remove-staff');
+        remove.type = 'button';
+        remove.setAttribute('aria-label', '移除 ' + (person.displayName || '此櫃檯人員') + ' 的櫃檯帳號');
+        remove.onclick = () => {
+          if (busy || (pending && pending.action !== 'platform.frontdesk.staff.delete')) return;
+          // An uncertain response must reuse the original requestId; do not re-confirm
+          // or generate another destructive request while the first outcome is unknown.
+          if (!pending && !window.confirm('確定永久移除「' + (person.displayName || '此櫃檯人員') + '」的櫃檯資格、申請資料及通知紀錄？此動作無法復原；如需使用，必須重新提出申請並經管理員核准。')) return;
+          void save('platform.frontdesk.staff.delete', {staffId:person.id,expectedVersion:person.version}, remove);
+        };
+        row.append(remove);
         row.addEventListener('change', () => {
           if (busy || pending) return;
           dirty = true;

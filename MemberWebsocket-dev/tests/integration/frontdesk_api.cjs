@@ -2,7 +2,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 test('frontdesk API + real SQL: owner-scoped configuration, encrypted bot, verified applicant, per-person authorization and disable',async()=>{
  const h=await fixture();try{
   const owner='U'+'2'.repeat(32),staff='U'+'4'.repeat(32),t=await h.approve(owner,'desk-api');
-  for(const name of ['20261026050904_line_webhook.sql','20261118122150_frontdesk_booking_access.sql','20261118190000_frontdesk_safeupdate_projection.sql','20261119150000_frontdesk_independent_feature_grant.sql'])await h.db.exec(fs.readFileSync(path.resolve(__dirname,'../../supabase/migrations',name),'utf8'));
+  for(const name of ['20261026050904_line_webhook.sql','20261118122150_frontdesk_booking_access.sql','20261118190000_frontdesk_safeupdate_projection.sql','20261119150000_frontdesk_independent_feature_grant.sql','20261119230000_frontdesk_staff_delete.sql'])await h.db.exec(fs.readFileSync(path.resolve(__dirname,'../../supabase/migrations',name),'utf8'));
   await h.db.query("update platform_private.tenants set features=features||'{\"frontdesk\":true}'::jsonb where id=$1",[t.id]);
   const {createPlatformHandler}=await import('../../supabase/functions/_shared/platform-handler.mjs'),{createFrontdeskHandler}=await import('../../supabase/functions/_shared/frontdesk-handler.mjs');
   const provider=[];let reachable=true;
@@ -20,7 +20,24 @@ test('frontdesk API + real SQL: owner-scoped configuration, encrypted bot, verif
   const person=result.body.data.staff;
   result=await call(admin,{action:'platform.frontdesk.staff.save',staffId:person.id,expectedVersion:person.version,status:'approved',permissionMode:'notify_only',requestId:crypto.randomUUID()});assert.equal(result.status,200,JSON.stringify(result));
   assert.equal((await call(desk,{action:'frontdesk.bookings'})).status,403);
-  const disabled=await call(admin,{action:'platform.frontdesk.settings.save',settings:{...settings,enabled:false},channelAccessToken:'',expectedVersion:2,requestId:crypto.randomUUID()});assert.equal(disabled.status,200,JSON.stringify(disabled));assert.equal(disabled.body.data.frontdesk.oaId,'@desk');
+  // AC-FD-DELETE-001..006: hard delete, no stale privilege, fresh pending approval.
+  const deleteBody={action:'platform.frontdesk.staff.delete',staffId:person.id,expectedVersion:2,requestId:crypto.randomUUID()};
+  let deleted=await call(admin,deleteBody);
+  assert.equal(deleted.status,200,JSON.stringify(deleted));
+  assert.equal(deleted.body.data.staff.length,0);
+  assert.equal((await h.db.query('select count(*)::int n from platform_private.frontdesk_staff where id=$1',[person.id])).rows[0].n,0);
+  assert.equal((await h.db.query(`select count(*)::int n from ${t.runtime_schema}.frontdesk_notice_recipients where line_user_id=$1`,[staff])).rows[0].n,0);
+  deleted=await call(admin,deleteBody);
+  assert.equal(deleted.status,200,'same idempotency key must replay successful deletion');
+  assert.equal((await call(desk,{action:'frontdesk.bootstrap'})).body.data.staff,null);
+  assert.equal((await call(desk,{action:'frontdesk.bookings'})).status,403);
+  assert.equal((await call(admin,{...deleteBody,requestId:crypto.randomUUID()})).status,404,'different deletion key cannot target absent account');
+  const reapplied=await call(desk,{action:'frontdesk.apply'});
+  assert.equal(reapplied.status,200,JSON.stringify(reapplied));
+  assert.equal(reapplied.body.data.staff.status,'pending');
+  assert.notEqual(reapplied.body.data.staff.id,person.id);
+  assert.equal((await call(desk,{action:'frontdesk.bookings'})).status,403,'reapplication must not restore old privileges');
+    const disabled=await call(admin,{action:'platform.frontdesk.settings.save',settings:{...settings,enabled:false},channelAccessToken:'',expectedVersion:2,requestId:crypto.randomUUID()});assert.equal(disabled.status,200,JSON.stringify(disabled));assert.equal(disabled.body.data.frontdesk.oaId,'@desk');
   assert.equal((await call(desk,{action:'frontdesk.bootstrap'})).status,403);
   const secret=(await h.db.query("select envelope from platform_private.module_notification_routes where purpose='frontdesk'")).rows[0].envelope;assert.ok(secret.data);assert.equal(JSON.stringify(secret).includes(token),false);
  }finally{await h.db.close();}

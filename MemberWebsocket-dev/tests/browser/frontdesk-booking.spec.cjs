@@ -50,7 +50,7 @@ test('FRONTDESK_ADMIN — merchant grants are per person, default notify-only an
   window.FrontdeskSettings.mount({root:document.getElementById('root'),business:'shop-a',request:async(action,body)=>{window.frontdeskAdminCalls.push({action,body});if(action==='platform.frontdesk.staff.save'){if(window.frontdeskLose){window.frontdeskLose=false;throw Object.assign(Error('無法確認結果'),{uncertain:true});}Object.assign(staff.find(x=>x.id===body.staffId),{status:body.status,permissionMode:body.permissionMode});}return{version:1,frontdesk:{},staff};}});
  });
  await page.locator('summary').click();const first=page.locator('.frontdesk-person').first(),second=page.locator('.frontdesk-person').nth(1);
- await expect(first.locator('[name=permissionMode]')).toHaveValue('notify_only');await first.locator('[name=permissionMode]').selectOption('review');await first.getByRole('button').click();await expect(second.getByRole('button')).toBeDisabled();await page.getByRole('button',{name:'重試相同儲存操作'}).click();
+ await expect(first.locator('[name=permissionMode]')).toHaveValue('notify_only');await first.locator('[name=permissionMode]').selectOption('review');await first.locator('button[type=submit]').click();await expect(second.locator('button[type=submit]')).toBeDisabled();await page.getByRole('button',{name:'重試相同儲存操作'}).click();
  await expect(page.locator('.frontdesk-person').first().locator('[name=permissionMode]')).toHaveValue('review');await expect(page.locator('.frontdesk-person').nth(1).locator('[name=permissionMode]')).toHaveValue('notify_only');
  const writes=await page.evaluate(()=>window.frontdeskAdminCalls.filter(x=>x.action==='platform.frontdesk.staff.save'));expect(writes).toHaveLength(2);expect(writes[0].body.requestId).toBe(writes[1].body.requestId);expect(writes[0].body.staffId).toBe('a');
 });
@@ -198,5 +198,51 @@ for(const width of [390,1280])test('FRONTDESK_SETTINGS_STANDALONE_'+width+' — 
  await expect(page.locator('#frontdeskSettingsRoot [data-frontdesk-settings]')).toHaveCount(0);
  await expect(page.locator('#frontdeskPageGate')).toBeVisible();
  await expect(page.locator('#frontdeskPageStatus')).toContainText('尚未獲得櫃檯設定授權');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+
+test('FRONTDESK_STAFF_DELETE — real browser confirms deletion, cancels safely and shows empty state',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.goto(base+'/frontdesk/');
+ await page.setContent('<link rel="stylesheet" href="'+base+'/theme.css"><main id="root"></main>');
+ await page.addScriptTag({url:base+'/admin/frontdesk-settings.js'});
+ await page.evaluate(()=>{
+  window.frontdeskDeleteCalls=[];
+  let firstDeleteResponseLost=true;
+  let staff=[{id:'10000000-0000-4000-8000-000000000006',displayName:'待移除櫃檯',status:'approved',permissionMode:'review',version:3}];
+  window.FrontdeskSettings.mount({root:document.getElementById('root'),business:'shop-a',request:async(action,body)=>{
+    window.frontdeskDeleteCalls.push({action,body});
+    if(action==='platform.frontdesk.staff.delete'){
+      if(body.staffId!==staff[0]?.id||body.expectedVersion!==3)throw Error('unexpected staff identity');
+      if(firstDeleteResponseLost){firstDeleteResponseLost=false;throw Object.assign(Error('模擬第一次回應遺失'),{uncertain:true});}
+      staff=[];return{version:2,frontdesk:{},staff};
+    }
+    if(action!=='platform.frontdesk.get')throw Error('unknown action '+action);
+    return{version:2,frontdesk:{},staff};
+  }});
+ });
+ await page.locator('summary').click();
+ const remove=page.getByRole('button',{name:'移除 待移除櫃檯 的櫃檯帳號'});
+ await expect(remove).toBeVisible();
+ page.once('dialog',dialog=>dialog.dismiss());
+ await remove.click();
+ expect(await page.evaluate(()=>window.frontdeskDeleteCalls.filter(c=>c.action==='platform.frontdesk.staff.delete').length)).toBe(0);
+ await expect(remove).toBeVisible();
+ page.once('dialog',dialog=>{expect(dialog.message()).toContain('必須重新提出申請');return dialog.accept();});
+ await remove.click();
+ const retry=page.getByRole('button',{name:'重試相同儲存操作'});
+ await expect(retry).toBeEnabled();
+ await expect(page.locator('.frontdesk-person button[type=submit]')).toBeDisabled();
+ await retry.click();
+ await expect(page.locator('.frontdesk-person')).toHaveCount(0);
+ await expect(page.locator('#root')).toContainText('目前沒有申請');
+ await expect(page.locator('[role=status]')).toContainText('須重新申請並審核');
+ const sent=await page.evaluate(()=>window.frontdeskDeleteCalls.filter(c=>c.action==='platform.frontdesk.staff.delete'));
+ expect(sent).toHaveLength(2);
+ expect(sent[0].body).toEqual(sent[1].body);
+ expect(sent[0].body.staffId).toBe('10000000-0000-4000-8000-000000000006');
+ expect(sent[0].body.expectedVersion).toBe(3);
+ expect(sent[0].body.requestId).toMatch(/^[0-9a-f-]{36}$/);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });

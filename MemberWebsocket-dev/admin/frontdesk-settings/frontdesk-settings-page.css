@@ -14,3 +14,7 @@ html[data-frontdesk-page] .frontdesk-settings{margin-top:12px}
 html[data-frontdesk-page] [hidden]{display:none!important}
 html[data-theme="dark"][data-frontdesk-page] body{background:var(--theme-background,#141a20)}
 @media(max-width:600px){html[data-frontdesk-page] .frontdesk-page-header{flex-direction:column}html[data-frontdesk-page] .frontdesk-page-links a{flex:1;justify-content:center}}
+
+html[data-frontdesk-page] .frontdesk-remove-staff{color:var(--theme-danger,#b42318);border-color:currentColor;background:transparent;margin-top:8px}
+html[data-frontdesk-page] .frontdesk-remove-staff:hover{background:var(--theme-surface-muted,#f0f4f7)}
+html[data-frontdesk-page] .frontdesk-remove-staff:focus-visible{outline:3px solid var(--theme-focus-ring,#175fa5);outline-offset:2px}

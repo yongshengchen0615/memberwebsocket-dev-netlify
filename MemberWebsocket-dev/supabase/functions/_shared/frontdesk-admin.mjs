@@ -4,7 +4,7 @@ import { verifyNotificationToken } from './notification-routes.mjs';
 import { frontdeskDatabaseError } from './frontdesk-handler.mjs';
 const digest=async value=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(value)))),b=>b.toString(16).padStart(2,'0')).join('');
 export async function frontdeskAdmin({db,body,actor,issuedAt,tenant,encryptionKey,fetchImpl}){
- const action={'platform.frontdesk.get':'get','platform.frontdesk.settings.save':'settings.save','platform.frontdesk.staff.save':'staff.save'}[body.action];
+ const action={'platform.frontdesk.get':'get','platform.frontdesk.settings.save':'settings.save','platform.frontdesk.staff.save':'staff.save','platform.frontdesk.staff.delete':'staff.delete'}[body.action];
  if(!tenant?.id)throw new PlatformError(403,'BUSINESS_FORBIDDEN','請先選擇自己的商家。');
  if(tenant.features?.frontdesk!==true || tenant.features?.booking!==true)
   throw new PlatformError(403,'FEATURE_DISABLED','此商家尚未開通櫃檯設定或預約功能。');
@@ -30,6 +30,10 @@ export async function frontdeskAdmin({db,body,actor,issuedAt,tenant,encryptionKe
    if(!/^@[A-Za-z0-9._-]{3,40}$/.test(bot.basicId||''))throw new PlatformError(400,'PLATFORM_INVALID_INPUT','官方帳號資料不完整。');
    const envelope=await sealCredentials(tenant.id+':booking:notify:frontdesk',{channelAccessToken:token},await encryptionKey());
    Object.assign(input,line,{oaId:bot.basicId,envelope});
+  }else if(action==='staff.delete'){
+   if(!/^[0-9a-f-]{36}$/i.test(body.staffId||'')||body.status!==undefined||body.permissionMode!==undefined)throw new PlatformError(400,'PLATFORM_INVALID_INPUT','移除人員資料不正確。');
+   input.staffId=body.staffId;
+   input.payloadHash=await digest({action,staffId:input.staffId,expectedVersion:input.expectedVersion});
   }else{
    Object.assign(input,{staffId:body.staffId,status:body.status,permissionMode:body.permissionMode});input.payloadHash=await digest(input);
   }
