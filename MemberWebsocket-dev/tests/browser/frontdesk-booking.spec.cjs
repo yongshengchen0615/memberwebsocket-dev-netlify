@@ -190,7 +190,10 @@ for(const width of [390,1280])test('FRONTDESK_SETTINGS_STANDALONE_'+width+' — 
  await page.emulateMedia({colorScheme:'dark'});
  const palette=[];
  for(const theme of ['light','dark']){
-  await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
+  // Exercise the real theme controller: a raw dataset mutation bypasses the
+  // persisted preference and can race its OS media-change listener.
+  await page.evaluate(theme=>window.LumenTheme.set(theme),theme);
+  await expect(page.locator('#themeToggleButton')).toHaveAttribute('aria-pressed',String(theme==='dark'));
   const sample=await page.evaluate(()=>{
    const rgb=s=>s.match(/[\d.]+/g).slice(0,3).map(Number);
    const luminance=color=>rgb(color).map(x=>{
