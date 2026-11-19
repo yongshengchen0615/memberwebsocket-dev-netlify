@@ -3,6 +3,11 @@
   const el = id => document.getElementById(id);
   const merchantEntry = document.documentElement.dataset.workspace === 'merchant';
   const selectedBusiness=window.BusinessContext?.slug || new URLSearchParams(location.search).get('business') || '';
+  // Historic deep links now open a dedicated page; no admin workspace mounts.
+  if(merchantEntry&&selectedBusiness&&new URLSearchParams(location.search).get('settings')==='frontdesk'){
+    location.replace('/admin/frontdesk-settings/?business='+encodeURIComponent(selectedBusiness));
+    return;
+  }
   // Preserve the legacy API contract while retiring these management features.
   const featureKeys=['membership','points','events','calendar','integrations','booking','testing','usage','frontdesk'];
   const visibleFeatureKeys=featureKeys.filter(key=>key!=='integrations'&&key!=='testing'&&key!=='usage');
@@ -383,7 +388,7 @@
         const manage=document.createElement('a');manage.href='/admin/?business='+encodeURIComponent(application.slug);manage.textContent='管理商家';manage.dataset.manageMerchant='true';manage.className='tenant-action-primary';
         actions.append(manage);
         if(tenant?.features?.booking===true && tenant?.features?.frontdesk===true){
-          const frontdesk=document.createElement('a');frontdesk.href='/admin/?business='+encodeURIComponent(application.slug)+'&settings=frontdesk';frontdesk.textContent='櫃檯設定';frontdesk.dataset.frontdeskSettingsEntry='true';frontdesk.className='tenant-action-secondary';
+          const frontdesk=document.createElement('a');frontdesk.href='/admin/frontdesk-settings/?business='+encodeURIComponent(application.slug);frontdesk.textContent='櫃檯設定';frontdesk.dataset.frontdeskSettingsEntry='true';frontdesk.className='tenant-action-secondary';
           actions.append(frontdesk);
         }
       }else{
@@ -760,14 +765,14 @@
     const row=(name,detail,panel)=>{
       const article=document.createElement('article'),body=document.createElement('div'),title=document.createElement('strong'),p=document.createElement('p');
       title.textContent=name;p.textContent=detail;body.append(title,p);article.append(body);
-      if(panel){const button=document.createElement('button');button.type='button';button.className='secondary';button.dataset.setupFeature=panel;button.textContent='前往設定';button.addEventListener('click',()=>{if(panel==='frontdesk')selectMerchantWorkspaceTab('frontdesk');else{selectMerchantPanel(panel);merchantForm.scrollIntoView?.({block:'start'});}});article.append(button);}
+      if(panel){const button=document.createElement('button');button.type='button';button.className='secondary';button.dataset.setupFeature=panel;button.textContent='前往設定';button.addEventListener('click',()=>{if(panel==='frontdesk')location.assign('/admin/frontdesk-settings/?business='+encodeURIComponent(selectedBusiness||tenant.slug));else{selectMerchantPanel(panel);merchantForm.scrollIntoView?.({block:'start'});}});article.append(button);}
       list.append(article);
     };
     const missing=status?.commonMissing;
     row(hasFeatureLine(tenant)?'商家管理端登入（僅首次設定）':'共用 LINE 設定',!status?'設定檢查服務尚未更新，請重新整理後再試。':missing.length?'尚缺：'+missing.map(key=>lineLabels[key]||key).join('、'):'必填資料已保存，仍需實際 LINE 驗證。','shared');
     for(const [key,label] of Object.entries(state.features))if(visibleFeatureKeys.includes(key)&&tenant.features?.[key]===true) {
       if(key==='frontdesk'){
-        row(label,tenant.features.booking===true?'須在櫃檯設定分頁完成 LINE 入口、官方帳號與人員審核。':'須先由總管理員開通預約功能才能使用。',tenant.features.booking===true?'frontdesk':null);
+        row(label,tenant.features.booking===true?'請至獨立櫃檯設定頁面完成 LINE 入口、官方帳號與人員審核。':'須先由總管理員開通預約功能才能使用。',tenant.features.booking===true?'frontdesk':null);
         continue;
       }
       const feature=status?.features?.[key];
@@ -815,12 +820,10 @@
   function selectMerchantWorkspaceTab(requested) {
     const tenant=state.merchant;
     const granted=Object.keys(featureLiffNames).some(key=>tenant?.features?.[key]===true);
-    const frontdeskGranted=tenant?.features?.booking===true && tenant?.features?.frontdesk===true;
-    merchantWorkspaceTab=requested==='frontdesk'&&frontdeskGranted?'frontdesk':requested==='line'&&granted?'line':'overview';
+    merchantWorkspaceTab=requested==='line'&&granted?'line':'overview';
     const tabs=[
       {key:'overview',tab:el('merchantOverviewTab'),panel:el('merchantOverviewPanel'),allowed:true},
-      {key:'line',tab:el('merchantLineSettingsTab'),panel:el('merchantLineSettingsPanel'),allowed:granted},
-      {key:'frontdesk',tab:el('merchantFrontdeskSettingsTab'),panel:el('merchantFrontdeskSettingsPanel'),allowed:frontdeskGranted}
+      {key:'line',tab:el('merchantLineSettingsTab'),panel:el('merchantLineSettingsPanel'),allowed:granted}
     ];
     if(tabs.some(item=>!item.tab||!item.panel))return;
     for(const item of tabs){
@@ -831,15 +834,12 @@
       item.tab.tabIndex=active?0:-1;
       item.panel.hidden=!active;
     }
-    if(merchantWorkspaceTab==='frontdesk')
-      el('merchantFrontdeskSettingsContent')?.querySelector?.('[data-frontdesk-settings]')?.setAttribute('open','');
   }
   function handleMerchantWorkspaceTabKeydown(event) {
     if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
     const tabs=[
       ['overview',el('merchantOverviewTab')],
-      ['line',el('merchantLineSettingsTab')],
-      ['frontdesk',el('merchantFrontdeskSettingsTab')]
+      ['line',el('merchantLineSettingsTab')]
     ].filter(([,tab])=>tab&&!tab.hidden&&!tab.disabled);
     if(tabs.length<2)return;
     event.preventDefault();
@@ -849,8 +849,8 @@
     selectMerchantWorkspaceTab(tabs[next][0]);
     tabs[next][1].focus();
   }
-  for(const id of ['merchantOverviewTab','merchantLineSettingsTab','merchantFrontdeskSettingsTab']){
-    el(id)?.addEventListener('click',()=>selectMerchantWorkspaceTab(id==='merchantOverviewTab'?'overview':id==='merchantLineSettingsTab'?'line':'frontdesk'));
+  for(const id of ['merchantOverviewTab','merchantLineSettingsTab']){
+    el(id)?.addEventListener('click',()=>selectMerchantWorkspaceTab(id==='merchantOverviewTab'?'overview':'line'));
     el(id)?.addEventListener('keydown',handleMerchantWorkspaceTabKeydown);
   }
   function selectMerchantPanel(feature, reveal = true) {
@@ -972,7 +972,7 @@
     el('merchantMessage').textContent='';state.merchantPending=null;
     const deepLink=new URLSearchParams(location.search).get('feature');
     renderMerchantNav(tenant);
-    selectMerchantWorkspaceTab(new URLSearchParams(location.search).get('settings')==='frontdesk' ? 'frontdesk' : deepLink && tenant.features?.[deepLink]===true ? 'line' : merchantWorkspaceTab);
+    selectMerchantWorkspaceTab(deepLink && tenant.features?.[deepLink]===true ? 'line' : merchantWorkspaceTab);
     renderChecklist(tenant);
   }
   applicationForm.addEventListener('submit',async event=>{
@@ -1087,12 +1087,6 @@
           if(el('merchantSyncStatus'))el('merchantSyncStatus').textContent='偵測到較新的已儲存設定。你的草稿已保留；儲存前請載入最新設定，避免覆蓋。';
           if(el('reloadMerchantSettings'))el('reloadMerchantSettings').hidden=false;
         }else renderMine(data);
-      }
-      // Reuse the existing authenticated 15-second reconciliation loop for
-      // frontdesk settings as well. No separate timer or stale local cache.
-      if (data.application?.status === 'approved' && data.tenant?.features?.booking === true
-        && data.tenant?.features?.frontdesk === true) {
-        window.FrontdeskSettings?.refresh({ business: data.tenant.slug });
       }
       el('platformStatus').textContent=data.application?.status==='pending'?'申請已送出，等待總管理員審核。':'已更新目前的功能權限。';
     }catch(error){el('platformStatus').textContent=error.message;}

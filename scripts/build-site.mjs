@@ -76,6 +76,7 @@ const entryPages = [
   'index.html',
   'admin/index.html',
   'admin/workspace.html',
+  'admin/frontdesk-settings/index.html',
   'platform/index.html',
   'member/index.html',
   'points/index.html',

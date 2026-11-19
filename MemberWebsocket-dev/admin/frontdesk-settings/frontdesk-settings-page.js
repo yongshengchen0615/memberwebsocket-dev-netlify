@@ -205,8 +205,7 @@
   }
   loginButton.addEventListener('click', () => {
     try { sessionStorage.removeItem(ATTEMPT_KEY); } catch {}
-    if (window.liff) beginLogin();
-    else void start();
+    void start();
   });
   window.addEventListener('online', () => void checkAccess());
   window.addEventListener('focus', () => void checkAccess());
