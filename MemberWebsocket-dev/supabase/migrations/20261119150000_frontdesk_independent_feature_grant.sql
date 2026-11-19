@@ -1,7 +1,6 @@
 -- Frontdesk is a separate default-deny super-admin grant. Existing eight-feature
 -- tenants stay valid and cannot use frontdesk until explicitly granted.
 -- The change never alters existing booking authorization or LINE credentials.
-begin;
 create or replace function public.platform_features_valid(p jsonb) returns boolean
 language sql immutable set search_path = '' as $$
   select coalesce(jsonb_typeof(p) = 'object'
@@ -221,4 +220,3 @@ grant execute on function public.platform_features_valid(jsonb),public.platform_
  public.platform_frontdesk_admin(text,uuid,timestamptz,text,jsonb),public.platform_frontdesk_request(uuid,text,text,timestamptz,text,jsonb),
  public.platform_frontdesk_replay(text,uuid,timestamptz,uuid,text,text) to service_role;
 notify pgrst,'reload schema';
-commit;
