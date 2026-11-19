@@ -21,3 +21,18 @@ test('merchant can disable a configured frontdesk without re-entering its secret
  const result=await frontdeskAdmin({db:{rpc:async(name,args)=>{calls.push({name,args});return {data:name==='platform_frontdesk_replay'?null:{frontdesk:{enabled:false}},error:null};}},body:{action:'platform.frontdesk.settings.save',requestId:crypto.randomUUID(),expectedVersion:2,settings:{loginChannelId:'2010999999',liffId:'2010999999-desk',messagingChannelId:'2010888888',enabled:false},channelAccessToken:''},actor:'U'+'4'.repeat(32),issuedAt:new Date().toISOString(),tenant:{id:'10000000-0000-4000-8000-000000000001',features:{booking:true,frontdesk:true}},fetchImpl:()=>assert.fail('disable never contacts LINE'),encryptionKey:()=>assert.fail('disable preserves existing ciphertext')});
  assert.equal(result.frontdesk.enabled,false);assert.equal(calls.at(-1).args.p_body.envelope,null);
 });
+
+test('merchant-scoped frontdesk deletion validates payload and does not contact LINE',async()=>{
+ const {frontdeskAdmin}=await import('../supabase/functions/_shared/frontdesk-admin.mjs');
+ const calls=[],tenant={id:'10000000-0000-4000-8000-000000000001',features:{booking:true,frontdesk:true}};
+ const args={db:{rpc:async(name,input)=>{calls.push({name,input});return{data:name==='platform_frontdesk_replay'?null:{staff:[]},error:null};}},actor:'U'+'4'.repeat(32),tenant,issuedAt:new Date().toISOString(),fetchImpl:()=>assert.fail('delete never contacts LINE'),encryptionKey:()=>assert.fail('delete never decrypts secrets')};
+ const staffId=crypto.randomUUID(),requestId=crypto.randomUUID();
+ const result=await frontdeskAdmin({...args,body:{action:'platform.frontdesk.staff.delete',staffId,expectedVersion:2,requestId}});
+ assert.deepEqual(result.staff,[]);
+ assert.equal(calls.at(-1).input.p_action,'staff.delete');
+ assert.equal(calls.at(-1).input.p_body.staffId,staffId);
+ assert.match(calls.at(-1).input.p_body.payloadHash,/^[0-9a-f]{64}$/);
+ await assert.rejects(()=>frontdeskAdmin({...args,body:{action:'platform.frontdesk.staff.delete',staffId,expectedVersion:2,requestId,status:'approved'}}),/移除人員資料不正確/);
+ await assert.rejects(()=>frontdeskAdmin({...args,body:{action:'platform.frontdesk.staff.delete',staffId,expectedVersion:2,requestId,permissionMode:'review'}}),/移除人員資料不正確/);
+ await assert.rejects(()=>frontdeskAdmin({...args,tenant:{...tenant,features:{booking:true,frontdesk:false}},body:{action:'platform.frontdesk.staff.delete',staffId,expectedVersion:2,requestId}}),/尚未開通/);
+});
