@@ -98,7 +98,7 @@
   if(lineTab){lineTab.hidden=!hasGrants;lineTab.disabled=!hasGrants;lineTab.dataset.businessAllowed=String(hasGrants);}
   if(!hasGrants && linePanel){linePanel.hidden=true;linePanel.classList.add('hidden');}
   const frontdeskTab=document.getElementById('frontdeskSettingsTab'),frontdeskPanel=document.getElementById('frontdeskSettingsPanel');
-  const frontdeskGranted=data.features.booking===true;
+  const frontdeskGranted=data.features.booking===true && data.features.frontdesk===true;
   if(frontdeskTab){frontdeskTab.hidden=!frontdeskGranted;frontdeskTab.disabled=!frontdeskGranted;frontdeskTab.dataset.businessAllowed=String(frontdeskGranted);}
   if(!frontdeskGranted && frontdeskPanel){frontdeskPanel.hidden=true;frontdeskPanel.classList.add('hidden');}
   const usage=document.getElementById('memberUsageTab');if(usage){usage.hidden=!data.features.membership;usage.disabled=!data.features.membership;usage.dataset.businessAllowed=String(!!data.features.membership);}
