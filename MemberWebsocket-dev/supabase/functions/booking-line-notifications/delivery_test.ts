@@ -8,6 +8,100 @@ Deno.test('frontdesk review has only its trusted tenant entry; notify-only has n
  assert(review.includes('處理預約')&&review.includes('shop-a'),'review must use its actual tenant LIFF');
 });
 
+Deno.test('AC-FD-001: frontdesk LINE card uses exactly the requested booking fields and start time', () => {
+  const text = [
+    '【預約】',
+    '預約編號：00000000-0000-4000-8000-000000000001',
+    '預約人：陳先生',
+    '營業日：2026/11/20',
+    '時段：2026/11/20 09:30–2026/11/20 10:30（台北時間）',
+    '電話：+886900638213',
+    '預約人數：1 位',
+    '會員備註：不該出現在櫃檯通知',
+    '管理端說明：僅限管理員閱讀',
+    '',
+    '第一位預約',
+    '預約項目：身體60',
+    '個別時間：60 分鐘',
+    '個別金額：NT$2,500',
+    '預約技師：10技師',
+  ].join('\\n');
+  const notice = buildBookingFlexMessage({
+    ...sampleJob, channel: 'frontdesk', message_text: text,
+  });
+  const body = notice.contents.body as Record<string, unknown>;
+  const cards = body.contents as Array<Record<string, unknown>>;
+  assert(cards.length === 2, 'frontdesk should show one booking summary and one participant card');
+  assert(cards.every((card) => card.cornerRadius === '12px'), 'frontdesk should preserve its Flex card design');
+  const visible = collectComponents(body).filter((item) => item.type === 'text')
+    .map((item) => String(item.text));
+  const expected = [
+    '預約日期：2026-11-20', '預約時間：09:30',
+    '預約人：陳先生', '電話：+886900638213', '預約人數：1 位',
+    '第一位預約', '預約項目：身體60', '預約技師：10技師',
+  ];
+  assert(JSON.stringify(visible) === JSON.stringify(expected),
+    'frontdesk message content and order must exactly match the requested eight lines');
+  const serialized = JSON.stringify(notice);
+  for (const prohibited of ['個別時間', '個別金額', 'NT$2,500', '會員備註', '管理端說明', '不該出現', '僅限管理員', '預約編號']) {
+    assert(!serialized.includes(prohibited), `frontdesk must not include unrelated private field: ${prohibited}`);
+  }
+});
+
+Deno.test('AC-FD-002: multiple frontdesk participants remain ordered and isolated', () => {
+  const text = [
+    '【預約】', '預約人：王小姐', '日期：2026-11-21',
+    '時段：09:30–11:30（台北時間）', '電話：0912345678', '預約人數：2 位',
+    '', '第一位預約', '預約項目：身體60', '個別金額：NT$1,000',
+    '預約技師：10技師', '', '第二位預約',
+    '預約項目：肩頸30、頭部20', '預約技師：現場安排',
+  ].join('\\n');
+  const card = buildBookingFlexMessage({ ...sampleJob, channel: 'frontdesk', message_text: text });
+  const body = card.contents.body as Record<string, unknown>;
+  const cards = body.contents as Array<Record<string, unknown>>;
+  const groups = (cards[1].contents as Array<Record<string, unknown>>).filter((item) => item.type === 'box');
+  assert(groups.length === 2, 'each person should have their own frontdesk group');
+  const first = collectComponents(groups[0]).filter((c) => c.type === 'text').map((c) => c.text);
+  const second = collectComponents(groups[1]).filter((c) => c.type === 'text').map((c) => c.text);
+  assert(JSON.stringify(first) === JSON.stringify(['第一位預約', '預約項目：身體60', '預約技師：10技師']),
+    'first participant must only include own service and technician');
+  assert(JSON.stringify(second) === JSON.stringify(['第二位預約', '預約項目：肩頸30、頭部20', '預約技師：現場安排']),
+    'second participant must only include own service and technician');
+  const all = JSON.stringify(card.contents);
+  assert(all.includes('預約日期：2026-11-21') && all.includes('預約時間：09:30'),
+    'ISO dates and time ranges should normalize to booking date and start time');
+  assert(!all.includes('NT$1,000'), 'frontdesk must not expose amount');
+});
+
+Deno.test('AC-FD-003: frontdesk legacy services and unknown schedules are safely represented', () => {
+  const legacy = buildBookingFlexMessage({
+    ...sampleJob, channel: 'frontdesk',
+    message_text: ['【修改預約】', '日期：2026/11/20', '預約人：王小姐', '電話：0912345678',
+      '預約人數：1 位', '預約項目：', '身體60'].join('\\n'),
+  });
+  const text = JSON.stringify(legacy.contents.body);
+  assert(text.includes('預約日期：2026-11-20') && text.includes('預約時間：—'),
+    'missing time must remain unknown rather than fabricated');
+  assert(text.includes('第一位預約') && text.includes('預約項目：身體60') && text.includes('預約技師：現場安排'),
+    'legacy aggregate service must remain visible with honest technician fallback');
+  const fallback = buildBookingFlexMessage({ ...sampleJob, channel: 'frontdesk', message_text: '預約資料已更新，請查看最新預約。' });
+  assert(JSON.stringify(fallback.contents.body).includes('預約資料已更新'),
+    'unrecognized legacy messages must still provide a visible fallback');
+});
+
+Deno.test('AC-FD-004: member and admin formats do not inherit the compact frontdesk-only card', () => {
+  for (const channel of ['member', 'admin']) {
+    const notice = buildBookingFlexMessage({
+      ...sampleJob, channel,
+      message_text: sampleJob.message_text.replace('【預約確認】', '【預約】'),
+    });
+    const text = JSON.stringify(notice.contents.body);
+    assert(text.includes('會員備註') && text.includes('希望加強肩頸') && text.includes('個別金額'),
+      `${channel} should retain its established details outside frontdesk`);
+    assert(!text.includes('預約日期：2026-09-15'), `${channel} must not use the frontdesk-only date label`);
+  }
+});
+
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
