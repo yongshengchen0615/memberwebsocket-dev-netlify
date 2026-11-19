@@ -23,7 +23,7 @@
   <link rel="stylesheet" href="./booking-resources.css?v=booking-theme-tokens-20260924-1-ui-20261006-1" data-booking-panel-static-style>
   <link rel="stylesheet" href="../booking-admin-group-details.css?v=booking-theme-tokens-20260924-1" data-booking-panel-static-style>
   <link rel="stylesheet" href="./ui-polish.css?v=lumen-design-system-20260924-1" data-booking-panel-static-style>
-  <link rel="stylesheet" href="./ui-polish-responsive.css?v=ui-refresh-20260924-1-ui-20261006-1" data-booking-panel-static-style>
+  <link rel="stylesheet" href="./ui-polish-responsive.css?v=ui-refresh-20260924-1-ui-20261006-1-horizontal-tabs-20261119-1" data-booking-panel-static-style>
   <link rel="stylesheet" href="./booking-receipt-admin.css?v=booking-receipt-admin-dark-20261001-4">
   <link rel="stylesheet" href="./fixed-ticket-admin.css?v=fixed-ticket-calendar-dark-20260927-1-ui-20261006-1">
   <script src="./booking-price-editor.js?v=item-prices-20261105-1" defer></script>
@@ -43,14 +43,14 @@
   <script src="./coupon-location-editor.js?v=ticket-address-nearest-fallback-20260929-1-live-gps-snapshot-20261012-1-admin-browser-fallback-20261014-1" defer></script>
   <link rel="stylesheet" href="./productized-workspace.css?v=line-tab-20261020-1-quick-removal-20261028-1-admin-root-theme-control-20261105-1">
   <script src="./productized-workspace.js?v=merchant-expiry-readonly-20261101-1-admin-root-theme-control-20261105-1" defer></script>
-  <script src="./client-title-shortcut.js?v=inline-title-20261102-1" defer></script>
-  <script src="./app.js?v=inline-title-20261102-1-item-prices-20261105-1&grants=20261106-1&amount=20261110-1&activity=20261117-1" defer></script>
+  <script src="./client-title-shortcut.js?v=dedicated-title-tab-20261119-1" defer></script>
+  <script src="./app.js?v=inline-title-20261102-1-item-prices-20261105-1&grants=20261106-1&amount=20261110-1&activity=20261117-1&titleTab=20261119-1" defer></script>
   <script src="./member-workspace-tabs.js?v=member-workspace-tabs-20261014-2" defer></script>
   <script src="./terms.js?v=membership-terms-ui-20261005-2" defer></script>
   <script src="./grant-automation.js?v=grant-automation-20260910" defer></script>
   <script src="../booking-copy-text.js?v=booking-copy-20261102-1-individual-notes-20261109-1" defer></script>
   <script src="../booking-copy-format.js?v=booking-overnight-20260928-1-controls-20261010-2-release-20261014-1-copy-20261102-1-individual-notes-20261109-1" defer></script>
-  <script src="./booking-panel.js?v=booking-operations-split-20261003-1-ticket-source-20261004-1-ticket-card-ui-20261004-1-ticket-booking-20261006-1-booking-settings-20261006-2-ui-20261006-1-badge-20261009-1-individual-notes-20261109-1-snapshot-20261010-1-policy-entry-20261010-1-controls-20261010-2-snapshot-geofence-20261012-1-release-20261014-1-no-show-history-20261014-1-hide-early-hint-20261015-1-service-ticket-rule-20261015-1-booking-risk-20261021-1-risk-tab-20261023-1-risk-ux-20261023-2-layout-20261028-1-phone-slots-20261029-2-reminder-template-20261102-1-item-prices-20261105-1-end-overrun-20261108-1-overrun-minutes-20261108-1-settlement-detail-20261109-1-occupied-snapshot-20261109-2-settlement-ui-20261109-1-canonical-api-20261110-1" data-booking-admin-panel-extension defer></script>
+  <script src="./booking-panel.js?v=booking-operations-split-20261003-1-ticket-source-20261004-1-ticket-card-ui-20261004-1-ticket-booking-20261006-1-booking-settings-20261006-2-ui-20261006-1-badge-20261009-1-individual-notes-20261109-1-snapshot-20261010-1-policy-entry-20261010-1-controls-20261010-2-snapshot-geofence-20261012-1-release-20261014-1-no-show-history-20261014-1-hide-early-hint-20261015-1-service-ticket-rule-20261015-1-booking-risk-20261021-1-risk-tab-20261023-1-risk-ux-20261023-2-layout-20261028-1-phone-slots-20261029-2-reminder-template-20261102-1-item-prices-20261105-1-end-overrun-20261108-1-overrun-minutes-20261108-1-settlement-detail-20261109-1-occupied-snapshot-20261109-2-settlement-ui-20261109-1-canonical-api-20261110-1-title-tab-exclusive-20261119-1" data-booking-admin-panel-extension defer></script>
   <script src="./booking-receipt-admin.js?v=accessible-history-20261003-1" defer></script>
   <link rel="stylesheet" href="../responsive.css?v=20260914-line-form-1">
   <script src="../dialog-accessibility.js?v=20260913" defer></script>
@@ -72,16 +72,16 @@
 
     <main id="adminView" class="hidden">
       <header class="topbar"><div><p class="kicker">Lumen Club / Operations</p><h1>管理工作台</h1></div><div class="account-menu"><span id="displayName">管理員</span><span id="roleLabel" class="role-label">Admin</span><button id="logoutButton" class="text-button" type="button">登出</button></div></header>
-      <nav class="surface-nav" role="tablist" aria-label="管理功能"><button id="membersTab" class="surface-tab" type="button" role="tab" aria-selected="true" aria-controls="membersPanel">會員卡</button><button id="cardsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="cardsPanel">集點卡</button><button id="eventsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="eventsPanel">活動票券</button><button id="calendarTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="calendarPanel">營運日曆</button><button id="lineSettingsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="lineSettingsPanel" data-business-allowed="false" hidden disabled>LINE 設定</button><button id="frontdeskSettingsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="frontdeskSettingsPanel" data-business-allowed="false" hidden disabled>櫃檯設定</button></nav>
+      <nav class="surface-nav" role="tablist" aria-label="管理功能"><button id="membersTab" class="surface-tab" type="button" role="tab" aria-selected="true" aria-controls="membersPanel">會員卡</button><button id="cardsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="cardsPanel">集點卡</button><button id="eventsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="eventsPanel">活動票券</button><button id="calendarTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="calendarPanel">營運日曆</button><button id="lineSettingsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="lineSettingsPanel" data-business-allowed="false" hidden disabled>LINE 設定</button><button id="frontdeskSettingsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="frontdeskSettingsPanel" data-business-allowed="false" hidden disabled>櫃檯設定</button><button id="clientPageTitleTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="clientPageTitleShortcut" data-business-allowed="false" hidden disabled>網頁抬頭</button></nav>
 
       <section id="lineSettingsPanel" class="panel hidden" role="tabpanel" aria-labelledby="lineSettingsTab" hidden><div class="panel-heading"><div><p class="kicker">LINE / Integrations</p><h2>LINE 設定</h2><p>只顯示總管理員已核准的功能。各功能的 LIFF、訊息 Channel 與通知設定獨立儲存。</p></div></div><nav id="businessLineFeatureNav" class="business-line-feature-nav" aria-label="已核准功能的 LINE 設定"></nav><div id="businessLineFeatureContent"></div><p id="businessLineLoadStatus" role="status" aria-live="polite"></p></section>
       <section id="frontdeskSettingsPanel" class="panel hidden" role="tabpanel" aria-labelledby="frontdeskSettingsTab" hidden><div class="panel-heading"><div><p class="kicker">Frontdesk / Staff Access</p><h2>櫃檯設定</h2><p>設定櫃檯登入、預約通知與人員授權。</p></div></div><div id="frontdeskSettingsContent" data-frontdesk-settings-root></div></section>
-      <section id="clientPageTitleShortcut" class="panel" aria-labelledby="clientPageTitleShortcutHeading" hidden>
+      <section id="clientPageTitleShortcut" class="panel hidden" role="tabpanel" aria-labelledby="clientPageTitleTab" hidden>
         <div class="panel-heading">
           <div>
             <p class="kicker">Client browser titles</p>
             <h2 id="clientPageTitleShortcutHeading">用戶端網頁抬頭</h2>
-            <p>直接在一般管理端修改。所有已核准用戶端的瀏覽器分頁共用此名稱，不會改動商家名稱或會員資料。</p>
+            <p>集中在此分頁設定所有已核准用戶端的瀏覽器標題，不會改動商家名稱或會員資料。</p>
           </div>
         </div>
         <form id="clientPageTitleForm" aria-label="直接修改用戶端網頁抬頭">

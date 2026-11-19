@@ -7,6 +7,8 @@
   const form = el('clientPageTitleForm');
   const input = el('clientPageTitleInput');
   const save = el('clientPageTitleSave');
+  const tab = el('clientPageTitleTab');
+  const panel = el('clientPageTitleShortcut');
   let generation = 0, config = null, token = '', tenant = null, pending = null, saving = false;
   let fallback = 'Lumen Club';
 
@@ -22,7 +24,10 @@
     if (form) form.reset();
     if (input) { input.disabled = true; input.placeholder = '請先選擇已授權的商家'; }
     if (save) { save.disabled = true; save.textContent = '儲存網頁抬頭'; }
-    if (el('clientPageTitleShortcut')) el('clientPageTitleShortcut').hidden = true;
+    const wasSelected = tab?.getAttribute('aria-selected') === 'true';
+    if (tab) { tab.hidden = true; tab.disabled = true; tab.dataset.businessAllowed = 'false'; tab.setAttribute('aria-selected', 'false'); }
+    if (panel) { panel.hidden = true; panel.classList.add('hidden'); }
+    if (wasSelected) el('membersTab')?.click?.();
     status('');
     preview();
   }
@@ -66,6 +71,7 @@
       input.placeholder = fallback;
       input.disabled = false;
       save.disabled = false;
+      if (tab) { tab.hidden = false; tab.disabled = false; tab.dataset.businessAllowed = 'true'; }
       preview();
       status('已讀取商家目前設定。');
     } catch (error) {
@@ -73,6 +79,8 @@
       tenant = null;
       input.disabled = true;
       save.disabled = true;
+      if (tab) { tab.hidden = true; tab.disabled = true; tab.dataset.businessAllowed = 'false'; }
+      if (panel) { panel.hidden = true; panel.classList.add('hidden'); }
       status(error.message || '無法讀取網頁抬頭設定。');
     }
   }
@@ -83,7 +91,6 @@
         typeof idToken !== 'string' || !idToken) return;
     config = nextConfig; token = idToken;
     const epoch = generation;
-    el('clientPageTitleShortcut').hidden = false;
     status('正在讀取商家網頁抬頭…');
     void load(scope, epoch);
   }

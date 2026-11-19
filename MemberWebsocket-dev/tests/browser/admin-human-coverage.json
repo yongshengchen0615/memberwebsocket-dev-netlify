@@ -23,8 +23,8 @@
   "phoneBookingWindowReview": "2026-11-07 PR #258: Reviewed existing booking settings and phone appointment admin journeys. Merchant phone configuration is text-only and retains the same field, validation and save handler; existing BOOKING settings browser journeys remain mapped. Member booking date modal now permits phone CTA only when the same inclusive min/max/holiday online eligibility passes; out-of-range, past, holiday and no-phone cases remove dialing href. booking-calendar-times.spec.cjs checks 390/1280 viewport, both date boundaries, out-of-range, live settings revocation, zero max and holiday. booking_phone_fallback_platform.test.js guards UI and existing API phone contract. No new admin flows, tenant scope, authorization, database writes or provider sends. Full exact-SHA baseline and preview acceptance still required. 2026-11-09 PR #275: Reviewed admin booking queue button/modal, surname and salutation, optional admin note, service durations and calendar conflict, existing phone-booking records and member-side phone fallback. Counter registration no longer requests a customer's phone or sends it; legacy internal PHONE- ID and bookingSource remain to preserve collision locking, member exclusion and existing records. BOOKING_PHONE_CONFLICT and BOOKING_PHONE_SERVICE_DURATION browser journeys now explicitly assert no phone field, no contactPhone payload, unchanged confirmed booking and cancelled/rebooked slot; tenant RPC rejects malformed provided phone but accepts absent phone as SQL NULL. Added API/static/SQL migration regression; no new roles, tables, credentials, LINE sends or deletion of prior phone data. Full exact-SHA CI and live tenant deployment must be separately verified.",
   "frontdeskSettingsSimplificationReview": "2026-11-19 PR #364：重新審閱兩個管理入口及櫃檯設定。只移除 LINE 外站／櫃檯快速入口及重複說明，保留 LIFF Endpoint 複製、設定驗證／儲存、逐人申請審核、通知與原 backend 授權。admin-human 既有六個管理模組旅程及獨立 FrontdeskSettings 入口不變；新增 frontdesk_settings_navigation.test.js AC-FD-UX-001/002 與 frontdesk-booking.spec.cjs 真實 DOM 檢查。完整 CI、開發部署驗證以最終 SHA 取證，不視 stub 為真 LINE 驗證。",
   "reviewedSources": {
-    "admin/index.html": "9123254c889f54e743217be001e00333cbe74a655dcdb9e322c5eeb57b34e723",
-    "admin/app.js": "88a5edfc0ed70c005e768b3a8ec3c4399b3a33356f221c054422b78fdfce5fb5",
+    "admin/index.html": "a404dfa72d8b4d889a01dd2154786775f872fcd757d33920f08884748a81e3af",
+    "admin/app.js": "dd4502d6fdf6a83ca1338b9595bdaf0549f368e75a270bc8dff8464b4965df09",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
     "admin/grant-automation.js": "3f9d2c049a7741d098548a5102c115b1b23c825f35e4369de3dc0ab1efbb1f6e",
@@ -34,8 +34,8 @@
     "admin/fixed-ticket-calendar-option.js": "0bbc53970ff0ec7408985b001113f64de718963bcfbc793f563a44f2e068f1f1",
     "admin/pointcard-redemption-limit.js": "fbba580c9babdac950b2f619c3f3b949fe89ae0c1365e2555f758d1a8818035c",
     "admin/event-ticket-redemption-limit.js": "263a564d64845c5abb4ed5167305b0bffefb064130a0268ab533b481d320b688",
-    "admin/booking-panel.js": "797f428af6e6f45b80d2eedae05b23f5d8f80385b640c5a4b724aaa36e0fd11c",
-    "admin/booking-panel-core.js": "cb23e5c23192153a6308c2eb65714af72683732d02efa4148f01e65386a32459",
+    "admin/booking-panel.js": "4780a4fd30beeded9af1f6cc60688c396f3746488bb8ad3f68841a44be6a7fa6",
+    "admin/booking-panel-core.js": "5855ed66cf415f9f1e7a06785df0552ab201368eaa274b9953531758c5477713",
     "admin/booking-resources.js": "01a066ef180a9d42d49b4250e51008f23a0d13368897f4e351883d592249faff",
     "admin/booking-always-open.js": "9cb236902a7f3f36cf3fe4c3f13fbbac622f000c72d36ec34f7d4dde08e6e54a",
     "admin/booking-cancellation-sync.js": "a8367bb6565d054af976ec1ffdf950874a4e8f14a3917d2e036bc1744016db19",
@@ -315,9 +315,11 @@
     {
       "id": "retired-center.27",
       "module": "integration",
-      "name": "整合中心入口與內容已移除；上方六功能順序、舊 API 無呼叫與頁面殘留檢查",
+      "name": "整合中心已移除；主要導覽保留舊功能與新增網頁抬頭，手機 390px 單列滑動；預約／抬頭雙向切換互斥、權限關閉時不顯示編輯器，且不呼叫舊 API",
       "cases": [
-        "RETIRED_CENTER"
+        "RETIRED_CENTER",
+        "MOBILE_SURFACE_NAV",
+        "TITLE_BOOKING_EXCLUSIVE"
       ]
     },
     {

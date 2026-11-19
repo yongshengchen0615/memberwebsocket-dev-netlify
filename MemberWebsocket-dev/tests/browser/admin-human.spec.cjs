@@ -176,14 +176,83 @@ for(const type of ['holiday','event'])test('CALENDAR_'+type+' — create, date r
   await openCalendar(p,type);await fill(p,'calendarItemEndsOn',today());if(type==='event'){await p.locator('#calendarItemAllowedTiers input[value="general"]').uncheck();await p.locator('#calendarItemAllowedTiers input[value="silver"]').uncheck();await fill(p,'calendarItemLinkLabel','QA link');await fill(p,'calendarItemLinkUrl','https://example.test/qa');}
   await click(p,'saveCalendarItemButton');await expect(p.locator('#calendarItemId')).not.toHaveValue('');await expect(p.locator('#saveCalendarItemButton')).toBeEnabled();await fill(p,'calendarItemTitle','QA calendar edited');await click(p,'saveCalendarItemButton');await expect.poll(()=>info.fixture.calendarItems[0]?.title).toBe('QA calendar edited');await click(p,'deleteCalendarItemButton');await expect(p.locator('#calendarItemId')).toHaveValue('');expect(info.fixture.calendarItems).toHaveLength(0);
 });
-test('RETIRED_CENTER — the removed panel is absent and seven top tabs remain ordered',async({page:p},info)=>{
+test('RETIRED_CENTER — the removed panel is absent and eight top tabs remain ordered',async({page:p},info)=>{
   await expect(p.locator('#operationsHubTab, #operationsHubPanel, [data-integration-view-tab], [data-integration-target]')).toHaveCount(0);
   await expect(p.locator('#bookingTab')).toHaveCount(1);
   const order=await p.evaluate(()=>Array.from(document.querySelectorAll('#adminView .surface-nav > button[role="tab"]'),node=>node.id));
   // DOM fixtures run in a separate JS realm; normalize only the array prototype.
-  expect([...order]).toEqual(['membersTab','cardsTab','eventsTab','calendarTab','bookingTab','lineSettingsTab','frontdeskSettingsTab']);
+  expect([...order]).toEqual(['membersTab','cardsTab','eventsTab','calendarTab','bookingTab','lineSettingsTab','frontdeskSettingsTab','clientPageTitleTab']);
   expect(calls(info.fixture,'admin.integration-overview')).toHaveLength(0);
 });
+
+test('MOBILE_SURFACE_NAV — 390px feature tabs swipe in one row and unscoped title stays unavailable', async ({page:p}) => {
+  const nav=p.locator('#adminView > .surface-nav');
+  await expect(nav).toBeVisible();
+  if(typeof p.setViewportSize==='function'){
+    // Chromium owns real CSS geometry, touch-scroll behavior and browser scrolling.
+    await p.setViewportSize({width:390,height:844});
+    const layout=await nav.evaluate(node=>{
+      const style=getComputedStyle(node);
+      const items=[...node.querySelectorAll('button[role="tab"]')].filter(tab=>getComputedStyle(tab).display!=='none');
+      const tops=items.map(tab=>tab.getBoundingClientRect().top);
+      return {
+        display:style.display,wrap:style.flexWrap,overflowX:style.overflowX,
+        topSpread:tops.length?Math.max(...tops)-Math.min(...tops):0,
+        scrollWidth:node.scrollWidth,clientWidth:node.clientWidth
+      };
+    });
+    expect(layout.display).toBe('flex');
+    expect(layout.wrap).toBe('nowrap');
+    expect(layout.overflowX).toBe('auto');
+    expect(layout.topSpread).toBeLessThan(3);
+    expect(layout.scrollWidth).toBeGreaterThan(layout.clientWidth);
+    await nav.evaluate(node=>{node.scrollLeft=node.scrollWidth;});
+    await expect.poll(()=>nav.evaluate(node=>node.scrollLeft)).toBeGreaterThan(0);
+  }else{
+    // The parallel JSDOM runner does not implement CSS layout or setViewportSize:
+    // validate the DOM/tab contract and the real stylesheet instead of skipping.
+    const css=require('node:fs').readFileSync(require('node:path').resolve(__dirname,'../../admin/ui-polish-responsive.css'),'utf8');
+    const mobile=css.slice(css.indexOf('/* Mobile surface navigation'));
+    expect(mobile.includes('flex-wrap: nowrap')).toBe(true);
+    expect(mobile.includes('overflow-x: auto')).toBe(true);
+    const tabs=await p.evaluate(()=>Array.from(document.querySelectorAll('#adminView .surface-nav > button[role="tab"]'),node=>node.id));
+    expect(tabs.includes('clientPageTitleTab')).toBe(true);
+  }
+  await expect(p.locator('#clientPageTitleTab')).toBeHidden();
+  await expect(p.locator('#clientPageTitleShortcut')).toBeHidden();
+  await click(p,'cardsTab');
+  await expect(p.locator('#cardsPanel')).toBeVisible();
+  await expect(p.locator('#clientPageTitleShortcut')).toBeHidden();
+});
+
+test('TITLE_BOOKING_EXCLUSIVE — booking and title panels never overlap on repeated navigation',async({page:p})=>{
+  const titleTab=p.locator('#clientPageTitleTab'),titlePanel=p.locator('#clientPageTitleShortcut');
+  const bookingTab=p.locator('#bookingTab'),bookingPanel=p.locator('#bookingPanel');
+  // The isolated fixture has no approved merchant. Enable only the test's
+  // navigation control; backend title-save authorization is tested separately.
+  await p.evaluate(()=>{
+    const tab=document.getElementById('clientPageTitleTab');
+    tab.hidden=false;tab.disabled=false;tab.dataset.businessAllowed='true';
+  });
+  await titleTab.click();
+  await expect(titleTab).toHaveAttribute('aria-selected','true');
+  await expect(titlePanel).toBeVisible();
+  await expect(bookingTab).toHaveAttribute('aria-selected','false');
+  await expect(bookingPanel).toBeHidden();
+
+  await bookingTab.click();
+  await expect(bookingTab).toHaveAttribute('aria-selected','true');
+  await expect(bookingPanel).toBeVisible();
+  await expect(titleTab).toHaveAttribute('aria-selected','false');
+  await expect(titlePanel).toBeHidden();
+
+  await titleTab.click();
+  await expect(titlePanel).toBeVisible();
+  await expect(titleTab).toHaveAttribute('aria-selected','true');
+  await expect(bookingPanel).toBeHidden();
+  await expect(bookingTab).toHaveAttribute('aria-selected','false');
+});
+
 for(const [target,tab,panel] of [
   ['member-grant','membersTab','membersPanel'],
   ['booking-services','bookingTab','bookingAdminServicesPanel'],

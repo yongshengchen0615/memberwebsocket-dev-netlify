@@ -9,7 +9,9 @@ const read = file => fs.readFileSync(path.join(root,file),'utf8');
 const flush = async () => { for(let i=0;i<8;i++)await new Promise(resolve=>setImmediate(resolve)); };
 function fixture(responder = null) {
   const fields = {};
-  const node = id => fields[id] ||= { hidden:true,disabled:true,value:'',textContent:'',placeholder:'',
+  const node = id => fields[id] ||= { hidden:true,disabled:true,value:'',textContent:'',placeholder:'',dataset:{},attrs:{},
+    classList:{add(){},remove(){},toggle(){}},setAttribute(name,value){this.attrs[name]=String(value);},
+    getAttribute(name){return this.attrs[name]??null;},click(){this.clicked=true;},
     listeners:{},addEventListener(name,fn){this.listeners[name]=fn;} };
   const form=node('clientPageTitleForm');
   form.reset=()=>{node('clientPageTitleInput').value='';};
@@ -37,9 +39,10 @@ function fixture(responder = null) {
   return {client,config,fields,input,save,panel,form,requests,flush,submit};
 }
 
-test('AC-010: regular admin has an inline form, preview, save and no redirection',()=>{
+test('AC-010: regular admin has a dedicated title tab, preview, save and no redirection',()=>{
   const html=read('admin/index.html'),js=read('admin/app.js');
-  assert.match(html,/id="clientPageTitleShortcut"[^>]*hidden/);
+  assert.match(html,/id="clientPageTitleTab"[^>]*role="tab"[^>]*aria-controls="clientPageTitleShortcut"[^>]*hidden disabled/);
+  assert.match(html,/id="clientPageTitleShortcut"[^>]*role="tabpanel"[^>]*aria-labelledby="clientPageTitleTab"[^>]*hidden/);
   assert.match(html,/id="clientPageTitleForm"/);
   assert.match(html,/id="clientPageTitleInput"[^>]*maxlength="60"/);
   assert.match(html,/id="clientPageTitleSave"[^>]*>儲存網頁抬頭/);
@@ -53,7 +56,9 @@ test('AC-010: regular admin has an inline form, preview, save and no redirection
 test('AC-011: approved merchant can edit and clear title in the same page without changing name',async()=>{
   const f=fixture();
   f.client.sync(f.config('merchant-a'),'verified-id-token');await f.flush();
-  assert.equal(f.panel.hidden,false);
+  assert.equal(f.panel.hidden,true,'title editor must stay hidden outside its tab');
+  assert.equal(f.fields.clientPageTitleTab.hidden,false);
+  assert.equal(f.fields.clientPageTitleTab.disabled,false);
   assert.equal(f.input.disabled,false);
   assert.equal(f.input.value,'');
   assert.equal(f.fields.clientPageTitlePreview.textContent,'原商家｜預約');
@@ -83,8 +88,9 @@ test('AC-012: unscoped, legacy, malformed slug or missing identity cannot read o
   }
   assert.equal(f.requests.length,0);
   f.client.sync(f.config('merchant-a'),'token');await f.flush();
-  assert.equal(f.panel.hidden,false);
+  assert.equal(f.fields.clientPageTitleTab.hidden,false);
   f.client.clear();assert.equal(f.panel.hidden,true);
+  assert.equal(f.fields.clientPageTitleTab.hidden,true);
   assert.equal(f.save.disabled,true);
 });
 
@@ -128,4 +134,92 @@ test('AC-015: stale version refuses auto-retry and forbidden write clears editor
     if(code===409){assert.match(f.fields.clientPageTitleStatus.textContent,/重新整理/);assert.equal(f.save.disabled,true);}
     else{assert.equal(f.panel.hidden,true);assert.equal(f.save.disabled,true);}
   }
+});
+
+test('AC-016: dedicated title tab switches its own panel without loading unrelated data', () => {
+  const script=read('admin/app.js');
+  const start=script.indexOf('  function switchPanel(panel) {');
+  const end=script.indexOf('  function switchCardWorkspace(',start);
+  assert.ok(start>=0 && end>start,'surface controller must be testable');
+  const ids=['members','cards','events','calendar'];
+  const fields={};
+  function element(id) {
+    return fields[id] ||= {
+      hidden:false,disabled:false,attrs:{},
+      classList:{last:null,toggle(name,value){this.last={name,value};}},
+      setAttribute(name,value){this.attrs[name]=String(value);}
+    };
+  }
+  const els={clientPageTitleTab:element('clientPageTitleTab'),clientPageTitleShortcut:element('clientPageTitleShortcut')};
+  for(const id of ids){els[id+'Tab']=element(id+'Tab');els[id+'Panel']=element(id+'Panel');}
+  const state={activePanel:'members',loadedPanels:Object.fromEntries(ids.map(id=>[id,true]))};
+  let loads=0;
+  const context={state,els,ensureAdminPanelData(){loads++;return Promise.resolve();},setSyncStatus(){}};
+  vm.runInNewContext(script.slice(start,end)+'\nthis.choose = switchPanel;',context);
+  context.choose('clientPageTitle');
+  assert.equal(els.clientPageTitleShortcut.hidden,false);
+  assert.equal(els.clientPageTitleTab.attrs['aria-selected'],'true');
+  for(const id of ids)assert.equal(els[id+'Panel'].classList.last.value,true);
+  assert.equal(loads,0,'reusing the title loader avoids extra booking/member requests');
+  context.choose('cards');
+  assert.equal(els.clientPageTitleShortcut.hidden,true);
+  assert.equal(els.clientPageTitleTab.attrs['aria-selected'],'false');
+  assert.equal(els.cardsPanel.classList.last.value,false);
+  els.clientPageTitleTab.disabled=true;
+  context.choose('clientPageTitle');
+  assert.equal(state.activePanel,'cards','disabled title tab cannot open the editor');
+});
+
+test('AC-017: mobile admin tabs use a single native sideways-swiping row with theme parity', () => {
+  const css=read('admin/ui-polish-responsive.css');
+  const mobile=css.slice(css.indexOf('/* Mobile surface navigation'));
+  assert.match(mobile, /@media \(max-width: 760px\)/);
+  assert.match(mobile, /html\[data-theme\] #adminView > \.surface-nav/);
+  assert.match(mobile, /display:\s*flex/);
+  assert.match(mobile, /flex-wrap:\s*nowrap/);
+  assert.match(mobile, /overflow-x:\s*auto/);
+  assert.match(mobile, /-webkit-overflow-scrolling:\s*touch/);
+  assert.match(mobile, /\.surface-tab[\s\S]*?white-space:\s*nowrap/);
+  assert.doesNotMatch(mobile, /setInterval|setTimeout/);
+});
+
+test('AC-018: booking and title tabs are mutually exclusive in both directions', () => {
+  const booking=read('admin/booking-panel-core.js');
+  const app=read('admin/app.js');
+  assert.match(booking, /PRIMARY_TAB_IDS = \[[^\]]*'clientPageTitleTab'/);
+  assert.match(booking, /PRIMARY_PANEL_IDS = \[[^\]]*'clientPageTitleShortcut'/);
+  assert.ok(booking.includes("PRIMARY_TAB_IDS.forEach((id) => document.getElementById(id)?.addEventListener('click', deactivateBookingPanel));"),
+    'title click must detach the active booking panel');
+  assert.ok(app.includes("els.clientPageTitleTab.addEventListener('click', () => switchPanel('clientPageTitle'));"));
+  const ids=['membersTab','cardsTab','eventsTab','calendarTab','clientPageTitleTab','testModeTab',
+    'membersPanel','cardsPanel','eventsPanel','calendarPanel','clientPageTitleShortcut','testModePanel','bookingTab','bookingPanel'];
+  const nodes=Object.fromEntries(ids.map(id=>[id,{
+    attrs:{},hidden:false,classes:new Set(),
+    setAttribute(name,value){this.attrs[name]=String(value);},
+    classList:null
+  }]));
+  for(const node of Object.values(nodes))node.classList={
+    add(name){node.classes.add(name);},remove(name){node.classes.delete(name);},
+    contains(name){return node.classes.has(name);}
+  };
+  const declaration=booking.slice(booking.indexOf('  const PRIMARY_TAB_IDS ='),booking.indexOf('  const NO_SHOW_EARLY_REASON'));
+  const begin=booking.indexOf('  function activateBookingPanel() {'),end=booking.indexOf('  async function context() {',begin);
+  assert.ok(begin>0&&end>begin);
+  const context={
+    document:{getElementById:id=>nodes[id]||null},
+    els:{bookingTab:nodes.bookingTab,bookingPanel:nodes.bookingPanel},
+    state:{loading:true,subtab:'technicians'},
+    setSubtab(){},refreshAll(){}
+  };
+  vm.runInNewContext(declaration+booking.slice(begin,end)+'\nthis.activate = activateBookingPanel; this.deactivate = deactivateBookingPanel;',context);
+  nodes.clientPageTitleTab.setAttribute('aria-selected','true');
+  context.activate();
+  assert.equal(nodes.clientPageTitleTab.attrs['aria-selected'],'false');
+  assert.equal(nodes.clientPageTitleShortcut.classes.has('hidden'),true);
+  assert.equal(nodes.bookingTab.attrs['aria-selected'],'true');
+  assert.equal(nodes.bookingPanel.classes.has('hidden'),false);
+  // The registered title click deactivates booking before the title controller opens.
+  context.deactivate();
+  assert.equal(nodes.bookingTab.attrs['aria-selected'],'false');
+  assert.equal(nodes.bookingPanel.classes.has('hidden'),true);
 });
