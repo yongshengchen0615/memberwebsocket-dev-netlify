@@ -12,14 +12,16 @@ test('snapshot review removes existing booking linking and uses per-person edito
   assert.match(ui, /accessibleAdminPartySize/);
   assert.match(ui, /accessibleAdminParticipants/);
   assert.match(ui, /data-technician-select/);
+  assert.match(ui, /data-snapshot-service/);
   assert.match(ui, /function collectSnapshotParticipants\(/);
-  assert.match(ui, /participants:collectSnapshotParticipants\(\)/);
+  assert.match(ui, /bookingDate:[^\n]+startTime:[^\n]+participants,benefits/);
 });
 
 test('snapshot review obtains active technician catalog and preserves primary requirement', () => {
   const api = read('supabase/functions/booking-receipt-api/index.ts');
   assert.match(api, /from\("booking_technicians"\)/);
   assert.match(api, /primaryTechnicianId:/);
+  assert.match(api, /maxPartySize:/);
   assert.match(api, /technicians:/);
   assert.doesNotMatch(api, /admin\.booking\.receipt\.options',[^{]*\{receiptId:state\.selected\.receiptId,bookingId\}/);
 });
