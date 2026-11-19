@@ -48,12 +48,24 @@ test('merchant frontdesk settings reconcile server changes without overwriting d
  const field=root.querySelector('input[name="messagingChannelId"]');
  field.value='2010777777';
  field.dispatchEvent(new w.Event('input',{bubbles:true}));
+ // The server returns the same version after an explicit discard, but the
+ // abandoned form must still be rebuilt from authoritative saved values.
+ w.confirm=()=>true;
+ const beforeSameVersion=calls.length;
+ root.querySelector('button.button-outline').click();
+ await settle();
+ assert.ok(calls.length>beforeSameVersion);
+ assert.equal(root.querySelector('input[name="messagingChannelId"]').value,'2010888888',
+   'force reload must discard same-version unsaved values');
+ const secondDraft=root.querySelector('input[name="messagingChannelId"]');
+ secondDraft.value='2010777777';
+ secondDraft.dispatchEvent(new w.Event('input',{bubbles:true}));
  const beforeDirtyRefresh=calls.length;
  current={...current,version:3,staff:[]};
  w.dispatchEvent(new w.Event('focus'));
  await settle();
  assert.equal(calls.length,beforeDirtyRefresh,'the draft must survive background invalidation');
- assert.equal(field.value,'2010777777');
+ assert.equal(secondDraft.value,'2010777777');
  w.confirm=()=>true;
  root.querySelector('button.button-outline').click();
  await settle();
