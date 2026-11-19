@@ -566,7 +566,9 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
 
   return {
     type: 'flex',
-    altText: makeAltText(parsed),
+    altText: job.channel === 'frontdesk'
+      ? truncate([parsed.title, ...frontdeskSummaryLines(parsed).slice(0, 2)].join('｜'), MAX_ALT_TEXT)
+      : makeAltText(parsed),
     contents: {
       type: 'bubble',
       header: {
