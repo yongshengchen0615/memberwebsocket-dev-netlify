@@ -36,7 +36,7 @@ test('AC-FD-NAV-003: frontdesk no longer mounts inside the booking LINE feature 
   assert.match(line,/querySelector\('\[data-frontdesk-settings-root\]'\)/);
   assert.match(line,/window\.FrontdeskSettings\?\.clear\(/);
   assert.match(frontdesk,/mounted\.delete\(root\)/);
-  assert.match(frontdesk,/if\(!alive\(\)\) return/);
+  assert.match(frontdesk,/if\s*\(!alive\(\)\)\s*return/);
 });
 
 test('AC-FD-NAV-004: deep links do not bypass booking grants or force LINE settings',()=>{
