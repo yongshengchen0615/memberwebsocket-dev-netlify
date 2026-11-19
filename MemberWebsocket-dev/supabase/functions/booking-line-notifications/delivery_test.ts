@@ -42,6 +42,10 @@ Deno.test('AC-FD-001: frontdesk LINE card uses exactly the requested booking fie
   ];
   assert(JSON.stringify(visible) === JSON.stringify(expected),
     'frontdesk message content and order must exactly match the requested eight lines');
+  assert(notice.altText.includes('預約日期：2026-11-20') && notice.altText.includes('預約時間：09:30'),
+    'LINE push preview must use the same normalized date and start time as the frontdesk card');
+  assert(!notice.altText.includes('10:30') && !notice.altText.includes('2026/11/20'),
+    'LINE push preview must not show the original time range or slash-formatted date');
   const serialized = JSON.stringify(notice);
   for (const prohibited of ['個別時間', '個別金額', 'NT$2,500', '會員備註', '管理端說明', '不該出現', '僅限管理員', '預約編號']) {
     assert(!serialized.includes(prohibited), `frontdesk must not include unrelated private field: ${prohibited}`);
