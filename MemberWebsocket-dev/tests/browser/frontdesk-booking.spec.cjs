@@ -3,7 +3,7 @@ let server,base;
 test.beforeAll(async()=>{server=http.createServer((req,res)=>{
  const route=req.url.split('?')[0];
  if(route==='/config/config.json'){res.setHeader('Content-Type','application/json');return res.end(JSON.stringify({supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'synthetic-public'}));}
- const file={'/frontdesk/':'frontdesk/index.html','/frontdesk/app.js':'frontdesk/app.js','/frontdesk/styles.css':'frontdesk/styles.css','/admin/frontdesk-settings.js':'admin/frontdesk-settings.js'}[route];
+ const file={'/frontdesk/':'frontdesk/index.html','/frontdesk/app.js':'frontdesk/app.js','/frontdesk/styles.css':'frontdesk/styles.css','/admin/frontdesk-settings.js':'admin/frontdesk-settings.js','/theme.css':'theme.css'}[route];
  if(!file){res.statusCode=404;return res.end();}res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html; charset=utf-8');res.end(fs.readFileSync(path.resolve(__dirname,'../..',file)));
  });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));base='http://127.0.0.1:'+server.address().port;});
 test.afterAll(async()=>new Promise(resolve=>server.close(resolve)));
@@ -109,4 +109,38 @@ test('FRONTDESK_CONFIG_GUIDE — LINE sources, notification-card parity and auto
  await expect(page.locator('.frontdesk-person [name=permissionMode]')).toHaveValue('notify_only');
  await expect(page.locator('.frontdesk-person')).toContainText('待審核');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+test('FRONTDESK_SETTINGS_THEME — explicit merchant light/dark palette overrides OS preference',async({page},info)=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.emulateMedia({colorScheme:'dark'});
+ await page.goto(base+'/frontdesk/');
+ await page.setContent('<link rel="stylesheet" href="'+base+'/theme.css"><link rel="stylesheet" href="'+base+'/frontdesk/styles.css"><main id="root"></main>');
+ await page.addScriptTag({url:base+'/admin/frontdesk-settings.js'});
+ await page.evaluate(()=>window.FrontdeskSettings.mount({
+  root:document.getElementById('root'),business:'shop-a',
+  request:async()=>({version:1,frontdesk:{},staff:[]})
+ }));
+ await page.locator('summary').click();
+ const sample=async(theme)=>{
+  await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+  return page.locator('.frontdesk-settings').evaluate(el=>{
+   const style=getComputedStyle(el),input=getComputedStyle(el.querySelector('input'));
+   return {card:style.backgroundColor,text:style.color,inputBackground:input.backgroundColor,
+     primary:style.getPropertyValue('--fd-primary').trim(),
+     expectedPrimary:style.getPropertyValue('--ui-primary').trim(),
+     onPrimary:style.getPropertyValue('--fd-on-primary').trim()};
+  });
+ };
+ const light=await sample('light');
+ expect(light.primary).toBe(light.expectedPrimary);
+ await info.attach('frontdesk-settings-light',{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
+ const dark=await sample('dark');
+ expect(dark.primary).toBe(dark.expectedPrimary);
+ expect(dark.card).not.toBe(light.card);
+ expect(dark.text).not.toBe(light.text);
+ expect(dark.inputBackground).not.toBe(light.inputBackground);
+ expect(dark.onPrimary).not.toBe(light.onPrimary);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await info.attach('frontdesk-settings-dark',{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
 });
