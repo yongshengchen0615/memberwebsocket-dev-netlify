@@ -194,14 +194,14 @@ begin
   v_start:=strpos(v_source,v_old_start);
   v_end:=strpos(v_source,v_old_end);
   if v_start=0 or v_end<=v_start or
-     strpos(v_source,E'  settlement jsonb;\nBEGIN')=0 or
+     strpos(v_source,E'  settlement jsonb;\nbegin')=0 or
      strpos(v_source,E'  if p_booking_id is not null then\n    select * into b')=0 then
     raise exception 'SNAPSHOT_GROUP_TEMPLATE_CHANGED';
   end if;
   v_new:=left(v_source,v_start-1)||E'  else\n'||
     replace(v_insert,'__SCHEMA__','public')||substr(v_source,v_end);
-  v_new:=replace(v_new,E'  settlement jsonb;\nBEGIN',
-    E'  settlement jsonb;\n'||v_vars||'BEGIN');
+  v_new:=replace(v_new,E'  settlement jsonb;\nbegin',
+    E'  settlement jsonb;\n'||v_vars||'begin');
   v_new:=replace(v_new,
     E'  if p_booking_id is not null then\n    select * into b',
     E'  if p_booking_id is not null then\n    raise exception ''SNAPSHOT_EXISTING_BOOKING_LINK_DISABLED'';\n    select * into b');
