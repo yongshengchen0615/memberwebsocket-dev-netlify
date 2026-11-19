@@ -122,6 +122,7 @@ test('FRONTDESK_SETTINGS_THEME — explicit merchant light/dark palette override
   request:async()=>({version:1,frontdesk:{},staff:[]})
  }));
  await page.locator('summary').click();
+ await expect(page.locator('[name="liffId"]')).toBeVisible();
  const sample=async(theme)=>{
   await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
   return page.locator('.frontdesk-settings').evaluate(el=>{
