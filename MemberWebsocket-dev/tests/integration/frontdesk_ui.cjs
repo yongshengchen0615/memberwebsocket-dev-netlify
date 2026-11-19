@@ -98,6 +98,7 @@ test('frontdesk removal requires confirmation, sends scoped delete, and clears s
  assert.equal(calls.filter(x=>x.action==='platform.frontdesk.staff.delete').length,1);
  assert.equal(retry.disabled,false,'an uncertain removal must offer an enabled retry');
  assert.equal(retry.textContent,'重試相同儲存操作');
+ assert.equal(retry.getAttribute('aria-label'),'重試相同儲存操作','screen readers must identify the retry');
  assert.equal(root.querySelector('.frontdesk-person button[type=submit]').disabled,true,'different writes stay locked');
  retry.click();await new Promise(r=>setImmediate(r));
  const deletions=calls.filter(x=>x.action==='platform.frontdesk.staff.delete');

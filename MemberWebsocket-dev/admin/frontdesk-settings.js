@@ -58,7 +58,12 @@
       } catch (error) {
         if (!alive()) return;
         if (!error.uncertain) pending = null;
-        else button.textContent = '重試相同儲存操作';
+        else {
+          button.textContent = '重試相同儲存操作';
+          // A destructive retry must have the same accessible label as its
+          // current action; the original per-person aria-label is now stale.
+          if (action === 'platform.frontdesk.staff.delete') button.setAttribute('aria-label', '重試相同儲存操作');
+        }
         status.textContent = error.message || '儲存失敗，請確認設定。';
       } finally {
         busy = false;
