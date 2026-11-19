@@ -381,7 +381,8 @@
       const actions=document.createElement('footer');
       if(ready){
         const manage=document.createElement('a');manage.href='/admin/?business='+encodeURIComponent(application.slug);manage.textContent='管理商家';manage.dataset.manageMerchant='true';manage.className='tenant-action-primary';
-        actions.append(manage);
+        const frontdesk=document.createElement('a');frontdesk.href='/admin/?business='+encodeURIComponent(application.slug)+'&settings=frontdesk';frontdesk.textContent='櫃檯設定';frontdesk.dataset.frontdeskSettingsEntry='true';frontdesk.className='tenant-action-secondary';
+        actions.append(manage,frontdesk);
       }else{
         const unavailable=document.createElement('p');unavailable.textContent=application.status==='pending'?'審核通過並開通後，即可管理此商家。':application.status==='rejected'?'請依審核理由修正此申請。':'請聯絡總管理員確認開通、停用或使用期限。';actions.append(unavailable);
       }
@@ -805,34 +806,46 @@
     catch{el('copySetupMessage').textContent='無法自動複製，請將本頁顯示的商家代碼與開通狀態提供給平台聯絡人。';}
   });
   function selectMerchantWorkspaceTab(requested) {
-    const granted = (hasFeatureLine(state.merchant)?Object.keys(featureLiffNames):visibleFeatureKeys).some(key => state.merchant?.features?.[key] === true);
-    merchantWorkspaceTab = requested === 'line' && granted ? 'line' : 'overview';
-    const lineTab = el('merchantLineSettingsTab'),overviewTab = el('merchantOverviewTab');
-    if (!lineTab || !overviewTab || !el('merchantOverviewPanel') || !el('merchantLineSettingsPanel')) return;
-    lineTab.hidden = !granted; lineTab.disabled = !granted;
-    lineTab.setAttribute('aria-selected',String(merchantWorkspaceTab === 'line'));
-    overviewTab.setAttribute('aria-selected',String(merchantWorkspaceTab === 'overview'));
-    // Roving tab stops let keyboard users enter only the currently selected panel.
-    lineTab.tabIndex = merchantWorkspaceTab === 'line' ? 0 : -1;
-    overviewTab.tabIndex = merchantWorkspaceTab === 'overview' ? 0 : -1;
-    el('merchantLineSettingsPanel').hidden = merchantWorkspaceTab !== 'line';
-    el('merchantOverviewPanel').hidden = merchantWorkspaceTab !== 'overview';
+    const tenant=state.merchant;
+    const granted=(hasFeatureLine(tenant)?Object.keys(featureLiffNames):visibleFeatureKeys).some(key=>tenant?.features?.[key]===true);
+    const frontdeskGranted=tenant?.features?.booking===true;
+    merchantWorkspaceTab=requested==='frontdesk'&&frontdeskGranted?'frontdesk':requested==='line'&&granted?'line':'overview';
+    const tabs=[
+      {key:'overview',tab:el('merchantOverviewTab'),panel:el('merchantOverviewPanel'),allowed:true},
+      {key:'line',tab:el('merchantLineSettingsTab'),panel:el('merchantLineSettingsPanel'),allowed:granted},
+      {key:'frontdesk',tab:el('merchantFrontdeskSettingsTab'),panel:el('merchantFrontdeskSettingsPanel'),allowed:frontdeskGranted}
+    ];
+    if(tabs.some(item=>!item.tab||!item.panel))return;
+    for(const item of tabs){
+      item.tab.hidden=!item.allowed;
+      item.tab.disabled=!item.allowed;
+      const active=item.key===merchantWorkspaceTab;
+      item.tab.setAttribute('aria-selected',String(active));
+      item.tab.tabIndex=active?0:-1;
+      item.panel.hidden=!active;
+    }
+    if(merchantWorkspaceTab==='frontdesk')
+      el('merchantFrontdeskSettingsContent')?.querySelector?.('[data-frontdesk-settings]')?.setAttribute('open','');
   }
   function handleMerchantWorkspaceTabKeydown(event) {
-    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-    const lineTab = el('merchantLineSettingsTab');
-    // A withheld module never becomes visible or keyboard-reachable.
-    if (!lineTab || lineTab.hidden || lineTab.disabled) return;
+    if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+    const tabs=[
+      ['overview',el('merchantOverviewTab')],
+      ['line',el('merchantLineSettingsTab')],
+      ['frontdesk',el('merchantFrontdeskSettingsTab')]
+    ].filter(([,tab])=>tab&&!tab.hidden&&!tab.disabled);
+    if(tabs.length<2)return;
     event.preventDefault();
-    const next = event.key === 'Home' ? 'overview' : event.key === 'End' ? 'line'
-      : merchantWorkspaceTab === 'overview' ? 'line' : 'overview';
-    selectMerchantWorkspaceTab(next);
-    el(next === 'line' ? 'merchantLineSettingsTab' : 'merchantOverviewTab')?.focus();
+    const current=tabs.findIndex(([key])=>key===merchantWorkspaceTab);
+    const next=event.key==='Home'?0:event.key==='End'?tabs.length-1
+      :event.key==='ArrowRight'?(current+1)%tabs.length:(current+tabs.length-1)%tabs.length;
+    selectMerchantWorkspaceTab(tabs[next][0]);
+    tabs[next][1].focus();
   }
-  el('merchantOverviewTab')?.addEventListener('click',()=>selectMerchantWorkspaceTab('overview'));
-  el('merchantLineSettingsTab')?.addEventListener('click',()=>selectMerchantWorkspaceTab('line'));
-  el('merchantOverviewTab')?.addEventListener('keydown',handleMerchantWorkspaceTabKeydown);
-  el('merchantLineSettingsTab')?.addEventListener('keydown',handleMerchantWorkspaceTabKeydown);
+  for(const id of ['merchantOverviewTab','merchantLineSettingsTab','merchantFrontdeskSettingsTab']){
+    el(id)?.addEventListener('click',()=>selectMerchantWorkspaceTab(id==='merchantOverviewTab'?'overview':id==='merchantLineSettingsTab'?'line':'frontdesk'));
+    el(id)?.addEventListener('keydown',handleMerchantWorkspaceTabKeydown);
+  }
   function selectMerchantPanel(feature, reveal = true) {
     if(merchantSaving||state.merchantPending)return;
     const tenant=state.merchant;
@@ -952,7 +965,7 @@
     el('merchantMessage').textContent='';state.merchantPending=null;
     const deepLink=new URLSearchParams(location.search).get('feature');
     renderMerchantNav(tenant);
-    selectMerchantWorkspaceTab(deepLink && tenant.features?.[deepLink]===true ? 'line' : merchantWorkspaceTab);
+    selectMerchantWorkspaceTab(new URLSearchParams(location.search).get('settings')==='frontdesk' ? 'frontdesk' : deepLink && tenant.features?.[deepLink]===true ? 'line' : merchantWorkspaceTab);
     renderChecklist(tenant);
   }
   applicationForm.addEventListener('submit',async event=>{
