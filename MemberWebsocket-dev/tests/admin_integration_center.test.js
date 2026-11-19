@@ -20,7 +20,7 @@ test('AC-IC-001: integration center assets, navigation and standalone panel are 
   }
 });
 
-test('AC-IC-002: navigation order is membership, points, events, calendar, booking, LINE settings', () => {
+test('AC-IC-002: navigation preserves membership, points, events, calendar, booking and LINE settings; frontdesk is separate', () => {
   const nav = html.match(/<nav class="surface-nav"[^>]*>[\s\S]*?<\/nav>/)?.[0];
   assert.ok(nav, 'admin navigation must exist');
   const staticIds = [...nav.matchAll(/<button\s+id="([^"]+)"[^>]*role="tab"/g)].map(match => match[1]);
