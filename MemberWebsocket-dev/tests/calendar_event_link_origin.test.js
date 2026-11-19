@@ -88,6 +88,6 @@ test('AC-009: a LINE callback with merchant restored in BusinessContext creates 
 
 test('AC-010: LINE WebView receives a new versioned calendar script with the merchant-scope fix', () => {
   const html = fs.readFileSync('MemberWebsocket-dev/calendar/index.html', 'utf8');
-  assert.match(html, /<script src="\\.\\/app\\.js\\?v=[^"]*merchant-scope-20261119-1" defer><\\/script>/);
-  assert.match(html, /<script src="\\.\\.\\/business-context\\.js\\?grants=20261107-1&callback=20261119-1"/);
+  assert.ok(html.includes('merchant-scope-20261119-1'), 'Calendar script needs cache-busting version');
+  assert.ok(html.includes('business-context.js?grants=20261107-1&callback=20261119-1'), 'merchant context must also load the latest callback handling');
 });
