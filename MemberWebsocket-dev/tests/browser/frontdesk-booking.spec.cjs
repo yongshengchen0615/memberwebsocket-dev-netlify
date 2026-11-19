@@ -2,8 +2,19 @@ const {test,expect}=require('playwright/test'),http=require('node:http'),fs=requ
 let server,base;
 test.beforeAll(async()=>{server=http.createServer((req,res)=>{
  const route=req.url.split('?')[0];
+ if(route==='/business-context.js'){
+  res.setHeader('Content-Type','text/javascript');
+  return res.end("window.BusinessContext={slug:new URLSearchParams(location.search).get('business')||'',set:function(value){this.slug=value},configure:async function(base){return {...base,adminLiffId:'2010999999-manager'}}};");
+ }
+ if(route==='/member-system.js'){
+  res.setHeader('Content-Type','text/javascript');
+  return res.end("window.MemberSystem={validateConfig:()=>{}};");
+ }
  if(route==='/config/config.json'){res.setHeader('Content-Type','application/json');return res.end(JSON.stringify({supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',supabasePublishableKey:'synthetic-public'}));}
- const file={'/frontdesk/':'frontdesk/index.html','/frontdesk/app.js':'frontdesk/app.js','/frontdesk/styles.css':'frontdesk/styles.css','/admin/frontdesk-settings.js':'admin/frontdesk-settings.js','/theme.css':'theme.css'}[route];
+ const file={'/frontdesk/':'frontdesk/index.html','/frontdesk/app.js':'frontdesk/app.js','/frontdesk/styles.css':'frontdesk/styles.css','/admin/frontdesk-settings.js':'admin/frontdesk-settings.js','/theme.css':'theme.css','/theme.js':'theme.js',
+ '/admin/frontdesk-settings/':'admin/frontdesk-settings/index.html',
+ '/admin/frontdesk-settings/frontdesk-settings-page.js':'admin/frontdesk-settings/frontdesk-settings-page.js',
+ '/admin/frontdesk-settings/frontdesk-settings-page.css':'admin/frontdesk-settings/frontdesk-settings-page.css'}[route];
  if(!file){res.statusCode=404;return res.end();}res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html; charset=utf-8');res.end(fs.readFileSync(path.resolve(__dirname,'../..',file)));
  });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));base='http://127.0.0.1:'+server.address().port;});
 test.afterAll(async()=>new Promise(resolve=>server.close(resolve)));
@@ -144,4 +155,42 @@ test('FRONTDESK_SETTINGS_THEME — explicit merchant light/dark palette override
  expect(dark.onPrimary).not.toBe(light.onPrimary);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await info.attach('frontdesk-settings-dark',{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
+});
+
+for(const width of [390,1280])test('FRONTDESK_SETTINGS_STANDALONE_'+width+' — separate page checks merchant grant and clears on revocation',async({page})=>{
+ await page.setViewportSize({width,height:900});
+ const calls=[];
+ let granted=true;
+ await page.route('https://static.line-scdn.net/**',route=>route.fulfill({
+  contentType:'text/javascript',
+  body:'window.liff={init:async()=>{},isLoggedIn:()=>true,isInClient:()=>true,getIDToken:()=>"synthetic-admin-token",login:()=>{},logout:()=>{}};'
+ }));
+ await page.route('https://fixture.supabase.co/**',route=>{
+  const input=route.request().postDataJSON();calls.push(input);
+  expect(input.business).toBe('shop-a');
+  expect(input.idToken).toBe('synthetic-admin-token');
+  const data=input.action==='platform.application.bootstrap'
+   ? {application:{status:'approved'},tenant:{name:'測試商家',slug:'shop-a',status:'active',expired:false,onboarding:{adminReady:true},features:{booking:true,frontdesk:granted}}}
+   :input.action==='platform.frontdesk.get'
+   ? {version:1,frontdesk:{enabled:true,liffId:'2010999999-desk',loginChannelId:'2010999999',messagingChannelId:'2010888888'},staff:[]}
+   :null;
+  if(!data)throw Error('UNEXPECTED_ACTION '+input.action);
+  return route.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,data})});
+ });
+ await page.goto(base+'/admin/frontdesk-settings/?business=shop-a');
+ await expect(page.locator('h1')).toHaveText('櫃檯設定');
+ await expect(page.locator('#frontdeskPageContent')).toBeVisible();
+ await expect(page.locator('#frontdeskSettingsRoot [data-frontdesk-settings]')).toBeVisible();
+ await expect(page.locator('#adminView,#merchantWorkspace,#productizedAdmin,#frontdeskSettingsTab')).toHaveCount(0);
+ await expect(page.locator('#frontdeskManageBusiness')).toHaveAttribute('href','/admin/?business=shop-a');
+ expect(calls.some(c=>c.action==='platform.application.bootstrap')).toBe(true);
+ expect(calls.some(c=>c.action==='platform.frontdesk.get')).toBe(true);
+ // Revocation must purge the previously visible settings, not merely hide buttons.
+ granted=false;
+ await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+ await expect(page.locator('#frontdeskPageContent')).toBeHidden();
+ await expect(page.locator('#frontdeskSettingsRoot [data-frontdesk-settings]')).toHaveCount(0);
+ await expect(page.locator('#frontdeskPageGate')).toBeVisible();
+ await expect(page.locator('#frontdeskPageStatus')).toContainText('尚未獲得櫃檯設定授權');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
