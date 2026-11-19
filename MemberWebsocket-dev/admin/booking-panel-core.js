@@ -2,8 +2,8 @@
   'use strict';
 
   const STORE_SERVICE_ID = '00000000-0000-4000-8000-000000000010';
-  const PRIMARY_TAB_IDS = ['membersTab', 'cardsTab', 'eventsTab', 'calendarTab', 'testModeTab'];
-  const PRIMARY_PANEL_IDS = ['membersPanel', 'cardsPanel', 'eventsPanel', 'calendarPanel', 'testModePanel'];
+  const PRIMARY_TAB_IDS = ['membersTab', 'cardsTab', 'eventsTab', 'calendarTab', 'clientPageTitleTab', 'testModeTab'];
+  const PRIMARY_PANEL_IDS = ['membersPanel', 'cardsPanel', 'eventsPanel', 'calendarPanel', 'clientPageTitleShortcut', 'testModePanel'];
   const NO_SHOW_EARLY_REASON = '服務結束後才能標記無故未到。';
   const STATUS_LABELS = { pending: '待確認', confirmed: '已確認', completed: '服務已完成', rejected: '未通過', cancelled: '已取消', no_show: '無故未到' };
   const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六'];
