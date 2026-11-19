@@ -21,8 +21,9 @@
   "lineSettingsLegacyCompatibility": "2026-11-03: admin/workspace.html has platform.css, not shared theme.css/theme.js. The common business-line-settings.css now provides a strictly scoped light fallback palette only under html[data-workspace=merchant]:not([data-theme]), retaining readable legacy LINE settings without overriding global theme switching. New AC-003 checks computed legacy colors at 390px; no identity, grants, LINE notification, API or SQL behavior changed.",
   "lineSettingsThemeReview": "2026-11-03 PR #241: Reviewed general manager LINE settings theme-only CSS, semantic light/dark card, details, help, input/select, tabs, status, endpoint and responsive action row. Updated both admin/index.html and admin/workspace.html CSS asset revisions; preserved LINE official green button, saved credentials, notifications, role/tenant scopes and original six human workflow journeys. New line_settings_theme.test.js and line-settings-theme.spec.cjs cover 390/1280 light-dark-light and no overflow; full original Chromium/integration baseline still required.",
   "phoneBookingWindowReview": "2026-11-07 PR #258: Reviewed existing booking settings and phone appointment admin journeys. Merchant phone configuration is text-only and retains the same field, validation and save handler; existing BOOKING settings browser journeys remain mapped. Member booking date modal now permits phone CTA only when the same inclusive min/max/holiday online eligibility passes; out-of-range, past, holiday and no-phone cases remove dialing href. booking-calendar-times.spec.cjs checks 390/1280 viewport, both date boundaries, out-of-range, live settings revocation, zero max and holiday. booking_phone_fallback_platform.test.js guards UI and existing API phone contract. No new admin flows, tenant scope, authorization, database writes or provider sends. Full exact-SHA baseline and preview acceptance still required. 2026-11-09 PR #275: Reviewed admin booking queue button/modal, surname and salutation, optional admin note, service durations and calendar conflict, existing phone-booking records and member-side phone fallback. Counter registration no longer requests a customer's phone or sends it; legacy internal PHONE- ID and bookingSource remain to preserve collision locking, member exclusion and existing records. BOOKING_PHONE_CONFLICT and BOOKING_PHONE_SERVICE_DURATION browser journeys now explicitly assert no phone field, no contactPhone payload, unchanged confirmed booking and cancelled/rebooked slot; tenant RPC rejects malformed provided phone but accepts absent phone as SQL NULL. Added API/static/SQL migration regression; no new roles, tables, credentials, LINE sends or deletion of prior phone data. Full exact-SHA CI and live tenant deployment must be separately verified.",
+  "frontdeskSettingsSimplificationReview": "2026-11-19 PR #364：重新審閱兩個管理入口及櫃檯設定。只移除 LINE 外站／櫃檯快速入口及重複說明，保留 LIFF Endpoint 複製、設定驗證／儲存、逐人申請審核、通知與原 backend 授權。admin-human 既有六個管理模組旅程及獨立 FrontdeskSettings 入口不變；新增 frontdesk_settings_navigation.test.js AC-FD-UX-001/002 與 frontdesk-booking.spec.cjs 真實 DOM 檢查。完整 CI、開發部署驗證以最終 SHA 取證，不視 stub 為真 LINE 驗證。",
   "reviewedSources": {
-    "admin/index.html": "a5aa98a114ac46fc3fc4b6f9a7a853b2fff22fa5660cfb5938f124bdc8140438",
+    "admin/index.html": "ea9e4e3e9f3d91b697b2410d9e1f9bdc1885f3a038256f6bd1515215dd7f531b",
     "admin/app.js": "88a5edfc0ed70c005e768b3a8ec3c4399b3a33356f221c054422b78fdfce5fb5",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
@@ -41,7 +42,7 @@
     "admin/booking-receipt-admin.js": "b5873c2753c0f2f9c267d0d13583405c2205cc70c0f2103f5899f741a74cf920",
     "admin/booking-accessible-admin.js": "850afbac4064dd0a56fe7e0701c04ae1919d0678cb5230b1f58e37cdd67dbaf0",
     "admin/ticket-visibility.js": "5f3218d1798f285d8b1c971a3658dd4c49525d8468ecd4c8a7fb79f653e7c85f",
-    "admin/workspace.html": "8afe7e9ae68a5266358ef9ac7efd183eea166f1b4a0c15cdbc4f1eaaba55a90d",
+    "admin/workspace.html": "d9b02fc1b298a236a8d92bbd2444d2608ffea8d5089ed05cc946586d0962550e",
     "platform/app.js": "ce1fb4e6f502814aa73ebb2b71bbe5c225dec7f568fd0ede43ff4848b1a716c4",
     "admin/business-workspace.js": "e92d4c07479013fa08c958e488f3f1b952fecb833765b6ea77ec06d88c60380a",
     "business-context.js": "4517c1d651a7527b95d1f2a43da83a71bd70422f38804b45c8a0c345c82556ad",
@@ -52,7 +53,7 @@
     "platform/platform.css": "adef4577cbae41c584fe16fce5c6372ab86a994f37226a9a6cc5116bb5bcecf2",
     "admin/business-line-settings.css": "ceab14d19f8137f529bdaa39c590ce5329304a9a3a8c515afd54bdb802a3f0c3",
     "booking/common.js": "8869346e2801a94b08615a6ab26d9908e3072e77758459b3824bb820d4191505",
-    "admin/frontdesk-settings.js": "b42256f391342c0a61cc68abf3a9fbd9e4df91fa268429fd057b860fbec2ffa7",
+    "admin/frontdesk-settings.js": "8da96d31207482858434b9d44d1de0eb86e1ce2c805708eaeccefd2dcb827217",
     "frontdesk/app.js": "5f58521d4eda1761020cab170c2d0d3b6dba14e0b71ec1f9ab0f5297afc779f5",
     "frontdesk/styles.css": "2923ee595a184705cf658dd987a49365a4f7a2a0986b02d68419705c2da8aa44",
     "frontdesk/index.html": "8516a8d14bead8aeb16edd1fb9db609f45a39855b2f1a211613628988d0d3265"
