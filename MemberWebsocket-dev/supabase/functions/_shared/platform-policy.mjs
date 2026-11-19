@@ -70,7 +70,7 @@ export function publicTenant(row) {
     && Boolean(row.isolation_verified_at) && row.isolation_version==='business-v1-20261019'
     && /^business_[a-f0-9]{32}$/.test(row.runtime_schema||'');
   return { id: row.id, name: row.name, siteTitle: row.site_title ?? null, slug: row.slug, ownerLineUserId: row.owner_line_user_id,
-    features: {...row.features, frontdesk: row.features?.frontdesk === true}, line: row.line_config, status: row.status, version: row.version,
+    features: row.features, line: row.line_config, status: row.status, version: row.version,
     expiresAt:row.expires_at || null, expired, accessRevokedBefore:row.access_revoked_before || null,
     credentialsConfigured: row.credentials_configured === true,
     ...(row.module_line!==undefined?{moduleLine:Object.fromEntries(Object.entries(row.module_line).filter(([key])=>row.features?.[key]===true).map(([key,value])=>[key,{line:value.line||{},credentialsConfigured:value.credentialsConfigured===true,liffReady:featureLineReady(key,{...row.line_config,...value.line}),
