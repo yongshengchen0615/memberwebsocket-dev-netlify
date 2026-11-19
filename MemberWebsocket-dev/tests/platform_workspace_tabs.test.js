@@ -21,7 +21,7 @@ function createFixture(granted) {
       addEventListener(k, fn) { this.listeners[k] = fn; },
       focus() { focused = id; } };
   }
-  const context = { state: { features: { booking: '預約' }, merchant: { features: { booking: granted, testing: true, usage: true } } },
+  const context = { state: { features: { booking: '預約' }, merchant: { features: { booking: granted, frontdesk: granted, testing: true, usage: true } } },
     merchantEntry:true,merchantWorkspaceTab: 'overview', el: id => nodes[id] };
   const declaration=prefix=>script.slice(script.indexOf(prefix),script.indexOf('\n',script.indexOf(prefix)));
   vm.runInNewContext(declaration('  const featureKeys=')+'\n'+declaration('  const visibleFeatureKeys=')+'\n'+declaration('  const featureLiffNames=')+'\n'+declaration('  const hasFeatureLine =')+'\n'+script.slice(start, end) + '\nthis.chooseTab = selectMerchantWorkspaceTab;', context);
