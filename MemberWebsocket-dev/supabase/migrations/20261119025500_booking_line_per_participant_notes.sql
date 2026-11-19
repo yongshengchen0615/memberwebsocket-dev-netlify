@@ -11,6 +11,8 @@ DECLARE
   v_admin_hits integer;
   v_member_hits integer;
   v_template_count integer;
+  v_constraint text;
+  v_constraint_count integer;
   v_old CONSTANT text := $old$coalesce(nullif(bt.name, ''), '現場安排')$old$;
   v_new CONSTANT text := $new$coalesce(nullif(bt.name, ''), '現場安排') ||
         CASE
@@ -24,6 +26,22 @@ BEGIN
   FOR v_schema IN SELECT runtime_schema FROM platform_private.tenants
     WHERE runtime_schema ~ '^business_[0-9a-f]{32}$' ORDER BY runtime_schema
   LOOP
+    -- The existing 2400-char constraint would reject multi-person messages
+    -- longer than 2400 and roll back the booking transaction itself.
+    SELECT pg_get_constraintdef(c.oid) INTO v_constraint
+      FROM pg_constraint c JOIN pg_class cl ON cl.oid=c.conrelid
+      JOIN pg_namespace n ON n.oid=cl.relnamespace
+     WHERE n.nspname=v_schema AND cl.relname='notice_outbox'
+       AND c.conname='notice_outbox_message_text_check';
+    IF v_constraint IS NULL THEN
+      RAISE EXCEPTION 'BOOKING_PARTICIPANT_NOTICE_CONSTRAINT_MISSING: %', v_schema;
+    ELSIF strpos(v_constraint,'<= 2400')>0 AND strpos(v_constraint,'>= 1')>0 THEN
+      EXECUTE format('ALTER TABLE %I.notice_outbox DROP CONSTRAINT notice_outbox_message_text_check',v_schema);
+      EXECUTE format('ALTER TABLE %I.notice_outbox ADD CONSTRAINT notice_outbox_message_text_check CHECK (char_length(message_text) >= 1 AND char_length(message_text) <= 8000)',v_schema);
+    ELSIF strpos(v_constraint,'<= 8000')=0 OR strpos(v_constraint,'>= 1')=0 THEN
+      RAISE EXCEPTION 'BOOKING_PARTICIPANT_NOTICE_CONSTRAINT_DRIFT: %',v_schema;
+    END IF;
+
     SELECT pg_get_functiondef(p.oid) INTO v_source
       FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
      WHERE n.nspname=v_schema AND p.proname='notice_enqueue'
@@ -102,6 +120,42 @@ BEGIN
    WHERE t.version='business-v1-20261019';
   IF NOT FOUND THEN
     RAISE EXCEPTION 'BOOKING_PARTICIPANT_NOTICE_TEMPLATE_UPDATE_FAILED';
+  END IF;
+
+  -- Propagate the identical limit to merchants provisioned after this release.
+  SELECT count(*) INTO v_constraint_count
+    FROM platform_private.business_templates t,
+      jsonb_array_elements(t.snapshot->'constraints') c(value)
+   WHERE t.version='business-v1-20261019'
+     AND c.value->>'name'='notice_outbox_message_text_check'
+     AND c.value->>'table'='notice_outbox';
+  IF v_constraint_count<>1 THEN
+    RAISE EXCEPTION 'BOOKING_PARTICIPANT_NOTICE_TEMPLATE_CONSTRAINT_MISSING: %',v_constraint_count;
+  END IF;
+  SELECT c.value->>'definition' INTO v_constraint
+    FROM platform_private.business_templates t,
+      jsonb_array_elements(t.snapshot->'constraints') c(value)
+   WHERE t.version='business-v1-20261019'
+     AND c.value->>'name'='notice_outbox_message_text_check'
+     AND c.value->>'table'='notice_outbox';
+  IF strpos(v_constraint,'<= 2400')=0 AND strpos(v_constraint,'<= 8000')=0 THEN
+    RAISE EXCEPTION 'BOOKING_PARTICIPANT_NOTICE_TEMPLATE_CONSTRAINT_DRIFT';
+  END IF;
+  IF strpos(v_constraint,'>= 1')=0 THEN
+    RAISE EXCEPTION 'BOOKING_PARTICIPANT_NOTICE_TEMPLATE_CONSTRAINT_MIN_DRIFT';
+  END IF;
+  UPDATE platform_private.business_templates t
+     SET snapshot=jsonb_set(t.snapshot,'{constraints}',(
+       SELECT jsonb_agg(CASE WHEN c.value->>'name'='notice_outbox_message_text_check'
+         AND c.value->>'table'='notice_outbox'
+           THEN jsonb_set(c.value,'{definition}',
+             to_jsonb('CHECK (((char_length(message_text) >= 1) AND (char_length(message_text) <= 8000)))'::text),true)
+           ELSE c.value END ORDER BY c.ordinality)
+       FROM jsonb_array_elements(t.snapshot->'constraints')
+         WITH ORDINALITY c(value,ordinality)),true)
+   WHERE t.version='business-v1-20261019';
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'BOOKING_PARTICIPANT_NOTICE_TEMPLATE_CONSTRAINT_UPDATE_FAILED';
   END IF;
 END
 $booking_participant_notice$;
