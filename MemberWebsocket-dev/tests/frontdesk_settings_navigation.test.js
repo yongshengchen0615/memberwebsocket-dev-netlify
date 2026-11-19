@@ -57,3 +57,23 @@ test('AC-FD-NAV-005: existing frontdesk approval and notification operations rem
   assert.match(frontdesk,/platform\.frontdesk\.staff\.save/);
   assert.match(frontdesk,/platform\.frontdesk\.get/);
 });
+
+test('AC-FD-UX-001: frontdesk settings omits redundant setup links and onboarding list',()=>{
+  for(const label of [
+    '開啟 LINE Official Account Manager',
+    '開啟 LINE Developers',
+    '開啟 LINE Developers 取得登入參數',
+    '開啟櫃檯 LINE 入口',
+    '開啟櫃檯專屬申請頁',
+    '加入櫃檯官方帳號'
+  ]) assert.equal(frontdesk.includes(label),false,label);
+  assert.doesNotMatch(frontdesk,/frontdesk-setup-guide|frontdesk-quick-links/);
+  assert.match(frontdesk,/複製 Endpoint URL/);
+  assert.match(frontdesk,/驗證並儲存櫃檯設定/);
+  assert.match(frontdesk,/platform\.frontdesk\.staff\.save/);
+});
+
+test('AC-FD-UX-002: empty applicant state explains the remaining request path',()=>{
+  assert.doesNotMatch(frontdesk,/請分享上方/);
+  assert.match(frontdesk,/目前沒有申請。櫃檯人員請透過商家專屬 frontdesk 頁面提出申請。/);
+});
