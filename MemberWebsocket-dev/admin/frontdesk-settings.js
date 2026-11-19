@@ -30,7 +30,7 @@
     const reload = node('button', '同步最新櫃檯設定', 'button button-outline');
     reload.type = 'button';
     const syncState = node('p', '尚未取得最新櫃檯設定。', 'frontdesk-sync-state');
-    syncState.setAttribute('role', 'status');
+    // The primary status is the sole live region; this is a visual sync hint.
     details.append(status, syncState, reload, content);
     root.append(details);
     let data = null, busy = false, pending = null, dirty = false, snapshot = '';
