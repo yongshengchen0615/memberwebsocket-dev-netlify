@@ -170,3 +170,29 @@ test('AC-308: utility-only merchants cannot open an empty LINE settings tab',asy
   await new Promise(resolve=>setTimeout(resolve,0)); // flush MutationObserver before closing JSDOM
  }finally{dom.window.close();}
 });
+
+test('AC-LIFF-001: saved event LIFF and direct client link retain their merchant scope',()=>{
+ const tenant={
+  id:'11111111-1111-4111-8111-111111111111',slug:'event-shop',version:3,status:'active',
+  features:{...features,membership:false,points:false,events:true},
+  line:{adminChannelId:'2010791619',adminLiffId:'2010791619-admin'},
+  moduleLine:{events:{line:{memberChannelId:'2099999999',eventLiffId:'2099999999-event'},credentialsConfigured:false,notifications:{}}}
+ };
+ const dom=new JSDOM('<nav data-line-feature-nav></nav><div data-line-feature-content></div>',{
+  url:'https://allowed.test/admin/?business=event-shop',runScripts:'outside-only'
+ });
+ try {
+  const w=dom.window;
+  w.eval(fs.readFileSync(path.join(__dirname,'../../admin/business-line-settings.js'),'utf8'));
+  w.BusinessLineSettings.mount({
+   root:w.document.body,data:{tenant},
+   request:async()=>{throw Error('Opening a configured link must not call a server');}
+  });
+  const section=w.document.querySelector('[data-business-line-feature="events"]');
+  assert.ok(section,'events form renders when the merchant enables event tickets');
+  assert.equal(section.querySelector('[data-feature-client]').href,'https://allowed.test/event/?business=event-shop');
+  assert.equal(section.querySelector('.business-client-line-link').href,
+   'https://liff.line.me/2099999999-event/?business=event-shop',
+   'the generated LINE entry must carry the same merchant as the direct client link');
+ }finally{dom.window.close();}
+});
