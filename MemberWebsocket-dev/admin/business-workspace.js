@@ -85,7 +85,7 @@
   document.getElementById('frontdeskSettingsContent')?.querySelector('[data-frontdesk-settings]')?.setAttribute('open','');
  }
  function apply(data){
-  const signature=Object.keys(panels).map(key=>data.features?.[key]===true?'1':'0').join('');
+  const signature=[...Object.keys(panels),'frontdesk'].map(key=>data.features?.[key]===true?'1':'0').join('');
   const changed=signature!==grantSignature;grantSignature=signature;
   latest=data;
   for(const [feature,name]of Object.entries(panels)){
@@ -131,7 +131,7 @@
   apply(latest);
   const requested=new URLSearchParams(location.search).get('feature');
   const frontdeskRequested=new URLSearchParams(location.search).get('settings')==='frontdesk';
-  const chosen=frontdeskRequested&&latest.features?.booking===true?document.getElementById('frontdeskSettingsTab')
+  const chosen=frontdeskRequested&&latest.features?.booking===true&&latest.features?.frontdesk===true?document.getElementById('frontdeskSettingsTab')
     :requested&&panels[requested]&&latest.features?.[requested]?document.getElementById(panels[requested]+'Tab'):null;
   const current=document.querySelector('.surface-nav [aria-selected="true"]:not([hidden]):not(:disabled)');
   (chosen||current||document.querySelector('.surface-nav button[data-business-allowed="true"]'))?.click();
