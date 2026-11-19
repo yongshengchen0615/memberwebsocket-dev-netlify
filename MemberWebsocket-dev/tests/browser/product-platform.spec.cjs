@@ -68,9 +68,9 @@ test('PLATFORM_APPLICANT_ROOT_GRANTS — review applicant, grant features only, 
   const before=(await h.db.query('select * from platform_private.tenants')).rows[0];
   expect(before.credentials_configured).toBe(false);
   await page.getByRole('button',{name:'調整開放功能'}).click();
-  // Keep the eight-key DB contract, but grant UI exposes only five retained modules.
+  // The eight original grants remain compatible; the sixth visible option is an independently denied-by-default frontdesk grant.
   // All retired products remain impossible to select in the authorization form.
-  await expect(page.locator('#grantFeatures [data-grant-feature]')).toHaveCount(5);
+  await expect(page.locator('#grantFeatures [data-grant-feature]')).toHaveCount(6);
   await expect(page.locator('#grantFeatures [data-grant-feature="integrations"], #grantFeatures [data-grant-feature="testing"], #grantFeatures [data-grant-feature="usage"]')).toHaveCount(0);
   await page.locator('[data-grant-feature="booking"]').uncheck();
   await page.getByRole('button',{name:'儲存功能授權'}).click();
