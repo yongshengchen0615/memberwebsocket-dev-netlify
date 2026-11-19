@@ -42,7 +42,11 @@ const normalizeGrantInput = value => {
   if(!value || typeof value !== 'object' || Array.isArray(value)
     || Object.keys(value).some(key=>!Object.hasOwn(FEATURES,key) || typeof value[key] !== 'boolean')
     || coreFeatures.some(key=>typeof value[key] !== 'boolean'))return null;
-  return Object.fromEntries(Object.keys(FEATURES).map(key=>[key,value[key] === true]));
+  const grants=Object.fromEntries(coreFeatures.map(key=>[key,value[key]]));
+  // Old eight-grant database versions stay compatible until the new migration;
+  // omitting the ninth grant is still an explicit server-side deny.
+  if(value.frontdesk===true)grants.frontdesk=true;
+  return grants;
 };
 export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdentity = verifyIdentity, encryptionKey, allowedOrigins, fetchImpl = fetch, publicSupabaseUrl, verifiedMemberOaBindingsJson = '', allowedActions = null }) {
   const moduleCredentials = async (current, feature) => {
