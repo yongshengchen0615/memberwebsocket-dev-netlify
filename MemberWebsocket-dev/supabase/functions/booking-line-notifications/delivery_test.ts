@@ -131,6 +131,95 @@ Deno.test('AC-FD-004: member and admin formats do not inherit the compact frontd
   }
 });
 
+Deno.test('AC-BPN-001: admin, member and frontdesk display only the matching participant notes', () => {
+  const raw = [
+    '【預約確認】', '預約人：測試會員', '營業日：2026/11/21',
+    '時段：2026/11/21 09:30–2026/11/21 11:30（台北時間）',
+    '電話：+886900000000', '預約人數：3 位',
+    '', '第一位預約', '預約項目：身體60', '預約技師：甲技師',
+    '個別備註：第一位需要安靜',
+    '', '第二位預約', '預約項目：肩頸30', '預約技師：乙技師',
+    '個別備註：第二位力道較輕',
+    '', '第三位預約', '預約項目：足底40', '預約技師：現場安排',
+  ].join('\n');
+  for (const channel of ['admin', 'member', 'frontdesk']) {
+    const msg = buildBookingFlexMessage({...sampleJob, channel, message_text: raw});
+    const cards = ((msg.contents.body as Record<string, unknown>).contents as Array<Record<string, unknown>>);
+    const groups = collectComponents(cards).filter(item =>
+      item.type === 'text' && typeof item.text === 'string' && String(item.text).includes('個別備註'));
+    assert(groups.length === 2, channel + ': should show only non-empty individual notes');
+    const all = JSON.stringify(msg.contents.body);
+    for (const note of ['第一位需要安靜', '第二位力道較輕']) {
+      assert(all.includes(note), channel + ': note should not be dropped');
+    }
+    if (channel === 'frontdesk') {
+      const sections = cards[1].contents as Array<Record<string, unknown>>;
+      const perPerson = sections.filter(section => section.type === 'box');
+      assert(perPerson.length === 3, 'frontdesk must retain all participant groups');
+      const expected = [
+        ['第一位需要安靜', '第二位力道較輕'],
+        ['第二位力道較輕', '第一位需要安靜'],
+        ['', '第一位需要安靜'],
+      ];
+      perPerson.forEach((person, index) => {
+        const serialized = JSON.stringify(person);
+        if (expected[index][0]) assert(serialized.includes(expected[index][0]), 'own note required');
+        assert(!serialized.includes(expected[index][1]), 'other participant note must never leak');
+        if (index === 2) assert(!serialized.includes('個別備註'), 'empty note must be omitted');
+      });
+    } else {
+      const participant = cards.find(card => JSON.stringify(card).includes('每位預約明細') ||
+        JSON.stringify(card).includes('第一位'));
+      assert(!!participant, channel + ': person details card must remain visible');
+      const sections = (participant!.contents as Array<Record<string, unknown>>).filter(x => x.type === 'box');
+      assert(sections.length === 3, channel + ': 3 participant groups required');
+      sections.forEach((person, index) => {
+        const serialized = JSON.stringify(person);
+        assert(index === 0 ? serialized.includes('第一位需要安靜') : !serialized.includes('第一位需要安靜'),
+          'first note must stay with first person');
+        assert(index === 1 ? serialized.includes('第二位力道較輕') : !serialized.includes('第二位力道較輕'),
+          'second note must stay with second person');
+        if (index === 2) assert(!serialized.includes('個別備註'), 'third note should be absent');
+      });
+    }
+  }
+});
+
+Deno.test('AC-BPN-002: legacy and empty per-person notes must not add placeholders', () => {
+  for (const channel of ['admin', 'member', 'frontdesk']) {
+    const baseline = buildBookingFlexMessage({ ...sampleJob, channel });
+    const content = JSON.stringify(baseline.contents.body);
+    assert(!content.includes('個別備註'), 'old job without notes must remain visually identical');
+    const empty = buildBookingFlexMessage({
+      ...sampleJob, channel,
+      message_text: sampleJob.message_text + '\n個別備註：',
+    });
+    assert(!JSON.stringify(empty.contents.body).includes('個別備註'),
+      'blank per-person note must not render');
+  }
+});
+
+Deno.test('AC-BPN-003: member cancellation request title is 預約取消 in frontdesk only', () => {
+  const original = ['【取消預約申請】', '預約人：測試會員', '營業日：2026/11/21',
+    '時段：2026/11/21 09:30–2026/11/21 10:30（台北時間）',
+    '電話：+886900000000', '預約人數：1 位',
+    '', '第一位預約', '預約項目：身體60', '預約技師：甲技師',
+    '個別備註：需要安靜'].join('\n');
+  const headings = [
+    ['frontdesk', '預約取消'], ['admin', '取消預約申請'], ['member', '取消預約申請'],
+  ];
+  for (const [channel, title] of headings) {
+    const card = buildBookingFlexMessage({ ...sampleJob, channel, message_text: original });
+    const header = collectComponents(card.contents.header).find(x => x.text === title);
+    assert(!!header, channel + ': cancellation heading mismatch');
+    assert(channel !== 'frontdesk' || (card.altText.startsWith('預約取消｜')
+      && !card.altText.startsWith('取消預約申請')),
+      'frontdesk LINE push preview must share the new heading');
+    assert(JSON.stringify(card.contents.body).includes('需要安靜'),
+      'cancellation request must preserve participant note');
+  }
+});
+
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
