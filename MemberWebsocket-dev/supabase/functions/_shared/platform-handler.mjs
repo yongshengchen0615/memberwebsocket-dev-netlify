@@ -463,7 +463,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         if (!validId(body.requestId) || !validId(body.applicationId) || !validVersion(body.expectedVersion)
           || !['approved','rejected'].includes(body.decision)
           || typeof reason !== 'string' || Array.from(reason.trim()).length > 500
-          || (body.decision === 'approved' ? !validGrants : !reason.trim() || grants != null))
+          || (body.decision === 'approved' ? !validGrants : !reason.trim() || body.features != null))
           throw new PlatformError(400,'PLATFORM_INVALID_INPUT','請確認商家申請、資料版本、審核理由與功能開通狀態。');
         const result = await db.rpc('platform_review_merchant_application',{
           p_actor:actor,p_application_id:body.applicationId,p_expected_version:body.expectedVersion,
