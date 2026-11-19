@@ -53,3 +53,28 @@ test('AC-005: calendar link rendering and LIFF click both use the resolved URL, 
   assert.ok(eventSource.includes("params.get('source') !== 'event-ticket-calendar'"));
   assert.ok(eventSource.includes("params.get('eventTicketId')"));
 });
+
+test('AC-006: calendar event ticket navigation preserves the active merchant instead of a stale saved merchant', () => {
+  const currentPage = 'https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app/calendar/?business=merchant-current';
+  const olderOtherMerchantLink = 'https://old.example/event/?source=event-ticket-calendar&eventTicketId=EVT-01b19b09a6b4479fb2db32352b906bde&business=merchant-other';
+  const link = new URL(resolveFrom(currentPage)(olderOtherMerchantLink));
+  assert.equal(link.origin, new URL(currentPage).origin);
+  assert.equal(link.pathname, '/event/');
+  assert.equal(link.searchParams.get('eventTicketId'), 'EVT-01b19b09a6b4479fb2db32352b906bde');
+  assert.equal(link.searchParams.get('business'), 'merchant-current');
+});
+
+test('AC-007: clicking the calendar ticket action opens the actual rendered anchor URL, not an older unscoped local variable', () => {
+  assert.ok(calendarSource.includes('openCalendarLinkInLine(link.href);'),
+    'the click handler must open the href exposed to the user (which carries merchant business scope)');
+  assert.ok(!calendarSource.includes('openCalendarLinkInLine(linkUrl);'),
+    'the click handler must not use a stale business-less linkUrl captured before link enrichment');
+});
+
+test('AC-008: an unscoped calendar does not inherit a stale merchant stored inside the historical ticket URL', () => {
+  const url = resolveFrom('https://preview.example/calendar/')(
+    'https://old.example/event/?source=event-ticket-calendar&eventTicketId=EVT-test&business=merchant-stale'
+  );
+  const link = new URL(url);
+  assert.equal(link.searchParams.get('business'), null, 'never infer tenant identity from an old persisted event link');
+});
