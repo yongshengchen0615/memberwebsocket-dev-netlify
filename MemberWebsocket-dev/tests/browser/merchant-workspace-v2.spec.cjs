@@ -187,7 +187,7 @@ test('AC-TITLE-UI-001 — merchant may edit scoped title with real browser and i
   }finally{await h.db.close();}
 });
 
-for(const width of [390,1280]) test('AC-TITLE-INLINE-'+width+' — actual merchant title save stays on the admin page',async({page})=>{
+for(const width of [390,1280]) test('AC-TITLE-TAB-'+width+' — merchant title save stays in a dedicated admin tab',async({page})=>{
  test.setTimeout(45000);
  await page.setViewportSize({width,height:900});
  const h=await setup({origins:[base]});
@@ -204,13 +204,21 @@ for(const width of [390,1280]) test('AC-TITLE-INLINE-'+width+' — actual mercha
   const full=fs.readFileSync(path.join(root,'admin/index.html'),'utf8');
   const section=full.match(/<section id="clientPageTitleShortcut"[\s\S]*?<\/section>/)?.[0];
   expect(section).toBeTruthy();
-  await page.setContent('<!doctype html><html><body>'+section+'</body></html>');
+  const tab=full.match(/<button id="clientPageTitleTab"[^>]*>網頁抬頭<\/button>/)?.[0];
+  expect(tab).toBeTruthy();
+  await page.setContent('<!doctype html><html><body><nav role="tablist">'+tab+'</nav>'+section+'</body></html>');
   await page.addScriptTag({url:base+'/admin/client-title-shortcut.js'});
   const form=page.locator('#clientPageTitleForm'),panel=page.locator('#clientPageTitleShortcut');
   await expect(panel).toBeHidden();
   await page.evaluate(business=>window.ClientPageTitleShortcut.sync({
    productizedAdmin:true,business,supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api',
    supabasePublishableKey:'sb_publishable_fixture'},'manager'),slug);
+  await expect(page.locator('#clientPageTitleTab')).toBeVisible();
+  await expect(page.locator('#clientPageTitleTab')).toBeEnabled();
+  await expect(panel).toBeHidden();
+  // This test isolates real backend title writes; admin/app.js routing is separately
+  // verified by the dedicated-tab controller test and the full Chromium journeys.
+  await panel.evaluate(node=>{node.hidden=false;node.classList.remove('hidden');});
   await expect(panel).toBeVisible();
   await expect(form.locator('#clientPageTitleInput')).toBeEnabled();
   await expect(page.locator('#clientPageTitlePreview')).toHaveText('原本商家名稱｜預約');
