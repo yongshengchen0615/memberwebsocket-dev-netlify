@@ -77,6 +77,31 @@ Deno.test('AC-FD-002: multiple frontdesk participants remain ordered and isolate
   assert(!all.includes('NT$1,000'), 'frontdesk must not expose amount');
 });
 
+Deno.test('AC-FD-005: overnight appointment uses actual start date, not previous business day', () => {
+  const messageText = [
+    '【預約】',
+    '預約人：陳先生',
+    '營業日：2026/11/20',
+    '時段：2026/11/21 00:30–2026/11/21 01:30（台北時間）',
+    '電話：+886900000000',
+    '預約人數：1 位',
+    '',
+    '第一位預約',
+    '預約項目：身體60',
+    '預約技師：10技師',
+  ].join('\\n');
+  const message = buildBookingFlexMessage({ ...sampleJob, channel: 'frontdesk', message_text: messageText });
+  const summary = JSON.stringify(message.contents.body);
+  assert(summary.includes('預約日期：2026-11-21') && summary.includes('預約時間：00:30'),
+    'frontdesk must show the real calendar date and start time for overnight appointments');
+  assert(!summary.includes('預約日期：2026-11-20'),
+    'the previous business day must never overwrite the appointment date');
+  assert(message.altText.includes('預約日期：2026-11-21') && message.altText.includes('預約時間：00:30'),
+    'LINE push preview must also use the real appointment start date');
+  assert(!message.altText.includes('2026-11-20') && !message.altText.includes('01:30'),
+    'LINE push preview must not include prior business day or end time');
+});
+
 Deno.test('AC-FD-003: frontdesk legacy services and unknown schedules are safely represented', () => {
   const legacy = buildBookingFlexMessage({
     ...sampleJob, channel: 'frontdesk',
