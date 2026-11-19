@@ -241,7 +241,10 @@
     const id = currentLine[view.key];
     if (id?.startsWith(currentLine.memberChannelId+'-') && /^\d{5,30}-[A-Za-z0-9_-]+$/.test(id || '')) {
       const liff = node('a', '開啟已儲存的 LINE 入口', 'button business-client-line-link');
-      liff.href = 'https://liff.line.me/' + id;
+      // Preserve the tenant in the LINE entry: the shared global config intentionally has no feature LIFF IDs.
+      const lineEntry = new URL('https://liff.line.me/' + id + '/');
+      lineEntry.searchParams.set('business', tenant.slug);
+      liff.href = lineEntry.href;
       liff.target = '_blank'; liff.rel = 'noopener noreferrer'; actions.append(liff);
     }
     view.links.append(actions, node('p', 'LIFF Endpoint URL（含商家代碼）'), code);
