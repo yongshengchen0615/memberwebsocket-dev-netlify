@@ -394,7 +394,7 @@ test('PLATFORM_REVIEW — root checks requested grants and approves pending admi
   await page.reload();
   await expect(page.locator('#applicationList .tenant-card')).toHaveCount(1);
   await page.getByRole('button',{name:'審核與選擇功能'}).click();
-  await expect(page.locator('#approvalFeatures [data-approve-feature]')).toHaveCount(5);
+  await expect(page.locator('#approvalFeatures [data-approve-feature]')).toHaveCount(6);
   await expect(page.locator('#approvalFeatures [data-approve-feature="integrations"], #approvalFeatures [data-approve-feature="testing"], #approvalFeatures [data-approve-feature="usage"]')).toHaveCount(0);
   await page.locator('[data-approve-feature="booking"]').check();
   await page.getByRole('button',{name:'審核通過'}).click();
