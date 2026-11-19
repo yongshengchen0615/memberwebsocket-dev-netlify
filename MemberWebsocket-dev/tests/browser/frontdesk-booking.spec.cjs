@@ -157,7 +157,7 @@ test('FRONTDESK_SETTINGS_THEME — explicit merchant light/dark palette override
  await info.attach('frontdesk-settings-dark',{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
 });
 
-for(const width of [390,1280])test('FRONTDESK_SETTINGS_STANDALONE_'+width+' — separate page checks merchant grant and clears on revocation',async({page})=>{
+for(const width of [390,1280])test('FRONTDESK_SETTINGS_STANDALONE_'+width+' — separate page checks merchant grant and clears on revocation',async({page},info)=>{
  await page.setViewportSize({width,height:900});
  const calls=[];
  let granted=true, applicant=false;
@@ -222,6 +222,7 @@ for(const width of [390,1280])test('FRONTDESK_SETTINGS_STANDALONE_'+width+' — 
   expect(sample.statusContrast).toBeGreaterThanOrEqual(4.5);
   expect(sample.overflows).toBe(false);
   palette.push(sample);
+  await info.attach('frontdesk-settings-layout-'+width+'-'+theme,{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
  }
  expect(palette[0].background).not.toBe(palette[1].background);
  expect(palette[0].fieldBackground).not.toBe(palette[1].fieldBackground);

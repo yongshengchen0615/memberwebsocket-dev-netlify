@@ -422,7 +422,7 @@ html[data-frontdesk-page] [hidden] { display: none !important; }
   html[data-frontdesk-page] .frontdesk-settings > button {
     padding-inline: 12px;
   }
-  html[data-frontdesk-page] .frontdesk-person {
+  html[data-frontdesk-page] .frontdesk-approvals .frontdesk-person {
     grid-template-columns: minmax(0, 1fr);
   }
   html[data-frontdesk-page] .frontdesk-person > button {
