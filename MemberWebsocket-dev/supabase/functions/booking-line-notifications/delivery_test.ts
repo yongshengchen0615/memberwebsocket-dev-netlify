@@ -89,7 +89,7 @@ Deno.test('AC-FD-005: overnight appointment uses actual start date, not previous
     '第一位預約',
     '預約項目：身體60',
     '預約技師：10技師',
-  ].join('\\n');
+  ].join('\n');
   const message = buildBookingFlexMessage({ ...sampleJob, channel: 'frontdesk', message_text: messageText });
   const summary = JSON.stringify(message.contents.body);
   assert(summary.includes('預約日期：2026-11-21') && summary.includes('預約時間：00:30'),
