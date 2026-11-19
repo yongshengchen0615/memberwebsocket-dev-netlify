@@ -417,7 +417,7 @@
       itemsRoot.className = 'accessible-admin-service-list';
       const selected = new Map((draft.items || []).map(item => [String(item.serviceId || ''), item]));
       (options.services || []).forEach(service => {
-        const row = document.createElement('div'); row.className = 'accessible-admin-item'; row.dataset.serviceId = service.id;
+        const row = document.createElement('div'); row.className = 'accessible-admin-item'; row.dataset.snapshotService = ''; row.dataset.serviceId = service.id;
         const choice = document.createElement('label'); choice.className = 'accessible-admin-service-choice';
         const check = document.createElement('input'); check.type = 'checkbox'; check.dataset.serviceCheck = ''; check.checked = selected.has(String(service.id));
         const rule = (options.rewardRules || []).find(rule => String(rule.serviceType).trim().toLowerCase() === String(service.service_type || '').trim().toLowerCase());
@@ -693,7 +693,7 @@
       renderBenefits();
       el('accessibleAdminDate').value = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
       el('accessibleAdminSubmit').disabled = false; el('accessibleAdminDismiss').disabled = false;
-      if(options.requirePrimaryTechnician !== false && !options.primaryTechnicianConfigured)message('尚未設定主要技師；請先設定，或連結已有預約。',true);
+      if(options.requirePrimaryTechnician !== false && !options.primaryTechnicianConfigured)message('尚未設定主要技師；請先至一般預約設定新增主要技師。',true);
       else {
         message('請核對收據與實際服務後完成審核。');
         const help=document.createElement('span');help.dataset.businessRequires='booking membership points';
@@ -728,6 +728,13 @@
         item.quantity < 1 || item.quantity > 2))) {
       message('每位預約人都須選擇有效服務，分鐘數為 1～720、次數為 1～2。', true); return;
     }
+    const minutesByService = new Map();
+    for (const person of participants) for (const item of person.items) {
+      if (minutesByService.has(item.serviceId) && minutesByService.get(item.serviceId) !== item.minutes) {
+        message('同一預約項目如由多人使用，實際分鐘數須一致，才能正確計算結算明細。', true); return;
+      }
+      minutesByService.set(item.serviceId,item.minutes);
+    }
     const techIds = participants.map(person => person.technicianId).filter(Boolean);
     if (new Set(techIds).size !== techIds.length) {
       message('同一筆多人預約不能重複指定同一位技師。', true); return;
@@ -742,7 +749,7 @@
     try {
       const result = await request('admin.booking.receipt.register',{
         receiptId:receipt.receiptId,expectedUpdatedAt:receipt.updatedAt,
-        bookingDate:el('accessibleAdminDate').value,startTime:el('accessibleAdminTime').value,participants:collectSnapshotParticipants(),benefits,adminNote:el('accessibleAdminNote').value,
+        bookingDate:el('accessibleAdminDate').value,startTime:el('accessibleAdminTime').value,participants,benefits,adminNote:el('accessibleAdminNote').value,
       });
       const settlement = result.settlement || {};
       const points = (settlement.rewards || []).reduce((sum,reward) => sum+Math.max(0,Number(reward.points || 0)),0);
