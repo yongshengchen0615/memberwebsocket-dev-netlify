@@ -34,7 +34,8 @@
     view.section.remove();
   }
   function clear() {
-    generation++;for(const view of views.values())discard(view);views.clear();
+    generation++;window.FrontdeskSettings?.clear(document.querySelector('[data-frontdesk-settings-root]'));
+    for(const view of views.values())discard(view);views.clear();
     if(shared){for(const input of shared.form.querySelectorAll('input'))input.value='';shared.section.remove();shared=null;}
     navNode()?.replaceChildren();tenant=null;grants={};activeFeature=null;navSignature='';saving=false;loading=false;adapter=null;
   }
@@ -453,7 +454,14 @@
       }
       section.append(status); notificationForms(view);webhookPanel(view);
       section.append(view.links, reload); container.append(section); views.set(feature,view);created.add(view);update(view);
-      if(feature==='booking')window.FrontdeskSettings?.mount({root:section,request,business:tenant.slug});
+    }
+    const frontdeskRoot=document.querySelector('[data-frontdesk-settings-root]');
+    if(frontdeskRoot){
+      if(grants.booking===true && tenant?.features?.booking===true){
+        window.FrontdeskSettings?.mount({root:frontdeskRoot,request,business:tenant.slug});
+        if(!frontdeskRoot.closest('[role="tabpanel"]')?.hidden)
+          frontdeskRoot.querySelector('[data-frontdesk-settings]')?.setAttribute('open','');
+      }else window.FrontdeskSettings?.clear(frontdeskRoot);
     }
     renderShared();renderNav();
     return created;
