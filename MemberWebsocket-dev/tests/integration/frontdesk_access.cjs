@@ -66,7 +66,10 @@ test('frontdesk: tenant-scoped applications, modes, revocation, outbox, transiti
   assert.match(confirmationNotices[0].message_text,/^【櫃檯確認預約】/);
   assert.match(confirmationNotices[0].message_text,/預約日期：/);
   assert.match(confirmationNotices[0].message_text,/預約項目：FD service/);
-  assert.match(confirmationNotices[0].message_text,/個別時間：30 分鐘/);
+  // The original LINE notification includes an additional 10-minute store-service item.
+  // Match the original confirmed booking duration contract rather than omitting it.
+  assert.match(rows.find(x=>x.channel==='admin').message_text,/個別時間：40 分鐘（含店內服務 10 分鐘）/);
+  assert.match(confirmationNotices[0].message_text,/個別時間：40 分鐘（含店內服務 10 分鐘）/);
   assert.match(confirmationNotices[0].message_text,/個別金額：NT\$100/);
   assert.doesNotMatch(confirmationNotices[0].message_text,/個別(?:時間|金額)：\s*-/,'known item snapshot must not render dash placeholders');
   assert.match(confirmationNotices[0].message_text,/個別備註：第一位測試備註/);
