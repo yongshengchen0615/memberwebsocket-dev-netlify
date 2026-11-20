@@ -33,3 +33,12 @@
 @media(prefers-reduced-motion:reduce){
  .frontdesk-page .frontdesk-card,.frontdesk-page .frontdesk-refresh{transition:none}
 }
+
+/* LINE notification parity: each booked person has a dedicated service/technician block. */
+.frontdesk-page .frontdesk-card-heading>div{display:grid;gap:5px}
+.frontdesk-page .frontdesk-participants{display:grid;gap:12px;margin-top:12px}
+.frontdesk-page .frontdesk-participant{padding:14px 16px;border:1px solid var(--fd-border);border-radius:12px;background:var(--fd-bg)}
+.frontdesk-page .frontdesk-participant h4{margin:0 0 8px;font-size:1rem}
+.frontdesk-page .frontdesk-participant p{margin:5px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.frontdesk-page .frontdesk-participant .frontdesk-note{margin-top:10px}
+@media(max-width:650px){.frontdesk-page .frontdesk-participant{padding:12px}}
