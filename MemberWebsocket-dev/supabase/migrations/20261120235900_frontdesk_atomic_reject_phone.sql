@@ -24,7 +24,7 @@ declare d text;
    v:=public.platform_frontdesk_request(p_tenant_id,p_actor,p_channel_id,p_issued_at,'booking.update',p_body);
    execute format('select to_jsonb(%I.frontdesk_create_phone_booking_request($1,$2,$3,$4,$5,$6,$7,$8,$9))',t.runtime_schema)
       into b using p_body->>'phoneRequestId',p_actor,(b->>'booking_date')::date,
-       (p_body->>'startTime')::time,'現場','mr',null,p_body->'items','櫃檯拒絕原預約後補登記現場／電話預約';
+       (p_body->>'startTime')::time,'現場','mr',null,p_body->'items','原預約 '||(p_body->>'bookingId')||' 拒絕後的現場／電話預約';
    return v||jsonb_build_object('phoneBookingId',b->>'id','phoneBookingStatus',b->>'status');
  end if;
  if p_action='bookings' then$block$;
