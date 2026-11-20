@@ -11,7 +11,7 @@ test('member history renders inside the card without a nested details toggle and
  try{
   renderBookings();const item=w.document.querySelector('[data-booking-id="OWNED"]');assert.ok(item);assert.equal(item.querySelector('details.member-booking-details'),null);assert.match(item.querySelector('.booking-service-items')?.textContent || '',/我的服務/);assert.ok(item.textContent.includes('我的備註'));assert.equal(w.document.querySelector('[data-booking-id="FOREIGN"]'),null);
   const before=JSON.stringify(state.data);assert.ok(item.querySelector('.member-booking-format-totals'));assert.equal(JSON.stringify(state.data),before);
-  assert.doesNotMatch(source('booking/app.js'),/bookingMemberChatText|sendBookingMemberChatMessage/);assert.doesNotMatch(source('booking/common.js'),/liff\.sendMessages\s*\(/);
+  assert.doesNotMatch(source('booking/app.js'),/bookingMemberChatText|sendBookingMemberChatMessage/);assert.match(source('booking/common.js'),/async function sendMemberChatMessage\(message\)/);assert.match(source('booking/booking-receipt.js'),/sendSnapshotConfirmationChatMessage/);
  }finally{dom.window.close();}
 });
 test('retired operation-audit renderer is absent while database audit RPC is permission-restricted',()=>{
