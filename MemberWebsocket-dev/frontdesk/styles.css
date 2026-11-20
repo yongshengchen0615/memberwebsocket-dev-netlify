@@ -235,3 +235,8 @@ html[data-theme="light"] .frontdesk-page .frontdesk-shell{
  .frontdesk-page .frontdesk-header{flex-wrap:wrap}
  .frontdesk-page .frontdesk-theme-toggle{margin-left:auto}
 }
+
+/* Rejection is a deliberate action; keep the required reason readable in both themes. */
+.frontdesk-page .frontdesk-rejection-field{display:grid;gap:6px;margin:14px 0 8px;font-weight:700}
+.frontdesk-page .frontdesk-rejection-field select{width:100%;min-height:44px;box-sizing:border-box;padding:9px 12px;border-radius:10px;border:1px solid var(--fd-border);background:var(--fd-card);color:var(--fd-text);font:inherit}
+.frontdesk-page .frontdesk-rejection-field select:focus-visible{outline:3px solid var(--fd-primary);outline-offset:2px}
