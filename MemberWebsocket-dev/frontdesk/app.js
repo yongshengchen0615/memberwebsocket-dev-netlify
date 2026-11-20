@@ -3,7 +3,7 @@
  const params=new URLSearchParams(location.search),nested=new URLSearchParams((params.get('liff.state')||'').split('?').pop());
  const business=params.get('business')||nested.get('business'),bookingId=params.get('bookingId')||nested.get('bookingId');
  const status=document.getElementById('status'),account=document.getElementById('account'),list=document.getElementById('bookings'),refresh=document.getElementById('refresh');
- let config,idToken,oaId,busy=false,epoch=0;const pending=new Map();
+ let config,idToken,busy=false,epoch=0;const pending=new Map();
  const node=(tag,text)=>{const n=document.createElement(tag);if(text)n.textContent=text;return n;};
  const progress=document.getElementById('progress'),toolbar=document.querySelector('.frontdesk-toolbar');
  function showProgress(stage){
@@ -106,11 +106,10 @@
   const generation=++epoch,data=await request('frontdesk.bootstrap');if(generation!==epoch)return;
   account.replaceChildren();list.replaceChildren();showBookingToolbar(false);
   const person=data.staff;
-  if(oaId){const link=node('a','加入櫃檯官方帳號');link.href='https://line.me/R/ti/p/'+encodeURIComponent(oaId);link.target='_blank';link.rel='noopener noreferrer';account.append(link);}
   if(!person){
    showProgress(1);
    account.append(node('h2','申請櫃檯人員資格'));
-   account.append(node('p','使用 LINE 登入後，請先加入此商家的櫃檯官方帳號，再按下方按鈕提出申請。商家管理員核准前，你無法收通知、查看或處理任何預約。'));
+   account.append(node('p','使用 LINE 登入後，請確認已加入商家提供的櫃檯官方帳號，再按下方按鈕提出申請。商家管理員核准前，你無法收通知、查看或處理任何預約。'));
    const b=node('button','送出櫃檯人員申請');b.type='button';b.className='frontdesk-primary';
    b.onclick=async()=>{if(busy)return;lock(true);try{await request('frontdesk.apply');await load();}catch(e){failure(e);}finally{lock(false);}};
    account.append(b);status.textContent='尚未申請櫃檯資格。';
@@ -149,8 +148,6 @@
    const r=await fetch('/config/config.json',{cache:'no-store'});if(!r.ok)throw Error('無法取得本環境設定。');config=await r.json();
    const data=await request('frontdesk.public');document.getElementById('businessName').textContent=data.name+'｜櫃檯';
    if(!data.frontdesk?.enabled||!data.frontdesk.liffId)throw Error('商家尚未啟用櫃檯入口，請聯絡管理員完成 LINE 設定後再申請。');
-   oaId=data.frontdesk.oaId;
-   if(data.frontdesk.oaId){const a=node('a','加入櫃檯官方帳號');a.href='https://line.me/R/ti/p/'+encodeURIComponent(data.frontdesk.oaId);account.append(a);}
    await window.liff.init({liffId:data.frontdesk.liffId});if(!window.liff.isLoggedIn()){window.liff.login({redirectUri:location.href});return;}
    idToken=window.liff.getIDToken();await load();
   }catch(error){failure(error);}finally{lock(false);window.dispatchEvent(new CustomEvent('frontdesk-ready'));}
