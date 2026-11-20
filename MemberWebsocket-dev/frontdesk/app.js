@@ -47,19 +47,20 @@
   for(const booking of bookings){
    const card=node('article');card.className='frontdesk-card';
    const heading=node('div');heading.className='frontdesk-card-heading';
-   const times=node('div'),start=String(booking.startAt||'').replace('T',' '),end=String(booking.endAt||'').replace('T',' ');
-   const day=start.slice(0,10),startTime=start.slice(11,16),endTime=end.slice(11,16);
-   const interval=start?day.replaceAll('-','/')+' · '+(startTime||'時間待定')+
-    (endTime?' – '+(end.slice(0,10)===day?endTime:end.slice(0,16).replaceAll('-','/')):''):'預約時間待確認';
-   const time=node('p',interval);time.className='frontdesk-time';
-   times.append(node('span','預約時段'),time);times.firstChild.className='frontdesk-field-label';
+   const times=node('div');
+   const date=String(booking.bookingDate||booking.startAt||'').slice(0,10);
+   const startTime=String(booking.startTime||String(booking.startAt||'').slice(11,16));
+   const endTime=String(booking.endTime||String(booking.endAt||'').slice(11,16));
+   const dateLabel=node('p','預約日期：'+(date||'待確認'));dateLabel.className='frontdesk-time';
+   const timeLabel=node('p','預約時間：'+(startTime||'待確認')+(endTime?' – '+endTime:''));timeLabel.className='frontdesk-time';
+   times.append(dateLabel,timeLabel);
    const badge=node('span',booking.cancellationPending?'取消待審核':labels[booking.status]||booking.status||'待確認');
    badge.className='frontdesk-badge';badge.dataset.status=booking.status||'pending';
    heading.append(times,badge);card.append(heading);
-   card.append(node('h3',booking.name||'未提供預約姓名'));
+   card.append(node('h3','預約人：'+(booking.name||'未提供預約姓名')));
    const details=node('div');details.className='frontdesk-card-details';
    const phoneField=node('p'),phoneLabel=node('span','聯絡電話'),phone=String(booking.phone||'').trim();
-   phoneLabel.className='frontdesk-field-label';phoneField.append(phoneLabel);
+   phoneLabel.className='frontdesk-field-label';phoneLabel.textContent='電話';phoneField.append(phoneLabel);
    const dial=phone.replace(/[^\d+]/g,'');
    if(/^\+?\d{6,15}$/.test(dial)){
     const link=node('a',phone);link.href='tel:'+dial;link.setAttribute('aria-label','撥打 '+phone);phoneField.append(link);
@@ -67,11 +68,23 @@
    const peopleField=node('p'),peopleLabel=node('span','預約人數');peopleLabel.className='frontdesk-field-label';
    peopleField.append(peopleLabel,node('strong',String(booking.partySize||1)+' 位'));details.append(phoneField,peopleField);
    card.append(details);
-   const service=node('p');service.className='frontdesk-service';
-   const serviceTitle=node('span','預約項目');serviceTitle.className='frontdesk-field-label';
-   const serviceText=(booking.services||[]).map(item=>String(item.title||'未命名項目')+' × '+String(item.quantity||1)).join('、');
-   service.append(serviceTitle,node('strong',serviceText||'未提供項目'));card.append(service);
-   if(booking.note){const note=node('p','會員備註：'+booking.note);note.className='frontdesk-note';card.append(note);}
+   const serviceText=items=>(items||[]).map(item=>String(item.title||'未命名項目')+(Number(item.quantity)>1?' × '+String(item.quantity):'')).join('、')||'請至預約頁查看';
+   const ordinal=n=>['第一','第二','第三','第四','第五','第六','第七','第八','第九','第十'][n-1]||'第 '+n;
+   const participants=Array.isArray(booking.participants)?booking.participants:[];
+   const people=participants.length?participants:[{position:1,services:booking.services||[],technician:booking.fallbackTechnician||'現場安排',note:''}];
+   const participantGroup=node('div');participantGroup.className='frontdesk-participants';
+   for(const [index,person] of people.entries()){
+    const section=node('section');section.className='frontdesk-participant';
+    const title=node('h4',ordinal(Number(person.position)||index+1)+'位預約');section.append(title);
+    section.append(node('p','預約項目：'+serviceText(person.services)));
+    section.append(node('p','預約技師：'+String(person.technician||'現場安排')));
+    if(String(person.note||'').trim()){const note=node('p','個別備註：'+String(person.note).trim());note.className='frontdesk-note';section.append(note);}
+    participantGroup.append(section);
+   }
+   card.append(participantGroup);
+   if(booking.note&&!participants.some(p=>String(p.note||'').trim()===String(booking.note).trim())){
+    const note=node('p','會員備註：'+booking.note);note.className='frontdesk-note';card.append(note);
+   }
    if(booking.status==='pending'&&!booking.cancellationPending){
     const actions=node('div');actions.className='frontdesk-actions';
     for(const [next,label]of [['confirmed','確認預約'],['rejected','拒絕預約']]){
