@@ -93,10 +93,7 @@ begin
       ||E'\n\n'||notice_details;
    execute format('insert into %I.notice_outbox(booking_id,event_key,channel,recipient,message_text)
         select $1,$2,''admin'',a.line_user_id,$3 from %I.admins a
-        where a.status=''active'' and a.role=''admin'' and a.line_user_id ~ ''^U[0-9a-f]{32}
- return v;
-end $function$
-'
+        where a.status=''active'' and a.role=''admin'' and a.line_user_id ~ ''^U[0-9a-f]{32}$''
         on conflict (event_key,channel,recipient) do nothing',t.runtime_schema,t.runtime_schema)
         using bid,'frontdesk.confirmed:'||rid::text,left(notice_message,8000);
  end if;
