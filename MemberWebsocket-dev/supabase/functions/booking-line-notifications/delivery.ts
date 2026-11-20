@@ -50,6 +50,7 @@ type LineFlexMessage = {
 
 const TITLE_STYLES: Record<string, { color: string; eyebrow: string }> = {
   '預約': { color: '#DF6B4D', eyebrow: 'NEW BOOKING' },
+  '預約申請': { color: '#397AA3', eyebrow: 'PENDING CONFIRMATION' },
   '修改預約': { color: '#C56E32', eyebrow: 'BOOKING UPDATED' },
   '取消預約申請': { color: '#9A711F', eyebrow: 'CANCELLATION REQUEST' },
   '預約確認': { color: '#2F8F61', eyebrow: 'BOOKING CONFIRMED' },

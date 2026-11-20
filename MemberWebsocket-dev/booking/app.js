@@ -777,38 +777,6 @@
     }
   }
 
-  function bookingMemberChatText(booking) {
-    const bookingDate = String(booking?.bookingDate || '').trim();
-    const startDate = String(booking?.startAt || '').slice(0, 10) || bookingDate;
-    const endDate = String(booking?.endAt || '').slice(0, 10) || bookingDate;
-    const startTime = String(booking?.startTime || '').trim();
-    const endTime = String(booking?.endTime || '').trim();
-    const lines = [
-      '【預約申請】',
-      '狀態：等待管理員確認預約',
-      startDate ? `預約日期：${window.BookingSystem.formatDate(startDate)}` : '',
-      startTime ? `時段：${startDate} ${startTime}–${endDate} ${endTime}` : '',
-      `預約項目：${bookingDisplayTitle(booking)}`,
-    ];
-    if (Number(booking?.partySize || 1) > 1) lines.push(`預約人數：${Number(booking.partySize)} 位`);
-    lines.push(`查看預約明細：https://liff.line.me/${encodeURIComponent(state.config?.bookingLiffId || '')}?bookingId=${encodeURIComponent(String(booking?.bookingId || ''))}`);
-    return lines.filter(Boolean).join('\n');
-  }
-
-  async function sendBookingMemberChatMessage(booking) {
-    const result = await window.BookingSystem.sendMemberChatMessage?.(bookingMemberChatText(booking));
-    if (result?.sent) {
-      showFormMessage('預約已送出，並已由你的 LINE 將「等待管理員確認預約」傳送到官方帳號聊天。', 'success');
-      return;
-    }
-    showFormMessage(
-      result?.reason === 'not_in_line_chat'
-        ? '預約已送出，等待管理端確認；目前不是從 LINE 官方帳號聊天內開啟，因此未自動傳送聊天訊息。'
-        : '預約已送出，等待管理端確認；LINE 聊天訊息暫時未傳送，請回到官方帳號聊天確認。',
-      'success'
-    );
-  }
-
   async function confirmBooking() {
     if (state.submitting) return;
     if (bookingRestricted()) return showConfirmMessage('目前暫停新的線上預約，請聯絡店家。','error');
@@ -822,7 +790,6 @@
       return;
     }
 
-    const wasEditing = Boolean(state.editing);
     const fingerprint = bookingWriteFingerprint(items, bookingDate, startTime);
     if (!state.pendingBookingWrite || state.pendingBookingWrite.fingerprint !== fingerprint) {
       state.pendingBookingWrite = { fingerprint, requestId: `BOOK-${crypto.randomUUID()}` };
@@ -861,7 +828,7 @@
       applySelectionConstraints(false);
       renderBookings();
       showFormMessage('預約已送出，整段服務時間已保留，等待管理端確認。', 'success');
-      if (!wasEditing) await sendBookingMemberChatMessage(result.booking);
+      // The existing LINE outbox pushes the pending notice from the official account.
       window.dispatchEvent(new CustomEvent('booking:created', { detail: { booking: result.booking } }));
     } catch (error) {
       if (error?.code === 'API_RESPONSE_UNCERTAIN' || error?.code === 'API_TIMEOUT') {
@@ -879,7 +846,7 @@
           renderServices();
           applySelectionConstraints(false);
           showFormMessage('預約已成功送出，整段時間已保留，等待管理端確認。', 'success');
-          if (!wasEditing) await sendBookingMemberChatMessage(recovered);
+          // Recovery must not send a second client-originated LINE message.
           window.dispatchEvent(new CustomEvent('booking:created', { detail: { booking: recovered } }));
           return;
         }
