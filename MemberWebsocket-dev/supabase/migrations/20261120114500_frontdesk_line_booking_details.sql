@@ -15,7 +15,7 @@ begin
      case coalesce(nullif(b.contact_salutation,''),nullif(m.salutation,''),'')
        when 'mr' then '先生' when 'ms' then '小姐' else '' end,
    'phone',coalesce(nullif(b.contact_phone,''),m.phone,''),
-   'partySize',b.party_size,'note',b.member_note,
+   'partySize',b.party_size,'note',b.member_note,'adminNote',b.admin_note,
    'cancellationPending',b.cancellation_requested_at is not null and b.cancellation_reviewed_at is null,
    'services',coalesce((select jsonb_agg(jsonb_build_object('title',i.service_title,'quantity',i.quantity)
                     order by i.created_at,i.id)
