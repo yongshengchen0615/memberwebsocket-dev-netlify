@@ -450,3 +450,49 @@ test('AC-FD-RT-001: member booking appears without manual refresh; authorization
  await page.waitForTimeout(3400);
  expect(calls.filter(x=>x==='frontdesk.sync.status').length).toBe(after);
 });
+
+for(const width of [390,1280])test('FRONTDESK_REJECTION_MODAL_'+width+' — only on-site reason reveals multiple services and fixed original date',async({page})=>{
+ await page.setViewportSize({width,height:880});await page.emulateMedia({colorScheme:width===390?'dark':'light'});
+ const bookingId='10000000-0000-4000-8000-000000000011',service1='10000000-0000-4000-8000-000000000012',service2='10000000-0000-4000-8000-000000000013';
+ let state='pending';const calls=[];
+ await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:'window.liff={init:async()=>{},isLoggedIn:()=>true,getIDToken:()=>"verified-staff",login:()=>{},logout:()=>{}};'}));
+ await page.route('https://fixture.supabase.co/**',async route=>{
+  const body=route.request().postDataJSON();calls.push(body);let data;
+  if(body.action==='frontdesk.public')data={name:'QA商家',frontdesk:{enabled:true,liffId:'2010999999-desk'}};
+  else if(body.action==='frontdesk.bootstrap')data={staff:{displayName:'測試櫃檯',status:'approved',permissionMode:'review'}};
+  else if(body.action==='frontdesk.bookings')data={bookings:state==='pending'?[{id:bookingId,status:'pending',updatedAt:'2026-11-20T10:00:00.000Z',bookingDate:'2026-12-12',startTime:'11:00',name:'QA先生',services:[]}]:[]};
+  else if(body.action==='frontdesk.sync.status')data={revision:'1'};
+  else if(body.action==='frontdesk.phone.catalog')data={services:[{id:service1,title:'身體60',durationMinutes:60},{id:service2,title:'腳底30',durationMinutes:30}]};
+  else if(body.action==='frontdesk.booking.reject-phone'){state='rejected';data={booking:{status:'rejected'},phoneBookingStatus:'pending',phoneBookingId:'10000000-0000-4000-8000-000000000014'};}
+  else throw Error('Unexpected frontdesk action '+body.action);
+  await route.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,data})});
+ });
+ await page.goto(base+'/frontdesk/?business=shop-a');
+ await page.getByRole('button',{name:'拒絕預約',exact:true}).click();
+ const modal=page.locator('[role=dialog]'),phone=modal.locator('[data-phone-registration]');
+ await expect(modal).toBeVisible();await expect(phone).toBeHidden();
+ await expect(modal.getByRole('button',{name:'確認拒絕預約'})).toBeDisabled();
+ await modal.locator('[aria-label="選擇拒絕預約原因"]').selectOption('technician_leave');
+ await expect(phone).toBeHidden();
+ expect(calls.filter(x=>x.action==='frontdesk.phone.catalog')).toHaveLength(0);
+ await modal.getByRole('button',{name:'取消',exact:true}).click();
+ await expect(modal).toHaveCount(0);
+ await page.getByRole('button',{name:'拒絕預約',exact:true}).click();
+ await modal.locator('[aria-label="選擇拒絕預約原因"]').selectOption('unrecorded_phone_booking');
+ await expect(phone).toBeVisible();
+ await expect(phone.locator('.frontdesk-phone-date')).toContainText('2026-12-12');
+ await expect(phone.locator('input[type="date"]')).toHaveCount(0);
+ await expect(phone.locator('.frontdesk-phone-service-option input[type="checkbox"]')).toHaveCount(2);
+ await phone.locator('.frontdesk-phone-service-option input[type="checkbox"]').first().check();
+ await phone.locator('.frontdesk-phone-service-option input[type="checkbox"]').last().check();
+ await expect(phone.locator('input[type="time"]')).toHaveValue('11:00');
+ const box=await modal.evaluate(el=>({width:el.getBoundingClientRect().width,viewport:innerWidth,modalBackground:getComputedStyle(el).backgroundColor}));
+ expect(box.width).toBeLessThanOrEqual(box.viewport);
+ await modal.getByRole('button',{name:'確認拒絕並登記現場預約'}).click();
+ await expect(page.locator('#status')).toContainText('等待管理員確認');
+ const paired=calls.filter(x=>x.action==='frontdesk.booking.reject-phone');
+ expect(paired).toHaveLength(1);
+ expect(paired[0]).toMatchObject({bookingId,startTime:'11:00',rejectionReason:'unrecorded_phone_booking',items:[{serviceId:service1,quantity:1},{serviceId:service2,quantity:1}]});
+ expect(Object.hasOwn(paired[0],'bookingDate')).toBe(false);
+ expect(calls.filter(x=>x.action==='frontdesk.phone.create')).toHaveLength(0);
+});
