@@ -77,7 +77,8 @@ test('AC-FR-005: phone requests are tenant-scoped, pending, slot-blocking and au
  assert.match(migration,/p_actor,''frontdesk'',''BOOKING_PHONE_CREATED''/);
  assert.match(migration,/status in \(''pending'',''confirmed''\)/);
  assert.match(migration,/platform_private\.frontdesk_staff/);
- assert.match(migration,/BOOKING_SLOT_TAKEN|PHONE_BOOKING_CONFLICT/);
+ assert.match(migration,/booking_slot_fits/);
+ assert.match(migration,/booking_slot_start_at/);
  assert.match(provision,/install_frontdesk_phone/);
 });
 test('AC-FR-006: malformed frontdesk phone writes fail before a tenant RPC, valid writes keep the authenticated actor',async()=>{
