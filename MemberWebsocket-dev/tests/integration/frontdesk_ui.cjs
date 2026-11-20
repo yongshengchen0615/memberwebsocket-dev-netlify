@@ -125,7 +125,7 @@ test('AC-FD-UX-001: staff cards expose readable schedule, tappable phone, privac
  };
  const ready=new Promise(resolve=>w.addEventListener('frontdesk-ready',resolve,{once:true}));w.eval(source());await ready;
  const card=w.document.querySelector('.frontdesk-card');
- assert.ok(card);assert.match(card.querySelector('.frontdesk-time').textContent,/2026\/11\/20.*10:00.*11:00/);
+ assert.ok(card);assert.match(card.textContent,/預約日期：2026-11-20/);assert.match(card.textContent,/預約時間：10:00 – 11:00/);
  assert.equal(card.querySelector('.frontdesk-badge').textContent,'待確認');
  assert.equal(card.querySelector('a[href^="tel:"]').getAttribute('href'),'tel:+886900123456');
  assert.match(card.querySelector('.frontdesk-participant').textContent,/第一位預約/);
