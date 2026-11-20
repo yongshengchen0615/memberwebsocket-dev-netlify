@@ -15,7 +15,6 @@ test('frontdesk: tenant-scoped applications, modes, revocation, outbox, transiti
   await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261120114500_frontdesk_line_booking_details.sql'),'utf8'));
   await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261120143000_frontdesk_sync_admin_confirmation.sql'),'utf8'));
   await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261120170000_frontdesk_confirm_line_individual_totals.sql'),'utf8'));
-  await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261120143000_frontdesk_sync_admin_confirmation.sql'),'utf8'));
   await assert.rejects(h.db.query('select public.platform_frontdesk_context($1)',['desk-shop']),/FRONTDESK_UNAVAILABLE/);
   await h.db.query("update platform_private.tenants set features=features||'{\"frontdesk\":true}'::jsonb where id=$1",[t.id]);
   const call=async(name,args)=>(await h.db.query(`select public.${name}(${args.map((_,i)=>'$'+(i+1)).join(',')}) result`,args)).rows[0].result;
