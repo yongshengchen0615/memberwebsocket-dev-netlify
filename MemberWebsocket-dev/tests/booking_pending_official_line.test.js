@@ -60,24 +60,3 @@ test('AC-BPN-006: delayed notification cannot tell confirmed bookings to wait', 
   assert.match(worker, /BOOKING_NO_LONGER_PENDING/);
   assert.match(delivery, /'預約申請': \{ color:/);
 });
-/);
-  assert.doesNotMatch(migration, /NEW\\.contact_source is distinct from 'member'/);
-  assert.match(migration, /NEW\\.member_id is null/);
-  assert.match(migration, /status=''active'' and coalesce\(is_test_account,false\)=false/);
-  assert.match(migration, /runtime_schema=v_schema/);
-  assert.match(migration, /on conflict \(event_key,channel,recipient\) do nothing/);
-  assert.match(migration, /booking_notifications/);
-  assert.match(migration, /notice_outbox/);
-  assert.match(migration, /create trigger bookings_enqueue_member_pending_line_notice/);
-});
-test('AC-BPN-005: newly created tenant receives same policy and existing tenants are upgraded', () => {
-  assert.match(migration, /platform_private\.install_booking_pending_notice\(p_schema\)/);
-  assert.match(migration, /platform_private\.install_booking_reminder\(text\)/);
-  assert.match(migration, /for v_schema in select runtime_schema from platform_private\.tenants/);
-});
-test('AC-BPN-006: delayed notification cannot tell confirmed bookings to wait', () => {
-  assert.match(worker, /event_key \|\| ''\)\.endsWith\(':created:member'\)/);
-  assert.match(worker, /pending\.data\?\.status !== 'pending'/);
-  assert.match(worker, /BOOKING_NO_LONGER_PENDING/);
-  assert.match(delivery, /'預約申請': \{ color:/);
-});
