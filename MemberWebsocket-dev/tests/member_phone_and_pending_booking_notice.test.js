@@ -36,7 +36,7 @@ test('member join and edit phone fields share country-code E.164 composition', (
   );
 });
 
-test('server rejects implausible phones and booking creation uses member-sent LINE chat messaging', () => {
+test('server rejects implausible phones and booking creation never sends client-originated LINE chat', () => {
   const api = read('supabase/functions/member-profile-api/index.ts');
   const bookingCommon = read('booking/common.js');
   const bookingApp = read('booking/app.js');
@@ -44,7 +44,7 @@ test('server rejects implausible phones and booking creation uses member-sent LI
   assert.match(api, /function isValidPhone/);
   assert.match(api, /value\.startsWith\("\+886"\)/);
   assert.match(api, /if \(hasPhone && !isValidPhone\(phone\)\)/);
-  assert.match(bookingCommon, /window\.liff\.sendMessages\(\[\{ type: 'text', text \}\]\)/);
-  assert.match(bookingApp, /狀態：等待管理員確認預約/);
-  assert.match(bookingApp, /if \(!wasEditing\) await sendBookingMemberChatMessage\(result\.booking\)/);
+  assert.doesNotMatch(bookingCommon, /window\.liff\.sendMessages/);
+  assert.doesNotMatch(bookingApp, /sendBookingMemberChatMessage|bookingMemberChatText/);
+  assert.match(bookingApp, /預約已送出，整段服務時間已保留，等待管理端確認。/);
 });
