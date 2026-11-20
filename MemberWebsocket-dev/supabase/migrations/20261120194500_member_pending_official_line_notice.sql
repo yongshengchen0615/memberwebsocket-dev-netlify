@@ -1,6 +1,5 @@
 -- AC-BPN-001..006: official-account pending booking notice, per-merchant template.
 -- Additive migration. Do not change existing admin/frontdesk/confirmation notifications.
-begin;
 
 alter table public.booking_settings
   add column if not exists pending_message text not null
@@ -132,4 +131,3 @@ begin
 end $upgrade$;
 
 notify pgrst,'reload schema';
-commit;
