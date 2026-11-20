@@ -110,3 +110,28 @@ test('frontdesk removal requires confirmation, sends scoped delete, and clears s
  assert.match(root.textContent,/須重新申請並審核/);
  w.FrontdeskSettings.clear(root);dom.window.close();
 });
+
+
+test('AC-FD-UX-001: staff cards expose readable schedule, tappable phone, privacy-safe text and clear actions',async()=>{
+ const dom=new JSDOM('<h1 id="businessName"></h1><p id="status" role="status"></p><ol id="progress"></ol><section id="account"></section><div class="frontdesk-toolbar"><p class="frontdesk-kicker"></p><h2>待處理預約</h2><p id="bookingSummary"></p><button id="refresh">重新整理</button></div><section id="bookings"></section>',{url:'https://desk.test/frontdesk/?business=shop-a',runScripts:'outside-only'}),w=dom.window;
+ w.liff={init:async()=>{},isLoggedIn:()=>true,getIDToken:()=>'verified'};
+ w.fetch=async(_url,options)=>{
+  if(!options?.body)return{ok:true,json:async()=>({supabaseFunctionUrl:'https://db.test/functions/v1/api',supabasePublishableKey:'public'})};
+  const {action}=JSON.parse(options.body);
+  const data=action==='frontdesk.public'?{name:'店家',frontdesk:{enabled:true,liffId:'2010999999-desk'}}:
+   action==='frontdesk.bootstrap'?{staff:{displayName:'測試櫃檯',status:'approved',permissionMode:'review'}}:
+   {bookings:[{id:'booking-a',name:'<img src=x onerror=alert(1)>',status:'pending',updatedAt:'v1',startAt:'2026-11-20T10:00:00',endAt:'2026-11-20T11:00:00',phone:'+886 900 123 456',partySize:2,services:[{title:'身體按摩',quantity:2}],note:'請留意需求'}]};
+  return{ok:true,json:async()=>({ok:true,data})};
+ };
+ const ready=new Promise(resolve=>w.addEventListener('frontdesk-ready',resolve,{once:true}));w.eval(source());await ready;
+ const card=w.document.querySelector('.frontdesk-card');
+ assert.ok(card);assert.match(card.querySelector('.frontdesk-time').textContent,/2026\/11\/20.*10:00.*11:00/);
+ assert.equal(card.querySelector('.frontdesk-badge').textContent,'待確認');
+ assert.equal(card.querySelector('a[href^="tel:"]').getAttribute('href'),'tel:+886900123456');
+ assert.equal(card.querySelector('.frontdesk-service strong').textContent,'身體按摩 × 2');
+ assert.equal(card.querySelectorAll('img').length,0,'server text must never be injected as markup');
+ assert.equal(card.querySelectorAll('[data-review-action]').length,2);
+ assert.equal(w.document.getElementById('progress').hidden,true,'approved staff do not need a completed application guide');
+ assert.match(w.document.getElementById('bookingSummary').textContent,/1 筆/);
+ w.close();
+});
