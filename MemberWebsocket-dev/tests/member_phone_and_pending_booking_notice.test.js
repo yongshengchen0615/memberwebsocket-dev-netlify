@@ -44,7 +44,30 @@ test('server rejects implausible phones and booking creation never sends client-
   assert.match(api, /function isValidPhone/);
   assert.match(api, /value\.startsWith\("\+886"\)/);
   assert.match(api, /if \(hasPhone && !isValidPhone\(phone\)\)/);
-  assert.doesNotMatch(bookingCommon, /window\.liff\.sendMessages/);
+  assert.match(bookingCommon, /async function sendMemberChatMessage\(message\)/);
   assert.doesNotMatch(bookingApp, /sendBookingMemberChatMessage|bookingMemberChatText/);
   assert.match(bookingApp, /預約已送出，整段服務時間已保留，等待管理端確認。/);
+});
+
+test('snapshot receipt retains the shared LINE sender without re-enabling member booking self-send', async () => {
+  const common = read('booking/common.js');
+  const receipt = read('booking/booking-receipt.js');
+  const sent = [];
+  const sandbox = { window: {
+    liff: { isInClient: () => true, sendMessages: async (messages) => { sent.push(messages); } },
+  }, document: {}, console };
+  vm.runInNewContext(common, sandbox, { filename: 'booking/common.js' });
+  assert.equal(typeof sandbox.window.BookingSystem.sendMemberChatMessage, 'function');
+  const result = await sandbox.window.BookingSystem.sendMemberChatMessage('快照已送出');
+  assert.equal(result.sent, true);
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0][0].text, '快照已送出');
+  assert.match(receipt, /const sender = window\.BookingSystem\?\.sendMemberChatMessage/);
+  assert.doesNotMatch(read('booking/app.js'), /sendBookingMemberChatMessage|bookingMemberChatText/);
+
+  sandbox.window.liff.isInClient = () => false;
+  const browserResult = await sandbox.window.BookingSystem.sendMemberChatMessage('快照已送出');
+  assert.equal(browserResult.sent, false);
+  assert.equal(browserResult.reason, 'not_in_line_chat');
+  assert.equal(sent.length, 1);
 });
