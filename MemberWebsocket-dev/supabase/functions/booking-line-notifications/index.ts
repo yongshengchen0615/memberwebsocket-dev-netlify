@@ -200,6 +200,21 @@ serveBusiness('booking-line-notifications',async (request: Request) => {
           return;
         }
 
+        // A queued pending acknowledgement must not arrive after confirmation or cancellation.
+        if (job.channel === 'member' && String(job.event_key || '').endsWith(':created:member')) {
+          if (!job.booking_id) { failed++; return; }
+          const pending = await db.from('bookings').select('status').eq('id', job.booking_id).maybeSingle();
+          if (pending.error) { failed++; return; }
+          if (pending.data?.status !== 'pending') {
+            const skippedRow = await db.from('notice_outbox')
+              .update({ status: 'skipped', last_error: 'BOOKING_NO_LONGER_PENDING' })
+              .eq('id', job.id).eq('status', 'sending').eq('attempt_count', job.attempt_count).select('id');
+            if (skippedRow.error || skippedRow.data?.length !== 1) failed++;
+            else skipped++;
+            return;
+          }
+        }
+
         const token = job.channel === 'admin' ? config.data.LINE_BOOKING_ADMIN_CHANNEL_ACCESS_TOKEN : job.channel === 'frontdesk' ? config.data.LINE_BOOKING_FRONTDESK_CHANNEL_ACCESS_TOKEN : config.data.LINE_BOOKING_MEMBER_CHANNEL_ACCESS_TOKEN;
         let deliveryJob = job;
         if(job.channel==='frontdesk'){
