@@ -114,6 +114,7 @@
  function scheduleSync(delay=3000){
   if(syncTimer!==null){clearTimeout(syncTimer);syncTimer=null;}
   if(!canSync())return;
+  // timer-policy: recovery; reason=private tenant authorization requires authenticated revision checks; cleanup=stopSync; test=frontdesk_live_sync.test.js
   syncTimer=setTimeout(()=>{syncTimer=null;void probeSync();},delay);
  }
  function startSync(){
