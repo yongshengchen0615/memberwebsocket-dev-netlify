@@ -5,6 +5,9 @@ const migration=()=>fs.readFileSync(path.join(__dirname,'../../supabase/migratio
 test('frontdesk: tenant-scoped applications, modes, revocation, outbox, transitions, idempotency and RLS',async()=>{
  const h=await fixture();try{
   const t=await h.approve(owner,'desk-shop');
+  // The historical base fixture predates the per-person notes migration.
+  // Production tenants already carry this column; model it in isolated PGlite.
+  await h.db.exec('alter table '+t.runtime_schema+".booking_participants add column if not exists member_note text not null default ''");
   await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261026050904_line_webhook.sql'),'utf8'));
   await h.db.exec(migration());
   await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261118190000_frontdesk_safeupdate_projection.sql'),'utf8'));
