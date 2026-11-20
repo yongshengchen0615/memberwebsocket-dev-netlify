@@ -108,7 +108,7 @@
     for(const [next,label]of [['confirmed','確認預約'],['rejected','拒絕預約']]){
      const b=node('button',label);b.type='button';b.dataset.reviewAction=next;
      b.className=next==='confirmed'?'frontdesk-primary':'frontdesk-danger';
-     b.onclick=()=>{if(next==='rejected')openRejectionDialog(booking,b);else void review(booking,next,b);};actions.append(b);
+     b.onclick=()=>{if(next==='rejected'){const existing=pending.get(booking.id);if(existing&&existing.status!=='rejected'){status.textContent='前次操作結果尚未確認，請先重試相同操作。';return;}openRejectionDialog(booking,b);}else void review(booking,next,b);};actions.append(b);
     }
     card.append(actions);
    }else if(booking.cancellationPending){
