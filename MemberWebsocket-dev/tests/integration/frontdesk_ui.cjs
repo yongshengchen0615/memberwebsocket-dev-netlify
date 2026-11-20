@@ -125,13 +125,42 @@ test('AC-FD-UX-001: staff cards expose readable schedule, tappable phone, privac
  };
  const ready=new Promise(resolve=>w.addEventListener('frontdesk-ready',resolve,{once:true}));w.eval(source());await ready;
  const card=w.document.querySelector('.frontdesk-card');
- assert.ok(card);assert.match(card.querySelector('.frontdesk-time').textContent,/2026\/11\/20.*10:00.*11:00/);
+ assert.ok(card);assert.match(card.textContent,/預約日期：2026-11-20/);assert.match(card.textContent,/預約時間：10:00 – 11:00/);
  assert.equal(card.querySelector('.frontdesk-badge').textContent,'待確認');
  assert.equal(card.querySelector('a[href^="tel:"]').getAttribute('href'),'tel:+886900123456');
- assert.equal(card.querySelector('.frontdesk-service strong').textContent,'身體按摩 × 2');
+ assert.match(card.querySelector('.frontdesk-participant').textContent,/第一位預約/);
+ assert.match(card.querySelector('.frontdesk-participant').textContent,/身體按摩 × 2/);
+ assert.match(card.querySelector('.frontdesk-participant').textContent,/預約技師：現場安排/);
  assert.equal(card.querySelectorAll('img').length,0,'server text must never be injected as markup');
  assert.equal(card.querySelectorAll('[data-review-action]').length,2);
  assert.equal(w.document.getElementById('progress').hidden,true,'approved staff do not need a completed application guide');
  assert.match(w.document.getElementById('bookingSummary').textContent,/1 筆/);
+ w.close();
+});
+
+test('AC-FD-LINE-001: distinct participants, technicians and individual notes follow LINE message ordering',async()=>{
+ const dom=new JSDOM('<h1 id="businessName"></h1><p id="status"></p><ol id="progress"></ol><section id="account"></section><div class="frontdesk-toolbar"><h2></h2><p id="bookingSummary"></p><button id="refresh"></button></div><section id="bookings"></section>',{url:'https://desk.test/frontdesk/?business=shop-a',runScripts:'outside-only'}),w=dom.window;
+ w.liff={init:async()=>{},isLoggedIn:()=>true,getIDToken:()=>'verified'};
+ w.fetch=async(_url,opts)=>{
+  if(!opts?.body)return{ok:true,json:async()=>({supabaseFunctionUrl:'https://db.test/functions/v1/api',supabasePublishableKey:'public'})};
+  const {action}=JSON.parse(opts.body);
+  const data=action==='frontdesk.public'?{name:'店家',frontdesk:{enabled:true,liffId:'2010999999-desk'}}:
+   action==='frontdesk.bootstrap'?{staff:{status:'approved',permissionMode:'review'}}:
+   {bookings:[{id:'booking-a',status:'pending',updatedAt:'2026-11-20T00:00:00',bookingDate:'2026-11-20',startTime:'09:30',endTime:'10:30',name:'陳先生',phone:'+886900638213',partySize:2,adminNote:'請提前準備房間',services:[],participants:[
+    {position:1,technician:'10技師',services:[{title:'身體60',quantity:1}],note:'力道較輕'},
+    {position:2,technician:'11技師',services:[{title:'腳底30',quantity:1}],note:'<script>alert(1)</script>'}]}]};
+  return{ok:true,json:async()=>({ok:true,data})};
+ };
+ const ready=new Promise(resolve=>w.addEventListener('frontdesk-ready',resolve,{once:true}));w.eval(source());await ready;
+ const card=w.document.querySelector('.frontdesk-card'),blocks=card.querySelectorAll('.frontdesk-participant');
+ assert.equal(blocks.length,2);
+ assert.match(card.textContent,/預約日期：2026-11-20/);
+ assert.match(card.textContent,/預約時間：09:30 – 10:30/);
+ assert.match(card.textContent,/預約人：陳先生/);
+ assert.match(card.textContent,/管理端說明：請提前準備房間/);
+ assert.match(blocks[0].textContent,/第一位預約.*預約項目：身體60.*預約技師：10技師.*個別備註：力道較輕/s);
+ assert.match(blocks[1].textContent,/第二位預約.*預約項目：腳底30.*預約技師：11技師/s);
+ assert.equal(blocks[0].textContent.includes('腳底30'),false,'participants must not share items');
+ assert.equal(card.querySelectorAll('script').length,0,'untrusted notes are text, not HTML');
  w.close();
 });

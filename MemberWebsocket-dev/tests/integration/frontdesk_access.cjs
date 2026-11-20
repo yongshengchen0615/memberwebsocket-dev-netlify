@@ -5,10 +5,14 @@ const migration=()=>fs.readFileSync(path.join(__dirname,'../../supabase/migratio
 test('frontdesk: tenant-scoped applications, modes, revocation, outbox, transitions, idempotency and RLS',async()=>{
  const h=await fixture();try{
   const t=await h.approve(owner,'desk-shop');
+  // The historical base fixture predates the per-person notes migration.
+  // Production tenants already carry this column; model it in isolated PGlite.
+  await h.db.exec('alter table '+t.runtime_schema+".booking_participants add column if not exists member_note text not null default ''");
   await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261026050904_line_webhook.sql'),'utf8'));
   await h.db.exec(migration());
   await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261118190000_frontdesk_safeupdate_projection.sql'),'utf8'));
   await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261119150000_frontdesk_independent_feature_grant.sql'),'utf8'));
+  await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261120114500_frontdesk_line_booking_details.sql'),'utf8'));
   await assert.rejects(h.db.query('select public.platform_frontdesk_context($1)',['desk-shop']),/FRONTDESK_UNAVAILABLE/);
   await h.db.query("update platform_private.tenants set features=features||'{\"frontdesk\":true}'::jsonb where id=$1",[t.id]);
   const call=async(name,args)=>(await h.db.query(`select public.${name}(${args.map((_,i)=>'$'+(i+1)).join(',')}) result`,args)).rows[0].result;
@@ -39,6 +43,14 @@ test('frontdesk: tenant-scoped applications, modes, revocation, outbox, transiti
   await q("insert into S.booking_audit_events(actor_line_user_id,actor_role,action,target_type,target_id,result,metadata)values($1,'member','BOOKING_UPDATED','booking',$2,'success','{}')",['U'+'3'.repeat(32),b]);await h.db.exec('commit');
   const modified=await q("select * from S.notice_outbox where booking_id=$1 and coalesce_key is not null",[b]);assert.equal(modified.filter(x=>x.channel==='frontdesk').length,1);assert.equal(modified.find(x=>x.channel==='frontdesk').message_text,modified.find(x=>x.channel==='admin').message_text);
   const bookings=await req('bookings');assert.equal(bookings.bookings.length,1);assert.equal(bookings.bookings[0].id,b);
+  assert.equal(bookings.bookings[0].startTime,'10:00','project the LINE booking start clock');
+  assert.equal(bookings.bookings[0].participants.length,1,'include the same person entries as LINE');
+  assert.equal(bookings.bookings[0].participants[0].services[0].title,'FD service');
+  assert.equal(bookings.bookings[0].participants[0].technician,'現場安排');
+  assert.equal(bookings.bookings[0].participants[0].position,1);
+  await q("update S.booking_participants set member_note='第一位測試備註' where booking_id=$1 and position=1",[b]);
+  const noted=await req('bookings');
+  assert.equal(noted.bookings[0].participants[0].note,'第一位測試備註','show the same per-person note as LINE');
   const body={bookingId:b,expectedUpdatedAt:bookings.bookings[0].updatedAt,status:'confirmed',requestId:crypto.randomUUID()};
   const applied=await req('booking.update',body);assert.equal(applied.booking.status,'confirmed');assert.equal((await req('booking.update',body)).alreadyApplied,true);
   await assert.rejects(req('booking.update',{...body,status:'rejected'}),/FRONTDESK_REQUEST_CONFLICT/);
