@@ -4,14 +4,14 @@ test('member history renders inside the card without a nested details toggle and
  const dom=new JSDOM(source('booking/index.html'),{url:'https://example.test/booking/?bookingId=FOREIGN',runScripts:'outside-only'}),w=dom.window;
  const add=w.addEventListener.bind(w);w.addEventListener=(type,...args)=>{if(type!=='DOMContentLoaded')add(type,...args);};
  w.BookingSystem={formatDate:x=>x};w.BookingGroupUI={};
- w.eval(source('booking/app.js').replace("  window.addEventListener('DOMContentLoaded',", "  window.__view={renderBookings,bookingMemberChatText,state,els};\n  window.addEventListener('DOMContentLoaded',"));
- const {renderBookings,bookingMemberChatText,state,els}=w.__view;for(const el of w.document.querySelectorAll('[id]'))els[el.id]=el;
+ w.eval(source('booking/app.js').replace("  window.addEventListener('DOMContentLoaded',", "  window.__view={renderBookings,state,els};\n  window.addEventListener('DOMContentLoaded',"));
+ const {renderBookings,state,els}=w.__view;for(const el of w.document.querySelectorAll('[id]'))els[el.id]=el;
  const booking={bookingId:'OWNED',bookingDate:'2026-10-15',startTime:'10:00',endTime:'11:00',startAt:'2026-10-15T10:00',endAt:'2026-10-15T11:00',status:'cancelled',items:[{serviceTitle:'我的服務',quantity:1,unitDurationMinutes:60,unitPriceAmount:100}],benefits:[{kind:'points',title:'本次票券',status:'cancelled'}],totalDurationMinutes:60,totalAmount:100,memberNote:'我的備註'};
  state.data={bookings:[booking],settings:{}};state.config={bookingLiffId:'2010787602-sgiB0ETj'};
  try{
   renderBookings();const item=w.document.querySelector('[data-booking-id="OWNED"]');assert.ok(item);assert.equal(item.querySelector('details.member-booking-details'),null);assert.match(item.querySelector('.booking-service-items')?.textContent || '',/我的服務/);assert.ok(item.textContent.includes('我的備註'));assert.equal(w.document.querySelector('[data-booking-id="FOREIGN"]'),null);
   const before=JSON.stringify(state.data);assert.ok(item.querySelector('.member-booking-format-totals'));assert.equal(JSON.stringify(state.data),before);
-  const chat=bookingMemberChatText(booking);assert.doesNotMatch(chat,/營業日|我的備註/);assert.match(chat,/預約日期：2026-10-15/);assert.match(chat,/10:00/);assert.match(chat,/查看預約明細/);
+  assert.doesNotMatch(source('booking/app.js'),/bookingMemberChatText|sendBookingMemberChatMessage/);assert.doesNotMatch(source('booking/common.js'),/liff\.sendMessages\s*\(/);
  }finally{dom.window.close();}
 });
 test('retired operation-audit renderer is absent while database audit RPC is permission-restricted',()=>{
