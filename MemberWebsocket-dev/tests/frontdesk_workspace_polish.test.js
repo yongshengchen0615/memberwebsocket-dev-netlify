@@ -19,6 +19,7 @@ test('AC-FD-UX-002: mobile layout stacks contact data and retains safe-area spac
   assert.match(css, /@media\(max-width:650px\)/);
   assert.match(css, /frontdesk-card-details\{grid-template-columns:1fr/);
   assert.match(css, /safe-area-inset-bottom/);
+  assert.match(css, /frontdesk-actions button\\{width:100%;flex:auto\\}/, 'mobile button sizing must override desktop flex basis');
   assert.match(css, /:focus-visible/);
   assert.match(css, /prefers-reduced-motion:reduce/);
 });
