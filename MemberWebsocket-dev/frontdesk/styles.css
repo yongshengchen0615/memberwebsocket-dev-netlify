@@ -71,3 +71,149 @@ html[data-theme="dark"] .frontdesk-settings{--fd-card:var(--theme-surface-raised
  .frontdesk-progress{grid-template-columns:1fr}
  .frontdesk-settings .frontdesk-setup-card{padding:12px}
 }
+
+
+/* Standalone frontdesk workspace only. Merchant/admin frontdesk settings keep
+   their own explicit theme tokens and existing layouts. */
+body.frontdesk-page{
+ margin:0;min-height:100vh;min-height:100dvh;box-sizing:border-box;
+ background:#f1f5f9;color:#172c39;color-scheme:light;
+}
+.frontdesk-page *, .frontdesk-page *::before,.frontdesk-page *::after{box-sizing:border-box}
+.frontdesk-page .frontdesk-shell{
+ max-width:920px;padding:clamp(20px,4vw,42px) 20px 44px;line-height:1.55;
+ --fd-bg:#f1f5f9;--fd-card:#ffffff;--fd-text:#172c39;
+ --fd-muted:#526574;--fd-border:#d5dfe8;--fd-primary:#175fa5;
+ --fd-danger:#9b2534;--fd-link:#175fa5;
+}
+.frontdesk-page .frontdesk-header{display:flex;align-items:flex-start;gap:18px;margin:0 0 22px}
+.frontdesk-page .frontdesk-header-icon{
+ display:grid;place-items:center;flex:none;width:58px;height:58px;border-radius:18px;
+ background:#dcecf8;color:#17518c;font-size:1.35rem;font-weight:800;
+ border:1px solid #bed4e8;
+}
+.frontdesk-page .frontdesk-header-content{min-width:0}
+.frontdesk-page .frontdesk-kicker{margin:0 0 5px;font-size:.75rem;letter-spacing:.105em;color:var(--fd-primary);font-weight:750}
+.frontdesk-page h1{font-size:clamp(1.5rem,4.5vw,2.05rem);line-height:1.25;letter-spacing:-.025em;margin:0 0 7px}
+.frontdesk-page .frontdesk-intro{color:var(--fd-muted);font-size:.94rem;margin:0}
+.frontdesk-page .frontdesk-status{
+ display:flex;align-items:flex-start;gap:9px;padding:12px 16px;
+ margin:0 0 18px;border:1px solid #c9dcee;border-radius:12px;
+ background:#e8f2fa;color:#214b69;font-size:.925rem;
+}
+.frontdesk-page .frontdesk-status::before{
+ content:"";flex:none;width:8px;height:8px;border-radius:50%;background:#2874b2;margin-top:.52em;
+}
+.frontdesk-page .frontdesk-progress{margin:0 0 18px;gap:10px}
+.frontdesk-page .frontdesk-progress li{min-width:0;border-radius:12px;padding:11px 12px;background:var(--fd-card);font-size:.85rem}
+.frontdesk-page .frontdesk-progress li[data-state="current"]{background:#eaf4fc;border-color:#3b80ba;box-shadow:inset 0 0 0 1px #3b80ba}
+.frontdesk-page .frontdesk-progress li[data-state="done"]{background:#eef8f2;border-color:#7db69c}
+.frontdesk-page .frontdesk-progress small{margin-top:3px;font-size:.76rem}
+.frontdesk-page .frontdesk-account{
+ margin:0 0 24px;padding:22px 24px;border:1px solid var(--fd-border);
+ border-radius:18px;background:var(--fd-card);box-shadow:0 8px 24px #172c3908;
+}
+.frontdesk-page .frontdesk-account:empty{display:none}
+.frontdesk-page .frontdesk-account h2{margin:0 0 8px;font-size:1.12rem;line-height:1.4}
+.frontdesk-page .frontdesk-account p{margin:6px 0;color:var(--fd-muted)}
+.frontdesk-page .frontdesk-account a{
+ display:inline-flex;align-items:center;min-height:44px;margin:0 0 12px;
+ border-radius:10px;text-decoration:none;font-weight:700;color:var(--fd-link);
+}
+.frontdesk-page .frontdesk-account .frontdesk-primary{width:100%;margin-top:12px}
+.frontdesk-page .frontdesk-identity{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.frontdesk-page .frontdesk-identity h2{margin:0}
+.frontdesk-page .frontdesk-permission{
+ display:inline-flex;align-items:center;border-radius:999px;padding:4px 10px;
+ background:#e7f3ee;color:#1d694c;font-weight:750;font-size:.8rem;
+}
+.frontdesk-page .frontdesk-toolbar{
+ margin:0 0 12px;gap:16px;align-items:center;justify-content:space-between;
+}
+.frontdesk-page .frontdesk-toolbar-title{min-width:0}
+.frontdesk-page .frontdesk-toolbar h2{margin:0;font-size:1.3rem;line-height:1.35;letter-spacing:-.02em}
+.frontdesk-page .frontdesk-summary{margin:5px 0 0;color:var(--fd-muted);font-size:.9rem}
+.frontdesk-page .frontdesk-refresh{margin-left:auto;white-space:nowrap;font-weight:650;min-height:44px}
+.frontdesk-page .frontdesk-refresh:hover:not(:disabled){background:#eaf3fa;border-color:#7baacb}
+.frontdesk-page .frontdesk-bookings{display:grid;gap:14px}
+.frontdesk-page .frontdesk-card{
+ margin:0;padding:22px 24px;border-radius:18px;border-color:var(--fd-border);
+ box-shadow:0 7px 22px #172c3909;min-width:0;
+}
+.frontdesk-page .frontdesk-card-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
+.frontdesk-page .frontdesk-field-label{display:block;color:var(--fd-muted);font-size:.78rem;font-weight:650;margin:0 0 3px}
+.frontdesk-page .frontdesk-time{font-size:1.04rem;font-weight:750;line-height:1.35;letter-spacing:.01em;margin:0}
+.frontdesk-page .frontdesk-badge{
+ display:inline-flex;align-items:center;flex:none;white-space:nowrap;
+ border-radius:999px;padding:5px 11px;background:#fff3d8;color:#845400;
+ font-size:.78rem;font-weight:800;border:1px solid #f1d49b;
+}
+.frontdesk-page .frontdesk-badge[data-status="confirmed"],
+.frontdesk-page .frontdesk-badge[data-status="completed"]{background:#e7f3ee;border-color:#b6ddcb;color:#1d694c}
+.frontdesk-page .frontdesk-badge[data-status="rejected"],
+.frontdesk-page .frontdesk-badge[data-status="cancelled"]{background:#fcecee;border-color:#edc8ce;color:#922e3d}
+.frontdesk-page .frontdesk-card h3{margin:0 0 14px;font-size:1.2rem;line-height:1.35}
+.frontdesk-page .frontdesk-card-details{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 24px;
+ border-top:1px solid var(--fd-border);padding:15px 0;
+}
+.frontdesk-page .frontdesk-card-details p{margin:0;min-width:0}
+.frontdesk-page .frontdesk-card-details a{color:var(--fd-link);text-underline-offset:3px;overflow-wrap:anywhere}
+.frontdesk-page .frontdesk-service{margin:0;padding:12px 14px;background:var(--fd-bg);border-radius:10px}
+.frontdesk-page .frontdesk-service strong{font-size:.94rem;font-weight:650}
+.frontdesk-page .frontdesk-note,.frontdesk-page .frontdesk-cancellation{
+ border-inline-start:3px solid #7c9ebd;padding:9px 12px;border-radius:4px;
+ margin:12px 0 0;background:var(--fd-bg);font-size:.91rem;white-space:pre-wrap;
+}
+.frontdesk-page .frontdesk-actions{margin-top:18px;padding-top:16px;border-top:1px solid var(--fd-border)}
+.frontdesk-page .frontdesk-actions button{min-height:48px;font-weight:750}
+.frontdesk-page .frontdesk-danger{background:transparent}
+.frontdesk-page .frontdesk-danger:hover:not(:disabled){background:#fcecee}
+.frontdesk-page .frontdesk-empty{
+ padding:28px 20px;background:var(--fd-card);border:1px dashed var(--fd-border);
+ border-radius:16px;text-align:center;
+}
+.frontdesk-page .frontdesk-empty h3{font-size:1.08rem;margin:0 0 7px}
+.frontdesk-page .frontdesk-empty p{color:var(--fd-muted);margin:0}
+.frontdesk-page .frontdesk-footer{color:var(--fd-muted);font-size:.78rem;margin:24px 0 0;text-align:center}
+@media (prefers-color-scheme:dark){
+ body.frontdesk-page{background:#0e1822;color:#eef4fa;color-scheme:dark}
+ .frontdesk-page .frontdesk-shell{
+  --fd-bg:#0e1822;--fd-card:#1a2b3a;--fd-text:#eef4fa;
+  --fd-muted:#bdcdd9;--fd-border:#385163;--fd-primary:#76baff;
+  --fd-link:#a1d4ff;--fd-danger:#ffb9c2;--fd-on-primary:#101d2b;
+ }
+ .frontdesk-page .frontdesk-header-icon{background:#203d56;border-color:#416683;color:#b1ddff}
+ .frontdesk-page .frontdesk-status{background:#183246;border-color:#375b76;color:#d7ecff}
+ .frontdesk-page .frontdesk-status::before{background:#86c6ff}
+ .frontdesk-page .frontdesk-progress li[data-state="current"]{background:#203c50;border-color:#75b6e9;box-shadow:inset 0 0 0 1px #75b6e9}
+ .frontdesk-page .frontdesk-progress li[data-state="done"]{background:#1d3e37;border-color:#4f8f75}
+ .frontdesk-page .frontdesk-permission{background:#1f493c;color:#b4efcf}
+ .frontdesk-page .frontdesk-refresh:hover:not(:disabled){background:#27465b;border-color:#75b6e9}
+ .frontdesk-page .frontdesk-badge{background:#553f1b;color:#ffe1a0;border-color:#876934}
+ .frontdesk-page .frontdesk-badge[data-status="confirmed"],
+ .frontdesk-page .frontdesk-badge[data-status="completed"]{background:#1f493c;border-color:#416c5b;color:#b4efcf}
+ .frontdesk-page .frontdesk-badge[data-status="rejected"],
+ .frontdesk-page .frontdesk-badge[data-status="cancelled"]{background:#512b36;border-color:#84515f;color:#ffc7cf}
+ .frontdesk-page .frontdesk-danger:hover:not(:disabled){background:#442833}
+}
+@media(max-width:650px){
+ .frontdesk-page .frontdesk-shell{padding:20px 14px 34px}
+ .frontdesk-page .frontdesk-header{gap:12px;margin-bottom:18px}
+ .frontdesk-page .frontdesk-header-icon{width:46px;height:46px;border-radius:14px;font-size:1.1rem}
+ .frontdesk-page .frontdesk-progress{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+ .frontdesk-page .frontdesk-progress li{padding:9px 7px;font-size:.73rem;line-height:1.35}
+ .frontdesk-page .frontdesk-progress small{font-size:.69rem}
+ .frontdesk-page .frontdesk-account,.frontdesk-page .frontdesk-card{padding:17px 16px}
+ .frontdesk-page .frontdesk-toolbar{gap:8px}
+ .frontdesk-page .frontdesk-toolbar h2{font-size:1.14rem}
+ .frontdesk-page .frontdesk-toolbar .frontdesk-kicker{font-size:.66rem}
+ .frontdesk-page .frontdesk-refresh{padding:9px 12px;font-size:.88rem}
+ .frontdesk-page .frontdesk-card-heading{align-items:flex-start;flex-wrap:wrap}
+ .frontdesk-page .frontdesk-card-details{gap:10px}
+ .frontdesk-page .frontdesk-actions{flex-direction:column;align-items:stretch;gap:9px}
+ .frontdesk-page .frontdesk-actions button{width:100%;flex:auto}
+}
+@media(prefers-reduced-motion:no-preference){
+ .frontdesk-page .frontdesk-card,.frontdesk-page .frontdesk-refresh{transition:border-color .15s ease,background-color .15s ease}
+}

@@ -8,7 +8,7 @@
  const progress=document.getElementById('progress'),toolbar=document.querySelector('.frontdesk-toolbar');
  function showProgress(stage){
   if(!progress)return;
-  progress.replaceChildren();
+  progress.replaceChildren();progress.hidden=stage>=3;
   for(const [index,title] of ['1. LINE 身分登入','2. 申請櫃檯資格','3. 管理員審核'].entries()){
    const step=node('li',title),state=index<stage?'done':index===stage?'current':'waiting';
    step.dataset.state=state;
@@ -17,7 +17,7 @@
    progress.append(step);
   }
  }
- function showBookingToolbar(visible){if(toolbar){toolbar.hidden=false;const heading=toolbar.querySelector('h2');if(heading)heading.hidden=!visible;}}
+ function showBookingToolbar(visible){if(toolbar){toolbar.hidden=false;const heading=toolbar.querySelector('h2'),summary=toolbar.querySelector('#bookingSummary'),kicker=toolbar.querySelector('.frontdesk-kicker');for(const el of [heading,summary,kicker])if(el)el.hidden=!visible;}}
  function lock(value){busy=value;for(const b of document.querySelectorAll('button'))b.disabled=value;}
  async function request(action,body={}){
   let response,data;try{response=await fetch(config.supabaseFunctionUrl.replace(/\/api\/?$/,'/frontdesk-api'),{method:'POST',cache:'no-store',signal:AbortSignal.timeout(15000),headers:{'Content-Type':'application/json',apikey:config.supabasePublishableKey},body:JSON.stringify({...body,action,business,idToken})});data=await response.json();}
@@ -35,13 +35,54 @@
   finally{lock(false);}
  }
  function renderBookings(bookings){
-  list.replaceChildren();if(!bookings.length){list.append(node('p','目前沒有待處理的預約。'));return;}
-  for(const booking of bookings){const card=node('article');card.className='frontdesk-card';
-   card.append(node('h3',booking.name||'會員'),node('p',(booking.startAt||'').replace('T',' ').slice(0,16)+' ～ '+(booking.endAt||'').replace('T',' ').slice(0,16)+'（台北時間）'),node('p','電話：'+(booking.phone||'未提供')+'｜'+(booking.partySize||1)+' 位'),node('p',(booking.services||[]).map(i=>i.title+' × '+i.quantity).join('、')));
-   if(booking.note)card.append(node('p','會員備註：'+booking.note));
-   card.append(node('p','狀態：'+({pending:'待確認',confirmed:'已確認',rejected:'已拒絕',cancelled:'已取消',completed:'已完成'}[booking.status]||booking.status)));
-   if(booking.status==='pending'&&!booking.cancellationPending){const actions=node('div');actions.className='frontdesk-actions';for(const [next,label]of [['confirmed','確認預約'],['rejected','拒絕預約']]){const b=node('button',label);b.type='button';b.dataset.reviewAction=next;b.className=next==='confirmed'?'frontdesk-primary':'frontdesk-danger';b.onclick=()=>void review(booking,next,b);actions.append(b);}card.append(actions);}
-   else if(booking.cancellationPending)card.append(node('p','取消申請待審核，請交由商家管理員處理。'));
+  list.replaceChildren();
+  const summary=document.getElementById('bookingSummary');
+  if(summary)summary.textContent=bookings.length?`共 ${bookings.length} 筆預約，請依狀態處理。`:'目前沒有需要處理的預約';
+  if(!bookings.length){
+   const empty=node('div');empty.className='frontdesk-empty';
+   empty.append(node('h3','目前沒有待處理的預約'),node('p','新預約送達後會顯示在這裡。'));
+   list.append(empty);return;
+  }
+  const labels={pending:'待確認',confirmed:'已確認',rejected:'已拒絕',cancelled:'已取消',completed:'已完成'};
+  for(const booking of bookings){
+   const card=node('article');card.className='frontdesk-card';
+   const heading=node('div');heading.className='frontdesk-card-heading';
+   const times=node('div'),start=String(booking.startAt||'').replace('T',' '),end=String(booking.endAt||'').replace('T',' ');
+   const day=start.slice(0,10),startTime=start.slice(11,16),endTime=end.slice(11,16);
+   const interval=start?day.replaceAll('-','/')+' · '+(startTime||'時間待定')+
+    (endTime?' – '+(end.slice(0,10)===day?endTime:end.slice(0,16).replaceAll('-','/')):''):'預約時間待確認';
+   const time=node('p',interval);time.className='frontdesk-time';
+   times.append(node('span','預約時段'),time);times.firstChild.className='frontdesk-field-label';
+   const badge=node('span',booking.cancellationPending?'取消待審核':labels[booking.status]||booking.status||'待確認');
+   badge.className='frontdesk-badge';badge.dataset.status=booking.status||'pending';
+   heading.append(times,badge);card.append(heading);
+   card.append(node('h3',booking.name||'未提供預約姓名'));
+   const details=node('div');details.className='frontdesk-card-details';
+   const phoneField=node('p'),phoneLabel=node('span','聯絡電話'),phone=String(booking.phone||'').trim();
+   phoneLabel.className='frontdesk-field-label';phoneField.append(phoneLabel);
+   const dial=phone.replace(/[^\d+]/g,'');
+   if(/^\+?\d{6,15}$/.test(dial)){
+    const link=node('a',phone);link.href='tel:'+dial;link.setAttribute('aria-label','撥打 '+phone);phoneField.append(link);
+   }else phoneField.append(node('span',phone||'未提供'));
+   const peopleField=node('p'),peopleLabel=node('span','預約人數');peopleLabel.className='frontdesk-field-label';
+   peopleField.append(peopleLabel,node('strong',String(booking.partySize||1)+' 位'));details.append(phoneField,peopleField);
+   card.append(details);
+   const service=node('p');service.className='frontdesk-service';
+   const serviceTitle=node('span','預約項目');serviceTitle.className='frontdesk-field-label';
+   const serviceText=(booking.services||[]).map(item=>String(item.title||'未命名項目')+' × '+String(item.quantity||1)).join('、');
+   service.append(serviceTitle,node('strong',serviceText||'未提供項目'));card.append(service);
+   if(booking.note){const note=node('p','會員備註：'+booking.note);note.className='frontdesk-note';card.append(note);}
+   if(booking.status==='pending'&&!booking.cancellationPending){
+    const actions=node('div');actions.className='frontdesk-actions';
+    for(const [next,label]of [['confirmed','確認預約'],['rejected','拒絕預約']]){
+     const b=node('button',label);b.type='button';b.dataset.reviewAction=next;
+     b.className=next==='confirmed'?'frontdesk-primary':'frontdesk-danger';
+     b.onclick=()=>void review(booking,next,b);actions.append(b);
+    }
+    card.append(actions);
+   }else if(booking.cancellationPending){
+    const hint=node('p','取消申請待審核，請交由商家管理員處理。');hint.className='frontdesk-cancellation';card.append(hint);
+   }
    list.append(card);
   }
  }
@@ -60,7 +101,10 @@
    return;
   }
   const state={pending:'等待商家管理員審核',approved:person.permissionMode==='review'?'可確認／拒絕預約':'僅接收預約訊息',rejected:'申請未通過，請聯絡商家管理員',suspended:'櫃檯權限已停用，請聯絡商家管理員'}[person.status];
-  account.append(node('h2',person.displayName||'櫃檯人員'),node('p','審核狀態：'+(state||'尚未取得使用資格')));
+  const identity=node('div');identity.className='frontdesk-identity';
+  identity.append(node('h2',person.displayName||'櫃檯人員'));
+  if(person.status==='approved'){const chip=node('span','已核准');chip.className='frontdesk-permission';identity.append(chip);}
+  account.append(identity,node('p','審核狀態：'+(state||'尚未取得使用資格')));
   if(person.status==='pending'){
    showProgress(2);
    account.append(node('p','申請已送出。請商家管理員前往「LINE 設定 → 預約 → 櫃檯官方帳號與人員權限」核准資格。核准前無法收通知或操作預約。'));
