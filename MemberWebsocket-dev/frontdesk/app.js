@@ -85,6 +85,9 @@
    if(booking.note&&!participants.some(p=>String(p.note||'').trim()===String(booking.note).trim())){
     const note=node('p','會員備註：'+booking.note);note.className='frontdesk-note';card.append(note);
    }
+   if(String(booking.adminNote||'').trim()){
+    const adminNote=node('p','管理端說明：'+String(booking.adminNote).trim());adminNote.className='frontdesk-note';card.append(adminNote);
+   }
    if(booking.status==='pending'&&!booking.cancellationPending){
     const actions=node('div');actions.className='frontdesk-actions';
     for(const [next,label]of [['confirmed','確認預約'],['rejected','拒絕預約']]){
