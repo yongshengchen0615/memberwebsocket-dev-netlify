@@ -45,6 +45,9 @@ test('frontdesk: tenant-scoped applications, modes, revocation, outbox, transiti
   assert.equal(bookings.bookings[0].participants[0].services[0].title,'FD service');
   assert.equal(bookings.bookings[0].participants[0].technician,'現場安排');
   assert.equal(bookings.bookings[0].participants[0].position,1);
+  await q("update S.booking_participants set member_note='第一位測試備註' where booking_id=$1 and position=1",[b]);
+  const noted=await req('bookings');
+  assert.equal(noted.bookings[0].participants[0].note,'第一位測試備註','show the same per-person note as LINE');
   const body={bookingId:b,expectedUpdatedAt:bookings.bookings[0].updatedAt,status:'confirmed',requestId:crypto.randomUUID()};
   const applied=await req('booking.update',body);assert.equal(applied.booking.status,'confirmed');assert.equal((await req('booking.update',body)).alreadyApplied,true);
   await assert.rejects(req('booking.update',{...body,status:'rejected'}),/FRONTDESK_REQUEST_CONFLICT/);
