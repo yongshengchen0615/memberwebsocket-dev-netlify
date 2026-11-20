@@ -28,7 +28,7 @@
  .frontdesk-page .frontdesk-card-details p{display:grid;gap:2px}
  .frontdesk-page .frontdesk-card-details a{width:max-content;max-width:100%}
  .frontdesk-page .frontdesk-actions{margin-top:15px}
- .frontdesk-page .frontdesk-actions button{width:100%}
+ .frontdesk-page .frontdesk-actions button{width:100%;flex:auto}
 }
 @media(prefers-reduced-motion:reduce){
  .frontdesk-page .frontdesk-card,.frontdesk-page .frontdesk-refresh{transition:none}
