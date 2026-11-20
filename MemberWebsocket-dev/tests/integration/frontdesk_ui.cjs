@@ -166,43 +166,9 @@ test('AC-FD-LINE-001: distinct participants, technicians and individual notes fo
 });
 
 
-test('AC-FR-007: authorized desk registers a pending phone booking, keeps occupied times grey and forwards the service list',async()=>{
- const dom=new JSDOM('<h1 id="businessName"></h1><p id="status"></p><ol id="progress"></ol><section id="account"></section><div class="frontdesk-toolbar"><h2></h2><p id="bookingSummary"></p><button id="refresh">刷新</button></div><section id="bookings"></section>',
-   {url:'https://desk.test/frontdesk/?business=shop-a',runScripts:'outside-only'}),w=dom.window;
- const calls=[],serviceId='10000000-0000-4000-8000-000000000008';w.crypto.randomUUID=()=>crypto.randomUUID();
- w.liff={init:async()=>{},isLoggedIn:()=>true,getIDToken:()=>'verified'};
- w.fetch=async(_url,init)=>{
-   if(!init?.body)return{ok:true,json:async()=>({supabaseFunctionUrl:'https://db.test/functions/v1/api',supabasePublishableKey:'public'})};
-   const body=JSON.parse(init.body);calls.push(body);
-   const data=body.action==='frontdesk.public'?{name:'QA',frontdesk:{enabled:true,liffId:'2010999999-desk'}}:
-     body.action==='frontdesk.bootstrap'?{staff:{status:'approved',permissionMode:'review'}}:
-     body.action==='frontdesk.bookings'?{bookings:[]}:
-     body.action==='frontdesk.phone.catalog'?{services:[{id:serviceId,title:'身體60',durationMinutes:60,priceAmount:100}],settings:{minAdvanceDays:2,maxAdvanceDays:14}}:
-     body.action==='frontdesk.phone.slots'?{slots:[{startTime:'10:00',available:false},{startTime:'11:00',available:true}],totalDurationMinutes:70}:
-     body.action==='frontdesk.phone.create'?{bookingId:'10000000-0000-4000-8000-000000000088',status:'pending'}:{bookings:[]};
-   return{ok:true,json:async()=>({ok:true,data})};
- };
- const settle=()=>new Promise(resolve=>setImmediate(resolve));
- const ready=new Promise(resolve=>w.addEventListener('frontdesk-ready',resolve,{once:true}));w.eval(source());await ready;
- const open=[...w.document.querySelectorAll('button')].find(b=>b.textContent==='登記電話／現場預約');assert.ok(open);
- open.click();await settle();
- const form=w.document.querySelector('.frontdesk-phone-form');assert.ok(form);
- const add=[...form.querySelectorAll('button')].find(b=>b.textContent==='增加預約項目');add.click();await settle();
- const occupied=form.querySelector('button[data-start-time="10:00"]');
- const available=form.querySelector('button[data-start-time="11:00"]');
- assert.ok(occupied&&available);assert.equal(occupied.disabled,true);
- available.click();form.querySelector('input[type=text]').value='測試';
- form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));await settle();await settle();
- const created=calls.find(b=>b.action==='frontdesk.phone.create');assert.ok(created);
- assert.equal(created.startTime,'11:00');
- assert.deepEqual(created.items,[{serviceId,quantity:1}]);
- assert.match(created.requestId,/^PHONE-[0-9a-f-]{36}$/);
- assert.match(w.document.getElementById('status').textContent,/等待管理員確認/);
- w.close();
-});
-test('AC-FR-008: desk must choose a reason before rejection and preserves the code in the server request',async()=>{
- const dom=new JSDOM('<h1 id="businessName"></h1><p id="status"></p><ol id="progress"></ol><section id="account"></section><div class="frontdesk-toolbar"><h2></h2><p id="bookingSummary"></p><button id="refresh">刷新</button></div><section id="bookings"></section>',
-  {url:'https://desk.test/frontdesk/?business=shop-a',runScripts:'outside-only'}),w=dom.window;
+test('AC-FR-MODAL-001..003: modal requires a reason; phone section appears only for walk-in and forwards original booking date indirectly',async()=>{
+ const bookingId='10000000-0000-4000-8000-000000000008',idA='10000000-0000-4000-8000-000000000009',idB='10000000-0000-4000-8000-000000000010';
+ const dom=new JSDOM('<h1 id="businessName"></h1><p id="status"></p><ol id="progress"></ol><section id="account"></section><div class="frontdesk-toolbar"><h2></h2><p id="bookingSummary"></p><button id="refresh">刷新</button></div><section id="bookings"></section>',{url:'https://desk.test/frontdesk/?business=shop-a',runScripts:'outside-only'}),w=dom.window;
  const calls=[];w.crypto.randomUUID=()=>crypto.randomUUID();
  w.liff={init:async()=>{},isLoggedIn:()=>true,getIDToken:()=>'verified'};
  w.fetch=async(_url,init)=>{
@@ -210,18 +176,66 @@ test('AC-FR-008: desk must choose a reason before rejection and preserves the co
   const body=JSON.parse(init.body);calls.push(body);
   const data=body.action==='frontdesk.public'?{name:'QA',frontdesk:{enabled:true,liffId:'2010999999-desk'}}:
    body.action==='frontdesk.bootstrap'?{staff:{status:'approved',permissionMode:'review'}}:
-   body.action==='frontdesk.bookings'?{bookings:[{id:'10000000-0000-4000-8000-000000000008',name:'QA',status:'pending',updatedAt:'2026-11-20T10:00:00.000Z',services:[]}]}:{ok:true};
+   body.action==='frontdesk.bookings'?{bookings:[{id:bookingId,name:'QA',status:'pending',updatedAt:'2026-11-20T10:00:00.000Z',bookingDate:'2026-12-12',startTime:'11:00',services:[]}]}:
+   body.action==='frontdesk.phone.catalog'?{services:[{id:idA,title:'身體60',durationMinutes:60},{id:idB,title:'腳底30',durationMinutes:30}]}:
+   body.action==='frontdesk.booking.reject-phone'?{booking:{status:'rejected'},phoneBookingStatus:'pending'}:{};
   return{ok:true,json:async()=>({ok:true,data})};
  };
  const settle=()=>new Promise(resolve=>setImmediate(resolve));
  const ready=new Promise(resolve=>w.addEventListener('frontdesk-ready',resolve,{once:true}));w.eval(source());await ready;
- const reject=[...w.document.querySelectorAll('[data-review-action]')].find(b=>b.textContent==='拒絕預約');
- assert.ok(reject);reject.click();
- assert.match(w.document.getElementById('status').textContent,/請先選擇拒絕原因/);
+ assert.equal(w.document.querySelector('[data-frontdesk-rejection-dialog]'),null);
+ assert.equal(w.document.querySelector('#account [data-phone-registration]'),null);
+ const reject=[...w.document.querySelectorAll('[data-review-action]')].find(b=>b.textContent==='拒絕預約');assert.ok(reject);reject.click();
+ assert.ok(w.document.querySelector('[role=dialog]'));
+ w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
+ assert.equal(w.document.querySelector('[role=dialog]'),null,'Escape closes without a rejection request');
+ assert.equal(calls.filter(b=>b.action==='frontdesk.booking.update'||b.action==='frontdesk.booking.reject-phone').length,0);
+ reject.click();
+ const dialog=w.document.querySelector('[role=dialog]'),reason=dialog.querySelector('select[aria-label="選擇拒絕預約原因"]'),panel=dialog.querySelector('[data-phone-registration]');
+ assert.ok(dialog);assert.equal(panel.hidden,true);assert.equal(dialog.querySelector('button[type=submit]').disabled,true);
+ assert.equal(calls.filter(b=>b.action==='frontdesk.phone.catalog').length,0);
+ reason.value='technician_leave';reason.dispatchEvent(new w.Event('change',{bubbles:true}));
+ assert.equal(panel.hidden,true);assert.equal(dialog.querySelector('button[type=submit]').disabled,false);
+ assert.equal(calls.filter(b=>b.action==='frontdesk.phone.catalog').length,0);
+ reason.value='unrecorded_phone_booking';reason.dispatchEvent(new w.Event('change',{bubbles:true}));await settle();
+ assert.equal(panel.hidden,false);assert.match(panel.textContent,/2026-12-12/);
+ const serviceChecks=dialog.querySelectorAll('.frontdesk-phone-service-option input[type=checkbox]');
+ assert.equal(serviceChecks.length,2);
+ for(const check of serviceChecks){check.checked=true;check.dispatchEvent(new w.Event('change',{bubbles:true}));}
+ assert.equal(dialog.querySelector('input[type=time]').value,'11:00');
+ assert.equal(dialog.querySelector('button[type=submit]').disabled,false);
+ dialog.querySelector('form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));await settle();await settle();
+ const req=calls.find(b=>b.action==='frontdesk.booking.reject-phone');assert.ok(req);
+ assert.equal(req.bookingId,bookingId);assert.equal(req.startTime,'11:00');
+ assert.equal(req.rejectionReason,'unrecorded_phone_booking');
+ assert.deepEqual(req.items,[{serviceId:idA,quantity:1},{serviceId:idB,quantity:1}]);
+ assert.equal(Object.hasOwn(req,'bookingDate'),false);
+ assert.equal(Object.hasOwn(req,'contactSurname'),false);
+ assert.match(req.requestId,/^[0-9a-f-]{36}$/i);assert.match(req.phoneRequestId,/^PHONE-[0-9a-f-]{36}$/i);
+ assert.equal(calls.filter(x=>x.action==='frontdesk.phone.create').length,0);
+ w.close();
+});
+test('AC-FR-MODAL-004: technician leave requires reason and never requests phone catalog or replacement',async()=>{
+ const dom=new JSDOM('<h1 id="businessName"></h1><p id="status"></p><ol id="progress"></ol><section id="account"></section><div class="frontdesk-toolbar"><h2></h2><p id="bookingSummary"></p><button id="refresh">刷新</button></div><section id="bookings"></section>',{url:'https://desk.test/frontdesk/?business=shop-a',runScripts:'outside-only'}),w=dom.window;
+ const calls=[];w.crypto.randomUUID=()=>crypto.randomUUID();w.liff={init:async()=>{},isLoggedIn:()=>true,getIDToken:()=>'verified'};
+ w.fetch=async(_url,init)=>{
+  if(!init?.body)return{ok:true,json:async()=>({supabaseFunctionUrl:'https://db.test/functions/v1/api',supabasePublishableKey:'public'})};
+  const body=JSON.parse(init.body);calls.push(body);
+  const data=body.action==='frontdesk.public'?{name:'QA',frontdesk:{enabled:true,liffId:'2010999999-desk'}}:
+   body.action==='frontdesk.bootstrap'?{staff:{status:'approved',permissionMode:'review'}}:
+   body.action==='frontdesk.bookings'?{bookings:[{id:'10000000-0000-4000-8000-000000000008',status:'pending',updatedAt:'2026-11-20T10:00:00.000Z',services:[]}]}:{};
+  return{ok:true,json:async()=>({ok:true,data})};
+ };
+ const settle=()=>new Promise(resolve=>setImmediate(resolve));
+ const ready=new Promise(resolve=>w.addEventListener('frontdesk-ready',resolve,{once:true}));w.eval(source());await ready;
+ [...w.document.querySelectorAll('[data-review-action]')].find(b=>b.textContent==='拒絕預約').click();
+ const dialog=w.document.querySelector('[role=dialog]'),reason=dialog.querySelector('select');
+ assert.equal(dialog.querySelector('button[type=submit]').disabled,true);
  assert.equal(calls.filter(b=>b.action==='frontdesk.booking.update').length,0);
- const reason=w.document.querySelector('select[aria-label="選擇拒絕預約原因"]');assert.ok(reason);
- reason.value='technician_leave';reject.click();await settle();await settle();
+ reason.value='technician_leave';reason.dispatchEvent(new w.Event('change',{bubbles:true}));
+ dialog.querySelector('form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));await settle();await settle();
  const update=calls.find(b=>b.action==='frontdesk.booking.update');
- assert.ok(update);assert.equal(update.rejectionReason,'technician_leave');
- assert.equal(update.status,'rejected');w.close();
+ assert.ok(update);assert.equal(update.rejectionReason,'technician_leave');assert.equal(update.status,'rejected');
+ assert.equal(calls.filter(b=>b.action==='frontdesk.phone.catalog'||b.action==='frontdesk.booking.reject-phone').length,0);
+ w.close();
 });

@@ -67,8 +67,9 @@ test('AC-FR-005: phone requests are tenant-scoped, pending, slot-blocking and au
  for(const op of ['frontdesk.phone.catalog','frontdesk.phone.slots','frontdesk.phone.create'])assert.ok(api.includes(op),op);
  assert.match(api,/frontdesk\.phone\.create'.*includes\(body\.action\)/);
  assert.match(ui,/登記電話／現場預約/);
- assert.match(ui,/電話預約已登記，時間已保留，等待管理員確認/);
- assert.match(ui,/b\.disabled=!slot\.available/);
+ assert.match(ui,/原預約已拒絕，電話／現場預約已登記並保留時段/);
+ assert.match(ui,/openRejectionDialog/);
+ assert.match(ui,/frontdesk-phone-service-option/);
  assert.match(ui,/frontdeskLockPrevious/);
  assert.match(migration,/admin_create_phone_booking_request/);
  assert.match(migration,/frontdesk_create_phone_booking_request/);
@@ -102,4 +103,35 @@ test('AC-FR-006: malformed frontdesk phone writes fail before a tenant RPC, vali
  assert.equal(applied.p_action,'phone.create');
  assert.deepEqual(applied.p_body.items,payload.items);
  assert.equal(applied.p_body.requestId,payload.requestId);
+});
+
+test('AC-FR-MODAL-005: paired rejection is authorized, atomic, date derived server-side, and dispatched once',async()=>{
+ const api=read('supabase/functions/_shared/frontdesk-handler.mjs');
+ const migration=read('supabase/migrations/20261120235900_frontdesk_atomic_reject_phone.sql');
+ assert.match(api,/frontdesk\.booking\.reject-phone/);
+ assert.match(api,/body\.bookingDate!==undefined/);
+ assert.match(api,/body\.contactSurname!==undefined/);
+ assert.match(api,/body\.phoneRequestId/);
+ assert.match(migration,/public\.platform_frontdesk_request\(p_tenant_id,p_actor,p_channel_id,p_issued_at,'booking\.update',p_body\)/);
+ assert.match(migration,/frontdesk_create_phone_booking_request/);
+ assert.match(migration,/\(b->>'booking_date'\)::date/);
+ assert.match(migration,/phoneBookingStatus/);
+ const {createFrontdeskHandler}=await import('../supabase/functions/_shared/frontdesk-handler.mjs');
+ const actor='U'+'a'.repeat(32),calls=[],tenantId='10000000-0000-4000-8000-000000000001';
+ const db={rpc:async(name,args)=>{calls.push({name,args});return {data:name==='platform_frontdesk_context'?{id:tenantId,slug:'shop-a',name:'Shop',frontdesk:{enabled:true,loginChannelId:'2010999999'}}:name==='consume_api_rate_limit'?true:{phoneBookingStatus:'pending'},error:null};}};
+ const handler=createFrontdeskHandler({db,allowedOrigins:new Set(['https://allowed.test']),verifyIdentity:async()=>({lineUserId:actor,issuedAtMs:Date.now()})});
+ const payload={action:'frontdesk.booking.reject-phone',business:'shop-a',idToken:'valid',bookingId:'10000000-0000-4000-8000-000000000003',requestId:'10000000-0000-4000-8000-000000000004',phoneRequestId:'PHONE-10000000-0000-4000-8000-000000000005',expectedUpdatedAt:'2026-11-20T10:00:00Z',status:'rejected',rejectionReason:'unrecorded_phone_booking',startTime:'11:00',items:[{serviceId:'10000000-0000-4000-8000-000000000006',quantity:1},{serviceId:'10000000-0000-4000-8000-000000000007',quantity:1}]};
+ const send=async body=>{const res=await handler(new Request('https://api.test',{method:'POST',headers:{Origin:'https://allowed.test'},body:JSON.stringify(body)}));return res.status;};
+ assert.equal(await send({...payload,bookingDate:'2026-12-01'}),400);
+ assert.equal(await send({...payload,items:[payload.items[0],payload.items[0]]}),400);
+ assert.equal(await send({...payload,items:[{...payload.items[0],quantity:3}]}),400);
+ assert.equal(await send({...payload,phoneRequestId:'BAD'}),400);
+ assert.equal(calls.filter(c=>c.name==='platform_frontdesk_request').length,0);
+ assert.equal(await send(payload),200);
+ const routed=calls.find(c=>c.name==='platform_frontdesk_request');
+ assert.equal(routed.args.p_action,'booking.reject_phone');
+ assert.equal(routed.args.p_actor,actor);
+ assert.deepEqual(routed.args.p_body.items,payload.items);
+ assert.equal(Object.hasOwn(routed.args.p_body,'bookingDate'),false);
+ assert.equal(calls.filter(c=>c.name==='platform_dispatch_booking').length,1);
 });
