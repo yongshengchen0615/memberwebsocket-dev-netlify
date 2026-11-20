@@ -57,6 +57,8 @@ test('frontdesk: tenant-scoped applications, modes, revocation, outbox, transiti
   await q("update S.booking_participants set member_note='第一位測試備註' where booking_id=$1 and position=1",[b]);
   const noted=await req('bookings');
   assert.equal(noted.bookings[0].participants[0].note,'第一位測試備註','show the same per-person note as LINE');
+  // Changing the catalogue after booking must not change historical quote snapshots.
+  await q('update S.booking_services set duration_minutes=120,price_amount=900 where id=$1',[svc]);
   const body={bookingId:b,expectedUpdatedAt:bookings.bookings[0].updatedAt,status:'confirmed',requestId:crypto.randomUUID()};
   const applied=await req('booking.update',body);assert.equal(applied.booking.status,'confirmed');assert.equal((await req('booking.update',body)).alreadyApplied,true);
   const confirmationNotices=await q("select * from S.notice_outbox where booking_id=$1 and event_key=$2 and channel='admin'",[b,'frontdesk.confirmed:'+body.requestId]);
