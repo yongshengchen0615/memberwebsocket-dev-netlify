@@ -38,14 +38,14 @@
   return data.data;
  }
  function failure(error,keepAccount=false){status.textContent=error.message;if(error.denied){epoch++;list.replaceChildren();if(!keepAccount)account.replaceChildren();}if(['AUTH_INVALID','FRONTDESK_AUTH_INVALID'].includes(error.code)){const b=node('button','重新登入 LINE');b.type='button';b.onclick=()=>{window.liff.logout();window.liff.login({redirectUri:location.href});};account.replaceChildren(b);list.replaceChildren();}}
- async function review(booking,next,button,rejectionReason){
+ async function review(booking,next,button,rejectionReason,phoneBooking=null,onSuccess=null){
   if(busy)return;const key=booking.id,known=pending.get(key);
   if(known&&known.status!==next){status.textContent='前次操作結果尚未確認，請先重試相同操作。';return;}
   if(!known&&next==='rejected'&&!['technician_leave','unrecorded_phone_booking'].includes(rejectionReason)){
    status.textContent='請先選擇拒絕原因。';return;
   }
-  const body=known||{bookingId:key,status:next,expectedUpdatedAt:booking.updatedAt,requestId:crypto.randomUUID(),...(next==='rejected'?{rejectionReason}:{})};pending.set(key,body);lock(true);const generation=epoch;
-  try{await request('frontdesk.booking.update',body);if(generation!==epoch)return;pending.delete(key);await load();status.textContent=next==='confirmed'?'預約已確認。':'預約已拒絕。';}
+  const body=known||{bookingId:key,status:next,expectedUpdatedAt:booking.updatedAt,requestId:crypto.randomUUID(),...(next==='rejected'?{rejectionReason}:{}),...(phoneBooking?{phoneRequestId:'PHONE-'+crypto.randomUUID(),startTime:phoneBooking.startTime,items:phoneBooking.items}:{})};pending.set(key,body);lock(true);const generation=epoch;
+  try{await request(body.phoneRequestId?'frontdesk.booking.reject-phone':'frontdesk.booking.update',body);if(generation!==epoch)return;pending.delete(key);await load();if(onSuccess)onSuccess();status.textContent=body.phoneRequestId?'原預約已拒絕，電話／現場預約已登記並保留時段，等待管理員確認。':next==='confirmed'?'預約已確認。':'預約已拒絕。';}
   catch(error){if(generation!==epoch)return;let refreshed=false;if(!error.uncertain){pending.delete(key);try{await load();refreshed=true;}catch{}}else button.textContent='重試相同操作';failure(error,refreshed);}
   finally{lock(false);}
  }
@@ -104,17 +104,11 @@
     const adminNote=node('p','管理端說明：'+String(booking.adminNote).trim());adminNote.className='frontdesk-note';card.append(adminNote);
    }
    if(booking.status==='pending'&&!booking.cancellationPending){
-    const reasonLabel=node('label','拒絕預約原因');reasonLabel.className='frontdesk-rejection-field';
-    const reasonSelect=node('select');reasonSelect.setAttribute('aria-label','選擇拒絕預約原因');
-    for(const [code,label] of [['','請選擇拒絕原因'],['technician_leave','預約中有休假技師'],['unrecorded_phone_booking','該時段已被現場人員預約但未登記']]){
-      const option=node('option',label);option.value=code;reasonSelect.append(option);
-    }
-    reasonLabel.append(reasonSelect);card.append(reasonLabel);
     const actions=node('div');actions.className='frontdesk-actions';
     for(const [next,label]of [['confirmed','確認預約'],['rejected','拒絕預約']]){
      const b=node('button',label);b.type='button';b.dataset.reviewAction=next;
      b.className=next==='confirmed'?'frontdesk-primary':'frontdesk-danger';
-     b.onclick=()=>void review(booking,next,b,reasonSelect.value);actions.append(b);
+     b.onclick=()=>{if(next==='rejected')openRejectionDialog(booking,b);else void review(booking,next,b);};actions.append(b);
     }
     card.append(actions);
    }else if(booking.cancellationPending){
@@ -324,10 +318,6 @@
   showProgress(3);
   if(person.permissionMode==='review'){
    showBookingToolbar(true);
-   const phoneButton=node('button','登記電話／現場預約');phoneButton.type='button';
-   phoneButton.className='frontdesk-primary';phoneButton.setAttribute('aria-expanded','false');
-   phoneButton.onclick=()=>void openPhoneBookingForm(phoneButton);
-   account.append(phoneButton);
    const result=await request('frontdesk.bookings',bookingId?{bookingId}:{});if(generation!==epoch)return false;
    renderBookings(result.bookings||[]);
     startSync();
