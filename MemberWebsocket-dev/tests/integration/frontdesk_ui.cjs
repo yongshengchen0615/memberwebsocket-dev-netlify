@@ -128,7 +128,9 @@ test('AC-FD-UX-001: staff cards expose readable schedule, tappable phone, privac
  assert.ok(card);assert.match(card.querySelector('.frontdesk-time').textContent,/2026\/11\/20.*10:00.*11:00/);
  assert.equal(card.querySelector('.frontdesk-badge').textContent,'待確認');
  assert.equal(card.querySelector('a[href^="tel:"]').getAttribute('href'),'tel:+886900123456');
- assert.match(card.querySelector('.frontdesk-participant').textContent,/第一位預約/);\n assert.match(card.querySelector('.frontdesk-participant').textContent,/身體按摩 × 2/);\n assert.match(card.querySelector('.frontdesk-participant').textContent,/預約技師：現場安排/);
+ assert.match(card.querySelector('.frontdesk-participant').textContent,/第一位預約/);
+ assert.match(card.querySelector('.frontdesk-participant').textContent,/身體按摩 × 2/);
+ assert.match(card.querySelector('.frontdesk-participant').textContent,/預約技師：現場安排/);
  assert.equal(card.querySelectorAll('img').length,0,'server text must never be injected as markup');
  assert.equal(card.querySelectorAll('[data-review-action]').length,2);
  assert.equal(w.document.getElementById('progress').hidden,true,'approved staff do not need a completed application guide');
