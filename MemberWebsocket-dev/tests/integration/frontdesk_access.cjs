@@ -13,6 +13,7 @@ test('frontdesk: tenant-scoped applications, modes, revocation, outbox, transiti
   await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261118190000_frontdesk_safeupdate_projection.sql'),'utf8'));
   await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261119150000_frontdesk_independent_feature_grant.sql'),'utf8'));
   await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261120114500_frontdesk_line_booking_details.sql'),'utf8'));
+  await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261120143000_frontdesk_sync_admin_confirmation.sql'),'utf8'));
   await assert.rejects(h.db.query('select public.platform_frontdesk_context($1)',['desk-shop']),/FRONTDESK_UNAVAILABLE/);
   await h.db.query("update platform_private.tenants set features=features||'{\"frontdesk\":true}'::jsonb where id=$1",[t.id]);
   const call=async(name,args)=>(await h.db.query(`select public.${name}(${args.map((_,i)=>'$'+(i+1)).join(',')}) result`,args)).rows[0].result;
@@ -29,6 +30,7 @@ test('frontdesk: tenant-scoped applications, modes, revocation, outbox, transiti
   await admin('staff.save',{staffId:people[0].id,expectedVersion:people[0].version,status:'approved',permissionMode:'notify_only'});
   assert.equal((await req('bootstrap')).staff.permissionMode,'notify_only');
   await assert.rejects(req('bookings'),/FRONTDESK_REVIEW_REQUIRED/);
+  await assert.rejects(req('sync.status'),/FRONTDESK_REVIEW_REQUIRED/,'notify-only staff cannot request private revision');
   people=(await admin('get')).staff;await admin('staff.save',{staffId:people[0].id,expectedVersion:people[0].version,status:'approved',permissionMode:'review'});
   const s=t.runtime_schema,q=async(sql,args=[])=>(await h.db.query(sql.replaceAll('S.',s+'.'),args)).rows;
   await q("update S.booking_settings set require_primary_technician=false,work_start_time='08:00',work_end_time='22:00'");
@@ -37,7 +39,10 @@ test('frontdesk: tenant-scoped applications, modes, revocation, outbox, transiti
   await q("insert into S.booking_service_types(name)values('FD')");
   const svc=(await q("insert into S.booking_services(title,duration_minutes,price_amount,service_type,created_by)values('FD service',30,100,'FD',$1)returning id",[owner]))[0].id;
   const make=async()=>(await q('select (S.create_group_booking_request_v2($1,$2,current_date+3,\'10:00\',$3,\'\')).id id',['FD-'+crypto.randomUUID(),m,[{technicianId:null,items:[{serviceId:svc,quantity:1}]}]]))[0].id;
+  const revision=Number((await req('sync.status')).revision);
   const b=await make(),rows=await q('select * from S.notice_outbox where booking_id=$1',[b]);
+  const afterRevision=Number((await req('sync.status')).revision);
+  assert.ok(afterRevision>revision,'new bookings must advance the private revision');
   assert.equal(rows.filter(x=>x.channel==='frontdesk').length,1);assert.equal(rows.find(x=>x.channel==='frontdesk').message_text,rows.find(x=>x.channel==='admin').message_text);
   await h.db.exec('begin');await q("update S.bookings set member_note='會員變更測試' where id=$1",[b]);
   await q("insert into S.booking_audit_events(actor_line_user_id,actor_role,action,target_type,target_id,result,metadata)values($1,'member','BOOKING_UPDATED','booking',$2,'success','{}')",['U'+'3'.repeat(32),b]);await h.db.exec('commit');
@@ -53,6 +58,12 @@ test('frontdesk: tenant-scoped applications, modes, revocation, outbox, transiti
   assert.equal(noted.bookings[0].participants[0].note,'第一位測試備註','show the same per-person note as LINE');
   const body={bookingId:b,expectedUpdatedAt:bookings.bookings[0].updatedAt,status:'confirmed',requestId:crypto.randomUUID()};
   const applied=await req('booking.update',body);assert.equal(applied.booking.status,'confirmed');assert.equal((await req('booking.update',body)).alreadyApplied,true);
+  const confirmationNotices=await q("select * from S.notice_outbox where booking_id=$1 and event_key=$2 and channel='admin'",[b,'frontdesk.confirmed:'+body.requestId]);
+  assert.equal(confirmationNotices.length,1,'confirmed frontdesk reservation creates one administrator notification');
+  assert.match(confirmationNotices[0].message_text,/^【櫃檯確認預約】/);
+  assert.match(confirmationNotices[0].message_text,/預約日期：/);
+  assert.match(confirmationNotices[0].message_text,/預約項目：FD service/);
+  assert.match(confirmationNotices[0].message_text,/個別備註：第一位測試備註/);
   await assert.rejects(req('booking.update',{...body,status:'rejected'}),/FRONTDESK_REQUEST_CONFLICT/);
   await assert.rejects(req('booking.update',{...body,requestId:crypto.randomUUID(),expectedUpdatedAt:applied.booking.updatedAt,status:'rejected'}),/BOOKING_CONFLICT/);
   assert.equal((await q('select confirmed_by from S.bookings where id=$1',[b]))[0].confirmed_by,staff);
