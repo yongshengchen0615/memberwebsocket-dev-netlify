@@ -95,6 +95,7 @@
 - 所有應用程式入口使用分支所指定 Supabase 專案的 canonical API：`Integrated-Marketing-Platform` 連接 `MemberWebsocket-test`，`master` 連接 `MemberWebsocket-main`。UI 功能旗標不得切換至 `*-preview`、測試會員或 QA API；舊 preview 覆寫設定必須在所有建置環境清除。
 - 保留隔離單元、DOM、SQL 與瀏覽器測試；「移除測試 API」不代表刪除測試、改用真實會員作破壞性測試，或放寬 LINE／商家權限。
 - `supabase/retirement/retired-endpoints.json` 所列函式只能發布退役 handler；歷史 QA 實作僅供回歸測試參考。禁止不分函式的 blanket deploy；每次先列出部署函式及相依檔案，排除退役服務。
+- 一般 CI／本機建置以隔離環境執行退役 handler，核對五個端點的 `GET`、`OPTIONS`、`POST` 契約。正式端點的線上探查僅在獲授權的 `master` 發布流程執行，作為正式變更前的驗證。
 - 移除線上 preview 前，先發布通過完整 CI 的正式 API 消費端、核對呼叫來源與相容性、保留回復點，再逐個驗證 410／404。列表中的 `ACTIVE`、設定已移除或原始碼已提交，均不能單獨證明退役完成。
 - 路由變更以實際傳輸測試驗證 endpoint、身分／商家 payload、拒絕及不自動重送；同版產物檢查需阻止測試 API 與 preview 分流重新出現。
 

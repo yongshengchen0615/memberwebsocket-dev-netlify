@@ -246,6 +246,81 @@ for(const width of [390,1280])test('FRONTDESK_SETTINGS_STANDALONE_'+width+' — 
 });
 
 
+test('FRONTDESK_SETTINGS_RESUME — verify access once before reading settings', async ({ page }) => {
+ const bootstrap = 'platform.application.bootstrap';
+ const getSettings = 'platform.frontdesk.get';
+ const access = Promise.withResolvers();
+ const settingsStarted = Promise.withResolvers();
+ const settingsResponse = Promise.withResolvers();
+ let applicant = false;
+ await page.addInitScript(() => {
+  const fetchOriginal = window.fetch.bind(window);
+  window.settingsActions = [];
+  window.fetch = (url, options) => {
+   if (String(url).startsWith('https://fixture.supabase.co/')) {
+    window.settingsActions.push(JSON.parse(options.body).action);
+   }
+   return fetchOriginal(url, options);
+  };
+ });
+ await page.route('https://static.line-scdn.net/**', route => route.fulfill({
+  contentType: 'text/javascript',
+  body: 'window.liff={init:async()=>{},isLoggedIn:()=>true,getIDToken:()=>"synthetic-admin-token"};'
+ }));
+ let resuming = false;
+ await page.route('https://fixture.supabase.co/**', async route => {
+  const { action, business, idToken } = route.request().postDataJSON();
+  expect(business).toBe('shop-a');
+  expect(idToken).toBe('synthetic-admin-token');
+  let data;
+  if (action === bootstrap) {
+   if (resuming) await access.promise;
+   data = { application: { status: 'approved' }, tenant: {
+    name: '測試商家', slug: 'shop-a', status: 'active', expired: false,
+    onboarding: { adminReady: true }, features: { booking: true, frontdesk: true }
+   } };
+  } else if (action === getSettings) {
+   const staff = applicant ? [{ id: 'staff-new', version: 1, status: 'pending', displayName: '新申請櫃檯' }] : [];
+   if (applicant) {
+    settingsStarted.resolve();
+    await settingsResponse.promise;
+   }
+   data = { version: 1, frontdesk: {}, staff };
+  } else throw Error('UNEXPECTED_ACTION ' + action);
+  await route.fulfill({ json: { ok: true, data } });
+ });
+ await page.goto(base + '/admin/frontdesk-settings/?business=shop-a');
+ await expect(page.getByText('目前沒有申請。', { exact: false })).toBeVisible();
+ const reload = page.getByRole('button', { name: '重新整理', exact: true });
+ const resume = () => {
+  window.dispatchEvent(new Event('focus'));
+  window.dispatchEvent(new Event('online'));
+  document.dispatchEvent(new Event('visibilitychange'));
+  return window.settingsActions.slice();
+ };
+ resuming = true;
+ try {
+  await page.evaluate(() => { window.settingsActions.length = 0; });
+  const beforeAccess = await page.evaluate(resume);
+  // Let any premature read finish so the request count includes the second
+  // read the old implementation starts once the access check succeeds.
+  if (beforeAccess.includes(getSettings)) await expect(reload).toBeEnabled();
+  applicant = true;
+  access.resolve();
+  await settingsStarted.promise;
+  const afterAccess = await page.evaluate(() => window.settingsActions.slice());
+  const duringRead = await page.evaluate(resume);
+  settingsResponse.resolve();
+  await expect(page.locator('.frontdesk-person')).toContainText('新申請櫃檯');
+  expect(afterAccess).toEqual([bootstrap, getSettings]);
+  expect(duringRead).toEqual(afterAccess);
+  expect(beforeAccess).toEqual([bootstrap]);
+ } finally {
+  access.resolve();
+  settingsResponse.resolve();
+ }
+});
+
 test('FRONTDESK_SETTINGS_EXTERNAL_SESSION — reuse an existing external LINE login without redirect',async({page})=>{
  const calls=[];
  await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:"window.__lineActions=[];window.__sessionLoggedOut=false;window.liff={init:async()=>{},isLoggedIn:()=>!window.__sessionLoggedOut,isInClient:()=>false,getIDToken:()=>window.__sessionLoggedOut?'':'synthetic-admin-token',logout:()=>{window.__sessionLoggedOut=true;window.__lineActions.push('logout')},login:()=>window.__lineActions.push('login')};"}));

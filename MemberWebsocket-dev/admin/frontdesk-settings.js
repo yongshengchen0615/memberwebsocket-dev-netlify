@@ -305,27 +305,20 @@
       void load({ force: true });
     };
     details.addEventListener('toggle', () => { if (details.open) void load(); });
-    const onFocus = () => { if (visible()) void load(); };
-    const onVisibility = () => { if (!document.hidden) onFocus(); };
+    const loadWhenVisible = () => visible() ? load() : undefined;
     const onRefresh = event => {
-      if (!event.detail?.business || event.detail.business === business) onFocus();
+      if (!event.detail?.business || event.detail.business === business) void loadWhenVisible();
     };
     const onBroadcast = event => {
-      if (event.data?.business === business) onFocus();
+      if (event.data?.business === business) void loadWhenVisible();
     };
-    window.addEventListener('focus', onFocus);
-    window.addEventListener('online', onFocus);
     window.addEventListener('frontdesk:refresh', onRefresh);
-    document.addEventListener('visibilitychange', onVisibility);
     channel?.addEventListener('message', onBroadcast);
     active.set(root, {
       business,
-      load: onFocus,
+      load: loadWhenVisible,
       dispose() {
-        window.removeEventListener('focus', onFocus);
-        window.removeEventListener('online', onFocus);
         window.removeEventListener('frontdesk:refresh', onRefresh);
-        document.removeEventListener('visibilitychange', onVisibility);
         channel?.removeEventListener('message', onBroadcast);
         channel?.close();
       }
@@ -339,7 +332,8 @@
     root.querySelector('[data-frontdesk-settings]')?.remove();
   }
   function refresh({ business } = {}) {
-    for (const entry of active.values()) if (!business || entry.business === business) entry.load();
+    const entries = [...active.values()].filter(entry => !business || entry.business === business);
+    return Promise.all(entries.map(entry => entry.load()));
   }
   window.FrontdeskSettings = Object.freeze({ mount, clear, refresh });
 })();

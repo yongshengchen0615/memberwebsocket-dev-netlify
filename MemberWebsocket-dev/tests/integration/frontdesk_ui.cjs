@@ -62,7 +62,7 @@ test('merchant frontdesk settings reconcile server changes without overwriting d
  secondDraft.dispatchEvent(new w.Event('input',{bubbles:true}));
  const beforeDirtyRefresh=calls.length;
  current={...current,version:3,staff:[]};
- w.dispatchEvent(new w.Event('focus'));
+ w.dispatchEvent(new w.CustomEvent('frontdesk:refresh',{detail:{business:'shop-a'}}));
  await settle();
  assert.equal(calls.length,beforeDirtyRefresh,'the draft must survive background invalidation');
  assert.equal(secondDraft.value,'2010777777');
@@ -73,7 +73,7 @@ test('merchant frontdesk settings reconcile server changes without overwriting d
  assert.equal(root.textContent.includes('收件櫃檯'),false);
  w.FrontdeskSettings.clear(root);
  const beforeDispose=calls.length;
- w.dispatchEvent(new w.Event('focus'));
+ w.dispatchEvent(new w.CustomEvent('frontdesk:refresh',{detail:{business:'shop-a'}}));
  await settle();
  assert.equal(calls.length,beforeDispose,'revoked root must not retain listeners');
  dom.window.close();

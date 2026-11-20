@@ -14,13 +14,13 @@ const normalize = (file) => {
 // A directory name does not make executable/configuration content documentation.
 const isDoc = (name) => /\.(?:md|rst|txt|adoc)$/i.test(name)
   || /(?:^|\/)(?:README|CONTRIBUTING|LICENSE|NOTICE)$/i.test(name);
-const isBackendRisk = (name) => /(?:^|\/)supabase\/(?:migrations|functions)\//.test(name)
+const isBackendRisk = (name) => /(?:^|\/)supabase\/(?:migrations|functions|retirement)\//.test(name)
   || /(?:^|\/)supabase\/config\.toml$/.test(name)
   || /(?:^|\/)(?:auth|permissions|claims|rls|security|roles|admin-session)(?:[.\/-]|$)/i.test(name)
   || /(^|\/)\.env(?:\.|$)/.test(name);
 const isDeployRisk = (name) => name === 'netlify.toml'
   || /^\.github\/(?:workflows\/|PULL_REQUEST_TEMPLATE\.md$)/i.test(name)
-  || /^scripts\/(?:build-site|build-version|netlify-preview-source|verify-preview|check-preview-ci|netlify-native-ci-gate|verify-platform-preview|verify-netlify-native-preview|verify-netlify-cli-preview|inspect-preview-source|preview-member-runtime|supabase-release(?:-sql)?|netlify-release-marker|release-recovery|booking-transport|pr-change-risk|runtime-quality|ci-test-inventory)(?:\.test)?\.mjs$/.test(name);
+  || /^scripts\/(?:build-site|build-version|deploy|netlify-preview-source|verify-preview|check-preview-ci|netlify-native-ci-gate|verify-platform-preview|verify-netlify-native-preview|verify-netlify-cli-preview|verify-retired-endpoints|inspect-preview-source|preview-member-runtime|supabase-release(?:-sql)?|netlify-release-marker|release-recovery|booking-transport|pr-change-risk|runtime-quality|ci-test-inventory)(?:\.test)?\.mjs$/.test(name);
 const isShared = (name) => /(?:^|\/)(?:shared|common|api)(?:\/|[.-])/i.test(name)
   || /^MemberWebsocket-dev\/(?!admin\/|platform\/|booking\/|member\/|points\/|event\/|calendar\/|tests\/|supabase\/)[^/]+\.js$/i.test(name);
 // Paths are conservative signals only; manual review can raise the risk.
