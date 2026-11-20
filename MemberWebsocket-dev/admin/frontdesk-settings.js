@@ -13,7 +13,7 @@
     mounted.add(root);
     const details = node('details', '', 'frontdesk-settings');
     details.dataset.frontdeskSettings = 'true';
-    details.append(node('summary', '櫃檯官方帳號與人員權限'));
+    details.append(node('summary', '櫃檯管理項目'));
     const status = node('p');
     status.setAttribute('role', 'status');
     status.setAttribute('aria-live', 'polite');
@@ -96,15 +96,17 @@
       const overview = node('div', '', 'frontdesk-settings-overview');
       overview.append(node('strong', cfg.enabled === false ? '櫃檯入口已停用' :
         hasSettings ? '櫃檯已設定 LINE 入口' : '尚待完成櫃檯設定'));
-      overview.append(node('p', '總管理員控制開通；商家管理員設定 LINE 與逐人授權。'));
+      overview.append(node('p', cfg.enabled === false ? '此商家的櫃檯服務目前已停用，請檢查下方通知設定。' :
+        hasSettings ? '登入與通知資料已設定。你可以檢查設定，或在右側管理人員權限。' :
+        '先完成 LINE 登入與官方帳號設定，再審核櫃檯人員的使用申請。'));
       content.append(overview);
       const form = node('form', '', 'frontdesk-config-form');
       const login = node('fieldset', '', 'frontdesk-setup-card');
-      login.append(node('legend', '1. 櫃檯登入'));
-      login.append(node('p', '填入 LINE Login Channel 與 LIFF ID，也可以貼上完整 LIFF 網址。'));
+      login.append(node('legend', '1. 櫃檯登入入口'));
+      login.append(node('p', '設定櫃檯人員使用的 LINE 登入入口。可直接貼上完整 LIFF 網址，系統會擷取 ID。'));
       const entry = node('div', '', 'business-line-fields');
-      const liff = field('liffId', 'LIFF ID 或 LIFF 入口網址', 'LINE Developers → LINE Login Channel → LIFF → LIFF ID。', cfg.liffId || '');
-      const channel = field('loginChannelId', 'LINE Login Channel ID', 'LINE Developers → LINE Login Channel → Basic settings → Channel ID。貼入 LIFF 後可自動帶入。', cfg.loginChannelId || '');
+      const liff = field('liffId', '櫃檯 LIFF ID／入口網址', '可貼入 LIFF ID 或網址。取得位置：LINE Developers → LINE Login Channel → LIFF。', cfg.liffId || '');
+      const channel = field('loginChannelId', '登入 Channel ID', '在 LINE Developers → LINE Login Channel → Basic settings 查看；貼入 LIFF 網址可自動帶入。', cfg.loginChannelId || '');
       if (cfg.liffId) {
         liff.input.readOnly = true;
         channel.input.readOnly = true;
@@ -126,7 +128,7 @@
       entry.append(liff.wrap, channel.wrap);
       login.append(entry);
       const endpoint = location.origin + '/frontdesk/?business=' + encodeURIComponent(business);
-      login.append(node('p', 'LIFF Endpoint URL（貼到 LINE Developers → LIFF → Endpoint URL）'));
+      login.append(node('p', '櫃檯頁面網址（請貼到 LINE Developers 的 LIFF Endpoint URL 欄位）'));
       const code = node('code', endpoint, 'frontdesk-endpoint');
       const copy = node('button', '複製 Endpoint URL', 'button button-outline');
       copy.type = 'button';
@@ -155,10 +157,10 @@
       disableLabel.append(disabled, node('span', '停用櫃檯入口及通知（停止人員申請與使用）'));
       notifications.append(disableLabel);
       const noticeFields = node('div', '', 'business-line-fields');
-      const messaging = field('messagingChannelId', 'LINE 官方帳號 Messaging API Channel ID',
+      const messaging = field('messagingChannelId', '通知用 Messaging API Channel ID',
         'LINE Official Account Manager → 設定 → Messaging API；也可在 LINE Developers → Messaging API Channel → Basic settings 查看。',
         cfg.messagingChannelId || '');
-      const token = field('channelAccessToken', 'Channel access token（long-lived）',
+      const token = field('channelAccessToken', '通知用 Channel access token',
         'LINE Developers → Messaging API Channel → Messaging API → Channel access token。安全儲存不回顯；啟用設定時須重新貼入完整 Token。',
         '', cfg.enabled !== false);
       noticeFields.append(messaging.wrap, token.wrap);
@@ -203,8 +205,8 @@
       content.append(form);
 
       const approvals = node('section', '', 'frontdesk-approvals');
-      approvals.append(node('h3', '3. 人員審核與權限'));
-      approvals.append(node('p', '櫃檯人員透過商家專屬 frontdesk 頁面登入並申請；未核准者不能查看預約或接收通知。'));
+      approvals.append(node('h3', '3. 櫃檯人員申請與權限'));
+      approvals.append(node('p', '人員須先從商家專屬櫃檯頁面申請，再由管理員逐人審核。未核准者無法查看預約或接收通知。'));
       const people = [...(data.staff || [])].sort((a, b) => (a.status === 'pending' ? -1 : 0) - (b.status === 'pending' ? -1 : 0));
       const waiting = people.filter(person => person.status === 'pending').length;
       approvals.append(node('p', '待審核 ' + waiting + ' 人｜已記錄申請 ' + people.length + ' 人', 'business-line-summary'));
@@ -212,7 +214,7 @@
       for (const person of people) {
         const row = node('form', '', 'frontdesk-person');
         const current = {pending:'待審核',approved:'已核准',rejected:'申請未通過',suspended:'已停用'}[person.status] || person.status;
-        row.append(node('h4', person.displayName || '櫃檯人員'), node('p', '申請狀態：' + current));
+        row.append(node('h4', person.displayName || '櫃檯人員'), node('p', '申請狀態：' + current, 'frontdesk-person-status'));
         if (person.status === 'pending') row.append(node('p', '此人員尚未獲授權，預設為「僅接收預約訊息」。'));
         const states = node('label', '審核狀態'), state = node('select');
         state.name = 'staffStatus';
