@@ -131,9 +131,9 @@
    const revision=result?.revision;
    if(typeof revision!=='string'||!/^[0-9]+$/.test(revision))throw Error('無法確認預約資料版本。');
    if(syncRevision!==revision){
-    syncRevision=revision;
-    // Re-read after the initial revision so no booking is lost during boot.
-    await load();
+    // Only accept the revision after all authorized booking reads succeed.
+    const reloaded=await load();
+    if(reloaded&&generation===syncGeneration&&canSync())syncRevision=revision;
    }
    syncFailures=0;
   }catch(error){
@@ -150,7 +150,7 @@
   }
  }
  async function load(){
-  const generation=++epoch,data=await request('frontdesk.bootstrap');if(generation!==epoch)return;
+  const generation=++epoch,data=await request('frontdesk.bootstrap');if(generation!==epoch)return false;
   account.replaceChildren();list.replaceChildren();showBookingToolbar(false);
   const person=data.staff;
    if(!person||person.status!=='approved'||person.permissionMode!=='review')stopSync();
@@ -181,7 +181,7 @@
   showProgress(3);
   if(person.permissionMode==='review'){
    showBookingToolbar(true);
-   const result=await request('frontdesk.bookings',bookingId?{bookingId}:{});if(generation!==epoch)return;
+   const result=await request('frontdesk.bookings',bookingId?{bookingId}:{});if(generation!==epoch)return false;
    renderBookings(result.bookings||[]);
     startSync();
    status.textContent='審核已通過，可處理目前商家的待確認預約。';
@@ -189,6 +189,7 @@
    account.append(node('p','管理員已核准「僅接收預約訊息」，不會顯示會員資料與預約操作。'));
    status.textContent='審核已通過，已開通 LINE 預約通知權限。';
   }
+  return person.permissionMode==='review';
  }
  async function start(){
   lock(true);try{
