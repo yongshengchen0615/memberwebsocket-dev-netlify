@@ -111,6 +111,14 @@ do $upgrade$
 declare d text;v_schema text;old text;replacement text;
 begin
  select pg_get_functiondef('public.platform_frontdesk_request(uuid,text,text,timestamp with time zone,text,jsonb)'::regprocedure) into strict d;
+ if position('if p_action=''phone.catalog'' then' in d)>0 and
+    position('if p_action=''phone.create'' then' in d)>0 then
+   -- Keep the authenticated route exactly once when deployments are retried.
+   for v_schema in select runtime_schema from platform_private.tenants where runtime_schema is not null loop
+     perform platform_private.install_frontdesk_phone(v_schema);
+   end loop;
+   return;
+ end if;
  old:=$old$ if p_action='bookings' then$old$;
  replacement:=$new$ if p_action='phone.catalog' then
    return platform_private.frontdesk_phone_catalog(t.runtime_schema);
