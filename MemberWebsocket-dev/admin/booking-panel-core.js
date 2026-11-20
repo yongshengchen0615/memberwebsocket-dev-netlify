@@ -32,6 +32,9 @@
     settingsBaseline: null,
     settingsDraftVersion: '',
     settingsDirty: false,
+    pendingMessageDirty: false,
+    pendingMessageVersion: '',
+    pendingMessageSaving: false,
     reminderMessageDirty: false,
     reminderMessageVersion: '',
     reminderMessageSaving: false,
@@ -197,6 +200,27 @@
               </div>
             </div>
           </form>
+          <form id="bookingAdminPendingMessageForm" class="booking-admin-form booking-admin-settings-form" novalidate>
+            <section class="booking-admin-settings-block booking-admin-settings-notice" aria-labelledby="bookingAdminPendingMessageHeading">
+              <div class="booking-admin-settings-block-heading">
+                <div><span class="booking-admin-settings-eyebrow">LINE 官方帳號通知</span><h4 id="bookingAdminPendingMessageHeading">預約申請等待確認訊息</h4></div>
+                <span class="booking-admin-settings-badge">管理員自訂</span>
+              </div>
+              <label class="booking-admin-settings-field booking-admin-settings-notice-field">
+                <span>會員送出預約後，官方帳號自動發送的文字（可換行，1–400 字）</span>
+                <textarea id="bookingAdminPendingMessage" maxlength="400" rows="4" required placeholder="我們已收到您的預約申請，請等待管理員確認；確認後會再透過 LINE 通知您。"></textarea>
+                <small>由官方帳號主動推播，會員不需要自行發訊息。提交預約不代表已確認；管理員或授權櫃檯確認後，系統才發送正式預約確認通知。</small>
+              </label>
+              <div class="booking-admin-settings-field">
+                <strong>LINE 訊息預覽（示意預約資料）</strong>
+                <output id="bookingAdminPendingMessagePreview" class="booking-admin-hours-preview" aria-live="polite"></output>
+              </div>
+              <p id="bookingAdminPendingMessageStatus" class="form-message hidden" role="status" aria-live="polite"></p>
+              <div class="booking-admin-settings-action-buttons">
+                <button id="bookingAdminPendingMessageSave" class="button button-dark" type="submit">儲存預約申請訊息</button>
+              </div>
+            </section>
+          </form>
           <form id="bookingAdminReminderMessageForm" class="booking-admin-form booking-admin-settings-form" novalidate>
             <section class="booking-admin-settings-block booking-admin-settings-notice" aria-labelledby="bookingAdminReminderMessageHeading">
               <div class="booking-admin-settings-block-heading">
@@ -289,7 +313,7 @@
 
   function cacheElements() {
     [
-      'bookingTab','bookingPanel','bookingAdminSyncStatus','bookingAdminSettingsForm','bookingAdminStartTime','bookingAdminEndTime','bookingAdminMaxEndOverrunMinutes','bookingAdminSlotInterval','bookingAdminHoursPreview','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminPhoneNumber','bookingAdminStoreServiceMinutes','bookingAdminSnapshotLocationRequired','bookingAdminNotice','bookingAdminReminderMessageForm','bookingAdminReminderMessage','bookingAdminReminderMessagePreview','bookingAdminReminderMessageStatus','bookingAdminReminderMessageSave','bookingAdminSettingsMessage','bookingAdminDraftStatus','bookingAdminDiscardSettingsButton','bookingAdminSaveSettingsButton',
+      'bookingTab','bookingPanel','bookingAdminSyncStatus','bookingAdminSettingsForm','bookingAdminStartTime','bookingAdminEndTime','bookingAdminMaxEndOverrunMinutes','bookingAdminSlotInterval','bookingAdminHoursPreview','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminPhoneNumber','bookingAdminStoreServiceMinutes','bookingAdminSnapshotLocationRequired','bookingAdminNotice','bookingAdminPendingMessageForm','bookingAdminPendingMessage','bookingAdminPendingMessagePreview','bookingAdminPendingMessageStatus','bookingAdminPendingMessageSave','bookingAdminReminderMessageForm','bookingAdminReminderMessage','bookingAdminReminderMessagePreview','bookingAdminReminderMessageStatus','bookingAdminReminderMessageSave','bookingAdminSettingsMessage','bookingAdminDraftStatus','bookingAdminDiscardSettingsButton','bookingAdminSaveSettingsButton',
       'bookingAdminNewTypeButton','bookingAdminTypeMessage','bookingAdminTypeList','bookingAdminTypeEmpty','bookingAdminServiceCount','bookingAdminPendingCount','bookingAdminAccessiblePendingCount','bookingAdminConfirmedCount',
       'bookingAdminSubtabs','bookingAdminTechniciansSubtab','bookingAdminServicesSubtab','bookingAdminSettingsSubtab','bookingAdminRiskSubtab','bookingAdminRiskPanel','bookingAdminRiskMount','bookingAdminRiskOpenAdvanceSettings','bookingAdminQueueSubtab','bookingAdminQueueSubtabCount','bookingAdminTechniciansPanel','bookingAdminServicesPanel','bookingAdminSettingsPanel','bookingAdminQueuePanel','bookingAdminStandardMode','bookingAdminAccessibleMode','bookingAdminStandardModeCount','bookingAdminAccessibleModeCount','bookingAdminStandardQueueView','bookingAdminNewServiceButton','bookingAdminBatchAddButton','bookingAdminBatchEditButton','bookingAdminBatchDeleteButton','bookingAdminServiceMessage','bookingAdminServiceList','bookingAdminServiceEmpty','bookingAdminQueue','bookingAdminQueueEmpty','bookingAdminPhoneCreateButton',
       'bookingAdminCrudModal','bookingAdminCrudModalTitle','bookingAdminCrudModalBody','bookingAdminCrudModalClose'
@@ -300,6 +324,11 @@
     els.bookingTab.addEventListener('click', activateBookingPanel);
     PRIMARY_TAB_IDS.forEach((id) => document.getElementById(id)?.addEventListener('click', deactivateBookingPanel));
     els.bookingAdminSettingsForm.addEventListener('submit', saveSettings);
+    els.bookingAdminPendingMessageForm.addEventListener('submit', savePendingMessage);
+    els.bookingAdminPendingMessage.addEventListener('input', () => {
+      state.pendingMessageDirty = true;
+      renderPendingMessagePreview();
+    });
     els.bookingAdminReminderMessageForm.addEventListener('submit', saveReminderMessage);
     els.bookingAdminReminderMessage.addEventListener('input', () => {
       state.reminderMessageDirty = true;
@@ -725,6 +754,20 @@
         : '目前設定已載入，尚未修改。';
     }
   }
+  function renderPendingMessagePreview() {
+    const message = String(els.bookingAdminPendingMessage.value || '').replace(/\r\n?/g, '\n').trim();
+    const example = [
+      '【預約申請】',
+      '狀態：等待管理員確認預約',
+      '日期：2026/12/12',
+      '時段：2026/12/12 11:30–2026/12/12 12:40（台北時間）',
+      '預約人：示意會員',
+      '預約人數：1 位',
+      '預約編號：示意編號',
+      ...message.split('\n').filter(Boolean).map((line) => '提醒事項：' + line),
+    ];
+    els.bookingAdminPendingMessagePreview.textContent = example.join('\n');
+  }
   function renderReminderMessagePreview() {
     const message = String(els.bookingAdminReminderMessage.value || '').replace(/\r\n?/g, '\n').trim();
     const example = [
@@ -761,6 +804,11 @@
     els.bookingAdminPhoneNumber.value = String(settings.phoneBookingNumber || '');
     els.bookingAdminStoreServiceMinutes.value = String(Number(settings.storeServiceMinutes || 10));
     els.bookingAdminNotice.value = String(settings.bookingNotice || '');
+    if (!state.pendingMessageDirty) {
+      els.bookingAdminPendingMessage.value = String(settings.pendingMessage || '我們已收到您的預約申請，請等待管理員確認；確認後會再透過 LINE 通知您。');
+      state.pendingMessageVersion = String(settings.updatedAt || '');
+      renderPendingMessagePreview();
+    }
     if (!state.reminderMessageDirty) {
       els.bookingAdminReminderMessage.value = String(settings.reminderMessage || '請準時到場；如需調整請至預約頁操作。');
       state.reminderMessageVersion = String(settings.updatedAt || '');
@@ -860,6 +908,41 @@
     els.bookingAdminBatchDeleteButton.disabled = count === 0;
     els.bookingAdminBatchEditButton.textContent = count ? `批次修改（${count}）` : '批次修改';
     els.bookingAdminBatchDeleteButton.textContent = count ? `批次刪除（${count}）` : '批次刪除';
+  }
+
+  async function savePendingMessage(event) {
+    event.preventDefault();
+    if (state.pendingMessageSaving) return;
+    const pendingMessage = String(els.bookingAdminPendingMessage.value || '').replace(/\r\n?/g, '\n');
+    if (!pendingMessage.trim() || pendingMessage.length > 400) {
+      showMessage(els.bookingAdminPendingMessageStatus, '預約申請訊息必須為 1–400 字。', 'error');
+      return;
+    }
+    state.pendingMessageSaving = true;
+    els.bookingAdminPendingMessageSave.disabled = true;
+    els.bookingAdminPendingMessageSave.textContent = '儲存中…';
+    clearMessage(els.bookingAdminPendingMessageStatus);
+    try {
+      const result = await manageRequest('admin.booking.pending-message.save', {
+        pendingMessage,
+        expectedUpdatedAt: state.pendingMessageVersion,
+      }, true);
+      if (!result.updatedAt) throw clientError('API_RESPONSE_UNCERTAIN', '無法確認訊息是否儲存，請重新載入核對。');
+      state.booking.settings = { ...state.booking.settings, pendingMessage: String(result.pendingMessage || pendingMessage), updatedAt: result.updatedAt };
+      state.pendingMessageDirty = false;
+      state.pendingMessageVersion = String(result.updatedAt);
+      if (!state.settingsDirty) renderSettings(true);
+      showMessage(els.bookingAdminPendingMessageStatus, '預約申請訊息已儲存，後續新預約將由 LINE 官方帳號主動通知會員。', 'success');
+    } catch (error) {
+      showMessage(els.bookingAdminPendingMessageStatus,
+        /CONFLICT/i.test(String(error?.code || ''))
+          ? '其他管理員已更新設定，請重新載入確認後再儲存。'
+          : error?.message || '儲存失敗，已保留目前輸入內容。', 'error');
+    } finally {
+      state.pendingMessageSaving = false;
+      els.bookingAdminPendingMessageSave.disabled = false;
+      els.bookingAdminPendingMessageSave.textContent = '儲存預約申請訊息';
+    }
   }
 
   async function saveReminderMessage(event) {
