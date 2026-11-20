@@ -186,6 +186,11 @@ test('AC-FR-MODAL-001..003: modal requires a reason; phone section appears only 
  assert.equal(w.document.querySelector('[data-frontdesk-rejection-dialog]'),null);
  assert.equal(w.document.querySelector('#account [data-phone-registration]'),null);
  const reject=[...w.document.querySelectorAll('[data-review-action]')].find(b=>b.textContent==='拒絕預約');assert.ok(reject);reject.click();
+ assert.ok(w.document.querySelector('[role=dialog]'));
+ w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
+ assert.equal(w.document.querySelector('[role=dialog]'),null,'Escape closes without a rejection request');
+ assert.equal(calls.filter(b=>b.action==='frontdesk.booking.update'||b.action==='frontdesk.booking.reject-phone').length,0);
+ reject.click();
  const dialog=w.document.querySelector('[role=dialog]'),reason=dialog.querySelector('select[aria-label="選擇拒絕預約原因"]'),panel=dialog.querySelector('[data-phone-registration]');
  assert.ok(dialog);assert.equal(panel.hidden,true);assert.equal(dialog.querySelector('button[type=submit]').disabled,true);
  assert.equal(calls.filter(b=>b.action==='frontdesk.phone.catalog').length,0);
