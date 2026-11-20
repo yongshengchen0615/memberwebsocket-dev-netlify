@@ -58,3 +58,47 @@ test('AC-FR-004: frontdesk rejects missing or forged reasons before database wri
  assert.equal(actual.rejectionReason,reasons[0]);
  assert.equal(actual.status,'rejected');
 });
+
+test('AC-FR-005: phone requests are tenant-scoped, pending, slot-blocking and audited',()=>{
+ const api=read('supabase/functions/_shared/frontdesk-handler.mjs');
+ const ui=read('frontdesk/app.js');
+ const migration=read('supabase/migrations/20261120224500_frontdesk_phone_pending.sql');
+ const provision=read('supabase/migrations/20261120224600_frontdesk_phone_provisioning.sql');
+ for(const op of ['frontdesk.phone.catalog','frontdesk.phone.slots','frontdesk.phone.create'])assert.ok(api.includes(op),op);
+ assert.match(api,/frontdesk\.phone\.create'.*includes\(body\.action\)/);
+ assert.match(ui,/登記電話／現場預約/);
+ assert.match(ui,/電話預約已登記，時間已保留，等待管理員確認/);
+ assert.match(ui,/b\.disabled=!slot\.available/);
+ assert.match(ui,/frontdeskLockPrevious/);
+ assert.match(migration,/admin_create_phone_booking_request/);
+ assert.match(migration,/frontdesk_create_phone_booking_request/);
+ assert.match(migration,/v_total,''pending''/);
+ assert.match(migration,/v_saved\.confirmed_by is distinct from p_actor/);
+ assert.match(migration,/p_actor,''frontdesk'',''BOOKING_PHONE_CREATED''/);
+ assert.match(migration,/status in \(''pending'',''confirmed''\)/);
+ assert.match(migration,/platform_private\.frontdesk_staff/);
+ assert.match(migration,/BOOKING_SLOT_TAKEN|PHONE_BOOKING_CONFLICT/);
+ assert.match(provision,/install_frontdesk_phone/);
+});
+test('AC-FR-006: malformed frontdesk phone writes fail before a tenant RPC, valid writes keep the authenticated actor',async()=>{
+ const {createFrontdeskHandler}=await import('../supabase/functions/_shared/frontdesk-handler.mjs');
+ const user='U'+'a'.repeat(32),calls=[];
+ const context={id:'10000000-0000-4000-8000-000000000001',slug:'shop-a',name:'A',frontdesk:{enabled:true,loginChannelId:'2010999999'}};
+ const db={rpc:async(name,args)=>{calls.push({name,args});return {data:name==='platform_frontdesk_context'?context:name==='consume_api_rate_limit'?true:{status:'pending'},error:null};}};
+ const handler=createFrontdeskHandler({db,allowedOrigins:new Set(['https://allowed.test']),verifyIdentity:async()=>({lineUserId:user,issuedAtMs:Date.now()})});
+ const request=async b=>{const res=await handler(new Request('https://api.test',{method:'POST',headers:{Origin:'https://allowed.test'},
+  body:JSON.stringify({business:'shop-a',idToken:'valid',...b})}));return {status:res.status,data:await res.json()};};
+ const payload={action:'frontdesk.phone.create',requestId:'PHONE-10000000-0000-4000-8000-000000000099',
+  bookingDate:'2026-12-12',startTime:'10:00',contactSurname:'QA',contactSalutation:'mr',
+  items:[{serviceId:'10000000-0000-4000-8000-000000000003',quantity:1}]};
+ assert.equal((await request({...payload,items:[]})).status,400);
+ assert.equal((await request({...payload,requestId:'FORGED'})).status,400);
+ assert.equal((await request({...payload,items:[{...payload.items[0],quantity:0}]})).status,400);
+ assert.equal(calls.filter(x=>x.name==='platform_frontdesk_request').length,0);
+ assert.equal((await request(payload)).status,200);
+ const applied=calls.filter(x=>x.name==='platform_frontdesk_request').at(-1).args;
+ assert.equal(applied.p_actor,user);
+ assert.equal(applied.p_action,'phone.create');
+ assert.deepEqual(applied.p_body.items,payload.items);
+ assert.equal(applied.p_body.requestId,payload.requestId);
+});
