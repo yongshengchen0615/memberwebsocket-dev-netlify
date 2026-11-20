@@ -60,6 +60,9 @@ do $frontdesk_patch$
 declare d text;old_text text;new_text text;
 begin
  select pg_get_functiondef('public.platform_frontdesk_request(uuid,text,text,timestamp with time zone,text,jsonb)'::regprocedure) into strict d;
+ if position('rejection_reason=$5' in d)>0 and position('BOOKING_REJECTION_REASON_REQUIRED' in d)>0 then
+   return; -- already applied by a development migration or an earlier release attempt
+ end if;
  old_text:=$old$ hash:=encode(sha256(convert_to((p_body-'requestId')::text,'UTF8')),'hex');$old$;
  new_text:=$new$ if p_body->>'status'='rejected' then
    if p_body->>'rejectionReason' is null or p_body->>'rejectionReason' not in ('technician_leave','unrecorded_phone_booking') then
