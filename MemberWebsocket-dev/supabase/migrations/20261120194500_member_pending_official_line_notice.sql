@@ -25,9 +25,7 @@ declare
   v_message text;
 begin
   if TG_OP <> 'INSERT' or NEW.status <> 'pending'
-     -- Online member booking APIs use BOOK-* request keys. Contact source
-     -- identifies whose phone/name is used and may legitimately be 'custom'.
-     -- Phone, receipt and staff-created records have different provenance.
+     -- Contact source can be member or custom; origin comes from the request key.
      or NEW.member_id is null or NEW.request_id !~ '^BOOK-[A-Za-z0-9-]{8,95}
     return null;
   end if;
