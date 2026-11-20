@@ -235,3 +235,26 @@ html[data-theme="light"] .frontdesk-page .frontdesk-shell{
  .frontdesk-page .frontdesk-header{flex-wrap:wrap}
  .frontdesk-page .frontdesk-theme-toggle{margin-left:auto}
 }
+
+/* Rejection is a deliberate action; keep the required reason readable in both themes. */
+.frontdesk-page .frontdesk-rejection-field{display:grid;gap:6px;margin:14px 0 8px;font-weight:700}
+.frontdesk-page .frontdesk-rejection-field select{width:100%;min-height:44px;box-sizing:border-box;padding:9px 12px;border-radius:10px;border:1px solid var(--fd-border);background:var(--fd-card);color:var(--fd-text);font:inherit}
+.frontdesk-page .frontdesk-rejection-field select:focus-visible{outline:3px solid var(--fd-primary);outline-offset:2px}
+
+/* Phone booking uses the same tenant-scoped occupancy contract as member slots. */
+.frontdesk-page .frontdesk-phone{margin:18px 0;padding:18px;border:1px solid var(--fd-border);border-radius:14px;background:var(--fd-card)}
+.frontdesk-page .frontdesk-phone-form{display:grid;gap:14px}
+.frontdesk-page .frontdesk-phone-form label{display:grid;gap:6px;font-weight:650}
+.frontdesk-page .frontdesk-phone-form :is(input,select,textarea){box-sizing:border-box;width:100%;min-height:44px;font:inherit;padding:10px 12px;border:1px solid var(--fd-border);border-radius:10px;background:var(--fd-card);color:var(--fd-text)}
+.frontdesk-page .frontdesk-phone-form textarea{min-height:80px}
+.frontdesk-page .frontdesk-phone-times{border:1px solid var(--fd-border);border-radius:12px;padding:12px;min-width:0}
+.frontdesk-page .frontdesk-phone-times legend{font-weight:700;padding:0 6px}
+.frontdesk-page .frontdesk-phone-slots{display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:9px}
+.frontdesk-page .frontdesk-phone-slots button{min-width:0;padding:9px 8px}
+.frontdesk-page .frontdesk-phone-slots button[aria-pressed="true"]{background:var(--fd-primary);color:var(--fd-on-primary,#fff);border-color:var(--fd-primary)}
+.frontdesk-page .frontdesk-phone-slots button:disabled{background:var(--fd-bg);color:var(--fd-muted);text-decoration:line-through;cursor:not-allowed;opacity:.7}
+.frontdesk-page .frontdesk-phone-items{display:grid;gap:9px}
+.frontdesk-page .frontdesk-phone-item{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--fd-border)}
+.frontdesk-page .frontdesk-phone-item span{flex:1 1 140px}
+.frontdesk-page .frontdesk-phone-item button{padding:6px 10px}
+.frontdesk-page .frontdesk-phone-message{color:var(--fd-muted);min-height:24px}

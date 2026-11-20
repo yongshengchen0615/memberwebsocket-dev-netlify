@@ -440,6 +440,7 @@ function bookingClient(row: any, items: any[] = [], benefits: any[] = []): Json 
     reminderEnabled: row.reminder_enabled === true,
     reminderTime: String(row.reminder_time || "18:00:00").slice(0, 5),
     adminNote: row.admin_note || "",
+    rejectionReason: row.rejection_reason || null,
     completedAt: row.completed_at || null,
     receiptSubmissionId:row.receipt_submission_id || null,
     noShowAt:row.no_show_at || null,
@@ -1133,6 +1134,13 @@ async function adminStatusUpdate(supabase: SupabaseClient, identity: Identity, b
     throw new ApiError(400, "INVALID_BOOKING_STATUS", "不支援的預約狀態。");
   }
   const adminNote = asText(body.adminNote, 500);
+  const rejectionReason = String(body.rejectionReason || "");
+  if (nextStatus === "rejected" && !["technician_leave", "unrecorded_phone_booking"].includes(rejectionReason)) {
+    throw new ApiError(400, "BOOKING_REJECTION_REASON_REQUIRED", "請選擇有效的拒絕預約原因。");
+  }
+  if (nextStatus !== "rejected" && rejectionReason) {
+    throw new ApiError(400, "INVALID_BOOKING_REJECTION_REASON", "只有拒絕預約才能指定拒絕原因。");
+  }
   const existing = await supabase.from("bookings").select("*").eq("id", bookingId).maybeSingle();
   if (existing.error) throw mapDatabaseError(existing.error);
   const booking = existing.data;
@@ -1158,6 +1166,7 @@ async function adminStatusUpdate(supabase: SupabaseClient, identity: Identity, b
   } else if (nextStatus === "rejected") {
     patch.rejected_by = identity.lineUserId;
     patch.rejected_at = now;
+    patch.rejection_reason = rejectionReason;
   } else {
     patch.cancelled_by = identity.lineUserId;
     patch.cancelled_at = now;
@@ -1167,7 +1176,7 @@ async function adminStatusUpdate(supabase: SupabaseClient, identity: Identity, b
     .select("*, members!bookings_member_id_fkey(display_name, member_code)").single();
   if (updated.error) throw mapDatabaseError(updated.error);
   const hydrated = await hydrateBookings(supabase, [updated.data]);
-  await audit(supabase, identity, "admin", `BOOKING_${nextStatus.toUpperCase()}`, "booking", bookingId, { previousStatus: booking.status });
+  await audit(supabase, identity, "admin", `BOOKING_${nextStatus.toUpperCase()}`, "booking", bookingId, { previousStatus: booking.status, ...(nextStatus === "rejected" ? { rejectionReason } : {}) });
   return { booking: hydrated[0] };
 }
 

@@ -164,3 +164,64 @@ test('AC-FD-LINE-001: distinct participants, technicians and individual notes fo
  assert.equal(card.querySelectorAll('script').length,0,'untrusted notes are text, not HTML');
  w.close();
 });
+
+
+test('AC-FR-007: authorized desk registers a pending phone booking, keeps occupied times grey and forwards the service list',async()=>{
+ const dom=new JSDOM('<h1 id="businessName"></h1><p id="status"></p><ol id="progress"></ol><section id="account"></section><div class="frontdesk-toolbar"><h2></h2><p id="bookingSummary"></p><button id="refresh">刷新</button></div><section id="bookings"></section>',
+   {url:'https://desk.test/frontdesk/?business=shop-a',runScripts:'outside-only'}),w=dom.window;
+ const calls=[],serviceId='10000000-0000-4000-8000-000000000008';w.crypto.randomUUID=()=>crypto.randomUUID();
+ w.liff={init:async()=>{},isLoggedIn:()=>true,getIDToken:()=>'verified'};
+ w.fetch=async(_url,init)=>{
+   if(!init?.body)return{ok:true,json:async()=>({supabaseFunctionUrl:'https://db.test/functions/v1/api',supabasePublishableKey:'public'})};
+   const body=JSON.parse(init.body);calls.push(body);
+   const data=body.action==='frontdesk.public'?{name:'QA',frontdesk:{enabled:true,liffId:'2010999999-desk'}}:
+     body.action==='frontdesk.bootstrap'?{staff:{status:'approved',permissionMode:'review'}}:
+     body.action==='frontdesk.bookings'?{bookings:[]}:
+     body.action==='frontdesk.phone.catalog'?{services:[{id:serviceId,title:'身體60',durationMinutes:60,priceAmount:100}],settings:{minAdvanceDays:2,maxAdvanceDays:14}}:
+     body.action==='frontdesk.phone.slots'?{slots:[{startTime:'10:00',available:false},{startTime:'11:00',available:true}],totalDurationMinutes:70}:
+     body.action==='frontdesk.phone.create'?{bookingId:'10000000-0000-4000-8000-000000000088',status:'pending'}:{bookings:[]};
+   return{ok:true,json:async()=>({ok:true,data})};
+ };
+ const settle=()=>new Promise(resolve=>setImmediate(resolve));
+ const ready=new Promise(resolve=>w.addEventListener('frontdesk-ready',resolve,{once:true}));w.eval(source());await ready;
+ const open=[...w.document.querySelectorAll('button')].find(b=>b.textContent==='登記電話／現場預約');assert.ok(open);
+ open.click();await settle();
+ const form=w.document.querySelector('.frontdesk-phone-form');assert.ok(form);
+ const add=[...form.querySelectorAll('button')].find(b=>b.textContent==='增加預約項目');add.click();await settle();
+ const occupied=form.querySelector('button[data-start-time="10:00"]');
+ const available=form.querySelector('button[data-start-time="11:00"]');
+ assert.ok(occupied&&available);assert.equal(occupied.disabled,true);
+ available.click();form.querySelector('input[type=text]').value='測試';
+ form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));await settle();await settle();
+ const created=calls.find(b=>b.action==='frontdesk.phone.create');assert.ok(created);
+ assert.equal(created.startTime,'11:00');
+ assert.deepEqual(created.items,[{serviceId,quantity:1}]);
+ assert.match(created.requestId,/^PHONE-[0-9a-f-]{36}$/);
+ assert.match(w.document.getElementById('status').textContent,/等待管理員確認/);
+ w.close();
+});
+test('AC-FR-008: desk must choose a reason before rejection and preserves the code in the server request',async()=>{
+ const dom=new JSDOM('<h1 id="businessName"></h1><p id="status"></p><ol id="progress"></ol><section id="account"></section><div class="frontdesk-toolbar"><h2></h2><p id="bookingSummary"></p><button id="refresh">刷新</button></div><section id="bookings"></section>',
+  {url:'https://desk.test/frontdesk/?business=shop-a',runScripts:'outside-only'}),w=dom.window;
+ const calls=[];w.crypto.randomUUID=()=>crypto.randomUUID();
+ w.liff={init:async()=>{},isLoggedIn:()=>true,getIDToken:()=>'verified'};
+ w.fetch=async(_url,init)=>{
+  if(!init?.body)return{ok:true,json:async()=>({supabaseFunctionUrl:'https://db.test/functions/v1/api',supabasePublishableKey:'public'})};
+  const body=JSON.parse(init.body);calls.push(body);
+  const data=body.action==='frontdesk.public'?{name:'QA',frontdesk:{enabled:true,liffId:'2010999999-desk'}}:
+   body.action==='frontdesk.bootstrap'?{staff:{status:'approved',permissionMode:'review'}}:
+   body.action==='frontdesk.bookings'?{bookings:[{id:'10000000-0000-4000-8000-000000000008',name:'QA',status:'pending',updatedAt:'2026-11-20T10:00:00.000Z',services:[]}]}:{ok:true};
+  return{ok:true,json:async()=>({ok:true,data})};
+ };
+ const settle=()=>new Promise(resolve=>setImmediate(resolve));
+ const ready=new Promise(resolve=>w.addEventListener('frontdesk-ready',resolve,{once:true}));w.eval(source());await ready;
+ const reject=[...w.document.querySelectorAll('[data-review-action]')].find(b=>b.textContent==='拒絕預約');
+ assert.ok(reject);reject.click();
+ assert.match(w.document.getElementById('status').textContent,/請先選擇拒絕原因/);
+ assert.equal(calls.filter(b=>b.action==='frontdesk.booking.update').length,0);
+ const reason=w.document.querySelector('select[aria-label="選擇拒絕預約原因"]');assert.ok(reason);
+ reason.value='technician_leave';reject.click();await settle();await settle();
+ const update=calls.find(b=>b.action==='frontdesk.booking.update');
+ assert.ok(update);assert.equal(update.rejectionReason,'technician_leave');
+ assert.equal(update.status,'rejected');w.close();
+});
