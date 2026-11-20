@@ -14,6 +14,8 @@ test('frontdesk: tenant-scoped applications, modes, revocation, outbox, transiti
   await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261119150000_frontdesk_independent_feature_grant.sql'),'utf8'));
   await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261120114500_frontdesk_line_booking_details.sql'),'utf8'));
   await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261120143000_frontdesk_sync_admin_confirmation.sql'),'utf8'));
+  await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261120170000_frontdesk_confirm_line_individual_totals.sql'),'utf8'));
+  await h.db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261120143000_frontdesk_sync_admin_confirmation.sql'),'utf8'));
   await assert.rejects(h.db.query('select public.platform_frontdesk_context($1)',['desk-shop']),/FRONTDESK_UNAVAILABLE/);
   await h.db.query("update platform_private.tenants set features=features||'{\"frontdesk\":true}'::jsonb where id=$1",[t.id]);
   const call=async(name,args)=>(await h.db.query(`select public.${name}(${args.map((_,i)=>'$'+(i+1)).join(',')}) result`,args)).rows[0].result;
@@ -63,6 +65,9 @@ test('frontdesk: tenant-scoped applications, modes, revocation, outbox, transiti
   assert.match(confirmationNotices[0].message_text,/^【櫃檯確認預約】/);
   assert.match(confirmationNotices[0].message_text,/預約日期：/);
   assert.match(confirmationNotices[0].message_text,/預約項目：FD service/);
+  assert.match(confirmationNotices[0].message_text,/個別時間：30 分鐘/);
+  assert.match(confirmationNotices[0].message_text,/個別金額：NT\$100/);
+  assert.doesNotMatch(confirmationNotices[0].message_text,/個別(?:時間|金額)：\s*-/,'known item snapshot must not render dash placeholders');
   assert.match(confirmationNotices[0].message_text,/個別備註：第一位測試備註/);
   await assert.rejects(req('booking.update',{...body,status:'rejected'}),/FRONTDESK_REQUEST_CONFLICT/);
   await assert.rejects(req('booking.update',{...body,requestId:crypto.randomUUID(),expectedUpdatedAt:applied.booking.updatedAt,status:'rejected'}),/BOOKING_CONFLICT/);
