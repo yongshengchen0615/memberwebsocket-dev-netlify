@@ -411,10 +411,14 @@ test('FRONTDESK_STAFF_DELETE — real browser confirms deletion, cancels safely 
 
 
 test('AC-FD-RT-001: member booking appears without manual refresh; authorization revocation closes synchronization',async({page})=>{
- let revision=1,approved=true,bookingCount=0;const calls=[];
+ let revision=1,approved=true,bookingCount=0,failNextBooking=false;const calls=[];
  await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:'window.liff={init:async()=>{},isLoggedIn:()=>true,getIDToken:()=>"verified-staff",login:()=>{},logout:()=>{}};'}));
  await page.route('https://fixture.supabase.co/**',route=>{
   const input=route.request().postDataJSON();calls.push(input.action);
+  if(input.action==='frontdesk.bookings'&&failNextBooking){
+   failNextBooking=false;
+   return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({ok:false,error:{code:'TEMPORARY_UNAVAILABLE',message:'預約資料暫時無法取得。'}})});
+  }
   if(input.action==='frontdesk.sync.status'&&!approved){
    return route.fulfill({status:403,contentType:'application/json',body:JSON.stringify({ok:false,error:{code:'FRONTDESK_REVIEW_REQUIRED',message:'已撤銷櫃檯權限。'}})});
   }
@@ -433,8 +437,9 @@ test('AC-FD-RT-001: member booking appears without manual refresh; authorization
  await page.goto(base+'/frontdesk/?business=shop-a');
  await expect(page.locator('#bookings')).toContainText('目前沒有待處理的預約');
  await expect.poll(()=>calls.filter(x=>x==='frontdesk.sync.status').length,{timeout:10000}).toBeGreaterThan(0);
- bookingCount=1;revision++;
- await expect(page.locator('#bookings')).toContainText('林先生',{timeout:12000});
+ bookingCount=1;failNextBooking=true;revision++;
+ await expect(page.locator('#status')).toContainText('同步暫時中斷',{timeout:12000});
+ await expect(page.locator('#bookings')).toContainText('林先生',{timeout:20000});
  await expect(page.locator('#bookings')).toContainText('10技師');
  await expect(page.locator('#bookings')).toContainText('身體60');
  expect(calls.filter(x=>x==='frontdesk.bookings').length).toBeGreaterThan(1);
