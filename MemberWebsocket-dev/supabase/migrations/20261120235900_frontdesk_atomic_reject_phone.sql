@@ -35,4 +35,13 @@ begin
    then raise exception 'FRONTDESK_REJECTION_ROUTER_CONTRACT_CHANGED';end if;
  execute replace(d,v_anchor,v_block);
 end $upgrade$;
+-- Correct a development database that received the earlier version of this
+-- function during transactional QA, before the source-booking binding was added.
+do $repair$
+declare d text;old_note constant text:='''櫃檯拒絕原預約後補登記現場／電話預約''';
+ new_note constant text:='''原預約 ''||(p_body->>''bookingId'')||'' 拒絕後的現場／電話預約''';
+begin
+ select pg_get_functiondef('public.platform_frontdesk_request(uuid,text,text,timestamp with time zone,text,jsonb)'::regprocedure) into strict d;
+ if position(old_note in d)>0 then execute replace(d,old_note,new_note);end if;
+end $repair$;
 notify pgrst,'reload schema';
