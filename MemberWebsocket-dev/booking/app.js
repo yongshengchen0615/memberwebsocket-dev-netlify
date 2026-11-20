@@ -790,7 +790,6 @@
       return;
     }
 
-    const wasEditing = Boolean(state.editing);
     const fingerprint = bookingWriteFingerprint(items, bookingDate, startTime);
     if (!state.pendingBookingWrite || state.pendingBookingWrite.fingerprint !== fingerprint) {
       state.pendingBookingWrite = { fingerprint, requestId: `BOOK-${crypto.randomUUID()}` };
