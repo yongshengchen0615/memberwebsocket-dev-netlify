@@ -148,6 +148,7 @@ function settingsClient(row: any, storeService?: any): Json {
     phoneBookingNumber: String(row?.phone_booking_number || ""),
     storeServiceMinutes: Number(storeService?.duration_minutes || 10),
     bookingNotice: String(row?.booking_notice || ""),
+    pendingMessage: String(row?.pending_message || "我們已收到您的預約申請，請等待管理員確認；確認後會再透過 LINE 通知您。"),
     reminderMessage: String(row?.reminder_message || "請準時到場；如需調整請至預約頁操作。"),
     reminderEnabled: row?.reminder_enabled === true,
     snapshotLocationRequired: row?.snapshot_location_required === true,
@@ -220,6 +221,28 @@ async function bootstrap(supabase: SupabaseClient): Promise<Json> {
     pointCards: availableCards.map(pointCardClient),
   };
 }
+async function pendingMessageSave(supabase: SupabaseClient, identity: Identity, body: Json): Promise<Json> {
+  if (typeof body.pendingMessage !== 'string') {
+    throw new ApiError(400, 'INVALID_PENDING_MESSAGE', '請輸入預約申請等待確認訊息。');
+  }
+  const pendingMessage = preserveText(body.pendingMessage, 401);
+  if (!pendingMessage.trim() || pendingMessage.length > 400) {
+    throw new ApiError(400, 'INVALID_PENDING_MESSAGE', '預約申請訊息必須為 1–400 字。');
+  }
+  const expectedUpdatedAt = asText(body.expectedUpdatedAt, 80);
+  if (!expectedUpdatedAt) throw new ApiError(409, 'BOOKING_SETTINGS_CONFLICT', '設定版本已變更，請重新載入。');
+  const result = await supabase.from('booking_settings')
+    .update({ pending_message: pendingMessage, updated_by: identity.lineUserId })
+    .eq('id', 1).eq('updated_at', expectedUpdatedAt)
+    .select('pending_message,updated_at').maybeSingle();
+  if (result.error) throw mapDatabaseError(result.error);
+  if (!result.data) throw new ApiError(409, 'BOOKING_SETTINGS_CONFLICT', '設定已由其他管理員變更，請重新載入。');
+  await audit(supabase, identity, 'BOOKING_PENDING_MESSAGE_UPDATED', 'booking_settings', '1', {
+    length: pendingMessage.length,
+  });
+  return { pendingMessage: result.data.pending_message, updatedAt: result.data.updated_at };
+}
+
 async function reminderMessageSave(supabase: SupabaseClient, identity: Identity, body: Json): Promise<Json> {
   if (typeof body.reminderMessage !== 'string') {
     throw new ApiError(400, 'INVALID_REMINDER_MESSAGE', '請輸入預約提醒訊息。');
@@ -486,6 +509,7 @@ async function route(supabase: SupabaseClient, identity: Identity, action: strin
   if (["admin.booking.price.catalog", "admin.booking.price.publish", "admin.booking.price.cancel", "admin.booking.price.reschedule"].includes(action)) return await priceAction(supabase, identity, action, body);
   if (action === "admin.booking.manage.bootstrap") return await bootstrap(supabase);
   if (action === "admin.booking.settings.save") return await settingsSave(supabase, identity, body);
+  if (action === "admin.booking.pending-message.save") return await pendingMessageSave(supabase, identity, body);
   if (action === "admin.booking.reminder-message.save") return await reminderMessageSave(supabase, identity, body);
   if (action === "admin.booking.type.create") return await typeCreate(supabase, identity, body);
   if (action === "admin.booking.type.update") return await typeUpdate(supabase, identity, body);
