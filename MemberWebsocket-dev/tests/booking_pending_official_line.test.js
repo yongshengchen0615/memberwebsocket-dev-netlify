@@ -39,7 +39,9 @@ test('AC-BPN-003: admin has independent editor, preview and safe text rendering'
 });
 test('AC-BPN-004: insert-only pending notice uses tenant-scoped outbox, active non-test member and idempotent event', () => {
   assert.match(migration, /TG_OP <> 'INSERT' or NEW\.status <> 'pending'/);
-  assert.match(migration, /NEW\\.request_id !~ '\\^BOOK-\\[A-Za-z0-9-\\]\\{8,95\\}\\
+  assert.ok(migration.includes("NEW.request_id !~ '^BOOK-[A-Za-z0-9-]{8,95}$'"));
+  assert.doesNotMatch(migration, /NEW\.contact_source is distinct from 'member'/);
+  assert.match(migration, /NEW\.member_id is null/);
   assert.match(migration, /status=''active'' and coalesce\(is_test_account,false\)=false/);
   assert.match(migration, /runtime_schema=v_schema/);
   assert.match(migration, /on conflict \(event_key,channel,recipient\) do nothing/);
