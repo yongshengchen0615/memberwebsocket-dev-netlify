@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "bookingRejectionReview": "2026-11-20 PR #379：已審閱管理端預約待確認卡片的拒絕原因下拉選單、原確認／不通過／無故未到／完成流程及管理員自訂 LINE 預約未通過通知。保留現有六工作區的人工作業案例，新增 booking_rejection_reasons.test.js 檢查固定原因、服務端驗證、通知與版號鎖；正式 LINE 推送與完整 E2E 仍待驗證。",
+  "bookingRejectionReview": "2026-11-20 PR #379：已審閱管理端預約待確認卡片的拒絕原因下拉選單，以及櫃檯電話預約登記、服務項目、日期、時間佔位、重新整理與重試狀態、原確認／不通過／無故未到／完成流程及管理員自訂 LINE 預約未通過通知。保留現有六工作區的人工作業案例，新增 booking_rejection_reasons.test.js 檢查固定原因、服務端驗證、通知與版號鎖；正式 LINE 推送與完整 E2E 仍待驗證。",
   "eventLiffCallbackReview": "2026-11-19 PR #359：審閱活動票券行事曆檢視入口與商家 LINE 入口。現有 EVENT_coupon、EVENT_referral、EVENT_membership_join、EVENT_lottery 管理端旅程與商家 LINE 設定相鄰流程不變。本次只於 Event LIFF 登入導向遺失 business 時，從同分頁最近十分鐘有效且同 surface 的公開商家代碼恢復；無回呼參數不得繼承，逾期與其他功能不得跨用，網址顯式商家永遠優先。新增 business_context_routing.test.js AC-005/006 回歸並維持原 browser 管理端旅程；無伺服器授權、資料庫、通知或正式設定改變。實際 LINE Login 沙盒驗收仍需另外驗證。",
   "memberActivitySubfiltersReview": "2026-11-17：已審閱會員活動歷程五個主類、會員 360 入口、細分類計數、未知值、時間排序、即時更新與換會員重設。保留所有 admin-human 原旅程，新增 member-activity-subfilters.spec.cjs 於 1440/390px 驗證實際畫面及零額外歷程請求；不改 API、RLS、LINE 或資料庫。完整同 SHA CI 與開發部署另行取證。",
   "bookingEndOverrunReview": "2026-11-08 PR #271：審閱既有 booking.34 管理員工作時間、booking.phone-conflict 電話佔用與相鄰多人預約；新增預設關閉的服務晚結束開關。原有測試案例保留，並加入 PostgreSQL 租戶隔離、Node 時段、管理員草稿與手機瀏覽器測試。後續以同 SHA CI、PG、Edge、部署 Preview 實際結果驗收。 2026-11-08 PR #273：取消管理員開關，改成 0–1439 分鐘上限，0 禁止超時；已逐項審查 booking.34 工作時段／跨夜、booking.phone-conflict、多人預約與版本衝突，沿用原 BOOKING_SHARED_SETTINGS/PHONE 案例，增補 PostgreSQL 多租戶、新商家佈建、時段上界、Node 與 320/390/1280px 實際瀏覽器測試，通過同 SHA CI 才能合併；不更動 LINE 或其他管理模組。",
@@ -55,7 +55,7 @@
     "admin/business-line-settings.css": "ceab14d19f8137f529bdaa39c590ce5329304a9a3a8c515afd54bdb802a3f0c3",
     "booking/common.js": "8869346e2801a94b08615a6ab26d9908e3072e77758459b3824bb820d4191505",
     "admin/frontdesk-settings.js": "83ed15d5b4241564aa2609fc8bce61ff5922cd85f49f949770c49844eca97542",
-    "frontdesk/app.js": "0026b15bc7f24ba6cebfbda7743ab52fab5d1ff939b3cd5c2525032626bb60cf",
+    "frontdesk/app.js": "9b5eab1ad289fc4c1e27e870abfd30aa87b515caf3b47418109f1f6506207b26",
     "frontdesk/styles.css": "5d567e9f56c991d4ecb4e10ff126d54db27b68b7c537fcb9ca91611f8fc96e84",
     "frontdesk/index.html": "4221fe089c19892e372a04d6a6bd503847e91afb3f39083b605ab43b9aac668c",
     "admin/frontdesk-settings/index.html": "0a87f0bf5854f25ecf6862b644b3e5498f69b8ef0c26cc81687d324a7a20599c",
