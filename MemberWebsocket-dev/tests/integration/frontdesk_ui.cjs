@@ -146,7 +146,7 @@ test('AC-FD-LINE-001: distinct participants, technicians and individual notes fo
   const {action}=JSON.parse(opts.body);
   const data=action==='frontdesk.public'?{name:'店家',frontdesk:{enabled:true,liffId:'2010999999-desk'}}:
    action==='frontdesk.bootstrap'?{staff:{status:'approved',permissionMode:'review'}}:
-   {bookings:[{id:'booking-a',status:'pending',updatedAt:'2026-11-20T00:00:00',bookingDate:'2026-11-20',startTime:'09:30',endTime:'10:30',name:'陳先生',phone:'+886900638213',partySize:2,services:[],participants:[
+   {bookings:[{id:'booking-a',status:'pending',updatedAt:'2026-11-20T00:00:00',bookingDate:'2026-11-20',startTime:'09:30',endTime:'10:30',name:'陳先生',phone:'+886900638213',partySize:2,adminNote:'請提前準備房間',services:[],participants:[
     {position:1,technician:'10技師',services:[{title:'身體60',quantity:1}],note:'力道較輕'},
     {position:2,technician:'11技師',services:[{title:'腳底30',quantity:1}],note:'<script>alert(1)</script>'}]}]};
   return{ok:true,json:async()=>({ok:true,data})};
@@ -157,6 +157,7 @@ test('AC-FD-LINE-001: distinct participants, technicians and individual notes fo
  assert.match(card.textContent,/預約日期：2026-11-20/);
  assert.match(card.textContent,/預約時間：09:30 – 10:30/);
  assert.match(card.textContent,/預約人：陳先生/);
+ assert.match(card.textContent,/管理端說明：請提前準備房間/);
  assert.match(blocks[0].textContent,/第一位預約.*預約項目：身體60.*預約技師：10技師.*個別備註：力道較輕/s);
  assert.match(blocks[1].textContent,/第二位預約.*預約項目：腳底30.*預約技師：11技師/s);
  assert.equal(blocks[0].textContent.includes('腳底30'),false,'participants must not share items');
