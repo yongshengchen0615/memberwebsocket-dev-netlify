@@ -26,6 +26,8 @@ html[data-frontdesk-page] .frontdesk-settings-standalone {
   box-sizing: border-box;
   padding: clamp(16px, 3.4vw, 44px) clamp(16px, 3vw, 36px) 80px;
   color: var(--fd-text);
+  line-height: 1.6;
+  overflow-wrap: break-word;
 }
 html[data-frontdesk-page] .frontdesk-page-header {
   display: flex;
@@ -54,9 +56,10 @@ html[data-frontdesk-page] .frontdesk-page-header h1 {
   color: var(--theme-text);
 }
 html[data-frontdesk-page] .frontdesk-page-header p:last-child {
-  max-width: 64ch;
+  max-width: 52ch;
   margin: 0;
   color: var(--theme-text-muted);
+  line-height: 1.7;
 }
 html[data-frontdesk-page] .platform-appearance {
   flex: 0 0 auto;
@@ -100,7 +103,8 @@ html[data-frontdesk-page] #frontdeskPageStatus {
   border-radius: 12px;
   color: var(--theme-text);
   background: var(--theme-surface-muted);
-  font-size: .925rem;
+  font-size: .9rem;
+  line-height: 1.6;
 }
 html[data-frontdesk-page] #frontdeskPageGate {
   max-width: 640px;
@@ -110,7 +114,9 @@ html[data-frontdesk-page] #frontdeskPageGate {
   border-radius: 16px;
   background: var(--theme-surface-raised);
 }
-html[data-frontdesk-page] #frontdeskPageGate h2 { margin-top: 0; }
+html[data-frontdesk-page] #frontdeskPageGate h2 { margin: 0 0 8px; }
+html[data-frontdesk-page] #frontdeskPageGate p { max-width: 56ch; line-height: 1.7; }
+html[data-frontdesk-page] #frontdeskPageGate button { min-height: 44px; }
 html[data-frontdesk-page] #frontdeskPageContent {
   margin: 0;
   padding: 0;
@@ -123,10 +129,13 @@ html[data-frontdesk-page] #frontdeskMerchantTitle {
   margin: 0 0 4px;
   font-size: clamp(1.25rem, 2.1vw, 1.6rem);
   line-height: 1.4;
+  overflow-wrap: anywhere;
   color: var(--theme-text);
 }
 html[data-frontdesk-page] .frontdesk-page-description {
+  max-width: 66ch;
   margin: 0;
+  line-height: 1.7;
   color: var(--theme-text-muted);
 }
 html[data-frontdesk-page] .frontdesk-settings {
@@ -210,6 +219,7 @@ html[data-frontdesk-page] .frontdesk-settings-content {
 html[data-frontdesk-page] .frontdesk-settings-overview {
   grid-column: 1 / -1;
   padding: 16px 20px;
+  line-height: 1.65;
   border: 1px solid var(--theme-border);
   border-left: 4px solid var(--theme-positive);
   border-radius: 14px;
@@ -240,18 +250,21 @@ html[data-frontdesk-page] .frontdesk-approvals {
 html[data-frontdesk-page] .frontdesk-setup-card {
   display: grid;
   gap: 16px;
+  line-height: 1.65;
 }
 html[data-frontdesk-page] .frontdesk-setup-card legend {
   padding: 0 8px;
   color: var(--theme-text);
   font-size: 1.08rem;
+  line-height: 1.5;
   font-weight: 750;
 }
 html[data-frontdesk-page] .frontdesk-setup-card p,
 html[data-frontdesk-page] .frontdesk-approvals > p {
+  max-width: 67ch;
   margin: 0;
   color: var(--theme-text-muted);
-  line-height: 1.6;
+  line-height: 1.7;
 }
 html[data-frontdesk-page] .frontdesk-setup-card .business-line-fields,
 html[data-frontdesk-page] .frontdesk-person .business-line-fields {
@@ -361,6 +374,15 @@ html[data-frontdesk-page] .frontdesk-person p {
   color: var(--theme-text-muted);
   font-size: .875rem;
 }
+html[data-frontdesk-page] .frontdesk-person .frontdesk-person-status {
+  justify-self: start;
+  margin: 0;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--theme-surface-muted);
+  color: var(--theme-text);
+  font-weight: 650;
+}
 html[data-frontdesk-page] .frontdesk-person > button[type="submit"] {
   min-width: 0;
   font-weight: 700;
@@ -413,6 +435,8 @@ html[data-frontdesk-page] [hidden] { display: none !important; }
   html[data-frontdesk-page] .frontdesk-page-links a {
     flex: 1 1 auto;
   }
+  html[data-frontdesk-page] #frontdeskPageStatus { padding: 10px 12px; }
+  html[data-frontdesk-page] .frontdesk-page-description { font-size: .925rem; }
   html[data-frontdesk-page] .frontdesk-settings {
     column-gap: 8px;
   }

@@ -81,7 +81,7 @@
     return timestamp > 0 && Date.now() >= timestamp &&
       Date.now() - timestamp <= RETURN_TTL_MS;
   }
-  function beginLogin() {
+  function beginLogin({ force = false } = {}) {
     if (!markAttempt()) {
       dismiss('LINE 登入未完成。請點選重新登入，或在 LINE 中重新開啟此頁。');
       return;
@@ -89,7 +89,7 @@
     try {
       sessionStorage.setItem(RETURN_KEY, String(Date.now()));
       idToken = '';
-      if (window.liff.isLoggedIn()) window.liff.logout();
+      if (force && window.liff.isLoggedIn()) window.liff.logout();
       if (window.liff.isInClient()) {
         setStatus('正在重新初始化 LINE 登入…');
         location.reload();
@@ -162,7 +162,7 @@
       checking = false;
     }
   }
-  async function start() {
+  async function start({ reauthenticate = false } = {}) {
     stopReconciliation();
     const currentEpoch = ++epoch;
     content.hidden = true;
@@ -184,16 +184,15 @@
       await window.liff.init({ liffId });
       if (epoch !== currentEpoch) return;
       const returned = consumeReturn();
+      // Navigation from My Merchants must reuse the existing LIFF session.
+      // Only an explicit recovery click can log out and start a new login.
+      if (reauthenticate) { beginLogin({ force: true }); return; }
       if (!window.liff.isLoggedIn()) {
         if (returned) throw new Error('LINE 登入未完成，請重新進入櫃檯設定。');
         if (window.liff.isInClient()) {
           if (markAttempt()) { location.reload(); return; }
           throw new Error('LINE 登入尚未完成，請在 LINE 中重新開啟此頁。');
         }
-        beginLogin();
-        return;
-      }
-      if (!window.liff.isInClient() && !returned) {
         beginLogin();
         return;
       }
@@ -204,8 +203,8 @@
       assertAccess(data);
       gate.hidden = true;
       content.hidden = false;
-      el('frontdeskMerchantTitle').textContent = data.tenant.name + '｜櫃檯設定';
-      setStatus('已確認 LINE 身分與商家櫃檯權限。');
+      el('frontdeskMerchantTitle').textContent = data.tenant.name;
+      setStatus('已確認管理員身分及櫃檯權限。');
       sessionStorage.removeItem(ATTEMPT_KEY);
       window.FrontdeskSettings.mount({ root, request, business });
       const details = root.querySelector('[data-frontdesk-settings]');
@@ -223,7 +222,7 @@
   }
   loginButton.addEventListener('click', () => {
     try { sessionStorage.removeItem(ATTEMPT_KEY); } catch {}
-    void start();
+    void start({ reauthenticate: true });
   });
   window.addEventListener('online', () => void checkAccess());
   window.addEventListener('focus', () => void checkAccess());
