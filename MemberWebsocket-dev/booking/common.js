@@ -112,24 +112,6 @@
     window.localStorage.setItem(LOGIN_REGISTERED_KEY, '1');
   }
 
-  async function sendMemberChatMessage(message) {
-    const text = String(message || '').trim().slice(0, 4800);
-    if (!text) return { sent: false, reason: 'empty' };
-    if (!window.liff || typeof window.liff.isInClient !== 'function' || !window.liff.isInClient()) {
-      return { sent: false, reason: 'not_in_line_chat' };
-    }
-    if (typeof window.liff.sendMessages !== 'function') {
-      return { sent: false, reason: 'send_messages_unavailable' };
-    }
-    try {
-      await window.liff.sendMessages([{ type: 'text', text }]);
-      return { sent: true, reason: '' };
-    } catch (error) {
-      console.warn('booking member chat message failed', error?.code || error?.message || error);
-      return { sent: false, reason: 'send_failed' };
-    }
-  }
-
   function createPresenceSessionId() {
     if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
     if (!window.crypto || typeof window.crypto.getRandomValues !== 'function') {
@@ -836,6 +818,6 @@
     return { config: authenticatedSession.config, idToken: authenticatedSession.idToken };
   }
 
-  window.BookingSystem = { loadConfig, signIn, completeSignIn, startPresence, claimBrowserSession, getSession, request, setBookingNotice, memberProfile, bookingBenefits, claimEventTicket, sendMemberChatMessage, subscribeRealtime, openMemberJoin, logout, showNotice, formatDate, addDays, clientError };
+  window.BookingSystem = { loadConfig, signIn, completeSignIn, startPresence, claimBrowserSession, getSession, request, setBookingNotice, memberProfile, bookingBenefits, claimEventTicket, subscribeRealtime, openMemberJoin, logout, showNotice, formatDate, addDays, clientError };
 })();
 
