@@ -246,6 +246,47 @@ for(const width of [390,1280])test('FRONTDESK_SETTINGS_STANDALONE_'+width+' — 
 });
 
 
+test('FRONTDESK_SETTINGS_EXTERNAL_SESSION — reuse an existing external LINE login without redirect',async({page})=>{
+ const calls=[];
+ await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:"window.__lineActions=[];window.__sessionLoggedOut=false;window.liff={init:async()=>{},isLoggedIn:()=>!window.__sessionLoggedOut,isInClient:()=>false,getIDToken:()=>window.__sessionLoggedOut?'':'synthetic-admin-token',logout:()=>{window.__sessionLoggedOut=true;window.__lineActions.push('logout')},login:()=>window.__lineActions.push('login')};"}));
+ await page.route('https://fixture.supabase.co/**',route=>{
+  const input=route.request().postDataJSON();calls.push(input);
+  expect(input.idToken).toBe('synthetic-admin-token');expect(input.business).toBe('shop-a');
+  const data=input.action==='platform.application.bootstrap'
+   ? {application:{status:'approved'},tenant:{name:'測試商家',slug:'shop-a',status:'active',expired:false,onboarding:{adminReady:true},features:{booking:true,frontdesk:true}}}
+   : input.action==='platform.frontdesk.get'
+   ? {version:1,frontdesk:{enabled:true,liffId:'2010999999-desk',loginChannelId:'2010999999',messagingChannelId:'2010888888'},staff:[]}
+   : null;
+  if(!data)throw Error('UNEXPECTED_ACTION '+input.action);
+  return route.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,data})});
+ });
+ await page.goto(base+'/admin/frontdesk-settings/?business=shop-a');
+ await expect(page.locator('#frontdeskPageContent')).toBeVisible();
+ expect(await page.evaluate(()=>window.__lineActions)).toEqual([]);
+ expect(calls.filter(x=>x.action==='platform.application.bootstrap')).toHaveLength(1);
+ expect(calls.some(x=>x.action==='platform.frontdesk.get')).toBe(true);
+ await expect(page.locator('#frontdeskMerchantTitle')).toHaveText('測試商家');
+});
+
+test('FRONTDESK_SETTINGS_MANUAL_REAUTH — rejected token never grants access and re-login requires an explicit click',async({page})=>{
+ let bootstrapCalls=0;
+ await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:"window.__lineActions=[];window.liff={init:async()=>{},isLoggedIn:()=>true,isInClient:()=>false,getIDToken:()=>'expired-admin-token',logout:()=>window.__lineActions.push('logout'),login:()=>window.__lineActions.push('login')};"}));
+ await page.route('https://fixture.supabase.co/**',route=>{
+  const input=route.request().postDataJSON();bootstrapCalls++;
+  expect(input.action).toBe('platform.application.bootstrap');
+  return route.fulfill({status:401,contentType:'application/json',body:JSON.stringify({ok:false,error:{code:'AUTH_INVALID',message:'登入已失效'}})});
+ });
+ await page.goto(base+'/admin/frontdesk-settings/?business=shop-a');
+ await expect(page.locator('#frontdeskPageGate')).toBeVisible();
+ await expect(page.locator('#frontdeskPageContent')).toBeHidden();
+ expect(bootstrapCalls).toBe(1);
+ expect(await page.evaluate(()=>window.__lineActions)).toEqual([]);
+ await page.locator('#frontdeskPageLogin').click();
+ await expect.poll(()=>page.evaluate(()=>window.__lineActions)).toEqual(['logout','login']);
+ expect(bootstrapCalls).toBe(1);
+ await expect(page.locator('#frontdeskPageContent')).toBeHidden();
+});
+
 test('FRONTDESK_STAFF_DELETE — real browser confirms deletion, cancels safely and shows empty state',async({page})=>{
  await page.setViewportSize({width:390,height:844});
  await page.goto(base+'/frontdesk/');

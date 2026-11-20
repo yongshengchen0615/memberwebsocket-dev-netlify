@@ -93,3 +93,19 @@ test('AC-FD-UX-002: empty applicant state explains the remaining request path',(
   assert.doesNotMatch(frontdesk,/請分享上方/);
   assert.match(frontdesk,/目前沒有申請。櫃檯人員請透過商家專屬 frontdesk 頁面提出申請。/);
 });
+
+test('AC-FD-NAV-007: an existing external LINE session must not be forcibly logged out on navigation', () => {
+  const script=read('admin/frontdesk-settings/frontdesk-settings-page.js');
+  assert.doesNotMatch(script,/if\s*\(!window\.liff\.isInClient\(\)\s*&&\s*!returned\)\s*\{\s*beginLogin\(/);
+  assert.match(script,/if\s*\(reauthenticate\)\s*\{\s*beginLogin\(\{\s*force:\s*true\s*\}\)/);
+  assert.match(script,/if\s*\(force\s*&&\s*window\.liff\.isLoggedIn\(\)\)\s*window\.liff\.logout\(\)/);
+});
+
+test('AC-FD-UX-003: standalone page uses readable, concise merchant-specific headings', () => {
+  const html=read('admin/frontdesk-settings/index.html');
+  const script=read('admin/frontdesk-settings/frontdesk-settings-page.js');
+  assert.doesNotMatch(html,/BUSINESS \/ FRONTDESK/);
+  assert.match(html,/櫃檯登入、預約通知與人員權限/);
+  assert.doesNotMatch(script,/data\.tenant\.name\s*\+\s*'｜櫃檯設定'/);
+  assert.match(frontdesk,/櫃檯人員申請與權限/);
+});
