@@ -19,7 +19,18 @@
   }
  }
  function showBookingToolbar(visible){if(toolbar){toolbar.hidden=false;const heading=toolbar.querySelector('h2'),summary=toolbar.querySelector('#bookingSummary'),kicker=toolbar.querySelector('.frontdesk-kicker');for(const el of [heading,summary,kicker])if(el)el.hidden=!visible;}}
- function lock(value){busy=value;for(const b of document.querySelectorAll('button'))b.disabled=value;}
+ function lock(value){
+  busy=value;
+  for(const button of document.querySelectorAll('button')){
+   if(value){
+    if(button.dataset.frontdeskLockPrevious===undefined)button.dataset.frontdeskLockPrevious=button.disabled?'disabled':'enabled';
+    button.disabled=true;
+   }else if(button.dataset.frontdeskLockPrevious!==undefined){
+    button.disabled=button.dataset.frontdeskLockPrevious==='disabled';
+    delete button.dataset.frontdeskLockPrevious;
+   }
+  }
+ }
  async function request(action,body={}){
   let response,data;try{response=await fetch(config.supabaseFunctionUrl.replace(/\/api\/?$/,'/frontdesk-api'),{method:'POST',cache:'no-store',signal:AbortSignal.timeout(15000),headers:{'Content-Type':'application/json',apikey:config.supabasePublishableKey},body:JSON.stringify({...body,action,business,idToken})});data=await response.json();}
   catch{throw Object.assign(Error('無法確認伺服器結果，請重試相同操作。'),{uncertain:true});}
@@ -227,7 +238,7 @@
     if(!slots.length){message.textContent=data.reason==='holiday'?'當日為休假日，無法登記。':'這個日期沒有可登記的時間。';return;}
     for(const slot of slots){
      const b=node('button',slot.startTime);b.type='button';b.className='frontdesk-phone-slot';
-     b.disabled=!slot.available;b.dataset.startTime=slot.startTime;
+     b.disabled=!slot.available;b.dataset.startTime=slot.startTime;b.dataset.available=String(!!slot.available);
      b.setAttribute('aria-pressed','false');
      b.title=slot.available?'可登記':'時間已被預約或不可使用';
      b.onclick=()=>{
@@ -261,8 +272,8 @@
    }catch(error){
     if(!error.uncertain)pendingCreate=null;
     if(panel.isConnected){message.textContent=error.message;submit.disabled=false;}
-    if(error.code==='PHONE_BOOKING_CONFLICT'){pendingCreate=null;void refreshSlots();}
-   }finally{lock(false);}
+    if(['PHONE_BOOKING_CONFLICT','BOOKING_SLOT_TAKEN'].includes(error.code)){pendingCreate=null;void refreshSlots();}
+   }finally{lock(false);if(panel.isConnected)submit.disabled=!selectedTime&&!pendingCreate;}
   };
   message.textContent='正在載入店家可預約項目…';
   try{
