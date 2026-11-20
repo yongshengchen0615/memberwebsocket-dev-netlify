@@ -149,6 +149,7 @@ function settingsClient(row: any, storeService?: any): Json {
     storeServiceMinutes: Number(storeService?.duration_minutes || 10),
     bookingNotice: String(row?.booking_notice || ""),
     pendingMessage: String(row?.pending_message || "我們已收到您的預約申請，請等待管理員確認；確認後會再透過 LINE 通知您。"),
+    rejectionMessage: String(row?.rejection_message || "很抱歉，本次預約未通過。請依拒絕原因調整預約時間或洽詢店家。"),
     reminderMessage: String(row?.reminder_message || "請準時到場；如需調整請至預約頁操作。"),
     reminderEnabled: row?.reminder_enabled === true,
     snapshotLocationRequired: row?.snapshot_location_required === true,
@@ -241,6 +242,22 @@ async function pendingMessageSave(supabase: SupabaseClient, identity: Identity, 
     length: pendingMessage.length,
   });
   return { pendingMessage: result.data.pending_message, updatedAt: result.data.updated_at };
+}
+
+async function rejectionMessageSave(supabase: SupabaseClient, identity: Identity, body: Json): Promise<Json> {
+  if (typeof body.rejectionMessage !== 'string') throw new ApiError(400,'INVALID_REJECTION_MESSAGE','請輸入預約未通過訊息。');
+  const rejectionMessage = preserveText(body.rejectionMessage,401);
+  if (!rejectionMessage.trim() || rejectionMessage.length > 400) throw new ApiError(400,'INVALID_REJECTION_MESSAGE','預約未通過訊息必須為 1–400 字。');
+  const expectedUpdatedAt = asText(body.expectedUpdatedAt,80);
+  if (!expectedUpdatedAt) throw new ApiError(409,'BOOKING_SETTINGS_CONFLICT','設定版本已變更，請重新載入。');
+  const result = await supabase.from('booking_settings')
+    .update({rejection_message:rejectionMessage,updated_by:identity.lineUserId})
+    .eq('id',1).eq('updated_at',expectedUpdatedAt)
+    .select('rejection_message,updated_at').maybeSingle();
+  if (result.error) throw mapDatabaseError(result.error);
+  if (!result.data) throw new ApiError(409,'BOOKING_SETTINGS_CONFLICT','設定已由其他管理員變更，請重新載入。');
+  await audit(supabase,identity,'BOOKING_REJECTION_MESSAGE_UPDATED','booking_settings','1',{length:rejectionMessage.length});
+  return {rejectionMessage:result.data.rejection_message,updatedAt:result.data.updated_at};
 }
 
 async function reminderMessageSave(supabase: SupabaseClient, identity: Identity, body: Json): Promise<Json> {
@@ -510,6 +527,7 @@ async function route(supabase: SupabaseClient, identity: Identity, action: strin
   if (action === "admin.booking.manage.bootstrap") return await bootstrap(supabase);
   if (action === "admin.booking.settings.save") return await settingsSave(supabase, identity, body);
   if (action === "admin.booking.pending-message.save") return await pendingMessageSave(supabase, identity, body);
+  if (action === "admin.booking.rejection-message.save") return await rejectionMessageSave(supabase, identity, body);
   if (action === "admin.booking.reminder-message.save") return await reminderMessageSave(supabase, identity, body);
   if (action === "admin.booking.type.create") return await typeCreate(supabase, identity, body);
   if (action === "admin.booking.type.update") return await typeUpdate(supabase, identity, body);
