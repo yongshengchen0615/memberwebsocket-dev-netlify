@@ -181,6 +181,7 @@ deno test MemberWebsocket-dev/supabase/functions/_shared/*_test.ts MemberWebsock
 3. 隔離測試與故障 stub 繼續保留；不得因撤下線上 QA API 而削減既有完整 CI。真實 LINE 驗收仍需合成帳號及授權環境，不能把 fixture 通過當作外部登入已驗證。
 4. 歷史 QA 原始碼僅作回歸輸入；部署前按 `supabase/retirement/retired-endpoints.json` 排除，禁止 blanket deploy 使其復活。退役 handler 不得解析身分、讀寫資料庫、發送通知或呼叫外部服務。
 5. 先確認正式函式具備相容契約、發布同 SHA 且通過完整 CI 的消費端，再依線上呼叫盤點退役 preview。驗收至少包含來源版本、函式版本、HTTP 方法／狀態／錯誤碼、無資料副作用、發布與回復記錄；未部署、未驗證或仍有消費端者列為待完成。
+6. 本機與一般 CI 執行實際退役 handler 的 `GET`、`OPTIONS`、`POST` 契約，且應可離線通過。正式退役探查由獲授權的 `master` 發布流程在 SQL／Edge／前端變更前執行，核對目標專案及 HTTP 410、`no-store` 和錯誤碼。退役 handler、清單、探查與建置測試均依 L3 審查。
 
 ## 7. PR 合併與上線閘門
 

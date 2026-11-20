@@ -86,6 +86,15 @@ test('AC-004: release implementations and their tests stay L3, including renamed
     }
   }
 });
+
+test('retired endpoint code, manifest and deployment checks require release review', () => {
+  for (const filename of [
+    'MemberWebsocket-dev/supabase/retirement/retired-test-endpoint.ts',
+    'MemberWebsocket-dev/supabase/retirement/retired-endpoints.json',
+    'scripts/deploy.test.mjs',
+    'scripts/verify-retired-endpoints.mjs',
+  ]) assert.equal(classifyChangeSet([filename]).tier, 'L3', filename);
+});
 test('renamed/deleted sensitive path remains big', () => {
   const r = classifyChangeSet([{ filename: 'docs/old-migration.sql', previous_filename: 'supabase/migrations/123_unsafe.sql', status: 'renamed' }]);
   assert.equal(r.level, '大改');

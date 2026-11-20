@@ -3,9 +3,11 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runInNewContext } from 'node:vm';
 import test from 'node:test';
 import { buildDate, formatBuildVersion } from './build-version.mjs';
 import { buildMemberRuntime } from './preview-member-runtime.mjs';
+import { productionRetirementOrigin, verifyRetiredEndpoints } from './verify-retired-endpoints.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 execFileSync(process.execPath, ['scripts/build-site.mjs'], { cwd: root });
@@ -91,10 +93,11 @@ test('deployment versions are valid and change for each new deployment', () => {
   assert.throws(() => formatBuildVersion(fixed, 'oops'), TypeError);
 });
 
-test('all ten published entrypoints contain a static, CSP-compatible build badge', () => {
+test('all twelve published entrypoints contain a static, CSP-compatible build badge', () => {
   const pages = [
-    'index.html', 'admin/index.html', 'admin/workspace.html', 'member/index.html', 'points/index.html',
-    'event/index.html', 'calendar/index.html', 'booking/index.html', 'booking/admin/index.html', 'platform/index.html',
+    'index.html', 'admin/index.html', 'admin/workspace.html', 'admin/frontdesk-settings/index.html',
+    'member/index.html', 'points/index.html', 'event/index.html', 'calendar/index.html', 'booking/index.html',
+    'booking/admin/index.html', 'platform/index.html', 'frontdesk/index.html',
   ];
   const versions = new Set();
   for (const page of pages) {
@@ -143,29 +146,40 @@ test('retired client-side QA resources are absent from the actual deploy bundle'
   }
 });
 
-test('the five retired Supabase functions reject requests before authentication or parsing', async () => {
-  // This external regression contract was always against the production
-  // Supabase project, regardless of which static site branch CI is building.
-  // Read that exact environment file from config/, never the legacy outer JSON.
-  const config = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/config/production/config.json'), 'utf8'));
-  const manifest = JSON.parse(fs.readFileSync(path.join(root, 'MemberWebsocket-dev/supabase/retirement/retired-endpoints.json'), 'utf8'));
-  assert.equal(manifest.retiredFunctions.length, 5);
-  for (const name of manifest.retiredFunctions) {
-    const url = new URL('/functions/v1/' + name, config.supabaseUrl);
-    for (const method of ['GET', 'OPTIONS', 'POST']) {
-      const response = await fetch(url, {
-        method,
-        headers: { Origin: 'https://untrusted.example', 'Content-Type': 'application/json' },
-        ...(method === 'POST' ? { body: '{not valid JSON' } : {}),
-        signal: AbortSignal.timeout(15000),
-      });
-      assert.equal(response.status, 410, name + ' ' + method + ': retired endpoint must always fail closed');
-      assert.equal(response.headers.get('cache-control'), 'no-store');
-      const payload = await response.json();
-      assert.equal(payload.ok, false);
-      assert.equal(payload.error?.code, 'TEST_FEATURE_RETIRED');
-    }
-  }
+test('all five retired endpoint contracts run against the real handler without a network', async () => {
+  const source = fs.readFileSync(path.join(root, 'MemberWebsocket-dev/supabase/retirement/retired-test-endpoint.ts'), 'utf8');
+  let handle;
+  runInNewContext(source, { Response, Deno: { serve: handler => { handle = handler; } } });
+  assert.equal(typeof handle, 'function');
+  const probes = new Map();
+  const count = await verifyRetiredEndpoints('https://example.test', async request => {
+    const url = new URL(request.url);
+    assert.equal(url.origin, 'https://example.test');
+    if (request.method === 'POST') assert.equal(await request.clone().text(), '{not valid JSON');
+    const methods = probes.get(url.pathname) || [];
+    methods.push(request.method);
+    probes.set(url.pathname, methods);
+    const response = await handle(request);
+    assert.equal(response.status, 410);
+    assert.equal((await response.clone().json()).error?.code, 'TEST_FEATURE_RETIRED');
+    return response;
+  });
+  assert.equal(count, 15);
+  assert.equal(probes.size, 5);
+  for (const methods of probes.values()) assert.deepEqual(methods, ['GET', 'OPTIONS', 'POST']);
+});
+
+test('development and PR builds cannot select the live retirement target', () => {
+  const release = { GITHUB_ACTIONS: 'true', GITHUB_REF: 'refs/heads/master',
+    GITHUB_WORKFLOW: 'Publish verified master to Netlify', GITHUB_EVENT_NAME: 'push' };
+  assert.throws(() => productionRetirementOrigin({}), /requires the master release workflow/);
+  for (const override of [
+    { GITHUB_REF: 'refs/heads/Integrated-Marketing-Platform' },
+    { GITHUB_EVENT_NAME: 'pull_request' },
+    { GITHUB_WORKFLOW: 'Test Netlify build' },
+  ]) assert.throws(() => productionRetirementOrigin({ ...release, ...override }), /requires the master release workflow/);
+  assert.match(productionRetirementOrigin(release), /^https:\/\/[a-z]+\.supabase\.co$/);
+  assert.equal(productionRetirementOrigin({ ...release, GITHUB_EVENT_NAME: 'workflow_dispatch' }), productionRetirementOrigin(release));
 });
 
 test('native and verifier builds reproduce exact bytes using one deploy and source timestamp', () => {

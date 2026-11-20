@@ -150,10 +150,10 @@
       const data = await request('platform.application.bootstrap');
       if (epoch !== currentEpoch) return;
       assertAccess(data);
-      // Reconcile new applications from other devices only after the tenant
-      // and administrator grants have been verified by the server.
-      window.FrontdeskSettings.refresh({ business });
       setStatus('已確認 ' + data.tenant.name + ' 的櫃檯設定權限。');
+      // Keep focus, online, visibility and heartbeat in the same cycle until
+      // the authorized settings refresh has settled.
+      await window.FrontdeskSettings.refresh({ business });
     } catch (error) {
       if (epoch !== currentEpoch) return;
       if (deniedCodes.has(error.code)) dismiss(error.message);
@@ -208,8 +208,8 @@
       sessionStorage.removeItem(ATTEMPT_KEY);
       window.FrontdeskSettings.mount({ root, request, business });
       const details = root.querySelector('[data-frontdesk-settings]');
+      // The panel's toggle handler owns its initial load.
       if (details) details.open = true;
-      window.FrontdeskSettings.refresh({ business });
       // A cross-device application cannot publish a same-browser event. Retain
       // the original 15-second server reconciliation while this page is visible.
       // timer-policy: heartbeat; reason=Reconcile remote staff applications against verified tenant rights; cleanup=dismiss and pagehide; test=frontdesk-booking.spec.cjs

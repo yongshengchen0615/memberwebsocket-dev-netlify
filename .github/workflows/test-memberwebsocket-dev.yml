@@ -247,6 +247,9 @@ jobs:
             MemberWebsocket-dev/platform/app.js \
             MemberWebsocket-dev/admin/business-line-settings.js \
             MemberWebsocket-dev/admin/business-workspace.js \
+            MemberWebsocket-dev/admin/frontdesk-settings.js \
+            MemberWebsocket-dev/admin/frontdesk-settings/frontdesk-settings-page.js \
+            MemberWebsocket-dev/frontdesk/app.js \
             MemberWebsocket-dev/friends.js \
             MemberWebsocket-dev/friend-qr-scanner.js \
             MemberWebsocket-dev/vendor/friend-qr-decoder.js \

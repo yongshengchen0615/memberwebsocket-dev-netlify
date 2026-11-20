@@ -40,6 +40,15 @@ test('production deploy targets only the recreated Netlify site with protected c
   assert.doesNotMatch(flow, /--allow-anonymous|--alias=develop/);
 });
 
+test('the live retirement probe runs once in the authorized master workflow before release mutations', () => {
+  const command = 'node scripts/verify-retired-endpoints.mjs --production';
+  const probe = flow.indexOf(command);
+  assert.ok(probe > flow.indexOf('node scripts/check-preview-ci.mjs'));
+  assert.ok(probe < flow.indexOf('node scripts/supabase-release.mjs --deploy'));
+  assert.equal(flow.split(command).length - 1, 1);
+  assert.doesNotMatch(build + preview, /verify-retired-endpoints\.mjs --production/);
+});
+
 test('production release is master-only and waits for all exact-SHA branch push baselines', () => {
   assert.match(flow, /branches: \[master\]/);
   // Recovery dependencies add a cancellation/result guard before the unchanged
