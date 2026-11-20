@@ -27,6 +27,7 @@ for(const width of [390,1280])test('FRONTDESK_'+width+' — notify-only, scoped 
   const b=route.request().postDataJSON();calls.push(b);expect(b.business).toBe('shop-a');let data;
   if(b.action==='frontdesk.public')data={name:'測試商家',frontdesk:{enabled:true,liffId:'2010999999-desk',oaId:'@desk'}};
   else if(b.action==='frontdesk.bootstrap')data={staff:{displayName:'櫃檯 A',status:'approved',permissionMode:mode}};
+  else if(b.action==='frontdesk.sync.status')data={revision:'1'};
   else if(b.action==='frontdesk.bookings')data={bookings:status==='pending'?[{id:'10000000-0000-4000-8000-000000000001',status,updatedAt:'2026-11-18T12:00:00+08:00',name:'林小姐',phone:'0900000000',partySize:2,startAt:'2026-11-20T10:00:00',endAt:'2026-11-20T11:00:00',services:[{title:'測試服務',quantity:2}]}]:[]};
   else if(b.action==='frontdesk.booking.update'){
    if(downgrade){mode='notify_only';return route.fulfill({status:403,contentType:'application/json',body:JSON.stringify({ok:false,error:{code:'FRONTDESK_REVIEW_REQUIRED',message:'你目前沒有確認或拒絕預約的權限。'}})});}
@@ -72,6 +73,7 @@ test('FRONTDESK_APPLICANT — LINE user submits application; bookings remain una
   if(body.action==='frontdesk.public')data={name:'商家測試',frontdesk:{enabled:true,liffId:'2010999999-desk',oaId:'@desk'}};
   else if(body.action==='frontdesk.bootstrap')data={staff:staffStatus?{displayName:'新進櫃檯',status:staffStatus,permissionMode:mode}:null};
   else if(body.action==='frontdesk.apply'){staffStatus='pending';data={staff:{status:'pending'}};}
+  else if(body.action==='frontdesk.sync.status')data={revision:'1'};
   else if(body.action==='frontdesk.bookings')data={bookings:[{id:'10000000-0000-4000-8000-000000000001',status:'pending',updatedAt:'2026-11-18T12:00:00+08:00',services:[]}]};
   else throw Error('Unexpected action '+body.action);
   await route.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,data})});
@@ -94,7 +96,7 @@ test('FRONTDESK_APPLICANT — LINE user submits application; bookings remain una
  await page.getByRole('button',{name:'重新整理'}).click();
  await expect(page.getByRole('button',{name:'確認預約'})).toBeVisible();
  expect(calls.filter(x=>x==='frontdesk.apply')).toHaveLength(1);
- expect(calls.filter(x=>x==='frontdesk.bookings')).toHaveLength(1);
+ expect(calls.filter(x=>x==='frontdesk.bookings').length).toBeGreaterThanOrEqual(1); // Initial authorized load plus revision reconciliation are both valid.
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 test('FRONTDESK_CONFIG_GUIDE — LINE sources, notification-card parity and automatic LIFF channel extraction',async({page})=>{
@@ -405,4 +407,46 @@ test('FRONTDESK_STAFF_DELETE — real browser confirms deletion, cancels safely 
  expect(sent[0].body.expectedVersion).toBe(3);
  expect(sent[0].body.requestId).toMatch(/^[0-9a-f-]{36}$/);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+
+test('AC-FD-RT-001: member booking appears without manual refresh; authorization revocation closes synchronization',async({page})=>{
+ let revision=1,approved=true,bookingCount=0,failNextBooking=false;const calls=[];
+ await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:'window.liff={init:async()=>{},isLoggedIn:()=>true,getIDToken:()=>"verified-staff",login:()=>{},logout:()=>{}};'}));
+ await page.route('https://fixture.supabase.co/**',route=>{
+  const input=route.request().postDataJSON();calls.push(input.action);
+  if(input.action==='frontdesk.bookings'&&failNextBooking){
+   failNextBooking=false;
+   return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({ok:false,error:{code:'TEMPORARY_UNAVAILABLE',message:'預約資料暫時無法取得。'}})});
+  }
+  if(input.action==='frontdesk.sync.status'&&!approved){
+   return route.fulfill({status:403,contentType:'application/json',body:JSON.stringify({ok:false,error:{code:'FRONTDESK_REVIEW_REQUIRED',message:'已撤銷櫃檯權限。'}})});
+  }
+  const data=input.action==='frontdesk.public'
+   ? {name:'測試商家',frontdesk:{enabled:true,liffId:'2010999999-desk'}}
+   :input.action==='frontdesk.bootstrap'
+   ? {staff:{displayName:'審核櫃檯',status:'approved',permissionMode:'review'}}
+   :input.action==='frontdesk.sync.status'
+   ? {revision:String(revision)}
+   :input.action==='frontdesk.bookings'
+   ? {bookings:bookingCount?[{id:'10000000-0000-4000-8000-000000000001',status:'pending',updatedAt:'2026-11-20T12:00:00+08:00',bookingDate:'2026-11-21',startTime:'09:30',name:'林先生',phone:'0900000000',partySize:1,participants:[{position:1,services:[{title:'身體60',quantity:1}],technician:'10技師'}]}]:[]}
+   :null;
+  if(!data)throw Error('Unexpected action '+input.action);
+  return route.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,data})});
+ });
+ await page.goto(base+'/frontdesk/?business=shop-a');
+ await expect(page.locator('#bookings')).toContainText('目前沒有待處理的預約');
+ await expect.poll(()=>calls.filter(x=>x==='frontdesk.sync.status').length,{timeout:10000}).toBeGreaterThan(0);
+ bookingCount=1;failNextBooking=true;revision++;
+ await expect(page.locator('#status')).toContainText('同步暫時中斷',{timeout:12000});
+ await expect(page.locator('#bookings')).toContainText('林先生',{timeout:20000});
+ await expect(page.locator('#bookings')).toContainText('10技師');
+ await expect(page.locator('#bookings')).toContainText('身體60');
+ expect(calls.filter(x=>x==='frontdesk.bookings').length).toBeGreaterThan(1);
+ approved=false;revision++;
+ await expect(page.locator('#status')).toContainText('已撤銷櫃檯權限',{timeout:12000});
+ await expect(page.locator('.frontdesk-card')).toHaveCount(0);
+ const after=calls.filter(x=>x==='frontdesk.sync.status').length;
+ await page.waitForTimeout(3400);
+ expect(calls.filter(x=>x==='frontdesk.sync.status').length).toBe(after);
 });

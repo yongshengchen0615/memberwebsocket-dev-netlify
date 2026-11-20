@@ -4,6 +4,7 @@
  const business=params.get('business')||nested.get('business'),bookingId=params.get('bookingId')||nested.get('bookingId');
  const status=document.getElementById('status'),account=document.getElementById('account'),list=document.getElementById('bookings'),refresh=document.getElementById('refresh');
  let config,idToken,busy=false,epoch=0;const pending=new Map();
+ let syncTimer=null,syncEnabled=false,syncInFlight=false,syncRevision=null,syncFailures=0,syncGeneration=0;
  const node=(tag,text)=>{const n=document.createElement(tag);if(text)n.textContent=text;return n;};
  const progress=document.getElementById('progress'),toolbar=document.querySelector('.frontdesk-toolbar');
  function showProgress(stage){
@@ -102,10 +103,57 @@
    list.append(card);
   }
  }
+
+ // Reconcile through the existing LINE-authenticated API. No booking data is
+ // ever read directly from a publicly subscribed Realtime channel.
+ const canSync=()=>syncEnabled&&idToken&&document.visibilityState!=='hidden'&&navigator.onLine!==false;
+ function stopSync(){
+  syncEnabled=false;syncGeneration++;syncRevision=null;
+  if(syncTimer!==null){clearTimeout(syncTimer);syncTimer=null;}
+ }
+ function scheduleSync(delay=3000){
+  if(syncTimer!==null){clearTimeout(syncTimer);syncTimer=null;}
+  if(!canSync())return;
+  // timer-policy: recovery; reason=private tenant authorization requires authenticated revision checks; cleanup=stopSync; test=frontdesk_live_sync.test.js
+  syncTimer=setTimeout(()=>{syncTimer=null;void probeSync();},delay);
+ }
+ function startSync(){
+  if(syncEnabled)return;
+  syncEnabled=true;syncRevision=null;syncFailures=0;syncGeneration++;scheduleSync(0);
+ }
+ async function probeSync(){
+  if(!canSync())return;
+  if(syncInFlight||busy||pending.size){scheduleSync(3000);return;}
+  const generation=syncGeneration;syncInFlight=true;
+  try{
+   const result=await request('frontdesk.sync.status');
+   if(generation!==syncGeneration||!canSync()||busy||pending.size)return;
+   const revision=result?.revision;
+   if(typeof revision!=='string'||!/^[0-9]+$/.test(revision))throw Error('無法確認預約資料版本。');
+   if(syncRevision!==revision){
+    // Only accept the revision after all authorized booking reads succeed.
+    const reloaded=await load();
+    if(reloaded&&generation===syncGeneration&&canSync())syncRevision=revision;
+   }
+   syncFailures=0;
+  }catch(error){
+   if(generation!==syncGeneration||!syncEnabled)return;
+   if(error.denied||['FRONTDESK_REVIEW_REQUIRED','FRONTDESK_AUTH_INVALID'].includes(error.code)){
+    stopSync();failure(error);return;
+   }
+   syncFailures++;
+   status.textContent='同步暫時中斷，恢復連線後會自動更新；也可手動重新整理。';
+  }finally{
+   syncInFlight=false;
+   if(generation===syncGeneration&&canSync())
+    scheduleSync(syncFailures?Math.min(30000,3000*2**Math.min(syncFailures,3)):3000);
+  }
+ }
  async function load(){
-  const generation=++epoch,data=await request('frontdesk.bootstrap');if(generation!==epoch)return;
+  const generation=++epoch,data=await request('frontdesk.bootstrap');if(generation!==epoch)return false;
   account.replaceChildren();list.replaceChildren();showBookingToolbar(false);
   const person=data.staff;
+   if(!person||person.status!=='approved'||person.permissionMode!=='review')stopSync();
   if(!person){
    showProgress(1);
    account.append(node('h2','申請櫃檯人員資格'));
@@ -133,13 +181,15 @@
   showProgress(3);
   if(person.permissionMode==='review'){
    showBookingToolbar(true);
-   const result=await request('frontdesk.bookings',bookingId?{bookingId}:{});if(generation!==epoch)return;
+   const result=await request('frontdesk.bookings',bookingId?{bookingId}:{});if(generation!==epoch)return false;
    renderBookings(result.bookings||[]);
+    startSync();
    status.textContent='審核已通過，可處理目前商家的待確認預約。';
   }else{
    account.append(node('p','管理員已核准「僅接收預約訊息」，不會顯示會員資料與預約操作。'));
    status.textContent='審核已通過，已開通 LINE 預約通知權限。';
   }
+  return person.permissionMode==='review';
  }
  async function start(){
   lock(true);try{
@@ -153,6 +203,10 @@
   }catch(error){failure(error);}finally{lock(false);window.dispatchEvent(new CustomEvent('frontdesk-ready'));}
  }
  refresh.onclick=async()=>{if(busy||pending.size){status.textContent='請先完成目前操作或重試相同操作。';return;}lock(true);try{await load();status.textContent='已更新櫃檯人員資格與預約權限。';}catch(e){failure(e);}finally{lock(false);}};
- window.addEventListener('pagehide',()=>{epoch++;idToken=null;list.replaceChildren();},{once:true});
+ document.addEventListener('visibilitychange',()=>{if(canSync())scheduleSync(0);else if(syncTimer!==null){clearTimeout(syncTimer);syncTimer=null;}});
+ window.addEventListener('online',()=>{if(canSync())scheduleSync(0);});
+ window.addEventListener('focus',()=>{if(canSync())scheduleSync(0);});
+ window.addEventListener('pageshow',event=>{if(event.persisted)void start();});
+ window.addEventListener('pagehide',()=>{stopSync();epoch++;idToken=null;list.replaceChildren();});
  void start();
 })();
