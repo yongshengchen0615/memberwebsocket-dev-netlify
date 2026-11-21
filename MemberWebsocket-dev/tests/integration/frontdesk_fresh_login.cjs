@@ -148,7 +148,8 @@ test('AC-FD-AUTH-007: LINE LIFF browser automatically signs in and server valida
   const event=new h.w.Event('pageshow');Object.defineProperty(event,'persisted',{value:true});
   h.w.dispatchEvent(event);await readyAgain;
   assert.equal(h.callsNamed('init').length,2,'bfcache resume must freshly initialize LIFF');
-  assert.equal(h.actions.filter(x=>x==='frontdesk.bootstrap').length,2,'server validates identity again');
+  assert.equal(h.actions.filter(x=>x==='frontdesk.bootstrap').length,2,
+    'server validates identity again: '+JSON.stringify({actions:h.actions,events:h.calls.filter(x=>x[0]!=='request'),status:h.w.document.getElementById('status').textContent}));
  }finally{h.close();}
 });
 test('AC-FD-AUTH-008: LIFF client without signed-in identity is denied without unsupported login',async()=>{
