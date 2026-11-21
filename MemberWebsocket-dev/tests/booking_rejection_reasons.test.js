@@ -256,4 +256,11 @@ test('AC-FR-DURATION-001..004: paired on-site registration uses direct duration 
  assert.match(sql,/booking_participant_items/);
  assert.match(sql,/BOOKING_PHONE_CREATED/);
  assert.match(sql,/FRONTDESK_DURATION_ROUTER_CONTRACT_CHANGED/);
+ const guard=read('supabase/migrations/20261121221500_frontdesk_direct_duration_bundle_guard.sql');
+ assert.match(guard,/FRONTDESK_DIRECT_DURATION_VERIFIED/);
+ assert.match(guard,/v_store_count = 1 and v_visible_count = 0/);
+ assert.match(guard,/frontdesk_paired_phone_source/);
+ assert.match(guard,/counts_toward_membership=false/);
+ assert.match(guard,/booking_participant_items/);
+ assert.match(guard,/FRONTDESK_BUNDLE_CONTRACT_CHANGED/);
 });
