@@ -166,7 +166,7 @@ jobs:
             MemberWebsocket-dev/tests/integration/friend_qr_scanner.cjs
       - name: Check frontdesk tenant and UI contracts
         if: matrix.suite == 'core'
-        run: node --test MemberWebsocket-dev/tests/integration/frontdesk_access.cjs MemberWebsocket-dev/tests/integration/frontdesk_api.cjs MemberWebsocket-dev/tests/integration/frontdesk_legacy.cjs MemberWebsocket-dev/tests/integration/frontdesk_race.cjs MemberWebsocket-dev/tests/integration/frontdesk_ui.cjs
+        run: node --test MemberWebsocket-dev/tests/integration/frontdesk_access.cjs MemberWebsocket-dev/tests/integration/frontdesk_api.cjs MemberWebsocket-dev/tests/integration/frontdesk_legacy.cjs MemberWebsocket-dev/tests/integration/frontdesk_race.cjs MemberWebsocket-dev/tests/integration/frontdesk_ui.cjs MemberWebsocket-dev/tests/integration/frontdesk_fresh_login.cjs
       - name: Check extended DOM, SQL and human journeys
         if: matrix.suite == 'extended'
         run: |
