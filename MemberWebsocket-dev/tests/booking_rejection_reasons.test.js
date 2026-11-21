@@ -174,3 +174,15 @@ test('AC-FR-007: paired walk-in is confirmed atomically and shown as frontdesk s
  assert.match(ui,/電話／現場預約已登記並直接確認/);
  assert.doesNotMatch(ui,/登記後等待管理員確認/);
 });
+
+test('AC-FR-008: pairing uses same-transaction audited actor instead of mismatched clock values',()=>{
+ const sql=read('supabase/migrations/20261121134500_frontdesk_paired_audit_timestamp.sql');
+ assert.match(sql,/reject_audit\.created_at=phone_audit\.created_at/);
+ assert.match(sql,/reject_audit\.actor_line_user_id=phone_audit\.actor_line_user_id/);
+ assert.match(sql,/phone_audit\.action='BOOKING_PHONE_CREATED'/);
+ assert.match(sql,/reject_audit\.action='BOOKING_REJECTED'/);
+ assert.match(sql,/original\.rejection_reason='unrecorded_phone_booking'/);
+ assert.match(sql,/original\.status='rejected'/);
+ assert.doesNotMatch(sql,/original\.rejected_at\s*<=\s*\$4/);
+ assert.match(sql,/p_booking->>'booking_date'/);
+});
