@@ -67,7 +67,7 @@ test('AC-FR-005: phone requests are tenant-scoped, pending, slot-blocking and au
  for(const op of ['frontdesk.phone.catalog','frontdesk.phone.slots','frontdesk.phone.create'])assert.ok(api.includes(op),op);
  assert.match(api,/frontdesk\.phone\.create'.*includes\(body\.action\)/);
  assert.match(ui,/登記電話／現場預約/);
- assert.match(ui,/原預約已拒絕，電話／現場預約已登記並保留時段/);
+ assert.match(ui,/原預約已拒絕，電話／現場預約已登記並直接確認/);
  assert.match(ui,/openRejectionDialog/);
  assert.match(ui,/frontdesk-phone-service-option/);
  assert.match(ui,/frontdeskLockPrevious/);
@@ -134,4 +134,55 @@ test('AC-FR-MODAL-005: paired rejection is authorized, atomic, date derived serv
  assert.deepEqual(routed.args.p_body.items,payload.items);
  assert.equal(Object.hasOwn(routed.args.p_body,'bookingDate'),false);
  assert.equal(calls.filter(c=>c.name==='platform_dispatch_booking').length,1);
+});
+
+test('AC-001..004: paired frontdesk rejection produces one admin notice and suppresses replacement enqueue',()=>{
+ const sql=read('supabase/migrations/20261121120000_frontdesk_rejection_line_details.sql');
+ assert.match(sql,/frontdesk_paired_phone_source/);
+ assert.match(sql,/BOOKING_PHONE_CREATED/);
+ assert.match(sql,/BOOKING_REJECTED/);
+ assert.match(sql,/actor_role='frontdesk'/);
+ assert.match(sql,/original\.status='rejected'/);
+ assert.match(sql,/original\.rejection_reason='unrecorded_phone_booking'/);
+ assert.match(sql,/v_phone_id is null/);
+ assert.match(sql,/【原預約資料】/);
+ assert.match(sql,/【櫃檯新增的預約資料】/);
+ assert.match(sql,/預約人：櫃檯人員/);
+ assert.match(sql,/if v_frontdesk then/);
+ assert.match(sql,/frontdesk_paired_phone_source\(TG_TABLE_SCHEMA,to_jsonb\(NEW\)\)/);
+ assert.match(sql,/then return null;end if;/);
+ assert.match(sql,/install_booking_rejection\(text\)/);
+ assert.doesNotMatch(sql,/delete from .*notice_outbox/i);
+});
+
+test('AC-FR-007: paired walk-in is confirmed atomically and shown as frontdesk staff',()=>{
+ const sql=read('supabase/migrations/20261121134000_frontdesk_paired_immediate_confirmation.sql');
+ const ui=read('frontdesk/app.js');
+ assert.match(sql,/coalesce\(\(v->>'alreadyApplied'\)::boolean,false\)/);
+ assert.match(sql,/frontdesk_paired_phone_source\(t\.runtime_schema,b\)/);
+ assert.match(sql,/v->>'alreadyApplied'/);
+ assert.match(sql,/update %I\.bookings x set status=''confirmed''/);
+ assert.match(sql,/confirmed_by=\$2,confirmed_at=clock_timestamp\(\)/);
+ assert.match(sql,/contact_surname=''櫃檯人員'',contact_salutation=null/);
+ assert.match(sql,/where x\.id=\$1 and x\.status=''pending'' returning to_jsonb\(x\)/);
+ assert.match(sql,/FRONTDESK_PHONE_CONFIRM_CONFLICT/);
+ assert.match(sql,/b\.status in \(''pending'',''confirmed''\)/);
+ assert.match(sql,/v_phone->>'status'='confirmed' then '已確認'/);
+ assert.match(sql,/預約人：櫃檯人員/);
+ assert.match(sql,/FRONTDESK_PAIRED_CONFIRM_ROUTER_CONTRACT_CHANGED/);
+ assert.match(ui,/無須等待管理員審核/);
+ assert.match(ui,/電話／現場預約已登記並直接確認/);
+ assert.doesNotMatch(ui,/登記後等待管理員確認/);
+});
+
+test('AC-FR-008: pairing uses same-transaction audited actor instead of mismatched clock values',()=>{
+ const sql=read('supabase/migrations/20261121134500_frontdesk_paired_audit_timestamp.sql');
+ assert.match(sql,/reject_audit\.created_at=phone_audit\.created_at/);
+ assert.match(sql,/reject_audit\.actor_line_user_id=phone_audit\.actor_line_user_id/);
+ assert.match(sql,/phone_audit\.action='BOOKING_PHONE_CREATED'/);
+ assert.match(sql,/reject_audit\.action='BOOKING_REJECTED'/);
+ assert.match(sql,/original\.rejection_reason='unrecorded_phone_booking'/);
+ assert.match(sql,/original\.status='rejected'/);
+ assert.doesNotMatch(sql,/original\.rejected_at\s*<=\s*\$4/);
+ assert.match(sql,/p_booking->>'booking_date'/);
 });

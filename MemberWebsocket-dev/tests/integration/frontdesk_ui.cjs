@@ -178,7 +178,7 @@ test('AC-FR-MODAL-001..003: modal requires a reason; phone section appears only 
    body.action==='frontdesk.bootstrap'?{staff:{status:'approved',permissionMode:'review'}}:
    body.action==='frontdesk.bookings'?{bookings:[{id:bookingId,name:'QA',status:'pending',updatedAt:'2026-11-20T10:00:00.000Z',bookingDate:'2026-12-12',startTime:'11:00',services:[]}]}:
    body.action==='frontdesk.phone.catalog'?{services:[{id:idA,title:'身體60',durationMinutes:60},{id:idB,title:'腳底30',durationMinutes:30}]}:
-   body.action==='frontdesk.booking.reject-phone'?{booking:{status:'rejected'},phoneBookingStatus:'pending'}:{};
+   body.action==='frontdesk.booking.reject-phone'?{booking:{status:'rejected'},phoneBookingStatus:'confirmed'}:{};
   return{ok:true,json:async()=>({ok:true,data})};
  };
  const settle=()=>new Promise(resolve=>setImmediate(resolve));
@@ -199,6 +199,7 @@ test('AC-FR-MODAL-001..003: modal requires a reason; phone section appears only 
  assert.equal(calls.filter(b=>b.action==='frontdesk.phone.catalog').length,0);
  reason.value='unrecorded_phone_booking';reason.dispatchEvent(new w.Event('change',{bubbles:true}));await settle();
  assert.equal(panel.hidden,false);assert.match(panel.textContent,/2026-12-12/);
+  assert.match(panel.textContent,/無須等待管理員審核/);
  const serviceChecks=dialog.querySelectorAll('.frontdesk-phone-service-option input[type=checkbox]');
  assert.equal(serviceChecks.length,2);
  for(const check of serviceChecks){check.checked=true;check.dispatchEvent(new w.Event('change',{bubbles:true}));}
@@ -213,6 +214,8 @@ test('AC-FR-MODAL-001..003: modal requires a reason; phone section appears only 
  assert.equal(Object.hasOwn(req,'contactSurname'),false);
  assert.match(req.requestId,/^[0-9a-f-]{36}$/i);assert.match(req.phoneRequestId,/^PHONE-[0-9a-f-]{36}$/i);
  assert.equal(calls.filter(x=>x.action==='frontdesk.phone.create').length,0);
+  assert.match(w.document.getElementById('status').textContent,/電話／現場預約已登記並直接確認/);
+  assert.doesNotMatch(w.document.getElementById('status').textContent,/等待管理員確認/);
  w.close();
 });
 test('AC-FR-MODAL-004: technician leave requires reason and never requests phone catalog or replacement',async()=>{

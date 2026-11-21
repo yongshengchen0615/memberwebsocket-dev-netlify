@@ -45,7 +45,7 @@
    status.textContent='請先選擇拒絕原因。';return;
   }
   const body=known||{bookingId:key,status:next,expectedUpdatedAt:booking.updatedAt,requestId:crypto.randomUUID(),...(next==='rejected'?{rejectionReason}:{}),...(phoneBooking?{phoneRequestId:'PHONE-'+crypto.randomUUID(),startTime:phoneBooking.startTime,items:phoneBooking.items}:{})};pending.set(key,body);lock(true);const generation=epoch;
-  try{await request(body.phoneRequestId?'frontdesk.booking.reject-phone':'frontdesk.booking.update',body);if(generation!==epoch)return;pending.delete(key);await load();if(onSuccess)onSuccess();status.textContent=body.phoneRequestId?'原預約已拒絕，電話／現場預約已登記並保留時段，等待管理員確認。':next==='confirmed'?'預約已確認。':'預約已拒絕。';}
+  try{await request(body.phoneRequestId?'frontdesk.booking.reject-phone':'frontdesk.booking.update',body);if(generation!==epoch)return;pending.delete(key);await load();if(onSuccess)onSuccess();status.textContent=body.phoneRequestId?'原預約已拒絕，電話／現場預約已登記並直接確認，時段已保留。':next==='confirmed'?'預約已確認。':'預約已拒絕。';}
   catch(error){if(generation!==epoch)return;let refreshed=false;if(!error.uncertain){pending.delete(key);try{await load();refreshed=true;}catch{}}else button.textContent='重試相同操作';failure(error,refreshed);}
   finally{lock(false);}
  }
@@ -183,7 +183,7 @@
   reasonField.append(reason);
   const phonePanel=node('section');phonePanel.className='frontdesk-phone-settings';phonePanel.dataset.phoneRegistration='true';phonePanel.hidden=true;
   const title=node('h3','登記電話／現場預約');
-  const hint=node('p','同一筆操作會拒絕原預約並登記現場時段，登記後等待管理員確認。');
+  const hint=node('p','同一筆操作會拒絕原預約、登記並直接確認現場預約，無須等待管理員審核。');
   const bookingDate=String(booking.bookingDate||booking.startAt||'').slice(0,10);
   const dateLabel=node('div');dateLabel.className='frontdesk-phone-date';
   dateLabel.append(node('span','預約日期（原訂單）'),node('strong',bookingDate||'無法取得原預約日期'));

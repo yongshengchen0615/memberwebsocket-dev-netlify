@@ -511,7 +511,11 @@ function makeAltText(parsed: ParsedBookingMessage): string {
 }
 
 export function buildBookingFlexMessage(job: Job): LineFlexMessage {
-  const parsed = parseBookingMessage(job.message_text);
+  // Booking identifiers are for administrators only. Sanitize the source
+  // before parsing so fallback cards, alt text and normal Flex rows agree.
+  const visibleText = job.channel === 'admin' ? job.message_text :
+    String(job.message_text || '').replace(/^(?:預約編號|原預約編號|新增預約編號|訂單編號)[：:][^\r\n]*(?:\r?\n|$)/gm, '');
+  const parsed = parseBookingMessage(visibleText);
   // The frontdesk-only display title does not change cancellation approval state.
   const displayTitle = job.channel === 'frontdesk' && parsed.title === '取消預約申請' ? '預約取消' : parsed.title;
   const style = TITLE_STYLES[parsed.title] || { color: '#315D50', eyebrow: 'BOOKING NOTICE' };
