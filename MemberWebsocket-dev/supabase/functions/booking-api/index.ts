@@ -414,7 +414,7 @@ function normalizeMemberReminder(body: Json): { enabled: boolean; time: string }
   return { enabled, time: `${time}:00` };
 }
 
-function bookingClient(row: any, items: any[] = [], benefits: any[] = []): Json {
+function bookingClient(row: any, items: any[] = [], benefits: any[] = [], frontdeskReplacement = false): Json {
   const member = row.members || row.member || null;
   const mappedItems = items.map(itemClient);
   return {
@@ -428,6 +428,7 @@ function bookingClient(row: any, items: any[] = [], benefits: any[] = []): Json 
     totalAmount: mappedItems.reduce((sum, item: any) => sum + Number(item.subtotalAmount || 0), 0),
     memberId: row.member_id,
     bookingSource: !row.member_id && String(row.request_id || "").startsWith("PHONE-") ? "phone" : "member",
+    frontdeskReplacement, // Verified from paired frontdesk audit events, not user-controlled notes alone.
     memberDisplayName: member?.display_name || "",
     memberCode: member?.member_code || "",
     bookingDate: row.booking_date,
@@ -453,6 +454,52 @@ function bookingClient(row: any, items: any[] = [], benefits: any[] = []): Json 
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+// Identify frontdesk replacement bookings by the two audited actions, the
+// original booking's rejected state/reason, and the same verified LINE actor.
+// A forged admin_note or surname alone cannot grant frontdesk provenance.
+async function verifiedFrontdeskReplacements(supabase: SupabaseClient, rows: any[]): Promise<Set<string>> {
+  const pattern = /^原預約 ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}) 拒絕後的現場／電話預約$/i;
+  const candidates = rows.flatMap((row: any) => {
+    const match = pattern.exec(String(row.admin_note || ""));
+    return !row.member_id && String(row.request_id || "").startsWith("PHONE-") && match
+      ? [{ row, originalId: match[1].toLowerCase() }] : [];
+  });
+  if (!candidates.length) return new Set();
+  const originalIds = [...new Set(candidates.map(({ originalId }) => originalId))];
+  const auditIds = [...new Set([...candidates.map(({ row }) => String(row.id)), ...originalIds])];
+  const [originals, audits] = await Promise.all([
+    supabase.from("bookings").select("id,status,rejection_reason,rejected_by,booking_date").in("id", originalIds),
+    supabase.from("booking_audit_events")
+      .select("target_id,action,actor_role,actor_line_user_id,created_at")
+      .in("target_id", auditIds).in("action", ["BOOKING_PHONE_CREATED", "BOOKING_REJECTED"])
+      .eq("actor_role", "frontdesk"),
+  ]);
+  if (originals.error) throw mapDatabaseError(originals.error);
+  if (audits.error) throw mapDatabaseError(audits.error);
+  const originalsById = new Map((originals.data || []).map((item: any) => [String(item.id), item]));
+  const eventsById = new Map<string, any[]>();
+  for (const event of audits.data || []) {
+    const events = eventsById.get(String(event.target_id)) || [];
+    events.push(event);
+    eventsById.set(String(event.target_id), events);
+  }
+  const verified = new Set<string>();
+  for (const { row, originalId } of candidates) {
+    const original = originalsById.get(originalId);
+    if (!original || original.status !== "rejected" || original.rejection_reason !== "unrecorded_phone_booking"
+      || original.booking_date !== row.booking_date || String(original.id) === String(row.id)) continue;
+    const sourceEvents = (eventsById.get(originalId) || [])
+      .filter((event) => event.action === "BOOKING_REJECTED" && event.actor_line_user_id === original.rejected_by);
+    const createdEvents = (eventsById.get(String(row.id)) || [])
+      .filter((event) => event.action === "BOOKING_PHONE_CREATED" && event.actor_line_user_id === original.rejected_by);
+    if (createdEvents.some((created) => sourceEvents.some((rejected) =>
+      created.created_at === rejected.created_at && created.actor_line_user_id === rejected.actor_line_user_id))) {
+      verified.add(String(row.id));
+    }
+  }
+  return verified;
 }
 
 async function hydrateBookings(supabase: SupabaseClient, rows: any[]): Promise<Json[]> {
@@ -483,7 +530,9 @@ async function hydrateBookings(supabase: SupabaseClient, rows: any[]): Promise<J
     values.push(benefit);
     benefitGrouped.set(benefit.booking_id, values);
   }
-  return rows.map((row) => bookingClient(row, grouped.get(row.id) || [], benefitGrouped.get(row.id) || []));
+  const verified = await verifiedFrontdeskReplacements(supabase, rows);
+  return rows.map((row) => bookingClient(row, grouped.get(row.id) || [],
+    benefitGrouped.get(row.id) || [], verified.has(String(row.id))));
 }
 
 async function bookingSettings(supabase: SupabaseClient): Promise<any> {

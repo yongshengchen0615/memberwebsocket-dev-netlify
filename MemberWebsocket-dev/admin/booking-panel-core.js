@@ -1940,8 +1940,9 @@
           })) : [],
         })),
       });
-      card.dataset.bookingCopyContactName = bookingContactName(booking);
-      card.dataset.bookingCopyPhone = String(booking.contactPhone || '—');
+      card.dataset.bookingCopyContactName = isFrontdeskReplacement(booking) ? '櫃檯人員' : bookingContactName(booking);
+      card.dataset.bookingCopyPhone = isFrontdeskReplacement(booking) ? '' : String(booking.contactPhone || '—');
+      card.dataset.bookingFrontdeskReplacement = String(isFrontdeskReplacement(booking));
       card.dataset.bookingCopyMemberNote = String(booking.memberNote || '');
       card.dataset.bookingCopyAdminNote = String(booking.adminNote || '');
 
@@ -1949,7 +1950,7 @@
 
       const heading = document.createElement('div');
       heading.className = 'booking-admin-booking-heading';
-      if (isPhoneBooking(booking)) {
+      if (isPhoneBooking(booking) && !isFrontdeskReplacement(booking)) {
         const source = document.createElement('span');
         source.className = 'booking-admin-status';
         source.textContent = '管理端登記 · 現場安排';
@@ -2042,6 +2043,10 @@
     return Boolean(booking && booking.bookingSource === 'phone');
   }
 
+  function isFrontdeskReplacement(booking) {
+    return isPhoneBooking(booking) && booking.frontdeskReplacement === true;
+  }
+
   function canEditBooking(booking) {
     return Boolean(
       (booking?.status === 'pending' || booking?.status === 'confirmed')
@@ -2074,7 +2079,7 @@
     const memberMeta = document.createElement('div');
     memberMeta.className = 'booking-member-meta';
     if (isPhoneBooking(booking)) {
-      memberMeta.append(summaryMetaItem('預約來源', '管理端登記 · 非會員'));
+      memberMeta.append(summaryMetaItem('預約來源', isFrontdeskReplacement(booking) ? '櫃檯人員' : '管理端登記 · 非會員'));
     } else {
       memberMeta.append(
         summaryMetaItem('LINE 名稱', String(booking.memberDisplayName || '未取得')),
@@ -2094,15 +2099,18 @@
     dateTime.textContent = `${formatBookingDateSummary(booking.bookingDate)} 營業班次 · ${String(booking.startTime || '—').slice(0, 5)}–${String(booking.endTime || '—').slice(0, 5)}${String(booking.endAt || '').slice(0, 10) > String(booking.startAt || '').slice(0, 10) ? '（隔日）' : ''}`;
     summary.appendChild(dateTime);
 
-    const contactName = document.createElement('p');
-    contactName.className = 'booking-received-name';
-    contactName.textContent = bookingContactName(booking);
-    summary.appendChild(contactName);
+    // A staff-created occupied slot has no customer contact details.
+    if (!isFrontdeskReplacement(booking)) {
+      const contactName = document.createElement('p');
+      contactName.className = 'booking-received-name';
+      contactName.textContent = bookingContactName(booking);
+      summary.appendChild(contactName);
 
-    const phone = document.createElement('p');
-    phone.className = 'booking-received-phone';
-    phone.textContent = `電話：${String(booking.contactPhone || '—')}`;
-    summary.appendChild(phone);
+      const phone = document.createElement('p');
+      phone.className = 'booking-received-phone';
+      phone.textContent = `電話：${String(booking.contactPhone || '—')}`;
+      summary.appendChild(phone);
+    }
 
     summary.appendChild(renderParticipantDetails(booking, group, hasStoredParticipants));
 
@@ -2111,7 +2119,7 @@
     copyButton.className = 'booking-copy-button';
     copyButton.dataset.bookingAdminAction = 'copy-booking';
     copyButton.textContent = '複製預約內容';
-    copyButton.setAttribute('aria-label', `複製 ${bookingContactName(booking)} 的預約內容`);
+    copyButton.setAttribute('aria-label', `複製 ${isFrontdeskReplacement(booking) ? '櫃檯人員' : bookingContactName(booking)} 的預約內容`);
     summary.appendChild(copyButton);
 
     return summary;

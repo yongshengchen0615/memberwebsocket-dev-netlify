@@ -10,7 +10,8 @@
     const participants = Array.isArray(b.participants) ? b.participants : [];
     const lines = clipboard
       ? [`日期：${date}`, `時間：${String(b.startTime || '—').slice(0,5)}`,
-        `預約人：${String(b.name || '未取得預約人資料')}`, `電話：${phone}`,
+        ...(b.omitContact === true ? ['預約來源：櫃檯人員'] :
+          [`預約人：${String(b.name || '未取得預約人資料')}`, `電話：${phone}`]),
         `預約人數：${Math.max(1,Number(b.partySize || participants.length || 1))} 位`]
       : [`營業日 ${date}｜${String(b.startTime || '—').slice(0,5)}–${String(b.endTime || '—').slice(0,5)}${endDate > startDate ? '（隔日）' : ''}`,
         String(b.name || '未取得預約人資料'), `電話：${phone}`,

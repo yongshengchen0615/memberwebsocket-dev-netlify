@@ -186,3 +186,50 @@ test('AC-FR-008: pairing uses same-transaction audited actor instead of mismatch
  assert.doesNotMatch(sql,/original\.rejected_at\s*<=\s*\$4/);
  assert.match(sql,/p_booking->>'booking_date'/);
 });
+
+test('AC-FR-009: active confirmed replacement retains same-auditor pair; admin rejection uses canonical event key',()=>{
+ const sql=read('supabase/migrations/20261121151000_frontdesk_rejection_notice_repair.sql');
+ assert.match(sql,/not in \('pending','confirmed'\)/);
+ assert.match(sql,/frontdesk_paired_phone_source/);
+ assert.match(sql,/old_key constant text/);
+ assert.match(sql,/frontdesk\.rejected:/);
+ assert.match(sql,/new_key constant text := \$new\$v_event\$new\$/);
+ assert.match(sql,/using NEW\.id,v_event,left\(v_admin_message/);
+ assert.match(sql,/FRONTDESK_REJECTION_NOTICE_CONTRACT_CHANGED/);
+ assert.doesNotMatch(sql,/update\s+.*notice_outbox.*status\s*=\s*'accepted'/i);
+});
+test('AC-FR-010: administration only treats audit-proven paired booking as frontdesk',()=>{
+ const api=read('supabase/functions/booking-api/index.ts');
+ const ui=read('admin/booking-panel-core.js');
+ assert.match(api,/async function verifiedFrontdeskReplacements/);
+ assert.match(api,/BOOKING_PHONE_CREATED/);
+ assert.match(api,/BOOKING_REJECTED/);
+ assert.match(api,/original\.status !== "rejected"/);
+ assert.match(api,/original\.rejection_reason !== "unrecorded_phone_booking"/);
+ assert.match(api,/created\.created_at === rejected\.created_at/);
+ assert.match(api,/created\.actor_line_user_id === rejected\.actor_line_user_id/);
+ assert.match(api,/frontdeskReplacement, \/\/ Verified from paired frontdesk audit events/);
+ assert.match(ui,/booking\.frontdeskReplacement === true/);
+ assert.match(ui,/預約來源', isFrontdeskReplacement\(booking\) \? '櫃檯人員'/);
+ assert.match(ui,/if \(!isFrontdeskReplacement\(booking\)\)/);
+ assert.match(ui,/card\.dataset\.bookingFrontdeskReplacement = String\(isFrontdeskReplacement\(booking\)\)/);
+ assert.match(ui,/isFrontdeskReplacement\(booking\) \? '' : String\(booking\.contactPhone/);
+ assert.match(ui,/if \(isPhoneBooking\(booking\) && !isFrontdeskReplacement\(booking\)\)/);
+});
+test('AC-FR-011: staff replacement clipboard omits phantom contact fields, ordinary copies retain them',()=>{
+ const vm=require('node:vm');
+ const ctx={};
+ vm.runInNewContext(read('booking-copy-text.js'),ctx);
+ const data={bookingDate:'2026-12-01',startTime:'09:00',name:'王先生',phone:'0900000000',
+  participants:[{items:[{serviceTitle:'身體60',quantity:1}],technicianName:'10技師'}]};
+ const special=ctx.BookingCopyText.formatClipboard({...data,omitContact:true});
+ assert.match(special,/預約來源：櫃檯人員/);
+ assert.match(special,/預約項目：身體60/);
+ assert.doesNotMatch(special,/預約人：|電話：|0900000000|未取得預約人資料/);
+ const ordinary=ctx.BookingCopyText.formatClipboard(data);
+ assert.match(ordinary,/預約人：王先生/);
+ assert.match(ordinary,/電話：0900000000/);
+ assert.doesNotMatch(ordinary,/預約來源：櫃檯人員/);
+ const frontend=read('booking-copy-format.js');
+ assert.match(frontend,/omitContact:card\.dataset\.bookingFrontdeskReplacement === 'true'/);
+});

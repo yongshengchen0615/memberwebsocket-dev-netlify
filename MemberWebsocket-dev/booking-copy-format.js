@@ -105,6 +105,7 @@
       startTime:startTime(card),endTime:card.dataset.bookingEndTime,name:contactName(card),phone:contactPhone(card),
       partySize:group?.partySize,participants:normalizedParticipants(card,group),
       adminNote:card.dataset.bookingCopyAdminNote || '',
+      omitContact:card.dataset.bookingFrontdeskReplacement === 'true',
     });
   }
 
