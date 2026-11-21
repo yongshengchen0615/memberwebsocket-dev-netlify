@@ -621,3 +621,47 @@ for(const width of [390,1280])test('FRONTDESK_SETTINGS_HISTORY_'+width+' — sta
  expect(errors).toEqual([]);
  await info.attach('frontdesk-history-tabs-'+width,{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
 });
+
+test('FRONTDESK_POLICY_SETTINGS — merchant saves independent title and 10-minute bounds without LINE token',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.goto(base+'/frontdesk/');
+ await page.setContent('<main id="root"></main>');
+ await page.addScriptTag({url:base+'/admin/frontdesk-settings.js'});
+ await page.evaluate(()=>{
+  const settings={enabled:true,loginChannelId:'2010999999',liffId:'2010999999-desk',messagingChannelId:'2010888888'};
+  window.frontdeskPolicyWrites=[];
+  window.FrontdeskSettings.mount({root:document.getElementById('root'),business:'shop-a',request:async(action,body)=>{
+   if(action==='platform.frontdesk.preferences.save'){
+    window.frontdeskPolicyWrites.push({action,body});
+    Object.assign(settings,body.preferences);
+    return {frontdesk:{...settings},version:2,staff:[]};
+   }
+   if(action!=='platform.frontdesk.get')throw Error('Unexpected preferences action: '+action);
+   return {frontdesk:{...settings},version:1,staff:[]};
+  }});
+ });
+ await page.locator('summary').click();
+ const form=page.locator('form.frontdesk-preferences-form');
+ await expect(form).toBeVisible();
+ await expect(form.locator('[name=conflictDurationMin] option').first()).toHaveValue('10');
+ await expect(form.locator('[name=conflictStartMin] option').nth(1)).toHaveValue('10');
+ await form.locator('[name=pageTitle]').fill('獨立櫃檯抬頭');
+ await form.locator('[name=conflictStartMin]').selectOption('600');
+ await form.locator('[name=conflictStartMax]').selectOption('540');
+ await expect(form).toContainText('最早時間不可晚於最晚時間');
+ await expect(form.getByRole('button',{name:'儲存櫃檯頁面與衝突預約限制'})).toBeDisabled();
+ await form.locator('[name=conflictStartMax]').selectOption('1080');
+ await form.locator('[name=conflictDurationMin]').selectOption('30');
+ await form.locator('[name=conflictDurationMax]').selectOption('120');
+ await form.getByRole('button',{name:'儲存櫃檯頁面與衝突預約限制'}).click();
+ await expect(page.locator('[role=status]')).toContainText('已儲存');
+ const writes=await page.evaluate(()=>window.frontdeskPolicyWrites);
+ expect(writes).toHaveLength(1);
+ expect(writes[0].action).toBe('platform.frontdesk.preferences.save');
+ expect(writes[0].body.preferences).toEqual({
+  pageTitle:'獨立櫃檯抬頭',conflictStartMin:600,conflictStartMax:1080,
+  conflictDurationMin:30,conflictDurationMax:120
+ });
+ expect(Object.hasOwn(writes[0].body,'channelAccessToken')).toBe(false);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
