@@ -18,7 +18,7 @@ test('AC-FD-CONFLICT-005/006: merchant may save page title and bounds without re
   {...values,conflictStartMin:545},
   {...values,conflictDurationMin:0},
   {...values,pageTitle:'x'.repeat(61)},
-  {...values,pageTitle:'hello\\nworld'}
+  {...values,pageTitle:'hello\nworld'}
  ]) {
   await assert.rejects(()=>frontdeskAdmin({...args,body:{...body,requestId:'10000000-0000-4000-8000-000000000009',preferences:p}}),/櫃檯頁面抬頭或衝突預約/);
  }
