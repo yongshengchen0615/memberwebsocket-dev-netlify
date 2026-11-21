@@ -130,3 +130,60 @@ test('legacy booking admin entry redirects to current admin booking workspace', 
   assert.equal(fs.existsSync(path.join(root, 'booking/admin/app.js')), false);
   assert.equal(fs.existsSync(path.join(root, 'booking/admin/contact-details.js')), false);
 });
+
+for (const fromFrontdesk of [true, false]) {
+  test('AC-FR-010 DOM: ' + (fromFrontdesk ? 'audited counter booking has no phantom contact' : 'ordinary phone booking keeps contact') , async () => {
+    const id='30000000-0000-4000-8000-000000000010';
+    const sourceBooking={...booking,bookingId:id,status:'confirmed',requestId:'PHONE-30000000-0000-4000-8000-000000000010',
+      memberId:null,memberDisplayName:'',memberCode:'',bookingSource:'phone',
+      frontdeskReplacement:fromFrontdesk,
+      contactSurname:fromFrontdesk?'櫃檯人員':'李',contactSalutation:fromFrontdesk?null:'ms',
+      contactPhone:fromFrontdesk?null:'0912345678',adminNote:''};
+    const dom=new JSDOM(fs.readFileSync(path.join(root,'admin/index.html'),'utf8'),{
+      url:'https://example.test/admin/?bookingId='+id,runScripts:'outside-only'
+    }),w=dom.window;
+    const system={loadConfig:async()=>({supabaseUrl:'https://fixture.supabase.co',supabasePublishableKey:'fixture-key'})};
+    w.MemberSystem=system;w.BookingSystem=system;
+    w.fetch=async(_url,init)=>{
+      const {action,bookingIds}=JSON.parse(init.body);
+      let data;
+      if(action==='admin.booking.bootstrap')data={bookings:[sourceBooking],settings:{}};
+      else if(action==='admin.booking.manage.bootstrap')data={settings:{},services:[],serviceTypes:[]};
+      else if(action==='admin.booking.resources.bootstrap')data={settings:{maxPartySize:1},technicians:[]};
+      else if(action==='admin.booking.summary')data={pendingCount:0,unreadCount:0,latestNotificationId:0};
+      else if(action==='admin.booking.notifications.read')data={unreadCount:0,latestNotificationId:0};
+      else if(action==='admin.booking.group.details'){assert.deepEqual(bookingIds,[id]);data={bookingGroups:{[id]:{partySize:1,participants:group.participants.slice(0,1)}}};}
+      else if(action==='admin.booking.contacts')data={contacts:[]};
+      else throw Error('unexpected test route '+action);
+      return new Response(JSON.stringify({ok:true,data}));
+    };
+    const load=file=>w.eval(fs.readFileSync(path.join(root,file),'utf8'));
+    const observers=[],NativeObserver=w.MutationObserver;
+    w.MutationObserver=class extends NativeObserver{constructor(cb){super(cb);observers.push(this);}};
+    try {
+      load('admin/admin-session.js');
+      w.MemberAdminSession.establish({supabaseUrl:'https://fixture.supabase.co',supabasePublishableKey:'fixture-key'},'fixture-token');
+      load('admin/booking-panel-core.js');
+      if(!w.document.getElementById('bookingTab')){
+        w.document.dispatchEvent(new w.Event('DOMContentLoaded'));await tick(20);
+      }
+      w.document.getElementById('bookingTab').click();
+      const card=await waitFor(()=>w.document.querySelector('.booking-admin-booking[data-booking-id="'+id+'"]'));
+      assert.ok(card,'booking card must be visible in bookingId deep link');
+      const source=card.querySelector('.booking-member-meta');
+      assert.ok(source);
+      if(fromFrontdesk){
+        assert.match(source.textContent,/預約來源櫃檯人員/);
+        assert.equal(card.dataset.bookingFrontdeskReplacement,'true');
+        assert.equal(card.querySelector('.booking-received-name'),null);
+        assert.equal(card.querySelector('.booking-received-phone'),null);
+        assert.doesNotMatch(card.textContent,/管理端登記 · 非會員|未取得預約人資料|電話：—/);
+      } else {
+        assert.match(source.textContent,/管理端登記 · 非會員/);
+        assert.equal(card.dataset.bookingFrontdeskReplacement,'false');
+        assert.match(card.querySelector('.booking-received-name').textContent,/李小姐/);
+        assert.match(card.querySelector('.booking-received-phone').textContent,/0912345678/);
+      }
+    } finally {observers.forEach(observer=>observer.disconnect());w.close();}
+  });
+}
