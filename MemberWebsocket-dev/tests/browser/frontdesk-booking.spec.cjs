@@ -643,8 +643,8 @@ test('FRONTDESK_POLICY_SETTINGS — merchant saves independent title and 10-minu
  await page.locator('summary').click();
  const form=page.locator('form.frontdesk-preferences-form');
  await expect(form).toBeVisible();
- await expect(form.locator('[name=conflictDurationMin] option').first()).toHaveValue('10');
- await expect(form.locator('[name=conflictStartMin] option').nth(1)).toHaveValue('10');
+ await expect(form.locator('[name=conflictDurationMin] option').first()).toHaveAttribute('value','10');
+ await expect(form.locator('[name=conflictStartMin] option').nth(1)).toHaveAttribute('value','10');
  await form.locator('[name=pageTitle]').fill('獨立櫃檯抬頭');
  await form.locator('[name=conflictStartMin]').selectOption('600');
  await form.locator('[name=conflictStartMax]').selectOption('540');
