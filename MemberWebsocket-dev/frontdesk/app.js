@@ -3,7 +3,7 @@
  const params=new URLSearchParams(location.search),nested=new URLSearchParams((params.get('liff.state')||'').split('?').pop());
  const business=params.get('business')||nested.get('business'),bookingId=params.get('bookingId')||nested.get('bookingId');
  const status=document.getElementById('status'),account=document.getElementById('account'),list=document.getElementById('bookings'),refresh=document.getElementById('refresh');
- let config,idToken,busy=false,epoch=0,frontdeskPolicy={};const pending=new Map();
+ let config,idToken,busy=false,epoch=0,historyEpoch=0,frontdeskPolicy={};const pending=new Map();
  let syncTimer=null,syncEnabled=false,syncInFlight=false,syncRevision=null,syncFailures=0,syncGeneration=0;
  const node=(tag,text)=>{const n=document.createElement(tag);if(text)n.textContent=text;return n;};
  const progress=document.getElementById('progress'),toolbar=document.querySelector('.frontdesk-toolbar');
@@ -103,13 +103,18 @@
   if(!response.ok||!data.ok)throw Object.assign(Error(data.error?.message||'櫃檯服務暫時無法使用。'),{code:data.error?.code,denied:response.status===401||response.status===403,uncertain:response.status>=500});
   return data.data;
  }
+ function clearPrivateHistory(){
+  historyEpoch++;
+  const history=document.getElementById('frontdeskConflictHistory');
+  if(history){history.hidden=true;history.querySelector('[data-frontdesk-history-items]')?.replaceChildren();}
+ }
  function failure(error,keepAccount=false){
   status.textContent=error.message;
   const invalidIdentity=['AUTH_INVALID','FRONTDESK_AUTH_INVALID','AUTH_REQUIRED',
    'LIFF_ID_TOKEN_MISSING','AUTH_LOGOUT_FAILED','AUTH_STORAGE_UNAVAILABLE','LIFF_INIT_ERROR','LIFF_SDK_MISSING'].includes(error.code);
   if(error.denied||invalidIdentity){
    epoch++;stopSync();list.replaceChildren();showBookingToolbar(false);
-   const history=document.getElementById('frontdeskConflictHistory');if(history){history.hidden=true;history.querySelector('[data-frontdesk-history-items]')?.replaceChildren();}
+   clearPrivateHistory();
    if(!keepAccount||invalidIdentity)account.replaceChildren();
   }
   if(invalidIdentity){
@@ -236,15 +241,15 @@
  async function loadConflictHistory(){
   const panel=document.getElementById('frontdeskConflictHistory');
   if(!panel||panel.hidden||!idToken)return;
-  const message=panel.querySelector('[data-frontdesk-history-status]'),generation=epoch;
+  const message=panel.querySelector('[data-frontdesk-history-status]'),generation=++historyEpoch;
   panel.querySelector('[data-frontdesk-history-items]')?.replaceChildren();
   if(message)message.textContent='正在取得衝突預約處理紀錄…';
   try{
    const result=await request('frontdesk.history');
-   if(generation!==epoch||panel.hidden)return;
+   if(generation!==historyEpoch||panel.hidden)return;
    renderConflictHistory(Array.isArray(result.items)?result.items:[]);
    if(message)message.textContent='最近的衝突預約紀錄（預約資料為目前狀態）。';
-  }catch(error){if(generation!==epoch)return;if(error.denied){failure(error);return;}if(message)message.textContent=error.message||'無法載入衝突預約紀錄。';}
+  }catch(error){if(generation!==historyEpoch)return;if(error.denied){failure(error);return;}if(message)message.textContent=error.message||'無法載入衝突預約紀錄。';}
  }
  document.getElementById('frontdeskHistoryRefresh')?.addEventListener('click',()=>void loadConflictHistory());
 
@@ -397,8 +402,11 @@
  async function load(){
   const generation=++epoch,data=await request('frontdesk.bootstrap');if(generation!==epoch)return false;
   account.replaceChildren();list.replaceChildren();showBookingToolbar(false);
-  const history=document.getElementById('frontdeskConflictHistory');if(history){history.hidden=true;history.querySelector('[data-frontdesk-history-items]')?.replaceChildren();}
+  const history=document.getElementById('frontdeskConflictHistory');
   const person=data.staff;
+  // Authorized booking sync is not a logout: keep already loaded history visible.
+  // Permission downgrade is a privacy boundary and always purges history.
+  if(!person||person.status!=='approved'||person.permissionMode!=='review')clearPrivateHistory();
    if(!person||person.status!=='approved'||person.permissionMode!=='review')stopSync();
   if(!person){
    showProgress(1);
@@ -440,7 +448,7 @@
  }
  async function start(){
   lock(true);try{
-   stopSync();epoch++;idToken=null;
+   stopSync();epoch++;idToken=null;clearPrivateHistory();
    account.replaceChildren();list.replaceChildren();
    showProgress(0);showBookingToolbar(false);status.textContent='正在確認 LINE 身分…';
    if(!business)throw Error('請使用商家提供的完整櫃檯入口。');
@@ -457,6 +465,6 @@
  window.addEventListener('online',()=>{if(canSync())scheduleSync(0);});
  window.addEventListener('focus',()=>{if(canSync())scheduleSync(0);});
  window.addEventListener('pageshow',event=>{if(event.persisted)void start();});
- window.addEventListener('pagehide',()=>{stopSync();epoch++;idToken=null;list.replaceChildren();});
+ window.addEventListener('pagehide',()=>{stopSync();epoch++;idToken=null;list.replaceChildren();clearPrivateHistory();});
  void start();
 })();
