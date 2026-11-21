@@ -599,7 +599,7 @@ Deno.test('AC-FR-013: non-paired frontdesk rejection never fabricates a replacem
   const parts=(card.contents.body as any).contents as Array<Record<string,unknown>>;
   assert(parts.length===2,'unpaired rejection has summary and original, no replacement');
   const rendered=JSON.stringify(card);
-  assert(rendered.includes('預約中有休假技師'));
+  assert(rendered.includes('預約中有休假技師'), 'frontdesk rejection reason must be retained');
   assert(!rendered.includes('櫃檯新增預約')&&!rendered.includes('補登狀態'),
     'do not imply any replacement or confirmation if none exists');
 });
