@@ -362,6 +362,7 @@ test('AC-FD-CONFLICT-SEC: revocation during history refresh purges member detail
     bookingDate:'2026-11-21',startTime:'11:00',endTime:'12:30',totalDurationMinutes:90}}]}:{revision:'1'};
   return{ok:true,json:async()=>({ok:true,data})};
  };
+ try {
  const ready=new Promise(resolve=>w.addEventListener('frontdesk-ready',resolve,{once:true}));w.eval(source());await ready;
  const button=w.document.getElementById('frontdeskHistoryRefresh'),items=w.document.querySelector('[data-frontdesk-history-items]');
  button.click();await new Promise(resolve=>setImmediate(resolve));
@@ -370,5 +371,5 @@ test('AC-FD-CONFLICT-SEC: revocation during history refresh purges member detail
  assert.equal(items.textContent,'');
  assert.equal(w.document.getElementById('frontdeskConflictHistory').hidden,true);
  assert.match(w.document.getElementById('status').textContent,/沒有預約審核權限/);
- w.close();
+ } finally {w.close();}
 });
