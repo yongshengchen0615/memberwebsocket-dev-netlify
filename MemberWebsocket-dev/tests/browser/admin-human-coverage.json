@@ -55,10 +55,10 @@
     "platform/platform.css": "adef4577cbae41c584fe16fce5c6372ab86a994f37226a9a6cc5116bb5bcecf2",
     "admin/business-line-settings.css": "ceab14d19f8137f529bdaa39c590ce5329304a9a3a8c515afd54bdb802a3f0c3",
     "booking/common.js": "8869346e2801a94b08615a6ab26d9908e3072e77758459b3824bb820d4191505",
-    "admin/frontdesk-settings.js": "d31b8125db98c4c77c7e30ed60598bd11f865c28755dc6de4386604407218cd9",
-    "frontdesk/app.js": "808a0a8b2b88fdfac43f43dc12c0e5c8eb565f6704c3dacc754d292d94a449e1",
-    "frontdesk/styles.css": "2adeffb8b4302081c7f36ce7011f5d014885c1ac4a3555c9fa60158a022a8349",
-    "frontdesk/index.html": "e15261409dd0a5b22014316ff04b89bd5e451191f3d7d17735b6e7238136aaf7",
+    "admin/frontdesk-settings.js": "dc008ca53d17ddcc19fc41b04ac6ca4ef8b4d43d9ce0af1232ee3b98e644c70c",
+    "frontdesk/app.js": "eb95fc51814c061ebf297d6685ffb77a3272e0da19b208ea200120ad66fc75e1",
+    "frontdesk/styles.css": "c08cb98c3d2c955dd3c6f8719b9d9b3062c3bd9bee018083cae14ee7569556a6",
+    "frontdesk/index.html": "9c23d113a7477224e7a14df969ce246c50491533ab1cbd8178aaf6b9b9631c17",
     "admin/frontdesk-settings/index.html": "41251c2526ee8bcd0f46b4725451e055167accf090dd1d15e79662f5bb4e02ed",
     "admin/frontdesk-settings/frontdesk-settings-page.js": "a5bb5f8c6716a7ab8f0cccf3dbe8be993a307a6d56b01cfe218d330cbd3de429",
     "admin/frontdesk-settings/frontdesk-settings-page.css": "f4f7424f89a368a3d2e846f6af33af5caa693a1ac679b2644bdac5189b61f998"
@@ -320,7 +320,7 @@
     {
       "id": "retired-center.27",
       "module": "integration",
-      "name": "整合中心已移除；主要導覽保留舊功能與新增網頁抬頭，櫃檯設定改為獨立頁面，手機 390px 單列滑動；預約／抬頭雙向切換互斥、權限關閉時不顯示編輯器，且不呼叫舊 API",
+      "name": "整合中心已移除；主要導覽保留舊功能與新增網頁抬頭，櫃檯設定改為獨立頁面，手機 390px 單列滑動；預約／抬頭雙向切換互斥、權限關閉時不顯示編輯器，且不呼叫舊 API；櫃檯設定可另外儲存櫃檯頁面抬頭與衝突預約起始時間、總時長的 10 分鐘上下限（獨立的 frontdesk E2E 驗證）",
       "cases": [
         "RETIRED_CENTER",
         "MOBILE_SURFACE_NAV",
