@@ -39,7 +39,20 @@ begin
       ),
       'rejectionReason', coalesce(e.metadata->>'rejectionReason',b.rejection_reason),
       'currentStatus', b.status,
-      'booking', platform_private.frontdesk_booking_json($3,b.id)
+      'booking', platform_private.frontdesk_booking_json($3,b.id),
+      'phoneBooking', case when e.metadata->>'rejectionReason'='unrecorded_phone_booking' then (
+        select platform_private.frontdesk_booking_json($3,phone.id)
+        from %1$I.booking_audit_events paired_audit
+        join %1$I.bookings phone on phone.id::text=paired_audit.target_id
+        where paired_audit.actor_role='frontdesk'
+          and paired_audit.action='BOOKING_PHONE_CREATED'
+          and paired_audit.target_type='booking'
+          and paired_audit.created_at=e.created_at
+          and paired_audit.actor_line_user_id=e.actor_line_user_id
+          and platform_private.frontdesk_paired_phone_source($3,to_jsonb(phone))=b.id
+        order by paired_audit.id desc
+        limit 1
+      ) else null end
     ) order by e.id desc), '[]'::jsonb)
     from (
       select id,created_at,target_id,actor_line_user_id,metadata
