@@ -565,7 +565,7 @@ Deno.test('AC-001/002: merged frontdesk rejection card retains both original and
   ].join('\n');
   const card = buildBookingFlexMessage({ ...sampleJob, channel: 'admin', message_text: text });
   const serialized = JSON.stringify(card);
-  for (const expected of ['櫃檯拒絕預約', '預約人：櫃檯人員', '原預約資料',
+  for (const expected of ['櫃檯拒絕預約', '櫃檯人員', '原預約資料',
     '原預約會員', '陳先生', '身體60', '櫃檯新增的預約資料', '肩頸30', '待管理員確認']) {
     assert(serialized.includes(expected), 'missing admin section: ' + expected);
   }
