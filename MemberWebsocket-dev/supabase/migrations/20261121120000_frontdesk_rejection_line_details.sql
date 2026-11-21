@@ -126,11 +126,7 @@ begin
            end;
      execute format('insert into %I.notice_outbox(booking_id,event_key,channel,recipient,message_text)
        select $1,$2,''admin'',a.line_user_id,$3 from %I.admins a
-       where a.status=''active'' and a.role=''admin'' and a.line_user_id ~ ''^U[0-9a-f]{32}
- end if;
- return null;
-end $rejection$;
-'
+       where a.status=''active'' and a.role=''admin'' and a.line_user_id ~ ''^U[0-9a-f]{32}$''
        on conflict(event_key,channel,recipient) do nothing',v_schema,v_schema)
        using NEW.id,'frontdesk.rejected:'||NEW.id::text||':'||NEW.updated_at::text,left(v_admin_message,8000);
    end if;
