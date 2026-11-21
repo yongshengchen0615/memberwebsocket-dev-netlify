@@ -541,20 +541,60 @@ for(const width of [390,1280])test('FRONTDESK_SETTINGS_HISTORY_'+width+' — sta
  const section=page.locator('#frontdeskSettingsRoot');
  await expect(section.getByRole('tab')).toHaveCount(3);
  await expect(section.getByRole('tab',{name:'LINE 設定'})).toHaveAttribute('aria-selected','true');
+ // AC-FD-LAYOUT-001/002: both panels must occupy the same stable grid track.
+ // Real Chromium geometry catches <details> internal content-box regressions
+ // that JSDOM cannot model. Repeat in light/dark and mobile/desktop.
+ const layout=selector=>section.evaluate((root,name)=>{
+  const rect=element=>{
+   const r=element.getBoundingClientRect();
+   return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width};
+  };
+  const body=root.querySelector('.frontdesk-settings-body');
+  return {grid:getComputedStyle(body).display,nav:rect(root.querySelector('.frontdesk-settings-tabs')),
+   panel:rect(root.querySelector(name)),body:rect(body),pageWidth:document.documentElement.scrollWidth,
+   windowWidth:innerWidth};
+ },selector);
+ const assertLayout=async selector=>{
+  const m=await layout(selector);
+  expect(m.grid).toBe('grid');
+  expect(Math.abs(m.panel.left-m.nav.left)).toBeLessThanOrEqual(2);
+  expect(Math.abs(m.panel.right-m.nav.right)).toBeLessThanOrEqual(2);
+  expect(m.panel.top).toBeGreaterThanOrEqual(m.nav.bottom-1);
+  expect(m.pageWidth).toBeLessThanOrEqual(m.windowWidth+1);
+  return m;
+ };
+ const original=await assertLayout('#frontdesk-line-panel');
  expect(calls.filter(x=>x.action==='platform.frontdesk.history.list')).toHaveLength(0);
  await section.getByRole('tab',{name:'確認預約'}).click();
  await expect(section.locator('.frontdesk-history-card')).toHaveCount(1);
  await expect(section.locator('.frontdesk-history-card')).toContainText('櫃檯甲');
  await expect(section.locator('.frontdesk-history-card')).toContainText('身體60');
  await expect(section.locator('.frontdesk-history-card')).toContainText('請加強肩頸');
+ const confirmedLayout=await assertLayout('#frontdesk-history-panel');
+ expect(Math.abs(confirmedLayout.nav.left-original.nav.left)).toBeLessThanOrEqual(2);
+ expect(Math.abs(confirmedLayout.nav.width-original.nav.width)).toBeLessThanOrEqual(2);
  await section.getByRole('tab',{name:'拒絕預約'}).click();
  await expect(section.locator('.frontdesk-history-card')).toContainText('該時段已被現場人員預約但未登記');
  await expect(section.locator('.frontdesk-history-card')).toContainText('後續登記的現場／電話預約');
  await expect(section.locator('.frontdesk-history-card')).toContainText('櫃檯人員');
+ await assertLayout('#frontdesk-history-panel');
  await section.getByRole('tab',{name:'LINE 設定'}).click();
  await expect(section.locator('[name="loginChannelId"]')).toBeVisible();
  await expect(section.locator('.frontdesk-history-card')).toBeHidden();
- expect(calls.filter(x=>x.action==='platform.frontdesk.history.list').map(x=>x.status)).toEqual(['confirmed','rejected']);
+ const restored=await assertLayout('#frontdesk-line-panel');
+ expect(Math.abs(restored.nav.width-original.nav.width)).toBeLessThanOrEqual(2);
+ expect(Math.abs(restored.panel.left-original.panel.left)).toBeLessThanOrEqual(2);
+ expect(Math.abs(restored.panel.width-original.panel.width)).toBeLessThanOrEqual(2);
+ await page.evaluate(()=>window.LumenTheme.set('dark'));
+ await assertLayout('#frontdesk-line-panel');
+ await section.getByRole('tab',{name:'確認預約'}).click();
+ await expect(section.locator('.frontdesk-history-card')).toHaveCount(1);
+ await assertLayout('#frontdesk-history-panel');
+ await page.evaluate(()=>window.LumenTheme.set('light'));
+ await assertLayout('#frontdesk-history-panel');
+ await section.getByRole('tab',{name:'LINE 設定'}).click();
+ await assertLayout('#frontdesk-line-panel');
+ expect(calls.filter(x=>x.action==='platform.frontdesk.history.list').map(x=>x.status)).toEqual(['confirmed','rejected','confirmed']);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(errors).toEqual([]);
  await info.attach('frontdesk-history-tabs-'+width,{body:await page.screenshot({fullPage:true}),contentType:'image/png'});

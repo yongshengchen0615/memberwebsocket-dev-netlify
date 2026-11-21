@@ -60,7 +60,12 @@
     }
     content.setAttribute('aria-labelledby', 'frontdesk-tab-line');
     historyPanel.setAttribute('aria-labelledby', 'frontdesk-tab-confirmed');
-    details.append(status, syncState, reload, tabs, content, historyPanel);
+    // <details> owns an internal content box in Chromium. Put all open-state
+    // controls in one explicit grid instead of treating its children as grid
+    // items: otherwise tab changes can reflow into different implicit tracks.
+    const body = node('div', '', 'frontdesk-settings-body');
+    body.append(status, syncState, reload, tabs, content, historyPanel);
+    details.append(body);
     root.append(details);
     let data = null, busy = false, pending = null, dirty = false, snapshot = '';
     const channel = typeof window.BroadcastChannel === 'function'
