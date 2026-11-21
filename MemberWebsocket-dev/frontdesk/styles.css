@@ -332,3 +332,20 @@ html[data-theme="dark"] .frontdesk-page .frontdesk-modal-backdrop{
  --fd-card:#192733;--fd-text:#eef4fa;--fd-muted:#b1c1ce;
  --fd-border:#42576b;--fd-primary:#79baff;--fd-danger:#a83443;
 }
+
+/* Tenant-scoped paired conflict booking history and comparison modal. */
+.frontdesk-page .frontdesk-original-booking{padding:13px 15px;border:1px solid var(--fd-border);border-radius:12px;background:var(--fd-bg);display:grid;gap:3px}
+.frontdesk-page .frontdesk-original-booking h3{font-size:1.05rem;margin:0 0 5px}
+.frontdesk-page .frontdesk-original-booking p{margin:0;color:var(--fd-text);line-height:1.55}
+.frontdesk-page .frontdesk-conflict-history{margin:26px 0 14px;border-top:1px solid var(--fd-border);padding-top:18px}
+.frontdesk-page .frontdesk-conflict-history[hidden]{display:none}
+.frontdesk-page .frontdesk-conflict-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.frontdesk-page .frontdesk-conflict-heading h2{margin:5px 0}
+.frontdesk-page .frontdesk-conflict-history [data-frontdesk-history-status]{color:var(--fd-muted);margin:10px 0}
+.frontdesk-page .frontdesk-history-pair{display:grid;gap:12px;padding:17px;margin:14px 0;background:var(--fd-card);border:1px solid var(--fd-border);border-radius:14px;min-width:0}
+.frontdesk-page .frontdesk-history-pair h3{margin:0;font-size:1.1rem}
+.frontdesk-page .frontdesk-history-pair>p{margin:0;color:var(--fd-muted)}
+.frontdesk-page .frontdesk-history-booking{padding:13px;border-radius:12px;background:var(--fd-bg);border:1px solid var(--fd-border);min-width:0}
+.frontdesk-page .frontdesk-history-booking h4{margin:0 0 8px}
+.frontdesk-page .frontdesk-history-booking p{margin:4px 0;overflow-wrap:anywhere}
+@media(min-width:700px){.frontdesk-page .frontdesk-history-pair{grid-template-columns:repeat(2,minmax(0,1fr))}.frontdesk-page .frontdesk-history-pair>h3,.frontdesk-page .frontdesk-history-pair>p{grid-column:1/-1}}
