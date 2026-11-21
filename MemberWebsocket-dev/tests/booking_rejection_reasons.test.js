@@ -148,7 +148,7 @@ test('AC-001..004: paired frontdesk rejection produces one admin notice and supp
  assert.match(sql,/【原預約資料】/);
  assert.match(sql,/【櫃檯新增的預約資料】/);
  assert.match(sql,/預約人：櫃檯人員/);
- assert.match(sql,/when v_frontdesk/);
+ assert.match(sql,/if v_frontdesk then/);
  assert.match(sql,/frontdesk_paired_phone_source\(TG_TABLE_SCHEMA,to_jsonb\(NEW\)\)/);
  assert.match(sql,/then return null;end if;/);
  assert.match(sql,/install_booking_rejection\(text\)/);
