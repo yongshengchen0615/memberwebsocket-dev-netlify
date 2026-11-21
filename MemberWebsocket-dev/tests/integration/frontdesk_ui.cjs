@@ -242,3 +242,96 @@ test('AC-FR-MODAL-004: technician leave requires reason and never requests phone
  assert.equal(calls.filter(b=>b.action==='frontdesk.phone.catalog'||b.action==='frontdesk.booking.reject-phone').length,0);
  w.close();
 });
+
+test('AC-FD-HIST-001~004: three accessible tabs show scoped confirmed/rejected details without HTML injection', async()=>{
+ const dom=new JSDOM('<div id="root"></div>',{
+  url:'https://desk.test/admin/frontdesk-settings/?business=shop-a',
+  runScripts:'outside-only',pretendToBeVisual:true
+ });
+ const w=dom.window,root=w.document.getElementById('root'),calls=[];
+ const current={version:1,frontdesk:{enabled:true,loginChannelId:'2010999999',
+  liffId:'2010999999-desk',messagingChannelId:'2010888888'},staff:[]};
+ const booked={bookingDate:'2026-11-20',startTime:'09:30',endTime:'10:30',
+  name:'<img src=x onerror=alert(1)>',phone:'+886900000000',partySize:1,
+  participants:[{position:1,technician:'10技師',note:'個別備註',
+   services:[{title:'身體60',quantity:1}]}]};
+ const request=async(action,body={})=>{
+  calls.push({action,body});
+  if(action==='platform.frontdesk.get')return structuredClone(current);
+  if(action==='platform.frontdesk.history.list'){
+   assert.ok(['confirmed','rejected'].includes(body.status));
+   const rejected=body.status==='rejected';
+   return {status:body.status,items:[{
+    eventId:rejected?2:1,bookingId:'10000000-0000-4000-8000-000000000003',
+    actionAt:'2026-11-20T01:30:00Z',actorName:'收件櫃檯',
+    currentStatus:rejected?'cancelled':'confirmed',
+    rejectionReason:rejected?'unrecorded_phone_booking':null,
+    booking:booked,phoneBooking:rejected?{...booked,name:'櫃檯人員',startTime:'10:30'}:null
+   }]};
+  }
+  throw Error('unexpected '+action);
+ };
+ w.eval(fs.readFileSync(path.join(__dirname,'../../admin/frontdesk-settings.js'),'utf8'));
+ w.FrontdeskSettings.mount({root,request,business:'shop-a'});
+ const details=root.querySelector('details');
+ details.open=true;details.dispatchEvent(new w.Event('toggle'));
+ const settle=()=>new Promise(resolve=>setImmediate(resolve));
+ await settle();await settle();
+ const tabs=[...root.querySelectorAll('[role="tab"]')];
+ assert.deepEqual(tabs.map(x=>x.textContent),['LINE 設定','確認預約','拒絕預約']);
+ assert.equal(tabs[0].getAttribute('aria-selected'),'true');
+ assert.equal(calls.filter(x=>x.action==='platform.frontdesk.history.list').length,0,'history fetch is lazy');
+ tabs[1].click();await settle();await settle();
+ assert.equal(tabs[1].getAttribute('aria-selected'),'true');
+ assert.equal(root.querySelector('#frontdesk-line-panel').hidden,true);
+ assert.equal(root.querySelector('#frontdesk-history-panel').hidden,false);
+ assert.match(root.querySelector('#frontdesk-history-panel').textContent,/收件櫃檯/);
+ assert.match(root.querySelector('#frontdesk-history-panel').textContent,/身體60/);
+ assert.match(root.querySelector('#frontdesk-history-panel').textContent,/個別備註/);
+ assert.equal(root.querySelectorAll('img').length,0,'user-provided text must not become HTML');
+ tabs[2].click();await settle();await settle();
+ const history=root.querySelector('#frontdesk-history-panel');
+ assert.match(history.textContent,/該時段已被現場人員預約但未登記/);
+ assert.match(history.textContent,/後續登記的現場／電話預約/);
+ assert.match(history.textContent,/目前狀態：已取消/);
+ assert.equal(calls.filter(x=>x.action==='platform.frontdesk.history.list').length,2);
+ assert.deepEqual(calls.filter(x=>x.action==='platform.frontdesk.history.list').map(x=>x.body.status),['confirmed','rejected']);
+ tabs[0].click();
+ assert.equal(root.querySelector('#frontdesk-history-panel').hidden,true);
+ assert.equal(root.querySelector('#frontdesk-line-panel').hidden,false);
+ assert.match(root.textContent,/櫃檯人員申請與權限/);
+ w.FrontdeskSettings.clear(root);
+ assert.equal(root.querySelectorAll('.frontdesk-history-card').length,0);
+ dom.window.close();
+});
+
+test('AC-FD-HIST-005: late history responses cannot overwrite another selected tab',async()=>{
+ const dom=new JSDOM('<div id="root"></div>',{
+  url:'https://desk.test/admin/frontdesk-settings/?business=shop-a',
+  runScripts:'outside-only',pretendToBeVisual:true
+ });
+ const w=dom.window,root=w.document.getElementById('root');
+ let resolveFirst;
+ const request=(action,body={})=>{
+  if(action==='platform.frontdesk.get')return Promise.resolve({version:1,frontdesk:{enabled:true},staff:[]});
+  if(action==='platform.frontdesk.history.list'&&body.status==='confirmed')
+   return new Promise(resolve=>{resolveFirst=resolve;});
+  if(action==='platform.frontdesk.history.list'&&body.status==='rejected')
+   return Promise.resolve({items:[]});
+  throw Error(action);
+ };
+ w.eval(fs.readFileSync(path.join(__dirname,'../../admin/frontdesk-settings.js'),'utf8'));
+ w.FrontdeskSettings.mount({root,request,business:'shop-a'});
+ const details=root.querySelector('details');details.open=true;details.dispatchEvent(new w.Event('toggle'));
+ const settle=()=>new Promise(resolve=>setImmediate(resolve));
+ await settle();await settle();
+ root.querySelector('#frontdesk-tab-confirmed').click();
+ assert.equal(typeof resolveFirst,'function');
+ root.querySelector('#frontdesk-tab-rejected').click();
+ await settle();
+ resolveFirst({items:[{bookingId:'stale-id',booking:{name:'不應顯示'}}]});
+ await settle();
+ assert.match(root.querySelector('#frontdesk-history-panel').textContent,/尚無櫃檯拒絕預約紀錄/);
+ assert.doesNotMatch(root.textContent,/不應顯示/);
+ w.FrontdeskSettings.clear(root);dom.window.close();
+});
