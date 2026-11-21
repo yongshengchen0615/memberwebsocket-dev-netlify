@@ -22,7 +22,45 @@
     reload.type = 'button';
     const syncState = node('p', '尚未取得最新櫃檯設定。', 'frontdesk-sync-state');
     // The primary status is the sole live region; this is a visual sync hint.
-    details.append(status, syncState, reload, content);
+    // Keep the settings form and staff approvals in LINE settings; action records
+    // are fetched lazily from the authenticated merchant API, never from a
+    // browser-maintained booking status cache.
+    const tabs = node('div', '', 'frontdesk-settings-tabs');
+    tabs.setAttribute('role', 'tablist');
+    tabs.setAttribute('aria-label', '櫃檯設定分類');
+    const historyPanel = node('section', '', 'frontdesk-history-panel');
+    historyPanel.id = 'frontdesk-history-panel';
+    historyPanel.setAttribute('role', 'tabpanel');
+    historyPanel.hidden = true;
+    content.id = 'frontdesk-line-panel';
+    content.setAttribute('role', 'tabpanel');
+    const tabButtons = new Map();
+    let selectedTab = 'line', historyEpoch = 0;
+    for (const [key, title] of [['line', 'LINE 設定'], ['confirmed', '確認預約'], ['rejected', '拒絕預約']]) {
+      const tab = node('button', title, 'frontdesk-settings-tab');
+      tab.type = 'button';
+      tab.id = 'frontdesk-tab-' + key;
+      tab.setAttribute('role', 'tab');
+      tab.setAttribute('aria-controls', key === 'line' ? content.id : historyPanel.id);
+      tab.setAttribute('aria-selected', key === 'line' ? 'true' : 'false');
+      tab.tabIndex = key === 'line' ? 0 : -1;
+      tab.addEventListener('click', () => selectTab(key));
+      tab.addEventListener('keydown', event => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        const keys = [...tabButtons.keys()], at = keys.indexOf(key);
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? keys.length - 1 :
+          (at + (event.key === 'ArrowRight' ? 1 : -1) + keys.length) % keys.length;
+        const target = tabButtons.get(keys[next]);
+        target.focus();
+        target.click();
+      });
+      tabButtons.set(key, tab);
+      tabs.append(tab);
+    }
+    content.setAttribute('aria-labelledby', 'frontdesk-tab-line');
+    historyPanel.setAttribute('aria-labelledby', 'frontdesk-tab-confirmed');
+    details.append(status, syncState, reload, tabs, content, historyPanel);
     root.append(details);
     let data = null, busy = false, pending = null, dirty = false, snapshot = '';
     const channel = typeof window.BroadcastChannel === 'function'
@@ -30,8 +68,113 @@
     const alive = () => details.isConnected;
     const visible = () => alive() && details.open && !document.hidden &&
       !details.closest('[role="tabpanel"]')?.hidden;
+    function selectTab(key) {
+      if (!tabButtons.has(key) || !alive()) return;
+      selectedTab = key;
+      historyEpoch++;
+      content.hidden = key !== 'line';
+      historyPanel.hidden = key === 'line';
+      historyPanel.setAttribute('aria-labelledby', 'frontdesk-tab-' + (key === 'line' ? 'confirmed' : key));
+      for (const [name, tab] of tabButtons) {
+        const chosen = name === key;
+        tab.setAttribute('aria-selected', String(chosen));
+        tab.tabIndex = chosen ? 0 : -1;
+      }
+      if (key !== 'line') void loadHistory();
+    }
+    const formatActionAt = value => {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? '時間未提供' :
+        date.toLocaleString('zh-TW', { timeZone:'Asia/Taipei', year:'numeric', month:'2-digit',
+          day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false });
+    };
+    const displayStatus = value => ({pending:'待確認',confirmed:'已確認',
+      rejected:'已拒絕',cancelled:'已取消',completed:'已完成'}[value] || '其他狀態');
+    const rejectionText = value => ({
+      technician_leave:'技師請假',
+      unrecorded_phone_booking:'該時段已被現場人員預約但未登記'
+    }[value] || (value ? '其他拒絕原因' : '未提供'));
+    function bookingDetails(parent, booking) {
+      if (!booking) {
+        parent.append(node('p', '預約資料已不存在；操作紀錄仍保留。', 'frontdesk-history-muted'));
+        return;
+      }
+      const date = booking.bookingDate || String(booking.startAt || '').slice(0, 10) || '—';
+      const start = booking.startTime || String(booking.startAt || '').slice(11, 16) || '—';
+      const end = booking.endTime || String(booking.endAt || '').slice(11, 16) || '—';
+      const lines = [
+        ['預約日期：', date],
+        ['預約時間：', start + ' – ' + end],
+        ['預約人：', booking.name || '—'],
+        ['電話：', booking.phone || '—'],
+        ['預約人數：', Number.isFinite(Number(booking.partySize)) ? booking.partySize + ' 位' : '—']
+      ];
+      for (const [label, value] of lines) parent.append(node('p', label + value));
+      const participants = Array.isArray(booking.participants) ? booking.participants : [];
+      if (participants.length) {
+        for (const person of participants) {
+          const part = node('div', '', 'frontdesk-history-participant');
+          part.append(node('strong', '第 ' + (Number(person.position) || 1) + ' 位預約'));
+          const items = Array.isArray(person.services) ? person.services : [];
+          for (const item of items) part.append(node('p', '預約項目：' + (item.title || '未命名項目') +
+            (Number(item.quantity) > 1 ? ' × ' + item.quantity : '')));
+          part.append(node('p', '預約技師：' + (person.technician || '現場安排')));
+          if (person.note) part.append(node('p', '個別備註：' + person.note));
+          parent.append(part);
+        }
+      } else {
+        for (const item of Array.isArray(booking.services) ? booking.services : [])
+          parent.append(node('p', '預約項目：' + (item.title || '未命名項目') +
+            (Number(item.quantity) > 1 ? ' × ' + item.quantity : '')));
+      }
+      if (booking.note) parent.append(node('p', '預約備註：' + booking.note));
+      if (booking.adminNote) parent.append(node('p', '管理備註：' + booking.adminNote));
+    }
+    async function loadHistory() {
+      if (selectedTab === 'line' || !visible()) return;
+      const statusKey = selectedTab, sequence = ++historyEpoch;
+      historyPanel.replaceChildren();
+      const heading = node('h3', statusKey === 'confirmed' ? '櫃檯確認預約紀錄' : '櫃檯拒絕預約紀錄');
+      const hint = node('p', '依櫃檯實際處理時間排序，顯示最近 50 筆。預約明細為目前資料，並非操作當時的歷史快照。', 'frontdesk-history-muted');
+      const state = node('p', '正在載入預約紀錄…', 'frontdesk-history-state');
+      state.setAttribute('role', 'status');
+      historyPanel.append(heading, hint, state);
+      try {
+        const result = await request('platform.frontdesk.history.list', {status:statusKey});
+        if (!alive() || historyEpoch !== sequence || selectedTab !== statusKey) return;
+        const records = Array.isArray(result?.items) ? result.items : [];
+        state.textContent = records.length ? '已取得 ' + records.length + ' 筆櫃檯處理紀錄。' :
+          (statusKey === 'confirmed' ? '尚無櫃檯確認預約紀錄。' : '尚無櫃檯拒絕預約紀錄。');
+        for (const record of records) {
+          const card = node('article', '', 'frontdesk-history-card');
+          const booking = record.booking;
+          card.append(node('h4', '預約編號：' + String(record.bookingId || '—')));
+          card.append(node('p', '處理時間：' + formatActionAt(record.actionAt)));
+          card.append(node('p', '處理人員：' + String(record.actorName || '櫃檯人員')));
+          if (statusKey === 'rejected') card.append(node('p', '拒絕原因：' + rejectionText(record.rejectionReason)));
+          if (record.currentStatus && record.currentStatus !== statusKey)
+            card.append(node('p', '目前狀態：' + displayStatus(record.currentStatus) + '（與當時操作不同）',
+              'frontdesk-history-state'));
+          bookingDetails(card, booking);
+          if (statusKey === 'rejected' && record.phoneBooking) {
+            const replacement = node('section', '', 'frontdesk-history-replacement');
+            replacement.append(node('h5', '後續登記的現場／電話預約'));
+            bookingDetails(replacement, record.phoneBooking);
+            card.append(replacement);
+          }
+          historyPanel.append(card);
+        }
+      } catch (error) {
+        if (!alive() || historyEpoch !== sequence || selectedTab !== statusKey) return;
+        state.textContent = error.message || '無法取得預約紀錄。';
+        const retry = node('button', '重試載入紀錄', 'button button-outline');
+        retry.type = 'button';
+        retry.addEventListener('click', () => void loadHistory());
+        historyPanel.append(retry);
+      }
+    }
     function lock() {
-      for (const control of details.querySelectorAll('input,select,button')) control.disabled = busy || Boolean(pending);
+      for (const control of details.querySelectorAll('input,select,button:not([role="tab"])')) control.disabled = busy || Boolean(pending);
       const retry = details.querySelector('[data-frontdesk-retry]');
       if (!busy && pending && retry) retry.disabled = false;
     }
@@ -303,20 +446,25 @@
       if (dirty && !window.confirm('確定捨棄尚未儲存的修改並載入伺服器最新版本？')) return;
       dirty = false;
       void load({ force: true });
+      if (selectedTab !== 'line') void loadHistory();
     };
     details.addEventListener('toggle', () => { if (details.open) void load(); });
     const loadWhenVisible = () => visible() ? load() : undefined;
+    const refreshVisible = () => Promise.all([
+      loadWhenVisible(),
+      selectedTab === 'line' ? Promise.resolve() : loadHistory()
+    ]);
     const onRefresh = event => {
-      if (!event.detail?.business || event.detail.business === business) void loadWhenVisible();
+      if (!event.detail?.business || event.detail.business === business) void refreshVisible();
     };
     const onBroadcast = event => {
-      if (event.data?.business === business) void loadWhenVisible();
+      if (event.data?.business === business) void refreshVisible();
     };
     window.addEventListener('frontdesk:refresh', onRefresh);
     channel?.addEventListener('message', onBroadcast);
     active.set(root, {
       business,
-      load: loadWhenVisible,
+      load: refreshVisible,
       dispose() {
         window.removeEventListener('frontdesk:refresh', onRefresh);
         channel?.removeEventListener('message', onBroadcast);
