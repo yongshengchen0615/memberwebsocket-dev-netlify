@@ -42,6 +42,13 @@ $old$;
 $new$;
 begin
  select pg_get_functiondef('public.platform_frontdesk_request(uuid,text,text,timestamp with time zone,text,jsonb)'::regprocedure) into strict d;
+ -- The testing project may have received this migration before the release
+ -- ledger was established; a second application must be a verified no-op.
+ if position('FRONTDESK_PHONE_CONFIRM_CONFLICT' in d)>0 then
+   if position('contact_surname=''''櫃檯人員''''' in d)=0 then
+     raise exception 'FRONTDESK_PAIRED_CONFIRM_INCOMPLETE';end if;
+   return;
+ end if;
  if (length(d)-length(replace(d,v_old,'')))<>length(v_old) then
    raise exception 'FRONTDESK_PAIRED_CONFIRM_ROUTER_CONTRACT_CHANGED';
  end if;
@@ -57,6 +64,7 @@ declare d text;
  v_new constant text:=$new$if coalesce(p_booking->>'status','') not in ('pending','confirmed') then return null;end if;$new$;
 begin
  select pg_get_functiondef('platform_private.frontdesk_paired_phone_source(text,jsonb)'::regprocedure) into strict d;
+ if position('not in (''pending'',''confirmed'')' in d)>0 then return;end if;
  if (length(d)-length(replace(d,v_old,'')))<>length(v_old) then
    raise exception 'FRONTDESK_PAIRED_SOURCE_CONTRACT_CHANGED';
  end if;
@@ -75,6 +83,7 @@ declare d text;
  v_new_review constant text:=$new$||E'\n預約狀態：'||case when v_phone->>'status'='confirmed' then '已確認' else '待管理員確認' end$new$;
 begin
  select pg_get_functiondef('platform_private.append_booking_rejection_notice()'::regprocedure) into strict d;
+ if position('then ''已確認'' else ''待管理員確認''' in d)>0 then return;end if;
  if (length(d)-length(replace(d,v_old_status,'')))<>length(v_old_status)
     or (length(d)-length(replace(d,v_old_actor,'')))<>length(v_old_actor)
     or (length(d)-length(replace(d,v_old_review,'')))<>length(v_old_review) then
