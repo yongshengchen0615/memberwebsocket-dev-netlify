@@ -130,5 +130,10 @@ test('AC-FD-HIST-006: server action is tenant-authorized, read-only and migratio
  assert.match(sql,/to service_role/);
  assert.match(sql,/frontdesk_paired_phone_source/);
  assert.match(css,/frontdesk-history-card/);
- assert.match(html,/frontdesk-history-tabs-20261121-1/);
+ assert.match(css,/frontdesk-settings-body/);
+ assert.match(css,/scrollbar-gutter: stable/);
+ assert.match(css,/\.frontdesk-settings-body > button/);
+ assert.doesNotMatch(css,/\.frontdesk-settings > button/);
+ assert.match(frontdesk,/body\.append\(status, syncState, reload, tabs, content, historyPanel\)/);
+ assert.match(html,/frontdesk-tab-layout-20261121-1/);
 });
