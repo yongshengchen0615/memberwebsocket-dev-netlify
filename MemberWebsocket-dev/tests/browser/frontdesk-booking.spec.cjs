@@ -498,3 +498,64 @@ for(const width of [390,1280])test('FRONTDESK_REJECTION_MODAL_'+width+' — only
  expect(Object.hasOwn(paired[0],'bookingDate')).toBe(false);
  expect(calls.filter(x=>x.action==='frontdesk.phone.create')).toHaveLength(0);
 });
+
+for(const width of [390,1280])test('FRONTDESK_SETTINGS_HISTORY_'+width+' — standalone manager reads scoped confirm and reject histories in real Chromium',async({page},info)=>{
+ await page.setViewportSize({width,height:900});
+ await page.route('https://static.line-scdn.net/**',route=>route.fulfill({
+  contentType:'text/javascript',
+  body:'window.liff={init:async()=>{},isLoggedIn:()=>true,isInClient:()=>true,getIDToken:()=>"synthetic-manager",login:()=>{},logout:()=>{}};'
+ }));
+ const calls=[];
+ await page.route('https://fixture.supabase.co/**',route=>{
+  const body=route.request().postDataJSON();
+  calls.push(body);
+  expect(body.business).toBe('shop-a');
+  expect(body.idToken).toBe('synthetic-manager');
+  const confirmed=body.status==='confirmed';
+  let data;
+  if(body.action==='platform.application.bootstrap')
+   data={application:{status:'approved'},tenant:{name:'測試商家',slug:'shop-a',status:'active',
+     expired:false,onboarding:{adminReady:true},features:{booking:true,frontdesk:true}}};
+  else if(body.action==='platform.frontdesk.get')
+   data={version:1,frontdesk:{enabled:true,loginChannelId:'2010999999',
+     liffId:'2010999999-desk',messagingChannelId:'2010888888'},staff:[]};
+  else if(body.action==='platform.frontdesk.history.list')
+   data={status:body.status,items:[{
+    eventId:confirmed?1:2,bookingId:'10000000-0000-4000-8000-000000000009',
+    actionAt:'2026-11-20T01:30:00Z',actorName:'櫃檯甲',rejectionReason:confirmed?null:'unrecorded_phone_booking',
+    currentStatus:confirmed?'confirmed':'rejected',booking:{
+     bookingDate:'2026-11-20',startTime:'09:30',endTime:'10:30',
+     name:'測試會員',phone:'+886900000000',partySize:1,
+     participants:[{position:1,technician:'10技師',note:'請加強肩頸',
+       services:[{title:'身體60',quantity:1}]}]
+    },phoneBooking:confirmed?null:{
+     bookingDate:'2026-11-20',startTime:'10:30',endTime:'11:30',
+     name:'櫃檯人員',phone:'',partySize:1,services:[{title:'身體60',quantity:1}]
+    }
+   }]};
+  else throw Error('Unexpected action '+body.action);
+  return route.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,data})});
+ });
+ const errors=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.goto(base+'/admin/frontdesk-settings/?business=shop-a');
+ const section=page.locator('#frontdeskSettingsRoot');
+ await expect(section.getByRole('tab')).toHaveCount(3);
+ await expect(section.getByRole('tab',{name:'LINE 設定'})).toHaveAttribute('aria-selected','true');
+ expect(calls.filter(x=>x.action==='platform.frontdesk.history.list')).toHaveLength(0);
+ await section.getByRole('tab',{name:'確認預約'}).click();
+ await expect(section.locator('.frontdesk-history-card')).toHaveCount(1);
+ await expect(section.locator('.frontdesk-history-card')).toContainText('櫃檯甲');
+ await expect(section.locator('.frontdesk-history-card')).toContainText('身體60');
+ await expect(section.locator('.frontdesk-history-card')).toContainText('請加強肩頸');
+ await section.getByRole('tab',{name:'拒絕預約'}).click();
+ await expect(section.locator('.frontdesk-history-card')).toContainText('該時段已被現場人員預約但未登記');
+ await expect(section.locator('.frontdesk-history-card')).toContainText('後續登記的現場／電話預約');
+ await expect(section.locator('.frontdesk-history-card')).toContainText('櫃檯人員');
+ await section.getByRole('tab',{name:'LINE 設定'}).click();
+ await expect(section.locator('[name="loginChannelId"]')).toBeVisible();
+ await expect(section.locator('.frontdesk-history-card')).toBeHidden();
+ expect(calls.filter(x=>x.action==='platform.frontdesk.history.list').map(x=>x.status)).toEqual(['confirmed','rejected']);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(errors).toEqual([]);
+ await info.attach('frontdesk-history-tabs-'+width,{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
+});
