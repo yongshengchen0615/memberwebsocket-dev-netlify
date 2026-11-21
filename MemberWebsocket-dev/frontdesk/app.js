@@ -123,7 +123,7 @@
   if(!known&&next==='rejected'&&!['technician_leave','unrecorded_phone_booking'].includes(rejectionReason)){
    status.textContent='請先選擇拒絕原因。';return;
   }
-  const body=known||{bookingId:key,status:next,expectedUpdatedAt:booking.updatedAt,requestId:crypto.randomUUID(),...(next==='rejected'?{rejectionReason}:{}),...(phoneBooking?{phoneRequestId:'PHONE-'+crypto.randomUUID(),startTime:phoneBooking.startTime,items:phoneBooking.items}:{})};pending.set(key,body);lock(true);const generation=epoch;
+  const body=known||{bookingId:key,status:next,expectedUpdatedAt:booking.updatedAt,requestId:crypto.randomUUID(),...(next==='rejected'?{rejectionReason}:{}),...(phoneBooking?{phoneRequestId:'PHONE-'+crypto.randomUUID(),startTime:phoneBooking.startTime,totalDurationMinutes:phoneBooking.totalDurationMinutes}:{})};pending.set(key,body);lock(true);const generation=epoch;
   try{await request(body.phoneRequestId?'frontdesk.booking.reject-phone':'frontdesk.booking.update',body);if(generation!==epoch)return;pending.delete(key);await load();if(onSuccess)onSuccess();status.textContent=body.phoneRequestId?'原預約已拒絕，電話／現場預約已登記並直接確認，時段已保留。':next==='confirmed'?'預約已確認。':'預約已拒絕。';}
   catch(error){if(generation!==epoch)return;let refreshed=false;if(!error.uncertain){pending.delete(key);try{await load();refreshed=true;}catch{}}else button.textContent='重試相同操作';failure(error,refreshed);}
   finally{lock(false);}
@@ -266,20 +266,22 @@
   const bookingDate=String(booking.bookingDate||booking.startAt||'').slice(0,10);
   const dateLabel=node('div');dateLabel.className='frontdesk-phone-date';
   dateLabel.append(node('span','預約日期（原訂單）'),node('strong',bookingDate||'無法取得原預約日期'));
-  const servicesField=node('fieldset');servicesField.className='frontdesk-phone-services';servicesField.append(node('legend','預約項目（可多選）'));
-  const serviceOptions=node('div');serviceOptions.className='frontdesk-phone-service-options';servicesField.append(serviceOptions);
   const timeLabel=node('label','預約時間'),time=node('input');time.type='time';time.required=true;
   time.setAttribute('aria-label','現場預約時間');
   time.value=String(booking.startTime||String(booking.startAt||'').slice(11,16)).slice(0,5);
-  timeLabel.append(time);phonePanel.append(title,hint,dateLabel,servicesField,timeLabel);
+  const originalDuration=Number(booking.totalDurationMinutes)||Math.round((Date.parse(booking.endAt)-Date.parse(booking.startAt))/60000);
+  const durationLabel=node('label','總服務時長（分鐘）'),duration=node('input');
+  duration.type='number';duration.required=true;duration.min='1';duration.max='1439';duration.step='1';
+  duration.setAttribute('aria-label','總服務時長（分鐘）');
+  duration.value=String(Number.isInteger(originalDuration)&&originalDuration>=1&&originalDuration<=1439?originalDuration:60);
+  timeLabel.append(time);durationLabel.append(duration);
+  phonePanel.append(title,hint,dateLabel,timeLabel,durationLabel);
   const feedback=node('p');feedback.className='frontdesk-phone-message';feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');
   const footer=node('div');footer.className='frontdesk-modal-actions';
   const cancel=node('button','取消');cancel.type='button';cancel.className='frontdesk-modal-cancel';
   const submit=node('button','確認拒絕預約');submit.type='submit';submit.className='frontdesk-danger';submit.disabled=true;
   footer.append(cancel,submit);form.append(reasonField,phonePanel,feedback,footer);
   dialog.append(heading,help,form);overlay.append(dialog);document.body.append(overlay);
-  const selected=new Set((frozen?.items||[]).map(x=>x.serviceId));
-  let loaded=false,loading=false,failed=false;
   const close=(force=false)=>{
    if(busy&&!force||!overlay.isConnected)return;
    document.removeEventListener('keydown',keyHandler);overlay.remove();
@@ -297,54 +299,31 @@
   document.addEventListener('keydown',keyHandler);
   cancel.onclick=()=>close();overlay.onclick=event=>{if(event.target===overlay)close();};
   const validTime=()=>/^([01]\d|2[0-3]):[0-5]\d$/.test(time.value);
+  const validDuration=()=>Number.isInteger(duration.valueAsNumber)&&duration.valueAsNumber>=1&&duration.valueAsNumber<=1439;
   const updateSubmit=()=>{
    const phone=reason.value==='unrecorded_phone_booking';
    submit.textContent=frozen?'重試相同操作':phone?'確認拒絕並登記現場預約':'確認拒絕預約';
-   submit.disabled=!reason.value||(phone&&(!loaded||!selected.size||!bookingDate||!validTime()));
-  };
-  const fetchServices=async()=>{
-   if(loaded||loading||failed)return;
-   loading=true;feedback.textContent='正在載入店家可預約項目…';updateSubmit();
-   try{
-    const data=await request('frontdesk.phone.catalog');
-    if(!overlay.isConnected)return;
-    const services=Array.isArray(data.services)?data.services:[];
-    serviceOptions.replaceChildren();
-    for(const service of services){
-     const option=node('label');option.className='frontdesk-phone-service-option';
-     const check=node('input');check.type='checkbox';check.value=service.id;
-     check.checked=selected.has(service.id);check.disabled=Boolean(frozen?.phoneRequestId);
-     check.addEventListener('change',()=>{
-      if(check.checked)selected.add(service.id);else selected.delete(service.id);
-      feedback.textContent='已選 '+selected.size+' 項服務';updateSubmit();
-     });
-     option.append(check,node('span',String(service.title||'預約項目')+' · '+Number(service.durationMinutes||0)+' 分鐘'));
-     serviceOptions.append(option);
-    }
-    loaded=services.length>0;
-    feedback.textContent=loaded?'選取服務項目後，確認預約時間。':'商家目前沒有可登記的服務項目。';
-   }catch(error){if(overlay.isConnected){failed=true;feedback.textContent=error.message+' 請關閉後重開視窗。';}}
-   finally{loading=false;updateSubmit();}
+   submit.disabled=!reason.value||(phone&&(!bookingDate||!validTime()||!validDuration()));
   };
   const updateReason=()=>{
    phonePanel.hidden=reason.value!=='unrecorded_phone_booking';
-   if(!phonePanel.hidden)void fetchServices();else feedback.textContent='';
+   if(phonePanel.hidden)feedback.textContent='';
    updateSubmit();
   };
-  reason.onchange=updateReason;time.oninput=updateSubmit;
+  reason.onchange=updateReason;time.oninput=updateSubmit;duration.oninput=updateSubmit;
   if(frozen?.status==='rejected'){
    reason.value=frozen.rejectionReason||'';reason.disabled=true;
-   if(frozen.phoneRequestId){time.value=frozen.startTime||time.value;time.disabled=true;}
+   if(frozen.phoneRequestId){time.value=frozen.startTime||time.value;time.disabled=true;duration.value=String(frozen.totalDurationMinutes||duration.value);duration.disabled=true;}
    feedback.textContent='上次結果尚未確認，僅能重試相同內容。';
   }
   form.onsubmit=event=>{
    event.preventDefault();if(busy)return;
    if(!reason.value){feedback.textContent='請選擇拒絕原因。';reason.focus();return;}
    const phone=reason.value==='unrecorded_phone_booking';
-   if(phone&&(!loaded||!selected.size||!validTime()||!bookingDate)){
-    feedback.textContent='請至少選擇一項預約項目及有效的預約時間。';return;
-   }
-   const detail=phone?{startTime:time.value,items:Array.from(selected,id=>({serviceId:id,quantity:1}))}:null;
+   if(phone&&(!validDuration()||!validTime()||!bookingDate)){
+   feedback.textContent='請輸入有效的預約時間與總服務時長（1 至 1439 分鐘）。';return;
+  }
+  const detail=phone?{startTime:time.value,totalDurationMinutes:duration.valueAsNumber}:null;
    void review(booking,'rejected',submit,reason.value,detail,()=>close(true));
   };
   updateReason();reason.focus();
