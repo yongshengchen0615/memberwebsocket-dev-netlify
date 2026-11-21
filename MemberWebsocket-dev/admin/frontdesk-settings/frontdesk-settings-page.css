@@ -2,6 +2,7 @@
    the staff-facing /frontdesk/ page retains its own OS-based appearance. */
 html[data-frontdesk-page] {
   color-scheme: light;
+  scrollbar-gutter: stable;
 }
 html[data-frontdesk-page][data-theme="dark"] {
   color-scheme: dark;
@@ -146,17 +147,7 @@ html[data-frontdesk-page] .frontdesk-settings {
   --fd-primary: var(--ui-primary);
   --fd-on-primary: var(--ui-primary-contrast);
   --fd-danger: var(--theme-danger-text);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas:
-    "heading reload"
-    "status status"
-    "sync sync"
-    "tabs tabs"
-    "content content";
-  align-items: center;
-  column-gap: 16px;
-  row-gap: 6px;
+  display: block;
   min-width: 0;
   margin-top: 18px;
   padding: 0;
@@ -167,7 +158,6 @@ html[data-frontdesk-page] .frontdesk-settings {
   color: var(--theme-text);
 }
 html[data-frontdesk-page] .frontdesk-settings > summary {
-  grid-area: heading;
   min-width: 0;
   min-height: 44px;
   display: flex;
@@ -191,19 +181,32 @@ html[data-frontdesk-page] .frontdesk-settings > summary::after {
 html[data-frontdesk-page] .frontdesk-settings[open] > summary::after {
   transform: rotate(180deg);
 }
-html[data-frontdesk-page] .frontdesk-settings > button {
+html[data-frontdesk-page] .frontdesk-settings-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "status reload"
+    "sync sync"
+    "tabs tabs"
+    "content content";
+  align-items: center;
+  column-gap: 16px;
+  row-gap: 6px;
+  min-width: 0;
+}
+html[data-frontdesk-page] .frontdesk-settings-body > button {
   grid-area: reload;
   justify-self: end;
   min-height: 44px;
   white-space: nowrap;
 }
-html[data-frontdesk-page] .frontdesk-settings > [role="status"] {
+html[data-frontdesk-page] .frontdesk-settings-body > [role="status"] {
   grid-area: status;
   margin: 0;
   color: var(--theme-text);
   font-size: .925rem;
 }
-html[data-frontdesk-page] .frontdesk-settings > .frontdesk-sync-state {
+html[data-frontdesk-page] .frontdesk-settings-body > .frontdesk-sync-state {
   grid-area: sync;
   margin: 0;
   color: var(--theme-text-muted);
@@ -444,7 +447,7 @@ html[data-frontdesk-page] [hidden] { display: none !important; }
   html[data-frontdesk-page] .frontdesk-settings > summary {
     font-size: .95rem;
   }
-  html[data-frontdesk-page] .frontdesk-settings > button {
+  html[data-frontdesk-page] .frontdesk-settings-body > button {
     padding-inline: 12px;
   }
   html[data-frontdesk-page] .frontdesk-approvals .frontdesk-person {
