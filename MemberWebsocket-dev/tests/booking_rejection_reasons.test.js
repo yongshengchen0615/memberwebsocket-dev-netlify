@@ -67,7 +67,7 @@ test('AC-FR-005: phone requests are tenant-scoped, pending, slot-blocking and au
  for(const op of ['frontdesk.phone.catalog','frontdesk.phone.slots','frontdesk.phone.create'])assert.ok(api.includes(op),op);
  assert.match(api,/frontdesk\.phone\.create'.*includes\(body\.action\)/);
  assert.match(ui,/登記電話／現場預約/);
- assert.match(ui,/原預約已拒絕，電話／現場預約已登記並保留時段/);
+ assert.match(ui,/原預約已拒絕，電話／現場預約已登記並直接確認/);
  assert.match(ui,/openRejectionDialog/);
  assert.match(ui,/frontdesk-phone-service-option/);
  assert.match(ui,/frontdeskLockPrevious/);
@@ -153,4 +153,24 @@ test('AC-001..004: paired frontdesk rejection produces one admin notice and supp
  assert.match(sql,/then return null;end if;/);
  assert.match(sql,/install_booking_rejection\(text\)/);
  assert.doesNotMatch(sql,/delete from .*notice_outbox/i);
+});
+
+test('AC-FR-007: paired walk-in is confirmed atomically and shown as frontdesk staff',()=>{
+ const sql=read('supabase/migrations/20261121134000_frontdesk_paired_immediate_confirmation.sql');
+ const ui=read('frontdesk/app.js');
+ assert.match(sql,/coalesce\(\(v->>'alreadyApplied'\)::boolean,false\)/);
+ assert.match(sql,/frontdesk_paired_phone_source\(t\.runtime_schema,b\)/);
+ assert.match(sql,/v->>'alreadyApplied'/);
+ assert.match(sql,/update %I\.bookings x set status=''confirmed''/);
+ assert.match(sql,/confirmed_by=\$2,confirmed_at=clock_timestamp\(\)/);
+ assert.match(sql,/contact_surname=''櫃檯人員'',contact_salutation=null/);
+ assert.match(sql,/where x\.id=\$1 and x\.status=''pending'' returning to_jsonb\(x\)/);
+ assert.match(sql,/FRONTDESK_PHONE_CONFIRM_CONFLICT/);
+ assert.match(sql,/b\.status in \(''pending'',''confirmed''\)/);
+ assert.match(sql,/v_phone->>'status'='confirmed' then '已確認'/);
+ assert.match(sql,/預約人：櫃檯人員/);
+ assert.match(sql,/FRONTDESK_PAIRED_CONFIRM_ROUTER_CONTRACT_CHANGED/);
+ assert.match(ui,/無須等待管理員審核/);
+ assert.match(ui,/電話／現場預約已登記並直接確認/);
+ assert.doesNotMatch(ui,/登記後等待管理員確認/);
 });
