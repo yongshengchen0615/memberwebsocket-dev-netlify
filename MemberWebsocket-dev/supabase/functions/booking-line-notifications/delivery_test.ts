@@ -535,3 +535,38 @@ Deno.test('transport exception stays retryable and never exposes the channel acc
     'network failure must be retryable without a fake HTTP status');
   assert(result.lineRequestId === '', 'network failure must not fabricate a LINE request id');
 });
+
+Deno.test('AC-004: only admin LINE shows booking IDs, including fallback and alt text', () => {
+  const id = '10000000-0000-4000-8000-000000000030';
+  const raw = [
+    '【預約】', '預約編號：' + id, '原預約編號：' + id,
+    '新增預約編號：' + id, '預約人：櫃檯人員',
+    '日期：2026/11/21', '時段：2026/11/21 10:00',
+  ].join('\n');
+  for (const channel of ['member', 'frontdesk']) {
+    const message = buildBookingFlexMessage({ ...sampleJob, channel, message_text: raw });
+    assert(!JSON.stringify(message).includes(id), channel + ' must hide the booking ID everywhere');
+  }
+  const admin = buildBookingFlexMessage({ ...sampleJob, channel: 'admin', message_text: raw });
+  assert(JSON.stringify(admin).includes(id), 'admin keeps the booking ID for reconciliation');
+  const fallback = buildBookingFlexMessage({
+    ...sampleJob, channel: 'frontdesk', message_text: '【預約】\n預約編號：' + id,
+  });
+  assert(!JSON.stringify(fallback).includes(id), 'frontdesk fallback must also hide the ID');
+});
+
+Deno.test('AC-001/002: merged frontdesk rejection card retains both original and new booking details', () => {
+  const text = [
+    '【櫃檯拒絕預約】', '預約人：櫃檯人員', '拒絕原因：該時段已被現場人員預約但未登記',
+    '【原預約資料】', '預約日期：2026-11-21', '預約時間：10:00',
+    '原預約會員：陳先生', '預約項目：身體60', '預約技師：10技師',
+    '【櫃檯新增的預約資料】', '預約日期：2026-11-21', '預約時間：10:30',
+    '預約人：現場先生', '預約項目：肩頸30', '預約狀態：待管理員確認',
+  ].join('\n');
+  const card = buildBookingFlexMessage({ ...sampleJob, channel: 'admin', message_text: text });
+  const serialized = JSON.stringify(card);
+  for (const expected of ['櫃檯拒絕預約', '預約人：櫃檯人員', '原預約資料',
+    '原預約會員', '陳先生', '身體60', '櫃檯新增的預約資料', '肩頸30', '待管理員確認']) {
+    assert(serialized.includes(expected), 'missing admin section: ' + expected);
+  }
+});
