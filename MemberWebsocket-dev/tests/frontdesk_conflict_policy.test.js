@@ -31,7 +31,15 @@ test('AC-FD-CONFLICT-001/007: paired read is staff-authorized, tenant-scoped and
  assert.match(sql,/if s\.id is null or s\.status<>'approved' or s\.permission_mode<>'review'/);
  assert.match(sql,/if p_action='history' then/);
  assert.match(sql,/actor_line_user_id=\$2/);
- assert.match(sql,/platform_private\.frontdesk_paired_phone_source/);
+ // Audit pairing must survive a replacement changing from confirmed to completed
+ // or cancelled; live status-filtered helper deliberately cannot do this.
+ const history=sql.split("if p_action='history' then")[1].split("if p_action='bookings' then")[0];
+ assert.match(history,/BOOKING_PHONE_CREATED/);
+ assert.match(history,/BOOKING_REJECTED/);
+ assert.match(history,/paired.created_at=e.created_at/);
+ assert.match(history,/p.admin_note='原預約 '/);
+ assert.match(history,/p.booking_date=b.booking_date/);
+ assert.doesNotMatch(history,/and p.status\s+in|and p.status\s*=|frontdesk_paired_phone_source\(\$1/);
  assert.match(sql,/totalDurationMinutes',b\.total_duration_minutes/);
  assert.match(ui,/櫃檯新增的衝突預約/);
  assert.match(ui,/原預約資料/);
