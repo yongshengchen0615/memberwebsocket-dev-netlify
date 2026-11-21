@@ -625,7 +625,8 @@ Deno.test('AC-FR-014: rejection LINE hides 到店準備 only in original/replace
     'actual original booking services/technician must remain');
   assert(replacement.includes('腳底40') && replacement.includes('11技師') && replacement.includes('已確認'),
     'actual replacement service, technician and confirmed status must remain');
-  assert(message.altText.includes('櫃檯拒絕預約'), 'LINE preview must retain title');
+  assert(message.altText.includes('櫃檯拒絕預約') && !message.altText.includes('到店準備'),
+    'LINE push preview must keep the title but never show arrival preparation');
 });
 
 Deno.test('AC-FR-015: hide exact preparation only; no phantom item when it is the sole service', () => {
@@ -644,6 +645,8 @@ Deno.test('AC-FR-015: hide exact preparation only; no phantom item when it is th
   assert(!original.includes('到店準備、'), 'exact preparation item must be removed from mixed service list');
   assert(!replacement.includes('到店準備') && !replacement.includes('"項目"'),
     'preparation-only replacement must omit its empty service field without placeholder');
+  assert(!message.altText.includes('到店準備'),
+    'LINE preview must not re-introduce the filtered sole service');
   const ordinary = buildBookingFlexMessage({...sampleJob, channel:'admin',
     message_text:'【預約】\n預約項目：身體60、到店準備'});
   assert(JSON.stringify(ordinary).includes('到店準備'),
