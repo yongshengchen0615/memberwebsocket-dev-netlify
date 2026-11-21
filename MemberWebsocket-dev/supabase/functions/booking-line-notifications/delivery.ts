@@ -514,6 +514,15 @@ function makeAltText(parsed: ParsedBookingMessage): string {
 // Dedicated presentation for a single, audited frontdesk rejection/replacement.
 // The generic parser treats the two section headers as loose explanation rows
 // and merges repeated date/time/service labels. Keep the source text immutable.
+// Presentation-only filter for the frontdesk rejection summary. The item is
+// still stored in booking records and remains visible to workflows that need it.
+// Match complete service names (optionally with a quantity), not substrings.
+function visibleFrontdeskRejectionServices(value: string): string {
+  return String(value || '').split('、').map((item) => item.trim())
+    .filter((item) => item && !/^到店準備(?:\s*[×xX]\s*\d+)?$/.test(item))
+    .join('、');
+}
+
 function frontdeskRejectionCards(source: string): Array<Record<string, unknown>> | null {
   const lines = String(source || '').replace(/\r\n?/g, '\n').split('\n').map((line) => line.trim());
   if (lines[0] !== '【櫃檯拒絕預約】') return null;
@@ -542,7 +551,9 @@ function frontdeskRejectionCards(source: string): Array<Record<string, unknown>>
       { type: 'separator', margin: 'sm', color: '#E5EAE7' },
     ];
     for (const [label, sourceLabel] of labels) {
-      const value = fields.get(sourceLabel);
+      const rawValue = fields.get(sourceLabel);
+      const value = sourceLabel === '預約項目'
+        ? visibleFrontdeskRejectionServices(rawValue || '') : rawValue;
       if (value && value !== '—' && value !== '未提供') contents.push(fieldRow(label, value));
     }
     return { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '14px',
@@ -653,7 +664,10 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
     type: 'flex',
     altText: job.channel === 'frontdesk'
       ? truncate([displayTitle, ...frontdeskSummaryLines(parsed).slice(0, 2)].join('｜'), MAX_ALT_TEXT)
-      : makeAltText(parsed),
+      : rejection
+        ? truncate(['櫃檯拒絕預約', '原預約已拒絕',
+          ...(rejection.length > 2 ? ['含櫃檯補登資料'] : [])].join('｜'), MAX_ALT_TEXT)
+        : makeAltText(parsed),
     contents: {
       type: 'bubble',
       header: {
