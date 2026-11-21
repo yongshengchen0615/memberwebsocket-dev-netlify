@@ -1942,6 +1942,7 @@
       });
       card.dataset.bookingCopyContactName = isFrontdeskReplacement(booking) ? '櫃檯人員' : bookingContactName(booking);
       card.dataset.bookingCopyPhone = isFrontdeskReplacement(booking) ? '' : String(booking.contactPhone || '—');
+      card.dataset.bookingFrontdeskReplacement = String(isFrontdeskReplacement(booking));
       card.dataset.bookingCopyMemberNote = String(booking.memberNote || '');
       card.dataset.bookingCopyAdminNote = String(booking.adminNote || '');
 
