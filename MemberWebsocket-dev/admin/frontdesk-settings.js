@@ -380,7 +380,7 @@
       const durationMax = dropdown('conflictDurationMax', '最長總時長', durationOptions, cfg.conflictDurationMax ?? 1430);
       preferenceGrid.append(startMin.parentElement, startMax.parentElement, durationMin.parentElement, durationMax.parentElement);
       const preferenceWarning = node('p', '', 'frontdesk-preferences-warning');
-      preferenceWarning.setAttribute('role', 'status');
+      preferenceWarning.setAttribute('aria-live', 'polite');
       const savePreferences = node('button', '儲存櫃檯頁面與衝突預約限制', 'button button-outline frontdesk-primary');
       savePreferences.type = 'submit';
       preferences.append(preferenceTitle, preferenceHint, pageTitle.wrap, preferenceGrid, preferenceWarning, savePreferences);
