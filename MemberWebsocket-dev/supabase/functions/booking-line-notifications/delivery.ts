@@ -57,6 +57,7 @@ const TITLE_STYLES: Record<string, { color: string; eyebrow: string }> = {
   '預約提醒': { color: '#397AA3', eyebrow: 'BOOKING REMINDER' },
   '完成服務': { color: '#286553', eyebrow: 'SERVICE COMPLETED' },
   '預約未通過': { color: '#B35A50', eyebrow: 'BOOKING DECLINED' },
+  '櫃檯拒絕預約': { color: '#A85543', eyebrow: 'FRONTDESK REVIEW' },
   '預約取消': { color: '#68756F', eyebrow: 'BOOKING CANCELLED' },
   '取消申請未通過': { color: '#A85C50', eyebrow: 'CANCELLATION DECLINED' },
 };
@@ -510,6 +511,66 @@ function makeAltText(parsed: ParsedBookingMessage): string {
   return truncate(summary || parsed.fallbackText, MAX_ALT_TEXT);
 }
 
+// Dedicated presentation for a single, audited frontdesk rejection/replacement.
+// The generic parser treats the two section headers as loose explanation rows
+// and merges repeated date/time/service labels. Keep the source text immutable.
+function frontdeskRejectionCards(source: string): Array<Record<string, unknown>> | null {
+  const lines = String(source || '').replace(/\r\n?/g, '\n').split('\n').map((line) => line.trim());
+  if (lines[0] !== '【櫃檯拒絕預約】') return null;
+  const originalAt = lines.indexOf('【原預約資料】');
+  if (originalAt < 0) return null;
+  const replacementAt = lines.indexOf('【櫃檯新增的預約資料】');
+  const section = (start: number, end: number): Map<string, string> => {
+    const fields = new Map<string, string>();
+    for (const line of lines.slice(start, end)) {
+      const i = line.indexOf('：');
+      if (i <= 0 || line.startsWith('【')) continue;
+      const key = line.slice(0, i), value = line.slice(i + 1).trim();
+      if (value && !fields.has(key)) fields.set(key, truncate(value, 500));
+    }
+    return fields;
+  };
+  const operation = section(1, originalAt);
+  const original = section(originalAt + 1, replacementAt < 0 ? lines.length : replacementAt);
+  const replacement = replacementAt < 0 ? null : section(replacementAt + 1, lines.length);
+  const card = (heading: string, status: string, fields: Map<string, string>,
+    labels: Array<[string, string]>): Record<string, unknown> => {
+    const contents: Array<Record<string, unknown>> = [
+      { type: 'text', text: heading, size: 'md', color: TEXT_COLOR, weight: 'bold', wrap: true },
+      { type: 'text', text: status, size: 'sm', color: heading.startsWith('原') ? '#A85543' : '#286553',
+        weight: 'bold', wrap: true },
+      { type: 'separator', margin: 'sm', color: '#E5EAE7' },
+    ];
+    for (const [label, sourceLabel] of labels) {
+      const value = fields.get(sourceLabel);
+      if (value && value !== '—' && value !== '未提供') contents.push(fieldRow(label, value));
+    }
+    return { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '14px',
+      backgroundColor: SURFACE_COLOR, cornerRadius: '12px', contents };
+  };
+  const summary: Array<Record<string, unknown>> = [
+    { type: 'text', text: '處理結果', size: 'md', weight: 'bold', color: TEXT_COLOR },
+    fieldRow('執行人員', '櫃檯人員'),
+  ];
+  if (operation.get('拒絕原因')) summary.push(fieldRow('拒絕原因', operation.get('拒絕原因')!));
+  if (replacement) summary.push(fieldRow('補登狀態', replacement.get('預約狀態') || '已確認'));
+  const cards: Array<Record<string, unknown>> = [
+    { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '14px',
+      backgroundColor: '#FFF4EF', cornerRadius: '12px', contents: summary },
+    card('原預約資料', '已拒絕', original, [
+      ['預約編號', '預約編號'], ['日期', '預約日期'], ['時間', '預約時間'],
+      ['原預約會員', '原預約會員'], ['電話', '電話'], ['人數', '預約人數'],
+      ['項目', '預約項目'], ['技師', '預約技師'],
+      ['會員備註', '會員備註'], ['管理端說明', '管理端說明'],
+    ]),
+  ];
+  if (replacement) cards.push(card('櫃檯新增預約', replacement.get('預約狀態') || '已確認', replacement, [
+    ['新增預約編號', '新增預約編號'], ['日期', '預約日期'], ['時間', '預約時間'],
+    ['人數', '預約人數'], ['項目', '預約項目'], ['技師', '預約技師'],
+  ]));
+  return cards;
+}
+
 export function buildBookingFlexMessage(job: Job): LineFlexMessage {
   // Booking identifiers are for administrators only. Sanitize the source
   // before parsing so fallback cards, alt text and normal Flex rows agree.
@@ -529,7 +590,11 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
   const details = detailsCard(memberReminder ? parsed.fields.filter(field => field.label !== '提醒事項') : parsed.fields);
   const participants = participantsCard(parsed.participants, style.color, memberConfirmation || memberReminder);
   const services = parsed.participants.length ? null : servicesCard(parsed.services, style.color);
-  if (job.channel === 'frontdesk') {
+  const rejection = job.channel === 'admin' && parsed.title === '櫃檯拒絕預約'
+    ? frontdeskRejectionCards(visibleText) : null;
+  if (rejection) {
+    bodyContents.push(...rejection);
+  } else if (job.channel === 'frontdesk') {
     bodyContents.push(...frontdeskCards(parsed));
   } else {
     if (schedule) bodyContents.push(schedule);
