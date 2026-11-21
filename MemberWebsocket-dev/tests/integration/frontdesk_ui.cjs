@@ -167,7 +167,7 @@ test('AC-FD-LINE-001: distinct participants, technicians and individual notes fo
 
 
 test('AC-FR-MODAL-001..003: modal requires a reason; phone section appears only for walk-in and forwards original booking date indirectly',async()=>{
- const bookingId='10000000-0000-4000-8000-000000000008',idA='10000000-0000-4000-8000-000000000009',idB='10000000-0000-4000-8000-000000000010';
+ const bookingId='10000000-0000-4000-8000-000000000008';
  const dom=new JSDOM('<h1 id="businessName"></h1><p id="status"></p><ol id="progress"></ol><section id="account"></section><div class="frontdesk-toolbar"><h2></h2><p id="bookingSummary"></p><button id="refresh">刷新</button></div><section id="bookings"></section>',{url:'https://desk.test/frontdesk/?business=shop-a',runScripts:'outside-only'}),w=dom.window;
  const calls=[];w.crypto.randomUUID=()=>crypto.randomUUID();
  w.liff={isInClient:()=>true,init:async()=>{},isLoggedIn:()=>true,getIDToken:()=>'verified'};
@@ -177,7 +177,6 @@ test('AC-FR-MODAL-001..003: modal requires a reason; phone section appears only 
   const data=body.action==='frontdesk.public'?{name:'QA',frontdesk:{enabled:true,liffId:'2010999999-desk'}}:
    body.action==='frontdesk.bootstrap'?{staff:{status:'approved',permissionMode:'review'}}:
    body.action==='frontdesk.bookings'?{bookings:[{id:bookingId,name:'QA',status:'pending',updatedAt:'2026-11-20T10:00:00.000Z',bookingDate:'2026-12-12',startTime:'11:00',services:[]}]}:
-   body.action==='frontdesk.phone.catalog'?{services:[{id:idA,title:'身體60',durationMinutes:60},{id:idB,title:'腳底30',durationMinutes:30}]}:
    body.action==='frontdesk.booking.reject-phone'?{booking:{status:'rejected'},phoneBookingStatus:'confirmed'}:{};
   return{ok:true,json:async()=>({ok:true,data})};
  };
@@ -200,16 +199,19 @@ test('AC-FR-MODAL-001..003: modal requires a reason; phone section appears only 
  reason.value='unrecorded_phone_booking';reason.dispatchEvent(new w.Event('change',{bubbles:true}));await settle();
  assert.equal(panel.hidden,false);assert.match(panel.textContent,/2026-12-12/);
   assert.match(panel.textContent,/無須等待管理員審核/);
- const serviceChecks=dialog.querySelectorAll('.frontdesk-phone-service-option input[type=checkbox]');
- assert.equal(serviceChecks.length,2);
- for(const check of serviceChecks){check.checked=true;check.dispatchEvent(new w.Event('change',{bubbles:true}));}
+ assert.equal(dialog.querySelectorAll('.frontdesk-phone-service-option').length,0);
+ const duration=dialog.querySelector('input[type=number]');
+ assert.ok(duration);assert.equal(duration.value,'60');
+ duration.value='0';duration.dispatchEvent(new w.Event('input',{bubbles:true}));
+ assert.equal(dialog.querySelector('button[type=submit]').disabled,true);
+ duration.value='90';duration.dispatchEvent(new w.Event('input',{bubbles:true}));
  assert.equal(dialog.querySelector('input[type=time]').value,'11:00');
  assert.equal(dialog.querySelector('button[type=submit]').disabled,false);
  dialog.querySelector('form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));await settle();await settle();
  const req=calls.find(b=>b.action==='frontdesk.booking.reject-phone');assert.ok(req);
  assert.equal(req.bookingId,bookingId);assert.equal(req.startTime,'11:00');
  assert.equal(req.rejectionReason,'unrecorded_phone_booking');
- assert.deepEqual(req.items,[{serviceId:idA,quantity:1},{serviceId:idB,quantity:1}]);
+ assert.equal(req.totalDurationMinutes,90);assert.equal(Object.hasOwn(req,'items'),false);
  assert.equal(Object.hasOwn(req,'bookingDate'),false);
  assert.equal(Object.hasOwn(req,'contactSurname'),false);
  assert.match(req.requestId,/^[0-9a-f-]{36}$/i);assert.match(req.phoneRequestId,/^PHONE-[0-9a-f-]{36}$/i);

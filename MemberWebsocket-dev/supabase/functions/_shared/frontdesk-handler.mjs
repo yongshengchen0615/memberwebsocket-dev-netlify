@@ -41,17 +41,14 @@ export function createFrontdeskHandler({db,allowedOrigins,verifyIdentity=(idToke
        (body.adminNote!==undefined&&(typeof body.adminNote!=='string'||body.adminNote.length>500))))
       throw new PlatformError(400,'PLATFORM_INVALID_INPUT','電話預約資料格式不正確。');
    if(body.action==='frontdesk.booking.reject-phone'){
-    const items=body.items;
     if(!uuid.test(body.bookingId||'')||!uuid.test(body.requestId||'')||
        typeof body.expectedUpdatedAt!=='string'||!Number.isFinite(Date.parse(body.expectedUpdatedAt))||
        body.status!=='rejected'||body.rejectionReason!=='unrecorded_phone_booking'||
        typeof body.phoneRequestId!=='string'||!/^PHONE-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.phoneRequestId)||
        typeof body.startTime!=='string'||!/^([01]\d|2[0-3]):[0-5]\d$/.test(body.startTime)||
-       !Array.isArray(items)||items.length<1||items.length>20||
-       items.some(item=>!item||!uuid.test(item.serviceId||'')||item.quantity!==1)||
-       new Set(items.map(item=>item.serviceId)).size!==items.length||
-       body.bookingDate!==undefined||body.contactSurname!==undefined||body.contactPhone!==undefined)
-      throw new PlatformError(400,'PLATFORM_INVALID_INPUT','請選擇預約項目與時間，日期由原預約帶入。');
+       !Number.isInteger(body.totalDurationMinutes)||body.totalDurationMinutes<1||body.totalDurationMinutes>1439||
+       body.items!==undefined||body.bookingDate!==undefined||body.contactSurname!==undefined||body.contactPhone!==undefined)
+      throw new PlatformError(400,'PLATFORM_INVALID_INPUT','請設定有效的總服務時長與預約時間，日期由原預約帶入。');
    }
    const publicAction=body.action==='frontdesk.public';
    // Before any tenant lookup or provider call, bound anonymous ingress too.
@@ -63,7 +60,7 @@ export function createFrontdeskHandler({db,allowedOrigins,verifyIdentity=(idToke
    const identity=await verifyIdentity(body.idToken,context.frontdesk?.loginChannelId);
    const identityHash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('frontdesk:'+context.id+':'+identity.lineUserId));
    if(!await rpc('consume_api_rate_limit',{p_principal_hash:Array.from(new Uint8Array(identityHash),b=>b.toString(16).padStart(2,'0')).join(''),p_is_write:['frontdesk.apply','frontdesk.booking.update','frontdesk.booking.reject-phone','frontdesk.phone.create'].includes(body.action),p_cost:1,p_read_limit:90,p_write_limit:15}))throw new PlatformError(429,'RATE_LIMITED','操作過於頻繁，請稍後再試。');
-   const input=body.action==='frontdesk.booking.reject-phone'?{bookingId:body.bookingId,status:'rejected',expectedUpdatedAt:body.expectedUpdatedAt,requestId:body.requestId,rejectionReason:'unrecorded_phone_booking',phoneRequestId:body.phoneRequestId,startTime:body.startTime,items:body.items}:body.action==='frontdesk.booking.update'?{bookingId:body.bookingId,status:body.status,expectedUpdatedAt:body.expectedUpdatedAt,requestId:body.requestId,note:body.note,rejectionReason:body.rejectionReason}:body.action==='frontdesk.bookings'?{bookingId:body.bookingId}:body.action==='frontdesk.phone.slots'?{bookingDate:body.bookingDate,items:body.items}:body.action==='frontdesk.phone.create'?{requestId:body.requestId,bookingDate:body.bookingDate,startTime:body.startTime,items:body.items,contactSurname:body.contactSurname,contactSalutation:body.contactSalutation,contactPhone:body.contactPhone,adminNote:body.adminNote}:{};
+   const input=body.action==='frontdesk.booking.reject-phone'?{bookingId:body.bookingId,status:'rejected',expectedUpdatedAt:body.expectedUpdatedAt,requestId:body.requestId,rejectionReason:'unrecorded_phone_booking',phoneRequestId:body.phoneRequestId,startTime:body.startTime,totalDurationMinutes:body.totalDurationMinutes}:body.action==='frontdesk.booking.update'?{bookingId:body.bookingId,status:body.status,expectedUpdatedAt:body.expectedUpdatedAt,requestId:body.requestId,note:body.note,rejectionReason:body.rejectionReason}:body.action==='frontdesk.bookings'?{bookingId:body.bookingId}:body.action==='frontdesk.phone.slots'?{bookingDate:body.bookingDate,items:body.items}:body.action==='frontdesk.phone.create'?{requestId:body.requestId,bookingDate:body.bookingDate,startTime:body.startTime,items:body.items,contactSurname:body.contactSurname,contactSalutation:body.contactSalutation,contactPhone:body.contactPhone,adminNote:body.adminNote}:{};
    if(body.action==='frontdesk.apply'){
     const routes=await rpc('platform_notification_credentials',{p_tenant_id:context.id,p_feature:'booking'}),route=routes?.frontdesk;
     if(route?.mode!=='custom'||!route.envelope)throw new PlatformError(409,'FRONTDESK_OA_REQUIRED','請先請管理員啟用櫃檯官方帳號。');

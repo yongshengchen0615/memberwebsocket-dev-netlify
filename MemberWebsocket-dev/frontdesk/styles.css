@@ -277,7 +277,7 @@ html[data-theme="light"] .frontdesk-page .frontdesk-shell{
 .frontdesk-page .frontdesk-rejection-modal p{margin:7px 0 10px;color:var(--fd-muted)}
 .frontdesk-page .frontdesk-rejection-form{display:grid;gap:15px;margin-top:17px}
 .frontdesk-page .frontdesk-rejection-form label{display:grid;gap:6px;font-weight:650}
-.frontdesk-page .frontdesk-rejection-form :is(select,input[type=time]){
+.frontdesk-page .frontdesk-rejection-form :is(select,input[type=time],input[type=number]){
  min-height:44px;min-width:0;width:100%;font:inherit;line-height:1.35;
  padding:9px 12px;background:var(--fd-card);color:var(--fd-text);
  border-radius:10px;border:1px solid var(--fd-border);
