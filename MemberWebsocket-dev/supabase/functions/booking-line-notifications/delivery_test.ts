@@ -603,3 +603,49 @@ Deno.test('AC-FR-013: non-paired frontdesk rejection never fabricates a replacem
   assert(!rendered.includes('櫃檯新增預約')&&!rendered.includes('補登狀態'),
     'do not imply any replacement or confirmation if none exists');
 });
+
+Deno.test('AC-FR-014: rejection LINE hides 到店準備 only in original/replacement services', () => {
+  const text = [
+    '【櫃檯拒絕預約】', '預約人：櫃檯人員', '拒絕原因：該時段已被現場人員預約但未登記',
+    '【原預約資料】', '預約編號：10000000-0000-4000-8000-000000000030',
+    '預約日期：2026-11-21', '預約時間：09:00',
+    '原預約會員：陳先生', '預約項目：身體60、到店準備、肩頸30', '預約技師：10技師',
+    '【櫃檯新增的預約資料】', '新增預約編號：10000000-0000-4000-8000-000000000031',
+    '預約日期：2026-11-21', '預約時間：09:30',
+    '預約項目：到店準備 × 2、腳底40', '預約技師：11技師', '預約狀態：已確認',
+  ].join('\n');
+  const message = buildBookingFlexMessage({...sampleJob, channel:'admin', message_text:text});
+  const cards = (message.contents.body as any).contents as Array<Record<string,unknown>>;
+  assert(cards.length===3, 'original and replacement must be separate cards');
+  const original = JSON.stringify(cards[1]);
+  const replacement = JSON.stringify(cards[2]);
+  assert(!original.includes('到店準備') && !replacement.includes('到店準備'),
+    'arrival-preparation item must not be visible in either booking section');
+  assert(original.includes('身體60、肩頸30') && original.includes('10技師'),
+    'actual original booking services/technician must remain');
+  assert(replacement.includes('腳底40') && replacement.includes('11技師') && replacement.includes('已確認'),
+    'actual replacement service, technician and confirmed status must remain');
+  assert(message.altText.includes('櫃檯拒絕預約'), 'LINE preview must retain title');
+});
+
+Deno.test('AC-FR-015: hide exact preparation only; no phantom item when it is the sole service', () => {
+  const text = [
+    '【櫃檯拒絕預約】', '預約人：櫃檯人員', '拒絕原因：該時段已被現場人員預約但未登記',
+    '【原預約資料】', '預約日期：2026-11-21',
+    '預約項目：到店準備、到店準備課程', '預約技師：10技師',
+    '【櫃檯新增的預約資料】', '預約日期：2026-11-21',
+    '預約項目：到店準備 × 3', '預約狀態：已確認',
+  ].join('\n');
+  const message = buildBookingFlexMessage({...sampleJob, channel:'admin', message_text:text});
+  const cards = (message.contents.body as any).contents as Array<Record<string,unknown>>;
+  const original = JSON.stringify(cards[1]);
+  const replacement = JSON.stringify(cards[2]);
+  assert(original.includes('到店準備課程'), 'distinct legitimate service must not be filtered');
+  assert(!original.includes('到店準備、'), 'exact preparation item must be removed from mixed service list');
+  assert(!replacement.includes('到店準備') && !replacement.includes('"項目"'),
+    'preparation-only replacement must omit its empty service field without placeholder');
+  const ordinary = buildBookingFlexMessage({...sampleJob, channel:'admin',
+    message_text:'【預約】\n預約項目：身體60、到店準備'});
+  assert(JSON.stringify(ordinary).includes('到店準備'),
+    'other LINE notification types must retain their original formatting');
+});
