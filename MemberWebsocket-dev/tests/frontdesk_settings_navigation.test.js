@@ -109,3 +109,26 @@ test('AC-FD-UX-003: standalone page uses readable, concise merchant-specific hea
   assert.doesNotMatch(script,/data\.tenant\.name\s*\+\s*'｜櫃檯設定'/);
   assert.match(frontdesk,/櫃檯人員申請與權限/);
 });
+
+test('AC-FD-HIST-006: server action is tenant-authorized, read-only and migration is least-privilege',()=>{
+ const handler=read('supabase/functions/_shared/platform-handler.mjs');
+ const admin=read('supabase/functions/_shared/frontdesk-admin.mjs');
+ const sql=read('supabase/migrations/20261121180000_frontdesk_review_history.sql');
+ const html=read('admin/frontdesk-settings/index.html');
+ const css=read('admin/frontdesk-settings/frontdesk-settings-page.css');
+ assert.match(frontdesk,/frontdesk-settings-tabs/);
+ for(const label of ['LINE 設定','確認預約','拒絕預約'])
+  assert.ok(frontdesk.includes(label));
+ assert.match(frontdesk,/platform\\.frontdesk\\.history\\.list/);
+ assert.match(handler,/platform\\.frontdesk\\.history\\.list/);
+ assert.match(admin,/platform_frontdesk_history/);
+ assert.match(sql,/require_merchant_access/);
+ assert.match(sql,/t\\.runtime_schema/);
+ assert.match(sql,/actor_role='frontdesk'/);
+ assert.match(sql,/limit 50/);
+ assert.match(sql,/from public, anon, authenticated/);
+ assert.match(sql,/to service_role/);
+ assert.match(sql,/frontdesk_paired_phone_source/);
+ assert.match(css,/frontdesk-history-card/);
+ assert.match(html,/frontdesk-history-tabs-20261121-1/);
+});
