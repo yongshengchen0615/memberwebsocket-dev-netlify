@@ -367,6 +367,9 @@ test('AC-FD-CONFLICT-SEC: revocation during history refresh purges member detail
  const button=w.document.getElementById('frontdeskHistoryRefresh'),items=w.document.querySelector('[data-frontdesk-history-items]');
  button.click();await new Promise(resolve=>setImmediate(resolve));
  assert.match(items.textContent,/私密會員資料/);
+ w.document.getElementById('refresh').click();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.match(items.textContent,/私密會員資料/,'authorized booking refresh must retain paired history');
  allow=false;button.click();await new Promise(resolve=>setImmediate(resolve));
  assert.equal(items.textContent,'');
  assert.equal(w.document.getElementById('frontdeskConflictHistory').hidden,true);
