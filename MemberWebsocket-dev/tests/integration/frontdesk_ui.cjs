@@ -176,7 +176,7 @@ test('AC-FR-MODAL-001..003: modal requires a reason; phone section appears only 
   const body=JSON.parse(init.body);calls.push(body);
   const data=body.action==='frontdesk.public'?{name:'QA',frontdesk:{enabled:true,liffId:'2010999999-desk'}}:
    body.action==='frontdesk.bootstrap'?{staff:{status:'approved',permissionMode:'review'}}:
-   body.action==='frontdesk.bookings'?{bookings:[{id:bookingId,name:'QA',status:'pending',updatedAt:'2026-11-20T10:00:00.000Z',bookingDate:'2026-12-12',startTime:'11:00',services:[]}]}:
+   body.action==='frontdesk.bookings'?{bookings:[{id:bookingId,name:'QA',status:'pending',updatedAt:'2026-11-20T10:00:00.000Z',bookingDate:'2026-12-12',startTime:'11:00',endTime:'12:00',totalDurationMinutes:60,services:[]}]}:
    body.action==='frontdesk.booking.reject-phone'?{booking:{status:'rejected'},phoneBookingStatus:'confirmed'}:{};
   return{ok:true,json:async()=>({ok:true,data})};
  };
@@ -200,12 +200,15 @@ test('AC-FR-MODAL-001..003: modal requires a reason; phone section appears only 
  assert.equal(panel.hidden,false);assert.match(panel.textContent,/2026-12-12/);
   assert.match(panel.textContent,/無須等待管理員審核/);
  assert.equal(dialog.querySelectorAll('.frontdesk-phone-service-option').length,0);
- const duration=dialog.querySelector('input[type=number]');
+ const duration=dialog.querySelector('select[aria-label="衝突預約總時長"]');
  assert.ok(duration);assert.equal(duration.value,'60');
- duration.value='0';duration.dispatchEvent(new w.Event('input',{bubbles:true}));
- assert.equal(dialog.querySelector('button[type=submit]').disabled,true);
- duration.value='90';duration.dispatchEvent(new w.Event('input',{bubbles:true}));
- assert.equal(dialog.querySelector('input[type=time]').value,'11:00');
+ assert.equal([...duration.options].some(o=>o.value==='0'),false,'invalid durations are not selectable');
+ assert.equal([...duration.options].every(o=>Number(o.value)%10===0),true);
+ duration.value='90';duration.dispatchEvent(new w.Event('change',{bubbles:true}));
+ const time=dialog.querySelector('select[aria-label="衝突預約時間"]');
+ assert.ok(time);assert.equal(time.value,'11:00');
+ assert.equal([...time.options].every(o=>Number(o.value.slice(-2))%10===0),true);
+ assert.match(dialog.querySelector('.frontdesk-original-booking').textContent,/原預約總時長：60 分鐘/);
  assert.equal(dialog.querySelector('button[type=submit]').disabled,false);
  dialog.querySelector('form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));await settle();await settle();
  const req=calls.find(b=>b.action==='frontdesk.booking.reject-phone');assert.ok(req);
