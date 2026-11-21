@@ -7,6 +7,72 @@
  let syncTimer=null,syncEnabled=false,syncInFlight=false,syncRevision=null,syncFailures=0,syncGeneration=0;
  const node=(tag,text)=>{const n=document.createElement(tag);if(text)n.textContent=text;return n;};
  const progress=document.getElementById('progress'),toolbar=document.querySelector('.frontdesk-toolbar');
+
+ // External entries must complete a new LINE Login callback. LIFF in-app
+ // signs in automatically on init and does not support explicit login/logout.
+ const LOGIN_QUERY='frontdesk_line_reauth',LOGIN_KEY='frontdesk_line_reauth:'+business,LOGIN_AGE_MS=300000;
+ const authError=(code,message)=>Object.assign(Error(message),{code,denied:true});
+ function redirectToLineLogin(liffId){
+  const target=new URL(location.href);
+  target.searchParams.delete(LOGIN_QUERY);
+  target.searchParams.delete('liff.state');
+  target.searchParams.set('business',business);
+  if(bookingId)target.searchParams.set('bookingId',bookingId);
+  let nonce;
+  try{
+   const bytes=new Uint8Array(16);window.crypto.getRandomValues(bytes);
+   nonce=Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+   window.sessionStorage.setItem(LOGIN_KEY,JSON.stringify({
+    nonce,pathname:target.pathname,business,liffId,createdAt:Date.now()
+   }));
+  }catch{throw authError('AUTH_STORAGE_UNAVAILABLE','無法安全啟動 LINE 登入，請允許此網站使用工作階段儲存空間。');}
+  target.searchParams.set(LOGIN_QUERY,nonce);
+  window.liff.login({redirectUri:target.toString()});
+ }
+ function consumeLineLoginCallback(liffId){
+  const current=new URL(location.href),marker=current.searchParams.get(LOGIN_QUERY);
+  if(marker===null)return false;
+  current.searchParams.delete(LOGIN_QUERY);
+  window.history.replaceState({},document.title,current.pathname+current.search+current.hash);
+  let record;
+  try{
+   const raw=window.sessionStorage.getItem(LOGIN_KEY);
+   window.sessionStorage.removeItem(LOGIN_KEY);
+   record=raw?JSON.parse(raw):null;
+  }catch{throw authError('AUTH_REQUIRED','LINE 登入回跳無法確認，請重新開啟商家櫃檯入口。');}
+  const age=Date.now()-Number(record?.createdAt);
+  if(!record||!/^[a-f0-9]{32}$/.test(record.nonce)||marker!==record.nonce
+   ||record.pathname!==current.pathname||record.business!==business||record.liffId!==liffId
+   ||!Number.isFinite(age)||age<0||age>LOGIN_AGE_MS)
+   throw authError('AUTH_REQUIRED','LINE 登入回跳已失效，請重新開啟商家櫃檯入口。');
+  return true;
+ }
+ async function authenticateLineOnOpen(liffId){
+  if(!window.liff||typeof window.liff.isInClient!=='function')
+   throw authError('LIFF_SDK_MISSING','LINE 登入元件未載入，請重新開啟商家櫃檯入口。');
+  try{await window.liff.init({liffId});}
+  catch{throw authError('LIFF_INIT_ERROR','無法完成 LINE 登入初始化，請重新開啟商家櫃檯入口。');}
+  if(window.liff.isInClient()){
+   if(!window.liff.isLoggedIn())
+    throw authError('AUTH_REQUIRED','LINE 尚未完成登入，請從 LINE 再次開啟商家櫃檯入口。');
+  }else if(!consumeLineLoginCallback(liffId)){
+   if(window.liff.isLoggedIn()){
+    try{window.liff.logout();}
+    catch{throw authError('AUTH_LOGOUT_FAILED','無法清除先前的 LINE 登入，請重新開啟商家櫃檯入口。');}
+    if(window.liff.isLoggedIn())
+     throw authError('AUTH_LOGOUT_FAILED','先前的 LINE 登入仍有效，無法重新驗證身分。');
+   }
+   redirectToLineLogin(liffId);
+   return null; // External browser is navigating to LINE Login.
+  }else if(!window.liff.isLoggedIn()){
+   throw authError('AUTH_REQUIRED','LINE 登入未完成，請重新開啟商家櫃檯入口。');
+  }
+  const token=window.liff.getIDToken();
+  if(typeof token!=='string'||!token.trim())
+   throw authError('LIFF_ID_TOKEN_MISSING','無法取得 LINE 身分憑證，請重新開啟商家櫃檯入口。');
+  return token;
+ }
+
  function showProgress(stage){
   if(!progress)return;
   progress.replaceChildren();progress.hidden=stage>=3;
@@ -37,7 +103,20 @@
   if(!response.ok||!data.ok)throw Object.assign(Error(data.error?.message||'櫃檯服務暫時無法使用。'),{code:data.error?.code,denied:response.status===401||response.status===403,uncertain:response.status>=500});
   return data.data;
  }
- function failure(error,keepAccount=false){status.textContent=error.message;if(error.denied){epoch++;list.replaceChildren();if(!keepAccount)account.replaceChildren();}if(['AUTH_INVALID','FRONTDESK_AUTH_INVALID'].includes(error.code)){const b=node('button','重新登入 LINE');b.type='button';b.onclick=()=>{window.liff.logout();window.liff.login({redirectUri:location.href});};account.replaceChildren(b);list.replaceChildren();}}
+ function failure(error,keepAccount=false){
+  status.textContent=error.message;
+  const invalidIdentity=['AUTH_INVALID','FRONTDESK_AUTH_INVALID','AUTH_REQUIRED',
+   'LIFF_ID_TOKEN_MISSING','AUTH_LOGOUT_FAILED','AUTH_STORAGE_UNAVAILABLE','LIFF_INIT_ERROR','LIFF_SDK_MISSING'].includes(error.code);
+  if(error.denied||invalidIdentity){
+   epoch++;stopSync();list.replaceChildren();showBookingToolbar(false);
+   if(!keepAccount||invalidIdentity)account.replaceChildren();
+  }
+  if(invalidIdentity){
+   idToken=null;
+   if(['AUTH_INVALID','FRONTDESK_AUTH_INVALID'].includes(error.code))
+    status.textContent='LINE 身分已失效，請重新開啟商家櫃檯入口完成身分驗證。';
+  }
+ }
  async function review(booking,next,button,rejectionReason,phoneBooking=null,onSuccess=null){
   if(busy)return;const key=booking.id,known=pending.get(key);
   if(known&&known.status!==next){status.textContent='前次操作結果尚未確認，請先重試相同操作。';return;}
@@ -314,13 +393,16 @@
  }
  async function start(){
   lock(true);try{
-   showProgress(0);showBookingToolbar(false);
+   stopSync();epoch++;idToken=null;
+   account.replaceChildren();list.replaceChildren();
+   showProgress(0);showBookingToolbar(false);status.textContent='正在確認 LINE 身分…';
    if(!business)throw Error('請使用商家提供的完整櫃檯入口。');
    const r=await fetch('/config/config.json',{cache:'no-store'});if(!r.ok)throw Error('無法取得本環境設定。');config=await r.json();
    const data=await request('frontdesk.public');document.getElementById('businessName').textContent=data.name+'｜櫃檯';
    if(!data.frontdesk?.enabled||!data.frontdesk.liffId)throw Error('商家尚未啟用櫃檯入口，請聯絡管理員完成 LINE 設定後再申請。');
-   await window.liff.init({liffId:data.frontdesk.liffId});if(!window.liff.isLoggedIn()){window.liff.login({redirectUri:location.href});return;}
-   idToken=window.liff.getIDToken();await load();
+   idToken=await authenticateLineOnOpen(data.frontdesk.liffId);
+   if(!idToken)return;
+   await load();
   }catch(error){failure(error);}finally{lock(false);window.dispatchEvent(new CustomEvent('frontdesk-ready'));}
  }
  refresh.onclick=async()=>{if(busy||pending.size){status.textContent='請先完成目前操作或重試相同操作。';return;}lock(true);try{await load();status.textContent='已更新櫃檯人員資格與預約權限。';}catch(e){failure(e);}finally{lock(false);}};
