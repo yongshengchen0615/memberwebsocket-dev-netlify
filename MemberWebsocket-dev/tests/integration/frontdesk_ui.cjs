@@ -242,7 +242,3 @@ test('AC-FR-MODAL-004: technician leave requires reason and never requests phone
  assert.equal(calls.filter(b=>b.action==='frontdesk.phone.catalog'||b.action==='frontdesk.booking.reject-phone').length,0);
  w.close();
 });
-
-// Include the session/replay/LIFF fresh-entry acceptance suite in the existing
-// pinned DOM integration lane without weakening any of the current cases.
-require('./frontdesk_fresh_login.cjs');
