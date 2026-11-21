@@ -22,7 +22,7 @@ for(const width of [390,1280])test('FRONTDESK_'+width+' — notify-only, scoped 
  await page.emulateMedia({colorScheme:width===390?'dark':'light'});
  let mode='notify_only',status='pending',lose=false,downgrade=false;const calls=[],ids=[];
  await page.setViewportSize({width,height:900});await page.emulateMedia({colorScheme:'dark'});
- await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:'window.liff={init:async()=>{},isLoggedIn:()=>true,getIDToken:()=>"verified-staff",login:()=>{},logout:()=>{}};'}));
+ await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:'window.liff={init:async()=>{},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=>"verified-staff",login:()=>{},logout:()=>{}};'}));
  await page.route('https://fixture.supabase.co/**',async route=>{
   const b=route.request().postDataJSON();calls.push(b);expect(b.business).toBe('shop-a');let data;
   if(b.action==='frontdesk.public')data={name:'測試商家',frontdesk:{enabled:true,liffId:'2010999999-desk',oaId:'@desk'}};
@@ -66,7 +66,7 @@ test('FRONTDESK_SETTINGS_RETRY — lost first settings response replays the froz
 test('FRONTDESK_APPLICANT — LINE user submits application; bookings remain unavailable until merchant approval',async({page})=>{
  const calls=[];let staffStatus=null,mode='notify_only';
  await page.setViewportSize({width:390,height:844});
- await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:'window.liff={init:async()=>{},isLoggedIn:()=>true,getIDToken:()=>"verified-staff",login:()=>{},logout:()=>{}};'}));
+ await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:'window.liff={init:async()=>{},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=>"verified-staff",login:()=>{},logout:()=>{}};'}));
  await page.route('https://fixture.supabase.co/**',async route=>{
   const body=route.request().postDataJSON();calls.push(body.action);
   let data;
@@ -412,7 +412,7 @@ test('FRONTDESK_STAFF_DELETE — real browser confirms deletion, cancels safely 
 
 test('AC-FD-RT-001: member booking appears without manual refresh; authorization revocation closes synchronization',async({page})=>{
  let revision=1,approved=true,bookingCount=0,failNextBooking=false;const calls=[];
- await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:'window.liff={init:async()=>{},isLoggedIn:()=>true,getIDToken:()=>"verified-staff",login:()=>{},logout:()=>{}};'}));
+ await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:'window.liff={init:async()=>{},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=>"verified-staff",login:()=>{},logout:()=>{}};'}));
  await page.route('https://fixture.supabase.co/**',route=>{
   const input=route.request().postDataJSON();calls.push(input.action);
   if(input.action==='frontdesk.bookings'&&failNextBooking){
@@ -455,7 +455,7 @@ for(const width of [390,1280])test('FRONTDESK_REJECTION_MODAL_'+width+' — only
  await page.setViewportSize({width,height:880});await page.emulateMedia({colorScheme:width===390?'dark':'light'});
  const bookingId='10000000-0000-4000-8000-000000000011',service1='10000000-0000-4000-8000-000000000012',service2='10000000-0000-4000-8000-000000000013';
  let state='pending';const calls=[];
- await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:'window.liff={init:async()=>{},isLoggedIn:()=>true,getIDToken:()=>"verified-staff",login:()=>{},logout:()=>{}};'}));
+ await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:'window.liff={init:async()=>{},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=>"verified-staff",login:()=>{},logout:()=>{}};'}));
  await page.route('https://fixture.supabase.co/**',async route=>{
   const body=route.request().postDataJSON();calls.push(body);let data;
   if(body.action==='frontdesk.public')data={name:'QA商家',frontdesk:{enabled:true,liffId:'2010999999-desk'}};
