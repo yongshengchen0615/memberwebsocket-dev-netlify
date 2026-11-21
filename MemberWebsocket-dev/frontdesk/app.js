@@ -237,13 +237,14 @@
   const panel=document.getElementById('frontdeskConflictHistory');
   if(!panel||panel.hidden||!idToken)return;
   const message=panel.querySelector('[data-frontdesk-history-status]'),generation=epoch;
+  panel.querySelector('[data-frontdesk-history-items]')?.replaceChildren();
   if(message)message.textContent='正在取得衝突預約處理紀錄…';
   try{
    const result=await request('frontdesk.history');
    if(generation!==epoch||panel.hidden)return;
    renderConflictHistory(Array.isArray(result.items)?result.items:[]);
    if(message)message.textContent='最近的衝突預約紀錄（預約資料為目前狀態）。';
-  }catch(error){if(generation===epoch&&message)message.textContent=error.message||'無法載入衝突預約紀錄。';}
+  }catch(error){if(generation!==epoch)return;if(error.denied){failure(error);return;}if(message)message.textContent=error.message||'無法載入衝突預約紀錄。';}
  }
  document.getElementById('frontdeskHistoryRefresh')?.addEventListener('click',()=>void loadConflictHistory());
 
