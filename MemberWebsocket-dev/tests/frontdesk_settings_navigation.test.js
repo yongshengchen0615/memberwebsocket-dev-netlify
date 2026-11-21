@@ -119,11 +119,11 @@ test('AC-FD-HIST-006: server action is tenant-authorized, read-only and migratio
  assert.match(frontdesk,/frontdesk-settings-tabs/);
  for(const label of ['LINE 設定','確認預約','拒絕預約'])
   assert.ok(frontdesk.includes(label));
- assert.match(frontdesk,/platform\\.frontdesk\\.history\\.list/);
- assert.match(handler,/platform\\.frontdesk\\.history\\.list/);
+ assert.ok(frontdesk.includes('platform.frontdesk.history.list'));
+ assert.ok(handler.includes('platform.frontdesk.history.list'));
  assert.match(admin,/platform_frontdesk_history/);
  assert.match(sql,/require_merchant_access/);
- assert.match(sql,/t\\.runtime_schema/);
+ assert.ok(sql.includes('t.runtime_schema'));
  assert.match(sql,/actor_role='frontdesk'/);
  assert.match(sql,/limit 50/);
  assert.match(sql,/from public, anon, authenticated/);
