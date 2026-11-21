@@ -69,7 +69,7 @@ test('AC-FR-005: phone requests are tenant-scoped, pending, slot-blocking and au
  assert.match(ui,/登記電話／現場預約/);
  assert.match(ui,/原預約已拒絕，電話／現場預約已登記並直接確認/);
  assert.match(ui,/openRejectionDialog/);
- assert.match(ui,/總服務時長（分鐘）/);
+ assert.match(ui,/衝突預約總時長（每 10 分鐘）/);
  assert.doesNotMatch(ui,/frontdesk-phone-service-option/);
  assert.match(ui,/frontdeskLockPrevious/);
  assert.match(migration,/admin_create_phone_booking_request/);
@@ -243,7 +243,7 @@ test('AC-FR-DURATION-001..004: paired on-site registration uses direct duration 
  const ui=read('frontdesk/app.js');
  const api=read('supabase/functions/_shared/frontdesk-handler.mjs');
  const sql=read('supabase/migrations/20261121221000_frontdesk_direct_duration.sql');
- assert.match(ui,/totalDurationMinutes:duration.valueAsNumber/);
+ assert.match(ui,/totalDurationMinutes:Number\(duration.value\)/);
  assert.doesNotMatch(ui,/request\('frontdesk.phone.catalog'\)/);
  assert.match(api,/Number.isInteger\(body.totalDurationMinutes\)/);
  assert.match(api,/body.items!==undefined/);

@@ -3,7 +3,7 @@
  const params=new URLSearchParams(location.search),nested=new URLSearchParams((params.get('liff.state')||'').split('?').pop());
  const business=params.get('business')||nested.get('business'),bookingId=params.get('bookingId')||nested.get('bookingId');
  const status=document.getElementById('status'),account=document.getElementById('account'),list=document.getElementById('bookings'),refresh=document.getElementById('refresh');
- let config,idToken,busy=false,epoch=0;const pending=new Map();
+ let config,idToken,busy=false,epoch=0,historyEpoch=0,frontdeskPolicy={};const pending=new Map();
  let syncTimer=null,syncEnabled=false,syncInFlight=false,syncRevision=null,syncFailures=0,syncGeneration=0;
  const node=(tag,text)=>{const n=document.createElement(tag);if(text)n.textContent=text;return n;};
  const progress=document.getElementById('progress'),toolbar=document.querySelector('.frontdesk-toolbar');
@@ -103,12 +103,18 @@
   if(!response.ok||!data.ok)throw Object.assign(Error(data.error?.message||'櫃檯服務暫時無法使用。'),{code:data.error?.code,denied:response.status===401||response.status===403,uncertain:response.status>=500});
   return data.data;
  }
+ function clearPrivateHistory(){
+  historyEpoch++;
+  const history=document.getElementById('frontdeskConflictHistory');
+  if(history){history.hidden=true;history.querySelector('[data-frontdesk-history-items]')?.replaceChildren();}
+ }
  function failure(error,keepAccount=false){
   status.textContent=error.message;
   const invalidIdentity=['AUTH_INVALID','FRONTDESK_AUTH_INVALID','AUTH_REQUIRED',
    'LIFF_ID_TOKEN_MISSING','AUTH_LOGOUT_FAILED','AUTH_STORAGE_UNAVAILABLE','LIFF_INIT_ERROR','LIFF_SDK_MISSING'].includes(error.code);
   if(error.denied||invalidIdentity){
    epoch++;stopSync();list.replaceChildren();showBookingToolbar(false);
+   clearPrivateHistory();
    if(!keepAccount||invalidIdentity)account.replaceChildren();
   }
   if(invalidIdentity){
@@ -124,7 +130,7 @@
    status.textContent='請先選擇拒絕原因。';return;
   }
   const body=known||{bookingId:key,status:next,expectedUpdatedAt:booking.updatedAt,requestId:crypto.randomUUID(),...(next==='rejected'?{rejectionReason}:{}),...(phoneBooking?{phoneRequestId:'PHONE-'+crypto.randomUUID(),startTime:phoneBooking.startTime,totalDurationMinutes:phoneBooking.totalDurationMinutes}:{})};pending.set(key,body);lock(true);const generation=epoch;
-  try{await request(body.phoneRequestId?'frontdesk.booking.reject-phone':'frontdesk.booking.update',body);if(generation!==epoch)return;pending.delete(key);await load();if(onSuccess)onSuccess();status.textContent=body.phoneRequestId?'原預約已拒絕，電話／現場預約已登記並直接確認，時段已保留。':next==='confirmed'?'預約已確認。':'預約已拒絕。';}
+  try{await request(body.phoneRequestId?'frontdesk.booking.reject-phone':'frontdesk.booking.update',body);if(generation!==epoch)return;pending.delete(key);await load();if(onSuccess)onSuccess();if(body.phoneRequestId)void loadConflictHistory();status.textContent=body.phoneRequestId?'原預約已拒絕，電話／現場預約已登記並直接確認，時段已保留。':next==='confirmed'?'預約已確認。':'預約已拒絕。';}
   catch(error){if(generation!==epoch)return;let refreshed=false;if(!error.uncertain){pending.delete(key);try{await load();refreshed=true;}catch{}}else button.textContent='重試相同操作';failure(error,refreshed);}
   finally{lock(false);}
  }
@@ -197,6 +203,56 @@
   }
  }
 
+
+ function renderConflictHistory(records){
+  const panel=document.getElementById('frontdeskConflictHistory'),items=panel?.querySelector('[data-frontdesk-history-items]');
+  if(!items)return;
+  items.replaceChildren();
+  if(!records.length){items.append(node('p','目前沒有你處理的衝突預約紀錄。'));return;}
+  for(const record of records){
+   const original=record.booking,replacement=record.phoneBooking;
+   const card=node('article');card.className='frontdesk-history-pair';
+   card.append(node('h3','衝突預約處理紀錄'),node('p','處理時間：'+(record.actionAt?new Date(record.actionAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false}):'—')));
+   const details=(booking,label,isReplacement)=>{
+    const group=node('section');group.className='frontdesk-history-booking';
+    group.append(node('h4',label));
+    if(!booking){group.append(node('p','預約資料已不存在，請聯絡管理員查看稽核紀錄。'));return group;}
+    const date=String(booking.bookingDate||booking.startAt||'').slice(0,10);
+    const time=String(booking.startTime||String(booking.startAt||'').slice(11,16)).slice(0,5);
+    const end=String(booking.endTime||String(booking.endAt||'').slice(11,16)).slice(0,5);
+    const mins=Number(booking.totalDurationMinutes);
+    group.append(node('p','預約日期：'+(date||'—')),node('p','預約時間：'+(time||'—')+' – '+(end||'—')));
+    if(Number.isInteger(mins)&&mins>0)group.append(node('p','總時長：'+mins+' 分鐘'));
+    group.append(node('p','狀態：'+({pending:'待確認',confirmed:'已確認',rejected:'已拒絕',cancelled:'已取消'}[booking.status]||booking.status||'—')));
+    if(isReplacement){group.append(node('p','預約來源：櫃檯人員（現場／電話預約）'));}
+    else{
+     group.append(node('p','預約人：'+(booking.name||'—')),node('p','電話：'+(booking.phone||'—')),node('p','預約人數：'+(booking.partySize||1)+' 位'));
+     for(const person of (Array.isArray(booking.participants)?booking.participants:[])){
+      const services=(person.services||[]).map(i=>i.title+(Number(i.quantity)>1?' × '+i.quantity:'')).join('、');
+      group.append(node('p','第 '+(Number(person.position)||1)+' 位：'+(services||'無服務項目')+'／'+(person.technician||'現場安排')));
+     }
+    }
+    return group;
+   };
+   card.append(details(original,'原預約資料',false),details(replacement,'櫃檯新增的衝突預約',true));
+   items.append(card);
+  }
+ }
+ async function loadConflictHistory(){
+  const panel=document.getElementById('frontdeskConflictHistory');
+  if(!panel||panel.hidden||!idToken)return;
+  const message=panel.querySelector('[data-frontdesk-history-status]'),generation=++historyEpoch;
+  panel.querySelector('[data-frontdesk-history-items]')?.replaceChildren();
+  if(message)message.textContent='正在取得衝突預約處理紀錄…';
+  try{
+   const result=await request('frontdesk.history');
+   if(generation!==historyEpoch||panel.hidden)return;
+   renderConflictHistory(Array.isArray(result.items)?result.items:[]);
+   if(message)message.textContent='最近的衝突預約紀錄（預約資料為目前狀態）。';
+  }catch(error){if(generation!==historyEpoch)return;if(error.denied){failure(error);return;}if(message)message.textContent=error.message||'無法載入衝突預約紀錄。';}
+ }
+ document.getElementById('frontdeskHistoryRefresh')?.addEventListener('click',()=>void loadConflictHistory());
+
  // Reconcile through the existing LINE-authenticated API. No booking data is
  // ever read directly from a publicly subscribed Realtime channel.
  const canSync=()=>syncEnabled&&idToken&&document.visibilityState!=='hidden'&&navigator.onLine!==false;
@@ -266,22 +322,37 @@
   const bookingDate=String(booking.bookingDate||booking.startAt||'').slice(0,10);
   const dateLabel=node('div');dateLabel.className='frontdesk-phone-date';
   dateLabel.append(node('span','預約日期（原訂單）'),node('strong',bookingDate||'無法取得原預約日期'));
-  const timeLabel=node('label','預約時間'),time=node('input');time.type='time';time.required=true;
-  time.setAttribute('aria-label','現場預約時間');
-  time.value=String(booking.startTime||String(booking.startAt||'').slice(11,16)).slice(0,5);
+  const originalTime=String(booking.startTime||String(booking.startAt||'').slice(11,16)).slice(0,5);
+  const originalEnd=String(booking.endTime||String(booking.endAt||'').slice(11,16)).slice(0,5);
   const originalDuration=Number(booking.totalDurationMinutes)||Math.round((Date.parse(booking.endAt)-Date.parse(booking.startAt))/60000);
-  const durationLabel=node('label','總服務時長（分鐘）'),duration=node('input');
-  duration.type='number';duration.required=true;duration.min='1';duration.max='1439';duration.step='1';
-  duration.setAttribute('aria-label','總服務時長（分鐘）');
-  duration.value=String(Number.isInteger(originalDuration)&&originalDuration>=1&&originalDuration<=1439?originalDuration:60);
+  const original=node('section');original.className='frontdesk-original-booking';
+  original.append(node('h3','原預約資料'),node('p','預約日期：'+(bookingDate||'—')),
+    node('p','原預約時間：'+(originalTime||'—')+' – '+(originalEnd||'—')),
+    node('p','原預約總時長：'+(Number.isFinite(originalDuration)&&originalDuration>0?originalDuration+' 分鐘':'未提供')));
+  const clock=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+  const startMin=Number.isInteger(frontdeskPolicy.conflictStartMin)?frontdeskPolicy.conflictStartMin:0;
+  const startMax=Number.isInteger(frontdeskPolicy.conflictStartMax)?frontdeskPolicy.conflictStartMax:1430;
+  const durationMin=Number.isInteger(frontdeskPolicy.conflictDurationMin)?frontdeskPolicy.conflictDurationMin:10;
+  const durationMax=Number.isInteger(frontdeskPolicy.conflictDurationMax)?frontdeskPolicy.conflictDurationMax:1430;
+  const timeLabel=node('label','衝突預約時間（每 10 分鐘）'),time=node('select');time.required=true;
+  time.setAttribute('aria-label','衝突預約時間');
+  for(let m=startMin;m<=startMax;m+=10){const opt=node('option',clock(m));opt.value=clock(m);time.append(opt);}
+  const recommendedTime=originalTime&&Array.from(time.options).some(x=>x.value===originalTime)?originalTime:time.options[0]?.value;
+  time.value=recommendedTime||'';
+  const durationLabel=node('label','衝突預約總時長（每 10 分鐘）'),duration=node('select');duration.required=true;
+  duration.setAttribute('aria-label','衝突預約總時長');
+  for(let m=durationMin;m<=durationMax;m+=10){const opt=node('option',m+' 分鐘');opt.value=String(m);duration.append(opt);}
+  const recommendedDuration=Number.isInteger(originalDuration)?originalDuration:60;
+  duration.value=Array.from(duration.options).some(x=>Number(x.value)===recommendedDuration)?String(recommendedDuration):(duration.options[0]?.value||'');
   timeLabel.append(time);durationLabel.append(duration);
-  phonePanel.append(title,hint,dateLabel,timeLabel,durationLabel);
+  const guidance=node('p','請選擇實際發生衝突的預約時間與總時長，系統會按商家設定的範圍、每 10 分鐘提供選項，並檢查是否可以保留時段。');
+  phonePanel.append(title,hint,dateLabel,guidance,timeLabel,durationLabel);
   const feedback=node('p');feedback.className='frontdesk-phone-message';feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');
   const footer=node('div');footer.className='frontdesk-modal-actions';
   const cancel=node('button','取消');cancel.type='button';cancel.className='frontdesk-modal-cancel';
   const submit=node('button','確認拒絕預約');submit.type='submit';submit.className='frontdesk-danger';submit.disabled=true;
   footer.append(cancel,submit);form.append(reasonField,phonePanel,feedback,footer);
-  dialog.append(heading,help,form);overlay.append(dialog);document.body.append(overlay);
+  dialog.append(heading,help,original,form);overlay.append(dialog);document.body.append(overlay);
   const close=(force=false)=>{
    if(busy&&!force||!overlay.isConnected)return;
    document.removeEventListener('keydown',keyHandler);overlay.remove();
@@ -298,8 +369,8 @@
   };
   document.addEventListener('keydown',keyHandler);
   cancel.onclick=()=>close();overlay.onclick=event=>{if(event.target===overlay)close();};
-  const validTime=()=>/^([01]\d|2[0-3]):[0-5]\d$/.test(time.value);
-  const validDuration=()=>Number.isInteger(duration.valueAsNumber)&&duration.valueAsNumber>=1&&duration.valueAsNumber<=1439;
+  const validTime=()=>Array.from(time.options).some(option=>option.value===time.value);
+  const validDuration=()=>Array.from(duration.options).some(option=>option.value===duration.value);
   const updateSubmit=()=>{
    const phone=reason.value==='unrecorded_phone_booking';
    submit.textContent=frozen?'重試相同操作':phone?'確認拒絕並登記現場預約':'確認拒絕預約';
@@ -310,10 +381,10 @@
    if(phonePanel.hidden)feedback.textContent='';
    updateSubmit();
   };
-  reason.onchange=updateReason;time.oninput=updateSubmit;duration.oninput=updateSubmit;
+  reason.onchange=updateReason;time.onchange=updateSubmit;duration.onchange=updateSubmit;
   if(frozen?.status==='rejected'){
    reason.value=frozen.rejectionReason||'';reason.disabled=true;
-   if(frozen.phoneRequestId){time.value=frozen.startTime||time.value;time.disabled=true;duration.value=String(frozen.totalDurationMinutes||duration.value);duration.disabled=true;}
+   if(frozen.phoneRequestId){if(!Array.from(time.options).some(option=>option.value===frozen.startTime)){const opt=node('option',frozen.startTime);opt.value=frozen.startTime;time.append(opt);}time.value=frozen.startTime||time.value;time.disabled=true;const frozenMinutes=String(frozen.totalDurationMinutes||duration.value);if(!Array.from(duration.options).some(option=>option.value===frozenMinutes)){const opt=node('option',frozenMinutes+' 分鐘');opt.value=frozenMinutes;duration.append(opt);}duration.value=frozenMinutes;duration.disabled=true;}
    feedback.textContent='上次結果尚未確認，僅能重試相同內容。';
   }
   form.onsubmit=event=>{
@@ -321,9 +392,9 @@
    if(!reason.value){feedback.textContent='請選擇拒絕原因。';reason.focus();return;}
    const phone=reason.value==='unrecorded_phone_booking';
    if(phone&&(!validDuration()||!validTime()||!bookingDate)){
-   feedback.textContent='請輸入有效的預約時間與總服務時長（1 至 1439 分鐘）。';return;
+   feedback.textContent='請從下拉選單選擇符合商家限制的衝突預約時間與總時長（每 10 分鐘）。';return;
   }
-  const detail=phone?{startTime:time.value,totalDurationMinutes:duration.valueAsNumber}:null;
+  const detail=phone?{startTime:time.value,totalDurationMinutes:Number(duration.value)}:null;
    void review(booking,'rejected',submit,reason.value,detail,()=>close(true));
   };
   updateReason();reason.focus();
@@ -331,7 +402,11 @@
  async function load(){
   const generation=++epoch,data=await request('frontdesk.bootstrap');if(generation!==epoch)return false;
   account.replaceChildren();list.replaceChildren();showBookingToolbar(false);
+  const history=document.getElementById('frontdeskConflictHistory');
   const person=data.staff;
+  // Authorized booking sync is not a logout: keep already loaded history visible.
+  // Permission downgrade is a privacy boundary and always purges history.
+  if(!person||person.status!=='approved'||person.permissionMode!=='review')clearPrivateHistory();
    if(!person||person.status!=='approved'||person.permissionMode!=='review')stopSync();
   if(!person){
    showProgress(1);
@@ -360,6 +435,7 @@
   showProgress(3);
   if(person.permissionMode==='review'){
    showBookingToolbar(true);
+   if(history)history.hidden=false;
    const result=await request('frontdesk.bookings',bookingId?{bookingId}:{});if(generation!==epoch)return false;
    renderBookings(result.bookings||[]);
     startSync();
@@ -372,12 +448,12 @@
  }
  async function start(){
   lock(true);try{
-   stopSync();epoch++;idToken=null;
+   stopSync();epoch++;idToken=null;clearPrivateHistory();
    account.replaceChildren();list.replaceChildren();
    showProgress(0);showBookingToolbar(false);status.textContent='正在確認 LINE 身分…';
    if(!business)throw Error('請使用商家提供的完整櫃檯入口。');
    const r=await fetch('/config/config.json',{cache:'no-store'});if(!r.ok)throw Error('無法取得本環境設定。');config=await r.json();
-   const data=await request('frontdesk.public');document.getElementById('businessName').textContent=data.name+'｜櫃檯';
+   const data=await request('frontdesk.public');frontdeskPolicy=data.frontdesk||{};const title=String(frontdeskPolicy.pageTitle||'').trim()||data.name+'｜櫃檯';document.getElementById('businessName').textContent=title;document.title=title+'｜櫃檯工作台';
    if(!data.frontdesk?.enabled||!data.frontdesk.liffId)throw Error('商家尚未啟用櫃檯入口，請聯絡管理員完成 LINE 設定後再申請。');
    idToken=await authenticateLineOnOpen(data.frontdesk.liffId);
    if(!idToken)return;
@@ -389,6 +465,6 @@
  window.addEventListener('online',()=>{if(canSync())scheduleSync(0);});
  window.addEventListener('focus',()=>{if(canSync())scheduleSync(0);});
  window.addEventListener('pageshow',event=>{if(event.persisted)void start();});
- window.addEventListener('pagehide',()=>{stopSync();epoch++;idToken=null;list.replaceChildren();});
+ window.addEventListener('pagehide',()=>{stopSync();epoch++;idToken=null;list.replaceChildren();clearPrivateHistory();});
  void start();
 })();

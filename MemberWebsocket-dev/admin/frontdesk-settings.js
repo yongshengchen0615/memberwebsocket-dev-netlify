@@ -352,8 +352,71 @@
       });
       content.append(form);
 
+      // Page presentation and paired-conflict boundaries are independent of LINE
+      // credentials so merchants can revise them without resubmitting a bot token.
+      const preferences = node('form', '', 'frontdesk-preferences-form frontdesk-setup-card');
+      const preferenceTitle = node('h3', '3. 櫃檯頁面與衝突預約範圍');
+      const preferenceHint = node('p', '櫃檯抬頭獨立於管理端。衝突預約的開始時間及總時長採每 10 分鐘一個選項；櫃檯無法超出此範圍。');
+      const pageTitle = field('pageTitle', '櫃檯頁面抬頭', '留空則顯示商家名稱＋「櫃檯」，不改動管理端抬頭。', cfg.pageTitle || '', false);
+      pageTitle.input.maxLength = 60;
+      pageTitle.input.placeholder = '例如：門市預約櫃檯';
+      const preferenceGrid = node('div', '', 'frontdesk-preferences-grid');
+      function dropdown(name, label, options, current) {
+        const wrapper = node('label', label), select = node('select');
+        select.name = name;
+        for (const [value, text] of options) {
+          const option = node('option', text);option.value = String(value);select.append(option);
+        }
+        select.value = String(current);
+        wrapper.append(select);
+        return select;
+      }
+      const clock = minutes => String(Math.floor(minutes / 60)).padStart(2, '0') + ':' + String(minutes % 60).padStart(2, '0');
+      const timeOptions = Array.from({length:144}, (_,i) => [i * 10, clock(i * 10)]);
+      const durationOptions = Array.from({length:143}, (_,i) => [(i + 1) * 10, (i + 1) * 10 + ' 分鐘']);
+      const startMin = dropdown('conflictStartMin', '最早衝突預約時間', timeOptions, cfg.conflictStartMin ?? 0);
+      const startMax = dropdown('conflictStartMax', '最晚衝突預約時間', timeOptions, cfg.conflictStartMax ?? 1430);
+      const durationMin = dropdown('conflictDurationMin', '最短總時長', durationOptions, cfg.conflictDurationMin ?? 10);
+      const durationMax = dropdown('conflictDurationMax', '最長總時長', durationOptions, cfg.conflictDurationMax ?? 1430);
+      preferenceGrid.append(startMin.parentElement, startMax.parentElement, durationMin.parentElement, durationMax.parentElement);
+      const preferenceWarning = node('p', '', 'frontdesk-preferences-warning');
+      preferenceWarning.setAttribute('aria-live', 'polite');
+      const savePreferences = node('button', '儲存櫃檯頁面與衝突預約限制', 'button button-outline frontdesk-primary');
+      savePreferences.type = 'submit';
+      preferences.append(preferenceTitle, preferenceHint, pageTitle.wrap, preferenceGrid, preferenceWarning, savePreferences);
+      function validPreferences() {
+        const okay = Number(startMin.value) <= Number(startMax.value) && Number(durationMin.value) <= Number(durationMax.value);
+        preferenceWarning.textContent = okay ? '' : '最早時間不可晚於最晚時間；最短總時長不可大於最長總時長。';
+        savePreferences.disabled = !okay || busy || Boolean(pending);
+        return okay;
+      }
+      for (const select of [startMin, startMax, durationMin, durationMax])
+        select.addEventListener('change', validPreferences);
+      preferences.addEventListener('input', markDirty);
+      preferences.addEventListener('change', markDirty);
+      preferences.addEventListener('submit', event => {
+        event.preventDefault();
+        if (pending) {
+          if (pending.action === 'platform.frontdesk.preferences.save') void save(pending.action, pending.body, savePreferences);
+          return;
+        }
+        if (!validPreferences() || !preferences.reportValidity()) return;
+        void save('platform.frontdesk.preferences.save', {
+          expectedVersion: data.version,
+          preferences: {
+            pageTitle: pageTitle.input.value.trim(),
+            conflictStartMin: Number(startMin.value),
+            conflictStartMax: Number(startMax.value),
+            conflictDurationMin: Number(durationMin.value),
+            conflictDurationMax: Number(durationMax.value)
+          }
+        }, savePreferences);
+      });
+      validPreferences();
+      content.append(preferences);
+
       const approvals = node('section', '', 'frontdesk-approvals');
-      approvals.append(node('h3', '3. 櫃檯人員申請與權限'));
+      approvals.append(node('h3', '4. 櫃檯人員申請與權限'));
       approvals.append(node('p', '人員須先從商家專屬櫃檯頁面申請，再由管理員逐人審核。未核准者無法查看預約或接收通知。'));
       const people = [...(data.staff || [])].sort((a, b) => (a.status === 'pending' ? -1 : 0) - (b.status === 'pending' ? -1 : 0));
       const waiting = people.filter(person => person.status === 'pending').length;

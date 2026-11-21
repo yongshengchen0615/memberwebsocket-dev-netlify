@@ -176,7 +176,7 @@ test('AC-FR-MODAL-001..003: modal requires a reason; phone section appears only 
   const body=JSON.parse(init.body);calls.push(body);
   const data=body.action==='frontdesk.public'?{name:'QA',frontdesk:{enabled:true,liffId:'2010999999-desk'}}:
    body.action==='frontdesk.bootstrap'?{staff:{status:'approved',permissionMode:'review'}}:
-   body.action==='frontdesk.bookings'?{bookings:[{id:bookingId,name:'QA',status:'pending',updatedAt:'2026-11-20T10:00:00.000Z',bookingDate:'2026-12-12',startTime:'11:00',services:[]}]}:
+   body.action==='frontdesk.bookings'?{bookings:[{id:bookingId,name:'QA',status:'pending',updatedAt:'2026-11-20T10:00:00.000Z',bookingDate:'2026-12-12',startTime:'11:00',endTime:'12:00',totalDurationMinutes:60,services:[]}]}:
    body.action==='frontdesk.booking.reject-phone'?{booking:{status:'rejected'},phoneBookingStatus:'confirmed'}:{};
   return{ok:true,json:async()=>({ok:true,data})};
  };
@@ -200,12 +200,15 @@ test('AC-FR-MODAL-001..003: modal requires a reason; phone section appears only 
  assert.equal(panel.hidden,false);assert.match(panel.textContent,/2026-12-12/);
   assert.match(panel.textContent,/無須等待管理員審核/);
  assert.equal(dialog.querySelectorAll('.frontdesk-phone-service-option').length,0);
- const duration=dialog.querySelector('input[type=number]');
+ const duration=dialog.querySelector('select[aria-label="衝突預約總時長"]');
  assert.ok(duration);assert.equal(duration.value,'60');
- duration.value='0';duration.dispatchEvent(new w.Event('input',{bubbles:true}));
- assert.equal(dialog.querySelector('button[type=submit]').disabled,true);
- duration.value='90';duration.dispatchEvent(new w.Event('input',{bubbles:true}));
- assert.equal(dialog.querySelector('input[type=time]').value,'11:00');
+ assert.equal([...duration.options].some(o=>o.value==='0'),false,'invalid durations are not selectable');
+ assert.equal([...duration.options].every(o=>Number(o.value)%10===0),true);
+ duration.value='90';duration.dispatchEvent(new w.Event('change',{bubbles:true}));
+ const time=dialog.querySelector('select[aria-label="衝突預約時間"]');
+ assert.ok(time);assert.equal(time.value,'11:00');
+ assert.equal([...time.options].every(o=>Number(o.value.slice(-2))%10===0),true);
+ assert.match(dialog.querySelector('.frontdesk-original-booking').textContent,/原預約總時長：60 分鐘/);
  assert.equal(dialog.querySelector('button[type=submit]').disabled,false);
  dialog.querySelector('form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));await settle();await settle();
  const req=calls.find(b=>b.action==='frontdesk.booking.reject-phone');assert.ok(req);
@@ -336,4 +339,40 @@ test('AC-FD-HIST-005: late history responses cannot overwrite another selected t
  assert.match(root.querySelector('#frontdesk-history-panel').textContent,/尚無櫃檯拒絕預約紀錄/);
  assert.doesNotMatch(root.textContent,/不應顯示/);
  w.FrontdeskSettings.clear(root);dom.window.close();
+});
+
+test('AC-FD-CONFLICT-SEC: revocation during history refresh purges member details immediately',async()=>{
+ const html='<h1 id="businessName"></h1><p id="status" role="status"></p><ol id="progress"></ol><section id="account"></section>'+
+  '<div class="frontdesk-toolbar"><p class="frontdesk-kicker"></p><h2></h2><p id="bookingSummary"></p><button id="refresh"></button></div>'+
+  '<section id="bookings"></section><section id="frontdeskConflictHistory" hidden><button id="frontdeskHistoryRefresh">查看／更新紀錄</button>'+
+  '<p data-frontdesk-history-status></p><div data-frontdesk-history-items></div></section>';
+ const dom=new JSDOM(html,{url:'https://desk.test/frontdesk/?business=shop-a',runScripts:'outside-only'}),w=dom.window;
+ let allow=true;
+ w.liff={isInClient:()=>true,init:async()=>{},isLoggedIn:()=>true,getIDToken:()=>'verified'};
+ w.fetch=async(_url,init)=>{
+  if(!init?.body)return{ok:true,json:async()=>({supabaseFunctionUrl:'https://db.test/functions/v1/api',supabasePublishableKey:'public'})};
+  const b=JSON.parse(init.body);
+  if(b.action==='frontdesk.history'&&!allow)
+   return{ok:false,status:403,json:async()=>({ok:false,error:{code:'FRONTDESK_REVIEW_REQUIRED',message:'你沒有預約審核權限。'}})};
+  const data=b.action==='frontdesk.public'?{name:'店',frontdesk:{enabled:true,liffId:'2010999999-desk'}}:
+   b.action==='frontdesk.bootstrap'?{staff:{status:'approved',permissionMode:'review'}}:
+   b.action==='frontdesk.bookings'?{bookings:[]}:
+   b.action==='frontdesk.history'?{items:[{actionAt:'2026-11-21T09:00:00Z',booking:{status:'rejected',bookingDate:'2026-11-21',
+    startTime:'11:00',endTime:'12:00',totalDurationMinutes:60,name:'私密會員資料',phone:'0900888777'},phoneBooking:{status:'confirmed',
+    bookingDate:'2026-11-21',startTime:'11:00',endTime:'12:30',totalDurationMinutes:90}}]}:{revision:'1'};
+  return{ok:true,json:async()=>({ok:true,data})};
+ };
+ try {
+ const ready=new Promise(resolve=>w.addEventListener('frontdesk-ready',resolve,{once:true}));w.eval(source());await ready;
+ const button=w.document.getElementById('frontdeskHistoryRefresh'),items=w.document.querySelector('[data-frontdesk-history-items]');
+ button.click();await new Promise(resolve=>setImmediate(resolve));
+ assert.match(items.textContent,/私密會員資料/);
+ w.document.getElementById('refresh').click();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.match(items.textContent,/私密會員資料/,'authorized booking refresh must retain paired history');
+ allow=false;button.click();await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(items.textContent,'');
+ assert.equal(w.document.getElementById('frontdeskConflictHistory').hidden,true);
+ assert.match(w.document.getElementById('status').textContent,/沒有預約審核權限/);
+ } finally {w.close();}
 });
