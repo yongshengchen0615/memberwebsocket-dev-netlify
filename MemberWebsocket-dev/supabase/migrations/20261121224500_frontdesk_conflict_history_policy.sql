@@ -387,7 +387,12 @@ begin
          and paired.target_type='booking'
          and paired.actor_line_user_id=e.actor_line_user_id
          and paired.created_at=e.created_at
-         and platform_private.frontdesk_paired_phone_source($1,to_jsonb(p))=b.id
+         -- This is an audit-proven HISTORICAL pair. Do not call the live
+         -- frontdesk_paired_phone_source() helper here: it intentionally
+         -- ignores completed/cancelled replacement bookings.
+         and p.booking_date=b.booking_date
+         and p.admin_note='原預約 '||b.id::text||' 拒絕後的現場／電話預約'
+         and b.id is not null
        order by paired.id desc limit 1
      )
    ) order by e.id desc),'[]'::jsonb)
