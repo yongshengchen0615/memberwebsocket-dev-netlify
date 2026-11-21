@@ -664,7 +664,10 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
     type: 'flex',
     altText: job.channel === 'frontdesk'
       ? truncate([displayTitle, ...frontdeskSummaryLines(parsed).slice(0, 2)].join('｜'), MAX_ALT_TEXT)
-      : makeAltText(parsed),
+      : rejection
+        ? truncate(['櫃檯拒絕預約', '原預約已拒絕',
+          ...(rejection.length > 2 ? ['含櫃檯補登資料'] : [])].join('｜'), MAX_ALT_TEXT)
+        : makeAltText(parsed),
     contents: {
       type: 'bubble',
       header: {
