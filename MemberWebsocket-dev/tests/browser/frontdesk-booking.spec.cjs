@@ -458,16 +458,20 @@ for(const width of [390,1280])test('FRONTDESK_REJECTION_MODAL_'+width+' — on-s
  await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:'window.liff={init:async()=>{},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=>"verified-staff",login:()=>{},logout:()=>{}};'}));
  await page.route('https://fixture.supabase.co/**',async route=>{
   const body=route.request().postDataJSON();calls.push(body);let data;
-  if(body.action==='frontdesk.public')data={name:'QA商家',frontdesk:{enabled:true,liffId:'2010999999-desk'}};
+  if(body.action==='frontdesk.public')data={name:'QA商家',frontdesk:{enabled:true,liffId:'2010999999-desk',pageTitle:'QA 櫃檯',conflictStartMin:600,conflictStartMax:720,conflictDurationMin:30,conflictDurationMax:180}};
   else if(body.action==='frontdesk.bootstrap')data={staff:{displayName:'測試櫃檯',status:'approved',permissionMode:'review'}};
-  else if(body.action==='frontdesk.bookings')data={bookings:state==='pending'?[{id:bookingId,status:'pending',updatedAt:'2026-11-20T10:00:00.000Z',bookingDate:'2026-12-12',startTime:'11:00',name:'QA先生',services:[]}]:[]};
+  else if(body.action==='frontdesk.bookings')data={bookings:state==='pending'?[{id:bookingId,status:'pending',updatedAt:'2026-11-20T10:00:00.000Z',bookingDate:'2026-12-12',startTime:'11:00',endTime:'12:00',totalDurationMinutes:60,name:'QA先生',phone:'0900111222',services:[]}]:[]};
   else if(body.action==='frontdesk.sync.status')data={revision:'1'};
   else if(body.action==='frontdesk.booking.reject-phone'){state='rejected';data={booking:{status:'rejected'},phoneBookingStatus:'confirmed',phoneBookingId:'10000000-0000-4000-8000-000000000014'};}
+  else if(body.action==='frontdesk.history')data={items:[{actionAt:'2026-12-12T03:30:00Z',
+    booking:{id:bookingId,status:'rejected',bookingDate:'2026-12-12',startTime:'11:00',endTime:'12:00',totalDurationMinutes:60,name:'QA先生',phone:'0900111222',partySize:1},
+    phoneBooking:{id:'10000000-0000-4000-8000-000000000014',status:'confirmed',bookingDate:'2026-12-12',startTime:'11:00',endTime:'12:30',totalDurationMinutes:90}}]};
   else throw Error('Unexpected frontdesk action '+body.action);
   await route.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,data})});
  });
  await page.goto(base+'/frontdesk/?business=shop-a');
  await page.getByRole('button',{name:'拒絕預約',exact:true}).click();
+ await expect(page.locator('#businessName')).toHaveText('QA 櫃檯');
  const modal=page.locator('[role=dialog]'),phone=modal.locator('[data-phone-registration]');
  await expect(modal).toBeVisible();await expect(phone).toBeHidden();
  await expect(modal.getByRole('button',{name:'確認拒絕預約'})).toBeDisabled();
@@ -481,15 +485,20 @@ for(const width of [390,1280])test('FRONTDESK_REJECTION_MODAL_'+width+' — on-s
  await expect(phone).toBeVisible();
  await expect(phone.locator('.frontdesk-phone-date')).toContainText('2026-12-12');
   await expect(phone).toContainText('無須等待管理員審核');
+ await expect(modal.locator('.frontdesk-original-booking')).toContainText('原預約時間：11:00 – 12:00');
+ await expect(modal.locator('.frontdesk-original-booking')).toContainText('原預約總時長：60 分鐘');
  await expect(phone.locator('input[type="date"]')).toHaveCount(0);
  await expect(phone.locator('.frontdesk-phone-service-option')).toHaveCount(0);
- const duration=phone.getByRole('spinbutton',{name:'總服務時長（分鐘）'});
+ const duration=phone.getByRole('combobox',{name:'衝突預約總時長'});
  await expect(duration).toHaveValue('60');
- await duration.fill('0');
- await expect(modal.getByRole('button',{name:'確認拒絕並登記現場預約'})).toBeDisabled();
- await duration.fill('90');
+ await expect(duration.locator('option')).toHaveCount(16);
+ await expect(duration.locator('option[value="0"]')).toHaveCount(0);
+ await duration.selectOption('90');
  await expect(modal.getByRole('button',{name:'確認拒絕並登記現場預約'})).toBeEnabled();
- await expect(phone.locator('input[type="time"]')).toHaveValue('11:00');
+ const time=phone.getByRole('combobox',{name:'衝突預約時間'});
+ await expect(time).toHaveValue('11:00');
+ await expect(time.locator('option')).toHaveCount(13);
+ await expect(phone).toContainText('請選擇實際發生衝突的預約時間與總時長');
  const box=await modal.evaluate(el=>({width:el.getBoundingClientRect().width,viewport:innerWidth,modalBackground:getComputedStyle(el).backgroundColor}));
  expect(box.width).toBeLessThanOrEqual(box.viewport);
  await modal.getByRole('button',{name:'確認拒絕並登記現場預約'}).click();
@@ -502,6 +511,14 @@ for(const width of [390,1280])test('FRONTDESK_REJECTION_MODAL_'+width+' — on-s
  expect(calls.filter(x=>x.action==='frontdesk.phone.catalog')).toHaveLength(0);
  expect(Object.hasOwn(paired[0],'bookingDate')).toBe(false);
  expect(calls.filter(x=>x.action==='frontdesk.phone.create')).toHaveLength(0);
+ await expect(page.locator('#frontdeskConflictHistory')).toBeVisible();
+ await expect(page.locator('#frontdeskConflictHistory')).toContainText('原預約資料');
+ await expect(page.locator('#frontdeskConflictHistory')).toContainText('櫃檯新增的衝突預約');
+ await expect(page.locator('#frontdeskConflictHistory')).toContainText('總時長：90 分鐘');
+ await expect(page.locator('#frontdeskConflictHistory')).toContainText('0900111222');
+ await page.reload();
+ await page.getByRole('button',{name:'查看／更新紀錄'}).click();
+ await expect(page.locator('#frontdeskConflictHistory')).toContainText('櫃檯新增的衝突預約');
 });
 
 for(const width of [390,1280])test('FRONTDESK_SETTINGS_HISTORY_'+width+' — standalone manager reads scoped confirm and reject histories in real Chromium',async({page},info)=>{
