@@ -2,7 +2,7 @@ import { PlatformError } from './platform-policy.mjs';
 import { verifyFrontdeskIdToken } from './platform-auth.mjs';
 import { openCredentials } from './platform-crypto.mjs';
 import { readRequestBytes } from './request-ingress.mjs';
-const actions=new Map([['frontdesk.public','public'],['frontdesk.apply','apply'],['frontdesk.bootstrap','bootstrap'],['frontdesk.bookings','bookings'],['frontdesk.sync.status','sync.status'],['frontdesk.booking.update','booking.update'],['frontdesk.booking.reject-phone','booking.reject_phone'],['frontdesk.phone.catalog','phone.catalog'],['frontdesk.phone.slots','phone.slots'],['frontdesk.phone.create','phone.create']]);
+const actions=new Map([['frontdesk.public','public'],['frontdesk.apply','apply'],['frontdesk.bootstrap','bootstrap'],['frontdesk.bookings','bookings'],['frontdesk.history','history'],['frontdesk.sync.status','sync.status'],['frontdesk.booking.update','booking.update'],['frontdesk.booking.reject-phone','booking.reject_phone'],['frontdesk.phone.catalog','phone.catalog'],['frontdesk.phone.slots','phone.slots'],['frontdesk.phone.create','phone.create']]);
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export function frontdeskDatabaseError(error){
  const text=String(error?.message||'');
