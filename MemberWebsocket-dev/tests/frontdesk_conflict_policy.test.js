@@ -40,6 +40,8 @@ test('AC-FD-CONFLICT-001/007: paired read is staff-authorized, tenant-scoped and
 test('AC-FD-CONFLICT-004/006: database independently rejects values outside 10-minute merchant policy',()=>{
  const sql=read('supabase/migrations/20261121224500_frontdesk_conflict_history_policy.sql');
  const ui=read('frontdesk/app.js');
+ const router=read('supabase/functions/_shared/platform-handler.mjs');
+ assert.equal(router.split("'platform.frontdesk.preferences.save'").length-1,2,'merchant preferences must be available in both trusted LINE applicant route and authorized dispatcher');
  for(const rule of [
   "v_clock%10<>0", "p_duration%10<>0", "FRONTDESK_CONFLICT_POLICY",
   "v_policy->>'conflictStartMin'","v_policy->>'conflictStartMax'",
