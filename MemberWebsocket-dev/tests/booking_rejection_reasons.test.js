@@ -135,3 +135,22 @@ test('AC-FR-MODAL-005: paired rejection is authorized, atomic, date derived serv
  assert.equal(Object.hasOwn(routed.args.p_body,'bookingDate'),false);
  assert.equal(calls.filter(c=>c.name==='platform_dispatch_booking').length,1);
 });
+
+test('AC-001..004: paired frontdesk rejection produces one admin notice and suppresses replacement enqueue',()=>{
+ const sql=read('supabase/migrations/20261121120000_frontdesk_rejection_line_details.sql');
+ assert.match(sql,/frontdesk_paired_phone_source/);
+ assert.match(sql,/BOOKING_PHONE_CREATED/);
+ assert.match(sql,/BOOKING_REJECTED/);
+ assert.match(sql,/actor_role='frontdesk'/);
+ assert.match(sql,/original\.status='rejected'/);
+ assert.match(sql,/original\.rejection_reason='unrecorded_phone_booking'/);
+ assert.match(sql,/v_phone_id is null/);
+ assert.match(sql,/【原預約資料】/);
+ assert.match(sql,/【櫃檯新增的預約資料】/);
+ assert.match(sql,/預約人：櫃檯人員/);
+ assert.match(sql,/when v_frontdesk/);
+ assert.match(sql,/frontdesk_paired_phone_source\(TG_TABLE_SCHEMA,to_jsonb\(NEW\)\)/);
+ assert.match(sql,/then return null;end if;/);
+ assert.match(sql,/install_booking_rejection\(text\)/);
+ assert.doesNotMatch(sql,/delete from .*notice_outbox/i);
+});
