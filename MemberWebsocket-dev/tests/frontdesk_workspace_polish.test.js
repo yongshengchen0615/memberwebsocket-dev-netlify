@@ -7,8 +7,8 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
 test('AC-FD-UX-001: workspace retains the original stylesheet and loads mobile enhancements', () => {
   const html = read('frontdesk/index.html');
-  assert.match(html, /styles\.css\?v=20261120-rejection-modal2/);
-  assert.match(html, /app\.js\?v=20261121-fresh-line-entry1/);
+  assert.match(html, /styles\.css\?v=20261121-direct-duration1/);
+  assert.match(html, /app\.js\?v=20261121-direct-duration1/);
   assert.match(html, /workspace-polish\.css\?v=20261120-ux2/);
   assert.match(html, /id="bookings"/);
   assert.match(html, /aria-controls="bookings"/);
