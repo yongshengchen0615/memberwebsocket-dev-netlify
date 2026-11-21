@@ -42,7 +42,7 @@ export async function frontdeskAdmin({db,body,actor,issuedAt,tenant,encryptionKe
   }else if(action==='preferences.save'){
    const p=body.preferences||{};
    const title=p.pageTitle,limits=['conflictStartMin','conflictStartMax','conflictDurationMin','conflictDurationMax'];
-   if(typeof title!=='string'||title.length>60||/[\\u0000-\\u001f\\u007f]/.test(title)||
+   if(typeof title!=='string'||title.length>60||/[\u0000-\u001f\u007f]/.test(title)||
       limits.some(k=>!Number.isInteger(p[k])||p[k]%10!==0)||
       p.conflictStartMin<0||p.conflictStartMax>1430||p.conflictStartMin>p.conflictStartMax||
       p.conflictDurationMin<10||p.conflictDurationMax>1430||p.conflictDurationMin>p.conflictDurationMax)
