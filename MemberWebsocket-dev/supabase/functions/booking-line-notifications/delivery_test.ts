@@ -555,18 +555,51 @@ Deno.test('AC-004: only admin LINE shows booking IDs, including fallback and alt
   assert(!JSON.stringify(fallback).includes(id), 'frontdesk fallback must also hide the ID');
 });
 
-Deno.test('AC-001/002: merged frontdesk rejection card retains both original and new booking details', () => {
+Deno.test('AC-001/002: frontdesk rejection is three readable Flex cards, no mixed member details', () => {
+  const originalId='10000000-0000-4000-8000-000000000030';
+  const addedId='10000000-0000-4000-8000-000000000031';
   const text = [
-    '【櫃檯拒絕預約】', '預約人：櫃檯人員', '拒絕原因：該時段已被現場人員預約但未登記',
-    '【原預約資料】', '預約日期：2026-11-21', '預約時間：10:00',
-    '原預約會員：陳先生', '預約項目：身體60', '預約技師：10技師',
-    '【櫃檯新增的預約資料】', '預約日期：2026-11-21', '預約時間：10:30',
-    '預約人：現場先生', '預約項目：肩頸30', '預約狀態：待管理員確認',
+    '【櫃檯拒絕預約】', '預約人：櫃檯人員',
+    '拒絕原因：該時段已被現場人員預約但未登記',
+    '', '【原預約資料】', '預約編號：'+originalId,
+    '預約日期：2026-11-21', '預約時間：10:00',
+    '原預約會員：陳先生', '電話：0900000000', '預約人數：1 位',
+    '預約項目：身體60', '預約技師：10技師', '會員備註：不要太大力',
+    '', '【櫃檯新增的預約資料】', '新增預約編號：'+addedId,
+    '預約日期：2026-11-21', '預約時間：10:30',
+    '預約人：櫃檯人員', '預約人數：1 位',
+    '預約項目：肩頸30', '預約技師：11技師', '預約狀態：已確認',
   ].join('\n');
   const card = buildBookingFlexMessage({ ...sampleJob, channel: 'admin', message_text: text });
-  const serialized = JSON.stringify(card);
-  for (const expected of ['櫃檯拒絕預約', '櫃檯人員', '原預約資料',
-    '原預約會員', '陳先生', '身體60', '櫃檯新增的預約資料', '肩頸30', '待管理員確認']) {
-    assert(serialized.includes(expected), 'missing admin section: ' + expected);
-  }
+  const groups = (card.contents.body as any).contents as Array<Record<string, any>>;
+  assert(groups.length===3,'one summary and two independent sections');
+  const textFields = (value: unknown) => collectComponents(value).filter(x=>x.type==='text').map(x=>String(x.text||''));
+  const summary=textFields(groups[0]).join('|');
+  const before=textFields(groups[1]).join('|');
+  const after=textFields(groups[2]).join('|');
+  assert(summary.includes('執行人員')&&summary.includes('櫃檯人員')&&summary.includes('補登狀態')&&summary.includes('已確認'),
+    'summary must describe who acted and that replacement is confirmed');
+  assert(before.includes('原預約資料')&&before.includes('已拒絕')&&before.includes('陳先生')&&before.includes('0900000000')&&before.includes('身體60')&&before.includes(originalId),
+    'original card must retain actual customer and all original service details');
+  assert(after.includes('櫃檯新增預約')&&after.includes('10:30')&&after.includes('肩頸30')&&after.includes('11技師')&&after.includes(addedId),
+    'replacement card must retain correct new service and start time');
+  assert(!after.includes('0900000000')&&!after.includes('陳先生')&&!after.includes('電話')&&!after.includes('預約人'),
+    'staff slot replacement has no customer contact or phantom placeholders');
+  assert(!before.includes('肩頸30')&&!after.includes('身體60'), 'separate sections must not mix original/replacement');
+  assert((before.match(/預約日期/g)||[]).length===0 && (after.match(/預約日期/g)||[]).length===0,
+    'show compact date labels only once in each card');
+  assert(card.altText.includes('櫃檯拒絕預約'), 'LINE preview title must remain clear');
+});
+
+Deno.test('AC-FR-013: non-paired frontdesk rejection never fabricates a replacement card',()=>{
+  const text=['【櫃檯拒絕預約】','預約人：櫃檯人員','拒絕原因：預約中有休假技師',
+    '【原預約資料】','預約日期：2026-11-21','預約時間：11:00',
+    '原預約會員：陳先生','預約項目：身體60','預約技師：10技師'].join('\n');
+  const card=buildBookingFlexMessage({...sampleJob,channel:'admin',message_text:text});
+  const parts=(card.contents.body as any).contents as Array<Record<string,unknown>>;
+  assert(parts.length===2,'unpaired rejection has summary and original, no replacement');
+  const rendered=JSON.stringify(card);
+  assert(rendered.includes('預約中有休假技師'));
+  assert(!rendered.includes('櫃檯新增預約')&&!rendered.includes('補登狀態'),
+    'do not imply any replacement or confirmation if none exists');
 });
