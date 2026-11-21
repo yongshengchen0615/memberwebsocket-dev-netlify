@@ -340,3 +340,35 @@ test('AC-FD-HIST-005: late history responses cannot overwrite another selected t
  assert.doesNotMatch(root.textContent,/不應顯示/);
  w.FrontdeskSettings.clear(root);dom.window.close();
 });
+
+test('AC-FD-CONFLICT-SEC: revocation during history refresh purges member details immediately',async()=>{
+ const html='<h1 id="businessName"></h1><p id="status" role="status"></p><ol id="progress"></ol><section id="account"></section>'+
+  '<div class="frontdesk-toolbar"><p class="frontdesk-kicker"></p><h2></h2><p id="bookingSummary"></p><button id="refresh"></button></div>'+
+  '<section id="bookings"></section><section id="frontdeskConflictHistory" hidden><button id="frontdeskHistoryRefresh">查看／更新紀錄</button>'+
+  '<p data-frontdesk-history-status></p><div data-frontdesk-history-items></div></section>';
+ const dom=new JSDOM(html,{url:'https://desk.test/frontdesk/?business=shop-a',runScripts:'outside-only'}),w=dom.window;
+ let allow=true;
+ w.liff={isInClient:()=>true,init:async()=>{},isLoggedIn:()=>true,getIDToken:()=>'verified'};
+ w.fetch=async(_url,init)=>{
+  if(!init?.body)return{ok:true,json:async()=>({supabaseFunctionUrl:'https://db.test/functions/v1/api',supabasePublishableKey:'public'})};
+  const b=JSON.parse(init.body);
+  if(b.action==='frontdesk.history'&&!allow)
+   return{ok:false,status:403,json:async()=>({ok:false,error:{code:'FRONTDESK_REVIEW_REQUIRED',message:'你沒有預約審核權限。'}})};
+  const data=b.action==='frontdesk.public'?{name:'店',frontdesk:{enabled:true,liffId:'2010999999-desk'}}:
+   b.action==='frontdesk.bootstrap'?{staff:{status:'approved',permissionMode:'review'}}:
+   b.action==='frontdesk.bookings'?{bookings:[]}:
+   b.action==='frontdesk.history'?{items:[{actionAt:'2026-11-21T09:00:00Z',booking:{status:'rejected',bookingDate:'2026-11-21',
+    startTime:'11:00',endTime:'12:00',totalDurationMinutes:60,name:'私密會員資料',phone:'0900888777'},phoneBooking:{status:'confirmed',
+    bookingDate:'2026-11-21',startTime:'11:00',endTime:'12:30',totalDurationMinutes:90}}]}:{revision:'1'};
+  return{ok:true,json:async()=>({ok:true,data})};
+ };
+ const ready=new Promise(resolve=>w.addEventListener('frontdesk-ready',resolve,{once:true}));w.eval(source());await ready;
+ const button=w.document.getElementById('frontdeskHistoryRefresh'),items=w.document.querySelector('[data-frontdesk-history-items]');
+ button.click();await new Promise(resolve=>setImmediate(resolve));
+ assert.match(items.textContent,/私密會員資料/);
+ allow=false;button.click();await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(items.textContent,'');
+ assert.equal(w.document.getElementById('frontdeskConflictHistory').hidden,true);
+ assert.match(w.document.getElementById('status').textContent,/沒有預約審核權限/);
+ w.close();
+});
