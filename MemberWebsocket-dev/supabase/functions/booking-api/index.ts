@@ -29,6 +29,7 @@ const WRITE_ACTIONS = new Set([
   "admin.booking.settings.save",
   "admin.booking.service.save",
   "admin.booking.status.update",
+  "admin.booking.reject-walkin",
   "admin.booking.phone.create",
   "admin.booking.notifications.read",
 ]);
@@ -97,6 +98,10 @@ function mapDatabaseError(error: unknown): ApiError {
     ["BOOKING_NOT_FOUND",404,"BOOKING_NOT_FOUND","找不到這筆預約。"],
     ["ADMIN_REQUIRED",403,"ADMIN_REQUIRED","目前沒有管理員權限。"],
     ["PHONE_BOOKING_CONFLICT",409,"PHONE_BOOKING_CONFLICT","此時段已有預約，請先取消原預約，或選擇其他時段。"],
+    ["ADMIN_WALKIN_NOT_OVERLAPPING",400,"ADMIN_WALKIN_NOT_OVERLAPPING","選擇的現場預約時間與原預約沒有重疊，請重新選擇時間或服務總時長。"],
+    ["ADMIN_WALKIN_POLICY",400,"ADMIN_WALKIN_POLICY","請按照商家設定選擇每 10 分鐘的預約時間及總時長。"],
+    ["FRONTDESK_CONFLICT_POLICY",400,"ADMIN_WALKIN_POLICY","衝突預約時間或總時長不符合商家設定。"],
+    ["ADMIN_WALKIN_REQUEST_CONFLICT",409,"ADMIN_WALKIN_REQUEST_CONFLICT","操作內容已變更，請重新開啟拒絕預約視窗。"],
     ["INVALID_BOOKING_CONTACT",400,"INVALID_BOOKING_CONTACT","請填寫客人姓氏與稱謂；若提供聯絡電話，請確認格式正確。"],
     ["INVALID_BOOKING_NOTE",400,"INVALID_BOOKING_NOTE","預約說明不得超過 500 字。"],
     ["INVALID_REQUEST_ID",400,"INVALID_REQUEST_ID","操作識別碼不正確，請重新開啟登記預約表單。"],
@@ -1155,12 +1160,48 @@ async function adminBootstrap(supabase: SupabaseClient, body:Json={}): Promise<J
   if ((servicesResult as any).error) throw mapDatabaseError((servicesResult as any).error);
   const target=await linkedBooking(supabase,asText(body.bookingId,60),null);
   if(target && !bookings.some((b:any)=>b.bookingId===target.id)) bookings.unshift(...await hydrateBookings(supabase,[target]));
+  const conflict = businessContext()?.module_line?.booking?.frontdesk || {};
+  const policy = {
+    conflictStartMin: Number.isInteger(conflict.conflictStartMin) ? conflict.conflictStartMin : 0,
+    conflictStartMax: Number.isInteger(conflict.conflictStartMax) ? conflict.conflictStartMax : 1430,
+    conflictDurationMin: Number.isInteger(conflict.conflictDurationMin) ? conflict.conflictDurationMin : 10,
+    conflictDurationMax: Number.isInteger(conflict.conflictDurationMax) ? conflict.conflictDurationMax : 1430,
+  };
   return {
     today: taipeiDate(),
     settings: { ...settingsClient(settings), serviceTypes },
     services: ((servicesResult as any).data || []).map(serviceClient),
     bookings,
+    frontdeskConflictPolicy: policy,
   };
+}
+
+async function adminRejectWalkin(supabase: SupabaseClient, identity: Identity, body: Json): Promise<Json> {
+  const bookingId = requireUuid(body.bookingId,"預約");
+  const requestId = requireUuid(body.requestId,"操作");
+  const expectedUpdatedAt = asText(body.expectedUpdatedAt,80);
+  const startTime = asText(body.startTime,5);
+  const duration = Number(body.totalDurationMinutes);
+  const note = asText(body.adminNote,500);
+  if (!expectedUpdatedAt || !Number.isFinite(Date.parse(expectedUpdatedAt))) {
+    throw new ApiError(400,"INVALID_BOOKING_VERSION","預約版本不正確，請重新整理。");
+  }
+  if (body.status !== "rejected" || body.rejectionReason !== "unrecorded_phone_booking") {
+    throw new ApiError(400,"BOOKING_REJECTION_REASON_REQUIRED","請選擇有效的拒絕預約原因。");
+  }
+  if (!/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test(startTime)
+    || Number(startTime.slice(3,5))%10!==0
+    || !Number.isInteger(duration) || duration<10 || duration>1430 || duration%10!==0) {
+    throw new ApiError(400,"ADMIN_WALKIN_POLICY","請選擇每 10 分鐘的預約時間與服務總時長。");
+  }
+  const result = await supabase.rpc("platform_admin_reject_walkin",{
+    p_actor:identity.lineUserId,
+    p_body:{bookingId,expectedUpdatedAt,startTime,totalDurationMinutes:duration,
+      adminNote:note,status:"rejected",rejectionReason:"unrecorded_phone_booking",
+      requestId,phoneRequestId:"PHONE-"+requestId},
+  });
+  if (result.error) throw mapDatabaseError(result.error);
+  return result.data && typeof result.data==="object" ? result.data as Json : {};
 }
 
 async function adminStatusUpdate(supabase: SupabaseClient, identity: Identity, body: Json): Promise<Json> {
@@ -1186,6 +1227,9 @@ async function adminStatusUpdate(supabase: SupabaseClient, identity: Identity, b
   const rejectionReason = String(body.rejectionReason || "");
   if (nextStatus === "rejected" && !["technician_leave", "unrecorded_phone_booking"].includes(rejectionReason)) {
     throw new ApiError(400, "BOOKING_REJECTION_REASON_REQUIRED", "請選擇有效的拒絕預約原因。");
+  }
+  if (nextStatus === "rejected" && rejectionReason === "unrecorded_phone_booking") {
+    throw new ApiError(400, "ADMIN_WALKIN_DETAILS_REQUIRED", "請在拒絕視窗設定衝突預約時間與服務總時長。");
   }
   if (nextStatus !== "rejected" && rejectionReason) {
     throw new ApiError(400, "INVALID_BOOKING_REJECTION_REASON", "只有拒絕預約才能指定拒絕原因。");
@@ -1269,6 +1313,7 @@ async function route(supabase: SupabaseClient, identity: Identity, clientType: C
   if (action === "admin.booking.settings.save") return await adminSettingsSave(supabase, identity, body);
   if (action === "admin.booking.service.save") return await adminServiceSave(supabase, identity, body);
   if (action === "admin.booking.status.update") return await adminStatusUpdate(supabase, identity, body);
+  if (action === "admin.booking.reject-walkin") return await adminRejectWalkin(supabase, identity, body);
   throw new ApiError(404, "ACTION_NOT_FOUND", "不支援的管理端預約操作。");
 }
 
