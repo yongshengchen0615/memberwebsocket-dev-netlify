@@ -10,7 +10,7 @@ export function frontdeskDatabaseError(error){
  for(const [code,[status,message]]of Object.entries(messages))if(text.includes(code))return new PlatformError(status,code,message);
  return new PlatformError(503,'FRONTDESK_DATABASE_UNAVAILABLE','目前無法確認櫃檯服務，請稍後重試。');
 }
-export function createFrontdeskHandler({db,allowedOrigins,verifyIdentity=(idToken,channel)=>verifyFrontdeskIdToken({idToken},channel),encryptionKey,fetchImpl=fetch,trackBackground}){
+export function createFrontdeskHandler({db,allowedOrigins,verifyIdentity=(idToken,channel)=>verifyFrontdeskIdToken({idToken},channel),encryptionKey,fetchImpl=fetch,trackBackground=undefined}){
  return async request=>{
   const origin=request.headers.get('Origin'),headers={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Vary':'Origin','Access-Control-Allow-Origin':allowedOrigins.has(origin)?origin:'','Access-Control-Allow-Headers':'content-type,apikey','Access-Control-Allow-Methods':'POST,OPTIONS'};
   const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers});
