@@ -29,6 +29,7 @@ test('AC-WALKIN-WINDOW-001/002: admin displays original-window 10-minute starts 
  assert.match(api,/duration%10!==0/);
  assert.match(migration,/v_old_admin_bounds/);
  assert.match(migration,/v_new_bounds/);
+ assert.match(migration,/minimum supported schedule step \(5\)/,'10-minute walk-in clock starts remain valid with a normal 30-minute calendar');
 });
 
 test('AC-WALKIN-WINDOW-003/005: boundary-only adjacency counts, out-of-window is invalid, and overnight works',()=>{
