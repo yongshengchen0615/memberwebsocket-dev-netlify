@@ -58,7 +58,7 @@ test('PostgreSQL frontdesk LINE history: scoped booking is found beyond 30 entri
   const person=(await conn.query(query,actorArgs('apply',{displayName:'Scoped history staff',oaVerified:true,verifiedMessagingChannelId:'2010888888',verifiedConfigRevision:2}))).rows[0].result.staff;
   await conn.query(adminQuery,adminArgs('staff.save',{staffId:person.id,expectedVersion:1,status:'approved',permissionMode:'review'}));
   await h.db.exec(`update ${s}.booking_settings set require_primary_technician=false,work_start_time='08:00',work_end_time='22:00';insert into ${s}.booking_service_types(name)values('FD');`);
-  const member=(await h.db.query(`insert into ${s}.members(line_user_id,member_code,invite_code,status,membership_status,is_test_account)values($1,'FD-H-PG','HXCD1234','active','active',true)returning id`,['U'+'3'.repeat(32)])).rows[0].id;
+  const member=(await h.db.query(`insert into ${s}.members(line_user_id,member_code,invite_code,status,membership_status,is_test_account)values($1,'FD-H-PG','ABCD123456','active','active',true)returning id`,['U'+'3'.repeat(32)])).rows[0].id;
   await h.db.query(`update ${s}.members set is_test_account=false where id=$1`,[member]);
   const service=(await h.db.query(`insert into ${s}.booking_services(title,duration_minutes,price_amount,service_type,created_by)values('FD',30,100,'FD',$1)returning id`,[owner])).rows[0].id;
   const make=async()=>{const id=(await h.db.query(`select (${s}.create_group_booking_request_v2($1,$2,current_date+3,'10:00',$3,'')).id id`,['FD-'+crypto.randomUUID(),member,[{technicianId:null,items:[{serviceId:service,quantity:1}]}]])).rows[0].id;return id;};
