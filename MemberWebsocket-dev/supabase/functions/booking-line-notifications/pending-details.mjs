@@ -33,7 +33,10 @@ function formatParticipant(person, items, storeMinutes) {
     return title + (count(item.quantity) > 1 ? ' × ' + count(item.quantity) : '');
   });
   const serviceText = safeText(titles.join('、'), 260);
-  const serviceMinutes = services.reduce((sum, item) =>
+  // Match the current frontdesk notification contract: if this participant
+  // already contains preparation time, do not add the booking-wide amount again.
+  const hasStoreService = items.some(item => item.service_id === STORE_SERVICE);
+  const serviceMinutes = items.reduce((sum, item) =>
     sum + nonNegative(item.unit_duration_minutes) * count(item.quantity), 0);
   const amount = services.reduce((sum, item) =>
     sum + nonNegative(item.unit_price_amount) * count(item.quantity), 0);
@@ -42,7 +45,7 @@ function formatParticipant(person, items, storeMinutes) {
   return [
     label(person.position),
     '預約項目：' + serviceText,
-    '個別時間：' + Math.round(serviceMinutes + storeMinutes) + ' 分鐘',
+    '個別時間：' + Math.round(serviceMinutes + (hasStoreService ? 0 : storeMinutes)) + ' 分鐘',
     '個別金額：NT$' + Math.round(amount).toLocaleString('en-US'),
     '預約技師：' + technician,
     ...(note ? ['個別備註：' + note] : []),
