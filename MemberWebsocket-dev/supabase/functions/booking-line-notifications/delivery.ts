@@ -1,6 +1,7 @@
 import { businessFetch as fetch } from '../_shared/business-scope.ts';
 import { bookingDetailUri } from "./booking-actions.ts";
 import { groupReminderNoticeFields, reminderNoticeCard } from "./reminder-notice.mjs";
+import { buildMemberPendingCards } from "./member-pending-cards.mjs";
 export type BookingBenefits = {
   pointTickets: string[];
   eventTickets: string[];
@@ -597,13 +598,18 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
   const schedule = scheduleCard(parsed, style.color);
   const memberConfirmation = job.channel === 'member' && parsed.title === '預約確認';
   const memberReminder = job.channel === 'member' && parsed.title === '預約提醒';
+  const memberPending = job.channel === 'member' && parsed.title === '預約申請';
   const notice = memberReminder ? reminderNoticeCard(parsed.fields) : null;
   const details = detailsCard(memberReminder ? parsed.fields.filter(field => field.label !== '提醒事項') : parsed.fields);
   const participants = participantsCard(parsed.participants, style.color, memberConfirmation || memberReminder);
   const services = parsed.participants.length ? null : servicesCard(parsed.services, style.color);
   const rejection = job.channel === 'admin' && parsed.title === '櫃檯拒絕預約'
     ? frontdeskRejectionCards(visibleText) : null;
-  if (rejection) {
+  if (memberPending) {
+    // The member's request has one clearly labelled booking-data section;
+    // the status and merchant message remain separate from that section.
+    bodyContents.push(...buildMemberPendingCards(parsed, style.color));
+  } else if (rejection) {
     bodyContents.push(...rejection);
   } else if (job.channel === 'frontdesk') {
     bodyContents.push(...frontdeskCards(parsed));
