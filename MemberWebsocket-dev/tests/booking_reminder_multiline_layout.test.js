@@ -45,14 +45,16 @@ test('AC-RML-002: 400-character notice stays intact, empty lines are ignored, an
   assert.equal(reminderNoticeCard([{ label: '日期', value: '2026/11/02' }]), null);
 });
 
-test('AC-RML-003: LINE dispatcher groups legacy reminder fields but preserves confirmation and booking details', async () => {
+test('AC-RML-003: LINE dispatcher groups reminder and pending notices without changing booking details', async () => {
   const src = fs.readFileSync(path.join(root, 'supabase/functions/booking-line-notifications/delivery.ts'), 'utf8');
   assert.match(src, /import \{ groupReminderNoticeFields, reminderNoticeCard \} from "\.\/reminder-notice\.mjs"/);
-  assert.match(src, /title === '預約提醒' \? groupReminderNoticeFields\(fields\) : fields/);
-  assert.match(src, /const notice = memberReminder \? reminderNoticeCard\(parsed\.fields\) : null/);
-  assert.match(src, /detailsCard\(memberReminder \? parsed\.fields\.filter\(field => field\.label !== '提醒事項'\) : parsed\.fields\)/);
-  assert.match(src, /if \(memberReminder && notice\) bodyContents\.push\(notice\)/);
-  assert.match(src, /if \(memberReminder && details\) bodyContents\.push\(details\)/);
+  assert.match(src, /const groupedFields = title === '預約提醒' \|\| title === '預約申請'/);
+  assert.match(src, /groupReminderNoticeFields\(fields\) : fields/);
+  assert.match(src, /const memberCustomNotice = memberReminder \|\| memberPending/);
+  assert.match(src, /const notice = memberCustomNotice \? reminderNoticeCard\(parsed\.fields\) : null/);
+  assert.match(src, /detailsCard\(memberCustomNotice \? parsed\.fields\.filter\(field => field\.label !== '提醒事項'\) : parsed\.fields\)/);
+  assert.match(src, /if \(memberCustomNotice && notice\) bodyContents\.push\(notice\)/);
+  assert.match(src, /if \(memberCustomNotice && details\) bodyContents\.push\(details\)/);
   assert.match(src, /memberConfirmation \|\| memberReminder/);
 });
 
