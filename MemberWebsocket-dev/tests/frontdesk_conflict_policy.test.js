@@ -14,7 +14,7 @@ test('AC-WALKIN-WINDOW-004: merchant may save only page title without LINE crede
  const malicious={...values,conflictStartMin:1000,conflictStartMax:1100,conflictDurationMin:700,conflictDurationMax:710};
  await frontdeskAdmin({...args,body:{...body,requestId:'10000000-0000-4000-8000-000000000010',preferences:malicious}});
  assert.deepEqual(calls[1].body.p_body.preferences,values,'legacy bounds are ignored even if forged in an API request');
- for(const p of [{pageTitle:'x'.repeat(61)},{pageTitle:'hello\\nworld'},{pageTitle:null}]){
+ for(const p of [{pageTitle:'x'.repeat(61)},{pageTitle:'hello'+String.fromCharCode(10)+'world'},{pageTitle:null}]){
   await assert.rejects(()=>frontdeskAdmin({...args,body:{...body,requestId:'10000000-0000-4000-8000-000000000009',preferences:p}}),/櫃檯頁面抬頭不正確/);
  }
  assert.equal(calls.length,2,'invalid titles must not reach the database');
