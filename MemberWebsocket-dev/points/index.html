@@ -7,7 +7,7 @@
   <meta name="referrer" content="no-referrer">
   <meta name="theme-color" content="#f3eee6">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; media-src 'self' blob:; base-uri 'none'; object-src 'none'; script-src 'self' https://static.line-scdn.net https://cdn.jsdelivr.net; style-src 'self'; connect-src 'self' https://api.line.me https://access.line.me https://liff.line.me https://*.line-scdn.net https://*.supabase.co wss://*.supabase.co https://nominatim.openstreetmap.org; img-src 'self' data: https://profile.line-scdn.net; frame-src https://liff-subwindow.line.me https://access.line.me; form-action https://liff-subwindow.line.me https://access.line.me">
-  <title>Lumen Club｜集點卡</title>
+  <title>會員系統｜集點卡</title>
   <link rel="preconnect" href="https://static.line-scdn.net" crossorigin>
   <link rel="stylesheet" href="./styles.css?v=point-card-presets-20260916-1-disabled-original-theme-20261007-2-transfer-click-20261009-1">
   <link rel="stylesheet" href="./membership-progress.css?v=points-tier-style-20260908">
@@ -19,7 +19,7 @@
   <script src="../ui-components.js?v=ui-consolidation-20261007-1" defer></script>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0/dist/umd/supabase.js" integrity="sha384-lDkWTkrzxBtYvBtgQmPcLBhTbJdqB11igYtWVcCIVXO0Lv4+XuKKdd4razodiyzk" crossorigin="anonymous" defer></script>
-  <script src="../business-context.js?grants=20261107-1"></script>
+  <script src="../business-context.js?grants=20261107-1&brand=20261122-1"></script>
   <script src="../member-system.js?v=layout-stability-20261001-1-accessible-20261003-1-p2-20261006-1-p1-secure-20261008-1-live-sync-20261010-1-line-offline-20261012-1-takeover-20261013-1-silent-takeover-20261013-2-booking-selections-20261013-1-connection-efficiency-20261014-1-request-scope-20261029-2&grants=20261107-1&transport=20261111-1" defer></script>
   <script src="./membership-progress.js?v=points-tier-style-20260908" defer></script>
   <script src="../ticket-booking-choice.js?v=ticket-booking-choice-20261006-1-controls-20261010-2"></script>
@@ -63,7 +63,7 @@
     <main id="pointsView" class="hidden" data-user-tour="points">
       <header class="topbar">
         <div>
-          <p class="kicker">Lumen Club / Rewards</p>
+          <p class="kicker" data-tenant-brand="Rewards">會員系統 / Rewards</p>
           <h1>集點卡</h1>
         </div>
         <div class="account-menu"><span id="displayName">LINE 使用者</span></div>

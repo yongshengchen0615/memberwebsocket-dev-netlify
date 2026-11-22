@@ -407,8 +407,8 @@ function makeAltText(message: string, title: string): string {
 export function buildLineFlexNotice(messageText: unknown, options: LineFlexNoticeOptions = {}): LineFlexMessage {
   const message = normalizeMessage(messageText);
   const title = truncate(options.title || "會員通知", 60);
-  const eyebrow = truncate(options.eyebrow || "LUMEN CLUB", 40);
-  const footer = truncate(options.footer || "Lumen Club 會員系統", 80);
+  const eyebrow = truncate(options.eyebrow || "MEMBER NOTICE", 40);
+  const footer = truncate(options.footer || "會員系統", 80);
   const accent = safeAccent(options.accent);
   const parsed = parseMessage(message);
   const bodyContents: Array<Record<string, unknown>> = [];

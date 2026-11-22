@@ -1,4 +1,4 @@
-import { businessEnv, businessContext, businessFetch as fetch, businessHandler, deploymentAdminChannelId } from '../_shared/business-runtime.ts';
+import { businessEnv, businessContext, businessFetch as fetch, businessHandler, deploymentAdminChannelId, memberSystemFooter } from '../_shared/business-runtime.ts';
 import { syncRevision } from '../_shared/sync-revision.mjs';
 import { removeMember } from "../_shared/member-removal.ts";
 import { tierVisibility, loadVisibilityPolicy } from "../_shared/tier-visibility.ts";
@@ -1781,6 +1781,7 @@ async function pushGrantNotification(
     messages: [buildLineFlexNotice(messageText,{
       title:"會員權益通知",
       eyebrow:"MEMBER BENEFITS",
+      footer:memberSystemFooter(),
     })],
   };
 

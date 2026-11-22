@@ -1029,7 +1029,7 @@
     if(titleSaving||titlePending)return;
     titleDirty=true;
     const title=merchantTitleForm.elements.namedItem('title').value.trim();
-    if(el('merchantTitlePreview'))el('merchantTitlePreview').textContent=(title||state.merchant?.name||'Lumen Club')+'｜預約';
+    if(el('merchantTitlePreview'))el('merchantTitlePreview').textContent=(title||state.merchant?.name||'會員系統')+'｜預約';
     if(el('merchantTitleStatus'))el('merchantTitleStatus').textContent='尚未儲存網頁抬頭。';
   });
   merchantTitleForm?.addEventListener('submit',async event=>{

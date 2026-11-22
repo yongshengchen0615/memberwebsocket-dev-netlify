@@ -196,7 +196,7 @@ test('PLATFORM_APPLY — admin entry reads status without applying; explicit sub
   await expect(page).toHaveURL(/\/admin\/?(?:\?.*)?$/);
   await expect(page.locator('#productizedAdmin')).toBeVisible();
   await expect(page.locator('#app')).toBeHidden();
-  expect(await page.evaluate(()=>document.title)).toBe('管理端｜Lumen Club');
+  expect(await page.evaluate(()=>document.title)).toBe('管理端｜會員系統');
   await expect(page.locator('#platformWorkspace')).toBeHidden();
   await expect(page.locator('#applicationForm')).toBeVisible();
   await expect(page.locator('#applicationProgress')).toBeHidden();
