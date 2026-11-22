@@ -35,13 +35,14 @@ test('AC-BLK-001: member pending Flex shows one complete booking-data card for t
   const booking = cards[1];
   assert.equal(booking.contents[0].text, '預約資料');
   const text = booking.contents.filter(c => c.type === 'text').map(c => c.text);
-  for (const expected of ['預約日期：2026/11/22','預約時間：2026/11/22 14:00–2026/11/22 15:10',
+  for (const expected of ['預約日期','2026/11/22','預約時間：2026/11/22 14:00–2026/11/22 15:10',
     '預約人：陳先生','預約人數：2 位','第一位預約','預約項目：按摩 × 2',
     '個別時間：70 分鐘','個別金額：NT$1,600','預約技師：10技師',
     '個別備註：希望靠窗','第二位預約','預約項目：腳底45',
     '個別金額：NT$900']) assert.ok(text.includes(expected), expected);
   assert.equal((JSON.stringify(cards).match(/預約資料/g) || []).length, 1);
-  assert.equal(cards[0].contents[0].text, '預約狀態：等待管理員確認預約');
+  assert.equal(cards[0].contents[0].text, '預約狀態');
+  assert.equal(cards[0].contents[1].text, '等待管理員確認預約');
   assert.equal(cards[2].contents[0].text, '預約申請說明');
   assert.doesNotMatch(JSON.stringify(booking), /提醒事項|等待管理員確認|private-id/);
 });
@@ -95,5 +96,15 @@ test('AC-BLK-004: only member pending messages use new card; no LINE identity le
   ], participants: [{ label: '第一位預約', items: ['肩頸30'] }] }, '#397AA3');
   const message = JSON.stringify(cards);
   assert.doesNotMatch(message, /private-uuid|internal-admin-message/);
-  assert.match(message, /預約日期：2026\/11\/22/);
+  assert.match(message, /預約日期/);
+  assert.match(message, /2026\/11\/22/);
+});
+
+
+test('AC-BLK-005: title-only pending notice must not fabricate booking data or confirmation', async () => {
+  const { buildMemberPendingCards } = await import(url);
+  const cards = buildMemberPendingCards({ fields: [], participants: [], services: [] }, '#397AA3');
+  assert.equal(cards.length, 1);
+  assert.match(JSON.stringify(cards), /已收到預約申請，請等待管理員確認/);
+  assert.doesNotMatch(JSON.stringify(cards), /預約資料|預約已確認/);
 });

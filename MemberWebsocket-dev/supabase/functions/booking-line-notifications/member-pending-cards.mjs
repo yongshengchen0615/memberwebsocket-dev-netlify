@@ -49,7 +49,17 @@ export function buildMemberPendingCards(parsed, accent) {
     ['預約人', '預約人'], ['電話', '電話'], ['預約人數', '預約人數'],
   ]) {
     const detail = value(source);
-    if (detail) contents.push(line(title, detail));
+    if (!detail) continue;
+    if (source === '日期') {
+      // Keep the actual date as one independent text component. This
+      // preserves the member schedule and notification preview contract.
+      contents.push({ type: 'text', text: title, size: 'xs',
+        color: MUTED, wrap: true });
+      contents.push({ type: 'text', text: detail, size: 'sm',
+        color: TEXT, weight: 'bold', wrap: true });
+    } else {
+      contents.push(line(title, detail));
+    }
   }
 
   for (const person of people) {
@@ -79,12 +89,19 @@ export function buildMemberPendingCards(parsed, accent) {
 
   const cards = [];
   const status = value('狀態');
-  if (status) cards.push(section([{
-    type: 'text', text: '預約狀態：' + status, size: 'sm',
-    weight: 'bold', color: accent, wrap: true,
-  }], '#EEF5FA'));
+  if (status) cards.push(section([
+    { type: 'text', text: '預約狀態', size: 'xs',
+      color: MUTED, wrap: true },
+    { type: 'text', text: status, size: 'sm',
+      weight: 'bold', color: accent, wrap: true },
+  ], '#EEF5FA'));
 
-  cards.push(section(contents));
+  // Historical/partial messages may contain only a title. Do not render a
+  // fake booking-data section or imply the application was confirmed.
+  cards.push(contents.length > 2 ? section(contents) : section([{
+    type: 'text', text: '已收到預約申請，請等待管理員確認。',
+    size: 'sm', color: TEXT, wrap: true,
+  }]));
 
   // The administrator may enter multiple lines. Keep them as one prose text,
   // never parse line breaks as additional Flex field labels or card headings.
