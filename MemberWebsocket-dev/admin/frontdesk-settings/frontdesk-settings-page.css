@@ -235,8 +235,35 @@ html[data-frontdesk-page] .frontdesk-settings-overview strong {
 html[data-frontdesk-page] .frontdesk-settings-overview p {
   color: var(--theme-text-muted);
 }
-html[data-frontdesk-page] .frontdesk-config-form {
-  display: grid;
+/* LINE settings always follow one reading track: overview, provider settings,
+   page title, then staff review. Only the two provider cards may sit side-by-side. */
+html[data-frontdesk-page] .frontdesk-settings-content {
+  grid-template-columns: minmax(0, 1fr);
+}
+html[data-frontdesk-page] .frontdesk-settings-content > * {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+html[data-frontdesk-page] .frontdesk-settings .frontdesk-preferences-form {
+  margin: 0;
+  padding: clamp(16px, 2.4vw, 24px);
+  background: var(--theme-surface-raised);
+}
+html[data-frontdesk-page] .frontdesk-preferences-form > label {
+  width: 100%;
+  max-width: 640px;
+}
+html[data-frontdesk-page] .frontdesk-config-form > fieldset {
+  min-width: 0;
+  margin: 0;
+  align-content: start;
+}
+html[data-frontdesk-page] .frontdesk-config-form > .frontdesk-primary {
+  width: min(100%, 440px);
+  justify-self: end;
+}
+html[data-frontdesk-page] .frontdesk-config-form {\n  display: grid;
   min-width: 0;
   gap: 16px;
   margin: 0;
@@ -407,17 +434,14 @@ html[data-frontdesk-page] .frontdesk-person > .frontdesk-remove-staff:hover:not(
 html[data-frontdesk-page] .frontdesk-settings [hidden],
 html[data-frontdesk-page] [hidden] { display: none !important; }
 @media (min-width: 1080px) {
-  html[data-frontdesk-page] .frontdesk-settings-content {
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+  html[data-frontdesk-page] .frontdesk-config-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
   }
-  html[data-frontdesk-page] .frontdesk-settings .frontdesk-config-form {
-    grid-column: 1;
+  html[data-frontdesk-page] .frontdesk-config-form > .frontdesk-primary {
+    grid-column: 1 / -1;
   }
-  html[data-frontdesk-page] .frontdesk-settings .frontdesk-approvals {
-    grid-column: 2;
-  }
-  html[data-frontdesk-page] .frontdesk-setup-card .business-line-fields,
-  html[data-frontdesk-page] .frontdesk-person .business-line-fields {
+  html[data-frontdesk-page] .frontdesk-setup-card .business-line-fields {
     grid-template-columns: 1fr;
   }
 }
