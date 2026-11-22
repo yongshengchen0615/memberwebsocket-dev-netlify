@@ -13,7 +13,7 @@ test('AC-001: the shared operations overview precedes every admin feature tab an
     '<header class="topbar">',
     '<section class="ops-overview" aria-labelledby="opsOverviewTitle">',
     '<section class="stats-row" aria-label="目前概況">',
-    '<nav class="surface-nav" role="tablist" aria-label="管理功能">',
+    '<nav class="surface-nav" role="tablist" aria-label="管理功能" aria-describedby="adminNavScrollHint">',
     '<section id="membersPanel"',
   ].map((marker) => {
     const index = admin.indexOf(marker);
