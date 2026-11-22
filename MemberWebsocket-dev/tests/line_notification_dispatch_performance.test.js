@@ -134,3 +134,15 @@ test('AC-LINE-007: parallel LINE processing remains ordered for the same recipie
   await task;
   assert.deepEqual(seen, [1, 3, 2]);
 });
+
+test('AC-LINE-010: direct grant notices do not abort ambiguous LINE sends without a stable replay key', () => {
+  const grant = fs.readFileSync(path.join(__dirname, '../supabase/functions/grant-automation/index.ts'), 'utf8');
+  const api = fs.readFileSync(path.join(__dirname, '../supabase/functions/api/index.ts'), 'utf8');
+  const directGrant = grant.slice(grant.indexOf('async function pushLine('), grant.indexOf('async function renderGrant'));
+  const legacyGrant = api.slice(api.indexOf('async function pushGrantNotification('), api.indexOf('async function saveTicketTemplate('));
+  for (const source of [directGrant, legacyGrant]) {
+    assert.ok(source.includes('api.line.me/v2/bot/message/push'));
+    assert.doesNotMatch(source, /signal:\\s*AbortSignal\\.timeout\\(10000\\)/,
+      'do not turn an uncertain LINE acceptance into an immediate retry with a new UUID');
+  }
+});

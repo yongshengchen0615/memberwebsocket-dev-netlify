@@ -1795,7 +1795,6 @@ async function pushGrantNotification(
         "X-Line-Retry-Key":crypto.randomUUID(),
       },
       body:JSON.stringify(body),
-      signal:AbortSignal.timeout(10000),
     });
   } catch {
     await supabase.from("audit_logs").insert({

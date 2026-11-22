@@ -132,7 +132,6 @@ async function pushLine(supabase: SupabaseClient, actor: string, lineUserId: str
       method:"POST",
       headers:{ "Authorization":"Bearer " + token,"Content-Type":"application/json","X-Line-Retry-Key":crypto.randomUUID() },
       body:JSON.stringify({ to:lineUserId,messages:[flexMessage] }),
-      signal:AbortSignal.timeout(10000),
     });
   } catch {
     await auditLine(supabase,actor,lineUserId,requestId,"failed",{ reason:"network_error" });
