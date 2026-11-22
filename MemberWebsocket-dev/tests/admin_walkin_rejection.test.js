@@ -99,3 +99,24 @@ test('AC-ADM-WALKIN-009: Existing merchants and provisioning templates preserve 
   assert.match(sql, /phone_audit\.actor_role in \(''frontdesk'',''admin''\)/);
   assert.match(sql, /reject_audit\.actor_role=phone_audit\.actor_role/);
 });
+
+test('AC-ADM-WALKIN-010: no service selection is required for admin walk-in; paired audit and exact operator label are mandatory',()=>{
+ const migration=read('supabase/migrations/20261122170000_admin_walkin_duration_bundle_provenance.sql');
+ // The admin route has no `items` or service selection; the duration helper
+ // inserts its own zero-price operational placeholder and paired audit events.
+ assert.match(sql,/values\(\$1,\$2,'現場預約時段',\$3,0,1,\$4,false\)/);
+ assert.match(sql,/values\(\$1,\$2,'現場預約時段',\$3,0,1\)/);
+ assert.match(sql,/contact_surname=''管理端''/);
+ assert.match(sql,/replacement:=platform_private\.admin_create_duration_booking/);
+ assert.match(migration,/b\.contact_surname in \(''櫃檯人員'',''管理端''\)/);
+ assert.match(migration,/phone_audit\.actor_role=''admin'' and b\.contact_surname=''管理端''/);
+ assert.match(migration,/phone_audit\.actor_role=''frontdesk'' and b\.contact_surname=''櫃檯人員''/);
+ assert.match(migration,/reject_audit\.actor_role=phone_audit\.actor_role/);
+ assert.match(migration,/raise exception ''INVALID_BOOKING_ITEMS''/);
+ assert.match(migration,/occurrence_surname<>occurrence_audit/);
+ assert.match(migration,/platform_private\.business_templates/);
+ assert.doesNotMatch(api.slice(api.indexOf('async function adminRejectWalkin('),api.indexOf('async function adminRejectWalkin(')+1700),/normalizeRequestedItems/);
+ // This is specific to the paired admin route; ordinary new appointments still
+ // require at least one real selected item.
+ assert.match(api,/if \(!rawItems\.length \|\| rawItems\.length > 20\) throw new ApiError\(400, "INVALID_BOOKING_ITEMS"/);
+});
