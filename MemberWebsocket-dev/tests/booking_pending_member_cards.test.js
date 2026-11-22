@@ -79,11 +79,21 @@ test('AC-BLK-003: legacy single-person booking still shows a booking-data sectio
   assert.ok(lines.includes('預約人：林小姐'));
 });
 
-test('AC-BLK-004: only member pending messages use new card; no LINE identity leakage', () => {
+test('AC-BLK-004: only member pending messages use new card; no LINE identity leakage', async () => {
   assert.match(delivery, /import \{ buildMemberPendingCards \} from "\.\/member-pending-cards\.mjs"/);
   assert.match(delivery, /const memberPending = job\.channel === 'member' && parsed\.title === '預約申請'/);
   assert.match(delivery, /if \(memberPending\) \{[\s\S]*?buildMemberPendingCards\(parsed, style\.color\)/);
   assert.match(delivery, /else if \(job\.channel === 'frontdesk'\)/);
   assert.match(delivery, /if \(memberConfirmation \|\| memberReminder\)/);
   assert.match(delivery, /原預約編號/);
+  const { buildMemberPendingCards } = await import(url);
+  const cards = buildMemberPendingCards({ fields: [
+    { label: '狀態', value: '等待確認' },
+    { label: '預約編號', value: 'private-uuid' },
+    { label: '管理端備註', value: 'internal-admin-message' },
+    { label: '日期', value: '2026/11/22' },
+  ], participants: [{ label: '第一位預約', items: ['肩頸30'] }] }, '#397AA3');
+  const message = JSON.stringify(cards);
+  assert.doesNotMatch(message, /private-uuid|internal-admin-message/);
+  assert.match(message, /預約日期：2026\/11\/22/);
 });
