@@ -263,6 +263,65 @@ const sampleJob = {
   attempt_count: 1,
 };
 
+
+Deno.test('AC-MLN-001: admin-configured multiline pending notice stays one paragraph, not multiple headings', () => {
+  const paragraphs = ['🎀預約注意事項', '請準時抵達，感謝配合。', '請注意：如需改期請聯絡店家。'];
+  const card = buildBookingFlexMessage({
+    ...sampleJob, channel: 'member',
+    message_text: [
+      '【預約申請】',
+      '狀態：等待管理員確認預約',
+      '日期：2026/11/25',
+      '時段：2026/11/25 09:30–2026/11/25 10:30（台北時間）',
+      '預約人：王小姐',
+      ...paragraphs.map(line => '提醒事項：' + line),
+    ].join('\n'),
+  });
+  const components = collectComponents(card.contents.body);
+  const visibleText = components.filter(c => c.type === 'text').map(c => String(c.text || ''));
+  assert(visibleText.filter(t => t === paragraphs.join('\n')).length === 1,
+    'all merchant-entered pending notice lines must appear in one wrapping text component');
+  assert(!visibleText.includes('提醒事項'), 'merchant notice must not create one label/heading per line');
+  assert(visibleText.includes('等待管理員確認預約'), 'pending status must remain visible');
+  assert(visibleText.includes('2026/11/25') && card.altText.includes('預約申請'),
+    'booking schedule and official message title must remain intact');
+});
+
+Deno.test('AC-MLN-002: multiline rejection template renders as prose, never separate field headings', () => {
+  const paragraphs = ['很抱歉，本次預約未通過。', '', '請注意：請重新選擇預約時間。', '感謝您的理解與配合。'];
+  const card = buildBookingFlexMessage({
+    ...sampleJob, channel: 'member',
+    message_text: [
+      '【預約未通過】',
+      '日期：2026/11/25',
+      '時段：09:30–10:30（台北時間）',
+      '預約人：王小姐',
+      '拒絕原因：現場時段衝突',
+      ...paragraphs,
+    ].join('\n'),
+  });
+  const components = collectComponents(card.contents.body);
+  const visibleText = components.filter(c => c.type === 'text').map(c => String(c.text || ''));
+  assert(visibleText.includes(paragraphs.join('\n')),
+    'all custom rejection lines, including colon punctuation, must stay in one text paragraph');
+  assert(!visibleText.includes('說明') && !visibleText.includes('請注意'),
+    'custom text must not be misread as multiple field labels');
+  assert(visibleText.includes('現場時段衝突'), 'rejection reason must remain a structured field');
+  assert(card.altText.includes('預約未通過'), 'rejection event identity must remain intact');
+});
+
+
+Deno.test('AC-MLN-003: a pending notice without optional details never claims confirmation', () => {
+  const card = buildBookingFlexMessage({
+    ...sampleJob, channel: 'member', message_text: '【預約申請】',
+  });
+  const rendered = JSON.stringify(card.contents.body);
+  assert(rendered.includes('已收到預約申請，請等待管理員確認。'),
+    'pending fallback must preserve the pending lifecycle state');
+  assert(!rendered.includes('預約已確認。'),
+    'missing optional fields must not convert pending into confirmed');
+});
+
 Deno.test('booking notification builds a structured mobile-friendly Flex Message', () => {
   const message = buildBookingFlexMessage({...sampleJob,channel:'admin'});
   assert(message.type === 'flex', 'notification must be a Flex Message');
