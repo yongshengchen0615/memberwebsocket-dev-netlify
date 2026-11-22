@@ -4227,7 +4227,7 @@
       setField('bookingAdminStoreServiceMinutes', String(settings.storeServiceMinutes));
       controls.bookingAdminReminderEnabled.checked = settings.reminderEnabled === true;
       setField('bookingAdminReminderTime', settings.reminderTime);
-      setField('bookingAdminNotice', settings.bookingNotice);
+      // Booking notice now belongs to the unified message editor, not shared settings.
     };
     const addIsoDays = (dateText, days) => {
       const date = new Date(String(dateText || '') + 'T00:00:00Z');
@@ -4349,13 +4349,16 @@
       ));
 
       setField('bookingAdminReminderTime', snapshot.reminderTime);
+      document.getElementById('bookingAdminMessagesSubtab')?.click();
       setField('bookingAdminNotice', 'X'.repeat(2001));
-      controls.bookingAdminSaveSettingsButton.click();
+      document.getElementById('bookingAdminMessagesSave')?.click();
       actual.invalidNoticeRejected = Boolean(await waitFor(() =>
-        /預約說明不可超過 2,000 字/.test(String(controls.bookingAdminSettingsMessage.textContent || '')),
+        /預約說明不可超過 2,000 字/.test(String(document.getElementById('bookingAdminMessagesStatus')?.textContent || '')),
         2000,
         80
       ));
+      document.getElementById('bookingAdminMessagesDiscard')?.click();
+      document.getElementById('bookingAdminSettingsSubtab')?.click();
 
       setSettingsFields(snapshot);
 
@@ -4396,6 +4399,18 @@
         15000,
         100
       ));
+      // Notice is edited through the new independent message panel and its one atomic save.
+      if (actual.validMutationSaved) {
+        document.getElementById('bookingAdminMessagesSubtab')?.click();
+        setField('bookingAdminNotice', mutation.bookingNotice);
+        document.getElementById('bookingAdminMessagesSave')?.click();
+        actual.validMutationSaved = Boolean(await waitFor(() =>
+          /四項訊息已一次儲存/.test(String(document.getElementById('bookingAdminMessagesStatus')?.textContent || '')),
+          15000,
+          100
+        ));
+        document.getElementById('bookingAdminSettingsSubtab')?.click();
+      }
 
       const mutated = await postFunction('booking-admin-api', {
         action: 'admin.booking.manage.bootstrap',
