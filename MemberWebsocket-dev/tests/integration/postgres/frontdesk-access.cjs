@@ -45,14 +45,16 @@ test('PostgreSQL frontdesk LINE history: scoped booking is found beyond 30 entri
    '20261109115000_booking_participant_individual_notes.sql',
    '20261118190000_frontdesk_safeupdate_projection.sql',
    '20261119150000_frontdesk_independent_feature_grant.sql',
-   // The paired rejection route updates rejection_reason; the tenant fixture
-   // must receive the real notice+rejection schema migrations first.
-   '20261120194500_member_pending_official_line_notice.sql',
-   '20261120223000_booking_rejection_reason_notices.sql',
    '20261121224500_frontdesk_conflict_history_policy.sql',
    '20261122133000_frontdesk_history_booking_scope.sql',
    '20261122150000_frontdesk_overlap_guard.sql'
   ])await h.db.exec(fs.readFileSync(path.resolve(__dirname,'../../../supabase/migrations',name),'utf8'));
+  // This October-based isolated fixture has no install_booking_reminder() used by
+  // the full Nov 20 notice migrations. Mirror only their booking column prerequisite
+  // to exercise the real SQL router, transaction rollback and cross-actor access.
+  // The full release migration path is verified separately by release CI.
+  await h.db.exec(`alter table ${s}.bookings add column if not exists rejection_reason text
+   check(rejection_reason is null or rejection_reason in ('technician_leave','unrecorded_phone_booking'))`);
   await h.db.query("update platform_private.tenants set features=features||jsonb_build_object('frontdesk',true) where id=$1",[t.id]);
   const conn=await h.db.connect();await conn.query('set role service_role');
   const query='select public.platform_frontdesk_request($1,$2,$3,$4,$5,$6) result';
