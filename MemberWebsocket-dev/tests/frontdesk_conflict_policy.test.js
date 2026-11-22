@@ -1,28 +1,23 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const read=file=>fs.readFileSync(path.resolve(__dirname,'..',file),'utf8');
-const values={pageTitle:'門市櫃檯',conflictStartMin:540,conflictStartMax:1080,conflictDurationMin:20,conflictDurationMax:240};
-test('AC-FD-CONFLICT-005/006: merchant may save page title and bounds without resubmitting LINE credentials',async()=>{
+const values={pageTitle:'門市櫃檯'};
+test('AC-WALKIN-WINDOW-004: merchant may save only page title without LINE credentials or conflict limits',async()=>{
  const {frontdeskAdmin}=await import('../supabase/functions/_shared/frontdesk-admin.mjs');
  const calls=[],args={actor:'U'+'2'.repeat(32),issuedAt:new Date('2026-11-21T10:00:00Z'),tenant:{id:'10000000-0000-4000-8000-000000000001',features:{booking:true,frontdesk:true}},db:{rpc:async(name,body)=>{calls.push({name,body});return{data:{frontdesk:{...values},version:7,staff:[]},error:null};}}};
  const body={action:'platform.frontdesk.preferences.save',requestId:'10000000-0000-4000-8000-000000000008',expectedVersion:6,preferences:values};
  const result=await frontdeskAdmin({...args,body});
  assert.equal(result.version,7);
- assert.equal(calls.length,1,'separate policy action never calls LINE credential verification');
+ assert.equal(calls.length,1,'title preferences do not verify LINE credentials');
  assert.equal(calls[0].name,'platform_frontdesk_admin');
- assert.equal(calls[0].body.p_action,'preferences.save');
  assert.deepEqual(calls[0].body.p_body.preferences,values);
  assert.match(calls[0].body.p_body.payloadHash,/^[a-f0-9]{64}$/);
- for(const p of [
-  {...values,conflictStartMin:1090},
-  {...values,conflictDurationMax:15},
-  {...values,conflictStartMin:545},
-  {...values,conflictDurationMin:0},
-  {...values,pageTitle:'x'.repeat(61)},
-  {...values,pageTitle:'hello\nworld'}
- ]) {
-  await assert.rejects(()=>frontdeskAdmin({...args,body:{...body,requestId:'10000000-0000-4000-8000-000000000009',preferences:p}}),/櫃檯頁面抬頭或衝突預約/);
+ const malicious={...values,conflictStartMin:1000,conflictStartMax:1100,conflictDurationMin:700,conflictDurationMax:710};
+ await frontdeskAdmin({...args,body:{...body,requestId:'10000000-0000-4000-8000-000000000010',preferences:malicious}});
+ assert.deepEqual(calls[1].body.p_body.preferences,values,'legacy bounds are ignored even if forged in an API request');
+ for(const p of [{pageTitle:'x'.repeat(61)},{pageTitle:'hello\\nworld'},{pageTitle:null}]){
+  await assert.rejects(()=>frontdeskAdmin({...args,body:{...body,requestId:'10000000-0000-4000-8000-000000000009',preferences:p}}),/櫃檯頁面抬頭不正確/);
  }
- assert.equal(calls.length,1,'invalid policies must not reach the database');
+ assert.equal(calls.length,2,'invalid titles must not reach the database');
 });
 test('AC-FD-CONFLICT-001/007: paired read is staff-authorized, tenant-scoped and does not expose public RPC execution',()=>{
  const sql=read('supabase/migrations/20261121224500_frontdesk_conflict_history_policy.sql');
@@ -64,23 +59,36 @@ test('AC-FD-LINE-001/002/004: LINE single-order history is scoped before paginat
  assert.doesNotMatch(sql,/grant execute on function public\.platform_frontdesk_request[^;]+to anon/i);
 });
 
-test('AC-FD-CONFLICT-004/006: database independently rejects values outside 10-minute merchant policy',()=>{
- const sql=read('supabase/migrations/20261121224500_frontdesk_conflict_history_policy.sql');
- const ui=read('frontdesk/app.js');
- const router=read('supabase/functions/_shared/platform-handler.mjs');
- assert.equal(router.split("'platform.frontdesk.preferences.save'").length-1,2,'merchant preferences must be available in both trusted LINE applicant route and authorized dispatcher');
- for(const rule of [
-  "v_clock%10<>0", "p_duration%10<>0", "FRONTDESK_CONFLICT_POLICY",
-  "v_policy->>'conflictStartMin'","v_policy->>'conflictStartMax'",
-  "v_policy->>'conflictDurationMin'","v_policy->>'conflictDurationMax'"
- ])assert.ok(sql.includes(rule),rule);
- assert.match(ui,/time=node\('select'\)/);
- assert.match(ui,/duration=node\('select'\)/);
- assert.match(ui,/for\(let m=startMin;m<=startMax;m\+=10\)/);
- assert.match(ui,/for\(let m=durationMin;m<=durationMax;m\+=10\)/);
- assert.match(read('admin/frontdesk-settings.js'),/platform\.frontdesk\.preferences\.save/);
+test('AC-WALKIN-WINDOW-001..006: both UIs use inclusive original window and SQL ignores legacy bounds',()=>{
+ const migration=read('supabase/migrations/20261122163500_walkin_original_window_inclusive.sql');
+ const frontdesk=read('frontdesk/app.js');
+ const admin=read('admin/booking-panel-core.js');
+ const edge=read('supabase/functions/_shared/frontdesk-handler.mjs');
+ const manager=read('supabase/functions/_shared/frontdesk-admin.mjs');
+ const settings=read('admin/frontdesk-settings.js');
+ assert.match(frontdesk,/Math\.ceil\(originalStartMin\/10\)\*10;m<=originalEndMin;m\+=10/);
+ assert.match(admin,/Math\.ceil\(originalStart\/10\)\*10;value<=originalEnd;value\+=10/);
+ assert.match(frontdesk,/candidateStart>=originalStartMin&&candidateStart<=originalEndMin/);
+ assert.match(admin,/candidate >= originalStart && candidate <= originalEnd/);
+ assert.match(frontdesk,/for\(let m=10;m<=1430;m\+=10\)/);
+ assert.match(admin,/for\(let value=10;value<=1430;value\+=10\)/);
+ for(const key of ['conflictStartMin','conflictStartMax','conflictDurationMin','conflictDurationMax']){
+  assert.ok(!frontdesk.includes('frontdeskPolicy.'+key),'frontdesk cannot use configured '+key);
+  assert.ok(!admin.includes('bound(\''+key),'admin cannot use configured '+key);
+  assert.ok(!settings.includes("dropdown('"+key),'merchant settings cannot expose '+key);
+ }
+ assert.match(settings,/preferences: \{ pageTitle: pageTitle\.input\.value\.trim\(\) \}/);
+ assert.match(manager,/input\.preferences=\{pageTitle:title\.trim\(\)\}/);
+ assert.match(edge,/FRONTDESK_NOT_OVERLAPPING/);
+ assert.match(migration,/v_old_bounds/);
+ assert.match(migration,/v_new_bounds/);
+ assert.match(migration,/v_candidate > /);
+ assert.match(migration,/v_candidate < /);
+ assert.match(migration,/ <= \$3::timestamp \+ make_interval/);
+ assert.match(migration,/ >= \$3::timestamp/);
+ assert.match(migration,/pref:=jsonb_build_object\('pageTitle'/);
+ assert.match(migration,/WALKIN_FRONTDESK_ROUTER_CONTRACT_CHANGED/);
 });
-
 test('AC-FD-OVERLAP-001..004: non-overlapping walk-in ranges are blocked at UI and database boundary',()=>{
  const ui=read('frontdesk/app.js'),edge=read('supabase/functions/_shared/frontdesk-handler.mjs');
  assert.match(ui,/const hasConflict=/,'browser must compare two actual time intervals');
