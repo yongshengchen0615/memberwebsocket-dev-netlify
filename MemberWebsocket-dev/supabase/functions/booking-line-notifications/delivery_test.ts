@@ -1,4 +1,5 @@
 import { buildBookingFlexMessage, deliver } from './delivery.ts';
+import { scope, memberSystemFooter } from '../_shared/business-scope.ts';
 
 Deno.test('frontdesk review has only its trusted tenant entry; notify-only has no action',()=>{
  const job={id:'11111111-1111-4111-8111-111111111111',recipient:'U'+'a'.repeat(32),message_text:'【預約】\n預約人：測試\n日期：2026/11/18',channel:'frontdesk',attempt_count:1,booking_id:'22222222-2222-4222-8222-222222222222'};
@@ -651,4 +652,13 @@ Deno.test('AC-FR-015: hide exact preparation only; no phantom item when it is th
     message_text:'【預約】\n預約項目：身體60、到店準備'});
   assert(JSON.stringify(ordinary).includes('到店準備'),
     'other LINE notification types must retain their original formatting');
+});
+
+Deno.test('AC-004: booking LINE footer uses each verified tenant title and never leaks the previous tenant',()=>{
+  const job={...sampleJob,channel:'member'};
+  const footer=()=>((buildBookingFlexMessage(job).contents.footer as any).contents as Array<Record<string,unknown>>).at(-1)?.text;
+  assert(scope.run({slug:'shop-a',site_title:'晨光工作室',name:'登記名稱'},footer)==='晨光工作室 會員系統','custom title must win');
+  assert(scope.run({slug:'shop-b',site_title:null,name:'第二家商店'},footer)==='第二家商店 會員系統','second tenant uses its own name');
+  assert(footer()==='會員系統','no business context may not inherit the previous title');
+  assert(scope.run({slug:'shop-a',site_title:'\n惡意抬頭\r',name:'備用商家'},()=>memberSystemFooter())==='惡意抬頭 會員系統','control characters must not create extra lines');
 });
