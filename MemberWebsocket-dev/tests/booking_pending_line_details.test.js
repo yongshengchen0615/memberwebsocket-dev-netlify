@@ -91,6 +91,27 @@ test('AC-004: untrusted service and note newlines cannot inject fake LINE fields
   assert.equal((message.match(/^個別金額：/gm) || []).length, 1);
 });
 
+test('AC-006: participant-specific preparation minutes are not counted twice or exposed as services', async () => {
+  const { loadMemberPendingBookingDetails } = await import(moduleUrl);
+  const { db } = mockDb({
+    booking_participants: [{ id: 'p1', position: 1, member_note: '', booking_technicians: null }],
+    booking_items: [{
+      service_id: '00000000-0000-4000-8000-000000000010',
+      service_title: '到店準備', quantity: 1, unit_duration_minutes: 10, unit_price_amount: 0,
+    }],
+    booking_participant_items: [
+      service('p1', '肩頸30', 1, 30, 500),
+      { participant_id: 'p1', service_id: '00000000-0000-4000-8000-000000000010',
+        service_title: '到店準備', quantity: 1, unit_duration_minutes: 12, unit_price_amount: 0 },
+    ],
+  });
+  const message = await loadMemberPendingBookingDetails(db, 'booking-A');
+  assert.match(message, /預約項目：肩頸30/);
+  assert.match(message, /個別時間：42 分鐘/);
+  assert.match(message, /個別金額：NT\$500/);
+  assert.doesNotMatch(message, /到店準備|個別時間：52 分鐘/);
+});
+
 test('AC-005: worker enforces member owner, pending status, and safe retry before any enriched push', () => {
   assert.match(source, /endsWith\(':created:member'\)/);
   assert.match(source, /pending\.data\?\.status !== 'pending'/);
