@@ -45,6 +45,10 @@ test('PostgreSQL frontdesk LINE history: scoped booking is found beyond 30 entri
    '20261109115000_booking_participant_individual_notes.sql',
    '20261118190000_frontdesk_safeupdate_projection.sql',
    '20261119150000_frontdesk_independent_feature_grant.sql',
+   // The paired rejection route updates rejection_reason; the tenant fixture
+   // must receive the real notice+rejection schema migrations first.
+   '20261120194500_member_pending_official_line_notice.sql',
+   '20261120223000_booking_rejection_reason_notices.sql',
    '20261121224500_frontdesk_conflict_history_policy.sql',
    '20261122133000_frontdesk_history_booking_scope.sql',
    '20261122150000_frontdesk_overlap_guard.sql'
