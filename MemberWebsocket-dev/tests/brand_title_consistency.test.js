@@ -73,3 +73,13 @@ test('AC-004: all booking and membership Flex footers use tenant title rather th
   assert.match(delivery, /memberSystemFooter\(\)/);
   assert.match(notice, /options\.footer/);
 });
+
+test('AC-006: admin settings, booking redirect and member join LINE wording never initialize the old brand', () => {
+  const adminSettings = read('admin/frontdesk-settings/index.html');
+  const redirect = read('booking/admin/index.html');
+  const joinText = read('member/member-growth.js');
+  assert.match(adminSettings, /<title>櫃檯設定｜會員系統<\/title>/);
+  assert.match(redirect, /<title>前往最新預約管理｜會員系統<\/title>/);
+  assert.doesNotMatch(joinText, /['"]Lumen Club['"]/);
+  assert.match(joinText, /configuredHeading \|\| pageHeading \|\| '會員系統'/);
+});
