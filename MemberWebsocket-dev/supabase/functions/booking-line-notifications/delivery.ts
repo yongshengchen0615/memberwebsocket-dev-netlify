@@ -167,8 +167,10 @@ function parseBookingMessage(message: string): ParsedBookingMessage {
     fields.push({ label: '說明', value: truncate(line, 500) });
   }
 
-  // Both reminders and pending applications have per-line legacy 提醒事項 fields.
-  return { title, fields: groupReminderNoticeFields(fields), services, participants, fallbackText, rejectionNotice };
+  // Only merchant templates for reminders and pending applications contain per-line legacy 提醒事項 fields.
+  const groupedFields = title === '預約提醒' || title === '預約申請'
+    ? groupReminderNoticeFields(fields) : fields;
+  return { title, fields: groupedFields, services, participants, fallbackText, rejectionNotice };
 }
 
 function fieldRow(label: string, value: string): Record<string, unknown> {
@@ -635,14 +637,16 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
     footerActions.push({type:'button',height:'sm',style:'primary',action:{type:'uri',label:'查看／處理預約',uri:job.frontdeskUri}});
   }
   if (memberConfirmation || memberCustomNotice) {
-    // Confirmation and reminders share participant cards; reminders also show the merchant's notice and contact details.
+    // Confirmation, reminders and pending notices share the member-facing participant layout.
     bodyContents.length = 0;
     if (schedule) bodyContents.push(schedule);
     if (memberCustomNotice && notice) bodyContents.push(notice);
     if (memberCustomNotice && details) bodyContents.push(details);
     if (participants) bodyContents.push(participants);
     else if (services) bodyContents.push(services); // Legacy notifications without participant sections.
-    if (!bodyContents.length) bodyContents.push(fallbackCard(memberReminder ? '請查看預約詳情。' : '預約已確認。'));
+    if (!bodyContents.length) bodyContents.push(fallbackCard(memberPending
+      ? '已收到預約申請，請等待管理員確認。'
+      : memberReminder ? '請查看預約詳情。' : '預約已確認。'));
   }
   if (job.booking_id && job.channel === 'admin' && parsed.title === '預約') {
     const copy = String(job.copyText || '');
