@@ -28,14 +28,14 @@ test('AC-BPN-002: per-merchant settings include a validated template controlled 
   assert.match(adminApi, /\.eq\('updated_at', expectedUpdatedAt\)/);
   assert.match(adminApi, /BOOKING_PENDING_MESSAGE_UPDATED/);
 });
-test('AC-BPN-003: admin has independent editor, preview and safe text rendering', () => {
-  for (const id of ['bookingAdminPendingMessageForm','bookingAdminPendingMessage','bookingAdminPendingMessagePreview','bookingAdminPendingMessageSave']) {
+test('AC-BPN-003: admin has unified editor, preview and safe text rendering', () => {
+  for (const id of ['bookingAdminMessagesForm','bookingAdminPendingMessage','bookingAdminPendingMessagePreview','bookingAdminMessagesSave']) {
     assert.match(admin, new RegExp(id));
   }
   assert.match(admin, /renderPendingMessagePreview/);
   assert.match(admin, /bookingAdminPendingMessagePreview\.textContent =/);
   assert.match(admin, /manageRequest\('admin\.booking\.pending-message\.save'/);
-  assert.match(admin, /pendingMessageDirty/);
+  assert.match(admin, /messagesDirty/);
 });
 test('AC-BPN-004: insert-only pending notice uses tenant-scoped outbox, active non-test member and idempotent event', () => {
   assert.match(migration, /TG_OP <> 'INSERT' or NEW\.status <> 'pending'/);
