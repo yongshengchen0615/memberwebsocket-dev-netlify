@@ -376,3 +376,51 @@ test('AC-FD-CONFLICT-SEC: revocation during history refresh purges member detail
  assert.match(w.document.getElementById('status').textContent,/沒有預約審核權限/);
  } finally {w.close();}
 });
+
+for (const scenario of [
+ {name:'daytime-inclusive-end',start:'09:00',end:'10:10',startAt:'2026-12-12T09:00:00',endAt:'2026-12-12T10:10:00',duration:70,expected:['09:00','09:10','09:20','09:30','09:40','09:50','10:00','10:10']},
+ {name:'overnight-inclusive-end',start:'23:50',end:'00:10',startAt:'2026-12-12T23:50:00',endAt:'2026-12-13T00:10:00',duration:20,expected:['23:50','00:00','00:10']}
+]) test('AC-WALKIN-WINDOW-001/003/005: frontdesk '+scenario.name+' includes original closing time despite legacy merchant policy',async()=>{
+ const bookingId='10000000-0000-4000-8000-000000000022';
+ const dom=new JSDOM('<h1 id="businessName"></h1><p id="status"></p><ol id="progress"></ol><section id="account"></section><div class="frontdesk-toolbar"><h2></h2><p id="bookingSummary"></p><button id="refresh">刷新</button></div><section id="bookings"></section>',{url:'https://desk.test/frontdesk/?business=shop-a',runScripts:'outside-only'});
+ const w=dom.window,calls=[];let rejected=false;
+ w.crypto.randomUUID=()=>crypto.randomUUID();
+ w.liff={isInClient:()=>true,init:async()=>{},isLoggedIn:()=>true,getIDToken:()=>'verified'};
+ w.fetch=async(_url,init)=>{
+  if(!init?.body)return{ok:true,json:async()=>({supabaseFunctionUrl:'https://db.test/functions/v1/api',supabasePublishableKey:'public'})};
+  const body=JSON.parse(init.body);calls.push(body);
+  const data=body.action==='frontdesk.public'?{
+   name:'QA',frontdesk:{enabled:true,liffId:'2010999999-desk',conflictStartMin:720,conflictStartMax:730,conflictDurationMin:700,conflictDurationMax:710}
+  }:body.action==='frontdesk.bootstrap'?{staff:{status:'approved',permissionMode:'review'}}:
+   body.action==='frontdesk.bookings'?{bookings:rejected?[]:[{id:bookingId,name:'測試',status:'pending',updatedAt:'2026-11-20T10:00:00.000Z',bookingDate:'2026-12-12',startTime:scenario.start,endTime:scenario.end,startAt:scenario.startAt,endAt:scenario.endAt,totalDurationMinutes:scenario.duration,services:[]}]}:{};
+  if(body.action==='frontdesk.booking.reject-phone')rejected=true;
+  return{ok:true,json:async()=>({ok:true,data})};
+ };
+ const ready=new Promise(resolve=>w.addEventListener('frontdesk-ready',resolve,{once:true}));
+ w.eval(source());await ready;
+ const reject=[...w.document.querySelectorAll('[data-review-action]')].find(b=>b.textContent==='拒絕預約');
+ assert.ok(reject);reject.click();
+ const dialog=w.document.querySelector('[role=dialog]');
+ const reason=dialog.querySelector('select[aria-label="選擇拒絕預約原因"]');
+ reason.value='unrecorded_phone_booking';reason.dispatchEvent(new w.Event('change',{bubbles:true}));
+ const time=dialog.querySelector('select[aria-label="衝突預約時間"]');
+ const duration=dialog.querySelector('select[aria-label="衝突預約總時長"]');
+ const submit=dialog.querySelector('button[type="submit"]');
+ assert.deepEqual([...time.options].map(o=>o.value),scenario.expected,'options must be inside original window, including closing boundary');
+ assert.equal(duration.options[0].value,'10');
+ assert.equal(duration.options[duration.options.length-1].value,'1430');
+ assert.equal(duration.value,String(scenario.duration),'default duration follows original when valid');
+ time.value=scenario.end;time.dispatchEvent(new w.Event('change',{bubbles:true}));
+ assert.equal(submit.disabled,false,'adjacent start time must be accepted by UI');
+ time.value='11:50';time.dispatchEvent(new w.Event('change',{bubbles:true}));
+ assert.equal(submit.disabled,true,'forged out-of-window time must not be sent');
+ time.value=scenario.end;time.dispatchEvent(new w.Event('change',{bubbles:true}));
+ dialog.querySelector('form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+ await new Promise(resolve=>setImmediate(resolve));
+ const committed=calls.filter(c=>c.action==='frontdesk.booking.reject-phone');
+ assert.equal(committed.length,1,'only one paired rejection must be sent');
+ assert.equal(committed[0].startTime,scenario.end);
+ assert.equal(committed[0].totalDurationMinutes,scenario.duration);
+ assert.equal(committed[0].bookingDate,undefined,'booking date remains server-derived');
+ w.close();
+});
