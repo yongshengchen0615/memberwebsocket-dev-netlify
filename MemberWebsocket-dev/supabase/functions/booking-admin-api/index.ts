@@ -282,6 +282,50 @@ async function reminderMessageSave(supabase: SupabaseClient, identity: Identity,
   return { reminderMessage: result.data.reminder_message, updatedAt: result.data.updated_at };
 }
 
+// One atomic version-checked update for all editable booking message texts.
+async function messagesSave(supabase: SupabaseClient, identity: Identity, body: Json): Promise<Json> {
+  for (const key of ["bookingNotice", "pendingMessage", "rejectionMessage", "reminderMessage"]) {
+    if (typeof body[key] !== "string") throw new ApiError(400, "INVALID_BOOKING_MESSAGE", "請完整填寫訊息設定後再儲存。");
+  }
+  const bookingNotice = preserveText(body.bookingNotice, 2001);
+  const pendingMessage = preserveText(body.pendingMessage, 401);
+  const rejectionMessage = preserveText(body.rejectionMessage, 401);
+  const reminderMessage = preserveText(body.reminderMessage, 401);
+  if (bookingNotice.length > 2000) throw new ApiError(400, "INVALID_BOOKING_NOTICE", "預約說明不可超過 2,000 字。");
+  if (!pendingMessage.trim() || pendingMessage.length > 400) throw new ApiError(400, "INVALID_PENDING_MESSAGE", "預約申請訊息必須為 1–400 字。");
+  if (!rejectionMessage.trim() || rejectionMessage.length > 400) throw new ApiError(400, "INVALID_REJECTION_MESSAGE", "預約未通過訊息必須為 1–400 字。");
+  if (!reminderMessage.trim() || reminderMessage.length > 400) throw new ApiError(400, "INVALID_REMINDER_MESSAGE", "預約提醒訊息必須為 1–400 字。");
+  const expectedUpdatedAt = asText(body.expectedUpdatedAt, 80);
+  if (!expectedUpdatedAt) throw new ApiError(409, "BOOKING_SETTINGS_CONFLICT", "設定版本已變更，請重新載入。");
+  const result = await supabase.from("booking_settings")
+    .update({
+      booking_notice: bookingNotice,
+      pending_message: pendingMessage,
+      rejection_message: rejectionMessage,
+      reminder_message: reminderMessage,
+      updated_by: identity.lineUserId,
+    })
+    .eq("id", 1).eq("updated_at", expectedUpdatedAt)
+    .select("booking_notice,pending_message,rejection_message,reminder_message,updated_at").maybeSingle();
+  if (result.error) throw mapDatabaseError(result.error);
+  if (!result.data) throw new ApiError(409, "BOOKING_SETTINGS_CONFLICT", "設定已由其他管理員變更，請重新載入。");
+  await audit(supabase, identity, "BOOKING_MESSAGES_UPDATED", "booking_settings", "1", {
+    noticeLength: bookingNotice.length,
+    pendingLength: pendingMessage.length,
+    rejectionLength: rejectionMessage.length,
+    reminderLength: reminderMessage.length,
+  });
+  return {
+    messages: {
+      bookingNotice: result.data.booking_notice,
+      pendingMessage: result.data.pending_message,
+      rejectionMessage: result.data.rejection_message,
+      reminderMessage: result.data.reminder_message,
+    },
+    updatedAt: result.data.updated_at,
+  };
+}
+
 async function settingsSave(supabase: SupabaseClient, identity: Identity, body: Json): Promise<Json> {
   const workStartTime = normalizeTime(body.workStartTime);
   const workEndTime = normalizeTime(body.workEndTime);
@@ -298,12 +342,15 @@ async function settingsSave(supabase: SupabaseClient, identity: Identity, body: 
   const minAdvanceDays = Number(body.minAdvanceDays);
   const maxAdvanceDays = Number(body.maxAdvanceDays);
   const storeServiceMinutes = Number(body.storeServiceMinutes);
-  const bookingNotice = preserveText(body.bookingNotice, 2001);
   const phoneBookingNumber = body.phoneBookingNumber === undefined ? null : String(body.phoneBookingNumber ?? "").trim();
-  // Legacy columns remain for backwards compatibility. Members now control each booking.
+  // Existing clients may still submit bookingNotice. New shared settings saves
+  // preserve the current notice without requiring the message editor in this tab.
   const legacyReminder = await supabase.from("booking_settings")
-    .select("reminder_enabled,reminder_time").eq("id", 1).single();
+    .select("reminder_enabled,reminder_time,booking_notice").eq("id", 1).single();
   if (legacyReminder.error) throw mapDatabaseError(legacyReminder.error);
+  const bookingNotice = body.bookingNotice === undefined
+    ? String(legacyReminder.data.booking_notice || "")
+    : preserveText(body.bookingNotice, 2001);
   if (workStartTime === workEndTime || workWindow(workStartTime, workEndTime).end - timeToMinutes(workStartTime) < 5) throw new ApiError(400, "INVALID_WORK_HOURS", "工作時段不可為零長度。" );
   if (!Number.isInteger(slotIntervalMinutes) || slotIntervalMinutes < 5 || slotIntervalMinutes > 120 || slotIntervalMinutes % 5 !== 0) throw new ApiError(400, "INVALID_SLOT_INTERVAL", "切分間隔須為 5–120 分鐘的 5 分鐘倍數。" );
   if (!Number.isInteger(minAdvanceDays) || minAdvanceDays < 0 || minAdvanceDays > 365) throw new ApiError(400, "INVALID_ADVANCE_DAYS", "提前預約天數必須介於 0–365 天。" );
@@ -526,6 +573,7 @@ async function route(supabase: SupabaseClient, identity: Identity, action: strin
   if (["admin.booking.price.catalog", "admin.booking.price.publish", "admin.booking.price.cancel", "admin.booking.price.reschedule"].includes(action)) return await priceAction(supabase, identity, action, body);
   if (action === "admin.booking.manage.bootstrap") return await bootstrap(supabase);
   if (action === "admin.booking.settings.save") return await settingsSave(supabase, identity, body);
+  if (action === "admin.booking.messages.save") return await messagesSave(supabase, identity, body);
   if (action === "admin.booking.pending-message.save") return await pendingMessageSave(supabase, identity, body);
   if (action === "admin.booking.rejection-message.save") return await rejectionMessageSave(supabase, identity, body);
   if (action === "admin.booking.reminder-message.save") return await reminderMessageSave(supabase, identity, body);
