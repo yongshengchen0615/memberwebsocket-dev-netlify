@@ -100,8 +100,12 @@ for (const {width, height} of [
       await expect(page.locator('#adminNavScrollHint')).toBeVisible();
       expect(scroll.full).toBeGreaterThanOrEqual(scroll.visible);
     }else await expect(page.locator('#adminNavScrollHint')).toBeHidden();
-    const regions=['#adminView > .topbar','#adminView > .stats-row','#adminView > .surface-nav'];
+    const regions=['#adminView > .topbar','#adminView > .stats-row'];
     for(const region of regions)await fits(page.locator(region));
+    // Swipeable navigation may overflow internally, but must stay inside the viewport.
+    const navBounds=await nav.boundingBox();
+    expect(navBounds.x).toBeGreaterThanOrEqual(-1);
+    expect(navBounds.x+navBounds.width).toBeLessThanOrEqual(width+1);
     for(const [tab,panel,editor] of [
       ['cardsTab','cardsPanel','.card-workspace'],
       ['eventsTab','eventsPanel','.event-ticket-workspace'],
@@ -115,7 +119,13 @@ for (const {width, height} of [
       if(tab==='membersTab'){
         await expect(page.locator('#membersPanel .table-wrap').first()).toHaveAttribute('tabindex','0');
       }
-      if(editor!=='#bookingAdminPanel')await fits(page.locator('#'+panel+' '+editor).first());
+      if(editor!=='#bookingAdminPanel'){
+        const target=page.locator('#'+panel+' '+editor).first();
+        const bounds=await target.boundingBox();
+        expect(bounds.x).toBeGreaterThanOrEqual(-1);
+        expect(bounds.x+bounds.width).toBeLessThanOrEqual(width+1);
+        if(editor!=='.table-wrap')await fits(target);
+      }
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),
         tab+' must not cause page-wide horizontal overflow at '+width).toBe(true);
     }
