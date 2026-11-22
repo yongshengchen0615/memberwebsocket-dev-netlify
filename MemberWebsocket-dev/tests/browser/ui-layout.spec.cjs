@@ -73,3 +73,63 @@ for(const width of [320,390,1280])for(const theme of ['light','dark'])test(`shar
  }
  expect(admin.sessions.get(info.testId).unexpected).toEqual([]);expect(errors).toEqual([]);
 });
+
+
+/* AC-AR-001–005: isolated Chromium layout/interaction verification across
+ * narrow phones, portrait tablets, laptops and desktops; no real tenant data. */
+for (const {width, height} of [
+  {width:320,height:700}, {width:390,height:844}, {width:768,height:1024},
+  {width:1024,height:768}, {width:1440,height:900},
+]) for (const theme of ['light','dark']) {
+  test('general admin adaptive shell '+width+'x'+height+' '+theme,async({page},info)=>{
+    await page.setViewportSize({width,height});
+    await page.emulateMedia({reducedMotion:'reduce'});
+    await page.route('https://**',route=>route.abort());
+    const errors=[];page.on('pageerror',e=>errors.push(e.message));
+    await page.goto(admin.base+'/admin/?run='+info.testId);
+    await expect(page.locator('#adminView')).toBeVisible();
+    await expect(page.locator('#syncStatus')).toContainText('已完整同步');
+    await page.evaluate(next=>document.documentElement.dataset.theme=next,theme);
+    const nav=page.locator('#adminView > .surface-nav');
+    await expect(nav).toHaveAttribute('aria-describedby','adminNavScrollHint');
+    const scroll=await nav.evaluate(el=>({
+      x:getComputedStyle(el).overflowX, full:el.scrollWidth, visible:el.clientWidth,
+    }));
+    if(width<=1100)expect(scroll.x).toBe('auto');
+    if(width<=760){
+      await expect(page.locator('#adminNavScrollHint')).toBeVisible();
+      expect(scroll.full).toBeGreaterThanOrEqual(scroll.visible);
+    }else await expect(page.locator('#adminNavScrollHint')).toBeHidden();
+    const regions=['#adminView > .topbar','#adminView > .stats-row'];
+    for(const region of regions)await fits(page.locator(region));
+    // Swipeable navigation may overflow internally, but must stay inside the viewport.
+    const navBounds=await nav.boundingBox();
+    expect(navBounds.x).toBeGreaterThanOrEqual(-1);
+    expect(navBounds.x+navBounds.width).toBeLessThanOrEqual(width+1);
+    for(const [tab,panel,editor] of [
+      ['cardsTab','cardsPanel','.card-workspace'],
+      ['eventsTab','eventsPanel','.event-ticket-workspace'],
+      ['calendarTab','calendarPanel','.calendar-workspace'],
+      ['membersTab','membersPanel','.table-wrap'],
+      ['bookingTab','bookingPanel','#bookingAdminPanel'],
+    ]){
+      await page.locator('#'+tab).click();
+      await expect(page.locator('#'+tab)).toHaveAttribute('aria-selected','true');
+      await expect(page.locator('#'+panel)).toBeVisible();
+      if(tab==='membersTab'){
+        await expect(page.locator('#membersPanel .table-wrap').first()).toHaveAttribute('tabindex','0');
+      }
+      if(editor!=='#bookingAdminPanel'){
+        const target=page.locator('#'+panel+' '+editor).first();
+        const bounds=await target.boundingBox();
+        expect(bounds.x).toBeGreaterThanOrEqual(-1);
+        expect(bounds.x+bounds.width).toBeLessThanOrEqual(width+1);
+        if(editor!=='.table-wrap')await fits(target);
+      }
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),
+        tab+' must not cause page-wide horizontal overflow at '+width).toBe(true);
+    }
+    expect(admin.sessions.get(info.testId).unexpected).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+}

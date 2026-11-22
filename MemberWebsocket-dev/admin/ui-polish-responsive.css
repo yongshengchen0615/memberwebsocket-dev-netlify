@@ -84,3 +84,104 @@
     scroll-snap-align: start;
   }
 }
+
+
+/* AC-AR-001/004: adaptive general admin shell without changing access or data contracts. */
+#adminView,
+#adminView > .panel,
+#adminView .panel-heading > *,
+#adminView .card-workspace > *,
+#adminView .editor,
+#adminView .toolbar > * {
+  min-width: 0;
+}
+
+#adminView :is(.panel-heading h2, .workspace-heading h3, .editor-heading h3, .ops-overview p, #displayName) {
+  overflow-wrap: anywhere;
+}
+
+#adminView .table-wrap {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+#adminView .table-wrap:focus-visible {
+  outline: 3px solid var(--theme-focus, var(--coral));
+  outline-offset: 2px;
+}
+#adminView .surface-nav-hint { display: none; }
+
+/* AC-AR-002: tablet workspaces reserve full width for editors instead of
+   squeezing two columns between 761px and 980px. */
+@media (min-width: 761px) and (max-width: 980px) {
+  #adminView .card-workspace:not(.calendar-workspace) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+  #adminView .card-workspace:not(.calendar-workspace) > .card-list {
+    border-right: 0;
+    border-bottom: 1px solid var(--admin-border, var(--line));
+    padding: 0 0 14px;
+  }
+  #adminView :is(#cardListItems, #ticketListItems, #eventTicketListItems) {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+  #adminView :is(#cardListItems, #ticketListItems, #eventTicketListItems) .card-list-item {
+    width: auto;
+    min-width: 180px;
+    margin: 0;
+  }
+  #adminView .tier-settings { grid-template-columns: minmax(0, 1fr); }
+}
+@media (min-width: 761px) and (max-width: 1100px) {
+  #adminView > .surface-nav {
+    flex-wrap: nowrap;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+  #adminView > .surface-nav .surface-tab { flex: 0 0 auto; }
+}
+
+/* AC-AR-001/003: readable controls and discoverable swipe navigation on phones. */
+@media (max-width: 760px) {
+  #adminView > .surface-nav,
+  html[data-theme] #adminView > .surface-nav {
+    scrollbar-width: thin;
+    scrollbar-color: var(--admin-border-strong, var(--line)) transparent;
+    padding-bottom: 8px;
+  }
+  #adminView > .surface-nav::-webkit-scrollbar { display: block; height: 3px; }
+  #adminView > .surface-nav::-webkit-scrollbar-thumb {
+    background: var(--admin-border-strong, var(--line));
+    border-radius: 999px;
+  }
+  #adminView .surface-nav-hint {
+    display: block;
+    margin: -9px 3px 14px;
+    color: var(--theme-text-muted, var(--muted));
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  #adminView :is(.panel-heading .heading-actions, .editor-heading-actions) {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+  #adminView .toolbar .search-box { width: 100%; min-width: 0; }
+  .modal-card:not(.member-records-modal-card) {
+    max-height: calc(100dvh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+  }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .modal:not(.hidden) { align-items: center; padding: 8px; }
+  .modal-card:not(.member-records-modal-card) { max-height: calc(100dvh - 16px); }
+}
