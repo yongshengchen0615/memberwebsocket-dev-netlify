@@ -3,7 +3,7 @@ const database=require('./database.cjs'),fixture=require('../business-platform-f
 const owner='U'+'2'.repeat(32),staff='U'+'4'.repeat(32),channel='2010999999';
 test('PostgreSQL frontdesk: two physical writers, revoke ordering, idempotency, rollback and backup restore',async()=>{
  const h=await fixture(await database());try{
-  const t=await h.approve(owner,'desk-pg'),s=t.runtime_schema;
+  const t=await h.approve(owner,'desk-pg',Object.fromEntries(['membership','points','events','calendar','integrations','booking','frontdesk','testing','usage'].map(k=>[k,true]))),s=t.runtime_schema;
   for(const name of ['20261026050904_line_webhook.sql','20261118122150_frontdesk_booking_access.sql','20261118190000_frontdesk_safeupdate_projection.sql','20261121224500_frontdesk_conflict_history_policy.sql','20261122133000_frontdesk_history_booking_scope.sql'])await h.db.exec(fs.readFileSync(path.resolve(__dirname,'../../../supabase/migrations',name),'utf8'));
   const query='select public.platform_frontdesk_request($1,$2,$3,$4,$5,$6) result',adminQuery='select public.platform_frontdesk_admin($1,$2,$3,$4,$5) result',issued=new Date(Date.now()+1000).toISOString();
   const actorArgs=(action,body)=>[t.id,staff,channel,issued,action,body],adminArgs=(action,body)=>[owner,t.id,issued,action,{requestId:crypto.randomUUID(),payloadHash:'a'.repeat(64),...body}];
