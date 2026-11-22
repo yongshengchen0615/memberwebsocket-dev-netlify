@@ -10,7 +10,7 @@ export function frontdeskDatabaseError(error){
  for(const [code,[status,message]]of Object.entries(messages))if(text.includes(code))return new PlatformError(status,code,message);
  return new PlatformError(503,'FRONTDESK_DATABASE_UNAVAILABLE','目前無法確認櫃檯服務，請稍後重試。');
 }
-export function createFrontdeskHandler({db,allowedOrigins,verifyIdentity=(idToken,channel)=>verifyFrontdeskIdToken({idToken},channel),encryptionKey,fetchImpl=fetch}){
+export function createFrontdeskHandler({db,allowedOrigins,verifyIdentity=(idToken,channel)=>verifyFrontdeskIdToken({idToken},channel),encryptionKey,fetchImpl=fetch,trackBackground}){
  return async request=>{
   const origin=request.headers.get('Origin'),headers={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Vary':'Origin','Access-Control-Allow-Origin':allowedOrigins.has(origin)?origin:'','Access-Control-Allow-Headers':'content-type,apikey','Access-Control-Allow-Methods':'POST,OPTIONS'};
   const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers});
@@ -75,7 +75,17 @@ export function createFrontdeskHandler({db,allowedOrigins,verifyIdentity=(idToke
     Object.assign(input,{displayName:identity.displayName,oaVerified:true,verifiedMessagingChannelId:context.frontdesk.messagingChannelId,verifiedConfigRevision:context.frontdesk.revision});
    }
    const data=await rpc('platform_frontdesk_request',{p_tenant_id:context.id,p_actor:identity.lineUserId,p_channel_id:context.frontdesk.loginChannelId,p_issued_at:new Date(identity.issuedAtMs).toISOString(),p_action:actions.get(body.action),p_body:input});
-   if(['frontdesk.booking.update','frontdesk.booking.reject-phone','frontdesk.phone.create'].includes(body.action)){try{await db.rpc('platform_dispatch_booking',{p_tenant_id:context.id});}catch{/* durable outbox recovery */}}
+   if(['frontdesk.booking.update','frontdesk.booking.reject-phone','frontdesk.phone.create'].includes(body.action)){
+    // The frontdesk request RPC has already committed its durable outbox.
+    // Track the wake after returning the booking result; no untracked async
+    // work. Local runtimes retain the awaited fallback for reliability.
+    const task=Promise.resolve().then(()=>db.rpc('platform_dispatch_booking',{p_tenant_id:context.id})).catch(()=>null);
+    const register=typeof trackBackground==='function' ? trackBackground
+     : typeof globalThis.EdgeRuntime?.waitUntil==='function'
+       ? pending=>globalThis.EdgeRuntime.waitUntil(pending) : null;
+    if(register){try{register(task);}catch{await task;}}
+    else await task;
+   }
    return json({ok:true,data});
   }catch(error){const status=error.status||503;return json({ok:false,error:{code:error.code||'FRONTDESK_UNAVAILABLE',message:error.status?error.message:'櫃檯服務暫時無法使用。'}},status);}
  };
