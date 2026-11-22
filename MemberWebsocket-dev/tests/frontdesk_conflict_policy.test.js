@@ -45,6 +45,25 @@ test('AC-FD-CONFLICT-001/007: paired read is staff-authorized, tenant-scoped and
  assert.match(ui,/原預約資料/);
  assert.doesNotMatch(sql,/grant execute on function public\.platform_frontdesk_request[^;]+to anon/i);
 });
+
+test('AC-FD-LINE-001/002/004: LINE single-order history is scoped before pagination and still actor-bound',()=>{
+ const sql=read('supabase/migrations/20261122133000_frontdesk_history_booking_scope.sql');
+ const edge=read('supabase/functions/_shared/frontdesk-handler.mjs');
+ const ui=read('frontdesk/app.js');
+ const history=sql.split("if p_action='history' then")[1].split("if p_action='bookings' then")[0];
+ assert.ok(history,'SQL history branch must exist');
+ assert.match(history,/bid:=nullif\(p_body->>'bookingId',''\)::uuid/);
+ assert.match(history,/actor_line_user_id=\$2[\s\S]*and \(\$3::uuid is null or target_id=\$3::text\)/);
+ assert.match(history,/and \(\$3::uuid is null or target_id=\$3::text\)[\s\S]*order by id desc limit 30/);
+ assert.match(history,/using t\.runtime_schema,p_actor,bid/);
+ assert.match(sql,/s\.permission_mode<>'review'/);
+ assert.match(edge,/\['frontdesk\.bookings','frontdesk\.history'\]\.includes\(body\.action\)/);
+ assert.match(ui,/request\('frontdesk\.history',bookingId\?\{bookingId\}:\{\}\)/);
+ assert.match(ui,/records\.filter\(record=>String\(record\?\.booking\?\.id/);
+ assert.match(ui,/本筆預約處理紀錄/);
+ assert.doesNotMatch(sql,/grant execute on function public\.platform_frontdesk_request[^;]+to anon/i);
+});
+
 test('AC-FD-CONFLICT-004/006: database independently rejects values outside 10-minute merchant policy',()=>{
  const sql=read('supabase/migrations/20261121224500_frontdesk_conflict_history_policy.sql');
  const ui=read('frontdesk/app.js');

@@ -465,7 +465,8 @@ for(const width of [390,1280])test('FRONTDESK_REJECTION_MODAL_'+width+' — on-s
   else if(body.action==='frontdesk.booking.reject-phone'){state='rejected';data={booking:{status:'rejected'},phoneBookingStatus:'confirmed',phoneBookingId:'10000000-0000-4000-8000-000000000014'};}
   else if(body.action==='frontdesk.history')data={items:[{actionAt:'2026-12-12T03:30:00Z',
     booking:{id:bookingId,status:'rejected',bookingDate:'2026-12-12',startTime:'11:00',endTime:'12:00',totalDurationMinutes:60,name:'QA先生',phone:'0900111222',partySize:1},
-    phoneBooking:{id:'10000000-0000-4000-8000-000000000014',status:'confirmed',bookingDate:'2026-12-12',startTime:'11:00',endTime:'12:30',totalDurationMinutes:90}}]};
+    phoneBooking:{id:'10000000-0000-4000-8000-000000000014',status:'confirmed',bookingDate:'2026-12-12',startTime:'11:00',endTime:'12:30',totalDurationMinutes:90}},
+   {actionAt:'2026-12-12T03:45:00Z',booking:{id:'10000000-0000-4000-8000-000000000012',status:'rejected',name:'其他訂單不可顯示',phone:'0900999888'},phoneBooking:{id:'10000000-0000-4000-8000-000000000015',status:'confirmed',totalDurationMinutes:60}}]};
   else throw Error('Unexpected frontdesk action '+body.action);
   await route.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,data})});
  });
@@ -516,9 +517,21 @@ for(const width of [390,1280])test('FRONTDESK_REJECTION_MODAL_'+width+' — on-s
  await expect(page.locator('#frontdeskConflictHistory')).toContainText('櫃檯新增的衝突預約');
  await expect(page.locator('#frontdeskConflictHistory')).toContainText('總時長：90 分鐘');
  await expect(page.locator('#frontdeskConflictHistory')).toContainText('0900111222');
+ await expect(page.locator('.frontdesk-history-pair')).toHaveCount(2,'ordinary workspace retains the staff-wide audit view');
+ expect(calls.filter(x=>x.action==='frontdesk.history').every(x=>x.bookingId===undefined)).toBe(true);
+ await page.goto(base+'/frontdesk/?business=shop-a&bookingId='+bookingId);
+ await expect(page.locator('#frontdeskHistoryHeading')).toHaveText('本筆預約處理紀錄');
+ await page.getByRole('button',{name:'查看／更新紀錄'}).click();
+ await expect(page.locator('.frontdesk-history-pair')).toHaveCount(1);
+ await expect(page.locator('#frontdeskConflictHistory')).toContainText('QA先生');
+ await expect(page.locator('#frontdeskConflictHistory')).not.toContainText('其他訂單不可顯示');
+ await expect(page.locator('#frontdeskConflictHistory')).not.toContainText('0900999888');
+ expect(calls.filter(x=>x.action==='frontdesk.history').at(-1).bookingId).toBe(bookingId);
  await page.reload();
  await page.getByRole('button',{name:'查看／更新紀錄'}).click();
+ await expect(page.locator('.frontdesk-history-pair')).toHaveCount(1);
  await expect(page.locator('#frontdeskConflictHistory')).toContainText('櫃檯新增的衝突預約');
+ expect(calls.filter(x=>x.action==='frontdesk.history').at(-1).bookingId).toBe(bookingId);
 });
 
 for(const width of [390,1280])test('FRONTDESK_SETTINGS_HISTORY_'+width+' — standalone manager reads scoped confirm and reject histories in real Chromium',async({page},info)=>{

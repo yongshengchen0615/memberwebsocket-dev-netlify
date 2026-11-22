@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "frontdeskDirectDurationReview": "2026-11-21 PR #387：重新盤點櫃檯現場已預約但未登記的拒絕與直接確認流程、原預約日期、預約時段、總服務時長、交易配對、稽核事件、LINE 通知、登入及商家/逐人授權。此變更僅移除特殊原因的預約項目多選，改為前端與 Edge 傳入 1～1439 分鐘的整數總時長；維持一般 phone.create 的服務選擇、一般拒絕原因、其他 61 個管理端 browser journeys 不變。新增 JSDOM frontdesk_ui.cjs、Chromium frontdesk-booking.spec.cjs 雙尺寸、API 負向與 Supabase 測試資料庫交易驗證；真實 LINE provider 與完整同 SHA CI 須驗證後才視為完成。",
+  "frontdeskDirectDurationReview": "2026-11-22 PR #389：覆核 LINE 查看／預約處理單筆 bookingId 入口，拒絕未登記現場預約後只展示該筆原預約與配對現場單；一般櫃檯維持本人多筆歷史。API 與 SQL 先於 30 筆上限過濾單筆，前端再防意外混顯；擴充 390/1280 Chromium、Node 負向及 PG17 測試。未改既有管理端六工作區旅程；真實 LINE Provider 驗收獨立進行。 2026-11-21 PR #387：重新盤點櫃檯現場已預約但未登記的拒絕與直接確認流程、原預約日期、預約時段、總服務時長、交易配對、稽核事件、LINE 通知、登入及商家/逐人授權。此變更僅移除特殊原因的預約項目多選，改為前端與 Edge 傳入 1～1439 分鐘的整數總時長；維持一般 phone.create 的服務選擇、一般拒絕原因、其他 61 個管理端 browser journeys 不變。新增 JSDOM frontdesk_ui.cjs、Chromium frontdesk-booking.spec.cjs 雙尺寸、API 負向與 Supabase 測試資料庫交易驗證；真實 LINE provider 與完整同 SHA CI 須驗證後才視為完成。",
   "bookingRejectionReview": "2026-11-20 PR #379：已審閱管理端預約待確認卡片的拒絕原因下拉選單，以及櫃檯電話預約登記、服務項目、日期、時間佔位、重新整理與重試狀態、原確認／不通過／無故未到／完成流程及管理員自訂 LINE 預約未通過通知。保留現有六工作區的人工作業案例，新增 booking_rejection_reasons.test.js 檢查固定原因、服務端驗證、通知與版號鎖；正式 LINE 推送與完整 E2E 仍待驗證。 2026-11-21 PR #381：再次核對櫃檯拒絕預約的兩種原因及條件顯示；僅選擇「該時段已被現場人員預約但未登記」並選好服務與時間時，將原預約拒絕與櫃檯補登直接確認綁在原子交易，櫃檯預約人儲存為「櫃檯人員」。審閱一般拒絕、一般電話新增（維持待審）、櫃檯重試防重複、重新整理、授權撤銷、異常與出站通知不重複；原有六管理工作區和瀏覽器旅程不刪除。已擴充 booking_rejection_reasons.test.js 與 frontdesk_ui.cjs；真實 LINE provider 收件與完整瀏覽器 E2E 仍須獨立驗證。 2026-11-21 PR #382：查核實際已確認櫃檯補登、被 skipped 的管理員 LINE、雙預約稽核與管理端顯示；更正拒絕通知事件鍵符合原狀態生命週期，修復 confirmed 配對，管理員卡片與複製文案僅以雙稽核證據分類櫃檯來源，不顯示不存在的預約人／電話；一般會員與獨立電話預約的姓名電話維持。六管理工作區的原有瀏覽器旅程保留，增補拒絕事件、來源驗證與複製格式負向測試；隔離 Chromium 全量與測試 Supabase、LINE 實際送達待最終 SHA 驗證。 2026-11-21 PR 新增 frontdesk 每次開啟 LINE 身分驗證：外部瀏覽器清除先前 LIFF 登入、使用 sessionStorage 限時隨機 nonce 驗證 callback；LINE LIFF 內採官方自動登入並每次向 server 核對權限。移除動態重新登入 LINE 按鈕；登入回跳重播、過期、錯誤商家／路徑、儲存受阻、登出失敗與無 ID Token 均拒絕顯示受保護預約。保留原始多人預約、櫃檯申請及管理員權限／撤權，新增 Node 與 Chromium 回歸，未修改資料庫或權限授與。",
   "eventLiffCallbackReview": "2026-11-19 PR #359：審閱活動票券行事曆檢視入口與商家 LINE 入口。現有 EVENT_coupon、EVENT_referral、EVENT_membership_join、EVENT_lottery 管理端旅程與商家 LINE 設定相鄰流程不變。本次只於 Event LIFF 登入導向遺失 business 時，從同分頁最近十分鐘有效且同 surface 的公開商家代碼恢復；無回呼參數不得繼承，逾期與其他功能不得跨用，網址顯式商家永遠優先。新增 business_context_routing.test.js AC-005/006 回歸並維持原 browser 管理端旅程；無伺服器授權、資料庫、通知或正式設定改變。實際 LINE Login 沙盒驗收仍需另外驗證。",
   "memberActivitySubfiltersReview": "2026-11-17：已審閱會員活動歷程五個主類、會員 360 入口、細分類計數、未知值、時間排序、即時更新與換會員重設。保留所有 admin-human 原旅程，新增 member-activity-subfilters.spec.cjs 於 1440/390px 驗證實際畫面及零額外歷程請求；不改 API、RLS、LINE 或資料庫。完整同 SHA CI 與開發部署另行取證。",
@@ -56,9 +56,9 @@
     "admin/business-line-settings.css": "ceab14d19f8137f529bdaa39c590ce5329304a9a3a8c515afd54bdb802a3f0c3",
     "booking/common.js": "8869346e2801a94b08615a6ab26d9908e3072e77758459b3824bb820d4191505",
     "admin/frontdesk-settings.js": "369c45a2872a76541715558cc2c156244b51056732e772be7e8dccc5dc2ef5a9",
-    "frontdesk/app.js": "4c6a9edf413dc0cb9ba113af62d988c7fee4dec1a678c04494a0470968482d6f",
+    "frontdesk/app.js": "5498758b1c741564a06dcc1a5ff84ec20e85af5b340a265c194f429379e6960b",
     "frontdesk/styles.css": "c08cb98c3d2c955dd3c6f8719b9d9b3062c3bd9bee018083cae14ee7569556a6",
-    "frontdesk/index.html": "9c23d113a7477224e7a14df969ce246c50491533ab1cbd8178aaf6b9b9631c17",
+    "frontdesk/index.html": "10e0ca6c55f6526e52c6400b39dfb4a528ef36547fa3d6bc45a71d078de4f222",
     "admin/frontdesk-settings/index.html": "41251c2526ee8bcd0f46b4725451e055167accf090dd1d15e79662f5bb4e02ed",
     "admin/frontdesk-settings/frontdesk-settings-page.js": "a5bb5f8c6716a7ab8f0cccf3dbe8be993a307a6d56b01cfe218d330cbd3de429",
     "admin/frontdesk-settings/frontdesk-settings-page.css": "f4f7424f89a368a3d2e846f6af33af5caa693a1ac679b2644bdac5189b61f998"

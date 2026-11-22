@@ -11,6 +11,37 @@ test('frontdesk API verifies trusted audience, ignores forged identity and block
  assert.equal((await call({action:'frontdesk.bootstrap',idToken:'wrong'})).status,401);
  const n=calls.length;assert.equal((await call({action:'frontdesk.bootstrap'},'https://evil.test')).status,403);assert.equal(calls.length,n);
 });
+
+test('AC-FD-LINE-003: history accepts an optional UUID and passes single-booking scope to the authorized RPC',async()=>{
+ const {createFrontdeskHandler}=await import('../supabase/functions/_shared/frontdesk-handler.mjs');
+ const bookingId='10000000-0000-4000-8000-000000000011',calls=[];
+ const context={id:'10000000-0000-4000-8000-000000000001',slug:'shop-a',frontdesk:{enabled:true,loginChannelId:'2010999999'}};
+ const db={rpc:async(name,args)=>{
+  calls.push({name,args});
+  return {data:name==='consume_api_rate_limit'?true:name==='platform_frontdesk_context'?context:{items:[{booking:{id:bookingId}}]},error:null};
+ }};
+ const handler=createFrontdeskHandler({db,allowedOrigins:new Set(['https://allowed.test']),verifyIdentity:async token=>{
+  if(token!=='valid')throw {status:401,code:'AUTH_INVALID',message:'Invalid LINE identity'};
+  return {lineUserId:'U'+'4'.repeat(32),issuedAtMs:Date.now()};
+ }});
+ const call=async body=>{const r=await handler(new Request('https://api.test',{method:'POST',headers:{Origin:'https://allowed.test'},body:JSON.stringify({action:'frontdesk.history',business:'shop-a',idToken:'valid',...body})}));return {status:r.status,data:await r.json()};};
+ let result=await call({bookingId});
+ assert.equal(result.status,200);assert.equal(result.data.data.items[0].booking.id,bookingId);
+ assert.equal(calls.at(-1).name,'platform_frontdesk_request');
+ assert.equal(calls.at(-1).args.p_action,'history');
+ assert.equal(calls.at(-1).args.p_body.bookingId,bookingId);
+ const count=calls.length;
+ result=await call({bookingId:'bad-booking-id'});
+ assert.equal(result.status,400);assert.equal(result.data.error.code,'PLATFORM_INVALID_INPUT');
+ assert.equal(calls.length,count,'invalid IDs must be rejected before identity and DB access');
+ result=await call({idToken:'forged',bookingId});
+ assert.equal(result.status,401);
+ assert.equal(calls.filter(x=>x.name==='platform_frontdesk_request').length,1);
+ result=await call({});
+ assert.equal(result.status,200);assert.equal(calls.at(-1).args.p_action,'history');
+ assert.equal(calls.at(-1).args.p_body.bookingId,undefined,'ordinary frontdesk history stays unscoped');
+});
+
 test('frontdesk notification never inherits a member/admin token',async()=>{
  const {notificationToken}=await import('../supabase/functions/_shared/notification-routes.mjs');
  assert.equal(notificationToken({credentials:{channelAccessToken:'other-token'}},'frontdesk'),'');
