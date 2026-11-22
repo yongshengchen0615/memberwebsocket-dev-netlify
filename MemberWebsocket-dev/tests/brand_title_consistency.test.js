@@ -70,6 +70,6 @@ test('AC-004: all booking and membership Flex footers use tenant title rather th
   const notice = read('supabase/functions/_shared/line-flex.ts');
   assert.doesNotMatch(delivery, /Lumen Club 預約系統/);
   assert.doesNotMatch(notice, /Lumen Club 會員系統|LUMEN CLUB/);
-  assert.match(delivery, /brandName/);
+  assert.match(delivery, /memberSystemFooter\(\)/);
   assert.match(notice, /options\.footer/);
 });
