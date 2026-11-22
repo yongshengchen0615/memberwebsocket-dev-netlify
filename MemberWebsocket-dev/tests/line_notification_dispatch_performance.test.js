@@ -108,7 +108,7 @@ test('AC-LINE-005: a broken batch prevents later work from being started and rep
 
 test('AC-LINE-006: scheduled grants use bounded delivery without changing recipient, retry key or suppressed-ticket guards', () => {
   const source = fs.readFileSync(path.join(__dirname, '../supabase/functions/scheduled-grant-messages/index.ts'), 'utf8');
-  assert.match(source, /processNotificationBatches\(rows,\s*4,\s*async\s*\(row\)/);
+  assert.match(source, /processNotificationBatches\(rows,\s*4,\s*async\s*\(row:\s*any\)/);
   assert.match(source, /withBusinessModule\(module,\s*\(\)\s*=>\s*dispatchOne\(supabase,token,row,eventLiffUrl\)\)/);
   assert.match(source, /["']X-Line-Retry-Key["']:\s*String\(row\.id\)/);
   assert.match(source, /fixed_ticket_notification_delivery/);

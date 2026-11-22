@@ -183,7 +183,7 @@ serveBusiness('scheduled-grant-messages',async (request: Request) => {
   let sent = 0;
   let failed = 0;
 
-  await processNotificationBatches(rows, 4, async (row) => {
+  await processNotificationBatches(rows, 4, async (row: any) => {
     try {
       if (await isTestMember(supabase,row)) {
         await supabase.from("scheduled_grant_messages").update({
@@ -254,7 +254,7 @@ serveBusiness('scheduled-grant-messages',async (request: Request) => {
       await writeAudit(supabase,row,"failed",{ reason:result.error,lineRequestId:result.lineRequestId,terminal,attemptCount:attempts,dynamicSectionsRefreshed:false });
       failed += 1;
     }
-  }, (row) => String(row.line_user_id || ''));
+  }, (row: any) => String(row.line_user_id || ''));
 
   return new Response(JSON.stringify({ ok:true,claimed:rows.length,sent,failed }),{ status:200,headers:{ "Content-Type":"application/json","Cache-Control":"no-store" } });
 });

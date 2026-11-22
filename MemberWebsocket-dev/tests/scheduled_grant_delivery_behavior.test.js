@@ -7,7 +7,11 @@ const { stripTypeScriptTypes } = require('node:module');
 const { webcrypto } = require('node:crypto');
 
 const source = fs.readFileSync(path.join(__dirname, '../supabase/functions/scheduled-grant-messages/index.ts'), 'utf8');
-const code = stripTypeScriptTypes(source.replace(/^import .*;\r?\n/gm, ''));
+// The VM fixture strips imports from the Edge entrypoint, so load the actual
+// shared bounded-delivery helper into the same VM rather than mocking delivery.
+const batchSource = fs.readFileSync(path.join(__dirname, '../supabase/functions/_shared/notification-batches.mjs'), 'utf8');
+const code = batchSource.replace(/^export\s+/gm, '') + '\n' +
+  stripTypeScriptTypes(source.replace(/^import .*;\r?\n/gm, ''));
 const row = { id: '11111111-1111-4111-8111-111111111111', member_id: 'fixture-member', line_user_id: 'fixture-line', request_id: 'FIXED-fixture', schedule_id: 'fixture', message_text: '固定票券', attempt_count: 1 };
 
 function fixture({ url = '', status = 200, acceptedId = '', testMember = false, rows = [row], delivery = {action:'send'}, deliveryError = false } = {}) {
