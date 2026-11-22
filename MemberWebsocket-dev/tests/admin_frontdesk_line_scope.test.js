@@ -28,8 +28,8 @@ test('AC-ADM-FD-001: admin paired suppression is audit-proven, tenant-scoped and
 });
 
 test('AC-ADM-FD-002: admin history is single-booking only; staff-wide history stays actor-bound, paired audits match',()=>{
- assert.match(migration,/actor_role='admin'' and \$3::uuid is not null/);
- assert.match(migration,/actor_role='frontdesk'' and actor_line_user_id=\$2/);
+ assert.match(migration,/actor_role=''admin'' and \$3::uuid is not null/);
+ assert.match(migration,/actor_role=''frontdesk'' and actor_line_user_id=\$2/);
  assert.match(migration,/and \(\$3::uuid/);
  assert.match(migration,/paired\.actor_role=e\.actor_role/);
  assert.match(migration,/b\.rejected_by=e\.actor_line_user_id/);
