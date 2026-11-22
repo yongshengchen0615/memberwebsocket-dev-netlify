@@ -132,6 +132,7 @@ async function pushLine(supabase: SupabaseClient, actor: string, lineUserId: str
       method:"POST",
       headers:{ "Authorization":"Bearer " + token,"Content-Type":"application/json","X-Line-Retry-Key":crypto.randomUUID() },
       body:JSON.stringify({ to:lineUserId,messages:[flexMessage] }),
+      signal:AbortSignal.timeout(10000),
     });
   } catch {
     await auditLine(supabase,actor,lineUserId,requestId,"failed",{ reason:"network_error" });
@@ -211,11 +212,15 @@ async function handleGrant(supabase: SupabaseClient, identity: { lineUserId:stri
   if (grant.error) throw mapError(grant.error);
   const grantResult:any = grant.data && typeof grant.data === "object" ? grant.data : {};
 
-  const service = await supabase.rpc("member_service_minute_totals",{p_member_ids:[member.id]});
+  // Independent post-grant reads may overlap: the LINE message still waits for
+  // both committed values, but need not pay two sequential network round trips.
+  const [service,tiers] = await Promise.all([
+    supabase.rpc("member_service_minute_totals",{p_member_ids:[member.id]}),
+    supabase.from("membership_tier_settings").select("*").order("required_service_minutes",{ ascending:true }),
+  ]);
   if (service.error) throw mapError(service.error);
-  const totalMinutes = Number(service.data?.[0]?.total_minutes || 0);
-  const tiers = await supabase.from("membership_tier_settings").select("*").order("required_service_minutes",{ ascending:true });
   if (tiers.error) throw mapError(tiers.error);
+  const totalMinutes = Number(service.data?.[0]?.total_minutes || 0);
   const tier:any = resolveTier(tiers.data || [],totalMinutes);
 
   let notification: Json = { status:"skipped",message:"已依設定不傳送 LINE 訊息。" };

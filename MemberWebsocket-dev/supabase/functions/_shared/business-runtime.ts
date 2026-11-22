@@ -5,7 +5,7 @@ import { resolvePlatformEncryptionKey } from './platform-key.mjs';
 import { tenantExpired, assertTenantIdentity } from './tenant-access.mjs';
 import { verifyMerchantAdminIdToken, createDeploymentLineVerifiers } from './platform-auth.mjs';
 import { merchantOnboarding, featureLineReady } from './merchant-onboarding.mjs';
-import { wakeBookingNotifications } from './booking-notification-wake.mjs';
+import { scheduleBookingNotificationWake } from './booking-notification-wake.mjs';
 import { notificationToken } from './notification-routes.mjs';
 import { readRequestBytes } from './request-ingress.mjs';
 import { serverFailureTrace } from './server-errors.mjs';
@@ -303,7 +303,11 @@ export function businessHandler(name:string,handler:(request:Request)=>Response|
    },createClient(rawEnv('SUPABASE_URL'),rawEnv('SUPABASE_SERVICE_ROLE_KEY'))));
    await credentials(c,requestModule(name,body,c),sessionSurface.test(action));
    const response=await scope.run(c,()=>handler(request));
-   await wakeBookingNotifications({name,context:c,body,response,dispatch:(id:string)=>control().rpc('platform_dispatch_booking',{p_tenant_id:id})});
+   const edgeRuntime=(globalThis as {EdgeRuntime?:{waitUntil:(task:Promise<unknown>)=>void}}).EdgeRuntime;
+   await scheduleBookingNotificationWake(
+    {name,context:c,body,response,dispatch:(id:string)=>control().rpc('platform_dispatch_booking',{p_tenant_id:id})},
+    edgeRuntime ? (task:Promise<unknown>)=>edgeRuntime.waitUntil(task) : undefined,
+   );
    if((['admin.bootstrap','admin.member-records.list','user.booking.benefits'].includes(action)||action.startsWith('admin.booking.'))&&response.ok){
     const payload=await response.clone().json();if(payload.ok&&payload.data){payload.data=businessResponse(payload.data,c,action);return new Response(JSON.stringify(payload),{status:response.status,headers:response.headers});}
    }

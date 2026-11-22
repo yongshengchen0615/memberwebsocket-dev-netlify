@@ -1,4 +1,5 @@
 import { businessContext, memberSystemFooter } from '../_shared/business-scope.ts';
+import { processNotificationBatches } from '../_shared/notification-batches.mjs';
 import { withBusinessModule, businessEnv, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';
 import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 import { buildLineFlexNotice } from "../_shared/line-flex.ts";
@@ -182,7 +183,7 @@ serveBusiness('scheduled-grant-messages',async (request: Request) => {
   let sent = 0;
   let failed = 0;
 
-  for (const row of rows) {
+  await processNotificationBatches(rows, 4, async (row) => {
     try {
       if (await isTestMember(supabase,row)) {
         await supabase.from("scheduled_grant_messages").update({
@@ -191,7 +192,7 @@ serveBusiness('scheduled-grant-messages',async (request: Request) => {
           updated_at:new Date().toISOString(),
         }).eq("id",row.id).eq("status","sending");
         await writeAudit(supabase,row,"success",{ reason:"test_account_line_disabled",skipped:true });
-        continue;
+        return;
       }
     } catch (error) {
       await supabase.from("scheduled_grant_messages").update({
@@ -201,16 +202,16 @@ serveBusiness('scheduled-grant-messages',async (request: Request) => {
         updated_at:new Date().toISOString(),
       }).eq("id",row.id).eq("status","sending");
       failed += 1;
-      continue;
+      return;
     }
 
     const module = isFixedTicketNotification(row) ? "events" : businessContext()?.features?.membership === false ? "points" : "membership";
     if (businessContext()?.module_line?.[module]?.notifications?.member?.mode === 'disabled') {
       const suppressed=await supabase.from('scheduled_grant_messages').update({status:'cancelled',last_error:'NOTIFICATIONS_DISABLED',updated_at:new Date().toISOString()})
         .eq('id',row.id).eq('status','sending');
-      if(suppressed.error){failed++;continue;}
+      if(suppressed.error){failed++;return;}
       await writeAudit(supabase,row,'success',{reason:'notifications_disabled',skipped:true});
-      continue;
+      return;
     }
     const token = await withBusinessModule(module, () => lineToken(supabase)).catch(() => "") || (businessContext() ? "" : legacyToken);
     if (!token) {
@@ -224,7 +225,7 @@ serveBusiness('scheduled-grant-messages',async (request: Request) => {
       }).eq("id",row.id).eq("status","sending");
       await writeAudit(supabase,row,"failed",{ reason:"token_missing",terminal,attemptCount:attempts });
       failed += 1;
-      continue;
+      return;
     }
 
     const result = await withBusinessModule(module, () => dispatchOne(supabase,token,row,eventLiffUrl));
@@ -234,7 +235,7 @@ serveBusiness('scheduled-grant-messages',async (request: Request) => {
         ...(result.scheduledFor ? {scheduled_for:result.scheduledFor} : {}),updated_at:new Date().toISOString(),
       }).eq("id",row.id).eq("status","sending");
       await writeAudit(supabase,row,"success",{ skipped:true,reason:result.error });
-      continue;
+      return;
     }
     if (result.sent) {
       await supabase.from("scheduled_grant_messages").update({
@@ -253,7 +254,7 @@ serveBusiness('scheduled-grant-messages',async (request: Request) => {
       await writeAudit(supabase,row,"failed",{ reason:result.error,lineRequestId:result.lineRequestId,terminal,attemptCount:attempts,dynamicSectionsRefreshed:false });
       failed += 1;
     }
-  }
+  });
 
   return new Response(JSON.stringify({ ok:true,claimed:rows.length,sent,failed }),{ status:200,headers:{ "Content-Type":"application/json","Cache-Control":"no-store" } });
 });

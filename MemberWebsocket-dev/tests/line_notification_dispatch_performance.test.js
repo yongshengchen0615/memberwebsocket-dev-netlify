@@ -31,7 +31,7 @@ test('AC-LINE-001: committed booking response does not await the outbox wake RPC
   );
   assert.equal(completed, true, 'background registration must return without waiting for dispatch');
   assert.ok(tracked instanceof Promise, 'registered task must remain tracked until settled');
-  assert.deepEqual(tenants, [], 'dispatch may start on a later microtask');
+  assert.deepEqual(tenants, ['trusted-tenant'], 'trusted outbox wake starts immediately');
   unblock({ data: true, error: null });
   assert.equal(await tracked, true);
   assert.deepEqual(tenants, ['trusted-tenant'], 'never forward caller-supplied recipients');
@@ -110,7 +110,7 @@ test('AC-LINE-006: scheduled grants use bounded delivery without changing recipi
   const source = fs.readFileSync(path.join(__dirname, '../supabase/functions/scheduled-grant-messages/index.ts'), 'utf8');
   assert.match(source, /processNotificationBatches\(rows,\s*4,\s*async\s*\(row\)/);
   assert.match(source, /withBusinessModule\(module,\s*\(\)\s*=>\s*dispatchOne\(supabase,token,row,eventLiffUrl\)\)/);
-  assert.match(source, /'X-Line-Retry-Key':String\(row\.id\)/);
+  assert.match(source, /["']X-Line-Retry-Key["']:\s*String\(row\.id\)/);
   assert.match(source, /fixed_ticket_notification_delivery/);
   assert.match(source, /isTestMember\(supabase,row\)/);
 });
