@@ -114,3 +114,23 @@ test('AC-LINE-006: scheduled grants use bounded delivery without changing recipi
   assert.match(source, /fixed_ticket_notification_delivery/);
   assert.match(source, /isTestMember\(supabase,row\)/);
 });
+
+test('AC-LINE-007: parallel LINE processing remains ordered for the same recipient', async () => {
+  const [, { processNotificationBatches }] = await helpers;
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const seen = [];
+  const rows = [
+    { id: 1, recipient: 'member-A' },
+    { id: 2, recipient: 'member-A' },
+    { id: 3, recipient: 'member-B' },
+  ];
+  const task = processNotificationBatches(rows, 3, async row => {
+    seen.push(row.id);
+    if (row.id === 1) await gate;
+  }, row => row.recipient);
+  assert.deepEqual(seen, [1, 3], 'second A message must not overtake the first');
+  release();
+  await task;
+  assert.deepEqual(seen, [1, 3, 2]);
+});

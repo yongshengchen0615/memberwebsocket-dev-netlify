@@ -254,7 +254,7 @@ serveBusiness('scheduled-grant-messages',async (request: Request) => {
       await writeAudit(supabase,row,"failed",{ reason:result.error,lineRequestId:result.lineRequestId,terminal,attemptCount:attempts,dynamicSectionsRefreshed:false });
       failed += 1;
     }
-  });
+  }, (row) => String(row.line_user_id || ''));
 
   return new Response(JSON.stringify({ ok:true,claimed:rows.length,sent,failed }),{ status:200,headers:{ "Content-Type":"application/json","Cache-Control":"no-store" } });
 });
