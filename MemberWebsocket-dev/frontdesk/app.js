@@ -208,8 +208,10 @@
   const panel=document.getElementById('frontdeskConflictHistory'),items=panel?.querySelector('[data-frontdesk-history-items]');
   if(!items)return;
   items.replaceChildren();
-  if(!records.length){items.append(node('p','目前沒有你處理的衝突預約紀錄。'));return;}
-  for(const record of records){
+  // A LINE booking deep link is single-order context, never a staff-wide history view.
+  const visible=bookingId?records.filter(record=>String(record?.booking?.id||'').toLowerCase()===bookingId.toLowerCase()):records;
+  if(!visible.length){items.append(node('p',bookingId?'這筆預約尚無衝突處理紀錄。':'目前沒有你處理的衝突預約紀錄。'));return;}
+  for(const record of visible){
    const original=record.booking,replacement=record.phoneBooking;
    const card=node('article');card.className='frontdesk-history-pair';
    card.append(node('h3','衝突預約處理紀錄'),node('p','處理時間：'+(record.actionAt?new Date(record.actionAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false}):'—')));
@@ -245,10 +247,10 @@
   panel.querySelector('[data-frontdesk-history-items]')?.replaceChildren();
   if(message)message.textContent='正在取得衝突預約處理紀錄…';
   try{
-   const result=await request('frontdesk.history');
+   const result=await request('frontdesk.history',bookingId?{bookingId}:{});
    if(generation!==historyEpoch||panel.hidden)return;
    renderConflictHistory(Array.isArray(result.items)?result.items:[]);
-   if(message)message.textContent='最近的衝突預約紀錄（預約資料為目前狀態）。';
+   if(message)message.textContent=bookingId?'僅顯示本筆預約的衝突處理資料（預約資料為目前狀態）。':'最近的衝突預約紀錄（預約資料為目前狀態）。';
   }catch(error){if(generation!==historyEpoch)return;if(error.denied){failure(error);return;}if(message)message.textContent=error.message||'無法載入衝突預約紀錄。';}
  }
  document.getElementById('frontdeskHistoryRefresh')?.addEventListener('click',()=>void loadConflictHistory());
@@ -454,6 +456,7 @@
    if(!business)throw Error('請使用商家提供的完整櫃檯入口。');
    const r=await fetch('/config/config.json',{cache:'no-store'});if(!r.ok)throw Error('無法取得本環境設定。');config=await r.json();
    const data=await request('frontdesk.public');frontdeskPolicy=data.frontdesk||{};const title=String(frontdeskPolicy.pageTitle||'').trim()||data.name+'｜櫃檯';document.getElementById('businessName').textContent=title;document.title=title+'｜櫃檯工作台';
+   if(bookingId){document.getElementById('frontdeskHistoryHeading').textContent='本筆預約處理紀錄';const historyMessage=document.querySelector('[data-frontdesk-history-status]');if(historyMessage)historyMessage.textContent='僅顯示這筆預約的原預約資料及對應的現場預約資料。';}
    if(!data.frontdesk?.enabled||!data.frontdesk.liffId)throw Error('商家尚未啟用櫃檯入口，請聯絡管理員完成 LINE 設定後再申請。');
    idToken=await authenticateLineOnOpen(data.frontdesk.liffId);
    if(!idToken)return;
