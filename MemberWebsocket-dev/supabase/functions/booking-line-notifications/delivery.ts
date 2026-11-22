@@ -1,6 +1,7 @@
 import { businessFetch as fetch } from '../_shared/business-scope.ts';
 import { bookingDetailUri } from "./booking-actions.ts";
 import { groupReminderNoticeFields, reminderNoticeCard } from "./reminder-notice.mjs";
+import { buildMemberPendingCards } from "./member-pending-cards.mjs";
 export type BookingBenefits = {
   pointTickets: string[];
   eventTickets: string[];
@@ -619,7 +620,11 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
   const services = parsed.participants.length ? null : servicesCard(parsed.services, style.color);
   const rejection = job.channel === 'admin' && parsed.title === '櫃檯拒絕預約'
     ? frontdeskRejectionCards(visibleText) : null;
-  if (rejection) {
+  if (memberPending) {
+    // Pending member requests have a dedicated complete booking-data block.
+    // Merchant text and the pending status remain in their own sections.
+    bodyContents.push(...buildMemberPendingCards(parsed, style.color));
+  } else if (rejection) {
     bodyContents.push(...rejection);
   } else if (job.channel === 'frontdesk') {
     bodyContents.push(...frontdeskCards(parsed));
@@ -636,7 +641,7 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
   if (job.channel === 'frontdesk' && job.frontdeskCanReview === true && /^https:\/\/liff\.line\.me\/\d{5,30}-[A-Za-z0-9_-]+\?/.test(job.frontdeskUri || '')) {
     footerActions.push({type:'button',height:'sm',style:'primary',action:{type:'uri',label:'查看／處理預約',uri:job.frontdeskUri}});
   }
-  if (memberConfirmation || memberCustomNotice) {
+  if (!memberPending && (memberConfirmation || memberCustomNotice)) {
     // Confirmation, reminders and pending notices share the member-facing participant layout.
     bodyContents.length = 0;
     if (schedule) bodyContents.push(schedule);
