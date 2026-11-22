@@ -4132,8 +4132,6 @@
       'bookingAdminAdvanceDays',
       'bookingAdminMaxAdvanceDays',
       'bookingAdminStoreServiceMinutes',
-      'bookingAdminReminderEnabled',
-      'bookingAdminReminderTime',
       'bookingAdminNotice',
       'bookingAdminSettingsMessage',
       'bookingAdminSaveSettingsButton'
@@ -4190,8 +4188,8 @@
       minAdvanceDays: Number(controls.bookingAdminAdvanceDays.value),
       maxAdvanceDays: Number(controls.bookingAdminMaxAdvanceDays.value),
       storeServiceMinutes: Number(controls.bookingAdminStoreServiceMinutes.value),
-      reminderEnabled: controls.bookingAdminReminderEnabled.checked === true,
-      reminderTime: String(controls.bookingAdminReminderTime.value || ''),
+      reminderEnabled: before?.settings?.reminderEnabled === true,
+      reminderTime: String(before?.settings?.reminderTime || ''),
       bookingNotice: String(controls.bookingAdminNotice.value || ''),
       updatedAt: String(before?.settings?.updatedAt || '')
     };
@@ -4225,8 +4223,7 @@
       setField('bookingAdminAdvanceDays', String(settings.minAdvanceDays));
       setField('bookingAdminMaxAdvanceDays', String(settings.maxAdvanceDays));
       setField('bookingAdminStoreServiceMinutes', String(settings.storeServiceMinutes));
-      controls.bookingAdminReminderEnabled.checked = settings.reminderEnabled === true;
-      setField('bookingAdminReminderTime', settings.reminderTime);
+      // Member-specific reminder choices must not be overwritten by admin settings.
       // Booking notice now belongs to the unified message editor, not shared settings.
     };
     const addIsoDays = (dateText, days) => {
@@ -4273,8 +4270,6 @@
     const mutatedStoreMinutes = snapshot.storeServiceMinutes <= 705
       ? snapshot.storeServiceMinutes + 15
       : Math.max(1, snapshot.storeServiceMinutes - 15);
-    const reminderCandidates = ['17:30', '19:15', '08:45'];
-    const mutatedReminderTime = reminderCandidates.find((value) => value !== snapshot.reminderTime) || '18:30';
     const qaMarker = '[QA E2E SHARED ' + qaCrudStamp() + ']';
     const retainedBaseNotice = String(snapshot.bookingNotice || '')
       .replace(/^(?:\[QA E2E SHARED [^\]]+\]\s*)+/g, '')
@@ -4287,8 +4282,8 @@
       minAdvanceDays: mutatedMin,
       maxAdvanceDays: mutatedMax,
       storeServiceMinutes: mutatedStoreMinutes,
-      reminderEnabled: !snapshot.reminderEnabled,
-      reminderTime: mutatedReminderTime,
+      reminderEnabled: snapshot.reminderEnabled,
+      reminderTime: snapshot.reminderTime,
       bookingNotice: (qaMarker + noticeSuffix).slice(0, 2000)
     };
     actual.retainedSettings = safe(mutation);
@@ -4340,15 +4335,9 @@
       ));
 
       setField('bookingAdminStoreServiceMinutes', String(snapshot.storeServiceMinutes));
-      setField('bookingAdminReminderTime', '');
-      controls.bookingAdminSaveSettingsButton.click();
-      actual.invalidReminderRejected = Boolean(await waitFor(() =>
-        /有效的前一天提醒時間/.test(String(controls.bookingAdminSettingsMessage.textContent || '')),
-        2000,
-        80
-      ));
-
-      setField('bookingAdminReminderTime', snapshot.reminderTime);
+      // Reminder scheduling is selected by each member, not edited by a merchant form.
+      actual.invalidReminderRejected = !document.getElementById('bookingAdminReminderEnabled') &&
+        !document.getElementById('bookingAdminReminderTime');
       document.getElementById('bookingAdminMessagesSubtab')?.click();
       setField('bookingAdminNotice', 'X'.repeat(2001));
       document.getElementById('bookingAdminMessagesSave')?.click();
