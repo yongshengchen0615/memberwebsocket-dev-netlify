@@ -456,7 +456,7 @@
    if(!business)throw Error('請使用商家提供的完整櫃檯入口。');
    const r=await fetch('/config/config.json',{cache:'no-store'});if(!r.ok)throw Error('無法取得本環境設定。');config=await r.json();
    const data=await request('frontdesk.public');frontdeskPolicy=data.frontdesk||{};const title=String(frontdeskPolicy.pageTitle||'').trim()||data.name+'｜櫃檯';document.getElementById('businessName').textContent=title;document.title=title+'｜櫃檯工作台';
-   if(bookingId){document.getElementById('frontdeskHistoryHeading').textContent='本筆預約處理紀錄';const historyMessage=document.querySelector('[data-frontdesk-history-status]');if(historyMessage)historyMessage.textContent='僅顯示這筆預約的原預約資料及對應的現場預約資料。';}
+   if(bookingId){const heading=document.getElementById('frontdeskHistoryHeading');if(heading)heading.textContent='本筆預約處理紀錄';const historyMessage=document.querySelector('[data-frontdesk-history-status]');if(historyMessage)historyMessage.textContent='僅顯示這筆預約的原預約資料及對應的現場預約資料。';}
    if(!data.frontdesk?.enabled||!data.frontdesk.liffId)throw Error('商家尚未啟用櫃檯入口，請聯絡管理員完成 LINE 設定後再申請。');
    idToken=await authenticateLineOnOpen(data.frontdesk.liffId);
    if(!idToken)return;
