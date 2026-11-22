@@ -23,14 +23,15 @@ function fixture(surface = 'member') {
     location, setTimeout, clearTimeout,
     fetch: async () => new Promise(resolve => { complete = resolve; }),
   };
+  const header = {dataset:{tenantBrand:surface==='member'?'Member pass':'Booking'},textContent:'會員系統'};
   const document = { title:'會員系統｜' + pages[surface], documentElement:{},
-    querySelectorAll: () => [], addEventListener() {} };
+    querySelectorAll: selector => selector==='[data-tenant-brand]'?[header]:[], addEventListener() {} };
   vm.runInNewContext(read('business-context.js'), { window, location, document, URL, URLSearchParams, AbortController, Response });
   const config = () => ({ supabaseFunctionUrl:'https://fixture.supabase.co/functions/v1/api', supabasePublishableKey:'synthetic' });
   const finish = (business, siteTitle, name) => complete(Response.json({ok:true,data:{
     business, siteTitle, name, line:{}, features:{membership:true,points:true,events:true,calendar:true,booking:true},
   }}));
-  return { window, document, config, finish };
+  return { window, document, header, config, finish };
 }
 
 test('AC-002: title stays neutral while tenant config is pending and resolves to saved title or business name', async () => {
@@ -41,14 +42,17 @@ test('AC-002: title stays neutral while tenant config is pending and resolves to
   f.finish('shop-a', '晨光工作室', '商家登記名稱');
   await next;
   assert.equal(f.document.title, '晨光工作室｜會員卡');
+  assert.equal(f.header.textContent, '晨光工作室 / Member pass');
 
   f.window.BusinessContext.set('shop-b');
   assert.equal(f.document.title, '會員系統｜會員卡', 'a new tenant cannot inherit the previous tenant name');
+  assert.equal(f.header.textContent, '會員系統 / Member pass');
   const nextB = f.window.BusinessContext.configure(f.config());
   await Promise.resolve();
   f.finish('shop-b', null, '新商家');
   await nextB;
   assert.equal(f.document.title, '新商家｜會員卡');
+  assert.equal(f.header.textContent, '新商家 / Member pass');
 });
 
 test('AC-003: merchant failed startup never leaks another tenant title', async () => {
