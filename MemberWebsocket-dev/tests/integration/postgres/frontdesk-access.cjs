@@ -46,7 +46,8 @@ test('PostgreSQL frontdesk LINE history: scoped booking is found beyond 30 entri
    '20261118190000_frontdesk_safeupdate_projection.sql',
    '20261119150000_frontdesk_independent_feature_grant.sql',
    '20261121224500_frontdesk_conflict_history_policy.sql',
-   '20261122133000_frontdesk_history_booking_scope.sql'
+   '20261122133000_frontdesk_history_booking_scope.sql',
+   '20261122150000_frontdesk_overlap_guard.sql'
   ])await h.db.exec(fs.readFileSync(path.resolve(__dirname,'../../../supabase/migrations',name),'utf8'));
   await h.db.query("update platform_private.tenants set features=features||jsonb_build_object('frontdesk',true) where id=$1",[t.id]);
   const conn=await h.db.connect();await conn.query('set role service_role');
