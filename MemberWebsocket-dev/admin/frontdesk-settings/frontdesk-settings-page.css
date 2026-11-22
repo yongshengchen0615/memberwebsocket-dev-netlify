@@ -263,7 +263,8 @@ html[data-frontdesk-page] .frontdesk-config-form > .frontdesk-primary {
   width: min(100%, 440px);
   justify-self: end;
 }
-html[data-frontdesk-page] .frontdesk-config-form {\n  display: grid;
+html[data-frontdesk-page] .frontdesk-config-form {
+  display: grid;
   min-width: 0;
   gap: 16px;
   margin: 0;
