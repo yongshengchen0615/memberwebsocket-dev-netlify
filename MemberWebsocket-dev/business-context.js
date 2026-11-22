@@ -65,15 +65,22 @@
   if(changed&&memberSurface&&typeof window.dispatchEvent==='function')window.dispatchEvent(new CustomEvent('business:features-changed',{detail:{features:{...next}}}));
  }
  const pageLabel=()=>({member:'會員卡',points:'集點卡',event:'活動票券',calendar:'活動日曆',booking:'預約'})[location.pathname.split('/')[1]];
+ function applyPageBrand(brand){
+  for(const node of document.querySelectorAll?.('[data-tenant-brand]')||[]){
+   const suffix=node.dataset?.tenantBrand;
+   if(suffix)node.textContent=brand+' / '+suffix;
+  }
+ }
  function resetPageTitle(){
   const page=pageLabel();
-  if(page)document.title='會員系統｜'+page;
+  if(page){document.title='會員系統｜'+page;applyPageBrand('會員系統');}
  }
  function updatePageTitle(config){
   const page=pageLabel();
   if(!page)return;
   const brand=String(config.brandName||'會員系統').trim().slice(0,60)||'會員系統';
   document.title=brand+'｜'+page;
+  applyPageBrand(brand);
  }
  function readPublic(config,refresh){
   const requestedSlug=slug,generation=businessGeneration;
