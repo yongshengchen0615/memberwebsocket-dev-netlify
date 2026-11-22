@@ -21,7 +21,7 @@
     const appearance=host.querySelector('.platform-appearance.account-menu');
     if(themeToggle&&appearance)appearance.appendChild(themeToggle);
     const heading=host.querySelector('header.topbar h1');
-    if(heading)heading.textContent='管理端｜Lumen Club';
+    if(heading)heading.textContent='管理端｜會員系統';
     const subtitle=host.querySelector('header.topbar p:last-child');
     if(subtitle)subtitle.textContent='管理功能與 LINE 設定各自獨立；僅已核准的功能可設定 LINE。';
     const nav=host.querySelector('#merchantFeatureNav');
