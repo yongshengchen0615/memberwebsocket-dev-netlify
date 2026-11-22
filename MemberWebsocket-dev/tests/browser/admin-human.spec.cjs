@@ -521,7 +521,7 @@ test('BOOKING_REJECTION_WALKIN_GUARD — explicit reason, overlap warning, durat
     status:'rejected',rejectionReason:'unrecorded_phone_booking',
     startTime:'10:10',totalDurationMinutes:20,adminNote:'現場臨時預約'
   });
-  expect(payload.requestId).toMatch(/^[0-9a-f]{8}-[0-9a-f-]{27,}$/);
+  expect(/^[0-9a-f]{8}-[0-9a-f-]{27,}$/.test(payload.requestId)).toBe(true);
   expect(info.fixture.bookings).toHaveLength(2);
   expect(info.fixture.bookings.find(b=>b.bookingId==='booking-1').status).toBe('rejected');
   const paired=info.fixture.bookings.find(b=>b.walkinRequestId===payload.requestId);
