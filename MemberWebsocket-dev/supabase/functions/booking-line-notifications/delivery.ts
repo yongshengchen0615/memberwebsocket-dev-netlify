@@ -96,7 +96,7 @@ function parseBookingMessage(message: string): ParsedBookingMessage {
   const lastReasonAt = title === '預約未通過'
     ? lines.findLastIndex((line) => /^拒絕原因：/.test(line)) : -1;
   const rejectionNotice = lastReasonAt >= index
-    ? truncate(lines.slice(lastReasonAt + 1).filter(Boolean).join('\n'), 500) : '';
+    ? truncate(lines.slice(lastReasonAt + 1).join('\n'), 500) : '';
   const parseEnd = rejectionNotice ? lastReasonAt + 1 : lines.length;
 
   const fields: Array<{ label: string; value: string }> = [];
