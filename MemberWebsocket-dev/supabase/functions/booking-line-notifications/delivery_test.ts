@@ -288,7 +288,7 @@ Deno.test('AC-MLN-001: admin-configured multiline pending notice stays one parag
 });
 
 Deno.test('AC-MLN-002: multiline rejection template renders as prose, never separate field headings', () => {
-  const paragraphs = ['很抱歉，本次預約未通過。', '請注意：請重新選擇預約時間。', '感謝您的理解與配合。'];
+  const paragraphs = ['很抱歉，本次預約未通過。', '', '請注意：請重新選擇預約時間。', '感謝您的理解與配合。'];
   const card = buildBookingFlexMessage({
     ...sampleJob, channel: 'member',
     message_text: [
