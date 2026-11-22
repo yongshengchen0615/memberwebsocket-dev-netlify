@@ -85,7 +85,8 @@ test('AC-BLK-004: only member pending messages use new card; no LINE identity le
   assert.match(delivery, /const memberPending = job\.channel === 'member' && parsed\.title === '預約申請'/);
   assert.match(delivery, /if \(memberPending\) \{[\s\S]*?buildMemberPendingCards\(parsed, style\.color\)/);
   assert.match(delivery, /else if \(job\.channel === 'frontdesk'\)/);
-  assert.match(delivery, /if \(memberConfirmation \|\| memberReminder\)/);
+  assert.match(delivery, /participantsCard\(parsed\.participants, style\.color, memberConfirmation \|\| memberReminder\)/);
+  assert.match(delivery, /if \(!memberPending && \(memberConfirmation \|\| memberCustomNotice\)\)/);
   assert.match(delivery, /原預約編號/);
   const { buildMemberPendingCards } = await import(url);
   const cards = buildMemberPendingCards({ fields: [
