@@ -1180,7 +1180,7 @@ async function adminRejectWalkin(supabase: SupabaseClient, identity: Identity, b
   const bookingId = requireUuid(body.bookingId,"預約");
   const requestId = requireUuid(body.requestId,"操作");
   const expectedUpdatedAt = asText(body.expectedUpdatedAt,80);
-  const startTime = asText(body.startTime,5);
+  const startTime = String(body.startTime ?? "").trim();
   const duration = Number(body.totalDurationMinutes);
   const note = asText(body.adminNote,500);
   if (!expectedUpdatedAt || !Number.isFinite(Date.parse(expectedUpdatedAt))) {
