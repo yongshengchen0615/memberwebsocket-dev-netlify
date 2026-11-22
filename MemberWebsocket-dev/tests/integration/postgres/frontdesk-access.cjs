@@ -24,11 +24,11 @@ test('PostgreSQL frontdesk: two physical writers, revoke ordering, idempotency, 
   const make=async()=>{const id=(await h.db.query(`select (${s}.create_group_booking_request_v2($1,$2,current_date+3,'10:00',$3,'')).id id`,['FD-'+crypto.randomUUID(),member,[{technicianId:null,items:[{serviceId:service,quantity:1}]}]])).rows[0].id;return(await h.db.query(`select * from ${s}.bookings where id=$1`,[id])).rows[0];};
   const b=await make(),body={bookingId:b.id,expectedUpdatedAt:b.updated_at,status:'confirmed',requestId:crypto.randomUUID()};
   await first.query('begin');await first.query(query,actorArgs('booking.update',body));
-  const competing=second.query(query,actorArgs('booking.update',{...body,status:'rejected',requestId:crypto.randomUUID()}));competing.catch(()=>{});await blocked();await first.query('commit');await assert.rejects(competing,/BOOKING_CONFLICT/);
+  const competing=second.query(query,actorArgs('booking.update',{...body,status:'rejected',rejectionReason:'technician_leave',requestId:crypto.randomUUID()}));competing.catch(()=>{});await blocked();await first.query('commit');await assert.rejects(competing,/BOOKING_CONFLICT/);
   assert.equal((await h.db.query(`select status from ${s}.bookings where id=$1`,[b.id])).rows[0].status,'confirmed');
   assert.equal((await h.db.query(`select count(*)::int n from ${s}.booking_audit_events where target_id=$1 and actor_role='frontdesk'`,[b.id])).rows[0].n,1);
   const replay=(await second.query(query,actorArgs('booking.update',body))).rows[0].result;assert.equal(replay.alreadyApplied,true);
-  const next=await make(),nextBody={bookingId:next.id,expectedUpdatedAt:next.updated_at,status:'rejected',requestId:crypto.randomUUID()};
+  const next=await make(),nextBody={bookingId:next.id,expectedUpdatedAt:next.updated_at,status:'rejected',rejectionReason:'technician_leave',requestId:crypto.randomUUID()};
   // Synthetic audit rows exercise history filtering before the 30-entry limit.
   // No production booking or member data is touched.
   const audit=`insert into ${s}.booking_audit_events(actor_line_user_id,actor_role,action,target_type,target_id,result,metadata)
