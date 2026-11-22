@@ -85,5 +85,5 @@ test('AC-BLK-004: only member pending messages use new card; no LINE identity le
   assert.match(delivery, /if \(memberPending\) \{[\s\S]*?buildMemberPendingCards\(parsed, style\.color\)/);
   assert.match(delivery, /else if \(job\.channel === 'frontdesk'\)/);
   assert.match(delivery, /if \(memberConfirmation \|\| memberReminder\)/);
-  assert.match(delivery, /(?:預約編號\|原預約編號\|新增預約編號\|訂單編號)/);
+  assert.match(delivery, /原預約編號/);
 });
