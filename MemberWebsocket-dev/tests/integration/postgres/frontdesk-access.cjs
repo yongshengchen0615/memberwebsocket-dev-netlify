@@ -42,6 +42,7 @@ test('PostgreSQL frontdesk LINE history: scoped booking is found beyond 30 entri
   for(const name of [
    '20261026050904_line_webhook.sql',
    '20261118122150_frontdesk_booking_access.sql',
+   '20261109115000_booking_participant_individual_notes.sql',
    '20261118190000_frontdesk_safeupdate_projection.sql',
    '20261119150000_frontdesk_independent_feature_grant.sql',
    '20261121224500_frontdesk_conflict_history_policy.sql',
