@@ -688,3 +688,44 @@ test('FRONTDESK_POLICY_SETTINGS — merchant saves only independent title, confl
  expect(Object.hasOwn(writes[0].body,'channelAccessToken')).toBe(false);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+
+test('FRONTDESK_ADMIN_REJECTION_LINE_DEEPLINK — automatic scoped before/after display with no other booking',async({page})=>{
+ const bookingId='10000000-0000-4000-8000-000000000022',seen=[];
+ await page.route('https://static.line-scdn.net/**',route=>route.fulfill({
+  contentType:'text/javascript',
+  body:'window.liff={init:async()=>{},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=>"verified-staff",login:()=>{},logout:()=>{}};'
+ }));
+ await page.route('https://fixture.supabase.co/**',async route=>{
+  const body=route.request().postDataJSON();seen.push(body);let data;
+  if(body.action==='frontdesk.public')data={name:'QA商家',frontdesk:{enabled:true,liffId:'2010999999-desk'}};
+  else if(body.action==='frontdesk.bootstrap')data={staff:{status:'approved',permissionMode:'review'}};
+  else if(body.action==='frontdesk.bookings')data={bookings:[]};
+  else if(body.action==='frontdesk.sync.status')data={revision:'1'};
+  else if(body.action==='frontdesk.history')data={items:[
+   {actorRole:'admin',actionAt:'2026-11-22T09:00:00Z',
+    booking:{id:bookingId,status:'rejected',bookingDate:'2026-12-12',startTime:'09:00',endTime:'10:10',totalDurationMinutes:70,name:'甲先生',phone:'0900111222'},
+    phoneBooking:{id:'10000000-0000-4000-8000-000000000024',status:'confirmed',bookingDate:'2026-12-12',startTime:'10:10',endTime:'11:40',totalDurationMinutes:90}},
+   {actorRole:'admin',actionAt:'2026-11-22T09:01:00Z',
+    booking:{id:'10000000-0000-4000-8000-000000000023',status:'rejected',name:'不相關會員',phone:'0900999888'},
+    phoneBooking:{id:'10000000-0000-4000-8000-000000000025',status:'confirmed',totalDurationMinutes:30}}
+  ]};
+  else throw Error('Unexpected action: '+body.action);
+  await route.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,data})});
+ });
+ await page.goto(base+'/frontdesk/?business=shop-a&bookingId='+bookingId);
+ const section=page.locator('#frontdeskConflictHistory');
+ await expect(section).toBeVisible();
+ await expect(section.locator('.frontdesk-history-pair')).toHaveCount(1);
+ await expect(section).toContainText('管理端拒絕預約');
+ await expect(section).toContainText('原預約資料');
+ await expect(section).toContainText('管理端修改後的預約資料');
+ await expect(section).toContainText('預約來源：管理端');
+ await expect(section).toContainText('預約時間：09:00 – 10:10');
+ await expect(section).toContainText('預約時間：10:10 – 11:40');
+ await expect(section).toContainText('總時長：90 分鐘');
+ await expect(section).toContainText('0900111222');
+ await expect(section).not.toContainText('不相關會員');
+ await expect(section).not.toContainText('0900999888');
+ expect(seen.filter(x=>x.action==='frontdesk.history')).toHaveLength(1);
+ expect(seen.find(x=>x.action==='frontdesk.history').bookingId).toBe(bookingId);
+});
