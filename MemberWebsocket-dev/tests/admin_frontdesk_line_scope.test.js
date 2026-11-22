@@ -40,3 +40,19 @@ test('AC-ADM-FD-002: admin history is single-booking only; staff-wide history st
  assert.match(frontend,/historyLoaded=false;clearPrivateHistory\(\)/);
 });
 
+test('AC-ADM-FD-007: admin-paired notification uses trusted paired audit time, not transaction-stable booking creation clock',()=>{
+ const repaired=read('supabase/migrations/20261122190000_admin_walkin_notification_clock_fix.sql');
+ assert.match(repaired,/create or replace function platform_private\.admin_paired_walkin_source/);
+ assert.match(repaired,/rejected\.actor_line_user_id=original\.rejected_by/);
+ assert.match(repaired,/replacement\.actor_line_user_id=rejected\.actor_line_user_id/);
+ assert.match(repaired,/replacement\.created_at=rejected\.created_at/);
+ assert.match(repaired,/original\.rejected_at=rejected\.created_at/);
+ assert.match(repaired,/original\.booking_date=\$3/);
+ assert.match(repaired,/original\.rejection_reason='unrecorded_phone_booking'/);
+ assert.doesNotMatch(repaired,/original\.rejected_at<=\$4/,'now() booking creation time must not be used for clock_timestamp() audit pairing');
+ assert.doesNotMatch(repaired, /p_booking->>'created_at'/,'created_at from a booking may predate its rejection audit within the same transaction');
+ assert.match(repaired,/o\.event_key=b\.id::text\|\|':created'/);
+ assert.match(repaired,/o\.status='pending' and o\.attempt_count=0 and o\.first_attempt_at is null/);
+ assert.match(repaired,/platform_private\.admin_paired_walkin_source\(%2\$L,to_jsonb\(b\)\)/);
+ assert.doesNotMatch(repaired,/grant execute on function platform_private\.admin_paired_walkin_source.*to (?:anon|authenticated)/is);
+});
