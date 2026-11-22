@@ -348,18 +348,31 @@
   duration.value=Array.from(duration.options).some(x=>Number(x.value)===recommendedDuration)?String(recommendedDuration):(duration.options[0]?.value||'');
   timeLabel.append(time);durationLabel.append(duration);
   const toMinutes=value=>/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test(value)?Number(value.slice(0,2))*60+Number(value.slice(3,5)):null;
-  const originalStartMin=toMinutes(originalTime),originalClockEnd=toMinutes(originalEnd);
+  // Stored startAt carries the canonical calendar day for overnight shifts.
+  // BookingDate is the merchant business day; they can differ after midnight.
+  const dayNumber=value=>{
+   if(!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(value))return null;
+   const parsed=Date.parse(value+'T00:00:00Z');
+   return Number.isFinite(parsed)?Math.floor(parsed/86400000):null;
+  };
+  const bookingDay=dayNumber(String(booking.bookingDate||'').slice(0,10));
+  const startDay=dayNumber(String(booking.startAt||'').slice(0,10));
+  const dayOffset=bookingDay!==null&&startDay!==null?Math.max(0,Math.min(1,startDay-bookingDay)):0;
+  const startClockMin=toMinutes(originalTime),originalClockEnd=toMinutes(originalEnd);
+  const originalStartMin=startClockMin===null?null:startClockMin+dayOffset*1440;
   const originalEndMin=Number.isFinite(originalDuration)&&originalDuration>0&&originalStartMin!==null
    ?originalStartMin+originalDuration
    :originalStartMin!==null&&originalClockEnd!==null
-    ?originalClockEnd+(originalClockEnd<=originalStartMin?1440:0):null;
-  // Two half-open intervals conflict only when they actually intersect.
-  // An appointment ending exactly when another starts is not a conflict.
+    ?dayOffset*1440+originalClockEnd+(originalClockEnd<=startClockMin?1440:0):null;
+  // Half-open ranges: ending at the next appointment's start does not conflict.
+  // Try both business-day and following-day clocks; the SQL router remains the
+  // authoritative validator using the configured overnight work hours.
   const hasConflict=()=>{
-   const candidateStart=toMinutes(time.value),minutes=Number(duration.value);
+   const candidateClock=toMinutes(time.value),minutes=Number(duration.value);
    return originalStartMin!==null&&originalEndMin!==null&&originalEndMin>originalStartMin
-    &&candidateStart!==null&&Number.isInteger(minutes)&&minutes>0
-    &&candidateStart<originalEndMin&&candidateStart+minutes>originalStartMin;
+    &&candidateClock!==null&&Number.isInteger(minutes)&&minutes>0
+    &&[candidateClock,candidateClock+1440].some(candidateStart=>
+      candidateStart<originalEndMin&&candidateStart+minutes>originalStartMin);
   };
   const guidance=node('p','請選擇實際發生衝突的預約時間與總時長，系統會按商家設定的範圍、每 10 分鐘提供選項，並檢查是否可以保留時段。');
   phonePanel.append(title,hint,dateLabel,guidance,timeLabel,durationLabel);
