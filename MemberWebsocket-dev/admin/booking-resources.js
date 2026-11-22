@@ -323,6 +323,7 @@
     const refreshButton = document.getElementById('bookingAdminResourceRefreshButton');
     if (refreshButton) refreshButton.disabled = true;
     state.savingSettings = true;
+    const finishPending = window.AdminBookingUX?.begin?.();
     setButtonBusy(button, true, '儲存中…');
     try {
       const result = await request('admin.booking.resources.settings.save', {
@@ -342,6 +343,7 @@
       if (error?.code === 'CONFLICT') await refresh(false);
     } finally {
       state.savingSettings = false;
+      finishPending?.();
       if (refreshButton) refreshButton.disabled = state.loading;
       setButtonBusy(button, false, '儲存預約設定');
     }
@@ -357,6 +359,7 @@
 
     const button = document.getElementById(ids.technicianSave);
     state.savingTechnician = true;
+    const finishPending = window.AdminBookingUX?.begin?.();
     setButtonBusy(button, true, '儲存中…');
     try {
       const result = await request('admin.booking.resources.technician.save', {
@@ -384,6 +387,7 @@
       if (error?.code === 'CONFLICT') await refresh(false);
     } finally {
       state.savingTechnician = false;
+      finishPending?.();
       setButtonBusy(button, false, document.getElementById(ids.technicianId)?.value ? '儲存修改' : '儲存技師');
     }
   }
@@ -486,6 +490,7 @@
     }
 
     state.disablingTechnicianId = technicianId;
+    const finishPending = window.AdminBookingUX?.begin?.();
     setButtonBusy(button, true, '停用');
     if (button) button.textContent = '停用中…';
     try {
@@ -518,6 +523,7 @@
       if (error?.code === 'CONFLICT') await refresh(false);
     } finally {
       state.disablingTechnicianId = '';
+      finishPending?.();
       renderTechnicians();
     }
   }
@@ -528,6 +534,7 @@
     if (!technicianId || !expectedUpdatedAt || state.restoringTechnicianId || state.disablingTechnicianId) return;
 
     state.restoringTechnicianId = technicianId;
+    const finishPending = window.AdminBookingUX?.begin?.();
     setButtonBusy(button, true, '恢復公開');
     if (button) button.textContent = '恢復中…';
     try {
@@ -560,6 +567,7 @@
       if (error?.code === 'CONFLICT') await refresh(false);
     } finally {
       state.restoringTechnicianId = '';
+      finishPending?.();
       renderTechnicians();
     }
   }

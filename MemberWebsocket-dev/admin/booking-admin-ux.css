@@ -1,0 +1,31 @@
+.admin-booking-pending-overlay[hidden] { display: none !important; }
+.admin-booking-pending-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(13, 22, 32, .62);
+  backdrop-filter: blur(3px);
+  color: #fff;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.8;
+}
+.admin-booking-pending-overlay::before {
+  content: '';
+  position: absolute;
+  top: calc(50% - 66px);
+  width: 34px;
+  height: 34px;
+  border: 3px solid rgba(255,255,255,.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: admin-booking-pending-spin .8s linear infinite;
+}
+@keyframes admin-booking-pending-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .admin-booking-pending-overlay::before { animation: none; border-top-color: transparent; }
+}

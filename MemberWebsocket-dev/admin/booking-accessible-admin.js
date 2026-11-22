@@ -750,7 +750,7 @@
     }
     const benefits = collectBenefits();
     if (pointBudgetExceeded()) { message('會員目前可用點數不足，請取消部分集點卡票券後再完成審核。',true); updatePointBudgetSummary(); return; }
-    lock(true); message('正在審核票券、登記服務並結算，請稍候…');
+    lock(true); const finishPending = window.AdminBookingUX?.begin?.(); message('正在審核票券、登記服務並結算，請稍候…');
     try {
       const result = await request('admin.booking.receipt.register',{
         receiptId:receipt.receiptId,expectedUpdatedAt:receipt.updatedAt,
@@ -768,18 +768,19 @@
       window.dispatchEvent(new CustomEvent('member-admin:booking-snapshot-request'));
       window.dispatchEvent(new CustomEvent('member-admin:booking-registration-completed',{detail:{bookingId:result.bookingId}}));
     } catch (error) { message(error.code === 'FEATURE_DISABLED' ? '這筆預約含有目前未開通的功能，請聯絡總管理員確認開通後再結算。' : error.code === 'API_RESPONSE_UNCERTAIN' ? '結果尚未確認。請用同一張收據重試；系統不會重複集點。' : error.message || '登記未完成。',true); }
-    finally { lock(false); if (!state.selected) { el('accessibleAdminSubmit').disabled=true; el('accessibleAdminDismiss').disabled=true; } }
+    finally { finishPending?.(); lock(false); if (!state.selected) { el('accessibleAdminSubmit').disabled=true; el('accessibleAdminDismiss').disabled=true; } }
   }
   async function dismiss() {
     if (state.busy || !state.selected || !window.confirm('退回這張收據，請會員重新拍攝？本次不會新增點數與服務時間。')) return;
     lock(true);
+    const finishPending = window.AdminBookingUX?.begin?.();
     try {
       await request('admin.booking.receipt.dismiss',{receiptId:state.selected.receiptId,expectedUpdatedAt:state.selected.updatedAt});
       state.selected=null; state.filter='all'; await refresh();
       el('accessibleAdminModal')?.classList.add('hidden'); el('accessibleAdminImage')?.removeAttribute('src');
     }
     catch(error) { message(error.message || '目前無法退回收據。',true); }
-    finally { lock(false); if (!state.selected) { el('accessibleAdminSubmit').disabled=true; el('accessibleAdminDismiss').disabled=true; } }
+    finally { finishPending?.(); lock(false); if (!state.selected) { el('accessibleAdminSubmit').disabled=true; el('accessibleAdminDismiss').disabled=true; } }
   }
   document.addEventListener('business-access-revoked',event=>{
     if(event.target.id==='accessibleAdminModal')close(true);

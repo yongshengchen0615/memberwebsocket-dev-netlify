@@ -98,7 +98,7 @@
    };
    form.addEventListener('submit',event=>{
     event.preventDefault();if(busy||conflict)return;const policy=collect();if(!validate(policy))return;
-    const message=policy.enabled?policyText(policy)+'\n啟用後才開始計次，不追溯歷史爽約；既有限制保留原期限，尚未到期者會恢復執行。\n只影響新的線上預約；不取消既有預約，也不影響登入、點數與票券。\n確認儲存此政策？':p.enabled?'停用後限制暫停執行，紀錄不刪除；再次啟用時，尚未到期的既有限制依原期限恢復。\n確認停用政策？':null;
+    const message=policy.enabled?policyText(policy)+'\n啟用後才開始計次，不追溯歷史爽約；既有限制保留原期限，尚未到期者會恢復執行。\n只影響新的線上預約；不取消既有預約，也不影響登入、點數與票券。\n確認儲存此政策？':p.enabled?'停用後限制暫停執行，紀錄不刪除；再次啟用時，尚未到期的既有限制依原期限恢復。\n確認停用政策？':'確認儲存目前爽約政策設定？';
     if(message&&!window.confirm(message)){status.textContent='已取消儲存，政策草稿仍保留。';save.focus();return;}void run('save',{policy});
    });
    refresh.addEventListener('click',()=>{

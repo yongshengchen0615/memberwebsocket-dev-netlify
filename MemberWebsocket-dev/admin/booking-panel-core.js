@@ -618,6 +618,7 @@
       return false;
     }
     state.loading = true;
+    const finishPending = showSuccess ? window.AdminBookingUX?.begin?.() : null;
     setSyncStatus('同步預約資料中…');
     try {
       const [booking, catalog, resources] = await Promise.all([
@@ -708,6 +709,7 @@
       showMessage(els.bookingAdminServiceMessage, error?.message || '預約資料同步失敗', 'error');
     } finally {
       state.loading = false;
+      finishPending?.();
       if (state.refreshQueued) {
         const queuedShowSuccess = state.refreshQueuedShowSuccess;
         state.refreshQueued = false;
@@ -989,6 +991,7 @@
       if (!value.trim() || value.length > 400) return showMessage(els.bookingAdminMessagesStatus, label + '訊息必須為 1–400 字。', 'error');
     }
     state.messagesSaving = true;
+    const finishPending = window.AdminBookingUX?.begin?.();
     const previousDisabled = new Map([...els.bookingAdminMessagesForm.querySelectorAll('textarea,button')].map(control => [control, control.disabled]));
     for (const control of previousDisabled.keys()) control.disabled = true;
     els.bookingAdminMessagesForm.setAttribute('aria-busy', 'true');
@@ -1013,6 +1016,7 @@
         : error?.message || '儲存失敗，所有草稿已保留。', 'error');
     } finally {
       state.messagesSaving = false;
+      finishPending?.();
       for (const [control, disabled] of previousDisabled) control.disabled = disabled;
       els.bookingAdminMessagesForm.removeAttribute('aria-busy');
       els.bookingAdminMessagesSave.textContent = '儲存所有訊息';
@@ -1041,7 +1045,7 @@
     if (els.bookingAdminMaxEndOverrunMinutes.value === '' || !Number.isInteger(maxEndOverrunMinutes) || maxEndOverrunMinutes < 0 || maxEndOverrunMinutes > 1439) return showMessage(els.bookingAdminSettingsMessage, '最多超過結束工作時間必須介於 0–1439 分鐘。', 'error');
     const snapshotLocations = window.TicketLocationEditors?.snapshot?.get() || [];
     if (els.bookingAdminSnapshotLocationRequired.checked && !snapshotLocations.length) return showMessage(els.bookingAdminSettingsMessage, '請先新增至少一個快照允許地點，才能啟用定位限制。', 'error');
-    state.busy = true; clearMessage(els.bookingAdminSettingsMessage);
+    state.busy = true; const finishPending = window.AdminBookingUX?.begin?.(); clearMessage(els.bookingAdminSettingsMessage);
     const previousDisabled = new Map([...els.bookingAdminSettingsForm.querySelectorAll('input,select,textarea,button')].map((control) => [control, control.disabled]));
     for (const control of previousDisabled.keys()) control.disabled = true;
     els.bookingAdminSettingsForm.setAttribute('aria-busy', 'true');
@@ -1076,6 +1080,7 @@
           : error?.message || '儲存失敗；目前輸入仍保留。', 'error');
     } finally {
       state.busy = false;
+      finishPending?.();
       for (const [control, disabled] of previousDisabled) control.disabled = disabled;
       els.bookingAdminSettingsForm.removeAttribute('aria-busy');
       els.bookingAdminSaveSettingsButton.disabled = false;
@@ -1252,6 +1257,7 @@
   async function runModalAction(fn) {
     if (state.busy) return;
     state.busy = true;
+    const finishPending = window.AdminBookingUX?.begin?.();
     const message = els.bookingAdminCrudModalBody.querySelector('[data-modal-message]');
     try {
       await fn();
@@ -1263,15 +1269,16 @@
       els.bookingAdminCrudModal.classList.add('hidden');
     }
     catch (error) { if (['BOOKING_CONFLICT','BOOKING_NO_SHOW_NOT_ALLOWED'].includes(error?.code)) await refreshAll(false); showMessage(message, error?.message || '操作失敗。', 'error'); }
-    finally { state.busy = false; }
+    finally { state.busy = false; finishPending?.(); }
   }
 
   async function runPageAction(messageElement, fn) {
     if (state.busy) return;
     state.busy = true; clearMessage(messageElement);
+    const finishPending = window.AdminBookingUX?.begin?.();
     try { await fn(); state.selected.clear(); await refreshAll(true); }
     catch (error) { showMessage(messageElement, error?.message || '操作失敗。', 'error'); }
-    finally { state.busy = false; }
+    finally { state.busy = false; finishPending?.(); }
   }
 
   function bookingVisibleItems(booking) { return Array.isArray(booking?.items) ? booking.items.filter((item) => item.serviceId !== STORE_SERVICE_ID) : []; }
