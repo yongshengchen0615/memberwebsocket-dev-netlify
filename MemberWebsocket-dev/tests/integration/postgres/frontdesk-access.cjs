@@ -80,7 +80,7 @@ test('PostgreSQL frontdesk LINE history: scoped booking is found beyond 30 entri
   await assert.rejects(conn.query(query,actorArgs('history',{bookingId:target},'U'+'5'.repeat(32))),/FRONTDESK_REVIEW_REQUIRED/);
   await conn.query(adminQuery,adminArgs('staff.save',{staffId:person.id,expectedVersion:2,status:'suspended',permissionMode:'review'}));
   await assert.rejects(conn.query(query,actorArgs('history',{bookingId:target})),/FRONTDESK_REVIEW_REQUIRED|FRONTDESK_AUTH_INVALID/);
-  const count=(await h.db.query(`select count(*)::int n from ${s}.bookings where id=any($1::uuid[])`,[[target,other]])).rows[0].n;
+  const count=(await h.db.query(`select count(*)::int n from ${s}.bookings where id=$1 or id=$2`,[target,other])).rows[0].n;
   assert.equal(count,2,'history and revoked access must not delete bookings');
  }finally{await h.db.close();}
 });
