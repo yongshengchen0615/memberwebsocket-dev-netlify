@@ -596,6 +596,7 @@
       : `確定保留 ${row.memberDisplayName || '此會員'} 的原預約？`;
     if (!window.confirm(message)) return;
     actions.querySelectorAll('button').forEach((button) => { button.disabled = true; });
+    const finishPending = window.AdminBookingUX?.begin?.();
     try {
       await cancellationRequest(action, { bookingId: row.bookingId, expectedUpdatedAt: row.updatedAt });
       showMessage(approving ? '已確認取消，原預約時段已重新開放。' : '已保留預約，取消申請已結束。', 'success');
@@ -604,7 +605,7 @@
     } catch (error) {
       showMessage(error?.message || '取消申請處理失敗。', 'error');
       actions.querySelectorAll('button').forEach((button) => { button.disabled = false; });
-    }
+    } finally { finishPending?.(); }
   }
 
   function showMessage(message, type) { els.bookingCancellationReviewMessage.textContent = message; els.bookingCancellationReviewMessage.className = `form-message ${type}`; }
