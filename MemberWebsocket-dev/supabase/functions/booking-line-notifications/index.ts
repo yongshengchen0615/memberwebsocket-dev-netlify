@@ -1,5 +1,6 @@
 import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
 import { loadAdminCopyText } from "./booking-actions.ts";
+import { loadMemberPendingBookingDetails } from './pending-details.mjs';
 import { completionSummary } from "./completion-summary.ts";
 import { createClient } from '../_shared/business-runtime.ts';
 import { buildBookingFlexMessage, deliver, secureEqual } from './delivery.ts';
@@ -201,9 +202,13 @@ serveBusiness('booking-line-notifications',async (request: Request) => {
         }
 
         // A queued pending acknowledgement must not arrive after confirmation or cancellation.
+        // Verify recipient ownership before reading any private participant details.
+        let memberPendingDetails = '';
         if (job.channel === 'member' && String(job.event_key || '').endsWith(':created:member')) {
           if (!job.booking_id) { failed++; return; }
-          const pending = await db.from('bookings').select('status').eq('id', job.booking_id).maybeSingle();
+          const pending = await db.from('bookings')
+            .select('status,members!bookings_member_id_fkey(line_user_id,status,is_test_account)')
+            .eq('id', job.booking_id).maybeSingle();
           if (pending.error) { failed++; return; }
           if (pending.data?.status !== 'pending') {
             const skippedRow = await db.from('notice_outbox')
@@ -213,10 +218,28 @@ serveBusiness('booking-line-notifications',async (request: Request) => {
             else skipped++;
             return;
           }
+          const member = Array.isArray(pending.data.members) ? pending.data.members[0] : pending.data.members;
+          if (member?.line_user_id !== job.recipient || member?.status !== 'active' || member?.is_test_account === true) {
+            const skippedRow = await db.from('notice_outbox')
+              .update({ status: 'skipped', last_error: 'BOOKING_RECIPIENT_UNAUTHORIZED' })
+              .eq('id', job.id).eq('status', 'sending').eq('attempt_count', job.attempt_count).select('id');
+            if (skippedRow.error || skippedRow.data?.length !== 1) failed++;
+            else skipped++;
+            return;
+          }
+          try {
+            memberPendingDetails = await loadMemberPendingBookingDetails(db, job.booking_id);
+          } catch {
+            // Leave the claimed job retryable instead of sending a partial notice.
+            failed++;
+            return;
+          }
         }
 
         const token = job.channel === 'admin' ? config.data.LINE_BOOKING_ADMIN_CHANNEL_ACCESS_TOKEN : job.channel === 'frontdesk' ? config.data.LINE_BOOKING_FRONTDESK_CHANNEL_ACCESS_TOKEN : config.data.LINE_BOOKING_MEMBER_CHANNEL_ACCESS_TOKEN;
-        let deliveryJob = job;
+        let deliveryJob = memberPendingDetails
+          ? { ...job, message_text: `${job.message_text}\n\n${memberPendingDetails}` }
+          : job;
         if(job.channel==='frontdesk'){
           const current=await db.rpc('platform_frontdesk_delivery',{p_actor:job.recipient});
           if(current.error){failed++;return;}
