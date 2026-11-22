@@ -34,7 +34,7 @@ test('AC-BPN-003: admin has unified editor, preview and safe text rendering', ()
   }
   assert.match(admin, /renderPendingMessagePreview/);
   assert.match(admin, /bookingAdminPendingMessagePreview\.textContent =/);
-  assert.match(admin, /manageRequest\('admin\.booking\.pending-message\.save'/);
+  assert.match(admin, /manageRequest\('admin\.booking\.messages\.save'/);
   assert.match(admin, /messagesDirty/);
 });
 test('AC-BPN-004: insert-only pending notice uses tenant-scoped outbox, active non-test member and idempotent event', () => {
