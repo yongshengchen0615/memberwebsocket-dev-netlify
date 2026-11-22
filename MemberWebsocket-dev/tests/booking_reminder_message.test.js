@@ -97,5 +97,6 @@ test('AC-RM-004: dispatch rechecks opt-in, reads tenant data and never trusts ou
   assert.match(loader,/\.from\('booking_settings'\).*select\('reminder_message'\)/);
   assert.match(delivery,/'預約提醒': \{ color:/);
   assert.match(delivery,/memberConfirmation \|\| memberReminder/);
-  assert.match(delivery,/memberReminder && details/);
+  assert.match(delivery,/memberCustomNotice && details/);
+  assert.match(delivery,/const memberCustomNotice = memberReminder \|\| memberPending/);
 });
