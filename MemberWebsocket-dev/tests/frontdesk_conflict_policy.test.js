@@ -82,6 +82,8 @@ test('AC-WALKIN-WINDOW-001..006: both UIs use inclusive original window and SQL 
  assert.match(edge,/FRONTDESK_NOT_OVERLAPPING/);
  assert.match(migration,/v_old_bounds/);
  assert.match(migration,/v_new_bounds/);
+ assert.match(migration,/booking_slot_fits/);
+ assert.match(migration,/'\(v_settings->>''slot_interval_minutes''\)::integer','5'/,'paired walk-in ignores normal booking cadence only, not work hours');
  assert.match(migration,/v_candidate > /);
  assert.match(migration,/v_candidate < /);
  assert.match(migration,/ <= \$3::timestamp \+ make_interval/);
