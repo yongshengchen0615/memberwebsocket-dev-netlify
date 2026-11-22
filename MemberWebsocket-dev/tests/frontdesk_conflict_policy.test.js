@@ -89,11 +89,11 @@ test('AC-WALKIN-WINDOW-001..006: both UIs use inclusive original window and SQL 
  assert.match(migration,/pref:=jsonb_build_object\('pageTitle'/);
  assert.match(migration,/WALKIN_FRONTDESK_ROUTER_CONTRACT_CHANGED/);
 });
-test('AC-FD-OVERLAP-001..004: non-overlapping walk-in ranges are blocked at UI and database boundary',()=>{
+test('AC-WALKIN-WINDOW-003: outside-window starts are blocked at UI and database boundary',()=>{
  const ui=read('frontdesk/app.js'),edge=read('supabase/functions/_shared/frontdesk-handler.mjs');
  assert.match(ui,/const hasConflict=/,'browser must compare two actual time intervals');
  assert.match(ui,/hasConflict\(\)/,'submission must re-check overlap after changes');
- assert.match(ui,/沒有重疊/,'staff sees an explicit warning');
+ assert.match(ui,/原預約時間區間/,'staff sees an explicit window warning');
  assert.match(edge,/FRONTDESK_NOT_OVERLAPPING/,'server must translate conflict guard errors');
  const sql=read('supabase/migrations/20261122150000_frontdesk_overlap_guard.sql');
  assert.match(sql,/FRONTDESK_NOT_OVERLAPPING/);
