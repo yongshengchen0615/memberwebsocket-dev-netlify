@@ -20,7 +20,7 @@ test('AC-RM-001: admin edits only merchant reminder prose, not member reminder t
   assert.match(ui, /id="bookingAdminReminderMessage"/);
   assert.match(ui, /id="bookingAdminMessagesForm"/);
   assert.match(ui, /id="bookingAdminReminderMessagePreview"/);
-  assert.match(ui, /admin\.booking\.reminder-message\.save/);
+  assert.match(ui, /admin\.booking\.messages\.save/);
   assert.doesNotMatch(ui, /bookingAdminReminderEnabled|bookingAdminReminderTime/);
   assert.match(api, /async function reminderMessageSave/);
   assert.match(api, /await authorizeAdmin\(supabase, identity\)/);
