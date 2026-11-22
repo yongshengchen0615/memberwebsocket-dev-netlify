@@ -9,6 +9,7 @@ import { scheduleBookingNotificationWake } from './booking-notification-wake.mjs
 import { notificationToken } from './notification-routes.mjs';
 import { readRequestBytes } from './request-ingress.mjs';
 import { serverFailureTrace } from './server-errors.mjs';
+import { adminReadRateLimitParams } from './admin-rate-budget.mjs';
 export type { SupabaseClient } from 'npm:@supabase/supabase-js@2.57.0';
 type Context=Record<string,any>;
 import { scope, rawEnv, businessContext, businessEnv, businessFetch } from './business-scope.ts';
@@ -101,7 +102,7 @@ export function createClient(url:string,key:string,options?:any):import('npm:@su
     const keys:Record<string,string>={LINE_MEMBER_LIFF_ID:'memberLiffId',LINE_POINTS_LIFF_ID:'pointsLiffId',LINE_EVENT_LIFF_ID:'eventLiffId',LINE_CALENDAR_LIFF_ID:'calendarLiffId',LINE_BOOKING_LIFF_ID:'bookingLiffId',LINE_ADMIN_LIFF_ID:'adminLiffId'};
     if(keys[params?.p_key])return Promise.resolve({data:current.customLineReady?current.line_config?.[keys[params.p_key]]||null:null,error:null});
    }
-   return assertBusinessRpc(current,name,params,target).then(forwarded=>target.rpc(name,forwarded||params,options)).catch(error=>{
+   return assertBusinessRpc(current,name,params,target).then(forwarded=>target.rpc(name,adminReadRateLimitParams(name, forwarded || params, current.verifiedAdmin?.actor),options)).catch(error=>{
     // Optional automatic issuance during reads must not block unrelated event
     // records. Explicit manual issuance is rejected by the request preflight.
     if(name==='issue_fixed_tickets'&&error.code==='FEATURE_DISABLED')return {data:0,error:null};
