@@ -5,7 +5,7 @@ const root = path.resolve(__dirname, '../..');
 async function mount(page) {
   await page.route('https://fixture.test/admin-booking-ux', route => route.fulfill({
     contentType: 'text/html',
-    body: `<!doctype html><html lang="zh-Hant"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+    body: `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
     <body><article data-booking-id="B-1" data-booking-member-name="測試會員"
     data-booking-date="2026-11-23" data-booking-start-time="10:00"
     data-booking-end-time="11:00"><button type="button" id="confirmBooking" data-booking-admin-action="確認預約">確認預約</button></article>
@@ -33,6 +33,10 @@ async function mount(page) {
 for (const width of [390, 1280]) test(`AC-003/004 Chromium ${width}px: cancel blocks mutations; deliberate confirmation permits them`, async ({ page }) => {
   await page.setViewportSize({ width, height: 844 });
   await mount(page);
+  // Confirm fixture strings survive UTF-8 decoding; otherwise the action guard
+  // would silently receive mojibake and never match the protected operation.
+  await expect(page.locator('#confirmBooking')).toHaveAttribute('data-booking-admin-action', '確認預約');
+  await expect.poll(() => page.evaluate(() => document.characterSet)).toBe('UTF-8');
   // Replace the native UI prompt only; keep the real Chromium capture/target/bubble
   // event dispatch and both original mutation listeners under test.
   await page.evaluate(() => {
