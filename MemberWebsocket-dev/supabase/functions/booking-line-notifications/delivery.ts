@@ -39,6 +39,7 @@ type ParsedBookingMessage = {
   services: string[];
   participants: ParsedBookingParticipant[];
   fallbackText: string;
+  rejectionNotice: string;
 };
 
 type FlexText = Record<string, unknown>;
@@ -90,13 +91,21 @@ function parseBookingMessage(message: string): ParsedBookingMessage {
     index = 1;
   }
 
+  // Rejection templates are appended after the last structured rejection reason.
+  // Their punctuation and newlines are prose, never additional booking field labels.
+  const lastReasonAt = title === '預約未通過'
+    ? lines.findLastIndex((line) => /^拒絕原因：/.test(line)) : -1;
+  const rejectionNotice = lastReasonAt >= index
+    ? truncate(lines.slice(lastReasonAt + 1).filter(Boolean).join('\n'), 500) : '';
+  const parseEnd = rejectionNotice ? lastReasonAt + 1 : lines.length;
+
   const fields: Array<{ label: string; value: string }> = [];
   const services: string[] = [];
   const participants: ParsedBookingParticipant[] = [];
   let currentParticipant: ParsedBookingParticipant | null = null;
   let readingServices = false;
 
-  for (; index < lines.length; index++) {
+  for (; index < parseEnd; index++) {
     const line = lines[index];
     if (!line) {
       readingServices = false;
@@ -158,7 +167,8 @@ function parseBookingMessage(message: string): ParsedBookingMessage {
     fields.push({ label: '說明', value: truncate(line, 500) });
   }
 
-  return { title, fields: title === '預約提醒' ? groupReminderNoticeFields(fields) : fields, services, participants, fallbackText };
+  // Both reminders and pending applications have per-line legacy 提醒事項 fields.
+  return { title, fields: groupReminderNoticeFields(fields), services, participants, fallbackText, rejectionNotice };
 }
 
 function fieldRow(label: string, value: string): Record<string, unknown> {
@@ -597,8 +607,12 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
   const schedule = scheduleCard(parsed, style.color);
   const memberConfirmation = job.channel === 'member' && parsed.title === '預約確認';
   const memberReminder = job.channel === 'member' && parsed.title === '預約提醒';
-  const notice = memberReminder ? reminderNoticeCard(parsed.fields) : null;
-  const details = detailsCard(memberReminder ? parsed.fields.filter(field => field.label !== '提醒事項') : parsed.fields);
+  const memberPending = job.channel === 'member' && parsed.title === '預約申請';
+  const memberCustomNotice = memberReminder || memberPending;
+  const notice = memberCustomNotice ? reminderNoticeCard(parsed.fields) : null;
+  const details = detailsCard(memberCustomNotice ? parsed.fields.filter(field => field.label !== '提醒事項') : parsed.fields);
+  const rejectionProse = job.channel === 'member' && parsed.title === '預約未通過' && parsed.rejectionNotice
+    ? fallbackCard(parsed.rejectionNotice) : null;
   const participants = participantsCard(parsed.participants, style.color, memberConfirmation || memberReminder);
   const services = parsed.participants.length ? null : servicesCard(parsed.services, style.color);
   const rejection = job.channel === 'admin' && parsed.title === '櫃檯拒絕預約'
@@ -610,6 +624,7 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
   } else {
     if (schedule) bodyContents.push(schedule);
     if (details) bodyContents.push(details);
+    if (rejectionProse) bodyContents.push(rejectionProse);
     if (participants) bodyContents.push(participants);
     else if (services) bodyContents.push(services);
     if (!bodyContents.length) bodyContents.push(fallbackCard(parsed.fallbackText));
@@ -619,12 +634,12 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
   if (job.channel === 'frontdesk' && job.frontdeskCanReview === true && /^https:\/\/liff\.line\.me\/\d{5,30}-[A-Za-z0-9_-]+\?/.test(job.frontdeskUri || '')) {
     footerActions.push({type:'button',height:'sm',style:'primary',action:{type:'uri',label:'查看／處理預約',uri:job.frontdeskUri}});
   }
-  if (memberConfirmation || memberReminder) {
+  if (memberConfirmation || memberCustomNotice) {
     // Confirmation and reminders share participant cards; reminders also show the merchant's notice and contact details.
     bodyContents.length = 0;
     if (schedule) bodyContents.push(schedule);
-    if (memberReminder && notice) bodyContents.push(notice);
-    if (memberReminder && details) bodyContents.push(details);
+    if (memberCustomNotice && notice) bodyContents.push(notice);
+    if (memberCustomNotice && details) bodyContents.push(details);
     if (participants) bodyContents.push(participants);
     else if (services) bodyContents.push(services); // Legacy notifications without participant sections.
     if (!bodyContents.length) bodyContents.push(fallbackCard(memberReminder ? '請查看預約詳情。' : '預約已確認。'));
