@@ -1,4 +1,4 @@
-import { businessFetch as fetch } from '../_shared/business-scope.ts';
+import { businessFetch as fetch, memberSystemFooter } from '../_shared/business-scope.ts';
 import { bookingDetailUri } from "./booking-actions.ts";
 import { groupReminderNoticeFields, reminderNoticeCard } from "./reminder-notice.mjs";
 export type BookingBenefits = {
@@ -695,7 +695,7 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
           ...footerActions,
           {
             type: 'text',
-            text: 'Lumen Club 預約系統',
+            text: memberSystemFooter(),
             size: 'xxs',
             color: '#87928D',
             align: 'center',
