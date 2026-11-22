@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "frontdeskLineSettingsLayoutReview": "2026-11-22 PR #401：已審閱櫃檯 LINE 設定的登入／通知／儲存／頁面抬頭／人員權限順序、三個設定分頁、商家授權與草稿重試；本次僅調整獨立設定頁 scoped CSS 與樣式快取版本，沒有新增、刪除或改名任何既有 admin-human 瀏覽器旅程。擴充 390/1280px Chromium 幾何、明暗色和無橫向溢出驗收；真實 LINE Provider 另行驗收。",
   "memberBrandTitleReview": "2026-11-22 PR #400：審查管理端、櫃檯設定、一般管理員用戶端網頁抬頭設定、五個會員端頁面、LINE 預約與會員權益通知的品牌顯示。管理端原六功能工作區、設定儲存、角色授權與所有原有 browser journeys 保留，僅用中性首屏標題避免讀取 tenant site_title 前顯示 Lumen Club；已新增 brand_title_consistency、跨商家 title 與 Flex footer 負向案例。此欄記錄本次逐項覆核，CI/真實 LINE 沙盒仍須實際驗收。",
   "adminOverviewPlacementReview": "2026-11-22 PR #396：審閱管理端共用營運概況的 DOM 閱讀順序與 5 個即時數字，將概況/統計整組移到管理功能分頁與各功能面板之前；沒有新增、移除或改名功能入口與瀏覽器旅程。核對 61 組 admin-human 功能映射、原 LINE 設定、預約、會員/點數/票券/日曆流程與五個統計 ID 均保留，既有 admin-human.spec.cjs 及自動回歸不減弱。新增 admin_overview_above_features.test.js 的 AC-001～003；正式 LINE 與管理員真帳號 E2E 仍須分別核驗，不能由靜態測試取代。",
   "frontdeskDirectDurationReview": "2026-11-22 PR #393：新增管理端拒絕的稽核配對現場單在櫃檯單筆 LINE 連結自動顯示；仍包含原預約資料與管理端修改後時間/總時長，舊櫃檯本人歷史、一般確認/拒絕視窗及 10 分鐘衝突規則維持。審查 frontdesk-booking.spec.cjs LINE 入口與 frontdesk_ui.cjs 狀態/角色/跨單隔離，保留全部既有 admin-human journeys。真實 LINE Provider 不由 mock 保證。 2026-11-22 PR #392：覆核櫃檯有權限者的拒絕視窗，僅在選擇現場未登記時顯示原預約 10 分鐘開始時間（含結束），總時長仍獨立；LINE 單筆 deep link 與歷史視圖不變。新增含舊限值的 JSDOM 及跨午夜案例；外部 Provider 驗收另行進行。 2026-11-22 PR #389：覆核 LINE 查看／預約處理單筆 bookingId 入口，拒絕未登記現場預約後只展示該筆原預約與配對現場單；一般櫃檯維持本人多筆歷史。API 與 SQL 先於 30 筆上限過濾單筆，前端再防意外混顯；擴充 390/1280 Chromium、Node 負向及 PG17 測試。未改既有管理端六工作區旅程；真實 LINE Provider 驗收獨立進行。 2026-11-21 PR #387：重新盤點櫃檯現場已預約但未登記的拒絕與直接確認流程、原預約日期、預約時段、總服務時長、交易配對、稽核事件、LINE 通知、登入及商家/逐人授權。此變更僅移除特殊原因的預約項目多選，改為前端與 Edge 傳入 1～1439 分鐘的整數總時長；維持一般 phone.create 的服務選擇、一般拒絕原因、其他 61 個管理端 browser journeys 不變。新增 JSDOM frontdesk_ui.cjs、Chromium frontdesk-booking.spec.cjs 雙尺寸、API 負向與 Supabase 測試資料庫交易驗證；真實 LINE provider 與完整同 SHA CI 須驗證後才視為完成。",
@@ -61,7 +62,7 @@
     "frontdesk/app.js": "a00c9366d6dbdebb5bd8b2f92ab5201b894510cff17b48d8c19ff7ed4ced111c",
     "frontdesk/styles.css": "c08cb98c3d2c955dd3c6f8719b9d9b3062c3bd9bee018083cae14ee7569556a6",
     "frontdesk/index.html": "53c95efcfe36a1e779b3bd223e1647517dcb834db6069f0c94b418ce5c79f4a7",
-    "admin/frontdesk-settings/index.html": "bb9cfd0ebfafdb6f1fa2641a98e3b66f4b799bb11570c035e281184d311b19bd",
+    "admin/frontdesk-settings/index.html": "80e0b4c6eaca0b398a54b567bc3a2a22870b5ad271be89d2880169cd072348f9",
     "admin/frontdesk-settings/frontdesk-settings-page.js": "a5bb5f8c6716a7ab8f0cccf3dbe8be993a307a6d56b01cfe218d330cbd3de429",
     "admin/frontdesk-settings/frontdesk-settings-page.css": "f4f7424f89a368a3d2e846f6af33af5caa693a1ac679b2644bdac5189b61f998"
   },
