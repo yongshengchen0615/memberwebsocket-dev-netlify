@@ -473,8 +473,64 @@ for(const [initial,label,status] of [['pending','確認預約','confirmed'],['pe
       }],
     };
   }
-  await booking(p,'bookingAdminQueueSubtab');await p.locator('[data-booking-filter="'+initial+'"]').click();const row=p.locator('[data-booking-id="booking-1"]');await row.locator('textarea').fill('QA admin note');if(status==='rejected')await row.locator('select[aria-label="選擇拒絕預約原因"]').selectOption('technician_leave');await row.getByRole('button',{name:label}).click();if(status==='completed'){await expect(p.locator('#bookingAdminCrudModal')).toContainText('30 分鐘');await expect(p.locator('#bookingAdminCrudModal')).toContainText('QA per-person note');await expect(p.locator('#bookingAdminCrudModal button[type="submit"]')).toBeEnabled();await p.locator('#bookingAdminCrudModal button[type="submit"]').click();}await expect.poll(()=>info.fixture.bookings[0].status).toBe(status);if(status==='rejected')expect(calls(info.fixture,'admin.booking.status.update').some(call=>call.payload.rejectionReason==='technician_leave')).toBe(true);await p.locator('[data-booking-filter="all"]').click();await expect(p.locator('#bookingAdminQueue')).toContainText('QA booking member');
+  await booking(p,'bookingAdminQueueSubtab');await p.locator('[data-booking-filter="'+initial+'"]').click();const row=p.locator('[data-booking-id="booking-1"]');await row.locator('textarea').fill('QA admin note');await row.getByRole('button',{name:label}).click();if(status==='rejected'){
+    const modal=p.locator('#bookingAdminCrudModal');
+    await expect(modal).toBeVisible();
+    await modal.locator('[data-submit]').click();
+    await expect(modal.locator('[data-modal-message]')).toContainText('請先選擇拒絕原因');
+    expect(calls(info.fixture,'admin.booking.status.update')).toHaveLength(0);
+    await modal.locator('[data-rejection-reason]').selectOption('technician_leave');
+    await expect(modal.locator('[data-rejection-phone]')).toBeHidden();
+    await modal.locator('[data-submit]').click();
+  }if(status==='completed'){await expect(p.locator('#bookingAdminCrudModal')).toContainText('30 分鐘');await expect(p.locator('#bookingAdminCrudModal')).toContainText('QA per-person note');await expect(p.locator('#bookingAdminCrudModal button[type="submit"]')).toBeEnabled();await p.locator('#bookingAdminCrudModal button[type="submit"]').click();}await expect.poll(()=>info.fixture.bookings[0].status).toBe(status);if(status==='rejected')expect(calls(info.fixture,'admin.booking.status.update').some(call=>call.payload.rejectionReason==='technician_leave')).toBe(true);await p.locator('[data-booking-filter="all"]').click();await expect(p.locator('#bookingAdminQueue')).toContainText('QA booking member');
 });
+
+test('BOOKING_REJECTION_WALKIN_GUARD — explicit reason, overlap warning, duration and confirmed paired replacement',async({page:p},info)=>{
+  seedBooking(info.fixture,'pending');
+  await booking(p,'bookingAdminQueueSubtab');
+  const row=p.locator('[data-booking-id="booking-1"]');
+  await row.locator('textarea').fill('現場臨時預約');
+  await row.getByRole('button',{name:'不通過'}).click();
+  const dialog=p.locator('#bookingAdminCrudModal');
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText('原預約時間');
+  await expect(dialog).toContainText('原預約總時長');
+  await expect(dialog.locator('[data-rejection-phone]')).toBeHidden();
+  await dialog.locator('[data-submit]').click();
+  await expect(dialog.locator('[data-modal-message]')).toContainText('請先選擇拒絕原因');
+  expect(calls(info.fixture,'admin.booking.status.update')).toHaveLength(0);
+  expect(calls(info.fixture,'admin.booking.reject-walkin')).toHaveLength(0);
+  await dialog.locator('[data-rejection-reason]').selectOption('unrecorded_phone_booking');
+  await expect(dialog.locator('[data-rejection-phone]')).toBeVisible();
+  await dialog.locator('[data-rejection-time]').selectOption('10:30');
+  await dialog.locator('[data-rejection-duration]').selectOption('30');
+  await expect(dialog.locator('[data-modal-message]')).toContainText('沒有重疊');
+  await dialog.locator('[data-submit]').click();
+  expect(calls(info.fixture,'admin.booking.reject-walkin')).toHaveLength(0);
+  expect(info.fixture.bookings).toHaveLength(1);
+  expect(info.fixture.bookings[0].status).toBe('pending');
+  await dialog.locator('[data-rejection-time]').selectOption('10:10');
+  await dialog.locator('[data-rejection-duration]').selectOption('20');
+  await expect(dialog.locator('[data-modal-message]')).toBeHidden();
+  await dialog.locator('[data-submit]').click();
+  await expect(dialog).toBeHidden();
+  expect(calls(info.fixture,'admin.booking.reject-walkin')).toHaveLength(1);
+  const payload=calls(info.fixture,'admin.booking.reject-walkin')[0].payload;
+  expect(payload).toMatchObject({
+    bookingId:'booking-1',expectedUpdatedAt:version,
+    status:'rejected',rejectionReason:'unrecorded_phone_booking',
+    startTime:'10:10',totalDurationMinutes:20,adminNote:'現場臨時預約'
+  });
+  expect(payload.requestId).toMatch(/^[0-9a-f]{8}-[0-9a-f-]{27,}$/);
+  expect(info.fixture.bookings).toHaveLength(2);
+  expect(info.fixture.bookings.find(b=>b.bookingId==='booking-1').status).toBe('rejected');
+  const paired=info.fixture.bookings.find(b=>b.walkinRequestId===payload.requestId);
+  expect(paired).toMatchObject({
+    bookingSource:'phone',startTime:'10:10',totalDurationMinutes:20,status:'confirmed',sourceBookingId:'booking-1'
+  });
+  expect(calls(info.fixture,'admin.booking.status.update')).toHaveLength(0);
+});
+
 for(const width of [390,1280])test('BOOKING_COMPLETION_REVIEW_'+width+' — booking details, per-person items, tickets, responsive review and cancel without write',async({page:p},info)=>{
   const isRealBrowser=typeof p.setViewportSize==='function';
   if(isRealBrowser)await p.setViewportSize({width,height:860});
