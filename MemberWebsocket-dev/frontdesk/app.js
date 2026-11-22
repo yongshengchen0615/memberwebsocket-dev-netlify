@@ -97,11 +97,33 @@
    }
   }
  }
+ // Coalesce only overlapping authorized reads, never a completed response or
+ // a write. The key includes every credential, tenant and query input.
+ const frontdeskReadActions=new Set(['frontdesk.public','frontdesk.bootstrap','frontdesk.bookings','frontdesk.history','frontdesk.sync.status']);
+ const pendingReads=new Map();
  async function request(action,body={}){
-  let response,data;try{response=await fetch(config.supabaseFunctionUrl.replace(/\/api\/?$/,'/frontdesk-api'),{method:'POST',cache:'no-store',signal:AbortSignal.timeout(15000),headers:{'Content-Type':'application/json',apikey:config.supabasePublishableKey},body:JSON.stringify({...body,action,business,idToken})});data=await response.json();}
-  catch{throw Object.assign(Error('無法確認伺服器結果，請重試相同操作。'),{uncertain:true});}
-  if(!response.ok||!data.ok)throw Object.assign(Error(data.error?.message||'櫃檯服務暫時無法使用。'),{code:data.error?.code,denied:response.status===401||response.status===403,uncertain:response.status>=500});
-  return data.data;
+  const endpoint=config.supabaseFunctionUrl.replace(/\/api\/?$/,'/frontdesk-api');
+  const apiKey=config.supabasePublishableKey;
+  const payload=JSON.stringify({...body,action,business,idToken});
+  const read=frontdeskReadActions.has(action);
+  const key=read?JSON.stringify([endpoint,apiKey,payload]):null;
+  if(!read)pendingReads.clear();
+  else if(pendingReads.has(key))return pendingReads.get(key);
+  const operation=(async()=>{
+   let response,data;
+   try{
+    response=await fetch(endpoint,{method:'POST',cache:'no-store',signal:AbortSignal.timeout(15000),headers:{'Content-Type':'application/json',apikey:apiKey},body:payload});
+    data=await response.json();
+   }catch{throw Object.assign(Error('無法確認伺服器結果，請重試相同操作。'),{uncertain:true});}
+   if(!response.ok||!data?.ok)throw Object.assign(Error(data?.error?.message||'櫃檯服務暫時無法使用。'),{code:data?.error?.code,denied:response.status===401||response.status===403,uncertain:response.status>=500});
+   return data.data;
+  })();
+  if(read)pendingReads.set(key,operation);
+  try{return await operation;}
+  finally{
+   if(read){if(pendingReads.get(key)===operation)pendingReads.delete(key);}
+   else pendingReads.clear();
+  }
  }
  function clearPrivateHistory(){
   historyEpoch++;
