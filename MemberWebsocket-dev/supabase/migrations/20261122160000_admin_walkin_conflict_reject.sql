@@ -111,7 +111,7 @@ grant execute on function platform_private.admin_create_duration_booking(text,te
 -- before moving the replacement to confirmed. Accept admin-admin as well as
 -- frontdesk-frontdesk provenance, never a mix of roles or actors.
 do $pair$
-declare t record; d text; snapshot jsonb; entries jsonb; existing text;
+declare t record; d text; v_snapshot jsonb; entries jsonb; existing text;
  old_phone constant text:='phone_audit.actor_role=''frontdesk''';
  new_phone constant text:='phone_audit.actor_role in (''frontdesk'',''admin'')';
  old_reject constant text:='reject_audit.actor_role=''frontdesk''';
@@ -124,9 +124,9 @@ begin
   if position(old_phone in d)=0 or position(old_reject in d)=0 then raise exception 'ADMIN_WALKIN_BUNDLE_CONTRACT_CHANGED';end if;
   execute replace(replace(d,old_phone,new_phone),old_reject,new_reject);
  end loop;
- select snapshot into strict snapshot from platform_private.business_templates
+ select snapshot into strict v_snapshot from platform_private.business_templates
   where version='business-v1-20261019' for update;
- select x->>'definition' into existing from jsonb_array_elements(snapshot->'functions') x
+ select x->>'definition' into existing from jsonb_array_elements(v_snapshot->'functions') x
   where x->>'name'='assert_booking_item_bundle';
  if existing is null or (position(old_phone in existing)=0 and position(new_phone in existing)=0)
  then raise exception 'ADMIN_WALKIN_TEMPLATE_UNVERIFIED';end if;
@@ -137,9 +137,9 @@ begin
       then jsonb_set(x,'{definition}',to_jsonb(replace(replace(x->>'definition',old_phone,new_phone),old_reject,new_reject)))
       else x end order by ord)
    into entries
-   from jsonb_array_elements(snapshot->'functions') with ordinality as items(x,ord);
+   from jsonb_array_elements(v_snapshot->'functions') with ordinality as items(x,ord);
   update platform_private.business_templates
-   set snapshot=jsonb_set(snapshot,'{functions}',entries)
+   set snapshot=jsonb_set(v_snapshot,'{functions}',entries)
    where version='business-v1-20261019';
  end if;
 end $pair$;
