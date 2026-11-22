@@ -90,5 +90,8 @@ test('AC-FD-OVERLAP-001..004: non-overlapping walk-in ranges are blocked at UI a
  const sql=read('supabase/migrations/20261122150000_frontdesk_overlap_guard.sql');
  assert.match(sql,/FRONTDESK_NOT_OVERLAPPING/);
  assert.match(sql,/make_interval\(mins=>/,'persisted booking start/end are compared to the requested duration');
+ assert.match(sql,/booking_slot_start_at/,'overnight tenant slots must use canonical start timestamps');
+ assert.match(sql,/\(b->>'start_at'\)::timestamp/,'compare the persisted original booking instant');
+ assert.match(ui,/candidateClock\+1440/,'UI must account for post-midnight business-day clocks');
  assert.match(sql,/FRONTDESK_OVERLAP_ROUTER_CONTRACT_CHANGED/,'migration must fail closed if upstream router changes');
 });
