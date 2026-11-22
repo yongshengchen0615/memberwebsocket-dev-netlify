@@ -499,6 +499,20 @@ for(const width of [390,1280])test('FRONTDESK_REJECTION_MODAL_'+width+' — on-s
  const time=phone.getByRole('combobox',{name:'衝突預約時間'});
  await expect(time).toHaveValue('11:00');
  await expect(time.locator('option')).toHaveCount(13);
+ // AC-FD-OVERLAP-001/002: boundary-touching and earlier appointments must not reject an unrelated booking.
+ await time.selectOption('12:00');
+ await expect(modal.getByRole('button',{name:'確認拒絕並登記現場預約'})).toBeDisabled();
+ await expect(modal.locator('.frontdesk-phone-message')).toContainText('沒有重疊');
+ await time.selectOption('10:00');
+ await duration.selectOption('30');
+ await expect(modal.getByRole('button',{name:'確認拒絕並登記現場預約'})).toBeDisabled();
+ expect(calls.filter(x=>x.action==='frontdesk.booking.reject-phone')).toHaveLength(0);
+ // AC-FD-OVERLAP-003: partial overlap is valid and ordinary rejection remains unaffected.
+ await time.selectOption('10:30');
+ await duration.selectOption('90');
+ await expect(modal.getByRole('button',{name:'確認拒絕並登記現場預約'})).toBeEnabled();
+ await expect(modal.locator('.frontdesk-phone-message')).toBeEmpty();
+ await time.selectOption('11:00');
  await expect(phone).toContainText('請選擇實際發生衝突的預約時間與總時長');
  const box=await modal.evaluate(el=>({width:el.getBoundingClientRect().width,viewport:innerWidth,modalBackground:getComputedStyle(el).backgroundColor}));
  expect(box.width).toBeLessThanOrEqual(box.viewport);

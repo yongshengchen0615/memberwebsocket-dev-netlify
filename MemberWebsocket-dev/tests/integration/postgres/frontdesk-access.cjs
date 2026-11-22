@@ -46,8 +46,15 @@ test('PostgreSQL frontdesk LINE history: scoped booking is found beyond 30 entri
    '20261118190000_frontdesk_safeupdate_projection.sql',
    '20261119150000_frontdesk_independent_feature_grant.sql',
    '20261121224500_frontdesk_conflict_history_policy.sql',
-   '20261122133000_frontdesk_history_booking_scope.sql'
+   '20261122133000_frontdesk_history_booking_scope.sql',
+   '20261122150000_frontdesk_overlap_guard.sql'
   ])await h.db.exec(fs.readFileSync(path.resolve(__dirname,'../../../supabase/migrations',name),'utf8'));
+  // This October-based isolated fixture has no install_booking_reminder() used by
+  // the full Nov 20 notice migrations. Mirror only their booking column prerequisite
+  // to exercise the real SQL router, transaction rollback and cross-actor access.
+  // The full release migration path is verified separately by release CI.
+  await h.db.exec(`alter table ${s}.bookings add column if not exists rejection_reason text
+   check(rejection_reason is null or rejection_reason in ('technician_leave','unrecorded_phone_booking'))`);
   await h.db.query("update platform_private.tenants set features=features||jsonb_build_object('frontdesk',true) where id=$1",[t.id]);
   const conn=await h.db.connect();await conn.query('set role service_role');
   const query='select public.platform_frontdesk_request($1,$2,$3,$4,$5,$6) result';
@@ -64,6 +71,27 @@ test('PostgreSQL frontdesk LINE history: scoped booking is found beyond 30 entri
   const service=(await h.db.query(`insert into ${s}.booking_services(title,duration_minutes,price_amount,service_type,created_by)values('FD',30,100,'FD',$1)returning id`,[owner])).rows[0].id;
   const make=async()=>{const id=(await h.db.query(`select (${s}.create_group_booking_request_v2($1,$2,current_date+3,'10:00',$3,'')).id id`,['FD-'+crypto.randomUUID(),member,[{technicianId:null,items:[{serviceId:service,quantity:1}]}]])).rows[0].id;return id;};
   const target=await make(),other=await make();
+  // AC-FD-OVERLAP-004: direct API calls bypass browser controls but must not mutate either booking.
+  // Keep PostgreSQL microseconds: node-postgres Date truncates updated_at to ms.
+  // The optimistic lock must use the exact stored timestamp, not rounded JS Date.
+  const source=(await h.db.query(`select updated_at::text as updated_at, status,
+   to_char(start_at,'HH24:MI') as start_time,
+   to_char(start_at+make_interval(mins=>total_duration_minutes),'HH24:MI') as end_time,
+   total_duration_minutes as duration
+   from ${s}.bookings where id=$1`,[target])).rows[0];
+  assert.equal(source.status,'pending','fixture booking must be pending before rejection');
+  assert.equal(source.start_time,'10:00','fixture time is deterministic');
+  assert.ok(source.duration>0&&source.duration<720,'expected single service duration for boundary case');
+  for(const [startTime,totalDurationMinutes] of [[source.end_time,30],['09:20',40]]){
+   const phoneRequestId='PHONE-'+crypto.randomUUID();
+   await assert.rejects(conn.query(query,actorArgs('booking.reject_phone',{
+    bookingId:target,expectedUpdatedAt:source.updated_at,status:'rejected',
+    rejectionReason:'unrecorded_phone_booking',requestId:crypto.randomUUID(),
+    phoneRequestId,startTime,totalDurationMinutes
+   })),/FRONTDESK_NOT_OVERLAPPING/);
+   assert.equal((await h.db.query(`select status from ${s}.bookings where id=$1`,[target])).rows[0].status,'pending');
+   assert.equal((await h.db.query(`select count(*)::int n from ${s}.bookings where request_id=$1`,[phoneRequestId])).rows[0].n,0);
+  }
   // A's audit is older than the 30 most recent audits for another booking.
   // Filtering after LIMIT would incorrectly hide A's history.
   const audit=`insert into ${s}.booking_audit_events(actor_line_user_id,actor_role,action,target_type,target_id,result,metadata)
