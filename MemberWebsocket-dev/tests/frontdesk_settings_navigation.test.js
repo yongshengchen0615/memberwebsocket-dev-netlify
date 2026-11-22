@@ -135,5 +135,15 @@ test('AC-FD-HIST-006: server action is tenant-authorized, read-only and migratio
  assert.match(css,/\.frontdesk-settings-body > button/);
  assert.doesNotMatch(css,/\.frontdesk-settings > button/);
  assert.match(frontdesk,/body\.append\(status, syncState, reload, tabs, content, historyPanel\)/);
- assert.match(html,/frontdesk-tab-layout-20261121-1/);
+ assert.match(html,/frontdesk-line-flow-20261122-1/);
+});
+
+test('AC-FD-LINE-001: LINE settings follow one ordered track; only provider cards share desktop columns',()=>{
+ const css=read('admin/frontdesk-settings/frontdesk-settings-page.css');
+ const page=read('admin/frontdesk-settings/index.html');
+ assert.match(css,/\.frontdesk-settings-content\s*\{\s*grid-template-columns:\s*minmax\(0, 1fr\)/);
+ assert.match(css,/@media \(min-width: 1080px\)\s*\{\s*html\[data-frontdesk-page\] \.frontdesk-config-form\s*\{\s*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+ assert.doesNotMatch(css,/grid-template-columns:\s*minmax\(0, 1\.15fr\) minmax\(0, \.85fr\)/);
+ assert.match(css,/\.frontdesk-settings \.frontdesk-preferences-form\s*\{\s*margin:\s*0/);
+ assert.match(page,/frontdesk-line-flow-20261122-1/);
 });
