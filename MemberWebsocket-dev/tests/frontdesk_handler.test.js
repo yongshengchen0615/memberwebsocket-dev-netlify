@@ -74,3 +74,33 @@ test('merchant-scoped frontdesk deletion validates payload and does not contact 
  await assert.rejects(()=>frontdeskAdmin({...args,body:{action:'platform.frontdesk.staff.delete',staffId,expectedVersion:2,requestId,permissionMode:'review'}}),/移除人員資料不正確/);
  await assert.rejects(()=>frontdeskAdmin({...args,tenant:{...tenant,features:{booking:true,frontdesk:false}},body:{action:'platform.frontdesk.staff.delete',staffId,expectedVersion:2,requestId}}),/尚未開通/);
 });
+
+test('AC-LINE-008: committed frontdesk changes register a tracked notification wake from trusted tenant context',async()=>{
+ const {createFrontdeskHandler}=await import('../supabase/functions/_shared/frontdesk-handler.mjs');
+ const tenantId='10000000-0000-4000-8000-000000000001';
+ const bookingId='10000000-0000-4000-8000-000000000011';
+ const requestId='10000000-0000-4000-8000-000000000012';
+ const ctx={id:tenantId,slug:'shop-a',frontdesk:{loginChannelId:'2010999999'}};
+ const tasks=[],calls=[];
+ const db={rpc:async(name,args)=>{
+  calls.push({name,args});
+  if(name==='consume_api_rate_limit')return{data:true,error:null};
+  if(name==='platform_frontdesk_context')return{data:ctx,error:null};
+  if(name==='platform_frontdesk_request')return{data:{bookingId,status:'confirmed'},error:null};
+  if(name==='platform_dispatch_booking')return{data:true,error:null};
+  throw Error(name);
+ }};
+ const handler=createFrontdeskHandler({db,allowedOrigins:new Set(['https://allowed.test']),
+  verifyIdentity:async()=>({lineUserId:'U'+'4'.repeat(32),issuedAtMs:Date.now()}),
+  trackBackground:task=>tasks.push(task)});
+ const response=await handler(new Request('https://api.test',{method:'POST',headers:{Origin:'https://allowed.test'},body:JSON.stringify({
+  business:'shop-a',idToken:'valid',action:'frontdesk.booking.update',bookingId,requestId,status:'confirmed',
+  expectedUpdatedAt:'2026-11-22T00:00:00Z',
+ })}));
+ assert.equal(response.status,200);
+ assert.equal((await response.json()).ok,true);
+ assert.equal(tasks.length,1,'frontdesk write must register the wake as tracked background work');
+ await tasks[0];
+ assert.equal(calls.filter(x=>x.name==='platform_dispatch_booking').length,1);
+ assert.equal(calls.find(x=>x.name==='platform_dispatch_booking').args.p_tenant_id,tenantId);
+});
