@@ -35,7 +35,7 @@ test('AC-ADM-FD-002: admin history is single-booking only; staff-wide history st
  assert.match(migration,/b\.rejected_by=e\.actor_line_user_id/);
  assert.match(migration,/b\.rejection_reason=''unrecorded_phone_booking''/);
  assert.match(migration,/''actorRole'',e\.actor_role/);
- assert.match(migration,/and paired\.actor_line_user_id=e\.actor_line_user_id/);
+ assert.match(read('supabase/migrations/20261122133000_frontdesk_history_booking_scope.sql'),/and paired\.actor_line_user_id=e\.actor_line_user_id/);
  assert.match(frontend,/const visible=bookingId\?records\.filter/);
  assert.match(frontend,/if\(bookingId&&!historyLoaded\)\{historyLoaded=true;void loadConflictHistory\(\);\}/);
  assert.match(frontend,/historyLoaded=false;clearPrivateHistory\(\)/);
