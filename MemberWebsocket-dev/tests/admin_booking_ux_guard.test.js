@@ -99,7 +99,7 @@ test('AC-004: final booking form submit needs second confirmation, read-only con
     id: 'bookingAdminSettingsForm',
     matches: name => name === 'form',
     getAttribute: () => null,
-    querySelector: () => ({ disabled: false }),
+    querySelector: selector => selector === '[type="submit"]' ? { disabled: false } : null,
     closest: () => null,
   };
   const cancelled = actionEvent(form);
