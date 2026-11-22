@@ -3,7 +3,7 @@
  const params=new URLSearchParams(location.search),nested=new URLSearchParams((params.get('liff.state')||'').split('?').pop());
  const business=params.get('business')||nested.get('business'),bookingId=params.get('bookingId')||nested.get('bookingId');
  const status=document.getElementById('status'),account=document.getElementById('account'),list=document.getElementById('bookings'),refresh=document.getElementById('refresh');
- let config,idToken,busy=false,epoch=0,historyEpoch=0,frontdeskPolicy={};const pending=new Map();
+ let config,idToken,busy=false,epoch=0,historyEpoch=0,historyLoaded=false,frontdeskPolicy={};const pending=new Map();
  let syncTimer=null,syncEnabled=false,syncInFlight=false,syncRevision=null,syncFailures=0,syncGeneration=0;
  const node=(tag,text)=>{const n=document.createElement(tag);if(text)n.textContent=text;return n;};
  const progress=document.getElementById('progress'),toolbar=document.querySelector('.frontdesk-toolbar');
@@ -214,7 +214,8 @@
   for(const record of visible){
    const original=record.booking,replacement=record.phoneBooking;
    const card=node('article');card.className='frontdesk-history-pair';
-   card.append(node('h3','衝突預約處理紀錄'),node('p','處理時間：'+(record.actionAt?new Date(record.actionAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false}):'—')));
+   const isAdminReview=record.actorRole==='admin';
+   card.append(node('h3',isAdminReview?'管理端拒絕預約・衝突處理紀錄':'衝突預約處理紀錄'),node('p','處理時間：'+(record.actionAt?new Date(record.actionAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false}):'—')));
    const details=(booking,label,isReplacement)=>{
     const group=node('section');group.className='frontdesk-history-booking';
     group.append(node('h4',label));
@@ -226,7 +227,7 @@
     group.append(node('p','預約日期：'+(date||'—')),node('p','預約時間：'+(time||'—')+' – '+(end||'—')));
     if(Number.isInteger(mins)&&mins>0)group.append(node('p','總時長：'+mins+' 分鐘'));
     group.append(node('p','狀態：'+({pending:'待確認',confirmed:'已確認',rejected:'已拒絕',cancelled:'已取消'}[booking.status]||booking.status||'—')));
-    if(isReplacement){group.append(node('p','預約來源：櫃檯人員（現場／電話預約）'));}
+    if(isReplacement){group.append(node('p',isAdminReview?'預約來源：管理端（現場／電話預約）':'預約來源：櫃檯人員（現場／電話預約）'));}
     else{
      group.append(node('p','預約人：'+(booking.name||'—')),node('p','電話：'+(booking.phone||'—')),node('p','預約人數：'+(booking.partySize||1)+' 位'));
      for(const person of (Array.isArray(booking.participants)?booking.participants:[])){
@@ -236,7 +237,7 @@
     }
     return group;
    };
-   card.append(details(original,'原預約資料',false),details(replacement,'櫃檯新增的衝突預約',true));
+   card.append(details(original,'原預約資料',false),details(replacement,isAdminReview?'管理端修改後的預約資料':'櫃檯新增的衝突預約',true));
    items.append(card);
   }
  }
@@ -475,6 +476,7 @@
    if(history)history.hidden=false;
    const result=await request('frontdesk.bookings',bookingId?{bookingId}:{});if(generation!==epoch)return false;
    renderBookings(result.bookings||[]);
+   if(bookingId&&!historyLoaded){historyLoaded=true;void loadConflictHistory();}
     startSync();
    status.textContent='審核已通過，可處理目前商家的待確認預約。';
   }else{
@@ -485,7 +487,7 @@
  }
  async function start(){
   lock(true);try{
-   stopSync();epoch++;idToken=null;clearPrivateHistory();
+   stopSync();epoch++;idToken=null;historyLoaded=false;clearPrivateHistory();
    account.replaceChildren();list.replaceChildren();
    showProgress(0);showBookingToolbar(false);status.textContent='正在確認 LINE 身分…';
    if(!business)throw Error('請使用商家提供的完整櫃檯入口。');
