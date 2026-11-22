@@ -72,7 +72,9 @@ test('PostgreSQL frontdesk LINE history: scoped booking is found beyond 30 entri
   const make=async()=>{const id=(await h.db.query(`select (${s}.create_group_booking_request_v2($1,$2,current_date+3,'10:00',$3,'')).id id`,['FD-'+crypto.randomUUID(),member,[{technicianId:null,items:[{serviceId:service,quantity:1}]}]])).rows[0].id;return id;};
   const target=await make(),other=await make();
   // AC-FD-OVERLAP-004: direct API calls bypass browser controls but must not mutate either booking.
-  const source=(await h.db.query(`select updated_at from ${s}.bookings where id=$1`,[target])).rows[0];
+  // Keep PostgreSQL microseconds: node-postgres Date truncates updated_at to ms.
+  // The optimistic lock must use the exact stored timestamp, not rounded JS Date.
+  const source=(await h.db.query(`select updated_at::text as updated_at from ${s}.bookings where id=$1`,[target])).rows[0];
   for(const [startTime,totalDurationMinutes] of [['10:30',30],['09:20',40]]){
    const phoneRequestId='PHONE-'+crypto.randomUUID();
    await assert.rejects(conn.query(query,actorArgs('booking.reject_phone',{
