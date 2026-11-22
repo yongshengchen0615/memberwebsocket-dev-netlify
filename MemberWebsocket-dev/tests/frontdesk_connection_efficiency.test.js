@@ -28,7 +28,7 @@ function harness() {
   const refuse = (index, status, code) => calls[index].resolve({
     status, ok: false, json: async () => ({ ok: false, error: { code, message: code } }),
   });
-  return { calls, context, succeed, refuse, request: (action, body = {}) => context.frontdeskRequest(action, body) };
+  return { calls, context, reads: context.reads, succeed, refuse, request: (action, body = {}) => context.frontdeskRequest(action, body) };
 }
 
 for (const action of ['frontdesk.public', 'frontdesk.bootstrap', 'frontdesk.bookings', 'frontdesk.history', 'frontdesk.sync.status']) {
