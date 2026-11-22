@@ -1,4 +1,4 @@
-import { businessContext } from '../_shared/business-scope.ts';
+import { businessContext, memberSystemFooter } from '../_shared/business-scope.ts';
 import { withBusinessModule, businessEnv, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';
 import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 import { buildLineFlexNotice } from "../_shared/line-flex.ts";
@@ -130,6 +130,7 @@ async function dispatchOne(supabase: SupabaseClient, token: string, row: any, ev
     const message = buildLineFlexNotice(refreshedText,{
       title:"會員權益通知",
       eyebrow:"MEMBER BENEFITS",
+      footer:memberSystemFooter(),
     });
     if (isFixedTicketNotification(row)) addEventTicketAction(message, eventLiffUrl);
 

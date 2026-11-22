@@ -12,7 +12,7 @@ import { serverFailureTrace } from './server-errors.mjs';
 export type { SupabaseClient } from 'npm:@supabase/supabase-js@2.57.0';
 type Context=Record<string,any>;
 import { scope, rawEnv, businessContext, businessEnv, businessFetch } from './business-scope.ts';
-export { businessContext, businessEnv, businessFetch } from './business-scope.ts';
+export { businessContext, businessEnv, businessFetch, memberSystemFooter } from './business-scope.ts';
 // Resolve only on authenticated admin traffic; unit tests and disabled
 // administration paths must never need env permissions just to import runtime.
 let deployedAdminChannels: ReturnType<typeof createDeploymentLineVerifiers> | null = null;

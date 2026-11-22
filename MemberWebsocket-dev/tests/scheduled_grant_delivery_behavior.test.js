@@ -41,7 +41,7 @@ function fixture({ url = '', status = 200, acceptedId = '', testMember = false, 
     createClient: () => db,
     // The non-business delivery unit fixture retains its original transport.
     // business-runtime_test.ts covers the real scoped credential adapter.
-    businessContext: () => null, withBusinessModule: async (_feature,run) => run(),
+    businessContext: () => null, memberSystemFooter: () => '會員系統', withBusinessModule: async (_feature,run) => run(),
     buildLineFlexNotice: () => ({ type: 'flex', contents: { header: { backgroundColor: '#315D50' }, body: { type: 'box', contents: [] }, footer: { type: 'box', contents: [] } } }),
     replaceCurrentGrantSections: (text) => text,
     buildLatestAvailableOffersSection: async () => '',

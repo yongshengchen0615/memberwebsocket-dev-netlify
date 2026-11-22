@@ -10,17 +10,17 @@
   const tab = el('clientPageTitleTab');
   const panel = el('clientPageTitleShortcut');
   let generation = 0, config = null, token = '', tenant = null, pending = null, saving = false;
-  let fallback = 'Lumen Club';
+  let fallback = '';
 
   function status(message) { if (el('clientPageTitleStatus')) el('clientPageTitleStatus').textContent = message; }
   function preview() {
     const title = input?.value.trim() || fallback;
-    if (el('clientPageTitlePreview')) el('clientPageTitlePreview').textContent = title + '｜預約';
+    if (el('clientPageTitlePreview')) el('clientPageTitlePreview').textContent = tenant && title ? title + '｜預約' : '載入中…';
   }
   function clear() {
     generation += 1;
     config = null; token = ''; tenant = null; pending = null; saving = false;
-    fallback = 'Lumen Club';
+    fallback = '';
     if (form) form.reset();
     if (input) { input.disabled = true; input.placeholder = '請先選擇已授權的商家'; }
     if (save) { save.disabled = true; save.textContent = '儲存網頁抬頭'; }
@@ -66,7 +66,7 @@
           !Number.isSafeInteger(found.version) || found.version < 1)
         throw new Error('目前沒有此商家的網頁抬頭修改權限。');
       tenant = found;
-      fallback = found.name || 'Lumen Club';
+      fallback = found.name || '會員系統';
       input.value = found.siteTitle || '';
       input.placeholder = fallback;
       input.disabled = false;

@@ -146,7 +146,7 @@
   }
 
   function renderProfile(profile) {
-    const brandName = String(state.config.brandName || 'Lumen Club');
+    const brandName = String(state.config.business ? state.config.brandName || '會員系統' : '會員系統');
     const displayName = String(profile.displayName || state.lineProfile?.displayName || 'LINE 使用者');
     const status = String(profile.status || 'active').toLowerCase();
     const isActive = status === 'active';

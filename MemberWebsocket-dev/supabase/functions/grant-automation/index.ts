@@ -1,4 +1,4 @@
-import { businessEnv, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';
+import { businessEnv, businessFetch as fetch, serveBusiness, memberSystemFooter } from '../_shared/business-runtime.ts';
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
 import { buildLineFlexNotice } from "../_shared/line-flex.ts";
@@ -126,6 +126,7 @@ async function pushLine(supabase: SupabaseClient, actor: string, lineUserId: str
     const flexMessage = buildLineFlexNotice(message,{
       title:"會員權益通知",
       eyebrow:"MEMBER BENEFITS",
+      footer:memberSystemFooter(),
     });
     lineResponse = await fetch("https://api.line.me/v2/bot/message/push",{
       method:"POST",
