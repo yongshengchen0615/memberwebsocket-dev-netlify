@@ -72,6 +72,13 @@
 
     <main id="adminView" class="hidden">
       <header class="topbar"><div><p class="kicker">Lumen Club / Operations</p><h1>管理工作台</h1></div><div class="account-menu"><span id="displayName">管理員</span><span id="roleLabel" class="role-label">Admin</span><button id="logoutButton" class="text-button" type="button">登出</button></div></header>
+      <section class="ops-overview" aria-labelledby="opsOverviewTitle">
+        <div><p class="kicker">Live operations</p><h2 id="opsOverviewTitle">營運概況</h2></div>
+        <p>先看會員、集點、票券與今日異動，再進入下方工作區處理細節；數字維持既有即時同步來源。</p>
+      </section>
+
+      <section class="stats-row" aria-label="目前概況"><div><span class="stat-label">會員總數</span><strong id="memberCount">0</strong><small>已建立會員資料</small></div><div><span class="stat-label">啟用會員</span><strong id="activeMemberCount">0</strong><small>可使用會員權益</small></div><div><span class="stat-label">進行中集點卡</span><strong id="activeCardCount">0</strong><small>正在對外開放</small></div><div><span class="stat-label">進行中活動票券</span><strong id="activeEventTicketCount">0</strong><small>目前可供會員領取</small></div><div><span class="stat-label">今日新增點數</span><strong id="todayEntryCount">0</strong><small>本日登錄紀錄</small></div></section>
+
       <nav class="surface-nav" role="tablist" aria-label="管理功能"><button id="membersTab" class="surface-tab" type="button" role="tab" aria-selected="true" aria-controls="membersPanel">會員卡</button><button id="cardsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="cardsPanel">集點卡</button><button id="eventsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="eventsPanel">活動票券</button><button id="calendarTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="calendarPanel">營運日曆</button><button id="lineSettingsTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="lineSettingsPanel" data-business-allowed="false" hidden disabled>LINE 設定</button><button id="clientPageTitleTab" class="surface-tab" type="button" role="tab" aria-selected="false" aria-controls="clientPageTitleShortcut" data-business-allowed="false" hidden disabled>網頁抬頭</button></nav>
 
       <section id="lineSettingsPanel" class="panel hidden" role="tabpanel" aria-labelledby="lineSettingsTab" hidden><div class="panel-heading"><div><p class="kicker">LINE / Integrations</p><h2>LINE 設定</h2><p>只顯示總管理員已核准的功能。各功能的 LIFF、訊息 Channel 與通知設定獨立儲存。</p></div></div><nav id="businessLineFeatureNav" class="business-line-feature-nav" aria-label="已核准功能的 LINE 設定"></nav><div id="businessLineFeatureContent"></div><p id="businessLineLoadStatus" role="status" aria-live="polite"></p></section>
@@ -92,13 +99,6 @@
           <button id="clientPageTitleSave" type="submit" class="button button-dark" disabled>儲存網頁抬頭</button>
         </form>
       </section>
-      <section class="ops-overview" aria-labelledby="opsOverviewTitle">
-        <div><p class="kicker">Live operations</p><h2 id="opsOverviewTitle">營運概況</h2></div>
-        <p>先看會員、集點、票券與今日異動，再進入下方工作區處理細節；數字維持既有即時同步來源。</p>
-      </section>
-
-      <section class="stats-row" aria-label="目前概況"><div><span class="stat-label">會員總數</span><strong id="memberCount">0</strong><small>已建立會員資料</small></div><div><span class="stat-label">啟用會員</span><strong id="activeMemberCount">0</strong><small>可使用會員權益</small></div><div><span class="stat-label">進行中集點卡</span><strong id="activeCardCount">0</strong><small>正在對外開放</small></div><div><span class="stat-label">進行中活動票券</span><strong id="activeEventTicketCount">0</strong><small>目前可供會員領取</small></div><div><span class="stat-label">今日新增點數</span><strong id="todayEntryCount">0</strong><small>本日登錄紀錄</small></div></section>
-
       <section id="membersPanel" class="panel" role="tabpanel" aria-labelledby="membersTab">
         <div class="panel-heading member-workspace-heading"><div><p class="kicker">Member operations</p><h2>會員卡管理</h2><p>將日常會員操作、等級卡面與申請條款分開處理；切換工作區不會離開會員卡頁面。</p></div><div class="heading-actions"><span id="syncStatus" class="sync-status">尚未同步</span><button id="refreshButton" class="button button-outline hidden" type="button">重新整理確認</button></div></div>
         <nav class="member-workspace-nav" role="tablist" aria-label="會員卡管理功能">
