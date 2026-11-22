@@ -202,6 +202,36 @@ function transport(s, action, p={}, slug='api',record=true) {
     s.bookings.push(row);
     return {bookingId,bookingSource:'phone',status:'confirmed'};
   }
+  // Isolated browser fixture for the new single-transaction review route. The
+  // live authorization/atomicity guarantees are separately tested in Postgres.
+  if(action==='admin.booking.reject-walkin'){
+    const previous=s.bookings.find(b=>b.walkinRequestId===p.requestId);
+    if(previous)return {bookingId:previous.sourceBookingId,phoneBookingId:previous.bookingId,
+      status:'rejected',phoneBookingStatus:'confirmed',alreadyApplied:true};
+    const original=s.bookings.find(b=>b.bookingId===p.bookingId);
+    if(!original||original.status!=='pending'||original.updatedAt!==p.expectedUpdatedAt)
+      throw Object.assign(new Error('Booking changed'),{code:'BOOKING_CONFLICT'});
+    if(p.status!=='rejected'||p.rejectionReason!=='unrecorded_phone_booking'||!/^\d{2}:\d{2}$/.test(p.startTime))
+      throw Object.assign(new Error('Invalid rejection details'),{code:'ADMIN_WALKIN_POLICY'});
+    const minute=(clock)=>Number(clock.slice(0,2))*60+Number(clock.slice(3,5));
+    const start=minute(p.startTime),total=Number(p.totalDurationMinutes);
+    if(start%10||total%10||total<10||total>1430)
+      throw Object.assign(new Error('Invalid merchant policy'),{code:'ADMIN_WALKIN_POLICY'});
+    const originalStart=minute(original.startTime),end=originalStart+Number(original.totalDurationMinutes);
+    if(![start,start+1440].some(value=>value<end && value+total>originalStart))
+      throw Object.assign(new Error('現場預約時段與原預約沒有重疊'),{code:'ADMIN_WALKIN_NOT_OVERLAPPING'});
+    const endAt=(start+total)%1440,clock=value=>String(Math.floor(value/60)).padStart(2,'0')+':'+String(value%60).padStart(2,'0');
+    const phone={bookingId:'walkin-'+(++s.seq),walkinRequestId:p.requestId,sourceBookingId:original.bookingId,
+      bookingSource:'phone',memberId:null,memberCode:'',memberDisplayName:'',
+      contactSurname:'管理端',contactSalutation:null,contactPhone:'',
+      bookingDate:original.bookingDate,startTime:p.startTime,endTime:clock(endAt),
+      totalDurationMinutes:total,status:'confirmed',items:[],adminNote:'原預約 '+original.bookingId+' 拒絕後的現場／電話預約',
+      createdAt:stamp(),updatedAt:stamp()};
+    original.status='rejected';original.rejectionReason=p.rejectionReason;original.adminNote=p.adminNote;
+    original.updatedAt=stamp();s.bookings.push(phone);
+    return {bookingId:original.bookingId,phoneBookingId:phone.bookingId,
+      status:'rejected',phoneBookingStatus:'confirmed',alreadyApplied:false};
+  }
   if(action==='admin.booking.status.update'||action==='admin.booking.status.complete'){const b=s.bookings.find(b=>b.bookingId===p.bookingId);Object.assign(b,p,{status:action.endsWith('.complete')?'completed':p.status,updatedAt:stamp()});return {booking:b};}
   if(action==='admin.booking.receipt.list')return {submissions:s.submissions,accessibleRecords:s.accessibleRecords,bookings:s.bookings,receipts:s.receipts};
   if(action==='admin.booking.receipt.url')return {signedUrl:'https://fixture.supabase.co/storage/v1/object/sign/booking-receipts/qa.svg?token=fixture'};

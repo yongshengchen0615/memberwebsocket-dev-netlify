@@ -9,7 +9,12 @@ const migration = fs.readFileSync(path.join(root, 'supabase/migrations/202610140
 
 test('pending and confirmed regular bookings share the no-show button and retain distinct follow-up actions', () => {
   assert.match(core, /if \(booking\.status === 'pending' \|\| booking\.status === 'confirmed'\) \{\s*const reason = noShowUnavailableReason\(booking, state\.booking\.noShowRisk\?\.policy\)/);
-  assert.match(core, /if \(booking\.status === 'pending'\) \{[\s\S]*?reasonSelect\.setAttribute\('aria-label','選擇拒絕預約原因'\)[\s\S]*?actions\.append\(\s*actionButton\('不通過'/);
+  assert.match(core, /if \(booking\.status === 'pending'\) \{[\s\S]*?actionButton\('不通過', 'button button-outline', \(\) => openRejectionModal\(booking, textarea\.value\)\)/);
+  // Reject remains distinct from confirm/no-show, but the user must now
+  // explicitly choose a reason inside a focused modal, never an inline field.
+  assert.match(core, /function openRejectionModal\(booking, adminNote\)/);
+  assert.match(core, /showMessage\(feedback,'請先選擇拒絕原因。'/);
+  assert.match(core, /if \(isPhone && !overlapping\(\)\)/);
   assert.match(core, /actionButton\('確認服務完成', 'button button-dark'/);
   assert.match(core, /if \(!\['pending', 'confirmed'\]\.includes\(booking\.status\)\)/);
   assert.match(core, /booking\.receiptSubmissionId \|\| String\(booking\.requestId/);

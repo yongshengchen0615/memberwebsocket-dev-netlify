@@ -88,6 +88,15 @@ export function createClient(url:string,key:string,options?:any):import('npm:@su
     MEMBER_NOTIFICATIONS_DISABLED:current.module_line?.booking?.notifications?.member?.mode==='disabled',
     LINE_BOOKING_FRONTDESK_CHANNEL_ACCESS_TOKEN:notificationToken(current,'frontdesk'),FRONTDESK_NOTIFICATIONS_DISABLED:current.module_line?.booking?.frontdesk?.enabled!==true}}));
    if(name==='platform_frontdesk_delivery')return control().rpc(name,{p_tenant_id:current.id,p_actor:params?.p_actor});
+   // The SQL endpoint is service-role only. Bind tenant, actor and issued-at
+   // exclusively from the LINE-verified administrator context, not request JSON.
+   if(name==='platform_admin_reject_walkin'){
+    if(!current.verifiedAdmin || params?.p_actor!==current.verifiedAdmin.actor)
+     return Promise.resolve({data:null,error:{message:'ADMIN_REQUIRED'}});
+    return control().rpc(name,{p_tenant_id:current.id,
+     p_actor:current.verifiedAdmin.actor,p_issued_at:current.verifiedAdmin.issuedAt,
+     p_body:params?.p_body});
+   }
    if(name==='get_line_setting'){
     const keys:Record<string,string>={LINE_MEMBER_LIFF_ID:'memberLiffId',LINE_POINTS_LIFF_ID:'pointsLiffId',LINE_EVENT_LIFF_ID:'eventLiffId',LINE_CALENDAR_LIFF_ID:'calendarLiffId',LINE_BOOKING_LIFF_ID:'bookingLiffId',LINE_ADMIN_LIFF_ID:'adminLiffId'};
     if(keys[params?.p_key])return Promise.resolve({data:current.customLineReady?current.line_config?.[keys[params.p_key]]||null:null,error:null});

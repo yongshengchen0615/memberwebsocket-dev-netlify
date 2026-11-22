@@ -9,7 +9,7 @@
   const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六'];
   const state = {
     config: null,
-    booking: { settings: {}, bookings: [], groups: {}, technicians: [], primaryTechnicianId: '' },
+    booking: { settings: {}, bookings: [], groups: {}, technicians: [], primaryTechnicianId: '', frontdeskConflictPolicy: {} },
     catalog: { serviceTypes: [], services: [], pointCards: [] },
     filter: new URLSearchParams(window.location.search).has('bookingId') ? 'all' : 'pending',
     subtab: new URLSearchParams(window.location.search).has('bookingId') ? 'queue' : 'technicians',
@@ -639,6 +639,7 @@
       }));
       const nextBooking = {
         noShowRisk: booking.noShowRisk,
+        frontdeskConflictPolicy: booking.frontdeskConflictPolicy || {},
         settings: { ...(booking.settings || {}), ...(catalog.settings || {}), ...(resources.settings || {}) },
         bookings,
         groups: groupData?.bookingGroups && typeof groupData.bookingGroups === 'object' ? groupData.bookingGroups : {},
@@ -2006,13 +2007,8 @@
           }
         }
         if (booking.status === 'pending') {
-          const reasonField=document.createElement('label');reasonField.className='booking-admin-note-field';
-          reasonField.textContent='拒絕預約原因';
-          const reasonSelect=document.createElement('select');reasonSelect.setAttribute('aria-label','選擇拒絕預約原因');
-          [['','請選擇拒絕原因'],['technician_leave','預約中有休假技師'],['unrecorded_phone_booking','該時段已被現場人員預約但未登記']].forEach(([code,label])=>{const option=document.createElement('option');option.value=code;option.textContent=label;reasonSelect.append(option);});
-          reasonField.append(reasonSelect);card.appendChild(reasonField);
           actions.append(
-            actionButton('不通過', 'button button-outline', () => updateBookingStatus(booking, 'rejected', textarea.value, reasonSelect.value)),
+            actionButton('不通過', 'button button-outline', () => openRejectionModal(booking, textarea.value)),
             actionButton('確認預約', 'button button-dark', () => updateBookingStatus(booking, 'confirmed', textarea.value)),
           );
         } else if (isPhoneBooking(booking)) {
@@ -2575,6 +2571,122 @@
       submit.disabled=false; submit.textContent='確認標記無故未到';
     });
     showModal();
+  }
+
+
+  // Rejection is a conscious review action. Keep its reason and on-site
+  // interval together in one dialog; the database independently checks both.
+  function openRejectionModal(booking, adminNote) {
+    const policy = state.booking.frontdeskConflictPolicy || {};
+    const bound = (key, fallback) => Number.isInteger(policy[key]) ? policy[key] : fallback;
+    const startMin = bound('conflictStartMin', 0);
+    const startMax = bound('conflictStartMax', 1430);
+    const durationMin = bound('conflictDurationMin', 10);
+    const durationMax = bound('conflictDurationMax', 1430);
+    const date = String(booking.bookingDate || booking.startAt || '').slice(0,10);
+    const start = String(booking.startTime || String(booking.startAt || '').slice(11,16)).slice(0,5);
+    const end = String(booking.endTime || String(booking.endAt || '').slice(11,16)).slice(0,5);
+    const originalDuration = Number(booking.totalDurationMinutes)
+      || Math.round((Date.parse(booking.endAt) - Date.parse(booking.startAt)) / 60000);
+    const minutes = value => /^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test(String(value))
+      ? Number(value.slice(0,2))*60 + Number(value.slice(3,5)) : null;
+    const clock = value => String(Math.floor(value/60)).padStart(2,'0') + ':' + String(value%60).padStart(2,'0');
+    const businessDay = Date.parse(date+'T00:00:00Z');
+    const startDay = Date.parse(String(booking.startAt || '').slice(0,10)+'T00:00:00Z');
+    const offset = Number.isFinite(businessDay) && Number.isFinite(startDay)
+      ? Math.max(0, Math.min(1, Math.round((startDay-businessDay)/86400000))) : 0;
+    const originalStart = minutes(start) === null ? null : minutes(start) + offset*1440;
+    const originalEnd = originalStart !== null && originalDuration > 0
+      ? originalStart + originalDuration : null;
+
+    els.bookingAdminCrudModalTitle.textContent = '拒絕預約';
+    els.bookingAdminCrudModalBody.innerHTML = `<form class="booking-admin-form" data-admin-rejection-form novalidate>
+      <p class="booking-admin-time">請先選擇拒絕原因，再確認送出。</p>
+      <section class="booking-admin-settings-block" aria-label="原預約資料">
+        <strong>原預約資料</strong>
+        <p>預約日期：${escapeHtml(date || '—')}</p>
+        <p>原預約時間：${escapeHtml(start || '—')} – ${escapeHtml(end || '—')}</p>
+        <p>原預約總時長：${Number.isFinite(originalDuration) && originalDuration > 0 ? originalDuration+' 分鐘' : '未提供'}</p>
+      </section>
+      <label>拒絕原因<select data-rejection-reason aria-label="選擇拒絕預約原因" required>
+        <option value="">請選擇拒絕原因</option>
+        <option value="technician_leave">預約中有休假技師</option>
+        <option value="unrecorded_phone_booking">該時段已被現場人員預約但未登記</option>
+      </select></label>
+      <section data-rejection-phone hidden>
+        <h4>登記電話／現場預約</h4>
+        <p class="booking-admin-time">預約日期沿用原訂單（${escapeHtml(date || '—')}）。請選擇實際衝突的預約時間及服務總時長。兩筆預約必須真正重疊；僅相接不算衝突。</p>
+        <label>衝突預約時間（每 10 分鐘）<select data-rejection-time aria-label="衝突預約時間"></select></label>
+        <label>衝突預約總時長（每 10 分鐘）<select data-rejection-duration aria-label="衝突預約總時長"></select></label>
+      </section>
+      <div data-modal-message class="form-message hidden" role="alert" aria-live="polite"></div>
+      <div class="booking-admin-modal-actions">
+        <button data-cancel class="button button-outline" type="button">取消</button>
+        <button data-submit class="button button-danger" type="submit">確認不通過</button>
+      </div>
+    </form>`;
+    const form = els.bookingAdminCrudModalBody.querySelector('[data-admin-rejection-form]');
+    const reason = form.querySelector('[data-rejection-reason]');
+    const phone = form.querySelector('[data-rejection-phone]');
+    const time = form.querySelector('[data-rejection-time]');
+    const duration = form.querySelector('[data-rejection-duration]');
+    const feedback = form.querySelector('[data-modal-message]');
+    const submit = form.querySelector('[data-submit]');
+    for (let value=startMin; value<=startMax; value+=10) {
+      time.add(new Option(clock(value),clock(value)));
+    }
+    for (let value=durationMin; value<=durationMax; value+=10) {
+      duration.add(new Option(value+' 分鐘',String(value)));
+    }
+    time.value = Array.from(time.options).some(option=>option.value===start) ? start : (time.options[0]?.value || '');
+    duration.value = Array.from(duration.options).some(option=>Number(option.value)===originalDuration)
+      ? String(originalDuration) : (duration.options[0]?.value || '');
+    const validChoice = (select) => Array.from(select.options).some(option=>option.value===select.value);
+    // Same half-open overlap convention as frontdesk, including overnight days.
+    const overlapping = () => {
+      const selected = minutes(time.value), total = Number(duration.value);
+      return originalStart !== null && originalEnd !== null && originalEnd > originalStart
+        && selected !== null && validChoice(time) && validChoice(duration) && total > 0
+        && [selected,selected+1440].some(candidate=>
+          candidate < originalEnd && candidate+total > originalStart);
+    };
+    const refresh = () => {
+      const isPhone = reason.value === 'unrecorded_phone_booking';
+      phone.hidden = !isPhone;
+      submit.textContent = isPhone ? '確認不通過並登記現場預約' : '確認不通過';
+      if (isPhone && !overlapping()) {
+        showMessage(feedback,'你選擇的現場預約時段與原預約沒有重疊，請調整預約時間或總時長。','error');
+      } else clearMessage(feedback);
+    };
+    reason.addEventListener('change',refresh);
+    time.addEventListener('change',refresh);
+    duration.addEventListener('change',refresh);
+    form.querySelector('[data-cancel]').addEventListener('click',()=>closeModal());
+    let requestId = crypto.randomUUID();
+    let previousPayload = '';
+    form.addEventListener('submit',async (event)=>{
+      event.preventDefault();
+      if (state.busy) return;
+      if (!['technician_leave','unrecorded_phone_booking'].includes(reason.value)) {
+        showMessage(feedback,'請先選擇拒絕原因。','error'); reason.focus(); return;
+      }
+      const isPhone = reason.value === 'unrecorded_phone_booking';
+      if (isPhone && (!date || !validChoice(time) || !validChoice(duration))) {
+        showMessage(feedback,'請選擇符合商家設定的衝突預約時間與總時長。','error'); return;
+      }
+      if (isPhone && !overlapping()) {
+        showMessage(feedback,'現場預約時間與原預約沒有重疊，無法使用此原因拒絕。','error'); time.focus(); return;
+      }
+      const payload = {bookingId:booking.bookingId,expectedUpdatedAt:booking.updatedAt,
+        status:'rejected',adminNote,rejectionReason:reason.value,
+        ...(isPhone ? {startTime:time.value,totalDurationMinutes:Number(duration.value)} : {})};
+      const signature = JSON.stringify(payload);
+      if (previousPayload && signature !== previousPayload) requestId = crypto.randomUUID();
+      previousPayload = signature;
+      await runModalAction(()=>bookingRequest(isPhone?'admin.booking.reject-walkin':'admin.booking.status.update',
+        isPhone?{...payload,requestId}:payload,true));
+    });
+    showModal(); reason.focus(); refresh();
   }
 
   async function updateBookingStatus(booking, status, adminNote, rejectionReason = '') {
