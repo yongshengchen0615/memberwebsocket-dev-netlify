@@ -64,10 +64,15 @@
   gate();
   if(changed&&memberSurface&&typeof window.dispatchEvent==='function')window.dispatchEvent(new CustomEvent('business:features-changed',{detail:{features:{...next}}}));
  }
+ const pageLabel=()=>({member:'會員卡',points:'集點卡',event:'活動票券',calendar:'活動日曆',booking:'預約'})[location.pathname.split('/')[1]];
+ function resetPageTitle(){
+  const page=pageLabel();
+  if(page)document.title='會員系統｜'+page;
+ }
  function updatePageTitle(config){
-  const page={member:'會員卡',points:'集點卡',event:'活動票券',calendar:'活動日曆',booking:'預約'}[location.pathname.split('/')[1]];
+  const page=pageLabel();
   if(!page)return;
-  const brand=String(config.brandName||'Lumen Club').trim().slice(0,60)||'Lumen Club';
+  const brand=String(config.brandName||'會員系統').trim().slice(0,60)||'會員系統';
   document.title=brand+'｜'+page;
  }
  function readPublic(config,refresh){
@@ -92,7 +97,8 @@
   return pending;
  }
  async function configure(config,refresh=false){
-  if(!slug){updatePageTitle(config);return config;}
+  if(!slug){updatePageTitle({brandName:'會員系統'});return config;}
+  if(!refresh)resetPageTitle();
   const {response,body,sequence,requestedSlug,generation,state}=await readPublic(config,refresh);
   if(!response.ok||!body.ok)throw Object.assign(Error(body.error?.message||'無法取得商家設定。'),{code:body.error?.code||'BUSINESS_UNAVAILABLE'});
   if(body.data.business!==requestedSlug)throw Error('商家設定不一致。');
@@ -115,7 +121,7 @@
   applyFeatures(data.features);
   return config;
  }
- window.BusinessContext=Object.freeze({configure,refresh:config=>configure(config,true),allows,allowsBenefit,get slug(){return slug;},set(value){if(!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(value))throw Error('Invalid business');slug=value;businessGeneration++;grants=null;publicStates.clear();configs.clear();gate();}});
+ window.BusinessContext=Object.freeze({configure,refresh:config=>configure(config,true),allows,allowsBenefit,get slug(){return slug;},set(value){if(!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(value))throw Error('Invalid business');slug=value;businessGeneration++;grants=null;publicStates.clear();configs.clear();resetPageTitle();gate();}});
  window.fetch=function(input,init){
   if(slug&&init&&typeof init.body==='string'){
    try{
