@@ -289,7 +289,7 @@ Deno.test('booking notification builds a structured mobile-friendly Flex Message
   assert(components.some((item) => item.text === '肩頸30、頭部20'), 'Flex body must keep participant services grouped');
   assert(components.some((item) => item.text === '10'), 'Flex body must include the selected technician');
   assert(components.some((item) => item.text === '現場安排'), 'Flex body must support on-site technician assignment');
-  assert(components.some((item) => item.text === 'Lumen Club 預約系統'), 'Flex footer must identify the booking system');
+  assert(components.some((item) => item.text === '會員系統'), 'Flex footer must use neutral branding outside a verified business scope');
 });
 
 Deno.test('confirmed member notification contains the booking summary without a detail button', () => {
