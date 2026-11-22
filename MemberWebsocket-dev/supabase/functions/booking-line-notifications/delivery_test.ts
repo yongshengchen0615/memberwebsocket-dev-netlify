@@ -310,6 +310,18 @@ Deno.test('AC-MLN-002: multiline rejection template renders as prose, never sepa
   assert(card.altText.includes('預約未通過'), 'rejection event identity must remain intact');
 });
 
+
+Deno.test('AC-MLN-003: a pending notice without optional details never claims confirmation', () => {
+  const card = buildBookingFlexMessage({
+    ...sampleJob, channel: 'member', message_text: '【預約申請】',
+  });
+  const rendered = JSON.stringify(card.contents.body);
+  assert(rendered.includes('已收到預約申請，請等待管理員確認。'),
+    'pending fallback must preserve the pending lifecycle state');
+  assert(!rendered.includes('預約已確認。'),
+    'missing optional fields must not convert pending into confirmed');
+});
+
 Deno.test('booking notification builds a structured mobile-friendly Flex Message', () => {
   const message = buildBookingFlexMessage({...sampleJob,channel:'admin'});
   assert(message.type === 'flex', 'notification must be a Flex Message');
