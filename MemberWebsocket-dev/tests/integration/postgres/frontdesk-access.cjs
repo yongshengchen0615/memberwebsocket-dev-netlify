@@ -4,7 +4,7 @@ const owner='U'+'2'.repeat(32),staff='U'+'4'.repeat(32),channel='2010999999';
 test('PostgreSQL frontdesk: two physical writers, revoke ordering, idempotency, rollback and backup restore',async()=>{
  const h=await fixture(await database());try{
   const t=await h.approve(owner,'desk-pg'),s=t.runtime_schema;
-  for(const name of ['20261026050904_line_webhook.sql','20261118122150_frontdesk_booking_access.sql','20261118190000_frontdesk_safeupdate_projection.sql'])await h.db.exec(fs.readFileSync(path.resolve(__dirname,'../../../supabase/migrations',name),'utf8'));
+  for(const name of ['20261026050904_line_webhook.sql','20261118122150_frontdesk_booking_access.sql','20261118190000_frontdesk_safeupdate_projection.sql','20261121224500_frontdesk_conflict_history_policy.sql','20261122133000_frontdesk_history_booking_scope.sql'])await h.db.exec(fs.readFileSync(path.resolve(__dirname,'../../../supabase/migrations',name),'utf8'));
   const query='select public.platform_frontdesk_request($1,$2,$3,$4,$5,$6) result',adminQuery='select public.platform_frontdesk_admin($1,$2,$3,$4,$5) result',issued=new Date(Date.now()+1000).toISOString();
   const actorArgs=(action,body)=>[t.id,staff,channel,issued,action,body],adminArgs=(action,body)=>[owner,t.id,issued,action,{requestId:crypto.randomUUID(),payloadHash:'a'.repeat(64),...body}];
   const first=await h.db.connect(),second=await h.db.connect();await first.query('set role service_role');await second.query('set role service_role');
@@ -25,6 +25,20 @@ test('PostgreSQL frontdesk: two physical writers, revoke ordering, idempotency, 
   assert.equal((await h.db.query(`select count(*)::int n from ${s}.booking_audit_events where target_id=$1 and actor_role='frontdesk'`,[b.id])).rows[0].n,1);
   const replay=(await second.query(query,actorArgs('booking.update',body))).rows[0].result;assert.equal(replay.alreadyApplied,true);
   const next=await make(),nextBody={bookingId:next.id,expectedUpdatedAt:next.updated_at,status:'rejected',requestId:crypto.randomUUID()};
+  // Synthetic audit rows exercise history filtering before the 30-entry limit.
+  // No production booking or member data is touched.
+  const audit=`insert into ${s}.booking_audit_events(actor_line_user_id,actor_role,action,target_type,target_id,result,metadata)
+   select $1,'frontdesk','BOOKING_REJECTED','booking',$2,'success',jsonb_build_object('rejectionReason','unrecorded_phone_booking') from generate_series(1,$3::int)`;
+  await first.query(audit,[staff,b.id,1]);
+  await first.query(audit,[staff,next.id,31]);
+  const scoped=(await first.query(query,actorArgs('history',{bookingId:b.id}))).rows[0].result;
+  assert.equal(scoped.items.length,1,'single-order lookup must find a record beyond the most recent 30');
+  assert.equal(scoped.items[0].booking.id,b.id);
+  const broad=(await first.query(query,actorArgs('history',{}))).rows[0].result;
+  assert.equal(broad.items.length,30,'ordinary frontdesk history retains the latest 30 records');
+  assert.ok(broad.items.every(item=>item.booking.id===next.id));
+  await assert.rejects(first.query(query,[t.id,'U'+'5'.repeat(32),channel,issued,'history',{bookingId:b.id}]),/FRONTDESK_REVIEW_REQUIRED/);
+  assert.equal((await h.db.query(`select status from ${s}.bookings where id=$1`,[b.id])).rows[0].status,'confirmed','history requests are read only');
   await first.query('begin');await first.query(query,actorArgs('booking.update',nextBody));await first.query('rollback');assert.equal((await h.db.query(`select status from ${s}.bookings where id=$1`,[next.id])).rows[0].status,'pending');
   await first.query('begin');await first.query(adminQuery,adminArgs('staff.save',{staffId:person.id,expectedVersion:2,status:'suspended',permissionMode:'review'}));
   const revoked=second.query(query,actorArgs('booking.update',nextBody));revoked.catch(()=>{});await blocked();await first.query('commit');await assert.rejects(revoked,/FRONTDESK_REVIEW_REQUIRED/);
