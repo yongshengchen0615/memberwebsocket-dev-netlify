@@ -64,6 +64,18 @@ test('PostgreSQL frontdesk LINE history: scoped booking is found beyond 30 entri
   const service=(await h.db.query(`insert into ${s}.booking_services(title,duration_minutes,price_amount,service_type,created_by)values('FD',30,100,'FD',$1)returning id`,[owner])).rows[0].id;
   const make=async()=>{const id=(await h.db.query(`select (${s}.create_group_booking_request_v2($1,$2,current_date+3,'10:00',$3,'')).id id`,['FD-'+crypto.randomUUID(),member,[{technicianId:null,items:[{serviceId:service,quantity:1}]}]])).rows[0].id;return id;};
   const target=await make(),other=await make();
+  // AC-FD-OVERLAP-004: direct API calls bypass browser controls but must not mutate either booking.
+  const source=(await h.db.query(`select updated_at from ${s}.bookings where id=$1`,[target])).rows[0];
+  for(const [startTime,totalDurationMinutes] of [['10:30',30],['09:20',40]]){
+   const phoneRequestId='PHONE-'+crypto.randomUUID();
+   await assert.rejects(conn.query(query,actorArgs('booking.reject_phone',{
+    bookingId:target,expectedUpdatedAt:source.updated_at,status:'rejected',
+    rejectionReason:'unrecorded_phone_booking',requestId:crypto.randomUUID(),
+    phoneRequestId,startTime,totalDurationMinutes
+   })),/FRONTDESK_NOT_OVERLAPPING/);
+   assert.equal((await h.db.query(`select status from ${s}.bookings where id=$1`,[target])).rows[0].status,'pending');
+   assert.equal((await h.db.query(`select count(*)::int n from ${s}.bookings where request_id=$1`,[phoneRequestId])).rows[0].n,0);
+  }
   // A's audit is older than the 30 most recent audits for another booking.
   // Filtering after LIMIT would incorrectly hide A's history.
   const audit=`insert into ${s}.booking_audit_events(actor_line_user_id,actor_role,action,target_type,target_id,result,metadata)
