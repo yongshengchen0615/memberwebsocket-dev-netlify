@@ -347,7 +347,7 @@
   const recommendedDuration=Number.isInteger(originalDuration)?originalDuration:60;
   duration.value=Array.from(duration.options).some(x=>Number(x.value)===recommendedDuration)?String(recommendedDuration):(duration.options[0]?.value||'');
   timeLabel.append(time);durationLabel.append(duration);
-  const toMinutes=value=>/^(?:[01]\\d|2[0-3]):[0-5]\\d$/.test(value)?Number(value.slice(0,2))*60+Number(value.slice(3,5)):null;
+  const toMinutes=value=>/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test(value)?Number(value.slice(0,2))*60+Number(value.slice(3,5)):null;
   const originalStartMin=toMinutes(originalTime),originalClockEnd=toMinutes(originalEnd);
   const originalEndMin=Number.isFinite(originalDuration)&&originalDuration>0&&originalStartMin!==null
    ?originalStartMin+originalDuration
