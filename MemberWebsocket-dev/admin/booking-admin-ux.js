@@ -1,0 +1,141 @@
+(() => {
+  'use strict';
+
+  // Track user-initiated booking writes only. Background polling, badge reads
+  // and realtime invalidations must not cover the admin screen with a spinner.
+  const bookingWrites = new Set([
+    'admin.booking.type.create', 'admin.booking.type.update', 'admin.booking.type.delete',
+    'admin.booking.service.save', 'admin.booking.service.delete', 'admin.booking.services.batch',
+    'admin.booking.settings.save', 'admin.booking.messages.save',
+    'admin.booking.phone.create', 'admin.booking.items.update',
+    'admin.booking.participants.items.update', 'admin.booking.participants.technicians.update',
+    'admin.booking.benefits.update', 'admin.booking.status.update',
+    'admin.booking.reject-walkin', 'admin.booking.status.complete',
+    'admin.booking.completed.correct', 'admin.booking.receipt.register',
+    'admin.booking.receipt.dismiss', 'admin.booking.resources.settings.save',
+    'admin.booking.resources.technician.save', 'admin.booking.price.publish',
+    'admin.booking.price.reschedule', 'admin.booking.price.cancel',
+    'admin.booking.risk.save', 'admin.booking.risk.revoke', 'admin.booking.risk.release',
+  ]);
+  const directActions = new Set([
+    '確認預約', '取消預約', '取消登記預約',
+    'disable-technician', 'restore-technician',
+  ]);
+  const formLabels = {
+    bookingAdminSettingsForm: '儲存預約與票券共用設定',
+    bookingAdminMessagesForm: '儲存所有預約通知訊息',
+    bookingAdminPartySizeForm: '儲存預約人數與主要技師設定',
+    bookingAdminTechnicianForm: '儲存技師資料',
+    accessibleAdminForm: '審核收據、登記服務並完成點數與票券結算',
+  };
+  const originalFetch = window.fetch;
+  let pending = 0;
+
+  function overlay() {
+    let element = document.getElementById('adminBookingPendingOverlay');
+    if (element) return element;
+    element = document.createElement('div');
+    element.id = 'adminBookingPendingOverlay';
+    element.className = 'admin-booking-pending-overlay';
+    element.hidden = true;
+    element.setAttribute('role', 'status');
+    element.setAttribute('aria-live', 'polite');
+    element.setAttribute('aria-atomic', 'true');
+    element.textContent = '正在處理預約操作… 請勿重複點擊，系統正在等待後端回覆。';
+    document.body.append(element);
+    return element;
+  }
+
+  function begin() {
+    pending += 1;
+    overlay().hidden = false;
+    document.body.setAttribute('data-admin-booking-pending', 'true');
+    return endOnce();
+  }
+
+  function endOnce() {
+    let ended = false;
+    return () => {
+      if (ended) return;
+      ended = true;
+      pending = Math.max(0, pending - 1);
+      if (pending === 0) {
+        overlay().hidden = true;
+        document.body.removeAttribute('data-admin-booking-pending');
+      }
+    };
+  }
+
+  function trackedRequest(input, options) {
+    if (!options || typeof options.body !== 'string') return false;
+    const url = typeof input === 'string' ? input : String(input?.url || '');
+    if (!url.includes('/functions/v1/')) return false;
+    try {
+      const body = JSON.parse(options.body);
+      if (body?.clientType !== 'admin') return false;
+      const action = String(body.action || '');
+      return bookingWrites.has(action)
+        || ((action === 'admin.approve' || action === 'admin.reject')
+          && url.includes('/booking-cancellation-api'));
+    } catch {
+      return false;
+    }
+  }
+
+  window.fetch = function bookingFeedbackFetch(input, options) {
+    if (!trackedRequest(input, options)) return originalFetch.call(this, input, options);
+    const finish = begin();
+    try {
+      return Promise.resolve(originalFetch.call(this, input, options)).finally(finish);
+    } catch (error) {
+      finish();
+      throw error;
+    }
+  };
+
+  function cancel(event) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }
+
+  function formDescription(form) {
+    if (form.classList?.contains('booking-risk-policy-form')) return '';
+    if (form.querySelector?.('[data-correction-fields]')) return '';
+    if (formLabels[form.id]) return formLabels[form.id];
+    if (form.closest?.('#bookingAdminCrudModal')) {
+      const heading = document.getElementById('bookingAdminCrudModalTitle')?.textContent || '預約變更';
+      return String(heading).trim().slice(0, 100);
+    }
+    if (form.closest?.('.booking-price-dialog')) return '發佈或調整預約項目價格';
+    return '';
+  }
+
+  document.addEventListener('submit', (event) => {
+    const form = event.target;
+    if (!form?.matches?.('form')) return;
+    const operation = formDescription(form);
+    if (!operation || form.getAttribute('aria-busy') === 'true') return;
+    const submit = form.querySelector?.('[type="submit"]');
+    if (submit?.disabled) return;
+    if (!window.confirm(`請再次確認：${operation}？\n\n確認後才會傳送至後端，並以後端實際回應為準。`)) cancel(event);
+  }, true);
+
+  document.addEventListener('click', (event) => {
+    const button = event.target?.closest?.('[data-booking-admin-action]');
+    if (!button || button.disabled) return;
+    const action = String(button.dataset.bookingAdminAction || '');
+    if (!directActions.has(action)) return;
+    const card = button.closest?.('[data-booking-id]');
+    const details = card?.dataset || {};
+    const display = action === 'disable-technician' ? '停用技師'
+      : action === 'restore-technician' ? '恢復技師公開' : action;
+    const bookingSummary = card
+      ? `\n預約人：${String(details.bookingMemberName || '—').slice(0, 80)}\n日期：${details.bookingDate || '—'}\n時間：${details.bookingStartTime || '—'}–${details.bookingEndTime || '—'}`
+      : '';
+    if (!window.confirm(`請再次確認：${display}？${bookingSummary}\n\n確認後才會送出，無法以再次點擊代替檢查結果。`)) cancel(event);
+  }, true);
+
+  // Explicit pending scopes keep the indicator visible while an operation
+  // performs an authoritative follow-up refresh after the first API response.
+  window.AdminBookingUX = Object.freeze({ begin });
+})();
