@@ -211,7 +211,7 @@ function transport(s, action, p={}, slug='api',record=true) {
     const original=s.bookings.find(b=>b.bookingId===p.bookingId);
     if(!original||original.status!=='pending'||original.updatedAt!==p.expectedUpdatedAt)
       throw Object.assign(new Error('Booking changed'),{code:'BOOKING_CONFLICT'});
-    if(p.status!=='rejected'||p.rejectionReason!=='unrecorded_phone_booking'||!/^\\d{2}:\\d{2}$/.test(p.startTime))
+    if(p.status!=='rejected'||p.rejectionReason!=='unrecorded_phone_booking'||!/^\d{2}:\d{2}$/.test(p.startTime))
       throw Object.assign(new Error('Invalid rejection details'),{code:'ADMIN_WALKIN_POLICY'});
     const minute=(clock)=>Number(clock.slice(0,2))*60+Number(clock.slice(3,5));
     const start=minute(p.startTime),total=Number(p.totalDurationMinutes);
