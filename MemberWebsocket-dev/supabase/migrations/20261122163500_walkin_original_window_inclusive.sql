@@ -58,8 +58,10 @@ begin
   execute d;
  end loop;
 
- -- The frontdesk atomic paired rejection validates the candidate timestamp
- -- against the booking business day and uses inclusive boundary comparisons.
+ -- The frontdesk atomic paired rejection validates the candidate START
+ -- against the original booking's inclusive window. A merely overlapping
+ -- earlier booking is forbidden even if the client forges the start time.
+ -- Booking date is computed by the existing tenant business-day function.
  select pg_get_functiondef(
    'public.platform_frontdesk_request(uuid,text,text,timestamp with time zone,text,jsonb)'::regprocedure
  ) into d;
@@ -69,6 +71,9 @@ begin
  then raise exception 'WALKIN_FRONTDESK_ROUTER_CONTRACT_CHANGED';end if;
  d:=replace(d,' < $3::timestamp + make_interval(mins=>$4::integer)',
               ' <= $3::timestamp + make_interval(mins=>$4::integer)');
+ -- Remove the candidate duration from the left boundary check. Unlike
+ -- a generic overlap rule, the recorded on-site appointment must START
+ -- at/after the original start, not before it.
  d:=replace(d,' + make_interval(mins=>$5::integer) > $3::timestamp',
               ' >= $3::timestamp');
  execute d;
