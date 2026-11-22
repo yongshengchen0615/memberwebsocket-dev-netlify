@@ -74,8 +74,15 @@ test('PostgreSQL frontdesk LINE history: scoped booking is found beyond 30 entri
   // AC-FD-OVERLAP-004: direct API calls bypass browser controls but must not mutate either booking.
   // Keep PostgreSQL microseconds: node-postgres Date truncates updated_at to ms.
   // The optimistic lock must use the exact stored timestamp, not rounded JS Date.
-  const source=(await h.db.query(`select updated_at::text as updated_at from ${s}.bookings where id=$1`,[target])).rows[0];
-  for(const [startTime,totalDurationMinutes] of [['10:30',30],['09:20',40]]){
+  const source=(await h.db.query(`select updated_at::text as updated_at, status,
+   to_char(start_at,'HH24:MI') as start_time,
+   to_char(start_at+make_interval(mins=>total_duration_minutes),'HH24:MI') as end_time,
+   total_duration_minutes as duration
+   from ${s}.bookings where id=$1`,[target])).rows[0];
+  assert.equal(source.status,'pending','fixture booking must be pending before rejection');
+  assert.equal(source.start_time,'10:00','fixture time is deterministic');
+  assert.ok(source.duration>0&&source.duration<720,'expected single service duration for boundary case');
+  for(const [startTime,totalDurationMinutes] of [[source.end_time,30],['09:20',40]]){
    const phoneRequestId='PHONE-'+crypto.randomUUID();
    await assert.rejects(conn.query(query,actorArgs('booking.reject_phone',{
     bookingId:target,expectedUpdatedAt:source.updated_at,status:'rejected',
