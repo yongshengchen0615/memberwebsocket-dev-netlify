@@ -8,6 +8,13 @@ test('frontdesk API verifies trusted audience, ignores forged identity and block
  assert.equal((await call({action:'frontdesk.bootstrap',actor:'U'+'f'.repeat(32),role:'admin'})).status,200);
  assert.equal(calls.find(c=>c.name==='platform_frontdesk_request').args.p_actor,actor);
  assert.equal((await call({action:'admin.booking.status.update'})).status,400);
+ const bypassCount=calls.length;
+ const bypass=await call({action:'frontdesk.booking.update',bookingId:'10000000-0000-4000-8000-000000000011',
+  status:'rejected',rejectionReason:'unrecorded_phone_booking',requestId:'10000000-0000-4000-8000-000000000012',
+  expectedUpdatedAt:'2026-11-22T00:00:00Z'});
+ assert.equal(bypass.status,400,'direct reject cannot bypass paired on-site overlap validation');
+ assert.equal(bypass.body.error.code,'FRONTDESK_USE_PAIRED_REJECTION');
+ assert.equal(calls.length,bypassCount,'bypassed action must never reach the database');
  assert.equal((await call({action:'frontdesk.bootstrap',idToken:'wrong'})).status,401);
  const n=calls.length;assert.equal((await call({action:'frontdesk.bootstrap'},'https://evil.test')).status,403);assert.equal(calls.length,n);
 });
