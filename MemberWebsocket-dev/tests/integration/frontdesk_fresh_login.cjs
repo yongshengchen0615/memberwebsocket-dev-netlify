@@ -195,5 +195,5 @@ test('AC-FD-AUTH-012: no manual re-login UI is generated anywhere in the frontde
  assert.doesNotMatch(source,/重新登入 LINE|node\('button','重新登入/);
  const html=fs.readFileSync(path.join(__dirname,'../../frontdesk/index.html'),'utf8');
  assert.doesNotMatch(html,/重新登入 LINE/);
- assert.match(html,/app\.js\?v=20261122-overlap-guard1/);
+ assert.match(html,/app\.js\?v=20261122-original-inclusive-window1/);
 });

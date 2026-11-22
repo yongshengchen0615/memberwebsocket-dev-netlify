@@ -218,8 +218,8 @@ function transport(s, action, p={}, slug='api',record=true) {
     if(start%10||total%10||total<10||total>1430)
       throw Object.assign(new Error('Invalid merchant policy'),{code:'ADMIN_WALKIN_POLICY'});
     const originalStart=minute(original.startTime),end=originalStart+Number(original.totalDurationMinutes);
-    if(![start,start+1440].some(value=>value<end && value+total>originalStart))
-      throw Object.assign(new Error('現場預約時段與原預約沒有重疊'),{code:'ADMIN_WALKIN_NOT_OVERLAPPING'});
+    if(![start,start+1440].some(value=>value>=originalStart && value<=end))
+      throw Object.assign(new Error('現場預約開始時間不在原預約區間內（含結束時間）'),{code:'ADMIN_WALKIN_NOT_OVERLAPPING'});
     const endAt=(start+total)%1440,clock=value=>String(Math.floor(value/60)).padStart(2,'0')+':'+String(value%60).padStart(2,'0');
     const phone={bookingId:'walkin-'+(++s.seq),walkinRequestId:p.requestId,sourceBookingId:original.bookingId,
       bookingSource:'phone',memberId:null,memberCode:'',memberDisplayName:'',

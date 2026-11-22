@@ -98,9 +98,9 @@ function mapDatabaseError(error: unknown): ApiError {
     ["BOOKING_NOT_FOUND",404,"BOOKING_NOT_FOUND","找不到這筆預約。"],
     ["ADMIN_REQUIRED",403,"ADMIN_REQUIRED","目前沒有管理員權限。"],
     ["PHONE_BOOKING_CONFLICT",409,"PHONE_BOOKING_CONFLICT","此時段已有預約，請先取消原預約，或選擇其他時段。"],
-    ["ADMIN_WALKIN_NOT_OVERLAPPING",400,"ADMIN_WALKIN_NOT_OVERLAPPING","選擇的現場預約時間與原預約沒有重疊，請重新選擇時間或服務總時長。"],
-    ["ADMIN_WALKIN_POLICY",400,"ADMIN_WALKIN_POLICY","請按照商家設定選擇每 10 分鐘的預約時間及總時長。"],
-    ["FRONTDESK_CONFLICT_POLICY",400,"ADMIN_WALKIN_POLICY","衝突預約時間或總時長不符合商家設定。"],
+    ["ADMIN_WALKIN_NOT_OVERLAPPING",400,"ADMIN_WALKIN_NOT_OVERLAPPING","現場預約開始時間必須位於原預約區間內（含結束時間）。"],
+    ["ADMIN_WALKIN_POLICY",400,"ADMIN_WALKIN_POLICY","請選擇每 10 分鐘的預約時間及總時長。"],
+    ["FRONTDESK_CONFLICT_POLICY",400,"ADMIN_WALKIN_POLICY","衝突預約時間或總時長不符合 10 分鐘刻度。"],
     ["ADMIN_WALKIN_REQUEST_CONFLICT",409,"ADMIN_WALKIN_REQUEST_CONFLICT","操作內容已變更，請重新開啟拒絕預約視窗。"],
     ["INVALID_BOOKING_CONTACT",400,"INVALID_BOOKING_CONTACT","請填寫客人姓氏與稱謂；若提供聯絡電話，請確認格式正確。"],
     ["INVALID_BOOKING_NOTE",400,"INVALID_BOOKING_NOTE","預約說明不得超過 500 字。"],
@@ -1160,19 +1160,11 @@ async function adminBootstrap(supabase: SupabaseClient, body:Json={}): Promise<J
   if ((servicesResult as any).error) throw mapDatabaseError((servicesResult as any).error);
   const target=await linkedBooking(supabase,asText(body.bookingId,60),null);
   if(target && !bookings.some((b:any)=>b.bookingId===target.id)) bookings.unshift(...await hydrateBookings(supabase,[target]));
-  const conflict = businessContext()?.module_line?.booking?.frontdesk || {};
-  const policy = {
-    conflictStartMin: Number.isInteger(conflict.conflictStartMin) ? conflict.conflictStartMin : 0,
-    conflictStartMax: Number.isInteger(conflict.conflictStartMax) ? conflict.conflictStartMax : 1430,
-    conflictDurationMin: Number.isInteger(conflict.conflictDurationMin) ? conflict.conflictDurationMin : 10,
-    conflictDurationMax: Number.isInteger(conflict.conflictDurationMax) ? conflict.conflictDurationMax : 1430,
-  };
   return {
     today: taipeiDate(),
     settings: { ...settingsClient(settings), serviceTypes },
     services: ((servicesResult as any).data || []).map(serviceClient),
     bookings,
-    frontdeskConflictPolicy: policy,
   };
 }
 

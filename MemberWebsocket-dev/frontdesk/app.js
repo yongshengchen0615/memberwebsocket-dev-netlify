@@ -331,19 +331,12 @@
   original.append(node('h3','原預約資料'),node('p','預約日期：'+(bookingDate||'—')),
     node('p','原預約時間：'+(originalTime||'—')+' – '+(originalEnd||'—')),
     node('p','原預約總時長：'+(Number.isFinite(originalDuration)&&originalDuration>0?originalDuration+' 分鐘':'未提供')));
-  const clock=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
-  const startMin=Number.isInteger(frontdeskPolicy.conflictStartMin)?frontdeskPolicy.conflictStartMin:0;
-  const startMax=Number.isInteger(frontdeskPolicy.conflictStartMax)?frontdeskPolicy.conflictStartMax:1430;
-  const durationMin=Number.isInteger(frontdeskPolicy.conflictDurationMin)?frontdeskPolicy.conflictDurationMin:10;
-  const durationMax=Number.isInteger(frontdeskPolicy.conflictDurationMax)?frontdeskPolicy.conflictDurationMax:1430;
+  const clock=m=>String(Math.floor((m%1440)/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
   const timeLabel=node('label','衝突預約時間（每 10 分鐘）'),time=node('select');time.required=true;
   time.setAttribute('aria-label','衝突預約時間');
-  for(let m=startMin;m<=startMax;m+=10){const opt=node('option',clock(m));opt.value=clock(m);time.append(opt);}
-  const recommendedTime=originalTime&&Array.from(time.options).some(x=>x.value===originalTime)?originalTime:time.options[0]?.value;
-  time.value=recommendedTime||'';
   const durationLabel=node('label','衝突預約總時長（每 10 分鐘）'),duration=node('select');duration.required=true;
   duration.setAttribute('aria-label','衝突預約總時長');
-  for(let m=durationMin;m<=durationMax;m+=10){const opt=node('option',m+' 分鐘');opt.value=String(m);duration.append(opt);}
+  for(let m=10;m<=1430;m+=10){const opt=node('option',m+' 分鐘');opt.value=String(m);duration.append(opt);}
   const recommendedDuration=Number.isInteger(originalDuration)?originalDuration:60;
   duration.value=Array.from(duration.options).some(x=>Number(x.value)===recommendedDuration)?String(recommendedDuration):(duration.options[0]?.value||'');
   timeLabel.append(time);durationLabel.append(duration);
@@ -364,17 +357,24 @@
    ?originalStartMin+originalDuration
    :originalStartMin!==null&&originalClockEnd!==null
     ?dayOffset*1440+originalClockEnd+(originalClockEnd<=startClockMin?1440:0):null;
-  // Half-open ranges: ending at the next appointment's start does not conflict.
-  // Try both business-day and following-day clocks; the SQL router remains the
-  // authoritative validator using the configured overnight work hours.
+  // Only offer clock starts inside the original appointment, including its
+  // exact ending minute. An adjacent on-site reservation counts as conflict.
+  if(originalStartMin!==null&&originalEndMin!==null&&originalEndMin>=originalStartMin){
+   for(let m=Math.ceil(originalStartMin/10)*10;m<=originalEndMin;m+=10){
+    const value=clock(m),opt=node('option',value);opt.value=value;time.append(opt);
+   }
+  }
+  time.value=time.options[0]?.value||'';
+  // BookingDate is the merchant business day; try the next calendar-day
+  // occurrence too when the original appointment crosses midnight.
   const hasConflict=()=>{
    const candidateClock=toMinutes(time.value),minutes=Number(duration.value);
-   return originalStartMin!==null&&originalEndMin!==null&&originalEndMin>originalStartMin
+   return originalStartMin!==null&&originalEndMin!==null&&originalEndMin>=originalStartMin
     &&candidateClock!==null&&Number.isInteger(minutes)&&minutes>0
     &&[candidateClock,candidateClock+1440].some(candidateStart=>
-      candidateStart<originalEndMin&&candidateStart+minutes>originalStartMin);
+      candidateStart>=originalStartMin&&candidateStart<=originalEndMin);
   };
-  const guidance=node('p','請選擇實際發生衝突的預約時間與總時長，系統會按商家設定的範圍、每 10 分鐘提供選項，並檢查是否可以保留時段。');
+  const guidance=node('p','開始時間只顯示原預約區間內每 10 分鐘的選項，包含原預約結束時間；前後預約相接也算衝突。服務總時長另行選擇。');
   phonePanel.append(title,hint,dateLabel,guidance,timeLabel,durationLabel);
   const feedback=node('p');feedback.className='frontdesk-phone-message';feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');
   const footer=node('div');footer.className='frontdesk-modal-actions';
@@ -407,7 +407,7 @@
    const overlaps=phone&&validPhone&&hasConflict();
    submit.disabled=!reason.value||(phone&&(!validPhone||!overlaps));
    if(phone&&validPhone&&!overlaps){
-    feedback.textContent='你選擇的現場預約時段與原預約時間沒有重疊，請調整衝突預約時間或總時長。';
+    feedback.textContent='請選擇原預約時間區間內的開始時間（含結束時間），每 10 分鐘一格。';
    }else if(!frozen)feedback.textContent='';
   };
   const updateReason=()=>{
@@ -426,10 +426,10 @@
    if(!reason.value){feedback.textContent='請選擇拒絕原因。';reason.focus();return;}
    const phone=reason.value==='unrecorded_phone_booking';
    if(phone&&(!validDuration()||!validTime()||!bookingDate)){
-   feedback.textContent='請從下拉選單選擇符合商家限制的衝突預約時間與總時長（每 10 分鐘）。';return;
+   feedback.textContent='請選擇原預約區間內的衝突開始時間與服務總時長（每 10 分鐘）。';return;
   }
   if(phone&&!hasConflict()){
-   feedback.textContent='你選擇的現場預約時段與原預約時間沒有重疊，請調整衝突預約時間或總時長。';return;
+   feedback.textContent='請選擇原預約時間區間內的開始時間（含結束時間），每 10 分鐘一格。';return;
   }
   const detail=phone?{startTime:time.value,totalDurationMinutes:Number(duration.value)}:null;
    void review(booking,'rejected',submit,reason.value,detail,()=>close(true));

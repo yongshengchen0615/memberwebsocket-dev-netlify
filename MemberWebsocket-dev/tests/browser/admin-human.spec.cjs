@@ -485,7 +485,7 @@ for(const [initial,label,status] of [['pending','確認預約','confirmed'],['pe
   }if(status==='completed'){await expect(p.locator('#bookingAdminCrudModal')).toContainText('30 分鐘');await expect(p.locator('#bookingAdminCrudModal')).toContainText('QA per-person note');await expect(p.locator('#bookingAdminCrudModal button[type="submit"]')).toBeEnabled();await p.locator('#bookingAdminCrudModal button[type="submit"]').click();}await expect.poll(()=>info.fixture.bookings[0].status).toBe(status);if(status==='rejected')expect(calls(info.fixture,'admin.booking.status.update').some(call=>call.payload.rejectionReason==='technician_leave')).toBe(true);await p.locator('[data-booking-filter="all"]').click();await expect(p.locator('#bookingAdminQueue')).toContainText('QA booking member');
 });
 
-test('BOOKING_REJECTION_WALKIN_GUARD — explicit reason, overlap warning, duration and confirmed paired replacement',async({page:p},info)=>{
+test('BOOKING_REJECTION_WALKIN_GUARD — required reason, original window, inclusive adjacency and paired replacement',async({page:p},info)=>{
   seedBooking(info.fixture,'pending');
   await booking(p,'bookingAdminQueueSubtab');
   const row=p.locator('[data-booking-id="booking-1"]');
@@ -502,14 +502,22 @@ test('BOOKING_REJECTION_WALKIN_GUARD — explicit reason, overlap warning, durat
   expect(calls(info.fixture,'admin.booking.reject-walkin')).toHaveLength(0);
   await dialog.locator('[data-rejection-reason]').selectOption('unrecorded_phone_booking');
   await expect(dialog.locator('[data-rejection-phone]')).toBeVisible();
-  await dialog.locator('[data-rejection-time]').selectOption('10:30');
+  await expect(dialog.locator('[data-rejection-time] option')).toHaveCount(4);
+  await expect(dialog.locator('[data-rejection-time] option[value="10:30"]')).toHaveCount(1);
+  await expect(dialog.locator('[data-rejection-time] option[value="10:40"]')).toHaveCount(0);
+  // A forged DOM selection cannot bypass the original appointment bounds.
+  await dialog.locator('[data-rejection-time]').evaluate(select=>{
+    select.value='10:40';
+    select.dispatchEvent(new Event('change',{bubbles:true}));
+  });
   await dialog.locator('[data-rejection-duration]').selectOption('30');
-  await expect(dialog.locator('[data-modal-message]')).toContainText('沒有重疊');
+  await expect(dialog.locator('[data-modal-message]')).toContainText('原預約區間');
   await dialog.locator('[data-submit]').click();
   expect(calls(info.fixture,'admin.booking.reject-walkin')).toHaveLength(0);
   expect(info.fixture.bookings).toHaveLength(1);
   expect(info.fixture.bookings[0].status).toBe('pending');
-  await dialog.locator('[data-rejection-time]').selectOption('10:10');
+  // Original booking ends at 10:30. Adjacency is an allowed conflict.
+  await dialog.locator('[data-rejection-time]').selectOption('10:30');
   await dialog.locator('[data-rejection-duration]').selectOption('20');
   await expect(dialog.locator('[data-modal-message]')).toBeHidden();
   await dialog.locator('[data-submit]').click();
@@ -519,14 +527,14 @@ test('BOOKING_REJECTION_WALKIN_GUARD — explicit reason, overlap warning, durat
   expect(payload).toMatchObject({
     bookingId:'booking-1',expectedUpdatedAt:version,
     status:'rejected',rejectionReason:'unrecorded_phone_booking',
-    startTime:'10:10',totalDurationMinutes:20,adminNote:'現場臨時預約'
+    startTime:'10:30',totalDurationMinutes:20,adminNote:'現場臨時預約'
   });
   expect(/^[0-9a-f]{8}-[0-9a-f-]{27,}$/.test(payload.requestId)).toBe(true);
   expect(info.fixture.bookings).toHaveLength(2);
   expect(info.fixture.bookings.find(b=>b.bookingId==='booking-1').status).toBe('rejected');
   const paired=info.fixture.bookings.find(b=>b.walkinRequestId===payload.requestId);
   expect(paired).toMatchObject({
-    bookingSource:'phone',startTime:'10:10',totalDurationMinutes:20,status:'confirmed',sourceBookingId:'booking-1'
+    bookingSource:'phone',startTime:'10:30',totalDurationMinutes:20,status:'confirmed',sourceBookingId:'booking-1'
   });
   expect(calls(info.fixture,'admin.booking.status.update')).toHaveLength(0);
 });

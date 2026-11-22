@@ -17,43 +17,39 @@ test('AC-ADM-WALKIN-001: Reject opens accessible reason modal; no reason blocks 
   assert.match(ui, /reason\.focus\(\)/);
 });
 
-test('AC-ADM-WALKIN-002/003: Walk-in option requires actual start and total duration within merchant 10-minute limits', () => {
-  assert.match(ui, /data-rejection-phone hidden/);
-  assert.match(ui, /phone\.hidden = !isPhone/);
-  assert.match(ui, /衝突預約時間（每 10 分鐘）/);
-  assert.match(ui, /衝突預約總時長（每 10 分鐘）/);
-  assert.match(ui, /state\.booking\.frontdeskConflictPolicy/);
-  for (const key of ['conflictStartMin','conflictStartMax','conflictDurationMin','conflictDurationMax']) {
-    assert.ok(ui.includes(key), 'missing UI policy ' + key);
-    assert.ok(api.includes(key), 'missing server-sourced policy ' + key);
-    assert.ok(sql.includes(key), 'missing database policy ' + key);
-  }
-  assert.match(api, /frontdeskConflictPolicy: policy/);
-  assert.match(ui, /value<=startMax; value\+=10/);
-  assert.match(ui, /value<=durationMax; value\+=10/);
-  assert.match(api, /duration%10!==0/);
-  assert.match(sql, /v_clock%10<>0/);
-  assert.match(sql, /v_duration%10<>0/);
+test('AC-WALKIN-WINDOW-001/002: admin displays original-window 10-minute starts and independent duration',()=>{
+ const migration=read('supabase/migrations/20261122163500_walkin_original_window_inclusive.sql');
+ assert.match(ui,/data-rejection-phone hidden/);
+ assert.match(ui,/phone\.hidden = !isPhone/);
+ assert.match(ui,/衝突預約時間（每 10 分鐘）/);
+ assert.match(ui,/衝突預約總時長（每 10 分鐘）/);
+ assert.match(ui,/value<=originalEnd;value\+=10/);
+ assert.match(ui,/value=10;value<=1430;value\+=10/);
+ assert.doesNotMatch(ui,/state\.booking\.frontdeskConflictPolicy \|\|/);
+ assert.match(api,/duration%10!==0/);
+ assert.match(migration,/v_old_admin_bounds/);
+ assert.match(migration,/v_new_bounds/);
+ assert.match(migration,/minimum supported schedule step \(5\)/,'10-minute walk-in clock starts remain valid with a normal 30-minute calendar');
 });
 
-test('AC-ADM-WALKIN-004/005: Half-open overlap blocks empty/boundary-only conflict, including overnight', () => {
-  const overlap = (start, minutes, originalStart, originalMinutes) =>
-    [start, start + 1440].some(candidate =>
-      candidate < originalStart + originalMinutes && candidate + minutes > originalStart);
-  assert.equal(overlap(11 * 60, 60, 10 * 60, 60), false, 'touching end is not a conflict');
-  assert.equal(overlap(9 * 60, 60, 10 * 60, 60), false, 'touching start is not a conflict');
-  assert.equal(overlap(10 * 60 + 10, 10, 10 * 60, 60), true, 'strictly inside');
-  assert.equal(overlap(0, 30, 23 * 60 + 50, 40), true, 'overnight');
-  assert.equal(overlap(1 * 60, 10, 23 * 60 + 50, 40), false, 'overnight boundary-only');
-  assert.match(ui, /\[selected,selected\+1440\]\.some\(candidate/);
-  assert.match(ui, /candidate < originalEnd && candidate\+total > originalStart/);
-  assert.match(ui, /if \(isPhone && !overlapping\(\)\)/);
-  assert.match(sql, /booking_slot_start_at/);
-  assert.match(sql, /v_candidate >= .*start_at/);
-  assert.match(sql, /v_candidate \+ make_interval\(mins=>v_duration\)/);
-  assert.match(sql, /ADMIN_WALKIN_NOT_OVERLAPPING/);
+test('AC-WALKIN-WINDOW-003/005: boundary-only adjacency counts, out-of-window is invalid, and overnight works',()=>{
+ const allowed=(start,minutes,originalStart,originalMinutes)=>
+  [start,start+1440].some(candidate=>
+   candidate>=originalStart&&candidate<=originalStart+originalMinutes&&minutes>0);
+ assert.equal(allowed(10*60+10,10,9*60,70),true,'original end is included');
+ assert.equal(allowed(9*60,10,9*60,70),true,'original start included');
+ assert.equal(allowed(10*60+20,10,9*60,70),false,'after end excluded');
+ assert.equal(allowed(8*60+50,30,9*60,70),false,'earlier but overlapping is excluded');
+ assert.equal(allowed(0,10,23*60+50,10),true,'midnight original end included');
+ assert.equal(allowed(10,10,23*60+50,10),false,'beyond overnight end excluded');
+ assert.match(ui,/\[selected,selected\+1440\]\.some\(candidate/);
+ assert.match(ui,/candidate >= originalStart && candidate <= originalEnd/);
+ assert.match(ui,/if \(isPhone && !overlapping\(\)\)/);
+ const migration=read('supabase/migrations/20261122163500_walkin_original_window_inclusive.sql');
+ assert.match(migration,/v_candidate > /);
+ assert.match(migration,/v_candidate < /);
+ assert.match(migration,/WALKIN_ADMIN_ROUTER_CONTRACT_CHANGED/);
 });
-
 test('AC-ADM-WALKIN-006: Legacy status API cannot reject with walk-in reason without atomic details', () => {
   assert.match(api, /if \(nextStatus === "rejected" && rejectionReason === "unrecorded_phone_booking"\)/);
   assert.match(api, /ADMIN_WALKIN_DETAILS_REQUIRED/);
@@ -102,4 +98,25 @@ test('AC-ADM-WALKIN-009: Existing merchants and provisioning templates preserve 
   assert.match(sql, /ADMIN_WALKIN_TEMPLATE_CONTRACT_CHANGED/);
   assert.match(sql, /phone_audit\.actor_role in \(''frontdesk'',''admin''\)/);
   assert.match(sql, /reject_audit\.actor_role=phone_audit\.actor_role/);
+});
+
+test('AC-ADM-WALKIN-010: no service selection is required for admin walk-in; paired audit and exact operator label are mandatory',()=>{
+ const migration=read('supabase/migrations/20261122170000_admin_walkin_duration_bundle_provenance.sql');
+ // The admin route has no `items` or service selection; the duration helper
+ // inserts its own zero-price operational placeholder and paired audit events.
+ assert.match(sql,/values\(\$1,\$2,'現場預約時段',\$3,0,1,\$4,false\)/);
+ assert.match(sql,/values\(\$1,\$2,'現場預約時段',\$3,0,1\)/);
+ assert.match(sql,/contact_surname=''管理端''/);
+ assert.match(sql,/replacement:=platform_private\.admin_create_duration_booking/);
+ assert.match(migration,/b\.contact_surname in \(''櫃檯人員'',''管理端''\)/);
+ assert.match(migration,/phone_audit\.actor_role=''admin'' and b\.contact_surname=''管理端''/);
+ assert.match(migration,/phone_audit\.actor_role=''frontdesk'' and b\.contact_surname=''櫃檯人員''/);
+ assert.match(migration,/reject_audit\.actor_role=phone_audit\.actor_role/);
+ assert.match(migration,/raise exception ''INVALID_BOOKING_ITEMS''/);
+ assert.match(migration,/occurrence_surname<>occurrence_audit/);
+ assert.match(migration,/platform_private\.business_templates/);
+ assert.doesNotMatch(api.slice(api.indexOf('async function adminRejectWalkin('),api.indexOf('async function adminRejectWalkin(')+1700),/normalizeRequestedItems/);
+ // This is specific to the paired admin route; ordinary new appointments still
+ // require at least one real selected item.
+ assert.match(api,/if \(!rawItems\.length \|\| rawItems\.length > 20\) throw new ApiError\(400, "INVALID_BOOKING_ITEMS"/);
 });

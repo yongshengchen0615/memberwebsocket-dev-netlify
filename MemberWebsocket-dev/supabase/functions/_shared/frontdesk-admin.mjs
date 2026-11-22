@@ -41,13 +41,11 @@ export async function frontdeskAdmin({db,body,actor,issuedAt,tenant,encryptionKe
    Object.assign(input,line,{oaId:bot.basicId,envelope});
   }else if(action==='preferences.save'){
    const p=body.preferences||{};
-   const title=p.pageTitle,limits=['conflictStartMin','conflictStartMax','conflictDurationMin','conflictDurationMax'];
-   if(typeof title!=='string'||title.length>60||/[\u0000-\u001f\u007f]/.test(title)||
-      limits.some(k=>!Number.isInteger(p[k])||p[k]%10!==0)||
-      p.conflictStartMin<0||p.conflictStartMax>1430||p.conflictStartMin>p.conflictStartMax||
-      p.conflictDurationMin<10||p.conflictDurationMax>1430||p.conflictDurationMin>p.conflictDurationMax)
-    throw new PlatformError(400,'PLATFORM_INVALID_INPUT','櫃檯頁面抬頭或衝突預約時間／總時長上下限不正確。');
-   input.preferences={pageTitle:title.trim(),...Object.fromEntries(limits.map(k=>[k,p[k]]))};
+   const title=p.pageTitle;
+   if(typeof title!=='string'||title.length>60||/[\u0000-\u001f\u007f]/.test(title))
+    throw new PlatformError(400,'PLATFORM_INVALID_INPUT','櫃檯頁面抬頭不正確。');
+   // Legacy conflict-bound keys are not writable preferences anymore.
+   input.preferences={pageTitle:title.trim()};
    input.payloadHash=await digest({action,preferences:input.preferences,expectedVersion:input.expectedVersion});
   }else if(action==='staff.delete'){
    if(!/^[0-9a-f-]{36}$/i.test(body.staffId||'')||body.status!==undefined||body.permissionMode!==undefined)throw new PlatformError(400,'PLATFORM_INVALID_INPUT','移除人員資料不正確。');

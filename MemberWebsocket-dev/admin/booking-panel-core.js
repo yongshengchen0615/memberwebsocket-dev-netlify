@@ -2577,12 +2577,6 @@
   // Rejection is a conscious review action. Keep its reason and on-site
   // interval together in one dialog; the database independently checks both.
   function openRejectionModal(booking, adminNote) {
-    const policy = state.booking.frontdeskConflictPolicy || {};
-    const bound = (key, fallback) => Number.isInteger(policy[key]) ? policy[key] : fallback;
-    const startMin = bound('conflictStartMin', 0);
-    const startMax = bound('conflictStartMax', 1430);
-    const durationMin = bound('conflictDurationMin', 10);
-    const durationMax = bound('conflictDurationMax', 1430);
     const date = String(booking.bookingDate || booking.startAt || '').slice(0,10);
     const start = String(booking.startTime || String(booking.startAt || '').slice(11,16)).slice(0,5);
     const end = String(booking.endTime || String(booking.endAt || '').slice(11,16)).slice(0,5);
@@ -2615,7 +2609,7 @@
       </select></label>
       <section data-rejection-phone hidden>
         <h4>登記電話／現場預約</h4>
-        <p class="booking-admin-time">預約日期沿用原訂單（${escapeHtml(date || '—')}）。請選擇實際衝突的預約時間及服務總時長。兩筆預約必須真正重疊；僅相接不算衝突。</p>
+        <p class="booking-admin-time">預約日期沿用原訂單（${escapeHtml(date || '—')}）。請選擇實際衝突的預約時間及服務總時長。預約相接也算衝突；開始時間可選原預約結束時間。</p>
         <label>衝突預約時間（每 10 分鐘）<select data-rejection-time aria-label="衝突預約時間"></select></label>
         <label>衝突預約總時長（每 10 分鐘）<select data-rejection-duration aria-label="衝突預約總時長"></select></label>
       </section>
@@ -2632,30 +2626,34 @@
     const duration = form.querySelector('[data-rejection-duration]');
     const feedback = form.querySelector('[data-modal-message]');
     const submit = form.querySelector('[data-submit]');
-    for (let value=startMin; value<=startMax; value+=10) {
-      time.add(new Option(clock(value),clock(value)));
+    if(originalStart!==null&&originalEnd!==null&&originalEnd>=originalStart){
+      for(let value=Math.ceil(originalStart/10)*10;value<=originalEnd;value+=10){
+        const option=clock(value%1440);
+        time.add(new Option(option,option));
+      }
     }
-    for (let value=durationMin; value<=durationMax; value+=10) {
+    for(let value=10;value<=1430;value+=10){
       duration.add(new Option(value+' 分鐘',String(value)));
     }
-    time.value = Array.from(time.options).some(option=>option.value===start) ? start : (time.options[0]?.value || '');
+    time.value=time.options[0]?.value||'';
     duration.value = Array.from(duration.options).some(option=>Number(option.value)===originalDuration)
       ? String(originalDuration) : (duration.options[0]?.value || '');
     const validChoice = (select) => Array.from(select.options).some(option=>option.value===select.value);
-    // Same half-open overlap convention as frontdesk, including overnight days.
+    // Original booking bounds are inclusive, including boundary-only adjacency.
+    // Overnight business-day times may live on the next calendar day.
     const overlapping = () => {
       const selected = minutes(time.value), total = Number(duration.value);
-      return originalStart !== null && originalEnd !== null && originalEnd > originalStart
+      return originalStart !== null && originalEnd !== null && originalEnd >= originalStart
         && selected !== null && validChoice(time) && validChoice(duration) && total > 0
         && [selected,selected+1440].some(candidate=>
-          candidate < originalEnd && candidate+total > originalStart);
+          candidate >= originalStart && candidate <= originalEnd);
     };
     const refresh = () => {
       const isPhone = reason.value === 'unrecorded_phone_booking';
       phone.hidden = !isPhone;
       submit.textContent = isPhone ? '確認不通過並登記現場預約' : '確認不通過';
       if (isPhone && !overlapping()) {
-        showMessage(feedback,'你選擇的現場預約時段與原預約沒有重疊，請調整預約時間或總時長。','error');
+        showMessage(feedback,'請選擇原預約區間內的開始時間（含結束時間）。','error');
       } else clearMessage(feedback);
     };
     reason.addEventListener('change',refresh);
@@ -2672,10 +2670,10 @@
       }
       const isPhone = reason.value === 'unrecorded_phone_booking';
       if (isPhone && (!date || !validChoice(time) || !validChoice(duration))) {
-        showMessage(feedback,'請選擇符合商家設定的衝突預約時間與總時長。','error'); return;
+        showMessage(feedback,'請選擇原預約區間內的衝突開始時間與服務總時長。','error'); return;
       }
       if (isPhone && !overlapping()) {
-        showMessage(feedback,'現場預約時間與原預約沒有重疊，無法使用此原因拒絕。','error'); time.focus(); return;
+        showMessage(feedback,'現場預約開始時間不在原預約區間內，無法使用此原因拒絕。','error'); time.focus(); return;
       }
       const payload = {bookingId:booking.bookingId,expectedUpdatedAt:booking.updatedAt,
         status:'rejected',adminNote,rejectionReason:reason.value,

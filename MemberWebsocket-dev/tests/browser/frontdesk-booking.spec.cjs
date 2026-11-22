@@ -492,28 +492,32 @@ for(const width of [390,1280])test('FRONTDESK_REJECTION_MODAL_'+width+' — on-s
  await expect(phone.locator('.frontdesk-phone-service-option')).toHaveCount(0);
  const duration=phone.getByRole('combobox',{name:'衝突預約總時長'});
  await expect(duration).toHaveValue('60');
- await expect(duration.locator('option')).toHaveCount(16);
+ await expect(duration.locator('option')).toHaveCount(143);
  await expect(duration.locator('option[value="0"]')).toHaveCount(0);
+ await expect(duration.locator('option[value="1430"]')).toHaveCount(1);
  await duration.selectOption('90');
  await expect(modal.getByRole('button',{name:'確認拒絕並登記現場預約'})).toBeEnabled();
  const time=phone.getByRole('combobox',{name:'衝突預約時間'});
  await expect(time).toHaveValue('11:00');
- await expect(time.locator('option')).toHaveCount(13);
- // AC-FD-OVERLAP-001/002: boundary-touching and earlier appointments must not reject an unrelated booking.
+ await expect(time.locator('option')).toHaveCount(7);
+ expect(await time.locator('option').evaluateAll(nodes=>nodes.map(n=>n.value)))
+   .toEqual(['11:00','11:10','11:20','11:30','11:40','11:50','12:00']);
+ await expect(time.locator('option[value="10:50"]')).toHaveCount(0);
+ await expect(time.locator('option[value="12:10"]')).toHaveCount(0);
+ // AC-WALKIN-WINDOW-001/003: original closing boundary counts as conflict.
  await time.selectOption('12:00');
- await expect(modal.getByRole('button',{name:'確認拒絕並登記現場預約'})).toBeDisabled();
- await expect(modal.locator('.frontdesk-phone-message')).toContainText('沒有重疊');
- await time.selectOption('10:00');
- await duration.selectOption('30');
+ await expect(modal.getByRole('button',{name:'確認拒絕並登記現場預約'})).toBeEnabled();
+ await expect(modal.locator('.frontdesk-phone-message')).toBeEmpty();
+ // Simulate an out-of-range clock value without adding an allowed <option>.
+ await time.evaluate(select=>{select.value='12:10';select.dispatchEvent(new Event('change',{bubbles:true}));});
  await expect(modal.getByRole('button',{name:'確認拒絕並登記現場預約'})).toBeDisabled();
  expect(calls.filter(x=>x.action==='frontdesk.booking.reject-phone')).toHaveLength(0);
- // AC-FD-OVERLAP-003: partial overlap is valid and ordinary rejection remains unaffected.
- await time.selectOption('10:30');
- await duration.selectOption('90');
+ // Restore the original closing boundary. A forged or empty time cannot submit.
+ await time.selectOption('11:30');
  await expect(modal.getByRole('button',{name:'確認拒絕並登記現場預約'})).toBeEnabled();
  await expect(modal.locator('.frontdesk-phone-message')).toBeEmpty();
  await time.selectOption('11:00');
- await expect(phone).toContainText('請選擇實際發生衝突的預約時間與總時長');
+ await expect(phone).toContainText('開始時間只顯示原預約區間內每 10 分鐘的選項');
  const box=await modal.evaluate(el=>({width:el.getBoundingClientRect().width,viewport:innerWidth,modalBackground:getComputedStyle(el).backgroundColor}));
  expect(box.width).toBeLessThanOrEqual(box.viewport);
  await modal.getByRole('button',{name:'確認拒絕並登記現場預約'}).click();
@@ -649,7 +653,7 @@ for(const width of [390,1280])test('FRONTDESK_SETTINGS_HISTORY_'+width+' — sta
  await info.attach('frontdesk-history-tabs-'+width,{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
 });
 
-test('FRONTDESK_POLICY_SETTINGS — merchant saves independent title and 10-minute bounds without LINE token',async({page})=>{
+test('FRONTDESK_POLICY_SETTINGS — merchant saves only independent title, conflict time bounds removed',async({page})=>{
  await page.setViewportSize({width:390,height:844});
  await page.goto(base+'/frontdesk/');
  await page.setContent('<main id="root"></main>');
@@ -670,25 +674,17 @@ test('FRONTDESK_POLICY_SETTINGS — merchant saves independent title and 10-minu
  await page.locator('summary').click();
  const form=page.locator('form.frontdesk-preferences-form');
  await expect(form).toBeVisible();
- await expect(form.locator('[name=conflictDurationMin] option').first()).toHaveAttribute('value','10');
- await expect(form.locator('[name=conflictStartMin] option').nth(1)).toHaveAttribute('value','10');
+ for(const key of ['conflictStartMin','conflictStartMax','conflictDurationMin','conflictDurationMax']){
+  await expect(form.locator('[name='+key+']')).toHaveCount(0);
+ }
+ await expect(form).toContainText('衝突預約開始時間由原預約區間自動產生');
  await form.locator('[name=pageTitle]').fill('獨立櫃檯抬頭');
- await form.locator('[name=conflictStartMin]').selectOption('600');
- await form.locator('[name=conflictStartMax]').selectOption('540');
- await expect(form).toContainText('最早時間不可晚於最晚時間');
- await expect(form.getByRole('button',{name:'儲存櫃檯頁面與衝突預約限制'})).toBeDisabled();
- await form.locator('[name=conflictStartMax]').selectOption('1080');
- await form.locator('[name=conflictDurationMin]').selectOption('30');
- await form.locator('[name=conflictDurationMax]').selectOption('120');
- await form.getByRole('button',{name:'儲存櫃檯頁面與衝突預約限制'}).click();
+ await form.getByRole('button',{name:'儲存櫃檯頁面抬頭'}).click();
  await expect(page.locator('[role=status]')).toContainText('已儲存');
  const writes=await page.evaluate(()=>window.frontdeskPolicyWrites);
  expect(writes).toHaveLength(1);
  expect(writes[0].action).toBe('platform.frontdesk.preferences.save');
- expect(writes[0].body.preferences).toEqual({
-  pageTitle:'獨立櫃檯抬頭',conflictStartMin:600,conflictStartMax:1080,
-  conflictDurationMin:30,conflictDurationMax:120
- });
+ expect(writes[0].body.preferences).toEqual({pageTitle:'獨立櫃檯抬頭'});
  expect(Object.hasOwn(writes[0].body,'channelAccessToken')).toBe(false);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
