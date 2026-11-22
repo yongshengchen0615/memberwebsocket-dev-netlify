@@ -80,3 +80,15 @@ test('AC-FD-CONFLICT-004/006: database independently rejects values outside 10-m
  assert.match(ui,/for\(let m=durationMin;m<=durationMax;m\+=10\)/);
  assert.match(read('admin/frontdesk-settings.js'),/platform\.frontdesk\.preferences\.save/);
 });
+
+test('AC-FD-OVERLAP-001..004: non-overlapping walk-in ranges are blocked at UI and database boundary',()=>{
+ const ui=read('frontdesk/app.js'),edge=read('supabase/functions/_shared/frontdesk-handler.mjs');
+ assert.match(ui,/const hasConflict=/,'browser must compare two actual time intervals');
+ assert.match(ui,/hasConflict\(\)/,'submission must re-check overlap after changes');
+ assert.match(ui,/沒有重疊/,'staff sees an explicit warning');
+ assert.match(edge,/FRONTDESK_NOT_OVERLAPPING/,'server must translate conflict guard errors');
+ const sql=read('supabase/migrations/20261122150000_frontdesk_overlap_guard.sql');
+ assert.match(sql,/FRONTDESK_NOT_OVERLAPPING/);
+ assert.match(sql,/make_interval\(mins=>/,'persisted booking start/end are compared to the requested duration');
+ assert.match(sql,/FRONTDESK_OVERLAP_ROUTER_CONTRACT_CHANGED/,'migration must fail closed if upstream router changes');
+});
