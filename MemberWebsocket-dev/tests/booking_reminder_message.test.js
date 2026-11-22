@@ -18,9 +18,9 @@ test('AC-RM-001: admin edits only merchant reminder prose, not member reminder t
   const api = read('supabase/functions/booking-admin-api/index.ts');
   const migration = read('supabase/migrations/20261102210000_booking_reminder_message_template.sql');
   assert.match(ui, /id="bookingAdminReminderMessage"/);
-  assert.match(ui, /id="bookingAdminReminderMessageForm"/);
+  assert.match(ui, /id="bookingAdminMessagesForm"/);
   assert.match(ui, /id="bookingAdminReminderMessagePreview"/);
-  assert.match(ui, /admin\.booking\.reminder-message\.save/);
+  assert.match(ui, /admin\.booking\.messages\.save/);
   assert.doesNotMatch(ui, /bookingAdminReminderEnabled|bookingAdminReminderTime/);
   assert.match(api, /async function reminderMessageSave/);
   assert.match(api, /await authorizeAdmin\(supabase, identity\)/);

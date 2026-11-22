@@ -32,17 +32,13 @@
     settingsBaseline: null,
     settingsDraftVersion: '',
     settingsDirty: false,
-    pendingMessageDirty: false,
-    pendingMessageVersion: '',
-    pendingMessageSaving: false,
-    rejectionMessageDirty: false,
-    rejectionMessageVersion: '',
-    rejectionMessageSaving: false,
-    reminderMessageDirty: false,
-    reminderMessageVersion: '',
-    reminderMessageSaving: false,
+    messagesDirty: false,
+    messagesBaseline: null,
+    messagesDraftVersion: '',
+    messagesSaving: false,
   };
-  const SETTINGS_INPUT_IDS = ['bookingAdminStartTime','bookingAdminEndTime','bookingAdminMaxEndOverrunMinutes','bookingAdminSlotInterval','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminPhoneNumber','bookingAdminStoreServiceMinutes','bookingAdminSnapshotLocationRequired','bookingAdminNotice'];
+  const SETTINGS_INPUT_IDS = ['bookingAdminStartTime','bookingAdminEndTime','bookingAdminMaxEndOverrunMinutes','bookingAdminSlotInterval','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminPhoneNumber','bookingAdminStoreServiceMinutes','bookingAdminSnapshotLocationRequired'];
+  const MESSAGE_INPUT_IDS = ['bookingAdminNotice','bookingAdminPendingMessage','bookingAdminRejectionMessage','bookingAdminReminderMessage'];
   const els = {};
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
@@ -80,7 +76,7 @@
     panel.setAttribute('aria-labelledby', 'bookingTab');
     panel.innerHTML = `
       <div class="panel-heading booking-admin-heading">
-        <div><p class="kicker">Booking operations</p><h2>預約管理</h2><p>技師、預約項目、共用設定、爽約限制與用戶預約分頁管理，依工作任務快速找到設定。</p></div>
+        <div><p class="kicker">Booking operations</p><h2>預約管理</h2><p>技師、預約項目、預約共用設定、訊息設定與預約處理集中管理。</p></div>
         <div class="heading-actions"><span id="bookingAdminSyncStatus" class="sync-status">尚未同步</span></div>
       </div>
 
@@ -95,6 +91,7 @@
         <button id="bookingAdminTechniciansSubtab" class="booking-admin-filter-button active" type="button" role="tab" aria-selected="true" aria-controls="bookingAdminTechniciansPanel">技師設定</button>
         <button id="bookingAdminServicesSubtab" class="booking-admin-filter-button" type="button" role="tab" aria-selected="false" aria-controls="bookingAdminServicesPanel">預約項目</button>
         <button id="bookingAdminSettingsSubtab" class="booking-admin-filter-button" type="button" role="tab" aria-selected="false" aria-controls="bookingAdminSettingsPanel">預約共用設定</button>
+        <button id="bookingAdminMessagesSubtab" class="booking-admin-filter-button" type="button" role="tab" aria-selected="false" aria-controls="bookingAdminMessagesPanel">訊息設定</button>
         <button id="bookingAdminRiskSubtab" class="booking-admin-filter-button" type="button" role="tab" aria-selected="false" aria-controls="bookingAdminRiskPanel">爽約與預約限制</button>
         <button id="bookingAdminQueueSubtab" class="booking-admin-filter-button" type="button" role="tab" aria-selected="false" aria-controls="bookingAdminQueuePanel">用戶預約<span id="bookingAdminQueueSubtabCount"></span></button>
       </nav>
@@ -127,7 +124,7 @@
         </section>
 
         <section id="bookingAdminSettingsPanel" class="booking-admin-card booking-admin-settings-panel hidden" role="tabpanel" aria-labelledby="bookingAdminSettingsSubtab">
-          <div class="booking-admin-section-heading"><div><p class="kicker">Booking settings</p><h3 id="bookingAdminHoursTitle">預約共用設定</h3><p>集中管理所有預約共同使用的工作時間、可預約日期範圍與會員端說明。</p></div></div>
+          <div class="booking-admin-section-heading"><div><p class="kicker">Booking settings</p><h3 id="bookingAdminHoursTitle">預約共用設定</h3><p>集中管理所有預約共同使用的工作時間、可預約日期範圍與服務規則。</p></div></div>
           <form id="bookingAdminSettingsForm" class="booking-admin-form booking-admin-settings-form" novalidate>
             <div class="booking-admin-settings-layout">
               <section class="booking-admin-settings-block booking-admin-settings-hours" aria-labelledby="bookingAdminWorkingHoursHeading">
@@ -182,6 +179,23 @@
                 <label class="booking-admin-toggle"><input id="bookingAdminSnapshotLocationRequired" type="checkbox"><span><strong>快照前必須取得定位</strong><small>啟用後，會員拍攝及送出快照前必須位於下方任一指定地點的範圍內；請先新增至少一個地點。一般預約與票券的獨立定位規則不受影響。</small></span></label><div id="bookingAdminSnapshotLocationControls" class="coupon-location-controls hidden"><div class="coupon-map-search"><label for="bookingAdminSnapshotAddressSearch">地址搜尋</label><div><input id="bookingAdminSnapshotAddressSearch" type="search" maxlength="240" autocomplete="street-address" placeholder="輸入地址或地標，例如：台南火車站"><button id="bookingAdminSnapshotAddressSearchButton" type="button" class="button button-outline">搜尋地址</button><button id="bookingAdminSnapshotUseCurrentLocationButton" type="button" class="button button-outline">使用目前 GPS 選點</button></div><div id="bookingAdminSnapshotAddressResults" class="coupon-map-results" aria-live="polite"></div></div><div id="bookingAdminSnapshotLocationMap" class="coupon-location-map" role="region" aria-label="使用地點地圖，點選可選擇候選位置"></div><p id="bookingAdminSnapshotMapStatus" class="field-help" aria-live="polite">先用地址搜尋、目前 GPS 或地圖點選位置；找不到精確地址時會自動顯示附近／近似候選，再確認地點與半徑範圍後新增。</p><section id="bookingAdminSnapshotLocationDraft" class="coupon-location-draft hidden" aria-label="待確認使用地點"><div class="coupon-location-draft-heading"><div><strong>待確認位置</strong><small>地圖圓圈即快照半徑範圍，可拖曳地圖標記微調位置。</small></div><span>尚未加入</span></div><div class="coupon-location-draft-fields"><label>地點名稱<input id="bookingAdminSnapshotLocationDraftName" type="text" maxlength="100" placeholder="例如：台南門市"></label><label>快照半徑（公尺）<input id="bookingAdminSnapshotLocationDraftRadius" type="number" min="50" max="2000" step="10" value="100"></label></div><div class="coupon-location-draft-actions"><button id="clearBookingAdminSnapshotLocationDraftButton" class="button button-outline" type="button">取消選點</button><button id="addBookingAdminSnapshotLocationButton" class="button button-dark" type="button">＋ 新增地點</button></div></section><div class="coupon-location-heading"><strong>允許快照地點</strong><span id="bookingAdminSnapshotLocationCount">0 / 20 個使用地點</span></div><div id="bookingAdminSnapshotLocationRows" class="coupon-location-rows"></div><p class="field-help">符合任一地點的快照半徑即可使用。座標只在背景保存供快照判斷，不在管理介面顯示。地圖與地址搜尋資料由 OpenStreetMap 提供。</p></div>
               </section>
 
+            </div>
+            <div id="bookingAdminSettingsMessage" class="form-message hidden" role="status" aria-live="polite"></div>
+            <div class="booking-admin-settings-actions">
+              <p><strong>儲存後立即套用</strong><span>這些設定會套用到所有預約項目，不需逐項調整。</span><span id="bookingAdminDraftStatus" class="booking-admin-settings-draft-status" role="status" aria-live="polite">設定載入中…</span></p>
+              <div class="booking-admin-settings-action-buttons">
+                <button id="bookingAdminDiscardSettingsButton" class="button button-outline" type="button" disabled>還原未儲存變更</button>
+                <button id="bookingAdminSaveSettingsButton" class="button button-dark" type="submit">儲存預約與票券設定</button>
+              </div>
+            </div>
+          </form>
+        </section>
+
+
+        <section id="bookingAdminMessagesPanel" class="booking-admin-card booking-admin-settings-panel booking-admin-messages-panel hidden" role="tabpanel" aria-labelledby="bookingAdminMessagesSubtab">
+          <div class="booking-admin-section-heading"><div><p class="kicker">Message settings</p><h3>訊息設定</h3><p>一次編輯會員端預約說明與 LINE 預約通知；按下「儲存所有訊息」才會一起套用。</p></div></div>
+          <form id="bookingAdminMessagesForm" class="booking-admin-form booking-admin-settings-form" novalidate>
+            <div class="booking-admin-messages-layout">
               <section class="booking-admin-settings-block booking-admin-settings-notice" aria-labelledby="bookingAdminNoticeHeading">
                 <div class="booking-admin-settings-block-heading">
                   <div><span class="booking-admin-settings-eyebrow">會員端內容</span><h4 id="bookingAdminNoticeHeading">預約說明</h4></div>
@@ -193,17 +207,7 @@
                   <small>最多 2,000 字；會員端會依原本換行顯示。</small>
                 </label>
               </section>
-            </div>
-            <div id="bookingAdminSettingsMessage" class="form-message hidden" role="status" aria-live="polite"></div>
-            <div class="booking-admin-settings-actions">
-              <p><strong>儲存後立即套用</strong><span>這些設定會套用到所有預約項目，不需逐項調整。</span><span id="bookingAdminDraftStatus" class="booking-admin-settings-draft-status" role="status" aria-live="polite">設定載入中…</span></p>
-              <div class="booking-admin-settings-action-buttons">
-                <button id="bookingAdminDiscardSettingsButton" class="button button-outline" type="button" disabled>還原未儲存變更</button>
-                <button id="bookingAdminSaveSettingsButton" class="button button-dark" type="submit">儲存預約與票券設定</button>
-              </div>
-            </div>
-          </form>
-          <form id="bookingAdminPendingMessageForm" class="booking-admin-form booking-admin-settings-form" novalidate>
+
             <section class="booking-admin-settings-block booking-admin-settings-notice" aria-labelledby="bookingAdminPendingMessageHeading">
               <div class="booking-admin-settings-block-heading">
                 <div><span class="booking-admin-settings-eyebrow">LINE 官方帳號通知</span><h4 id="bookingAdminPendingMessageHeading">預約申請等待確認訊息</h4></div>
@@ -218,13 +222,8 @@
                 <strong>LINE 訊息預覽（示意預約資料）</strong>
                 <output id="bookingAdminPendingMessagePreview" class="booking-admin-hours-preview" aria-live="polite"></output>
               </div>
-              <p id="bookingAdminPendingMessageStatus" class="form-message hidden" role="status" aria-live="polite"></p>
-              <div class="booking-admin-settings-action-buttons">
-                <button id="bookingAdminPendingMessageSave" class="button button-dark" type="submit">儲存預約申請訊息</button>
-              </div>
             </section>
-          </form>
-          <form id="bookingAdminRejectionMessageForm" class="booking-admin-form booking-admin-settings-form" novalidate>
+
             <section class="booking-admin-settings-block booking-admin-settings-notice" aria-labelledby="bookingAdminRejectionMessageHeading">
               <div class="booking-admin-settings-block-heading">
                 <div><span class="booking-admin-settings-eyebrow">LINE 會員通知</span><h4 id="bookingAdminRejectionMessageHeading">預約未通過訊息</h4></div>
@@ -239,13 +238,8 @@
                 <strong>LINE 訊息預覽</strong>
                 <output id="bookingAdminRejectionMessagePreview" class="booking-admin-hours-preview" aria-live="polite"></output>
               </div>
-              <p id="bookingAdminRejectionMessageStatus" class="form-message hidden" role="status" aria-live="polite"></p>
-              <div class="booking-admin-settings-action-buttons">
-                <button id="bookingAdminRejectionMessageSave" class="button button-dark" type="submit">儲存預約未通過訊息</button>
-              </div>
             </section>
-          </form>
-          <form id="bookingAdminReminderMessageForm" class="booking-admin-form booking-admin-settings-form" novalidate>
+
             <section class="booking-admin-settings-block booking-admin-settings-notice" aria-labelledby="bookingAdminReminderMessageHeading">
               <div class="booking-admin-settings-block-heading">
                 <div><span class="booking-admin-settings-eyebrow">LINE 會員通知</span><h4 id="bookingAdminReminderMessageHeading">預約提醒訊息</h4></div>
@@ -260,11 +254,16 @@
                 <strong>LINE 訊息預覽（示意預約資料）</strong>
                 <output id="bookingAdminReminderMessagePreview" class="booking-admin-hours-preview" aria-live="polite"></output>
               </div>
-              <p id="bookingAdminReminderMessageStatus" class="form-message hidden" role="status" aria-live="polite"></p>
-              <div class="booking-admin-settings-action-buttons">
-                <button id="bookingAdminReminderMessageSave" class="button button-dark" type="submit">儲存預約提醒訊息</button>
-              </div>
             </section>
+            </div>
+            <p id="bookingAdminMessagesStatus" class="form-message hidden" role="status" aria-live="polite"></p>
+            <div class="booking-admin-settings-actions">
+              <p><strong>所有訊息統一儲存</strong><span>保留 LINE 系統自動附加的預約資料、拒絕原因與提醒時間設定。</span><span id="bookingAdminMessagesDraftStatus" class="booking-admin-settings-draft-status" role="status" aria-live="polite">設定載入中…</span></p>
+              <div class="booking-admin-settings-action-buttons">
+                <button id="bookingAdminMessagesDiscard" class="button button-outline" type="button" disabled>還原未儲存變更</button>
+                <button id="bookingAdminMessagesSave" class="button button-dark" type="submit" disabled>儲存所有訊息</button>
+              </div>
+            </div>
           </form>
         </section>
 
@@ -337,9 +336,9 @@
 
   function cacheElements() {
     [
-      'bookingTab','bookingPanel','bookingAdminSyncStatus','bookingAdminSettingsForm','bookingAdminStartTime','bookingAdminEndTime','bookingAdminMaxEndOverrunMinutes','bookingAdminSlotInterval','bookingAdminHoursPreview','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminPhoneNumber','bookingAdminStoreServiceMinutes','bookingAdminSnapshotLocationRequired','bookingAdminNotice','bookingAdminPendingMessageForm','bookingAdminPendingMessage','bookingAdminPendingMessagePreview','bookingAdminPendingMessageStatus','bookingAdminPendingMessageSave','bookingAdminRejectionMessageForm','bookingAdminRejectionMessage','bookingAdminRejectionMessagePreview','bookingAdminRejectionMessageStatus','bookingAdminRejectionMessageSave','bookingAdminReminderMessageForm','bookingAdminReminderMessage','bookingAdminReminderMessagePreview','bookingAdminReminderMessageStatus','bookingAdminReminderMessageSave','bookingAdminSettingsMessage','bookingAdminDraftStatus','bookingAdminDiscardSettingsButton','bookingAdminSaveSettingsButton',
+      'bookingTab','bookingPanel','bookingAdminSyncStatus','bookingAdminSettingsForm','bookingAdminStartTime','bookingAdminEndTime','bookingAdminMaxEndOverrunMinutes','bookingAdminSlotInterval','bookingAdminHoursPreview','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminPhoneNumber','bookingAdminStoreServiceMinutes','bookingAdminSnapshotLocationRequired','bookingAdminNotice','bookingAdminMessagesForm','bookingAdminMessagesStatus','bookingAdminMessagesDraftStatus','bookingAdminMessagesSave','bookingAdminMessagesDiscard','bookingAdminPendingMessage','bookingAdminPendingMessagePreview','bookingAdminRejectionMessage','bookingAdminRejectionMessagePreview','bookingAdminReminderMessage','bookingAdminReminderMessagePreview','bookingAdminSettingsMessage','bookingAdminDraftStatus','bookingAdminDiscardSettingsButton','bookingAdminSaveSettingsButton',
       'bookingAdminNewTypeButton','bookingAdminTypeMessage','bookingAdminTypeList','bookingAdminTypeEmpty','bookingAdminServiceCount','bookingAdminPendingCount','bookingAdminAccessiblePendingCount','bookingAdminConfirmedCount',
-      'bookingAdminSubtabs','bookingAdminTechniciansSubtab','bookingAdminServicesSubtab','bookingAdminSettingsSubtab','bookingAdminRiskSubtab','bookingAdminRiskPanel','bookingAdminRiskMount','bookingAdminRiskOpenAdvanceSettings','bookingAdminQueueSubtab','bookingAdminQueueSubtabCount','bookingAdminTechniciansPanel','bookingAdminServicesPanel','bookingAdminSettingsPanel','bookingAdminQueuePanel','bookingAdminStandardMode','bookingAdminAccessibleMode','bookingAdminStandardModeCount','bookingAdminAccessibleModeCount','bookingAdminStandardQueueView','bookingAdminNewServiceButton','bookingAdminBatchAddButton','bookingAdminBatchEditButton','bookingAdminBatchDeleteButton','bookingAdminServiceMessage','bookingAdminServiceList','bookingAdminServiceEmpty','bookingAdminQueue','bookingAdminQueueEmpty','bookingAdminPhoneCreateButton',
+      'bookingAdminSubtabs','bookingAdminTechniciansSubtab','bookingAdminServicesSubtab','bookingAdminSettingsSubtab','bookingAdminMessagesSubtab','bookingAdminRiskSubtab','bookingAdminRiskPanel','bookingAdminRiskMount','bookingAdminRiskOpenAdvanceSettings','bookingAdminQueueSubtab','bookingAdminQueueSubtabCount','bookingAdminTechniciansPanel','bookingAdminServicesPanel','bookingAdminSettingsPanel','bookingAdminMessagesPanel','bookingAdminQueuePanel','bookingAdminStandardMode','bookingAdminAccessibleMode','bookingAdminStandardModeCount','bookingAdminAccessibleModeCount','bookingAdminStandardQueueView','bookingAdminNewServiceButton','bookingAdminBatchAddButton','bookingAdminBatchEditButton','bookingAdminBatchDeleteButton','bookingAdminServiceMessage','bookingAdminServiceList','bookingAdminServiceEmpty','bookingAdminQueue','bookingAdminQueueEmpty','bookingAdminPhoneCreateButton',
       'bookingAdminCrudModal','bookingAdminCrudModalTitle','bookingAdminCrudModalBody','bookingAdminCrudModalClose'
     ].forEach((id) => { els[id] = document.getElementById(id); });
   }
@@ -348,17 +347,18 @@
     els.bookingTab.addEventListener('click', activateBookingPanel);
     PRIMARY_TAB_IDS.forEach((id) => document.getElementById(id)?.addEventListener('click', deactivateBookingPanel));
     els.bookingAdminSettingsForm.addEventListener('submit', saveSettings);
-    els.bookingAdminPendingMessageForm.addEventListener('submit', savePendingMessage);
-    els.bookingAdminPendingMessage.addEventListener('input', () => {
-      state.pendingMessageDirty = true;
-      renderPendingMessagePreview();
+    els.bookingAdminMessagesForm.addEventListener('submit', saveMessages);
+    els.bookingAdminMessagesForm.addEventListener('input', (event) => {
+      if (!MESSAGE_INPUT_IDS.includes(event.target?.id)) return;
+      if (event.target === els.bookingAdminPendingMessage) renderPendingMessagePreview();
+      if (event.target === els.bookingAdminRejectionMessage) renderRejectionMessagePreview();
+      if (event.target === els.bookingAdminReminderMessage) renderReminderMessagePreview();
+      updateMessagesDraft();
     });
-    els.bookingAdminRejectionMessageForm.addEventListener('submit', saveRejectionMessage);
-    els.bookingAdminRejectionMessage.addEventListener('input',()=>{state.rejectionMessageDirty=true;renderRejectionMessagePreview();});
-    els.bookingAdminReminderMessageForm.addEventListener('submit', saveReminderMessage);
-    els.bookingAdminReminderMessage.addEventListener('input', () => {
-      state.reminderMessageDirty = true;
-      renderReminderMessagePreview();
+    els.bookingAdminMessagesDiscard.addEventListener('click', () => {
+      if (state.messagesSaving || !state.messagesDirty) return;
+      renderMessages(true);
+      showMessage(els.bookingAdminMessagesStatus, '已還原至目前伺服器訊息；未儲存的修改已捨棄。', 'success');
     });
     els.bookingAdminSettingsForm.addEventListener('input', (event) => { if (SETTINGS_INPUT_IDS.includes(event.target?.id)) updateSettingsDraft(); });
     els.bookingAdminSettingsForm.addEventListener('change', (event) => { if (SETTINGS_INPUT_IDS.includes(event.target?.id)) updateSettingsDraft(); });
@@ -376,13 +376,14 @@
     els.bookingAdminTechniciansSubtab.addEventListener('click', () => setSubtab('technicians'));
     els.bookingAdminServicesSubtab.addEventListener('click', () => setSubtab('services'));
     els.bookingAdminSettingsSubtab.addEventListener('click', () => setSubtab('settings'));
+    els.bookingAdminMessagesSubtab.addEventListener('click', () => setSubtab('messages'));
     els.bookingAdminRiskSubtab.addEventListener('click', () => setSubtab('risk'));
     els.bookingAdminRiskOpenAdvanceSettings.addEventListener('click', () => {
       setSubtab('settings');
       els.bookingAdminAdvanceDays.focus();
     });
     els.bookingAdminSubtabs.addEventListener('keydown', (event) => {
-      const tabs = [els.bookingAdminTechniciansSubtab, els.bookingAdminServicesSubtab, els.bookingAdminSettingsSubtab, els.bookingAdminRiskSubtab, els.bookingAdminQueueSubtab];
+      const tabs = [els.bookingAdminTechniciansSubtab, els.bookingAdminServicesSubtab, els.bookingAdminSettingsSubtab, els.bookingAdminMessagesSubtab, els.bookingAdminRiskSubtab, els.bookingAdminQueueSubtab];
       const index = tabs.indexOf(document.activeElement);
       if (index < 0 || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
       event.preventDefault();
@@ -425,12 +426,13 @@
   }
 
   function setSubtab(subtab) {
-    const allowed = ['technicians', 'services', 'settings', 'risk', 'queue'];
+    const allowed = ['technicians', 'services', 'settings', 'messages', 'risk', 'queue'];
     state.subtab = allowed.includes(subtab) ? subtab : 'technicians';
     const tabs = {
       technicians: [els.bookingAdminTechniciansSubtab, els.bookingAdminTechniciansPanel],
       services: [els.bookingAdminServicesSubtab, els.bookingAdminServicesPanel],
       settings: [els.bookingAdminSettingsSubtab, els.bookingAdminSettingsPanel],
+      messages: [els.bookingAdminMessagesSubtab, els.bookingAdminMessagesPanel],
       risk: [els.bookingAdminRiskSubtab, els.bookingAdminRiskPanel],
       queue: [els.bookingAdminQueueSubtab, els.bookingAdminQueuePanel],
     };
@@ -781,6 +783,44 @@
         : '目前設定已載入，尚未修改。';
     }
   }
+  function currentMessagesSignature() {
+    return JSON.stringify(MESSAGE_INPUT_IDS.map((id) => String(els[id]?.value || '')));
+  }
+
+  function updateMessagesDraft() {
+    if (state.messagesBaseline === null || !els.bookingAdminMessagesDraftStatus) return;
+    state.messagesDirty = currentMessagesSignature() !== state.messagesBaseline;
+    els.bookingAdminMessagesDiscard.disabled = state.messagesSaving || !state.messagesDirty;
+    els.bookingAdminMessagesSave.disabled = state.messagesSaving || !state.messagesDirty;
+    const serverVersion = String(state.booking.settings?.updatedAt || '');
+    els.bookingAdminMessagesDraftStatus.textContent = state.messagesSaving
+      ? '正在儲存全部訊息…'
+      : state.messagesDirty
+        ? (serverVersion !== state.messagesDraftVersion
+          ? '伺服器已有新版設定；草稿已保留。請先核對最新資料，再重新修改。'
+          : '四項訊息有未儲存的修改。')
+        : '訊息已同步，目前沒有未儲存的變更。';
+  }
+
+  function renderMessages(force = false) {
+    if (state.messagesDirty && !force) {
+      updateMessagesDraft();
+      return;
+    }
+    const settings = state.booking.settings || {};
+    els.bookingAdminNotice.value = String(settings.bookingNotice || '');
+    els.bookingAdminPendingMessage.value = String(settings.pendingMessage || '我們已收到您的預約申請，請等待管理員確認；確認後會再透過 LINE 通知您。');
+    els.bookingAdminRejectionMessage.value = String(settings.rejectionMessage || '很抱歉，本次預約未通過。請依拒絕原因調整預約時間或洽詢店家。');
+    els.bookingAdminReminderMessage.value = String(settings.reminderMessage || '請準時到場；如需調整請至預約頁操作。');
+    state.messagesBaseline = currentMessagesSignature();
+    state.messagesDraftVersion = String(settings.updatedAt || '');
+    state.messagesDirty = false;
+    renderPendingMessagePreview();
+    renderRejectionMessagePreview();
+    renderReminderMessagePreview();
+    updateMessagesDraft();
+  }
+
   function renderPendingMessagePreview() {
     const message = String(els.bookingAdminPendingMessage.value || '').replace(/\r\n?/g, '\n').trim();
     const example = [
@@ -824,6 +864,7 @@
   }
   function renderSettings(force = false) {
     const settings = state.booking.settings || {};
+    renderMessages();
     window.BookingRiskSettings?.mount(els.bookingAdminRiskMount,{data:state.booking.noShowRisk,request:bookingRiskRequest});
     if (state.settingsDirty && !force) {
       updateSettingsDraft();
@@ -837,22 +878,6 @@
     els.bookingAdminMaxAdvanceDays.value = String(Number(settings.maxAdvanceDays || 0));
     els.bookingAdminPhoneNumber.value = String(settings.phoneBookingNumber || '');
     els.bookingAdminStoreServiceMinutes.value = String(Number(settings.storeServiceMinutes || 10));
-    els.bookingAdminNotice.value = String(settings.bookingNotice || '');
-    if (!state.pendingMessageDirty) {
-      els.bookingAdminPendingMessage.value = String(settings.pendingMessage || '我們已收到您的預約申請，請等待管理員確認；確認後會再透過 LINE 通知您。');
-      state.pendingMessageVersion = String(settings.updatedAt || '');
-      renderPendingMessagePreview();
-    }
-    if (!state.rejectionMessageDirty) {
-      els.bookingAdminRejectionMessage.value = String(settings.rejectionMessage || '很抱歉，本次預約未通過。請依拒絕原因調整預約時間或洽詢店家。');
-      state.rejectionMessageVersion = String(settings.updatedAt || '');
-      renderRejectionMessagePreview();
-    }
-    if (!state.reminderMessageDirty) {
-      els.bookingAdminReminderMessage.value = String(settings.reminderMessage || '請準時到場；如需調整請至預約頁操作。');
-      state.reminderMessageVersion = String(settings.updatedAt || '');
-      renderReminderMessagePreview();
-    }
     els.bookingAdminSnapshotLocationRequired.checked = settings.snapshotLocationRequired === true;
     window.TicketLocationEditors?.snapshot?.set(Array.isArray(settings.snapshotLocations) ? settings.snapshotLocations : []);
     renderHoursPreview();
@@ -949,102 +974,49 @@
     els.bookingAdminBatchDeleteButton.textContent = count ? `批次刪除（${count}）` : '批次刪除';
   }
 
-  async function savePendingMessage(event) {
+  async function saveMessages(event) {
     event.preventDefault();
-    if (state.pendingMessageSaving) return;
-    const pendingMessage = String(els.bookingAdminPendingMessage.value || '').replace(/\r\n?/g, '\n');
-    if (!pendingMessage.trim() || pendingMessage.length > 400) {
-      showMessage(els.bookingAdminPendingMessageStatus, '預約申請訊息必須為 1–400 字。', 'error');
-      return;
+    if (state.messagesSaving || !state.messagesDirty) return;
+    const fields = {
+      bookingNotice: String(els.bookingAdminNotice.value || '').replace(/\r\n?/g, '\n'),
+      pendingMessage: String(els.bookingAdminPendingMessage.value || '').replace(/\r\n?/g, '\n'),
+      rejectionMessage: String(els.bookingAdminRejectionMessage.value || '').replace(/\r\n?/g, '\n'),
+      reminderMessage: String(els.bookingAdminReminderMessage.value || '').replace(/\r\n?/g, '\n'),
+    };
+    if (fields.bookingNotice.length > 2000) return showMessage(els.bookingAdminMessagesStatus, '預約說明不可超過 2,000 字。', 'error');
+    for (const [key, label] of [['pendingMessage', '預約申請'], ['rejectionMessage', '預約未通過'], ['reminderMessage', '預約提醒']]) {
+      const value = fields[key];
+      if (!value.trim() || value.length > 400) return showMessage(els.bookingAdminMessagesStatus, label + '訊息必須為 1–400 字。', 'error');
     }
-    state.pendingMessageSaving = true;
-    els.bookingAdminPendingMessageSave.disabled = true;
-    els.bookingAdminPendingMessageSave.textContent = '儲存中…';
-    clearMessage(els.bookingAdminPendingMessageStatus);
+    state.messagesSaving = true;
+    const previousDisabled = new Map([...els.bookingAdminMessagesForm.querySelectorAll('textarea,button')].map(control => [control, control.disabled]));
+    for (const control of previousDisabled.keys()) control.disabled = true;
+    els.bookingAdminMessagesForm.setAttribute('aria-busy', 'true');
+    els.bookingAdminMessagesSave.textContent = '儲存中…';
+    clearMessage(els.bookingAdminMessagesStatus);
+    updateMessagesDraft();
     try {
-      const result = await manageRequest('admin.booking.pending-message.save', {
-        pendingMessage,
-        expectedUpdatedAt: state.pendingMessageVersion,
+      const result = await manageRequest('admin.booking.messages.save', {
+        ...fields,
+        expectedUpdatedAt: state.messagesDraftVersion,
       }, true);
-      if (!result.updatedAt) throw clientError('API_RESPONSE_UNCERTAIN', '無法確認訊息是否儲存，請重新載入核對。');
-      state.booking.settings = { ...state.booking.settings, pendingMessage: String(result.pendingMessage || pendingMessage), updatedAt: result.updatedAt };
-      state.pendingMessageDirty = false;
-      state.pendingMessageVersion = String(result.updatedAt);
+      if (!result.updatedAt || !result.messages) throw clientError('API_RESPONSE_UNCERTAIN', '無法確認所有訊息是否成功儲存，請重新載入核對。');
+      state.booking.settings = { ...state.booking.settings, ...result.messages, updatedAt: result.updatedAt };
+      state.messagesDirty = false;
+      renderMessages(true);
       if (!state.settingsDirty) renderSettings(true);
-      showMessage(els.bookingAdminPendingMessageStatus, '預約申請訊息已儲存，後續新預約將由 LINE 官方帳號主動通知會員。', 'success');
+      showMessage(els.bookingAdminMessagesStatus, '四項訊息已一次儲存，後續預約通知將套用最新文字。', 'success');
     } catch (error) {
-      showMessage(els.bookingAdminPendingMessageStatus,
-        /CONFLICT/i.test(String(error?.code || ''))
-          ? '其他管理員已更新設定，請重新載入確認後再儲存。'
-          : error?.message || '儲存失敗，已保留目前輸入內容。', 'error');
+      const conflict = /CONFLICT|STALE_VERSION|VERSION_MISMATCH/i.test(String(error?.code || ''));
+      showMessage(els.bookingAdminMessagesStatus, conflict
+        ? '其他管理員已修改設定；本頁草稿已保留。請核對最新訊息後重新儲存。'
+        : error?.message || '儲存失敗，所有草稿已保留。', 'error');
     } finally {
-      state.pendingMessageSaving = false;
-      els.bookingAdminPendingMessageSave.disabled = false;
-      els.bookingAdminPendingMessageSave.textContent = '儲存預約申請訊息';
-    }
-  }
-
-  async function saveRejectionMessage(event) {
-    event.preventDefault();
-    if(state.rejectionMessageSaving)return;
-    const rejectionMessage=String(els.bookingAdminRejectionMessage.value||'').replace(/\r\n?/g,'\n');
-    if(!rejectionMessage.trim()||rejectionMessage.length>400){
-      showMessage(els.bookingAdminRejectionMessageStatus,'預約未通過訊息必須為 1–400 字。','error');return;
-    }
-    state.rejectionMessageSaving=true;
-    els.bookingAdminRejectionMessageSave.disabled=true;
-    els.bookingAdminRejectionMessageSave.textContent='儲存中…';
-    clearMessage(els.bookingAdminRejectionMessageStatus);
-    try{
-      const result=await manageRequest('admin.booking.rejection-message.save',{
-        rejectionMessage,expectedUpdatedAt:state.rejectionMessageVersion,
-      },true);
-      if(!result.updatedAt)throw clientError('API_RESPONSE_UNCERTAIN','無法確認訊息是否儲存，請重新載入核對。');
-      state.booking.settings={...state.booking.settings,rejectionMessage:String(result.rejectionMessage||rejectionMessage),updatedAt:result.updatedAt};
-      state.rejectionMessageDirty=false;state.rejectionMessageVersion=String(result.updatedAt);
-      if(!state.settingsDirty)renderSettings(true);
-      showMessage(els.bookingAdminRejectionMessageStatus,'預約未通過訊息已儲存。','success');
-    }catch(error){
-      showMessage(els.bookingAdminRejectionMessageStatus,/CONFLICT/i.test(String(error?.code||''))?'其他管理員已更新設定，請重新載入後重試。':(error?.message||'儲存失敗，已保留輸入內容。'),'error');
-    }finally{
-      state.rejectionMessageSaving=false;
-      els.bookingAdminRejectionMessageSave.disabled=false;
-      els.bookingAdminRejectionMessageSave.textContent='儲存預約未通過訊息';
-    }
-  }
-
-  async function saveReminderMessage(event) {
-    event.preventDefault();
-    if (state.reminderMessageSaving) return;
-    const reminderMessage = String(els.bookingAdminReminderMessage.value || '').replace(/\r\n?/g, '\n');
-    if (!reminderMessage.trim() || reminderMessage.length > 400) {
-      showMessage(els.bookingAdminReminderMessageStatus, '提醒訊息必須為 1–400 字。', 'error');
-      return;
-    }
-    state.reminderMessageSaving = true;
-    els.bookingAdminReminderMessageSave.disabled = true;
-    els.bookingAdminReminderMessageSave.textContent = '儲存中…';
-    clearMessage(els.bookingAdminReminderMessageStatus);
-    try {
-      const result = await manageRequest('admin.booking.reminder-message.save', {
-        reminderMessage,
-        expectedUpdatedAt: state.reminderMessageVersion,
-      }, true);
-      if (!result.updatedAt) throw clientError('API_RESPONSE_UNCERTAIN', '無法確認提醒訊息是否已儲存，請重新載入核對。');
-      state.booking.settings = { ...state.booking.settings, reminderMessage: String(result.reminderMessage || reminderMessage), updatedAt: result.updatedAt };
-      state.reminderMessageDirty = false;
-      state.reminderMessageVersion = String(result.updatedAt);
-      if (!state.settingsDirty) renderSettings(true);
-      showMessage(els.bookingAdminReminderMessageStatus, '預約提醒訊息已儲存，後續提醒會套用最新文字。', 'success');
-    } catch (error) {
-      showMessage(els.bookingAdminReminderMessageStatus,
-        /CONFLICT/i.test(String(error?.code || ''))
-          ? '其他管理員已更新設定，請重新載入後確認內容再儲存。'
-          : error?.message || '儲存失敗，已保留目前輸入內容。', 'error');
-    } finally {
-      state.reminderMessageSaving = false;
-      els.bookingAdminReminderMessageSave.disabled = false;
-      els.bookingAdminReminderMessageSave.textContent = '儲存預約提醒訊息';
+      state.messagesSaving = false;
+      for (const [control, disabled] of previousDisabled) control.disabled = disabled;
+      els.bookingAdminMessagesForm.removeAttribute('aria-busy');
+      els.bookingAdminMessagesSave.textContent = '儲存所有訊息';
+      updateMessagesDraft();
     }
   }
 
@@ -1058,7 +1030,6 @@
     const maxEndOverrunMinutes = Number(els.bookingAdminMaxEndOverrunMinutes.value);
     const workStartTime = els.bookingAdminStartTime.value;
     const workEndTime = els.bookingAdminEndTime.value;
-    const bookingNotice = String(els.bookingAdminNotice.value || '').replace(/\r\n?/g, '\n');
     const phoneBookingNumber = String(els.bookingAdminPhoneNumber.value || '').trim();
     if (!Number.isInteger(minAdvanceDays) || minAdvanceDays < 0 || minAdvanceDays > 365) return showMessage(els.bookingAdminSettingsMessage, '提前預約天數必須介於 0–365 天。', 'error');
     if (!Number.isInteger(maxAdvanceDays) || maxAdvanceDays < 0 || maxAdvanceDays > 365) return showMessage(els.bookingAdminSettingsMessage, '最遠可預約天數必須介於 0–365 天；0 代表不限制。', 'error');
@@ -1068,7 +1039,6 @@
     if (!/^\d{2}:\d{2}$/.test(workStartTime) || !/^\d{2}:\d{2}$/.test(workEndTime) || workStartTime === workEndTime || [workStartTime, workEndTime].some((time) => Number(time.slice(0, 2)) > 23 || Number(time.slice(3)) > 59 || Number(time.slice(3)) % 5 !== 0)) return showMessage(els.bookingAdminSettingsMessage, '工作時間格式錯誤或時段長度為零。', 'error');
     if (!Number.isInteger(slotIntervalMinutes) || slotIntervalMinutes < 5 || slotIntervalMinutes > 120 || slotIntervalMinutes % 5 !== 0) return showMessage(els.bookingAdminSettingsMessage, '切分間隔須為 5–120 分鐘的 5 分鐘倍數。', 'error');
     if (els.bookingAdminMaxEndOverrunMinutes.value === '' || !Number.isInteger(maxEndOverrunMinutes) || maxEndOverrunMinutes < 0 || maxEndOverrunMinutes > 1439) return showMessage(els.bookingAdminSettingsMessage, '最多超過結束工作時間必須介於 0–1439 分鐘。', 'error');
-    if (bookingNotice.length > 2000) return showMessage(els.bookingAdminSettingsMessage, '預約說明不可超過 2,000 字。', 'error');
     const snapshotLocations = window.TicketLocationEditors?.snapshot?.get() || [];
     if (els.bookingAdminSnapshotLocationRequired.checked && !snapshotLocations.length) return showMessage(els.bookingAdminSettingsMessage, '請先新增至少一個快照允許地點，才能啟用定位限制。', 'error');
     state.busy = true; clearMessage(els.bookingAdminSettingsMessage);
@@ -1089,7 +1059,6 @@
         maxAdvanceDays,
         phoneBookingNumber,
         storeServiceMinutes,
-        bookingNotice,
         snapshotLocationRequired: els.bookingAdminSnapshotLocationRequired.checked,
         snapshotLocations,
         expectedUpdatedAt: state.settingsDraftVersion,

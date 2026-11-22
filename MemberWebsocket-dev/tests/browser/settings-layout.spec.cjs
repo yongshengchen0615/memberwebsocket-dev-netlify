@@ -51,8 +51,8 @@ for(const variant of [
   await page.locator('#bookingAdminSettingsSubtab').click();
   const settingsForm=page.locator('#bookingAdminSettingsForm');
   const draftStatus=page.locator('#bookingAdminDraftStatus');
-  const draftNotice=page.locator('#bookingAdminNotice');
-  const originalNotice=await draftNotice.inputValue();
+  const draftPhone=page.locator('#bookingAdminPhoneNumber');
+  const originalPhone=await draftPhone.inputValue();
   await expect(draftStatus).toContainText('尚未修改');
   await expect(page.locator('#bookingAdminDiscardSettingsButton')).toBeDisabled();
   const overrunMinutes=page.locator('#bookingAdminMaxEndOverrunMinutes');
@@ -64,13 +64,13 @@ for(const variant of [
   await expect(overrunMinutes).toHaveValue('0');
   await overrunMinutes.fill('30');
   await fitsViewport(page,settingsForm);
-  await draftNotice.fill('QA booking settings unsaved draft');
+  await draftPhone.fill('06-1234566');
   await expect(draftStatus).toContainText('未儲存');
   await expect(page.locator('#bookingAdminDiscardSettingsButton')).toBeEnabled();
   await page.locator('#bookingTab').click(); // Background refresh must not clobber pending edits.
-  await expect(draftNotice).toHaveValue('QA booking settings unsaved draft');
+  await expect(draftPhone).toHaveValue('06-1234566');
   await page.locator('#bookingAdminDiscardSettingsButton').click();
-  await expect(draftNotice).toHaveValue(originalNotice);
+  await expect(draftPhone).toHaveValue(originalPhone);
   await expect(draftStatus).toContainText('尚未修改');
   await overrunMinutes.fill('30'); // Reapply the numeric limit after discarding the draft.
   await overrunMinutes.fill('1440');
@@ -78,7 +78,7 @@ for(const variant of [
   await page.locator('#bookingAdminSaveSettingsButton').click();
   await expect(page.locator('#bookingAdminSettingsMessage')).toContainText('0–1439');
   await overrunMinutes.fill('30');
-  await draftNotice.fill('QA booking settings persisted '+variant.name);
+  await draftPhone.fill('06-1234567');
   if(variant.name==='desktop light') {
     const transport=host.sessions.get(info.testId);
     let releaseWrite;
@@ -86,7 +86,7 @@ for(const variant of [
     try {
       await page.locator('#bookingAdminSaveSettingsButton').click();
       await expect(page.locator('#bookingAdminSaveSettingsButton')).toBeDisabled();
-      await expect(draftNotice).toBeDisabled();
+      await expect(draftPhone).toBeDisabled();
       await expect(draftStatus).toContainText('正在儲存');
       const beforeRelease=transport.calls.filter(item=>item.action==='admin.booking.settings.save').length;
       expect(beforeRelease).toBe(1);
@@ -96,35 +96,56 @@ for(const variant of [
   }
   await expect(page.locator('#bookingAdminSettingsMessage')).toContainText('已儲存');
   await expect(draftStatus).toContainText('尚未修改');
-  await expect(host.sessions.get(info.testId).settings.bookingNotice).toBe('QA booking settings persisted '+variant.name);
+  await expect(host.sessions.get(info.testId).settings.phoneBookingNumber).toBe('06-1234567');
   const policyWrites=host.sessions.get(info.testId).calls.filter(item=>item.action==='admin.booking.settings.save');
   expect(policyWrites.at(-1).payload.maxEndOverrunMinutes).toBe(30);
   expect(host.sessions.get(info.testId).settings.maxEndOverrunMinutes).toBe(30);
   await expect(overrunMinutes).toHaveValue('30');
   // Transport failure may represent an unknown write result: leave the input intact.
   host.sessions.get(info.testId).fault={action:'admin.booking.settings.save',code:'API_RESPONSE_UNCERTAIN'};
-  await draftNotice.fill('QA uncertain draft '+variant.name);
+  await draftPhone.fill('06-1234568');
   await page.locator('#bookingAdminSaveSettingsButton').click();
   await expect(page.locator('#bookingAdminSettingsMessage')).toContainText('無法確認');
-  await expect(draftNotice).toHaveValue('QA uncertain draft '+variant.name);
+  await expect(draftPhone).toHaveValue('06-1234568');
   await expect(page.locator('#bookingAdminDiscardSettingsButton')).toBeEnabled();
   await page.locator('#bookingAdminDiscardSettingsButton').click();
-  await expect(draftNotice).toHaveValue('QA booking settings persisted '+variant.name);
+  await expect(draftPhone).toHaveValue('06-1234567');
   const session=host.sessions.get(info.testId);
   const viewedVersion=session.settings.updatedAt;
-  await draftNotice.fill('QA stale version draft '+variant.name);
+  await draftPhone.fill('06-1234569');
   session.settings.updatedAt='2030-01-01T00:00:00.000Z';
   await page.locator('#bookingTab').click();
-  await expect(draftNotice).toHaveValue('QA stale version draft '+variant.name);
+  await expect(draftPhone).toHaveValue('06-1234569');
   await expect(draftStatus).toContainText('伺服器已有新版設定');
   session.fault={action:'admin.booking.settings.save',code:'BOOKING_SETTINGS_CONFLICT'};
   await page.locator('#bookingAdminSaveSettingsButton').click();
   await expect(page.locator('#bookingAdminSettingsMessage')).toContainText('版本已變更');
   const writes=session.calls.filter(item=>item.action==='admin.booking.settings.save');
   expect(writes.at(-1).payload.expectedUpdatedAt).toBe(viewedVersion);
-  await expect(draftNotice).toHaveValue('QA stale version draft '+variant.name);
+  await expect(draftPhone).toHaveValue('06-1234569');
   await page.locator('#bookingAdminDiscardSettingsButton').click();
-  await expect(draftNotice).toHaveValue('QA booking settings persisted '+variant.name);
+  await expect(draftPhone).toHaveValue('06-1234567');
+  // The booking notice moved to Messages. Verify the single-save UI separately
+  // in each real browser viewport and theme rather than reaching into a hidden form.
+  await page.locator('#bookingAdminMessagesSubtab').click();
+  const messagesForm=page.locator('#bookingAdminMessagesForm');
+  const messageNotice=page.locator('#bookingAdminNotice');
+  const messageStatus=page.locator('#bookingAdminMessagesDraftStatus');
+  const oldNotice=await messageNotice.inputValue();
+  await fitsViewport(page,messagesForm);
+  await expect(messagesForm.locator('button[type="submit"]')).toHaveCount(1);
+  await expect(page.locator('#bookingAdminMessagesSave')).toBeDisabled();
+  await messageNotice.fill('QA booking notice draft');
+  await expect(messageStatus).toContainText('未儲存');
+  await page.locator('#bookingTab').click();
+  await expect(messageNotice).toHaveValue('QA booking notice draft');
+  await page.locator('#bookingAdminMessagesDiscard').click();
+  await expect(messageNotice).toHaveValue(oldNotice);
+  await messageNotice.fill('QA booking notice persisted '+variant.name);
+  await page.locator('#bookingAdminMessagesSave').click();
+  await expect(page.locator('#bookingAdminMessagesStatus')).toContainText('四項訊息已一次儲存');
+  expect(host.sessions.get(info.testId).settings.bookingNotice).toBe('QA booking notice persisted '+variant.name);
+  await expect(messageStatus).toContainText('沒有未儲存的變更');
   await page.locator('#bookingAdminRiskSubtab').click();
   await expect(page.locator('#bookingAdminRiskPanel')).toBeVisible();
   await expect(page.locator('#bookingAdminSettingsPanel')).toBeHidden();
