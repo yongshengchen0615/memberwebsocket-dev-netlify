@@ -43,8 +43,19 @@ begin
  ] loop
   d:=pg_get_functiondef(sig);
   if strpos(d,v_old_bounds)=0 or strpos(d,'v_clock%10<>0')=0
+     or strpos(d,'booking_slot_fits')=0
+     or (length(d)-length(replace(d,
+       '(v_settings->>''slot_interval_minutes'')::integer',
+       '')))/length('(v_settings->>''slot_interval_minutes'')::integer')<>1
   then raise exception 'WALKIN_DURATION_CONTRACT_CHANGED: %',sig;end if;
-  execute replace(d,v_old_bounds,v_new_bounds);
+  d:=replace(d,v_old_bounds,v_new_bounds);
+  -- The normal booking calendar can be configured at 30-minute intervals.
+  -- Paired walk-in registration is explicitly 10-minute clock-granular.
+  -- Using the minimum supported schedule step (5) in booking_slot_fits
+  -- preserves work-hour boundaries, including non-zero minute openings;
+  -- the independent v_clock%10 and p_duration%10 checks stay authoritative.
+  d:=replace(d,'(v_settings->>''slot_interval_minutes'')::integer','5');
+  execute d;
  end loop;
 
  -- The frontdesk atomic paired rejection validates the candidate timestamp
