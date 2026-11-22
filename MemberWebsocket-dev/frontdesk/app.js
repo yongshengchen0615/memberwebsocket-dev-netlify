@@ -347,6 +347,20 @@
   const recommendedDuration=Number.isInteger(originalDuration)?originalDuration:60;
   duration.value=Array.from(duration.options).some(x=>Number(x.value)===recommendedDuration)?String(recommendedDuration):(duration.options[0]?.value||'');
   timeLabel.append(time);durationLabel.append(duration);
+  const toMinutes=value=>/^(?:[01]\\d|2[0-3]):[0-5]\\d$/.test(value)?Number(value.slice(0,2))*60+Number(value.slice(3,5)):null;
+  const originalStartMin=toMinutes(originalTime),originalClockEnd=toMinutes(originalEnd);
+  const originalEndMin=Number.isFinite(originalDuration)&&originalDuration>0&&originalStartMin!==null
+   ?originalStartMin+originalDuration
+   :originalStartMin!==null&&originalClockEnd!==null
+    ?originalClockEnd+(originalClockEnd<=originalStartMin?1440:0):null;
+  // Two half-open intervals conflict only when they actually intersect.
+  // An appointment ending exactly when another starts is not a conflict.
+  const hasConflict=()=>{
+   const candidateStart=toMinutes(time.value),minutes=Number(duration.value);
+   return originalStartMin!==null&&originalEndMin!==null&&originalEndMin>originalStartMin
+    &&candidateStart!==null&&Number.isInteger(minutes)&&minutes>0
+    &&candidateStart<originalEndMin&&candidateStart+minutes>originalStartMin;
+  };
   const guidance=node('p','請選擇實際發生衝突的預約時間與總時長，系統會按商家設定的範圍、每 10 分鐘提供選項，並檢查是否可以保留時段。');
   phonePanel.append(title,hint,dateLabel,guidance,timeLabel,durationLabel);
   const feedback=node('p');feedback.className='frontdesk-phone-message';feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');
@@ -376,7 +390,12 @@
   const updateSubmit=()=>{
    const phone=reason.value==='unrecorded_phone_booking';
    submit.textContent=frozen?'重試相同操作':phone?'確認拒絕並登記現場預約':'確認拒絕預約';
-   submit.disabled=!reason.value||(phone&&(!bookingDate||!validTime()||!validDuration()));
+   const validPhone=bookingDate&&validTime()&&validDuration();
+   const overlaps=phone&&validPhone&&hasConflict();
+   submit.disabled=!reason.value||(phone&&(!validPhone||!overlaps));
+   if(phone&&validPhone&&!overlaps){
+    feedback.textContent='你選擇的現場預約時段與原預約時間沒有重疊，請調整衝突預約時間或總時長。';
+   }else if(!frozen)feedback.textContent='';
   };
   const updateReason=()=>{
    phonePanel.hidden=reason.value!=='unrecorded_phone_booking';
@@ -395,6 +414,9 @@
    const phone=reason.value==='unrecorded_phone_booking';
    if(phone&&(!validDuration()||!validTime()||!bookingDate)){
    feedback.textContent='請從下拉選單選擇符合商家限制的衝突預約時間與總時長（每 10 分鐘）。';return;
+  }
+  if(phone&&!hasConflict()){
+   feedback.textContent='你選擇的現場預約時段與原預約時間沒有重疊，請調整衝突預約時間或總時長。';return;
   }
   const detail=phone?{startTime:time.value,totalDurationMinutes:Number(duration.value)}:null;
    void review(booking,'rejected',submit,reason.value,detail,()=>close(true));
