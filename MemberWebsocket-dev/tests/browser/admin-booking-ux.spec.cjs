@@ -33,24 +33,29 @@ async function mount(page) {
 for (const width of [390, 1280]) test(`AC-003/004 Chromium ${width}px: cancel blocks mutations; deliberate confirmation permits them`, async ({ page }) => {
   await page.setViewportSize({ width, height: 844 });
   await mount(page);
-  let approve = false;
-  const dialogs = [];
-  page.on('dialog', async dialog => {
-    dialogs.push(dialog.message());
-    if (approve) await dialog.accept();
-    else await dialog.dismiss();
+  // Replace the native UI prompt only; keep the real Chromium capture/target/bubble
+  // event dispatch and both original mutation listeners under test.
+  await page.evaluate(() => {
+    window.bookingConfirmationCalls = [];
+    window.approveBookingMutation = false;
+    window.confirm = message => {
+      window.bookingConfirmationCalls.push(message);
+      return window.approveBookingMutation;
+    };
   });
   await page.locator('#confirmBooking').click();
   await expect(page.locator('#actionCount')).toHaveText('0');
   await page.locator('#bookingAdminSettingsForm button').click();
   await expect(page.locator('#submitCount')).toHaveText('0');
-  approve = true;
+  await page.evaluate(() => { window.approveBookingMutation = true; });
   await page.locator('#confirmBooking').click();
   await expect(page.locator('#actionCount')).toHaveText('1');
   await page.locator('#bookingAdminSettingsForm button').click();
   await expect(page.locator('#submitCount')).toHaveText('1');
+  const dialogs = await page.evaluate(() => window.bookingConfirmationCalls);
   expect(dialogs).toHaveLength(4);
   expect(dialogs[0]).toContain('2026-11-23');
+  expect(dialogs[1]).toContain('儲存預約');
   expect(dialogs[2]).toContain('確認預約');
 });
 
