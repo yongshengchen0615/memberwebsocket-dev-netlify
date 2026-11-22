@@ -453,8 +453,43 @@ test('TICKET_BOOKING_POLICY_ENTRY — point and event views explain service-spec
   await expect(p.locator('#bookingAdminSnapshotLocationRequired')).toBeVisible();
 });
 test('BOOKING_SHARED_SETTINGS — overnight hours, advance window, common time without global reminder',async({page:p},info)=>{
-  await booking(p,'bookingAdminSettingsSubtab');await fill(p,'bookingAdminStartTime','20:00');await fill(p,'bookingAdminEndTime','02:00');await fill(p,'bookingAdminSlotInterval','15');await fill(p,'bookingAdminAdvanceDays','1');await fill(p,'bookingAdminMaxAdvanceDays','30');await fill(p,'bookingAdminPhoneNumber','06-1234567');await fill(p,'bookingAdminStoreServiceMinutes','15');await p.locator('#bookingAdminSnapshotLocationRequired').check();await p.evaluate(() => window.TicketLocationEditors.snapshot.set([{name:'QA 指定門市',latitude:25.033964,longitude:121.564468,radiusMeters:100}]));await expect(p.locator('#bookingAdminReminderEnabled, #bookingAdminReminderTime')).toHaveCount(0);await fill(p,'bookingAdminNotice','QA line 1\nQA line 2');await click(p,'bookingAdminSaveSettingsButton');await expect.poll(()=>calls(info.fixture,'admin.booking.settings.save').length).toBe(1);await expect(p.locator('#bookingAdminSettingsMessage')).toContainText('儲存');expect(info.fixture.settings.workEndTime).toBe('02:00');expect(info.fixture.settings.phoneBookingNumber).toBe('06-1234567');expect(info.fixture.settings.snapshotLocationRequired).toBe(true);await p.reload();await booking(p,'bookingAdminSettingsSubtab');await expect(p.locator('#bookingAdminPhoneNumber')).toHaveValue('06-1234567');await expect(p.locator('#bookingAdminSnapshotLocationRequired')).toBeChecked();await p.locator('#bookingAdminSnapshotLocationRequired').uncheck();await click(p,'bookingAdminSaveSettingsButton');await expect.poll(()=>info.fixture.settings.snapshotLocationRequired).toBe(false);
+  await booking(p,'bookingAdminSettingsSubtab');await fill(p,'bookingAdminStartTime','20:00');await fill(p,'bookingAdminEndTime','02:00');await fill(p,'bookingAdminSlotInterval','15');await fill(p,'bookingAdminAdvanceDays','1');await fill(p,'bookingAdminMaxAdvanceDays','30');await fill(p,'bookingAdminPhoneNumber','06-1234567');await fill(p,'bookingAdminStoreServiceMinutes','15');await p.locator('#bookingAdminSnapshotLocationRequired').check();await p.evaluate(() => window.TicketLocationEditors.snapshot.set([{name:'QA 指定門市',latitude:25.033964,longitude:121.564468,radiusMeters:100}]));await expect(p.locator('#bookingAdminReminderEnabled, #bookingAdminReminderTime')).toHaveCount(0);await click(p,'bookingAdminSaveSettingsButton');await expect.poll(()=>calls(info.fixture,'admin.booking.settings.save').length).toBe(1);await expect(p.locator('#bookingAdminSettingsMessage')).toContainText('儲存');expect(info.fixture.settings.workEndTime).toBe('02:00');expect(info.fixture.settings.phoneBookingNumber).toBe('06-1234567');expect(info.fixture.settings.snapshotLocationRequired).toBe(true);await p.reload();await booking(p,'bookingAdminSettingsSubtab');await expect(p.locator('#bookingAdminPhoneNumber')).toHaveValue('06-1234567');await expect(p.locator('#bookingAdminSnapshotLocationRequired')).toBeChecked();await p.locator('#bookingAdminSnapshotLocationRequired').uncheck();await click(p,'bookingAdminSaveSettingsButton');await expect.poll(()=>info.fixture.settings.snapshotLocationRequired).toBe(false);
 });
+test('BOOKING_MESSAGES_SETTINGS — one save, reload, invalid input and conflicting drafts',async({page:p},info)=>{
+  await booking(p,'bookingAdminMessagesSubtab');
+  const form=p.locator('#bookingAdminMessagesForm'),save=p.locator('#bookingAdminMessagesSave');
+  await expect(form.locator('button[type="submit"]')).toHaveCount(1);
+  await expect(save).toBeDisabled();
+  await fill(p,'bookingAdminNotice','QA line 1\\nQA line 2');
+  await fill(p,'bookingAdminPendingMessage','預約已送出，請等待管理員確認。');
+  await fill(p,'bookingAdminRejectionMessage','預約未通過，請依拒絕原因重新預約。');
+  await fill(p,'bookingAdminReminderMessage','您的預約即將開始，請準時到場。');
+  await expect(save).toBeEnabled();
+  await click(p,'bookingAdminMessagesSave');
+  await expect.poll(()=>calls(info.fixture,'admin.booking.messages.save').length).toBe(1);
+  await expect(p.locator('#bookingAdminMessagesStatus')).toContainText('四項訊息已一次儲存');
+  expect(info.fixture.settings.bookingNotice).toBe('QA line 1\\nQA line 2');
+  expect(info.fixture.settings.pendingMessage).toBe('預約已送出，請等待管理員確認。');
+  expect(info.fixture.settings.rejectionMessage).toBe('預約未通過，請依拒絕原因重新預約。');
+  expect(info.fixture.settings.reminderMessage).toBe('您的預約即將開始，請準時到場。');
+  await p.reload();
+  await booking(p,'bookingAdminMessagesSubtab');
+  await expect(p.locator('#bookingAdminNotice')).toHaveValue('QA line 1\\nQA line 2');
+  await expect(p.locator('#bookingAdminPendingMessage')).toHaveValue('預約已送出，請等待管理員確認。');
+  await fill(p,'bookingAdminPendingMessage',' ');
+  await click(p,'bookingAdminMessagesSave');
+  await expect(p.locator('#bookingAdminMessagesStatus')).toContainText('必須為 1–400 字');
+  expect(calls(info.fixture,'admin.booking.messages.save')).toHaveLength(1);
+  await fill(p,'bookingAdminPendingMessage','修正後等待確認。');
+  const beforeConflict=info.fixture.settings.pendingMessage;
+  info.fixture.settings.updatedAt='2040-01-01T00:00:00.000Z';
+  await click(p,'bookingAdminMessagesSave');
+  await expect.poll(()=>calls(info.fixture,'admin.booking.messages.save').length).toBe(2);
+  await expect(p.locator('#bookingAdminMessagesStatus')).toContainText('其他管理員已修改設定');
+  await expect(p.locator('#bookingAdminPendingMessage')).toHaveValue('修正後等待確認。');
+  expect(info.fixture.settings.pendingMessage).toBe(beforeConflict);
+});
+
 function seedBooking(s,status='pending'){
   s.bookings=[{bookingId:'booking-1',memberId:'member-1',memberDisplayName:'QA booking member',contactSurname:'QA',contactSalutation:'mr',contactPhone:'+886912345678',memberCode:'TEST1',bookingDate:today(),startTime:'10:00',endTime:'10:30',status,totalDurationMinutes:30,updatedAt:version,createdAt:version,items:[{serviceId:'service-1',serviceTitle:'QA service',quantity:1,unitDurationMinutes:30,subtotalMinutes:30,serviceType:'Body'}],benefits:[]}];
 }
