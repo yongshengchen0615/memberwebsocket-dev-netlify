@@ -186,6 +186,35 @@ for(const width of [390,1280])test('FRONTDESK_SETTINGS_STANDALONE_'+width+' — 
  await expect(page.locator('#frontdeskSettingsRoot [data-frontdesk-settings]')).toBeVisible();
  await expect(page.locator('#adminView,#merchantWorkspace,#productizedAdmin,#frontdeskSettingsTab')).toHaveCount(0);
  await expect(page.locator('#frontdeskManageBusiness')).toHaveAttribute('href','/admin/?business=shop-a');
+ // AC-001/002: geometry in Chromium, not just DOM order. The LINE section
+ // stays a single document flow while its two setup cards share a desktop row.
+ const lineFlow=await page.evaluate(()=>{
+  const rect=selector=>{
+   const element=document.querySelector(selector);
+   if(!element)throw Error('Missing LINE layout component '+selector);
+   const b=element.getBoundingClientRect();
+   return {top:b.top,bottom:b.bottom,left:b.left,right:b.right};
+  };
+  return {
+   login:rect('.frontdesk-config-form > fieldset:first-of-type'),
+   notification:rect('.frontdesk-config-form > fieldset:nth-of-type(2)'),
+   save:rect('.frontdesk-config-form > button[type="submit"]'),
+   title:rect('.frontdesk-preferences-form'),
+   staff:rect('.frontdesk-approvals'),
+   viewport:innerWidth,pageWidth:document.documentElement.scrollWidth
+  };
+ });
+ expect(lineFlow.pageWidth).toBeLessThanOrEqual(lineFlow.viewport+1);
+ if(width===1280){
+  expect(Math.abs(lineFlow.login.top-lineFlow.notification.top)).toBeLessThanOrEqual(2);
+  expect(lineFlow.login.right).toBeLessThan(lineFlow.notification.left);
+ }else{
+  expect(lineFlow.notification.top).toBeGreaterThanOrEqual(lineFlow.login.bottom-1);
+ }
+ expect(lineFlow.save.top).toBeGreaterThanOrEqual(Math.max(lineFlow.login.bottom,lineFlow.notification.bottom)-1);
+ expect(lineFlow.title.top).toBeGreaterThanOrEqual(lineFlow.save.bottom-1);
+ expect(lineFlow.staff.top).toBeGreaterThanOrEqual(lineFlow.title.bottom-1);
+
  expect(calls.some(c=>c.action==='platform.application.bootstrap')).toBe(true);
  expect(calls.some(c=>c.action==='platform.frontdesk.get')).toBe(true);
  // The explicit app theme, not OS color preference, owns every standalone color.
@@ -221,7 +250,7 @@ for(const width of [390,1280])test('FRONTDESK_SETTINGS_STANDALONE_'+width+' — 
    };
   });
   expect(sample.primary).toBe(sample.expectedPrimary);
-  expect(sample.columns).toBe(width===1280?2:1);
+  expect(sample.columns).toBe(1); // One stable LINE flow; two cards may share a row only inside its form.
   expect(sample.saveContrast).toBeGreaterThanOrEqual(4.5);
   expect(sample.titleContrast).toBeGreaterThanOrEqual(4.5);
   expect(sample.statusContrast).toBeGreaterThanOrEqual(4.5);
