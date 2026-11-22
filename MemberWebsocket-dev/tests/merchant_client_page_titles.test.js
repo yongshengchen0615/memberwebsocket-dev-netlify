@@ -38,15 +38,15 @@ test('AC-001: five public surfaces use the same merchant title, brand first',asy
   }
 });
 
-test('AC-002: blank custom title falls back to merchant name; unscoped pages retain Lumen Club',async()=>{
+test('AC-002: blank custom title falls back to merchant name; unscoped pages use a neutral member-system title',async()=>{
   for(const [page,label] of Object.entries(pageLabels)){
     const tenant=await renderTitle(page,{business:'merchant-a',name:'原本商家名稱',siteTitle:null,features:{},line:{}});
     assert.equal(tenant.title,'原本商家名稱｜'+label);
     const legacy=await renderTitle(page,{},false);
-    assert.equal(legacy.title,'Lumen Club｜'+label);
+    assert.equal(legacy.title,'會員系統｜'+label);
     assert.equal(legacy.calls.length,0);
     const html=read(page+'/index.html');
-    assert.ok(html.includes('<title>Lumen Club｜'+label+'</title>'));
+    assert.ok(html.includes('<title>會員系統｜'+label+'</title>'));
     assert.ok(html.includes('../business-context.js'));
   }
 });
