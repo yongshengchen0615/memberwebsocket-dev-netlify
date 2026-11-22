@@ -57,16 +57,16 @@ test('PostgreSQL frontdesk LINE history: scoped booking is found beyond 30 entri
   await conn.query(adminQuery,adminArgs('settings.save',{loginChannelId:channel,liffId:channel+'-desk',messagingChannelId:'2010888888',oaId:'@desk',enabled:true,expectedVersion:1,envelope:{version:1,iv:'a'.repeat(16),data:'b'.repeat(48)}}));
   const person=(await conn.query(query,actorArgs('apply',{displayName:'Scoped history staff',oaVerified:true,verifiedMessagingChannelId:'2010888888',verifiedConfigRevision:2}))).rows[0].result.staff;
   await conn.query(adminQuery,adminArgs('staff.save',{staffId:person.id,expectedVersion:1,status:'approved',permissionMode:'review'}));
-  await h.db.exec(\`update \${s}.booking_settings set require_primary_technician=false,work_start_time='08:00',work_end_time='22:00';insert into \${s}.booking_service_types(name)values('FD');\`);
-  const member=(await h.db.query(\`insert into \${s}.members(line_user_id,member_code,invite_code,status,membership_status,is_test_account)values($1,'FD-H-PG','HXCD1234','active','active',true)returning id\`,['U'+'3'.repeat(32)])).rows[0].id;
-  await h.db.query(\`update \${s}.members set is_test_account=false where id=$1\`,[member]);
-  const service=(await h.db.query(\`insert into \${s}.booking_services(title,duration_minutes,price_amount,service_type,created_by)values('FD',30,100,'FD',$1)returning id\`,[owner])).rows[0].id;
-  const make=async()=>{const id=(await h.db.query(\`select (\${s}.create_group_booking_request_v2($1,$2,current_date+3,'10:00',$3,'')).id id\`,['FD-'+crypto.randomUUID(),member,[{technicianId:null,items:[{serviceId:service,quantity:1}]}]])).rows[0].id;return id;};
+  await h.db.exec(`update ${s}.booking_settings set require_primary_technician=false,work_start_time='08:00',work_end_time='22:00';insert into ${s}.booking_service_types(name)values('FD');`);
+  const member=(await h.db.query(`insert into ${s}.members(line_user_id,member_code,invite_code,status,membership_status,is_test_account)values($1,'FD-H-PG','HXCD1234','active','active',true)returning id`,['U'+'3'.repeat(32)])).rows[0].id;
+  await h.db.query(`update ${s}.members set is_test_account=false where id=$1`,[member]);
+  const service=(await h.db.query(`insert into ${s}.booking_services(title,duration_minutes,price_amount,service_type,created_by)values('FD',30,100,'FD',$1)returning id`,[owner])).rows[0].id;
+  const make=async()=>{const id=(await h.db.query(`select (${s}.create_group_booking_request_v2($1,$2,current_date+3,'10:00',$3,'')).id id`,['FD-'+crypto.randomUUID(),member,[{technicianId:null,items:[{serviceId:service,quantity:1}]}]])).rows[0].id;return id;};
   const target=await make(),other=await make();
   // A's audit is older than the 30 most recent audits for another booking.
   // Filtering after LIMIT would incorrectly hide A's history.
-  const audit=\`insert into \${s}.booking_audit_events(actor_line_user_id,actor_role,action,target_type,target_id,result,metadata)
-   select $1,'frontdesk','BOOKING_REJECTED','booking',$2,'success',jsonb_build_object('rejectionReason','unrecorded_phone_booking') from generate_series(1,$3::int)\`;
+  const audit=`insert into ${s}.booking_audit_events(actor_line_user_id,actor_role,action,target_type,target_id,result,metadata)
+   select $1,'frontdesk','BOOKING_REJECTED','booking',$2,'success',jsonb_build_object('rejectionReason','unrecorded_phone_booking') from generate_series(1,$3::int)`;
   await conn.query(audit,[staff,target,1]);
   await conn.query(audit,[staff,other,31]);
   const scoped=(await conn.query(query,actorArgs('history',{bookingId:target}))).rows[0].result;
@@ -79,7 +79,7 @@ test('PostgreSQL frontdesk LINE history: scoped booking is found beyond 30 entri
   await assert.rejects(conn.query(query,actorArgs('history',{bookingId:target},'U'+'5'.repeat(32))),/FRONTDESK_REVIEW_REQUIRED/);
   await conn.query(adminQuery,adminArgs('staff.save',{staffId:person.id,expectedVersion:2,status:'suspended',permissionMode:'review'}));
   await assert.rejects(conn.query(query,actorArgs('history',{bookingId:target})),/FRONTDESK_REVIEW_REQUIRED|FRONTDESK_AUTH_INVALID/);
-  const count=(await h.db.query(\`select count(*)::int n from \${s}.bookings where id=any($1::uuid[])\`,[[target,other]])).rows[0].n;
+  const count=(await h.db.query(`select count(*)::int n from ${s}.bookings where id=any($1::uuid[])`,[[target,other]])).rows[0].n;
   assert.equal(count,2,'history and revoked access must not delete bookings');
  }finally{await h.db.close();}
 });
