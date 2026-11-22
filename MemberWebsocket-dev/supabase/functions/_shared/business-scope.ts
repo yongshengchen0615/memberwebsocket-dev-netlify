@@ -3,6 +3,14 @@ import { notificationToken } from './notification-routes.mjs';
 type Context=Record<string,any>;
 export const scope=new AsyncLocalStorage<Context>();
 export const businessContext=()=>scope.getStore();
+/** Read tenant branding only from the verified server-side routing context. */
+export function memberSystemFooter():string {
+  const tenant=scope.getStore();
+  const value=String(tenant?.site_title || tenant?.name || '')
+    .replace(/[\u0000-\u001f\u007f]/g,'').trim();
+  const brand=Array.from(value).slice(0,60).join('');
+  return brand ? brand+' 會員系統' : '會員系統';
+}
 export const rawEnv=(name:string)=>(Deno.env.get(name)||'').trim();
 export function businessEnv(name:string):string|undefined {
  if(name==='ALLOWED_ORIGINS')return [rawEnv(name)||'https://yongshengchen0615.github.io','https://integrated-marketing-platform--memberwebsocket-dev-netlify.netlify.app','https://platform--memberwebsocket-dev-netlify.netlify.app'].join(',');

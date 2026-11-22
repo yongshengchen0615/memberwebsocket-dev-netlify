@@ -450,8 +450,8 @@
     // BusinessContext sets config.brandName from the merchant's configured siteTitle.
     const configuredHeading = window.MemberSystem?.getSession?.('member')?.config?.brandName;
     const pageHeading = String(document.title || '').replace(/\s*｜\s*會員卡\s*$/, '');
-    const heading = Array.from(String(configuredHeading || pageHeading || 'Lumen Club')
-      .replace(/\s+/g, ' ').trim()).slice(0, 60).join('') || 'Lumen Club';
+    const heading = Array.from(String(configuredHeading || pageHeading || '會員系統')
+      .replace(/\s+/g, ' ').trim()).slice(0, 60).join('') || '會員系統';
     const message = `我已完成 ${heading} 會員註冊`;
     try {
       if (!window.liff || typeof window.liff.sendMessages !== 'function' || !window.liff.isInClient?.()) return;

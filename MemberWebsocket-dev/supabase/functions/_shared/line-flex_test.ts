@@ -102,3 +102,13 @@ Deno.test("buildLineFlexNotice falls back safely and chunks long text", () => {
   const header = longMessage.contents.header as Record<string, unknown>;
   assert(header.backgroundColor === "#315D50", "invalid accent should fall back to the default color");
 });
+
+Deno.test("AC-005: shared LINE Flex supports trusted tenant footer and has no legacy brand",()=>{
+  const branded=buildLineFlexNotice("權益變更", {footer:"晨光工作室 會員系統"});
+  const brandedFooter=(branded.contents.footer as Record<string,unknown>).contents as Array<Record<string,unknown>>;
+  assert(brandedFooter.at(-1)?.text==="晨光工作室 會員系統","the caller's tenant footer must be rendered");
+  const fallback=buildLineFlexNotice("通知");
+  const fallbackFooter=(fallback.contents.footer as Record<string,unknown>).contents as Array<Record<string,unknown>>;
+  assert(fallbackFooter.at(-1)?.text==="會員系統","missing tenant should use neutral wording");
+  assert(!JSON.stringify(fallback.contents).includes("Lumen Club"),"no legacy brand can appear");
+});

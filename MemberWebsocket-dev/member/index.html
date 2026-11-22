@@ -7,7 +7,7 @@
   <meta name="referrer" content="no-referrer">
   <meta name="theme-color" content="#f6f1e8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' https://static.line-scdn.net https://cdn.jsdelivr.net; style-src 'self'; connect-src 'self' https://api.line.me https://access.line.me https://liff.line.me https://*.line-scdn.net https://*.supabase.co wss://*.supabase.co; media-src 'self' blob:; img-src 'self' data: blob: https://profile.line-scdn.net; frame-src https://liff-subwindow.line.me https://access.line.me; form-action https://liff-subwindow.line.me https://access.line.me">
-  <title>Lumen Club｜會員卡</title>
+  <title>會員系統｜會員卡</title>
   <link rel="preconnect" href="https://static.line-scdn.net" crossorigin>
   <link rel="stylesheet" href="./styles.css?v=member-code-copy-20261007-1">
   <link rel="stylesheet" href="./terms.css?v=membership-terms-20260928-1">
@@ -17,13 +17,13 @@
   <link rel="stylesheet" href="../user-tour.css?v=user-tour-20260928-10-p2-20261006-1">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0/dist/umd/supabase.js" integrity="sha384-lDkWTkrzxBtYvBtgQmPcLBhTbJdqB11igYtWVcCIVXO0Lv4+XuKKdd4razodiyzk" crossorigin="anonymous" defer></script>
-  <script src="../business-context.js?grants=20261107-1"></script>
+  <script src="../business-context.js?grants=20261107-1&brand=20261122-1"></script>
   <script src="../member-system.js?v=layout-stability-20261001-1-accessible-20261003-1-p2-20261006-1-p1-secure-20261008-1-live-sync-20261010-1-line-offline-20261012-1-takeover-20261013-1-silent-takeover-20261013-2-booking-selections-20261013-1-release-20261014-1-connection-efficiency-20261014-1-request-scope-20261029-2&grants=20261107-1&transport=20261111-1" defer></script>
   <script src="./member-phone.js?v=member-phone-country-code-20261003-1" defer></script>
   <script src="./profile-extension.js?v=member-phone-otp-change-20261104-1" defer></script>
   <script src="./profile-birthday-edit.js?v=async-architecture-20260921-1" defer></script>
   <script src="./membership-progress.js?v=member-tier-style-20260908" defer></script>
-  <script src="./app.js?v=twilio-join-20261104-integrated-1-qr-only-20261117-1" defer></script>
+  <script src="./app.js?v=twilio-join-20261104-integrated-1-qr-only-20261117-1&brand=20261122-1" defer></script>
   <script src="./member-growth.js?v=member-actions-20261010-2-ongoing-20261013-1-site-title-20261107-1" defer></script>
   <script src="../user-tour.js?v=participant-state-isolation-20261004-1-p2-20261006-1" defer></script>
   <link rel="stylesheet" href="../responsive.css?v=20260914-line-form-1">
@@ -184,7 +184,7 @@
     <main id="memberView" class="hidden" data-user-tour="member">
       <header class="topbar">
         <div>
-          <p class="kicker">Lumen Club / Member pass</p>
+          <p class="kicker" data-tenant-brand="Member pass">會員系統 / Member pass</p>
           <h1>會員卡</h1>
         </div>
         <div class="account-menu">
@@ -195,7 +195,7 @@
 
       <div class="member-overview">
       <section id="memberPass" class="member-pass tier-style-forest" aria-label="會員卡資訊">
-        <div class="pass-topline"><span id="brandName">Lumen Club</span><span class="status-tag"><i aria-hidden="true"></i><span id="memberStatus">使用中</span></span></div>
+        <div class="pass-topline"><span id="brandName">會員系統</span><span class="status-tag"><i aria-hidden="true"></i><span id="memberStatus">使用中</span></span></div>
         <div class="pass-content">
           <div class="avatar" id="memberInitial" aria-hidden="true">會</div>
           <div class="identity">

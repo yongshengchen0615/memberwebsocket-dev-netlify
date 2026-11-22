@@ -6,7 +6,7 @@
     "_覆寫": "不使用 Netlify PUBLIC_LIFF_CONFIG_* 或外層 config.json 覆寫此檔。要變更登入 LIFF 請編輯本檔，確認 LINE Developers Endpoint 和後端驗證 Channel 設定。",
     "_LIFF": "全域只設定總管理端 platformLiffId 與一般管理端 adminLiffId；會員卡、集點、活動票券、日曆及預約 LIFF 請在各商家的 LINE 設定填寫。"
   },
-  "brandName": "Lumen Club",
+  "brandName": "會員系統",
   "supabaseUrl": "https://bmwhojszsnxliekkhrka.supabase.co",
   "supabaseFunctionUrl": "https://bmwhojszsnxliekkhrka.supabase.co/functions/v1/api",
   "supabasePublishableKey": "sb_publishable_Dk6cKyJ5ssJRxf7GGTlZug_K_J3GbK-",
