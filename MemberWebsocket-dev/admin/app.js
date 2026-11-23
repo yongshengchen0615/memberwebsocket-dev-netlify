@@ -2236,8 +2236,8 @@
         const dot = document.createElement('i');
         title.append(dot, document.createTextNode(String(ticket.title || '未命名活動票券')));
         const limit = Number(ticket.quota || 0) > 0
-          ? `已領取 ${Number(ticket.claimedCount || 0)} / 限量 ${Number(ticket.quota)} 張`
-          : `不限量 · 已領取 ${Number(ticket.claimedCount || 0)} 張`;
+          ? `已發放 ${Number(ticket.claimedCount || 0)} / 限量 ${Number(ticket.quota)} 張`
+          : `不限量 · 已發放 ${Number(ticket.claimedCount || 0)} 張`;
         const dates = ticket.startsOn || ticket.endsOn
           ? `${ticket.startsOn ? formatAdminDateCompact(ticket.startsOn) : '即日起'}–${ticket.endsOn ? formatAdminDateCompact(ticket.endsOn) : '不限期'}`
           : '不限期';
@@ -2389,7 +2389,7 @@
     if (requireRefreshBeforeWrite(els.eventTicketFormMessage)) return;
     const eventTicketId = String(els.eventTicketId.value || '').trim(); const title = String(els.eventTicketTitle.value || '這張活動票券').trim();
     if (!eventTicketId || els.deleteEventTicketButton.disabled) return;
-    if (!window.confirm(`刪除「${title}」後，會員端將無法再領取或使用；已領取的票券快照與稽核紀錄會保留。確定要刪除嗎？`)) return;
+    if (!window.confirm(`刪除「${title}」後，會員端將無法再使用；已發放的票券快照與稽核紀錄會保留。確定要刪除嗎？`)) return;
     const originalText = els.deleteEventTicketButton.textContent;
     els.deleteEventTicketButton.disabled = true; els.deleteEventTicketButton.textContent = '刪除中…'; showOperationProgress('正在刪除活動票券…');
     try {
