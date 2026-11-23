@@ -232,6 +232,7 @@
     const phone = window.MemberPhone?.compose(els.profileCountryCode.value, els.profilePhone.value) || '';
     if (!phone) return showPhoneVerificationMessage('請先輸入正確且可接收簡訊的手機號碼。');
     state.phoneOtpSending = true;
+    const finishFeedback = window.AsyncActionFeedback?.begin('正在發送手機驗證碼…');
     els.profilePhoneSendCodeButton.disabled = true;
     els.profilePhoneSendCodeButton.textContent = '正在發送…';
     try {
@@ -249,6 +250,7 @@
     } catch (error) {
       showPhoneVerificationMessage(error?.message || '驗證碼暫時無法發送，請稍後再試。');
     } finally {
+      finishFeedback?.();
       state.phoneOtpSending = false;
       els.profilePhoneSendCodeButton.disabled = false;
       els.profilePhoneSendCodeButton.textContent = '重新發送驗證碼';
@@ -276,6 +278,7 @@
       if (!stillCurrent || !els.joinTermsAccepted.checked) return;
     }
     setSaving(true);
+    const finishFeedback = window.AsyncActionFeedback?.begin('正在儲存會員資料…');
     try {
       const preflight = await preflightTermsForWrite();
       if (preflight.changed) {
@@ -310,6 +313,7 @@
         showMessage(error && error.message || '資料暫時無法儲存，請稍後再試。');
       }
     } finally {
+      finishFeedback?.();
       setSaving(false);
     }
   }
@@ -418,6 +422,9 @@
       if (!stillCurrent || !els.renewTermsAccepted.checked) return;
     }
     els.renewTermsButton.disabled = true;
+    const originalLabel=els.renewTermsButton.textContent;
+    els.renewTermsButton.textContent='正在儲存條款同意紀錄…';
+    const finishFeedback=window.AsyncActionFeedback?.begin('正在確認新版會員條款…');
     try {
       const preflight = await preflightTermsForWrite();
       if (preflight.changed) {
@@ -449,7 +456,7 @@
         els.renewTermsMessage.textContent = error?.message || '同意紀錄暫時無法儲存。';
       }
       els.renewTermsMessage.classList.remove('hidden');
-    } finally { els.renewTermsButton.disabled = !state.terms; }
+    } finally { finishFeedback?.(); els.renewTermsButton.disabled = !state.terms; els.renewTermsButton.textContent=originalLabel; }
   }
 
   function setSaving(saving) { els.saveProfileButton.disabled = saving || state.profileSaveLocked || !state.terms; els.saveProfileButton.textContent = saving ? '加入中…' : state.profileSaveLocked ? '請重新整理確認' : state.phoneVerificationRequired ? '驗證手機並加入會員' : '加入會員並開啟會員卡'; }

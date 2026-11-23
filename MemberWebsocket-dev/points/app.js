@@ -111,6 +111,7 @@
 
   async function loadCards(showBusy) {
     if (showBusy) setInlineStatus('正在更新集點卡…');
+    const finishFeedback = showBusy ? window.AsyncActionFeedback?.begin('正在更新集點卡資料…') : null;
 
     const requestVersion = state.loadVersion + 1;
     state.loadVersion = requestVersion;
@@ -140,7 +141,7 @@
     } catch (error) {
       if (!showBusy) throw error;
       handleReadError(error);
-    }
+    } finally { finishFeedback?.(); }
   }
 
   function applyCardsSnapshot(payload) {

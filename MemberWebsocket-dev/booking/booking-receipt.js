@@ -882,6 +882,7 @@
     if (!currentSession) return setMessage('登入狀態已失效，請重新整理後再試。', true);
 
     state.busy = true;
+    const finishFeedback = window.AsyncActionFeedback?.begin('正在安全上傳收據並更新資料…');
     const ticketFields = document.getElementById('snapshotTicketFields');
     if (ticketFields) ticketFields.disabled = true;
     const submit = document.getElementById('bookingReceiptSubmit');
@@ -980,6 +981,7 @@
         true
       );
     } finally {
+      finishFeedback?.();
       if (!submitted) {
         state.busy = false;
         if (ticketFields) ticketFields.disabled = false;

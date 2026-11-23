@@ -142,6 +142,7 @@
 
   async function refresh(showMessage = true) {
     const refreshSequence = ++state.refreshSequence;
+    const finishFeedback = showMessage ? window.AsyncActionFeedback?.begin('正在更新預約清單…') : null;
     try {
       const [bookingData, profile] = await Promise.all([
         window.BookingSystem.request(state.config, 'member', state.idToken, 'user.booking.bootstrap',{bookingId:new URLSearchParams(window.location.search).get('bookingId') || ''}),
@@ -168,7 +169,7 @@
       renderBookings();
       applySelectionConstraints(false);
       window.dispatchEvent(new CustomEvent('booking:settings-updated', { detail: { settings: state.data.settings, today: state.data.today } }));
-      if (selectedItems().length && els.bookingDate.value) await loadSlots();
+      if (selectedItems().length && els.bookingDate.value) await loadSlots(showMessage);
       if (refreshSequence !== state.refreshSequence) return false;
       window.BookingBenefits?.invalidate();
       if (showMessage) showFormMessage('資料已更新。', 'success');
@@ -180,7 +181,7 @@
       if (!state.data.today) throw error;
       showFormMessage(error?.message || '資料暫時無法更新。', 'error');
       return false;
-    }
+    } finally { finishFeedback?.(); }
   }
 
   function pruneSelections() {
@@ -556,7 +557,7 @@
     await loadSlots();
   }
 
-  async function loadSlots() {
+  async function loadSlots(showFeedback = true) {
     const items = selectedItems();
     const bookingDate = els.bookingDate.value;
     if (!items.length || !bookingDate) return;
@@ -574,6 +575,7 @@
     els.submitBookingButton.disabled = true;
     els.slotGrid.replaceChildren();
     els.slotHint.textContent = '正在取得可預約時段…';
+    const finishFeedback = showFeedback ? window.AsyncActionFeedback?.begin('正在查詢可預約時段…') : null;
     try {
       const result = await window.BookingSystem.request(state.config, 'member', state.idToken, 'user.booking.slots', {
         items,
@@ -593,6 +595,7 @@
       els.slotHint.textContent = error?.message || '目前無法取得可預約時段。';
     } finally {
       if (requestSequence === state.slotRequestSequence) state.loadingSlots = false;
+      finishFeedback?.();
     }
   }
 
@@ -796,6 +799,7 @@
     }
     const requestId = state.pendingBookingWrite.requestId;
     state.submitting = true;
+    const finishFeedback = window.AsyncActionFeedback?.begin('正在送出預約並更新資料…');
     els.confirmBookingButton.disabled = true;
     els.confirmBookingButton.textContent = '送出中…';
     els.submitBookingButton.disabled = true;
@@ -869,6 +873,7 @@
         showConfirmMessage('這段時間剛被其他會員預約，請返回選擇其他時間。', 'error');
       }
     } finally {
+      finishFeedback?.();
       state.submitting = false;
       els.confirmBookingButton.disabled = false;
       els.confirmBookingButton.textContent = '確認送出';
@@ -1193,6 +1198,9 @@
   async function cancelBooking(booking, button) {
     if (!window.confirm(`確定取消 ${bookingDisplayTitle(booking)} ${booking.startAt?.slice(0, 10) || booking.bookingDate} ${booking.startTime}–${booking.endAt?.slice(0, 10) || booking.bookingDate} ${booking.endTime} 的預約嗎？`)) return;
     button.disabled = true;
+    const originalLabel = button.textContent;
+    button.textContent = '取消申請送出中…';
+    const finishFeedback = window.AsyncActionFeedback?.begin('正在送出取消申請並更新預約…');
     try {
       const result = await window.BookingSystem.request(state.config, 'member', state.idToken, 'user.booking.cancel', { bookingId: booking.bookingId });
       state.data.bookings = (state.data.bookings || []).map((item) => item.bookingId === result.booking.bookingId ? result.booking : item);
@@ -1201,8 +1209,9 @@
       if (selectedItems().length && els.bookingDate.value === booking.bookingDate) await loadSlots();
     } catch (error) {
       button.disabled = false;
+      button.textContent = originalLabel;
       showFormMessage(error?.message || '目前無法取消預約。', 'error');
-    }
+    } finally { finishFeedback?.(); }
   }
 
   function formatMoney(value) {

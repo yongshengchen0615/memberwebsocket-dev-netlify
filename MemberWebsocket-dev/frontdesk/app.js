@@ -151,10 +151,10 @@
   if(!known&&next==='rejected'&&!['technician_leave','unrecorded_phone_booking'].includes(rejectionReason)){
    status.textContent='請先選擇拒絕原因。';return;
   }
-  const body=known||{bookingId:key,status:next,expectedUpdatedAt:booking.updatedAt,requestId:crypto.randomUUID(),...(next==='rejected'?{rejectionReason}:{}),...(phoneBooking?{phoneRequestId:'PHONE-'+crypto.randomUUID(),startTime:phoneBooking.startTime,totalDurationMinutes:phoneBooking.totalDurationMinutes}:{})};pending.set(key,body);lock(true);const generation=epoch;
+  const body=known||{bookingId:key,status:next,expectedUpdatedAt:booking.updatedAt,requestId:crypto.randomUUID(),...(next==='rejected'?{rejectionReason}:{}),...(phoneBooking?{phoneRequestId:'PHONE-'+crypto.randomUUID(),startTime:phoneBooking.startTime,totalDurationMinutes:phoneBooking.totalDurationMinutes}:{})};pending.set(key,body);lock(true);const generation=epoch;const finishFeedback=window.AsyncActionFeedback?.begin('正在確認預約並更新資料…');
   try{await request(body.phoneRequestId?'frontdesk.booking.reject-phone':'frontdesk.booking.update',body);if(generation!==epoch)return;pending.delete(key);await load();if(onSuccess)onSuccess();if(body.phoneRequestId)void loadConflictHistory();status.textContent=body.phoneRequestId?'原預約已拒絕，電話／現場預約已登記並直接確認，時段已保留。':next==='confirmed'?'預約已確認。':'預約已拒絕。';}
   catch(error){if(generation!==epoch)return;let refreshed=false;if(!error.uncertain){pending.delete(key);try{await load();refreshed=true;}catch{}}else button.textContent='重試相同操作';failure(error,refreshed);}
-  finally{lock(false);}
+  finally{finishFeedback?.();lock(false);}
  }
  function renderBookings(bookings){
   list.replaceChildren();
@@ -263,9 +263,10 @@
    items.append(card);
   }
  }
- async function loadConflictHistory(){
+ async function loadConflictHistory(manual=false){
   const panel=document.getElementById('frontdeskConflictHistory');
   if(!panel||panel.hidden||!idToken)return;
+  const finishFeedback=manual?window.AsyncActionFeedback?.begin('正在載入衝突預約處理紀錄…'):null;
   const message=panel.querySelector('[data-frontdesk-history-status]'),generation=++historyEpoch;
   panel.querySelector('[data-frontdesk-history-items]')?.replaceChildren();
   if(message)message.textContent='正在取得衝突預約處理紀錄…';
@@ -274,9 +275,9 @@
    if(generation!==historyEpoch||panel.hidden)return;
    renderConflictHistory(Array.isArray(result.items)?result.items:[]);
    if(message)message.textContent=bookingId?'僅顯示本筆預約的衝突處理資料（預約資料為目前狀態）。':'最近的衝突預約紀錄（預約資料為目前狀態）。';
-  }catch(error){if(generation!==historyEpoch)return;if(error.denied){failure(error);return;}if(message)message.textContent=error.message||'無法載入衝突預約紀錄。';}
+  }catch(error){if(generation!==historyEpoch)return;if(error.denied){failure(error);return;}if(message)message.textContent=error.message||'無法載入衝突預約紀錄。';}finally{finishFeedback?.();}
  }
- document.getElementById('frontdeskHistoryRefresh')?.addEventListener('click',()=>void loadConflictHistory());
+ document.getElementById('frontdeskHistoryRefresh')?.addEventListener('click',()=>void loadConflictHistory(true));
 
  // Reconcile through the existing LINE-authenticated API. No booking data is
  // ever read directly from a publicly subscribed Realtime channel.
@@ -473,7 +474,7 @@
    account.append(node('h2','申請櫃檯人員資格'));
    account.append(node('p','使用 LINE 登入後，請確認已加入商家提供的櫃檯官方帳號，再按下方按鈕提出申請。商家管理員核准前，你無法收通知、查看或處理任何預約。'));
    const b=node('button','送出櫃檯人員申請');b.type='button';b.className='frontdesk-primary';
-   b.onclick=async()=>{if(busy)return;lock(true);try{await request('frontdesk.apply');await load();}catch(e){failure(e);}finally{lock(false);}};
+   b.onclick=async()=>{if(busy)return;lock(true);const finishFeedback=window.AsyncActionFeedback?.begin('正在送出櫃檯資格申請…');try{await request('frontdesk.apply');await load();}catch(e){failure(e);}finally{finishFeedback?.();lock(false);}};
    account.append(b);status.textContent='尚未申請櫃檯資格。';
    return;
   }
@@ -508,7 +509,7 @@
   return person.permissionMode==='review';
  }
  async function start(){
-  lock(true);try{
+  lock(true);const finishFeedback=window.AsyncActionFeedback?.begin('正在載入櫃檯身分與預約資料…');try{
    stopSync();epoch++;idToken=null;historyLoaded=false;clearPrivateHistory();
    account.replaceChildren();list.replaceChildren();
    showProgress(0);showBookingToolbar(false);status.textContent='正在確認 LINE 身分…';
@@ -520,9 +521,9 @@
    idToken=await authenticateLineOnOpen(data.frontdesk.liffId);
    if(!idToken)return;
    await load();
-  }catch(error){failure(error);}finally{lock(false);window.dispatchEvent(new CustomEvent('frontdesk-ready'));}
+  }catch(error){failure(error);}finally{finishFeedback?.();lock(false);window.dispatchEvent(new CustomEvent('frontdesk-ready'));}
  }
- refresh.onclick=async()=>{if(busy||pending.size){status.textContent='請先完成目前操作或重試相同操作。';return;}if(!idToken){status.textContent='請重新開啟商家櫃檯入口完成 LINE 身分驗證。';return;}lock(true);try{await load();status.textContent='已更新櫃檯人員資格與預約權限。';}catch(e){failure(e);}finally{lock(false);}};
+ refresh.onclick=async()=>{if(busy||pending.size){status.textContent='請先完成目前操作或重試相同操作。';return;}if(!idToken){status.textContent='請重新開啟商家櫃檯入口完成 LINE 身分驗證。';return;}lock(true);const finishFeedback=window.AsyncActionFeedback?.begin('正在更新櫃檯資格與預約清單…');try{await load();status.textContent='已更新櫃檯人員資格與預約權限。';}catch(e){failure(e);}finally{finishFeedback?.();lock(false);}};
  document.addEventListener('visibilitychange',()=>{if(canSync())scheduleSync(0);else if(syncTimer!==null){clearTimeout(syncTimer);syncTimer=null;}});
  window.addEventListener('online',()=>{if(canSync())scheduleSync(0);});
  window.addEventListener('focus',()=>{if(canSync())scheduleSync(0);});

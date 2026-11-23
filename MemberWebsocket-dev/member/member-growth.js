@@ -392,6 +392,7 @@
       input.disabled = true;
       submit.disabled = true;
       submit.textContent = '綁定中…';
+      const finishFeedback=window.AsyncActionFeedback?.begin('正在確認邀請並發放獎勵…');
       showReferralStatus('正在確認邀請優惠與獎勵票券…');
 
       try {
@@ -423,6 +424,7 @@
         submit.textContent = '確認邀請並領取票券';
         showReferralStatus(error?.code === 'REFERRAL_REWARD_UNAVAILABLE' ? '管理員尚未設定好友邀請票券。' : (error?.message || '邀請優惠暫時無法完成，請稍後再試。'), true);
       } finally {
+        finishFeedback?.();
         if (current === state.generation) {
           state.binding = false;
           input.disabled = false;
