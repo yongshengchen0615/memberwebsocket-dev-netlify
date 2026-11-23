@@ -9,7 +9,7 @@ const entry='https://example.test/booking/?bookingId=fixture#reservation';
 const key='booking_system_reauth:booking';
 const config={bookingLiffId:'booking-fixture'};
 
-function harness({url=entry,storage=new Map(),loggedIn=true,inClient=false,blockedStorage=false,token='verified-booking-token',logoutNoop=false}={}){
+function harness({url=entry,storage=new Map(),loggedIn=true,inClient=false,blockedStorage=false,token='verified-booking-token',logoutNoop=false,sharedLine=null}={}){
   const calls=[];
   const location={href:url};
   const window={
@@ -24,8 +24,8 @@ function harness({url=entry,storage=new Map(),loggedIn=true,inClient=false,block
     liff:{
       async init(){calls.push(['init']);},
       isInClient:()=>inClient,
-      isLoggedIn:()=>loggedIn,
-      logout(){calls.push(['logout']);if(!logoutNoop)loggedIn=false;},
+      isLoggedIn:()=>sharedLine?sharedLine.loggedIn:loggedIn,
+      logout(){calls.push(['logout']);if(!logoutNoop){loggedIn=false;if(sharedLine)sharedLine.loggedIn=false;}},
       login(opts){calls.push(['login',opts?.redirectUri]);},
       getIDToken(){calls.push(['token']);return token;}
     }
@@ -50,6 +50,17 @@ test('AC-121-07: signed-out booking entry starts a nonce-bound login',async()=>{
   assert.match(new URL(h.callback).searchParams.get('booking_system_reauth'),/^booking\.[a-f0-9]{32}$/);
   assert.equal(h.calls.some(x=>x[0]==='claim'),false);
   assert.ok(h.storage.has(key));
+});
+test('AC-MTAB-006: concurrent tabs sharing a LINE browser session can both sign in without invalidation',async()=>{
+  const sharedLine={loggedIn:true};
+  const a=harness({sharedLine});
+  const b=harness({sharedLine,token:'verified-booking-token'});
+  assert.deepEqual(await Promise.all([a.signIn(),b.signIn()]),
+    ['verified-booking-token','verified-booking-token']);
+  assert.equal(sharedLine.loggedIn,true);
+  assert.equal(a.calls.filter(x=>x[0]==='claim').length,1);
+  assert.equal(b.calls.filter(x=>x[0]==='claim').length,1);
+  assert.equal([...a.calls,...b.calls].some(x=>x[0]==='logout'||x[0]==='login'),false);
 });
 test('AC-121-08: booking callback must be bound to this tab/path, consumed once, and server-claimed',async()=>{
   const first=await began();
