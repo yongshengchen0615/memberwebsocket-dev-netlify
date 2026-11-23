@@ -55,7 +55,7 @@ async function boot({loggedIn=false,returning=false,apiStatus=403,merchant=false
  win.MemberSystem={validateConfig(){}};
  // Model the official LIFF navigation as an observable event. JSDOM cannot
  // navigate cross-origin, so a server denial must not be mistaken for success.
- win.LineInitialEntry={recover(opts){calls.recover++;calls.recoveryOptions=opts;return true;}};
+ win.LineInitialEntry={enter:()=>false,enterBeforeInit:()=>false,recover(opts){calls.recover++;calls.recoveryOptions=opts;return true;}};
 
  win.liff={
   init:async()=>{calls.init++;},
