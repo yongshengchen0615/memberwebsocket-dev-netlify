@@ -71,6 +71,9 @@
       throw authError('LIFF_INIT_ERROR', 'LIFF 初始化失敗，請重新開啟預約頁面。');
     }
 
+    if (window.LineInitialEntry?.enter({liffId,scope:'booking',business:config.business||window.BusinessContext?.slug||''})) {
+      return new Promise(() => {}); // This tab is entering its booking LIFF.
+    }
     const inLiffClient = typeof window.liff.isInClient === 'function' && window.liff.isInClient();
     if (inLiffClient) {
       if (!window.liff.isLoggedIn()) {
