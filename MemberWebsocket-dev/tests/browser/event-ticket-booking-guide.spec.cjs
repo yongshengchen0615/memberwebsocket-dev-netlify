@@ -54,6 +54,9 @@ test.beforeAll(async () => {
     if(url.pathname==='/event/') {
       let html=fs.readFileSync(path.join(root,'event/index.html'),'utf8')
         .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'')
+        // The fixture injects a synthetic inline auth stub; strip only the
+        // fixture page's restrictive CSP, never alter the deployed application.
+        .replace(/<meta\s+http-equiv="Content-Security-Policy"[^>]*>/i,'')
         .replace(/<link\b[^>]*>/gi,'');
       html=html.replace('</head>',
         '<style>.hidden{display:none!important}</style><script>'+eventStub+'</script>'+
