@@ -129,6 +129,6 @@ test('AC-LINE-016: the initial official link never carries OAuth codes or token-
 test('AC-LINE-019: productized /admin/ dynamically loads the refreshed merchant LIFF application, not an old cached script',()=>{
  const dynamic=fs.readFileSync(path.join(root,'admin/productized-workspace.js'),'utf8');
  const shell=fs.readFileSync(path.join(root,'admin/index.html'),'utf8');
- assert.match(dynamic,/platform\\/app\\.js\\?[^'"]*line=20261123-initial-1/);
- assert.match(shell,/productized-workspace\\.js\\?[^"]*line=20261123-initial-1/);
+ assert.match(dynamic,/platform\/app\.js\?[^'"]*line=20261123-initial-1/);
+ assert.match(shell,/productized-workspace\.js\?[^"]*line=20261123-initial-1/);
 });
