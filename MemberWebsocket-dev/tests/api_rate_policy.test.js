@@ -80,3 +80,12 @@ test('AC-RL-107: runtime applies policy after scope and authorization checks', (
   assert.match(runtime, /assertBusinessRpc\(current,name,params,target\)/);
   assert.match(runtime, /await partitionRateLimitParams\(name,\s*budgeted,\s*current\.rateAction\)/);
 });
+
+test('AC-RL-108: existing administrator read budget is preserved', async () => {
+  const verifiedAdminRead = { ...base, p_is_write: false, p_read_limit: 180 };
+  assert.strictEqual(await decide('admin.bootstrap', verifiedAdminRead), verifiedAdminRead);
+  const sync = await decide('admin.sync.status', verifiedAdminRead);
+  assert.equal(sync.p_read_limit, 180);
+  assert.equal(sync.p_write_limit, 30);
+  assert.notEqual(sync.p_principal_hash, verifiedAdminRead.p_principal_hash);
+});
