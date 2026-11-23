@@ -799,6 +799,7 @@
     const needsLocation = tickets.some((ticket) => ticket.requiresLocation);
 
     state.busy = true;
+    const finishFeedback = window.AsyncActionFeedback?.begin('正在核銷集點票券並同步資料…');
     window.TicketBookingChoice?.lock(bookingChoice, true);
     confirm.disabled = true;
     confirm.textContent = '使用中…';
@@ -902,6 +903,7 @@
         cancel.hidden = false;
       }
     } finally {
+      finishFeedback?.();
       state.busy = false;
       window.TicketBookingChoice?.lock(bookingChoice, false);
       if (synced) render();

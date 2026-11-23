@@ -52,7 +52,7 @@ test('AC-003: completion and failure always clear the pending indicator',async()
  assert.equal(banner.hidden,true);
 });
 test('AC-004: member, booking and frontdesk load the shared versioned assets',()=>{
- for(const page of ['member/index.html','booking/index.html','frontdesk/index.html']){
+ for(const page of ['member/index.html','booking/index.html','frontdesk/index.html','points/index.html','event/index.html','calendar/index.html']){
   const html=read(page);
   assert.ok(html.includes('async-action-feedback.js?v=20261123-1'),page);
   assert.ok(html.includes('async-action-feedback.css?v=20261123-1'),page);
@@ -68,4 +68,6 @@ test('AC-005: user actions are instrumented while revision polling remains backg
  assert.ok(bk.includes('showMessage ? window.AsyncActionFeedback?.begin'));
  assert.ok(member.includes('正在儲存會員資料'));
  assert.ok(read('booking/booking-receipt.js').includes('正在安全上傳收據'));
+ assert.ok(read('points/point-transfer.js').includes('正在安全轉贈點數並更新餘額'));
+ assert.ok(read('points/pointcard-ticket-overview.js').includes('正在核銷集點票券'));
 });
