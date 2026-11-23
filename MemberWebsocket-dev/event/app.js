@@ -60,6 +60,7 @@
 
   async function loadOffers(showBusy) {
     if (showBusy) setInlineStatus('正在更新活動票券…');
+    const finishFeedback=showBusy?window.AsyncActionFeedback?.begin('正在載入活動票券…'):null;
     try {
       const result = await window.MemberSystem.request(state.config, 'event', state.idToken, 'user.event.bootstrap', { compact: false });
       applyOfferSnapshot(result);
@@ -76,7 +77,7 @@
         } else closeTicketModal();
       }
       if (showBusy) setInlineStatus('活動票券已更新。');
-    } catch (error) { if (!showBusy) throw error; if (/^(AUTH_|MEMBERSHIP_REQUIRED|MEMBER_)/.test(String(error && error.code || ''))) showError(error); else setInlineStatus('更新失敗，畫面保留上次資料。請重新整理頁面後重試；使用時會重新驗證資格。', true); }
+    } catch (error) { if (!showBusy) throw error; if (/^(AUTH_|MEMBERSHIP_REQUIRED|MEMBER_)/.test(String(error && error.code || ''))) showError(error); else setInlineStatus('更新失敗，畫面保留上次資料。請重新整理頁面後重試；使用時會重新驗證資格。', true); } finally { finishFeedback?.(); }
   }
 
   function setInlineStatus(message, error = false) {
@@ -162,11 +163,13 @@
       onCancelBooking: async (context) => {
         if (ticketReservationBusy || !ref) return;
         ticketReservationBusy = true;
+        const finishFeedback=window.AsyncActionFeedback?.begin('正在取消活動票券預約使用…');
         try {
           await window.TicketBookingSelections.cancelTicket(context.bookingId, 'event', ref);
         } catch (error) {
           window.alert(error?.message || '取消活動票券一般預約失敗，請更新後重試。');
         } finally {
+          finishFeedback?.();
           ticketReservationBusy = false;
           renderOffers();
         }
@@ -175,6 +178,7 @@
         if (ticketReservationBusy || !ref) return;
         if (!window.confirm(`確定取消「${ticket.title || '活動票券'}」在這筆快照中的使用意願？其他預約與票券將保留。`)) return;
         ticketReservationBusy = true;
+        const finishFeedback=window.AsyncActionFeedback?.begin('正在取消活動快照票券…');
         try {
           await window.MemberSystem.request(state.config, 'event', state.idToken,
             'user.event.snapshot-ticket.cancel', {
@@ -184,6 +188,7 @@
         } catch (error) {
           window.alert(error?.message || '取消活動票券快照失敗，請更新後重試。');
         } finally {
+          finishFeedback?.();
           ticketReservationBusy = false;
           renderOffers();
         }
@@ -303,6 +308,7 @@
     select.disabled = true;
     els.ticketTransferButton.disabled = true;
     els.ticketTransferStatus.textContent = '正在確認已加入的好友…';
+    const finishFeedback=window.AsyncActionFeedback?.begin('正在取得可轉贈的好友名單…');
     try {
       const result = await window.MemberSystem.request(state.config, 'event', state.idToken, 'member.friend.list');
       if (generation !== transferFriendLoadVersion || state.ticketModalMode !== 'transfer' || state.pendingEventTicketId !== eventTicketIdForOffer(offer) || !canTransferTicket(offer)) return;
@@ -326,7 +332,7 @@
         select.disabled = true;
         els.ticketTransferStatus.textContent = error?.message || '好友資料暫時無法載入，請稍後再試。';
       }
-    }
+    } finally { finishFeedback?.(); }
   }
 
   async function transferTicketToFriend() {
@@ -337,6 +343,8 @@
     const recipient = els.ticketTransferFriendSelect.selectedOptions[0]?.textContent || '此好友';
     if (!window.confirm(`確定將「${ticketForOffer(offer).title || '活動票券'}」轉贈給 ${recipient}？\n每張票券限轉贈一次，好友收到後無會員階級使用限制，但仍須符合有效期與其他使用條件。\n確認後不可撤銷、不可再次轉贈，你也無法再使用。`)) return;
     state.processing = true;
+    const finishFeedback=window.AsyncActionFeedback?.begin('正在轉贈活動票券並同步資料…');
+    try {
     setProcessing(true);
     els.ticketModalProcessingText.textContent = '正在確認好友關係及票券所有權…';
     els.ticketTransferButton.disabled = true;
@@ -373,6 +381,7 @@
         setInlineStatus('轉贈已完成，但資料更新失敗，請重新整理確認。');
       }
     }
+    } finally { finishFeedback?.(); }
   }
 
   async function handleTicketAction() {
@@ -389,6 +398,7 @@
     window.TicketBookingChoice.lock(bookingChoice, true);
     state.processing = true; els.ticketModalAction.disabled = true; els.ticketModalAction.textContent = '確認中…'; els.ticketModalProcessingText.textContent = '正在確認核銷條件…'; setProcessing(true); hideMessage();
     let redeemed = false;
+    let finishFeedback=null;
     try {
       let location = offer.ticket.requiresLocation ? await currentRedemptionLocation() : null;
       const check = offer.ticket.requiresLocation ? checkLocation(offer, location) : null;
@@ -398,6 +408,7 @@
         : '';
       if (!window.confirm(`確定現在使用「${String(offer.ticket.title || '活動票券')}」？${locationMessage}確認後將立即核銷且無法復原。`)) return;
       els.ticketModalProcessingText.textContent = '正在核銷票券，請稍候…';
+      finishFeedback=window.AsyncActionFeedback?.begin('正在核銷活動票券並更新資料…');
       // Recheck after confirmation; server rechecks the authoritative current rule.
       if (offer.ticket.requiresLocation) {
         location = await currentRedemptionLocation();
@@ -420,7 +431,7 @@
         renderOffers();
         window.dispatchEvent(new CustomEvent('event-ticket:redeemed', { detail: { ticket: result.ticket } }));
       }
-    } catch (error) { handleTicketError(error, '使用票券失敗，請稍後再試。'); } finally { window.TicketBookingChoice?.lock(bookingChoice, false); setProcessing(false); state.processing = false; if (!redeemed && !state.actionLocked) renderTicketModal(offer); }
+    } catch (error) { handleTicketError(error, '使用票券失敗，請稍後再試。'); } finally { finishFeedback?.(); window.TicketBookingChoice?.lock(bookingChoice, false); setProcessing(false); state.processing = false; if (!redeemed && !state.actionLocked) renderTicketModal(offer); }
   }
 
   function currentRedemptionLocation() {

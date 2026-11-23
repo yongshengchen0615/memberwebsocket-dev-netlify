@@ -68,6 +68,26 @@ function database(overrides = {}, fail = '') {
   } };
 }
 
+test('AC-001: booking member activities show only independent calendar events, not ticket-backed copies', async () => {
+  const { loadBookingBenefits } = await modulePromise;
+  const base = { item_type: 'event', status: 'active', starts_on: today, ends_on: today, allowed_tier_keys: ['silver'] };
+  const db = database({
+    point_tickets: [],
+    calendar_items: [
+      { ...base, calendar_item_id: 'CAL-MANUAL', title: '營運日曆獨立活動' },
+      { ...base, calendar_item_id: 'CAL-EXTERNAL', title: '外部資訊活動', link_url: 'https://example.org/activities' },
+      { ...base, calendar_item_id: 'CAL-LINKED', title: '票券來源活動', source_event_ticket_id: 'event' },
+      { ...base, calendar_item_id: 'CAL-LEGACY', title: '舊版票券連結', link_url: 'https://old.example/event/?source=event-ticket-calendar&eventTicketId=EVENT' },
+      { ...base, calendar_item_id: 'CAL-LEGACY-ID', title: '沒有來源標記的舊票券連結', link_url: '/event/?eventTicketId=EVENT' },
+    ],
+  });
+  const { items } = await loadBookingBenefits(db, member, 'silver', today);
+  assert.deepEqual(items.filter(item => item.kind === 'calendar').map(item => item.id),
+    ['CAL-MANUAL', 'CAL-EXTERNAL']);
+  assert.equal(items.filter(item => item.kind === 'event').length, 1,
+    'activity suppression must not remove the event ticket from its own section');
+});
+
 test('booking recommendations cover 0/1/N and return only display fields', async () => {
   const { loadBookingBenefits } = await modulePromise;
   for (const [overrides, count] of [[{}, 3], [{ point_tickets: [], calendar_items: [] }, 1], [{ point_tickets: [], calendar_items: [], event_tickets: [] }, 0]]) {

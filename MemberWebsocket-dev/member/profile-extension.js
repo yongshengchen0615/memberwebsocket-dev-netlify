@@ -54,6 +54,7 @@
     const button = document.getElementById('saveProfileButton');
     if (button?.disabled) return;
     setSaving(true);
+    const finishFeedback=window.AsyncActionFeedback?.begin('正在儲存會員資料…');
     hideMessage();
 
     try {
@@ -73,7 +74,7 @@
         showMessage(error?.message || '會員資料暫時無法儲存，請稍後再試。');
         setSaving(false);
       }
-    }
+    } finally { finishFeedback?.(); }
   }
 
   async function openHonorificModal(event) {
@@ -144,6 +145,7 @@
 
     let uncertain = false;
     setModalSaving('honorific', true);
+    const finishFeedback=window.AsyncActionFeedback?.begin('正在儲存會員稱呼…');
     hideModalMessage('honorific');
     try {
       const result = await saveProfilePayload({ surname, salutation });
@@ -155,6 +157,7 @@
         ? '無法確認這次修改是否完成。請關閉視窗後重新整理確認；系統不會自動重送。'
         : error?.message || '稱呼暫時無法儲存，請稍後再試。');
     } finally {
+      finishFeedback?.();
       if (uncertain) setModalWriteUncertain('honorific');
       else setModalSaving('honorific', false);
     }
@@ -201,6 +204,7 @@
     const button = document.getElementById('phoneEditSendCodeButton');
     const hint = document.getElementById('phoneEditVerificationMessage');
     phoneOtpSending = true;
+    const finishFeedback=window.AsyncActionFeedback?.begin('正在發送新電話驗證碼…');
     if (button) { button.disabled = true; button.textContent = '正在發送…'; }
     hideModalMessage('phone');
     try {
@@ -220,6 +224,7 @@
     } catch (error) {
       showModalMessage('phone', error?.message || '簡訊暫時無法發送，請稍後再試。');
     } finally {
+      finishFeedback?.();
       phoneOtpSending = false;
       if (button) { button.disabled = false; button.textContent = '重新發送驗證碼'; }
     }
@@ -238,6 +243,7 @@
 
     let uncertain = false;
     setModalSaving('phone', true);
+    const finishFeedback=window.AsyncActionFeedback?.begin('正在更新會員聯絡電話…');
     hideModalMessage('phone');
     try {
       const result = await saveProfilePayload({ phone, ...(required ? { otpCode } : {}) });
@@ -249,6 +255,7 @@
         ? '無法確認新電話是否已儲存，請重新整理會員資料確認；系統不會自動重送。'
         : error?.message || '電話暫時無法儲存，請稍後再試。');
     } finally {
+      finishFeedback?.();
       if (uncertain) setModalWriteUncertain('phone');
       else setModalSaving('phone', false);
     }
