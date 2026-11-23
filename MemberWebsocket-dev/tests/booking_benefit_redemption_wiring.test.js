@@ -159,22 +159,28 @@ test('booking point tickets enforce current balance in UI and database', () => {
   assert.match(groupApi, /point_card_settings/);
 });
 
-test('booking event ticket checkbox can claim and server enforces configured selection cap', () => {
+test('booking event tickets are already issued, and server enforces configured selection cap', () => {
   const source = read('supabase/functions/_shared/booking-benefits.ts');
   const common = read('booking/common.js');
   const ui = read('booking/booking-benefits.js');
   const api = read('supabase/functions/api/index.ts');
   const bookingApi = read('supabase/functions/booking-api/index.ts');
   const groupApi = read('supabase/functions/booking-group-api/index.ts');
-  assert.match(source, /claimRequired: visibility\.tierEligible && !offer\.claimed/);
+  assert.match(source, /claimRequired: false/);
+  assert.match(source, /Boolean\(offer\.claimId\)/);
   assert.match(source, /eventTicketMaxPerDay/);
-  assert.match(common, /user\.booking\.event-ticket\.claim/);
-  assert.match(common, /claimEventTicket/);
-  assert.match(ui, /勾選「\$\{title\}」即代表領取此活動票券/);
+  assert.doesNotMatch(common, /user\.booking\.event-ticket\.claim|claimEventTicket/);
+  assert.doesNotMatch(ui, /勾選並領取|claimEventTicket|claimRequired|領取中/);
   assert.match(ui, /selectedEventCount\(\) >= eventTicketMaxPerDay/);
-  assert.match(api, /user\.booking\.event-ticket\.claim/);
+  assert.match(api, /user\.booking\.event-ticket\.claim/); // legacy endpoint denies new claims
   assert.match(bookingApi, /validateBookingBenefitSelectionLimit/);
   assert.match(bookingApi, /EVENT_TICKET_SELECTION_LIMIT_EXCEEDED/);
   assert.match(groupApi, /validateBookingBenefitSelectionLimit/);
   assert.match(groupApi, /EVENT_TICKET_SELECTION_LIMIT_EXCEEDED/);
+});
+
+test('snapshot booking contains no claim action and accepts only already-issued claim IDs',()=>{
+  const receipt=read('booking/booking-receipt.js');
+  assert.doesNotMatch(receipt,/claimEventTicket|snapshot-ticket-claim-button|領取活動票券|claimRequired/);
+  assert.match(receipt,/&& item\.selectionId\)/);
 });

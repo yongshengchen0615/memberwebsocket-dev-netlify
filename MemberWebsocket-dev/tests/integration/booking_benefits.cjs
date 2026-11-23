@@ -6,7 +6,7 @@ const { JSDOM } = require('jsdom');
 const root = path.join(__dirname, '../..');
 const tick = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-function fixture(load, claim = async (config, token, eventTicketId) => ({ ticket: { claimId: 'EC-' + eventTicketId }, alreadyClaimed: false })) {
+function fixture(load, claim = async () => { throw Error('booking must not invoke legacy claim'); }) {
   const dom = new JSDOM(fs.readFileSync(path.join(root, 'booking/index.html'), 'utf8'), { url: 'https://example.test/MemberWebsocket-dev/booking/', runScripts: 'outside-only', pretendToBeVisual: true });
   const w = dom.window;
   w.BookingSystem = { bookingBenefits: load, claimEventTicket: claim };
@@ -18,7 +18,7 @@ function fixture(load, claim = async (config, token, eventTicketId) => ({ ticket
 }
 const items = [
   { kind: 'points', id: 'reward', selectionId: 'PT-001', selectable: true, title: '集點券', cardId: 'CARD', cardTitle: '集點卡', cardStyleKey: 'lagoon', pointCost: 5, pointBalance: 10, statusLabel: '可使用', conditionLabel: '本卡目前 10 點 · 此票券需 5 點' },
-  { kind: 'event', id: 'EVENT', selectionId: '', selectable: true, claimRequired: true, title: '<img src=x onerror=alert(1)>', statusLabel: '可勾選並領取', conditionLabel: '每日最多使用 2 張 · 服務限制：目前未設定' },
+  { kind: 'event', id: 'EVENT', selectionId: 'EC-EVENT', selectable: true, claimRequired: false, title: '<img src=x onerror=alert(1)>', statusLabel: '可使用', conditionLabel: '每日最多使用 2 張 · 服務限制：目前未設定' },
   { kind: 'calendar', id: 'CAL', selectionId: '', selectable: false, title: '會員活動', statusLabel: '活動進行中', conditionLabel: '會員條件：目前會員階級適用 · 活動資訊僅供預約參考' },
 ];
 
@@ -69,9 +69,10 @@ test('0/1/N benefit cards render safely inside booking form and expose only elig
         );
         assert.ok(pointCheckbox);
         const eventCheckbox = h.el('bookingBenefitsList').querySelector(
-          'input[data-booking-benefit-kind="event"][data-booking-benefit-id="EVENT"][data-booking-benefit-claim-required="true"]'
+          'input[data-booking-benefit-kind="event"][data-booking-benefit-id="EC-EVENT"]'
         );
-        assert.ok(eventCheckbox, 'unclaimed event ticket exposes a claim-on-check selector');
+        assert.ok(eventCheckbox, 'issued event ticket exposes a use selector');
+        assert.equal(eventCheckbox.hasAttribute('data-booking-benefit-claim-required'), false);
         pointCheckbox.click();
         assert.equal(JSON.stringify(h.w.BookingBenefits.selectionPayload()), JSON.stringify([{ kind: 'points', id: 'PT-001' }]));
       }
@@ -83,7 +84,7 @@ test('0/1/N benefit cards render safely inside booking form and expose only elig
 test('regular booking can select GPS-restricted point and event tickets without accessing geolocation', async () => {
   const restricted = [
     { ...items[0], selectionId: 'PT-GPS', requiresLocation: true, statusLabel: '可預約選用', conditionLabel: '現場單獨使用需 GPS 定位' },
-    { ...items[1], id: 'EVENT-GPS', requiresLocation: true, conditionLabel: '現場單獨使用需 GPS 定位' },
+    { ...items[1], id: 'EVENT-GPS', selectionId: 'EC-GPS', requiresLocation: true, conditionLabel: '現場單獨使用需 GPS 定位' },
   ];
   let claimed = 0;
   const h = fixture(
@@ -107,7 +108,7 @@ test('regular booking can select GPS-restricted point and event tickets without 
     point.click();
     h.el('bookingBenefitsList').querySelector('[data-booking-benefit-id="EVENT-GPS"]').click();
     await tick(15);
-    assert.equal(claimed, 1, 'event claim is allowed without a GPS proof');
+    assert.equal(claimed, 0, 'regular booking never calls an event ticket claim endpoint');
     assert.equal(gpsCalls, 0, 'ordinary booking must not request user location');
     assert.deepEqual(JSON.parse(JSON.stringify(h.w.BookingBenefits.selectionPayload())), [
       { kind: 'points', id: 'PT-GPS' },
@@ -398,4 +399,17 @@ test('AC-AMOUNT-DISPLAY: event ticket shows a distinct amount condition, never o
     assert.equal(card('POINTS-1').querySelector('.booking-benefit-amount-condition'), null);
     assert.match(total.textContent, /預約項目限制：不限/);
   } finally { h.close(); }
+});
+
+test('AC-BOOK-ISSUE-002: stale claim-required data cannot expose a booking claim checkbox', async () => {
+  let calls=0;
+  const h=fixture(async()=>({eventTicketMaxPerDay:2,items:[
+    {kind:'event',id:'STALE',selectionId:'',claimRequired:true,selectable:true,title:'舊版未發券',statusLabel:'未發放',conditionLabel:'僅供預覽'}
+  ]}),async()=>{calls++;throw Error('must not be called')});
+  try{
+    h.start();await tick(10);
+    assert.equal(h.el('bookingBenefitsList').querySelectorAll('input[data-booking-benefit-kind="event"]').length,0);
+    assert.doesNotMatch(h.el('bookingBenefitsList').textContent,/勾選並領取|領取中/);
+    assert.equal(calls,0);
+  }finally{h.close();}
 });

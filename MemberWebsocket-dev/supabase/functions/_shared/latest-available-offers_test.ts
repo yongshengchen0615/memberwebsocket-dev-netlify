@@ -62,7 +62,11 @@ Deno.test("event amount limits are published only for configured general-booking
     { id:"event-old",title:"舊票券",quota:0 },
     { id:"event-total",title:"滿額券",quota:0,min_booking_amount_mode:"total",min_booking_amount:500,min_booking_service_ids:[] },
     { id:"event-selected",title:"指定項目滿額券",quota:0,min_booking_amount_mode:"selected_services",min_booking_amount:800,min_booking_service_ids:["item-A"] },
-  ],[],"member-a");
+  ],[
+    {event_ticket_id:"event-old",member_id:"member-a",claim_id:"EC-OLD",status:"claimed"},
+    {event_ticket_id:"event-total",member_id:"member-a",claim_id:"EC-TOTAL",status:"claimed"},
+    {event_ticket_id:"event-selected",member_id:"member-a",claim_id:"EC-SELECTED",status:"claimed"},
+  ],"member-a");
   assertEquals(offers[0].minBookingAmountMode,undefined);
   assertEquals(offers[1].minBookingAmountMode,"total");
   assertEquals(offers[1].minBookingAmount,500);
@@ -71,7 +75,7 @@ Deno.test("event amount limits are published only for configured general-booking
   assertEquals(offers[2].minBookingServiceIds,["item-A"]);
 });
 
-Deno.test("selectLatestEventOffers only returns unused claimed or still-claimable event tickets", () => {
+Deno.test("selectLatestEventOffers only returns owned, unused event tickets, never unissued inventory", () => {
   const offers = selectLatestEventOffers(
     [
       { id:"event-claimed",title:"已領取未使用",quota:10 },
@@ -91,7 +95,6 @@ Deno.test("selectLatestEventOffers only returns unused claimed or still-claimabl
 
   assertEquals(offers, [
     { eventId:"event-claimed",title:"已領取未使用",claimed:true,requiredServiceIds:[],requiredServiceMatchMode:"any" },
-    { eventId:"event-new",title:"尚未領取",claimed:false,requiredServiceIds:[],requiredServiceMatchMode:"any" },
   ]);
 });
 
