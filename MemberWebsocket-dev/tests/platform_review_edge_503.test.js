@@ -27,6 +27,7 @@ function harness(response) {
     uncertainError: () => Object.assign(new Error('Result not confirmed; retry same request'), { uncertain: true }),
     showAuthorizationDenied: () => calls.push(['denied']),
     showLoginGate: message => calls.push(['login-gate', message]),
+    offerLineReentry: () => calls.push(['line-reentry']),
     fetch: async (url, options) => {
       const body = JSON.parse(options.body);
       calls.push(['fetch', url, body]);

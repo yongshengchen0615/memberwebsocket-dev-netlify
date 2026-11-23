@@ -42,6 +42,10 @@ function entry({merchantEntry, inClient=false, returned=false, rejected=false, l
     showLoginGate:msg=>calls.push(['gate',msg]),
     markAutomaticLoginAttempt:()=>{calls.push(['attempt']);return true;},
     freshLineLogin:()=>calls.push(['fresh-login']),
+    cachedLineIdentityInvalid:()=>false,
+    autoReenterOnce:()=>calls.push(['scoped-line-reentry']),
+    clearAutomaticReentry:()=>calls.push(['clear-scoped-reentry']),
+    offerLineReentry:()=>calls.push(['offer-scoped-reentry']),
     request:async action=>{calls.push(['request',action]);return {profile:{displayName:'測試管理員'},application:{status:'pending'}};},
     renderMine:()=>calls.push(['render-merchant']),
     clearLoginGate:()=>calls.push(['authorized-ui']),
@@ -118,4 +122,28 @@ test('AC-PLATFORM-LIFF-002: malformed LIFF is blocked before init or privileged 
   assert.equal(names(e).includes('init'),false);
   assert.equal(names(e).includes('refresh-root'),false);
   assert.ok(e.calls.some(([name,message])=>name==='gate'&&message.includes('總管理員專用 LIFF')));
+});
+
+
+test('AC-REAUTH-005: extracted startup with wrong LIFF audience triggers scoped reentry before server calls',async()=>{
+ const e=entry({merchantEntry:true});
+ e.context.cachedLineIdentityInvalid=()=>true;
+ await e.run();
+ assert.ok(names(e).includes('scoped-line-reentry'));
+ assert.ok(!names(e).includes('request'));
+ assert.ok(!names(e).includes('logout'));
+});
+
+
+test('AC-REAUTH-007: server AUTH_INVALID rejects current session with a reentry link but no automatic navigation',async()=>{
+ const e=entry({merchantEntry:true});
+ e.context.request=async action=>{
+  e.calls.push(['request',action]);
+  throw Object.assign(new Error('LINE credential is invalid'),{code:'AUTH_INVALID',status:401});
+ };
+ await e.run();
+ assert.ok(names(e).includes('gate'),'failed server authorization must hide private UI');
+ assert.ok(names(e).includes('offer-scoped-reentry'),'failed sign-in must offer the dedicated LINE URL');
+ assert.equal(names(e).includes('scoped-line-reentry'),false,'server denial must not automatically navigate or mask the error');
+ assert.equal(names(e).includes('authorized-ui'),false);
 });

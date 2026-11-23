@@ -20,6 +20,7 @@
   const state = {config:null,idToken:'',features:{},tenants:[],applications:[],current:null,pending:null,busy:false,approval:null,merchant:null,merchantPending:null,qualification:null,qualifications:[],ownerApplications:[]};
   const LOGIN_RETURN_KEY=merchantEntry?'admin-line-login-return-v1':'platform-line-login-return-v1';
   const LOGIN_RETURN_TTL_MS=180_000;
+  const LINE_REENTRY_KEY=merchantEntry?'admin-line-scoped-reentry-v1':'platform-line-scoped-reentry-v1';
   const AUTO_LOGIN_ATTEMPT_KEY=merchantEntry?'admin-line-auto-attempt-v1':'platform-line-auto-attempt-v1';
   let rejectedLoginReturn=false;
   function markAutomaticLoginAttempt() {
@@ -46,6 +47,7 @@
       && Date.now()>=issuedAt && Date.now()-issuedAt<=LOGIN_RETURN_TTL_MS;
   }
   function showLoginGate(message=merchantEntry?'請重新使用 LINE 確認管理員身分。':'每次進入總管理員控制台，請重新使用 LINE 確認身分。') {
+    const previousReentry=el('lineReauthLink');if(previousReentry)previousReentry.hidden=true;
     state.idToken='';
     rootRevision++;
     rootSnapshot='';
@@ -87,11 +89,55 @@
     try { window.sessionStorage.removeItem(AUTO_LOGIN_ATTEMPT_KEY); } catch {}
   }
   function clearLoginGate() {
+    const reentry=el('lineReauthLink');if(reentry)reentry.hidden=true;
     const header=el('platformHeader');
     if(header)header.hidden=false;
     el('platformStatus').hidden=false;
     const authorizationNotice=el('platformAuthorizationNotice');
     if(authorizationNotice)authorizationNotice.hidden=true;
+  }
+  // Use this LIFF app's official entry rather than a browser-shared logout.
+  // The decoded token is a client-only rejection hint, never authorization.
+  function lineReentryUrl() {
+    const liffId=String((merchantEntry?state.config?.adminLiffId:state.config?.platformLiffId)||'').trim();
+    if(!/^\d{5,30}-[A-Za-z0-9_-]+$/.test(liffId))return '';
+    const url=new URL('https://liff.line.me/'+liffId);
+    if(selectedBusiness&&/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(selectedBusiness))url.searchParams.set('business',selectedBusiness);
+    return url.href;
+  }
+  function offerLineReentry() {
+    const url=lineReentryUrl();if(!url)return '';
+    let link=el('lineReauthLink');
+    if(!link){link=document.createElement('a');link.id='lineReauthLink';link.className='secondary line-reentry-action';link.textContent='重新透過 LINE 專屬入口登入';el('platformStatus').after(link);}
+    link.href=url;link.hidden=false;
+    return url;
+  }
+  function returningFromAutomaticReentry() {
+    const query=new URLSearchParams(window.location.search);
+    if(query.get('line_auto_reauth')==='1')return true;
+    const stateQuery=query.get('liff.state')||'';
+    try{return new URLSearchParams(stateQuery.replace(/^\?/, '').split('?').pop()).get('line_auto_reauth')==='1';}
+    catch{return false;}
+  }
+  function autoReenterOnce() {
+    const href=offerLineReentry();
+    if(!href||returningFromAutomaticReentry())return false;
+    try{
+      const attempt=JSON.parse(window.sessionStorage.getItem(LINE_REENTRY_KEY)||'null');
+      const now=Date.now();
+      if(attempt?.href===href&&now>=attempt.at&&now-attempt.at<LOGIN_RETURN_TTL_MS)return false;
+      window.sessionStorage.setItem(LINE_REENTRY_KEY,JSON.stringify({href,at:now}));
+    }catch{return false;}
+    const target=new URL(href);target.searchParams.set('line_auto_reauth','1');
+    try{window.location.assign(target.href);return true;}catch{return false;}
+  }
+  function clearAutomaticReentry() {try{window.sessionStorage.removeItem(LINE_REENTRY_KEY);}catch{}}
+  function cachedLineIdentityInvalid(channelId) {
+    let claims;
+    try{claims=window.liff.getDecodedIDToken?.();}catch{return false;}
+    if(!claims||typeof claims!=='object')return false;
+    if(typeof claims.aud==='string'&&claims.aud!==channelId)return true;
+    return typeof claims.exp==='number'&&Number.isFinite(claims.exp)&&claims.exp<=Date.now()/1000+30;
   }
   function freshLineLogin() {
     el('platformStatus').textContent='正在重新啟動 LINE 登入…';
@@ -143,8 +189,10 @@
           clearPrivateMerchant();clearAccount();
           if(isAccount()){el('qualificationWorkspace').hidden=false;el('qualificationStatus').textContent=body.error?.message||'目前無法確認管理員資格，請重新檢查。';}
         }
-        if(response.status===401 && ['AUTH_INVALID','AUTH_REQUIRED','TENANT_REAUTH_REQUIRED'].includes(body.error?.code))
+        if(response.status===401 && ['AUTH_INVALID','AUTH_REQUIRED','TENANT_REAUTH_REQUIRED'].includes(body.error?.code)){
           showLoginGate(merchantEntry?(body.error?.message || '一般管理員 LINE 驗證已失效，請重新登入。'):'總管理員 LINE 驗證已失效，請確認專用 LINE Login Channel。');
+          offerLineReentry();
+        }
         throw Object.assign(new Error(body.error?.message || '操作未完成。'),{code:body.error?.code,status:response.status});
       }
       // A completed root write makes any older in-flight background snapshot obsolete.
@@ -1162,6 +1210,13 @@
         showLoginGate('無法取得 LINE 身分憑證，請確認 LIFF 已開通 openid 權限，並重新開啟頁面。');
         return;
       }
+      // A different LIFF app can leave cached identity for another Channel,
+      // or a one-hour ID token may have expired. Neither is a valid session.
+      if(cachedLineIdentityInvalid(platformLiffId.split('-')[0])){
+        showLoginGate('LINE 憑證不適用於此管理頁面或已過期，正在重新開啟專屬 LINE 登入…');
+        autoReenterOnce();
+        return;
+      }
       // Reuse the browser's valid LIFF identity without logging out
       // sibling tabs. Platform privileges remain server-verified per entry.
       // Explicitly reject an invalid pending callback rather than reusing it.
@@ -1178,6 +1233,7 @@
         if(isV2()&&selectedBusiness&&el('backToMyMerchants'))el('backToMyMerchants').hidden=false;
         // Clear only after LINE and server verification have both succeeded.
         try { window.sessionStorage.removeItem(AUTO_LOGIN_ATTEMPT_KEY); } catch {}
+        clearAutomaticReentry();
         if(data.accountLoaded!==false)el('platformStatus').textContent=data.profile?.displayName?'管理員 '+data.profile.displayName+'，已登入。':'已確認 LINE 身分。';
         if(refreshTimer)clearInterval(refreshTimer);
         refreshTimer=setInterval(()=>{if(!document.hidden)void refreshMine();},15000);
@@ -1190,6 +1246,7 @@
       if(refreshTimer)clearInterval(refreshTimer);
       refreshTimer=setInterval(()=>{if(!document.hidden)void refreshRoot();},5000);
       try { window.sessionStorage.removeItem(AUTO_LOGIN_ATTEMPT_KEY); } catch {}
+      clearAutomaticReentry();
     } catch(error){
       if(error.code==='PLATFORM_ADMIN_REQUIRED'&&!merchantEntry) {
         showAuthorizationDenied();
@@ -1198,6 +1255,11 @@
       showLoginGate(['AUTH_INVALID','AUTH_REQUIRED'].includes(error.code)
         ? (merchantEntry?'一般管理員 LINE 身分驗證未通過，請重新登入。':'總管理員 LINE 身分驗證未通過，請使用專用 LINE 登入。')
         : error?.message || 'LINE 驗證尚未完成，請檢查網路後手動重試。');
+      if(['AUTH_INVALID','AUTH_REQUIRED','TENANT_REAUTH_REQUIRED'].includes(error.code)){
+        // A server 401 may reflect revoked authorization, not a stale LIFF cache.
+        // Keep the explicit reentry link without redirecting and masking denial.
+        offerLineReentry();
+      }
 
     }
   }
