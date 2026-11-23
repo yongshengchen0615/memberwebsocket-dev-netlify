@@ -48,7 +48,8 @@ test('AC-004: idempotent transaction and no reclaim or duplicate receiving', () 
   assert.match(migration, /prevent_event_ticket_reclaim_after_transfer/);
   assert.match(migration, /EVENT_TICKET_RECEIVER_ALREADY_OWNED/);
   assert.match(api, /transferredOutEventIds/);
-  assert.match(api, /canClaim: !transferredOut/);
+  assert.match(api, /canClaim: false,/);
+  assert.match(read("supabase/migrations/20261123120000_event_ticket_automatic_issuance.sql"), /EVENT_TICKET_ISSUANCE_ONLY/);
 });
 
 test('AC-005: UI exposes friend-only selection and does not retry transfer as read', () => {
