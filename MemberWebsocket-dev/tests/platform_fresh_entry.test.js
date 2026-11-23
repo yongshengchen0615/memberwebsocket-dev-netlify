@@ -133,3 +133,17 @@ test('AC-REAUTH-005: extracted startup with wrong LIFF audience triggers scoped 
  assert.ok(!names(e).includes('request'));
  assert.ok(!names(e).includes('logout'));
 });
+
+
+test('AC-REAUTH-007: server AUTH_INVALID rejects current session with a reentry link but no automatic navigation',async()=>{
+ const e=entry({merchantEntry:true});
+ e.context.request=async action=>{
+  e.calls.push(['request',action]);
+  throw Object.assign(new Error('LINE credential is invalid'),{code:'AUTH_INVALID',status:401});
+ };
+ await e.run();
+ assert.ok(names(e).includes('gate'),'failed server authorization must hide private UI');
+ assert.ok(names(e).includes('offer-scoped-reentry'),'failed sign-in must offer the dedicated LINE URL');
+ assert.equal(names(e).includes('scoped-line-reentry'),false,'server denial must not automatically navigate or mask the error');
+ assert.equal(names(e).includes('authorized-ui'),false);
+});
