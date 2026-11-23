@@ -40,7 +40,7 @@
         document.head.append(script);
       });
       if(!window.PlatformExpiryTerm)await loadScript('../platform/expiry-term.js?v=expiry-term-20261101-1');
-      await loadScript('../platform/app.js?v=merchant-expiry-readonly-20261101-1');
+      await loadScript('../platform/app.js?v=merchant-expiry-readonly-20261101-1&line=20261123-initial-1');
       legacy.hidden=true;
       host.hidden=false;
       document.documentElement.dataset.productizedAdmin='true';

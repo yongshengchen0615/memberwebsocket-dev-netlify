@@ -12,7 +12,7 @@ const fixtureHtml='<!doctype html><html><head><title>Frontdesk</title></head><bo
 
 async function session({url=entry,storage=new Map(),loggedIn=true,inClient=false,token='verified-id-token',
   storageBlocked=false,logoutFails=false,logoutNoop=false,initFails=false,
-  bootstrapError=null,permissionMode='notify_only'}={}){
+  bootstrapError=null,permissionMode='notify_only',initialEntry=false}={}){
  const dom=new JSDOM(fixtureHtml,{url,runScripts:'outside-only'});
  const w=dom.window,calls=[];
  Object.defineProperty(w,'sessionStorage',{configurable:true,value:{
@@ -20,6 +20,7 @@ async function session({url=entry,storage=new Map(),loggedIn=true,inClient=false
    setItem(k,v){if(storageBlocked)throw Error('disabled');storage.set(k,v);},
    removeItem(k){if(storageBlocked)throw Error('disabled');storage.delete(k);}
  }});
+ w.LineInitialEntry={enter({liffId,scope,business}){if(initialEntry)calls.push(['initial-entry',scope,liffId,business]);return initialEntry;}};
  w.liff={
    async init(input){calls.push(['init',input.liffId]);if(initFails)throw Error('init failed');},
    isInClient:()=>inClient,isLoggedIn:()=>loggedIn,
@@ -190,4 +191,15 @@ test('AC-FD-AUTH-012: no manual re-login UI is generated anywhere in the frontde
  const html=fs.readFileSync(path.join(__dirname,'../../frontdesk/index.html'),'utf8');
  assert.doesNotMatch(html,/重新登入 LINE/);
  assert.match(html,/app\.js\?v=20261122-frontdesk-reads1/);
+});
+
+
+test('AC-LINE-013: a new frontdesk page enters this merchant LINE app before reading staff reservations',async()=>{
+ const h=await session({initialEntry:true,permissionMode:'review'});
+ try{
+  assert.ok(h.calls.some(([name,scope,id,business])=>name==='initial-entry'&&scope==='frontdesk'&&id==='2010999999-desk'&&business==='shop-a'));
+  assert.equal(h.actions.includes('frontdesk.bootstrap'),false);
+  assert.equal(h.callsNamed('token').length,0);
+  assert.equal(h.callsNamed('logout').length,0);
+ }finally{h.close();}
 });

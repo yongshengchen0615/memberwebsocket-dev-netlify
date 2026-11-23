@@ -2,6 +2,7 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
+const vm=require('node:vm');
 const root=path.join(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 const platform=read('platform/app.js');
@@ -98,7 +99,11 @@ test('AC-FD-NAV-007: an existing external LINE session must not be forcibly logg
   const script=read('admin/frontdesk-settings/frontdesk-settings-page.js');
   assert.doesNotMatch(script,/if\s*\(!window\.liff\.isInClient\(\)\s*&&\s*!returned\)\s*\{\s*beginLogin\(/);
   assert.match(script,/if\s*\(reauthenticate\)\s*\{\s*beginLogin\(\{\s*force:\s*true\s*\}\)/);
-  assert.match(script,/if\s*\(force\s*&&\s*window\.liff\.isLoggedIn\(\)\)\s*window\.liff\.logout\(\)/);
+  // User requirement supersedes the old fallback: forced browser logout
+  // invalidates other LINE tabs. Reentry must use this merchant's LIFF.
+  assert.doesNotMatch(script,/liff\.logout\(/);
+  assert.match(script,/liff\.line\.me/);
+  assert.match(script,/LineInitialEntry\?\.enter\(/);
 });
 
 test('AC-FD-UX-003: standalone page uses readable, concise merchant-specific headings', () => {
@@ -146,4 +151,46 @@ test('AC-FD-LINE-001: LINE settings follow one ordered track; only provider card
  assert.doesNotMatch(css,/grid-template-columns:\s*minmax\(0, 1\.15fr\) minmax\(0, \.85fr\)/);
  assert.match(css,/\.frontdesk-settings \.frontdesk-preferences-form\s*\{\s*margin:\s*0/);
  assert.match(page,/frontdesk-line-flow-20261122-1/);
+});
+
+
+test('AC-LINE-017: standalone merchant frontdesk settings also starts via the merchant-specific LIFF without cross-tab logout',()=>{
+ const html=read('admin/frontdesk-settings/index.html');
+ const js=read('admin/frontdesk-settings/frontdesk-settings-page.js');
+ assert.match(html,/line-initial-entry\.js/);
+ assert.match(js,/LineInitialEntry\?\.enter\(/);
+ assert.match(js,/scope:\s*'merchant-frontdesk-settings'/);
+ assert.doesNotMatch(js,/liff\.logout\(/);
+ assert.match(js,/https:\/\/liff\.line\.me\//);
+ assert.match(js,/platform\.application\.bootstrap/);
+});
+
+
+test('AC-LINE-018: real standalone recovery handler uses merchant LIFF, never browser-shared logout',()=>{
+ const source=read('admin/frontdesk-settings/frontdesk-settings-page.js');
+ const start=source.indexOf('  function beginLogin({ force = false } = {}) {');
+ const end=source.indexOf('  async function request(',start);
+ assert.ok(start>=0&&end>start,'actual login handler remains independently exercised');
+ const calls=[],storage=new Map();
+ const context={
+  URL,Date,RETURN_KEY:'frontdesk-settings-line-return-v1',
+  markAttempt:()=>true, idToken:'expired-id-token',config:{adminLiffId:'2010791619-MerchantFixture'},business:'shop-a',
+  sessionStorage:{setItem(k,v){storage.set(k,v);},removeItem(k){storage.delete(k);}},
+  window:{liff:{isLoggedIn:()=>true,isInClient:()=>false,logout(){calls.push('global-logout');},login(){calls.push('login');}}},
+  location:{replace(url){calls.push(['replace',url]);},reload(){calls.push('reload');}},
+  setStatus(message){calls.push(['status',message]);},dismiss(message){calls.push(['dismiss',message]);}
+ };
+ const login=vm.runInNewContext('('+source.slice(start,end).trim()+')',context);
+ login({force:true});
+ const redirects=calls.filter(x=>Array.isArray(x)&&x[0]==='replace');
+ assert.equal(redirects.length,1);
+ const url=new URL(redirects[0][1]);
+ assert.equal(url.origin,'https://liff.line.me');
+ assert.equal(url.pathname,'/2010791619-MerchantFixture');
+ assert.equal(url.searchParams.get('business'),'shop-a');
+ assert.equal(url.searchParams.get('line_initial'),'1');
+ assert.equal(calls.includes('global-logout'),false);
+ assert.equal(calls.includes('login'),false,'existing logged-in browser reenters only current LINE LIFF');
+ assert.ok(storage.get('frontdesk-settings-line-return-v1'));
+ assert.equal(context.idToken,'','old ID token discarded before navigation');
 });
