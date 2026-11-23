@@ -99,9 +99,8 @@
       window.sessionStorage.setItem(LOGIN_RETURN_KEY,String(Date.now()));
       const inClient=window.liff.isInClient();
       state.idToken='';
-      // Discard the old ID token. LINE LIFF browser cannot call liff.login():
-      // liff.init() automatically signs in again after a page reload.
-      window.liff.logout();
+      // Never invalidate other LIFF tabs through browser-shared logout.
+      // This helper is only called for signed-out users.
       if(inClient) window.location.reload();
       else window.liff.login();
     } catch {
@@ -1163,18 +1162,11 @@
         showLoginGate('無法取得 LINE 身分憑證，請確認 LIFF 已開通 openid 權限，並重新開啟頁面。');
         return;
       }
-      // Every external entry, including the general-admin portal, must complete
-      // this visit's fresh LINE redirect before using any previously cached token.
-      // LIFF in-app browsing is verified by liff.init() + the server bootstrap:
-      // liff.login() is unsupported in the LINE client.
-      if(!inLiffClient && !returnedFromLine) {
-        if(!rejectedLoginReturn && markAutomaticLoginAttempt()) {
-          freshLineLogin();
-        } else {
-          showLoginGate(rejectedLoginReturn
-            ? 'LINE 登入回跳已過期，請重新開啟頁面。'
-            : 'LINE 驗證未完成，請重新開啟頁面。');
-        }
+      // Reuse the browser's valid LIFF identity without logging out
+      // sibling tabs. Platform privileges remain server-verified per entry.
+      // Explicitly reject an invalid pending callback rather than reusing it.
+      if(rejectedLoginReturn) {
+        showLoginGate('LINE 登入回跳已過期，請重新開啟頁面。');
         return;
       }
       if(merchantEntry){
