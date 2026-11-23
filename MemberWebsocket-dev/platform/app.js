@@ -102,7 +102,7 @@
     if(typeof claims.aud==='string'&&claims.aud!==channelId) {
       // LINE channel identifiers are public numeric IDs. Reject unexpected
       // values rather than reflecting untrusted token payloads to the UI.
-      const actual=/^\\d{5,30}$/.test(claims.aud)?claims.aud:'unknown';
+      const actual=/^\d{5,30}$/.test(claims.aud)?claims.aud:'unknown';
       return {reason:'channel',expected:channelId,actual};
     }
     if(typeof claims.exp==='number'&&Number.isFinite(claims.exp)&&claims.exp<=Date.now()/1000+30)
