@@ -78,7 +78,7 @@
       ['points', 'event'].includes(item.kind) && window.BusinessContext?.allowsBenefit?.(item.kind)!==false
       // A future general reservation does not block a separate snapshot when
       // the server confirms surplus points can cover both redemptions.
-      && (item.selectable === true || (item.kind === 'event' && item.claimRequired === true)));
+      && item.selectable === true && Boolean(item.selectionId));
     tickets.forEach(item => {
       const card = document.createElement('article');
       card.className = 'ui-ticket snapshot-overview-ticket';
@@ -96,7 +96,7 @@
       headingCopy.append(kind, title);
       const state = document.createElement('span');
       state.className = 'snapshot-overview-status';
-      state.textContent = item.claimRequired ? '尚未領取' : '可供登記';
+      state.textContent = '可供登記';
       heading.append(headingCopy, state);
       card.append(heading);
       if (item.cardTitle && item.kind === 'points') {
@@ -113,18 +113,12 @@
       expiry.textContent = item.endsOn ? `有效至 ${item.endsOn}` : '依票券有效期限使用';
       card.append(condition, expiry);
       if (item.kind === 'points') card.append(window.MemberUI.pointTicketDetails(item));
-      if (item.claimRequired) {
-        const help = document.createElement('p');
-        help.className = 'snapshot-overview-claim-help';
-        help.textContent = '拍攝快照時可先領取，領取後仍需符合票券條件。';
-        card.append(help);
-      }
       host.append(card);
     });
     if (el('bookingAccessibleTicketsStatus')) {
       el('bookingAccessibleTicketsStatus').textContent = tickets.length
-        ? `目前有 ${tickets.length} 張可登記／待領取票券，請於拍攝快照時勾選。`
-        : '目前沒有可登記或可領取的票券；仍可送出快照收據。';
+        ? `目前有 ${tickets.length} 張已發放可登記票券，請於拍攝快照時勾選。`
+        : '目前沒有已發放且可登記的票券；仍可送出快照收據。';
     }
   }
   function snapshotHistoryGroup(row) {
