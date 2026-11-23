@@ -61,15 +61,20 @@ function harness({ url = entry, storage = new Map(), loggedIn = true, inClient =
   return { calls, storage, location, signIn: () => window.MemberSystem.signIn(config, 'admin') };
 }
 
-async function startLogin(options) {
-  const h = harness(options);
+async function startLogin(options = {}) {
+  const h = harness({ loggedIn: false, ...options });
   await assert.rejects(h.signIn(), { code: 'NAVIGATION' });
   return { ...h, callback: h.calls.find(([name]) => name === 'login')[1] };
 }
 
-test('external entry clears an existing LIFF session before requesting login', async () => {
+test('AC-MTAB-001: cached LINE session authenticates without logging out other browser tabs', async () => {
+  const existing = harness();
+  assert.equal(await existing.signIn(), 'fixture-id-token');
+  assert.deepEqual(existing.calls.map(([name]) => name), ['init', 'token']);
+});
+test('AC-MTAB-002: signed-out external entry starts a nonce-bound login', async () => {
   const h = await startLogin();
-  assert.deepEqual(h.calls.map(([name]) => name), ['init', 'logout', 'login']);
+  assert.deepEqual(h.calls.map(([name]) => name), ['init', 'login']);
   const callback = new URL(h.callback);
   assert.match(callback.searchParams.get('member_system_reauth'), /^admin\.[a-f0-9]{32}$/);
   assert.equal(callback.searchParams.get('view'), 'members');
@@ -78,8 +83,9 @@ test('external entry clears an existing LIFF session before requesting login', a
 });
 
 test('a bookmarked legacy login marker cannot skip fresh login', async () => {
-  const h = await startLogin({ url: entry.replace('?view=members', '?member_system_reauth=admin') });
-  assert.equal(h.calls.some(([name]) => name === 'logout'), true);
+  const h = harness({ url: entry.replace('?view=members', '?member_system_reauth=admin') });
+  await assert.rejects(h.signIn(), { code: 'AUTH_REQUIRED' });
+  assert.equal(h.calls.some(([name]) => name === 'login'), false);
   assert.equal(h.calls.some(([name]) => name === 'token'), false);
 });
 
@@ -90,7 +96,7 @@ test('matching callback is consumed once; reloading or replaying it requires log
   assert.deepEqual(returned.calls.map(([name]) => name), ['init', 'token']);
   assert.equal(first.storage.has(storageKey), false);
   assert.equal(returned.location.href, entry);
-  await startLogin({ url: first.callback, storage: first.storage });
+  await assert.rejects(harness({ url: first.callback, storage: first.storage }).signIn(), { code: 'AUTH_REQUIRED' });
   await startLogin({ url: returned.location.href });
 });
 
@@ -104,7 +110,8 @@ for (const scenario of ['missing', 'expired', 'future', 'wrong-path', 'wrong-non
     if (scenario === 'wrong-nonce') record.nonce = '0'.repeat(32);
     first.storage.set(storageKey, scenario === 'malformed' ? 'invalid JSON' : JSON.stringify(record));
     if (scenario === 'missing') first.storage.clear();
-    const replay = await startLogin({ url: first.callback, storage: first.storage });
+    const replay = harness({ url: first.callback, storage: first.storage });
+    await assert.rejects(replay.signIn(), { code: 'AUTH_REQUIRED' });
     assert.equal(replay.calls.some(([name]) => name === 'token'), false);
   });
 }
@@ -123,16 +130,16 @@ test('missing ID token after callback is rejected', async () => {
 });
 
 test('blocked browser storage fails closed without accepting an existing token', async () => {
-  const h = harness({ storageBlocked: true });
+  const h = harness({ storageBlocked: true, loggedIn: false });
   await assert.rejects(h.signIn(), { code: 'AUTH_STORAGE_UNAVAILABLE' });
-  assert.deepEqual(h.calls.map(([name]) => name), ['init', 'logout']);
+  assert.deepEqual(h.calls.map(([name]) => name), ['init']);
 });
 
 for (const option of ['logoutFails', 'logoutNoop']) {
   test(`${option}: cannot silently reuse the previous login`, async () => {
     const h = harness({ [option]: true });
-    await assert.rejects(h.signIn(), { code: 'AUTH_LOGOUT_FAILED' });
-    assert.deepEqual(h.calls.map(([name]) => name), ['init', 'logout']);
+    assert.equal(await h.signIn(), 'fixture-id-token');
+    assert.deepEqual(h.calls.map(([name]) => name), ['init', 'token']);
   });
 }
 
