@@ -21,9 +21,18 @@
       inside=window.liff.isInClient();
       loggedIn=window.liff.isLoggedIn();
     }catch{return false;}
-    // In LINE, liff.init already authenticates the app. HTTP local fixture
-    // pages are not registered HTTPS LIFF endpoints.
-    if(current.protocol!=='https:'||inside||!loggedIn)return false;
+    // The LINE browser normally signs in during liff.init(). If another LIFF
+    // app's Channel is still cached, enter THIS app instead of showing a stale
+    // credential warning. Decoded claims are only an early mismatch hint.
+    let wrongInClientChannel=false;
+    if(inside&&loggedIn){
+      try {
+        const aud=window.liff.getDecodedIDToken?.()?.aud;
+        wrongInClientChannel=typeof aud==='string'&&aud!==id.split('-')[0];
+      }catch{}
+    }
+    // Local HTTP test fixtures are not registered HTTPS LIFF endpoints.
+    if(current.protocol!=='https:'||!loggedIn||(inside&&!wrongInClientChannel))return false;
     // LINE's primary and secondary redirects carry provider parameters that
     // must remain untouched until the SDK has finished initialization.
     if(current.searchParams.has('liff.state')||current.searchParams.has('access_token')
