@@ -17,7 +17,7 @@ const eventStub = String.raw`
     bindDialogKeyboard(){},loadConfig:async()=>({}),signIn:async()=> 'test-token',subscribeRealtime(){},
     request:async(_config,_kind,_token,action)=>{
       if(action==='user.event.bootstrap')return {profile:{displayName:'QA會員'},usedTickets:[],bookingSelections:[],offers:[{
-        ticket:{eventTicketId:'EVENT-GUIDED',ticketType:'coupon',title:'限預約活動券',
+        ticket:{eventTicketId:'EVENT-GUIDED',ticketType:'coupon',title:'限預約活動券',description:'預約後可使用',
           minBookingAmountMode:'total',minBookingAmount:300,
           minBookingAmountLabel:'一般預約滿 NT$300',startsOn:'2026-11-01',endsOn:'2026-12-31'},
         claim:{claimId:'EC-GUIDED',status:'available'},canClaim:false,canUse:false,
