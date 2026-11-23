@@ -81,13 +81,13 @@ test('AC-LINE-006: missing storage, invalid LIFF ID, and insecure redirect param
  assert.equal(url.searchParams.get('business'),'shop-a');
 });
 test('AC-LINE-007: all protected LINE pages load the shared entry coordinator before their application',()=>{
- for(const file of ['platform/index.html','admin/index.html','admin/workspace.html','member/index.html','points/index.html','event/index.html','calendar/index.html','booking/index.html','frontdesk/index.html']){
+ for(const file of ['platform/index.html','admin/index.html','admin/workspace.html','member/index.html','points/index.html','event/index.html','calendar/index.html','booking/index.html','frontdesk/index.html','admin/frontdesk-settings/index.html']){
   const html=fs.readFileSync(path.join(root,file),'utf8');
   assert.match(html,/line-initial-entry\.js/,'missing entry coordinator: '+file);
  }
 });
 test('AC-LINE-008: protected entrypoints call the coordinator as part of their own fresh LIFF initialization',()=>{
- for(const file of ['platform/app.js','member-system.js','booking/liff-fresh-login.js','frontdesk/app.js']){
+ for(const file of ['platform/app.js','member-system.js','booking/liff-fresh-login.js','frontdesk/app.js','admin/frontdesk-settings/frontdesk-settings-page.js']){
   const code=fs.readFileSync(path.join(root,file),'utf8');
   assert.match(code,/LineInitialEntry\?\.enter\(/,'missing per-page login contract: '+file);
  }
