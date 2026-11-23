@@ -20,6 +20,24 @@ function visit({url='https://example.netlify.app/platform/',scope='platform',lif
  vm.runInNewContext(source(),{window,URL,Date});
  return {calls,window,storage,enter:()=>window.LineInitialEntry.enter({liffId,scope,business})};
 }
+test('AC-ROLL-005: an existing valid same-channel ID token uses native LIFF init and server verification without another redirect',()=>{
+ for(const inClient of [false,true]){
+  const claims={aud:'2012065297',exp:Date.now()/1000+300};
+  const h=visit({decodedToken:claims,inClient});
+  assert.equal(h.window.LineInitialEntry.enterBeforeInit({liffId:ID.platform,scope:'platform'}),false);
+  assert.equal(h.enter(),false);
+  assert.equal(h.calls.length,0,'valid identity is verified by the caller; this helper must not reroute');
+ }
+});
+test('AC-ROLL-006: wrong-channel, expired and invalid claims cannot bypass dedicated LIFF entry',()=>{
+ const cases=[{aud:'2010791619',exp:Date.now()/1000+300},{aud:'2012065297',exp:Date.now()/1000-1},{aud:'2012065297',exp:'not-a-time'}];
+ for(const decodedToken of cases){
+  const h=visit({decodedToken});
+  assert.equal(h.window.LineInitialEntry.enterBeforeInit({liffId:ID.platform,scope:'platform'}),true);
+  assert.equal(h.calls.length,1);
+  assert.equal(h.calls.some(([name])=>name==='logout'),false);
+ }
+});
 test('AC-LINE-001: external authenticated platform entry starts its own LINE LIFF before reusing any other app session',()=>{
  const h=visit();
  assert.equal(h.enter(),true);
