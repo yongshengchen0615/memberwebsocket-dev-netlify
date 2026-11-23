@@ -18,7 +18,7 @@ const waitFor = async (predicate, label) => {
 function ticket(overrides = {}) {
   return {
     ticket: {
-      eventTicketId: 'EVENT-GUIDED', title: '預約限定活動券', ticketType: 'coupon',
+      eventTicketId: 'EVENT-GUIDED', title: '預約限定活動券', ticketType: 'coupon', description: '需先預約服務才可使用',
       startsOn: '2026-11-01', endsOn: '2026-12-31',
       minBookingAmountMode: 'total', minBookingAmount: 300,
       minBookingAmountLabel: '一般預約總金額滿 NT$300',

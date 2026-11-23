@@ -38,7 +38,7 @@ test('accessible node drives production mode UI and restores each member prefere
     const d=dom('booking'),w=d.window;
     try {
       if(preference!==null)w.localStorage.setItem(preferenceKey,preference);
-      const items=[{kind:'points',selectable:true,title:'QA card'}, {kind:'event',selectable:true,title:'QA event'}, {kind:'points',selectable:true,reservedForBooking:true}, {kind:'points',selectable:false,reservedForBooking:true}];
+      const items=[{kind:'points',selectionId:'PT-A',selectable:true,title:'QA card'}, {kind:'event',selectionId:'EC-A',selectable:true,title:'QA event'}, {kind:'points',selectionId:'PT-B',selectable:true,reservedForBooking:true}, {kind:'points',selectionId:'PT-C',selectable:false,reservedForBooking:true}];
       let cameraCalls=0;
       w.BookingBenefits={getItems:()=>items,syncNow:()=>{w.document.getElementById('bookingBenefits').dataset.state='ready';w.document.getElementById('bookingBenefitsList').setAttribute('aria-busy','false');w.dispatchEvent(new w.CustomEvent('booking:benefits-loaded',{detail:{items}}));}};
       w.BookingReceipts={openAccessible:()=>cameraCalls++,refresh:async()=>w.dispatchEvent(new w.CustomEvent('booking:receipts-updated',{detail:{submissions:[]}}))};
@@ -77,7 +77,7 @@ test('ticket rule node tests real any/all selection rejection without claiming a
     let claims=0;
     const items=[
       {kind:'points',id:'PT',selectionId:'PT',selectable:true,cardId:'CARD',pointCost:2,pointBalance:10,requiredServiceIds:['BODY'],requiredServiceMatchMode:'any',title:'QA points'},
-      {kind:'event',id:'EV',selectionId:'',selectable:true,claimRequired:true,requiredServiceIds:['BODY','FACE'],requiredServiceMatchMode:'all',title:'QA event'}
+      {kind:'event',id:'EV',selectionId:'EC-EV',selectable:true,claimRequired:false,requiredServiceIds:['BODY','FACE'],requiredServiceMatchMode:'all',title:'QA event'}
     ];
     w.BookingSystem={bookingBenefits:async()=>({items,eventTicketMaxPerDay:0,pointTicketMaxPerRedemption:0}),claimEventTicket:async()=>{claims++;return{};}};
     w.eval(read('ui-components.js'));w.eval(read('booking/booking-benefits.js'));w.BookingBenefits.start({},'fixture');await tick();
