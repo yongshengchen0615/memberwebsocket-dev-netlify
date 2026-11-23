@@ -112,7 +112,11 @@ test('booking activities are display-only while point and event tickets remain s
   assert.match(ui, /活動僅顯示/);
   assert.match(ui, /集點卡票券單次/);
   assert.match(ui, /活動票券每日/);
-  assert.match(ui, /if \(item\?\.kind !== 'calendar'\) return ''/);
+  assert.doesNotMatch(ui, /查看詳情|booking-benefit-link|function destination\\(/,
+    'booking calendar activities must render without a secondary details link');
+  const page = read('booking/index.html');
+  assert.match(page, /booking-benefits\\.js\\?[^"\\n]*activity-cards=20261123-1/,
+    'updated booking assets must be versioned for LINE WebView caches');
   assert.doesNotMatch(bookingApi, /\["points","event","calendar"\]\.includes\(kind\)/);
   assert.doesNotMatch(groupApi, /\["points","event","calendar"\]\.includes\(kind\)/);
 });
