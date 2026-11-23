@@ -12,8 +12,8 @@ test('event page does not load or render the removed batch redemption toolbar', 
 
   assert.doesNotMatch(html, /batch-redemption\.(?:css|js)/);
   assert.doesNotMatch(html, /event-batch-toolbar/);
-  assert.match(app, /button\.textContent = history \? '查看紀錄'[\s\S]*offer\.claim \? offer\.canUse \? '使用票券'/);
-  assert.match(app, /button\.dataset\.ticketAction = offer\.claim && offer\.canUse \? 'use'/);
+  assert.match(app, /button\.textContent = history \? '查看紀錄'[\s\S]*offer\.claim \? bindable \? '綁定已有預約使用' : offer\.canUse \? '使用票券'/);
+  assert.match(app, /button\.dataset\.ticketAction = bindable \? 'bind-booking' : offer\.claim && offer\.canUse \? 'use'/);
   assert.match(app, /transferButton\.dataset\.ticketAction = 'transfer'/);
   assert.match(app, /event-ticket-action-buttons/);
   assert.match(app, /async function redeemTicket\(offer\)/);

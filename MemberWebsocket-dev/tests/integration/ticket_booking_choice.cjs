@@ -28,21 +28,38 @@ test('real points modal requires booking selection and retries the identical usa
 
 for(const scenario of ['restricted','unrestricted','unclaimed'])test('real event page loads '+(scenario==='restricted'?'restricted booking choices':scenario==='unrestricted'?'direct use with no selector':'unissued offer is not actionable without a booking'),async()=>{
  const owned=scenario!=='unclaimed', unrestricted=scenario==='unrestricted';
+ const confirmedId = 'f4b9e063-28dc-4e84-8a83-4e41781344c1';
  const html=fs.readFileSync(path.join(__dirname,'../../event/index.html'),'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'');
  const dom=new JSDOM(html,{runScripts:'outside-only',url:'https://qa.local/event/'}),w=dom.window,calls=[];
+ const currentSelections=[{kind:'points',id:'PT-OTHER',status:'pending'}];
  try{
-  await new Promise(r=>setTimeout(r,0));w.eval(source);w.confirm=()=>true;w.MembershipProgress={render(){}};
+  await new Promise(r=>setTimeout(r,0));w.eval(source);w.eval(fs.readFileSync(path.join(__dirname,'../../ticket-booking-selections.js'),'utf8'));w.confirm=()=>true;w.MembershipProgress={render(){}};
   w.MemberSystem={bindDialogKeyboard(){},loadConfig:async()=>({supabaseUrl:'https://fixture.supabase.co'}),signIn:async()=> 'fixture',subscribeRealtime(){},request:async(_c,_surface,_token,action,payload)=>{
-   if(action==='user.event.bootstrap')return {profile:{displayName:'QA',tierKey:'general'},usedTickets:[],usedTicketCount:0,offers:[{ticket:{eventTicketId:'EVENT',title:'QA event',ticketType:'coupon',description:'QA',usageMethod:'QA',usageInstructions:'QA',...(scenario==='restricted'?{minBookingAmountMode:'total',minBookingAmount:500,minBookingAmountLabel:'一般預約總金額滿 NT$500'}:{})},claim:owned?{claimId:'CLAIM',status:'available',ticketDescription:'QA'}:null,eligibleBookings:scenario==='restricted'?[booking('A'),booking('B')]:unrestricted?[booking('A'),booking('no-booking','不綁定預約，直接使用票券')]:[],canUse:owned,canClaim:!owned,tierEligible:true,availability:'active'}]};
-   calls.push({action,payload});throw Object.assign(new Error('QA location retry'),{code:'LOCATION_OUT_OF_RANGE'});
+   if(action==='user.event.bootstrap')return {profile:{displayName:'QA',tierKey:'general'},usedTickets:[],bookingSelections:[],usedTicketCount:0,offers:[{ticket:{eventTicketId:'EVENT',title:'QA event',ticketType:'coupon',description:'QA',usageMethod:'QA',usageInstructions:'QA',...(scenario==='restricted'?{minBookingAmountMode:'total',minBookingAmount:500,minBookingAmountLabel:'一般預約總金額滿 NT$500'}:{})},claim:owned?{claimId:'CLAIM',status:'available',ticketDescription:'QA'}:null,eligibleBookings:scenario==='restricted'?[booking(confirmedId)]:unrestricted?[booking('A'),booking('no-booking','不綁定預約，直接使用票券')]:[],canUse:owned,canClaim:!owned,tierEligible:true,availability:'active'}]};
+   calls.push({action,payload});
+   if(action==='user.event.booking-selections.detail')return {booking:{bookingId:confirmedId,status:'confirmed',editable:true,updatedAt:'2026-11-23T00:00:00Z',selections:currentSelections},options:{items:[{kind:'event',selectionId:'CLAIM',selectable:true}]}};
+   if(action==='user.event.booking-selections.update')return {ok:true};
+   throw Object.assign(new Error('QA location retry'),{code:'LOCATION_OUT_OF_RANGE'});
   }};
   w.eval(fs.readFileSync(path.join(__dirname,'../../event-ticket-ui.js'),'utf8'));
   w.eval(fs.readFileSync(path.join(__dirname,'../../event/app.js'),'utf8'));w.dispatchEvent(new w.Event('DOMContentLoaded'));
   const wait=async check=>{for(let i=0;i<100;i++){if(check())return;await new Promise(r=>setTimeout(r,1));}throw Error(w.document.getElementById('errorMessage').textContent||'UI did not settle');};
   const doc=w.document;await wait(()=>!!doc.querySelector('[data-event-ticket-id]'));assert.equal(doc.getElementById('errorView').classList.contains('hidden'),true);
   doc.querySelector('[data-event-ticket-id]').click();const choice=doc.querySelector('[data-ticket-booking-choice]'),button=doc.getElementById('ticketModalAction');
-  if(scenario==='restricted'){assert.equal(choice.hidden,false);assert.equal(button.disabled,true);const select=choice.querySelector('select');select.value='B';select.dispatchEvent(new w.Event('change'));assert.equal(button.disabled,false);
-   button.click();await wait(()=>button.textContent==='確認使用這張票券');const redeemCalls=calls.filter(call=>call.action==='user.event.ticket.redeem');assert.equal(redeemCalls.length,1);assert.equal(calls.filter(call=>call.action==='member.friend.list').length,0,'redemption must not load friend data when the transfer flow is not open');assert.equal(redeemCalls[0].payload.bookingId,'B');assert.equal(redeemCalls[0].payload.claimId,'CLAIM');
+  if(scenario==='restricted'){
+   assert.equal(doc.querySelector('[data-ticket-action="bind-booking"]').textContent,'綁定已有預約使用');
+   assert.equal(choice.hidden,false);assert.equal(button.disabled,false,'one eligible confirmed booking may be preselected');
+   assert.equal(choice.querySelector('select').value,confirmedId);
+   assert.equal(button.textContent,'綁定已有預約使用');
+   button.click();
+   await wait(()=>calls.some(call=>call.action==='user.event.booking-selections.update'));
+   const writes=calls.filter(call=>call.action==='user.event.booking-selections.update');
+   assert.equal(writes.length,1);
+   assert.equal(writes[0].payload.bookingId,confirmedId);
+   assert.equal(writes[0].payload.expectedUpdatedAt,'2026-11-23T00:00:00Z');
+   assert.deepEqual(JSON.parse(JSON.stringify(writes[0].payload.benefits)),[{kind:'points',id:'PT-OTHER'},{kind:'event',id:'CLAIM'}]);
+   assert.equal(calls.filter(call=>call.action==='user.event.ticket.redeem').length,0,'binding must never redeem immediately');
+   assert.equal(calls.filter(call=>call.action==='member.friend.list').length,0,'binding must not load friend data');
   }else if(unrestricted){
     assert.equal(choice.hidden,true,'unrestricted ticket must hide the entire booking panel');
     assert.equal(button.disabled,false,'implicit direct-use booking must enable redemption');
