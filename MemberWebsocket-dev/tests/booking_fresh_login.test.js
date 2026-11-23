@@ -34,14 +34,19 @@ function harness({url=entry,storage=new Map(),loggedIn=true,inClient=false,block
   return {window,storage,location,calls,signIn:()=>window.BookingSystem.signIn(config,'booking')};
 }
 async function began(opts={}){
-  const h=harness(opts);
+  const h=harness({loggedIn:false,...opts});
   void h.signIn();
   await new Promise(resolve=>setImmediate(resolve));
   return {...h,callback:h.calls.find(([name])=>name==='login')?.[1]};
 }
-test('AC-121-07: booking external entry with cached LINE session requires a nonce-bound login',async()=>{
+test('AC-MTAB-003: cached LINE booking identity is claimed without logging out other tabs',async()=>{
+  const h=harness();
+  assert.equal(await h.signIn(),'verified-booking-token');
+  assert.deepEqual(h.calls.map(a=>a[0]),['init','token','claim']);
+});
+test('AC-121-07: signed-out booking entry starts a nonce-bound login',async()=>{
   const h=await began();
-  assert.deepEqual(h.calls.map(a=>a[0]),['init','logout','login']);
+  assert.deepEqual(h.calls.map(a=>a[0]),['init','login']);
   assert.match(new URL(h.callback).searchParams.get('booking_system_reauth'),/^booking\.[a-f0-9]{32}$/);
   assert.equal(h.calls.some(x=>x[0]==='claim'),false);
   assert.ok(h.storage.has(key));
@@ -74,7 +79,7 @@ for(const variant of ['replay','expired','wrong-path','wrong-nonce','corrupt']){
   });
 }
 test('AC-121-11: missing browser storage fails closed without claim',async()=>{
-  const h=harness({blockedStorage:true});
+  const h=harness({blockedStorage:true,loggedIn:false});
   await assert.rejects(h.signIn(),{code:'AUTH_STORAGE_UNAVAILABLE'});
   assert.equal(h.calls.some(x=>x[0]==='claim'),false);
 });
