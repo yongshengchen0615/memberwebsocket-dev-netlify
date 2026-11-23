@@ -58,7 +58,7 @@ test('completion uses one database transaction to redeem and settle', () => {
 test('booking selection does not require GPS while direct ticket redemption still validates location', () => {
   const source = read('supabase/functions/_shared/booking-benefits.ts');
   const migration = read('supabase/migrations/20261012133000_booking_selection_without_gps.sql');
-  assert.match(source, /selectable: tierEligible && !reservedForOtherBooking && !reservedInSnapshot,/);
+  assert.match(source, /selectable: Boolean\(offer\.claimId\) && tierEligible && !usageExhausted && !reservedForOtherBooking && !reservedInSnapshot,/);
   assert.match(source, /const tierEligible=visibility\.tierEligible \|\| receivedAsGift;/);
   assert.match(source, /selectable: hasTicket && hasEnoughPoints && !reservedForOtherBooking,/);
   assert.match(source, /現場單獨使用需 GPS 定位/);
@@ -169,7 +169,8 @@ test('booking event tickets are already issued, and server enforces configured s
   assert.match(source, /claimRequired: false/);
   assert.match(source, /Boolean\(offer\.claimId\)/);
   assert.match(source, /eventTicketMaxPerDay/);
-  assert.doesNotMatch(common, /user\.booking\.event-ticket\.claim|claimEventTicket/);
+  assert.match(common, /user\.booking\.event-ticket\.claim/); // retained only for old-client compatibility
+  assert.match(common, /claimEventTicket/);
   assert.doesNotMatch(ui, /勾選並領取|claimEventTicket|claimRequired|領取中/);
   assert.match(ui, /selectedEventCount\(\) >= eventTicketMaxPerDay/);
   assert.match(api, /user\.booking\.event-ticket\.claim/); // legacy endpoint denies new claims
