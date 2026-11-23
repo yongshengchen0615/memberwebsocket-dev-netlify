@@ -18,6 +18,10 @@
   const kinds = { points: '集點卡票券', event: '活動票券', calendar: '會員活動' };
   const kindOrder = ['calendar', 'points', 'event'];
   const selectableKinds = new Set(['points', 'event']);
+  const guidedTicketId = (() => {
+    const id = new URLSearchParams(window.location.search).get('eventTicketId') || '';
+    return /^[A-Za-z0-9_-]{1,128}$/.test(id) ? id : '';
+  })();
   const el = (id) => document.getElementById(id);
   const keyFor = (kind, id) => `${String(kind || '')}:${String(id || '')}`;
   const allowed=item=>window.BusinessContext?.allowsBenefit?.(item?.kind)!==false;
@@ -280,6 +284,15 @@
 
   function render(items = renderedItems) {
     renderedItems = (Array.isArray(items) ? items : []).filter(allowed);
+    const guide = el('bookingTicketGuide');
+    if (guide && guidedTicketId) {
+      guide.classList.remove('hidden');
+      const owned = renderedItems.find(item => item.kind === 'event' && item.id === guidedTicketId && item.selectionId);
+      const guideText = el('bookingTicketGuideText');
+      if (guideText) guideText.textContent = owned
+        ? '請切換至一般預約模式，選擇日期、服務與時段，於「本次可使用優惠」勾選「' + String(owned.title || '活動票券') + '」，再確認送出預約。實際核銷將於服務完成時由後端再次驗證。'
+        : '請切換至一般預約模式，選擇日期、服務與時段，並在送出前勾選已發放且符合使用條件的活動票券。若未顯示票券，請檢查會員資格、活動期限與使用名額。';
+    }
     window.dispatchEvent(new CustomEvent('booking:benefits-loaded', { detail: { items: renderedItems } }));
     const list = el('bookingBenefitsList');
     if (!list) return;
@@ -328,6 +341,9 @@
         card.classList.toggle('is-selected', isSelected);
         card.classList.toggle('is-unavailable', pointUnavailable || eventUnavailable);
         card.dataset.benefitKind = item.kind;
+        if (guidedTicketId && item.kind === 'event' && item.id === guidedTicketId && selectionId) {
+          card.classList.add('is-guided-ticket');
+        }
         if (pointUnavailable || eventUnavailable) card.setAttribute('aria-disabled', 'true');
         if (item.kind === 'points') card.dataset.cardStyle = window.MemberUI.pointCardStyleKey(item.cardStyleKey);
 
