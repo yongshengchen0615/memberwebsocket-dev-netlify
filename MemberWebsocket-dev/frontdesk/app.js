@@ -52,6 +52,7 @@
    throw authError('LIFF_SDK_MISSING','LINE 登入元件未載入，請重新開啟商家櫃檯入口。');
   try{await window.liff.init({liffId});}
   catch{throw authError('LIFF_INIT_ERROR','無法完成 LINE 登入初始化，請重新開啟商家櫃檯入口。');}
+  if(window.LineInitialEntry?.enter({liffId,scope:'frontdesk',business}))return null;
   if(window.liff.isInClient()){
    if(!window.liff.isLoggedIn())
     throw authError('AUTH_REQUIRED','LINE 尚未完成登入，請從 LINE 再次開啟商家櫃檯入口。');
