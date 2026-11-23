@@ -20,7 +20,7 @@ async function session({url=entry,storage=new Map(),loggedIn=true,inClient=false
    setItem(k,v){if(storageBlocked)throw Error('disabled');storage.set(k,v);},
    removeItem(k){if(storageBlocked)throw Error('disabled');storage.delete(k);}
  }});
- w.LineInitialEntry={enter({liffId,scope,business}){calls.push(['initial-entry',scope,liffId,business]);return initialEntry;}};
+ w.LineInitialEntry={enter({liffId,scope,business}){if(initialEntry)calls.push(['initial-entry',scope,liffId,business]);return initialEntry;}};
  w.liff={
    async init(input){calls.push(['init',input.liffId]);if(initFails)throw Error('init failed');},
    isInClient:()=>inClient,isLoggedIn:()=>loggedIn,
