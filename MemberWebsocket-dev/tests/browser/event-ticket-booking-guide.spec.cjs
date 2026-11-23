@@ -7,21 +7,27 @@ const files = {
   '/ticket-booking-choice.js': 'ticket-booking-choice.js',
   '/event-ticket-ui.js': 'event-ticket-ui.js',
   '/event-app.js': 'event/app.js',
+  '/ticket-booking-selections.js': 'ticket-booking-selections.js',
   '/booking-benefits.js': 'booking/booking-benefits.js',
 };
 const eventStub = String.raw`
   window.__eventWrites = 0;
+  window.__bindCalls = [];
+  const existingMode = new URLSearchParams(location.search).get('mode') === 'existing';
+  const eligibleId = 'f4b9e063-28dc-4e84-8a83-4e41781344c1';
   window.BusinessContext = {slug:'shop-a',allows:()=>true,allowsBenefit:()=>true};
   window.MembershipProgress = {render(){}};
   window.MemberSystem = {
     bindDialogKeyboard(){},loadConfig:async()=>({}),signIn:async()=> 'test-token',subscribeRealtime(){},
-    request:async(_config,_kind,_token,action)=>{
+    request:async(_config,_kind,_token,action,payload)=>{
+      if(action==='user.event.booking-selections.detail')return {booking:{bookingId:eligibleId,status:'confirmed',editable:true,updatedAt:'2026-11-23T00:00:00Z',selections:[{kind:'points',id:'PT-OTHER',status:'pending'}]},options:{items:[{kind:'event',selectionId:'EC-GUIDED',selectable:true}]}};
+      if(action==='user.event.booking-selections.update'){window.__bindCalls.push(payload);return {ok:true};}
       if(action==='user.event.bootstrap')return {profile:{displayName:'QA會員'},usedTickets:[],bookingSelections:[],offers:[{
         ticket:{eventTicketId:'EVENT-GUIDED',ticketType:'coupon',title:'限預約活動券',description:'預約後可使用',
           minBookingAmountMode:'total',minBookingAmount:300,
           minBookingAmountLabel:'一般預約滿 NT$300',startsOn:'2026-11-01',endsOn:'2026-12-31'},
-        claim:{claimId:'EC-GUIDED',status:'available'},canClaim:false,canUse:false,
-        tierEligible:true,availability:'active',eligibleBookings:[],
+        claim:{claimId:'EC-GUIDED',status:'available'},canClaim:false,canUse:existingMode,
+        tierEligible:true,availability:'active',eligibleBookings:existingMode?[{bookingId:eligibleId,bookingDate:'2026-11-25',startTime:'10:00',title:'預約按摩'}]:[],
       }]};
       window.__eventWrites++;
       throw Error('Unexpected event mutation: '+action);
@@ -61,7 +67,8 @@ test.beforeAll(async () => {
       html=html.replace('</head>',
         '<style>.hidden{display:none!important}</style><script>'+eventStub+'</script>'+
         '<script defer src="/ticket-booking-choice.js"></script>'+
-        '<script defer src="/event-ticket-ui.js"></script>'+
+        '<script defer src="/event-ticket-ui.js"></script>'+ 
+        '<script defer src="/ticket-booking-selections.js"></script>'+
         '<script defer src="/event-app.js"></script></head>');
       res.end(html);
       return;
@@ -106,4 +113,27 @@ for(const width of [390,1280]){
     expect(await page.evaluate(()=>window.__claimCalls)).toBe(0);
     expect(errors).toEqual([]);
   });
+  test('AC-BIND-BOOKING browser '+width+'px: bind eligible existing booking without immediate redemption',async({page})=>{
+    await page.setViewportSize({width,height:850});
+    const errors=[];page.on('pageerror',e=>errors.push(e.message));
+    await page.goto(base+'/event/?business=shop-a&mode=existing');
+    const button=page.locator('#eventList [data-ticket-action="bind-booking"]');
+    await expect(button).toHaveCount(1);
+    await expect(button).toHaveText('綁定已有預約使用');
+    await expect(page.locator('#eventList [data-ticket-action="booking-guide"]')).toHaveCount(0);
+    await button.click();
+    const submit=page.locator('#ticketModalAction');
+    await expect(submit).toHaveText('綁定已有預約使用');
+    await expect(submit).toBeEnabled();
+    page.once('dialog',dialog=>dialog.accept());
+    await submit.click();
+    await expect.poll(()=>page.evaluate(()=>window.__bindCalls.length)).toBe(1);
+    const body=await page.evaluate(()=>window.__bindCalls[0]);
+    expect(body.bookingId).toBe('f4b9e063-28dc-4e84-8a83-4e41781344c1');
+    expect(body.expectedUpdatedAt).toBe('2026-11-23T00:00:00Z');
+    expect(body.benefits).toEqual([{kind:'points',id:'PT-OTHER'},{kind:'event',id:'EC-GUIDED'}]);
+    expect(await page.evaluate(()=>window.__eventWrites)).toBe(0);
+    expect(errors).toEqual([]);
+  });
+
 }
