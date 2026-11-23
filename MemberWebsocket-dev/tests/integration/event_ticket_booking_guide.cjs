@@ -63,6 +63,18 @@ async function setup(offer, options = {}) {
   return { w, dom, writes: () => writes, close: () => dom.window.close() };
 }
 
+test('AC-BOOKING-GUIDE-000: automatically issued default claimed-state ticket also gets booking guidance', async () => {
+  const h = await setup(ticket({ claim: { claimId: 'EC-AUTO', status: 'claimed' } }));
+  try {
+    const card = h.w.document.querySelector('#eventList .event-ticket');
+    assert.ok(card, 'issued ticket still visible');
+    const guide = card.querySelector('[data-ticket-action="booking-guide"]');
+    assert.ok(guide, 'database default claimed status must not hide booking CTA');
+    assert.match(guide.href, /eventTicketId=EVENT-GUIDED/);
+    assert.equal(h.writes(), 0, 'guidance must not mutate or issue tickets');
+  } finally { h.close(); }
+});
+
 test('AC-BOOKING-GUIDE-001: owned booking-restricted ticket remains visible and links to standard booking', async () => {
   const h = await setup(ticket());
   try {
