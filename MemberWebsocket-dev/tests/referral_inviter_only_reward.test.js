@@ -26,7 +26,8 @@ test('referral rewards go only to the inviter and remain repeatable per distinct
   assert.doesNotMatch(api, /INVALID_REFERRAL_QUOTA/);
   assert.match(api, /referral_source_event_ticket_id/);
   assert.doesNotMatch(admin, /好友邀請每次會發放兩張票券/);
-  assert.match(adminHtml, /好友邀請票券則每成功邀請 1 位新會員，由邀請者獲得 1 張/);
+  assert.match(adminHtml, /好友邀請則每成功邀請 1 位發放 1 張/);
+  assert.match(admin, /每成功邀請一位尚未綁定邀請關係的會員，系統會自動發 1 張給邀請者/);
   assert.match(member, /每成功邀請一位不同會員可獲得 1 張優惠票券/);
 });
 
