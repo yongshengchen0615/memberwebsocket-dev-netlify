@@ -25,7 +25,9 @@ async function setup(page,{denied=false,empty=false,stored,blockedStorage=false}
   }]}:{qualifications:[{id:'qualification-1',version:1,status:'pending',displayName:'待審管理員',applicantLineUserId:'synthetic-applicant'}]};
   return route.fulfill({json:{ok:true,data}});
  });
- await page.goto('https://fixture.test/platform/');
+ // This fixture represents an authenticated LINE return, not a fresh external deep link.
+ // A real first visit must use its own LIFF; the SDK callback retains line_initial=1.
+ await page.goto('https://fixture.test/platform/?line_initial=1');
  await expect(page.locator(denied?'#platformAuthorizationNotice':'#platformWorkspace')).toBeVisible();
  return {calls,errors};
 }
@@ -86,7 +88,7 @@ for(const width of [390,1280])test('AC-001/002/003 platform theme, cards and dia
  }
  expect(await page.locator('#tenantList .tenant-card').evaluate(el=>getComputedStyle(el).backgroundColor)).not.toBe(initial);
  await page.reload();await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
- const other=await page.context().newPage();await other.goto('https://fixture.test/platform/');
+ const other=await page.context().newPage();await other.goto('https://fixture.test/platform/?line_initial=1');
  await expect(other.locator('html')).toHaveAttribute('data-theme','dark');
  await page.locator('#themeToggleButton').focus();
  await expect(page.locator('#themeToggleButton')).toHaveCSS('outline-style','solid');
