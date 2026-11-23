@@ -79,11 +79,11 @@ test.beforeAll(async()=>{
           ]
         });
         if(action==='user.booking.receipt.options'&&url.searchParams.get('mode')==='unclaimed-event')return json(res,{
-          ticketBookingRequired:false,items:[state.claimed
-            ? {kind:'event',id:'QA-UNCLAIMED',selectionId:'QA-NEW-CLAIM',title:'QA new event',claimRequired:false,
+          ticketBookingRequired:false,items:[
+            {kind:'event',id:'QA-UNCLAIMED',selectionId:'',title:'QA unissued event',claimRequired:true,
+                selectable:false,requiresLocation:true,disabledReason:'尚未發放，不可選用'},
+            {kind:'event',id:'QA-ISSUED',selectionId:'QA-NEW-CLAIM',title:'QA issued event',claimRequired:false,
                 selectable:Boolean(payload.location?.latitude),requiresLocation:true,disabledReason:'快照 GPS 未通過定位驗證'}
-            : {kind:'event',id:'QA-UNCLAIMED',selectionId:'',title:'QA new event',claimRequired:true,
-                selectable:false,requiresLocation:true,disabledReason:'會員尚未領取'}
           ]
         });
         if(action==='user.booking.receipt.options')return json(res,{ticketBookingRequired:url.searchParams.get('mode')==='tickets-required',items:[{kind:'event',selectionId:'QA-TICKET',title:'QA held ticket',selectable:true,eligibleBookings:[]},{kind:'event',selectionId:'QA-EXPIRED',title:'Expired',selectable:false,disabledReason:'票券已過期'}]});
@@ -346,24 +346,22 @@ test('snapshot ticket cards show selection feedback without a booking selector',
   expect(runs.get(run).prepare).toHaveLength(0);
 });
 
-test('snapshot lists unclaimed event tickets and enables selection only after claiming with GPS',async({page})=>{
+test('snapshot shows only issued event tickets; selecting one uses GPS but never claims',async({page})=>{
   const run='snapshot-unclaimed-event';
   await open(page,run,'unclaimed-event');
-  const offer=page.locator('.snapshot-ticket-option').filter({hasText:'QA new event'});
-  await expect(offer).toBeVisible();
-  await expect(offer.locator('input[type="checkbox"]')).toBeDisabled();
-  await expect(offer).toContainText('尚未領取');
-  expect(runs.get(run).claimCalls).toHaveLength(0);
-  await offer.locator('.snapshot-ticket-claim-button').click();
-  await expect(page.locator('[data-snapshot-id="QA-NEW-CLAIM"]')).toBeEnabled();
+  await expect(page.locator('.snapshot-ticket-option').filter({hasText:'QA unissued event'})).toHaveCount(0);
+  const issued=page.locator('.snapshot-ticket-option').filter({hasText:'QA issued event'});
+  await expect(issued).toBeVisible();
+  await expect(issued.locator('input[type="checkbox"]')).toBeEnabled();
   await expect(page.locator('.snapshot-ticket-claim-button')).toHaveCount(0);
-  expect(runs.get(run).claimCalls).toEqual([{eventTicketId:'QA-UNCLAIMED'}]);
+  expect(runs.get(run).claimCalls).toHaveLength(0);
   await page.locator('[data-snapshot-id="QA-NEW-CLAIM"]').check();
   await expect(page.locator('#snapshotTicketSelectionSummary')).toContainText('已選擇 1 張票券');
   await capture(page);
   await page.locator('#bookingReceiptSubmit').click();
   await expect(page.locator('#bookingReceiptModal')).toBeHidden();
   expect(runs.get(run).prepare[0].benefits).toEqual([{kind:'event',id:'QA-NEW-CLAIM'}]);
+  expect(runs.get(run).claimCalls).toHaveLength(0);
 });
 
 test('snapshot blocks cumulative point overspend and configured ticket quantity limits',async({page})=>{
