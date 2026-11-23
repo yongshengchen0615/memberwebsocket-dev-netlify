@@ -4,6 +4,20 @@ import { loadLatestPointOffers, loadLatestEventOffers } from './latest-available
 import { isEligibleTierActivity } from './activity-eligibility.ts';
 import { chooseBookingPointOffers } from './booking-point-offer-choice.ts';
 
+// Legacy calendar records can link to an event ticket without a populated
+// source_event_ticket_id. They are ticket cards, not independent calendar activities.
+function isTicketBackedCalendarActivity(item: any): boolean {
+  if (item?.source_event_ticket_id) return true;
+  const link = String(item?.link_url || '').trim();
+  if (!link) return false;
+  try {
+    const params = new URL(link, 'https://calendar.invalid').searchParams;
+    return params.get('source') === 'event-ticket-calendar' || params.has('eventTicketId');
+  } catch {
+    return false;
+  }
+}
+
 export async function loadBookingBenefits(db: SupabaseClient, member: any, tier: string, today: string, currentBookingId = '') {
   const features=(db as any).businessFeatures;
   const allowed=(feature:string)=>!features||features[feature]===true;
@@ -14,7 +28,7 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
     loadLatestPointOffers(db, String(member.id), true, true),
     loadLatestEventOffers(db, String(member.id), tier, true, true),
     allowed('calendar')?db.from('calendar_items')
-      .select('calendar_item_id,title,item_type,starts_on,ends_on,status,allowed_tier_keys,source_event_ticket_id,audience_type,audience_month')
+      .select('calendar_item_id,title,item_type,starts_on,ends_on,status,allowed_tier_keys,source_event_ticket_id,link_url,audience_type,audience_month')
       .eq('item_type', 'event').in('status', ['active', 'targeted'])
       .is('source_event_ticket_id', null).lte('starts_on', today)
       .order('starts_on', { ascending: true }):Promise.resolve(empty),
@@ -185,7 +199,8 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
   const isReceivedGift=(offer:any)=>Boolean(offer.claimId && receivedGiftClaimIds.has(String(offer.claimId)));
   const visibleEvents=events.filter(offer=>tierVisibility(offer.allowedTierKeys,tier,visibilityPolicy).visible || isReceivedGift(offer));
   const activities = (calendar.data || []).filter((item: any) =>
-    isEligibleTierActivity(item, tier, today, member.birthday, undefined, undefined, true) || (tierVisibility(item.allowed_tier_keys,tier,visibilityPolicy).visible && isEligibleTierActivity(item,(item.allowed_tier_keys||[])[0],today,member.birthday,undefined,undefined,true))
+    !isTicketBackedCalendarActivity(item) &&
+    (isEligibleTierActivity(item, tier, today, member.birthday, undefined, undefined, true) || (tierVisibility(item.allowed_tier_keys,tier,visibilityPolicy).visible && isEligibleTierActivity(item,(item.allowed_tier_keys||[])[0],today,member.birthday,undefined,undefined,true)))
   ).slice(0, 8);
   return {
     asOf: new Date().toISOString(),
