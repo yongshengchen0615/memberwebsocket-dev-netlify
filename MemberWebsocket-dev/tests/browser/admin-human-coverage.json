@@ -31,8 +31,8 @@
   "frontdeskSettingsSimplificationReview": "2026-11-19 PR #364：重新審閱兩個管理入口及櫃檯設定。只移除 LINE 外站／櫃檯快速入口及重複說明，保留 LIFF Endpoint 複製、設定驗證／儲存、逐人申請審核、通知與原 backend 授權。admin-human 既有六個管理模組旅程及獨立 FrontdeskSettings 入口不變；新增 frontdesk_settings_navigation.test.js AC-FD-UX-001/002 與 frontdesk-booking.spec.cjs 真實 DOM 檢查。完整 CI、開發部署驗證以最終 SHA 取證，不視 stub 為真 LINE 驗證。",
   "reviewedSources": {
     "admin/booking-admin-ux.js": "2c2b7dbc8d08a7884f9e298b97f19862b5044c0bc3cbaef53aa551a576028edc",
-    "admin/index.html": "8c8dcd24ac03d750d796ff7581d1a8c0df485747531d34cffac966b70827bd3d",
-    "admin/app.js": "e1b5c7fc35837aa268ed5ddbdc14b6a11d5639c00cab227fb06da780bbd3bd38",
+    "admin/index.html": "6891611d2a98bc9355b4bb480d47bd140ebfd23b11a0a2c1b2268a68b4c4a353",
+    "admin/app.js": "a1b0afa696edf50017a96a6d43f84f2965c1824d8633b0e3a6f3781a574db839",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
     "admin/grant-automation.js": "3f9d2c049a7741d098548a5102c115b1b23c825f35e4369de3dc0ab1efbb1f6e",
