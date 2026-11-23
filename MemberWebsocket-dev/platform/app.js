@@ -1142,6 +1142,10 @@
       if(!(merchantEntry?merchantLiffPattern:/^\d{10}-[A-Za-z0-9_-]+$/).test(platformLiffId))throw new Error(merchantEntry?'尚未正確設定一般管理員 LIFF ID。':'尚未正確設定總管理員專用 LIFF ID。');
       window.MemberSystem.validateConfig({...state.config,adminLiffId:platformLiffId},'admin');
       if(!window.liff)throw new Error('LIFF SDK 載入失敗，請確認網路後重試。');
+      if(window.LineInitialEntry?.enterBeforeInit({liffId:platformLiffId,scope:merchantEntry?'merchant':'platform',business:selectedBusiness})){
+        el('platformStatus').textContent='正在開啟此頁專屬 LINE 登入…';
+        return;
+      }
       let initTimer;
       try {
         await Promise.race([window.liff.init({liffId:platformLiffId}),new Promise((_,reject)=>{initTimer=setTimeout(()=>reject(new Error('LINE 初始化逾時，請重新開啟此頁面。')),8000);})]);
