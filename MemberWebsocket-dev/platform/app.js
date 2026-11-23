@@ -93,13 +93,21 @@
     const authorizationNotice=el('platformAuthorizationNotice');
     if(authorizationNotice)authorizationNotice.hidden=true;
   }
-  // Decoded claims are a client-only rejection hint, never authorization.
+  // Decoded claims are only a client-side rejection/diagnostic hint, never
+  // authorization. Do not expose ID tokens, user IDs, or private credentials.
   function cachedLineIdentityInvalid(channelId) {
     let claims;
     try{claims=window.liff.getDecodedIDToken?.();}catch{return false;}
     if(!claims||typeof claims!=='object')return false;
-    if(typeof claims.aud==='string'&&claims.aud!==channelId)return true;
-    return typeof claims.exp==='number'&&Number.isFinite(claims.exp)&&claims.exp<=Date.now()/1000+30;
+    if(typeof claims.aud==='string'&&claims.aud!==channelId) {
+      // LINE channel identifiers are public numeric IDs. Reject unexpected
+      // values rather than reflecting untrusted token payloads to the UI.
+      const actual=/^\\d{5,30}$/.test(claims.aud)?claims.aud:'unknown';
+      return {reason:'channel',expected:channelId,actual};
+    }
+    if(typeof claims.exp==='number'&&Number.isFinite(claims.exp)&&claims.exp<=Date.now()/1000+30)
+      return {reason:'expired'};
+    return false;
   }
   function freshLineLogin() {
     el('platformStatus').textContent='正在重新啟動 LINE 登入…';
@@ -1183,7 +1191,8 @@
       }
       // A different LIFF app can leave cached identity for another Channel,
       // or a one-hour ID token may have expired. Neither is a valid session.
-      if(cachedLineIdentityInvalid(platformLiffId.split('-')[0])){
+      const invalidIdentity=cachedLineIdentityInvalid(platformLiffId.split('-')[0]);
+      if(invalidIdentity){
         // A different Channel's browser cache may survive the initial LIFF
         // entry. Automatically retry exactly once; never submit this token.
         state.idToken='';
@@ -1191,7 +1200,13 @@
           showLoginGate('正在自動重新建立此頁的 LINE 登入…');
           return;
         }
-        showLoginGate('LINE 尚未提供此頁有效的登入憑證。請檢查此頁 LIFF ID、Endpoint URL 與 LINE Login Channel 設定；為避免循環已停止自動重試。');
+        const cause=invalidIdentity && typeof invalidIdentity==='object' ? invalidIdentity : null;
+        const detail=cause?.reason==='channel'
+          ? '目前 LINE 憑證所屬 Channel '+cause.actual+'，此頁需要 '+cause.expected+'。請核對此頁 LIFF Endpoint 是否指向目前測試網址，以及 LINE Login Channel 是否相同。'
+          : cause?.reason==='expired'
+            ? 'LINE 身分憑證已到期或即將到期，請由本頁的官方 LIFF 入口重新開啟。'
+            : 'LINE 尚未提供此頁有效的身分憑證，請檢查 LIFF ID、Endpoint URL 與 LINE Login Channel。';
+        showLoginGate(detail+' 為避免重複登入循環，已停止自動重試。');
         return;
       }
       // Reuse the browser's valid LIFF identity without logging out
