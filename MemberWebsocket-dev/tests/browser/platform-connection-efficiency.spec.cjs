@@ -28,7 +28,9 @@ async function setup(page,{merchant=false}={}){
    :{applications:[]};
   return route.fulfill({json:{ok:true,data}});
  });
- await page.goto('https://fixture.test/'+(merchant?'admin/workspace.html':'platform/'));
+ // Root/merchant browser fixtures represent completion of their respective LINE LIFF return.
+ // A fresh direct entry is validated separately by AC-LINE-020/022.
+ await page.goto('https://fixture.test/'+(merchant?'admin/workspace.html':'platform/')+'?line_initial=1');
  await expect(page.locator(merchant?'#myMerchantsWorkspace':'#platformWorkspace')).toBeVisible();
  return{calls,errors,hold(){hold=true;},release(){hold=false;release.splice(0).forEach(resolve=>resolve());}};
 }
