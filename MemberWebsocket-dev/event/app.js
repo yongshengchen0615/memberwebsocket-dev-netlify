@@ -176,7 +176,7 @@
     button.dataset.eventTicketId = eventTicketId;
     const bindable = canBindExistingBooking(offer);
     button.dataset.ticketAction = bindable ? 'bind-booking' : offer.claim && offer.canUse ? 'use' : 'details';
-    button.textContent = history ? '查看紀錄' : reserved ? '已預約使用' : snapshotPending ? '快照待審核' : !eligible ? '查看詳情' : offer.claim ? bindable ? '綁定已有預約使用' : offer.canUse ? '使用票券' : '查看使用條件' : '查看詳情';
+    button.textContent = history ? '查看紀錄' : reserved ? '已預約使用' : snapshotPending ? '快照待審核' : !eligible ? '查看詳情' : offer.claim ? bindable ? '綁定已有預約使用' : offer.canUse ? '使用票券' : '查看詳情' : '查看詳情';
     button.disabled = !eventTicketId;
     if (offer.transferredOut) { button.textContent = '已轉贈好友'; }
     button.addEventListener('click', () => openTicketModal(eventTicketId));
