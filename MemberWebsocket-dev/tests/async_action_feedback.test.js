@@ -61,7 +61,10 @@ test('AC-004: member, booking and frontdesk load the shared versioned assets',()
 test('AC-005: user actions are instrumented while revision polling remains background-only',()=>{
  const fd=read('frontdesk/app.js'),bk=read('booking/app.js'),member=read('member/app.js');
  assert.ok(fd.includes('loadConflictHistory(true)'));
- assert.ok(fd.includes('正在確認預約並更新資料'));
+ assert.ok(fd.includes('正在確認預約並同步最新資料'));
+ assert.ok(fd.includes('正在拒絕預約並同步最新資料'));
+ assert.ok(fd.includes("confirmFrontdeskReview(booking,'confirmed')"));
+ assert.ok(fd.includes("confirmFrontdeskReview(booking,'rejected'"));
  assert.ok(fd.includes("request('frontdesk.sync.status')"));
  assert.ok(bk.includes('正在查詢可預約時段'));
  assert.ok(bk.includes('正在送出預約並更新資料'));
