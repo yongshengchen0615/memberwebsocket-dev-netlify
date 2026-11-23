@@ -103,3 +103,24 @@ test('AC-LINE-014: an in-LINE tab with another Channel audience enters its own L
  assert.equal(correct.enter(),false,'the LIFF SDK already initialized this app inside LINE');
  assert.equal(correct.calls.length,0);
 });
+
+
+test('AC-LINE-015: invalid or replayed application callback is handled by its owner, never bypassed by an automatic LIFF link',()=>{
+ for(const name of ['member_system_reauth','booking_system_reauth','frontdesk_line_reauth']){
+  const h=visit({url:'https://example.netlify.app/member/?'+name+'=forged-nonce',scope:'member',liffId:ID.member});
+  assert.equal(h.enter(),false,name);
+  assert.equal(h.calls.length,0,name);
+ }
+});
+
+test('AC-LINE-016: the initial official link never carries OAuth codes or token-like query secrets',()=>{
+ const h=visit({url:'https://example.netlify.app/member/?business=shop-a&code=secret&access_token=private&jwt=secret&api_key=secret&bookingId=ref-1',scope:'member',liffId:ID.member});
+ assert.equal(h.enter(),false,'an SDK access token callback is never re-routed before sdk init');
+ const safe=visit({url:'https://example.netlify.app/member/?business=shop-a&jwt=secret&api_key=secret&bookingId=ref-1',scope:'member',liffId:ID.member});
+ assert.equal(safe.enter(),true);
+ const link=new URL(safe.calls[0][1]);
+ assert.equal(link.searchParams.get('business'),'shop-a');
+ assert.equal(link.searchParams.get('bookingId'),'ref-1');
+ assert.equal(link.searchParams.has('jwt'),false);
+ assert.equal(link.searchParams.has('api_key'),false);
+});
