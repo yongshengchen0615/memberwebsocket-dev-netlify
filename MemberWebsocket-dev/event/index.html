@@ -22,7 +22,7 @@
   <script src="../ticket-booking-choice.js?v=ticket-booking-choice-20261006-1-controls-20261010-2-event-booking-20261118-1"></script>
   <script src="../ticket-live-location.js?v=admin-geofence-20261010-2" defer></script>
   <script src="../async-action-feedback.js?v=20261123-1" defer></script>
-  <script src="./app.js?v=booking-reserved-20261002-1-admin-geofence-20261010-2-booking-selections-20261013-1-reservation-disclosure-20261014-1-live-ticket-sync-20261016-1-service-condition-20261110-1-amount-condition-20261110-1-event-booking-20261118-1-separate-actions-20261118-1&loading=20261123-1" defer></script>
+  <script src="./app.js?v=booking-reserved-20261002-1-admin-geofence-20261010-2-booking-selections-20261013-1-reservation-disclosure-20261014-1-live-ticket-sync-20261016-1-service-condition-20261110-1-amount-condition-20261110-1-event-booking-20261118-1-separate-actions-20261118-1&loading=20261123-1&issuance=20261123-1" defer></script>
   <script src="./today-usable.js?v=ticket-unlimited-zero-20261002-1" defer></script>
   <script src="../user-tour.js?v=participant-state-isolation-20261004-1-p2-20261006-1" defer></script>
   <link rel="stylesheet" href="../responsive.css?v=20260914-line-form-1">
@@ -49,7 +49,7 @@
       <section id="eventList" class="event-list" aria-live="polite"></section>
       <section id="emptyView" class="empty-view hidden"><span class="empty-mark" aria-hidden="true">○</span><h2>還沒有活動票券</h2><p>有新的會員活動時，票券會出現在這裡。</p></section>
       <section id="usedTicketHistory" class="used-ticket-history hidden" aria-labelledby="usedTicketHistoryTitle"><details id="usedTicketHistoryDisclosure" class="used-ticket-history-disclosure"><summary class="history-summary"><span class="history-summary-title"><span class="eyebrow">Ticket history</span><strong id="usedTicketHistoryTitle">票券使用紀錄</strong></span><span id="usedTicketHistorySummary" class="history-summary-count">點擊查看所有使用紀錄</span></summary><p class="history-description">展開後顯示所有資料；點擊條列項目可查看票券內容與核銷結果。</p><ul id="usedTicketList" class="used-ticket-list" aria-live="polite"></ul></details></section>
-      <p class="privacy-note"><span aria-hidden="true">i</span> 活動票券只會綁定目前登入的 LINE 會員，領取與使用紀錄由系統保留。</p>
+      <p class="privacy-note"><span aria-hidden="true">i</span> 活動票券只會綁定目前登入的 LINE 會員，發放與使用紀錄均會保留。</p>
     </main>
   </div>
 
@@ -76,7 +76,7 @@
         <p id="ticketTransferStatus" role="status" aria-live="polite">只能轉贈給已加入並接受邀請的好友。</p>
         <button id="ticketTransferButton" class="modal-action modal-refresh-button" type="button" disabled>確認轉贈好友</button>
       </section>
-      <button id="ticketModalAction" class="modal-action" type="button">領取活動票券</button>
+      <button id="ticketModalAction" class="modal-action" type="button">使用活動票券</button>
       <button id="refreshTicketButton" class="modal-action modal-refresh-button hidden" type="button">重新整理確認</button>
       <div id="ticketModalMessage" class="modal-message hidden" role="status"></div>
     </div>

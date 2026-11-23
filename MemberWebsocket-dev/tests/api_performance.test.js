@@ -118,11 +118,21 @@ test('empty active cards skip identity lookup and issuance', async () => {
   assert.equal(db.calls.filter(c => c.table === 'point_cards').length, 1);
   assert.equal(db.calls.filter(c => c.table === 'issue_eligible_point_tickets_for_member').length, 0);
 });
-test('event bootstrap keeps quota counts, member-only claims and archived used history', async () => {
-  const result = await api().eventBootstrap(database(), member);
-  assert.equal(result.offers[0].claim, null); assert.equal(result.offers[0].canClaim, true);
-  assert.equal(result.offers[0].ticket.claimedCount, 1); assert.equal(result.usedTicketCount, 1);
-  assert.equal(result.usedTickets[0].claim.claimId, 'HISTORY'); assert.equal(result.usedTickets[0].ticket.eventTicketId, 'OLD');
+test('event bootstrap counts issued stock and never advertises an unissued claim', async () => {
+  const withoutClaim = await api().eventBootstrap(database(), member);
+  assert.equal(withoutClaim.offers.length, 0, 'unissued templates are not visible');
+  const rows = { event_ticket_claims: [
+    ...fixture.event_ticket_claims,
+    { member_id: member.id, event_ticket_id: event.id, claim_id: 'ISSUED', status: 'claimed', ticket_type: 'coupon', ticket_title: 'Event' }
+  ] };
+  const result = await api().eventBootstrap(database({ rows }), member);
+  assert.equal(result.offers.length, 1);
+  assert.equal(result.offers[0].claim.claimId, 'ISSUED');
+  assert.equal(result.offers[0].canClaim, false);
+  assert.equal(result.offers[0].ticket.claimedCount, 2);
+  assert.equal(result.usedTicketCount, 1);
+  assert.equal(result.usedTickets[0].claim.claimId, 'HISTORY');
+  assert.equal(result.usedTickets[0].ticket.eventTicketId, 'OLD');
 });
 test('event bootstrap exposes fixed tickets only to members who own the issued claim', async () => {
   const issued = { ...event, id: 'fixed-issued', event_ticket_id: 'FIXED-ISSUED', title: 'Issued Fixed', fixed_ticket_template_id: 'template-A' };
@@ -135,13 +145,14 @@ test('event bootstrap exposes fixed tickets only to members who own the issued c
     ],
   };
   const result = await api().eventBootstrap(database({ rows }), member);
-  assert.deepEqual(result.offers.map(offer => offer.ticket.eventTicketId), ['EVENT', 'FIXED-ISSUED']);
-  assert.equal(result.offers[1].claim.claimId, 'FIXED-CLAIM');
+  assert.deepEqual(result.offers.map(offer => offer.ticket.eventTicketId), ['FIXED-ISSUED']);
+  assert.equal(result.offers[0].claim.claimId, 'FIXED-CLAIM');
   assert.equal(result.offers.some(offer => offer.ticket.eventTicketId === 'FIXED-UNISSUED'), false);
 });
-test('transferred-out event ticket cannot be claimed a second time', async () => {
+test('transferred-out event ticket retains a visible history marker without reclaim action', async () => {
   const db = database({ rows: { event_ticket_transfers: [{ event_ticket_id: event.id, sender_member_id: member.id }] } });
   const result = await api().eventBootstrap(db, member);
+  assert.equal(result.offers.length, 1);
   assert.equal(result.offers[0].transferredOut, true);
   assert.equal(result.offers[0].canClaim, false);
   assert.equal(result.offers[0].claim, null);

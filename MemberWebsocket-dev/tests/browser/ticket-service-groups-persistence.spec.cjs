@@ -40,7 +40,16 @@ test('AC-008: group selections survive an empty service-catalog refresh and pers
   await expect(first.locator('input[value="service-1"]')).toBeChecked();
   await expect(first.locator('input[value="service-2"]')).toBeChecked();
   await expect(second.locator('input[value="service-1"]')).toBeChecked();
+  // Publishing now grants real ticket inventory. Explicitly accept and assert
+  // the irreversible issuance warning, rather than relying on Playwright's
+  // default dismissal of unexpected dialogs.
+  const issuanceConfirmations = [];
+  page.on('dialog', dialog => {
+    issuanceConfirmations.push(dialog.message());
+    return dialog.accept();
+  });
   await page.locator('#saveEventTicketButton').click();
+  expect(issuanceConfirmations).toEqual([expect.stringContaining('每成功發放 1 張即占用 1 個限量名額')]);
 
   await expect.poll(() => host.sessions.get(info.testId).eventTickets.length).toBe(1);
   const saved = host.sessions.get(info.testId).eventTickets[0];
@@ -77,7 +86,13 @@ test('AC-009: a legacy API that drops groups cannot report a successful save or 
   const items = page.locator('#eventTicketRequiredServiceGroups [data-service-combination]').first();
   await items.locator('input[value="service-1"]').check();
   await items.locator('input[value="service-2"]').check();
+  const issuanceConfirmations = [];
+  page.on('dialog', dialog => {
+    issuanceConfirmations.push(dialog.message());
+    return dialog.accept();
+  });
   await page.locator('#saveEventTicketButton').click();
+  expect(issuanceConfirmations).toEqual([expect.stringContaining('每成功發放 1 張即占用 1 個限量名額')]);
 
   const alert = page.locator('#eventTicketFormMessage');
   await expect(alert).toContainText('後端未保留預約組合設定');

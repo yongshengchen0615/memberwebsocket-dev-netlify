@@ -6,7 +6,7 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 
-test('event ticket quota is presented as limited quantity in admin and member UI', () => {
+test('event ticket issued quantity is presented as limited quantity in admin and member UI', () => {
   const adminHtml = read('admin/index.html');
   const adminApp = read('admin/app.js');
   const eventApp = read('event/app.js');
@@ -15,7 +15,7 @@ test('event ticket quota is presented as limited quantity in admin and member UI
   assert.ok(adminHtml.includes('<label>限量張數<input id="eventTicketQuota"'));
   assert.doesNotMatch(adminHtml, /總發放上限/);
   assert.ok(adminApp.includes('限量張數必須是 0–1,000,000 的整數。'));
-  assert.ok(adminApp.includes('已領取 ${Number(ticket.claimedCount || 0)} / 限量 ${Number(ticket.quota)} 張'));
+  assert.ok(adminApp.includes('已發放 ${Number(ticket.claimedCount || 0)} / 限量 ${Number(ticket.quota)} 張'));
 
   assert.ok(read('event-ticket-ui.js').includes("options.fixed ? '發放方式' : '限量張數'"));
   assert.ok(eventApp.includes('function eventTicketQuotaText(ticket)'));

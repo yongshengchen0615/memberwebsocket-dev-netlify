@@ -26,7 +26,7 @@ test('real points modal requires booking selection and retries the identical usa
  const writes=calls.filter(c=>c.operation==='member.redeem');assert.equal(writes.length,2);assert.equal(writes[0].bookingId,'B');assert.equal(writes[0].requestId,writes[1].requestId);assert.deepEqual(writes[0].ticketIds,['POINT']);
  }finally{dom.window.close();}});
 
-for(const scenario of ['restricted','unrestricted','unclaimed'])test('real event page loads '+(scenario==='restricted'?'restricted booking choices':scenario==='unrestricted'?'direct use with no selector':'unclaimed offers without a booking'),async()=>{
+for(const scenario of ['restricted','unrestricted','unclaimed'])test('real event page loads '+(scenario==='restricted'?'restricted booking choices':scenario==='unrestricted'?'direct use with no selector':'unissued offer is not actionable without a booking'),async()=>{
  const owned=scenario!=='unclaimed', unrestricted=scenario==='unrestricted';
  const html=fs.readFileSync(path.join(__dirname,'../../event/index.html'),'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'');
  const dom=new JSDOM(html,{runScripts:'outside-only',url:'https://qa.local/event/'}),w=dom.window,calls=[];
@@ -51,7 +51,7 @@ for(const scenario of ['restricted','unrestricted','unclaimed'])test('real event
     assert.equal(redemptions.length,1);
     assert.equal(redemptions[0].payload.bookingId,'no-booking');
     assert.equal(redemptions[0].payload.claimId,'CLAIM');
-  }else{assert.equal(choice.hidden,true);assert.equal(button.disabled,false);assert.match(button.textContent,/領取/);assert.equal(calls.length,0);}
+  }else{assert.equal(choice.hidden,true);assert.equal(button.disabled,true,'a server-unissued ticket has no claim or use action');assert.doesNotMatch(button.textContent,/領取/);assert.equal(calls.length,0);}
  }finally{dom.window.close();}
 });
 

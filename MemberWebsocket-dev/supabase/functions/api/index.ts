@@ -188,6 +188,7 @@ function mapDatabaseError(error: unknown): ApiError {
     ["EVENT_NOT_STARTED",409,"EVENT_NOT_STARTED","活動尚未開始。"],
     ["EVENT_ENDED",409,"EVENT_ENDED","活動已結束。"],
     ["EVENT_QUOTA_REACHED",409,"EVENT_QUOTA_REACHED","活動票券已達發放上限。"],
+    ["EVENT_TICKET_ISSUANCE_ONLY",409,"EVENT_TICKET_ISSUANCE_ONLY","活動票券由系統發放，不需要另行領取。"],
     ["REFERRAL_TICKET_AUTO_ONLY",409,"REFERRAL_TICKET_AUTO_ONLY","好友邀請票券只能在好友邀請綁定成功後由系統發放。"],
     ["MEMBERSHIP_JOIN_TICKET_AUTO_ONLY",409,"MEMBERSHIP_JOIN_TICKET_AUTO_ONLY","加入會員票券只能在會員完成加入時由系統發放。"],
     ["event_tickets_one_active_referral_idx",409,"REFERRAL_REWARD_ALREADY_ACTIVE","同時間只能啟用一個好友邀請票券。"],
@@ -1413,9 +1414,9 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
     const claimRow = claimByEvent.get(row.id);
     const transferredOut = transferredOutEventIds.has(String(row.id)) && !claimRow;
     const receivedAsGift = Boolean(claimRow && receivedGiftClaimIds.has(String(claimRow.claim_id)));
-    // Fixed tickets are server-issued member benefits, not public claimable offers.
-    // Never expose a fixed-ticket event to a member unless that member owns its claim.
-    if ((row.fixed_ticket_template_id || row.ticket_type === "referral" || row.ticket_type === "membership_join") && !claimRow) return [];
+    // All ticket types are issued by the server; a published template is not a claimable ticket.
+    // Expose only tickets already owned by this member, never another member’s inventory.
+    if (!claimRow && !transferredOut) return [];
     if (claimRow && String(claimRow.status || "") === "used") return [];
     const ticket = {
       ...eventTicketClient(row,counts.get(row.id)||0),
@@ -1438,7 +1439,7 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
       availability,
       tierEligible,
       locked:receivedAsGift ? false : visibility.locked, lockReason:receivedAsGift ? "" : visibility.lockReason, requiredTierLabels:visibility.requiredTierLabels,
-      canClaim: !transferredOut && !["referral","membership_join"].includes(String(row.ticket_type || "")) && !claim && tierEligible && availability === "active" && !soldOut,
+      canClaim: false,
       canUse: Boolean(claim && claim.status === "available" && tierEligible && availability === "active" && !reservedForBooking && !pendingSnapshots.length && (bookingOptions.data as any)?.event?.[claimRow.claim_id]?.length),
       eligibleBookings: claimRow ? (bookingOptions.data as any)?.event?.[claimRow.claim_id] || [] : [],
       usageDisabledReason: "請先有管理員已確認、尚未完成且符合票券項目條件的預約。",
@@ -1685,13 +1686,10 @@ async function grantAvailableTicketSection(
     const eventId = String(row.id);
     const claimStatus = memberClaimByEvent.get(eventId) || "";
     if (claimStatus === "claimed" || claimStatus === "available") {
-      eventTicketItems.push({ label:String(row.title || "活動票券"),status:"已領取，可使用" });
+      eventTicketItems.push({ label:String(row.title || "活動票券"),status:"已發放，可使用" });
       continue;
     }
-    if (claimStatus) continue;
-    const quota = Number(row.quota || 0);
-    const soldOut = quota > 0 && (claimCounts.get(eventId) || 0) >= quota;
-    if (!soldOut) eventTicketItems.push({ label:String(row.title || "活動票券"),status:"可領取" });
+    // An unissued template is not a member benefit and must not appear here.
   }
   if (eventTicketItems.length) {
     ticketBlocks.push(

@@ -31,12 +31,20 @@ async function openForm(page,testId) {
   await page.locator('#eventTicketUsageMethod').fill('一般預約使用');
   await page.locator('#eventTicketUsageInstructions').fill('快照不受此金額限制');
   await page.locator('#eventTicketStatus').selectOption('active');
+  // Confirm and assert the new irreversible distribution boundary. The browser's
+  // default auto-dismissal must not accidentally turn a save test into a no-op.
+  const issuanceConfirmations = [];
+  page.on('dialog', dialog => {
+    issuanceConfirmations.push(dialog.message());
+    return dialog.accept();
+  });
+  return issuanceConfirmations;
 }
 
 for (const width of [390,1280]) {
   test('AC-007: admin setting survives save/reload at '+width+'px',async({page},info)=>{
     await page.setViewportSize({width,height:850});
-    await openForm(page,info.testId);
+    const issuanceConfirmations = await openForm(page,info.testId);
     const mode = page.locator('#eventTicketMinBookingAmountMode');
     await expect(mode).toHaveValue('none');
     await expect(page.locator('#eventTicketMinBookingAmountField')).toBeHidden();
@@ -45,6 +53,7 @@ for (const width of [390,1280]) {
     await expect(page.locator('#eventTicketMinBookingServicesField')).toBeVisible();
     await page.locator('#eventTicketMinBookingServiceIds input[value="service-2"]').check();
     await page.locator('#saveEventTicketButton').click();
+    expect(issuanceConfirmations).toEqual([expect.stringContaining('每成功發放 1 張即占用 1 個限量名額')]);
     await expect.poll(()=>host.sessions.get(info.testId).eventTickets.length).toBe(1);
     const ticket=host.sessions.get(info.testId).eventTickets[0];
     expect(ticket.minBookingAmountMode).toBe('selected_services');
@@ -61,12 +70,13 @@ for (const width of [390,1280]) {
   });
 }
 test('AC-008: admin cannot silently lose minimum from stale server response',async({page},info)=>{
-  await openForm(page,info.testId);
+  const issuanceConfirmations = await openForm(page,info.testId);
   const session=host.sessions.get(info.testId);
   session.legacyTicketApiDropsAmount=true;
   await page.locator('#eventTicketMinBookingAmountMode').selectOption('total');
   await page.locator('#eventTicketMinBookingAmount').fill('800');
   await page.locator('#saveEventTicketButton').click();
+  expect(issuanceConfirmations).toEqual([expect.stringContaining('每成功發放 1 張即占用 1 個限量名額')]);
   await expect(page.locator('#eventTicketFormMessage')).toContainText('後端未保留最低預約金額');
   await expect(page.locator('#eventTicketMinBookingAmount')).toHaveValue('800');
   expect(session.calls.filter(x=>x.action==='admin.event-tickets.save')).toHaveLength(1);
