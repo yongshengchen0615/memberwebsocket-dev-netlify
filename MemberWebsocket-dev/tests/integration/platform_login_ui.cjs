@@ -9,6 +9,7 @@ const html=fs.readFileSync(path.join(root,'platform/index.html'),'utf8');
 const app=fs.readFileSync(path.join(root,'platform/app.js'),'utf8');
 const config={
  platformLiffId:'2012065297-VunxFBj8',
+ adminLiffId:'2010791619-vhevCvvD',
  supabaseFunctionUrl:'https://example.supabase.co/functions/v1/api',
  supabasePublishableKey:'test-public-key',
 };
@@ -43,9 +44,12 @@ async function until(check){
  }
  throw new Error('Platform initialization did not reach expected UI state');
 }
-async function boot({loggedIn=false,returning=false,apiStatus=403}={}){
- const dom=new JSDOM(html,{url:'https://platform.test/platform/',runScripts:'outside-only'});
+async function boot({loggedIn=false,returning=false,apiStatus=403,merchant=false,business='',decodedToken=null}={}){
+ const url='https://platform.test/'+(merchant?'admin/workspace.html':'platform/')+(business?'?business='+encodeURIComponent(business):'');
+ const dom=new JSDOM(html,{url,runScripts:'outside-only'});
  const win=dom.window;
+ if(merchant)win.document.documentElement.dataset.workspace='merchant';
+ if(business)win.BusinessContext={slug:business,configure:async config=>config};
  const calls={init:0,login:0,logout:0,api:0};
  if(!win.AbortSignal.timeout)win.AbortSignal.timeout=()=>new win.AbortController().signal;
  win.MemberSystem={validateConfig(){}};
@@ -54,6 +58,7 @@ async function boot({loggedIn=false,returning=false,apiStatus=403}={}){
   isLoggedIn:()=>loggedIn,
   isInClient:()=>false,
   getIDToken:()=>loggedIn?'synthetic-verified-token':'',
+  getDecodedIDToken:()=>decodedToken,
   logout:()=>{calls.logout++;},
   login:()=>{calls.login++;},
  };
@@ -63,8 +68,9 @@ async function boot({loggedIn=false,returning=false,apiStatus=403}={}){
   assert.equal(options.method,'POST');
   calls.api++;
   const body=JSON.parse(options.body);
-  assert.equal(body.action,'platform.bootstrap');
+  assert.equal(body.action,merchant?'platform.application.bootstrap':'platform.bootstrap');
   assert.equal(body.idToken,'synthetic-verified-token');
+  if(apiStatus===401)return {ok:false,status:401,json:async()=>({ok:false,error:{code:'AUTH_INVALID',message:'一般管理員 LINE 登入已失效，請重新登入。'}})};
   if(apiStatus===403)return {ok:false,status:403,json:async()=>({ok:false,error:{code:'PLATFORM_ADMIN_REQUIRED',message:'denied'}})};
   return {ok:true,status:200,json:async()=>({ok:true,data:{features:{membership:'會員卡'},tenants:[],applications:[],profile:{displayName:'已核准人員'}}})};
  };
@@ -122,5 +128,50 @@ test('AC-UI-004: server-approved identity reaches workspace without further prom
   assert.match(d.getElementById('platformStatus').textContent,/已登入/);
   assert.equal(h.calls.logout,0);
   assert.equal(h.calls.login,0);
+ }finally{h.dom.window.close();}
+});
+
+
+test('AC-REAUTH-001: wrong-channel cached LIFF identity must not reach merchant API and offers its dedicated LINE app',async()=>{
+ const h=await boot({loggedIn:true,merchant:true,business:'tenant-one',decodedToken:{aud:'2012065297',exp:Math.floor(Date.now()/1000)+1800}});
+ try {
+  await until(()=>Boolean(h.win.document.getElementById('lineReauthLink')));
+  assert.equal(h.calls.api,0,'a platform audience is never submitted as a merchant credential');
+  assert.equal(h.calls.logout,0,'a sibling LIFF tab is never logged out');
+  assert.equal(h.win.document.getElementById('lineReauthLink').href,'https://liff.line.me/2010791619-vhevCvvD?business=tenant-one');
+  assert.equal(h.win.document.getElementById('platformWorkspace').hidden,true);
+ }finally{h.dom.window.close();}
+});
+
+test('AC-REAUTH-002: expired cached LIFF credential offers scoped re-login without calling the server',async()=>{
+ const h=await boot({loggedIn:true,merchant:true,decodedToken:{aud:'2010791619',exp:Math.floor(Date.now()/1000)-10}});
+ try {
+  await until(()=>Boolean(h.win.document.getElementById('lineReauthLink')));
+  assert.equal(h.calls.api,0);
+  assert.equal(h.calls.logout,0);
+  assert.equal(h.win.document.getElementById('lineReauthLink').href,'https://liff.line.me/2010791619-vhevCvvD');
+ }finally{h.dom.window.close();}
+});
+
+test('AC-REAUTH-003: LINE verification 401 presents a working per-channel reentry link, never a global logout',async()=>{
+ const h=await boot({loggedIn:true,merchant:true,apiStatus:401,decodedToken:{aud:'2010791619',exp:Math.floor(Date.now()/1000)+1800}});
+ try {
+  await until(()=>Boolean(h.win.document.getElementById('lineReauthLink')));
+  const a=h.win.document.getElementById('lineReauthLink');
+  assert.equal(a.href,'https://liff.line.me/2010791619-vhevCvvD');
+  assert.match(a.textContent,/LINE/);
+  assert.equal(h.calls.api,1,'must still server-verify the token');
+  assert.equal(h.calls.logout,0);
+  assert.equal(h.win.document.getElementById('merchantWorkspace').hidden,true);
+ }finally{h.dom.window.close();}
+});
+
+test('AC-REAUTH-004: valid channel-specific LIFF credentials keep existing direct-server verification',async()=>{
+ const h=await boot({loggedIn:true,merchant:false,decodedToken:{aud:'2012065297',exp:Math.floor(Date.now()/1000)+1800},apiStatus:403});
+ try {
+  await until(()=>h.calls.api===1);
+  assert.equal(h.calls.logout,0);
+  assert.equal(h.calls.login,0);
+  assert.equal(h.win.document.getElementById('lineReauthLink'),null);
  }finally{h.dom.window.close();}
 });
