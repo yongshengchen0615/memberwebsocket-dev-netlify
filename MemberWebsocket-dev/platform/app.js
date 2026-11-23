@@ -1256,8 +1256,9 @@
         ? (merchantEntry?'一般管理員 LINE 身分驗證未通過，請重新登入。':'總管理員 LINE 身分驗證未通過，請使用專用 LINE 登入。')
         : error?.message || 'LINE 驗證尚未完成，請檢查網路後手動重試。');
       if(['AUTH_INVALID','AUTH_REQUIRED','TENANT_REAUTH_REQUIRED'].includes(error.code)){
+        // A server 401 may reflect revoked authorization, not a stale LIFF cache.
+        // Keep the explicit reentry link without redirecting and masking denial.
         offerLineReentry();
-        if(error.code==='AUTH_INVALID')autoReenterOnce();
       }
 
     }
