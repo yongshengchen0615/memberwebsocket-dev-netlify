@@ -187,7 +187,9 @@ function mapDatabaseError(error: unknown): ApiError {
     ["EVENT_TICKET_NOT_AVAILABLE",409,"EVENT_TICKET_NOT_AVAILABLE","這張活動票券目前無法使用。"],
     ["EVENT_NOT_STARTED",409,"EVENT_NOT_STARTED","活動尚未開始。"],
     ["EVENT_ENDED",409,"EVENT_ENDED","活動已結束。"],
-    ["EVENT_QUOTA_REACHED",409,"EVENT_QUOTA_REACHED","活動票券已達發放上限。"],
+    ["EVENT_QUOTA_REACHED",409,"EVENT_QUOTA_REACHED","活動使用名額已額滿。"],
+    ["EVENT_USAGE_QUOTA_REACHED",409,"EVENT_USAGE_QUOTA_REACHED","本活動的使用名額已額滿，票券仍會保留在帳戶中。"],
+    ["EVENT_USAGE_QUOTA_BELOW_USED_COUNT",409,"EVENT_USAGE_QUOTA_BELOW_USED_COUNT","使用上限不得小於已使用數量。"],
     ["EVENT_TICKET_ISSUANCE_ONLY",409,"EVENT_TICKET_ISSUANCE_ONLY","活動票券由系統發放，不需要另行領取。"],
     ["REFERRAL_TICKET_AUTO_ONLY",409,"REFERRAL_TICKET_AUTO_ONLY","好友邀請票券只能在好友邀請綁定成功後由系統發放。"],
     ["MEMBERSHIP_JOIN_TICKET_AUTO_ONLY",409,"MEMBERSHIP_JOIN_TICKET_AUTO_ONLY","加入會員票券只能在會員完成加入時由系統發放。"],
@@ -1244,7 +1246,7 @@ async function pointBootstrap(supabase: SupabaseClient, member: any): Promise<Js
   return { profile, cards, cardDetails, history, historyTotal: history.length, bookingSelections };
 }
 
-function eventTicketClient(row: any, claimedCount = 0, admin = false): Json {
+function eventTicketClient(row: any, claimedCount = 0, admin = false, usedCount = 0): Json {
   return {
     eventTicketId: row.event_ticket_id,
     title: row.title,
@@ -1258,6 +1260,7 @@ function eventTicketClient(row: any, claimedCount = 0, admin = false): Json {
     endsOn: row.ends_on || "",
     quota: Number(row.quota || 0),
     claimedCount,
+    usedCount,
     requiresLocation: Boolean(row.requires_location),
     redemptionLocationNames: Boolean(row.requires_location) && Array.isArray(row.redemption_locations)
       ? row.redemption_locations.map((location:any) => String(location.name || "")).filter(Boolean) : [],
@@ -1306,12 +1309,18 @@ async function adminEventTickets(supabase: SupabaseClient): Promise<any[]> {
   if (error) throw mapDatabaseError(error);
   const ids = (rows || []).map((row:any) => row.id);
   const counts = new Map<string,number>();
+  const usedCounts = new Map<string,number>();
   if (ids.length) {
-    const claims = await supabase.rpc("event_ticket_claim_counts",{ p_event_ids:ids });
+    const [claims, used] = await Promise.all([
+      supabase.rpc("event_ticket_claim_counts",{ p_event_ids:ids }),
+      supabase.rpc("event_ticket_used_counts",{ p_event_ids:ids }),
+    ]);
     if (claims.error) throw mapDatabaseError(claims.error);
+    if (used.error) throw mapDatabaseError(used.error);
     for (const claim of claims.data || []) counts.set(claim.event_ticket_id,Number(claim.claimed_count));
+    for (const row of used.data || []) usedCounts.set(row.event_ticket_id,Number(row.used_count));
   }
-  return (rows || []).map((row:any) => eventTicketClient(row,counts.get(row.id)||0,true));
+  return (rows || []).map((row:any) => eventTicketClient(row,counts.get(row.id)||0,true,usedCounts.get(row.id)||0));
 }
 
 function ticketRequiredServiceLabel(row: any, serviceTitles: Map<string,string>): string {
@@ -1382,18 +1391,22 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
   if (allHistoryRes.error) throw mapDatabaseError(allHistoryRes.error);
   if (pendingSelectionsRes.error) throw mapDatabaseError(pendingSelectionsRes.error);
   const reservedEventClaimIds = new Set((pendingSelectionsRes.data || []).map((row:any) => String(row.benefit_ref || "")).filter(Boolean));
-  const [claimsRes,countRes] = ids.length
+  const [claimsRes,countRes,usedRes] = ids.length
     ? await Promise.all([
       supabase.from("event_ticket_claims").select("*").eq("member_id",member.id).in("event_ticket_id",ids).order("created_at",{ ascending:false }),
       supabase.rpc("event_ticket_claim_counts",{ p_event_ids:ids }),
+      supabase.rpc("event_ticket_used_counts",{ p_event_ids:ids }),
     ])
-    : [{ data:[], error:null },{ data:[], error:null }];
+    : [{ data:[], error:null },{ data:[], error:null },{ data:[], error:null }];
   if (claimsRes.error) throw mapDatabaseError(claimsRes.error);
   if (countRes.error) throw mapDatabaseError(countRes.error);
+  if (usedRes.error) throw mapDatabaseError(usedRes.error);
 
   const claimByEvent = new Map((claimsRes.data || []).map((row:any) => [row.event_ticket_id,row]));
   const counts = new Map<string,number>();
+  const usedCounts = new Map<string,number>();
   for (const row of countRes.data || []) counts.set(row.event_ticket_id,Number(row.claimed_count));
+  for (const row of usedRes.data || []) usedCounts.set(row.event_ticket_id,Number(row.used_count));
   const requiredServiceIds = [...new Set((eventRows || []).flatMap((row: any) => [
     ...(Array.isArray(row.required_service_ids) ? row.required_service_ids : []),
     ...(Array.isArray(row.required_service_groups)
@@ -1419,7 +1432,7 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
     if (!claimRow && !transferredOut) return [];
     if (claimRow && String(claimRow.status || "") === "used") return [];
     const ticket = {
-      ...eventTicketClient(row,counts.get(row.id)||0),
+      ...eventTicketClient(row,counts.get(row.id)||0,false,usedCounts.get(row.id)||0),
       requiredServiceRequirementLabel: ticketRequiredServiceLabel(row,serviceTitles),
       minBookingAmountLabel: ticketBookingAmountLabel(row,serviceTitles),
     } as any;
@@ -1430,7 +1443,7 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
     const visibility = tierVisibility(row.allowed_tier_keys,profile.tierKey,visibilityPolicy);
     if (!visibility.visible && !claimRow) return [];
     const tierEligible = visibility.tierEligible || receivedAsGift;
-    const soldOut = Number(row.quota || 0) > 0 && (counts.get(row.id)||0) >= Number(row.quota);
+    const soldOut = Number(row.quota || 0) > 0 && (usedCounts.get(row.id)||0) >= Number(row.quota);
     const reservedForBooking = Boolean(claimRow && reservedEventClaimIds.has(String(claimRow.claim_id || "")));
     const pendingSnapshots = claimRow ? pendingSnapshotsByClaim.get(String(claimRow.claim_id || "")) || [] : [];
     return [{
@@ -1440,9 +1453,9 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
       tierEligible,
       locked:receivedAsGift ? false : visibility.locked, lockReason:receivedAsGift ? "" : visibility.lockReason, requiredTierLabels:visibility.requiredTierLabels,
       canClaim: false,
-      canUse: Boolean(claim && claim.status === "available" && tierEligible && availability === "active" && !reservedForBooking && !pendingSnapshots.length && (bookingOptions.data as any)?.event?.[claimRow.claim_id]?.length),
+      canUse: Boolean(claim && claim.status === "available" && tierEligible && availability === "active" && !reservedForBooking && !pendingSnapshots.length && !soldOut && (bookingOptions.data as any)?.event?.[claimRow.claim_id]?.length),
       eligibleBookings: claimRow ? (bookingOptions.data as any)?.event?.[claimRow.claim_id] || [] : [],
-      usageDisabledReason: "請先有管理員已確認、尚未完成且符合票券項目條件的預約。",
+      usageDisabledReason: soldOut ? "本活動使用名額已額滿；未使用的票券會保留在帳戶中。" : "請先有管理員已確認、尚未完成且符合票券項目條件的預約。",
       reservedForBooking,
       pendingSnapshot: pendingSnapshots[0] || null,
       pendingSnapshots,
@@ -1881,7 +1894,7 @@ async function saveEventTicket(supabase: SupabaseClient, actor: string, body: Js
   if (endsOn && !/^\d{4}-\d{2}-\d{2}$/.test(endsOn)) throw new ApiError(400,"INVALID_DATE","活動結束日格式不正確。");
   if (startsOn && endsOn && endsOn < startsOn) throw new ApiError(400,"INVALID_DATE_RANGE","活動結束日不可早於開始日。");
   const quota = Number(input.quota || 0);
-  if (!Number.isInteger(quota) || quota < 0 || quota > 1_000_000) throw new ApiError(400,"INVALID_QUOTA","限量張數必須是 0–1,000,000。");
+  if (!Number.isInteger(quota) || quota < 0 || quota > 1_000_000) throw new ApiError(400,"INVALID_QUOTA","使用數量上限必須是 0–1,000,000。");
   const requiresLocation = ticketType === "referral" ? false : input.requiresLocation === true;
   // Older admin tabs still send the original single-site fields during rollout.
   const rawLocations = Array.isArray(input.redemptionLocations) ? input.redemptionLocations
