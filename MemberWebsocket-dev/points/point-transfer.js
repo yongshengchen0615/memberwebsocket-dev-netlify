@@ -487,6 +487,7 @@
     clearReceiver();
     const generation = state.receiverGeneration;
     setMessage('正在確認收件會員…');
+    const finishFeedback = window.AsyncActionFeedback?.begin('正在查詢點數轉贈收件人…');
     try {
       const receiver = await window.MemberSystem.request(
         s.config,
@@ -504,7 +505,7 @@
       state.receiver = null;
       renderReceiver();
       setMessage(error?.message || '目前無法確認收件會員。', true);
-    }
+    } finally { finishFeedback?.(); }
   }
 
   async function submitTransfer(event) {
@@ -542,6 +543,7 @@
     const fields = ['pointTransferMemberCode', 'pointTransferAmount', 'pointTransferLookup', 'pointTransferChooseFriend', 'pointTransferScanQr', 'pointTransferUseFriend'].map((id) => document.getElementById(id));
     fields.forEach((field) => { if (field) field.disabled = true; });
     setMessage('正在安全轉贈點數…');
+    const finishFeedback = window.AsyncActionFeedback?.begin('正在安全轉贈點數並更新餘額…');
 
     try {
       const result = await window.MemberSystem.request(
@@ -577,6 +579,7 @@
         true
       );
     } finally {
+      finishFeedback?.();
       state.busy = false;
       updateOpenButton();
       submit.disabled = !state.pending && transferableBalance(cardId) <= 0;
