@@ -93,30 +93,15 @@
     const authorizationNotice=el('platformAuthorizationNotice');
     if(authorizationNotice)authorizationNotice.hidden=true;
   }
-  // Decoded claims are only a client-side rejection/diagnostic hint, never
-  // authorization. Do not expose ID tokens, user IDs, or private credentials.
-  function cachedLineIdentityInvalid(channelId) {
-    let claims;
-    try{claims=window.liff.getDecodedIDToken?.();}catch{return false;}
-    if(!claims||typeof claims!=='object')return false;
-    if(typeof claims.aud==='string'&&claims.aud!==channelId) {
-      // LINE channel identifiers are public numeric IDs. Reject unexpected
-      // values rather than reflecting untrusted token payloads to the UI.
-      const actual=/^\d{5,30}$/.test(claims.aud)?claims.aud:'unknown';
-      return {reason:'channel',expected:channelId,actual};
-    }
-    if(typeof claims.exp==='number'&&Number.isFinite(claims.exp)&&claims.exp<=Date.now()/1000+30)
-      return {reason:'expired'};
-    return false;
-  }
   function freshLineLogin() {
     el('platformStatus').textContent='正在重新啟動 LINE 登入…';
     try {
       window.sessionStorage.setItem(LOGIN_RETURN_KEY,String(Date.now()));
       const inClient=window.liff.isInClient();
       state.idToken='';
-      // Never invalidate other LIFF tabs through browser-shared logout.
-      // This helper is only called for signed-out users.
+      // Discard the old ID token. LINE LIFF browser cannot call liff.login():
+      // liff.init() automatically signs in again after a page reload.
+      window.liff.logout();
       if(inClient) window.location.reload();
       else window.liff.login();
     } catch {
@@ -159,9 +144,8 @@
           clearPrivateMerchant();clearAccount();
           if(isAccount()){el('qualificationWorkspace').hidden=false;el('qualificationStatus').textContent=body.error?.message||'目前無法確認管理員資格，請重新檢查。';}
         }
-        if(response.status===401 && ['AUTH_INVALID','AUTH_REQUIRED','TENANT_REAUTH_REQUIRED'].includes(body.error?.code)){
+        if(response.status===401 && ['AUTH_INVALID','AUTH_REQUIRED','TENANT_REAUTH_REQUIRED'].includes(body.error?.code))
           showLoginGate(merchantEntry?(body.error?.message || '一般管理員 LINE 驗證已失效，請重新登入。'):'總管理員 LINE 驗證已失效，請確認專用 LINE Login Channel。');
-        }
         throw Object.assign(new Error(body.error?.message || '操作未完成。'),{code:body.error?.code,status:response.status});
       }
       // A completed root write makes any older in-flight background snapshot obsolete.
@@ -1132,10 +1116,6 @@
       if(!(merchantEntry?merchantLiffPattern:/^\d{10}-[A-Za-z0-9_-]+$/).test(platformLiffId))throw new Error(merchantEntry?'尚未正確設定一般管理員 LIFF ID。':'尚未正確設定總管理員專用 LIFF ID。');
       window.MemberSystem.validateConfig({...state.config,adminLiffId:platformLiffId},'admin');
       if(!window.liff)throw new Error('LIFF SDK 載入失敗，請確認網路後重試。');
-      if(window.LineInitialEntry?.enterBeforeInit?.({liffId:platformLiffId,scope:merchantEntry?'merchant':'platform',business:selectedBusiness})){
-        el('platformStatus').textContent='正在開啟此頁專屬 LINE 登入…';
-        return;
-      }
       let initTimer;
       try {
         await Promise.race([window.liff.init({liffId:platformLiffId}),new Promise((_,reject)=>{initTimer=setTimeout(()=>reject(new Error('LINE 初始化逾時，請重新開啟此頁面。')),8000);})]);
@@ -1143,12 +1123,6 @@
       finally {clearTimeout(initTimer);}
       const returnedFromLine=consumeLoginReturn();
       const inLiffClient=window.liff.isInClient();
-      // Every external page enters its own LIFF application once before any
-      // cached cross-tab identity can reach this admin or Platform API.
-      if(window.LineInitialEntry?.enter({liffId:platformLiffId,scope:merchantEntry?'merchant':'platform',business:selectedBusiness})){
-        el('platformStatus').textContent='正在透過此頁專屬的 LINE 入口初始化登入…';
-        return;
-      }
       if(!window.liff.isLoggedIn()) {
         if(returnedFromLine || rejectedLoginReturn) {
           showLoginGate('LINE 登入未完成，請重新開啟頁面。');
@@ -1189,31 +1163,18 @@
         showLoginGate('無法取得 LINE 身分憑證，請確認 LIFF 已開通 openid 權限，並重新開啟頁面。');
         return;
       }
-      // A different LIFF app can leave cached identity for another Channel,
-      // or a one-hour ID token may have expired. Neither is a valid session.
-      const invalidIdentity=cachedLineIdentityInvalid(platformLiffId.split('-')[0]);
-      if(invalidIdentity){
-        // A different Channel's browser cache may survive the initial LIFF
-        // entry. Automatically retry exactly once; never submit this token.
-        state.idToken='';
-        if(window.LineInitialEntry?.recover?.({liffId:platformLiffId,scope:merchantEntry?'merchant':'platform',business:selectedBusiness})){
-          showLoginGate('正在自動重新建立此頁的 LINE 登入…');
-          return;
+      // Every external entry, including the general-admin portal, must complete
+      // this visit's fresh LINE redirect before using any previously cached token.
+      // LIFF in-app browsing is verified by liff.init() + the server bootstrap:
+      // liff.login() is unsupported in the LINE client.
+      if(!inLiffClient && !returnedFromLine) {
+        if(!rejectedLoginReturn && markAutomaticLoginAttempt()) {
+          freshLineLogin();
+        } else {
+          showLoginGate(rejectedLoginReturn
+            ? 'LINE 登入回跳已過期，請重新開啟頁面。'
+            : 'LINE 驗證未完成，請重新開啟頁面。');
         }
-        const cause=invalidIdentity && typeof invalidIdentity==='object' ? invalidIdentity : null;
-        const detail=cause?.reason==='channel'
-          ? '目前 LINE 憑證所屬 Channel '+cause.actual+'，此頁需要 '+cause.expected+'。請核對此頁 LIFF Endpoint 是否指向目前測試網址，以及 LINE Login Channel 是否相同。'
-          : cause?.reason==='expired'
-            ? 'LINE 身分憑證已到期或即將到期，請由本頁的官方 LIFF 入口重新開啟。'
-            : 'LINE 尚未提供此頁有效的身分憑證，請檢查 LIFF ID、Endpoint URL 與 LINE Login Channel。';
-        showLoginGate(detail+' 為避免重複登入循環，已停止自動重試。');
-        return;
-      }
-      // Reuse the browser's valid LIFF identity without logging out
-      // sibling tabs. Platform privileges remain server-verified per entry.
-      // Explicitly reject an invalid pending callback rather than reusing it.
-      if(rejectedLoginReturn) {
-        showLoginGate('LINE 登入回跳已過期，請重新開啟頁面。');
         return;
       }
       if(merchantEntry){
@@ -1245,8 +1206,6 @@
       showLoginGate(['AUTH_INVALID','AUTH_REQUIRED'].includes(error.code)
         ? (merchantEntry?'一般管理員 LINE 身分驗證未通過，請重新登入。':'總管理員 LINE 身分驗證未通過，請使用專用 LINE 登入。')
         : error?.message || 'LINE 驗證尚未完成，請檢查網路後手動重試。');
-      // A server 401 may reflect revoked authorization; do not loop through
-      // LINE automatically or expose the protected workspace on denial.
 
     }
   }
