@@ -53,7 +53,7 @@ async function session({url=entry,storage=new Map(),loggedIn=true,inClient=false
  };
 }
 test('AC-MTAB-004: cached LINE frontdesk session never logs out sibling tabs and still checks staff role',async()=>{
- const h=await session();
+ const h=await session({permissionMode:'review'});
  try{
    assert.deepEqual(h.calls.filter(x=>x[0]!=='request').map(x=>x[0]),['init','token']);
    assert.deepEqual(h.actions.slice(0,3),['frontdesk.public','frontdesk.bootstrap','frontdesk.bookings']);
