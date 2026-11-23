@@ -39,6 +39,7 @@
     "MemberWebsocket-dev/tests/integration/booking_calendar_day_records.cjs",
     "MemberWebsocket-dev/tests/integration/booking_startup.cjs",
     "MemberWebsocket-dev/tests/integration/booking_benefits.cjs",
+    "MemberWebsocket-dev/tests/integration/event_ticket_booking_guide.cjs",
     "MemberWebsocket-dev/tests/integration/booking_event_amount_gate.cjs",
     "MemberWebsocket-dev/tests/integration/shared_event_ticket.cjs",
     "MemberWebsocket-dev/tests/integration/booking_copy.cjs",
