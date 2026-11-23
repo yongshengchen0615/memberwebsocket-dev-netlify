@@ -374,20 +374,6 @@
       window.TestModeClient?.payload ? window.TestModeClient.payload(body) : body, '可用活動與票券');
   }
 
-  async function claimEventTicket(config, idToken, eventTicketId) {
-    const endpoint = String(config.supabaseFunctionUrl || '').trim();
-    if (!endpoint) throw clientError('CONFIG_INVALID', '活動票券服務設定不完整。');
-    const body = {
-      action: 'user.booking.event-ticket.claim',
-      clientType: 'booking',
-      idToken,
-      eventTicketId: String(eventTicketId || '').trim(),
-    };
-    return postJson(endpoint, config,
-      window.TestModeClient?.payload ? window.TestModeClient.payload(body) : body,
-      '活動票券領取', { write: true });
-  }
-
   async function memberProfile(config, idToken) {
     const endpoint = String(config.supabaseFunctionUrl || '').trim();
     if (!endpoint) throw clientError('CONFIG_INVALID', '會員資料服務設定不完整。');
@@ -836,6 +822,6 @@
     return { config: authenticatedSession.config, idToken: authenticatedSession.idToken };
   }
 
-  window.BookingSystem = { loadConfig, signIn, completeSignIn, startPresence, claimBrowserSession, getSession, request, setBookingNotice, memberProfile, bookingBenefits, claimEventTicket, sendMemberChatMessage, subscribeRealtime, openMemberJoin, logout, showNotice, formatDate, addDays, clientError };
+  window.BookingSystem = { loadConfig, signIn, completeSignIn, startPresence, claimBrowserSession, getSession, request, setBookingNotice, memberProfile, bookingBenefits, sendMemberChatMessage, subscribeRealtime, openMemberJoin, logout, showNotice, formatDate, addDays, clientError };
 })();
 
