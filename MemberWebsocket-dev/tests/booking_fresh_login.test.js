@@ -20,7 +20,7 @@ function harness({url=entry,storage=new Map(),loggedIn=true,inClient=false,block
       removeItem(k){if(blockedStorage)throw Error('storage blocked');storage.delete(k);}
     },
     history:{replaceState(_a,_b,next){location.href=new URL(next,location.href).href;}},
-    LineInitialEntry:{enter({liffId,scope}){calls.push(['initial-entry',scope,liffId]);return initialEntry;}},
+    LineInitialEntry:{enter({liffId,scope}){if(initialEntry)calls.push(['initial-entry',scope,liffId]);return initialEntry;}},
     BookingSystem:{signIn:async()=>'original',completeSignIn:async(_c,_t,idToken)=>{calls.push(['claim',idToken]);return idToken;}},
     liff:{
       async init(){calls.push(['init']);},
