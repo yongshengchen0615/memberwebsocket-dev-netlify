@@ -32,7 +32,7 @@
   "reviewedSources": {
     "admin/booking-admin-ux.js": "2c2b7dbc8d08a7884f9e298b97f19862b5044c0bc3cbaef53aa551a576028edc",
     "admin/index.html": "8c8dcd24ac03d750d796ff7581d1a8c0df485747531d34cffac966b70827bd3d",
-    "admin/app.js": "dd4502d6fdf6a83ca1338b9595bdaf0549f368e75a270bc8dff8464b4965df09",
+    "admin/app.js": "e1b5c7fc35837aa268ed5ddbdc14b6a11d5639c00cab227fb06da780bbd3bd38",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
     "admin/grant-automation.js": "3f9d2c049a7741d098548a5102c115b1b23c825f35e4369de3dc0ab1efbb1f6e",
@@ -219,7 +219,7 @@
     {
       "id": "event.16",
       "module": "event",
-      "name": "一般、推薦、加入會員、抽獎票券 CRUD、對象、日期與配額",
+      "name": "一般、推薦、加入會員、抽獎票券 CRUD、對象、日期與配額；一般活動券發放張數顯示",
       "cases": [
         "EVENT_coupon",
         "EVENT_referral",
