@@ -36,7 +36,7 @@ test('0/1/N benefit cards render safely inside booking form and expose only elig
       assert.ok(h.el('bookingBenefits').compareDocumentPosition(note) & h.w.Node.DOCUMENT_POSITION_FOLLOWING);
       assert.equal(h.el('bookingBenefitsList').querySelector('img'), null);
       const links = h.el('bookingBenefitsList').querySelectorAll('a');
-      assert.ok([...links].every(link => link.textContent === '查看詳情' && new URL(link.href).origin === 'https://example.test'));
+       assert.equal(links.length, 0, 'booking benefit cards must have no detail navigation, including calendar activities');
       if (count === 3) {
         const groupKinds = [...h.el('bookingBenefitsList').querySelectorAll('.booking-benefit-group')]
           .map(group => group.dataset.benefitKind);
@@ -55,9 +55,10 @@ test('0/1/N benefit cards render safely inside booking form and expose only elig
         const eventCard = h.el('bookingBenefitsList').querySelector('.booking-benefit-group[data-benefit-kind="event"] .booking-benefit');
         assert.equal(pointCard.dataset.cardStyle, 'lagoon', 'point ticket inherits its source point-card visual preset');
         assert.equal(eventCard.hasAttribute('data-card-style'), false, 'event tickets do not receive a point-card visual preset');
-        assert.ok(
+        assert.equal(
           h.el('bookingBenefitsList').querySelector('.booking-benefit-group[data-benefit-kind="calendar"] a'),
-          'display-only activities may keep their calendar detail link'
+          null,
+          'independent calendar activities are display-only without a details link'
         );
         assert.match(h.el('bookingBenefitsList').textContent, /活動資訊僅供預約參考/);
         assert.equal(h.el('bookingBenefitsList').querySelector('.booking-benefit-group[data-benefit-kind="calendar"] input[type="checkbox"]'), null);
