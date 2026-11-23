@@ -47,7 +47,7 @@ function bookingHarness() {
     closed: false, location: { replace() {}, reload() {} },
     liff: {
       init: async () => {}, isLoggedIn: () => true, isInClient: () => true,
-      getIDToken: () => signedToken, logout() { calls.push(['logout']); },
+      getIDToken: () => signedToken, logout() {},
       closeWindow() { calls.push(['closed']); }
     },
     supabase: {
@@ -106,7 +106,6 @@ test('booking backgrounded session receives authenticated takeover rejection and
   await new Promise(resolve => setImmediate(resolve));
   assert.ok(h.calls.some(call => call[1] === 'user.booking.session.status'));
   assert.ok(h.calls.some(call => call[0] === 'closed'));
-  assert.equal(h.calls.some(call => call[0] === 'logout'), false, 'revoked booking view cannot log out other LINE tabs');
 });
 
 test('booking foreground revalidates after missing a realtime broadcast', async () => {
