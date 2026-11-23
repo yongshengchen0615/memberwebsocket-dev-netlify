@@ -207,7 +207,7 @@
     if (!window.liff) throw clientError('LIFF_SDK_ERROR', 'LIFF SDK 載入失敗，請確認網路後重試。');
     const liffId = surface === 'admin' ? config.adminLiffId : surface === 'points' ? config.pointsLiffId : surface === 'event' ? config.eventLiffId : surface === 'calendar' ? config.calendarLiffId : surface === 'booking' ? config.bookingLiffId : config.memberLiffId;
 
-    if (window.LineInitialEntry?.enterBeforeInit({liffId,scope:surface,business:config.business||window.BusinessContext?.slug||''})) {
+    if (window.LineInitialEntry?.enterBeforeInit?.({liffId,scope:surface,business:config.business||window.BusinessContext?.slug||''})) {
       return new Promise(() => {});
     }
     try {
