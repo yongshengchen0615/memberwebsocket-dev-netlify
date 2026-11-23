@@ -100,6 +100,7 @@ test('single-login takeover: old identity is revalidated immediately after a suc
   await new Promise(resolve => setImmediate(resolve));
   assert.ok(first.calls.some(x => x[1] === 'user.member.session.status'));
   assert.equal(first.calls.some(x => x[0] === 'liff.closeWindow'), true);
+  assert.equal(first.calls.some(x => x[0] === 'logout'), false, 'replaced app session must not sign out other LINE tabs');
   assert.equal(first.local.get('member-login-registered-v1'), 'replaced');
   assert.equal(second.calls.some(x => x[0] === 'liff.closeWindow'), false);
 });

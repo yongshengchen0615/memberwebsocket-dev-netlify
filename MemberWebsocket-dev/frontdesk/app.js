@@ -55,17 +55,17 @@
   if(window.liff.isInClient()){
    if(!window.liff.isLoggedIn())
     throw authError('AUTH_REQUIRED','LINE 尚未完成登入，請從 LINE 再次開啟商家櫃檯入口。');
-  }else if(!consumeLineLoginCallback(liffId)){
-   if(window.liff.isLoggedIn()){
-    try{window.liff.logout();}
-    catch{throw authError('AUTH_LOGOUT_FAILED','無法清除先前的 LINE 登入，請重新開啟商家櫃檯入口。');}
-    if(window.liff.isLoggedIn())
-     throw authError('AUTH_LOGOUT_FAILED','先前的 LINE 登入仍有效，無法重新驗證身分。');
+  }else{
+   // Avoid logging out other open LIFF tabs in the same browser. A cached
+   // ID token is never a staff grant: frontdesk.bootstrap verifies it.
+   const hasCallback=new URL(location.href).searchParams.has(LOGIN_QUERY);
+   if(hasCallback&&!consumeLineLoginCallback(liffId))
+    throw authError('AUTH_REQUIRED','LINE 登入回跳已失效，請重新開啟商家櫃檯入口。');
+   if(!window.liff.isLoggedIn()){
+    if(hasCallback)throw authError('AUTH_REQUIRED','LINE 登入未完成，請重新開啟商家櫃檯入口。');
+    redirectToLineLogin(liffId);
+    return null; // External browser is navigating to LINE Login.
    }
-   redirectToLineLogin(liffId);
-   return null; // External browser is navigating to LINE Login.
-  }else if(!window.liff.isLoggedIn()){
-   throw authError('AUTH_REQUIRED','LINE 登入未完成，請重新開啟商家櫃檯入口。');
   }
   const token=window.liff.getIDToken();
   if(typeof token!=='string'||!token.trim())

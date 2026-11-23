@@ -756,9 +756,8 @@
 
     try { window.alert(notice); } catch (_) {}
 
-    if (window.liff && typeof window.liff.isLoggedIn === 'function' && window.liff.isLoggedIn()) {
-      try { window.liff.logout(); } catch (_) {}
-    }
+    // Revoked app access stays closed, but logging out shared LINE state
+    // would also sign out an unrelated, still-authorized browser tab.
     if (window.liff && typeof window.liff.closeWindow === 'function') {
       try {
         window.liff.closeWindow();
