@@ -34,6 +34,13 @@ test('AC-003: manual claim remains read-only for legacy clients', () => {
   assert.match(migration, /alreadyClaimed', true/);
 });
 
+test('AC-005: admin must confirm the irreversible issue-on-publication operation', () => {
+  assert.match(admin, /const issuingNow = ticket\.status === 'active'/);
+  assert.match(admin, /window\.confirm\(/);
+  assert.match(admin, /每成功發放 1 張即占用 1 個限量名額/);
+  assert.match(read('admin/index.html'), /一般活動首次啟用即依資格直接發放/);
+});
+
 test('AC-004: existing and new business schemas receive identical issuance semantics', () => {
   assert.match(migration, /\^business_\[0-9a-f\]\{32\}\$/);
   assert.match(migration, /platform_private\.business_templates/);
