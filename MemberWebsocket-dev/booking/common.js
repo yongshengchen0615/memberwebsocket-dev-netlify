@@ -59,7 +59,7 @@
     const label = isAdmin ? '管理端' : isBooking ? '預約' : '會員';
     if (!liffId) throw clientError('LIFF_CONFIG_MISSING', `尚未設定${label} LIFF ID。` + (isAdmin ? '' : '請使用商家專屬入口，並請管理員在商家的 LINE 設定完成此功能入口。'));
     if (!window.liff) throw clientError('LIFF_SDK_MISSING', 'LINE LIFF SDK 尚未載入。');
-    if (window.LineInitialEntry?.enterBeforeInit({liffId,scope:isAdmin?'admin':isBooking?'booking':'member',business:config.business||window.BusinessContext?.slug||''})) {
+    if (window.LineInitialEntry?.enterBeforeInit?.({liffId,scope:isAdmin?'admin':isBooking?'booking':'member',business:config.business||window.BusinessContext?.slug||''})) {
       return new Promise(() => {});
     }
     await window.liff.init({ liffId });
