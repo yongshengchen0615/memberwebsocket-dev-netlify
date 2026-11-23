@@ -68,13 +68,14 @@
     if (busy) return;
     if (dirty && !window.confirm('重新載入會放棄尚未儲存的票券選取，確定繼續？')) return;
     const current = ++sequence; busy = true; message('正在載入可選票券…');
+    const finishFeedback=window.AsyncActionFeedback?.begin('正在查詢預約可選票券…');
     try {
       const data = await request('detail', { bookingId }); if (current !== sequence) return;
       editor = data; draft = null; dirty = false; attempt = null; stale = false;
       bookings = bookings.map(b => b.bookingId === bookingId ? data.booking : b);
       drawEditor(); message('');
     } catch (e) { message(e.message || '票券載入失敗，請重試。', true); }
-    finally { busy = false; if (editor) validate(); }
+    finally { finishFeedback?.(); busy = false; if (editor) validate(); }
   }
   function drawEditor() {
     const form = $('bookingSelectionEditor'); form.hidden = false; form.replaceChildren();
@@ -136,6 +137,7 @@
     let saveError = '';
     attempt ||= {bookingId:editor.booking.bookingId,expectedUpdatedAt:editor.booking.updatedAt,benefits,requestId:newId()};
     busy = true; $('bookingSelectionSave').disabled = true; message('正在儲存…');
+    const finishFeedback=window.AsyncActionFeedback?.begin('正在儲存預約票券並同步資料…');
     $('bookingSelectionEditor').querySelectorAll('input,button').forEach(n => n.disabled = true);
     try {
       await request('update', attempt); editor = null; dirty = false; attempt = null; draft = null;
@@ -146,6 +148,7 @@
       if (e.code === 'BOOKING_CONFLICT' || e.code === 'BOOKING_NOT_EDITABLE') stale = true;
       if (e.code) attempt = null;
     } finally {
+      finishFeedback?.();
       busy = false;
       render(bookings, settings);
       if (editor) { drawEditor(); if (!bookings.some(b => b.bookingId===editor.booking.bookingId && b.updatedAt===editor.booking.updatedAt)) $('bookingSelectionSave').disabled=true; }
@@ -166,6 +169,7 @@
 
     busy = true;
     message('正在取消票券預約使用…');
+    const finishFeedback=window.AsyncActionFeedback?.begin('正在取消預約票券並同步資料…');
     let updated = false;
     try {
       // Always fetch the current booking and its version, not a stale ticket-card snapshot.
@@ -199,6 +203,7 @@
       message(reason, true);
       throw new Error(reason);
     } finally {
+      finishFeedback?.();
       busy = false;
       if (settings && $('bookingSelectionList')) render(bookings, settings);
     }

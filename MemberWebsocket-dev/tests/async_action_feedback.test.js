@@ -70,4 +70,7 @@ test('AC-005: user actions are instrumented while revision polling remains backg
  assert.ok(read('booking/booking-receipt.js').includes('正在安全上傳收據'));
  assert.ok(read('points/point-transfer.js').includes('正在安全轉贈點數並更新餘額'));
  assert.ok(read('points/pointcard-ticket-overview.js').includes('正在核銷集點票券'));
+ assert.ok(read('event/app.js').includes('正在核銷活動票券並更新資料'));
+ assert.ok(read('ticket-booking-selections.js').includes('正在儲存預約票券並同步資料'));
+ assert.ok(read('friends.js').includes('正在更新好友關係'));
 });

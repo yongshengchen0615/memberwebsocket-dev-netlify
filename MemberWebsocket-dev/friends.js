@@ -162,6 +162,7 @@
     invalidate();
     busy = true;
     status('正在查找好友…', 'loading');
+    const finishFeedback=window.AsyncActionFeedback?.begin('正在查找好友資料…');
     const button = el('lookupFriend');
     if (button) button.disabled = true;
 
@@ -188,6 +189,7 @@
         );
       }
     } finally {
+      finishFeedback?.();
       if (current === generation) busy = false;
       if (button) button.disabled = false;
     }
@@ -285,6 +287,7 @@
         const button = event.currentTarget;
         busy = true;
         button.disabled = true;
+        const finishFeedback=window.AsyncActionFeedback?.begin('正在送出好友邀請…');
         stopScan();
         try {
           const result = await request('request', pendingCode);
@@ -295,6 +298,7 @@
         } catch (error) {
           if (current === generation) status(error?.message || '好友邀請暫時無法送出。', 'error');
         } finally {
+          finishFeedback?.();
           if (current === generation) busy = false;
           button.disabled = false;
         }
@@ -372,6 +376,7 @@
         button.addEventListener('click', async () => {
           const account = generation;
           button.disabled = true;
+          const finishFeedback=window.AsyncActionFeedback?.begin('正在更新好友關係…');
           try {
             await request(operation, friend.memberCode);
             if (account !== generation) return;
@@ -380,6 +385,7 @@
           } catch (error) {
             if (account === generation) status(error?.message || '好友關係更新失敗。', 'error', 'friends');
           } finally {
+            finishFeedback?.();
             button.disabled = false;
           }
         });
@@ -407,6 +413,7 @@
   async function refresh(showLoading = true) {
     if (!profile || loading) return;
     loading = true;
+    const finishFeedback=showLoading?window.AsyncActionFeedback?.begin('正在更新好友名單…'):null;
     const current = generation;
     const panel = el('friendsPanel');
     panel.dataset.state = 'loading';
@@ -464,14 +471,15 @@
         );
       }
     } finally {
+      finishFeedback?.();
       loading = false;
       panel.setAttribute('aria-busy', 'false');
       if (el('refreshFriends')) el('refreshFriends').disabled = false;
-      if (current !== generation && profile) void refresh();
+      if (current !== generation && profile) void refresh(false);
     }
   }
 
-  window.addEventListener('focus', () => { if (booking && profile && !document.hidden) void refresh(); });
+  window.addEventListener('focus', () => { if (booking && profile && !document.hidden) void refresh(false); });
 
   function ready(event) {
     const next = event.detail?.profile;
@@ -560,7 +568,7 @@
       }
     }
 
-    void refresh();
+    void refresh(false);
   }
 
   window.addEventListener(booking ? 'booking:member-loaded' : 'member-profile-ready', ready);
@@ -595,7 +603,7 @@
         name: code ? `${name || '好友'} · ${code}（編輯時不可更換）` : '本人（編輯時不可更換）',
       };
       selectedCode = code || '';
-      void refresh();
+      void refresh(false);
     },
     clear: () => {
       selectedCode = '';
