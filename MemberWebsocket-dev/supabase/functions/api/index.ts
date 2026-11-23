@@ -1416,7 +1416,7 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
     const receivedAsGift = Boolean(claimRow && receivedGiftClaimIds.has(String(claimRow.claim_id)));
     // All ticket types are issued by the server; a published template is not a claimable ticket.
     // Expose only tickets already owned by this member, never another member’s inventory.
-    if (!claimRow) return [];
+    if (!claimRow && !transferredOut) return [];
     if (claimRow && String(claimRow.status || "") === "used") return [];
     const ticket = {
       ...eventTicketClient(row,counts.get(row.id)||0),
