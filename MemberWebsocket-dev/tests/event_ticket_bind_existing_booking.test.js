@@ -47,6 +47,7 @@ test('AC-001: UI shows bind action only with server-provided eligible confirmed 
   assert.match(ui, /booking\.bookingId !== 'no-booking'/);
   assert.match(ui, /button\.dataset\.ticketAction = bindable \? 'bind-booking'/);
   assert.match(ui, /bindable \? '綁定已有預約使用'/);
+  assert.doesNotMatch(ui, /'查看使用條件'/);
   assert.match(ui, /if \(canBindExistingBooking\(offer\)\) return bindTicketToExistingBooking\(offer\)/);
   assert.match(ui, /TicketBookingSelections\.bindEventTicket\(bookingId, offer\.claim\.claimId\)/);
 });
