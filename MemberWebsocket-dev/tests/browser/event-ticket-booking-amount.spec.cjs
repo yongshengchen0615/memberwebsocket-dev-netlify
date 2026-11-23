@@ -53,7 +53,7 @@ for (const width of [390,1280]) {
     await expect(page.locator('#eventTicketMinBookingServicesField')).toBeVisible();
     await page.locator('#eventTicketMinBookingServiceIds input[value="service-2"]').check();
     await page.locator('#saveEventTicketButton').click();
-  expect(issuanceConfirmations).toEqual([expect.stringContaining('每成功發放 1 張即占用 1 個限量名額')]);
+    expect(issuanceConfirmations).toEqual([expect.stringContaining('每成功發放 1 張即占用 1 個限量名額')]);
     await expect.poll(()=>host.sessions.get(info.testId).eventTickets.length).toBe(1);
     const ticket=host.sessions.get(info.testId).eventTickets[0];
     expect(ticket.minBookingAmountMode).toBe('selected_services');
