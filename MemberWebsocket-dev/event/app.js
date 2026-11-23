@@ -125,7 +125,7 @@
   // Only owned, currently available, booking-restricted tickets should guide
   // members to a new booking. This is navigation, not redemption or issuance.
   function canGuideToBooking(offer) {
-    return Boolean(offer && offer.claim && offer.claim.status === 'available'
+    return Boolean(offer && offer.claim && ['claimed', 'available'].includes(String(offer.claim.status || ''))
       && !offer.history && !offer.transferredOut && !offer.reservedForBooking
       && !offer.pendingSnapshot && !offer.soldOut && !offer.canUse
       && offer.availability === 'active' && eventTicketTierEligible(offer)
