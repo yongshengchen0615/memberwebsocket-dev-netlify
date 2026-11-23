@@ -125,24 +125,37 @@ test('AC-MEMBER-003: open snapshot keeps photo/event draft but revoked or forged
   assert.equal(JSON.stringify(prepared.payload.benefits),'[{"kind":"event","id":"E"}]');
  }finally{h.w.dispatchEvent(new h.w.Event('pagehide'));h.close();}
 });
-test('review: delayed event claims cannot restore revoked selection intent or selected counts',async()=>{
- const h=await memberGrantFixture({booking:true,points:true,events:true});try{
-  let finish,item={kind:'event',id:'E',claimRequired:true,title:'event',selectable:true};
+test('review: stale claim-required catalog cannot issue and delayed owned tickets cannot restore revoked intent',async()=>{
+ const h=await memberGrantFixture({booking:true,points:true,events:true});
+ try{
+  let issued=0;
+  const old={kind:'event',id:'E',claimRequired:true,title:'old unissued',selectable:true};
   const point={kind:'points',id:'R',selectionId:'P',selectable:true,title:'point',cardId:'C',pointCost:1,pointBalance:10};
-  h.w.confirm=()=>true;
-  h.w.BookingSystem={bookingBenefits:async()=>({items:[point,item]}),claimEventTicket:()=>new Promise(r=>{finish=r;})};
+  h.w.BookingSystem={
+   bookingBenefits:async()=>({items:[point,old]}),
+   claimEventTicket:()=>{issued++;throw Error('retired claim endpoint must never run');}
+  };
   h.w.eval(fs.readFileSync(path.join(root,'ui-components.js'),'utf8'));
   h.w.eval(fs.readFileSync(path.join(root,'booking/booking-benefits.js'),'utf8'));
   h.w.BookingBenefits.start(h.config,'synthetic');await tick();
-  h.d.querySelector('[data-booking-benefit-kind="event"]').click();await tick();
-  assert.equal(typeof finish,'function');await h.change({booking:true,points:true});
-  item={...item,selectionId:'CLAIM',claimRequired:false};
-  finish({ticket:{claimId:'CLAIM'}});await tick();
+  assert.equal(h.d.querySelector('[data-booking-benefit-kind="event"]'),null,
+    'unissued event cannot expose a selectable checkbox even if a stale server marks it claimable');
+  assert.equal(issued,0);
+  let finish;
+  h.w.BookingSystem.bookingBenefits=()=>new Promise(resolve=>{finish=resolve;});
+  h.w.BookingBenefits.syncNow();await tick();
+  assert.equal(typeof finish,'function','catalog read is pending');
+  await h.change({booking:true,points:true});await tick();
+  finish({items:[point,{...old,selectionId:'CLAIM',claimRequired:false,title:'issued after revocation'}]});
+  await tick();
   assert.equal(h.w.BookingBenefits.selectionPayload().length,0);
   assert.equal(h.w.BookingBenefits.selectionSummary().length,0);
-  assert.doesNotMatch(h.d.getElementById('bookingBenefitsStatus').textContent,/已選擇 1/);
+  assert.equal(h.d.querySelector('[data-booking-benefit-kind="event"]'),null,
+    'revoked feature cannot regain a selector from a delayed response');
+  assert.equal(issued,0);
   await h.change({booking:true,points:true,events:true});await tick();
-  assert.equal(h.w.BookingBenefits.selectionPayload().length,0);
+  assert.equal(h.w.BookingBenefits.selectionPayload().length,0,
+    'regrant never silently selects or redeems an issued ticket');
  }finally{h.close();}
 });
 test('review: public grant refresh aborts at its deadline and a later refresh recovers',async()=>{
