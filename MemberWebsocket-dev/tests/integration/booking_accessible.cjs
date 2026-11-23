@@ -26,16 +26,17 @@ test('accessible mode remembers preference, exposes eligible tickets safely and 
     w.document.getElementById('bookingAccessibleUpload').click();
     assert.equal(opens,1); assert.ok(refreshes>0);
     w.dispatchEvent(new w.CustomEvent('booking:benefits-loaded',{detail:{items:[
-      {kind:'event',selectable:true,title:'<img src=x onerror=alert(1)>',claimRequired:true},
-      {kind:'points',selectable:true,title:'點數券',conditionLabel:'需身體項目'},
+      {kind:'event',selectionId:'EC-ISSUED',selectable:true,title:'<img src=x onerror=alert(1)>',claimRequired:false},
+      {kind:'event',selectable:true,title:'未發放不可選',claimRequired:true},
+      {kind:'points',selectionId:'PT-A',selectable:true,title:'點數券',conditionLabel:'需身體項目'},
       {kind:'event',selectable:false,title:'已使用'},
-      {kind:'points',selectable:true,title:'未來預約已保留但快照點數充足',reservedForBooking:true},
+      {kind:'points',selectionId:'PT-B',selectable:true,title:'未來預約已保留但快照點數充足',reservedForBooking:true},
        {kind:'points',selectable:false,title:'未來預約已保留而點數不足',reservedForBooking:true},
       {kind:'calendar',selectable:true,title:'活動'},
     ]}}));
     const tickets=w.document.getElementById('bookingAccessibleTickets');
     assert.equal(tickets.children.length,3); assert.equal(tickets.querySelector('img'),null);
-    assert.match(tickets.textContent,/尚未領取/); assert.match(tickets.textContent,/需身體項目/);
+    assert.match(tickets.textContent,/可供登記/); assert.doesNotMatch(tickets.textContent,/未發放不可選/); assert.match(tickets.textContent,/需身體項目/);
      assert.match(tickets.textContent,/未來預約已保留但快照點數充足/);
      assert.doesNotMatch(tickets.textContent,/未來預約已保留而點數不足/);
     assert.equal(tickets.querySelector('input'),null,'Ticket display must not silently redeem or claim');

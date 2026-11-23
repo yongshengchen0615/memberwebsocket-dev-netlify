@@ -36,7 +36,7 @@ function database(overrides = {}, fail = '') {
     point_tickets: [{ ticket_id: 'PT-001', member_id: member.id, status: 'available', reward_id: 'reward', point_card_id: 'card', ticket_template_id: 'template', threshold_stamps: 5 }],
     point_balances: [{ member_id: member.id, point_card_id: 'card', stamps: 10 }],
     event_tickets: [{ id: 'event', event_ticket_id: 'EVENT', title: '活動票券', status: 'active', allowed_tier_keys: ['silver'], quota: 2, requires_location: false }],
-    event_ticket_claims: [],
+    event_ticket_claims: [{ claim_id: 'EC-AUTO', event_ticket_id: 'event', member_id: member.id, status: 'claimed' }],
     event_ticket_settings: [{ id: 1, max_tickets_per_day: 2, max_tickets_per_redemption: 2 }],
     point_card_settings: [{ id: 1, max_tickets_per_redemption: 2 }],
     booking_services: [],
@@ -63,8 +63,12 @@ function database(overrides = {}, fail = '') {
   }, async rpc(name, args) {
     if (name === 'member_service_minute_totals') return { data: args.p_member_ids.map(member_id => ({ member_id, total_minutes: 0 })), error: null };
     calls.push({ rpc: name, args });
-    assert.equal(name, 'event_ticket_claim_counts', 'recommendation must never issue, claim or consume tickets');
-    return { error: fail === name ? new Error('fixture failure') : null, data: args.p_event_ids.map(id => ({ event_ticket_id: id, claimed_count: data.event_ticket_claims.filter(row => row.event_ticket_id === id).length })) };
+    assert.ok(['event_ticket_claim_counts','event_ticket_used_counts'].includes(name), 'recommendation reads inventory only, never issues or consumes tickets');
+    return { error: fail === name ? new Error('fixture failure') : null, data: args.p_event_ids.map(id => (
+      name === 'event_ticket_used_counts'
+        ? { event_ticket_id: id, used_count: data.event_ticket_claims.filter(row => row.event_ticket_id === id && row.status === 'used').length }
+        : { event_ticket_id: id, claimed_count: data.event_ticket_claims.filter(row => row.event_ticket_id === id).length }
+    )) };
   } };
 }
 
@@ -211,15 +215,17 @@ test('all-mode requires every selected service and labels a full service type ac
   assert.match(point.conditionLabel, /需預約「身體」項目類型的所有項目/);
 });
 
-test('unclaimed event tickets are selectable by claiming from the booking surface', async () => {
+test('booking shows only already-issued event tickets as selectable; unissued tickets cannot be claimed', async () => {
   const { loadBookingBenefits } = await modulePromise;
+  const unissued = await loadBookingBenefits(database({ event_ticket_claims: [] }), member, 'silver', today);
+  assert.equal(unissued.items.some(item => item.kind === 'event'), false);
   const result = await loadBookingBenefits(database(), member, 'silver', today);
   const event = result.items.find(item => item.kind === 'event');
   assert.ok(event);
   assert.equal(event.selectable, true);
-  assert.equal(event.claimRequired, true);
-  assert.equal(event.selectionId, '');
-  assert.match(event.subtitle, /勾選即代表領取/);
+  assert.equal(event.claimRequired, false);
+  assert.equal(event.selectionId, 'EC-AUTO');
+  assert.match(event.subtitle, /已發放，尚未使用/);
   assert.match(event.conditionLabel, /每日最多使用 2 張/);
 });
 
@@ -244,7 +250,7 @@ test('reads are member-scoped, batched and strict on backend failure', async () 
   for (const table of ['point_tickets', 'point_balances', 'event_ticket_claims']) assert.ok(db.calls.some(call => call.table === table && call.key === 'member_id' && call.value === member.id));
   assert.equal(db.calls.filter(call => call.read).length, 14, 'one additional member-scoped gift history read');
   assert.ok(db.calls.some(call => call.table === 'event_ticket_transfers' && call.key === 'receiver_member_id' && call.value === member.id));
-  for (const fail of ['point_tickets', 'point_balances', 'booking_benefit_selections', 'booking_receipts', 'event_ticket_claim_counts', 'calendar_items', 'event_ticket_settings', 'point_card_settings', 'event_ticket_transfers']) await assert.rejects(loadBookingBenefits(database({}, fail), member, 'silver', today));
+  for (const fail of ['point_tickets', 'point_balances', 'booking_benefit_selections', 'booking_receipts', 'event_ticket_claim_counts', 'event_ticket_used_counts', 'calendar_items', 'event_ticket_settings', 'point_card_settings', 'event_ticket_transfers']) await assert.rejects(loadBookingBenefits(database({}, fail), member, 'silver', today));
 });
 
 test('API authorization resolves membership/tier from identity and rejects disabled/unjoined/stale-consent members', async () => {
@@ -268,11 +274,15 @@ test('API authorization resolves membership/tier from identity and rejects disab
 
 test('booking ticket metadata carries the global claimed count without exposing other owners', async () => {
   const { loadBookingBenefits } = await modulePromise;
-  const result = await loadBookingBenefits(database({ event_ticket_claims: [{ event_ticket_id: 'event', member_id: 'other', status: 'used' }] }), member, 'silver', today);
+  const result = await loadBookingBenefits(database({ event_ticket_claims: [
+    { event_ticket_id: 'event', member_id: 'other', status: 'used' },
+    { claim_id: 'EC-AUTO', event_ticket_id: 'event', member_id: member.id, status: 'claimed' },
+  ] }), member, 'silver', today);
   const event = result.items.find(item => item.kind === 'event');
   assert.equal(event.quota, 2);
-  assert.equal(event.claimedCount, 1);
-  assert.equal(event.selectionId, '');
+  assert.equal(event.claimedCount, 2);
+  assert.equal(event.usedCount, 1);
+  assert.equal(event.selectionId, 'EC-AUTO');
   assert.equal(JSON.stringify(event).includes('other'), false);
 });
 
@@ -417,4 +427,22 @@ test('AC-GIFT-CATALOG-NEGATIVE: a transfer to another member does not waive this
     event_ticket_transfers:[{claim_id:'FOREIGN-GIFT',receiver_member_id:'another-member'}]
   }),member,'silver',today);
   assert.equal(result.items.filter(item=>item.kind==='event').length,0);
+});
+
+test('AC-BOOK-ISSUE-001: usage cap blocks reservation but does not revoke an issued event ticket', async () => {
+  const { loadBookingBenefits } = await modulePromise;
+  const result = await loadBookingBenefits(database({
+    event_tickets: [{ id: 'event', event_ticket_id: 'EVENT', title: '限使用一次', status: 'active', allowed_tier_keys: ['silver'], quota: 1 }],
+    event_ticket_claims: [
+      { claim_id: 'EC-AUTO', event_ticket_id: 'event', member_id: member.id, status: 'claimed' },
+      { claim_id: 'EC-USED', event_ticket_id: 'event', member_id: 'other', status: 'used' },
+    ],
+  }),member,'silver',today);
+  const event = result.items.find(item => item.kind === 'event');
+  assert.ok(event,'issued ticket stays visible');
+  assert.equal(event.claimRequired,false);
+  assert.equal(event.selectionId,'EC-AUTO');
+  assert.equal(event.usedCount,1);
+  assert.equal(event.selectable,false);
+  assert.match(event.disabledReason,/使用名額已額滿/);
 });

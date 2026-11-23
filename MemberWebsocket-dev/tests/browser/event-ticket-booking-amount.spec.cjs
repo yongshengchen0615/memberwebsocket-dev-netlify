@@ -53,7 +53,7 @@ for (const width of [390,1280]) {
     await expect(page.locator('#eventTicketMinBookingServicesField')).toBeVisible();
     await page.locator('#eventTicketMinBookingServiceIds input[value="service-2"]').check();
     await page.locator('#saveEventTicketButton').click();
-    expect(issuanceConfirmations).toEqual([expect.stringContaining('每成功發放 1 張即占用 1 個限量名額')]);
+    expect(issuanceConfirmations).toEqual([expect.stringContaining('只有成功使用／核銷才計入上限')]);
     await expect.poll(()=>host.sessions.get(info.testId).eventTickets.length).toBe(1);
     const ticket=host.sessions.get(info.testId).eventTickets[0];
     expect(ticket.minBookingAmountMode).toBe('selected_services');
@@ -76,7 +76,7 @@ test('AC-008: admin cannot silently lose minimum from stale server response',asy
   await page.locator('#eventTicketMinBookingAmountMode').selectOption('total');
   await page.locator('#eventTicketMinBookingAmount').fill('800');
   await page.locator('#saveEventTicketButton').click();
-  expect(issuanceConfirmations).toEqual([expect.stringContaining('每成功發放 1 張即占用 1 個限量名額')]);
+  expect(issuanceConfirmations).toEqual([expect.stringContaining('只有成功使用／核銷才計入上限')]);
   await expect(page.locator('#eventTicketFormMessage')).toContainText('後端未保留最低預約金額');
   await expect(page.locator('#eventTicketMinBookingAmount')).toHaveValue('800');
   expect(session.calls.filter(x=>x.action==='admin.event-tickets.save')).toHaveLength(1);

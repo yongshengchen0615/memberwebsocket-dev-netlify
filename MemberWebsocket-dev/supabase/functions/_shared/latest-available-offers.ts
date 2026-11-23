@@ -144,6 +144,7 @@ export function selectLatestEventOffers(
   claims: JsonRow[],
   memberId: string,
   counts?: JsonRow[],
+  includeUnissuedPreview = false,
 ): CurrentEventOffer[] {
   const claimCounts = new Map<string, number>(
     (counts || []).map((row) => [text(row.event_ticket_id), number(row.claimed_count)]),
@@ -171,9 +172,8 @@ export function selectLatestEventOffers(
 
     const claimed = memberAvailableClaims.has(eventId);
     if (!claimed && (row.fixed_ticket_template_id || ["referral","membership_join"].includes(text(row.ticket_type)))) continue;
-    const quota = number(row.quota);
-    const hasQuota = quota === 0 || (claimCounts.get(eventId) || 0) < quota;
-    if (!claimed && !hasQuota) continue;
+    // Quota caps successful redemptions, not the number of granted tickets.
+    if (!claimed && !includeUnissuedPreview) continue;
 
     const offer: CurrentEventOffer = {
       eventId,
@@ -270,7 +270,7 @@ export async function loadLatestEventOffers(
   tierKey: string,
   strict: boolean,
   includeTierPreview = false,
-): Promise<Array<CurrentEventOffer & { eventTicketId: string; startsOn: string; endsOn: string; allowedTierKeys: string[]; description: string; accent: string; ticketType: string; quota: number | null; claimedCount: number; fixedTicketTemplateId: string }>> {
+): Promise<Array<CurrentEventOffer & { eventTicketId: string; startsOn: string; endsOn: string; allowedTierKeys: string[]; description: string; accent: string; ticketType: string; quota: number | null; claimedCount: number; usedCount: number; fixedTicketTemplateId: string }>> {
   if ((supabase as any).businessFeatures && (supabase as any).businessFeatures.events !== true) return [];
   const today = taipeiDate();
   const eventsResult = await supabase
@@ -292,31 +292,41 @@ export async function loadLatestEventOffers(
   const ids = eligible.map((row: any) => row.id);
   if (!ids.length) return [];
 
-  const [claimsResult, countsResult] = await Promise.all([
+  const [claimsResult, countsResult, usedResult] = await Promise.all([
     supabase.from("event_ticket_claims")
       .select("claim_id,event_ticket_id,member_id,status")
       .eq("member_id", memberId)
       .in("event_ticket_id", ids),
     supabase.rpc("event_ticket_claim_counts", { p_event_ids: ids }),
+    supabase.rpc("event_ticket_used_counts", { p_event_ids: ids }),
   ]);
-  if (claimsResult.error || countsResult.error) {
-    if (strict) throw claimsResult.error || countsResult.error;
+  if (claimsResult.error || countsResult.error || usedResult.error) {
+    if (strict) throw claimsResult.error || countsResult.error || usedResult.error;
     return [];
   }
 
   const eventById = new Map(eligible.map((row: any) => [text(row.id), row]));
   const claimCountById = new Map<string, number>((countsResult.data || []).map((row: any) => [text(row.event_ticket_id), number(row.claimed_count)]));
+  const usedCountById = new Map<string, number>((usedResult.data || []).map((row: any) => [text(row.event_ticket_id), number(row.used_count)]));
   return selectLatestEventOffers(
     eligible,
     claimsResult.data || [],
     memberId,
     countsResult.data || [],
-  ).slice(0, 8).map((offer) => {
+    includeTierPreview,
+  ).filter((offer) => {
+    if (offer.claimed) return true;
+    // Higher-tier previews may be displayed when the preview policy allows,
+    // but no eligible, unissued ticket is ever actionable.
+    const event: any = eventById.get(offer.eventId);
+    return includeTierPreview && !(Array.isArray(event?.allowed_tier_keys) && event.allowed_tier_keys.includes(tierKey));
+  }).slice(0, 8).map((offer) => {
     const event: any = eventById.get(offer.eventId);
     return {
       ...offer,
       description: text(event?.description), accent: text(event?.accent), ticketType: text(event?.ticket_type),
       claimedCount: claimCountById.get(offer.eventId) || 0,
+      usedCount: usedCountById.get(offer.eventId) || 0,
       quota: event?.quota ?? null, fixedTicketTemplateId: text(event?.fixed_ticket_template_id),
       allowedTierKeys:Array.isArray(event?.allowed_tier_keys)?event.allowed_tier_keys:[],
       eventTicketId: text(event?.event_ticket_id),

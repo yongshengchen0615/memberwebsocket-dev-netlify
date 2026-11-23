@@ -66,3 +66,37 @@ for (const width of [390, 1280]) {
     expect(await page.evaluate(() => BookingBenefits.selectionPayload())).toEqual([]);
   });
 }
+
+for (const width of [390, 1280]) {
+  test('AC-BOOK-ISSUED-ONLY Chromium ' + width + ': member can select an issued ticket without a claim action', async ({ page }) => {
+    await page.setViewportSize({ width, height: 850 });
+    await page.goto(base + '/');
+    await page.evaluate(() => {
+      window.__claimCalls = 0;
+      window.MemberUI = { pointCardStyleKey: () => 'lagoon', pointTicketDetails: () => document.createElement('div') };
+      window.BookingSystem = {
+        claimEventTicket: () => { window.__claimCalls++; throw Error('claim endpoint must never be called'); },
+        bookingBenefits: async () => ({
+          eventTicketMaxPerDay: 0, pointTicketMaxPerRedemption: 0,
+          items: [
+            { kind: 'event', id: 'ISSUED', selectionId: 'EC-ISSUED', selectable: true,
+              title: '已發活動券', statusLabel: '可使用', conditionLabel: '本次可選用' },
+            { kind: 'event', id: 'UNISSUED', selectionId: '', claimRequired: true, selectable: true,
+              title: '舊版未發券', statusLabel: '未發放', conditionLabel: '禁止領取' },
+          ],
+        }),
+      };
+      window.BookingBenefits.start({}, 'synthetic-token');
+    });
+    const panel = page.locator('#bookingBenefitsList');
+    await expect(panel.locator('.booking-benefit')).toHaveCount(2);
+    await expect(panel.locator('input[data-booking-benefit-kind="event"]')).toHaveCount(1);
+    await expect(panel.locator('[data-booking-benefit-claim-required]')).toHaveCount(0);
+    await expect(panel).not.toContainText('勾選並領取');
+    await panel.locator('input[data-booking-benefit-id="EC-ISSUED"]').check();
+    expect(await page.evaluate(() => BookingBenefits.selectionPayload())).toEqual([
+      { kind: 'event', id: 'EC-ISSUED' },
+    ]);
+    expect(await page.evaluate(() => window.__claimCalls)).toBe(0);
+  });
+}

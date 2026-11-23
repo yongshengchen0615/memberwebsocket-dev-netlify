@@ -40,3 +40,9 @@
 .booking-benefit.event-ticket.is-selected {outline:2px solid var(--theme-accent);outline-offset:2px;}
 .booking-benefit.event-ticket .booking-benefit-select {padding-top:10px;border-top:1px solid var(--theme-border);}
 @media(max-width:650px){.booking-benefit.event-ticket{padding:19px;min-height:0;}}
+
+.booking-ticket-guide { margin: 14px 0; padding: 16px; border: 1.5px solid var(--theme-accent, #5475b9); border-radius: 14px; background: var(--theme-surface-raised, #fff); color: var(--theme-text, inherit); }
+.booking-ticket-guide strong { display: block; margin-bottom: 8px; }
+.booking-ticket-guide p { margin: 0 0 8px; line-height: 1.7; overflow-wrap: anywhere; }
+.booking-ticket-guide small { line-height: 1.5; display: block; }
+.booking-benefit.is-guided-ticket { outline: 3px solid var(--theme-accent, #5475b9); outline-offset: 2px; }
