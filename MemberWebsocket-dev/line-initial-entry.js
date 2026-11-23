@@ -9,7 +9,8 @@
   const LIFF_ID = /^\d{5,30}-[A-Za-z0-9_-]+$/;
   const SCOPE = /^[a-z][a-z0-9-]{0,40}$/;
   const BUSINESS = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
-  const PRIVATE_QUERY = /^(?:liff\.|code$|state$|access_token$|id_token$|line_initial$|redirect_uri$)/i;
+  const PRIVATE_QUERY = /^(?:liff\.|code$|state$|access_token$|id_token$|line_initial$|redirect_uri$|.*(?:token|secret|jwt|api_key|apikey|session|password).*)/i;
+  const CALLBACK_QUERY = ['member_system_reauth','booking_system_reauth','frontdesk_line_reauth'];
 
   function enter({liffId,scope,business=''}={}) {
     const id=String(liffId||'').trim(),role=String(scope||'').trim();
@@ -35,7 +36,8 @@
     if(current.protocol!=='https:'||!loggedIn||(inside&&!wrongInClientChannel))return false;
     // LINE's primary and secondary redirects carry provider parameters that
     // must remain untouched until the SDK has finished initialization.
-    if(current.searchParams.has('liff.state')||current.searchParams.has('access_token')
+    if(CALLBACK_QUERY.some(key=>current.searchParams.has(key))
+      ||current.searchParams.has('liff.state')||current.searchParams.has('access_token')
       ||current.searchParams.has('line_initial')
       ||(current.searchParams.has('code')&&current.searchParams.has('state')))return false;
 
