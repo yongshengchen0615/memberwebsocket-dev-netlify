@@ -404,8 +404,7 @@ begin
     'inviterMemberCode', v_invitee.member_code
   );
 end;
-$function$
-
+$function$;
 
 revoke all on function public.issue_eligible_general_event_ticket(uuid) from public,anon,authenticated;
 revoke all on function public.guard_event_ticket_redemption_quota() from public,anon,authenticated;
