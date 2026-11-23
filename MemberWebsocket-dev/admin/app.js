@@ -2366,6 +2366,14 @@
     event.preventDefault(); if (requireRefreshBeforeWrite(els.eventTicketFormMessage)) return; hideMessage(els.eventTicketFormMessage);
     const ticket = { eventTicketId: els.eventTicketId.value, title: String(els.eventTicketTitle.value || '').trim(), ticketType: els.eventTicketType.value, description: String(els.eventTicketDescription.value || '').trim(), usageMethod: String(els.eventTicketUsageMethod.value || '').trim(), usageInstructions: String(els.eventTicketUsageInstructions.value || '').trim(), status: els.eventTicketStatus.value, startsOn: String(els.eventTicketStartsOn.value || '').trim(), endsOn: String(els.eventTicketEndsOn.value || '').trim(), quota: Number(els.eventTicketQuota.value), requiresLocation: els.eventTicketRequiresLocation.checked, redemptionLocations: window.CouponLocationEditor.get(), allowedTierKeys: collectEventTicketAllowedTiers(), requiredServiceIds: collectRequiredServiceIds(els.eventTicketRequiredServiceIds), requiredServiceMatchMode: els.eventTicketRequiredServiceMatchMode.value, requiredServiceGroups: collectRequiredServiceGroups(document.getElementById('eventTicketRequiredServiceGroups')), minBookingAmountMode: els.eventTicketMinBookingAmountMode.value, minBookingAmount: els.eventTicketMinBookingAmountMode.value === 'none' ? 0 : Number(els.eventTicketMinBookingAmount.value), minBookingServiceIds: els.eventTicketMinBookingAmountMode.value === 'selected_services' ? collectRequiredServiceIds(els.eventTicketMinBookingServiceIds) : [], accent: safeAccent(els.eventTicketAccent.value), prizes: els.eventTicketType.value === 'lottery' ? collectEventTicketPrizes() : [] };
     const validationMessage = ticket.requiredServiceMatchMode === 'groups' && (!ticket.requiredServiceGroups.length || ticket.requiredServiceGroups.some(group => !group.length)) ? '請為每個預約組合至少勾選一個項目。' : (validateEventTicketAmountRule(ticket) || validateEventTicket(ticket)); if (validationMessage) return showMessage(els.eventTicketFormMessage, validationMessage);
+    // Publishing general offers is an irreversible bulk grant, not merely a visibility toggle.
+    const prior = state.eventTickets.find((row) => row.eventTicketId === ticket.eventTicketId);
+    const issuingNow = ticket.status === 'active' && ['coupon', 'lottery'].includes(ticket.ticketType)
+      && (!prior || prior.status !== 'active');
+    if (issuingNow) {
+      const limitLabel = ticket.quota > 0 ? `最多 ${ticket.quota} 張` : '不限量';
+      if (!window.confirm(`啟用「${ticket.title}」將立即依會員資格發放活動票券（${limitLabel}）；每成功發放 1 張即占用 1 個限量名額。發放後不會因封存自動收回，確定啟用並發放嗎？`)) return;
+    }
     setSaving(els.saveEventTicketButton, true, '正在儲存活動票券…');
     try {
       const result = await window.MemberSystem.request(state.config, 'admin', state.idToken, 'admin.event-tickets.save', { eventTicket: ticket, expectedUpdatedAt: els.eventTicketExpectedUpdatedAt.value });
@@ -2382,7 +2390,7 @@
         throw new Error('後端未保留最低預約金額設定，請確認 API 與資料庫已升級。');
       }
       if (result.eventTicket) { state.eventTickets = replaceById(state.eventTickets, result.eventTicket, 'eventTicketId'); loadEventTicketForm(result.eventTicket.eventTicketId); }
-      if (await refreshAfterSuccessfulWrite('活動票券已儲存', els.eventTicketFormMessage)) showMessage(els.eventTicketFormMessage, ticket.ticketType === 'referral' ? '好友邀請票券已儲存；每成功邀請一位尚未綁定邀請關係的會員，系統會自動發 1 張給邀請者。' : ticket.ticketType === 'membership_join' ? '加入會員票券已儲存；新會員完成加入後由系統自動發放。' : '活動票券已儲存；會員可在活動票券 LIFF 領取。', true);
+      if (await refreshAfterSuccessfulWrite('活動票券已儲存', els.eventTicketFormMessage)) showMessage(els.eventTicketFormMessage, ticket.ticketType === 'referral' ? '好友邀請票券已儲存；每成功邀請一位尚未綁定邀請關係的會員，系統會自動發 1 張給邀請者。' : ticket.ticketType === 'membership_join' ? '加入會員票券已儲存；新會員完成加入後由系統自動發放。' : ticket.status === 'active' ? '活動票券已啟用；符合資格的會員已直接取得發放名額，不需要另行領取。' : '活動票券已儲存；草稿或封存狀態不會新增發放。', true);
     } catch (error) { handleActionError(error, els.eventTicketFormMessage); } finally { setSaving(els.saveEventTicketButton, false); }
   }
   async function deleteEventTicket() {
