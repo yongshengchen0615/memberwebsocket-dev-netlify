@@ -169,7 +169,7 @@ test('AC-LINE-021: SDK primary/secondary redirects are untouched before init, in
 test('AC-ROLL-017: Nov22 entrypoints initialize each LIFF without a pre-init redirect',()=>{
  for(const file of ['platform/app.js','member-system.js','booking/common.js','booking/liff-fresh-login.js','frontdesk/app.js','admin/frontdesk-settings/frontdesk-settings-page.js']){
   const code=fs.readFileSync(path.join(root,file),'utf8');
-  assert.match(code,/window\\.liff\\.init\\(/,'LIFF initialization must remain: '+file);
+  assert.ok(code.includes('window.liff.init('),'LIFF initialization must remain: '+file);
   assert.doesNotMatch(code,/enterBeforeInit|LineInitialEntry/,'no Nov23 pre-init redirect: '+file);
  }
 });
