@@ -175,3 +175,16 @@ test('AC-REAUTH-004: valid channel-specific LIFF credentials keep existing direc
   assert.equal(h.win.document.getElementById('lineReauthLink'),null);
  }finally{h.dom.window.close();}
 });
+
+
+test('AC-REAUTH-006: switching from merchant to Platform never sends the merchant LINE audience to root API',async()=>{
+ const h=await boot({loggedIn:true,merchant:false,decodedToken:{aud:'2010791619',exp:Math.floor(Date.now()/1000)+1800}});
+ try {
+  await until(()=>Boolean(h.win.document.getElementById('lineReauthLink')));
+  const link=h.win.document.getElementById('lineReauthLink');
+  assert.equal(link.href,'https://liff.line.me/2012065297-VunxFBj8');
+  assert.equal(h.calls.api,0,'wrong role and LINE audience must never reach root API');
+  assert.equal(h.calls.logout,0,'switching to the Platform page must not log out the merchant tab');
+  assert.equal(h.win.document.getElementById('platformWorkspace').hidden,true);
+ }finally{h.dom.window.close();}
+});
