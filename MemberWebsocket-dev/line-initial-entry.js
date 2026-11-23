@@ -57,7 +57,11 @@
 
     const tenant=String(business||current.searchParams.get('business')||'');
     if(tenant&&!BUSINESS.test(tenant))return false;
-    const key='line-initial-entry-v1:'+role+':'+id+':'+current.pathname+':'+tenant;
+    // The official LIFF primary and secondary redirects can use different paths
+    // under the same registered endpoint. A per-path guard treats the callback
+    // as a new page entry and can restart LINE Login forever. Keep the guard
+    // per TAB, role, LIFF channel and tenant, independent of redirect pathname.
+    const key='line-initial-entry-v2:'+role+':'+id+':'+tenant;
     let storedAt=0;
     try {
       storedAt=Number(window.sessionStorage.getItem(key)||0);
@@ -99,7 +103,8 @@
       ||(current.searchParams.has('code')&&current.searchParams.has('state')))return false;
     const tenant=String(business||current.searchParams.get('business')||'');
     if(tenant&&!BUSINESS.test(tenant))return false;
-    const key='line-initial-recovery-v1:'+role+':'+id+':'+current.pathname+':'+tenant;
+    // Recovery is likewise tied to the LIFF flow rather than the callback path.
+    const key='line-initial-recovery-v2:'+role+':'+id+':'+tenant;
     try{
       const previous=Number(window.sessionStorage.getItem(key)||0);
       const elapsed=Date.now()-previous;

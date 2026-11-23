@@ -202,3 +202,35 @@ test('AC-LINE-029: auto recovery does not interfere with OAuth callback or loop 
  assert.equal(blocked.window.LineInitialEntry.recover({liffId:ID.merchant,scope:'merchant'}),false);
  assert.equal(blocked.calls.length,0);
 });
+
+test('AC-LINE-030: the same tab does not restart LIFF when primary redirect changes to secondary endpoint path',()=>{
+ const storage=new Map();
+ const first=visit({url:'https://example.netlify.app/admin/?business=shop-a',scope:'merchant',liffId:ID.merchant,business:'shop-a',storage});
+ assert.equal(first.window.LineInitialEntry.enterBeforeInit({liffId:ID.merchant,scope:'merchant',business:'shop-a'}),true);
+ const callback=visit({url:'https://example.netlify.app/admin/workspace.html?business=shop-a',scope:'merchant',liffId:ID.merchant,business:'shop-a',storage});
+ assert.equal(callback.window.LineInitialEntry.enterBeforeInit({liffId:ID.merchant,scope:'merchant',business:'shop-a'}),false);
+ assert.equal(callback.enter(),false);
+ assert.equal(callback.calls.length,0,'returning through the other endpoint path must never start a new authorization');
+ const newTab=visit({url:'https://example.netlify.app/admin/workspace.html?business=shop-a',scope:'merchant',liffId:ID.merchant,business:'shop-a'});
+ assert.equal(newTab.window.LineInitialEntry.enterBeforeInit({liffId:ID.merchant,scope:'merchant',business:'shop-a'}),true,'a fresh tab must still authenticate independently');
+});
+test('AC-LINE-031: wrong-audience recovery stays bounded even when LINE changes callback pathname',()=>{
+ const storage=new Map();
+ const opts={scope:'merchant',liffId:ID.merchant,business:'shop-a',storage};
+ const first=visit({...opts,url:'https://example.netlify.app/admin/?business=shop-a'});
+ assert.equal(first.window.LineInitialEntry.recover(opts),true);
+ const callback=visit({...opts,url:'https://example.netlify.app/admin/workspace.html?business=shop-a'});
+ assert.equal(callback.window.LineInitialEntry.recover(opts),false);
+ assert.equal(callback.calls.length,0);
+});
+
+test('AC-LINE-034: per-tab guard remains independent for different LIFF channels and scopes',()=>{
+ const storage=new Map();
+ const shared={url:'https://example.netlify.app/member/?business=shop-a',business:'shop-a',storage};
+ const member=visit({...shared,scope:'member',liffId:ID.member});
+ assert.equal(member.window.LineInitialEntry.enterBeforeInit({liffId:ID.member,scope:'member',business:'shop-a'}),true);
+ const merchant=visit({...shared,scope:'merchant',liffId:ID.merchant});
+ assert.equal(merchant.window.LineInitialEntry.enterBeforeInit({liffId:ID.merchant,scope:'merchant',business:'shop-a'}),true);
+ const memberReturn=visit({...shared,url:'https://example.netlify.app/member/callback/?business=shop-a',scope:'member',liffId:ID.member});
+ assert.equal(memberReturn.window.LineInitialEntry.enterBeforeInit({liffId:ID.member,scope:'member',business:'shop-a'}),false);
+});
