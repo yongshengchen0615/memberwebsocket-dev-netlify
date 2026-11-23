@@ -16,7 +16,7 @@ const config = {
 
 function harness({ url = entry, storage = new Map(), loggedIn = true, inClient = false,
   token = 'fixture-id-token', storageBlocked = false, logoutFails = false,
-  logoutNoop = false, initFails = false } = {}) {
+  logoutNoop = false, initFails = false, initialEntry = false } = {}) {
   const calls = [];
   const location = { href: url };
   const local = new Map();
@@ -33,6 +33,7 @@ function harness({ url = entry, storage = new Map(), loggedIn = true, inClient =
       removeItem(key) { if (storageBlocked) throw Error('Blocked'); storage.delete(key); },
     },
     history: { replaceState(_state, _title, next) { location.href = new URL(next, location.href).href; } },
+    LineInitialEntry:{enter({liffId,scope}){calls.push(['initial-entry',scope,liffId]);return initialEntry;}},
     liff: {
       async init(value) { calls.push(['init', value.liffId]); if (initFails) throw Error('Init failed'); },
       isInClient: () => inClient,
@@ -154,4 +155,14 @@ test('SDK initialization failure cannot proceed to login or token use', async ()
   const h = harness({ initFails: true });
   await assert.rejects(h.signIn(), { code: 'LIFF_INIT_ERROR' });
   assert.deepEqual(h.calls.map(([name]) => name), ['init']);
+});
+
+
+test('AC-LINE-011: a fresh external admin page enters its own LINE LIFF before claiming a cached browser identity',async()=>{
+ const h=harness({initialEntry:true});
+ void h.signIn();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.ok(h.calls.some(([name,scope,id])=>name==='initial-entry'&&scope==='admin'&&id===config.adminLiffId));
+ assert.ok(h.calls.some(([name])=>name==='init'));
+ assert.equal(h.calls.some(([name])=>name==='token'||name==='logout'||name==='login'),false);
 });
