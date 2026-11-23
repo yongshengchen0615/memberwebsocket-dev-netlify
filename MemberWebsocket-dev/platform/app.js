@@ -20,7 +20,6 @@
   const state = {config:null,idToken:'',features:{},tenants:[],applications:[],current:null,pending:null,busy:false,approval:null,merchant:null,merchantPending:null,qualification:null,qualifications:[],ownerApplications:[]};
   const LOGIN_RETURN_KEY=merchantEntry?'admin-line-login-return-v1':'platform-line-login-return-v1';
   const LOGIN_RETURN_TTL_MS=180_000;
-  const LINE_REENTRY_KEY=merchantEntry?'admin-line-scoped-reentry-v1':'platform-line-scoped-reentry-v1';
   const AUTO_LOGIN_ATTEMPT_KEY=merchantEntry?'admin-line-auto-attempt-v1':'platform-line-auto-attempt-v1';
   let rejectedLoginReturn=false;
   function markAutomaticLoginAttempt() {
@@ -112,26 +111,6 @@
     link.href=url;link.hidden=false;
     return url;
   }
-  function returningFromAutomaticReentry() {
-    const query=new URLSearchParams(window.location.search);
-    if(query.get('line_auto_reauth')==='1')return true;
-    const stateQuery=query.get('liff.state')||'';
-    try{return new URLSearchParams(stateQuery.replace(/^\?/, '').split('?').pop()).get('line_auto_reauth')==='1';}
-    catch{return false;}
-  }
-  function autoReenterOnce() {
-    const href=offerLineReentry();
-    if(!href||returningFromAutomaticReentry())return false;
-    try{
-      const attempt=JSON.parse(window.sessionStorage.getItem(LINE_REENTRY_KEY)||'null');
-      const now=Date.now();
-      if(attempt?.href===href&&now>=attempt.at&&now-attempt.at<LOGIN_RETURN_TTL_MS)return false;
-      window.sessionStorage.setItem(LINE_REENTRY_KEY,JSON.stringify({href,at:now}));
-    }catch{return false;}
-    const target=new URL(href);target.searchParams.set('line_auto_reauth','1');
-    try{window.location.assign(target.href);return true;}catch{return false;}
-  }
-  function clearAutomaticReentry() {try{window.sessionStorage.removeItem(LINE_REENTRY_KEY);}catch{}}
   function cachedLineIdentityInvalid(channelId) {
     let claims;
     try{claims=window.liff.getDecodedIDToken?.();}catch{return false;}
@@ -1170,6 +1149,12 @@
       finally {clearTimeout(initTimer);}
       const returnedFromLine=consumeLoginReturn();
       const inLiffClient=window.liff.isInClient();
+      // Every external page enters its own LIFF application once before any
+      // cached cross-tab identity can reach this admin or Platform API.
+      if(window.LineInitialEntry?.enter({liffId:platformLiffId,scope:merchantEntry?'merchant':'platform',business:selectedBusiness})){
+        el('platformStatus').textContent='正在透過此頁專屬的 LINE 入口初始化登入…';
+        return;
+      }
       if(!window.liff.isLoggedIn()) {
         if(returnedFromLine || rejectedLoginReturn) {
           showLoginGate('LINE 登入未完成，請重新開啟頁面。');
@@ -1213,8 +1198,10 @@
       // A different LIFF app can leave cached identity for another Channel,
       // or a one-hour ID token may have expired. Neither is a valid session.
       if(cachedLineIdentityInvalid(platformLiffId.split('-')[0])){
-        showLoginGate('LINE 憑證不適用於此管理頁面或已過期，正在重新開啟專屬 LINE 登入…');
-        autoReenterOnce();
+        // Do not bounce between LIFF channels indefinitely. The per-page
+        // entry already ran; keep this tab private and offer an explicit link.
+        showLoginGate('此頁尚未取得有效的 LINE 初始登入，請使用下方專屬 LINE 入口重新登入。');
+        offerLineReentry();
         return;
       }
       // Reuse the browser's valid LIFF identity without logging out
@@ -1233,7 +1220,6 @@
         if(isV2()&&selectedBusiness&&el('backToMyMerchants'))el('backToMyMerchants').hidden=false;
         // Clear only after LINE and server verification have both succeeded.
         try { window.sessionStorage.removeItem(AUTO_LOGIN_ATTEMPT_KEY); } catch {}
-        clearAutomaticReentry();
         if(data.accountLoaded!==false)el('platformStatus').textContent=data.profile?.displayName?'管理員 '+data.profile.displayName+'，已登入。':'已確認 LINE 身分。';
         if(refreshTimer)clearInterval(refreshTimer);
         refreshTimer=setInterval(()=>{if(!document.hidden)void refreshMine();},15000);
@@ -1246,7 +1232,6 @@
       if(refreshTimer)clearInterval(refreshTimer);
       refreshTimer=setInterval(()=>{if(!document.hidden)void refreshRoot();},5000);
       try { window.sessionStorage.removeItem(AUTO_LOGIN_ATTEMPT_KEY); } catch {}
-      clearAutomaticReentry();
     } catch(error){
       if(error.code==='PLATFORM_ADMIN_REQUIRED'&&!merchantEntry) {
         showAuthorizationDenied();
