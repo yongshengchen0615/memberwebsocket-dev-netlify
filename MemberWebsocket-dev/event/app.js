@@ -470,6 +470,7 @@
     const finishFeedback = window.AsyncActionFeedback?.begin('正在綁定票券至已有預約…');
     try {
       await window.TicketBookingSelections.bindEventTicket(bookingId, offer.claim.claimId);
+      state.processing = false;
       closeTicketModal();
       setInlineStatus('已綁定至已有預約；服務完成時依規則核銷。');
     } catch (error) {
