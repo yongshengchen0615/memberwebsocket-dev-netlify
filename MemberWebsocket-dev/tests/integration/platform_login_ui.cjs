@@ -84,12 +84,15 @@ test('AC-UI-001: direct Platform visit starts LINE login without gate or login b
  }finally{h.dom.window.close();}
 });
 
-test('AC-UI-002: an existing LINE session is freshly authenticated on Platform entry',async()=>{
+test('AC-MTAB-005: cached LINE Platform session is server-checked without logging out sibling tabs',async()=>{
  const h=await boot({loggedIn:true});
  try {
-  await until(()=>h.calls.login===1);
-  assert.equal(h.calls.logout,1);
-  assert.equal(h.calls.api,0,'a pre-existing LIFF session alone must not access Platform');
+  await until(()=>h.calls.api===1);
+  assert.equal(h.calls.logout,0);
+  assert.equal(h.calls.login,0);
+  await until(()=>!h.win.document.getElementById('platformAuthorizationNotice').hidden);
+  assert.equal(h.win.document.getElementById('platformWorkspace').hidden,true,
+    'LINE identity alone must not bypass server approval');
  }finally{h.dom.window.close();}
 });
 
