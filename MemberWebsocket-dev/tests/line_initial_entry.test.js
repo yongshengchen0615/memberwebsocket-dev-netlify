@@ -7,10 +7,10 @@ const vm=require('node:vm');
 const root=path.resolve(__dirname,'..');
 const source=()=>fs.readFileSync(path.join(root,'line-initial-entry.js'),'utf8');
 const ID={platform:'2012065297-RootChannel',merchant:'2010791619-MerchantChannel',member:'2010787602-MemberChannel',booking:'2010787602-BookingChannel',frontdesk:'2010787602-FrontdeskChannel'};
-function visit({url='https://example.netlify.app/platform/',scope='platform',liffId=ID.platform,business='',loggedIn=true,inClient=false,storage=new Map(),storageBlocked=false}={}) {
+function visit({url='https://example.netlify.app/platform/',scope='platform',liffId=ID.platform,business='',loggedIn=true,inClient=false,decodedToken=null,storage=new Map(),storageBlocked=false}={}) {
  const calls=[];
  const location={href:url,replace(href){calls.push(['replace',href]);}};
- const window={location,liff:{isInClient:()=>inClient,isLoggedIn:()=>loggedIn,logout(){calls.push(['logout']);}},
+ const window={location,liff:{isInClient:()=>inClient,isLoggedIn:()=>loggedIn,getDecodedIDToken:()=>decodedToken,logout(){calls.push(['logout']);}},
   sessionStorage:{
    getItem(k){if(storageBlocked)throw Error('storage unavailable');return storage.get(k)||null;},
    setItem(k,v){if(storageBlocked)throw Error('storage unavailable');storage.set(k,v);},
@@ -91,4 +91,15 @@ test('AC-LINE-008: protected entrypoints call the coordinator as part of their o
   const code=fs.readFileSync(path.join(root,file),'utf8');
   assert.match(code,/LineInitialEntry\?\.enter\(/,'missing per-page login contract: '+file);
  }
+});
+
+
+test('AC-LINE-014: an in-LINE tab with another Channel audience enters its own LIFF instead of showing a stale-token warning',()=>{
+ const h=visit({inClient:true,scope:'platform',decodedToken:{aud:'2010791619'}});
+ assert.equal(h.enter(),true);
+ assert.equal(new URL(h.calls[0][1]).pathname,'/'+ID.platform);
+ assert.equal(h.calls.some(([name])=>name==='logout'),false);
+ const correct=visit({inClient:true,scope:'platform',decodedToken:{aud:'2012065297'}});
+ assert.equal(correct.enter(),false,'the LIFF SDK already initialized this app inside LINE');
+ assert.equal(correct.calls.length,0);
 });
