@@ -36,6 +36,21 @@
         loggedIn=window.liff.isLoggedIn();
       }
     }catch{return false;}
+    // Compatibility rollback for the working Nov-22 flow: when the LIFF SDK
+    // already exposes a valid ID token from THIS channel, initialize/verify it
+    // in place. Redirecting that valid session into liff.line.me once more can
+    // lose the provider's callback state and strand the user in a login loop.
+    // Decoded claims are only a routing hint, NEVER permission or login proof;
+    // server-side LINE Verify and tenant/role checks remain mandatory.
+    let sameChannelIdentity=false;
+    try {
+      const claims=window.liff?.getDecodedIDToken?.();
+      const expected=id.split('-')[0];
+      sameChannelIdentity=!!(claims&&claims.aud===expected
+        && typeof claims.exp==='number'&&Number.isFinite(claims.exp)
+        && claims.exp>Date.now()/1000+30);
+    } catch {}
+    if(sameChannelIdentity)return false;
     // The LINE browser normally signs in during liff.init(). If another LIFF
     // app's Channel is still cached, enter THIS app instead of showing a stale
     // credential warning. Decoded claims are only an early mismatch hint.
