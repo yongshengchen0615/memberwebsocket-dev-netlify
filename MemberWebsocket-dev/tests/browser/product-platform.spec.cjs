@@ -460,23 +460,20 @@ test('PLATFORM_ROOT_REAUTH — LIFF visits and BFCache restore reverify the serv
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
-test('PLATFORM_ROOT_EXTERNAL_REAUTH — cached external LINE visits revalidate server without logging out other tabs',async({page})=>{
+test('PLATFORM_ROOT_EXTERNAL_REAUTH — external LINE authentication starts automatically on each visit',async({page})=>{
  const h=await setup(page,'root',{rootLoginReturn:false,inClient:false,loggedIn:true});try{
+  await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[]]);
+  await expect(page.locator('#platformWorkspace')).toBeHidden();
+  expect(await page.evaluate(()=>window.logoutCalls)).toBe(1);
+  await page.reload(); // LINE callback with its one-use return marker
   await expect(page.locator('#platformWorkspace')).toBeVisible();
   await expect(page.locator('#platformLoginGate,#platformLoginButton')).toHaveCount(0);
   expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
-  expect(await page.evaluate(()=>window.logoutCalls)).toBe(0);
-  expect(h.requestActions.filter(a=>a==='platform.bootstrap').length).toBe(1);
-  await page.reload();
+  await page.reload(); // A new visit must reauthenticate without any extra click.
+  await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[]]);
+  await expect(page.locator('#platformWorkspace')).toBeHidden();
+  await page.reload(); // Next LINE callback
   await expect(page.locator('#platformWorkspace')).toBeVisible();
-  await expect.poll(()=>h.requestActions.filter(a=>a==='platform.bootstrap').length).toBe(2);
-  expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
-  expect(await page.evaluate(()=>window.logoutCalls)).toBe(0);
-  await page.reload();
-  await expect(page.locator('#platformWorkspace')).toBeVisible();
-  await expect.poll(()=>h.requestActions.filter(a=>a==='platform.bootstrap').length).toBe(3);
-  expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
-  expect(await page.evaluate(()=>window.logoutCalls)).toBe(0);
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
@@ -494,7 +491,7 @@ test('PLATFORM_BAD_TOKEN_RECOVERY — wrong-channel LINE token never exposes wor
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
-test('PLATFORM_EXTERNAL_FIRST_SIGNIN — signed-out entry redirects once then subsequent visits reuse verified LINE without logout',async({page})=>{
+test('PLATFORM_EXTERNAL_FIRST_SIGNIN — signed-out entry and subsequent visits automatically launch LINE',async({page})=>{
  const h=await setup(page,'root',{inClient:false,loggedIn:false,rootLoginReturn:false});try{
   await expect(page.locator('#platformWorkspace')).toBeHidden();
   expect(await page.evaluate(()=>window.loginCalls)).toEqual([[]]);
@@ -504,13 +501,11 @@ test('PLATFORM_EXTERNAL_FIRST_SIGNIN — signed-out entry redirects once then su
   await expect(page.locator('#platformWorkspace')).toBeVisible();
   await expect(page.locator('#platformLoginGate,#platformLoginButton')).toHaveCount(0);
   expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
-  expect(await page.evaluate(()=>window.logoutCalls)).toBe(0);
-  expect(h.requestActions.filter(a=>a==='platform.bootstrap').length).toBe(1);
+  await page.reload();
+  await expect.poll(()=>page.evaluate(()=>window.loginCalls)).toEqual([[]]);
+  await expect(page.locator('#platformWorkspace')).toBeHidden();
   await page.reload();
   await expect(page.locator('#platformWorkspace')).toBeVisible();
-  await expect.poll(()=>h.requestActions.filter(a=>a==='platform.bootstrap').length).toBe(2);
-  expect(await page.evaluate(()=>window.loginCalls)).toEqual([]);
-  expect(await page.evaluate(()=>window.logoutCalls)).toBe(0);
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
 });
@@ -544,10 +539,10 @@ test('PLATFORM_INCLIENT_UNAUTH — signed-out in-client LIFF retries automatical
   await expect(page.locator('#platformStatus')).toContainText('LINE 登入未完成');
   await expect(page.locator('#platformLoginGate,#platformLoginButton')).toHaveCount(0);
   await expect(page.locator('#platformWorkspace')).toBeHidden();
-  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBeNull();
+  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('1');
   await page.reload();
   await expect(page.locator('#platformWorkspace')).toBeHidden();
-  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBeNull();
+  expect(await page.evaluate(()=>sessionStorage.getItem('qaRootLogoutCount'))).toBe('1');
   expect(h.providerCalls).toEqual([]);
   expect(h.errors).toEqual([]);
  }finally{await h.db.close();}
