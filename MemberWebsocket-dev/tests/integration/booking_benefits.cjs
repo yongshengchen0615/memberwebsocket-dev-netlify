@@ -102,13 +102,13 @@ test('regular booking can select GPS-restricted point and event tickets without 
     await loaded;
     await tick(10); // loaded dispatch precedes DOM card reconciliation
     const point = h.el('bookingBenefitsList').querySelector('[data-booking-benefit-id="PT-GPS"]');
-    const event = h.el('bookingBenefitsList').querySelector('[data-booking-benefit-id="EVENT-GPS"]');
+    const event = h.el('bookingBenefitsList').querySelector('[data-booking-benefit-id="EC-GPS"]');
     assert.ok(point && event);
     assert.equal(point.disabled, false);
     assert.equal(event.disabled, false);
     assert.match(h.el('bookingBenefitsList').textContent, /現場單獨使用需 GPS 定位/);
     point.click();
-    h.el('bookingBenefitsList').querySelector('[data-booking-benefit-id="EVENT-GPS"]').click();
+    h.el('bookingBenefitsList').querySelector('[data-booking-benefit-id="EC-GPS"]').click();
     await tick(15);
     assert.equal(claimed, 0, 'regular booking never calls an event ticket claim endpoint');
     assert.equal(gpsCalls, 0, 'ordinary booking must not request user location');
