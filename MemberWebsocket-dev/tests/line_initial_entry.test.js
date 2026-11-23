@@ -223,3 +223,14 @@ test('AC-LINE-031: wrong-audience recovery stays bounded even when LINE changes 
  assert.equal(callback.window.LineInitialEntry.recover(opts),false);
  assert.equal(callback.calls.length,0);
 });
+
+test('AC-LINE-034: per-tab guard remains independent for different LIFF channels and scopes',()=>{
+ const storage=new Map();
+ const shared={url:'https://example.netlify.app/member/?business=shop-a',business:'shop-a',storage};
+ const member=visit({...shared,scope:'member',liffId:ID.member});
+ assert.equal(member.window.LineInitialEntry.enterBeforeInit({liffId:ID.member,scope:'member',business:'shop-a'}),true);
+ const merchant=visit({...shared,scope:'merchant',liffId:ID.merchant});
+ assert.equal(merchant.window.LineInitialEntry.enterBeforeInit({liffId:ID.merchant,scope:'merchant',business:'shop-a'}),true);
+ const memberReturn=visit({...shared,url:'https://example.netlify.app/member/callback/?business=shop-a',scope:'member',liffId:ID.member});
+ assert.equal(memberReturn.window.LineInitialEntry.enterBeforeInit({liffId:ID.member,scope:'member',business:'shop-a'}),false);
+});
