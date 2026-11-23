@@ -288,3 +288,10 @@ html[data-theme="dark"] .sync-notice.is-error {
   background-color: var(--theme-warning-soft);
   border-color: var(--theme-border-strong);
 }
+
+/* Booking-required, issued tickets route to the normal reservation flow. */
+a.ticket-booking-guide { display: inline-flex; align-items: center; justify-content: center; text-align: center; text-decoration: none; box-sizing: border-box; background: var(--coral, #b44a3b); color: var(--paper, #fff); min-height: 44px; }
+a.ticket-booking-guide:hover { filter: brightness(.96); }
+a.ticket-booking-guide:focus-visible { outline: 3px solid var(--theme-focus-ring, #5475b9); outline-offset: 3px; }
+a.ticket-booking-guide[hidden] { display: none !important; }
+.ticket-modal a.ticket-booking-guide { width: 100%; margin: 10px 0; }

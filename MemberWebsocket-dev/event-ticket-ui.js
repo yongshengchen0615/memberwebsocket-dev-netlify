@@ -23,8 +23,8 @@
     row(options.history ? '使用時間' : '活動期間', options.history ? String(options.usedAt || '') : `${ticket.startsOn || '即日起'} — ${ticket.endsOn || '不限期'}`);
     if (!options.history) {
       const quota = Number(ticket.quota || 0);
-      const claimed = Math.max(0, Number(ticket.claimedCount || 0));
-      row(options.fixed ? '發放方式' : '限量張數', options.fixed ? '系統自動發放' : quota > 0 ? `${quota} 張（剩餘 ${Math.max(0, quota - claimed)} 張）` : '不限量');
+      const used = Math.max(0, Number(ticket.usedCount || 0));
+      row(options.fixed ? '發放方式' : '使用數量上限', options.fixed ? '系統自動發放' : quota > 0 ? `${quota} 次（已使用 ${used} 次，剩餘 ${Math.max(0, quota - used)} 次）` : `不限量（已使用 ${used} 次）`);
       const labels = ticket.allowedTierLabels || (ticket.allowedTierKeys || []).map(key => tiers[key]).filter(Boolean);
       row('適用等級', labels.length ? labels.join('、') : '全部會員等級');
       if (options.showServiceRequirement && String(ticket.requiredServiceRequirementLabel || '').trim()) {

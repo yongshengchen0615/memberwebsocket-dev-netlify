@@ -118,6 +118,38 @@
     autoOpenFromCalendar();
   }
 
+
+  function bookingRequiredForOffer(offer) {
+    return window.TicketBookingChoice?.eventOptions?.(ticketForOffer(offer), offer.eligibleBookings)?.requiresBooking === true;
+  }
+  // Only owned, currently available, booking-restricted tickets should guide
+  // members to a new booking. This is navigation, not redemption or issuance.
+  function canGuideToBooking(offer) {
+    return Boolean(offer && offer.claim && ['claimed', 'available'].includes(String(offer.claim.status || ''))
+      && !offer.history && !offer.transferredOut && !offer.reservedForBooking
+      && !offer.pendingSnapshot && !offer.soldOut && !offer.canUse
+      && offer.availability === 'active' && eventTicketTierEligible(offer)
+      && bookingRequiredForOffer(offer) && window.BusinessContext?.allows?.('booking') !== false);
+  }
+  function bookingGuideUrl(offer) {
+    const url = new URL('../booking/', window.location.href);
+    const business = String(window.BusinessContext?.slug || new URLSearchParams(window.location.search).get('business') || '');
+    if (/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(business)) url.searchParams.set('business', business);
+    const id = eventTicketIdForOffer(offer);
+    if (/^[A-Za-z0-9_-]{1,128}$/.test(id)) url.searchParams.set('eventTicketId', id);
+    return url.href;
+  }
+  function createBookingGuideLink(offer) {
+    const link = document.createElement('a');
+    link.href = bookingGuideUrl(offer);
+    link.className = 'ticket-button ticket-booking-guide';
+    link.dataset.ticketAction = 'booking-guide';
+    link.dataset.eventTicketId = eventTicketIdForOffer(offer);
+    link.textContent = '前往預約使用';
+    link.setAttribute('aria-label', '前往預約並勾選「' + String(ticketForOffer(offer).title || '活動票券') + '」');
+    return link;
+  }
+
   function createOfferCard(offer) {
     const ticket = ticketForOffer(offer); const history = Boolean(offer.history); const fixed = isFixedOffer(offer); const used = history || String(offer?.claim?.status || '') === 'used'; const reserved = !used && Boolean(offer.reservedForBooking); const snapshotPending = !used && Boolean(offer.pendingSnapshot);
     const eligible = !history && eventTicketTierEligible(offer);
@@ -126,7 +158,7 @@
     const eventTicketId = eventTicketIdForOffer(offer);
     const action = document.createElement('div'); action.className = 'event-ticket-action';
     const hint = document.createElement('small');
-    hint.textContent = used ? '票券已使用，使用紀錄已保留' : reserved ? '已選入一般預約，將於服務完成時自動核銷' : snapshotPending ? '已選入快照，待管理員審核' : !eligible ? '目前會員等級無法使用' : fixed && !offer.claim ? '符合固定發放條件時會由系統自動發放' : offer.claim ? claimLabel(offer.claim.status) : offer.soldOut ? '限量張數已發放完畢' : offer.availability === 'scheduled' ? '活動開始後即可使用已發放票券' : offer.availability === 'ended' ? '活動已結束' : '點開查看完整說明';
+    hint.textContent = used ? '票券已使用，使用紀錄已保留' : reserved ? '已選入一般預約，將於服務完成時自動核銷' : snapshotPending ? '已選入快照，待管理員審核' : !eligible ? '目前會員等級無法使用' : fixed && !offer.claim ? '符合固定發放條件時會由系統自動發放' : offer.claim ? claimLabel(offer.claim.status) : offer.soldOut ? '活動使用名額已額滿' : offer.availability === 'scheduled' ? '活動開始後即可使用已發放票券' : offer.availability === 'ended' ? '活動已結束' : '點開查看完整說明';
     const buttons = document.createElement('div'); buttons.className = 'event-ticket-action-buttons';
     const button = document.createElement('button'); button.type = 'button';
     button.className = `ticket-button${!history && offer.canUse ? ' accent' : ''}`;
@@ -138,6 +170,10 @@
     button.addEventListener('click', () => openTicketModal(eventTicketId));
     if (offer.transferredOut) hint.textContent = '這張票券已轉贈好友，無法再次取得';
     if (!used || history) buttons.append(button);
+    if (canGuideToBooking(offer)) {
+      buttons.append(createBookingGuideLink(offer));
+      hint.textContent = '這張票券已發放。請先到預約頁選擇日期、服務與時段，再於送出前勾選這張活動票券。';
+    }
     if (canTransferTicket(offer)) {
       const transferButton = document.createElement('button');
       transferButton.type = 'button';
@@ -250,7 +286,7 @@
     const ticket = ticketForOffer(offer); const claim = offer.claim; const history = Boolean(offer.history); const reserved = !history && Boolean(offer.reservedForBooking);
     const transferMode = state.ticketModalMode === 'transfer' && canTransferTicket(offer);
     els.ticketModal.dataset.ticketMode = transferMode ? 'transfer' : 'use';
-    els.ticketModalType.textContent = isFixedOffer(offer) ? '固定票券' : ticket.ticketType === 'lottery' ? '活動抽獎券' : ticket.ticketType === 'referral' ? '好友邀請券' : ticket.ticketType === 'membership_join' ? '加入會員券' : '活動優惠券'; els.ticketModalTitle.textContent = String(ticket.title || '活動票券'); els.ticketModalDate.textContent = history ? `已使用：${eventTicketTimestamp(claim && claim.usedAt)}` : `${eventDates(ticket)}${isFixedOffer(offer) ? '' : ` · 限量張數：${eventTicketQuotaText(ticket)}`}`; els.ticketModalDescription.textContent = String(ticket.description || '查看活動內容與使用說明。'); els.ticketModalUsageMethod.textContent = `使用方式：${String(ticket.usageMethod || '請依活動現場指示使用')}`; els.ticketModalUsageInstructions.textContent = String(ticket.usageInstructions || '票券發放後請在活動期間出示本券。');
+    els.ticketModalType.textContent = isFixedOffer(offer) ? '固定票券' : ticket.ticketType === 'lottery' ? '活動抽獎券' : ticket.ticketType === 'referral' ? '好友邀請券' : ticket.ticketType === 'membership_join' ? '加入會員券' : '活動優惠券'; els.ticketModalTitle.textContent = String(ticket.title || '活動票券'); els.ticketModalDate.textContent = history ? `已使用：${eventTicketTimestamp(claim && claim.usedAt)}` : `${eventDates(ticket)}${isFixedOffer(offer) ? '' : ` · 使用數量上限：${eventTicketQuotaText(ticket)}`}`; els.ticketModalDescription.textContent = String(ticket.description || '查看活動內容與使用說明。'); els.ticketModalUsageMethod.textContent = `使用方式：${String(ticket.usageMethod || '請依活動現場指示使用')}`; els.ticketModalUsageInstructions.textContent = String(ticket.usageInstructions || '票券發放後請在活動期間出示本券。');
     if (transferMode) els.ticketModalType.textContent = `轉贈好友 · ${els.ticketModalType.textContent}`;
     els.ticketModal.querySelector('.instructions')?.classList.toggle('hidden', transferMode);
     const serviceRequirement = String(ticket.requiredServiceRequirementLabel || '').trim();
@@ -272,6 +308,20 @@
     bookingChoice.hidden = transferMode || history || !claim || reserved || !choiceMode.requiresBooking;
     if (transferMode) bookingChoice.replaceChildren();
     else window.TicketBookingChoice?.mount(bookingChoice, choiceMode.bookings, () => { els.ticketModalAction.disabled = !offer.canUse || !window.TicketBookingChoice.selected(bookingChoice); if (needsGps) syncLiveLocationState(offer); });
+    let modalGuide = els.ticketModal.querySelector('[data-ticket-booking-guide]');
+    if (!modalGuide) {
+      modalGuide = document.createElement('a');
+      modalGuide.dataset.ticketBookingGuide = '';
+      modalGuide.className = 'modal-action ticket-booking-guide';
+      els.ticketModalAction.before(modalGuide);
+    }
+    modalGuide.hidden = transferMode || !canGuideToBooking(offer);
+    if (!modalGuide.hidden) {
+      modalGuide.href = bookingGuideUrl(offer);
+      modalGuide.textContent = '前往預約使用（預約時勾選這張票券）';
+    } else {
+      modalGuide.removeAttribute('href');
+    }
     const canTransfer = canTransferTicket(offer);
     els.ticketTransferPanel.hidden = !canTransfer || !transferMode;
     els.ticketTransferFriendSelect.disabled = state.processing || state.actionLocked || !transferMode || !canTransfer || els.ticketTransferFriendSelect.options.length <= 1;
@@ -583,11 +633,11 @@
       prizes: Array.isArray(claim.prizes) ? claim.prizes : ticket.prizes
     };
   }
-  function modalStatusText(offer) { if (offer.receivedAsGift) return offer.canUse ? '好友贈送票券：使用時不受會員階級限制，仍須符合預約與活動規則；每張票券只能轉贈一次。' : '好友贈送票券：不受會員階級限制，仍須符合原活動期限、預約及其他使用條件；不可再次轉贈。'; if (offer.transferredOut) return '這張票券已轉贈給好友，無法再次取得或使用。'; if (offer.history) return `這張票券已於 ${eventTicketTimestamp(offer.claim && offer.claim.usedAt)} 使用；內容與結果會保留在此紀錄。`; if (offer.reservedForBooking) return '這張票券已預約使用，將於該次預約服務完成時自動核銷。'; if (offer.pendingSnapshot) return '這張票券已選入快照預約，正等待管理員審核。'; if (!eventTicketTierEligible(offer)) return `這張票券只適用於${eventTicketAllowedTiers(ticketForOffer(offer))}；目前會員等級無法領取或使用。`; if (isFixedOffer(offer) && !offer.claim) return '符合固定票券的發放條件後，系統會自動發到你的會員帳戶，不需要手動領取。'; if (offer.claim) return offer.canUse ? (window.TicketBookingChoice?.eventOptions?.(ticketForOffer(offer), offer.eligibleBookings)?.requiresBooking ? '這張票券已發放；選擇對應預約並確認後，票券會完成核銷。' : '你已領取這張票券；確認後可直接使用並核銷。') : String(offer.usageDisabledReason || '需先有管理員已確認、尚未完成且符合項目條件的預約。'); if (offer.soldOut) return '這張活動票券的限量張數已全數發放。'; if (offer.availability === 'scheduled') return '活動尚未開始，開始後即可使用已發放的票券。'; if (offer.availability === 'ended') return '活動已結束，這張票券目前無法使用。'; return '活動票券由系統發放至符合條件的 LINE 會員帳戶，不需要另外領取。'; }
+  function modalStatusText(offer) { if (offer.receivedAsGift) return offer.canUse ? '好友贈送票券：使用時不受會員階級限制，仍須符合預約與活動規則；每張票券只能轉贈一次。' : '好友贈送票券：不受會員階級限制，仍須符合原活動期限、預約及其他使用條件；不可再次轉贈。'; if (offer.transferredOut) return '這張票券已轉贈給好友，無法再次取得或使用。'; if (offer.history) return `這張票券已於 ${eventTicketTimestamp(offer.claim && offer.claim.usedAt)} 使用；內容與結果會保留在此紀錄。`; if (offer.reservedForBooking) return '這張票券已預約使用，將於該次預約服務完成時自動核銷。'; if (offer.pendingSnapshot) return '這張票券已選入快照預約，正等待管理員審核。'; if (!eventTicketTierEligible(offer)) return `這張票券只適用於${eventTicketAllowedTiers(ticketForOffer(offer))}；目前會員等級無法領取或使用。`; if (isFixedOffer(offer) && !offer.claim) return '符合固定票券的發放條件後，系統會自動發到你的會員帳戶，不需要手動領取。'; if (offer.claim) return canGuideToBooking(offer) ? '這張票券已發放。請至預約頁選擇日期、服務項目與時段，在送出預約前勾選此券；服務完成時依規則核銷。' : offer.canUse ? (window.TicketBookingChoice?.eventOptions?.(ticketForOffer(offer), offer.eligibleBookings)?.requiresBooking ? '這張票券已發放；選擇對應預約並確認後，票券會完成核銷。' : '這張票券已發放；確認後可直接使用並核銷。') : String(offer.usageDisabledReason || '需先有管理員已確認、尚未完成且符合項目條件的預約。'); if (offer.soldOut) return '這張活動票券的使用名額已額滿；已發放的票券仍會保留。'; if (offer.availability === 'scheduled') return '活動尚未開始，開始後即可使用已發放的票券。'; if (offer.availability === 'ended') return '活動已結束，這張票券目前無法使用。'; return '活動票券由系統發放至符合條件的 LINE 會員帳戶，不需要另外領取。'; }
   function claimLabel(status) { return status === 'used' ? '已使用' : '已發放，可使用'; }
   function eventTicketTierEligible(offer) { return offer && offer.tierEligible !== false; }
   function eventTicketAllowedTiers(ticket) { const labels = ticket && ticket.allowedTierLabels; return Array.isArray(labels) && labels.length ? labels.join('、') : '全部會員等級'; }
-  function eventTicketQuotaText(ticket) { const quota = Number(ticket && ticket.quota || 0); if (!Number.isFinite(quota) || quota <= 0) return '不限量'; const claimedCount = Math.max(0, Number(ticket && ticket.claimedCount || 0)); return `${quota} 張（剩餘 ${Math.max(0, quota - claimedCount)} 張）`; }
+  function eventTicketQuotaText(ticket) { const quota = Number(ticket && ticket.quota || 0); const usedCount = Math.max(0, Number(ticket && ticket.usedCount || 0)); if (!Number.isFinite(quota) || quota <= 0) return `不限量（已使用 ${usedCount} 次）`; return `${quota} 次（已使用 ${usedCount} 次，剩餘 ${Math.max(0, quota - usedCount)} 次）`; }
   function availabilityLabel(value) { return ({ open: '進行中', scheduled: '即將開始', ended: '已結束' })[value] || '活動票券'; }
   function eventDates(ticket) { const starts = ticket.startsOn || '即日起'; const ends = ticket.endsOn || '不限期'; return `${starts} — ${ends}`; }
   function eventTicketTimestamp(value) { const timestamp = String(value || '').trim(); if (!timestamp) return '時間已記錄'; const date = new Date(timestamp); if (Number.isNaN(date.getTime())) return timestamp; return new Intl.DateTimeFormat('zh-Hant-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date); }

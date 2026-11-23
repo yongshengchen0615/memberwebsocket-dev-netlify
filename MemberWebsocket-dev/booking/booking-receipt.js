@@ -403,11 +403,10 @@
       if (generation !== state.ticketGeneration || !state.accessible) return;
       choices.replaceChildren();
       window.dispatchEvent(new CustomEvent('booking:snapshot-benefit-options', { detail: { items: catalog.items || [] } }));
-      // Show eligible unclaimed event tickets so the member can claim them first.
-      // Only an issued claim ID is permitted in a snapshot redemption request.
+      // Only member-owned, already-issued claim IDs can be registered; no claim UI.
       const items = (catalog.items || []).filter(item => window.BusinessContext?.allowsBenefit?.(item.kind)!==false).filter(item =>
         (item.kind === 'points' || item.kind === 'event')
-        && (item.selectionId || (item.kind === 'event' && item.claimRequired === true)));
+        && item.selectionId);
       const selectionSummary = document.getElementById('snapshotTicketSelectionSummary');
       // Match the member point-card redemption screen: total quantity and per-card
       // available points are shared across all selected tickets, not per checkbox.
@@ -421,7 +420,7 @@
       const itemByKey = new Map(items.filter(item => item.selectionId)
         .map(item => [String(item.kind) + ':' + String(item.selectionId), item]));
       items.forEach(item => {
-        const blocked = item.selectable !== true || item.claimRequired === true;
+        const blocked = item.selectable !== true;
         const option = document.createElement('div');
         option.className = 'snapshot-ticket-option';
         const label = document.createElement('label');
@@ -473,9 +472,7 @@
         if (blocked) {
           const reason = document.createElement('span');
           reason.className = 'snapshot-ticket-disabled-reason';
-          reason.textContent = item.kind === 'event' && item.claimRequired === true
-            ? '尚未領取；請先領取，確認可用後才能勾選。'
-            : String(item.disabledReason || '目前不可登記使用');
+          reason.textContent = String(item.disabledReason || '目前不可登記使用');
           copy.append(reason);
         }
         const dynamicReason = document.createElement('span');
@@ -484,56 +481,17 @@
         const indicator = document.createElement('span');
         indicator.className = 'snapshot-ticket-choice-status';
         indicator.textContent = blocked
-          ? (item.kind === 'event' && item.claimRequired === true ? '需先領取' : item.kind === 'event' && (item.reservedInSnapshot || item.reservedForBooking) ? '不可重複登記' : '不可使用')
+          ? (item.kind === 'event' && (item.reservedInSnapshot || item.reservedForBooking) ? '不可重複登記' : '不可使用')
           : check.checked ? '已選擇' : '點選使用';
         label.append(copy, check, indicator);
         option.append(label);
-        if (item.kind === 'event' && item.claimRequired === true) {
-          const claimButton = document.createElement('button');
-          claimButton.type = 'button';
-          claimButton.className = 'button button-outline snapshot-ticket-claim-button';
-          claimButton.textContent = '領取活動票券';
-          claimButton.addEventListener('click', async () => {
-            if (state.busy || state.ticketsLoading || generation !== state.ticketGeneration || !state.accessible) return;
-            const title = String(item.title || '活動票券');
-            if (!window.confirm('要先領取「' + title + '」嗎？領取後仍須符合定位及使用條件，才能登記快照。')) return;
-            const currentSession = session();
-            if (!currentSession) return setMessage('登入狀態已失效，請重新整理。', true);
-            state.ticketsLoading = true;
-            fields.disabled = true;
-            claimButton.textContent = '領取中…';
-            try {
-              await window.BookingSystem.claimEventTicket(currentSession.config, currentSession.idToken, String(item.id || ''));
-              if (generation !== state.ticketGeneration || !state.accessible) return;
-              setMessage('已領取活動票券，正在重新確認可使用條件…');
-              await loadSnapshotTickets();
-              if (generation === state.ticketGeneration && state.accessible) {
-                setMessage('活動票券已領取，請確認票券條件後勾選使用。');
-              }
-            } catch (error) {
-              if (generation === state.ticketGeneration && state.accessible) {
-                setMessage(String(error?.message || '活動票券領取失敗，請重新嘗試。'), true);
-              }
-            } finally {
-              if (generation === state.ticketGeneration && state.accessible) {
-                state.ticketsLoading = false;
-                fields.disabled = false;
-                claimButton.textContent = '領取活動票券';
-              }
-            }
-          });
-          const claimAction = document.createElement('div');
-          claimAction.className = 'snapshot-ticket-claim-action';
-          claimAction.append(claimButton);
-          option.append(claimAction);
-        }
         choices.append(option);
         check.addEventListener('change', () => {
           resetTicketRequest();
           renderBookings();
         });
       });
-      if (!items.length) choices.textContent = '目前沒有可登記或可領取的票券，可以只送出收據。';
+      if (!items.length) choices.textContent = '目前沒有已發放且可登記的票券，可以只送出收據。';
       function renderBookings() {
         const checked = [...choices.querySelectorAll('[data-snapshot-id]:checked')];
         const selectedPoints = checked.filter(input => input.dataset.snapshotKind === 'points').length;
@@ -552,7 +510,7 @@
           const ticket = itemByKey.get(String(input.dataset.snapshotKind) + ':' + String(input.dataset.snapshotId));
           if (!ticket) continue;
           const selected = input.checked;
-          const fixedBlocked = ticket.selectable !== true || ticket.claimRequired === true;
+          const fixedBlocked = ticket.selectable !== true;
           let reason = '';
           if (!selected && !fixedBlocked) {
             if (ticket.kind === 'points') {

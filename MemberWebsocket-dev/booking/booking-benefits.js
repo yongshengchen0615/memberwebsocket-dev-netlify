@@ -11,7 +11,6 @@
   let eventTicketMaxPerDay = 1;
   let pointTicketMaxPerRedemption = 1;
   let currentBookingId = '';
-  let claimingEventTicketId = '';
   let featureGeneration = 0;
   let currentServiceIds = new Set();
   let currentServiceAmounts = new Map();
@@ -19,6 +18,10 @@
   const kinds = { points: '集點卡票券', event: '活動票券', calendar: '會員活動' };
   const kindOrder = ['calendar', 'points', 'event'];
   const selectableKinds = new Set(['points', 'event']);
+  const guidedTicketId = (() => {
+    const id = new URLSearchParams(window.location.search).get('eventTicketId') || '';
+    return /^[A-Za-z0-9_-]{1,128}$/.test(id) ? id : '';
+  })();
   const el = (id) => document.getElementById(id);
   const keyFor = (kind, id) => `${String(kind || '')}:${String(id || '')}`;
   const allowed=item=>window.BusinessContext?.allowsBenefit?.(item?.kind)!==false;
@@ -253,38 +256,6 @@
       }
     }
 
-    if (item.kind === 'event' && item.claimRequired === true) {
-      const title = String(item.title || '活動票券');
-      if (!window.confirm(`勾選「${title}」即代表領取此活動票券。\n\n領取後會直接加入本次預約使用，是否繼續？`)) {
-        input.checked = false;
-        render(renderedItems);
-        return;
-      }
-      claimingEventTicketId = String(item.id || '');
-      const claimGeneration=featureGeneration;
-      render(renderedItems);
-      try {
-        const result = await window.BookingSystem.claimEventTicket(config, idToken, item.id);
-        if(disposed||claimGeneration!==featureGeneration||!allowed(item))return;
-        const claimId = String(result?.ticket?.claimId || '');
-        if (!claimId) throw new Error('票券已領取，但無法取得票券識別，請重新整理後再試。');
-        renderedItems = renderedItems.map((current) => current?.kind === 'event' && current?.id === item.id
-          ? { ...current, claimRequired: false, selectionId: claimId, selectable: true, statusLabel: '可使用', subtitle: '已領取，尚未使用' }
-          : current);
-        selected.set(keyFor('event', claimId), {
-          kind: 'event', id: claimId, title, status: 'pending',
-        });
-        state('ready', result?.alreadyClaimed ? '這張活動票券已領取，已加入本次預約。' : '活動票券已領取並加入本次預約。');
-        emitSelectionChange();
-      } catch (error) {
-        state('ready', String(error?.message || '活動票券領取失敗，請重新整理後再試。'));
-      } finally {
-        claimingEventTicketId = '';
-        render(renderedItems);
-      }
-      return;
-    }
-
     if (!selectionId) {
       input.checked = false;
       render(renderedItems);
@@ -313,6 +284,15 @@
 
   function render(items = renderedItems) {
     renderedItems = (Array.isArray(items) ? items : []).filter(allowed);
+    const guide = el('bookingTicketGuide');
+    if (guide && guidedTicketId) {
+      guide.classList.remove('hidden');
+      const owned = renderedItems.find(item => item.kind === 'event' && item.id === guidedTicketId && item.selectionId);
+      const guideText = el('bookingTicketGuideText');
+      if (guideText) guideText.textContent = owned
+        ? '請切換至一般預約模式，選擇日期、服務與時段，於「本次可使用優惠」勾選「' + String(owned.title || '活動票券') + '」，再確認送出預約。實際核銷將於服務完成時由後端再次驗證。'
+        : '請切換至一般預約模式，選擇日期、服務與時段，並在送出前勾選已發放且符合使用條件的活動票券。若未顯示票券，請檢查會員資格、活動期限與使用名額。';
+    }
     window.dispatchEvent(new CustomEvent('booking:benefits-loaded', { detail: { items: renderedItems } }));
     const list = el('bookingBenefitsList');
     if (!list) return;
@@ -342,11 +322,10 @@
 
       for (const item of groupItems) {
         const selectionId = String(item.selectionId || '');
-        const controlId = selectionId || (item.kind === 'event' && item.claimRequired === true ? String(item.id || '') : '');
+        const controlId = selectionId;
         const key = keyFor(item.kind, selectionId);
         const isSelected = Boolean(selectionId && selected.has(key));
         const selectable = selectableKinds.has(item.kind) && item.selectable === true && Boolean(controlId);
-        const claiming = item.kind === 'event' && String(item.id || '') === claimingEventTicketId;
         const pointLimitBlocked = item.kind === 'points' && hasLimit(pointTicketMaxPerRedemption) && !isSelected && selectedPointCount() >= pointTicketMaxPerRedemption;
         const pointBudgetBlocked = item.kind === 'points' && !isSelected && !pointBudget(item).affordable;
         const serviceBlocked = selectableKinds.has(item.kind) && !ticketRequirementMet(item);
@@ -362,6 +341,9 @@
         card.classList.toggle('is-selected', isSelected);
         card.classList.toggle('is-unavailable', pointUnavailable || eventUnavailable);
         card.dataset.benefitKind = item.kind;
+        if (guidedTicketId && item.kind === 'event' && item.id === guidedTicketId && selectionId) {
+          card.classList.add('is-guided-ticket');
+        }
         if (pointUnavailable || eventUnavailable) card.setAttribute('aria-disabled', 'true');
         if (item.kind === 'points') card.dataset.cardStyle = window.MemberUI.pointCardStyleKey(item.cardStyleKey);
 
@@ -411,22 +393,15 @@
           const input = document.createElement('input');
           input.type = 'checkbox';
           input.checked = isSelected;
-          input.disabled = claiming
-            || (item.kind === 'event' && Boolean(claimingEventTicketId) && !isSelected)
-            || ((!selectable
+          input.disabled = ((!selectable
               || (item.kind === 'event' && hasLimit(eventTicketMaxPerDay) && !isSelected && selectedEventCount() >= eventTicketMaxPerDay)
               || pointLimitBlocked
               || pointBudgetBlocked || serviceBlocked) && !isSelected);
           input.dataset.bookingBenefitKind = item.kind;
           input.dataset.bookingBenefitId = controlId;
-          if (item.kind === 'event' && item.claimRequired === true) input.dataset.bookingBenefitClaimRequired = 'true';
           input.setAttribute('aria-label', `本次預約使用${String(item.title || '此權益')}`);
           const label = document.createElement('span');
-          label.textContent = claiming
-            ? '領取中…'
-            : item.kind === 'event' && item.claimRequired === true
-              ? '勾選並領取'
-              : isSelected
+          label.textContent = isSelected
                 ? '已選擇（可取消）'
                 : pointBudgetBlocked
                   ? '點數不足'

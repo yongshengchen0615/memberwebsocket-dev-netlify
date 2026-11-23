@@ -19,14 +19,18 @@ test('referral rewards go only to the inviter and remain repeatable per distinct
   assert.match(migration, /'rewardCount', 1/);
   assert.match(migration, /v_reward_event\.id,\s*v_inviter\.id,\s*'referral'/s);
   assert.doesNotMatch(migration, /v_reward_event\.id,\s*v_invitee\.id,\s*'referral'/s);
-  assert.match(migration, /if v_claim_count >= v_source_event\.quota then/);
+  assert.match(migration, /if v_claim_count >= v_source_event\.quota then/, 'historical migration had an issuance quota');
+  const current = read('supabase/migrations/20261123133000_event_ticket_redemption_quota_not_issuance.sql');
+  assert.match(current,/Referral eligibility remains unchanged/);
+  assert.doesNotMatch(current,/if v_claim_count >= v_source_event\.quota then/);
+  assert.match(current,/guard_event_ticket_redemption_quota/);
   assert.doesNotMatch(migration, /v_claim_count \+ 2/);
   assert.match(migration, /event_tickets_one_active_referral_idx[\s\S]*referral_source_event_ticket_id is null/);
 
   assert.doesNotMatch(api, /INVALID_REFERRAL_QUOTA/);
   assert.match(api, /referral_source_event_ticket_id/);
   assert.doesNotMatch(admin, /好友邀請每次會發放兩張票券/);
-  assert.match(adminHtml, /好友邀請則每成功邀請 1 位發放 1 張/);
+  assert.match(adminHtml, /好友邀請每次成功邀請仍發放票券/);
   assert.match(admin, /每成功邀請一位尚未綁定邀請關係的會員，系統會自動發 1 張給邀請者/);
   assert.match(member, /每成功邀請一位不同會員可獲得 1 張優惠票券/);
 });

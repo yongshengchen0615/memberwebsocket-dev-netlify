@@ -28,7 +28,7 @@ assert.ok(!eventHtml.includes('batch-redemption.js'));
 assert.ok(!eventHtml.includes('batch-redemption.css'));
 assert.ok(!eventHtml.includes('activity-link.js'));
 assert.ok(eventUI.includes("options.fixed ? '固定票券'"));
-assert.ok(eventUI.includes("options.fixed ? '發放方式' : '限量張數'"));
+assert.ok(eventUI.includes("options.fixed ? '發放方式' : '使用數量上限'"));
 assert.ok(eventApp.includes('eventTicketQuotaText(ticket)'));
 assert.ok(eventUI.includes('系統自動發放'));
 assert.ok(eventApp.includes('normalizeFixedOffers'));

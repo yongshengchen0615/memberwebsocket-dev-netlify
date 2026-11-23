@@ -49,7 +49,7 @@ test('AC-008: group selections survive an empty service-catalog refresh and pers
     return dialog.accept();
   });
   await page.locator('#saveEventTicketButton').click();
-  expect(issuanceConfirmations).toEqual([expect.stringContaining('每成功發放 1 張即占用 1 個限量名額')]);
+  expect(issuanceConfirmations).toEqual([expect.stringContaining('只有成功使用／核銷才計入上限')]);
 
   await expect.poll(() => host.sessions.get(info.testId).eventTickets.length).toBe(1);
   const saved = host.sessions.get(info.testId).eventTickets[0];
@@ -92,7 +92,7 @@ test('AC-009: a legacy API that drops groups cannot report a successful save or 
     return dialog.accept();
   });
   await page.locator('#saveEventTicketButton').click();
-  expect(issuanceConfirmations).toEqual([expect.stringContaining('每成功發放 1 張即占用 1 個限量名額')]);
+  expect(issuanceConfirmations).toEqual([expect.stringContaining('只有成功使用／核銷才計入上限')]);
 
   const alert = page.locator('#eventTicketFormMessage');
   await expect(alert).toContainText('後端未保留預約組合設定');

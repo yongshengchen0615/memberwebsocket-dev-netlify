@@ -187,7 +187,6 @@ body.booking-receipt-modal-open{overflow:hidden;}
 }
 #snapshotTicketChoices{display:grid;gap:10px;margin-bottom:14px;min-width:0}
 #snapshotTicketChoices .snapshot-ticket-option{display:grid;gap:6px;min-width:0}
-#snapshotTicketChoices .snapshot-ticket-claim-button{justify-self:start;max-width:100%;font-size:14px}
 
 #snapshotTicketChoices .snapshot-ticket-choice{
   display:grid;
@@ -310,7 +309,7 @@ body.booking-receipt-modal-open{overflow:hidden;}
   #snapshotTicketChoices .snapshot-ticket-choice{transition:none}
 }
 
-/* Snapshot ticket picker layout: one coherent card, top-right checkbox, inline claim footer. */
+/* Snapshot ticket picker layout: one coherent card with a top-right checkbox. */
 #snapshotTicketSelectionSummary.has-selection{
   border-color:var(--theme-accent,#416b5a);
   background:var(--theme-positive-soft,#e7f2eb);
@@ -364,18 +363,8 @@ body.booking-receipt-modal-open{overflow:hidden;}
   padding:8px 10px;border-radius:9px;
   background:var(--theme-danger-soft,#f8e8e3);font-size:13px;line-height:1.5;
 }
-#snapshotTicketChoices .snapshot-ticket-claim-action{
-  display:flex;justify-content:flex-end;padding:10px 14px 14px;
-  border-top:1px solid var(--theme-border,rgba(24,36,31,.12));
-}
-#snapshotTicketChoices .snapshot-ticket-claim-button{
-  justify-self:auto;min-height:44px;max-width:100%;
-  margin:0;font-size:14px;white-space:normal;
-}
 @media(max-width:600px){
   #snapshotTicketChoices .snapshot-ticket-choice{padding:13px;gap:10px}
-  #snapshotTicketChoices .snapshot-ticket-claim-action{padding:10px 12px 12px}
-  #snapshotTicketChoices .snapshot-ticket-claim-button{width:100%}
 }
 @media(prefers-reduced-motion:reduce){
   #snapshotTicketChoices .snapshot-ticket-option{transition:none}
