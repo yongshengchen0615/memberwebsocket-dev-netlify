@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "multiTabLineAuthReview": "2026-11-23 PR #414：逐項覆核平台與一般管理員 LINE 入口、商家選擇及授權、管理主畫面會員／集點／活動／日曆／預約既有 62 組人工旅程，以及櫃檯人員授權、商家租戶隔離和單筆預約深層連結。這次僅修改已登入時的前端 LIFF 初始化分支，不調整任何已審核管理員業務旅程或 API；每個入口依原 Edge 逐次重新驗證身份，未登入需原 LINE callback，偽造或過期 callback 不能存取私有資料。對應 Node/JSDOM AC-MTAB-001～007 與原 Auth、frontdesk、platform 回歸；Chrome 多分頁、手機 LINE Provider 仍須真實驗證。",
+  "multiTabLineAuthReview": "2026-11-23 PR #414：逐項覆核平台與一般管理員 LINE 入口、商家選擇及授權、管理主畫面會員／集點／活動／日曆／預約既有 62 組人工旅程，以及櫃檯人員授權、商家租戶隔離和單筆預約深層連結。這次修改已登入的 LIFF 初始化分支及失效分頁的局部關閉（不登出其他分頁），不調整任何已審核管理員業務旅程或 API；每個入口依原 Edge 逐次重新驗證身份，未登入需原 LINE callback，偽造或過期 callback 不能存取私有資料。對應 Node/JSDOM AC-MTAB-001～007 與原 Auth、frontdesk、platform 回歸；Chrome 多分頁、手機 LINE Provider 仍須真實驗證。",
   "adminBookingUXReview": "2026-11-22 PR #405：已審查一般預約、管理員拒絕與確認、取消申請、技師設定、收據審核與票券結算、價格及爽約政策提交。共用非同步 Loading（背景 Realtime 與徽章自動讀取不阻斷）及原缺少的二次確認；保留原 62 組 admin-human 功能映射、跨商家權限、原有並行與冪等規則。新 Chromium 增加 UTF-8 正規化測試，未改既有六工作區與管理端自適應版面；完整 CI 同 SHA 驗收。",
   "generalAdminAdaptiveLayoutReview": "2026-11-22 PR #406：逐項審閱一般管理端五個主要工作區（會員名冊/360、集點/票券、活動票券、日曆、預約）、LINE 與網頁抬頭的核准後顯示、手機單行可捲動主導航、營運概況先於功能面板、列表與編輯器、一般彈窗及表格鍵盤捲動。保留所有 62 組 admin-human 功能對照與對應瀏覽器旅程，未新增、移除、改名或省略任何一項管理業務操作；只有純版型 CSS/HTML 語意，並新增 admin_responsive_layout.test.js、ui-layout.spec.cjs 的 320/390/768/1024/1440px 明暗雙主題操作驗收；原 admin-human、settings-layout、會員360、預約與角色/租戶負向測試仍需最終 SHA CI 完整通過，真實 LINE Provider 另行人工驗證。",
   "frontdeskLineSettingsLayoutReview": "2026-11-22 PR #401：已審閱櫃檯 LINE 設定的登入／通知／儲存／頁面抬頭／人員權限順序、三個設定分頁、商家授權與草稿重試；本次僅調整獨立設定頁 scoped CSS 與樣式快取版本，沒有新增、刪除或改名任何既有 admin-human 瀏覽器旅程。擴充 390/1280px Chromium 幾何、明暗色和無橫向溢出驗收；真實 LINE Provider 另行驗收。",
@@ -61,7 +61,7 @@
     "admin/productized-workspace.js": "8102b4a4dd3bef05542472bf328ceafc9e853bf765ea552301e016255818ec15",
     "platform/platform.css": "adef4577cbae41c584fe16fce5c6372ab86a994f37226a9a6cc5116bb5bcecf2",
     "admin/business-line-settings.css": "ceab14d19f8137f529bdaa39c590ce5329304a9a3a8c515afd54bdb802a3f0c3",
-    "booking/common.js": "8869346e2801a94b08615a6ab26d9908e3072e77758459b3824bb820d4191505",
+    "booking/common.js": "512bb27c847b3163dfb374826220a6519a8259c4e363c4f33c67650b6fae035f",
     "admin/frontdesk-settings.js": "178250d6d5a309639196de6038bcdbe6683fd504b32dfcff52746f4dc7b574af",
     "frontdesk/app.js": "779841f7153804bee996b571c419bdbca44f13de6ced4c21e3b7a94492c50ef3",
     "frontdesk/styles.css": "c08cb98c3d2c955dd3c6f8719b9d9b3062c3bd9bee018083cae14ee7569556a6",
