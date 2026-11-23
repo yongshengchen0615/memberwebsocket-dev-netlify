@@ -26,7 +26,7 @@ function entry({merchantEntry, inClient=false, returned=false, rejected=false, l
       logout(){calls.push(['logout']);loggedIn=false;}
     },
     MemberSystem:{validateConfig(){calls.push(['config']);}},
-    LineInitialEntry:{enter({liffId,scope,business}){calls.push(['initial-entry',scope,liffId,business]);return initialEntry;}},
+    LineInitialEntry:{enter({liffId,scope,business}){calls.push(['initial-entry',scope,liffId,business]);return initialEntry;},recover({liffId,scope,business}){calls.push(['auto-recover',scope,liffId,business]);return true;}},
     sessionStorage:{getItem(){return null;},setItem(){},removeItem(){calls.push(['clear-attempt']);}},
     location:{href:'https://preview.example.test/admin/'},
     crypto:require('node:crypto').webcrypto
@@ -126,28 +126,45 @@ test('AC-PLATFORM-LIFF-002: malformed LIFF is blocked before init or privileged 
 });
 
 
-test('AC-REAUTH-005: wrong LIFF audience remains private and shows the explicit scoped entry after initial attempt',async()=>{
+test('AC-LINE-023: wrong LINE audience automatically enters its own LIFF without an explicit link',async()=>{
  const e=entry({merchantEntry:true});
  e.context.cachedLineIdentityInvalid=()=>true;
  await e.run();
- assert.ok(names(e).includes('offer-scoped-reentry'));
- assert.ok(!names(e).includes('scoped-line-reentry'),'wrong audience must not loop through LIFF again');
- assert.ok(!names(e).includes('request'));
- assert.ok(!names(e).includes('logout'));
+ assert.deepEqual(e.calls.filter(([name])=>name==='auto-recover').map(([,scope,id])=>[scope,id]),[['merchant','2010791619-testAdmin']]);
+ assert.equal(names(e).includes('offer-scoped-reentry'),false);
+ assert.equal(names(e).includes('request'),false);
+ assert.equal(names(e).includes('authorized-ui'),false);
+ assert.equal(names(e).includes('logout'),false);
 });
 
+test('AC-LINE-024: exhausted recovery fails closed with no manual link and no backend request',async()=>{
+ const e=entry({merchantEntry:true});
+ e.context.cachedLineIdentityInvalid=()=>true;
+ e.context.window.LineInitialEntry.recover=()=>false;
+ await e.run();
+ assert.equal(names(e).includes('gate'),true);
+ assert.equal(names(e).includes('request'),false);
+ assert.equal(names(e).includes('offer-scoped-reentry'),false);
+ assert.equal(names(e).includes('logout'),false);
+});
 
-test('AC-REAUTH-007: server AUTH_INVALID rejects current session with a reentry link but no automatic navigation',async()=>{
+test('AC-LINE-025: rejected server credentials never trigger an automatic reentry loop',async()=>{
  const e=entry({merchantEntry:true});
  e.context.request=async action=>{
   e.calls.push(['request',action]);
   throw Object.assign(new Error('LINE credential is invalid'),{code:'AUTH_INVALID',status:401});
  };
  await e.run();
- assert.ok(names(e).includes('gate'),'failed server authorization must hide private UI');
- assert.ok(names(e).includes('offer-scoped-reentry'),'failed sign-in must offer the dedicated LINE URL');
- assert.equal(names(e).includes('scoped-line-reentry'),false,'server denial must not automatically navigate or mask the error');
+ assert.ok(names(e).includes('gate'));
+ assert.equal(names(e).includes('auto-recover'),false,'401 is not proof of a cached wrong Channel');
+ assert.equal(names(e).includes('offer-scoped-reentry'),false);
  assert.equal(names(e).includes('authorized-ui'),false);
+});
+
+test('AC-LINE-026: the platform controller has no manual LINE login link or old warning copy',()=>{
+ assert.equal(source.includes('offerLineReentry'),false);
+ assert.equal(source.includes('lineReauthLink'),false);
+ assert.equal(source.includes('此頁尚未取得有效的 LINE 初始登入'),false);
 });
 
 

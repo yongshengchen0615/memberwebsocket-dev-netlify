@@ -22,8 +22,19 @@
     let current,inside,loggedIn;
     try {
       current=new URL(window.location.href);
-      inside=beforeInit?false:window.liff.isInClient();
-      loggedIn=beforeInit?false:window.liff.isLoggedIn();
+      // SDK is often already present before init. When it says this is the
+      // LINE LIFF client, do not navigate away before it can initialize.
+      // User agent is only a routing hint when the SDK is not initialized;
+      // it never authorizes identity or resource access.
+      const lineUserAgent=/\bLine\/[0-9]/i.test(String(window.navigator?.userAgent||''));
+      if(beforeInit){
+        try{inside=window.liff?.isInClient?.()===true;}catch{inside=false;}
+        inside=inside||lineUserAgent;
+        loggedIn=false;
+      }else{
+        inside=window.liff.isInClient();
+        loggedIn=window.liff.isLoggedIn();
+      }
     }catch{return false;}
     // The LINE browser normally signs in during liff.init(). If another LIFF
     // app's Channel is still cached, enter THIS app instead of showing a stale
@@ -36,7 +47,7 @@
       }catch{}
     }
     // Local HTTP test fixtures are not registered HTTPS LIFF endpoints.
-    if(current.protocol!=='https:'||(!beforeInit&&(!loggedIn||(inside&&!wrongInClientChannel))))return false;
+    if(current.protocol!=='https:'||(beforeInit&&inside)||(!beforeInit&&(!loggedIn||(inside&&!wrongInClientChannel))))return false;
     // LINE's primary and secondary redirects carry provider parameters that
     // must remain untouched until the SDK has finished initialization.
     if(CALLBACK_QUERY.some(key=>current.searchParams.has(key))
@@ -73,5 +84,42 @@
     }
   }
   function enterBeforeInit(options={}) { return enter({...options,beforeInit:true}); }
-  window.LineInitialEntry=Object.freeze({enter,enterBeforeInit});
+
+  // Only a verified SDK audience mismatch may request this recovery. It is a
+  // single extra automatic LIFF entry, not a login grant or an unbounded retry.
+  // Do not disturb OAuth provider callback URLs; SDK initialization owns them.
+  function recover({liffId,scope,business=''}={}) {
+    const id=String(liffId||'').trim(),role=String(scope||'').trim();
+    if(!LIFF_ID.test(id)||!SCOPE.test(role))return false;
+    let current;
+    try{current=new URL(window.location.href);}catch{return false;}
+    if(current.protocol!=='https:')return false;
+    if(CALLBACK_QUERY.some(key=>current.searchParams.has(key))
+      ||current.searchParams.has('liff.state')||current.searchParams.has('access_token')
+      ||(current.searchParams.has('code')&&current.searchParams.has('state')))return false;
+    const tenant=String(business||current.searchParams.get('business')||'');
+    if(tenant&&!BUSINESS.test(tenant))return false;
+    const key='line-initial-recovery-v1:'+role+':'+id+':'+current.pathname+':'+tenant;
+    try{
+      const previous=Number(window.sessionStorage.getItem(key)||0);
+      const elapsed=Date.now()-previous;
+      if(previous>0&&Number.isFinite(elapsed)&&elapsed>=0&&elapsed<PER_TAB_WINDOW_MS)return false;
+      const entry=new URL('https://liff.line.me/'+id);
+      for(const [name,value] of current.searchParams){
+        if(PRIVATE_QUERY.test(name))continue;
+        if(name==='business'&&tenant)entry.searchParams.set('business',tenant);
+        else entry.searchParams.append(name,value);
+      }
+      if(tenant&&!entry.searchParams.has('business'))entry.searchParams.set('business',tenant);
+      entry.searchParams.set('line_initial','1');
+      if(current.hash)entry.hash=current.hash;
+      window.sessionStorage.setItem(key,String(Date.now()));
+      window.location.replace(entry.href);
+      return true;
+    }catch{
+      try{window.sessionStorage.removeItem(key);}catch{}
+      return false;
+    }
+  }
+  window.LineInitialEntry=Object.freeze({enter,enterBeforeInit,recover});
 })();

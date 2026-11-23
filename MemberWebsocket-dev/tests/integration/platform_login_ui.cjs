@@ -50,9 +50,13 @@ async function boot({loggedIn=false,returning=false,apiStatus=403,merchant=false
  const win=dom.window;
  if(merchant)win.document.documentElement.dataset.workspace='merchant';
  if(business)win.BusinessContext={slug:business,configure:async config=>config};
- const calls={init:0,login:0,logout:0,api:0};
+ const calls={init:0,login:0,logout:0,api:0,recover:0,recoveryOptions:null};
  if(!win.AbortSignal.timeout)win.AbortSignal.timeout=()=>new win.AbortController().signal;
  win.MemberSystem={validateConfig(){}};
+ // Model the official LIFF navigation as an observable event. JSDOM cannot
+ // navigate cross-origin, so a server denial must not be mistaken for success.
+ win.LineInitialEntry={enter:()=>false,enterBeforeInit:()=>false,recover(opts){calls.recover++;calls.recoveryOptions=opts;return true;}};
+
  win.liff={
   init:async()=>{calls.init++;},
   isLoggedIn:()=>loggedIn,
@@ -132,35 +136,38 @@ test('AC-UI-004: server-approved identity reaches workspace without further prom
 });
 
 
-test('AC-REAUTH-001: wrong-channel cached LIFF identity must not reach merchant API and offers its dedicated LINE app',async()=>{
+test('AC-REAUTH-001: wrong-channel identity triggers automatic merchant LIFF recovery without private API access',async()=>{
  const h=await boot({loggedIn:true,merchant:true,business:'tenant-one',decodedToken:{aud:'2012065297',exp:Math.floor(Date.now()/1000)+1800}});
  try {
-  await until(()=>Boolean(h.win.document.getElementById('lineReauthLink')));
-  assert.equal(h.calls.api,0,'a platform audience is never submitted as a merchant credential');
-  assert.equal(h.calls.logout,0,'a sibling LIFF tab is never logged out');
-  assert.equal(h.win.document.getElementById('lineReauthLink').href,'https://liff.line.me/2010791619-vhevCvvD?business=tenant-one');
+  await until(()=>h.calls.recover===1);
+  assert.equal(h.calls.recoveryOptions.liffId,'2010791619-vhevCvvD');
+  assert.equal(h.calls.recoveryOptions.scope,'merchant');
+  assert.equal(h.calls.recoveryOptions.business,'tenant-one');
+  assert.equal(h.calls.api,0);
+  assert.equal(h.calls.logout,0);
+  assert.equal(h.win.document.getElementById('lineReauthLink'),null);
   assert.equal(h.win.document.getElementById('platformWorkspace').hidden,true);
  }finally{h.dom.window.close();}
 });
 
-test('AC-REAUTH-002: expired cached LIFF credential offers scoped re-login without calling the server',async()=>{
+test('AC-REAUTH-002: expired cached LIFF credentials auto-recover once without API or manual link',async()=>{
  const h=await boot({loggedIn:true,merchant:true,decodedToken:{aud:'2010791619',exp:Math.floor(Date.now()/1000)-10}});
  try {
-  await until(()=>Boolean(h.win.document.getElementById('lineReauthLink')));
+  await until(()=>h.calls.recover===1);
   assert.equal(h.calls.api,0);
   assert.equal(h.calls.logout,0);
-  assert.equal(h.win.document.getElementById('lineReauthLink').href,'https://liff.line.me/2010791619-vhevCvvD');
+  assert.equal(h.calls.recoveryOptions.liffId,'2010791619-vhevCvvD');
+  assert.equal(h.win.document.getElementById('lineReauthLink'),null);
  }finally{h.dom.window.close();}
 });
 
-test('AC-REAUTH-003: LINE verification 401 presents a working per-channel reentry link, never a global logout',async()=>{
+test('AC-REAUTH-003: server verification 401 denies access with no automatic loop, manual action or global logout',async()=>{
  const h=await boot({loggedIn:true,merchant:true,apiStatus:401,decodedToken:{aud:'2010791619',exp:Math.floor(Date.now()/1000)+1800}});
  try {
-  await until(()=>Boolean(h.win.document.getElementById('lineReauthLink')));
-  const a=h.win.document.getElementById('lineReauthLink');
-  assert.equal(a.href,'https://liff.line.me/2010791619-vhevCvvD');
-  assert.match(a.textContent,/LINE/);
-  assert.equal(h.calls.api,1,'must still server-verify the token');
+  await until(()=>h.calls.api===1 && /LINE/.test(h.win.document.getElementById('platformStatus').textContent));
+  assert.equal(h.calls.recover,0,'a server rejection is not a cache mismatch');
+  assert.equal(h.win.document.getElementById('lineReauthLink'),null);
+  assert.equal(h.calls.api,1);
   assert.equal(h.calls.logout,0);
   assert.equal(h.win.document.getElementById('merchantWorkspace').hidden,true);
  }finally{h.dom.window.close();}
@@ -177,14 +184,15 @@ test('AC-REAUTH-004: valid channel-specific LIFF credentials keep existing direc
 });
 
 
-test('AC-REAUTH-006: switching from merchant to Platform never sends the merchant LINE audience to root API',async()=>{
+test('AC-REAUTH-006: switching merchant to Platform auto-enters root LIFF without leaking merchant identity',async()=>{
  const h=await boot({loggedIn:true,merchant:false,decodedToken:{aud:'2010791619',exp:Math.floor(Date.now()/1000)+1800}});
  try {
-  await until(()=>Boolean(h.win.document.getElementById('lineReauthLink')));
-  const link=h.win.document.getElementById('lineReauthLink');
-  assert.equal(link.href,'https://liff.line.me/2012065297-VunxFBj8');
+  await until(()=>h.calls.recover===1);
+  assert.equal(h.calls.recoveryOptions.liffId,'2012065297-VunxFBj8');
+  assert.equal(h.calls.recoveryOptions.scope,'platform');
   assert.equal(h.calls.api,0,'wrong role and LINE audience must never reach root API');
-  assert.equal(h.calls.logout,0,'switching to the Platform page must not log out the merchant tab');
+  assert.equal(h.calls.logout,0,'a sibling merchant tab must remain signed in');
+  assert.equal(h.win.document.getElementById('lineReauthLink'),null);
   assert.equal(h.win.document.getElementById('platformWorkspace').hidden,true);
  }finally{h.dom.window.close();}
 });

@@ -7,10 +7,10 @@ const vm=require('node:vm');
 const root=path.resolve(__dirname,'..');
 const source=()=>fs.readFileSync(path.join(root,'line-initial-entry.js'),'utf8');
 const ID={platform:'2012065297-RootChannel',merchant:'2010791619-MerchantChannel',member:'2010787602-MemberChannel',booking:'2010787602-BookingChannel',frontdesk:'2010787602-FrontdeskChannel'};
-function visit({url='https://example.netlify.app/platform/',scope='platform',liffId=ID.platform,business='',loggedIn=true,inClient=false,decodedToken=null,storage=new Map(),storageBlocked=false}={}) {
+function visit({url='https://example.netlify.app/platform/',scope='platform',liffId=ID.platform,business='',loggedIn=true,inClient=false,decodedToken=null,storage=new Map(),storageBlocked=false,userAgent='Mozilla/5.0 Chrome/130'}={}) {
  const calls=[];
  const location={href:url,replace(href){calls.push(['replace',href]);}};
- const window={location,liff:{isInClient:()=>inClient,isLoggedIn:()=>loggedIn,getDecodedIDToken:()=>decodedToken,logout(){calls.push(['logout']);}},
+ const window={location,navigator:{userAgent},liff:{isInClient:()=>inClient,isLoggedIn:()=>loggedIn,getDecodedIDToken:()=>decodedToken,logout(){calls.push(['logout']);}},
   sessionStorage:{
    getItem(k){if(storageBlocked)throw Error('storage unavailable');return storage.get(k)||null;},
    setItem(k,v){if(storageBlocked)throw Error('storage unavailable');storage.set(k,v);},
@@ -163,4 +163,42 @@ test('AC-LINE-022: all entrypoints choose the LIFF before calling init, so an in
   assert.match(source,entry,file);
   assert.ok(source.search(entry)<source.search(init),'must enter own LIFF before sdk init: '+file);
  }
+});
+
+test('AC-LINE-027: LINE in-app browser initializes its own LIFF without pre-init external navigation',()=>{
+ const opts={scope:'merchant',liffId:ID.merchant,loggedIn:false};
+ const sdk=visit({...opts,inClient:true});
+ assert.equal(sdk.window.LineInitialEntry.enterBeforeInit({liffId:ID.merchant,scope:'merchant'}),false);
+ assert.equal(sdk.calls.length,0);
+ const ua=visit({...opts,userAgent:'Mozilla/5.0 (iPhone) AppleWebKit/605.1 LINE/14.19.1'});
+ ua.window.liff.isInClient=()=>{throw Error('LIFF has not initialized');};
+ assert.equal(ua.window.LineInitialEntry.enterBeforeInit({liffId:ID.merchant,scope:'merchant'}),false);
+ assert.equal(ua.calls.length,0);
+ const external=visit({...opts});
+ assert.equal(external.window.LineInitialEntry.enterBeforeInit({liffId:ID.merchant,scope:'merchant'}),true);
+ assert.equal(new URL(external.calls[0][1]).pathname,'/'+ID.merchant);
+});
+test('AC-LINE-028: wrong-channel LIFF recovery is automatic once, never sends a secret, and has no global logout',()=>{
+ const opts={url:'https://example.netlify.app/admin/?business=shop-a&jwt=private&bookingId=B-99',scope:'merchant',liffId:ID.merchant,business:'shop-a'};
+ const h=visit(opts),recover=()=>h.window.LineInitialEntry.recover({liffId:ID.merchant,scope:'merchant',business:'shop-a'});
+ assert.equal(recover(),true);
+ const u=new URL(h.calls[0][1]);
+ assert.equal(u.origin,'https://liff.line.me');
+ assert.equal(u.pathname,'/'+ID.merchant);
+ assert.equal(u.searchParams.get('business'),'shop-a');
+ assert.equal(u.searchParams.get('bookingId'),'B-99');
+ assert.equal(u.searchParams.has('jwt'),false);
+ assert.equal(recover(),false);
+ assert.equal(h.calls.length,1);
+ assert.equal(h.calls.some(([name])=>name==='logout'),false);
+});
+test('AC-LINE-029: auto recovery does not interfere with OAuth callback or loop when storage blocked',()=>{
+ for(const query of ['code=secret&state=nonce','access_token=opaque','liff.state=%3Fbusiness%3Dshop-a']){
+  const h=visit({url:'https://example.netlify.app/admin/?'+query});
+  assert.equal(h.window.LineInitialEntry.recover({liffId:ID.merchant,scope:'merchant'}),false);
+  assert.equal(h.calls.length,0);
+ }
+ const blocked=visit({storageBlocked:true});
+ assert.equal(blocked.window.LineInitialEntry.recover({liffId:ID.merchant,scope:'merchant'}),false);
+ assert.equal(blocked.calls.length,0);
 });
