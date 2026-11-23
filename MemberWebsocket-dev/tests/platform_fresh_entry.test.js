@@ -10,7 +10,7 @@ const endPosition=source.lastIndexOf('  void start();');
 assert.ok(startPosition>0&&endPosition>startPosition,'platform must retain a named async start function');
 const startExpression='('+source.slice(startPosition,endPosition).trim()+')';
 
-function entry({merchantEntry, inClient=false, returned=false, rejected=false, loggedIn=true, idToken='synthetic-line-id-token',version=1,business='',configuredLiff,platformLiffId='2012065297-testPlatform'}={}) {
+function entry({merchantEntry, inClient=false, returned=false, rejected=false, loggedIn=true, idToken='synthetic-line-id-token',version=1,business='',configuredLiff,platformLiffId='2012065297-testPlatform',initialEntry=false}={}) {
   const calls=[];
   const status={textContent:''};
   const featureFields={append(){}};
@@ -26,6 +26,7 @@ function entry({merchantEntry, inClient=false, returned=false, rejected=false, l
       logout(){calls.push(['logout']);loggedIn=false;}
     },
     MemberSystem:{validateConfig(){calls.push(['config']);}},
+    LineInitialEntry:{enter({liffId,scope,business}){calls.push(['initial-entry',scope,liffId,business]);return initialEntry;}},
     sessionStorage:{getItem(){return null;},setItem(){},removeItem(){calls.push(['clear-attempt']);}},
     location:{href:'https://preview.example.test/admin/'},
     crypto:require('node:crypto').webcrypto
@@ -125,11 +126,12 @@ test('AC-PLATFORM-LIFF-002: malformed LIFF is blocked before init or privileged 
 });
 
 
-test('AC-REAUTH-005: extracted startup with wrong LIFF audience triggers scoped reentry before server calls',async()=>{
+test('AC-REAUTH-005: wrong LIFF audience remains private and shows the explicit scoped entry after initial attempt',async()=>{
  const e=entry({merchantEntry:true});
  e.context.cachedLineIdentityInvalid=()=>true;
  await e.run();
- assert.ok(names(e).includes('scoped-line-reentry'));
+ assert.ok(names(e).includes('offer-scoped-reentry'));
+ assert.ok(!names(e).includes('scoped-line-reentry'),'wrong audience must not loop through LIFF again');
  assert.ok(!names(e).includes('request'));
  assert.ok(!names(e).includes('logout'));
 });
@@ -146,4 +148,23 @@ test('AC-REAUTH-007: server AUTH_INVALID rejects current session with a reentry 
  assert.ok(names(e).includes('offer-scoped-reentry'),'failed sign-in must offer the dedicated LINE URL');
  assert.equal(names(e).includes('scoped-line-reentry'),false,'server denial must not automatically navigate or mask the error');
  assert.equal(names(e).includes('authorized-ui'),false);
+});
+
+
+test('AC-LINE-009: a new merchant tab enters its configured merchant LIFF before reading cached tokens or merchant data',async()=>{
+ const e=entry({merchantEntry:true,version:2,business:'shop-a',configuredLiff:'2099999999-merchant',initialEntry:true});
+ await e.run();
+ assert.ok(names(e).includes('init'));
+ assert.deepEqual(e.calls.filter(([name])=>name==='initial-entry').map(([,scope,id,business])=>[scope,id,business]),[['merchant','2099999999-merchant','shop-a']]);
+ assert.equal(names(e).includes('token'),false);
+ assert.equal(names(e).includes('request'),false);
+ assert.equal(names(e).includes('logout'),false);
+});
+
+test('AC-LINE-010: a newly opened root Platform tab enters root LIFF without reusing the merchant tab identity',async()=>{
+ const e=entry({merchantEntry:false,initialEntry:true});
+ await e.run();
+ assert.deepEqual(e.calls.filter(([name])=>name==='initial-entry').map(([,scope,id])=>[scope,id]),[['platform','2012065297-testPlatform']]);
+ assert.equal(names(e).includes('refresh-root'),false);
+ assert.equal(names(e).includes('token'),false);
 });
