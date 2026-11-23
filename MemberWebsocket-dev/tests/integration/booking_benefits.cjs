@@ -100,6 +100,7 @@ test('regular booking can select GPS-restricted point and event tickets without 
     const loaded = new Promise(resolve => h.w.addEventListener('booking:benefits-loaded', resolve, { once: true }));
     h.start();
     await loaded;
+    await tick(10); // loaded dispatch precedes DOM card reconciliation
     const point = h.el('bookingBenefitsList').querySelector('[data-booking-benefit-id="PT-GPS"]');
     const event = h.el('bookingBenefitsList').querySelector('[data-booking-benefit-id="EVENT-GPS"]');
     assert.ok(point && event);

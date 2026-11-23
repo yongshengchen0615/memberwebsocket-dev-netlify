@@ -37,6 +37,8 @@ async function setup(offer, options = {}) {
   });
   const w = dom.window;
   let writes = 0;
+  // Normalize synthetic overrides to the production API's mandatory detail fields.
+  offer = { ...offer, ticket: { description: '票券使用規則', ...offer.ticket } };
   w.BusinessContext = { slug: 'shop-a', allows: name => options.bookingDisabled !== true || name !== 'booking' };
   w.MemberSystem = {
     bindDialogKeyboard() {},
