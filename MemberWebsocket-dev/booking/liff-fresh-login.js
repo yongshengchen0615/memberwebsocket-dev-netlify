@@ -65,34 +65,30 @@
     if (!liffId) throw authError('LIFF_CONFIG_MISSING', '尚未設定預約 LIFF ID。請使用商家專屬入口，並請管理員在商家的 LINE 設定完成預約入口。');
     if (!window.liff) throw authError('LIFF_SDK_MISSING', 'LINE LIFF SDK 尚未載入。');
 
-    if (window.LineInitialEntry?.enterBeforeInit?.({liffId,scope:'booking',business:config.business||window.BusinessContext?.slug||''})) {
-      return new Promise(() => {});
-    }
     try {
       await window.liff.init({ liffId });
     } catch (_) {
       throw authError('LIFF_INIT_ERROR', 'LIFF 初始化失敗，請重新開啟預約頁面。');
     }
 
-    if (window.LineInitialEntry?.enter({liffId,scope:'booking',business:config.business||window.BusinessContext?.slug||''})) {
-      return new Promise(() => {}); // This tab is entering its booking LIFF.
-    }
     const inLiffClient = typeof window.liff.isInClient === 'function' && window.liff.isInClient();
     if (inLiffClient) {
       if (!window.liff.isLoggedIn()) {
         throw authError('AUTH_REQUIRED', 'LINE LIFF 尚未完成登入，請重新開啟此 LIFF。');
       }
     } else {
-      // Cached LIFF authentication belongs to this browser. Do not log out
-      // sibling tabs; the booking session claim is still server-authorized.
-      const marker = new URL(window.location.href).searchParams.get(FRESH_LOGIN_QUERY);
-      if (marker !== null && !consumeFreshLoginQuery()) {
-        throw authError('AUTH_REQUIRED', 'LINE 登入回跳已失效，請重新開啟預約頁面。');
-      }
-      if (!window.liff.isLoggedIn()) {
-        if (marker !== null) throw authError('AUTH_REQUIRED', 'LINE 登入未完成，請重新開啟預約頁面再試。');
+      const returnedFromFreshLogin = consumeFreshLoginQuery();
+      if (!returnedFromFreshLogin) {
+        if (window.liff.isLoggedIn()) {
+          try { window.liff.logout(); }
+          catch (_) { throw authError('AUTH_LOGOUT_FAILED', '無法清除先前的 LINE 工作階段，請重新開啟預約頁面。'); }
+          if (window.liff.isLoggedIn()) throw authError('AUTH_LOGOUT_FAILED', '先前的 LINE 工作階段仍有效，請重新開啟預約頁面。');
+        }
         redirectToFreshLogin();
         return new Promise(() => {});
+      }
+      if (!window.liff.isLoggedIn()) {
+        throw authError('AUTH_REQUIRED', 'LINE 登入未完成，請重新開啟預約頁面再試。');
       }
     }
 
