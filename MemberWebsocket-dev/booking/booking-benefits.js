@@ -11,7 +11,6 @@
   let eventTicketMaxPerDay = 1;
   let pointTicketMaxPerRedemption = 1;
   let currentBookingId = '';
-  let claimingEventTicketId = '';
   let featureGeneration = 0;
   let currentServiceIds = new Set();
   let currentServiceAmounts = new Map();
@@ -253,38 +252,6 @@
       }
     }
 
-    if (item.kind === 'event' && item.claimRequired === true) {
-      const title = String(item.title || '活動票券');
-      if (!window.confirm(`勾選「${title}」即代表領取此活動票券。\n\n領取後會直接加入本次預約使用，是否繼續？`)) {
-        input.checked = false;
-        render(renderedItems);
-        return;
-      }
-      claimingEventTicketId = String(item.id || '');
-      const claimGeneration=featureGeneration;
-      render(renderedItems);
-      try {
-        const result = await window.BookingSystem.claimEventTicket(config, idToken, item.id);
-        if(disposed||claimGeneration!==featureGeneration||!allowed(item))return;
-        const claimId = String(result?.ticket?.claimId || '');
-        if (!claimId) throw new Error('票券已領取，但無法取得票券識別，請重新整理後再試。');
-        renderedItems = renderedItems.map((current) => current?.kind === 'event' && current?.id === item.id
-          ? { ...current, claimRequired: false, selectionId: claimId, selectable: true, statusLabel: '可使用', subtitle: '已領取，尚未使用' }
-          : current);
-        selected.set(keyFor('event', claimId), {
-          kind: 'event', id: claimId, title, status: 'pending',
-        });
-        state('ready', result?.alreadyClaimed ? '這張活動票券已領取，已加入本次預約。' : '活動票券已領取並加入本次預約。');
-        emitSelectionChange();
-      } catch (error) {
-        state('ready', String(error?.message || '活動票券領取失敗，請重新整理後再試。'));
-      } finally {
-        claimingEventTicketId = '';
-        render(renderedItems);
-      }
-      return;
-    }
-
     if (!selectionId) {
       input.checked = false;
       render(renderedItems);
@@ -342,11 +309,10 @@
 
       for (const item of groupItems) {
         const selectionId = String(item.selectionId || '');
-        const controlId = selectionId || (item.kind === 'event' && item.claimRequired === true ? String(item.id || '') : '');
+        const controlId = selectionId;
         const key = keyFor(item.kind, selectionId);
         const isSelected = Boolean(selectionId && selected.has(key));
         const selectable = selectableKinds.has(item.kind) && item.selectable === true && Boolean(controlId);
-        const claiming = item.kind === 'event' && String(item.id || '') === claimingEventTicketId;
         const pointLimitBlocked = item.kind === 'points' && hasLimit(pointTicketMaxPerRedemption) && !isSelected && selectedPointCount() >= pointTicketMaxPerRedemption;
         const pointBudgetBlocked = item.kind === 'points' && !isSelected && !pointBudget(item).affordable;
         const serviceBlocked = selectableKinds.has(item.kind) && !ticketRequirementMet(item);
@@ -411,22 +377,15 @@
           const input = document.createElement('input');
           input.type = 'checkbox';
           input.checked = isSelected;
-          input.disabled = claiming
-            || (item.kind === 'event' && Boolean(claimingEventTicketId) && !isSelected)
-            || ((!selectable
+          input.disabled = ((!selectable
               || (item.kind === 'event' && hasLimit(eventTicketMaxPerDay) && !isSelected && selectedEventCount() >= eventTicketMaxPerDay)
               || pointLimitBlocked
               || pointBudgetBlocked || serviceBlocked) && !isSelected);
           input.dataset.bookingBenefitKind = item.kind;
           input.dataset.bookingBenefitId = controlId;
-          if (item.kind === 'event' && item.claimRequired === true) input.dataset.bookingBenefitClaimRequired = 'true';
           input.setAttribute('aria-label', `本次預約使用${String(item.title || '此權益')}`);
           const label = document.createElement('span');
-          label.textContent = claiming
-            ? '領取中…'
-            : item.kind === 'event' && item.claimRequired === true
-              ? '勾選並領取'
-              : isSelected
+          label.textContent = isSelected
                 ? '已選擇（可取消）'
                 : pointBudgetBlocked
                   ? '點數不足'
