@@ -12,7 +12,7 @@ const fixtureHtml='<!doctype html><html><head><title>Frontdesk</title></head><bo
 
 async function session({url=entry,storage=new Map(),loggedIn=true,inClient=false,token='verified-id-token',
   storageBlocked=false,logoutFails=false,logoutNoop=false,initFails=false,
-  bootstrapError=null,permissionMode='notify_only',initialEntry=false}={}){
+  bootstrapError=null,permissionMode='notify_only'}={}){
  const dom=new JSDOM(fixtureHtml,{url,runScripts:'outside-only'});
  const w=dom.window,calls=[];
  Object.defineProperty(w,'sessionStorage',{configurable:true,value:{
@@ -20,7 +20,6 @@ async function session({url=entry,storage=new Map(),loggedIn=true,inClient=false
    setItem(k,v){if(storageBlocked)throw Error('disabled');storage.set(k,v);},
    removeItem(k){if(storageBlocked)throw Error('disabled');storage.delete(k);}
  }});
- w.LineInitialEntry={enter({liffId,scope,business}){if(initialEntry)calls.push(['initial-entry',scope,liffId,business]);return initialEntry;}};
  w.liff={
    async init(input){calls.push(['init',input.liffId]);if(initFails)throw Error('init failed');},
    isInClient:()=>inClient,isLoggedIn:()=>loggedIn,
@@ -53,14 +52,20 @@ async function session({url=entry,storage=new Map(),loggedIn=true,inClient=false
    close:()=>w.close()
  };
 }
-test('AC-MTAB-004: cached LINE frontdesk session never logs out sibling tabs and still checks staff role',async()=>{
- const h=await session({permissionMode:'review'});
+test('AC-FD-AUTH-001: fresh external entry logs out a cached LIFF user and never loads protected bookings',async()=>{
+ const h=await session();
  try{
-   assert.deepEqual(h.calls.filter(x=>x[0]!=='request').map(x=>x[0]),['init','token']);
-   assert.deepEqual(h.actions.slice(0,3),['frontdesk.public','frontdesk.bootstrap','frontdesk.bookings']);
-   assert.equal(h.callsNamed('logout').length,0);
-   assert.equal(h.callsNamed('login').length,0);
-   assert.match(h.w.document.getElementById('bookings').textContent,/私有預約/);
+   assert.deepEqual(h.calls.filter(x=>x[0]!=='request').map(x=>x[0]),['init','logout','login']);
+   assert.equal(h.actions.includes('frontdesk.public'),true);
+   assert.equal(h.actions.includes('frontdesk.bootstrap'),false);
+   assert.equal(h.callsNamed('token').length,0);
+   assert.equal(h.w.document.querySelectorAll('#account button').length,0);
+   const u=new URL(h.redirect),marker=u.searchParams.get('frontdesk_line_reauth');
+   assert.match(marker,/^[a-f0-9]{32}$/);
+   assert.equal(u.searchParams.get('business'),'shop-a');
+   assert.equal(u.searchParams.get('bookingId'),'fixture');
+   assert.equal(JSON.parse(h.storage.get(key)).nonce,marker);
+   assert.equal(h.storage.get(key).includes('verified-id-token'),false);
  }finally{h.close();}
 });
 test('AC-FD-AUTH-002: signed-out external entry uses LINE Login without redundant logout',async()=>{
@@ -71,7 +76,7 @@ test('AC-FD-AUTH-002: signed-out external entry uses LINE Login without redundan
  }finally{h.close();}
 });
 test('AC-FD-AUTH-003: only matching one-time callback can open approved staff page',async()=>{
- const first=await session({loggedIn:false});
+ const first=await session();
  const callback=first.redirect,storage=first.storage;first.close();
  const fresh=await session({url:callback,storage});
  try{
@@ -84,13 +89,13 @@ test('AC-FD-AUTH-003: only matching one-time callback can open approved staff pa
  }finally{fresh.close();}
  const reopened=await session({url:entry,storage});
  try{
-  assert.deepEqual(reopened.calls.filter(x=>x[0]!=='request').map(x=>x[0]),['init','token']);
-  assert.equal(reopened.actions.includes('frontdesk.bootstrap'),true);
+  assert.deepEqual(reopened.calls.filter(x=>x[0]!=='request').map(x=>x[0]),['init','logout','login']);
+  assert.equal(reopened.actions.includes('frontdesk.bootstrap'),false);
  }finally{reopened.close();}
 });
 for(const mode of ['missing','expired','future','wrong-nonce','wrong-path','wrong-tenant','corrupt']){
  test('AC-FD-AUTH-004: '+mode+' callback denies reuse of prior LINE identity',async()=>{
-  const first=await session({loggedIn:false});const storage=first.storage;let callback=first.redirect;first.close();
+  const first=await session();const storage=first.storage;let callback=first.redirect;first.close();
   const record=JSON.parse(storage.get(key));
   if(mode==='missing')storage.delete(key);
   if(mode==='expired')record.createdAt=Date.now()-6*60*1000;
@@ -111,7 +116,7 @@ for(const mode of ['missing','expired','future','wrong-nonce','wrong-path','wron
  });
 }
 test('AC-FD-AUTH-005: missing browser storage fails closed, including previously logged-in users',async()=>{
- const h=await session({storageBlocked:true,loggedIn:false});
+ const h=await session({storageBlocked:true});
  try{
   assert.equal(h.callsNamed('login').length,0);
   assert.equal(h.callsNamed('token').length,0);
@@ -120,13 +125,13 @@ test('AC-FD-AUTH-005: missing browser storage fails closed, including previously
  }finally{h.close();}
 });
 for(const mode of ['logoutFails','logoutNoop']){
- test('AC-FD-AUTH-006: '+mode+' cannot break a cached authorized LINE session',async()=>{
+ test('AC-FD-AUTH-006: '+mode+' cannot silently reuse a prior LINE session',async()=>{
   const h=await session({[mode]:true});
   try{
-   assert.equal(h.callsNamed('logout').length,0);
    assert.equal(h.callsNamed('login').length,0);
-   assert.equal(h.callsNamed('token').length,1);
-   assert.equal(h.actions.includes('frontdesk.bootstrap'),true);
+   assert.equal(h.callsNamed('token').length,0);
+   assert.equal(h.actions.includes('frontdesk.bootstrap'),false);
+   assert.match(h.w.document.getElementById('status').textContent,/先前|無法清除/);
   }finally{h.close();}
  });
 }
@@ -157,7 +162,7 @@ test('AC-FD-AUTH-008: LIFF client without signed-in identity is denied without u
  }finally{h.close();}
 });
 test('AC-FD-AUTH-009: external login return without a LINE session fails without redirect loop',async()=>{
- const first=await session({loggedIn:false});const {storage,redirect}=first;first.close();
+ const first=await session();const {storage,redirect}=first;first.close();
  const h=await session({storage,url:redirect,loggedIn:false});
  try{
   assert.equal(h.callsNamed('login').length,0);
@@ -190,16 +195,5 @@ test('AC-FD-AUTH-012: no manual re-login UI is generated anywhere in the frontde
  assert.doesNotMatch(source,/重新登入 LINE|node\('button','重新登入/);
  const html=fs.readFileSync(path.join(__dirname,'../../frontdesk/index.html'),'utf8');
  assert.doesNotMatch(html,/重新登入 LINE/);
- assert.match(html,/app\.js\?v=20261122-frontdesk-reads1/);
-});
-
-
-test('AC-LINE-013: a new frontdesk page enters this merchant LINE app before reading staff reservations',async()=>{
- const h=await session({initialEntry:true,permissionMode:'review'});
- try{
-  assert.ok(h.calls.some(([name,scope,id,business])=>name==='initial-entry'&&scope==='frontdesk'&&id==='2010999999-desk'&&business==='shop-a'));
-  assert.equal(h.actions.includes('frontdesk.bootstrap'),false);
-  assert.equal(h.callsNamed('token').length,0);
-  assert.equal(h.callsNamed('logout').length,0);
- }finally{h.close();}
+  assert.ok(html.includes('app.js?v=20261122-frontdesk-reads1-loading-20261123-1'));
 });

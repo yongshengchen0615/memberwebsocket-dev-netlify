@@ -89,17 +89,7 @@
     try {
       sessionStorage.setItem(RETURN_KEY, String(Date.now()));
       idToken = '';
-      if (force && window.liff.isLoggedIn()) {
-        // A global LIFF logout invalidates sibling browser tabs. Open only
-        // this merchant's dedicated LINE app; the API rechecks authorization.
-        const liffId=String(config?.adminLiffId||'').trim();
-        if(!/^\d{5,30}-[A-Za-z0-9_-]+$/.test(liffId))throw Error('櫃檯設定的管理端 LIFF ID 不正確。');
-        const entry=new URL('https://liff.line.me/'+liffId);
-        entry.searchParams.set('business',business);
-        entry.searchParams.set('line_initial','1');
-        location.replace(entry.href);
-        return;
-      }
+      if (force && window.liff.isLoggedIn()) window.liff.logout();
       if (window.liff.isInClient()) {
         setStatus('正在重新初始化 LINE 登入…');
         location.reload();
@@ -191,20 +181,11 @@
       if (!/^\d{5,30}-[A-Za-z0-9_-]+$/.test(liffId)) throw new Error('尚未設定有效的商家管理端 LIFF ID。');
       window.MemberSystem.validateConfig({ ...config, adminLiffId: liffId }, 'admin');
       if (!window.liff) throw new Error('無法載入 LINE LIFF SDK。');
-      if(!reauthenticate && window.LineInitialEntry?.enterBeforeInit?.({liffId,scope:'merchant-frontdesk-settings',business})) {
-        setStatus('正在開啟此頁專屬 LINE 登入…');
-        return;
-      }
       await window.liff.init({ liffId });
       if (epoch !== currentEpoch) return;
       const returned = consumeReturn();
-      // Every new external settings tab enters this merchant's own LIFF first.
-      // The SDK's callback and the server remain the authentication authority.
-      if(!reauthenticate && window.LineInitialEntry?.enter({liffId,scope:'merchant-frontdesk-settings',business})) {
-        setStatus('正在透過此頁專屬的 LINE 入口初始化登入…');
-        return;
-      }
-      // An explicit recovery click reopens this app without globally logging out.
+      // Navigation from My Merchants must reuse the existing LIFF session.
+      // Only an explicit recovery click can log out and start a new login.
       if (reauthenticate) { beginLogin({ force: true }); return; }
       if (!window.liff.isLoggedIn()) {
         if (returned) throw new Error('LINE 登入未完成，請重新進入櫃檯設定。');

@@ -9,7 +9,7 @@ const entry='https://example.test/booking/?bookingId=fixture#reservation';
 const key='booking_system_reauth:booking';
 const config={bookingLiffId:'booking-fixture'};
 
-function harness({url=entry,storage=new Map(),loggedIn=true,inClient=false,blockedStorage=false,token='verified-booking-token',logoutNoop=false,sharedLine=null,initialEntry=false}={}){
+function harness({url=entry,storage=new Map(),loggedIn=true,inClient=false,blockedStorage=false,token='verified-booking-token',logoutNoop=false}={}){
   const calls=[];
   const location={href:url};
   const window={
@@ -20,13 +20,12 @@ function harness({url=entry,storage=new Map(),loggedIn=true,inClient=false,block
       removeItem(k){if(blockedStorage)throw Error('storage blocked');storage.delete(k);}
     },
     history:{replaceState(_a,_b,next){location.href=new URL(next,location.href).href;}},
-    LineInitialEntry:{enter({liffId,scope}){if(initialEntry)calls.push(['initial-entry',scope,liffId]);return initialEntry;}},
     BookingSystem:{signIn:async()=>'original',completeSignIn:async(_c,_t,idToken)=>{calls.push(['claim',idToken]);return idToken;}},
     liff:{
       async init(){calls.push(['init']);},
       isInClient:()=>inClient,
-      isLoggedIn:()=>sharedLine?sharedLine.loggedIn:loggedIn,
-      logout(){calls.push(['logout']);if(!logoutNoop){loggedIn=false;if(sharedLine)sharedLine.loggedIn=false;}},
+      isLoggedIn:()=>loggedIn,
+      logout(){calls.push(['logout']);if(!logoutNoop)loggedIn=false;},
       login(opts){calls.push(['login',opts?.redirectUri]);},
       getIDToken(){calls.push(['token']);return token;}
     }
@@ -35,33 +34,17 @@ function harness({url=entry,storage=new Map(),loggedIn=true,inClient=false,block
   return {window,storage,location,calls,signIn:()=>window.BookingSystem.signIn(config,'booking')};
 }
 async function began(opts={}){
-  const h=harness({loggedIn:false,...opts});
+  const h=harness(opts);
   void h.signIn();
   await new Promise(resolve=>setImmediate(resolve));
   return {...h,callback:h.calls.find(([name])=>name==='login')?.[1]};
 }
-test('AC-MTAB-003: cached LINE booking identity is claimed without logging out other tabs',async()=>{
-  const h=harness();
-  assert.equal(await h.signIn(),'verified-booking-token');
-  assert.deepEqual(h.calls.map(a=>a[0]),['init','token','claim']);
-});
-test('AC-121-07: signed-out booking entry starts a nonce-bound login',async()=>{
+test('AC-121-07: booking external entry with cached LINE session requires a nonce-bound login',async()=>{
   const h=await began();
-  assert.deepEqual(h.calls.map(a=>a[0]),['init','login']);
+  assert.deepEqual(h.calls.map(a=>a[0]),['init','logout','login']);
   assert.match(new URL(h.callback).searchParams.get('booking_system_reauth'),/^booking\.[a-f0-9]{32}$/);
   assert.equal(h.calls.some(x=>x[0]==='claim'),false);
   assert.ok(h.storage.has(key));
-});
-test('AC-MTAB-006: concurrent tabs sharing a LINE browser session can both sign in without invalidation',async()=>{
-  const sharedLine={loggedIn:true};
-  const a=harness({sharedLine});
-  const b=harness({sharedLine,token:'verified-booking-token'});
-  assert.deepEqual(await Promise.all([a.signIn(),b.signIn()]),
-    ['verified-booking-token','verified-booking-token']);
-  assert.equal(sharedLine.loggedIn,true);
-  assert.equal(a.calls.filter(x=>x[0]==='claim').length,1);
-  assert.equal(b.calls.filter(x=>x[0]==='claim').length,1);
-  assert.equal([...a.calls,...b.calls].some(x=>x[0]==='logout'||x[0]==='login'),false);
 });
 test('AC-121-08: booking callback must be bound to this tab/path, consumed once, and server-claimed',async()=>{
   const first=await began();
@@ -91,7 +74,7 @@ for(const variant of ['replay','expired','wrong-path','wrong-nonce','corrupt']){
   });
 }
 test('AC-121-11: missing browser storage fails closed without claim',async()=>{
-  const h=harness({blockedStorage:true,loggedIn:false});
+  const h=harness({blockedStorage:true});
   await assert.rejects(h.signIn(),{code:'AUTH_STORAGE_UNAVAILABLE'});
   assert.equal(h.calls.some(x=>x[0]==='claim'),false);
 });
@@ -109,13 +92,4 @@ test('AC-121-13: signed-out returned callback fails instead of endless redirects
 test('AC-121-14: non-booking callers preserve BookingSystem original login',async()=>{
   const h=harness();
   assert.equal(await h.window.BookingSystem.signIn(config,'admin'),'original');
-});
-
-
-test('AC-LINE-012: a new external booking page uses its own LIFF before server session claim',async()=>{
- const h=harness({initialEntry:true});
- void h.signIn();
- await new Promise(resolve=>setImmediate(resolve));
- assert.ok(h.calls.some(([name,scope,id])=>name==='initial-entry'&&scope==='booking'&&id===config.bookingLiffId));
- assert.equal(h.calls.some(([name])=>name==='token'||name==='claim'||name==='logout'),false);
 });

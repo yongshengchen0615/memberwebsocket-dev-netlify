@@ -11,14 +11,14 @@ for (const [label, relative] of [
   ['member core', 'member-system.js'],
   ['booking core', 'booking/common.js'],
 ]) {
-  test(`${label} revokes the app session and closes its window without globally logging out LINE`, () => {
+  test(`${label} alerts before closing the LIFF window on forced logout`, () => {
     const source = read(relative);
     assert.match(source, /SESSION_REVOKED/);
     assert.match(source, /function terminateAccessSession\(/);
     const helperStart = source.indexOf('function terminateAccessSession(');
     const helper = source.slice(helperStart, source.indexOf('\n  async function logout()', helperStart));
     assert.ok(helper.includes('window.alert(notice)'));
-    assert.ok(!helper.includes('window.liff.logout()'), 'closing a revoked tab must not sign out other tabs');
+    assert.ok(helper.includes('window.liff.logout()'));
     assert.ok(helper.includes('window.liff.closeWindow()'));
     assert.ok(helper.indexOf('window.alert(notice)') < helper.indexOf('window.liff.closeWindow()'));
     assert.ok(helper.includes('window.close()'));

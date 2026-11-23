@@ -10,7 +10,7 @@ const endPosition=source.lastIndexOf('  void start();');
 assert.ok(startPosition>0&&endPosition>startPosition,'platform must retain a named async start function');
 const startExpression='('+source.slice(startPosition,endPosition).trim()+')';
 
-function entry({merchantEntry, inClient=false, returned=false, rejected=false, loggedIn=true, idToken='synthetic-line-id-token',version=1,business='',configuredLiff,platformLiffId='2012065297-testPlatform',initialEntry=false}={}) {
+function entry({merchantEntry, inClient=false, returned=false, rejected=false, loggedIn=true, idToken='synthetic-line-id-token',version=1,business='',configuredLiff,platformLiffId='2012065297-testPlatform'}={}) {
   const calls=[];
   const status={textContent:''};
   const featureFields={append(){}};
@@ -26,7 +26,6 @@ function entry({merchantEntry, inClient=false, returned=false, rejected=false, l
       logout(){calls.push(['logout']);loggedIn=false;}
     },
     MemberSystem:{validateConfig(){calls.push(['config']);}},
-    LineInitialEntry:{enter({liffId,scope,business}){calls.push(['initial-entry',scope,liffId,business]);return initialEntry;},recover({liffId,scope,business}){calls.push(['auto-recover',scope,liffId,business]);return true;}},
     sessionStorage:{getItem(){return null;},setItem(){},removeItem(){calls.push(['clear-attempt']);}},
     location:{href:'https://preview.example.test/admin/'},
     crypto:require('node:crypto').webcrypto
@@ -43,10 +42,6 @@ function entry({merchantEntry, inClient=false, returned=false, rejected=false, l
     showLoginGate:msg=>calls.push(['gate',msg]),
     markAutomaticLoginAttempt:()=>{calls.push(['attempt']);return true;},
     freshLineLogin:()=>calls.push(['fresh-login']),
-    cachedLineIdentityInvalid:()=>false,
-    autoReenterOnce:()=>calls.push(['scoped-line-reentry']),
-    clearAutomaticReentry:()=>calls.push(['clear-scoped-reentry']),
-    offerLineReentry:()=>calls.push(['offer-scoped-reentry']),
     request:async action=>{calls.push(['request',action]);return {profile:{displayName:'測試管理員'},application:{status:'pending'}};},
     renderMine:()=>calls.push(['render-merchant']),
     clearLoginGate:()=>calls.push(['authorized-ui']),
@@ -60,13 +55,12 @@ function entry({merchantEntry, inClient=false, returned=false, rejected=false, l
 }
 const names=e=>e.calls.map(([name])=>name);
 
-test('AC-MTAB-007: cached LINE merchant identity is always revalidated by its server without logging out other tabs',async()=>{
+test('AC-121-01: general admin cannot use existing external LINE session without fresh return',async()=>{
   const e=entry({merchantEntry:true});
   await e.run();
-  assert.deepEqual(e.calls.filter(([name])=>name==='request').map(([,action])=>action),['platform.application.bootstrap']);
-  assert.ok(names(e).includes('authorized-ui'),'merchant UI only follows the server-approved response');
-  assert.ok(!names(e).includes('fresh-login'));
-  assert.ok(!names(e).includes('logout'));
+  assert.ok(names(e).includes('fresh-login'),'must initiate LINE login on each external entry');
+  assert.ok(!names(e).includes('request'),'old session cannot call merchant bootstrap');
+  assert.ok(!names(e).includes('authorized-ui'),'old session cannot reveal merchant data');
 });
 test('AC-121-02: external merchant with genuine callback is still verified by server',async()=>{
   const e=entry({merchantEntry:true,returned:true});
@@ -123,103 +117,4 @@ test('AC-PLATFORM-LIFF-002: malformed LIFF is blocked before init or privileged 
   assert.equal(names(e).includes('init'),false);
   assert.equal(names(e).includes('refresh-root'),false);
   assert.ok(e.calls.some(([name,message])=>name==='gate'&&message.includes('總管理員專用 LIFF')));
-});
-
-
-test('AC-LINE-023: wrong LINE audience automatically enters its own LIFF without an explicit link',async()=>{
- const e=entry({merchantEntry:true});
- e.context.cachedLineIdentityInvalid=()=>true;
- await e.run();
- assert.deepEqual(e.calls.filter(([name])=>name==='auto-recover').map(([,scope,id])=>[scope,id]),[['merchant','2010791619-testAdmin']]);
- assert.equal(names(e).includes('offer-scoped-reentry'),false);
- assert.equal(names(e).includes('request'),false);
- assert.equal(names(e).includes('authorized-ui'),false);
- assert.equal(names(e).includes('logout'),false);
-});
-
-test('AC-LINE-024: exhausted recovery fails closed with no manual link and no backend request',async()=>{
- const e=entry({merchantEntry:true});
- e.context.cachedLineIdentityInvalid=()=>true;
- e.context.window.LineInitialEntry.recover=()=>false;
- await e.run();
- assert.equal(names(e).includes('gate'),true);
- assert.equal(names(e).includes('request'),false);
- assert.equal(names(e).includes('offer-scoped-reentry'),false);
- assert.equal(names(e).includes('logout'),false);
-});
-
-test('AC-LINE-025: rejected server credentials never trigger an automatic reentry loop',async()=>{
- const e=entry({merchantEntry:true});
- e.context.request=async action=>{
-  e.calls.push(['request',action]);
-  throw Object.assign(new Error('LINE credential is invalid'),{code:'AUTH_INVALID',status:401});
- };
- await e.run();
- assert.ok(names(e).includes('gate'));
- assert.equal(names(e).includes('auto-recover'),false,'401 is not proof of a cached wrong Channel');
- assert.equal(names(e).includes('offer-scoped-reentry'),false);
- assert.equal(names(e).includes('authorized-ui'),false);
-});
-
-test('AC-LINE-026: the platform controller has no manual LINE login link or old warning copy',()=>{
- assert.equal(source.includes('offerLineReentry'),false);
- assert.equal(source.includes('lineReauthLink'),false);
- assert.equal(source.includes('此頁尚未取得有效的 LINE 初始登入'),false);
-});
-
-
-test('AC-LINE-009: a new merchant tab enters its configured merchant LIFF before reading cached tokens or merchant data',async()=>{
- const e=entry({merchantEntry:true,version:2,business:'shop-a',configuredLiff:'2099999999-merchant',initialEntry:true});
- await e.run();
- assert.ok(names(e).includes('init'));
- assert.deepEqual(e.calls.filter(([name])=>name==='initial-entry').map(([,scope,id,business])=>[scope,id,business]),[['merchant','2099999999-merchant','shop-a']]);
- assert.equal(names(e).includes('token'),false);
- assert.equal(names(e).includes('request'),false);
- assert.equal(names(e).includes('logout'),false);
-});
-
-test('AC-LINE-010: a newly opened root Platform tab enters root LIFF without reusing the merchant tab identity',async()=>{
- const e=entry({merchantEntry:false,initialEntry:true});
- await e.run();
- assert.deepEqual(e.calls.filter(([name])=>name==='initial-entry').map(([,scope,id])=>[scope,id]),[['platform','2012065297-testPlatform']]);
- assert.equal(names(e).includes('refresh-root'),false);
- assert.equal(names(e).includes('token'),false);
-});
-
-test('AC-LINE-035: wrong-channel token stops after one recovery with actionable public channel IDs and no API',async()=>{
- const e=entry({merchantEntry:true});
- e.context.cachedLineIdentityInvalid=()=>({reason:'channel',expected:'2010791619',actual:'2011356226'});
- e.context.window.LineInitialEntry.recover=()=>false;
- await e.run();
- const gate=e.calls.find(([name])=>name==='gate')?.[1]||'';
- assert.match(gate,/2010791619/);
- assert.match(gate,/2011356226/);
- assert.match(gate,/Endpoint/);
- assert.equal(names(e).includes('request'),false);
- assert.equal(names(e).includes('logout'),false);
-});
-test('AC-LINE-036: expiring LINE identity explains renewal without claiming revoked access',async()=>{
- const e=entry({merchantEntry:true});
- e.context.cachedLineIdentityInvalid=()=>({reason:'expired'});
- e.context.window.LineInitialEntry.recover=()=>false;
- await e.run();
- const gate=e.calls.find(([name])=>name==='gate')?.[1]||'';
- assert.match(gate,/到期/);
- assert.doesNotMatch(gate,/目前 LINE 憑證所屬 Channel/);
- assert.equal(names(e).includes('request'),false);
-});
-test('AC-LINE-037: decoded ID-token hint rejects wrong audience and expiry, but never reflects arbitrary data',()=>{
- const a=source.indexOf('  function cachedLineIdentityInvalid(channelId) {');
- const b=source.indexOf('  function freshLineLogin()',a);
- assert.ok(a>0&&b>a);
- const build=claims=>vm.runInNewContext('('+source.slice(a,b).trim()+')',{
-  window:{liff:{getDecodedIDToken:()=>claims}},Date
- });
- const channel='2010791619';
- assert.deepEqual(JSON.parse(JSON.stringify(build({aud:'2011356226',exp:Date.now()/1000+3600})(channel))),{reason:'channel',expected:channel,actual:'2011356226'});
- assert.deepEqual(JSON.parse(JSON.stringify(build({aud:channel,exp:Date.now()/1000-10})(channel))),{reason:'expired'});
- assert.equal(build({aud:channel,exp:Date.now()/1000+3600})(channel),false);
- assert.equal(build(null)(channel),false);
- assert.equal(build({aud:channel,exp:Date.now()/1000+3600})(channel),false);
- assert.equal(build({aud:'<img src=x onerror=alert(1)>'})(channel).actual,'unknown');
 });

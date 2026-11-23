@@ -98,19 +98,18 @@ test('AC-LINE-006: missing storage, invalid LIFF ID, and insecure redirect param
  assert.equal(url.searchParams.get('code'),null);
  assert.equal(url.searchParams.get('business'),'shop-a');
 });
-test('AC-LINE-007: all protected LINE pages load the shared entry coordinator before their application',()=>{
+test('AC-ROLL-014: every LINE-protected page uses Nov22 native LIFF startup without Nov23 coordinator',()=>{
  for(const file of ['platform/index.html','admin/index.html','admin/workspace.html','member/index.html','points/index.html','event/index.html','calendar/index.html','booking/index.html','frontdesk/index.html','admin/frontdesk-settings/index.html']){
   const html=fs.readFileSync(path.join(root,file),'utf8');
-  assert.match(html,/line-initial-entry\.js/,'missing entry coordinator: '+file);
+  assert.doesNotMatch(html,/line-initial-entry\\.js/,'Nov23 automatic entry must be absent: '+file);
  }
 });
-test('AC-LINE-008: protected entrypoints call the coordinator as part of their own fresh LIFF initialization',()=>{
- for(const file of ['platform/app.js','member-system.js','booking/liff-fresh-login.js','frontdesk/app.js','admin/frontdesk-settings/frontdesk-settings-page.js']){
+test('AC-ROLL-015: Nov22 LINE application startup does not use Nov23 coordinator',()=>{
+ for(const file of ['platform/app.js','member-system.js','booking/liff-fresh-login.js','booking/common.js','frontdesk/app.js','admin/frontdesk-settings/frontdesk-settings-page.js']){
   const code=fs.readFileSync(path.join(root,file),'utf8');
-  assert.match(code,/LineInitialEntry\?\.enter\(/,'missing per-page login contract: '+file);
+  assert.doesNotMatch(code,/LineInitialEntry/,'legacy startup does not call coordinator: '+file);
  }
 });
-
 
 test('AC-LINE-014: an in-LINE tab with another Channel audience enters its own LIFF instead of showing a stale-token warning',()=>{
  const h=visit({inClient:true,scope:'platform',decodedToken:{aud:'2010791619'}});
@@ -144,13 +143,13 @@ test('AC-LINE-016: the initial official link never carries OAuth codes or token-
 });
 
 
-test('AC-LINE-019: productized /admin/ dynamically loads the refreshed merchant LIFF application, not an old cached script',()=>{
+test('AC-ROLL-016: dynamic admin loads Nov22 Platform app rather than Nov23 auto-recovery module',()=>{
  const dynamic=fs.readFileSync(path.join(root,'admin/productized-workspace.js'),'utf8');
  const shell=fs.readFileSync(path.join(root,'admin/index.html'),'utf8');
- assert.match(dynamic,/platform\/app\.js\?[^'"]*line=20261123-initial-1/);
- assert.match(shell,/productized-workspace\.js\?[^"]*line=20261123-initial-1/);
+ assert.ok(dynamic.includes("platform/app.js?v=merchant-expiry-readonly-20261101-1"));
+ assert.doesNotMatch(dynamic,/autorecover=20261123|line=20261123/);
+ assert.doesNotMatch(shell,/autorecover=20261123|line=20261123/);
 });
-
 test('AC-LINE-020: a new tab enters its own LIFF before any SDK init or cached identity inspection',()=>{
  const h=visit({loggedIn:false,inClient:false,scope:'merchant',liffId:ID.merchant,url:'https://example.netlify.app/admin/?business=shop-a'});
  h.window.liff.isLoggedIn=()=>{throw Error('SDK has not initialized');};
@@ -167,22 +166,13 @@ test('AC-LINE-021: SDK primary/secondary redirects are untouched before init, in
   assert.equal(h.calls.length,0,query);
  }
 });
-test('AC-LINE-022: all entrypoints choose the LIFF before calling init, so an init failure cannot block that entry',()=>{
- const cases=[
-  ['platform/app.js',/enterBeforeInit\?\.\(/,/window\.liff\.init\(/],
-  ['member-system.js',/enterBeforeInit\?\.\(/,/window\.liff\.init\(/],
-  ['booking/common.js',/enterBeforeInit\?\.\(/,/window\.liff\.init\(/],
-  ['booking/liff-fresh-login.js',/enterBeforeInit\?\.\(/,/window\.liff\.init\(/],
-  ['frontdesk/app.js',/enterBeforeInit\?\.\(/,/window\.liff\.init\(/],
-  ['admin/frontdesk-settings/frontdesk-settings-page.js',/enterBeforeInit\?\.\(/,/window\.liff\.init\(/]
- ];
- for(const [file,entry,init] of cases){
-  const source=fs.readFileSync(path.join(root,file),'utf8');
-  assert.match(source,entry,file);
-  assert.ok(source.search(entry)<source.search(init),'must enter own LIFF before sdk init: '+file);
+test('AC-ROLL-017: Nov22 entrypoints initialize each LIFF without a pre-init redirect',()=>{
+ for(const file of ['platform/app.js','member-system.js','booking/common.js','booking/liff-fresh-login.js','frontdesk/app.js','admin/frontdesk-settings/frontdesk-settings-page.js']){
+  const code=fs.readFileSync(path.join(root,file),'utf8');
+  assert.ok(code.includes('window.liff.init('),'LIFF initialization must remain: '+file);
+  assert.doesNotMatch(code,/enterBeforeInit|LineInitialEntry/,'no Nov23 pre-init redirect: '+file);
  }
 });
-
 test('AC-LINE-027: LINE in-app browser initializes its own LIFF without pre-init external navigation',()=>{
  const opts={scope:'merchant',liffId:ID.merchant,loggedIn:false};
  const sdk=visit({...opts,inClient:true});
