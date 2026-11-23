@@ -213,6 +213,11 @@
       throw clientError('LIFF_INIT_ERROR', 'LIFF 初始化失敗，請檢查 LIFF ID 與 Endpoint URL。');
     }
 
+    // A new external page with a cached LIFF identity must first enter this
+    // feature's own LINE app; server-side role and member grants still apply.
+    if (window.LineInitialEntry?.enter({liffId,scope:surface,business:config.business||window.BusinessContext?.slug||''})) {
+      return new Promise(() => {}); // Browser is navigating to this LIFF entry.
+    }
     const inLiffClient = typeof window.liff.isInClient === 'function' && window.liff.isInClient();
     if (inLiffClient) {
       if (!window.liff.isLoggedIn()) throw clientError('AUTH_REQUIRED', 'LINE LIFF 尚未完成登入，請重新開啟此 LIFF。');
