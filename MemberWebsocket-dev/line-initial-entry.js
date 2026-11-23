@@ -3,7 +3,10 @@
 
   // A fresh page entry must start with its OWN LIFF application, not a cached
   // login belonging to another tab/channel on the same browser origin.
-  // Call only AFTER liff.init({ liffId }) resolves; LINE Login itself and all
+  // enterBeforeInit() must run BEFORE liff.init(): a cached other-channel
+  // login may make init reject before the old entry recovery is reached.
+  // Provider callback URLs are never modified before SDK initialization.
+  // LINE Login itself and all
   // role/tenant authorization remain the responsibility of LINE and the server.
   const PER_TAB_WINDOW_MS = 180_000;
   const LIFF_ID = /^\d{5,30}-[A-Za-z0-9_-]+$/;
@@ -12,15 +15,15 @@
   const PRIVATE_QUERY = /^(?:liff\.|code$|state$|access_token$|id_token$|line_initial$|redirect_uri$|.*(?:token|secret|jwt|api_key|apikey|session|password).*)/i;
   const CALLBACK_QUERY = ['member_system_reauth','booking_system_reauth','frontdesk_line_reauth'];
 
-  function enter({liffId,scope,business=''}={}) {
+  function enter({liffId,scope,business='',beforeInit=false}={}) {
     const id=String(liffId||'').trim(),role=String(scope||'').trim();
     if(!LIFF_ID.test(id)||!SCOPE.test(role))return false;
-    if(!window.liff||typeof window.liff.isInClient!=='function'||typeof window.liff.isLoggedIn!=='function')return false;
+    if(!beforeInit&&(!window.liff||typeof window.liff.isInClient!=='function'||typeof window.liff.isLoggedIn!=='function'))return false;
     let current,inside,loggedIn;
     try {
       current=new URL(window.location.href);
-      inside=window.liff.isInClient();
-      loggedIn=window.liff.isLoggedIn();
+      inside=beforeInit?false:window.liff.isInClient();
+      loggedIn=beforeInit?false:window.liff.isLoggedIn();
     }catch{return false;}
     // The LINE browser normally signs in during liff.init(). If another LIFF
     // app's Channel is still cached, enter THIS app instead of showing a stale
@@ -33,7 +36,7 @@
       }catch{}
     }
     // Local HTTP test fixtures are not registered HTTPS LIFF endpoints.
-    if(current.protocol!=='https:'||!loggedIn||(inside&&!wrongInClientChannel))return false;
+    if(current.protocol!=='https:'||(!beforeInit&&(!loggedIn||(inside&&!wrongInClientChannel))))return false;
     // LINE's primary and secondary redirects carry provider parameters that
     // must remain untouched until the SDK has finished initialization.
     if(CALLBACK_QUERY.some(key=>current.searchParams.has(key))
@@ -69,5 +72,6 @@
       return false;
     }
   }
-  window.LineInitialEntry=Object.freeze({enter});
+  function enterBeforeInit(options={}) { return enter({...options,beforeInit:true}); }
+  window.LineInitialEntry=Object.freeze({enter,enterBeforeInit});
 })();

@@ -207,6 +207,9 @@
     if (!window.liff) throw clientError('LIFF_SDK_ERROR', 'LIFF SDK 載入失敗，請確認網路後重試。');
     const liffId = surface === 'admin' ? config.adminLiffId : surface === 'points' ? config.pointsLiffId : surface === 'event' ? config.eventLiffId : surface === 'calendar' ? config.calendarLiffId : surface === 'booking' ? config.bookingLiffId : config.memberLiffId;
 
+    if (window.LineInitialEntry?.enterBeforeInit?.({liffId,scope:surface,business:config.business||window.BusinessContext?.slug||''})) {
+      return new Promise(() => {});
+    }
     try {
       await withTimeout(window.liff.init({ liffId }), 8000, 'LINE 初始化逾時，請重新開啟此頁面。');
     } catch (_) {

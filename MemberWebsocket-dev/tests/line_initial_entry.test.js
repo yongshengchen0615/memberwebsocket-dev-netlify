@@ -132,3 +132,35 @@ test('AC-LINE-019: productized /admin/ dynamically loads the refreshed merchant 
  assert.match(dynamic,/platform\/app\.js\?[^'"]*line=20261123-initial-1/);
  assert.match(shell,/productized-workspace\.js\?[^"]*line=20261123-initial-1/);
 });
+
+test('AC-LINE-020: a new tab enters its own LIFF before any SDK init or cached identity inspection',()=>{
+ const h=visit({loggedIn:false,inClient:false,scope:'merchant',liffId:ID.merchant,url:'https://example.netlify.app/admin/?business=shop-a'});
+ h.window.liff.isLoggedIn=()=>{throw Error('SDK has not initialized');};
+ h.window.liff.isInClient=()=>{throw Error('SDK has not initialized');};
+ assert.equal(h.window.LineInitialEntry.enterBeforeInit({liffId:ID.merchant,scope:'merchant',business:'shop-a'}),true);
+ assert.equal(new URL(h.calls[0][1]).pathname,'/'+ID.merchant);
+ assert.equal(h.calls.some(x=>x[0]==='logout'),false);
+ assert.equal(h.window.LineInitialEntry.enterBeforeInit({liffId:ID.merchant,scope:'merchant',business:'shop-a'}),false,'one navigation only per tab');
+});
+test('AC-LINE-021: SDK primary/secondary redirects are untouched before init, including forged application reauth callbacks',()=>{
+ for(const query of ['liff.state=%3Fbusiness%3Dshop-a','code=abc&state=xyz','access_token=opaque','line_initial=1','member_system_reauth=forged']){
+  const h=visit({url:'https://example.netlify.app/member/?'+query,loggedIn:false});
+  assert.equal(h.window.LineInitialEntry.enterBeforeInit({liffId:ID.member,scope:'member'}),false,query);
+  assert.equal(h.calls.length,0,query);
+ }
+});
+test('AC-LINE-022: all entrypoints choose the LIFF before calling init, so an init failure cannot block that entry',()=>{
+ const cases=[
+  ['platform/app.js',/enterBeforeInit\?\.\(/,/window\.liff\.init\(/],
+  ['member-system.js',/enterBeforeInit\?\.\(/,/window\.liff\.init\(/],
+  ['booking/common.js',/enterBeforeInit\?\.\(/,/window\.liff\.init\(/],
+  ['booking/liff-fresh-login.js',/enterBeforeInit\?\.\(/,/window\.liff\.init\(/],
+  ['frontdesk/app.js',/enterBeforeInit\?\.\(/,/window\.liff\.init\(/],
+  ['admin/frontdesk-settings/frontdesk-settings-page.js',/enterBeforeInit\?\.\(/,/window\.liff\.init\(/]
+ ];
+ for(const [file,entry,init] of cases){
+  const source=fs.readFileSync(path.join(root,file),'utf8');
+  assert.match(source,entry,file);
+  assert.ok(source.search(entry)<source.search(init),'must enter own LIFF before sdk init: '+file);
+ }
+});

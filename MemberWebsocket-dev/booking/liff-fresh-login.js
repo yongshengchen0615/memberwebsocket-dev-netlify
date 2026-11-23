@@ -65,6 +65,9 @@
     if (!liffId) throw authError('LIFF_CONFIG_MISSING', '尚未設定預約 LIFF ID。請使用商家專屬入口，並請管理員在商家的 LINE 設定完成預約入口。');
     if (!window.liff) throw authError('LIFF_SDK_MISSING', 'LINE LIFF SDK 尚未載入。');
 
+    if (window.LineInitialEntry?.enterBeforeInit?.({liffId,scope:'booking',business:config.business||window.BusinessContext?.slug||''})) {
+      return new Promise(() => {});
+    }
     try {
       await window.liff.init({ liffId });
     } catch (_) {
