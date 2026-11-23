@@ -77,18 +77,16 @@
         throw authError('AUTH_REQUIRED', 'LINE LIFF 尚未完成登入，請重新開啟此 LIFF。');
       }
     } else {
-      const returnedFromFreshLogin = consumeFreshLoginQuery();
-      if (!returnedFromFreshLogin) {
-        if (window.liff.isLoggedIn()) {
-          try { window.liff.logout(); }
-          catch (_) { throw authError('AUTH_LOGOUT_FAILED', '無法清除先前的 LINE 工作階段，請重新開啟預約頁面。'); }
-          if (window.liff.isLoggedIn()) throw authError('AUTH_LOGOUT_FAILED', '先前的 LINE 工作階段仍有效，請重新開啟預約頁面。');
-        }
-        redirectToFreshLogin();
-        return new Promise(() => {});
+      // Cached LIFF authentication belongs to this browser. Do not log out
+      // sibling tabs; the booking session claim is still server-authorized.
+      const marker = new URL(window.location.href).searchParams.get(FRESH_LOGIN_QUERY);
+      if (marker !== null && !consumeFreshLoginQuery()) {
+        throw authError('AUTH_REQUIRED', 'LINE 登入回跳已失效，請重新開啟預約頁面。');
       }
       if (!window.liff.isLoggedIn()) {
-        throw authError('AUTH_REQUIRED', 'LINE 登入未完成，請重新開啟預約頁面再試。');
+        if (marker !== null) throw authError('AUTH_REQUIRED', 'LINE 登入未完成，請重新開啟預約頁面再試。');
+        redirectToFreshLogin();
+        return new Promise(() => {});
       }
     }
 

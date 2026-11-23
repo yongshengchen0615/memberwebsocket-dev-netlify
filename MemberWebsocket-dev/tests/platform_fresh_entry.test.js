@@ -55,12 +55,13 @@ function entry({merchantEntry, inClient=false, returned=false, rejected=false, l
 }
 const names=e=>e.calls.map(([name])=>name);
 
-test('AC-121-01: general admin cannot use existing external LINE session without fresh return',async()=>{
+test('AC-MTAB-007: cached LINE merchant identity is always revalidated by its server without logging out other tabs',async()=>{
   const e=entry({merchantEntry:true});
   await e.run();
-  assert.ok(names(e).includes('fresh-login'),'must initiate LINE login on each external entry');
-  assert.ok(!names(e).includes('request'),'old session cannot call merchant bootstrap');
-  assert.ok(!names(e).includes('authorized-ui'),'old session cannot reveal merchant data');
+  assert.deepEqual(e.calls.filter(([name])=>name==='request').map(([,action])=>action),['platform.application.bootstrap']);
+  assert.ok(names(e).includes('authorized-ui'),'merchant UI only follows the server-approved response');
+  assert.ok(!names(e).includes('fresh-login'));
+  assert.ok(!names(e).includes('logout'));
 });
 test('AC-121-02: external merchant with genuine callback is still verified by server',async()=>{
   const e=entry({merchantEntry:true,returned:true});

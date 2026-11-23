@@ -217,18 +217,17 @@
     if (inLiffClient) {
       if (!window.liff.isLoggedIn()) throw clientError('AUTH_REQUIRED', 'LINE LIFF 尚未完成登入，請重新開啟此 LIFF。');
     } else {
-      const returned = consumeFreshLoginQuery(surface);
-      if (!returned) {
-        if (window.liff.isLoggedIn()) {
-          try { window.liff.logout(); }
-          catch (_) { throw clientError('AUTH_LOGOUT_FAILED', '無法清除先前的 LINE 登入，請重新開啟管理端。'); }
-          if (window.liff.isLoggedIn()) throw clientError('AUTH_LOGOUT_FAILED', '先前的 LINE 登入尚未清除，請重新開啟管理端。');
-        }
-        redirectToFreshLogin(surface);
-        await withTimeout(new Promise(() => {}), 8000, '登入跳轉未完成，請重新開啟此頁面。');
+      // A LIFF logout changes browser-shared LINE state. Never invalidate
+      // other open member/admin/frontdesk tabs just to re-enter this page.
+      // Every surface still sends the ID token through server verification.
+      const marker = new URL(window.location.href).searchParams.get(FRESH_LOGIN_QUERY);
+      if (marker !== null && !consumeFreshLoginQuery(surface)) {
+        throw clientError('AUTH_REQUIRED', 'LINE 登入回跳已失效，請重新開啟此頁面。');
       }
       if (!window.liff.isLoggedIn()) {
-        throw clientError('AUTH_REQUIRED', 'LINE 登入尚未完成，請重新整理後再登入。');
+        if (marker !== null) throw clientError('AUTH_REQUIRED', 'LINE 登入未完成，請重新開啟此頁面。');
+        redirectToFreshLogin(surface);
+        await withTimeout(new Promise(() => {}), 8000, '登入跳轉未完成，請重新開啟此頁面。');
       }
     }
 
@@ -959,9 +958,8 @@
 
     try { window.alert(notice); } catch (_) {}
 
-    if (window.liff && typeof window.liff.isLoggedIn === 'function' && window.liff.isLoggedIn()) {
-      try { window.liff.logout(); } catch (_) {}
-    }
+    // Revoked app access stays closed, but logging out shared LINE state
+    // would also sign out an unrelated, still-authorized browser tab.
 
     if (window.liff && typeof window.liff.closeWindow === 'function') {
       try {
