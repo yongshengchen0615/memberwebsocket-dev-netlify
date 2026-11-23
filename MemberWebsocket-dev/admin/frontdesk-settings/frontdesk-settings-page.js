@@ -191,6 +191,10 @@
       if (!/^\d{5,30}-[A-Za-z0-9_-]+$/.test(liffId)) throw new Error('尚未設定有效的商家管理端 LIFF ID。');
       window.MemberSystem.validateConfig({ ...config, adminLiffId: liffId }, 'admin');
       if (!window.liff) throw new Error('無法載入 LINE LIFF SDK。');
+      if(!reauthenticate && window.LineInitialEntry?.enterBeforeInit({liffId,scope:'merchant-frontdesk-settings',business})) {
+        setStatus('正在開啟此頁專屬 LINE 登入…');
+        return;
+      }
       await window.liff.init({ liffId });
       if (epoch !== currentEpoch) return;
       const returned = consumeReturn();
