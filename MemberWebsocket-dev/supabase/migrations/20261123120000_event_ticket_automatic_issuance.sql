@@ -2,7 +2,6 @@
 -- Issuance and claim-ledger inventory changes occur in the SAME event-ticket transaction.
 -- Quota 0 remains unlimited. Historical claims, fixed tickets, referrals, join gifts and
 -- transferred tickets retain their existing semantics.
-begin;
 
 create or replace function public.auto_issue_general_event_ticket()
 returns trigger
@@ -196,4 +195,3 @@ end;
 $tenants$;
 
 notify pgrst, 'reload schema';
-commit;
