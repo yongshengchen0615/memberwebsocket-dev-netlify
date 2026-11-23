@@ -11,7 +11,7 @@ const event = read('event/app.js');
 const admin = read('admin/app.js');
 
 test('AC-001: only issued event ticket claims are visible to a member', () => {
-  assert.match(api, /if \(!claimRow\) return \[\];/);
+  assert.match(api, /if \(!claimRow && !transferredOut\) return \[\];/);
   assert.match(api, /canClaim: false,/);
   assert.doesNotMatch(event, /user\.event\.ticket\.claim/);
   assert.doesNotMatch(event, /claimTicket\(/);
