@@ -4,7 +4,7 @@ const { JSDOM } = require('jsdom');
 const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
 
-const root = join(__dirname, '..');
+const root = join(__dirname, '../..');
 const read = path => readFileSync(join(root, path), 'utf8');
 const html = read('event/index.html').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
 const waitFor = async (predicate, label) => {
