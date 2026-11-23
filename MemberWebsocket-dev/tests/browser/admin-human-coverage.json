@@ -31,7 +31,7 @@
   "frontdeskSettingsSimplificationReview": "2026-11-19 PR #364：重新審閱兩個管理入口及櫃檯設定。只移除 LINE 外站／櫃檯快速入口及重複說明，保留 LIFF Endpoint 複製、設定驗證／儲存、逐人申請審核、通知與原 backend 授權。admin-human 既有六個管理模組旅程及獨立 FrontdeskSettings 入口不變；新增 frontdesk_settings_navigation.test.js AC-FD-UX-001/002 與 frontdesk-booking.spec.cjs 真實 DOM 檢查。完整 CI、開發部署驗證以最終 SHA 取證，不視 stub 為真 LINE 驗證。",
   "reviewedSources": {
     "admin/booking-admin-ux.js": "2c2b7dbc8d08a7884f9e298b97f19862b5044c0bc3cbaef53aa551a576028edc",
-    "admin/index.html": "07d22786d1451bae4164451fcdc47238196f34f585a85560eeda216f96d547bc",
+    "admin/index.html": "4d864e565faf58c53a3ddb44aca2ad41e665abf110f71941cad984912a891228",
     "admin/app.js": "bf4ef7e52ccafb6f3fbb0beb7fc58eaf4cea490fbb1746803884118405cf2c94",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
@@ -821,5 +821,5 @@
   "frontdeskStaffRemovalReview": "2026-11-19 PR #368：審閱櫃檯人員移除後需永久清除其商家內的申請／審核／權限及櫃檯通知資料、撤銷已授權預約操作，LINE 原帳號再次申請只能為待審核。保留會員身分、商家預約與必要操作稽核。frontdesk-booking.spec.cjs 的 FRONTDESK_STAFF_DELETE 實際 Chromium 驗證二次確認取消零寫入、確認後刪除列表、識別碼／版本／requestId 及 390px 不橫向溢出；既有 FRONTDESK_ADMIN 儲存按鈕以 submit 角色精準定位，拒絕弱化權限測試。Node/SQL/JSDOM 整合驗證刪除交易、通知清理、重複 requestId、重新申請與跨租戶拒絕。未取得 LINE 真人帳號驗收，不代表實際 Provider 推播已測。 2026-11-19 PR #368 reviewer P2：修復不確定刪除請求時重試被 pending 鎖擋住的問題，僅相同刪除 action 使用保存的 requestId 重試，確認對話不重複；新增 JSDOM、390px Chromium 的第一次網路回應遺失／跨操作鎖定／兩次同一 body 驗證。 2026-11-19 PR #368 續修：Chromium 回報可見重試文字與 aria-label 不一致，將移除按鈕在不確定回應的重試狀態同步提供相同無障礙名稱，補 DOM aria-label 與 real-browser getByRole 驗證；不變更存取判斷或刪除流程。",
   "bookingPendingOfficialLineReview": "2026-11-20 PR #378：審閱管理端預約設定、會員提交及官方帳號通知流程。新增獨立『預約申請等待確認訊息』管理、字數驗證、預覽與 CAS 衝突防護。會員原先 LIFF sendMessages 已移除，改由租戶獨立 LINE outbox 推送；保留原預約確認/取消/提醒及櫃檯工作流程。已對照既有 admin-human booking、LINE setting、member booking 操作節點並保留全部既有旅程；新增 AC-BPN-001~006 合約測試、測試資料庫遷移。CI、瀏覽器實測與 LINE 沙盒發送均以同 SHA 結果為準，未通過不得合併。 2026-11-20 review 修正：保留快照收據沿用的 BookingSystem.sendMemberChatMessage，僅取消一般預約 app 自發 LINE；交易通知條件使用已驗證會員與 BOOK-* 來源，不能因自訂聯絡資料 contactSource=custom 漏發，電話/快照非會員發起的請求不得被誤判。新增真實 shared sender 單元測試與商家資料庫負向測試。",
   "bookingUnifiedMessagesReview": "2026-11-22 PR #399：將預約管理的會員端預約說明與申請待確認、拒絕、提醒 LINE 三種模板集中至訊息設定子分頁。四欄單一表單、單一次版本鎖定 API 更新；不更動原發送條件、提醒時間、商家歸屬、其他預約設定。新 BOOKING_MESSAGES_SETTINGS 在隔離 Chromium 與 JSDOM 走正常儲存、回讀、輸入負向及版本衝突；原 BOOKING_SHARED_SETTINGS 獨立驗證服務時間與其他共用政策，PG / Edge / LINE 真實通道另按實測 CI 及沙盒驗收。",
-  "eventTicketUseQuotaReview": "2026-11-23 PR #413：逐項審閱活動券四型、管理端內容編輯與啟用確認、會員預約一般及快照領取動作、LINE legacy claim client、防越權與候選資料；quota 改為已成功使用次數上限，發放數量不受限。管理端已發放/已使用/剩餘數分開呈現，原有 62 組管理端功能映射與 Chromium 工作區未移除或重命名。管理活動啟用發券、同商家/跨商家狀態、抽獎/好友/固定票券、預約登記與核銷持續交付實際 Node/DOM/PG/Chromium CI; 真實 LINE Provider 另行驗證。"
+  "eventTicketUseQuotaReview": "2026-11-23 PR #413：逐項審閱活動券四型、管理端內容編輯與啟用確認、會員預約一般及快照領取動作、LINE legacy claim client、防越權與候選資料；quota 改為已成功使用次數上限，發放數量不受限。管理端已發放/已使用/剩餘數分開呈現，原有 62 組管理端功能映射與 Chromium 工作區未移除或重命名。管理活動啟用發券、同商家/跨商家狀態、抽獎/好友/固定票券、預約登記與核銷持續交付實際 Node/DOM/PG/Chromium CI; 真實 LINE Provider 另行驗證。 已核對管理端 app.js 與 HTML 靜態資產版本號更新，避免再次顯示舊『領取／發放上限』文案。"
 }
