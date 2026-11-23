@@ -32,13 +32,6 @@
     el('bookingBenefitsList').setAttribute('aria-busy', String(value === 'loading'));
   }
 
-  function destination(item) {
-    // Booking is the action surface for tickets: members select/redemption-intent
-    // here, so point/event tickets do not need a secondary "details" navigation.
-    if (item?.kind !== 'calendar') return '';
-    return new URL('../calendar/', window.location.href).href;
-  }
-
   function selectionPayload() {
     return [...selected.values()].filter(allowed).map((item) => ({ kind: item.kind, id: item.id }));
   }
@@ -479,15 +472,6 @@
           card.appendChild(reason);
         }
 
-        const href = destination(item);
-        if (href) {
-          const link = document.createElement('a');
-          link.className = 'booking-benefit-link';
-          link.href = href;
-          link.textContent = '查看詳情';
-          link.setAttribute('aria-label', `查看${String(item.title || '可用權益')}詳情`);
-          card.appendChild(link);
-        }
         grid.appendChild(card);
         cardCount += 1;
       }
