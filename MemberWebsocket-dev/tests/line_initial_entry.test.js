@@ -151,12 +151,12 @@ test('AC-LINE-021: SDK primary/secondary redirects are untouched before init, in
 });
 test('AC-LINE-022: all entrypoints choose the LIFF before calling init, so an init failure cannot block that entry',()=>{
  const cases=[
-  ['platform/app.js',/enterBeforeInit\(/,/window\.liff\.init\(/],
-  ['member-system.js',/enterBeforeInit\(/,/window\.liff\.init\(/],
-  ['booking/common.js',/enterBeforeInit\(/,/window\.liff\.init\(/],
-  ['booking/liff-fresh-login.js',/enterBeforeInit\(/,/window\.liff\.init\(/],
-  ['frontdesk/app.js',/enterBeforeInit\(/,/window\.liff\.init\(/],
-  ['admin/frontdesk-settings/frontdesk-settings-page.js',/enterBeforeInit\(/,/window\.liff\.init\(/]
+  ['platform/app.js',/enterBeforeInit\?\.\(/,/window\.liff\.init\(/],
+  ['member-system.js',/enterBeforeInit\?\.\(/,/window\.liff\.init\(/],
+  ['booking/common.js',/enterBeforeInit\?\.\(/,/window\.liff\.init\(/],
+  ['booking/liff-fresh-login.js',/enterBeforeInit\?\.\(/,/window\.liff\.init\(/],
+  ['frontdesk/app.js',/enterBeforeInit\?\.\(/,/window\.liff\.init\(/],
+  ['admin/frontdesk-settings/frontdesk-settings-page.js',/enterBeforeInit\?\.\(/,/window\.liff\.init\(/]
  ];
  for(const [file,entry,init] of cases){
   const source=fs.readFileSync(path.join(root,file),'utf8');
