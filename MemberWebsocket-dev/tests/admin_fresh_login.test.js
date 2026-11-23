@@ -33,7 +33,7 @@ function harness({ url = entry, storage = new Map(), loggedIn = true, inClient =
       removeItem(key) { if (storageBlocked) throw Error('Blocked'); storage.delete(key); },
     },
     history: { replaceState(_state, _title, next) { location.href = new URL(next, location.href).href; } },
-    LineInitialEntry:{enter({liffId,scope}){calls.push(['initial-entry',scope,liffId]);return initialEntry;}},
+    LineInitialEntry:{enter({liffId,scope}){if(initialEntry)calls.push(['initial-entry',scope,liffId]);return initialEntry;}},
     liff: {
       async init(value) { calls.push(['init', value.liffId]); if (initFails) throw Error('Init failed'); },
       isInClient: () => inClient,
