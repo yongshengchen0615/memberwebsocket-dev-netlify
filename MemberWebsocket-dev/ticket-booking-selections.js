@@ -210,6 +210,43 @@
   }
 
 
+  // Preserve every unrelated pending ticket and let the server validate ownership,
+  // booking status, ticket eligibility and the optimistic booking version.
+  async function bindEventTicket(bookingId, claimId) {
+    if (settings?.surface !== 'event') throw new Error('請從活動票券頁面操作。');
+    const id = String(bookingId || ''), ref = String(claimId || '');
+    if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(id) || !ref || ref.length > 120)
+      throw new Error('預約或票券識別不正確，請重新整理。');
+    if (busy) throw new Error('票券調整正在處理中，請勿重複操作。');
+    busy = true;
+    let updated = false;
+    try {
+      const detail = await request('detail', { bookingId: id });
+      const booking = detail?.booking;
+      if (!booking?.editable || booking.status !== 'confirmed')
+        throw new Error(booking?.disabledReason || '只有本人已確認且可調整的預約能綁定票券。');
+      const selections = Array.isArray(booking.selections) ? booking.selections : [];
+      if (selections.some(s => s.kind === 'event' && s.id === ref && s.status === 'pending')) {
+        await settings.refresh();
+        return true;
+      }
+      const allowed = (Array.isArray(detail?.options?.items) ? detail.options.items : [])
+        .some(item => item.kind === 'event' && item.selectionId === ref && item.selectable);
+      if (!allowed) throw new Error('這筆預約已不符合活動票券使用條件，請重新整理。');
+      const benefits = selections.filter(s => s.status === 'pending' && ['points', 'event'].includes(s.kind))
+        .map(s => ({ kind: s.kind, id: s.id }));
+      benefits.push({ kind: 'event', id: ref });
+      await request('update', { bookingId: id, expectedUpdatedAt: booking.updatedAt, benefits, requestId: newId() });
+      updated = true;
+      await settings.refresh();
+      return true;
+    } catch (error) {
+      if (updated) throw new Error('預約綁定可能已完成，但資料同步失敗；請先重新整理確認，勿重複操作。');
+      throw error;
+    } finally {
+      busy = false;
+    }
+  }
   function cancelPointTicket(bookingId, ticketId) {
     return cancelTicket(bookingId, 'points', ticketId);
   }
@@ -282,5 +319,5 @@
     return details;
   }
 
-  window.TicketBookingSelections = Object.freeze({ render, label, cancelPointTicket, cancelTicket, createTicketReservationDisclosure });
+  window.TicketBookingSelections = Object.freeze({ render, label, cancelPointTicket, cancelTicket, bindEventTicket, createTicketReservationDisclosure });
 })();
