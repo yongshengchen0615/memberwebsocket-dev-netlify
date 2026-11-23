@@ -146,7 +146,7 @@ test('AC-LINE-016: the initial official link never carries OAuth codes or token-
 test('AC-ROLL-016: dynamic admin loads Nov22 Platform app rather than Nov23 auto-recovery module',()=>{
  const dynamic=fs.readFileSync(path.join(root,'admin/productized-workspace.js'),'utf8');
  const shell=fs.readFileSync(path.join(root,'admin/index.html'),'utf8');
- assert.match(dynamic,/platform\\/app\\.js\\?v=merchant-expiry-readonly-20261101-1/);
+ assert.ok(dynamic.includes("platform/app.js?v=merchant-expiry-readonly-20261101-1"));
  assert.doesNotMatch(dynamic,/autorecover=20261123|line=20261123/);
  assert.doesNotMatch(shell,/autorecover=20261123|line=20261123/);
 });
