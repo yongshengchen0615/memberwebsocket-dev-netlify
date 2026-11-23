@@ -185,3 +185,41 @@ test('AC-LINE-010: a newly opened root Platform tab enters root LIFF without reu
  assert.equal(names(e).includes('refresh-root'),false);
  assert.equal(names(e).includes('token'),false);
 });
+
+test('AC-LINE-035: wrong-channel token stops after one recovery with actionable public channel IDs and no API',async()=>{
+ const e=entry({merchantEntry:true});
+ e.context.cachedLineIdentityInvalid=()=>({reason:'channel',expected:'2010791619',actual:'2011356226'});
+ e.context.window.LineInitialEntry.recover=()=>false;
+ await e.run();
+ const gate=e.calls.find(([name])=>name==='gate')?.[1]||'';
+ assert.match(gate,/2010791619/);
+ assert.match(gate,/2011356226/);
+ assert.match(gate,/Endpoint/);
+ assert.equal(names(e).includes('request'),false);
+ assert.equal(names(e).includes('logout'),false);
+});
+test('AC-LINE-036: expiring LINE identity explains renewal without claiming revoked access',async()=>{
+ const e=entry({merchantEntry:true});
+ e.context.cachedLineIdentityInvalid=()=>({reason:'expired'});
+ e.context.window.LineInitialEntry.recover=()=>false;
+ await e.run();
+ const gate=e.calls.find(([name])=>name==='gate')?.[1]||'';
+ assert.match(gate,/到期/);
+ assert.doesNotMatch(gate,/目前 LINE 憑證所屬 Channel/);
+ assert.equal(names(e).includes('request'),false);
+});
+test('AC-LINE-037: decoded ID-token hint rejects wrong audience and expiry, but never reflects arbitrary data',()=>{
+ const a=source.indexOf('  function cachedLineIdentityInvalid(channelId) {');
+ const b=source.indexOf('  function freshLineLogin()',a);
+ assert.ok(a>0&&b>a);
+ const build=claims=>vm.runInNewContext('('+source.slice(a,b).trim()+')',{
+  window:{liff:{getDecodedIDToken:()=>claims}},Date
+ });
+ const channel='2010791619';
+ assert.deepEqual(JSON.parse(JSON.stringify(build({aud:'2011356226',exp:Date.now()/1000+3600})(channel))),{reason:'channel',expected:channel,actual:'2011356226'});
+ assert.deepEqual(JSON.parse(JSON.stringify(build({aud:channel,exp:Date.now()/1000-10})(channel))),{reason:'expired'});
+ assert.equal(build({aud:channel,exp:Date.now()/1000+3600})(channel),false);
+ assert.equal(build(null)(channel),false);
+ assert.equal(build({aud:channel,exp:Date.now()/1000+3600})(channel),false);
+ assert.equal(build({aud:'<img src=x onerror=alert(1)>'})(channel).actual,'unknown');
+});
