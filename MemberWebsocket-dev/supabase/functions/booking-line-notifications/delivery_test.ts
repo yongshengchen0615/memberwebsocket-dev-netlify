@@ -10,8 +10,8 @@ Deno.test('AC-MOD-003: frontdesk edit event always shows 修改預約, never a n
   };
   const modified = buildBookingFlexMessage({...job, event_key: job.booking_id + ':modified:42'});
   const created = buildBookingFlexMessage({...job, event_key: job.booking_id + ':created'});
-  assert(JSON.stringify(modified.contents.header).includes('修改預約'));
-  assert(modified.altText.startsWith('修改預約'));
+  assert(JSON.stringify(modified.contents.header).includes('修改預約'), 'modified booking header');
+  assert(modified.altText.startsWith('修改預約'), 'modified booking push preview');
   assert(!JSON.stringify(created.contents.header).includes('修改預約'), 'new booking must not be mislabelled');
 });
 
