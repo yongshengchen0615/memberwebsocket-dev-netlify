@@ -207,6 +207,7 @@ test('AC-018: booking and title tabs are mutually exclusive in both directions',
   assert.ok(begin>0&&end>begin);
   const context={
     document:{getElementById:id=>nodes[id]||null},
+    window:{BusinessWorkspace:{allows:()=>true}},
     els:{bookingTab:nodes.bookingTab,bookingPanel:nodes.bookingPanel},
     state:{loading:true,subtab:'technicians'},
     setSubtab(){},refreshAll(){}
