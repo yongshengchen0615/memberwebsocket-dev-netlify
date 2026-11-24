@@ -69,7 +69,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [core, extended]
+        suite: [core, frontdesk, extended]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -165,8 +165,10 @@ jobs:
             MemberWebsocket-dev/tests/integration/snapshot_completion_controls.cjs \
             MemberWebsocket-dev/tests/integration/receipt_refresh_state.cjs \
             MemberWebsocket-dev/tests/integration/friend_qr_scanner.cjs
+      # Keep the full frontdesk contract suite isolated so PGlite tests do not
+      # consume the preceding core DOM suite's timeout budget.
       - name: Check frontdesk tenant and UI contracts
-        if: matrix.suite == 'core'
+        if: matrix.suite == 'frontdesk'
         run: node --test MemberWebsocket-dev/tests/integration/frontdesk_access.cjs MemberWebsocket-dev/tests/integration/frontdesk_api.cjs MemberWebsocket-dev/tests/integration/frontdesk_legacy.cjs MemberWebsocket-dev/tests/integration/frontdesk_race.cjs MemberWebsocket-dev/tests/integration/frontdesk_ui.cjs MemberWebsocket-dev/tests/integration/frontdesk_fresh_login.cjs
       - name: Check extended DOM, SQL and human journeys
         if: matrix.suite == 'extended'
