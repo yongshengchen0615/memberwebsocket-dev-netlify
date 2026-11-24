@@ -51,7 +51,7 @@
     ['calendar.crud', '營運日曆與活動 CRUD', 'calendar', 'admin', 'lifecycle', ['ADMIN_CALENDAR_CRUD','ADMIN_CALENDAR_NAVIGATION'], []],
     ['calendar.event', '日曆活動連結、參加對象與加贈草稿 CRUD', 'calendar', 'admin', 'lifecycle', ['ADMIN_CALENDAR_EVENT_CRUD'], []],
     ['calendar.event-sync', '活動票券草稿同步日曆、唯讀與移除', 'calendar', 'admin', 'lifecycle', ['ADMIN_EVENT_CALENDAR_SYNC'], [], '只使用本輪專用草稿', {admin:['event','calendar']}],
-    ['calendar.batch', '日曆批次編輯與拒絕邊界', 'calendar', 'admin', 'interaction', ['ADMIN_CALENDAR_BATCH_CONTROLS'], []],
+    ['calendar.scoped', '三個專屬日曆與日期建立活動', 'calendar', 'admin', 'interaction', ['ADMIN_CALENDAR_SCOPED_CONTROLS'], []],
     ['calendar.member', '月份、今日與日期明細', 'calendar', 'user', 'interaction', [], ['CALENDAR_NAVIGATION','CALENDAR_HUMAN_DETAIL','CALENDAR_INVALID_DATE','CALENDAR_SERVER_BOUNDARY']],
     ['booking.settings', '時段、跨夜、提前日數與通知', 'booking', 'admin', 'lifecycle', ['ADMIN_BOOKING_SHARED_SETTINGS'], []],
     ['booking.resources', '服務類型、項目、價格與技師', 'booking', 'admin', 'interaction', ['ADMIN_BOOKING_CRUD','ADMIN_BOOKING_RESOURCE_CONTROLS','ADMIN_BOOKING_BATCH_EDITOR'], []],
