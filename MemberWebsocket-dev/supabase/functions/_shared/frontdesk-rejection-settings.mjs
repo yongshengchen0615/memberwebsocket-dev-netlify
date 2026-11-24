@@ -54,10 +54,11 @@ function normalizeRejectionSettings(input){
 }
 
 function validateRejectionSettingsUpdate(previous,input){
- const before=normalizeRejectionSettings(previous),next=normalizeRejectionSettings(input);
- const retained=new Set(next.reasons.map(reason=>reason.id));
- if(before.reasons.some(reason=>!retained.has(reason.id)))invalid("REJECTION_REASON_DELETE_FORBIDDEN");
- return next;
+ normalizeRejectionSettings(previous);
+ // Removing a reason affects only future choices. Existing bookings retain
+ // their immutable label/description snapshots, and exact requestId replays
+ // continue to resolve the original accepted payload.
+ return normalizeRejectionSettings(input);
 }
 
 function resolveRejectionReason(settings,id,route){
