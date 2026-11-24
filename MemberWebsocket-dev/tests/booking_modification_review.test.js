@@ -41,6 +41,10 @@ test('AC-MOD-002: member sees pending review and cannot send a LINE notification
   assert.match(worker, /endsWith\(':member-pending'\)/);
   assert.match(worker, /pending\.data\?\.status !== 'pending'/);
   assert.match(worker, /BOOKING_RECIPIENT_UNAUTHORIZED/);
+  // The SQL modification notice already contains complete participant data.
+  // Only a newly created booking needs its participants fetched after commit.
+  assert.match(worker, /if \(String\(job\.event_key \|\| ''\)\.endsWith\(':created:member'\)\) \{\s*try \{\s*memberPendingDetails = await loadMemberPendingBookingDetails/);
+
 });
 
 test('AC-MOD-003: frontdesk update cards use the audited modification event rather than a creation title', () => {
