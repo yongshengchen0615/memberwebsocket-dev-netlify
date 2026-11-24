@@ -80,8 +80,8 @@ test('AC-FMR-006/007: member and admin LINE titles reflect only an audited front
  const sql=read('supabase/migrations/20261124233000_frontdesk_modification_review_and_rejection_reasons.sql');
  const delivery=read('supabase/functions/booking-line-notifications/delivery.ts');
  for(const title of ['櫃檯確認修改','櫃檯拒絕修改','確認修改預約','拒絕修改預約'])assert.ok(sql.includes(title),title);
- assert.match(sql,/e\.actor_role=''frontdesk''/);
- assert.match(sql,/e\.metadata->>''reviewKind''/);
+ assert.match(sql,/e\.actor_role='frontdesk'/);
+ assert.match(sql,/e\.metadata->>'reviewKind'/);
  assert.match(sql,/platform_private\.frontdesk_review_kind\(TG_TABLE_SCHEMA,NEW\.id,''confirmed''\)/);
  assert.match(sql,/platform_private\.frontdesk_review_kind\(TG_TABLE_SCHEMA,NEW\.id,''rejected''\)/);
  for(const title of ['櫃檯確認修改','櫃檯拒絕修改','確認修改預約','拒絕修改預約'])assert.ok(delivery.includes(title),title);
