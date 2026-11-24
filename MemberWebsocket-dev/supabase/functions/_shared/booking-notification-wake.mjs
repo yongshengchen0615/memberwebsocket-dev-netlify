@@ -2,7 +2,10 @@ const endpoints=new Set(['booking-api','booking-group-api','booking-admin-operat
 function eligible({name,context,body,response}) {
   if(!context || !endpoints.has(name) || !response.ok) return false;
   const action=String(body?.action||'');
-  return action==='admin.booking.reject-walkin' || /(?:create|update|complete|request|approve|reject)$/.test(action);
+  return action==='admin.booking.reject-walkin'
+    || action==='user.booking.cancel'
+    || action==='admin.booking.completed.correct'
+    || /(?:create|update|complete|request|approve|reject)$/.test(action);
 }
 async function committed(response) {
   const payload=await response.clone().json().catch(()=>null);
