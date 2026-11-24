@@ -3,7 +3,7 @@ const fs=require('node:fs'),http=require('node:http'),path=require('node:path');
 const root=path.resolve(__dirname,'../..');let server,base;
 const fixture=`
 window.calls=[];window.MembershipProgress={render(){}};
-window.BookingSystem={loadConfig:async()=>({}),signIn:async()=>'fixture',memberProfile:async()=>({lineUserId:'a'}),setBookingNotice:v=>{window.bookingNoticeValue=String(v||'');},formatDate:v=>v,subscribeRealtime:()=>()=>{},getSession:()=>({config:{},idToken:'fixture'}),addDays:(d,n)=>new Date(Date.parse(d+'T00:00:00Z')+n*86400000).toISOString().slice(0,10),request:async(c,t,k,action)=>{calls.push(action);
+window.BookingSystem={loadConfig:async()=>({supabaseUrl:'https://booking-cancellation.fixture.invalid',supabasePublishableKey:'synthetic-fixture-key'}),signIn:async()=>'fixture',memberProfile:async()=>({lineUserId:'a'}),setBookingNotice:v=>{window.bookingNoticeValue=String(v||'');},formatDate:v=>v,subscribeRealtime:()=>()=>{},getSession:()=>({config:{},idToken:'fixture'}),addDays:(d,n)=>new Date(Date.parse(d+'T00:00:00Z')+n*86400000).toISOString().slice(0,10),request:async(c,t,k,action)=>{calls.push(action);
 if(action==='user.booking.bootstrap')return {serverNow:'2026-10-30T00:00:00Z',today:'2026-10-30',settings:{minAdvanceDays:0,maxAdvanceDays:3,bookingNotice:'商家測試預約說明'},services:[],bookings:[
 {bookingId:'today',bookingDate:'2026-10-30',status:'confirmed',startTime:'09:00',endTime:'10:00',items:[]},
 {bookingId:'tomorrow',bookingDate:'2026-10-31',status:'pending',startTime:'11:00',endTime:'12:00',items:[]},
@@ -20,12 +20,42 @@ test.beforeEach(async({page})=>{
   // month boundaries without altering timers, server policy or expectations.
   await page.clock.setFixedTime(new Date('2026-10-30T04:00:00.000Z'));
   await page.route('https://**',r=>r.abort());
+  // Model the trusted cancellation-mode API, not a UI-only feature toggle.
+  // Unlisted remote requests remain blocked by the route above.
+  await page.route('https://booking-cancellation.fixture.invalid/functions/v1/booking-cancellation-api',route=>{
+    const mode=new URL(page.url()).searchParams.get('cancellationMode')||'approval';
+    const action=JSON.parse(route.request().postData()||'{}').action;
+    if(action!=='member.list') return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({ok:false,error:{code:'UNEXPECTED_ACTION'}})});
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:{cancellationMode:mode,requests:[]}})});
+  });
 });
 for(const width of [320,390,1280])test('date records and guarded start at '+width+'px',async({page},info)=>{
 const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.setViewportSize({width,height:840});await page.goto(base+'/booking/');await expect(page.locator('#calendarGrid')).toBeVisible();await expect.poll(()=>page.evaluate(()=>window.bookingNoticeValue)).toBe('商家測試預約說明');await expect(page.locator('#bookingList')).toBeHidden();await expect(page.locator('#bookingSnapshotHistory')).toBeHidden();
-const before=await page.evaluate(()=>calls.length);await page.locator('[data-date="2026-10-30"]').click();const modal=page.locator('#bookingDayModal');await expect(modal).toBeVisible();await expect(modal.locator('[data-booking-id]')).toHaveCount(1);await expect(modal.locator('[data-booking-id="today"]')).toBeVisible();await expect(modal.locator('[data-receipt-id]')).toHaveCount(1);await expect(modal.locator('[data-receipt-id="today"]')).toBeVisible();await modal.locator('.booking-item-top').click();await expect(modal.getByRole('button',{name:'修改預約',exact:true})).toBeVisible();await expect(modal.getByRole('button',{name:'申請取消',exact:true})).toBeVisible();expect(await page.evaluate(()=>calls.length)).toBe(before);
+const before=await page.evaluate(()=>calls.length);await page.locator('[data-date="2026-10-30"]').click();const modal=page.locator('#bookingDayModal');await expect(modal).toBeVisible();await expect(modal.locator('[data-booking-id]')).toHaveCount(1);await expect(modal.locator('[data-booking-id="today"]')).toBeVisible();await expect(modal.locator('[data-receipt-id]')).toHaveCount(1);await expect(modal.locator('[data-receipt-id="today"]')).toBeVisible();await modal.locator('.booking-item-top').click();await expect(modal.getByRole('button',{name:'修改預約',exact:true})).toBeVisible();await expect(modal.getByRole('button',{name:'申請取消',exact:true})).toBeVisible();await expect(modal.getByRole('button',{name:'申請取消',exact:true})).toBeEnabled();await expect(modal.getByRole('button',{name:'取消預約',exact:true})).toHaveCount(0);expect(await page.evaluate(()=>calls.length)).toBe(before);
 await page.keyboard.press('Escape');await expect(modal).toBeHidden();await expect(page.locator('[data-date="2026-10-30"]')).toBeFocused();await page.locator('[data-date="2026-10-31"]').click();await expect(modal.locator('[data-booking-id]')).toHaveCount(1);await expect(modal.locator('[data-booking-id="tomorrow"]')).toBeVisible();await expect(page.locator('#bookingSnapshotDayEmpty')).toBeVisible();await page.locator('#startDayBookingButton').click();await expect(page.locator('#appointmentPanel')).toBeVisible();await expect(page.locator('#bookingDate')).toHaveValue('2026-10-31');await page.locator('#closeAppointmentButton').click();await expect(page.locator('#appointmentPanel')).toBeHidden();await expect(modal).toBeVisible();await expect(page.locator('#bookingDayTitle')).toContainText('2026-10-31');await expect(page.locator('#closeBookingDayButton')).toBeFocused();await page.locator('#closeBookingDayButton').click();await expect(modal).toBeHidden();await page.locator('[data-date="2026-10-29"]').click();await expect(page.locator('#startDayBookingButton')).toBeDisabled();await expect(modal.locator('[data-receipt-id="yesterday"]')).toBeVisible();expect(await modal.locator('.booking-day-card').evaluate(e=>e.getBoundingClientRect().width<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath('day-records.png')});expect(errors).toEqual([]);
 });
+test('trusted frontdesk mode exposes direct cancellation without the old approval action',async({page})=>{
+  await page.goto(base+'/booking/?cancellationMode=direct');
+  await expect(page.locator('#calendarGrid')).toBeVisible();
+  await page.locator('[data-date="2026-10-30"]').click();
+  const modal=page.locator('#bookingDayModal');
+  await modal.locator('.booking-item-top').click();
+  await expect(modal.getByRole('button',{name:'取消預約',exact:true})).toBeVisible();
+  await expect(modal.getByRole('button',{name:'取消預約',exact:true})).toBeEnabled();
+  await expect(modal.getByRole('button',{name:'申請取消',exact:true})).toHaveCount(0);
+});
+
+test('untrusted cancellation mode fails closed without exposing an enabled cancellation action',async({page})=>{
+  await page.goto(base+'/booking/?cancellationMode=unknown');
+  await expect(page.locator('#calendarGrid')).toBeVisible();
+  await page.locator('[data-date="2026-10-30"]').click();
+  const modal=page.locator('#bookingDayModal');
+  await modal.locator('.booking-item-top').click();
+  await expect(modal.getByRole('button',{name:'取消功能暫時無法確認',exact:true})).toBeDisabled();
+  await expect(modal.getByRole('button',{name:'取消預約',exact:true})).toHaveCount(0);
+  await expect(modal.getByRole('button',{name:'申請取消',exact:true})).toHaveCount(0);
+});
+
 test('deep link keeps history and snapshot mode hides calendar until returning to booking', async ({page}) => {
   await page.goto(base+'/booking/?bookingId=old');
   await expect(page.locator('#bookingDayModal')).toBeVisible();
