@@ -142,6 +142,26 @@ for(const type of ['coupon','referral','membership_join','lottery'])test('EVENT_
   if(type==='lottery')await p.locator('#eventTicketPrizeRows [data-field="eventTicketPrizeTitle"]').first().fill('QA prize');
   await click(p,'saveEventTicketButton');await expect(p.locator('#eventTicketId')).not.toHaveValue('');await fill(p,'eventTicketTitle','QA edited event');await select(p,'eventTicketStatus','archived');await click(p,'saveEventTicketButton');await expect.poll(()=>info.fixture.eventTickets[0]?.title).toBe('QA edited event');expect(info.fixture.eventTickets[0].allowedTierKeys).toEqual(['gold','platinum']);await click(p,'deleteEventTicketButton');await expect(p.locator('#eventTicketId')).toHaveValue('');expect(info.fixture.eventTickets).toHaveLength(0);
 });
+test('EVENT_RELATIVE_EXPIRY — new acquisition window persists, rejects invalid days and clears safely',async({page:p},info)=>{
+  await openEvent(p,'coupon');
+  await expect(p.locator('#eventTicketValidityDaysAfterClaim')).toHaveValue('');
+  await fill(p,'eventTicketValidityDaysAfterClaim','30');
+  await click(p,'saveEventTicketButton');
+  await expect(p.locator('#eventTicketId')).not.toHaveValue('');
+  await expect.poll(()=>info.fixture.eventTickets[0]?.validityDaysAfterClaim).toBe(30);
+  await fill(p,'eventTicketValidityDaysAfterClaim','15');
+  await click(p,'saveEventTicketButton');
+  await expect.poll(()=>info.fixture.eventTickets[0]?.validityDaysAfterClaim).toBe(15);
+  await expect(p.locator('#eventTicketValidityDaysAfterClaim')).toHaveValue('15');
+  await fill(p,'eventTicketValidityDaysAfterClaim','0');
+  await click(p,'saveEventTicketButton');
+  await expect(p.locator('#eventTicketFormMessage')).toContainText('1–3650 天');
+  expect(calls(info.fixture,'admin.event-tickets.save')).toHaveLength(2);
+  await fill(p,'eventTicketValidityDaysAfterClaim','');
+  await click(p,'saveEventTicketButton');
+  await expect.poll(()=>info.fixture.eventTickets[0]?.validityDaysAfterClaim).toBe(null);
+  expect(calls(info.fixture,'admin.event-tickets.save')).toHaveLength(3);
+});
 for(const [schedule,expiry] of [['birthday_month','month_end'],['weekly','week_end'],['monthly','days_after_issue'],['yearly','fixed_date']])test('FIXED_'+schedule+' — schedule, expiry, calendar, notify, save, run and delete',async({page:p},info)=>{
   await openEvent(p,'fixed');await select(p,'fixedTicketScheduleType',schedule);if(schedule==='yearly')await select(p,'fixedTicketScheduleMonth','12');if(['monthly','yearly'].includes(schedule))await fill(p,'fixedTicketScheduleDay','15');if(schedule==='weekly')await select(p,'fixedTicketScheduleWeekday','3');await select(p,'fixedTicketExpiryMode',expiry);if(expiry==='days_after_issue')await fill(p,'fixedTicketExpiryDays','14');if(expiry==='fixed_date')await fill(p,'fixedTicketExpiryDate','2099-12-31');await p.locator('#fixedTicketNotifyLine').uncheck();await p.locator('#fixedTicketCalendarEnabled').check();await click(p,'saveEventTicketButton');
   await expect.poll(()=>info.fixture.templates.length).toBe(1);expect(info.fixture.templates[0]).toMatchObject({scheduleType:schedule,expiryMode:expiry,notifyLine:false,calendarEnabled:true});await click(p,'fixedTicketRunButton');await expect.poll(()=>calls(info.fixture,'admin.fixed-tickets.run').length).toBe(1);await click(p,'deleteEventTicketButton');await expect.poll(()=>info.fixture.templates.length).toBe(0);await expect(p.locator('#saveEventTicketButton')).toBeEnabled();await p.locator('#eventTicketEditorModal .editor-modal-close').click();await click(p,'newEventTicketButton');await expect(p.locator('#saveEventTicketButton')).toBeEnabled();
