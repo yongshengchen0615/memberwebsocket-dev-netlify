@@ -30,7 +30,8 @@ test('three isolated calendar workspaces render their own content and keep booki
   assert.match(app, /member-admin:booking-snapshot/);
   assert.match(app, /member-admin:booking-snapshot-request/);
   assert.match(app, /renderBookingOverviewCalendar\(\)/);
-  assert.match(app, /rows: state\.operationalBookings\.filter/);
+  assert.match(app, /rows: \[\.\.\.state\.operationalBookings\.filter/);
+  assert.match(app, /rules\.belongsToScope\('holiday', item\)/);
   assert.match(app, /rules\.belongsToScope\('activity', item\)/);
   assert.match(app, /rules\.belongsToScope\(kind, item\)/);
   assert.match(app, /member-admin:booking-focus/);
