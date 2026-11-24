@@ -10,8 +10,8 @@ test('DOM integration partitions preserve every established command within the e
   const integration = workflow.split('\n  integration:')[1].split('\n  browser-e2e:')[0];
   assert.match(integration, /timeout-minutes: 8\n/);
   assert.match(integration, /fail-fast: false\n/);
-  assert.match(integration, /suite: \[core, extended\]/);
-  for (const suite of ['core','extended']) {
+  assert.match(integration, /suite: \[core, frontdesk, extended\]/);
+  for (const suite of ['core','frontdesk','extended']) {
     assert.ok(integration.includes(`if: matrix.suite == '${suite}'`), `${suite} must execute its own complete partition`);
   }
   const actual = integration.replace(/\\\r?\n\s*/g, ' ').split(/\r?\n/)
