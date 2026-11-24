@@ -108,6 +108,9 @@ declare
   f jsonb;
   functions jsonb := '[]'::jsonb;
   definition text;
+  tenant_definition text;
+  tenant_marker text;
+  tenant_addition text;
   marker text := E'  end if;\n\n  begin\n    perform public.notice_dispatch(20);';
   addition text := $fanout$  end if;
 
@@ -150,9 +153,21 @@ begin
       end if;
       definition := replace(definition,marker,addition);
       f := jsonb_set(f,'{definition}',to_jsonb(definition));
+      -- Existing merchants have extra paired-rejection INSERT guards installed
+      -- by earlier migrations. Never overwrite their function from the generic
+      -- template: patch their current definition while retaining every guard.
       for business in select runtime_schema from platform_private.tenants
                         where runtime_schema is not null loop
-        execute platform_private.business_sql(definition,business.runtime_schema);
+        select pg_get_functiondef(
+          to_regprocedure(format('%I.notice_enqueue()',business.runtime_schema))
+        ) into strict tenant_definition;
+        tenant_marker := replace(marker,'public.',format('%I.',business.runtime_schema));
+        tenant_addition := replace(addition,'public.',format('%I.',business.runtime_schema));
+        if (length(tenant_definition)-length(replace(tenant_definition,tenant_marker,'')))
+           <> length(tenant_marker) then
+          raise exception 'DIRECT_CANCELLATION_NOTICE_TENANT_DRIFT: %',business.runtime_schema;
+        end if;
+        execute replace(tenant_definition,tenant_marker,tenant_addition);
       end loop;
       affected := affected + 1;
     end if;
