@@ -178,7 +178,7 @@ end $patch_frontdesk_review$;
 -- Member notice is produced by the existing deferred, audited status trigger.
 -- Patch both existing tenant functions and the future-merchant template.
 do $patch_modification_member_line$
-declare d text;source text;snapshot jsonb;item jsonb;functions jsonb:='[]'::jsonb;
+declare d text;source text;v_template jsonb;item jsonb;functions jsonb:='[]'::jsonb;
  t record;changed integer:=0;old_confirm text;new_confirm text;old_reject text;new_reject text;
 begin
  old_confirm:='when ''confirmed'' then ''【預約確認】''';
@@ -186,9 +186,9 @@ begin
  old_reject:='when ''rejected'' then ''【預約未通過】''';
  new_reject:='when ''rejected'' then case when platform_private.frontdesk_review_kind(TG_TABLE_SCHEMA,NEW.id,''rejected'')=''modification'' then ''【拒絕修改預約】'' else ''【預約未通過】'' end';
 
- select snapshot into strict snapshot from platform_private.business_templates
+ select t.snapshot into strict v_template from platform_private.business_templates t
   where version='business-v1-20261019' for update;
- for item in select value from jsonb_array_elements(snapshot->'functions') loop
+ for item in select value from jsonb_array_elements(v_template->'functions') loop
   if item->>'name'='notice_enqueue' then
    d:=item->>'definition';
    if (length(d)-length(replace(d,old_confirm,'')))<>length(old_confirm)
@@ -201,7 +201,7 @@ begin
   functions:=functions||jsonb_build_array(item);
  end loop;
  if changed<>1 then raise exception 'FRONTDESK_MODIFICATION_TEMPLATE_NOTICE_MISSING';end if;
- update platform_private.business_templates set snapshot=jsonb_set(snapshot,'{functions}',functions)
+ update platform_private.business_templates set snapshot=jsonb_set(v_template,'{functions}',functions)
  where version='business-v1-20261019';
 
  for t in select runtime_schema from platform_private.tenants
