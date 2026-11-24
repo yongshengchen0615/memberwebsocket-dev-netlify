@@ -321,7 +321,7 @@
 
         const eventUnavailable = item.kind === 'event' && !isSelected && (!selectable || serviceBlocked || (hasLimit(eventTicketMaxPerDay) && selectedEventCount() >= eventTicketMaxPerDay));
         const card = item.kind === 'event' && window.EventTicketUI
-          ? window.EventTicketUI.create(item, { fixed: Boolean(item.fixedTicketTemplateId), stateLabel: item.statusLabel, stateClass: item.locked ? 'tier-locked' : eventUnavailable ? 'ended' : 'open' })
+          ? window.EventTicketUI.create(item, { fixed: Boolean(item.fixedTicketTemplateId), stateLabel: item.statusLabel, stateClass: item.locked ? 'tier-locked' : item.statusLabel === '已過期' || eventUnavailable ? 'ended' : 'open', expiresAt: item.expiresAt ? new Date(item.expiresAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false }) : '' })
           : document.createElement('article');
         card.classList.add('booking-benefit', 'ui-ticket');
         card.classList.toggle('is-selected', isSelected);
