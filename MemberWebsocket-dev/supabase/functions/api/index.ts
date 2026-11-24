@@ -1805,7 +1805,7 @@ async function saveEventTicket(supabase: SupabaseClient, actor: string, body: Js
     status,
     starts_on: startsOn || null,
     ends_on: endsOn || null,
-    validity_days_after_claim: validityDaysAfterClaim,
+    ...(Object.prototype.hasOwnProperty.call(input,"validityDaysAfterClaim") ? { validity_days_after_claim: validityDaysAfterClaim } : {}),
     quota,
     requires_location: requiresLocation,
     redemption_locations: locations,
