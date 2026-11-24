@@ -39,9 +39,10 @@ test('Issue #425: admin policy save is validated, versioned and tenant-scoped be
  assert.equal(calls[0].input.p_action,'rejection-settings.save');
  assert.equal(calls[0].input.p_body.expectedVersion,7);
  assert.match(calls[0].input.p_body.payloadHash,/^[a-f0-9]{64}$/);
- await assert.rejects(()=>frontdeskAdmin({...args,body:{...body,rejectionSettings:{dropdownTitle:'x',reasons:[]}}}));
+ assert.equal((await frontdeskAdmin({...args,body:{...body,rejectionSettings:{dropdownTitle:'x',reasons:[]}}})).version,8,'empty saved list intentionally disables new rejections');
+ await assert.rejects(()=>frontdeskAdmin({...args,body:{...body,rejectionSettings:{dropdownTitle:'x',reasons:[{id:'forged'}]}}}));
  await assert.rejects(()=>frontdeskAdmin({...args,tenant:{...tenant,features:{frontdesk:false,booking:true}},body}));
- assert.equal(calls.length,1);
+ assert.equal(calls.length,2);
 });
 
 
