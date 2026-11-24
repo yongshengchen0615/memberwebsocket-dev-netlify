@@ -79,15 +79,17 @@ test('AC-MOD-SQL-001: audited member edits enqueue one scoped pending LINE notic
 
   await h.db.exec('begin');
   await h.q("update S.bookings set member_note='rolled-back proposal' where id=$1",[b]);
-  await h.q("insert into S.booking_audit_events(actor_line_user_id,actor_role,action,target_type,target_id,result,metadata) values ($1,'member','BOOKING_UPDATED','booking',$2,'success','{}'::jsonb)",[memberLine,b]);
+  await h.q("insert into S.booking_audit_events(actor_line_user_id,actor_role,action,target_type,target_id,result,metadata,created_at) select $1,'member','BOOKING_UPDATED','booking',id::text,'success','{}'::jsonb,updated_at from S.bookings where id=$2",[memberLine,b]);
   await h.db.exec('rollback');
   assert.equal((await noteRows()).length,0,'transaction rollback must not enqueue LINE');
 
+  // notice_enqueue correlates an audit row to the exact updated_at value.
+  // Mirror the canonical mutation's shared timestamp, not a separate now().
   const edit=async message=>{
    await h.db.exec('begin');
    try{
     await h.q('update S.bookings set member_note=$2 where id=$1',[b,message]);
-    await h.q("insert into S.booking_audit_events(actor_line_user_id,actor_role,action,target_type,target_id,result,metadata) values ($1,'member','BOOKING_UPDATED','booking',$2,'success','{}'::jsonb)",[memberLine,b]);
+    await h.q("insert into S.booking_audit_events(actor_line_user_id,actor_role,action,target_type,target_id,result,metadata,created_at) select $1,'member','BOOKING_UPDATED','booking',id::text,'success','{}'::jsonb,updated_at from S.bookings where id=$2",[memberLine,b]);
     await h.db.exec('commit');
    }catch(error){await h.db.exec('rollback');throw error;}
   };
