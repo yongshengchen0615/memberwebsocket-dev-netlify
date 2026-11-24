@@ -462,15 +462,15 @@ test('BOOKING_MESSAGES_SETTINGS — one save, reload, invalid input and conflict
   await expect(save).toBeDisabled();
   await fill(p,'bookingAdminNotice','QA line 1\\nQA line 2');
   await fill(p,'bookingAdminPendingMessage','預約已送出，請等待管理員確認。');
-  await fill(p,'bookingAdminRejectionMessage','預約未通過，請依拒絕原因重新預約。');
+  await expect(p.locator('#bookingAdminRejectionMessage')).toHaveCount(0);
   await fill(p,'bookingAdminReminderMessage','您的預約即將開始，請準時到場。');
   await expect(save).toBeEnabled();
   await click(p,'bookingAdminMessagesSave');
   await expect.poll(()=>calls(info.fixture,'admin.booking.messages.save').length).toBe(1);
-  await expect(p.locator('#bookingAdminMessagesStatus')).toContainText('四項訊息已一次儲存');
+  await expect(p.locator('#bookingAdminMessagesStatus')).toContainText('三項訊息已一次儲存');
   expect(info.fixture.settings.bookingNotice).toBe('QA line 1\\nQA line 2');
   expect(info.fixture.settings.pendingMessage).toBe('預約已送出，請等待管理員確認。');
-  expect(info.fixture.settings.rejectionMessage).toBe('預約未通過，請依拒絕原因重新預約。');
+  expect(calls(info.fixture,'admin.booking.messages.save')[0].payload.rejectionMessage).toBeUndefined();
   expect(info.fixture.settings.reminderMessage).toBe('您的預約即將開始，請準時到場。');
   await p.reload();
   await booking(p,'bookingAdminMessagesSubtab');
