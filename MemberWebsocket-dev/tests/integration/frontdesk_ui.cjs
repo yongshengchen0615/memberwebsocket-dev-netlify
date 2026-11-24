@@ -561,3 +561,49 @@ test('AC-FD-REJ-TABS-003: configured merchant can switch to reason editor and re
   'tab switching must not add a new read or wipe unsaved draft');
  w.FrontdeskSettings.clear(root);dom.window.close();
 });
+
+
+test('AC-FMR-001/002: frontdesk separates new and member-modified bookings with scoped rejection choices',async()=>{
+ const {defaultRejectionSettings}=await import('../../supabase/functions/_shared/frontdesk-rejection-settings.mjs');
+ const dom=new JSDOM('<h1 id="businessName"></h1><p id="status"></p><div id="account"></div><div id="bookings"></div><button id="refresh">重新整理</button>',{
+   url:'https://desk.test/frontdesk/?business=shop-a',runScripts:'outside-only'
+ });
+ const w=dom.window;
+ w.crypto.randomUUID=()=>crypto.randomUUID();
+ w.liff={isInClient:()=>true,init:async()=>{},isLoggedIn:()=>true,getIDToken:()=>'verified'};
+ const bookings=[
+  {id:'11111111-1111-4111-8111-111111111111',reviewKind:'new',status:'pending',updatedAt:'2026-11-24T13:00:00Z',name:'新預約會員',services:[]},
+  {id:'22222222-2222-4222-8222-222222222222',reviewKind:'modification',status:'pending',updatedAt:'2026-11-24T13:01:00Z',name:'修改預約會員',services:[]}
+ ];
+ const response=data=>({ok:true,status:200,json:async()=>({ok:true,data})});
+ w.fetch=async(_url,init)=>{
+  if(!init?.body)return response({supabaseFunctionUrl:'https://db.test/functions/v1/api',supabasePublishableKey:'public'});
+  const {action}=JSON.parse(init.body);
+  if(action==='frontdesk.public')return response({name:'Shop',frontdesk:{enabled:true,liffId:'2010999999-desk'}});
+  if(action==='frontdesk.bootstrap')return response({staff:{status:'approved',permissionMode:'review'}});
+  if(action==='frontdesk.bookings')return response({bookings,rejectionSettings:defaultRejectionSettings()});
+  return response({revision:'1'});
+ };
+ try{
+  const ready=new Promise(resolve=>w.addEventListener('frontdesk-ready',resolve,{once:true}));
+  w.eval(source());await ready;
+  const newCard=w.document.querySelector('[data-kind="new"]').closest('article');
+  const modCard=w.document.querySelector('[data-kind="modification"]').closest('article');
+  assert.match(newCard.textContent,/新預約會員.*確認預約.*拒絕預約/s);
+  assert.match(modCard.textContent,/修改預約會員.*確認修改預約.*拒絕修改預約/s);
+  modCard.querySelector('[data-review-action="rejected"]').click();
+  let dialog=w.document.querySelector('[data-frontdesk-rejection-dialog]');
+  assert.ok(dialog,'modification rejection dialog must open');
+  assert.match(dialog.textContent,/拒絕修改預約/);
+  let options=[...dialog.querySelectorAll('select[aria-label] option')].map(option=>option.textContent);
+  assert(options.includes('修改後時段無法安排'),'only modification reasons are offered');
+  assert(!options.includes('該時段已被現場人員預約但未登記'),'ordinary reasons must not leak');
+  dialog.querySelector('.frontdesk-modal-cancel').click();
+  newCard.querySelector('[data-review-action="rejected"]').click();
+  dialog=w.document.querySelector('[data-frontdesk-rejection-dialog]');
+  assert.match(dialog.textContent,/拒絕預約/);
+  options=[...dialog.querySelectorAll('select[aria-label] option')].map(option=>option.textContent);
+  assert(options.includes('該時段已被現場人員預約但未登記'),'new bookings retain ordinary reasons');
+  assert(!options.includes('修改後時段無法安排'),'modification reason must not leak');
+ }finally{w.close();}
+});
