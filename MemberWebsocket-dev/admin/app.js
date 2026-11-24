@@ -776,6 +776,7 @@
   function applyAdminCalendarItems(result, preserveEditor = false) {
     state.calendarItems = Array.isArray(result.calendarItems) ? result.calendarItems : [];
     renderAdminCalendar();
+    renderBookingOverviewCalendar();
     if (!preserveEditor) {
       if (state.selectedCalendarItemId && state.calendarItems.some((item) => item.calendarItemId === state.selectedCalendarItemId)) loadCalendarItemForm(state.selectedCalendarItemId); else resetCalendarItemForm();
     }
@@ -2293,6 +2294,7 @@
     els.eventTicketUsageMethod.value = String(ticket.usageMethod || '');
     els.eventTicketUsageInstructions.value = String(ticket.usageInstructions || '');
     els.eventTicketStatus.value = String(ticket.status || 'draft');
+    document.getElementById('eventTicketVisibilityPolicy').value = ticket.visibilityPolicy || 'eligible_only';
     els.eventTicketRequiredServiceMatchMode.value = ticket.requiredServiceGroups?.length ? 'groups' : ticket.requiredServiceMatchMode === 'all' ? 'all' : 'any';
     renderRequiredServiceOptions(els.eventTicketRequiredServiceIds, ticket.requiredServiceIds); setEventTicketServiceGroups(ticket.requiredServiceGroups);
     els.eventTicketMinBookingAmountMode.value = ticket.minBookingAmountMode || 'none';
@@ -2315,7 +2317,7 @@
   }
 
   function resetEventTicketForm(renderList = true) {
-    state.selectedEventTicketId = ''; els.eventTicketForm.reset(); els.eventTicketId.value = ''; els.eventTicketExpectedUpdatedAt.value = ''; els.eventTicketType.value = 'coupon'; els.eventTicketStatus.value = ''; els.eventTicketRequiredServiceMatchMode.value = 'any'; els.eventTicketMinBookingAmountMode.value = 'none'; els.eventTicketMinBookingAmount.value = '0'; renderRequiredServiceOptions(els.eventTicketMinBookingServiceIds, []); updateEventTicketAmountModeUI(); renderRequiredServiceOptions(els.eventTicketRequiredServiceIds, []); setEventTicketServiceGroups([]); els.eventTicketStartsOn.value = ''; els.eventTicketEndsOn.value = ''; els.eventTicketValidityMode.value = 'fixed'; els.eventTicketValidityDays.value = '30'; els.eventTicketQuota.value = '0'; els.eventTicketRequiresLocation.checked = false; window.CouponLocationEditor.set([]); els.eventTicketAccent.value = '#df6b4d'; setEventTicketAllowedTiers(EVENT_TICKET_TIER_KEYS); els.deleteEventTicketButton.disabled = true; els.deleteEventTicketButton.classList.add('hidden'); els.deleteEventTicketButton.textContent = '刪除目前票券'; renderEventTicketPrizeRows([defaultPrize()]); updateEventTicketTypeUI(); updateEventTicketAccentValue(); updateEventTicketValidityUI(); els.eventTicketEditorKicker.textContent = 'Create event ticket'; els.eventTicketEditorTitle.textContent = '新增活動票券'; updateEditorStatus(els.eventTicketEditorStatus, ''); hideMessage(els.eventTicketFormMessage); if (renderList) renderEventTicketList();
+    state.selectedEventTicketId = ''; els.eventTicketForm.reset(); els.eventTicketId.value = ''; els.eventTicketExpectedUpdatedAt.value = ''; els.eventTicketType.value = 'coupon'; els.eventTicketStatus.value = ''; document.getElementById('eventTicketVisibilityPolicy').value = 'eligible_only'; els.eventTicketRequiredServiceMatchMode.value = 'any'; els.eventTicketMinBookingAmountMode.value = 'none'; els.eventTicketMinBookingAmount.value = '0'; renderRequiredServiceOptions(els.eventTicketMinBookingServiceIds, []); updateEventTicketAmountModeUI(); renderRequiredServiceOptions(els.eventTicketRequiredServiceIds, []); setEventTicketServiceGroups([]); els.eventTicketStartsOn.value = ''; els.eventTicketEndsOn.value = ''; els.eventTicketValidityMode.value = 'fixed'; els.eventTicketValidityDays.value = '30'; els.eventTicketQuota.value = '0'; els.eventTicketRequiresLocation.checked = false; window.CouponLocationEditor.set([]); els.eventTicketAccent.value = '#df6b4d'; setEventTicketAllowedTiers(EVENT_TICKET_TIER_KEYS); els.deleteEventTicketButton.disabled = true; els.deleteEventTicketButton.classList.add('hidden'); els.deleteEventTicketButton.textContent = '刪除目前票券'; renderEventTicketPrizeRows([defaultPrize()]); updateEventTicketTypeUI(); updateEventTicketAccentValue(); updateEventTicketValidityUI(); els.eventTicketEditorKicker.textContent = 'Create event ticket'; els.eventTicketEditorTitle.textContent = '新增活動票券'; updateEditorStatus(els.eventTicketEditorStatus, ''); hideMessage(els.eventTicketFormMessage); if (renderList) renderEventTicketList();
   }
 
   function collectEventTicketAllowedTiers() { return Array.from(document.querySelectorAll('#eventTicketAllowedTiers input[name="eventTicketAllowedTierKey"]:checked')).map((input) => String(input.value || '').trim()).filter((tierKey) => EVENT_TICKET_TIER_KEYS.includes(tierKey)); }
@@ -2378,7 +2380,7 @@
   function validateEventTicket(ticket) { if (!['coupon', 'lottery', 'referral', 'membership_join'].includes(ticket.ticketType)) return '請選擇有效的票券類型。'; if (ticket.ticketType === 'referral' && ticket.requiresLocation) return '好友邀請票券目前不支援定位核銷。'; if (!['active', 'draft', 'archived'].includes(ticket.status)) return '請選擇活動票券公開狀態。'; if (!ticket.title || ticket.title.length > 100) return '請填寫活動票券名稱（最多 100 字）。'; if (!ticket.description || ticket.description.length > 240) return '請填寫票券說明（最多 240 字）。'; if (!ticket.usageMethod || ticket.usageMethod.length > 120) return '請填寫使用方式（最多 120 字）。'; if (!ticket.usageInstructions || ticket.usageInstructions.length > 500) return '請填寫使用說明（最多 500 字）。'; if (!ticket.allowedTierKeys.length) return '請至少選擇一個可使用的會員等級。'; if (!Number.isInteger(ticket.quota) || ticket.quota < 0 || ticket.quota > 1000000) return '使用數量上限必須是 0–1,000,000 的整數。'; if (ticket.requiresLocation && (!ticket.redemptionLocations.length || ticket.redemptionLocations.length > 20 || ticket.redemptionLocations.some((location) => !location.name?.trim() || location.name.length > 100 || !Number.isFinite(Number(location.latitude)) || Math.abs(Number(location.latitude)) > 90 || !Number.isFinite(Number(location.longitude)) || Math.abs(Number(location.longitude)) > 180 || !Number.isInteger(Number(location.radiusMeters)) || Number(location.radiusMeters) < 50 || Number(location.radiusMeters) > 2000))) return '請設定 1–20 個有效地點（名稱、座標、50–2000 公尺半徑）。'; if (!['fixed', 'relative', 'both'].includes(ticket.validityMode)) return '請選擇有效的票券使用期限模式。'; if (ticket.validityMode !== 'fixed' && (!Number.isSafeInteger(ticket.validityDays) || ticket.validityDays < 1 || ticket.validityDays > 3650)) return '獲得後有效天數必須是 1–3650。'; if (ticket.validityMode === 'both' && !ticket.endsOn) return '雙重期限必須設定活動結束日。'; const dateMessage = validateEventTicketDates(ticket.startsOn, ticket.endsOn); if (dateMessage) return dateMessage; if (ticket.ticketType !== 'lottery') return ''; if (!ticket.prizes.length || ticket.prizes.length > 30) return '抽獎券至少要設定 1 個獎項，最多 30 個獎項。'; let total = 0; for (const prize of ticket.prizes) { if (!prize.prizeTitle || prize.prizeTitle.length > 100) return '每個抽獎獎項都需要填寫名稱。'; if (prize.prizeDescription.length > 240) return '獎項說明最多 240 字。'; if (!Number.isFinite(prize.winRate) || prize.winRate < 0 || prize.winRate > 100) return '每個獎項機率必須介於 0–100%。'; total += Math.round(prize.winRate * 100); } return total === 10000 ? '' : '同一張抽獎券的獎項機率合計必須正好是 100%。'; }
   async function saveEventTicket(event) {
     event.preventDefault(); if (requireRefreshBeforeWrite(els.eventTicketFormMessage)) return; hideMessage(els.eventTicketFormMessage);
-    const ticket = { eventTicketId: els.eventTicketId.value, title: String(els.eventTicketTitle.value || '').trim(), ticketType: els.eventTicketType.value, description: String(els.eventTicketDescription.value || '').trim(), usageMethod: String(els.eventTicketUsageMethod.value || '').trim(), usageInstructions: String(els.eventTicketUsageInstructions.value || '').trim(), status: els.eventTicketStatus.value, startsOn: String(els.eventTicketStartsOn.value || '').trim(), endsOn: els.eventTicketValidityMode.value === 'relative' ? '' : String(els.eventTicketEndsOn.value || '').trim(), validityMode: els.eventTicketValidityMode.value, validityDays: els.eventTicketValidityMode.value === 'fixed' ? null : Number(els.eventTicketValidityDays.value), quota: Number(els.eventTicketQuota.value), requiresLocation: els.eventTicketRequiresLocation.checked, redemptionLocations: window.CouponLocationEditor.get(), allowedTierKeys: collectEventTicketAllowedTiers(), requiredServiceIds: collectRequiredServiceIds(els.eventTicketRequiredServiceIds), requiredServiceMatchMode: els.eventTicketRequiredServiceMatchMode.value, requiredServiceGroups: collectRequiredServiceGroups(document.getElementById('eventTicketRequiredServiceGroups')), minBookingAmountMode: els.eventTicketMinBookingAmountMode.value, minBookingAmount: els.eventTicketMinBookingAmountMode.value === 'none' ? 0 : Number(els.eventTicketMinBookingAmount.value), minBookingServiceIds: els.eventTicketMinBookingAmountMode.value === 'selected_services' ? collectRequiredServiceIds(els.eventTicketMinBookingServiceIds) : [], accent: safeAccent(els.eventTicketAccent.value), prizes: els.eventTicketType.value === 'lottery' ? collectEventTicketPrizes() : [] };
+    const ticket = { eventTicketId: els.eventTicketId.value, title: String(els.eventTicketTitle.value || '').trim(), ticketType: els.eventTicketType.value, description: String(els.eventTicketDescription.value || '').trim(), usageMethod: String(els.eventTicketUsageMethod.value || '').trim(), usageInstructions: String(els.eventTicketUsageInstructions.value || '').trim(), status: els.eventTicketStatus.value, startsOn: String(els.eventTicketStartsOn.value || '').trim(), endsOn: els.eventTicketValidityMode.value === 'relative' ? '' : String(els.eventTicketEndsOn.value || '').trim(), validityMode: els.eventTicketValidityMode.value, validityDays: els.eventTicketValidityMode.value === 'fixed' ? null : Number(els.eventTicketValidityDays.value), quota: Number(els.eventTicketQuota.value), requiresLocation: els.eventTicketRequiresLocation.checked, redemptionLocations: window.CouponLocationEditor.get(), allowedTierKeys: collectEventTicketAllowedTiers(), visibilityPolicy: document.getElementById('eventTicketVisibilityPolicy').value, requiredServiceIds: collectRequiredServiceIds(els.eventTicketRequiredServiceIds), requiredServiceMatchMode: els.eventTicketRequiredServiceMatchMode.value, requiredServiceGroups: collectRequiredServiceGroups(document.getElementById('eventTicketRequiredServiceGroups')), minBookingAmountMode: els.eventTicketMinBookingAmountMode.value, minBookingAmount: els.eventTicketMinBookingAmountMode.value === 'none' ? 0 : Number(els.eventTicketMinBookingAmount.value), minBookingServiceIds: els.eventTicketMinBookingAmountMode.value === 'selected_services' ? collectRequiredServiceIds(els.eventTicketMinBookingServiceIds) : [], accent: safeAccent(els.eventTicketAccent.value), prizes: els.eventTicketType.value === 'lottery' ? collectEventTicketPrizes() : [] };
     const validationMessage = ticket.requiredServiceMatchMode === 'groups' && (!ticket.requiredServiceGroups.length || ticket.requiredServiceGroups.some(group => !group.length)) ? '請為每個預約組合至少勾選一個項目。' : (validateEventTicketAmountRule(ticket) || validateEventTicket(ticket)); if (validationMessage) return showMessage(els.eventTicketFormMessage, validationMessage);
     // Publishing general offers is an irreversible bulk grant, not merely a visibility toggle.
     const prior = state.eventTickets.find((row) => row.eventTicketId === ticket.eventTicketId);
@@ -2432,7 +2434,7 @@
     document.getElementById('calendarItemEmptyState')?.remove();
     els.adminCalendarGrid.closest('.admin-calendar')?.closest('.card-list')?.setAttribute('aria-label', '會員活動月曆，不含活動票券或預約');
     const hint = els.adminCalendarGrid.closest('.admin-calendar')?.querySelector('.admin-calendar-toolbar p');
-    if (hint) hint.textContent = '點選日期新增會員活動或休假日；點選既有項目編輯。';
+    if (hint) hint.textContent = '點選日期格新增會員活動；休假日請到「預約」日曆設定。';
   }
 
   function requestOperationalBookingSnapshot() {
@@ -2505,6 +2507,7 @@
       const entries = adminCalendarItemsForDate(date);
       const cell = document.createElement('article');
       cell.className = 'admin-calendar-day';
+      cell.dataset.adminCalendarDate = date;
       if (date === today) cell.classList.add('is-today');
       if (entries.length) cell.classList.add('has-items');
       const header = document.createElement('div');
@@ -2513,7 +2516,7 @@
       add.type = 'button';
       add.className = 'admin-calendar-day-button';
       add.dataset.adminCalendarDate = date;
-      add.setAttribute('aria-label', formatAdminDateValue(date, true) + '，新增會員活動或休假日');
+      add.setAttribute('aria-label', formatAdminDateValue(date, true) + '，新增會員活動');
       const number = document.createElement('span');
       number.className = 'admin-calendar-day-number';
       number.textContent = String(day);
@@ -2573,10 +2576,11 @@
         continue;
       }
       const date = toAdminIsoDate(new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth(), day)));
-      const entries = rows.filter((item) => rules.belongsToScope(kind, item) && rules.occursOn(item, date));
+      const entries = rows.filter((item) => (rules.belongsToScope(kind, item) || (kind === 'booking' && rules.belongsToScope('holiday', item))) && rules.occursOn(item, date));
       visibleCount += entries.length;
       const cell = document.createElement('article');
       cell.className = 'admin-calendar-day';
+      cell.dataset[kind === 'ticket' ? 'ticketCalendarDate' : 'bookingCalendarDate'] = date;
       if (date === today) cell.classList.add('is-today');
       if (entries.length) cell.classList.add('has-items');
       const header = document.createElement('div');
@@ -2585,7 +2589,7 @@
       dayButton.type = 'button';
       dayButton.className = 'admin-calendar-day-button';
       dayButton.dataset[kind === 'ticket' ? 'ticketCalendarDate' : 'bookingCalendarDate'] = date;
-      dayButton.setAttribute('aria-label', formatAdminDateValue(date, true) + (kind === 'ticket' ? '，新增活動票券' : '，查看當日預約'));
+      dayButton.setAttribute('aria-label', formatAdminDateValue(date, true) + (kind === 'ticket' ? '，新增活動票券' : '，設定休假日'));
       const number = document.createElement('span');
       number.className = 'admin-calendar-day-number';
       number.textContent = String(day);
@@ -2604,6 +2608,11 @@
           button.style.setProperty('--calendar-item-accent', safeAccent(item.accent));
           button.textContent = String(item.title || '未命名活動票券');
           button.setAttribute('aria-label', '編輯活動票券：' + String(item.title || '未命名活動票券'));
+        } else if (item.itemType === 'holiday') {
+          button.className = 'admin-calendar-item holiday';
+          button.dataset.bookingCalendarHolidayId = String(item.calendarItemId);
+          button.textContent = '休假 · ' + String(item.title || '休假日');
+          button.setAttribute('aria-label', '編輯休假日：' + String(item.title || '休假日'));
         } else {
           button.className = 'admin-calendar-booking status-' + String(item.status || '');
           button.dataset.bookingCalendarId = String(item.bookingId);
@@ -2626,7 +2635,7 @@
     const undated = kind === 'ticket' ? rows.filter((row) => !rules.validIsoDate(row.startsOn)).length : 0;
     summary.textContent = kind === 'ticket'
       ? visibleCount + ' 個日期顯示項目' + (undated ? ' · ' + undated + ' 張未設定開始日的票券在下方清單' : '') + ' · 點選日期新增'
-      : visibleCount + ' 筆預約顯示 · 點選預約查看詳情';
+      : visibleCount + ' 個預約與休假日項目 · 點日期格設定休假日，點預約查看詳情';
   }
 
   function renderEventTicketCalendar() {
@@ -2639,7 +2648,8 @@
 
   function renderBookingOverviewCalendar() {
     renderScopedCalendar({
-      rows: state.operationalBookings.filter((booking) => ['pending', 'confirmed', 'completed'].includes(booking.status)),
+      rows: [...state.operationalBookings.filter((booking) => ['pending', 'confirmed', 'completed'].includes(booking.status)),
+        ...state.calendarItems.filter((item) => window.MemberAdminCalendarScopes.belongsToScope('holiday', item))],
       key: 'bookingCalendarMonth', gridId: 'bookingOverviewCalendarGrid',
       titleId: 'bookingOverviewCalendarMonthTitle',
       summaryId: 'bookingOverviewCalendarSummary', kind: 'booking'
@@ -2666,6 +2676,12 @@
       openEditorModal('eventTicket', ticketDate);
       return;
     }
+    const holiday = target.closest('[data-booking-calendar-holiday-id]');
+    if (holiday) {
+      loadCalendarItemForm(String(holiday.dataset.bookingCalendarHolidayId || ''), false);
+      openEditorModal('calendar', holiday);
+      return;
+    }
     const booking = target.closest('[data-booking-calendar-id]');
     if (booking) {
       // Reuse the existing booking-focus handoff (and its single scheduled task).
@@ -2676,7 +2692,8 @@
     }
     const bookingDate = target.closest('[data-booking-calendar-date]');
     if (bookingDate) {
-      document.getElementById('bookingAdminQueueSubtab')?.click();
+      const date = String(bookingDate.dataset.bookingCalendarDate || '');
+      openCalendarDateEditor(date, bookingDate, 'holiday');
       return;
     }
     const monthMove = {
@@ -2733,28 +2750,34 @@
     if (dateButton) openCalendarDateEditor(dateButton.dataset.adminCalendarDate, dateButton);
   }
 
-  function openCalendarDateEditor(dateValue, opener) {
+  function openCalendarDateEditor(dateValue, opener, itemType = 'event') {
     if (!parseAdminIsoDate(dateValue)) return;
     resetCalendarItemForm(false);
-    els.calendarItemType.value = 'event';
+    els.calendarItemType.value = itemType === 'holiday' ? 'holiday' : 'event';
     els.calendarItemStartsOn.value = dateValue;
     els.calendarItemEndsOn.value = '';
     updateCalendarItemTypeUI();
-    els.calendarItemEditorTitle.textContent = `新增${formatAdminDateValue(dateValue, true)}會員活動`;
+    els.calendarItemEditorTitle.textContent = `新增${formatAdminDateValue(dateValue, true)}${itemType === 'holiday' ? '休假日' : '會員活動'}`;
     openEditorModal('calendar', opener);
   }
 
   function createCalendarTierAccess() {
     const access = document.createElement('fieldset'); access.className = 'event-ticket-tier-access'; access.dataset.calendarTierAccess = 'true';
-    const legend = document.createElement('legend'); legend.textContent = '這個活動的參加會員階級';
-    const description = document.createElement('p'); description.textContent = '只在類型為「活動」時套用。每筆活動各自儲存設定，未符合階級的會員仍可看到活動與資格提示。';
+    const legend = document.createElement('legend'); legend.textContent = '會員階級顯示規則';
+    const description = document.createElement('p'); description.textContent = '每個會員活動各自設定適用階級與顯示方式；可隱藏不符合階級的活動，或顯示較高階級活動的鎖定預覽。';
+    const policyLabel = document.createElement('label'); policyLabel.textContent = '會員端顯示方式';
+    const policySelect = document.createElement('select'); policySelect.id = 'calendarItemVisibilityPolicy';
+    [['eligible_only', '只顯示符合階級的會員活動'], ['higher_preview', '符合階級＋較高階級鎖定預覽']].forEach(([value, label]) => {
+      const option = document.createElement('option'); option.value = value; option.textContent = label; policySelect.append(option);
+    });
+    policyLabel.append(policySelect);
     const options = document.createElement('div'); options.className = 'event-ticket-tier-options';
     CALENDAR_ITEM_TIER_KEYS.forEach((tierKey) => {
       const label = document.createElement('label'); const input = document.createElement('input'); input.type = 'checkbox'; input.value = tierKey; input.checked = true; input.dataset.calendarAllowedTierKey = 'true';
       label.append(input, document.createTextNode(CALENDAR_ITEM_TIER_LABELS[tierKey])); options.append(label);
     });
     const summary = document.createElement('output'); summary.className = 'event-ticket-tier-summary'; summary.dataset.calendarTierSummary = 'true'; summary.setAttribute('aria-live', 'polite');
-    access.append(legend, description, options, summary);
+    access.append(legend, description, policyLabel, options, summary);
     return access;
   }
 
@@ -2808,6 +2831,7 @@
     if (!access) return;
     const isEvent = els.calendarItemType.value === 'event';
     access.classList.toggle('hidden', !isEvent);
+    document.getElementById('calendarItemVisibilityPolicy').disabled = !isEvent;
     access.querySelectorAll('input[data-calendar-allowed-tier-key]').forEach((input) => { input.disabled = !isEvent; });
     els.calendarItemEventLinkFields.classList.toggle('hidden', !isEvent);
     [els.calendarItemLinkLabel, els.calendarItemLinkUrl].forEach((input) => { input.disabled = !isEvent; });
@@ -2827,6 +2851,7 @@
     els.calendarItemExpectedUpdatedAt.value = String(item.updatedAt || '');
     els.calendarItemTitle.value = String(item.title || '');
     els.calendarItemType.value = item.itemType === 'holiday' ? 'holiday' : 'event';
+    document.getElementById('calendarItemVisibilityPolicy').value = item.visibilityPolicy || 'eligible_only';
     els.calendarItemDescription.value = String(item.description || '');
     els.calendarItemLinkLabel.value = String(item.linkLabel || '');
     els.calendarItemLinkUrl.value = String(item.linkUrl || '');
@@ -2842,7 +2867,7 @@
 
   function resetCalendarItemForm(shouldRender) {
     state.selectedCalendarItemId = ''; els.calendarItemForm.reset();
-    els.calendarItemId.value = ''; els.calendarItemExpectedUpdatedAt.value = ''; els.calendarItemType.value = 'holiday'; els.calendarItemStatus.value = ''; els.calendarItemStartsOn.value = todayAdminIsoDate(); els.calendarItemEndsOn.value = ''; els.calendarItemAccent.value = '#df6b4d'; els.calendarItemLinkLabel.value = ''; els.calendarItemLinkUrl.value = ''; setCalendarItemAllowedTiers(CALENDAR_ITEM_TIER_KEYS);
+    els.calendarItemId.value = ''; els.calendarItemExpectedUpdatedAt.value = ''; els.calendarItemType.value = 'event'; document.getElementById('calendarItemVisibilityPolicy').value = 'eligible_only'; els.calendarItemStatus.value = ''; els.calendarItemStartsOn.value = todayAdminIsoDate(); els.calendarItemEndsOn.value = ''; els.calendarItemAccent.value = '#df6b4d'; els.calendarItemLinkLabel.value = ''; els.calendarItemLinkUrl.value = ''; setCalendarItemAllowedTiers(CALENDAR_ITEM_TIER_KEYS);
     els.deleteCalendarItemButton.disabled = true; els.deleteCalendarItemButton.textContent = '先儲存後才能刪除';
     els.calendarItemEditorKicker.textContent = 'Create calendar item'; els.calendarItemEditorTitle.textContent = '新增日曆項目'; updateEditorStatus(els.calendarItemEditorStatus, ''); updateCalendarItemAccentValue(); updateCalendarItemTypeUI(); hideMessage(els.calendarItemFormMessage); if (shouldRender !== false) renderAdminCalendar();
   }
@@ -2851,6 +2876,7 @@
     if (!item.title || item.title.length > 100) return '請填寫日曆項目名稱（最多 100 字）。';
     if (!['holiday', 'event'].includes(item.itemType)) return '日曆項目類型不合法。';
     if (item.itemType === 'event' && !normalizeCalendarItemTierKeys(item.allowedTierKeys).length) return '請至少選擇一個可參加活動的會員階級。';
+    if (item.itemType === 'event' && !['eligible_only', 'higher_preview'].includes(item.visibilityPolicy)) return '請選擇有效的會員階級顯示方式。';
     const linkLabel = String(item.linkLabel || '').trim(); const linkUrl = String(item.linkUrl || '').trim();
     if (item.itemType === 'event' && ((linkLabel || linkUrl) && (!linkLabel || !linkUrl || linkLabel.length > 80 || linkUrl.length > 2048 || !isSafeCalendarLinkUrl(linkUrl)))) return '活動連結需要同時填寫名稱與有效的 HTTPS 網址。';
     if (item.description.length > 500) return '日曆項目說明最多 500 字。';
@@ -2870,7 +2896,7 @@
 
   async function saveCalendarItem(event) {
     event.preventDefault(); if (requireRefreshBeforeWrite(els.calendarItemFormMessage)) return; hideMessage(els.calendarItemFormMessage);
-    const item = { calendarItemId: String(els.calendarItemId.value || '').trim(), title: String(els.calendarItemTitle.value || '').trim(), itemType: els.calendarItemType.value, description: String(els.calendarItemDescription.value || '').trim(), linkLabel: els.calendarItemType.value === 'event' ? String(els.calendarItemLinkLabel.value || '').trim() : '', linkUrl: els.calendarItemType.value === 'event' ? String(els.calendarItemLinkUrl.value || '').trim() : '', status: els.calendarItemStatus.value, startsOn: String(els.calendarItemStartsOn.value || '').trim(), endsOn: String(els.calendarItemEndsOn.value || '').trim(), allowedTierKeys: els.calendarItemType.value === 'event' ? collectCalendarItemAllowedTiers() : [], accent: safeAccent(els.calendarItemAccent.value) };
+    const item = { calendarItemId: String(els.calendarItemId.value || '').trim(), title: String(els.calendarItemTitle.value || '').trim(), itemType: els.calendarItemType.value, description: String(els.calendarItemDescription.value || '').trim(), linkLabel: els.calendarItemType.value === 'event' ? String(els.calendarItemLinkLabel.value || '').trim() : '', linkUrl: els.calendarItemType.value === 'event' ? String(els.calendarItemLinkUrl.value || '').trim() : '', status: els.calendarItemStatus.value, startsOn: String(els.calendarItemStartsOn.value || '').trim(), endsOn: String(els.calendarItemEndsOn.value || '').trim(), allowedTierKeys: els.calendarItemType.value === 'event' ? collectCalendarItemAllowedTiers() : [], visibilityPolicy: els.calendarItemType.value === 'event' ? document.getElementById('calendarItemVisibilityPolicy').value : 'eligible_only', accent: safeAccent(els.calendarItemAccent.value) };
     const validationMessage = validateCalendarItem(item); if (validationMessage) return showMessage(els.calendarItemFormMessage, validationMessage);
     setSaving(els.saveCalendarItemButton, true, '正在儲存日曆項目…');
     try {
