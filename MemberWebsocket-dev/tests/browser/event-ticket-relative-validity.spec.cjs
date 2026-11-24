@@ -72,6 +72,9 @@ for(const width of [390,1280]){
   await page.locator('[data-event-ticket-id="REL"]').first().click();
   await expect(page.locator('#ticketModalDate')).toContainText('獲得後 30 天有效');
   await expect(page.locator('#ticketModalDate')).toContainText('2026');
+  await page.locator('#closeTicketModal').click();
+  await page.locator('[data-event-ticket-id="OLD"]').first().click();
+  await expect(page.locator('#ticketModalStatus')).toContainText('已超過獲得後使用期限');
   expect(errors).toEqual([]);
  });
 }
