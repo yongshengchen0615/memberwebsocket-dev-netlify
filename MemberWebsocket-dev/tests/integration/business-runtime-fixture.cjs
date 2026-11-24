@@ -36,6 +36,15 @@ module.exports=async(options={})=>{
   if(!options.beforeEventRepair&&!options.beforeAccess&&!options.beforeRiskContext){
      await db.exec(fs.readFileSync(path.join(migrations,'20261025125207_booking_risk_record_context.sql'),'utf8'));
      await db.exec(fs.readFileSync(path.join(migrations,'20261029125700_retire_booking_risk_appeals.sql'),'utf8'));
+     // The provisioning fixture must execute the same current visibility
+     // migrations as the release pipeline, including the template patch;
+     // otherwise it validates a stale October business blueprint.
+     if (!options.beforeVisibility) {
+       for (const migration of [
+         '20261124223500_per_item_calendar_visibility.sql',
+         '20261124224500_per_tenant_item_visibility.sql',
+       ]) await db.exec(fs.readFileSync(path.join(migrations,migration),'utf8'));
+     }
    }
   await db.exec('update platform_private.super_admins set enabled=true;');
   const approve=async(actor,slug,features=Object.fromEntries(['membership','points','events','calendar','integrations','booking','testing','usage'].map(k=>[k,true])))=>{
