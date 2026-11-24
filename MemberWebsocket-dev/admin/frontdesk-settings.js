@@ -407,7 +407,7 @@
         settings.append(title.wrap);
         const rows = node('div', '', 'frontdesk-rejection-list');
         const rulesHeading = node('div', '', 'frontdesk-rejection-list-heading');
-        rulesHeading.append(node('h4', '拒絕原因清單'), node('p', '調整順序、開啟或停用原因；已使用的原因不會從歷史紀錄消失。'));
+        rulesHeading.append(node('h4', '拒絕原因清單'), node('p', '可新增、排序、停用或移除原因。移除只影響之後的選單，已儲存於歷史預約的拒絕說明仍會保留。'));
         settings.append(rulesHeading);
         const draft = cfg.rejectionSettings.reasons.map(reason => ({...reason}));
         const add = node('button', '新增拒絕原因', 'button button-outline');
@@ -459,7 +459,7 @@
               check('需要設定衝突時間並登記現場預約', 'requiresConflictTime'),
               check('有休假技師（櫃檯端可勾選已設定的技師）', 'hasVacationTechnicians'));
             card.append(toggles);
-            card.append(node('small', '勾選「有休假技師」後，櫃檯端須至少選一位啟用中的技師；系統會在上方會員說明前加入「目前 A 技師休假。」等文字。'));
+            card.append(node('small', '勾選「有休假技師」後，櫃檯端只能選本筆預約已指派、且非主要技師的人員；系統會在會員說明前加入「目前 A 技師休假。」等文字。'));
             const controls = node('div', '', 'frontdesk-rejection-order');
             for (const [direction, caption] of [[-1, '上移'], [1, '下移']]) {
               const move = node('button', caption, 'button button-outline');
@@ -473,6 +473,18 @@
               };
               controls.append(move);
             }
+            const remove = node('button', '移除原因', 'button button-outline frontdesk-rejection-remove');
+            remove.type = 'button';
+            remove.setAttribute('aria-label', '移除原因 ' + (index + 1) + '：' + (reason.label || '未命名'));
+            remove.disabled = draft.length <= 1;
+            remove.onclick = () => {
+              if (busy || pending || draft.length <= 1) return;
+              if (!window.confirm('確定移除拒絕原因「' + (reason.label || '未命名') + '」？\n此操作儲存後才生效，歷史預約說明不受影響。')) return;
+              draft.splice(index, 1);
+              if (!draft.some(item => item.enabled)) draft[0].enabled = true;
+              markDirty(); rerender();
+            };
+            controls.append(remove);
             card.append(controls);
             rows.append(card);
           });
