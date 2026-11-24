@@ -29,10 +29,10 @@ for(const width of [390,1280])test('AC-003/004/005/006: configured rejection rou
  const paired='custom_aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
  const disabled='custom_22222222-3333-4444-8555-666666666666';
  const settings={dropdownTitle:'櫃檯請選擇拒絕原因',reasons:[
-  {id:'technician_leave',label:'技師休假',memberDescription:'技師休假，請改期',enabled:true,requiresConflictTime:false},
+  {id:'technician_leave',label:'技師休假',memberDescription:'請改期',enabled:true,requiresConflictTime:false,hasVacationTechnicians:true},
   {id:'unrecorded_phone_booking',label:'原現場衝突',memberDescription:'請改期',enabled:false,requiresConflictTime:true},
   {id:ordinary,label:'設備維護',memberDescription:'設備維護，請改期',enabled:true,requiresConflictTime:false},
-  {id:paired,label:'臨時保留現場',memberDescription:'原時間已有現場預約',enabled:true,requiresConflictTime:true},
+  {id:paired,label:'臨時保留現場',memberDescription:'原時間已有現場預約',enabled:true,requiresConflictTime:true,hasVacationTechnicians:true},
   {id:disabled,label:'停用的原因',memberDescription:'舊原因',enabled:false,requiresConflictTime:false}
  ]};
  const ids=['10000000-0000-4000-8000-000000000011','10000000-0000-4000-8000-000000000012'];
@@ -46,7 +46,10 @@ for(const width of [390,1280])test('AC-003/004/005/006: configured rejection rou
   const input=route.request().postDataJSON();let data;
   if(input.action==='frontdesk.public')data={name:'測試店',frontdesk:{enabled:true,liffId:'2010999999-desk'}};
   else if(input.action==='frontdesk.bootstrap')data={staff:{displayName:'測試櫃檯',status:'approved',permissionMode:'review'}};
-  else if(input.action==='frontdesk.bookings')data={rejectionSettings:settings,bookings:ids.filter(id=>status.get(id)==='pending').map(booking)};
+  else if(input.action==='frontdesk.bookings')data={rejectionSettings:settings,technicians:[
+   {id:'10000000-0000-4000-8000-0000000000a1',name:'A'},
+   {id:'10000000-0000-4000-8000-0000000000b2',name:'B'}
+  ],bookings:ids.filter(id=>status.get(id)==='pending').map(booking)};
   else if(input.action==='frontdesk.sync.status')data={revision:'1'};
   else if(input.action==='frontdesk.history')data={items:[]};
   else if(['frontdesk.booking.update','frontdesk.booking.reject-phone'].includes(input.action)){
@@ -63,17 +66,25 @@ for(const width of [390,1280])test('AC-003/004/005/006: configured rejection rou
  await expect(select.locator('option')).toHaveCount(4); // placeholder + 3 enabled
  await expect(select.locator('option[value="unrecorded_phone_booking"]')).toHaveCount(0);
  await expect(select.locator('option[value="'+disabled+'"]')).toHaveCount(0);
- const vacation=dialog.getByRole('checkbox',{name:'休假技師（勾選自動帶入拒絕說明）'});
- await expect(vacation).toBeVisible();
- await vacation.check();
- await expect(select).toHaveValue('technician_leave');
- await expect(dialog.locator('.frontdesk-rejection-member-preview')).toContainText('技師休假，請改期');
- await expect(dialog.locator('[data-phone-registration]')).toBeHidden();
- await vacation.uncheck();
- await expect(select).toHaveValue('');
- await expect(dialog.locator('.frontdesk-rejection-member-preview')).toBeHidden();
+ const panel=dialog.locator('.frontdesk-vacation-technicians');
+ await expect(panel).toBeHidden();
+ await select.selectOption('technician_leave');
+ await expect(panel).toBeVisible();
+ await expect(panel.getByRole('checkbox')).toHaveCount(2);
+ await expect(panel).toContainText('A');
+ await expect(panel).toContainText('B');
+ await expect(dialog.getByRole('button',{name:'確認拒絕預約'})).toBeDisabled();
+ await panel.getByRole('checkbox',{name:'A'}).check();
+ await expect(dialog.locator('.frontdesk-rejection-member-preview')).toContainText('目前 A 技師休假。');
+ await expect(dialog.locator('.frontdesk-rejection-member-preview')).toContainText('請改期');
+ await panel.getByRole('checkbox',{name:'B'}).check();
+ await expect(dialog.locator('.frontdesk-rejection-member-preview')).toContainText('目前 A、B 技師休假。');
+ await panel.getByRole('checkbox',{name:'A'}).uncheck();
+ await expect(dialog.locator('.frontdesk-rejection-member-preview')).toContainText('目前 B 技師休假。');
  await select.selectOption(ordinary);
- await expect(vacation).not.toBeChecked();
+ await expect(panel).toBeHidden();
+ await expect(dialog.locator('.frontdesk-rejection-member-preview')).toContainText('設備維護，請改期');
+ await select.selectOption(ordinary);
  await expect(dialog.locator('.frontdesk-rejection-member-preview')).toContainText('設備維護，請改期');
  await expect(dialog.locator('[data-phone-registration]')).toBeHidden();
  await dialog.getByRole('button',{name:'確認拒絕預約'}).click();
@@ -84,12 +95,16 @@ for(const width of [390,1280])test('AC-003/004/005/006: configured rejection rou
  await page.getByRole('button',{name:'拒絕預約',exact:true}).click();
  await select.selectOption(paired);
  await expect(dialog.locator('[data-phone-registration]')).toBeVisible();
+ await expect(dialog.getByRole('button',{name:'確認拒絕並登記現場預約'})).toBeDisabled();
+ await panel.getByRole('checkbox',{name:'B'}).check();
+ await expect(dialog.locator('.frontdesk-rejection-member-preview')).toContainText('目前 B 技師休假。');
  await expect(dialog.getByRole('button',{name:'確認拒絕並登記現場預約'})).toBeEnabled();
  await dialog.getByRole('button',{name:'確認拒絕並登記現場預約'}).click();
  await expect(page.locator('.frontdesk-card')).toHaveCount(0);
  expect(writes).toHaveLength(2);
  expect(writes[1]).toMatchObject({action:'frontdesk.booking.reject-phone',rejectionReason:paired,
-  startTime:'11:00',totalDurationMinutes:60,status:'rejected'});
+  startTime:'11:00',totalDurationMinutes:60,status:'rejected',
+  vacationTechnicianIds:['10000000-0000-4000-8000-0000000000b2']});
  expect(writes[1].phoneRequestId).toMatch(/^PHONE-[0-9a-f-]{36}$/);
  expect(writes[1].bookingDate).toBeUndefined();
  expect(writes[1].items).toBeUndefined();
