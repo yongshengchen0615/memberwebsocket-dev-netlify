@@ -78,3 +78,27 @@ begin
  into audit_count using bid::text;
  if audit_count<>1 then raise exception 'VACATION_AUDIT_DUPLICATE %',audit_count;end if;
 end $vacation_e2e$;
+
+-- Flush the deferred booking notification trigger inside the rollback-only
+-- transaction. Assert the actual generated admin LINE outbox, not just source.
+set constraints all immediate;
+do $line_outbox$
+declare t platform_private.tenants;v_recipients int;v_events int;v_text text;
+begin
+ select * into strict t from platform_private.tenants
+  where module_line#>>'{booking,frontdesk,enabled}'='true' limit 1;
+ execute format($check$
+  select count(*)::int,count(distinct event_key)::int,max(message_text)
+  from %I.notice_outbox
+  where channel='admin' and message_text like '【櫃檯拒絕預約】%%'
+   and message_text like '%%合成主要技師%%' and message_text like '%%合成A%%'
+ $check$,t.runtime_schema) into v_recipients,v_events,v_text;
+ if v_recipients<1 or v_events<>1 then
+  raise exception 'ADMIN_LINE_OUTBOX_INCONSISTENT recipients=% events=%',v_recipients,v_events;end if;
+ if position('【個別預約資料】' in v_text)=0
+   or position('第1位預約' in v_text)=0
+   or position('第2位預約' in v_text)=0
+ then raise exception 'LINE_MISSING_PARTICIPANT_SECTIONS';end if;
+ if v_text like '%很抱歉，本次預約未通過。請依拒絕原因%' then
+  raise exception 'RETIRED_REJECTION_TEMPLATE_LEAKED';end if;
+end $line_outbox$;
