@@ -766,3 +766,76 @@ test('FRONTDESK_ADMIN_REJECTION_LINE_DEEPLINK — automatic scoped before/after 
  expect(seen.filter(x=>x.action==='frontdesk.history')).toHaveLength(1);
  expect(seen.find(x=>x.action==='frontdesk.history').bookingId).toBe(bookingId);
 });
+
+
+test('FRONTDESK_REJECTION_SETTINGS_LEGACY — no editor on older server contracts', async({page})=>{
+ await page.goto(base+'/frontdesk/');
+ await page.setContent('<main id="root"></main>');
+ await page.addScriptTag({url:base+'/admin/frontdesk-settings.js'});
+ await page.evaluate(()=>{
+  window.FrontdeskSettings.mount({root:document.getElementById('root'),business:'shop-a',
+   request:async(action)=>{
+    if(action!=='platform.frontdesk.get')throw Error('unexpected action '+action);
+    return {version:1,frontdesk:{},staff:[]};
+   }});
+ });
+ await page.locator('summary').click();
+ await expect(page.locator('form.frontdesk-preferences-form')).toBeVisible();
+ await expect(page.locator('[data-frontdesk-rejection-settings]')).toHaveCount(0);
+});
+
+test('FRONTDESK_REJECTION_SETTINGS_EDITOR — edit, order, disable, save and replay frozen request', async({page})=>{
+ await page.goto(base+'/frontdesk/');
+ await page.setContent('<main id="root"></main>');
+ await page.addScriptTag({url:base+'/admin/frontdesk-settings.js'});
+ await page.evaluate(()=>{
+  window.rejectionWrites=[];
+  let version=7;
+  let rejectionSettings={dropdownTitle:'請選擇拒絕原因',reasons:[
+   {id:'technician_leave',label:'技師休假',memberDescription:'請另約時間',enabled:true,requiresConflictTime:false},
+   {id:'unrecorded_phone_booking',label:'現場預約',memberDescription:'時段已滿',enabled:true,requiresConflictTime:true}
+  ]};
+  const result=()=>({version,frontdesk:{rejectionSettings:structuredClone(rejectionSettings)},staff:[]});
+  window.FrontdeskSettings.mount({root:document.getElementById('root'),business:'shop-a',
+   request:async(action,body)=>{
+    if(action==='platform.frontdesk.get')return result();
+    if(action!=='platform.frontdesk.rejection-settings.save')throw Error('unexpected action '+action);
+    window.rejectionWrites.push(structuredClone(body));
+    if(window.rejectionWrites.length===1){
+     rejectionSettings=structuredClone(body.rejectionSettings);version++;
+     throw Object.assign(Error('無法確認結果'),{uncertain:true});
+    }
+    return result();
+   }});
+ });
+ await page.locator('summary').click();
+ const form=page.locator('[data-frontdesk-rejection-settings]');
+ await expect(form).toBeVisible();
+ await form.locator('[name=rejectionDropdownTitle]').fill('請選擇本店原因');
+ await form.getByRole('button',{name:'新增拒絕原因'}).click();
+ const rows=form.locator('fieldset');
+ await expect(rows).toHaveCount(3);
+ await rows.nth(2).locator('input[type=text]').fill('設備維護');
+ await rows.nth(2).locator('textarea').fill('設備維護，請重新預約。');
+ await rows.nth(2).getByLabel('需要設定衝突時間並登記現場預約').check();
+ await rows.nth(2).getByRole('button',{name:'原因 3 上移'}).click();
+ await expect(rows.nth(1).locator('input[type=text]')).toHaveValue('設備維護');
+ await rows.nth(2).getByLabel('啟用此拒絕原因').uncheck();
+ await form.getByRole('button',{name:'儲存拒絕預約設定'}).click();
+ await expect(form.getByRole('button',{name:'重試相同儲存操作'})).toBeEnabled();
+ await expect(form.locator('textarea').first()).toBeDisabled();
+ await form.getByRole('button',{name:'重試相同儲存操作'}).click();
+ await expect(page.locator('[role=status]')).toContainText('已儲存');
+ const writes=await page.evaluate(()=>window.rejectionWrites);
+ expect(writes).toHaveLength(2);
+ expect(writes[0]).toEqual(writes[1]);
+ expect(writes[0].expectedVersion).toBe(7);
+ expect(writes[0].requestId).toMatch(/^[0-9a-f-]{36}$/);
+ expect(writes[0].rejectionSettings.dropdownTitle).toBe('請選擇本店原因');
+ expect(writes[0].rejectionSettings.reasons[1]).toMatchObject({label:'設備維護',memberDescription:'設備維護，請重新預約。',enabled:true,requiresConflictTime:true});
+ expect(writes[0].rejectionSettings.reasons[1].id).toMatch(/^custom_[0-9a-f-]{36}$/);
+ expect(writes[0].rejectionSettings.reasons[2]).toMatchObject({id:'unrecorded_phone_booking',enabled:false});
+ await expect(form.locator('[name=rejectionDropdownTitle]')).toHaveValue('請選擇本店原因');
+ await expect(rows.nth(1).locator('textarea')).toHaveValue('設備維護，請重新預約。');
+ await expect(rows.nth(2).getByLabel('啟用此拒絕原因')).not.toBeChecked();
+});
