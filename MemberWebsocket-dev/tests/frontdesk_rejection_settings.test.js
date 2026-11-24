@@ -159,6 +159,8 @@ test('AC-VAC-001..008: independent manager option, staff selector, SQL validatio
  assert.match(bookingOnly,/booking_participants bp/);
  assert.match(bookingOnly,/bt\.id is distinct from bs\.primary_technician_id/);
  assert.match(bookingOnly,/frontdesk_booked_vacation_names/);
+ assert.match(bookingOnly,/BOOKED_VACATION_GLOBAL_CATALOG_CONTRACT_CHANGED/);
+ assert.match(bookingOnly,/replace\(d,needle,''\)/);
  assert.match(sql,/cardinality\(v_names\)<>cardinality\(v_ids\)/);
  assert.match(sql,/rejectionMemberDescription',v_description/);
  assert.match(sql,/v_payload:=p_body\|\|jsonb_build_object/);
