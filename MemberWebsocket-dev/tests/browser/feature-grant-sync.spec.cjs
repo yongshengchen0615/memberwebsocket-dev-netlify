@@ -51,26 +51,45 @@ for(const width of [390,1280])test(`AC-SYNC-001..005_${width}: root SQL grant ch
   const reward=page.locator('[data-type-reward-enabled]');await expect(reward).toBeVisible();
   await page.locator('[data-type-name]').fill('尚未儲存的類型');await reward.check();await page.locator('[data-type-reward-minutes]').fill('75');
   await expect.poll(()=>calls.filter(a=>a==='admin.sync.status').length).toBeGreaterThan(0);
+  // Establish that the initial authenticated revision probe has fully
+  // reconciled before advancing a controlled clock for grant transitions.
+  await expect.poll(()=>page.evaluate(()=>window.MemberSystem?.getRealtimeStatus?.('admin'))).toBe('SUBSCRIBED');
+  await page.evaluate(()=>{
+    window.__grantRevisionCompletions=0;
+    window.addEventListener('member-system:sync-metrics',event=>{
+      if(event.detail?.clientType==='admin' && event.detail.changed===true) window.__grantRevisionCompletions++;
+    });
+  });
   await page.clock.pauseAt(await page.evaluate(()=>Date.now()+100));
+  const syncAfterGrant=async features=>{
+    const completedBefore=await page.evaluate(()=>window.__grantRevisionCompletions);
+    await grants(features);
+    // The 3000ms production poll is measured from the prior probe's end.
+    // Observe the real completed revision rather than assuming page paint
+    // means that onUpdate/finally has finished scheduling its next probe.
+    await page.clock.runFor(3001);
+    await expect.poll(()=>page.evaluate(()=>window.__grantRevisionCompletions))
+      .toBeGreaterThan(completedBefore);
+  };
   const events=(await h.db.query(`select count(*)::int n from ${t.runtime_schema}.realtime_events`)).rows[0].n;
-  await grants({...all,points:false});await page.clock.runFor(3001);
+  await syncAfterGrant({...all,points:false});
   try { await expect(reward).toBeHidden(); } catch (e) { throw new Error(`${e.message}\nGRANT_SYNC_DIAGNOSTICS ${JSON.stringify({ errors, syncCalls: calls.filter(a=>a==='admin.sync.status').length, tailActions: calls.slice(-25), tenantFeatures: (await h.db.query('select features from platform_private.tenants where id=$1',[t.id])).rows[0].features, adminSyncStatus: await page.evaluate(()=>window.MemberSystem?.getRealtimeStatus?.('admin')) })}`); } await expect(page.locator('#bookingAdminCrudModal')).toBeVisible();
   await expect(page.locator('[data-type-name]')).toHaveValue('尚未儲存的類型');await expect(page.locator('[data-type-reward-minutes]')).toHaveValue('75');
-  await grants(all);await page.clock.runFor(3001);await expect(reward).toBeVisible();await expect(reward).toBeChecked();
+  await syncAfterGrant(all);await expect(reward).toBeVisible();await expect(reward).toBeChecked();
   await page.locator('#bookingAdminCrudModalClose').click();
   // Reopening while points is off must also recover a catalog that was withheld.
-  await grants({...all,points:false});await page.clock.runFor(3001);await expect(page.locator('#cardsTab')).toBeHidden();
+  await syncAfterGrant({...all,points:false});await expect(page.locator('#cardsTab')).toBeHidden();
   await page.locator('#bookingAdminNewTypeButton').click();await page.locator('[data-type-name]').fill('初次開通保留');
-  await grants(all);await page.clock.runFor(3001);await expect(reward).toBeVisible();
+  await syncAfterGrant(all);await expect(reward).toBeVisible();
   await expect(page.locator('[data-type-reward-card] option[value="card-1"]')).toHaveCount(1);
   await reward.check();await expect(reward).toBeChecked();await expect(page.locator('[data-type-name]')).toHaveValue('初次開通保留');
   await page.locator('#bookingAdminCrudModalClose').click();
   const tabs={membership:'members',points:'cards',events:'events',calendar:'calendar',booking:'booking'};
   for(const [feature,name]of Object.entries(tabs)){
-   await page.locator('#'+name+'Tab').click();await grants({...all,[feature]:false});await page.clock.runFor(3001);
+   await page.locator('#'+name+'Tab').click();await syncAfterGrant({...all,[feature]:false});
    await expect(page.locator('#'+name+'Tab')).toBeHidden();
    await expect(page.locator('#adminView .surface-nav [aria-selected="true"]')).toBeVisible();
-   await grants(all);await page.clock.runFor(3001);await expect(page.locator('#'+name+'Tab')).toBeVisible();
+   await syncAfterGrant(all);await expect(page.locator('#'+name+'Tab')).toBeVisible();
   }
   expect((await h.db.query(`select count(*)::int n from ${t.runtime_schema}.realtime_events`)).rows[0].n).toBe(events);
   expect(errors).toEqual([]);
