@@ -8,7 +8,7 @@ const source=file=>readFileSync(path.join(base,file),'utf8');
 test('AC-001: applicant LINE message originates in LIFF, never from the merchant bot Push API',()=>{
  const handler=source('supabase/functions/_shared/frontdesk-handler.mjs');
  assert.doesNotMatch(handler,/sendFrontdeskApplicationLineMessage|lineApplicationMessage|bot\/message\/push/);
- assert.match(handler,/profile\/'+identity\.lineUserId/,'existing OA friend verification is preserved');
+ assert.ok(handler.includes("/bot/profile/'+identity.lineUserId"),'existing OA friend verification is preserved');
  assert.match(handler,/platform_frontdesk_request/,'application still persists server-side pending state');
  const app=source('frontdesk/app.js');
  assert.match(app,/sendFrontdeskApplicationFromCurrentChat\(result\.staff\)/);
