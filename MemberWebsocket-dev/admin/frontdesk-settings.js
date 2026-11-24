@@ -407,9 +407,9 @@
         settings.append(title.wrap);
         const rows = node('div', '', 'frontdesk-rejection-list');
         const rulesHeading = node('div', '', 'frontdesk-rejection-list-heading');
-        rulesHeading.append(node('h4', '拒絕原因清單'), node('p', '可新增、排序、停用或移除原因。移除只影響之後的選單，已儲存於歷史預約的拒絕說明仍會保留。'));
+        rulesHeading.append(node('h4', '拒絕原因清單'), node('p', '按「儲存拒絕預約設定」後，清單內所有原因立即可用；已移除的原因不再供後續選擇，歷史預約記錄仍保留。'));
         settings.append(rulesHeading);
-        const draft = cfg.rejectionSettings.reasons.map(reason => ({...reason}));
+        const draft = cfg.rejectionSettings.reasons.map(reason => ({...reason,enabled:true}));
         const add = node('button', '新增拒絕原因', 'button button-outline');
         add.type = 'button';
         const saveSettings = node('button', '儲存拒絕預約設定', 'button button-outline frontdesk-primary');
@@ -419,9 +419,6 @@
           draft.forEach((reason, index) => {
             const card = node('fieldset', '', 'frontdesk-setup-card frontdesk-rejection-rule');
             card.append(node('legend', '拒絕原因 ' + (index + 1)));
-            const stateBadge = node('span', reason.enabled ? '使用中' : '已停用',
-              'frontdesk-rejection-state ' + (reason.enabled ? 'is-enabled' : 'is-disabled'));
-            card.append(stateBadge);
             const label = field('rejection-label-' + reason.id, '櫃檯端選項名稱', '此名稱供櫃檯人員選擇。', reason.label);
             const descriptionLabel = node('label', '用戶端拒絕原因說明');
             const description = node('textarea');
@@ -439,10 +436,6 @@
               input.type = 'checkbox'; input.checked = reason[key];
               input.addEventListener('change', () => {
                 reason[key] = input.checked;
-                if (key === 'enabled') {
-                  stateBadge.textContent = input.checked ? '使用中' : '已停用';
-                  stateBadge.className = 'frontdesk-rejection-state ' + (input.checked ? 'is-enabled' : 'is-disabled');
-                }
                 markDirty();
               });
               wrap.append(input, node('span', caption));
@@ -455,8 +448,7 @@
             });
             card.append(label.wrap, descriptionLabel, preview);
             const toggles = node('div', '', 'frontdesk-rejection-toggles');
-            toggles.append(check('啟用此拒絕原因', 'enabled'),
-              check('需要設定衝突時間並登記現場預約', 'requiresConflictTime'),
+            toggles.append(check('需要設定衝突時間並登記現場預約', 'requiresConflictTime'),
               check('有休假技師（櫃檯端可勾選已設定的技師）', 'hasVacationTechnicians'));
             card.append(toggles);
             card.append(node('small', '勾選「有休假技師」後，櫃檯端只能選本筆預約已指派、且非主要技師的人員；系統會在會員說明前加入「目前 A 技師休假。」等文字。'));
@@ -476,12 +468,11 @@
             const remove = node('button', '移除原因', 'button button-outline frontdesk-rejection-remove');
             remove.type = 'button';
             remove.setAttribute('aria-label', '移除原因 ' + (index + 1) + '：' + (reason.label || '未命名'));
-            remove.disabled = draft.length <= 1;
+            remove.disabled = false;
             remove.onclick = () => {
-              if (busy || pending || draft.length <= 1) return;
+              if (busy || pending) return;
               if (!window.confirm('確定移除拒絕原因「' + (reason.label || '未命名') + '」？\n此操作儲存後才生效，歷史預約說明不受影響。')) return;
               draft.splice(index, 1);
-              if (!draft.some(item => item.enabled)) draft[0].enabled = true;
               markDirty(); rerender();
             };
             controls.append(remove);
@@ -489,6 +480,8 @@
             rows.append(card);
           });
           add.hidden = draft.length >= 30;
+          if (!draft.length) rows.append(node('p', '目前沒有拒絕原因。可以按「新增拒絕原因」建立，或直接儲存空清單；櫃檯端不會有可選擇的拒絕原因。'));
+
         };
         add.onclick = () => {
           if (busy || pending || draft.length >= 30) return;
@@ -505,14 +498,11 @@
             return;
           }
           if (!settings.reportValidity()) return;
-          if (!draft.some(reason => reason.enabled)) {
-            status.textContent = '請至少啟用一個拒絕原因。'; return;
-          }
           void save('platform.frontdesk.rejection-settings.save', {
             expectedVersion: data.version,
             rejectionSettings: {dropdownTitle: title.input.value.trim(), reasons: draft.map(reason => ({
               id:reason.id,label:reason.label.trim(),memberDescription:reason.memberDescription.trim(),
-              enabled:reason.enabled,requiresConflictTime:reason.requiresConflictTime,
+              enabled:true,requiresConflictTime:reason.requiresConflictTime,
               hasVacationTechnicians:reason.hasVacationTechnicians===true
             }))}
           }, saveSettings);
