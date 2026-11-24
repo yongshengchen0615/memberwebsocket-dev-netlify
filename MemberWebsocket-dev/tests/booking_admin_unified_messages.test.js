@@ -25,28 +25,28 @@ test('AC-BMSG-001: message settings is a separate accessible booking subtab', ()
   assert.match(css, /booking-admin-messages-layout/);
 });
 
-test('AC-BMSG-002: all four editable texts share exactly one form and submit button', () => {
+test('AC-BMSG-002: the three remaining texts share one form and submit button', () => {
   assert.equal((messagePanel.match(/<form id="bookingAdminMessagesForm"/g) || []).length, 1);
   assert.equal((messagePanel.match(/type="submit"/g) || []).length, 1);
   assert.equal((messagePanel.match(/id="bookingAdminMessagesSave"/g) || []).length, 1);
-  for (const id of ['bookingAdminNotice', 'bookingAdminPendingMessage', 'bookingAdminRejectionMessage', 'bookingAdminReminderMessage']) {
+  for (const id of ['bookingAdminNotice', 'bookingAdminPendingMessage', 'bookingAdminReminderMessage']) {
     assert.match(messagePanel, new RegExp('id="' + id + '"'));
     assert.doesNotMatch(settingsPanel, new RegExp('id="' + id + '"'));
   }
+  assert.doesNotMatch(messagePanel,/bookingAdminRejectionMessage|預約未通過訊息/);
   assert.doesNotMatch(messagePanel, /id="bookingAdminPendingMessageSave"|id="bookingAdminRejectionMessageSave"|id="bookingAdminReminderMessageSave"/);
   assert.match(ui, /els\.bookingAdminMessagesForm\.addEventListener\('submit', saveMessages\)/);
   assert.match(ui, /manageRequest\('admin\.booking\.messages\.save'/);
   assert.match(ui, /\.\.\.fields,\s*expectedUpdatedAt: state\.messagesDraftVersion/);
 });
 
-test('AC-BMSG-003: one API operation validates four texts before a single CAS database update', () => {
+test('AC-BMSG-003: one API operation validates three texts before a single CAS database update', () => {
   assert.match(api, /action === "admin\.booking\.messages\.save"\) return await messagesSave\(supabase, identity, body\)/);
   assert.match(api, /await authorizeAdmin\(supabase, identity\)/);
   assert.match(api, /await consumeRateLimit\(supabase, identity/);
   for (const [key, column] of [
     ['bookingNotice', 'booking_notice'],
     ['pendingMessage', 'pending_message'],
-    ['rejectionMessage', 'rejection_message'],
     ['reminderMessage', 'reminder_message'],
   ]) {
     assert.match(messagesHandler, /typeof body\[key\] !== "string"/);
@@ -56,7 +56,9 @@ test('AC-BMSG-003: one API operation validates four texts before a single CAS da
   assert.match(messagesHandler, /\.eq\("id", 1\)\.eq\("updated_at", expectedUpdatedAt\)/);
   assert.match(messagesHandler, /if \(!result\.data\) throw new ApiError\(409, "BOOKING_SETTINGS_CONFLICT"/);
   assert.match(messagesHandler, /if \(!pendingMessage\.trim\(\) \|\| pendingMessage\.length > 400\)/);
-  assert.match(messagesHandler, /if \(!rejectionMessage\.trim\(\) \|\| rejectionMessage\.length > 400\)/);
+  assert.match(messagesHandler,/REJECTION_SETTINGS_MOVED/);
+  assert.doesNotMatch(messagesHandler,/rejection_message:\s*rejectionMessage/);
+  assert.doesNotMatch(ui,/bookingAdminRejectionMessage/);
   assert.match(messagesHandler, /if \(!reminderMessage\.trim\(\) \|\| reminderMessage\.length > 400\)/);
   assert.match(messagesHandler, /BOOKING_MESSAGES_UPDATED/);
 });
