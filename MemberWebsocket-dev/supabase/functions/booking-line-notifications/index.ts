@@ -205,7 +205,7 @@ serveBusiness('booking-line-notifications',async (request: Request) => {
         // A queued pending acknowledgement must not arrive after confirmation or cancellation.
         // Verify recipient ownership before reading any private participant details.
         let memberPendingDetails = '';
-        if (job.channel === 'member' && String(job.event_key || '').endsWith(':created:member')) {
+        if (job.channel === 'member' && (String(job.event_key || '').endsWith(':created:member') || String(job.event_key || '').endsWith(':member-pending'))) {
           if (!job.booking_id) { failed++; return; }
           const pending = await db.from('bookings')
             .select('status,members!bookings_member_id_fkey(line_user_id,status,is_test_account)')
