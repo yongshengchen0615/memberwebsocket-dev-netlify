@@ -1,18 +1,43 @@
-/* Shared non-blocking Loading indicator for intentional backend operations. */
-.async-action-feedback{
- position:fixed;z-index:2500;left:12px;right:12px;bottom:max(16px,env(safe-area-inset-bottom));
- width:max-content;max-width:calc(100vw - 24px);margin-inline:auto;
- display:flex;align-items:center;gap:12px;padding:12px 18px;
- border:1px solid var(--theme-border,#cbd5e1);border-radius:14px;
- background:#172c39;color:#fff;box-shadow:0 12px 32px #0003;
- font:600 14px/1.5 system-ui,-apple-system,sans-serif;
- pointer-events:none;overflow-wrap:anywhere;
+/* Fullscreen Loading matches the admin booking operation guard. */
+.async-action-feedback[hidden] { display: none !important; }
+.async-action-feedback {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px;
+  background: rgba(13, 22, 32, .62);
+  backdrop-filter: blur(3px);
+  color: #fff;
+  text-align: center;
+  font: 650 1rem/1.8 system-ui, -apple-system, sans-serif;
+  pointer-events: auto;
+  touch-action: none;
 }
-.async-action-feedback[hidden]{display:none!important}
-.async-action-feedback-spinner{
- flex:none;width:18px;height:18px;border:2px solid currentColor;
- border-right-color:transparent;border-radius:50%;
- animation:async-action-spin .8s linear infinite;
+.async-action-feedback-spinner {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border: 3px solid rgba(255,255,255,.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: async-action-spin .8s linear infinite;
 }
-@keyframes async-action-spin{to{transform:rotate(360deg)}}
-@media(prefers-reduced-motion:reduce){.async-action-feedback-spinner{animation:none;border-right-color:currentColor}}
+.async-action-feedback-label {
+  max-width: min(560px, 90vw);
+  overflow-wrap: anywhere;
+}
+.async-action-feedback-hint {
+  font-size: .875rem;
+  font-weight: 500;
+  opacity: .9;
+}
+@keyframes async-action-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .async-action-feedback-spinner { animation: none; border-top-color: transparent; }
+}

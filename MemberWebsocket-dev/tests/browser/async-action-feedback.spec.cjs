@@ -50,3 +50,28 @@ test('AC-004: reduced motion does not play spinner animation while preserving st
   await page.evaluate(()=>window.finishLoading());
   await expect(page.locator('.async-action-feedback')).toBeHidden();
 });
+
+test('AC-006/007: fullscreen Loading blocks interaction through the request lifecycle',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await mount(page);
+  await page.evaluate(()=>{
+    window.clickCount=0;
+    document.querySelector('#action').addEventListener('click',()=>window.clickCount++);
+    window.finishBlocking=AsyncActionFeedback.begin('正在儲存資料…');
+  });
+  const overlay=page.locator('.async-action-feedback');
+  await expect(overlay).toBeVisible();
+  await expect(page.locator('main')).toHaveJSProperty('inert',true);
+  const bounds=await overlay.boundingBox();
+  expect(bounds.x).toBe(0);
+  expect(bounds.y).toBe(0);
+  expect(bounds.width).toBe(390);
+  expect(bounds.height).toBe(844);
+  await page.evaluate(()=>document.querySelector('#action').click());
+  expect(await page.evaluate(()=>window.clickCount)).toBe(0);
+  await page.evaluate(()=>window.finishBlocking());
+  await expect(overlay).toBeHidden();
+  await expect(page.locator('main')).toHaveJSProperty('inert',false);
+  await page.evaluate(()=>document.querySelector('#action').click());
+  expect(await page.evaluate(()=>window.clickCount)).toBe(1);
+});

@@ -57,8 +57,8 @@ test('AC-003: completion and failure always clear the pending indicator',async()
 test('AC-004: member, booking and frontdesk load the shared versioned assets',()=>{
  for(const page of ['member/index.html','booking/index.html','frontdesk/index.html','points/index.html','event/index.html','calendar/index.html']){
   const html=read(page);
-  assert.ok(html.includes('async-action-feedback.js?v=20261123-1'),page);
-  assert.ok(html.includes('async-action-feedback.css?v=20261123-1'),page);
+  assert.ok(html.includes('async-action-feedback.js?v=20261124-1'),page);
+  assert.ok(html.includes('async-action-feedback.css?v=20261124-1'),page);
  }
 });
 test('AC-005: user actions are instrumented while revision polling remains background-only',()=>{
