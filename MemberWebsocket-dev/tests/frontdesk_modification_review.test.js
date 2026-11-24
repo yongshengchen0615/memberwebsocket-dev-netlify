@@ -47,7 +47,7 @@ test('AC-FMR-004: frontdesk never trusts a client supplied review kind or cross-
  assert.match(sql,/function platform_private\.frontdesk_review_kind/);
  assert.match(sql,/actor_role='member' and e\.action='BOOKING_UPDATED'/);
  assert.match(sql,/v_edit>v_review/,'only a newer member edit is a pending modification');
- assert.match(sql,/v_review_kind:=platform_private\.frontdesk_review_kind\(t\.runtime_schema,bid,'pending'\)/);
+ assert.match(sql,/v_review_kind:=platform_private\.frontdesk_review_kind\(t\.runtime_schema,bid,''pending''\)/);
  assert.match(sql,/'reviewKind'',v_review_kind/,'review kind must be a trusted audit snapshot');
  assert.match(sql,/v_policy->'modification'->'reasons'/);
  assert.match(sql,/v_review_kind text/);
@@ -82,8 +82,8 @@ test('AC-FMR-006/007: member and admin LINE titles reflect only an audited front
  for(const title of ['櫃檯確認修改','櫃檯拒絕修改','確認修改預約','拒絕修改預約'])assert.ok(sql.includes(title),title);
  assert.match(sql,/e\.actor_role='frontdesk'/);
  assert.match(sql,/e\.metadata->>'reviewKind'/);
- assert.match(sql,/platform_private\.frontdesk_review_kind\(TG_TABLE_SCHEMA,NEW\.id,'confirmed'\)/);
- assert.match(sql,/platform_private\.frontdesk_review_kind\(TG_TABLE_SCHEMA,NEW\.id,'rejected'\)/);
+ assert.match(sql,/platform_private\.frontdesk_review_kind\(TG_TABLE_SCHEMA,NEW\.id,''confirmed''\)/);
+ assert.match(sql,/platform_private\.frontdesk_review_kind\(TG_TABLE_SCHEMA,NEW\.id,''rejected''\)/);
  for(const title of ['櫃檯確認修改','櫃檯拒絕修改','確認修改預約','拒絕修改預約'])assert.ok(delivery.includes(title),title);
  assert.match(delivery,/frontdeskRejectionCards\(visibleText\)/);
  assert.match(delivery,/memberConfirmation \|\| memberReminder/,'confirm modifications must retain member participant cards');
