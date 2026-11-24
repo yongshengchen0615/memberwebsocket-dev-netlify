@@ -1,0 +1,41 @@
+/* Scoped calendars for activity tickets, member activities, and reservations. */
+#eventsPanel .admin-calendar,
+#bookingPanel .admin-calendar {
+  margin: 0 0 22px;
+  padding: clamp(12px, 2vw, 22px);
+  background: var(--surface, #fff);
+  border: 1px solid var(--line, #dce7df);
+  border-radius: 18px;
+}
+#eventsPanel .admin-calendar-grid,
+#bookingPanel .admin-calendar-grid { min-width: 0; }
+#eventsPanel .admin-calendar-day,
+#bookingPanel .admin-calendar-day { min-width: 0; min-height: 108px; }
+#eventsPanel .admin-calendar-item-row,
+#bookingPanel .admin-calendar-item-row { display: flex; min-width: 0; }
+#eventsPanel .admin-calendar-item,
+#bookingPanel .admin-calendar-item {
+  display: block; width: 100%; min-width: 0; text-align: left;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#eventsPanel .admin-calendar-item { background: #fff4ec; border-left: 3px solid var(--calendar-item-accent, #df6b4d); }
+#bookingPanel .admin-calendar-booking { display: block; width: 100%; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#bookingPanel .booking-calendar-summary,
+#eventsPanel .ticket-calendar-summary { margin: 4px 0 0; color: var(--muted, #61716a); font-size: 12px; }
+#calendarPanel .admin-calendar-day-header { justify-content: flex-end; }
+#calendarPanel .admin-calendar-item-row { display: flex; }
+#calendarPanel .admin-calendar-item { flex: 1; min-width: 0; }
+#eventsPanel .admin-calendar-day-button,
+#bookingPanel .admin-calendar-day-button { min-height: 38px; width: 100%; text-align: left; }
+.admin-calendar .calendar-scope-empty { color: var(--muted, #61716a); font-size: 11px; }
+.admin-calendar .calendar-scope-more { color: var(--muted, #61716a); font-size: 10px; padding: 3px; }
+@media(max-width: 680px) {
+  #eventsPanel .admin-calendar,
+  #bookingPanel .admin-calendar { padding: 10px 6px; border-radius: 12px; }
+  #eventsPanel .admin-calendar-day,
+  #bookingPanel .admin-calendar-day { min-height: 76px; padding: 4px 2px; }
+  #eventsPanel .admin-calendar-item,
+  #bookingPanel .admin-calendar-booking { font-size: 10px; padding: 3px 2px; }
+  #eventsPanel .admin-calendar-day-number,
+  #bookingPanel .admin-calendar-day-number { font-size: 12px; }
+}
