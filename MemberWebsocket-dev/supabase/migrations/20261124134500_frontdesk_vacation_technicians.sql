@@ -115,6 +115,11 @@ begin
    v_mapped:=v_id;v_payload:=p_body;
   end if;
  else
+  -- Check staff approval, OA binding, revocation and fresh session before
+  -- any private technician lookup. Only the existing trusted SQL gate decides.
+  perform public.platform_frontdesk_request(
+   p_tenant_id,p_actor,p_channel_id,p_issued_at,'sync.status','{}'::jsonb
+  );
   v_policy:=coalesce(t.module_line#>'{booking,frontdesk,rejectionSettings}',platform_private.frontdesk_rejection_defaults());
   select value into v_reason from jsonb_array_elements(v_policy->'reasons')
    where value->>'id'=v_id and value->>'enabled'='true';
