@@ -70,7 +70,7 @@ test('FRONTDESK_SETTINGS_RETRY — lost first settings response replays the froz
 test('FRONTDESK_APPLICANT — LINE user submits application; bookings remain unavailable until merchant approval',async({page})=>{
  const calls=[];let staffStatus=null,mode='notify_only';
  await page.setViewportSize({width:390,height:844});
- await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:'window.liff={init:async()=>{},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=>"verified-staff",login:()=>{},logout:()=>{}};'}));
+ await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:`window.sentApplications=[];window.liff={init:async()=>{},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=>"verified-staff",login:()=>{},logout:()=>{},getContext:()=>({type:'utou',scope:['openid','chat_message.write']}),permission:{query:async()=>({state:'granted'})},sendMessages:async messages=>{window.sentApplications.push(...messages)}};`}));
  await page.route('https://fixture.supabase.co/**',async route=>{
   const body=route.request().postDataJSON();calls.push(body.action);
   let data;
@@ -89,6 +89,14 @@ test('FRONTDESK_APPLICANT — LINE user submits application; bookings remain una
  expect(calls).not.toContain('frontdesk.bookings');
  await page.getByRole('button',{name:'送出櫃檯人員申請'}).click();
  await expect(page.locator('#account')).toContainText('等待商家管理員審核');
+ await expect(page.locator('#status')).toContainText('已在目前 LINE 聊天室以你的身分自動送出申請訊息');
+ const messages=await page.evaluate(()=>window.sentApplications);
+ expect(messages).toHaveLength(1);
+ expect(messages[0]).toMatchObject({type:'text'});
+ expect(messages[0].text).toContain('櫃檯人員權限申請');
+ expect(messages[0].text).toContain('等待商家管理員審核');
+ await expect(page.locator('a[href*="oaMessage"]')).toHaveCount(0);
+
  await expect(page.locator('#progress li[data-state=current]')).toContainText('管理員審核');
  expect(calls).not.toContain('frontdesk.bookings');
  staffStatus='approved';
@@ -103,6 +111,43 @@ test('FRONTDESK_APPLICANT — LINE user submits application; bookings remain una
  expect(calls.filter(x=>x==='frontdesk.bookings').length).toBeGreaterThanOrEqual(1); // Initial authorized load plus revision reconciliation are both valid.
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+
+for(const scenario of ['group','missing-scope','permission-denied','send-failed']){
+ test('FRONTDESK_APPLICANT_AUTO_SEND_NEGATIVE '+scenario,async({page})=>{
+  let pending=false;const actions=[];
+  const contextType=scenario==='group'?'group':'utou';
+  const scope=scenario==='missing-scope'?['openid']:['openid','chat_message.write'];
+  const granted=scenario==='permission-denied'?'prompt':'granted';
+  const sdk=`window.applicationSendAttempts=0;window.liff={
+   init:async()=>{},isInClient:()=>true,isLoggedIn:()=>true,
+   getIDToken:()=>"verified-staff",login:()=>{},logout:()=>{},
+   getContext:()=>({type:${JSON.stringify(contextType)},scope:${JSON.stringify(scope)}}),
+   permission:{query:async()=>({state:${JSON.stringify(granted)}})},
+   sendMessages:async()=>{window.applicationSendAttempts++;if(${scenario==='send-failed'})throw Error('LINE_SEND_FAILED')}
+  };`;
+  await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'text/javascript',body:sdk}));
+  await page.route('https://fixture.supabase.co/**',route=>{
+   const body=route.request().postDataJSON();actions.push(body.action);
+   let data;
+   if(body.action==='frontdesk.public')data={name:'測試店',frontdesk:{enabled:true,liffId:'2010999999-desk',oaId:'@desk'}};
+   else if(body.action==='frontdesk.bootstrap')data={staff:pending?{status:'pending',displayName:'櫃檯 A',permissionMode:'notify_only'}:null};
+   else if(body.action==='frontdesk.apply'){pending=true;data={staff:{status:'pending',displayName:'櫃檯 A'}};}
+   else throw Error('Unexpected action '+body.action);
+   return route.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,data})});
+  });
+  await page.goto(base+'/frontdesk/?business=shop-a');
+  await page.getByRole('button',{name:'送出櫃檯人員申請'}).click();
+  await expect(page.locator('#account')).toContainText('等待商家管理員審核');
+  const expected=scenario==='permission-denied'?'尚未授權聊天訊息發送':
+   scenario==='send-failed'?'LINE 自動傳訊失敗':'無法自動傳送';
+  await expect(page.locator('#status')).toContainText(expected);
+  expect(await page.evaluate(()=>window.applicationSendAttempts)).toBe(scenario==='send-failed'?1:0);
+  expect(actions.filter(action=>action==='frontdesk.apply')).toHaveLength(1);
+  expect(actions).not.toContain('frontdesk.bookings');
+  await expect(page.locator('a[href*="oaMessage"]')).toHaveCount(0);
+ });
+}
+
 test('FRONTDESK_CONFIG_GUIDE — LINE sources, notification-card parity and automatic LIFF channel extraction',async({page})=>{
  await page.setViewportSize({width:390,height:844});
  await page.goto(base+'/frontdesk/');
