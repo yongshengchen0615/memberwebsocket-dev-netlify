@@ -14,6 +14,10 @@ test('DOM integration partitions preserve every established command within the e
   for (const suite of ['core','frontdesk-access','frontdesk-ui','extended']) {
     assert.ok(integration.includes(`if: matrix.suite == '${suite}'`), `${suite} must execute its own complete partition`);
   }
+  for (const file of ['frontdesk_access.cjs','frontdesk_api.cjs','frontdesk_legacy.cjs','frontdesk_race.cjs','frontdesk_ui.cjs','frontdesk_fresh_login.cjs']) {
+    const source = `MemberWebsocket-dev/tests/integration/${file}`;
+    assert.equal(integration.split(source).length - 1, 1, `${file} must execute exactly once`);
+  }
   const actual = integration.replace(/\\\r?\n\s*/g, ' ').split(/\r?\n/)
     .map(line => line.trim()).filter(line => line.startsWith('node ')).map(line => line.split(/\s+/));
   const expected = JSON.parse(fs.readFileSync(path.join(ROOT, 'scripts/fixtures/integration-ci-baseline.json'), 'utf8'));
