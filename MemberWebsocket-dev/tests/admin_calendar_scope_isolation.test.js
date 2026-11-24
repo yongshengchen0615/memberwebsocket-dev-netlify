@@ -20,7 +20,8 @@ const syncedTicket = { calendarItemId: 'T-1', itemType: 'event', startsOn: '2026
 test('AC-001: each admin calendar accepts only its own record category', () => {
   assert.deepEqual([ticket, booking, activity, holiday, syncedTicket].filter(item => scope.belongsToScope('ticket', item)), [ticket]);
   assert.deepEqual([ticket, booking, activity, holiday, syncedTicket].filter(item => scope.belongsToScope('booking', item)), [booking]);
-  assert.deepEqual([ticket, booking, activity, holiday, syncedTicket].filter(item => scope.belongsToScope('activity', item)), [activity, holiday]);
+  assert.deepEqual([ticket, booking, activity, holiday, syncedTicket].filter(item => scope.belongsToScope('activity', item)), [activity]);
+  assert.deepEqual([ticket, booking, activity, holiday, syncedTicket].filter(item => scope.belongsToScope('holiday', item)), [holiday]);
   assert.equal(scope.belongsToScope('unknown', ticket), false);
 });
 
@@ -90,7 +91,8 @@ test('AC-008: tickets without bounded validity stay in a separate member-facing 
 });
 
 test('AC-009: booking calendar cannot display other records and links to booking review', () => {
-  assert.match(adminApp, /rows: state\.operationalBookings\.filter/);
+  assert.match(adminApp, /rows: \[\.\.\.state\.operationalBookings\.filter/);
+  assert.match(adminApp, /rules\.belongsToScope\('holiday', item\)/);
   assert.match(adminApp, /kind: 'booking'/);
   assert.match(adminApp, /member-admin:booking-focus/);
   assert.match(adminApp, /data-booking-calendar-id/);
@@ -104,4 +106,43 @@ test('AC-010: member calendar excludes per-member fixed issues and handles earne
   assert.match(calendarApi, /asText\(ticket\.validity_mode, 20\) !== "relative"/);
   assert.match(calendarApi, /undatedTicketItems\.push\(synthesized\)/);
   assert.match(calendarApi, /ongoingTickets=ongoingTickets\.flatMap\(visibility\)/);
+});
+
+
+test('AC-011: holiday management belongs to booking; day tile is an entire clickable target', () => {
+  assert.match(adminHtml, /休假日請至「預約」日曆設定/);
+  assert.match(adminHtml, /id="newCalendarItemButton"[^>]*>＋ 新增會員活動/);
+  assert.match(adminHtml, /class="hidden">類型<select id="calendarItemType"/);
+  assert.match(adminApp, /cell\.dataset\.adminCalendarDate = date/);
+  assert.match(adminApp, /cell\.dataset\[kind === 'ticket' \? 'ticketCalendarDate' : 'bookingCalendarDate'\] = date/);
+  assert.match(adminApp, /openCalendarDateEditor\(date, bookingDate, 'holiday'\)/);
+  assert.match(adminApp, /data-booking-calendar-holiday-id/);
+  assert.match(adminApp, /renderBookingOverviewCalendar\(\);/);
+});
+
+test('AC-012: per-ticket and per-activity policies are distinct, validated and enforced by the server', () => {
+  const api = fileAt('supabase/functions/api/index.ts');
+  const migration = fileAt('supabase/migrations/20261124223500_per_item_calendar_visibility.sql');
+  assert.match(adminHtml, /id="eventTicketVisibilityPolicy"/);
+  assert.doesNotMatch(adminHtml, /src="\.\/ticket-visibility\.js/);
+  assert.match(adminApp, /id = 'calendarItemVisibilityPolicy'/);
+  assert.match(adminApp, /visibilityPolicy: document\.getElementById\('eventTicketVisibilityPolicy'\)\.value/);
+  assert.match(adminApp, /visibilityPolicy: els\.calendarItemType\.value === 'event'/);
+  assert.match(api, /row\.visibility_policy \|\| 'eligible_only'/);
+  assert.match(api, /visibility_policy: visibilityPolicy/);
+  assert.match(api, /row\.visibility_policy \|\| visibilityPolicy/);
+  assert.match(calendarApi, /item\.visibilityPolicy \|\| policy/);
+  assert.match(calendarApi, /visibilityPolicy: linkedTicket\.visibility_policy/);
+  assert.match(migration, /ADD CONSTRAINT event_tickets_visibility_policy_allowed/);
+  assert.match(migration, /ADD CONSTRAINT calendar_items_visibility_policy_allowed/);
+  assert.match(migration, /visibility_policy = coalesce\(nullif\(v_item->>'visibilityPolicy'/);
+});
+
+test('AC-013: both calendar themes use shared surfaces, state and readable text tokens', () => {
+  const css = fileAt('admin/calendar-workspaces.css');
+  for (const token of ['--theme-text', '--theme-surface-raised', '--theme-surface-muted', '--theme-border', '--theme-accent', '--theme-danger-soft']) {
+    assert.ok(css.includes('var(' + token + ')'), token);
+  }
+  assert.match(css, /html\[data-theme\] :is\(#eventsPanel, #calendarPanel, #bookingPanel\)/);
+  assert.match(css, /\.admin-calendar-day:is\(:hover, :focus-within\)/);
 });
