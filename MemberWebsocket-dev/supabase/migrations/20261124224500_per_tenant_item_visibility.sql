@@ -1,7 +1,6 @@
 -- Propagate tier visibility to existing tenant schemas and the versioned provisioning blueprint.
 -- Existing tenant audit/RLS/transaction RPC bodies are patched in place, not copied from public.
 -- Must run after public per-item migration, in one transaction, with failures aborting the rollout.
-begin;
 do $tenant_visibility$
 declare
   s text;
@@ -127,4 +126,3 @@ begin
     set snapshot=tpl where version='business-v1-20261019';
 end $tenant_visibility$;
 notify pgrst, 'reload schema';
-commit;
