@@ -25,10 +25,12 @@ test.beforeEach(async({page})=>{
   // Model the trusted cancellation-mode API, not a UI-only feature toggle.
   // Unlisted remote requests remain blocked by the route above.
   await page.route('https://booking-cancellation.supabase.co/functions/v1/booking-cancellation-api',route=>{
+    const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'POST, OPTIONS','Access-Control-Allow-Headers':'content-type,apikey'};
+    if(route.request().method()==='OPTIONS') return route.fulfill({status:204,headers:cors});
     const mode=new URL(page.url()).searchParams.get('cancellationMode')||'approval';
     const action=JSON.parse(route.request().postData()||'{}').action;
-    if(action!=='member.list') return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({ok:false,error:{code:'UNEXPECTED_ACTION'}})});
-    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:{cancellationMode:mode,requests:[]}})});
+    if(action!=='member.list') return route.fulfill({status:400,contentType:'application/json',headers:cors,body:JSON.stringify({ok:false,error:{code:'UNEXPECTED_ACTION'}})});
+    return route.fulfill({status:200,contentType:'application/json',headers:cors,body:JSON.stringify({ok:true,data:{cancellationMode:mode,requests:[]}})});
   });
 });
 for(const width of [320,390,1280])test('date records and guarded start at '+width+'px',async({page},info)=>{
