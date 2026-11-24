@@ -276,10 +276,11 @@ serveBusiness('member-calendar-api',async (request: Request) => {
         .order("starts_on", { ascending:true })
         .order("created_at", { ascending:true }),
       db.from("event_tickets")
-        .select("id,event_ticket_id,title,description,starts_on,ends_on,status,accent,allowed_tier_keys")
+        .select("id,event_ticket_id,title,description,starts_on,ends_on,status,accent,allowed_tier_keys,validity_mode")
         .eq("status", "active")
         .is("deleted_at", null)
-        .is("referral_source_event_ticket_id", null),
+        .is("referral_source_event_ticket_id", null)
+        .is("fixed_ticket_template_id", null),
     ]);
     if (result.error || eventTicketsResult.error) {
       return reply(origin, { ok:false,status:500,error:{ code:"DATABASE_ERROR",message:"營運日曆暫時無法讀取。" } }, 500);
@@ -333,7 +334,7 @@ serveBusiness('member-calendar-api',async (request: Request) => {
         linkLabel: "查看活動票券",
         linkUrl: "",
       };
-      if (parseIsoDate(start) && (!end || parseIsoDate(end)) && end) {
+      if (asText(ticket.validity_mode, 20) !== "relative" && parseIsoDate(start) && parseIsoDate(end) && end >= start) {
         virtualTicketItems.push(synthesized);
       } else {
         // A ticket with an open-ended or relative validity period has no
