@@ -224,6 +224,7 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
         const reservedForOtherBooking = Boolean(reserved && reserved.booking_id !== currentBookingId);
         const reservedInSnapshot = Boolean(offer.claimId && eventClaimsInSnapshots.has(String(offer.claimId)));
         const visibility=tierVisibility(offer.allowedTierKeys,tier,visibilityPolicy);
+        const expired = offer.expired === true;
         const requiredServiceIds = Array.isArray(offer.requiredServiceIds) ? offer.requiredServiceIds : [];
         const requiredServiceMatchMode = offer.requiredServiceMatchMode === 'all' ? 'all' : 'any';
         const requiredServiceTitles = requiredServiceTitlesFor(requiredServiceIds);
@@ -232,17 +233,17 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
           kind: 'event', id: offer.eventTicketId, title: offer.title,
           description: offer.description, accent: offer.accent, ticketType: offer.ticketType, quota: offer.quota, claimedCount: offer.claimedCount,
           allowedTierKeys: offer.allowedTierKeys, fixedTicketTemplateId: offer.fixedTicketTemplateId,
-          subtitle: visibility.locked ? visibility.lockReason : offer.claimed ? '已領取，尚未使用' : '尚未領取；勾選即代表領取',
-          statusLabel: visibility.locked ? '需升級' : reservedForOtherBooking ? '已預約使用，不能重複登記' : reservedInSnapshot ? '快照待審核，不能重複登記' : offer.claimed ? '可使用' : '可勾選並領取', startsOn: offer.startsOn, endsOn: offer.endsOn,
+          subtitle: visibility.locked ? visibility.lockReason : expired ? '已超過取得後使用期限' : offer.claimed ? '已領取，尚未使用' : '尚未領取；勾選即代表領取',
+          statusLabel: visibility.locked ? '需升級' : expired ? '已過期' : reservedForOtherBooking ? '已預約使用，不能重複登記' : reservedInSnapshot ? '快照待審核，不能重複登記' : offer.claimed ? '可使用' : '可勾選並領取', startsOn: offer.startsOn, endsOn: offer.endsOn, validityDaysAfterClaim: offer.validityDaysAfterClaim ?? null, expiresAt: offer.expiresAt || '',
           requiresLocation: offer.requiresLocation === true,
-          selectable: visibility.tierEligible && !reservedForOtherBooking && !reservedInSnapshot,
+          selectable: visibility.tierEligible && !expired && !reservedForOtherBooking && !reservedInSnapshot,
           reservedForBooking: Boolean(reserved), reservedForCurrentBooking: Boolean(reserved && !reservedForOtherBooking), reservedInSnapshot,
           locked:visibility.locked,
           selectionId: offer.claimId || '',
-          claimRequired: visibility.tierEligible && !offer.claimed,
+          claimRequired: visibility.tierEligible && !expired && !offer.claimed,
           requiredServiceIds, requiredServiceMatchMode, requiredServiceTitles, requiredServiceRequirementLabel,
           conditionLabel: `${eventTicketMaxPerDay === 0 ? '每日使用張數不限' : `每日最多使用 ${eventTicketMaxPerDay} 張`} · ${requiredServiceRequirementLabel ? `預約項目限制：${requiredServiceRequirementLabel}` : '預約項目限制：不限'}${offer.requiresLocation === true ? ' · 現場單獨使用需 GPS 定位' : ''}`,
-          disabledReason: visibility.locked ? visibility.lockReason : reservedForOtherBooking ? '此票券已在一般預約登記，不能重複登記。' : reservedInSnapshot ? '此票券已在快照模式登記，待審核期間不能重複登記。' : '',
+          disabledReason: visibility.locked ? visibility.lockReason : expired ? '活動票券已超過取得後使用期限，無法加入預約。' : reservedForOtherBooking ? '此票券已在一般預約登記，不能重複登記。' : reservedInSnapshot ? '此票券已在快照模式登記，待審核期間不能重複登記。' : '',
         };
       }),
       ...activities.map((item: any) => ({
