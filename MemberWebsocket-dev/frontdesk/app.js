@@ -11,7 +11,7 @@
  let rejectionSettings={dropdownTitle:'請選擇拒絕原因',reasons:legacyRejectionReasons};
 
  const rejectionReasonById=id=>rejectionSettings.reasons.find(item=>item.id===id);
- let syncTimer=null,syncEnabled=false,syncInFlight=false,syncRevision=null,syncFailures=0,syncGeneration=0;
+ let syncTimer=null,syncEnabled=false,syncInFlight=false,syncRevision=null,syncFailures=0,syncGeneration=0,syncPendingGeneration=0,syncQueued=false,syncRefreshing=false,syncSessionGeneration=0;
  const node=(tag,text)=>{const n=document.createElement(tag);if(text)n.textContent=text;return n;};
  const progress=document.getElementById('progress'),toolbar=document.querySelector('.frontdesk-toolbar');
 
@@ -296,8 +296,20 @@
  // ever read directly from a publicly subscribed Realtime channel.
  const canSync=()=>syncEnabled&&idToken&&document.visibilityState!=='hidden'&&navigator.onLine!==false;
  function stopSync(){
-  syncEnabled=false;syncGeneration++;syncRevision=null;
+  syncEnabled=false;syncGeneration++;syncSessionGeneration++;syncRevision=null;syncQueued=false;
   if(syncTimer!==null){clearTimeout(syncTimer);syncTimer=null;}
+ }
+ function suspendSync(){
+  syncGeneration++;
+  if(syncTimer!==null){clearTimeout(syncTimer);syncTimer=null;}
+ }
+ function resumeSync(){
+  if(!canSync())return;
+  if(syncInFlight){
+   if(syncPendingGeneration!==syncGeneration||syncRefreshing)syncQueued=true;
+   return;
+  }
+  scheduleSync(0);
  }
  function scheduleSync(delay=3000){
   if(syncTimer!==null){clearTimeout(syncTimer);syncTimer=null;}
@@ -312,7 +324,8 @@
  async function probeSync(){
   if(!canSync())return;
   if(syncInFlight||busy||pending.size){scheduleSync(3000);return;}
-  const generation=syncGeneration;syncInFlight=true;
+  const generation=syncGeneration,sessionGeneration=syncSessionGeneration,token=idToken;
+  syncInFlight=true;syncPendingGeneration=generation;syncQueued=false;
   try{
    const result=await request('frontdesk.sync.status');
    if(generation!==syncGeneration||!canSync()||busy||pending.size)return;
@@ -320,21 +333,25 @@
    if(typeof revision!=='string'||!/^[0-9]+$/.test(revision))throw Error('無法確認預約資料版本。');
    if(syncRevision!==revision){
     // Only accept the revision after all authorized booking reads succeed.
-    const reloaded=await load();
+    syncRefreshing=true;
+    const reloaded=await load(generation);
     if(reloaded&&generation===syncGeneration&&canSync())syncRevision=revision;
    }
    syncFailures=0;
   }catch(error){
-   if(generation!==syncGeneration||!syncEnabled)return;
+   if(sessionGeneration!==syncSessionGeneration||token!==idToken||!syncEnabled)return;
    if(error.denied||['FRONTDESK_REVIEW_REQUIRED','FRONTDESK_AUTH_INVALID'].includes(error.code)){
     stopSync();failure(error);return;
    }
+   if(generation!==syncGeneration)return;
    syncFailures++;
    status.textContent='同步暫時中斷，恢復連線後會自動更新；也可手動重新整理。';
   }finally{
-   syncInFlight=false;
-   if(generation===syncGeneration&&canSync())
-    scheduleSync(syncFailures?Math.min(30000,3000*2**Math.min(syncFailures,3)):3000);
+   syncInFlight=false;syncRefreshing=false;
+   if(canSync()){
+    const recover=syncQueued||generation!==syncGeneration;syncQueued=false;
+    scheduleSync(recover?0:syncFailures?Math.min(30000,3000*2**Math.min(syncFailures,3)):3000);
+   }
   }
  }
 
@@ -572,8 +589,10 @@
    return 'sent';
   }catch{return 'failed';}
  }
- async function load(){
-  const generation=++epoch,data=await request('frontdesk.bootstrap');if(generation!==epoch)return false;
+ async function load(expectedSyncGeneration){
+  const generation=++epoch;
+  const stale=()=>generation!==epoch||(expectedSyncGeneration!==undefined&&expectedSyncGeneration!==syncGeneration);
+  const data=await request('frontdesk.bootstrap');if(stale())return false;
   account.replaceChildren();list.replaceChildren();showBookingToolbar(false);
   const history=document.getElementById('frontdeskConflictHistory');
   const person=data.staff;
@@ -620,7 +639,7 @@
   if(person.permissionMode==='review'){
    showBookingToolbar(true);
    if(history)history.hidden=false;
-   const result=await request('frontdesk.bookings',bookingId?{bookingId}:{});if(generation!==epoch)return false;
+   const result=await request('frontdesk.bookings',bookingId?{bookingId}:{});if(stale())return false;
    if(result.rejectionSettings&&Array.isArray(result.rejectionSettings.reasons)){
      rejectionSettings=result.rejectionSettings;
     }else{
@@ -652,9 +671,10 @@
   }catch(error){failure(error);}finally{finishFeedback?.();lock(false);window.dispatchEvent(new CustomEvent('frontdesk-ready'));}
  }
  refresh.onclick=async()=>{if(busy||pending.size){status.textContent='請先完成目前操作或重試相同操作。';return;}if(!idToken){status.textContent='請重新開啟商家櫃檯入口完成 LINE 身分驗證。';return;}lock(true);const finishFeedback=window.AsyncActionFeedback?.begin('正在更新櫃檯資格與預約清單…');try{await load();status.textContent='已更新櫃檯人員資格與預約權限。';}catch(e){failure(e);}finally{finishFeedback?.();lock(false);}};
- document.addEventListener('visibilitychange',()=>{if(canSync())scheduleSync(0);else if(syncTimer!==null){clearTimeout(syncTimer);syncTimer=null;}});
- window.addEventListener('online',()=>{if(canSync())scheduleSync(0);});
- window.addEventListener('focus',()=>{if(canSync())scheduleSync(0);});
+ document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')suspendSync();else resumeSync();});
+ window.addEventListener('offline',suspendSync);
+ window.addEventListener('online',resumeSync);
+ window.addEventListener('focus',resumeSync);
  window.addEventListener('pageshow',event=>{if(event.persisted)void start();});
  window.addEventListener('pagehide',()=>{stopSync();epoch++;idToken=null;list.replaceChildren();clearPrivateHistory();});
  void start();
