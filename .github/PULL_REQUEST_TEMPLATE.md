@@ -1,6 +1,6 @@
 # 變更目標與相依卡片
 
-- Project #5 / Issue：Closes #（或 Related #）
+- Project #5 工作卡連結（以 `Related #` 關聯，符合卡片結案條件時可用 `Closes #`）
 - 目標分支、基線 SHA：
 - 交付目標／不做的事：
 
@@ -47,6 +47,7 @@
 
 ### 測試與驗收
 
+<!-- 按 AC 列出本版 CI 結果、指定環境部署及適用的真人／外部驗收。若需測試 LINE，記錄測試角色、入口、實際收件者及結果。指出下一個可執行步驟與執行角色。 -->
 待補
 
 ### 回退方案
@@ -102,11 +103,13 @@
 - [ ] 沒有刪除有效測試、減弱斷言、跳過必要 job 或只提高重試／逾時
 - [ ] 發布前版本／備份／回復與部署後 Smoke（若有部署）
 
-| 命令或 CI job | 環境／SHA | pass / fail / skip | Exit code / log / run URL |
-|---|---|---|---|
-|  |  |  |  |
+| 命令或 CI job／事件 | 環境／PR head SHA／實際測試 SHA | 執行時間 | pass / fail / skip | Exit code / log / run URL |
+|---|---|---|---|---|
+|  |  |  |  |  |
 
 **未執行、取消、逾時、跳過或受阻的必要檢查**（不可填「通過」）：
+
+**Project 目前狀態與下一步**（附實際欄位或證據連結，受阻時列出解除條件、執行角色及恢復階段）
 
 **既有功能驗證證據／差異：**
 
@@ -114,4 +117,4 @@
 
 **本輪狀態**：部分完成且受阻 / 驗證失敗 / 已驗證完成（擇一；未有完整證據不得選完成）
 
-參考：[#56 第一性原理與防退化規範](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/issues/56)。如 PR #57 合併，再沿用其 `AGENTS.md` 與 `docs/DEVELOPMENT_GUARDRAILS.md`。
+參考 [AGENTS.md](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/blob/Integrated-Marketing-Platform/AGENTS.md)、[Project 狀態證據規則](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/blob/Integrated-Marketing-Platform/docs/DEVELOPMENT_GUARDRAILS.md#8-project-5-status-的證據規則) 與 [#56 開發工作約定](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/issues/56)。
