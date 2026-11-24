@@ -6655,15 +6655,24 @@
       if (!checks.linked) throw new Error('活動票券未同步至日曆。');
       closeEditorModalById('eventTicketEditorModal');
       document.getElementById('calendarTab').click();document.getElementById('adminCalendarTodayButton').click();
-      // Workspace loading can replace the calendar grid; select the current row
-      // after the human pause so a detached element cannot produce false evidence.
-      await adminHumanPause(200,400);
-      const row = await waitFor(()=>document.querySelector('[data-admin-calendar-item-id="'+CSS.escape(linked.calendarItemId)+'"][data-event-ticket-calendar-readonly="true"]'),5000);
-      if (!row) throw new Error('同步日曆項目沒有唯讀標記。');
-      row.scrollIntoView?.({block:'center'});row.focus();row.click();
-      const info = await waitEditorOpen('eventTicketCalendarInfoModal');
-      checks.readonly = Boolean(info && document.getElementById('calendarEditorModal').classList.contains('hidden') && info.textContent.includes('活動票券同步'));
-      document.getElementById('closeEventTicketCalendarInfoButton')?.click();
+      // Synced ticket records stay stored for the customer calendar but must
+      // not appear as editable member activities in the admin calendar.
+      const mixed = document.querySelector('#adminCalendarGrid [data-admin-calendar-item-id="' + CSS.escape(linked.calendarItemId) + '"]');
+      if (mixed) throw new Error('活動票券同步項目不應出現在會員活動日曆。');
+      document.getElementById('eventsTab').click();
+      document.getElementById('eventTicketCalendarTodayButton')?.click();
+      await adminHumanPause(200, 400);
+      const ticketButton = await waitFor(() => document.querySelector('#eventTicketCalendarGrid [data-ticket-calendar-item-id="' + CSS.escape(ticketId) + '"]'), 5000);
+      if (!ticketButton) throw new Error('活動票券沒有出現在獨立票券日曆。');
+      ticketButton.scrollIntoView?.({ block: 'center' });ticketButton.focus();ticketButton.click();
+      const ticketEditor = await waitEditorOpen('eventTicketEditorModal');
+      checks.readonly = Boolean(ticketEditor
+        && document.getElementById('eventTicketId')?.value === ticketId
+        && document.getElementById('calendarEditorModal').classList.contains('hidden')
+        && !document.querySelector('#adminCalendarGrid [data-admin-calendar-item-id="' + CSS.escape(linked.calendarItemId) + '"]'));
+      // The source ticket is editable through its own editor, while the
+      // synchronized calendar row is never independently editable.
+      closeEditorModalById('eventTicketEditorModal');
       document.getElementById('eventsTab').click();
       await clickResourceRow('#eventTicketListItems [data-event-ticket-id]','eventTicketId',ticketId);
       await waitEditorOpen('eventTicketEditorModal');
