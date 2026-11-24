@@ -71,8 +71,8 @@ for(const width of [390,1280])test('AC-003/004/005/006: booked-only vacation tec
  await expect(panel).not.toContainText('B');
  await expect(dialog.getByRole('button',{name:'確認拒絕預約'})).toBeDisabled();
  await panel.getByRole('checkbox',{name:'A'}).check();
- await expect(dialog.locator('.frontdesk-rejection-member-preview')).toContainText('目前 A 技師休假。');
- await expect(dialog.locator('.frontdesk-rejection-member-preview')).toContainText('請改期');
+ await expect(dialog.locator('.frontdesk-rejection-member-preview p')).toHaveText('目前預約時間：2026/12/12 11:00，A 技師休假。');
+ await expect(dialog.locator('.frontdesk-rejection-member-preview')).not.toContainText('請改期');
  await panel.getByRole('checkbox',{name:'A'}).uncheck();
  await expect(dialog.getByRole('button',{name:'確認拒絕預約'})).toBeDisabled();
  await panel.getByRole('checkbox',{name:'A'}).check();
@@ -95,7 +95,7 @@ for(const width of [390,1280])test('AC-003/004/005/006: booked-only vacation tec
  await expect(panel).toContainText('B');
  await expect(dialog.getByRole('button',{name:'確認拒絕並登記現場預約'})).toBeDisabled();
  await panel.getByRole('checkbox',{name:'B'}).check();
- await expect(dialog.locator('.frontdesk-rejection-member-preview')).toContainText('目前 B 技師休假。');
+ await expect(dialog.locator('.frontdesk-rejection-member-preview p')).toHaveText('目前預約時間：2026/12/12 11:00，B 技師休假。');
  await expect(dialog.getByRole('button',{name:'確認拒絕並登記現場預約'})).toBeEnabled();
  await dialog.getByRole('button',{name:'確認拒絕並登記現場預約'}).click();
  await expect(page.locator('.frontdesk-card')).toHaveCount(0);

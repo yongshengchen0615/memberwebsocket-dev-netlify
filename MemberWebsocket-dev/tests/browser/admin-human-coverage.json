@@ -71,11 +71,11 @@
     "platform/platform.css": "adef4577cbae41c584fe16fce5c6372ab86a994f37226a9a6cc5116bb5bcecf2",
     "admin/business-line-settings.css": "ceab14d19f8137f529bdaa39c590ce5329304a9a3a8c515afd54bdb802a3f0c3",
     "booking/common.js": "8869346e2801a94b08615a6ab26d9908e3072e77758459b3824bb820d4191505",
-    "admin/frontdesk-settings.js": "09b3406ff7a3f64c2ba0af3f48da44413dc8dc599dd44f67450ca4278b8e254d",
-    "frontdesk/app.js": "2ba9356a59022fc568ce881a63b79cd16b2f2912abbb257305a8665fccdd5b03",
+    "admin/frontdesk-settings.js": "450e04d73c4ee3c28dee1419f7f9aeced92d5309c559fd8f1767ac8d8d946121",
+    "frontdesk/app.js": "9d0be6e7ae3f5314e11935c2b8dbe6420e8244308c9fda1d535d7a91b451e289",
     "frontdesk/styles.css": "52655eed5c84fff536cf48efc95522d940af89d4838e237a6c6fe516e1a926d1",
-    "frontdesk/index.html": "903651a2afb597b4b76c8e017239c90a8761e383b2b0654be5f9de74026a32be",
-    "admin/frontdesk-settings/index.html": "c5dcddc3dcee486d67baf95231f9d273f3490e5d1d24a262f9fb21bf5c2dd8d0",
+    "frontdesk/index.html": "61cacb6e6c7ec382ff0722b9b98c17dedc44d5f50a2bf3021c52ad25937cb700",
+    "admin/frontdesk-settings/index.html": "708079850b99c75806b2b22c572d3c29f22cf3c8112b6657e1f1f1bddc9e6b29",
     "admin/frontdesk-settings/frontdesk-settings-page.js": "a5bb5f8c6716a7ab8f0cccf3dbe8be993a307a6d56b01cfe218d330cbd3de429",
     "admin/frontdesk-settings/frontdesk-settings-page.css": "b62cc5e6482febcdb1f98f2027a8c333a8b6faceed86708eac0464665c44cd5b"
   },
@@ -832,6 +832,6 @@
   "bookingPendingOfficialLineReview": "2026-11-20 PR #378：審閱管理端預約設定、會員提交及官方帳號通知流程。新增獨立『預約申請等待確認訊息』管理、字數驗證、預覽與 CAS 衝突防護。會員原先 LIFF sendMessages 已移除，改由租戶獨立 LINE outbox 推送；保留原預約確認/取消/提醒及櫃檯工作流程。已對照既有 admin-human booking、LINE setting、member booking 操作節點並保留全部既有旅程；新增 AC-BPN-001~006 合約測試、測試資料庫遷移。CI、瀏覽器實測與 LINE 沙盒發送均以同 SHA 結果為準，未通過不得合併。 2026-11-20 review 修正：保留快照收據沿用的 BookingSystem.sendMemberChatMessage，僅取消一般預約 app 自發 LINE；交易通知條件使用已驗證會員與 BOOK-* 來源，不能因自訂聯絡資料 contactSource=custom 漏發，電話/快照非會員發起的請求不得被誤判。新增真實 shared sender 單元測試與商家資料庫負向測試。",
   "bookingUnifiedMessagesReview": "2026-11-22 PR #399：將預約管理的會員端預約說明與申請待確認、拒絕、提醒 LINE 三種模板集中至訊息設定子分頁。四欄單一表單、單一次版本鎖定 API 更新；不更動原發送條件、提醒時間、商家歸屬、其他預約設定。新 BOOKING_MESSAGES_SETTINGS 在隔離 Chromium 與 JSDOM 走正常儲存、回讀、輸入負向及版本衝突；原 BOOKING_SHARED_SETTINGS 獨立驗證服務時間與其他共用政策，PG / Edge / LINE 真實通道另按實測 CI 及沙盒驗收。",
   "eventTicketUseQuotaReview": "2026-11-23 PR #413：逐項審閱活動券四型、管理端內容編輯與啟用確認、會員預約一般及快照領取動作、LINE legacy claim client、防越權與候選資料；quota 改為已成功使用次數上限，發放數量不受限。管理端已發放/已使用/剩餘數分開呈現，原有 62 組管理端功能映射與 Chromium 工作區未移除或重命名。管理活動啟用發券、同商家/跨商家狀態、抽獎/好友/固定票券、預約登記與核銷持續交付實際 Node/DOM/PG/Chromium CI; 真實 LINE Provider 另行驗證。 已核對管理端 app.js 與 HTML 靜態資產版本號更新，避免再次顯示舊『領取／發放上限』文案。",
-  "frontdeskRejectionVacationReview": "2026-11-24：管理端單一拒絕原因卡片於衝突時間選項下方加上「有休假技師」；櫃檯只有對應原因啟用時才從後端授權的商家 booking_technicians（is_active）多選，不再將固定 technician_leave 作全域捷徑。勾選後本頁預覽 A、B 等技師；Edge 僅傳 UUID 且 SQL 在同租戶交易中查表驗證並寫入會員說明快照。歷史重試沿用原 requestId+hash、跨商家／停用 ID／關閉旗標必須拒絕，原 phone 衝突交易與 LINE 通知不改。新增 Node、Chromium 390/1280、回滾式真實 PostgreSQL 測試，測試結果須依同 SHA 證據。 2026-11-24 增量：員工休假清單收斂到單筆預約已指派、排除主要技師，歷史已指派停用技師保持可選；經 same-tenant SQL 檢查。拒絕原因不再有啟用／停用選項，管理員保存即使用，刪除（含最後一項）後不再提供新選擇，歷史 snapshot 和 requestId 再送不變。",
+  "frontdeskRejectionVacationReview": "2026-11-24：管理端單一拒絕原因卡片於衝突時間選項下方加上「有休假技師」；櫃檯只有對應原因啟用時才從後端授權的商家 booking_technicians（is_active）多選，不再將固定 technician_leave 作全域捷徑。勾選後本頁預覽 A、B 等技師；Edge 僅傳 UUID 且 SQL 在同租戶交易中查表驗證並寫入會員說明快照。歷史重試沿用原 requestId+hash、跨商家／停用 ID／關閉旗標必須拒絕，原 phone 衝突交易與 LINE 通知不改。新增 Node、Chromium 390/1280、回滾式真實 PostgreSQL 測試，測試結果須依同 SHA 證據。 2026-11-24 增量：員工休假清單收斂到單筆預約已指派、排除主要技師，歷史已指派停用技師保持可選；經 same-tenant SQL 檢查。拒絕原因不再有啟用／停用選項，管理員保存即使用，刪除（含最後一項）後不再提供新選擇，歷史 snapshot 和 requestId 再送不變。 2026-11-24 PR #436：已覆核技師休假拒絕說明，改由原預約 DB 日期與開始時間、已獲授權且實際勾選的本單非主要技師生成固定格式；前端依已授權 booking JSON 預覽。既有 LINE 登入、櫃檯 review 撤權、衝突時段補登、原子通知、重送冪等與歷史快照維持；新 SQL 測試在隔離 TEST 先失敗再通過，最終結果依同 SHA CI 判定。",
   "eventTicketRelativeValidityReview": "2026-11-24 PR #434：逐項審核原管理端 62 組人工操作旅程中的活動券管理（新增／編輯／封存、會員資格、使用額度、既有日期、預約服務及金額門檻、抽獎獎項、GPS、會員領券／核銷／轉贈、可用與已用票券）。本次只擴充活動券使用期限為 fixed、relative、both 模式，不移除原已確認管理員操作或變更登入、角色、租戶隔離；已發放票券的期限在資料庫發放時凍結、到期後阻擋核銷和預約綁定、轉贈不重新計時。新增 Node 合約測試及 PGlite SQL 實際行為測試；保留既有 admin-human.spec.cjs、booking-benefits、event-ticket browser、PG17 / Edge typecheck 全基線，合併前以同一提交 CI 為準，真實 LINE Provider 仍需獨立驗收。"
 }

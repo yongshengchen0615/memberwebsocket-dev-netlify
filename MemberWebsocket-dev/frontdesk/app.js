@@ -473,9 +473,20 @@
    memberPreview.hidden=!selected;
    const base=String(selected?.memberDescription||selected?.label||'').trim();
    const names=selectedVacationIds().map(id=>bookedVacationTechnicians.find(item=>item.id===id)?.name||'原選擇技師');
-   const preface=names.length?'目前 '+names.join('、')+' 技師休假。\n':'';
-   memberPreviewText.textContent=Array.from(preface+base).slice(0,400).join('');
+   const vacation=selected?.hasVacationTechnicians===true||
+    (frozen?.rejectionReason===reason.value&&Array.isArray(frozen.vacationTechnicianIds)&&frozen.vacationTechnicianIds.length>0);
+   // This is only a preview. The authorized rejection RPC reads booking
+   // date/time and technician names from the database for the saved snapshot.
+   const bookingTime=bookingDate&&originalTime?bookingDate.replace(/-/g,'/')+' '+originalTime:'';
+   const message=vacation?(bookingTime&&names.length
+    ?'目前預約時間：'+bookingTime+'，'+names.join('、')+' 技師休假。'
+    :'請勾選休假技師並確認原預約時間。'):base;
+   memberPreviewText.textContent=message;
    updateSubmit();
+   if(vacation&&names.length&&(!bookingTime||Array.from(message).length>400)){
+    submit.disabled=true;
+    feedback.textContent=!bookingTime?'無法取得原預約時間，請重新整理預約資料。':'拒絕說明超過 400 字，請減少勾選技師。';
+   }
   };
   const updateReason=()=>{
    const selected=rejectionReasonById(reason.value)||
