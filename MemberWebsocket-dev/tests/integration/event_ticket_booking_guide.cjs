@@ -63,19 +63,23 @@ async function setup(offer, options = {}) {
   return { w, dom, writes: () => writes, close: () => dom.window.close() };
 }
 
-test('AC-BOOKING-GUIDE-000: automatically issued default claimed-state ticket also gets booking guidance', async () => {
+test('AC-BOOKING-GUIDE-000: automatically issued tickets use the detail modal for booking guidance', async () => {
   const h = await setup(ticket({ claim: { claimId: 'EC-AUTO', status: 'claimed' } }));
   try {
     const card = h.w.document.querySelector('#eventList .event-ticket');
     assert.ok(card, 'issued ticket still visible');
-    const guide = card.querySelector('[data-ticket-action="booking-guide"]');
-    assert.ok(guide, 'database default claimed status must not hide booking CTA');
+    assert.equal(card.querySelector('[data-ticket-action="booking-guide"]'), null);
+    const details = card.querySelector('[data-ticket-action="details"]');
+    assert.equal(details?.textContent, '查看預約綁定');
+    details.click();
+    const guide = h.w.document.querySelector('#ticketModal [data-ticket-booking-guide]');
+    assert.ok(guide && !guide.hidden, 'database default claimed status must keep modal booking CTA');
     assert.match(guide.href, /eventTicketId=EVENT-GUIDED/);
     assert.equal(h.writes(), 0, 'guidance must not mutate or issue tickets');
   } finally { h.close(); }
 });
 
-test('AC-BOOKING-GUIDE-001: owned booking-restricted ticket remains visible and links to standard booking', async () => {
+test('AC-BOOKING-GUIDE-001: owned ticket exposes one booking link inside details, not on its card', async () => {
   const h = await setup(ticket());
   try {
     const { document: d } = h.w;
@@ -84,9 +88,13 @@ test('AC-BOOKING-GUIDE-001: owned booking-restricted ticket remains visible and 
     assert.match(card.textContent, /預約限定活動券/);
     assert.match(card.textContent, /已發放/);
     assert.match(card.textContent, /送出前勾選/);
-    const link = card.querySelector('[data-ticket-action="booking-guide"]');
-    assert.ok(link);
-    assert.equal(link.textContent, '前往預約使用');
+    assert.equal(card.querySelector('[data-ticket-action="booking-guide"]'), null);
+    const details = card.querySelector('[data-ticket-action="details"]');
+    assert.equal(details?.textContent, '查看預約綁定');
+    details.click();
+    const link = d.querySelector('#ticketModal [data-ticket-booking-guide]');
+    assert.ok(link && !link.hidden);
+    assert.equal(link.textContent, '前往預約使用（預約時勾選這張票券）');
     const url = new URL(link.href);
     assert.equal(url.pathname, '/booking/');
     assert.equal(url.searchParams.get('business'), 'shop-a');
@@ -97,10 +105,11 @@ test('AC-BOOKING-GUIDE-001: owned booking-restricted ticket remains visible and 
   } finally { h.close(); }
 });
 
-test('AC-BOOKING-GUIDE-002: ticket detail shows a second guided link rather than a direct redemption', async () => {
+test('AC-BOOKING-GUIDE-002: ticket detail has the only guided link rather than a direct redemption', async () => {
   const h = await setup(ticket());
   try {
     const d = h.w.document;
+    assert.equal(d.querySelectorAll('#eventList [data-ticket-action="booking-guide"]').length, 0);
     d.querySelector('[data-ticket-action="details"]').click();
     const link = d.querySelector('#ticketModal [data-ticket-booking-guide]');
     assert.ok(link && !link.hidden);

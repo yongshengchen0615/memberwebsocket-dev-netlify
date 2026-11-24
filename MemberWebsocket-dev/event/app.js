@@ -150,17 +150,6 @@
     if (/^[A-Za-z0-9_-]{1,128}$/.test(id)) url.searchParams.set('eventTicketId', id);
     return url.href;
   }
-  function createBookingGuideLink(offer) {
-    const link = document.createElement('a');
-    link.href = bookingGuideUrl(offer);
-    link.className = 'ticket-button ticket-booking-guide';
-    link.dataset.ticketAction = 'booking-guide';
-    link.dataset.eventTicketId = eventTicketIdForOffer(offer);
-    link.textContent = '前往預約使用';
-    link.setAttribute('aria-label', '前往預約並勾選「' + String(ticketForOffer(offer).title || '活動票券') + '」');
-    return link;
-  }
-
   function createOfferCard(offer) {
     const ticket = ticketForOffer(offer); const history = Boolean(offer.history); const fixed = isFixedOffer(offer); const used = history || String(offer?.claim?.status || '') === 'used'; const reserved = !used && Boolean(offer.reservedForBooking); const snapshotPending = !used && Boolean(offer.pendingSnapshot);
     const eligible = !history && eventTicketTierEligible(offer);
@@ -176,14 +165,13 @@
     button.dataset.eventTicketId = eventTicketId;
     const bindable = canBindExistingBooking(offer);
     button.dataset.ticketAction = bindable ? 'bind-booking' : offer.claim && offer.canUse ? 'use' : 'details';
-    button.textContent = history ? '查看紀錄' : reserved ? '已預約使用' : snapshotPending ? '快照待審核' : !eligible ? '查看詳情' : offer.claim ? bindable ? '綁定已有預約使用' : offer.canUse ? '使用票券' : '查看詳情' : '查看詳情';
+    button.textContent = history ? '查看紀錄' : reserved ? '已預約使用' : snapshotPending ? '快照待審核' : !eligible ? '查看預約綁定' : offer.claim ? bindable ? '綁定已有預約使用' : offer.canUse ? '使用票券' : '查看預約綁定' : '查看預約綁定';
     button.disabled = !eventTicketId;
     if (offer.transferredOut) { button.textContent = '已轉贈好友'; }
     button.addEventListener('click', () => openTicketModal(eventTicketId));
     if (offer.transferredOut) hint.textContent = '這張票券已轉贈好友，無法再次取得';
     if (!used || history) buttons.append(button);
     if (canGuideToBooking(offer)) {
-      buttons.append(createBookingGuideLink(offer));
       hint.textContent = '這張票券已發放。請先到預約頁選擇日期、服務與時段，再於送出前勾選這張活動票券。';
     }
     if (canTransferTicket(offer)) {

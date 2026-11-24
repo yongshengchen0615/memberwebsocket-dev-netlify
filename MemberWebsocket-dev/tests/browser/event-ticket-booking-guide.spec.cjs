@@ -95,8 +95,15 @@ for(const width of [390,1280]){
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     await page.goto(base+'/event/?business=shop-a&token=sensitive');
     await expect(page.locator('#eventList .event-ticket')).toHaveCount(1);
-    const guide=page.locator('#eventList [data-ticket-action="booking-guide"]');
-    await expect(guide).toHaveText('前往預約使用');
+    await expect(page.locator('#eventList [data-ticket-action="booking-guide"]')).toHaveCount(0);
+    const details=page.locator('#eventList [data-ticket-action="details"]');
+    await expect(details).toHaveCount(1);
+    await expect(details).toHaveText('查看預約綁定');
+    await details.click();
+    await expect(page.locator('#ticketModal')).toBeVisible();
+    const guide=page.locator('#ticketModal [data-ticket-booking-guide]');
+    await expect(guide).toBeVisible();
+    await expect(guide).toHaveText('前往預約使用（預約時勾選這張票券）');
     const target=new URL(await guide.getAttribute('href'));
     expect(target.pathname).toBe('/booking/');
     expect(target.searchParams.get('business')).toBe('shop-a');
