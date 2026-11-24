@@ -9,7 +9,7 @@
   {id:'unrecorded_phone_booking',label:'該時段已被現場人員預約但未登記',memberDescription:'該時段已被現場人員預約但未登記',enabled:true,requiresConflictTime:true}
  ];
  let rejectionSettings={dropdownTitle:'請選擇拒絕原因',reasons:legacyRejectionReasons};
- let frontdeskTechnicians=[]; // Scoped to authorized review access, never public bootstrap.
+
  const rejectionReasonById=id=>rejectionSettings.reasons.find(item=>item.id===id&&item.enabled);
  let syncTimer=null,syncEnabled=false,syncInFlight=false,syncRevision=null,syncFailures=0,syncGeneration=0;
  const node=(tag,text)=>{const n=document.createElement(tag);if(text)n.textContent=text;return n;};
@@ -358,9 +358,10 @@
   reasonField.append(reason);
   const vacationPanel=node('fieldset');vacationPanel.className='frontdesk-vacation-technicians';vacationPanel.hidden=true;
   vacationPanel.append(node('legend','選擇休假的技師（可多選）'));
-  const vacationHint=node('p','依管理端已設定且啟用的技師名單選擇；至少勾選一位。');
+  const vacationHint=node('p','僅列出這筆預約實際指派的技師，主要技師不列入；至少勾選一位。');
   const vacationList=node('div');vacationList.className='frontdesk-vacation-options';
   vacationPanel.append(vacationHint,vacationList);
+  const bookedVacationTechnicians=Array.isArray(booking.vacationTechnicians)?booking.vacationTechnicians.filter(item=>item&&typeof item.id==='string'&&typeof item.name==='string'):[];
   const vacationBoxes=new Map();
   const selectedVacationIds=()=>[...vacationBoxes].filter(([,input])=>input.checked).map(([id])=>id);
   const memberPreview=node('section');memberPreview.className='frontdesk-rejection-member-preview';memberPreview.hidden=true;
@@ -470,7 +471,7 @@
     (reason.value===frozen?.rejectionReason?rejectionSettings.reasons.find(item=>item.id===reason.value):null);
    memberPreview.hidden=!selected;
    const base=String(selected?.memberDescription||selected?.label||'').trim();
-   const names=selectedVacationIds().map(id=>frontdeskTechnicians.find(item=>item.id===id)?.name||'原選擇技師');
+   const names=selectedVacationIds().map(id=>bookedVacationTechnicians.find(item=>item.id===id)?.name||'原選擇技師');
    const preface=names.length?'目前 '+names.join('、')+' 技師休假。\n':'';
    memberPreviewText.textContent=Array.from(preface+base).slice(0,400).join('');
    updateSubmit();
@@ -484,11 +485,11 @@
    vacationList.replaceChildren();
    vacationBoxes.clear();
    if(hasVacation){
-    const known=frontdeskTechnicians.slice();
+    const known=bookedVacationTechnicians.slice();
     for(const id of frozen?.vacationTechnicianIds||[]){
      if(!known.some(item=>item.id===id))known.push({id,name:'原選擇技師（名單已更新）'});
     }
-    if(!known.length)vacationList.append(node('p','目前沒有已啟用的技師，請管理端先設定技師。'));
+    if(!known.length)vacationList.append(node('p','本筆預約沒有可選擇的非主要技師。請確認預約中的技師分配。'));
     for(const technician of known){
      const option=node('label');option.className='frontdesk-vacation-option';
      const input=node('input');input.type='checkbox';input.value=technician.id;input.name='vacationTechnicianIds';
@@ -530,7 +531,7 @@
    feedback.textContent='請選擇原預約時間區間內的開始時間（含結束時間），每 10 分鐘一格。';return;
   }
   const detail=phone?{startTime:time.value,totalDurationMinutes:Number(duration.value)}:null;
-   const names=vacationIds?.map(id=>frontdeskTechnicians.find(item=>item.id===id)?.name||'技師').join('、');
+   const names=vacationIds?.map(id=>bookedVacationTechnicians.find(item=>item.id===id)?.name||'技師').join('、');
    const label=reason.options[reason.selectedIndex]?.textContent||reason.value;
    if(!frozen&&!confirmFrontdeskReview(booking,'rejected',label+(names?'；休假技師：'+names:''),detail))return;
    void review(booking,'rejected',submit,reason.value,detail,()=>close(true),vacationIds);
@@ -567,7 +568,7 @@
   // Authorized booking sync is not a logout: keep already loaded history visible.
   // Permission downgrade is a privacy boundary and always purges history.
   if(!person||person.status!=='approved'||person.permissionMode!=='review'){
-   clearPrivateHistory();frontdeskTechnicians=[];
+   clearPrivateHistory();
   }
    if(!person||person.status!=='approved'||person.permissionMode!=='review')stopSync();
   if(!person){
@@ -608,8 +609,6 @@
    showBookingToolbar(true);
    if(history)history.hidden=false;
    const result=await request('frontdesk.bookings',bookingId?{bookingId}:{});if(generation!==epoch)return false;
-   frontdeskTechnicians=Array.isArray(result.technicians)?
-     result.technicians.filter(item=>item&&typeof item.id==='string'&&typeof item.name==='string'):[];
    if(result.rejectionSettings&&Array.isArray(result.rejectionSettings.reasons)){
      rejectionSettings=result.rejectionSettings;
     }else{
@@ -620,7 +619,6 @@
     startSync();
    status.textContent='審核已通過，可處理目前商家的待確認預約。';
   }else{
-   frontdeskTechnicians=[];
    account.append(node('p','管理員已核准「僅接收預約訊息」，不會顯示會員資料與預約操作。'));
    status.textContent='審核已通過，已開通 LINE 預約通知權限。';
   }
