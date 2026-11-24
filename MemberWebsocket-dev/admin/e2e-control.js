@@ -6484,8 +6484,13 @@
       document.querySelector('#eventTicketEditorModal .editor-modal-close')?.click();
     }
     document.getElementById('bookingTab')?.click();
-    const booking = await waitFor(() => document.getElementById('bookingOverviewCalendarGrid'), 3000);
-    actual.bookingCalendar = Boolean(booking && booking.children.length === 42
+    // The booking panel mounts asynchronously; require 42 fully rendered cells,
+    // not merely the presence of an initially empty grid container.
+    const booking = await waitFor(() => {
+      const grid = document.getElementById('bookingOverviewCalendarGrid');
+      return grid && grid.children.length === 42 ? grid : null;
+    }, 5000);
+    actual.bookingCalendar = Boolean(booking
       && !booking.querySelector('[data-admin-calendar-item-id], [data-ticket-calendar-item-id]'));
     return Object.values(actual).every(Boolean)
       ? pass('三個日曆分開顯示，活動與票券點日期可新增，批次編輯入口已移除。', {
