@@ -87,11 +87,12 @@ test('AC-017: light and dark schemes color all calendar tiles with the shared de
     const tiles = page.locator('#' + grid + ' .admin-calendar-day:not(.admin-calendar-day-empty)');
     const values = [];
     for (const theme of ['light', 'dark']) {
-      const actual = await tiles.first().evaluate((node, themeName) => {
-        document.documentElement.setAttribute('data-theme', themeName);
+      await page.evaluate((themeName) => window.LumenTheme.set(themeName), theme);
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      const actual = await tiles.first().evaluate((node) => {
         const tile = getComputedStyle(node);
         return { background: tile.backgroundColor, foreground: tile.color, border: tile.borderTopColor };
-      }, theme);
+      });
       values.push(actual);
       expect(actual.background).not.toBe('rgba(0, 0, 0, 0)');
       expect(actual.foreground).not.toBe(actual.background);
