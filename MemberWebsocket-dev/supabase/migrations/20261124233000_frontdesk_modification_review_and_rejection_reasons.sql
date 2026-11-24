@@ -130,7 +130,7 @@ begin
    then raise exception 'FRONTDESK_MODIFICATION_REVIEW_DECLARE_DRIFT';end if;
  d:=replace(d,old_text,new_text);
 
- old_text:='  execute format(''update %I.bookings set status=$2,admin_note=';
+ old_text:=' execute format(''update %I.bookings set status=$2,admin_note=';
  new_text:='  v_review_kind:=platform_private.frontdesk_review_kind(t.runtime_schema,bid,''pending'');'||E'\n'||old_text;
  if (length(d)-length(replace(d,old_text,'')))<>length(old_text)
    then raise exception 'FRONTDESK_MODIFICATION_REVIEW_SNAPSHOT_DRIFT';end if;
