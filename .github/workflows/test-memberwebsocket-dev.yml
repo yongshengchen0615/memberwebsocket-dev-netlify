@@ -169,7 +169,7 @@ jobs:
       # every original test file still runs, with the same per-job timeout.
       - name: Check frontdesk tenant, RLS and booking transaction contracts
         if: matrix.suite == 'frontdesk-access'
-        run: node --test MemberWebsocket-dev/tests/integration/frontdesk_access.cjs
+        run: node --test MemberWebsocket-dev/tests/integration/frontdesk_access.cjs MemberWebsocket-dev/tests/integration/frontdesk_direct_cancellation.cjs
       - name: Check frontdesk API and race contracts
         if: matrix.suite == 'frontdesk-api'
         run: node --test MemberWebsocket-dev/tests/integration/frontdesk_api.cjs MemberWebsocket-dev/tests/integration/frontdesk_legacy.cjs MemberWebsocket-dev/tests/integration/frontdesk_race.cjs
