@@ -121,3 +121,15 @@ html[data-theme] #calendarItemVisibilityPolicy {
 @media (hover: none) {
   html[data-theme] :is(#eventsPanel, #calendarPanel, #bookingPanel) .admin-calendar-day { touch-action: manipulation; }
 }
+
+/* Calendar-only merchants retain their pre-existing holiday CRUD under the
+   Booking navigation label without receiving booking operations or data. */
+#bookingPanel.business-holiday-only > :not(#bookingOverviewCalendarWorkspace) {
+  display: none !important;
+}
+#bookingPanel.business-holiday-only #bookingOverviewCalendarWorkspace {
+  display: block;
+}
+#bookingPanel.business-holiday-only .admin-calendar-booking {
+  display: none !important;
+}
