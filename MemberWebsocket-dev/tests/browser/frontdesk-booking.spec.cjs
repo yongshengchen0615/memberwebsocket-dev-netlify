@@ -881,6 +881,7 @@ for(const width of [390,1280])test('FRONTDESK_REJECTION_SETTINGS_EDITOR_'+width+
  await rows.nth(2).locator('textarea').fill('設備維護，請重新預約。');
  await rows.nth(2).getByLabel('需要設定衝突時間並登記現場預約').check();
  await rows.nth(2).getByLabel('有休假技師（櫃檯端可勾選已設定的技師）').check();
+ await expect(rows.nth(2).locator('.frontdesk-rejection-preview')).toContainText('目前預約時間：{預約日期} {開始時間}，{勾選的技師} 技師休假。');
  expect(await rows.nth(2).locator('.frontdesk-rejection-toggles label').allTextContents())
   .toEqual(['需要設定衝突時間並登記現場預約','有休假技師（櫃檯端可勾選已設定的技師）']);
  await rows.nth(2).getByRole('button',{name:'原因 3 上移'}).click();
@@ -906,7 +907,8 @@ for(const width of [390,1280])test('FRONTDESK_REJECTION_SETTINGS_EDITOR_'+width+
  expect(writes[0].rejectionSettings.reasons.every(row=>row.enabled===true)).toBe(true);
  expect(writes[0].rejectionSettings.reasons.find(row=>row.id==='unrecorded_phone_booking')).toBeUndefined();
  await expect(form.locator('[name=rejectionDropdownTitle]')).toHaveValue('請選擇本店原因');
- await expect(form.locator('.frontdesk-rejection-preview').nth(1)).toContainText('設備維護，請重新預約。');
+ await expect(form.locator('.frontdesk-rejection-preview').nth(1)).toContainText('目前預約時間：{預約日期} {開始時間}，{勾選的技師} 技師休假。');
+ await expect(form.locator('.frontdesk-rejection-preview').nth(1)).not.toContainText('設備維護，請重新預約。');
  await page.getByRole('tab',{name:'LINE 設定'}).click();
  await expect(form).toBeHidden();
  await page.getByRole('tab',{name:'拒絕預約設定'}).click();
