@@ -205,7 +205,7 @@ serveBusiness('booking-line-notifications',async (request: Request) => {
         // A queued pending acknowledgement must not arrive after confirmation or cancellation.
         // Verify recipient ownership before reading any private participant details.
         let memberPendingDetails = '';
-        if (job.channel === 'member' && String(job.event_key || '').endsWith(':created:member')) {
+        if (job.channel === 'member' && (String(job.event_key || '').endsWith(':created:member') || String(job.event_key || '').endsWith(':member-pending'))) {
           if (!job.booking_id) { failed++; return; }
           const pending = await db.from('bookings')
             .select('status,members!bookings_member_id_fkey(line_user_id,status,is_test_account)')
@@ -228,12 +228,18 @@ serveBusiness('booking-line-notifications',async (request: Request) => {
             else skipped++;
             return;
           }
-          try {
-            memberPendingDetails = await loadMemberPendingBookingDetails(db, job.booking_id);
-          } catch {
-            // Leave the claimed job retryable instead of sending a partial notice.
-            failed++;
-            return;
+          // Creation notices are enqueued before participant rows exist, so
+          // only those require post-commit enrichment. Modification notices
+          // already include all participant blocks from the deferred SQL trigger.
+          // Appending again would show duplicate people, services and amounts.
+          if (String(job.event_key || '').endsWith(':created:member')) {
+            try {
+              memberPendingDetails = await loadMemberPendingBookingDetails(db, job.booking_id);
+            } catch {
+              // Leave the claimed job retryable instead of sending a partial notice.
+              failed++;
+              return;
+            }
           }
         }
 
