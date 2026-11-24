@@ -62,3 +62,48 @@ test('AC-188 upgrade: existing tenant row types and data survive migration outsi
   assert.equal((await h.db.query(`select count(*)::int n from ${s}.booking_no_show_events`)).rows[0].n,0,'no historical backfill');
  }finally{await h.db.close();}
 });
+
+
+test('AC-MOD-SQL-001: audited member edits enqueue one scoped pending LINE notice; rollback and replay are safe', async () => {
+ const fs=require('node:fs'),path=require('node:path');
+ const migration=fs.readFileSync(path.resolve(__dirname,'../../supabase/migrations/20261124210000_member_booking_modification_pending_line.sql'),'utf8');
+ const h=await setup();
+ try {
+  await h.db.exec(migration);
+  // A test project may already have the management-API migration record
+  // before the CI release ledger catches up: the second application is a no-op.
+  await h.db.exec(migration);
+  const b=await h.make();
+  const noteRows=()=>h.q("select * from S.notice_outbox where booking_id=$1 and channel='member' and event_key like '%:member-pending'",[b]);
+  assert.equal((await noteRows()).length,0,'new booking is not a modified booking');
+
+  await h.db.exec('begin');
+  await h.q("update S.bookings set member_note='rolled-back proposal' where id=$1",[b]);
+  await h.q("insert into S.booking_audit_events(actor_line_user_id,actor_role,action,target_type,target_id,result,metadata) values ($1,'member','BOOKING_UPDATED','booking',$2,'success','{}'::jsonb)",[memberLine,b]);
+  await h.db.exec('rollback');
+  assert.equal((await noteRows()).length,0,'transaction rollback must not enqueue LINE');
+
+  const edit=async message=>{
+   await h.db.exec('begin');
+   try{
+    await h.q('update S.bookings set member_note=$2 where id=$1',[b,message]);
+    await h.q("insert into S.booking_audit_events(actor_line_user_id,actor_role,action,target_type,target_id,result,metadata) values ($1,'member','BOOKING_UPDATED','booking',$2,'success','{}'::jsonb)",[memberLine,b]);
+    await h.db.exec('commit');
+   }catch(error){await h.db.exec('rollback');throw error;}
+  };
+  await edit('first proposal');
+  let notices=await noteRows();
+  assert.equal(notices.length,1,'member edit should create exactly one pending notice');
+  assert.equal(notices[0].recipient,memberLine,'recipient must be the owning member');
+  assert.equal(notices[0].status,'pending','LINE must remain in durable outbox');
+  assert.match(notices[0].message_text,/^【修改預約】\n狀態：等待櫃檯或管理端確認修改預約/);
+  await edit('later proposal');
+  notices=await noteRows();
+  assert.equal(notices.length,1,'unclaimed edits to same booking must coalesce');
+  assert.equal((await h.state(b)).status,'pending','member edits cannot approve their own booking');
+  const template=(await h.db.query(
+   "select f->>'definition' as source from platform_private.business_templates t cross join lateral jsonb_array_elements(t.snapshot->'functions') f where t.version='business-v1-20261019' and f->>'name'='notice_enqueue'"
+  )).rows[0].source;
+  assert.match(template,/member-modification-pending/,'new tenant provisioning must include the notification');
+ }finally{await h.db.close();}
+});
