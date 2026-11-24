@@ -156,7 +156,7 @@
           card.append(node('h4', '預約編號：' + String(record.bookingId || '—')));
           card.append(node('p', '處理時間：' + formatActionAt(record.actionAt)));
           card.append(node('p', '處理人員：' + String(record.actorName || '櫃檯人員')));
-          if (statusKey === 'rejected') card.append(node('p', '拒絕原因：' + rejectionText(record.rejectionReason)));
+          if (statusKey === 'rejected') card.append(node('p', '拒絕原因：' + (booking?.rejectionReasonLabel || rejectionText(record.rejectionReason))));
           if (record.currentStatus && record.currentStatus !== statusKey)
             card.append(node('p', '目前狀態：' + displayStatus(record.currentStatus) + '（與當時操作不同）',
               'frontdesk-history-state'));
