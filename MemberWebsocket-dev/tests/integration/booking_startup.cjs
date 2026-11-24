@@ -124,8 +124,12 @@ async function fixture(mode) {
     // A foreground slot refresh now blocks further edits until its authoritative
     // response settles. Observe Loading completion instead of waiting a guessed
     // number of milliseconds before exercising the participant accordion.
-    const loading = w.document.querySelector('.async-action-feedback');
-    if (loading && !loading.hidden) {
+    const waitForForegroundIdle = async () => {
+      // Allow the change handler to start its slots request before checking
+      // the overlay, then wait for the real backend-completion signal.
+      await tick(0);
+      const loading = w.document.querySelector('.async-action-feedback');
+      if (!loading || loading.hidden) return;
       await new Promise((resolve) => {
         const observer = new w.MutationObserver(() => {
           if (!loading.hidden) return;
@@ -134,7 +138,8 @@ async function fixture(mode) {
         });
         observer.observe(loading, { attributes: true, attributeFilter: ['hidden'] });
       });
-    }
+    };
+    await waitForForegroundIdle();
     assert.equal(w.document.querySelectorAll('[data-group-history]').length, 0, 'Other-day group cards stay out of the date dialog');
 
     // AC-001–004: group booking is a single-open accordion, without losing selections.
@@ -148,6 +153,7 @@ async function fixture(mode) {
       partySize.dispatchEvent(new w.Event('change', { bubbles: true }));
     };
     setPartySize(3);
+    await waitForForegroundIdle();
     assertOnlyExpanded(0, 'First participant opens by default');
     cards()[1].querySelector('summary').click();
     assertOnlyExpanded(1, 'Opening second participant closes first');
@@ -157,6 +163,7 @@ async function fixture(mode) {
     const secondAdd = cards()[1].querySelector('.service-add-button');
     assert.ok(secondAdd, 'Second participant must be able to choose a service');
     secondAdd.click();
+    await waitForForegroundIdle();
     assertOnlyExpanded(1, 'Adding an item preserves the active participant');
     assert.match(cards()[1].querySelector('.selected-service-list').textContent, /腳底40/);
     cards()[2].querySelector('summary').click();
