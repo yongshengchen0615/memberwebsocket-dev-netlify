@@ -46,8 +46,8 @@ test('AC-005: fallback chat link uses configured OA and not client-supplied reci
 test('AC-006: handler dispatches only after the SQL application is committed',()=>{
  const source=readFileSync(path.join(base,'supabase/functions/_shared/frontdesk-handler.mjs'),'utf8');
  assert.match(source,/sendFrontdeskApplicationLineMessage/);
- assert.match(source,/const data=await rpc\('platform_frontdesk_request'/);
- assert.ok(source.indexOf("const data=await rpc('platform_frontdesk_request'")<source.indexOf('await sendFrontdeskApplicationLineMessage('));
+ assert.match(source,/const data=await rpc\([^\n]*'platform_frontdesk_request'/);
+ assert.ok(source.indexOf('const data=await rpc(')<source.indexOf('await sendFrontdeskApplicationLineMessage('));
  assert.match(source,/lineApplicationMessage/);
 });
 test('AC-007: frontend retains application and explains LINE provider failure',()=>{
