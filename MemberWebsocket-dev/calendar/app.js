@@ -207,7 +207,7 @@
       const labels = Array.isArray(item.allowedTierLabels) && item.allowedTierLabels.length ? item.allowedTierLabels.join('、') : '未設定';
       tierAccess.textContent = item.tierEligible === false ? `可參加階級：${labels}。目前會員階級尚無法參加。` : `可參加階級：${labels}。`;
       detail.append(tierAccess);
-      const linkUrl = resolveCalendarLinkForItem(item);
+      const linkUrl = resolveCalendarLink(item.linkUrl) || resolveCalendarLinkForItem(item);
       const linkLabel = String(item.linkLabel || '').trim();
       if (item.tierEligible !== false && linkLabel && isSafeCalendarLink(linkUrl)) {
         const link = document.createElement('a');
