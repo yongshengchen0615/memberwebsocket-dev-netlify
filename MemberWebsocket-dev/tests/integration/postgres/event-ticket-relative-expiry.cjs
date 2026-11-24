@@ -22,6 +22,10 @@ test('Postgres: existing tenant, public schema, and new tenant have per-claim ex
       "insert into " + s + ".members(line_user_id,member_code,invite_code,status,membership_status,is_test_account) values($1,'EXPIRY-MEMBER','ABCD987654','active','active',true) returning id",
       ['U' + '3'.repeat(32)]
     )).rows[0].id;
+    const secondMemberId = (await h.db.query(
+      "insert into " + s + ".members(line_user_id,member_code,invite_code,status,membership_status,is_test_account) values($1,'EXPIRY-MEMBER-2','ABCD987655','active','active',true) returning id",
+      ['U' + '5'.repeat(32)]
+    )).rows[0].id;
     const oldTicketId = (await h.db.query(
       "insert into " + s + ".event_tickets(event_ticket_id,title,ticket_type,description,usage_method,usage_instructions,status,created_by,updated_by) values('EXPIRY-LEGACY','Legacy','coupon','Synthetic','Visit','Use','active','admin','admin') returning id"
     )).rows[0].id;
@@ -57,7 +61,7 @@ test('Postgres: existing tenant, public schema, and new tenant have per-claim ex
     const currentClaim = 'EXPIRY-VALID';
     const valid = (await h.db.query(
       "insert into " + s + ".event_ticket_claims(claim_id,event_ticket_id,member_id,ticket_type,ticket_title,status) values($1,$2,$3,'coupon','Rolling','claimed') returning claimed_at,expires_at",
-      [currentClaim,ticketId,memberId]
+      [currentClaim,ticketId,secondMemberId]
     )).rows[0];
     assert.equal(Date.parse(String(valid.expires_at))-Date.parse(String(valid.claimed_at)), 2 * 86400000);
 
