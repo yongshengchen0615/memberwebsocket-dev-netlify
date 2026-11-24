@@ -96,3 +96,72 @@ grant execute on function public.platform_member_direct_cancel_booking(uuid,uuid
   to service_role;
 comment on function public.platform_member_direct_cancel_booking(uuid,uuid,uuid,text,timestamptz) is
   'Service-role-only, tenant-locked member cancellation. Requires frontdesk grant and configured entry; updates booking, audit, notifications and benefit release atomically.';
+
+
+-- Existing notice_enqueue sends cancelled events to members only. For member
+-- direct-cancel events (and *only* those events) also enqueue administrator and
+-- authorized frontdesk notifications. Patch the template for future businesses
+-- and existing tenant functions in one migration transaction.
+do $install_direct_cancel_notices$
+declare
+  tpl jsonb;
+  f jsonb;
+  functions jsonb := '[]'::jsonb;
+  definition text;
+  marker text := E'  end if;\n\n  begin\n    perform public.notice_dispatch(20);';
+  addition text := $fanout$  end if;
+
+  -- Legacy manager-reviewed cancellations retain their existing recipients.
+  -- Only an authenticated member's atomic frontdesk cancellation has this
+  -- system review marker. The member message is already enqueued above.
+  if event_kind = 'cancelled'
+     and NEW.cancellation_reviewed_by = 'system:frontdesk' then
+    admin_message := '【取消預約】' || E'\n' || admin_details;
+    insert into public.notice_outbox(
+      booking_id,event_key,channel,recipient,message_text
+    )
+      select NEW.id,event_id,'admin',a.line_user_id,left(admin_message,8000)
+      from public.admins a
+      where a.status='active' and a.role='admin'
+        and a.line_user_id ~ '^U[0-9a-f]{32}$'
+      on conflict (event_key,channel,recipient) do nothing;
+
+    insert into public.notice_outbox(
+      booking_id,event_key,channel,recipient,message_text
+    )
+      select NEW.id,event_id,'frontdesk',d.line_user_id,left(admin_message,8000)
+      from public.frontdesk_notice_recipients d
+      on conflict (event_key,channel,recipient) do nothing;
+  end if;
+
+  begin
+    perform public.notice_dispatch(20);$fanout$;
+  business record;
+  affected integer := 0;
+begin
+  select snapshot into strict tpl from platform_private.business_templates
+    where version='business-v1-20261019' for update;
+  for f in select value from jsonb_array_elements(tpl->'functions') loop
+    if f->>'name' = 'notice_enqueue' then
+      definition := f->>'definition';
+      if position(marker in definition) = 0
+         or position('frontdesk_notice_recipients' in definition) = 0 then
+        raise exception 'DIRECT_CANCELLATION_NOTICE_TEMPLATE_DRIFT';
+      end if;
+      definition := replace(definition,marker,addition);
+      f := jsonb_set(f,'{definition}',to_jsonb(definition));
+      for business in select runtime_schema from platform_private.tenants
+                        where runtime_schema is not null loop
+        execute platform_private.business_sql(definition,business.runtime_schema);
+      end loop;
+      affected := affected + 1;
+    end if;
+    functions := functions || jsonb_build_array(f);
+  end loop;
+  if affected <> 1 then
+    raise exception 'DIRECT_CANCELLATION_NOTICE_TEMPLATE_MISSING';
+  end if;
+  update platform_private.business_templates
+    set snapshot=jsonb_set(tpl,'{functions}',functions)
+    where version='business-v1-20261019';
+end $install_direct_cancel_notices$;
