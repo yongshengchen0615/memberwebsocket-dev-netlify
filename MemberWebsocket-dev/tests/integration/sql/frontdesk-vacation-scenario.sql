@@ -60,7 +60,7 @@ begin
  end loop;
  result:=public.platform_frontdesk_rejection_request(t.id,actor,ch,issued,'booking.update',body);
  description:=result#>>'{booking,rejectionMemberDescription}';
- if description is distinct from '目前 合成A 技師休假。'||E'\n'||'預約中有休假技師'
+ if description is distinct from '目前預約時間：'||to_char(current_date+3,'YYYY/MM/DD')||' 10:00，合成A 技師休假。'
    or result#>>'{booking,status}' is distinct from 'rejected' then
    raise exception 'VACATION_BOOKING_SNAPSHOT_INVALID %',result;end if;
  result:=public.platform_frontdesk_rejection_request(t.id,actor,ch,issued,'booking.update',body);
