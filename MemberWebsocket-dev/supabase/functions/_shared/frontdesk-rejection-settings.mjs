@@ -19,9 +19,26 @@ const DEFAULT_REJECTION_SETTINGS = {
       "hasVacationTechnicians": false,
       "enabled": true
     }
-  ]
+  ],
+  // Separate review policy: a modification is not a new booking request.
+  modification: {
+    dropdownTitle: "請選擇拒絕修改原因",
+    reasons: [{
+      id: "custom_00000000-0000-4000-8000-000000000001",
+      label: "修改後時段無法安排",
+      requiresConflictTime: false,
+      memberDescription: "修改後的預約時間無法安排，請重新選擇其他時段。",
+      hasVacationTechnicians: false,
+      enabled: true
+    }]
+  }
 };
-function defaultRejectionSettings(){return {dropdownTitle:DEFAULT_REJECTION_SETTINGS.dropdownTitle,reasons:DEFAULT_REJECTION_SETTINGS.reasons.map(reason=>({...reason}))};}
+function defaultRejectionSettings(){return {
+ dropdownTitle:DEFAULT_REJECTION_SETTINGS.dropdownTitle,
+ reasons:DEFAULT_REJECTION_SETTINGS.reasons.map(reason=>({...reason})),
+ modification:{dropdownTitle:DEFAULT_REJECTION_SETTINGS.modification.dropdownTitle,
+  reasons:DEFAULT_REJECTION_SETTINGS.modification.reasons.map(reason=>({...reason}))}
+};}
 
 function invalid(message){throw new TypeError(message);}
 
@@ -32,9 +49,9 @@ function boundedText(value,max,field,{optional=false,multiline=false}={}){
  return text.replace(/\r\n?/g,"\n");
 }
 
-function normalizeRejectionSettings(input){
+function normalizeReasonBucket(input,fallbackTitle=DEFAULT_REJECTION_SETTINGS.dropdownTitle){
  if(!input||typeof input!=="object"||Array.isArray(input)||Object.keys(input).some(key=>!["dropdownTitle","reasons"].includes(key)))invalid("INVALID_REJECTION_SETTINGS");
- const dropdownTitle=boundedText(input.dropdownTitle,60,"INVALID_REJECTION_TITLE",{optional:true})||DEFAULT_REJECTION_SETTINGS.dropdownTitle;
+ const dropdownTitle=boundedText(input.dropdownTitle,60,"INVALID_REJECTION_TITLE",{optional:true})||fallbackTitle;
  if(!Array.isArray(input.reasons)||input.reasons.length>30)invalid("INVALID_REJECTION_REASONS");
  const ids=new Set(),labels=new Set();
  const reasons=input.reasons.map(row=>{
@@ -52,6 +69,14 @@ function normalizeRejectionSettings(input){
  return {dropdownTitle,reasons};
 }
 
+function normalizeRejectionSettings(input){
+ if(!input||typeof input!=="object"||Array.isArray(input)||Object.keys(input).some(key=>!["dropdownTitle","reasons","modification"].includes(key)))invalid("INVALID_REJECTION_SETTINGS");
+ const {modification,...ordinary}=input;
+ return {...normalizeReasonBucket(ordinary),
+  modification:normalizeReasonBucket(modification===undefined?DEFAULT_REJECTION_SETTINGS.modification:modification,
+   DEFAULT_REJECTION_SETTINGS.modification.dropdownTitle)};
+}
+
 function validateRejectionSettingsUpdate(previous,input){
  normalizeRejectionSettings(previous);
  // Removing a reason affects only future choices. Existing bookings retain
@@ -60,9 +85,11 @@ function validateRejectionSettingsUpdate(previous,input){
  return normalizeRejectionSettings(input);
 }
 
-function resolveRejectionReason(settings,id,route){
+function resolveRejectionReason(settings,id,route,reviewKind='new'){
  const normalized=normalizeRejectionSettings(settings);
- const reason=normalized.reasons.find(item=>item.id===id);
+ if(!['new','modification'].includes(reviewKind))invalid("INVALID_BOOKING_REVIEW_KIND");
+ const group=reviewKind==='modification'?normalized.modification:normalized;
+ const reason=group.reasons.find(item=>item.id===id);
  if(!reason)invalid("BOOKING_REJECTION_REASON_REQUIRED");
  if(route!==(reason.requiresConflictTime?"booking.reject_phone":"booking.update"))invalid("REJECTION_ROUTE_MISMATCH");
  return {id:reason.id,label:reason.label,memberDescription:reason.memberDescription,requiresConflictTime:reason.requiresConflictTime,hasVacationTechnicians:reason.hasVacationTechnicians};

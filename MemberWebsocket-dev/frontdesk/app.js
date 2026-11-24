@@ -10,7 +10,11 @@
  ];
  let rejectionSettings={dropdownTitle:'請選擇拒絕原因',reasons:legacyRejectionReasons};
 
- const rejectionReasonById=id=>rejectionSettings.reasons.find(item=>item.id===id);
+ const bookingReviewKind=booking=>booking?.reviewKind==='modification'?'modification':'new';
+ const rejectionSettingsFor=booking=>bookingReviewKind(booking)==='modification'
+  ?rejectionSettings.modification||{dropdownTitle:'請選擇拒絕修改原因',reasons:[]}
+  :rejectionSettings;
+ const rejectionReasonById=(id,booking)=>rejectionSettingsFor(booking).reasons.find(item=>item.id===id);
  let syncTimer=null,syncEnabled=false,syncInFlight=false,syncRevision=null,syncFailures=0,syncGeneration=0,syncPendingGeneration=0,syncQueued=false,syncRefreshing=false,syncSessionGeneration=0;
  const node=(tag,text)=>{const n=document.createElement(tag);if(text)n.textContent=text;return n;};
  const progress=document.getElementById('progress'),toolbar=document.querySelector('.frontdesk-toolbar');
@@ -153,7 +157,7 @@
   }
  }
  function confirmFrontdeskReview(booking,next,reason='',phoneBooking=null){
-  const details=[`預約：${String(booking.name||booking.memberName||booking.customerName||booking.id)}`,`時間：${String(booking.startAt||booking.bookingDate||'')} ${String(booking.startTime||'')}`,`操作：${next==='confirmed'?'確認預約':'拒絕預約'}`];
+  const details=[`預約：${String(booking.name||booking.memberName||booking.customerName||booking.id)}`,`時間：${String(booking.startAt||booking.bookingDate||'')} ${String(booking.startTime||'')}`,`操作：${bookingReviewKind(booking)==='modification'?(next==='confirmed'?'確認修改預約':'拒絕修改預約'):(next==='confirmed'?'確認預約':'拒絕預約')}`];
   if(reason)details.push(`原因：${reason}`);
   if(phoneBooking)details.push(`現場預約：${phoneBooking.startTime}，${phoneBooking.totalDurationMinutes} 分鐘`);
   return window.confirm(`${details.join('\n')}\n\n請再次確認，此操作將更新預約狀態。`);
@@ -161,11 +165,11 @@
  async function review(booking,next,button,rejectionReason,phoneBooking=null,onSuccess=null,vacationIds=null){
   if(busy)return;const key=booking.id,known=pending.get(key);
   if(known&&known.status!==next){status.textContent='前次操作結果尚未確認，請先重試相同操作。';return;}
-  if(!known&&next==='rejected'&&!rejectionReasonById(rejectionReason)){
+  if(!known&&next==='rejected'&&!rejectionReasonById(rejectionReason,booking)){
    status.textContent='請先選擇拒絕原因。';return;
   }
   const body=known||{bookingId:key,status:next,expectedUpdatedAt:booking.updatedAt,requestId:crypto.randomUUID(),...(next==='rejected'?{rejectionReason,...(Array.isArray(vacationIds)?{vacationTechnicianIds:vacationIds}:{})}:{}),...(phoneBooking?{phoneRequestId:'PHONE-'+crypto.randomUUID(),startTime:phoneBooking.startTime,totalDurationMinutes:phoneBooking.totalDurationMinutes}:{})};pending.set(key,body);lock(true);const generation=epoch;const finishFeedback=window.AsyncActionFeedback?.begin(next==='confirmed'?'正在確認預約並同步最新資料…':'正在拒絕預約並同步最新資料…');
-  try{await request(body.phoneRequestId?'frontdesk.booking.reject-phone':'frontdesk.booking.update',body);if(generation!==epoch)return;pending.delete(key);await load();if(onSuccess)onSuccess();if(body.phoneRequestId)void loadConflictHistory();status.textContent=body.phoneRequestId?'原預約已拒絕，電話／現場預約已登記並直接確認，時段已保留。':next==='confirmed'?'預約已確認。':'預約已拒絕。';}
+  try{await request(body.phoneRequestId?'frontdesk.booking.reject-phone':'frontdesk.booking.update',body);if(generation!==epoch)return;pending.delete(key);await load();if(onSuccess)onSuccess();if(body.phoneRequestId)void loadConflictHistory();status.textContent=body.phoneRequestId?'原預約已拒絕，電話／現場預約已登記並直接確認，時段已保留。':bookingReviewKind(booking)==='modification'?(next==='confirmed'?'修改預約已確認。':'修改預約已拒絕。'):next==='confirmed'?'預約已確認。':'預約已拒絕。';}
   catch(error){if(generation!==epoch)return;let refreshed=false;if(!error.uncertain){pending.delete(key);try{await load();refreshed=true;}catch{}}else button.textContent='重試相同操作';failure(error,refreshed);}
   finally{finishFeedback?.();lock(false);}
  }
@@ -191,7 +195,9 @@
    times.append(dateLabel,timeLabel);
    const badge=node('span',booking.cancellationPending?'取消待審核':labels[booking.status]||booking.status||'待確認');
    badge.className='frontdesk-badge';badge.dataset.status=booking.status||'pending';
-   heading.append(times,badge);card.append(heading);
+   const kind=node('span',bookingReviewKind(booking)==='modification'?'修改預約':'新預約');
+   kind.className='frontdesk-review-kind';kind.dataset.kind=bookingReviewKind(booking);
+   heading.append(times,kind,badge);card.append(heading);
    card.append(node('h3','預約人：'+(booking.name||'未提供預約姓名')));
    const details=node('div');details.className='frontdesk-card-details';
    const phoneField=node('p'),phoneLabel=node('span','聯絡電話'),phone=String(booking.phone||'').trim();
@@ -225,7 +231,9 @@
    }
    if(booking.status==='pending'&&!booking.cancellationPending){
     const actions=node('div');actions.className='frontdesk-actions';
-    for(const [next,label]of [['confirmed','確認預約'],['rejected','拒絕預約']]){
+    for(const [next,label]of (bookingReviewKind(booking)==='modification'
+     ?[['confirmed','確認修改預約'],['rejected','拒絕修改預約']]
+     :[['confirmed','確認預約'],['rejected','拒絕預約']])){
      const b=node('button',label);b.type='button';b.dataset.reviewAction=next;
      b.className=next==='confirmed'?'frontdesk-primary':'frontdesk-danger';
      b.onclick=()=>{if(next==='rejected'){const existing=pending.get(booking.id);if(existing&&existing.status!=='rejected'){status.textContent='前次操作結果尚未確認，請先重試相同操作。';return;}openRejectionDialog(booking,b);}else if(confirmFrontdeskReview(booking,'confirmed'))void review(booking,next,b);};actions.append(b);
@@ -360,15 +368,17 @@
  function openRejectionDialog(booking,trigger){
   if(document.querySelector('[data-frontdesk-rejection-dialog]'))return;
   const frozen=pending.get(booking.id);
+  const policy=rejectionSettingsFor(booking);
+  const rejectionReasonById=id=>policy.reasons.find(item=>item.id===id);
   const overlay=node('div');overlay.className='frontdesk-modal-backdrop';overlay.dataset.frontdeskRejectionDialog='true';
   const dialog=node('section');dialog.className='frontdesk-rejection-modal';
   dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');
-  const heading=node('h2','拒絕預約');heading.id='frontdesk-rejection-heading';dialog.setAttribute('aria-labelledby',heading.id);
+  const heading=node('h2',bookingReviewKind(booking)==='modification'?'拒絕修改預約':'拒絕預約');heading.id='frontdesk-rejection-heading';dialog.setAttribute('aria-labelledby',heading.id);
   const help=node('p','請先選擇拒絕原因，再確認送出。');
   const form=node('form');form.noValidate=true;form.className='frontdesk-rejection-form';
-  const reasonField=node('label',String(rejectionSettings.dropdownTitle||'請選擇拒絕原因')),reason=node('select');reason.required=true;
+  const reasonField=node('label',String(policy.dropdownTitle||'請選擇拒絕原因')),reason=node('select');reason.required=true;
   reason.setAttribute('aria-label','選擇拒絕預約原因');
-  const options=[{id:'',label:rejectionSettings.reasons.length?'請選擇拒絕原因':'目前沒有可使用的拒絕原因'},...rejectionSettings.reasons];
+  const options=[{id:'',label:policy.reasons.length?'請選擇拒絕原因':'目前沒有可使用的拒絕原因'},...policy.reasons];
   if(frozen?.rejectionReason&&!options.some(item=>item.id===frozen.rejectionReason))options.push({id:frozen.rejectionReason,label:frozen.rejectionReasonLabel||'歷史拒絕原因'});
   for(const item of options){
    const option=node('option',item.label);option.value=item.id;reason.append(option);
@@ -447,7 +457,7 @@
   const feedback=node('p');feedback.className='frontdesk-phone-message';feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');
   const footer=node('div');footer.className='frontdesk-modal-actions';
   const cancel=node('button','取消');cancel.type='button';cancel.className='frontdesk-modal-cancel';
-  const submit=node('button','確認拒絕預約');submit.type='submit';submit.className='frontdesk-danger';submit.disabled=true;
+  const submit=node('button',bookingReviewKind(booking)==='modification'?'確認拒絕修改預約':'確認拒絕預約');submit.type='submit';submit.className='frontdesk-danger';submit.disabled=true;
   footer.append(cancel,submit);form.append(reasonField,vacationPanel,memberPreview,phonePanel,feedback,footer);
   dialog.append(heading,help,original,form);overlay.append(dialog);document.body.append(overlay);
   const close=(force=false)=>{
@@ -472,7 +482,7 @@
    (frozen?.rejectionReason===reason.value&&Boolean(frozen.phoneRequestId));
   const updateSubmit=()=>{
    const phone=requiresConflictTime();
-   submit.textContent=frozen?'重試相同操作':phone?'確認拒絕並登記現場預約':'確認拒絕預約';
+   submit.textContent=frozen?'重試相同操作':phone?'確認拒絕並登記現場預約':bookingReviewKind(booking)==='modification'?'確認拒絕修改預約':'確認拒絕預約';
    const validPhone=bookingDate&&validTime()&&validDuration();
    const overlaps=phone&&validPhone&&hasConflict();
    const policy=rejectionReasonById(reason.value);
@@ -486,7 +496,7 @@
   };
   const updatePreview=()=>{
    const selected=rejectionReasonById(reason.value)||
-    (reason.value===frozen?.rejectionReason?rejectionSettings.reasons.find(item=>item.id===reason.value):null);
+    (reason.value===frozen?.rejectionReason?policy.reasons.find(item=>item.id===reason.value):null);
    memberPreview.hidden=!selected;
    const base=String(selected?.memberDescription||selected?.label||'').trim();
    const names=selectedVacationIds().map(id=>bookedVacationTechnicians.find(item=>item.id===id)?.name||'原選擇技師');
@@ -507,7 +517,7 @@
   };
   const updateReason=()=>{
    const selected=rejectionReasonById(reason.value)||
-    (reason.value===frozen?.rejectionReason?rejectionSettings.reasons.find(item=>item.id===reason.value):null);
+    (reason.value===frozen?.rejectionReason?policy.reasons.find(item=>item.id===reason.value):null);
    const hasVacation=selected?.hasVacationTechnicians===true||
     (frozen?.rejectionReason===reason.value&&Array.isArray(frozen.vacationTechnicianIds)&&frozen.vacationTechnicianIds.length>0);
    vacationPanel.hidden=!hasVacation;
