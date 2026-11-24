@@ -32,7 +32,7 @@ async function installExistingPairedNoticeGuards(db, schema) {
     await db.exec(sql.slice(start, end + 1));
   }
   const getDefinition = async () => (await db.query(
-    "select pg_get_functiondef(to_regprocedure(format('%I.notice_enqueue()', $1))) as definition",
+    "select pg_get_functiondef(to_regprocedure(format('%I.notice_enqueue()', $1::text))) as definition",
     [schema],
   )).rows[0].definition;
   const original = await getDefinition();
