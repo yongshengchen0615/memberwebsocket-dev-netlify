@@ -37,7 +37,7 @@ test('AC-002..004, AC-007: direct cancellation is tenant-authorized, atomic and 
     await migration(h.db, '20261124175200_frontdesk_direct_member_cancellation.sql');
 
     const member = (await q(
-      "insert into S.members(line_user_id,member_code,invite_code,status,membership_status,is_test_account) values($1,'CANCEL-M','CNCL123456','active','active',true) returning id",
+      "insert into S.members(line_user_id,member_code,invite_code,status,membership_status,is_test_account) values($1,'CANCEL-M','ABCD654321','active','active',true) returning id",
       [memberActor]))[0].id;
     await q('update S.members set is_test_account=false where id=$1', [member]);
     await q("update S.booking_settings set require_primary_technician=false,work_start_time='08:00',work_end_time='22:00'");
