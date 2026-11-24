@@ -134,7 +134,7 @@ test('AC-FD-HIST-006: server action is tenant-authorized, read-only and migratio
  assert.match(css,/scrollbar-gutter: stable/);
  assert.match(css,/\.frontdesk-settings-body > button/);
  assert.doesNotMatch(css,/\.frontdesk-settings > button/);
- assert.match(frontdesk,/body\.append\(status, syncState, reload, tabs, content, historyPanel\)/);
+ assert.match(frontdesk,/body\.append\(status, syncState, reload, tabs, content, rejectionPanel, historyPanel\)/);
  assert.match(html,/frontdesk-line-flow-20261122-1/);
 });
 
