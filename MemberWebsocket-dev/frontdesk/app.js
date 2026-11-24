@@ -476,6 +476,15 @@
   };
   updateReason();reason.focus();
  }
+
+ function frontdeskApplicationChatUrl(person){
+  const oaId=String(frontdeskPolicy?.oaId||'');
+  if(!/^@[A-Za-z0-9._-]{3,40}$/.test(oaId))return '';
+  const store=String(document.getElementById('businessName')?.textContent||'商家').replace(/[\r\n\t]+/g,' ').slice(0,80);
+  const applicant=String(person?.displayName||'櫃檯人員').replace(/[\r\n\t]+/g,' ').slice(0,80);
+  const message=['【櫃檯人員權限申請】','商家：'+store,'申請人：'+applicant,'狀態：等待商家管理員審核'].join('\n');
+  return 'https://line.me/R/oaMessage/'+encodeURIComponent(oaId)+'/?'+encodeURIComponent(message);
+ }
  async function load(){
   const generation=++epoch,data=await request('frontdesk.bootstrap');if(generation!==epoch)return false;
   account.replaceChildren();list.replaceChildren();showBookingToolbar(false);
@@ -490,7 +499,7 @@
    account.append(node('h2','申請櫃檯人員資格'));
    account.append(node('p','使用 LINE 登入後，請確認已加入商家提供的櫃檯官方帳號，再按下方按鈕提出申請。商家管理員核准前，你無法收通知、查看或處理任何預約。'));
    const b=node('button','送出櫃檯人員申請');b.type='button';b.className='frontdesk-primary';
-   b.onclick=async()=>{if(busy)return;lock(true);const finishFeedback=window.AsyncActionFeedback?.begin('正在送出櫃檯資格申請…');try{await request('frontdesk.apply');await load();}catch(e){failure(e);}finally{finishFeedback?.();lock(false);}};
+   b.onclick=async()=>{if(busy)return;lock(true);const finishFeedback=window.AsyncActionFeedback?.begin('正在送出櫃檯資格申請…');try{const result=await request('frontdesk.apply');await load();if(result.lineApplicationMessage==='failed')status.textContent='申請已建立，但 LINE 通知尚未成功，請使用下方官方帳號連結自行傳送申請訊息。';else if(result.lineApplicationMessage==='sent')status.textContent='申請已建立，LINE 官方帳號已受理通知，請等待商家管理員審核。';}catch(e){failure(e);}finally{finishFeedback?.();lock(false);}};
    account.append(b);status.textContent='尚未申請櫃檯資格。';
    return;
   }
@@ -502,6 +511,12 @@
   if(person.status==='pending'){
    showProgress(2);
    account.append(node('p','申請已送出。請商家管理員前往「LINE 設定 → 預約 → 櫃檯官方帳號與人員權限」核准資格。核准前無法收通知或操作預約。'));
+   const chatUrl=frontdeskApplicationChatUrl(person);
+   if(chatUrl){
+    const link=node('a','在 LINE 開啟商家官方帳號並傳送申請訊息');
+    link.href=chatUrl;link.target='_blank';link.rel='noopener noreferrer';
+    account.append(node('p','若未收到 LINE 通知，可開啟商家官方帳號對話；訊息將預先填入，請在 LINE 中確認傳送。'),link);
+   }
    status.textContent='資格審核中，可以按「重新整理」查看結果。';return;
   }
   if(person.status!=='approved'){
