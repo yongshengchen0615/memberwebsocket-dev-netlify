@@ -186,7 +186,7 @@ begin
  old_reject:='when ''rejected'' then ''【預約未通過】''';
  new_reject:='when ''rejected'' then case when platform_private.frontdesk_review_kind(TG_TABLE_SCHEMA,NEW.id,''rejected'')=''modification'' then ''【拒絕修改預約】'' else ''【預約未通過】'' end';
 
- select t.snapshot into strict v_template from platform_private.business_templates t
+ select tmpl.snapshot into strict v_template from platform_private.business_templates tmpl
   where version='business-v1-20261019' for update;
  for item in select value from jsonb_array_elements(v_template->'functions') loop
   if item->>'name'='notice_enqueue' then
