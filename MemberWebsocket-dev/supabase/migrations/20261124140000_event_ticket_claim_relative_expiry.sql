@@ -1,8 +1,6 @@
 -- AC-001..AC-007: Optional per-claim rolling expiry for event tickets.
 -- Existing fixed starts_on/ends_on and pre-existing claims remain unchanged.
 -- Each claim receives its own immutable timestamp at issuance.
-begin;
-
 create or replace function platform_private.install_event_ticket_relative_expiry(p_schema text)
 returns void
 language plpgsql
@@ -122,4 +120,3 @@ comment on column public.event_tickets.validity_days_after_claim is
 comment on column public.event_ticket_claims.expires_at is
   'Immutable per-claim deadline (exclusive); null preserves legacy unlimited rolling validity.';
 notify pgrst, 'reload schema';
-commit;
