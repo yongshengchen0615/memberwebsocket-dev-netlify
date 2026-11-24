@@ -2668,8 +2668,10 @@
     }
     const booking = target.closest('[data-booking-calendar-id]');
     if (booking) {
-      document.getElementById('bookingTab')?.click();
-      window.setTimeout(() => window.dispatchEvent(new CustomEvent('member-admin:booking-focus', { detail: { bookingId: String(booking.dataset.bookingCalendarId || '') } })), 0);
+      // Reuse the existing booking-focus handoff (and its single scheduled task).
+      // The calendar button is synthesized, so it can carry the same safe ID.
+      booking.dataset.adminBookingId = String(booking.dataset.bookingCalendarId || '');
+      handleAdminCalendarGridClick(event);
       return;
     }
     const bookingDate = target.closest('[data-booking-calendar-date]');
@@ -2740,6 +2742,82 @@
     updateCalendarItemTypeUI();
     els.calendarItemEditorTitle.textContent = `新增${formatAdminDateValue(dateValue, true)}會員活動`;
     openEditorModal('calendar', opener);
+  }
+
+  function createCalendarTierAccess() {
+    const access = document.createElement('fieldset'); access.className = 'event-ticket-tier-access'; access.dataset.calendarTierAccess = 'true';
+    const legend = document.createElement('legend'); legend.textContent = '這個活動的參加會員階級';
+    const description = document.createElement('p'); description.textContent = '只在類型為「活動」時套用。每筆活動各自儲存設定，未符合階級的會員仍可看到活動與資格提示。';
+    const options = document.createElement('div'); options.className = 'event-ticket-tier-options';
+    CALENDAR_ITEM_TIER_KEYS.forEach((tierKey) => {
+      const label = document.createElement('label'); const input = document.createElement('input'); input.type = 'checkbox'; input.value = tierKey; input.checked = true; input.dataset.calendarAllowedTierKey = 'true';
+      label.append(input, document.createTextNode(CALENDAR_ITEM_TIER_LABELS[tierKey])); options.append(label);
+    });
+    const summary = document.createElement('output'); summary.className = 'event-ticket-tier-summary'; summary.dataset.calendarTierSummary = 'true'; summary.setAttribute('aria-live', 'polite');
+    access.append(legend, description, options, summary);
+    return access;
+  }
+
+  function ensureCalendarItemTierAccess() {
+    let access = document.getElementById('calendarItemAllowedTiers');
+    if (!access) {
+      access = createCalendarTierAccess(); access.id = 'calendarItemAllowedTiers';
+      const titleField = els.calendarItemTitle.closest('label');
+      if (titleField) els.calendarItemForm.insertBefore(access, titleField);
+    }
+    updateCalendarItemTierSummary();
+    updateCalendarItemTypeUI();
+    return access;
+  }
+
+  function normalizeCalendarItemTierKeys(tierKeys, fallback) {
+    if (!Array.isArray(tierKeys)) return Array.isArray(fallback) ? fallback.slice() : [];
+    return CALENDAR_ITEM_TIER_KEYS.filter((tierKey) => tierKeys.includes(tierKey));
+  }
+
+  function calendarTierKeysFromAccess(access) {
+    if (!access) return [];
+    return Array.from(access.querySelectorAll('input[data-calendar-allowed-tier-key]:checked')).map((input) => String(input.value || '')).filter((tierKey) => CALENDAR_ITEM_TIER_KEYS.includes(tierKey));
+  }
+
+  function setCalendarTierAccess(access, tierKeys) {
+    if (!access) return;
+    const allowed = normalizeCalendarItemTierKeys(tierKeys, CALENDAR_ITEM_TIER_KEYS);
+    access.querySelectorAll('input[data-calendar-allowed-tier-key]').forEach((input) => { input.checked = allowed.includes(input.value); });
+    updateCalendarTierAccessSummary(access);
+  }
+
+  function calendarItemTierSummaryText(tierKeys) {
+    const labels = normalizeCalendarItemTierKeys(tierKeys, CALENDAR_ITEM_TIER_KEYS).map((tierKey) => CALENDAR_ITEM_TIER_LABELS[tierKey]);
+    return labels.length === CALENDAR_ITEM_TIER_KEYS.length ? '所有會員等級' : labels.length ? labels.join('、') : '尚未設定參加階級';
+  }
+
+  function updateCalendarTierAccessSummary(access) {
+    const summary = access && access.querySelector('[data-calendar-tier-summary]');
+    if (summary) summary.textContent = '已選擇：' + calendarItemTierSummaryText(calendarTierKeysFromAccess(access));
+  }
+
+  function collectCalendarItemAllowedTiers() { return calendarTierKeysFromAccess(document.getElementById('calendarItemAllowedTiers')); }
+
+  function setCalendarItemAllowedTiers(tierKeys) { setCalendarTierAccess(document.getElementById('calendarItemAllowedTiers'), tierKeys); }
+
+  function updateCalendarItemTierSummary() { updateCalendarTierAccessSummary(document.getElementById('calendarItemAllowedTiers')); }
+
+  function updateCalendarItemTypeUI() {
+    const access = document.getElementById('calendarItemAllowedTiers');
+    if (!access) return;
+    const isEvent = els.calendarItemType.value === 'event';
+    access.classList.toggle('hidden', !isEvent);
+    access.querySelectorAll('input[data-calendar-allowed-tier-key]').forEach((input) => { input.disabled = !isEvent; });
+    els.calendarItemEventLinkFields.classList.toggle('hidden', !isEvent);
+    [els.calendarItemLinkLabel, els.calendarItemLinkUrl].forEach((input) => { input.disabled = !isEvent; });
+  }
+
+  function handleCalendarItemFormChange(event) {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+    if (target === els.calendarItemType) updateCalendarItemTypeUI();
+    if (target.matches('input[data-calendar-allowed-tier-key]')) updateCalendarItemTierSummary();
   }
 
   function loadCalendarItemForm(calendarItemId, shouldRender) {
