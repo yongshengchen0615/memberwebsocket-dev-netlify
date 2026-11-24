@@ -41,7 +41,7 @@
   },
   "reviewedSources": {
     "admin/booking-admin-ux.js": "2c2b7dbc8d08a7884f9e298b97f19862b5044c0bc3cbaef53aa551a576028edc",
-    "admin/index.html": "bfd8317c1c6b65322611ad2e8e82fa7649ab7c7def4f21c6d0c8ca9fc766b56b",
+    "admin/index.html": "e6447885219fcd5e0877b14bef1634f7657948a241eaf8eb59eff789fbd6b427",
     "admin/app.js": "3e31400b2794c61b9076516eba0d02b301550fc16abbdd1f168ef317a71d3f99",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
@@ -52,7 +52,7 @@
     "admin/fixed-ticket-calendar-option.js": "0bbc53970ff0ec7408985b001113f64de718963bcfbc793f563a44f2e068f1f1",
     "admin/pointcard-redemption-limit.js": "fbba580c9babdac950b2f619c3f3b949fe89ae0c1365e2555f758d1a8818035c",
     "admin/event-ticket-redemption-limit.js": "263a564d64845c5abb4ed5167305b0bffefb064130a0268ab533b481d320b688",
-    "admin/booking-panel.js": "e883c0960f011eb0aecbeb92e0b3209b440f6c5d830e128143e5f7cdebe61a88",
+    "admin/booking-panel.js": "19b0caddb118bd92f2505b12e476dd97f55c64429dde9214f8a4888ed68f1b02",
     "admin/booking-panel-core.js": "9e3374e7ead31d98f569d856c7bd131f3c73c82b614cf6a7609b7890c7976902",
     "admin/booking-resources.js": "6a9c9d9ab1530869d13191668c251e02258a8b5830cb80abafbda3bf556e6319",
     "admin/booking-always-open.js": "9cb236902a7f3f36cf3fe4c3f13fbbac622f000c72d36ec34f7d4dde08e6e54a",
