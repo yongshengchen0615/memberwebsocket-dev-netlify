@@ -143,7 +143,8 @@ for(const variant of [
   await expect(messageNotice).toHaveValue(oldNotice);
   await messageNotice.fill('QA booking notice persisted '+variant.name);
   await page.locator('#bookingAdminMessagesSave').click();
-  await expect(page.locator('#bookingAdminMessagesStatus')).toContainText('四項訊息已一次儲存');
+  await expect(page.locator('#bookingAdminRejectionMessage')).toHaveCount(0);
+  await expect(page.locator('#bookingAdminMessagesStatus')).toContainText('三項訊息已一次儲存');
   expect(host.sessions.get(info.testId).settings.bookingNotice).toBe('QA booking notice persisted '+variant.name);
   await expect(messageStatus).toContainText('沒有未儲存的變更');
   await page.locator('#bookingAdminRiskSubtab').click();
