@@ -776,3 +776,35 @@ Deno.test('AC-INDIVIDUAL-002: preserve multiline notes per participant in frontd
  assert(!second.includes('第二行重要需求')&&!second.includes('提醒：第三行含全形冒號')&&second.includes('B要安靜'),
   'note continuation must not leak into the next participant card');
 });
+
+
+Deno.test('AC-005: enabled frontdesk uses 取消預約 title on administrator and frontdesk LINE notices', () => {
+  for (const channel of ['admin', 'frontdesk']) {
+    for (const title of ['取消預約申請', '預約取消']) {
+      const notice = buildBookingFlexMessage({
+        ...sampleJob, channel, frontdeskDirectCancellation: true,
+        message_text: ['【' + title + '】', '預約人：陳小姐', '日期：2026/11/25',
+          '時段：10:00–11:00', '電話：0912345678', '預約人數：1 位'].join('\\n'),
+      });
+      const header = collectComponents(notice.contents.header);
+      assert(header.some(c => c.text === '取消預約'), 'frontdesk-enabled ' + channel + ' cancellation header');
+      assert(!header.some(c => c.text === '取消預約申請'), 'no old request title');
+      if (channel === 'frontdesk') assert(notice.altText.startsWith('取消預約｜'), 'push preview title');
+    }
+  }
+});
+
+Deno.test('AC-006: administrator copy booking action is disabled only for configured frontdesk', () => {
+  const base = {
+    ...sampleJob, channel: 'admin',
+    booking_id: '30000000-0000-4000-8000-000000000001',
+    message_text: sampleJob.message_text.replace('【預約確認】', '【預約】'),
+    copyText: '2026/11/25 10:00 王小姐 肩頸30',
+  };
+  const direct = buildBookingFlexMessage({ ...base, frontdeskDirectCancellation: true });
+  assert(!JSON.stringify(direct).includes('複製預約內容'),
+    'configured frontdesk must not expose the copy action');
+  const legacy = buildBookingFlexMessage({ ...base, frontdeskDirectCancellation: false });
+  assert(JSON.stringify(legacy).includes('複製預約內容'),
+    'legacy administrator copy action must remain');
+});
