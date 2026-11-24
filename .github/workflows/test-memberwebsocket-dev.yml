@@ -135,7 +135,8 @@ jobs:
 
   browser-e2e:
     name: Chromium admin, member, receipt and GPS E2E
-    runs-on: ubuntu-latest
+    # Playwright 1.56 does not support the Ubuntu 26.04 Chromium headless shell.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       # Keep every shard running so one failure does not erase other evidence.
