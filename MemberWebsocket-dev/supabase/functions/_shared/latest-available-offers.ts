@@ -280,12 +280,12 @@ export async function loadLatestEventOffers(
   tierKey: string,
   strict: boolean,
   includeTierPreview = false,
-): Promise<Array<CurrentEventOffer & { eventTicketId: string; startsOn: string; endsOn: string; allowedTierKeys: string[]; description: string; accent: string; ticketType: string; quota: number | null; claimedCount: number; usedCount: number; fixedTicketTemplateId: string }>> {
+): Promise<Array<CurrentEventOffer & { eventTicketId: string; startsOn: string; endsOn: string; allowedTierKeys: string[]; visibilityPolicy: string; description: string; accent: string; ticketType: string; quota: number | null; claimedCount: number; usedCount: number; fixedTicketTemplateId: string }>> {
   if ((supabase as any).businessFeatures && (supabase as any).businessFeatures.events !== true) return [];
   const today = taipeiDate();
   const eventsResult = await supabase
     .from("event_tickets")
-    .select("id,event_ticket_id,title,description,accent,ticket_type,status,starts_on,ends_on,quota,allowed_tier_keys,fixed_ticket_template_id,requires_location,required_service_ids,required_service_match_mode,required_service_groups,min_booking_amount_mode,min_booking_amount,min_booking_service_ids")
+    .select("id,event_ticket_id,title,description,accent,ticket_type,status,starts_on,ends_on,quota,allowed_tier_keys,visibility_policy,fixed_ticket_template_id,requires_location,required_service_ids,required_service_match_mode,required_service_groups,min_booking_amount_mode,min_booking_amount,min_booking_service_ids")
     .eq("status", "active")
     .is("deleted_at", null);
   if (eventsResult.error) {
@@ -339,6 +339,7 @@ export async function loadLatestEventOffers(
       usedCount: usedCountById.get(offer.eventId) || 0,
       quota: event?.quota ?? null, fixedTicketTemplateId: text(event?.fixed_ticket_template_id),
       allowedTierKeys:Array.isArray(event?.allowed_tier_keys)?event.allowed_tier_keys:[],
+      visibilityPolicy: text(event?.visibility_policy) || 'eligible_only',
       eventTicketId: text(event?.event_ticket_id),
       startsOn: text(event?.starts_on),
       endsOn: text(event?.ends_on),
