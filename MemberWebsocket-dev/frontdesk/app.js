@@ -477,13 +477,27 @@
   updateReason();reason.focus();
  }
 
- function frontdeskApplicationChatUrl(person){
-  const oaId=String(frontdeskPolicy?.oaId||'');
-  if(!/^@[A-Za-z0-9._-]{3,40}$/.test(oaId))return '';
-  const store=String(document.getElementById('businessName')?.textContent||'商家').replace(/[\r\n\t]+/g,' ').slice(0,80);
-  const applicant=String(person?.displayName||'櫃檯人員').replace(/[\r\n\t]+/g,' ').slice(0,80);
-  const message=['【櫃檯人員權限申請】','商家：'+store,'申請人：'+applicant,'狀態：等待商家管理員審核'].join('\n');
-  return 'https://line.me/R/oaMessage/'+encodeURIComponent(oaId)+'/?'+encodeURIComponent(message);
+ // LIFF sends only to the current chat. Staff must open this entry in their
+ // merchant OA one-on-one chat; the chat identifier is not exposed by LINE.
+ function frontdeskApplicationText(){
+  const store=String(document.getElementById('businessName')?.textContent||'商家')
+   .replace(/[\r\n\t\u0000-\u001f]/g,' ').trim().slice(0,80);
+  return ['【櫃檯人員權限申請】','商家：'+store,'狀態：等待商家管理員審核',
+   '我已送出櫃檯使用權限申請，請協助審核。'].join('\n');
+ }
+ async function sendFrontdeskApplicationFromCurrentChat(person){
+  if(person?.status!=='pending'||!/^@[A-Za-z0-9._-]{3,40}$/.test(String(frontdeskPolicy?.oaId||'')))return 'unavailable';
+  const sdk=window.liff;
+  if(!sdk?.isInClient?.()||typeof sdk.getContext!=='function'||typeof sdk.sendMessages!=='function')return 'unavailable';
+  let context;
+  try{context=sdk.getContext();}catch{return 'unavailable';}
+  if(context?.type!=='utou'||!Array.isArray(context.scope)||!context.scope.includes('chat_message.write'))return 'unavailable';
+  try{
+   const permission=await sdk.permission?.query?.('chat_message.write');
+   if(permission?.state!=='granted')return 'permission_required';
+   await sdk.sendMessages([{type:'text',text:frontdeskApplicationText()}]);
+   return 'sent';
+  }catch{return 'failed';}
  }
  async function load(){
   const generation=++epoch,data=await request('frontdesk.bootstrap');if(generation!==epoch)return false;
@@ -497,9 +511,17 @@
   if(!person){
    showProgress(1);
    account.append(node('h2','申請櫃檯人員資格'));
-   account.append(node('p','使用 LINE 登入後，請確認已加入商家提供的櫃檯官方帳號，再按下方按鈕提出申請。商家管理員核准前，你無法收通知、查看或處理任何預約。'));
+   account.append(node('p','請從商家的 LINE 官方帳號一對一聊天室開啟櫃檯入口，再提出申請。申請建立後會嘗試在目前聊天室自動發送訊息，不需再按 LINE 傳送。核准前無法查看或處理預約。'));
    const b=node('button','送出櫃檯人員申請');b.type='button';b.className='frontdesk-primary';
-   b.onclick=async()=>{if(busy)return;lock(true);const finishFeedback=window.AsyncActionFeedback?.begin('正在送出櫃檯資格申請…');try{const result=await request('frontdesk.apply');await load();if(result.lineApplicationMessage==='failed')status.textContent='申請已建立，但 LINE 通知尚未成功，請使用下方官方帳號連結自行傳送申請訊息。';else if(result.lineApplicationMessage==='sent')status.textContent='申請已建立，LINE 官方帳號已受理通知，請等待商家管理員審核。';}catch(e){failure(e);}finally{finishFeedback?.();lock(false);}};
+   b.onclick=async()=>{if(busy)return;lock(true);const finishFeedback=window.AsyncActionFeedback?.begin('正在送出櫃檯資格申請…');try{
+     const result=await request('frontdesk.apply');
+     const delivery=await sendFrontdeskApplicationFromCurrentChat(result.staff);
+     await load();
+     status.textContent=delivery==='sent'?'申請已建立，已在目前 LINE 聊天室以你的身分自動送出申請訊息；請等待管理員審核。':
+      delivery==='permission_required'?'申請已建立，但 LINE 尚未授權聊天訊息發送（chat_message.write）；無法自動傳送，請聯絡管理員確認 LIFF 權限。':
+      delivery==='failed'?'申請已建立，但 LINE 自動傳訊失敗；請從商家官方帳號聊天室重新進入並聯絡管理員確認申請。':
+      '申請已建立，但目前不是具備聊天發訊授權的 LINE 一對一 LIFF 聊天室，無法自動傳送；請從商家官方帳號聊天室進入。';
+    }catch(e){failure(e);}finally{finishFeedback?.();lock(false);}};
    account.append(b);status.textContent='尚未申請櫃檯資格。';
    return;
   }
@@ -511,12 +533,7 @@
   if(person.status==='pending'){
    showProgress(2);
    account.append(node('p','申請已送出。請商家管理員前往「LINE 設定 → 預約 → 櫃檯官方帳號與人員權限」核准資格。核准前無法收通知或操作預約。'));
-   const chatUrl=frontdeskApplicationChatUrl(person);
-   if(chatUrl){
-    const link=node('a','在 LINE 開啟商家官方帳號並傳送申請訊息');
-    link.href=chatUrl;link.target='_blank';link.rel='noopener noreferrer';
-    account.append(node('p','若未收到 LINE 通知，可開啟商家官方帳號對話；訊息將預先填入，請在 LINE 中確認傳送。'),link);
-   }
+   account.append(node('p','自動送訊僅支援從商家 LINE 官方帳號一對一聊天室開啟、且已授權 chat_message.write 的 LIFF；從其他聊天或瀏覽器開啟時，無法指定官方帳號為收件者。'));
    status.textContent='資格審核中，可以按「重新整理」查看結果。';return;
   }
   if(person.status!=='approved'){
