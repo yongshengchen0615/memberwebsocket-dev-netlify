@@ -608,6 +608,14 @@
         : '這一天目前沒有可容納完整服務時間的時段。'
       : '這一天沒有可預約時段。';
 
+    // A longer edited service must not run into the booking after its original start.
+    const original = state.editing;
+    if (original && original.originalDate === els.bookingDate.value
+      && totalDuration > original.originalDurationMinutes
+      && slots.some((slot) => slot.startTime === original.originalStartTime && slot.unavailableReason === 'occupied')) {
+      els.slotHint.textContent = '服務總時長會影響後面預約，請修改為不會影響後面預約的時間。';
+    }
+
     for (const slot of slots) {
       const button = document.createElement('button');
       button.type = 'button';
@@ -793,13 +801,14 @@
       return;
     }
 
+    const modifying = Boolean(state.editing);
     const fingerprint = bookingWriteFingerprint(items, bookingDate, startTime);
     if (!state.pendingBookingWrite || state.pendingBookingWrite.fingerprint !== fingerprint) {
       state.pendingBookingWrite = { fingerprint, requestId: `BOOK-${crypto.randomUUID()}` };
     }
     const requestId = state.pendingBookingWrite.requestId;
     state.submitting = true;
-    const finishFeedback = window.AsyncActionFeedback?.begin('正在送出預約並更新資料…');
+    const finishFeedback = window.AsyncActionFeedback?.begin(modifying ? '正在送出修改預約申請…' : '正在送出預約並更新資料…');
     els.confirmBookingButton.disabled = true;
     els.confirmBookingButton.textContent = '送出中…';
     els.submitBookingButton.disabled = true;
@@ -831,7 +840,7 @@
       renderServices();
       applySelectionConstraints(false);
       renderBookings();
-      showFormMessage('預約已送出，整段服務時間已保留，等待管理端確認。', 'success');
+      showFormMessage(modifying ? '修改預約已送出，整段服務時間暫時保留，等待櫃檯或管理端確認。' : '預約已送出，整段服務時間已保留，等待管理端確認。', 'success');
       // The existing LINE outbox pushes the pending notice from the official account.
       window.dispatchEvent(new CustomEvent('booking:created', { detail: { booking: result.booking } }));
     } catch (error) {
@@ -849,7 +858,7 @@
           state.selectedSlot = null;
           renderServices();
           applySelectionConstraints(false);
-          showFormMessage('預約已成功送出，整段時間已保留，等待管理端確認。', 'success');
+          showFormMessage(modifying ? '修改預約已成功送出，整段時間暫時保留，等待櫃檯或管理端確認。' : '預約已成功送出，整段時間已保留，等待管理端確認。', 'success');
           // Recovery must not send a second client-originated LINE message.
           window.dispatchEvent(new CustomEvent('booking:created', { detail: { booking: recovered } }));
           return;
@@ -870,7 +879,7 @@
       showConfirmMessage(error?.message || '預約送出失敗，請返回重新選擇時間。', 'error');
       if (error?.code === 'BOOKING_SLOT_TAKEN') {
         await loadSlots();
-        showConfirmMessage('這段時間剛被其他會員預約，請返回選擇其他時間。', 'error');
+        showConfirmMessage(modifying ? '服務總時長會影響後面預約，請修改為不會影響後面預約的時間。' : '這段時間剛被其他會員預約，請返回選擇其他時間。', 'error');
       }
     } finally {
       finishFeedback?.();
@@ -1189,7 +1198,9 @@
 
   function editBooking(booking) {
     if (state.submitting || !canCancel(booking)) return;
-    state.editing = { bookingId: booking.bookingId, updatedAt: booking.updatedAt };
+    state.editing = { bookingId: booking.bookingId, updatedAt: booking.updatedAt,
+      originalDate: booking.bookingDate, originalStartTime: String(booking.startTime || ''),
+      originalDurationMinutes: Number(booking.totalDurationMinutes || 0) };
     const activeIds = new Set(userServices().map((service) => service.serviceId));
     state.selections = bookingVisibleItems(booking).filter((item) => activeIds.has(item.serviceId))
       .flatMap((item) => Array.from({ length: Number(item.quantity || 1) }, () => ({ serviceId: item.serviceId, selectionId: crypto.randomUUID() })));
@@ -1207,7 +1218,7 @@
       : null;
     updateEditingLabel();
     window.dispatchEvent(new CustomEvent('booking:edit', { detail: { date: els.bookingDate.value } }));
-    showFormMessage('修改後將重新等待管理端確認，原預約會保留至修改成功。已停用的項目需重新選擇。', 'success');
+    showFormMessage('修改送出後將以新內容暫時保留時段，重新等待櫃檯或管理端確認；原預約時間可能釋出。請確認服務總時長不影響後續預約。', 'success');
     loadSlots();
   }
 
