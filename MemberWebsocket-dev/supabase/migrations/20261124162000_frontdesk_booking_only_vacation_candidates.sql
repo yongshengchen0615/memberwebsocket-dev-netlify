@@ -53,6 +53,19 @@ revoke all on function platform_private.frontdesk_booked_vacation_names(text,uui
 grant execute on function platform_private.frontdesk_booked_vacation_names(text,uuid,jsonb)
  to service_role;
 
+-- The previously exposed full merchant roster is no longer needed by the
+-- frontdesk UI. Do not return it at all: the allowed IDs and names now travel
+-- only with their own booking record.
+do $reduce_booking_catalog$
+declare d text;needle text;
+begin
+ select pg_get_functiondef('public.platform_frontdesk_request(uuid,text,text,timestamptz,text,jsonb)'::regprocedure) into strict d;
+ needle:=',''technicians'',platform_private.frontdesk_active_technicians(t.runtime_schema)';
+ if length(d)-length(replace(d,needle,''))<>length(needle) then
+   raise exception 'BOOKED_VACATION_GLOBAL_CATALOG_CONTRACT_CHANGED';end if;
+ execute replace(d,needle,'');
+end $reduce_booking_catalog$;
+
 -- Enrich only the already authorized booking JSON, rather than returning the
 -- complete shop technician roster. Used in staff bookings and authenticated
 -- review-history responses, with no public bootstrap exposure.
