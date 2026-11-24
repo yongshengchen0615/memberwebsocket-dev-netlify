@@ -665,10 +665,17 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
     String(job.message_text || '').replace(/^(?:預約編號|原預約編號|新增預約編號|訂單編號)[：:][^\r\n]*(?:\r?\n|$)/gm, '');
   const parsed = parseBookingMessage(visibleText);
   // Presentation only: the trusted frontdesk mode never changes the stored event.
+  // The event key distinguishes an actual cancellation from an older pending
+  // request: enabling frontdesk must never present the latter as completed.
   const directCancellationNotice = job.frontdeskDirectCancellation === true
     && ['admin', 'frontdesk'].includes(job.channel)
-    && ['取消預約申請', '預約取消'].includes(parsed.title);
+    && String(job.event_key || '').includes(':cancelled:')
+    && ['取消預約', '預約取消'].includes(parsed.title);
+  const pendingHistoricalRequest = job.frontdeskDirectCancellation === true
+    && ['admin', 'frontdesk'].includes(job.channel)
+    && parsed.title === '取消預約申請';
   const displayTitle = directCancellationNotice ? '取消預約'
+    : pendingHistoricalRequest ? '取消申請待審核'
     : job.channel === 'frontdesk' && parsed.title === '取消預約申請' ? '預約取消' : parsed.title;
   const style = TITLE_STYLES[displayTitle] || TITLE_STYLES[parsed.title] || { color: '#315D50', eyebrow: 'BOOKING NOTICE' };
   const channelLabel = job.channel === 'admin' ? '管理端預約通知' : job.channel === 'frontdesk' ? '櫃檯預約通知' : '會員預約通知';
