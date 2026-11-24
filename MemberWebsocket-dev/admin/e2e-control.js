@@ -3811,7 +3811,7 @@
       : fail('活動票券 CRUD E2E 至少一個階段失敗。', { created: true, updated: true, locationSaved: true, deleted: true, cleaned: true }, actual);
   }
 
-  async function adminCalendarCrudCase(itemType = 'holiday') {
+  async function adminCalendarCrudCase(itemType = 'event') {
     const stamp = qaCrudStamp();
     const createdTitle = 'E2E 日曆 ' + stamp;
     const updatedTitle = createdTitle + ' 修改';
