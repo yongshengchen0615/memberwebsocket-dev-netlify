@@ -12,11 +12,11 @@
   function isTicketCalendarEntry(item) {
     if (!item || typeof item !== 'object') return false;
     if (item.sourceEventTicketId || item.source_event_ticket_id) return true;
-    try {
-      const url = new URL(String(item.linkUrl || ''), 'https://calendar.invalid/');
-      return url.searchParams.get('source') === 'event-ticket-calendar'
-        && Boolean(url.searchParams.get('eventTicketId'));
-    } catch (_) { return false; }
+    const link = String(item.linkUrl || '');
+    // Match the server-generated query keys exactly; do not confuse arbitrary
+    // activities mentioning tickets in their names with synchronized entries.
+    return /(?:[?&])source=event-ticket-calendar(?:[&#]|$)/.test(link)
+      && /(?:[?&])eventTicketId=[^&#]+/.test(link);
   }
 
   function belongsToScope(scope, item) {
