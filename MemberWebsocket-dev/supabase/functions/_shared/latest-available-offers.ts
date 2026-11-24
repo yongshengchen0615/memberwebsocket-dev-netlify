@@ -32,6 +32,8 @@ export type CurrentEventOffer = {
   title: string;
   claimed: boolean;
   claimId?: string;
+  expiresAt?: string;
+  expired?: boolean;
   requiresLocation?: boolean;
   requiredServiceIds: string[];
   requiredServiceMatchMode: 'any' | 'all';
@@ -150,6 +152,7 @@ export function selectLatestEventOffers(
     (counts || []).map((row) => [text(row.event_ticket_id), number(row.claimed_count)]),
   );
   const memberAvailableClaims = new Map<string, string>();
+  const memberClaimByEvent = new Map<string, JsonRow>();
   const memberUnavailableClaims = new Set<string>();
 
   for (const claim of claims) {
@@ -161,7 +164,7 @@ export function selectLatestEventOffers(
     if (!counts) claimCounts.set(eventId, (claimCounts.get(eventId) || 0) + 1);
     if (text(claim.member_id) !== memberId) continue;
 
-    if (status === "claimed" || status === "available") memberAvailableClaims.set(eventId, text(claim.claim_id));
+    if (status === "claimed" || status === "available") { memberAvailableClaims.set(eventId, text(claim.claim_id)); memberClaimByEvent.set(eventId, claim); }
     else memberUnavailableClaims.add(eventId);
   }
 
@@ -191,7 +194,11 @@ export function selectLatestEventOffers(
       ...(Array.isArray(row.required_service_groups) && row.required_service_groups.length ? { requiredServiceGroups: row.required_service_groups } : {}),
     };
     const claimId = claimed ? (memberAvailableClaims.get(eventId) || "") : "";
-    if (claimId) offer.claimId = claimId;
+    if (claimId) {
+      offer.claimId = claimId;
+      const expiresAt = text(memberClaimByEvent.get(eventId)?.expires_at);
+      if (expiresAt) { offer.expiresAt = expiresAt; offer.expired = Date.parse(expiresAt) <= Date.now(); }
+    }
     if (Boolean(row.requires_location)) offer.requiresLocation = true;
     offers.push(offer);
   }
@@ -270,12 +277,12 @@ export async function loadLatestEventOffers(
   tierKey: string,
   strict: boolean,
   includeTierPreview = false,
-): Promise<Array<CurrentEventOffer & { eventTicketId: string; startsOn: string; endsOn: string; allowedTierKeys: string[]; description: string; accent: string; ticketType: string; quota: number | null; claimedCount: number; usedCount: number; fixedTicketTemplateId: string }>> {
+): Promise<Array<CurrentEventOffer & { eventTicketId: string; startsOn: string; endsOn: string; allowedTierKeys: string[]; description: string; accent: string; ticketType: string; quota: number | null; claimedCount: number; usedCount: number; fixedTicketTemplateId: string; validityDaysAfterClaim: number | null }>> {
   if ((supabase as any).businessFeatures && (supabase as any).businessFeatures.events !== true) return [];
   const today = taipeiDate();
   const eventsResult = await supabase
     .from("event_tickets")
-    .select("id,event_ticket_id,title,description,accent,ticket_type,status,starts_on,ends_on,quota,allowed_tier_keys,fixed_ticket_template_id,requires_location,required_service_ids,required_service_match_mode,required_service_groups,min_booking_amount_mode,min_booking_amount,min_booking_service_ids")
+    .select("id,event_ticket_id,title,description,accent,ticket_type,status,starts_on,ends_on,validity_days_after_claim,quota,allowed_tier_keys,fixed_ticket_template_id,requires_location,required_service_ids,required_service_match_mode,required_service_groups,min_booking_amount_mode,min_booking_amount,min_booking_service_ids")
     .eq("status", "active")
     .is("deleted_at", null);
   if (eventsResult.error) {
@@ -294,7 +301,7 @@ export async function loadLatestEventOffers(
 
   const [claimsResult, countsResult, usedResult] = await Promise.all([
     supabase.from("event_ticket_claims")
-      .select("claim_id,event_ticket_id,member_id,status")
+      .select("claim_id,event_ticket_id,member_id,status,expires_at")
       .eq("member_id", memberId)
       .in("event_ticket_id", ids),
     supabase.rpc("event_ticket_claim_counts", { p_event_ids: ids }),
@@ -332,6 +339,7 @@ export async function loadLatestEventOffers(
       eventTicketId: text(event?.event_ticket_id),
       startsOn: text(event?.starts_on),
       endsOn: text(event?.ends_on),
+      validityDaysAfterClaim: event?.validity_days_after_claim ?? null,
       requiredServiceIds: Array.isArray(event?.required_service_ids)
         ? event.required_service_ids.map(text).filter(Boolean)
         : [],

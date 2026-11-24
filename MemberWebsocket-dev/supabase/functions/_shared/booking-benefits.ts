@@ -258,6 +258,7 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
         const tierEligible=visibility.tierEligible || receivedAsGift;
         const locked=visibility.locked && !receivedAsGift;
         const usageExhausted=Number(offer.quota || 0)>0 && Number(offer.usedCount || 0)>=Number(offer.quota);
+        const expired=offer.expired===true;
         const requiredServiceIds = Array.isArray(offer.requiredServiceIds) ? offer.requiredServiceIds : [];
         const requiredServiceMatchMode = offer.requiredServiceMatchMode === 'all' ? 'all' : 'any';
         const requiredServiceGroups = Array.isArray(offer.requiredServiceGroups) ? offer.requiredServiceGroups : [];
@@ -281,10 +282,10 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
           kind: 'event', id: offer.eventTicketId, title: offer.title,
           description: offer.description, accent: offer.accent, ticketType: offer.ticketType, quota: offer.quota, claimedCount: offer.claimedCount, usedCount: offer.usedCount,
           allowedTierKeys: offer.allowedTierKeys, fixedTicketTemplateId: offer.fixedTicketTemplateId,
-          subtitle: locked ? visibility.lockReason : !offer.claimId ? '未發放，僅供會員等級預覽' : receivedAsGift ? '好友轉贈票券 · 不限會員階級' : '已發放，尚未使用',
-          statusLabel: locked ? '需升級' : usageExhausted ? '活動使用名額已額滿' : reservedForOtherBooking ? '已預約使用，不能重複登記' : reservedInSnapshot ? '快照待審核，不能重複登記' : offer.claimId ? '可使用' : '未發放', startsOn: offer.startsOn, endsOn: offer.endsOn,
+          subtitle: locked ? visibility.lockReason : expired ? '已超過取得後使用期限' : !offer.claimId ? '未發放，僅供會員等級預覽' : receivedAsGift ? '好友轉贈票券 · 不限會員階級' : '已發放，尚未使用',
+          statusLabel: locked ? '需升級' : expired ? '已過期' : usageExhausted ? '活動使用名額已額滿' : reservedForOtherBooking ? '已預約使用，不能重複登記' : reservedInSnapshot ? '快照待審核，不能重複登記' : offer.claimId ? '可使用' : '未發放', startsOn: offer.startsOn, endsOn: offer.endsOn, expiresAt: offer.expiresAt || '', validityDaysAfterClaim: offer.validityDaysAfterClaim ?? null,
           requiresLocation: offer.requiresLocation === true,
-          selectable: Boolean(offer.claimId) && tierEligible && !usageExhausted && !reservedForOtherBooking && !reservedInSnapshot,
+          selectable: Boolean(offer.claimId) && tierEligible && !expired && !usageExhausted && !reservedForOtherBooking && !reservedInSnapshot,
           reservedForBooking: Boolean(reserved), reservedForCurrentBooking: Boolean(reserved && !reservedForOtherBooking), reservedInSnapshot,
           locked,
           receivedAsGift,
@@ -293,7 +294,7 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
           requiredServiceIds, requiredServiceMatchMode, requiredServiceGroups, requiredServiceTitles, requiredServiceRequirementLabel,
           minBookingAmountMode, minBookingAmount, minBookingServiceIds, minBookingServiceTitles, minBookingAmountLabel,
           conditionLabel: `${receivedAsGift ? '好友贈票 · 使用不限會員階級 · ' : ''}${eventTicketMaxPerDay === 0 ? '每日使用張數不限' : `每日最多使用 ${eventTicketMaxPerDay} 張`} · ${requiredServiceRequirementLabel ? `預約項目限制：${requiredServiceRequirementLabel}` : '預約項目限制：不限'} · ${minBookingAmountLabel}${offer.requiresLocation === true ? ' · 現場單獨使用需 GPS 定位' : ''}`,
-          disabledReason: locked ? visibility.lockReason : usageExhausted ? '本活動使用名額已額滿，已發放票券仍保留在帳戶。' : reservedForOtherBooking ? '此票券已在一般預約登記，不能重複登記。' : reservedInSnapshot ? '此票券已在快照模式登記，待審核期間不能重複登記。' : !offer.claimId ? '尚未發放，不能登記或使用。' : '',
+          disabledReason: locked ? visibility.lockReason : expired ? '活動票券已超過取得後使用期限。' : usageExhausted ? '本活動使用名額已額滿，已發放票券仍保留在帳戶。' : reservedForOtherBooking ? '此票券已在一般預約登記，不能重複登記。' : reservedInSnapshot ? '此票券已在快照模式登記，待審核期間不能重複登記。' : !offer.claimId ? '尚未發放，不能登記或使用。' : '',
         };
       }),
       ...activities.map((item: any) => ({

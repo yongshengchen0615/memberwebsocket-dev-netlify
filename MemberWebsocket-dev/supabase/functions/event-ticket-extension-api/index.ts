@@ -102,6 +102,7 @@ function mapRpcError(error: unknown): ApiError {
   const message = String((error as { message?: string })?.message || "");
   if (message.includes("MEMBERSHIP_REQUIRED")) return new ApiError(403, "MEMBERSHIP_REQUIRED", "請先完成會員加入後再使用此功能。");
   if (message.includes("CLAIM_NOT_FOUND")) return new ApiError(404, "CLAIM_NOT_FOUND", "找不到其中一張已領取票券。");
+  if (message.includes("EVENT_TICKET_CLAIM_EXPIRED")) return new ApiError(409, "EVENT_TICKET_CLAIM_EXPIRED", "活動票券已超過取得後使用期限。");
   if (message.includes("CLAIM_NOT_AVAILABLE")) return new ApiError(409, "CLAIM_NOT_AVAILABLE", "其中一張活動票券目前已無法使用，請更新後再試。");
   if (message.includes("EVENT_TICKET_DAILY_LIMIT_REACHED")) return new ApiError(409, "EVENT_TICKET_DAILY_LIMIT_REACHED", "今日活動票券使用張數已達上限，請於明日再使用。");
   if (message.includes("EVENT_TICKET_BATCH_LIMIT_EXCEEDED")) return new ApiError(409, "EVENT_TICKET_BATCH_LIMIT_EXCEEDED", "活動票券使用張數超過目前允許範圍。");
