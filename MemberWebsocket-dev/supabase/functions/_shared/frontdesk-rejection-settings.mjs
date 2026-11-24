@@ -35,7 +35,7 @@ function boundedText(value,max,field,{optional=false,multiline=false}={}){
 function normalizeRejectionSettings(input){
  if(!input||typeof input!=="object"||Array.isArray(input)||Object.keys(input).some(key=>!["dropdownTitle","reasons"].includes(key)))invalid("INVALID_REJECTION_SETTINGS");
  const dropdownTitle=boundedText(input.dropdownTitle,60,"INVALID_REJECTION_TITLE",{optional:true})||DEFAULT_REJECTION_SETTINGS.dropdownTitle;
- if(!Array.isArray(input.reasons)||input.reasons.length<1||input.reasons.length>30)invalid("INVALID_REJECTION_REASONS");
+ if(!Array.isArray(input.reasons)||input.reasons.length>30)invalid("INVALID_REJECTION_REASONS");
  const ids=new Set(),labels=new Set();
  const reasons=input.reasons.map(row=>{
   if(!row||typeof row!=="object"||Array.isArray(row)||Object.keys(row).some(key=>!["id","label","requiresConflictTime","memberDescription","enabled","hasVacationTechnicians"].includes(key)))invalid("INVALID_REJECTION_REASON");
@@ -45,11 +45,10 @@ function normalizeRejectionSettings(input){
   if(typeof id!=="string"||!(/^(technician_leave|unrecorded_phone_booking)$/.test(id)||/^custom_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(id))||ids.has(id)||typeof requiresConflictTime!=="boolean"||typeof enabled!=="boolean")invalid("INVALID_REJECTION_REASON");
   const label=boundedText(row.label,120,"INVALID_REJECTION_LABEL");
   const memberDescription=boundedText(row.memberDescription,400,"INVALID_REJECTION_DESCRIPTION",{multiline:true});
-  if(enabled&&labels.has(label))invalid("DUPLICATE_REJECTION_LABEL");
-  ids.add(id);if(enabled)labels.add(label);
-  return {id,label,requiresConflictTime,memberDescription,enabled,hasVacationTechnicians};
+  if(labels.has(label))invalid("DUPLICATE_REJECTION_LABEL");
+  ids.add(id);labels.add(label);
+  return {id,label,requiresConflictTime,memberDescription,enabled:true,hasVacationTechnicians};
  });
- if(!reasons.some(reason=>reason.enabled))invalid("REJECTION_REASON_REQUIRED");
  return {dropdownTitle,reasons};
 }
 
@@ -63,7 +62,7 @@ function validateRejectionSettingsUpdate(previous,input){
 
 function resolveRejectionReason(settings,id,route){
  const normalized=normalizeRejectionSettings(settings);
- const reason=normalized.reasons.find(item=>item.id===id&&item.enabled);
+ const reason=normalized.reasons.find(item=>item.id===id);
  if(!reason)invalid("BOOKING_REJECTION_REASON_REQUIRED");
  if(route!==(reason.requiresConflictTime?"booking.reject_phone":"booking.update"))invalid("REJECTION_ROUTE_MISMATCH");
  return {id:reason.id,label:reason.label,memberDescription:reason.memberDescription,requiresConflictTime:reason.requiresConflictTime,hasVacationTechnicians:reason.hasVacationTechnicians};
