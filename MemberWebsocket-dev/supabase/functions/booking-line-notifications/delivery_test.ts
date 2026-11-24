@@ -754,3 +754,25 @@ Deno.test('AC-004: booking LINE footer uses each verified tenant title and never
   assert(footer()==='會員系統','no business context may not inherit the previous title');
   assert(scope.run({slug:'shop-a',site_title:'\n惡意抬頭\r',name:'備用商家'},()=>memberSystemFooter())==='惡意抬頭 會員系統','control characters must not create extra lines');
 });
+
+
+Deno.test('AC-INDIVIDUAL-002: preserve multiline notes per participant in frontdesk LINE rejection',()=>{
+ const bookingId='10000000-0000-4000-8000-000000000030';
+ const notice=[
+  '【櫃檯拒絕預約】','預約人：櫃檯人員','拒絕原因：技師休假',
+  '【原預約資料】','預約編號：'+bookingId,'預約日期：2026-11-25',
+  '預約時間：13:00','原預約會員：王小姐','預約人數：2 位',
+  '【個別預約資料】','第1位預約','預約項目：身體60',
+  '預約技師：A','個別備註：第一行需求','第二行重要需求',
+  '提醒：第三行含全形冒號','第2位預約','預約項目：肩頸30',
+  '預約技師：B','個別備註：B要安靜'
+ ].join('\n');
+ const payload=buildBookingFlexMessage({...sampleJob,channel:'admin',booking_id:bookingId,message_text:notice});
+ const cards=(payload.contents.body as any).contents as Array<Record<string,unknown>>;
+ const text=(v:unknown)=>collectComponents(v).filter(x=>x.type==='text').map(x=>String(x.text||'')).join('|');
+ const first=text(cards[2]),second=text(cards[3]);
+ assert(first.includes('第一行需求')&&first.includes('第二行重要需求')&&first.includes('提醒：第三行含全形冒號'),
+  'all individual note lines must be included in the first participant card');
+ assert(!second.includes('第二行重要需求')&&!second.includes('提醒：第三行含全形冒號')&&second.includes('B要安靜'),
+  'note continuation must not leak into the next participant card');
+});
