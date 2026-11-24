@@ -32,7 +32,7 @@ begin
         ||E'\n預約項目：'||coalesce((
           select string_agg(coalesce(s->>'title','預約項目')
             ||case when coalesce((s->>'quantity')::int,1)>1
-                then ' × '||s->>'quantity' else '' end,'、')
+                then ' × '||(s->>'quantity') else '' end,'、')
           from jsonb_array_elements(coalesce(p->'services','[]'::jsonb)) s
         ),'—')
         ||E'\n預約技師：'||coalesce(nullif(p->>'technician',''),'現場安排')
@@ -51,7 +51,7 @@ $persons$;
           ||E'\n預約項目：'||coalesce((
             select string_agg(coalesce(s->>'title','預約項目')
               ||case when coalesce((s->>'quantity')::int,1)>1
-                  then ' × '||s->>'quantity' else '' end,'、')
+                  then ' × '||(s->>'quantity') else '' end,'、')
             from jsonb_array_elements(coalesce(p->'services','[]'::jsonb)) s
           ),'—')
           ||E'\n預約技師：'||coalesce(nullif(p->>'technician',''),'現場安排')
