@@ -10,7 +10,7 @@
  ];
  let rejectionSettings={dropdownTitle:'請選擇拒絕原因',reasons:legacyRejectionReasons};
 
- const rejectionReasonById=id=>rejectionSettings.reasons.find(item=>item.id===id&&item.enabled);
+ const rejectionReasonById=id=>rejectionSettings.reasons.find(item=>item.id===id);
  let syncTimer=null,syncEnabled=false,syncInFlight=false,syncRevision=null,syncFailures=0,syncGeneration=0;
  const node=(tag,text)=>{const n=document.createElement(tag);if(text)n.textContent=text;return n;};
  const progress=document.getElementById('progress'),toolbar=document.querySelector('.frontdesk-toolbar');
@@ -351,7 +351,8 @@
   const form=node('form');form.noValidate=true;form.className='frontdesk-rejection-form';
   const reasonField=node('label',String(rejectionSettings.dropdownTitle||'請選擇拒絕原因')),reason=node('select');reason.required=true;
   reason.setAttribute('aria-label','選擇拒絕預約原因');
-  const options=[{id:'',label:'請選擇拒絕原因'},...rejectionSettings.reasons.filter(item=>item.enabled||item.id===frozen?.rejectionReason)];
+  const options=[{id:'',label:rejectionSettings.reasons.length?'請選擇拒絕原因':'目前沒有可使用的拒絕原因'},...rejectionSettings.reasons];
+  if(frozen?.rejectionReason&&!options.some(item=>item.id===frozen.rejectionReason))options.push({id:frozen.rejectionReason,label:frozen.rejectionReasonLabel||'歷史拒絕原因'});
   for(const item of options){
    const option=node('option',item.label);option.value=item.id;reason.append(option);
   }
