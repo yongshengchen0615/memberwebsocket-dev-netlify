@@ -399,7 +399,7 @@
         const intro = node('header', '', 'frontdesk-rejection-intro');
         intro.append(node('p', '預約審核 · 規則管理', 'frontdesk-rejection-kicker'),
           node('h3', '拒絕預約設定'),
-          node('p', '管理櫃檯選單、拒絕原因及會員端說明。休假技師可在櫃檯拒絕時直接勾選，系統會自動帶入此處保存的說明。'));
+          node('p', '管理櫃檯選單、拒絕原因及會員端說明。每個原因都可啟用「有休假技師」，櫃檯就能選擇本店已設定的技師並自動產生說明。'));
         settings.append(intro);
         const title = field('rejectionDropdownTitle', '櫃檯端下拉式選單標題', '此標題顯示於櫃檯拒絕預約視窗；留空使用「請選擇拒絕原因」。', cfg.rejectionSettings.dropdownTitle || '', false);
         title.input.maxLength = 60;
@@ -454,12 +454,12 @@
               previewText.textContent = description.value.trim() || '請填寫會員端拒絕原因說明。';
             });
             card.append(label.wrap, descriptionLabel, preview);
-            if (reason.id === 'technician_leave')
-              card.append(node('small', '休假技師快速勾選會選取此原因，並自動帶入上方會員端說明。', 'frontdesk-rejection-vacation-hint'));
             const toggles = node('div', '', 'frontdesk-rejection-toggles');
             toggles.append(check('啟用此拒絕原因', 'enabled'),
-              check('需要設定衝突時間並登記現場預約', 'requiresConflictTime'));
+              check('需要設定衝突時間並登記現場預約', 'requiresConflictTime'),
+              check('有休假技師（櫃檯端可勾選已設定的技師）', 'hasVacationTechnicians'));
             card.append(toggles);
+            card.append(node('small', '勾選「有休假技師」後，櫃檯端須至少選一位啟用中的技師；系統會在上方會員說明前加入「目前 A 技師休假。」等文字。'));
             const controls = node('div', '', 'frontdesk-rejection-order');
             for (const [direction, caption] of [[-1, '上移'], [1, '下移']]) {
               const move = node('button', caption, 'button button-outline');
@@ -480,7 +480,7 @@
         };
         add.onclick = () => {
           if (busy || pending || draft.length >= 30) return;
-          draft.push({id:'custom_' + crypto.randomUUID(), label:'', memberDescription:'', enabled:true, requiresConflictTime:false});
+          draft.push({id:'custom_' + crypto.randomUUID(), label:'', memberDescription:'', enabled:true, requiresConflictTime:false, hasVacationTechnicians:false});
           markDirty(); rerender();
           rows.lastElementChild?.querySelector('input')?.focus();
         };
@@ -500,7 +500,8 @@
             expectedVersion: data.version,
             rejectionSettings: {dropdownTitle: title.input.value.trim(), reasons: draft.map(reason => ({
               id:reason.id,label:reason.label.trim(),memberDescription:reason.memberDescription.trim(),
-              enabled:reason.enabled,requiresConflictTime:reason.requiresConflictTime
+              enabled:reason.enabled,requiresConflictTime:reason.requiresConflictTime,
+              hasVacationTechnicians:reason.hasVacationTechnicians===true
             }))}
           }, saveSettings);
         });
