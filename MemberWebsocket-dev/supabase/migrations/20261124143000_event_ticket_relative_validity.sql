@@ -249,7 +249,7 @@ declare
 begin
   for schema_name in
     select nspname from pg_namespace
-    where nspname='public' or nspname ~ '^business_[0-9a-f]{32}
+    where nspname='public' or (nspname ~ '^business_[0-9a-f]{32}' and length(nspname)=41)
 
   loop
     select pg_get_functiondef(p.oid) into v_definition
