@@ -784,7 +784,7 @@ Deno.test('AC-005: enabled frontdesk uses 取消預約 title on administrator an
       const notice = buildBookingFlexMessage({
         ...sampleJob, channel, frontdeskDirectCancellation: true,
         message_text: ['【' + title + '】', '預約人：陳小姐', '日期：2026/11/25',
-          '時段：10:00–11:00', '電話：0912345678', '預約人數：1 位'].join('\\n'),
+          '時段：10:00–11:00', '電話：0912345678', '預約人數：1 位'].join('\n'),
       });
       const header = collectComponents(notice.contents.header);
       assert(header.some(c => c.text === '取消預約'), 'frontdesk-enabled ' + channel + ' cancellation header');
