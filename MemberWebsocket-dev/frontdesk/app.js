@@ -4,6 +4,12 @@
  const business=params.get('business')||nested.get('business'),bookingId=params.get('bookingId')||nested.get('bookingId');
  const status=document.getElementById('status'),account=document.getElementById('account'),list=document.getElementById('bookings'),refresh=document.getElementById('refresh');
  let config,idToken,busy=false,epoch=0,historyEpoch=0,historyLoaded=false,frontdeskPolicy={};const pending=new Map();
+ const legacyRejectionReasons=[
+  {id:'technician_leave',label:'預約中有休假技師',enabled:true,requiresConflictTime:false},
+  {id:'unrecorded_phone_booking',label:'該時段已被現場人員預約但未登記',enabled:true,requiresConflictTime:true}
+ ];
+ let rejectionSettings={dropdownTitle:'請選擇拒絕原因',reasons:legacyRejectionReasons};
+ const rejectionReasonById=id=>rejectionSettings.reasons.find(item=>item.id===id&&item.enabled);
  let syncTimer=null,syncEnabled=false,syncInFlight=false,syncRevision=null,syncFailures=0,syncGeneration=0;
  const node=(tag,text)=>{const n=document.createElement(tag);if(text)n.textContent=text;return n;};
  const progress=document.getElementById('progress'),toolbar=document.querySelector('.frontdesk-toolbar');
@@ -154,7 +160,7 @@
  async function review(booking,next,button,rejectionReason,phoneBooking=null,onSuccess=null){
   if(busy)return;const key=booking.id,known=pending.get(key);
   if(known&&known.status!==next){status.textContent='前次操作結果尚未確認，請先重試相同操作。';return;}
-  if(!known&&next==='rejected'&&!['technician_leave','unrecorded_phone_booking'].includes(rejectionReason)){
+  if(!known&&next==='rejected'&&!rejectionReasonById(rejectionReason)){
    status.textContent='請先選擇拒絕原因。';return;
   }
   const body=known||{bookingId:key,status:next,expectedUpdatedAt:booking.updatedAt,requestId:crypto.randomUUID(),...(next==='rejected'?{rejectionReason}:{}),...(phoneBooking?{phoneRequestId:'PHONE-'+crypto.randomUUID(),startTime:phoneBooking.startTime,totalDurationMinutes:phoneBooking.totalDurationMinutes}:{})};pending.set(key,body);lock(true);const generation=epoch;const finishFeedback=window.AsyncActionFeedback?.begin(next==='confirmed'?'正在確認預約並同步最新資料…':'正在拒絕預約並同步最新資料…');
@@ -342,10 +348,11 @@
   const heading=node('h2','拒絕預約');heading.id='frontdesk-rejection-heading';dialog.setAttribute('aria-labelledby',heading.id);
   const help=node('p','請先選擇拒絕原因，再確認送出。');
   const form=node('form');form.noValidate=true;form.className='frontdesk-rejection-form';
-  const reasonField=node('label','拒絕原因'),reason=node('select');reason.required=true;
+  const reasonField=node('label',String(rejectionSettings.dropdownTitle||'請選擇拒絕原因')),reason=node('select');reason.required=true;
   reason.setAttribute('aria-label','選擇拒絕預約原因');
-  for(const [code,label] of [['','請選擇拒絕原因'],['technician_leave','預約中有休假技師'],['unrecorded_phone_booking','該時段已被現場人員預約但未登記']]){
-   const option=node('option',label);option.value=code;reason.append(option);
+  const options=[{id:'',label:'請選擇拒絕原因'},...rejectionSettings.reasons.filter(item=>item.enabled||item.id===frozen?.rejectionReason)];
+  for(const item of options){
+   const option=node('option',item.label);option.value=item.id;reason.append(option);
   }
   reasonField.append(reason);
   const phonePanel=node('section');phonePanel.className='frontdesk-phone-settings';phonePanel.dataset.phoneRegistration='true';phonePanel.hidden=true;
@@ -430,8 +437,10 @@
   cancel.onclick=()=>close();overlay.onclick=event=>{if(event.target===overlay)close();};
   const validTime=()=>Array.from(time.options).some(option=>option.value===time.value);
   const validDuration=()=>Array.from(duration.options).some(option=>option.value===duration.value);
+  const requiresConflictTime=()=>rejectionReasonById(reason.value)?.requiresConflictTime===true||
+   (frozen?.rejectionReason===reason.value&&Boolean(frozen.phoneRequestId));
   const updateSubmit=()=>{
-   const phone=reason.value==='unrecorded_phone_booking';
+   const phone=requiresConflictTime();
    submit.textContent=frozen?'重試相同操作':phone?'確認拒絕並登記現場預約':'確認拒絕預約';
    const validPhone=bookingDate&&validTime()&&validDuration();
    const overlaps=phone&&validPhone&&hasConflict();
@@ -441,7 +450,7 @@
    }else if(!frozen)feedback.textContent='';
   };
   const updateReason=()=>{
-   phonePanel.hidden=reason.value!=='unrecorded_phone_booking';
+   phonePanel.hidden=!requiresConflictTime();
    if(phonePanel.hidden)feedback.textContent='';
    updateSubmit();
   };
@@ -454,7 +463,7 @@
   form.onsubmit=event=>{
    event.preventDefault();if(busy)return;
    if(!reason.value){feedback.textContent='請選擇拒絕原因。';reason.focus();return;}
-   const phone=reason.value==='unrecorded_phone_booking';
+   const phone=requiresConflictTime();
    if(phone&&(!validDuration()||!validTime()||!bookingDate)){
    feedback.textContent='請選擇原預約區間內的衝突開始時間與服務總時長（每 10 分鐘）。';return;
   }
@@ -505,7 +514,12 @@
    showBookingToolbar(true);
    if(history)history.hidden=false;
    const result=await request('frontdesk.bookings',bookingId?{bookingId}:{});if(generation!==epoch)return false;
-   renderBookings(result.bookings||[]);
+   if(result.rejectionSettings&&Array.isArray(result.rejectionSettings.reasons)){
+     rejectionSettings=result.rejectionSettings;
+    }else{
+     rejectionSettings={dropdownTitle:'請選擇拒絕原因',reasons:legacyRejectionReasons};
+    }
+    renderBookings(result.bookings||[]);
    if(bookingId&&!historyLoaded){historyLoaded=true;void loadConflictHistory();}
     startSync();
    status.textContent='審核已通過，可處理目前商家的待確認預約。';
