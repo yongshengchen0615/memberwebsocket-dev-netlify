@@ -208,6 +208,22 @@ deno test MemberWebsocket-dev/supabase/functions/_shared/*_test.ts MemberWebsock
 
 `待規劃 → 規範確認 → 準備開始 → 開發中 → 程式碼審查 → QA / E2E → 等待部署 → 觀察中 → 已完成`；`已阻塞` 為未完成工作可進入的獨立狀態。這些是 Project #5 實際 Status 選項，不能把英文舊名稱當成可寫入的欄位值。詳細進出條件依 [#39](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/issues/39)。PR 合併不等於 QA；Preview deployed 不等於 Production deployed；沒有實測就不標已完成。
 
+先讀卡片的目前 Status、Priority、關聯 PR 和驗收證據，再判定下一步。依實際進度補空白欄位，同時保留原需求、AC 編號、核取紀錄和歷史證據。Priority 沿用 [#56 工作約定](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/issues/56) 的判定。每張工作卡維護一份目前摘要，寫明成果、證據連結、待驗 AC、下一個動作及執行角色。
+
+| 狀態 | 進入時要能查到的證據 |
+|---|---|
+| 準備開始 | 六項 DoR 已齊備，包含可執行的測試與回復方案 |
+| 程式碼審查 | 候選 PR、目標分支與 SHA 可查，並列出已知失敗和缺少的證據 |
+| QA / E2E | 有可驗收的候選版本，列出仍可執行的案例、目標環境及真人或外部驗收缺口 |
+| 等待部署 | 指定發布版本的審查、完整 CI 和部署前 AC 通過，具備目標環境授權與回復點 |
+| 觀察中 | 已在本卡要求的環境部署，版本對帳及部署後 smoke 已完成，並有觀察項目與結束條件 |
+| 已完成 | 本卡全部適用 AC、必要 CI 和交付環境的驗收證據齊備，且解除所有結案阻礙 |
+| 已阻塞 | 下一個必要關卡缺外部條件或有已知阻擋，記錄受影響 AC、解除條件、執行角色及解除後回到的階段 |
+
+PR 的 CI 證據記錄事件、PR head SHA 及實際測試 SHA。若 runner 測試暫時合併提交，保留該 SHA。發布證據核對目標分支的提交與 Netlify deploy ID、context 和來源 SHA，適用時再記錄 Supabase project ref、Edge／migration 版本及資料終態。若 Netlify `commit_ref` 為空，使用實際發布產物或來源標記對帳，找不到即記為來源待確認。LINE 測試證據須寫明使用的測試角色、入口、實際收件者及結果，並區分模擬、供應商接受和真人收件。
+
+用 [Project 5 Status 工作流程](https://github.com/yongshengchen0615/memberwebsocket-dev-netlify/actions/workflows/project-v2-status.yml) 先預覽再寫入。完成後從 GraphQL 與看板讀回同一張卡的值，並保存執行連結。結果未定時先讀回，再決定後續動作。Issue 本文、標籤和 Project 欄位各自核對。
+
 **固定交付報告**：本輪結果（已驗證完成／驗證失敗／部分完成且受阻） → 第一性原理摘要 → 變更檔案與影響 → AC 對照 → 測試報告（命令、環境、SHA、時間、pass/fail/skip、CI/log URL） → 已知問題 → 執行／回復 → 下一步。只填實際取得的證據。
 
 ## V2 與 R01–R10 的關係（2026-10-26）
