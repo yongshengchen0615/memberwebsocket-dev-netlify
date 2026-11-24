@@ -25,8 +25,9 @@ export function createFrontdeskHandler({db,allowedOrigins,verifyIdentity=(idToke
    if(['frontdesk.bookings','frontdesk.history'].includes(body.action)&&body.bookingId!==undefined&&!uuid.test(body.bookingId))throw new PlatformError(400,'PLATFORM_INVALID_INPUT','預約識別碼不正確。');
    if(body.action==='frontdesk.booking.update'&&(!uuid.test(body.bookingId||'')||!uuid.test(body.requestId||'')||!['confirmed','rejected'].includes(body.status)||typeof body.expectedUpdatedAt!=='string'||!Number.isFinite(Date.parse(body.expectedUpdatedAt))||(body.note!==undefined&&typeof body.note!=='string')))throw new PlatformError(400,'PLATFORM_INVALID_INPUT','預約操作資料不正確。');
    if(body.action==='frontdesk.booking.update'&&(body.status==='rejected'?!rejectionId.test(body.rejectionReason||''):body.rejectionReason!==undefined))throw new PlatformError(400,'BOOKING_REJECTION_REASON_REQUIRED','請先選擇有效的拒絕預約原因。');
-   // On-site rejection must use the paired route so SQL verifies overlap atomically.
-   if(body.action==='frontdesk.booking.update'&&body.rejectionReason==='unrecorded_phone_booking')throw new PlatformError(400,'FRONTDESK_USE_PAIRED_REJECTION','請使用現場預約衝突登記流程，以確認新舊預約時段是否重疊。');
+   // The tenant-specific reason policy is verified at the SQL transaction boundary.
+   // A legacy reason may have its conflict flag changed, so static route checks
+   // here would incorrectly reject a valid configuration.
    if(['frontdesk.phone.slots','frontdesk.phone.create'].includes(body.action)){
     const items=body.items;
     if(!Array.isArray(items)||items.length<1||items.length>20||
