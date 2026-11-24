@@ -19,7 +19,7 @@ test('Postgres: existing tenant, public schema, and new tenant have per-claim ex
     assert.match(s, /^business_[0-9a-f]{32}$/);
 
     const memberId = (await h.db.query(
-      "insert into " + s + ".members(line_user_id,member_code,invite_code,status,membership_status,is_test_account) values($1,'EXPIRY-MEMBER','EXPR123456','active','active',true) returning id",
+      "insert into " + s + ".members(line_user_id,member_code,invite_code,status,membership_status,is_test_account) values($1,'EXPIRY-MEMBER','ABCD987654','active','active',true) returning id",
       ['U' + '3'.repeat(32)]
     )).rows[0].id;
     const oldTicketId = (await h.db.query(
