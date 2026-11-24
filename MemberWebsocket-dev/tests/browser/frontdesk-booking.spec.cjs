@@ -775,6 +775,7 @@ test('FRONTDESK_REJECTION_SETTINGS_LEGACY — no editor on older server contract
  await page.evaluate(()=>{
   window.FrontdeskSettings.mount({root:document.getElementById('root'),business:'shop-a',
    request:async(action)=>{
+    if(action==='platform.frontdesk.history.list')return {items:[]};
     if(action!=='platform.frontdesk.get')throw Error('unexpected action '+action);
     return {version:1,frontdesk:{},staff:[]};
    }});
@@ -782,6 +783,10 @@ test('FRONTDESK_REJECTION_SETTINGS_LEGACY — no editor on older server contract
  await page.locator('summary').click();
  await expect(page.locator('form.frontdesk-preferences-form')).toBeVisible();
  await expect(page.locator('[data-frontdesk-rejection-settings]')).toHaveCount(0);
+ await expect(page.getByRole('tab',{name:'拒絕預約設定'})).toHaveCount(0);
+ await page.getByRole('tab',{name:'LINE 設定'}).focus();
+ await page.keyboard.press('ArrowRight');
+ await expect(page.getByRole('tab',{name:'確認預約'})).toHaveAttribute('aria-selected','true');
 });
 
 for(const width of [390,1280])test('FRONTDESK_REJECTION_SETTINGS_EDITOR_'+width+' — accessible, responsive editor, ordering and frozen replay', async({page},info)=>{
@@ -832,6 +837,7 @@ for(const width of [390,1280])test('FRONTDESK_REJECTION_SETTINGS_EDITOR_'+width+
  await rows.nth(2).getByRole('button',{name:'原因 3 上移'}).click();
  await expect(rows.nth(1).locator('input[type=text]')).toHaveValue('設備維護');
  await rows.nth(2).getByLabel('啟用此拒絕原因').uncheck();
+ await expect(rows.nth(2).locator('.frontdesk-rejection-state')).toHaveText('已停用');
  await form.getByRole('button',{name:'儲存拒絕預約設定'}).click();
  await expect(form.getByRole('button',{name:'重試相同儲存操作'})).toBeEnabled();
  await expect(form.locator('textarea').first()).toBeDisabled();
