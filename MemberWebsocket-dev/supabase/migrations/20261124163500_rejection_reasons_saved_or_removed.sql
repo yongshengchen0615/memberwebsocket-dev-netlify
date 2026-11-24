@@ -5,26 +5,25 @@
 -- Keep the legacy 'enabled' boolean on the wire and in stored policies for
 -- rollback/old-client compatibility, but normalize saved values to TRUE.
 do $simplify_policy$
-declare d text;old_sql text;new_sql text;
+declare d text;old_sql text;new_sql text;start_pos integer;end_pos integer;tail_pos integer;
 begin
  select pg_get_functiondef('platform_private.validate_frontdesk_rejection_settings(jsonb,jsonb)'::regprocedure) into strict d;
  old_sql:='if jsonb_array_length(v_reasons)<1 or jsonb_array_length(v_reasons)>30 then';
  new_sql:='if jsonb_array_length(v_reasons)>30 then';
  if length(d)-length(replace(d,old_sql,''))<>length(old_sql) then raise exception 'REJECTION_LIST_SIZE_CONTRACT_CHANGED';end if;
  d:=replace(d,old_sql,new_sql);
- old_sql:=$block$
-   if (v_item->>'enabled')::boolean then
-    v_enabled:=v_enabled+1;
-    if v_label=any(v_labels) then raise exception 'PLATFORM_INVALID_INPUT';end if;
-    v_labels:=array_append(v_labels,v_label);
-   end if;
-$block$;
- new_sql:=$block$
-   if v_label=any(v_labels) then raise exception 'PLATFORM_INVALID_INPUT';end if;
-   v_labels:=array_append(v_labels,v_label);
-$block$;
- if length(d)-length(replace(d,old_sql,''))<>length(old_sql) then raise exception 'REJECTION_LABELS_CONTRACT_CHANGED';end if;
- d:=replace(d,old_sql,new_sql);
+ start_pos:=position('if (v_item->>''enabled'')::boolean then' in d);
+ tail_pos:=position('v_labels:=array_append(v_labels,v_label);' in d);
+ if start_pos=0 or tail_pos<=start_pos then raise exception 'REJECTION_LABELS_CONTRACT_CHANGED';end if;
+ end_pos:=tail_pos+length('v_labels:=array_append(v_labels,v_label);');
+ tail_pos:=position('end if;' in substring(d from end_pos));
+ if tail_pos=0 or tail_pos>30 then raise exception 'REJECTION_LABELS_CONTRACT_CHANGED';end if;
+ end_pos:=end_pos+tail_pos-1+length('end if;');
+ old_sql:=substring(d from start_pos for end_pos-start_pos);
+ if position('v_enabled:=v_enabled+1;' in old_sql)=0 then raise exception 'REJECTION_LABELS_CONTRACT_CHANGED';end if;
+ new_sql:='if v_label=any(v_labels) then raise exception ''PLATFORM_INVALID_INPUT'';end if;'
+   ||E'\n  v_labels:=array_append(v_labels,v_label);';
+ d:=substring(d from 1 for start_pos-1)||new_sql||substring(d from end_pos);
  old_sql:='if v_enabled=0 then raise exception ''PLATFORM_INVALID_INPUT'';end if;';
  new_sql:='-- An empty saved reason list is valid and blocks new rejections.';
  if length(d)-length(replace(d,old_sql,''))<>length(old_sql) then raise exception 'REJECTION_ENABLED_COUNT_CONTRACT_CHANGED';end if;
