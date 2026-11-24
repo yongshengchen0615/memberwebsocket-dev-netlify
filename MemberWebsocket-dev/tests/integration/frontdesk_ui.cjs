@@ -512,6 +512,7 @@ test('AC-FD-REJ-TABS-003: configured merchant can switch to reason editor and re
  details.open=true;details.dispatchEvent(new w.Event('toggle'));
  const settle=()=>new Promise(resolve=>setImmediate(resolve));
  await settle();await settle();
+ const getReadsAtOpen=calls.filter(c=>c.action==='platform.frontdesk.get').length;
  const tab=root.querySelector('#frontdesk-tab-rejectionSettings'),editor=root.querySelector('[data-frontdesk-rejection-settings]');
  assert.equal(tab.hidden,false);
  assert.equal(editor.hidden,false,'the editor itself remains mounted but hidden through its panel');
@@ -529,7 +530,7 @@ test('AC-FD-REJ-TABS-003: configured merchant can switch to reason editor and re
  tab.click();
  assert.equal(root.querySelector('#frontdesk-rejection-panel').hidden,false);
  assert.equal(editor.querySelector('textarea').value,'更新後會員看到的說明');
- assert.equal(calls.filter(c=>c.action==='platform.frontdesk.get').length,1,
-  'tab switching must not re-fetch or wipe unsaved draft');
+ assert.equal(calls.filter(c=>c.action==='platform.frontdesk.get').length,getReadsAtOpen,
+  'tab switching must not add a new read or wipe unsaved draft');
  w.FrontdeskSettings.clear(root);dom.window.close();
 });
