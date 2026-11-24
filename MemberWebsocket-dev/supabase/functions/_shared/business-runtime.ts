@@ -90,6 +90,12 @@ export function createClient(url:string,key:string,options?:any):import('npm:@su
     MEMBER_NOTIFICATIONS_DISABLED:current.module_line?.booking?.notifications?.member?.mode==='disabled',
     LINE_BOOKING_FRONTDESK_CHANNEL_ACCESS_TOKEN:notificationToken(current,'frontdesk'),FRONTDESK_NOTIFICATIONS_DISABLED:current.module_line?.booking?.frontdesk?.enabled!==true}}));
    if(name==='platform_frontdesk_delivery')return control().rpc(name,{p_tenant_id:current.id,p_actor:params?.p_actor});
+   // The tenant is always the verified routing scope, never request JSON.
+   if(name==='platform_member_direct_cancel_booking')return control().rpc(name,{
+     p_tenant_id:current.id,p_booking_id:params?.p_booking_id,
+     p_member_id:params?.p_member_id,p_actor:params?.p_actor,
+     p_expected_updated_at:params?.p_expected_updated_at||null,
+   });
    // The SQL endpoint is service-role only. Bind tenant, actor and issued-at
    // exclusively from the LINE-verified administrator context, not request JSON.
    if(name==='platform_admin_reject_walkin'){

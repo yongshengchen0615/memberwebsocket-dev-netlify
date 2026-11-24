@@ -17,6 +17,7 @@
   let expandedBookingId = '';
   let activeBookingGroup = 'reserved';
   let bookingGroupManuallySelected = false;
+  let cancellationMode = 'unavailable';
 
   function membershipRequiredError() {
     if (typeof window.BookingSystem.clientError === 'function') {
@@ -111,10 +112,15 @@
   async function enrichBootstrapWithCancellationState(config, idToken, bookingData) {
     try {
       const cancellationData = await cancellationRequest(config, idToken, 'member.list');
-      return applyCancellationRequests(bookingData, cancellationData.requests);
+      if (!['direct', 'approval'].includes(cancellationData.cancellationMode)) {
+        throw clientError('CANCELLATION_MODE_UNAVAILABLE', '目前無法確認商家取消方式。');
+      }
+      cancellationMode = cancellationData.cancellationMode;
+      return { ...applyCancellationRequests(bookingData, cancellationData.requests), cancellationMode };
     } catch (error) {
       console.warn('booking cancellation state unavailable', error?.code || error?.message || error);
-      return bookingData;
+      cancellationMode = 'unavailable';
+      return { ...bookingData, cancellationMode };
     }
   }
 
@@ -132,7 +138,7 @@
     if (root.nodeType === Node.ELEMENT_NODE && root.matches?.('button')) buttons.push(root);
     if (typeof root.querySelectorAll === 'function') buttons.push(...root.querySelectorAll('button'));
     buttons.forEach((button) => {
-      if (button.textContent?.trim() === '取消預約') button.textContent = '申請取消';
+      if (cancellationMode === 'approval' && button.textContent?.trim() === '取消預約') button.textContent = '申請取消';
     });
   }
 
@@ -154,7 +160,9 @@
 
     const description = document.createElement('p');
     description.className = 'booking-history-panel-description';
-    description.textContent = group.description;
+    description.textContent = cancellationMode === 'direct' && group.key === 'reserved'
+      ? '等待確認與已確認的預約服務。'
+      : group.description;
     const list = document.createElement('div');
     list.className = 'booking-service-group-list';
     if (items.length) {
@@ -348,7 +356,9 @@
   window.confirm = (message) => {
     const text = String(message ?? '');
     if (text.startsWith('確定取消 ') && text.endsWith(' 的預約嗎？')) {
-      return originalConfirm(`${text}\n\n確定取消後會送出申請，需由管理端確認；確認前原預約時段仍會保留。`);
+      return originalConfirm(cancellationMode === 'direct'
+        ? `${text}\n\n確認後將立即取消預約、釋出原時段，並依商家設定通知櫃檯。`
+        : `${text}\n\n確定取消後會送出申請，需由管理端確認；確認前原預約時段仍會保留。`);
     }
     return originalConfirm(message);
   };
@@ -372,12 +382,17 @@
         return await enrichBootstrapWithCancellationState(config, idToken, bookingData);
       }
       if (clientType === 'member' && action === 'user.booking.cancel') {
-        const cancellation = await cancellationRequest(config, idToken, 'member.request', { bookingId: payload?.bookingId });
+        const cancellation = await cancellationRequest(config, idToken, 'member.request', {
+          bookingId: payload?.bookingId, expectedUpdatedAt: payload?.expectedUpdatedAt,
+        });
         const fresh = await originalRequest(config, clientType, idToken, 'user.booking.bootstrap');
         const booking = (fresh?.bookings || []).find((item) => item.bookingId === payload?.bookingId);
-        if (!booking) throw clientError('BOOKING_NOT_FOUND', '取消申請已送出，但目前無法重新載入這筆預約。');
+        if (!booking) throw clientError('BOOKING_NOT_FOUND', '取消操作已完成，但目前無法重新載入這筆預約，請重新整理。');
+        const directCancelled = cancellation?.directCancelled === true;
+        cancellationMode = directCancelled ? 'direct' : 'approval';
         return {
-          booking: {
+          directCancelled,
+          booking: directCancelled ? booking : {
             ...booking,
             baseStatus: booking.status,
             status: 'cancel_requested',

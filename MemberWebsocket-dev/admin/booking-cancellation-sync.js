@@ -17,6 +17,7 @@
   let realtimeTimer = null;
   let pollTimer = null;
   let activeMode = MODE_CORE;
+  let directMode = false;
   let requestRows = [];
   let cancelledRows = [];
   const els = {};
@@ -251,6 +252,7 @@
       try {
         const data = await cancellationRequest('admin.list');
         requestRows = Array.isArray(data.requests) ? data.requests : [];
+        directMode = data.cancellationMode === 'direct';
       } catch (error) {
         errors.push(error?.message || '取消申請同步失敗。');
       }
@@ -308,8 +310,19 @@
   }
 
   function updateFilterLabels() {
-    els.requestButton.textContent = requestRows.length ? `取消申請（${requestRows.length}）` : '取消申請';
-    els.cancelledButton.textContent = cancelledRows.length ? `已取消（${cancelledRows.length}）` : '已取消';
+    // Existing requests made before frontdesk activation can still be reviewed.
+    const showLegacyRequests = !directMode || requestRows.length > 0;
+    els.requestButton.hidden = !showLegacyRequests;
+    els.requestButton.classList.toggle('hidden', !showLegacyRequests);
+    const requestLabel = directMode ? '待處理取消' : '取消申請';
+    els.requestButton.textContent = requestRows.length ? `${requestLabel}（${requestRows.length}）` : requestLabel;
+    const cancelledLabel = directMode ? '取消預約' : '已取消';
+    els.cancelledButton.textContent = cancelledRows.length ? `${cancelledLabel}（${cancelledRows.length}）` : cancelledLabel;
+    if (!showLegacyRequests && activeMode === MODE_REQUESTS) {
+      activeMode = MODE_CANCELLED;
+      els.requestButton.classList.remove('active');
+      els.cancelledButton.classList.add('active');
+    }
   }
 
   function timestampValue(value) {
@@ -335,16 +348,18 @@
   }
 
   function renderRequests() {
-    els.bookingCancellationReviewKicker.textContent = 'Cancellation requests';
-    els.bookingCancellationReviewTitle.textContent = '取消申請';
-    els.bookingCancellationReviewDescription.textContent = '會員申請取消後，原預約時段仍保留；管理端確認取消後才會重新開放。';
+    els.bookingCancellationReviewKicker.textContent = directMode ? 'Cancellation' : 'Cancellation requests';
+    els.bookingCancellationReviewTitle.textContent = directMode ? '取消預約' : '取消申請';
+    els.bookingCancellationReviewDescription.textContent = directMode
+      ? '此處只處理開啟櫃檯前留下的取消申請；目前會員取消預約會直接生效。'
+      : '會員申請取消後，原預約時段仍保留；管理端確認取消後才會重新開放。';
     els.bookingCancellationReviewCount.className = 'booking-admin-status status-pending';
     renderRows(requestRows.slice().sort(compareCancellationRequestsNewestFirst), '目前沒有待確認的取消申請', requestCard);
   }
 
   function renderCancelled() {
     els.bookingCancellationReviewKicker.textContent = 'Cancelled bookings';
-    els.bookingCancellationReviewTitle.textContent = '已取消';
+    els.bookingCancellationReviewTitle.textContent = directMode ? '取消預約' : '已取消';
     els.bookingCancellationReviewDescription.textContent = '顯示已完成取消的預約紀錄；此分頁僅供查詢，不會重新開放或變更其他預約。';
     els.bookingCancellationReviewCount.className = 'booking-admin-status status-cancelled';
     renderRows(cancelledRows.slice().sort(compareCancelledNewestFirst), '目前沒有已取消的預約', cancelledCard);

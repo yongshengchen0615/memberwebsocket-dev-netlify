@@ -1,6 +1,7 @@
 import { bookingPriceOptions, withBookingPrices, bookingPriceError } from '../_shared/booking-price-publishing.mjs';
 import { businessEnv, businessContext, serveBusiness } from '../_shared/business-runtime.ts';
 import { linkedBooking } from "../_shared/linked-booking.ts";
+import { directFrontdeskCancellationEnabled } from "../_shared/frontdesk-cancellation-mode.mjs";
 import { hasCurrentTermsConsent } from "../_shared/membership-terms.ts";
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
@@ -96,6 +97,8 @@ function mapDatabaseError(error: unknown): ApiError {
     ["BOOKING_NO_SHOW_TOO_EARLY",409,"BOOKING_NO_SHOW_TOO_EARLY","服務結束後才能標記無故未到。"],
     ["BOOKING_NO_SHOW_NOT_ALLOWED",409,"BOOKING_NO_SHOW_NOT_ALLOWED","只有待確認的一般預約可標記無故未到，請重新整理。"],
     ["BOOKING_NOT_FOUND",404,"BOOKING_NOT_FOUND","找不到這筆預約。"],
+    ["FRONTDESK_DIRECT_CANCELLATION_DISABLED",409,"CANCELLATION_MODE_CHANGED","商家櫃檯設定已變更，請重新整理後再操作。"],
+    ["FRONTDESK_UNAVAILABLE",409,"CANCELLATION_MODE_CHANGED","商家櫃檯設定已變更，請重新整理後再操作。"],
     ["ADMIN_REQUIRED",403,"ADMIN_REQUIRED","目前沒有管理員權限。"],
     ["PHONE_BOOKING_CONFLICT",409,"PHONE_BOOKING_CONFLICT","此時段已有預約，請先取消原預約，或選擇其他時段。"],
     ["ADMIN_WALKIN_NOT_OVERLAPPING",400,"ADMIN_WALKIN_NOT_OVERLAPPING","現場預約開始時間必須位於原預約區間內（含結束時間）。"],
@@ -873,7 +876,8 @@ async function userUpdate(supabase: SupabaseClient, identity: Identity, member: 
 async function userCancel(supabase: SupabaseClient, identity: Identity, member: any, body: Json): Promise<Json> {
   const bookingId = requireUuid(body.bookingId, "預約");
   const expectedUpdatedAt = asText(body.expectedUpdatedAt, 80);
-  const result = await supabase.rpc("request_booking_cancellation", {
+  const direct = directFrontdeskCancellationEnabled(businessContext());
+  const result = await supabase.rpc(direct ? "platform_member_direct_cancel_booking" : "request_booking_cancellation", {
     p_booking_id: bookingId,
     p_member_id: member.id,
     p_actor: identity.lineUserId,
@@ -888,6 +892,7 @@ async function userCancel(supabase: SupabaseClient, identity: Identity, member: 
   const rpcResult = result.data && typeof result.data === "object" ? result.data as Json : {};
   const alreadyRequested = rpcResult.alreadyRequested === true;
   const hydrated = (await hydrateBookings(supabase, [current.data]))[0];
+  if (direct) return { booking: hydrated, directCancelled: true, alreadyCancelled: rpcResult.alreadyCancelled === true };
   if (!alreadyRequested) {
     await audit(supabase, identity, "member", "BOOKING_CANCELLATION_REQUESTED", "booking", bookingId, {
       sourceStatus: current.data.status,

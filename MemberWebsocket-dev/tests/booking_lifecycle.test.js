@@ -4,6 +4,8 @@ const fs = require('./helpers/edge-test-fs.cjs');
 const vm = require('node:vm');
 const { stripTypeScriptTypes } = require('node:module');
 const { localTimestamp } = require('../supabase/functions/_shared/booking-hours.ts');
+const { directFrontdeskCancellationEnabled } = require('../supabase/functions/_shared/frontdesk-cancellation-mode.mjs');
+let frontdeskMode = false;
 
 const source = fs.readFileSync(require('node:path').join(__dirname, '../supabase/functions/booking-api/index.ts'), 'utf8')
   .replace(/^import .*\n/gm, '');
@@ -26,6 +28,11 @@ const context = vm.createContext({
   Date, Intl, Set, Map, console, crypto: require('node:crypto').webcrypto, TextEncoder,
   requireActiveAdminContract, verifyLineIdTokenContract, localTimestamp,
   hasCurrentTermsConsent: async () => true,
+  businessContext: () => frontdeskMode ? {
+    features: { booking: true, frontdesk: true },
+    module_line: { booking: { frontdesk: { enabled: true } } },
+  } : null,
+  directFrontdeskCancellationEnabled,
 });
 vm.runInContext(stripTypeScriptTypes(source), context);
 
@@ -138,6 +145,21 @@ test('legacy member cancel action creates a cancellation request instead of canc
   assert.equal(client.rpcs[0].args.p_booking_id, id);
   assert.equal(client.rpcs[0].args.p_member_id, id);
   assert.equal(client.rpcs[0].args.p_actor, identity.lineUserId);
+});
+
+test('AC-002: enabled frontdesk uses immediate cancellation RPC while preserving member identity', async () => {
+  const future = { ...booking, booking_date: '2099-01-01' };
+  const client = db(future);
+  frontdeskMode = true;
+  try {
+    const result = await context.userCancel(client, identity, { id }, { bookingId: id, expectedUpdatedAt: version });
+    assert.equal(result.directCancelled, true);
+    assert.equal(client.rpcs.length, 1);
+    assert.equal(client.rpcs[0].name, 'platform_member_direct_cancel_booking');
+    assert.equal(client.rpcs[0].args.p_member_id, id);
+    assert.equal(client.rpcs[0].args.p_actor, identity.lineUserId);
+    assert.equal(client.rpcs[0].args.p_expected_updated_at, version);
+  } finally { frontdeskMode = false; }
 });
 
 test('member cannot reach admin status action', async () => {

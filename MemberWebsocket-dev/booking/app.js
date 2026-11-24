@@ -1083,7 +1083,12 @@
         const cancelButton = document.createElement('button');
         cancelButton.type = 'button';
         cancelButton.className = 'text-danger-button';
-        cancelButton.textContent = '申請取消';
+        cancelButton.textContent = state.data.cancellationMode === 'direct' ? '取消預約' : '申請取消';
+        if (state.data.cancellationMode === 'unavailable') {
+          cancelButton.disabled = true;
+          cancelButton.textContent = '取消功能暫時無法確認';
+          cancelButton.title = '目前無法確認商家的取消方式，請重新整理後重試。';
+        }
         cancelButton.addEventListener('click', () => cancelBooking(booking, cancelButton));
         const editButton = document.createElement('button');
         editButton.type = 'button';
@@ -1210,13 +1215,19 @@
     if (!window.confirm(`確定取消 ${bookingDisplayTitle(booking)} ${booking.startAt?.slice(0, 10) || booking.bookingDate} ${booking.startTime}–${booking.endAt?.slice(0, 10) || booking.bookingDate} ${booking.endTime} 的預約嗎？`)) return;
     button.disabled = true;
     const originalLabel = button.textContent;
-    button.textContent = '取消申請送出中…';
-    const finishFeedback = window.AsyncActionFeedback?.begin('正在送出取消申請並更新預約…');
+    const directMode = state.data.cancellationMode === 'direct';
+    button.textContent = directMode ? '取消預約中…' : '取消申請送出中…';
+    const finishFeedback = window.AsyncActionFeedback?.begin(directMode
+      ? '正在取消預約並更新時段…' : '正在送出取消申請並更新預約…');
     try {
-      const result = await window.BookingSystem.request(state.config, 'member', state.idToken, 'user.booking.cancel', { bookingId: booking.bookingId });
+      const result = await window.BookingSystem.request(state.config, 'member', state.idToken, 'user.booking.cancel', {
+        bookingId: booking.bookingId, expectedUpdatedAt: booking.updatedAt,
+      });
       state.data.bookings = (state.data.bookings || []).map((item) => item.bookingId === result.booking.bookingId ? result.booking : item);
       renderBookings();
-      showFormMessage('已送出取消申請，等待管理端確認；確認前原預約時段仍會保留。', 'success');
+      showFormMessage(result.directCancelled === true
+        ? '預約已取消，原時段已釋出；取消通知將依商家櫃檯設定發送。'
+        : '已送出取消申請，等待管理端確認；確認前原預約時段仍會保留。', 'success');
       if (selectedItems().length && els.bookingDate.value === booking.bookingDate) await loadSlots();
     } catch (error) {
       button.disabled = false;

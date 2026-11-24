@@ -22,6 +22,7 @@ export type Job = {
   bookingStatus?: string;
   frontdeskCanReview?: boolean;
   frontdeskUri?: string;
+  frontdeskDirectCancellation?: boolean;
 };
 export type Delivery = { accepted: boolean; retryable: boolean; status: number | null; lineRequestId: string };
 
@@ -55,6 +56,7 @@ const TITLE_STYLES: Record<string, { color: string; eyebrow: string }> = {
   '預約申請': { color: '#397AA3', eyebrow: 'PENDING CONFIRMATION' },
   '修改預約': { color: '#C56E32', eyebrow: 'BOOKING UPDATED' },
   '取消預約申請': { color: '#9A711F', eyebrow: 'CANCELLATION REQUEST' },
+  '取消預約': { color: '#68756F', eyebrow: 'BOOKING CANCELLED' },
   '預約確認': { color: '#2F8F61', eyebrow: 'BOOKING CONFIRMED' },
   '預約提醒': { color: '#397AA3', eyebrow: 'BOOKING REMINDER' },
   '完成服務': { color: '#286553', eyebrow: 'SERVICE COMPLETED' },
@@ -662,9 +664,20 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
   const visibleText = job.channel === 'admin' ? job.message_text :
     String(job.message_text || '').replace(/^(?:預約編號|原預約編號|新增預約編號|訂單編號)[：:][^\r\n]*(?:\r?\n|$)/gm, '');
   const parsed = parseBookingMessage(visibleText);
-  // The frontdesk-only display title does not change cancellation approval state.
-  const displayTitle = job.channel === 'frontdesk' && parsed.title === '取消預約申請' ? '預約取消' : parsed.title;
-  const style = TITLE_STYLES[parsed.title] || { color: '#315D50', eyebrow: 'BOOKING NOTICE' };
+  // Presentation only: the trusted frontdesk mode never changes the stored event.
+  // The event key distinguishes an actual cancellation from an older pending
+  // request: enabling frontdesk must never present the latter as completed.
+  const directCancellationNotice = job.frontdeskDirectCancellation === true
+    && ['admin', 'frontdesk'].includes(job.channel)
+    && String(job.event_key || '').includes(':cancelled:')
+    && ['取消預約', '預約取消'].includes(parsed.title);
+  const pendingHistoricalRequest = job.frontdeskDirectCancellation === true
+    && ['admin', 'frontdesk'].includes(job.channel)
+    && parsed.title === '取消預約申請';
+  const displayTitle = directCancellationNotice ? '取消預約'
+    : pendingHistoricalRequest ? '取消申請待審核'
+    : job.channel === 'frontdesk' && parsed.title === '取消預約申請' ? '預約取消' : parsed.title;
+  const style = TITLE_STYLES[displayTitle] || TITLE_STYLES[parsed.title] || { color: '#315D50', eyebrow: 'BOOKING NOTICE' };
   const channelLabel = job.channel === 'admin' ? '管理端預約通知' : job.channel === 'frontdesk' ? '櫃檯預約通知' : '會員預約通知';
   const bodyContents: Array<Record<string, unknown>> = [];
 
@@ -714,7 +727,7 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
       ? '已收到預約申請，請等待管理員確認。'
       : memberReminder ? '請查看預約詳情。' : '預約已確認。'));
   }
-  if (job.booking_id && job.channel === 'admin' && parsed.title === '預約') {
+  if (job.booking_id && job.channel === 'admin' && parsed.title === '預約' && job.frontdeskDirectCancellation !== true) {
     const copy = String(job.copyText || '');
     footerActions.push({type:'button',height:'sm',action:copy && Array.from(copy).length<=1000
       ? {type:'clipboard',label:'複製預約內容',clipboardText:copy}
