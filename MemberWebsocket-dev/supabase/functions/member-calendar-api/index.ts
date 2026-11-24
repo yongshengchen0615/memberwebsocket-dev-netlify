@@ -11,6 +11,7 @@ type CalendarItem = Json & {
   status?: string;
   linkUrl?: string;
   allowedTierKeys?: string[];
+  visibilityPolicy?: string;
 };
 
 const MAX_REQUEST_BYTES = 40_000;
@@ -65,6 +66,7 @@ function calendarClient(row: any): CalendarItem {
     status: row.status === "targeted" ? "active" : row.status,
     accent: row.accent,
     allowedTierKeys: Array.isArray(row.allowed_tier_keys) ? row.allowed_tier_keys : [],
+    visibilityPolicy: row.visibility_policy || 'eligible_only',
     linkLabel: row.link_label || "",
     linkUrl: row.link_url || "",
     createdAt: row.created_at,
@@ -276,7 +278,7 @@ serveBusiness('member-calendar-api',async (request: Request) => {
         .order("starts_on", { ascending:true })
         .order("created_at", { ascending:true }),
       db.from("event_tickets")
-        .select("id,event_ticket_id,title,description,starts_on,ends_on,status,accent,allowed_tier_keys,validity_mode")
+        .select("id,event_ticket_id,title,description,starts_on,ends_on,status,accent,allowed_tier_keys,validity_mode,visibility_policy")
         .eq("status", "active")
         .is("deleted_at", null)
         .is("referral_source_event_ticket_id", null)
@@ -331,6 +333,7 @@ serveBusiness('member-calendar-api',async (request: Request) => {
         status: "active",
         accent: asText(ticket.accent, 20),
         allowedTierKeys: Array.isArray(ticket.allowed_tier_keys) ? ticket.allowed_tier_keys : [],
+        visibilityPolicy: ticket.visibility_policy || 'eligible_only',
         linkLabel: "查看活動票券",
         linkUrl: "",
       };
@@ -343,12 +346,27 @@ serveBusiness('member-calendar-api',async (request: Request) => {
       }
     }
 
-    let items = [...rows.map(calendarClient), ...virtualTicketItems]
+    const eventByUuid = new Map((eventTicketsResult.data || []).map((ticket: any) => [String(ticket.id), ticket]));
+    const eventByCode = new Map((eventTicketsResult.data || []).map((ticket: any) => [String(ticket.event_ticket_id), ticket]));
+    const calendarEntries = rows.map((row: any) => {
+      const item = calendarClient(row);
+      if (item.itemType !== 'event') return item;
+      let linkedTicket = eventByUuid.get(String(row.source_event_ticket_id || ''));
+      if (!linkedTicket) {
+        try {
+          const link = new URL(String(row.link_url || ''), 'https://calendar.invalid/');
+          if (link.searchParams.get('source') === 'event-ticket-calendar')
+            linkedTicket = eventByCode.get(String(link.searchParams.get('eventTicketId') || ''));
+        } catch { /* No ticket association: preserve the saved activity visibility rules. */ }
+      }
+      return linkedTicket ? { ...item, allowedTierKeys: Array.isArray(linkedTicket.allowed_tier_keys) ? linkedTicket.allowed_tier_keys : [], visibilityPolicy: linkedTicket.visibility_policy || 'eligible_only' } : item;
+    });
+    let items = [...calendarEntries, ...virtualTicketItems]
       .map((item) => decorateTierEligibility(item, profile));
     let ongoingTickets = undatedTicketItems.map((item) => decorateTierEligibility(item, profile));
     const policy=await loadVisibilityPolicy(db);
     const visibility = (item:CalendarItem): CalendarItem[] => {
-      const v = tierVisibility(item.allowedTierKeys, profile.tierKey, policy);
+      const v = tierVisibility(item.allowedTierKeys, profile.tierKey, item.visibilityPolicy || policy);
       return item.itemType === "holiday" ? [item] : v.visible ? [{ ...item, ...v }] : [];
     };
     items=items.flatMap(visibility);
