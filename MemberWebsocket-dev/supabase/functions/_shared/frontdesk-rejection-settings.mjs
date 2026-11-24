@@ -49,9 +49,9 @@ function boundedText(value,max,field,{optional=false,multiline=false}={}){
  return text.replace(/\r\n?/g,"\n");
 }
 
-function normalizeReasonBucket(input){
+function normalizeReasonBucket(input,fallbackTitle=DEFAULT_REJECTION_SETTINGS.dropdownTitle){
  if(!input||typeof input!=="object"||Array.isArray(input)||Object.keys(input).some(key=>!["dropdownTitle","reasons"].includes(key)))invalid("INVALID_REJECTION_SETTINGS");
- const dropdownTitle=boundedText(input.dropdownTitle,60,"INVALID_REJECTION_TITLE",{optional:true})||DEFAULT_REJECTION_SETTINGS.dropdownTitle;
+ const dropdownTitle=boundedText(input.dropdownTitle,60,"INVALID_REJECTION_TITLE",{optional:true})||fallbackTitle;
  if(!Array.isArray(input.reasons)||input.reasons.length>30)invalid("INVALID_REJECTION_REASONS");
  const ids=new Set(),labels=new Set();
  const reasons=input.reasons.map(row=>{
@@ -73,7 +73,8 @@ function normalizeRejectionSettings(input){
  if(!input||typeof input!=="object"||Array.isArray(input)||Object.keys(input).some(key=>!["dropdownTitle","reasons","modification"].includes(key)))invalid("INVALID_REJECTION_SETTINGS");
  const {modification,...ordinary}=input;
  return {...normalizeReasonBucket(ordinary),
-  modification:normalizeReasonBucket(modification===undefined?DEFAULT_REJECTION_SETTINGS.modification:modification)};
+  modification:normalizeReasonBucket(modification===undefined?DEFAULT_REJECTION_SETTINGS.modification:modification,
+   DEFAULT_REJECTION_SETTINGS.modification.dropdownTitle)};
 }
 
 function validateRejectionSettingsUpdate(previous,input){
