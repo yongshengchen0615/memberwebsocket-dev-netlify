@@ -33,9 +33,9 @@
   const platformWrites = new Set([
     'platform.title.save','platform.line.save',
     'platform.notifications.save','platform.notifications.test',
-    'platform.frontdesk.settings.save','platform.frontdesk.staff.approve',
-    'platform.frontdesk.staff.reject','platform.frontdesk.staff.delete',
-    'platform.frontdesk.rejection-reasons.save',
+    'platform.frontdesk.settings.save','platform.frontdesk.preferences.save',
+    'platform.frontdesk.rejection-settings.save','platform.frontdesk.staff.save',
+    'platform.frontdesk.staff.delete',
   ]);
   const directActions = new Set([
     '確認預約', '取消預約', '取消登記預約',
