@@ -84,7 +84,12 @@
   const changed=signature!==grantSignature;grantSignature=signature;
   latest=data;
   for(const [feature,name]of Object.entries(panels)){
-   const tab=document.getElementById(name+'Tab'),panel=document.getElementById(name+'Panel'),allowed=data.features[feature]===true;
+   const tab=document.getElementById(name+'Tab'),panel=document.getElementById(name+'Panel');
+   const holidayOnly = feature === 'booking' && data.features.calendar === true && data.features.booking !== true;
+   const allowed=data.features[feature]===true || holidayOnly;
+   if(holidayOnly && tab?.firstChild?.nodeType===Node.TEXT_NODE) tab.firstChild.nodeValue='預約（休假日）';
+   else if(feature==='booking' && tab?.firstChild?.nodeType===Node.TEXT_NODE) tab.firstChild.nodeValue='預約';
+   if(feature==='booking' && panel) panel.classList.toggle('business-holiday-only',holidayOnly);
    if(tab){tab.hidden=!allowed;tab.disabled=!allowed;tab.dataset.businessAllowed=String(allowed);}
    if(panel){panel.hidden=!allowed;if(!allowed)panel.classList.add('hidden');}
   }
