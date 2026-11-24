@@ -234,4 +234,69 @@ begin
   end if;
 end;
 $tenants$;
+-- Guard the canonical accessible-snapshot validator. Unlike a normal booking,
+-- receipt registration can submit a claim without touching booking_benefit_selections.
+-- Patch the EXISTING verified function body rather than replacing later workflow,
+-- location, price, or tenant-specific protections with an outdated definition.
+do $snapshot_expiry$
+declare
+  schema_name text;
+  v_definition text;
+  v_before constant text := 'c.status=''claimed''';
+  v_after constant text := 'c.status=''claimed'' and (c.expires_at is null or c.expires_at > clock_timestamp())';
+  v_template jsonb;
+  v_functions jsonb;
+begin
+  for schema_name in
+    select nspname from pg_namespace
+    where nspname='public' or nspname ~ '^business_[0-9a-f]{32}
+
+  loop
+    select pg_get_functiondef(p.oid) into v_definition
+    from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname=schema_name and p.proname='validate_snapshot_ticket_selection'
+      and pg_get_function_identity_arguments(p.oid) =
+        'p_member uuid, p_booking uuid, p_benefits jsonb, p_receipt_id text'
+    limit 1;
+
+    -- Reduced isolated PG fixtures may omit the snapshot subsystem entirely.
+    if v_definition is null then
+      if to_regclass(format('%I.booking_receipts',schema_name)) is not null then
+        raise exception 'SNAPSHOT_VALIDATOR_MISSING for schema %', schema_name;
+      end if;
+      continue;
+    end if;
+
+    if strpos(v_definition,v_after)>0 then continue; end if;
+    if (length(v_definition)-length(replace(v_definition,v_before,''))) <> length(v_before) then
+      raise exception 'SNAPSHOT_EXPIRY_GUARD_SHAPE_CHANGED for schema %',schema_name;
+    end if;
+    execute replace(v_definition,v_before,v_after);
+  end loop;
+
+  if to_regclass('platform_private.business_templates') is not null then
+    select snapshot into v_template from platform_private.business_templates
+    where version='business-v1-20261019' for update;
+    if v_template is null then raise exception 'BUSINESS_TEMPLATE_MISSING'; end if;
+    if not exists (
+      select 1 from jsonb_array_elements(v_template->'functions') f
+      where f->>'name'='validate_snapshot_ticket_selection'
+        and f->>'identityArgs'='p_member uuid, p_booking uuid, p_benefits jsonb, p_receipt_id text'
+        and strpos(f->>'definition',v_before)>0
+    ) then raise exception 'SNAPSHOT_EXPIRY_GUARD_SHAPE_CHANGED for business template'; end if;
+
+    select jsonb_agg(
+      case when f->>'name'='validate_snapshot_ticket_selection'
+           and f->>'identityArgs'='p_member uuid, p_booking uuid, p_benefits jsonb, p_receipt_id text'
+      then jsonb_set(f,'{definition}',to_jsonb(replace(f->>'definition',v_before,v_after)))
+      else f end order by ordinality
+    ) into v_functions
+    from jsonb_array_elements(v_template->'functions') with ordinality x(f,ordinality);
+    v_template:=jsonb_set(v_template,'{functions}',v_functions);
+    update platform_private.business_templates set snapshot=v_template
+    where version='business-v1-20261019';
+  end if;
+end;
+$snapshot_expiry$;
+
 notify pgrst, 'reload schema';
