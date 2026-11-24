@@ -3186,12 +3186,13 @@
       }
 
       await reopen();
-      const calendar = document.querySelector('[data-integration-target="calendar-batch"]');
+      // Batch calendar navigation was removed: use the dedicated activity tab.
+      const calendar = document.getElementById('calendarTab');
       if (calendar) {
         await adminHumanClick(calendar, '會員活動');
         actual.calendarActivities = Boolean(await waitFor(() => {
           const panel = document.getElementById('calendarPanel');
-          return panel && !panel.classList.contains('hidden') && document.getElementById('adminCalendarGrid') ? true : null;
+          return panel && !panel.classList.contains('hidden') && document.getElementById('adminCalendarGrid')?.children.length === 42 ? true : null;
         }, 3500, 80));
       }
 
