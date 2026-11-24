@@ -12,6 +12,25 @@ alter table public.event_tickets
       and (validity_mode <> 'both' or ends_on is not null))
   );
 
+-- Referral reward children inherit the source campaign's lifetime semantics.
+create or replace function public.inherit_referral_event_ticket_validity()
+returns trigger language plpgsql security definer set search_path = ''
+as $body$
+begin
+  if new.referral_source_event_ticket_id is not null then
+    select p.validity_mode,p.validity_days
+      into new.validity_mode,new.validity_days
+      from public.event_tickets p where p.id=new.referral_source_event_ticket_id;
+    if not found then raise exception 'EVENT_TICKET_NOT_AVAILABLE'; end if;
+  end if;
+  return new;
+end;
+$body$;
+drop trigger if exists inherit_referral_event_ticket_validity on public.event_tickets;
+create trigger inherit_referral_event_ticket_validity
+  before insert on public.event_tickets
+  for each row execute function public.inherit_referral_event_ticket_validity();
+
 create or replace function public.guard_event_ticket_validity_change()
 returns trigger language plpgsql security definer set search_path = ''
 as $body$
@@ -142,11 +161,12 @@ begin
       select pg_get_functiondef(p.oid) definition
       from pg_proc p join pg_namespace n on n.oid=p.pronamespace
       where n.nspname='public' and p.proname in
-        ('guard_event_ticket_validity_change','set_event_ticket_claim_expiry',
+        ('inherit_referral_event_ticket_validity','guard_event_ticket_validity_change','set_event_ticket_claim_expiry',
          'guard_event_ticket_claim_expiry','guard_event_ticket_expiry','guard_booking_event_ticket_expiry')
     loop
       execute replace(f.definition,'public.',format('%I.',s));
     end loop;
+    execute format('create trigger inherit_referral_event_ticket_validity before insert on %1$I.event_tickets for each row execute function %1$I.inherit_referral_event_ticket_validity()',s);
     execute format('create trigger guard_event_ticket_validity_change before update of validity_mode,validity_days,ends_on on %1$I.event_tickets for each row execute function %1$I.guard_event_ticket_validity_change()',s);
     execute format('create trigger set_event_ticket_claim_expiry before insert on %1$I.event_ticket_claims for each row execute function %1$I.set_event_ticket_claim_expiry()',s);
     execute format('create trigger guard_event_ticket_claim_expiry before update of expires_at,claimed_at,event_ticket_id,member_id on %1$I.event_ticket_claims for each row execute function %1$I.guard_event_ticket_claim_expiry()',s);
@@ -186,19 +206,19 @@ begin
     select coalesce(jsonb_agg(value order by ordinality),'[]'::jsonb) into fns
       from jsonb_array_elements(tpl->'functions') with ordinality x(value,ordinality)
       where value->>'name' not in
-        ('guard_event_ticket_validity_change','set_event_ticket_claim_expiry',
+        ('inherit_referral_event_ticket_validity','guard_event_ticket_validity_change','set_event_ticket_claim_expiry',
          'guard_event_ticket_claim_expiry','guard_event_ticket_expiry','guard_booking_event_ticket_expiry');
     select fns || coalesce(jsonb_agg(jsonb_build_object(
       'name',p.proname,'definition',pg_get_functiondef(p.oid)) order by p.proname),'[]'::jsonb) into fns
       from pg_proc p join pg_namespace n on n.oid=p.pronamespace
       where n.nspname='public' and p.proname in
-        ('guard_event_ticket_validity_change','set_event_ticket_claim_expiry',
+        ('inherit_referral_event_ticket_validity','guard_event_ticket_validity_change','set_event_ticket_claim_expiry',
          'guard_event_ticket_claim_expiry','guard_event_ticket_expiry','guard_booking_event_ticket_expiry');
     tpl := jsonb_set(tpl,'{functions}',fns);
     select coalesce(jsonb_agg(value order by ordinality),'[]'::jsonb) into trgs
       from jsonb_array_elements(tpl->'triggers') with ordinality x(value,ordinality)
       where value->>'name' not in
-        ('guard_event_ticket_validity_change','set_event_ticket_claim_expiry',
+        ('inherit_referral_event_ticket_validity','guard_event_ticket_validity_change','set_event_ticket_claim_expiry',
          'guard_event_ticket_claim_expiry','guard_event_ticket_expiry','guard_booking_event_ticket_expiry');
     select trgs || coalesce(jsonb_agg(jsonb_build_object(
       'name',t.tgname,'table',c.relname,'definition',pg_get_triggerdef(t.oid))
@@ -206,7 +226,7 @@ begin
       from pg_trigger t join pg_class c on c.oid=t.tgrelid
       join pg_namespace n on n.oid=c.relnamespace
       where n.nspname='public' and not t.tgisinternal and t.tgname in
-        ('guard_event_ticket_validity_change','set_event_ticket_claim_expiry',
+        ('inherit_referral_event_ticket_validity','guard_event_ticket_validity_change','set_event_ticket_claim_expiry',
          'guard_event_ticket_claim_expiry','guard_event_ticket_expiry','guard_booking_event_ticket_expiry');
     tpl := jsonb_set(tpl,'{triggers}',trgs);
     update platform_private.business_templates set snapshot=tpl
