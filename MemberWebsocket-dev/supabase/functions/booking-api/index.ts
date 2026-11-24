@@ -891,8 +891,8 @@ async function userCancel(supabase: SupabaseClient, identity: Identity, member: 
 
   const rpcResult = result.data && typeof result.data === "object" ? result.data as Json : {};
   const alreadyRequested = rpcResult.alreadyRequested === true;
-  if (direct) return { booking: hydrated, directCancelled: true, alreadyCancelled: rpcResult.alreadyCancelled === true };
   const hydrated = (await hydrateBookings(supabase, [current.data]))[0];
+  if (direct) return { booking: hydrated, directCancelled: true, alreadyCancelled: rpcResult.alreadyCancelled === true };
   if (!alreadyRequested) {
     await audit(supabase, identity, "member", "BOOKING_CANCELLATION_REQUESTED", "booking", bookingId, {
       sourceStatus: current.data.status,
