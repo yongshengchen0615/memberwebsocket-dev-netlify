@@ -34,14 +34,20 @@
     historyPanel.hidden = true;
     content.id = 'frontdesk-line-panel';
     content.setAttribute('role', 'tabpanel');
+    const rejectionPanel = node('section', '', 'frontdesk-rejection-panel');
+    rejectionPanel.id = 'frontdesk-rejection-panel';
+    rejectionPanel.setAttribute('role', 'tabpanel');
+    rejectionPanel.hidden = true;
     const tabButtons = new Map();
+    const historyKeys = new Set(['confirmed', 'rejected']);
     let selectedTab = 'line', historyEpoch = 0;
-    for (const [key, title] of [['line', 'LINE 設定'], ['confirmed', '確認預約'], ['rejected', '拒絕預約']]) {
+    for (const [key, title] of [['line', 'LINE 設定'], ['rejectionSettings', '拒絕預約設定'], ['confirmed', '確認預約'], ['rejected', '拒絕預約']]) {
       const tab = node('button', title, 'frontdesk-settings-tab');
       tab.type = 'button';
       tab.id = 'frontdesk-tab-' + key;
       tab.setAttribute('role', 'tab');
-      tab.setAttribute('aria-controls', key === 'line' ? content.id : historyPanel.id);
+      tab.setAttribute('aria-controls', key === 'line' ? content.id : key === 'rejectionSettings' ? rejectionPanel.id : historyPanel.id);
+      if (key === 'rejectionSettings') tab.hidden = true;
       tab.setAttribute('aria-selected', key === 'line' ? 'true' : 'false');
       tab.tabIndex = key === 'line' ? 0 : -1;
       tab.addEventListener('click', () => selectTab(key));
@@ -59,12 +65,13 @@
       tabs.append(tab);
     }
     content.setAttribute('aria-labelledby', 'frontdesk-tab-line');
+    rejectionPanel.setAttribute('aria-labelledby', 'frontdesk-tab-rejectionSettings');
     historyPanel.setAttribute('aria-labelledby', 'frontdesk-tab-confirmed');
     // <details> owns an internal content box in Chromium. Put all open-state
     // controls in one explicit grid instead of treating its children as grid
     // items: otherwise tab changes can reflow into different implicit tracks.
     const body = node('div', '', 'frontdesk-settings-body');
-    body.append(status, syncState, reload, tabs, content, historyPanel);
+    body.append(status, syncState, reload, tabs, content, rejectionPanel, historyPanel);
     details.append(body);
     root.append(details);
     let data = null, busy = false, pending = null, dirty = false, snapshot = '';
@@ -74,18 +81,19 @@
     const visible = () => alive() && details.open && !document.hidden &&
       !details.closest('[role="tabpanel"]')?.hidden;
     function selectTab(key) {
-      if (!tabButtons.has(key) || !alive()) return;
+      if (!tabButtons.has(key) || tabButtons.get(key).hidden || !alive()) return;
       selectedTab = key;
       historyEpoch++;
       content.hidden = key !== 'line';
-      historyPanel.hidden = key === 'line';
-      historyPanel.setAttribute('aria-labelledby', 'frontdesk-tab-' + (key === 'line' ? 'confirmed' : key));
+      rejectionPanel.hidden = key !== 'rejectionSettings';
+      historyPanel.hidden = !historyKeys.has(key);
+      if (historyKeys.has(key)) historyPanel.setAttribute('aria-labelledby', 'frontdesk-tab-' + key);
       for (const [name, tab] of tabButtons) {
         const chosen = name === key;
         tab.setAttribute('aria-selected', String(chosen));
         tab.tabIndex = chosen ? 0 : -1;
       }
-      if (key !== 'line') void loadHistory();
+      if (historyKeys.has(key)) void loadHistory();
     }
     const formatActionAt = value => {
       const date = new Date(value);
@@ -136,7 +144,7 @@
       if (booking.adminNote) parent.append(node('p', '管理備註：' + booking.adminNote));
     }
     async function loadHistory() {
-      if (selectedTab === 'line' || !visible()) return;
+      if (!historyKeys.has(selectedTab) || !visible()) return;
       const statusKey = selectedTab, sequence = ++historyEpoch;
       historyPanel.replaceChildren();
       const heading = node('h3', statusKey === 'confirmed' ? '櫃檯確認預約紀錄' : '櫃檯拒絕預約紀錄');
@@ -239,7 +247,11 @@
     }
     function render() {
       content.replaceChildren();
+      rejectionPanel.replaceChildren();
       const cfg = data.frontdesk || {};
+      const hasRejectionSettings = Boolean(cfg.rejectionSettings && Array.isArray(cfg.rejectionSettings.reasons));
+      tabButtons.get('rejectionSettings').hidden = !hasRejectionSettings;
+      if (!hasRejectionSettings && selectedTab === 'rejectionSettings') selectTab('line');
       const hasSettings = Boolean(cfg.liffId && cfg.messagingChannelId);
       const overview = node('div', '', 'frontdesk-settings-overview');
       overview.append(node('strong', cfg.enabled === false ? '櫃檯入口已停用' :
@@ -380,14 +392,22 @@
 
       // Only expose the editor after the authenticated database response advertises
       // the new policy contract. Older deployments continue using fixed reasons.
-      if (cfg.rejectionSettings && Array.isArray(cfg.rejectionSettings.reasons)) {
+      if (hasRejectionSettings) {
         const settings = node('form', '', 'frontdesk-setup-card frontdesk-rejection-settings');
         settings.dataset.frontdeskRejectionSettings = 'true';
-        settings.append(node('h3', '拒絕預約設定'), node('p', '可新增、編輯、排序或停用拒絕原因。停用後保留歷史紀錄；對外說明將用於會員通知。'));
-        const title = field('rejectionDropdownTitle', '櫃檯端下拉式選單標題', '留空使用「請選擇拒絕原因」。', cfg.rejectionSettings.dropdownTitle || '', false);
+        const intro = node('header', '', 'frontdesk-rejection-intro');
+        intro.append(node('p', '預約審核 · 規則管理', 'frontdesk-rejection-kicker'),
+          node('h3', '拒絕預約設定'),
+          node('p', '管理櫃檯選單、拒絕原因及會員端說明。休假技師可在櫃檯拒絕時直接勾選，系統會自動帶入此處保存的說明。'));
+        settings.append(intro);
+        const title = field('rejectionDropdownTitle', '櫃檯端下拉式選單標題', '此標題顯示於櫃檯拒絕預約視窗；留空使用「請選擇拒絕原因」。', cfg.rejectionSettings.dropdownTitle || '', false);
         title.input.maxLength = 60;
+        title.wrap.classList.add('frontdesk-rejection-dropdown-title');
         settings.append(title.wrap);
-        const rows = node('div', '', 'frontdesk-settings-content');
+        const rows = node('div', '', 'frontdesk-rejection-list');
+        const rulesHeading = node('div', '', 'frontdesk-rejection-list-heading');
+        rulesHeading.append(node('h4', '拒絕原因清單'), node('p', '調整順序、開啟或停用原因；已使用的原因不會從歷史紀錄消失。'));
+        settings.append(rulesHeading);
         const draft = cfg.rejectionSettings.reasons.map(reason => ({...reason}));
         const add = node('button', '新增拒絕原因', 'button button-outline');
         add.type = 'button';
@@ -396,14 +416,20 @@
         const rerender = () => {
           rows.replaceChildren();
           draft.forEach((reason, index) => {
-            const card = node('fieldset', '', 'frontdesk-setup-card');
+            const card = node('fieldset', '', 'frontdesk-setup-card frontdesk-rejection-rule');
             card.append(node('legend', '拒絕原因 ' + (index + 1)));
+            card.append(node('span', reason.enabled ? '使用中' : '已停用', 'frontdesk-rejection-state ' + (reason.enabled ? 'is-enabled' : 'is-disabled')));
             const label = field('rejection-label-' + reason.id, '櫃檯端選項名稱', '此名稱供櫃檯人員選擇。', reason.label);
             const descriptionLabel = node('label', '用戶端拒絕原因說明');
             const description = node('textarea');
             description.rows = 3; description.required = true; description.maxLength = 400;
             description.value = reason.memberDescription;
+            description.name = 'rejectionDescription-' + reason.id;
             descriptionLabel.append(description);
+            const preview = node('div', '', 'frontdesk-rejection-preview');
+            preview.append(node('strong', '會員端顯示預覽'));
+            const previewText = node('p', String(reason.memberDescription || '').trim() || '請填寫會員端拒絕原因說明。');
+            preview.append(previewText);
             const check = (caption, key) => {
               const wrap = node('label', '', 'business-notification-toggle');
               const input = node('input');
@@ -413,11 +439,18 @@
               return wrap;
             };
             label.input.addEventListener('input', () => { reason.label = label.input.value; });
-            description.addEventListener('input', () => { reason.memberDescription = description.value; });
-            card.append(label.wrap, descriptionLabel,
-              check('啟用此拒絕原因', 'enabled'),
+            description.addEventListener('input', () => {
+              reason.memberDescription = description.value;
+              previewText.textContent = description.value.trim() || '請填寫會員端拒絕原因說明。';
+            });
+            card.append(label.wrap, descriptionLabel, preview);
+            if (reason.id === 'technician_leave')
+              card.append(node('small', '休假技師快速勾選會選取此原因，並自動帶入上方會員端說明。', 'frontdesk-rejection-vacation-hint'));
+            const toggles = node('div', '', 'frontdesk-rejection-toggles');
+            toggles.append(check('啟用此拒絕原因', 'enabled'),
               check('需要設定衝突時間並登記現場預約', 'requiresConflictTime'));
-            const controls = node('div', '', 'business-line-fields');
+            card.append(toggles);
+            const controls = node('div', '', 'frontdesk-rejection-order');
             for (const [direction, caption] of [[-1, '上移'], [1, '下移']]) {
               const move = node('button', caption, 'button button-outline');
               move.type = 'button';
@@ -462,8 +495,10 @@
           }, saveSettings);
         });
         rerender();
-        settings.append(rows, add, saveSettings);
-        content.append(settings);
+        const actions = node('div', '', 'frontdesk-rejection-actions');
+        actions.append(add, saveSettings);
+        settings.append(rows, actions);
+        rejectionPanel.append(settings);
       }
 
       const approvals = node('section', '', 'frontdesk-approvals');
@@ -565,13 +600,13 @@
       if (dirty && !window.confirm('確定捨棄尚未儲存的修改並載入伺服器最新版本？')) return;
       dirty = false;
       void load({ force: true });
-      if (selectedTab !== 'line') void loadHistory();
+      if (historyKeys.has(selectedTab)) void loadHistory();
     };
     details.addEventListener('toggle', () => { if (details.open) void load(); });
     const loadWhenVisible = () => visible() ? load() : undefined;
     const refreshVisible = () => Promise.all([
       loadWhenVisible(),
-      selectedTab === 'line' ? Promise.resolve() : loadHistory()
+      historyKeys.has(selectedTab) ? loadHistory() : Promise.resolve()
     ]);
     const onRefresh = event => {
       if (!event.detail?.business || event.detail.business === business) void refreshVisible();
