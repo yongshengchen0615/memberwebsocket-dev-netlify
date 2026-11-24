@@ -871,8 +871,33 @@ test('CALENDAR_BONUS — save bonus amount, reopen, disable by changing to holid
   await expect(p.locator('#calendarBonusPoints')).toHaveValue('4');await select(p,'calendarItemType','holiday');await expect(p.locator('#calendarBonusPointsField')).toBeHidden();await expect(p.locator('#calendarBonusPointsEnabled')).toBeDisabled();
   await click(p,'saveCalendarItemButton');await expect(p.locator('#saveCalendarItemButton')).toBeEnabled();await expect.poll(()=>info.fixture.calendarItems[0]?.bonusPointsEnabled).toBe(false);
 });
-test('EVENT_CALENDAR_SYNC — date required, add, readonly calendar detail and remove linkage',async({page:p},info)=>{
-  await openEvent(p);await p.locator('#eventTicketAddToCalendar').check();await click(p,'saveEventTicketButton');await expect(p.locator('#eventTicketFormMessage')).toContainText('開始日');expect(info.fixture.eventTickets).toHaveLength(0);await fill(p,'eventTicketStartsOn',today());await click(p,'saveEventTicketButton');await expect.poll(()=>info.fixture.calendarItems.length).toBe(1);const ticketId=await p.locator('#eventTicketId').inputValue();const calendarId=info.fixture.calendarItems[0].calendarItemId;await p.locator('#eventTicketEditorModal .editor-modal-close').click();await click(p,'calendarTab');await p.locator('[data-admin-calendar-item-id="'+calendarId+'"]').first().click();await expect(p.locator('#eventTicketCalendarInfoModal')).toBeVisible();await expect(p.locator('#eventTicketCalendarInfoContent')).toContainText('活動票券同步');await expect(p.locator('#calendarEditorModal')).toBeHidden();await click(p,'closeEventTicketCalendarInfoButton');await click(p,'eventsTab');await p.locator('[data-event-ticket-id="'+ticketId+'"]').first().click();await expect(p.locator('#eventTicketAddToCalendar')).toBeEnabled();await p.locator('#eventTicketAddToCalendar').uncheck();await click(p,'saveEventTicketButton');await expect.poll(()=>info.fixture.calendarItems.length).toBe(0);
+test('EVENT_CALENDAR_SYNC — ticket stays in ticket calendar and not member activities; unlink retains source ticket',async({page:p},info)=>{
+  await openEvent(p);
+  await p.locator('#eventTicketAddToCalendar').check();
+  await click(p,'saveEventTicketButton');
+  await expect(p.locator('#eventTicketFormMessage')).toContainText('開始日');
+  expect(info.fixture.eventTickets).toHaveLength(0);
+  await fill(p,'eventTicketStartsOn',today());
+  await click(p,'saveEventTicketButton');
+  await expect.poll(()=>info.fixture.calendarItems.length).toBe(1);
+  const ticketId=await p.locator('#eventTicketId').inputValue();
+  const calendarId=info.fixture.calendarItems[0].calendarItemId;
+  await p.locator('#eventTicketEditorModal .editor-modal-close').click();
+  await click(p,'calendarTab');
+  await expect(p.locator('#adminCalendarGrid [data-admin-calendar-item-id="'+calendarId+'"]')).toHaveCount(0);
+  await click(p,'eventsTab');
+  await p.locator('#eventTicketCalendarTodayButton').click();
+  const ticket=p.locator('#eventTicketCalendarGrid [data-ticket-calendar-item-id="'+ticketId+'"]').first();
+  await expect(ticket).toBeVisible();
+  await ticket.click();
+  await expect(p.locator('#eventTicketEditorModal')).toBeVisible();
+  await expect(p.locator('#eventTicketId')).toHaveValue(ticketId);
+  await expect(p.locator('#calendarEditorModal')).toBeHidden();
+  await expect(p.locator('#eventTicketAddToCalendar')).toBeEnabled();
+  await p.locator('#eventTicketAddToCalendar').uncheck();
+  await click(p,'saveEventTicketButton');
+  await expect.poll(()=>info.fixture.calendarItems.length).toBe(0);
+  expect(info.fixture.eventTickets.some(row=>row.eventTicketId===ticketId)).toBe(true);
 });
 test('MEMBER_MESSAGE_SELECTION — preset list selection, grant preview and payload',async({page:p},info)=>{
   // This is still a synthetic in-memory member; exercise the non-test UI branch.
