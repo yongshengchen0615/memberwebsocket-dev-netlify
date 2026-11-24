@@ -5,7 +5,7 @@ const fixture=`
 window.calls=[];window.MembershipProgress={render(){}};
 window.BookingSystem={loadConfig:async()=>({supabaseUrl:'https://booking-cancellation.fixture.invalid',supabasePublishableKey:'synthetic-fixture-key'}),signIn:async()=>'fixture',memberProfile:async()=>({lineUserId:'a'}),setBookingNotice:v=>{window.bookingNoticeValue=String(v||'');},formatDate:v=>v,subscribeRealtime:()=>()=>{},getSession:()=>({config:{},idToken:'fixture'}),addDays:(d,n)=>new Date(Date.parse(d+'T00:00:00Z')+n*86400000).toISOString().slice(0,10),request:async(c,t,k,action)=>{calls.push(action);
 if(action==='user.booking.bootstrap')return {serverNow:'2026-10-30T00:00:00Z',today:'2026-10-30',settings:{minAdvanceDays:0,maxAdvanceDays:3,bookingNotice:'商家測試預約說明'},services:[],bookings:[
-{bookingId:'today',bookingDate:'2026-10-30',status:'confirmed',startTime:'09:00',endTime:'10:00',items:[]},
+{bookingId:'today',bookingDate:'2026-10-30',status:'confirmed',startTime:'15:00',endTime:'16:00',startAt:'2026-10-30T15:00:00+08:00',endAt:'2026-10-30T16:00:00+08:00',items:[]},
 {bookingId:'tomorrow',bookingDate:'2026-10-31',status:'pending',startTime:'11:00',endTime:'12:00',items:[]},
 {bookingId:'old',bookingDate:'2026-09-02',status:'completed',startTime:'11:00',endTime:'12:00',items:[]}]};
 if(action==='user.booking.receipt.list')return {bookings:[],submissions:[{receiptId:'today',createdAt:'2026-10-29T16:00:00Z',status:'bound'},{receiptId:'yesterday',createdAt:'2026-10-29T15:59:00Z',status:'bound'}]};return {};}};`;
@@ -19,6 +19,7 @@ test.beforeEach(async({page})=>{
   // Fixtures assert on October dates; keep browser time deterministic across
   // month boundaries without altering timers, server policy or expectations.
   await page.clock.setFixedTime(new Date('2026-10-30T04:00:00.000Z'));
+  // The synthetic 15:00 booking remains in the future at 12:00 Taiwan time.
   await page.route('https://**',r=>r.abort());
   // Model the trusted cancellation-mode API, not a UI-only feature toggle.
   // Unlisted remote requests remain blocked by the route above.
