@@ -555,6 +555,46 @@ function frontdeskRejectionCards(source: string): Array<Record<string, unknown>>
   const operation = section(1, originalAt);
   const original = section(originalAt + 1, replacementAt < 0 ? lines.length : replacementAt);
   const replacement = replacementAt < 0 ? null : section(replacementAt + 1, lines.length);
+  // Each participant has independent services, technician and notes.
+  // Aggregating into the booking summary makes multi-person bookings appear
+  // as if everyone booked all treatments with the same therapist.
+  const people = (start: number, end: number): Array<{label:string;values:Map<string,string>}> => {
+    const result: Array<{label:string;values:Map<string,string>}> = [];
+    let current: {label:string;values:Map<string,string>} | null = null;
+    let collectingNote=false;
+    for (const line of lines.slice(start,end)) {
+      if (line.startsWith('【')) {
+        current=null;
+        collectingNote=false;
+        continue;
+      }
+      const m = /^第(\d{1,2})位預約$/.exec(line);
+      if (m) {
+        current={label:'第'+m[1]+'位預約',values:new Map()};
+        result.push(current);
+        collectingNote=false;
+        continue;
+      }
+      if (!current || !line) continue;
+      const at=line.indexOf('：');
+      const label=at>0?line.slice(0,at):'';
+      const value=at>0?line.slice(at+1).trim():'';
+      if(['預約項目','預約技師','個別備註'].includes(label)) {
+        if(value&&!current.values.has(label))current.values.set(label,truncate(value,500));
+        collectingNote=label==='個別備註'&&Boolean(value);
+        continue;
+      }
+      // Notes may contain plain continuation lines or their own "提醒：" text.
+      // Stop only at an explicit next participant, section or structured field.
+      if (collectingNote) {
+        const previous=current.values.get('個別備註')||'';
+        current.values.set('個別備註',truncate(previous+'\n'+line,500));
+      }
+    }
+    return result;
+  };
+  const originalPeople=people(originalAt+1,replacementAt<0?lines.length:replacementAt);
+  const replacementPeople=replacementAt<0?[]:people(replacementAt+1,lines.length);
   const card = (heading: string, status: string, fields: Map<string, string>,
     labels: Array<[string, string]>): Record<string, unknown> => {
     const contents: Array<Record<string, unknown>> = [
@@ -578,20 +618,41 @@ function frontdeskRejectionCards(source: string): Array<Record<string, unknown>>
   ];
   if (operation.get('拒絕原因')) summary.push(fieldRow('拒絕原因', operation.get('拒絕原因')!));
   if (replacement) summary.push(fieldRow('補登狀態', replacement.get('預約狀態') || '已確認'));
-  const cards: Array<Record<string, unknown>> = [
-    { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '14px',
-      backgroundColor: '#FFF4EF', cornerRadius: '12px', contents: summary },
-    card('原預約資料', '已拒絕', original, [
+  const individualCards=(entries:Array<{label:string;values:Map<string,string>}>,sectionName:string) =>
+    entries.map(person=>{
+      const contents:Array<Record<string,unknown>>=[
+        {type:'text',text:sectionName+' · '+person.label,size:'md',color:TEXT_COLOR,weight:'bold',wrap:true},
+        {type:'separator',margin:'sm',color:'#E5EAE7'},
+      ];
+      for (const [caption,key] of [['項目','預約項目'],['技師','預約技師'],['個別備註','個別備註']]) {
+        const raw=person.values.get(key)||'';
+        const text=key==='預約項目'?visibleFrontdeskRejectionServices(raw):raw;
+        if(text&&text!=='—')contents.push(fieldRow(caption,text));
+      }
+      return {type:'box',layout:'vertical',spacing:'sm',paddingAll:'14px',
+        backgroundColor:SURFACE_COLOR,cornerRadius:'12px',contents};
+    });
+  const originalLabels:Array<[string,string]>=[
       ['預約編號', '預約編號'], ['日期', '預約日期'], ['時間', '預約時間'],
       ['原預約會員', '原預約會員'], ['電話', '電話'], ['人數', '預約人數'],
-      ['項目', '預約項目'], ['技師', '預約技師'],
+      ...(!originalPeople.length?[['項目', '預約項目'], ['技師', '預約技師']] as Array<[string,string]>:[]),
       ['會員備註', '會員備註'], ['管理端說明', '管理端說明'],
-    ]),
   ];
-  if (replacement) cards.push(card('櫃檯新增預約', replacement.get('預約狀態') || '已確認', replacement, [
-    ['新增預約編號', '新增預約編號'], ['日期', '預約日期'], ['時間', '預約時間'],
-    ['人數', '預約人數'], ['項目', '預約項目'], ['技師', '預約技師'],
-  ]));
+  const cards: Array<Record<string, unknown>> = [
+    {type:'box',layout:'vertical',spacing:'sm',paddingAll:'14px',
+      backgroundColor:'#FFF4EF',cornerRadius:'12px',contents:summary},
+    card('原預約資料','已拒絕',original,originalLabels),
+    ...individualCards(originalPeople,'原預約'),
+  ];
+  if(replacement){
+    const replacementLabels:Array<[string,string]>=[
+      ['新增預約編號','新增預約編號'],['日期','預約日期'],['時間','預約時間'],
+      ['人數','預約人數'],
+      ...(!replacementPeople.length?[['項目','預約項目'],['技師','預約技師']] as Array<[string,string]>:[]),
+    ];
+    cards.push(card('櫃檯新增預約',replacement.get('預約狀態')||'已確認',replacement,replacementLabels),
+      ...individualCards(replacementPeople,'櫃檯新增預約'));
+  }
   return cards;
 }
 
@@ -690,7 +751,10 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
       ? truncate([displayTitle, ...frontdeskSummaryLines(parsed).slice(0, 2)].join('｜'), MAX_ALT_TEXT)
       : rejection
         ? truncate(['櫃檯拒絕預約', '原預約已拒絕',
-          ...(rejection.length > 2 ? ['含櫃檯補登資料'] : [])].join('｜'), MAX_ALT_TEXT)
+          visibleText.match(/^原預約會員：([^\r\n]+)/m)?.[1]||'',
+          visibleText.match(/^預約日期：([^\r\n]+)/m)?.[1]||'',
+          job.booking_id?String(job.booking_id).slice(0,8):'',
+          ...(visibleText.includes('【櫃檯新增的預約資料】')?['含櫃檯補登資料']:[])].filter(Boolean).join('｜'), MAX_ALT_TEXT)
         : makeAltText(parsed),
     contents: {
       type: 'bubble',

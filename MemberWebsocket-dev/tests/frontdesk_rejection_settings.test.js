@@ -12,9 +12,9 @@ test('Issue #425: rejection policy contract',async(t)=>{
  ["default settings are independent",()=>{let cfg=defaultRejectionSettings();cfg.reasons[0].label="改名";return defaultRejectionSettings().reasons[0].label!=="改名";}],
  ["conflict route cannot be bypassed",()=>{let cfg=defaultRejectionSettings();cfg.reasons.push({...custom,requiresConflictTime:true});return rejects(()=>resolveRejectionReason(cfg,custom.id,"booking.update"),"REJECTION_ROUTE_MISMATCH");}],
  ["ordinary reason cannot create a paired booking",()=>rejects(()=>resolveRejectionReason(defaultRejectionSettings(),"technician_leave","booking.reject_phone"),"REJECTION_ROUTE_MISMATCH")],
- ["disabled or forged reason rejected",()=>{let cfg=defaultRejectionSettings();cfg.reasons.push({...custom,enabled:false});return rejects(()=>resolveRejectionReason(cfg,custom.id,"booking.update"),"BOOKING_REJECTION_REASON_REQUIRED")&&rejects(()=>resolveRejectionReason(cfg,"forged","booking.update"),"BOOKING_REJECTION_REASON_REQUIRED");}],
- ["historical IDs cannot be removed",()=>{let cfg=defaultRejectionSettings();cfg.reasons.pop();return rejects(()=>validateRejectionSettingsUpdate(defaultRejectionSettings(),cfg),"REJECTION_REASON_DELETE_FORBIDDEN");}],
- ["invalid type, duplicate IDs and empty active list rejected",()=>{let cfg=defaultRejectionSettings();return rejects(()=>normalizeRejectionSettings({...cfg,reasons:[{...custom,enabled:"true"}]}),"INVALID_REJECTION_REASON")&&rejects(()=>normalizeRejectionSettings({...cfg,reasons:[custom,custom]}),"INVALID_REJECTION_REASON")&&rejects(()=>normalizeRejectionSettings({...cfg,reasons:cfg.reasons.map(row=>({...row,enabled:false}))}),"REJECTION_REASON_REQUIRED");}],
+ ["legacy disabled reasons become usable; forged IDs rejected",()=>{let cfg=defaultRejectionSettings();cfg.reasons.push({...custom,enabled:false});return normalizeRejectionSettings(cfg).reasons[2].enabled===true&&resolveRejectionReason(cfg,custom.id,"booking.update").id===custom.id&&rejects(()=>resolveRejectionReason(cfg,"forged","booking.update"),"BOOKING_REJECTION_REASON_REQUIRED");}],
+ ["removing old or final reason works; history snapshots remain detached",()=>{let original=defaultRejectionSettings(),snapshot=resolveRejectionReason(original,"technician_leave","booking.update");let cfg=defaultRejectionSettings();cfg.reasons.pop();let one=validateRejectionSettingsUpdate(original,cfg);let empty=validateRejectionSettingsUpdate(one,{dropdownTitle:"無理由",reasons:[]});return one.reasons.length===1&&empty.reasons.length===0&&snapshot.memberDescription===original.reasons[0].memberDescription;}],
+ ["invalid enabled type, duplicate IDs and duplicate legacy labels rejected",()=>{let cfg=defaultRejectionSettings();return rejects(()=>normalizeRejectionSettings({...cfg,reasons:[{...custom,enabled:"true"}]}),"INVALID_REJECTION_REASON")&&rejects(()=>normalizeRejectionSettings({...cfg,reasons:[custom,custom]}),"INVALID_REJECTION_REASON")&&rejects(()=>normalizeRejectionSettings({...cfg,reasons:[cfg.reasons[0],{...cfg.reasons[1],label:cfg.reasons[0].label,enabled:false}]}),"DUPLICATE_REJECTION_LABEL");}],
  ["malformed text and duplicate active labels rejected",()=>{let cfg=defaultRejectionSettings();return rejects(()=>normalizeRejectionSettings({...cfg,dropdownTitle:"a\nb"}),"INVALID_REJECTION_TITLE")&&rejects(()=>normalizeRejectionSettings({...cfg,reasons:[{...custom,memberDescription:"x".repeat(401)}]}),"INVALID_REJECTION_DESCRIPTION")&&rejects(()=>normalizeRejectionSettings({...cfg,reasons:[...cfg.reasons,{...custom,label:cfg.reasons[0].label}]}),"DUPLICATE_REJECTION_LABEL");}],
  ["unknown fields rejected rather than trusted",()=>rejects(()=>normalizeRejectionSettings({...defaultRejectionSettings(),tenantId:"other"}),"INVALID_REJECTION_SETTINGS")],
  ["legacy reason without vacation field defaults to false",()=>{let cfg=defaultRejectionSettings();delete cfg.reasons[0].hasVacationTechnicians;return normalizeRejectionSettings(cfg).reasons[0].hasVacationTechnicians===false;}],
@@ -39,9 +39,10 @@ test('Issue #425: admin policy save is validated, versioned and tenant-scoped be
  assert.equal(calls[0].input.p_action,'rejection-settings.save');
  assert.equal(calls[0].input.p_body.expectedVersion,7);
  assert.match(calls[0].input.p_body.payloadHash,/^[a-f0-9]{64}$/);
- await assert.rejects(()=>frontdeskAdmin({...args,body:{...body,rejectionSettings:{dropdownTitle:'x',reasons:[]}}}));
+ assert.equal((await frontdeskAdmin({...args,body:{...body,rejectionSettings:{dropdownTitle:'x',reasons:[]}}})).version,8,'empty saved list intentionally disables new rejections');
+ await assert.rejects(()=>frontdeskAdmin({...args,body:{...body,rejectionSettings:{dropdownTitle:'x',reasons:[{id:'forged'}]}}}));
  await assert.rejects(()=>frontdeskAdmin({...args,tenant:{...tenant,features:{frontdesk:false,booking:true}},body}));
- assert.equal(calls.length,1);
+ assert.equal(calls.length,2);
 });
 
 
@@ -146,7 +147,7 @@ test('AC-VAC-001..008: independent manager option, staff selector, SQL validatio
  assert.match(admin,/hasVacationTechnicians:reason\.hasVacationTechnicians===true/);
  assert.match(ui,/vacationPanel\.hidden=!hasVacation/);
  assert.match(ui,/vacationTechnicianIds:vacationIds/);
- assert.match(ui,/result\.technicians/);
+ assert.match(ui,/booking\.vacationTechnicians/);
  assert.doesNotMatch(ui,/vacationQuick|vacationCheck/,'no legacy free-floating checkbox');
  assert.doesNotMatch(ui,/rejectionMemberDescription\s*:/,'member copy must be resolved by server');
  assert.match(css,/frontdesk-vacation-options/);
@@ -154,6 +155,12 @@ test('AC-VAC-001..008: independent manager option, staff selector, SQL validatio
  assert.match(sql,/join %I\.booking_technicians t on t\.id=s\.id::uuid and t\.is_active=true/);
  assert.match(sql,/VACATION_TECHNICIANS_REQUIRED/);
  assert.match(sql,/VACATION_TECHNICIANS_NOT_ENABLED/);
+ const bookingOnly=read('supabase/migrations/20261124162000_frontdesk_booking_only_vacation_candidates.sql');
+ assert.match(bookingOnly,/booking_participants bp/);
+ assert.match(bookingOnly,/bt\.id is distinct from bs\.primary_technician_id/);
+ assert.match(bookingOnly,/frontdesk_booked_vacation_names/);
+ assert.match(bookingOnly,/BOOKED_VACATION_GLOBAL_CATALOG_CONTRACT_CHANGED/);
+ assert.match(bookingOnly,/replace\(d,needle,''\)/);
  assert.match(sql,/cardinality\(v_names\)<>cardinality\(v_ids\)/);
  assert.match(sql,/rejectionMemberDescription',v_description/);
  assert.match(sql,/v_payload:=p_body\|\|jsonb_build_object/);

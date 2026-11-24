@@ -125,7 +125,8 @@ function transport(s, action, p={}, slug='api',record=true) {
   }))};
   if(action==='admin.booking.group.details')return {bookingGroups:s.groups,technicians:s.technicians,primaryTechnicianId:s.settings.primaryTechnicianId};
   if(action==='admin.booking.messages.save'){
-    const keys=['bookingNotice','pendingMessage','rejectionMessage','reminderMessage'];
+    const keys=['bookingNotice','pendingMessage','reminderMessage'];
+    if(Object.prototype.hasOwnProperty.call(p,'rejectionMessage'))throw Object.assign(new Error('拒絕預約說明已移至櫃檯設定'),{code:'REJECTION_SETTINGS_MOVED'});
     if(!p.expectedUpdatedAt||p.expectedUpdatedAt!==s.settings.updatedAt)
       throw Object.assign(new Error('設定版本已變更，請重新載入。'),{code:'BOOKING_SETTINGS_CONFLICT'});
     for(const key of keys){

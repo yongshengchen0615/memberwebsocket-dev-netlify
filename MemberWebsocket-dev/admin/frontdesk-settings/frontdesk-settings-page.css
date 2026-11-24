@@ -662,19 +662,6 @@ html[data-frontdesk-page] .frontdesk-rejection-rule textarea {
   font: inherit;
   font-weight: 450;
 }
-html[data-frontdesk-page] .frontdesk-rejection-state {
-  justify-self: start;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: var(--theme-positive-soft);
-  color: var(--theme-positive-text);
-  font-size: .78rem;
-  font-weight: 750;
-}
-html[data-frontdesk-page] .frontdesk-rejection-state.is-disabled {
-  background: var(--theme-surface-muted);
-  color: var(--theme-text-muted);
-}
 html[data-frontdesk-page] .frontdesk-rejection-preview {
   display: grid;
   gap: 4px;
@@ -716,6 +703,16 @@ html[data-frontdesk-page] .frontdesk-rejection-toggles input {
 }
 html[data-frontdesk-page] .frontdesk-rejection-order { display: flex; flex-wrap: wrap; gap: 8px; }
 html[data-frontdesk-page] .frontdesk-rejection-order button { flex: 1 1 110px; min-height: 44px; }
+html[data-frontdesk-page] .frontdesk-rejection-order .frontdesk-rejection-remove {
+  flex: 1 1 100%;
+  color: var(--theme-danger-text, #9f3030);
+  border-color: var(--theme-danger-border, #cf9696);
+  font-weight: 700;
+}
+html[data-frontdesk-page] .frontdesk-rejection-order .frontdesk-rejection-remove:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 3px;
+}
 html[data-frontdesk-page] .frontdesk-rejection-actions {
   display: flex;
   justify-content: space-between;

@@ -38,7 +38,7 @@
     messagesSaving: false,
   };
   const SETTINGS_INPUT_IDS = ['bookingAdminStartTime','bookingAdminEndTime','bookingAdminMaxEndOverrunMinutes','bookingAdminSlotInterval','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminPhoneNumber','bookingAdminStoreServiceMinutes','bookingAdminSnapshotLocationRequired'];
-  const MESSAGE_INPUT_IDS = ['bookingAdminNotice','bookingAdminPendingMessage','bookingAdminRejectionMessage','bookingAdminReminderMessage'];
+  const MESSAGE_INPUT_IDS = ['bookingAdminNotice','bookingAdminPendingMessage','bookingAdminReminderMessage'];
   const els = {};
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
@@ -224,22 +224,6 @@
               </div>
             </section>
 
-            <section class="booking-admin-settings-block booking-admin-settings-notice" aria-labelledby="bookingAdminRejectionMessageHeading">
-              <div class="booking-admin-settings-block-heading">
-                <div><span class="booking-admin-settings-eyebrow">LINE 會員通知</span><h4 id="bookingAdminRejectionMessageHeading">預約未通過訊息</h4></div>
-                <span class="booking-admin-settings-badge">管理員自訂</span>
-              </div>
-              <label class="booking-admin-settings-field booking-admin-settings-notice-field">
-                <span>拒絕預約時附加給會員的文字（1–400 字，可換行）</span>
-                <textarea id="bookingAdminRejectionMessage" maxlength="400" rows="4" required placeholder="很抱歉，本次預約未通過。請依拒絕原因重新選擇時間或聯絡店家。"></textarea>
-                <small>系統會同時附上拒絕原因，且不會覆蓋原有的預約未通過通知及個別備註。</small>
-              </label>
-              <div class="booking-admin-settings-field">
-                <strong>LINE 訊息預覽</strong>
-                <output id="bookingAdminRejectionMessagePreview" class="booking-admin-hours-preview" aria-live="polite"></output>
-              </div>
-            </section>
-
             <section class="booking-admin-settings-block booking-admin-settings-notice" aria-labelledby="bookingAdminReminderMessageHeading">
               <div class="booking-admin-settings-block-heading">
                 <div><span class="booking-admin-settings-eyebrow">LINE 會員通知</span><h4 id="bookingAdminReminderMessageHeading">預約提醒訊息</h4></div>
@@ -258,7 +242,7 @@
             </div>
             <p id="bookingAdminMessagesStatus" class="form-message hidden" role="status" aria-live="polite"></p>
             <div class="booking-admin-settings-actions">
-              <p><strong>所有訊息統一儲存</strong><span>保留 LINE 系統自動附加的預約資料、拒絕原因與提醒時間設定。</span><span id="bookingAdminMessagesDraftStatus" class="booking-admin-settings-draft-status" role="status" aria-live="polite">設定載入中…</span></p>
+              <p><strong>三項訊息統一儲存</strong><span>預約未通過的拒絕原因與會員說明，統一由「櫃檯設定 → 拒絕預約設定」管理。原有的 LINE 預約資料與提醒時間繼續保留。</span><span id="bookingAdminMessagesDraftStatus" class="booking-admin-settings-draft-status" role="status" aria-live="polite">設定載入中…</span></p>
               <div class="booking-admin-settings-action-buttons">
                 <button id="bookingAdminMessagesDiscard" class="button button-outline" type="button" disabled>還原未儲存變更</button>
                 <button id="bookingAdminMessagesSave" class="button button-dark" type="submit" disabled>儲存所有訊息</button>
@@ -336,7 +320,7 @@
 
   function cacheElements() {
     [
-      'bookingTab','bookingPanel','bookingAdminSyncStatus','bookingAdminSettingsForm','bookingAdminStartTime','bookingAdminEndTime','bookingAdminMaxEndOverrunMinutes','bookingAdminSlotInterval','bookingAdminHoursPreview','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminPhoneNumber','bookingAdminStoreServiceMinutes','bookingAdminSnapshotLocationRequired','bookingAdminNotice','bookingAdminMessagesForm','bookingAdminMessagesStatus','bookingAdminMessagesDraftStatus','bookingAdminMessagesSave','bookingAdminMessagesDiscard','bookingAdminPendingMessage','bookingAdminPendingMessagePreview','bookingAdminRejectionMessage','bookingAdminRejectionMessagePreview','bookingAdminReminderMessage','bookingAdminReminderMessagePreview','bookingAdminSettingsMessage','bookingAdminDraftStatus','bookingAdminDiscardSettingsButton','bookingAdminSaveSettingsButton',
+      'bookingTab','bookingPanel','bookingAdminSyncStatus','bookingAdminSettingsForm','bookingAdminStartTime','bookingAdminEndTime','bookingAdminMaxEndOverrunMinutes','bookingAdminSlotInterval','bookingAdminHoursPreview','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminPhoneNumber','bookingAdminStoreServiceMinutes','bookingAdminSnapshotLocationRequired','bookingAdminNotice','bookingAdminMessagesForm','bookingAdminMessagesStatus','bookingAdminMessagesDraftStatus','bookingAdminMessagesSave','bookingAdminMessagesDiscard','bookingAdminPendingMessage','bookingAdminPendingMessagePreview','bookingAdminReminderMessage','bookingAdminReminderMessagePreview','bookingAdminSettingsMessage','bookingAdminDraftStatus','bookingAdminDiscardSettingsButton','bookingAdminSaveSettingsButton',
       'bookingAdminNewTypeButton','bookingAdminTypeMessage','bookingAdminTypeList','bookingAdminTypeEmpty','bookingAdminServiceCount','bookingAdminPendingCount','bookingAdminAccessiblePendingCount','bookingAdminConfirmedCount',
       'bookingAdminSubtabs','bookingAdminTechniciansSubtab','bookingAdminServicesSubtab','bookingAdminSettingsSubtab','bookingAdminMessagesSubtab','bookingAdminRiskSubtab','bookingAdminRiskPanel','bookingAdminRiskMount','bookingAdminRiskOpenAdvanceSettings','bookingAdminQueueSubtab','bookingAdminQueueSubtabCount','bookingAdminTechniciansPanel','bookingAdminServicesPanel','bookingAdminSettingsPanel','bookingAdminMessagesPanel','bookingAdminQueuePanel','bookingAdminStandardMode','bookingAdminAccessibleMode','bookingAdminStandardModeCount','bookingAdminAccessibleModeCount','bookingAdminStandardQueueView','bookingAdminNewServiceButton','bookingAdminBatchAddButton','bookingAdminBatchEditButton','bookingAdminBatchDeleteButton','bookingAdminServiceMessage','bookingAdminServiceList','bookingAdminServiceEmpty','bookingAdminQueue','bookingAdminQueueEmpty','bookingAdminPhoneCreateButton',
       'bookingAdminCrudModal','bookingAdminCrudModalTitle','bookingAdminCrudModalBody','bookingAdminCrudModalClose'
@@ -351,7 +335,6 @@
     els.bookingAdminMessagesForm.addEventListener('input', (event) => {
       if (!MESSAGE_INPUT_IDS.includes(event.target?.id)) return;
       if (event.target === els.bookingAdminPendingMessage) renderPendingMessagePreview();
-      if (event.target === els.bookingAdminRejectionMessage) renderRejectionMessagePreview();
       if (event.target === els.bookingAdminReminderMessage) renderReminderMessagePreview();
       updateMessagesDraft();
     });
@@ -800,7 +783,7 @@
       : state.messagesDirty
         ? (serverVersion !== state.messagesDraftVersion
           ? '伺服器已有新版設定；草稿已保留。請先核對最新資料，再重新修改。'
-          : '四項訊息有未儲存的修改。')
+          : '三項訊息有未儲存的修改。')
         : '訊息已同步，目前沒有未儲存的變更。';
   }
 
@@ -812,13 +795,11 @@
     const settings = state.booking.settings || {};
     els.bookingAdminNotice.value = String(settings.bookingNotice || '');
     els.bookingAdminPendingMessage.value = String(settings.pendingMessage || '我們已收到您的預約申請，請等待管理員確認；確認後會再透過 LINE 通知您。');
-    els.bookingAdminRejectionMessage.value = String(settings.rejectionMessage || '很抱歉，本次預約未通過。請依拒絕原因調整預約時間或洽詢店家。');
     els.bookingAdminReminderMessage.value = String(settings.reminderMessage || '請準時到場；如需調整請至預約頁操作。');
     state.messagesBaseline = currentMessagesSignature();
     state.messagesDraftVersion = String(settings.updatedAt || '');
     state.messagesDirty = false;
     renderPendingMessagePreview();
-    renderRejectionMessagePreview();
     renderReminderMessagePreview();
     updateMessagesDraft();
   }
@@ -836,13 +817,6 @@
       ...message.split('\n').filter(Boolean).map((line) => '提醒事項：' + line),
     ];
     els.bookingAdminPendingMessagePreview.textContent = example.join('\n');
-  }
-  function renderRejectionMessagePreview() {
-    const message=String(els.bookingAdminRejectionMessage.value||'').replace(/\r\n?/g,'\n').trim();
-    els.bookingAdminRejectionMessagePreview.textContent=[
-      '【預約未通過】','預約日期：2026/12/12','預約時間：11:30',
-      '拒絕原因：預約中有休假技師',message,
-    ].filter(Boolean).join('\n');
   }
   function renderReminderMessagePreview() {
     const message = String(els.bookingAdminReminderMessage.value || '').replace(/\r\n?/g, '\n').trim();
@@ -982,11 +956,10 @@
     const fields = {
       bookingNotice: String(els.bookingAdminNotice.value || '').replace(/\r\n?/g, '\n'),
       pendingMessage: String(els.bookingAdminPendingMessage.value || '').replace(/\r\n?/g, '\n'),
-      rejectionMessage: String(els.bookingAdminRejectionMessage.value || '').replace(/\r\n?/g, '\n'),
       reminderMessage: String(els.bookingAdminReminderMessage.value || '').replace(/\r\n?/g, '\n'),
     };
     if (fields.bookingNotice.length > 2000) return showMessage(els.bookingAdminMessagesStatus, '預約說明不可超過 2,000 字。', 'error');
-    for (const [key, label] of [['pendingMessage', '預約申請'], ['rejectionMessage', '預約未通過'], ['reminderMessage', '預約提醒']]) {
+    for (const [key, label] of [['pendingMessage', '預約申請'], ['reminderMessage', '預約提醒']]) {
       const value = fields[key];
       if (!value.trim() || value.length > 400) return showMessage(els.bookingAdminMessagesStatus, label + '訊息必須為 1–400 字。', 'error');
     }
@@ -1008,7 +981,7 @@
       state.messagesDirty = false;
       renderMessages(true);
       if (!state.settingsDirty) renderSettings(true);
-      showMessage(els.bookingAdminMessagesStatus, '四項訊息已一次儲存，後續預約通知將套用最新文字。', 'success');
+      showMessage(els.bookingAdminMessagesStatus, '三項訊息已一次儲存；拒絕預約說明以「櫃檯設定」的拒絕原因為準。', 'success');
     } catch (error) {
       const conflict = /CONFLICT|STALE_VERSION|VERSION_MISMATCH/i.test(String(error?.code || ''));
       showMessage(els.bookingAdminMessagesStatus, conflict

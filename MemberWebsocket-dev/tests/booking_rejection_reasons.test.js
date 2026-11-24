@@ -21,8 +21,10 @@ test('AC-FR-002: admin API validates and stores reason; settings are version-gua
  assert.match(booking,/BOOKING_REJECTION_REASON_REQUIRED/);
  assert.match(booking,/patch\.rejection_reason\s*=\s*rejectionReason/);
  assert.match(settings,/admin\.booking\.rejection-message\.save/);
- assert.match(settings,/BOOKING_REJECTION_MESSAGE_UPDATED/);
- assert.match(settings,/\.eq\('updated_at',expectedUpdatedAt\)/);
+ assert.match(settings,/REJECTION_SETTINGS_MOVED/);
+ assert.match(settings,/BOOKING_MESSAGES_UPDATED/);
+ assert.doesNotMatch(settings,/BOOKING_REJECTION_MESSAGE_UPDATED/);
+ assert.match(settings,/\.eq\("id", 1\)\.eq\("updated_at", expectedUpdatedAt\)/);
 });
 test('AC-FR-003: tenant migration retains booking outbox and explicit access checks',()=>{
  const sql=read('supabase/migrations/20261120223000_booking_rejection_reason_notices.sql');
