@@ -22,6 +22,9 @@
     };
     row(options.history ? '使用時間' : '活動期間', options.history ? String(options.usedAt || '') : `${ticket.startsOn || '即日起'} — ${ticket.endsOn || '不限期'}`);
     if (!options.history) {
+      const relativeDays = Number(ticket.validityDaysAfterClaim);
+      if (Number.isInteger(relativeDays) && relativeDays > 0) row('取得後期限', `取得後 ${relativeDays} 天`);
+      if (options.expiresAt) row('到期時間', String(options.expiresAt));
       const quota = Number(ticket.quota || 0);
       const used = Math.max(0, Number(ticket.usedCount || 0));
       row(options.fixed ? '發放方式' : '使用數量上限', options.fixed ? '系統自動發放' : quota > 0 ? `${quota} 次（已使用 ${used} 次，剩餘 ${Math.max(0, quota - used)} 次）` : `不限量（已使用 ${used} 次）`);
