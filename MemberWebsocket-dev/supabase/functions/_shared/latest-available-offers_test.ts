@@ -148,3 +148,34 @@ Deno.test("one visible point reward rotates its internal ticket across bookings"
     ...holds, { benefit_kind: "points", benefit_ref: "PT-002", booking_id: "second" },
   ]).map(row => row.ticketId), ["PT-003"]);
 });
+
+Deno.test("AC-REL-CATALOG-001: shared booking/notification catalog excludes expired claims at the exact timestamp", () => {
+  const asOf = new Date("2026-11-24T00:00:00.000Z");
+  const events = [
+    { id:"fixed",title:"舊固定券" },
+    { id:"expired",title:"相對期限到期券" },
+    { id:"boundary",title:"剛好到期" },
+    { id:"future",title:"尚未到期" },
+    { id:"used",title:"已使用券" },
+  ];
+  const claims = [
+    { event_ticket_id:"fixed",member_id:"member-a",claim_id:"FIX",status:"claimed",expires_at:null },
+    { event_ticket_id:"expired",member_id:"member-a",claim_id:"EXP",status:"claimed",expires_at:"2026-11-23T23:59:59.999Z" },
+    { event_ticket_id:"boundary",member_id:"member-a",claim_id:"EDGE",status:"claimed",expires_at:"2026-11-24T00:00:00.000Z" },
+    { event_ticket_id:"future",member_id:"member-a",claim_id:"OK",status:"claimed",expires_at:"2026-11-24T00:00:00.001Z" },
+    { event_ticket_id:"used",member_id:"member-a",claim_id:"USED",status:"used",expires_at:null },
+  ];
+  const available=selectLatestEventOffers(events,claims,"member-a",undefined,false,asOf);
+  assertEquals(available.map(o=>o.claimId),["FIX","OK"]);
+  const previews=selectLatestEventOffers(events,claims,"member-a",undefined,true,asOf);
+  assertEquals(previews.some(o=>["expired","boundary","used"].includes(o.eventId)),false);
+});
+
+Deno.test("AC-REL-CATALOG-002: a different member's nonexpired ticket is never displayed", () => {
+  const result=selectLatestEventOffers(
+    [{id:"event-a",title:"活動券"}],
+    [{event_ticket_id:"event-a",member_id:"member-b",claim_id:"FOREIGN",status:"claimed",expires_at:"2027-01-01T00:00:00Z"}],
+    "member-a",undefined,false,new Date("2026-11-24T00:00:00Z"),
+  );
+  assertEquals(result,[]);
+});

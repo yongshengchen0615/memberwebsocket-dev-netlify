@@ -145,6 +145,7 @@ export function selectLatestEventOffers(
   memberId: string,
   counts?: JsonRow[],
   includeUnissuedPreview = false,
+  asOf: Date = new Date(),
 ): CurrentEventOffer[] {
   const claimCounts = new Map<string, number>(
     (counts || []).map((row) => [text(row.event_ticket_id), number(row.claimed_count)]),
@@ -160,6 +161,15 @@ export function selectLatestEventOffers(
     // Inventory counts every issued claim, including used/cancelled claims, just like the DB.
     if (!counts) claimCounts.set(eventId, (claimCounts.get(eventId) || 0) + 1);
     if (text(claim.member_id) !== memberId) continue;
+
+    // Each issued entitlement owns its expiry. Fail closed when a populated
+    // deadline is invalid; never offer a ticket that will fail at DB redemption.
+    const expiry = text(claim.expires_at);
+    const expiryMs = expiry ? Date.parse(expiry) : null;
+    if (expiry && (expiryMs === null || !Number.isFinite(expiryMs) || expiryMs <= asOf.getTime())) {
+      memberUnavailableClaims.add(eventId);
+      continue;
+    }
 
     if (status === "claimed" || status === "available") memberAvailableClaims.set(eventId, text(claim.claim_id));
     else memberUnavailableClaims.add(eventId);
@@ -294,7 +304,7 @@ export async function loadLatestEventOffers(
 
   const [claimsResult, countsResult, usedResult] = await Promise.all([
     supabase.from("event_ticket_claims")
-      .select("claim_id,event_ticket_id,member_id,status")
+      .select("claim_id,event_ticket_id,member_id,status,expires_at")
       .eq("member_id", memberId)
       .in("event_ticket_id", ids),
     supabase.rpc("event_ticket_claim_counts", { p_event_ids: ids }),

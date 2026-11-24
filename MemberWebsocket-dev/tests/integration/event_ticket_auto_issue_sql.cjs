@@ -7,6 +7,8 @@ const migration = readFileSync(join(__dirname,
   '../../supabase/migrations/20261123120000_event_ticket_automatic_issuance.sql'), 'utf8');
 const usageMigration = readFileSync(join(__dirname,
   '../../supabase/migrations/20261123133000_event_ticket_redemption_quota_not_issuance.sql'), 'utf8');
+const validityMigration = readFileSync(join(__dirname,
+  '../../supabase/migrations/20261124143000_event_ticket_relative_validity.sql'), 'utf8');
 
 async function run() {
   const db = new PGlite();
@@ -27,6 +29,7 @@ async function run() {
         title text not null, ticket_type text not null, status text not null default 'draft',
         deleted_at timestamptz, fixed_ticket_template_id uuid, referral_source_event_ticket_id uuid,
         quota integer not null default 0, allowed_tier_keys text[] not null default array['general'],
+        starts_on date, ends_on date,
         description text not null default '', usage_method text not null default '',
         usage_instructions text not null default '', prizes jsonb not null default '[]'::jsonb,
         updated_by text
@@ -39,11 +42,16 @@ async function run() {
         ticket_description text not null default '',
         usage_method text not null default '', usage_instructions text not null default '',
         prizes jsonb not null default '[]'::jsonb, status text default 'claimed',
+        claimed_at timestamptz not null default now(),
         unique(event_ticket_id,member_id)
       );
       create table public.event_ticket_transfers (
         event_ticket_id uuid not null references public.event_tickets(id),
         sender_member_id uuid, receiver_member_id uuid
+      );
+      create table public.booking_benefit_selections (
+        id uuid primary key default gen_random_uuid(), member_id uuid not null,
+        benefit_kind text not null, benefit_ref text not null, status text not null
       );
       create table public.audit_logs (
         audit_id text, actor_line_user_id text, actor_role text, action text,
@@ -65,6 +73,7 @@ async function run() {
     const legacyBefore=(await db.query("select count(*)::integer n from public.event_ticket_claims c join public.event_tickets e on e.id=c.event_ticket_id where e.event_ticket_id='LEGACY'")).rows[0].n;
     assert.equal(legacyBefore,1);
     await db.exec(usageMigration);
+    await db.exec(validityMigration);
     const legacyAfter=(await db.query("select count(*)::integer n from public.event_ticket_claims c join public.event_tickets e on e.id=c.event_ticket_id where e.event_ticket_id='LEGACY'")).rows[0].n;
     assert.equal(legacyAfter,2,'migration backfills all eligible accounts despite usage quota');
     const count = async (code) => Number((await db.query(
@@ -162,7 +171,47 @@ async function run() {
     await assert.rejects(claim('member-4','ALL'),/EVENT_TICKET_ISSUANCE_ONLY/);
     assert.equal(await count('ALL'),2);
 
-    console.log('event ticket issuance and usage quota: 9 PGlite acceptance scenarios passed');
+    // AC-R01: issuance anchors each entitlement to its own claimed_at timestamp.
+    await db.exec("insert into public.event_tickets(event_ticket_id,title,ticket_type,status,validity_mode,validity_days,updated_by) values('REL','Relative','coupon','active','relative',30,'qa')");
+    const relative = (await db.query(
+      "select c.claim_id,c.claimed_at,c.expires_at from public.event_ticket_claims c join public.event_tickets e on e.id=c.event_ticket_id where e.event_ticket_id='REL' order by c.member_id"
+    )).rows;
+    assert.equal(relative.length, 3, 'all newly eligible members get their own claim');
+    for (const row of relative) {
+      assert.equal(Math.round((new Date(row.expires_at)-new Date(row.claimed_at))/86400000),30);
+    }
+    assert.equal((await db.query("select expires_at from public.event_ticket_claims where claim_id=$1",[issued.claimId])).rows[0].expires_at, null,
+      'legacy fixed-mode claims retain original expiry rules');
+    const relEventId = (await db.query("select id from public.event_tickets where event_ticket_id='REL'")).rows[0].id;
+
+    // AC-R02: a separate late grant has a separate expiry even within one campaign.
+    await db.query("insert into public.members(id,line_user_id,member_code,tier) values('00000000-0000-0000-0000-000000000005','member-5','C5','general')");
+    await db.query("insert into public.event_ticket_claims(claim_id,event_ticket_id,member_id,ticket_type,ticket_title,claimed_at) values('REL-LATE',$1,'00000000-0000-0000-0000-000000000005','coupon','Relative','2026-12-01 10:00:00+08')",[relEventId]);
+    const late=(await db.query("select claimed_at,expires_at from public.event_ticket_claims where claim_id='REL-LATE'")).rows[0];
+    assert.equal(new Date(late.expires_at).toISOString(),'2026-12-31T02:00:00.000Z');
+
+    // AC-R03: double deadline is the earlier of member lifetime and the end of the Taipei end-date.
+    await db.exec("insert into public.event_tickets(event_ticket_id,title,ticket_type,status,validity_mode,validity_days,ends_on,updated_by) values('BOTH','Both','coupon','draft','both',30,'2026-12-15','qa')");
+    const bothId=(await db.query("select id from public.event_tickets where event_ticket_id='BOTH'")).rows[0].id;
+    await db.query("insert into public.event_ticket_claims(claim_id,event_ticket_id,member_id,ticket_type,ticket_title,claimed_at) values('BOTH-1',$1,'00000000-0000-0000-0000-000000000001','coupon','Both','2026-12-10 10:00:00+08')",[bothId]);
+    assert.equal(new Date((await db.query("select expires_at from public.event_ticket_claims where claim_id='BOTH-1'")).rows[0].expires_at).toISOString(),'2026-12-15T16:00:00.000Z');
+
+    // AC-R04: expiry cannot be extended by transfer, cancellation, retry or direct updates.
+    await assert.rejects(db.exec("update public.event_tickets set validity_days=60 where event_ticket_id='REL'"),/EVENT_VALIDITY_LOCKED/);
+    await assert.rejects(db.exec("update public.event_ticket_claims set claimed_at=now() where claim_id='REL-LATE'"),/EVENT_TICKET_EXPIRY_IMMUTABLE/);
+    await assert.rejects(db.exec("update public.event_ticket_claims set expires_at=now()+interval '120 days' where claim_id='REL-LATE'"),/EVENT_TICKET_EXPIRY_IMMUTABLE/);
+    const expiryBefore=(await db.query("select expires_at from public.event_ticket_claims where claim_id='REL-LATE'")).rows[0].expires_at;
+    // This synthetic grant is already expired in this test's realtime clock.
+    await db.exec("insert into public.event_tickets(event_ticket_id,title,ticket_type,status,validity_mode,validity_days,updated_by) values('OLD','Old','coupon','draft','relative',1,'qa')");
+    const oldId=(await db.query("select id from public.event_tickets where event_ticket_id='OLD'")).rows[0].id;
+    await db.query("insert into public.event_ticket_claims(claim_id,event_ticket_id,member_id,ticket_type,ticket_title,claimed_at) values('OLD-1',$1,'00000000-0000-0000-0000-000000000001','coupon','Old','2020-01-01 10:00:00+08')",[oldId]);
+    await assert.rejects(db.exec("update public.event_ticket_claims set status='used' where claim_id='OLD-1'"),/EVENT_TICKET_EXPIRED/);
+    await assert.rejects(db.exec("update public.event_ticket_claims set member_id='00000000-0000-0000-0000-000000000002' where claim_id='OLD-1'"),/EVENT_TICKET_EXPIRED/);
+    await assert.rejects(db.exec("insert into public.booking_benefit_selections(member_id,benefit_kind,benefit_ref,status) values('00000000-0000-0000-0000-000000000001','event','OLD-1','pending')"),/EVENT_TICKET_EXPIRED/);
+    assert.equal((await db.query("select status from public.event_ticket_claims where claim_id='OLD-1'")).rows[0].status,'claimed');
+    assert.equal((await db.query("select expires_at from public.event_ticket_claims where claim_id='REL-LATE'")).rows[0].expires_at.toISOString(),new Date(expiryBefore).toISOString());
+
+    console.log('event ticket issuance/validity: 9 established + 4 new PostgreSQL acceptance scenarios passed');
   } finally {
     await db.close();
   }
