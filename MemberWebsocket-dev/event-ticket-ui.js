@@ -20,7 +20,14 @@
       const line = document.createElement('span'), name = document.createElement('strong');
       name.textContent = label; line.append(name, document.createTextNode('　' + value)); meta.append(line);
     };
-    row(options.history ? '使用時間' : '活動期間', options.history ? String(options.usedAt || '') : `${ticket.startsOn || '即日起'} — ${ticket.endsOn || '不限期'}`);
+    const relative = ['relative', 'both'].includes(String(ticket.validityMode || ''));
+    const expiry = options.expiresAt ? new Date(options.expiresAt) : null;
+    const expiryLabel = expiry && !Number.isNaN(expiry.getTime())
+      ? new Intl.DateTimeFormat('zh-Hant-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(expiry) : '';
+    row(options.history ? '使用時間' : relative ? '票券期限' : '活動期間',
+      options.history ? String(options.usedAt || '')
+        : relative ? `獲得後 ${ticket.validityDays} 天有效${expiryLabel ? ' · 到期 ' + expiryLabel : ''}`
+        : `${ticket.startsOn || '即日起'} — ${ticket.endsOn || '不限期'}`);
     if (!options.history) {
       const quota = Number(ticket.quota || 0);
       const used = Math.max(0, Number(ticket.usedCount || 0));
