@@ -48,7 +48,7 @@ test('completion uses one database transaction to redeem and settle', () => {
 test('booking selection does not require GPS while direct ticket redemption still validates location', () => {
   const source = read('supabase/functions/_shared/booking-benefits.ts');
   const migration = read('supabase/migrations/20261012133000_booking_selection_without_gps.sql');
-  assert.match(source, /selectable: visibility\.tierEligible && !reservedForOtherBooking && !reservedInSnapshot,/);
+  assert.match(source, /selectable: visibility\.tierEligible && !expired && !reservedForOtherBooking && !reservedInSnapshot,/);
   assert.match(source, /selectable: hasTicket && hasEnoughPoints && !reservedForOtherBooking,/);
   assert.match(source, /現場單獨使用需 GPS 定位/);
   assert.doesNotMatch(source, /!offer\.requiresLocation|!reservedForOtherBooking && !locationRestricted/);
@@ -148,7 +148,7 @@ test('booking event ticket checkbox can claim and server enforces configured sel
   const api = read('supabase/functions/api/index.ts');
   const bookingApi = read('supabase/functions/booking-api/index.ts');
   const groupApi = read('supabase/functions/booking-group-api/index.ts');
-  assert.match(source, /claimRequired: visibility\.tierEligible && !offer\.claimed/);
+  assert.match(source, /claimRequired: visibility\.tierEligible && !expired && !offer\.claimed/);
   assert.match(source, /eventTicketMaxPerDay/);
   assert.match(common, /user\.booking\.event-ticket\.claim/);
   assert.match(common, /claimEventTicket/);
