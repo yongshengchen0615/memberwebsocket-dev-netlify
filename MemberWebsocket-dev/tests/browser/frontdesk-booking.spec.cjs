@@ -76,7 +76,7 @@ test('FRONTDESK_APPLICANT — LINE user submits application; bookings remain una
   let data;
   if(body.action==='frontdesk.public')data={name:'商家測試',frontdesk:{enabled:true,liffId:'2010999999-desk',oaId:'@desk'}};
   else if(body.action==='frontdesk.bootstrap')data={staff:staffStatus?{displayName:'新進櫃檯',status:staffStatus,permissionMode:mode}:null};
-  else if(body.action==='frontdesk.apply'){staffStatus='pending';data={staff:{status:'pending'}};}
+  else if(body.action==='frontdesk.apply'){staffStatus='pending';data={staff:{status:'pending'},lineApplicationMessage:'failed'};}
   else if(body.action==='frontdesk.sync.status')data={revision:'1'};
   else if(body.action==='frontdesk.bookings')data={bookings:[{id:'10000000-0000-4000-8000-000000000001',status:'pending',updatedAt:'2026-11-18T12:00:00+08:00',services:[]}]};
   else throw Error('Unexpected action '+body.action);
@@ -89,6 +89,10 @@ test('FRONTDESK_APPLICANT — LINE user submits application; bookings remain una
  expect(calls).not.toContain('frontdesk.bookings');
  await page.getByRole('button',{name:'送出櫃檯人員申請'}).click();
  await expect(page.locator('#account')).toContainText('等待商家管理員審核');
+ await expect(page.locator('#status')).toContainText('LINE 通知尚未成功');
+ await expect(page.getByRole('link',{name:'在 LINE 開啟商家官方帳號並傳送申請訊息'}))
+  .toHaveAttribute('href',/^https:\/\/line\.me\/R\/oaMessage\/%40desk\/\?/);
+
  await expect(page.locator('#progress li[data-state=current]')).toContainText('管理員審核');
  expect(calls).not.toContain('frontdesk.bookings');
  staffStatus='approved';
