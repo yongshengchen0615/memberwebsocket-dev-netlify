@@ -13,9 +13,12 @@ const tier = read('admin/ticket-visibility.js');
 
 test('admin loads the shared ticket policy stylesheet and versioned settings scripts', () => {
   assert.match(html, /ticket-policy-settings\.css\?v=policy-admin-ui-20261014-1/);
-  for (const file of ['pointcard-redemption-limit', 'event-ticket-redemption-limit', 'ticket-visibility']) {
+  for (const file of ['pointcard-redemption-limit', 'event-ticket-redemption-limit']) {
     assert.ok(html.includes(file + '.js?v=policy-admin-ui-20261014-1'));
   }
+  assert.doesNotMatch(html, /src="\.\/ticket-visibility\.js/);
+  assert.match(html, /id="eventTicketVisibilityPolicy"/);
+  assert.match(read('admin/app.js'), /id = 'calendarItemVisibilityPolicy'/);
 });
 
 test('global point and event limits retain independent backend operations and zero as unlimited', () => {
