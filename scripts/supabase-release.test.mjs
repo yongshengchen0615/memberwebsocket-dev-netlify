@@ -198,3 +198,15 @@ test('AC-BN-006: missing or ambiguous testing transport health refuses all Edge 
  assert.equal(deployments,0);
  assert.equal(events.filter(q=>q.includes('BOOKING_DISPATCH_DEPENDENCIES_MISSING')).length,1,'no unbounded retry on failed health');
 });
+
+// Release regression: the last deployed testing ledger entry is 20261124233000.
+// Newly introduced calendar migrations must sort after that version because
+// the exact-SHA deployer aborts an out-of-order or partially applied ledger.
+test('AC-CALENDAR-RELEASE-001: visibility migrations follow the already-published frontdesk migration', () => {
+  const plan = loadReleasePlan(path.resolve(import.meta.dirname, '..'));
+  const calendarVersions = plan.migrations.filter(item => /_per_(?:item|tenant)_.*visibility\.sql$/.test(item.filename))
+    .map(item => item.version).sort();
+  assert.deepEqual(calendarVersions, ['20261124234000', '20261124234500']);
+  assert.ok(calendarVersions.every(version => version > '20261124233000'), 'avoid live migration ledger OUT_OF_ORDER_MIGRATION');
+  assert.ok(calendarVersions[0] < calendarVersions[1], 'public columns/RPC must precede tenant rollout');
+});
