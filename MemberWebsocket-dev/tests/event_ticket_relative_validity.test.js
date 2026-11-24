@@ -55,3 +55,17 @@ test('AC-004: member page displays owned deadline and disables expired use', () 
   assert.match(sharedTicketUi, /票券期限/);
   assert.match(sharedTicketUi, /validityMode/);
 });
+
+test('AC-REL-REVIEW-001: shared catalog suppresses expired claims for booking, snapshot and notification consumers', () => {
+  const latest = read('supabase/functions/_shared/latest-available-offers.ts');
+  assert.match(latest, /claim_id,event_ticket_id,member_id,status,expires_at/);
+  assert.match(latest, /memberUnavailableClaims\.add\(eventId\)/);
+  assert.match(latest, /expires_at/);
+});
+
+test('AC-REL-REVIEW-002: canonical snapshot validator checks claim expiry in all merchants and future schemas', () => {
+  assert.match(migration, /validate_snapshot_ticket_selection/);
+  assert.match(migration, /c\.expires_at is null or c\.expires_at > clock_timestamp\(\)/);
+  assert.match(migration, /business_templates/);
+  assert.match(migration, /SNAPSHOT_EXPIRY_GUARD_SHAPE_CHANGED/);
+});
