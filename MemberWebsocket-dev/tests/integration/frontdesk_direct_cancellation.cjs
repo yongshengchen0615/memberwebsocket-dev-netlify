@@ -46,8 +46,8 @@ async function installExistingPairedNoticeGuards(db, schema) {
   if TG_OP = 'INSERT' then`);
   await db.exec(guarded);
   const installed = await getDefinition();
-  assert.match(installed, /platform_private\\.frontdesk_paired_phone_source\\(TG_TABLE_SCHEMA/);
-  assert.match(installed, /platform_private\\.admin_paired_walkin_source\\(TG_TABLE_SCHEMA/);
+  assert.match(installed, /platform_private\.frontdesk_paired_phone_source\(TG_TABLE_SCHEMA/);
+  assert.match(installed, /platform_private\.admin_paired_walkin_source\(TG_TABLE_SCHEMA/);
   return getDefinition;
 }
 
@@ -73,9 +73,9 @@ test('AC-002..004, AC-007: direct cancellation is tenant-authorized, atomic and 
     const installedNoticeDefinition = await installExistingPairedNoticeGuards(h.db, schema);
     await migration(h.db, '20261124175200_frontdesk_direct_member_cancellation.sql');
     const retainedDefinition = await installedNoticeDefinition();
-    assert.match(retainedDefinition, /platform_private\\.frontdesk_paired_phone_source\\(TG_TABLE_SCHEMA/,
+    assert.match(retainedDefinition, /platform_private\.frontdesk_paired_phone_source\(TG_TABLE_SCHEMA/,
       'existing frontdesk paired-rejection suppression survives direct-cancel migration');
-    assert.match(retainedDefinition, /platform_private\\.admin_paired_walkin_source\\(TG_TABLE_SCHEMA/,
+    assert.match(retainedDefinition, /platform_private\.admin_paired_walkin_source\(TG_TABLE_SCHEMA/,
       'existing admin paired-rejection suppression survives direct-cancel migration');
     assert.match(retainedDefinition, /cancellation_reviewed_by = 'system:frontdesk'/,
       'direct-cancellation fanout is added without replacing the guards');
