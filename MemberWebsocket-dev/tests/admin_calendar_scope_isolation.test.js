@@ -95,3 +95,13 @@ test('AC-009: booking calendar cannot display other records and links to booking
   assert.match(adminApp, /member-admin:booking-focus/);
   assert.match(adminApp, /data-booking-calendar-id/);
 });
+
+test('AC-010: member calendar excludes per-member fixed issues and handles earned-relative validity safely', () => {
+  // Fixed-ticket allocations can target a specific member or birthday month.
+  // Existing targeted calendar rows remain the only authorized display path.
+  assert.match(calendarApi, /\.is\("fixed_ticket_template_id", null\)/);
+  assert.match(calendarApi, /\.is\("referral_source_event_ticket_id", null\)/);
+  assert.match(calendarApi, /asText\(ticket\.validity_mode, 20\) !== "relative"/);
+  assert.match(calendarApi, /undatedTicketItems\.push\(synthesized\)/);
+  assert.match(calendarApi, /ongoingTickets=ongoingTickets\.flatMap\(visibility\)/);
+});
