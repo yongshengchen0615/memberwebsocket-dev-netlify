@@ -1,6 +1,20 @@
 import { buildBookingFlexMessage, deliver } from './delivery.ts';
 import { scope, memberSystemFooter } from '../_shared/business-scope.ts';
 
+Deno.test('AC-MOD-003: frontdesk edit event always shows 修改預約, never a new booking', () => {
+  const job = {
+    id: '11111111-1111-4111-8111-111111111111',
+    booking_id: '22222222-2222-4222-8222-222222222222',
+    recipient: 'U' + 'a'.repeat(32), channel: 'frontdesk', attempt_count: 1,
+    message_text: '【預約】\\n預約人：測試會員\\n日期：2026/11/25\\n時段：10:00–11:00',
+  };
+  const modified = buildBookingFlexMessage({...job, event_key: job.booking_id + ':modified:42'});
+  const created = buildBookingFlexMessage({...job, event_key: job.booking_id + ':created'});
+  assert(JSON.stringify(modified.contents.header).includes('修改預約'));
+  assert(modified.altText.startsWith('修改預約'));
+  assert(!JSON.stringify(created.contents.header).includes('修改預約'), 'new booking must not be mislabelled');
+});
+
 Deno.test('frontdesk review has only its trusted tenant entry; notify-only has no action',()=>{
  const job={id:'11111111-1111-4111-8111-111111111111',recipient:'U'+'a'.repeat(32),message_text:'【預約】\n預約人：測試\n日期：2026/11/18',channel:'frontdesk',attempt_count:1,booking_id:'22222222-2222-4222-8222-222222222222'};
  const read=JSON.stringify(buildBookingFlexMessage({...job,frontdeskCanReview:false}));
