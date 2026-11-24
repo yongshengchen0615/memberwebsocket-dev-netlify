@@ -9,6 +9,7 @@
   {id:'unrecorded_phone_booking',label:'該時段已被現場人員預約但未登記',memberDescription:'該時段已被現場人員預約但未登記',enabled:true,requiresConflictTime:true}
  ];
  let rejectionSettings={dropdownTitle:'請選擇拒絕原因',reasons:legacyRejectionReasons};
+ let frontdeskTechnicians=[]; // Scoped to authorized review access, never public bootstrap.
  const rejectionReasonById=id=>rejectionSettings.reasons.find(item=>item.id===id&&item.enabled);
  let syncTimer=null,syncEnabled=false,syncInFlight=false,syncRevision=null,syncFailures=0,syncGeneration=0;
  const node=(tag,text)=>{const n=document.createElement(tag);if(text)n.textContent=text;return n;};
@@ -157,13 +158,13 @@
   if(phoneBooking)details.push(`現場預約：${phoneBooking.startTime}，${phoneBooking.totalDurationMinutes} 分鐘`);
   return window.confirm(`${details.join('\n')}\n\n請再次確認，此操作將更新預約狀態。`);
  }
- async function review(booking,next,button,rejectionReason,phoneBooking=null,onSuccess=null){
+ async function review(booking,next,button,rejectionReason,phoneBooking=null,onSuccess=null,vacationIds=null){
   if(busy)return;const key=booking.id,known=pending.get(key);
   if(known&&known.status!==next){status.textContent='前次操作結果尚未確認，請先重試相同操作。';return;}
   if(!known&&next==='rejected'&&!rejectionReasonById(rejectionReason)){
    status.textContent='請先選擇拒絕原因。';return;
   }
-  const body=known||{bookingId:key,status:next,expectedUpdatedAt:booking.updatedAt,requestId:crypto.randomUUID(),...(next==='rejected'?{rejectionReason}:{}),...(phoneBooking?{phoneRequestId:'PHONE-'+crypto.randomUUID(),startTime:phoneBooking.startTime,totalDurationMinutes:phoneBooking.totalDurationMinutes}:{})};pending.set(key,body);lock(true);const generation=epoch;const finishFeedback=window.AsyncActionFeedback?.begin(next==='confirmed'?'正在確認預約並同步最新資料…':'正在拒絕預約並同步最新資料…');
+  const body=known||{bookingId:key,status:next,expectedUpdatedAt:booking.updatedAt,requestId:crypto.randomUUID(),...(next==='rejected'?{rejectionReason,...(Array.isArray(vacationIds)?{vacationTechnicianIds:vacationIds}:{})}:{}),...(phoneBooking?{phoneRequestId:'PHONE-'+crypto.randomUUID(),startTime:phoneBooking.startTime,totalDurationMinutes:phoneBooking.totalDurationMinutes}:{})};pending.set(key,body);lock(true);const generation=epoch;const finishFeedback=window.AsyncActionFeedback?.begin(next==='confirmed'?'正在確認預約並同步最新資料…':'正在拒絕預約並同步最新資料…');
   try{await request(body.phoneRequestId?'frontdesk.booking.reject-phone':'frontdesk.booking.update',body);if(generation!==epoch)return;pending.delete(key);await load();if(onSuccess)onSuccess();if(body.phoneRequestId)void loadConflictHistory();status.textContent=body.phoneRequestId?'原預約已拒絕，電話／現場預約已登記並直接確認，時段已保留。':next==='confirmed'?'預約已確認。':'預約已拒絕。';}
   catch(error){if(generation!==epoch)return;let refreshed=false;if(!error.uncertain){pending.delete(key);try{await load();refreshed=true;}catch{}}else button.textContent='重試相同操作';failure(error,refreshed);}
   finally{finishFeedback?.();lock(false);}
@@ -355,10 +356,13 @@
    const option=node('option',item.label);option.value=item.id;reason.append(option);
   }
   reasonField.append(reason);
-  const vacationQuick=node('label');vacationQuick.className='frontdesk-rejection-quick';
-  const vacationCheck=node('input');vacationCheck.type='checkbox';vacationCheck.name='vacationTechnician';
-  vacationQuick.append(vacationCheck,node('span','休假技師（勾選自動帶入拒絕說明）'));
-  vacationQuick.hidden=!Boolean(rejectionReasonById('technician_leave'));
+  const vacationPanel=node('fieldset');vacationPanel.className='frontdesk-vacation-technicians';vacationPanel.hidden=true;
+  vacationPanel.append(node('legend','選擇休假的技師（可多選）'));
+  const vacationHint=node('p','依管理端已設定且啟用的技師名單選擇；至少勾選一位。');
+  const vacationList=node('div');vacationList.className='frontdesk-vacation-options';
+  vacationPanel.append(vacationHint,vacationList);
+  const vacationBoxes=new Map();
+  const selectedVacationIds=()=>[...vacationBoxes].filter(([,input])=>input.checked).map(([id])=>id);
   const memberPreview=node('section');memberPreview.className='frontdesk-rejection-member-preview';memberPreview.hidden=true;
   memberPreview.append(node('strong','會員端拒絕說明預覽'));
   const memberPreviewText=node('p');
@@ -425,7 +429,7 @@
   const footer=node('div');footer.className='frontdesk-modal-actions';
   const cancel=node('button','取消');cancel.type='button';cancel.className='frontdesk-modal-cancel';
   const submit=node('button','確認拒絕預約');submit.type='submit';submit.className='frontdesk-danger';submit.disabled=true;
-  footer.append(cancel,submit);form.append(vacationQuick,reasonField,memberPreview,phonePanel,feedback,footer);
+  footer.append(cancel,submit);form.append(reasonField,vacationPanel,memberPreview,phonePanel,feedback,footer);
   dialog.append(heading,help,original,form);overlay.append(dialog);document.body.append(overlay);
   const close=(force=false)=>{
    if(busy&&!force||!overlay.isConnected)return;
@@ -452,29 +456,61 @@
    submit.textContent=frozen?'重試相同操作':phone?'確認拒絕並登記現場預約':'確認拒絕預約';
    const validPhone=bookingDate&&validTime()&&validDuration();
    const overlaps=phone&&validPhone&&hasConflict();
-   submit.disabled=!reason.value||(phone&&(!validPhone||!overlaps));
+   const policy=rejectionReasonById(reason.value);
+   const vacationRequired=policy?.hasVacationTechnicians===true;
+   const hasVacation=selectedVacationIds().length>0;
+   submit.disabled=!reason.value||(phone&&(!validPhone||!overlaps))||
+     (!frozen&&vacationRequired&&!hasVacation);
    if(phone&&validPhone&&!overlaps){
     feedback.textContent='請選擇原預約時間區間內的開始時間（含結束時間），每 10 分鐘一格。';
    }else if(!frozen)feedback.textContent='';
   };
+  const updatePreview=()=>{
+   const selected=rejectionReasonById(reason.value)||
+    (reason.value===frozen?.rejectionReason?rejectionSettings.reasons.find(item=>item.id===reason.value):null);
+   memberPreview.hidden=!selected;
+   const base=String(selected?.memberDescription||selected?.label||'').trim();
+   const names=selectedVacationIds().map(id=>frontdeskTechnicians.find(item=>item.id===id)?.name||'原選擇技師');
+   const preface=names.length?'目前 '+names.join('、')+' 技師休假。\n':'';
+   memberPreviewText.textContent=Array.from(preface+base).slice(0,400).join('');
+   updateSubmit();
+  };
   const updateReason=()=>{
    const selected=rejectionReasonById(reason.value)||
     (reason.value===frozen?.rejectionReason?rejectionSettings.reasons.find(item=>item.id===reason.value):null);
-   vacationCheck.checked=reason.value==='technician_leave';
-   memberPreview.hidden=!selected;
-   memberPreviewText.textContent=String(selected?.memberDescription||selected?.label||'').trim();
+   const hasVacation=selected?.hasVacationTechnicians===true||
+    (frozen?.rejectionReason===reason.value&&Array.isArray(frozen.vacationTechnicianIds)&&frozen.vacationTechnicianIds.length>0);
+   vacationPanel.hidden=!hasVacation;
+   vacationList.replaceChildren();
+   vacationBoxes.clear();
+   if(hasVacation){
+    const known=frontdeskTechnicians.slice();
+    for(const id of frozen?.vacationTechnicianIds||[]){
+     if(!known.some(item=>item.id===id))known.push({id,name:'原選擇技師（名單已更新）'});
+    }
+    if(!known.length)vacationList.append(node('p','目前沒有已啟用的技師，請管理端先設定技師。'));
+    for(const technician of known){
+     const option=node('label');option.className='frontdesk-vacation-option';
+     const input=node('input');input.type='checkbox';input.value=technician.id;input.name='vacationTechnicianIds';
+     input.disabled=Boolean(frozen);
+     input.checked=Boolean(frozen?.vacationTechnicianIds?.includes(technician.id));
+     input.addEventListener('change',()=>{
+      if(selectedVacationIds().length>10){input.checked=false;feedback.textContent='最多可勾選 10 位休假技師。';}
+      else feedback.textContent='';
+      updatePreview();
+     });
+     vacationBoxes.set(technician.id,input);
+     option.append(input,node('span',String(technician.name||'未命名技師')));
+     vacationList.append(option);
+    }
+   }
    phonePanel.hidden=!requiresConflictTime();
-   if(phonePanel.hidden)feedback.textContent='';
-   updateSubmit();
-  };
-  vacationCheck.onchange=()=>{
-   if(frozen){vacationCheck.checked=reason.value==='technician_leave';return;}
-   reason.value=vacationCheck.checked?'technician_leave':'';
-   updateReason();
+   if(phonePanel.hidden&&!frozen)feedback.textContent='';
+   updatePreview();
   };
   reason.onchange=updateReason;time.onchange=updateSubmit;duration.onchange=updateSubmit;
   if(frozen?.status==='rejected'){
-   reason.value=frozen.rejectionReason||'';reason.disabled=true;vacationCheck.disabled=true;
+   reason.value=frozen.rejectionReason||'';reason.disabled=true;
    if(frozen.phoneRequestId){if(!Array.from(time.options).some(option=>option.value===frozen.startTime)){const opt=node('option',frozen.startTime);opt.value=frozen.startTime;time.append(opt);}time.value=frozen.startTime||time.value;time.disabled=true;const frozenMinutes=String(frozen.totalDurationMinutes||duration.value);if(!Array.from(duration.options).some(option=>option.value===frozenMinutes)){const opt=node('option',frozenMinutes+' 分鐘');opt.value=frozenMinutes;duration.append(opt);}duration.value=frozenMinutes;duration.disabled=true;}
    feedback.textContent='上次結果尚未確認，僅能重試相同內容。';
   }
@@ -482,6 +518,11 @@
    event.preventDefault();if(busy)return;
    if(!reason.value){feedback.textContent='請選擇拒絕原因。';reason.focus();return;}
    const phone=requiresConflictTime();
+   const policy=rejectionReasonById(reason.value);
+   const vacationIds=policy?.hasVacationTechnicians===true?selectedVacationIds():null;
+   if(!frozen&&vacationIds&&!vacationIds.length){
+    feedback.textContent='請至少勾選一位休假技師。';return;
+   }
    if(phone&&(!validDuration()||!validTime()||!bookingDate)){
    feedback.textContent='請選擇原預約區間內的衝突開始時間與服務總時長（每 10 分鐘）。';return;
   }
@@ -489,8 +530,10 @@
    feedback.textContent='請選擇原預約時間區間內的開始時間（含結束時間），每 10 分鐘一格。';return;
   }
   const detail=phone?{startTime:time.value,totalDurationMinutes:Number(duration.value)}:null;
-   if(!frozen&&!confirmFrontdeskReview(booking,'rejected',reason.options[reason.selectedIndex]?.textContent||reason.value,detail))return;
-   void review(booking,'rejected',submit,reason.value,detail,()=>close(true));
+   const names=vacationIds?.map(id=>frontdeskTechnicians.find(item=>item.id===id)?.name||'技師').join('、');
+   const label=reason.options[reason.selectedIndex]?.textContent||reason.value;
+   if(!frozen&&!confirmFrontdeskReview(booking,'rejected',label+(names?'；休假技師：'+names:''),detail))return;
+   void review(booking,'rejected',submit,reason.value,detail,()=>close(true),vacationIds);
   };
   updateReason();reason.focus();
  }
@@ -501,7 +544,9 @@
   const person=data.staff;
   // Authorized booking sync is not a logout: keep already loaded history visible.
   // Permission downgrade is a privacy boundary and always purges history.
-  if(!person||person.status!=='approved'||person.permissionMode!=='review')clearPrivateHistory();
+  if(!person||person.status!=='approved'||person.permissionMode!=='review'){
+   clearPrivateHistory();frontdeskTechnicians=[];
+  }
    if(!person||person.status!=='approved'||person.permissionMode!=='review')stopSync();
   if(!person){
    showProgress(1);
@@ -532,6 +577,8 @@
    showBookingToolbar(true);
    if(history)history.hidden=false;
    const result=await request('frontdesk.bookings',bookingId?{bookingId}:{});if(generation!==epoch)return false;
+   frontdeskTechnicians=Array.isArray(result.technicians)?
+     result.technicians.filter(item=>item&&typeof item.id==='string'&&typeof item.name==='string'):[];
    if(result.rejectionSettings&&Array.isArray(result.rejectionSettings.reasons)){
      rejectionSettings=result.rejectionSettings;
     }else{
@@ -542,6 +589,7 @@
     startSync();
    status.textContent='審核已通過，可處理目前商家的待確認預約。';
   }else{
+   frontdeskTechnicians=[];
    account.append(node('p','管理員已核准「僅接收預約訊息」，不會顯示會員資料與預約操作。'));
    status.textContent='審核已通過，已開通 LINE 預約通知權限。';
   }
