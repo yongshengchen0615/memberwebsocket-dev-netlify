@@ -164,12 +164,15 @@
   function createOfferCard(offer) {
     const ticket = ticketForOffer(offer); const history = Boolean(offer.history); const fixed = isFixedOffer(offer); const used = history || String(offer?.claim?.status || '') === 'used'; const reserved = !used && Boolean(offer.reservedForBooking); const snapshotPending = !used && Boolean(offer.pendingSnapshot);
     const eligible = !history && eventTicketTierEligible(offer);
-    const stateLabel = used ? '已使用' : reserved ? '已預約使用' : snapshotPending ? '快照待審核' : !eligible ? '需升級' : offer.claim ? '已發放' : '尚未發放';
+    const stateLabel = used ? '已使用' : offer.availability === 'expired' ? '已到期' : reserved ? '已預約使用' : snapshotPending ? '快照待審核' : !eligible ? '需升級' : offer.claim ? '已發放' : '尚未發放';
     const item = window.EventTicketUI.create(ticket, { history, fixed, stateLabel: offer.transferredOut ? '已轉贈' : stateLabel, stateClass: used ? 'used' : reserved ? 'reserved' : eligible ? offer.availability : 'tier-locked', usedAt: eventTicketTimestamp(offer.claim && offer.claim.usedAt), showServiceRequirement: true, showAmountRequirement: true });
     const eventTicketId = eventTicketIdForOffer(offer);
     const action = document.createElement('div'); action.className = 'event-ticket-action';
     const hint = document.createElement('small');
     hint.textContent = used ? '票券已使用，使用紀錄已保留' : reserved ? '已選入一般預約，將於服務完成時自動核銷' : snapshotPending ? '已選入快照，待管理員審核' : !eligible ? '目前會員等級無法使用' : fixed && !offer.claim ? '符合固定發放條件時會由系統自動發放' : offer.claim ? claimLabel(offer.claim.status) : offer.soldOut ? '活動使用名額已額滿' : offer.availability === 'scheduled' ? '活動開始後即可使用已發放票券' : offer.availability === 'ended' ? '活動已結束' : '點開查看完整說明';
+    if (!used && offer.claim?.expiresAt) {
+      hint.textContent = `獲得後 ${ticket.validityDays} 天有效 · 到期 ${eventTicketTimestamp(offer.claim.expiresAt)}${offer.availability === 'expired' ? ' · 已到期' : ''}`;
+    }
     const buttons = document.createElement('div'); buttons.className = 'event-ticket-action-buttons';
     const button = document.createElement('button'); button.type = 'button';
     button.className = `ticket-button${!history && offer.canUse ? ' accent' : ''}`;
@@ -298,7 +301,7 @@
     const ticket = ticketForOffer(offer); const claim = offer.claim; const history = Boolean(offer.history); const reserved = !history && Boolean(offer.reservedForBooking);
     const transferMode = state.ticketModalMode === 'transfer' && canTransferTicket(offer);
     els.ticketModal.dataset.ticketMode = transferMode ? 'transfer' : 'use';
-    els.ticketModalType.textContent = isFixedOffer(offer) ? '固定票券' : ticket.ticketType === 'lottery' ? '活動抽獎券' : ticket.ticketType === 'referral' ? '好友邀請券' : ticket.ticketType === 'membership_join' ? '加入會員券' : '活動優惠券'; els.ticketModalTitle.textContent = String(ticket.title || '活動票券'); els.ticketModalDate.textContent = history ? `已使用：${eventTicketTimestamp(claim && claim.usedAt)}` : `${eventDates(ticket)}${isFixedOffer(offer) ? '' : ` · 使用數量上限：${eventTicketQuotaText(ticket)}`}`; els.ticketModalDescription.textContent = String(ticket.description || '查看活動內容與使用說明。'); els.ticketModalUsageMethod.textContent = `使用方式：${String(ticket.usageMethod || '請依活動現場指示使用')}`; els.ticketModalUsageInstructions.textContent = String(ticket.usageInstructions || '票券發放後請在活動期間出示本券。');
+    els.ticketModalType.textContent = isFixedOffer(offer) ? '固定票券' : ticket.ticketType === 'lottery' ? '活動抽獎券' : ticket.ticketType === 'referral' ? '好友邀請券' : ticket.ticketType === 'membership_join' ? '加入會員券' : '活動優惠券'; els.ticketModalTitle.textContent = String(ticket.title || '活動票券'); els.ticketModalDate.textContent = history ? `已使用：${eventTicketTimestamp(claim && claim.usedAt)}` : `${eventDates(ticket, claim)}${isFixedOffer(offer) ? '' : ` · 使用數量上限：${eventTicketQuotaText(ticket)}`}`; els.ticketModalDescription.textContent = String(ticket.description || '查看活動內容與使用說明。'); els.ticketModalUsageMethod.textContent = `使用方式：${String(ticket.usageMethod || '請依活動現場指示使用')}`; els.ticketModalUsageInstructions.textContent = String(ticket.usageInstructions || '票券發放後請在活動期間出示本券。');
     if (transferMode) els.ticketModalType.textContent = `轉贈好友 · ${els.ticketModalType.textContent}`;
     els.ticketModal.querySelector('.instructions')?.classList.toggle('hidden', transferMode);
     const serviceRequirement = String(ticket.requiredServiceRequirementLabel || '').trim();
@@ -681,8 +684,8 @@
   function eventTicketTierEligible(offer) { return offer && offer.tierEligible !== false; }
   function eventTicketAllowedTiers(ticket) { const labels = ticket && ticket.allowedTierLabels; return Array.isArray(labels) && labels.length ? labels.join('、') : '全部會員等級'; }
   function eventTicketQuotaText(ticket) { const quota = Number(ticket && ticket.quota || 0); const usedCount = Math.max(0, Number(ticket && ticket.usedCount || 0)); if (!Number.isFinite(quota) || quota <= 0) return `不限量（已使用 ${usedCount} 次）`; return `${quota} 次（已使用 ${usedCount} 次，剩餘 ${Math.max(0, quota - usedCount)} 次）`; }
-  function availabilityLabel(value) { return ({ open: '進行中', scheduled: '即將開始', ended: '已結束' })[value] || '活動票券'; }
-  function eventDates(ticket) { const starts = ticket.startsOn || '即日起'; const ends = ticket.endsOn || '不限期'; return `${starts} — ${ends}`; }
+  function availabilityLabel(value) { return ({ open: '進行中', scheduled: '即將開始', ended: '已結束', expired: '已到期' })[value] || '活動票券'; }
+  function eventDates(ticket, claim) { if (ticket.validityMode && ticket.validityMode !== 'fixed') { const deadline = claim?.expiresAt ? ` · 使用至 ${eventTicketTimestamp(claim.expiresAt)}` : ''; return `獲得後 ${ticket.validityDays} 天有效${deadline}`; } const starts = ticket.startsOn || '即日起'; const ends = ticket.endsOn || '不限期'; return `${starts} — ${ends}`; }
   function eventTicketTimestamp(value) { const timestamp = String(value || '').trim(); if (!timestamp) return '時間已記錄'; const date = new Date(timestamp); if (Number.isNaN(date.getTime())) return timestamp; return new Intl.DateTimeFormat('zh-Hant-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date); }
   function setProcessing(processing) { els.ticketModalProcessing.classList.toggle('hidden', !processing); els.ticketModal.setAttribute('aria-busy', String(Boolean(processing))); }
   function showMessage(message, success) { els.ticketModalMessage.textContent = message; els.ticketModalMessage.classList.toggle('success', Boolean(success)); els.ticketModalMessage.classList.remove('hidden'); }
