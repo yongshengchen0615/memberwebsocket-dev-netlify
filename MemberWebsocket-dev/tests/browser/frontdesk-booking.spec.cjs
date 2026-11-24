@@ -784,9 +784,14 @@ test('FRONTDESK_REJECTION_SETTINGS_LEGACY — no editor on older server contract
  await expect(page.locator('[data-frontdesk-rejection-settings]')).toHaveCount(0);
 });
 
-test('FRONTDESK_REJECTION_SETTINGS_EDITOR — edit, order, disable, save and replay frozen request', async({page})=>{
+for(const width of [390,1280])test('FRONTDESK_REJECTION_SETTINGS_EDITOR_'+width+' — accessible, responsive editor, ordering and frozen replay', async({page},info)=>{
+ await page.setViewportSize({width,height:900});
  await page.goto(base+'/frontdesk/');
- await page.setContent('<main id="root"></main>');
+ await page.setContent('<link rel="stylesheet" href="'+base+'/theme.css">'+
+  '<link rel="stylesheet" href="'+base+'/frontdesk/styles.css">'+
+  '<link rel="stylesheet" href="'+base+'/admin/frontdesk-settings/frontdesk-settings-page.css">'+
+  '<main id="root" class="frontdesk-shell frontdesk-settings-standalone"></main>');
+ await page.evaluate(()=>{document.documentElement.dataset.frontdeskPage='true';});
  await page.addScriptTag({url:base+'/admin/frontdesk-settings.js'});
  await page.evaluate(()=>{
   window.rejectionWrites=[];
@@ -849,4 +854,7 @@ test('FRONTDESK_REJECTION_SETTINGS_EDITOR — edit, order, disable, save and rep
  await expect(form).toBeVisible();
  await expect(rows.nth(1).locator('textarea')).toHaveValue('設備維護，請重新預約。');
  await expect(rows.nth(2).getByLabel('啟用此拒絕原因')).not.toBeChecked();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await expect(form.getByRole('button',{name:'儲存拒絕預約設定'})).toBeVisible();
+ await info.attach('frontdesk-rejection-settings-'+width,{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
 });
