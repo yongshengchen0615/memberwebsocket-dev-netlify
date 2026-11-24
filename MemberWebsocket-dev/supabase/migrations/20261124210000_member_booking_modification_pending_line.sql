@@ -44,8 +44,8 @@ declare
     end if;
 $member_notice$;
 begin
-  -- The test project can receive the patch through the Supabase management
-  -- ledger before CI release runs. Do not install it a second time.
+  -- Management API and CI release keep independent migration ledgers.
+  -- Replaying the already-installed patch must never duplicate notices.
   if exists (
     select 1 from platform_private.business_templates t
     cross join lateral jsonb_array_elements(t.snapshot->'functions') f
@@ -54,55 +54,10 @@ begin
       and position('member-modification-pending' in f->>'definition')>0
   ) then
     if position('member-modification-pending' in
-        pg_get_functiondef('booking_notifications.enqueue()'::regprocedure))=0
+         pg_get_functiondef('booking_notifications.enqueue()'::regprocedure))=0
        or exists (
          select 1 from platform_private.tenants t
-         where t.runtime_schema ~ '^business_[0-9a-f]{32}
-  from platform_private.business_templates
-  where version = 'business-v1-20261019' for update;
-  for function_row in select value from jsonb_array_elements(template_row->'functions') loop
-    if function_row->>'name' = 'notice_enqueue' then
-      source := function_row->>'definition';
-      if length(source)-length(replace(source,marker,'')) <> length(marker)
-         or position('modified_by_member' in source)=0 then
-        raise exception 'BOOKING_MODIFICATION_NOTICE_TEMPLATE_DRIFT';
-      end if;
-      source := replace(source,marker,insertion || marker);
-      function_row := jsonb_set(function_row,'{definition}',to_jsonb(source));
-      for business in
-        select runtime_schema from platform_private.tenants
-        where runtime_schema ~ '^business_[0-9a-f]{32}$'
-      loop
-        select pg_get_functiondef(to_regprocedure(format('%I.notice_enqueue()',business.runtime_schema)))
-          into tenant_source;
-        if tenant_source is null
-           or length(tenant_source)-length(replace(tenant_source,marker,'')) <> length(marker) then
-          raise exception 'BOOKING_MODIFICATION_NOTICE_TENANT_DRIFT: %',business.runtime_schema;
-        end if;
-        execute replace(tenant_source,marker,
-          replace(insertion,'public.',format('%I.',business.runtime_schema)) || marker);
-      end loop;
-      patched := patched + 1;
-    end if;
-    functions := functions || jsonb_build_array(function_row);
-  end loop;
-  if patched <> 1 then
-    raise exception 'BOOKING_MODIFICATION_NOTICE_TEMPLATE_MISSING';
-  end if;
-  update platform_private.business_templates
-    set snapshot=jsonb_set(template_row,'{functions}',functions)
-    where version='business-v1-20261019';
-
-  select pg_get_functiondef('booking_notifications.enqueue()'::regprocedure)
-    into strict public_source;
-  if length(public_source)-length(replace(public_source,marker,'')) <> length(marker) then
-    raise exception 'BOOKING_MODIFICATION_NOTICE_PUBLIC_DRIFT';
-  end if;
-  execute replace(public_source,marker,
-    replace(replace(insertion,'public.notice_outbox','booking_notifications.outbox'),
-      'left(member_message,8000)','left(member_message,2200)') || marker);
-end $install_member_booking_modification_notice$;
-
+         where t.runtime_schema like 'business_%'
            and position('member-modification-pending' in
              pg_get_functiondef(to_regprocedure(format('%I.notice_enqueue()',t.runtime_schema))))=0
        ) then
