@@ -9,7 +9,7 @@
   const POINT_CARD_STYLE_KEYS = Object.freeze(['citrus', 'coral', 'lagoon', 'skyline', 'violet', 'berry', 'cocoa', 'lime', 'denim', 'peach']);
   const POINT_CARD_STYLE_LABELS = Object.freeze({ citrus: '柑橘氣泡', coral: '珊瑚蘇打', lagoon: '潟湖水光', skyline: '晴空城市', violet: '電光紫', berry: '莓果霓虹', cocoa: '可可拿鐵', lime: '萊姆汽水', denim: '丹寧晴藍', peach: '蜜桃冰沙' });
   const LEGACY_POINT_CARD_STYLE_MAP = Object.freeze({ forest: 'lagoon', midnight: 'skyline', ocean: 'denim', sunset: 'coral', lavender: 'violet', rose: 'berry', gold: 'citrus', platinum: 'cocoa', mint: 'lime', cherry: 'peach' });
-  const state = { config: null, idToken: '', members: [], memberPage: { page: 1, pageSize: 100, total: 0, totalPages: 1, query: '' }, memberKind: 'real', memberSearchTimer: null, memberRequestVersion: 0, tierSettings: [], cards: [], cardSortOriginalOrder: [], tickets: [], bookingServices: [], eventTickets: [], calendarItems: [], messagePresets: [], adminCalendarMonth: '', selectedCalendarDates: new Set(), selectedCalendarItemIds: new Set(), calendarBatchItems: [], calendarBatchNextKey: 1, stats: {}, activePanel: 'members', activeCardWorkspace: 'cards', loadedPanels: { members: true, cards: false, events: false, calendar: false }, panelLoads: Object.create(null), summaryLoaded: false, selectedCardId: '', selectedTicketId: '', selectedEventTicketId: '', selectedCalendarItemId: '', grantRequestId: '', grantSuccessTimer: null, editorModals: Object.create(null), cardSortBusy: false, cardSortDirty: false, cardSortDrag: null, suppressCardClick: false, writeConfirmationRequired: false, memberRecords: { lineUserId: '', filter: 'all', subfilter: 'all', data: null, member: null, requestVersion: 0 }, memberUsage: { kind: 'real', page: 1, query: '', members: [], totalPages: 1, total: 0, requestVersion: 0, searchTimer: null, loaded: false }, operationalBookings: [] };
+  const state = { config: null, idToken: '', members: [], memberPage: { page: 1, pageSize: 100, total: 0, totalPages: 1, query: '' }, memberKind: 'real', memberSearchTimer: null, memberRequestVersion: 0, tierSettings: [], cards: [], cardSortOriginalOrder: [], tickets: [], bookingServices: [], eventTickets: [], calendarItems: [], messagePresets: [], adminCalendarMonth: '', ticketCalendarMonth: '', bookingCalendarMonth: '', selectedCalendarDates: new Set(), selectedCalendarItemIds: new Set(), calendarBatchItems: [], calendarBatchNextKey: 1, stats: {}, activePanel: 'members', activeCardWorkspace: 'cards', loadedPanels: { members: true, cards: false, events: false, calendar: false }, panelLoads: Object.create(null), summaryLoaded: false, selectedCardId: '', selectedTicketId: '', selectedEventTicketId: '', selectedCalendarItemId: '', grantRequestId: '', grantSuccessTimer: null, editorModals: Object.create(null), cardSortBusy: false, cardSortDirty: false, cardSortDrag: null, suppressCardClick: false, writeConfirmationRequired: false, memberRecords: { lineUserId: '', filter: 'all', subfilter: 'all', data: null, member: null, requestVersion: 0 }, memberUsage: { kind: 'real', page: 1, query: '', members: [], totalPages: 1, total: 0, requestVersion: 0, searchTimer: null, loaded: false }, operationalBookings: [] };
   const els = {};
   const LOGIN_PROGRESS_TICK_MS = 650;
   const MEMBER_PRESENCE_POLL_MS = 15_000;
@@ -151,7 +151,7 @@
     els.adminCalendarNextMonthButton.addEventListener('click', () => changeAdminCalendarMonth(1));
     els.adminCalendarTodayButton.addEventListener('click', () => { state.adminCalendarMonth = ''; renderAdminCalendar(); });
     els.adminCalendarGrid.addEventListener('click', handleAdminCalendarGridClick);
-    els.adminCalendarGrid.addEventListener('change', handleAdminCalendarGridChange);
+    document.addEventListener('click', handleScopedCalendarClick);
     window.addEventListener('member-admin:booking-snapshot', handleOperationalBookingSnapshot);
     window.addEventListener('member-admin:booking-services-updated', handleBookingServicesUpdated);
     els.calendarItemAccent.addEventListener('input', updateCalendarItemAccentValue);
@@ -159,13 +159,6 @@
     els.calendarItemForm.addEventListener('submit', saveCalendarItem);
     els.resetCalendarItemButton.addEventListener('click', resetCalendarItemForm);
     els.deleteCalendarItemButton.addEventListener('click', deleteCalendarItem);
-    els.addCalendarBatchItemButton.addEventListener('click', queueSelectedCalendarDates);
-    els.queueSelectedCalendarItemsButton.addEventListener('click', queueSelectedCalendarItems);
-    els.deleteSelectedCalendarItemsButton.addEventListener('click', deleteSelectedCalendarItems);
-    els.calendarBatchRows.addEventListener('click', handleCalendarBatchRowClick);
-    els.calendarBatchRows.addEventListener('change', handleCalendarBatchRowChange);
-    els.clearCalendarBatchButton.addEventListener('click', clearCalendarBatch);
-    els.saveCalendarBatchButton.addEventListener('click', saveCalendarBatch);
     els.memberForm.addEventListener('submit', saveMember);
     els.cancelMemberButton.addEventListener('click', closeMemberModal);
     els.closeMemberModal.addEventListener('click', closeMemberModal);
@@ -766,6 +759,7 @@
     state.stats = { ...state.stats, ...(result.stats && typeof result.stats === 'object' ? result.stats : {}) };
     if (renderOverview) renderAdminOverview();
     if (listChanged || els.eventTicketListItems.children.length !== nextTickets.length) renderEventTicketList();
+    renderEventTicketCalendar();
 
     if (state.selectedEventTicketId && !openEditors.has('eventTicket')) {
       const selected = nextTickets.find((ticket) => ticket.eventTicketId === state.selectedEventTicketId);
@@ -783,7 +777,7 @@
     state.calendarItems = Array.isArray(result.calendarItems) ? result.calendarItems : [];
     const calendarIds = new Set(state.calendarItems.map((item) => String(item.calendarItemId || '')));
     state.selectedCalendarItemIds = new Set(Array.from(state.selectedCalendarItemIds).filter((calendarItemId) => calendarIds.has(calendarItemId)));
-    renderAdminCalendar(); renderCalendarBatchRows();
+    renderAdminCalendar();
     if (!preserveEditor) {
       if (state.selectedCalendarItemId && state.calendarItems.some((item) => item.calendarItemId === state.selectedCalendarItemId)) loadCalendarItemForm(state.selectedCalendarItemId); else resetCalendarItemForm();
     }
@@ -2438,21 +2432,10 @@
     document.getElementById('calendarItemResultCount')?.closest('.list-heading')?.remove();
     document.getElementById('calendarItemListItems')?.remove();
     document.getElementById('calendarItemEmptyState')?.remove();
-    const calendar = els.adminCalendarGrid.closest('.admin-calendar');
-    const batchEditor = document.querySelector('.calendar-batch-editor');
-    calendar?.closest('.card-list')?.setAttribute('aria-label', '月曆');
-    if (calendar && batchEditor) calendar.append(batchEditor);
-    const batchTitle = document.getElementById('calendarBatchTitle');
-    if (batchTitle) batchTitle.textContent = '月曆批次作業';
-    const batchDescription = batchEditor && batchEditor.querySelector('.section-heading p:not(.kicker)');
-    if (batchDescription) batchDescription.textContent = '在月曆勾選日期以批次新增；勾選既有項目後可批次修改或刪除。每次最多 20 筆，送出前會先檢查全部資料。';
-    const calendarHint = calendar && calendar.querySelector('.admin-calendar-toolbar p');
-    if (calendarHint) calendarHint.textContent = '點選空白日期新增，點選既有項目編輯；勾選日期或項目可批次處理。';
-    els.addCalendarBatchItemButton.textContent = '新增選取日期';
-    els.queueSelectedCalendarItemsButton.textContent = '修改選取項目';
-    els.deleteSelectedCalendarItemsButton.textContent = '刪除選取項目';
+    els.adminCalendarGrid.closest('.admin-calendar')?.closest('.card-list')?.setAttribute('aria-label', '會員活動月曆，不含活動票券或預約');
+    const hint = els.adminCalendarGrid.closest('.admin-calendar')?.querySelector('.admin-calendar-toolbar p');
+    if (hint) hint.textContent = '點選日期新增會員活動或休假日；點選既有項目編輯。';
   }
-
 
   function requestOperationalBookingSnapshot() {
     window.dispatchEvent(new CustomEvent('member-admin:booking-snapshot-request'));
@@ -2472,7 +2455,7 @@
       partySize: Math.max(1, Number(booking.partySize || 1)),
       cancellationRequestedAt: booking.cancellationRequestedAt || null,
     })).filter((booking) => booking.bookingId && /^\d{4}-\d{2}-\d{2}$/.test(booking.bookingDate));
-    if (state.activePanel === 'calendar') renderAdminCalendar();
+    renderBookingOverviewCalendar();
   }
 
   function adminOperationalBookingsForDate(dateValue) {
@@ -2504,52 +2487,215 @@
   function renderAdminCalendar() {
     const month = currentAdminCalendarMonth();
     state.adminCalendarMonth = toAdminIsoDate(month);
-    const monthTitle = new Intl.DateTimeFormat('zh-Hant-TW', { timeZone: 'UTC', year: 'numeric', month: 'long' }).format(month);
+    const title = new Intl.DateTimeFormat('zh-Hant-TW', { timeZone: 'UTC', year: 'numeric', month: 'long' }).format(month);
     const firstWeekday = month.getUTCDay();
     const daysInMonth = new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + 1, 0)).getUTCDate();
     const today = todayAdminIsoDate();
     const cells = [];
-    els.adminCalendarMonthTitle.textContent = monthTitle;
-    els.adminCalendarGrid.setAttribute('aria-label', `${monthTitle}日曆；點選空白日期新增，點選既有項目編輯，勾選日期或項目進行批次作業`);
-
+    els.adminCalendarMonthTitle.textContent = title;
+    els.adminCalendarGrid.setAttribute('aria-label', title + '會員活動日曆，點選日期新增，點選項目編輯');
     for (let index = 0; index < 42; index += 1) {
       const day = index - firstWeekday + 1;
       if (day < 1 || day > daysInMonth) {
-        const blank = document.createElement('div'); blank.className = 'admin-calendar-day admin-calendar-day-empty'; blank.setAttribute('aria-hidden', 'true'); cells.push(blank); continue;
+        const empty = document.createElement('div');
+        empty.className = 'admin-calendar-day admin-calendar-day-empty';
+        empty.setAttribute('aria-hidden', 'true');
+        cells.push(empty);
+        continue;
       }
-      const date = new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth(), day));
-      const dateValue = toAdminIsoDate(date);
-      const entries = adminCalendarItemsForDate(dateValue);
-      const bookings = adminOperationalBookingsForDate(dateValue);
-      const cell = document.createElement('article'); cell.className = 'admin-calendar-day';
-      if (dateValue === today) cell.classList.add('is-today');
-      if (entries.length || bookings.length) cell.classList.add('has-items');
-      if (bookings.length) cell.classList.add('has-bookings');
-      if (state.selectedCalendarDates.has(dateValue)) cell.classList.add('is-selected-for-batch');
-      const dayHeader = document.createElement('div'); dayHeader.className = 'admin-calendar-day-header';
-      const dateSelect = document.createElement('input'); dateSelect.type = 'checkbox'; dateSelect.className = 'admin-calendar-selection admin-calendar-date-select'; dateSelect.dataset.adminCalendarDateSelect = dateValue; dateSelect.checked = state.selectedCalendarDates.has(dateValue); dateSelect.disabled = state.writeConfirmationRequired; dateSelect.setAttribute('aria-label', `選取${formatAdminDateValue(dateValue, true)}以批次新增`);
-      const dateButton = document.createElement('button'); dateButton.type = 'button'; dateButton.className = 'admin-calendar-day-button'; dateButton.dataset.adminCalendarDate = dateValue; dateButton.setAttribute('aria-label', `${formatAdminDateValue(dateValue, true)}，新增休假日或活動`);
-      const dateNumber = document.createElement('span'); dateNumber.className = 'admin-calendar-day-number'; dateNumber.textContent = String(day); dateButton.append(dateNumber);
-      const entryList = document.createElement('div'); entryList.className = 'admin-calendar-items';
+      const date = toAdminIsoDate(new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth(), day)));
+      const entries = adminCalendarItemsForDate(date);
+      const cell = document.createElement('article');
+      cell.className = 'admin-calendar-day';
+      if (date === today) cell.classList.add('is-today');
+      if (entries.length) cell.classList.add('has-items');
+      const header = document.createElement('div');
+      header.className = 'admin-calendar-day-header';
+      const add = document.createElement('button');
+      add.type = 'button';
+      add.className = 'admin-calendar-day-button';
+      add.dataset.adminCalendarDate = date;
+      add.setAttribute('aria-label', formatAdminDateValue(date, true) + '，新增會員活動或休假日');
+      const number = document.createElement('span');
+      number.className = 'admin-calendar-day-number';
+      number.textContent = String(day);
+      add.append(number);
+      header.append(add);
+      const items = document.createElement('div');
+      items.className = 'admin-calendar-items';
       entries.forEach((item) => {
-        const calendarItemId = String(item.calendarItemId || '');
-        const itemRow = document.createElement('div'); itemRow.className = 'admin-calendar-item-row';
-        if (state.selectedCalendarItemIds.has(calendarItemId)) itemRow.classList.add('is-selected-for-batch');
-        const itemSelect = document.createElement('input'); itemSelect.type = 'checkbox'; itemSelect.className = 'admin-calendar-selection admin-calendar-item-select'; itemSelect.dataset.adminCalendarItemSelect = calendarItemId; itemSelect.checked = state.selectedCalendarItemIds.has(calendarItemId); itemSelect.disabled = state.writeConfirmationRequired; itemSelect.setAttribute('aria-label', `選取${String(item.title || '日曆項目')}進行批次修改或刪除`);
-        const itemButton = document.createElement('button'); itemButton.type = 'button'; itemButton.className = `admin-calendar-item ${item.itemType === 'holiday' ? 'holiday' : 'event'}`; itemButton.dataset.adminCalendarItemId = calendarItemId; itemButton.style.setProperty('--calendar-item-accent', safeAccent(item.accent)); itemButton.setAttribute('aria-label', `編輯${item.itemType === 'holiday' ? '休假日' : '活動'}：${String(item.title || '未命名日期')}`); itemButton.textContent = String(item.title || '未命名日期'); itemRow.append(itemSelect, itemButton); entryList.append(itemRow);
+        const row = document.createElement('div');
+        row.className = 'admin-calendar-item-row';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'admin-calendar-item ' + (item.itemType === 'holiday' ? 'holiday' : 'event');
+        button.dataset.adminCalendarItemId = String(item.calendarItemId || '');
+        button.style.setProperty('--calendar-item-accent', safeAccent(item.accent));
+        button.setAttribute('aria-label', '編輯會員活動：' + String(item.title || '未命名活動'));
+        button.textContent = String(item.title || '未命名活動');
+        row.append(button);
+        items.append(row);
       });
-      const bookingList = document.createElement('div');
-      bookingList.className = 'admin-calendar-bookings';
-      bookings.slice(0, 3).forEach((booking) => bookingList.append(createOperationalBookingCalendarButton(booking)));
-      if (bookings.length > 3) {
-        const more = document.createElement('span');
-        more.className = 'admin-calendar-booking-more';
-        more.textContent = `另有 ${bookings.length - 3} 筆預約`;
-        bookingList.append(more);
-      }
-      dayHeader.append(dateSelect, dateButton); cell.append(dayHeader, entryList, bookingList); cells.push(cell);
+      cell.append(header, items);
+      cells.push(cell);
     }
     els.adminCalendarGrid.replaceChildren(...cells);
+  }
+
+  function scopedCalendarMonth(key) {
+    const month = parseAdminIsoDate(state[key]) || parseAdminIsoDate(todayAdminIsoDate());
+    if (!month) return new Date();
+    month.setUTCDate(1);
+    return month;
+  }
+
+  function renderScopedCalendar({ rows, key, gridId, titleId, summaryId, kind }) {
+    const grid = document.getElementById(gridId);
+    const title = document.getElementById(titleId);
+    const summary = document.getElementById(summaryId);
+    if (!grid || !title || !summary) return;
+    const rules = window.MemberAdminCalendarScopes;
+    const month = scopedCalendarMonth(key);
+    state[key] = toAdminIsoDate(month);
+    const monthLabel = new Intl.DateTimeFormat('zh-Hant-TW', { timeZone: 'UTC', year: 'numeric', month: 'long' }).format(month);
+    const firstWeekday = month.getUTCDay();
+    const daysInMonth = new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + 1, 0)).getUTCDate();
+    const today = todayAdminIsoDate();
+    const cells = [];
+    title.textContent = monthLabel;
+    grid.setAttribute('aria-label', monthLabel + (kind === 'ticket' ? '活動票券' : '預約') + '專屬日曆');
+    let visibleCount = 0;
+    for (let index = 0; index < 42; index += 1) {
+      const day = index - firstWeekday + 1;
+      if (day < 1 || day > daysInMonth) {
+        const blank = document.createElement('div');
+        blank.className = 'admin-calendar-day admin-calendar-day-empty';
+        blank.setAttribute('aria-hidden', 'true');
+        cells.push(blank);
+        continue;
+      }
+      const date = toAdminIsoDate(new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth(), day)));
+      const entries = rows.filter((item) => rules.belongsToScope(kind, item) && rules.occursOn(item, date));
+      visibleCount += entries.length;
+      const cell = document.createElement('article');
+      cell.className = 'admin-calendar-day';
+      if (date === today) cell.classList.add('is-today');
+      if (entries.length) cell.classList.add('has-items');
+      const header = document.createElement('div');
+      header.className = 'admin-calendar-day-header';
+      const dayButton = document.createElement('button');
+      dayButton.type = 'button';
+      dayButton.className = 'admin-calendar-day-button';
+      dayButton.dataset[kind === 'ticket' ? 'ticketCalendarDate' : 'bookingCalendarDate'] = date;
+      dayButton.setAttribute('aria-label', formatAdminDateValue(date, true) + (kind === 'ticket' ? '，新增活動票券' : '，查看當日預約'));
+      const number = document.createElement('span');
+      number.className = 'admin-calendar-day-number';
+      number.textContent = String(day);
+      dayButton.append(number);
+      header.append(dayButton);
+      const items = document.createElement('div');
+      items.className = kind === 'ticket' ? 'admin-calendar-items' : 'admin-calendar-bookings';
+      entries.slice(0, 3).forEach((item) => {
+        const row = document.createElement('div');
+        row.className = 'admin-calendar-item-row';
+        const button = document.createElement('button');
+        button.type = 'button';
+        if (kind === 'ticket') {
+          button.className = 'admin-calendar-item event';
+          button.dataset.ticketCalendarItemId = String(item.eventTicketId);
+          button.style.setProperty('--calendar-item-accent', safeAccent(item.accent));
+          button.textContent = String(item.title || '未命名活動票券');
+          button.setAttribute('aria-label', '編輯活動票券：' + String(item.title || '未命名活動票券'));
+        } else {
+          button.className = 'admin-calendar-booking status-' + String(item.status || '');
+          button.dataset.bookingCalendarId = String(item.bookingId);
+          button.textContent = (item.startTime || '—') + ' ' + String(item.memberDisplayName || item.memberCode || '會員');
+          button.setAttribute('aria-label', '查看預約：' + String(item.memberDisplayName || '會員') + ' ' + (item.startTime || ''));
+        }
+        row.append(button);
+        items.append(row);
+      });
+      if (entries.length > 3) {
+        const more = document.createElement('span');
+        more.className = 'calendar-scope-more';
+        more.textContent = '另有 ' + (entries.length - 3) + ' 筆';
+        items.append(more);
+      }
+      cell.append(header, items);
+      cells.push(cell);
+    }
+    grid.replaceChildren(...cells);
+    const undated = kind === 'ticket' ? rows.filter((row) => !rules.validIsoDate(row.startsOn)).length : 0;
+    summary.textContent = kind === 'ticket'
+      ? visibleCount + ' 個日期顯示項目' + (undated ? ' · ' + undated + ' 張未設定開始日的票券在下方清單' : '') + ' · 點選日期新增'
+      : visibleCount + ' 筆預約顯示 · 點選預約查看詳情';
+  }
+
+  function renderEventTicketCalendar() {
+    renderScopedCalendar({
+      rows: state.eventTickets, key: 'ticketCalendarMonth',
+      gridId: 'eventTicketCalendarGrid', titleId: 'eventTicketCalendarMonthTitle',
+      summaryId: 'eventTicketCalendarSummary', kind: 'ticket'
+    });
+  }
+
+  function renderBookingOverviewCalendar() {
+    renderScopedCalendar({
+      rows: state.operationalBookings.filter((booking) => ['pending', 'confirmed', 'completed'].includes(booking.status)),
+      key: 'bookingCalendarMonth', gridId: 'bookingOverviewCalendarGrid',
+      titleId: 'bookingOverviewCalendarMonthTitle',
+      summaryId: 'bookingOverviewCalendarSummary', kind: 'booking'
+    });
+  }
+
+  function handleScopedCalendarClick(event) {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+    const button = target.closest('[data-ticket-calendar-item-id]');
+    if (button) {
+      const ticketId = String(button.dataset.ticketCalendarItemId || '');
+      loadEventTicketForm(ticketId, false);
+      openEditorModal('eventTicket', button);
+      return;
+    }
+    const ticketDate = target.closest('[data-ticket-calendar-date]');
+    if (ticketDate) {
+      const date = String(ticketDate.dataset.ticketCalendarDate || '');
+      if (!window.MemberAdminCalendarScopes.validIsoDate(date)) return;
+      resetEventTicketForm(false);
+      els.eventTicketStartsOn.value = date;
+      updateEventTicketDateRangeUI();
+      openEditorModal('eventTicket', ticketDate);
+      return;
+    }
+    const booking = target.closest('[data-booking-calendar-id]');
+    if (booking) {
+      document.getElementById('bookingTab')?.click();
+      window.setTimeout(() => window.dispatchEvent(new CustomEvent('member-admin:booking-focus', { detail: { bookingId: String(booking.dataset.bookingCalendarId || '') } })), 0);
+      return;
+    }
+    const bookingDate = target.closest('[data-booking-calendar-date]');
+    if (bookingDate) {
+      document.getElementById('bookingAdminQueueSubtab')?.click();
+      return;
+    }
+    const monthMove = {
+      eventTicketCalendarPreviousMonthButton: ['ticketCalendarMonth', -1, renderEventTicketCalendar],
+      eventTicketCalendarNextMonthButton: ['ticketCalendarMonth', 1, renderEventTicketCalendar],
+      eventTicketCalendarTodayButton: ['ticketCalendarMonth', 0, renderEventTicketCalendar],
+      bookingOverviewCalendarPreviousMonthButton: ['bookingCalendarMonth', -1, renderBookingOverviewCalendar],
+      bookingOverviewCalendarNextMonthButton: ['bookingCalendarMonth', 1, renderBookingOverviewCalendar],
+      bookingOverviewCalendarTodayButton: ['bookingCalendarMonth', 0, renderBookingOverviewCalendar]
+    }[target.closest('button')?.id || ''];
+    if (!monthMove) return;
+    const [key, offset, render] = monthMove;
+    if (offset === 0) state[key] = '';
+    else {
+      const month = scopedCalendarMonth(key);
+      month.setUTCMonth(month.getUTCMonth() + offset);
+      state[key] = toAdminIsoDate(month);
+    }
+    render();
   }
 
   function currentAdminCalendarMonth() {
@@ -2567,11 +2713,9 @@
   }
 
   function adminCalendarItemsForDate(dateValue) {
-    return state.calendarItems.filter((item) => {
-      const startsOn = String(item && item.startsOn || '');
-      const endsOn = String(item && item.endsOn || startsOn);
-      return Boolean(parseAdminIsoDate(startsOn) && parseAdminIsoDate(endsOn) && startsOn <= dateValue && dateValue <= endsOn);
-    });
+    const rules = window.MemberAdminCalendarScopes;
+    return state.calendarItems.filter((item) =>
+      rules.belongsToScope('activity', item) && rules.occursOn(item, dateValue));
   }
 
   function handleAdminCalendarGridClick(event) {
