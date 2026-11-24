@@ -834,6 +834,9 @@ for(const width of [390,1280])test('FRONTDESK_REJECTION_SETTINGS_EDITOR_'+width+
  await rows.nth(2).locator('input[type=text]').fill('設備維護');
  await rows.nth(2).locator('textarea').fill('設備維護，請重新預約。');
  await rows.nth(2).getByLabel('需要設定衝突時間並登記現場預約').check();
+ await rows.nth(2).getByLabel('有休假技師（櫃檯端可勾選已設定的技師）').check();
+ expect(await rows.nth(2).locator('.frontdesk-rejection-toggles label').allTextContents())
+  .toEqual(['啟用此拒絕原因','需要設定衝突時間並登記現場預約','有休假技師（櫃檯端可勾選已設定的技師）']);
  await rows.nth(2).getByRole('button',{name:'原因 3 上移'}).click();
  await expect(rows.nth(1).locator('input[type=text]')).toHaveValue('設備維護');
  await rows.nth(2).getByLabel('啟用此拒絕原因').uncheck();
@@ -849,7 +852,7 @@ for(const width of [390,1280])test('FRONTDESK_REJECTION_SETTINGS_EDITOR_'+width+
  expect(writes[0].expectedVersion).toBe(7);
  expect(writes[0].requestId).toMatch(/^[0-9a-f-]{36}$/);
  expect(writes[0].rejectionSettings.dropdownTitle).toBe('請選擇本店原因');
- expect(writes[0].rejectionSettings.reasons[1]).toMatchObject({label:'設備維護',memberDescription:'設備維護，請重新預約。',enabled:true,requiresConflictTime:true});
+ expect(writes[0].rejectionSettings.reasons[1]).toMatchObject({label:'設備維護',memberDescription:'設備維護，請重新預約。',enabled:true,requiresConflictTime:true,hasVacationTechnicians:true});
  expect(writes[0].rejectionSettings.reasons[1].id).toMatch(/^custom_[0-9a-f-]{36}$/);
  expect(writes[0].rejectionSettings.reasons[2]).toMatchObject({id:'unrecorded_phone_booking',enabled:false});
  await expect(form.locator('[name=rejectionDropdownTitle]')).toHaveValue('請選擇本店原因');
