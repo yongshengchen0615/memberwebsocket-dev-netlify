@@ -577,7 +577,7 @@ test('AC-FMR-001/002: frontdesk separates new and member-modified bookings with 
  ];
  const response=data=>({ok:true,status:200,json:async()=>({ok:true,data})});
  w.fetch=async(_url,init)=>{
-  if(!init?.body)return response({supabaseFunctionUrl:'https://db.test/functions/v1/api',supabasePublishableKey:'public'});
+  if(!init?.body)return {ok:true,status:200,json:async()=>({supabaseFunctionUrl:'https://db.test/functions/v1/api',supabasePublishableKey:'public'})};
   const {action}=JSON.parse(init.body);
   if(action==='frontdesk.public')return response({name:'Shop',frontdesk:{enabled:true,liffId:'2010999999-desk'}});
   if(action==='frontdesk.bootstrap')return response({staff:{status:'approved',permissionMode:'review'}});
