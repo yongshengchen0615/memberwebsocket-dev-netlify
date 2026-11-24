@@ -317,7 +317,7 @@
     if (!bookingChoice) { bookingChoice = document.createElement('div'); bookingChoice.dataset.ticketBookingChoice = ''; els.ticketModalStatus.before(bookingChoice); }
     const choiceMode = window.TicketBookingChoice?.eventOptions?.(ticket, offer.eligibleBookings)
       || { requiresBooking: true, bookings: [] };
-    bookingChoice.hidden = transferMode || history || !claim || reserved || offer.availability === 'expired' || !choiceMode.requiresBooking;
+    bookingChoice.hidden = transferMode || history || !claim || reserved || !choiceMode.requiresBooking || offer.availability === 'expired';
     if (transferMode) bookingChoice.replaceChildren();
     else window.TicketBookingChoice?.mount(bookingChoice, choiceMode.bookings, () => { els.ticketModalAction.disabled = !(canBindExistingBooking(offer) || offer.canUse) || !window.TicketBookingChoice.selected(bookingChoice); if (needsGps) syncLiveLocationState(offer); });
     let modalGuide = els.ticketModal.querySelector('[data-ticket-booking-guide]');
