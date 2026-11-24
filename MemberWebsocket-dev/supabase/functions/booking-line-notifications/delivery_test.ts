@@ -651,6 +651,39 @@ Deno.test('AC-001/002: frontdesk rejection is three readable Flex cards, no mixe
   assert(card.altText.includes('櫃檯拒絕預約'), 'LINE preview title must remain clear');
 });
 
+Deno.test('AC-INDIVIDUAL-001: each rejected person has their own services, technician, note and alert identity',()=>{
+ const original='10000000-0000-4000-8000-000000000030', replacement='10000000-0000-4000-8000-000000000031';
+ const message=[
+  '【櫃檯拒絕預約】','預約人：櫃檯人員','拒絕原因：技師休假',
+  '【原預約資料】','預約編號：'+original,'預約日期：2026-11-25',
+  '預約時間：13:00','原預約會員：王小姐','預約人數：2 位',
+  '預約項目：身體60、肩頸30','預約技師：A、B',
+  '【個別預約資料】','第1位預約','預約項目：身體60',
+  '預約技師：A','個別備註：A要輕力','第2位預約',
+  '預約項目：肩頸30','預約技師：B','個別備註：B要安靜',
+  '【櫃檯新增的預約資料】','新增預約編號：'+replacement,
+  '預約日期：2026-11-25','預約時間：14:00',
+  '預約人數：1 位','預約項目：足底40','預約技師：C','預約狀態：已確認',
+  '【個別預約資料】','第1位預約','預約項目：足底40','預約技師：C'
+ ].join('\n');
+ const payload=buildBookingFlexMessage({...sampleJob,channel:'admin',booking_id:original,message_text:message});
+ const cards=(payload.contents.body as any).contents as Array<Record<string,unknown>>;
+ assert(cards.length===6,'summary, original, original person A/B, replacement, replacement person C');
+ const flatten=(v:unknown)=>collectComponents(v).filter(x=>x.type==='text').map(x=>String(x.text||'')).join('|');
+ const summary=flatten(cards[1]),a=flatten(cards[2]),b=flatten(cards[3]),replacementSummary=flatten(cards[4]),c=flatten(cards[5]);
+ assert(summary.includes('王小姐')&&!summary.includes('身體60、肩頸30'),'booking header must not merge participants');
+ assert(a.includes('身體60')&&a.includes('A要輕力')&&a.includes('技師')&&!a.includes('B要安靜')&&!a.includes('肩頸30'),'first person isolated');
+ assert(b.includes('肩頸30')&&b.includes('B要安靜')&&!b.includes('A要輕力')&&!b.includes('身體60'),'second person isolated');
+ assert(replacementSummary.includes('14:00')&&!replacementSummary.includes('王小姐'),'replacement independent');
+ assert(c.includes('足底40')&&c.includes('C')&&!c.includes('身體60'),'replacement person isolated');
+ assert(payload.altText.includes('王小姐')&&payload.altText.includes('2026-11-25')&&payload.altText.includes(original.slice(0,8)),
+  'LINE preview must identify this exact booking');
+ assert(payload.altText.includes('含櫃檯補登資料'),'paired booking indicated');
+ const noPair=buildBookingFlexMessage({...sampleJob,channel:'admin',booking_id:original,
+  message_text:message.split('【櫃檯新增的預約資料】')[0]});
+ assert(!noPair.altText.includes('含櫃檯補登資料'),'individuals must not be confused with paired booking');
+});
+
 Deno.test('AC-FR-013: non-paired frontdesk rejection never fabricates a replacement card',()=>{
   const text=['【櫃檯拒絕預約】','預約人：櫃檯人員','拒絕原因：預約中有休假技師',
     '【原預約資料】','預約日期：2026-11-21','預約時間：11:00',
