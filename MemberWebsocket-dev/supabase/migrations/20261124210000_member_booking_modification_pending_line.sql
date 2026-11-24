@@ -53,8 +53,9 @@ begin
       and f->>'name'='notice_enqueue'
       and position('member-modification-pending' in f->>'definition')>0
   ) then
-    if position('member-modification-pending' in
-         pg_get_functiondef('booking_notifications.enqueue()'::regprocedure))=0
+    if (to_regprocedure('booking_notifications.enqueue()') is not null
+        and position('member-modification-pending' in
+          pg_get_functiondef(to_regprocedure('booking_notifications.enqueue()')))=0)
        or exists (
          select 1 from platform_private.tenants t
          where t.runtime_schema like 'business_%'
@@ -100,13 +101,17 @@ begin
     set snapshot=jsonb_set(template_row,'{functions}',functions)
     where version='business-v1-20261019';
 
-  select pg_get_functiondef('booking_notifications.enqueue()'::regprocedure)
-    into strict public_source;
-  if length(public_source)-length(replace(public_source,marker,'')) <> length(marker) then
-    raise exception 'BOOKING_MODIFICATION_NOTICE_PUBLIC_DRIFT';
+  -- The public compatibility notice function is optional in fresh tenant-only
+  -- database fixtures. Update it if installed; never create or grant it here.
+  if to_regprocedure('booking_notifications.enqueue()') is not null then
+    select pg_get_functiondef(to_regprocedure('booking_notifications.enqueue()'))
+      into strict public_source;
+    if length(public_source)-length(replace(public_source,marker,'')) <> length(marker) then
+      raise exception 'BOOKING_MODIFICATION_NOTICE_PUBLIC_DRIFT';
+    end if;
+    execute replace(public_source,marker,
+      replace(replace(insertion,'public.notice_outbox','booking_notifications.outbox'),
+        'left(member_message,8000)','left(member_message,2200)') || marker);
   end if;
-  execute replace(public_source,marker,
-    replace(replace(insertion,'public.notice_outbox','booking_notifications.outbox'),
-      'left(member_message,8000)','left(member_message,2200)') || marker);
   end if;
 end $install_member_booking_modification_notice$;
