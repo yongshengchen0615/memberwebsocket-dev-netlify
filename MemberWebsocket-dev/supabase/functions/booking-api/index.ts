@@ -797,7 +797,10 @@ async function userBootstrap(supabase: SupabaseClient, member: any, body:Json={}
     today: currentBusinessDate(taipeiDate(), taipeiMinutes(), settings.work_start_time, settings.work_end_time),
     settings: { ...settingsClient(settings), serviceTypeRewards },
     services: services.map(serviceClient),
-    bookings: await hydrateBookings(supabase, [...bookingRows.values()].sort((a, b) => `${b.booking_date} ${b.start_time}`.localeCompare(`${a.booking_date} ${a.start_time}`))),
+    // Members receive the designated public rejection explanation, not
+    // internal staff notes accompanying rejected bookings.
+    bookings: (await hydrateBookings(supabase, [...bookingRows.values()].sort((a, b) => `${b.booking_date} ${b.start_time}`.localeCompare(`${a.booking_date} ${a.start_time}`))))
+      .map((entry: any) => entry.status === "rejected" ? {...entry, adminNote: ""} : entry),
   };
 }
 
