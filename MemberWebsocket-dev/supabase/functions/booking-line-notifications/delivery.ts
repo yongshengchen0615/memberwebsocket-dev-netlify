@@ -561,19 +561,35 @@ function frontdeskRejectionCards(source: string): Array<Record<string, unknown>>
   const people = (start: number, end: number): Array<{label:string;values:Map<string,string>}> => {
     const result: Array<{label:string;values:Map<string,string>}> = [];
     let current: {label:string;values:Map<string,string>} | null = null;
+    let collectingNote=false;
     for (const line of lines.slice(start,end)) {
+      if (line.startsWith('【')) {
+        current=null;
+        collectingNote=false;
+        continue;
+      }
       const m = /^第(\d{1,2})位預約$/.exec(line);
       if (m) {
         current={label:'第'+m[1]+'位預約',values:new Map()};
         result.push(current);
+        collectingNote=false;
         continue;
       }
-      if (!current) continue;
+      if (!current || !line) continue;
       const at=line.indexOf('：');
-      if(at<=0)continue;
-      const label=line.slice(0,at),value=line.slice(at+1).trim();
-      if(['預約項目','預約技師','個別備註'].includes(label)&&value&&!current.values.has(label))
-        current.values.set(label,truncate(value,500));
+      const label=at>0?line.slice(0,at):'';
+      const value=at>0?line.slice(at+1).trim():'';
+      if(['預約項目','預約技師','個別備註'].includes(label)) {
+        if(value&&!current.values.has(label))current.values.set(label,truncate(value,500));
+        collectingNote=label==='個別備註'&&Boolean(value);
+        continue;
+      }
+      // Notes may contain plain continuation lines or their own "提醒：" text.
+      // Stop only at an explicit next participant, section or structured field.
+      if (collectingNote) {
+        const previous=current.values.get('個別備註')||'';
+        current.values.set('個別備註',truncate(previous+'\n'+line,500));
+      }
     }
     return result;
   };
