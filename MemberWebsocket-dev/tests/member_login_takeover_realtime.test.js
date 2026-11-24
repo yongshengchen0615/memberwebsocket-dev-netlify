@@ -152,7 +152,9 @@ test('session status remains server-authenticated and never opens an admin bypas
   assert.match(auth, /member_login_token_grants/);
   assert.match(booking, /user\.booking\.session\.status/);
   assert.match(booking, /targetScope !== 'admin'/);
-  assert.match(member, /member\.login\.replaced'\) verifyCurrentLogin\(\)/);
+  // A live takeover hint also verifies revocation while merely hidden;
+  // pagehide/offline remain hard lifecycle boundaries in the behavior tests.
+  assert.match(member, /member\.login\.replaced'\) verifyCurrentLogin\(true, true\)/);
   assert.doesNotMatch(member, /window\.confirm\(/);
   assert.match(member, /const mode = 'login'/);
 });

@@ -4,7 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
 for(const surface of ['member','points','event','calendar','admin']) {
-  test(`${surface}: realtime cleanup cancels pending refresh and permits resubscription`,()=>{
+  test(`${surface}: realtime cleanup cancels pending refresh and permits resubscription`,async()=>{
     let onChange, removed=0, cleared=0;
     const channel={on(event,filter,callback){onChange=callback;return this;},subscribe(){return this;}};
     const client={channel(){return channel;},removeChannel(){removed++;}};
@@ -15,7 +15,9 @@ for(const surface of ['member','points','event','calendar','admin']) {
     const stop=window.MemberSystem.subscribeRealtime(config,surface,()=>assert.fail('Disposed refresh ran'));
     onChange({new:{scope:surface}}); stop();stop();
     assert.equal(cleared,1);assert.equal(removed,1);
-    const next=window.MemberSystem.subscribeRealtime(config,surface,()=>{});assert.notEqual(next,stop);next();assert.equal(removed,2);
+    const next=window.MemberSystem.subscribeRealtime(config,surface,()=>{});assert.notEqual(next,stop);
+    assert.equal(removed,1,'resubscription waits for the asynchronous SDK removal');
+    await new Promise(setImmediate);next();assert.equal(removed,2);
   });
   test(`${surface}: in-flight reads deduplicate only within the same identity`,async()=>{
     const deferred=[];
