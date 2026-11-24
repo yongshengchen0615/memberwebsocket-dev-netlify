@@ -85,3 +85,19 @@ test('AC-211: existing membership consent, event claim and booking RPCs write on
   assert.equal((await h.db.query('select count(*)::int n from public.bookings')).rows[0].n,0);
  }finally{await h.db.close();}
 });
+
+test('AC-018: newly provisioned merchant keeps independent visibility columns and calendar RPC',async()=>{
+ const h=await fixture();try{
+  const t=await h.approve('U'+'9'.repeat(32),'calendar-per-item-visibility');
+  const names=(await h.db.query(
+   "select table_name from information_schema.columns where table_schema=$1 and table_name in ('event_tickets','calendar_items') and column_name='visibility_policy' and is_nullable='NO'",
+   [t.runtime_schema])).rows.map(row=>row.table_name).sort();
+  assert.deepEqual(names,['calendar_items','event_tickets']);
+  const rpc=(await h.db.query("select pg_get_functiondef(p.oid) definition from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname=$1 and p.proname='apply_calendar_batch'",[t.runtime_schema])).rows;
+  assert.equal(rpc.length,1);
+  assert.match(rpc[0].definition,/visibility_policy = coalesce/);
+  assert.match(rpc[0].definition,/INVALID_VISIBILITY_POLICY/);
+  const constraints=(await h.db.query("select conname from pg_constraint c join pg_class r on r.oid=c.conrelid join pg_namespace n on n.oid=r.relnamespace where n.nspname=$1 and conname in ('calendar_items_visibility_policy_allowed','event_tickets_visibility_policy_allowed')",[t.runtime_schema])).rows.map(row=>row.conname).sort();
+  assert.deepEqual(constraints,['calendar_items_visibility_policy_allowed','event_tickets_visibility_policy_allowed']);
+ }finally{await h.db.close();}
+});

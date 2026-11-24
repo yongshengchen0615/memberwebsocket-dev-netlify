@@ -87,9 +87,27 @@ for(const width of [390,1280])test(`AC-SYNC-001..005_${width}: root SQL grant ch
   const tabs={membership:'members',points:'cards',events:'events',calendar:'calendar',booking:'booking'};
   for(const [feature,name]of Object.entries(tabs)){
    await page.locator('#'+name+'Tab').click();await syncAfterGrant({...all,[feature]:false});
-   await expect(page.locator('#'+name+'Tab')).toBeHidden();
+   if(feature==='booking'){
+    // Calendar-authorized merchants retain a holiday-only tab when booking
+    // access is revoked. Verify the restriction rather than incorrectly
+    // expecting all of booking navigation to disappear.
+    await expect(page.locator('#bookingTab')).toBeVisible();
+    await expect(page.locator('#bookingTab')).toContainText('休假日');
+    await expect(page.locator('#bookingPanel')).toHaveClass(/business-holiday-only/);
+    await page.locator('#bookingTab').click();
+    await expect(page.locator('#bookingOverviewCalendarGrid')).toBeVisible();
+    await expect(page.locator('#bookingAdminServicesSubtab')).toBeHidden();
+    await expect(page.locator('#bookingAdminQueueSubtab')).toBeHidden();
+    await expect.poll(()=>page.evaluate(()=>window.BusinessWorkspace?.allows('booking'))).toBe(false);
+   }else{
+    await expect(page.locator('#'+name+'Tab')).toBeHidden();
+   }
    await expect(page.locator('#adminView .surface-nav [aria-selected="true"]')).toBeVisible();
    await syncAfterGrant(all);await expect(page.locator('#'+name+'Tab')).toBeVisible();
+   if(feature==='booking'){
+    await expect(page.locator('#bookingPanel')).not.toHaveClass(/business-holiday-only/);
+    await expect(page.locator('#bookingAdminServicesSubtab')).toBeVisible();
+   }
   }
   expect((await h.db.query(`select count(*)::int n from ${t.runtime_schema}.realtime_events`)).rows[0].n).toBe(events);
   expect(errors).toEqual([]);

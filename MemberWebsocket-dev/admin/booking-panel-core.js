@@ -445,6 +445,7 @@
     PRIMARY_PANEL_IDS.forEach((id) => document.getElementById(id)?.classList.add('hidden'));
     els.bookingTab.setAttribute('aria-selected', 'true');
     els.bookingPanel.classList.remove('hidden');
+    if (window.BusinessWorkspace?.allows('booking') === false) return; // Calendar-only tenant: holidays only, no booking API calls.
     setSubtab(state.subtab);
     if (!state.loading) refreshAll(false, true);
   }
@@ -499,7 +500,7 @@
   }
 
   async function refreshBookingBadge() {
-    if (isBackgroundE2ERunner()) return false;
+    if (window.BusinessWorkspace?.allows('booking') === false || isBackgroundE2ERunner()) return false;
     if (state.badgeLoading) {
       state.badgeQueued = true;
       return false;
@@ -548,7 +549,7 @@
   }
 
   function startBookingBadgeSync() {
-    if (isBackgroundE2ERunner()) return Promise.resolve(false);
+    if (window.BusinessWorkspace?.allows('booking') === false || isBackgroundE2ERunner()) return Promise.resolve(false);
     if (state.badgeStartPromise) return state.badgeStartPromise;
     state.badgeStartPromise = (async () => {
       try {
@@ -605,6 +606,7 @@
   }
 
   async function refreshAll(showSuccess, markNotificationsRead = false) {
+    if (window.BusinessWorkspace?.allows('booking') === false) return false;
     if (state.loading) {
       state.refreshQueued = true;
       state.refreshQueuedShowSuccess = state.refreshQueuedShowSuccess || Boolean(showSuccess);
@@ -729,6 +731,7 @@
   }
 
   function handleOperationalSnapshotRequest() {
+    if (window.BusinessWorkspace?.allows('booking') === false) return;
     if (state.booking.bookings.length) publishOperationalBookingSnapshot();
     if (state.loading) {
       state.refreshQueued = true;
@@ -2665,6 +2668,7 @@
   }
 
   function handleSharedRealtimeInvalidation(event) {
+    if (window.BusinessWorkspace?.allows('booking') === false) return;
     const detail = event?.detail || {};
     if (String(detail.clientType || '') !== 'admin') return;
     const scope = String(detail.scope || '');
