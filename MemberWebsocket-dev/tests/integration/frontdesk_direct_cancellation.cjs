@@ -57,7 +57,7 @@ test('AC-002..004, AC-007: direct cancellation is tenant-authorized, atomic and 
       'no super-admin grant cannot be used to cancel directly');
 
     await h.db.query("update platform_private.tenants set features=features||'{\"frontdesk\":true}'::jsonb where id=$1", [tenant.id]);
-    await assert.rejects(callCancel(booking), /FRONTDESK_UNAVAILABLE/,
+    await assert.rejects(callCancel(booking), /FRONTDESK_DIRECT_CANCELLATION_DISABLED/,
       'grant alone is insufficient without a configured merchant frontdesk');
 
     const config = { loginChannelId: channel, liffId: channel + '-desk', messagingChannelId: '2010888888',
@@ -111,7 +111,7 @@ test('AC-002..004, AC-007: direct cancellation is tenant-authorized, atomic and 
 
     const second = await makeBooking();
     await admin('settings.save', { ...config, enabled: false, expectedVersion: 2 });
-    await assert.rejects(callCancel(second), /FRONTDESK_UNAVAILABLE/,
+    await assert.rejects(callCancel(second), /FRONTDESK_DIRECT_CANCELLATION_DISABLED/,
       'disabling the configuration immediately revokes direct cancellation');
     assert.equal((await q('select status from S.bookings where id=$1', [second]))[0].status, 'pending');
     for (const role of ['anon', 'authenticated']) {
