@@ -2,9 +2,10 @@ import { PlatformError } from './platform-policy.mjs';
 import { sealCredentials } from './platform-crypto.mjs';
 import { verifyNotificationToken } from './notification-routes.mjs';
 import { frontdeskDatabaseError } from './frontdesk-handler.mjs';
+import { normalizeRejectionSettings } from './frontdesk-rejection-settings.mjs';
 const digest=async value=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(value)))),b=>b.toString(16).padStart(2,'0')).join('');
 export async function frontdeskAdmin({db,body,actor,issuedAt,tenant,encryptionKey,fetchImpl}){
- const action={'platform.frontdesk.get':'get','platform.frontdesk.history.list':'history.list','platform.frontdesk.settings.save':'settings.save','platform.frontdesk.preferences.save':'preferences.save','platform.frontdesk.staff.save':'staff.save','platform.frontdesk.staff.delete':'staff.delete'}[body.action];
+ const action={'platform.frontdesk.get':'get','platform.frontdesk.history.list':'history.list','platform.frontdesk.settings.save':'settings.save','platform.frontdesk.preferences.save':'preferences.save','platform.frontdesk.rejection-settings.save':'rejection-settings.save','platform.frontdesk.staff.save':'staff.save','platform.frontdesk.staff.delete':'staff.delete'}[body.action];
  if(!tenant?.id)throw new PlatformError(403,'BUSINESS_FORBIDDEN','請先選擇自己的商家。');
  if(tenant.features?.frontdesk!==true || tenant.features?.booking!==true)
   throw new PlatformError(403,'FEATURE_DISABLED','此商家尚未開通櫃檯設定或預約功能。');
@@ -47,6 +48,12 @@ export async function frontdeskAdmin({db,body,actor,issuedAt,tenant,encryptionKe
    // Legacy conflict-bound keys are not writable preferences anymore.
    input.preferences={pageTitle:title.trim()};
    input.payloadHash=await digest({action,preferences:input.preferences,expectedVersion:input.expectedVersion});
+  }else if(action==='rejection-settings.save'){
+   try{input.rejectionSettings=normalizeRejectionSettings(body.rejectionSettings);}
+   catch{throw new PlatformError(400,'PLATFORM_INVALID_INPUT','拒絕原因設定格式不正確，請檢查名稱、說明及啟用狀態。');}
+   // DB must independently validate tenant authorization, retained IDs and
+   // optimistic version in one transaction. Never accept a client-supplied old policy.
+   input.payloadHash=await digest({action,rejectionSettings:input.rejectionSettings,expectedVersion:input.expectedVersion});
   }else if(action==='staff.delete'){
    if(!/^[0-9a-f-]{36}$/i.test(body.staffId||'')||body.status!==undefined||body.permissionMode!==undefined)throw new PlatformError(400,'PLATFORM_INVALID_INPUT','移除人員資料不正確。');
    input.staffId=body.staffId;

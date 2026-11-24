@@ -446,7 +446,9 @@ function bookingClient(row: any, items: any[] = [], benefits: any[] = [], frontd
     reminderEnabled: row.reminder_enabled === true,
     reminderTime: String(row.reminder_time || "18:00:00").slice(0, 5),
     adminNote: row.admin_note || "",
-    rejectionReason: row.rejection_reason || null,
+    rejectionReason: row.rejection_reason_id || row.rejection_reason || null,
+    rejectionReasonLabel: row.rejection_reason_label || null,
+    rejectionMemberDescription: row.rejection_member_description || null,
     completedAt: row.completed_at || null,
     receiptSubmissionId:row.receipt_submission_id || null,
     noShowAt:row.no_show_at || null,
@@ -795,7 +797,10 @@ async function userBootstrap(supabase: SupabaseClient, member: any, body:Json={}
     today: currentBusinessDate(taipeiDate(), taipeiMinutes(), settings.work_start_time, settings.work_end_time),
     settings: { ...settingsClient(settings), serviceTypeRewards },
     services: services.map(serviceClient),
-    bookings: await hydrateBookings(supabase, [...bookingRows.values()].sort((a, b) => `${b.booking_date} ${b.start_time}`.localeCompare(`${a.booking_date} ${a.start_time}`))),
+    // Members receive the designated public rejection explanation, not
+    // internal staff notes accompanying rejected bookings.
+    bookings: (await hydrateBookings(supabase, [...bookingRows.values()].sort((a, b) => `${b.booking_date} ${b.start_time}`.localeCompare(`${a.booking_date} ${a.start_time}`))))
+      .map((entry: any) => entry.status === "rejected" ? {...entry, adminNote: ""} : entry),
   };
 }
 

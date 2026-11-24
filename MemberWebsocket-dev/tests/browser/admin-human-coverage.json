@@ -30,6 +30,15 @@
   "lineSettingsThemeReview": "2026-11-03 PR #241: Reviewed general manager LINE settings theme-only CSS, semantic light/dark card, details, help, input/select, tabs, status, endpoint and responsive action row. Updated both admin/index.html and admin/workspace.html CSS asset revisions; preserved LINE official green button, saved credentials, notifications, role/tenant scopes and original six human workflow journeys. New line_settings_theme.test.js and line-settings-theme.spec.cjs cover 390/1280 light-dark-light and no overflow; full original Chromium/integration baseline still required.",
   "phoneBookingWindowReview": "2026-11-07 PR #258: Reviewed existing booking settings and phone appointment admin journeys. Merchant phone configuration is text-only and retains the same field, validation and save handler; existing BOOKING settings browser journeys remain mapped. Member booking date modal now permits phone CTA only when the same inclusive min/max/holiday online eligibility passes; out-of-range, past, holiday and no-phone cases remove dialing href. booking-calendar-times.spec.cjs checks 390/1280 viewport, both date boundaries, out-of-range, live settings revocation, zero max and holiday. booking_phone_fallback_platform.test.js guards UI and existing API phone contract. No new admin flows, tenant scope, authorization, database writes or provider sends. Full exact-SHA baseline and preview acceptance still required. 2026-11-09 PR #275: Reviewed admin booking queue button/modal, surname and salutation, optional admin note, service durations and calendar conflict, existing phone-booking records and member-side phone fallback. Counter registration no longer requests a customer's phone or sends it; legacy internal PHONE- ID and bookingSource remain to preserve collision locking, member exclusion and existing records. BOOKING_PHONE_CONFLICT and BOOKING_PHONE_SERVICE_DURATION browser journeys now explicitly assert no phone field, no contactPhone payload, unchanged confirmed booking and cancelled/rebooked slot; tenant RPC rejects malformed provided phone but accepts absent phone as SQL NULL. Added API/static/SQL migration regression; no new roles, tables, credentials, LINE sends or deletion of prior phone data. Full exact-SHA CI and live tenant deployment must be separately verified.",
   "frontdeskSettingsSimplificationReview": "2026-11-19 PR #364：重新審閱兩個管理入口及櫃檯設定。只移除 LINE 外站／櫃檯快速入口及重複說明，保留 LIFF Endpoint 複製、設定驗證／儲存、逐人申請審核、通知與原 backend 授權。admin-human 既有六個管理模組旅程及獨立 FrontdeskSettings 入口不變；新增 frontdesk_settings_navigation.test.js AC-FD-UX-001/002 與 frontdesk-booking.spec.cjs 真實 DOM 檢查。完整 CI、開發部署驗證以最終 SHA 取證，不視 stub 為真 LINE 驗證。",
+  "frontdeskRejectionSettingsReview": {
+    "issue": 425,
+    "scope": "管理端拒絕設定：伺服器未提供契約時隱藏；提供契約時新增、編輯、排序、停用、個別衝突時間、會員說明、儲存及不確定結果重播。獨立 Chromium fixture，不代表資料庫已整合。",
+    "spec": "frontdesk-booking.spec.cjs",
+    "cases": [
+      "FRONTDESK_REJECTION_SETTINGS_EDITOR",
+      "FRONTDESK_REJECTION_SETTINGS_LEGACY"
+    ]
+  },
   "reviewedSources": {
     "admin/booking-admin-ux.js": "2c2b7dbc8d08a7884f9e298b97f19862b5044c0bc3cbaef53aa551a576028edc",
     "admin/index.html": "4d864e565faf58c53a3ddb44aca2ad41e665abf110f71941cad984912a891228",
@@ -62,10 +71,10 @@
     "platform/platform.css": "adef4577cbae41c584fe16fce5c6372ab86a994f37226a9a6cc5116bb5bcecf2",
     "admin/business-line-settings.css": "ceab14d19f8137f529bdaa39c590ce5329304a9a3a8c515afd54bdb802a3f0c3",
     "booking/common.js": "8869346e2801a94b08615a6ab26d9908e3072e77758459b3824bb820d4191505",
-    "admin/frontdesk-settings.js": "178250d6d5a309639196de6038bcdbe6683fd504b32dfcff52746f4dc7b574af",
-    "frontdesk/app.js": "f664fb2402d10edcb8f2788a3e01c0d5c1fe96c28635e6c55418c516946a0dc4",
+    "admin/frontdesk-settings.js": "967c4d9a00bc13d6e755180c85c3f521e90eafa645813cc5636c113814f576ad",
+    "frontdesk/app.js": "6ecf8bc2b1b80efc8684eeb9cea2afa34ee40a4242d4140251bfbbc0cb589dd9",
     "frontdesk/styles.css": "c08cb98c3d2c955dd3c6f8719b9d9b3062c3bd9bee018083cae14ee7569556a6",
-    "frontdesk/index.html": "c8e789e598cedd5140a20d1fdc31d865eb59da6d332320386c0b3df5d31a3b2d",
+    "frontdesk/index.html": "8cbd6cfe4bfee646d35be0e0373c72ea60c9a99b76fedc0c26f6a4e84a3897f3",
     "admin/frontdesk-settings/index.html": "80e0b4c6eaca0b398a54b567bc3a2a22870b5ad271be89d2880169cd072348f9",
     "admin/frontdesk-settings/frontdesk-settings-page.js": "a5bb5f8c6716a7ab8f0cccf3dbe8be993a307a6d56b01cfe218d330cbd3de429",
     "admin/frontdesk-settings/frontdesk-settings-page.css": "931ffde79d6120be1c1cff811d53846a5d8a57051b86fdec854edec1ce095a27"
@@ -327,7 +336,7 @@
     {
       "id": "retired-center.27",
       "module": "integration",
-      "name": "整合中心已移除；主要導覽保留舊功能與新增網頁抬頭，櫃檯設定改為獨立頁面，手機 390px 單列滑動；預約／抬頭雙向切換互斥、權限關閉時不顯示編輯器，且不呼叫舊 API；櫃檯設定可另外儲存櫃檯頁面抬頭與衝突預約起始時間、總時長的 10 分鐘上下限（獨立的 frontdesk E2E 驗證）；未登記現場預約若與原預約時段完全不重疊，UI 會即時提醒並禁止以衝突理由拒絕（frontdesk-booking.spec.cjs）",
+      "name": "整合中心已移除；管理端櫃檯設定在獨立頁面管理 LINE、櫃檯人員、確認／拒絕預約歷史；新增拒絕原因編輯（標籤、櫃檯下拉標題、啟用與排序、衝突時間需求、會員端說明）。拒絕紀錄顯示當時原因快照；衝突預約仍採原預約區間內每 10 分鐘一格與原子雙預約。獨立 Playwright 以 frontdesk-booking.spec.cjs 與 frontdesk-custom-rejection.spec.cjs 驗證。",
       "cases": [
         "RETIRED_CENTER",
         "MOBILE_SURFACE_NAV",

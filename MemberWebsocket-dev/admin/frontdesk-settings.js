@@ -156,7 +156,7 @@
           card.append(node('h4', '預約編號：' + String(record.bookingId || '—')));
           card.append(node('p', '處理時間：' + formatActionAt(record.actionAt)));
           card.append(node('p', '處理人員：' + String(record.actorName || '櫃檯人員')));
-          if (statusKey === 'rejected') card.append(node('p', '拒絕原因：' + rejectionText(record.rejectionReason)));
+          if (statusKey === 'rejected') card.append(node('p', '拒絕原因：' + (booking?.rejectionReasonLabel || rejectionText(record.rejectionReason))));
           if (record.currentStatus && record.currentStatus !== statusKey)
             card.append(node('p', '目前狀態：' + displayStatus(record.currentStatus) + '（與當時操作不同）',
               'frontdesk-history-state'));
@@ -179,7 +179,7 @@
       }
     }
     function lock() {
-      for (const control of details.querySelectorAll('input,select,button:not([role="tab"])')) control.disabled = busy || Boolean(pending);
+      for (const control of details.querySelectorAll('input,textarea,select,button:not([role="tab"])')) control.disabled = busy || Boolean(pending);
       const retry = details.querySelector('[data-frontdesk-retry]');
       if (!busy && pending && retry) retry.disabled = false;
     }
@@ -377,6 +377,94 @@
         }, savePreferences);
       });
       content.append(preferences);
+
+      // Only expose the editor after the authenticated database response advertises
+      // the new policy contract. Older deployments continue using fixed reasons.
+      if (cfg.rejectionSettings && Array.isArray(cfg.rejectionSettings.reasons)) {
+        const settings = node('form', '', 'frontdesk-setup-card frontdesk-rejection-settings');
+        settings.dataset.frontdeskRejectionSettings = 'true';
+        settings.append(node('h3', '拒絕預約設定'), node('p', '可新增、編輯、排序或停用拒絕原因。停用後保留歷史紀錄；對外說明將用於會員通知。'));
+        const title = field('rejectionDropdownTitle', '櫃檯端下拉式選單標題', '留空使用「請選擇拒絕原因」。', cfg.rejectionSettings.dropdownTitle || '', false);
+        title.input.maxLength = 60;
+        settings.append(title.wrap);
+        const rows = node('div', '', 'frontdesk-settings-content');
+        const draft = cfg.rejectionSettings.reasons.map(reason => ({...reason}));
+        const add = node('button', '新增拒絕原因', 'button button-outline');
+        add.type = 'button';
+        const saveSettings = node('button', '儲存拒絕預約設定', 'button button-outline frontdesk-primary');
+        saveSettings.type = 'submit';
+        const rerender = () => {
+          rows.replaceChildren();
+          draft.forEach((reason, index) => {
+            const card = node('fieldset', '', 'frontdesk-setup-card');
+            card.append(node('legend', '拒絕原因 ' + (index + 1)));
+            const label = field('rejection-label-' + reason.id, '櫃檯端選項名稱', '此名稱供櫃檯人員選擇。', reason.label);
+            const descriptionLabel = node('label', '用戶端拒絕原因說明');
+            const description = node('textarea');
+            description.rows = 3; description.required = true; description.maxLength = 400;
+            description.value = reason.memberDescription;
+            descriptionLabel.append(description);
+            const check = (caption, key) => {
+              const wrap = node('label', '', 'business-notification-toggle');
+              const input = node('input');
+              input.type = 'checkbox'; input.checked = reason[key];
+              input.addEventListener('change', () => { reason[key] = input.checked; markDirty(); });
+              wrap.append(input, node('span', caption));
+              return wrap;
+            };
+            label.input.addEventListener('input', () => { reason.label = label.input.value; });
+            description.addEventListener('input', () => { reason.memberDescription = description.value; });
+            card.append(label.wrap, descriptionLabel,
+              check('啟用此拒絕原因', 'enabled'),
+              check('需要設定衝突時間並登記現場預約', 'requiresConflictTime'));
+            const controls = node('div', '', 'business-line-fields');
+            for (const [direction, caption] of [[-1, '上移'], [1, '下移']]) {
+              const move = node('button', caption, 'button button-outline');
+              move.type = 'button';
+              move.setAttribute('aria-label', '原因 ' + (index + 1) + ' ' + caption);
+              move.hidden = index + direction < 0 || index + direction >= draft.length;
+              move.onclick = () => {
+                if (busy || pending || move.hidden) return;
+                [draft[index], draft[index + direction]] = [draft[index + direction], draft[index]];
+                markDirty(); rerender();
+              };
+              controls.append(move);
+            }
+            card.append(controls);
+            rows.append(card);
+          });
+          add.hidden = draft.length >= 30;
+        };
+        add.onclick = () => {
+          if (busy || pending || draft.length >= 30) return;
+          draft.push({id:'custom_' + crypto.randomUUID(), label:'', memberDescription:'', enabled:true, requiresConflictTime:false});
+          markDirty(); rerender();
+          rows.lastElementChild?.querySelector('input')?.focus();
+        };
+        settings.addEventListener('input', markDirty);
+        settings.addEventListener('change', markDirty);
+        settings.addEventListener('submit', event => {
+          event.preventDefault();
+          if (pending) {
+            if (pending.action === 'platform.frontdesk.rejection-settings.save') void save(pending.action, pending.body, saveSettings);
+            return;
+          }
+          if (!settings.reportValidity()) return;
+          if (!draft.some(reason => reason.enabled)) {
+            status.textContent = '請至少啟用一個拒絕原因。'; return;
+          }
+          void save('platform.frontdesk.rejection-settings.save', {
+            expectedVersion: data.version,
+            rejectionSettings: {dropdownTitle: title.input.value.trim(), reasons: draft.map(reason => ({
+              id:reason.id,label:reason.label.trim(),memberDescription:reason.memberDescription.trim(),
+              enabled:reason.enabled,requiresConflictTime:reason.requiresConflictTime
+            }))}
+          }, saveSettings);
+        });
+        rerender();
+        settings.append(rows, add, saveSettings);
+        content.append(settings);
+      }
 
       const approvals = node('section', '', 'frontdesk-approvals');
       approvals.append(node('h3', '4. 櫃檯人員申請與權限'));

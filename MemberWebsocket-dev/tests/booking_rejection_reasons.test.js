@@ -52,9 +52,9 @@ test('AC-FR-004: frontdesk rejects missing or forged reasons before database wri
   headers:{Origin:'https://allowed.test'},body:JSON.stringify({...common,...body})}));return {status:res.status,data:await res.json()};};
  assert.equal((await request({})).status,400);
  assert.equal((await request({rejectionReason:'forged'})).status,400);
- assert.equal(calls.filter(c=>c.name==='platform_frontdesk_request').length,0);
+ assert.equal(calls.filter(c=>c.name==='platform_frontdesk_rejection_request').length,0);
  assert.equal((await request({rejectionReason:reasons[0]})).status,200);
- const actual=calls.find(c=>c.name==='platform_frontdesk_request').args.p_body;
+ const actual=calls.find(c=>c.name==='platform_frontdesk_rejection_request').args.p_body;
  assert.equal(actual.rejectionReason,reasons[0]);
  assert.equal(actual.status,'rejected');
 });
@@ -129,9 +129,9 @@ test('AC-FR-MODAL-005: paired rejection is authorized, atomic, date derived serv
  assert.equal(await send({...payload,totalDurationMinutes:1440}),400);
  assert.equal(await send({...payload,totalDurationMinutes:1.5}),400);
  assert.equal(await send({...payload,phoneRequestId:'BAD'}),400);
- assert.equal(calls.filter(c=>c.name==='platform_frontdesk_request').length,0);
+ assert.equal(calls.filter(c=>c.name==='platform_frontdesk_rejection_request').length,0);
  assert.equal(await send(payload),200);
- const routed=calls.find(c=>c.name==='platform_frontdesk_request');
+ const routed=calls.find(c=>c.name==='platform_frontdesk_rejection_request');
  assert.equal(routed.args.p_action,'booking.reject_phone');
  assert.equal(routed.args.p_actor,actor);
  assert.equal(routed.args.p_body.totalDurationMinutes,90);
