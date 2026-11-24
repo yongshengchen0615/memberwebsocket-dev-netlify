@@ -119,7 +119,7 @@ begin
 
   return v_result;
 end;
-$function$
+$function$;
 
 COMMENT ON COLUMN public.event_tickets.visibility_policy IS 'Ticket-specific member display mode: eligible_only or higher_preview; authorization is independent.';
 COMMENT ON COLUMN public.calendar_items.visibility_policy IS 'Activity-specific member display mode. Holiday rows are always displayed irrespective of this field.';
