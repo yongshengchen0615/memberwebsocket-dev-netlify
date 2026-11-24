@@ -55,6 +55,11 @@ const TITLE_STYLES: Record<string, { color: string; eyebrow: string }> = {
   '預約': { color: '#DF6B4D', eyebrow: 'NEW BOOKING' },
   '預約申請': { color: '#397AA3', eyebrow: 'PENDING CONFIRMATION' },
   '修改預約': { color: '#C56E32', eyebrow: 'BOOKING UPDATED' },
+  '櫃檯確認預約': { color: '#2F8F61', eyebrow: 'FRONTDESK REVIEW' },
+  '櫃檯確認修改': { color: '#2F8F61', eyebrow: 'FRONTDESK MODIFICATION' },
+  '櫃檯拒絕修改': { color: '#A85543', eyebrow: 'FRONTDESK MODIFICATION' },
+  '確認修改預約': { color: '#2F8F61', eyebrow: 'MODIFICATION APPROVED' },
+  '拒絕修改預約': { color: '#B35A50', eyebrow: 'MODIFICATION DECLINED' },
   '取消預約申請': { color: '#9A711F', eyebrow: 'CANCELLATION REQUEST' },
   '取消預約': { color: '#68756F', eyebrow: 'BOOKING CANCELLED' },
   '預約確認': { color: '#2F8F61', eyebrow: 'BOOKING CONFIRMED' },
@@ -96,7 +101,7 @@ function parseBookingMessage(message: string): ParsedBookingMessage {
 
   // Rejection templates are appended after the last structured rejection reason.
   // Their punctuation and newlines are prose, never additional booking field labels.
-  const lastReasonAt = title === '預約未通過'
+  const lastReasonAt = ['預約未通過','拒絕修改預約'].includes(title)
     ? lines.findLastIndex((line) => /^拒絕原因：/.test(line)) : -1;
   const rejectionNotice = lastReasonAt >= index
     ? truncate(lines.slice(lastReasonAt + 1).join('\n'), 500) : '';
@@ -540,7 +545,7 @@ function visibleFrontdeskRejectionServices(value: string): string {
 
 function frontdeskRejectionCards(source: string): Array<Record<string, unknown>> | null {
   const lines = String(source || '').replace(/\r\n?/g, '\n').split('\n').map((line) => line.trim());
-  if (lines[0] !== '【櫃檯拒絕預約】') return null;
+  if (!['【櫃檯拒絕預約】','【櫃檯拒絕修改】'].includes(lines[0])) return null;
   const originalAt = lines.indexOf('【原預約資料】');
   if (originalAt < 0) return null;
   const replacementAt = lines.indexOf('【櫃檯新增的預約資料】');
@@ -688,17 +693,17 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
   const bodyContents: Array<Record<string, unknown>> = [];
 
   const schedule = scheduleCard(parsed, style.color);
-  const memberConfirmation = job.channel === 'member' && parsed.title === '預約確認';
+  const memberConfirmation = job.channel === 'member' && ['預約確認','確認修改預約'].includes(parsed.title);
   const memberReminder = job.channel === 'member' && parsed.title === '預約提醒';
   const memberPending = job.channel === 'member' && parsed.title === '預約申請';
   const memberCustomNotice = memberReminder || memberPending;
   const notice = memberCustomNotice ? reminderNoticeCard(parsed.fields) : null;
   const details = detailsCard(memberCustomNotice ? parsed.fields.filter(field => field.label !== '提醒事項') : parsed.fields);
-  const rejectionProse = job.channel === 'member' && parsed.title === '預約未通過' && parsed.rejectionNotice
+  const rejectionProse = job.channel === 'member' && ['預約未通過','拒絕修改預約'].includes(parsed.title) && parsed.rejectionNotice
     ? fallbackCard(parsed.rejectionNotice) : null;
   const participants = participantsCard(parsed.participants, style.color, memberConfirmation || memberReminder);
   const services = parsed.participants.length ? null : servicesCard(parsed.services, style.color);
-  const rejection = job.channel === 'admin' && parsed.title === '櫃檯拒絕預約'
+  const rejection = job.channel === 'admin' && ['櫃檯拒絕預約','櫃檯拒絕修改'].includes(parsed.title)
     ? frontdeskRejectionCards(visibleText) : null;
   if (memberPending) {
     // Pending member requests have a dedicated complete booking-data block.
@@ -769,7 +774,7 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
     altText: job.channel === 'frontdesk'
       ? truncate([displayTitle, ...frontdeskSummaryLines(parsed).slice(0, 2)].join('｜'), MAX_ALT_TEXT)
       : rejection
-        ? truncate(['櫃檯拒絕預約', '原預約已拒絕',
+        ? truncate([displayTitle, '原預約已拒絕',
           visibleText.match(/^原預約會員：([^\r\n]+)/m)?.[1]||'',
           visibleText.match(/^預約日期：([^\r\n]+)/m)?.[1]||'',
           job.booking_id?String(job.booking_id).slice(0,8):'',
