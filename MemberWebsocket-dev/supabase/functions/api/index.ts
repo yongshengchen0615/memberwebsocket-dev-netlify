@@ -1898,7 +1898,7 @@ async function saveEventTicket(supabase: SupabaseClient, actor: string, body: Js
   const validityMode = asText(input.validityMode,20) || "fixed";
   if (!["fixed","relative","both"].includes(validityMode)) throw new ApiError(400,"INVALID_VALIDITY_MODE","請選擇有效的使用期限模式。");
   const validityDays = validityMode === "fixed" ? null : Number(input.validityDays);
-  if (validityMode !== "fixed" && (!Number.isSafeInteger(validityDays) || validityDays < 1 || validityDays > 3650))
+  if (validityMode !== "fixed" && (validityDays === null || !Number.isSafeInteger(validityDays) || validityDays < 1 || validityDays > 3650))
     throw new ApiError(400,"INVALID_VALIDITY_DAYS","獲得後有效天數必須是 1–3650 天。");
   const startsOn = asText(input.startsOn,20);
   const endsOn = validityMode === "relative" ? "" : asText(input.endsOn,20);
