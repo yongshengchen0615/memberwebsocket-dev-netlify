@@ -18,12 +18,9 @@ test('frontdesk API + real SQL: owner-scoped configuration, encrypted bot, verif
   reachable=false;assert.equal((await call(desk,{action:'frontdesk.apply',actor:owner})).status,409);assert.equal((await h.db.query('select count(*)::int n from platform_private.frontdesk_staff')).rows[0].n,0);
   reachable=true;result=await call(desk,{action:'frontdesk.apply',actor:owner,permissionMode:'review',status:'approved'});assert.equal(result.status,200,JSON.stringify(result));assert.equal(result.body.data.staff.status,'pending');
   const person=result.body.data.staff;
-  assert.equal(result.body.data.lineApplicationMessage,'sent','server pushes application receipt into verified frontdesk OA chat');
-  const applicationPush=provider.filter(call=>call.url==='https://api.line.me/v2/bot/message/push');
-  assert.equal(applicationPush.length,1,'failed friend verification cannot send LINE push');
-  assert.equal(JSON.parse(applicationPush[0].options.body).to,staff,'never send to a caller-supplied user ID');
-  assert.equal(applicationPush[0].options.headers['X-Line-Retry-Key'],result.body.data.staff.id,'stable retry identity');
-  assert.match(JSON.parse(applicationPush[0].options.body).messages[0].text,/等待商家管理員審核/);
+  assert.equal(result.body.data.lineApplicationMessage,undefined,'the backend must not impersonate the applicant with OA Push');
+  assert.equal(provider.filter(call=>call.url==='https://api.line.me/v2/bot/message/push').length,0,
+   'staff applications never use OA-to-user Push; user chat messaging belongs to the LIFF client');
 
   result=await call(admin,{action:'platform.frontdesk.staff.save',staffId:person.id,expectedVersion:person.version,status:'approved',permissionMode:'notify_only',requestId:crypto.randomUUID()});assert.equal(result.status,200,JSON.stringify(result));
   assert.equal((await call(desk,{action:'frontdesk.bookings'})).status,403);
@@ -43,7 +40,8 @@ test('frontdesk API + real SQL: owner-scoped configuration, encrypted bot, verif
   assert.equal(reapplied.status,200,JSON.stringify(reapplied));
   assert.equal(reapplied.body.data.staff.status,'pending');
   assert.notEqual(reapplied.body.data.staff.id,person.id);
-  assert.equal(provider.filter(call=>call.url==='https://api.line.me/v2/bot/message/push').length,2,'fresh reapplication sends one new message');
+  assert.equal(provider.filter(call=>call.url==='https://api.line.me/v2/bot/message/push').length,0,
+   'reapplication also must not create an OA-to-user Push');
   assert.equal((await call(desk,{action:'frontdesk.bookings'})).status,403,'reapplication must not restore old privileges');
     const disabled=await call(admin,{action:'platform.frontdesk.settings.save',settings:{...settings,enabled:false},channelAccessToken:'',expectedVersion:2,requestId:crypto.randomUUID()});assert.equal(disabled.status,200,JSON.stringify(disabled));assert.equal(disabled.body.data.frontdesk.oaId,'@desk');
   assert.equal((await call(desk,{action:'frontdesk.bootstrap'})).status,403);
