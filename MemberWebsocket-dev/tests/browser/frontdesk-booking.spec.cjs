@@ -810,7 +810,13 @@ test('FRONTDESK_REJECTION_SETTINGS_EDITOR — edit, order, disable, save and rep
  });
  await page.locator('summary').click();
  const form=page.locator('[data-frontdesk-rejection-settings]');
+ const rejectionTab=page.getByRole('tab',{name:'拒絕預約設定'});
+ await expect(rejectionTab).toBeVisible();
+ await expect(form).toBeHidden();
+ await rejectionTab.click();
+ await expect(rejectionTab).toHaveAttribute('aria-selected','true');
  await expect(form).toBeVisible();
+ await expect(page.locator('#frontdesk-line-panel')).toBeHidden();
  await form.locator('[name=rejectionDropdownTitle]').fill('請選擇本店原因');
  await form.getByRole('button',{name:'新增拒絕原因'}).click();
  const rows=form.locator('fieldset');
@@ -836,6 +842,11 @@ test('FRONTDESK_REJECTION_SETTINGS_EDITOR — edit, order, disable, save and rep
  expect(writes[0].rejectionSettings.reasons[1].id).toMatch(/^custom_[0-9a-f-]{36}$/);
  expect(writes[0].rejectionSettings.reasons[2]).toMatchObject({id:'unrecorded_phone_booking',enabled:false});
  await expect(form.locator('[name=rejectionDropdownTitle]')).toHaveValue('請選擇本店原因');
+ await expect(form.locator('.frontdesk-rejection-preview').nth(1)).toContainText('設備維護，請重新預約。');
+ await page.getByRole('tab',{name:'LINE 設定'}).click();
+ await expect(form).toBeHidden();
+ await page.getByRole('tab',{name:'拒絕預約設定'}).click();
+ await expect(form).toBeVisible();
  await expect(rows.nth(1).locator('textarea')).toHaveValue('設備維護，請重新預約。');
  await expect(rows.nth(2).getByLabel('啟用此拒絕原因')).not.toBeChecked();
 });
