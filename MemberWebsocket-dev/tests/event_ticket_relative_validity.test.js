@@ -33,7 +33,7 @@ test('AC-004/006/007/011: expiry is enforced in PostgreSQL for redemption, booki
   assert.match(migration, /EVENT_TICKET_EXPIRED/);
   assert.match(migration, /before update of status on public\.event_ticket_claims/);
   assert.match(migration, /before insert or update on public\.booking_benefit_selections/);
-  assert.match(migration, /before update of member_id on public\.event_ticket_claims/);
+  assert.match(migration, /before update of expires_at,claimed_at,event_ticket_id,member_id on public\.event_ticket_claims/);
   assert.match(migration, /business_\[0-9a-f\]\{32\}/);
   assert.match(migration, /business_templates/);
 });
