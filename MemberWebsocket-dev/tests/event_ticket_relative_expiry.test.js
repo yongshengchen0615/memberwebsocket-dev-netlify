@@ -59,7 +59,7 @@ test('AC-005: each member sees actual acquired deadline, with expired status and
   assert.match(api, /canUse: Boolean\(claim && claim\.status === "available" && tierEligible && availability === "active"/);
   assert.match(eventUi, /row\('到期時間', String\(options\.expiresAt\)\)/);
   assert.match(event, /offer\.availability === 'expired'/);
-  assert.match(event, /這張票券已過期/);
+  assert.match(event, /這張票券已超過取得後使用期限/);
 });
 
 test('AC-006: migration installs existing public/tenant schemas and future merchant provisioning', () => {
