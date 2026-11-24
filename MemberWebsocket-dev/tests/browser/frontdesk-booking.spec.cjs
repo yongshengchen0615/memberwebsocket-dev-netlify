@@ -37,7 +37,11 @@ for(const width of [390,1280])test('FRONTDESK_'+width+' — notify-only, scoped 
  });
  await page.goto(base+'/frontdesk/?business=shop-a');await expect(page.getByRole('link',{name:'加入櫃檯官方帳號'})).toHaveCount(0);await expect(page.locator('#themeToggleButton')).toBeVisible();if(width===390){await page.locator('#themeToggleButton').click();await expect(page.locator('html')).toHaveAttribute('data-theme','light');await expect(page.locator('#themeToggleButton')).toHaveAttribute('aria-label','切換為暗色調');await page.reload();await expect(page.locator('html')).toHaveAttribute('data-theme','light');}await expect(page.locator('#account')).toContainText('僅接收預約訊息');await expect(page.locator('[data-review-action]')).toHaveCount(0);expect(calls.some(x=>x.action==='frontdesk.bookings')).toBe(false);if(width===390){const contrast=await page.locator('#themeToggleButton').evaluate(a=>{const rgb=s=>s.match(/\d+/g).slice(0,3).map(Number),luma=c=>c.map(x=>{x/=255;return x<=.04045?x/12.92:((x+.055)/1.055)**2.4;}).reduce((n,x,i)=>n+x*[.2126,.7152,.0722][i],0);const x=luma(rgb(getComputedStyle(a).color)),y=luma(rgb(getComputedStyle(document.body).backgroundColor));return(Math.max(x,y)+.05)/(Math.min(x,y)+.05);});expect(contrast).toBeGreaterThanOrEqual(4.5);}
  mode='review';await page.getByRole('button',{name:'重新整理'}).click();await expect(page.getByRole('button',{name:'確認預約',exact:true})).toBeVisible();await expect(page.locator('.frontdesk-card .frontdesk-badge')).toHaveText('待確認');await expect(page.locator('.frontdesk-card .frontdesk-time').last()).toContainText('10:00');await expect(page.locator('.frontdesk-card a[href^="tel:"]')).toHaveAttribute('href','tel:0900000000');await expect(page.locator('#progress')).toBeHidden();await info.attach('frontdesk-pending-'+width,{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
- downgrade=true;await page.getByRole('button',{name:'確認預約',exact:true}).click();await expect(page.locator('#account')).toContainText('僅接收預約訊息');await expect(page.locator('#status')).toContainText('沒有');expect(status).toBe('pending');
+ page.once('dialog',dialog=>{expect(dialog.message()).toContain('確認預約');return dialog.dismiss();});
+  await page.getByRole('button',{name:'確認預約',exact:true}).click();
+  expect(status).toBe('pending');expect(ids).toHaveLength(0);
+  page.on('dialog',dialog=>dialog.accept());
+  downgrade=true;await page.getByRole('button',{name:'確認預約',exact:true}).click();await expect(page.locator('#account')).toContainText('僅接收預約訊息');await expect(page.locator('#status')).toContainText('沒有');expect(status).toBe('pending');
  downgrade=false;mode='review';await page.getByRole('button',{name:'重新整理'}).click();lose=true;await page.getByRole('button',{name:'確認預約',exact:true}).click();await expect(page.getByRole('button',{name:'重試相同操作'})).toBeVisible();
  await page.getByRole('button',{name:'拒絕預約',exact:true}).click();await expect(page.locator('[role=dialog]')).toHaveCount(0);expect(ids).toHaveLength(1);await expect(page.locator('#status')).toContainText('先重試');
  await page.getByRole('button',{name:'重試相同操作'}).click();await expect(page.locator('#status')).toContainText('預約已確認');expect(ids).toHaveLength(2);expect(ids[0]).toBe(ids[1]);await expect(page.getByRole('button',{name:'重新整理'})).toBeEnabled();
@@ -549,7 +553,11 @@ for(const width of [390,1280])test('FRONTDESK_REJECTION_MODAL_'+width+' — on-s
  await expect(phone).toContainText('開始時間只顯示原預約區間內每 10 分鐘的選項');
  const box=await modal.evaluate(el=>({width:el.getBoundingClientRect().width,viewport:innerWidth,modalBackground:getComputedStyle(el).backgroundColor}));
  expect(box.width).toBeLessThanOrEqual(box.viewport);
- await modal.getByRole('button',{name:'確認拒絕並登記現場預約'}).click();
+ page.once('dialog',dialog=>{expect(dialog.message()).toContain('現場預約');return dialog.dismiss();});
+  await modal.getByRole('button',{name:'確認拒絕並登記現場預約'}).click();
+  expect(calls.filter(x=>x.action==='frontdesk.booking.reject-phone')).toHaveLength(0);
+  page.once('dialog',dialog=>dialog.accept());
+  await modal.getByRole('button',{name:'確認拒絕並登記現場預約'}).click();
  await expect(page.locator('#status')).toContainText('已登記並直接確認');
   await expect(page.locator('#status')).not.toContainText('等待管理員確認');
  const paired=calls.filter(x=>x.action==='frontdesk.booking.reject-phone');

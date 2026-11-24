@@ -210,6 +210,10 @@ test('AC-FR-MODAL-001..003: modal requires a reason; phone section appears only 
  assert.equal([...time.options].every(o=>Number(o.value.slice(-2))%10===0),true);
  assert.match(dialog.querySelector('.frontdesk-original-booking').textContent,/原預約總時長：60 分鐘/);
  assert.equal(dialog.querySelector('button[type=submit]').disabled,false);
+ w.confirm=message=>{assert.match(message,/拒絕預約/);return false;};
+ dialog.querySelector('form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));await settle();
+ assert.equal(calls.filter(b=>b.action==='frontdesk.booking.reject-phone').length,0,'canceling the second confirmation must not write');
+ w.confirm=message=>{assert.match(message,/現場預約：11:00，90 分鐘/);return true;};
  dialog.querySelector('form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));await settle();await settle();
  const req=calls.find(b=>b.action==='frontdesk.booking.reject-phone');assert.ok(req);
  assert.equal(req.bookingId,bookingId);assert.equal(req.startTime,'11:00');
@@ -241,6 +245,7 @@ test('AC-FR-MODAL-004: technician leave requires reason and never requests phone
  assert.equal(dialog.querySelector('button[type=submit]').disabled,true);
  assert.equal(calls.filter(b=>b.action==='frontdesk.booking.update').length,0);
  reason.value='technician_leave';reason.dispatchEvent(new w.Event('change',{bubbles:true}));
+ w.confirm=message=>{assert.match(message,/拒絕預約/);return true;};
  dialog.querySelector('form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));await settle();await settle();
  const update=calls.find(b=>b.action==='frontdesk.booking.update');
  assert.ok(update);assert.equal(update.rejectionReason,'technician_leave');assert.equal(update.status,'rejected');
@@ -415,6 +420,7 @@ for (const scenario of [
  time.value='11:50';time.dispatchEvent(new w.Event('change',{bubbles:true}));
  assert.equal(submit.disabled,true,'forged out-of-window time must not be sent');
  time.value=scenario.end;time.dispatchEvent(new w.Event('change',{bubbles:true}));
+ w.confirm=message=>{assert.match(message,/拒絕預約/);return true;};
  dialog.querySelector('form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
  await new Promise(resolve=>setImmediate(resolve));
  const committed=calls.filter(c=>c.action==='frontdesk.booking.reject-phone');

@@ -10,9 +10,13 @@ test('DOM integration partitions preserve every established command within the e
   const integration = workflow.split('\n  integration:')[1].split('\n  browser-e2e:')[0];
   assert.match(integration, /timeout-minutes: 8\n/);
   assert.match(integration, /fail-fast: false\n/);
-  assert.match(integration, /suite: \[core, extended\]/);
-  for (const suite of ['core','extended']) {
+  assert.match(integration, /suite: \[core, frontdesk-access, frontdesk-api, frontdesk-ui, frontdesk-login, extended\]/);
+  for (const suite of ['core','frontdesk-access','frontdesk-api','frontdesk-ui','frontdesk-login','extended']) {
     assert.ok(integration.includes(`if: matrix.suite == '${suite}'`), `${suite} must execute its own complete partition`);
+  }
+  for (const file of ['frontdesk_access.cjs','frontdesk_api.cjs','frontdesk_legacy.cjs','frontdesk_race.cjs','frontdesk_ui.cjs','frontdesk_fresh_login.cjs']) {
+    const source = `MemberWebsocket-dev/tests/integration/${file}`;
+    assert.equal(integration.split(source).length - 1, 1, `${file} must execute exactly once`);
   }
   const actual = integration.replace(/\\\r?\n\s*/g, ' ').split(/\r?\n/)
     .map(line => line.trim()).filter(line => line.startsWith('node ')).map(line => line.split(/\s+/));

@@ -69,7 +69,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [core, extended]
+        suite: [core, frontdesk-access, frontdesk-api, frontdesk-ui, frontdesk-login, extended]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -165,9 +165,20 @@ jobs:
             MemberWebsocket-dev/tests/integration/snapshot_completion_controls.cjs \
             MemberWebsocket-dev/tests/integration/receipt_refresh_state.cjs \
             MemberWebsocket-dev/tests/integration/friend_qr_scanner.cjs
-      - name: Check frontdesk tenant and UI contracts
-        if: matrix.suite == 'core'
-        run: node --test MemberWebsocket-dev/tests/integration/frontdesk_access.cjs MemberWebsocket-dev/tests/integration/frontdesk_api.cjs MemberWebsocket-dev/tests/integration/frontdesk_legacy.cjs MemberWebsocket-dev/tests/integration/frontdesk_race.cjs MemberWebsocket-dev/tests/integration/frontdesk_ui.cjs MemberWebsocket-dev/tests/integration/frontdesk_fresh_login.cjs
+      # Isolate the full PGlite tenant test from DOM/API contract tests;
+      # every original test file still runs, with the same per-job timeout.
+      - name: Check frontdesk tenant, RLS and booking transaction contracts
+        if: matrix.suite == 'frontdesk-access'
+        run: node --test MemberWebsocket-dev/tests/integration/frontdesk_access.cjs
+      - name: Check frontdesk API and race contracts
+        if: matrix.suite == 'frontdesk-api'
+        run: node --test MemberWebsocket-dev/tests/integration/frontdesk_api.cjs MemberWebsocket-dev/tests/integration/frontdesk_legacy.cjs MemberWebsocket-dev/tests/integration/frontdesk_race.cjs
+      - name: Check frontdesk UI and review contracts
+        if: matrix.suite == 'frontdesk-ui'
+        run: node --test --test-timeout=60000 MemberWebsocket-dev/tests/integration/frontdesk_ui.cjs
+      - name: Check frontdesk LINE authentication contracts
+        if: matrix.suite == 'frontdesk-login'
+        run: node --test MemberWebsocket-dev/tests/integration/frontdesk_fresh_login.cjs
       - name: Check extended DOM, SQL and human journeys
         if: matrix.suite == 'extended'
         run: |
