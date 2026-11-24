@@ -1279,6 +1279,7 @@ function eventTicketClient(row: any, claimedCount = 0, admin = false, usedCount 
     } : {}),
     accent: row.accent,
     allowedTierKeys: Array.isArray(row.allowed_tier_keys) ? row.allowed_tier_keys : [...TIER_KEYS],
+    visibilityPolicy: row.visibility_policy || 'eligible_only',
     allowedTierLabels: (Array.isArray(row.allowed_tier_keys) ? row.allowed_tier_keys : [...TIER_KEYS]).map((key:string) => TIER_LABELS[key]).filter(Boolean),
     requiredServiceIds: Array.isArray(row.required_service_ids) ? row.required_service_ids : [],
     requiredServiceMatchMode: Array.isArray(row.required_service_groups) && row.required_service_groups.length ? "groups" : row.required_service_match_mode === "all" ? "all" : "any",
@@ -1447,7 +1448,7 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
     const ended = Boolean(row.ends_on && today > row.ends_on);
     const claimExpired = Boolean(claimRow?.expires_at && Date.parse(claimRow.expires_at) <= Date.now());
     const availability = claimExpired ? "expired" : scheduled ? "scheduled" : ended ? "ended" : "active";
-    const visibility = tierVisibility(row.allowed_tier_keys,profile.tierKey,visibilityPolicy);
+    const visibility = tierVisibility(row.allowed_tier_keys,profile.tierKey,row.visibility_policy || visibilityPolicy);
     if (!visibility.visible && !claimRow) return [];
     const tierEligible = visibility.tierEligible || receivedAsGift;
     const soldOut = Number(row.quota || 0) > 0 && (usedCounts.get(row.id)||0) >= Number(row.quota);
@@ -1505,6 +1506,7 @@ function calendarClient(row: any): Json {
     status: row.status,
     accent: row.accent,
     allowedTierKeys: Array.isArray(row.allowed_tier_keys) ? row.allowed_tier_keys : [],
+    visibilityPolicy: row.visibility_policy || 'eligible_only',
     linkLabel: row.link_label || "",
     linkUrl: row.link_url || "",
     createdAt: row.created_at,
@@ -1895,6 +1897,9 @@ async function saveEventTicket(supabase: SupabaseClient, actor: string, body: Js
   const ticketType = asText(input.ticketType,20);
   if (!["coupon","lottery","referral","membership_join"].includes(ticketType)) throw new ApiError(400,"INVALID_TICKET_TYPE","票券類型不合法。");
   const status = requireStatus(input.status);
+  const visibilityPolicy = input.visibilityPolicy === undefined ? null : asText(input.visibilityPolicy, 40);
+  if (visibilityPolicy !== null && !['eligible_only', 'higher_preview'].includes(visibilityPolicy))
+    throw new ApiError(400, 'INVALID_VISIBILITY_POLICY', '請選擇有效的會員階級顯示方式。');
   const validityMode = asText(input.validityMode,20) || "fixed";
   if (!["fixed","relative","both"].includes(validityMode)) throw new ApiError(400,"INVALID_VALIDITY_MODE","請選擇有效的使用期限模式。");
   const validityDays = validityMode === "fixed" ? null : Number(input.validityDays);
@@ -1965,6 +1970,7 @@ async function saveEventTicket(supabase: SupabaseClient, actor: string, body: Js
     redemption_locations: locations,
     accent: requireAccent(input.accent),
     allowed_tier_keys: normalizeTierKeys(input.allowedTierKeys),
+    ...(visibilityPolicy ? { visibility_policy: visibilityPolicy } : {}),
     required_service_ids: groupMode ? [] : requiredServiceIds,
     required_service_match_mode: requiredServiceMatchMode,
     required_service_groups: requiredServiceGroups,
