@@ -586,7 +586,15 @@ test('AC-FMR-001/002: frontdesk separates new and member-modified bookings with 
  };
  try{
   const ready=new Promise(resolve=>w.addEventListener('frontdesk-ready',resolve,{once:true}));
-  w.eval(source());await ready;
+  const rendered=new Promise(resolve=>{
+    const list=w.document.getElementById('bookings');
+    const observer=new w.MutationObserver(()=>{
+      if(list.querySelectorAll('[data-kind]').length!==2)return;
+      observer.disconnect();resolve();
+    });
+    observer.observe(list,{subtree:true,childList:true});
+  });
+  w.eval(source());await ready;await rendered;
   const newCard=w.document.querySelector('[data-kind="new"]').closest('article');
   const modCard=w.document.querySelector('[data-kind="modification"]').closest('article');
   assert.match(newCard.textContent,/新預約會員.*確認預約.*拒絕預約/s);
