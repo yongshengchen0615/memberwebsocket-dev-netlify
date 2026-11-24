@@ -674,7 +674,13 @@ export function buildBookingFlexMessage(job: Job): LineFlexMessage {
   const pendingHistoricalRequest = job.frontdeskDirectCancellation === true
     && ['admin', 'frontdesk'].includes(job.channel)
     && parsed.title === '取消預約申請';
-  const displayTitle = directCancellationNotice ? '取消預約'
+  // A legacy notification body can still say 「預約」 after an edit. The
+  // trusted audited event key is authoritative for frontdesk presentation.
+  const frontdeskModification = job.channel === 'frontdesk'
+    && String(job.event_key || '').includes(':modified:')
+    && parsed.title === '預約';
+  const displayTitle = frontdeskModification ? '修改預約'
+    : directCancellationNotice ? '取消預約'
     : pendingHistoricalRequest ? '取消申請待審核'
     : job.channel === 'frontdesk' && parsed.title === '取消預約申請' ? '預約取消' : parsed.title;
   const style = TITLE_STYLES[displayTitle] || TITLE_STYLES[parsed.title] || { color: '#315D50', eyebrow: 'BOOKING NOTICE' };

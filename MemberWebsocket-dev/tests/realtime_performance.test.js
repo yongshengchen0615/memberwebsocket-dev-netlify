@@ -69,7 +69,8 @@ for (const surface of ['member', 'points', 'event', 'calendar', 'admin']) {
     const h = harness(surface); let calls = 0;
     const stop = h.subscribe(() => { calls++; });
     assert.equal(h.subscribe(() => assert.fail('duplicate callback')), stop);
-    assert.equal(h.window.count() + h.document.count(), 3);
+    // The socket also owns offline and pagehide cleanup hooks.
+    assert.equal(h.window.count() + h.document.count(), 5);
     h.status('SUBSCRIBED'); await h.tick(2000); assert.equal(calls, 0);
     h.status('CHANNEL_ERROR'); h.status('SUBSCRIBED'); await h.tick(0); assert.equal(calls, 1);
     h.change(); stop(); stop(); await h.tick(3000); assert.equal(calls, 1);

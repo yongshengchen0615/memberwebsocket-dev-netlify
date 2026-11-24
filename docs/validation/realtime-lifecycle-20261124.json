@@ -1,0 +1,74 @@
+{
+  "baselineSha": "3e4369293ba6a3190617704cdc06a0fda340e378",
+  "measuredAt": "2026-11-24T13:15:42.496Z",
+  "node": "v24.22.3",
+  "scope": "Actual application JavaScript, synthetic SDK/API, virtual clock, identical scenarios; counts only, not hosted latency.",
+  "sourceSha256": {
+    "before": {
+      "member": "773d82fdb24b38f639ee322b177e95a2534a9ff22eb3d1dce9f0eaf75727c6ea",
+      "booking": "8869346e2801a94b08615a6ab26d9908e3072e77758459b3824bb820d4191505",
+      "frontdesk": "9d0be6e7ae3f5314e11935c2b8dbe6420e8244308c9fda1d535d7a91b451e289"
+    },
+    "after": {
+      "member": "97ae0ccf00b93739306582c425444ff5fc2ea5394d122cc7db1045d40fadbeca",
+      "booking": "140cefa5f301cd030856dba84e1aad2f84721490f37387300687e8c7686109a3",
+      "frontdesk": "28e91f7c845d9c9c14a8d56ee02b0bd33c7b3bd6785249069c42cff5ecb975f4"
+    }
+  },
+  "websocket": [
+    {
+      "version": "before",
+      "kind": "member",
+      "eventPairs": 100,
+      "channelsAfterPagehide": 1,
+      "refreshesAfterPagehide": 1,
+      "lateNotificationsAfterUnsubscribe": 200,
+      "channelsAfterUnsubscribe": 0,
+      "listenersAfterUnsubscribe": 0
+    },
+    {
+      "version": "before",
+      "kind": "booking",
+      "eventPairs": 100,
+      "channelsAfterPagehide": 1,
+      "refreshesAfterPagehide": 1,
+      "lateNotificationsAfterUnsubscribe": 0,
+      "channelsAfterUnsubscribe": 0,
+      "listenersAfterUnsubscribe": 0
+    },
+    {
+      "version": "after",
+      "kind": "member",
+      "eventPairs": 100,
+      "channelsAfterPagehide": 0,
+      "refreshesAfterPagehide": 0,
+      "lateNotificationsAfterUnsubscribe": 0,
+      "channelsAfterUnsubscribe": 0,
+      "listenersAfterUnsubscribe": 0
+    },
+    {
+      "version": "after",
+      "kind": "booking",
+      "eventPairs": 100,
+      "channelsAfterPagehide": 0,
+      "refreshesAfterPagehide": 0,
+      "lateNotificationsAfterUnsubscribe": 0,
+      "channelsAfterUnsubscribe": 0,
+      "listenersAfterUnsubscribe": 0
+    }
+  ],
+  "frontdesk": [
+    {
+      "version": "before",
+      "recoveryEventCount": 100,
+      "fullReadsFromStaleProbe": 1,
+      "immediateTrailingChecksAfterSlowRefresh": 0
+    },
+    {
+      "version": "after",
+      "recoveryEventCount": 100,
+      "fullReadsFromStaleProbe": 0,
+      "immediateTrailingChecksAfterSlowRefresh": 1
+    }
+  ]
+}

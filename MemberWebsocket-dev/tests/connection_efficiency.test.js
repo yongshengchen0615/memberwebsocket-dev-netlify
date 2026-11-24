@@ -262,11 +262,14 @@ test('booking: duplicate subscriptions share channel, timer and lifecycle cleanu
   const h = harness();
   const stop = h.subscribe(); const duplicate = h.subscribe();
   assert.equal(stop, duplicate); assert.equal(h.channels.length, 1);
-  assert.equal(h.intervals.size, 1); assert.equal(h.listenerCount(), 3);
+  // visibilitychange, pageshow, online, offline and pagehide each bind once.
+  assert.equal(h.intervals.size, 1); assert.equal(h.listenerCount(), 5);
   stop(); stop(); assert.equal(h.intervals.size, 0); assert.equal(h.listenerCount(), 0); assert.equal(h.removed(), 1);
   h.channels[0].change({ new: { scope: 'member' } });
   assert.equal(h.timers.size, 0, 'late events cannot schedule disposed work');
-  const next = h.subscribe(); assert.notEqual(next, stop); assert.equal(h.channels.length, 2); next();
+  const next = h.subscribe(); assert.notEqual(next, stop);
+  assert.equal(h.channels.length, 1, 'the next subscription waits for SDK teardown');
+  await flush(); assert.equal(h.channels.length, 2); next();
 });
 
 test('booking: scopes own their channel so member cleanup preserves admin synchronization', () => {
@@ -313,6 +316,42 @@ test('member: SDK-unavailable foreground verification is independent of a slow d
   succeed(h.calls[0]); await flush(); assert.equal(h.calls.length, 2);
   succeed(h.calls[1]); finishRefresh(); await flush(); stop();
 });
+
+test('member: a retired login check cannot terminate the replacement signed-in session', async () => {
+  const h = harness('member'); await h.signIn(); h.subscribe();
+  h.channels[0].change({ new: { scope: 'all', event_type: 'member.login.replaced' } }); await flush();
+  h.window.liff.getIDToken = () => 'identity-B';
+  await h.system.signIn(config, 'member'); const stop = h.subscribe();
+  assert.equal(h.system.getSession('member').idToken, 'identity-B');
+  h.calls[0].resolve({ ok: false, error: { code: 'SESSION_REPLACED' } }); await flush();
+  assert.equal(h.system.getSession('member')?.idToken, 'identity-B'); stop();
+});
+
+test('booking: a retired login check cannot terminate the replacement signed-in session', async () => {
+  const h = harness('booking'); await h.signIn(); const stop = h.subscribe();
+  h.emit('pageshow'); await flush();
+  await h.system.completeSignIn(config, 'member', 'identity-B');
+  h.calls[0].resolve({ ok: false, error: { code: 'SESSION_REPLACED' } }); await flush();
+  assert.equal(h.system.getSession()?.idToken, 'identity-B'); stop();
+});
+
+for (const kind of ['booking', 'member']) {
+  test(`${kind}: paused pages defer login checks until actual foreground recovery`, async () => {
+    const h = harness(kind); await h.signIn(); const stop = h.subscribe();
+    h.emit('pagehide'); h.document.visibilityState = 'hidden'; h.emit('online');
+    await flush(); assert.equal(h.calls.length, 0);
+    h.document.visibilityState = 'visible'; h.emit('pageshow'); await flush();
+    assert.equal(h.calls.length, 1); succeed(h.calls[0]); await flush(); stop();
+  });
+  test(`${kind}: a queued login check cannot start after the page pauses`, async () => {
+    const h = harness(kind); await h.signIn(); const stop = h.subscribe();
+    h.emit('pageshow'); h.channels[0].change({ new: { scope: 'all', event_type: 'member.login.replaced' } });
+    h.emit('pagehide'); h.document.visibilityState = 'hidden'; succeed(h.calls[0]); await flush();
+    assert.equal(h.calls.length, 1);
+    h.document.visibilityState = 'visible'; h.emit('pageshow'); await flush();
+    assert.equal(h.calls.length, 2); succeed(h.calls[1]); await flush(); stop();
+  });
+}
 
 for (const kind of ['booking', 'member']) {
   test(`${kind}: a pre-background status result cannot replace foreground verification`, async () => {

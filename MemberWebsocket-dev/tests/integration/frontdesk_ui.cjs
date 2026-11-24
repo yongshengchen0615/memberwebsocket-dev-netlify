@@ -18,6 +18,33 @@ test('authoritative revocation clears previously rendered booking details and ac
  assert.equal(w.document.getElementById('bookings').textContent,'');assert.equal(w.document.querySelectorAll('[data-review-action]').length,0);w.close();
 });
 
+test('AC-004: a stale booking list from before background cannot repaint the resumed frontdesk',{timeout:10000},async()=>{
+ const dom=new JSDOM('<h1 id="businessName"></h1><p id="status"></p><div id="account"></div><div id="bookings"></div><button id="refresh">重新整理</button>',{url:'https://desk.test/frontdesk/?business=shop-a',runScripts:'outside-only',pretendToBeVisual:true});
+ const w=dom.window,timers=new Map();let timerId=0,visibility='visible',bookingReads=0,releaseBooking;
+ Object.defineProperty(w.document,'visibilityState',{get:()=>visibility});
+ w.setTimeout=(fn,delay)=>{const id=++timerId;timers.set(id,{fn,delay});return id;};w.clearTimeout=id=>timers.delete(id);
+ w.liff={isInClient:()=>true,init:async()=>{},isLoggedIn:()=>true,getIDToken:()=>'verified'};
+ let bookingStarted;const pendingBooking=new Promise(resolve=>{bookingStarted=resolve;});
+ const response=data=>({ok:true,status:200,json:async()=>({ok:true,data})});
+ w.fetch=async(_url,init)=>{
+  if(!init?.body)return{ok:true,json:async()=>({supabaseFunctionUrl:'https://db.test/functions/v1/api',supabasePublishableKey:'public'})};
+  const {action}=JSON.parse(init.body);
+  if(action==='frontdesk.public')return response({name:'Shop',frontdesk:{enabled:true,liffId:'2010999999-desk'}});
+  if(action==='frontdesk.bootstrap')return response({staff:{status:'approved',permissionMode:'review'}});
+  if(action==='frontdesk.sync.status')return response({revision:'1'});
+  if(action==='frontdesk.bookings'&&++bookingReads>1)return new Promise(resolve=>{releaseBooking=()=>resolve(response({bookings:[{id:'old',status:'pending',name:'Stale private booking',services:[]}]}));bookingStarted();});
+  return response({bookings:[]});
+ };
+ try{
+  const ready=new Promise(resolve=>w.addEventListener('frontdesk-ready',resolve,{once:true}));w.eval(source());await ready;
+  const [id,probe]=[...timers].find(([,timer])=>timer.delay===0);timers.delete(id);probe.fn();await pendingBooking;
+  visibility='hidden';w.document.dispatchEvent(new w.Event('visibilitychange'));
+  visibility='visible';w.document.dispatchEvent(new w.Event('visibilitychange'));
+  releaseBooking();for(let i=0;i<80;i++)await Promise.resolve();
+  assert.equal(w.document.getElementById('bookings').textContent.includes('Stale private booking'),false);
+ }finally{w.close();}
+});
+
 test('merchant frontdesk settings reconcile server changes without overwriting drafts',async()=>{
  const dom=new JSDOM('<div id="root"></div>',{url:'https://desk.test/admin/?business=shop-a',runScripts:'outside-only',pretendToBeVisual:true});
  const w=dom.window,root=w.document.getElementById('root'),calls=[];

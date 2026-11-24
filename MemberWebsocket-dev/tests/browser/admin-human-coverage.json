@@ -70,9 +70,9 @@
     "admin/productized-workspace.js": "8102b4a4dd3bef05542472bf328ceafc9e853bf765ea552301e016255818ec15",
     "platform/platform.css": "adef4577cbae41c584fe16fce5c6372ab86a994f37226a9a6cc5116bb5bcecf2",
     "admin/business-line-settings.css": "ceab14d19f8137f529bdaa39c590ce5329304a9a3a8c515afd54bdb802a3f0c3",
-    "booking/common.js": "8869346e2801a94b08615a6ab26d9908e3072e77758459b3824bb820d4191505",
+    "booking/common.js": "140cefa5f301cd030856dba84e1aad2f84721490f37387300687e8c7686109a3",
     "admin/frontdesk-settings.js": "450e04d73c4ee3c28dee1419f7f9aeced92d5309c559fd8f1767ac8d8d946121",
-    "frontdesk/app.js": "9d0be6e7ae3f5314e11935c2b8dbe6420e8244308c9fda1d535d7a91b451e289",
+    "frontdesk/app.js": "28e91f7c845d9c9c14a8d56ee02b0bd33c7b3bd6785249069c42cff5ecb975f4",
     "frontdesk/styles.css": "52655eed5c84fff536cf48efc95522d940af89d4838e237a6c6fe516e1a926d1",
     "frontdesk/index.html": "61cacb6e6c7ec382ff0722b9b98c17dedc44d5f50a2bf3021c52ad25937cb700",
     "admin/frontdesk-settings/index.html": "708079850b99c75806b2b22c572d3c29f22cf3c8112b6657e1f1f1bddc9e6b29",
@@ -838,5 +838,6 @@
   "eventTicketUseQuotaReview": "2026-11-23 PR #413：逐項審閱活動券四型、管理端內容編輯與啟用確認、會員預約一般及快照領取動作、LINE legacy claim client、防越權與候選資料；quota 改為已成功使用次數上限，發放數量不受限。管理端已發放/已使用/剩餘數分開呈現，原有 62 組管理端功能映射與 Chromium 工作區未移除或重命名。管理活動啟用發券、同商家/跨商家狀態、抽獎/好友/固定票券、預約登記與核銷持續交付實際 Node/DOM/PG/Chromium CI; 真實 LINE Provider 另行驗證。 已核對管理端 app.js 與 HTML 靜態資產版本號更新，避免再次顯示舊『領取／發放上限』文案。",
   "frontdeskRejectionVacationReview": "2026-11-24：管理端單一拒絕原因卡片於衝突時間選項下方加上「有休假技師」；櫃檯只有對應原因啟用時才從後端授權的商家 booking_technicians（is_active）多選，不再將固定 technician_leave 作全域捷徑。勾選後本頁預覽 A、B 等技師；Edge 僅傳 UUID 且 SQL 在同租戶交易中查表驗證並寫入會員說明快照。歷史重試沿用原 requestId+hash、跨商家／停用 ID／關閉旗標必須拒絕，原 phone 衝突交易與 LINE 通知不改。新增 Node、Chromium 390/1280、回滾式真實 PostgreSQL 測試，測試結果須依同 SHA 證據。 2026-11-24 增量：員工休假清單收斂到單筆預約已指派、排除主要技師，歷史已指派停用技師保持可選；經 same-tenant SQL 檢查。拒絕原因不再有啟用／停用選項，管理員保存即使用，刪除（含最後一項）後不再提供新選擇，歷史 snapshot 和 requestId 再送不變。 2026-11-24 PR #436：已覆核技師休假拒絕說明，改由原預約 DB 日期與開始時間、已獲授權且實際勾選的本單非主要技師生成固定格式；前端依已授權 booking JSON 預覽。既有 LINE 登入、櫃檯 review 撤權、衝突時段補登、原子通知、重送冪等與歷史快照維持；新 SQL 測試在隔離 TEST 先失敗再通過，最終結果依同 SHA CI 判定。",
   "eventTicketRelativeValidityReview": "2026-11-24 PR #434：逐項審核原管理端 62 組人工操作旅程中的活動券管理（新增／編輯／封存、會員資格、使用額度、既有日期、預約服務及金額門檻、抽獎獎項、GPS、會員領券／核銷／轉贈、可用與已用票券）。本次只擴充活動券使用期限為 fixed、relative、both 模式，不移除原已確認管理員操作或變更登入、角色、租戶隔離；已發放票券的期限在資料庫發放時凍結、到期後阻擋核銷和預約綁定、轉贈不重新計時。新增 Node 合約測試及 PGlite SQL 實際行為測試；保留既有 admin-human.spec.cjs、booking-benefits、event-ticket browser、PG17 / Edge typecheck 全基線，合併前以同一提交 CI 為準，真實 LINE Provider 仍需獨立驗收。",
+  "realtimeLifecycleReview": "2026-11-24：逐項覆核既有 62 組管理旅程與會員、預約、櫃檯授權同步。只修正 channel 清理、延遲事件世代、商家設定切換及櫃檯背景恢復；原 LINE 登入、後端角色與商家隔離、預約審核和通知不變。新增 realtime_connection_lifecycle、frontdesk_sync_lifecycle、frontdesk_ui 的 stale booking list DOM 案例與 realtime-connection-lifecycle Chromium 實際 socket 契約；既有 admin-human 全部仍須執行。 獨立審查後補上同一登入在背景仍處理權限拒絕、舊登入拒絕不終止新登入、暫停期間不做登入查詢、停用時清理、跨訂閱等待 SDK 移除，以及 SDK 重連例外不產生 unhandled rejection。每項先建立失敗測試，維持目前登入撤權與原維護模式終止規則。",
   "calendarWorkspaceReview": "2026-11-24 PR #444：盤點管理端活動票券、會員活動、預約三個資料來源及原先所有人工作業旅程。依需求退役批次日曆舊旅程，改以 CALENDAR_SCOPE_DATE_CREATE 及 RUNNER_ADMIN_CALENDAR_SCOPED_CONTROLS 實際確認三個獨立月曆、各自的事件歸屬、活動／票券點日期新增及批次編輯入口消失。保留其餘活動 CRUD、票券/LINE 授權、會員等級、預約管理與休假優先規則；會員端仍稱營運日曆並結合票券。真實 LINE Provider 與最終 CI/Preview 須另有實際證據，不以 mock 代替。"
 }
