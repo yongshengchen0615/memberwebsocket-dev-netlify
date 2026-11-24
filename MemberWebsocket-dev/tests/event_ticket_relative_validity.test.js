@@ -9,6 +9,7 @@ const api = read('supabase/functions/api/index.ts');
 const admin = read('admin/app.js');
 const html = read('admin/index.html');
 const event = read('event/app.js');
+const sharedTicketUi = read('event-ticket-ui.js');
 
 test('AC-001/002: admin has fixed, relative and both modes with server validation', () => {
   for (const mode of ['fixed', 'relative', 'both'])
@@ -50,4 +51,7 @@ test('AC-004: member page displays owned deadline and disables expired use', () 
   assert.match(api, /availability = claimExpired/);
   assert.match(event, /獲得後/);
   assert.match(event, /已到期/);
+  assert.match(event, /expiresAt: offer\.claim/);
+  assert.match(sharedTicketUi, /票券期限/);
+  assert.match(sharedTicketUi, /validityMode/);
 });
