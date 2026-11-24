@@ -1056,6 +1056,17 @@
         note.textContent = `備註：${booking.memberNote}`;
         item.appendChild(note);
       }
+      if (booking.status === 'rejected') {
+        // Only display the member-facing reason snapshot, not internal remarks.
+        const description = String(booking.rejectionMemberDescription ||
+          ({technician_leave:'預約中有休假技師',unrecorded_phone_booking:'該時段已被現場人員預約但未登記'}[booking.rejectionReason] || '')).trim();
+        if (description) {
+          const disclosure = document.createElement('p');
+          disclosure.className = 'booking-note booking-rejection-description';
+          disclosure.textContent = '拒絕原因說明：' + description;
+          item.appendChild(disclosure);
+        }
+      }
       if (booking.adminNote) {
         const adminNote = document.createElement('p');
         adminNote.className = 'booking-note admin-note';
