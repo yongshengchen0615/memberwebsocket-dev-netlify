@@ -3,7 +3,7 @@ const fs=require('node:fs'),http=require('node:http'),path=require('node:path');
 const root=path.resolve(__dirname,'../..');let server,base;
 const fixture=`
 window.calls=[];window.MembershipProgress={render(){}};
-window.BookingSystem={loadConfig:async()=>({supabaseUrl:'https://booking-cancellation.fixture.invalid',supabasePublishableKey:'synthetic-fixture-key'}),signIn:async()=>'fixture',memberProfile:async()=>({lineUserId:'a'}),setBookingNotice:v=>{window.bookingNoticeValue=String(v||'');},formatDate:v=>v,subscribeRealtime:()=>()=>{},getSession:()=>({config:{},idToken:'fixture'}),addDays:(d,n)=>new Date(Date.parse(d+'T00:00:00Z')+n*86400000).toISOString().slice(0,10),request:async(c,t,k,action)=>{calls.push(action);
+window.BookingSystem={loadConfig:async()=>({supabaseUrl:'https://booking-cancellation.supabase.co',supabasePublishableKey:'synthetic-fixture-key'}),signIn:async()=>'fixture',memberProfile:async()=>({lineUserId:'a'}),setBookingNotice:v=>{window.bookingNoticeValue=String(v||'');},formatDate:v=>v,subscribeRealtime:()=>()=>{},getSession:()=>({config:{},idToken:'fixture'}),addDays:(d,n)=>new Date(Date.parse(d+'T00:00:00Z')+n*86400000).toISOString().slice(0,10),request:async(c,t,k,action)=>{calls.push(action);
 if(action==='user.booking.bootstrap')return {serverNow:'2026-10-30T00:00:00Z',today:'2026-10-30',settings:{minAdvanceDays:0,maxAdvanceDays:3,bookingNotice:'商家測試預約說明'},services:[],bookings:[
 {bookingId:'today',bookingDate:'2026-10-30',status:'confirmed',startTime:'15:00',endTime:'16:00',startAt:'2026-10-30T15:00:00+08:00',endAt:'2026-10-30T16:00:00+08:00',items:[]},
 {bookingId:'tomorrow',bookingDate:'2026-10-31',status:'pending',startTime:'11:00',endTime:'12:00',items:[]},
@@ -21,9 +21,10 @@ test.beforeEach(async({page})=>{
   await page.clock.setFixedTime(new Date('2026-10-30T04:00:00.000Z'));
   // The synthetic 15:00 booking remains in the future at 12:00 Taiwan time.
   await page.route('https://**',r=>r.abort());
+  // CSP permits *.supabase.co, so the synthetic API route remains reachable in Chromium.
   // Model the trusted cancellation-mode API, not a UI-only feature toggle.
   // Unlisted remote requests remain blocked by the route above.
-  await page.route('https://booking-cancellation.fixture.invalid/functions/v1/booking-cancellation-api',route=>{
+  await page.route('https://booking-cancellation.supabase.co/functions/v1/booking-cancellation-api',route=>{
     const mode=new URL(page.url()).searchParams.get('cancellationMode')||'approval';
     const action=JSON.parse(route.request().postData()||'{}').action;
     if(action!=='member.list') return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({ok:false,error:{code:'UNEXPECTED_ACTION'}})});
