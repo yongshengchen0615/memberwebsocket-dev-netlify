@@ -102,3 +102,36 @@ test('AC-001/002/006/008: SQL migration preserves legacy provenance and hides re
  assert.match(sql,/revoke all on function public\.platform_frontdesk_rejection_request[\s\S]*?from public,anon,authenticated/);
  assert.match(sql,/grant execute on function public\.platform_frontdesk_rejection_request[\s\S]*?to service_role/);
 });
+
+
+test('AC-FD-REJ-TABS-001/002: rejection policy is a separately labelled, authenticated tab',()=>{
+ const fs=require('node:fs'),path=require('node:path');
+ const read=file=>fs.readFileSync(path.resolve(__dirname,'..',file),'utf8');
+ const admin=read('admin/frontdesk-settings.js');
+ const css=read('admin/frontdesk-settings/frontdesk-settings-page.css');
+ assert.match(admin,/\['rejectionSettings', '拒絕預約設定'\]/);
+ assert.match(admin,/rejectionPanel\.id = 'frontdesk-rejection-panel'/);
+ assert.match(admin,/rejectionPanel\.setAttribute\('role', 'tabpanel'\)/);
+ assert.match(admin,/rejectionPanel\.setAttribute\('aria-labelledby', 'frontdesk-tab-rejectionSettings'\)/);
+ assert.match(admin,/tabButtons\.get\('rejectionSettings'\)\.hidden = !hasRejectionSettings/);
+ assert.match(admin,/if \(!hasRejectionSettings && selectedTab === 'rejectionSettings'\) selectTab\('line'\)/);
+ assert.match(admin,/rejectionPanel\.append\(settings\)/);
+ assert.doesNotMatch(admin,/content\.append\(settings\)/);
+ assert.match(admin,/historyKeys\.has\(selectedTab\) \? loadHistory\(\) : Promise\.resolve\(\)/);
+ assert.match(css,/\.frontdesk-rejection-list/);
+ assert.match(css,/@media\(max-width:650px\)/);
+});
+test('AC-FD-VACATION-001/002: fast checkbox selects configured leave policy and previews public text without client overrides',()=>{
+ const fs=require('node:fs'),path=require('node:path');
+ const read=file=>fs.readFileSync(path.resolve(__dirname,'..',file),'utf8');
+ const ui=read('frontdesk/app.js');
+ const css=read('frontdesk/styles.css');
+ assert.match(ui,/vacationCheck\.name='vacationTechnician'/);
+ assert.match(ui,/vacationQuick\.hidden=!Boolean\(rejectionReasonById\('technician_leave'\)\)/);
+ assert.match(ui,/reason\.value=vacationCheck\.checked\?'technician_leave':''/);
+ assert.match(ui,/vacationCheck\.disabled=true/);
+ assert.match(ui,/memberPreviewText\.textContent=String\(selected\?\.memberDescription\|\|selected\?\.label\|\|''\)\.trim\(\)/);
+ assert.match(ui,/if\(!frozen&&!confirmFrontdeskReview\(/);
+ assert.doesNotMatch(ui,/rejectionMemberDescription\s*:/,'the browser must not supply authoritative public descriptions');
+ assert.match(css,/\.frontdesk-rejection-member-preview/);
+});
