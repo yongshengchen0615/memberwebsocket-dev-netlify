@@ -3,7 +3,8 @@ import { hasCurrentTermsConsent } from "../_shared/membership-terms.ts";
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
 import { resolveUserTestIdentity, TestModeAuthError } from "../_shared/test-mode-auth.ts";
-import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
+import { createClient, SupabaseClient, businessContext } from '../_shared/business-runtime.ts';
+import { directFrontdeskCancellationEnabled } from '../_shared/frontdesk-cancellation-mode.mjs';
 
 type Json = Record<string, unknown>;
 type Identity = { lineUserId: string; displayName: string };
@@ -139,11 +140,17 @@ async function memberList(supabase: SupabaseClient, member: any): Promise<Json> 
     .select("id,status,booking_date,start_time,end_time,start_at,end_at,cancellation_source_status,cancellation_requested_at,updated_at")
     .eq("member_id", member.id).in("status", ["pending", "confirmed"]).not("cancellation_requested_at", "is", null).is("cancellation_reviewed_at", null);
   if (result.error) throw new ApiError(500, "DATABASE_ERROR", "無法取得取消申請狀態。");
-  return { requests: (result.data || []).map(cancellationClient) };
+  return {
+    requests: (result.data || []).map(cancellationClient),
+    cancellationMode: directFrontdeskCancellationEnabled(businessContext()) ? "direct" : "approval",
+  };
 }
 function canonicalCancellationError(error: unknown): ApiError {
   const message = String((error as { message?: string; details?: string })?.message || "") + " " + String((error as { details?: string })?.details || "");
   if (message.includes("BOOKING_NOT_FOUND")) return new ApiError(404, "BOOKING_NOT_FOUND", "找不到這筆預約。");
+  if (message.includes("FRONTDESK_DIRECT_CANCELLATION_DISABLED") || message.includes("FRONTDESK_UNAVAILABLE")) return new ApiError(409, "CANCELLATION_MODE_CHANGED", "商家櫃檯設定已變更，請重新整理後再操作。");
+  if (message.includes("MEMBERSHIP_REQUIRED")) return new ApiError(403, "MEMBERSHIP_REQUIRED", "會員身分已失效，請重新登入。");
+  if (message.includes("BOOKING_INVALID_INPUT")) return new ApiError(400, "INVALID_INPUT", "取消預約資料不正確。");
   if (message.includes("BOOKING_NOT_CANCELLABLE")) return new ApiError(409, "BOOKING_NOT_CANCELLABLE", "這筆預約目前無法申請取消。");
   if (message.includes("BOOKING_TIME_PASSED")) return new ApiError(409, "BOOKING_TIME_PASSED", "預約時間已經開始或經過，無法申請取消。");
   if (message.includes("CANCELLATION_NOT_PENDING")) return new ApiError(409, "CANCELLATION_NOT_PENDING", "這筆預約目前沒有待確認的取消申請。");
@@ -154,7 +161,9 @@ function canonicalCancellationError(error: unknown): ApiError {
 async function memberRequest(supabase: SupabaseClient, identity: Identity, member: any, body: Json): Promise<Json> {
   const bookingId = requireUuid(body.bookingId, "預約");
   const expectedUpdatedAt = asText(body.expectedUpdatedAt, 80);
-  const result = await supabase.rpc("request_booking_cancellation", {
+  const direct = directFrontdeskCancellationEnabled(businessContext());
+  const result = await supabase.rpc(direct ? "platform_member_direct_cancel_booking" : "request_booking_cancellation", {
+
     p_booking_id: bookingId,
     p_member_id: member.id,
     p_actor: identity.lineUserId,
@@ -167,6 +176,11 @@ async function memberRequest(supabase: SupabaseClient, identity: Identity, membe
   if (!current.data) throw new ApiError(404, "BOOKING_NOT_FOUND", "找不到這筆預約。");
 
   const rpcResult = result.data && typeof result.data === "object" ? result.data as Json : {};
+  if (direct) return {
+    request: cancellationClient(current.data),
+    directCancelled: true,
+    alreadyCancelled: rpcResult.alreadyCancelled === true,
+  };
   const alreadyRequested = rpcResult.alreadyRequested === true;
   if (!alreadyRequested) {
     await audit(supabase, identity, "member", "BOOKING_CANCELLATION_REQUESTED", bookingId, {
@@ -349,7 +363,10 @@ async function route(supabase: SupabaseClient, identity: Identity, clientType: C
     throw new ApiError(404, "ACTION_NOT_FOUND", "不支援的會員取消操作。");
   }
   await requireAdmin(supabase, identity);
-  if (action === "admin.list") return await adminList(supabase);
+  if (action === "admin.list") return {
+    ...(await adminList(supabase)),
+    cancellationMode: directFrontdeskCancellationEnabled(businessContext()) ? "direct" : "approval",
+  };
   if (action === "admin.approve") return await adminApprove(supabase, identity, body);
   if (action === "admin.reject") return await adminReject(supabase, identity, body);
   throw new ApiError(404, "ACTION_NOT_FOUND", "不支援的管理端取消操作。");
