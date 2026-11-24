@@ -165,7 +165,7 @@
     const ticket = ticketForOffer(offer); const history = Boolean(offer.history); const fixed = isFixedOffer(offer); const used = history || String(offer?.claim?.status || '') === 'used'; const reserved = !used && Boolean(offer.reservedForBooking); const snapshotPending = !used && Boolean(offer.pendingSnapshot);
     const eligible = !history && eventTicketTierEligible(offer);
     const stateLabel = used ? '已使用' : offer.availability === 'expired' ? '已到期' : reserved ? '已預約使用' : snapshotPending ? '快照待審核' : !eligible ? '需升級' : offer.claim ? '已發放' : '尚未發放';
-    const item = window.EventTicketUI.create(ticket, { history, fixed, stateLabel: offer.transferredOut ? '已轉贈' : stateLabel, stateClass: used ? 'used' : reserved ? 'reserved' : eligible ? offer.availability : 'tier-locked', usedAt: eventTicketTimestamp(offer.claim && offer.claim.usedAt), showServiceRequirement: true, showAmountRequirement: true });
+    const item = window.EventTicketUI.create(ticket, { history, fixed, stateLabel: offer.transferredOut ? '已轉贈' : stateLabel, stateClass: used ? 'used' : reserved ? 'reserved' : eligible ? offer.availability : 'tier-locked', usedAt: eventTicketTimestamp(offer.claim && offer.claim.usedAt), expiresAt: offer.claim?.expiresAt || null, showServiceRequirement: true, showAmountRequirement: true });
     const eventTicketId = eventTicketIdForOffer(offer);
     const action = document.createElement('div'); action.className = 'event-ticket-action';
     const hint = document.createElement('small');
