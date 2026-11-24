@@ -13,6 +13,9 @@ const admin = read('admin/app.js');
 const adminHtml = read('admin/index.html');
 const event = read('event/app.js');
 const eventUi = read('event-ticket-ui.js');
+const bookingOffers = read('supabase/functions/_shared/latest-available-offers.ts');
+const bookingBenefits = read('supabase/functions/_shared/booking-benefits.ts');
+const bookingUi = read('booking/booking-benefits.js');
 
 test('AC-001: admin edits nullable 1..3650-day duration with server-side validation', () => {
   assert.match(adminHtml, /id="eventTicketValidityDaysAfterClaim"[^>]+min="1"[^>]+max="3650"/);
@@ -73,4 +76,14 @@ test('AC-007: frontend uses fixed-window plus claim-relative validity without ch
   assert.match(api, /const ended = Boolean\(row\.ends_on && today > row\.ends_on\)/);
   assert.match(api, /const availability = expired \? "expired" : scheduled \? "scheduled" : ended \? "ended" : "active"/);
   assert.match(event, /if \(offer\.history\) return/);
+});
+
+test('AC-008: booking read model includes expiry and does not allow expired claims to be selected', () => {
+  assert.match(bookingOffers, /claim_id,event_ticket_id,member_id,status,expires_at/);
+  assert.match(bookingOffers, /offer\.expired = Date\.parse\(expiresAt\) <= Date\.now\(\)/);
+  assert.match(bookingBenefits, /const expired = offer\.expired === true/);
+  assert.match(bookingBenefits, /selectable: visibility\.tierEligible && !expired/);
+  assert.match(bookingBenefits, /claimRequired: visibility\.tierEligible && !expired/);
+  assert.match(bookingBenefits, /statusLabel: visibility\.locked \? '需升級' : expired \? '已過期'/);
+  assert.match(bookingUi, /expiresAt: item\.expiresAt/);
 });
