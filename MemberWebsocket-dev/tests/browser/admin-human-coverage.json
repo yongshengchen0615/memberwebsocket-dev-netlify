@@ -71,11 +71,11 @@
     "platform/platform.css": "adef4577cbae41c584fe16fce5c6372ab86a994f37226a9a6cc5116bb5bcecf2",
     "admin/business-line-settings.css": "ceab14d19f8137f529bdaa39c590ce5329304a9a3a8c515afd54bdb802a3f0c3",
     "booking/common.js": "8869346e2801a94b08615a6ab26d9908e3072e77758459b3824bb820d4191505",
-    "admin/frontdesk-settings.js": "3658790c41ccc3ba28382be56b7f73eb42371b1198e337113f918129db2c7123",
-    "frontdesk/app.js": "e1300f1b63b1f28f0a7865aef0f3ef8cfa699d484e0cb2b4aa224ddcad8625e1",
-    "frontdesk/styles.css": "6a7f4ad1f75018019a511035a7eb0845ee114722df4357dae3819cfd6fed0e5d",
-    "frontdesk/index.html": "98139294f226ca6b2ca31110ac90f9a18467851aca55c4848b45bd127b53f5e4",
-    "admin/frontdesk-settings/index.html": "8bc9af71c48ccf8d7c09304a299f09fe74d84d1df1d787b8412a3b168dd40cf2",
+    "admin/frontdesk-settings.js": "0a2fd2d37cbcb8befeb906661b8d1f3ce5227a40fecf0e107870aeb2d1b56f78",
+    "frontdesk/app.js": "b9b284cd9a1194a23d9acbfc1e2a36efba5efa1b4c1cb30cf24cbe901291dd36",
+    "frontdesk/styles.css": "52655eed5c84fff536cf48efc95522d940af89d4838e237a6c6fe516e1a926d1",
+    "frontdesk/index.html": "f48237e8c05d35145adf2bd3f58ecde8c534d1508de09802153e8223b24d71d1",
+    "admin/frontdesk-settings/index.html": "82f75a6e943256ff0b93efbe24519b0a762cd6c8e317d66a6678290a8131d3f4",
     "admin/frontdesk-settings/frontdesk-settings-page.js": "a5bb5f8c6716a7ab8f0cccf3dbe8be993a307a6d56b01cfe218d330cbd3de429",
     "admin/frontdesk-settings/frontdesk-settings-page.css": "2ce352bfaa2b1260c3a94bb12e451445dbb10504cbf0686a310e2181bd365add"
   },
@@ -831,5 +831,6 @@
   "frontdeskStaffRemovalReview": "2026-11-19 PR #368：審閱櫃檯人員移除後需永久清除其商家內的申請／審核／權限及櫃檯通知資料、撤銷已授權預約操作，LINE 原帳號再次申請只能為待審核。保留會員身分、商家預約與必要操作稽核。frontdesk-booking.spec.cjs 的 FRONTDESK_STAFF_DELETE 實際 Chromium 驗證二次確認取消零寫入、確認後刪除列表、識別碼／版本／requestId 及 390px 不橫向溢出；既有 FRONTDESK_ADMIN 儲存按鈕以 submit 角色精準定位，拒絕弱化權限測試。Node/SQL/JSDOM 整合驗證刪除交易、通知清理、重複 requestId、重新申請與跨租戶拒絕。未取得 LINE 真人帳號驗收，不代表實際 Provider 推播已測。 2026-11-19 PR #368 reviewer P2：修復不確定刪除請求時重試被 pending 鎖擋住的問題，僅相同刪除 action 使用保存的 requestId 重試，確認對話不重複；新增 JSDOM、390px Chromium 的第一次網路回應遺失／跨操作鎖定／兩次同一 body 驗證。 2026-11-19 PR #368 續修：Chromium 回報可見重試文字與 aria-label 不一致，將移除按鈕在不確定回應的重試狀態同步提供相同無障礙名稱，補 DOM aria-label 與 real-browser getByRole 驗證；不變更存取判斷或刪除流程。",
   "bookingPendingOfficialLineReview": "2026-11-20 PR #378：審閱管理端預約設定、會員提交及官方帳號通知流程。新增獨立『預約申請等待確認訊息』管理、字數驗證、預覽與 CAS 衝突防護。會員原先 LIFF sendMessages 已移除，改由租戶獨立 LINE outbox 推送；保留原預約確認/取消/提醒及櫃檯工作流程。已對照既有 admin-human booking、LINE setting、member booking 操作節點並保留全部既有旅程；新增 AC-BPN-001~006 合約測試、測試資料庫遷移。CI、瀏覽器實測與 LINE 沙盒發送均以同 SHA 結果為準，未通過不得合併。 2026-11-20 review 修正：保留快照收據沿用的 BookingSystem.sendMemberChatMessage，僅取消一般預約 app 自發 LINE；交易通知條件使用已驗證會員與 BOOK-* 來源，不能因自訂聯絡資料 contactSource=custom 漏發，電話/快照非會員發起的請求不得被誤判。新增真實 shared sender 單元測試與商家資料庫負向測試。",
   "bookingUnifiedMessagesReview": "2026-11-22 PR #399：將預約管理的會員端預約說明與申請待確認、拒絕、提醒 LINE 三種模板集中至訊息設定子分頁。四欄單一表單、單一次版本鎖定 API 更新；不更動原發送條件、提醒時間、商家歸屬、其他預約設定。新 BOOKING_MESSAGES_SETTINGS 在隔離 Chromium 與 JSDOM 走正常儲存、回讀、輸入負向及版本衝突；原 BOOKING_SHARED_SETTINGS 獨立驗證服務時間與其他共用政策，PG / Edge / LINE 真實通道另按實測 CI 及沙盒驗收。",
-  "eventTicketUseQuotaReview": "2026-11-23 PR #413：逐項審閱活動券四型、管理端內容編輯與啟用確認、會員預約一般及快照領取動作、LINE legacy claim client、防越權與候選資料；quota 改為已成功使用次數上限，發放數量不受限。管理端已發放/已使用/剩餘數分開呈現，原有 62 組管理端功能映射與 Chromium 工作區未移除或重命名。管理活動啟用發券、同商家/跨商家狀態、抽獎/好友/固定票券、預約登記與核銷持續交付實際 Node/DOM/PG/Chromium CI; 真實 LINE Provider 另行驗證。 已核對管理端 app.js 與 HTML 靜態資產版本號更新，避免再次顯示舊『領取／發放上限』文案。"
+  "eventTicketUseQuotaReview": "2026-11-23 PR #413：逐項審閱活動券四型、管理端內容編輯與啟用確認、會員預約一般及快照領取動作、LINE legacy claim client、防越權與候選資料；quota 改為已成功使用次數上限，發放數量不受限。管理端已發放/已使用/剩餘數分開呈現，原有 62 組管理端功能映射與 Chromium 工作區未移除或重命名。管理活動啟用發券、同商家/跨商家狀態、抽獎/好友/固定票券、預約登記與核銷持續交付實際 Node/DOM/PG/Chromium CI; 真實 LINE Provider 另行驗證。 已核對管理端 app.js 與 HTML 靜態資產版本號更新，避免再次顯示舊『領取／發放上限』文案。",
+  "frontdeskRejectionVacationReview": "2026-11-24：管理端單一拒絕原因卡片於衝突時間選項下方加上「有休假技師」；櫃檯只有對應原因啟用時才從後端授權的商家 booking_technicians（is_active）多選，不再將固定 technician_leave 作全域捷徑。勾選後本頁預覽 A、B 等技師；Edge 僅傳 UUID 且 SQL 在同租戶交易中查表驗證並寫入會員說明快照。歷史重試沿用原 requestId+hash、跨商家／停用 ID／關閉旗標必須拒絕，原 phone 衝突交易與 LINE 通知不改。新增 Node、Chromium 390/1280、回滾式真實 PostgreSQL 測試，測試結果須依同 SHA 證據。"
 }

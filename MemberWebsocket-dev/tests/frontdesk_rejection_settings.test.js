@@ -16,7 +16,10 @@ test('Issue #425: rejection policy contract',async(t)=>{
  ["historical IDs cannot be removed",()=>{let cfg=defaultRejectionSettings();cfg.reasons.pop();return rejects(()=>validateRejectionSettingsUpdate(defaultRejectionSettings(),cfg),"REJECTION_REASON_DELETE_FORBIDDEN");}],
  ["invalid type, duplicate IDs and empty active list rejected",()=>{let cfg=defaultRejectionSettings();return rejects(()=>normalizeRejectionSettings({...cfg,reasons:[{...custom,enabled:"true"}]}),"INVALID_REJECTION_REASON")&&rejects(()=>normalizeRejectionSettings({...cfg,reasons:[custom,custom]}),"INVALID_REJECTION_REASON")&&rejects(()=>normalizeRejectionSettings({...cfg,reasons:cfg.reasons.map(row=>({...row,enabled:false}))}),"REJECTION_REASON_REQUIRED");}],
  ["malformed text and duplicate active labels rejected",()=>{let cfg=defaultRejectionSettings();return rejects(()=>normalizeRejectionSettings({...cfg,dropdownTitle:"a\nb"}),"INVALID_REJECTION_TITLE")&&rejects(()=>normalizeRejectionSettings({...cfg,reasons:[{...custom,memberDescription:"x".repeat(401)}]}),"INVALID_REJECTION_DESCRIPTION")&&rejects(()=>normalizeRejectionSettings({...cfg,reasons:[...cfg.reasons,{...custom,label:cfg.reasons[0].label}]}),"DUPLICATE_REJECTION_LABEL");}],
- ["unknown fields rejected rather than trusted",()=>rejects(()=>normalizeRejectionSettings({...defaultRejectionSettings(),tenantId:"other"}),"INVALID_REJECTION_SETTINGS")]
+ ["unknown fields rejected rather than trusted",()=>rejects(()=>normalizeRejectionSettings({...defaultRejectionSettings(),tenantId:"other"}),"INVALID_REJECTION_SETTINGS")],
+ ["legacy reason without vacation field defaults to false",()=>{let cfg=defaultRejectionSettings();delete cfg.reasons[0].hasVacationTechnicians;return normalizeRejectionSettings(cfg).reasons[0].hasVacationTechnicians===false;}],
+ ["vacation option is independent per reason and normalized",()=>{let cfg=defaultRejectionSettings();cfg.reasons[1].hasVacationTechnicians=true;return normalizeRejectionSettings(cfg).reasons[1].hasVacationTechnicians===true&&normalizeRejectionSettings(cfg).reasons[0].hasVacationTechnicians===false;}],
+ ["vacation option rejects non-boolean values and unknown fields",()=>{let cfg=defaultRejectionSettings();return rejects(()=>normalizeRejectionSettings({...cfg,reasons:[{...cfg.reasons[0],hasVacationTechnicians:'true'},cfg.reasons[1]]}),"INVALID_REJECTION_REASON")&&rejects(()=>normalizeRejectionSettings({...cfg,reasons:[{...cfg.reasons[0],vacationTechnicianNames:['forged']},cfg.reasons[1]]}),"INVALID_REJECTION_REASON");}]
  ];
  for(const [name,run] of cases)await t.test(name,()=>assert.equal(run(),true));
 });
@@ -77,7 +80,20 @@ test('AC-003/004/007: all rejected writes use the authorized, tenant-scoped SQL 
  assert.equal(writes[1].args.p_action,'booking.reject_phone');
  assert.equal(writes[1].args.p_body.rejectionReason,id);
  assert.equal(writes[1].args.p_body.items,undefined);
+ const vacationId='10000000-0000-4000-8000-0000000000a1';
+ const withVacation=await call({action:'frontdesk.booking.update',...baseline,
+  requestId:'10000000-0000-4000-8000-000000000019',
+  vacationTechnicianIds:[vacationId]});
+ assert.equal(withVacation.status,200);
+ writes=calls.filter(x=>x.name==='platform_frontdesk_rejection_request');
+ assert.deepEqual(writes.at(-1).args.p_body.vacationTechnicianIds,[vacationId]);
  const before=calls.length;
+ for(const invalid of [[vacationId,vacationId],['00000000-0000-0000-0000-000000000000'],['forged'],Array(11).fill(vacationId),'a']){
+  const response=await call({action:'frontdesk.booking.update',...baseline,
+   requestId:'10000000-0000-4000-8000-000000000018',vacationTechnicianIds:invalid});
+  assert.equal(response.status,400);
+ }
+ assert.equal(calls.length,before,'malformed technician IDs must not reach rate-limits or SQL');
  const forged=await call({action:'frontdesk.booking.update',...baseline,
   rejectionReason:'__proto__',requestId:'10000000-0000-4000-8000-000000000015'});
  assert.equal(forged.status,400);
@@ -121,17 +137,26 @@ test('AC-FD-REJ-TABS-001/002: rejection policy is a separately labelled, authent
  assert.match(css,/\.frontdesk-rejection-list/);
  assert.match(css,/@media\(max-width:650px\)/);
 });
-test('AC-FD-VACATION-001/002: fast checkbox selects configured leave policy and previews public text without client overrides',()=>{
+test('AC-VAC-001..008: independent manager option, staff selector, SQL validation and no arbitrary description',()=>{
  const fs=require('node:fs'),path=require('node:path');
  const read=file=>fs.readFileSync(path.resolve(__dirname,'..',file),'utf8');
- const ui=read('frontdesk/app.js');
- const css=read('frontdesk/styles.css');
- assert.match(ui,/vacationCheck\.name='vacationTechnician'/);
- assert.match(ui,/vacationQuick\.hidden=!Boolean\(rejectionReasonById\('technician_leave'\)\)/);
- assert.match(ui,/reason\.value=vacationCheck\.checked\?'technician_leave':''/);
- assert.match(ui,/vacationCheck\.disabled=true/);
- assert.match(ui,/memberPreviewText\.textContent=String\(selected\?\.memberDescription\|\|selected\?\.label\|\|''\)\.trim\(\)/);
- assert.match(ui,/if\(!frozen&&!confirmFrontdeskReview\(/);
- assert.doesNotMatch(ui,/rejectionMemberDescription\s*:/,'the browser must not supply authoritative public descriptions');
- assert.match(css,/\.frontdesk-rejection-member-preview/);
+ const ui=read('frontdesk/app.js'),admin=read('admin/frontdesk-settings.js');
+ const css=read('frontdesk/styles.css'),sql=read('supabase/migrations/20261124134500_frontdesk_vacation_technicians.sql');
+ assert.match(admin,/check\('需要設定衝突時間並登記現場預約', 'requiresConflictTime'\),\s*check\('有休假技師（櫃檯端可勾選已設定的技師）', 'hasVacationTechnicians'\)/);
+ assert.match(admin,/hasVacationTechnicians:reason\.hasVacationTechnicians===true/);
+ assert.match(ui,/vacationPanel\.hidden=!hasVacation/);
+ assert.match(ui,/vacationTechnicianIds:vacationIds/);
+ assert.match(ui,/result\.technicians/);
+ assert.doesNotMatch(ui,/vacationQuick|vacationCheck/,'no legacy free-floating checkbox');
+ assert.doesNotMatch(ui,/rejectionMemberDescription\s*:/,'member copy must be resolved by server');
+ assert.match(css,/frontdesk-vacation-options/);
+ assert.match(sql,/platform_private\.frontdesk_active_technicians\(t\.runtime_schema\)/);
+ assert.match(sql,/join %I\.booking_technicians t on t\.id=s\.id::uuid and t\.is_active=true/);
+ assert.match(sql,/VACATION_TECHNICIANS_REQUIRED/);
+ assert.match(sql,/VACATION_TECHNICIANS_NOT_ENABLED/);
+ assert.match(sql,/cardinality\(v_names\)<>cardinality\(v_ids\)/);
+ assert.match(sql,/rejectionMemberDescription',v_description/);
+ assert.match(sql,/v_payload:=p_body\|\|jsonb_build_object/);
+ assert.match(sql,/revoke all on function public\.platform_frontdesk_rejection_request[\s\S]*?from public,anon,authenticated/);
+ assert.match(sql,/grant execute on function public\.platform_frontdesk_rejection_request[\s\S]*?to service_role/);
 });
