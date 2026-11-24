@@ -21,7 +21,8 @@
 
   function belongsToScope(scope, item) {
     if (!item || typeof item !== 'object') return false;
-    if (scope === 'activity') return ['holiday', 'event'].includes(String(item.itemType || '')) && !isTicketCalendarEntry(item);
+    if (scope === 'activity') return String(item.itemType || '') === 'event' && !isTicketCalendarEntry(item);
+    if (scope === 'holiday') return String(item.itemType || '') === 'holiday';
     if (scope === 'ticket') return Boolean(String(item.eventTicketId || '').trim());
     if (scope === 'booking') return Boolean(String(item.bookingId || '').trim());
     return false;
