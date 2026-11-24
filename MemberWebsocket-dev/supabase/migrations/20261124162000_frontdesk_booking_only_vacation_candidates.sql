@@ -61,7 +61,7 @@ declare d text;needle text;replacement text;
 begin
  select pg_get_functiondef('platform_private.frontdesk_booking_json(text,uuid)'::regprocedure) into strict d;
  needle:='''fallbackTechnician'',coalesce(nullif(fbt.name,''''),''現場安排'')';
- replacement:='''vacationTechnicians'',platform_private.frontdesk_booked_vacation_candidates(p_schema,b.id),'
+ replacement:='''vacationTechnicians'',platform_private.frontdesk_booked_vacation_candidates(%1$L,b.id),'
     ||E'\n   '||needle;
  if length(d)-length(replace(d,needle,''))<>length(needle)
  then raise exception 'BOOKED_VACATION_BOOKING_JSON_CONTRACT_CHANGED';end if;
