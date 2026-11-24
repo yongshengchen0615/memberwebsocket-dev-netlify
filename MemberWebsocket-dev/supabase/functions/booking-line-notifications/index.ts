@@ -1,4 +1,5 @@
-import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
+import { businessEnv, businessContext, serveBusiness } from '../_shared/business-runtime.ts';
+import { directFrontdeskCancellationEnabled } from '../_shared/frontdesk-cancellation-mode.mjs';
 import { loadAdminCopyText } from "./booking-actions.ts";
 import { loadMemberPendingBookingDetails } from './pending-details.mjs';
 import { completionSummary } from "./completion-summary.ts";
@@ -237,9 +238,10 @@ serveBusiness('booking-line-notifications',async (request: Request) => {
         }
 
         const token = job.channel === 'admin' ? config.data.LINE_BOOKING_ADMIN_CHANNEL_ACCESS_TOKEN : job.channel === 'frontdesk' ? config.data.LINE_BOOKING_FRONTDESK_CHANNEL_ACCESS_TOKEN : config.data.LINE_BOOKING_MEMBER_CHANNEL_ACCESS_TOKEN;
-        let deliveryJob = memberPendingDetails
-          ? { ...job, message_text: `${job.message_text}\n\n${memberPendingDetails}` }
-          : job;
+        let deliveryJob = {
+          ...(memberPendingDetails ? { ...job, message_text: `${job.message_text}\n\n${memberPendingDetails}` } : job),
+          frontdeskDirectCancellation: directFrontdeskCancellationEnabled(businessContext()),
+        };
         if(job.channel==='frontdesk'){
           const current=await db.rpc('platform_frontdesk_delivery',{p_actor:job.recipient});
           if(current.error){failed++;return;}
