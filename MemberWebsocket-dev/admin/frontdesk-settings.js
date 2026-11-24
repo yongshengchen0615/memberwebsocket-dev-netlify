@@ -410,6 +410,11 @@
         rulesHeading.append(node('h4', '拒絕原因清單'), node('p', '按「儲存拒絕預約設定」後，清單內所有原因立即可用；已移除的原因不再供後續選擇，歷史預約記錄仍保留。'));
         settings.append(rulesHeading);
         const draft = cfg.rejectionSettings.reasons.map(reason => ({...reason,enabled:true}));
+        const modPolicy = cfg.rejectionSettings.modification || {dropdownTitle:'請選擇拒絕修改原因',reasons:[]};
+        const modDraft = (modPolicy.reasons || []).map(reason => ({...reason,enabled:true}));
+        const modTitle = field('modificationDropdownTitle', '修改預約下拉選單標題',
+          '只顯示於「拒絕修改預約」視窗，與新預約拒絕原因分開。', modPolicy.dropdownTitle || '', false);
+        modTitle.input.maxLength = 60;
         const add = node('button', '新增拒絕原因', 'button button-outline');
         add.type = 'button';
         const saveSettings = node('button', '儲存拒絕預約設定', 'button button-outline frontdesk-primary');
@@ -511,13 +516,72 @@
               id:reason.id,label:reason.label.trim(),memberDescription:reason.memberDescription.trim(),
               enabled:true,requiresConflictTime:reason.requiresConflictTime,
               hasVacationTechnicians:reason.hasVacationTechnicians===true
-            }))}
+            })), modification: {dropdownTitle:modTitle.input.value.trim(),reasons:modDraft.map(reason=>({
+              id:reason.id,label:reason.label.trim(),memberDescription:reason.memberDescription.trim(),
+              enabled:true,requiresConflictTime:reason.requiresConflictTime,
+              hasVacationTechnicians:reason.hasVacationTechnicians===true
+            }))}}
           }, saveSettings);
         });
         rerender();
+        // Modification rejection reasons are a separate tenant policy. Edits
+        // save atomically with ordinary reasons under the existing version gate.
+        const modificationSection = node('section', '', 'frontdesk-modification-rejection-settings');
+        modificationSection.dataset.frontdeskModificationRejection = 'true';
+        modificationSection.append(node('h4', '拒絕修改預約'),
+          node('p', '會員修改既有預約後，櫃檯拒絕時只會顯示下方原因；新預約繼續使用上方原有清單。'),
+          modTitle.wrap);
+        const modRows = node('div', '', 'frontdesk-rejection-list');
+        const addModification = node('button', '新增拒絕修改原因', 'button button-outline');
+        addModification.type = 'button';
+        const rerenderModification = () => {
+          modRows.replaceChildren();
+          modDraft.forEach((reason,index)=>{
+            const card=node('fieldset','','frontdesk-setup-card frontdesk-rejection-rule');
+            card.append(node('legend','拒絕修改原因 '+(index+1)));
+            const label=field('modification-label-'+reason.id,'櫃檯端選項名稱',
+              '僅用於修改預約待審核。',reason.label);
+            const descriptionLabel=node('label','用戶端拒絕修改說明');
+            const description=node('textarea');description.rows=3;description.required=true;
+            description.maxLength=400;description.value=reason.memberDescription;
+            descriptionLabel.append(description);
+            label.input.addEventListener('input',()=>{reason.label=label.input.value;});
+            description.addEventListener('input',()=>{reason.memberDescription=description.value;});
+            card.append(label.wrap,descriptionLabel);
+            const toggles=node('div','','frontdesk-rejection-toggles');
+            for(const [caption,key] of [
+              ['需要設定衝突時間並登記現場預約','requiresConflictTime'],
+              ['有休假技師（從本筆已預約技師中勾選）','hasVacationTechnicians']
+            ]){
+              const wrap=node('label','','business-notification-toggle');
+              const check=node('input');check.type='checkbox';check.checked=reason[key]===true;
+              check.addEventListener('change',()=>{reason[key]=check.checked;markDirty();});
+              wrap.append(check,node('span',caption));toggles.append(wrap);
+            }
+            card.append(toggles);
+            const remove=node('button','移除修改原因','button button-outline frontdesk-rejection-remove');
+            remove.type='button';remove.onclick=()=>{
+              if(busy||pending)return;
+              if(!window.confirm('確定移除這項拒絕修改原因？儲存後生效，歷史紀錄不變。'))return;
+              modDraft.splice(index,1);markDirty();rerenderModification();
+            };
+            card.append(remove);modRows.append(card);
+          });
+          addModification.hidden=modDraft.length>=30;
+          if(!modDraft.length)modRows.append(node('p','目前沒有修改預約拒絕原因。新增後才會出現在櫃檯端。'));
+        };
+        addModification.onclick=()=>{
+          if(busy||pending||modDraft.length>=30)return;
+          modDraft.push({id:'custom_'+crypto.randomUUID(),label:'',memberDescription:'',
+            enabled:true,requiresConflictTime:false,hasVacationTechnicians:false});
+          markDirty();rerenderModification();
+          modRows.lastElementChild?.querySelector('input')?.focus();
+        };
+        rerenderModification();
+        modificationSection.append(modRows,addModification);
         const actions = node('div', '', 'frontdesk-rejection-actions');
         actions.append(add, saveSettings);
-        settings.append(rows, actions);
+        settings.append(rows, modificationSection, actions);
         rejectionPanel.append(settings);
       }
 

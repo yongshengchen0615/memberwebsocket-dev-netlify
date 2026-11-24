@@ -417,3 +417,8 @@ html[data-theme="dark"] .frontdesk-page .frontdesk-modal-backdrop{
 @media(max-width:480px) {
  .frontdesk-page .frontdesk-vacation-options {grid-template-columns:minmax(0,1fr);}
 }
+
+/* Distinct audited review types; colors never substitute server-side approval. */
+.frontdesk-page .frontdesk-review-kind{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;font-size:.78rem;font-weight:800;letter-spacing:.02em;white-space:nowrap}
+.frontdesk-page .frontdesk-review-kind[data-kind="new"]{color:#286553;background:#e3f5ec;border:1px solid #a6dec2}
+.frontdesk-page .frontdesk-review-kind[data-kind="modification"]{color:#8c4814;background:#fff1db;border:1px solid #e5ba7c}
