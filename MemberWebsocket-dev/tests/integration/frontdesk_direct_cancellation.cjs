@@ -15,6 +15,42 @@ async function migration(db, filename) {
   await db.exec(fs.readFileSync(path.join(migrations, filename), 'utf8'));
 }
 
+// Install the exact paired-insert guard contracts from their earlier migrations
+// into a tenant already provisioned by this isolated suite. The actual release
+// sequence installed these before the new direct-cancel migration. Rebuilding
+// notice_enqueue from the generic template would erase both guards.
+async function installExistingPairedNoticeGuards(db, schema) {
+  for (const [filename, name] of [
+    ['20261121120000_frontdesk_rejection_line_details.sql', 'frontdesk_paired_phone_source'],
+    ['20261122183000_admin_rejection_frontdesk_line_scope.sql', 'admin_paired_walkin_source'],
+  ]) {
+    const sql = fs.readFileSync(path.join(migrations, filename), 'utf8');
+    const start = sql.indexOf('create or replace function platform_private.' + name + '(');
+    const revoke = sql.indexOf('revoke all on function platform_private.' + name + '(', start);
+    const end = sql.indexOf(';', revoke);
+    assert.ok(start >= 0 && revoke > start && end > revoke, 'production guard source exists: ' + name);
+    await db.exec(sql.slice(start, end + 1));
+  }
+  const getDefinition = async () => (await db.query(
+    "select pg_get_functiondef(to_regprocedure(format('%I.notice_enqueue()', $1))) as definition",
+    [schema],
+  )).rows[0].definition;
+  const original = await getDefinition();
+  const marker = "begin\n  if TG_OP = 'INSERT' then";
+  assert.equal(original.split(marker).length - 1, 1, 'tenant INSERT guard anchor is unique');
+  const guarded = original.replace(marker, `begin
+  if TG_OP = 'INSERT' and
+     (platform_private.frontdesk_paired_phone_source(TG_TABLE_SCHEMA,to_jsonb(NEW)) is not null
+       or platform_private.admin_paired_walkin_source(TG_TABLE_SCHEMA,to_jsonb(NEW)) is not null)
+    then return null;end if;
+  if TG_OP = 'INSERT' then`);
+  await db.exec(guarded);
+  const installed = await getDefinition();
+  assert.match(installed, /platform_private\\.frontdesk_paired_phone_source\\(TG_TABLE_SCHEMA/);
+  assert.match(installed, /platform_private\\.admin_paired_walkin_source\\(TG_TABLE_SCHEMA/);
+  return getDefinition;
+}
+
 test('AC-002..004, AC-007: direct cancellation is tenant-authorized, atomic and idempotent', async () => {
   const h = await fixture();
   try {
@@ -34,7 +70,15 @@ test('AC-002..004, AC-007: direct cancellation is tenant-authorized, atomic and 
     await migration(h.db, '20261120114500_frontdesk_line_booking_details.sql');
     await migration(h.db, '20261120143000_frontdesk_sync_admin_confirmation.sql');
     await migration(h.db, '20261120170000_frontdesk_confirm_line_individual_totals.sql');
+    const installedNoticeDefinition = await installExistingPairedNoticeGuards(h.db, schema);
     await migration(h.db, '20261124175200_frontdesk_direct_member_cancellation.sql');
+    const retainedDefinition = await installedNoticeDefinition();
+    assert.match(retainedDefinition, /platform_private\\.frontdesk_paired_phone_source\\(TG_TABLE_SCHEMA/,
+      'existing frontdesk paired-rejection suppression survives direct-cancel migration');
+    assert.match(retainedDefinition, /platform_private\\.admin_paired_walkin_source\\(TG_TABLE_SCHEMA/,
+      'existing admin paired-rejection suppression survives direct-cancel migration');
+    assert.match(retainedDefinition, /cancellation_reviewed_by = 'system:frontdesk'/,
+      'direct-cancellation fanout is added without replacing the guards');
 
     const member = (await q(
       "insert into S.members(line_user_id,member_code,invite_code,status,membership_status,is_test_account) values($1,'CANCEL-M','ABCD654321','active','active',true) returning id",
