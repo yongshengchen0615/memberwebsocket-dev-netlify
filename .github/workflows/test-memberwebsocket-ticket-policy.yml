@@ -32,7 +32,8 @@ permissions:
 
 jobs:
   unit-and-regression:
-    runs-on: ubuntu-latest
+    # Playwright 1.56 Chromium cannot install on the Ubuntu 26.04 runner.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Checkout
