@@ -1,0 +1,57 @@
+-- TEST ONLY: run inside BEGIN + new migration + this fixture + ROLLBACK.
+-- Never run this scenario against production; creates synthetic staff, a member,
+-- a booking, and triggers rejection notifications, all inside a rollback.
+do $vacation_e2e$
+declare t platform_private.tenants;ch text;mid uuid;sid uuid;bid uuid;stamp text;
+ rid uuid:=gen_random_uuid();body jsonb;result jsonb;description text;audit_count int;
+ actor text:='Ueeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
+ tech_a uuid:='11111111-1111-4111-8111-111111111191';
+ tech_c uuid:='33333333-3333-4333-8333-333333333393';
+ issued timestamptz;
+begin
+ select * into strict t from platform_private.tenants
+  where module_line#>>'{booking,frontdesk,enabled}'='true' limit 1;
+ ch:=t.module_line#>>'{booking,frontdesk,loginChannelId}';
+ execute format('insert into %I.booking_technicians(id,name,is_active,sort_order) values($1,''合成A'',true,90001),($2,''合成C'',true,90002)',t.runtime_schema)
+ using tech_a,tech_c;
+ insert into platform_private.frontdesk_staff(tenant_id,login_channel_id,line_user_id,display_name,status,permission_mode,oa_verified_at)
+ values(t.id,ch,actor,'合成櫃檯','approved','review',clock_timestamp());
+ update platform_private.tenants set module_line=jsonb_set(module_line,'{booking,frontdesk,rejectionSettings}',
+  jsonb_set(platform_private.frontdesk_rejection_defaults(),'{reasons,0,hasVacationTechnicians}','true'::jsonb,true),true)
+ where id=t.id;
+ execute format('update %I.booking_settings set require_primary_technician=false,work_start_time=''08:00'',work_end_time=''22:00'' where id=1',t.runtime_schema);
+ execute format('insert into %I.booking_service_types(name) values(''VACATION_E2E_20261124'')',t.runtime_schema);
+ execute format('insert into %I.members(line_user_id,member_code,invite_code,status,membership_status,is_test_account) values($1,''VACMEM123'',''ABCD123456'',''active'',''active'',true) returning id',t.runtime_schema)
+ into mid using 'Udddddddddddddddddddddddddddddddd';
+ execute format('update %I.members set is_test_account=false where id=$1',t.runtime_schema) using mid;
+ execute format('insert into %I.booking_services(title,duration_minutes,price_amount,service_type,created_by) values(''VAC_TEST'',30,100,''VACATION_E2E_20261124'',$1) returning id',t.runtime_schema)
+ into sid using actor;
+ execute format('select (%I.create_group_booking_request_v2($1,$2,current_date+3,$3::time,$4,$5)).id',t.runtime_schema)
+ into bid using 'VAC-'||gen_random_uuid()::text,mid,'10:00',
+  jsonb_build_array(jsonb_build_object('technicianId',null,'items',
+  jsonb_build_array(jsonb_build_object('serviceId',sid,'quantity',1)))),'';
+ execute format('select updated_at::text from %I.bookings where id=$1',t.runtime_schema) into stamp using bid;
+ issued:=clock_timestamp();
+ body:=jsonb_build_object('bookingId',bid,'expectedUpdatedAt',stamp,
+  'status','rejected','rejectionReason','technician_leave','requestId',rid,
+  'vacationTechnicianIds',jsonb_build_array(tech_a::text));
+ result:=public.platform_frontdesk_rejection_request(t.id,actor,ch,issued,'booking.update',body);
+ description:=result#>>'{booking,rejectionMemberDescription}';
+ if description is distinct from '目前 合成A 技師休假。'||E'\n'||'預約中有休假技師'
+   or result#>>'{booking,status}' is distinct from 'rejected' then
+   raise exception 'VACATION_BOOKING_SNAPSHOT_INVALID %',result;end if;
+ result:=public.platform_frontdesk_rejection_request(t.id,actor,ch,issued,'booking.update',body);
+ if result->>'alreadyApplied' is distinct from 'true'
+   or result#>>'{booking,rejectionMemberDescription}' is distinct from description then
+   raise exception 'VACATION_REPLAY_CHANGED';end if;
+ begin
+  perform public.platform_frontdesk_rejection_request(t.id,actor,ch,issued,'booking.update',
+    jsonb_set(body,'{vacationTechnicianIds}',jsonb_build_array(tech_c::text)));
+  raise exception 'VACATION_REPLAY_TAMPER_ACCEPTED';
+ exception when raise_exception then
+  if sqlerrm<>'FRONTDESK_REQUEST_CONFLICT' then raise;end if;
+ end;
+ execute format('select count(*)::int from %I.booking_audit_events where target_id=$1 and action=''BOOKING_REJECTED''',t.runtime_schema)
+ into audit_count using bid::text;
+ if audit_count<>1 then raise exception 'VACATION_AUDIT_DUPLICATE %',audit_count;end if;
+end $vacation_e2e$;
