@@ -269,13 +269,21 @@ serveBusiness('member-calendar-api',async (request: Request) => {
     }
 
     const db = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession:false, autoRefreshToken:false } });
-    const result = await db.from("calendar_items")
-      .select("*")
-      .in("status", ["active", "targeted"])
-      .order("starts_on", { ascending:true })
-      .order("created_at", { ascending:true });
-    if (result.error) {
-      return reply(origin, { ok:false,status:500,error:{ code:"DATABASE_ERROR",message:"活動日曆暫時無法讀取。" } }, 500);
+    const [result, eventTicketsResult] = await Promise.all([
+      db.from("calendar_items")
+        .select("*")
+        .in("status", ["active", "targeted"])
+        .order("starts_on", { ascending:true })
+        .order("created_at", { ascending:true }),
+      db.from("event_tickets")
+        .select("id,event_ticket_id,title,description,starts_on,ends_on,status,accent,allowed_tier_keys,validity_mode")
+        .eq("status", "active")
+        .is("deleted_at", null)
+        .is("referral_source_event_ticket_id", null)
+        .is("fixed_ticket_template_id", null),
+    ]);
+    if (result.error || eventTicketsResult.error) {
+      return reply(origin, { ok:false,status:500,error:{ code:"DATABASE_ERROR",message:"營運日曆暫時無法讀取。" } }, 500);
     }
 
     const memberBirthdayMonth = birthdayMonth(profile.birthday);
@@ -288,11 +296,63 @@ serveBusiness('member-calendar-api',async (request: Request) => {
         && Number(row.audience_month || 0) === memberBirthdayMonth;
     });
 
-    let items = rows
-      .map(calendarClient)
+    // Synced ticket calendar rows already have their own dates and holiday behavior.
+    // Deduplicate those rows; otherwise independently expose every active dated ticket.
+    const synchronizedTicketUuids = new Set<string>();
+    const synchronizedTicketCodes = new Set<string>();
+    for (const row of rows) {
+      if (row.status !== "active") continue;
+      if (row.source_event_ticket_id) synchronizedTicketUuids.add(String(row.source_event_ticket_id));
+      try {
+        const link = new URL(String(row.link_url || ""), "https://calendar.invalid/");
+        if (link.searchParams.get("source") === "event-ticket-calendar") {
+          const ticketCode = asText(link.searchParams.get("eventTicketId"), 120);
+          if (ticketCode) synchronizedTicketCodes.add(ticketCode);
+        }
+      } catch { /* Preserve valid calendar rows even with obsolete links. */ }
+    }
+    const virtualTicketItems: CalendarItem[] = [];
+    const undatedTicketItems: CalendarItem[] = [];
+    for (const ticket of eventTicketsResult.data || []) {
+      const code = asText(ticket.event_ticket_id, 120);
+      if (!code || synchronizedTicketUuids.has(String(ticket.id))
+          || synchronizedTicketCodes.has(code)) continue;
+      const start = asText(ticket.starts_on, 10);
+      const end = asText(ticket.ends_on, 10);
+      const synthesized: CalendarItem = {
+        calendarItemId: "event-ticket:" + code,
+        eventTicketId: code,
+        calendarDisplaySourceId: "event-ticket:" + code,
+        title: asText(ticket.title, 100) || "活動票券",
+        itemType: "event",
+        description: asText(ticket.description, 500),
+        startsOn: start,
+        endsOn: end,
+        status: "active",
+        accent: asText(ticket.accent, 20),
+        allowedTierKeys: Array.isArray(ticket.allowed_tier_keys) ? ticket.allowed_tier_keys : [],
+        linkLabel: "查看活動票券",
+        linkUrl: "",
+      };
+      if (asText(ticket.validity_mode, 20) !== "relative" && parseIsoDate(start) && parseIsoDate(end) && end >= start) {
+        virtualTicketItems.push(synthesized);
+      } else {
+        // A ticket with an open-ended or relative validity period has no
+        // bounded date span. Present it separately; never invent a date.
+        undatedTicketItems.push(synthesized);
+      }
+    }
+
+    let items = [...rows.map(calendarClient), ...virtualTicketItems]
       .map((item) => decorateTierEligibility(item, profile));
+    let ongoingTickets = undatedTicketItems.map((item) => decorateTierEligibility(item, profile));
     const policy=await loadVisibilityPolicy(db);
-    items=items.flatMap(item=>{const v=tierVisibility(item.allowedTierKeys,profile.tierKey,policy);return item.itemType==='holiday'?[item]:v.visible?[{...item,...v}]:[];});
+    const visibility = (item:CalendarItem): CalendarItem[] => {
+      const v = tierVisibility(item.allowedTierKeys, profile.tierKey, policy);
+      return item.itemType === "holiday" ? [item] : v.visible ? [{ ...item, ...v }] : [];
+    };
+    items=items.flatMap(visibility);
+    ongoingTickets=ongoingTickets.flatMap(visibility);
     items = applyCalendarDisplayRules(items);
 
     if (action === "user.calendar.date.details") {
@@ -303,7 +363,7 @@ serveBusiness('member-calendar-api',async (request: Request) => {
       items = items.filter((item) => includesDate(item, date));
     }
 
-    return reply(origin, { ok:true,status:200,data:{ profile,items } }, 200);
+    return reply(origin, { ok:true,status:200,data:{ profile,items,ongoingTickets:action === "user.calendar.bootstrap" ? ongoingTickets : [] } }, 200);
   } catch (error) {
     const code = error instanceof Error && error.message === "UPSTREAM_INVALID_RESPONSE"
       ? "UPSTREAM_INVALID_RESPONSE"

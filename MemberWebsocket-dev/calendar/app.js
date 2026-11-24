@@ -2,7 +2,7 @@
   'use strict';
 
   const initialMonth = firstOfMonth(taipeiToday());
-  const state = { config: null, idToken: '', profile: null, items: [], initialMonth: initialMonth, visibleMonth: initialMonth, detailTrigger: null, touchStart: null, suppressCalendarDayClickUntil: 0 };
+  const state = { config: null, idToken: '', profile: null, items: [], ongoingTickets: [], initialMonth: initialMonth, visibleMonth: initialMonth, detailTrigger: null, touchStart: null, suppressCalendarDayClickUntil: 0 };
   const els = {};
   const LOGIN_PROGRESS_TICK_MS = 650;
   let loginProgressTimer = null;
@@ -10,7 +10,7 @@
 
   window.addEventListener('DOMContentLoaded', () => {
     window.MemberSystem.bindDialogKeyboard();
-    ['app', 'loadingView', 'loadingProgress', 'loadingProgressBar', 'loadingProgressText', 'loadingStatus', 'errorView', 'errorTitle', 'errorMessage', 'joinMemberButton', 'retryButton', 'calendarView', 'displayName', 'membershipProgress', 'previousMonthButton', 'nextMonthButton', 'todayButton', 'monthTitle', 'calendarSummary', 'calendarRangeNotice', 'calendarGrid', 'emptyView', 'calendarDetailModal', 'closeCalendarDetailButton', 'calendarDetailTitle', 'calendarDetailDate', 'calendarDetailItems'].forEach((id) => { els[id] = document.getElementById(id); });
+    ['app', 'loadingView', 'loadingProgress', 'loadingProgressBar', 'loadingProgressText', 'loadingStatus', 'errorView', 'errorTitle', 'errorMessage', 'joinMemberButton', 'retryButton', 'calendarView', 'displayName', 'membershipProgress', 'previousMonthButton', 'nextMonthButton', 'todayButton', 'monthTitle', 'calendarSummary', 'calendarRangeNotice', 'calendarGrid', 'calendarOngoingTickets', 'calendarOngoingTicketList', 'emptyView', 'calendarDetailModal', 'closeCalendarDetailButton', 'calendarDetailTitle', 'calendarDetailDate', 'calendarDetailItems'].forEach((id) => { els[id] = document.getElementById(id); });
     els.retryButton.addEventListener('click', () => window.location.reload());
     els.joinMemberButton.addEventListener('click', () => window.MemberSystem.openMemberJoin(state.config));
     els.previousMonthButton.addEventListener('click', () => changeMonth(-1));
@@ -69,6 +69,7 @@
   function applyCalendarSnapshot(payload) {
     state.profile = payload && payload.profile && typeof payload.profile === 'object' ? payload.profile : {};
     state.items = Array.isArray(payload && payload.items) ? payload.items : [];
+    state.ongoingTickets = Array.isArray(payload && payload.ongoingTickets) ? payload.ongoingTickets : [];
     els.displayName.textContent = String(state.profile.displayName || 'LINE 使用者');
     window.MembershipProgress.render(els.membershipProgress, state.profile);
   }
@@ -92,7 +93,9 @@
     els.calendarSummary.textContent = displayedDates.length
       ? String(displayedDates.length) + ' 個日期 · ' + String(holidayCount) + ' 個休假日 · ' + String(eventCount) + ' 個活動'
       : '這個月尚未設定日期';
-    els.emptyView.classList.toggle('hidden', displayedDates.length !== 0);
+    els.calendarOngoingTickets.classList.toggle('hidden', state.ongoingTickets.length === 0);
+    els.calendarOngoingTicketList.replaceChildren(...state.ongoingTickets.map(createCalendarDetailItem));
+    els.emptyView.classList.toggle('hidden', displayedDates.length !== 0 || state.ongoingTickets.length !== 0);
   }
 
   function weekdayHeaders() {
@@ -204,7 +207,7 @@
       const labels = Array.isArray(item.allowedTierLabels) && item.allowedTierLabels.length ? item.allowedTierLabels.join('、') : '未設定';
       tierAccess.textContent = item.tierEligible === false ? `可參加階級：${labels}。目前會員階級尚無法參加。` : `可參加階級：${labels}。`;
       detail.append(tierAccess);
-      const linkUrl = resolveCalendarLink(item.linkUrl);
+      const linkUrl = resolveCalendarLink(item.linkUrl) || resolveCalendarLinkForItem(item);
       const linkLabel = String(item.linkLabel || '').trim();
       if (item.tierEligible !== false && linkLabel && isSafeCalendarLink(linkUrl)) {
         const link = document.createElement('a');
@@ -219,6 +222,19 @@
       }
     }
     return detail;
+  }
+
+  function resolveCalendarLinkForItem(item) {
+    const ticketId = String(item && item.eventTicketId || '').trim();
+    if (/^[A-Za-z0-9_-]{1,128}$/.test(ticketId)) {
+      const url = new URL('../event/', window.location.href);
+      url.searchParams.set('source', 'event-ticket-calendar');
+      url.searchParams.set('eventTicketId', ticketId);
+      const business = window.BusinessContext?.slug || new URL(window.location.href).searchParams.get('business') || '';
+      if (/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(business)) url.searchParams.set('business', business);
+      return url.href;
+    }
+    return resolveCalendarLink(item && item.linkUrl);
   }
 
   function resolveCalendarLink(value) {

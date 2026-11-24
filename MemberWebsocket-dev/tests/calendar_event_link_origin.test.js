@@ -46,7 +46,8 @@ test('AC-004: unsafe or incomplete managed ticket links are not rendered as navi
 });
 
 test('AC-005: calendar link rendering and LIFF click both use the resolved URL, and ticket page supports the deep-link', () => {
-  assert.ok(calendarSource.includes('const linkUrl = resolveCalendarLink(item.linkUrl);'));
+  assert.ok(calendarSource.includes('const linkUrl = resolveCalendarLink(item.linkUrl) || resolveCalendarLinkForItem(item);'),
+    'existing managed/external links retain their trusted resolver, synthesized tickets get an explicit fallback');
   assert.ok(calendarSource.includes('link.href = linkUrl;'));
   assert.ok(calendarSource.includes('openCalendarLinkInLine(link.href);'), 'click must use the rendered merchant-scoped anchor');
   assert.ok(calendarSource.includes('item.tierEligible !== false && linkLabel'));
@@ -90,4 +91,19 @@ test('AC-010: LINE WebView receives a new versioned calendar script with the mer
   const html = fs.readFileSync('MemberWebsocket-dev/calendar/index.html', 'utf8');
   assert.ok(html.includes('merchant-scope-20261119-1'), 'Calendar script needs cache-busting version');
   assert.ok(html.includes('business-context.js?grants=20261107-1&callback=20261119-1'), 'merchant context must also load the latest callback handling');
+});
+
+
+test('AC-011: synthesized ticket links stay on this tenant and never trust a ticket ID as a URL', () => {
+  const source = extractFunction('resolveCalendarLinkForItem');
+  const page = 'https://test-preview.example/calendar/?business=merchant-current';
+  const make = new Function('window', 'URL', 'resolveCalendarLink',
+    source + '\nreturn resolveCalendarLinkForItem;');
+  const resolve = make({ location: { href: page } }, URL, () => '');
+  const allowed = new URL(resolve({ eventTicketId: 'EVT-2026_10' }));
+  assert.equal(allowed.origin, 'https://test-preview.example');
+  assert.equal(allowed.pathname, '/event/');
+  assert.equal(allowed.searchParams.get('business'), 'merchant-current');
+  assert.equal(allowed.searchParams.get('eventTicketId'), 'EVT-2026_10');
+  assert.equal(resolve({ eventTicketId: 'bad%26business=wrong' }), '');
 });

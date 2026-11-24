@@ -1,0 +1,16 @@
+.calendar-ongoing-tickets {
+  margin: 20px 0; padding: 18px; border: 1px solid var(--line, #dce7df);
+  border-radius: 18px; background: var(--surface, #fff);
+}
+.calendar-ongoing-heading h2 { margin: 0 0 5px; font-size: 18px; }
+.calendar-ongoing-heading p { margin: 0 0 14px; color: var(--muted, #61716a); font-size: 13px; line-height: 1.6; }
+.calendar-ongoing-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px; }
+.calendar-ongoing-list .calendar-detail-item {
+  padding: 14px; margin: 0; background: var(--surface, #fff);
+  border: 1px solid var(--line, #dce7df);
+  border-left: 4px solid var(--item-accent, #df6b4d);
+  border-radius: 12px; min-width: 0;
+}
+.calendar-ongoing-list .calendar-detail-item h3 { font-size: 16px; margin: 0 0 7px; }
+.calendar-ongoing-list .calendar-detail-item p { overflow-wrap: anywhere; }
+.calendar-ongoing-list .calendar-detail-link { display: inline-flex; min-height: 40px; align-items: center; }

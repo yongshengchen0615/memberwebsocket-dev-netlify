@@ -6,7 +6,7 @@ const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
 const read = p => fs.readFileSync(path.join(root, p), 'utf8');
-const pages = { member:'會員卡', points:'集點卡', event:'活動票券', calendar:'活動日曆', booking:'預約' };
+const pages = { member:'會員卡', points:'集點卡', event:'活動票券', calendar:'營運日曆', booking:'預約' };
 
 test('AC-001: merchant pages do not paint the old brand before the current title loads', () => {
   for (const [surface, label] of Object.entries(pages)) {

@@ -8,7 +8,7 @@ const base = path.join(__dirname, '..');
 const read = name => fs.readFileSync(path.join(base,name),'utf8');
 const shared = name => import(pathToFileURL(path.join(base,'supabase/functions/_shared',name)));
 const brand = '晨光工作室';
-const pageLabels = {booking:'預約',member:'會員卡',points:'集點卡',event:'活動票券',calendar:'活動日曆'};
+const pageLabels = {booking:'預約',member:'會員卡',points:'集點卡',event:'活動票券',calendar:'營運日曆'};
 
 async function renderTitle(page, tenant, scoped = true) {
   const pathname = '/' + page + '/';

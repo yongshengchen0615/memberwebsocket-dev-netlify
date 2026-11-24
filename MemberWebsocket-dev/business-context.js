@@ -64,7 +64,7 @@
   gate();
   if(changed&&memberSurface&&typeof window.dispatchEvent==='function')window.dispatchEvent(new CustomEvent('business:features-changed',{detail:{features:{...next}}}));
  }
- const pageLabel=()=>({member:'會員卡',points:'集點卡',event:'活動票券',calendar:'活動日曆',booking:'預約'})[location.pathname.split('/')[1]];
+ const pageLabel=()=>({member:'會員卡',points:'集點卡',event:'活動票券',calendar:'營運日曆',booking:'預約'})[location.pathname.split('/')[1]];
  function applyPageBrand(brand){
   for(const node of document.querySelectorAll?.('[data-tenant-brand]')||[]){
    const suffix=node.dataset?.tenantBrand;
