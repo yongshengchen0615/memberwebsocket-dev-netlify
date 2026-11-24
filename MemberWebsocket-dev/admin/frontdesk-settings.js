@@ -399,7 +399,7 @@
         const intro = node('header', '', 'frontdesk-rejection-intro');
         intro.append(node('p', '預約審核 · 規則管理', 'frontdesk-rejection-kicker'),
           node('h3', '拒絕預約設定'),
-          node('p', '管理櫃檯選單、拒絕原因及會員端說明。每個原因都可啟用「有休假技師」，櫃檯就能選擇本店已設定的技師並自動產生說明。'));
+          node('p', '管理櫃檯選單、拒絕原因及會員端說明。勾選「有休假技師」時，會員說明由原預約時間和櫃檯選取的技師自動產生。'));
         settings.append(intro);
         const title = field('rejectionDropdownTitle', '櫃檯端下拉式選單標題', '此標題顯示於櫃檯拒絕預約視窗；留空使用「請選擇拒絕原因」。', cfg.rejectionSettings.dropdownTitle || '', false);
         title.input.maxLength = 60;
@@ -428,7 +428,13 @@
             descriptionLabel.append(description);
             const preview = node('div', '', 'frontdesk-rejection-preview');
             preview.append(node('strong', '會員端顯示預覽'));
-            const previewText = node('p', String(reason.memberDescription || '').trim() || '請填寫會員端拒絕原因說明。');
+            const previewText = node('p');
+            const refreshPreview = () => {
+              previewText.textContent = reason.hasVacationTechnicians === true
+                ? '目前預約時間：{預約日期} {開始時間}，{勾選的技師} 技師休假。'
+                : (String(reason.memberDescription || '').trim() || '請填寫會員端拒絕原因說明。');
+            };
+            refreshPreview();
             preview.append(previewText);
             const check = (caption, key) => {
               const wrap = node('label', '', 'business-notification-toggle');
@@ -436,6 +442,7 @@
               input.type = 'checkbox'; input.checked = reason[key];
               input.addEventListener('change', () => {
                 reason[key] = input.checked;
+                if (key === 'hasVacationTechnicians') refreshPreview();
                 markDirty();
               });
               wrap.append(input, node('span', caption));
@@ -444,14 +451,14 @@
             label.input.addEventListener('input', () => { reason.label = label.input.value; });
             description.addEventListener('input', () => {
               reason.memberDescription = description.value;
-              previewText.textContent = description.value.trim() || '請填寫會員端拒絕原因說明。';
+              refreshPreview();
             });
             card.append(label.wrap, descriptionLabel, preview);
             const toggles = node('div', '', 'frontdesk-rejection-toggles');
             toggles.append(check('需要設定衝突時間並登記現場預約', 'requiresConflictTime'),
               check('有休假技師（櫃檯端可勾選已設定的技師）', 'hasVacationTechnicians'));
             card.append(toggles);
-            card.append(node('small', '勾選「有休假技師」後，櫃檯端只能選本筆預約已指派、且非主要技師的人員；系統會在會員說明前加入「目前 A 技師休假。」等文字。'));
+            card.append(node('small', '勾選「有休假技師」後，會員端說明會自動改為「目前預約時間：日期 時間，勾選技師 技師休假。」；原本填寫的說明保留，但不會附加於休假訊息。櫃檯端僅可勾選本筆預約已指派、且非主要技師的人員。'));
             const controls = node('div', '', 'frontdesk-rejection-order');
             for (const [direction, caption] of [[-1, '上移'], [1, '下移']]) {
               const move = node('button', caption, 'button button-outline');
