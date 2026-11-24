@@ -119,3 +119,19 @@ test('AC-008: failed operations restore the original disabled/inert state',async
  await assert.rejects(feedback.track('請稍候…',()=>Promise.reject(Error('NETWORK'))),/NETWORK/);
  assert.equal(interactive.inert,true);
 });
+
+test('AC-009: all standalone management entrypoints share the blocking Loading assets without tracking background reads',()=>{
+ const pages=['platform/index.html','admin/workspace.html','admin/frontdesk-settings/index.html'];
+ for(const page of pages){
+   const html=read(page);
+   assert.match(html,/async-action-feedback\.css\?v=20261124-1/,page);
+   assert.match(html,/async-action-feedback\.js\?v=20261124-1/,page);
+ }
+ const platform=read('platform/app.js');
+ const standalone=read('admin/frontdesk-settings/frontdesk-settings-page.js');
+ assert.match(platform,/foregroundWrites\.has\(action\)/);
+ assert.match(platform,/platform\.tenant\.features\.save/);
+ assert.match(platform,/finishFeedback\?\.\(\)/);
+ assert.match(standalone,/platform\.frontdesk\.rejection-settings\.save/);
+ assert.match(standalone,/finishFeedback\?\.\(\)/);
+});
