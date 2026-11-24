@@ -1,0 +1,102 @@
+const { test, expect } = require('playwright/test');
+const { startFixture } = require('./admin-fixture.cjs');
+
+let host;
+test.beforeAll(async () => { host = await startFixture(); });
+test.afterAll(async () => { await host.close(); });
+test.beforeEach(async ({ page }, info) => {
+  await page.goto(host.base + '/admin/?run=' + encodeURIComponent(info.testId));
+  await expect(page.locator('#adminView')).toBeVisible();
+});
+
+test('AC-014: entire blank day tile launches the correct editor in all three admin calendars', async ({ page }) => {
+  await page.locator('#calendarTab').click();
+  await expect(page.locator('#adminCalendarGrid')).toBeVisible();
+  const memberDay = page.locator('#adminCalendarGrid .admin-calendar-day[data-admin-calendar-date]').first();
+  const activityDate = await memberDay.getAttribute('data-admin-calendar-date');
+  await memberDay.click({ position: { x: 16, y: 70 } });
+  await expect(page.locator('#calendarEditorModal')).toBeVisible();
+  await expect(page.locator('#calendarItemType')).toHaveValue('event');
+  await expect(page.locator('#calendarItemStartsOn')).toHaveValue(activityDate);
+  await expect(page.locator('#calendarItemVisibilityPolicy')).toBeVisible();
+  await page.locator('#calendarEditorModal .editor-modal-close').click();
+
+  await page.locator('#eventsTab').click();
+  const ticketDay = page.locator('#eventTicketCalendarGrid .admin-calendar-day[data-ticket-calendar-date]').first();
+  const ticketDate = await ticketDay.getAttribute('data-ticket-calendar-date');
+  await ticketDay.click({ position: { x: 16, y: 70 } });
+  await expect(page.locator('#eventTicketEditorModal')).toBeVisible();
+  await expect(page.locator('#eventTicketStartsOn')).toHaveValue(ticketDate);
+  await expect(page.locator('#eventTicketVisibilityPolicy')).toHaveValue('eligible_only');
+  await page.locator('#eventTicketEditorModal .editor-modal-close').click();
+
+  await page.locator('#bookingTab').click();
+  const bookingDay = page.locator('#bookingOverviewCalendarGrid .admin-calendar-day[data-booking-calendar-date]').first();
+  const holidayDate = await bookingDay.getAttribute('data-booking-calendar-date');
+  await bookingDay.click({ position: { x: 16, y: 70 } });
+  await expect(page.locator('#calendarEditorModal')).toBeVisible();
+  await expect(page.locator('#calendarItemType')).toHaveValue('holiday');
+  await expect(page.locator('#calendarItemStartsOn')).toHaveValue(holidayDate);
+  await expect(page.locator('#calendarItemAllowedTiers')).toBeHidden();
+});
+
+test('AC-015: booking holiday saves and remains editable; it cannot leak into the activity calendar', async ({ page }, info) => {
+  await page.locator('#bookingTab').click();
+  await page.locator('#bookingOverviewCalendarGrid .admin-calendar-day[data-booking-calendar-date]').first().click({ position: { x: 16, y: 70 } });
+  await page.locator('#calendarItemTitle').fill('QA 店休日');
+  await page.locator('#calendarItemStatus').selectOption('draft');
+  await page.locator('#saveCalendarItemButton').click();
+  await expect.poll(() => host.sessions.get(info.testId).calendarItems.length).toBe(1);
+  const stored = host.sessions.get(info.testId).calendarItems[0];
+  expect(stored.itemType).toBe('holiday');
+  await page.locator('#calendarEditorModal .editor-modal-close').click();
+  const holidayEntry = page.locator('#bookingOverviewCalendarGrid [data-booking-calendar-holiday-id="' + stored.calendarItemId + '"]').first();
+  await expect(holidayEntry).toBeVisible();
+  await holidayEntry.click();
+  await expect(page.locator('#calendarItemId')).toHaveValue(stored.calendarItemId);
+  await expect(page.locator('#calendarItemType')).toHaveValue('holiday');
+  await page.locator('#calendarEditorModal .editor-modal-close').click();
+  await page.locator('#calendarTab').click();
+  await expect(page.locator('#adminCalendarGrid [data-admin-calendar-item-id="' + stored.calendarItemId + '"]')).toHaveCount(0);
+});
+
+test('AC-016: independent member-event audience and visibility choices round-trip through the editor', async ({ page }, info) => {
+  await page.locator('#calendarTab').click();
+  await page.locator('#adminCalendarGrid .admin-calendar-day[data-admin-calendar-date]').first().click({ position: { x: 16, y: 70 } });
+  await page.locator('#calendarItemTitle').fill('QA 白金專屬活動');
+  await page.locator('#calendarItemStatus').selectOption('draft');
+  for (const tier of ['general', 'silver', 'gold']) {
+    await page.locator('#calendarItemAllowedTiers input[value="' + tier + '"]').uncheck();
+  }
+  await page.locator('#calendarItemVisibilityPolicy').selectOption('higher_preview');
+  await page.locator('#saveCalendarItemButton').click();
+  await expect.poll(() => host.sessions.get(info.testId).calendarItems.length).toBe(1);
+  const row = host.sessions.get(info.testId).calendarItems[0];
+  expect(row.allowedTierKeys).toEqual(['platinum']);
+  expect(row.visibilityPolicy).toBe('higher_preview');
+  await page.locator('#calendarEditorModal .editor-modal-close').click();
+  await page.locator('#adminCalendarGrid [data-admin-calendar-item-id="' + row.calendarItemId + '"]').first().click();
+  await expect(page.locator('#calendarItemVisibilityPolicy')).toHaveValue('higher_preview');
+  await expect(page.locator('#calendarItemAllowedTiers input[value="platinum"]')).toBeChecked();
+});
+
+test('AC-017: light and dark schemes color all calendar tiles with the shared design tokens', async ({ page }) => {
+  for (const [tab, grid] of [['calendarTab', 'adminCalendarGrid'], ['eventsTab', 'eventTicketCalendarGrid'], ['bookingTab', 'bookingOverviewCalendarGrid']]) {
+    await page.locator('#' + tab).click();
+    await expect(page.locator('#' + grid)).toBeVisible();
+    const tiles = page.locator('#' + grid + ' .admin-calendar-day:not(.admin-calendar-day-empty)');
+    const values = [];
+    for (const theme of ['light', 'dark']) {
+      const actual = await tiles.first().evaluate((node, themeName) => {
+        document.documentElement.setAttribute('data-theme', themeName);
+        const tile = getComputedStyle(node);
+        return { background: tile.backgroundColor, foreground: tile.color, border: tile.borderTopColor };
+      }, theme);
+      values.push(actual);
+      expect(actual.background).not.toBe('rgba(0, 0, 0, 0)');
+      expect(actual.foreground).not.toBe(actual.background);
+    }
+    expect(values[0].background).not.toBe(values[1].background);
+    expect(values[0].foreground).not.toBe(values[1].foreground);
+  }
+});
