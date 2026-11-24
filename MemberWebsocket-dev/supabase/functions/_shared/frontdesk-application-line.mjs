@@ -5,8 +5,7 @@ const lineUser=/^U[0-9a-f]{32}$/i;
 const officialAccount=/^@[a-z0-9._-]{3,40}$/i;
 const label=value=>String(value||'').replace(/[\r\n\t\u0000-\u001f]+/g,' ').trim().slice(0,100);
 export function frontdeskApplicationText({merchantName,applicant}) {
- return ['【櫃檯人員權限申請】',`商家：${label(merchantName)||'商家'}`,`申請人：${label(applicant)||'櫃檯人員'}`,'狀態：等待商家管理員審核','請由商家管理端「LINE 設定 → 預約 → 櫃檯官方帳號與人員權限」確認申請。','核准前無法使用櫃檯權限。'].join('
-');
+ return ['【櫃檯人員權限申請】',`商家：${label(merchantName)||'商家'}`,`申請人：${label(applicant)||'櫃檯人員'}`,'狀態：等待商家管理員審核','請由商家管理端「LINE 設定 → 預約 → 櫃檯官方帳號與人員權限」確認申請。','核准前無法使用櫃檯權限。'].join('\n');
 }
 export function frontdeskApplicationChatLink({oaId,merchantName,applicant}) {
  if(!officialAccount.test(String(oaId||'')))return null;
