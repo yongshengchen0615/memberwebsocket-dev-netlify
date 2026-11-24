@@ -54,7 +54,8 @@
       tab.addEventListener('keydown', event => {
         if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
         event.preventDefault();
-        const keys = [...tabButtons.keys()], at = keys.indexOf(key);
+        // Skip tabs hidden by an older server contract while navigating by keyboard.
+        const keys = [...tabButtons].filter(([, item]) => !item.hidden).map(([name]) => name), at = keys.indexOf(key);
         const next = event.key === 'Home' ? 0 : event.key === 'End' ? keys.length - 1 :
           (at + (event.key === 'ArrowRight' ? 1 : -1) + keys.length) % keys.length;
         const target = tabButtons.get(keys[next]);
