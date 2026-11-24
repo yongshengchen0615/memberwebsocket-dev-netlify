@@ -1,7 +1,6 @@
 import { PlatformError } from './platform-policy.mjs';
 import { verifyFrontdeskIdToken } from './platform-auth.mjs';
 import { openCredentials } from './platform-crypto.mjs';
-import { sendFrontdeskApplicationLineMessage } from './frontdesk-application-line.mjs';
 import { readRequestBytes } from './request-ingress.mjs';
 const actions=new Map([['frontdesk.public','public'],['frontdesk.apply','apply'],['frontdesk.bootstrap','bootstrap'],['frontdesk.bookings','bookings'],['frontdesk.history','history'],['frontdesk.sync.status','sync.status'],['frontdesk.booking.update','booking.update'],['frontdesk.booking.reject-phone','booking.reject_phone'],['frontdesk.phone.catalog','phone.catalog'],['frontdesk.phone.slots','phone.slots'],['frontdesk.phone.create','phone.create']]);
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -65,13 +64,11 @@ export function createFrontdeskHandler({db,allowedOrigins,verifyIdentity=(idToke
    const identity=await verifyIdentity(body.idToken,context.frontdesk?.loginChannelId);
    const identityHash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('frontdesk:'+context.id+':'+identity.lineUserId));
    if(!await rpc('consume_api_rate_limit',{p_principal_hash:Array.from(new Uint8Array(identityHash),b=>b.toString(16).padStart(2,'0')).join(''),p_is_write:['frontdesk.apply','frontdesk.booking.update','frontdesk.booking.reject-phone','frontdesk.phone.create'].includes(body.action),p_cost:1,p_read_limit:90,p_write_limit:15}))throw new PlatformError(429,'RATE_LIMITED','操作過於頻繁，請稍後再試。');
-   let applicationToken='';
    const input=body.action==='frontdesk.booking.reject-phone'?{bookingId:body.bookingId,status:'rejected',expectedUpdatedAt:body.expectedUpdatedAt,requestId:body.requestId,rejectionReason:body.rejectionReason,phoneRequestId:body.phoneRequestId,startTime:body.startTime,totalDurationMinutes:body.totalDurationMinutes}:body.action==='frontdesk.booking.update'?{bookingId:body.bookingId,status:body.status,expectedUpdatedAt:body.expectedUpdatedAt,requestId:body.requestId,note:body.note,rejectionReason:body.rejectionReason}:['frontdesk.bookings','frontdesk.history'].includes(body.action)?{bookingId:body.bookingId}:body.action==='frontdesk.phone.slots'?{bookingDate:body.bookingDate,items:body.items}:body.action==='frontdesk.phone.create'?{requestId:body.requestId,bookingDate:body.bookingDate,startTime:body.startTime,items:body.items,contactSurname:body.contactSurname,contactSalutation:body.contactSalutation,contactPhone:body.contactPhone,adminNote:body.adminNote}:{};
    if(body.action==='frontdesk.apply'){
     const routes=await rpc('platform_notification_credentials',{p_tenant_id:context.id,p_feature:'booking'}),route=routes?.frontdesk;
     if(route?.mode!=='custom'||!route.envelope)throw new PlatformError(409,'FRONTDESK_OA_REQUIRED','請先請管理員啟用櫃檯官方帳號。');
     const credentials=await openCredentials(context.id+':booking:notify:frontdesk',route.envelope,await encryptionKey());
-    applicationToken=credentials.channelAccessToken;
     // Verifies this authenticated sub is reachable through the configured bot,
     // never infers a global Login-to-bot binding from bot/info.
     let profile;try{const r=await fetchImpl('https://api.line.me/v2/bot/profile/'+identity.lineUserId,{headers:{Authorization:'Bearer '+credentials.channelAccessToken},signal:AbortSignal.timeout(8000)});if(r.ok)profile=await r.json();else if(r.status>=500||r.status===429)throw Error('provider');}
@@ -83,13 +80,6 @@ export function createFrontdeskHandler({db,allowedOrigins,verifyIdentity=(idToke
    // atomic paired-booking transaction and validating the configured reason.
    const rejectionAction=body.action==='frontdesk.booking.reject-phone'||(body.action==='frontdesk.booking.update'&&body.status==='rejected');
    const data=await rpc(rejectionAction?'platform_frontdesk_rejection_request':'platform_frontdesk_request',{p_tenant_id:context.id,p_actor:identity.lineUserId,p_channel_id:context.frontdesk.loginChannelId,p_issued_at:new Date(identity.issuedAtMs).toISOString(),p_action:actions.get(body.action),p_body:input});
-   if(body.action==='frontdesk.apply'){
-    // Commit the permission request first; notification failures do not roll it back.
-    // LINE's stable retry key prevents duplicate push acceptance during its retry window.
-    const delivery=await sendFrontdeskApplicationLineMessage({staff:data?.staff,actor:identity.lineUserId,
-     merchantName:context.name,channelAccessToken:applicationToken,fetchImpl});
-    return json({ok:true,data:{...data,lineApplicationMessage:delivery.status}});
-   }
    if(['frontdesk.booking.update','frontdesk.booking.reject-phone','frontdesk.phone.create'].includes(body.action)){
     // The frontdesk request RPC has already committed its durable outbox.
     // Track the wake after returning the booking result; no untracked async
