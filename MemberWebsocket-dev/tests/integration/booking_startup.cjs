@@ -121,6 +121,20 @@ async function fixture(mode) {
     await tick(100);
     assert.ok(calls.includes('user.booking.group.slots'));
     assert.ok(el('slotGrid').querySelector('button'));
+    // A foreground slot refresh now blocks further edits until its authoritative
+    // response settles. Observe Loading completion instead of waiting a guessed
+    // number of milliseconds before exercising the participant accordion.
+    const loading = w.document.querySelector('.async-action-feedback');
+    if (loading && !loading.hidden) {
+      await new Promise((resolve) => {
+        const observer = new w.MutationObserver(() => {
+          if (!loading.hidden) return;
+          observer.disconnect();
+          resolve();
+        });
+        observer.observe(loading, { attributes: true, attributeFilter: ['hidden'] });
+      });
+    }
     assert.equal(w.document.querySelectorAll('[data-group-history]').length, 0, 'Other-day group cards stay out of the date dialog');
 
     // AC-001–004: group booking is a single-open accordion, without losing selections.
