@@ -42,7 +42,7 @@
   "reviewedSources": {
     "admin/booking-admin-ux.js": "2c2b7dbc8d08a7884f9e298b97f19862b5044c0bc3cbaef53aa551a576028edc",
     "admin/index.html": "59ffc15f2b4a1a5804c2fb596a4cfee7244de85925cec15dff5a54db11b29562",
-    "admin/app.js": "32023bcc59a9d285f3f9f54e179db87ab4730b5afc848bd392f54ec6477d3b66",
+    "admin/app.js": "e1bf572197dc8d59b042f21ddfb50d689de6c3a4c6fb28b782168c7f3c860726",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
     "admin/grant-automation.js": "3f9d2c049a7741d098548a5102c115b1b23c825f35e4369de3dc0ab1efbb1f6e",
