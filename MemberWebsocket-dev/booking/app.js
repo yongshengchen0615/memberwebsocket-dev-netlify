@@ -1067,7 +1067,7 @@
           item.appendChild(disclosure);
         }
       }
-      if (booking.adminNote) {
+      if (booking.adminNote && booking.status !== 'rejected') {
         const adminNote = document.createElement('p');
         adminNote.className = 'booking-note admin-note';
         adminNote.textContent = `管理端說明：${booking.adminNote}`;
