@@ -105,7 +105,7 @@ test('AC-FD-UX-003: standalone page uses readable, concise merchant-specific hea
   const html=read('admin/frontdesk-settings/index.html');
   const script=read('admin/frontdesk-settings/frontdesk-settings-page.js');
   assert.doesNotMatch(html,/BUSINESS \/ FRONTDESK/);
-  assert.match(html,/櫃檯登入、預約通知與人員權限/);
+  assert.match(html,/分頁管理 LINE 設定、拒絕預約原因與人員權限/);
   assert.doesNotMatch(script,/data\.tenant\.name\s*\+\s*'｜櫃檯設定'/);
   assert.match(frontdesk,/櫃檯人員申請與權限/);
 });
@@ -134,7 +134,7 @@ test('AC-FD-HIST-006: server action is tenant-authorized, read-only and migratio
  assert.match(css,/scrollbar-gutter: stable/);
  assert.match(css,/\.frontdesk-settings-body > button/);
  assert.doesNotMatch(css,/\.frontdesk-settings > button/);
- assert.match(frontdesk,/body\.append\(status, syncState, reload, tabs, content, historyPanel\)/);
+ assert.match(frontdesk,/body\.append\(status, syncState, reload, tabs, content, rejectionPanel, historyPanel\)/);
  assert.match(html,/frontdesk-line-flow-20261122-1/);
 });
 

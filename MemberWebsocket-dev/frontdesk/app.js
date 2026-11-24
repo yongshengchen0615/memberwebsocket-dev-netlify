@@ -5,8 +5,8 @@
  const status=document.getElementById('status'),account=document.getElementById('account'),list=document.getElementById('bookings'),refresh=document.getElementById('refresh');
  let config,idToken,busy=false,epoch=0,historyEpoch=0,historyLoaded=false,frontdeskPolicy={};const pending=new Map();
  const legacyRejectionReasons=[
-  {id:'technician_leave',label:'預約中有休假技師',enabled:true,requiresConflictTime:false},
-  {id:'unrecorded_phone_booking',label:'該時段已被現場人員預約但未登記',enabled:true,requiresConflictTime:true}
+  {id:'technician_leave',label:'預約中有休假技師',memberDescription:'預約中有休假技師',enabled:true,requiresConflictTime:false},
+  {id:'unrecorded_phone_booking',label:'該時段已被現場人員預約但未登記',memberDescription:'該時段已被現場人員預約但未登記',enabled:true,requiresConflictTime:true}
  ];
  let rejectionSettings={dropdownTitle:'請選擇拒絕原因',reasons:legacyRejectionReasons};
  const rejectionReasonById=id=>rejectionSettings.reasons.find(item=>item.id===id&&item.enabled);
@@ -355,6 +355,14 @@
    const option=node('option',item.label);option.value=item.id;reason.append(option);
   }
   reasonField.append(reason);
+  const vacationQuick=node('label');vacationQuick.className='frontdesk-rejection-quick';
+  const vacationCheck=node('input');vacationCheck.type='checkbox';vacationCheck.name='vacationTechnician';
+  vacationQuick.append(vacationCheck,node('span','休假技師（勾選自動帶入拒絕說明）'));
+  vacationQuick.hidden=!Boolean(rejectionReasonById('technician_leave'));
+  const memberPreview=node('section');memberPreview.className='frontdesk-rejection-member-preview';memberPreview.hidden=true;
+  memberPreview.append(node('strong','會員端拒絕說明預覽'));
+  const memberPreviewText=node('p');
+  memberPreview.append(memberPreviewText);
   const phonePanel=node('section');phonePanel.className='frontdesk-phone-settings';phonePanel.dataset.phoneRegistration='true';phonePanel.hidden=true;
   const title=node('h3','登記電話／現場預約');
   const hint=node('p','同一筆操作會拒絕原預約、登記並直接確認現場預約，無須等待管理員審核。');
@@ -417,7 +425,7 @@
   const footer=node('div');footer.className='frontdesk-modal-actions';
   const cancel=node('button','取消');cancel.type='button';cancel.className='frontdesk-modal-cancel';
   const submit=node('button','確認拒絕預約');submit.type='submit';submit.className='frontdesk-danger';submit.disabled=true;
-  footer.append(cancel,submit);form.append(reasonField,phonePanel,feedback,footer);
+  footer.append(cancel,submit);form.append(vacationQuick,reasonField,memberPreview,phonePanel,feedback,footer);
   dialog.append(heading,help,original,form);overlay.append(dialog);document.body.append(overlay);
   const close=(force=false)=>{
    if(busy&&!force||!overlay.isConnected)return;
@@ -450,13 +458,23 @@
    }else if(!frozen)feedback.textContent='';
   };
   const updateReason=()=>{
+   const selected=rejectionReasonById(reason.value)||
+    (reason.value===frozen?.rejectionReason?rejectionSettings.reasons.find(item=>item.id===reason.value):null);
+   vacationCheck.checked=reason.value==='technician_leave';
+   memberPreview.hidden=!selected;
+   memberPreviewText.textContent=String(selected?.memberDescription||selected?.label||'').trim();
    phonePanel.hidden=!requiresConflictTime();
    if(phonePanel.hidden)feedback.textContent='';
    updateSubmit();
   };
+  vacationCheck.onchange=()=>{
+   if(frozen){vacationCheck.checked=reason.value==='technician_leave';return;}
+   reason.value=vacationCheck.checked?'technician_leave':'';
+   updateReason();
+  };
   reason.onchange=updateReason;time.onchange=updateSubmit;duration.onchange=updateSubmit;
   if(frozen?.status==='rejected'){
-   reason.value=frozen.rejectionReason||'';reason.disabled=true;
+   reason.value=frozen.rejectionReason||'';reason.disabled=true;vacationCheck.disabled=true;
    if(frozen.phoneRequestId){if(!Array.from(time.options).some(option=>option.value===frozen.startTime)){const opt=node('option',frozen.startTime);opt.value=frozen.startTime;time.append(opt);}time.value=frozen.startTime||time.value;time.disabled=true;const frozenMinutes=String(frozen.totalDurationMinutes||duration.value);if(!Array.from(duration.options).some(option=>option.value===frozenMinutes)){const opt=node('option',frozenMinutes+' 分鐘');opt.value=frozenMinutes;duration.append(opt);}duration.value=frozenMinutes;duration.disabled=true;}
    feedback.textContent='上次結果尚未確認，僅能重試相同內容。';
   }
@@ -476,7 +494,6 @@
   };
   updateReason();reason.focus();
  }
-
  // LIFF sends only to the current chat. Staff must open this entry in their
  // merchant OA one-on-one chat; the chat identifier is not exposed by LINE.
  function frontdeskApplicationText(){

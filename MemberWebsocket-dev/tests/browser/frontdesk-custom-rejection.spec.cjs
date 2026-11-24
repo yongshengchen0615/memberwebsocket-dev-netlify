@@ -63,7 +63,18 @@ for(const width of [390,1280])test('AC-003/004/005/006: configured rejection rou
  await expect(select.locator('option')).toHaveCount(4); // placeholder + 3 enabled
  await expect(select.locator('option[value="unrecorded_phone_booking"]')).toHaveCount(0);
  await expect(select.locator('option[value="'+disabled+'"]')).toHaveCount(0);
+ const vacation=dialog.getByRole('checkbox',{name:'休假技師（勾選自動帶入拒絕說明）'});
+ await expect(vacation).toBeVisible();
+ await vacation.check();
+ await expect(select).toHaveValue('technician_leave');
+ await expect(dialog.locator('.frontdesk-rejection-member-preview')).toContainText('技師休假，請改期');
+ await expect(dialog.locator('[data-phone-registration]')).toBeHidden();
+ await vacation.uncheck();
+ await expect(select).toHaveValue('');
+ await expect(dialog.locator('.frontdesk-rejection-member-preview')).toBeHidden();
  await select.selectOption(ordinary);
+ await expect(vacation).not.toBeChecked();
+ await expect(dialog.locator('.frontdesk-rejection-member-preview')).toContainText('設備維護，請改期');
  await expect(dialog.locator('[data-phone-registration]')).toBeHidden();
  await dialog.getByRole('button',{name:'確認拒絕預約'}).click();
  await expect(page.locator('.frontdesk-card')).toHaveCount(1);

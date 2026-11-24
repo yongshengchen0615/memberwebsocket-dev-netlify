@@ -820,6 +820,7 @@ test('FRONTDESK_REJECTION_SETTINGS_LEGACY — no editor on older server contract
  await page.evaluate(()=>{
   window.FrontdeskSettings.mount({root:document.getElementById('root'),business:'shop-a',
    request:async(action)=>{
+    if(action==='platform.frontdesk.history.list')return {items:[]};
     if(action!=='platform.frontdesk.get')throw Error('unexpected action '+action);
     return {version:1,frontdesk:{},staff:[]};
    }});
@@ -827,11 +828,20 @@ test('FRONTDESK_REJECTION_SETTINGS_LEGACY — no editor on older server contract
  await page.locator('summary').click();
  await expect(page.locator('form.frontdesk-preferences-form')).toBeVisible();
  await expect(page.locator('[data-frontdesk-rejection-settings]')).toHaveCount(0);
+ await expect(page.getByRole('tab',{name:'拒絕預約設定'})).toHaveCount(0);
+ await page.getByRole('tab',{name:'LINE 設定'}).focus();
+ await page.keyboard.press('ArrowRight');
+ await expect(page.getByRole('tab',{name:'確認預約'})).toHaveAttribute('aria-selected','true');
 });
 
-test('FRONTDESK_REJECTION_SETTINGS_EDITOR — edit, order, disable, save and replay frozen request', async({page})=>{
+for(const width of [390,1280])test('FRONTDESK_REJECTION_SETTINGS_EDITOR_'+width+' — accessible, responsive editor, ordering and frozen replay', async({page},info)=>{
+ await page.setViewportSize({width,height:900});
  await page.goto(base+'/frontdesk/');
- await page.setContent('<main id="root"></main>');
+ await page.setContent('<link rel="stylesheet" href="'+base+'/theme.css">'+
+  '<link rel="stylesheet" href="'+base+'/frontdesk/styles.css">'+
+  '<link rel="stylesheet" href="'+base+'/admin/frontdesk-settings/frontdesk-settings-page.css">'+
+  '<main id="root" class="frontdesk-shell frontdesk-settings-standalone"></main>');
+ await page.evaluate(()=>{document.documentElement.dataset.frontdeskPage='true';});
  await page.addScriptTag({url:base+'/admin/frontdesk-settings.js'});
  await page.evaluate(()=>{
   window.rejectionWrites=[];
@@ -855,7 +865,13 @@ test('FRONTDESK_REJECTION_SETTINGS_EDITOR — edit, order, disable, save and rep
  });
  await page.locator('summary').click();
  const form=page.locator('[data-frontdesk-rejection-settings]');
+ const rejectionTab=page.getByRole('tab',{name:'拒絕預約設定'});
+ await expect(rejectionTab).toBeVisible();
+ await expect(form).toBeHidden();
+ await rejectionTab.click();
+ await expect(rejectionTab).toHaveAttribute('aria-selected','true');
  await expect(form).toBeVisible();
+ await expect(page.locator('#frontdesk-line-panel')).toBeHidden();
  await form.locator('[name=rejectionDropdownTitle]').fill('請選擇本店原因');
  await form.getByRole('button',{name:'新增拒絕原因'}).click();
  const rows=form.locator('fieldset');
@@ -866,6 +882,7 @@ test('FRONTDESK_REJECTION_SETTINGS_EDITOR — edit, order, disable, save and rep
  await rows.nth(2).getByRole('button',{name:'原因 3 上移'}).click();
  await expect(rows.nth(1).locator('input[type=text]')).toHaveValue('設備維護');
  await rows.nth(2).getByLabel('啟用此拒絕原因').uncheck();
+ await expect(rows.nth(2).locator('.frontdesk-rejection-state')).toHaveText('已停用');
  await form.getByRole('button',{name:'儲存拒絕預約設定'}).click();
  await expect(form.getByRole('button',{name:'重試相同儲存操作'})).toBeEnabled();
  await expect(form.locator('textarea').first()).toBeDisabled();
@@ -881,6 +898,14 @@ test('FRONTDESK_REJECTION_SETTINGS_EDITOR — edit, order, disable, save and rep
  expect(writes[0].rejectionSettings.reasons[1].id).toMatch(/^custom_[0-9a-f-]{36}$/);
  expect(writes[0].rejectionSettings.reasons[2]).toMatchObject({id:'unrecorded_phone_booking',enabled:false});
  await expect(form.locator('[name=rejectionDropdownTitle]')).toHaveValue('請選擇本店原因');
+ await expect(form.locator('.frontdesk-rejection-preview').nth(1)).toContainText('設備維護，請重新預約。');
+ await page.getByRole('tab',{name:'LINE 設定'}).click();
+ await expect(form).toBeHidden();
+ await page.getByRole('tab',{name:'拒絕預約設定'}).click();
+ await expect(form).toBeVisible();
  await expect(rows.nth(1).locator('textarea')).toHaveValue('設備維護，請重新預約。');
  await expect(rows.nth(2).getByLabel('啟用此拒絕原因')).not.toBeChecked();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await expect(form.getByRole('button',{name:'儲存拒絕預約設定'})).toBeVisible();
+ await info.attach('frontdesk-rejection-settings-'+width,{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
 });

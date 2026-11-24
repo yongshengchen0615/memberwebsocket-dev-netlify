@@ -355,3 +355,31 @@ html[data-theme="dark"] .frontdesk-page .frontdesk-modal-backdrop{
 .frontdesk-page .frontdesk-history-booking h4{margin:0 0 8px}
 .frontdesk-page .frontdesk-history-booking p{margin:4px 0;overflow-wrap:anywhere}
 @media(min-width:700px){.frontdesk-page .frontdesk-history-pair{grid-template-columns:repeat(2,minmax(0,1fr))}.frontdesk-page .frontdesk-history-pair>h3,.frontdesk-page .frontdesk-history-pair>p{grid-column:1/-1}}
+
+/* Rejection shortcut uses the tenant-configured leave reason; explanation is
+   display-only so clients cannot forge a customer-facing explanation. */
+.frontdesk-page .frontdesk-rejection-form .frontdesk-rejection-quick {
+ display:flex;align-items:center;gap:12px;padding:13px 15px;margin:0;
+ border:1px solid var(--fd-primary);border-radius:12px;
+ background:color-mix(in srgb,var(--fd-card) 90%,var(--fd-primary) 10%);
+ font-weight:750;cursor:pointer;
+}
+.frontdesk-page .frontdesk-rejection-quick input[type=checkbox] {
+ width:21px;height:21px;min-width:21px;margin:0;flex:none;
+ accent-color:var(--fd-primary);
+}
+.frontdesk-page .frontdesk-rejection-quick:has(input:checked) {
+ box-shadow:inset 0 0 0 1px var(--fd-primary);
+}
+.frontdesk-page .frontdesk-rejection-quick span {min-width:0;overflow-wrap:anywhere;}
+.frontdesk-page .frontdesk-rejection-member-preview {
+ display:grid;gap:5px;padding:12px 14px;border-radius:12px;
+ border:1px solid var(--fd-border);
+ background:color-mix(in srgb,var(--fd-card) 96%,var(--fd-primary) 4%);
+}
+.frontdesk-page .frontdesk-rejection-member-preview strong {font-size:.88rem;}
+.frontdesk-page .frontdesk-rejection-member-preview p {
+ margin:0;white-space:pre-wrap;overflow-wrap:anywhere;
+ color:var(--fd-text);line-height:1.65;
+}
+.frontdesk-page .frontdesk-rejection-form [hidden] {display:none!important;}
