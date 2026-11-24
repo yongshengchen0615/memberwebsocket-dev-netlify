@@ -71,13 +71,13 @@
     "platform/platform.css": "adef4577cbae41c584fe16fce5c6372ab86a994f37226a9a6cc5116bb5bcecf2",
     "admin/business-line-settings.css": "ceab14d19f8137f529bdaa39c590ce5329304a9a3a8c515afd54bdb802a3f0c3",
     "booking/common.js": "8869346e2801a94b08615a6ab26d9908e3072e77758459b3824bb820d4191505",
-    "admin/frontdesk-settings.js": "967c4d9a00bc13d6e755180c85c3f521e90eafa645813cc5636c113814f576ad",
-    "frontdesk/app.js": "6ecf8bc2b1b80efc8684eeb9cea2afa34ee40a4242d4140251bfbbc0cb589dd9",
-    "frontdesk/styles.css": "c08cb98c3d2c955dd3c6f8719b9d9b3062c3bd9bee018083cae14ee7569556a6",
-    "frontdesk/index.html": "8cbd6cfe4bfee646d35be0e0373c72ea60c9a99b76fedc0c26f6a4e84a3897f3",
-    "admin/frontdesk-settings/index.html": "80e0b4c6eaca0b398a54b567bc3a2a22870b5ad271be89d2880169cd072348f9",
+    "admin/frontdesk-settings.js": "3658790c41ccc3ba28382be56b7f73eb42371b1198e337113f918129db2c7123",
+    "frontdesk/app.js": "2744c0a8525e3a80e921c5bf82500d7c9f8ce080dc39ce074ddcec047d2ffaec",
+    "frontdesk/styles.css": "6a7f4ad1f75018019a511035a7eb0845ee114722df4357dae3819cfd6fed0e5d",
+    "frontdesk/index.html": "7db2e11ffbb441cd09db5f63d54043280f921d53874ce2ecca691ca448479402",
+    "admin/frontdesk-settings/index.html": "8bc9af71c48ccf8d7c09304a299f09fe74d84d1df1d787b8412a3b168dd40cf2",
     "admin/frontdesk-settings/frontdesk-settings-page.js": "a5bb5f8c6716a7ab8f0cccf3dbe8be993a307a6d56b01cfe218d330cbd3de429",
-    "admin/frontdesk-settings/frontdesk-settings-page.css": "931ffde79d6120be1c1cff811d53846a5d8a57051b86fdec854edec1ce095a27"
+    "admin/frontdesk-settings/frontdesk-settings-page.css": "2ce352bfaa2b1260c3a94bb12e451445dbb10504cbf0686a310e2181bd365add"
   },
   "features": [
     {
@@ -336,7 +336,7 @@
     {
       "id": "retired-center.27",
       "module": "integration",
-      "name": "整合中心已移除；管理端櫃檯設定在獨立頁面管理 LINE、櫃檯人員、確認／拒絕預約歷史；新增拒絕原因編輯（標籤、櫃檯下拉標題、啟用與排序、衝突時間需求、會員端說明）。拒絕紀錄顯示當時原因快照；衝突預約仍採原預約區間內每 10 分鐘一格與原子雙預約。獨立 Playwright 以 frontdesk-booking.spec.cjs 與 frontdesk-custom-rejection.spec.cjs 驗證。",
+      "name": "商家櫃檯設定獨立頁面：LINE 設定、拒絕預約設定、確認預約與拒絕預約紀錄各自為獨立頁籤；拒絕原因以響應式卡片編輯、即時預覽會員說明與排序停用。櫃檯休假技師快速勾選會自動選取本商家已啟用的原因並顯示對應會員說明，後端仍使用既有授權、理由快照與衝突時間原子交易；Playwright 前台 390／1280px、管理端 editor+legacy fixture 作驗收。",
       "cases": [
         "RETIRED_CENTER",
         "MOBILE_SURFACE_NAV",
