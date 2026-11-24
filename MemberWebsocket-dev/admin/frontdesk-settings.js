@@ -419,7 +419,9 @@
           draft.forEach((reason, index) => {
             const card = node('fieldset', '', 'frontdesk-setup-card frontdesk-rejection-rule');
             card.append(node('legend', '拒絕原因 ' + (index + 1)));
-            card.append(node('span', reason.enabled ? '使用中' : '已停用', 'frontdesk-rejection-state ' + (reason.enabled ? 'is-enabled' : 'is-disabled')));
+            const stateBadge = node('span', reason.enabled ? '使用中' : '已停用',
+              'frontdesk-rejection-state ' + (reason.enabled ? 'is-enabled' : 'is-disabled'));
+            card.append(stateBadge);
             const label = field('rejection-label-' + reason.id, '櫃檯端選項名稱', '此名稱供櫃檯人員選擇。', reason.label);
             const descriptionLabel = node('label', '用戶端拒絕原因說明');
             const description = node('textarea');
@@ -435,7 +437,14 @@
               const wrap = node('label', '', 'business-notification-toggle');
               const input = node('input');
               input.type = 'checkbox'; input.checked = reason[key];
-              input.addEventListener('change', () => { reason[key] = input.checked; markDirty(); });
+              input.addEventListener('change', () => {
+                reason[key] = input.checked;
+                if (key === 'enabled') {
+                  stateBadge.textContent = input.checked ? '使用中' : '已停用';
+                  stateBadge.className = 'frontdesk-rejection-state ' + (input.checked ? 'is-enabled' : 'is-disabled');
+                }
+                markDirty();
+              });
               wrap.append(input, node('span', caption));
               return wrap;
             };
