@@ -42,7 +42,7 @@
   "reviewedSources": {
     "admin/booking-admin-ux.js": "2c2b7dbc8d08a7884f9e298b97f19862b5044c0bc3cbaef53aa551a576028edc",
     "admin/index.html": "59ffc15f2b4a1a5804c2fb596a4cfee7244de85925cec15dff5a54db11b29562",
-    "admin/app.js": "da6d5075953085a66adf287b840b3e44a6ecb87639af5453065891ea39c55961",
+    "admin/app.js": "32023bcc59a9d285f3f9f54e179db87ab4730b5afc848bd392f54ec6477d3b66",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
     "admin/grant-automation.js": "3f9d2c049a7741d098548a5102c115b1b23c825f35e4369de3dc0ab1efbb1f6e",
@@ -81,7 +81,7 @@
     "admin/calendar-scope-rules.js": "ce309a04625c7e02e3ef6076a37110687a3fba4e49edd01f9449457050af4651",
     "calendar/index.html": "730ca7116f5451773e5bb116baace7838407ae077bea91bf51c90e477c56d271",
     "calendar/app.js": "9ca29f5a145d3604bc1f4040be89bcfbe0cd69819090f1565646b47c0ba047d5",
-    "supabase/functions/member-calendar-api/index.ts": "1e62df7c507279aa9515b9a564aeccf193faf3c1e3a04f9322f23313a2330977"
+    "supabase/functions/member-calendar-api/index.ts": "61666b6d0be547828a9a1bb7c1db005ece75d648b2f7a4a23886103300ea8d41"
   },
   "features": [
     {
