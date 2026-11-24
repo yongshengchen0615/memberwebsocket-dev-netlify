@@ -41,7 +41,7 @@
   },
   "reviewedSources": {
     "admin/booking-admin-ux.js": "2c2b7dbc8d08a7884f9e298b97f19862b5044c0bc3cbaef53aa551a576028edc",
-    "admin/index.html": "2f1d1e6e8e55a8e7c71ca6ca1b8d7e26848079e16bdf8397b09b3c92442c2c57",
+    "admin/index.html": "5cdac91ac58342948fc06c117ae83439042250aaa6317424cbe5704c2f01708a",
     "admin/app.js": "eb8e79f8a3fa3ff2143d462b4157aff68f8f08d2d302ee5c9e3cd2ee860d4a98",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
@@ -52,8 +52,8 @@
     "admin/fixed-ticket-calendar-option.js": "0bbc53970ff0ec7408985b001113f64de718963bcfbc793f563a44f2e068f1f1",
     "admin/pointcard-redemption-limit.js": "fbba580c9babdac950b2f619c3f3b949fe89ae0c1365e2555f758d1a8818035c",
     "admin/event-ticket-redemption-limit.js": "263a564d64845c5abb4ed5167305b0bffefb064130a0268ab533b481d320b688",
-    "admin/booking-panel.js": "19b0caddb118bd92f2505b12e476dd97f55c64429dde9214f8a4888ed68f1b02",
-    "admin/booking-panel-core.js": "2be7cbe6a1d8b5a757ea0a76f99cad36272b79068ea3cfafc9f259b22cf1674c",
+    "admin/booking-panel.js": "8300e1a57ae66407e97d4442e10406278a97e08320fc3d4f58da6c4f341f9d27",
+    "admin/booking-panel-core.js": "adc16da81a63a5e5892c651be9b8fed1ec1f2777f53f638745b02380039a6be1",
     "admin/booking-resources.js": "6a9c9d9ab1530869d13191668c251e02258a8b5830cb80abafbda3bf556e6319",
     "admin/booking-always-open.js": "9cb236902a7f3f36cf3fe4c3f13fbbac622f000c72d36ec34f7d4dde08e6e54a",
     "admin/booking-cancellation-sync.js": "810d09beb8650d5a88237172a95d6bdbc19c83888e1ab17ef92ec3c5b2de9674",
@@ -62,7 +62,7 @@
     "admin/ticket-visibility.js": "5f3218d1798f285d8b1c971a3658dd4c49525d8468ecd4c8a7fb79f653e7c85f",
     "admin/workspace.html": "2d3d3072e3c5baa8fef4e70429963279de53b95453a6ceac1aaa88d9f08d5b12",
     "platform/app.js": "1416fcf5e311cc4c4843f24f3b40ddc8d0ede53587177b832f76fe6bc519db14",
-    "admin/business-workspace.js": "f916f7aec950076517294230b92456ae05798040b2347c25bfa46839b3a517e4",
+    "admin/business-workspace.js": "a92d8ef276a10432a775e79cc477d31c5d7b3a8a91f1dc7ab1ad31b49aff80a3",
     "business-context.js": "72db2b92ed5749d6e3517cf25306411c17ec0fe06c6c64604b5ea3421ac45e15",
     "admin/business-line-settings.js": "c91b11db6169d80247adcd51bb45e269b9ad4056d5026ed7ba909b1b6ef95df3",
     "admin/booking-risk.js": "a18bba899216a17cef819554cb216a6f0430709e30e5a241dcb60ee5d3f77462",
@@ -839,5 +839,5 @@
   "frontdeskRejectionVacationReview": "2026-11-24：管理端單一拒絕原因卡片於衝突時間選項下方加上「有休假技師」；櫃檯只有對應原因啟用時才從後端授權的商家 booking_technicians（is_active）多選，不再將固定 technician_leave 作全域捷徑。勾選後本頁預覽 A、B 等技師；Edge 僅傳 UUID 且 SQL 在同租戶交易中查表驗證並寫入會員說明快照。歷史重試沿用原 requestId+hash、跨商家／停用 ID／關閉旗標必須拒絕，原 phone 衝突交易與 LINE 通知不改。新增 Node、Chromium 390/1280、回滾式真實 PostgreSQL 測試，測試結果須依同 SHA 證據。 2026-11-24 增量：員工休假清單收斂到單筆預約已指派、排除主要技師，歷史已指派停用技師保持可選；經 same-tenant SQL 檢查。拒絕原因不再有啟用／停用選項，管理員保存即使用，刪除（含最後一項）後不再提供新選擇，歷史 snapshot 和 requestId 再送不變。 2026-11-24 PR #436：已覆核技師休假拒絕說明，改由原預約 DB 日期與開始時間、已獲授權且實際勾選的本單非主要技師生成固定格式；前端依已授權 booking JSON 預覽。既有 LINE 登入、櫃檯 review 撤權、衝突時段補登、原子通知、重送冪等與歷史快照維持；新 SQL 測試在隔離 TEST 先失敗再通過，最終結果依同 SHA CI 判定。",
   "eventTicketRelativeValidityReview": "2026-11-24 PR #434：逐項審核原管理端 62 組人工操作旅程中的活動券管理（新增／編輯／封存、會員資格、使用額度、既有日期、預約服務及金額門檻、抽獎獎項、GPS、會員領券／核銷／轉贈、可用與已用票券）。本次只擴充活動券使用期限為 fixed、relative、both 模式，不移除原已確認管理員操作或變更登入、角色、租戶隔離；已發放票券的期限在資料庫發放時凍結、到期後阻擋核銷和預約綁定、轉贈不重新計時。新增 Node 合約測試及 PGlite SQL 實際行為測試；保留既有 admin-human.spec.cjs、booking-benefits、event-ticket browser、PG17 / Edge typecheck 全基線，合併前以同一提交 CI 為準，真實 LINE Provider 仍需獨立驗收。",
   "realtimeLifecycleReview": "2026-11-24：逐項覆核既有 62 組管理旅程與會員、預約、櫃檯授權同步。只修正 channel 清理、延遲事件世代、商家設定切換及櫃檯背景恢復；原 LINE 登入、後端角色與商家隔離、預約審核和通知不變。新增 realtime_connection_lifecycle、frontdesk_sync_lifecycle、frontdesk_ui 的 stale booking list DOM 案例與 realtime-connection-lifecycle Chromium 實際 socket 契約；既有 admin-human 全部仍須執行。 獨立審查後補上同一登入在背景仍處理權限拒絕、舊登入拒絕不終止新登入、暫停期間不做登入查詢、停用時清理、跨訂閱等待 SDK 移除，以及 SDK 重連例外不產生 unhandled rejection。每項先建立失敗測試，維持目前登入撤權與原維護模式終止規則。",
-  "calendarWorkspaceReview": "2026-11-24 PR #444：盤點管理端活動票券、會員活動、預約三個資料來源及原先所有人工作業旅程。依需求退役批次日曆舊旅程，改以 CALENDAR_SCOPE_DATE_CREATE 及 RUNNER_ADMIN_CALENDAR_SCOPED_CONTROLS 實際確認三個獨立月曆、各自的事件歸屬、活動／票券點日期新增及批次編輯入口消失。保留其餘活動 CRUD、票券/LINE 授權、會員等級、預約管理與休假優先規則；會員端仍稱營運日曆並結合票券。真實 LINE Provider 與最終 CI/Preview 須另有實際證據，不以 mock 代替。 2026-11-24 PR #447：覆核三個獨立管理日曆。休假日於預約日曆新增／編輯、會員活動不再允許新建休假；所有日期格可整格點擊而既有項目優先；單張活動票券及單筆會員活動各自保存適用階級與展示方式（only eligible 或更高階鎖定），保持伺服器資格驗證、DB transaction 與舊全域顯示策略回填。新增 AC-011～017、四組 Chromium 專項，原管理端完整 62 組旅程保留且已審查；整合測試分支與正式環境隔離。"
+  "calendarWorkspaceReview": "2026-11-24 PR #444：盤點管理端活動票券、會員活動、預約三個資料來源及原先所有人工作業旅程。依需求退役批次日曆舊旅程，改以 CALENDAR_SCOPE_DATE_CREATE 及 RUNNER_ADMIN_CALENDAR_SCOPED_CONTROLS 實際確認三個獨立月曆、各自的事件歸屬、活動／票券點日期新增及批次編輯入口消失。保留其餘活動 CRUD、票券/LINE 授權、會員等級、預約管理與休假優先規則；會員端仍稱營運日曆並結合票券。真實 LINE Provider 與最終 CI/Preview 須另有實際證據，不以 mock 代替。 2026-11-24 PR #447：覆核三個獨立管理日曆。休假日於預約日曆新增／編輯、會員活動不再允許新建休假；所有日期格可整格點擊而既有項目優先；單張活動票券及單筆會員活動各自保存適用階級與展示方式（only eligible 或更高階鎖定），保持伺服器資格驗證、DB transaction 與舊全域顯示策略回填。新增 AC-011～017、四組 Chromium 專項，原管理端完整 62 組旅程保留且已審查；整合測試分支與正式環境隔離。 本次 Codex 審查補正：擴及 business_<id> 既有商家 schemas 與 provisioning blueprint；calendar-only 商家保留預約分頁的休假日管理但不取得 booking API 權限；預約票券消費端亦按單張活動票券、單筆活動可見性處理。對應 PG17 provisioning 整合測試、Chromium 休假日及階級測試與現有 tenant grant 負向測試。"
 }
