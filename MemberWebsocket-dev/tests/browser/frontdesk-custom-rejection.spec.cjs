@@ -61,7 +61,8 @@ for(const width of [390,1280])test('AC-003/004/005/006: configured rejection rou
  const dialog=page.locator('[role=dialog]'),select=dialog.locator('select[aria-label="選擇拒絕預約原因"]');
  await expect(dialog).toContainText(settings.dropdownTitle);
  await expect(select.locator('option')).toHaveCount(4); // placeholder + 3 enabled
- await expect(select.locator('option')).not.toContainText(['原現場衝突','停用的原因']);
+ await expect(select.locator('option[value="unrecorded_phone_booking"]')).toHaveCount(0);
+ await expect(select.locator('option[value="'+disabled+'"]')).toHaveCount(0);
  await select.selectOption(ordinary);
  await expect(dialog.locator('[data-phone-registration]')).toBeHidden();
  await dialog.getByRole('button',{name:'確認拒絕預約'}).click();
