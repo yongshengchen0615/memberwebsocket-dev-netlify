@@ -148,6 +148,7 @@ function mapDatabaseError(error: unknown): ApiError {
     ["BOOKING_NOT_EDITABLE",409,"BOOKING_NOT_EDITABLE","這筆預約已結算或不能修改票券，請更新資料。"],
     ["BOOKING_BENEFIT_ALREADY_USED",409,"BOOKING_BENEFIT_ALREADY_USED","已核銷的票券不能再增減。"],
     ["BOOKING_BENEFIT_NOT_AVAILABLE",409,"BOOKING_BENEFIT_NOT_AVAILABLE","其中一張票券已失效，請更新票券資料。"],
+    ["EVENT_TICKET_CLAIM_EXPIRED",409,"EVENT_TICKET_CLAIM_EXPIRED","活動票券已超過取得後使用期限。"],
     ["BOOKING_POINT_TICKET_LIMIT_EXCEEDED",409,"BOOKING_POINT_TICKET_LIMIT_EXCEEDED","超過本次集點卡票券使用上限。"],
     ["BOOKING_EVENT_TICKET_LIMIT_EXCEEDED",409,"BOOKING_EVENT_TICKET_LIMIT_EXCEEDED","超過活動票券每日使用上限。"],
     ["POINT_TICKET_INSUFFICIENT_POINTS",409,"POINT_TICKET_INSUFFICIENT_POINTS","可用點數不足，請減少選用票券。"],
@@ -1200,6 +1201,7 @@ function eventTicketClient(row: any, claimedCount = 0, admin = false): Json {
     status: row.status,
     startsOn: row.starts_on || "",
     endsOn: row.ends_on || "",
+    validityDaysAfterClaim: row.validity_days_after_claim ?? null,
     quota: Number(row.quota || 0),
     claimedCount,
     requiresLocation: Boolean(row.requires_location),
@@ -1236,6 +1238,7 @@ function claimClient(row: any, eventTicketId = ""): Json {
     prizes: Array.isArray(row.prizes) ? row.prizes : [],
     status: row.status === "claimed" ? "available" : row.status,
     claimedAt: row.claimed_at,
+    expiresAt: row.expires_at || "",
     usedAt: row.used_at || "",
     result: row.result || null,
   };
@@ -1309,7 +1312,8 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
     const claim = claimRow ? claimClient(claimRow,row.event_ticket_id) : null;
     const scheduled = Boolean(row.starts_on && today < row.starts_on);
     const ended = Boolean(row.ends_on && today > row.ends_on);
-    const availability = scheduled ? "scheduled" : ended ? "ended" : "active";
+    const expired = Boolean(claimRow?.expires_at && Date.parse(String(claimRow.expires_at)) <= Date.now());
+    const availability = expired ? "expired" : scheduled ? "scheduled" : ended ? "ended" : "active";
     const visibility = tierVisibility(row.allowed_tier_keys,profile.tierKey,visibilityPolicy);
     if (!visibility.visible) return [];
     const tierEligible = visibility.tierEligible;
@@ -1760,6 +1764,10 @@ async function saveEventTicket(supabase: SupabaseClient, actor: string, body: Js
   const status = requireStatus(input.status);
   const startsOn = asText(input.startsOn,20);
   const endsOn = asText(input.endsOn,20);
+  const validityDaysAfterClaim = input.validityDaysAfterClaim === null || input.validityDaysAfterClaim === undefined || input.validityDaysAfterClaim === ""
+    ? null : Number(input.validityDaysAfterClaim);
+  if (validityDaysAfterClaim !== null && (!Number.isInteger(validityDaysAfterClaim) || validityDaysAfterClaim < 1 || validityDaysAfterClaim > 3650))
+    throw new ApiError(400,"INVALID_RELATIVE_VALIDITY","取得後使用期限必須是 1–3650 天的整數。");
   if (startsOn && !/^\d{4}-\d{2}-\d{2}$/.test(startsOn)) throw new ApiError(400,"INVALID_DATE","活動開始日格式不正確。");
   if (endsOn && !/^\d{4}-\d{2}-\d{2}$/.test(endsOn)) throw new ApiError(400,"INVALID_DATE","活動結束日格式不正確。");
   if (startsOn && endsOn && endsOn < startsOn) throw new ApiError(400,"INVALID_DATE_RANGE","活動結束日不可早於開始日。");
@@ -1797,6 +1805,7 @@ async function saveEventTicket(supabase: SupabaseClient, actor: string, body: Js
     status,
     starts_on: startsOn || null,
     ends_on: endsOn || null,
+    validity_days_after_claim: validityDaysAfterClaim,
     quota,
     requires_location: requiresLocation,
     redemption_locations: locations,
