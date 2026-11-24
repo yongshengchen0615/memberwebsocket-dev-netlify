@@ -175,7 +175,7 @@ jobs:
         run: node --test MemberWebsocket-dev/tests/integration/frontdesk_api.cjs MemberWebsocket-dev/tests/integration/frontdesk_legacy.cjs MemberWebsocket-dev/tests/integration/frontdesk_race.cjs
       - name: Check frontdesk UI and review contracts
         if: matrix.suite == 'frontdesk-ui'
-        run: node --test MemberWebsocket-dev/tests/integration/frontdesk_ui.cjs
+        run: node --test --test-timeout=60000 MemberWebsocket-dev/tests/integration/frontdesk_ui.cjs
       - name: Check frontdesk LINE authentication contracts
         if: matrix.suite == 'frontdesk-login'
         run: node --test MemberWebsocket-dev/tests/integration/frontdesk_fresh_login.cjs
