@@ -287,8 +287,10 @@ test('AC-FD-HIST-001~004: three accessible tabs show scoped confirmed/rejected d
  details.open=true;details.dispatchEvent(new w.Event('toggle'));
  const settle=()=>new Promise(resolve=>setImmediate(resolve));
  await settle();await settle();
- const tabs=[...root.querySelectorAll('[role="tab"]')];
+ const tabs=[...root.querySelectorAll('[role="tab"]')].filter(x=>!x.hidden);
  assert.deepEqual(tabs.map(x=>x.textContent),['LINE 設定','確認預約','拒絕預約']);
+ assert.equal(root.querySelector('#frontdesk-tab-rejectionSettings').hidden,true,
+  'old backend contract must not expose a non-functional rejection settings tab');
  assert.equal(tabs[0].getAttribute('aria-selected'),'true');
  assert.equal(calls.filter(x=>x.action==='platform.frontdesk.history.list').length,0,'history fetch is lazy');
  tabs[1].click();await settle();await settle();
@@ -483,4 +485,51 @@ test('AC-ADM-FD-003/004: LINE deep link auto-displays admin original/replacement
   assert.doesNotMatch(visible,/不相關會員|0900999888/);
   assert.doesNotMatch(visible,/預約來源：櫃檯人員/);
  }finally{w.close();}
+});
+
+
+test('AC-FD-REJ-TABS-003: configured merchant can switch to reason editor and retain the draft across tabs',async()=>{
+ const dom=new JSDOM('<div id="root"></div>',{
+  url:'https://desk.test/admin/frontdesk-settings/?business=shop-a',
+  runScripts:'outside-only',pretendToBeVisual:true
+ });
+ const w=dom.window,root=w.document.getElementById('root'),calls=[];
+ const current={version:7,frontdesk:{enabled:true,rejectionSettings:{
+  dropdownTitle:'請選擇拒絕原因',reasons:[
+   {id:'technician_leave',label:'休假技師',memberDescription:'休假無法接待，請改期',enabled:true,requiresConflictTime:false},
+   {id:'unrecorded_phone_booking',label:'現場預約衝突',memberDescription:'時段已滿',enabled:true,requiresConflictTime:true}
+  ]
+ }},staff:[]};
+ const request=async(action,body)=>{
+  calls.push({action,body});
+  if(action==='platform.frontdesk.get')return structuredClone(current);
+  if(action==='platform.frontdesk.history.list')return{items:[]};
+  throw Error('Unexpected action '+action);
+ };
+ w.eval(fs.readFileSync(path.join(__dirname,'../../admin/frontdesk-settings.js'),'utf8'));
+ w.FrontdeskSettings.mount({root,request,business:'shop-a'});
+ const details=root.querySelector('details');
+ details.open=true;details.dispatchEvent(new w.Event('toggle'));
+ const settle=()=>new Promise(resolve=>setImmediate(resolve));
+ await settle();await settle();
+ const tab=root.querySelector('#frontdesk-tab-rejectionSettings'),editor=root.querySelector('[data-frontdesk-rejection-settings]');
+ assert.equal(tab.hidden,false);
+ assert.equal(editor.hidden,false,'the editor itself remains mounted but hidden through its panel');
+ assert.equal(root.querySelector('#frontdesk-rejection-panel').hidden,true);
+ tab.click();
+ assert.equal(tab.getAttribute('aria-selected'),'true');
+ assert.equal(root.querySelector('#frontdesk-line-panel').hidden,true);
+ assert.equal(root.querySelector('#frontdesk-rejection-panel').hidden,false);
+ const desc=editor.querySelector('textarea');
+ desc.value='更新後會員看到的說明';desc.dispatchEvent(new w.Event('input',{bubbles:true}));
+ assert.match(editor.querySelector('.frontdesk-rejection-preview').textContent,/更新後會員看到的說明/);
+ root.querySelector('#frontdesk-tab-confirmed').click();await settle();
+ assert.equal(root.querySelector('#frontdesk-rejection-panel').hidden,true);
+ assert.equal(root.querySelector('#frontdesk-history-panel').hidden,false);
+ tab.click();
+ assert.equal(root.querySelector('#frontdesk-rejection-panel').hidden,false);
+ assert.equal(editor.querySelector('textarea').value,'更新後會員看到的說明');
+ assert.equal(calls.filter(c=>c.action==='platform.frontdesk.get').length,1,
+  'tab switching must not re-fetch or wipe unsaved draft');
+ w.FrontdeskSettings.clear(root);dom.window.close();
 });
