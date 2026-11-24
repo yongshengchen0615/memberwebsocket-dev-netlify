@@ -20,3 +20,23 @@ test('Issue #425: rejection policy contract',async(t)=>{
  ];
  for(const [name,run] of cases)await t.test(name,()=>assert.equal(run(),true));
 });
+
+test('Issue #425: admin policy save is validated, versioned and tenant-scoped before RPC',async()=>{
+ const {frontdeskAdmin}=await import('../supabase/functions/_shared/frontdesk-admin.mjs');
+ const {defaultRejectionSettings}=await import('../supabase/functions/_shared/frontdesk-rejection-settings.mjs');
+ const calls=[],tenant={id:'10000000-0000-4000-8000-000000000001',features:{booking:true,frontdesk:true}};
+ const args={db:{rpc:async(name,input)=>{calls.push({name,input});return {data:{version:8},error:null};}},
+  actor:'U'+'a'.repeat(32),issuedAt:'2026-11-24T03:00:00Z',tenant};
+ const body={action:'platform.frontdesk.rejection-settings.save',expectedVersion:7,
+  requestId:'10000000-0000-4000-8000-000000000009',rejectionSettings:defaultRejectionSettings()};
+ assert.equal((await frontdeskAdmin({...args,body})).version,8);
+ assert.equal(calls.length,1);
+ assert.equal(calls[0].name,'platform_frontdesk_admin');
+ assert.equal(calls[0].input.p_tenant_id,tenant.id);
+ assert.equal(calls[0].input.p_action,'rejection-settings.save');
+ assert.equal(calls[0].input.p_body.expectedVersion,7);
+ assert.match(calls[0].input.p_body.payloadHash,/^[a-f0-9]{64}$/);
+ await assert.rejects(()=>frontdeskAdmin({...args,body:{...body,rejectionSettings:{dropdownTitle:'x',reasons:[]}}}));
+ await assert.rejects(()=>frontdeskAdmin({...args,tenant:{...tenant,features:{frontdesk:false,booking:true}},body}));
+ assert.equal(calls.length,1);
+});
