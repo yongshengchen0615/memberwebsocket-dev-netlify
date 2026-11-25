@@ -80,3 +80,26 @@ test('AC-008/009: existing confirmed bookings preserve prior policy, new appoint
   assert.match(sql,/b\.status = 'confirmed'/);
   assert.match(sql,/check \(extract\(second from reminder_time\) = 0\)/);
 });
+
+test('AC-010/011: admin reservation summary reflects member LINE reminder safely', () => {
+  const admin = read('admin/booking-panel-core.js');
+  const api = read('supabase/functions/booking-api/index.ts');
+  const loader = read('admin/booking-panel.js');
+  const vm = require('node:vm');
+  const helper = admin.match(/  function bookingReminderSummary\(booking\) \{[\s\S]*?\n  \}/);
+  assert.ok(helper, 'admin should define a reminder presentation helper');
+  const describe = vm.runInNewContext('(' + helper[0].trim() + ')');
+  assert.equal(describe({ reminderEnabled: true, reminderTime: '09:30' }), '已設定｜預約前一天 09:30（台灣時間）');
+  assert.equal(describe({ reminderEnabled: true, reminderTime: '18:00' }), '已設定｜預約前一天 18:00（台灣時間）');
+  assert.equal(describe({ reminderEnabled: false, reminderTime: '18:00' }), '未設定');
+  assert.equal(describe({}), '資料未同步');
+  assert.equal(describe({ reminderEnabled: true, reminderTime: '25:99' }), '已設定｜提醒時間未取得');
+  assert.equal(describe({ reminderEnabled: true, reminderTime: '<script>' }), '已設定｜提醒時間未取得');
+
+  const render = admin.slice(admin.indexOf('function renderBookingSummary('), admin.indexOf('function summaryMetaItem('));
+  assert.match(render, /summaryMetaItem\('LINE 預約提醒', bookingReminderSummary\(booking\)\)/);
+  assert.match(render, /if \(isPhoneBooking\(booking\)\) \{[\s\S]*?\} else \{[\s\S]*?LINE 預約提醒/);
+  assert.match(api, /reminderEnabled: row\.reminder_enabled === true/);
+  assert.match(api, /reminderTime: String\(row\.reminder_time/);
+  assert.match(loader, /member-reminder-20261125-1/);
+});

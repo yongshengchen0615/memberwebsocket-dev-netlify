@@ -202,7 +202,6 @@
         </section>
 
 
-
         <section id="bookingAdminMessagesPanel" class="booking-admin-card booking-admin-settings-panel booking-admin-messages-panel hidden" role="tabpanel" aria-labelledby="bookingAdminMessagesSubtab">
           <div class="booking-admin-section-heading"><div><p class="kicker">Message settings</p><h3>訊息設定</h3><p>依照會員看到訊息的位置，分別設定預約頁說明與 LINE 通知內容。四項訊息會在按下「儲存所有訊息」後一起更新。</p></div></div>
           <div class="booking-admin-messages-help" role="note" aria-label="設定前須知">
@@ -2139,6 +2138,16 @@
     };
   }
 
+  // This describes the member's preference, not the delivery state of a LINE message.
+  function bookingReminderSummary(booking) {
+    if (booking?.reminderEnabled !== true) {
+      return booking?.reminderEnabled === false ? '未設定' : '資料未同步';
+    }
+    const time = String(booking.reminderTime || '').slice(0, 5);
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return '已設定｜提醒時間未取得';
+    return `已設定｜預約前一天 ${time}（台灣時間）`;
+  }
+
   function renderBookingSummary(booking, group, hasStoredParticipants) {
     const summary = document.createElement('div');
     summary.className = 'booking-received-summary';
@@ -2164,6 +2173,7 @@
       memberMeta.append(
         summaryMetaItem('LINE 名稱', String(booking.memberDisplayName || '未取得')),
         summaryMetaItem('會員編號', String(booking.memberCode || '未取得')),
+        summaryMetaItem('LINE 預約提醒', bookingReminderSummary(booking)),
       );
     }
     const bookingTotalMinutes = isPhoneBooking(booking) ? booking.totalDurationMinutes : (group?.totalDurationMinutes ?? booking.totalDurationMinutes);

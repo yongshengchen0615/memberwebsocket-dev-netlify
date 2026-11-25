@@ -53,7 +53,9 @@ test('AC-001: admin booking details display the full canonical booking ID for me
     formatMoney: (amount) => String(amount),
     renderParticipantDetails: () => document.createElement('section'),
   };
-  vm.runInNewContext(core.slice(start, end) + '\nthis.renderBookingSummary = renderBookingSummary;', context);
+  const reminderStart = core.indexOf('  function bookingReminderSummary(');
+  assert.ok(reminderStart >= 0 && reminderStart < start, 'booking reminder helper must load with the production renderer');
+  vm.runInNewContext(core.slice(reminderStart, end) + '\nthis.renderBookingSummary = renderBookingSummary;', context);
   const descendants = (node) => [node, ...(node.children || []).flatMap(descendants)];
   const bookingId = '123e4567-e89b-42d3-a456-426614174000';
   for (const contactSource of ['member', 'phone']) {
