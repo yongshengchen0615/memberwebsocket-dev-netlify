@@ -18,8 +18,11 @@ test.beforeEach(async({page},info)=>{
     catch(e){await route.fulfill({status:400,json:{ok:false,error:{code:e.code,message:e.message}}});}
   };
   await page.route('https://fixture.supabase.co/**',handleFixtureRoute);
-  // The shared fixture keeps synthetic grant traffic local. Preserve this
-  // spec's fault injection and delayed-response gates on that transport too.
+  // The canonical admin transport is served from the local fixture URL.
+  // Route it through the same response gate so the real pending-write UI
+  // state is tested, including save-button blocking before acknowledgement.
+  await page.route(host.base+'/functions/v1/api',handleFixtureRoute);
+  // Keep the obsolete extension stub isolated for retired-path regressions.
   await page.route(host.base+'/functions/v1/grant-automation',handleFixtureRoute);
   await page.route('https://nominatim.openstreetmap.org/**',r=>r.fulfill({json:[{lat:'25.033',lon:'121.5654',display_name:'QA Taipei'}]}));
   // No real member, LINE message, map service or database is reachable.
