@@ -101,3 +101,35 @@ test('AC-017: light and dark schemes color all calendar tiles with the shared de
     expect(values[0].foreground).not.toBe(values[1].foreground);
   }
 });
+
+
+test('AC-018: activity-ticket calendar checkbox can be enabled, saved, read back and disabled', async ({ page }, info) => {
+  await page.locator('#eventsTab').click();
+  await page.locator('#newEventTicketButton').click();
+  await expect(page.locator('#eventTicketEditorModal')).toBeVisible();
+  await page.locator('#eventTicketTitle').fill('QA 可切換日曆活動');
+  await page.locator('#eventTicketDescription').fill('活動說明');
+  await page.locator('#eventTicketUsageMethod').fill('櫃檯出示');
+  await page.locator('#eventTicketUsageInstructions').fill('出示票券由櫃檯確認');
+  await page.locator('#eventTicketStatus').selectOption('draft');
+  await page.locator('#eventTicketStartsOn').fill('2026-12-20');
+  await expect(page.locator('#eventTicketAddToCalendar')).toBeEnabled();
+  await page.locator('#eventTicketAddToCalendar').check();
+  await page.locator('#saveEventTicketButton').click();
+  await expect.poll(() => host.sessions.get(info.testId).calendarItems.length).toBe(1);
+  const linked = host.sessions.get(info.testId).calendarItems[0];
+  const ticket = host.sessions.get(info.testId).eventTickets[0];
+  expect(linked.itemType).toBe('event');
+  expect(linked.startsOn).toBe('2026-12-20');
+  expect(linked.visibilityPolicy).toBe('eligible_only');
+  expect(new URL(linked.linkUrl).searchParams.get('eventTicketId')).toBe(ticket.eventTicketId);
+
+  await page.locator('#eventTicketEditorModal .editor-modal-close').click();
+  await page.locator('#eventTicketListItems [data-event-ticket-id="' + ticket.eventTicketId + '"]').click();
+  await expect(page.locator('#eventTicketAddToCalendar')).toBeEnabled();
+  await expect(page.locator('#eventTicketAddToCalendar')).toBeChecked();
+  await page.locator('#eventTicketAddToCalendar').uncheck();
+  await page.locator('#saveEventTicketButton').click();
+  await expect.poll(() => host.sessions.get(info.testId).calendarItems.length).toBe(0);
+  expect(host.sessions.get(info.testId).eventTickets).toHaveLength(1);
+});
