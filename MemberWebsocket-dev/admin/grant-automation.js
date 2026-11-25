@@ -104,16 +104,11 @@
   }
 
   async function mergeCalendarBonusList(config, idToken, result) {
+    // Bootstrap already contains the authorized calendar snapshot. Do not overwrite it
+    // with the retired grant-automation calendar endpoint.
     cacheCalendarResult(result);
-    if(result.features)config.grantedFeatures=result.features;
-    if(!featureAllowed(config,'calendar'))return result;
-    try {
-      const bonusResult = await automationRequest(config, idToken, 'admin.calendar-items.list', {});
-      if (Array.isArray(bonusResult.calendarItems)) result.calendarItems = bonusResult.calendarItems;
-    } catch (_) {
-      // Bootstrap must remain usable if the optional extension endpoint is unavailable.
-    }
-    return cacheCalendarResult(result);
+    if (result.features) config.grantedFeatures = result.features;
+    return result;
   }
 
   function eventTicketCalendarLink(eventTicketId) {
@@ -353,8 +348,12 @@
   }
 
   async function fetchCalendarItemsForEventSync(config, idToken) {
-    const result = await automationRequest(config, idToken, 'admin.calendar-items.list', {});
-    return Array.isArray(result.calendarItems) ? result.calendarItems : [];
+    // Use the same tenant-aware, authenticated API as the regular calendar editor.
+    const result = cacheCalendarResult(await originalRequest(config, 'admin', idToken, 'admin.calendar-items.list', {}));
+    if (!Array.isArray(result.calendarItems)) {
+      throw clientError('CALENDAR_LIST_INVALID', '日曆設定回應不完整，請重新讀取。');
+    }
+    return result.calendarItems;
   }
 
   function setEventTicketCalendarStatus(message) {
@@ -379,7 +378,16 @@
 
   function handleEventTicketCalendarSubmitCapture(event) {
     const checkbox = document.getElementById('eventTicketAddToCalendar');
-    if (!checkbox || checkbox.disabled || !checkbox.checked) return;
+    if (!checkbox || !featureAllowed(lastAdminConfig, 'calendar')) return;
+    if (checkbox.dataset.syncUnknown === '1') {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const message = '尚未確認此票券原本的日曆狀態，請點選「重新讀取日曆設定」後再儲存。';
+      setEventTicketCalendarStatus(message);
+      setEventTicketFormMessage(message);
+      return;
+    }
+    if (checkbox.disabled || !checkbox.checked) return;
     const startsOn = String(document.getElementById('eventTicketStartsOn')?.value || '').trim();
     if (startsOn) return;
     event.preventDefault();
@@ -398,9 +406,11 @@
     const checkbox = document.getElementById('eventTicketAddToCalendar');
     if (!checkbox) return;
     if (!eventTicketId) {
+      ++eventCalendarSyncVersion; // Invalidate an outstanding read for another ticket.
       checkbox.checked = false;
       checkbox.disabled = false;
       checkbox.dataset.syncUnknown = '0';
+      document.getElementById('eventTicketCalendarRetryButton')?.classList.add('hidden');
       updateEventTicketCalendarHint();
       return;
     }
@@ -408,6 +418,7 @@
     const version = ++eventCalendarSyncVersion;
     checkbox.disabled = true;
     checkbox.dataset.syncUnknown = '1';
+    document.getElementById('eventTicketCalendarRetryButton')?.classList.add('hidden');
     setEventTicketCalendarStatus('正在確認這張票券的日曆設定…');
     try {
       const rows = await fetchCalendarItemsForEventSync(lastAdminConfig, lastAdminIdToken);
@@ -415,12 +426,14 @@
       checkbox.checked = rows.some((item) => isManagedEventTicketCalendarItem(item, eventTicketId));
       checkbox.disabled = false;
       checkbox.dataset.syncUnknown = '0';
+      document.getElementById('eventTicketCalendarRetryButton')?.classList.add('hidden');
       updateEventTicketCalendarHint();
     } catch (_) {
       if (version !== eventCalendarSyncVersion) return;
       checkbox.disabled = true;
       checkbox.dataset.syncUnknown = '1';
-      setEventTicketCalendarStatus('暫時無法確認日曆設定；本次儲存票券時會保留原本的日曆狀態。');
+      document.getElementById('eventTicketCalendarRetryButton')?.classList.remove('hidden');
+      setEventTicketCalendarStatus('暫時無法確認日曆設定，請點選「重新讀取日曆設定」。為避免意外取消活動，本次禁止儲存。');
     }
   }
 
@@ -462,12 +475,11 @@
         status: String(ticket.status || 'draft'),
         accent: String(ticket.accent || '#df6b4d'),
         allowedTierKeys: Array.isArray(ticket.allowedTierKeys) ? ticket.allowedTierKeys : [],
+        visibilityPolicy: String(ticket.visibilityPolicy || 'eligible_only'),
         linkLabel: '查看活動票券',
-        linkUrl: eventTicketCalendarLink(ticket.eventTicketId),
-        bonusPointsEnabled: Boolean(existing && existing.bonusPointsEnabled),
-        bonusPoints: existing && Number(existing.bonusPoints) > 0 ? Number(existing.bonusPoints) : 0
+        linkUrl: eventTicketCalendarLink(ticket.eventTicketId)
       };
-      const saved = await automationRequest(config, idToken, 'admin.calendar-items.save', {
+      const saved = await originalRequest(config, 'admin', idToken, 'admin.calendar-items.save', {
         calendarItem,
         expectedUpdatedAt: existing ? String(existing.updatedAt || '') : ''
       });
@@ -476,7 +488,9 @@
         ? '活動票券已儲存，日曆活動已同步更新。'
         : '活動票券已儲存，並已加入日曆。');
     } catch (error) {
-      setEventTicketCalendarStatus(`活動票券已儲存，但日曆同步失敗：${String(error && error.message || '請稍後重試')}`);
+      const message = `活動票券已儲存，但日曆同步失敗：${String(error && error.message || '請重新整理確認')}`;
+      setEventTicketCalendarStatus(message);
+      throw clientError('CALENDAR_SYNC_PARTIAL', message + '。請重新整理確認結果，勿直接重複新增票券。');
     }
   }
 
@@ -515,12 +529,9 @@
     if (clientType === 'admin' && action === 'admin.member-grants.add') {
       return automationRequest(config, idToken, action, decorateGrantPayload(payload));
     }
-    if (clientType === 'admin' && action === 'admin.calendar-items.save') {
-      if(!featureAllowed(config,'points'))return originalRequest(config,clientType,idToken,action,payload);
-      return automationRequest(config, idToken, action, decorateCalendarPayload(payload));
-    }
-    if (clientType === 'admin' && action === 'admin.calendar-items.list') {
-      return automationRequest(config, idToken, action, payload);
+    if (clientType === 'admin' && (action === 'admin.calendar-items.save' || action === 'admin.calendar-items.list')) {
+      // The legacy bonus extension cannot be the source of truth for calendar writes.
+      return Promise.resolve(originalRequest(config, clientType, idToken, action, payload)).then(cacheCalendarResult);
     }
     if (clientType === 'admin' && action === 'admin.event-tickets.save') {
       return saveEventTicketWithCalendarSync(config, clientType, idToken, action, payload);
@@ -667,9 +678,11 @@
     section.innerHTML = `
       <div><p class="kicker">Calendar sync</p><h4>加入活動日曆</h4><p>可將這張活動票券同步成會員日曆中的活動；名稱、期間、公開狀態、顏色與適用會員等級會跟著票券更新。活動期間遇到休假時只隱藏休假當日，移除休假後會自動恢復。</p></div>
       <label class="grant-toggle"><input id="eventTicketAddToCalendar" type="checkbox">將這張活動票券加入日曆</label>
-      <p id="eventTicketCalendarStatus" class="editor-hint" aria-live="polite">目前不加入日曆。</p>`;
+      <p id="eventTicketCalendarStatus" class="editor-hint" aria-live="polite">目前不加入日曆。</p>
+      <button id="eventTicketCalendarRetryButton" class="text-button hidden" type="button">重新讀取日曆設定</button>`;
     dateRange.insertAdjacentElement('afterend', section);
     document.getElementById('eventTicketAddToCalendar')?.addEventListener('change', updateEventTicketCalendarHint);
+    document.getElementById('eventTicketCalendarRetryButton')?.addEventListener('click', () => syncEventTicketCalendarChoiceFromSelection(true));
     form.addEventListener('submit', handleEventTicketCalendarSubmitCapture, true);
     form.addEventListener('reset', () => window.setTimeout(() => syncEventTicketCalendarChoiceFromSelection(true), 0));
     updateEventTicketCalendarHint();
