@@ -8,6 +8,7 @@ const admin = fs.readFileSync(path.join(root, 'admin/index.html'), 'utf8');
 const app = fs.readFileSync(path.join(root, 'admin/app.js'), 'utf8');
 const api = fs.readFileSync(path.join(root, 'supabase/functions/api/index.ts'), 'utf8');
 const sql = fs.readFileSync(path.join(root, 'supabase/migrations/20261125093000_retire_calendar_event_bonus.sql'), 'utf8');
+const templateSql = fs.readFileSync(path.join(root, 'supabase/migrations/20261125093500_retire_calendar_event_bonus_provisioning.sql'), 'utf8');
 
 test('AC-001: booking holiday settings and existing booking rewards remain available', () => {
   assert.match(admin, /休假日請至「預約」日曆設定/);
@@ -27,4 +28,12 @@ test('AC-003: migration deactivates offers in legacy and business schemas and pr
   assert.match(sql, /UPDATE %I\.calendar_items[\s\S]*?bonus_points_enabled = false, bonus_points = 0/);
   assert.match(sql, /ADD CONSTRAINT calendar_items_event_bonus_retired_check[\s\S]*?bonus_points_enabled IS FALSE AND bonus_points = 0/);
   assert.doesNotMatch(sql, /\bDROP\s+(?:TABLE|COLUMN)\b/i);
+});
+
+test('AC-004: newly provisioned tenant schemas inherit the retirement check', () => {
+  assert.match(templateSql, /platform_private\.business_templates/);
+  assert.match(templateSql, /business-v1-20261019/);
+  assert.match(templateSql, /calendar_items_event_bonus_retired_check/);
+  assert.match(templateSql, /pg_get_constraintdef\(k\.oid\)/);
+  assert.match(templateSql, /CALENDAR_BONUS_TEMPLATE_CONSTRAINT_DRIFT/);
 });
