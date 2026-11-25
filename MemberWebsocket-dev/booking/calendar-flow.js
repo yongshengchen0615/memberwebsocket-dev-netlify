@@ -526,7 +526,294 @@
         const durationLabel = Number.isFinite(duration) && duration > 0 ? `${duration} 分鐘` : '時間請洽店家';
         const priceLabel = service.priceAmount !== null && service.priceAmount !== undefined &&
           service.priceAmount !== '' && Number.isFinite(price) && price >= 0
-          ? `NT${Math.trunc(price).toLocaleString('zh-Hant-TW')}` : '價格請洽店家';
+          ? 'NT
+        meta.textContent = `${durationLabel} · ${priceLabel}${service.requiresCompanionService ? ' · 加購／需搭配一般項目' : ''}`;
+        item.append(name, meta);
+        section.appendChild(item);
+      }
+      list.appendChild(section);
+    }
+  }
+
+  function closeDayModal(returnFocus) {
+    if (!els.bookingDayModal || els.bookingDayModal.classList.contains('hidden')) return;
+    els.bookingDayModal.classList.add('hidden');
+    document.body.classList.remove('booking-day-open');
+    if (returnFocus) window.setTimeout(focusDateTrigger, 0);
+  }
+
+  function focusDateTrigger() {
+    const date = state.historyDate || state.selectedDate;
+    const trigger = els.calendarGrid?.querySelector(`[data-date="${date}"]`);
+    trigger?.focus();
+  }
+
+  function resetMemberHistory() {
+    // Invalidate in-flight requests and discard the previous member's merchant notice.
+    state.occupancyRequestSeq += 1;
+    window.BookingSystem?.setBookingNotice?.('');
+    closeDayModal(false);
+    closeAppointmentModal(false);
+    state.historyDate = '';
+    state.services = [];
+    if (els.bookingPhoneServiceReference) els.bookingPhoneServiceReference.hidden = true;
+    els.bookingPhoneServiceList?.replaceChildren();
+    state.linkedRecordOpened = false;
+    state.memberBookedByDate.clear();
+    state.occupiedByDate.clear();
+    state.historyDates.clear();
+    state.snapshotDates.clear();
+    els.bookingList?.replaceChildren();
+    renderCalendar();
+  }
+
+  function revealLinkedRecord() {
+    if (state.linkedRecordOpened) return;
+    const target = document.querySelector('#bookingList .booking-detail-target, #bookingSnapshotHistory .booking-detail-target');
+    const date = target?.dataset.bookingDate || target?.dataset.recordDate;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return;
+    state.linkedRecordOpened = true;
+    state.month = date.slice(0, 7);
+    renderCalendar();
+    openDayModal(date, els.calendarGrid.querySelector(`[data-date="${date}"]`));
+  }
+
+  async function loadMonthOccupancy() {
+    if (!window.BookingSystem) return;
+    const testSessionToken = window.TestModeClient && typeof window.TestModeClient.getSessionToken === 'function'
+      ? window.TestModeClient.getSessionToken()
+      : '';
+    if (!testSessionToken && (!window.liff || typeof window.liff.isLoggedIn !== 'function' || !window.liff.isLoggedIn())) return;
+    const idToken = !testSessionToken && typeof window.liff?.getIDToken === 'function' ? window.liff.getIDToken() : '';
+    if (!idToken && !testSessionToken) return;
+
+    const month = state.month;
+    const requestSeq = ++state.occupancyRequestSeq;
+    try {
+      state.config = state.config || await window.BookingSystem.loadConfig();
+      const result = await requestCalendar(state.config, idToken, month);
+      if (requestSeq !== state.occupancyRequestSeq || month !== state.month) return;
+
+      if (result.settings || result.today) {
+        applyGlobalSettings({ settings: result.settings || {}, today: result.today || state.today });
+      }
+      // The existing scoped calendar endpoint also serves the notice on older booking-api deployments.
+      if (Object.prototype.hasOwnProperty.call(result.settings || {}, 'bookingNotice')) {
+        window.BookingSystem?.setBookingNotice?.(result.settings.bookingNotice);
+      }
+      if (typeof result.earliestBookingDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(result.earliestBookingDate)) {
+        state.minimumDate = result.earliestBookingDate;
+      }
+      if (typeof result.latestBookingDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(result.latestBookingDate)) {
+        state.maximumDate = result.latestBookingDate;
+      } else if (Number(result.settings?.maxAdvanceDays || 0) === 0) {
+        state.maximumDate = '';
+      }
+
+      clearMonthEntries(month);
+      for (const item of Array.isArray(result.occupiedDates) ? result.occupiedDates : []) {
+        const date = String(item?.date || '').slice(0, 10);
+        if (!date.startsWith(`${month}-`)) continue;
+        const intervals = Array.isArray(item?.intervals)
+          ? item.intervals.map((interval) => ({
+              startTime: String(interval?.startTime || '').slice(0, 5),
+              endTime: String(interval?.endTime || '').slice(0, 5),
+              startAt: String(interval?.startAt || '').slice(0, 10),
+              endAt: String(interval?.endAt || '').slice(0, 10),
+            })).filter((interval) => /^\d{2}:\d{2}$/.test(interval.startTime) && /^\d{2}:\d{2}$/.test(interval.endTime))
+          : [];
+        if (intervals.length) state.occupiedByDate.set(date, intervals);
+      }
+      for (const raw of Array.isArray(result.holidays) ? result.holidays : []) {
+        addHolidayToMonth(month, raw);
+      }
+      if (state.selectedDate && state.holidaysByDate.has(state.selectedDate)) {
+        clearSelectedDate();
+        closeAppointmentModal(false);
+      }
+      renderCalendar();
+    } catch (_) {
+      // Monthly occupancy/holiday decorations are supplemental. Booking creation remains protected server-side.
+    }
+  }
+
+  function addHolidayToMonth(month, raw) {
+    const startsOn = String(raw?.startsOn || '').slice(0, 10);
+    const endsOn = String(raw?.endsOn || startsOn).slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(startsOn) || !/^\d{4}-\d{2}-\d{2}$/.test(endsOn) || endsOn < startsOn) return;
+    const holiday = {
+      calendarItemId: String(raw?.calendarItemId || ''),
+      title: String(raw?.title || '休假日').slice(0, 200),
+      description: String(raw?.description || '').slice(0, 2000),
+      startsOn,
+      endsOn,
+      accent: safeHolidayAccent(raw?.accent),
+    };
+    let date = startsOn < `${month}-01` ? `${month}-01` : startsOn;
+    const monthEndExclusive = `${shiftMonth(month, 1)}-01`;
+    let guard = 0;
+    while (date <= endsOn && date < monthEndExclusive && guard < 32) {
+      if (date.startsWith(`${month}-`)) {
+        const rows = state.holidaysByDate.get(date) || [];
+        if (!rows.some((item) => item.calendarItemId && item.calendarItemId === holiday.calendarItemId)) rows.push(holiday);
+        else if (!holiday.calendarItemId && !rows.some((item) => item.title === holiday.title && item.startsOn === holiday.startsOn && item.endsOn === holiday.endsOn)) rows.push(holiday);
+        state.holidaysByDate.set(date, rows);
+      }
+      date = addDays(date, 1);
+      guard += 1;
+    }
+  }
+
+  async function requestCalendar(config, idToken, month) {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 15000);
+    try {
+      const endpoint = `${String(config.supabaseUrl).replace(/\/$/, '')}/functions/v1/booking-calendar-api`;
+      const body = { action: 'user.booking.calendar', idToken, month };
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': String(config.supabasePublishableKey),
+        },
+        cache: 'no-store',
+        signal: controller.signal,
+        body: JSON.stringify(window.TestModeClient && typeof window.TestModeClient.payload === 'function'
+          ? window.TestModeClient.payload(body)
+          : body),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload || payload.ok !== true) {
+        const error = new Error(String(payload?.error?.message || '無法取得本月預約時段。'));
+        error.code = String(payload?.error?.code || 'CALENDAR_API_ERROR');
+        throw error;
+      }
+      return payload.data || {};
+    } finally {
+      window.clearTimeout(timer);
+    }
+  }
+
+  function clearMonthEntries(month) {
+    for (const date of [...state.occupiedByDate.keys()]) {
+      if (String(date).startsWith(`${month}-`)) state.occupiedByDate.delete(date);
+    }
+    for (const date of [...state.holidaysByDate.keys()]) {
+      if (String(date).startsWith(`${month}-`)) state.holidaysByDate.delete(date);
+    }
+  }
+
+  function scheduleMonthOccupancyReload() {
+    window.clearTimeout(state.reloadTimer);
+    state.reloadTimer = window.setTimeout(loadMonthOccupancy, 350);
+  }
+
+  function selectDate(date, trigger) {
+    if (date < (state.minimumDate || state.today) || (state.maximumDate && date > state.maximumDate)) return;
+    const holidays = state.holidaysByDate.get(date) || [];
+    if (holidays.length) {
+      showHolidayNotice(date, holidays, trigger);
+      return;
+    }
+    state.selectedDate = date;
+    state.lastDateTrigger = trigger || null;
+    els.bookingDate.disabled = false;
+    els.bookingDate.value = date;
+    els.bookingDate.dispatchEvent(new Event('change', { bubbles: true }));
+    renderCalendar();
+    updateDayAction();
+    openAppointmentModal(date);
+    window.dispatchEvent(new CustomEvent('booking:date-selected'));
+  }
+
+  function showHolidayNotice(date, holidays, trigger) {
+    closeAppointmentModal(false);
+    state.holidayTrigger = trigger instanceof HTMLElement ? trigger : null;
+    if (els.holidayDate) els.holidayDate.textContent = `${formatDate(date)}｜此日休假，無法預約`;
+    if (els.holidayDetails) {
+      els.holidayDetails.replaceChildren(...holidayDetails(holidays));
+    }
+    els.holidayModal?.classList.remove('hidden');
+    window.setTimeout(() => els.closeHolidayButton?.focus(), 0);
+  }
+
+  function holidayDetails(holidays) {
+    return holidays.map((holiday) => {
+        const item = document.createElement('section');
+        item.className = 'booking-holiday-detail';
+        applyHolidayAccent(item, holiday.accent);
+        const title = document.createElement('strong');
+        title.textContent = holiday.title || '休假日';
+        item.appendChild(title);
+        const description = String(holiday.description || '').trim();
+        if (description) {
+          const text = document.createElement('p');
+          text.textContent = description;
+          item.appendChild(text);
+        }
+        return item;
+      });
+  }
+
+  function closeHolidayNotice(returnFocus) {
+    if (!els.holidayModal || els.holidayModal.classList.contains('hidden')) return;
+    els.holidayModal.classList.add('hidden');
+    const trigger = state.holidayTrigger;
+    state.holidayTrigger = null;
+    if (returnFocus && trigger && document.contains(trigger)) window.setTimeout(() => trigger.focus(), 0);
+  }
+
+  function openAppointmentModal(date) {
+    if (els.selectedDateSummary) {
+      els.selectedDateSummary.textContent = `${formatDate(date)}｜請選擇預約項目與時間`;
+    }
+    els.appointmentPanel.classList.remove('hidden');
+    document.body.classList.add('booking-selection-open');
+    window.setTimeout(() => els.closeAppointmentButton?.focus(), 0);
+  }
+
+  function closeAppointmentModal(returnFocus) {
+    if (!els.appointmentPanel || els.appointmentPanel.classList.contains('hidden')) return;
+    const restoreDay = returnFocus && state.returnToDayAfterAppointment && state.historyDate;
+    state.returnToDayAfterAppointment = false;
+    els.appointmentPanel.classList.add('hidden');
+    document.body.classList.remove('booking-selection-open');
+    if (restoreDay) openDayModal(state.historyDate, state.lastDateTrigger);
+    else if (returnFocus) window.setTimeout(focusDateTrigger, 0);
+  }
+
+  function syncAfterSelectionMutation() {
+    if (!state.selectedDate) return;
+
+    if (!els.bookingDate.value) {
+      els.bookingDate.disabled = false;
+      els.bookingDate.value = state.selectedDate;
+      if (els.selectedDateSummary) els.selectedDateSummary.textContent = `${formatDate(state.selectedDate)}｜請選擇預約項目與時間`;
+      return;
+    }
+
+    const actualDate = els.bookingDate.value;
+    if (state.holidaysByDate.has(actualDate)) {
+      clearSelectedDate();
+      closeAppointmentModal(false);
+      return;
+    }
+    if (actualDate !== state.selectedDate) {
+      state.selectedDate = actualDate;
+      state.month = actualDate.slice(0, 7);
+      renderCalendar();
+      loadMonthOccupancy();
+    }
+    if (els.selectedDateSummary) els.selectedDateSummary.textContent = `${formatDate(actualDate)}｜請選擇預約項目與時間`;
+  }
+
+  function formatDate(date) {
+    if (window.BookingSystem?.formatDate) return window.BookingSystem.formatDate(date);
+    const [year, month, day] = String(date).split('-');
+    return `${year}/${month}/${day}`;
+  }
+})();
+ + Math.trunc(price).toLocaleString('zh-Hant-TW') : '價格請洽店家';
         meta.textContent = `${durationLabel} · ${priceLabel}${service.requiresCompanionService ? ' · 加購／需搭配一般項目' : ''}`;
         item.append(name, meta);
         section.appendChild(item);
