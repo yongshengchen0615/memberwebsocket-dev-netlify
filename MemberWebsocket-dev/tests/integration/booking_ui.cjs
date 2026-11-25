@@ -14,6 +14,7 @@ w.BookingSystem={loadConfig:async()=>({}),signIn:async()=>'fixture-token',subscr
  if(action==='user.booking.update')return {booking:{...booking,...payload,status:'pending'}};
  throw Error(action);
 }};
+w.eval(fs.readFileSync(root+'/booking/onsite-edit-policy.js','utf8'));
 w.eval(fs.readFileSync(root+'/booking/app.js','utf8'));
 const tick=()=>new Promise(r=>setTimeout(r,10)); await tick();await tick();
 const clickText=(text)=>{const el=[...w.document.querySelectorAll('button')].find(x=>x.textContent===text);assert.ok(el,text);el.click();};
