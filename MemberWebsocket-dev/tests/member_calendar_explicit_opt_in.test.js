@@ -13,7 +13,7 @@ function projectCalendarRows(calendarRows = [], tickets = [], profile = { tierKe
   assert.ok(start >= 0 && end > start, 'member API calendar projection is present');
   const projection = source.slice(start, end)
     .replace(/:\s*any\b/g, '')
-    .replace(/:\s*CalendarItem\[\]/g, '')
+    .replace(/:\s*CalendarItem(?:\[\])?/g, '')
     .replace(/new Set<string>\(\)/g, 'new Set()');
   const run = new Function(
     'result', 'eventTicketsResult', 'profile', 'birthdayMonth', 'asText',
