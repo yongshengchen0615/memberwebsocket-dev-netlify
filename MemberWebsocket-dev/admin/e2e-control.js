@@ -3829,8 +3829,6 @@
       if (itemType === 'event') {
         setField('calendarItemLinkLabel', 'E2E 活動連結');
         setField('calendarItemLinkUrl', 'https://example.com/e2e-qa');
-        setField('calendarBonusPoints', '4');
-        toggleCheckbox('calendarBonusPointsEnabled', true);
         const audience = document.querySelector('#calendarItemAllowedTiers input[value="general"]');
         if (audience?.checked) audience.click();
       }
@@ -3851,7 +3849,7 @@
       const stored = await window.MemberSystem.request(session.config, 'admin', session.idToken, 'admin.calendar-items.list', {});
       const own = (stored.calendarItems || []).find(item => item.calendarItemId === createdId);
       actual.created = Boolean(own && own.title === createdTitle && own.status === 'draft' &&
-        (itemType !== 'event' || (own.bonusPointsEnabled && own.bonusPoints === 4 && own.linkUrl === 'https://example.com/e2e-qa' && !own.allowedTierKeys.includes('general'))));
+        (itemType !== 'event' || (own.bonusPointsEnabled !== true && Number(own.bonusPoints || 0) === 0 && own.linkUrl === 'https://example.com/e2e-qa' && !own.allowedTierKeys.includes('general'))));
 
       if (actual.created) {
         setField('calendarItemTitle', updatedTitle);
