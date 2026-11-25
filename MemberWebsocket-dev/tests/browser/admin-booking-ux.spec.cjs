@@ -100,3 +100,58 @@ test('AC-001/002 Chromium: loading lasts through parallel writes, ignores reads,
   await page.evaluate(() => window.read);
   await expect(overlay).toBeHidden();
 });
+
+
+// Render the production reservation summary functions in a real browser DOM.
+test('AC-010/011 Chromium: member reminder preference is visible to admins without implying delivery', async ({ page }) => {
+  const fs = require('node:fs');
+  const source = fs.readFileSync(path.join(root, 'admin/booking-panel-core.js'), 'utf8');
+  const section = (start, end) => {
+    const from = source.indexOf(start);
+    const to = source.indexOf(end, from);
+    expect(from).toBeGreaterThan(-1);
+    expect(to).toBeGreaterThan(from);
+    return source.slice(from, to);
+  };
+  const functions = [
+    section('  function bookingReminderSummary(', '  function renderBookingSummary('),
+    section('  function renderBookingSummary(', '  function summaryMetaItem('),
+    section('  function summaryMetaItem(', '  function renderParticipantDetails('),
+  ].join('\n');
+  const cases = [
+    { booking: { bookingSource: 'member', reminderEnabled: true, reminderTime: '09:30' }, expected: '已設定｜預約前一天 09:30（台灣時間）' },
+    { booking: { bookingSource: 'member', reminderEnabled: false, reminderTime: '18:00' }, expected: '未設定' },
+    { booking: { bookingSource: 'member' }, expected: '資料未同步' },
+    { booking: { bookingSource: 'phone', reminderEnabled: false }, expected: null },
+  ];
+  for (const width of [390, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.setContent('<!doctype html><html lang="zh-Hant"><body></body></html>');
+    for (const { booking, expected } of cases) {
+      await page.evaluate(({ functions, booking }) => {
+        const prefix = [
+          "function isPhoneBooking(row) { return row.bookingSource === 'phone'; }",
+          "function isFrontdeskReplacement() { return false; }",
+          "function formatMoney(amount) { return 'NT$ ' + amount; }",
+          "function formatBookingDateSummary(date) { return date; }",
+          "function bookingContactName(row) { return row.memberDisplayName || '測試會員'; }",
+          "function renderParticipantDetails() { return document.createElement('div'); }",
+        ].join('\n');
+        const makeSummary = new Function('booking', prefix + '\n' + functions
+          + '\nreturn renderBookingSummary(booking, { participants: [] }, false);');
+        document.body.replaceChildren(makeSummary({
+          bookingId: 'B-1', bookingDate: '2026-12-12', startTime: '10:00', endTime: '11:00',
+          memberDisplayName: '測試會員', ...booking,
+        }));
+      }, { functions, booking });
+      const meta = page.locator('.booking-member-meta');
+      if (expected) {
+        await expect(meta).toContainText('LINE 預約提醒');
+        await expect(meta).toContainText(expected);
+      } else {
+        await expect(meta).not.toContainText('LINE 預約提醒');
+      }
+      await expect(meta).not.toContainText('已發送');
+    }
+  }
+});
