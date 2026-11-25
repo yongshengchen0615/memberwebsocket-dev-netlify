@@ -33,7 +33,10 @@
         ? await contactRequest(config, idToken, 'user.booking.contacts', { bookingIds: bookings.map((item) => item.bookingId) })
         : { contacts: [] };
       const byId = new Map((contacts.contacts || []).map((item) => [item.bookingId, item]));
-      result.bookings = bookings.map((item) => ({ ...item, ...(byId.get(item.bookingId) || {}) }));
+      result.bookings = bookings.map((item) => {
+        const contact = byId.get(item.bookingId) || {};
+        return { ...item, ...contact, contactPhone: window.BookingContactPhone.format(contact.contactPhone || item.contactPhone || '') };
+      });
       latestBookings = result.bookings;
       return result;
     }
@@ -42,6 +45,7 @@
       const contact = getContactPayload(true);
       const result = await contactRequest(config, idToken, action, { ...payload, ...contact });
       if (result?.booking) {
+        result.booking.contactPhone = window.BookingContactPhone.format(result.booking.contactPhone || '');
         latestBookings = [result.booking, ...latestBookings.filter((item) => item.bookingId !== result.booking.bookingId)];
       }
       return result;
@@ -145,7 +149,7 @@
       const error = validateCustomContact(surname, salutation, phone);
       if (error) throw clientError('INVALID_BOOKING_CONTACT', error);
     }
-    return { contactSource: 'custom', contactSurname: surname, contactSalutation: salutation, contactPhone: phone };
+    return { contactSource: 'custom', contactSurname: surname, contactSalutation: salutation, contactPhone: window.BookingContactPhone.format(phone) };
   }
 
   function selectedSource() {
@@ -194,7 +198,7 @@
     if (!summary) return;
     const surname = String(cachedProfile.surname || '').trim();
     const label = salutationLabel(cachedProfile.salutation);
-    const phone = String(cachedProfile.phone || '').trim();
+    const phone = window.BookingContactPhone.format(cachedProfile.phone);
     summary.textContent = surname && label && phone ? `${surname}${label}｜${phone}` : '會員預約資料尚未完整，可選擇本次重新填寫。';
   }
 
@@ -211,7 +215,7 @@
     if (source === 'custom') {
       setInputValue('bookingContactSurname', booking.contactSurname || '');
       setInputValue('bookingContactSalutation', booking.contactSalutation || '');
-      setInputValue('bookingContactPhone', booking.contactPhone || '');
+      setInputValue('bookingContactPhone', window.BookingContactPhone.format(booking.contactPhone || ''));
     }
     updateContactMode();
   }
@@ -222,7 +226,7 @@
       contactSurname: booking.contactSurname || '',
       contactSalutation: booking.contactSalutation || '',
       contactSalutationLabel: booking.contactSalutationLabel || salutationLabel(booking.contactSalutation),
-      contactPhone: booking.contactPhone || '',
+      contactPhone: window.BookingContactPhone.format(booking.contactPhone || ''),
     };
   }
 

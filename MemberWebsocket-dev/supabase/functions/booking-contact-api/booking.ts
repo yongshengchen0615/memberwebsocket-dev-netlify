@@ -1,4 +1,5 @@
 import { SupabaseClient } from '../_shared/business-runtime.ts';
+import { formatBookingPhone } from '../_shared/booking-contact-phone.ts';
 import { ApiError, asText, Json } from "./shared.ts";
 
 export function requireUuid(value: unknown): string {
@@ -95,8 +96,8 @@ export function contactClient(row: any): Json {
     || (source === "member" ? asText(member.surname, 40) : "");
   const salutation = asText(row.contact_salutation, 10).toLowerCase()
     || (source === "member" ? asText(member.salutation, 10).toLowerCase() : "");
-  const contactPhone = asText(row.contact_phone, 30)
-    || (source === "member" ? asText(member.phone, 30) : "");
+  const contactPhone = formatBookingPhone(asText(row.contact_phone, 30))
+    || (source === "member" ? formatBookingPhone(asText(member.phone, 30)) : "");
   return {
     bookingId: row.id,
     contactSource: source,
@@ -161,6 +162,6 @@ export function requestContact(body: Json): Json {
     p_contact_source: asText(body.contactSource || "member", 20).toLowerCase(),
     p_contact_surname: asText(body.contactSurname, 40),
     p_contact_salutation: asText(body.contactSalutation, 10).toLowerCase(),
-    p_contact_phone: asText(body.contactPhone, 30),
+    p_contact_phone: formatBookingPhone(asText(body.contactPhone, 30)),
   };
 }
