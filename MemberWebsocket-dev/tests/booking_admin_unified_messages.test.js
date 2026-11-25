@@ -25,11 +25,11 @@ test('AC-BMSG-001: message settings is a separate accessible booking subtab', ()
   assert.match(css, /booking-admin-messages-layout/);
 });
 
-test('AC-BMSG-002: the three remaining texts share one form and submit button', () => {
+test('AC-BMSG-002: the four texts share one form and submit button', () => {
   assert.equal((messagePanel.match(/<form id="bookingAdminMessagesForm"/g) || []).length, 1);
   assert.equal((messagePanel.match(/type="submit"/g) || []).length, 1);
   assert.equal((messagePanel.match(/id="bookingAdminMessagesSave"/g) || []).length, 1);
-  for (const id of ['bookingAdminNotice', 'bookingAdminPendingMessage', 'bookingAdminReminderMessage']) {
+  for (const id of ['bookingAdminNotice', 'bookingAdminOnsiteEditMessage', 'bookingAdminPendingMessage', 'bookingAdminReminderMessage']) {
     assert.match(messagePanel, new RegExp('id="' + id + '"'));
     assert.doesNotMatch(settingsPanel, new RegExp('id="' + id + '"'));
   }
@@ -40,7 +40,7 @@ test('AC-BMSG-002: the three remaining texts share one form and submit button', 
   assert.match(ui, /\.\.\.fields,\s*expectedUpdatedAt: state\.messagesDraftVersion/);
 });
 
-test('AC-BMSG-003: one API operation validates three texts before a single CAS database update', () => {
+test('AC-BMSG-003: one API operation validates message texts before a single CAS database update', () => {
   assert.match(api, /action === "admin\.booking\.messages\.save"\) return await messagesSave\(supabase, identity, body\)/);
   assert.match(api, /await authorizeAdmin\(supabase, identity\)/);
   assert.match(api, /await consumeRateLimit\(supabase, identity/);
@@ -61,6 +61,10 @@ test('AC-BMSG-003: one API operation validates three texts before a single CAS d
   assert.doesNotMatch(ui,/bookingAdminRejectionMessage/);
   assert.match(messagesHandler, /if \(!reminderMessage\.trim\(\) \|\| reminderMessage\.length > 400\)/);
   assert.match(messagesHandler, /BOOKING_MESSAGES_UPDATED/);
+  assert.match(messagesHandler, /onsite_edit_message: onsiteEditMessage/);
+  assert.match(messagesHandler, /INVALID_ONSITE_EDIT_MESSAGE/);
+  assert.match(messagesHandler, /hasOnsiteEditMessage \? \{ onsite_edit_message/);
+  assert.match(ui, /const MESSAGE_INPUT_IDS = \['bookingAdminNotice','bookingAdminOnsiteEditMessage'/);
 });
 
 test('AC-BMSG-004: unsaved drafts and concurrent updates cannot silently overwrite message text', () => {
