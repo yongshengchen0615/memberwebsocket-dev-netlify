@@ -44,7 +44,7 @@ test('AC-005: retired event bonus controls stay absent from the calendar editor'
     assert.doesNotMatch(admin, new RegExp('id="' + id + '"'));
     assert.doesNotMatch(app, new RegExp('\\b' + id + '\\b'));
   }
-  assert.doesNotMatch(admin, /<h4>活動加贈點數<\\/h4>|Event bonus/);
+  assert.doesNotMatch(admin, /活動加贈點數|Event bonus/);
   assert.match(admin, /id="calendarItemForm"/);
   assert.match(admin, /id="calendarItemTitle"/);
   assert.match(admin, /id="calendarItemEventLinkFields"/);
