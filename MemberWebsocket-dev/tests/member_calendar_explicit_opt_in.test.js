@@ -84,3 +84,28 @@ test('AC-004: ordinary calendar event and holiday remain without exposing unlink
   assert.deepEqual(result.items.map((item) => item.calendarItemId), ['QA-EVENT', 'QA-HOLIDAY']);
   assert.deepEqual(result.ongoingTickets, []);
 });
+
+test('AC-005: two explicitly linked tickets display by UUID and code, unrelated active ticket stays hidden', () => {
+  const rows = [
+    {
+      calendar_item_id: 'QA-CALENDAR-UUID',
+      item_type: 'event', title: 'UUID 關聯活動',
+      status: 'active', starts_on: '2026-12-03',
+      source_event_ticket_id: activeTicket.id, allowed_tier_keys: ['general']
+    },
+    {
+      calendar_item_id: 'QA-CALENDAR-CODE',
+      item_type: 'event', title: '代號關聯活動',
+      status: 'active', starts_on: '2026-12-04',
+      link_url: 'https://test.example/event/?source=event-ticket-calendar&eventTicketId=QA-TICKET-2',
+      allowed_tier_keys: ['general']
+    }
+  ];
+  const result = projectCalendarRows(rows, [
+    activeTicket,
+    { ...activeTicket, id: '00000000-0000-4000-8000-000000000002', event_ticket_id: 'QA-TICKET-2' },
+    { ...activeTicket, id: '00000000-0000-4000-8000-000000000003', event_ticket_id: 'QA-TICKET-HIDDEN' }
+  ]);
+  assert.deepEqual(result.items.map((item) => item.calendarItemId), ['QA-CALENDAR-UUID', 'QA-CALENDAR-CODE']);
+  assert.deepEqual(result.ongoingTickets, []);
+});
