@@ -56,4 +56,5 @@ test('AC-005: retired calendar event bonus section is absent from admin DOM and 
   assert.equal(workspace.includes("getElementById('calendarBonusPointsControls')?.remove()"), true);
   assert.match(admin, /id="calendarItemTitle"/);
   assert.match(admin, /休假日請至「預約」日曆設定/);
+  assert.match(admin, /business-workspace\\.js[^"']*retired-bonus=20261125-1/);
 });
