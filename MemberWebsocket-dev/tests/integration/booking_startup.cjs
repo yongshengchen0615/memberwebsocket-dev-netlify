@@ -171,6 +171,9 @@ async function fixture(mode) {
     const incompleteHint = '請先為所有預約者選擇預約項目，再查看可預約時間。';
     const slotCalls = () => calls.filter((action) => action === 'user.booking.group.slots').length;
     const callsBeforeIncomplete = slotCalls();
+    assert.match(el('selectionSummary').textContent, /第一位/, 'Incomplete group keeps the first participant quote visible');
+    assert.match(el('selectionSummary').textContent, /腳底40/, 'Primary selected service must not be erased by slot-hint rendering');
+    assert.equal(el('selectionSummary').classList.contains('hidden'), false, 'The participant summary remains visible');
     assert.equal(el('slotHint').textContent, incompleteHint, 'An unfinished group is not a fully booked day');
     assert.equal(el('slotGrid').children.length, 0, 'Unfinished group must not show stale slots');
     assertOnlyExpanded(0, 'First participant opens by default');
