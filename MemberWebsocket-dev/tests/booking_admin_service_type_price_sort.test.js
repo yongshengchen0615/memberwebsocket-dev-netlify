@@ -84,3 +84,11 @@ test('AC-004: admin rendering keeps selection, editing, deletion, scheduled pric
   assert.match(css, /#bookingPanel \.booking-admin-service-group\s*\{/);
   assert.match(css, /#bookingPanel \.booking-admin-service-group-list\s*\{/);
 });
+
+test('AC-005: admin entry and loader bust stale CSS and renderer caches', () => {
+  const html = fs.readFileSync(path.join(root, 'admin/index.html'), 'utf8');
+  const loader = fs.readFileSync(path.join(root, 'admin/booking-panel.js'), 'utf8');
+  assert.match(html, /booking-panel\.css\?v=[^"']+type-price-20261125-1/);
+  assert.match(html, /booking-panel\.js\?v=[^"']+type-price-20261125-1/);
+  assert.match(loader, /load\('booking-panel-core\.js', '[^']+type-price-20261125-1'\)/);
+});
