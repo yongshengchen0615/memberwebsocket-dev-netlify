@@ -168,6 +168,10 @@ test('holiday and maximum-range dates show records without enabling start, inclu
     await new Promise(resolve => setTimeout(resolve, 20));
     f.click('2026-10-31');
     assert.equal(f.el('startDayBookingButton').disabled, true);
+    assert.equal(f.el('startDayBookingButton').hidden, true);
+    assert.equal(f.el('bookingPhoneFallback').hidden, true);
+    assert.equal(f.el('bookingDayHolidayNotice').hidden, false);
+    assert.match(f.el('bookingDayHolidayNotice').textContent, /休假提醒.*當日無法預約/);
     assert.match(f.el('bookingDayHint').textContent, /休假/);
     assert.match(f.el('bookingDayHolidayDetails').textContent, /當日不營業/);
     f.el('nextMonthButton').click();
@@ -269,3 +273,75 @@ for (const testMode of [false, true]) {
     }
   });
 }
+
+test('phone-only dates expose a read-only catalog and revoke it on date or identity changes', async () => {
+  const f = await fixture();
+  try {
+    f.emit('booking:settings-updated', { today: '2026-10-30', settings: { minAdvanceDays: 2, maxAdvanceDays: 4, phoneBookingNumber: '06-1234567' } });
+    f.emit('booking:services-updated', { services: [
+      { serviceId: 'a', title: '深層保養', durationMinutes: 60, priceAmount: 900, description: '__TYPE__:保養' },
+      { serviceId: 'b', title: '基礎保養', durationMinutes: 30, priceAmount: 400, description: '__TYPE__:保養' },
+      { serviceId: 'c', title: '<img src=x onerror=alert(1)>', durationMinutes: 15, priceAmount: 200, description: '__TYPE__:加購', requiresCompanionService: true },
+    ] });
+    f.click('2026-10-30');
+    assert.equal(f.el('bookingPhoneServiceReference').hidden, false);
+    assert.match(f.el('bookingPhoneServiceReference').textContent, /電話預約項目參考/);
+    const items = [...f.el('bookingPhoneServiceList').querySelectorAll('.booking-phone-service-item')];
+    assert.deepEqual(items.map(item => item.querySelector('span').textContent), ['基礎保養', '深層保養', '<img src=x onerror=alert(1)>']);
+    assert.match(items[0].textContent, /30 分鐘.*NT\$400/);
+    assert.match(items[2].textContent, /加購／需搭配一般項目/);
+    assert.equal(f.el('bookingPhoneServiceList').querySelectorAll('button,input,img').length, 0);
+    assert.equal(f.el('appointmentPanel').classList.contains('hidden'), true);
+    f.el('nextMonthButton').click();
+    f.click('2026-11-01');
+    assert.equal(f.el('bookingPhoneServiceReference').hidden, true);
+    assert.equal(f.el('bookingPhoneServiceList').children.length, 0);
+    f.click('2026-11-04');
+    assert.equal(f.el('bookingPhoneServiceReference').hidden, true);
+    f.emit('member:access-ended');
+    assert.equal(f.el('bookingPhoneServiceReference').hidden, true);
+    assert.equal(f.el('bookingPhoneServiceList').children.length, 0);
+  } finally { f.w.close(); }
+});
+
+test('phone-only item reference handles empty catalogs and revoked telephone settings', async () => {
+  const f = await fixture();
+  try {
+    f.emit('booking:settings-updated', { today: '2026-10-30', settings: { minAdvanceDays: 2, maxAdvanceDays: 4, phoneBookingNumber: '06-1234567' } });
+    f.click('2026-10-30');
+    assert.match(f.el('bookingPhoneServiceList').textContent, /沒有開放的預約項目/);
+    f.emit('booking:services-updated', { services: [{ serviceId: 'a', title: '參考服務', durationMinutes: 45, priceAmount: 600 }] });
+    assert.match(f.el('bookingPhoneServiceList').textContent, /參考服務/);
+    f.emit('booking:settings-updated', { today: '2026-10-30', settings: { minAdvanceDays: 2, maxAdvanceDays: 4, phoneBookingNumber: '' } });
+    assert.equal(f.el('bookingPhoneServiceReference').hidden, true);
+    assert.equal(f.el('bookingPhoneServiceList').children.length, 0);
+  } finally { f.w.close(); }
+});
+
+test('technician leave dates replace every booking action with a technician leave reminder', async () => {
+  const f = await fixture();
+  try {
+    f.w.BookingSystem.loadConfig = async () => ({ supabaseUrl: 'https://fixture.supabase.co' });
+    f.w.liff = { isLoggedIn: () => true, getIDToken: () => 'fixture' };
+    f.w.fetch = async () => new Response(JSON.stringify({ ok: true, data: {
+      settings: { minAdvanceDays: 2, maxAdvanceDays: 4, phoneBookingNumber: '06-1234567' },
+      holidays: [{ startsOn: '2026-10-31', endsOn: '2026-10-31', title: '技師休假', description: '技師休息一天' }]
+    } }));
+    f.emit('booking:view-shown');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    f.click('2026-10-31');
+    assert.equal(f.el('startDayBookingButton').disabled, true);
+    assert.equal(f.el('startDayBookingButton').hidden, true);
+    assert.equal(f.el('bookingPhoneFallback').hidden, true);
+    assert.equal(f.el('bookingPhoneDial').hasAttribute('href'), false);
+    assert.equal(f.el('bookingPhoneServiceReference').hidden, true);
+    assert.equal(f.el('bookingDayHolidayNotice').hidden, false);
+    assert.match(f.el('bookingDayHolidayNotice').textContent, /技師休假提醒.*當日無法預約/);
+    assert.match(f.el('bookingDayHolidayDetails').textContent, /技師休息一天/);
+    assert.equal(f.el('appointmentPanel').classList.contains('hidden'), true);
+    f.el('nextMonthButton').click();
+    f.click('2026-11-01');
+    assert.equal(f.el('bookingDayHolidayNotice').hidden, true);
+    assert.equal(f.el('bookingDayHolidayNotice').textContent, '');
+  } finally { f.w.close(); }
+});

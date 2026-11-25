@@ -100,3 +100,53 @@ test('member booking allows per-appointment LINE reminder consent and previous-d
   await consent.uncheck();
   await expect(time).toBeDisabled();
 });
+
+for (const width of [390, 1280]) test('phone-only date displays reference items, not an online form, at '+width+'px', async ({ page }) => {
+  await page.setViewportSize({ width, height: 840 });
+  await page.goto(base + '/booking/');
+  await expect(page.locator('#calendarGrid')).toBeVisible();
+  await page.evaluate(() => {
+    window.dispatchEvent(new CustomEvent('booking:settings-updated', {
+      detail: { today: '2026-10-30', settings: { minAdvanceDays: 2, maxAdvanceDays: 3, phoneBookingNumber: '06-1234567' } },
+    }));
+    window.dispatchEvent(new CustomEvent('booking:services-updated', {
+      detail: { services: [{ serviceId: 'service-1', title: '舒緩服務', durationMinutes: 50, priceAmount: 700 }] },
+    }));
+  });
+  await page.locator('[data-date="2026-10-30"]').click();
+  await expect(page.locator('#bookingPhoneServiceReference')).toBeVisible();
+  await expect(page.locator('#bookingPhoneServiceList')).toContainText('舒緩服務');
+  await expect(page.locator('#bookingPhoneServiceList')).toContainText('NT$700');
+  await expect(page.locator('#bookingPhoneServiceList button')).toHaveCount(0);
+  await expect(page.locator('#startDayBookingButton')).toBeHidden();
+  await expect(page.locator('#bookingPhoneDial')).toHaveAttribute('href', 'tel:061234567');
+  await expect(page.locator('#appointmentPanel')).toBeHidden();
+});
+
+for (const width of [390, 1280]) test('technician leave hides both footer booking buttons at '+width+'px', async ({ page }) => {
+  await page.setViewportSize({ width, height: 840 });
+  await page.route('https://booking-cancellation.supabase.co/functions/v1/booking-calendar-api', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ ok: true, data: {
+        today: '2026-10-30',
+        settings: { minAdvanceDays: 2, maxAdvanceDays: 4, phoneBookingNumber: '06-1234567' },
+        holidays: [{ title: '技師休假', description: '當天休息', startsOn: '2026-10-31', endsOn: '2026-10-31' }],
+      } }),
+    })
+  );
+  await page.goto(base + '/booking/');
+  await expect(page.locator('#calendarGrid')).toBeVisible();
+  await page.evaluate(() => {
+    window.liff = { isLoggedIn: () => true, getIDToken: () => 'fixture' };
+    window.dispatchEvent(new Event('booking:view-shown'));
+  });
+  await expect(page.locator('[data-date="2026-10-31"]')).toContainText('技師休假');
+  await page.locator('[data-date="2026-10-31"]').click();
+  await expect(page.locator('#bookingDayHolidayNotice')).toBeVisible();
+  await expect(page.locator('#bookingDayHolidayNotice')).toContainText('技師休假提醒');
+  await expect(page.locator('#bookingDayHolidayDetails')).toContainText('當天休息');
+  await expect(page.locator('#startDayBookingButton')).toBeHidden();
+  await expect(page.locator('#bookingPhoneFallback')).toBeHidden();
+  await expect(page.locator('#bookingPhoneServiceReference')).toBeHidden();
+  await expect(page.locator('#appointmentPanel')).toBeHidden();
+});
