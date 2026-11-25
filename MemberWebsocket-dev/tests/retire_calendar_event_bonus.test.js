@@ -37,3 +37,15 @@ test('AC-004: newly provisioned tenant schemas inherit the retirement check', ()
   assert.match(templateSql, /pg_get_constraintdef\(k\.oid\)/);
   assert.match(templateSql, /CALENDAR_BONUS_TEMPLATE_CONSTRAINT_DRIFT/);
 });
+
+test('AC-005: retired event bonus controls stay absent from the calendar editor', () => {
+  for (const id of ['calendarBonusPointsControls', 'calendarBonusPointsEnabled',
+    'calendarBonusPointsField', 'calendarBonusPoints']) {
+    assert.doesNotMatch(admin, new RegExp('id="' + id + '"'));
+    assert.doesNotMatch(app, new RegExp('\\b' + id + '\\b'));
+  }
+  assert.doesNotMatch(admin, /<h4>活動加贈點數<\\/h4>|Event bonus/);
+  assert.match(admin, /id="calendarItemForm"/);
+  assert.match(admin, /id="calendarItemTitle"/);
+  assert.match(admin, /id="calendarItemEventLinkFields"/);
+});
