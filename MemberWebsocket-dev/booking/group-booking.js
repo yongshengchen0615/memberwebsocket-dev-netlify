@@ -100,6 +100,7 @@
         ...(action === 'user.booking.create' ? {serviceRecipientMemberCode:window.MemberFriends?.selected()||''} : {}),
       });
       if (result?.booking) {
+        result.booking.contactPhone = window.BookingContactPhone.format(result.booking.contactPhone || '');
         const groupMeta = {
           serviceRecipientMemberCode:result.booking.serviceRecipientMemberCode,
           serviceRecipientName:result.booking.serviceRecipientName,
@@ -745,6 +746,7 @@
     const participantOneItems = Array.isArray(group.participants?.[0]?.items) ? group.participants[0].items : [];
     return {
       ...booking,
+      contactPhone: window.BookingContactPhone.format(booking.contactPhone || ''),
       serviceRecipientMemberCode:group.serviceRecipientMemberCode||booking.serviceRecipientMemberCode||'',
       serviceRecipientName:group.serviceRecipientName||booking.serviceRecipientName||'',
       partySize: Number(group.partySize || 1),
@@ -762,7 +764,7 @@
       contactSource: 'custom',
       contactSurname: String(document.getElementById('bookingContactSurname')?.value || '').trim(),
       contactSalutation: String(document.getElementById('bookingContactSalutation')?.value || '').trim(),
-      contactPhone: String(document.getElementById('bookingContactPhone')?.value || '').trim(),
+      contactPhone: window.BookingContactPhone.format(document.getElementById('bookingContactPhone')?.value || ''),
     };
   }
 

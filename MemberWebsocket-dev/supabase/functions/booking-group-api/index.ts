@@ -1,5 +1,6 @@
 import { bookingPriceOptions, withBookingPrices, bookingPriceError } from '../_shared/booking-price-publishing.mjs';
 import { businessEnv, serveBusiness } from '../_shared/business-runtime.ts';
+import { formatBookingPhone } from '../_shared/booking-contact-phone.ts';
 import { hasCurrentTermsConsent } from "../_shared/membership-terms.ts";
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract, requireActiveAdminContract } from "../_shared/auth-contract.ts";
@@ -228,7 +229,7 @@ async function fullBooking(s: SupabaseClient, id: string) {
   if (ir.error) throw mapDbError(ir.error);
   if (benefitResult.error) throw mapDbError(benefitResult.error);
   const items=(ir.data||[]).map(itemClient), benefits=(benefitResult.data||[]).filter((x:any)=>["points","event"].includes(String(x.benefit_kind||""))).map((x:any)=>({kind:x.benefit_kind,id:x.benefit_ref,title:x.title_snapshot||"可用權益",status:x.status||"pending",cancellationReason:x.result?.cancellationReason||"",redeemedAt:x.redeemed_at||null})), g=(await groupData(s,[id])).get(id)||{}, r=br.data;
-  return { bookingId:r.id, requestId:r.request_id, serviceId:r.service_id, serviceTitle:items.map((x:any)=>x.serviceTitle).join(" + ")||"預約項目", items, benefits, totalDurationMinutes:Number(r.total_duration_minutes||30), totalAmount:items.reduce((sum:number,x:any)=>sum+Number(x.subtotalAmount||0),0), memberId:r.member_id, memberDisplayName:r.members?.display_name||"", memberCode:r.members?.member_code||"", bookingDate:r.booking_date, startTime:String(r.start_time||"").slice(0,5), endTime:String(r.end_time||"").slice(0,5), startAt:localTimestamp(r.start_at), endAt:localTimestamp(r.end_at), status:r.status, memberNote:r.member_note||"", reminderEnabled:r.reminder_enabled===true, reminderTime:String(r.reminder_time||"18:00:00").slice(0,5), adminNote:r.admin_note||"", completedAt:r.completed_at||null, confirmedAt:r.confirmed_at, rejectedAt:r.rejected_at, cancelledAt:r.cancelled_at, createdAt:r.created_at, updatedAt:r.updated_at, contactSource:r.contact_source||"member", contactSurname:r.contact_surname||"", contactSalutation:r.contact_salutation||"", contactPhone:r.contact_phone||"", ...g };
+  return { bookingId:r.id, requestId:r.request_id, serviceId:r.service_id, serviceTitle:items.map((x:any)=>x.serviceTitle).join(" + ")||"預約項目", items, benefits, totalDurationMinutes:Number(r.total_duration_minutes||30), totalAmount:items.reduce((sum:number,x:any)=>sum+Number(x.subtotalAmount||0),0), memberId:r.member_id, memberDisplayName:r.members?.display_name||"", memberCode:r.members?.member_code||"", bookingDate:r.booking_date, startTime:String(r.start_time||"").slice(0,5), endTime:String(r.end_time||"").slice(0,5), startAt:localTimestamp(r.start_at), endAt:localTimestamp(r.end_at), status:r.status, memberNote:r.member_note||"", reminderEnabled:r.reminder_enabled===true, reminderTime:String(r.reminder_time||"18:00:00").slice(0,5), adminNote:r.admin_note||"", completedAt:r.completed_at||null, confirmedAt:r.confirmed_at, rejectedAt:r.rejected_at, cancelledAt:r.cancelled_at, createdAt:r.created_at, updatedAt:r.updated_at, contactSource:r.contact_source||"member", contactSurname:r.contact_surname||"", contactSalutation:r.contact_salutation||"", contactPhone:formatBookingPhone(r.contact_phone||""), ...g };
 }
 
 async function normalizeGroup(s: SupabaseClient, body: Json) {
@@ -340,7 +341,7 @@ async function slots(s: SupabaseClient, m: any, body: Json) {
   return { settings:{maxPartySize:Number(cfg.max_party_size||1),requirePrimaryTechnician:cfg.require_primary_technician !== false,primaryTechnicianId:g.primaryId,maxAdvanceDays:max}, totalDurationMinutes:g.duration, totalAmount:g.amount, slots:out };
 }
 
-function contact(body: Json) { const source=asText(body.contactSource,20)||"member"; return { source, surname:asText(body.contactSurname,40)||null, salutation:asText(body.contactSalutation,10)||null, phone:asText(body.contactPhone,20)||null }; }
+function contact(body: Json) { const source=asText(body.contactSource,20)||"member"; return { source, surname:asText(body.contactSurname,40)||null, salutation:asText(body.contactSalutation,10)||null, phone:formatBookingPhone(asText(body.contactPhone,20))||null }; }
 function normalizeBookingBenefits(value: unknown): Json[] {
   if (value == null) return [];
   if (!Array.isArray(value) || value.length > 20) throw new ApiError(400,"INVALID_BOOKING_BENEFITS","選用優惠資料格式不正確。");
