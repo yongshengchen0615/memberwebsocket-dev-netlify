@@ -861,23 +861,34 @@ test('RUNNER_MEMBER_MODAL_FAILURE — failed member-history load exposes error w
   await expect(p.locator('#memberRecordsModal')).toBeHidden();
 });
 
-test('CALENDAR_BONUS — save bonus amount, reopen, holiday editor keeps activity bonus disabled',async({page:p},info)=>{
-  // A committed transport write can precede delivery to the UI. Hold that
-  // response so the test cannot accidentally treat fixture state as UI-ready.
+test('CALENDAR_BONUS — retired bonus never granted; activity and holiday CRUD still work',async({page:p},info)=>{
+  // Preserve the delayed-response lifecycle check while asserting the
+  // post-retirement contract: neither activity nor holiday writes grant bonus.
   let release;const delivered=new Promise(resolve=>{release=resolve;});
   info.calendarResponseGate=delivered;
-  await openCalendar(p);await p.locator('#calendarBonusPointsEnabled').check();await fill(p,'calendarBonusPoints','4');await click(p,'saveCalendarItemButton');
-  await expect.poll(()=>info.fixture.calendarItems[0]?.bonusPoints).toBe(4);
-  await expect(p.locator('#saveCalendarItemButton')).toBeDisabled();await expect(p.locator('#calendarItemId')).toHaveValue('');release();
+  await openCalendar(p);
+  await click(p,'saveCalendarItemButton');
+  await expect.poll(()=>String(info.fixture.calendarItems[0]?.calendarItemId||'').length).toBeGreaterThan(0);
+  const saved=info.fixture.calendarItems[0];
+  expect(saved.bonusPointsEnabled).not.toBe(true);
+  expect(Number(saved.bonusPoints||0)).toBe(0);
+  await expect(p.locator('#saveCalendarItemButton')).toBeDisabled();
+  release();
   await expect(p.locator('#saveCalendarItemButton')).toBeEnabled();
-  const id=info.fixture.calendarItems[0].calendarItemId;expect(id).not.toBe('');await expect(p.locator('#calendarItemId')).toHaveValue(id);
-  await p.locator('#calendarEditorModal .editor-modal-close').click();await p.locator('[data-admin-calendar-item-id="'+id+'"]').first().click();
-  await expect(p.locator('#calendarBonusPoints')).toHaveValue('4');
+  const id=saved.calendarItemId;
+  await expect(p.locator('#calendarItemId')).toHaveValue(id);
+  await p.locator('#calendarEditorModal .editor-modal-close').click();
+  await p.locator('[data-admin-calendar-item-id="'+id+'"]').first().click();
+  await expect(p.locator('#calendarItemId')).toHaveValue(id);
+  await expect(p.locator('#calendarItemTitle')).toHaveValue(saved.title);
   await p.locator('#calendarEditorModal .editor-modal-close').click();
   await openCalendar(p,'holiday');
-  await expect(p.locator('#calendarBonusPointsField')).toBeHidden();await expect(p.locator('#calendarBonusPointsEnabled')).toBeDisabled();
-  await click(p,'saveCalendarItemButton');await expect(p.locator('#saveCalendarItemButton')).toBeEnabled();
-  await expect.poll(()=>info.fixture.calendarItems.find(item=>item.itemType==='holiday')?.bonusPointsEnabled).toBe(false);
+  await click(p,'saveCalendarItemButton');
+  await expect(p.locator('#saveCalendarItemButton')).toBeEnabled();
+  await expect.poll(()=>String(info.fixture.calendarItems.find(item=>item.itemType==='holiday')?.calendarItemId||'').length).toBeGreaterThan(0);
+  const holiday=info.fixture.calendarItems.find(item=>item.itemType==='holiday');
+  expect(holiday.bonusPointsEnabled).not.toBe(true);
+  expect(Number(holiday.bonusPoints||0)).toBe(0);
 });
 test('EVENT_CALENDAR_SYNC — ticket stays in ticket calendar and not member activities; unlink retains source ticket',async({page:p},info)=>{
   await openEvent(p);
