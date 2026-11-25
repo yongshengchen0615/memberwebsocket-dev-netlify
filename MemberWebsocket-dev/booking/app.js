@@ -532,12 +532,12 @@
     const maximumDate = globalMaximumDate();
     els.bookingDate.min = minimumDate;
     els.bookingDate.max = maximumDate;
-    notifySelectionChanged();
-    const missingItemsHint = window.BookingGroupUI?.missingItemsHint?.() || '';
 
     if (!rows.length) {
       els.bookingDate.disabled = !els.bookingDate.value;
       els.selectionSummary.classList.add('hidden');
+      notifySelectionChanged();
+      const missingItemsHint = window.BookingGroupUI?.missingItemsHint?.() || '';
       els.slotHint.textContent = missingItemsHint || '請先選擇至少一個預約項目。';
       return;
     }
@@ -548,7 +548,10 @@
     els.bookingDate.disabled = false;
     if (!els.bookingDate.value || els.bookingDate.value < minimumDate || (maximumDate && els.bookingDate.value > maximumDate)) els.bookingDate.value = minimumDate;
     els.selectionSummary.classList.remove('hidden');
+    // Clear the previous quote before the synchronous group listener rebuilds it.
     els.selectionSummary.replaceChildren();
+    notifySelectionChanged();
+    const missingItemsHint = window.BookingGroupUI?.missingItemsHint?.() || '';
     els.slotHint.textContent = missingItemsHint || '正在計算整段服務時間可使用的時段…';
     if (!missingItemsHint && loadAfter && els.bookingDate.value) loadSlots();
   }
