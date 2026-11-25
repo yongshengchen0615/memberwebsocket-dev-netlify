@@ -630,13 +630,43 @@
   #bookingAdminCrudModal .booking-completion-preview-item-amount{align-self:flex-end}
 }
 
-/* Unified booking message settings, one atomic save action. */
-#bookingPanel .booking-admin-messages-layout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
-#bookingPanel .booking-admin-messages-layout>.booking-admin-settings-block{grid-column:auto;min-width:0}
-#bookingPanel .booking-admin-messages-layout>.booking-admin-settings-block:first-child{grid-column:1/-1}
-#bookingPanel .booking-admin-messages-panel .booking-admin-hours-preview{white-space:pre-wrap;overflow-wrap:anywhere}
-#bookingPanel .booking-admin-messages-panel .booking-admin-settings-actions{margin-top:8px}
-@media(max-width:760px){#bookingPanel .booking-admin-subtabs{display:flex;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity}#bookingPanel .booking-admin-subtabs .booking-admin-filter-button{flex:0 0 auto;min-width:116px;scroll-snap-align:start}#bookingPanel .booking-admin-messages-layout{grid-template-columns:minmax(0,1fr)}#bookingPanel .booking-admin-messages-layout>.booking-admin-settings-block:first-child{grid-column:auto}}
+/* Booking messages: group by customer touchpoint, retain a single atomic save. */
+#bookingPanel .booking-admin-messages-panel{min-width:0}
+#bookingPanel .booking-admin-messages-help{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 18px}
+#bookingPanel .booking-admin-messages-help>div{display:grid;align-content:start;gap:6px;min-width:0;padding:14px 15px;border:1px solid var(--theme-border,rgba(23,53,46,.11));border-radius:13px;background:var(--theme-surface-muted,#f5f8f4)}
+#bookingPanel .booking-admin-messages-help strong{color:var(--theme-text,#17352e);font-size:13px}
+#bookingPanel .booking-admin-messages-help span{color:var(--theme-text-muted,#61746a);font-size:12px;line-height:1.65}
+#bookingPanel .booking-admin-messages-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:24px}
+#bookingPanel .booking-admin-messages-group{display:grid;gap:13px;min-width:0}
+#bookingPanel .booking-admin-messages-group-heading{display:flex;align-items:flex-start;gap:12px;min-width:0}
+#bookingPanel .booking-admin-messages-step{display:grid;place-items:center;flex:none;width:34px;height:34px;border-radius:11px;background:var(--theme-surface-muted,#e6f0e9);color:var(--theme-text,#17352e);font-size:12px;font-weight:900;font-variant-numeric:tabular-nums}
+#bookingPanel .booking-admin-messages-group-heading>div{min-width:0}
+#bookingPanel .booking-admin-messages-group-heading h4{margin:0;color:var(--theme-text,#17352e);font-size:18px;line-height:1.4}
+#bookingPanel .booking-admin-messages-group-heading p{margin:4px 0 0;color:var(--theme-text-muted,#65776c);font-size:13px;line-height:1.65}
+#bookingPanel .booking-admin-messages-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:stretch}
+#bookingPanel .booking-admin-messages-card-grid>.booking-admin-settings-block{display:flex;flex-direction:column;gap:8px;grid-column:auto;min-width:0;padding:18px}
+#bookingPanel .booking-admin-messages-panel .booking-admin-settings-block-heading{margin-bottom:4px;flex-wrap:wrap}
+#bookingPanel .booking-admin-messages-panel .booking-admin-settings-notice-field{gap:10px}
+#bookingPanel .booking-admin-messages-panel textarea{min-width:0;min-height:146px;line-height:1.65}
+#bookingPanel .booking-admin-messages-panel .booking-admin-settings-field>small{line-height:1.65}
+#bookingPanel .booking-admin-message-count-row{display:flex;justify-content:flex-end;margin-top:2px;color:var(--theme-text-muted,#61746a);font-size:12px;font-variant-numeric:tabular-nums}
+#bookingPanel .booking-admin-message-preview{display:grid;gap:10px;min-width:0;margin-top:auto;padding:14px;border:1px solid var(--theme-border,rgba(23,53,46,.11));border-radius:12px;background:var(--theme-surface-muted,#f5f7f3)}
+#bookingPanel .booking-admin-message-preview>strong{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;color:var(--theme-text,#17352e);font-size:13px}
+#bookingPanel .booking-admin-message-preview>strong span{color:var(--theme-text-muted,#687b70);font-size:11px;font-weight:500}
+#bookingPanel .booking-admin-message-preview .booking-admin-hours-preview{display:block;margin:0;padding:12px;border-radius:10px;background:var(--theme-surface-raised,#fff);color:var(--theme-text,#31483f);font-size:12px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}
+#bookingPanel .booking-admin-messages-panel .booking-admin-settings-actions{margin-top:4px;padding-top:18px}
+#bookingPanel .booking-admin-messages-panel :is(textarea,button):focus-visible{outline:3px solid var(--theme-focus-ring,var(--theme-accent,#df6b4d));outline-offset:2px}
+@media(max-width:980px){#bookingPanel .booking-admin-messages-help{grid-template-columns:1fr}}
+@media(max-width:760px){
+  #bookingPanel .booking-admin-subtabs{display:flex;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity}
+  #bookingPanel .booking-admin-subtabs .booking-admin-filter-button{flex:0 0 auto;min-width:116px;scroll-snap-align:start}
+  #bookingPanel .booking-admin-messages-card-grid{grid-template-columns:minmax(0,1fr)}
+  #bookingPanel .booking-admin-messages-card-grid>.booking-admin-settings-block{padding:15px}
+  #bookingPanel .booking-admin-messages-layout{gap:20px}
+  #bookingPanel .booking-admin-messages-panel .booking-admin-settings-actions{align-items:stretch}
+  #bookingPanel .booking-admin-messages-panel .booking-admin-settings-action-buttons{width:100%}
+}
+
 
 /* Admin booking service grouping 20261125: each type is one accessible visual block. */
 #bookingPanel .booking-admin-service-group{

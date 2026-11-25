@@ -202,69 +202,93 @@
         </section>
 
 
+
         <section id="bookingAdminMessagesPanel" class="booking-admin-card booking-admin-settings-panel booking-admin-messages-panel hidden" role="tabpanel" aria-labelledby="bookingAdminMessagesSubtab">
-          <div class="booking-admin-section-heading"><div><p class="kicker">Message settings</p><h3>訊息設定</h3><p>一次編輯會員端預約說明、現場修改提醒與 LINE 預約通知；按下「儲存所有訊息」才會一起套用。</p></div></div>
+          <div class="booking-admin-section-heading"><div><p class="kicker">Message settings</p><h3>訊息設定</h3><p>依照會員看到訊息的位置，分別設定預約頁說明與 LINE 通知內容。四項訊息會在按下「儲存所有訊息」後一起更新。</p></div></div>
+          <div class="booking-admin-messages-help" role="note" aria-label="設定前須知">
+            <div><strong>編輯與儲存</strong><span>先調整下方文字，可隨時還原尚未儲存的變更；只有儲存成功才會套用。</span></div>
+            <div><strong>顯示與發送</strong><span>會員端文字只在指定畫面顯示；LINE 通知依現有預約事件與提醒排程發送，不會因儲存設定立即群發。</span></div>
+            <div><strong>其他通知</strong><span>拒絕預約原因請到「櫃檯設定 → 拒絕預約設定」修改；LINE 通道與收件權限維持原設定。</span></div>
+          </div>
           <form id="bookingAdminMessagesForm" class="booking-admin-form booking-admin-settings-form" novalidate>
             <div class="booking-admin-messages-layout">
-              <section class="booking-admin-settings-block booking-admin-settings-notice" aria-labelledby="bookingAdminNoticeHeading">
-                <div class="booking-admin-settings-block-heading">
-                  <div><span class="booking-admin-settings-eyebrow">會員端內容</span><h4 id="bookingAdminNoticeHeading">預約說明</h4></div>
-                  <span class="booking-admin-settings-badge">所有項目套用</span>
+              <section class="booking-admin-messages-group" aria-labelledby="bookingAdminMessagesAudienceHeading">
+                <div class="booking-admin-messages-group-heading">
+                  <span class="booking-admin-messages-step" aria-hidden="true">01</span>
+                  <div><h4 id="bookingAdminMessagesAudienceHeading">會員端顯示訊息</h4><p>顯示在會員操作預約的網頁，不會因為修改這兩項文字而額外發送 LINE。</p></div>
                 </div>
-                <label class="booking-admin-settings-field booking-admin-settings-notice-field">
-                  <span>顯示給會員的預約說明（可換行）</span>
-                  <textarea id="bookingAdminNotice" maxlength="2000" rows="5" placeholder="例如：\n請於預約時間前 10 分鐘抵達。\n如需取消或更改時間，請提前聯繫。"></textarea>
-                  <small>最多 2,000 字；會員端會依原本換行顯示。</small>
-                </label>
+                <div class="booking-admin-messages-card-grid">
+                  <section class="booking-admin-settings-block booking-admin-settings-notice" aria-labelledby="bookingAdminNoticeHeading">
+                    <div class="booking-admin-settings-block-heading">
+                      <div><span class="booking-admin-settings-eyebrow">會員預約頁</span><h4 id="bookingAdminNoticeHeading">預約說明</h4></div>
+                      <span class="booking-admin-settings-badge">所有項目共用</span>
+                    </div>
+                    <label class="booking-admin-settings-field booking-admin-settings-notice-field">
+                      <span>會員預約時顯示的說明文字</span>
+                      <textarea id="bookingAdminNotice" maxlength="2000" rows="6" placeholder="例如：&#10;請於預約時間前 10 分鐘抵達。&#10;如需取消或更改時間，請提前聯繫。"></textarea>
+                      <small>適合說明報到、遲到及取消規則。支援換行；最多 2,000 字，不會作為 LINE 推播文字。</small>
+                    </label>
+                    <div class="booking-admin-message-count-row"><output id="bookingAdminNoticeCount" for="bookingAdminNotice" aria-label="預約說明字數">0 / 2,000 字</output></div>
+                  </section>
+                  <section class="booking-admin-settings-block booking-admin-settings-notice" aria-labelledby="bookingAdminOnsiteEditMessageHeading">
+                    <div class="booking-admin-settings-block-heading">
+                      <div><span class="booking-admin-settings-eyebrow">會員修改預約時</span><h4 id="bookingAdminOnsiteEditMessageHeading">超過線上修改時間</h4></div>
+                      <span class="booking-admin-settings-badge">條件符合才顯示</span>
+                    </div>
+                    <label class="booking-admin-settings-field booking-admin-settings-notice-field">
+                      <span>已超過線上可修改時間時的提示</span>
+                      <textarea id="bookingAdminOnsiteEditMessage" maxlength="400" rows="6" required placeholder="此預約已超過線上可修改時間，請至現場洽詢修改預約。"></textarea>
+                      <small>只有系統判定已超過線上修改期限時才顯示；提醒會員到現場處理，不會自動更改預約。必填 1–400 字。</small>
+                    </label>
+                    <div class="booking-admin-message-count-row"><output id="bookingAdminOnsiteEditMessageCount" for="bookingAdminOnsiteEditMessage" aria-label="現場修改提醒字數">0 / 400 字</output></div>
+                  </section>
+                </div>
               </section>
 
-            <section class="booking-admin-settings-block booking-admin-settings-notice" aria-labelledby="bookingAdminOnsiteEditMessageHeading">
-              <div class="booking-admin-settings-block-heading">
-                <div><span class="booking-admin-settings-eyebrow">會員端提醒</span><h4 id="bookingAdminOnsiteEditMessageHeading">超過線上修改時間</h4></div>
-                <span class="booking-admin-settings-badge">管理員自訂</span>
-              </div>
-              <label class="booking-admin-settings-field booking-admin-settings-notice-field">
-                <span>已超過線上可預約時間時，顯示給會員的現場修改提醒（1–400 字，可換行）</span>
-                <textarea id="bookingAdminOnsiteEditMessage" maxlength="400" rows="3" required placeholder="此預約已超過線上可修改時間，請至現場洽詢修改預約。"></textarea>
-                <small>依預約共用設定的提前預約天數與原預約開始時間判斷，僅提醒會員至現場修改，不會自動建立或修改預約。</small>
-              </label>
-            </section>
-
-            <section class="booking-admin-settings-block booking-admin-settings-notice" aria-labelledby="bookingAdminPendingMessageHeading">
-              <div class="booking-admin-settings-block-heading">
-                <div><span class="booking-admin-settings-eyebrow">LINE 官方帳號通知</span><h4 id="bookingAdminPendingMessageHeading">預約申請等待確認訊息</h4></div>
-                <span class="booking-admin-settings-badge">管理員自訂</span>
-              </div>
-              <label class="booking-admin-settings-field booking-admin-settings-notice-field">
-                <span>會員送出預約後，官方帳號自動發送的文字（可換行，1–400 字）</span>
-                <textarea id="bookingAdminPendingMessage" maxlength="400" rows="4" required placeholder="我們已收到您的預約申請，請等待管理員確認；確認後會再透過 LINE 通知您。"></textarea>
-                <small>由官方帳號主動推播，會員不需要自行發訊息。提交預約不代表已確認；管理員或授權櫃檯確認後，系統才發送正式預約確認通知。</small>
-              </label>
-              <div class="booking-admin-settings-field">
-                <strong>LINE 訊息預覽（示意預約資料）</strong>
-                <output id="bookingAdminPendingMessagePreview" class="booking-admin-hours-preview" aria-live="polite"></output>
-              </div>
-            </section>
-
-            <section class="booking-admin-settings-block booking-admin-settings-notice" aria-labelledby="bookingAdminReminderMessageHeading">
-              <div class="booking-admin-settings-block-heading">
-                <div><span class="booking-admin-settings-eyebrow">LINE 會員通知</span><h4 id="bookingAdminReminderMessageHeading">預約提醒訊息</h4></div>
-                <span class="booking-admin-settings-badge">管理員自訂</span>
-              </div>
-              <label class="booking-admin-settings-field booking-admin-settings-notice-field">
-                <span>提醒文字（可換行，最多 400 字）</span>
-                <textarea id="bookingAdminReminderMessage" maxlength="400" rows="4" required placeholder="例如：請於預約前 10 分鐘抵達。若需異動請提前聯繫。"></textarea>
-                <small>只修改提醒文字。系統會在發送時自動補上最新預約人、日期、完整時段、人數、電話，以及各位預約人的服務項目、時間、金額與技師。提醒時間仍由會員預約時選擇。</small>
-              </label>
-              <div class="booking-admin-settings-field">
-                <strong>LINE 訊息預覽（示意預約資料）</strong>
-                <output id="bookingAdminReminderMessagePreview" class="booking-admin-hours-preview" aria-live="polite"></output>
-              </div>
-            </section>
+              <section class="booking-admin-messages-group" aria-labelledby="bookingAdminMessagesLineHeading">
+                <div class="booking-admin-messages-group-heading">
+                  <span class="booking-admin-messages-step" aria-hidden="true">02</span>
+                  <div><h4 id="bookingAdminMessagesLineHeading">LINE 預約通知</h4><p>這兩項文字會加入既有的 LINE 通知格式。以下預覽為示意資料，不會發送測試訊息。</p></div>
+                </div>
+                <div class="booking-admin-messages-card-grid">
+                  <section class="booking-admin-settings-block booking-admin-settings-notice" aria-labelledby="bookingAdminPendingMessageHeading">
+                    <div class="booking-admin-settings-block-heading">
+                      <div><span class="booking-admin-settings-eyebrow">預約送出後</span><h4 id="bookingAdminPendingMessageHeading">預約申請等待確認</h4></div>
+                      <span class="booking-admin-settings-badge">申請階段</span>
+                    </div>
+                    <label class="booking-admin-settings-field booking-admin-settings-notice-field">
+                      <span>會員送出預約申請後的通知文字</span>
+                      <textarea id="bookingAdminPendingMessage" maxlength="400" rows="5" required placeholder="我們已收到您的預約申請，請等待管理員確認；確認後會再透過 LINE 通知您。"></textarea>
+                      <small>官方帳號依既有流程主動通知會員。此訊息表示「收到申請」，不代表已完成預約確認。必填 1–400 字。</small>
+                    </label>
+                    <div class="booking-admin-message-count-row"><output id="bookingAdminPendingMessageCount" for="bookingAdminPendingMessage" aria-label="等待確認訊息字數">0 / 400 字</output></div>
+                    <div class="booking-admin-message-preview">
+                      <strong>LINE 通知格式預覽 <span>示意資料</span></strong>
+                      <output id="bookingAdminPendingMessagePreview" class="booking-admin-hours-preview" aria-live="polite"></output>
+                    </div>
+                  </section>
+                  <section class="booking-admin-settings-block booking-admin-settings-notice" aria-labelledby="bookingAdminReminderMessageHeading">
+                    <div class="booking-admin-settings-block-heading">
+                      <div><span class="booking-admin-settings-eyebrow">預約提醒發送時</span><h4 id="bookingAdminReminderMessageHeading">預約提醒</h4></div>
+                      <span class="booking-admin-settings-badge">提醒階段</span>
+                    </div>
+                    <label class="booking-admin-settings-field booking-admin-settings-notice-field">
+                      <span>提醒通知中要附加的文字</span>
+                      <textarea id="bookingAdminReminderMessage" maxlength="400" rows="5" required placeholder="例如：請於預約前 10 分鐘抵達。若需異動請提前聯繫。"></textarea>
+                      <small>提醒時間仍依會員預約時的選擇。系統自動補上預約日期、時段、人數、電話與各人的項目、費用和技師；這裡只編輯提醒文字。必填 1–400 字。</small>
+                    </label>
+                    <div class="booking-admin-message-count-row"><output id="bookingAdminReminderMessageCount" for="bookingAdminReminderMessage" aria-label="預約提醒字數">0 / 400 字</output></div>
+                    <div class="booking-admin-message-preview">
+                      <strong>LINE 通知格式預覽 <span>示意資料</span></strong>
+                      <output id="bookingAdminReminderMessagePreview" class="booking-admin-hours-preview" aria-live="polite"></output>
+                    </div>
+                  </section>
+                </div>
+              </section>
             </div>
             <p id="bookingAdminMessagesStatus" class="form-message hidden" role="status" aria-live="polite"></p>
             <div class="booking-admin-settings-actions">
-              <p><strong>四項訊息統一儲存</strong><span>預約未通過的拒絕原因與會員說明，統一由「櫃檯設定 → 拒絕預約設定」管理。原有的 LINE 預約資料與提醒時間繼續保留。</span><span id="bookingAdminMessagesDraftStatus" class="booking-admin-settings-draft-status" role="status" aria-live="polite">設定載入中…</span></p>
+              <p><strong>四項訊息一次儲存</strong><span>儲存成功後才同步更新；若其他管理員同時修改，系統會保留本頁草稿並提示衝突，不會直接覆寫。</span><span id="bookingAdminMessagesDraftStatus" class="booking-admin-settings-draft-status" role="status" aria-live="polite">設定載入中…</span></p>
               <div class="booking-admin-settings-action-buttons">
                 <button id="bookingAdminMessagesDiscard" class="button button-outline" type="button" disabled>還原未儲存變更</button>
                 <button id="bookingAdminMessagesSave" class="button button-dark" type="submit" disabled>儲存所有訊息</button>
@@ -797,7 +821,16 @@
     return JSON.stringify(MESSAGE_INPUT_IDS.map((id) => String(els[id]?.value || '')));
   }
 
+  function renderMessageLengths() {
+    for (const [id, max] of [['bookingAdminNotice', 2000], ['bookingAdminOnsiteEditMessage', 400], ['bookingAdminPendingMessage', 400], ['bookingAdminReminderMessage', 400]]) {
+      const output = document.getElementById(id + 'Count');
+      if (!output || !els[id]) continue;
+      output.textContent = String(els[id].value || '').length.toLocaleString('zh-TW') + ' / ' + max.toLocaleString('zh-TW') + ' 字';
+    }
+  }
+
   function updateMessagesDraft() {
+    renderMessageLengths();
     if (state.messagesBaseline === null || !els.bookingAdminMessagesDraftStatus) return;
     state.messagesDirty = currentMessagesSignature() !== state.messagesBaseline;
     els.bookingAdminMessagesDiscard.disabled = state.messagesSaving || !state.messagesDirty;
