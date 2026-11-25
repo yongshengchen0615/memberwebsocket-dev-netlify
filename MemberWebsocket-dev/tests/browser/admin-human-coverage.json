@@ -54,7 +54,7 @@
     "admin/ticket-visibility.js": "5f3218d1798f285d8b1c971a3658dd4c49525d8468ecd4c8a7fb79f653e7c85f",
     "admin/workspace.html": "25bad61a0238e4d167cc184dc85b2de7fba38f1f88f6b684d098740b4d4b765a",
     "platform/app.js": "8aa9ca2e46f51fabb76ed6f03f71d377351e702c7512979b4030ddb0f9c58d49",
-    "admin/business-workspace.js": "a92d8ef276a10432a775e79cc477d31c5d7b3a8a91f1dc7ab1ad31b49aff80a3",
+    "admin/business-workspace.js": "0d49c7a5369a7242581684aa626264a5e8f90e2c391b064e144a4f744071ee31",
     "business-context.js": "72db2b92ed5749d6e3517cf25306411c17ec0fe06c6c64604b5ea3421ac45e15",
     "admin/business-line-settings.js": "c91b11db6169d80247adcd51bb45e269b9ad4056d5026ed7ba909b1b6ef95df3",
     "admin/booking-risk.js": "a18bba899216a17cef819554cb216a6f0430709e30e5a241dcb60ee5d3f77462",
@@ -487,7 +487,7 @@
     {
       "id": "calendar.42",
       "module": "calendar",
-      "name": "活動加贈集點儲存、回讀與休假停用",
+      "name": "活動加贈點數設定已退役；會員活動與休假仍可保存",
       "cases": [
         "CALENDAR_BONUS",
         "RUNNER_ADMIN_CALENDAR_EVENT_CRUD"
