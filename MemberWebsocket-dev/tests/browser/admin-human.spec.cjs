@@ -480,7 +480,11 @@ test('BOOKING_MESSAGES_SETTINGS — one save, reload, invalid input and conflict
   const form=p.locator('#bookingAdminMessagesForm'),save=p.locator('#bookingAdminMessagesSave');
   await expect(form.locator('button[type="submit"]')).toHaveCount(1);
   await expect(save).toBeDisabled();
+  await expect(p.locator('#bookingAdminMessagesAudienceHeading')).toHaveText('會員端顯示訊息');
+  await expect(p.locator('#bookingAdminMessagesLineHeading')).toHaveText('LINE 預約通知');
+  await expect(p.locator('.booking-admin-messages-help')).toContainText('不會因儲存設定立即群發');
   await fill(p,'bookingAdminNotice','QA line 1\\nQA line 2');
+  await expect(p.locator('#bookingAdminNoticeCount')).toHaveText('20 / 2,000 字');
   await fill(p,'bookingAdminPendingMessage','預約已送出，請等待管理員確認。');
   await expect(p.locator('#bookingAdminRejectionMessage')).toHaveCount(0);
   await fill(p,'bookingAdminReminderMessage','您的預約即將開始，請準時到場。');
@@ -512,6 +516,13 @@ test('BOOKING_MESSAGES_SETTINGS — one save, reload, invalid input and conflict
   await expect(p.locator('#bookingAdminMessagesStatus')).toContainText('其他管理員已修改設定');
   await expect(p.locator('#bookingAdminPendingMessage')).toHaveValue('修正後等待確認。');
   expect(info.fixture.settings.pendingMessage).toBe(beforeConflict);
+  await p.setViewportSize({width:390,height:844});
+  const noticeCard=await p.locator('#bookingAdminNotice').boundingBox();
+  const onsiteCard=await p.locator('#bookingAdminOnsiteEditMessage').boundingBox();
+  expect(noticeCard && onsiteCard).toBeTruthy();
+  expect(onsiteCard.y).toBeGreaterThan(noticeCard.y+noticeCard.height);
+  expect(onsiteCard.x).toBeGreaterThanOrEqual(0);
+  expect(onsiteCard.x+onsiteCard.width).toBeLessThanOrEqual(390);
 });
 
 function seedBooking(s,status='pending'){
