@@ -389,6 +389,7 @@
         (service) => service,
         (service) => createExtraServiceChoiceRow(index, extraIndex, selections, service),
         'service-picker',
+        true,
       );
     } else if (state.services.length) {
       choices.appendChild(createCompactEmptyState('可選項目已全部加入目前選擇'));
@@ -440,7 +441,7 @@
     return fragment;
   }
 
-  function appendServiceCategoryGroups(container, entries, getService, createRow, listClass) {
+  function appendServiceCategoryGroups(container, entries, getService, createRow, listClass, sortByPrice = false) {
     const groups = new Map();
     for (const entry of entries) {
       const service = getService(entry);
@@ -472,7 +473,11 @@
 
       const list = document.createElement('div');
       list.className = listClass;
-      group.entries.forEach((entry) => list.appendChild(createRow(entry)));
+      const priceSorter = window.BookingServicePriceSort?.sortEntriesByPrice;
+      const visibleEntries = sortByPrice && typeof priceSorter === 'function'
+        ? priceSorter(group.entries, getService)
+        : group.entries;
+      visibleEntries.forEach((entry) => list.appendChild(createRow(entry)));
 
       section.append(heading, reward, list);
       container.appendChild(section);
