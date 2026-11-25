@@ -163,7 +163,7 @@ Deno.test('AC-LPH-005: LINE Flex cards format Taiwan mobile across admin, member
     assert(job.message_text === original, 'formatting must not mutate queued outbox payload');
   }
   const abroad = buildBookingFlexMessage({
-    ...sampleJob, channel: 'member', message_text: '【預約確認】\n電話：+819012345678',
+    ...sampleJob, channel: 'member', message_text: '【預約提醒】\n電話：+819012345678',
   });
   assert(JSON.stringify(abroad).includes('+819012345678'), 'non-Taiwan numbers stay unchanged');
 });
