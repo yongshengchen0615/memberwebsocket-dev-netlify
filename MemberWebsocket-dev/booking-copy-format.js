@@ -23,6 +23,21 @@
     copyBooking(button, card).catch(() => setTemporaryLabel(button, '複製失敗'));
   }, true);
 
+  document.addEventListener('click', (event) => {
+    const button = event.target?.closest?.('.booking-id-copy-button');
+    if (!button || button.disabled) return;
+    const card = button.closest('.booking-admin-booking');
+    const bookingId = String(card?.dataset.bookingId || '').trim();
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (!bookingId) return setTemporaryLabel(button, '編號無法使用');
+    button.disabled = true;
+    copyText(bookingId)
+      .then(() => setTemporaryLabel(button, '已複製'))
+      .catch(() => setTemporaryLabel(button, '複製失敗'))
+      .finally(() => { button.disabled = false; });
+  }, true);
+
   async function copyBooking(button, card) {
     if (button.dataset.copyBusy === 'true') return;
     button.dataset.copyBusy = 'true';

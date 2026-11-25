@@ -33,7 +33,7 @@
   "frontdeskRejectionSettingsReview": "[object Object] 2026-11-24 PR #446：新增櫃檯待審新預約／會員修改預約分類與操作標籤、管理端拒絕修改預約獨立編輯清單、LINE 管理端/會員端核准與拒絕修改標題。逐項覆核既有管理端六個工作區、管理員前台櫃檯 LINE／人員核准/拒絕預約/電話補登及原 62 組 admin-human 人工旅程：保留所有既有入口、權限、租戶審查和 requestId；新分流由後端 audit，不接受 browser 夾帶 reviewKind。新增 AC-FMR Node/JSDOM/Deno，完整 PostgreSQL/Chromium CI 與沙盒 LINE 實際收訊分別驗收；本紀錄不代表它們已通過。",
   "reviewedSources": {
     "admin/booking-admin-ux.js": "da82c2bcbb7d8ece44e05d66bada9e20a384784e4346bdde50f6b9cb2897d1ee",
-    "admin/index.html": "8de6837dcd9ad1de2f197ec07f5d5f7b25e9cc4e91a3648c861091ef95afe5fb",
+    "admin/index.html": "080db79053e3814168cb42fe560652901299d88ffe4c35d87cfbb83e7ba8ca09",
     "admin/app.js": "eb8e79f8a3fa3ff2143d462b4157aff68f8f08d2d302ee5c9e3cd2ee860d4a98",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
@@ -44,8 +44,8 @@
     "admin/fixed-ticket-calendar-option.js": "0bbc53970ff0ec7408985b001113f64de718963bcfbc793f563a44f2e068f1f1",
     "admin/pointcard-redemption-limit.js": "fbba580c9babdac950b2f619c3f3b949fe89ae0c1365e2555f758d1a8818035c",
     "admin/event-ticket-redemption-limit.js": "263a564d64845c5abb4ed5167305b0bffefb064130a0268ab533b481d320b688",
-    "admin/booking-panel.js": "40193eb2aac9cd35236cce2361477fb1641d9ffad6d9d83862aac7793110e9c5",
-    "admin/booking-panel-core.js": "fedb3a97316a7a77e4e8fdbb0b2db79c7f4ee483f3408343a14712f28d325178",
+    "admin/booking-panel.js": "35195a62d3bdc80f89b639f35308957f66bb0936ddb2f1a73de500f2930313c4",
+    "admin/booking-panel-core.js": "ac96ec27835f393426daf79b8cd32e073fc3febbc0addcaabd819f0c96fa277a",
     "admin/booking-resources.js": "6a9c9d9ab1530869d13191668c251e02258a8b5830cb80abafbda3bf556e6319",
     "admin/booking-always-open.js": "9cb236902a7f3f36cf3fe4c3f13fbbac622f000c72d36ec34f7d4dde08e6e54a",
     "admin/booking-cancellation-sync.js": "810d09beb8650d5a88237172a95d6bdbc19c83888e1ab17ef92ec3c5b2de9674",
@@ -414,7 +414,7 @@
     {
       "id": "booking.35",
       "module": "booking",
-      "name": "確認、不通過、取消、完成、無故未到分類與結算視窗；完成預覽逐位技師／項目分鐘與金額，僅主要技師合格項目入帳，保留個別備註與歷史服務快照；精簡三區（預約資料／預約項目／票券使用資料）實際 390／1280px 瀏覽器驗收；管理端拒絕原因彈窗與現場未登記預約之時間、總時長、原預約區間內每十分鐘（含結束相接）防呆及一筆交易雙預約",
+      "name": "確認、不通過、取消、完成、無故未到分類與結算視窗；完成預覽逐位技師／項目分鐘與金額，僅主要技師合格項目入帳，保留個別備註與歷史服務快照；精簡三區（預約資料／預約項目／票券使用資料）實際 390／1280px 瀏覽器驗收；管理端拒絕原因彈窗與現場未登記預約之時間、總時長、原預約區間內每十分鐘（含結束相接）防呆及一筆交易雙預約；一般預約列表每張預約卡顯示完整預約編號（資料庫 bookings.id），可複製 UUID 並對應既有管理端查詢，不改變會員與非會員處理流程",
       "cases": [
         "BOOKING_STATUS_confirmed",
         "BOOKING_STATUS_rejected",
