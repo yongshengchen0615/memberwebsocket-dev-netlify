@@ -288,7 +288,7 @@ test('phone-only dates expose a read-only catalog and revoke it on date or ident
     assert.match(f.el('bookingPhoneServiceReference').textContent, /電話預約項目參考/);
     const items = [...f.el('bookingPhoneServiceList').querySelectorAll('.booking-phone-service-item')];
     assert.deepEqual(items.map(item => item.querySelector('span').textContent), ['基礎保養', '深層保養', '<img src=x onerror=alert(1)>']);
-    assert.match(items[0].textContent, /30 分鐘.*NT\\$400/);
+    assert.match(items[0].textContent, /30 分鐘.*NT\$400/);
     assert.match(items[2].textContent, /加購／需搭配一般項目/);
     assert.equal(f.el('bookingPhoneServiceList').querySelectorAll('button,input,img').length, 0);
     assert.equal(f.el('appointmentPanel').classList.contains('hidden'), true);
