@@ -522,6 +522,9 @@
 
   function applySelectionConstraints(loadAfter) {
     const rows = selectedServiceRows();
+    // Invalidate any in-flight result when an item is added or removed.
+    ++state.slotRequestSequence;
+    state.loadingSlots = false;
     els.slotGrid.replaceChildren();
     state.selectedSlot = null;
     els.submitBookingButton.disabled = true;
@@ -529,12 +532,13 @@
     const maximumDate = globalMaximumDate();
     els.bookingDate.min = minimumDate;
     els.bookingDate.max = maximumDate;
+    notifySelectionChanged();
+    const missingItemsHint = window.BookingGroupUI?.missingItemsHint?.() || '';
 
     if (!rows.length) {
       els.bookingDate.disabled = !els.bookingDate.value;
       els.selectionSummary.classList.add('hidden');
-      els.slotHint.textContent = '請先選擇至少一個預約項目。';
-      notifySelectionChanged();
+      els.slotHint.textContent = missingItemsHint || '請先選擇至少一個預約項目。';
       return;
     }
 
@@ -545,9 +549,8 @@
     if (!els.bookingDate.value || els.bookingDate.value < minimumDate || (maximumDate && els.bookingDate.value > maximumDate)) els.bookingDate.value = minimumDate;
     els.selectionSummary.classList.remove('hidden');
     els.selectionSummary.replaceChildren();
-    notifySelectionChanged();
-    els.slotHint.textContent = '正在計算整段服務時間可使用的時段…';
-    if (loadAfter && els.bookingDate.value) loadSlots();
+    els.slotHint.textContent = missingItemsHint || '正在計算整段服務時間可使用的時段…';
+    if (!missingItemsHint && loadAfter && els.bookingDate.value) loadSlots();
   }
 
   function notifySelectionChanged() {
@@ -563,9 +566,21 @@
   }
 
   async function loadSlots(showFeedback = true) {
+    // An incomplete form is not an unavailable calendar day. Invalidate old
+    // requests even if we do not start a new one (e.g. the last item is removed).
+    const requestSequence = ++state.slotRequestSequence;
     const items = selectedItems();
     const bookingDate = els.bookingDate.value;
-    if (!items.length || !bookingDate) return;
+    const missingItemsHint = window.BookingGroupUI?.missingItemsHint?.() || '';
+    if (missingItemsHint || !items.length) {
+      state.loadingSlots = false;
+      state.selectedSlot = null;
+      els.slotGrid.replaceChildren();
+      els.submitBookingButton.disabled = true;
+      els.slotHint.textContent = missingItemsHint || '請先選擇至少一個預約項目。';
+      return;
+    }
+    if (!bookingDate) return;
     const maximumDate = globalMaximumDate();
     if (maximumDate && bookingDate > maximumDate) {
       els.slotGrid.replaceChildren();
@@ -573,7 +588,6 @@
       els.submitBookingButton.disabled = true;
       return;
     }
-    const requestSequence = ++state.slotRequestSequence;
     state.loadingSlots = true;
     const previouslySelected = state.selectedSlot?.startTime || '';
     state.selectedSlot = null;
