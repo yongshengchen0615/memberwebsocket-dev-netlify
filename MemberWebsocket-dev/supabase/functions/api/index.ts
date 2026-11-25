@@ -2050,7 +2050,7 @@ async function adminIntegrationOverview(supabase: SupabaseClient): Promise<Json>
       .order("updated_at",{ ascending:false })
       .limit(40),
     supabase.from("calendar_items")
-      .select("calendar_item_id,title,item_type,status,starts_on,ends_on,allowed_tier_keys,bonus_points_enabled,bonus_points,source_event_ticket_id,updated_at")
+      .select("calendar_item_id,title,item_type,status,starts_on,ends_on,allowed_tier_keys,source_event_ticket_id,updated_at")
       .order("starts_on",{ ascending:false })
       .limit(100),
     supabase.from("event_tickets")
@@ -2114,19 +2114,6 @@ async function adminIntegrationOverview(supabase: SupabaseClient): Promise<Json>
       pointCardTitle:String(card?.title || "指定集點卡"),
       status:card?.status === "active" ? "active" : "attention",
       updatedAt:reward.updated_at || type?.updated_at || "",
-    });
-  }
-  for (const item of calendarRows) {
-    if (item.item_type !== "event" || item.bonus_points_enabled !== true || Number(item.bonus_points || 0) <= 0) continue;
-    pointSources.push({
-      sourceType:"calendar",
-      sourceId:String(item.calendar_item_id || ""),
-      title:String(item.title || "日曆活動"),
-      detail:`會員發放操作搭配此活動時，每張集點卡 +${Number(item.bonus_points || 0)} 點`,
-      pointCardId:"",
-      pointCardTitle:"依本次發放集點卡",
-      status:item.status === "active" ? "active" : "attention",
-      updatedAt:item.updated_at || "",
     });
   }
   pointSources.push({
@@ -2938,7 +2925,8 @@ async function handleAction(supabase: SupabaseClient, identity: { lineUserId: st
   }
 
   if (action === "admin.calendar-items.save") {
-    const item = body.calendarItem && typeof body.calendarItem === "object" ? body.calendarItem as Json : {};
+    const item = body.calendarItem && typeof body.calendarItem === "object" && !Array.isArray(body.calendarItem)
+      ? {...(body.calendarItem as Json),bonusPointsEnabled:false,bonusPoints:0} : {};
     const rpc = await supabase.rpc("apply_calendar_batch",{ p_actor_line_user_id:identity.lineUserId,p_operations:[{ action:"save",calendarItem:item,expectedUpdatedAt:body.expectedUpdatedAt || "" }] });
     if (rpc.error) throw mapDatabaseError(rpc.error);
     const id = String((rpc.data as any[])?.[0]?.calendarItemId || "");
@@ -2952,7 +2940,11 @@ async function handleAction(supabase: SupabaseClient, identity: { lineUserId: st
   }
   if (action === "admin.calendar-items.batch") {
     if (!Array.isArray(body.calendarItemOperations)) throw new ApiError(400,"INVALID_CALENDAR_BATCH","日曆批次操作格式不正確。");
-    const rpc = await supabase.rpc("apply_calendar_batch",{ p_actor_line_user_id:identity.lineUserId,p_operations:body.calendarItemOperations });
+    const operations = (body.calendarItemOperations as any[]).map((operation:any) =>
+      operation?.action === "save" && operation.calendarItem && typeof operation.calendarItem === "object" && !Array.isArray(operation.calendarItem)
+        ? {...operation,calendarItem:{...operation.calendarItem,bonusPointsEnabled:false,bonusPoints:0}}
+        : operation);
+    const rpc = await supabase.rpc("apply_calendar_batch",{ p_actor_line_user_id:identity.lineUserId,p_operations:operations });
     if (rpc.error) throw mapDatabaseError(rpc.error);
     return { operations:rpc.data || [],calendarItems:await calendarItems(supabase,false) };
   }
