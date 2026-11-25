@@ -689,6 +689,15 @@
     return true;
   }
 
+  function missingItemsHint() {
+    if (state.partySize === 1) return state.primaryItems.length ? '' : '請先選擇至少一個預約項目。';
+    const missingExtra = state.extras.slice(0, state.partySize - 1)
+      .some((selections) => extraSelectionsToItems(selections).length === 0);
+    return !state.primaryItems.length || missingExtra
+      ? '請先為所有預約者選擇預約項目，再查看可預約時間。'
+      : '';
+  }
+
   function buildParticipants(primaryItems, strict = false) {
     syncPrimaryItems(primaryItems);
 
@@ -1061,6 +1070,7 @@
   }
 
   window.BookingGroupUI = Object.freeze({
+    missingItemsHint,
     renderSelectionSummary: updateSelectionSummary,
     renderConfirmation,
     renderBookingHistoryCard,
