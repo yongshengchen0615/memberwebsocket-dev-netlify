@@ -235,10 +235,12 @@
   }
 
   function partySizeChanged(event) {
+    const previousPartySize = state.partySize;
     state.partySize = clamp(Number(event.target.value || 1), 1, state.maxPartySize);
     ensureParticipantCount(false);
     renderParticipantCards();
     updateSelectionSummary();
+    if (previousPartySize === 1 && state.partySize > 1) scrollToParticipantStart(0);
     reloadSlots();
   }
 
@@ -272,6 +274,11 @@
       heading.className = 'participant-heading';
       const title = document.createElement('strong');
       title.textContent = participantLabel(index);
+      const missingItems = document.createElement('small');
+      missingItems.className = 'participant-item-warning';
+      missingItems.textContent = '還未選擇預約項目';
+      missingItems.hidden = true;
+      title.appendChild(missingItems);
       const meta = document.createElement('span');
       meta.dataset.participantSummary = String(index);
       heading.append(title, meta);
@@ -288,6 +295,7 @@
         root.querySelectorAll('.participant-card').forEach((card) => {
           card.open = Number(card.dataset.participantIndex) === index;
         });
+        scrollToParticipantStart(index);
       });
       details.appendChild(summary);
 
@@ -307,6 +315,19 @@
     }
     updateCardSummaries();
     updateSelectionSummary();
+  }
+
+  function scrollToParticipantStart(index) {
+    const card = document.querySelector(`#participantCardList .participant-card[data-participant-index="${index}"]`);
+    const summary = card?.querySelector('summary');
+    if (!card?.open || !summary) return;
+    window.requestAnimationFrame(() => {
+      if (!card.isConnected || !card.open || state.openCardIndex !== index) return;
+      summary.scrollIntoView?.({
+        block: 'start',
+        behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 'auto' : 'smooth',
+      });
+    });
   }
 
   function createParticipantNoteField(index) {
@@ -625,12 +646,16 @@
   }
 
   function updateCardSummaries() {
+    const hasSelectedItems = state.primaryItems.length > 0
+      || state.extras.some((selections) => Array.isArray(selections) && selections.length > 0);
     document.querySelectorAll('[data-participant-summary]').forEach((node) => {
       const index = Number(node.dataset.participantSummary || 0);
       const tech = technicianLabel(state.participantTechnicians[index]);
       const count = index === 0 ? countItems(state.primaryItems) : (state.extras[index - 1]?.length || 0);
       const amount = participantMetrics(index).amount;
       node.textContent = `${count ? `已選 ${count} 項` : '尚未選項目'} · 金額 ${formatMoney(amount)} · ${tech}`;
+      const warning = node.parentElement?.querySelector('.participant-item-warning');
+      if (warning) warning.hidden = !(state.partySize > 1 && hasSelectedItems && count === 0);
     });
   }
 
