@@ -135,3 +135,12 @@ test('AC-009: all standalone management entrypoints share the blocking Loading a
  assert.match(standalone,/platform\.frontdesk\.rejection-settings\.save/);
  assert.match(standalone,/finishFeedback\?\.\(\)/);
 });
+
+test('AC-010: receipt modal may release its own inert state before Loading finishes',()=>{
+ const {feedback,interactive}=fixture();
+ interactive.inert=true; // Booking receipt modal owns the existing inert state.
+ const finish=feedback.begin('正在安全上傳收據…');
+ interactive.inert=false; // closeModal() runs before finishFeedback().
+ finish();
+ assert.equal(interactive.inert,false,'Loading must not re-apply the closed modal inert state');
+});
