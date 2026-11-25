@@ -85,6 +85,7 @@ jobs:
             MemberWebsocket-dev/tests/integration/admin_startup.cjs \
             MemberWebsocket-dev/tests/integration/admin_terms.cjs \
             MemberWebsocket-dev/tests/integration/booking_startup.cjs \
+            MemberWebsocket-dev/tests/integration/booking_group_guidance.cjs \
             MemberWebsocket-dev/tests/integration/booking_benefits.cjs \
             MemberWebsocket-dev/tests/integration/shared_event_ticket.cjs \
             MemberWebsocket-dev/tests/integration/booking_copy.cjs \
@@ -135,7 +136,7 @@ jobs:
 
   browser-e2e:
     name: Chromium admin, member, receipt and GPS E2E
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       # Keep every shard running so one failure does not erase other evidence.
