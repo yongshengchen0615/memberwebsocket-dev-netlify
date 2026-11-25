@@ -1,7 +1,7 @@
 const {test,expect}=require('playwright/test');
 const fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'../..');
-for(const width of [390,1280])test(`FEATURE_DEPENDENCIES_${width}: nested controls follow revoke/re-enable and late mount`,async({page},info)=>{
+for(const width of [390,1280])test(`FEATURE_DEPENDENCIES_${width}: nested grants keep permissions while retired bonus DOM stays removed`,async({page},info)=>{
  await page.setViewportSize({width,height:900});
  const html=fs.readFileSync(path.join(root,'admin/index.html'),'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'').replace(/<link\b[^>]*>/gi,'').replace(/<meta\b[^>]*http-equiv="Content-Security-Policy"[^>]*>/gi,'');
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -21,17 +21,17 @@ for(const width of [390,1280])test(`FEATURE_DEPENDENCIES_${width}: nested contro
  await page.evaluate(()=>{
   const block=document.createElement('section');block.id='calendarBonusPointsControls';block.textContent='活動加贈點數';document.getElementById('grantForm').append(block);
  });
- await expect(page.locator('#calendarBonusPointsControls')).toBeHidden();
+ await expect(page.locator('#calendarBonusPointsControls')).toHaveCount(0);
  await page.evaluate(()=>window.BusinessWorkspace.apply({features:{membership:true,points:true,events:true,booking:true,calendar:true},business:{slug:'fixture',name:'QA'}}));
  await expect(page.locator('#grantStampsEnabled')).toBeVisible();
  await expect(page.locator('#grantMode option[value=services]')).toHaveJSProperty('disabled',false);
  await page.locator('#grantMode').selectOption('services');
  await expect(page.locator('#grantMode')).toHaveValue('services');
- await expect(page.locator('#calendarBonusPointsControls')).toBeVisible();
+ await expect(page.locator('#calendarBonusPointsControls')).toHaveCount(0);
  await page.evaluate(()=>window.BusinessWorkspace.apply({features:{membership:true},business:{slug:'fixture',name:'QA'}}));
  await expect(page.locator('#grantStampsEnabled')).toBeHidden();
  await expect(page.locator('#grantMode')).toHaveValue('manual');
- await expect(page.locator('#calendarBonusPointsControls')).toBeHidden();
+ await expect(page.locator('#calendarBonusPointsControls')).toHaveCount(0);
  await page.evaluate(()=>{
   const modal=document.createElement('div');modal.className='booking-admin-modal';modal.setAttribute('role','dialog');
   modal.innerHTML='<label class="booking-admin-toggle"><input data-type-reward-enabled type="checkbox"><span>完成服務自動集點</span></label><div data-type-reward-fields>分鐘／集點卡</div>';

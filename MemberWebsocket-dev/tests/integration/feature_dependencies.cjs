@@ -228,7 +228,7 @@ function fixture(){
  const apply=features=>dom.window.BusinessWorkspace.apply({features,business:{name:'A',slug:'merchant-a'}});
  return {dom,w:dom.window,d:dom.window.document,apply,close:()=>{observers.forEach(observer=>observer.disconnect());dom.window.close();}};
 }
-test('AC-001/004: nested points controls and service mode track grants without disabling service-time grants',async()=>{
+test('AC-001/004: points and service grants track permissions while obsolete bonus DOM is removed',async()=>{
  const h=fixture();try{
   h.apply({membership:true});
   assert.equal(h.d.getElementById('activeCardCount').closest('div').dataset.businessAllowed,'false');
@@ -241,12 +241,14 @@ test('AC-001/004: nested points controls and service mode track grants without d
   assert.equal(h.d.querySelector('#grantMode option[value="services"]').disabled,false);
   h.d.getElementById('grantMode').value='services';
   const late=h.d.createElement('section');late.id='calendarBonusPointsControls';h.d.getElementById('adminView').append(late);await tick();
+  assert.equal(late.isConnected,false,'retired bonus panel must be removed, not permission-gated');
+  assert.equal(h.d.getElementById('calendarBonusPointsControls'),null);
   h.apply({membership:true,calendar:true});
   assert.equal(h.d.getElementById('grantMode').value,'manual');
   assert.equal(h.d.getElementById('grantServiceFields').dataset.businessAllowed,'false');
-  assert.equal(late.dataset.businessAllowed,'false');
+  assert.equal(late.isConnected,false,'disabling points must not restore retired bonus controls');
   h.apply({membership:true,calendar:true,points:true});
-  assert.equal(late.dataset.businessAllowed,'true');
+  assert.equal(late.isConnected,false,'re-enabling points must not restore retired bonus controls');
  }finally{h.close();}
 });
 test('AC-003: late booking rewards and ticket booking restrictions are hidden when dependencies are missing',async()=>{
