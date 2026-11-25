@@ -241,6 +241,7 @@
         (service) => service,
         (service) => createServiceChoiceRow(service),
         'service-picker',
+        true,
       );
     }
 
@@ -320,7 +321,7 @@
     return row;
   }
 
-  function appendServiceCategoryGroups(container, entries, getService, createRow, listClass) {
+  function appendServiceCategoryGroups(container, entries, getService, createRow, listClass, sortByPrice = false) {
     const groups = new Map();
     for (const entry of entries) {
       const service = getService(entry);
@@ -351,7 +352,11 @@
       reward.classList.toggle('hidden', !rewardText);
       const list = document.createElement('div');
       list.className = listClass;
-      group.entries.forEach((entry) => list.appendChild(createRow(entry)));
+      const priceSorter = window.BookingServicePriceSort?.sortEntriesByPrice;
+      const visibleEntries = sortByPrice && typeof priceSorter === 'function'
+        ? priceSorter(group.entries, getService)
+        : group.entries;
+      visibleEntries.forEach((entry) => list.appendChild(createRow(entry)));
       section.append(heading, reward, list);
       container.appendChild(section);
     }
