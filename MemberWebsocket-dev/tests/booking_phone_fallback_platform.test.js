@@ -40,13 +40,15 @@ test('AC-003 both member bootstrap and calendar month return the shop telephone 
 test('AC-004 phone respects merchant horizon and holidays, not online-only lead time',()=>{
   assert.doesNotMatch(calendar,/calendar-phone-badge/);
   assert.match(calendar,/const phoneOnly = Boolean\(phoneAllowed && reason && date < state\.minimumDate\)/);
-  assert.match(calendar,/els\.startDayBookingButton\.hidden = phoneOnly/);
+  assert.match(calendar,/els\.startDayBookingButton\.hidden = Boolean\(phoneOnly \|\| isHoliday\)/);
+  assert.match(calendar,/els\.bookingPhoneFallback\.hidden = Boolean\(isHoliday \|\| !phoneAllowed\)/);
+  assert.match(calendar,/els\.bookingDayHolidayNotice\.hidden = !isHoliday/);
   assert.match(calendar,/const phoneAllowed = Boolean\(phone && date && reason && !phoneBookingBlockReason\(date\)\)/);
   assert.match(calendar,/if \(date < state\.minimumDate\) return/);
   assert.match(calendar,/if \(state\.maximumDate && date > state\.maximumDate\) return/);
   assert.match(calendar,/if \(date < state\.today\) return/);
   assert.match(calendar,/if \(holidays\.length\) return/);
-  assert.match(calendar,/els\.bookingPhoneFallback\.hidden = !phoneAllowed/);
+  assert.match(calendar,/const isHoliday = holidays\.length > 0/);
   assert.match(calendar,/els\.bookingPhoneDial\.href = `tel:\$\{phone\.replace/);
   assert.match(calendar,/else if \(els\.bookingPhoneDial\) \{\s*els\.bookingPhoneDial\.removeAttribute\('href'\)/);
   assert.match(calendar,/els\.startDayBookingButton\.disabled = Boolean\(reason\)/);

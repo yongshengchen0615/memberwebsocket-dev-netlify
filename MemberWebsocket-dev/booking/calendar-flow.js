@@ -10,6 +10,7 @@
     minimumDate: '',
     maximumDate: '',
     phoneBookingNumber: '',
+    services: [],
     config: null,
     occupancyRequestSeq: 0,
     reloadTimer: 0,
@@ -34,7 +35,7 @@
       'appointmentPanel', 'appointmentModalTitle', 'selectedDateSummary', 'closeAppointmentButton',
       'bookingDate', 'servicePicker', 'selectedServiceList', 'bookingList', 'bookingConfirmModal',
       'bookingDayModal', 'bookingDayTitle', 'bookingDayHint', 'closeBookingDayButton', 'startDayBookingButton', 'bookingDayHolidayDetails',
-      'bookingPhoneFallback', 'bookingPhoneDial'
+      'bookingPhoneFallback', 'bookingPhoneDial', 'bookingPhoneServiceReference', 'bookingPhoneServiceList', 'bookingDayHolidayNotice'
     ].forEach((id) => { els[id] = document.getElementById(id); });
 
     if (!els.calendarGrid || !els.bookingDate || !els.servicePicker || !els.appointmentPanel) return;
@@ -101,6 +102,10 @@
       scheduleMonthOccupancyReload();
     });
 
+    window.addEventListener('booking:services-updated', event => {
+      state.services = Array.isArray(event.detail?.services) ? event.detail.services : [];
+      if (els.bookingDayModal && !els.bookingDayModal.classList.contains('hidden')) updateDayAction();
+    });
     window.addEventListener('booking:selection-changed', syncAfterSelectionMutation);
     window.addEventListener('booking:bookings-rendered', (event) => {
       if (event.detail?.recordsOnly) return;
@@ -440,6 +445,8 @@
   function updateDayAction() {
     const date = state.historyDate;
     const reason = bookingBlockReason(date);
+    const holidays = state.holidaysByDate.get(date) || [];
+    const isHoliday = holidays.length > 0;
     const phone = safePhoneBookingNumber(state.phoneBookingNumber);
     // Online lead-time rules do not block merchant-assisted phone enquiries.
     const phoneAllowed = Boolean(phone && date && reason && !phoneBookingBlockReason(date));
@@ -447,14 +454,14 @@
     const phoneOnly = Boolean(phoneAllowed && reason && date < state.minimumDate);
     if (els.startDayBookingButton) {
       els.startDayBookingButton.disabled = Boolean(reason);
-      els.startDayBookingButton.hidden = phoneOnly;
+      els.startDayBookingButton.hidden = Boolean(phoneOnly || isHoliday);
     }
     if (els.bookingDayHint) {
       els.bookingDayHint.textContent = phoneOnly
         ? '此日期尚未開放線上預約，請致電店家洽詢。'
         : reason || '查看當天紀錄，或開始新的預約。';
     }
-    if (els.bookingPhoneFallback) els.bookingPhoneFallback.hidden = !phoneAllowed;
+    if (els.bookingPhoneFallback) els.bookingPhoneFallback.hidden = Boolean(isHoliday || !phoneAllowed);
     if (phoneAllowed) {
       const dialLabel = `撥打店家電話：${phone}`;
       els.bookingPhoneDial.textContent = dialLabel;
@@ -465,10 +472,66 @@
       els.bookingPhoneDial.textContent = '撥打店家電話';
       els.bookingPhoneDial.setAttribute('aria-label', '撥打店家電話');
     }
-    const holidays = state.holidaysByDate.get(state.historyDate) || [];
+    renderPhoneServiceReference(phoneOnly);
+    if (els.bookingDayHolidayNotice) {
+      els.bookingDayHolidayNotice.hidden = !isHoliday;
+      const technicianHoliday = holidays.some(item => /技師|師傅/.test(String(item.title || '')));
+      els.bookingDayHolidayNotice.textContent = isHoliday
+        ? (technicianHoliday ? '技師休假提醒：當日無法預約，請改選其他日期。' : '休假提醒：當日無法預約，請改選其他日期。')
+        : '';
+    }
     if (els.bookingDayHolidayDetails) {
       els.bookingDayHolidayDetails.hidden = !holidays.length;
       els.bookingDayHolidayDetails.replaceChildren(...holidayDetails(holidays));
+    }
+  }
+
+  function renderPhoneServiceReference(phoneOnly) {
+    const reference = els.bookingPhoneServiceReference;
+    const list = els.bookingPhoneServiceList;
+    if (!reference || !list) return;
+    reference.hidden = !phoneOnly;
+    list.replaceChildren();
+    if (!phoneOnly) return;
+    const groups = new Map();
+    for (const service of state.services) {
+      if (!service || !String(service.title || '').trim()) continue;
+      const description = String(service.description || '');
+      const type = description.startsWith('__TYPE__:') ? description.slice('__TYPE__:'.length).trim() || '其他' : '其他';
+      if (!groups.has(type)) groups.set(type, []);
+      groups.get(type).push(service);
+    }
+    if (!groups.size) {
+      const empty = document.createElement('p');
+      empty.textContent = '目前沒有開放的預約項目，請致電店家確認。';
+      list.appendChild(empty);
+      return;
+    }
+    for (const [type, services] of groups) {
+      const section = document.createElement('section');
+      section.className = 'booking-phone-service-type';
+      const heading = document.createElement('strong');
+      heading.textContent = type;
+      section.appendChild(heading);
+      const sorted = window.BookingServicePriceSort?.sortEntriesByPrice?.(services) ||
+        services.slice().sort((a, b) => Number(a.priceAmount || 0) - Number(b.priceAmount || 0));
+      for (const service of sorted) {
+        const item = document.createElement('div');
+        item.className = 'booking-phone-service-item';
+        const name = document.createElement('span');
+        name.textContent = String(service.title);
+        const meta = document.createElement('small');
+        const duration = Number(service.durationMinutes);
+        const price = Number(service.priceAmount);
+        const durationLabel = Number.isFinite(duration) && duration > 0 ? `${duration} 分鐘` : '時間請洽店家';
+        const priceLabel = service.priceAmount !== null && service.priceAmount !== undefined &&
+          service.priceAmount !== '' && Number.isFinite(price) && price >= 0
+          ? 'NT$' + Math.trunc(price).toLocaleString('zh-Hant-TW') : '價格請洽店家';
+        meta.textContent = `${durationLabel} · ${priceLabel}${service.requiresCompanionService ? ' · 加購／需搭配一般項目' : ''}`;
+        item.append(name, meta);
+        section.appendChild(item);
+      }
+      list.appendChild(section);
     }
   }
 
@@ -492,6 +555,9 @@
     closeDayModal(false);
     closeAppointmentModal(false);
     state.historyDate = '';
+    state.services = [];
+    if (els.bookingPhoneServiceReference) els.bookingPhoneServiceReference.hidden = true;
+    els.bookingPhoneServiceList?.replaceChildren();
     state.linkedRecordOpened = false;
     state.memberBookedByDate.clear();
     state.occupiedByDate.clear();
