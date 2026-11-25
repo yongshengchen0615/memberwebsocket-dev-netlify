@@ -37,3 +37,16 @@
 .booking-day-footer #startDayBookingButton[hidden]+.booking-phone-fallback{margin-top:0}
 .booking-day-footer .booking-phone-fallback[hidden]{display:none!important}
 .booking-day-footer .booking-phone-fallback .button{display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;margin-top:0;text-align:center;text-decoration:none;overflow-wrap:anywhere}
+
+/* Phone-only date dialog: reference catalog only, without booking controls. */
+.booking-phone-service-reference{display:grid;gap:10px;padding:16px;border:1px solid var(--theme-border,rgba(23,53,46,.13));border-radius:14px;background:var(--theme-surface,#fff)}
+.booking-phone-service-reference[hidden]{display:none!important}
+.booking-phone-service-reference h3{margin:0;font-size:17px}
+.booking-phone-service-reference>p{margin:0;font-size:12px;line-height:1.6;color:var(--theme-text-muted,#66746d)}
+.booking-phone-service-list{display:grid;gap:10px}
+.booking-phone-service-type{display:grid;gap:7px}
+.booking-phone-service-type>strong{font-size:14px;color:var(--theme-text,#17352e)}
+.booking-phone-service-item{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:10px;border-radius:9px;background:rgba(23,53,46,.045)}
+.booking-phone-service-item span{font-weight:650}
+.booking-phone-service-item small{color:var(--theme-text-muted,#66746d);text-align:right}
+@media(max-width:520px){.booking-phone-service-reference{padding:12px}.booking-phone-service-item{display:grid;gap:3px}.booking-phone-service-item small{text-align:left}}
