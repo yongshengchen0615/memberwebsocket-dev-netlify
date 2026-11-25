@@ -339,6 +339,7 @@ test('technician leave dates replace every booking action with a technician leav
     assert.match(f.el('bookingDayHolidayNotice').textContent, /技師休假提醒.*當日無法預約/);
     assert.match(f.el('bookingDayHolidayDetails').textContent, /技師休息一天/);
     assert.equal(f.el('appointmentPanel').classList.contains('hidden'), true);
+    f.el('nextMonthButton').click();
     f.click('2026-11-01');
     assert.equal(f.el('bookingDayHolidayNotice').hidden, true);
     assert.equal(f.el('bookingDayHolidayNotice').textContent, '');
