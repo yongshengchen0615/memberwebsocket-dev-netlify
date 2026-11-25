@@ -58,7 +58,7 @@ test('AC-004: both single and group member updates reject cutoff before writing;
   assert.match(groupApi, /assertOriginalBookingOnlineEditable\(existing\.data,g\.cfg\)/);
 });
 test('AC-005: public and existing tenant booking settings plus provisioning blueprint carry guarded message', () => {
-  assert.match(migration, /public\.booking_settings|v_schema='public'/);
+  assert.match(migration, /select 'public'::text/);
   assert.match(migration, /platform_private\.tenants/);
   assert.match(migration, /platform_private\.business_templates/);
   assert.match(migration, /booking_settings/);
