@@ -672,3 +672,10 @@
 @media(max-width:640px){
   #bookingPanel .booking-admin-service-group{padding:10px}
 }
+
+/* Canonical booking number in admin booking details (20261125). */
+#bookingPanel .booking-id-meta{min-width:0}
+#bookingPanel .booking-id-meta strong{overflow-wrap:anywhere;word-break:break-word;font-variant-numeric:tabular-nums;user-select:text}
+#bookingPanel .booking-id-copy-button{justify-self:start;max-width:100%;min-height:30px;padding:5px 10px;border:1px solid var(--theme-border,rgba(23,53,46,.18));border-radius:9px;background:var(--theme-surface-muted,#f3f6f2);color:var(--theme-text,#17352e);font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+#bookingPanel .booking-id-copy-button:focus-visible{outline:2px solid var(--theme-accent,#df6b4d);outline-offset:2px}
+#bookingPanel .booking-id-copy-button:disabled{opacity:.6;cursor:wait}

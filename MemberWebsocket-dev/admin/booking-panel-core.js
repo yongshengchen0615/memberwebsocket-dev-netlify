@@ -2112,6 +2112,19 @@
 
     const memberMeta = document.createElement('div');
     memberMeta.className = 'booking-member-meta';
+    // Show the canonical identifier used by booking APIs, not the idempotency request_id.
+    const bookingId = String(booking.bookingId || '').trim();
+    const idMeta = summaryMetaItem('預約編號', bookingId || '—');
+    idMeta.className += ' booking-id-meta';
+    if (bookingId) {
+      const copyIdButton = document.createElement('button');
+      copyIdButton.type = 'button';
+      copyIdButton.className = 'booking-id-copy-button';
+      copyIdButton.textContent = '複製編號';
+      copyIdButton.setAttribute('aria-label', `複製預約編號 ${bookingId}`);
+      idMeta.appendChild(copyIdButton);
+    }
+    memberMeta.appendChild(idMeta);
     if (isPhoneBooking(booking)) {
       memberMeta.append(summaryMetaItem('預約來源', isFrontdeskReplacement(booking) ? '櫃檯人員' : '管理端登記 · 非會員'));
     } else {
