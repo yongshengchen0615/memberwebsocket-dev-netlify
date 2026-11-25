@@ -526,7 +526,7 @@
         const durationLabel = Number.isFinite(duration) && duration > 0 ? `${duration} 分鐘` : '時間請洽店家';
         const priceLabel = service.priceAmount !== null && service.priceAmount !== undefined &&
           service.priceAmount !== '' && Number.isFinite(price) && price >= 0
-          ? 'NT
+          ? 'NT$' + Math.trunc(price).toLocaleString('zh-Hant-TW') : '價格請洽店家';
         meta.textContent = `${durationLabel} · ${priceLabel}${service.requiresCompanionService ? ' · 加購／需搭配一般項目' : ''}`;
         item.append(name, meta);
         section.appendChild(item);
