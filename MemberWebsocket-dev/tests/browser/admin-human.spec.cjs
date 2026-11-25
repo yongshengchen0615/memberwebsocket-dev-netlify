@@ -484,7 +484,8 @@ test('BOOKING_MESSAGES_SETTINGS — one save, reload, invalid input and conflict
   await expect(p.locator('#bookingAdminMessagesLineHeading')).toHaveText('LINE 預約通知');
   await expect(p.locator('.booking-admin-messages-help')).toContainText('不會因儲存設定立即群發');
   await fill(p,'bookingAdminNotice','QA line 1\\nQA line 2');
-  await expect(p.locator('#bookingAdminNoticeCount')).toHaveText('20 / 2,000 字');
+  const typedNotice=await p.locator('#bookingAdminNotice').inputValue();
+  await expect(p.locator('#bookingAdminNoticeCount')).toHaveText(typedNotice.length.toLocaleString('zh-TW')+' / 2,000 字');
   await fill(p,'bookingAdminPendingMessage','預約已送出，請等待管理員確認。');
   await expect(p.locator('#bookingAdminRejectionMessage')).toHaveCount(0);
   await fill(p,'bookingAdminReminderMessage','您的預約即將開始，請準時到場。');
