@@ -42,7 +42,7 @@ async function openMember360(p){await p.locator('[data-action="view-records"]').
 async function openMember(p){await openMember360(p);await p.getByRole('button',{name:'狀態'}).click();await expect(p.locator('#memberModal')).toBeVisible();}
 async function openCard(p){await click(p,'cardsTab');await click(p,'newCardButton');await fill(p,'cardTitle','QA new card');await select(p,'cardStatus','draft');await p.locator('#rewardRows [data-field="ticketTemplateId"]').selectOption('ticket-1');}
 async function openEvent(p,type='coupon'){await click(p,'eventsTab');await click(p,'newEventTicketButton');await select(p,'eventTicketType',type);for(const [id,value] of Object.entries({eventTicketTitle:'QA event',eventTicketDescription:'QA description',eventTicketUsageMethod:'QA usage',eventTicketUsageInstructions:'QA instructions'}))await fill(p,id,value);await select(p,'eventTicketStatus','draft');}
-async function openCalendar(p,type='event'){await click(p,'calendarTab');await click(p,'newCalendarItemButton');await fill(p,'calendarItemTitle','QA calendar');await select(p,'calendarItemType',type);await select(p,'calendarItemStatus','draft');await fill(p,'calendarItemStartsOn',today());}
+async function openCalendar(p,type='event'){if(type==='holiday'){await click(p,'bookingTab');await p.locator('#bookingOverviewCalendarGrid .admin-calendar-day[data-booking-calendar-date]').first().click();}else{await click(p,'calendarTab');await click(p,'newCalendarItemButton');}await expect(p.locator('#calendarItemType')).toHaveValue(type);await fill(p,'calendarItemTitle','QA calendar');await select(p,'calendarItemStatus','draft');await fill(p,'calendarItemStartsOn',today());}
 async function booking(p,tab){await click(p,'bookingTab');await click(p,tab||'bookingAdminServicesSubtab');await expect(p.locator('#bookingAdminSyncStatus')).toContainText('已同步');}
 
 test('MEMBER_DIRECTORY — only real-member roster, search, empty results and both pagination directions',async({page:p},info)=>{
@@ -173,8 +173,8 @@ test('CALENDAR_NAV — previous, next, today and date opens editor',async({page:
   await click(p,'calendarTab');const title=await p.locator('#adminCalendarMonthTitle').textContent();await click(p,'adminCalendarNextMonthButton');await expect(p.locator('#adminCalendarMonthTitle')).not.toHaveText(title);await click(p,'adminCalendarPreviousMonthButton');await expect(p.locator('#adminCalendarMonthTitle')).toHaveText(title);await click(p,'adminCalendarPreviousMonthButton');await click(p,'adminCalendarTodayButton');await expect(p.locator('#adminCalendarMonthTitle')).toHaveText(title);await p.locator('[data-admin-calendar-date]').first().click();await expect(p.locator('#calendarEditorModal')).toBeVisible();
 });
 for(const type of ['holiday','event'])test('CALENDAR_'+type+' — create, date range, audience, link, edit and delete',async({page:p},info)=>{
-  await openCalendar(p,type);await fill(p,'calendarItemEndsOn',today());if(type==='event'){await p.locator('#calendarItemAllowedTiers input[value="general"]').uncheck();await p.locator('#calendarItemAllowedTiers input[value="silver"]').uncheck();await fill(p,'calendarItemLinkLabel','QA link');await fill(p,'calendarItemLinkUrl','https://example.test/qa');}
-  await click(p,'saveCalendarItemButton');await expect(p.locator('#calendarItemId')).not.toHaveValue('');await expect(p.locator('#saveCalendarItemButton')).toBeEnabled();await fill(p,'calendarItemTitle','QA calendar edited');await click(p,'saveCalendarItemButton');await expect.poll(()=>info.fixture.calendarItems[0]?.title).toBe('QA calendar edited');await click(p,'deleteCalendarItemButton');await expect(p.locator('#calendarItemId')).toHaveValue('');expect(info.fixture.calendarItems).toHaveLength(0);
+  await openCalendar(p,type);await fill(p,'calendarItemEndsOn',today());if(type==='event'){await p.locator('#calendarItemAllowedTiers input[value="general"]').uncheck();await p.locator('#calendarItemAllowedTiers input[value="silver"]').uncheck();await select(p,'calendarItemVisibilityPolicy','higher_preview');await fill(p,'calendarItemLinkLabel','QA link');await fill(p,'calendarItemLinkUrl','https://example.test/qa');}
+  await click(p,'saveCalendarItemButton');await expect(p.locator('#calendarItemId')).not.toHaveValue('');await expect(p.locator('#saveCalendarItemButton')).toBeEnabled();await fill(p,'calendarItemTitle','QA calendar edited');await click(p,'saveCalendarItemButton');await expect.poll(()=>info.fixture.calendarItems[0]?.title).toBe('QA calendar edited');expect(info.fixture.calendarItems[0].visibilityPolicy).toBe(type==='event'?'higher_preview':'eligible_only');await click(p,'deleteCalendarItemButton');await expect(p.locator('#calendarItemId')).toHaveValue('');expect(info.fixture.calendarItems).toHaveLength(0);
 });
 test('RETIRED_CENTER — the removed panel is absent and seven top tabs remain ordered',async({page:p},info)=>{
   await expect(p.locator('#operationsHubTab, #operationsHubPanel, [data-integration-view-tab], [data-integration-target]')).toHaveCount(0);
@@ -258,7 +258,7 @@ for(const [target,tab,panel] of [
   ['booking-services','bookingTab','bookingAdminServicesPanel'],
   ['events','eventsTab','eventsPanel'],
   ['booking-queue','bookingTab','bookingAdminQueuePanel'],
-  ['calendar-batch','calendarTab','calendarPanel'],
+  ['member-activities','calendarTab','calendarPanel'],
   ['fixed-new','eventsTab','eventsPanel'],
   ['birthday-fixed-new','eventsTab','eventsPanel']
 ])test('RETIRED_CENTER_DEST_'+target+' — the original feature is accessible without the removed shortcuts',async({page:p},info)=>{
@@ -267,7 +267,7 @@ for(const [target,tab,panel] of [
   else await click(p,tab);
   await expect(p.locator('#'+panel)).toBeVisible();
   if(target==='member-grant')await expect(p.locator('#memberTableBody')).toBeVisible();
-  if(target==='calendar-batch')await expect(p.locator('#addCalendarBatchItemButton')).toBeVisible();
+  if(target==='member-activities'){await expect(p.locator('#adminCalendarGrid')).toBeVisible();await expect(p.locator('#calendarBatchRows')).toHaveCount(0);}
   if(target.endsWith('fixed-new')){
     await click(p,'newEventTicketButton');
     await expect(p.locator('#eventTicketEditorModal')).toBeVisible();
@@ -278,12 +278,29 @@ for(const [target,tab,panel] of [
 
 module.exports={booking,click,fill,select,openEvent,openCard,openCalendar};
 
-test('CALENDAR_BATCH — select dates, add/remove rows, create, update and delete selected items',async({page:p},info)=>{
-  await click(p,'calendarTab');const dates=p.locator('[data-admin-calendar-date-select]');await dates.nth(10).check();await dates.nth(11).check();await click(p,'addCalendarBatchItemButton');await expect(p.locator('[data-calendar-batch-row]')).toHaveCount(2);
-  for(let i=0;i<2;i++){const row=p.locator('[data-calendar-batch-row]').nth(i);await row.locator('[data-calendar-batch-field="title"]').fill('QA batch '+i);await row.locator('[data-calendar-batch-field="status"]').selectOption('draft');}
-  await click(p,'saveCalendarBatchButton');await expect.poll(()=>info.fixture.calendarItems.length).toBe(2);await expect(p.locator('[data-calendar-batch-row]')).toHaveCount(0);
-  await p.locator('[data-admin-calendar-item-select]').first().check();await click(p,'queueSelectedCalendarItemsButton');await p.locator('[data-calendar-batch-field="title"]').fill('QA batch edited');await click(p,'saveCalendarBatchButton');await expect.poll(()=>info.fixture.calendarItems.some(x=>x.title==='QA batch edited')).toBe(true);
-  for(const item of info.fixture.calendarItems)await p.locator('[data-admin-calendar-item-select="'+item.calendarItemId+'"]').first().check();await click(p,'deleteSelectedCalendarItemsButton');await expect.poll(()=>info.fixture.calendarItems.length).toBe(0);
+test('CALENDAR_SCOPE_DATE_CREATE — three exclusive admin calendar views with date-first creation',async({page:p},info)=>{
+  await click(p,'calendarTab');
+  await expect(p.locator('#calendarBatchRows, [data-admin-calendar-date-select], [data-admin-calendar-item-select]')).toHaveCount(0);
+  await p.locator('#adminCalendarGrid [data-admin-calendar-date]').first().click();
+  await expect(p.locator('#calendarEditorModal')).toBeVisible();
+  const activityDate=await p.locator('#calendarItemStartsOn').inputValue();
+  expect(activityDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  await p.locator('#calendarEditorModal .editor-modal-close').click();
+
+  await click(p,'eventsTab');
+  const ticketGrid=p.locator('#eventTicketCalendarGrid');
+  await expect(ticketGrid).toBeVisible();
+  await expect(ticketGrid.locator('[data-admin-calendar-item-id], [data-booking-calendar-id]')).toHaveCount(0);
+  await ticketGrid.locator('[data-ticket-calendar-date]').first().click();
+  await expect(p.locator('#eventTicketEditorModal')).toBeVisible();
+  expect(await p.locator('#eventTicketStartsOn').inputValue()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  await p.locator('#eventTicketEditorModal .editor-modal-close').click();
+
+  await booking(p,'bookingAdminQueueSubtab');
+  const bookingGrid=p.locator('#bookingOverviewCalendarGrid');
+  await expect(bookingGrid).toBeVisible();
+  await expect(bookingGrid.locator('[data-ticket-calendar-item-id], [data-admin-calendar-item-id]')).toHaveCount(0);
+  expect(calls(info.fixture,'admin.calendar-items.batch')).toHaveLength(0);
 });
 
 test('BOOKING_PHONE_CONFLICT — occupied slot is grey and disabled; cancel then rebook',async({page:p},info)=>{
@@ -808,7 +825,7 @@ async function runRetiredMemberContract(p,info,key){
 // Execute the registered production runner nodes, not copies of their logic.
 const fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'../..');
-const runtimeKeys=['ADMIN_MEMBER_DIRECTORY_CONTROLS','ADMIN_MEMBER_USAGE_LOGS','ADMIN_BOOKING_NO_SHOW_CONTROLS','ADMIN_MEMBER_MODALS','ADMIN_TEST_MEMBER_PROFILE_EDIT','ADMIN_GRANT_NOTIFICATION_CONTROLS','ADMIN_SERVICE_GRANT_JOURNEY','ADMIN_SETTINGS_COPY_CONTROLS','ADMIN_CALENDAR_EVENT_CRUD','ADMIN_EVENT_CALENDAR_SYNC','ADMIN_TIER_EDITOR_JOURNEY','ADMIN_TERMS_EDITOR_JOURNEY','ADMIN_CARD_EDITOR_OPTIONS','ADMIN_CARD_SORT_JOURNEY','ADMIN_EVENT_AUDIENCE_JOURNEY','ADMIN_CALENDAR_NAVIGATION','ADMIN_BOOKING_BATCH_EDITOR','ADMIN_CALENDAR_BATCH_CONTROLS','ADMIN_CALENDAR_CRUD','ADMIN_FIXED_DRAFT_BIRTHDAY_MONTH','ADMIN_FIXED_DRAFT_WEEKLY','ADMIN_FIXED_DRAFT_MONTHLY','ADMIN_FIXED_DRAFT_YEARLY'];
+const runtimeKeys=['ADMIN_MEMBER_DIRECTORY_CONTROLS','ADMIN_MEMBER_USAGE_LOGS','ADMIN_BOOKING_NO_SHOW_CONTROLS','ADMIN_MEMBER_MODALS','ADMIN_TEST_MEMBER_PROFILE_EDIT','ADMIN_GRANT_NOTIFICATION_CONTROLS','ADMIN_SERVICE_GRANT_JOURNEY','ADMIN_SETTINGS_COPY_CONTROLS','ADMIN_CALENDAR_EVENT_CRUD','ADMIN_EVENT_CALENDAR_SYNC','ADMIN_TIER_EDITOR_JOURNEY','ADMIN_TERMS_EDITOR_JOURNEY','ADMIN_CARD_EDITOR_OPTIONS','ADMIN_CARD_SORT_JOURNEY','ADMIN_EVENT_AUDIENCE_JOURNEY','ADMIN_CALENDAR_NAVIGATION','ADMIN_BOOKING_BATCH_EDITOR','ADMIN_CALENDAR_SCOPED_CONTROLS','ADMIN_CALENDAR_CRUD','ADMIN_FIXED_DRAFT_BIRTHDAY_MONTH','ADMIN_FIXED_DRAFT_WEEKLY','ADMIN_FIXED_DRAFT_MONTHLY','ADMIN_FIXED_DRAFT_YEARLY'];
 async function loadRuntime(p){
   await p.evaluate(fs.readFileSync(path.join(root,'e2e-scenario-graph.js'),'utf8'));
   await p.evaluate(fs.readFileSync(path.join(root,'admin/e2e-control.js'),'utf8').replace('  window.MemberAdminE2EControl =','  window.qaRuntime={adminDefinitions,state};\n  window.MemberAdminE2EControl ='));
@@ -840,7 +857,7 @@ test('RUNNER_MEMBER_MODAL_FAILURE — failed member-history load exposes error w
   await expect(p.locator('#memberRecordsModal')).toBeHidden();
 });
 
-test('CALENDAR_BONUS — save bonus amount, reopen, disable by changing to holiday',async({page:p},info)=>{
+test('CALENDAR_BONUS — save bonus amount, reopen, holiday editor keeps activity bonus disabled',async({page:p},info)=>{
   // A committed transport write can precede delivery to the UI. Hold that
   // response so the test cannot accidentally treat fixture state as UI-ready.
   let release;const delivered=new Promise(resolve=>{release=resolve;});
@@ -851,11 +868,40 @@ test('CALENDAR_BONUS — save bonus amount, reopen, disable by changing to holid
   await expect(p.locator('#saveCalendarItemButton')).toBeEnabled();
   const id=info.fixture.calendarItems[0].calendarItemId;expect(id).not.toBe('');await expect(p.locator('#calendarItemId')).toHaveValue(id);
   await p.locator('#calendarEditorModal .editor-modal-close').click();await p.locator('[data-admin-calendar-item-id="'+id+'"]').first().click();
-  await expect(p.locator('#calendarBonusPoints')).toHaveValue('4');await select(p,'calendarItemType','holiday');await expect(p.locator('#calendarBonusPointsField')).toBeHidden();await expect(p.locator('#calendarBonusPointsEnabled')).toBeDisabled();
-  await click(p,'saveCalendarItemButton');await expect(p.locator('#saveCalendarItemButton')).toBeEnabled();await expect.poll(()=>info.fixture.calendarItems[0]?.bonusPointsEnabled).toBe(false);
+  await expect(p.locator('#calendarBonusPoints')).toHaveValue('4');
+  await p.locator('#calendarEditorModal .editor-modal-close').click();
+  await openCalendar(p,'holiday');
+  await expect(p.locator('#calendarBonusPointsField')).toBeHidden();await expect(p.locator('#calendarBonusPointsEnabled')).toBeDisabled();
+  await click(p,'saveCalendarItemButton');await expect(p.locator('#saveCalendarItemButton')).toBeEnabled();
+  await expect.poll(()=>info.fixture.calendarItems.find(item=>item.itemType==='holiday')?.bonusPointsEnabled).toBe(false);
 });
-test('EVENT_CALENDAR_SYNC — date required, add, readonly calendar detail and remove linkage',async({page:p},info)=>{
-  await openEvent(p);await p.locator('#eventTicketAddToCalendar').check();await click(p,'saveEventTicketButton');await expect(p.locator('#eventTicketFormMessage')).toContainText('開始日');expect(info.fixture.eventTickets).toHaveLength(0);await fill(p,'eventTicketStartsOn',today());await click(p,'saveEventTicketButton');await expect.poll(()=>info.fixture.calendarItems.length).toBe(1);const ticketId=await p.locator('#eventTicketId').inputValue();const calendarId=info.fixture.calendarItems[0].calendarItemId;await p.locator('#eventTicketEditorModal .editor-modal-close').click();await click(p,'calendarTab');await p.locator('[data-admin-calendar-item-id="'+calendarId+'"]').first().click();await expect(p.locator('#eventTicketCalendarInfoModal')).toBeVisible();await expect(p.locator('#eventTicketCalendarInfoContent')).toContainText('活動票券同步');await expect(p.locator('#calendarEditorModal')).toBeHidden();await click(p,'closeEventTicketCalendarInfoButton');await click(p,'eventsTab');await p.locator('[data-event-ticket-id="'+ticketId+'"]').first().click();await expect(p.locator('#eventTicketAddToCalendar')).toBeEnabled();await p.locator('#eventTicketAddToCalendar').uncheck();await click(p,'saveEventTicketButton');await expect.poll(()=>info.fixture.calendarItems.length).toBe(0);
+test('EVENT_CALENDAR_SYNC — ticket stays in ticket calendar and not member activities; unlink retains source ticket',async({page:p},info)=>{
+  await openEvent(p);
+  await p.locator('#eventTicketAddToCalendar').check();
+  await click(p,'saveEventTicketButton');
+  await expect(p.locator('#eventTicketFormMessage')).toContainText('開始日');
+  expect(info.fixture.eventTickets).toHaveLength(0);
+  await fill(p,'eventTicketStartsOn',today());
+  await click(p,'saveEventTicketButton');
+  await expect.poll(()=>info.fixture.calendarItems.length).toBe(1);
+  const ticketId=await p.locator('#eventTicketId').inputValue();
+  const calendarId=info.fixture.calendarItems[0].calendarItemId;
+  await p.locator('#eventTicketEditorModal .editor-modal-close').click();
+  await click(p,'calendarTab');
+  await expect(p.locator('#adminCalendarGrid [data-admin-calendar-item-id="'+calendarId+'"]')).toHaveCount(0);
+  await click(p,'eventsTab');
+  await p.locator('#eventTicketCalendarTodayButton').click();
+  const ticket=p.locator('#eventTicketCalendarGrid [data-ticket-calendar-item-id="'+ticketId+'"]').first();
+  await expect(ticket).toBeVisible();
+  await ticket.click();
+  await expect(p.locator('#eventTicketEditorModal')).toBeVisible();
+  await expect(p.locator('#eventTicketId')).toHaveValue(ticketId);
+  await expect(p.locator('#calendarEditorModal')).toBeHidden();
+  await expect(p.locator('#eventTicketAddToCalendar')).toBeEnabled();
+  await p.locator('#eventTicketAddToCalendar').uncheck();
+  await click(p,'saveEventTicketButton');
+  await expect.poll(()=>info.fixture.calendarItems.length).toBe(0);
+  expect(info.fixture.eventTickets.some(row=>row.eventTicketId===ticketId)).toBe(true);
 });
 test('MEMBER_MESSAGE_SELECTION — preset list selection, grant preview and payload',async({page:p},info)=>{
   // This is still a synthetic in-memory member; exercise the non-test UI branch.
@@ -977,8 +1023,26 @@ for(const kind of ['card','ticket','event','fixed'])test('SETTINGS_COPY_'+kind+'
  if(kind==='fixed'){expect(copied.notifyLine).toBe(false);expect(copied.calendarEnabled).toBe(false);}else await expect(p.locator('#'+field)).toHaveValue(copied[key]);
  expect(calls(info.fixture,'admin.settings.copy')).toHaveLength(1);
 });
-test('TICKET_VISIBILITY — save both policies and reload persisted setting',async({page:p},info)=>{
- await click(p,'eventsTab');await expect(p.locator('#ticketVisibilityPolicy')).toBeEnabled();await expect(p.locator('#saveTicketVisibility')).toBeDisabled();await select(p,'ticketVisibilityPolicy','higher_preview');await expect(p.locator('#saveTicketVisibility')).toBeEnabled();await click(p,'saveTicketVisibility');await expect(p.locator('#ticketVisibilityStatus')).toContainText('已儲存');await p.reload();await click(p,'eventsTab');await expect(p.locator('#ticketVisibilityPolicy')).toHaveValue('higher_preview');await select(p,'ticketVisibilityPolicy','eligible_only');await click(p,'saveTicketVisibility');await expect.poll(()=>info.fixture.visibilityPolicy).toBe('eligible_only');
+test('TICKET_VISIBILITY — save different display rules on two tickets and persist on reload',async({page:p},info)=>{
+  await openEvent(p);
+  await select(p,'eventTicketVisibilityPolicy','higher_preview');
+  await click(p,'saveEventTicketButton');
+  await expect.poll(()=>info.fixture.eventTickets.length).toBe(1);
+  const firstId=info.fixture.eventTickets[0].eventTicketId;
+  expect(info.fixture.eventTickets[0].visibilityPolicy).toBe('higher_preview');
+  await p.locator('#eventTicketEditorModal .editor-modal-close').click();
+  await openEvent(p);
+  await expect(p.locator('#eventTicketVisibilityPolicy')).toHaveValue('eligible_only');
+  await fill(p,'eventTicketTitle','QA second ticket');
+  await click(p,'saveEventTicketButton');
+  await expect.poll(()=>info.fixture.eventTickets.length).toBe(2);
+  expect(info.fixture.eventTickets[1].visibilityPolicy).toBe('eligible_only');
+  await p.reload();await click(p,'eventsTab');
+  const firstTicket=p.locator('#eventTicketListItems [data-event-ticket-id="'+firstId+'"]');
+  if(await firstTicket.count()) await firstTicket.click();
+  else await p.locator('#eventTicketListItems').getByText('QA event').first().click();
+  await expect(p.locator('#eventTicketVisibilityPolicy')).toHaveValue('higher_preview');
+  expect(info.fixture.visibilityPolicy).toBe('eligible_only');
 });
 
 test('MEMBER_REMOVE — cancelled or mismatched confirmation has no effects; confirmed removal refreshes directory',async({page:p},info)=>{

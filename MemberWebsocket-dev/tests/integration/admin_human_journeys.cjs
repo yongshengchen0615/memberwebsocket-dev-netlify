@@ -77,6 +77,7 @@ function expectation(value,negate=false,poll=false,context=""){
     toBe:expected=>check(v=>truth(v===expected,`${v} expected ${expected}`)),
     toBeGreaterThan:expected=>check(v=>truth(v>expected,`${v} > ${expected}`)),
     toContain:expected=>check(v=>truth(v.includes(expected),'Contains '+expected)),
+    toMatch:expected=>check(v=>truth(expected instanceof RegExp && expected.test(String(v)), 'Pattern '+expected+' did not match '+v)),
     toHaveLength:expected=>check(v=>truth(v.length===expected,`${v.length} length ${expected}`)),
     toMatchObject:expected=>check(v=>{for(const [k,x]of Object.entries(expected))assert.deepEqual(v[k],x);}),
     toBeVisible:()=>check(v=>truth(visible(v.nodes()[0]),'Visibility')),

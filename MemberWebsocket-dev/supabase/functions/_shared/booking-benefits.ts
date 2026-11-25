@@ -28,7 +28,7 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
     loadLatestPointOffers(db, String(member.id), true, true),
     loadLatestEventOffers(db, String(member.id), tier, true, true),
     allowed('calendar')?db.from('calendar_items')
-      .select('calendar_item_id,title,item_type,starts_on,ends_on,status,allowed_tier_keys,source_event_ticket_id,link_url,audience_type,audience_month')
+      .select('calendar_item_id,title,item_type,starts_on,ends_on,status,allowed_tier_keys,visibility_policy,source_event_ticket_id,link_url,audience_type,audience_month')
       .eq('item_type', 'event').in('status', ['active', 'targeted'])
       .is('source_event_ticket_id', null).lte('starts_on', today)
       .order('starts_on', { ascending: true }):Promise.resolve(empty),
@@ -197,10 +197,10 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
 
   const visibilityPolicy=await loadVisibilityPolicy(db);
   const isReceivedGift=(offer:any)=>Boolean(offer.claimId && receivedGiftClaimIds.has(String(offer.claimId)));
-  const visibleEvents=events.filter(offer=>tierVisibility(offer.allowedTierKeys,tier,visibilityPolicy).visible || isReceivedGift(offer));
+  const visibleEvents=events.filter(offer=>tierVisibility(offer.allowedTierKeys,tier,offer.visibilityPolicy || visibilityPolicy).visible || isReceivedGift(offer));
   const activities = (calendar.data || []).filter((item: any) =>
     !isTicketBackedCalendarActivity(item) &&
-    (isEligibleTierActivity(item, tier, today, member.birthday, undefined, undefined, true) || (tierVisibility(item.allowed_tier_keys,tier,visibilityPolicy).visible && isEligibleTierActivity(item,(item.allowed_tier_keys||[])[0],today,member.birthday,undefined,undefined,true)))
+    (isEligibleTierActivity(item, tier, today, member.birthday, undefined, undefined, true) || (tierVisibility(item.allowed_tier_keys,tier,item.visibility_policy || visibilityPolicy).visible && isEligibleTierActivity(item,(item.allowed_tier_keys||[])[0],today,member.birthday,undefined,undefined,true)))
   ).slice(0, 8);
   return {
     asOf: new Date().toISOString(),
@@ -253,7 +253,7 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
         const reserved = (pendingPointSelections.data || []).find((row: any) => row.benefit_kind === 'event' && row.benefit_ref === offer.claimId);
         const reservedForOtherBooking = Boolean(reserved && reserved.booking_id !== currentBookingId);
         const reservedInSnapshot = Boolean(offer.claimId && eventClaimsInSnapshots.has(String(offer.claimId)));
-        const visibility=tierVisibility(offer.allowedTierKeys,tier,visibilityPolicy);
+        const visibility=tierVisibility(offer.allowedTierKeys,tier,offer.visibilityPolicy || visibilityPolicy);
         const receivedAsGift=isReceivedGift(offer);
         const tierEligible=visibility.tierEligible || receivedAsGift;
         const locked=visibility.locked && !receivedAsGift;
@@ -298,7 +298,7 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
       }),
       ...activities.map((item: any) => ({
         kind: 'calendar', id: item.calendar_item_id, title: item.title,
-        subtitle: tierVisibility(item.allowed_tier_keys,tier,visibilityPolicy).lockReason || '適用於目前會員階級', statusLabel: tierVisibility(item.allowed_tier_keys,tier,visibilityPolicy).locked ? '需升級' : '活動進行中',
+        subtitle: tierVisibility(item.allowed_tier_keys,tier,item.visibility_policy || visibilityPolicy).lockReason || '適用於目前會員階級', statusLabel: tierVisibility(item.allowed_tier_keys,tier,item.visibility_policy || visibilityPolicy).locked ? '需升級' : '活動進行中',
         startsOn: item.starts_on || '', endsOn: item.ends_on || item.starts_on || '',
         selectable: false, selectionId: '',
         conditionLabel: '會員條件：目前會員階級適用 · 活動資訊僅供預約參考',

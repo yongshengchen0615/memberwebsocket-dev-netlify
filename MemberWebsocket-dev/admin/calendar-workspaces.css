@@ -1,0 +1,135 @@
+/* Scoped calendars for activity tickets, member activities, and reservations. */
+#eventsPanel .admin-calendar,
+#bookingPanel .admin-calendar {
+  margin: 0 0 22px;
+  padding: clamp(12px, 2vw, 22px);
+  background: var(--surface, #fff);
+  border: 1px solid var(--line, #dce7df);
+  border-radius: 18px;
+}
+#eventsPanel .admin-calendar-grid,
+#bookingPanel .admin-calendar-grid { min-width: 0; }
+#eventsPanel .admin-calendar-day,
+#bookingPanel .admin-calendar-day { min-width: 0; min-height: 108px; }
+#eventsPanel .admin-calendar-item-row,
+#bookingPanel .admin-calendar-item-row { display: flex; min-width: 0; }
+#eventsPanel .admin-calendar-item,
+#bookingPanel .admin-calendar-item {
+  display: block; width: 100%; min-width: 0; text-align: left;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#eventsPanel .admin-calendar-item { background: #fff4ec; border-left: 3px solid var(--calendar-item-accent, #df6b4d); }
+#bookingPanel .admin-calendar-booking { display: block; width: 100%; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#bookingPanel .booking-calendar-summary,
+#eventsPanel .ticket-calendar-summary { margin: 4px 0 0; color: var(--muted, #61716a); font-size: 12px; }
+#calendarPanel .admin-calendar-day-header { justify-content: flex-end; }
+#calendarPanel .admin-calendar-item-row { display: flex; }
+#calendarPanel .admin-calendar-item { flex: 1; min-width: 0; }
+#eventsPanel .admin-calendar-day-button,
+#bookingPanel .admin-calendar-day-button { min-height: 38px; width: 100%; text-align: left; }
+.admin-calendar .calendar-scope-empty { color: var(--muted, #61716a); font-size: 11px; }
+.admin-calendar .calendar-scope-more { color: var(--muted, #61716a); font-size: 10px; padding: 3px; }
+@media(max-width: 680px) {
+  #eventsPanel .admin-calendar,
+  #bookingPanel .admin-calendar { padding: 10px 6px; border-radius: 12px; }
+  #eventsPanel .admin-calendar-day,
+  #bookingPanel .admin-calendar-day { min-height: 76px; padding: 4px 2px; }
+  #eventsPanel .admin-calendar-item,
+  #bookingPanel .admin-calendar-booking { font-size: 10px; padding: 3px 2px; }
+  #eventsPanel .admin-calendar-day-number,
+  #bookingPanel .admin-calendar-day-number { font-size: 12px; }
+}
+
+/* Consistent interactive calendar surfaces in light and dark mode. */
+html[data-theme] :is(#eventsPanel, #calendarPanel, #bookingPanel) .admin-calendar {
+  color: var(--theme-text);
+  background: var(--theme-surface-muted);
+  border-color: var(--theme-border-strong);
+}
+html[data-theme] :is(#eventsPanel, #calendarPanel, #bookingPanel) .admin-calendar-toolbar,
+html[data-theme] :is(#eventsPanel, #calendarPanel, #bookingPanel) .admin-calendar-weekdays {
+  color: var(--theme-text-muted);
+  background: var(--theme-surface-muted);
+}
+html[data-theme] :is(#eventsPanel, #calendarPanel, #bookingPanel) .admin-calendar-toolbar h3 {
+  color: var(--theme-text);
+}
+html[data-theme] :is(#eventsPanel, #calendarPanel, #bookingPanel) .admin-calendar-day {
+  color: var(--theme-text);
+  background: var(--theme-surface-raised);
+  border-color: var(--theme-border);
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+html[data-theme] :is(#eventsPanel, #calendarPanel, #bookingPanel) .admin-calendar-day:is(:hover, :focus-within):not(.admin-calendar-day-empty) {
+  background: var(--theme-surface);
+  border-color: var(--theme-accent);
+  box-shadow: inset 0 0 0 1px var(--theme-accent);
+}
+html[data-theme] :is(#eventsPanel, #calendarPanel, #bookingPanel) .admin-calendar-day-empty {
+  background: var(--theme-surface-muted);
+  cursor: default;
+  opacity: .6;
+}
+html[data-theme] :is(#eventsPanel, #calendarPanel, #bookingPanel) .admin-calendar-day.is-today {
+  border-color: var(--theme-positive);
+  box-shadow: inset 0 0 0 1px var(--theme-positive);
+}
+html[data-theme] :is(#eventsPanel, #calendarPanel, #bookingPanel) .admin-calendar-day.is-today .admin-calendar-day-number {
+  color: var(--theme-surface-raised);
+  background: var(--theme-positive);
+}
+html[data-theme] :is(#eventsPanel, #calendarPanel, #bookingPanel) .admin-calendar-day-button,
+html[data-theme] :is(#eventsPanel, #calendarPanel, #bookingPanel) .admin-calendar-month-button {
+  color: var(--theme-text);
+  background: transparent;
+}
+html[data-theme] :is(#eventsPanel, #calendarPanel, #bookingPanel) .admin-calendar-day-button:hover,
+html[data-theme] :is(#eventsPanel, #calendarPanel, #bookingPanel) .admin-calendar-month-button:hover {
+  color: var(--theme-accent);
+  background: var(--theme-accent-soft);
+}
+html[data-theme] :is(#eventsPanel, #calendarPanel, #bookingPanel) :is(.admin-calendar-item.event, .admin-calendar-booking) {
+  color: var(--theme-text);
+  background: var(--theme-positive-soft);
+  border-left-color: var(--calendar-item-accent, var(--theme-positive));
+}
+html[data-theme] :is(#eventsPanel, #calendarPanel, #bookingPanel) .admin-calendar-item.holiday {
+  color: var(--theme-danger-text);
+  background: var(--theme-danger-soft);
+  border-left: 3px solid var(--theme-danger);
+}
+html[data-theme] :is(#eventsPanel, #calendarPanel, #bookingPanel) :is(.calendar-scope-empty, .calendar-scope-more) {
+  color: var(--theme-text-muted);
+}
+html[data-theme] .calendar-visibility-control {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  color: var(--theme-text);
+  font-size: 13px;
+  font-weight: 750;
+}
+html[data-theme] .calendar-visibility-control select,
+html[data-theme] #calendarItemVisibilityPolicy {
+  color: var(--theme-text);
+  background: var(--theme-surface-raised);
+  border: 1px solid var(--theme-border-strong);
+  min-height: 44px;
+  width: 100%;
+}
+@media (hover: none) {
+  html[data-theme] :is(#eventsPanel, #calendarPanel, #bookingPanel) .admin-calendar-day { touch-action: manipulation; }
+}
+
+/* Calendar-only merchants retain their pre-existing holiday CRUD under the
+   Booking navigation label without receiving booking operations or data. */
+#bookingPanel.business-holiday-only > :not(#bookingOverviewCalendarWorkspace) {
+  display: none !important;
+}
+#bookingPanel.business-holiday-only #bookingOverviewCalendarWorkspace {
+  display: block;
+}
+#bookingPanel.business-holiday-only .admin-calendar-booking {
+  display: none !important;
+}

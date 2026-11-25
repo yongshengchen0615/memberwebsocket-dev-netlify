@@ -87,6 +87,16 @@
         <div><span>已確認</span><strong id="bookingAdminConfirmedCount">0</strong><small>已確認的一般預約</small></div>
       </section>
 
+      <section id="bookingOverviewCalendarWorkspace" class="admin-calendar" aria-labelledby="bookingOverviewCalendarMonthTitle">
+        <div class="admin-calendar-toolbar">
+          <button id="bookingOverviewCalendarPreviousMonthButton" class="admin-calendar-month-button" type="button" aria-label="預約日曆上一個月">‹</button>
+          <div><h3 id="bookingOverviewCalendarMonthTitle">預約日曆</h3><p id="bookingOverviewCalendarSummary" class="booking-calendar-summary">僅顯示預約；點選預約可直接前往處理。</p><button id="bookingOverviewCalendarTodayButton" class="text-button admin-calendar-today-button" type="button">回到本月</button></div>
+          <button id="bookingOverviewCalendarNextMonthButton" class="admin-calendar-month-button" type="button" aria-label="預約日曆下一個月">›</button>
+        </div>
+        <div class="admin-calendar-weekdays" aria-hidden="true"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+        <div id="bookingOverviewCalendarGrid" class="admin-calendar-grid" aria-live="polite" aria-label="預約專屬日曆"></div>
+      </section>
+
       <nav id="bookingAdminSubtabs" class="booking-admin-filter booking-admin-subtabs" role="tablist" aria-label="預約管理分類">
         <button id="bookingAdminTechniciansSubtab" class="booking-admin-filter-button active" type="button" role="tab" aria-selected="true" aria-controls="bookingAdminTechniciansPanel">技師設定</button>
         <button id="bookingAdminServicesSubtab" class="booking-admin-filter-button" type="button" role="tab" aria-selected="false" aria-controls="bookingAdminServicesPanel">預約項目</button>
@@ -435,6 +445,7 @@
     PRIMARY_PANEL_IDS.forEach((id) => document.getElementById(id)?.classList.add('hidden'));
     els.bookingTab.setAttribute('aria-selected', 'true');
     els.bookingPanel.classList.remove('hidden');
+    if (window.BusinessWorkspace?.allows('booking') === false) return; // Calendar-only tenant: holidays only, no booking API calls.
     setSubtab(state.subtab);
     if (!state.loading) refreshAll(false, true);
   }
@@ -489,7 +500,7 @@
   }
 
   async function refreshBookingBadge() {
-    if (isBackgroundE2ERunner()) return false;
+    if (window.BusinessWorkspace?.allows('booking') === false || isBackgroundE2ERunner()) return false;
     if (state.badgeLoading) {
       state.badgeQueued = true;
       return false;
@@ -538,7 +549,7 @@
   }
 
   function startBookingBadgeSync() {
-    if (isBackgroundE2ERunner()) return Promise.resolve(false);
+    if (window.BusinessWorkspace?.allows('booking') === false || isBackgroundE2ERunner()) return Promise.resolve(false);
     if (state.badgeStartPromise) return state.badgeStartPromise;
     state.badgeStartPromise = (async () => {
       try {
@@ -595,6 +606,7 @@
   }
 
   async function refreshAll(showSuccess, markNotificationsRead = false) {
+    if (window.BusinessWorkspace?.allows('booking') === false) return false;
     if (state.loading) {
       state.refreshQueued = true;
       state.refreshQueuedShowSuccess = state.refreshQueuedShowSuccess || Boolean(showSuccess);
@@ -719,6 +731,7 @@
   }
 
   function handleOperationalSnapshotRequest() {
+    if (window.BusinessWorkspace?.allows('booking') === false) return;
     if (state.booking.bookings.length) publishOperationalBookingSnapshot();
     if (state.loading) {
       state.refreshQueued = true;
@@ -2655,6 +2668,7 @@
   }
 
   function handleSharedRealtimeInvalidation(event) {
+    if (window.BusinessWorkspace?.allows('booking') === false) return;
     const detail = event?.detail || {};
     if (String(detail.clientType || '') !== 'admin') return;
     const scope = String(detail.scope || '');

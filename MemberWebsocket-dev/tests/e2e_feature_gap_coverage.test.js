@@ -47,14 +47,14 @@ test('user full E2E covers non-button feature contracts and new experience contr
   assert.match(source, /todayButton/);
 });
 
-test('admin full E2E covers directory, test-account lifecycle, presets, batch calendar and feature contracts', () => {
+test('admin full E2E covers directory, test-account lifecycle, presets, scoped calendars and feature contracts', () => {
   const source = read('admin/e2e-control.js');
 
   for (const key of [
     'ADMIN_THEME_TOGGLE',
     'ADMIN_MEMBER_DIRECTORY_CONTROLS',
     'ADMIN_MESSAGE_PRESET_EDITOR',
-    'ADMIN_CALENDAR_BATCH_CONTROLS',
+    'ADMIN_CALENDAR_SCOPED_CONTROLS',
     'ADMIN_TEST_ACCOUNT_LIFECYCLE',
     'ADMIN_BOOKING_SHARED_SETTINGS',
     'ADMIN_BOOKING_RECEIPT_VIEWER',

@@ -1,6 +1,82 @@
 import { buildBookingFlexMessage, deliver } from './delivery.ts';
 import { scope, memberSystemFooter } from '../_shared/business-scope.ts';
 
+
+Deno.test('AC-FMR-006: admin and member modification decisions have distinct Flex headings and push previews',()=>{
+ const booking_id='22222222-2222-4222-8222-222222222222';
+ const base={
+   id:'11111111-1111-4111-8111-111111111111',booking_id,
+   recipient:'U'+'a'.repeat(32),attempt_count:1,event_key:booking_id+':confirmed:2026-11-25'
+ };
+ const body=['預約人：測試會員','營業日：2026/11/25',
+   '時段：2026/11/25 10:00–2026/11/25 11:00（台北時間）',
+   '第一位預約','預約項目：肩頸30','個別時間：30 分鐘','個別金額：NT$1,000','預約技師：甲技師'].join('\n');
+ for(const [channel,title] of [
+  ['admin','櫃檯確認修改'],['admin','櫃檯拒絕修改'],
+  ['member','確認修改預約'],['member','拒絕修改預約']
+ ]){
+  const message_text='【'+title+'】\n'+body;
+  const flex=buildBookingFlexMessage({...base,channel,message_text});
+  const header=JSON.stringify(flex.contents.header);
+  assert(header.includes(title),channel+' '+title+' header');
+  assert(flex.altText.startsWith(title),channel+' '+title+' push preview');
+  assert(JSON.stringify(flex.contents.body).includes('肩頸30'),title+' preserves booking details');
+ }
+ const original=buildBookingFlexMessage({...base,channel:'member',message_text:'【預約確認】\n'+body});
+ assert(original.altText.startsWith('預約確認'),'ordinary bookings retain original heading');
+});
+
+Deno.test('AC-FMR-007: admin modification rejection preserves special original and individual booking cards',()=>{
+ const text=[
+  '【櫃檯拒絕修改】','預約人：櫃檯人員','拒絕原因：修改後時段無法安排',
+  '【原預約資料】','預約編號：22222222-2222-4222-8222-222222222222',
+  '預約日期：2026-11-25','預約時間：10:00','原預約會員：王小姐','電話：0912345678',
+  '預約人數：1 位','預約項目：肩頸30','預約技師：甲技師',
+  '【個別預約資料】','第1位預約','預約項目：肩頸30',
+  '預約技師：甲技師','個別備註：不加熱'
+ ].join('\n');
+ const flex=buildBookingFlexMessage({
+  id:'11111111-1111-4111-8111-111111111111',
+  booking_id:'22222222-2222-4222-8222-222222222222',
+  event_key:'22222222-2222-4222-8222-222222222222:rejected:2026-11-25',
+  recipient:'U'+'a'.repeat(32),channel:'admin',attempt_count:1,message_text:text
+ });
+ assert(flex.altText.startsWith('櫃檯拒絕修改｜'),'push preview must show modification decision');
+ const body=JSON.stringify(flex.contents.body);
+ assert(body.includes('不加熱')&&body.includes('甲技師'),'preserve per-person details in rejection');
+ assert(body.includes('原預約'),'retain special admin-only original booking section');
+});
+
+Deno.test('AC-FMR-007: member modification rejection shows the saved rejection explanation',()=>{
+ const text=['【拒絕修改預約】','預約人：王小姐','日期：2026/11/25',
+  '時段：10:00–11:00','拒絕原因：修改後時段無法安排',
+  '原因說明：請改選時間'].join('\n');
+ const job={
+  id:'11111111-1111-4111-8111-111111111111',
+  booking_id:'22222222-2222-4222-8222-222222222222',
+  recipient:'U'+'a'.repeat(32),channel:'member',attempt_count:1,
+  event_key:'22222222-2222-4222-8222-222222222222:rejected:2026-11-25',
+  message_text:text
+ };
+ const flex=buildBookingFlexMessage(job);
+ assert(flex.altText.startsWith('拒絕修改預約'),'member receives modification rejection title');
+ assert(JSON.stringify(flex.contents.body).includes('請改選時間'),'saved reason explanation must remain visible');
+});
+
+Deno.test('AC-MOD-003: frontdesk edit event always shows 修改預約, never a new booking', () => {
+  const job = {
+    id: '11111111-1111-4111-8111-111111111111',
+    booking_id: '22222222-2222-4222-8222-222222222222',
+    recipient: 'U' + 'a'.repeat(32), channel: 'frontdesk', attempt_count: 1,
+    message_text: '【預約】\n預約人：測試會員\n日期：2026/11/25\n時段：10:00–11:00',
+  };
+  const modified = buildBookingFlexMessage({...job, event_key: job.booking_id + ':modified:42'});
+  const created = buildBookingFlexMessage({...job, event_key: job.booking_id + ':created'});
+  assert(JSON.stringify(modified.contents.header).includes('修改預約'), 'modified booking header');
+  assert(modified.altText.startsWith('修改預約'), 'modified booking push preview');
+  assert(!JSON.stringify(created.contents.header).includes('修改預約'), 'new booking must not be mislabelled');
+});
+
 Deno.test('frontdesk review has only its trusted tenant entry; notify-only has no action',()=>{
  const job={id:'11111111-1111-4111-8111-111111111111',recipient:'U'+'a'.repeat(32),message_text:'【預約】\n預約人：測試\n日期：2026/11/18',channel:'frontdesk',attempt_count:1,booking_id:'22222222-2222-4222-8222-222222222222'};
  const read=JSON.stringify(buildBookingFlexMessage({...job,frontdeskCanReview:false}));

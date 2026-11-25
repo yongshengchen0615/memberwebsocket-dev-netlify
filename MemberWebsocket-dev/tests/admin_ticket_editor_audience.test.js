@@ -13,7 +13,9 @@ test('event ticket editor exposes reusable audience presets without changing rol
   for (const preset of ['all', 'general', 'silver-plus', 'gold-plus', 'platinum']) {
     assert.ok(html.includes('data-audience-preset="' + preset + '"'), preset);
   }
-  assert.match(html, /權益資格只控制會員等級，不代表管理權限/);
+  assert.match(html, /本設定只影響此張票券。適用階級仍由伺服器驗證/);
+  assert.match(html, /id="eventTicketVisibilityPolicy"/);
+  assert.match(app, /visibilityPolicy: document\.getElementById\('eventTicketVisibilityPolicy'\)\.value/);
   assert.match(app, /function audiencePresetTierKeys\(/);
   assert.match(app, /function handleAudiencePresetClick\(/);
   assert.match(app, /function audiencePresetForTierKeys\(/);

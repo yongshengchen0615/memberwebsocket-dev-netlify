@@ -80,7 +80,7 @@
     ADMIN_TICKET_CRUD: ['points'], ADMIN_LOTTERY_TICKET_CRUD: ['points', 'event'],
     ADMIN_POINT_CARD_CRUD: ['points'], ADMIN_EVENT_TICKET_CRUD: ['event'],
     ADMIN_EVENT_DAILY_LIMIT_SETTINGS: ['event'],
-    ADMIN_CALENDAR_CRUD: ['calendar'], ADMIN_CALENDAR_BATCH_CONTROLS: ['calendar'],
+    ADMIN_CALENDAR_CRUD: ['calendar'], ADMIN_CALENDAR_SCOPED_CONTROLS: ['calendar'],
     ADMIN_BOOKING_CRUD: ['booking'], ADMIN_BOOKING_CONTROLS: ['booking'],
     ADMIN_BOOKING_SHARED_SETTINGS: ['booking'], ADMIN_BOOKING_RECEIPT_VIEWER: ['booking'],
     ADMIN_INTEGRATION_CENTER: ['integration'], ADMIN_INTEGRATION_NAVIGATION: ['integration']
@@ -152,7 +152,7 @@
     ADMIN_EVENT_TICKET_CRUD: { module: 'event', phase: 4, risk: 'mutation', dependencies: ['ADMIN_RESOURCE_EDITORS'] },
     ADMIN_EVENT_DAILY_LIMIT_SETTINGS: { module: 'event', phase: 3, required: true, dependencies: ['ADMIN_RESOURCE_EDITORS'] },
     ADMIN_CALENDAR_CRUD: { module: 'calendar', phase: 4, risk: 'mutation', dependencies: ['ADMIN_RESOURCE_EDITORS'] },
-    ADMIN_CALENDAR_BATCH_CONTROLS: { module: 'calendar', phase: 5, dependencies: ['ADMIN_CALENDAR_CRUD'] },
+    ADMIN_CALENDAR_SCOPED_CONTROLS: { module: 'calendar', phase: 5, dependencies: ['ADMIN_CALENDAR_CRUD'] },
 
     ADMIN_BOOKING_CONTROLS: { module: 'booking', phase: 2, required: true, dependencies: ['ADMIN_PRIMARY_NAVIGATION'] },
     ADMIN_BOOKING_SHARED_SETTINGS: { module: 'booking', phase: 3, required: true, risk: 'mutation', dependencies: ['ADMIN_BOOKING_CONTROLS'] },
@@ -1919,7 +1919,7 @@
       caseDef('ADMIN_THEME_TOGGLE', '亮／暗主題切換與偏好還原', 'UI', adminThemeToggleCase),
       caseDef('ADMIN_MEMBER_DIRECTORY_CONTROLS', '會員搜尋／分頁／紀錄篩選', 'UI', adminMemberDirectoryControlsCase),
       caseDef('ADMIN_MESSAGE_PRESET_EDITOR', '預設訊息管理視窗與驗證', 'UI', adminMessagePresetEditorCase),
-      caseDef('ADMIN_CALENDAR_BATCH_CONTROLS', '日曆批次新增／驗證／清除', 'UI', adminCalendarBatchControlsCase),
+      caseDef('ADMIN_CALENDAR_SCOPED_CONTROLS', '三類獨立日曆、日期新增及舊批次操作撤除', 'UI', adminCalendarBatchControlsCase),
       caseDef('ADMIN_TEST_MODE_CONTROLS', '測試環境控制元件', 'UI', adminTestModeControlsCase),
       caseDef('ADMIN_TEST_ACCOUNT_LIFECYCLE', '測試帳號新增／選取／移除', 'Test Account E2E', adminTestAccountLifecycleCase),
       caseDef('ADMIN_FEATURE_CONTRACT_COVERAGE', '主要功能區塊 E2E 契約清單', 'Coverage', adminFeatureContractCoverageCase),
@@ -3152,7 +3152,7 @@
     const actual = {
       bookingServices: false,
       events: false,
-      calendarBatch: false,
+      calendarActivities: false,
       members: false,
       returnedToHub: 0
     };
@@ -3186,12 +3186,13 @@
       }
 
       await reopen();
-      const calendar = document.querySelector('[data-integration-target="calendar-batch"]');
+      // Batch calendar navigation was removed: use the dedicated activity tab.
+      const calendar = document.getElementById('calendarTab');
       if (calendar) {
-        await adminHumanClick(calendar, '日曆批次');
-        actual.calendarBatch = Boolean(await waitFor(() => {
+        await adminHumanClick(calendar, '會員活動');
+        actual.calendarActivities = Boolean(await waitFor(() => {
           const panel = document.getElementById('calendarPanel');
-          return panel && !panel.classList.contains('hidden') && document.getElementById('calendarBatchRows') ? true : null;
+          return panel && !panel.classList.contains('hidden') && document.getElementById('adminCalendarGrid')?.children.length === 42 ? true : null;
         }, 3500, 80));
       }
 
@@ -3210,23 +3211,23 @@
       return fail('整合中心跨模組導向無法完成。', {
         bookingServices: true,
         events: true,
-        calendarBatch: true,
+        calendarActivities: true,
         members: true
       }, { ...actual, error: plainError(error) });
     }
 
-    const ok = actual.bookingServices && actual.events && actual.calendarBatch && actual.members && actual.returnedToHub >= 5;
+    const ok = actual.bookingServices && actual.events && actual.calendarActivities && actual.members && actual.returnedToHub >= 5;
     return ok
-      ? pass('整合中心可真人導向預約點數來源、活動權益、日曆批次與會員發放，且可回到整合中心繼續操作。', {
+      ? pass('整合中心可真人導向預約點數來源、活動權益、會員活動與會員發放，且可回到整合中心繼續操作。', {
           bookingServices: true,
           events: true,
-          calendarBatch: true,
+          calendarActivities: true,
           members: true
         }, actual)
       : fail('整合中心至少一個跨模組快速導向異常。', {
           bookingServices: true,
           events: true,
-          calendarBatch: true,
+          calendarActivities: true,
           members: true
         }, actual);
   }
@@ -3810,7 +3811,7 @@
       : fail('活動票券 CRUD E2E 至少一個階段失敗。', { created: true, updated: true, locationSaved: true, deleted: true, cleaned: true }, actual);
   }
 
-  async function adminCalendarCrudCase(itemType = 'holiday') {
+  async function adminCalendarCrudCase(itemType = 'event') {
     const stamp = qaCrudStamp();
     const createdTitle = 'E2E 日曆 ' + stamp;
     const updatedTitle = createdTitle + ' 修改';
@@ -6447,37 +6448,60 @@
 
   async function adminCalendarBatchControlsCase() {
     document.getElementById('calendarTab')?.click();
-    const add = await waitFor(() => document.getElementById('addCalendarBatchItemButton'), 3000);
-    const rows = document.getElementById('calendarBatchRows');
-    const message = document.getElementById('calendarBatchMessage');
-    const actual = { added: false, invalidSaveRejected: false, cleared: false };
-    if (!add || !rows) return fail('日曆批次編輯控制不存在。', { controls: true }, { controls: false });
-
-    if (rows.children.length || document.querySelector('[data-admin-calendar-date-select]:checked')) {
-      return skip('保留尚未儲存的日曆批次與日期選取，請清空後重跑。', {emptyDraft:true}, {blockerCode:'E2E_CALENDAR_DRAFT_PRESENT'});
+    const actual = {
+      activityCalendar: false,
+      ticketCalendar: false,
+      bookingCalendar: false,
+      noBatchControls: false,
+      activityDatePrefilled: false,
+      ticketDatePrefilled: false
+    };
+    const calendar = await waitFor(() => document.getElementById('adminCalendarGrid'), 3000);
+    const activityDate = calendar?.querySelector('[data-admin-calendar-date]');
+    actual.activityCalendar = Boolean(calendar && calendar.children.length === 42);
+    actual.noBatchControls = !document.getElementById('calendarBatchRows')
+      && !document.getElementById('saveCalendarBatchButton')
+      && !document.querySelector('[data-admin-calendar-date-select], [data-admin-calendar-item-select]');
+    if (activityDate) {
+      const date = activityDate.dataset.adminCalendarDate;
+      activityDate.click();
+      actual.activityDatePrefilled = Boolean(await waitFor(() =>
+        document.getElementById('calendarItemStartsOn')?.value === date
+          && !document.getElementById('calendarEditorModal')?.classList.contains('hidden'), 1500));
+      document.querySelector('#calendarEditorModal .editor-modal-close')?.click();
     }
-    const date = document.querySelector('[data-admin-calendar-date-select]');
-    if (!date) return fail('日曆沒有可選日期。', {date:true}, {date:false});
-    date.click();
-    add.click();
-    actual.added = Boolean(await waitFor(() => rows.children.length >= 1, 1200));
-    document.getElementById('saveCalendarBatchButton')?.click();
-    actual.invalidSaveRejected = Boolean(await waitFor(() => {
-      const text = String(message?.textContent || '').trim();
-      return text && !message?.classList.contains('hidden') ? true : null;
-    }, 1200));
-    document.getElementById('clearCalendarBatchButton')?.click();
-    actual.cleared = Boolean(await waitFor(() => rows.children.length === 0, 1200));
-
+    document.getElementById('eventsTab')?.click();
+    const ticket = await waitFor(() => document.getElementById('eventTicketCalendarGrid'), 3000);
+    actual.ticketCalendar = Boolean(ticket && ticket.children.length === 42
+      && !ticket.querySelector('[data-admin-calendar-item-id], [data-booking-calendar-id]'));
+    const ticketDate = ticket?.querySelector('[data-ticket-calendar-date]');
+    if (ticketDate) {
+      const date = ticketDate.dataset.ticketCalendarDate;
+      ticketDate.click();
+      actual.ticketDatePrefilled = Boolean(await waitFor(() =>
+        document.getElementById('eventTicketStartsOn')?.value === date
+          && !document.getElementById('eventTicketEditorModal')?.classList.contains('hidden'), 1500));
+      document.querySelector('#eventTicketEditorModal .editor-modal-close')?.click();
+    }
+    document.getElementById('bookingTab')?.click();
+    // The booking panel mounts asynchronously; require 42 fully rendered cells,
+    // not merely the presence of an initially empty grid container.
+    const booking = await waitFor(() => {
+      const grid = document.getElementById('bookingOverviewCalendarGrid');
+      return grid && grid.children.length === 42 ? grid : null;
+    }, 5000);
+    actual.bookingCalendar = Boolean(booking
+      && !booking.querySelector('[data-admin-calendar-item-id], [data-ticket-calendar-item-id]'));
     return Object.values(actual).every(Boolean)
-      ? pass('日曆批次新增列、送出驗證與清除批次皆可真人操作。', {
-          added: true, invalidSaveRejected: true, cleared: true
+      ? pass('三個日曆分開顯示，活動與票券點日期可新增，批次編輯入口已移除。', {
+          activityCalendar: true, ticketCalendar: true, bookingCalendar: true,
+          noBatchControls: true, activityDatePrefilled: true, ticketDatePrefilled: true
         }, actual)
-      : fail('日曆批次操作至少一項異常。', {
-          added: true, invalidSaveRejected: true, cleared: true
+      : fail('獨立日曆／日期新增／移除批次功能至少一項異常。', {
+          activityCalendar: true, ticketCalendar: true, bookingCalendar: true,
+          noBatchControls: true, activityDatePrefilled: true, ticketDatePrefilled: true
         }, actual);
   }
-
 
   // Human journeys supplement (not replace) server contracts. Global publication
   // and destructive real-data workflows are exercised by Chromium isolation tests.
@@ -6636,15 +6660,24 @@
       if (!checks.linked) throw new Error('活動票券未同步至日曆。');
       closeEditorModalById('eventTicketEditorModal');
       document.getElementById('calendarTab').click();document.getElementById('adminCalendarTodayButton').click();
-      // Workspace loading can replace the calendar grid; select the current row
-      // after the human pause so a detached element cannot produce false evidence.
-      await adminHumanPause(200,400);
-      const row = await waitFor(()=>document.querySelector('[data-admin-calendar-item-id="'+CSS.escape(linked.calendarItemId)+'"][data-event-ticket-calendar-readonly="true"]'),5000);
-      if (!row) throw new Error('同步日曆項目沒有唯讀標記。');
-      row.scrollIntoView?.({block:'center'});row.focus();row.click();
-      const info = await waitEditorOpen('eventTicketCalendarInfoModal');
-      checks.readonly = Boolean(info && document.getElementById('calendarEditorModal').classList.contains('hidden') && info.textContent.includes('活動票券同步'));
-      document.getElementById('closeEventTicketCalendarInfoButton')?.click();
+      // Synced ticket records stay stored for the customer calendar but must
+      // not appear as editable member activities in the admin calendar.
+      const mixed = document.querySelector('#adminCalendarGrid [data-admin-calendar-item-id="' + CSS.escape(linked.calendarItemId) + '"]');
+      if (mixed) throw new Error('活動票券同步項目不應出現在會員活動日曆。');
+      document.getElementById('eventsTab').click();
+      document.getElementById('eventTicketCalendarTodayButton')?.click();
+      await adminHumanPause(200, 400);
+      const ticketButton = await waitFor(() => document.querySelector('#eventTicketCalendarGrid [data-ticket-calendar-item-id="' + CSS.escape(ticketId) + '"]'), 5000);
+      if (!ticketButton) throw new Error('活動票券沒有出現在獨立票券日曆。');
+      ticketButton.scrollIntoView?.({ block: 'center' });ticketButton.focus();ticketButton.click();
+      const ticketEditor = await waitEditorOpen('eventTicketEditorModal');
+      checks.readonly = Boolean(ticketEditor
+        && document.getElementById('eventTicketId')?.value === ticketId
+        && document.getElementById('calendarEditorModal').classList.contains('hidden')
+        && !document.querySelector('#adminCalendarGrid [data-admin-calendar-item-id="' + CSS.escape(linked.calendarItemId) + '"]'));
+      // The source ticket is editable through its own editor, while the
+      // synchronized calendar row is never independently editable.
+      closeEditorModalById('eventTicketEditorModal');
       document.getElementById('eventsTab').click();
       await clickResourceRow('#eventTicketListItems [data-event-ticket-id]','eventTicketId',ticketId);
       await waitEditorOpen('eventTicketEditorModal');
@@ -7513,7 +7546,9 @@
       ['memberPagination', '#memberPagination'],
       ['messagePresetDialog', '#messagePresetModal'],
       ['grantDialog', '#grantModal'],
-      ['calendarBatch', '#calendarBatchRows'],
+      ['scopedTicketCalendar', '#eventTicketCalendarGrid'],
+      ['scopedActivityCalendar', '#adminCalendarGrid'],
+      ['scopedBookingCalendar', '#bookingOverviewCalendarGrid'],
       ['testEnvironment', '#testModeForm'],
       ['testAccounts', '#testModeAccountList'],
       ['testControlCenter', '.test-control-center'],

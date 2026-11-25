@@ -22,14 +22,23 @@ test('member 360 consolidates member summary and cross-domain actions', () => {
   assert.doesNotMatch(app, /actionButton\('＋ 發放', 'add-grant'/);
 });
 
-test('operations calendar combines calendar items with booking snapshots', () => {
-  assert.match(html, /aria-controls="calendarPanel">營運日曆</);
+test('three isolated calendar workspaces render their own content and keep booking snapshot private', () => {
+  assert.match(html, /aria-controls="calendarPanel">會員活動</);
+  assert.match(html, /id="eventTicketCalendarGrid"/);
+  assert.match(html, /id="adminCalendarGrid"/);
+  assert.match(booking, /id="bookingOverviewCalendarGrid"/);
   assert.match(app, /member-admin:booking-snapshot/);
   assert.match(app, /member-admin:booking-snapshot-request/);
-  assert.match(app, /adminOperationalBookingsForDate/);
-  assert.match(app, /createOperationalBookingCalendarButton/);
+  assert.match(app, /renderBookingOverviewCalendar\(\)/);
+  assert.match(app, /rows: \[\.\.\.state\.operationalBookings\.filter/);
+  assert.match(app, /rules\.belongsToScope\('holiday', item\)/);
+  assert.match(app, /rules\.belongsToScope\('activity', item\)/);
+  assert.match(app, /rules\.belongsToScope\(kind, item\)/);
+  assert.match(app, /member-admin:booking-focus/);
   assert.match(css, /\.admin-calendar-booking/);
+  assert.doesNotMatch(html, /id="calendarBatchRows"/);
 });
+
 
 test('booking admin publishes a least-privilege calendar snapshot and supports focus handoff', () => {
   assert.match(booking, /function publishOperationalBookingSnapshot\(\)/);

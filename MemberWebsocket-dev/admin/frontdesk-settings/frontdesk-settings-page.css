@@ -735,3 +735,9 @@ html[data-frontdesk-page] .frontdesk-rejection-actions .frontdesk-primary {
     max-width: none;
   }
 }
+
+/* Independent modification rejection editor shares the existing guarded save. */
+.frontdesk-modification-rejection-settings{display:grid;gap:14px;margin-top:22px;padding:20px;border:1px solid var(--fd-border, #d8e2da);border-radius:16px;background:color-mix(in srgb,var(--fd-card,#fff) 93%,#f7bb77 7%)}
+.frontdesk-modification-rejection-settings h4{margin:0;font-size:1.15rem}
+.frontdesk-modification-rejection-settings p{margin:0;line-height:1.6}
+.frontdesk-modification-rejection-settings .frontdesk-rejection-list{display:grid;gap:12px}

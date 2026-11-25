@@ -15,6 +15,8 @@
   const realtimeStatuses = new Map();
   let realtimeClient = null;
   let realtimeClientKey = '';
+  let realtimeChannelSequence = 0;
+  const realtimeChannelRemovals = new WeakMap();
   let presenceContext = null;
   let presenceHooksBound = false;
   let presenceHeartbeatTimer = null;
@@ -506,6 +508,9 @@
     assertLegacyTenantScope();
     if (isTerminatingAccess) throw clientError('SESSION_REVOKED', '連線已結束，請重新登入。');
     validateConfig(config, clientType);
+    const startingSession = sessions.get(clientType);
+    const scopeAtStart = JSON.stringify([config.supabaseUrl, config.supabaseFunctionUrl,
+      config.supabasePublishableKey, window.BusinessContext?.slug || config.business || '']);
     const endpoint = requestEndpoint(config, clientType, action);
     if (!SUPABASE_FUNCTION_PATTERN.test(endpoint) || endpoint.includes('REPLACE_')) {
       throw clientError('CONFIG_ERROR', '此功能的 Supabase Edge Function URL 尚未設定。');
@@ -548,7 +553,15 @@
           error.status = Number(data && data.status || fetched.response.status || 0);
           error.details = data && data.error && data.error.details || null;
           if (['SESSION_REVOKED', 'SESSION_REPLACED', 'MEMBER_REMOVED', 'SYSTEM_MAINTENANCE'].includes(error.code)) {
-            terminateAccessSession(error.code, error.message);
+            const current = sessions.get(clientType);
+            const currentScope = current && JSON.stringify([current.config.supabaseUrl, current.config.supabaseFunctionUrl,
+              current.config.supabasePublishableKey, window.BusinessContext?.slug || current.config.business || '']);
+            // A late denial belongs to the credential that made the request,
+            // not a newly signed-in identity or a different merchant.
+            if (error.code === 'SYSTEM_MAINTENANCE' || !current ||
+              (current === startingSession && current.idToken === idToken && currentScope === scopeAtStart)) {
+              terminateAccessSession(error.code, error.message);
+            }
           }
           throw error;
         }
@@ -599,20 +612,27 @@
 
   function subscribeRealtime(config, clientType, onUpdate) {
     validateConfig(config, clientType);
-    if (config.realtimeEnabled === false || typeof onUpdate !== 'function') return () => {};
     const existing = realtimeSubscriptions.get(clientType);
-    if (existing) return existing.unsubscribe;
-    let disposed = false;
+    if (config.realtimeEnabled === false) { existing?.unsubscribe(); return () => {}; }
+    if (typeof onUpdate !== 'function') return () => {};
+    const subscriptionKey = JSON.stringify([config.supabaseUrl, config.supabaseFunctionUrl,
+      config.supabasePublishableKey, config.business || '', sessions.get(clientType)?.idToken || '']);
+    if (existing?.key === subscriptionKey) return existing.unsubscribe;
+    if (existing) existing.unsubscribe();
+    let disposed = false, pageHidden = Boolean(existing?.isPageHidden?.());
     // Broadcast is only an invalidation hint; authorization is checked by the
     // server for the current user, never inferred from an untrusted event.
     let sessionCheckPending = false;
     let sessionCheckQueued = false;
+    let queuedLoginInvalidation = false;
     let sessionCheckGeneration = 0;
     let pendingSessionGeneration = 0;
-    const verifyCurrentLogin = (queueIfPending = true) => {
-      if (disposed || clientType === 'admin' || isTerminatingAccess) return;
+    const verifyCurrentLogin = (queueIfPending = true, allowHidden = false) => {
+      if (disposed || pageHidden || (document.visibilityState === 'hidden' && !allowHidden) ||
+        (typeof navigator !== 'undefined' && navigator.onLine === false) || clientType === 'admin' || isTerminatingAccess) return;
       if (sessionCheckPending) {
         if (queueIfPending || pendingSessionGeneration !== sessionCheckGeneration) sessionCheckQueued = true;
+        if (allowHidden) queuedLoginInvalidation = true;
         return;
       }
       const active = sessions.get(clientType);
@@ -623,8 +643,10 @@
         'user.' + clientType + '.session.status', {}).catch(() => {}).finally(() => {
         sessionCheckPending = false;
         if (sessionCheckQueued && !disposed && !isTerminatingAccess) {
+          const allowHidden = queuedLoginInvalidation;
           sessionCheckQueued = false;
-          verifyCurrentLogin();
+          queuedLoginInvalidation = false;
+          verifyCurrentLogin(true, allowHidden);
         }
       });
     };
@@ -635,7 +657,7 @@
       // Private schemas never subscribe to the shared anonymous event feed.
       // Read an authorized opaque revision; reload full data only on change.
       let timer, pending = false, queued = false, revision, lastFullAt = -Infinity;
-      let generation = 0, pendingGeneration = 0, refreshing = false, pageHidden = false;
+      let generation = 0, pendingGeneration = 0, refreshing = false;
       let failures = 0, probes = 0, refreshes = 0;
       const paused = () => pageHidden || document.visibilityState === 'hidden'
         || (typeof navigator !== 'undefined' && navigator.onLine === false);
@@ -726,7 +748,7 @@
         realtimeSubscriptions.delete(clientType); realtimeStatuses.delete(clientType);
         emitRealtimeEvent('member-system:realtime-status', {clientType,status:'CLOSED'});
       };
-      realtimeSubscriptions.set(clientType,{unsubscribe}); status('SYNCING'); schedule(0);
+      realtimeSubscriptions.set(clientType,{unsubscribe,key:subscriptionKey,isPageHidden:()=>pageHidden}); status('SYNCING'); schedule(0);
       return unsubscribe;
     }
     if (!client) {
@@ -761,7 +783,7 @@
         window.removeEventListener('online', onResume);
         realtimeSubscriptions.delete(clientType);
       };
-      realtimeSubscriptions.set(clientType, { unsubscribe });
+      realtimeSubscriptions.set(clientType, { unsubscribe, key: subscriptionKey });
       return unsubscribe;
     }
 
@@ -771,10 +793,11 @@
     let lastRefreshAt = -Infinity;
     let subscribedOnce = false;
     let safetySyncTimer;
+    let channel = null, channelGeneration = 0, removingChannel = null;
     const SAFETY_SYNC_MS = 30000;
     const queuedEventTypes = new Set();
     const queuedReasons = new Set();
-    const isPaused = () => (document.visibilityState === 'hidden')
+    const isPaused = () => pageHidden || (document.visibilityState === 'hidden')
       || (typeof navigator !== 'undefined' && navigator.onLine === false);
 
     // Realtime, reconnect and page-resume signals share one refresh queue.
@@ -812,19 +835,48 @@
     };
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
+        connectChannel();
         verifyCurrentLogin(false);
         schedule(0, { reason: 'visibility' });
       } else sessionCheckGeneration += 1;
     };
     const onPageShow = (event) => {
+      pageHidden = false;
+      connectChannel();
       if (event?.persisted) sessionCheckGeneration += 1;
       verifyCurrentLogin(false);
       schedule(0, { reason: event && event.persisted ? 'bfcache' : 'pageshow' });
     };
     const onOnline = () => {
+      connectChannel();
       verifyCurrentLogin(false);
       schedule(0, { reason: 'online' });
     };
+    const suspendChannel = () => {
+      sessionCheckGeneration += 1;
+      if (timer !== undefined) window.clearTimeout(timer);
+      timer = undefined;
+      disconnectChannel();
+    };
+    const onPageHide = () => { pageHidden = true; suspendChannel(); };
+    function disconnectChannel(reconnect = true) {
+      const previous = channel;
+      channel = null; channelGeneration += 1;
+      if (!previous) return;
+      if (!disposed) {
+        realtimeStatuses.set(clientType, 'SUSPENDED');
+        emitRealtimeEvent('member-system:realtime-status', { clientType, status: 'SUSPENDED' });
+      }
+      try {
+        const removal = Promise.allSettled([realtimeChannelRemovals.get(client), client.removeChannel(previous)]);
+        realtimeChannelRemovals.set(client, removal); removingChannel = removal;
+        void removal.then(() => {
+          if (realtimeChannelRemovals.get(client) === removal) realtimeChannelRemovals.delete(client);
+          if (removingChannel === removal) removingChannel = null;
+          if (reconnect) connectChannel();
+        }).catch(() => {});
+      } catch (_) {}
+    }
     // Safety net for lost Realtime messages or a disconnected mobile WebSocket.
     // It refreshes only while the application is visible; background LIFF tabs do
     // not poll. The normal Realtime path still invalidates immediately.
@@ -841,19 +893,34 @@
     document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('pageshow', onPageShow);
     window.addEventListener('online', onOnline);
+    window.addEventListener('offline', suspendChannel);
+    window.addEventListener('pagehide', onPageHide);
 
-    const channel = client
-      .channel(`member-system-${clientType}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'realtime_events' }, (payload) => {
+    function connectChannel() {
+      if (disposed || isPaused() || channel) return;
+      const removal = realtimeChannelRemovals.get(client);
+      if (removal) {
+        if (removingChannel !== removal) {
+          removingChannel = removal;
+          void removal.then(() => { removingChannel = null; connectChannel(); }).catch(() => {});
+        }
+        return;
+      }
+      const generation = ++channelGeneration;
+      try {
+      channel = client.channel(`member-system-${clientType}-${++realtimeChannelSequence}`);
+      channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'realtime_events' }, (payload) => {
+        if (disposed || generation !== channelGeneration) return;
         const row = payload && payload.new && typeof payload.new === 'object' ? payload.new : {};
         const scope = String(row.scope || '');
         if (scope !== 'all' && scope !== clientType) return;
         const eventType = String(row.event_type || '');
         emitRealtimeEvent('member-system:realtime-invalidation', { clientType, scope, eventType });
-        if (eventType === 'member.login.replaced') verifyCurrentLogin();
+        if (eventType === 'member.login.replaced') verifyCurrentLogin(true, true);
         else schedule(650, { reason: 'realtime', eventType });
       })
       .subscribe((status) => {
+        if (disposed || generation !== channelGeneration) return;
         const nextStatus = String(status || '');
         realtimeStatuses.set(clientType, nextStatus);
         emitRealtimeEvent('member-system:realtime-status', { clientType, status: nextStatus });
@@ -867,6 +934,14 @@
           schedule(0, { reason: 'reconnect' });
         } else subscribedOnce = true;
       });
+      } catch (_) {
+        disconnectChannel(false);
+        realtimeStatuses.set(clientType, 'CHANNEL_ERROR');
+        emitRealtimeEvent('member-system:realtime-status', { clientType, status: 'CHANNEL_ERROR' });
+        schedule(0, { reason: 'realtime-disconnected' });
+      }
+    }
+    connectChannel();
 
     const unsubscribe = () => {
       if (disposed) return;
@@ -879,12 +954,14 @@
       document.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('pageshow', onPageShow);
       window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', suspendChannel);
+      window.removeEventListener('pagehide', onPageHide);
       realtimeSubscriptions.delete(clientType);
       realtimeStatuses.delete(clientType);
       emitRealtimeEvent('member-system:realtime-status', { clientType, status: 'CLOSED' });
-      try { Promise.resolve(client.removeChannel(channel)).catch(() => {}); } catch (_) {}
+      disconnectChannel();
     };
-    realtimeSubscriptions.set(clientType, { unsubscribe });
+    realtimeSubscriptions.set(clientType, { unsubscribe, key: subscriptionKey, isPageHidden: () => pageHidden });
     return unsubscribe;
   }
 

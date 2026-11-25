@@ -27,6 +27,8 @@
   const realtimeSubscriptions = new Map();
   let realtimeClient = null;
   let realtimeClientKey = '';
+  let realtimeChannelSequence = 0;
+  const realtimeChannelRemovals = new WeakMap();
   let presenceContext = null;
   let authenticatedSession = null;
   let presenceHooksBound = false;
@@ -424,6 +426,9 @@
 
   async function sendJson(endpoint, config, body, serviceLabel, options = {}) {
     if (isTerminatingAccess) throw clientError('SESSION_REVOKED', '連線已結束，請重新登入。');
+    const startingSession = authenticatedSession;
+    const scopeAtStart = JSON.stringify([config.supabaseUrl, config.supabaseFunctionUrl,
+      config.supabasePublishableKey, window.BusinessContext?.slug || config.business || '']);
     const isWrite = options.write === true;
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -449,7 +454,13 @@
         const apiErrorCode = String(apiError.code || 'API_ERROR');
         const error = clientError(apiErrorCode, String(apiError.message || `${serviceLabel}暫時無法完成操作。`), apiError.details || null);
         if (['SESSION_REVOKED', 'SESSION_REPLACED', 'MEMBER_REMOVED', 'SYSTEM_MAINTENANCE'].includes(apiErrorCode)) {
-          terminateAccessSession(apiErrorCode, error.message);
+          const current = authenticatedSession;
+          const currentScope = current && JSON.stringify([current.config.supabaseUrl, current.config.supabaseFunctionUrl,
+            current.config.supabasePublishableKey, window.BusinessContext?.slug || current.config.business || '']);
+          if (apiErrorCode === 'SYSTEM_MAINTENANCE' || !current ||
+            (current === startingSession && current.idToken === body.idToken && currentScope === scopeAtStart)) {
+            terminateAccessSession(apiErrorCode, error.message);
+          }
         }
         throw error;
       }
@@ -539,16 +550,19 @@
     let subscribedOnce = false;
     let realtimeTimer = null;
     let loginCheckTimer = null;
+    let pageHidden = false, channelGeneration = 0, removingChannel = null;
     let loginCheckPending = false;
     let loginCheckQueued = false;
+    let queuedLoginInvalidation = false;
     let loginCheckGeneration = 0;
     let pendingLoginGeneration = 0;
-    const validateCurrentLogin = (queueIfPending = true) => {
-      if (disposed || targetScope === 'admin' || isTerminatingAccess) return;
+    const validateCurrentLogin = (queueIfPending = true, allowHidden = false) => {
+      if (disposed || pageHidden || (document.visibilityState === 'hidden' && !allowHidden) || targetScope === 'admin' || isTerminatingAccess) return;
       // A takeover event may arrive while a status request is in flight.
       // Never drop that invalidation just because the previous read was pending.
       if (loginCheckPending) {
         if (queueIfPending || pendingLoginGeneration !== loginCheckGeneration) loginCheckQueued = true;
+        if (allowHidden) queuedLoginInvalidation = true;
         return;
       }
       if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
@@ -563,8 +577,10 @@
         '登入狀態', { write:false }).catch(() => {}).finally(() => {
         loginCheckPending = false;
         if (loginCheckQueued && !disposed && !isTerminatingAccess) {
+          const allowHidden = queuedLoginInvalidation;
           loginCheckQueued = false;
-          validateCurrentLogin();
+          queuedLoginInvalidation = false;
+          validateCurrentLogin(true, allowHidden);
         }
       });
     };
@@ -580,7 +596,7 @@
         return false;
       }
     };
-    const shouldDeferResync = () => !navigator.onLine
+    const shouldDeferResync = () => pageHidden || !navigator.onLine
       || (document.visibilityState === 'hidden' && !backgroundResyncAllowed());
 
     const clearScheduledResync = () => {
@@ -628,19 +644,43 @@
 
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
+        connectChannel();
         validateCurrentLogin(false);
         schedule(0);
       } else loginCheckGeneration += 1;
     };
     const onPageShow = (event) => {
+      pageHidden = false;
+      connectChannel();
       if (event?.persisted) loginCheckGeneration += 1;
       validateCurrentLogin(false);
       schedule(0);
     };
     const onOnline = () => {
+      connectChannel();
       validateCurrentLogin(false);
       schedule(0);
     };
+    const suspendChannel = () => {
+      loginCheckGeneration += 1;
+      clearScheduledResync();
+      disconnectChannel();
+    };
+    const onPageHide = () => { pageHidden = true; suspendChannel(); };
+    function disconnectChannel(reconnect = true) {
+      const previous = channel;
+      channel = null; channelGeneration += 1;
+      if (!previous || !client) return;
+      try {
+        const removal = Promise.allSettled([realtimeChannelRemovals.get(client), client.removeChannel(previous)]);
+        realtimeChannelRemovals.set(client, removal); removingChannel = removal;
+        void removal.then(() => {
+          if (realtimeChannelRemovals.get(client) === removal) realtimeChannelRemovals.delete(client);
+          if (removingChannel === removal) removingChannel = null;
+          if (reconnect) connectChannel();
+        }).catch(() => {});
+      } catch (_) {}
+    }
     // Reconcile visible data even when the SDK is unavailable or a socket silently
     // misses an event. Use the same queue so periodic reads never overlap Realtime.
     if (typeof window.setInterval === 'function') {
@@ -654,6 +694,8 @@
     document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('pageshow', onPageShow);
     window.addEventListener('online', onOnline);
+    window.addEventListener('offline', suspendChannel);
+    window.addEventListener('pagehide', onPageHide);
 
     if (!config.business && config.realtimeEnabled !== false && window.supabase && typeof window.supabase.createClient === 'function') {
       const clientKey = JSON.stringify([config.supabaseUrl, config.supabasePublishableKey]);
@@ -665,22 +707,35 @@
       }
 
       client = realtimeClient;
-      channel = client
-        .channel(`booking-${targetScope}-sync`)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'realtime_events' }, (payload) => {
+    }
+    function connectChannel() {
+      if (disposed || shouldDeferResync() || !client || channel) return;
+      const removal = realtimeChannelRemovals.get(client);
+      if (removal) {
+        if (removingChannel !== removal) {
+          removingChannel = removal;
+          void removal.then(() => { removingChannel = null; connectChannel(); }).catch(() => {});
+        }
+        return;
+      }
+      const generation = ++channelGeneration;
+      try {
+      channel = client.channel(`booking-${targetScope}-sync-${++realtimeChannelSequence}`);
+      channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'realtime_events' }, (payload) => {
+          if (disposed || generation !== channelGeneration) return;
           const row = payload && payload.new && typeof payload.new === 'object' ? payload.new : {};
           const scope = String(row.scope || '');
           const eventType = String(row.event_type || '');
           if (disposed) return;
           if (targetScope !== 'admin' && (scope === 'all' || scope === targetScope) && eventType === 'member.login.replaced') {
-            validateCurrentLogin();
+            validateCurrentLogin(true, true);
           } else if (scope === 'all' || scope === targetScope) schedule();
           if (typeof onBenefitsUpdate === 'function' && ['all', 'member', 'points', 'event', 'calendar'].includes(scope)) {
             onBenefitsUpdate({ scope, eventType });
           }
         })
         .subscribe((status) => {
-          if (disposed) return;
+          if (disposed || generation !== channelGeneration) return;
           if (status !== 'SUBSCRIBED') {
             schedule(0);
             return;
@@ -693,7 +748,12 @@
             subscribedOnce = true;
           }
         });
+      } catch (_) {
+        disconnectChannel(false);
+        schedule(0);
+      }
     }
+    connectChannel();
 
     const unsubscribe = () => {
       if (disposed) return;
@@ -701,10 +761,12 @@
       document.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('pageshow', onPageShow);
       window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', suspendChannel);
+      window.removeEventListener('pagehide', onPageHide);
       clearScheduledResync();
       if (loginCheckTimer !== null) window.clearInterval(loginCheckTimer);
       realtimeSubscriptions.delete(subscriptionKey);
-      try { if (channel && client) Promise.resolve(client.removeChannel(channel)).catch(() => {}); } catch (_) {}
+      disconnectChannel();
     };
     realtimeSubscriptions.set(subscriptionKey, { unsubscribe });
     return unsubscribe;
