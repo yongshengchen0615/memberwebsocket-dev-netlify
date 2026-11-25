@@ -923,11 +923,68 @@
     });
   }
 
+  // Group for display only: keep the API catalog, selection and edit state unchanged.
+  function groupServicesByTypeAndPrice(services, serviceTypes) {
+    const typeOrder = new Map(
+      (Array.isArray(serviceTypes) ? serviceTypes : [])
+        .map((type, index) => [String(type?.name || '').trim(), index])
+        .filter(([name]) => Boolean(name))
+    );
+    const grouped = new Map();
+    for (const service of Array.isArray(services) ? services : []) {
+      const typeName = String(service?.serviceType || '').trim() || '未分類';
+      if (!grouped.has(typeName)) grouped.set(typeName, []);
+      grouped.get(typeName).push(service);
+    }
+    const price = (service) => {
+      if (service?.priceAmount === null || service?.priceAmount === undefined || service?.priceAmount === '') {
+        return Number.POSITIVE_INFINITY;
+      }
+      const amount = Number(service.priceAmount);
+      return Number.isFinite(amount) ? amount : Number.POSITIVE_INFINITY;
+    };
+    return Array.from(grouped)
+      .sort(([a], [b]) => {
+        const aOrder = typeOrder.get(a) ?? Number.MAX_SAFE_INTEGER;
+        const bOrder = typeOrder.get(b) ?? Number.MAX_SAFE_INTEGER;
+        if (aOrder !== bOrder) return aOrder - bOrder;
+        if (a === '未分類' && b !== '未分類') return 1;
+        if (b === '未分類' && a !== '未分類') return -1;
+        return a.localeCompare(b, 'zh-Hant');
+      })
+      .map(([typeName, items]) => ({
+        typeName,
+        items: items.slice().sort((a, b) => {
+          const aPrice = price(a);
+          const bPrice = price(b);
+          if (aPrice !== bPrice) return aPrice < bPrice ? -1 : 1;
+          return String(a?.title || '').localeCompare(String(b?.title || ''), 'zh-Hant') ||
+            String(a?.serviceId || '').localeCompare(String(b?.serviceId || ''));
+        }),
+      }));
+  }
+
   function renderServices() {
     const rows = state.catalog.services || [];
     els.bookingAdminServiceList.replaceChildren();
     els.bookingAdminServiceEmpty.classList.toggle('hidden', rows.length > 0);
-    rows.forEach((service) => {
+    const groups = groupServicesByTypeAndPrice(rows, state.catalog.serviceTypes || []);
+    groups.forEach(({ typeName, items }, groupIndex) => {
+      const serviceGroup = document.createElement('section');
+      serviceGroup.className = 'booking-admin-service-group';
+      const groupHeading = document.createElement('div');
+      groupHeading.className = 'booking-admin-service-group-heading';
+      const groupTitle = document.createElement('h4');
+      groupTitle.id = `bookingAdminServiceGroupTitle${groupIndex}`;
+      groupTitle.textContent = `${typeName}（${items.length} 項）`;
+      serviceGroup.setAttribute('aria-labelledby', groupTitle.id);
+      const orderNote = document.createElement('small');
+      orderNote.textContent = '價格由低至高';
+      groupHeading.append(groupTitle, orderNote);
+      const serviceGroupList = document.createElement('div');
+      serviceGroupList.className = 'booking-admin-service-group-list';
+      serviceGroup.append(groupHeading, serviceGroupList);
+      items.forEach((service) => {
       const row = document.createElement('div');
       row.className = `booking-admin-service-row${service.isActive ? '' : ' inactive'}`;
       row.style.cursor = 'default';
@@ -950,7 +1007,9 @@
       const actions = document.createElement('span'); actions.className = 'booking-admin-actions'; actions.style.margin = '0';
       actions.append(actionButton('修改', 'button button-outline', () => openServiceModal(service)), actionButton('刪除', 'button button-danger', () => deleteService(service)));
       if (state.config?.pricePublishing === true) actions.prepend(actionButton('調整價格', 'button button-outline', () => window.BookingPriceEditor.open({ service, request: (action,payload) => manageRequest(action,payload,action !== 'admin.booking.price.catalog'), onSaved: () => refreshAll(false) })));
-      row.append(left, actions); els.bookingAdminServiceList.appendChild(row);
+      row.append(left, actions); serviceGroupList.appendChild(row);
+      });
+      els.bookingAdminServiceList.appendChild(serviceGroup);
     });
     updateBatchButtons();
   }
