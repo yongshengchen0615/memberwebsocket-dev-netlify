@@ -122,7 +122,7 @@ test('AC-011: holiday management belongs to booking; day tile is an entire click
 
 test('AC-012: per-ticket and per-activity policies are distinct, validated and enforced by the server', () => {
   const api = fileAt('supabase/functions/api/index.ts');
-  const migration = fileAt('supabase/migrations/20261124223500_per_item_calendar_visibility.sql');
+  const migration = fileAt('supabase/migrations/20261124234000_per_item_calendar_visibility.sql');
   assert.match(adminHtml, /id="eventTicketVisibilityPolicy"/);
   assert.doesNotMatch(adminHtml, /src="\.\/ticket-visibility\.js/);
   assert.match(adminApp, /id = 'calendarItemVisibilityPolicy'/);

@@ -41,8 +41,8 @@ module.exports=async(options={})=>{
      // otherwise it validates a stale October business blueprint.
      if (!options.beforeVisibility) {
        for (const migration of [
-         '20261124223500_per_item_calendar_visibility.sql',
-         '20261124224500_per_tenant_item_visibility.sql',
+         '20261124234000_per_item_calendar_visibility.sql',
+         '20261124234500_per_tenant_item_visibility.sql',
        ]) await db.exec(fs.readFileSync(path.join(migrations,migration),'utf8'));
      }
    }
