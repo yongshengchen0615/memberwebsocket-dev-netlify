@@ -1,5 +1,7 @@
 import { businessFetch as fetch, memberSystemFooter } from '../_shared/business-scope.ts';
 import { bookingDetailUri } from "./booking-actions.ts";
+import { formatBookingPhone } from '../_shared/booking-contact-phone.ts';
+import { formatBookingLinePhoneFields } from './phone-display.mjs';
 import { groupReminderNoticeFields, reminderNoticeCard } from "./reminder-notice.mjs";
 import { buildMemberPendingCards } from "./member-pending-cards.mjs";
 export type BookingBenefits = {
@@ -666,8 +668,11 @@ function frontdeskRejectionCards(source: string): Array<Record<string, unknown>>
 export function buildBookingFlexMessage(job: Job): LineFlexMessage {
   // Booking identifiers are for administrators only. Sanitize the source
   // before parsing so fallback cards, alt text and normal Flex rows agree.
-  const visibleText = job.channel === 'admin' ? job.message_text :
-    String(job.message_text || '').replace(/^(?:預約編號|原預約編號|新增預約編號|訂單編號)[：:][^\r\n]*(?:\r?\n|$)/gm, '');
+  // Normalize only phone display rows before any member/admin/frontdesk Flex parser.
+  // Do not change the stored outbox event, member profile or delivery recipient.
+  const phoneFormattedText = formatBookingLinePhoneFields(job.message_text, formatBookingPhone);
+  const visibleText = job.channel === 'admin' ? phoneFormattedText :
+    phoneFormattedText.replace(/^(?:預約編號|原預約編號|新增預約編號|訂單編號)[：:][^\r\n]*(?:\r?\n|$)/gm, '');
   const parsed = parseBookingMessage(visibleText);
   // Presentation only: the trusted frontdesk mode never changes the stored event.
   // The event key distinguishes an actual cancellation from an older pending
