@@ -306,7 +306,7 @@ async function messagesSave(supabase: SupabaseClient, identity: Identity, body: 
     noticeLength: bookingNotice.length,
     pendingLength: pendingMessage.length,
     reminderLength: reminderMessage.length,
-    ...(hasOnsiteEditMessage ? { onsiteEditLength: onsiteEditMessage.length } : {}),
+    ...(hasOnsiteEditMessage ? { onsiteEditLength: onsiteEditMessage?.length ?? 0 } : {}),
   });
   return {
     messages: {
