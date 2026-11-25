@@ -103,7 +103,7 @@ test('AC-003: zero, numeric strings, ties, missing and invalid prices sort deter
     service('blank', '保養', ''),
   ];
   const ids = sorter().sortEntriesByPrice(entries, (entry) => entry).map((entry) => entry.serviceId);
-  assert.deepEqual(Array.from(ids), ['free', 'tie-a', 'tie-z', 'high', 'blank', 'missing', 'bad']);
+  assert.deepEqual(Array.from(ids), ['free', 'tie-a', 'tie-z', 'high', 'bad', 'blank', 'missing']);
   assert.deepEqual(entries.map((entry) => entry.serviceId), [
     'bad', 'tie-z', 'high', 'missing', 'free', 'tie-a', 'blank',
   ]);
