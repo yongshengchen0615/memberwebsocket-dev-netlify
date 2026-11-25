@@ -24,9 +24,9 @@ for(const variant of [
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   // Render production HTML, CSS and behavior against an isolated local transport.
   await page.route('https://**',route=>route.abort());
-  // The admin fixture advertises a deliberately non-existent Supabase host.
-  // Fail its optional grant-automation request deterministically without DNS:
-  // a live external timeout can otherwise prevent the admin shell from booting.
+  // Fail the retired calendar extension deterministically if an unexpected caller
+  // reintroduces it. Current bootstrap must use the authenticated canonical API,
+  // so opening the admin shell must not issue a legacy extension request.
   let unavailableGrantReads=0;
   const unavailableGrant=route=>{
     unavailableGrantReads++;
@@ -38,7 +38,8 @@ for(const variant of [
   await page.route(host.base+'/functions/v1/grant-automation',unavailableGrant);
   await page.goto(host.base+'/admin/?run='+info.testId);
   await expect(page.locator('#adminView')).toBeVisible();
-  expect(unavailableGrantReads).toBeGreaterThan(0);
+  expect(unavailableGrantReads).toBe(0);
+  expect(host.sessions.get(info.testId).calls.some(call => call.action === 'admin.bootstrap')).toBe(true);
   await page.evaluate(theme=>document.documentElement.dataset.theme=theme,variant.theme);
   const topbar=page.locator('#adminView > .topbar');await fitsViewport(page,topbar);
   if(variant.width<=640) {
