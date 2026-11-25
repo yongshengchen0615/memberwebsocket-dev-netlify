@@ -81,6 +81,16 @@ test('mobile group booking scrolls expanded technician field into view and highl
   await expect(second).not.toHaveAttribute('open', '');
   await expect(warning).toBeHidden();
 
+  // AC-004: selecting multiple participants initially brings the first technician selector into view.
+  await expect.poll(async () => first.locator('summary').evaluate((element) => {
+    const container = document.querySelector('.booking-selection-modal-body');
+    return Math.round(element.getBoundingClientRect().top - container.getBoundingClientRect().top);
+  })).toBeLessThan(25);
+  const firstTechnician = await first.locator('.participant-technician-field').boundingBox();
+  const firstContainer = await page.locator('.booking-selection-modal-body').boundingBox();
+  expect(firstTechnician.y).toBeGreaterThanOrEqual(firstContainer.y);
+  expect(firstTechnician.y).toBeLessThan(firstContainer.y + firstContainer.height);
+
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('booking:selection-changed', {
     detail: { items: [{ serviceId: 'service-1', quantity: 1 }] },
   })));
