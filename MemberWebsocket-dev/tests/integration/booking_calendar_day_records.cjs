@@ -168,6 +168,10 @@ test('holiday and maximum-range dates show records without enabling start, inclu
     await new Promise(resolve => setTimeout(resolve, 20));
     f.click('2026-10-31');
     assert.equal(f.el('startDayBookingButton').disabled, true);
+    assert.equal(f.el('startDayBookingButton').hidden, true);
+    assert.equal(f.el('bookingPhoneFallback').hidden, true);
+    assert.equal(f.el('bookingDayHolidayNotice').hidden, false);
+    assert.match(f.el('bookingDayHolidayNotice').textContent, /休假提醒.*當日無法預約/);
     assert.match(f.el('bookingDayHint').textContent, /休假/);
     assert.match(f.el('bookingDayHolidayDetails').textContent, /當日不營業/);
     f.el('nextMonthButton').click();
@@ -311,5 +315,32 @@ test('phone-only item reference handles empty catalogs and revoked telephone set
     f.emit('booking:settings-updated', { today: '2026-10-30', settings: { minAdvanceDays: 2, maxAdvanceDays: 4, phoneBookingNumber: '' } });
     assert.equal(f.el('bookingPhoneServiceReference').hidden, true);
     assert.equal(f.el('bookingPhoneServiceList').children.length, 0);
+  } finally { f.w.close(); }
+});
+
+test('technician leave dates replace every booking action with a technician leave reminder', async () => {
+  const f = await fixture();
+  try {
+    f.w.BookingSystem.loadConfig = async () => ({ supabaseUrl: 'https://fixture.supabase.co' });
+    f.w.liff = { isLoggedIn: () => true, getIDToken: () => 'fixture' };
+    f.w.fetch = async () => new Response(JSON.stringify({ ok: true, data: {
+      settings: { minAdvanceDays: 2, maxAdvanceDays: 4, phoneBookingNumber: '06-1234567' },
+      holidays: [{ startsOn: '2026-10-31', endsOn: '2026-10-31', title: '技師休假', description: '技師休息一天' }]
+    } }));
+    f.emit('booking:view-shown');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    f.click('2026-10-31');
+    assert.equal(f.el('startDayBookingButton').disabled, true);
+    assert.equal(f.el('startDayBookingButton').hidden, true);
+    assert.equal(f.el('bookingPhoneFallback').hidden, true);
+    assert.equal(f.el('bookingPhoneDial').hasAttribute('href'), false);
+    assert.equal(f.el('bookingPhoneServiceReference').hidden, true);
+    assert.equal(f.el('bookingDayHolidayNotice').hidden, false);
+    assert.match(f.el('bookingDayHolidayNotice').textContent, /技師休假提醒.*當日無法預約/);
+    assert.match(f.el('bookingDayHolidayDetails').textContent, /技師休息一天/);
+    assert.equal(f.el('appointmentPanel').classList.contains('hidden'), true);
+    f.click('2026-11-01');
+    assert.equal(f.el('bookingDayHolidayNotice').hidden, true);
+    assert.equal(f.el('bookingDayHolidayNotice').textContent, '');
   } finally { f.w.close(); }
 });
