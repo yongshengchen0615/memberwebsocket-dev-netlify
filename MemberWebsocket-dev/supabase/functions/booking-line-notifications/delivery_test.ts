@@ -114,7 +114,7 @@ Deno.test('AC-FD-001: frontdesk LINE card uses exactly the requested booking fie
     .map((item) => String(item.text));
   const expected = [
     '預約日期：2026-11-20', '預約時間：09:30',
-    '預約人：陳先生', '電話：+886900000000', '預約人數：1 位',
+    '預約人：陳先生', '電話：0900000000', '預約人數：1 位',
     '第一位預約', '預約項目：身體60', '預約技師：10技師',
   ];
   assert(JSON.stringify(visible) === JSON.stringify(expected),
@@ -127,6 +127,56 @@ Deno.test('AC-FD-001: frontdesk LINE card uses exactly the requested booking fie
   for (const prohibited of ['個別時間', '個別金額', 'NT$2,500', '會員備註', '管理端說明', '不該出現', '僅限管理員', '預約編號']) {
     assert(!serialized.includes(prohibited), `frontdesk must not include unrelated private field: ${prohibited}`);
   }
+});
+
+
+Deno.test('AC-LPH-005: LINE Flex cards format Taiwan mobile across admin, member, frontdesk and reminders', () => {
+  const mobile = '+886912345678';
+  for (const [channel, title] of [
+    ['admin', '預約'], ['member', '預約確認'],
+    ['frontdesk', '預約'], ['member', '預約提醒'],
+    ['member', '拒絕修改預約'], ['admin', '修改預約'],
+  ]) {
+    const source = [
+      '【' + title + '】',
+      '預約人：測試會員',
+      '日期：2026/11/25',
+      '時段：10:00–11:00',
+      '電話：' + mobile,
+      '預約人數：1 位',
+      '第一位預約',
+      '預約項目：肩頸30',
+      '預約技師：甲技師',
+    ].join('\n');
+    const job = { ...sampleJob, channel, message_text: source };
+    const original = job.message_text;
+    const card = buildBookingFlexMessage(job);
+    const serialized = JSON.stringify(card);
+    assert(serialized.includes('0912345678'), 'display local mobile: ' + channel + '/' + title);
+    assert(!serialized.includes(mobile), 'never expose country prefix in phone field: ' + channel + '/' + title);
+    assert(job.message_text === original, 'formatting must not mutate queued outbox payload');
+  }
+  const abroad = buildBookingFlexMessage({
+    ...sampleJob, channel: 'member', message_text: '【預約確認】\n電話：+819012345678',
+  });
+  assert(JSON.stringify(abroad).includes('+819012345678'), 'non-Taiwan numbers stay unchanged');
+});
+
+Deno.test('AC-LPH-006: LINE notification sender posts Flex phone as 09 without changing recipient', async () => {
+  const booking = { ...sampleJob, channel: 'member',
+    message_text: '【預約確認】\n預約人：測試會員\n電話：+886912345678',
+  };
+  let pushed = '';
+  const sent = await deliver(booking, 'test-token', async (_url, init) => {
+    pushed = String(init?.body ?? '');
+    return new Response('', { status: 200, headers: { 'x-line-request-id': 'synthetic-ok' } });
+  });
+  assert(sent.accepted, 'fake LINE sandbox response accepted');
+  assert(pushed.includes('0912345678') && !pushed.includes('+886912345678'),
+    'actual serialized LINE Flex delivery must use local 09 number');
+  const body = JSON.parse(pushed);
+  assert(body.to === booking.recipient, 'recipient cannot change');
+  assert(body.messages.length === 1 && body.messages[0].type === 'flex', 'existing Flex contract remains');
 });
 
 Deno.test('AC-FD-002: multiple frontdesk participants remain ordered and isolated', () => {
