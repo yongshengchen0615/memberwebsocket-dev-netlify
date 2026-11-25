@@ -637,3 +637,38 @@
 #bookingPanel .booking-admin-messages-panel .booking-admin-hours-preview{white-space:pre-wrap;overflow-wrap:anywhere}
 #bookingPanel .booking-admin-messages-panel .booking-admin-settings-actions{margin-top:8px}
 @media(max-width:760px){#bookingPanel .booking-admin-subtabs{display:flex;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity}#bookingPanel .booking-admin-subtabs .booking-admin-filter-button{flex:0 0 auto;min-width:116px;scroll-snap-align:start}#bookingPanel .booking-admin-messages-layout{grid-template-columns:minmax(0,1fr)}#bookingPanel .booking-admin-messages-layout>.booking-admin-settings-block:first-child{grid-column:auto}}
+
+/* Admin booking service grouping 20261125: each type is one accessible visual block. */
+#bookingPanel .booking-admin-service-group{
+  display:grid;
+  gap:10px;
+  min-width:0;
+  padding:14px;
+  border:1px solid var(--theme-border,rgba(23,53,46,.14));
+  border-radius:14px;
+  background:var(--theme-surface-muted,rgba(23,53,46,.035));
+}
+#bookingPanel .booking-admin-service-group-heading{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:6px 12px;
+}
+#bookingPanel .booking-admin-service-group-heading h4{
+  margin:0;
+  font-size:15px;
+  color:var(--theme-text,#17352e);
+}
+#bookingPanel .booking-admin-service-group-heading small{
+  color:var(--theme-text-muted,#738079);
+  font-size:12px;
+}
+#bookingPanel .booking-admin-service-group-list{
+  display:grid;
+  gap:8px;
+  min-width:0;
+}
+@media(max-width:640px){
+  #bookingPanel .booking-admin-service-group{padding:10px}
+}
