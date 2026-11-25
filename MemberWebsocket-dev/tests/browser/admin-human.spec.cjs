@@ -884,6 +884,7 @@ test('CALENDAR_BONUS — retired controls absent; activities and holidays still 
   await p.locator('#calendarEditorModal .editor-modal-close').click();
   await openCalendar(p,'holiday');
   await expect(retired).toHaveCount(0);
+  await expect(p.locator('#calendarEditorModal')).not.toContainText('活動加贈點數');
   await click(p,'saveCalendarItemButton');
   await expect(p.locator('#saveCalendarItemButton')).toBeEnabled();
   await expect.poll(()=>String(info.fixture.calendarItems.find(item=>item.itemType==='holiday')?.calendarItemId||'').length).toBeGreaterThan(0);
