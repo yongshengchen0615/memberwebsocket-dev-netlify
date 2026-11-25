@@ -35,7 +35,7 @@
       'appointmentPanel', 'appointmentModalTitle', 'selectedDateSummary', 'closeAppointmentButton',
       'bookingDate', 'servicePicker', 'selectedServiceList', 'bookingList', 'bookingConfirmModal',
       'bookingDayModal', 'bookingDayTitle', 'bookingDayHint', 'closeBookingDayButton', 'startDayBookingButton', 'bookingDayHolidayDetails',
-      'bookingPhoneFallback', 'bookingPhoneDial', 'bookingPhoneServiceReference', 'bookingPhoneServiceList'
+      'bookingPhoneFallback', 'bookingPhoneDial', 'bookingPhoneServiceReference', 'bookingPhoneServiceList', 'bookingDayHolidayNotice'
     ].forEach((id) => { els[id] = document.getElementById(id); });
 
     if (!els.calendarGrid || !els.bookingDate || !els.servicePicker || !els.appointmentPanel) return;
@@ -445,6 +445,8 @@
   function updateDayAction() {
     const date = state.historyDate;
     const reason = bookingBlockReason(date);
+    const holidays = state.holidaysByDate.get(date) || [];
+    const isHoliday = holidays.length > 0;
     const phone = safePhoneBookingNumber(state.phoneBookingNumber);
     // Online lead-time rules do not block merchant-assisted phone enquiries.
     const phoneAllowed = Boolean(phone && date && reason && !phoneBookingBlockReason(date));
@@ -452,14 +454,14 @@
     const phoneOnly = Boolean(phoneAllowed && reason && date < state.minimumDate);
     if (els.startDayBookingButton) {
       els.startDayBookingButton.disabled = Boolean(reason);
-      els.startDayBookingButton.hidden = phoneOnly;
+      els.startDayBookingButton.hidden = Boolean(phoneOnly || isHoliday);
     }
     if (els.bookingDayHint) {
       els.bookingDayHint.textContent = phoneOnly
         ? '此日期尚未開放線上預約，請致電店家洽詢。'
         : reason || '查看當天紀錄，或開始新的預約。';
     }
-    if (els.bookingPhoneFallback) els.bookingPhoneFallback.hidden = !phoneAllowed;
+    if (els.bookingPhoneFallback) els.bookingPhoneFallback.hidden = Boolean(isHoliday || !phoneAllowed);
     if (phoneAllowed) {
       const dialLabel = `撥打店家電話：${phone}`;
       els.bookingPhoneDial.textContent = dialLabel;
@@ -471,7 +473,13 @@
       els.bookingPhoneDial.setAttribute('aria-label', '撥打店家電話');
     }
     renderPhoneServiceReference(phoneOnly);
-    const holidays = state.holidaysByDate.get(state.historyDate) || [];
+    if (els.bookingDayHolidayNotice) {
+      els.bookingDayHolidayNotice.hidden = !isHoliday;
+      const technicianHoliday = holidays.some(item => /技師|師傅/.test(String(item.title || '')));
+      els.bookingDayHolidayNotice.textContent = isHoliday
+        ? (technicianHoliday ? '技師休假提醒：當日無法預約，請改選其他日期。' : '休假提醒：當日無法預約，請改選其他日期。')
+        : '';
+    }
     if (els.bookingDayHolidayDetails) {
       els.bookingDayHolidayDetails.hidden = !holidays.length;
       els.bookingDayHolidayDetails.replaceChildren(...holidayDetails(holidays));
