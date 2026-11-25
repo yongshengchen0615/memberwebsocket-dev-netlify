@@ -473,8 +473,9 @@
 
       const list = document.createElement('div');
       list.className = listClass;
-      const visibleEntries = sortByPrice
-        ? window.BookingServicePriceSort.sortEntriesByPrice(group.entries, getService)
+      const priceSorter = window.BookingServicePriceSort?.sortEntriesByPrice;
+      const visibleEntries = sortByPrice && typeof priceSorter === 'function'
+        ? priceSorter(group.entries, getService)
         : group.entries;
       visibleEntries.forEach((entry) => list.appendChild(createRow(entry)));
 

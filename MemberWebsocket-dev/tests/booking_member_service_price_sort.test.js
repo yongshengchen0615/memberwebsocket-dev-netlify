@@ -29,7 +29,7 @@ class FakeElement {
   appendChild(item) { this.children.push(item); return item; }
 }
 
-function renderGroups(source, services, priceOrder) {
+function renderGroups(source, services, priceOrder, withSorter = true) {
   const start = source.indexOf('  function appendServiceCategoryGroups(');
   const end = source.indexOf(source === app ? '\n  function addSelection(' : '\n  function createExtraServiceChoiceRow(', start);
   assert.ok(start >= 0 && end > start, 'must load the actual member grouping function');
@@ -37,7 +37,7 @@ function renderGroups(source, services, priceOrder) {
     document: { createElement: (tag) => new FakeElement(tag) },
     window: {
       BookingServiceTypeColor: { slot: () => 0 },
-      BookingServicePriceSort: sorter(),
+      BookingServicePriceSort: withSorter ? sorter() : undefined,
     },
     serviceTypeOf: (service) => String(service?.description || '').replace(/^__TYPE__:/, '').trim(),
     serviceTypeKey: (value) => String(value || '').trim().toLowerCase(),
@@ -134,4 +134,13 @@ test('AC-005: shared sorter loads before both booking renderers with cache-buste
   assert.ok(sorterIndex >= 0 && sorterIndex < groupIndex && sorterIndex < appIndex);
   assert.match(html, /group-booking\.js\?v=[^"]+&service-price-order=20261125-1"/);
   assert.match(html, /app\.js\?v=[^"]+&service-price-order=20261125-1&onsite-edit-cutoff=20261125-1"/);
+});
+
+test('AC-006: unavailable optional sorter must not break primary/group booking rendering', () => {
+  const entries = [service('expensive', '按摩', 700), service('cheap', '按摩', 100)];
+  for (const source of [app, groupBooking]) {
+    assert.deepEqual(renderGroups(source, entries, true, false), [
+      { title: '按摩（2）', ids: ['expensive', 'cheap'] },
+    ], 'missing enhancement script preserves functional booking choices');
+  }
 });
