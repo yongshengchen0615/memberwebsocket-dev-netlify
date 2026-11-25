@@ -53,7 +53,7 @@ test('AC-001: admin booking details display the full canonical booking ID for me
     formatMoney: (amount) => String(amount),
     renderParticipantDetails: () => document.createElement('section'),
   };
-  vm.runInNewContext(core.slice(start, end) + '\\nthis.renderBookingSummary = renderBookingSummary;', context);
+  vm.runInNewContext(core.slice(start, end) + '\nthis.renderBookingSummary = renderBookingSummary;', context);
   const descendants = (node) => [node, ...(node.children || []).flatMap(descendants)];
   const bookingId = '123e4567-e89b-42d3-a456-426614174000';
   for (const contactSource of ['member', 'phone']) {
@@ -73,8 +73,8 @@ test('AC-001: admin booking details display the full canonical booking ID for me
 
 test('AC-002: copy booking ID uses only canonical booking ID and provides feedback', () => {
   const copySource = fs.readFileSync(path.join(root, 'booking-copy-format.js'), 'utf8');
-  assert.match(copySource, /closest\\?\\.\\?\\('\u002Ebooking-id-copy-button'\\)|closest\\('\u002Ebooking-id-copy-button'\\)/);
-  assert.match(copySource, /copyText\\(bookingId\\)/);
+  assert.match(copySource, /\.booking-id-copy-button/);
+  assert.match(copySource, /copyText\(bookingId\)/);
   assert.match(copySource, /已複製/);
   assert.match(copySource, /複製失敗/);
 });
