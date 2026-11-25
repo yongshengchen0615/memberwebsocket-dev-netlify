@@ -861,12 +861,13 @@ test('RUNNER_MEMBER_MODAL_FAILURE — failed member-history load exposes error w
   await expect(p.locator('#memberRecordsModal')).toBeHidden();
 });
 
-test('CALENDAR_BONUS — retired bonus never granted; activity and holiday CRUD still work',async({page:p},info)=>{
-  // Preserve the delayed-response lifecycle check while asserting the
-  // post-retirement contract: neither activity nor holiday writes grant bonus.
+test('CALENDAR_BONUS — retired controls absent; activities and holidays still save safely',async({page:p},info)=>{
+  // Verify the actual DOM, not just whether obsolete form controls are disabled.
   let release;const delivered=new Promise(resolve=>{release=resolve;});
   info.calendarResponseGate=delivered;
   await openCalendar(p);
+  const retired=p.locator('#calendarBonusPointsControls,#calendarBonusPointsEnabled,#calendarBonusPointsField,#calendarBonusPoints');
+  await expect(retired).toHaveCount(0);
   await click(p,'saveCalendarItemButton');
   await expect.poll(()=>String(info.fixture.calendarItems[0]?.calendarItemId||'').length).toBeGreaterThan(0);
   const saved=info.fixture.calendarItems[0];
@@ -879,16 +880,15 @@ test('CALENDAR_BONUS — retired bonus never granted; activity and holiday CRUD 
   await expect(p.locator('#calendarItemId')).toHaveValue(id);
   await p.locator('#calendarEditorModal .editor-modal-close').click();
   await p.locator('[data-admin-calendar-item-id="'+id+'"]').first().click();
-  await expect(p.locator('#calendarItemId')).toHaveValue(id);
-  await expect(p.locator('#calendarItemTitle')).toHaveValue(saved.title);
+  await expect(retired).toHaveCount(0);
   await p.locator('#calendarEditorModal .editor-modal-close').click();
   await openCalendar(p,'holiday');
+  await expect(retired).toHaveCount(0);
+  await expect(p.locator('#calendarEditorModal')).not.toContainText('活動加贈點數');
   await click(p,'saveCalendarItemButton');
   await expect(p.locator('#saveCalendarItemButton')).toBeEnabled();
   await expect.poll(()=>String(info.fixture.calendarItems.find(item=>item.itemType==='holiday')?.calendarItemId||'').length).toBeGreaterThan(0);
-  const holiday=info.fixture.calendarItems.find(item=>item.itemType==='holiday');
-  expect(holiday.bonusPointsEnabled).not.toBe(true);
-  expect(Number(holiday.bonusPoints||0)).toBe(0);
+  expect(info.fixture.calendarItems.find(item=>item.itemType==='holiday')?.bonusPointsEnabled).not.toBe(true);
 });
 test('EVENT_CALENDAR_SYNC — ticket stays in ticket calendar and not member activities; unlink retains source ticket',async({page:p},info)=>{
   await openEvent(p);
