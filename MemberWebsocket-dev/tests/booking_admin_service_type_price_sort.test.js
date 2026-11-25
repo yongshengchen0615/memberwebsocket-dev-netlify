@@ -90,7 +90,7 @@ test('AC-005: admin entry and loader bust stale CSS and renderer caches', () => 
   const loader = fs.readFileSync(path.join(root, 'admin/booking-panel.js'), 'utf8');
   assert.match(html, /booking-panel\.css\?v=[^"']+type-price-20261125-1/);
   assert.match(html, /booking-panel\.js\?v=[^"']+type-price-20261125-1/);
-  assert.match(loader, /load\('booking-panel-core\.js', '[^']+type-price-20261125-1'\)/);
+  assert.match(loader, /load\('booking-panel-core\.js', '[^']+type-price-20261125-1-onsite-edit-notice-20261125-1'\)/);
 });
 
 test('AC-006: real renderer creates one DOM block per type with sorted rows and keeps checkbox actions', () => {

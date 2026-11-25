@@ -148,6 +148,7 @@ function settingsClient(row: any, storeService?: any): Json {
     phoneBookingNumber: String(row?.phone_booking_number || ""),
     storeServiceMinutes: Number(storeService?.duration_minutes || 10),
     bookingNotice: String(row?.booking_notice || ""),
+    onsiteEditMessage: String(row?.onsite_edit_message || "此預約已超過線上可修改時間，請至現場洽詢修改預約。"),
     pendingMessage: String(row?.pending_message || "我們已收到您的預約申請，請等待管理員確認；確認後會再透過 LINE 通知您。"),
     reminderMessage: String(row?.reminder_message || "請準時到場；如需調整請至預約頁操作。"),
     reminderEnabled: row?.reminder_enabled === true,
@@ -274,6 +275,16 @@ async function messagesSave(supabase: SupabaseClient, identity: Identity, body: 
   const bookingNotice = preserveText(body.bookingNotice, 2001);
   const pendingMessage = preserveText(body.pendingMessage, 401);
   const reminderMessage = preserveText(body.reminderMessage, 401);
+  // Older cached clients may send only the original three fields; preserve the
+  // configured onsite text rather than silently resetting it.
+  const hasOnsiteEditMessage = Object.prototype.hasOwnProperty.call(body, "onsiteEditMessage");
+  if (hasOnsiteEditMessage && typeof body.onsiteEditMessage !== "string") {
+    throw new ApiError(400, "INVALID_ONSITE_EDIT_MESSAGE", "現場修改提醒必須為 1–400 字。");
+  }
+  const onsiteEditMessage = hasOnsiteEditMessage ? preserveText(body.onsiteEditMessage, 401) : undefined;
+  if (hasOnsiteEditMessage && (!onsiteEditMessage?.trim() || onsiteEditMessage.length > 400)) {
+    throw new ApiError(400, "INVALID_ONSITE_EDIT_MESSAGE", "現場修改提醒必須為 1–400 字。");
+  }
   if (bookingNotice.length > 2000) throw new ApiError(400, "INVALID_BOOKING_NOTICE", "預約說明不可超過 2,000 字。");
   if (!pendingMessage.trim() || pendingMessage.length > 400) throw new ApiError(400, "INVALID_PENDING_MESSAGE", "預約申請訊息必須為 1–400 字。");
   if (!reminderMessage.trim() || reminderMessage.length > 400) throw new ApiError(400, "INVALID_REMINDER_MESSAGE", "預約提醒訊息必須為 1–400 字。");
@@ -284,22 +295,25 @@ async function messagesSave(supabase: SupabaseClient, identity: Identity, body: 
       booking_notice: bookingNotice,
       pending_message: pendingMessage,
       reminder_message: reminderMessage,
+      ...(hasOnsiteEditMessage ? { onsite_edit_message: onsiteEditMessage } : {}),
       updated_by: identity.lineUserId,
     })
     .eq("id", 1).eq("updated_at", expectedUpdatedAt)
-    .select("booking_notice,pending_message,reminder_message,updated_at").maybeSingle();
+    .select("booking_notice,pending_message,reminder_message,onsite_edit_message,updated_at").maybeSingle();
   if (result.error) throw mapDatabaseError(result.error);
   if (!result.data) throw new ApiError(409, "BOOKING_SETTINGS_CONFLICT", "設定已由其他管理員變更，請重新載入。");
   await audit(supabase, identity, "BOOKING_MESSAGES_UPDATED", "booking_settings", "1", {
     noticeLength: bookingNotice.length,
     pendingLength: pendingMessage.length,
     reminderLength: reminderMessage.length,
+    ...(hasOnsiteEditMessage ? { onsiteEditLength: onsiteEditMessage?.length ?? 0 } : {}),
   });
   return {
     messages: {
       bookingNotice: result.data.booking_notice,
       pendingMessage: result.data.pending_message,
       reminderMessage: result.data.reminder_message,
+      onsiteEditMessage: result.data.onsite_edit_message,
     },
     updatedAt: result.data.updated_at,
   };

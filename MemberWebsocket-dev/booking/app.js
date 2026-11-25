@@ -790,6 +790,15 @@
 
   async function confirmBooking() {
     if (state.submitting) return;
+    if (state.editing && !canEditOnline({
+      status: state.editing.originalStatus,
+      bookingDate: state.editing.originalDate,
+      startTime: state.editing.originalStartTime,
+      startAt: state.editing.originalStartAt,
+    })) {
+      showConfirmMessage(onsiteEditMessage(), 'error');
+      return;
+    }
     if (bookingRestricted()) return showConfirmMessage('目前暫停新的線上預約，請聯絡店家。','error');
     const items = selectedItems();
     const bookingDate = els.bookingDate.value;
@@ -868,6 +877,10 @@
       }
 
       state.pendingBookingWrite = null;
+      if (error?.code === 'BOOKING_ONSITE_EDIT_REQUIRED') {
+        showConfirmMessage(error.message || onsiteEditMessage(), 'error');
+        return;
+      }
       if (error?.code === 'BOOKING_PRICE_CHANGED') {
         await refresh(false);
         if (state.selectedSlot) renderConfirmation(selectedServiceRows());
@@ -1102,10 +1115,21 @@
         const editButton = document.createElement('button');
         editButton.type = 'button';
         editButton.className = 'button button-light';
-        editButton.textContent = '修改預約';
-        editButton.addEventListener('click', () => editBooking(booking));
+        const onlineEditAllowed = canEditOnline(booking);
+        editButton.textContent = onlineEditAllowed ? '修改預約' : '現場修改';
+        editButton.addEventListener('click', () => {
+          if (onlineEditAllowed) editBooking(booking);
+          else window.BookingSystem.showNotice(onsiteEditMessage(), { title: '現場修改預約' });
+        });
         actions.append(editButton, cancelButton);
         item.appendChild(actions);
+        if (!onlineEditAllowed) {
+          const reminder = document.createElement('p');
+          reminder.className = 'booking-note booking-onsite-edit-reminder';
+          reminder.setAttribute('role', 'status');
+          reminder.textContent = onsiteEditMessage();
+          item.appendChild(reminder);
+        }
       }
 
       els.bookingList.appendChild(item);
@@ -1159,6 +1183,16 @@
     return cancellationPending ? 'cancel_requested' : String(booking?.status || '');
   }
 
+  function onsiteEditMessage() {
+    return String(state.data.settings?.onsiteEditMessage || window.BookingOnsiteEditPolicy.DEFAULT_MESSAGE).trim();
+  }
+
+  function canEditOnline(booking) {
+    return window.BookingOnsiteEditPolicy.canModifyOnline(
+      booking, state.data.settings, state.data.today, currentServerTimeMs()
+    );
+  }
+
   function canCancel(booking) {
     const cancellationPending = Boolean(booking?.cancellationRequestedAt && !booking?.cancellationReviewedAt);
     const startsAt = Date.parse(booking.startAt || `${booking.bookingDate}T${booking.startTime}:00+08:00`);
@@ -1198,8 +1232,14 @@
 
   function editBooking(booking) {
     if (state.submitting || !canCancel(booking)) return;
+    if (!canEditOnline(booking)) {
+      window.dispatchEvent(new Event('booking:edit-online-blocked'));
+      window.BookingSystem.showNotice(onsiteEditMessage(), { title: '現場修改預約' });
+      return;
+    }
     state.editing = { bookingId: booking.bookingId, updatedAt: booking.updatedAt,
       originalDate: booking.bookingDate, originalStartTime: String(booking.startTime || ''),
+      originalStartAt: booking.startAt, originalStatus: booking.status,
       originalDurationMinutes: Number(booking.totalDurationMinutes || 0) };
     const activeIds = new Set(userServices().map((service) => service.serviceId));
     state.selections = bookingVisibleItems(booking).filter((item) => activeIds.has(item.serviceId))

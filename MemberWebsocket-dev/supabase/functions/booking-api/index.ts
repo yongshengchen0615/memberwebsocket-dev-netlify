@@ -313,6 +313,7 @@ function settingsClient(row: any): Json {
     maxAdvanceDays: Number(row?.max_advance_days || 0),
     phoneBookingNumber: String(row?.phone_booking_number || ""),
     bookingNotice: String(row?.booking_notice ?? ""),
+    onsiteEditMessage: String(row?.onsite_edit_message || "此預約已超過線上可修改時間，請至現場洽詢修改預約。"),
     updatedAt: row?.updated_at || null,
   };
 }
@@ -559,6 +560,20 @@ function assertBookingDateWindow(date: string, settings: any): void {
   const latestBookingDate = maxAdvanceDays > 0 ? addDays(today, maxAdvanceDays) : "";
   if (date < earliestBookingDate) throw new ApiError(409, "BOOKING_TOO_EARLY", "尚未符合提前預約天數，請選擇較晚的日期。");
   if (latestBookingDate && date > latestBookingDate) throw new ApiError(409, "BOOKING_TOO_FAR", "此日期超過可預約範圍，請選擇較近的日期。");
+}
+
+function assertOriginalBookingOnlineEditable(original: any, settings: any): void {
+  if (!['pending', 'confirmed'].includes(String(original?.status || ''))
+      || (original.cancellation_requested_at && !original.cancellation_reviewed_at)) {
+    throw new ApiError(409, "BOOKING_NOT_EDITABLE", "此預約目前無法修改。");
+  }
+  const today = currentBusinessDate(taipeiDate(), taipeiMinutes(), settings.work_start_time, settings.work_end_time);
+  const earliest = addDays(today, Number(settings.min_advance_days || 0));
+  const startsAt = Date.parse(String(original.start_at || ''));
+  if (String(original.booking_date || '') < earliest || !Number.isFinite(startsAt) || startsAt <= Date.now()) {
+    throw new ApiError(409, "BOOKING_ONSITE_EDIT_REQUIRED",
+      String(settings.onsite_edit_message || '此預約已超過線上可修改時間，請至現場洽詢修改預約。'));
+  }
 }
 
 async function bookingServiceTypes(supabase: SupabaseClient): Promise<string[]> {
@@ -854,6 +869,14 @@ async function userUpdate(supabase: SupabaseClient, identity: Identity, member: 
   const bookingDate = requireDate(body.bookingDate);
   const settings = await bookingSettings(supabase);
   assertBookingDateWindow(bookingDate, settings);
+  // Never authorize modification solely because the newly selected date is valid:
+  // the original appointment must still be within its own online edit window.
+  const original = await supabase.from("bookings")
+    .select("booking_date,start_at,status,cancellation_requested_at,cancellation_reviewed_at")
+    .eq("id", bookingId).eq("member_id", member.id).maybeSingle();
+  if (original.error) throw mapDatabaseError(original.error);
+  if (!original.data) throw new ApiError(404, "BOOKING_NOT_EDITABLE", "找不到可修改的預約。");
+  assertOriginalBookingOnlineEditable(original.data, settings);
   const items = await normalizeRequestedItems(supabase, body);
   const benefits = await validateBookingBenefitSelectionLimit(supabase, body.benefits);
   const reminder = normalizeMemberReminder(body);

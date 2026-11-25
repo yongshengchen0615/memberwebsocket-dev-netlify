@@ -153,6 +153,10 @@
       state.editingBookingId = bookingId;
       applyBookingGroup(bookingId);
     }, true);
+    window.addEventListener('booking:edit-online-blocked', () => {
+      state.editingBookingId = '';
+      resetGroupSelection();
+    });
     window.addEventListener('booking:created', () => {
       state.editingBookingId = '';
       resetGroupSelection();

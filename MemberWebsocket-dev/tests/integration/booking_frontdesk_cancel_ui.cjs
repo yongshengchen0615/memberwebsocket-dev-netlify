@@ -62,6 +62,7 @@ for (const mode of ['direct', 'approval']) {
       },
     };
     try {
+      w.eval(fs.readFileSync(path.join(root, 'booking/onsite-edit-policy.js'), 'utf8'));
       w.eval(fs.readFileSync(path.join(root, 'booking/member-ui.js'), 'utf8'));
       w.eval(fs.readFileSync(path.join(root, 'booking/app.js'), 'utf8'));
       await tick(); await tick();
