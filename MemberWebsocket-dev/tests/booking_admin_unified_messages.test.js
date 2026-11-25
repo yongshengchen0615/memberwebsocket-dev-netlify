@@ -112,3 +112,27 @@ test('AC-BMSG-006: character counts follow the same persisted text fields and li
   assert.match(ui, /if \(event\.target === els\.bookingAdminPendingMessage\) renderPendingMessagePreview\(\);/);
   assert.match(ui, /if \(event\.target === els\.bookingAdminReminderMessage\) renderReminderMessagePreview\(\);/);
 });
+
+test('AC-BMSG-007: rendered character counts reflect current values and do not change submitted fields', () => {
+  const vm = require('node:vm');
+  const start = ui.indexOf('  function renderMessageLengths() {');
+  const end = ui.indexOf('\n  function updateMessagesDraft()', start);
+  assert.ok(start > 0 && end > start, 'expected the actual production counter renderer');
+  const values = {
+    bookingAdminNotice: '請提早抵達',
+    bookingAdminOnsiteEditMessage: '現場修改',
+    bookingAdminPendingMessage: '申請已收到',
+    bookingAdminReminderMessage: '預約提醒\n請準時抵達',
+  };
+  const els = Object.fromEntries(Object.entries(values).map(([id, value]) => [id, { value }]));
+  const counters = Object.fromEntries(Object.keys(values).map((id) => [id + 'Count', { textContent: '' }]));
+  vm.runInNewContext(ui.slice(start, end) + '\nrenderMessageLengths();', {
+    els,
+    document: { getElementById: (id) => counters[id] || null },
+  });
+  for (const [id, value] of Object.entries(values)) {
+    const limit = id === 'bookingAdminNotice' ? 2000 : 400;
+    assert.equal(counters[id + 'Count'].textContent, value.length.toLocaleString('zh-TW') + ' / ' + limit.toLocaleString('zh-TW') + ' 字');
+    assert.equal(els[id].value, value, 'counter should never modify the draft text');
+  }
+});
