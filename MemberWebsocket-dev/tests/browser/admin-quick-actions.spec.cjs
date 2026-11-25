@@ -3,6 +3,21 @@ const { startFixture } = require('./admin-fixture.cjs');
 let host;
 test.beforeAll(async () => { host = await startFixture(); });
 test.afterAll(async () => { await host.close(); });
+// Keyboard navigation is an isolated UI journey. CDN scripts/styles and optional
+// grant automation must not leave page.goto waiting on third-party networks.
+// Keep the real local HTML, deferred scripts and navigation assertions intact.
+test.beforeEach(async ({ page }) => {
+  await page.route('https://**', route => route.abort());
+  const unavailableGrant = route => route.fulfill({
+    status: 503, contentType: 'application/json',
+    body: JSON.stringify({ ok: false, error: {
+      code: 'FIXTURE_SERVICE_UNAVAILABLE',
+      message: 'Grant automation is intentionally unavailable in isolated keyboard tests',
+    } }),
+  });
+  await page.route('https://fixture.supabase.co/functions/v1/grant-automation', unavailableGrant);
+  await page.route(host.base + '/functions/v1/grant-automation', unavailableGrant);
+});
 
 test('AC-UI-001: common shortcuts removed while existing admin tabs still work', async ({ page }, info) => {
   await page.goto(host.base + '/admin/?run=' + encodeURIComponent(info.testId));
