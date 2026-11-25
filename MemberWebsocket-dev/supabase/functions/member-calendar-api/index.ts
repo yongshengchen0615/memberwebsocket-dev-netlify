@@ -298,54 +298,8 @@ serveBusiness('member-calendar-api',async (request: Request) => {
         && Number(row.audience_month || 0) === memberBirthdayMonth;
     });
 
-    // Synced ticket calendar rows already have their own dates and holiday behavior.
-    // Deduplicate those rows; otherwise independently expose every active dated ticket.
-    const synchronizedTicketUuids = new Set<string>();
-    const synchronizedTicketCodes = new Set<string>();
-    for (const row of rows) {
-      if (row.status !== "active") continue;
-      if (row.source_event_ticket_id) synchronizedTicketUuids.add(String(row.source_event_ticket_id));
-      try {
-        const link = new URL(String(row.link_url || ""), "https://calendar.invalid/");
-        if (link.searchParams.get("source") === "event-ticket-calendar") {
-          const ticketCode = asText(link.searchParams.get("eventTicketId"), 120);
-          if (ticketCode) synchronizedTicketCodes.add(ticketCode);
-        }
-      } catch { /* Preserve valid calendar rows even with obsolete links. */ }
-    }
-    const virtualTicketItems: CalendarItem[] = [];
-    const undatedTicketItems: CalendarItem[] = [];
-    for (const ticket of eventTicketsResult.data || []) {
-      const code = asText(ticket.event_ticket_id, 120);
-      if (!code || synchronizedTicketUuids.has(String(ticket.id))
-          || synchronizedTicketCodes.has(code)) continue;
-      const start = asText(ticket.starts_on, 10);
-      const end = asText(ticket.ends_on, 10);
-      const synthesized: CalendarItem = {
-        calendarItemId: "event-ticket:" + code,
-        eventTicketId: code,
-        calendarDisplaySourceId: "event-ticket:" + code,
-        title: asText(ticket.title, 100) || "活動票券",
-        itemType: "event",
-        description: asText(ticket.description, 500),
-        startsOn: start,
-        endsOn: end,
-        status: "active",
-        accent: asText(ticket.accent, 20),
-        allowedTierKeys: Array.isArray(ticket.allowed_tier_keys) ? ticket.allowed_tier_keys : [],
-        visibilityPolicy: ticket.visibility_policy || 'eligible_only',
-        linkLabel: "查看活動票券",
-        linkUrl: "",
-      };
-      if (asText(ticket.validity_mode, 20) !== "relative" && parseIsoDate(start) && parseIsoDate(end) && end >= start) {
-        virtualTicketItems.push(synthesized);
-      } else {
-        // A ticket with an open-ended or relative validity period has no
-        // bounded date span. Present it separately; never invent a date.
-        undatedTicketItems.push(synthesized);
-      }
-    }
-
+    // Explicit calendar_items are the only source of member-facing calendar entries.
+    // An active event ticket alone must never publish an activity to the calendar.
     const eventByUuid = new Map((eventTicketsResult.data || []).map((ticket: any) => [String(ticket.id), ticket]));
     const eventByCode = new Map((eventTicketsResult.data || []).map((ticket: any) => [String(ticket.event_ticket_id), ticket]));
     const calendarEntries = rows.map((row: any) => {
@@ -361,16 +315,16 @@ serveBusiness('member-calendar-api',async (request: Request) => {
       }
       return linkedTicket ? { ...item, allowedTierKeys: Array.isArray(linkedTicket.allowed_tier_keys) ? linkedTicket.allowed_tier_keys : [], visibilityPolicy: linkedTicket.visibility_policy || 'eligible_only' } : item;
     });
-    let items = [...calendarEntries, ...virtualTicketItems]
-      .map((item) => decorateTierEligibility(item, profile));
-    let ongoingTickets = undatedTicketItems.map((item) => decorateTierEligibility(item, profile));
+    let items = calendarEntries.map((item) => decorateTierEligibility(item, profile));
+    // Keep the response shape for existing clients, but never synthesize
+    // ongoing activities from tickets that were not opted into the calendar.
+    const ongoingTickets: CalendarItem[] = [];
     const policy=await loadVisibilityPolicy(db);
     const visibility = (item:CalendarItem): CalendarItem[] => {
       const v = tierVisibility(item.allowedTierKeys, profile.tierKey, item.visibilityPolicy || policy);
       return item.itemType === "holiday" ? [item] : v.visible ? [{ ...item, ...v }] : [];
     };
     items=items.flatMap(visibility);
-    ongoingTickets=ongoingTickets.flatMap(visibility);
     items = applyCalendarDisplayRules(items);
 
     if (action === "user.calendar.date.details") {

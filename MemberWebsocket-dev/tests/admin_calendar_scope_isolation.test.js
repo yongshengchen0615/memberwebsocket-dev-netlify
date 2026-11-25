@@ -70,20 +70,23 @@ test('AC-006: tapping a calendar date begins a new record on its respective edit
   assert.match(adminApp, /openEditorModal\('calendar', opener\)/);
 });
 
-test('AC-007: customer header remains 營運日曆 and the server reads both sources', () => {
+test('AC-007: member calendar reads saved activities; ticket metadata only enriches linked activities', () => {
   assert.match(memberHtml, /<h1>營運日曆<\/h1>/);
   assert.match(calendarApi, /db\.from\("calendar_items"\)/);
   assert.match(calendarApi, /db\.from\("event_tickets"\)/);
   assert.match(calendarApi, /\.eq\("status", "active"\)/);
-  assert.match(calendarApi, /synchronizedTicketUuids/);
-  assert.match(calendarApi, /synchronizedTicketCodes/);
+  assert.match(calendarApi, /let items = calendarEntries\.map\(/);
+  assert.match(calendarApi, /const eventByUuid = new Map/);
+  assert.match(calendarApi, /const eventByCode = new Map/);
+  assert.doesNotMatch(calendarApi, /virtualTicketItems|synchronizedTicketUuids|synchronizedTicketCodes/);
   assert.match(calendarApi, /tierVisibility\(/);
   assert.match(calendarApi, /applyCalendarDisplayRules\(items\)/);
 });
 
-test('AC-008: tickets without bounded validity stay in a separate member-facing area', () => {
-  assert.match(calendarApi, /undatedTicketItems\.push\(synthesized\)/);
-  assert.match(calendarApi, /ongoingTickets/);
+test('AC-008: unlinked tickets never appear as ongoing calendar activities, while client contract stays intact', () => {
+  assert.match(calendarApi, /const ongoingTickets: CalendarItem\[\] = \[\]/);
+  assert.doesNotMatch(calendarApi, /undatedTicketItems|ongoingTickets\.push\(/);
+  assert.match(calendarApi, /ongoingTickets:action === "user\.calendar\.bootstrap" \? ongoingTickets : \[\]/);
   assert.match(memberHtml, /id="calendarOngoingTickets"/);
   assert.match(memberApp, /state\.ongoingTickets/);
   assert.match(memberApp, /resolveCalendarLinkForItem/);
@@ -98,14 +101,14 @@ test('AC-009: booking calendar cannot display other records and links to booking
   assert.match(adminApp, /data-booking-calendar-id/);
 });
 
-test('AC-010: member calendar excludes per-member fixed issues and handles earned-relative validity safely', () => {
+test('AC-010: member calendar excludes per-member fixed issues and never invents relative ticket dates', () => {
   // Fixed-ticket allocations can target a specific member or birthday month.
   // Existing targeted calendar rows remain the only authorized display path.
   assert.match(calendarApi, /\.is\("fixed_ticket_template_id", null\)/);
   assert.match(calendarApi, /\.is\("referral_source_event_ticket_id", null\)/);
-  assert.match(calendarApi, /asText\(ticket\.validity_mode, 20\) !== "relative"/);
-  assert.match(calendarApi, /undatedTicketItems\.push\(synthesized\)/);
-  assert.match(calendarApi, /ongoingTickets=ongoingTickets\.flatMap\(visibility\)/);
+  assert.match(calendarApi, /let items = calendarEntries\.map\(/);
+  assert.doesNotMatch(calendarApi, /synthesized|undatedTicketItems|virtualTicketItems/);
+  assert.match(calendarApi, /items=items\.flatMap\(visibility\)/);
 });
 
 
