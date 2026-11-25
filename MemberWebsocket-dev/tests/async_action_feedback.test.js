@@ -57,8 +57,8 @@ test('AC-003: completion and failure always clear the pending indicator',async()
 test('AC-004: member, booking and frontdesk load the shared versioned assets',()=>{
  for(const page of ['member/index.html','booking/index.html','frontdesk/index.html','points/index.html','event/index.html','calendar/index.html']){
   const html=read(page);
-  assert.ok(html.includes('async-action-feedback.js?v=20261124-1'),page);
-  assert.ok(html.includes('async-action-feedback.css?v=20261124-1'),page);
+  assert.ok(html.includes('async-action-feedback.js?v=20261125-2'),page);
+  assert.ok(html.includes('async-action-feedback.css?v=20261125-2'),page);
  }
 });
 test('AC-005: user actions are instrumented while revision polling remains background-only',()=>{
@@ -124,8 +124,8 @@ test('AC-009: all standalone management entrypoints share the blocking Loading a
  const pages=['platform/index.html','admin/workspace.html','admin/frontdesk-settings/index.html'];
  for(const page of pages){
    const html=read(page);
-   assert.match(html,/async-action-feedback\.css\?v=20261124-1/,page);
-   assert.match(html,/async-action-feedback\.js\?v=20261124-1/,page);
+   assert.match(html,/async-action-feedback\.css\?v=20261125-2/,page);
+   assert.match(html,/async-action-feedback\.js\?v=20261125-2/,page);
  }
  const platform=read('platform/app.js');
  const standalone=read('admin/frontdesk-settings/frontdesk-settings-page.js');
