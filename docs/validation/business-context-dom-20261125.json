@@ -1,0 +1,193 @@
+{
+  "base": "81de73c5b4f8772449649967f02a06f6a5abcfd5",
+  "node": "v24.22.3",
+  "measuredAt": "2026-11-25T13:20:41.446Z",
+  "workload": {
+    "existingLinks": 200,
+    "startupConsumers": 20,
+    "separateMutationBatches": 20,
+    "rounds": 5
+  },
+  "summary": {
+    "baseline": {
+      "initialization": {
+        "documentQueries": 328,
+        "hrefWrites": 400,
+        "requests": 1,
+        "p50Ms": 1978.9434849999998,
+        "maxMs": 2399.303753
+      },
+      "localUpdates": {
+        "documentQueries": 280,
+        "hrefWrites": 4000,
+        "requests": 0,
+        "p50Ms": 3373.2409260000004,
+        "maxMs": 4457.593341
+      }
+    },
+    "candidate": {
+      "initialization": {
+        "documentQueries": 15,
+        "hrefWrites": 0,
+        "requests": 1,
+        "p50Ms": 56.477098000001206,
+        "maxMs": 74.28775900000255
+      },
+      "localUpdates": {
+        "documentQueries": 0,
+        "hrefWrites": 0,
+        "requests": 0,
+        "p50Ms": 0.7898260000001756,
+        "maxMs": 3.110139000000345
+      }
+    }
+  },
+  "samples": {
+    "baseline": [
+      {
+        "initialization": {
+          "documentQueries": 328,
+          "hrefWrites": 400,
+          "requests": 1,
+          "ms": 2399.303753
+        },
+        "localUpdates": {
+          "documentQueries": 280,
+          "hrefWrites": 4000,
+          "requests": 0,
+          "ms": 4457.593341
+        }
+      },
+      {
+        "initialization": {
+          "documentQueries": 328,
+          "hrefWrites": 400,
+          "requests": 1,
+          "ms": 2054.518183
+        },
+        "localUpdates": {
+          "documentQueries": 280,
+          "hrefWrites": 4000,
+          "requests": 0,
+          "ms": 3373.2409260000004
+        }
+      },
+      {
+        "initialization": {
+          "documentQueries": 328,
+          "hrefWrites": 400,
+          "requests": 1,
+          "ms": 1021.4568489999983
+        },
+        "localUpdates": {
+          "documentQueries": 280,
+          "hrefWrites": 4000,
+          "requests": 0,
+          "ms": 1855.6011450000005
+        }
+      },
+      {
+        "initialization": {
+          "documentQueries": 328,
+          "hrefWrites": 400,
+          "requests": 1,
+          "ms": 1344.001949999998
+        },
+        "localUpdates": {
+          "documentQueries": 280,
+          "hrefWrites": 4000,
+          "requests": 0,
+          "ms": 3998.8999860000004
+        }
+      },
+      {
+        "initialization": {
+          "documentQueries": 328,
+          "hrefWrites": 400,
+          "requests": 1,
+          "ms": 1978.9434849999998
+        },
+        "localUpdates": {
+          "documentQueries": 280,
+          "hrefWrites": 4000,
+          "requests": 0,
+          "ms": 2192.0393540000005
+        }
+      }
+    ],
+    "candidate": [
+      {
+        "initialization": {
+          "documentQueries": 15,
+          "hrefWrites": 0,
+          "requests": 1,
+          "ms": 56.477098000001206
+        },
+        "localUpdates": {
+          "documentQueries": 0,
+          "hrefWrites": 0,
+          "requests": 0,
+          "ms": 1.1489559999990888
+        }
+      },
+      {
+        "initialization": {
+          "documentQueries": 15,
+          "hrefWrites": 0,
+          "requests": 1,
+          "ms": 67.16077100000075
+        },
+        "localUpdates": {
+          "documentQueries": 0,
+          "hrefWrites": 0,
+          "requests": 0,
+          "ms": 0.7898260000001756
+        }
+      },
+      {
+        "initialization": {
+          "documentQueries": 15,
+          "hrefWrites": 0,
+          "requests": 1,
+          "ms": 74.28775900000255
+        },
+        "localUpdates": {
+          "documentQueries": 0,
+          "hrefWrites": 0,
+          "requests": 0,
+          "ms": 3.110139000000345
+        }
+      },
+      {
+        "initialization": {
+          "documentQueries": 15,
+          "hrefWrites": 0,
+          "requests": 1,
+          "ms": 53.981926000000385
+        },
+        "localUpdates": {
+          "documentQueries": 0,
+          "hrefWrites": 0,
+          "requests": 0,
+          "ms": 0.690442000002804
+        }
+      },
+      {
+        "initialization": {
+          "documentQueries": 15,
+          "hrefWrites": 0,
+          "requests": 1,
+          "ms": 49.87848099999974
+        },
+        "localUpdates": {
+          "documentQueries": 0,
+          "hrefWrites": 0,
+          "requests": 0,
+          "ms": 0.7896340000006603
+        }
+      }
+    ]
+  },
+  "limits": "Synthetic JSDOM work counts and timings; not browser input latency, LINE, API/SQL or external network p95.",
+  "candidateSourceSha256": "d8458770c7d07f743e4c2ea10612e6909253ebc7121609e9cf142b8ab40afe4f"
+}
