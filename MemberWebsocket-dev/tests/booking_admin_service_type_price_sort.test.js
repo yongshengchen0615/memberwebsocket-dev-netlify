@@ -92,3 +92,77 @@ test('AC-005: admin entry and loader bust stale CSS and renderer caches', () => 
   assert.match(html, /booking-panel\.js\?v=[^"']+type-price-20261125-1/);
   assert.match(loader, /load\('booking-panel-core\.js', '[^']+type-price-20261125-1'\)/);
 });
+
+test('AC-006: real renderer creates one DOM block per type with sorted rows and keeps checkbox actions', () => {
+  class FakeElement {
+    constructor(tag) {
+      this.tagName = tag.toUpperCase();
+      this.children = [];
+      this.style = {};
+      this.attributes = {};
+      this.className = '';
+      this.classList = { toggle: () => {} };
+      this.events = {};
+    }
+    append(...children) { this.children.push(...children); }
+    appendChild(child) { this.children.push(child); }
+    prepend(...children) { this.children.unshift(...children); }
+    replaceChildren(...children) { this.children = children; }
+    setAttribute(key, value) { this.attributes[key] = value; }
+    addEventListener(name, callback) { this.events[name] = callback; }
+  }
+  const serviceList = new FakeElement('div');
+  const selected = new Set(['high']);
+  const state = {
+    catalog: {
+      serviceTypes: [{ name: '美容' }, { name: '按摩' }],
+      services: [
+        { serviceId: 'high', title: '精油按摩', serviceType: '按摩', priceAmount: 1500, durationMinutes: 90, isActive: true },
+        { serviceId: 'beauty', title: '保養', serviceType: '美容', priceAmount: 700, durationMinutes: 60, isActive: false },
+        { serviceId: 'low', title: '肩頸按摩', serviceType: '按摩', priceAmount: 300, durationMinutes: 30, isActive: true },
+      ],
+    },
+    selected,
+    config: { pricePublishing: true },
+  };
+  const elements = {
+    bookingAdminServiceList: serviceList,
+    bookingAdminServiceEmpty: new FakeElement('div'),
+  };
+  let batchUpdates = 0;
+  const sandbox = {
+    state,
+    els: elements,
+    document: { createElement: (tag) => new FakeElement(tag) },
+    window: { BookingPriceEditor: { open: () => {} } },
+    formatMoney: (amount) => `NT$${amount}`,
+    actionButton: (label) => {
+      const button = new FakeElement('button');
+      button.textContent = label;
+      return button;
+    },
+    updateBatchButtons: () => { batchUpdates += 1; },
+  };
+  const groupStart = core.indexOf('  function groupServicesByTypeAndPrice(');
+  const renderEnd = core.indexOf('\n  function updateBatchButtons()', groupStart);
+  assert.ok(groupStart > 0 && renderEnd > groupStart);
+  vm.runInNewContext(
+    `${core.slice(groupStart, renderEnd)}\nrenderServices();`,
+    sandbox
+  );
+  assert.equal(serviceList.children.length, 2);
+  assert.deepEqual(serviceList.children.map((group) => group.children[0].children[0].textContent), [
+    '美容（1 項）',
+    '按摩（2 項）',
+  ]);
+  const massageRows = serviceList.children[1].children[1].children;
+  const rowTitle = (row) => row.children[0].children[1].children[0].textContent;
+  assert.deepEqual(massageRows.map(rowTitle), ['肩頸按摩', '精油按摩']);
+  assert.equal(massageRows[1].children[0].children[0].checked, true);
+  assert.deepEqual(massageRows[0].children[1].children.map((button) => button.textContent), ['調整價格', '修改', '刪除']);
+  const lowCheckbox = massageRows[0].children[0].children[0];
+  lowCheckbox.checked = true;
+  lowCheckbox.events.change();
+  assert.equal(selected.has('low'), true);
+  assert.equal(batchUpdates, 2);
+});
