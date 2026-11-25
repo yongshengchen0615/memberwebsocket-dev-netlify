@@ -19,7 +19,7 @@ test('AC-006: a price changed after confirmation was opened preserves the draft 
   throw Error(action);
  }};
  try{
-  w.eval(fs.readFileSync(root+'/booking-price-publishing.js','utf8'));w.eval(fs.readFileSync(root+'/booking/app.js','utf8'));
+  w.eval(fs.readFileSync(root+'/booking-price-publishing.js','utf8'));w.eval(fs.readFileSync(root+'/booking/onsite-edit-policy.js','utf8'));w.eval(fs.readFileSync(root+'/booking/app.js','utf8'));
   const click=text=>{const b=[...w.document.querySelectorAll('button')].find(x=>x.textContent===text);assert.ok(b,text);b.click();};
   for(let i=0;i<30&&!w.document.getElementById('bookingList')?.textContent.includes('修改預約');i++)await pause();
   click('修改預約');for(let i=0;i<20&&!w.document.querySelector('#slotGrid .slot-button');i++)await pause();
