@@ -41,20 +41,19 @@ test('AC-004: newly provisioned tenant schemas inherit the retirement check', ()
 test('AC-005: retired calendar event bonus section is absent from admin DOM and styling', () => {
   const workspace = fs.readFileSync(path.join(root, 'admin/business-workspace.js'), 'utf8');
   const styles = fs.readFileSync(path.join(root, 'admin/styles.css'), 'utf8');
-  const retiredIds = [
+  for (const id of [
     'calendarBonusPointsControls',
     'calendarBonusPointsEnabled',
     'calendarBonusPointsField',
     'calendarBonusPoints'
-  ];
-  for (const id of retiredIds) {
-    assert.doesNotMatch(admin, new RegExp('id=["\\\']' + id + '["\\\']'));
-    assert.doesNotMatch(app, new RegExp('getElementById\\(["\\\']' + id + '["\\\']\\)'));
+  ]) {
+    assert.equal(admin.includes('id="' + id + '"') || admin.includes("id='" + id + "'"), false, id);
+    assert.equal(app.includes("getElementById('" + id + "')"), false, id);
   }
   assert.doesNotMatch(admin, /活動加贈點數|Event bonus/);
-  assert.doesNotMatch(styles, /\\.calendar-event-link-fields/);
-  assert.doesNotMatch(workspace, /\\['#calendarBonusPointsControls'/);
-  assert.match(workspace, /getElementById\\('calendarBonusPointsControls'\\)\\?\\.remove\\(\\)/);
+  assert.equal(styles.includes('.calendar-event-link-fields'), false);
+  assert.equal(workspace.includes("['#calendarBonusPointsControls'"), false);
+  assert.equal(workspace.includes("getElementById('calendarBonusPointsControls')?.remove()"), true);
   assert.match(admin, /id="calendarItemTitle"/);
   assert.match(admin, /休假日請至「預約」日曆設定/);
 });
