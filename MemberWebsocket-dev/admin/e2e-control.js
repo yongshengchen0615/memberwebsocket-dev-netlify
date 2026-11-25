@@ -1869,7 +1869,7 @@
       caseDef('ADMIN_CARD_EDITOR_OPTIONS', '集點卡：樣式／到期／節點／清除', 'Human E2E', adminCardEditorOptionsCase),
       caseDef('ADMIN_CARD_SORT_JOURNEY', '集點卡：排序與草稿還原', 'Human E2E', adminCardSortJourneyCase),
       caseDef('ADMIN_EVENT_AUDIENCE_JOURNEY', '活動票券：對象與類型完整切換', 'Human E2E', adminEventAudienceJourneyCase),
-      caseDef('ADMIN_CALENDAR_EVENT_CRUD', '營運日曆：活動連結／對象／加贈草稿 CRUD', 'Human E2E', () => adminCalendarCrudCase('event')),
+      caseDef('ADMIN_CALENDAR_EVENT_CRUD', '營運日曆：活動連結／對象／無加贈草稿 CRUD', 'Human E2E', () => adminCalendarCrudCase('event')),
       caseDef('ADMIN_EVENT_CALENDAR_SYNC', '活動票券：草稿同步日曆／唯讀／移除', 'Human E2E', adminEventCalendarSyncCase),
       caseDef('ADMIN_CALENDAR_NAVIGATION', '營運日曆：月份／今日／點日期新增', 'Human E2E', adminCalendarNavigationCase),
       caseDef('ADMIN_BOOKING_BATCH_EDITOR', '預約項目：批次新增／移除／取消', 'Human E2E', adminBookingBatchEditorCase),
@@ -3829,8 +3829,6 @@
       if (itemType === 'event') {
         setField('calendarItemLinkLabel', 'E2E 活動連結');
         setField('calendarItemLinkUrl', 'https://example.com/e2e-qa');
-        setField('calendarBonusPoints', '4');
-        toggleCheckbox('calendarBonusPointsEnabled', true);
         const audience = document.querySelector('#calendarItemAllowedTiers input[value="general"]');
         if (audience?.checked) audience.click();
       }
@@ -3851,7 +3849,7 @@
       const stored = await window.MemberSystem.request(session.config, 'admin', session.idToken, 'admin.calendar-items.list', {});
       const own = (stored.calendarItems || []).find(item => item.calendarItemId === createdId);
       actual.created = Boolean(own && own.title === createdTitle && own.status === 'draft' &&
-        (itemType !== 'event' || (own.bonusPointsEnabled && own.bonusPoints === 4 && own.linkUrl === 'https://example.com/e2e-qa' && !own.allowedTierKeys.includes('general'))));
+        (itemType !== 'event' || (own.bonusPointsEnabled !== true && Number(own.bonusPoints || 0) === 0 && own.linkUrl === 'https://example.com/e2e-qa' && !own.allowedTierKeys.includes('general'))));
 
       if (actual.created) {
         setField('calendarItemTitle', updatedTitle);

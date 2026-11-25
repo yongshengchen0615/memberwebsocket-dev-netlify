@@ -15,7 +15,6 @@
   ['#grantServiceTimeEnabled','membership','fieldset'],
   ['#grantMode option[value="services"]','membership points booking'],
   ['#grantServiceFields','membership points booking'],
-  ['#calendarBonusPointsControls','calendar points'],
   ['#eventTicketCalendarControls','events calendar'],
   ['#fixedTicketCalendarEnabled','events calendar','.fixed-ticket-inline-actions'],
   ['#fixedTicketCalendarSummary','events calendar'],
@@ -60,6 +59,8 @@
   }
  }
  function applyIntegrations(){
+  // Retired event-bonus controls must not survive older or dynamically mounted markup.
+  document.getElementById('calendarBonusPointsControls')?.remove();
   if(!latest||typeof document==='undefined'||!document)return;
   for(const [selector,required,container]of integrations)for(const match of document.querySelectorAll(selector)){
    const node=container?match.closest(container):match;if(!node)continue;
@@ -151,6 +152,7 @@
   if(target)observer.observe(target,{childList:true});
  // This observer only annotates integrations. Re-running the full workspace
  // mount for every descendant mutation would recursively rebuild LINE panels.
+ applyIntegrations();
  const integrationObserver=new MutationObserver(applyIntegrations);
  integrationObserver.observe(document.body,{childList:true,subtree:true});
  window.BusinessWorkspace=Object.freeze({apply,allows:(...features)=>!latest||features.every(feature=>latest.features?.[feature]===true)});
