@@ -58,8 +58,7 @@ test('AC-001: lead-time is online-only; today and tomorrow may be booked by tele
   for (const date of ['2026-11-09', '2026-12-07']) {
     const result = action(h, date);
     assert.equal(result.onlineDisabled, false, date);
-    // Holiday dates show the leave reminder instead of a disabled online button.
-    assert.equal(result.onlineHidden, date === '2026-11-10', date);
+    assert.equal(result.onlineHidden, false, date);
     assert.equal(result.phoneHidden, true, date);
     assert.equal(result.href, undefined, date);
     assert.equal(result.dialLabel, '撥打店家電話', date);
@@ -72,7 +71,8 @@ test('AC-002: past, holiday and beyond merchant horizon deny online AND telephon
   for (const date of ['2026-11-06', '2026-11-10', '2026-12-08']) {
     const result = action(h, date);
     assert.equal(result.onlineDisabled, true, date);
-    assert.equal(result.onlineHidden, false, date);
+    // On a merchant holiday, show a leave notice, not an inactive online button.
+    assert.equal(result.onlineHidden, date === '2026-11-10', date);
     assert.equal(result.phoneHidden, true, date);
     assert.equal(result.href, undefined, date);
     assert.equal(result.dialLabel, '撥打店家電話', date);
