@@ -166,6 +166,14 @@
       renderBookingRestriction();
       renderSettings();
       renderServices();
+      // Read-only catalog for dates requiring a telephone reservation.
+      window.dispatchEvent(new CustomEvent('booking:services-updated', {
+        detail: { services: userServices().map((service) => ({
+          serviceId: service.serviceId, title: service.title, description: service.description,
+          durationMinutes: service.durationMinutes, priceAmount: service.priceAmount,
+          requiresCompanionService: service.requiresCompanionService,
+        })) },
+      }));
       renderBookings();
       applySelectionConstraints(false);
       window.dispatchEvent(new CustomEvent('booking:settings-updated', { detail: { settings: state.data.settings, today: state.data.today } }));
