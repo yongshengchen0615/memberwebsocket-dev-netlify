@@ -301,6 +301,11 @@
       heading.className = 'participant-heading';
       const title = document.createElement('strong');
       title.textContent = participantLabel(index);
+      const missingItems = document.createElement('small');
+      missingItems.className = 'participant-item-warning';
+      missingItems.textContent = '還未選擇預約項目';
+      missingItems.hidden = true;
+      title.appendChild(missingItems);
       const meta = document.createElement('span');
       meta.dataset.participantSummary = String(index);
       heading.append(title, meta);
@@ -309,6 +314,15 @@
       chevron.setAttribute('aria-hidden', 'true');
       chevron.textContent = '⌄';
       summary.append(heading, chevron);
+      summary.addEventListener('click', () => {
+        window.requestAnimationFrame(() => {
+          if (!details.isConnected || !details.open) return;
+          summary.scrollIntoView?.({
+            block: 'start',
+            behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 'auto' : 'smooth',
+          });
+        });
+      });
       details.appendChild(summary);
 
       const body = document.createElement('div');
@@ -625,12 +639,16 @@
   }
 
   function updateCardSummaries() {
+    const hasSelectedItems = state.primaryItems.length > 0
+      || state.extras.some((selections) => Array.isArray(selections) && selections.length > 0);
     document.querySelectorAll('[data-participant-summary]').forEach((node) => {
       const index = Number(node.dataset.participantSummary || 0);
       const tech = technicianLabel(state.participantTechnicians[index]);
       const count = index === 0 ? countItems(state.primaryItems) : (state.extras[index - 1]?.length || 0);
       const amount = participantMetrics(index).amount;
       node.textContent = `${count ? `已選 ${count} 項` : '尚未選項目'} · 金額 ${formatMoney(amount)} · ${tech}`;
+      const warning = node.parentElement?.querySelector('.participant-item-warning');
+      if (warning) warning.hidden = !(state.partySize > 1 && hasSelectedItems && count === 0);
     });
   }
 
