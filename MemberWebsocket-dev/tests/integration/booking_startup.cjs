@@ -33,6 +33,10 @@ async function fixture(mode) {
   let subscriptions = 0;
   let bookingNotice = null;
   const calls = [];
+  let returnEmptyGroupSlots = false;
+  let delayNextGroupSlots = false;
+  let groupSlotStarted = null;
+  let releaseGroupSlot = null;
   const serviceId = '20000000-0000-4000-8000-000000000001';
   const bookingId = '30000000-0000-4000-8000-000000000001';
   const technicianId = '40000000-0000-4000-8000-000000000001';
@@ -52,7 +56,17 @@ async function fixture(mode) {
       if (mode === 'group-error') return new Response(JSON.stringify({ ok: false, error: { code: 'API_ERROR', message: '多人預約讀取失敗' } }), { status: 503 });
       data = { settings: { maxPartySize: 3, primaryTechnicianId: technicianId }, technicians: [{ technicianId, name: '測試技師', isActive: true }], bookingGroups: { [bookingId]: { partySize: 1, participants: [{ technicianId, technicianName: '測試技師', items: [item] }] } } };
     }
-    if (body.action === 'user.booking.group.slots') data = { slots: [{ startTime: '10:00', endTime: '10:50', available: true }] };
+    if (body.action === 'user.booking.group.slots') {
+      if (delayNextGroupSlots) {
+        delayNextGroupSlots = false;
+        const started = groupSlotStarted;
+        await new Promise(resolve => {
+          releaseGroupSlot = resolve;
+          started?.();
+        });
+      }
+      data = { slots: returnEmptyGroupSlots ? [] : [{ startTime: '10:00', endTime: '10:50', available: true }] };
+    }
     return new Response(JSON.stringify({ ok: true, data }));
   };
   w.BookingSystem = {
@@ -154,6 +168,14 @@ async function fixture(mode) {
     };
     setPartySize(3);
     await waitForForegroundIdle();
+    const incompleteHint = '請先為所有預約者選擇預約項目，再查看可預約時間。';
+    const slotCalls = () => calls.filter((action) => action === 'user.booking.group.slots').length;
+    const callsBeforeIncomplete = slotCalls();
+    assert.match(el('selectionSummary').textContent, /第一位/, 'Incomplete group keeps the first participant quote visible');
+    assert.match(el('selectionSummary').textContent, /腳底40/, 'Primary selected service must not be erased by slot-hint rendering');
+    assert.equal(el('selectionSummary').classList.contains('hidden'), false, 'The participant summary remains visible');
+    assert.equal(el('slotHint').textContent, incompleteHint, 'An unfinished group is not a fully booked day');
+    assert.equal(el('slotGrid').children.length, 0, 'Unfinished group must not show stale slots');
     assertOnlyExpanded(0, 'First participant opens by default');
     cards()[1].querySelector('summary').click();
     assertOnlyExpanded(1, 'Opening second participant closes first');
@@ -164,10 +186,49 @@ async function fixture(mode) {
     assert.ok(secondAdd, 'Second participant must be able to choose a service');
     secondAdd.click();
     await waitForForegroundIdle();
+    assert.equal(el('slotHint').textContent, incompleteHint, 'Third participant still has no items');
+    assert.equal(slotCalls(), callsBeforeIncomplete, 'Incomplete selection must not issue slot queries');
     assertOnlyExpanded(1, 'Adding an item preserves the active participant');
     assert.match(cards()[1].querySelector('.selected-service-list').textContent, /腳底40/);
     cards()[2].querySelector('summary').click();
     assertOnlyExpanded(2, 'Opening third participant closes second');
+    cards()[2].querySelector('.service-add-button').click();
+    await waitForForegroundIdle();
+    assert.ok(slotCalls() > callsBeforeIncomplete, 'All selected participants trigger real availability lookup');
+    assert.ok(el('slotGrid').querySelector('button'), 'A genuinely available time should be displayed');
+    returnEmptyGroupSlots = true;
+    el('bookingDate').dispatchEvent(new w.Event('change', { bubbles: true }));
+    await waitForForegroundIdle();
+    assert.equal(el('slotHint').textContent, '這一天沒有可預約時段。',
+      'An actual empty server response remains distinguishable after all participants select services');
+    returnEmptyGroupSlots = false;
+    el('bookingDate').dispatchEvent(new w.Event('change', { bubbles: true }));
+    await waitForForegroundIdle();
+    assert.ok(el('slotGrid').querySelector('button'), 'Slots return when the server has availability');
+    const callsAfterComplete = slotCalls();
+    cards()[2].querySelector('.selected-service-remove').click();
+    assert.equal(el('slotHint').textContent, incompleteHint, 'Removing the last item restores selection guidance');
+    assert.equal(el('slotGrid').children.length, 0);
+    assert.equal(slotCalls(), callsAfterComplete, 'No slot query for newly incomplete party');
+
+    // An old response may arrive after an unfinished selection; it must not
+    // replace the current participant guidance or re-enable old time buttons.
+    cards()[2].querySelector('.service-add-button').click();
+    await waitForForegroundIdle();
+    const requestStarted = new Promise(resolve => { groupSlotStarted = resolve; });
+    delayNextGroupSlots = true;
+    el('bookingDate').dispatchEvent(new w.Event('change', { bubbles: true }));
+    await requestStarted;
+    // Loading intentionally blocks click/submit; simulate a rapid form-state
+    // transition via change events instead of bypassing that safety guard.
+    setPartySize(2);
+    setPartySize(3);
+    assert.equal(el('slotHint').textContent, incompleteHint);
+    assert.equal(el('slotGrid').children.length, 0);
+    releaseGroupSlot();
+    await waitForForegroundIdle();
+    assert.equal(el('slotHint').textContent, incompleteHint, 'Stale response must not replace incomplete selection prompt');
+    assert.equal(el('slotGrid').children.length, 0, 'Stale response must not restore a time button');
     cards()[1].querySelector('summary').click();
     assertOnlyExpanded(1, 'Returning to second participant closes third');
     assert.match(cards()[1].querySelector('.selected-service-list').textContent, /腳底40/, 'Switching participants keeps previously selected services');
@@ -180,6 +241,13 @@ async function fixture(mode) {
     assertOnlyExpanded(1, 'Reducing the number of participants clamps the active card');
     setPartySize(1);
     assertOnlyExpanded(0, 'Returning to a single participant keeps that card expanded');
+    await waitForForegroundIdle();
+    assert.ok(el('slotGrid').querySelector('button'), 'A valid single-person booking still shows real slots');
+    const beforeEmptySingle = slotCalls();
+    el('selectedServiceList').querySelector('.selected-service-remove').click();
+    assert.equal(el('slotHint').textContent, '請先選擇至少一個預約項目。');
+    assert.equal(el('slotGrid').children.length, 0);
+    assert.equal(slotCalls(), beforeEmptySingle, 'Single-person incomplete selection must not call availability API');
     await tick(100);
     const before = calls.length;
     await tick(500);
