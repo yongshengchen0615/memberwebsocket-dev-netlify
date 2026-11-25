@@ -286,6 +286,20 @@ async function normalizeGroup(s: SupabaseClient, body: Json) {
   return { cfg, primaryId, participants:normalized, duration, amount, assignments };
 }
 
+function assertOriginalBookingOnlineEditable(original: any, cfg: any) {
+  if (!['pending', 'confirmed'].includes(String(original?.status || ''))
+      || (original.cancellation_requested_at && !original.cancellation_reviewed_at)) {
+    throw new ApiError(409,"BOOKING_NOT_EDITABLE","此預約目前無法修改。");
+  }
+  const today=currentBusinessDate(taipeiDate(),taipeiMinutes(),cfg.work_start_time,cfg.work_end_time);
+  const earliest=addDays(today,Number(cfg.min_advance_days||0));
+  const startsAt=Date.parse(String(original.start_at||''));
+  if (String(original.booking_date||'')<earliest || !Number.isFinite(startsAt) || startsAt<=Date.now()) {
+    throw new ApiError(409,"BOOKING_ONSITE_EDIT_REQUIRED",
+      String(cfg.onsite_edit_message||'此預約已超過線上可修改時間，請至現場洽詢修改預約。'));
+  }
+}
+
 async function memberBootstrap(s: SupabaseClient, m: any) {
   const cfg=await settings(s), techs=await activeTechs(s), br=await s.from("bookings").select("id").eq("member_id",m.id).order("created_at",{ascending:false}).limit(50);
   if (br.error) throw mapDbError(br.error); const ids=(br.data||[]).map((x:any)=>x.id), groups=await groupData(s,ids);
@@ -385,8 +399,10 @@ async function updateBooking(s: SupabaseClient, i: Identity, m: any, body: Json)
   const g=await normalizeGroup(s,body), c=contact(body), bookingId=uuid(body.bookingId,"預約"), expected=asText(body.expectedUpdatedAt,80), bookingDate=dateValue(body.bookingDate);
   assertBookingDateWindow(g.cfg,bookingDate);
   if (!expected || !Number.isFinite(Date.parse(expected))) throw new ApiError(400,"INVALID_INPUT","缺少預約版本，請重新整理。");
-  const existing=await s.from("bookings").select("service_recipient_member_id").eq("id",bookingId).eq("member_id",m.id).maybeSingle();
+  const existing=await s.from("bookings").select("service_recipient_member_id,booking_date,start_at,status,cancellation_requested_at,cancellation_reviewed_at").eq("id",bookingId).eq("member_id",m.id).maybeSingle();
   if(existing.error)throw mapDbError(existing.error);
+  if(!existing.data)throw new ApiError(404,"BOOKING_NOT_EDITABLE","找不到可修改的預約。");
+  assertOriginalBookingOnlineEditable(existing.data,g.cfg);
   if(existing.data?.service_recipient_member_id && g.participants.length!==1)throw new ApiError(400,"FRIEND_SINGLE_RECIPIENT_REQUIRED","代好友預約只支援單人服務。");
   const benefits=await validateBookingBenefitSelectionLimit(s,body.benefits);
   const r=await s.rpc("update_group_booking_with_benefits_reminder_v2", { p_booking_id:bookingId, p_expected_updated_at:expected, p_actor:i.lineUserId, p_request_id:asText(body.requestId,100), p_member_id:m.id, p_booking_date:bookingDate, p_start_time:`${timeValue(body.startTime)}:00`, p_participants:g.participants, p_member_note:asText(body.memberNote,500), p_contact_source:c.source, p_contact_surname:c.surname, p_contact_salutation:c.salutation, p_contact_phone:c.phone, p_benefits:benefits, ...reminderInput(body) });
