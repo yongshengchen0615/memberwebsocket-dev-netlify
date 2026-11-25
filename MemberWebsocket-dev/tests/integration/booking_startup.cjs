@@ -216,7 +216,10 @@ async function fixture(mode) {
     delayNextGroupSlots = true;
     el('bookingDate').dispatchEvent(new w.Event('change', { bubbles: true }));
     await requestStarted;
-    cards()[2].querySelector('.selected-service-remove').click();
+    // Loading intentionally blocks click/submit; simulate a rapid form-state
+    // transition via change events instead of bypassing that safety guard.
+    setPartySize(2);
+    setPartySize(3);
     assert.equal(el('slotHint').textContent, incompleteHint);
     assert.equal(el('slotGrid').children.length, 0);
     releaseGroupSlot();
