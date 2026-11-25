@@ -152,8 +152,14 @@ Deno.test('AC-LPH-005: LINE Flex cards format Taiwan mobile across admin, member
     const original = job.message_text;
     const card = buildBookingFlexMessage(job);
     const serialized = JSON.stringify(card);
-    assert(serialized.includes('0912345678'), 'display local mobile: ' + channel + '/' + title);
-    assert(!serialized.includes(mobile), 'never expose country prefix in phone field: ' + channel + '/' + title);
+    if (channel === 'member' && title === '預約確認') {
+      // Confirmation intentionally omits phone, do not introduce extra private fields.
+      assert(!serialized.includes('0912345678') && !serialized.includes(mobile),
+        'member confirmation must retain its privacy-minimal layout');
+    } else {
+      assert(serialized.includes('0912345678'), 'display local mobile: ' + channel + '/' + title);
+      assert(!serialized.includes(mobile), 'never expose country prefix in phone field: ' + channel + '/' + title);
+    }
     assert(job.message_text === original, 'formatting must not mutate queued outbox payload');
   }
   const abroad = buildBookingFlexMessage({
@@ -164,7 +170,7 @@ Deno.test('AC-LPH-005: LINE Flex cards format Taiwan mobile across admin, member
 
 Deno.test('AC-LPH-006: LINE notification sender posts Flex phone as 09 without changing recipient', async () => {
   const booking = { ...sampleJob, channel: 'member',
-    message_text: '【預約確認】\n預約人：測試會員\n電話：+886912345678',
+    message_text: '【預約提醒】\n預約人：測試會員\n電話：+886912345678',
   };
   let pushed = '';
   const sent = await deliver(booking, 'test-token', async (_url, init) => {
