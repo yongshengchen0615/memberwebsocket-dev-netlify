@@ -18,19 +18,26 @@
  if(slug&&scopeKey){try{window.sessionStorage?.setItem(scopeKey,JSON.stringify({business:slug,surface:window.location.pathname.split('/')[1],savedAt:Date.now()}));}catch{}}
  const original=window.fetch.bind(window);
  const memberSurface=({member:'membership',points:'points',event:'events',calendar:'calendar',booking:'booking'})[location.pathname.split('/')[1]];
- let grants=null,businessGeneration=0;
+ let grants=null,businessGeneration=0,pageBrand=null;
  const configs=new Set();
  const pendingPublic=new Map();
  const publicStates=new Map();
  const allows=feature=>!slug||!memberSurface||grants?.[feature]===true;
  const allowsBenefit=kind=>allows(({points:'points',event:'events',calendar:'calendar'})[kind]);
- function gate(){
-  if(!slug||!memberSurface||!document.querySelectorAll)return;
+ // Include the root itself: a newly inserted link or control has no matching
+ // descendants, but must receive the same rules as an existing page element.
+ function matching(root,selector){
+  const nodes=Array.from(root.querySelectorAll(selector));
+  if(root.matches?.(selector))nodes.unshift(root);
+  return nodes;
+ }
+ function gate(root=document){
+  if(!slug||!memberSurface||!root.querySelectorAll)return;
   const setAllowed=(node,allowed)=>{
    if(node.dataset.memberAllowed!==String(allowed))node.dataset.memberAllowed=String(allowed);
-   node.inert=!allowed;
+   if(node.inert!==!allowed)node.inert=!allowed;
   };
-  const mark=(selector,features,any=false)=>document.querySelectorAll(selector).forEach(node=>{
+  const mark=(selector,features,any=false)=>matching(root,selector).forEach(node=>{
    const allowed=(any?features.some(allows):features.every(allows));
    setAllowed(node,allowed);
   });
@@ -44,11 +51,11 @@
    mark(`[data-benefit-kind="${kind}"],[data-kind="${kind}"],[data-snapshot-kind="${kind}"]`,[feature]);
   }
   mark('.service-type-reward,.group-service-reward',['points']);
-  for(const node of document.querySelectorAll('[data-member-requires]'))setAllowed(node,node.dataset.memberRequires.split(' ').every(allows));
-  for(const node of document.querySelectorAll('[data-member-any]'))setAllowed(node,node.dataset.memberAny.split(' ').some(allows));
-  for(const node of document.querySelectorAll('a[href]')){
+  for(const node of matching(root,'[data-member-requires]'))setAllowed(node,node.dataset.memberRequires.split(' ').every(allows));
+  for(const node of matching(root,'[data-member-any]'))setAllowed(node,node.dataset.memberAny.split(' ').some(allows));
+  for(const node of matching(root,'a[href]')){
    try{const u=new URL(node.href,location.href),feature=({member:'membership',points:'points',event:'events',calendar:'calendar',booking:'booking'})[u.pathname.split('/')[1]];
-    if(u.origin===location.origin&&feature&&u.searchParams.get('business')===slug){node.dataset.memberAllowed=String(allows(feature));node.inert=!allows(feature);}
+    if(u.origin===location.origin&&feature&&u.searchParams.get('business')===slug)setAllowed(node,allows(feature));
    }catch{}
   }
  }
@@ -61,25 +68,28 @@
    const style=document.createElement('link');style.id='memberFeatureGateStyle';style.rel='stylesheet';
    style.href=new URL('../business-context.css?v=member-grants-20261107-1',location.href).href;document.head.append(style);
   }
-  gate();
+  if(changed)gate();
   if(changed&&memberSurface&&typeof window.dispatchEvent==='function')window.dispatchEvent(new CustomEvent('business:features-changed',{detail:{features:{...next}}}));
  }
  const pageLabel=()=>({member:'會員卡',points:'集點卡',event:'活動票券',calendar:'營運日曆',booking:'預約'})[location.pathname.split('/')[1]];
- function applyPageBrand(brand){
-  for(const node of document.querySelectorAll?.('[data-tenant-brand]')||[]){
+ function applyPageBrand(brand,root=document){
+  if(root===document){if(pageBrand===brand)return;pageBrand=brand;}
+  for(const node of root.querySelectorAll?matching(root,'[data-tenant-brand]'):[]){
    const suffix=node.dataset?.tenantBrand;
-   if(suffix)node.textContent=brand+' / '+suffix;
+   const text=brand+' / '+suffix;
+   if(suffix&&node.textContent!==text)node.textContent=text;
   }
  }
  function resetPageTitle(){
   const page=pageLabel();
-  if(page){document.title='會員系統｜'+page;applyPageBrand('會員系統');}
+  if(page){const title='會員系統｜'+page;if(document.title!==title)document.title=title;applyPageBrand('會員系統');}
  }
  function updatePageTitle(config){
   const page=pageLabel();
   if(!page)return;
   const brand=String(config.brandName||'會員系統').trim().slice(0,60)||'會員系統';
-  document.title=brand+'｜'+page;
+  const title=brand+'｜'+page;
+  if(document.title!==title)document.title=title;
   applyPageBrand(brand);
  }
  function readPublic(config,refresh){
@@ -105,7 +115,7 @@
  }
  async function configure(config,refresh=false){
   if(!slug){updatePageTitle({brandName:'會員系統'});return config;}
-  if(!refresh)resetPageTitle();
+  if(!refresh&&!grants)resetPageTitle();
   const {response,body,sequence,requestedSlug,generation,state}=await readPublic(config,refresh);
   if(!response.ok||!body.ok)throw Object.assign(Error(body.error?.message||'無法取得商家設定。'),{code:body.error?.code||'BUSINESS_UNAVAILABLE'});
   if(body.data.business!==requestedSlug)throw Error('商家設定不一致。');
@@ -128,7 +138,7 @@
   applyFeatures(data.features);
   return config;
  }
- window.BusinessContext=Object.freeze({configure,refresh:config=>configure(config,true),allows,allowsBenefit,get slug(){return slug;},set(value){if(!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(value))throw Error('Invalid business');slug=value;businessGeneration++;grants=null;publicStates.clear();configs.clear();resetPageTitle();gate();}});
+ window.BusinessContext=Object.freeze({configure,refresh:config=>configure(config,true),allows,allowsBenefit,get slug(){return slug;},set(value){if(!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(value))throw Error('Invalid business');slug=value;businessGeneration++;grants=null;publicStates.clear();configs.clear();resetPageTitle();retain();}});
  window.fetch=function(input,init){
   if(slug&&init&&typeof init.body==='string'){
    try{
@@ -147,11 +157,25 @@
   }
   return original(input,init);
  };
- const retain=()=>{if(!slug)return;for(const a of document.querySelectorAll('a[href]')){
+ function retain(root=document){if(!slug||(root!==document&&!document.documentElement.contains(root)))return;for(const a of matching(root,'a[href]')){
   if(a.dataset?.businessSwitch==='true')continue;
-  try{const u=new URL(a.href,window.location.href);if(u.origin===location.origin&&/^\/(?:admin|member|points|event|calendar|booking)\//.test(u.pathname)&&!u.pathname.endsWith('workspace.html')){u.searchParams.set('business',slug);a.href=u.href;}}catch{}
- }gate();};
- document.addEventListener('DOMContentLoaded',retain);
- document.addEventListener('productized-admin-ready',retain);
- if(typeof MutationObserver==='function')new MutationObserver(retain).observe(document.documentElement,{childList:true,subtree:true});
+  try{const u=new URL(a.href,window.location.href);if(u.origin===location.origin&&/^\/(?:admin|member|points|event|calendar|booking)\//.test(u.pathname)&&!u.pathname.endsWith('workspace.html')){u.searchParams.set('business',slug);if(a.href!==u.href)a.href=u.href;}}catch{}
+ }gate(root);if(pageBrand&&root!==document)applyPageBrand(pageBrand,root);}
+ document.addEventListener('DOMContentLoaded',()=>retain());
+ document.addEventListener('productized-admin-ready',()=>retain());
+ if(typeof MutationObserver==='function')new MutationObserver(records=>{
+  const roots=new Set();
+  const addRoot=node=>{if(node.nodeType===1&&document.documentElement.contains(node))roots.add(node);};
+  for(const record of records){
+   // Event dialogs reuse anchors and remove/restore href as grants change.
+   // URL writes are idempotent, so observing href settles after one repair.
+   if(record.type==='attributes'&&record.target.matches('a[href]'))addRoot(record.target);
+   for(const node of record.addedNodes)addRoot(node);
+  }
+  for(const root of roots){
+   let ancestor=root.parentElement;
+   while(ancestor&&!roots.has(ancestor))ancestor=ancestor.parentElement;
+   if(!ancestor)retain(root);
+  }
+ }).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['href']});
 })();
