@@ -108,13 +108,16 @@ test('AC-004: a failed calendar read never deletes an existing calendar item', a
   assert.ok(!h.calls.some((x) => x.action === 'admin.calendar-items.delete'));
 });
 
-test('AC-005: ordinary calendar save/list no longer depend on retired bonus endpoint', async () => {
+test('AC-005: bootstrap and calendar save/list use only the canonical API', async () => {
   const h = fixture();
+  await h.window.MemberSystem.request(h.config, 'admin', 'synthetic-token', 'admin.bootstrap', {});
   await h.window.MemberSystem.request(h.config, 'admin', 'synthetic-token',
     'admin.calendar-items.save', { calendarItem: { itemType: 'event', title: '一般會員活動' } });
   await h.window.MemberSystem.request(h.config, 'admin', 'synthetic-token',
     'admin.calendar-items.list', {});
-  assert.deepEqual(h.calls.map((x) => x.action), ['admin.calendar-items.save', 'admin.calendar-items.list']);
+  assert.deepEqual(h.calls.map((x) => x.action), [
+    'admin.bootstrap', 'admin.calendar-items.save', 'admin.calendar-items.list'
+  ]);
 });
 
 test('AC-006: the editor prevents an unknown choice from being saved and allows explicit retry', () => {
