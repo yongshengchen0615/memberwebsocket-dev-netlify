@@ -1,8 +1,6 @@
 -- Independent member-facing onsite-edit notice, scoped to each merchant.
 -- Forward-only: public + existing business schemas + the versioned new-business blueprint.
 -- The update API keeps the existing booking_settings CAS and owner authorization.
-begin;
-
 do $onsite_notice$
 declare
   v_schema text;
@@ -88,4 +86,3 @@ begin
 end $onsite_notice$;
 
 notify pgrst,'reload schema';
-commit;
