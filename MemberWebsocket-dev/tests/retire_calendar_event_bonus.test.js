@@ -1,0 +1,30 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const root = path.resolve(__dirname, '..');
+const admin = fs.readFileSync(path.join(root, 'admin/index.html'), 'utf8');
+const app = fs.readFileSync(path.join(root, 'admin/app.js'), 'utf8');
+const api = fs.readFileSync(path.join(root, 'supabase/functions/api/index.ts'), 'utf8');
+const sql = fs.readFileSync(path.join(root, 'supabase/migrations/20261125093000_retire_calendar_event_bonus.sql'), 'utf8');
+
+test('AC-001: booking holiday settings and existing booking rewards remain available', () => {
+  assert.match(admin, /休假日請至「預約」日曆設定/);
+  assert.match(app, /openCalendarDateEditor\(date, bookingDate, 'holiday'\)/);
+  assert.match(api, /sourceType:"booking"/);
+  assert.doesNotMatch(sql, /\bDELETE\s+FROM\s+(?:\S+\.)?(?:point_entries|point_balances|bookings)\b/i);
+});
+
+test('AC-002: calendar save and batch endpoints cannot enable bonus points', () => {
+  assert.match(api, /admin\.calendar-items\.save"[\s\S]*?bonusPointsEnabled:false,bonusPoints:0[\s\S]*?apply_calendar_batch/);
+  assert.match(api, /admin\.calendar-items\.batch"[\s\S]*?bonusPointsEnabled:false,bonusPoints:0[\s\S]*?apply_calendar_batch/);
+  assert.doesNotMatch(api, /sourceType:"calendar"/);
+});
+
+test('AC-003: migration deactivates offers in legacy and business schemas and prevents reactivation', () => {
+  assert.match(sql, /nspname = 'public' OR left\(nspname, 9\) = 'business_'/);
+  assert.match(sql, /UPDATE %I\.calendar_items[\s\S]*?bonus_points_enabled = false, bonus_points = 0/);
+  assert.match(sql, /ADD CONSTRAINT calendar_items_event_bonus_retired_check[\s\S]*?bonus_points_enabled IS FALSE AND bonus_points = 0/);
+  assert.doesNotMatch(sql, /\bDROP\s+(?:TABLE|COLUMN)\b/i);
+});
