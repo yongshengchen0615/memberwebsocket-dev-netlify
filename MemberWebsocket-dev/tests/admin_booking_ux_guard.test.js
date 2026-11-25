@@ -127,3 +127,24 @@ test('AC-005: no duplicate confirmation for flows already using native explicit 
   }
   assert.equal(h.confirmations.length, 0);
 });
+
+test('AC-006: non-booking writes share the admin Loading while background reads remain unblocked',async()=>{
+  const h=harness();
+  const send=(action,clientType='admin',url='/functions/v1/member-api')=>
+    h.win.fetch(url,{method:'POST',body:JSON.stringify({clientType,action})});
+  const read=send('admin.members.presence.list');
+  assert.equal(h.elements.get('adminBookingPendingOverlay'),undefined);
+  h.pending[0].resolve({ok:true});await read;
+  const save=send('admin.event-tickets.save');
+  assert.equal(h.elements.get('adminBookingPendingOverlay')?.hidden,false);
+  const event=actionEvent({closest:()=>null});
+  h.listeners.get('click:true')(event);
+  assert.equal(event.prevented,true);
+  assert.equal(event.stopped,true);
+  h.pending[1].resolve({ok:true});await save;
+  assert.equal(h.elements.get('adminBookingPendingOverlay').hidden,true);
+  const platform=send('platform.line.save','platform','/functions/v1/platform-api');
+  assert.equal(h.elements.get('adminBookingPendingOverlay').hidden,false);
+  h.pending[2].resolve({ok:true});await platform;
+  assert.equal(h.elements.get('adminBookingPendingOverlay').hidden,true);
+});

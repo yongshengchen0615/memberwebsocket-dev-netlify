@@ -105,6 +105,16 @@
   async function request(action, payload = {}) {
     if (!config || !idToken) throw Object.assign(new Error('請先使用 LINE 確認管理員身分。'), { code: 'AUTH_REQUIRED' });
     const requestEpoch = epoch;
+    const isWrite = new Set([
+      'platform.frontdesk.settings.save',
+      'platform.frontdesk.preferences.save',
+      'platform.frontdesk.rejection-settings.save',
+      'platform.frontdesk.staff.save',
+      'platform.frontdesk.staff.delete',
+    ]).has(action);
+    const finishFeedback = isWrite
+      ? window.AsyncActionFeedback?.begin('正在儲存櫃檯設定並等待後端確認…') : null;
+    try {
     const endpoint = new URL(config.supabaseFunctionUrl);
     endpoint.pathname = endpoint.pathname.replace(/\/api\/?$/, '/platform-api');
     if (!endpoint.pathname.endsWith('/platform-api')) throw new Error('商家 API 設定不正確。');
@@ -132,6 +142,7 @@
       throw error;
     }
     return body.data;
+    } finally { finishFeedback?.(); }
   }
   function assertAccess(data) {
     if (data.application?.status !== 'approved' ||

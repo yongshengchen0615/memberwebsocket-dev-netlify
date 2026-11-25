@@ -119,7 +119,23 @@
   });
   function message(text) { el('tenantFormStatus').textContent=text; }
   function uncertainError() { return Object.assign(new Error('儲存結果尚未確認。請重試同一操作，避免重複建立。'),{uncertain:true}); }
+  // Only user-initiated mutations use blocking Loading; rootSync, account
+  // status and merchant discovery polling must remain non-blocking.
   async function request(action, payload = {}) {
+    // Keep the transport independently testable; do not rely on a module
+    // global or a DOM while gateway/auth failure tests execute in isolation.
+    const foregroundWrites = new Set([
+      'platform.qualification.review','platform.qualification.submit',
+      'platform.merchant.review','platform.merchant.submit',
+      'platform.tenant.resume','platform.tenant.suspend',
+      'platform.tenant.expiry.save','platform.tenant.save',
+      'platform.tenant.features.save','platform.application.approve',
+      'platform.application.submit','platform.line.save',
+      'platform.title.save','platform.notifications.save',
+      'platform.notifications.test',
+    ]);
+    const finishFeedback = foregroundWrites.has(action) && typeof window !== 'undefined'
+      ? window.AsyncActionFeedback?.begin('正在儲存管理設定並等待後端確認…') : null;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(),20000);
     try {
@@ -151,7 +167,7 @@
       // A completed root write makes any older in-flight background snapshot obsolete.
       if(!merchantEntry&&!['platform.bootstrap','platform.qualification.list'].includes(action))rootRevision++;
       return body.data;
-    } finally { clearTimeout(timer); }
+    } finally { clearTimeout(timer); finishFeedback?.(); }
   }
   function featureRequirements() {
     const map={membership:'memberLiffId',points:'pointsLiffId',events:'eventLiffId',calendar:'calendarLiffId',booking:'bookingLiffId'};
