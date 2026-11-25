@@ -128,6 +128,6 @@ test('AC-006: the editor prevents an unknown choice from being saved and allows 
 
 test('AC-007: admin entry loads the updated calendar toggle script instead of a cached legacy asset', () => {
   const html = fs.readFileSync(path.join(__dirname, '../admin/index.html'), 'utf8');
-  assert.match(html, /grant-automation\\.js\\?v=grant-automation-20261125-ticket-calendar-1/);
-  assert.doesNotMatch(html, /grant-automation\\.js\\?v=grant-automation-20260910/);
+  assert.ok(html.includes('grant-automation.js?v=grant-automation-20261125-ticket-calendar-1'));
+  assert.ok(!html.includes('grant-automation.js?v=grant-automation-20260910'));
 });
