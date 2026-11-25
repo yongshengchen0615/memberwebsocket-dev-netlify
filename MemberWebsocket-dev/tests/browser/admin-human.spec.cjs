@@ -77,6 +77,11 @@ test('MEMBER_PROFILE_STATUS — status editable but test-profile fields forbidde
 });
 test('MEMBER_360 — status and grant actions, then history workspace member selector and categories',async({page:p},info)=>{
   await openMember360(p);
+  const contact = p.locator('#memberRecordsOverview .member-records-overview-contact');
+  await expect(contact.locator('span').nth(0)).toContainText('聯絡電話');
+  await expect(contact.locator('span').nth(0)).toContainText('+886912345678');
+  await expect(contact.locator('span').nth(1)).toContainText('生日');
+  await expect(contact.locator('span').nth(1)).toContainText('1980/01/01');
   await expect(p.locator('#memberRecordsOverview')).toContainText('狀態');
   await expect(p.locator('#memberRecordsOverview')).toContainText('＋ 發放');
   await p.getByRole('button',{name:'狀態'}).click(); await expect(p.locator('#memberModal')).toBeVisible();

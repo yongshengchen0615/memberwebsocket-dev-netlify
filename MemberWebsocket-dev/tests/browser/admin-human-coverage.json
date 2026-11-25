@@ -33,8 +33,8 @@
   "frontdeskRejectionSettingsReview": "[object Object] 2026-11-24 PR #446：新增櫃檯待審新預約／會員修改預約分類與操作標籤、管理端拒絕修改預約獨立編輯清單、LINE 管理端/會員端核准與拒絕修改標題。逐項覆核既有管理端六個工作區、管理員前台櫃檯 LINE／人員核准/拒絕預約/電話補登及原 62 組 admin-human 人工旅程：保留所有既有入口、權限、租戶審查和 requestId；新分流由後端 audit，不接受 browser 夾帶 reviewKind。新增 AC-FMR Node/JSDOM/Deno，完整 PostgreSQL/Chromium CI 與沙盒 LINE 實際收訊分別驗收；本紀錄不代表它們已通過。",
   "reviewedSources": {
     "admin/booking-admin-ux.js": "da82c2bcbb7d8ece44e05d66bada9e20a384784e4346bdde50f6b9cb2897d1ee",
-    "admin/index.html": "080db79053e3814168cb42fe560652901299d88ffe4c35d87cfbb83e7ba8ca09",
-    "admin/app.js": "eb8e79f8a3fa3ff2143d462b4157aff68f8f08d2d302ee5c9e3cd2ee860d4a98",
+    "admin/index.html": "73d0baab7a19dcc4724069572e7f5516c9f1202d8d6f0197a9548607d8453835",
+    "admin/app.js": "425e2f16d3948243ccac34e5c3db39f797b03d34ad14762c5dd8d0d136ff9509",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
     "admin/grant-automation.js": "bf4acfae03c852f581ee6755e49f1441fb2ec9911dac8ff096de02ca19f38138",
@@ -96,7 +96,7 @@
     {
       "id": "member.03",
       "module": "member",
-      "name": "會員 360 概況與管理入口；「使用紀錄」工作區的會員篩選、歷程分類與操作",
+      "name": "會員 360 概況、電話與生日基本資料及管理入口；「使用紀錄」工作區的會員篩選、歷程分類與操作",
       "cases": [
         "MEMBER_360",
         "RUNNER_ADMIN_MEMBER_MODALS",

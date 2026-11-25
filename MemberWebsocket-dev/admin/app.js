@@ -1214,6 +1214,17 @@
   }
 
 
+
+  function memberProfileContactFields(member) {
+    const source = member && typeof member === 'object' ? member : {};
+    const phone = String(source.phone || '').trim();
+    const birthday = String(source.birthday || '').trim();
+    return [
+      ['聯絡電話', phone || '未填寫'],
+      ['生日', birthday ? birthday.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$1/$2/$3') : '未填寫'],
+    ];
+  }
+
   function renderMemberRecordsOverview() {
     if (!els.memberRecordsOverview) return;
     const member = state.memberRecords.member;
@@ -1248,7 +1259,18 @@
     status.className = `member-records-status ${member.status === 'disabled' ? 'is-disabled' : 'is-active'}`;
     status.textContent = member.status === 'disabled' ? '已停用' : '啟用中';
     meta.append(code, status);
-    copy.append(eyebrow, title, meta);
+    const contact = document.createElement('div');
+    contact.className = 'member-records-overview-contact';
+    memberProfileContactFields(member).forEach(([label, value]) => {
+      const item = document.createElement('span');
+      const contactLabel = document.createElement('small');
+      contactLabel.textContent = label;
+      const contactValue = document.createElement('strong');
+      contactValue.textContent = value;
+      item.append(contactLabel, contactValue);
+      contact.append(item);
+    });
+    copy.append(eyebrow, title, meta, contact);
     hero.append(avatar, copy);
 
     const metricGrid = document.createElement('div');
