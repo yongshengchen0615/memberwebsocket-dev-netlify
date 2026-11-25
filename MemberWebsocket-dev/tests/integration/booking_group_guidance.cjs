@@ -155,3 +155,21 @@ test('AC-004: choosing multiple people initially reveals the first technician se
     f.dom.window.close();
   }
 });
+
+test('AC-005: rapid accordion switching only scrolls the currently active participant', async () => {
+  const f = await setup();
+  try {
+    const firstSummary = f.card(0).querySelector('summary');
+    const secondSummary = f.card(1).querySelector('summary');
+    secondSummary.click();
+    firstSummary.click();
+    await new Promise(resolve => setTimeout(resolve, 50));
+    assert.equal(f.card(0).open, true);
+    assert.equal(f.card(1).open, false);
+    assert.equal(f.scrolls.length, 1, 'Only the final active card may scroll');
+    assert.equal(f.scrolls[0].element, firstSummary);
+    assert.equal(f.scrolls[0].options.block, 'start');
+  } finally {
+    f.dom.window.close();
+  }
+});
