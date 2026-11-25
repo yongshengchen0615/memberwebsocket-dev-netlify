@@ -17,6 +17,26 @@
     'admin.booking.price.reschedule', 'admin.booking.price.cancel',
     'admin.booking.risk.save', 'admin.booking.risk.revoke', 'admin.booking.risk.release',
   ]);
+  // Explicit allowlist of foreground writes, never background polling or reads.
+  const administrativeWrites = new Set([
+    'admin.member-tiers.save','admin.member.force-logout','admin.member.remove',
+    'admin.pointcards.reorder','admin.settings.copy','admin.pointcards.save',
+    'admin.pointcards.archive','admin.pointcards.delete','admin.tickets.save',
+    'admin.tickets.delete','admin.event-tickets.save','admin.event-tickets.delete',
+    'admin.calendar-items.batch','admin.calendar-items.save','admin.calendar-items.delete',
+    'admin.member.update','admin.grant-message-presets.save',
+    'admin.service-grants.add','admin.member-grants.add',
+    'admin.terms.draft.save','admin.terms.activate',
+    'admin.fixed-tickets.save','admin.fixed-tickets.run',
+    'admin.fixed-tickets.delete','admin.settings.save',
+  ]);
+  const platformWrites = new Set([
+    'platform.title.save','platform.line.save',
+    'platform.notifications.save','platform.notifications.test',
+    'platform.frontdesk.settings.save','platform.frontdesk.preferences.save',
+    'platform.frontdesk.rejection-settings.save','platform.frontdesk.staff.save',
+    'platform.frontdesk.staff.delete',
+  ]);
   const directActions = new Set([
     '確認預約', '取消預約', '取消登記預約',
     'disable-technician', 'restore-technician',
@@ -30,6 +50,7 @@
   };
   const originalFetch = window.fetch;
   let pending = 0;
+  const originalInert = new Map();
 
   function overlay() {
     let element = document.getElementById('adminBookingPendingOverlay');
@@ -48,7 +69,13 @@
 
   function begin() {
     pending += 1;
-    overlay().hidden = false;
+    const screen = overlay();
+    screen.hidden = false;
+    for (const node of document.body.children || []) {
+      if (node === screen || originalInert.has(node)) continue;
+      originalInert.set(node,Boolean(node.inert));
+      node.inert = true;
+    }
     document.body.setAttribute('data-admin-booking-pending', 'true');
     return endOnce();
   }
@@ -61,6 +88,8 @@
       pending = Math.max(0, pending - 1);
       if (pending === 0) {
         overlay().hidden = true;
+        for (const [node,wasInert] of originalInert) node.inert = wasInert;
+        originalInert.clear();
         document.body.removeAttribute('data-admin-booking-pending');
       }
     };
@@ -72,11 +101,16 @@
     if (!url.includes('/functions/v1/')) return false;
     try {
       const body = JSON.parse(options.body);
-      if (body?.clientType !== 'admin') return false;
-      const action = String(body.action || '');
-      return bookingWrites.has(action)
+      const action = String(body?.action || '');
+      if (body?.clientType === 'admin' && (
+        bookingWrites.has(action) || administrativeWrites.has(action)
         || ((action === 'admin.approve' || action === 'admin.reject')
-          && url.includes('/booking-cancellation-api'));
+          && url.includes('/booking-cancellation-api'))
+      )) return true;
+      if (url.includes('/platform-api') && platformWrites.has(action)) return true;
+      if (url.includes('/fixed-ticket-automation') && administrativeWrites.has(action)) return true;
+      return url.includes('/event-ticket-extension-api')
+        && body?.operation === 'admin.settings.save';
     } catch {
       return false;
     }
@@ -111,6 +145,7 @@
   }
 
   document.addEventListener('submit', (event) => {
+    if (pending > 0) return cancel(event);
     const form = event.target;
     if (!form?.matches?.('form')) return;
     const operation = formDescription(form);
@@ -121,6 +156,7 @@
   }, true);
 
   document.addEventListener('click', (event) => {
+    if (pending > 0) return cancel(event);
     const button = event.target?.closest?.('[data-booking-admin-action]');
     if (!button || button.disabled) return;
     const action = String(button.dataset.bookingAdminAction || '');
@@ -133,6 +169,10 @@
       ? `\n預約人：${String(details.bookingMemberName || '—').slice(0, 80)}\n日期：${details.bookingDate || '—'}\n時間：${details.bookingStartTime || '—'}–${details.bookingEndTime || '—'}`
       : '';
     if (!window.confirm(`請再次確認：${display}？${bookingSummary}\n\n確認後才會送出，無法以再次點擊代替檢查結果。`)) cancel(event);
+  }, true);
+
+  document.addEventListener('keydown', (event) => {
+    if (pending > 0 && event.target !== overlay()) cancel(event);
   }, true);
 
   // Explicit pending scopes keep the indicator visible while an operation

@@ -233,6 +233,13 @@ for(const width of [390,1280])test('FRONTDESK_SETTINGS_STANDALONE_'+width+' — 
  await expect(page.locator('h1')).toHaveText('櫃檯設定');
  await expect(page.locator('#frontdeskPageContent')).toBeVisible();
  await expect(page.locator('#frontdeskSettingsRoot [data-frontdesk-settings]')).toBeVisible();
+ // The details shell mounts synchronously, but its toggle schedules an async
+ // platform.frontdesk.get read before render() creates the two LINE cards.
+ // Wait for actual backend-backed form readiness, not merely the empty shell.
+ // This is an observable contract: missing fields still fail the test.
+ await expect(page.locator('.frontdesk-config-form > fieldset:first-of-type')).toBeVisible();
+ await expect(page.locator('.frontdesk-config-form > fieldset:nth-of-type(2)')).toBeVisible();
+ await expect(page.locator('.frontdesk-config-form > button[type="submit"]')).toBeVisible();
  await expect(page.locator('#adminView,#merchantWorkspace,#productizedAdmin,#frontdeskSettingsTab')).toHaveCount(0);
  await expect(page.locator('#frontdeskManageBusiness')).toHaveAttribute('href','/admin/?business=shop-a');
  // AC-001/002: geometry in Chromium, not just DOM order. The LINE section

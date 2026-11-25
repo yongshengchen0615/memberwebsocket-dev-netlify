@@ -8,14 +8,17 @@ const read=name=>fs.readFileSync(path.join(root,name),'utf8');
 
 function fixture(){
  const body={children:[],append(node){this.children.push(node);}};
- const document={body,createElement(tag){return {
+ const listeners=new Map();
+ const document={body,addEventListener(type,listener){listeners.set(type,listener);},createElement(tag){return {
   tag,hidden:false,children:[],textContent:'',attributes:{},
   append(...nodes){this.children.push(...nodes);},
   setAttribute(name,value){this.attributes[name]=value;}
  };}};
  const window={};
  vm.runInNewContext(read('async-action-feedback.js'),{window,document});
- return {feedback:window.AsyncActionFeedback,banner:body.children[0]};
+ const interactive={tag:'main',inert:false};
+ body.children.push(interactive);
+ return {feedback:window.AsyncActionFeedback,banner:body.children[0],interactive,listeners};
 }
 
 test('AC-001: action displays an accessible Loading status and releases idempotently',()=>{
@@ -54,8 +57,8 @@ test('AC-003: completion and failure always clear the pending indicator',async()
 test('AC-004: member, booking and frontdesk load the shared versioned assets',()=>{
  for(const page of ['member/index.html','booking/index.html','frontdesk/index.html','points/index.html','event/index.html','calendar/index.html']){
   const html=read(page);
-  assert.ok(html.includes('async-action-feedback.js?v=20261123-1'),page);
-  assert.ok(html.includes('async-action-feedback.css?v=20261123-1'),page);
+  assert.ok(html.includes('async-action-feedback.js?v=20261125-2'),page);
+  assert.ok(html.includes('async-action-feedback.css?v=20261125-2'),page);
  }
 });
 test('AC-005: user actions are instrumented while revision polling remains background-only',()=>{
@@ -76,4 +79,68 @@ test('AC-005: user actions are instrumented while revision polling remains backg
  assert.ok(read('event/app.js').includes('正在核銷活動票券並更新資料'));
  assert.ok(read('ticket-booking-selections.js').includes('正在儲存預約票券並同步資料'));
  assert.ok(read('friends.js').includes('正在更新好友關係'));
+});
+
+// Regression: the former bottom toast showed progress but did not stop accidental clicks.
+test('AC-006: shared Loading matches the admin fullscreen blocking overlay',()=>{
+ const css=read('async-action-feedback.css');
+ assert.match(css,/\.async-action-feedback\s*\{[^}]*position:\s*fixed/s);
+ assert.match(css,/\.async-action-feedback\s*\{[^}]*inset:\s*0/s);
+ assert.match(css,/\.async-action-feedback\s*\{[^}]*pointer-events:\s*auto/s);
+ assert.match(css,/background:\s*rgba\(13,\s*22,\s*32,\s*\.62\)/);
+ assert.match(css,/z-index:\s*2147483000/);
+});
+
+test('AC-007: background controls cannot be clicked, submitted, or keyboard-activated until every operation finishes',()=>{
+ const {feedback,interactive,listeners}=fixture();
+ const first=feedback.begin('正在送出預約…');
+ const second=feedback.begin('正在同步資料…');
+ assert.equal(interactive.inert,true,'underlying content must be inert');
+ for(const type of ['click','submit','keydown']){
+  const handler=listeners.get(type);
+  assert.equal(typeof handler,'function',`${type} must have a capture guard`);
+  const event={target:interactive,prevented:false,stopped:false,preventDefault(){this.prevented=true;},stopImmediatePropagation(){this.stopped=true;}};
+  handler(event);
+  assert.equal(event.prevented,true,`${type} must be cancelled`);
+  assert.equal(event.stopped,true,`${type} must not reach the old handler`);
+ }
+ first();
+ assert.equal(interactive.inert,true,'first completion must not unlock another pending operation');
+ second();
+ assert.equal(interactive.inert,false,'the original inert state must be restored');
+ const event={target:interactive,prevented:false,stopped:false,preventDefault(){this.prevented=true;},stopImmediatePropagation(){this.stopped=true;}};
+ listeners.get('click')(event);
+ assert.equal(event.prevented,false,'normal interactions must resume');
+});
+
+test('AC-008: failed operations restore the original disabled/inert state',async()=>{
+ const {feedback,interactive}=fixture();
+ interactive.inert=true;
+ await assert.rejects(feedback.track('請稍候…',()=>Promise.reject(Error('NETWORK'))),/NETWORK/);
+ assert.equal(interactive.inert,true);
+});
+
+test('AC-009: all standalone management entrypoints share the blocking Loading assets without tracking background reads',()=>{
+ const pages=['platform/index.html','admin/workspace.html','admin/frontdesk-settings/index.html'];
+ for(const page of pages){
+   const html=read(page);
+   assert.match(html,/async-action-feedback\.css\?v=20261125-2/,page);
+   assert.match(html,/async-action-feedback\.js\?v=20261125-2/,page);
+ }
+ const platform=read('platform/app.js');
+ const standalone=read('admin/frontdesk-settings/frontdesk-settings-page.js');
+ assert.match(platform,/foregroundWrites\.has\(action\)/);
+ assert.match(platform,/platform\.tenant\.features\.save/);
+ assert.match(platform,/finishFeedback\?\.\(\)/);
+ assert.match(standalone,/platform\.frontdesk\.rejection-settings\.save/);
+ assert.match(standalone,/finishFeedback\?\.\(\)/);
+});
+
+test('AC-010: receipt modal may release its own inert state before Loading finishes',()=>{
+ const {feedback,interactive}=fixture();
+ interactive.inert=true; // Booking receipt modal owns the existing inert state.
+ const finish=feedback.begin('正在安全上傳收據…');
+ interactive.inert=false; // closeModal() runs before finishFeedback().
+ finish();
+ assert.equal(interactive.inert,false,'Loading must not re-apply the closed modal inert state');
 });
