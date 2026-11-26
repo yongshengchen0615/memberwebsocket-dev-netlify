@@ -169,7 +169,7 @@
     els.memberBirthday.textContent = String(profile.birthday || '未填寫');
     els.memberPhone.textContent = String(profile.phone || '未填寫');
     window.MembershipProgress.render(els.membershipProgress, profile);
-    void window.MemberMonthlyTierBenefits?.refresh(els.membershipProgress, state.config, state.idToken, profile);
+    window.MemberMonthlyTierBenefits?.bind(document.querySelector('[data-member-monthly-tier-widget]'), state.config, state.idToken, profile, 'member');
     els.memberStatus.textContent = isActive ? '使用中' : '暫停';
     els.memberStatus.parentElement.classList.toggle('inactive', !isActive);
   }

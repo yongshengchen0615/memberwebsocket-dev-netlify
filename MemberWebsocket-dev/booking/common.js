@@ -390,6 +390,14 @@
       '活動票券領取', { write: true });
   }
 
+  // Reuse the booking session, timeout handling, and merchant-scoped request path.
+  async function monthlyTierBenefits(config, idToken) {
+    const endpoint = `${String(config.supabaseUrl).replace(/\/$/, '')}/functions/v1/member-profile-api`;
+    const body = { action: 'user.member.monthly-tier-benefits', clientType: 'booking', idToken };
+    const scopedBody = window.TestModeClient && typeof window.TestModeClient.payload === 'function'
+      ? window.TestModeClient.payload(body) : body;
+    return postJson(endpoint, config, scopedBody, '本月階級優惠');
+  }
   async function memberProfile(config, idToken) {
     const endpoint = String(config.supabaseFunctionUrl || '').trim();
     if (!endpoint) throw clientError('CONFIG_INVALID', '會員資料服務設定不完整。');
@@ -898,6 +906,6 @@
     return { config: authenticatedSession.config, idToken: authenticatedSession.idToken };
   }
 
-  window.BookingSystem = { loadConfig, signIn, completeSignIn, startPresence, claimBrowserSession, getSession, request, setBookingNotice, memberProfile, bookingBenefits, claimEventTicket, sendMemberChatMessage, subscribeRealtime, openMemberJoin, logout, showNotice, formatDate, addDays, clientError };
+  window.BookingSystem = { loadConfig, signIn, completeSignIn, startPresence, claimBrowserSession, getSession, request, setBookingNotice, memberProfile, monthlyTierBenefits, bookingBenefits, claimEventTicket, sendMemberChatMessage, subscribeRealtime, openMemberJoin, logout, showNotice, formatDate, addDays, clientError };
 })();
 
