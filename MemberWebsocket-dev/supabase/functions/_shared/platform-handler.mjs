@@ -308,7 +308,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         }
         return json({ok:true,data:{...summary,endpoint}});
       }
-      if (['platform.frontdesk.get','platform.frontdesk.history.list','platform.frontdesk.settings.save','platform.frontdesk.preferences.save','platform.frontdesk.rejection-settings.save','platform.frontdesk.staff.save','platform.frontdesk.staff.delete'].includes(body.action)) {
+      if (['platform.frontdesk.get','platform.frontdesk.history.list','platform.frontdesk.settings.save','platform.frontdesk.preferences.save','platform.frontdesk.rejection-settings.save','platform.frontdesk.staff.save','platform.frontdesk.staff.batch','platform.frontdesk.staff.delete'].includes(body.action)) {
         const workspace=await mine();
         const data=await frontdeskAdmin({db,body,actor,issuedAt:new Date(identity.issuedAtMs).toISOString(),tenant:workspace.tenant,encryptionKey,fetchImpl});
         return json({ok:true,data});
