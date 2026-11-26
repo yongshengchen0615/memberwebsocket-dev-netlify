@@ -149,14 +149,43 @@ test('event bootstrap exposes fixed tickets only to members who own the issued c
   assert.equal(result.offers[0].claim.claimId, 'FIXED-CLAIM');
   assert.equal(result.offers.some(offer => offer.ticket.eventTicketId === 'FIXED-UNISSUED'), false);
 });
-test('transferred-out event ticket retains a visible history marker without reclaim action', async () => {
-  const db = database({ rows: { event_ticket_transfers: [{ event_ticket_id: event.id, sender_member_id: member.id }] } });
-  const result = await api().eventBootstrap(db, member);
-  assert.equal(result.offers.length, 1);
-  assert.equal(result.offers[0].transferredOut, true);
-  assert.equal(result.offers[0].canClaim, false);
-  assert.equal(result.offers[0].claim, null);
-  assert.equal(db.calls.filter(c => c.table === 'event_ticket_transfers').length, 2);
+test('transferred-out physical ticket moves to sender history with recipient and date, not active offers', async () => {
+  const transferred = {
+    event_ticket_id:event.id,claim_id:'SENT-CLAIM',sender_member_id:member.id,
+    receiver_member_id:'member-B',receiver:{display_name:'好友小明'},
+    created_at:'2026-11-26T09:20:00Z',event_tickets:event,
+  };
+  const otherSender = { ...transferred,claim_id:'NOT-MINE',sender_member_id:'other' };
+  const db = database({ rows: { event_ticket_transfers:[transferred,otherSender] } });
+  const result = await api().eventBootstrap(db,member);
+  assert.equal(result.offers.length,0,'sender no longer has an actionable ticket');
+  assert.equal(result.usedTicketCount,2,'existing used history plus exactly one sent gift');
+  const archived = result.usedTickets.find(offer => offer.claim?.claimId === 'SENT-CLAIM');
+  assert.ok(archived,'the real sender-scoped transfer remains in persistent history');
+  assert.equal(archived.transferredOut,true);
+  assert.equal(archived.history,true);
+  assert.equal(archived.claim.status,'transferred');
+  assert.equal(archived.transferredToDisplayName,'好友小明');
+  assert.equal(archived.transferredAt,'2026-11-26T09:20:00Z');
+  assert.equal(archived.canUse,false);
+  assert.equal(archived.ticket.eventTicketId,'EVENT');
+  assert.equal(result.usedTickets.some(x => x.claim?.claimId === 'NOT-MINE'),false,'other senders are isolated');
+  assert.equal(db.calls.filter(c => c.table === 'event_ticket_transfers').length,2);
+  assert.match(db.calls.find(c => c.table==='event_ticket_transfers' && c.columns?.includes('receiver:members'))?.columns || '',/event_tickets\(\*\)/);
+});
+
+test('a distinct physical claim stays active when an older claim of the same event was transferred',async()=>{
+  const sent = { event_ticket_id:event.id,claim_id:'OLDER-SENT',sender_member_id:member.id,
+    receiver:{display_name:'好友'},created_at:'2026-11-26T09:20:00Z',event_tickets:event };
+  const owned = { member_id:member.id,event_ticket_id:event.id,claim_id:'NEW-OWNED',status:'claimed',ticket_type:'coupon' };
+  const result = await api().eventBootstrap(database({rows:{
+    event_ticket_transfers:[sent],
+    event_ticket_claims:[...fixture.event_ticket_claims,owned],
+  }}),member);
+  assert.equal(result.offers.length,1);
+  assert.equal(result.offers[0].claim.claimId,'NEW-OWNED');
+  assert.equal(result.offers[0].transferredOut,false);
+  assert.equal(result.usedTickets.some(offer=>offer.claim?.claimId==='OLDER-SENT'),true);
 });
 
 test('received gold-only ticket is visible and usable for a general-tier member, but cannot be re-gifted', async () => {
