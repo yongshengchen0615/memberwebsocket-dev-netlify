@@ -1399,12 +1399,22 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
       .eq("member_id",member.id).eq("submission_mode","accessible")
       .eq("status","awaiting_review").order("created_at",{ascending:false}).limit(100),
     supabase.from("event_ticket_transfers").select("event_ticket_id").eq("sender_member_id",member.id),
-    supabase.from("event_ticket_transfers").select("claim_id").eq("receiver_member_id",member.id),
+    supabase.from("event_ticket_transfers")
+      .select("claim_id,created_at,sender:members!event_ticket_transfers_sender_member_id_fkey(display_name)")
+      .eq("receiver_member_id",member.id),
   ]);
   if (snapshotReceipts.error) throw mapDatabaseError(snapshotReceipts.error);
   if (transferHistoryRes.error) throw mapDatabaseError(transferHistoryRes.error);
   if (receivedGiftRes.error) throw mapDatabaseError(receivedGiftRes.error);
-  const receivedGiftClaimIds = new Set((receivedGiftRes.data || []).map((row:any) => String(row.claim_id)));
+  // This private lookup only returns gifts received by the signed-in member.
+  // Do not expose sender phone, LINE identifiers or other profile fields.
+  const receivedGiftsByClaim = new Map((receivedGiftRes.data || []).map((row:any) => [
+    String(row.claim_id),
+    {
+      senderName: String(row.sender?.display_name || "好友").trim() || "好友",
+      transferredAt: String(row.created_at || ""),
+    },
+  ]));
   const transferredOutEventIds = new Set((transferHistoryRes.data || []).map((row:any) => String(row.event_ticket_id)));
   const pendingSnapshotsByClaim = new Map<string,Json[]>();
   for (const receipt of snapshotReceipts.data || []) {
@@ -1434,7 +1444,14 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
   if (countRes.error) throw mapDatabaseError(countRes.error);
   if (usedRes.error) throw mapDatabaseError(usedRes.error);
 
-  const claimByEvent = new Map((claimsRes.data || []).map((row:any) => [row.event_ticket_id,row]));
+  // One campaign can have several independently issued physical claims.
+  // Never collapse distinct claim_ids into a single event_ticket_id row.
+  const claimsByEvent = new Map<string,any[]>();
+  for (const claim of claimsRes.data || []) {
+    const rows = claimsByEvent.get(String(claim.event_ticket_id)) || [];
+    rows.push(claim);
+    claimsByEvent.set(String(claim.event_ticket_id),rows);
+  }
   const counts = new Map<string,number>();
   const usedCounts = new Map<string,number>();
   for (const row of countRes.data || []) counts.set(row.event_ticket_id,Number(row.claimed_count));
@@ -1456,9 +1473,11 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
   const today = taipeiDate();
   const visibilityPolicy = await loadVisibilityPolicy(supabase);
   const offers = (eventRows || []).flatMap((row:any) => {
-    const claimRow = claimByEvent.get(row.id);
+    const ownedClaims = claimsByEvent.get(String(row.id)) || [];
+    return (ownedClaims.length ? ownedClaims : [null]).flatMap((claimRow:any) => {
     const transferredOut = transferredOutEventIds.has(String(row.id)) && !claimRow;
-    const receivedAsGift = Boolean(claimRow && receivedGiftClaimIds.has(String(claimRow.claim_id)));
+    const gift = claimRow ? receivedGiftsByClaim.get(String(claimRow.claim_id)) : null;
+    const receivedAsGift = Boolean(gift);
     // All ticket types are issued by the server; a published template is not a claimable ticket.
     // Expose only tickets already owned by this member, never another member’s inventory.
     if (!claimRow && !transferredOut) return [];
@@ -1496,8 +1515,11 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
       soldOut,
       transferredOut,
       receivedAsGift,
+      giftFromDisplayName:gift?.senderName || "",
+      giftTransferredAt:gift?.transferredAt || "",
       history: false,
     }];
+    });
   });
 
   const usedTickets = (allHistoryRes.data || []).map((row:any) => {
@@ -1515,7 +1537,11 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
       startsOn: eventRow.starts_on || "",
       endsOn: eventRow.ends_on || "",
     };
-    return { ticket, claim: claimClient(row,eventRow.event_ticket_id || row.claim_id), availability:"used", tierEligible:true, canClaim:false, canUse:false, soldOut:false, history:true };
+    const gift = receivedGiftsByClaim.get(String(row.claim_id));
+    return { ticket, claim: claimClient(row,eventRow.event_ticket_id || row.claim_id),
+      receivedAsGift:Boolean(gift),giftFromDisplayName:gift?.senderName || "",
+      giftTransferredAt:gift?.transferredAt || "",
+      availability:"used", tierEligible:true, canClaim:false, canUse:false, soldOut:false, history:true };
   });
   return { profile, offers, usedTickets, usedTicketCount: usedTickets.length, bookingSelections };
 }

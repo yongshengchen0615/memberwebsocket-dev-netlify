@@ -41,6 +41,10 @@
         row('金額使用條件', String(ticket.minBookingAmountLabel).trim());
       }
     }
+    if (options.giftTransferredAt) {
+      row('轉贈者', String(options.giftFromName || '好友'));
+      row('轉贈時間', String(options.giftTransferredAt));
+    }
     card.append(head, title, copy, meta);
     return card;
   }
