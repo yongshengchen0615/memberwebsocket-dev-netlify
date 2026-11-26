@@ -27,12 +27,12 @@ await page.locator('#saveProfileButton').click();await expect(page.locator('#pro
 await page.locator('#joinTermsAccepted').check();await expect.poll(()=>page.evaluate(()=>qaJoinCalls.filter(x=>x.action==='user.member.bootstrap').length)).toBeGreaterThanOrEqual(2);await expect(page.locator('#joinTermsAccepted')).toBeChecked();
 await page.locator('#saveProfileButton').click();await expect(page.locator('#memberView')).toBeVisible();await expect(page.locator('#profileSetupView')).toBeHidden();
 await expect(page.locator('#copyMemberCodeButton')).toHaveCount(0);
-await expect(page.locator('#showMemberIdentityQr')).toBeEnabled();await page.locator('#showMemberIdentityQr').click();
-await expect(page.locator('#qrDisplayPanel strong')).toHaveText('QA-JOIN-1');
-await page.locator('#qrDisplayPanel button', {hasText:'複製會員編號'}).click();
-await expect(page.locator('#qrDisplayPanel [role="status"]')).toContainText('會員編號已複製');
+await expect(page.locator('#showMemberIdentityQr')).toHaveCount(0);
+await expect(page.locator('#copyMemberIdentityCode')).toBeEnabled();
+await page.locator('#copyMemberIdentityCode').click();
+await expect(page.locator('#memberCodeCopyStatus')).toContainText('會員編號已複製');
 expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('QA-JOIN-1');
-await page.locator('[aria-label="關閉 QR Code 視窗"]').click();await expect(page.locator('#qrDisplayPanel')).toBeHidden();
+await expect(page.locator('#qrDisplayPanel')).toHaveCount(0);
 await page.evaluate(()=>history.replaceState(null,'','/MemberWebsocket-dev/member/'));
 await page.evaluate(fs.readFileSync(path.join(root,'user-test-control.js'),'utf8').replace('  window.MemberUserTestControl =','  window.qaNodes={memberCodeCopyCase};\n  window.MemberUserTestControl ='));
 expect((await page.evaluate(()=>qaNodes.memberCodeCopyCase())).status).toBe('passed');

@@ -17,8 +17,7 @@
     options: new Map(),
     loaded: false,
     refreshPromise: null,
-    refreshQueued: false,
-    scanner: null
+    refreshQueued: false
   };
 
   function newRequestId() {
@@ -57,7 +56,7 @@
   }
   function lockFields() {
     const pending = Boolean(state.pending);
-    for (const id of ['pointTransferMemberCode','pointTransferAmount','pointTransferLookup','pointTransferChooseFriend','pointTransferScanQr','pointTransferUseFriend','pointTransferFriendSelect']) {
+    for (const id of ['pointTransferMemberCode','pointTransferAmount','pointTransferLookup','pointTransferChooseFriend','pointTransferUseFriend','pointTransferFriendSelect']) {
       const element = document.getElementById(id);
       if (element) element.disabled = state.busy || pending;
     }
@@ -116,8 +115,7 @@
             <input id="pointTransferMemberCode" type="text" maxlength="40" autocomplete="off" placeholder="例如 MXXXXXXXXXX" required>
           </label>
           <div class="point-transfer-recipient-actions">
-            <button id="pointTransferChooseFriend" class="point-transfer-secondary-button" type="button">選擇好友</button>
-            <button id="pointTransferScanQr" class="point-transfer-secondary-button" type="button">掃描會員 QR Code</button>
+            <button id="pointTransferChooseFriend" class="point-transfer-secondary-button" type="button">從好友名單選擇會員編號</button>
           </div>
           <div id="pointTransferFriendPicker" class="point-transfer-friend-picker" hidden>
             <label for="pointTransferFriendSelect">已接受的好友</label>
@@ -126,13 +124,6 @@
             <p id="pointTransferFriendStatus" role="status" aria-live="polite"></p>
             <button id="pointTransferFriendCancel" class="point-transfer-secondary-button" type="button">取消</button>
           </div>
-          <section id="pointTransferQrPanel" hidden>
-            <video id="pointTransferQrVideo" autoplay muted playsinline aria-label="收件者 QR 掃描畫面"></video>
-            <p id="pointTransferQrStatus" role="status" aria-live="polite">掃描不會直接轉贈點數。</p>
-            <button id="pointTransferQrImageButton" class="point-transfer-secondary-button" type="button">選擇 QR 圖片</button>
-            <input id="pointTransferQrFile" type="file" accept="image/png,image/jpeg,image/webp" hidden>
-            <button id="pointTransferQrClose" class="point-transfer-secondary-button" type="button">關閉相機</button>
-          </section>
           <button id="pointTransferLookup" class="point-transfer-secondary-button" type="button">確認收件會員</button>
           <p id="pointTransferReceiver" class="point-transfer-receiver hidden"></p>
           <label>
@@ -174,14 +165,6 @@
       window.MemberPanelDialog?.close(document.getElementById('pointTransferFriendPicker'));
       void lookupReceiver();
     });
-    modal.querySelector('#pointTransferScanQr').addEventListener('click', openTransferScanner);
-    modal.querySelector('#pointTransferQrClose').addEventListener('click', stopTransferScanner);
-    modal.querySelector('#pointTransferQrImageButton').addEventListener('click', () => document.getElementById('pointTransferQrFile').click());
-    modal.querySelector('#pointTransferQrFile').addEventListener('change', event => {
-      const file = event.target.files?.[0];
-      event.target.value = '';
-      if (file) void state.scanner?.readFile(file);
-    });
     modal.querySelector('#pointTransferForm').addEventListener('submit', submitTransfer);
     return modal;
   }
@@ -211,62 +194,14 @@
     } finally { if (generation === state.friendGeneration) select.disabled = false; }
   }
 
-  function parseTransferQR(raw) {
-    const text = String(raw || '').trim();
-    let code = text;
-    if (text.startsWith('https://') || text.startsWith('http://')) {
-      const url = new URL(text);
-      const base = new URL('../member/', location.href);
-      if (url.origin !== base.origin || url.username || url.password ||
-          ![base.pathname, base.pathname + 'index.html'].includes(url.pathname)) {
-        throw new Error('不是本站的會員 QR Code。');
-      }
-      const hash = new URLSearchParams(url.hash.slice(1));
-      code = hash.get('friend') || hash.get('reward') || '';
-    }
-    if (!/^[A-Za-z0-9_-]{4,40}$/.test(code)) throw new Error('請掃描會員 QR Code 或輸入有效會員編號。');
-    return code.toUpperCase();
-  }
-
-  function stopTransferScanner() {
-    window.QRScanDialog?.close(document.getElementById('pointTransferQrPanel'));
-    state.scanner?.stop();
-  }
-
-  function openTransferScanner() {
-    if (state.busy || state.pending) return;
-    const panel = document.getElementById('pointTransferQrPanel');
-    if (!window.FriendQRScanner?.create || !window.QRScanDialog?.open || !panel) {
-      setMessage('無法啟動掃描，請輸入會員編號。', true); return;
-    }
-    if (!state.scanner) {
-      state.scanner = window.FriendQRScanner.create(panel.querySelector('video'), {
-        label: '會員', parseValue: parseTransferQR,
-        onStatus: message => {
-          const status = document.getElementById('pointTransferQrStatus');
-          if (status) status.textContent = message;
-        },
-        onResult: code => {
-          stopTransferScanner();
-          const input = document.getElementById('pointTransferMemberCode');
-          input.value = code;
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          setMessage('QR 已辨識，正在確認收件者…');
-          void lookupReceiver();
-        }
-      });
-    }
-    window.QRScanDialog.open(panel, {
-      title: '掃描轉贈收件者', opener: document.getElementById('pointTransferScanQr'),
-      start: () => state.scanner.start(), stop: () => state.scanner.stop()
-    });
-  }
-
   function updateOwnMemberCode() {
     const output = document.getElementById('pointTransferOwnMemberCode');
     if (output) output.textContent = state.memberCode || '尚未取得會員編號';
-    const qrButton = document.getElementById('pointTransferShowOwnQr');
-    if (qrButton) qrButton.disabled = !state.memberCode || !session();
+    const copyButton = document.getElementById('pointTransferCopyOwnCode');
+    if (copyButton) {
+      copyButton.disabled = !state.memberCode || !session();
+      copyButton.textContent = '複製會員編號';
+    }
   }
 
   function currentCardId() {
@@ -315,7 +250,7 @@
         pendingButton.className = 'point-transfer-open-button';
         pendingButton.textContent = '確認前次轉贈';
         pendingButton.addEventListener('click', openModal);
-        actions.insertBefore(pendingButton, document.getElementById('pointTransferShowOwnQr') || null);
+        actions.insertBefore(pendingButton, document.getElementById('pointTransferCopyOwnCode') || null);
       }
     }
     if (pendingButton) {
@@ -386,9 +321,7 @@
 
   function closeModal() {
     if (state.busy) return;
-    stopTransferScanner();
     window.MemberPanelDialog?.close(document.getElementById('pointTransferFriendPicker'));
-    window.QRDisplayDialog?.close();
     document.getElementById('pointTransferModal')?.classList.add('hidden');
     document.body.classList.remove('point-transfer-modal-open');
     clearReceiver();
@@ -482,8 +415,12 @@
     if (state.busy || state.pending) return;
     const s = session();
     if (!s) return;
-    const memberCode = String(document.getElementById('pointTransferMemberCode').value || '').trim();
+    const input = document.getElementById('pointTransferMemberCode');
+    const memberCode = String(input.value || '').trim().toUpperCase();
     if (!memberCode) return setMessage('請輸入收件會員編號。', true);
+    if (!/^[A-Z0-9_-]{4,40}$/.test(memberCode)) return setMessage('請輸入有效的收件會員編號。', true);
+    if (memberCode === state.memberCode.toUpperCase()) return setMessage('不可轉贈給自己。', true);
+    input.value = memberCode;
     clearReceiver();
     const generation = state.receiverGeneration;
     setMessage('正在確認收件會員…');
@@ -517,7 +454,7 @@
 
     const cardId = String(document.getElementById('pointTransferCard').value || '');
     const option = state.options.get(cardId);
-    const memberCode = String(document.getElementById('pointTransferMemberCode').value || '').trim();
+    const memberCode = String(document.getElementById('pointTransferMemberCode').value || '').trim().toUpperCase();
     const amount = Number(document.getElementById('pointTransferAmount').value);
 
     if (!option && !state.pending) return setMessage('這張集點卡目前無法轉贈。', true);
@@ -540,7 +477,7 @@
     const close = document.getElementById('pointTransferClose');
     submit.disabled = true;
     close.disabled = true;
-    const fields = ['pointTransferMemberCode', 'pointTransferAmount', 'pointTransferLookup', 'pointTransferChooseFriend', 'pointTransferScanQr', 'pointTransferUseFriend'].map((id) => document.getElementById(id));
+    const fields = ['pointTransferMemberCode', 'pointTransferAmount', 'pointTransferLookup', 'pointTransferChooseFriend', 'pointTransferUseFriend'].map((id) => document.getElementById(id));
     fields.forEach((field) => { if (field) field.disabled = true; });
     setMessage('正在安全轉贈點數…');
     const finishFeedback = window.AsyncActionFeedback?.begin('正在安全轉贈點數並更新餘額…');
@@ -596,21 +533,34 @@
       openButton.dataset.bound = 'true';
       openButton.addEventListener('click', openModal);
     }
-    const qrButton = document.getElementById('pointTransferShowOwnQr');
-    if (qrButton && !qrButton.dataset.bound) {
-      qrButton.dataset.bound = 'true';
-      qrButton.addEventListener('click', event => {
+    const copyButton = document.getElementById('pointTransferCopyOwnCode');
+    if (copyButton && !copyButton.dataset.bound) {
+      copyButton.dataset.bound = 'true';
+      copyButton.addEventListener('click', async () => {
         if (!state.memberCode || !session()) return;
-        window.QRDisplayDialog?.show({ memberCode: state.memberCode, title: '我的會員 QR Code', opener: event.currentTarget });
+        let copied = false;
+        try {
+          if (typeof navigator.clipboard?.writeText === 'function') {
+            await navigator.clipboard.writeText(state.memberCode);
+            copied = true;
+          }
+        } catch (_) { /* Fall back to selectable text. */ }
+        if (!copied) {
+          const buffer = document.createElement('textarea');
+          buffer.value = state.memberCode;
+          buffer.className = 'friend-copy-buffer';
+          document.body.append(buffer); buffer.select();
+          try { copied = document.execCommand?.('copy') === true; } catch (_) { /* Report failure. */ }
+          buffer.remove();
+        }
+        copyButton.textContent = copied ? '會員編號已複製' : '複製失敗，請手動輸入';
       });
     }
     updateOpenButton();
     updateOwnMemberCode();
   }
 
-  window.addEventListener('member-system:session-revoked', stopTransferScanner);
   window.addEventListener('member:access-ended', (event) => {
-    stopTransferScanner();
     state.receiverGeneration += 1;
     state.receiver = null;
     if (event.detail?.code === 'MEMBER_REMOVED') savePending(null);
@@ -618,12 +568,10 @@
     state.activeAvailableStamps = null;
     state.activeTransferEligible = false;
     updateOpenButton();
-    window.QRDisplayDialog?.close();
     updateOwnMemberCode();
     document.getElementById('pointTransferModal')?.classList.add('hidden');
     document.body.classList.remove('point-transfer-modal-open');
   });
-  window.addEventListener('pagehide', stopTransferScanner);
 
   window.addEventListener('pointcard:active-changed', (event) => {
     syncActiveCard(event?.detail);
@@ -633,10 +581,8 @@
     if (event?.detail?.surface !== 'points') return;
     const nextCode = String(event?.detail?.profile?.memberCode || '').trim();
     if (nextCode !== state.memberCode) {
-      stopTransferScanner();
-      window.MemberPanelDialog?.close(document.getElementById('pointTransferFriendPicker'));
-      window.QRDisplayDialog?.close();
-      state.receiverGeneration++; state.receiver = null;
+        window.MemberPanelDialog?.close(document.getElementById('pointTransferFriendPicker'));
+        state.receiverGeneration++; state.receiver = null;
       state.memberCode = nextCode;
       restorePending();
     }

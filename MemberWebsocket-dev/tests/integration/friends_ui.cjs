@@ -85,9 +85,9 @@ test('friends tab keeps lookup and friend list; removed sharing sections do not 
     assert.equal(w.document.getElementById('memberReferralForm').closest('#memberReferralRewardTabPanel')!==null,true);
     assert.equal(w.document.getElementById('bindMemberReferral').disabled,true);
     assert.equal(w.document.getElementById('memberReferralQr'),null);
-    assert.ok(w.document.getElementById('scanMemberReferralQr'));
-    assert.ok(w.document.getElementById('uploadMemberReferralQr'));
-    assert.ok(w.document.getElementById('memberReferralQrScanner'));
+    assert.equal(w.document.getElementById('scanMemberReferralQr'),null);
+    assert.equal(w.document.getElementById('uploadMemberReferralQr'),null);
+    assert.equal(w.document.getElementById('memberReferralQrScanner'),null);
 
     w.document.getElementById('friendAddForm').dispatchEvent(new w.Event('submit',{cancelable:true}));
     await tick();

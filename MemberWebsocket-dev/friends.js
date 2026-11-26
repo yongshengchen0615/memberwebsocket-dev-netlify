@@ -3,7 +3,7 @@
 
   const booking = Boolean(window.BookingSystem);
   let profile = null, profileContext = '', generation = 0, loading = false, busy = false;
-  let selectedCode = '', lockedRecipient = null, pendingCode = '', scanner = null, invitationUrl = '';
+  let selectedCode = '', lockedRecipient = null, pendingCode = '', invitationUrl = '';
 
   const el = id => document.getElementById(id);
   const input = () => el('friendLookupCode');
@@ -57,10 +57,11 @@
     }
   }
 
-  function stopScan() {
-    window.QRScanDialog?.close(el('friendQrScanner'));
-    scanner?.stop();
-    if (el('friendQrScanner')) el('friendQrScanner').hidden = true;
+  function stopScan() { /* Legacy callers may request cleanup; manual input has no camera. */ }
+  function parseMemberCode(value) {
+    const code = String(value || '').trim().toUpperCase();
+    if (!/^[A-Z0-9_-]{4,40}$/.test(code)) throw new Error('請輸入有效的會員編號。');
+    return code;
   }
 
   function selectMemberTab(name) {
@@ -91,7 +92,6 @@
     let previousInert = null;
     const closeFriends = () => {
       stopScan();
-      window.QRDisplayDialog?.close();
       friendsModal.classList.add('hidden');
       if (shell && previousInert !== null) { shell.inert = previousInert; previousInert = null; }
       trigger.setAttribute('aria-expanded', 'false'); trigger.focus();
@@ -167,7 +167,7 @@
     if (button) button.disabled = true;
 
     try {
-      const code = window.FriendQRScanner.parseInvitation(entered);
+      const code = parseMemberCode(entered);
       if ([profile.inviteCode, profile.memberCode]
         .map(value => String(value || '').toUpperCase())
         .includes(code)) {
@@ -184,7 +184,7 @@
     } catch (error) {
       if (current === generation && entered === field.value) {
         status(
-          `查找好友失敗：${error?.message || '請確認會員編號或好友邀請連結後重試。'}`,
+          `查找好友失敗：${error?.message || '請確認會員編號後重試。'}`,
           'error'
         );
       }
@@ -222,12 +222,7 @@
       addForm.id = 'friendAddForm';
       addForm.className = 'member-referral-section friend-add-section';
       addForm.noValidate = true;
-      addForm.innerHTML = '<strong>加好友</strong><label for="friendLookupCode">好友會員編號</label><input id="friendLookupCode" type="text" maxlength="2048" autocomplete="off" inputmode="text" placeholder="輸入會員編號或貼上好友邀請連結" aria-describedby="friendLookupHelp"><small id="friendLookupHelp">可輸入會員編號、既有好友邀請碼，或掃描好友 QR Code。查找與送出好友邀請都不會觸發邀請優惠。</small><div class="friend-actions"><button id="scanFriendQr" type="button" class="button button-refresh">掃描 QR Code</button><button id="uploadFriendQr" type="button" class="button button-refresh">選擇 QR 圖片</button><input id="friendQrFile" type="file" accept="image/png,image/jpeg,image/webp" hidden><button id="lookupFriend" type="submit" class="button button-dark">查找好友</button><button id="confirmFriendRequest" type="button" class="button button-dark" hidden>確認送出好友邀請</button></div>';
-
-      const camera = document.createElement('section');
-      camera.id = 'friendQrScanner';
-      camera.hidden = true;
-      camera.innerHTML = '<video id="friendQrVideo" autoplay muted playsinline aria-label="好友 QR Code 相機預覽"></video><p id="friendQrScanStatus" role="status" aria-live="polite">將完整 QR Code 放在畫面中央。影像只在目前裝置辨識。</p><button id="friendQrScanImage" type="button" class="button button-refresh">選擇 QR 圖片</button><button id="stopFriendQr" type="button" class="button button-refresh">關閉相機</button>';
+      addForm.innerHTML = '<strong>加好友</strong><label for="friendLookupCode">好友會員編號</label><input id="friendLookupCode" type="text" maxlength="40" autocomplete="off" inputmode="text" placeholder="輸入好友的會員編號" aria-describedby="friendLookupHelp"><small id="friendLookupHelp">輸入會員編號查找並邀請好友；此操作不會觸發邀請優惠。</small><div class="friend-actions"><button id="lookupFriend" type="submit" class="button button-dark">查找好友</button><button id="confirmFriendRequest" type="button" class="button button-dark" hidden>確認送出好友邀請</button></div>';
 
       const message = document.createElement('p');
       message.id = 'friendStatus';
@@ -240,47 +235,13 @@
       panel.className = 'friends-panel';
       panel.innerHTML = '<div class="friends-panel-heading"><h3>我的好友</h3><button id="refreshFriends" type="button" class="button button-refresh">更新好友</button></div><p id="friendListStatus" class="friend-feedback" role="status" aria-live="polite"></p><div id="friendList"></div><div id="friendReceivedBookings"></div>';
 
-      tabs.friendsPanel.append(addForm, camera, message, panel);
-
-      scanner = window.FriendQRScanner.create(el('friendQrVideo'), {
-        onStatus: message => { if (el('friendQrScanStatus')) el('friendQrScanStatus').textContent = message; status(message); },
-        onResult: code => {
-          stopScan();
-          input().value = code;
-          input().dispatchEvent(new Event('input', { bubbles: true }));
-          void lookup();
-        },
-      });
+      tabs.friendsPanel.append(addForm, message, panel);
 
       addForm.addEventListener('submit', event => {
         event.preventDefault();
         void lookup();
       });
       input().addEventListener('input', invalidate);
-      el('scanFriendQr').addEventListener('click', () => {
-        if (busy) return;
-        if (!window.QRScanDialog?.open(camera, {
-          title: '掃描好友 QR Code', opener: el('scanFriendQr'),
-          start: () => scanner.start(), stop: () => scanner.stop()
-        })) {
-          camera.hidden = false;
-          void scanner.start();
-        }
-      });
-      el('stopFriendQr').addEventListener('click', () => {
-        stopScan();
-        el('scanFriendQr').focus();
-      });
-      el('friendQrScanImage').addEventListener('click', () => el('uploadFriendQr').click());
-      el('uploadFriendQr').addEventListener('click', () => {
-        if (!busy) el('friendQrFile').click();
-      });
-      el('friendQrFile').addEventListener('change', event => {
-        const file = event.target.files?.[0];
-        event.target.value = '';
-        stopScan();
-        void scanner.readFile(file);
-      });
       el('confirmFriendRequest').addEventListener('click', async event => {
         if (busy || !pendingCode) return;
         const current = generation;
@@ -332,7 +293,7 @@
       field.remove();
       el('copyFriendInviteLink')?.focus();
       status(
-        copied ? '好友邀請連結已複製。' : '無法複製好友邀請連結，請使用分享按鈕或讓好友掃描 QR Code。',
+        copied ? '好友邀請連結已複製。' : '無法複製好友邀請連結，請手動輸入對方的會員編號。',
         copied ? 'success' : 'error'
       );
     }
@@ -397,7 +358,7 @@
     }
 
     if (!list.children.length) {
-      list.textContent = booking ? '目前沒有好友；可至會員卡的好友中心新增好友。' : '目前沒有好友，可用上方「加好友」輸入會員編號或掃描好友碼。';
+      list.textContent = booking ? '目前沒有好友；可至會員卡的好友中心新增好友。' : '目前沒有好友，可用上方「加好友」輸入會員編號。';
     }
 
     const received = el('friendReceivedBookings');

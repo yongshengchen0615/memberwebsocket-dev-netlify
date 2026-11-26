@@ -164,14 +164,14 @@
     const results = document.createElement('p'); results.id = 'memberInvitationSummary'; results.setAttribute('aria-live', 'polite'); results.textContent = '開啟後讀取實際加入與獎勵成果。';
     const rewards = document.createElement('div'); rewards.id = 'memberInvitationRewards';
     panel.append(heading, campaign, actions, feedback, label, link, results, rewards);
-    const description = el('memberReferralDescription'); description?.after(panel);
-    if (description) description.textContent = '分享專屬邀請連結；新會員完成加入後，才依商家活動計算邀請獎勵。';
-    const oldForm = el('memberReferralRewardTabPanel') || el('memberReferralForm');
-    if (oldForm && !el('legacyMemberReferral')) {
-      const details = document.createElement('details'); details.id = 'legacyMemberReferral';
-      const title = document.createElement('summary'); title.textContent = '會員編號邀請優惠（既有方式）';
-      oldForm.before(details); details.append(title, oldForm);
-    }
+    const description = el('memberReferralDescription');
+    if (description) description.textContent = '輸入被邀請者的會員編號即可登記邀請優惠。尚未加入會員的好友，可選用下方 LINE 邀請連結。';
+    const primary = el('memberReferralRewardTabPanel') || el('memberReferralForm');
+    if (primary && !el('newMemberInvitationLinks')) {
+      const details = document.createElement('details'); details.id = 'newMemberInvitationLinks';
+      const title = document.createElement('summary'); title.textContent = '透過 LINE 邀請尚未入會的好友（選用）';
+      primary.after(details); details.append(title, panel);
+    } else if (!primary) description?.after(panel);
     el('openMemberReferral')?.addEventListener('click', () => void loadSummary());
   }
   window.addEventListener('member-profile-ready', event => {
