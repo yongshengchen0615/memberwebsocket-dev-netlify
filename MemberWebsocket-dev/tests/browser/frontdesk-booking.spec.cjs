@@ -932,3 +932,72 @@ for(const width of [390,1280])test('FRONTDESK_REJECTION_SETTINGS_EDITOR_'+width+
  await expect(form.getByRole('button',{name:'儲存拒絕預約設定'})).toBeVisible();
  await info.attach('frontdesk-rejection-settings-'+width,{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
 });
+
+for (const width of [390,1280]) {
+ test('AC-FD-NOTIFY browser: delegated staff can pause and resume LINE messages without losing review '+width,async({page})=>{
+  await page.setViewportSize({width,height:880});
+  let receive=true,delegated=false;
+  const calls=[];
+  await page.route('https://static.line-scdn.net/**',route=>route.fulfill({
+   contentType:'text/javascript',body:'window.liff={init:async()=>{},isInClient:()=>true,isLoggedIn:()=>true,getIDToken:()=>"verified-staff",login:()=>{},logout:()=>{}};'
+  }));
+  await page.route('https://fixture.supabase.co/**',async route=>{
+   const body=route.request().postDataJSON();calls.push(body);let data;
+   if(body.action==='frontdesk.public')data={name:'測試櫃檯',frontdesk:{enabled:true,liffId:'2010999999-desk'}};
+   else if(body.action==='frontdesk.bootstrap')data={staff:{displayName:'授權櫃檯',status:'approved',permissionMode:'review',receiveNotifications:receive,allowNotificationToggle:delegated}};
+   else if(body.action==='frontdesk.bookings')data={bookings:[]};
+   else if(body.action==='frontdesk.sync.status')data={revision:'1'};
+   else if(body.action==='frontdesk.notifications.set') {
+    if(!delegated) return route.fulfill({status:403,contentType:'application/json',body:JSON.stringify({ok:false,error:{code:'FRONTDESK_NOTIFICATION_CONTROL_DENIED',message:'未獲授權'}})});
+    receive=body.enabled;data={staff:{receiveNotifications:receive}};
+   } else throw Error('Unexpected action '+body.action);
+   await route.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,data})});
+  });
+  await page.goto(base+'/frontdesk/?business=shop-a');
+  await expect(page.locator('input[name=receiveNotifications]')).toHaveCount(0);
+  await expect(page.locator('#account')).toContainText('管理員管理');
+  delegated=true;
+  await page.getByRole('button',{name:'重新整理'}).click();
+  const toggle=page.locator('input[name=receiveNotifications]');
+  await expect(toggle).toBeChecked();
+  await expect(page.locator('#account')).toContainText('接收中');
+  await toggle.uncheck();
+  await page.locator('.frontdesk-notification-preference button[type=submit]').click();
+  await expect(page.locator('#account')).toContainText('已暫停');
+  await expect(page.locator('.frontdesk-notification-preference input')).not.toBeChecked();
+  expect(calls.filter(x=>x.action==='frontdesk.notifications.set')).toHaveLength(1);
+  expect(calls.find(x=>x.action==='frontdesk.notifications.set').enabled).toBe(false);
+  await expect(page.locator('.frontdesk-toolbar')).toBeVisible();
+  await toggle.check();
+  await page.locator('.frontdesk-notification-preference button[type=submit]').click();
+  await expect(page.locator('.frontdesk-notification-preference input')).toBeChecked();
+  expect(calls.filter(x=>x.action==='frontdesk.notifications.set').map(x=>x.enabled)).toEqual([false,true]);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ });
+}
+test('AC-FD-NOTIFY browser: merchant grants per-person self-service without changing review permission',async({page})=>{
+ await page.goto(base+'/frontdesk/');
+ await page.setContent('<main id="root"></main>');
+ await page.addScriptTag({url:base+'/admin/frontdesk-settings.js'});
+ await page.evaluate(()=>{
+  const people=[{id:'a',displayName:'櫃檯 A',status:'approved',permissionMode:'notify_only',version:1,allowNotificationToggle:false,receiveNotifications:true}];
+  window.notifyAdminWrites=[];
+  window.FrontdeskSettings.mount({root:document.getElementById('root'),business:'shop-a',request:async(action,body)=>{
+   if(action==='platform.frontdesk.staff.save'){
+    window.notifyAdminWrites.push(body);
+    Object.assign(people[0],{allowNotificationToggle:body.allowNotificationToggle,permissionMode:body.permissionMode,version:2});
+   }
+   return {version:1,frontdesk:{},staff:people};
+  }});
+ });
+ await page.locator('summary').click();
+ const person=page.locator('.frontdesk-person').first();
+ await expect(person.locator('input[name=allowNotificationToggle]')).not.toBeChecked();
+ await person.locator('input[name=allowNotificationToggle]').check();
+ await person.locator('button[type=submit]').click();
+ await expect(person.locator('input[name=allowNotificationToggle]')).toBeChecked();
+ const writes=await page.evaluate(()=>window.notifyAdminWrites);
+ expect(writes).toHaveLength(1);
+ expect(writes[0].allowNotificationToggle).toBe(true);
+ expect(writes[0].permissionMode).toBe('notify_only');
+});
