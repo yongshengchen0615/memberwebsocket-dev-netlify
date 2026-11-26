@@ -141,3 +141,14 @@ test('AC-008: open-ended active ticket has a matching month; SQL honours nullabl
   assert.match(api, /starts_on\.is\.null,starts_on\.lte/);
   assert.match(api, /ends_on\.is\.null,ends_on\.gte/);
 });
+
+test('AC-009: private higher-tier titles obey tier visibility while opt-in previews remain read-only', async () => {
+  const { tierVisibility } = await import('../supabase/functions/_shared/tier-visibility.ts');
+  assert.equal(tierVisibility(['platinum'], 'general', 'eligible_only').visible, false);
+  assert.equal(tierVisibility(['platinum'], 'general', 'higher_preview').visible, true);
+  assert.equal(tierVisibility(['platinum'], 'platinum', 'eligible_only').visible, true);
+  const api = fs.readFileSync(path.join(__dirname, '..', 'supabase/functions/member-profile-api/index.ts'), 'utf8');
+  assert.match(api, /tierVisibility\(keys, viewerProfile\.tierKey, row\.visibility_policy \|\| defaultVisibilityPolicy\)\.visible/);
+  assert.match(api, /loadVisibilityPolicy\(supabase\)/);
+  assert.match(api, /TEST_SESSION_SURFACE_MISMATCH/);
+});
