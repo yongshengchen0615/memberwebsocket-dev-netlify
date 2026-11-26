@@ -94,7 +94,7 @@ async function run() {
   ];
   for(const name of families) {
     await db.exec(`create function public.${name}() returns boolean language sql as
-      $$select 'general'=any(array['general']::text[])$$;`);
+      $select tier=any(allowed_tier_keys) from (select 'general'::text as tier, array['general']::text[] as allowed_tier_keys) t$;`);
   }
   await db.exec(migration);
   const matrix = (await db.query(`
