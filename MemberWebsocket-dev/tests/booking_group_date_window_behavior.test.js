@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { stripTypeScriptTypes } = require('node:module');
+const { setImmediate: nextTurn } = require('node:timers/promises');
 const fs = require('./helpers/edge-test-fs.cjs');
 const path = require('node:path');
 const vm = require('node:vm');
@@ -24,6 +25,14 @@ function buildSlots(holiday = false, configuredGroup = group) {
     normalizeGroup: async () => configuredGroup,
     SLOT_INTERVAL: 30,
     dateValue: (value) => String(value),
+    uuid: (value) => String(value),
+    ApiError: class ApiError extends Error {
+      constructor(status, code, message) {
+        super(message);
+        this.status = status;
+        this.code = code;
+      }
+    },
     taipeiDate: () => today,
     taipeiMinutes: () => 0,
     addDays: (date, days) => {
@@ -115,4 +124,123 @@ test('overnight slots carry the prior business date and reject midnight overlap'
   assert.equal(midnight.available, false);
   assert.equal(result.slots.find((slot) => slot.startTime === '01:30').available, true);
   assert.equal(result.slots.some((slot) => slot.startTime === '01:45'), false);
+});
+
+const assignedGroup = {
+  ...group,
+  settings: { ...group.settings, work_end_time: '11:30:00' },
+  assignments: [{ technicianId: group.primaryId, durationMinutes: 30 }],
+};
+const bookingDate = '2026-10-01';
+const member = { id: 'member-1' };
+const readKinds = ['legacy', 'phone', 'participant'];
+
+function occupancyDatabase(results = {}) {
+  const requests = [];
+  return { requests, from(table) {
+    const filters = [];
+    let kind = table === 'booking_participant_reservations' ? 'participant' : 'legacy';
+    const query = {
+      select() { return this; },
+      eq(field, value) { filters.push([field, value]); return this; },
+      gte(field, value) { filters.push([field, value]); return this; },
+      lte(field, value) { filters.push([field, value]); return this; },
+      in(field, value) { filters.push([field, Array.from(value)]); return this; },
+      like(field, value) { kind = 'phone'; filters.push([field, value]); return this; },
+      maybeSingle() { kind = 'edit'; return this; },
+      then(resolve, reject) {
+        requests.push({ kind, filters });
+        return Promise.resolve(results[kind] ?? { data: [], error: null }).then(resolve, reject);
+      },
+    };
+    return query;
+  } };
+}
+
+function occupiedAt(id, start, end, extra = {}) {
+  return { id, start_at: `${bookingDate}T${start}:00+08:00`, end_at: `${bookingDate}T${end}:00+08:00`, ...extra };
+}
+
+test('AC-001: group availability starts all independent occupancy reads before any can finish', async () => {
+  const pending = Object.fromEntries(readKinds.map((kind) => [kind, Promise.withResolvers()]));
+  const db = occupancyDatabase(Object.fromEntries(readKinds.map((kind) => [kind, pending[kind].promise])));
+  let responded = false;
+  const operation = buildSlots(false, assignedGroup)(db, member, { bookingDate }).then((result) => {
+    responded = true;
+    return result;
+  });
+  await nextTurn();
+  const startedBeforeAnyResponse = db.requests.map(({ kind }) => kind).sort();
+  pending.phone.resolve({ data: [occupiedAt('phone', '09:30', '10:00')], error: null });
+  pending.participant.resolve({ data: [], error: null });
+  await nextTurn();
+  const respondedBeforeLastRead = responded;
+  pending.legacy.resolve({ data: [], error: null });
+  const result = await operation;
+
+  assert.deepEqual(startedBeforeAnyResponse, [...readKinds].sort());
+  assert.equal(respondedBeforeLastRead, false);
+  assert.equal(db.requests.length, 3);
+  assert.equal(result.slots.find((slot) => slot.startTime === '09:30').available, false);
+});
+
+test('AC-002: group availability preserves each occupancy filter and excludes only the owned edit', async () => {
+  const bookingId = 'edit-booking';
+  const db = occupancyDatabase({
+    edit: { data: { id: bookingId, status: 'confirmed' }, error: null },
+    legacy: { data: [occupiedAt('legacy', '09:00', '09:30'), occupiedAt(bookingId, '10:30', '11:00')], error: null },
+    phone: { data: [occupiedAt('phone', '09:30', '10:00')], error: null },
+    participant: { data: [
+      occupiedAt('reservation', '10:00', '10:30', { booking_id: 'other-booking', technician_id: group.primaryId }),
+      occupiedAt('edited-reservation', '10:30', '11:00', { booking_id: bookingId, technician_id: group.primaryId }),
+    ], error: null },
+  });
+  const result = await buildSlots(false, assignedGroup)(db, member, { bookingDate, bookingId });
+  assert.deepEqual(db.requests[0], { kind: 'edit', filters: [['id', bookingId], ['member_id', member.id]] });
+  const dateFilters = [['booking_date', '2026-09-30'], ['booking_date', '2026-10-02']];
+  const activeStatus = ['status', ['pending', 'confirmed']];
+  for (const { kind, filters } of db.requests.slice(1)) {
+    switch (kind) {
+      case 'legacy': assert.deepEqual(filters, [...dateFilters, ['technician_id', [group.primaryId]], ['party_size', 1], activeStatus]); break;
+      case 'phone': assert.deepEqual(filters, [...dateFilters, ['request_id', 'PHONE-%'], activeStatus]); break;
+      case 'participant': assert.deepEqual(filters, [...dateFilters, ['is_active', true], ['technician_id', [group.primaryId]]]); break;
+      default: assert.fail(`Unexpected query: ${kind}`);
+    }
+  }
+  assert.deepEqual(Array.from(result.slots, (slot) => [slot.startTime, slot.available, slot.unavailableReason]), [
+    ['09:00', false, 'occupied'], ['09:30', false, 'occupied'], ['10:00', false, 'occupied'],
+    ['10:30', true, null], ['11:00', true, null],
+  ]);
+});
+
+test('AC-002: onsite arrangements without a selected technician only query phone occupancy', async () => {
+  const onsite = { ...group, settings: { ...group.settings, require_primary_technician: false } };
+  const db = occupancyDatabase();
+  await buildSlots(false, onsite)(db, member, { bookingDate });
+  assert.deepEqual(db.requests.map(({ kind }) => kind), ['phone']);
+});
+
+test('AC-003: group availability waits for edit ownership and rejects inaccessible or closed edits', async () => {
+  for (const data of [null, { status: 'cancelled' }]) {
+    const edit = Promise.withResolvers();
+    const db = occupancyDatabase({ edit: edit.promise });
+    const operation = buildSlots(false, assignedGroup)(db, member, { bookingDate, bookingId: 'uneditable' });
+    await nextTurn();
+    const startedBeforeAuthorization = db.requests.map(({ kind }) => kind);
+    edit.resolve({ data, error: null });
+    await assert.rejects(operation, { status: 409, code: 'BOOKING_NOT_EDITABLE' });
+    assert.deepEqual(startedBeforeAuthorization, ['edit']);
+    assert.equal(db.requests.length, 1);
+  }
+});
+
+test('AC-003: each occupancy lookup failure preserves the database error and blocks the result', async () => {
+  for (const [kind, message] of [
+    ['legacy', '無法讀取主要技師時段。'],
+    ['phone', '無法確認電話預約佔用時段。'],
+    ['participant', '無法讀取技師預約時段。'],
+  ]) {
+    const db = occupancyDatabase({ [kind]: { data: null, error: { message: 'database unavailable' } } });
+    await assert.rejects(buildSlots(false, assignedGroup)(db, member, { bookingDate }), { status: 500, code: 'DATABASE_ERROR', message });
+  }
 });
