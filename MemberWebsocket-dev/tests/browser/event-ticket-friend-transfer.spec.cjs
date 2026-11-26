@@ -35,7 +35,7 @@ function nodes(names) {
   }).join('\n');
 }
 const mock = [
-  'window.__requests=[];window.__transferred=false;',
+  'window.__requests=[];window.__transferred=new URLSearchParams(location.search).get("transferred")==="1";',
   'window.__hasFriends=new URLSearchParams(location.search).get("friends")!=="0";',
   'window.__gifted=new URLSearchParams(location.search).get("gift")==="1";',
   'window.__canUse=new URLSearchParams(location.search).get("use")==="1";',
@@ -48,11 +48,19 @@ const mock = [
   'window.__requests.push({client,token,action,payload});',
   'if(action==="user.event.bootstrap")return{',
   'profile:{displayName:"測試會員",memberCode:"MEMBERA1"},',
-  'usedTickets:[],usedTicketCount:0,bookingSelections:[],',
-  'offers:[{ticket,claim:window.__transferred?null:{claimId:"CLAIM-GIFT-1",status:"available",ticketType:"coupon"},',
+  'usedTickets:window.__transferred?[{ticket,claim:{claimId:"CLAIM-GIFT-1",status:"transferred"},',
+  'history:true,transferredOut:true,transferredAt:"2026-11-26T09:20:00Z",transferredToDisplayName:"好友小明",',
+  'availability:"transferred",canUse:false,canClaim:false,',
+  '},...(new URLSearchParams(location.search).get("multipleTransfer")==="1"?[{ticket,',
+  'claim:{claimId:"CLAIM-GIFT-3",status:"transferred"},history:true,transferredOut:true,',
+  'transferredAt:"2026-11-26T10:20:00Z",transferredToDisplayName:"好友小華",',
+  'availability:"transferred",canUse:false,canClaim:false}]:[])]:[],',
+  'usedTicketCount:window.__transferred?(new URLSearchParams(location.search).get("multipleTransfer")==="1"?2:1):0,',
+  'bookingSelections:[],',
+  'offers:[...(window.__transferred?[]:[{ticket,claim:{claimId:"CLAIM-GIFT-1",status:"available",ticketType:"coupon"},',
   'availability:"active",tierEligible:true,canClaim:false,canUse:window.__canUse,history:false,receivedAsGift:window.__gifted,',
   'giftFromDisplayName:window.__gifted?"好友小華":"",giftTransferredAt:window.__gifted?"2026-11-25T10:45:00Z":"",',
-  'transferredOut:window.__transferred},',
+  'transferredOut:false}]),',
   '...(new URLSearchParams(location.search).get("multiple")==="1"?[{ticket,claim:{claimId:"CLAIM-GIFT-2",status:"available",ticketType:"coupon"},',
   'availability:"active",tierEligible:true,canClaim:false,canUse:false,history:false,receivedAsGift:true,',
   'giftFromDisplayName:"好友小華",giftTransferredAt:"2026-11-25T10:45:00Z",transferredOut:false}]:[])]};',
@@ -115,7 +123,13 @@ test('AC-GIFT-UI-001: only accepted friend can be chosen, and ticket transfers o
   expect(disclosure).toContain('每張票券限轉贈一次');
   expect(disclosure).toContain('無會員階級使用限制');
   expect(disclosure).toContain('不可再次轉贈');
-  await expect(page.locator('#eventList')).toContainText('已轉贈');
+  await expect(page.locator('#eventList .event-ticket')).toHaveCount(0);
+  // The browser fixture uses an empty div for this container; visibility
+  // is asserted by its revealed class and the actual populated history list.
+  await expect(page.locator('#usedTicketHistory')).not.toHaveClass(/hidden/);
+  await expect(page.locator('#usedTicketList .event-history-item')).toHaveCount(1);
+  await expect(page.locator('#usedTicketList')).toContainText('已轉贈');
+  await expect(page.locator('#usedTicketList')).toContainText('好友小明');
   const transferred=await page.evaluate(()=>window.__requests.filter(r=>r.action==='user.event.ticket.transfer'));
   expect(transferred).toHaveLength(1);
   expect(transferred[0].client).toBe('event');
@@ -124,6 +138,43 @@ test('AC-GIFT-UI-001: only accepted friend can be chosen, and ticket transfers o
   expect(transferred[0].payload.requestId).toMatch(/^[a-f0-9]{32}$/);
   expect(errors).toEqual([]);
 });
+test('AC-GIFT-HISTORY-001: transferred ticket stays only in history after a fresh page load',async({page})=>{
+  await page.goto(base+'/?transferred=1');
+  await expect(page.locator('#eventList .event-ticket')).toHaveCount(0);
+  await expect(page.locator('#usedTicketList .event-history-item')).toHaveCount(1);
+  await expect(page.locator('#usedTicketHistorySummary')).toHaveText('共 1 筆票券紀錄');
+  await expect(page.locator('#usedTicketList')).toContainText('轉贈於 2026/11/26 17:20');
+  await page.locator('#usedTicketList .event-history-button').click();
+  await expect(page.locator('#ticketModalDate')).toContainText('已轉贈');
+  await expect(page.locator('#ticketModalDate')).toContainText('好友小明');
+  await expect(page.locator('#ticketModalAction')).toBeHidden();
+  await expect(page.locator('#ticketTransferPanel')).toBeHidden();
+  await page.reload();
+  await expect(page.locator('#eventList .event-ticket')).toHaveCount(0);
+  await expect(page.locator('#usedTicketList .event-history-item')).toHaveCount(1);
+});
+
+test('AC-GIFT-HISTORY-002: a different physical claim stays usable after another claim was gifted',async({page})=>{
+  await page.goto(base+'/?transferred=1&multiple=1');
+  const cards=page.locator('#eventList .event-ticket');
+  await expect(cards).toHaveCount(1);
+  await expect(cards).toContainText('好友小華');
+  await expect(page.locator('#usedTicketList .event-history-item')).toHaveCount(1);
+  await expect(page.locator('#usedTicketList')).toContainText('好友小明');
+});
+
+test('AC-GIFT-HISTORY-003: multiple transfers of the same campaign keep separate history entries',async({page})=>{
+  await page.goto(base+'/?transferred=1&multipleTransfer=1');
+  const history=page.locator('#usedTicketList .event-history-item');
+  await expect(history).toHaveCount(2);
+  await history.nth(1).locator('button').click();
+  await expect(page.locator('#ticketModalDate')).toContainText('好友小華');
+  await page.locator('#closeTicketModal').click();
+  await history.nth(0).locator('button').click();
+  await expect(page.locator('#ticketModalDate')).toContainText('好友小明');
+  await expect(page.locator('#eventList .event-ticket')).toHaveCount(0);
+});
+
 test('AC-GIFT-UI-002: without accepted friends the transfer stays disabled',async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(base+'/?friends=0');

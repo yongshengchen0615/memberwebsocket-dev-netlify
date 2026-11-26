@@ -47,7 +47,10 @@ test('AC-004: legacy transfer preserves idempotency and single physical-claim ow
   assert.match(migration, /TICKET_TRANSFER_REQUEST_CONFLICT/);
   assert.match(migration, /prevent_event_ticket_reclaim_after_transfer/);
   assert.match(migration, /EVENT_TICKET_RECEIVER_ALREADY_OWNED/);
-  assert.match(api, /transferredOutEventIds/);
+  assert.match(api, /transferHistoryRes/);
+  assert.match(api, /transferredTickets/);
+  assert.match(api, /ticketHistory/);
+  assert.doesNotMatch(api, /transferredOutEventIds/);
   assert.match(api, /canClaim: false,/);
   assert.match(read("supabase/migrations/20261123120000_event_ticket_automatic_issuance.sql"), /EVENT_TICKET_ISSUANCE_ONLY/);
 });
@@ -68,6 +71,19 @@ test('AC-REPEAT-001: a historical recipient may receive new physical claims with
   assert.match(api, /sender:members!event_ticket_transfers_sender_member_id_fkey\(display_name\)/);
   assert.match(eventApp, /function offerKey\(offer\)/);
   assert.match(eventApp, /data-ticket-gift-info/);
+});
+
+test('AC-GIFT-HISTORY: transferred claims are read from sender-only ledger and never returned as active offers', () => {
+  assert.match(api, /sender_member_id",member\.id\)\.order\("created_at"/);
+  assert.match(api, /receiver:members!event_ticket_transfers_receiver_member_id_fkey\(display_name\)/);
+  assert.match(api, /claim: \{ claimId:String\(row\.claim_id\),eventTicketId:String\(row\.event_ticket_id\),status:"transferred" \}/);
+  assert.match(api, /transferredOut:true/);
+  assert.match(api, /history:true/);
+  assert.match(api, /if \(!claimRow\) return \[\];/);
+  assert.match(api, /usedTickets:ticketHistory/);
+  assert.match(eventApp, /\.filter\(\(offer\) => !offer\.transferredOut\)/);
+  assert.match(eventApp, /offer\.transferredOut \? '已轉贈 · 點擊查看紀錄'/);
+  assert.match(eventPage, /id="usedTicketHistoryTitle">票券紀錄/);
 });
 
 test('AC-005: UI exposes friend-only selection and does not retry transfer as read', () => {
