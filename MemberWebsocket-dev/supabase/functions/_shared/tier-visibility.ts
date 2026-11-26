@@ -1,10 +1,15 @@
 const TIERS = ['general','silver','gold','platinum'];
 const LABELS: Record<string,string> = {general:'一般會員',silver:'銀級會員',gold:'金級會員',platinum:'白金會員'};
 // Visibility is presentation only. Claim/redemption RPCs independently enforce eligibility.
+export function tierEligible(keys: unknown, tier: unknown): boolean {
+  const current = TIERS.indexOf(String(tier));
+  return current >= 0 && Array.isArray(keys)
+    && keys.some((key) => { const rank = TIERS.indexOf(String(key)); return rank >= 0 && rank <= current; });
+}
 export function tierVisibility(keys: unknown, tier: unknown, policy: unknown) {
   const allowed = Array.isArray(keys) ? keys.map(String).filter(key=>TIERS.includes(key)) : [];
   const current = TIERS.indexOf(String(tier));
-  const eligible = current>=0 && allowed.includes(String(tier));
+  const eligible = tierEligible(allowed, tier);
   const higher = current>=0 && allowed.some(key=>TIERS.indexOf(key)>current);
   return {visible:eligible || (policy==='higher_preview' && higher),tierEligible:eligible,locked:!eligible,
     requiredTierLabels:allowed.map(key=>LABELS[key]),lockReason:eligible?'':`需符合${allowed.map(key=>LABELS[key]).join('、')||'指定會員階級'}，目前無法領取或使用。`};
