@@ -33,16 +33,16 @@ test('member code runner exercises QR dialog copy and fails denied clipboard',as
  }finally{w.close();}
 });
 
-test('QR control runner verifies both production tabs, never binds, and rejects a missing parser',async()=>{
+test('manual member-code runner verifies both tabs and works without a QR parser',async()=>{
  const d=await page('member'),w=d.window,calls=[];
  try{
   w.MemberSystem={getSession:()=>({config:{},idToken:'isolated'}),formatDate:value=>value,request:async(c,t,k,action)=>{calls.push(action);return {friends:[]};}};
-  for(const file of ['member/member-growth.js','friend-qr-scanner.js','qr-scan-dialog.js','friends.js'])w.eval(read(file));
+  for(const file of ['member/member-growth.js','qr-scan-dialog.js','friends.js'])w.eval(read(file));
   w.dispatchEvent(new w.CustomEvent('member-profile-ready',{detail:{profile:{memberCode:'AAAA',inviteCode:'AAAA000000',lineUserId:'QA'}}}));await tick();
   const n=nodes(w),result=await n.memberQrControlsCase();assert.equal(result.status,'passed',JSON.stringify(result));
   assert.equal(w.document.getElementById('memberReferralModal').classList.contains('hidden'),true);
   assert.ok(calls.every(action=>action==='member.friend.list'));
-  delete w.FriendQRScanner.parseInvitation;assert.equal((await n.memberQrControlsCase()).status,'failed');
+  assert.equal(typeof w.FriendQRScanner,'undefined');assert.equal((await n.memberQrControlsCase()).status,'passed');for(const id of ['scanFriendQr','scanMemberReferralQr','friendQrFile','memberReferralQrFile'])assert.equal(w.document.getElementById(id),null);
  }finally{w.close();}
 });
 

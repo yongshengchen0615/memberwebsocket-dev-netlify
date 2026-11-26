@@ -110,12 +110,12 @@ test('point transfer discards stale receiver reads, locks inputs, preserves retr
     await tick();
     const el = id => w.document.getElementById(id);
     el('pointTransferButton').click();
-    el('pointTransferMemberCode').value='OLD'; el('pointTransferLookup').click();
-    el('pointTransferMemberCode').value='NEW'; el('pointTransferMemberCode').dispatchEvent(new w.Event('input'));
+    el('pointTransferMemberCode').value='OLDD'; el('pointTransferLookup').click();
+    el('pointTransferMemberCode').value='NEWW'; el('pointTransferMemberCode').dispatchEvent(new w.Event('input'));
     el('pointTransferLookup').click();
-    receivers[1].resolve({ memberCode:'NEW',displayName:'New receiver' }); await tick();
-    receivers[0].resolve({ memberCode:'OLD',displayName:'Old receiver' }); await tick();
-    assert.match(el('pointTransferReceiver').textContent,/NEW/);
+    receivers[1].resolve({ memberCode:'NEWW',displayName:'New receiver' }); await tick();
+    receivers[0].resolve({ memberCode:'OLDD',displayName:'Old receiver' }); await tick();
+    assert.match(el('pointTransferReceiver').textContent,/NEWW/);
     el('pointTransferAmount').value='2';
     el('pointTransferForm').dispatchEvent(new w.Event('submit',{ cancelable:true })); await tick();
     assert.equal(transfers.length,1);
@@ -136,7 +136,7 @@ test('point transfer discards stale receiver reads, locks inputs, preserves retr
 });
 
 test('reload with an uncertain transfer restores exactly the previous request identity even after balance reaches zero',async()=>{
-  const dom=new JSDOM('<div id="pointsView"></div><div id="activeCardView" data-card-id="card"></div><div class="active-card-actions"><button id="pointTransferButton"></button><button id="pointTransferShowOwnQr"></button></div>',{runScripts:'outside-only',url:'https://example.test/',pretendToBeVisual:true});
+  const dom=new JSDOM('<div id="pointsView"></div><div id="activeCardView" data-card-id="card"></div><div class="active-card-actions"><button id="pointTransferButton"></button><button id="pointTransferCopyOwnCode"></button></div>',{runScripts:'outside-only',url:'https://example.test/',pretendToBeVisual:true});
   const w=dom.window, calls=[];
   const pending={cardId:'card',memberCode:'RECEIVER',amount:3,requestId:'pt-original-unique-123'};
   w.sessionStorage.setItem('point-transfer-pending:v1:SELF',JSON.stringify(pending));
@@ -168,7 +168,7 @@ test('reload with an uncertain transfer restores exactly the previous request id
 });
 
 test('reserved point budget is authoritative even when transfer options return raw 15 points',async()=>{
-  const dom = new JSDOM('<div id="pointsView"></div><div id="activeCardView" data-card-id="card"></div><div class="active-card-actions"><button id="pointTransferButton" disabled></button><button id="pointTransferShowOwnQr"></button></div>',{runScripts:'outside-only',url:'https://example.test/',pretendToBeVisual:true});
+  const dom = new JSDOM('<div id="pointsView"></div><div id="activeCardView" data-card-id="card"></div><div class="active-card-actions"><button id="pointTransferButton" disabled></button><button id="pointTransferCopyOwnCode"></button></div>',{runScripts:'outside-only',url:'https://example.test/',pretendToBeVisual:true});
   const w=dom.window;
   let rawBalance=15, requests=0;
   w.MemberSystem={getSession:()=>({config:{},idToken:'fixture'}),request:async(_,__,___,action)=>{

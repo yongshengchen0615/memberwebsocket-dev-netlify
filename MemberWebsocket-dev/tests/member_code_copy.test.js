@@ -13,10 +13,11 @@ test('member card no longer renders the separate member identifier or copy butto
   assert.doesNotMatch(html, /pass-member-code|id="memberCode"|id="copyMemberCodeButton"/);
   assert.doesNotMatch(app, /copyMemberCodeButton|els\.memberCode\b|copyMemberCode\(|currentMemberCode\(|memberCodeCopyResetTimer/);
 });
-test('member QR button still opens the shared dialog using the profile identifier', () => {
-  assert.match(growth, /identityQr\.textContent = '顯示會員 QR Code'/);
-  assert.match(growth, /QRDisplayDialog\?\.show\(\{memberCode: state\.profile\?\.memberCode, opener: identityQr\}\)/);
-  assert.match(growth, /identityButton\.disabled = !code/);
+test('member copy control reads profile identifier and displays feedback', () => {
+  assert.match(growth, /copy\.textContent = '複製會員編號'/);
+  assert.match(growth, /String\(state\.profile\?\.memberCode \|\| ''\)/);
+  assert.match(growth, /copyButton\.disabled = !code/);
+  assert.match(growth, /memberCodeCopyStatus/);
 });
 test('QR dialog preserves the identifier, copy action and success feedback', () => {
   assert.match(qrDialog, /show\(\{ title = '會員 QR Code', memberCode, value = memberCode/);

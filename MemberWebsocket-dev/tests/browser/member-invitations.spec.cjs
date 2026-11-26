@@ -31,9 +31,12 @@ test.afterAll(async()=>{await new Promise(r=>server.close(r));});
 for(const width of [390,1280])test(`new LINE invitation and truthful cancellation at ${width}px`,async({page},info)=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.route('https://**',r=>r.abort());
  await page.setViewportSize({width,height:900});await page.goto(base+'/member/?business=shop-a');
- await page.locator('#openMemberReferral').click();await expect(page.locator('#memberInvitationPanel')).toBeVisible();
+ await page.locator('#openMemberReferral').click();
+ await expect(page.locator('#memberReferralForm')).toBeVisible();
+ await expect(page.locator('#newMemberInvitationLinks')).toBeVisible();
+ await page.locator('#newMemberInvitationLinks summary').click();
+ await expect(page.locator('#memberInvitationPanel')).toBeVisible();
  await expect(page.locator('#memberInvitationSummary')).toContainText('成功加入 2 人');
- await expect(page.locator('#memberReferralForm')).toBeHidden();
  await page.locator('#shareMemberInvitation').click();await expect(page.locator('#memberInvitationStatus')).toContainText('已取消分享');
  expect(await page.evaluate(()=>lastShare.options.isMultiple)).toBe(true);
  expect(await page.evaluate(()=>lastShare.messages[0].contents.body.contents.at(-1).action.uri)).toContain('business=shop-a&invitation=');
