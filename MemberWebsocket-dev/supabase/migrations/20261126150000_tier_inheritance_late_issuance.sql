@@ -36,6 +36,13 @@ begin
        and e.referral_source_event_ticket_id is null
        and (e.ends_on is null or e.ends_on>=v_today)
        and public.tier_allows(v_tier,e.allowed_tier_keys)
+       -- Read operations are frequent: lock only campaigns for which this member
+       -- still has no entitlement. Do not serialize every viewer on every ticket.
+       and not exists (select 1 from public.event_ticket_claims c
+                       where c.event_ticket_id=e.id and c.member_id=p_member_id)
+       and not exists (select 1 from public.event_ticket_transfers t
+                       where t.event_ticket_id=e.id
+                         and (t.sender_member_id=p_member_id or t.receiver_member_id=p_member_id))
      order by e.id
   loop
     -- Also serializes with the campaign-activation issuer and gift transfer RPCs.
