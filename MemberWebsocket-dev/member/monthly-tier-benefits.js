@@ -6,9 +6,6 @@
   let generation = 0;
   let pendingKey = '';
   let pendingPromise = null;
-  let cachedKey = '';
-  let cachedAt = 0;
-  const CACHE_MS = 120_000;
 
   function element(tag, className, value) {
     const node = document.createElement(tag);
@@ -85,9 +82,11 @@
       return Promise.resolve();
     }
     const month = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit' }).format(new Date());
-    const key = JSON.stringify([config.supabaseUrl, config.business, profile.lineUserId, profile.tierKey, month]);
-    if (!options.force && key === cachedKey && Date.now() - cachedAt < CACHE_MS) return Promise.resolve();
+    const key = JSON.stringify([config.supabaseUrl, window.BusinessContext?.slug || config.business || '', profile.lineUserId, profile.tierKey, month]);
+    // Coalesce only simultaneous identical reads. Profile/tier updates must
+    // fetch fresh server data instead of showing stale long-lived snapshots.
     if (key === pendingKey && pendingPromise) return pendingPromise;
+    target.replaceChildren();
     const request = ++generation;
     status.textContent = '正在載入當月各階級優惠…';
     target.setAttribute('aria-busy', 'true');
@@ -97,8 +96,6 @@
         if (request !== generation) return;
         if (!data || !Array.isArray(data.tiers)) throw Error('優惠清單格式不正確。');
         render(root, data, String(profile.tierKey || 'general'));
-        cachedKey = key;
-        cachedAt = Date.now();
       })
       .catch((error) => {
         if (request !== generation) return;
