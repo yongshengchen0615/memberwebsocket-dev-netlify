@@ -50,6 +50,15 @@ function isCalendarTicketMirror(row) {
   }
 }
 
+/**
+ * @param {{
+ *   month: string,
+ *   tickets?: Record<string, unknown>[],
+ *   activities?: Record<string, unknown>[],
+ *   showTickets?: boolean,
+ *   showActivities?: boolean
+ * }} options
+ */
 export function buildMonthlyTierOverview({
   month, tickets = [], activities = [], showTickets = true, showActivities = true,
 }) {
