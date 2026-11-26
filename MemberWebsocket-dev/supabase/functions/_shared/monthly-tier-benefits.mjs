@@ -7,6 +7,11 @@ export const MONTHLY_TIERS = Object.freeze([
   Object.freeze({ key: 'platinum', label: '白金會員' }),
 ]);
 const VALID_KEYS = new Set(MONTHLY_TIERS.map((tier) => tier.key));
+// The exact 10 member-card palettes; style_key is selected per merchant and tier.
+export const MEMBERSHIP_CARD_STYLE_KEYS = Object.freeze([
+  'forest', 'midnight', 'ocean', 'sunset', 'lavender', 'rose', 'gold', 'platinum', 'mint', 'cherry',
+]);
+const VALID_CARD_STYLES = new Set(MEMBERSHIP_CARD_STYLE_KEYS);
 
 export function currentTaipeiMonth(now = new Date()) {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -63,14 +68,30 @@ function isCalendarTicketMirror(row) {
  *   tickets?: Record<string, unknown>[],
  *   activities?: Record<string, unknown>[],
  *   showTickets?: boolean,
- *   showActivities?: boolean
+ *   showActivities?: boolean,
+ *   tierSettings?: Record<string, unknown>[]
  * }} options
  */
 export function buildMonthlyTierOverview({
-  month, tickets = [], activities = [], showTickets = true, showActivities = true,
+  month, tickets = [], activities = [], showTickets = true, showActivities = true, tierSettings = [],
 }) {
   const { start, end } = monthlyTierBounds(month);
-  const tiers = MONTHLY_TIERS.map((tier) => ({ ...tier, offers: [] }));
+  const presentations = new Map(
+    (Array.isArray(tierSettings) ? tierSettings : [])
+      .filter((row) => row && VALID_KEYS.has(String(row.tier_key || '')))
+      .map((row) => [String(row.tier_key), row])
+  );
+  const tiers = MONTHLY_TIERS.map((tier) => {
+    const setting = presentations.get(tier.key);
+    const name = String(setting?.tier_label || '').trim().slice(0, 40);
+    const style = String(setting?.style_key || '');
+    return {
+      ...tier,
+      label: name || tier.label,
+      styleKey: VALID_CARD_STYLES.has(style) ? style : 'forest',
+      offers: [],
+    };
+  });
   const byKey = new Map(tiers.map((tier) => [tier.key, tier]));
 
   function include(row, kind, defaultAll) {

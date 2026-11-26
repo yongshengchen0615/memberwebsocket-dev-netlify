@@ -245,10 +245,10 @@ for (const surface of ['member','points','event','calendar','booking']) for (con
     await page.addScriptTag({url:base+'/member/monthly-tier-benefits.js'});
     await page.evaluate(surface=>{
       const tiers=[
-        {key:'general',label:'一般會員',offers:[{kind:'ticket',title:'一般級券',startsOn:'2026-11-01',endsOn:'2026-11-30'}]},
-        {key:'silver',label:'銀級會員',offers:[{kind:'activity',title:'銀級活動',startsOn:'2026-11-15',endsOn:'2026-11-15'}]},
-        {key:'gold',label:'金級會員',offers:[]},
-        {key:'platinum',label:'白金會員',offers:[{kind:'ticket',title:'白金優惠',startsOn:'2026-11-03',endsOn:'2026-11-30'}]}
+        {key:'general',label:'一般會員',styleKey:'forest',offers:[{kind:'ticket',title:'一般級券',startsOn:'2026-11-01',endsOn:'2026-11-30'}]},
+        {key:'silver',label:'銀級會員',styleKey:'lavender',offers:[{kind:'activity',title:'銀級活動',startsOn:'2026-11-15',endsOn:'2026-11-15'}]},
+        {key:'gold',label:'金級會員',styleKey:'cherry',offers:[]},
+        {key:'platinum',label:'白金會員',styleKey:'ocean',offers:[{kind:'ticket',title:'白金優惠',startsOn:'2026-11-03',endsOn:'2026-11-30'}]}
       ];
       window.__tierRequests=[];
       const config={supabaseUrl:location.origin,business:'QA'};
@@ -292,6 +292,33 @@ for (const surface of ['member','points','event','calendar','booking']) for (con
     await expect(widget.locator('[data-member-monthly-tier-tabs] button')).toHaveCount(4);
     await expect(widget.locator('[data-member-monthly-tier-tabs] button.is-current')).toHaveCount(1);
     await expect(widget.locator('[data-member-monthly-tier-tabs] button.is-current')).toHaveAttribute('data-tier-key','silver');
+    await expect(widget.locator('[data-member-monthly-tier-tabs] button.is-current')).toHaveAttribute('data-membership-tier-style','lavender');
+    const cardStyleParity=await widget.evaluate(node=>{
+      const pairs=[['general','forest'],['silver','lavender'],['gold','cherry'],['platinum','ocean']];
+      return pairs.map(([tierKey,styleKey])=>{
+        const tab=node.querySelector('[data-member-monthly-tier-tabs] button[data-tier-key="'+tierKey+'"]');
+        const testCard=document.createElement('div');
+        testCard.className='membership-progress';
+        testCard.dataset.membershipTierStyle=styleKey;
+        testCard.style.position='absolute';
+        testCard.style.visibility='hidden';
+        testCard.style.color='var(--membership-card-soft)';
+        document.body.appendChild(testCard);
+        const row={
+          tierKey,styleKey,
+          tabBackground:getComputedStyle(tab).backgroundColor,
+          tabText:getComputedStyle(tab).color,
+          cardBackground:getComputedStyle(testCard).backgroundColor,
+          cardText:getComputedStyle(testCard).color,
+        };
+        testCard.remove();
+        return row;
+      });
+    });
+    for (const row of cardStyleParity) {
+      expect(row.tabBackground).toBe(row.cardBackground,row.tierKey+' should match member card background');
+      expect(row.tabText).toBe(row.cardText,row.tierKey+' should match member card label color');
+    }
     await expect(widget.locator('[data-member-monthly-tier-tabs] button[aria-pressed="true"] .member-monthly-tab-count')).toHaveText('1');
     await expect(widget.locator('[data-member-monthly-tier-tabs] button.is-current')).toHaveAttribute('aria-label',/目前會員階級/);
     const palette = await widget.evaluate(node=>{
@@ -320,6 +347,7 @@ for (const surface of ['member','points','event','calendar','booking']) for (con
     expect(theme==='dark'?surfaceRGB<100:surfaceRGB>200).toBe(true);
     await expect(widget.locator('[data-member-monthly-tier-overview] .member-monthly-tier')).toHaveCount(1);
     await expect(widget.locator('.member-monthly-tier.is-current')).toContainText('銀級會員');
+    await expect(widget.locator('.member-monthly-tier.is-current')).toHaveAttribute('data-membership-tier-style','lavender');
     await expect(widget.locator('[data-member-monthly-tier-overview]')).toContainText('銀級活動');
     await expect(widget.locator('[data-member-monthly-tier-overview]')).not.toContainText('一般級券');
     await widget.locator('[data-member-monthly-tier-tabs] button').first().click();

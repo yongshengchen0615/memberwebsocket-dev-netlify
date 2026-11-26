@@ -165,10 +165,58 @@ html[data-theme="dark"] .member-monthly-benefits {
   margin: 0 0 9px;
   min-width: 0;
 }
+/* Match the exact admin-configured member-card palette, never a tier-name color. */
+.member-monthly-benefits :is(.member-monthly-tab, .member-monthly-tier)[data-membership-tier-style="forest"] {
+  --monthly-card-background: #17352e;
+  --monthly-card-accent: #df6b4d;
+  --monthly-card-soft: #f3c9ab;
+}
+.member-monthly-benefits :is(.member-monthly-tab, .member-monthly-tier)[data-membership-tier-style="midnight"] {
+  --monthly-card-background: #1a2340;
+  --monthly-card-accent: #78a8f7;
+  --monthly-card-soft: #dae6ff;
+}
+.member-monthly-benefits :is(.member-monthly-tab, .member-monthly-tier)[data-membership-tier-style="ocean"] {
+  --monthly-card-background: #0d3b4c;
+  --monthly-card-accent: #3dc4c5;
+  --monthly-card-soft: #c9f0ea;
+}
+.member-monthly-benefits :is(.member-monthly-tab, .member-monthly-tier)[data-membership-tier-style="sunset"] {
+  --monthly-card-background: #54261f;
+  --monthly-card-accent: #ee896d;
+  --monthly-card-soft: #ffd3b9;
+}
+.member-monthly-benefits :is(.member-monthly-tab, .member-monthly-tier)[data-membership-tier-style="lavender"] {
+  --monthly-card-background: #33264d;
+  --monthly-card-accent: #b999e8;
+  --monthly-card-soft: #eadbff;
+}
+.member-monthly-benefits :is(.member-monthly-tab, .member-monthly-tier)[data-membership-tier-style="rose"] {
+  --monthly-card-background: #501d32;
+  --monthly-card-accent: #e891ab;
+  --monthly-card-soft: #ffd8e3;
+}
+.member-monthly-benefits :is(.member-monthly-tab, .member-monthly-tier)[data-membership-tier-style="gold"] {
+  --monthly-card-background: #45320e;
+  --monthly-card-accent: #e6b84f;
+  --monthly-card-soft: #ffe7a7;
+}
+.member-monthly-benefits :is(.member-monthly-tab, .member-monthly-tier)[data-membership-tier-style="platinum"] {
+  --monthly-card-background: #38414e;
+  --monthly-card-accent: #b8cadc;
+  --monthly-card-soft: #e9eff5;
+}
+.member-monthly-benefits :is(.member-monthly-tab, .member-monthly-tier)[data-membership-tier-style="mint"] {
+  --monthly-card-background: #1e4039;
+  --monthly-card-accent: #6bd0a0;
+  --monthly-card-soft: #d1f4de;
+}
+.member-monthly-benefits :is(.member-monthly-tab, .member-monthly-tier)[data-membership-tier-style="cherry"] {
+  --monthly-card-background: #4a1721;
+  --monthly-card-accent: #ec6973;
+  --monthly-card-soft: #ffd0d4;
+}
 .member-monthly-benefits-tabs button {
-  --monthly-tier-ink: var(--monthly-text);
-  --monthly-tier-fill: var(--monthly-subtle);
-  --monthly-tier-edge: var(--monthly-border);
   display: flex;
   min-width: 0;
   min-height: 39px;
@@ -182,56 +230,22 @@ html[data-theme="dark"] .member-monthly-benefits {
   color: var(--monthly-text);
   font: inherit;
   font-size: 12px;
-  font-weight: 680;
+  font-weight: 720;
   cursor: pointer;
-  transition: background-color .16s ease, border-color .16s ease;
+  transition: filter .16s ease, border-color .16s ease, box-shadow .16s ease;
 }
-.member-monthly-benefits-tabs button:hover:not([aria-pressed="true"]) { background: var(--monthly-hover); }
-.member-monthly-benefits-tabs button[aria-pressed="true"] {
-  color: var(--monthly-tier-ink);
-  background: var(--monthly-tier-fill);
-  border-color: var(--monthly-tier-edge);
-  box-shadow: inset 0 -2px 0 var(--monthly-tier-edge);
+.member-monthly-benefits-tabs button[data-membership-tier-style] {
+  color: var(--monthly-card-soft);
+  background: var(--monthly-card-background);
+  border-color: var(--monthly-card-accent);
+  box-shadow: inset 0 2px 0 var(--monthly-card-accent);
 }
-.member-monthly-benefits-tabs button[data-tier-key="general"] {
-  --monthly-tier-ink: #34485a;
-  --monthly-tier-fill: #eaf0f5;
-  --monthly-tier-edge: #677e93;
-}
-.member-monthly-benefits-tabs button[data-tier-key="silver"] {
-  --monthly-tier-ink: #3d4f5c;
-  --monthly-tier-fill: #e8eef2;
-  --monthly-tier-edge: #748ba0;
-}
-.member-monthly-benefits-tabs button[data-tier-key="gold"] {
-  --monthly-tier-ink: #725014;
-  --monthly-tier-fill: #fff1d1;
-  --monthly-tier-edge: #9d741f;
-}
-.member-monthly-benefits-tabs button[data-tier-key="platinum"] {
-  --monthly-tier-ink: #255466;
-  --monthly-tier-fill: #e4f3f7;
-  --monthly-tier-edge: #53899d;
-}
-html[data-theme="dark"] .member-monthly-benefits-tabs button[data-tier-key="general"] {
-  --monthly-tier-ink: #e1eaf2;
-  --monthly-tier-fill: #2a3742;
-  --monthly-tier-edge: #a4bacd;
-}
-html[data-theme="dark"] .member-monthly-benefits-tabs button[data-tier-key="silver"] {
-  --monthly-tier-ink: #e4edf4;
-  --monthly-tier-fill: #293744;
-  --monthly-tier-edge: #aabed1;
-}
-html[data-theme="dark"] .member-monthly-benefits-tabs button[data-tier-key="gold"] {
-  --monthly-tier-ink: #ffe4ac;
-  --monthly-tier-fill: #3d311d;
-  --monthly-tier-edge: #e9c16d;
-}
-html[data-theme="dark"] .member-monthly-benefits-tabs button[data-tier-key="platinum"] {
-  --monthly-tier-ink: #d4f1ff;
-  --monthly-tier-fill: #243d48;
-  --monthly-tier-edge: #89bfd1;
+.member-monthly-benefits-tabs button[data-membership-tier-style]:hover { filter: brightness(1.11); }
+.member-monthly-benefits-tabs button[data-membership-tier-style][aria-pressed="true"] {
+  color: var(--monthly-card-soft);
+  background: var(--monthly-card-background);
+  border-color: var(--monthly-card-accent);
+  box-shadow: inset 0 -3px 0 var(--monthly-card-accent), 0 0 0 2px var(--monthly-card-background);
 }
 .member-monthly-tab-label {
   overflow: hidden;
@@ -264,9 +278,13 @@ html[data-theme="dark"] .member-monthly-benefits-tabs button[data-tier-key="plat
   font-weight: 750;
   font-variant-numeric: tabular-nums;
 }
-.member-monthly-benefits-tabs button[aria-pressed="true"] .member-monthly-tab-count {
-  background: var(--monthly-surface);
-  color: var(--monthly-tier-ink);
+.member-monthly-benefits-tabs button[data-membership-tier-style] .member-monthly-tab-count {
+  background: rgba(255,255,255,.16);
+  color: var(--monthly-card-soft);
+}
+.member-monthly-benefits-tabs button[data-membership-tier-style][aria-pressed="true"] .member-monthly-tab-count {
+  background: rgba(255,255,255,.22);
+  color: var(--monthly-card-soft);
 }
 .member-monthly-tier {
   padding: 10px 11px;
@@ -285,6 +303,14 @@ html[data-theme="dark"] .member-monthly-benefits-tabs button[data-tier-key="plat
   color: var(--monthly-text);
   font-size: 13px;
   font-weight: 750;
+}
+.member-monthly-tier[data-membership-tier-style] .member-monthly-tier-heading h4 {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: var(--monthly-card-background);
+  color: var(--monthly-card-soft);
+  box-shadow: inset 3px 0 0 var(--monthly-card-accent);
 }
 .member-monthly-current-tag {
   padding: 3px 8px;

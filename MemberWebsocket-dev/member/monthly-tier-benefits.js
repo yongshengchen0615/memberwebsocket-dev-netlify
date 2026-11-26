@@ -4,6 +4,11 @@
   const states = new WeakMap();
   const surfaces = new Set(['member', 'points', 'event', 'calendar', 'booking']);
   const STALE_MS = 120000;
+  const CARD_STYLE_KEYS = new Set(['forest','midnight','ocean','sunset','lavender','rose','gold','platinum','mint','cherry']);
+  function cardStyle(value) {
+    const key = String(value || '');
+    return CARD_STYLE_KEYS.has(key) ? key : 'forest';
+  }
 
   function element(tag, className, value) {
     const node = document.createElement(tag);
@@ -29,6 +34,7 @@
   function tierSection(tier, currentTier) {
     const section = element('section', 'member-monthly-tier');
     section.dataset.tierKey = String(tier.key || '');
+    section.dataset.membershipTierStyle = cardStyle(tier.styleKey);
     if (tier.key === currentTier) section.classList.add('is-current');
     const heading = element('div', 'member-monthly-tier-heading');
     heading.append(element('h4', '', tier.label || '會員階級'));
@@ -73,6 +79,7 @@
         const button = element('button', 'member-monthly-tab');
         button.type = 'button';
         button.dataset.tierKey = String(tier.key || '');
+        button.dataset.membershipTierStyle = cardStyle(tier.styleKey);
         button.setAttribute('aria-pressed', String(tier.key === state.selected));
         button.setAttribute('aria-label', fullLabel + '，' + count + ' 項優惠' + (tier.key === currentTier ? '，目前會員階級' : ''));
         if (tier.key === currentTier) button.classList.add('is-current');
