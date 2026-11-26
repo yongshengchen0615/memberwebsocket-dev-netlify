@@ -66,9 +66,14 @@ begin
     raise exception 'EVENT_TICKET_RECEIVER_ALREADY_OWNED';
   end if;$guard$,s);
       if position(old_guard in definition) = 0 then
-        raise exception 'REPEAT_GIFT_TRANSFER_GUARD_NOT_FOUND_IN_SCHEMA: %',s;
+        -- An already migrated schema has no historic-receiver error at all.
+        -- Fail closed if an unfamiliar version still contains that error.
+        if position('EVENT_TICKET_RECEIVER_ALREADY_OWNED' in definition) > 0 then
+          raise exception 'REPEAT_GIFT_TRANSFER_GUARD_NOT_FOUND_IN_SCHEMA: %',s;
+        end if;
+      else
+        execute replace(definition,old_guard,'');
       end if;
-      execute replace(definition,old_guard,'');
     end if;
 
     -- These server-only issuers already check eligibility and previous issuance.
