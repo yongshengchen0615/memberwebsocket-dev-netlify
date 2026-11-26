@@ -82,6 +82,7 @@ async function run() {
         event_ticket_id uuid not null references public.event_tickets(id),
         member_id uuid not null references public.members(id),
         status text not null,
+        created_at timestamptz not null default now(),
         updated_at timestamptz not null default now(),
         unique(event_ticket_id,member_id)
       );
