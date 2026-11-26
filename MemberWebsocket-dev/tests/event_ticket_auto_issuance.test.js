@@ -12,7 +12,7 @@ const event = read('event/app.js');
 const admin = read('admin/app.js');
 
 test('AC-001: only issued claims are visible; legacy member claim cannot create a new one', () => {
-  assert.match(api, /if \(!claimRow && !transferredOut\) return \[\];/);
+  assert.match(api, /if \(!claimRow\) return \[\];/);
   assert.match(api, /canClaim: false,/);
   assert.doesNotMatch(event, /user\.event\.ticket\.claim/);
   assert.doesNotMatch(event, /claimTicket\(/);

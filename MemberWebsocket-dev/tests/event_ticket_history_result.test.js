@@ -31,3 +31,15 @@ test('active ticket actions keep the normal active-first lookup path', () => {
   assert.ok(event.includes('const offer = findOffer(state.pendingEventTicketId);'));
   assert.ok(event.includes('return activeOffer || historyOffer || null;'));
 });
+
+test('transferred history is separate from active tickets, retains exact claim identity and cannot be redeemed', () => {
+  const event=read('event/app.js');
+  const html=read('event/index.html');
+  assert.match(event,/\.filter\(\(offer\) => !offer\.transferredOut\)/);
+  assert.match(event,/meta\.textContent = `轉贈於 /);
+  assert.match(event,/收件者：\$\{String\(offer\.transferredToDisplayName/);
+  assert.match(event,/history \? offer\.transferredOut \? `已轉贈：/);
+  assert.match(event,/function offerKey\(offer\)/);
+  assert.match(event,/els\.ticketModalAction\.classList\.toggle\('hidden', transferMode \|\| history/);
+  assert.match(html,/id="usedTicketHistoryTitle">票券紀錄/);
+});
