@@ -4,6 +4,20 @@ const { test } = require('node:test');
 const file = require('node:path').join(__dirname, '../admin/calendar-navigation.js');
 const navigation = fs.existsSync(file) ? require(file) : {};
 
+test('Google calendar AC-002: six-week month dates include adjacent months and respect supported bounds', () => {
+  assert.equal(typeof navigation.monthDates, 'function');
+  const dates = navigation.monthDates('2027-01-01');
+  assert.equal(dates.length, 42);
+  assert.equal(dates[0], '2026-12-27');
+  assert.equal(dates[41], '2027-02-06');
+  assert.equal(new Set(dates).size, 42);
+  dates.slice(1).forEach((date, index) => assert.equal(date, navigation.shiftDate(dates[index], 1)));
+  assert.ok(navigation.monthDates('2028-02-01').includes('2028-02-29'));
+  assert.equal(navigation.monthDates('1000-01-01').filter(Boolean)[0], '1000-01-01');
+  assert.equal(navigation.monthDates('9999-12-01').filter(Boolean).at(-1), '9999-12-31');
+  assert.deepEqual(navigation.monthDates('2026-02-29'), []);
+});
+
 test('AC-001: month strip crosses the year without skipping or duplicating a month', () => {
   assert.equal(typeof navigation.monthSequence, 'function', 'Calendar navigation model is available');
   assert.deepEqual(navigation.monthSequence('2026-11-01'), [
