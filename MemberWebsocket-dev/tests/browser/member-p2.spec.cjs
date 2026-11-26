@@ -13,7 +13,7 @@ test.beforeAll(async()=>{
     const events=document.getElementById('eventList');if(events)events.innerHTML='<article class="event-ticket"><h3>QA 活動票券</h3><button type="button">查看並使用</button></article>';
     const profile={lineUserId:new URL(location.href).searchParams.get('account')||'QA-A',profileComplete:true,membershipRequired:false,memberCode:'AAAA',inviteCode:'AAAA000000'};
     window.dispatchEvent(new CustomEvent('${surface==='member'?'member-profile-ready':surface==='booking'?'booking:member-loaded':'p2-unused'}',{detail:{profile}}));window.dispatchEvent(new CustomEvent('user-tour:ready',{detail:{surface:'${surface}',profile}}));},0));`;
-   fixtures.set(surface,fixture);html=html.replace('</body>',`<script src="/p2-fixture.js?surface=${surface}"></script><script src="/user-tour.js"></script>${surface==='event'?'':'<script src="/vendor/friend-qrcode.js"></script>'+(surface==='member'?'<script src="/member/member-growth.js"></script><script src="/vendor/friend-qr-decoder.js"></script><script src="/friend-qr-scanner.js"></script>':'')+'<script src="/qr-scan-dialog.js"></script><script src="/dialog-accessibility.js"></script><script src="/friends.js"></script>'}</body>`);
+   fixtures.set(surface,fixture);html=html.replace('</body>',`<script src="/p2-fixture.js?surface=${surface}"></script><script src="/user-tour.js"></script>${surface==='event'?'':''+(surface==='member'?'<script src="/member/member-growth.js"></script>':'')+'<script src="/qr-scan-dialog.js"></script><script src="/dialog-accessibility.js"></script><script src="/friends.js"></script>'}</body>`);
    res.writeHead(200,{'Content-Type':'text/html'});res.end(html);return;
   }
   if(url.pathname==='/p2-fixture.js'){res.writeHead(200,{'Content-Type':'text/javascript'});res.end(fixtures.get(url.searchParams.get('surface')));return;}
@@ -57,15 +57,11 @@ async function openFriends(page,tab='friends'){
  await expect(page.locator('#memberFriendsModal')).toBeVisible();await expect(page.locator('#memberReferralFriendsTabPanel')).toBeVisible();
  if(tab==='reward'){await page.locator('#closeMemberFriends').click();await page.locator('#openMemberReferral').click();await expect(page.locator('#memberReferralModal')).toBeVisible();await expect(page.locator('#memberReferralRewardTabPanel')).toBeVisible();}
 }
-async function qrPng(page,url){
- return Buffer.from((await page.evaluate(url=>FriendQRCode.toDataURL(url,{width:512,margin:4}),url)).split(',')[1],'base64');
-}
-
 test('friends tab groups invite-friend, add-friend and friend list without reward controls',async({page})=>{
  await openFriends(page,'friends');
  await expect(page.locator('#friendInviteSection')).toHaveCount(0);await expect(page.locator('#friendAddForm')).toBeVisible();await expect(page.locator('#friendsPanel')).toBeVisible();
  await expect(page.locator('#memberReferralForm')).toBeHidden();await expect(page.locator('#memberReferralShare')).toHaveCount(0);
- await expect(page.locator('#friendAddForm').locator('text=加好友')).toBeVisible();await expect(page.locator('#scanFriendQr')).toBeVisible();
+ await expect(page.locator('#friendAddForm').locator('text=加好友')).toBeVisible();await expect(page.locator('#friendLookupCode')).toBeVisible();await expect(page.locator('#scanFriendQr')).toHaveCount(0);
 });
 
 test('reward tab binds referral independently and never sends a friend request',async({page})=>{
@@ -82,67 +78,49 @@ test('reward link opens reward tab and does not prefill add-friend input',async(
  expect(await page.evaluate(()=>p2Calls.filter(c=>!c.action.endsWith('list')))).toHaveLength(0);
 });
 
-test('QR image performs local friend lookup only; reward binding remains untouched',async({page})=>{
- await openFriends(page,'friends');
- await page.locator('#friendQrFile').setInputFiles({name:'friend.png',mimeType:'image/png',buffer:await qrPng(page,base+'/member/#friend=BBBB000000')});
- await expect(page.locator('#friendLookupCode')).toHaveValue('BBBB000000');await expect(page.locator('#confirmFriendRequest')).toBeVisible();await expect(page.locator('#bindMemberReferral')).toBeDisabled();await expect(page.locator('#memberReferralInviteCode')).toHaveValue('');
- expect(await page.evaluate(()=>p2Calls.filter(c=>!c.action.endsWith('list')).map(c=>c.action))).toEqual(['member.friend.lookup']);
- await page.locator('#confirmFriendRequest').click();await expect.poll(()=>page.evaluate(()=>p2Calls.filter(c=>c.action==='member.friend.request').length)).toBe(1);expect(await page.evaluate(()=>p2Calls.filter(c=>c.action==='member.referral.bind').length)).toBe(0);
+test('typing a member number looks up friend but does not trigger reward',async({page})=>{
+ await openFriends(page,'friends');await page.locator('#friendLookupCode').fill('BBBB000000');
+ await page.locator('#lookupFriend').click();await expect(page.locator('#confirmFriendRequest')).toBeVisible();
+ expect(await page.evaluate(()=>p2Calls.filter(c=>c.action==='member.referral.bind'))).toHaveLength(0);
+ await page.locator('#confirmFriendRequest').click();
+ await expect.poll(()=>page.evaluate(()=>p2Calls.filter(c=>c.action==='member.friend.request').length)).toBe(1);
 });
-
-test('camera reads real friend QR frames and stops its video tracks after lookup',async({page})=>{
- await openFriends(page,'friends');
- await page.evaluate(async()=>{
-  const canvas=document.createElement('canvas');await FriendQRCode.toCanvas(canvas,location.origin+'/member/#friend=BBBB000000',{width:512,margin:4});
-  const stream=canvas.captureStream(10);window.qrCamera={stopped:0,requested:null,stream,canvas};
-  for(const track of stream.getTracks()){const stop=track.stop.bind(track);track.stop=()=>{qrCamera.stopped++;stop();};}
-  navigator.mediaDevices.getUserMedia=async options=>{qrCamera.requested=options;return stream;};
- });
- await page.locator('#scanFriendQr').click();await expect(page.locator('#friendLookupCode')).toHaveValue('BBBB000000');await expect(page.locator('#confirmFriendRequest')).toBeVisible();
- expect(await page.evaluate(()=>qrCamera.requested.audio)).toBe(false);expect(await page.evaluate(()=>qrCamera.stopped)).toBe(1);expect(await page.evaluate(()=>qrCamera.stream.getTracks().every(t=>t.readyState==='ended'))).toBe(true);
- await expect(page.locator('#friendQrScanner')).toBeHidden();expect(await page.evaluate(()=>p2Calls.filter(c=>!c.action.endsWith('list')).map(c=>c.action))).toEqual(['member.friend.lookup']);
-});
-
-test('camera denial and late permission grant after closing leave manual friend lookup usable',async({page})=>{
- await openFriends(page,'friends');
- await page.evaluate(()=>navigator.mediaDevices.getUserMedia=async()=>{throw new DOMException('denied','NotAllowedError');});
- await page.locator('#scanFriendQr').click();await expect(page.locator('#friendStatus')).toContainText('相機權限未開啟');await page.locator('#stopFriendQr').click();
- await page.evaluate(()=>{window.lateCameraStopped=0;navigator.mediaDevices.getUserMedia=()=>new Promise(resolve=>window.releaseQrCamera=()=>resolve({getTracks:()=>[{stop:()=>lateCameraStopped++}]}));});
- await page.locator('#scanFriendQr').click();await page.locator('.qr-scan-dialog-heading .qr-scan-dialog-close').click();await page.locator('#closeMemberFriends').click();await page.evaluate(()=>releaseQrCamera());await expect.poll(()=>page.evaluate(()=>lateCameraStopped)).toBe(1);
- await page.locator('#openMemberFriends').click();await page.locator('#friendLookupCode').fill('BBBB000000');await page.locator('#lookupFriend').click();await expect(page.locator('#confirmFriendRequest')).toBeVisible();
- expect(await page.evaluate(()=>p2Calls.filter(c=>/request|referral/.test(c.action)))).toHaveLength(0);
-});
-
-test('foreign friend QR cannot lookup, navigate or bind a reward',async({page})=>{
- await openFriends(page,'friends');const url=page.url();
- await page.locator('#friendQrFile').setInputFiles({name:'foreign.png',mimeType:'image/png',buffer:await qrPng(page,'https://foreign.test/member/#friend=BBBB000000')});
- await expect(page.locator('#friendStatus')).toContainText('不是本站');expect(page.url()).toBe(url);await expect(page.locator('#bindMemberReferral')).toBeDisabled();expect(await page.evaluate(()=>p2Calls.filter(c=>!c.action.endsWith('list')))).toHaveLength(0);
+test('invalid URL and own member code cannot send an invitation',async({page})=>{
+ await openFriends(page,'friends');await page.locator('#friendLookupCode').fill('https://foreign.test/member/#friend=BBBB');
+ await page.locator('#lookupFriend').click();await expect(page.locator('#friendStatus')).toContainText('請輸入有效');
+ await page.locator('#friendLookupCode').fill('AAAA');await page.locator('#lookupFriend').click();
+ await expect(page.locator('#friendStatus')).toContainText('不可使用自己的');
+ expect(await page.evaluate(()=>p2Calls.filter(c=>!c.action.endsWith('list')))).toHaveLength(0);
 });
 
 for(const [width,theme] of [[320,'light'],[390,'dark']])test('separated friend and reward tabs fit '+width+' '+theme+' and retain keyboard focus',async({page},info)=>{
  await page.setViewportSize({width,height:844});await page.addInitScript(theme=>document.addEventListener('DOMContentLoaded',()=>document.documentElement.dataset.theme=theme),theme);await openFriends(page,'friends');
  const bounds=await page.locator('#memberFriendsModal .member-referral-dialog').boundingBox();expect(bounds.x).toBeGreaterThanOrEqual(0);expect(bounds.x+bounds.width).toBeLessThanOrEqual(width);expect(await page.locator('#memberFriendsModal .member-referral-dialog').evaluate(node=>node.scrollWidth<=node.clientWidth+1)).toBe(true);
- await page.locator('#scanFriendQr').scrollIntoViewIfNeeded();await expect(page.locator('#scanFriendQr')).toBeVisible();await page.locator('#closeMemberFriends').click();await page.locator('#openMemberReferral').click();await expect(page.locator('#memberReferralForm')).toBeVisible();await info.attach('friends-reward-mobile',{body:await page.screenshot(),contentType:'image/png'});
+ await page.locator('#lookupFriend').scrollIntoViewIfNeeded();await expect(page.locator('#lookupFriend')).toBeVisible();await page.locator('#closeMemberFriends').click();await page.locator('#openMemberReferral').click();await expect(page.locator('#memberReferralForm')).toBeVisible();await info.attach('friends-reward-mobile',{body:await page.screenshot(),contentType:'image/png'});
  await page.locator('#closeMemberReferral').focus();await page.keyboard.press('Shift+Tab');expect(await page.evaluate(()=>document.getElementById('memberReferralModal').contains(document.activeElement))).toBe(true);
  await page.keyboard.press('Escape');await expect(page.locator('#memberReferralModal')).toBeHidden();await expect(page.locator('#openMemberReferral')).toBeFocused();
 });
-test('production QR controls runner sees both independent workflows and never performs a bind',async({page})=>{
- await openFriends(page,'friends');await page.evaluate(()=>history.replaceState(null,'','/MemberWebsocket-dev/member/'));await page.evaluate(fs.readFileSync(path.join(root,'qr-scan-dialog.js'),'utf8'));
+test('manual-input QA runner sees distinct workflows without reward writes',async({page})=>{
+ await openFriends(page,'friends');await page.evaluate(()=>history.replaceState(null,'','/MemberWebsocket-dev/member/'));
  await page.evaluate(fs.readFileSync(path.join(root,'user-test-control.js'),'utf8').replace('  window.MemberUserTestControl =','  window.qaNodes={memberQrControlsCase};\n  window.MemberUserTestControl ='));
- const result=await page.evaluate(()=>qaNodes.memberQrControlsCase());expect(result.status,JSON.stringify(result)).toBe('passed');await expect(page.locator('#memberReferralModal')).toBeHidden();expect(await page.evaluate(()=>p2Calls.filter(c=>/request|referral/.test(c.action)))).toHaveLength(0);
+ const result=await page.evaluate(()=>qaNodes.memberQrControlsCase());
+ expect(result.status,JSON.stringify(result)).toBe('passed');
+ expect(await page.evaluate(()=>p2Calls.filter(c=>/request|referral/.test(c.action)))).toHaveLength(0);
 });
-test('referral QR image prefills the reward workflow and only explicit confirm binds',async({page})=>{
- await openFriends(page,'reward');await page.locator('#memberReferralQrFile').setInputFiles({name:'reward.png',mimeType:'image/png',buffer:await qrPng(page,base+'/member/#reward=CCCC')});
- await expect(page.locator('#memberReferralInviteCode')).toHaveValue('CCCC');expect(await page.evaluate(()=>p2Calls.filter(c=>c.action==='member.referral.bind'))).toHaveLength(0);await page.locator('#bindMemberReferral').click();await expect(page.locator('#memberReferralStatus')).toContainText('邀請成功');expect(await page.evaluate(()=>p2Calls.filter(c=>c.action==='member.referral.bind'))).toHaveLength(1);expect(await page.evaluate(()=>p2Calls.filter(c=>c.action==='member.friend.request'))).toHaveLength(0);
+test('reward action uses typed member number and requires explicit confirmation',async({page})=>{
+ await openFriends(page,'reward');await page.locator('#memberReferralInviteCode').fill('CCCC');
+ expect(await page.evaluate(()=>p2Calls.filter(c=>c.action==='member.referral.bind'))).toHaveLength(0);
+ await page.locator('#bindMemberReferral').click();await expect(page.locator('#memberReferralStatus')).toContainText('邀請成功');
+ expect(await page.evaluate(()=>p2Calls.filter(c=>c.action==='member.referral.bind').length)).toBe(1);
 });
-
-test('member QR remains available while friend and reward sharing sections are removed',async({page})=>{
+test('member number copy and QR removal do not issue friend or reward mutations',async({page})=>{
  await openFriends(page);await page.locator('#closeMemberFriends').click();
- const decode=()=>page.locator('#qrDisplayPanel canvas').evaluate(canvas=>{const c=canvas.getContext('2d');return FriendQRDecode(c.getImageData(0,0,canvas.width,canvas.height).data,canvas.width,canvas.height).data;});
- await page.locator('#showMemberIdentityQr').click();await expect(page.locator('#qrDisplayPanel canvas')).toBeVisible();expect(await decode()).toBe('AAAA');
- await page.keyboard.press('Escape');await expect(page.locator('#showMemberIdentityQr')).toBeFocused();
- await page.locator('#openMemberFriends').click();await expect(page.locator('#friendInviteSection')).toHaveCount(0);await expect(page.locator('#scanFriendQr')).toBeVisible();
- await page.locator('#closeMemberFriends').click();await page.locator('#openMemberReferral').click();await expect(page.locator('#memberReferralShare')).toHaveCount(0);await expect(page.locator('#scanMemberReferralQr')).toBeVisible();
+ await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.copiedMember=text;}}}));
+ await page.locator('#copyMemberIdentityCode').click();
+ await expect(page.locator('#memberCodeCopyStatus')).toContainText('會員編號已複製');
+ expect(await page.evaluate(()=>window.copiedMember)).toBe('AAAA');
+ await page.locator('#openMemberFriends').click();await expect(page.locator('#scanFriendQr')).toHaveCount(0);
+ await page.locator('#closeMemberFriends').click();await page.locator('#openMemberReferral').click();await expect(page.locator('#scanMemberReferralQr')).toHaveCount(0);
  expect(await page.evaluate(()=>p2Calls.filter(c=>!c.action.endsWith('list')))).toHaveLength(0);
 });
 
@@ -154,7 +132,7 @@ for(const [width,theme] of [[320,'light'],[390,'dark'],[1280,'light']])test('mem
   const group=page.locator('#memberPassActions');
   const buttons=group.locator('button.member-referral-trigger');
   await expect(buttons).toHaveCount(3);
-  expect(await buttons.evaluateAll(nodes=>nodes.map(node=>node.id))).toEqual(['showMemberIdentityQr','openMemberFriends','openMemberReferral']);
+  expect(await buttons.evaluateAll(nodes=>nodes.map(node=>node.id))).toEqual(['copyMemberIdentityCode','openMemberFriends','openMemberReferral']);
   const layout=await page.evaluate(()=>{
     const pass=document.getElementById('memberPass');
     const actionGroup=document.getElementById('memberPassActions');
@@ -192,10 +170,10 @@ for(const [width,theme] of [[320,'light'],[390,'dark'],[1280,'light']])test('mem
   expect(layout.qrFirst).toBe(true);
   expect(layout.sideBySide).toBe(true);
   if(width<=420)expect(layout.qrFullRow).toBe(true);
-  await page.locator('#showMemberIdentityQr').click();
-  await expect(page.locator('#qrDisplayPanel canvas')).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(page.locator('#showMemberIdentityQr')).toBeFocused();
+  await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>window.copiedPassMember=text}}));
+  await page.locator('#copyMemberIdentityCode').click();
+  await expect(page.locator('#memberCodeCopyStatus')).toContainText('會員編號已複製');
+  expect(await page.evaluate(()=>window.copiedPassMember)).toBe('AAAA');
   await page.locator('#openMemberFriends').click();
   await expect(page.locator('#memberFriendsModal')).toBeVisible();
   await page.locator('#closeMemberFriends').click();
