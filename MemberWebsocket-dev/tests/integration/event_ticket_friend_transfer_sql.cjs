@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 
 const migration = readFileSync(join(__dirname, '../../supabase/migrations/20261111122500_event_ticket_friend_transfer.sql'), 'utf8');
 const giftPolicy = readFileSync(join(__dirname, '../../supabase/migrations/20261111134000_event_ticket_one_time_gift_tier_exemption.sql'), 'utf8');
+const repeatableGift = readFileSync(join(__dirname, '../../supabase/migrations/20261126093000_repeatable_event_ticket_gifts.sql'), 'utf8');
 const db = new PGlite();
 
 const A = '00000000-0000-0000-0000-000000000001';
@@ -122,6 +123,7 @@ async function run() {
       [ticketId(12),A,B,C]
     );
     await db.exec(giftPolicy);
+    await db.exec(repeatableGift);
     const legacy=(await db.query("select transfer_ordinal from public.event_ticket_transfers where claim_id='CLAIM-12' order by transfer_ordinal")).rows;
     assert.deepEqual(legacy.map(row=>row.transfer_ordinal),[1,2],'historical forwarding remains auditable');
     await mustReject(db.query(
@@ -154,18 +156,19 @@ async function run() {
     assert.equal(await ledgerCount(1), 1);
     await mustReject(transfer(A,'CLAIM-1',C,'transfer-accepted-1'), 'TICKET_TRANSFER_REQUEST_CONFLICT');
     await mustReject(transfer(A,'CLAIM-1',C,'transfer-accepted-2'), 'EVENT_TICKET_TRANSFER_NOT_OWNED');
-    await mustReject(db.query(
+    await db.query(
       "insert into public.event_ticket_claims(claim_id,event_ticket_id,member_id,status) values('NEW-OWNER',$1,$2,'claimed')",
       [ticketId(1),A]
-    ), 'EVENT_TICKET_ALREADY_TRANSFERRED');
+    );
     await mustReject(transfer(B,'CLAIM-1',A,'transfer-return-1'), 'EVENT_TICKET_ALREADY_TRANSFERRED');
     await mustReject(transfer(B,'CLAIM-1',C,'transfer-forward-1'), 'EVENT_TICKET_ALREADY_TRANSFERRED');
     assert.equal(await claimOwner('CLAIM-1'), B, 'the gifted recipient retains the ticket');
     assert.equal(await ledgerCount(1), 1, 'each physical claim can only be gifted once');
-    await mustReject(db.query(
+    await db.query(
       "insert into public.event_ticket_claims(claim_id,event_ticket_id,member_id,status) values('GIFT-RECLAIM',$1,$2,'claimed')",
       [ticketId(1),B]
-    ), 'EVENT_TICKET_ALREADY_TRANSFERRED');
+    );
+    assert.equal((await db.query("select count(*)::int n from public.event_ticket_claims where event_ticket_id=$1 and member_id=$2",[ticketId(1),B])).rows[0].n, 2, 'a recipient may hold two distinct instances of the same campaign');
 
     await createTicket(2);
     await db.query("update public.event_ticket_claims set status='used' where claim_id='CLAIM-2'");
@@ -208,7 +211,12 @@ async function run() {
       "insert into public.event_ticket_claims(claim_id,event_ticket_id,member_id,status) values('CLAIM-9-B',$1,$2,'claimed')",
       [ticketId(9),B]
     );
-    await mustReject(transfer(A,'CLAIM-9',B,'transfer-duplicate-1'),'EVENT_TICKET_RECEIVER_ALREADY_OWNED');
+    const repeatGift = await transfer(A,'CLAIM-9',B,'transfer-duplicate-1');
+    assert.equal(repeatGift.alreadyTransferred, false, 'existing ownership does not block a separate physical gift');
+    assert.equal(await claimOwner('CLAIM-9'), B);
+    assert.equal((await db.query('select count(*)::int n from public.event_ticket_claims where event_ticket_id=$1 and member_id=$2',[ticketId(9),B])).rows[0].n, 2);
+    assert.equal(await ledgerCount(9), 1);
+    await mustReject(transfer(B,'CLAIM-9',C,'transfer-forward-9'), 'EVENT_TICKET_ALREADY_TRANSFERRED');
 
     await createTicket(10);
     const race = await Promise.allSettled([
