@@ -136,3 +136,66 @@ test('AC-BMSG-007: rendered character counts reflect current values and do not c
     assert.equal(els[id].value, value, 'counter should never modify the draft text');
   }
 });
+
+test('AC-BMSG-008: LINE previews render real separate rows with no extra backslash on line breaks', () => {
+  const vm = require('node:vm');
+  const start = ui.indexOf('  function renderLineNotificationPreview(');
+  const end = ui.indexOf('\n  function renderSettings(', start);
+  assert.ok(start > 0 && end > start, 'must execute production preview renderers');
+  assert.match(css, /booking-admin-message-preview-line\{display:block/);
+  const output = () => {
+    let rows = [];
+    return {
+      get rows() { return rows; },
+      set textContent(value) {
+        assert.equal(value, '', 'preview must clear prior rows');
+        rows = [];
+      },
+      appendChild(row) { rows.push(row); },
+    };
+  };
+  const pending = '我們已收到您的預約申請\r\n請等待工作人員確認\n確認後會再透過 LINE 通知您';
+  const reminder = '請準時抵達\r\n<請注意> & 無法即時補位';
+  const els = {
+    bookingAdminPendingMessage: { value: pending },
+    bookingAdminReminderMessage: { value: reminder },
+    bookingAdminPendingMessagePreview: output(),
+    bookingAdminReminderMessagePreview: output(),
+  };
+  vm.runInNewContext(ui.slice(start, end) + '\nrenderPendingMessagePreview(); renderReminderMessagePreview();', {
+    els,
+    document: {
+      createElement(tag) {
+        assert.equal(tag, 'span');
+        return { className: '', textContent: '' };
+      },
+    },
+  });
+  const actualPending = els.bookingAdminPendingMessagePreview.rows.map((row) => row.textContent);
+  const actualReminder = els.bookingAdminReminderMessagePreview.rows.map((row) => row.textContent);
+  assert.deepEqual(actualPending, [
+    '【預約申請】',
+    '狀態：等待管理員確認預約',
+    '日期：2026/12/12',
+    '時段：2026/12/12 11:30–2026/12/12 12:40（台北時間）',
+    '預約人：示意會員',
+    '預約人數：1 位',
+    '預約編號：示意編號',
+    '提醒事項：我們已收到您的預約申請',
+    '請等待工作人員確認',
+    '確認後會再透過 LINE 通知您',
+  ]);
+  assert.equal(actualPending.filter((line) => line.startsWith('提醒事項：')).length, 1);
+  assert.equal(actualReminder[0], '【預約提醒】');
+  assert.equal(actualReminder[1], '提醒事項：請準時抵達');
+  assert.equal(actualReminder[2], '<請注意> & 無法即時補位');
+  assert.equal(actualReminder.filter((line) => line.startsWith('提醒事項：')).length, 1);
+  for (const row of [...els.bookingAdminPendingMessagePreview.rows, ...els.bookingAdminReminderMessagePreview.rows]) {
+    assert.equal(row.className, 'booking-admin-message-preview-line');
+    assert.doesNotMatch(row.textContent, /\\$/, 'a line must not acquire a visible trailing backslash');
+  }
+  assert.equal(els.bookingAdminPendingMessage.value, pending, 'preview cannot mutate saved text');
+  assert.equal(els.bookingAdminReminderMessage.value, reminder, 'preview cannot mutate saved text');
+  // HTML-looking administrator input must stay inert text; no HTML interpolation.
+  assert.equal(actualReminder[2], '<請注意> & 無法即時補位');
+});

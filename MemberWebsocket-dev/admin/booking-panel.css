@@ -653,7 +653,8 @@
 #bookingPanel .booking-admin-message-preview{display:grid;gap:10px;min-width:0;margin-top:auto;padding:14px;border:1px solid var(--theme-border,rgba(23,53,46,.11));border-radius:12px;background:var(--theme-surface-muted,#f5f7f3)}
 #bookingPanel .booking-admin-message-preview>strong{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;color:var(--theme-text,#17352e);font-size:13px}
 #bookingPanel .booking-admin-message-preview>strong span{color:var(--theme-text-muted,#687b70);font-size:11px;font-weight:500}
-#bookingPanel .booking-admin-message-preview .booking-admin-hours-preview{display:block;margin:0;padding:12px;border-radius:10px;background:var(--theme-surface-raised,#fff);color:var(--theme-text,#31483f);font-size:12px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}
+#bookingPanel .booking-admin-message-preview .booking-admin-hours-preview{display:block;margin:0;padding:12px;border-radius:10px;background:var(--theme-surface-raised,#fff);color:var(--theme-text,#31483f);font-size:12px;line-height:1.7;white-space:normal;overflow-wrap:anywhere}
+#bookingPanel .booking-admin-message-preview-line{display:block;min-height:1.7em;white-space:pre-wrap}
 #bookingPanel .booking-admin-messages-panel .booking-admin-settings-actions{margin-top:4px;padding-top:18px}
 #bookingPanel .booking-admin-messages-panel :is(textarea,button):focus-visible{outline:3px solid var(--theme-focus-ring,var(--theme-accent,#df6b4d));outline-offset:2px}
 @media(max-width:980px){#bookingPanel .booking-admin-messages-help{grid-template-columns:1fr}}

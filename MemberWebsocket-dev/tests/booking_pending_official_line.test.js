@@ -33,7 +33,9 @@ test('AC-BPN-003: admin has unified editor, preview and safe text rendering', ()
     assert.match(admin, new RegExp(id));
   }
   assert.match(admin, /renderPendingMessagePreview/);
-  assert.match(admin, /bookingAdminPendingMessagePreview\.textContent =/);
+  assert.match(admin, /renderLineNotificationPreview\(els\.bookingAdminPendingMessagePreview, example\)/);
+  assert.match(admin, /row\.textContent = line/);
+  assert.doesNotMatch(admin, /bookingAdminPendingMessagePreview\.innerHTML\s*=/);
   assert.match(admin, /manageRequest\('admin\.booking\.messages\.save'/);
   assert.match(admin, /messagesDirty/);
 });
