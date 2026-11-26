@@ -1,4 +1,6 @@
 import { businessEnv, businessContext, serveBusiness } from '../_shared/business-runtime.ts';
+import { currentTaipeiMonth, monthlyTierBounds, buildMonthlyTierOverview } from '../_shared/monthly-tier-benefits.mjs';
+import { tierVisibility, loadVisibilityPolicy } from '../_shared/tier-visibility.ts';
 import { requireMemberOaBeforeActivation, memberOaGuidance, strictLineAccessToken } from '../_shared/member-oa-registration-gate.mjs';
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract } from "../_shared/auth-contract.ts";
@@ -85,6 +87,14 @@ async function ensureMember(supabase: SupabaseClient, identity: Identity): Promi
   }
   return member;
 }
+// Catalogue reads must never auto-register members or touch last_login_at.
+async function existingMemberForCatalogue(supabase: SupabaseClient, identity: Identity): Promise<any> {
+  const result = await supabase.from("members").select("*").eq("line_user_id", identity.lineUserId).maybeSingle();
+  if (result.error) throw new ApiError(503, "MEMBER_READ_UNAVAILABLE", "會員資料暫時無法讀取。");
+  if (!result.data) throw new ApiError(403, "MEMBERSHIP_REQUIRED", "請先完成會員申請。");
+  return result.data;
+}
+
 async function tierSettings(supabase: SupabaseClient): Promise<any[]> {
   const result = await supabase.from("membership_tier_settings").select("*").order("required_service_minutes", { ascending: true });
   if (result.error) throw new ApiError(500, "DATABASE_ERROR", "會員階級資料暫時無法讀取。");
@@ -364,6 +374,47 @@ function termsError(error: { code?: string; message?: string; details?: string; 
   return new ApiError(500, "DATABASE_ERROR", "會員資料暫時無法儲存。");
 }
 
+// A member can preview published tier offers without obtaining a physical ticket.
+// Check merchant module grants before reading each collection.
+async function monthlyTierBenefits(supabase: SupabaseClient, member: any): Promise<Json> {
+  const month = currentTaipeiMonth();
+  const { start, end } = monthlyTierBounds(month);
+  const features = businessContext()?.features;
+  const showTickets = !features || features.events === true;
+  const showActivities = !features || features.calendar === true;
+  const [ticketResult, calendarResult, viewerProfile, defaultVisibilityPolicy] = await Promise.all([
+    showTickets ? supabase.from("event_tickets")
+      .select("title,ticket_type,status,starts_on,ends_on,allowed_tier_keys,visibility_policy,deleted_at,referral_source_event_ticket_id,fixed_ticket_template_id")
+      .eq("status", "active").is("deleted_at", null)
+      .or(`starts_on.is.null,starts_on.lte.${end}`).or(`ends_on.is.null,ends_on.gte.${start}`)
+      : Promise.resolve({ data: [], error: null }),
+    showActivities ? supabase.from("calendar_items")
+      .select("title,item_type,status,audience_type,starts_on,ends_on,allowed_tier_keys,visibility_policy,source_event_ticket_id,link_url")
+      .eq("item_type", "event").eq("status", "active")
+      .lte("starts_on", end).or(`ends_on.gte.${start},and(ends_on.is.null,starts_on.gte.${start})`)
+      : Promise.resolve({ data: [], error: null }),
+    profileFor(supabase, member),
+    showTickets || showActivities ? loadVisibilityPolicy(supabase) : Promise.resolve('eligible_only'),
+  ]);
+  if (ticketResult.error || calendarResult.error)
+    throw new ApiError(503, "MONTHLY_TIER_OFFERS_UNAVAILABLE", "本月階級優惠暫時無法讀取。");
+  // Preserve the existing administrative presentation policy. The four tier
+  // sections are always rendered, but hidden campaign titles must not leak.
+  const visibleToViewer = (row: any, allowUnrestricted: boolean): boolean => {
+    const keys = Array.isArray(row.allowed_tier_keys) && row.allowed_tier_keys.length
+      ? row.allowed_tier_keys
+      : allowUnrestricted ? ['general', 'silver', 'gold', 'platinum'] : [];
+    return tierVisibility(keys, viewerProfile.tierKey, row.visibility_policy || defaultVisibilityPolicy).visible;
+  };
+  return buildMonthlyTierOverview({
+    month,
+    tickets: (ticketResult.data || []).filter((row: any) => visibleToViewer(row, false)),
+    activities: (calendarResult.data || []).filter((row: any) => visibleToViewer(row, true)),
+    showTickets,
+    showActivities,
+  });
+}
+
 serveBusiness('member-profile-api',async (request: Request) => {
   const origin = request.headers.get("Origin");
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
@@ -373,7 +424,7 @@ serveBusiness('member-profile-api',async (request: Request) => {
     const body = await readJsonObject(request, MAX_REQUEST_BYTES, ApiError);
 
     const action = asText(body.action, 80);
-    if (!["user.member.invitation.claim", "user.member.oa.check", "user.member.bootstrap", "user.member.profile.save", "user.member.phone.send", "user.member.terms.accept", "user.member.card.open"].includes(action) || asText(body.clientType, 20) !== "member") throw new ApiError(403, "CLIENT_ACTION_MISMATCH", "操作端與功能不相符。");
+    if (!["user.member.invitation.claim", "user.member.oa.check", "user.member.bootstrap", "user.member.monthly-tier-benefits", "user.member.profile.save", "user.member.phone.send", "user.member.terms.accept", "user.member.card.open"].includes(action) || asText(body.clientType, 20) !== "member") throw new ApiError(403, "CLIENT_ACTION_MISMATCH", "操作端與功能不相符。");
     if (["user.member.invitation.claim","user.member.oa.check"].includes(action) && !businessContext()) {
       throw new ApiError(403,"INVITATION_TENANT_UNAVAILABLE","請由商家會員入口使用此功能。");
     }
@@ -381,7 +432,7 @@ serveBusiness('member-profile-api',async (request: Request) => {
     let identity: Identity;
     try {
       const testIdentity = await resolveUserTestIdentity(supabase, asText(body.testSessionToken, 200));
-      if (testIdentity && ["user.member.invitation.claim","user.member.oa.check"].includes(action) && testIdentity.surface !== "member") {
+      if (testIdentity && ["user.member.invitation.claim","user.member.oa.check","user.member.monthly-tier-benefits"].includes(action) && testIdentity.surface !== "member") {
         throw new ApiError(403,"TEST_SESSION_SURFACE_MISMATCH","測試登入與目前功能不相符。");
       }
       identity = testIdentity
@@ -391,8 +442,10 @@ serveBusiness('member-profile-api',async (request: Request) => {
       if (error instanceof TestModeAuthError) throw new ApiError(error.status, error.code, error.message);
       throw error;
     }
-    await consumeRateLimit(supabase, identity, action !== "user.member.bootstrap");
-    const member = await ensureMember(supabase, identity);
+    await consumeRateLimit(supabase, identity, !["user.member.bootstrap", "user.member.monthly-tier-benefits"].includes(action));
+    const member = action === "user.member.monthly-tier-benefits"
+      ? await existingMemberForCatalogue(supabase, identity)
+      : await ensureMember(supabase, identity);
     if (action === "user.member.invitation.claim") {
       const hash = await hashInvitationToken(body.invitationToken);
       const result = await supabase.rpc("member_invitation_claim",{p_actor:identity.lineUserId,p_token_hash:hash});
@@ -416,6 +469,13 @@ serveBusiness('member-profile-api',async (request: Request) => {
       const logged = await supabase.rpc("record_member_card_open", {p_actor:identity.lineUserId});
       if (logged.error) throw new ApiError(503,"AUDIT_UNAVAILABLE","會員卡開啟紀錄暫時無法儲存。");
       return response(origin,{ok:true,status:200,data:{recorded:true}});
+    }
+    if (action === "user.member.monthly-tier-benefits") {
+      if (member.status !== "active" || member.membership_status !== "active")
+        throw new ApiError(403, "MEMBERSHIP_REQUIRED", "請先啟用會員資格。");
+      if ((await termsForMember(supabase, member)).consentRequired)
+        throw new ApiError(403, "TERMS_RECONSENT_REQUIRED", "請先同意更新後的會員條款。");
+      return response(origin, { ok: true, status: 200, data: await monthlyTierBenefits(supabase, member) });
     }
     if (action === "user.member.bootstrap") return response(origin, { ok: true, status: 200, data: { profile: await profileFor(supabase, member), phoneVerificationRequired: requirePhoneOtp(), ...await termsForMember(supabase, member), memberOa:memberOaGuidance({tenant:businessContext(),expectedChannelId:env("LINE_MEMBER_CHANNEL_ID") || "2010787602",member,verifiedBindingsJson:env("MEMBER_OA_VERIFIED_LINKS_JSON")}) } });
     if (action === "user.member.phone.send") {
