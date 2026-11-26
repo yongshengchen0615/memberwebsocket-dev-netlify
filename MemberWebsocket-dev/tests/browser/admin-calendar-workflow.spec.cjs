@@ -10,7 +10,7 @@ test.beforeEach(async ({ page }, info) => {
 });
 
 async function createOnDay(page, gridId, kind) {
-  const workspace = page.locator('#' + gridId).locator('..');
+  const workspace = page.locator({adminCalendarGrid:'#calendarPanel .admin-calendar',eventTicketCalendarGrid:'#eventTicketCalendarWorkspace',bookingOverviewCalendarGrid:'#bookingOverviewCalendarWorkspace'}[gridId]);
   await expect(workspace.locator('[data-calendar-day-view]')).toBeVisible();
   await workspace.locator('[data-calendar-add]').click();
   await workspace.locator('[data-calendar-create="' + kind + '"]').click();
