@@ -1398,7 +1398,10 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
     supabase.from("booking_receipts").select("receipt_id,created_at,updated_at,requested_benefits")
       .eq("member_id",member.id).eq("submission_mode","accessible")
       .eq("status","awaiting_review").order("created_at",{ascending:false}).limit(100),
-    supabase.from("event_ticket_transfers").select("event_ticket_id").eq("sender_member_id",member.id),
+    // Sender-scoped audit entries stay visible after the physical claim changes owner.
+    supabase.from("event_ticket_transfers")
+      .select("event_ticket_id,claim_id,created_at,event_tickets(*),receiver:members!event_ticket_transfers_receiver_member_id_fkey(display_name)")
+      .eq("sender_member_id",member.id).order("created_at",{ ascending:false }),
     supabase.from("event_ticket_transfers")
       .select("claim_id,created_at,sender:members!event_ticket_transfers_sender_member_id_fkey(display_name)")
       .eq("receiver_member_id",member.id),
@@ -1415,7 +1418,6 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
       transferredAt: String(row.created_at || ""),
     },
   ]));
-  const transferredOutEventIds = new Set((transferHistoryRes.data || []).map((row:any) => String(row.event_ticket_id)));
   const pendingSnapshotsByClaim = new Map<string,Json[]>();
   for (const receipt of snapshotReceipts.data || []) {
     for (const benefit of Array.isArray(receipt.requested_benefits) ? receipt.requested_benefits : []) {
@@ -1475,12 +1477,11 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
   const offers = (eventRows || []).flatMap((row:any) => {
     const ownedClaims = claimsByEvent.get(String(row.id)) || [];
     return (ownedClaims.length ? ownedClaims : [null]).flatMap((claimRow:any) => {
-    const transferredOut = transferredOutEventIds.has(String(row.id)) && !claimRow;
     const gift = claimRow ? receivedGiftsByClaim.get(String(claimRow.claim_id)) : null;
     const receivedAsGift = Boolean(gift);
     // All ticket types are issued by the server; a published template is not a claimable ticket.
     // Expose only tickets already owned by this member, never another member’s inventory.
-    if (!claimRow && !transferredOut) return [];
+    if (!claimRow) return [];
     if (claimRow && String(claimRow.status || "") === "used") return [];
     const ticket = {
       ...eventTicketClient(row,counts.get(row.id)||0,false,usedCounts.get(row.id)||0),
@@ -1513,7 +1514,7 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
       pendingSnapshots,
       bookingSelections: claimRow ? contextsForTicket(bookingSelections,"event",claimRow.claim_id) : [],
       soldOut,
-      transferredOut,
+      transferredOut:false,
       receivedAsGift,
       giftFromDisplayName:gift?.senderName || "",
       giftTransferredAt:gift?.transferredAt || "",
@@ -1543,7 +1544,28 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
       giftTransferredAt:gift?.transferredAt || "",
       availability:"used", tierEligible:true, canClaim:false, canUse:false, soldOut:false, history:true };
   });
-  return { profile, offers, usedTickets, usedTicketCount: usedTickets.length, bookingSelections };
+  // Transferred claims are no longer owned by this member, so the current
+  // claims table cannot supply their history. The sender-scoped transfer ledger
+  // is the source of truth; never put these records back into active offers.
+  const transferredTickets = (transferHistoryRes.data || []).filter((row:any) =>
+    row.event_tickets && row.claim_id && row.created_at
+  ).map((row:any) => ({
+    ticket: eventTicketClient(row.event_tickets,0,false,0),
+    claim: { claimId:String(row.claim_id),eventTicketId:String(row.event_ticket_id),status:"transferred" },
+    transferredOut:true,
+    transferredAt:String(row.created_at),
+    transferredToDisplayName:String(row.receiver?.display_name || "好友").trim() || "好友",
+    availability:"transferred",
+    tierEligible:true,
+    canClaim:false,
+    canUse:false,
+    soldOut:false,
+    history:true,
+  }));
+  const ticketHistory = [...usedTickets,...transferredTickets].sort((a:any,b:any) =>
+    Date.parse(b.transferredAt || b.claim?.usedAt || "") - Date.parse(a.transferredAt || a.claim?.usedAt || "")
+  );
+  return { profile, offers, usedTickets:ticketHistory, usedTicketCount:ticketHistory.length, bookingSelections };
 }
 
 function calendarClient(row: any): Json {
