@@ -94,7 +94,7 @@ async function run() {
   ];
   for(const name of families) {
     await db.exec(`create function public.${name}() returns boolean language sql as
-      $select tier=any(allowed_tier_keys) from (select 'general'::text as tier, array['general']::text[] as allowed_tier_keys) t$;`);
+      $tier_stub$select tier=any(allowed_tier_keys) from (select 'general'::text as tier, array['general']::text[] as allowed_tier_keys) t$tier_stub$;`);
   }
   await db.exec(migration);
   // The release ledger can replay a previously applied schema from another tool;
