@@ -235,3 +235,40 @@ test('member onboarding spotlight reposition emits no blocked inline-style CSP v
   })));
   expect(states.every(mask => mask.position === 'absolute')).toBe(true);
 });
+
+test('monthly tier benefits display four sections on a narrow phone without granting tickets',async({page},info)=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.goto(base+'/member/');
+ await expect(page.locator('#membershipProgress')).toBeVisible();
+ await page.addScriptTag({url:base+'/member/monthly-tier-benefits.js'});
+ await page.evaluate(()=>{
+   const originalRequest = window.MemberSystem.request;
+   window.MemberSystem.request = async(_config,_client,_token,action,...rest)=>{
+     if(action!=='user.member.monthly-tier-benefits')return originalRequest(_config,_client,_token,action,...rest);
+     return {month:'2026-11',tiers:[
+       {key:'general',label:'一般會員',offers:[{kind:'ticket',title:'一般級券',startsOn:'2026-11-01',endsOn:'2026-11-30'}]},
+       {key:'silver',label:'銀級會員',offers:[{kind:'activity',title:'銀級活動',startsOn:'2026-11-15',endsOn:'2026-11-15'}]},
+       {key:'gold',label:'金級會員',offers:[]},
+       {key:'platinum',label:'白金會員',offers:[{kind:'ticket',title:'白金優惠',startsOn:'2026-11-03',endsOn:'2026-11-30'}]},
+     ]};
+   };
+   return window.MemberMonthlyTierBenefits.refresh(
+     document.getElementById('membershipProgress'),
+     {supabaseUrl:location.origin,business:'QA'},
+     'qa-id-token',
+     {lineUserId:'QA-A',tierKey:'silver',status:'active',profileComplete:true,membershipRequired:false}
+   );
+ });
+ await expect(page.locator('[data-member-monthly-tier-overview] .member-monthly-tier')).toHaveCount(4);
+ await expect(page.locator('.member-monthly-tier.is-current')).toContainText('銀級會員');
+ await expect(page.locator('[data-member-monthly-tier-overview]')).toContainText('一般級券');
+ await expect(page.locator('[data-member-monthly-tier-overview]')).toContainText('銀級活動');
+ await expect(page.locator('[data-member-monthly-tier-overview]')).toContainText('白金優惠');
+ await expect(page.locator('.member-monthly-tier-empty')).toHaveCount(1);
+ await expect(page.locator('[data-member-monthly-tier-month]')).toHaveText('2026 年 11 月');
+ await expect(page.locator('[data-member-monthly-ticket-claim]')).toHaveCount(0);
+ const boxes=await page.locator('[data-member-monthly-tier-overview] .member-monthly-tier').evaluateAll(
+   items=>items.map(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right}}));
+ expect(boxes.every(r=>r.left>=0&&r.right<=391)).toBe(true);
+ await info.attach('monthly-tier-member-mobile',{body:await page.locator('#membershipProgress').screenshot(),contentType:'image/png'});
+});
