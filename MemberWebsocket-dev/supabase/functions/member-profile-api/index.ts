@@ -87,6 +87,14 @@ async function ensureMember(supabase: SupabaseClient, identity: Identity): Promi
   }
   return member;
 }
+// Catalogue reads must never auto-register members or touch last_login_at.
+async function existingMemberForCatalogue(supabase: SupabaseClient, identity: Identity): Promise<any> {
+  const result = await supabase.from("members").select("*").eq("line_user_id", identity.lineUserId).maybeSingle();
+  if (result.error) throw new ApiError(503, "MEMBER_READ_UNAVAILABLE", "會員資料暫時無法讀取。");
+  if (!result.data) throw new ApiError(403, "MEMBERSHIP_REQUIRED", "請先完成會員申請。");
+  return result.data;
+}
+
 async function tierSettings(supabase: SupabaseClient): Promise<any[]> {
   const result = await supabase.from("membership_tier_settings").select("*").order("required_service_minutes", { ascending: true });
   if (result.error) throw new ApiError(500, "DATABASE_ERROR", "會員階級資料暫時無法讀取。");
@@ -435,7 +443,9 @@ serveBusiness('member-profile-api',async (request: Request) => {
       throw error;
     }
     await consumeRateLimit(supabase, identity, !["user.member.bootstrap", "user.member.monthly-tier-benefits"].includes(action));
-    const member = await ensureMember(supabase, identity);
+    const member = action === "user.member.monthly-tier-benefits"
+      ? await existingMemberForCatalogue(supabase, identity)
+      : await ensureMember(supabase, identity);
     if (action === "user.member.invitation.claim") {
       const hash = await hashInvitationToken(body.invitationToken);
       const result = await supabase.rpc("member_invitation_claim",{p_actor:identity.lineUserId,p_token_hash:hash});
