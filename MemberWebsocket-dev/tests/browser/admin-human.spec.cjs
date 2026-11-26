@@ -496,7 +496,8 @@ test('BOOKING_MESSAGES_SETTINGS — one save, reload, invalid input and conflict
   await expect(pendingPreview.locator('.booking-admin-message-preview-line')).toHaveCount(9);
   await expect(pendingPreview.locator('.booking-admin-message-preview-line').nth(0)).toHaveText('【預約申請】');
   await expect(pendingPreview.locator('.booking-admin-message-preview-line').nth(7)).toHaveText('提醒事項：我們已收到預約申請');
-  await expect(pendingPreview.locator('.booking-admin-message-preview-line').nth(8)).toHaveText('提醒事項：請等待工作人員確認');
+  await expect(pendingPreview.locator('.booking-admin-message-preview-line').nth(8)).toHaveText('請等待工作人員確認');
+  expect((await pendingPreview.locator('.booking-admin-message-preview-line').allTextContents()).filter((line)=>line.startsWith('提醒事項：'))).toHaveLength(1);
   await expect(pendingPreview).not.toContainText('\\');
   await fill(p,'bookingAdminPendingMessage','預約已送出，請等待管理員確認。');
   await expect(p.locator('#bookingAdminRejectionMessage')).toHaveCount(0);
@@ -504,7 +505,8 @@ test('BOOKING_MESSAGES_SETTINGS — one save, reload, invalid input and conflict
   const reminderPreview=p.locator('#bookingAdminReminderMessagePreview');
   await expect(reminderPreview.locator('.booking-admin-message-preview-line').nth(0)).toHaveText('【預約提醒】');
   await expect(reminderPreview.locator('.booking-admin-message-preview-line').nth(1)).toHaveText('提醒事項：請準時抵達');
-  await expect(reminderPreview.locator('.booking-admin-message-preview-line').nth(2)).toHaveText('提醒事項：提醒保留時間');
+  await expect(reminderPreview.locator('.booking-admin-message-preview-line').nth(2)).toHaveText('提醒保留時間');
+  expect((await reminderPreview.locator('.booking-admin-message-preview-line').allTextContents()).filter((line)=>line.startsWith('提醒事項：'))).toHaveLength(1);
   await expect(reminderPreview).not.toContainText('\\');
   await fill(p,'bookingAdminReminderMessage','您的預約即將開始，請準時到場。');
   await fill(p,'bookingAdminOnsiteEditMessage','預約超過線上修改期限，請至現場辦理。');
