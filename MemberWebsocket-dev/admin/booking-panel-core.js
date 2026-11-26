@@ -884,7 +884,7 @@
       '預約人：示意會員',
       '預約人數：1 位',
       '預約編號：示意編號',
-      ...message.split('\n').filter(Boolean).map((line) => '提醒事項：' + line),
+      ...message.split('\n').filter(Boolean).map((line, index) => (index === 0 ? '提醒事項：' : '') + line),
     ];
     renderLineNotificationPreview(els.bookingAdminPendingMessagePreview, example);
   }
@@ -892,7 +892,7 @@
     const message = String(els.bookingAdminReminderMessage.value || '').replace(/\r\n?/g, '\n').trim();
     const example = [
       '【預約提醒】',
-      ...message.split('\n').filter(Boolean).map((line) => '提醒事項：' + line),
+      ...message.split('\n').filter(Boolean).map((line, index) => (index === 0 ? '提醒事項：' : '') + line),
       '日期：2026/12/12',
       '預約人：陳先生',
       '營業日：2026/12/12',
