@@ -613,11 +613,11 @@
       });
       const saveAll = node('button', '儲存所有人員權限', 'button frontdesk-primary frontdesk-staff-save-all');
       saveAll.type = 'button';
-      const summary = node('p', '', 'frontdesk-staff-draft-summary');
-      summary.setAttribute('aria-live', 'polite');
+      const staffSummary = node('p', '', 'frontdesk-staff-draft-summary');
+      staffSummary.setAttribute('aria-live', 'polite');
       function updateStaffDraft() {
         const count = changes().length;
-        summary.textContent = count ? '尚有 ' + count + ' 位人員的修改待儲存。' : '目前沒有未儲存的人員權限修改。';
+        staffSummary.textContent = count ? '尚有 ' + count + ' 位人員的修改待儲存。' : '目前沒有未儲存的人員權限修改。';
         saveAll.disabled = !count || busy || Boolean(pending);
       }
       for (const person of people) {
@@ -693,7 +693,7 @@
         }
         void save('platform.frontdesk.staff.batch', {expectedVersion:data.version,updates}, saveAll);
       });
-      if (people.length) approvals.append(summary, saveAll);
+      if (people.length) approvals.append(staffSummary, saveAll);
       staffPanel.append(approvals);
       updateStaffDraft();
       lock();
