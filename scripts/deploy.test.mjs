@@ -80,6 +80,20 @@ test('frontend backend settings are copied without changing identity or project'
   assert.equal(published.memberCalendarFunctionUrl, undefined);
 });
 
+test('public startup configuration uses the selected deployment profile on each supported entry', () => {
+  const supported = new Set(['admin/index.html', 'member/index.html', 'points/index.html', 'event/index.html', 'calendar/index.html', 'booking/index.html']);
+  const expected = JSON.parse(fs.readFileSync(path.join(output, 'config/config.json'), 'utf8'));
+  for (const page of fs.readdirSync(output, { recursive: true }).filter(name => name.endsWith('.html'))) {
+    const html = fs.readFileSync(path.join(output, page), 'utf8');
+    const blocks = [...html.matchAll(/<script id="memberwebsocket-public-config" type="application\/json">([^<]*)<\/script>/g)];
+    assert.equal(blocks.length, supported.has(page) ? 1 : 0, page);
+    if (blocks.length) {
+      assert.deepEqual(JSON.parse(blocks[0][1]), expected, page);
+      assert.ok(html.indexOf(blocks[0][0]) < html.indexOf('</head>'), page);
+    }
+  }
+});
+
 
 test('deployment versions are valid and change for each new deployment', () => {
   const fixed = new Date('2026-10-16T07:45:23.000Z');

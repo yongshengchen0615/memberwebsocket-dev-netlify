@@ -45,10 +45,13 @@
   }
 
   async function loadConfig() {
-    const depth = window.location.pathname.includes('/booking/admin/') ? '../../config.json' : '../config.json';
-    const response = await fetch(`${depth}?v=booking-20260910-3`, { cache: 'no-store' });
-    if (!response.ok) throw clientError('CONFIG_LOAD_FAILED', '無法載入系統設定。');
-    const config = await response.json();
+    let config = window.BusinessContext?.readEmbeddedConfig?.();
+    if (!config) {
+      const depth = window.location.pathname.includes('/booking/admin/') ? '../../config.json' : '../config.json';
+      const response = await fetch(`${depth}?v=booking-20260910-3`, { cache: 'no-store' });
+      if (!response.ok) throw clientError('CONFIG_LOAD_FAILED', '無法載入系統設定。');
+      config = await response.json();
+    }
     if (!config.supabaseUrl || !config.supabasePublishableKey) throw clientError('CONFIG_INVALID', 'Supabase 設定不完整。');
     if(window.BusinessContext)await window.BusinessContext.configure(config);
     return config;
