@@ -236,14 +236,14 @@ html[data-theme="dark"] .member-monthly-benefits {
 }
 .member-monthly-benefits-tabs button[data-membership-tier-style] {
   color: var(--monthly-card-soft);
-  background: var(--monthly-card-background);
+  background: linear-gradient(145deg, rgba(255,255,255,.075), transparent 55%), var(--monthly-card-background);
   border-color: var(--monthly-card-accent);
   box-shadow: inset 0 2px 0 var(--monthly-card-accent);
 }
 .member-monthly-benefits-tabs button[data-membership-tier-style]:hover { filter: brightness(1.11); }
 .member-monthly-benefits-tabs button[data-membership-tier-style][aria-pressed="true"] {
   color: var(--monthly-card-soft);
-  background: var(--monthly-card-background);
+  background: linear-gradient(145deg, rgba(255,255,255,.075), transparent 55%), var(--monthly-card-background);
   border-color: var(--monthly-card-accent);
   box-shadow: inset 0 -3px 0 var(--monthly-card-accent), 0 0 0 2px var(--monthly-card-background);
 }
@@ -251,6 +251,21 @@ html[data-theme="dark"] .member-monthly-benefits {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* The member card renders the tier name as a white frosted pill on its card palette. */
+.member-monthly-benefits-tabs button[data-membership-tier-style] .member-monthly-tab-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  max-width: 100%;
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(255,255,255,.14);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
 }
 .member-monthly-tab-label::before {
   content: "";
@@ -304,13 +319,27 @@ html[data-theme="dark"] .member-monthly-benefits {
   font-size: 13px;
   font-weight: 750;
 }
+.member-monthly-tier[data-membership-tier-style] .member-monthly-tier-heading {
+  padding: 6px 8px;
+  border: 1px solid var(--monthly-card-accent);
+  border-radius: 10px;
+  background: linear-gradient(145deg, rgba(255,255,255,.075), transparent 55%), var(--monthly-card-background);
+}
 .member-monthly-tier[data-membership-tier-style] .member-monthly-tier-heading h4 {
-  display: inline-block;
+  display: inline-flex;
+  max-width: 100%;
   padding: 5px 10px;
-  border-radius: 8px;
-  background: var(--monthly-card-background);
-  color: var(--monthly-card-soft);
-  box-shadow: inset 3px 0 0 var(--monthly-card-accent);
+  border-radius: 999px;
+  background: rgba(255,255,255,.14);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.member-monthly-tier[data-membership-tier-style] .member-monthly-current-tag {
+  color: #fff;
+  background: rgba(255,255,255,.14);
+  border: 1px solid rgba(255,255,255,.22);
 }
 .member-monthly-current-tag {
   padding: 3px 8px;
@@ -385,6 +414,7 @@ html[data-theme="dark"] .member-monthly-benefits {
   .member-monthly-benefits-body { padding: 9px 9px 11px; }
   .member-monthly-benefits-tabs { gap: 4px; }
   .member-monthly-benefits-tabs button { gap: 3px; padding: 6px 3px; font-size: 11px; }
+  .member-monthly-benefits-tabs button[data-membership-tier-style] .member-monthly-tab-label { padding: 3px 5px; font-size: 11px; }
   .member-monthly-tab-count { min-width: 16px; height: 16px; }
   .member-monthly-tier { padding: 9px; }
 }
