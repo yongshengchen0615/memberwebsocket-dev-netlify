@@ -142,7 +142,7 @@ test('AC-006: compact widget only loads on open, coalesces, and protects against
   assert.equal(tabs.children.length,4,'four tier switches are available');
   assert.equal(target.children[0].children[1].children[0].children[1].textContent,'<script>alert(1)</script>','offer titles remain plain text');
   assert.equal(button.disabled,false);
-  assert.match(teaser.textContent,/11 月/);
+  assert.equal(teaser.textContent,'收合內容','expanded panel must advertise how to close it');
   tabs.children[0].onclick();
   assert.equal(target.children[0].dataset.tierKey,'general');
   window.BusinessContext.slug='shop-b';
@@ -303,7 +303,25 @@ test('AC-016: monthly catalogue uses shared semantic light/dark theme tokens and
   assert.match(js,/aria-label/);
   for (const surface of ['member','points','event','calendar','booking']) {
     const html=fs.readFileSync(path.join(root,surface,'index.html'),'utf8');
-    assert.match(html,/monthly-tier-benefits\.css\?v=20261127-theme-1/);
-    assert.match(html,/monthly-tier-benefits\.js\?v=20261127-theme-1/);
+    assert.match(html,/monthly-tier-benefits\.css\?v=20261127-theme-2/);
+    assert.match(html,/monthly-tier-benefits\.js\?v=20261127-theme-2/);
+    assert.match(html,/data-member-monthly-tier-teaser>展開查看<\/small>/);
+  }
+});
+
+test('AC-017: month benefits disclosure has an explicit two-way expand/collapse affordance', () => {
+  const root = path.resolve(__dirname,'..');
+  const css = fs.readFileSync(path.join(root,'member/monthly-tier-benefits.css'),'utf8');
+  const js = fs.readFileSync(path.join(root,'member/monthly-tier-benefits.js'),'utf8');
+  assert.match(css,/\.member-monthly-benefits-heading small\s*\{/);
+  assert.match(css,/\.member-monthly-benefits-heading::after\s*\{/);
+  assert.match(css,/background: var\(--monthly-highlight\)/);
+  assert.match(css,/cursor: pointer/);
+  assert.match(js,/teaser\.textContent = root\.open \? '收合內容' : '展開查看'/);
+  for (const surface of ['member','points','event','calendar','booking']) {
+    const html = fs.readFileSync(path.join(root,surface,'index.html'),'utf8');
+    assert.match(html,/<summary class="member-monthly-benefits-heading">/);
+    assert.match(html,/data-member-monthly-tier-teaser>展開查看<\/small>/);
+    assert.equal((html.match(/data-member-monthly-tier-teaser/g)||[]).length,1);
   }
 });

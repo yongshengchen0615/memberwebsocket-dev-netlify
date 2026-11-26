@@ -58,13 +58,19 @@ html[data-theme="dark"] .member-monthly-benefits {
 }
 .member-monthly-benefits-heading::after {
   content: "⌄";
-  flex: 0 0 auto;
-  margin-left: 2px;
-  color: var(--monthly-muted);
-  font-size: 18px;
-  font-weight: 700;
+  flex: 0 0 26px;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  margin-left: 1px;
+  border-radius: 9px;
+  background: var(--monthly-highlight);
+  color: var(--monthly-highlight-text);
+  font-size: 20px;
+  font-weight: 800;
   line-height: 1;
-  transition: transform .16s ease;
+  transition: transform .16s ease, background-color .16s ease;
 }
 .member-monthly-benefits[open] .member-monthly-benefits-heading::after { transform: rotate(180deg); }
 .member-monthly-benefits-spark {
@@ -87,16 +93,31 @@ html[data-theme="dark"] .member-monthly-benefits {
   white-space: nowrap;
 }
 .member-monthly-benefits-heading small {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-width: 0;
+  min-height: 27px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 4px 10px;
   margin-left: auto;
-  overflow: hidden;
-  color: var(--monthly-muted);
+  border: 1px solid var(--monthly-border);
+  border-radius: 999px;
+  background: var(--monthly-highlight);
+  color: var(--monthly-highlight-text);
   font-size: 12px;
-  font-weight: 500;
-  text-align: right;
-  text-overflow: ellipsis;
+  font-weight: 750;
+  line-height: 1.4;
   white-space: nowrap;
+}
+.member-monthly-benefits-heading:hover small,
+.member-monthly-benefits-heading:hover::after {
+  background: var(--monthly-subtle);
+}
+.member-monthly-benefits[open] .member-monthly-benefits-heading small {
+  background: var(--monthly-subtle);
+  color: var(--monthly-text);
 }
 .member-monthly-benefits-body {
   padding: 11px 12px 12px;
@@ -332,6 +353,8 @@ html[data-theme="dark"] .member-monthly-benefits-tabs button[data-tier-key="plat
 }
 @media (max-width: 420px) {
   .member-monthly-benefits-heading { gap: 6px; padding: 6px 10px; }
+  .member-monthly-benefits-heading small { padding: 4px 7px; min-height: 26px; }
+  .member-monthly-benefits-heading::after { flex-basis: 24px; width: 24px; height: 24px; }
   .member-monthly-benefits-spark { flex-basis: 24px; width: 24px; height: 24px; }
   .member-monthly-benefits-body { padding: 9px 9px 11px; }
   .member-monthly-benefits-tabs { gap: 4px; }

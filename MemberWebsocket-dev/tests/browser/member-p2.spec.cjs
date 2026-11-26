@@ -277,7 +277,18 @@ for (const surface of ['member','points','event','calendar','booking']) for (con
     expect(await widget.evaluate(node=>node.open)).toBe(false);
     expect(await widget.evaluate(node=>Math.round(node.getBoundingClientRect().height))).toBeLessThanOrEqual(66);
     expect(await page.evaluate(()=>window.__tierRequests.length)).toBe(0);
+    const action=widget.locator('[data-member-monthly-tier-teaser]');
+    await expect(action).toHaveText('展開查看');
+    expect(await widget.locator('summary').evaluate(node=>getComputedStyle(node).cursor)).toBe('pointer');
+    const collapsedHint=await action.evaluate(node=>({
+      background:getComputedStyle(node).backgroundColor,
+      color:getComputedStyle(node).color,
+      border:getComputedStyle(node).borderStyle
+    }));
+    expect(collapsedHint.background).not.toBe('rgba(0, 0, 0, 0)');
+    expect(collapsedHint.border).toBe('solid');
     await widget.locator('summary').click();
+    await expect(action).toHaveText('收合內容');
     await expect(widget.locator('[data-member-monthly-tier-tabs] button')).toHaveCount(4);
     await expect(widget.locator('[data-member-monthly-tier-tabs] button.is-current')).toHaveCount(1);
     await expect(widget.locator('[data-member-monthly-tier-tabs] button.is-current')).toHaveAttribute('data-tier-key','silver');
@@ -324,6 +335,7 @@ for (const surface of ['member','points','event','calendar','booking']) for (con
     expect(overflowing).toBe(false);
     await widget.locator('summary').click();
     expect(await widget.evaluate(node=>node.open)).toBe(false);
+    await expect(action).toHaveText('展開查看');
     await info.attach('compact-monthly-tier-'+surface,{body:await widget.screenshot(),contentType:'image/png'});
   });
 }
