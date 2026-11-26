@@ -153,6 +153,10 @@
     els.adminCalendarGrid.addEventListener('click', handleAdminCalendarGridClick);
     document.addEventListener('click', handleScopedCalendarClick);
     window.addEventListener('member-admin:booking-snapshot', handleOperationalBookingSnapshot);
+    window.addEventListener('member-admin:features-updated', () => {
+      if (window.BusinessWorkspace?.allows('booking') === false) state.operationalBookings = [];
+      renderBookingOverviewCalendar();
+    });
     window.addEventListener('member-admin:booking-services-updated', handleBookingServicesUpdated);
     els.calendarItemAccent.addEventListener('input', updateCalendarItemAccentValue);
     els.calendarItemForm.addEventListener('change', handleCalendarItemFormChange);
@@ -2469,6 +2473,7 @@
       },
       onOpen(item, opener) {
         if (item.bookingId) {
+          if (window.BusinessWorkspace?.allows('booking') === false) return;
           opener.dataset.adminBookingId = String(item.bookingId);
           handleAdminCalendarGridClick({ target:opener });
         } else if (scope === 'ticket') {
@@ -2497,7 +2502,7 @@
 
   function handleOperationalBookingSnapshot(event) {
     const raw = Array.isArray(event?.detail?.bookings) ? event.detail.bookings : [];
-    state.operationalBookings = raw.map((booking) => ({
+    state.operationalBookings = (window.BusinessWorkspace?.allows('booking') === false ? [] : raw).map((booking) => ({
       bookingId: String(booking.bookingId || ''),
       bookingDate: String(booking.bookingDate || ''),
       startTime: String(booking.startTime || '').slice(0, 5),
@@ -2705,7 +2710,7 @@
 
   function renderBookingOverviewCalendar() {
     renderScopedCalendar({
-      rows: [...state.operationalBookings.filter((booking) => ['pending', 'confirmed', 'completed'].includes(booking.status)),
+      rows: [...state.operationalBookings.filter((booking) => window.BusinessWorkspace?.allows('booking') !== false && ['pending', 'confirmed', 'completed'].includes(booking.status)),
         ...state.calendarItems.filter((item) => window.MemberAdminCalendarScopes.belongsToScope('holiday', item))],
       key: 'bookingCalendarMonth', gridId: 'bookingOverviewCalendarGrid',
       titleId: 'bookingOverviewCalendarMonthTitle',

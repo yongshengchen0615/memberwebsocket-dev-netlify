@@ -24,6 +24,7 @@
 .calendar-day-entry { display: grid; gap: 4px; width: 100%; text-align: left; min-width: 0; border-left: 4px solid var(--calendar-item-accent, var(--theme-positive, #236343)); background: var(--theme-positive-soft, #e4f2e8); white-space: normal; overflow-wrap: anywhere; }
 .calendar-day-entry small { color: var(--theme-text-muted, #61716a); font-size: 11px; }
 .calendar-day-entry.is-holiday { color: var(--theme-danger-text, #9b2c38); border-left-color: var(--theme-danger, #ba3548); background: var(--theme-danger-soft, #ffe7ec); }
+#bookingPanel.business-holiday-only .calendar-day-entry[data-business-requires="booking"] { display: none !important; }
 .calendar-day-empty { margin: 0 0 12px; padding: 18px 8px; color: var(--theme-text-muted, #61716a); font-size: 13px; line-height: 1.7; }
 html[data-theme] :is(#eventsPanel, #calendarPanel, #bookingPanel) .calendar-navigation .admin-calendar-day-header { display: block; }
 html[data-theme] :is(#eventsPanel, #calendarPanel, #bookingPanel) .calendar-navigation .admin-calendar-day-button { display: flex; justify-content: center; min-width: 0; padding: 0; }

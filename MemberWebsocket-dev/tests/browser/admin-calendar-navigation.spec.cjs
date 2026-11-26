@@ -120,3 +120,46 @@ test('AC-005: mobile gestures, keyboard focus and both themes remain usable at 3
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
   }
 });
+
+test('AC-004: revoking booking access immediately removes cached day entries and ignores stale snapshots', async ({ page }, info) => {
+  await open(page, info, 'bookingTab');
+  const bookings=[{bookingId:'private-booking',bookingDate:'2026-12-04',startTime:'10:00',endTime:'11:00',memberDisplayName:'撤權後不得保留的預約',status:'confirmed'}];
+  await page.evaluate(rows=>{
+    window.BusinessWorkspace.apply({features:{membership:true,points:true,events:true,calendar:true,booking:true},business:{slug:'fixture',name:'QA'}});
+    window.dispatchEvent(new CustomEvent('member-admin:booking-snapshot',{detail:{bookings:rows}}));
+  },bookings);
+  const workspace=page.locator('#bookingOverviewCalendarWorkspace');
+  await workspace.locator('[data-calendar-month-picker]').fill('2026-12');
+  await page.locator('#bookingOverviewCalendarGrid button[data-booking-calendar-date="2026-12-04"]').click();
+  await expect(workspace.locator('[data-calendar-entry="private-booking"]')).toBeVisible();
+  await page.evaluate(()=>window.BusinessWorkspace.apply({features:{calendar:true,booking:false},business:{slug:'fixture',name:'QA'}}));
+  await expect(page.locator('#bookingPanel')).toHaveClass(/business-holiday-only/);
+  await expect(workspace.locator('[data-calendar-entry="private-booking"]')).toHaveCount(0);
+  await expect(workspace.locator('[data-calendar-day-view]')).not.toContainText('撤權後不得保留的預約');
+  await page.evaluate(rows=>window.dispatchEvent(new CustomEvent('member-admin:booking-snapshot',{detail:{bookings:rows}})),bookings);
+  await expect(workspace.locator('[data-calendar-entry="private-booking"]')).toHaveCount(0);
+  await workspace.locator('[data-calendar-add]').click();
+  await expect(workspace.locator('[data-calendar-create="holiday"]')).toBeVisible();
+});
+
+test('AC-001/005: native date keyboard edits retain focus and supported year bounds remain navigable', async ({ page }, info) => {
+  await open(page, info);
+  const workspace=page.locator('#calendarPanel .admin-calendar');
+  await workspace.locator('[data-calendar-month-picker]').fill('2026-12');
+  await workspace.locator('[data-calendar-open-day]').click();
+  const date=workspace.locator('[data-calendar-date-picker]');
+  await date.focus();
+  await page.keyboard.press('ArrowUp');
+  await expect(date).toBeFocused();
+  await expect(workspace.locator('[data-calendar-day-view]')).toBeVisible();
+  await date.fill('1000-01-01');
+  await expect(date).toHaveValue('1000-01-01');
+  await expect(workspace.locator('[data-calendar-previous-day]')).toBeDisabled();
+  await workspace.locator('[data-calendar-month-view]').click();
+  await expect(page.locator('#adminCalendarPreviousMonthButton')).toBeDisabled();
+  await expect(page.locator('#adminCalendarGrid button[data-admin-calendar-date="1000-01-01"]')).toBeVisible();
+  await workspace.locator('[data-calendar-month-picker]').fill('9999-12');
+  await expect(page.locator('#adminCalendarNextMonthButton')).toBeDisabled();
+  await page.locator('#adminCalendarGrid button[data-admin-calendar-date="9999-12-31"]').click();
+  await expect(workspace.locator('[data-calendar-next-day]')).toBeDisabled();
+});

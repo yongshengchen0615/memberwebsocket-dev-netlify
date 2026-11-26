@@ -19,6 +19,7 @@ test('AC-001/002: navigation uses calendar arithmetic and rejects impossible inp
     ['2026-12-31', 1, '2027-01-01'], ['2027-01-01', -1, '2026-12-31'],
     ['2028-02-28', 1, '2028-02-29'], ['2026-02-28', 1, '2026-03-01'],
     ['2026-02-29', 1, ''], ['2026-13-01', 1, ''], ['', 1, ''],
+    ['0999-12-31', 1, ''], ['1000-01-01', -1, ''], ['9999-12-31', 1, ''],
     ['2026-11-26', NaN, ''], ['2026-11-26', 1.5, '']
   ]) assert.equal(navigation.shiftDate(date, offset), expected);
   assert.deepEqual(navigation.monthSequence('2026-02-29'), []);

@@ -12,13 +12,13 @@
   function parseDate(value) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return null;
     const date = new Date(value + 'T00:00:00Z');
-    return Number.isFinite(date.getTime()) && date.getUTCFullYear() >= 1 && date.getUTCFullYear() <= 9999 && date.toISOString().slice(0, 10) === value ? date : null;
+    return Number.isFinite(date.getTime()) && date.getUTCFullYear() >= 1000 && date.getUTCFullYear() <= 9999 && date.toISOString().slice(0, 10) === value ? date : null;
   }
   function shiftDate(value, days) {
     const date = parseDate(value);
     if (!date || !Number.isSafeInteger(days)) return '';
     date.setUTCDate(date.getUTCDate() + days);
-    return Number.isFinite(date.getTime()) && date.getUTCFullYear() >= 1 && date.getUTCFullYear() <= 9999 ? date.toISOString().slice(0, 10) : '';
+    return Number.isFinite(date.getTime()) && date.getUTCFullYear() >= 1000 && date.getUTCFullYear() <= 9999 ? date.toISOString().slice(0, 10) : '';
   }
   function monthSequence(value) {
     const date = parseDate(value);
@@ -27,7 +27,7 @@
     return Array.from({length:13}, (_, index) => {
       const month = new Date(date);
       month.setUTCMonth(month.getUTCMonth() + index - 2);
-      return month.getUTCFullYear() >= 1 && month.getUTCFullYear() <= 9999 ? month.toISOString().slice(0, 10) : '';
+      return month.getUTCFullYear() >= 1000 && month.getUTCFullYear() <= 9999 ? month.toISOString().slice(0, 10) : '';
     }).filter(Boolean);
   }
   function minutes(value) {
@@ -86,7 +86,7 @@
     const monthLabel = node('label', 'calendar-month-picker-label', '選擇月份');
     ui.monthPicker = node('input');
     ui.monthPicker.type = 'month';
-    ui.monthPicker.min = '0001-01';
+    ui.monthPicker.min = '1000-01';
     ui.monthPicker.max = '9999-12';
     ui.monthPicker.setAttribute('data-calendar-month-picker', '');
     ui.monthPicker.setAttribute('aria-label', labels[scope] + '選擇月份');
@@ -107,7 +107,7 @@
     const today = button('今天', 'data-calendar-today', '回到今天');
     ui.datePicker = node('input');
     ui.datePicker.type = 'date';
-    ui.datePicker.min = '0001-01-01';
+    ui.datePicker.min = '1000-01-01';
     ui.datePicker.max = '9999-12-31';
     ui.datePicker.setAttribute('data-calendar-date-picker', '');
     ui.datePicker.setAttribute('aria-label', labels[scope] + '選擇日期');
@@ -141,7 +141,13 @@
       const target = event.target.closest('[data-calendar-month]');
       if (target && ui.monthStrip.contains(target)) selectMonth(ui, target.dataset.calendarMonth);
     });
-    ui.datePicker.addEventListener('change', () => openDate(ui, ui.datePicker.value));
+    ui.datePicker.addEventListener('change', () => openDate(ui, ui.datePicker.value, false));
+    ui.datePicker.addEventListener('blur', () => {
+      if (!parseDate(ui.datePicker.value)) ui.datePicker.value = ui.date;
+    });
+    ui.monthPicker.addEventListener('blur', () => {
+      if (!parseDate(ui.monthPicker.value + '-01')) ui.monthPicker.value = ui.options.month.slice(0, 7);
+    });
     openDay.addEventListener('click', () => openDate(ui, ui.date));
     previous.addEventListener('click', () => openDate(ui, shiftDate(ui.date, -1)));
     next.addEventListener('click', () => openDate(ui, shiftDate(ui.date, 1)));
@@ -214,7 +220,7 @@
         else {
           const date = parseDate(ui.options.month);
           date.setUTCMonth(date.getUTCMonth() + direction);
-          if (date.getUTCFullYear() >= 1 && date.getUTCFullYear() <= 9999) selectMonth(ui, date.toISOString().slice(0, 10));
+          if (date.getUTCFullYear() >= 1000 && date.getUTCFullYear() <= 9999) selectMonth(ui, date.toISOString().slice(0, 10));
         }
       });
     }
@@ -226,20 +232,26 @@
     ui.add.setAttribute('aria-expanded', 'false');
   }
   function selectMonth(ui, month) {
-    if (!parseDate(month)) { ui.monthPicker.value = ui.options.month.slice(0, 7); return; }
+    if (!parseDate(month)) {
+      if (root.document.activeElement !== ui.monthPicker) ui.monthPicker.value = ui.options.month.slice(0, 7);
+      return;
+    }
     ui.view = 'month';
     ui.date = ui.options.today.slice(0, 7) === month.slice(0, 7) ? ui.options.today : month;
     closeMenu(ui);
     ui.options.onMonthChange(month);
   }
-  function openDate(ui, date) {
-    if (!parseDate(date)) { ui.datePicker.value = ui.date; return; }
+  function openDate(ui, date, focusTitle = true) {
+    if (!parseDate(date)) {
+      if (root.document.activeElement !== ui.datePicker) ui.datePicker.value = ui.date;
+      return;
+    }
     ui.date = date;
     ui.view = 'day';
     closeMenu(ui);
     if (date.slice(0, 7) !== ui.options.month.slice(0, 7)) ui.options.onMonthChange(date.slice(0, 7) + '-01');
     else render(ui);
-    ui.dayTitle.focus({preventScroll:true});
+    if (focusTitle) ui.dayTitle.focus({preventScroll:true});
   }
   function render(ui) {
     const {grid, workspace, options} = ui;
@@ -249,8 +261,13 @@
     ui.day.hidden = !isDay;
     workspace.querySelector('.admin-calendar-weekdays').hidden = isDay;
     ui.monthStrip.hidden = isDay;
-    ui.monthPicker.value = options.month.slice(0, 7);
-    ui.datePicker.value = ui.date;
+    if (root.document.activeElement !== ui.monthPicker) ui.monthPicker.value = options.month.slice(0, 7);
+    if (root.document.activeElement !== ui.datePicker) ui.datePicker.value = ui.date;
+    workspace.querySelector('[data-calendar-previous-day]').disabled = ui.date === '1000-01-01';
+    workspace.querySelector('[data-calendar-next-day]').disabled = ui.date === '9999-12-31';
+    workspace.querySelectorAll('.admin-calendar-month-button').forEach(button => {
+      button.disabled = button.id.endsWith('PreviousMonthButton') ? options.month === '1000-01-01' : options.month === '9999-12-01';
+    });
     ui.dayTitle.textContent = dateLabel(ui.date) + ' · ' + labels[ui.scope];
     const chips = monthSequence(options.month).map(month => {
       const year = month.slice(0, 4), number = Number(month.slice(5, 7));
@@ -284,6 +301,7 @@
     const entry = button('', 'data-calendar-entry');
     entry.dataset.calendarEntry = String(id || '');
     entry.classList.add('calendar-day-entry', row.itemType === 'holiday' ? 'is-holiday' : 'is-event');
+    if (isBooking) entry.setAttribute('data-business-requires', 'booking');
     const accent = /^#[a-f0-9]{6}$/i.test(String(row.accent || '')) ? row.accent : '';
     if (accent) entry.style.setProperty('--calendar-item-accent', accent);
     const time = segment ? (segment.fromPreviousDay ? '前日 ' : '') + String(row.startTime || '').slice(0,5) + '–' + String(row.endTime || '').slice(0,5) + (segment.continues ? '（跨日）' : '') : (isBooking ? '時間未提供' : '全天');
