@@ -646,6 +646,29 @@
    status.textContent='尚未取得櫃檯使用資格。';return;
   }
   showProgress(3);
+  const noticeEnabled = person.receiveNotifications !== false;
+  const noticeStatus = node('p', noticeEnabled ? 'LINE 預約通知：接收中' : 'LINE 預約通知：已暫停（不影響櫃檯預約操作）');
+  noticeStatus.className = 'frontdesk-notification-state';
+  account.append(noticeStatus);
+  if(person.allowNotificationToggle===true){
+   const form=node('form');form.className='frontdesk-notification-preference';
+   const label=node('label');
+   const toggle=node('input');toggle.type='checkbox';toggle.checked=noticeEnabled;toggle.name='receiveNotifications';
+   label.append(toggle,node('span','接收 LINE 預約通知'));
+   const help=node('p','下班時可取消勾選並儲存；暫停後不會補發期間的訊息，預約資料仍可在有權限時查看。');
+   const saveButton=node('button','儲存通知設定');saveButton.type='submit';saveButton.className='frontdesk-primary';
+   form.append(label,help,saveButton);
+   form.addEventListener('submit',async event=>{
+    event.preventDefault();if(busy||toggle.disabled)return;
+    lock(true);const finish=window.AsyncActionFeedback?.begin('正在更新 LINE 預約通知設定…');
+    try{await request('frontdesk.notifications.set',{enabled:toggle.checked});await load();status.textContent=toggle.checked?'已啟用 LINE 預約通知。':'已暫停 LINE 預約通知，下班後不再推播。';}
+    catch(error){failure(error);toggle.checked=noticeEnabled;}
+    finally{finish?.();lock(false);}
+   });
+   account.append(form);
+  }else{
+   account.append(node('p','通知接收設定由商家管理員管理。'));
+  }
   if(person.permissionMode==='review'){
    showBookingToolbar(true);
    if(history)history.hidden=false;
@@ -661,7 +684,7 @@
    status.textContent='審核已通過，可處理目前商家的待確認預約。';
   }else{
    account.append(node('p','管理員已核准「僅接收預約訊息」，不會顯示會員資料與預約操作。'));
-   status.textContent='審核已通過，已開通 LINE 預約通知權限。';
+   status.textContent=noticeEnabled?'審核已通過，已開通 LINE 預約通知權限。':'已核准櫃檯資格，目前暫停 LINE 預約通知。';
   }
   return person.permissionMode==='review';
  }
