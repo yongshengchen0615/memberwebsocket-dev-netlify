@@ -136,6 +136,10 @@
   ],
   [
     "node",
+    "MemberWebsocket-dev/tests/integration/event_ticket_tier_inheritance_sql.cjs"
+  ],
+  [
+    "node",
     "MemberWebsocket-dev/tests/integration/event_ticket_friend_transfer_sql.cjs"
   ],
   [
