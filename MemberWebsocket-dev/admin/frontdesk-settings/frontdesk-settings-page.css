@@ -235,8 +235,8 @@ html[data-frontdesk-page] .frontdesk-settings-overview strong {
 html[data-frontdesk-page] .frontdesk-settings-overview p {
   color: var(--theme-text-muted);
 }
-/* LINE settings always follow one reading track: overview, provider settings,
-   page title, then staff review. Only the two provider cards may sit side-by-side. */
+/* LINE settings have one reading track; staff approval lives in its own tab.
+   Only the two provider cards may sit side-by-side. */
 html[data-frontdesk-page] .frontdesk-settings-content {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -415,11 +415,6 @@ html[data-frontdesk-page] .frontdesk-person .frontdesk-person-status {
   color: var(--theme-text);
   font-weight: 650;
 }
-html[data-frontdesk-page] .frontdesk-person > button[type="submit"] {
-  min-width: 0;
-  font-weight: 700;
-  background: var(--theme-surface-raised);
-}
 html[data-frontdesk-page] .frontdesk-person > .frontdesk-remove-staff {
   min-width: 0;
   margin: 0;
@@ -493,6 +488,23 @@ html[data-frontdesk-page] :is(
   .frontdesk-page-links a,
   .theme-toggle-button
 ) { transition: none; }
+
+/* Staff permissions live in their own fixed grid panel; the batch action is
+   a single high-contrast control for mobile and desktop. */
+html[data-frontdesk-page] .frontdesk-staff-panel {
+  grid-area: content;
+  display: grid;
+  min-width: 0;
+  margin-top: 12px;
+}
+html[data-frontdesk-page] .frontdesk-staff-save-all {
+  width: 100%;
+  min-height: 48px;
+}
+html[data-frontdesk-page] .frontdesk-staff-draft-summary {
+  font-weight: 700;
+  color: var(--theme-text);
+}
 
 /* Segmented merchant settings navigation and auditable read-only history. */
 html[data-frontdesk-page] .frontdesk-settings-tabs {
