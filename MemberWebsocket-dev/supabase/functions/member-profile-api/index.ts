@@ -1,5 +1,6 @@
 import { businessEnv, businessContext, serveBusiness } from '../_shared/business-runtime.ts';
 import { currentTaipeiMonth, monthlyTierBounds, buildMonthlyTierOverview } from '../_shared/monthly-tier-benefits.mjs';
+import { tierVisibility, loadVisibilityPolicy } from '../_shared/tier-visibility.ts';
 import { requireMemberOaBeforeActivation, memberOaGuidance, strictLineAccessToken } from '../_shared/member-oa-registration-gate.mjs';
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract } from "../_shared/auth-contract.ts";
@@ -367,30 +368,40 @@ function termsError(error: { code?: string; message?: string; details?: string; 
 
 // A member can preview published tier offers without obtaining a physical ticket.
 // Check merchant module grants before reading each collection.
-async function monthlyTierBenefits(supabase: SupabaseClient): Promise<Json> {
+async function monthlyTierBenefits(supabase: SupabaseClient, member: any): Promise<Json> {
   const month = currentTaipeiMonth();
   const { start, end } = monthlyTierBounds(month);
   const features = businessContext()?.features;
   const showTickets = !features || features.events === true;
   const showActivities = !features || features.calendar === true;
-  const [ticketResult, calendarResult] = await Promise.all([
+  const [ticketResult, calendarResult, viewerProfile, defaultVisibilityPolicy] = await Promise.all([
     showTickets ? supabase.from("event_tickets")
-      .select("title,ticket_type,status,starts_on,ends_on,allowed_tier_keys,deleted_at,referral_source_event_ticket_id,fixed_ticket_template_id")
+      .select("title,ticket_type,status,starts_on,ends_on,allowed_tier_keys,visibility_policy,deleted_at,referral_source_event_ticket_id,fixed_ticket_template_id")
       .eq("status", "active").is("deleted_at", null)
       .or(`starts_on.is.null,starts_on.lte.${end}`).or(`ends_on.is.null,ends_on.gte.${start}`)
       : Promise.resolve({ data: [], error: null }),
     showActivities ? supabase.from("calendar_items")
-      .select("title,item_type,status,audience_type,starts_on,ends_on,allowed_tier_keys,source_event_ticket_id,link_url")
+      .select("title,item_type,status,audience_type,starts_on,ends_on,allowed_tier_keys,visibility_policy,source_event_ticket_id,link_url")
       .eq("item_type", "event").eq("status", "active")
       .lte("starts_on", end).or(`ends_on.is.null,ends_on.gte.${start}`)
       : Promise.resolve({ data: [], error: null }),
+    profileFor(supabase, member),
+    showTickets || showActivities ? loadVisibilityPolicy(supabase) : Promise.resolve('eligible_only'),
   ]);
   if (ticketResult.error || calendarResult.error)
     throw new ApiError(503, "MONTHLY_TIER_OFFERS_UNAVAILABLE", "本月階級優惠暫時無法讀取。");
+  // Preserve the existing administrative presentation policy. The four tier
+  // sections are always rendered, but hidden campaign titles must not leak.
+  const visibleToViewer = (row: any, allowUnrestricted: boolean): boolean => {
+    const keys = Array.isArray(row.allowed_tier_keys) && row.allowed_tier_keys.length
+      ? row.allowed_tier_keys
+      : allowUnrestricted ? ['general', 'silver', 'gold', 'platinum'] : [];
+    return tierVisibility(keys, viewerProfile.tierKey, row.visibility_policy || defaultVisibilityPolicy).visible;
+  };
   return buildMonthlyTierOverview({
     month,
-    tickets: ticketResult.data || [],
-    activities: calendarResult.data || [],
+    tickets: (ticketResult.data || []).filter((row: any) => visibleToViewer(row, false)),
+    activities: (calendarResult.data || []).filter((row: any) => visibleToViewer(row, true)),
     showTickets,
     showActivities,
   });
@@ -413,7 +424,7 @@ serveBusiness('member-profile-api',async (request: Request) => {
     let identity: Identity;
     try {
       const testIdentity = await resolveUserTestIdentity(supabase, asText(body.testSessionToken, 200));
-      if (testIdentity && ["user.member.invitation.claim","user.member.oa.check"].includes(action) && testIdentity.surface !== "member") {
+      if (testIdentity && ["user.member.invitation.claim","user.member.oa.check","user.member.monthly-tier-benefits"].includes(action) && testIdentity.surface !== "member") {
         throw new ApiError(403,"TEST_SESSION_SURFACE_MISMATCH","測試登入與目前功能不相符。");
       }
       identity = testIdentity
@@ -454,7 +465,7 @@ serveBusiness('member-profile-api',async (request: Request) => {
         throw new ApiError(403, "MEMBERSHIP_REQUIRED", "請先啟用會員資格。");
       if ((await termsForMember(supabase, member)).consentRequired)
         throw new ApiError(403, "TERMS_RECONSENT_REQUIRED", "請先同意更新後的會員條款。");
-      return response(origin, { ok: true, status: 200, data: await monthlyTierBenefits(supabase) });
+      return response(origin, { ok: true, status: 200, data: await monthlyTierBenefits(supabase, member) });
     }
     if (action === "user.member.bootstrap") return response(origin, { ok: true, status: 200, data: { profile: await profileFor(supabase, member), phoneVerificationRequired: requirePhoneOtp(), ...await termsForMember(supabase, member), memberOa:memberOaGuidance({tenant:businessContext(),expectedChannelId:env("LINE_MEMBER_CHANNEL_ID") || "2010787602",member,verifiedBindingsJson:env("MEMBER_OA_VERIFIED_LINKS_JSON")}) } });
     if (action === "user.member.phone.send") {
