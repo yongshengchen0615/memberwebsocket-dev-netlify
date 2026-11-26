@@ -26,6 +26,8 @@ begin
     -- Keep the globally unique claim_id; only release campaign/member exclusivity.
     execute format('alter table %I.event_ticket_claims drop constraint if exists event_ticket_claims_event_ticket_id_member_id_key',s);
     execute format('create index if not exists event_claims_campaign_member_idx on %I.event_ticket_claims(event_ticket_id,member_id,created_at desc)',s);
+    -- The bootstrap provenance lookup filters received gifts by receiver first.
+    execute format('create index if not exists event_ticket_transfers_receiver_created_idx on %I.event_ticket_transfers(receiver_member_id,created_at desc)',s);
 
     -- Deny re-creating the *same physical claim* after transfer, not future
     -- claims for any prior sender or recipient of the same campaign.
@@ -136,6 +138,23 @@ begin
           template := jsonb_set(template,'{indexes}',
             template->'indexes' || jsonb_build_array(jsonb_build_object(
               'table','event_ticket_claims','definition',definition)));
+        end if;
+      end if;
+      if not exists (
+        select 1 from jsonb_array_elements(template->'indexes') i
+        where i->>'table'='event_ticket_transfers'
+          and i->>'definition' ilike '%event_ticket_transfers_receiver_created_idx%'
+      ) then
+        select pg_get_indexdef(indexrelid) into definition
+        from pg_index i join pg_class c on c.oid=i.indrelid
+        join pg_namespace n on n.oid=c.relnamespace
+        join pg_class idx on idx.oid=i.indexrelid
+        where n.nspname='public' and c.relname='event_ticket_transfers'
+          and idx.relname='event_ticket_transfers_receiver_created_idx';
+        if definition is not null then
+          template := jsonb_set(template,'{indexes}',
+            template->'indexes' || jsonb_build_array(jsonb_build_object(
+              'table','event_ticket_transfers','definition',definition)));
         end if;
       end if;
       update platform_private.business_templates set snapshot=template
