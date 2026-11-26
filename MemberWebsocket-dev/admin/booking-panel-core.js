@@ -862,6 +862,18 @@
     updateMessagesDraft();
   }
 
+  function renderLineNotificationPreview(output, lines) {
+    // Separate DOM rows avoid copying/rendering escaped newline markers as
+    // visible backslashes. textContent also keeps administrator text inert.
+    output.textContent = '';
+    for (const line of lines) {
+      const row = document.createElement('span');
+      row.className = 'booking-admin-message-preview-line';
+      row.textContent = line;
+      output.appendChild(row);
+    }
+  }
+
   function renderPendingMessagePreview() {
     const message = String(els.bookingAdminPendingMessage.value || '').replace(/\r\n?/g, '\n').trim();
     const example = [
@@ -874,7 +886,7 @@
       '預約編號：示意編號',
       ...message.split('\n').filter(Boolean).map((line) => '提醒事項：' + line),
     ];
-    els.bookingAdminPendingMessagePreview.textContent = example.join('\n');
+    renderLineNotificationPreview(els.bookingAdminPendingMessagePreview, example);
   }
   function renderReminderMessagePreview() {
     const message = String(els.bookingAdminReminderMessage.value || '').replace(/\r\n?/g, '\n').trim();
@@ -894,7 +906,7 @@
       '個別金額：NT$1,000',
       '預約技師：示意技師',
     ];
-    els.bookingAdminReminderMessagePreview.textContent = example.join('\n');
+    renderLineNotificationPreview(els.bookingAdminReminderMessagePreview, example);
   }
   function renderSettings(force = false) {
     const settings = state.booking.settings || {};
