@@ -22,9 +22,8 @@
     reload.type = 'button';
     const syncState = node('p', '尚未取得最新櫃檯設定。', 'frontdesk-sync-state');
     // The primary status is the sole live region; this is a visual sync hint.
-    // Keep the settings form and staff approvals in LINE settings; action records
-    // are fetched lazily from the authenticated merchant API, never from a
-    // browser-maintained booking status cache.
+    // Keep staff approvals in an independent tab; use the merchant API to
+    // atomically save all edited staff rights instead of writing row by row.
     const tabs = node('div', '', 'frontdesk-settings-tabs');
     tabs.setAttribute('role', 'tablist');
     tabs.setAttribute('aria-label', '櫃檯設定分類');
@@ -38,15 +37,19 @@
     rejectionPanel.id = 'frontdesk-rejection-panel';
     rejectionPanel.setAttribute('role', 'tabpanel');
     rejectionPanel.hidden = true;
+    const staffPanel = node('section', '', 'frontdesk-staff-panel');
+    staffPanel.id = 'frontdesk-staff-panel';
+    staffPanel.setAttribute('role', 'tabpanel');
+    staffPanel.hidden = true;
     const tabButtons = new Map();
     const historyKeys = new Set(['confirmed', 'rejected']);
     let selectedTab = 'line', historyEpoch = 0;
-    for (const [key, title] of [['line', 'LINE 設定'], ['rejectionSettings', '拒絕預約設定'], ['confirmed', '確認預約'], ['rejected', '拒絕預約']]) {
+    for (const [key, title] of [['line', 'LINE 設定'], ['staff', '櫃檯人員申請與權限'], ['rejectionSettings', '拒絕預約設定'], ['confirmed', '確認預約'], ['rejected', '拒絕預約']]) {
       const tab = node('button', title, 'frontdesk-settings-tab');
       tab.type = 'button';
       tab.id = 'frontdesk-tab-' + key;
       tab.setAttribute('role', 'tab');
-      tab.setAttribute('aria-controls', key === 'line' ? content.id : key === 'rejectionSettings' ? rejectionPanel.id : historyPanel.id);
+      tab.setAttribute('aria-controls', key === 'line' ? content.id : key === 'staff' ? staffPanel.id : key === 'rejectionSettings' ? rejectionPanel.id : historyPanel.id);
       if (key === 'rejectionSettings') tab.hidden = true;
       tab.setAttribute('aria-selected', key === 'line' ? 'true' : 'false');
       tab.tabIndex = key === 'line' ? 0 : -1;
@@ -66,13 +69,14 @@
       tabs.append(tab);
     }
     content.setAttribute('aria-labelledby', 'frontdesk-tab-line');
+    staffPanel.setAttribute('aria-labelledby', 'frontdesk-tab-staff');
     rejectionPanel.setAttribute('aria-labelledby', 'frontdesk-tab-rejectionSettings');
     historyPanel.setAttribute('aria-labelledby', 'frontdesk-tab-confirmed');
     // <details> owns an internal content box in Chromium. Put all open-state
     // controls in one explicit grid instead of treating its children as grid
     // items: otherwise tab changes can reflow into different implicit tracks.
     const body = node('div', '', 'frontdesk-settings-body');
-    body.append(status, syncState, reload, tabs, content, rejectionPanel, historyPanel);
+    body.append(status, syncState, reload, tabs, content, staffPanel, rejectionPanel, historyPanel);
     details.append(body);
     root.append(details);
     let data = null, busy = false, pending = null, dirty = false, snapshot = '';
@@ -86,6 +90,7 @@
       selectedTab = key;
       historyEpoch++;
       content.hidden = key !== 'line';
+      staffPanel.hidden = key !== 'staff';
       rejectionPanel.hidden = key !== 'rejectionSettings';
       historyPanel.hidden = !historyKeys.has(key);
       if (historyKeys.has(key)) historyPanel.setAttribute('aria-labelledby', 'frontdesk-tab-' + key);
@@ -209,7 +214,8 @@
         data = result;
         render();
         syncState.textContent = '最新版本已儲存並同步。';
-        status.textContent = action === 'platform.frontdesk.staff.delete' ? '櫃檯帳號已移除；如需重新使用，須重新申請並審核。' : '櫃檯設定與人員權限已儲存。';
+        status.textContent = action === 'platform.frontdesk.staff.delete' ? '櫃檯帳號已移除；如需重新使用，須重新申請並審核。' :
+          action === 'platform.frontdesk.staff.batch' ? '所有已修改的人員申請與權限已一次儲存。' : '櫃檯設定與人員權限已儲存。';
         // Invalidate other open tabs; never send credentials or staff data.
         channel?.postMessage({ business });
       } catch (error) {
@@ -249,6 +255,7 @@
     function render() {
       content.replaceChildren();
       rejectionPanel.replaceChildren();
+      staffPanel.replaceChildren();
       const cfg = data.frontdesk || {};
       const hasRejectionSettings = Boolean(cfg.rejectionSettings && Array.isArray(cfg.rejectionSettings.reasons));
       tabButtons.get('rejectionSettings').hidden = !hasRejectionSettings;
@@ -258,7 +265,7 @@
       overview.append(node('strong', cfg.enabled === false ? '櫃檯入口已停用' :
         hasSettings ? '櫃檯已設定 LINE 入口' : '尚待完成櫃檯設定'));
       overview.append(node('p', cfg.enabled === false ? '此商家的櫃檯服務目前已停用，請檢查下方通知設定。' :
-        hasSettings ? '登入與通知資料已設定。你可以檢查設定，或在右側管理人員權限。' :
+        hasSettings ? '登入與通知資料已設定。你可以檢查設定；人員申請與權限請切換至獨立分頁。' :
         '先完成 LINE 登入與官方帳號設定，再審核櫃檯人員的使用申請。'));
       content.append(overview);
       const form = node('form', '', 'frontdesk-config-form');
@@ -586,14 +593,35 @@
       }
 
       const approvals = node('section', '', 'frontdesk-approvals');
-      approvals.append(node('h3', '4. 櫃檯人員申請與權限'));
+      approvals.append(node('h3', '櫃檯人員申請與權限'));
+      approvals.append(node('p', '調整多位櫃檯人員後，按下方「儲存所有人員權限」一次送出；若有任何資料衝突，整批不會生效。'));
       approvals.append(node('p', '人員須先從商家專屬櫃檯頁面申請，再由管理員逐人審核。未核准者無法查看預約或接收通知。'));
       const people = [...(data.staff || [])].sort((a, b) => (a.status === 'pending' ? -1 : 0) - (b.status === 'pending' ? -1 : 0));
       const waiting = people.filter(person => person.status === 'pending').length;
       approvals.append(node('p', '待審核 ' + waiting + ' 人｜已記錄申請 ' + people.length + ' 人', 'business-line-summary'));
       if (!people.length) approvals.append(node('p', '目前沒有申請。櫃檯人員請透過商家專屬 frontdesk 頁面提出申請。'));
+      const staffRows = [];
+      const changes = () => staffRows.flatMap(({person,state,mode,allowToggle}) => {
+        const statusValue = state.value;
+        const pendingUnchosen = person.status === 'pending' && !statusValue;
+        if (pendingUnchosen && mode.value === (person.permissionMode || 'notify_only') &&
+          allowToggle.checked === (person.allowNotificationToggle === true)) return [];
+        if (statusValue === person.status && mode.value === (person.permissionMode || 'notify_only') &&
+          allowToggle.checked === (person.allowNotificationToggle === true)) return [];
+        return [{staffId:person.id,expectedVersion:person.version,status:statusValue,
+          permissionMode:mode.value,allowNotificationToggle:allowToggle.checked}];
+      });
+      const saveAll = node('button', '儲存所有人員權限', 'button frontdesk-primary frontdesk-staff-save-all');
+      saveAll.type = 'button';
+      const summary = node('p', '', 'frontdesk-staff-draft-summary');
+      summary.setAttribute('aria-live', 'polite');
+      function updateStaffDraft() {
+        const count = changes().length;
+        summary.textContent = count ? '尚有 ' + count + ' 位人員的修改待儲存。' : '目前沒有未儲存的人員權限修改。';
+        saveAll.disabled = !count || busy || Boolean(pending);
+      }
       for (const person of people) {
-        const row = node('form', '', 'frontdesk-person');
+        const row = node('div', '', 'frontdesk-person');
         const current = {pending:'待審核',approved:'已核准',rejected:'申請未通過',suspended:'已停用'}[person.status] || person.status;
         row.append(node('h4', person.displayName || '櫃檯人員'), node('p', '申請狀態：' + current, 'frontdesk-person-status'));
         if (person.status === 'pending') row.append(node('p', '此人員尚未獲授權，預設為「僅接收預約訊息」。'));
@@ -604,7 +632,12 @@
           option.value = value;
           state.append(option);
         }
-        state.value = person.status === 'pending' ? 'approved' : person.status;
+        if (person.status === 'pending') {
+          const placeholder = node('option', '請選擇審核結果');
+          placeholder.value = '';
+          state.prepend(placeholder);
+        }
+        state.value = person.status === 'pending' ? '' : person.status;
         states.append(state);
         const modes = node('label', '預約權限'), mode = node('select');
         mode.name = 'permissionMode';
@@ -623,14 +656,17 @@
         notificationPermission.append(allowToggle, node('span', '允許此人員自行開關 LINE 預約通知'));
         const controls = node('div', '', 'business-line-fields');
         controls.append(states, modes, notificationPermission);
-        const button = node('button', person.status === 'pending' ? '核准／更新此人員權限' : '儲存此人員權限', 'button button-outline');
-        button.type = 'submit';
-        row.append(controls, node('p', person.receiveNotifications === false ? '目前狀態：此人員已暫停接收 LINE 預約通知' : '目前狀態：此人員接收 LINE 預約通知', 'frontdesk-notification-status'), button);
+        row.append(controls, node('p', person.receiveNotifications === false ? '目前狀態：此人員已暫停接收 LINE 預約通知' : '目前狀態：此人員接收 LINE 預約通知', 'frontdesk-notification-status'));
+        staffRows.push({person,state,mode,allowToggle});
         const remove = node('button', '移除帳號', 'button button-outline frontdesk-remove-staff');
         remove.type = 'button';
         remove.setAttribute('aria-label', '移除 ' + (person.displayName || '此櫃檯人員') + ' 的櫃檯帳號');
         remove.onclick = () => {
-          if (busy || (pending && pending.action !== 'platform.frontdesk.staff.delete')) return;
+          if (busy || pending) return;
+          if (changes().length) {
+            status.textContent = '請先儲存或捨棄其他人員的修改，再移除帳號。';
+            return;
+          }
           // An uncertain response must reuse the original requestId; do not re-confirm
           // or generate another destructive request while the first outcome is unknown.
           if (!pending && !window.confirm('確定永久移除「' + (person.displayName || '此櫃檯人員') + '」的櫃檯資格、申請資料及通知紀錄？此動作無法復原；如需使用，必須重新提出申請並經管理員核准。')) return;
@@ -640,15 +676,26 @@
         row.addEventListener('change', () => {
           if (busy || pending) return;
           dirty = true;
+          updateStaffDraft();
           syncState.textContent = '人員權限尚未儲存；自動同步不會覆蓋草稿。';
-        });
-        row.addEventListener('submit', event => {
-          event.preventDefault();
-          void save('platform.frontdesk.staff.save', {staffId:person.id,expectedVersion:person.version,status:state.value,permissionMode:mode.value,allowNotificationToggle:allowToggle.checked}, button);
         });
         approvals.append(row);
       }
-      content.append(approvals);
+      saveAll.addEventListener('click', () => {
+        if (busy || pending) return;
+        const updates = changes();
+        if (!updates.length) return;
+        const missingReview = updates.find(item => !item.status);
+        if (missingReview) {
+          status.textContent = '請先為要修改的待審核人員選擇審核結果。';
+          staffRows.find(row => row.person.id === missingReview.staffId)?.state.focus();
+          return;
+        }
+        void save('platform.frontdesk.staff.batch', {expectedVersion:data.version,updates}, saveAll);
+      });
+      if (people.length) approvals.append(summary, saveAll);
+      staffPanel.append(approvals);
+      updateStaffDraft();
       lock();
     }
     async function load({ force = false } = {}) {
