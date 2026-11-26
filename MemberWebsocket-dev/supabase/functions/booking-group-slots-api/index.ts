@@ -250,42 +250,46 @@ async function slots(supabase: ReturnType<typeof db>, member: any, body: Json) {
     if (!bookingResult.data || !["pending", "confirmed"].includes(bookingResult.data.status)) throw new ApiError(409, "BOOKING_NOT_EDITABLE", "找不到可修改的預約。");
   }
 
-  const legacyTechnicianIds = [...new Set([...group.assignments.map((a:any)=>String(a.technicianId)),...(group.settings.require_primary_technician !== false && group.primaryId ? [group.primaryId] : [])])];
-  const primaryRows = legacyTechnicianIds.length ? await supabase.from("bookings")
+  const technicianIds = [...new Set(group.assignments.map((assignment: any) => String(assignment.technicianId)))];
+  const legacyTechnicianIds = group.settings.require_primary_technician !== false && group.primaryId
+    ? [...new Set([...technicianIds, group.primaryId])]
+    : technicianIds;
+  const firstDate = addDays(bookingDate, -1);
+  const lastDate = addDays(bookingDate, 1);
+
+  const primaryQuery = legacyTechnicianIds.length ? supabase.from("bookings")
     .select("id,start_at,end_at")
-    .gte("booking_date", addDays(bookingDate, -1)).lte("booking_date", addDays(bookingDate, 1))
+    .gte("booking_date", firstDate).lte("booking_date", lastDate)
     .in("technician_id", legacyTechnicianIds)
     .eq("party_size", 1)
-    .in("status", ["pending", "confirmed"]) : {data:[],error:null};
-  if (primaryRows.error) throw new ApiError(500, "DATABASE_ERROR", "無法讀取主要技師時段。");
-  const primaryOccupied = (primaryRows.data || [])
-    .filter((row: any) => String(row.id) !== excludedBookingId)
-    .map(occupiedRange);
+    .in("status", ["pending", "confirmed"]) : { data: [], error: null };
 
   // Telephone bookings have no technician assignment. A separate occupied-range
   // check is required for group bookings (even when no technician is selected).
   // This also mirrors the PostgreSQL phone reservation conflict trigger.
-  const phoneResult = await supabase.from("bookings")
+  const phoneQuery = supabase.from("bookings")
     .select("id,start_at,end_at")
-    .gte("booking_date", addDays(bookingDate, -1)).lte("booking_date", addDays(bookingDate, 1))
+    .gte("booking_date", firstDate).lte("booking_date", lastDate)
     .like("request_id", "PHONE-%")
     .in("status", ["pending", "confirmed"]);
-  if (phoneResult.error) throw new ApiError(500, "DATABASE_ERROR", "無法確認電話預約佔用時段。");
-  const phoneOccupied = (phoneResult.data || []).map(occupiedRange);
+  const reservationQuery = technicianIds.length ? supabase.from("booking_participant_reservations")
+    .select("booking_id,technician_id,start_at,end_at")
+    .gte("booking_date", firstDate).lte("booking_date", lastDate)
+    .eq("is_active", true)
+    .in("technician_id", technicianIds) : { data: [], error: null };
 
-  const technicianIds = [...new Set(group.assignments.map((assignment: any) => String(assignment.technicianId)))];
-  let reservationRows: any[] = [];
-  if (technicianIds.length) {
-    const reservationResult = await supabase.from("booking_participant_reservations")
-      .select("booking_id,technician_id,start_at,end_at")
-      .gte("booking_date", addDays(bookingDate, -1)).lte("booking_date", addDays(bookingDate, 1))
-      .eq("is_active", true)
-      .in("technician_id", technicianIds);
-    if (reservationResult.error) throw new ApiError(500, "DATABASE_ERROR", "無法讀取技師預約時段。");
-    reservationRows = (reservationResult.data || []).filter((row: any) => String(row.booking_id) !== excludedBookingId);
-  }
+  const [primaryRows, phoneResult, reservationResult] = await Promise.all([primaryQuery, phoneQuery, reservationQuery]);
+  if (primaryRows.error) throw new ApiError(500, "DATABASE_ERROR", "無法讀取主要技師時段。");
+  if (phoneResult.error) throw new ApiError(500, "DATABASE_ERROR", "無法確認電話預約佔用時段。");
+  if (reservationResult.error) throw new ApiError(500, "DATABASE_ERROR", "無法讀取技師預約時段。");
+
+  const primaryOccupied = (primaryRows.data || [])
+    .filter((row: any) => String(row.id) !== excludedBookingId)
+    .map(occupiedRange);
+  const phoneOccupied = (phoneResult.data || []).map(occupiedRange);
   const occupiedByTechnician = new Map<string, any[]>();
-  for (const row of reservationRows) {
+  for (const row of reservationResult.data || []) {
+    if (String(row.booking_id) === excludedBookingId) continue;
     const key = String(row.technician_id || "");
     const list = occupiedByTechnician.get(key) || [];
     list.push(occupiedRange(row));
