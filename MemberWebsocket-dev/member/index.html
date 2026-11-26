@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="./terms.css?v=membership-terms-20260928-1">
   <link rel="stylesheet" href="./profile-extension.css?v=member-phone-country-code-20261003-1">
   <link rel="stylesheet" href="./membership-progress.css?v=member-tier-style-20260908">
+  <link rel="stylesheet" href="./monthly-tier-benefits.css?v=20261126-1">
   <link rel="stylesheet" href="./member-growth.css?v=member-growth-20261001-5-friends-qr-20261006-1">
   <link rel="stylesheet" href="../user-tour.css?v=user-tour-20260928-10-p2-20261006-1">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
@@ -25,6 +26,7 @@
   <script src="./profile-extension.js?v=member-phone-otp-change-20261104-1&loading=20261123-1" defer></script>
   <script src="./profile-birthday-edit.js?v=async-architecture-20260921-1" defer></script>
   <script src="./membership-progress.js?v=member-tier-style-20260908" defer></script>
+  <script src="./monthly-tier-benefits.js?v=20261126-1" defer></script>
   <script src="./app.js?v=twilio-join-20261104-integrated-1-qr-only-20261117-1&brand=20261122-1&loading=20261123-1" defer></script>
   <script src="./member-growth.js?v=member-actions-20261010-2-ongoing-20261013-1-site-title-20261107-1&loading=20261123-1" defer></script>
   <script src="../user-tour.js?v=participant-state-isolation-20261004-1-p2-20261006-1" defer></script>
@@ -215,6 +217,16 @@
         <p data-membership-summary class="membership-progress-summary">累積 0 分鐘・下一階段資料載入中</p>
         <p data-membership-remaining class="membership-progress-remaining">正在計算升等進度</p>
         <div data-membership-progress-track class="membership-progress-track" role="progressbar" aria-label="會員階級進度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-membership-progress-bar></span></div>
+        <div class="member-monthly-benefits" aria-label="本月各會員階級優惠">
+          <div class="member-monthly-benefits-heading">
+            <h3>本月各階級票券與活動</h3>
+            <button class="member-monthly-benefits-reload" type="button" data-member-monthly-tier-reload>更新</button>
+          </div>
+          <p class="member-monthly-benefits-month" data-member-monthly-tier-month>本月</p>
+          <p class="member-monthly-benefits-status" data-member-monthly-tier-status role="status">正在載入各階級優惠…</p>
+          <div class="member-monthly-tiers" data-member-monthly-tier-overview aria-live="polite"></div>
+          <p class="member-monthly-benefits-notice">此處僅提供公開活動與票券介紹；實際票券須由系統發放，能否使用或參加仍依會員階級、活動規則及帳戶持有狀態判定。</p>
+        </div>
       </section>
       </div>
 
