@@ -21,6 +21,11 @@ async function run() {
       status text not null default 'active', membership_status text not null default 'active',
       joined_at timestamptz default now(),created_at timestamptz default now()
     );
+    create table public.membership_tier_settings(
+      tier_key text not null, required_service_minutes integer not null
+    );
+    insert into public.membership_tier_settings values
+      ('general',0),('silver',600),('gold',1800),('platinum',3600);
     create table public.service_time_entries(
       id uuid primary key default gen_random_uuid(),entry_id text unique,
       member_id uuid references public.members(id),minutes integer not null,
@@ -96,6 +101,18 @@ async function run() {
     await db.exec(`create function public.${name}() returns boolean language sql as
       $tier_stub$select tier=any(allowed_tier_keys) from (select 'general'::text as tier, array['general']::text[] as allowed_tier_keys) t$tier_stub$;`);
   }
+  await db.exec(`
+    create table public.qa_fixed_calls(member_id uuid,called_at date);
+    create function public.issue_fixed_tickets(p_business_date date,
+      p_member_id uuid,p_template_id uuid) returns jsonb language plpgsql
+    as $fixed$
+    begin
+      insert into public.qa_fixed_calls(member_id,called_at)
+      values(p_member_id,p_business_date);
+      return '{"issued":0}'::jsonb;
+    end;
+    $fixed$;
+  `);
   await db.exec(migration);
   // The release ledger can replay a previously applied schema from another tool;
   // repeat with identical SQL and reject all destructive or non-idempotent drift.
@@ -124,15 +141,20 @@ async function run() {
   await db.query(`insert into public.members(id,line_user_id,member_code) values
     ($1,'tier-1','T1'),($2,'tier-2','T2'),($3,'tier-3','T3')`,ids);
 
+  const fixedCalls=async()=>(await db.query(
+    "select count(*)::integer as count from public.qa_fixed_calls")).rows[0].count;
+  assert.equal(await fixedCalls(),3,'newly active members reconcile fixed-cycle entitlements');
   await addEvent('SILVER','silver');
   assert.equal(await count('SILVER'),0,'general users cannot receive silver');
   await db.query('insert into public.service_time_entries(entry_id,member_id,minutes,created_by) values ($1,$2,$3,\'qa\')',['a',ids[0],600]);
   assert.equal(await count('SILVER',ids[0]),1,'promoted silver member receives existing ticket');
   await db.query('insert into public.service_time_entries(entry_id,member_id,minutes,created_by) values ($1,$2,$3,\'qa\')',['b',ids[1],1800]);
   assert.equal(await count('SILVER',ids[1]),1,'gold member inherits silver tickets');
+  assert.equal(await fixedCalls(),5,'both upgrades reconcile fixed-cycle entitlements');
   await db.query('select public.issue_member_tier_event_tickets($1)',[ids[0]]);
   await db.query('select public.issue_member_tier_event_tickets($1)',[ids[0]]);
   assert.equal(await count('SILVER',ids[0]),1,'retry must not create duplicate entitlements');
+  assert.equal(await fixedCalls(),5,'repeat read must not replay fixed-cycle issuer');
 
   await addEvent('GOLD','gold');
   assert.equal(await count('GOLD',ids[0]),0,'silver cannot receive gold');
@@ -140,12 +162,14 @@ async function run() {
   await addEvent('EXPIRED','gold','2020-01-01');
   await db.query('insert into public.service_time_entries(entry_id,member_id,minutes,created_by) values ($1,$2,$3,\'qa\')',['c',ids[2],1800]);
   assert.equal(await count('GOLD',ids[2]),1,'newly promoted gold member receives still-active gold event');
+  assert.equal(await fixedCalls(),6,'newly promoted member runs fixed-cycle issuer');
   assert.equal(await count('EXPIRED',ids[2]),0,'expired event must not be issued on promotion');
   await addEvent('PLATINUM','platinum');
   assert.equal(await count('PLATINUM'),0);
   await db.query('insert into public.service_time_entries(entry_id,member_id,minutes,created_by) values ($1,$2,$3,\'qa\')',['a2',ids[0],3000]);
   assert.equal(await count('PLATINUM',ids[0]),1,'platinum promotion auto issues platinum');
   assert.equal(await count('PLATINUM',ids[1]),0);
+  assert.equal(await fixedCalls(),7,'platinum upgrade runs fixed-cycle issuer exactly once');
   assert.equal(await count('SILVER',ids[0]),1,'platinum promotion does not duplicate lower-tier claim');
 
   // Dynamic SQL rewriting in the migration must have reached the RPCs too.
