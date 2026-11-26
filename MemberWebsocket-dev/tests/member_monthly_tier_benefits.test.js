@@ -161,3 +161,25 @@ test('AC-010: monthly list does not create or update membership records', () => 
   assert.doesNotMatch(existing, /\.insert\(|\.update\(|\.delete\(/);
   assert.match(api, /action === "user\.member\.monthly-tier-benefits"[\s\S]*?existingMemberForCatalogue\(supabase, identity\)[\s\S]*?: await ensureMember\(supabase, identity\)/);
 });
+
+test('AC-011: activity without end date is one day, while ticket without end date remains open-ended', async () => {
+  const { buildMonthlyTierOverview } = await load();
+  const activities = [
+    {title:'十月單日活動',item_type:'event',status:'active',starts_on:'2026-10-15',ends_on:null,allowed_tier_keys:['general']},
+    {title:'十一月單日活動',item_type:'event',status:'active',starts_on:'2026-11-15',ends_on:null,allowed_tier_keys:['general']},
+    {title:'跨月活動',item_type:'event',status:'active',starts_on:'2026-10-29',ends_on:'2026-11-03',allowed_tier_keys:['general']},
+  ];
+  const tickets = [
+    {title:'持續有效券',ticket_type:'coupon',status:'active',starts_on:'2026-10-01',ends_on:null,allowed_tier_keys:['general']},
+  ];
+  const nov = buildMonthlyTierOverview({month:'2026-11',activities,tickets}).tiers[0].offers;
+  assert.ok(!nov.some(item=>item.title==='十月單日活動'), 'single-day event must not remain available after October');
+  assert.ok(nov.some(item=>item.title==='十一月單日活動'));
+  assert.equal(nov.find(item=>item.title==='十一月單日活動')?.endsOn, '2026-11-15', 'single-day display uses start date as end date');
+  assert.ok(nov.some(item=>item.title==='跨月活動'));
+  assert.ok(nov.some(item=>item.title==='持續有效券'), 'tickets may remain open ended');
+  const dec = buildMonthlyTierOverview({month:'2026-12',activities,tickets}).tiers[0].offers;
+  assert.deepEqual(dec.map(item=>item.title), ['持續有效券']);
+  const api = fs.readFileSync(path.join(__dirname, '..', 'supabase/functions/member-profile-api/index.ts'), 'utf8');
+  assert.match(api, /ends_on\.gte\.\$\{start\},and\(ends_on\.is\.null,starts_on\.gte\.\$\{start\}\)/);
+});
