@@ -93,6 +93,13 @@ html[data-theme] #memberView .member-pass {
   color: var(--pass-background);
   font-weight: 900;
 }
+#memberView .pass-actions #memberCodeCopyStatus:empty { display: none; }
+#memberView .pass-actions #memberCodeCopyStatus:not(:empty) {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  text-align: center;
+  color: inherit;
+}
 #memberView .pass-actions #copyMemberIdentityCode:hover { background: var(--pass-soft); border-color: var(--pass-soft); }
 #memberView .pass-actions #openMemberReferral { border-color: rgba(255,255,255,.26); }
 
