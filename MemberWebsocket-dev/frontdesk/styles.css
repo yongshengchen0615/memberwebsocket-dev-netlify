@@ -38,6 +38,9 @@
 html[data-theme="dark"] .frontdesk-settings{--fd-card:var(--theme-surface-raised);--fd-primary:var(--ui-primary);--fd-on-primary:var(--ui-primary-contrast)}
 
 .frontdesk-settings-content{min-width:0;display:grid;gap:18px;margin-top:18px}
+.frontdesk-staff-panel{min-width:0;display:grid;gap:16px;margin-top:18px}
+.frontdesk-staff-save-all{width:100%;min-height:48px}
+.frontdesk-staff-draft-summary{font-weight:700;color:var(--fd-text)}
 .frontdesk-settings-content h3{margin:0 0 10px;font-size:1.05rem}
 .frontdesk-setup-guide,.frontdesk-approvals{padding:16px;border:1px solid var(--fd-border);border-radius:12px;background:var(--fd-card)}
 .frontdesk-setup-guide ol{margin:8px 0 0;padding-inline-start:23px}
