@@ -155,6 +155,7 @@
       schedulePriceRefresh();
       syncServerClock(state.data.serverNow);
       state.profile = profile || {};
+      window.MemberMonthlyTierBenefits?.bind(document.querySelector('[data-member-monthly-tier-widget]'), state.config, state.idToken, state.profile, 'booking');
       window.dispatchEvent(new CustomEvent('booking:member-loaded', { detail: { profile: state.profile } }));
       // Older booking-api versions omit the notice; the scoped calendar API supplies it.
       // Never clear a valid calendar notice merely because this field is absent.

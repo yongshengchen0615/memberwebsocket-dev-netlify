@@ -165,6 +165,7 @@
 
     els.displayName.textContent = String(state.profile.displayName || 'LINE 使用者');
     window.MembershipProgress.render(els.membershipProgress, state.profile);
+    window.MemberMonthlyTierBenefits?.bind(document.querySelector('[data-member-monthly-tier-widget]'), state.config, state.idToken, state.profile, 'points');
   }
 
   function activeCard() {

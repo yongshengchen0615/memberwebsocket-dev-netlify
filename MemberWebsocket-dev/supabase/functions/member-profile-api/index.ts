@@ -424,7 +424,12 @@ serveBusiness('member-profile-api',async (request: Request) => {
     const body = await readJsonObject(request, MAX_REQUEST_BYTES, ApiError);
 
     const action = asText(body.action, 80);
-    if (!["user.member.invitation.claim", "user.member.oa.check", "user.member.bootstrap", "user.member.monthly-tier-benefits", "user.member.profile.save", "user.member.phone.send", "user.member.terms.accept", "user.member.card.open"].includes(action) || asText(body.clientType, 20) !== "member") throw new ApiError(403, "CLIENT_ACTION_MISMATCH", "操作端與功能不相符。");
+    const clientType = asText(body.clientType, 20);
+    const isCatalogue = action === "user.member.monthly-tier-benefits";
+    const catalogueSurfaces = ["member", "points", "event", "calendar", "booking"];
+    if (!["user.member.invitation.claim", "user.member.oa.check", "user.member.bootstrap", "user.member.monthly-tier-benefits", "user.member.profile.save", "user.member.phone.send", "user.member.terms.accept", "user.member.card.open"].includes(action)
+      || (isCatalogue ? !catalogueSurfaces.includes(clientType) : clientType !== "member"))
+      throw new ApiError(403, "CLIENT_ACTION_MISMATCH", "操作端與功能不相符。");
     if (["user.member.invitation.claim","user.member.oa.check"].includes(action) && !businessContext()) {
       throw new ApiError(403,"INVITATION_TENANT_UNAVAILABLE","請由商家會員入口使用此功能。");
     }
@@ -432,7 +437,8 @@ serveBusiness('member-profile-api',async (request: Request) => {
     let identity: Identity;
     try {
       const testIdentity = await resolveUserTestIdentity(supabase, asText(body.testSessionToken, 200));
-      if (testIdentity && ["user.member.invitation.claim","user.member.oa.check","user.member.monthly-tier-benefits"].includes(action) && testIdentity.surface !== "member") {
+      if (testIdentity && ((isCatalogue && testIdentity.surface !== clientType)
+        || (["user.member.invitation.claim", "user.member.oa.check"].includes(action) && testIdentity.surface !== "member"))) {
         throw new ApiError(403,"TEST_SESSION_SURFACE_MISMATCH","測試登入與目前功能不相符。");
       }
       identity = testIdentity

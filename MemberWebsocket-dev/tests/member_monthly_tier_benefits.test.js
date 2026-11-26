@@ -84,48 +84,78 @@ test('AC-005: member screen loads an authenticated read-only catalogue but has n
   assert.doesNotMatch(html, /data-monthly-ticket-claim/);
 });
 
-test('AC-006: coalesced requests, tenant switching, stale results and text-only titles', async () => {
+test('AC-006: compact widget only loads on open, coalesces, and protects against stale tenant/identity responses', async () => {
   const vm = require('node:vm');
   const source = fs.readFileSync(path.join(__dirname, '..', 'member/monthly-tier-benefits.js'), 'utf8');
   const requests = [];
-  const target = { children: [], replaceChildren(...items) { this.children = items; }, setAttribute() {} };
-  const status = { textContent: '' }, month = { textContent: '' }, button = { disabled: false };
+  const newNode = (tag) => ({
+    tag, children: [], dataset: {}, textContent: '', attributes: {},
+    classList: { add() {} },
+    append(...nodes) { this.children.push(...nodes); },
+    replaceChildren(...nodes) { this.children = nodes; },
+    setAttribute(name, value) { this.attributes[name] = value; },
+  });
+  const target = newNode('div'), tabs = newNode('div'), status = {textContent:''};
+  const teaser = {textContent:''}, month = {textContent:''}, button = {disabled:false};
   const selectors = {
     '[data-member-monthly-tier-overview]': target,
+    '[data-member-monthly-tier-tabs]': tabs,
     '[data-member-monthly-tier-status]': status,
+    '[data-member-monthly-tier-teaser]': teaser,
     '[data-member-monthly-tier-month]': month,
     '[data-member-monthly-tier-reload]': button,
   };
-  const document = { createElement: (tag) => {
-    const item = {tag, children: [], dataset: {}, className: '', textContent: '', classList: { add() {} },
-      append(...nodes) { this.children.push(...nodes); } };
-    return item;
-  }};
-  const window = { BusinessContext: { slug: 'shop-a' }, MemberSystem: {
-    request: (...args) => new Promise((resolve, reject) => { requests.push({ args, resolve, reject }); }),
-  }};
-  vm.runInNewContext(source, {document, window, Promise, Date, Intl, JSON});
-  const root = { querySelector: (selector) => selectors[selector] || null };
-  const config = { supabaseUrl: 'https://example.supabase.co', business: 'shop-a' };
-  const member = {lineUserId:'A',tierKey:'general',status:'active',profileComplete:true,membershipRequired:false};
-  const first = window.MemberMonthlyTierBenefits.refresh(root, config, 'token1', member);
-  assert.strictEqual(window.MemberMonthlyTierBenefits.refresh(root, config, 'token1', member), first);
-  assert.equal(requests.length, 1);
-  const second = window.MemberMonthlyTierBenefits.refresh(root, config, 'token2', {...member,lineUserId:'B'});
-  requests[0].resolve({month:'2026-11',tiers:[{key:'general',label:'一般',offers:[{title:'old',kind:'ticket'}]}]});
-  await first;
-  assert.equal(target.children.length, 0, 'stale response cannot render another member data');
-  requests[1].resolve({month:'2026-11',tiers:[{key:'general',label:'一般',offers:[{title:'<script>alert(1)</script>',kind:'ticket'}]}]});
-  await second;
-  assert.equal(target.children[0].children[1].children[0].children[1].textContent,'<script>alert(1)</script>');
-  assert.equal(button.disabled, false);
-  window.BusinessContext.slug = 'shop-b';
-  const third = window.MemberMonthlyTierBenefits.refresh(root, config, 'token2', {...member,lineUserId:'B'});
-  assert.equal(requests.length, 3);
-  requests[2].reject(new Error('unavailable'));
+  const listeners = {};
+  const root = {
+    hidden: false, open: false,
+    querySelector: selector => selectors[selector] || null,
+    addEventListener(name, fn) { listeners[name] = fn; },
+  };
+  const window = {
+    BusinessContext: {slug:'shop-a'},
+    MemberSystem: {request: (...args) => new Promise((resolve,reject) => requests.push({args,resolve,reject}))},
+    BookingSystem: {monthlyTierBenefits: (...args) => new Promise((resolve,reject) => requests.push({args,resolve,reject,booking:true}))},
+  };
+  vm.runInNewContext(source, {document:{createElement:newNode}, window, Date, Intl, Promise, JSON, Set, WeakMap, String, Number, Error, Object});
+  const config = {supabaseUrl:'https://example.supabase.co',business:'shop-a'};
+  const member = {lineUserId:'A',tierKey:'silver',status:'active',profileComplete:true,membershipRequired:false};
+  await window.MemberMonthlyTierBenefits.bind(root,config,'token1',member,'member');
+  assert.equal(requests.length,0,'closed widget must not issue requests');
+  root.open = true;
+  listeners.toggle();
+  assert.equal(requests.length,1,'first expansion requests one catalogue');
+  const same = window.MemberMonthlyTierBenefits.bind(root,config,'token1',member,'member');
+  assert.equal(requests.length,1,'concurrent refresh coalesces identical requests');
+  const second = window.MemberMonthlyTierBenefits.bind(root,config,'token2',{...member,lineUserId:'B'},'member');
+  assert.equal(requests.length,2,'switching identity starts a fresh request');
+  requests[0].resolve({month:'2026-11',tiers:[{key:'silver',label:'銀級',offers:[{title:'OLD',kind:'ticket'}]}]});
+  await Promise.resolve(); await Promise.resolve();
+  assert.equal(target.children.length,0,'old member must not render after identity changes');
+  requests[1].resolve({month:'2026-11',tiers:[
+    {key:'general',label:'一般',offers:[]},
+    {key:'silver',label:'銀級',offers:[{title:'<script>alert(1)</script>',kind:'ticket'}]},
+    {key:'gold',label:'金級',offers:[]},
+    {key:'platinum',label:'白金',offers:[]}
+  ]});
+  await Promise.all([same,second]);
+  assert.equal(target.children.length,1,'only selected tier is rendered');
+  assert.equal(tabs.children.length,4,'four tier switches are available');
+  assert.equal(target.children[0].children[1].children[0].children[1].textContent,'<script>alert(1)</script>','offer titles remain plain text');
+  assert.equal(button.disabled,false);
+  assert.match(teaser.textContent,/11 月/);
+  tabs.children[0].onclick();
+  assert.equal(target.children[0].dataset.tierKey,'general');
+  window.BusinessContext.slug='shop-b';
+  const third = window.MemberMonthlyTierBenefits.bind(root,config,'token2',{...member,lineUserId:'B'},'member');
+  assert.equal(requests.length,3);
+  requests[2].reject(new Error('down'));
   await third;
-  assert.match(status.textContent, /載入失敗/);
-  assert.equal(target.children.length, 0, 'failed new tenant request cannot show old tenant data');
+  assert.match(status.textContent,/載入失敗/);
+  assert.equal(target.children.length,0,'failed tenant reload clears old tenant data');
+  await window.MemberMonthlyTierBenefits.bind(root,config,'token2',{...member,status:'suspended',lineUserId:'B'},'member');
+  assert.equal(root.hidden,true);
+  assert.equal(target.children.length,0);
+  assert.equal(requests.length,3,'inactive member must never fetch benefits');
 });
 
 test('AC-007: inactive membership and unrelated modules cannot leak benefits', () => {
@@ -208,4 +238,52 @@ test('AC-012: four tier cards inherit lower tier tickets and activities exactly 
     {title:'複數階級券',ticket_type:'coupon',status:'active',starts_on:'2026-11-01',ends_on:null,allowed_tier_keys:['silver','gold']},
   ]});
   assert.deepEqual(both.tiers.map(t => t.offers.length), [0,1,1,1], 'multiple allowed minimums must not duplicate a single offer');
+});
+
+test('AC-013: all five member-facing portals embed the same closed compact monthly disclosure', () => {
+  const root = path.resolve(__dirname, '..');
+  for (const surface of ['member','points','event','calendar','booking']) {
+    const html = fs.readFileSync(path.join(root,surface,'index.html'),'utf8');
+    const app = fs.readFileSync(path.join(root,surface,'app.js'),'utf8');
+    assert.match(html, /<details class="member-monthly-benefits" data-member-monthly-tier-widget/);
+    assert.match(html, /data-member-monthly-tier-tabs/);
+    assert.match(html, /data-member-monthly-tier-overview/);
+    assert.match(html, /monthly-tier-benefits\.css/);
+    assert.match(html, /monthly-tier-benefits\.js/);
+    assert.match(app, /MemberMonthlyTierBenefits\?\.bind/);
+    assert.equal((html.match(/data-member-monthly-tier-widget/g)||[]).length,1,surface+' must not duplicate widget');
+    assert.doesNotMatch(html, /<details class="member-monthly-benefits"[^>]*\bopen\b/);
+    assert.doesNotMatch(html, /data-monthly-ticket-claim/);
+  }
+  for (const surface of ['admin','platform','frontdesk']) {
+    const html = fs.readFileSync(path.join(root,surface,'index.html'),'utf8');
+    assert.doesNotMatch(html, /data-member-monthly-tier-widget/);
+  }
+});
+
+test('AC-014: catalogue API authorizes only five matching user surfaces; other member APIs remain member-only', () => {
+  const root = path.resolve(__dirname, '..');
+  const api = fs.readFileSync(path.join(root,'supabase/functions/member-profile-api/index.ts'),'utf8');
+  const system = fs.readFileSync(path.join(root,'member-system.js'),'utf8');
+  const booking = fs.readFileSync(path.join(root,'booking/common.js'),'utf8');
+  assert.match(api,/const catalogueSurfaces = \["member", "points", "event", "calendar", "booking"\]/);
+  assert.match(api,/isCatalogue \? !catalogueSurfaces\.includes\(clientType\) : clientType !== "member"/);
+  assert.match(api,/isCatalogue && testIdentity\.surface !== clientType/);
+  assert.match(api,/existingMemberForCatalogue\(supabase, identity\)/);
+  assert.match(system,/\['points', 'event', 'calendar'\]\.includes\(clientType\) && action === 'user\.member\.monthly-tier-benefits'/);
+  assert.match(booking,/async function monthlyTierBenefits\(config, idToken\)/);
+  assert.match(booking,/action: 'user\.member\.monthly-tier-benefits', clientType: 'booking', idToken/);
+  assert.match(booking,/\/functions\/v1\/member-profile-api/);
+  assert.doesNotMatch(booking.slice(booking.indexOf('async function monthlyTierBenefits'),booking.indexOf('async function memberProfile')),/\.insert\(|\.update\(|\.delete\(/);
+});
+
+test('AC-015: widget uses no automatic bootstrap read while closed and preserves business/identity isolation', () => {
+  const source = fs.readFileSync(path.join(__dirname,'..','member/monthly-tier-benefits.js'),'utf8');
+  assert.match(source,/root\.addEventListener\('toggle'/);
+  assert.match(source,/root\.open && state\.ready/);
+  assert.match(source,/config\.supabaseUrl, business, idToken, profile\.lineUserId, profile\.tierKey, clientType, currentMonth/);
+  assert.match(source,/request !== state\.generation/);
+  assert.match(source,/root\.hidden = !permitted/);
+  assert.match(source,/const STALE_MS = 120000/);
+  assert.doesNotMatch(source,/user\..*ticket\.(?:claim|redeem)|\.innerHTML\s*=/);
 });

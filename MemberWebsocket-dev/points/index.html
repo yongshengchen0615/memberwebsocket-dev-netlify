@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="../async-action-feedback.css?v=20261125-2">
   <link rel="stylesheet" href="./styles.css?v=point-card-presets-20260916-1-disabled-original-theme-20261007-2-transfer-click-20261009-1">
   <link rel="stylesheet" href="./membership-progress.css?v=points-tier-style-20260908">
+  <link rel="stylesheet" href="../member/monthly-tier-benefits.css?v=20261127-compact-1">
   <link rel="stylesheet" href="./pointcard-ticket-overview.css?v=point-card-presets-20260916-1-ticket-booking-20261006-1-ui-20261007-1-original-grayscale-20261007-1-booking-conditions-20261126-1">
   <link rel="stylesheet" href="./point-transfer.css?v=point-transfer-qr-outside-20261017-1&membercode=20261126-1">
   <link rel="stylesheet" href="../qr-scan-dialog.css?v=qr-dialog-20261008-1-ongoing-20261010-1">
@@ -23,6 +24,7 @@
   <script src="../business-context.js?grants=20261107-1&brand=20261122-1"></script>
   <script src="../member-system.js?v=layout-stability-20261001-1-accessible-20261003-1-p2-20261006-1-p1-secure-20261008-1-live-sync-20261010-1-line-offline-20261012-1-takeover-20261013-1-silent-takeover-20261013-2-booking-selections-20261013-1-connection-efficiency-20261014-1-request-scope-20261029-2&grants=20261107-1&transport=20261111-1" defer></script>
   <script src="./membership-progress.js?v=points-tier-style-20260908" defer></script>
+  <script src="../member/monthly-tier-benefits.js?v=20261127-compact-1" defer></script>
   <script src="../ticket-booking-choice.js?v=ticket-booking-choice-20261006-1-controls-20261010-2"></script>
   <script src="../ticket-live-location.js?v=admin-geofence-20261010-2" defer></script>
   <script src="./pointcard-ticket-overview.js?v=ticket-unlimited-zero-20261002-1-ticket-booking-20261006-1-ui-20261007-1-live-sync-20261010-1-admin-geofence-20261010-2-booking-selections-20261013-1-point-cancel-20261013-1-snapshot-cancel-20261013-1-dual-cancel-20261013-1-reservation-disclosure-20261014-1-booking-snapshot-sum-20261014-1-booking-multi-details-20261017-1-booking-conditions-20261126-1&loading=20261123-1" defer></script>
@@ -75,6 +77,16 @@
         <p data-membership-remaining class="membership-progress-remaining">正在計算升等進度</p>
         <div data-membership-progress-track class="membership-progress-track" role="progressbar" aria-label="會員階級進度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-membership-progress-bar></span></div>
       </section>
+      <details class="member-monthly-benefits" data-member-monthly-tier-widget aria-label="本月會員階級優惠">
+        <summary class="member-monthly-benefits-heading"><span class="member-monthly-benefits-spark" aria-hidden="true">✦</span><strong>本月階級優惠</strong><small data-member-monthly-tier-teaser>點開查看</small></summary>
+        <div class="member-monthly-benefits-body">
+          <div class="member-monthly-benefits-controls"><span data-member-monthly-tier-month>本月</span><button type="button" data-member-monthly-tier-reload>更新</button></div>
+          <p class="member-monthly-benefits-status" data-member-monthly-tier-status role="status">展開後載入當月優惠</p>
+          <div class="member-monthly-benefits-tabs" data-member-monthly-tier-tabs role="group" aria-label="選擇會員階級"></div>
+          <div class="member-monthly-tiers" data-member-monthly-tier-overview aria-live="polite"></div>
+          <p class="member-monthly-benefits-notice">僅供瀏覽；實際領取、使用及參加仍依會員資格與持券狀態判定。</p>
+        </div>
+      </details>
 
       <div id="cardTabs" class="card-tabs" role="tablist" aria-label="選擇集點卡"></div>
       <section id="emptyView" class="empty-panel hidden"><span class="empty-icon" aria-hidden="true">○</span><h2>目前還沒有可用的集點卡</h2><p>店家開通新的活動後，會在這裡看見。</p></section>

@@ -1,11 +1,9 @@
 (() => {
   'use strict';
-
-  // Catalogue preview only. Ticket ownership and redemption belong to their
-  // authenticated server-side workflows, never to this card.
-  let generation = 0;
-  let pendingKey = '';
-  let pendingPromise = null;
+  // Read-only: never grant, claim, transfer or redeem tickets from this widget.
+  const states = new WeakMap();
+  const surfaces = new Set(['member', 'points', 'event', 'calendar', 'booking']);
+  const STALE_MS = 120000;
 
   function element(tag, className, value) {
     const node = document.createElement(tag);
@@ -16,111 +14,193 @@
 
   function shortDate(value) {
     const date = String(value || '');
-    return /^\d{4}-\d{2}-\d{2}$/.test(date) ? `${date.slice(5, 7)}/${date.slice(8, 10)}` : '';
+    return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.slice(5, 7) + '/' + date.slice(8, 10) : '';
   }
 
   function dateLabel(item) {
-    const from = shortDate(item.startsOn);
-    const until = shortDate(item.endsOn);
-    if (from && until) return from === until ? from : `${from}–${until}`;
-    if (from) return `${from} 起`;
-    if (until) return `至 ${until}`;
+    const start = shortDate(item.startsOn);
+    const end = shortDate(item.endsOn);
+    if (start && end) return start === end ? start : start + '–' + end;
+    if (start) return start + ' 起';
+    if (end) return '至 ' + end;
     return '依活動公告';
   }
 
-  function tierSection(tier, currentTierKey) {
+  function tierSection(tier, currentTier) {
     const section = element('section', 'member-monthly-tier');
     section.dataset.tierKey = String(tier.key || '');
-    if (tier.key === currentTierKey) section.classList.add('is-current');
+    if (tier.key === currentTier) section.classList.add('is-current');
     const heading = element('div', 'member-monthly-tier-heading');
     heading.append(element('h4', '', tier.label || '會員階級'));
-    if (tier.key === currentTierKey) heading.append(element('span', 'member-monthly-current-tag', '目前階級'));
+    if (tier.key === currentTier) heading.append(element('span', 'member-monthly-current-tag', '目前階級'));
     section.append(heading);
-    const items = Array.isArray(tier.offers) ? tier.offers : [];
-    if (!items.length) {
-      section.append(element('p', 'member-monthly-tier-empty', '本月尚無公開優惠'));
+    const offers = Array.isArray(tier.offers) ? tier.offers : [];
+    if (!offers.length) {
+      section.append(element('p', 'member-monthly-tier-empty', '本月無可查看的優惠'));
       return section;
     }
     const list = element('ul', 'member-monthly-tier-list');
-    for (const offer of items) {
-      const li = element('li', 'member-monthly-offer');
-      const category = offer.kind === 'ticket' ? '票券' : '會員活動';
-      const top = element('div', 'member-monthly-offer-top');
-      top.append(element('span', 'member-monthly-offer-kind', category),
-        element('span', 'member-monthly-offer-date', dateLabel(offer)));
-      li.append(top, element('strong', 'member-monthly-offer-title', offer.title || '未命名活動'));
-      list.append(li);
+    for (const offer of offers) {
+      const item = element('li', 'member-monthly-offer');
+      item.append(
+        element('span', 'member-monthly-offer-kind', offer.kind === 'ticket' ? '票券' : '活動'),
+        element('strong', 'member-monthly-offer-title', offer.title || '未命名活動'),
+        element('small', 'member-monthly-offer-date', dateLabel(offer))
+      );
+      list.append(item);
     }
     section.append(list);
     return section;
   }
 
-  function render(root, data, currentTierKey) {
+  function render(root, state) {
+    const data = state.data;
+    const tiers = Array.isArray(data && data.tiers) ? data.tiers : [];
+    const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(String(data && data.month || '')) ? data.month : '';
+    const monthNode = root.querySelector('[data-member-monthly-tier-month]');
+    if (monthNode) monthNode.textContent = month ? month.slice(0,4) + ' 年 ' + Number(month.slice(5)) + ' 月' : '本月';
+    const teaser = root.querySelector('[data-member-monthly-tier-teaser]');
+    if (teaser) teaser.textContent = month ? Number(month.slice(5)) + ' 月 · 查看四階級' : '查看四階級';
+    const currentTier = String(state.profile.tierKey || 'general');
+    if (!tiers.some(tier => tier.key === state.selected)) state.selected = currentTier;
+    if (!tiers.some(tier => tier.key === state.selected)) state.selected = tiers[0] && tiers[0].key || 'general';
+    const tabTarget = root.querySelector('[data-member-monthly-tier-tabs]');
+    if (tabTarget) {
+      const buttons = tiers.map(tier => {
+        const count = Array.isArray(tier.offers) ? tier.offers.length : 0;
+        const button = element('button', '', String(tier.label || '階級') + ' ' + count);
+        button.type = 'button';
+        button.dataset.tierKey = String(tier.key || '');
+        button.setAttribute('aria-pressed', String(tier.key === state.selected));
+        button.onclick = () => {
+          state.selected = String(tier.key || '');
+          render(root, state);
+        };
+        return button;
+      });
+      tabTarget.replaceChildren(...buttons);
+    }
     const target = root.querySelector('[data-member-monthly-tier-overview]');
-    if (!target) return;
-    const tiers = Array.isArray(data?.tiers) ? data.tiers : [];
-    const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(String(data?.month || '')) ? data.month : '';
-    const heading = root.querySelector('[data-member-monthly-tier-month]');
-    if (heading) heading.textContent = month ? `${month.slice(0, 4)} 年 ${Number(month.slice(5))} 月` : '本月';
-    target.replaceChildren(...tiers.map((tier) => tierSection(tier, currentTierKey)));
-    root.querySelector('[data-member-monthly-tier-status]').textContent =
-      tiers.length ? '各階級優惠內容已更新' : '本月尚無階級優惠資料';
+    const selected = tiers.find(tier => tier.key === state.selected);
+    if (target) target.replaceChildren(...(selected ? [tierSection(selected, currentTier)] : []));
+    const status = root.querySelector('[data-member-monthly-tier-status]');
+    if (status) status.textContent = tiers.length ? '顯示可查看的公開優惠；選擇階級切換' : '本月尚無階級優惠資料';
   }
 
-  function refresh(root, config, idToken, profile) {
-    if (!root?.querySelector || !config || !idToken) return Promise.resolve();
-    const target = root.querySelector('[data-member-monthly-tier-overview]');
-    const status = root.querySelector('[data-member-monthly-tier-status]');
-    if (!target || !status) return Promise.resolve();
-    const button = root.querySelector('[data-member-monthly-tier-reload]');
-    if (button) button.onclick = () => { void refresh(root, config, idToken, profile); };
-    if (String(profile?.status || '').toLowerCase() !== 'active'
-      || profile?.membershipRequired || !profile?.profileComplete) {
-      generation += 1;
-      pendingKey = '';
-      pendingPromise = null;
-      target.replaceChildren();
-      target.setAttribute('aria-busy', 'false');
-      if (button) button.disabled = false;
-      status.textContent = '會員資格啟用後即可查看當月優惠。';
-      return Promise.resolve();
+  function context(root, config, idToken, profile, surface) {
+    if (!root || typeof root.querySelector !== 'function') return null;
+    let state = states.get(root);
+    if (!state) {
+      state = {generation:0, key:'', ready:false, loadedKey:'', loadedAt:0, pendingKey:'', pendingPromise:null, selected:'', data:null};
+      states.set(root, state);
+      if (typeof root.addEventListener === 'function') {
+        root.addEventListener('toggle', () => {
+          if (root.open && state.ready && (state.loadedKey !== state.key || Date.now() - state.loadedAt > STALE_MS)) {
+            void load(root, state);
+          }
+        });
+      }
+      const button = root.querySelector('[data-member-monthly-tier-reload]');
+      if (button) button.onclick = () => { if (state.ready) void load(root, state); };
     }
-    const month = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit' }).format(new Date());
-    const key = JSON.stringify([config.supabaseUrl, window.BusinessContext?.slug || config.business || '', profile.lineUserId, profile.tierKey, month]);
-    // Coalesce only simultaneous identical reads. Profile/tier updates must
-    // fetch fresh server data instead of showing stale long-lived snapshots.
-    if (key === pendingKey && pendingPromise) return pendingPromise;
-    target.replaceChildren();
-    const request = ++generation;
-    status.textContent = '正在載入當月各階級優惠…';
-    target.setAttribute('aria-busy', 'true');
+    const clientType = String(surface || 'member');
+    const permitted = surfaces.has(clientType) && Boolean(config && idToken && profile && profile.lineUserId)
+      && String(profile?.status || '').toLowerCase() === 'active'
+      && profile?.membershipRequired !== true && profile?.profileComplete !== false;
+    const business = String(window.BusinessContext?.slug || config?.business || '');
+    const currentMonth = new Intl.DateTimeFormat('en-US', {timeZone:'Asia/Taipei',year:'numeric',month:'2-digit'}).format(new Date());
+    const key = permitted ? JSON.stringify([config.supabaseUrl, business, idToken, profile.lineUserId, profile.tierKey, clientType, currentMonth]) : '';
+    if (state.key !== key || !permitted) {
+      state.generation += 1;
+      state.key = key;
+      state.data = null;
+      state.loadedKey = '';
+      state.pendingKey = '';
+      state.pendingPromise = null;
+      state.loadedAt = 0;
+      state.selected = String(profile?.tierKey || 'general');
+      const target = root.querySelector('[data-member-monthly-tier-overview]');
+      const tabs = root.querySelector('[data-member-monthly-tier-tabs]');
+      const status = root.querySelector('[data-member-monthly-tier-status]');
+      const teaser = root.querySelector('[data-member-monthly-tier-teaser]');
+      if (target) target.replaceChildren();
+      if (tabs) tabs.replaceChildren();
+      if (status) status.textContent = permitted ? '展開後載入當月優惠' : '會員資格啟用後可查看當月優惠';
+      if (teaser) teaser.textContent = '點開查看';
+      const button = root.querySelector('[data-member-monthly-tier-reload]');
+      if (button) button.disabled = false;
+    }
+    state.ready = permitted;
+    state.config = config;
+    state.idToken = idToken;
+    state.profile = profile;
+    state.clientType = clientType;
+    state.business = business;
+    root.hidden = !permitted;
+    if (!permitted && root.open) root.open = false;
+    return state;
+  }
+
+  function load(root, state) {
+    if (!state || !state.ready) return Promise.resolve();
+    if (state.pendingKey === state.key && state.pendingPromise) return state.pendingPromise;
+    const request = ++state.generation;
+    const status = root.querySelector('[data-member-monthly-tier-status]');
+    const target = root.querySelector('[data-member-monthly-tier-overview]');
+    const tabs = root.querySelector('[data-member-monthly-tier-tabs]');
+    const button = root.querySelector('[data-member-monthly-tier-reload]');
+    if (target) target.replaceChildren();
+    if (tabs) tabs.replaceChildren();
+    if (status) status.textContent = '正在載入本月優惠…';
+    if (target) target.setAttribute('aria-busy', 'true');
     if (button) button.disabled = true;
-    const promise = window.MemberSystem.request(config, 'member', idToken, 'user.member.monthly-tier-benefits')
-      .then((data) => {
-        if (request !== generation) return;
-        if (!data || !Array.isArray(data.tiers)) throw Error('優惠清單格式不正確。');
-        render(root, data, String(profile.tierKey || 'general'));
-      })
-      .catch((error) => {
-        if (request !== generation) return;
-        status.textContent = error?.code === 'FEATURE_DISABLED'
-          ? '商家尚未開放階級優惠預覽。'
-          : '當月優惠載入失敗，請點擊「更新」重試。';
-      })
-      .finally(() => {
-        if (request === generation) {
-          target.setAttribute('aria-busy', 'false');
-          if (button) button.disabled = false;
-        }
-        if (pendingPromise === promise) {
-          pendingPromise = null;
-          pendingKey = '';
-        }
-      });
-    pendingKey = key;
-    pendingPromise = promise;
+    let response;
+    try {
+      response = state.clientType === 'booking'
+        ? window.BookingSystem.monthlyTierBenefits(state.config, state.idToken)
+        : window.MemberSystem.request(state.config, state.clientType, state.idToken, 'user.member.monthly-tier-benefits');
+    } catch (error) { response = Promise.reject(error); }
+    const key = state.key;
+    const business = state.business;
+    const promise = Promise.resolve(response).then(data => {
+      if (request !== state.generation || window.BusinessContext?.slug && window.BusinessContext.slug !== business) return;
+      if (!data || !Array.isArray(data.tiers)) throw Error('優惠清單格式不正確');
+      state.data = data;
+      state.loadedKey = key;
+      state.loadedAt = Date.now();
+      render(root, state);
+    }).catch(error => {
+      if (request !== state.generation) return;
+      state.data = null;
+      state.loadedKey = '';
+      if (status) status.textContent = error?.code === 'FEATURE_DISABLED'
+        ? '商家尚未開放階級優惠預覽'
+        : '當月優惠載入失敗，請點擊「更新」重試。';
+    }).finally(() => {
+      if (request === state.generation) {
+        if (target) target.setAttribute('aria-busy', 'false');
+        if (button) button.disabled = false;
+      }
+      if (state.pendingPromise === promise) { state.pendingPromise = null; state.pendingKey = ''; }
+    });
+    state.pendingKey = key;
+    state.pendingPromise = promise;
     return promise;
   }
 
-  window.MemberMonthlyTierBenefits = Object.freeze({ refresh });
+  function bind(root, config, idToken, profile, surface = 'member') {
+    const state = context(root, config, idToken, profile, surface);
+    if (state?.ready && root.open && (state.loadedKey !== state.key || Date.now() - state.loadedAt > STALE_MS)) {
+      return load(root, state);
+    }
+    return Promise.resolve();
+  }
+
+  // Explicit refresh stays callable by QA and the refresh button; portal boot
+  // calls bind() instead, so closed widgets cost no extra API request.
+  function refresh(root, config, idToken, profile, surface = 'member') {
+    return load(root, context(root, config, idToken, profile, surface));
+  }
+
+  window.MemberMonthlyTierBenefits = Object.freeze({bind, refresh});
 })();
