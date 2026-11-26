@@ -497,7 +497,7 @@ test('FRONTDESK_STAFF_DELETE — real browser confirms deletion, cancels safely 
  await remove.click();
  const retry=page.getByRole('button',{name:'重試相同儲存操作'});
  await expect(retry).toBeEnabled();
- await expect(page.locator('.frontdesk-person select')).toBeDisabled();
+ await expect(page.locator('.frontdesk-person select').first()).toBeDisabled();
  await retry.click();
  await expect(page.locator('.frontdesk-person')).toHaveCount(0);
  await expect(page.locator('#root')).toContainText('目前沒有申請');
@@ -854,6 +854,8 @@ test('FRONTDESK_REJECTION_SETTINGS_LEGACY — no editor on older server contract
  await expect(page.locator('[data-frontdesk-rejection-settings]')).toHaveCount(0);
  await expect(page.getByRole('tab',{name:'拒絕預約設定'})).toHaveCount(0);
  await page.getByRole('tab',{name:'LINE 設定'}).focus();
+ await page.keyboard.press('ArrowRight');
+ await expect(page.getByRole('tab',{name:'櫃檯人員申請與權限'})).toHaveAttribute('aria-selected','true');
  await page.keyboard.press('ArrowRight');
  await expect(page.getByRole('tab',{name:'確認預約'})).toHaveAttribute('aria-selected','true');
 });
