@@ -2454,6 +2454,19 @@
   }
   function updateEventTicketAccentValue() { els.eventTicketAccentValue.textContent = safeAccent(els.eventTicketAccent.value).toUpperCase(); }
 
+  function calendarMonthDates(month) {
+    const sharedModel = window.MemberAdminCalendarNavigation?.monthDates;
+    if (typeof sharedModel === 'function') return sharedModel(toAdminIsoDate(month));
+    // Calendar enhancement is optional: a missing asset must not block admin
+    // startup or the original date-cell CRUD handlers.
+    const offset = month.getUTCDay();
+    return Array.from({length:42}, (_, index) => {
+      const date = new Date(month);
+      date.setUTCDate(1 + index - offset);
+      return date.getUTCFullYear() >= 1000 && date.getUTCFullYear() <= 9999 ? toAdminIsoDate(date) : '';
+    });
+  }
+
   function connectCalendarNavigation(grid, scope, month, rows) {
     const settings = {
       activity: { key:'adminCalendarMonth', render:renderAdminCalendar },
@@ -2547,7 +2560,7 @@
     const month = currentAdminCalendarMonth();
     state.adminCalendarMonth = toAdminIsoDate(month);
     const title = new Intl.DateTimeFormat('zh-Hant-TW', { timeZone: 'UTC', year: 'numeric', month: 'long' }).format(month);
-    const dates = window.MemberAdminCalendarNavigation.monthDates(toAdminIsoDate(month));
+    const dates = calendarMonthDates(month);
     const today = todayAdminIsoDate();
     const cells = [];
     els.adminCalendarMonthTitle.textContent = title;
@@ -2628,7 +2641,7 @@
     const month = scopedCalendarMonth(key);
     state[key] = toAdminIsoDate(month);
     const monthLabel = new Intl.DateTimeFormat('zh-Hant-TW', { timeZone: 'UTC', year: 'numeric', month: 'long' }).format(month);
-    const dates = window.MemberAdminCalendarNavigation.monthDates(toAdminIsoDate(month));
+    const dates = calendarMonthDates(month);
     const today = todayAdminIsoDate();
     const cells = [];
     title.textContent = monthLabel;

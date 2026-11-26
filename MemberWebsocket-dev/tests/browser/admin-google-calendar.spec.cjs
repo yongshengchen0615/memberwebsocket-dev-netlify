@@ -13,6 +13,28 @@ async function open(page, info) {
   await expect(page.locator('#adminView')).toBeVisible();
 }
 
+test('Google AC-005: unavailable navigation asset preserves admin startup and all three original editors', async ({ page }, info) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.route('**/admin/calendar-navigation.js', route => route.fulfill({status:503,contentType:'text/javascript',body:''}));
+  await open(page, info);
+  for (const [tab, selector, gridId, attr] of calendars) {
+    await page.locator('#'+tab).click();
+    await expect(page.locator('#'+gridId+' .admin-calendar-day')).toHaveCount(42);
+    const date = page.locator('#'+gridId+' .admin-calendar-day-button').first();
+    const value = await date.getAttribute('data-'+attr);
+    await date.click();
+    const ticket = tab === 'eventsTab';
+    const modal = page.locator(ticket?'#eventTicketEditorModal':'#calendarEditorModal');
+    await expect(modal).toBeVisible();
+    await expect(page.locator(ticket?'#eventTicketStartsOn':'#calendarItemStartsOn')).toHaveValue(value);
+    if (!ticket) await expect(page.locator('#calendarItemType')).toHaveValue(tab === 'bookingTab'?'holiday':'event');
+    await modal.locator('.editor-modal-close').click();
+  }
+  expect(errors).toEqual([]);
+  expect(host.sessions.get(info.testId).calls.filter(call => /\.save$|\.create$/.test(call.action))).toHaveLength(0);
+});
+
 test('Google AC-001/002: three calendars share desktop tools, mini dates and continuous adjacent month cells', async ({ page }, info) => {
   await page.setViewportSize({width:1440,height:1000});
   await open(page, info);
