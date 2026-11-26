@@ -66,5 +66,5 @@ test('AC-006: revoked sessions must disable copy and prevent a new point gift', 
   const points = read('points/point-transfer.js');
   assert.match(points, /window\.addEventListener\('member:access-ended'/);
   assert.match(points, /copyButton\.disabled = !state\.memberCode \|\| !session\(\)/);
-  assert.match(points, /if \(!session\(\)\)/);
+  assert.match(points, /if \(!state\.memberCode \|\| !session\(\)\) return/);
 });
