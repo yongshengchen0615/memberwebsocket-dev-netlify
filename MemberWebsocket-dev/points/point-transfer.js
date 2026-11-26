@@ -415,8 +415,12 @@
     if (state.busy || state.pending) return;
     const s = session();
     if (!s) return;
-    const memberCode = String(document.getElementById('pointTransferMemberCode').value || '').trim();
+    const input = document.getElementById('pointTransferMemberCode');
+    const memberCode = String(input.value || '').trim().toUpperCase();
     if (!memberCode) return setMessage('請輸入收件會員編號。', true);
+    if (!/^[A-Z0-9_-]{4,40}$/.test(memberCode)) return setMessage('請輸入有效的收件會員編號。', true);
+    if (memberCode === state.memberCode.toUpperCase()) return setMessage('不可轉贈給自己。', true);
+    input.value = memberCode;
     clearReceiver();
     const generation = state.receiverGeneration;
     setMessage('正在確認收件會員…');
@@ -450,7 +454,7 @@
 
     const cardId = String(document.getElementById('pointTransferCard').value || '');
     const option = state.options.get(cardId);
-    const memberCode = String(document.getElementById('pointTransferMemberCode').value || '').trim();
+    const memberCode = String(document.getElementById('pointTransferMemberCode').value || '').trim().toUpperCase();
     const amount = Number(document.getElementById('pointTransferAmount').value);
 
     if (!option && !state.pending) return setMessage('這張集點卡目前無法轉贈。', true);
