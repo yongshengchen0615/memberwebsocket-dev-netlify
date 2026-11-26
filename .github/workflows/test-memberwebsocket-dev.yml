@@ -195,6 +195,7 @@ jobs:
           node MemberWebsocket-dev/tests/integration/booking_sql.cjs
           node MemberWebsocket-dev/tests/integration/event_coupon_sql.cjs
           node MemberWebsocket-dev/tests/integration/event_ticket_auto_issue_sql.cjs
+          node MemberWebsocket-dev/tests/integration/event_ticket_tier_inheritance_sql.cjs
           node MemberWebsocket-dev/tests/integration/event_ticket_friend_transfer_sql.cjs
           node MemberWebsocket-dev/tests/integration/event_ticket_friend_transfer_tenant_sql.cjs
           node MemberWebsocket-dev/tests/integration/coupon_location_editor.cjs
