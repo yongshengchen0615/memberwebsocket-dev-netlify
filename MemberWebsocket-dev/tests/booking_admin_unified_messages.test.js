@@ -80,3 +80,59 @@ test('AC-BMSG-004: unsaved drafts and concurrent updates cannot silently overwri
   assert.match(sharedHandler, /p_booking_notice: bookingNotice/);
   assert.doesNotMatch(ui.slice(ui.indexOf('async function saveSettings('), ui.indexOf('window.addEventListener(\'member-admin:features-updated\'')), /bookingNotice,/);
 });
+
+test('AC-BMSG-005: messages are grouped by destination with actionable explanations and accurate notification boundaries', () => {
+  assert.equal((messagePanel.match(/class="booking-admin-messages-group"/g) || []).length, 2);
+  assert.match(messagePanel, /id="bookingAdminMessagesAudienceHeading">會員端顯示訊息/);
+  assert.match(messagePanel, /id="bookingAdminMessagesLineHeading">LINE 預約通知/);
+  assert.match(messagePanel, /role="note" aria-label="設定前須知"/);
+  assert.match(messagePanel, /儲存設定立即群發/);
+  assert.match(messagePanel, /拒絕預約設定/);
+  assert.match(messagePanel, /此訊息表示「收到申請」，不代表已完成預約確認/);
+  assert.match(messagePanel, /提醒時間仍依會員預約時的選擇/);
+  assert.match(messagePanel, /示意資料，不會發送測試訊息/);
+  assert.equal((messagePanel.match(/class="booking-admin-messages-card-grid"/g) || []).length, 2);
+  assert.match(css, /booking-admin-messages-help/);
+  assert.match(css, /booking-admin-messages-card-grid\{grid-template-columns:minmax\(0,1fr\)\}/);
+});
+
+test('AC-BMSG-006: character counts follow the same persisted text fields and limits', () => {
+  for (const [id, max] of [
+    ['bookingAdminNotice', 2000],
+    ['bookingAdminOnsiteEditMessage', 400],
+    ['bookingAdminPendingMessage', 400],
+    ['bookingAdminReminderMessage', 400],
+  ]) {
+    assert.match(messagePanel, new RegExp('id="' + id + '" maxlength="' + max + '"'));
+    assert.match(messagePanel, new RegExp('id="' + id + 'Count" for="' + id + '"'));
+  }
+  assert.match(ui, /function renderMessageLengths\(\)/);
+  assert.match(ui, /function updateMessagesDraft\(\) \{\s*renderMessageLengths\(\);/);
+  assert.match(ui, /renderMessages\(true\);/);
+  assert.match(ui, /if \(event\.target === els\.bookingAdminPendingMessage\) renderPendingMessagePreview\(\);/);
+  assert.match(ui, /if \(event\.target === els\.bookingAdminReminderMessage\) renderReminderMessagePreview\(\);/);
+});
+
+test('AC-BMSG-007: rendered character counts reflect current values and do not change submitted fields', () => {
+  const vm = require('node:vm');
+  const start = ui.indexOf('  function renderMessageLengths() {');
+  const end = ui.indexOf('\n  function updateMessagesDraft()', start);
+  assert.ok(start > 0 && end > start, 'expected the actual production counter renderer');
+  const values = {
+    bookingAdminNotice: '請提早抵達',
+    bookingAdminOnsiteEditMessage: '現場修改',
+    bookingAdminPendingMessage: '申請已收到',
+    bookingAdminReminderMessage: '預約提醒\n請準時抵達',
+  };
+  const els = Object.fromEntries(Object.entries(values).map(([id, value]) => [id, { value }]));
+  const counters = Object.fromEntries(Object.keys(values).map((id) => [id + 'Count', { textContent: '' }]));
+  vm.runInNewContext(ui.slice(start, end) + '\nrenderMessageLengths();', {
+    els,
+    document: { getElementById: (id) => counters[id] || null },
+  });
+  for (const [id, value] of Object.entries(values)) {
+    const limit = id === 'bookingAdminNotice' ? 2000 : 400;
+    assert.equal(counters[id + 'Count'].textContent, value.length.toLocaleString('zh-TW') + ' / ' + limit.toLocaleString('zh-TW') + ' 字');
+    assert.equal(els[id].value, value, 'counter should never modify the draft text');
+  }
+});

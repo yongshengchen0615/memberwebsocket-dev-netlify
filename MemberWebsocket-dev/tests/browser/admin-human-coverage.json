@@ -45,7 +45,7 @@
     "admin/pointcard-redemption-limit.js": "fbba580c9babdac950b2f619c3f3b949fe89ae0c1365e2555f758d1a8818035c",
     "admin/event-ticket-redemption-limit.js": "263a564d64845c5abb4ed5167305b0bffefb064130a0268ab533b481d320b688",
     "admin/booking-panel.js": "97b04a26ee5edb6cc374fb1aef9f47778cb50062f8d8d0c848428e43028ef93a",
-    "admin/booking-panel-core.js": "3520c259da4016ce8219293a23c9813239066eb5dabeb24720b839b133146dc3",
+    "admin/booking-panel-core.js": "f76733a09dfadec4efddd130daa698debddd9b2bb27661d3c122c14303b6e278",
     "admin/booking-resources.js": "6a9c9d9ab1530869d13191668c251e02258a8b5830cb80abafbda3bf556e6319",
     "admin/booking-always-open.js": "9cb236902a7f3f36cf3fe4c3f13fbbac622f000c72d36ec34f7d4dde08e6e54a",
     "admin/booking-cancellation-sync.js": "810d09beb8650d5a88237172a95d6bdbc19c83888e1ab17ef92ec3c5b2de9674",
@@ -406,7 +406,7 @@
     {
       "id": "booking.messages",
       "module": "booking",
-      "name": "訊息設定：會員端預約說明、待確認、未通過與提醒通知共用單一儲存。只變更管理端訊息編輯入口，保留原觸發規則、提醒時間與逐位預約明細；以版本鎖與安全訊息預覽驗證正常、輸入錯誤與並行衝突。",
+      "name": "訊息設定：會員端預約說明、超過線上修改時間提示、LINE 待確認及預約提醒共用單一儲存；依會員端／LINE 分組，顯示發送時機、即時字數、示意預覽與手機單欄編輯。拒絕原因仍由櫃檯設定管理；保留原觸發規則、提醒時間、逐位預約明細、版本鎖及安全訊息預覽，驗證正常／空白／並行衝突。",
       "cases": [
         "BOOKING_MESSAGES_SETTINGS"
       ]
