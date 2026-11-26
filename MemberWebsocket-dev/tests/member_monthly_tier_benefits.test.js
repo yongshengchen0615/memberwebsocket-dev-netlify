@@ -77,3 +77,57 @@ test('AC-005: member screen loads an authenticated read-only catalogue but has n
   assert.match(endpoint, /member\.status !== "active"/);
   assert.doesNotMatch(html, /data-monthly-ticket-claim/);
 });
+
+test('AC-006: coalesced requests, tenant switching, stale results and text-only titles', async () => {
+  const vm = require('node:vm');
+  const source = fs.readFileSync(path.join(__dirname, '..', 'member/monthly-tier-benefits.js'), 'utf8');
+  const requests = [];
+  const target = { children: [], replaceChildren(...items) { this.children = items; }, setAttribute() {} };
+  const status = { textContent: '' }, month = { textContent: '' }, button = { disabled: false };
+  const selectors = {
+    '[data-member-monthly-tier-overview]': target,
+    '[data-member-monthly-tier-status]': status,
+    '[data-member-monthly-tier-month]': month,
+    '[data-member-monthly-tier-reload]': button,
+  };
+  const document = { createElement: (tag) => {
+    const item = {tag, children: [], dataset: {}, className: '', textContent: '', classList: { add() {} },
+      append(...nodes) { this.children.push(...nodes); } };
+    return item;
+  }};
+  const window = { BusinessContext: { slug: 'shop-a' }, MemberSystem: {
+    request: (...args) => new Promise((resolve, reject) => { requests.push({ args, resolve, reject }); }),
+  }};
+  vm.runInNewContext(source, {document, window, Promise, Date, Intl, JSON});
+  const root = { querySelector: (selector) => selectors[selector] || null };
+  const config = { supabaseUrl: 'https://example.supabase.co', business: 'shop-a' };
+  const member = {lineUserId:'A',tierKey:'general',status:'active',profileComplete:true,membershipRequired:false};
+  const first = window.MemberMonthlyTierBenefits.refresh(root, config, 'token1', member);
+  assert.strictEqual(window.MemberMonthlyTierBenefits.refresh(root, config, 'token1', member), first);
+  assert.equal(requests.length, 1);
+  const second = window.MemberMonthlyTierBenefits.refresh(root, config, 'token2', {...member,lineUserId:'B'});
+  requests[0].resolve({month:'2026-11',tiers:[{key:'general',label:'一般',offers:[{title:'old',kind:'ticket'}]}]});
+  await first;
+  assert.equal(target.children.length, 0, 'stale response cannot render another member data');
+  requests[1].resolve({month:'2026-11',tiers:[{key:'general',label:'一般',offers:[{title:'<script>alert(1)</script>',kind:'ticket'}]}]});
+  await second;
+  assert.equal(target.children[0].children[1].children[0].children[1].textContent,'<script>alert(1)</script>');
+  assert.equal(button.disabled, false);
+  window.BusinessContext.slug = 'shop-b';
+  const third = window.MemberMonthlyTierBenefits.refresh(root, config, 'token2', {...member,lineUserId:'B'});
+  assert.equal(requests.length, 3);
+  requests[2].reject(new Error('unavailable'));
+  await third;
+  assert.match(status.textContent, /載入失敗/);
+  assert.equal(target.children.length, 0, 'failed new tenant request cannot show old tenant data');
+});
+
+test('AC-007: inactive membership and unrelated modules cannot leak benefits', () => {
+  const js = fs.readFileSync(path.join(__dirname, '..', 'member/monthly-tier-benefits.js'), 'utf8');
+  const api = fs.readFileSync(path.join(__dirname, '..', 'supabase/functions/member-profile-api/index.ts'), 'utf8');
+  assert.match(js, /profile\?\.membershipRequired/);
+  assert.match(api, /member\.status !== "active" \|\| member\.membership_status !== "active"/);
+  assert.match(api, /showTickets = !features \|\| features\.events === true/);
+  assert.match(api, /showActivities = !features \|\| features\.calendar === true/);
+  assert.match(api, /TERMS_RECONSENT_REQUIRED/);
+});
