@@ -1019,3 +1019,60 @@ test('AC-FD-NOTIFY browser: merchant grants per-person self-service without chan
  expect(writes[0].updates[0].allowNotificationToggle).toBe(true);
  expect(writes[0].updates[0].permissionMode).toBe('notify_only');
 });
+
+for(const width of [390,1280])test('AC-FD-BATCH browser: staff-only tab retains edits, batch excludes untouched pending and saves once '+width,async({page})=>{
+ await page.setViewportSize({width,height:880});
+ await page.goto(base+'/frontdesk/');
+ await page.setContent('<link rel="stylesheet" href="'+base+'/frontdesk/styles.css"><main id="root"></main>');
+ await page.addScriptTag({url:base+'/admin/frontdesk-settings.js'});
+ await page.evaluate(()=>{
+  const people=[
+   {id:'a',displayName:'待審櫃檯',status:'pending',permissionMode:'notify_only',version:1,allowNotificationToggle:false},
+   {id:'b',displayName:'已核准甲',status:'approved',permissionMode:'notify_only',version:2,allowNotificationToggle:false},
+   {id:'c',displayName:'已核准乙',status:'approved',permissionMode:'review',version:3,allowNotificationToggle:false}
+  ];
+  window.bulkStaffWrites=[];
+  window.FrontdeskSettings.mount({root:document.getElementById('root'),business:'shop-a',request:async(action,body)=>{
+   if(action==='platform.frontdesk.staff.batch'){
+    window.bulkStaffWrites.push(body);
+    for(const update of body.updates)Object.assign(people.find(x=>x.id===update.staffId),{...update,version:update.expectedVersion+1});
+   }
+   return {version:8,frontdesk:{},staff:people};
+  }});
+ });
+ await page.locator('summary').click();
+ const tab=page.getByRole('tab',{name:'櫃檯人員申請與權限'});
+ await tab.click();
+ await expect(page.locator('#frontdesk-staff-panel')).toBeVisible();
+ await expect(page.locator('#frontdesk-line-panel')).toBeHidden();
+ const pending=page.locator('.frontdesk-person').filter({hasText:'待審櫃檯'});
+ const b=page.locator('.frontdesk-person').filter({hasText:'已核准甲'});
+ const c=page.locator('.frontdesk-person').filter({hasText:'已核准乙'});
+ await expect(pending.locator('[name=staffStatus]')).toHaveValue('');
+ await b.locator('[name=permissionMode]').selectOption('review');
+ await c.locator('[name=allowNotificationToggle]').check();
+ await expect(page.locator('.frontdesk-staff-draft-summary')).toContainText('2 位');
+ await page.getByRole('tab',{name:'LINE 設定'}).click();
+ await expect(page.locator('.frontdesk-approvals')).toBeHidden();
+ await tab.click();
+ await expect(b.locator('[name=permissionMode]')).toHaveValue('review');
+ await page.getByRole('button',{name:'儲存所有人員權限'}).click();
+ await expect(page.locator('.frontdesk-staff-draft-summary')).toContainText('目前沒有未儲存');
+ let sent=await page.evaluate(()=>window.bulkStaffWrites);
+ expect(sent).toHaveLength(1);
+ expect(sent[0].updates.map(x=>x.staffId)).toEqual(['b','c']);
+ expect(sent[0].expectedVersion).toBe(8);
+ await expect(pending.locator('[name=staffStatus]')).toHaveValue('');
+ await pending.locator('[name=allowNotificationToggle]').check();
+ await page.getByRole('button',{name:'儲存所有人員權限'}).click();
+ await expect(page.locator('.frontdesk-settings [role=status]').first()).toContainText('請先為要修改的待審核人員選擇審核結果');
+ expect((await page.evaluate(()=>window.bulkStaffWrites)).length).toBe(1,'blank review cannot submit');
+ await pending.locator('[name=staffStatus]').selectOption('rejected');
+ await page.getByRole('button',{name:'儲存所有人員權限'}).click();
+ sent=await page.evaluate(()=>window.bulkStaffWrites);
+ expect(sent).toHaveLength(2);
+ expect(sent[1].updates).toHaveLength(1);
+ expect(sent[1].updates[0].staffId).toBe('a');
+ expect(sent[1].updates[0].status).toBe('rejected');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
