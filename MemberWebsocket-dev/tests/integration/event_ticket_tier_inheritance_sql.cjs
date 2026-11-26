@@ -4,7 +4,7 @@ const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
 const assert = require('node:assert/strict');
 
-const migration = readFileSync(join(__dirname, '../../supabase/migrations/20261126150000_tier_inheritance_late_issuance.sql'), 'utf8');
+const migration = readFileSync(join(__dirname, '../../supabase/migrations/20261127010000_tier_inheritance_late_issuance.sql'), 'utf8');
 const tiers = ['general', 'silver', 'gold', 'platinum'];
 const ids = [
   '00000000-0000-0000-0000-000000000001',
@@ -96,6 +96,9 @@ async function run() {
     await db.exec(`create function public.${name}() returns boolean language sql as
       $select tier=any(allowed_tier_keys) from (select 'general'::text as tier, array['general']::text[] as allowed_tier_keys) t$;`);
   }
+  await db.exec(migration);
+  // The release ledger can replay a previously applied schema from another tool;
+  // repeat with identical SQL and reject all destructive or non-idempotent drift.
   await db.exec(migration);
   const matrix = (await db.query(`
    select t.current,a.required,public.tier_allows(t.current,array[a.required]) allowed
