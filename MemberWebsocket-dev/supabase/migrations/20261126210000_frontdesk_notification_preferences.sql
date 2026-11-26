@@ -22,23 +22,27 @@ begin
  select pg_get_functiondef('public.platform_frontdesk_admin(text,uuid,timestamptz,text,jsonb)'::regprocedure) into strict d;
  old_text:='if p_body->>''status''=''approved'' and s.oa_verified_at is null then';
  new_text:='if p_body ? ''allowNotificationToggle'' and jsonb_typeof(p_body->''allowNotificationToggle'') is distinct from ''boolean'' then raise exception ''PLATFORM_INVALID_INPUT'';end if;'||E'\n   '||old_text;
- if position(old_text in d)=0 then raise exception 'FRONTDESK_NOTIFY_ADMIN_VALIDATION_DRIFT';end if;
- d:=replace(d,old_text,new_text);
+ if position(old_text in d)=0 then
+  if position(new_text in d)=0 then raise exception 'FRONTDESK_NOTIFY_ADMIN_VALIDATION_DRIFT';end if;
+ else d:=replace(d,old_text,new_text);end if;
 
  old_text:='set status=p_body->>''status'',permission_mode=p_body->>''permissionMode'',version=version+1,';
  new_text:='set status=p_body->>''status'',permission_mode=p_body->>''permissionMode'',allow_notification_toggle=coalesce((p_body->>''allowNotificationToggle'')::boolean,allow_notification_toggle),version=version+1,';
- if position(old_text in d)=0 then raise exception 'FRONTDESK_NOTIFY_ADMIN_UPDATE_DRIFT';end if;
- d:=replace(d,old_text,new_text);
+ if position(old_text in d)=0 then
+  if position(new_text in d)=0 then raise exception 'FRONTDESK_NOTIFY_ADMIN_UPDATE_DRIFT';end if;
+ else d:=replace(d,old_text,new_text);end if;
 
  old_text:='s.oa_verified_at is not null and s.line_user_id=r.line_user_id';
  new_text:='s.oa_verified_at is not null and s.receive_notifications and s.line_user_id=r.line_user_id';
- if position(old_text in d)=0 then raise exception 'FRONTDESK_NOTIFY_ADMIN_REMOVE_DRIFT';end if;
- d:=replace(d,old_text,new_text);
+ if position(old_text in d)=0 then
+  if position(new_text in d)=0 then raise exception 'FRONTDESK_NOTIFY_ADMIN_REMOVE_DRIFT';end if;
+ else d:=replace(d,old_text,new_text);end if;
 
  old_text:='status=''''approved'''' and oa_verified_at is not null on conflict (line_user_id)';
  new_text:='status=''''approved'''' and oa_verified_at is not null and receive_notifications on conflict (line_user_id)';
- if position(old_text in d)=0 then raise exception 'FRONTDESK_NOTIFY_ADMIN_INSERT_DRIFT';end if;
- d:=replace(d,old_text,new_text);
+ if position(old_text in d)=0 then
+  if position(new_text in d)=0 then raise exception 'FRONTDESK_NOTIFY_ADMIN_INSERT_DRIFT';end if;
+ else d:=replace(d,old_text,new_text);end if;
  execute d;
 end $patch_admin$;
 
@@ -48,8 +52,9 @@ declare d text; old_text text;
 begin
  select pg_get_functiondef('public.platform_frontdesk_delivery(uuid,text)'::regprocedure) into strict d;
  old_text:='s.id is not null and t.module_line';
- if position(old_text in d)=0 then raise exception 'FRONTDESK_NOTIFY_DELIVERY_DRIFT';end if;
- d:=replace(d,old_text,'s.id is not null and s.receive_notifications and t.module_line');
+ if position(old_text in d)=0 then
+  if position('s.id is not null and s.receive_notifications and t.module_line' in d)=0 then raise exception 'FRONTDESK_NOTIFY_DELIVERY_DRIFT';end if;
+ else d:=replace(d,old_text,'s.id is not null and s.receive_notifications and t.module_line');end if;
  execute d;
 end $patch_delivery$;
 
