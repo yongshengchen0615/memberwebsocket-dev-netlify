@@ -285,6 +285,7 @@ jobs:
             MemberWebsocket-dev/admin/e2e-control-loader.js \
             MemberWebsocket-dev/admin/e2e-control.js \
             MemberWebsocket-dev/admin/app.js \
+            MemberWebsocket-dev/admin/calendar-navigation.js \
             MemberWebsocket-dev/admin/grant-automation.js \
             MemberWebsocket-dev/admin/fixed-ticket-admin-integration.js \
             MemberWebsocket-dev/admin/fixed-ticket-calendar-option.js \

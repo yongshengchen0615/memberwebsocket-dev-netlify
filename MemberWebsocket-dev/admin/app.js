@@ -153,6 +153,10 @@
     els.adminCalendarGrid.addEventListener('click', handleAdminCalendarGridClick);
     document.addEventListener('click', handleScopedCalendarClick);
     window.addEventListener('member-admin:booking-snapshot', handleOperationalBookingSnapshot);
+    window.addEventListener('member-admin:features-updated', () => {
+      if (window.BusinessWorkspace?.allows('booking') === false) state.operationalBookings = [];
+      renderBookingOverviewCalendar();
+    });
     window.addEventListener('member-admin:booking-services-updated', handleBookingServicesUpdated);
     els.calendarItemAccent.addEventListener('input', updateCalendarItemAccentValue);
     els.calendarItemForm.addEventListener('change', handleCalendarItemFormChange);
@@ -2450,13 +2454,46 @@
   }
   function updateEventTicketAccentValue() { els.eventTicketAccentValue.textContent = safeAccent(els.eventTicketAccent.value).toUpperCase(); }
 
+  function connectCalendarNavigation(grid, scope, month, rows) {
+    const settings = {
+      activity: { key:'adminCalendarMonth', render:renderAdminCalendar },
+      ticket: { key:'ticketCalendarMonth', render:renderEventTicketCalendar },
+      booking: { key:'bookingCalendarMonth', render:renderBookingOverviewCalendar }
+    }[scope];
+    window.MemberAdminCalendarNavigation?.connect({
+      grid, scope, month:toAdminIsoDate(month), today:todayAdminIsoDate(), rows,
+      onMonthChange(value) { state[settings.key] = value; settings.render(); },
+      onCreate(date, opener) {
+        if (scope === 'ticket') {
+          resetEventTicketForm(false);
+          els.eventTicketStartsOn.value = date;
+          updateEventTicketDateRangeUI();
+          openEditorModal('eventTicket', opener);
+        } else openCalendarDateEditor(date, opener, scope === 'booking' ? 'holiday' : 'event');
+      },
+      onOpen(item, opener) {
+        if (item.bookingId) {
+          if (window.BusinessWorkspace?.allows('booking') === false) return;
+          opener.dataset.adminBookingId = String(item.bookingId);
+          handleAdminCalendarGridClick({ target:opener });
+        } else if (scope === 'ticket') {
+          loadEventTicketForm(String(item.eventTicketId || ''), false);
+          openEditorModal('eventTicket', opener);
+        } else {
+          loadCalendarItemForm(String(item.calendarItemId || ''), false);
+          openEditorModal('calendar', opener);
+        }
+      }
+    });
+  }
+
   function prepareCalendarWorkspace() {
     document.getElementById('calendarItemResultCount')?.closest('.list-heading')?.remove();
     document.getElementById('calendarItemListItems')?.remove();
     document.getElementById('calendarItemEmptyState')?.remove();
     els.adminCalendarGrid.closest('.admin-calendar')?.closest('.card-list')?.setAttribute('aria-label', '會員活動月曆，不含活動票券或預約');
     const hint = els.adminCalendarGrid.closest('.admin-calendar')?.querySelector('.admin-calendar-toolbar p');
-    if (hint) hint.textContent = '點選日期格新增會員活動；休假日請到「預約」日曆設定。';
+    if (hint) hint.textContent = '點日期查看當日活動，再按「＋」新增；點既有活動可編輯。休假日請到「預約」設定。';
   }
 
   function requestOperationalBookingSnapshot() {
@@ -2465,7 +2502,7 @@
 
   function handleOperationalBookingSnapshot(event) {
     const raw = Array.isArray(event?.detail?.bookings) ? event.detail.bookings : [];
-    state.operationalBookings = raw.map((booking) => ({
+    state.operationalBookings = (window.BusinessWorkspace?.allows('booking') === false ? [] : raw).map((booking) => ({
       bookingId: String(booking.bookingId || ''),
       bookingDate: String(booking.bookingDate || ''),
       startTime: String(booking.startTime || '').slice(0, 5),
@@ -2515,7 +2552,7 @@
     const today = todayAdminIsoDate();
     const cells = [];
     els.adminCalendarMonthTitle.textContent = title;
-    els.adminCalendarGrid.setAttribute('aria-label', title + '會員活動日曆，點選日期新增，點選項目編輯');
+    els.adminCalendarGrid.setAttribute('aria-label', title + '會員活動日曆，點選日期查看當日，點選項目編輯');
     for (let index = 0; index < 42; index += 1) {
       const day = index - firstWeekday + 1;
       if (day < 1 || day > daysInMonth) {
@@ -2563,6 +2600,8 @@
       cells.push(cell);
     }
     els.adminCalendarGrid.replaceChildren(...cells);
+    connectCalendarNavigation(els.adminCalendarGrid, 'activity', month,
+      state.calendarItems.filter(item => window.MemberAdminCalendarScopes.belongsToScope('activity', item)));
   }
 
   function scopedCalendarMonth(key) {
@@ -2656,8 +2695,9 @@
     grid.replaceChildren(...cells);
     const undated = kind === 'ticket' ? rows.filter((row) => !rules.validIsoDate(row.startsOn)).length : 0;
     summary.textContent = kind === 'ticket'
-      ? visibleCount + ' 個日期顯示項目' + (undated ? ' · ' + undated + ' 張未設定開始日的票券在下方清單' : '') + ' · 點選日期新增'
-      : visibleCount + ' 個預約與休假日項目 · 點日期格設定休假日，點預約查看詳情';
+      ? visibleCount + ' 個日期顯示項目' + (undated ? ' · ' + undated + ' 張未設定開始日的票券在下方清單' : '') + ' · 點日期查看當日，再按「＋」新增'
+      : visibleCount + ' 個預約與休假日項目 · 點日期查看時間軸，再按「＋」設定休假日';
+    connectCalendarNavigation(grid, kind, month, rows);
   }
 
   function renderEventTicketCalendar() {
@@ -2670,7 +2710,7 @@
 
   function renderBookingOverviewCalendar() {
     renderScopedCalendar({
-      rows: [...state.operationalBookings.filter((booking) => ['pending', 'confirmed', 'completed'].includes(booking.status)),
+      rows: [...state.operationalBookings.filter((booking) => window.BusinessWorkspace?.allows('booking') !== false && ['pending', 'confirmed', 'completed'].includes(booking.status)),
         ...state.calendarItems.filter((item) => window.MemberAdminCalendarScopes.belongsToScope('holiday', item))],
       key: 'bookingCalendarMonth', gridId: 'bookingOverviewCalendarGrid',
       titleId: 'bookingOverviewCalendarMonthTitle',

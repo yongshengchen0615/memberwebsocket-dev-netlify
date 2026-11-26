@@ -9,12 +9,20 @@ test.beforeEach(async ({ page }, info) => {
   await expect(page.locator('#adminView')).toBeVisible();
 });
 
-test('AC-014: entire blank day tile launches the correct editor in all three admin calendars', async ({ page }) => {
+async function createOnDay(page, gridId, kind) {
+  const workspace = page.locator({adminCalendarGrid:'#calendarPanel .admin-calendar',eventTicketCalendarGrid:'#eventTicketCalendarWorkspace',bookingOverviewCalendarGrid:'#bookingOverviewCalendarWorkspace'}[gridId]);
+  await expect(workspace.locator('[data-calendar-day-view]')).toBeVisible();
+  await workspace.locator('[data-calendar-add]').click();
+  await workspace.locator('[data-calendar-create="' + kind + '"]').click();
+}
+
+test('AC-014: entire blank day tile opens its day view and scoped create menu in all three admin calendars', async ({ page }) => {
   await page.locator('#calendarTab').click();
   await expect(page.locator('#adminCalendarGrid')).toBeVisible();
   const memberDay = page.locator('#adminCalendarGrid .admin-calendar-day[data-admin-calendar-date]').first();
   const activityDate = await memberDay.getAttribute('data-admin-calendar-date');
   await memberDay.click({ position: { x: 16, y: 70 } });
+  await createOnDay(page, 'adminCalendarGrid', 'activity');
   await expect(page.locator('#calendarEditorModal')).toBeVisible();
   await expect(page.locator('#calendarItemType')).toHaveValue('event');
   await expect(page.locator('#calendarItemStartsOn')).toHaveValue(activityDate);
@@ -25,6 +33,7 @@ test('AC-014: entire blank day tile launches the correct editor in all three adm
   const ticketDay = page.locator('#eventTicketCalendarGrid .admin-calendar-day[data-ticket-calendar-date]').first();
   const ticketDate = await ticketDay.getAttribute('data-ticket-calendar-date');
   await ticketDay.click({ position: { x: 16, y: 70 } });
+  await createOnDay(page, 'eventTicketCalendarGrid', 'ticket');
   await expect(page.locator('#eventTicketEditorModal')).toBeVisible();
   await expect(page.locator('#eventTicketStartsOn')).toHaveValue(ticketDate);
   await expect(page.locator('#eventTicketVisibilityPolicy')).toHaveValue('eligible_only');
@@ -34,6 +43,7 @@ test('AC-014: entire blank day tile launches the correct editor in all three adm
   const bookingDay = page.locator('#bookingOverviewCalendarGrid .admin-calendar-day[data-booking-calendar-date]').first();
   const holidayDate = await bookingDay.getAttribute('data-booking-calendar-date');
   await bookingDay.click({ position: { x: 16, y: 70 } });
+  await createOnDay(page, 'bookingOverviewCalendarGrid', 'holiday');
   await expect(page.locator('#calendarEditorModal')).toBeVisible();
   await expect(page.locator('#calendarItemType')).toHaveValue('holiday');
   await expect(page.locator('#calendarItemStartsOn')).toHaveValue(holidayDate);
@@ -43,6 +53,7 @@ test('AC-014: entire blank day tile launches the correct editor in all three adm
 test('AC-015: booking holiday saves and remains editable; it cannot leak into the activity calendar', async ({ page }, info) => {
   await page.locator('#bookingTab').click();
   await page.locator('#bookingOverviewCalendarGrid .admin-calendar-day[data-booking-calendar-date]').first().click({ position: { x: 16, y: 70 } });
+  await createOnDay(page, 'bookingOverviewCalendarGrid', 'holiday');
   await page.locator('#calendarItemTitle').fill('QA 店休日');
   await page.locator('#calendarItemStatus').selectOption('draft');
   await page.locator('#saveCalendarItemButton').click();
@@ -50,7 +61,7 @@ test('AC-015: booking holiday saves and remains editable; it cannot leak into th
   const stored = host.sessions.get(info.testId).calendarItems[0];
   expect(stored.itemType).toBe('holiday');
   await page.locator('#calendarEditorModal .editor-modal-close').click();
-  const holidayEntry = page.locator('#bookingOverviewCalendarGrid [data-booking-calendar-holiday-id="' + stored.calendarItemId + '"]').first();
+  const holidayEntry = page.locator('#bookingOverviewCalendarWorkspace [data-calendar-entry="' + stored.calendarItemId + '"]').first();
   await expect(holidayEntry).toBeVisible();
   await holidayEntry.click();
   await expect(page.locator('#calendarItemId')).toHaveValue(stored.calendarItemId);
@@ -63,6 +74,7 @@ test('AC-015: booking holiday saves and remains editable; it cannot leak into th
 test('AC-016: independent member-event audience and visibility choices round-trip through the editor', async ({ page }, info) => {
   await page.locator('#calendarTab').click();
   await page.locator('#adminCalendarGrid .admin-calendar-day[data-admin-calendar-date]').first().click({ position: { x: 16, y: 70 } });
+  await createOnDay(page, 'adminCalendarGrid', 'activity');
   await page.locator('#calendarItemTitle').fill('QA 白金專屬活動');
   await page.locator('#calendarItemStatus').selectOption('draft');
   for (const tier of ['general', 'silver', 'gold']) {
@@ -75,7 +87,7 @@ test('AC-016: independent member-event audience and visibility choices round-tri
   expect(row.allowedTierKeys).toEqual(['platinum']);
   expect(row.visibilityPolicy).toBe('higher_preview');
   await page.locator('#calendarEditorModal .editor-modal-close').click();
-  await page.locator('#adminCalendarGrid [data-admin-calendar-item-id="' + row.calendarItemId + '"]').first().click();
+  await page.locator('#calendarPanel [data-calendar-entry="' + row.calendarItemId + '"]').first().click();
   await expect(page.locator('#calendarItemVisibilityPolicy')).toHaveValue('higher_preview');
   await expect(page.locator('#calendarItemAllowedTiers input[value="platinum"]')).toBeChecked();
 });

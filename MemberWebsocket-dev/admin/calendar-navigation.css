@@ -1,0 +1,43 @@
+/* Shared month/day controls use the application's existing theme tokens. */
+.calendar-navigation { position: relative; padding-bottom: 82px !important; }
+.calendar-navigation [hidden] { display: none !important; }
+.calendar-navigation-controls { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin: 12px 0; }
+.calendar-month-picker-label { display: flex; gap: 8px; align-items: center; min-width: 0; font-size: 12px; color: var(--theme-text-muted, #61716a); }
+.calendar-navigation input:is([type="month"], [type="date"]) { min-width: 0; width: auto; max-width: 100%; min-height: 44px; padding: 6px 8px; border: 1px solid var(--theme-border-strong, #dce7df); border-radius: 9px; background: var(--theme-surface-raised, #fff); color: var(--theme-text, #20382b); font: inherit; }
+.calendar-navigation-button { min-height: 44px; min-width: 44px; padding: 8px 12px; border: 1px solid var(--theme-border-strong, #dce7df); border-radius: 12px; background: var(--theme-surface-raised, #fff); color: var(--theme-text, #20382b); font: inherit; cursor: pointer; touch-action: manipulation; }
+.calendar-navigation-button:is(:hover, :focus-visible), .calendar-month-strip [aria-pressed="true"] { border-color: var(--theme-accent, #236343); background: var(--theme-accent-soft, #e4f2e8); color: var(--theme-accent, #236343); }
+.calendar-navigation-button:focus-visible, .calendar-day-title:focus-visible { outline: 2px solid var(--theme-accent, #236343); outline-offset: 2px; }
+.calendar-month-strip { display: flex; position: relative; gap: 8px; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; padding: 4px 0 10px; margin-bottom: 8px; scrollbar-width: thin; }
+.calendar-month-strip button { flex: 0 0 auto; white-space: nowrap; border-radius: 24px; font-size: 13px; }
+.calendar-navigation .admin-calendar-grid, .calendar-day-body { touch-action: pan-y pinch-zoom; }
+.calendar-navigation[data-calendar-view="day"] .admin-calendar-toolbar, .calendar-navigation[data-calendar-view="day"] .calendar-navigation-controls { display: none; }
+.calendar-day-view { background: var(--theme-surface-raised, #fff); color: var(--theme-text, #20382b); min-width: 0; }
+.calendar-day-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 8px 0; }
+.calendar-day-pager { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
+.calendar-day-toolbar [data-calendar-date-picker] { flex: 1; width: 140px; }
+.calendar-day-title { margin: 8px 0 16px; font-size: clamp(15px, 2vw, 20px); line-height: 1.6; overflow-wrap: anywhere; }
+.calendar-day-body { max-height: min(65vh, 720px); overflow-y: auto; overscroll-behavior-y: contain; }
+.calendar-all-day, .calendar-hour-row { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 8px; border-top: 1px solid var(--theme-border, #dce7df); padding: 8px 0; }
+.calendar-hour-row { min-height: 60px; }
+.calendar-time-label { color: var(--theme-text-muted, #61716a); font-size: 11px; padding-top: 8px; }
+.calendar-day-entries { display: grid; gap: 6px; min-width: 0; align-content: start; }
+.calendar-day-entry { display: grid; gap: 4px; width: 100%; text-align: left; min-width: 0; border-left: 4px solid var(--calendar-item-accent, var(--theme-positive, #236343)); background: var(--theme-positive-soft, #e4f2e8); white-space: normal; overflow-wrap: anywhere; }
+.calendar-day-entry small { color: var(--theme-text-muted, #61716a); font-size: 11px; }
+.calendar-day-entry.is-holiday { color: var(--theme-danger-text, #9b2c38); border-left-color: var(--theme-danger, #ba3548); background: var(--theme-danger-soft, #ffe7ec); }
+#bookingPanel.business-holiday-only .calendar-day-entry[data-business-requires="booking"] { display: none !important; }
+.calendar-day-empty { margin: 0 0 12px; padding: 18px 8px; color: var(--theme-text-muted, #61716a); font-size: 13px; line-height: 1.7; }
+html[data-theme] :is(#eventsPanel, #calendarPanel, #bookingPanel) .calendar-navigation .admin-calendar-day-header { display: block; }
+html[data-theme] :is(#eventsPanel, #calendarPanel, #bookingPanel) .calendar-navigation .admin-calendar-day-button { display: flex; justify-content: center; min-width: 0; padding: 0; }
+html[data-theme] :is(#eventsPanel, #calendarPanel, #bookingPanel) .calendar-navigation .admin-calendar-day-number { display: inline-grid; flex: 0 0 26px; width: 26px; height: 26px; padding: 0; place-items: center; border-radius: 50%; font-variant-numeric: tabular-nums; }
+.calendar-create-area { position: absolute; bottom: 14px; right: 14px; z-index: 2; display: grid; justify-items: end; gap: 10px; }
+.calendar-add-button, .calendar-add-button:hover { width: 52px; height: 52px; font-size: 28px; border-radius: 18px; color: var(--md-sys-color-on-tertiary, #fff); background: var(--theme-accent, #236343); box-shadow: 0 4px 16px #0003; }
+.calendar-create-menu { display: grid; gap: 8px; padding: 8px; max-width: min(260px, 75vw); border-radius: 14px; border: 1px solid var(--theme-border-strong, #dce7df); background: var(--theme-surface-raised, #fff); box-shadow: 0 4px 16px #0003; }
+@media (max-width: 480px) {
+  .calendar-navigation-controls { gap: 6px; }
+  .calendar-month-picker-label { flex-wrap: wrap; gap: 4px; }
+  .calendar-day-toolbar { gap: 4px; }
+  .calendar-day-toolbar .calendar-navigation-button { padding: 6px; }
+  .calendar-day-toolbar [data-calendar-month-view] { flex: 1; text-align: left; }
+  .calendar-day-pager { flex-basis: 100%; }
+  .calendar-navigation .admin-calendar-day-button { padding-inline: 2px; }
+}
