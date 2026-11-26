@@ -52,42 +52,32 @@ test('QR display is lazy, purpose-specific, cancels stale rendering and reports 
  }finally{f.w.close();}
 });
 
-test('points transfer production page loads its own QR encoder before display and transfer handlers',()=>{
- const html=read('points/index.html');
- const scripts=Array.from(html.matchAll(/<script[^>]*src="([^"]+)"[^>]*><\/script>/g),match=>match[1].split('?')[0]);
- const encoder=scripts.indexOf('../vendor/friend-qrcode.js');
- const dialog=scripts.indexOf('../qr-scan-dialog.js');
- const transfer=scripts.indexOf('./point-transfer.js');
- assert.ok(encoder>=0,'points page must load the QR encoder; browser fixtures must not mask a missing asset');
- assert.ok(dialog>encoder,'QR encoder must load before the display dialog');
- assert.ok(transfer>dialog,'transfer click handler must load after the QR display dialog');
- assert.match(read('vendor/friend-qrcode.js'),/FriendQRCode/,'the encoder asset must exist');
+test('points page loads shared dialog without member QR scanning libraries',()=>{
+  const html=read('points/index.html');
+  const scripts=Array.from(html.matchAll(/<script[^>]*src="([^"]+)"[^>]*><\/script>/g),m=>m[1].split('?')[0]);
+  assert.ok(scripts.includes('../qr-scan-dialog.js'),'Shared dialog remains for the friend picker');
+  assert.ok(scripts.indexOf('./point-transfer.js')>scripts.indexOf('../qr-scan-dialog.js'));
+  for(const asset of ['../vendor/friend-qrcode.js','../vendor/friend-qr-decoder.js','../friend-qr-scanner.js'])assert.equal(scripts.includes(asset),false);
 });
-
-test('points transfer removes only the outer copy button; the QR dialog still offers copy',async()=>{
- const transfer=read('points/point-transfer.js');
- assert.doesNotMatch(transfer,/pointTransferCopyOwnCode|copyOwnMemberCode|point-transfer-copy-proxy/);
- const f=page();try{
-  f.w.FriendQRCode={toCanvas:async()=>{}};
-  assert.equal(f.w.QRDisplayDialog.show({memberCode:'AAAA',title:'我的會員 QR Code',opener:f.opener}),true);
-  await tick();
-  const dialog=f.w.document.getElementById('qrDisplayPanel');
-  assert.equal(dialog.querySelector('strong').textContent,'AAAA');
-  assert.equal(dialog.querySelector('button').textContent,'複製會員編號');
-  f.w.QRDisplayDialog.close();
- } finally {f.w.close();}
+test('member number copy and confirmed gift remain independent operations',()=>{
+  const transfer=read('points/point-transfer.js');
+  const html=read('points/index.html');
+  assert.match(html,/id="pointTransferCopyOwnCode"/);
+  assert.match(transfer,/copyButton\.addEventListener\('click'/);
+  assert.match(transfer,/'points\.transfer\.receiver'/);
+  assert.match(transfer,/'points\.transfer\.create'/);
+  assert.doesNotMatch(transfer,/pointTransferShowOwnQr|pointTransferScanQr|parseTransferQR/);
 });
-
-test('points page exposes its own QR button outside the transfer modal',()=>{
- const doc=new JSDOM(read('points/index.html')).window.document;
- const buttons=Array.from(doc.querySelectorAll('.active-card-actions > button'));
- assert.deepEqual(buttons.map(button=>button.id),['pointTransferButton','pointTransferShowOwnQr']);
- assert.equal(buttons[1].getAttribute('aria-haspopup'),'dialog');
- assert.equal(buttons[1].disabled,true);
- assert.equal(doc.querySelector('#pointTransferModal'),null,'transfer dialog is lazy');
- const transfer=read('points/point-transfer.js');
- assert.doesNotMatch(transfer,/<button id="pointTransferShowOwnQr"/,'QR button must not be nested in transfer markup');
- assert.match(transfer,/qrButton\.addEventListener\('click'/,'outside QR button must have its own listener');
+test('point card directly copies member number; transfer modal stays lazy',()=>{
+  const doc=new JSDOM(read('points/index.html')).window.document;
+  const buttons=Array.from(doc.querySelectorAll('.active-card-actions > button'));
+  assert.deepEqual(buttons.map(b=>b.id),['pointTransferButton','pointTransferCopyOwnCode']);
+  assert.equal(buttons[1].disabled,true,'Copy enabled only after member session loads');
+  assert.equal(buttons[1].hasAttribute('aria-haspopup'),false);
+  assert.equal(doc.querySelector('#pointTransferModal'),null);
+  const transfer=read('points/point-transfer.js');
+  assert.match(transfer,/copyButton\.addEventListener\('click'/);
+  assert.match(transfer,/copyButton\.disabled = !state\.memberCode \|\| !session\(\)/);
 });
 
 test('member QR dialog still copies the member identifier without the card copy button', async () => {

@@ -15,17 +15,18 @@ test('full server QA runs never pass when any case was skipped or omitted', () =
   assert.doesNotMatch(user, /const finalStatus = failedCount > 0 \? "failed" : "passed"/);
 });
 
-test('points transfer QA asserts current own-QR UI, not deleted copy button', () => {
-  const testRunner = read('user-test-control.js');
-  const transfer = read('points/point-transfer.js');
-  const pointsPage = read('points/index.html');
-  assert.match(pointsPage, /<div class="active-card-actions">[\s\S]*id="pointTransferShowOwnQr"/);
-  assert.doesNotMatch(transfer, /<button id="pointTransferShowOwnQr"/);
-  assert.match(transfer, /qrButton\.addEventListener\('click'/);
-  assert.doesNotMatch(transfer, /id="pointTransferCopyOwnCode"/);
-  assert.match(testRunner, /ownQrControl: Boolean\(ownQr\)/);
-  assert.match(testRunner, /deprecatedCopyRemoved: !removedCopy/);
-  assert.match(testRunner, /actual\.ownQrControl && actual\.deprecatedCopyRemoved/);
+test('points transfer QA enforces direct member-number copy and no QR transaction shortcut', () => {
+  const runner=read('user-test-control.js');
+  const transfer=read('points/point-transfer.js');
+  const html=read('points/index.html');
+  assert.match(html, /<div class="active-card-actions">[\s\S]*id="pointTransferCopyOwnCode"/);
+  assert.match(transfer, /copyButton\.addEventListener\('click'/);
+  assert.match(transfer, /'points\.transfer\.receiver'/);
+  assert.match(transfer, /'points\.transfer\.create'/);
+  assert.doesNotMatch(transfer, /pointTransferShowOwnQr|pointTransferScanQr/);
+  assert.match(runner, /ownCodeCopyControl: Boolean\(ownCopy\)/);
+  assert.match(runner, /qrControlRemoved: qrRemoved/);
+  assert.match(runner, /actual\.ownCodeCopyControl && actual\.qrControlRemoved/);
 });
 
 test('GPS retry controls are registered in E2E discovery and wired to real refresh actions', () => {

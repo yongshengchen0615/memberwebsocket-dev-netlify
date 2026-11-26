@@ -1121,8 +1121,8 @@
         caseDef('會員資料完整性', 'Member', memberProfileCase, 'MEMBER_PROFILE_DATA'),
         caseDef('會員條款：有效版本與拒絕邊界', 'Member / Legal', membershipTermsConsentCase, 'MEMBER_TERMS_CONSENT'),
         caseDef('會員申請條款：未同意阻擋與目前版本確認', 'Human E2E', memberJoinTermsFlowCase, 'MEMBER_JOIN_TERMS_FLOW'),
-        caseDef('會員 QR Code：顯示與複製回饋', 'Member / Clipboard', memberCodeCopyCase, 'MEMBER_CODE_COPY'),
-        caseDef('好友與邀請優惠：QR 入口與外站拒絕', 'Member / QR', memberQrControlsCase, 'MEMBER_QR_CONTROLS'),
+        caseDef('會員編號：直接複製與結果回饋', 'Member / Clipboard', memberCodeCopyCase, 'MEMBER_CODE_COPY'),
+        caseDef('好友與邀請優惠：會員編號輸入與掃碼入口移除', 'Member / QR', memberQrControlsCase, 'MEMBER_QR_CONTROLS'),
         caseDef('好友邀請：邀請碼／Modal／自邀前端拒絕', 'Member / Growth', memberReferralBoundaryCase, 'MEMBER_REFERRAL_BOUNDARY'),
         caseDef('加入會員後 LINE 自動訊息 UI 契約', 'Member / Notification', memberJoinLineAutomationContractCase, 'MEMBER_JOIN_LINE_AUTOMATION_CONTRACT'),
         caseDef('稱呼／生日／電話編輯視窗', 'UI', memberModalCase, 'MEMBER_MODAL_OPEN_CLOSE'),
@@ -1133,7 +1133,7 @@
       points: [
         caseDef('集點卡／票券資料結構', 'Points', pointsDataCase, 'POINTS_DATA'),
         caseDef('票券使用共用設定', 'Points', pointSettingsCase, 'POINTS_SETTINGS'),
-        caseDef('點數轉贈：好友選擇／QR 入口／取消', 'Points / Transfer', pointsTransferRecipientControlsCase, 'POINTS_TRANSFER_RECIPIENT_CONTROLS'),
+        caseDef('點數轉贈：好友選擇／會員編號／取消', 'Points / Transfer', pointsTransferRecipientControlsCase, 'POINTS_TRANSFER_RECIPIENT_CONTROLS'),
         caseDef('點數轉贈：會員編號／查找／輸入拒絕邊界', 'Points / Transfer', pointsTransferBoundaryCase, 'POINTS_TRANSFER_BOUNDARY'),
         caseDef('集點卡切換互動', 'UI', pointsInteractionCase, 'POINTS_CARD_SWITCH'),
         caseDef('票券使用紀錄展開／收合', 'UI', pointsHistoryDisclosureCase, 'POINTS_HISTORY_DISCLOSURE'),
@@ -3291,8 +3291,8 @@
     const buttons = Array.from(document.querySelectorAll('button')).filter((button) => !qaPanel?.contains(button) && button.id !== LAUNCHER_ID);
     const navigationIds = new Set(['retryButton','logoutButton','joinMemberButton','refreshProfileButton','refreshTicketButton']);
     const patterns = {
-      member: /^(showMemberIdentityQr|openMemberFriends|friendQrScanImage|scanMemberReferralQr|stopMemberReferralQr|uploadMemberReferralQr|refreshFriends|confirmFriendRequest|lookupFriend|scanFriendQr|uploadFriendQr|stopFriendQr|edit|close|cancel|save|profileBirthdayPicker|confirmProfileBirthdayPicker|openMemberReferral|closeMemberReferral|bindMemberReferral|renewTermsButton)/,
-      points: /^(retryButton|joinMemberButton|logoutButton|pointTransferButton|pointTransferClose|pointTransferCopyOwnCode|pointTransferLookup|pointTransferSubmit|pointTransferChooseFriend|pointTransferUseFriend|pointTransferScanQr|pointTransferQrImageButton|pointTransferQrClose|pointTransferShowOwnQr|pointTransferFriendCancel)$|qr-scan-dialog-close|card-tab|ticket-overview-use|ticket-batch-(cancel|confirm)|ticket-live-location-confirm/, 
+      member: /^(copyMemberIdentityCode|openMemberFriends|refreshFriends|confirmFriendRequest|lookupFriend|edit|close|cancel|save|profileBirthdayPicker|confirmProfileBirthdayPicker|openMemberReferral|closeMemberReferral|bindMemberReferral|renewTermsButton)/,
+      points: /^(retryButton|joinMemberButton|logoutButton|pointTransferButton|pointTransferClose|pointTransferCopyOwnCode|pointTransferLookup|pointTransferSubmit|pointTransferChooseFriend|pointTransferUseFriend|pointTransferFriendCancel)$|qr-scan-dialog-close|card-tab|ticket-overview-use|ticket-batch-(cancel|confirm)|ticket-live-location-confirm/, 
       event: /^(retryButton|joinMemberButton|logoutButton|closeTicketModal|ticketModalAction|refreshTicketButton)$|ticket-button|event-history-button|ticketModalLocationButton/,
       calendar: /^(retryButton|joinMemberButton|logoutButton|previousMonthButton|todayButton|nextMonthButton|closeCalendarDetailButton)$|calendar-day/,
       booking: /^(retryButton|joinMemberButton|logoutButton|previousMonthButton|nextMonthButton|closeAppointmentButton|cancelEditBookingButton|submitBookingButton|confirmBookingNoticeButton|closeBookingConfirmButton|cancelBookingConfirmButton|confirmBookingButton|closeBookingHolidayButton|bookingBenefitsRetry|bookingReceiptClose|bookingReceiptCapture|bookingReceiptRetake|bookingReceiptDiscard|bookingReceiptCancel|bookingReceiptSubmit|bookingAccessibleToggle|bookingAccessibleUpload|bookingAccessibleRefresh)$|calendar-day|service-add-button|selected-service-remove|slot-button|text-danger-button|button-light|拍攝收據送出審核|收據上傳未完成/
@@ -3594,49 +3594,42 @@
 
 
   async function memberCodeCopyCase() {
-    const trigger = document.getElementById('showMemberIdentityQr');
-    if (!trigger || trigger.disabled || typeof window.QRDisplayDialog?.show !== 'function') {
-      return fail('會員 QR Code 入口或識別碼未就緒。', { ready: true }, { ready: false });
+    const trigger = document.getElementById('copyMemberIdentityCode');
+    if (!trigger || trigger.disabled) {
+      return fail('複製會員編號入口或會員識別碼尚未就緒。', { ready: true }, { ready: false });
     }
     trigger.click();
-    const panel = document.getElementById('qrDisplayPanel');
-    const memberCode = panel?.querySelector('strong')?.textContent.trim();
-    const copy = Array.from(panel?.querySelectorAll('button') || []).find(button => button.textContent.trim() === '複製會員編號');
-    if (!panel || !memberCode || !copy || panel.hidden) {
-      window.QRDisplayDialog.close();
-      return fail('會員 QR 視窗未顯示識別碼或複製操作。', { ready: true }, { ready: false });
-    }
-    try {
-      copy.click();
-      const feedback = await waitFor(() => /會員編號已複製|無法複製/.test(panel.textContent), 2500);
-      const copied = Boolean(feedback) && /會員編號已複製/.test(panel.textContent);
-      return copied
-        ? pass('透過會員 QR 視窗顯示編號、點擊複製並提供成功回饋；剪貼簿內容由隔離 Chromium 另驗。', { copied: true, codeShown: true }, { copied: true, codeShown: true })
-        : fail('QR 視窗的複製未成功或未提供明確回饋。', { copied: true, codeShown: true }, { copied: false, codeShown: true, feedback: panel.textContent.slice(-100) });
-    } finally {
-      window.QRDisplayDialog.close();
-    }
+    const feedback = await waitFor(() => /會員編號已複製|無法複製/.test(document.getElementById('memberCodeCopyStatus')?.textContent || ''), 2500);
+    const copied = Boolean(feedback) && /會員編號已複製/.test(document.getElementById('memberCodeCopyStatus')?.textContent || '');
+    return copied
+      ? pass('會員編號已直接複製並有操作回饋。', { copied: true }, { copied: true })
+      : fail('會員編號未成功複製。', { copied: true }, { copied: false, feedback: document.getElementById('memberCodeCopyStatus')?.textContent || '' });
   }
 
   async function memberQrControlsCase() {
     const trigger = document.getElementById('openMemberReferral');
     trigger?.click();
     const modal = document.getElementById('memberReferralModal');
-    const checks = [];
     try {
-      for (const [tab,ids] of [['openMemberFriends',['scanFriendQr','friendQrFile','stopFriendQr']],['openMemberReferral',['scanMemberReferralQr','memberReferralQrFile','stopMemberReferralQr']]]) {
-        document.getElementById(tab)?.click();
-        checks.push({tab,controls:ids.every(id => Boolean(document.getElementById(id)))});
-      }
-      let foreignRejected = false;
-      if (typeof window.FriendQRScanner?.parseInvitation === 'function') {
-        try { window.FriendQRScanner.parseInvitation('https://foreign.invalid/member/#friend=TEST1234'); } catch (_) { foreignRejected = true; }
-      }
-      const actual = {opened:Boolean(modal && !modal.classList.contains('hidden')),controls:checks.length === 2 && checks.every(row => row.controls),foreignRejected,sharedDialog:typeof window.QRScanDialog?.open === 'function'};
+      document.getElementById('openMemberFriends')?.click();
+      const friendInput = document.getElementById('friendLookupCode');
+      const friendLookup = document.getElementById('lookupFriend');
+      document.getElementById('openMemberReferral')?.click();
+      const rewardInput = document.getElementById('memberReferralInviteCode');
+      const rewardSubmit = document.getElementById('bindMemberReferral');
+      const actual = {
+        friendInput: Boolean(friendInput && friendLookup),
+        rewardInput: Boolean(rewardInput && rewardSubmit),
+        qrRemoved: ['scanFriendQr','friendQrFile','scanMemberReferralQr','memberReferralQrFile','showMemberIdentityQr'].every(id => !document.getElementById(id)),
+        distinctActions: Boolean(modal && friendInput !== rewardInput)
+      };
       return Object.values(actual).every(Boolean)
-        ? pass('好友／優惠各有 QR 入口，外站碼拒絕且共用 dialog 已載入；未要求相機或建立邀請。',{opened:true,controls:true,foreignRejected:true,sharedDialog:true},actual)
-        : fail('QR 入口、解析安全或共用 dialog 不完整。',{opened:true,controls:true,foreignRejected:true,sharedDialog:true},actual);
-    } finally { document.getElementById('closeMemberFriends')?.click(); document.getElementById('closeMemberReferral')?.click(); }
+        ? pass('好友查詢與邀請優惠各自使用會員編號，沒有 QR 操作入口。', {friendInput:true,rewardInput:true,qrRemoved:true,distinctActions:true},actual)
+        : fail('會員編號入口或掃碼移除不符合預期。', {friendInput:true,rewardInput:true,qrRemoved:true,distinctActions:true},actual);
+    } finally {
+      document.getElementById('closeMemberFriends')?.click();
+      document.getElementById('closeMemberReferral')?.click();
+    }
   }
 
   async function pointsTransferRecipientControlsCase() {
@@ -3646,14 +3639,21 @@
     const modal = document.getElementById('pointTransferModal');
     try {
       const choose = document.getElementById('pointTransferChooseFriend');
-      const qr = document.getElementById('pointTransferScanQr');
       if (choose?.disabled) return skip('有待確認轉贈，保留原交易且不切換收件人。',{recipientEditable:true},{recipientEditable:false});
       choose?.click();
       const loaded = Boolean(await waitFor(() => !document.getElementById('pointTransferFriendSelect')?.disabled && !/正在載入/.test(document.getElementById('pointTransferFriendStatus')?.textContent || ''),6000));
-      const actual = {opened:Boolean(modal && !modal.classList.contains('hidden')),friendPicker:!document.getElementById('pointTransferFriendPicker')?.hidden,loaded:loaded && /選擇好友後|目前沒有已接受/.test(document.getElementById('pointTransferFriendStatus')?.textContent || ''),qrControl:Boolean(qr),manualInput:Boolean(document.getElementById('pointTransferMemberCode')),noRecipientChosen:!document.getElementById('pointTransferReceiver')?.textContent};
+      const actual = {
+        opened:Boolean(modal && !modal.classList.contains('hidden')),
+        friendPicker:!document.getElementById('pointTransferFriendPicker')?.hidden,
+        loaded:loaded && /選擇好友後|目前沒有已接受/.test(document.getElementById('pointTransferFriendStatus')?.textContent || ''),
+        manualInput:Boolean(document.getElementById('pointTransferMemberCode')),
+        ownCodeCopy:Boolean(document.getElementById('pointTransferCopyOwnCode')),
+        qrRemoved:!document.getElementById('pointTransferScanQr'),
+        noRecipientChosen:!document.getElementById('pointTransferReceiver')?.textContent
+      };
       return Object.values(actual).every(Boolean)
-        ? pass('好友選擇載入，QR／會員編號替代入口可用；取消未提交轉贈。',{opened:true,friendPicker:true,loaded:true,qrControl:true,manualInput:true,noRecipientChosen:true},actual)
-        : fail('轉贈收件者控制或好友載入未就緒。',{loaded:true},actual);
+        ? pass('點數轉贈可選好友或輸入會員編號，沒有 QR 操作且未自動扣點。',{opened:true,friendPicker:true,loaded:true,manualInput:true,ownCodeCopy:true,qrRemoved:true,noRecipientChosen:true},actual)
+        : fail('點數轉贈會員編號入口或好友查詢未就緒。',{opened:true,friendPicker:true,loaded:true,manualInput:true,ownCodeCopy:true,qrRemoved:true,noRecipientChosen:true},actual);
     } finally { document.getElementById('pointTransferClose')?.click(); }
   }
 
@@ -3707,18 +3707,18 @@
     const actual = {
       modal: Boolean(modal),
       validMemberCode,
-      friendScanControl: Boolean(friendScan),
-      rewardScanControl: Boolean(rewardScan),
+      friendScanRemoved: !friendScan,
+      rewardScanRemoved: !rewardScan,
       friendSelfRejected,
       rewardSelfRejected,
       closed
     };
     return Object.values(actual).every(Boolean)
-      ? pass('好友與邀請優惠已分流；好友自邀與優惠自綁皆被前端拒絕，兩種掃描入口各自存在。', {
+      ? pass('好友與邀請優惠已分流；好友自邀與優惠自綁皆被前端拒絕，且不再顯示 QR 掃描。', {
           modal: true,
           validMemberCode: true,
-          friendScanControl: true,
-          rewardScanControl: true,
+          friendScanRemoved: true,
+          rewardScanRemoved: true,
           friendSelfRejected: true,
           rewardSelfRejected: true,
           closed: true
@@ -3726,8 +3726,8 @@
       : fail('好友／邀請優惠 Browser E2E 契約至少一項不符合預期。', {
           modal: true,
           validMemberCode: true,
-          friendScanControl: true,
-          rewardScanControl: true,
+          friendScanRemoved: true,
+          rewardScanRemoved: true,
           friendSelfRejected: true,
           rewardSelfRejected: true,
           closed: true
@@ -3758,8 +3758,8 @@
     const cards = Array.isArray(options?.cards) ? options.cards : [];
     const modal = await waitFor(() => document.getElementById('pointTransferModal'), 2500);
     const ownCode = String(document.getElementById('pointTransferOwnMemberCode')?.textContent || '').trim();
-    const ownQr = document.getElementById('pointTransferShowOwnQr');
-    const removedCopy = document.getElementById('pointTransferCopyOwnCode');
+    const ownCopy = document.getElementById('pointTransferCopyOwnCode');
+    const qrRemoved = !document.getElementById('pointTransferShowOwnQr');
     const lookup = document.getElementById('pointTransferLookup');
     const amount = document.getElementById('pointTransferAmount');
     const submit = document.getElementById('pointTransferSubmit');
@@ -3781,23 +3781,23 @@
       optionsArray: Array.isArray(options?.cards),
       modal: Boolean(modal),
       ownMemberCode: Boolean(ownCode) && !/尚未|讀取|同步/.test(ownCode),
-      ownQrControl: Boolean(ownQr),
-      deprecatedCopyRemoved: !removedCopy,
+      ownCodeCopyControl: Boolean(ownCopy),
+      qrControlRemoved: qrRemoved,
       lookupControl: Boolean(lookup),
       amountControl: Boolean(amount),
       submitControl: Boolean(submit),
       invalidAmountRejected: invalidAmount.httpStatus === 400 && invalidAmount.errorCode === 'INVALID_TRANSFER_AMOUNT',
       optionCount: cards.length
     };
-    const ok = actual.optionsArray && actual.modal && actual.ownMemberCode && actual.ownQrControl && actual.deprecatedCopyRemoved &&
+    const ok = actual.optionsArray && actual.modal && actual.ownMemberCode && actual.ownCodeCopyControl && actual.qrControlRemoved &&
       actual.lookupControl && actual.amountControl && actual.submitControl && actual.invalidAmountRejected;
     return ok
       ? pass('點數轉贈已驗證本人會員編號、Modal 控制、Server options 與 0 點寫入拒絕；成功原子轉贈由管理端協同節點覆蓋。', {
-          optionsArray: true, modal: true, ownMemberCode: true, ownQrControl: true, deprecatedCopyRemoved: true,
+          optionsArray: true, modal: true, ownMemberCode: true, ownCodeCopyControl: true, qrControlRemoved: true,
           lookupControl: true, amountControl: true, submitControl: true, invalidAmountRejected: true
         }, actual)
       : fail('點數轉贈 Browser／Server 邊界至少一項不符合預期。', {
-          optionsArray: true, modal: true, ownMemberCode: true, ownQrControl: true, deprecatedCopyRemoved: true,
+          optionsArray: true, modal: true, ownMemberCode: true, ownCodeCopyControl: true, qrControlRemoved: true,
           lookupControl: true, amountControl: true, submitControl: true, invalidAmountRejected: true
         }, actual);
   }
