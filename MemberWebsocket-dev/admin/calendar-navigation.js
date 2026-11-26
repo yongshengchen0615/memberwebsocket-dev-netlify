@@ -30,6 +30,14 @@
       return month.getUTCFullYear() >= 1000 && month.getUTCFullYear() <= 9999 ? month.toISOString().slice(0, 10) : '';
     }).filter(Boolean);
   }
+  function monthDates(value) {
+    const date = parseDate(value);
+    if (!date) return [];
+    date.setUTCDate(1);
+    const first = date.toISOString().slice(0, 10);
+    const offset = date.getUTCDay();
+    return Array.from({length:42}, (_, index) => shiftDate(first, index - offset));
+  }
   function minutes(value) {
     const match = /^(\d{2}):(\d{2})(?::\d{2})?$/.exec(String(value || ''));
     return match && +match[1] < 24 && +match[2] < 60 ? +match[1] * 60 + +match[2] : null;
@@ -91,12 +99,35 @@
     ui.monthPicker.setAttribute('data-calendar-month-picker', '');
     ui.monthPicker.setAttribute('aria-label', labels[scope] + '選擇月份');
     monthLabel.append(ui.monthPicker);
-    const openDay = button('當日檢視', 'data-calendar-open-day');
-    controls.append(monthLabel, openDay);
+    ui.viewSelect = node('select', 'calendar-view-select');
+    ui.viewSelect.setAttribute('data-calendar-view-select', '');
+    ui.viewSelect.setAttribute('aria-label', labels[scope] + '檢視方式');
+    for (const [value, text] of [['month','月'], ['day','日']]) {
+      const option = node('option', '', text);
+      option.value = value;
+      ui.viewSelect.append(option);
+    }
+    controls.append(monthLabel, ui.viewSelect);
     ui.monthStrip = node('div', 'calendar-month-strip');
     ui.monthStrip.setAttribute('role', 'group');
     ui.monthStrip.setAttribute('aria-label', labels[scope] + '快速切換月份');
-    workspace.querySelector('.admin-calendar-weekdays').before(controls, ui.monthStrip);
+    const toolbar = workspace.querySelector('.admin-calendar-toolbar');
+    const monthToday = toolbar.querySelector('.admin-calendar-today-button');
+    const monthTitle = toolbar.querySelector('h3');
+    const monthButtons = [...toolbar.querySelectorAll('.admin-calendar-month-button')];
+    const summary = toolbar.querySelector('p');
+    toolbar.replaceChildren(...[monthToday, ...monthButtons, monthTitle, controls].filter(Boolean));
+    ui.mini = node('aside', 'calendar-mini');
+    ui.mini.setAttribute('data-calendar-mini', '');
+    ui.miniTitle = node('h4', 'calendar-mini-title');
+    ui.miniGrid = node('div', 'calendar-mini-grid');
+    ui.miniGrid.setAttribute('role', 'group');
+    ui.miniGrid.setAttribute('aria-label', labels[scope] + '快速選擇日期');
+    const miniWeekdays = node('div', 'calendar-mini-weekdays');
+    miniWeekdays.setAttribute('aria-hidden', 'true');
+    for (const day of ['日','一','二','三','四','五','六']) miniWeekdays.append(node('span', '', day));
+    ui.mini.append(ui.miniTitle, miniWeekdays, ui.miniGrid, node('p', 'calendar-mini-caption', '目前日曆'), node('strong', 'calendar-mini-scope', labels[scope]));
+    workspace.querySelector('.admin-calendar-weekdays').before(ui.mini, ui.monthStrip);
 
     ui.day = node('section', 'calendar-day-view');
     ui.day.setAttribute('data-calendar-day-view', '');
@@ -119,6 +150,10 @@
     ui.dayBody = node('div', 'calendar-day-body');
     ui.day.append(dayToolbar, ui.dayTitle, ui.dayBody);
     grid.after(ui.day);
+    if (summary) {
+      summary.classList.add('calendar-navigation-summary');
+      workspace.append(summary);
+    }
 
     const createArea = node('div', 'calendar-create-area');
     ui.menu = node('div', 'calendar-create-menu');
@@ -129,12 +164,13 @@
     const create = button(scope === 'booking' ? '設定休假日' : '新增' + labels[scope], 'data-calendar-create');
     create.setAttribute('data-calendar-create', action);
     ui.menu.append(create);
-    ui.add = button('＋', 'data-calendar-add', labels[scope] + '新增選單');
+    ui.add = button('', 'data-calendar-add', labels[scope] + '新增選單');
+    ui.add.append(node('span', 'calendar-add-icon', '＋'), node('span', 'calendar-add-caption', '建立'));
     ui.add.classList.add('calendar-add-button');
     ui.add.setAttribute('aria-expanded', 'false');
     ui.add.setAttribute('aria-controls', ui.menu.id);
     createArea.append(ui.menu, ui.add);
-    workspace.append(createArea);
+    toolbar.prepend(createArea);
 
     ui.monthPicker.addEventListener('change', () => selectMonth(ui, ui.monthPicker.value + '-01'));
     workspace.addEventListener('click', event => {
@@ -148,24 +184,27 @@
     ui.monthPicker.addEventListener('blur', () => {
       if (!parseDate(ui.monthPicker.value + '-01')) ui.monthPicker.value = ui.options.month.slice(0, 7);
     });
-    openDay.addEventListener('click', () => openDate(ui, ui.date));
+    ui.viewSelect.addEventListener('change', () => {
+      if (ui.viewSelect.value === 'day') openDate(ui, ui.date);
+      else showMonth(ui);
+    });
+    ui.miniGrid.addEventListener('click', event => {
+      const target = event.target.closest('[data-calendar-mini-date]');
+      if (target) openDate(ui, target.dataset.calendarMiniDate);
+    });
     previous.addEventListener('click', () => openDate(ui, shiftDate(ui.date, -1)));
     next.addEventListener('click', () => openDate(ui, shiftDate(ui.date, 1)));
     today.addEventListener('click', () => openDate(ui, ui.options.today));
-    const monthToday = workspace.querySelector('.admin-calendar-today-button');
     if (monthToday) {
-      monthToday.textContent = '回到今天';
+      monthToday.textContent = '今天';
+      monthToday.setAttribute('aria-label', '回到今天');
       monthToday.addEventListener('click', event => {
         event.stopImmediatePropagation();
-        selectMonth(ui, ui.options.today.slice(0, 7) + '-01');
+        if (ui.view === 'day') openDate(ui, ui.options.today);
+        else selectMonth(ui, ui.options.today.slice(0, 7) + '-01');
       }, true);
     }
-    back.addEventListener('click', () => {
-      ui.view = 'month';
-      closeMenu(ui);
-      render(ui);
-      grid.querySelector('button[' + dateAttributes[scope] + '="' + ui.date + '"]')?.focus({preventScroll:true});
-    });
+    back.addEventListener('click', () => showMonth(ui));
     ui.add.addEventListener('click', () => {
       ui.menu.hidden = !ui.menu.hidden;
       ui.add.setAttribute('aria-expanded', String(!ui.menu.hidden));
@@ -231,6 +270,12 @@
     ui.menu.hidden = true;
     ui.add.setAttribute('aria-expanded', 'false');
   }
+  function showMonth(ui) {
+    ui.view = 'month';
+    closeMenu(ui);
+    render(ui);
+    ui.grid.querySelector('button[' + dateAttributes[ui.scope] + '="' + ui.date + '"]')?.focus({preventScroll:true});
+  }
   function selectMonth(ui, month) {
     if (!parseDate(month)) {
       if (root.document.activeElement !== ui.monthPicker) ui.monthPicker.value = ui.options.month.slice(0, 7);
@@ -257,6 +302,7 @@
     const {grid, workspace, options} = ui;
     const isDay = ui.view === 'day';
     workspace.dataset.calendarView = ui.view;
+    ui.viewSelect.value = ui.view;
     grid.hidden = isDay;
     ui.day.hidden = !isDay;
     workspace.querySelector('.admin-calendar-weekdays').hidden = isDay;
@@ -291,6 +337,20 @@
       if (day.dataset[dateKeys[ui.scope]] === ui.date) day.setAttribute('aria-current', 'date');
       else day.removeAttribute('aria-current');
     });
+    ui.miniTitle.textContent = workspace.querySelector('.admin-calendar-toolbar h3').textContent;
+    const miniDates = monthDates(options.month).map(date => {
+      if (!date) return node('span');
+      const mini = button(String(Number(date.slice(8))), 'data-calendar-mini-date', dateLabel(date));
+      mini.dataset.calendarMiniDate = date;
+      mini.classList.toggle('is-outside-month', date.slice(0,7) !== options.month.slice(0,7));
+      mini.classList.toggle('is-today', date === options.today);
+      mini.setAttribute('aria-pressed', String(date === ui.date));
+      return mini;
+    });
+    const focusedMiniDate = ui.miniGrid.contains(root.document.activeElement)
+      ? root.document.activeElement.dataset.calendarMiniDate : '';
+    ui.miniGrid.replaceChildren(...miniDates);
+    if (focusedMiniDate) miniDates.find(date => date.dataset?.calendarMiniDate === focusedMiniDate)?.focus({preventScroll:true});
     if (isDay) renderDay(ui);
   }
 
@@ -331,7 +391,7 @@
       content.push(section);
     }
     if (!allDay.length && !timed.length) {
-      const empty = node('p', 'calendar-day-empty', '這一天沒有' + (ui.scope === 'booking' ? '預約或休假安排' : labels[ui.scope]) + '，可點選右下角「＋」新增。');
+      const empty = node('p', 'calendar-day-empty', '這一天沒有' + (ui.scope === 'booking' ? '預約或休假安排' : labels[ui.scope]) + '，可點選「＋」新增。');
       empty.setAttribute('role', 'status');
       content.push(empty);
     }
@@ -351,7 +411,7 @@
     ui.dayBody.replaceChildren(...content);
   }
 
-  const api = Object.freeze({connect, shiftDate, monthSequence, bookingSegment});
+  const api = Object.freeze({connect, shiftDate, monthSequence, monthDates, bookingSegment});
   root.MemberAdminCalendarNavigation = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

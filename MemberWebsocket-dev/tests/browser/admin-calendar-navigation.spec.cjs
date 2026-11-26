@@ -11,6 +11,7 @@ async function open(page, info, tab='calendarTab') {
 }
 
 test('AC-001/002: month picker crosses the year; day navigation returns to the selected month', async ({ page }, info) => {
+  await page.setViewportSize({width:390,height:900});
   await open(page, info);
   const workspace = page.locator('#calendarPanel .admin-calendar');
   await workspace.locator('[data-calendar-month-picker]').fill('2026-12');
@@ -28,7 +29,7 @@ test('AC-001/002: month picker crosses the year; day navigation returns to the s
   await expect(page.locator('#adminCalendarGrid')).toBeVisible();
   await page.locator('#adminCalendarTodayButton').click();
   const today = await page.evaluate(() => new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Taipei'}).format(new Date()));
-  await workspace.locator('[data-calendar-open-day]').click();
+  await workspace.locator('[data-calendar-view-select]').selectOption('day');
   await expect(workspace.locator('[data-calendar-date-picker]')).toHaveValue(today);
   await workspace.locator('[data-calendar-date-picker]').fill('2027-01-02');
   await workspace.locator('[data-calendar-today]').click();
@@ -146,7 +147,7 @@ test('AC-001/005: native date keyboard edits retain focus and supported year bou
   await open(page, info);
   const workspace=page.locator('#calendarPanel .admin-calendar');
   await workspace.locator('[data-calendar-month-picker]').fill('2026-12');
-  await workspace.locator('[data-calendar-open-day]').click();
+  await workspace.locator('[data-calendar-view-select]').selectOption('day');
   const date=workspace.locator('[data-calendar-date-picker]');
   await date.focus();
   await page.keyboard.press('ArrowUp');

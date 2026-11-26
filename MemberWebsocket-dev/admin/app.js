@@ -2454,6 +2454,19 @@
   }
   function updateEventTicketAccentValue() { els.eventTicketAccentValue.textContent = safeAccent(els.eventTicketAccent.value).toUpperCase(); }
 
+  function calendarMonthDates(month) {
+    const sharedModel = window.MemberAdminCalendarNavigation?.monthDates;
+    if (typeof sharedModel === 'function') return sharedModel(toAdminIsoDate(month));
+    // Calendar enhancement is optional: a missing asset must not block admin
+    // startup or the original date-cell CRUD handlers.
+    const offset = month.getUTCDay();
+    return Array.from({length:42}, (_, index) => {
+      const date = new Date(month);
+      date.setUTCDate(1 + index - offset);
+      return date.getUTCFullYear() >= 1000 && date.getUTCFullYear() <= 9999 ? toAdminIsoDate(date) : '';
+    });
+  }
+
   function connectCalendarNavigation(grid, scope, month, rows) {
     const settings = {
       activity: { key:'adminCalendarMonth', render:renderAdminCalendar },
@@ -2547,25 +2560,26 @@
     const month = currentAdminCalendarMonth();
     state.adminCalendarMonth = toAdminIsoDate(month);
     const title = new Intl.DateTimeFormat('zh-Hant-TW', { timeZone: 'UTC', year: 'numeric', month: 'long' }).format(month);
-    const firstWeekday = month.getUTCDay();
-    const daysInMonth = new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + 1, 0)).getUTCDate();
+    const dates = calendarMonthDates(month);
+    const previewLimit = typeof window.MemberAdminCalendarNavigation?.connect === 'function' ? 3 : Infinity;
     const today = todayAdminIsoDate();
     const cells = [];
     els.adminCalendarMonthTitle.textContent = title;
     els.adminCalendarGrid.setAttribute('aria-label', title + '會員活動日曆，點選日期查看當日，點選項目編輯');
     for (let index = 0; index < 42; index += 1) {
-      const day = index - firstWeekday + 1;
-      if (day < 1 || day > daysInMonth) {
+      const date = dates[index];
+      if (!date) {
         const empty = document.createElement('div');
         empty.className = 'admin-calendar-day admin-calendar-day-empty';
         empty.setAttribute('aria-hidden', 'true');
         cells.push(empty);
         continue;
       }
-      const date = toAdminIsoDate(new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth(), day)));
+      const day = Number(date.slice(8));
       const entries = adminCalendarItemsForDate(date);
       const cell = document.createElement('article');
       cell.className = 'admin-calendar-day';
+      if (date.slice(0, 7) !== toAdminIsoDate(month).slice(0, 7)) cell.classList.add('is-outside-month');
       cell.dataset.adminCalendarDate = date;
       if (date === today) cell.classList.add('is-today');
       if (entries.length) cell.classList.add('has-items');
@@ -2583,7 +2597,7 @@
       header.append(add);
       const items = document.createElement('div');
       items.className = 'admin-calendar-items';
-      entries.forEach((item) => {
+      entries.slice(0, previewLimit).forEach((item) => {
         const row = document.createElement('div');
         row.className = 'admin-calendar-item-row';
         const button = document.createElement('button');
@@ -2596,6 +2610,14 @@
         row.append(button);
         items.append(row);
       });
+      if (entries.length > previewLimit) {
+        const more = document.createElement('button');
+        more.type = 'button';
+        more.className = 'calendar-scope-more';
+        more.textContent = '另有 ' + (entries.length - previewLimit) + ' 筆';
+        more.setAttribute('aria-label', more.textContent + '，查看當日會員活動');
+        items.append(more);
+      }
       cell.append(header, items);
       cells.push(cell);
     }
@@ -2620,27 +2642,28 @@
     const month = scopedCalendarMonth(key);
     state[key] = toAdminIsoDate(month);
     const monthLabel = new Intl.DateTimeFormat('zh-Hant-TW', { timeZone: 'UTC', year: 'numeric', month: 'long' }).format(month);
-    const firstWeekday = month.getUTCDay();
-    const daysInMonth = new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + 1, 0)).getUTCDate();
+    const dates = calendarMonthDates(month);
+    const previewLimit = typeof window.MemberAdminCalendarNavigation?.connect === 'function' ? 3 : Infinity;
     const today = todayAdminIsoDate();
     const cells = [];
     title.textContent = monthLabel;
     grid.setAttribute('aria-label', monthLabel + (kind === 'ticket' ? '活動票券' : '預約') + '專屬日曆');
     let visibleCount = 0;
     for (let index = 0; index < 42; index += 1) {
-      const day = index - firstWeekday + 1;
-      if (day < 1 || day > daysInMonth) {
+      const date = dates[index];
+      if (!date) {
         const blank = document.createElement('div');
         blank.className = 'admin-calendar-day admin-calendar-day-empty';
         blank.setAttribute('aria-hidden', 'true');
         cells.push(blank);
         continue;
       }
-      const date = toAdminIsoDate(new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth(), day)));
+      const day = Number(date.slice(8));
       const entries = rows.filter((item) => (rules.belongsToScope(kind, item) || (kind === 'booking' && rules.belongsToScope('holiday', item))) && rules.occursOn(item, date));
-      visibleCount += entries.length;
+      if (date.slice(0, 7) === state[key].slice(0, 7)) visibleCount += entries.length;
       const cell = document.createElement('article');
       cell.className = 'admin-calendar-day';
+      if (date.slice(0, 7) !== toAdminIsoDate(month).slice(0, 7)) cell.classList.add('is-outside-month');
       cell.dataset[kind === 'ticket' ? 'ticketCalendarDate' : 'bookingCalendarDate'] = date;
       if (date === today) cell.classList.add('is-today');
       if (entries.length) cell.classList.add('has-items');
@@ -2658,7 +2681,7 @@
       header.append(dayButton);
       const items = document.createElement('div');
       items.className = kind === 'ticket' ? 'admin-calendar-items' : 'admin-calendar-bookings';
-      entries.slice(0, 3).forEach((item) => {
+      entries.slice(0, previewLimit).forEach((item) => {
         const row = document.createElement('div');
         row.className = 'admin-calendar-item-row';
         const button = document.createElement('button');
@@ -2683,10 +2706,12 @@
         row.append(button);
         items.append(row);
       });
-      if (entries.length > 3) {
-        const more = document.createElement('span');
+      if (entries.length > previewLimit) {
+        const more = document.createElement('button');
+        more.type = 'button';
         more.className = 'calendar-scope-more';
-        more.textContent = '另有 ' + (entries.length - 3) + ' 筆';
+        more.textContent = '另有 ' + (entries.length - previewLimit) + ' 筆';
+        more.setAttribute('aria-label', more.textContent + '，查看當日' + (kind === 'ticket' ? '活動票券' : '預約與休假'));
         items.append(more);
       }
       cell.append(header, items);
