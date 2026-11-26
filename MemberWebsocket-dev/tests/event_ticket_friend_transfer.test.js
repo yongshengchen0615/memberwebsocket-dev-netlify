@@ -40,7 +40,7 @@ test('AC-003: do not transfer a used, expired, fixed or reserved ticket', () => 
   assert.match(migration, /EVENT_TICKET_TRANSFER_RESERVED/);
 });
 
-test('AC-004: idempotent transaction and no reclaim or duplicate receiving', () => {
+test('AC-004: legacy transfer preserves idempotency and single physical-claim ownership', () => {
   assert.match(migration, /unique \(sender_member_id, request_id\)/);
   assert.match(migration, /pg_advisory_xact_lock/);
   assert.match(migration, /alreadyTransferred/);
@@ -50,6 +50,24 @@ test('AC-004: idempotent transaction and no reclaim or duplicate receiving', () 
   assert.match(api, /transferredOutEventIds/);
   assert.match(api, /canClaim: false,/);
   assert.match(read("supabase/migrations/20261123120000_event_ticket_automatic_issuance.sql"), /EVENT_TICKET_ISSUANCE_ONLY/);
+});
+
+
+test('AC-REPEAT-001: a historical recipient may receive new physical claims without loosening gift ownership checks', () => {
+  const repeat = read('supabase/migrations/20261126093000_repeatable_event_ticket_gifts.sql');
+  assert.match(repeat, /drop constraint if exists event_ticket_claims_event_ticket_id_member_id_key/);
+  assert.match(repeat, /where t\.claim_id = new\.claim_id/);
+  assert.match(repeat, /REPEAT_GIFT_TRANSFER_GUARD_NOT_FOUND_IN_SCHEMA/);
+  assert.match(repeat, /event_claims_campaign_member_idx/);
+  assert.match(repeat, /business_templates/);
+  assert.match(repeat, /on conflict do nothing/);
+  assert.doesNotMatch(repeat, /(^|\n)commit;|(^|\n)begin;/m);
+  assert.match(api, /claimsByEvent/);
+  assert.match(api, /giftFromDisplayName/);
+  assert.match(api, /giftTransferredAt/);
+  assert.match(api, /sender:members!event_ticket_transfers_sender_member_id_fkey\(display_name\)/);
+  assert.match(eventApp, /function offerKey\(offer\)/);
+  assert.match(eventApp, /data-ticket-gift-info/);
 });
 
 test('AC-005: UI exposes friend-only selection and does not retry transfer as read', () => {
