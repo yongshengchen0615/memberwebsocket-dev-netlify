@@ -1,7 +1,6 @@
 -- AC-001: a member may own multiple distinct claim_ids for one campaign.
 -- AC-002: a physical claim can still be transferred only once (ledger + RPC).
 -- Apply to public, existing merchant schemas, and future merchant blueprint.
-begin;
 do $repeat$
 declare
   s text;
@@ -146,4 +145,3 @@ begin
 end;
 $repeat$;
 notify pgrst,'reload schema';
-commit;
