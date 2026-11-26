@@ -615,11 +615,17 @@
         }
         mode.value = person.permissionMode || 'notify_only';
         modes.append(mode);
+        const notificationPermission = node('label', '', 'frontdesk-staff-notification-permission');
+        const allowToggle = node('input');
+        allowToggle.type = 'checkbox';
+        allowToggle.name = 'allowNotificationToggle';
+        allowToggle.checked = person.allowNotificationToggle === true;
+        notificationPermission.append(allowToggle, node('span', '允許此人員自行開關 LINE 預約通知'));
         const controls = node('div', '', 'business-line-fields');
-        controls.append(states, modes);
+        controls.append(states, modes, notificationPermission);
         const button = node('button', person.status === 'pending' ? '核准／更新此人員權限' : '儲存此人員權限', 'button button-outline');
         button.type = 'submit';
-        row.append(controls, button);
+        row.append(controls, node('p', person.receiveNotifications === false ? '目前狀態：此人員已暫停接收 LINE 預約通知' : '目前狀態：此人員接收 LINE 預約通知', 'frontdesk-notification-status'), button);
         const remove = node('button', '移除帳號', 'button button-outline frontdesk-remove-staff');
         remove.type = 'button';
         remove.setAttribute('aria-label', '移除 ' + (person.displayName || '此櫃檯人員') + ' 的櫃檯帳號');
@@ -638,7 +644,7 @@
         });
         row.addEventListener('submit', event => {
           event.preventDefault();
-          void save('platform.frontdesk.staff.save', {staffId:person.id,expectedVersion:person.version,status:state.value,permissionMode:mode.value}, button);
+          void save('platform.frontdesk.staff.save', {staffId:person.id,expectedVersion:person.version,status:state.value,permissionMode:mode.value,allowNotificationToggle:allowToggle.checked}, button);
         });
         approvals.append(row);
       }

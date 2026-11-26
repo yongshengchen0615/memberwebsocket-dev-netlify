@@ -2,7 +2,10 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 test('frontdesk API + real SQL: owner-scoped configuration, encrypted bot, verified applicant, per-person authorization and disable',async()=>{
  const h=await fixture();try{
   const owner='U'+'2'.repeat(32),staff='U'+'4'.repeat(32),t=await h.approve(owner,'desk-api');
-  for(const name of ['20261026050904_line_webhook.sql','20261118122150_frontdesk_booking_access.sql','20261118190000_frontdesk_safeupdate_projection.sql','20261119150000_frontdesk_independent_feature_grant.sql','20261119230000_frontdesk_staff_delete.sql'])await h.db.exec(fs.readFileSync(path.resolve(__dirname,'../../supabase/migrations',name),'utf8'));
+  for(const name of ['20261026050904_line_webhook.sql','20261118122150_frontdesk_booking_access.sql','20261118190000_frontdesk_safeupdate_projection.sql','20261119150000_frontdesk_independent_feature_grant.sql','20261119230000_frontdesk_staff_delete.sql','20261126210000_frontdesk_notification_preferences.sql'])await h.db.exec(fs.readFileSync(path.resolve(__dirname,'../../supabase/migrations',name),'utf8'));
+  // The testing Supabase database already received this additive migration via
+  // management API; the release ledger may replay it. Re-application must be safe.
+  await h.db.exec(fs.readFileSync(path.resolve(__dirname,'../../supabase/migrations/20261126210000_frontdesk_notification_preferences.sql'),'utf8'));
   await h.db.query("update platform_private.tenants set features=features||'{\"frontdesk\":true}'::jsonb where id=$1",[t.id]);
   const {createPlatformHandler}=await import('../../supabase/functions/_shared/platform-handler.mjs'),{createFrontdeskHandler}=await import('../../supabase/functions/_shared/frontdesk-handler.mjs');
   const provider=[];let reachable=true;
@@ -24,8 +27,24 @@ test('frontdesk API + real SQL: owner-scoped configuration, encrypted bot, verif
 
   result=await call(admin,{action:'platform.frontdesk.staff.save',staffId:person.id,expectedVersion:person.version,status:'approved',permissionMode:'notify_only',requestId:crypto.randomUUID()});assert.equal(result.status,200,JSON.stringify(result));
   assert.equal((await call(desk,{action:'frontdesk.bookings'})).status,403);
+  // AC-FD-NOTIFY-001..006: real SQL authorization, per-person switch and delivery.
+  assert.equal((await call(desk,{action:'frontdesk.notifications.set',enabled:false})).status,403,
+   'approved staff cannot change notifications without merchant delegation');
+  const delegated=await call(admin,{action:'platform.frontdesk.staff.save',staffId:person.id,expectedVersion:2,status:'approved',permissionMode:'notify_only',allowNotificationToggle:true,requestId:crypto.randomUUID()});
+  assert.equal(delegated.status,200,JSON.stringify(delegated));
+  const off=await call(desk,{action:'frontdesk.notifications.set',enabled:false});
+  assert.equal(off.status,200,JSON.stringify(off));
+  assert.equal(off.body.data.staff.receiveNotifications,false);
+  assert.equal((await h.db.query('select public.platform_frontdesk_delivery($1,$2) result',[t.id,staff])).rows[0].result.allowed,false);
+  assert.equal((await h.db.query(`select count(*)::int n from ${t.runtime_schema}.frontdesk_notice_recipients where line_user_id=$1`,[staff])).rows[0].n,0);
+  assert.equal((await call(desk,{action:'frontdesk.bookings'})).status,403,'notification switch does not confer review access');
+  const on=await call(desk,{action:'frontdesk.notifications.set',enabled:true});
+  assert.equal(on.status,200,JSON.stringify(on));
+  assert.equal(on.body.data.staff.receiveNotifications,true);
+  assert.equal((await h.db.query('select public.platform_frontdesk_delivery($1,$2) result',[t.id,staff])).rows[0].result.allowed,true);
+  assert.equal((await h.db.query(`select count(*)::int n from ${t.runtime_schema}.frontdesk_notice_recipients where line_user_id=$1`,[staff])).rows[0].n,1);
   // AC-FD-DELETE-001..006: hard delete, no stale privilege, fresh pending approval.
-  const deleteBody={action:'platform.frontdesk.staff.delete',staffId:person.id,expectedVersion:2,requestId:crypto.randomUUID()};
+  const deleteBody={action:'platform.frontdesk.staff.delete',staffId:person.id,expectedVersion:on.body.data.staff.version,requestId:crypto.randomUUID()};
   let deleted=await call(admin,deleteBody);
   assert.equal(deleted.status,200,JSON.stringify(deleted));
   assert.equal(deleted.body.data.staff.length,0);
