@@ -67,17 +67,21 @@
       tiers.length ? '各階級優惠內容已更新' : '本月尚無階級優惠資料';
   }
 
-  function refresh(root, config, idToken, profile, options = {}) {
+  function refresh(root, config, idToken, profile) {
     if (!root?.querySelector || !config || !idToken) return Promise.resolve();
     const target = root.querySelector('[data-member-monthly-tier-overview]');
     const status = root.querySelector('[data-member-monthly-tier-status]');
     if (!target || !status) return Promise.resolve();
     const button = root.querySelector('[data-member-monthly-tier-reload]');
-    if (button) button.onclick = () => { void refresh(root, config, idToken, profile, { force: true }); };
+    if (button) button.onclick = () => { void refresh(root, config, idToken, profile); };
     if (String(profile?.status || '').toLowerCase() !== 'active'
       || profile?.membershipRequired || !profile?.profileComplete) {
       generation += 1;
+      pendingKey = '';
+      pendingPromise = null;
       target.replaceChildren();
+      target.setAttribute('aria-busy', 'false');
+      if (button) button.disabled = false;
       status.textContent = '會員資格啟用後即可查看當月優惠。';
       return Promise.resolve();
     }
