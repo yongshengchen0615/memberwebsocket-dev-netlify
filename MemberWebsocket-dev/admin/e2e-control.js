@@ -6463,6 +6463,8 @@
     if (activityDate) {
       const date = activityDate.dataset.adminCalendarDate;
       activityDate.click();
+      calendar.closest('.admin-calendar')?.querySelector('[data-calendar-add]')?.click();
+      calendar.closest('.admin-calendar')?.querySelector('[data-calendar-create="activity"]')?.click();
       actual.activityDatePrefilled = Boolean(await waitFor(() =>
         document.getElementById('calendarItemStartsOn')?.value === date
           && !document.getElementById('calendarEditorModal')?.classList.contains('hidden'), 1500));
@@ -6476,6 +6478,8 @@
     if (ticketDate) {
       const date = ticketDate.dataset.ticketCalendarDate;
       ticketDate.click();
+      ticket.closest('.admin-calendar')?.querySelector('[data-calendar-add]')?.click();
+      ticket.closest('.admin-calendar')?.querySelector('[data-calendar-create="ticket"]')?.click();
       actual.ticketDatePrefilled = Boolean(await waitFor(() =>
         document.getElementById('eventTicketStartsOn')?.value === date
           && !document.getElementById('eventTicketEditorModal')?.classList.contains('hidden'), 1500));
@@ -6705,7 +6709,11 @@
       await adminHumanClick(document.getElementById('adminCalendarPreviousMonthButton'));checks.previous=title()===current;
       document.getElementById('adminCalendarPreviousMonthButton').click();document.getElementById('adminCalendarTodayButton').click();checks.today=title()===current;
       const date=document.querySelector('#adminCalendarGrid [data-admin-calendar-date]');
-      await adminHumanClick(date);await waitEditorOpen('calendarEditorModal');checks.dateEditor=document.getElementById('calendarItemStartsOn').value===date.dataset.adminCalendarDate;
+      await adminHumanClick(date);
+      const calendar = document.getElementById('adminCalendarGrid').closest('.admin-calendar');
+      await adminHumanClick(calendar.querySelector('[data-calendar-add]'));
+      await adminHumanClick(calendar.querySelector('[data-calendar-create="activity"]'));
+      await waitEditorOpen('calendarEditorModal');checks.dateEditor=document.getElementById('calendarItemStartsOn').value===date.dataset.adminCalendarDate;
     }finally{closeEditorModalById('calendarEditorModal');document.getElementById('adminCalendarTodayButton').click();}
     return Object.values(checks).every(Boolean)?pass('日曆前後月、今日及點日期新增已操作。',{allChecks:true},checks):fail('日曆導覽或日期帶入錯誤。',{allChecks:true},checks);
   }

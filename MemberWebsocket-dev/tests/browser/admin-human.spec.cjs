@@ -45,7 +45,8 @@ async function openMember360(p){await p.locator('[data-action="view-records"]').
 async function openMember(p){await openMember360(p);await p.getByRole('button',{name:'狀態'}).click();await expect(p.locator('#memberModal')).toBeVisible();}
 async function openCard(p){await click(p,'cardsTab');await click(p,'newCardButton');await fill(p,'cardTitle','QA new card');await select(p,'cardStatus','draft');await p.locator('#rewardRows [data-field="ticketTemplateId"]').selectOption('ticket-1');}
 async function openEvent(p,type='coupon'){await click(p,'eventsTab');await click(p,'newEventTicketButton');await select(p,'eventTicketType',type);for(const [id,value] of Object.entries({eventTicketTitle:'QA event',eventTicketDescription:'QA description',eventTicketUsageMethod:'QA usage',eventTicketUsageInstructions:'QA instructions'}))await fill(p,id,value);await select(p,'eventTicketStatus','draft');}
-async function openCalendar(p,type='event'){if(type==='holiday'){await click(p,'bookingTab');await p.locator('#bookingOverviewCalendarGrid .admin-calendar-day[data-booking-calendar-date]').first().click();}else{await click(p,'calendarTab');await click(p,'newCalendarItemButton');}await expect(p.locator('#calendarItemType')).toHaveValue(type);await fill(p,'calendarItemTitle','QA calendar');await select(p,'calendarItemStatus','draft');await fill(p,'calendarItemStartsOn',today());}
+async function createOnCalendarDay(p,grid,kind){const workspace=p.locator('#'+grid).locator('..');await expect(workspace.locator('[data-calendar-day-view]')).toBeVisible();await workspace.locator('[data-calendar-add]').click();await workspace.locator('[data-calendar-create="'+kind+'"]').click();}
+async function openCalendar(p,type='event'){if(type==='holiday'){await click(p,'bookingTab');await p.locator('#bookingOverviewCalendarGrid .admin-calendar-day[data-booking-calendar-date]').first().click();await createOnCalendarDay(p,'bookingOverviewCalendarGrid','holiday');}else{await click(p,'calendarTab');await click(p,'newCalendarItemButton');}await expect(p.locator('#calendarItemType')).toHaveValue(type);await fill(p,'calendarItemTitle','QA calendar');await select(p,'calendarItemStatus','draft');await fill(p,'calendarItemStartsOn',today());}
 async function booking(p,tab){await click(p,'bookingTab');await click(p,tab||'bookingAdminServicesSubtab');await expect(p.locator('#bookingAdminSyncStatus')).toContainText('已同步');}
 
 test('MEMBER_DIRECTORY — only real-member roster, search, empty results and both pagination directions',async({page:p},info)=>{
@@ -177,8 +178,8 @@ for(const [schedule,expiry] of [['birthday_month','month_end'],['weekly','week_e
   await openEvent(p,'fixed');await select(p,'fixedTicketScheduleType',schedule);if(schedule==='yearly')await select(p,'fixedTicketScheduleMonth','12');if(['monthly','yearly'].includes(schedule))await fill(p,'fixedTicketScheduleDay','15');if(schedule==='weekly')await select(p,'fixedTicketScheduleWeekday','3');await select(p,'fixedTicketExpiryMode',expiry);if(expiry==='days_after_issue')await fill(p,'fixedTicketExpiryDays','14');if(expiry==='fixed_date')await fill(p,'fixedTicketExpiryDate','2099-12-31');await p.locator('#fixedTicketNotifyLine').uncheck();await p.locator('#fixedTicketCalendarEnabled').check();await click(p,'saveEventTicketButton');
   await expect.poll(()=>info.fixture.templates.length).toBe(1);expect(info.fixture.templates[0]).toMatchObject({scheduleType:schedule,expiryMode:expiry,notifyLine:false,calendarEnabled:true});await click(p,'fixedTicketRunButton');await expect.poll(()=>calls(info.fixture,'admin.fixed-tickets.run').length).toBe(1);await click(p,'deleteEventTicketButton');await expect.poll(()=>info.fixture.templates.length).toBe(0);await expect(p.locator('#saveEventTicketButton')).toBeEnabled();await p.locator('#eventTicketEditorModal .editor-modal-close').click();await click(p,'newEventTicketButton');await expect(p.locator('#saveEventTicketButton')).toBeEnabled();
 });
-test('CALENDAR_NAV — previous, next, today and date opens editor',async({page:p})=>{
-  await click(p,'calendarTab');const title=await p.locator('#adminCalendarMonthTitle').textContent();await click(p,'adminCalendarNextMonthButton');await expect(p.locator('#adminCalendarMonthTitle')).not.toHaveText(title);await click(p,'adminCalendarPreviousMonthButton');await expect(p.locator('#adminCalendarMonthTitle')).toHaveText(title);await click(p,'adminCalendarPreviousMonthButton');await click(p,'adminCalendarTodayButton');await expect(p.locator('#adminCalendarMonthTitle')).toHaveText(title);await p.locator('[data-admin-calendar-date]').first().click();await expect(p.locator('#calendarEditorModal')).toBeVisible();
+test('CALENDAR_NAV — previous, next, today and day view opens scoped editor',async({page:p})=>{
+  await click(p,'calendarTab');const title=await p.locator('#adminCalendarMonthTitle').textContent();await click(p,'adminCalendarNextMonthButton');await expect(p.locator('#adminCalendarMonthTitle')).not.toHaveText(title);await click(p,'adminCalendarPreviousMonthButton');await expect(p.locator('#adminCalendarMonthTitle')).toHaveText(title);await click(p,'adminCalendarPreviousMonthButton');await click(p,'adminCalendarTodayButton');await expect(p.locator('#adminCalendarMonthTitle')).toHaveText(title);await p.locator('[data-admin-calendar-date]').first().click();await createOnCalendarDay(p,'adminCalendarGrid','activity');await expect(p.locator('#calendarEditorModal')).toBeVisible();
 });
 for(const type of ['holiday','event'])test('CALENDAR_'+type+' — create, date range, audience, link, edit and delete',async({page:p},info)=>{
   await openCalendar(p,type);await fill(p,'calendarItemEndsOn',today());if(type==='event'){await p.locator('#calendarItemAllowedTiers input[value="general"]').uncheck();await p.locator('#calendarItemAllowedTiers input[value="silver"]').uncheck();await select(p,'calendarItemVisibilityPolicy','higher_preview');await fill(p,'calendarItemLinkLabel','QA link');await fill(p,'calendarItemLinkUrl','https://example.test/qa');}
@@ -290,6 +291,7 @@ test('CALENDAR_SCOPE_DATE_CREATE — three exclusive admin calendar views with d
   await click(p,'calendarTab');
   await expect(p.locator('#calendarBatchRows, [data-admin-calendar-date-select], [data-admin-calendar-item-select]')).toHaveCount(0);
   await p.locator('#adminCalendarGrid [data-admin-calendar-date]').first().click();
+  await createOnCalendarDay(p,'adminCalendarGrid','activity');
   await expect(p.locator('#calendarEditorModal')).toBeVisible();
   const activityDate=await p.locator('#calendarItemStartsOn').inputValue();
   expect(activityDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
@@ -300,6 +302,7 @@ test('CALENDAR_SCOPE_DATE_CREATE — three exclusive admin calendar views with d
   await expect(ticketGrid).toBeVisible();
   await expect(ticketGrid.locator('[data-admin-calendar-item-id], [data-booking-calendar-id]')).toHaveCount(0);
   await ticketGrid.locator('[data-ticket-calendar-date]').first().click();
+  await createOnCalendarDay(p,'eventTicketCalendarGrid','ticket');
   await expect(p.locator('#eventTicketEditorModal')).toBeVisible();
   expect(await p.locator('#eventTicketStartsOn').inputValue()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   await p.locator('#eventTicketEditorModal .editor-modal-close').click();
