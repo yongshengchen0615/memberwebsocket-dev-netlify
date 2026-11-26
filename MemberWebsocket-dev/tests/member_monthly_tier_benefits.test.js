@@ -152,3 +152,12 @@ test('AC-009: private higher-tier titles obey tier visibility while opt-in previ
   assert.match(api, /loadVisibilityPolicy\(supabase\)/);
   assert.match(api, /TEST_SESSION_SURFACE_MISMATCH/);
 });
+
+test('AC-010: monthly list does not create or update membership records', () => {
+  const api = fs.readFileSync(path.join(__dirname, '..', 'supabase/functions/member-profile-api/index.ts'), 'utf8');
+  const existing = api.slice(api.indexOf('async function existingMemberForCatalogue'), api.indexOf('async function tierSettings'));
+  assert.match(existing, /\.select\("\*"\)/);
+  assert.match(existing, /MEMBERSHIP_REQUIRED/);
+  assert.doesNotMatch(existing, /\.insert\(|\.update\(|\.delete\(/);
+  assert.match(api, /action === "user\.member\.monthly-tier-benefits"[\s\S]*?existingMemberForCatalogue\(supabase, identity\)[\s\S]*?: await ensureMember\(supabase, identity\)/);
+});
