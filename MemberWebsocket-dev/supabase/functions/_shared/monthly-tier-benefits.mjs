@@ -26,9 +26,11 @@ export function monthlyTierBounds(month) {
   };
 }
 
-function overlapsMonth(item, start, end) {
+function overlapsMonth(item, start, end, kind) {
   const from = String(item.starts_on || '');
-  const to = String(item.ends_on || '');
+  // Calendar activities without an end date are single-day events. Tickets
+  // without an end date instead retain their open-ended validity.
+  const to = String(item.ends_on || (kind === 'activity' ? item.starts_on : '') || '');
   return (!from || from <= end) && (!to || to >= start);
 }
 
@@ -68,12 +70,12 @@ export function buildMonthlyTierOverview({
 
   function include(row, kind, defaultAll) {
     const title = String(row.title || '').trim().slice(0, 160);
-    if (!title || !overlapsMonth(row, start, end)) return;
+    if (!title || !overlapsMonth(row, start, end, kind)) return;
     const offer = {
       kind,
       title,
       startsOn: String(row.starts_on || ''),
-      endsOn: String(row.ends_on || ''),
+      endsOn: String(row.ends_on || (kind === 'activity' ? row.starts_on : '') || ''),
     };
     for (const key of tierKeys(row, defaultAll)) byKey.get(key).offers.push({ ...offer });
   }
