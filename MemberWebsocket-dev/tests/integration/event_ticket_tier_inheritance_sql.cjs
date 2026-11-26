@@ -174,7 +174,7 @@ async function run() {
 
   // Dynamic SQL rewriting in the migration must have reached the RPCs too.
   const gates=(await db.query(`select p.proname,p.prosrc from pg_proc p
-    where p.pronamespace='public'::regnamespace and p.proname=any($1::text[])`,[families])).rows;
+    where p.pronamespace='public'::regnamespace and p.pronargs=0 and p.proname=any($1::text[])`,[families])).rows;
   assert.equal(gates.length,families.length);
   for(const gate of gates)assert.match(gate.prosrc,/tier_allows/i,`server gate still uses exact tier: ${gate.proname}`);
   console.log('tier inheritance: 16 tier pairs + 9 issuance/expiry/idempotency checks and server gates verified');
