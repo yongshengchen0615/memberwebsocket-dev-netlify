@@ -182,12 +182,14 @@ test('AC-BMSG-008: LINE previews render real separate rows with no extra backsla
     '預約人數：1 位',
     '預約編號：示意編號',
     '提醒事項：我們已收到您的預約申請',
-    '提醒事項：請等待工作人員確認',
-    '提醒事項：確認後會再透過 LINE 通知您',
+    '請等待工作人員確認',
+    '確認後會再透過 LINE 通知您',
   ]);
+  assert.equal(actualPending.filter((line) => line.startsWith('提醒事項：')).length, 1);
   assert.equal(actualReminder[0], '【預約提醒】');
   assert.equal(actualReminder[1], '提醒事項：請準時抵達');
-  assert.equal(actualReminder[2], '提醒事項：<請注意> & 無法即時補位');
+  assert.equal(actualReminder[2], '<請注意> & 無法即時補位');
+  assert.equal(actualReminder.filter((line) => line.startsWith('提醒事項：')).length, 1);
   for (const row of [...els.bookingAdminPendingMessagePreview.rows, ...els.bookingAdminReminderMessagePreview.rows]) {
     assert.equal(row.className, 'booking-admin-message-preview-line');
     assert.doesNotMatch(row.textContent, /\\$/, 'a line must not acquire a visible trailing backslash');
@@ -195,5 +197,5 @@ test('AC-BMSG-008: LINE previews render real separate rows with no extra backsla
   assert.equal(els.bookingAdminPendingMessage.value, pending, 'preview cannot mutate saved text');
   assert.equal(els.bookingAdminReminderMessage.value, reminder, 'preview cannot mutate saved text');
   // HTML-looking administrator input must stay inert text; no HTML interpolation.
-  assert.equal(actualReminder[2], '提醒事項：<請注意> & 無法即時補位');
+  assert.equal(actualReminder[2], '<請注意> & 無法即時補位');
 });
