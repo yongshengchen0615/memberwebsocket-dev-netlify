@@ -10,3 +10,19 @@ test('tier preview separates visibility and eligibility across every tier pair',
  assert.equal(tierVisibility(['silver','platinum'],'gold','eligible_only').tierEligible,true);
  assert.equal(tierVisibility(['silver'],'general','eligible_only').locked,true);
 });
+
+
+test('calendar activity and ticket-linked event inheritance rejects lower tiers',async()=>{
+ const {isEligibleTierActivity}=await import(pathToFileURL(path.resolve(__dirname,'../supabase/functions/_shared/activity-eligibility.ts')));
+ const tiers=['general','silver','gold','platinum'];
+ for(let current=0;current<4;current++)for(let minimum=0;minimum<4;minimum++){
+   const required=tiers[minimum],eligible=current>=minimum;
+   const event={item_type:'event',status:'active',allowed_tier_keys:[required],starts_on:'2026-11-01',ends_on:'2026-12-31'};
+   assert.equal(isEligibleTierActivity(event,tiers[current],'2026-11-26',null,new Map(),new Map(),true),eligible,
+     `calendar ${tiers[current]} vs ${required}`);
+   event.source_event_ticket_id='source-ticket';
+   const sources=new Map([['source-ticket',{status:'active',allowed_tier_keys:[required],starts_on:'2026-11-01',ends_on:'2026-12-31',quota:0}]]);
+   assert.equal(isEligibleTierActivity(event,tiers[current],'2026-11-26',null,sources,new Map(),true),eligible,
+     `linked ticket ${tiers[current]} vs ${required}`);
+ }
+});
