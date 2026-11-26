@@ -38,7 +38,12 @@ function tierKeys(row, allWhenEmpty) {
   const keys = Array.isArray(row.allowed_tier_keys)
     ? row.allowed_tier_keys.map(String).filter((key) => VALID_KEYS.has(key))
     : [];
-  return keys.length ? [...new Set(keys)] : allWhenEmpty ? MONTHLY_TIERS.map((tier) => tier.key) : [];
+  if (!keys.length) return allWhenEmpty ? MONTHLY_TIERS.map((tier) => tier.key) : [];
+  // Keep parity with tierEligible() (PR #488): higher tiers inherit benefits
+  // configured for lower tiers. Apply each offer once even when several
+  // allowed minimum tiers are configured.
+  const firstEligibleIndex = Math.min(...keys.map((key) => MONTHLY_TIERS.findIndex((tier) => tier.key === key)));
+  return MONTHLY_TIERS.slice(firstEligibleIndex).map((tier) => tier.key);
 }
 
 function isCalendarTicketMirror(row) {
