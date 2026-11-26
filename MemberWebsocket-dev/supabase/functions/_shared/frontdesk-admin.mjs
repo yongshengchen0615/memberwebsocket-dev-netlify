@@ -55,11 +55,12 @@ export async function frontdeskAdmin({db,body,actor,issuedAt,tenant,encryptionKe
    // optimistic version in one transaction. Never accept a client-supplied old policy.
    input.payloadHash=await digest({action,rejectionSettings:input.rejectionSettings,expectedVersion:input.expectedVersion});
   }else if(action==='staff.delete'){
-   if(!/^[0-9a-f-]{36}$/i.test(body.staffId||'')||body.status!==undefined||body.permissionMode!==undefined)throw new PlatformError(400,'PLATFORM_INVALID_INPUT','移除人員資料不正確。');
+   if(!/^[0-9a-f-]{36}$/i.test(body.staffId||'')||body.status!==undefined||body.permissionMode!==undefined||body.allowNotificationToggle!==undefined)throw new PlatformError(400,'PLATFORM_INVALID_INPUT','移除人員資料不正確。');
    input.staffId=body.staffId;
    input.payloadHash=await digest({action,staffId:input.staffId,expectedVersion:input.expectedVersion});
   }else{
-   Object.assign(input,{staffId:body.staffId,status:body.status,permissionMode:body.permissionMode});input.payloadHash=await digest(input);
+   if(body.allowNotificationToggle!==undefined&&typeof body.allowNotificationToggle!=='boolean')throw new PlatformError(400,'PLATFORM_INVALID_INPUT','請選擇有效的櫃檯通知設定權限。');
+   Object.assign(input,{staffId:body.staffId,status:body.status,permissionMode:body.permissionMode,...(body.allowNotificationToggle!==undefined?{allowNotificationToggle:body.allowNotificationToggle}:{})});input.payloadHash=await digest(input);
   }
  }
  const r=await db.rpc('platform_frontdesk_admin',{p_actor:actor,p_tenant_id:tenant.id,p_issued_at:issuedAt,p_action:action,p_body:input});
