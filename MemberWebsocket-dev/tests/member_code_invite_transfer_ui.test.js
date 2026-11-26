@@ -23,6 +23,8 @@ test('AC-002: gifting validates member number and keeps exact-once server transf
   assert.match(ui, /'points\.transfer\.receiver'/);
   assert.match(ui, /'points\.transfer\.create'/);
   assert.match(ui, /requestId: state\.requestId/);
+  assert.match(ui, /!\/\^\[A-Z0-9_-\]\{4,40\}\$\//);
+  assert.match(ui, /memberCode === state\.memberCode\.toUpperCase\(\)/);
   for (const id of ['pointTransferScanQr', 'pointTransferQrFile', 'pointTransferQrVideo', 'parseTransferQR']) {
     assert.doesNotMatch(ui, new RegExp(id));
   }
@@ -56,4 +58,13 @@ test('AC-005: code binding is primary, new-member link remains secondary', () =>
   assert.match(invites, /memberInvitationPanel/);
   assert.match(invites, /會員編號/);
   assert.doesNotMatch(invites, /legacyMemberReferral/);
+  assert.match(invites, /newMemberInvitationLinks/);
+  assert.match(invites, /LINE 邀請尚未入會的好友/);
+});
+
+test('AC-006: revoked sessions must disable copy and prevent a new point gift', () => {
+  const points = read('points/point-transfer.js');
+  assert.match(points, /window\.addEventListener\('member:access-ended'/);
+  assert.match(points, /copyButton\.disabled = !state\.memberCode \|\| !session\(\)/);
+  assert.match(points, /if \(!session\(\)\)/);
 });
