@@ -1,3 +1,4 @@
+import { tierEligible } from './tier-visibility.ts';
 const TIER_KEYS = ['general', 'silver', 'gold', 'platinum'];
 
 // Shared by booking recommendations and confirmation notifications. Capacity
@@ -15,7 +16,7 @@ export function isEligibleTierActivity(
     if (item.status !== 'targeted' || month < 1 || month > 12 || Number(item.audience_month) !== month) return false;
   } else if (item.status !== 'active') return false;
   const tiers = Array.isArray(item.allowed_tier_keys) ? item.allowed_tier_keys.filter((key: string) => TIER_KEYS.includes(key)) : [];
-  if (tiers.length && !tiers.includes(tier)) return false;
+  if (tiers.length && !tierEligible(tiers, tier)) return false;
   if (requireStarted && item.starts_on && String(item.starts_on) > today) return false;
   const end = String(item.ends_on || item.starts_on || '');
   if (end && end < today) return false;
@@ -25,7 +26,7 @@ export function isEligibleTierActivity(
     if (!event || event.status !== 'active' || event.deleted_at) return false;
     if (requireStarted && event.starts_on && String(event.starts_on) > today) return false;
     if (event.ends_on && String(event.ends_on) < today) return false;
-    if (!Array.isArray(event.allowed_tier_keys) || !event.allowed_tier_keys.includes(tier)) return false;
+    if (!tierEligible(event.allowed_tier_keys, tier)) return false;
     if (Number(event.quota || 0) > 0 && (counts.get(sourceId) || 0) >= Number(event.quota)) return false;
   }
   return true;
