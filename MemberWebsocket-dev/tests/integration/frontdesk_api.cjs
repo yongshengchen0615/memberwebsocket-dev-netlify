@@ -3,6 +3,9 @@ test('frontdesk API + real SQL: owner-scoped configuration, encrypted bot, verif
  const h=await fixture();try{
   const owner='U'+'2'.repeat(32),staff='U'+'4'.repeat(32),t=await h.approve(owner,'desk-api');
   for(const name of ['20261026050904_line_webhook.sql','20261118122150_frontdesk_booking_access.sql','20261118190000_frontdesk_safeupdate_projection.sql','20261119150000_frontdesk_independent_feature_grant.sql','20261119230000_frontdesk_staff_delete.sql','20261126210000_frontdesk_notification_preferences.sql'])await h.db.exec(fs.readFileSync(path.resolve(__dirname,'../../supabase/migrations',name),'utf8'));
+  // The testing Supabase database already received this additive migration via
+  // management API; the release ledger may replay it. Re-application must be safe.
+  await h.db.exec(fs.readFileSync(path.resolve(__dirname,'../../supabase/migrations/20261126210000_frontdesk_notification_preferences.sql'),'utf8'));
   await h.db.query("update platform_private.tenants set features=features||'{\"frontdesk\":true}'::jsonb where id=$1",[t.id]);
   const {createPlatformHandler}=await import('../../supabase/functions/_shared/platform-handler.mjs'),{createFrontdeskHandler}=await import('../../supabase/functions/_shared/frontdesk-handler.mjs');
   const provider=[];let reachable=true;
