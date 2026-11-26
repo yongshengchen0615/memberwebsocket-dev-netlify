@@ -59,7 +59,10 @@ async function setup(offer, options = {}) {
   w.eval(read('event-ticket-ui.js'));
   w.eval(read('event/app.js'));
   w.dispatchEvent(new w.Event('DOMContentLoaded'));
-  await waitFor(() => w.document.querySelector('#eventList .event-ticket') !== null, 'event cards');
+  await waitFor(() => options.expectNoActiveTicket
+    ? w.document.getElementById('app').getAttribute('aria-busy') === 'false'
+    : w.document.querySelector('#eventList .event-ticket') !== null,
+  options.expectNoActiveTicket ? 'ticket list initialized' : 'event cards');
   return { w, dom, writes: () => writes, close: () => dom.window.close() };
 }
 
@@ -131,10 +134,14 @@ test('AC-BOOKING-GUIDE-003: direct-use, reserved, exhausted, unauthorized and tr
     ticket({ availability: 'ended' }),
   ];
   for (const offer of variants) {
-    const h = await setup(offer);
+    const h = await setup(offer,{expectNoActiveTicket:offer.transferredOut===true});
     try {
       assert.equal(h.w.document.querySelectorAll('[data-ticket-action="booking-guide"]').length, 0,
         'never navigate to booking for an unavailable, direct-use or unissued ticket');
+      if (offer.transferredOut) {
+        assert.equal(h.w.document.querySelectorAll('#eventList .event-ticket').length,0,
+          'a transferred-away ticket cannot appear as an active ticket card');
+      }
       assert.equal(h.writes(), 0);
     } finally { h.close(); }
   }
