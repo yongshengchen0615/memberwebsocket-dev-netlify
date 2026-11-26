@@ -110,6 +110,7 @@
       'platform.frontdesk.preferences.save',
       'platform.frontdesk.rejection-settings.save',
       'platform.frontdesk.staff.save',
+      'platform.frontdesk.staff.batch',
       'platform.frontdesk.staff.delete',
     ]).has(action);
     const finishFeedback = isWrite
