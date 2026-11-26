@@ -126,7 +126,7 @@ begin
 end;
 $tenants$;
 
--- Rewrite ALL server-side eligibility gates (claim, redemption, booking, notification,
+-- Rewrite only the tier-specific array comparisons; other ANY checks (e.g. claim IDs) must be preserved.\n-- Rewrite server-side eligibility gates (claim, redemption, booking, notification,
 -- recurring templates and activities), preserving signatures, grants and business logic.
 do $rewrite$
 declare s text; fn record; original text; rewritten text; total integer;
@@ -153,7 +153,7 @@ begin
         '(public|business_[0-9a-f]{32})\.current_tier_key\(([^()]*)\)[[:space:]]*=[[:space:]]*any\(([^()]*)\)',
         format('%I.tier_allows(%I.current_tier_key(\2),\3)',s,s),'gi');
       rewritten:=regexp_replace(rewritten,
-        '([a-z_][a-z0-9_]*)[[:space:]]*=[[:space:]]*any\(([a-z_][a-z0-9_.]*)\)',
+        '([a-z_][a-z0-9_]*)[[:space:]]*=[[:space:]]*any\((([a-z_][a-z0-9_]*\.)?allowed_tier_keys)\)',
         format('%I.tier_allows(\1,\2)',s),'gi');
       if rewritten<>original then
         execute rewritten;
