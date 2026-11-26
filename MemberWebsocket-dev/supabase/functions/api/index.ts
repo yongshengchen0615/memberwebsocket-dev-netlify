@@ -1149,6 +1149,31 @@ async function pointBootstrap(supabase: SupabaseClient, member: any): Promise<Js
     }
   }
   const activeCards = adminCardRows.filter((card:any) => card.status === "active");
+  // Point-card booking rules belong to each reward node, not its shared ticket template.
+  // Resolve only referenced service titles so unrestricted cards add no database request.
+  const pointRequiredServiceIds = [...new Set(activeCards.flatMap((card:any) =>
+    (Array.isArray(card.rewards) ? card.rewards : []).flatMap((reward:any) => [
+      ...(Array.isArray(reward.requiredServiceIds) ? reward.requiredServiceIds : []),
+      ...(Array.isArray(reward.requiredServiceGroups)
+        ? reward.requiredServiceGroups.flatMap((group:any) => Array.isArray(group) ? group : [])
+        : []),
+    ])
+  ).map((id:any) => String(id || "").trim()).filter(Boolean))];
+  const pointServiceRows = pointRequiredServiceIds.length
+    ? await supabase.from("booking_services").select("id,title").in("id",pointRequiredServiceIds)
+    : { data: [], error: null };
+  if (pointServiceRows.error) throw mapDatabaseError(pointServiceRows.error);
+  const pointServiceTitles = new Map<string,string>((pointServiceRows.data || [])
+    .map((service:any): [string,string] => [String(service.id),String(service.title || "").trim()]));
+  for (const card of activeCards) {
+    for (const reward of card.rewards || []) {
+      reward.requiredServiceRequirementLabel = ticketRequiredServiceLabel({
+        required_service_ids: reward.requiredServiceIds,
+        required_service_groups: reward.requiredServiceGroups,
+        required_service_match_mode: reward.requiredServiceMatchMode,
+      },pointServiceTitles);
+    }
+  }
   const rawCards = activeCards.length
     ? await supabase.from("point_cards").select("id,card_id").in("card_id",activeCards.map((card:any) => card.cardId))
     : { data:[], error:null };
