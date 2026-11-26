@@ -131,3 +131,13 @@ test('AC-007: inactive membership and unrelated modules cannot leak benefits', (
   assert.match(api, /showActivities = !features \|\| features\.calendar === true/);
   assert.match(api, /TERMS_RECONSENT_REQUIRED/);
 });
+
+test('AC-008: open-ended active ticket has a matching month; SQL honours nullable starts_on', async () => {
+  const { buildMonthlyTierOverview } = await load();
+  const benefit = {title:'常態優惠',ticket_type:'coupon',status:'active',starts_on:null,ends_on:null,allowed_tier_keys:['general']};
+  const result = buildMonthlyTierOverview({month:'2026-11',tickets:[benefit]});
+  assert.deepEqual(result.tiers[0].offers.map(item => item.title), ['常態優惠']);
+  const api = fs.readFileSync(path.join(__dirname, '..', 'supabase/functions/member-profile-api/index.ts'), 'utf8');
+  assert.match(api, /starts_on\.is\.null,starts_on\.lte/);
+  assert.match(api, /ends_on\.is\.null,ends_on\.gte/);
+});
