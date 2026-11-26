@@ -1,30 +1,347 @@
-/* Compact disclosure shared by the five authenticated member portals. */
-.member-monthly-benefits { display:block; width:100%; box-sizing:border-box; margin:12px 0; border:1px solid rgba(53,85,71,.2); border-radius:14px; background:#fffdf8; color:#25382f; box-shadow:0 1px 5px rgba(22,45,36,.05); font:inherit; overflow:hidden; }
-.member-monthly-benefits[hidden] { display:none !important; }
-.member-monthly-benefits-heading { display:flex; align-items:center; gap:9px; min-height:44px; padding:7px 14px; box-sizing:border-box; cursor:pointer; list-style:none; }
-.member-monthly-benefits-heading::-webkit-details-marker { display:none; }
-.member-monthly-benefits-heading::after { content:'⌄'; margin-left:4px; color:#547765; font-size:18px; transition:transform .15s ease; }
-.member-monthly-benefits[open] .member-monthly-benefits-heading::after { transform:rotate(180deg); }
-.member-monthly-benefits-heading:focus-visible { outline:2px solid #236c50; outline-offset:-3px; }
-.member-monthly-benefits-spark { color:#348165; font-size:15px; }
-.member-monthly-benefits-heading strong { font-size:14px; white-space:nowrap; }
-.member-monthly-benefits-heading small { font-size:12px; color:#647c70; margin-left:auto; text-align:right; }
-.member-monthly-benefits-body { border-top:1px solid #e7eee8; padding:10px 13px 12px; }
-.member-monthly-benefits-controls { display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:12px; font-weight:700; color:#536e61; }
-.member-monthly-benefits-reload { border:1px solid #cadbd0; border-radius:999px; background:transparent; padding:4px 10px; color:#315f4b; font:inherit; font-size:12px; cursor:pointer; }
-.member-monthly-benefits-reload:disabled { opacity:.55; cursor:wait; }
-.member-monthly-benefits-status { margin:6px 0; color:#647b70; font-size:12px; line-height:1.45; }
-.member-monthly-benefits-tabs { display:flex; gap:5px; overflow-x:auto; padding:2px 0 7px; scrollbar-width:thin; }
-.member-monthly-benefits-tabs button { flex:1 0 auto; border:1px solid #d8e5dc; background:#f2f6f1; border-radius:999px; padding:6px 9px; font:inherit; font-size:12px; color:#496856; cursor:pointer; }
-.member-monthly-benefits-tabs button[aria-pressed="true"] { background:#2c6951; border-color:#2c6951; color:#fff; }
-.member-monthly-tier-heading { display:flex; align-items:center; gap:6px; margin:3px 0 7px; }
-.member-monthly-tier-heading h4 { margin:0; font-size:13px; color:#284c3b; }
-.member-monthly-current-tag { font-size:10px; border-radius:30px; background:#e5f1e9; color:#245c3b; padding:2px 7px; }
-.member-monthly-tier-empty { font-size:12px; margin:7px 0; color:#6b7d73; }
-.member-monthly-tier-list { list-style:none; margin:0; padding:0; display:grid; gap:0; }
-.member-monthly-offer { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 8px; padding:7px 1px; border-top:1px solid #edf1ed; font-size:12px; overflow-wrap:anywhere; }
-.member-monthly-offer-kind { color:#23755a; font-weight:750; flex-shrink:0; }
-.member-monthly-offer-title { color:#273c30; font-size:12px; font-weight:650; flex:1 1 120px; min-width:0; }
-.member-monthly-offer-date { color:#637d6d; margin-left:auto; font-size:11px; }
-.member-monthly-benefits-notice { display:block; margin:8px 0 0; color:#708076; font-size:11px; line-height:1.45; }
-@media(max-width:420px) { .member-monthly-benefits-heading{padding:6px 11px;gap:6px}.member-monthly-benefits-body{padding:8px 10px 11px}.member-monthly-benefits-tabs button{padding:5px 8px} }
+/* Theme-aware, compact month catalogue shared by the five member portals.
+   Uses the existing design tokens; this widget never controls eligibility. */
+.member-monthly-benefits {
+  --monthly-surface: var(--theme-surface-raised, #ffffff);
+  --monthly-panel: var(--theme-surface, #fcfdfb);
+  --monthly-subtle: var(--theme-surface-muted, #edf1ed);
+  --monthly-text: var(--theme-text, #18241f);
+  --monthly-muted: var(--theme-text-muted, #627168);
+  --monthly-border: var(--theme-border-strong, rgba(24,36,31,.18));
+  --monthly-divider: var(--theme-border, rgba(24,36,31,.12));
+  --monthly-focus: var(--theme-focus-ring, rgba(177,79,57,.3));
+  --monthly-highlight: var(--theme-positive-soft, #e7f2eb);
+  --monthly-highlight-text: var(--theme-positive-text, #276947);
+  --monthly-tag-bg: #e6f2eb;
+  --monthly-tag-text: #276947;
+  --monthly-hover: #f4f8f3;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 12px 0;
+  overflow: hidden;
+  color: var(--monthly-text);
+  background: var(--monthly-surface);
+  border: 1px solid var(--monthly-border);
+  border-radius: 15px;
+  box-shadow: var(--theme-shadow, 0 1px 2px rgba(18,35,27,.05));
+  font: inherit;
+}
+html[data-theme="dark"] .member-monthly-benefits {
+  --monthly-tag-bg: #243b30;
+  --monthly-tag-text: #b1e4c6;
+  --monthly-hover: #233329;
+  --monthly-highlight: #21392b;
+  --monthly-highlight-text: #a8e9c3;
+}
+.member-monthly-benefits[hidden] { display: none !important; }
+.member-monthly-benefits[open] { border-color: var(--monthly-border); }
+.member-monthly-benefits-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  box-sizing: border-box;
+  min-height: 46px;
+  padding: 7px 13px;
+  margin: 0;
+  list-style: none;
+  cursor: pointer;
+  color: var(--monthly-text);
+  background: var(--monthly-surface);
+  transition: background-color .16s ease;
+}
+.member-monthly-benefits-heading::-webkit-details-marker { display: none; }
+.member-monthly-benefits-heading:hover { background: var(--monthly-hover); }
+.member-monthly-benefits-heading:focus-visible,
+.member-monthly-benefits button:focus-visible {
+  outline: 3px solid var(--monthly-focus);
+  outline-offset: -3px;
+}
+.member-monthly-benefits-heading::after {
+  content: "⌄";
+  flex: 0 0 auto;
+  margin-left: 2px;
+  color: var(--monthly-muted);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  transition: transform .16s ease;
+}
+.member-monthly-benefits[open] .member-monthly-benefits-heading::after { transform: rotate(180deg); }
+.member-monthly-benefits-spark {
+  display: inline-grid;
+  flex: 0 0 27px;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  background: var(--monthly-highlight);
+  color: var(--monthly-highlight-text);
+  border-radius: 9px;
+  font-size: 15px;
+}
+.member-monthly-benefits-heading strong {
+  min-width: 0;
+  color: var(--monthly-text);
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.member-monthly-benefits-heading small {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--monthly-muted);
+  font-size: 12px;
+  font-weight: 500;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.member-monthly-benefits-body {
+  padding: 11px 12px 12px;
+  border-top: 1px solid var(--monthly-divider);
+  background: var(--monthly-panel);
+}
+.member-monthly-benefits-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--monthly-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.member-monthly-benefits-controls [data-member-monthly-tier-month] {
+  padding: 4px 0;
+  font-variant-numeric: tabular-nums;
+}
+.member-monthly-benefits-controls [data-member-monthly-tier-reload] {
+  min-height: 30px;
+  padding: 4px 11px;
+  color: var(--monthly-text);
+  background: var(--monthly-surface);
+  border: 1px solid var(--monthly-border);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color .16s ease, border-color .16s ease;
+}
+.member-monthly-benefits-controls [data-member-monthly-tier-reload]:hover:not(:disabled) { background: var(--monthly-hover); }
+.member-monthly-benefits-controls [data-member-monthly-tier-reload]:disabled { opacity: .6; cursor: wait; }
+.member-monthly-benefits-status {
+  margin: 6px 0 9px;
+  color: var(--monthly-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.member-monthly-benefits-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 0 9px;
+  min-width: 0;
+}
+.member-monthly-benefits-tabs button {
+  --monthly-tier-ink: var(--monthly-text);
+  --monthly-tier-fill: var(--monthly-subtle);
+  --monthly-tier-edge: var(--monthly-border);
+  display: flex;
+  min-width: 0;
+  min-height: 39px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 5px;
+  border: 1px solid var(--monthly-divider);
+  border-radius: 10px;
+  background: var(--monthly-surface);
+  color: var(--monthly-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 680;
+  cursor: pointer;
+  transition: background-color .16s ease, border-color .16s ease;
+}
+.member-monthly-benefits-tabs button:hover:not([aria-pressed="true"]) { background: var(--monthly-hover); }
+.member-monthly-benefits-tabs button[aria-pressed="true"] {
+  color: var(--monthly-tier-ink);
+  background: var(--monthly-tier-fill);
+  border-color: var(--monthly-tier-edge);
+  box-shadow: inset 0 -2px 0 var(--monthly-tier-edge);
+}
+.member-monthly-benefits-tabs button[data-tier-key="general"] {
+  --monthly-tier-ink: #34485a;
+  --monthly-tier-fill: #eaf0f5;
+  --monthly-tier-edge: #677e93;
+}
+.member-monthly-benefits-tabs button[data-tier-key="silver"] {
+  --monthly-tier-ink: #3d4f5c;
+  --monthly-tier-fill: #e8eef2;
+  --monthly-tier-edge: #748ba0;
+}
+.member-monthly-benefits-tabs button[data-tier-key="gold"] {
+  --monthly-tier-ink: #725014;
+  --monthly-tier-fill: #fff1d1;
+  --monthly-tier-edge: #9d741f;
+}
+.member-monthly-benefits-tabs button[data-tier-key="platinum"] {
+  --monthly-tier-ink: #255466;
+  --monthly-tier-fill: #e4f3f7;
+  --monthly-tier-edge: #53899d;
+}
+html[data-theme="dark"] .member-monthly-benefits-tabs button[data-tier-key="general"] {
+  --monthly-tier-ink: #e1eaf2;
+  --monthly-tier-fill: #2a3742;
+  --monthly-tier-edge: #a4bacd;
+}
+html[data-theme="dark"] .member-monthly-benefits-tabs button[data-tier-key="silver"] {
+  --monthly-tier-ink: #e4edf4;
+  --monthly-tier-fill: #293744;
+  --monthly-tier-edge: #aabed1;
+}
+html[data-theme="dark"] .member-monthly-benefits-tabs button[data-tier-key="gold"] {
+  --monthly-tier-ink: #ffe4ac;
+  --monthly-tier-fill: #3d311d;
+  --monthly-tier-edge: #e9c16d;
+}
+html[data-theme="dark"] .member-monthly-benefits-tabs button[data-tier-key="platinum"] {
+  --monthly-tier-ink: #d4f1ff;
+  --monthly-tier-fill: #243d48;
+  --monthly-tier-edge: #89bfd1;
+}
+.member-monthly-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.member-monthly-tab-label::before {
+  content: "";
+  display: none;
+  width: 5px;
+  height: 5px;
+  margin: 0 4px 2px 0;
+  border-radius: 50%;
+  vertical-align: middle;
+  background: currentColor;
+}
+.member-monthly-benefits-tabs button.is-current .member-monthly-tab-label::before { display: inline-block; }
+.member-monthly-tab-count {
+  display: inline-grid;
+  flex: 0 0 auto;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 3px;
+  box-sizing: border-box;
+  place-items: center;
+  border-radius: 6px;
+  background: var(--monthly-subtle);
+  color: var(--monthly-muted);
+  font-size: 10px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+.member-monthly-benefits-tabs button[aria-pressed="true"] .member-monthly-tab-count {
+  background: var(--monthly-surface);
+  color: var(--monthly-tier-ink);
+}
+.member-monthly-tier {
+  padding: 10px 11px;
+  background: var(--monthly-surface);
+  border: 1px solid var(--monthly-divider);
+  border-radius: 11px;
+}
+.member-monthly-tier-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 7px;
+}
+.member-monthly-tier-heading h4 {
+  margin: 0;
+  color: var(--monthly-text);
+  font-size: 13px;
+  font-weight: 750;
+}
+.member-monthly-current-tag {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--monthly-tag-bg);
+  color: var(--monthly-tag-text);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.member-monthly-tier-empty {
+  margin: 8px 0 4px;
+  color: var(--monthly-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.member-monthly-tier-list {
+  display: grid;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.member-monthly-offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px 8px;
+  min-width: 0;
+  padding: 9px 0;
+  border-top: 1px solid var(--monthly-divider);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.member-monthly-tier-list .member-monthly-offer:first-child { border-top: 0; }
+.member-monthly-offer-kind {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  color: var(--monthly-highlight-text);
+  background: var(--monthly-highlight);
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.4;
+}
+.member-monthly-offer-title {
+  flex: 1 1 110px;
+  min-width: 0;
+  color: var(--monthly-text);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.6;
+}
+.member-monthly-offer-date {
+  margin-left: auto;
+  color: var(--monthly-muted);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.member-monthly-benefits-notice {
+  margin: 9px 1px 0;
+  color: var(--monthly-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+@media (max-width: 420px) {
+  .member-monthly-benefits-heading { gap: 6px; padding: 6px 10px; }
+  .member-monthly-benefits-spark { flex-basis: 24px; width: 24px; height: 24px; }
+  .member-monthly-benefits-body { padding: 9px 9px 11px; }
+  .member-monthly-benefits-tabs { gap: 4px; }
+  .member-monthly-benefits-tabs button { gap: 3px; padding: 6px 3px; font-size: 11px; }
+  .member-monthly-tab-count { min-width: 16px; height: 16px; }
+  .member-monthly-tier { padding: 9px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .member-monthly-benefits-heading,
+  .member-monthly-benefits-heading::after,
+  .member-monthly-benefits-controls [data-member-monthly-tier-reload],
+  .member-monthly-benefits-tabs button { transition: none; }
+}

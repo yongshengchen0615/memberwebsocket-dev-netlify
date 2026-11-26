@@ -68,10 +68,15 @@
     if (tabTarget) {
       const buttons = tiers.map(tier => {
         const count = Array.isArray(tier.offers) ? tier.offers.length : 0;
-        const button = element('button', '', String(tier.label || '階級') + ' ' + count);
+        const fullLabel = String(tier.label || '階級');
+        const shortLabel = fullLabel.replace(/會員$/, '');
+        const button = element('button', 'member-monthly-tab');
         button.type = 'button';
         button.dataset.tierKey = String(tier.key || '');
         button.setAttribute('aria-pressed', String(tier.key === state.selected));
+        button.setAttribute('aria-label', fullLabel + '，' + count + ' 項優惠' + (tier.key === currentTier ? '，目前會員階級' : ''));
+        if (tier.key === currentTier) button.classList.add('is-current');
+        button.append(element('span', 'member-monthly-tab-label', shortLabel), element('span', 'member-monthly-tab-count', count));
         button.onclick = () => {
           state.selected = String(tier.key || '');
           render(root, state);

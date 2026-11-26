@@ -287,3 +287,23 @@ test('AC-015: widget uses no automatic bootstrap read while closed and preserves
   assert.match(source,/const STALE_MS = 120000/);
   assert.doesNotMatch(source,/user\..*ticket\.(?:claim|redeem)|\.innerHTML\s*=/);
 });
+
+test('AC-016: monthly catalogue uses shared semantic light/dark theme tokens and short tab names', () => {
+  const root = path.resolve(__dirname,'..');
+  const css = fs.readFileSync(path.join(root,'member/monthly-tier-benefits.css'),'utf8');
+  const js = fs.readFileSync(path.join(root,'member/monthly-tier-benefits.js'),'utf8');
+  assert.match(css,/--monthly-surface: var\(--theme-surface-raised/);
+  assert.match(css,/--monthly-text: var\(--theme-text/);
+  assert.match(css,/html\[data-theme="dark"\] \.member-monthly-benefits/);
+  assert.match(css,/prefers-reduced-motion: reduce/);
+  assert.match(css,/grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
+  assert.match(css,/data-member-monthly-tier-reload/);
+  assert.match(js,/fullLabel\.replace\(\/會員\$\/, ''\)/);
+  assert.match(js,/member-monthly-tab-count/);
+  assert.match(js,/aria-label/);
+  for (const surface of ['member','points','event','calendar','booking']) {
+    const html=fs.readFileSync(path.join(root,surface,'index.html'),'utf8');
+    assert.match(html,/monthly-tier-benefits\.css\?v=20261127-theme-1/);
+    assert.match(html,/monthly-tier-benefits\.js\?v=20261127-theme-1/);
+  }
+});
