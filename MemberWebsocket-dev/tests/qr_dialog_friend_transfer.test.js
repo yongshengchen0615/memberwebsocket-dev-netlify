@@ -21,20 +21,22 @@ test('QR dialog is reusable, modal, stops camera, and rejects stale camera callb
   assert.match(scanner, /getTracks\(\)\.forEach\(track => track\.stop\(\)\)/);
 });
 
-test('friend and reward QR dialogs keep referral and friend workflows separate', () => {
+test('invitation and friend operations require member numbers without any QR scanner', () => {
   const friends = read('friends.js');
   const referral = read('member/member-growth.js');
   const html = read('member/index.html');
-  assert.match(friends, /QRScanDialog\?\.open\(camera/);
-  assert.match(friends, /onResult: code =>/);
-  assert.match(friends, /void lookup\(\)/);
-  assert.match(referral, /QRScanDialog\?\.open\(camera/);
+  assert.match(friends, /parseMemberCode/);
+  assert.match(friends, /'member'[,\s\S]*?'member\.friend\.'/);
   assert.match(referral, /member\.referral\.bind/);
-  assert.match(referral, /stopReferralScan\(\)/);
-  assert.match(html, /qr-scan-dialog\.js/);
+  assert.match(referral, /memberCode: candidate/);
+  assert.match(referral, /copyMemberIdentityCode/);
+  for (const module of [friends, referral]) {
+    assert.doesNotMatch(module, /scanFriendQr|scanMemberReferralQr|friendQrFile|memberReferralQrFile/);
+  }
+  assert.doesNotMatch(html, /friend-qr-scanner\.js|friend-qrcode\.js|friend-qr-decoder\.js/);
 });
 
-test('point transfer only selects and verifies QR or accepted friends before original idempotent server write', () => {
+test('point transfer confirms typed member code and retains transactional idempotency', () => {
   const ui = read('points/point-transfer.js');
   const html = read('points/index.html');
   const api = read('supabase/functions/member-growth-api/index.ts');
@@ -45,14 +47,10 @@ test('point transfer only selects and verifies QR or accepted friends before ori
   assert.match(ui, /'points\.transfer\.create'/);
   assert.match(ui, /state\.fingerprint !== fingerprint/);
   assert.match(ui, /requestId: state\.requestId/);
-  assert.match(ui, /parseTransferQR/);
-  assert.match(ui, /url\.origin !== base\.origin/);
-  assert.match(ui, /hash\.get\('friend'\) \|\| hash\.get\('reward'\)/);
-  assert.match(ui, /stopTransferScanner\(\)/);
-  assert.match(html, /friend-qr-decoder\.js/);
-  assert.match(html, /qr-scan-dialog\.js/);
+  assert.doesNotMatch(ui, /parseTransferQR|pointTransferScanQr|pointTransferQrPanel/);
+  assert.match(html, /pointTransferCopyOwnCode/);
+  assert.doesNotMatch(html, /friend-qr-scanner\.js|friend-qr-decoder\.js/);
   assert.match(api, /points: new Set\(\["points\.transfer\.options","points\.transfer\.receiver","points\.transfer\.create","member\.friend\.list"\]\)/);
   assert.match(api, /await consumeRateLimit\(supabase, identity, write\)/);
   assert.match(api, /await requireMember\(supabase, identity\)/);
-  assert.match(api, /supabase\.rpc\("member_friend_action",\{p_actor:identity\.lineUserId/);
 });

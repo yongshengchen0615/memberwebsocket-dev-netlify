@@ -276,12 +276,11 @@ html[data-theme="dark"] .point-transfer-copy-button{
 }
 
 /* Receiver selection is UI-only; the original server lookup and ledger remain authoritative. */
-.point-transfer-recipient-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+ .point-transfer-recipient-actions{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;}
 .point-transfer-friend-picker{display:grid;gap:9px;padding:12px;border:1px solid var(--theme-border);border-radius:13px;background:var(--theme-surface-muted);}
 .point-transfer-friend-picker[hidden]{display:none!important}
 .point-transfer-friend-picker label{font-weight:750;font-size:13px;}
 .point-transfer-friend-picker select{width:100%;min-height:44px;border:1px solid var(--theme-border-strong);border-radius:12px;padding:10px;background:var(--theme-surface-raised);color:var(--theme-text);font:inherit;}
 .point-transfer-friend-picker p{margin:0;font-size:13px;line-height:1.55;color:var(--theme-text-muted);}
-#pointTransferQrPanel{display:grid;gap:12px;}
-#pointTransferQrPanel[hidden],#pointTransferQrFile[hidden]{display:none!important}
+ .friend-copy-buffer{position:fixed;opacity:0;width:1px;height:1px;inset:0;pointer-events:none;}
 @media(max-width:410px){.point-transfer-recipient-actions{grid-template-columns:1fr;}}
