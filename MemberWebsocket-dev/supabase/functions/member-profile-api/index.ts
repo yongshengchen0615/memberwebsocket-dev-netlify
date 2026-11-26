@@ -377,7 +377,7 @@ async function monthlyTierBenefits(supabase: SupabaseClient): Promise<Json> {
     showTickets ? supabase.from("event_tickets")
       .select("title,ticket_type,status,starts_on,ends_on,allowed_tier_keys,deleted_at,referral_source_event_ticket_id,fixed_ticket_template_id")
       .eq("status", "active").is("deleted_at", null)
-      .lte("starts_on", end).or(`ends_on.is.null,ends_on.gte.${start}`)
+      .or(`starts_on.is.null,starts_on.lte.${end}`).or(`ends_on.is.null,ends_on.gte.${start}`)
       : Promise.resolve({ data: [], error: null }),
     showActivities ? supabase.from("calendar_items")
       .select("title,item_type,status,audience_type,starts_on,ends_on,allowed_tier_keys,source_event_ticket_id,link_url")
