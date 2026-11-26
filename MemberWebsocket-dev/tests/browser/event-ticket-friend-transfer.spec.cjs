@@ -50,7 +50,12 @@ const mock = [
   'profile:{displayName:"測試會員",memberCode:"MEMBERA1"},',
   'usedTickets:[],usedTicketCount:0,bookingSelections:[],',
   'offers:[{ticket,claim:window.__transferred?null:{claimId:"CLAIM-GIFT-1",status:"available",ticketType:"coupon"},',
-  'availability:"active",tierEligible:true,canClaim:false,canUse:window.__canUse,history:false,receivedAsGift:window.__gifted,transferredOut:window.__transferred}]};',
+  'availability:"active",tierEligible:true,canClaim:false,canUse:window.__canUse,history:false,receivedAsGift:window.__gifted,',
+  'giftFromDisplayName:window.__gifted?"好友小華":"",giftTransferredAt:window.__gifted?"2026-11-25T10:45:00Z":"",',
+  'transferredOut:window.__transferred},',
+  '...(new URLSearchParams(location.search).get("multiple")==="1"?[{ticket,claim:{claimId:"CLAIM-GIFT-2",status:"available",ticketType:"coupon"},',
+  'availability:"active",tierEligible:true,canClaim:false,canUse:false,history:false,receivedAsGift:true,',
+  'giftFromDisplayName:"好友小華",giftTransferredAt:"2026-11-25T10:45:00Z",transferredOut:false}]:[])]};',
   'if(action==="member.friend.list")return{friends:window.__hasFriends?[',
   '{memberCode:"MEMBERB1",displayName:"好友小明",status:"accepted"},',
   '{memberCode:"MEMBERC1",displayName:"未接受",status:"pending"},',
@@ -138,6 +143,32 @@ test('AC-GIFT-UI-003: a previously received gift is tier-exempt and cannot be tr
   await page.locator('#eventList button').first().click();
   await expect(page.locator('#ticketModalStatus')).toContainText('不受會員階級限制');
   expect(await page.evaluate(()=>window.__requests.filter(r=>r.action==='user.event.ticket.transfer'))).toHaveLength(0);
+});
+
+test('AC-GIFT-UI-004: gifted ticket shows sender and Taipei transfer time on card and modal',async({page})=>{
+  await page.goto(base+'/?gift=1');
+  const card=page.locator('#eventList .event-ticket');
+  await expect(card).toContainText('轉贈者');
+  await expect(card).toContainText('好友小華');
+  await expect(card).toContainText('轉贈時間');
+  await expect(card).toContainText('2026/11/25 18:45');
+  await card.locator('button').first().click();
+  await expect(page.locator('[data-ticket-gift-info]')).toContainText('轉贈者：好友小華');
+  await expect(page.locator('[data-ticket-gift-info]')).toContainText('2026/11/25 18:45');
+});
+
+test('AC-GIFT-UI-005: two physical claims of one campaign open their own provenance',async({page})=>{
+  await page.goto(base+'/?multiple=1');
+  const cards=page.locator('#eventList .event-ticket');
+  await expect(cards).toHaveCount(2);
+  await expect(cards.nth(0)).not.toContainText('轉贈者');
+  await expect(cards.nth(1)).toContainText('好友小華');
+  await cards.nth(1).locator('button').first().click();
+  await expect(page.locator('[data-ticket-gift-info]')).toContainText('好友小華');
+  await page.locator('#closeTicketModal').click();
+  await cards.nth(0).locator('button').first().click();
+  await expect(page.locator('[data-ticket-gift-info]')).toHaveClass(/hidden/);
+  await expect(page.getByRole('button',{name:'轉贈好友'})).toHaveCount(1);
 });
 
 test('AC-TICKET-ACTION-001: using a ticket opens only the redemption flow',async({page})=>{

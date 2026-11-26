@@ -10,10 +10,12 @@ test('used lottery ticket history opens the persisted history snapshot', () => {
   const event = read('event/app.js');
   const html = read('event/index.html');
 
-  assert.ok(event.includes("button.addEventListener('click', () => openTicketModal(eventTicketIdForOffer(offer), { preferHistory: true }));"));
+  assert.ok(event.includes("button.addEventListener('click', () => openTicketModal(offerKey(offer), { preferHistory: true }));"));
   assert.ok(event.includes('async function openTicketModal(eventTicketId, options = {})'));
   assert.ok(event.includes('const offer = findOffer(targetId, options)'));
   assert.ok(event.includes('function findOffer(eventTicketId, options = {})'));
+  assert.ok(event.includes('function offerKey(offer)'));
+  assert.ok(event.includes('state.usedTickets.find((offer) => offerKey(offer) === targetId)'));
   assert.ok(event.includes('const activeOffer = state.offers.find'));
   assert.ok(event.includes('const historyOffer = state.usedTickets.find'));
   assert.ok(event.includes('if (options.preferHistory === true) return historyOffer || activeOffer || null;'));
