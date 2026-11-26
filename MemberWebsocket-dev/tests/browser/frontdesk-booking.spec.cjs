@@ -52,12 +52,24 @@ test('FRONTDESK_ADMIN — merchant grants are per person, default notify-only an
  await page.addScriptTag({url:base+'/admin/frontdesk-settings.js'});
  await page.evaluate(()=>{
   const staff=[{id:'a',displayName:'櫃檯 A',status:'pending',permissionMode:'notify_only',version:1},{id:'b',displayName:'櫃檯 B',status:'approved',permissionMode:'notify_only',version:1}];window.frontdeskAdminCalls=[];window.frontdeskLose=true;
-  window.FrontdeskSettings.mount({root:document.getElementById('root'),business:'shop-a',request:async(action,body)=>{window.frontdeskAdminCalls.push({action,body});if(action==='platform.frontdesk.staff.save'){if(window.frontdeskLose){window.frontdeskLose=false;throw Object.assign(Error('無法確認結果'),{uncertain:true});}Object.assign(staff.find(x=>x.id===body.staffId),{status:body.status,permissionMode:body.permissionMode});}return{version:1,frontdesk:{},staff};}});
+  window.FrontdeskSettings.mount({root:document.getElementById('root'),business:'shop-a',request:async(action,body)=>{window.frontdeskAdminCalls.push({action,body});if(action==='platform.frontdesk.staff.batch'){if(window.frontdeskLose){window.frontdeskLose=false;throw Object.assign(Error('無法確認結果'),{uncertain:true});}for(const update of body.updates)Object.assign(staff.find(x=>x.id===update.staffId),update);}return{version:1,frontdesk:{},staff};}});
  });
- await page.locator('summary').click();const first=page.locator('.frontdesk-person').first(),second=page.locator('.frontdesk-person').nth(1);
- await expect(first.locator('[name=permissionMode]')).toHaveValue('notify_only');await first.locator('[name=permissionMode]').selectOption('review');await first.locator('button[type=submit]').click();await expect(second.locator('button[type=submit]')).toBeDisabled();await page.getByRole('button',{name:'重試相同儲存操作'}).click();
- await expect(page.locator('.frontdesk-person').first().locator('[name=permissionMode]')).toHaveValue('review');await expect(page.locator('.frontdesk-person').nth(1).locator('[name=permissionMode]')).toHaveValue('notify_only');
- const writes=await page.evaluate(()=>window.frontdeskAdminCalls.filter(x=>x.action==='platform.frontdesk.staff.save'));expect(writes).toHaveLength(2);expect(writes[0].body.requestId).toBe(writes[1].body.requestId);expect(writes[0].body.staffId).toBe('a');
+ await page.locator('summary').click();
+ await page.getByRole('tab',{name:'櫃檯人員申請與權限'}).click();
+ const first=page.locator('.frontdesk-person').first(),second=page.locator('.frontdesk-person').nth(1);
+ await expect(first.locator('[name=staffStatus]')).toHaveValue('');
+ await first.locator('[name=staffStatus]').selectOption('approved');
+ await first.locator('[name=permissionMode]').selectOption('review');
+ await second.locator('[name=allowNotificationToggle]').check();
+ await expect(page.locator('.frontdesk-staff-draft-summary')).toContainText('2 位');
+ await page.getByRole('button',{name:'儲存所有人員權限'}).click();
+ await expect(second.locator('[name=permissionMode]')).toBeDisabled();
+ await page.getByRole('button',{name:'重試相同儲存操作'}).click();
+ await expect(page.locator('.frontdesk-person').first().locator('[name=permissionMode]')).toHaveValue('review');
+ await expect(page.locator('.frontdesk-person').nth(1).locator('[name=allowNotificationToggle]')).toBeChecked();
+ const writes=await page.evaluate(()=>window.frontdeskAdminCalls.filter(x=>x.action==='platform.frontdesk.staff.batch'));
+ expect(writes).toHaveLength(2);expect(writes[0].body.requestId).toBe(writes[1].body.requestId);
+ expect(writes[0].body.updates.map(x=>x.staffId)).toEqual(['a','b']);
 });
 test('FRONTDESK_SETTINGS_RETRY — lost first settings response replays the frozen original form',async({page})=>{
  await page.goto(base+'/frontdesk/');await page.setContent('<main id="root"></main>');await page.addScriptTag({url:base+'/admin/frontdesk-settings.js'});
@@ -160,7 +172,7 @@ test('FRONTDESK_CONFIG_GUIDE — LINE sources, notification-card parity and auto
  await page.locator('summary').click();
  await expect(page.locator('.frontdesk-notification-card legend')).toHaveText('2. 預約通知');
  await expect(page.locator('.business-notification-toggle')).toHaveCount(1);
- await expect(page.locator('.business-line-summary')).toContainText(['尚未設定櫃檯官方帳號','待審核 1 人']);
+ await expect(page.locator('.business-line-summary').first()).toContainText('尚未設定櫃檯官方帳號');
  await expect(page.locator('#root')).toContainText('LINE Developers → LINE Login Channel → LIFF');
  await expect(page.locator('#root')).toContainText('LINE Official Account Manager');
  await expect(page.locator('.frontdesk-endpoint')).toHaveText(base+'/frontdesk/?business=shop-a');
@@ -168,7 +180,9 @@ test('FRONTDESK_CONFIG_GUIDE — LINE sources, notification-card parity and auto
  await page.locator('[name=liffId]').press('Tab');
  await expect(page.locator('[name=liffId]')).toHaveValue('2010999999-desk');
  await expect(page.locator('[name=loginChannelId]')).toHaveValue('2010999999');
+ await page.getByRole('tab',{name:'櫃檯人員申請與權限'}).click();
  await expect(page.locator('.frontdesk-person [name=permissionMode]')).toHaveValue('notify_only');
+ await expect(page.locator('.frontdesk-person [name=staffStatus]')).toHaveValue('');
  await expect(page.locator('.frontdesk-person')).toContainText('待審核');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
@@ -256,7 +270,6 @@ for(const width of [390,1280])test('FRONTDESK_SETTINGS_STANDALONE_'+width+' — 
    notification:rect('.frontdesk-config-form > fieldset:nth-of-type(2)'),
    save:rect('.frontdesk-config-form > button[type="submit"]'),
    title:rect('.frontdesk-preferences-form'),
-   staff:rect('.frontdesk-approvals'),
    viewport:innerWidth,pageWidth:document.documentElement.scrollWidth
   };
  });
@@ -269,7 +282,9 @@ for(const width of [390,1280])test('FRONTDESK_SETTINGS_STANDALONE_'+width+' — 
  }
  expect(lineFlow.save.top).toBeGreaterThanOrEqual(Math.max(lineFlow.login.bottom,lineFlow.notification.bottom)-1);
  expect(lineFlow.title.top).toBeGreaterThanOrEqual(lineFlow.save.bottom-1);
- expect(lineFlow.staff.top).toBeGreaterThanOrEqual(lineFlow.title.bottom-1);
+ await page.getByRole('tab',{name:'櫃檯人員申請與權限'}).click();
+ await expect(page.locator('.frontdesk-approvals')).toBeVisible();
+ await page.getByRole('tab',{name:'LINE 設定'}).click();
 
  expect(calls.some(c=>c.action==='platform.application.bootstrap')).toBe(true);
  expect(calls.some(c=>c.action==='platform.frontdesk.get')).toBe(true);
@@ -377,6 +392,7 @@ test('FRONTDESK_SETTINGS_RESUME — verify access once before reading settings',
   await route.fulfill({ json: { ok: true, data } });
  });
  await page.goto(base + '/admin/frontdesk-settings/?business=shop-a');
+ await page.getByRole('tab',{name:'櫃檯人員申請與權限'}).click();
  await expect(page.getByText('目前沒有申請。', { exact: false })).toBeVisible();
  const reload = page.getByRole('button', { name: '重新整理', exact: true });
  const resume = () => {
@@ -470,6 +486,7 @@ test('FRONTDESK_STAFF_DELETE — real browser confirms deletion, cancels safely 
   }});
  });
  await page.locator('summary').click();
+ await page.getByRole('tab',{name:'櫃檯人員申請與權限'}).click();
  const remove=page.getByRole('button',{name:'移除 待移除櫃檯 的櫃檯帳號'});
  await expect(remove).toBeVisible();
  page.once('dialog',dialog=>dialog.dismiss());
@@ -480,7 +497,7 @@ test('FRONTDESK_STAFF_DELETE — real browser confirms deletion, cancels safely 
  await remove.click();
  const retry=page.getByRole('button',{name:'重試相同儲存操作'});
  await expect(retry).toBeEnabled();
- await expect(page.locator('.frontdesk-person button[type=submit]')).toBeDisabled();
+ await expect(page.locator('.frontdesk-person select')).toBeDisabled();
  await retry.click();
  await expect(page.locator('.frontdesk-person')).toHaveCount(0);
  await expect(page.locator('#root')).toContainText('目前沒有申請');
@@ -681,7 +698,7 @@ for(const width of [390,1280])test('FRONTDESK_SETTINGS_HISTORY_'+width+' — sta
  const errors=[];page.on('pageerror',error=>errors.push(error.message));
  await page.goto(base+'/admin/frontdesk-settings/?business=shop-a');
  const section=page.locator('#frontdeskSettingsRoot');
- await expect(section.getByRole('tab')).toHaveCount(3);
+ await expect(section.getByRole('tab')).toHaveCount(4);
  await expect(section.getByRole('tab',{name:'LINE 設定'})).toHaveAttribute('aria-selected','true');
  // AC-FD-LAYOUT-001/002: both panels must occupy the same stable grid track.
  // Real Chromium geometry catches <details> internal content-box regressions
@@ -983,21 +1000,22 @@ test('AC-FD-NOTIFY browser: merchant grants per-person self-service without chan
   const people=[{id:'a',displayName:'櫃檯 A',status:'approved',permissionMode:'notify_only',version:1,allowNotificationToggle:false,receiveNotifications:true}];
   window.notifyAdminWrites=[];
   window.FrontdeskSettings.mount({root:document.getElementById('root'),business:'shop-a',request:async(action,body)=>{
-   if(action==='platform.frontdesk.staff.save'){
+   if(action==='platform.frontdesk.staff.batch'){
     window.notifyAdminWrites.push(body);
-    Object.assign(people[0],{allowNotificationToggle:body.allowNotificationToggle,permissionMode:body.permissionMode,version:2});
+    Object.assign(people[0],{allowNotificationToggle:body.updates[0].allowNotificationToggle,permissionMode:body.updates[0].permissionMode,version:2});
    }
    return {version:1,frontdesk:{},staff:people};
   }});
  });
  await page.locator('summary').click();
+ await page.getByRole('tab',{name:'櫃檯人員申請與權限'}).click();
  const person=page.locator('.frontdesk-person').first();
  await expect(person.locator('input[name=allowNotificationToggle]')).not.toBeChecked();
  await person.locator('input[name=allowNotificationToggle]').check();
- await person.locator('button[type=submit]').click();
+ await page.getByRole('button',{name:'儲存所有人員權限'}).click();
  await expect(person.locator('input[name=allowNotificationToggle]')).toBeChecked();
  const writes=await page.evaluate(()=>window.notifyAdminWrites);
  expect(writes).toHaveLength(1);
- expect(writes[0].allowNotificationToggle).toBe(true);
- expect(writes[0].permissionMode).toBe('notify_only');
+ expect(writes[0].updates[0].allowNotificationToggle).toBe(true);
+ expect(writes[0].updates[0].permissionMode).toBe('notify_only');
 });
