@@ -1,7 +1,7 @@
 import { businessEnv, businessContext, businessFetch as fetch, businessHandler, deploymentAdminChannelId, memberSystemFooter } from '../_shared/business-runtime.ts';
 import { syncRevision } from '../_shared/sync-revision.mjs';
 import { removeMember } from "../_shared/member-removal.ts";
-import { tierVisibility, loadVisibilityPolicy } from "../_shared/tier-visibility.ts";
+import { tierVisibility, tierEligible, loadVisibilityPolicy } from "../_shared/tier-visibility.ts";
 import { bookingTicketUsageError, ticketBookingId } from "../_shared/booking-ticket-usage.ts";
 import { loadBookingBenefits } from "../_shared/booking-benefits.ts";
 import { loadMemberBookingSelections, contextsForTicket } from "../_shared/booking-selection-context.ts";
@@ -1387,6 +1387,9 @@ function ticketBookingAmountLabel(row: any, serviceTitles: Map<string,string>): 
 }
 
 async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Json> {
+  // Reconcile a late tier upgrade before loading claims; the RPC is member-scoped and idempotent.
+  const issued = await supabase.rpc("issue_member_tier_event_tickets", { p_member_id: member.id });
+  if (issued.error) throw mapDatabaseError(issued.error);
   const [profile,{ data: eventRows, error },allHistoryRes,pendingSelectionsRes,bookingOptions,bookingSelections,snapshotReceipts,transferHistoryRes,receivedGiftRes] = await Promise.all([
     profileFor(supabase,member),
     supabase.from("event_tickets").select("*").eq("status","active").is("deleted_at",null).order("created_at",{ ascending:false }),
@@ -1748,7 +1751,7 @@ async function grantAvailableTicketSection(
     const scheduled = Boolean(row.starts_on && today < String(row.starts_on));
     const ended = Boolean(row.ends_on && today > String(row.ends_on));
     const allowedTierKeys = Array.isArray(row.allowed_tier_keys) ? row.allowed_tier_keys : [];
-    return !scheduled && !ended && allowedTierKeys.includes(tierKey);
+    return !scheduled && !ended && tierEligible(allowedTierKeys, tierKey);
   });
   const eventIds = eligibleEventRows.map((row:any) => row.id);
 
