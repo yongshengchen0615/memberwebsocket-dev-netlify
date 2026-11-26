@@ -28,9 +28,15 @@ test('AC-002: all four tiers show their matching active monthly tickets and acti
   });
   assert.equal(result.month, '2026-11');
   assert.deepEqual(result.tiers.map(tier => tier.key), ['general','silver','gold','platinum']);
-  assert.deepEqual(result.tiers.map(tier => tier.offers.map(offer => offer.title)),
-    [['一般券'],['多階級券'],['多階級券','金級活動'],['白金抽獎券']]);
-  assert.deepEqual(result.tiers[2].offers.map(offer => offer.kind), ['ticket','activity']);
+  // PR #488: a higher tier inherits every offer granted to a lower tier.
+  const namesByTier = result.tiers.map(tier => tier.offers.map(offer => offer.title).sort());
+  assert.deepEqual(namesByTier, [
+    ['一般券'],
+    ['一般券', '多階級券'].sort(),
+    ['一般券', '多階級券', '金級活動'].sort(),
+    ['一般券', '多階級券', '白金抽獎券', '金級活動'].sort(),
+  ]);
+  assert.equal(result.tiers[2].offers.filter(offer => offer.kind === 'activity').length, 1);
 });
 
 test('AC-003: exclude expired, future, targeted, unpublished and private issuance templates', async () => {
@@ -182,4 +188,24 @@ test('AC-011: activity without end date is one day, while ticket without end dat
   assert.deepEqual(dec.map(item=>item.title), ['持續有效券']);
   const api = fs.readFileSync(path.join(__dirname, '..', 'supabase/functions/member-profile-api/index.ts'), 'utf8');
   assert.match(api, /ends_on\.gte\.\$\{start\},and\(ends_on\.is\.null,starts_on\.gte\.\$\{start\}\)/);
+});
+
+test('AC-012: four tier cards inherit lower tier tickets and activities exactly as shared eligibility', async () => {
+  const { buildMonthlyTierOverview, MONTHLY_TIERS } = await load();
+  const { tierEligible } = await import('../supabase/functions/_shared/tier-visibility.ts');
+  for (const minimum of MONTHLY_TIERS) {
+    const ticket = {title:'券-'+minimum.key,ticket_type:'coupon',status:'active',starts_on:'2026-11-01',ends_on:'2026-11-30',allowed_tier_keys:[minimum.key]};
+    const activity = {title:'活動-'+minimum.key,item_type:'event',status:'active',starts_on:'2026-11-15',ends_on:null,allowed_tier_keys:[minimum.key]};
+    const result = buildMonthlyTierOverview({month:'2026-11',tickets:[ticket],activities:[activity]});
+    for (const tier of result.tiers) {
+      const entitled = tierEligible([minimum.key], tier.key);
+      assert.equal(tier.offers.some(offer=>offer.title===ticket.title),entitled,`ticket inheritance ${minimum.key} → ${tier.key}`);
+      assert.equal(tier.offers.some(offer=>offer.title===activity.title),entitled,`event inheritance ${minimum.key} → ${tier.key}`);
+      assert.equal(tier.offers.length,entitled?2:0,`no duplicates for ${minimum.key} → ${tier.key}`);
+    }
+  }
+  const both = buildMonthlyTierOverview({month:'2026-11',tickets:[
+    {title:'複數階級券',ticket_type:'coupon',status:'active',starts_on:'2026-11-01',ends_on:null,allowed_tier_keys:['silver','gold']},
+  ]});
+  assert.deepEqual(both.tiers.map(t => t.offers.length), [0,1,1,1], 'multiple allowed minimums must not duplicate a single offer');
 });
