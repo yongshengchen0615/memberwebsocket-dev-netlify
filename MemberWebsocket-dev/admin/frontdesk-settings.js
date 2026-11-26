@@ -662,8 +662,8 @@
         remove.type = 'button';
         remove.setAttribute('aria-label', '移除 ' + (person.displayName || '此櫃檯人員') + ' 的櫃檯帳號');
         remove.onclick = () => {
-          if (busy || pending) return;
-          if (changes().length) {
+          if (busy || (pending && pending.action !== 'platform.frontdesk.staff.delete')) return;
+          if (!pending && changes().length) {
             status.textContent = '請先儲存或捨棄其他人員的修改，再移除帳號。';
             return;
           }
@@ -682,7 +682,11 @@
         approvals.append(row);
       }
       saveAll.addEventListener('click', () => {
-        if (busy || pending) return;
+        if (busy || (pending && pending.action !== 'platform.frontdesk.staff.batch')) return;
+        if (pending) {
+          void save('platform.frontdesk.staff.batch', {}, saveAll);
+          return;
+        }
         const updates = changes();
         if (!updates.length) return;
         const missingReview = updates.find(item => !item.status);
