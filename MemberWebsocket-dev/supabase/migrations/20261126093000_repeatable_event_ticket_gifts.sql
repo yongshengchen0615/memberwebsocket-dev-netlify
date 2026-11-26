@@ -84,7 +84,7 @@ begin
       loop
         rewritten := regexp_replace(
           rec.definition,
-          'on conflict[[:space:]]*\\([[:space:]]*event_ticket_id[[:space:]]*,[[:space:]]*member_id[[:space:]]*\\)[[:space:]]*do nothing',
+          'on conflict[[:space:]]*\([[:space:]]*event_ticket_id[[:space:]]*,[[:space:]]*member_id[[:space:]]*\)[[:space:]]*do nothing',
           'on conflict do nothing','gi'
         );
         if rewritten <> rec.definition then execute rewritten; end if;
