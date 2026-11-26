@@ -316,6 +316,7 @@
           ticketDescription: String(ticket ? ticket.ticketDescription : reward.rewardDescription || '達到此集點節點後即可使用這張票券。'),
           usageMethod: String(ticket ? ticket.usageMethod : reward.usageMethod || ''),
           usageInstructions: String(ticket ? ticket.usageInstructions : reward.usageInstructions || ''),
+          requiredServiceRequirementLabel: String(reward.requiredServiceRequirementLabel || ''),
           prizes: Array.isArray(ticket ? ticket.prizes : reward.prizes) ? (ticket ? ticket.prizes : reward.prizes) : [],
           requiresLocation: Boolean(ticket && ticket.requiresLocation),
           redemptionLocations: Array.isArray(ticket?.redemptionLocations) ? ticket.redemptionLocations : [],
@@ -443,6 +444,15 @@
     return container;
   }
 
+  function createBookingRequirement(offer) {
+    const requirement = String(offer.requiredServiceRequirementLabel || '').trim();
+    if (!requirement) return null;
+    const notice = document.createElement('p');
+    notice.className = 'member-ticket-booking-requirement';
+    notice.textContent = `預約使用條件：${requirement}`;
+    return notice;
+  }
+
   function render() {
     if (!state.snapshot || !ensureUi() || !groups) return;
 
@@ -560,6 +570,8 @@
         footer.append(status, selectWrap);
 
         item.append(type, name, description, method);
+        const bookingRequirement = createBookingRequirement(offer);
+        if (bookingRequirement) item.append(bookingRequirement);
         const prizeOpportunities = createLotteryPrizeOpportunities(offer);
         if (prizeOpportunities) item.append(prizeOpportunities);
         item.append(cost, footer);
