@@ -6,6 +6,7 @@ test('frontdesk API + real SQL: owner-scoped configuration, encrypted bot, verif
   // The testing Supabase database already received this additive migration via
   // management API; the release ledger may replay it. Re-application must be safe.
   await h.db.exec(fs.readFileSync(path.resolve(__dirname,'../../supabase/migrations/20261126210000_frontdesk_notification_preferences.sql'),'utf8'));
+  await h.db.exec(fs.readFileSync(path.resolve(__dirname,'../../supabase/migrations/20261126224000_frontdesk_staff_batch_permissions.sql'),'utf8'));
   await h.db.query("update platform_private.tenants set features=features||'{\"frontdesk\":true}'::jsonb where id=$1",[t.id]);
   const {createPlatformHandler}=await import('../../supabase/functions/_shared/platform-handler.mjs'),{createFrontdeskHandler}=await import('../../supabase/functions/_shared/frontdesk-handler.mjs');
   const provider=[];let reachable=true;
@@ -65,5 +66,53 @@ test('frontdesk API + real SQL: owner-scoped configuration, encrypted bot, verif
     const disabled=await call(admin,{action:'platform.frontdesk.settings.save',settings:{...settings,enabled:false},channelAccessToken:'',expectedVersion:2,requestId:crypto.randomUUID()});assert.equal(disabled.status,200,JSON.stringify(disabled));assert.equal(disabled.body.data.frontdesk.oaId,'@desk');
   assert.equal((await call(desk,{action:'frontdesk.bootstrap'})).status,403);
   const secret=(await h.db.query("select envelope from platform_private.module_notification_routes where purpose='frontdesk'")).rows[0].envelope;assert.ok(secret.data);assert.equal(JSON.stringify(secret).includes(token),false);
+ }finally{await h.db.close();}
+});
+
+test('AC-FD-BATCH-001..006: real SQL batch is atomic on stale staff, idempotent on replay and revokes recipients',async()=>{
+ const h=await fixture();try{
+  const owner='U'+'2'.repeat(32),t=await h.approve(owner,'desk-batch'),staffA='U'+'4'.repeat(32),staffB='U'+'5'.repeat(32);
+  for(const name of ['20261026050904_line_webhook.sql','20261118122150_frontdesk_booking_access.sql','20261118190000_frontdesk_safeupdate_projection.sql','20261119150000_frontdesk_independent_feature_grant.sql','20261119230000_frontdesk_staff_delete.sql','20261126210000_frontdesk_notification_preferences.sql','20261126224000_frontdesk_staff_batch_permissions.sql'])
+   await h.db.exec(fs.readFileSync(path.resolve(__dirname,'../../supabase/migrations',name),'utf8'));
+  await h.db.query("update platform_private.tenants set features=features||'{\"frontdesk\":true}'::jsonb where id=$1",[t.id]);
+  const {createPlatformHandler}=await import('../../supabase/functions/_shared/platform-handler.mjs');
+  const {createFrontdeskHandler}=await import('../../supabase/functions/_shared/frontdesk-handler.mjs');
+  let lineStaff=staffA;
+  const fetchImpl=async url=>new Response(JSON.stringify(url.endsWith('/verify')?{client_id:'2010888888',expires_in:3600}:url.endsWith('/bot/info')?{basicId:'@desk',userId:owner}:{userId:lineStaff}));
+  const db={rpc:h.rpc},allowedOrigins=new Set(['https://allowed.test']);
+  const admin=createPlatformHandler({db,allowedOrigins,encryptionKey:()=>key,fetchImpl,verifyApplicantIdentity:async()=>({lineUserId:owner,issuedAtMs:Date.now()})});
+  const desk=createFrontdeskHandler({db,allowedOrigins,encryptionKey:()=>key,fetchImpl,verifyIdentity:async()=>({lineUserId:lineStaff,displayName:'合成櫃檯',issuedAtMs:Date.now()})});
+  const call=async(handler,body)=>{const r=await handler(new Request('https://api.test',{method:'POST',headers:{Origin:'https://allowed.test'},body:JSON.stringify({business:t.slug,idToken:'synthetic-token',...body})}));return{status:r.status,body:await r.json()};};
+  const setup=await call(admin,{action:'platform.frontdesk.settings.save',expectedVersion:1,requestId:crypto.randomUUID(),settings:{loginChannelId:'2010999999',liffId:'2010999999-desk',messagingChannelId:'2010888888',enabled:true},channelAccessToken:'synthetic-frontdesk-channel-token-123456'});
+  assert.equal(setup.status,200,JSON.stringify(setup));
+  const first=(await call(desk,{action:'frontdesk.apply'})).body.data.staff;
+  lineStaff=staffB;
+  const second=(await call(desk,{action:'frontdesk.apply'})).body.data.staff;
+  const rows=[
+   {staffId:first.id,expectedVersion:first.version,status:'approved',permissionMode:'review',allowNotificationToggle:true},
+   {staffId:second.id,expectedVersion:second.version,status:'approved',permissionMode:'notify_only',allowNotificationToggle:false}
+  ];
+  const requestBase={action:'platform.frontdesk.staff.batch',expectedVersion:2,requestId:crypto.randomUUID(),updates:rows};
+  const stale=await call(admin,{...requestBase,updates:[rows[0],{...rows[1],expectedVersion:999}]});
+  assert.equal(stale.status,409,JSON.stringify(stale));
+  let dbRows=(await h.db.query('select id,status,version from platform_private.frontdesk_staff where tenant_id=$1 order by id',[t.id])).rows;
+  assert.equal(dbRows.every(x=>x.status==='pending'&&Number(x.version)===1),true,'failure of row 2 rolls back row 1');
+  const saved=await call(admin,requestBase);assert.equal(saved.status,200,JSON.stringify(saved));
+  assert.equal(saved.body.data.staff.every(x=>x.status==='approved'&&x.version===2),true);
+  assert.equal(saved.body.data.staff.find(x=>x.id===first.id).permissionMode,'review');
+  assert.equal(saved.body.data.staff.find(x=>x.id===first.id).allowNotificationToggle,true);
+  assert.deepEqual((await call(admin,requestBase)).body.data,saved.body.data,'same request ID replays the same committed result');
+  const rejected=await call(admin,{...requestBase,requestId:crypto.randomUUID()});
+  assert.equal(rejected.status,409,'stale versions cannot overwrite approved staff');
+  const revoked=await call(admin,{action:'platform.frontdesk.staff.batch',expectedVersion:2,requestId:crypto.randomUUID(),updates:[
+   {...rows[0],expectedVersion:2,status:'suspended'},
+   {...rows[1],expectedVersion:2,permissionMode:'review'}
+  ]});
+  assert.equal(revoked.status,200,JSON.stringify(revoked));
+  const current=revoked.body.data.staff;
+  assert.equal(current.find(x=>x.id===first.id).status,'suspended');
+  assert.equal(current.find(x=>x.id===second.id).permissionMode,'review');
+  assert.equal((await h.db.query('select count(*)::int n from '+t.runtime_schema+'.frontdesk_notice_recipients where line_user_id=$1',[staffA])).rows[0].n,0);
+  assert.equal((await h.db.query('select count(*)::int n from '+t.runtime_schema+'.frontdesk_notice_recipients where line_user_id=$1',[staffB])).rows[0].n,1);
  }finally{await h.db.close();}
 });

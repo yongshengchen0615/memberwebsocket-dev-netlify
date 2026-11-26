@@ -64,3 +64,51 @@ test('AC-FD-NOTIFY-005: merchant and staff surfaces expose scoped controls',()=>
  assert.match(staff,/接收 LINE 預約通知/);
  assert.match(staff,/不影響櫃檯預約操作/);
 });
+
+test('AC-FD-BATCH-API: one bounded, ordered and idempotent merchant batch payload',async()=>{
+ const {frontdeskAdmin}=await import('../supabase/functions/_shared/frontdesk-admin.mjs');
+ const calls=[],tenant={id:'10000000-0000-4000-8000-000000000001',features:{booking:true,frontdesk:true}};
+ const base={db:{rpc:async(name,args)=>{calls.push({name,args});return{data:{staff:[]},error:null};}},actor:'U'+'2'.repeat(32),issuedAt:new Date().toISOString(),tenant};
+ const a='10000000-0000-4000-8000-000000000002',b='10000000-0000-4000-8000-000000000003';
+ const batch={action:'platform.frontdesk.staff.batch',requestId:crypto.randomUUID(),expectedVersion:4,updates:[
+  {staffId:b,expectedVersion:2,status:'approved',permissionMode:'review',allowNotificationToggle:false},
+  {staffId:a,expectedVersion:1,status:'rejected',permissionMode:'notify_only',allowNotificationToggle:true}
+ ]};
+ await frontdeskAdmin({...base,body:batch});
+ assert.equal(calls.length,1);
+ assert.equal(calls[0].name,'platform_frontdesk_admin');
+ assert.equal(calls[0].args.p_action,'staff.batch');
+ assert.deepEqual(calls[0].args.p_body.updates.map(x=>x.staffId),[a,b],'same stable lock order');
+ assert.match(calls[0].args.p_body.payloadHash,/^[a-f0-9]{64}$/);
+ const bad=[
+  {...batch,updates:[batch.updates[0],batch.updates[0]]},
+  {...batch,updates:[]},
+  {...batch,updates:Array.from({length:101},()=>batch.updates[0])},
+  {...batch,updates:[{...batch.updates[0],allowNotificationToggle:'false'}]},
+  {...batch,updates:[{...batch.updates[0],status:'pending'}]},
+  {...batch,updates:[{...batch.updates[0],expectedVersion:-1}]},
+  {...batch,updates:[{...batch.updates[0],staffId:'another-tenant'}]}
+ ];
+ for(const body of bad)await assert.rejects(frontdeskAdmin({...base,body}),error=>error?.status===400);
+ assert.equal(calls.length,1,'invalid batches never reach the database');
+});
+
+test('AC-FD-BATCH-SQL: tenant authorization, atomic staff updates, version fencing and revocation',()=>{
+ const sql=read('supabase/migrations/20261126224000_frontdesk_staff_batch_permissions.sql');
+ assert.match(sql,/platform_frontdesk_admin\(text,uuid,timestamptz,text,jsonb\)/);
+ assert.match(sql,/p_action='staff\.batch'/);
+ assert.match(sql,/jsonb_array_length\(p_body->'updates'\) not between 1 and 100/);
+ assert.match(sql,/order by value->>'staffId'/);
+ assert.match(sql,/tenant_id=t\.id for update/);
+ assert.match(sql,/s\.version is distinct from/);
+ assert.match(sql,/FRONTDESK_OA_REQUIRED/);
+ assert.match(sql,/FRONTDESK_ACCESS_REVOKED/);
+ assert.match(sql,/when p_action=''staff\.batch'' then jsonb_build_object/);
+ const admin=read('admin/frontdesk-settings.js');
+ assert.match(admin,/frontdesk-tab-staff/);
+ assert.match(admin,/platform\.frontdesk\.staff\.batch/);
+ assert.match(admin,/請選擇審核結果/);
+ assert.doesNotMatch(admin,/void save\('platform\.frontdesk\.staff\.save'/);
+ const handler=read('supabase/functions/_shared/platform-handler.mjs');
+ assert.match(handler,/platform\.frontdesk\.staff\.batch/);
+});

@@ -96,7 +96,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
       const merchantAction = ['platform.merchant.list','platform.merchant.get','platform.merchant.submit','platform.merchant.review'].includes(body.action);
       if ((qualificationAction || merchantAction) && body.business !== undefined)
         throw new PlatformError(400,'PLATFORM_INVALID_INPUT','資格與商家申請不接受商家入口。');
-      const applicantAction = ['platform.member-oa.inspect','platform.member-oa.readiness','platform.webhook.status','platform.webhook.check','platform.application.bootstrap','platform.application.ensure','platform.application.submit','platform.line.save','platform.notifications.save','platform.notifications.test','platform.qualification.bootstrap','platform.qualification.submit','platform.merchant.list','platform.merchant.get','platform.merchant.submit','platform.title.save','platform.frontdesk.get','platform.frontdesk.history.list','platform.frontdesk.settings.save','platform.frontdesk.preferences.save','platform.frontdesk.rejection-settings.save','platform.frontdesk.staff.save','platform.frontdesk.staff.delete'].includes(body.action);
+      const applicantAction = ['platform.member-oa.inspect','platform.member-oa.readiness','platform.webhook.status','platform.webhook.check','platform.application.bootstrap','platform.application.ensure','platform.application.submit','platform.line.save','platform.notifications.save','platform.notifications.test','platform.qualification.bootstrap','platform.qualification.submit','platform.merchant.list','platform.merchant.get','platform.merchant.submit','platform.title.save','platform.frontdesk.get','platform.frontdesk.history.list','platform.frontdesk.settings.save','platform.frontdesk.preferences.save','platform.frontdesk.rejection-settings.save','platform.frontdesk.staff.save','platform.frontdesk.staff.batch','platform.frontdesk.staff.delete'].includes(body.action);
       let trustedChannel;
       if (applicantAction && body.business !== undefined) {
         if (typeof body.business !== 'string' || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(body.business) || body.business.length > 40)
@@ -308,7 +308,7 @@ export function createPlatformHandler({ db, verifyIdentity, verifyApplicantIdent
         }
         return json({ok:true,data:{...summary,endpoint}});
       }
-      if (['platform.frontdesk.get','platform.frontdesk.history.list','platform.frontdesk.settings.save','platform.frontdesk.preferences.save','platform.frontdesk.rejection-settings.save','platform.frontdesk.staff.save','platform.frontdesk.staff.delete'].includes(body.action)) {
+      if (['platform.frontdesk.get','platform.frontdesk.history.list','platform.frontdesk.settings.save','platform.frontdesk.preferences.save','platform.frontdesk.rejection-settings.save','platform.frontdesk.staff.save','platform.frontdesk.staff.batch','platform.frontdesk.staff.delete'].includes(body.action)) {
         const workspace=await mine();
         const data=await frontdeskAdmin({db,body,actor,issuedAt:new Date(identity.issuedAtMs).toISOString(),tenant:workspace.tenant,encryptionKey,fetchImpl});
         return json({ok:true,data});

@@ -59,9 +59,10 @@ test('AC-FD-NAV-004: old deep links redirect to the independent page without ope
   assert.doesNotMatch(business,/get\('settings'\)==='frontdesk'/);
 });
 
-test('AC-FD-NAV-005: existing settings and staff permissions use their unchanged API actions',()=>{
+test('AC-FD-NAV-005: settings keep their original action while staff permissions use a new atomic batch action',()=>{
   assert.match(frontdesk,/platform\.frontdesk\.settings\.save/);
-  assert.match(frontdesk,/platform\.frontdesk\.staff\.save/);
+  assert.match(frontdesk,/platform\.frontdesk\.staff\.batch/);
+  assert.match(read('supabase/functions/_shared/frontdesk-admin.mjs'),/staff\.save/,'legacy backend action stays supported');
   assert.match(frontdesk,/platform\.frontdesk\.get/);
   assert.match(frontdesk,/mounted\.delete\(root\)/);
   assert.match(frontdesk,/if\s*\(!alive\(\)\)\s*return/);
@@ -86,7 +87,7 @@ test('AC-FD-UX-001: frontdesk settings omits redundant setup links and onboardin
   assert.doesNotMatch(frontdesk,/frontdesk-setup-guide|frontdesk-quick-links/);
   assert.match(frontdesk,/複製 Endpoint URL/);
   assert.match(frontdesk,/驗證並儲存櫃檯設定/);
-  assert.match(frontdesk,/platform\.frontdesk\.staff\.save/);
+  assert.match(frontdesk,/platform\.frontdesk\.staff\.batch/);
 });
 
 test('AC-FD-UX-002: empty applicant state explains the remaining request path',()=>{
@@ -105,7 +106,7 @@ test('AC-FD-UX-003: standalone page uses readable, concise merchant-specific hea
   const html=read('admin/frontdesk-settings/index.html');
   const script=read('admin/frontdesk-settings/frontdesk-settings-page.js');
   assert.doesNotMatch(html,/BUSINESS \/ FRONTDESK/);
-  assert.match(html,/分頁管理 LINE 設定、拒絕預約原因與人員權限/);
+  assert.match(html,/分頁管理 LINE 設定、櫃檯人員申請與權限及拒絕預約原因/);
   assert.doesNotMatch(script,/data\.tenant\.name\s*\+\s*'｜櫃檯設定'/);
   assert.match(frontdesk,/櫃檯人員申請與權限/);
 });
@@ -134,8 +135,8 @@ test('AC-FD-HIST-006: server action is tenant-authorized, read-only and migratio
  assert.match(css,/scrollbar-gutter: stable/);
  assert.match(css,/\.frontdesk-settings-body > button/);
  assert.doesNotMatch(css,/\.frontdesk-settings > button/);
- assert.match(frontdesk,/body\.append\(status, syncState, reload, tabs, content, rejectionPanel, historyPanel\)/);
- assert.match(html,/frontdesk-line-flow-20261122-1/);
+ assert.match(frontdesk,/body\.append\(status, syncState, reload, tabs, content, staffPanel, rejectionPanel, historyPanel\)/);
+ assert.match(html,/frontdesk-staff-batch-tab-20261126-1/);
 });
 
 test('AC-FD-LINE-001: LINE settings follow one ordered track; only provider cards share desktop columns',()=>{
@@ -145,5 +146,5 @@ test('AC-FD-LINE-001: LINE settings follow one ordered track; only provider card
  assert.match(css,/@media \(min-width: 1080px\)\s*\{\s*html\[data-frontdesk-page\] \.frontdesk-config-form\s*\{\s*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
  assert.doesNotMatch(css,/grid-template-columns:\s*minmax\(0, 1\.15fr\) minmax\(0, \.85fr\)/);
  assert.match(css,/\.frontdesk-settings \.frontdesk-preferences-form\s*\{\s*margin:\s*0/);
- assert.match(page,/frontdesk-line-flow-20261122-1/);
+ assert.match(page,/frontdesk-staff-batch-tab-20261126-1/);
 });

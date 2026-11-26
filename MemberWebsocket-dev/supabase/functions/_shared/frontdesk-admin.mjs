@@ -5,7 +5,7 @@ import { frontdeskDatabaseError } from './frontdesk-handler.mjs';
 import { normalizeRejectionSettings } from './frontdesk-rejection-settings.mjs';
 const digest=async value=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(value)))),b=>b.toString(16).padStart(2,'0')).join('');
 export async function frontdeskAdmin({db,body,actor,issuedAt,tenant,encryptionKey,fetchImpl}){
- const action={'platform.frontdesk.get':'get','platform.frontdesk.history.list':'history.list','platform.frontdesk.settings.save':'settings.save','platform.frontdesk.preferences.save':'preferences.save','platform.frontdesk.rejection-settings.save':'rejection-settings.save','platform.frontdesk.staff.save':'staff.save','platform.frontdesk.staff.delete':'staff.delete'}[body.action];
+ const action={'platform.frontdesk.get':'get','platform.frontdesk.history.list':'history.list','platform.frontdesk.settings.save':'settings.save','platform.frontdesk.preferences.save':'preferences.save','platform.frontdesk.rejection-settings.save':'rejection-settings.save','platform.frontdesk.staff.save':'staff.save','platform.frontdesk.staff.batch':'staff.batch','platform.frontdesk.staff.delete':'staff.delete'}[body.action];
  if(!tenant?.id)throw new PlatformError(403,'BUSINESS_FORBIDDEN','請先選擇自己的商家。');
  if(tenant.features?.frontdesk!==true || tenant.features?.booking!==true)
   throw new PlatformError(403,'FEATURE_DISABLED','此商家尚未開通櫃檯設定或預約功能。');
@@ -54,6 +54,23 @@ export async function frontdeskAdmin({db,body,actor,issuedAt,tenant,encryptionKe
    // DB must independently validate tenant authorization, retained IDs and
    // optimistic version in one transaction. Never accept a client-supplied old policy.
    input.payloadHash=await digest({action,rejectionSettings:input.rejectionSettings,expectedVersion:input.expectedVersion});
+  }else if(action==='staff.batch'){
+   const updates=body.updates;
+   if(!Array.isArray(updates)||updates.length<1||updates.length>100)
+    throw new PlatformError(400,'PLATFORM_INVALID_INPUT','請選擇 1 至 100 位要更新的人員。');
+   const ids=new Set();
+   for(const item of updates){
+    if(!item||typeof item!=='object'||Array.isArray(item)||
+     !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(item.staffId||'')||
+     ids.has(item.staffId.toLowerCase())||!Number.isSafeInteger(item.expectedVersion)||item.expectedVersion<0||item.expectedVersion>2147483647||
+     !['approved','rejected','suspended'].includes(item.status)||
+     !['notify_only','review'].includes(item.permissionMode)||typeof item.allowNotificationToggle!=='boolean')
+     throw new PlatformError(400,'PLATFORM_INVALID_INPUT','人員權限資料不正確，請重新確認所有申請。');
+    ids.add(item.staffId.toLowerCase());
+   }
+   input.updates=updates.map(({staffId,expectedVersion,status,permissionMode,allowNotificationToggle})=>
+    ({staffId:staffId.toLowerCase(),expectedVersion,status,permissionMode,allowNotificationToggle})).sort((a,b)=>a.staffId.localeCompare(b.staffId));
+   input.payloadHash=await digest({action,expectedVersion:input.expectedVersion,updates:input.updates});
   }else if(action==='staff.delete'){
    if(!/^[0-9a-f-]{36}$/i.test(body.staffId||'')||body.status!==undefined||body.permissionMode!==undefined||body.allowNotificationToggle!==undefined)throw new PlatformError(400,'PLATFORM_INVALID_INPUT','移除人員資料不正確。');
    input.staffId=body.staffId;
