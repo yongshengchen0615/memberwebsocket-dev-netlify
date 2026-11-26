@@ -35,8 +35,8 @@ begin
  if position(old_text in d)=0 then raise exception 'FRONTDESK_NOTIFY_ADMIN_REMOVE_DRIFT';end if;
  d:=replace(d,old_text,new_text);
 
- old_text:='status=''approved'' and oa_verified_at is not null on conflict (line_user_id)';
- new_text:='status=''approved'' and oa_verified_at is not null and receive_notifications on conflict (line_user_id)';
+ old_text:='status=''''approved'''' and oa_verified_at is not null on conflict (line_user_id)';
+ new_text:='status=''''approved'''' and oa_verified_at is not null and receive_notifications on conflict (line_user_id)';
  if position(old_text in d)=0 then raise exception 'FRONTDESK_NOTIFY_ADMIN_INSERT_DRIFT';end if;
  d:=replace(d,old_text,new_text);
  execute d;
