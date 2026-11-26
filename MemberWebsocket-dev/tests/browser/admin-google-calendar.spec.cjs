@@ -14,10 +14,16 @@ async function open(page, info) {
 }
 
 test('Google AC-005: unavailable navigation asset preserves admin startup and all three original editors', async ({ page }, info) => {
+  await page.clock.setFixedTime(new Date('2026-11-30T04:00:00Z'));
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.route('**/admin/calendar-navigation.js', route => route.fulfill({status:503,contentType:'text/javascript',body:''}));
   await open(page, info);
+  const session = host.sessions.get(info.testId);
+  session.calendarItems = [1,2,3,4,5].map(n => ({calendarItemId:'fallback-a'+n,title:'故障保留活動 '+n,itemType:'event',status:'draft',startsOn:'2026-11-30',endsOn:'2026-11-30'}));
+  session.eventTickets = [1,2,3,4,5].map(n => ({eventTicketId:'fallback-t'+n,title:'故障保留票券 '+n,ticketKind:'coupon',status:'draft',startsOn:'2026-11-30',endsOn:'2026-11-30'}));
+  await page.reload();
+  await expect(page.locator('#adminView')).toBeVisible();
   for (const [tab, selector, gridId, attr] of calendars) {
     await page.locator('#'+tab).click();
     await expect(page.locator('#'+gridId+' .admin-calendar-day')).toHaveCount(42);
@@ -30,6 +36,21 @@ test('Google AC-005: unavailable navigation asset preserves admin startup and al
     await expect(page.locator(ticket?'#eventTicketStartsOn':'#calendarItemStartsOn')).toHaveValue(value);
     if (!ticket) await expect(page.locator('#calendarItemType')).toHaveValue(tab === 'bookingTab'?'holiday':'event');
     await modal.locator('.editor-modal-close').click();
+    const workspace = page.locator(selector);
+    if (tab !== 'bookingTab') {
+      const cell = workspace.locator('.admin-calendar-day[data-'+attr+'="2026-11-30"]');
+      await expect(cell.locator('.admin-calendar-item')).toHaveCount(5);
+      await workspace.locator(ticket?'[data-ticket-calendar-item-id="fallback-t5"]':'[data-admin-calendar-item-id="fallback-a5"]').click();
+      await expect(page.locator(ticket?'#eventTicketId':'#calendarItemId')).toHaveValue(ticket?'fallback-t5':'fallback-a5');
+      await modal.locator('.editor-modal-close').click();
+    } else {
+      await page.evaluate(() => {
+        const bookings = [1,2,3,4,5].map(n => ({bookingId:'fallback-b'+n,bookingDate:'2026-11-30',startTime:'09:00',endTime:'10:00',status:'confirmed',memberDisplayName:'故障保留預約 '+n}));
+        window.dispatchEvent(new CustomEvent('member-admin:booking-snapshot',{detail:{bookings}}));
+      });
+      await expect(workspace.locator('.admin-calendar-booking')).toHaveCount(5);
+    }
+    await expect(workspace.locator('.calendar-scope-more')).toHaveCount(0);
   }
   expect(errors).toEqual([]);
   expect(host.sessions.get(info.testId).calls.filter(call => /\.save$|\.create$/.test(call.action))).toHaveLength(0);
