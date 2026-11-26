@@ -391,7 +391,7 @@ async function monthlyTierBenefits(supabase: SupabaseClient, member: any): Promi
     showActivities ? supabase.from("calendar_items")
       .select("title,item_type,status,audience_type,starts_on,ends_on,allowed_tier_keys,visibility_policy,source_event_ticket_id,link_url")
       .eq("item_type", "event").eq("status", "active")
-      .lte("starts_on", end).or(`ends_on.is.null,ends_on.gte.${start}`)
+      .lte("starts_on", end).or(`ends_on.gte.${start},and(ends_on.is.null,starts_on.gte.${start})`)
       : Promise.resolve({ data: [], error: null }),
     profileFor(supabase, member),
     showTickets || showActivities ? loadVisibilityPolicy(supabase) : Promise.resolve('eligible_only'),
