@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="../async-action-feedback.css?v=20261125-2">
   <link rel="stylesheet" href="./styles.css?v=booking-reserved-20261002-1-ticket-booking-20261006-1-ongoing-20261008-1-event-separate-actions-20261118-1-event-gift-theme-20261118-1-booking-guide-20261123-3">
   <link rel="stylesheet" href="./membership-progress.css?v=event-tier-style-20260908">
-  <link rel="stylesheet" href="../member/monthly-tier-benefits.css?v=20261127-compact-1">
+  <link rel="stylesheet" href="../member/monthly-tier-benefits.css?v=20261127-theme-2">
   <link rel="stylesheet" href="./today-usable.css?v=today-usable-20261001-4">
   <link rel="stylesheet" href="../user-tour.css?v=user-tour-20260928-10-p2-20261006-1">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
@@ -20,7 +20,7 @@
   <script src="../business-context.js?grants=20261119-event-liff-callback-1&brand=20261122-1"></script>
   <script src="../member-system.js?v=layout-stability-20261001-1-accessible-20261003-1-p2-20261006-1-p1-secure-20261008-1-live-sync-20261010-1-line-offline-20261012-1-takeover-20261013-1-silent-takeover-20261013-2-booking-selections-20261013-1-connection-efficiency-20261014-1-request-scope-20261029-2&grants=20261107-1&transport=20261111-1&merchant=20261119-event-liff-callback-1" defer></script>
   <script src="./membership-progress.js?v=event-tier-style-20260908" defer></script>
-  <script src="../member/monthly-tier-benefits.js?v=20261127-compact-1" defer></script>
+  <script src="../member/monthly-tier-benefits.js?v=20261127-theme-2" defer></script>
   <script src="../ticket-booking-choice.js?v=ticket-booking-choice-20261006-1-controls-20261010-2-event-booking-20261118-1"></script>
   <script src="../ticket-live-location.js?v=admin-geofence-20261010-2" defer></script>
   <script src="../async-action-feedback.js?v=20261125-2" defer></script>
@@ -48,7 +48,7 @@
       <p id="syncNotice" class="sync-notice hidden" role="status" aria-live="polite"></p>
       <section id="membershipProgress" class="membership-progress" aria-labelledby="membershipProgressTitle" aria-live="polite"><div><p class="membership-progress-kicker">Membership progress</p><h2 id="membershipProgressTitle">會員階級</h2><p data-membership-current-tier class="membership-progress-current">目前會員階級：載入中</p></div><p data-membership-summary class="membership-progress-summary">累積 0 分鐘・下一階段資料載入中</p><p data-membership-remaining class="membership-progress-remaining">正在計算升等進度</p><div data-membership-progress-track class="membership-progress-track" role="progressbar" aria-label="會員階級進度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-membership-progress-bar></span></div></section>
       <details class="member-monthly-benefits" data-member-monthly-tier-widget aria-label="本月會員階級優惠">
-        <summary class="member-monthly-benefits-heading"><span class="member-monthly-benefits-spark" aria-hidden="true">✦</span><strong>本月階級優惠</strong><small data-member-monthly-tier-teaser>點開查看</small></summary>
+        <summary class="member-monthly-benefits-heading"><span class="member-monthly-benefits-spark" aria-hidden="true">✦</span><strong>本月階級優惠</strong><small data-member-monthly-tier-teaser>展開查看</small></summary>
         <div class="member-monthly-benefits-body">
           <div class="member-monthly-benefits-controls"><span data-member-monthly-tier-month>本月</span><button type="button" data-member-monthly-tier-reload>更新</button></div>
           <p class="member-monthly-benefits-status" data-member-monthly-tier-status role="status">展開後載入當月優惠</p>

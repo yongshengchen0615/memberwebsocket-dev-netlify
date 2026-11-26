@@ -60,7 +60,7 @@
     const monthNode = root.querySelector('[data-member-monthly-tier-month]');
     if (monthNode) monthNode.textContent = month ? month.slice(0,4) + ' 年 ' + Number(month.slice(5)) + ' 月' : '本月';
     const teaser = root.querySelector('[data-member-monthly-tier-teaser]');
-    if (teaser) teaser.textContent = month ? Number(month.slice(5)) + ' 月 · 查看四階級' : '查看四階級';
+    if (teaser) teaser.textContent = root.open ? '收合內容' : '展開查看';
     const currentTier = String(state.profile.tierKey || 'general');
     if (!tiers.some(tier => tier.key === state.selected)) state.selected = currentTier;
     if (!tiers.some(tier => tier.key === state.selected)) state.selected = tiers[0] && tiers[0].key || 'general';
@@ -68,10 +68,15 @@
     if (tabTarget) {
       const buttons = tiers.map(tier => {
         const count = Array.isArray(tier.offers) ? tier.offers.length : 0;
-        const button = element('button', '', String(tier.label || '階級') + ' ' + count);
+        const fullLabel = String(tier.label || '階級');
+        const shortLabel = fullLabel.replace(/會員$/, '');
+        const button = element('button', 'member-monthly-tab');
         button.type = 'button';
         button.dataset.tierKey = String(tier.key || '');
         button.setAttribute('aria-pressed', String(tier.key === state.selected));
+        button.setAttribute('aria-label', fullLabel + '，' + count + ' 項優惠' + (tier.key === currentTier ? '，目前會員階級' : ''));
+        if (tier.key === currentTier) button.classList.add('is-current');
+        button.append(element('span', 'member-monthly-tab-label', shortLabel), element('span', 'member-monthly-tab-count', count));
         button.onclick = () => {
           state.selected = String(tier.key || '');
           render(root, state);
@@ -95,6 +100,8 @@
       states.set(root, state);
       if (typeof root.addEventListener === 'function') {
         root.addEventListener('toggle', () => {
+          const teaser = root.querySelector('[data-member-monthly-tier-teaser]');
+          if (teaser) teaser.textContent = root.open ? '收合內容' : '展開查看';
           if (root.open && state.ready && (state.loadedKey !== state.key || Date.now() - state.loadedAt > STALE_MS)) {
             void load(root, state);
           }
@@ -126,7 +133,7 @@
       if (target) target.replaceChildren();
       if (tabs) tabs.replaceChildren();
       if (status) status.textContent = permitted ? '展開後載入當月優惠' : '會員資格啟用後可查看當月優惠';
-      if (teaser) teaser.textContent = '點開查看';
+      if (teaser) teaser.textContent = root.open ? '收合內容' : '展開查看';
       const button = root.querySelector('[data-member-monthly-tier-reload]');
       if (button) button.disabled = false;
     }

@@ -236,10 +236,11 @@ test('member onboarding spotlight reposition emits no blocked inline-style CSP v
   expect(states.every(mask => mask.position === 'absolute')).toBe(true);
 });
 
-for (const surface of ['member','points','event','calendar','booking']) {
-  test('compact monthly tier offers appear in '+surface+' only when opened, with one mobile tier panel',async({page},info)=>{
-    await page.setViewportSize({width:390,height:844});
+for (const surface of ['member','points','event','calendar','booking']) for (const [theme, width] of [['light',390],['dark',390],['dark',320]]) {
+  test('compact monthly tier offers appear in '+surface+' '+theme+' '+width+' only when opened, with one mobile tier panel',async({page},info)=>{
+    await page.setViewportSize({width,height:844});
     await page.goto(base+'/'+surface+'/');
+    await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
     await expect(page.locator('#'+surface+'View')).toBeVisible();
     await page.addScriptTag({url:base+'/member/monthly-tier-benefits.js'});
     await page.evaluate(surface=>{
@@ -276,8 +277,47 @@ for (const surface of ['member','points','event','calendar','booking']) {
     expect(await widget.evaluate(node=>node.open)).toBe(false);
     expect(await widget.evaluate(node=>Math.round(node.getBoundingClientRect().height))).toBeLessThanOrEqual(66);
     expect(await page.evaluate(()=>window.__tierRequests.length)).toBe(0);
+    const action=widget.locator('[data-member-monthly-tier-teaser]');
+    await expect(action).toHaveText('展開查看');
+    expect(await widget.locator('summary').evaluate(node=>getComputedStyle(node).cursor)).toBe('pointer');
+    const collapsedHint=await action.evaluate(node=>({
+      background:getComputedStyle(node).backgroundColor,
+      color:getComputedStyle(node).color,
+      border:getComputedStyle(node).borderStyle
+    }));
+    expect(collapsedHint.background).not.toBe('rgba(0, 0, 0, 0)');
+    expect(collapsedHint.border).toBe('solid');
     await widget.locator('summary').click();
+    await expect(action).toHaveText('收合內容');
     await expect(widget.locator('[data-member-monthly-tier-tabs] button')).toHaveCount(4);
+    await expect(widget.locator('[data-member-monthly-tier-tabs] button.is-current')).toHaveCount(1);
+    await expect(widget.locator('[data-member-monthly-tier-tabs] button.is-current')).toHaveAttribute('data-tier-key','silver');
+    await expect(widget.locator('[data-member-monthly-tier-tabs] button[aria-pressed="true"] .member-monthly-tab-count')).toHaveText('1');
+    await expect(widget.locator('[data-member-monthly-tier-tabs] button.is-current')).toHaveAttribute('aria-label',/目前會員階級/);
+    const palette = await widget.evaluate(node=>{
+      const rgb=str=>[...String(str).matchAll(/\d+(?:\.\d+)?/g)].slice(0,3).map(m=>Number(m[0]));
+      const luminance=c=>rgb(c).map(n=>{const v=n/255;return v<=0.04045?v/12.92:((v+0.055)/1.055)**2.4;})
+        .reduce((sum,val,i)=>sum+val*[.2126,.7152,.0722][i],0);
+      const contrast=(a,b)=>{const x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);};
+      const label=node.querySelector('.member-monthly-benefits-heading strong');
+      const selected=node.querySelector('[data-member-monthly-tier-tabs] button[aria-pressed="true"]');
+      const offer=node.querySelector('.member-monthly-offer-title');
+      const panel=node.querySelector('.member-monthly-tier');
+      const colors=(el)=>({foreground:getComputedStyle(el).color,background:getComputedStyle(el).backgroundColor});
+      const a=colors(label),b=colors(selected),c=colors(offer),p=colors(panel);
+      return {
+        heading:contrast(a.foreground,getComputedStyle(node.querySelector('summary')).backgroundColor),
+        tab:contrast(b.foreground,b.background),
+        offer:contrast(c.foreground,p.background),
+        surface:getComputedStyle(node).backgroundColor,
+        tabBackground:b.background
+      };
+    });
+    expect(palette.heading).toBeGreaterThanOrEqual(4.5);
+    expect(palette.tab).toBeGreaterThanOrEqual(4.5);
+    expect(palette.offer).toBeGreaterThanOrEqual(4.5);
+    const surfaceRGB=Number(palette.surface.match(/\d+/)?.[0]||0);
+    expect(theme==='dark'?surfaceRGB<100:surfaceRGB>200).toBe(true);
     await expect(widget.locator('[data-member-monthly-tier-overview] .member-monthly-tier')).toHaveCount(1);
     await expect(widget.locator('.member-monthly-tier.is-current')).toContainText('銀級會員');
     await expect(widget.locator('[data-member-monthly-tier-overview]')).toContainText('銀級活動');
@@ -295,6 +335,7 @@ for (const surface of ['member','points','event','calendar','booking']) {
     expect(overflowing).toBe(false);
     await widget.locator('summary').click();
     expect(await widget.evaluate(node=>node.open)).toBe(false);
+    await expect(action).toHaveText('展開查看');
     await info.attach('compact-monthly-tier-'+surface,{body:await widget.screenshot(),contentType:'image/png'});
   });
 }
