@@ -9,7 +9,7 @@ test.beforeAll(async()=>{
   const u=new URL(req.url,'http://localhost'),surface=u.pathname.split('/')[1];
   if(surfaces.includes(surface)&&u.pathname===`/${surface}/`){
    let html=fs.readFileSync(path.join(root,surface,'index.html'),'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'');
-   const scripts=['ui-components.js','dialog-accessibility.js',...(surface==='member'?['vendor/friend-qrcode.js','vendor/friend-qr-decoder.js','friend-qr-scanner.js','qr-scan-dialog.js','member/member-growth.js','friends.js']:surface==='booking'?['booking/booking-benefits.js','booking/booking-accessible.js','friends.js']:surface==='points'?['points/pointcard-ticket-overview.js']:[])];
+   const scripts=['ui-components.js','dialog-accessibility.js',...(surface==='member'?['qr-scan-dialog.js','member/member-growth.js','friends.js']:surface==='booking'?['booking/booking-benefits.js','booking/booking-accessible.js','friends.js']:surface==='points'?['points/pointcard-ticket-overview.js']:[])];
    html=html.replace('</body>',`<script src="/layout-fixture.js?surface=${surface}"></script>`+scripts.map(s=>`<script src="/${s}"></script>`).join('')+'</body>');
    res.writeHead(200,{'Content-Type':'text/html'});res.end(html);return;
   }
@@ -47,7 +47,7 @@ for(const width of [320,390,1280])for(const theme of ['light','dark'])test(`shar
   if(surface==='member'){
    await page.locator('#openMemberFriends').click();await expect(page.locator('#memberFriendsModal')).toBeVisible();await fits(page.locator('#memberFriendsModal .member-referral-dialog'));await expect(page.locator('#friendsPanel')).toBeVisible();await expect(page.locator('#friendShareUrl')).toHaveCount(0);
    await page.locator('#closeMemberFriends').click();await page.locator('#openMemberReferral').click();await expect(page.locator('#memberReferralModal')).toBeVisible();await expect(page.locator('#memberReferralOwnCode')).toHaveCount(0);await expect(page.locator('#memberReferralForm')).toBeVisible();
-   await expect(page.locator('#memberReferralShare')).toHaveCount(0);await expect(page.locator('#scanMemberReferralQr')).toBeVisible();await capture(page.locator('#memberReferralModal .member-referral-dialog'),info,`friends-${width}-${theme}`);await page.keyboard.press('Escape');expect(await page.locator('.app-shell').evaluate(e=>e.inert)).toBe(false);
+   await expect(page.locator('#memberReferralShare')).toHaveCount(0);await expect(page.locator('#scanMemberReferralQr')).toHaveCount(0);await expect(page.locator('#memberReferralInviteCode')).toBeVisible();await capture(page.locator('#memberReferralModal .member-referral-dialog'),info,`friends-${width}-${theme}`);await page.keyboard.press('Escape');expect(await page.locator('.app-shell').evaluate(e=>e.inert)).toBe(false);
   }
   if(surface==='points'||surface==='booking'){
    const card=page.locator(surface==='booking'?'#bookingBenefitsList .ui-ticket':'#pointsView .ui-ticket').first();await expect(card).toBeVisible();await fits(card);await expect(card.locator('.is-source')).toContainText(item.cardTitle);await expect(card.locator('.is-cost')).toContainText('5 點');
