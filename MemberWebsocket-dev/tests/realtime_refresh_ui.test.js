@@ -135,14 +135,14 @@ test('point transfer stays synchronized without a full page reload', () => {
   assert.doesNotMatch(transfer, /window\.location\.reload/);
 });
 
-test('point transfer shows the member code, removes outer copy and keeps QR dialog copy', () => {
+test('point transfer displays own code and preserves direct copy without QR scan', () => {
   const transfer = read('points/point-transfer.js');
   const qrDialog = read('qr-scan-dialog.js');
   const css = read('points/point-transfer.css');
 
   assert.match(transfer, /pointTransferOwnMemberCode/);
-  assert.match(transfer, /pointTransferShowOwnQr/);
-  assert.doesNotMatch(transfer, /pointTransferCopyOwnCode|copyOwnMemberCode/);
+  assert.match(transfer, /pointTransferCopyOwnCode/);
+  assert.doesNotMatch(transfer, /pointTransferShowOwnQr|pointTransferScanQr/);
   assert.match(transfer, /profile\?\.memberCode/);
   assert.match(qrDialog, /copy\.textContent = '複製會員編號'/);
   assert.match(qrDialog, /navigator\.clipboard\.writeText\(code\)/);
