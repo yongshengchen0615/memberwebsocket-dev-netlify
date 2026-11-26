@@ -303,8 +303,8 @@ test('AC-016: monthly catalogue uses shared semantic light/dark theme tokens and
   assert.match(js,/aria-label/);
   for (const surface of ['member','points','event','calendar','booking']) {
     const html=fs.readFileSync(path.join(root,surface,'index.html'),'utf8');
-    assert.match(html,/monthly-tier-benefits\.css\?v=20261127-theme-2/);
-    assert.match(html,/monthly-tier-benefits\.js\?v=20261127-theme-2/);
+    assert.match(html,/monthly-tier-benefits\.css\?v=20261127-card-style-1/);
+    assert.match(html,/monthly-tier-benefits\.js\?v=20261127-card-style-1/);
     assert.match(html,/data-member-monthly-tier-teaser>展開查看<\/small>/);
   }
 });
@@ -324,4 +324,59 @@ test('AC-017: month benefits disclosure has an explicit two-way expand/collapse 
     assert.match(html,/data-member-monthly-tier-teaser>展開查看<\/small>/);
     assert.equal((html.match(/data-member-monthly-tier-teaser/g)||[]).length,1);
   }
+});
+
+test('AC-018: monthly tier names/styles follow tenant membership card settings, not fixed rank colors', async () => {
+  const { buildMonthlyTierOverview, MEMBERSHIP_CARD_STYLE_KEYS } = await load();
+  const styleKeys = ['forest','midnight','ocean','sunset','lavender','rose','gold','platinum','mint','cherry'];
+  assert.deepEqual([...MEMBERSHIP_CARD_STYLE_KEYS], styleKeys);
+  const custom = [
+    { tier_key:'general',tier_label:'入門卡',style_key:'rose' },
+    { tier_key:'silver',tier_label:'進階會員',style_key:'ocean' },
+    { tier_key:'gold',tier_label:'尊榮會員',style_key:'cherry' },
+    { tier_key:'platinum',tier_label:'最高等級',style_key:'mint' },
+  ];
+  const result = buildMonthlyTierOverview({month:'2026-11',tierSettings:custom});
+  assert.deepEqual(result.tiers.map(t=>t.label),custom.map(t=>t.tier_label));
+  assert.deepEqual(result.tiers.map(t=>t.styleKey),custom.map(t=>t.style_key));
+  assert.deepEqual(result.tiers.map(t=>t.key),['general','silver','gold','platinum']);
+  assert.ok(result.tiers.every(t=>Array.isArray(t.offers)&&t.offers.length===0));
+  assert.deepEqual(buildMonthlyTierOverview({month:'2026-11'}).tiers.map(t=>t.styleKey),['forest','forest','forest','forest']);
+  const malicious = buildMonthlyTierOverview({month:'2026-11',tierSettings:[
+    {tier_key:'silver',tier_label:'',style_key:'some-untrusted-selector'},
+    {tier_key:'gold',tier_label:'亂'.repeat(100),style_key:'../../script'},
+    {tier_key:'not-a-tier',tier_label:'非法階級',style_key:'rose'},
+  ]});
+  assert.equal(malicious.tiers[1].label,'銀級會員');
+  assert.equal(malicious.tiers[1].styleKey,'forest');
+  assert.equal(malicious.tiers[2].label.length,40);
+  assert.equal(malicious.tiers[2].styleKey,'forest');
+  assert.equal(malicious.tiers.length,4);
+  const api=fs.readFileSync(path.join(__dirname,'..','supabase/functions/member-profile-api/index.ts'),'utf8');
+  assert.match(api,/profileFor\(supabase, member, true\)/);
+  assert.match(api,/tierPresentations: settings\.map/);
+  assert.match(api,/tierSettings: Array\.isArray\(viewerProfile\.tierPresentations\)/);
+  const section=api.slice(api.indexOf('async function monthlyTierBenefits('),api.indexOf("serveBusiness('member-profile-api'"));
+  assert.doesNotMatch(section,/tierSettings\(supabase\)/,'monthly endpoint should reuse already loaded membership-card tier settings');
+});
+
+test('AC-019: all 10 monthly tier palettes are exactly the member-card palettes', () => {
+  const root=path.resolve(__dirname,'..');
+  const card=fs.readFileSync(path.join(root,'member/styles.css'),'utf8');
+  const monthly=fs.readFileSync(path.join(root,'member/monthly-tier-benefits.css'),'utf8');
+  const js=fs.readFileSync(path.join(root,'member/monthly-tier-benefits.js'),'utf8');
+  const cardRules=[...card.matchAll(/\.member-pass\.tier-style-([a-z]+) \{ --pass-background: (#[0-9a-f]{6}); --pass-accent: (#[0-9a-f]{6}); --pass-soft: (#[0-9a-f]{6}); \}/g)];
+  assert.equal(cardRules.length,10);
+  for(const [,name,bg,accent,soft] of cardRules) {
+    const rule = '.member-monthly-benefits :is(.member-monthly-tab, .member-monthly-tier)[data-membership-tier-style="' + name + '"] {\n'
+      + '  --monthly-card-background: ' + bg + ';\n'
+      + '  --monthly-card-accent: ' + accent + ';\n'
+      + '  --monthly-card-soft: ' + soft + ';\n}';
+    assert.ok(monthly.includes(rule),'monthly tier '+name+' should match existing member card palette');
+  }
+  assert.match(monthly,/button\[data-membership-tier-style\]/);
+  assert.match(monthly,/\.member-monthly-tier\[data-membership-tier-style\]/);
+  assert.match(js,/button\.dataset\.membershipTierStyle = cardStyle\(tier\.styleKey\)/);
+  assert.match(js,/section\.dataset\.membershipTierStyle = cardStyle\(tier\.styleKey\)/);
+  assert.match(js,/CARD_STYLE_KEYS\.has\(key\) \? key : 'forest'/);
 });

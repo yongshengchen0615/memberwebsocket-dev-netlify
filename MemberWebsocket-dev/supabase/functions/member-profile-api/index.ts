@@ -105,7 +105,7 @@ async function serviceMinutesTotal(supabase: SupabaseClient, memberId: string): 
   if (result.error) throw new ApiError(500, "DATABASE_ERROR", "會員服務時間暫時無法讀取。");
   return Number(result.data?.[0]?.total_minutes || 0);
 }
-async function profileFor(supabase: SupabaseClient, member: any): Promise<Json> {
+async function profileFor(supabase: SupabaseClient, member: any, includeTierPresentations = false): Promise<Json> {
   const [settings, total] = await Promise.all([tierSettings(supabase), serviceMinutesTotal(supabase, member.id)]);
   let current = settings[0] || { tier_key: "general", tier_label: "一般會員", required_service_minutes: 0, style_key: "forest" };
   for (const row of settings) if (Number(row.required_service_minutes || 0) <= total) current = row;
@@ -133,6 +133,13 @@ async function profileFor(supabase: SupabaseClient, member: any): Promise<Json> 
     tierKey: current.tier_key,
     tier: current.tier_label,
     tierStyleKey: current.style_key || "forest",
+    // Monthly read-only catalogue uses the same tier settings already loaded
+    // for the membership card. Other profile responses remain unchanged.
+    ...(includeTierPresentations ? { tierPresentations: settings.map((row: any) => ({
+      tier_key: asText(row.tier_key, 20),
+      tier_label: asText(row.tier_label, 40),
+      style_key: asText(row.style_key, 24),
+    })) } : {}),
     tierProgress: {
       serviceMinutesTotal: total,
       currentRequiredServiceMinutes: Number(current.required_service_minutes || 0),
@@ -393,7 +400,7 @@ async function monthlyTierBenefits(supabase: SupabaseClient, member: any): Promi
       .eq("item_type", "event").eq("status", "active")
       .lte("starts_on", end).or(`ends_on.gte.${start},and(ends_on.is.null,starts_on.gte.${start})`)
       : Promise.resolve({ data: [], error: null }),
-    profileFor(supabase, member),
+    profileFor(supabase, member, true),
     showTickets || showActivities ? loadVisibilityPolicy(supabase) : Promise.resolve('eligible_only'),
   ]);
   if (ticketResult.error || calendarResult.error)
@@ -412,6 +419,8 @@ async function monthlyTierBenefits(supabase: SupabaseClient, member: any): Promi
     activities: (calendarResult.data || []).filter((row: any) => visibleToViewer(row, true)),
     showTickets,
     showActivities,
+    tierSettings: Array.isArray(viewerProfile.tierPresentations)
+      ? viewerProfile.tierPresentations as Record<string, unknown>[] : [],
   });
 }
 
