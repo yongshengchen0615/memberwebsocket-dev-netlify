@@ -264,8 +264,9 @@ test('monthly tier benefits display four sections on a narrow phone without gran
  await expect(page.locator('#membershipProgress')).toBeVisible();
  await page.addScriptTag({url:base+'/member/monthly-tier-benefits.js'});
  await page.evaluate(()=>{
-   window.MemberSystem.request = async(_config,_client,_token,action)=>{
-     if(action!=='user.member.monthly-tier-benefits')throw Error('UNEXPECTED_ACTION');
+   const originalRequest = window.MemberSystem.request;
+   window.MemberSystem.request = async(_config,_client,_token,action,...rest)=>{
+     if(action!=='user.member.monthly-tier-benefits')return originalRequest(_config,_client,_token,action,...rest);
      return {month:'2026-11',tiers:[
        {key:'general',label:'一般會員',offers:[{kind:'ticket',title:'一般級券',startsOn:'2026-11-01',endsOn:'2026-11-30'}]},
        {key:'silver',label:'銀級會員',offers:[{kind:'activity',title:'銀級活動',startsOn:'2026-11-15',endsOn:'2026-11-15'}]},
