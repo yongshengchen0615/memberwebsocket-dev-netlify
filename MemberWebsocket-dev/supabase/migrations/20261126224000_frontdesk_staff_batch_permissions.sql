@@ -9,16 +9,14 @@ begin
   if position(anchor in d)=0 then raise exception 'FRONTDESK_BATCH_ACTION_DRIFT';end if;
   d:=replace(d,anchor,'''staff.save'',''staff.delete'',''staff.batch'')');
  end if;
- if position('item jsonb;' in d)=0 then
-  anchor:='high_duration integer;';
-  if position(anchor in d)=0 then raise exception 'FRONTDESK_BATCH_DECLARE_DRIFT';end if;
-  d:=replace(d,anchor,anchor||' item jsonb;');
- end if;
  anchor:='elsif p_action=''staff.save'' then';
  if position('elsif p_action=''staff.batch'' then' in d)=0 then
   if position(anchor in d)=0 then raise exception 'FRONTDESK_BATCH_BRANCH_DRIFT';end if;
   code:=$branch$
  elsif p_action='staff.batch' then
+  -- Local block declarations avoid dependency on historical function headers.
+  declare item jsonb;
+  begin
   if (p_body->>'expectedVersion')::integer is distinct from t.version then raise exception 'PLATFORM_CONFLICT';end if;
   if jsonb_typeof(p_body->'updates') is distinct from 'array'
    or jsonb_array_length(p_body->'updates') not between 1 and 100
@@ -56,6 +54,7 @@ begin
      using s.line_user_id;
    end if;
   end loop;
+  end;
 $branch$;
   d:=replace(d,anchor,code||' '||anchor);
  end if;
