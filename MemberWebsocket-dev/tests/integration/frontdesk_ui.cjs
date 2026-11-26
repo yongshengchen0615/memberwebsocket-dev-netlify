@@ -126,7 +126,7 @@ test('frontdesk removal requires confirmation, sends scoped delete, and clears s
  assert.equal(retry.disabled,false,'an uncertain removal must offer an enabled retry');
  assert.equal(retry.textContent,'重試相同儲存操作');
  assert.equal(retry.getAttribute('aria-label'),'重試相同儲存操作','screen readers must identify the retry');
- assert.equal(root.querySelector('.frontdesk-person button[type=submit]').disabled,true,'different writes stay locked');
+ assert.equal(root.querySelector('.frontdesk-person select').disabled,true,'different writes stay locked');
  retry.click();await new Promise(r=>setImmediate(r));
  const deletions=calls.filter(x=>x.action==='platform.frontdesk.staff.delete');
  assert.equal(deletions.length,2,'same deletion re-sent exactly once');
@@ -280,7 +280,7 @@ test('AC-FR-MODAL-004: technician leave requires reason and never requests phone
  w.close();
 });
 
-test('AC-FD-HIST-001~004: three accessible tabs show scoped confirmed/rejected details without HTML injection', async()=>{
+test('AC-FD-HIST-001~004: dedicated staff tab and scoped history tabs prevent HTML injection', async()=>{
  const dom=new JSDOM('<div id="root"></div>',{
   url:'https://desk.test/admin/frontdesk-settings/?business=shop-a',
   runScripts:'outside-only',pretendToBeVisual:true
@@ -315,20 +315,25 @@ test('AC-FD-HIST-001~004: three accessible tabs show scoped confirmed/rejected d
  const settle=()=>new Promise(resolve=>setImmediate(resolve));
  await settle();await settle();
  const tabs=[...root.querySelectorAll('[role="tab"]')].filter(x=>!x.hidden);
- assert.deepEqual(tabs.map(x=>x.textContent),['LINE 設定','確認預約','拒絕預約']);
+ assert.deepEqual(tabs.map(x=>x.textContent),['LINE 設定','櫃檯人員申請與權限','確認預約','拒絕預約']);
+ assert.equal(root.querySelector('#frontdesk-staff-panel').hidden,true,'people do not appear under LINE settings');
+ tabs[1].click();
+ assert.equal(root.querySelector('#frontdesk-staff-panel').hidden,false,'staff tab exposes own panel');
+ assert.equal(root.querySelector('#frontdesk-history-panel').hidden,true);
+ tabs[0].click();
  assert.equal(root.querySelector('#frontdesk-tab-rejectionSettings').hidden,true,
   'old backend contract must not expose a non-functional rejection settings tab');
  assert.equal(tabs[0].getAttribute('aria-selected'),'true');
  assert.equal(calls.filter(x=>x.action==='platform.frontdesk.history.list').length,0,'history fetch is lazy');
- tabs[1].click();await settle();await settle();
- assert.equal(tabs[1].getAttribute('aria-selected'),'true');
+ tabs[2].click();await settle();await settle();
+ assert.equal(tabs[2].getAttribute('aria-selected'),'true');
  assert.equal(root.querySelector('#frontdesk-line-panel').hidden,true);
  assert.equal(root.querySelector('#frontdesk-history-panel').hidden,false);
  assert.match(root.querySelector('#frontdesk-history-panel').textContent,/收件櫃檯/);
  assert.match(root.querySelector('#frontdesk-history-panel').textContent,/身體60/);
  assert.match(root.querySelector('#frontdesk-history-panel').textContent,/個別備註/);
  assert.equal(root.querySelectorAll('img').length,0,'user-provided text must not become HTML');
- tabs[2].click();await settle();await settle();
+ tabs[3].click();await settle();await settle();
  const history=root.querySelector('#frontdesk-history-panel');
  assert.match(history.textContent,/該時段已被現場人員預約但未登記/);
  assert.match(history.textContent,/後續登記的現場／電話預約/);
