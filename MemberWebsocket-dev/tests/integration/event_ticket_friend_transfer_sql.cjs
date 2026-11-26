@@ -125,6 +125,9 @@ async function run() {
     );
     await db.exec(giftPolicy);
     await db.exec(repeatableGift);
+    // The development publish pipeline may replay this schema-only migration
+    // after an earlier test workspace upgrade; replay must preserve all claims.
+    await db.exec(repeatableGift);
     const legacy=(await db.query("select transfer_ordinal from public.event_ticket_transfers where claim_id='CLAIM-12' order by transfer_ordinal")).rows;
     assert.deepEqual(legacy.map(row=>row.transfer_ordinal),[1,2],'historical forwarding remains auditable');
     await mustReject(db.query(
