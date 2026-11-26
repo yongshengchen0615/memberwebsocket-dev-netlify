@@ -303,7 +303,7 @@ test('AC-016: monthly catalogue uses shared semantic light/dark theme tokens and
   assert.match(js,/aria-label/);
   for (const surface of ['member','points','event','calendar','booking']) {
     const html=fs.readFileSync(path.join(root,surface,'index.html'),'utf8');
-    assert.match(html,/monthly-tier-benefits\.css\?v=20261127-card-style-1/);
+    assert.match(html,/monthly-tier-benefits\.css\?v=20261127-card-style-2/);
     assert.match(html,/monthly-tier-benefits\.js\?v=20261127-card-style-1/);
     assert.match(html,/data-member-monthly-tier-teaser>展開查看<\/small>/);
   }
@@ -379,4 +379,21 @@ test('AC-019: all 10 monthly tier palettes are exactly the member-card palettes'
   assert.match(js,/button\.dataset\.membershipTierStyle = cardStyle\(tier\.styleKey\)/);
   assert.match(js,/section\.dataset\.membershipTierStyle = cardStyle\(tier\.styleKey\)/);
   assert.match(js,/CARD_STYLE_KEYS\.has\(key\) \? key : 'forest'/);
+});
+
+test('AC-020: monthly tier labels mirror the white frosted pill typography on the member card', () => {
+  const card = fs.readFileSync(path.join(__dirname, '..', 'member/member-card-refresh.css'), 'utf8');
+  const monthly = fs.readFileSync(path.join(__dirname, '..', 'member/monthly-tier-benefits.css'), 'utf8');
+  const memberPill = /#memberView \.tier \{([^}]+)\}/.exec(card)?.[1] || '';
+  const tabPill = /\.member-monthly-benefits-tabs button\[data-membership-tier-style\] \.member-monthly-tab-label \{([^}]+)\}/.exec(monthly)?.[1] || '';
+  const detailPill = /\.member-monthly-tier\[data-membership-tier-style\] \.member-monthly-tier-heading h4 \{([^}]+)\}/.exec(monthly)?.[1] || '';
+  for (const property of ['border-radius: 999px', 'color: #fff', 'background: rgba(255,255,255,.14)', 'font-size: 12px']) {
+    assert.ok(memberPill.includes(property), 'member card is the design source: ' + property);
+    assert.ok(tabPill.includes(property), 'monthly tabs must match member card: ' + property);
+    assert.ok(detailPill.includes(property), 'expanded tier heading must match member card: ' + property);
+  }
+  for (const pill of [tabPill, detailPill]) assert.match(pill, /font-weight:\s*800/);
+  assert.match(monthly, /\.member-monthly-tier\[data-membership-tier-style\] \.member-monthly-tier-heading \{/);
+  assert.match(monthly, /background: linear-gradient\(145deg, rgba\(255,255,255,\.075\), transparent 55%\), var\(--monthly-card-background\)/);
+  assert.match(monthly, /\.member-monthly-tier\[data-membership-tier-style\] \.member-monthly-current-tag \{/);
 });
