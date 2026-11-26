@@ -76,21 +76,68 @@ $fn$;
 create or replace function public.refresh_member_tier_event_tickets()
 returns trigger language plpgsql security definer set search_path=''
 as $fn$
+declare
+  v_members uuid[];
+  v_deltas integer[];
+  v_index integer;
+  v_after integer;
+  v_before integer;
+  v_prior_tier text;
+  v_current_tier text;
+  v_member uuid;
+  v_today date := (clock_timestamp() at time zone 'Asia/Taipei')::date;
 begin
   if tg_table_name='members' then
     if new.status='active' and new.membership_status='active' then
       perform public.issue_member_tier_event_tickets(new.id);
+      -- A late activation can qualify for an existing monthly/weekly fixed ticket.
+      if tg_op='INSERT' then
+        perform public.issue_fixed_tickets(v_today,new.id,null::uuid);
+      elsif old.status is distinct from new.status
+         or old.membership_status is distinct from new.membership_status then
+        perform public.issue_fixed_tickets(v_today,new.id,null::uuid);
+      end if;
     end if;
     return new;
   end if;
-  if tg_op='DELETE' then
-    perform public.issue_member_tier_event_tickets(old.member_id);
-    return old;
+
+  -- A service-time mutation can change the rank in either direction. Compute the
+  -- previous minutes from the committed row delta instead of trusting a client tier.
+  if tg_op='INSERT' then
+    v_members := array[new.member_id];
+    v_deltas := array[new.minutes];
+  elsif tg_op='DELETE' then
+    v_members := array[old.member_id];
+    v_deltas := array[-old.minutes];
+  elsif new.member_id = old.member_id then
+    v_members := array[new.member_id];
+    v_deltas := array[new.minutes-old.minutes];
+  else
+    v_members := array[new.member_id,old.member_id];
+    v_deltas := array[new.minutes,-old.minutes];
   end if;
-  perform public.issue_member_tier_event_tickets(new.member_id);
-  if tg_op='UPDATE' and old.member_id is distinct from new.member_id then
-    perform public.issue_member_tier_event_tickets(old.member_id);
-  end if;
+
+  for v_index in 1..cardinality(v_members) loop
+    v_member := v_members[v_index];
+    perform public.issue_member_tier_event_tickets(v_member);
+    if v_deltas[v_index]=0 then continue; end if;
+    select coalesce(sum(minutes),0)::integer into v_after
+      from public.service_time_entries where member_id=v_member;
+    v_before := v_after-v_deltas[v_index];
+    select s.tier_key into v_prior_tier from public.membership_tier_settings s
+     where s.required_service_minutes<=v_before
+     order by s.required_service_minutes desc limit 1;
+    v_current_tier := public.current_tier_key(v_member);
+    if v_prior_tier is distinct from v_current_tier
+      and public.tier_allows(v_current_tier,array[v_prior_tier])
+      and exists(select 1 from public.members m where m.id=v_member
+                 and m.status='active' and m.membership_status='active') then
+      -- Existing fixed-cycle issuer enforces birthday, validity, per-cycle
+      -- uniqueness, quota, and notification policy. Do not bypass it.
+      perform public.issue_fixed_tickets(v_today,v_member,null::uuid);
+    end if;
+  end loop;
+  if tg_op='DELETE' then return old; end if;
   return new;
 end;
 $fn$;
@@ -100,6 +147,7 @@ returns trigger language plpgsql security definer set search_path=''
 as $fn$
 begin
   if new.status='active' and new.deleted_at is null
+    and (new.ends_on is null or new.ends_on >= (clock_timestamp() at time zone 'Asia/Taipei')::date)
     and (tg_op='INSERT' or old.status is distinct from 'active'
       or old.allowed_tier_keys is distinct from new.allowed_tier_keys
       or old.ends_on is distinct from new.ends_on) then
