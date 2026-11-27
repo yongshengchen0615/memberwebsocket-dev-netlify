@@ -332,11 +332,11 @@ for (const variant of [
       const style = getComputedStyle(el);
       return { background: style.backgroundColor, borderColor: style.borderTopColor };
     });
-    expect(await holidaySurface()).toEqual(variant.theme === 'dark'
+    await expect.poll(holidaySurface).toEqual(variant.theme === 'dark'
       ? { background: 'rgb(66, 35, 30)', borderColor: 'rgb(255, 151, 120)' }
       : { background: 'rgb(255, 237, 223)', borderColor: 'rgb(182, 70, 47)' });
     await day.hover();
-    expect(await holidaySurface()).toEqual(variant.theme === 'dark'
+    await expect.poll(holidaySurface).toEqual(variant.theme === 'dark'
       ? { background: 'rgb(84, 48, 39)', borderColor: 'rgb(255, 178, 149)' }
       : { background: 'rgb(255, 223, 202)', borderColor: 'rgb(159, 50, 28)' });
     await day.click();
