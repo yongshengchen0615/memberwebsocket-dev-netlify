@@ -8,6 +8,8 @@ const root=path.resolve(__dirname,'../../../supabase/migrations');
 const sql=n=>fs.readFileSync(path.join(root,n),'utf8');
 const prerequisites=[
  '20261030050000_ticket_booking_service_groups.sql',
+ '20261105044538_booking_item_price_publishing.sql',
+ '20261105063730_booking_immediate_price_publication_status.sql',
  '20261110184500_general_event_ticket_amount_gate.sql',
  '20261118094500_event_ticket_amount_requires_booking.sql'
 ];
