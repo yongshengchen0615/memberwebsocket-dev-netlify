@@ -290,8 +290,8 @@
       const owned = renderedItems.find(item => item.kind === 'event' && item.id === guidedTicketId && item.selectionId);
       const guideText = el('bookingTicketGuideText');
       if (guideText) guideText.textContent = owned
-        ? '請切換至一般預約模式，選擇日期、服務與時段，於「本次可使用優惠」勾選「' + String(owned.title || '活動票券') + '」，再確認送出預約。實際核銷將於服務完成時由後端再次驗證。'
-        : '請切換至一般預約模式，選擇日期、服務與時段，並在送出前勾選已發放且符合使用條件的活動票券。若未顯示票券，請檢查會員資格、活動期限與使用名額。';
+        ? '請切換至一般預約模式，選擇日期、服務與時段，確認預約內容後於「本次可使用優惠」視窗勾選「' + String(owned.title || '活動票券') + '」，再確認送出預約。實際核銷將於服務完成時由後端再次驗證。'
+        : '請切換至一般預約模式，選擇日期、服務與時段，確認預約內容後於優惠視窗勾選已發放且符合使用條件的活動票券。若未顯示票券，請檢查會員資格、活動期限與使用名額。';
     }
     window.dispatchEvent(new CustomEvent('booking:benefits-loaded', { detail: { items: renderedItems } }));
     const list = el('bookingBenefitsList');

@@ -971,32 +971,6 @@
     contactBox.append(contactTitle, contactValue);
     box.appendChild(contactBox);
 
-    const benefits = (window.BookingBenefits?.selectionSummary?.() || [])
-      .filter((item) => item?.kind === 'points' || item?.kind === 'event');
-    const benefitBox = document.createElement('div');
-    benefitBox.className = 'group-confirm-participant booking-confirm-benefits';
-    const benefitTitle = document.createElement('strong');
-    benefitTitle.textContent = '本次使用票券';
-    benefitBox.appendChild(benefitTitle);
-    if (benefits.length) {
-      const ticketKinds = { points: '集點卡票券', event: '活動票券' };
-      const ticketList = document.createElement('ul');
-      ticketList.className = 'booking-confirm-ticket-list';
-      benefits.forEach((item) => {
-        const ticket = document.createElement('li');
-        ticket.dataset.benefitKind=item.kind;
-        const sourceTitle = item.kind === 'points' && item.cardTitle ? `${item.cardTitle}｜` : '';
-        ticket.textContent = `${ticketKinds[item.kind] || '票券'}：${sourceTitle}${item.title || '未命名票券'}`;
-        ticketList.appendChild(ticket);
-      });
-      benefitBox.appendChild(ticketList);
-    } else {
-      const benefitCopy = document.createElement('p');
-      benefitCopy.textContent = '本次未使用票券';
-      benefitBox.appendChild(benefitCopy);
-    }
-    box.appendChild(benefitBox);
-
     root.replaceChildren(box);
     return true;
   }

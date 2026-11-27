@@ -26,13 +26,13 @@ test('AC-006: a price changed after confirmation was opened preserves the draft 
   click('10:00–11:10');w.document.getElementById('bookingForm').dispatchEvent(new w.Event('submit',{cancelable:true}));
   assert.match(w.document.getElementById('bookingConfirmSummary').textContent,/500/);
   data.services[0].priceAmount=800;data.services[0].priceVersion=v2;
-  click('確認送出');for(let i=0;i<30&&!w.document.getElementById('bookingConfirmMessage').textContent.includes('價格已更新');i++)await pause();
-  assert.equal(writes.length,1);assert.equal(writes[0].expectedPrices[0].priceVersion,v1,'send the displayed quote, not the most recently fetched catalog');
+  click('下一步：選擇優惠');assert.equal(w.document.getElementById('bookingBenefitModal').classList.contains('hidden'),false);click('不使用優惠送出預約');for(let i=0;i<30&&!w.document.getElementById('bookingConfirmMessage').textContent.includes('價格已更新');i++)await pause();
+  assert.equal(writes.length,1);assert.equal(JSON.stringify(writes[0].benefits),'[]','no-benefit quote must not change redemption');assert.equal(writes[0].expectedPrices[0].priceVersion,v1,'send the displayed quote, not the most recently fetched catalog');
   assert.equal(w.document.getElementById('memberNote').value,'保留草稿');
   assert.equal(w.document.getElementById('bookingConfirmModal').classList.contains('hidden'),true,'refresh preserves the existing requirement to reselect a fresh available slot');
   click('10:00–11:10');w.document.getElementById('bookingForm').dispatchEvent(new w.Event('submit',{cancelable:true}));
   assert.match(w.document.getElementById('bookingConfirmSummary').textContent,/800/);
-  click('確認送出');for(let i=0;i<30&&writes.length<2;i++)await pause();
+  click('下一步：選擇優惠');assert.equal(w.document.getElementById('bookingBenefitModal').classList.contains('hidden'),false);click('不使用優惠送出預約');for(let i=0;i<30&&writes.length<2;i++)await pause();
   assert.equal(writes[1].expectedPrices[0].priceAmount,800);assert.equal(writes[1].expectedPrices[0].priceVersion,v2);
  }finally{w.close();}
 });

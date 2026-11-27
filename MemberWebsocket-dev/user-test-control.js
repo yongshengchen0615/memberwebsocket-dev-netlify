@@ -2665,6 +2665,42 @@
     }, 7000);
   }
 
+  // Follow the production review -> optional-benefits -> submit flow.
+  async function finishBookingAfterBenefitReview(selectedBenefit = null) {
+    const next = document.getElementById('confirmBookingButton');
+    if (!next || next.disabled) throw new Error('預約確認 E2E 找不到可用的下一步按鈕。');
+    next.click();
+    const modal = await waitFor(() => {
+      const dialog = document.getElementById('bookingBenefitModal');
+      return dialog && !dialog.classList.contains('hidden') ? dialog : null;
+    }, 2500, 60);
+    if (!modal) throw new Error('預約確認 E2E 沒有進入「本次可使用優惠」視窗。');
+
+    const chosen = { benefitSelected: false, groupedSectionVisible: false };
+    if (selectedBenefit) {
+      const input = await waitFor(() => {
+        const checkbox = modal.querySelector(selectedBenefit.selector);
+        return checkbox && !checkbox.disabled ? checkbox : null;
+      }, 6000, 80);
+      if (!input) throw new Error('優惠 E2E 找不到可使用的 QA 票券。');
+      chosen.groupedSectionVisible = Boolean(input.closest('.booking-benefit-group[data-benefit-kind="points"]'));
+      if (!input.checked) input.click();
+      chosen.benefitSelected = Boolean(await waitFor(() => input.checked
+        && (window.BookingBenefits?.selectionPayload?.() || []).some((item) =>
+          item.kind === selectedBenefit.kind && String(item.id) === String(selectedBenefit.id)
+        ), 1800, 60));
+      if (!chosen.benefitSelected) throw new Error('優惠 E2E 勾選後未形成送出意圖。');
+    }
+    const submitId = selectedBenefit ? 'useBookingBenefitsButton' : 'skipBookingBenefitsButton';
+    const submit = await waitFor(() => {
+      const button = modal.querySelector('#' + submitId);
+      return button && !button.disabled ? button : null;
+    }, 2200, 60);
+    if (!submit) throw new Error('預約優惠 E2E 的最終送出按鈕不可使用。');
+    submit.click();
+    return chosen;
+  }
+
   async function bookingBenefitRedemptionLifecycleCase() {
     const fixture = await qaServiceRequest('user.qa.fixture.prepare');
     const note = 'QA HUMAN E2E BENEFIT ' + String(fixture.fixtureTag || Date.now().toString(36));
@@ -2685,10 +2721,6 @@
       window.BookingBenefits?.invalidate?.();
       const selector = 'input[data-booking-benefit-kind="points"][data-booking-benefit-id="' +
         CSS.escape(String(fixture.ticketId || '')) + '"]';
-      const checkbox = await waitFor(() => document.querySelector(selector), 6000, 100);
-      if (!checkbox) throw new Error('QA 預約優惠票券沒有出現在「本次可使用優惠」。');
-      actual.groupedSectionVisible = Boolean(checkbox.closest('.booking-benefit-group[data-benefit-kind="points"]'));
-
       let panel = null;
       let slot = null;
       const enabledDateCount = document.querySelectorAll('#calendarGrid button.calendar-day:not(:disabled):not(.holiday-disabled)').length;
@@ -2699,15 +2731,6 @@
         if (!add) return skip('目前沒有可供預約優惠 E2E 的一般預約項目。', { normalService: true }, { normalService: false });
         add.click();
         actual.serviceAdded = actual.serviceAdded || Boolean(await waitFor(() => document.querySelector('#selectedServiceList .selected-service-remove'), 1200));
-
-        const currentCheckbox = await waitFor(() => document.querySelector(selector), 2500, 80);
-        if (!currentCheckbox) throw new Error('開啟預約視窗後找不到 QA 預約優惠票券。');
-        if (!currentCheckbox.checked) currentCheckbox.click();
-        actual.benefitSelected = Boolean(await waitFor(() => {
-          const node = document.querySelector(selector);
-          const payload = window.BookingBenefits?.selectionPayload?.() || [];
-          return node?.checked && payload.some((item) => item.kind === 'points' && item.id === fixture.ticketId);
-        }, 1500, 60));
 
         setFieldValue(document.getElementById('memberNote'), note);
         slot = await chooseAvailableSlot();
@@ -2732,7 +2755,9 @@
       submit.click();
       await waitFor(() => !document.getElementById('bookingConfirmModal')?.classList.contains('hidden'), 1800);
       const createdEventPromise = waitForBookingCreatedEvent(note, 12000);
-      document.getElementById('confirmBookingButton')?.click();
+      const selected = await finishBookingAfterBenefitReview({ selector, kind: 'points', id: fixture.ticketId });
+      actual.groupedSectionVisible = selected.groupedSectionVisible;
+      actual.benefitSelected = selected.benefitSelected;
       const createdBooking = await createdEventPromise;
       const identity = await reconcileBookingIdentity(note, createdBooking, 12000);
       bookingId = identity.bookingId;
@@ -2849,7 +2874,7 @@
       submit?.click();
       await waitFor(() => confirmModal && !confirmModal.classList.contains('hidden'), 1500);
       const createdEventPromise = waitForBookingCreatedEvent(note, 12000);
-      document.getElementById('confirmBookingButton')?.click();
+      await finishBookingAfterBenefitReview();
       const createdBooking = await createdEventPromise;
       const createdIdentity = await reconcileBookingIdentity(note, createdBooking, 10000);
       let card = createdIdentity.card;
@@ -2898,7 +2923,7 @@
       }, 7000);
       editSubmit?.click();
       await waitFor(() => !document.getElementById('bookingConfirmModal')?.classList.contains('hidden'), 1500);
-      document.getElementById('confirmBookingButton')?.click();
+      await finishBookingAfterBenefitReview();
       card = await waitForBookingCardByNote(updatedNote, 10000);
       actual.updated = Boolean(card);
 
@@ -2983,7 +3008,7 @@
       document.getElementById('submitBookingButton')?.click();
       await waitFor(() => !document.getElementById('bookingConfirmModal')?.classList.contains('hidden'), 1800);
       const createdEventPromise = waitForBookingCreatedEvent(note, 12000);
-      document.getElementById('confirmBookingButton')?.click();
+      await finishBookingAfterBenefitReview();
       const createdBooking = await createdEventPromise;
       const createdIdentity = await reconcileBookingIdentity(note, createdBooking, 12000);
       const card = createdIdentity.card;
@@ -3295,7 +3320,7 @@
       points: /^(retryButton|joinMemberButton|logoutButton|pointTransferButton|pointTransferClose|pointTransferCopyOwnCode|pointTransferLookup|pointTransferSubmit|pointTransferChooseFriend|pointTransferUseFriend|pointTransferFriendCancel)$|qr-scan-dialog-close|card-tab|ticket-overview-use|ticket-batch-(cancel|confirm)|ticket-live-location-confirm/, 
       event: /^(retryButton|joinMemberButton|logoutButton|closeTicketModal|ticketModalAction|refreshTicketButton)$|ticket-button|event-history-button|ticketModalLocationButton/,
       calendar: /^(retryButton|joinMemberButton|logoutButton|previousMonthButton|todayButton|nextMonthButton|closeCalendarDetailButton)$|calendar-day/,
-      booking: /^(retryButton|joinMemberButton|logoutButton|previousMonthButton|nextMonthButton|closeAppointmentButton|cancelEditBookingButton|submitBookingButton|confirmBookingNoticeButton|closeBookingConfirmButton|cancelBookingConfirmButton|confirmBookingButton|closeBookingHolidayButton|bookingBenefitsRetry|bookingReceiptClose|bookingReceiptCapture|bookingReceiptRetake|bookingReceiptDiscard|bookingReceiptCancel|bookingReceiptSubmit|bookingAccessibleToggle|bookingAccessibleUpload|bookingAccessibleRefresh)$|calendar-day|service-add-button|selected-service-remove|slot-button|text-danger-button|button-light|拍攝收據送出審核|收據上傳未完成/
+      booking: /^(retryButton|joinMemberButton|logoutButton|previousMonthButton|nextMonthButton|closeAppointmentButton|cancelEditBookingButton|submitBookingButton|confirmBookingNoticeButton|closeBookingConfirmButton|cancelBookingConfirmButton|confirmBookingButton|closeBookingBenefitButton|backToBookingReviewButton|useBookingBenefitsButton|skipBookingBenefitsButton|closeBookingHolidayButton|bookingBenefitsRetry|bookingReceiptClose|bookingReceiptCapture|bookingReceiptRetake|bookingReceiptDiscard|bookingReceiptCancel|bookingReceiptSubmit|bookingAccessibleToggle|bookingAccessibleUpload|bookingAccessibleRefresh)$|calendar-day|service-add-button|selected-service-remove|slot-button|text-danger-button|button-light|拍攝收據送出審核|收據上傳未完成/
     };
     const mapped = [];
     const unmapped = [];

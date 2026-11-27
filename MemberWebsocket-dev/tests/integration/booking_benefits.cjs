@@ -22,7 +22,7 @@ const items = [
   { kind: 'calendar', id: 'CAL', selectionId: '', selectable: false, title: '會員活動', statusLabel: '活動進行中', conditionLabel: '會員條件：目前會員階級適用 · 活動資訊僅供預約參考' },
 ];
 
-test('0/1/N benefit cards render safely inside booking form and expose only eligible selectors', async () => {
+test('0/1/N benefit cards render safely in the post-review dialog and expose only eligible selectors', async () => {
   for (const count of [0, 1, 3]) {
     let calls = 0;
     const h = fixture(async () => { calls++; return { eventTicketMaxPerDay: 2, items: items.slice(0, count) }; });
@@ -31,9 +31,11 @@ test('0/1/N benefit cards render safely inside booking form and expose only elig
       assert.equal(h.el('bookingBenefitsList').querySelectorAll('.booking-benefit').length, count);
       assert.equal(h.el('bookingBenefits').dataset.state, count ? 'ready' : 'empty');
       assert.equal(h.el('bookingBenefitsList').getAttribute('aria-busy'), 'false');
-      assert.equal(h.el('bookingBenefits').closest('form')?.id, 'bookingForm');
+      assert.equal(h.el('bookingBenefits').closest('form'), null, 'no discounts are shown inside appointment inputs');
+      assert.equal(h.el('bookingBenefits').closest('[role="dialog"]')?.id, 'bookingBenefitModal', 'discounts belong in the final dialog');
       const note = h.el('memberNote');
-      assert.ok(h.el('bookingBenefits').compareDocumentPosition(note) & h.w.Node.DOCUMENT_POSITION_FOLLOWING);
+      assert.ok(h.el('bookingForm').contains(note), 'booking note remains editable before confirmation');
+      assert.equal(h.el('bookingForm').contains(h.el('bookingBenefits')), false, 'discount selector stays outside the form');
       assert.equal(h.el('bookingBenefitsList').querySelector('img'), null);
       const links = h.el('bookingBenefitsList').querySelectorAll('a');
        assert.equal(links.length, 0, 'booking benefit cards must have no detail navigation, including calendar activities');

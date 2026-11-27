@@ -192,8 +192,6 @@ html[data-theme] #bookingView :where(.calendar-nav-button, .calendar-day) {
   border-color: var(--theme-border);
 }
 
-/* Preserve the holiday-specific border on hover; holiday colors are a warning,
-   not the generic selectable-calendar accent. Keyboard focus retains its outline. */
 html[data-theme] #bookingView .calendar-day:not(.holiday-disabled):not(:disabled):hover {
   border-color: var(--theme-accent);
   box-shadow: 0 0 0 2px var(--theme-focus-ring);
@@ -569,29 +567,29 @@ html[data-theme] :is(#bookingPanel .booking-admin-booking, .accessible-admin-que
   border-radius: var(--ui-radius-md); background: var(--theme-surface-raised);
 }
 
-/* The same ticket card and definition list in points, standard booking and large-print booking. */
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket {
+/* Shared point-ticket presentation also applies to the separate final booking-offer dialog. */
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket {
   display: flex; flex-direction: column; gap: var(--ui-space-2); min-width: 0; height: 100%;
   padding: var(--ui-space-4); border: 1px solid var(--theme-border-strong); border-radius: var(--ui-radius-lg);
   color: var(--theme-text); background: var(--theme-surface-raised); box-shadow: var(--theme-shadow); filter: none; opacity: 1;
 }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket::before { content: none; }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket :is(h3, h4) { margin: 0; color: var(--theme-text); font-size: 16px; line-height: 1.5; overflow-wrap: anywhere; }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket :is(p, small, .ticket-state) { margin: 0; color: var(--theme-text-muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket :is(.member-ticket-type, .booking-benefit-meta) { align-self: start; color: var(--theme-accent); background: var(--theme-accent-soft); border-radius: 999px; padding: 4px 8px; font-size: 12px; font-weight: 800; }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket.is-selected { border-color: var(--theme-accent); box-shadow: 0 0 0 1px var(--theme-accent); }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket.is-reserved { border-color: var(--theme-warning-text); }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket :is(.member-ticket-footer, .booking-benefit-select) { order: 2; margin-top: auto; display: flex; align-items: center; gap: var(--ui-space-2); flex-wrap: wrap; }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket :is(.ticket-checkbox-action, .booking-benefit-select) {
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket::before { content: none; }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket :is(h3, h4) { margin: 0; color: var(--theme-text); font-size: 16px; line-height: 1.5; overflow-wrap: anywhere; }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket :is(p, small, .ticket-state) { margin: 0; color: var(--theme-text-muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket :is(.member-ticket-type, .booking-benefit-meta) { align-self: start; color: var(--theme-accent); background: var(--theme-accent-soft); border-radius: 999px; padding: 4px 8px; font-size: 12px; font-weight: 800; }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket.is-selected { border-color: var(--theme-accent); box-shadow: 0 0 0 1px var(--theme-accent); }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket.is-reserved { border-color: var(--theme-warning-text); }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket :is(.member-ticket-footer, .booking-benefit-select) { order: 2; margin-top: auto; display: flex; align-items: center; gap: var(--ui-space-2); flex-wrap: wrap; }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket :is(.ticket-checkbox-action, .booking-benefit-select) {
   min-height: var(--ui-control-height); color: var(--theme-text); background: var(--theme-surface-muted);
   border: 1px solid var(--theme-border); border-radius: var(--ui-radius-sm); padding: 8px 10px; white-space: normal;
 }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket :is(.ticket-checkbox-action, .booking-benefit-select):has(input:disabled) { opacity: .7; cursor: not-allowed; }
-html[data-theme] :is(#pointsView, #bookingView) .ticket-cost-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-space-2); margin: 0; }
-html[data-theme] :is(#pointsView, #bookingView) .ticket-cost-card { min-width: 0; padding: 10px; border: 1px solid var(--theme-border); border-radius: var(--ui-radius-sm); background: var(--theme-surface-muted); }
-html[data-theme] :is(#pointsView, #bookingView) .ticket-cost-card.is-source { grid-column: 1 / -1; }
-html[data-theme] :is(#pointsView, #bookingView) .ticket-cost-card dt { color: var(--theme-text-muted); font-size: 11px; line-height: 1.5; }
-html[data-theme] :is(#pointsView, #bookingView) .ticket-cost-card dd { margin: 4px 0 0; color: var(--theme-text); font-size: 14px; font-weight: 850; line-height: 1.5; overflow-wrap: anywhere; }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket :is(.ticket-checkbox-action, .booking-benefit-select):has(input:disabled) { opacity: .7; cursor: not-allowed; }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ticket-cost-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-space-2); margin: 0; }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ticket-cost-card { min-width: 0; padding: 10px; border: 1px solid var(--theme-border); border-radius: var(--ui-radius-sm); background: var(--theme-surface-muted); }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ticket-cost-card.is-source { grid-column: 1 / -1; }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ticket-cost-card dt { color: var(--theme-text-muted); font-size: 11px; line-height: 1.5; }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ticket-cost-card dd { margin: 4px 0 0; color: var(--theme-text); font-size: 14px; font-weight: 850; line-height: 1.5; overflow-wrap: anywhere; }
 @media (max-width: 640px) {
   html[data-theme] :where(.topbar, .account-menu) { max-width: 100%; }
   html[data-theme] :where(.section-heading, .booking-benefits-heading) { align-items: start; }
@@ -606,42 +604,42 @@ html[data-theme] .booking-accessible-mode #bookingView .ticket-cost-card dt {fon
 html[data-theme] .booking-accessible-mode #bookingView .ticket-cost-card dd {font-size:18px;}
 
 /* Point-card ticket visual identity: source card presets shared by points and booking. */
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket[data-card-style="citrus"] { --card-style-surface:#6f2f0e; --card-style-background:linear-gradient(135deg,#6f2f0e 0%,#a84e13 56%,#573018 100%); --card-style-accent:#ffd29a; }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket[data-card-style="coral"] { --card-style-surface:#7a2630; --card-style-background:linear-gradient(135deg,#7a2630 0%,#b24c3b 55%,#5f2330 100%); --card-style-accent:#ffc0ad; }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket[data-card-style="lagoon"] { --card-style-surface:#07505b; --card-style-background:linear-gradient(135deg,#07505b 0%,#0b7380 55%,#123d4c 100%); --card-style-accent:#9ee9df; }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket[data-card-style="skyline"] { --card-style-surface:#1b3f72; --card-style-background:linear-gradient(135deg,#1b3f72 0%,#2567a7 55%,#182e52 100%); --card-style-accent:#b9dbff; }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket[data-card-style="violet"] { --card-style-surface:#3d286c; --card-style-background:linear-gradient(135deg,#3d286c 0%,#6d4aa0 55%,#2a234e 100%); --card-style-accent:#ddc5ff; }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket[data-card-style="berry"] { --card-style-surface:#662445; --card-style-background:linear-gradient(135deg,#662445 0%,#9a3b6e 55%,#47223f 100%); --card-style-accent:#ffc4df; }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket[data-card-style="cocoa"] { --card-style-surface:#523328; --card-style-background:linear-gradient(135deg,#523328 0%,#80503b 55%,#3d2a26 100%); --card-style-accent:#f3c8a6; }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket[data-card-style="lime"] { --card-style-surface:#315422; --card-style-background:linear-gradient(135deg,#315422 0%,#5d7e28 55%,#263d24 100%); --card-style-accent:#d9ef9c; }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket[data-card-style="denim"] { --card-style-surface:#314658; --card-style-background:linear-gradient(135deg,#314658 0%,#52718b 55%,#263846 100%); --card-style-accent:#c5dbea; }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket[data-card-style="peach"] { --card-style-surface:#78383b; --card-style-background:linear-gradient(135deg,#78383b 0%,#b75f4f 55%,#5d3038 100%); --card-style-accent:#ffd0bd; }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket[data-card-style] {
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket[data-card-style="citrus"] { --card-style-surface:#6f2f0e; --card-style-background:linear-gradient(135deg,#6f2f0e 0%,#a84e13 56%,#573018 100%); --card-style-accent:#ffd29a; }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket[data-card-style="coral"] { --card-style-surface:#7a2630; --card-style-background:linear-gradient(135deg,#7a2630 0%,#b24c3b 55%,#5f2330 100%); --card-style-accent:#ffc0ad; }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket[data-card-style="lagoon"] { --card-style-surface:#07505b; --card-style-background:linear-gradient(135deg,#07505b 0%,#0b7380 55%,#123d4c 100%); --card-style-accent:#9ee9df; }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket[data-card-style="skyline"] { --card-style-surface:#1b3f72; --card-style-background:linear-gradient(135deg,#1b3f72 0%,#2567a7 55%,#182e52 100%); --card-style-accent:#b9dbff; }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket[data-card-style="violet"] { --card-style-surface:#3d286c; --card-style-background:linear-gradient(135deg,#3d286c 0%,#6d4aa0 55%,#2a234e 100%); --card-style-accent:#ddc5ff; }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket[data-card-style="berry"] { --card-style-surface:#662445; --card-style-background:linear-gradient(135deg,#662445 0%,#9a3b6e 55%,#47223f 100%); --card-style-accent:#ffc4df; }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket[data-card-style="cocoa"] { --card-style-surface:#523328; --card-style-background:linear-gradient(135deg,#523328 0%,#80503b 55%,#3d2a26 100%); --card-style-accent:#f3c8a6; }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket[data-card-style="lime"] { --card-style-surface:#315422; --card-style-background:linear-gradient(135deg,#315422 0%,#5d7e28 55%,#263d24 100%); --card-style-accent:#d9ef9c; }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket[data-card-style="denim"] { --card-style-surface:#314658; --card-style-background:linear-gradient(135deg,#314658 0%,#52718b 55%,#263846 100%); --card-style-accent:#c5dbea; }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket[data-card-style="peach"] { --card-style-surface:#78383b; --card-style-background:linear-gradient(135deg,#78383b 0%,#b75f4f 55%,#5d3038 100%); --card-style-accent:#ffd0bd; }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket[data-card-style] {
   position:relative; overflow:hidden; isolation:isolate; color:#fffaf3;
   border-color:rgba(255,250,243,.24); border-radius:22px;
   background:var(--card-style-background,var(--card-style-surface,#282016));
   box-shadow:0 18px 36px rgba(40,32,22,.16);
 }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket[data-card-style]::before {
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket[data-card-style]::before {
   content:""; position:absolute; z-index:0; width:190px; height:190px; right:12px; bottom:-122px;
   border:1px solid rgba(255,250,243,.20); border-radius:50%; pointer-events:none;
   box-shadow:0 0 0 28px rgba(255,250,243,.035),0 0 0 56px rgba(255,250,243,.025);
 }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket[data-card-style] > * { position:relative; z-index:1; }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket[data-card-style] :is(h3,h4,.ticket-cost-card dd) { color:#fffaf3; }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket[data-card-style] :is(p,small,.ticket-state,.ticket-cost-card dt) { color:rgba(255,250,243,.74); }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket[data-card-style] :is(.member-ticket-type,.booking-benefit-meta) {
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket[data-card-style] > * { position:relative; z-index:1; }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket[data-card-style] :is(h3,h4,.ticket-cost-card dd) { color:#fffaf3; }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket[data-card-style] :is(p,small,.ticket-state,.ticket-cost-card dt) { color:rgba(255,250,243,.74); }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket[data-card-style] :is(.member-ticket-type,.booking-benefit-meta) {
   color:var(--card-style-surface,#282016); background:var(--card-style-accent,#f2c36f); border:1px solid rgba(255,255,255,.18);
 }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket[data-card-style] .ticket-cost-card {
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket[data-card-style] .ticket-cost-card {
   border-color:rgba(255,250,243,.18); background:rgba(255,250,243,.09);
 }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket[data-card-style] .ticket-cost-card.is-source { border-color:rgba(255,250,243,.28); }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket[data-card-style] :is(.ticket-checkbox-action,.booking-benefit-select) {
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket[data-card-style] .ticket-cost-card.is-source { border-color:rgba(255,250,243,.28); }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket[data-card-style] :is(.ticket-checkbox-action,.booking-benefit-select) {
   color:#fffaf3; background:rgba(255,250,243,.10); border-color:rgba(255,250,243,.22);
 }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket[data-card-style] :is(.ticket-checkbox-action,.booking-benefit-select) input { accent-color:var(--card-style-accent,#f2c36f); }
-html[data-theme] :is(#pointsView, #bookingView) .ui-ticket[data-card-style].is-selected {
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket[data-card-style] :is(.ticket-checkbox-action,.booking-benefit-select) input { accent-color:var(--card-style-accent,#f2c36f); }
+html[data-theme] :is(#pointsView, #bookingView, #bookingBenefitModal) .ui-ticket[data-card-style].is-selected {
   border-color:var(--card-style-accent,#f2c36f); box-shadow:0 0 0 2px var(--card-style-accent,#f2c36f),0 18px 36px rgba(40,32,22,.18);
 }
 html[data-theme] #pointsView .ui-ticket[data-card-style] .member-ticket-footer { border-top-color:rgba(255,250,243,.24); }
@@ -649,14 +647,14 @@ html[data-theme] #pointsView .ui-ticket[data-card-style] .member-ticket-footer {
 
 /* Availability state: preserve the original point-card ticket theme and visibly gray it out without replacing it with a gray theme. */
 html[data-theme] #pointsView .ui-ticket.locked,
-html[data-theme] #bookingView .ui-ticket.is-unavailable {
+html[data-theme] :is(#bookingView, #bookingBenefitModal) .ui-ticket.is-unavailable {
   filter: grayscale(.68) brightness(.92);
 }
 html[data-theme] #pointsView .ui-ticket.locked .ticket-checkbox-action,
-html[data-theme] #bookingView .ui-ticket.is-unavailable .booking-benefit-select {
+html[data-theme] :is(#bookingView, #bookingBenefitModal) .ui-ticket.is-unavailable .booking-benefit-select {
   cursor: not-allowed;
 }
 html[data-theme] #pointsView .ui-ticket.locked :is(.ticket-state,.member-ticket-type),
-html[data-theme] #bookingView .ui-ticket.is-unavailable :is(.booking-benefit-meta,.booking-benefit-disabled-reason) {
+html[data-theme] :is(#bookingView, #bookingBenefitModal) .ui-ticket.is-unavailable :is(.booking-benefit-meta,.booking-benefit-disabled-reason) {
   font-weight: 850;
 }
