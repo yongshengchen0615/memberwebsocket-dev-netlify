@@ -198,7 +198,7 @@ test('AC-MOB-001/002/003 Chromium: phone booking queue is compact without hiding
       expect(measured.actionsDisplay).toBe('flex');
     }
     await expect(page.getByRole('button', { name: '確認預約' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '無故未到' })).toBeVisible();
+    await expect(page.locator('article.booking-admin-booking').getByRole('button', { name: '無故未到' })).toBeVisible();
     await expect(page.getByRole('button', { name: '複製編號' })).toBeVisible();
   }
 });
