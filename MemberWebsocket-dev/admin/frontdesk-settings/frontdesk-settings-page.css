@@ -970,8 +970,55 @@ html[data-frontdesk-page] .frontdesk-rejection-actions .frontdesk-primary {
   }
 }
 
-/* Independent modification rejection editor shares the existing guarded save. */
-.frontdesk-modification-rejection-settings{display:grid;gap:14px;margin-top:22px;padding:20px;border:1px solid var(--fd-border, #d8e2da);border-radius:16px;background:color-mix(in srgb,var(--fd-card,#fff) 93%,#f7bb77 7%)}
-.frontdesk-modification-rejection-settings h4{margin:0;font-size:1.15rem}
-.frontdesk-modification-rejection-settings p{margin:0;line-height:1.6}
-.frontdesk-modification-rejection-settings .frontdesk-rejection-list{display:grid;gap:12px}
+/* Two tenant-scoped rejection categories share one optimistic-version save.
+   Keep both editor panels mounted so switching preserves unsaved drafts. */
+html[data-frontdesk-page] .frontdesk-reason-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px solid var(--theme-border);
+  background: var(--theme-surface-muted);
+}
+html[data-frontdesk-page] .frontdesk-reason-tab {
+  min-width: 0;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--theme-text-muted);
+  font-weight: 750;
+  cursor: pointer;
+}
+html[data-frontdesk-page] .frontdesk-reason-tab[aria-selected="true"] {
+  background: var(--theme-surface-raised);
+  color: var(--theme-text);
+  border-color: var(--theme-border-strong);
+  box-shadow: var(--ui-shadow-card, 0 3px 12px #18241f0a);
+}
+html[data-frontdesk-page] .frontdesk-reason-tab:focus-visible {
+  outline: 3px solid var(--theme-focus-ring, #b64f39);
+  outline-offset: 2px;
+}
+html[data-frontdesk-page] .frontdesk-rejection-category {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+  align-content: start;
+  padding: clamp(14px, 2.2vw, 20px);
+  border: 1px solid var(--theme-border);
+  border-radius: 14px;
+  background: var(--theme-surface);
+}
+html[data-frontdesk-page] .frontdesk-rejection-category h4 { margin: 0; font-size: 1.08rem; }
+html[data-frontdesk-page] .frontdesk-rejection-category > p { margin: 0; line-height: 1.6; color: var(--theme-text-muted); }
+html[data-frontdesk-page] .frontdesk-modification-rejection-settings .frontdesk-rejection-list {
+  display: grid;
+  gap: 12px;
+}
+@media(max-width: 650px) {
+  html[data-frontdesk-page] .frontdesk-reason-tabs { gap: 4px; padding: 4px; }
+  html[data-frontdesk-page] .frontdesk-reason-tab { padding: 10px 6px; font-size: .88rem; }
+}
