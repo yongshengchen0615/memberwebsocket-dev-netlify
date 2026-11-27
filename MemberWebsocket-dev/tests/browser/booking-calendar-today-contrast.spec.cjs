@@ -59,6 +59,7 @@ for (const theme of ['light', 'dark']) {
       expect(today.badge).toBe(theme === 'dark' ? 'rgb(121, 204, 255)' : 'rgb(20, 103, 175)');
       expect(both.background).toBe(holiday.background);
       expect(both.badge).toBe(today.badge);
+      expect(both.badgeText).toBe(today.badgeText);
       expect(both.innerStyle).toBe('dashed');
       expect(both.innerColor).toBe(theme === 'dark' ? 'rgb(121, 204, 255)' : 'rgb(20, 103, 175)');
       expect(selected.outline).toBe('solid');
