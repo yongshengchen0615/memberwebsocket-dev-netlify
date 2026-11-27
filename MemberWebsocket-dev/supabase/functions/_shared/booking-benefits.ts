@@ -121,6 +121,11 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
     ...events.flatMap((offer) => Array.isArray(offer.requiredServiceIds) ? offer.requiredServiceIds : []),
     ...events.flatMap((offer) => (Array.isArray(offer.requiredServiceGroups) ? offer.requiredServiceGroups : []).flat()),
     ...events.flatMap((offer) => Array.isArray(offer.minBookingServiceIds) ? offer.minBookingServiceIds : []),
+    ...(calendar.data || []).flatMap((item: any) => [
+      ...(Array.isArray(item.required_service_ids) ? item.required_service_ids : []),
+      ...(Array.isArray(item.required_service_groups) ? item.required_service_groups : []).flat(),
+      ...(Array.isArray(item.min_booking_service_ids) ? item.min_booking_service_ids : []),
+    ]),
   ].map((serviceId) => String(serviceId || '')).filter(Boolean))];
   const bookingServiceRows = requiredServiceIds.length
     ? await db.from('booking_services').select('id,title,service_type').is('deleted_at', null)
@@ -137,7 +142,7 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
   const requiredServiceTitlesFor = (serviceIds: string[]) =>
     serviceIds.map((serviceId) => requiredServiceTitleById.get(String(serviceId || '')) || '').filter(Boolean);
   const groupRequirementLabelFor = (groups: string[][]) =>
-    groups.map(group => group.map(id => requiredServiceTitleById.get(String(id)) || String(id)).join('＋')).join(' 或 ') + '，符合其中一組即可';
+    groups.map(group => group.map(id => requiredServiceTitleById.get(String(id)) || '已停用項目').join('＋')).join(' 或 ') + '，符合其中一組即可';
 
   const requiredServiceRequirementLabelFor = (serviceIds: string[], matchMode: string) => {
     const selected = new Set(serviceIds.map((serviceId) => String(serviceId || '')).filter(Boolean));
@@ -165,7 +170,7 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
       .map((service) => service.title);
     individualTitles.push(...[...selected].filter((serviceId) =>
       !bookingServices.some((service) => service.serviceId === serviceId)
-    ));
+    ).map(() => '已停用項目'));
 
     const allRequired = matchMode === 'all';
     if (fullTypes.length && !individualTitles.length) {
@@ -194,6 +199,22 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
       ? `需預約 ${typePart}的所有項目，且需包含 ${itemPart}`
       : `需預約 ${typePart} 或 ${itemPart}`;
   };
+
+  const bookingAmountLabelFor = (mode: string, amount: number, serviceTitles: string[]) => {
+    const amountText = 'NT' + String.fromCharCode(36) + amount.toLocaleString('en-US');
+    return mode === 'none' ? '不限金額'
+      : !Number.isSafeInteger(amount) || amount < 1
+        ? '一般預約金額條件資料異常，請洽店家確認'
+      : mode === 'total'
+        ? '一般預約總金額滿 ' + amountText
+      : mode === 'selected_services' && serviceTitles.length
+        ? '一般預約指定項目「' + serviceTitles.join('、') + '」合計滿 ' + amountText
+      : '一般預約指定項目金額條件資料異常，請洽店家確認';
+  };
+  const bookingPartyLabelFor = (minimum: number, maximum: number) => minimum && minimum === maximum
+    ? `每筆預約須剛好 ${minimum} 位`
+    : minimum && maximum ? `每筆預約需 ${minimum}–${maximum} 位（舊版區間條件）`
+    : minimum ? `每筆預約至少 ${minimum} 位` : maximum ? `每筆預約最多 ${maximum} 位` : '';
 
   const visibilityPolicy=await loadVisibilityPolicy(db);
   const isReceivedGift=(offer:any)=>Boolean(offer.claimId && receivedGiftClaimIds.has(String(offer.claimId)));
@@ -268,18 +289,10 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
         const minBookingServiceIds = Array.isArray(offer.minBookingServiceIds) ? offer.minBookingServiceIds : [];
         const minBookingPartySize = Number(offer.minBookingPartySize || 0);
         const maxBookingPartySize = Number(offer.maxBookingPartySize || 0);
-        const minBookingPartySizeLabel = minBookingPartySize && minBookingPartySize === maxBookingPartySize ? `每筆預約須剛好 ${minBookingPartySize} 位` : minBookingPartySize && maxBookingPartySize ? `每筆預約需 ${minBookingPartySize}–${maxBookingPartySize} 位（舊版區間條件）` : minBookingPartySize ? `每筆預約至少 ${minBookingPartySize} 位` : maxBookingPartySize ? `每筆預約最多 ${maxBookingPartySize} 位` : '';
+        const minBookingPartySizeLabel = bookingPartyLabelFor(minBookingPartySize, maxBookingPartySize);
         const minBookingServiceTitles = minBookingServiceIds.map((id) =>
           requiredServiceTitleById.get(String(id)) || '已停用項目');
-        const amountText = 'NT' + String.fromCharCode(36) + minBookingAmount.toLocaleString('en-US');
-        const minBookingAmountLabel = minBookingAmountMode === 'none' ? '不限金額'
-          : !Number.isSafeInteger(minBookingAmount) || minBookingAmount < 1
-            ? '一般預約金額條件資料異常，請洽店家確認'
-          : minBookingAmountMode === 'total'
-            ? '一般預約總金額滿 ' + amountText
-          : minBookingAmountMode === 'selected_services' && minBookingServiceIds.length
-            ? '一般預約指定項目「' + minBookingServiceTitles.join('、') + '」合計滿 ' + amountText
-          : '一般預約指定項目金額條件資料異常，請洽店家確認';
+        const minBookingAmountLabel = bookingAmountLabelFor(minBookingAmountMode, minBookingAmount, minBookingServiceTitles);
         return {
           kind: 'event', id: offer.eventTicketId, title: offer.title,
           description: offer.description, accent: offer.accent, ticketType: offer.ticketType, quota: offer.quota, claimedCount: offer.claimedCount, usedCount: offer.usedCount,
@@ -300,17 +313,33 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
           disabledReason: locked ? visibility.lockReason : usageExhausted ? '本活動使用名額已額滿，已發放票券仍保留在帳戶。' : reservedForOtherBooking ? '此票券已在一般預約登記，不能重複登記。' : reservedInSnapshot ? '此票券已在快照模式登記，待審核期間不能重複登記。' : !offer.claimId ? '尚未發放，不能登記或使用。' : '',
         };
       }),
-      ...activities.map((item: any) => ({
+      ...activities.map((item: any) => {
+        const requiredServiceIds = item.required_service_ids || [];
+        const requiredServiceMatchMode = item.required_service_match_mode === 'all' ? 'all' : 'any';
+        const requiredServiceGroups = item.required_service_groups || [];
+        const requiredServiceTitles = requiredServiceTitlesFor(requiredServiceGroups.length ? [...new Set<string>(requiredServiceGroups.flat())] : requiredServiceIds);
+        const requiredServiceRequirementLabel = requiredServiceGroups.length
+          ? groupRequirementLabelFor(requiredServiceGroups) : requiredServiceRequirementLabelFor(requiredServiceIds, requiredServiceMatchMode);
+        const minBookingAmountMode = item.min_booking_amount_mode || 'none';
+        const minBookingAmount = Number(item.min_booking_amount || 0);
+        const minBookingServiceIds = item.min_booking_service_ids || [];
+        const minBookingServiceTitles = minBookingServiceIds.map((id: string) => requiredServiceTitleById.get(String(id)) || '已停用項目');
+        const minBookingAmountLabel = bookingAmountLabelFor(minBookingAmountMode, minBookingAmount, minBookingServiceTitles);
+        const minBookingPartySize = Number(item.min_booking_party_size || 0);
+        const maxBookingPartySize = Number(item.max_booking_party_size || 0);
+        const minBookingPartySizeLabel = bookingPartyLabelFor(minBookingPartySize, maxBookingPartySize);
+        return {
         kind: 'calendar', id: item.calendar_item_id, title: item.title,
         subtitle: tierVisibility(item.allowed_tier_keys,tier,item.visibility_policy || visibilityPolicy).lockReason || '適用於目前會員階級', statusLabel: tierVisibility(item.allowed_tier_keys,tier,item.visibility_policy || visibilityPolicy).locked ? '需升級' : '活動進行中',
         startsOn: item.starts_on || '', endsOn: item.ends_on || item.starts_on || '',
         selectable: false, selectionId: '',
-        requiredServiceIds: item.required_service_ids || [], requiredServiceGroups: item.required_service_groups || [],
-        minBookingAmountMode: item.min_booking_amount_mode || 'none', minBookingAmount: Number(item.min_booking_amount || 0),
-        minBookingPartySize: Number(item.min_booking_party_size || 0), maxBookingPartySize: Number(item.max_booking_party_size || 0),
-        conditionLabel: '會員條件：目前會員階級適用 · 活動資訊僅供預約參考' + (Number(item.min_booking_party_size || 0)>0 && Number(item.min_booking_party_size || 0)===Number(item.max_booking_party_size || 0) ? ` · 剛好 ${item.min_booking_party_size} 位` : (Number(item.min_booking_party_size || 0) ? ` · 至少 ${item.min_booking_party_size} 位` : '') + (Number(item.max_booking_party_size || 0) ? ` · 最多 ${item.max_booking_party_size} 位` : '')) + (item.min_booking_amount_mode !== 'none' ? ` · 最低消費 NT${Number(item.min_booking_amount || 0).toLocaleString('en-US')}` : ''),
+        requiredServiceIds, requiredServiceMatchMode, requiredServiceGroups, requiredServiceTitles, requiredServiceRequirementLabel,
+        minBookingAmountMode, minBookingAmount, minBookingServiceIds, minBookingServiceTitles, minBookingAmountLabel,
+        minBookingPartySize, maxBookingPartySize, minBookingPartySizeLabel,
+        conditionLabel: `會員條件：目前會員階級適用 · 活動資訊僅供預約參考 · 預約項目限制：${requiredServiceRequirementLabel || '不限'} · ${minBookingAmountLabel}${minBookingPartySizeLabel ? ' · ' + minBookingPartySizeLabel : ''}`,
         disabledReason: '',
-      })),
+        };
+      }),
     ],
   };
 }

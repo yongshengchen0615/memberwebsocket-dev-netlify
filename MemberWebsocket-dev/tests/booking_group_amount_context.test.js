@@ -26,8 +26,9 @@ const state = (primaryItems,extras) => ({
   services: [
     {serviceId:'A',priceAmount:100},
     {serviceId:'B',priceAmount:200},
-    {serviceId:'00000000-0000-4000-8000-000000000010',priceAmount:50},
   ],
+  // Bootstrap separates the once-per-booking store service from selectable services.
+  storeService: {serviceId:'00000000-0000-4000-8000-000000000010',priceAmount:50},
 });
 
 test('AC-010: group booking amount gate sums both participants, quantity, and store once',()=>{

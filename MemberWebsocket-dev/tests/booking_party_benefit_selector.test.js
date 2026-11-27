@@ -50,7 +50,16 @@ test('AC-PARTY-UI-002: party check combines with service and selected subtotal, 
 test('AC-PARTY-UI-003: change of participant count updates selector and reconciles stale checked ticket',()=>{
  assert.match(groupSource,/BookingBenefits\?\.setServiceContext\?\.\(context, state\.partySize\)/);
  assert.match(groupSource,/partySize: \(\) => state\.partySize/);
- assert.match(bookingSource,/bookingBenefitServiceContext\(\), window\.BookingGroupUI\?\.partySize\?\.\(\) \|\| 1/);
+ const start=bookingSource.indexOf('  function syncBookingBenefitContext() {');
+ const end=bookingSource.indexOf('\n  function bookingBenefitServiceContext(',start);
+ assert.ok(start>=0&&end>start);
+ const actual=new Function('window','selectedItems','bookingBenefitServiceContext',bookingSource.slice(start,end)+'\nsyncBookingBenefitContext();');
+ const primary=[{serviceId:'A',quantity:1}];const calls=[];
+ actual({BookingGroupUI:{syncBenefitContext:items=>calls.push(items)}},()=>primary,()=>assert.fail('group context must own every participant'));
+ assert.deepEqual(calls,[primary]);
+ const single=[{serviceId:'A',amount:500}];const fallback=[];
+ actual({BookingBenefits:{setServiceContext:(...args)=>fallback.push(args)}},()=>primary,()=>single);
+ assert.deepEqual(fallback,[[single,1]]);
  assert.match(source,/!item \|\| item\.selectable !== true \|\| !ticketRequirementMet\(item\)/);
  assert.match(source,/if \(changed\) \{\s*emitSelectionChange\(\)/);
  assert.match(source,/const serviceBlocked = selectableKinds\.has\(item\.kind\) && !ticketRequirementMet\(item\)/);

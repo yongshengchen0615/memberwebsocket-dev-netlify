@@ -3038,7 +3038,17 @@ async function handleAction(supabase: SupabaseClient, identity: { lineUserId: st
 
 async function normalizeCalendarUsageRules(supabase: SupabaseClient, item: Json): Promise<Json> {
   // Preserve saved conditions if an older calendar editor changes unrelated metadata.
-  if (item.itemType !== 'event' || item.requiredServiceIds === undefined) return item;
+  const usageKeys = ['requiredServiceIds','requiredServiceMatchMode','requiredServiceGroups',
+    'minBookingAmountMode','minBookingAmount','minBookingServiceIds','minBookingPartySize','maxBookingPartySize'];
+  if (!usageKeys.some(key => item[key] !== undefined)) return item;
+  if (item.calendarItemId && usageKeys.some(key => item[key] === undefined)) {
+    const saved = (await calendarItems(supabase,false,String(item.calendarItemId)))[0];
+    if (saved) {
+      const savedUsage = Object.fromEntries(usageKeys.map(key => [key,saved[key]]));
+      item = {...savedUsage,...item,itemType:item.itemType ?? saved.itemType,
+        expectedUpdatedAt:item.expectedUpdatedAt || saved.updatedAt};
+    }
+  }
   const groupMode = item.requiredServiceMatchMode === 'groups';
   const requiredServiceIds = groupMode ? [] : await normalizeRequiredServiceIds(supabase,item.requiredServiceIds);
   const requiredServiceGroups = groupMode ? await normalizeRequiredServiceGroups(supabase,item.requiredServiceGroups) : [];
@@ -3065,7 +3075,7 @@ async function normalizeCalendarUsageRules(supabase: SupabaseClient, item: Json)
     const item = body.calendarItem && typeof body.calendarItem === "object" && !Array.isArray(body.calendarItem)
       ? {...(body.calendarItem as Json),bonusPointsEnabled:false,bonusPoints:0} : {};
     const normalized = await normalizeCalendarUsageRules(supabase,item);
-    const rpc = await supabase.rpc("apply_calendar_batch",{ p_actor_line_user_id:identity.lineUserId,p_operations:[{ action:"save",calendarItem:normalized,expectedUpdatedAt:body.expectedUpdatedAt || "" }] });
+    const rpc = await supabase.rpc("apply_calendar_batch",{ p_actor_line_user_id:identity.lineUserId,p_operations:[{ action:"save",calendarItem:normalized,expectedUpdatedAt:body.expectedUpdatedAt || normalized.expectedUpdatedAt || "" }] });
     if (rpc.error) throw mapDatabaseError(rpc.error);
     const id = String((rpc.data as any[])?.[0]?.calendarItemId || "");
     return { calendarItem:(await calendarItems(supabase,false,id))[0] || null };
@@ -3078,10 +3088,17 @@ async function normalizeCalendarUsageRules(supabase: SupabaseClient, item: Json)
   }
   if (action === "admin.calendar-items.batch") {
     if (!Array.isArray(body.calendarItemOperations)) throw new ApiError(400,"INVALID_CALENDAR_BATCH","日曆批次操作格式不正確。");
-    const operations = await Promise.all((body.calendarItemOperations as any[]).map(async (operation:any) =>
-      operation?.action === "save" && operation.calendarItem && typeof operation.calendarItem === "object" && !Array.isArray(operation.calendarItem)
-        ? {...operation,calendarItem:await normalizeCalendarUsageRules(supabase,{...operation.calendarItem,bonusPointsEnabled:false,bonusPoints:0})}
-        : operation));
+    const operations = await Promise.all((body.calendarItemOperations as any[]).map(async (operation:any) => {
+      if (!operation || typeof operation !== 'object' || Array.isArray(operation)) return operation;
+      // Match the SQL contract: action, operation alias, then the default save;
+      // both nested calendarItem and flat save objects are accepted there.
+      const action = operation.action == null || operation.action === '' ? operation.operation : operation.action;
+      if (action != null && action !== '' && action !== 'save') return operation;
+      const item = Object.hasOwn(operation,'calendarItem') ? operation.calendarItem : operation;
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return operation;
+      const calendarItem = await normalizeCalendarUsageRules(supabase,{...item,bonusPointsEnabled:false,bonusPoints:0});
+      return {...operation,calendarItem,expectedUpdatedAt:operation.expectedUpdatedAt || calendarItem.expectedUpdatedAt || ''};
+    }));
     const rpc = await supabase.rpc("apply_calendar_batch",{ p_actor_line_user_id:identity.lineUserId,p_operations:operations });
     if (rpc.error) throw mapDatabaseError(rpc.error);
     return { operations:rpc.data || [],calendarItems:await calendarItems(supabase,false) };

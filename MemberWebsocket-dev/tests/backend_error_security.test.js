@@ -164,6 +164,17 @@ function diagnosticFunction(endpoint,name){
   vm.runInContext(stripTypeScriptTypes(code),context);
   return {run:context[name],logs};
 }
+for (const [endpoint, mapper] of [['api', 'mapDatabaseError'], ['booking-api', 'mapDatabaseError'], ['booking-group-api', 'mapDbError']]) {
+  for (const code of ['BOOKING_BENEFIT_PARTY_SIZE_REQUIRED', 'BOOKING_ACTIVITY_REQUIREMENT_NOT_MET', 'BOOKING_BENEFIT_AMOUNT_REQUIRED']) {
+    test(`USAGE AC-006 ${endpoint}: ${code} is a safe business conflict`, () => {
+      const edge = diagnosticFunction(endpoint, mapper);
+      const result = edge.run({ message: code + ' private-member-value', details: 'private-token' });
+      assert.equal(result.status, 409);
+      assert.equal(result.code, code);
+      assert.doesNotMatch(result.message, /private-member-value|private-token/);
+    });
+  }
+}
 for(const [endpoint,name] of [['member-growth-api','mapDatabaseError'],['booking-receipt-api','dbError'],['member-profile-api','termsError']]){
   test(`AC-003: ${endpoint} database mapper keeps private message/hint/code out of diagnostics`,()=>{
     const edge=diagnosticFunction(endpoint,name);

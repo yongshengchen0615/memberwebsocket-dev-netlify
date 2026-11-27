@@ -126,9 +126,7 @@
       showView('booking');
       window.requestAnimationFrame(() => document.querySelector('.booking-detail-target')?.scrollIntoView?.({block:'center'}));
       window.dispatchEvent(new CustomEvent('user-tour:ready', { detail: { surface: 'booking', profile: state.profile } }));
-      window.BookingBenefits?.setServiceContext?.(
-        bookingBenefitServiceContext(), window.BookingGroupUI?.partySize?.() || 1
-      );
+      syncBookingBenefitContext();
       window.BookingBenefits?.start(state.config, state.idToken);
       state.realtimeUnsubscribe = window.BookingSystem.subscribeRealtime(state.config, () => refresh(false), 'member', (signal = {}) => {
         const scope = String(signal?.scope || '');
@@ -276,9 +274,7 @@
     if (emptyTitle) emptyTitle.textContent = allSelected ? '可選項目已全部加入目前選擇' : '目前沒有開放的預約項目';
 
     renderSelectedServices();
-    window.BookingBenefits?.setServiceContext?.(
-      bookingBenefitServiceContext()
-    );
+    syncBookingBenefitContext();
   }
 
   function createServiceChoiceRow(service) {
@@ -455,6 +451,14 @@
 
   // Match the server's canonical booking_items unit-price × quantity rule,
   // including the automatically inserted in-store service when priced.
+  function syncBookingBenefitContext() {
+    if (window.BookingGroupUI?.syncBenefitContext) {
+      window.BookingGroupUI.syncBenefitContext(selectedItems());
+    } else {
+      window.BookingBenefits?.setServiceContext?.(bookingBenefitServiceContext(), 1);
+    }
+  }
+
   function bookingBenefitServiceContext() {
     const selectedServiceIds = new Set(selectedServiceRows()
       .map((item) => String(item.service?.serviceId || item.serviceId || '').trim())
