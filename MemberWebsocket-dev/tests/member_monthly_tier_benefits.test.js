@@ -578,3 +578,13 @@ test('AC-028: monthly API and UI use a standalone catalogue, not membership cale
   assert.match(calendar, /Explicit calendar_items are the only source of member-facing calendar entries/, 'calendar publication remains independently scoped');
   assert.match(client, /本月優惠不受加入活動日曆設定影響/, 'member UI explains the independent catalogue');
 });
+
+
+test('AC-029: all five member portals load the calendar-independent monthly widget after deployment', () => {
+  const root = path.resolve(__dirname, '..');
+  for (const surface of ['member','points','event','calendar','booking']) {
+    const html = fs.readFileSync(path.join(root, surface, 'index.html'), 'utf8');
+    assert.match(html, /monthly-tier-benefits\\.js\\?v=20261128-calendar-independent-1/,
+      surface + ': asset version must change so the browser cannot keep a stale widget');
+  }
+});
