@@ -116,6 +116,19 @@
     return holidays.length ? holidays : entries;
   }
 
+  // Only classify entries returned by the member-scoped calendar API. Never
+  // synthesize hidden offers from ticket catalogs or client tier preferences.
+  function splitCalendarDateItems(items) {
+    const groups = { available: [], locked: [], notices: [] };
+    (Array.isArray(items) ? items : []).forEach((item) => {
+      if (item.itemType === 'holiday') groups.notices.push(item);
+      else if (item.itemType === 'event' && (item.locked === true || item.tierEligible === false)) groups.locked.push(item);
+      else if (item.itemType === 'event') groups.available.push(item);
+      else groups.notices.push(item);
+    });
+    return groups;
+  }
+
   function calendarDays(range) {
     const result = [];
     let current = parseIsoDate(range.start);
@@ -185,32 +198,74 @@
   async function openCalendarDateDetails(isoDate, trigger) {
     const items = visibleCalendarItemsOnDate(state.items, isoDate);
     if (!items.length) return;
+    const groups = splitCalendarDateItems(items);
+    const sections = [];
+    if (groups.notices.length) sections.push(createCalendarDetailGroup('休假提醒', groups.notices, 'notice'));
+    if (groups.available.length) sections.push(createCalendarDetailGroup('當日可用的活動與票券', groups.available, 'available'));
+    if (groups.locked.length) sections.push(createCalendarDetailGroup('未解鎖的活動與票券', groups.locked, 'locked'));
     state.detailTrigger = trigger instanceof HTMLElement ? trigger : null;
     els.calendarDetailTitle.textContent = calendarDateLabel(isoDate);
-    els.calendarDetailDate.textContent = `${items.length} 項相關日期說明`;
-    els.calendarDetailItems.replaceChildren(...items.map(createCalendarDetailItem));
+    els.calendarDetailDate.textContent = groups.notices.length
+      ? `${items.length} 項相關日期說明`
+      : `${groups.available.length} 項可用 · ${groups.locked.length} 項未解鎖`;
+    els.calendarDetailItems.replaceChildren(...sections);
     els.calendarDetailModal.classList.remove('hidden');
     els.closeCalendarDetailButton.focus();
+  }
+
+  function createCalendarDetailGroup(label, items, category) {
+    const group = document.createElement('section');
+    group.className = 'calendar-detail-group ' + category;
+    const heading = document.createElement('div');
+    heading.className = 'calendar-detail-group-header';
+    const title = document.createElement('h3');
+    title.textContent = label;
+    const count = document.createElement('span');
+    count.className = 'calendar-detail-group-count';
+    count.textContent = `${items.length} 項`;
+    heading.append(title, count);
+    const list = document.createElement('div');
+    list.className = 'calendar-detail-group-list';
+    list.append(...items.map(createCalendarDetailItem));
+    group.append(heading, list);
+    return group;
+  }
+
+  function isManagedCalendarTicket(item) {
+    if (item.eventTicketId || item.calendarDisplaySourceId) return true;
+    try {
+      return new URL(String(item.linkUrl || ''), window.location.href).searchParams.get('source') === 'event-ticket-calendar';
+    } catch (_) { return false; }
   }
 
   function createCalendarDetailItem(item) {
     const detail = document.createElement('section');
     detail.className = 'calendar-detail-item';
     detail.style.setProperty('--item-accent', safeAccent(item.accent));
-    const title = document.createElement('h3');
-    title.textContent = (item.locked?'🔒 需升級 · ':'') + String(item.title || (item.itemType === 'holiday' ? '休假日' : '活動'));
+    const isLocked = item.itemType === 'event' && (item.locked === true || item.tierEligible === false);
+    if (isLocked) detail.classList.add('is-locked');
+    const heading = document.createElement('div');
+    heading.className = 'calendar-detail-item-heading';
+    const type = document.createElement('span');
+    type.className = 'calendar-detail-type';
+    type.textContent = item.itemType === 'holiday' ? '休假提醒' : isManagedCalendarTicket(item) ? '活動票券' : '會員活動';
+    const title = document.createElement('h4');
+    title.textContent = (isLocked ? '🔒 ' : '') + String(item.title || (item.itemType === 'holiday' ? '休假日' : '活動'));
+    heading.append(type, title);
     const description = document.createElement('p');
     description.textContent = String(item.description || '尚未提供其他說明。');
-    detail.append(title, description);
+    detail.append(heading, description);
     if (item.itemType === 'event') {
       const tierAccess = document.createElement('p');
-      tierAccess.className = 'calendar-detail-tier-access' + (item.tierEligible === false ? ' ineligible' : '');
+      tierAccess.className = 'calendar-detail-tier-access' + (isLocked ? ' ineligible' : '');
       const labels = Array.isArray(item.allowedTierLabels) && item.allowedTierLabels.length ? item.allowedTierLabels.join('、') : '未設定';
-      tierAccess.textContent = item.tierEligible === false ? `可參加階級：${labels}。目前會員階級尚無法參加。` : `可參加階級：${labels}。`;
+      tierAccess.textContent = isLocked
+        ? String(item.lockReason || `可參加階級：${labels}。目前會員階級尚未解鎖。`)
+        : `可參加階級：${labels}。`;
       detail.append(tierAccess);
       const linkUrl = resolveCalendarLink(item.linkUrl) || resolveCalendarLinkForItem(item);
       const linkLabel = String(item.linkLabel || '').trim();
-      if (item.tierEligible !== false && linkLabel && isSafeCalendarLink(linkUrl)) {
+      if (item.tierEligible !== false && linkLabel && isSafeCalendarLink(linkUrl) && !isLocked) {
         const link = document.createElement('a');
         link.className = 'calendar-detail-link';
         link.href = linkUrl;

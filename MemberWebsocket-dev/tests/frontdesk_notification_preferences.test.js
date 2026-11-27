@@ -112,3 +112,32 @@ test('AC-FD-BATCH-SQL: tenant authorization, atomic staff updates, version fenci
  const handler=read('supabase/functions/_shared/platform-handler.mjs');
  assert.match(handler,/platform\.frontdesk\.staff\.batch/);
 });
+
+test('AC-FD-NOTIFY-UI-001: merchant sees explicit LINE delivery eligibility and personal preference, without a new write API',()=>{
+ const admin=read('admin/frontdesk-settings.js');
+ const css=read('admin/frontdesk-settings/frontdesk-settings-page.css');
+ const html=read('admin/frontdesk-settings/index.html');
+ assert.match(admin,/receiveNotifications === false/);
+ assert.match(admin,/person\.status !== 'approved' \|\| cfg\.enabled === false/);
+ for(const label of ['LINE 通知：已開啟','LINE 通知：已暫停','LINE 通知：無法接收'])
+  assert.ok(admin.includes(label));
+ assert.match(admin,/frontdesk-notification-badge/);
+ assert.match(admin,/通知狀態依伺服器資料顯示/);
+ assert.match(admin,/只授權本人控制通知，不會直接開啟通知/);
+ assert.match(css,/\.frontdesk-notification-badge\[data-state="paused"\]/);
+ assert.match(css,/\.frontdesk-staff-metrics/);
+ assert.match(html,/notification-ui-20261127-1/);
+});
+
+test('AC-FD-NOTIFY-UI-002: staff search and notice filters are read-only; pending batch saves stay intact',()=>{
+ const admin=read('admin/frontdesk-settings.js');
+ assert.match(admin,/function applyStaffFilter\(\)/);
+ assert.match(admin,/searchInput\.addEventListener\('input', applyStaffFilter\)/);
+ assert.match(admin,/filterSelect\.addEventListener\('change', applyStaffFilter\)/);
+ assert.match(admin,/row\.hidden = !\(matchesName && matchesState\)/);
+ assert.match(admin,/staffRows\.push\(\{person,row,state,mode,allowToggle\}\)/);
+ assert.match(admin,/saveAll\.dataset\.hasChanges = String\(count > 0\)/);
+ assert.match(admin,/control\.dataset\.hasChanges !== 'true'/);
+ assert.match(admin,/platform\.frontdesk\.staff\.batch/);
+ assert.doesNotMatch(admin,/platform\.frontdesk\.staff\.toggle/);
+});

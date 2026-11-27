@@ -45,7 +45,7 @@
       'bookingList', 'bookingEmpty', 'bookingConfirmModal', 'closeBookingConfirmButton', 'cancelBookingConfirmButton',
       'bookingConfirmSummary', 'bookingConfirmMessage', 'confirmBookingButton',
       'bookingBenefitModal', 'closeBookingBenefitButton', 'backToBookingReviewButton',
-      'useBookingBenefitsButton', 'skipBookingBenefitsButton', 'bookingBenefitSubmitMessage'
+      'useBookingBenefitsButton', 'skipBookingBenefitsButton', 'bookingBenefitSubmitMessage', 'bookingBenefitSelectionStatus'
     ].forEach((id) => { els[id] = document.getElementById(id); });
 
     els.retryButton.addEventListener('click', () => window.location.reload());
@@ -776,7 +776,14 @@
   }
 
   function updateBenefitSubmitButtons() {
-    const hasSelectedBenefits = (window.BookingBenefits?.selectionPayload?.() || []).length > 0;
+    const selectedCount = (window.BookingBenefits?.selectionPayload?.() || []).length;
+    const hasSelectedBenefits = selectedCount > 0;
+    if (els.bookingBenefitSelectionStatus) {
+      els.bookingBenefitSelectionStatus.textContent = hasSelectedBenefits
+        ? `已選 ${selectedCount} 張優惠票券；若選擇不使用優惠，本次將不套用已勾選的票券。`
+        : '尚未選擇優惠；可以直接不使用優惠送出預約。';
+      els.bookingBenefitSelectionStatus.dataset.hasSelection = String(hasSelectedBenefits);
+    }
     els.useBookingBenefitsButton.disabled = state.submitting || !hasSelectedBenefits;
     els.skipBookingBenefitsButton.disabled = state.submitting;
   }

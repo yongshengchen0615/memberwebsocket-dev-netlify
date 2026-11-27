@@ -100,3 +100,22 @@ button { line-height: 1.35; }
 .state-view.login-loading .login-progress-value {
   display: none !important;
 }
+
+/* Date detail: eligibility is a visual summary, never an authorization gate. */
+.calendar-detail-group { min-width: 0; }
+.calendar-detail-group + .calendar-detail-group { margin-top: 5px; }
+.calendar-detail-group-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 11px; border-inline-start: 4px solid #287657; border-radius: 9px; background: var(--theme-surface-muted); }
+.calendar-detail-group.locked .calendar-detail-group-header { border-inline-start-color: #aa794a; }
+.calendar-detail-group.notice .calendar-detail-group-header { border-inline-start-color: var(--theme-accent); }
+.calendar-detail-group-header h3 { margin: 0; color: var(--theme-text); font-size: 14px; font-weight: 900; line-height: 1.45; }
+.calendar-detail-group-count { flex-shrink: 0; color: var(--theme-text-muted); font-size: 11px; font-weight: 800; }
+.calendar-detail-group-list { display: grid; gap: 10px; margin-top: 10px; }
+.calendar-detail-item-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 9px; }
+.calendar-detail-item-heading h4 { flex: 1 1 160px; min-width: 0; margin: 0; color: var(--theme-text); font-size: 15px; font-weight: 850; line-height: 1.45; overflow-wrap: anywhere; }
+.calendar-detail-type { flex-shrink: 0; padding: 3px 7px; border-radius: 6px; color: var(--theme-text-muted); background: var(--theme-surface); border: 1px solid var(--theme-border); font-size: 11px; font-weight: 800; }
+.calendar-detail-item.is-locked { border-left-style: dashed; }
+.calendar-detail-item.is-locked .calendar-detail-type { color: var(--theme-text-muted); }
+@media (max-width: 430px) {
+  .calendar-detail-group-header { padding: 9px; }
+  .calendar-detail-item-heading h4 { flex-basis: 100%; }
+}
