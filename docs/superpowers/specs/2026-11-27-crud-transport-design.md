@@ -36,3 +36,9 @@
 ## 測試契約修正依據
 
 既有 `client_security` 用不存在的 `read` action 模擬讀取；本輪已知讀取清單改為拒絕未知動作的重試與合併，因此將 fixture 換成各 surface 真正的 bootstrap，原身分隔離、請求合併、回應斷言全部保留。`event_ticket_friend_transfer` 原以寫入 action 字串存在判斷不會重試；替換為執行真實 transport 的斷線案例，檢查 API_RESPONSE_UNCERTAIN 與實際請求僅一次，沒有弱化驗收。
+
+## 審查修正
+
+獨立審查找到五項 P2，均以失敗案例重現後修正：未知 admin.session.status 不得走 read；兩種 booking-selections.detail 維持可重試讀取；實際 grant-automation 擴充接回共用 transport 與原 endpoint／通知 payload；重試及回傳前檢查原商家／generation／session；缺少有效服務 envelope 或 HTTP 與 success 矛盾時維持寫入結果不確定。
+
+BusinessContext 既有 generation 現供 transport 判斷 A→B→A 的舊請求；沒有新增 timer／持久狀態。原商家隔離測試原先期待切換後仍可取得舊結果，現保留兩筆不同請求與新商家結果，並明確要求舊結果 REQUEST_SCOPE_CHANGED。grant endpoint 的靜態接線檢查移至真正擁有路由的 member-system.js，檢查沒有移除，另有載入真實擴充的 Node／Chromium 行為測試。

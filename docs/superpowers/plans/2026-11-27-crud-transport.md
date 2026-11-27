@@ -21,8 +21,10 @@
 
 ## Tasks
 
-1. [ ] 於既有 connection_transport_regression 測試增加 CRUD／未知動作故障、不合併與讀取失效案例；執行並保留 RED。
-2. [ ] 調整 member-system.js 讀取分類；執行新測試與現有傳輸回歸。
-3. [ ] 於 api_performance 增加日曆單筆與大量 fixture、錯誤／列表測試；保留 RED。調整 calendarItems 可選 ID 與 save 呼叫，驗證 GREEN。
-4. [ ] 增加桌機／手機 Chromium 實際網路請求案例；同條件記錄前後請求／回讀數與 bytes。
+1. [x] 於既有 connection_transport_regression 測試增加 CRUD／未知動作故障、不合併與讀取失效案例；執行並保留 RED。
+2. [x] 調整 member-system.js 讀取分類；執行新測試與現有傳輸回歸。
+3. [x] 於 api_performance 增加日曆單筆與大量 fixture、錯誤／列表測試；保留 RED。調整 calendarItems 可選 ID 與 save 呼叫，驗證 GREEN。
+4. [x] 增加桌機／手機 Chromium 實際網路請求案例；同條件記錄前後請求／回讀數與 bytes。
 5. [ ] 執行完整基線、build、audit、timer 與 inventory；整批 diff 審查、建立 PR 與同 SHA CI 證據；未通過不合併或發布。
+
+審查補充：五項P2均先重現再修復，包含讀取清單、實際發放擴充、商家／session切換及不完整envelope；review-red 16 fail → review-green 137 pass。完整基線以最終候選重新執行，不沿用舊tree結果。

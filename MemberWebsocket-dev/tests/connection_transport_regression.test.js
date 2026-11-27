@@ -17,7 +17,7 @@ function harness(kind = 'booking', network) {
     clearTimeout(id) { timers.delete(id); }, addEventListener() {}, removeEventListener() {},
     location: { href: 'https://fixture.test/booking/', pathname: '/booking/' },
   };
-  const context = vm.createContext({ window, document: { addEventListener() {}, removeEventListener() {}, querySelectorAll: () => [] },
+  const context = vm.createContext({ window, document: { addEventListener() {}, removeEventListener() {}, querySelector: () => null, getElementById: () => null, querySelectorAll: () => [] },
     navigator: {}, URL, URLSearchParams, AbortController, console,
     fetch(url, options) {
       const call = { url, options, body: JSON.parse(options.body) }; calls.push(call);
@@ -44,6 +44,7 @@ const crudActions = [
   ['booking', 'user.booking.event-ticket.claim'],
   ['points', 'member.friend.lookup'],
   ['admin', 'admin.future-resource.create'],
+  ['admin', 'admin.session.status'],
 ];
 for (const [clientType, action] of crudActions) {
   for (const failure of ['network', 'malformed']) test(`CRUD AC-001 ${action}: ${failure} cannot replay a mutation`, async () => {
@@ -89,6 +90,125 @@ test('CRUD AC-002 member: session status checks cannot reuse an older pending st
   const checks = [h.request('user.member.session.status'), h.request('user.member.session.status')];
   h.calls.forEach(succeed); await Promise.all(checks);
   assert.equal(h.calls.length, 2);
+});
+
+for (const [clientType, action] of [['points', 'user.pointcard.booking-selections.detail'], ['event', 'user.event.booking-selections.detail']]) {
+  test(`CRUD AC-002 ${action}: detail reads coalesce and remain safely retryable`, async () => {
+    const h = harness('member');
+    const reads = Array.from({ length: 100 }, () => h.system.request(config, clientType, 'identity-A', action));
+    h.calls.forEach(succeed); await Promise.all(reads);
+    assert.equal(h.calls.length, 1);
+    const failing = harness('member', async (_call, count) => {
+      if (count === 1) throw new TypeError('read connection lost');
+      return { ok: true, status: 200, text: async () => '{"ok":true,"data":{"loaded":true}}' };
+    });
+    const result = await failing.system.request(config, clientType, 'identity-A', action);
+    assert.equal(result.loaded, true);
+    assert.equal(failing.calls.length, 2);
+  });
+}
+
+function adminExtensionHarness(network) {
+  const h = harness('member', network);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../admin/grant-automation.js'), 'utf8'), h.context);
+  return h;
+}
+
+test('CRUD AC-002 loaded grant extension: reads are invalidated before and after the actual grant endpoint settles', async () => {
+  const h = adminExtensionHarness();
+  const read = () => h.window.MemberSystem.request(config, 'admin', 'identity-A', 'admin.bootstrap');
+  const old = read();
+  const write = h.window.MemberSystem.request(config, 'admin', 'identity-A', 'admin.member-grants.add', { requestId: 'grant-once', points: 2 });
+  const during = read();
+  const grant = h.calls.find(call => call.body.action === 'admin.member-grants.add');
+  assert.equal(grant.url, config.supabaseUrl + '/functions/v1/grant-automation');
+  assert.equal(grant.body.notificationMode, 'immediate');
+  assert.equal(grant.body.requestId, 'grant-once');
+  assert.equal(grant.body.points, 2);
+  const duringCount = h.calls.length;
+  grant.resolve({ ok: true, data: { granted: true } });
+  assert.equal((await write).granted, true);
+  const fresh = read();
+  const afterCount = h.calls.length;
+  h.calls.forEach(succeed); await Promise.all([old, during, fresh]);
+  assert.equal(duringCount, 3);
+  assert.equal(afterCount, 4);
+  assert.equal(h.timers.size, 0);
+});
+
+test('CRUD AC-001 loaded grant extension: uncertain grants are not replayed and failures release reads', async () => {
+  const h = adminExtensionHarness();
+  const old = h.window.MemberSystem.request(config, 'admin', 'identity-A', 'admin.members.list');
+  const write = h.window.MemberSystem.request(config, 'admin', 'identity-A', 'admin.member-grants.add', { requestId: 'grant-once' });
+  const rejected = assert.rejects(write, { code: 'API_RESPONSE_UNCERTAIN' });
+  h.calls.find(call => call.body.action === 'admin.member-grants.add').reject(new TypeError('lost after commit'));
+  await rejected;
+  const fresh = h.window.MemberSystem.request(config, 'admin', 'identity-A', 'admin.members.list');
+  const count = h.calls.length;
+  h.calls.forEach(succeed); await Promise.all([old, fresh]);
+  assert.equal(count, 3);
+  assert.equal(h.calls.filter(call => call.body.action === 'admin.member-grants.add').length, 1);
+});
+
+for (const [status, data] of [[502, {}], [200, null], [200, []], [200, { ok: false }], [503, { ok: true, data: {} }]]) {
+  test(`CRUD AC-001 incomplete HTTP ${status} envelope ${JSON.stringify(data)} keeps mutation uncertainty`, async () => {
+    const h = harness('member');
+    const write = h.system.request(config, 'admin', 'identity-A', 'admin.tickets.delete');
+    h.calls[0].resolve(data, status);
+    await assert.rejects(write, { code: 'API_RESPONSE_UNCERTAIN' });
+    assert.equal(h.calls.length, 1);
+    assert.equal(h.timers.size, 0);
+  });
+}
+
+function businessTransportHarness(network) {
+  const h = harness('member', network);
+  h.window.location = new URL('https://fixture.test/admin/?business=shop-a');
+  h.context.location = h.window.location;
+  h.context.document.documentElement = {};
+  h.window.fetch = h.context.fetch;
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../business-context.js'), 'utf8'), h.context);
+  h.context.fetch = (...args) => h.window.fetch(...args);
+  return h;
+}
+
+test('CRUD AC-002 real business decorator: a read cannot retry into another merchant', async () => {
+  const h = businessTransportHarness();
+  const read = h.system.request(config, 'admin', 'identity-A', 'admin.calendar-items.list');
+  const rejected = assert.rejects(read, { code: 'REQUEST_SCOPE_CHANGED' });
+  assert.equal(h.calls[0].body.business, 'shop-a');
+  h.window.BusinessContext.set('shop-b');
+  h.calls[0].reject(new TypeError('connection lost'));
+  // A faulty retry must settle too, so the test observes the wrong merchant
+  // instead of remaining stuck behind a deliberately pending fetch fixture.
+  await flush();
+  h.calls.slice(1).forEach(succeed);
+  await rejected;
+  assert.equal(h.calls.length, 1);
+});
+
+for (const backToStart of [false, true]) test(`CRUD AC-002 real business decorator: late results are discarded across merchant generation changes (${backToStart})`, async () => {
+  const h = businessTransportHarness();
+  const old = h.system.request(config, 'admin', 'identity-A', 'admin.calendar-items.list');
+  const rejected = assert.rejects(old, { code: 'REQUEST_SCOPE_CHANGED' });
+  h.window.BusinessContext.set('shop-b');
+  if (backToStart) h.window.BusinessContext.set('shop-a');
+  const fresh = h.system.request(config, 'admin', 'identity-A', 'admin.calendar-items.list');
+  h.calls.forEach(succeed);
+  await rejected;
+  await fresh;
+  assert.equal(h.calls.length, 2);
+});
+
+test('CRUD AC-002 a new signed-in session cannot consume an older pending read', async () => {
+  const h = harness('member');
+  const old = h.system.request(config, 'admin', 'identity-A', 'admin.calendar-items.list');
+  const rejected = assert.rejects(old, { code: 'REQUEST_SCOPE_CHANGED' });
+  h.window.liff = { init: async () => {}, isInClient: () => true, isLoggedIn: () => true, getIDToken: () => 'identity-B' };
+  await h.system.signIn(config, 'admin');
+  succeed(h.calls[0]);
+  await rejected;
+  assert.equal(h.system.getSession('admin').idToken, 'identity-B');
 });
 
 for (const [action, endpoint] of [['user.booking.group.bootstrap', 'booking-group-api'], ['user.booking.group.slots', 'booking-group-slots-api']]) {

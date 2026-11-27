@@ -36,8 +36,8 @@
   // never inherit read semantics just because it is absent from a write list.
   const READ_ACTIONS = new Set([
     'user.member.bootstrap', 'user.member.monthly-tier-benefits', 'user.member.oa.check',
-    'user.pointcard.bootstrap', 'user.pointcard.detail',
-    'user.event.bootstrap', 'user.event.ticket.detail',
+    'user.pointcard.bootstrap', 'user.pointcard.detail', 'user.pointcard.booking-selections.detail',
+    'user.event.bootstrap', 'user.event.ticket.detail', 'user.event.booking-selections.detail',
     'user.calendar.bootstrap', 'user.calendar.date.details', 'user.booking.benefits',
     'admin.bootstrap', 'admin.terms.list', 'admin.members.list', 'admin.members.presence.list',
     'admin.member-records.list', 'admin.pointcards.list', 'admin.event-tickets.list',
@@ -431,7 +431,8 @@
 
   function isWriteAction(action) {
     return !READ_ACTIONS.has(action)
-      && !/^(admin|user\.(member|points|event|calendar|booking))\.(session|sync)\.status$/.test(action);
+      && action !== 'admin.sync.status'
+      && !/^user\.(member|points|event|calendar|booking)\.(session|sync)\.status$/.test(action);
   }
 
   function request(config, clientType, idToken, action, payload = {}) {
@@ -445,7 +446,7 @@
     if (action.endsWith('.session.status')) return sendRequest(config, clientType, idToken, action, payload);
     const endpoint = requestEndpoint(config, clientType, action);
     const business = window.BusinessContext?.slug || config.business || '';
-    const key = JSON.stringify([endpoint, config.supabasePublishableKey, business, clientType, idToken, action, payload]);
+    const key = JSON.stringify([endpoint, config.supabasePublishableKey, business, window.BusinessContext?.generation || 0, clientType, idToken, action, payload]);
     if (pendingReads.has(key)) return pendingReads.get(key);
     const pending = sendRequest(config, clientType, idToken, action, payload).finally(() => {
       if (pendingReads.get(key) === pending) pendingReads.delete(key);
@@ -455,6 +456,9 @@
   }
 
   function requestEndpoint(config, clientType, action) {
+    if (clientType === 'admin' && action === 'admin.member-grants.add') {
+      return String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/grant-automation';
+    }
     if (String(action || '').startsWith('member.friend.') || String(action || '').startsWith('member.invitation.') || ['event.today-usable','member.referral.bind','points.transfer.options','points.transfer.receiver','points.transfer.create'].includes(action)) {
       return String(config.supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/member-growth-api';
     }
@@ -478,8 +482,9 @@
     if (isTerminatingAccess) throw clientError('SESSION_REVOKED', '連線已結束，請重新登入。');
     validateConfig(config, clientType);
     const startingSession = sessions.get(clientType);
-    const scopeAtStart = JSON.stringify([config.supabaseUrl, config.supabaseFunctionUrl,
-      config.supabasePublishableKey, window.BusinessContext?.slug || config.business || '']);
+    const currentRequestScope = () => JSON.stringify([config.supabaseUrl, config.supabaseFunctionUrl,
+      config.supabasePublishableKey, window.BusinessContext?.slug || config.business || '', window.BusinessContext?.generation || 0]);
+    const scopeAtStart = currentRequestScope();
     const endpoint = requestEndpoint(config, clientType, action);
     if (!SUPABASE_FUNCTION_PATTERN.test(endpoint) || endpoint.includes('REPLACE_')) {
       throw clientError('CONFIG_ERROR', '此功能的 Supabase Edge Function URL 尚未設定。');
@@ -492,11 +497,18 @@
       : payload;
     const isWrite = isWriteAction(action);
     const timeoutMs = isWrite ? WRITE_TIMEOUT_MS : isFullBootstrap(clientType, action, payload) ? BOOTSTRAP_TIMEOUT_MS : READ_TIMEOUT_MS;
+    const assertRequestScope = () => {
+      if (sessions.get(clientType) !== startingSession || currentRequestScope() !== scopeAtStart) {
+        throw clientError(isWrite ? 'API_RESPONSE_UNCERTAIN' : 'REQUEST_SCOPE_CHANGED',
+          isWrite ? '商家或登入狀態已變更，無法確認這次操作結果；請先重新整理確認，請勿重複送出。' : '商家或登入狀態已變更，請重新整理後再試。');
+      }
+    };
     const attempts = isWrite ? 1 : 2;
     const deadline = Date.now() + timeoutMs;
     let lastError;
 
     for (let attempt = 0; attempt < attempts; attempt += 1) {
+      assertRequestScope();
       const remaining = isWrite ? WRITE_TIMEOUT_MS : Math.max(1, deadline - Date.now());
       if (!isWrite && remaining <= 1 && attempt > 0) break;
       try {
@@ -517,14 +529,20 @@
             isWrite ? '無法確認這次操作的回應；資料可能已更新，請先重新整理確認，請勿重複送出。' : '資料服務暫時未正常回應。');
         }
 
-        if (!data || data.ok !== true) {
+        const explicitFailure = data?.ok === false && typeof data.error?.code === 'string' && data.error.code.length > 0;
+        if (!data || typeof data !== 'object' || Array.isArray(data)
+          || (data.ok !== true && !explicitFailure) || (fetched.response.ok === false && data.ok === true)) {
+          throw clientError(isWrite ? 'API_RESPONSE_UNCERTAIN' : 'API_RESPONSE_ERROR',
+            isWrite ? '無法確認這次操作的回應；資料可能已更新，請先重新整理確認，請勿重複送出。' : '資料服務回應格式異常。');
+        }
+        if (explicitFailure) {
           const error = clientError(data && data.error && data.error.code || 'API_ERROR', data && data.error && data.error.message || '資料服務拒絕此請求。');
           error.status = Number(data && data.status || fetched.response.status || 0);
           error.details = data && data.error && data.error.details || null;
           if (['SESSION_REVOKED', 'SESSION_REPLACED', 'MEMBER_REMOVED', 'SYSTEM_MAINTENANCE'].includes(error.code)) {
             const current = sessions.get(clientType);
             const currentScope = current && JSON.stringify([current.config.supabaseUrl, current.config.supabaseFunctionUrl,
-              current.config.supabasePublishableKey, window.BusinessContext?.slug || current.config.business || '']);
+              current.config.supabasePublishableKey, window.BusinessContext?.slug || current.config.business || '', window.BusinessContext?.generation || 0]);
             // A late denial belongs to the credential that made the request,
             // not a newly signed-in identity or a different merchant.
             if (error.code === 'SYSTEM_MAINTENANCE' || !current ||
@@ -535,6 +553,7 @@
           throw error;
         }
         if (isTerminatingAccess) throw clientError('SESSION_REVOKED', '連線已結束，請重新登入。');
+        assertRequestScope();
         return data.data || {};
       } catch (error) {
         if (error && error.code && !['REQUEST_TIMEOUT', 'NETWORK_ERROR', 'API_RESPONSE_ERROR'].includes(error.code)) throw error;

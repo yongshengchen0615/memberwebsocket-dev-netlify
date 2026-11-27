@@ -40,7 +40,7 @@
     "admin/app.js": "4b796407ca7de54a56bf513e6949eb2bae5263fe62c7c1da51cecce2e884022b",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
-    "admin/grant-automation.js": "bf4acfae03c852f581ee6755e49f1441fb2ec9911dac8ff096de02ca19f38138",
+    "admin/grant-automation.js": "6a44e4c666d25adc4200f09ce95f8f6600209962be56ec7fe08ab11e4a779bfb",
     "admin/coupon-location-editor.js": "31fb9d8ab26519022ed20528f9ce7cba588826c4d20bf2cccc2c1a5f584d055f",
     "admin/fixed-ticket-admin.js": "c105feacd0c32d91ba6483fa045963da959339b14a545d574d8de5595180bfb5",
     "admin/fixed-ticket-admin-integration.js": "af65455cf96f6770fdbb0a72558d970b5a4377b0d42557ef55b2f5e70c43c190",
@@ -58,7 +58,7 @@
     "admin/workspace.html": "25bad61a0238e4d167cc184dc85b2de7fba38f1f88f6b684d098740b4d4b765a",
     "platform/app.js": "8aa9ca2e46f51fabb76ed6f03f71d377351e702c7512979b4030ddb0f9c58d49",
     "admin/business-workspace.js": "0d49c7a5369a7242581684aa626264a5e8f90e2c391b064e144a4f744071ee31",
-    "business-context.js": "55a290071971877fcf4f1fffc70d8f290f770f75ad8458482e3f0b694456ea37",
+    "business-context.js": "77b5e7c5c6339728d47ef055fa3304c5afa39f93710c2ceff3f92599cf6d813c",
     "admin/business-line-settings.js": "c91b11db6169d80247adcd51bb45e269b9ad4056d5026ed7ba909b1b6ef95df3",
     "admin/booking-risk.js": "a18bba899216a17cef819554cb216a6f0430709e30e5a241dcb60ee5d3f77462",
     "platform/index.html": "f307859acedcd4b49022455eb4e5f7dd107facb6df4475d44747e49414fd5b20",
@@ -843,5 +843,6 @@
   "frontdeskStaffBatchReview": "2026-11-26：櫃檯人員申請與權限移至獨立 tab，逐人修改集中由單顆儲存所有人員權限提交；待審核預設未選取，避免未確認者被批次核准。商家後端驗證租戶、身份、各人員狀態與版本，在單一 PostgreSQL 交易原子更新、同步通知收件者及撤銷通知並寫入稽核；衝突全批回滾，遺失回應以 requestId 冪等重播，移除帳號仍需另行二次確認。已加單元、PGlite 真實資料庫、390/1280 Chromium 多筆儲存及跨頁草稿測試；合併、部署及正式 LINE 驗證另依 CI 證據。",
   "memberMonthlyCompactReview": "2026-11-27 PR #491：已盤點原有 62 組 admin-human 管理員旅程；新變更只在五個使用者頁面 member/points/event/calendar/booking 加入統一的唯讀本月階級優惠收合元件，預設關閉、約 44px，不額外呼叫 API，展開後只取一次資料並用四階級分頁切換。booking/common.js 增加獨立只讀 member-profile-api wrapper，不變更現有 booking.memberProfile、預約寫入／提交／取消／收據／票券核銷與管理員預約確認，保留 BOOKING_* 相關管理員旅程；calendar/app.js 只在原有會員階級快照後綁定可選入口，calendar/index.html 僅新增同源 CSS 與 defer JS 及語意化 details，不觸及管理員日曆 CRUD、休假、活動票券、行事曆顯示或會員活動權限。原 62 個功能 ID、cases 與瀏覽器測試不刪不弱化。後端只擴大 read-only catalogue 的五個合法 clientType allowlist，所有寫入／其他 member action 仍限 member、測試 session 需與頁面一致，停權／待同意條款／跨租戶仍拒絕。新增 AC-013～015、五入口 390px Playwright 真實瀏覽器 fixture、原管理員所有 62 旅程及完整 CI；LINE Provider 真實手機與實際活動資料仍需獨立驗證，不以 stub 冒充。",
   "memberMonthlyThemeReview": "2026-11-27：本輪只優化 #491 共用會員月度優惠收合元件的亮色／暗色配色、欄位對比、四階按鈕短標籤／數量徽章、320/390px 排版、鍵盤焦點與 reduced-motion，沿用現有全站 --theme-* tokens，不新增 JS API 請求、權限、資料庫、LINE 操作或額外依賴。五個會員端 index.html 只更新相同 CSS/JS 的 cache 版本；calendar/index.html 對應 reviewedSources 已以實際 SHA256 更新。原 62 組 admin-human 管理員業務旅程及預約日期／模式、日曆、發券、集點與 LINE 登入原順序均保留，沒有修改／弱化既有 browser assertions。新增 AC-016 靜態與五端 390px 亮／暗及 320px 暗色 Chromium 真實 CSS 對比測試；全量 CI 與測試分支部署完成前不能宣稱通過，真實 LINE Provider 實機仍須獨立驗證。 2026-11-27 PR #492 後續易用性修正：使用者需要看出收合列可以操作，五端 summary 改為清楚的「展開查看」文字 + 高對比膠囊按鈕視覺 + 向下箭頭，展開後立刻切換「收合內容」及向上箭頭；整列鍵盤／滑鼠皆可操作。AC-017 驗證雙向動態提示、對比與 320/390px 可點擊區，保持原生 details、初始零 API、所有 62 組管理員流程與同 SHA 完整回歸，不降低測試標準。",
-  "memberMonthlyCardParityReview": "2026-11-27 PR #493：月度優惠的四階名稱及按鈕背景、強調色，不再使用與會員卡無關的依 rank 固定顏色；依據原本 membership_tier_settings 每階級 style_key、tier_label（同一 profileFor 讀取結果）動態回傳前台，完全沿用 member/styles.css 既有 10 套會員卡主題實際色碼（包括自訂商家階級樣式）。會員端、集點卡、活動票券、會員日曆、預約都由同一安全的只讀資料源呈現；不新增 DB 查詢、資料欄位、金流、票券寫入或階級繼承權限。未知 style_key 退回 forest、標題文字只用 textContent。保留收合懶讀及全專案 62 組人工管理旅程，新增 AC-018/019 以及五入口瀏覽器 320/390px 亮暗對比＆會員卡原生配色比對。此次 calendar/index.html 只有月度共用 CSS/JS 資產 cache 版號更新，已重新對照真實檔案 SHA256。"
+  "memberMonthlyCardParityReview": "2026-11-27 PR #493：月度優惠的四階名稱及按鈕背景、強調色，不再使用與會員卡無關的依 rank 固定顏色；依據原本 membership_tier_settings 每階級 style_key、tier_label（同一 profileFor 讀取結果）動態回傳前台，完全沿用 member/styles.css 既有 10 套會員卡主題實際色碼（包括自訂商家階級樣式）。會員端、集點卡、活動票券、會員日曆、預約都由同一安全的只讀資料源呈現；不新增 DB 查詢、資料欄位、金流、票券寫入或階級繼承權限。未知 style_key 退回 forest、標題文字只用 textContent。保留收合懶讀及全專案 62 組人工管理旅程，新增 AC-018/019 以及五入口瀏覽器 320/390px 亮暗對比＆會員卡原生配色比對。此次 calendar/index.html 只有月度共用 CSS/JS 資產 cache 版號更新，已重新對照真實檔案 SHA256。",
+  "crudTransportReview": "2026-11-27 PR #500：已核對62組管理端既有旅程；grant-automation 僅將 admin.member-grants.add 交由 MemberSystem 共用傳輸，保留 grant-automation endpoint、requestId、通知模式、預覽與發放結果、原表單及權限，不新增或移除UI操作。新增載入實際擴充的 Node 與390/1280px Chromium案例，涵蓋寫入前後讀取失效、payload及單次送出；原 MEMBER_SERVICE_GRANT、STALE、RETRY及62組旅程繼續為必要回歸。完整CI及指定測試環境部署仍需以最終SHA查驗。"
 }
