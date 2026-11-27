@@ -263,6 +263,13 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
         const requiredServiceGroups = Array.isArray(offer.requiredServiceGroups) ? offer.requiredServiceGroups : [];
          const requiredServiceTitles = requiredServiceTitlesFor(requiredServiceGroups.length ? [...new Set(requiredServiceGroups.flat())] : requiredServiceIds);
         const requiredServiceRequirementLabel = requiredServiceGroups.length ? groupRequirementLabelFor(requiredServiceGroups) : requiredServiceRequirementLabelFor(requiredServiceIds, requiredServiceMatchMode);
+        const minBookingPartySize = Number(offer.minBookingPartySize || 0);
+        const maxBookingPartySize = Number(offer.maxBookingPartySize || 0);
+        const minBookingPartyLabel = minBookingPartySize && maxBookingPartySize
+          ? minBookingPartySize === maxBookingPartySize
+            ? '限 ' + minBookingPartySize + ' 人預約' : '預約 ' + minBookingPartySize + '–' + maxBookingPartySize + ' 人'
+          : minBookingPartySize ? '至少預約 ' + minBookingPartySize + ' 人'
+          : maxBookingPartySize ? '最多預約 ' + maxBookingPartySize + ' 人' : '';
         const minBookingAmountMode = offer.minBookingAmountMode || 'none';
         const minBookingAmount = Number(offer.minBookingAmount || 0);
         const minBookingServiceIds = Array.isArray(offer.minBookingServiceIds) ? offer.minBookingServiceIds : [];
@@ -292,7 +299,8 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
           claimRequired: false, // legacy response shape: booking never issues a claim
           requiredServiceIds, requiredServiceMatchMode, requiredServiceGroups, requiredServiceTitles, requiredServiceRequirementLabel,
           minBookingAmountMode, minBookingAmount, minBookingServiceIds, minBookingServiceTitles, minBookingAmountLabel,
-          conditionLabel: `${receivedAsGift ? '好友贈票 · 使用不限會員階級 · ' : ''}${eventTicketMaxPerDay === 0 ? '每日使用張數不限' : `每日最多使用 ${eventTicketMaxPerDay} 張`} · ${requiredServiceRequirementLabel ? `預約項目限制：${requiredServiceRequirementLabel}` : '預約項目限制：不限'} · ${minBookingAmountLabel}${offer.requiresLocation === true ? ' · 現場單獨使用需 GPS 定位' : ''}`,
+          minBookingPartySize, maxBookingPartySize, minBookingPartyLabel,
+          conditionLabel: `${receivedAsGift ? '好友贈票 · 使用不限會員階級 · ' : ''}${eventTicketMaxPerDay === 0 ? '每日使用張數不限' : `每日最多使用 ${eventTicketMaxPerDay} 張`} · ${requiredServiceRequirementLabel ? `預約項目限制：${requiredServiceRequirementLabel}` : '預約項目限制：不限'} · ${minBookingPartyLabel ? '預約人數：' + minBookingPartyLabel + ' · ' : ''}${minBookingAmountLabel}${offer.requiresLocation === true ? ' · 現場單獨使用需 GPS 定位' : ''}`,
           disabledReason: locked ? visibility.lockReason : usageExhausted ? '本活動使用名額已額滿，已發放票券仍保留在帳戶。' : reservedForOtherBooking ? '此票券已在一般預約登記，不能重複登記。' : reservedInSnapshot ? '此票券已在快照模式登記，待審核期間不能重複登記。' : !offer.claimId ? '尚未發放，不能登記或使用。' : '',
         };
       }),
