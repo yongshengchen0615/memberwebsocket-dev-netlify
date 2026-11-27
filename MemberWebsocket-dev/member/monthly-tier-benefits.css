@@ -350,8 +350,42 @@ html[data-theme="dark"] .member-monthly-benefits {
   font-weight: 700;
   line-height: 1.1;
 }
+/* Separate benefit lists below each tier, without adding a second toggle. */
+.member-monthly-offer-group {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--monthly-divider);
+  border-radius: 10px;
+  background: var(--monthly-panel);
+}
+.member-monthly-offer-group + .member-monthly-offer-group { margin-top: 9px; }
+.member-monthly-offer-group-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--monthly-divider);
+}
+.member-monthly-offer-group-title {
+  margin: 0;
+  color: var(--monthly-text);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.5;
+}
+.member-monthly-offer-group-count {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--monthly-highlight);
+  color: var(--monthly-highlight-text);
+  font-size: 11px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
 .member-monthly-tier-empty {
-  margin: 8px 0 4px;
+  margin: 8px 0 2px;
   color: var(--monthly-muted);
   font-size: 12px;
   line-height: 1.55;
@@ -375,16 +409,6 @@ html[data-theme="dark"] .member-monthly-benefits {
   overflow-wrap: anywhere;
 }
 .member-monthly-tier-list .member-monthly-offer:first-child { border-top: 0; }
-.member-monthly-offer-kind {
-  flex: 0 0 auto;
-  padding: 2px 6px;
-  color: var(--monthly-highlight-text);
-  background: var(--monthly-highlight);
-  border-radius: 5px;
-  font-size: 11px;
-  font-weight: 750;
-  line-height: 1.4;
-}
 .member-monthly-offer-title {
   flex: 1 1 110px;
   min-width: 0;

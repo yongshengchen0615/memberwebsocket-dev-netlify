@@ -140,7 +140,11 @@ test('AC-006: compact widget only loads on open, coalesces, and protects against
   await Promise.all([same,second]);
   assert.equal(target.children.length,1,'only selected tier is rendered');
   assert.equal(tabs.children.length,4,'four tier switches are available');
-  assert.equal(target.children[0].children[1].children[0].children[1].textContent,'<script>alert(1)</script>','offer titles remain plain text');
+  const renderedGroups = target.children[0].children.filter(node => node.dataset?.monthlyOfferKind);
+  assert.deepEqual(Array.from(renderedGroups, node => node.dataset.monthlyOfferKind),['ticket','activity'],'one ticket and one activity section per tier');
+  assert.equal(renderedGroups[0].children[1].children[0].children[0].textContent,
+    '<script>alert(1)</script>','offer titles remain plain text and must not become executable markup');
+  assert.equal(renderedGroups[1].children[1].textContent,'本月尚無會員活動','empty activity section remains explicit');
   assert.equal(button.disabled,false);
   assert.equal(teaser.textContent,'收合內容','expanded panel must advertise how to close it');
   tabs.children[0].onclick();
@@ -303,8 +307,8 @@ test('AC-016: monthly catalogue uses shared semantic light/dark theme tokens and
   assert.match(js,/aria-label/);
   for (const surface of ['member','points','event','calendar','booking']) {
     const html=fs.readFileSync(path.join(root,surface,'index.html'),'utf8');
-    assert.match(html,/monthly-tier-benefits\.css\?v=20261127-card-style-2/);
-    assert.match(html,/monthly-tier-benefits\.js\?v=20261127-card-style-1/);
+    assert.match(html,/monthly-tier-benefits\.css\?v=20261127-offer-groups-1/);
+    assert.match(html,/monthly-tier-benefits\.js\?v=20261127-offer-groups-1/);
     assert.match(html,/data-member-monthly-tier-teaser>展開查看<\/small>/);
   }
 });
@@ -396,4 +400,107 @@ test('AC-020: monthly tier labels mirror the white frosted pill typography on th
   assert.match(monthly, /\.member-monthly-tier\[data-membership-tier-style\] \.member-monthly-tier-heading \{/);
   assert.match(monthly, /background: linear-gradient\(145deg, rgba\(255,255,255,\.075\), transparent 55%\), var\(--monthly-card-background\)/);
   assert.match(monthly, /\.member-monthly-tier\[data-membership-tier-style\] \.member-monthly-current-tag \{/);
+});
+
+test('AC-021: monthly catalogue collects every ticket and activity even beyond 1,000 rows or a lower API page cap', async () => {
+  const { collectAllMonthlyRows, buildMonthlyTierOverview } = await load();
+  const tickets = Array.from({length: 1207}, (_, i) => ({
+    id: String(i + 1).padStart(6, '0'),
+    title: '票券-' + i, ticket_type: 'coupon', status: 'active',
+    starts_on: '2026-11-01', ends_on: '2026-11-30', allowed_tier_keys: ['general']
+  }));
+  const activities = Array.from({length: 1103}, (_, i) => ({
+    id: String(i + 1).padStart(6, '0'),
+    title: '活動-' + i, item_type: 'event', status: 'active', audience_type: 'all',
+    starts_on: '2026-11-01', ends_on: '2026-11-30', allowed_tier_keys: ['silver']
+  }));
+  function paged(rows, maxRows, withCount = true) {
+    const cursors = [];
+    const read = async (cursor, first) => {
+      cursors.push(cursor);
+      return { data: rows.filter(row => cursor === null || row.id > cursor).slice(0, maxRows),
+        count: first && withCount ? rows.length : null, error: null };
+    };
+    return { read, cursors };
+  }
+  const t = paged(tickets, 87), a = paged(activities, 137);
+  const [allTickets, allActivities] = await Promise.all([
+    collectAllMonthlyRows(t.read), collectAllMonthlyRows(a.read)
+  ]);
+  assert.deepEqual(allTickets.map(row => row.id), tickets.map(row => row.id));
+  assert.deepEqual(allActivities.map(row => row.id), activities.map(row => row.id));
+  assert.ok(t.cursors.length > 10 && a.cursors.length > 5, 'must page past the Supabase max-rows ceiling');
+  const overview = buildMonthlyTierOverview({month:'2026-11', tickets:allTickets, activities:allActivities});
+  assert.deepEqual(overview.tiers.map(tier => tier.offers.length),
+    [1207,2310,2310,2310], 'higher tiers inherit the complete lower-tier catalogue without dropping rows');
+  assert.equal(overview.tiers[3].offers.filter(offer => offer.kind === 'activity').length, 1103);
+  assert.equal(new Set(overview.tiers[3].offers.map(offer => offer.kind + offer.title)).size, 2310);
+});
+
+test('AC-022: catalogue pagination fails closed on later-page errors, missing data, bad ordering and incomplete counts', async () => {
+  const { collectAllMonthlyRows } = await load();
+  const ordered = [
+    {id:'0001',title:'a'}, {id:'0002',title:'b'}, {id:'0003',title:'c'},
+  ];
+  let requests = 0;
+  const readWithoutCount = async cursor => {
+    requests++;
+    return {data: ordered.filter(row => cursor === null || row.id > cursor).slice(0,2), error:null};
+  };
+  assert.deepEqual(await collectAllMonthlyRows(readWithoutCount),ordered);
+  assert.equal(requests,3,'unknown count must fetch until an empty page rather than assume a limit');
+  await assert.rejects(
+    collectAllMonthlyRows(async cursor => cursor === null
+      ? {data:ordered.slice(0,2),count:3,error:null}
+      : {data:null,error:new Error('postgrest temporary error')}),
+    /postgrest temporary error/
+  );
+  await assert.rejects(
+    collectAllMonthlyRows(async cursor => cursor === null
+      ? {data:ordered.slice(0,2),count:3,error:null}
+      : {data:[],count:null,error:null}),
+    /MONTHLY_CATALOGUE_INCOMPLETE_PAGE/
+  );
+  await assert.rejects(
+    collectAllMonthlyRows(async cursor => cursor === null
+      ? {data:ordered.slice(0,2),count:3,error:null}
+      : {data:[ordered[1]],count:null,error:null}),
+    /MONTHLY_CATALOGUE_INVALID_ORDER/
+  );
+  await assert.rejects(
+    collectAllMonthlyRows(async () => ({data:null,error:null})),
+    /MONTHLY_CATALOGUE_INVALID_PAGE/
+  );
+  assert.deepEqual(await collectAllMonthlyRows(async()=>({data:[],count:0,error:null})),[]);
+});
+
+test('AC-023: API pages both collections by stable ID, refuses partial results and preserves scope/visibility', () => {
+  const api=fs.readFileSync(path.join(__dirname,'..','supabase/functions/member-profile-api/index.ts'),'utf8');
+  const block=api.slice(api.indexOf('async function monthlyTierBenefits('),api.indexOf("serveBusiness('member-profile-api'"));
+  assert.match(api,/const MONTHLY_CATALOGUE_PAGE_SIZE = 200/);
+  assert.match(api,/MONTHLY_TIER_OFFERS_UNAVAILABLE/);
+  assert.match(api,/return await collectAllMonthlyRows\(fetchPage\)/);
+  assert.equal((block.match(/monthlyCatalogueRows\(async \(cursor, first\)/g)||[]).length,2);
+  assert.equal((block.match(/\.order\("id", \{ ascending: true \}\)\.range\(0, MONTHLY_CATALOGUE_PAGE_SIZE - 1\)/g)||[]).length,2);
+  assert.equal((block.match(/\.gt\("id", cursor\)/g)||[]).length,2);
+  assert.equal((block.match(/first \? \{ count: "exact" \} : undefined/g)||[]).length,2);
+  assert.match(block,/visibleToViewer\(row, false\)/);
+  assert.match(block,/visibleToViewer\(row, true\)/);
+  assert.match(block,/showTickets = !features \|\| features\.events === true/);
+  assert.match(block,/showActivities = !features \|\| features\.calendar === true/);
+  assert.doesNotMatch(block,/\.insert\(|\.update\(|\.delete\(/);
+});
+
+test('AC-025: monthly tier view groups all tickets and activities with counts and explicit zero states', () => {
+  const source=fs.readFileSync(path.join(__dirname,'..','member/monthly-tier-benefits.js'),'utf8');
+  const css=fs.readFileSync(path.join(__dirname,'..','member/monthly-tier-benefits.css'),'utf8');
+  assert.match(source,/kind: 'ticket', label: '活動票券', empty: '本月尚無活動票券'/);
+  assert.match(source,/kind: 'activity', label: '會員活動', empty: '本月尚無會員活動'/);
+  assert.match(source,/entries = offers\.filter\(offer => offer && offer\.kind === category\.kind\)/);
+  assert.match(source,/group\.dataset\.monthlyOfferKind = category\.kind/);
+  assert.match(source,/entries\.length \+ ' 項'/);
+  assert.match(source,/for \(const offer of entries\)/);
+  assert.doesNotMatch(source,/offers\.slice\(|entries\.slice\(|offers\.splice\(/);
+  assert.match(css,/\.member-monthly-offer-group-heading \{/);
+  assert.match(css,/\.member-monthly-offer-group \+ \.member-monthly-offer-group/);
 });

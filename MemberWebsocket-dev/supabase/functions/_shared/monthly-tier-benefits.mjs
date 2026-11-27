@@ -128,3 +128,36 @@ export function buildMonthlyTierOverview({
   }
   return { month, tiers };
 }
+
+/**
+ * Read every page of the already-scoped, read-only monthly offer query.
+ * Keyset pagination avoids skipping/duplicating entries when rows are
+ * changed before the next page. An exact first-page count avoids an extra
+ * request for the common small catalogue; a missing count never truncates it.
+ * @template {{id: string}} T
+ * @param {(cursor: string | null, first: boolean) => Promise<{data: T[] | null, count?: number | null, error?: unknown}>} fetchPage
+ * @returns {Promise<T[]>}
+ */
+export async function collectAllMonthlyRows(fetchPage) {
+  const rows = [];
+  let cursor = null;
+  let expectedCount = null;
+  while (true) {
+    const first = cursor === null;
+    const result = await fetchPage(cursor, first);
+    if (result?.error) throw result.error;
+    if (!Array.isArray(result?.data)) throw new Error('MONTHLY_CATALOGUE_INVALID_PAGE');
+    if (first && Number.isSafeInteger(result.count) && result.count >= 0) expectedCount = result.count;
+    if (result.data.length === 0) {
+      if (expectedCount !== null && rows.length < expectedCount) throw new Error('MONTHLY_CATALOGUE_INCOMPLETE_PAGE');
+      return rows;
+    }
+    for (const row of result.data) {
+      const id = typeof row?.id === 'string' ? row.id : '';
+      if (!id || (cursor !== null && id <= cursor)) throw new Error('MONTHLY_CATALOGUE_INVALID_ORDER');
+      rows.push(row);
+      cursor = id;
+    }
+    if (expectedCount !== null && rows.length >= expectedCount) return rows;
+  }
+}
