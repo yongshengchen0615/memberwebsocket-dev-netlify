@@ -281,7 +281,11 @@ async function startFixture() {
       if(url.pathname==='/admin/'){
         const key=url.searchParams.get('run');if(!sessions.has(key))sessions.set(key,fixture());res.setHeader('Set-Cookie','qa='+key+'; Path=/; SameSite=Strict');
         const html=fs.readFileSync(path.join(root,'admin/index.html'),'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'');
-        return send(200,'text/html',html.replace('</body>',`<script src="/fixture.js"></script>${scripts.map(src=>`<script src="/${src}"></script>`).join('')}</body>`));
+        // The isolated browser harness doesn't exercise Leaflet's map stylesheet.
+        // Never wait for this external CDN to finish while measuring local calendar UI.
+        // Retain all actual local CSS/JS and the page's full-load assertion.
+        const localHtml=html.replace(/<link\b[^>]*href="https:\/\/cdn\.jsdelivr\.net\/npm\/leaflet@1\.9\.4\/dist\/leaflet\.css"[^>]*>/gi,'');
+        return send(200,'text/html',localHtml.replace('</body>',`<script src="/fixture.js"></script>${scripts.map(src=>`<script src="/${src}"></script>`).join('')}</body>`));
       }
       if(url.pathname==='/fixture.js')return send(200,'text/javascript',`
         // Keep synthetic Supabase traffic inside this per-test HTTP fixture.
