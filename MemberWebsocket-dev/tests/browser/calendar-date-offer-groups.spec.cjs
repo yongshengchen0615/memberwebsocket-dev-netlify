@@ -21,7 +21,27 @@ const holiday = {
   itemType: 'holiday', calendarItemId: 'day-off', title: '技師休假',
   status: 'active', startsOn: '2026-12-12', endsOn: '2026-12-12'
 };
+const rankOffer = (name, tier, kind, isLocked) => ({
+  itemType: 'event', calendarItemId: name, title: name,
+  startsOn: '2026-12-12', endsOn: '2026-12-12',
+  allowedTierKeys: [tier], allowedTierLabels: ['一般會員','銀級會員','金級會員','白金會員'],
+  tierEligible: !isLocked, locked: isLocked,
+  ...(kind === 'ticket' ? { eventTicketId: 'EVT-' + name } : {}),
+  linkLabel: '查看', linkUrl: kind === 'ticket'
+    ? 'https://old.example/event/?source=event-ticket-calendar&eventTicketId=EVT-2'
+    : 'https://old.example/activity/'
+});
 const cases = {
+  four: [
+    rankOffer('可用一般活動','general','activity',false),
+    rankOffer('鎖定銀級票券','silver','ticket',true),
+    rankOffer('可用銀級票券','silver','ticket',false),
+    rankOffer('鎖定白金活動','platinum','activity',true),
+    rankOffer('可用白金活動','platinum','activity',false),
+    rankOffer('鎖定白金票券','platinum','ticket',true),
+    rankOffer('可用金級票券','gold','ticket',false),
+    rankOffer('鎖定金級活動','gold','activity',true),
+  ],
   mixed: [available, locked],
   locked: [locked],
   holiday: [available, locked, holiday],
@@ -97,8 +117,8 @@ for (const width of [320, 390, 1280]) {
     await page.setViewportSize({width, height: 800});
     await open(page, 'mixed');
     const modal = page.locator('#calendarDetailModal');
-    await expect(modal.locator('.calendar-detail-group.available')).toContainText('當日可用的活動與票券');
-    await expect(modal.locator('.calendar-detail-group.locked')).toContainText('未解鎖的活動與票券');
+    await expect(modal.locator('.calendar-detail-group.available.tickets')).toContainText('當日可用的活動票券');
+    await expect(modal.locator('.calendar-detail-group.locked.activities')).toContainText('未解鎖的會員活動');
     await expect(modal.locator('.calendar-detail-group.available .calendar-detail-item')).toHaveCount(1);
     await expect(modal.locator('.calendar-detail-group.locked .calendar-detail-item')).toHaveCount(1);
     await expect(modal.locator('.calendar-detail-group.locked')).toContainText('需符合銀級會員');
@@ -134,3 +154,26 @@ test('locked-only dates are visible and hidden items are not invented by the cli
   await expect(page.locator('#calendarView')).toBeVisible();
   await expect(page.locator('[data-calendar-date]')).toHaveCount(0);
 });
+
+for (const width of [320, 390, 1280]) {
+  test('four date offer categories retain tier-descending order at ' + width + 'px', async ({page}, info) => {
+    await page.setViewportSize({width, height:800});
+    await open(page, 'four');
+    const modal = page.locator('#calendarDetailModal');
+    await expect(modal.locator('.calendar-detail-group-header h3')).toHaveText([
+      '當日可用的會員活動','當日可用的活動票券',
+      '未解鎖的會員活動','未解鎖的活動票券'
+    ]);
+    await expect(modal.locator('.available.activities h4')).toHaveText(['可用白金活動','可用一般活動']);
+    await expect(modal.locator('.available.tickets h4')).toHaveText(['可用金級票券','可用銀級票券']);
+    await expect(modal.locator('.locked.activities h4')).toHaveText(['🔒 鎖定白金活動','🔒 鎖定金級活動']);
+    await expect(modal.locator('.locked.tickets h4')).toHaveText(['🔒 鎖定白金票券','🔒 鎖定銀級票券']);
+    await expect(modal.locator('.calendar-detail-group.locked a')).toHaveCount(0);
+    const overflow = await modal.locator('.calendar-detail-card').evaluate(el => ({
+      card: el.scrollWidth > el.clientWidth + 1,
+      page: document.documentElement.scrollWidth > innerWidth + 1
+    }));
+    expect(overflow).toEqual({card:false,page:false});
+    await page.screenshot({path:info.outputPath('calendar-four-tiers-' + width + '.png')});
+  });
+}
