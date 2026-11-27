@@ -33,7 +33,13 @@ test('AC-HOL-002: authorized API uses CAS, validates length, and preserves older
   assert.match(src, /if \(!result\.data\) throw new ApiError\(409/);
   assert.match(src, /holidayNotice: result\.data\.holiday_notice/);
   assert.match(adminApi, /await authorizeAdmin\(supabase, identity\)/);
-  assert.match(migration, /holiday_notice text not null default ''/);
+  assert.match(migration, /ADD COLUMN IF NOT EXISTS holiday_notice text NOT NULL DEFAULT/);
+  assert.match(migration, /platform_private\.tenants/);
+  assert.match(migration, /runtime_schema IS NOT NULL/);
+  assert.match(migration, /platform_private\.business_templates/);
+  assert.match(migration, /'business-v1-20261019'/);
+  assert.match(migration, /jsonb_set\(v_template,'\{columns\}'/);
+  assert.match(migration, /jsonb_set\(v_template,'\{constraints\}'/);
   assert.match(migration, /char_length\(holiday_notice\) <= 400/);
 });
 
