@@ -35,7 +35,15 @@ test('member and admin booking records render explicit ticket kind and immutable
   assert.match(member, /本次使用票券/);
   assert.match(member, /集點卡票券/);
   assert.match(member, /活動票券/);
-  assert.match(group, /item\.cardTitle/);
+  // Group booking delegates confirmed booking history to the shared member renderer;
+  // the group review intentionally no longer renders ticket-selection details.
+  assert.match(member, /function bookingBenefitPresentation\(benefit\)/);
+  assert.match(member, /benefit\?\.cardTitle/);
+  assert.match(member, /renderBookingBenefitCards\(booking\.benefits/);
+  assert.match(group, /function renderConfirmation\(\)/);
+  const groupReview = group.split('function renderConfirmation() {')[1]?.split('function confirmationContactSummary()')[0];
+  assert.ok(groupReview, 'group booking review must still exist');
+  assert.doesNotMatch(groupReview, /booking-confirm-benefits|item\.cardTitle/, 'ticket source belongs to booking history, not the review dialog');
   assert.match(admin, /使用票券/);
   assert.match(admin, /bookingBenefitDisplayTitle/);
   assert.match(accessible, /benefitRecordTitle/);
