@@ -218,7 +218,8 @@
         render();
         syncState.textContent = '最新版本已儲存並同步。';
         status.textContent = action === 'platform.frontdesk.staff.delete' ? '櫃檯帳號已移除；如需重新使用，須重新申請並審核。' :
-          action === 'platform.frontdesk.staff.batch' ? '所有已修改的人員申請與權限已一次儲存。' : '櫃檯設定與人員權限已儲存。';
+          action === 'platform.frontdesk.staff.batch' ? '所有已修改的人員申請與權限已一次儲存。' :
+           action === 'platform.frontdesk.rejection-settings.save' ? '拒絕預約與拒絕修改原因已一起儲存。' : '櫃檯設定與人員權限已儲存。';
         // Invalidate other open tabs; never send credentials or staff data.
         channel?.postMessage({ business });
       } catch (error) {
@@ -408,17 +409,58 @@
         settings.dataset.frontdeskRejectionSettings = 'true';
         const intro = node('header', '', 'frontdesk-rejection-intro');
         intro.append(node('p', '預約審核 · 規則管理', 'frontdesk-rejection-kicker'),
-          node('h3', '拒絕預約設定'),
-          node('p', '管理櫃檯選單、拒絕原因及會員端說明。勾選「有休假技師」時，會員說明由原預約時間和櫃檯選取的技師自動產生。'));
-        settings.append(intro);
+          node('h3', '拒絕原因設定'),
+          node('p', '新預約與修改預約各有獨立的拒絕原因。請先選擇下方分類，再編輯櫃檯端選項與會員端說明；兩類設定會一起儲存。'));
+        const categoryTabs = node('div', '', 'frontdesk-reason-tabs');
+        categoryTabs.setAttribute('role', 'tablist');
+        categoryTabs.setAttribute('aria-label', '拒絕原因類別');
+        const ordinarySection = node('section', '', 'frontdesk-rejection-category');
+        ordinarySection.id = 'frontdesk-ordinary-reasons';
+        ordinarySection.dataset.frontdeskReasonCategory = 'ordinary';
+        ordinarySection.setAttribute('role', 'tabpanel');
+        ordinarySection.setAttribute('aria-labelledby', 'frontdesk-reason-tab-ordinary');
+        const categoryButtons = new Map();
+        for (const [key, label, target] of [
+          ['ordinary', '拒絕預約原因', ordinarySection.id],
+          ['modification', '拒絕修改原因', 'frontdesk-modification-reasons']
+        ]) {
+          const tab = node('button', label, 'frontdesk-reason-tab');
+          tab.type = 'button';
+          tab.id = 'frontdesk-reason-tab-' + key;
+          tab.setAttribute('role', 'tab');
+          tab.setAttribute('aria-controls', target);
+          tab.addEventListener('click', () => showCategory(key));
+          tab.addEventListener('keydown', event => {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            const next = event.key === 'Home' ? 'ordinary' : event.key === 'End' ? 'modification' :
+              key === 'ordinary' ? 'modification' : 'ordinary';
+            const targetTab = categoryButtons.get(next);
+            targetTab.focus();
+            targetTab.click();
+          });
+          categoryButtons.set(key, tab);
+          categoryTabs.append(tab);
+        }
+        const showCategory = key => {
+          const ordinary = key === 'ordinary';
+          ordinarySection.hidden = !ordinary;
+          modificationSection.hidden = ordinary;
+          for (const [name, tab] of categoryButtons) {
+            const selected = name === key;
+            tab.setAttribute('aria-selected', String(selected));
+            tab.tabIndex = selected ? 0 : -1;
+          }
+        };
+        settings.append(intro, categoryTabs);
         const title = field('rejectionDropdownTitle', '櫃檯端下拉式選單標題', '此標題顯示於櫃檯拒絕預約視窗；留空使用「請選擇拒絕原因」。', cfg.rejectionSettings.dropdownTitle || '', false);
         title.input.maxLength = 60;
         title.wrap.classList.add('frontdesk-rejection-dropdown-title');
-        settings.append(title.wrap);
+        ordinarySection.append(title.wrap);
         const rows = node('div', '', 'frontdesk-rejection-list');
         const rulesHeading = node('div', '', 'frontdesk-rejection-list-heading');
-        rulesHeading.append(node('h4', '拒絕原因清單'), node('p', '按「儲存拒絕預約設定」後，清單內所有原因立即可用；已移除的原因不再供後續選擇，歷史預約記錄仍保留。'));
-        settings.append(rulesHeading);
+        rulesHeading.append(node('h4', '拒絕預約原因清單'), node('p', '僅供拒絕新預約使用。儲存後移除的原因不再供選擇，歷史預約紀錄不受影響。'));
+        ordinarySection.append(rulesHeading);
         const draft = cfg.rejectionSettings.reasons.map(reason => ({...reason,enabled:true}));
         const modPolicy = cfg.rejectionSettings.modification || {dropdownTitle:'請選擇拒絕修改原因',reasons:[]};
         const modDraft = (modPolicy.reasons || []).map(reason => ({...reason,enabled:true}));
@@ -427,7 +469,7 @@
         modTitle.input.maxLength = 60;
         const add = node('button', '新增拒絕原因', 'button button-outline');
         add.type = 'button';
-        const saveSettings = node('button', '儲存拒絕預約設定', 'button button-outline frontdesk-primary');
+        const saveSettings = node('button', '儲存兩類拒絕原因設定', 'button button-outline frontdesk-primary');
         saveSettings.type = 'submit';
         const rerender = () => {
           rows.replaceChildren();
@@ -536,9 +578,13 @@
         rerender();
         // Modification rejection reasons are a separate tenant policy. Edits
         // save atomically with ordinary reasons under the existing version gate.
-        const modificationSection = node('section', '', 'frontdesk-modification-rejection-settings');
+        const modificationSection = node('section', '', 'frontdesk-rejection-category frontdesk-modification-rejection-settings');
+        modificationSection.id = 'frontdesk-modification-reasons';
         modificationSection.dataset.frontdeskModificationRejection = 'true';
-        modificationSection.append(node('h4', '拒絕修改預約'),
+        modificationSection.dataset.frontdeskReasonCategory = 'modification';
+        modificationSection.setAttribute('role', 'tabpanel');
+        modificationSection.setAttribute('aria-labelledby', 'frontdesk-reason-tab-modification');
+        modificationSection.append(node('h4', '拒絕修改原因'),
           node('p', '會員修改既有預約後，櫃檯拒絕時只會顯示下方原因；新預約繼續使用上方原有清單。'),
           modTitle.wrap);
         const modRows = node('div', '', 'frontdesk-rejection-list');
@@ -590,8 +636,16 @@
         rerenderModification();
         modificationSection.append(modRows,addModification);
         const actions = node('div', '', 'frontdesk-rejection-actions');
-        actions.append(add, saveSettings);
-        settings.append(rows, modificationSection, actions);
+        actions.append(saveSettings);
+        ordinarySection.append(rows, add);
+        settings.append(ordinarySection, modificationSection, actions);
+        // Both drafts stay mounted when switching; invalid fields reveal their
+        // category so the admin can correct them without losing either draft.
+        settings.addEventListener('invalid', event => {
+          if (ordinarySection.contains(event.target)) showCategory('ordinary');
+          else if (modificationSection.contains(event.target)) showCategory('modification');
+        }, true);
+        showCategory('ordinary');
         rejectionPanel.append(settings);
       }
 
