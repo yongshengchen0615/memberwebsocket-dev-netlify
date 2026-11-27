@@ -1,0 +1,105 @@
+const { test, expect } = require('playwright/test');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const root = path.resolve(__dirname, '../..');
+const application = fs.readFileSync(path.join(root, 'booking/app.js'), 'utf8');
+const hook = '\n  window.__bookingBenefitFlowTest = { state, els, openBenefitStep, closeBenefitStep, confirmBooking, updateBenefitSubmitButtons };\n})();';
+if (!application.trimEnd().endsWith('})();')) throw Error('Unable to install read-only booking-flow test hooks');
+const instrumented = application.trimEnd().slice(0, -5) + hook;
+
+async function setup(page, width = 390) {
+  await page.setViewportSize({ width, height: 780 });
+  await page.setContent(`<!doctype html><html lang="zh-Hant"><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <input id="bookingDate" type="date" value="2026-12-12">
+    <input id="bookingReminderEnabled" type="checkbox">
+    <input id="bookingReminderTime" value="18:00">
+    <button id="submitBookingButton">確認預約內容</button>
+    <div id="bookingConfirmModal" class="booking-modal" role="dialog">
+      <button id="confirmBookingButton" type="button">下一步：選擇優惠</button>
+      <div id="bookingConfirmMessage" class="form-message hidden"></div>
+    </div>
+    <div id="bookingBenefitModal" class="booking-modal hidden" role="dialog" aria-label="本次可使用優惠">
+      <button id="closeBookingBenefitButton" type="button">返回</button>
+      <div id="bookingBenefits"><div id="bookingBenefitsList"></div></div>
+      <div id="bookingBenefitSubmitMessage" class="form-message hidden"></div>
+      <div class="booking-modal-actions booking-benefit-modal-actions">
+        <button id="skipBookingBenefitsButton" type="button">不使用優惠送出預約</button>
+        <button id="useBookingBenefitsButton" type="button">確認使用優惠送出預約</button>
+      </div>
+    </div>
+    </html>`);
+  await page.addStyleTag({ path: path.join(root, 'booking/styles.css') });
+  await page.addStyleTag({ path: path.join(root, 'booking/booking-benefits.css') });
+  await page.addScriptTag({ content: instrumented });
+  await page.evaluate(() => {
+    const { state, els } = window.__bookingBenefitFlowTest;
+    for (const id of ['bookingConfirmModal', 'bookingBenefitModal', 'bookingDate',
+      'bookingReminderEnabled', 'bookingReminderTime', 'submitBookingButton',
+      'confirmBookingButton', 'closeBookingBenefitButton', 'skipBookingBenefitsButton',
+      'useBookingBenefitsButton', 'bookingConfirmMessage', 'bookingBenefitSubmitMessage']) {
+      els[id] = document.getElementById(id);
+    }
+    state.config = { pricePublishing: false };
+    state.data = { settings: {}, services: [] };
+    state.selections = [{ serviceId: 'S-TEST' }];
+    state.selectedSlot = { startTime: '10:00', endTime: '10:40', startAt: '2026-12-12T10:00:00+08:00' };
+    window.__writes = [];
+    window.__selected = [{ kind: 'event', id: 'E-TEST' }];
+    window.__benefitSyncCount = 0;
+    window.BookingBenefits = {
+      syncNow: () => { window.__benefitSyncCount += 1; },
+      selectionPayload: () => window.__selected,
+    };
+    window.BookingSystem = {
+      request: async (_config, _role, _token, action, payload) => {
+        window.__writes.push({ action, payload });
+        throw Error('fixture: deliberately stop after capturing the submitted intent');
+      },
+    };
+    els.confirmBookingButton.addEventListener('click', window.__bookingBenefitFlowTest.openBenefitStep);
+    els.closeBookingBenefitButton.addEventListener('click', window.__bookingBenefitFlowTest.closeBenefitStep);
+    els.useBookingBenefitsButton.addEventListener('click', () => window.__bookingBenefitFlowTest.confirmBooking(true));
+    els.skipBookingBenefitsButton.addEventListener('click', () => window.__bookingBenefitFlowTest.confirmBooking(false));
+  });
+}
+
+for (const width of [390, 1280]) {
+  test(`AC-001/002/003: post-review modal sends explicit used or unused benefit intent (${width}px)`, async ({ page }) => {
+    await setup(page, width);
+    await page.getByRole('button', { name: '下一步：選擇優惠' }).click();
+    const dialog = page.getByRole('dialog', { name: '本次可使用優惠' });
+    await expect(dialog).toBeVisible();
+    expect(await page.evaluate(() => window.__benefitSyncCount)).toBe(1);
+
+    await dialog.getByRole('button', { name: '不使用優惠送出預約' }).click();
+    await expect(dialog.locator('#bookingBenefitSubmitMessage')).toContainText('fixture:');
+    const noBenefit = await page.evaluate(() => window.__writes.at(-1));
+    expect(noBenefit.action).toBe('user.booking.create');
+    expect(noBenefit.payload.benefits).toEqual([]);
+
+    await dialog.getByRole('button', { name: '確認使用優惠送出預約' }).click();
+    const withBenefit = await page.evaluate(() => window.__writes.at(-1));
+    expect(withBenefit.payload.benefits).toEqual([{ kind: 'event', id: 'E-TEST' }]);
+    expect(withBenefit.payload.requestId).not.toEqual(noBenefit.payload.requestId);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}
+
+test('AC-004: closing discount modal returns to appointment review and restores keyboard focus', async ({ page }) => {
+  await setup(page);
+  await page.getByRole('button', { name: '下一步：選擇優惠' }).click();
+  await page.getByRole('dialog', { name: '本次可使用優惠' })
+    .getByRole('button', { name: '返回' }).click();
+  await expect(page.getByRole('dialog', { name: '本次可使用優惠' })).toBeHidden();
+  await expect(page.getByRole('button', { name: '下一步：選擇優惠' })).toBeFocused();
+});
+
+test('AC-006: selected-benefit submission is disabled with no selected tickets', async ({ page }) => {
+  await setup(page);
+  await page.evaluate(() => { window.__selected = []; });
+  await page.getByRole('button', { name: '下一步：選擇優惠' }).click();
+  await expect(page.getByRole('button', { name: '確認使用優惠送出預約' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '不使用優惠送出預約' })).toBeEnabled();
+});
