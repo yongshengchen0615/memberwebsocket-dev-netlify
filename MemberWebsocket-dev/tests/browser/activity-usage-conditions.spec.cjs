@@ -84,7 +84,7 @@ for(const width of [390,1280]){
     await page.locator('#calendarTab').click();
     // Open the saved activity via today's calendar day view.
     await page.locator('#adminCalendarGrid [data-admin-calendar-date="'+today()+'"]').first().click();
-    await page.getByText('雙人滿額會員活動',{exact:true}).last().click();
+    await page.locator('[data-admin-calendar-item-id="'+row.calendarItemId+'"]').click();
     await expect(page.locator('#calendarRequiredServiceMatchMode')).toHaveValue('groups');
     await expect(page.locator('#calendarRequiredServiceGroups [data-service-combination]')).toHaveCount(2);
     await expect(page.locator('#calendarMinBookingAmount')).toHaveValue('150');
