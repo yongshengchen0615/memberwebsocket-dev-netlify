@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
@@ -86,7 +87,7 @@ test('AC-GIFT-HISTORY: transferred claims are read from sender-only ledger and n
   assert.match(eventPage, /id="usedTicketHistoryTitle">票券紀錄/);
 });
 
-test('AC-005: UI exposes friend-only selection and does not retry transfer as read', () => {
+test('AC-005: UI exposes friend-only selection and does not retry transfer as read', async () => {
   for (const id of ['ticketTransferPanel','ticketTransferFriendSelect','ticketTransferButton']) {
     assert.match(eventPage, new RegExp('id="' + id + '"'));
     assert.ok(eventApp.includes(id));
@@ -94,7 +95,14 @@ test('AC-005: UI exposes friend-only selection and does not retry transfer as re
   assert.match(eventApp, /loadTransferFriends/);
   assert.match(eventApp, /transferTicketToFriend/);
   assert.match(eventApp, /window\.confirm/);
-  assert.match(client, /'user\.event\.ticket\.transfer'/);
+  let calls = 0;
+  const window = { setTimeout, clearTimeout };
+  vm.runInNewContext(client, { window, document: {}, URL, AbortController,
+    fetch: async () => { calls++; throw new TypeError('connection lost'); } });
+  const config = { supabaseUrl: 'https://fixture.supabase.co', supabaseFunctionUrl: 'https://fixture.supabase.co/functions/v1/api',
+    supabasePublishableKey: 'public-fixture', eventLiffId: 'event' };
+  await assert.rejects(window.MemberSystem.request(config, 'event', 'identity-A', 'user.event.ticket.transfer', { claimId: 'CLAIM', requestId: 'same-transfer' }), { code: 'API_RESPONSE_UNCERTAIN' });
+  assert.equal(calls, 1, 'a transfer with an uncertain result is never automatically replayed');
   assert.match(api, /"user\.event\.ticket\.transfer"/);
 });
 

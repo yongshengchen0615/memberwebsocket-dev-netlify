@@ -99,11 +99,13 @@ for (const kind of ['member', 'booking']) {
   test(`AC-PERF-001 ${kind}: a live BusinessContext switch cannot reuse the previous business read`, async () => {
     const h = harness(kind); h.window.BusinessContext = { slug: 'shop-a' };
     const first = h.system.request(config, 'member', 'identity-A', action);
+    const obsolete = kind === 'member' ? assert.rejects(first, { code: 'REQUEST_SCOPE_CHANGED' }) : first;
     h.window.BusinessContext.slug = 'shop-b';
     const second = h.system.request(config, 'member', 'identity-A', action);
     h.calls.forEach((call, index) => succeed(call, { marker: index }));
     assert.equal(h.calls.length, 2);
-    assert.deepEqual((await Promise.all([first, second])).map(value => value.marker), [0, 1]);
+    if (kind === 'member') { await obsolete; assert.equal((await second).marker, 1); }
+    else assert.deepEqual((await Promise.all([first, second])).map(value => value.marker), [0, 1]);
   });
 }
 

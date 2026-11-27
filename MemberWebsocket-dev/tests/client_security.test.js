@@ -25,9 +25,10 @@ for(const surface of ['member','points','event','calendar','admin']) {
     const context=vm.createContext({window,document:{addEventListener(){},removeEventListener(){},querySelector(){return {};}},Map,Set,URL,AbortController,Date,console,fetch(url,options){return new Promise(resolve=>deferred.push({resolve,token:JSON.parse(options.body).idToken}));}});
     vm.runInContext(fs.readFileSync(path.join(__dirname,'../member-system.js'),'utf8'),context);
     const config={realtimeEnabled:false,supabaseUrl:'https://example.supabase.co',supabaseFunctionUrl:'https://example.supabase.co/functions/v1/api',memberCalendarFunctionUrl:'https://example.supabase.co/functions/v1/member-calendar-api',supabasePublishableKey:'fixture',memberLiffId:'member',pointsLiffId:'points',eventLiffId:'event',calendarLiffId:'calendar',adminLiffId:'admin'};
-    const first=window.MemberSystem.request(config,surface,'identity-A','read');
-    const duplicate=window.MemberSystem.request(config,surface,'identity-A','read');
-    const other=window.MemberSystem.request(config,surface,'identity-B','read');
+    const action={member:'user.member.bootstrap',points:'user.pointcard.bootstrap',event:'user.event.bootstrap',calendar:'user.calendar.bootstrap',admin:'admin.bootstrap'}[surface];
+    const first=window.MemberSystem.request(config,surface,'identity-A',action);
+    const duplicate=window.MemberSystem.request(config,surface,'identity-A',action);
+    const other=window.MemberSystem.request(config,surface,'identity-B',action);
     assert.equal(first,duplicate);assert.notEqual(first,other);assert.equal(deferred.length,2);
     for(const item of deferred)item.resolve({ok:true,status:200,text:async()=>JSON.stringify({ok:true,data:{identity:item.token}})});
     assert.equal((await first).identity,'identity-A');assert.equal((await other).identity,'identity-B');
