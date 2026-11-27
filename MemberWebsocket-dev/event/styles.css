@@ -295,3 +295,29 @@ a.ticket-booking-guide:hover { filter: brightness(.96); }
 a.ticket-booking-guide:focus-visible { outline: 3px solid var(--theme-focus-ring, #5475b9); outline-offset: 3px; }
 a.ticket-booking-guide[hidden] { display: none !important; }
 .ticket-modal a.ticket-booking-guide { width: 100%; margin: 10px 0; }
+
+/* Group membership-eligible vs locked tickets without changing redemption privileges. */
+.event-list { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+.event-offer-group {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+  padding: clamp(14px, 3vw, 20px);
+  border: 1px solid var(--theme-border, var(--line));
+  border-radius: 18px;
+  background: var(--theme-surface, var(--paper));
+}
+.event-offer-group-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; min-width: 0; }
+.event-offer-group-heading h2 { margin: 0; font-size: clamp(19px, 4vw, 24px); line-height: 1.3; color: var(--ink); }
+.event-offer-group-count {
+  display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px;
+  color: var(--theme-positive-text, #276947); background: var(--theme-positive-soft, #e7f2eb);
+  font-size: 11px; font-weight: 800;
+}
+.event-offer-group--locked { border-color: var(--theme-border-strong, var(--line)); background: var(--theme-surface-muted, var(--sand)); }
+.event-offer-group--locked .event-offer-group-count { color: var(--theme-warning-text, #765817); background: var(--theme-warning-soft, #fff4d9); }
+.event-offer-group-note, .event-offer-group-empty { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.event-offer-group-empty { border: 1px dashed var(--theme-border-strong, var(--line)); border-radius: 12px; padding: 17px; text-align: center; }
+.event-offer-grid { display: grid; min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.event-offer-grid > .event-ticket { min-width: 0; }
+@media (max-width: 650px) { .event-offer-grid { grid-template-columns: minmax(0, 1fr); } }
