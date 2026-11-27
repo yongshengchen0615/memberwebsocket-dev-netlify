@@ -5,15 +5,44 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
-test('booking benefit selector is inside appointment form above member note', () => {
+test('AC-001: booking benefits appear only after the appointment review', () => {
   const html = read('booking/index.html');
-  const benefit = html.indexOf('id="bookingBenefits"');
-  const note = html.indexOf('id="memberNote"');
   const formStart = html.indexOf('id="bookingForm"');
   const formEnd = html.indexOf('</form>', formStart);
-  assert.ok(formStart >= 0 && benefit > formStart && benefit < formEnd);
-  assert.ok(benefit < note);
-  assert.match(html, /本次可使用優惠/);
+  const review = html.indexOf('id="bookingConfirmModal"');
+  const benefitsModal = html.indexOf('id="bookingBenefitModal"');
+  const selector = html.indexOf('id="bookingBenefits"');
+  assert.ok(formStart >= 0 && formEnd > formStart);
+  assert.ok(review > formEnd && benefitsModal > review && selector > benefitsModal);
+  assert.ok(!html.slice(formStart, formEnd).includes('id="bookingBenefits"'));
+  assert.match(html, /id="confirmBookingButton"[^>]*>下一步：選擇優惠<\/button>/);
+  assert.match(html, /id="useBookingBenefitsButton"[^>]*>確認使用優惠送出預約<\/button>/);
+  assert.match(html, /id="skipBookingBenefitsButton"[^>]*>不使用優惠送出預約<\/button>/);
+});
+
+test('AC-002/003: selected benefits and explicit no-benefit intent use distinct fingerprints and payloads', () => {
+  const app = read('booking/app.js');
+  assert.match(app, /confirmBookingButton\.addEventListener\('click', openBenefitStep\)/);
+  assert.match(app, /useBookingBenefitsButton\.addEventListener\('click', \(\) => confirmBooking\(true\)\)/);
+  assert.match(app, /skipBookingBenefitsButton\.addEventListener\('click', \(\) => confirmBooking\(false\)\)/);
+  assert.match(app, /const benefits = useBenefits \? \(window\.BookingBenefits\?\.selectionPayload\?\.\(\) \|\| \[\]\) : \[\];/);
+  assert.match(app, /bookingWriteFingerprint\(items, bookingDate, startTime, benefits\)/);
+  assert.match(app, /requestId,[\s\S]*?benefits,\s*\}\);/);
+  assert.match(app, /if \(state\.submitting \|\| els\.bookingBenefitModal\.classList\.contains\('hidden'\)\) return;/);
+  assert.match(app, /const hasSelectedBenefits = [\s\S]*?els\.useBookingBenefitsButton\.disabled = state\.submitting \|\| !hasSelectedBenefits/);
+});
+
+test('AC-004: benefit modal is dismissible and keyboard focus remains inside active dialog', () => {
+  const html = read('booking/index.html');
+  const app = read('booking/app.js');
+  const css = read('booking/booking-benefits.css');
+  assert.match(html, /id="bookingBenefitModal"[^>]*role="dialog" aria-modal="true"/);
+  assert.match(app, /function closeBenefitStep\(\)/);
+  assert.match(app, /els\.closeBookingBenefitButton\.addEventListener\('click', closeBenefitStep\)/);
+  assert.match(app, /event\.key === 'Escape' && !els\.bookingBenefitModal\.classList\.contains\('hidden'\)/);
+  assert.match(app, /const modal = \[[^\n]*els\.bookingBenefitModal, els\.bookingConfirmModal/);
+  assert.match(css, /\.booking-benefit-modal-card[\s\S]*?max-height:/);
+  assert.match(css, /\.booking-benefit-modal-actions[\s\S]*?grid-template-columns: 1fr/);
 });
 
 test('member create/update paths persist exact benefit intent', () => {
@@ -122,18 +151,17 @@ test('booking activities are display-only while point and event tickets remain s
 });
 
 
-test('booking confirmation shows the exact selected ticket names for single and group bookings', () => {
+test('AC-005: both single and group reviews remain independent of the later benefit choice', () => {
   const app = read('booking/app.js');
   const group = read('booking/group-booking.js');
-  for (const source of [app, group]) {
-    assert.match(source, /BookingBenefits\?\.selectionSummary\?\.\(\)/);
-    assert.match(source, /本次使用票券/);
-    assert.match(source, /集點卡票券/);
-    assert.match(source, /活動票券/);
-    assert.match(source, /本次未使用票券/);
-    assert.match(source, /booking-confirm-ticket-list/);
-    assert.match(source, /item\?\.kind === 'points' \|\| item\?\.kind === 'event'/);
+  const singleReview = app.split('function renderConfirmation(items) {')[1]?.split('function updateBenefitSubmitButtons()')[0];
+  const groupReview = group.split('function renderConfirmation() {')[1]?.split('function confirmationContactSummary()')[0];
+  assert.ok(singleReview && groupReview);
+  for (const review of [singleReview, groupReview]) {
+    assert.doesNotMatch(review, /booking-confirm-benefits|BookingBenefits\?\.selectionSummary/);
+    assert.match(review, /預約/);
   }
+  assert.match(app, /BookingBenefits\?\.setSelection\?\.\(booking\.benefits \|\| \[\]\)/);
 });
 
 test('booking point tickets enforce current balance in UI and database', () => {
