@@ -126,7 +126,11 @@ test('PG17 AC-PARTY-001..008: real booking eligibility, tenant isolation, defaul
     await h.db.query('update '+s+'.bookings set party_size=2 where id=$1',[booking]);
   });
   await t.test('AC-PARTY-008: redeemed tickets block a conflicting booking edit with no data changes',async()=>{
-    await h.db.query('update '+s+".booking_benefit_selections set status='redeemed' where booking_id=$1 and benefit_ref=$2",[booking,claimId]);
+    // A cancelled selection is terminal. Build a separately redeemed synthetic
+    // selection rather than pretending a cancelled ticket can be reactivated.
+    await h.db.query('delete from '+s+'.booking_benefit_selections where booking_id=$1 and benefit_ref=$2',[booking,claimId]);
+    const redeemed=(await h.db.query('insert into '+s+".booking_benefit_selections(booking_id,member_id,benefit_kind,benefit_ref,title_snapshot,status,redeemed_at,redeemed_by) values($1,$2,'event',$3,'Party QA','redeemed',now(),'system') returning status",[booking,member,claimId])).rows[0];
+    assert.equal(redeemed.status,'redeemed');
     await assert.rejects(h.db.query('update '+s+'.bookings set party_size=1 where id=$1',[booking]),/BOOKING_BENEFIT_PARTY_SIZE_REQUIRED/);
     assert.equal((await h.db.query('select party_size from '+s+'.bookings where id=$1',[booking])).rows[0].party_size,2);
     assert.equal((await h.db.query('select status from '+s+'.booking_benefit_selections where booking_id=$1 and benefit_ref=$2',[booking,claimId])).rows[0].status,'redeemed');
