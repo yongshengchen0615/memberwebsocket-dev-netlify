@@ -938,7 +938,7 @@ for(const width of [390,1280])test('FRONTDESK_REJECTION_SETTINGS_EDITOR_'+width+
  await expect(form.getByRole('button',{name:'重試相同儲存操作'})).toBeEnabled();
  await expect(form.locator('textarea').first()).toBeDisabled();
  await form.getByRole('button',{name:'重試相同儲存操作'}).click();
- await expect(page.locator('[role=status]')).toContainText('已儲存');
+ await expect(page.locator('[role=status]')).toContainText('拒絕預約與拒絕修改原因已一起儲存');
  const writes=await page.evaluate(()=>window.rejectionWrites);
  expect(writes).toHaveLength(2);
  expect(writes[0]).toEqual(writes[1]);
