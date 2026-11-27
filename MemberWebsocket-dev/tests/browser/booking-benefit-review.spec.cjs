@@ -36,13 +36,15 @@ async function setup(page, width = 390) {
       <button id="confirmBookingButton" type="button">下一步：選擇優惠</button>
       <div id="bookingConfirmMessage" class="form-message hidden"></div>
     </div>
-    <div id="bookingBenefitModal" class="booking-modal hidden" role="dialog" aria-label="本次可使用優惠">
-      <button id="closeBookingBenefitButton" type="button">返回</button>
-      <div id="bookingBenefits"><div id="bookingBenefitsList"></div></div>
-      <div id="bookingBenefitSubmitMessage" class="form-message hidden"></div>
-      <div class="booking-modal-actions booking-benefit-modal-actions">
-        <button id="skipBookingBenefitsButton" type="button">不使用優惠送出預約</button>
-        <button id="useBookingBenefitsButton" type="button">確認使用優惠送出預約</button>
+    <div id="bookingBenefitModal" class="booking-modal booking-benefit-modal hidden" role="dialog" aria-label="本次可使用優惠">
+      <div class="booking-modal-card booking-benefit-modal-card">
+        <button id="closeBookingBenefitButton" type="button">返回</button>
+        <div id="bookingBenefits" class="booking-benefits"><div id="bookingBenefitsList"></div></div>
+        <div id="bookingBenefitSubmitMessage" class="form-message hidden"></div>
+        <div class="booking-modal-actions booking-benefit-modal-actions">
+          <button id="skipBookingBenefitsButton" type="button">不使用優惠送出預約</button>
+          <button id="useBookingBenefitsButton" type="button">確認使用優惠送出預約</button>
+        </div>
       </div>
     </div>
     </html>`);
