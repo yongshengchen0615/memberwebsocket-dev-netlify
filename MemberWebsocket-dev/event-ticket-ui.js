@@ -40,6 +40,9 @@
       if (options.showAmountRequirement && String(ticket.minBookingAmountLabel || '').trim()) {
         row('金額使用條件', String(ticket.minBookingAmountLabel).trim());
       }
+      if (options.showPartyRequirement !== false && String(ticket.minBookingPartySizeLabel || '').trim()) {
+        row('預約人數條件', String(ticket.minBookingPartySizeLabel).trim());
+      }
     }
     if (options.giftTransferredAt) {
       row('轉贈者', String(options.giftFromName || '好友'));
