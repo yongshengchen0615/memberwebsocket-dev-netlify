@@ -70,3 +70,13 @@ test('AC-006: database schema guards activity-rule shape and provisions future t
   assert.match(sql, /apply_calendar_batch/);
   assert.match(sql, /platform_private\.business_templates/);
 });
+
+test('AC-007: booking selector checks party-size against the same group booking UI party count', () => {
+  const selector = read('booking/booking-benefits.js');
+  const group = read('booking/group-booking.js');
+  assert.match(selector, /function partyRequirementMet\(item\)/);
+  assert.match(selector, /currentPartySize/);
+  assert.match(selector, /ticketRequirementMet\(item\)/);
+  assert.match(group, /setServiceContext\?\.\(context,\s*state\.partySize\)/);
+  assert.match(group, /function partySizeChanged\(event\)/);
+});
