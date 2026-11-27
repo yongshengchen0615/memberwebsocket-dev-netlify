@@ -59,6 +59,13 @@ test('PG17 AC-PARTY-001..008: real booking eligibility, tenant isolation, defaul
     assert.deepEqual(rights,{denied:false,allowed:true});
     const guard=(await h.db.query('select count(*)::integer n from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname=$1 and c.relname=$2 and t.tgname=$3',[schema,'bookings','booking_party_size_benefits_guard'])).rows[0].n;
     assert.equal(guard,1);
+    const binding=(await h.db.query(`select fn.nspname function_schema, t.tgenabled
+      from pg_trigger t join pg_class c on c.oid=t.tgrelid
+      join pg_namespace n on n.oid=c.relnamespace
+      join pg_proc p on p.oid=t.tgfoid join pg_namespace fn on fn.oid=p.pronamespace
+      where n.nspname=$1 and c.relname='bookings' and t.tgname='booking_party_size_benefits_guard'`,[schema])).rows[0];
+    assert.deepEqual(binding,{function_schema:schema,tgenabled:'O'},
+      schema+' booking guard must execute its own schema function');
     const pendingGuard=(await h.db.query('select count(*)::integer n from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname=$1 and c.relname=$2 and t.tgname=$3',[schema,'bookings','booking_party_pending_benefits_release'])).rows[0].n;
     assert.equal(pendingGuard,1);
    }
@@ -163,6 +170,14 @@ test('PG17 AC-PARTY-001..008: real booking eligibility, tenant isolation, defaul
     assert.ok(fn);
     const release=(await h.db.query('select count(*)::integer n from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname=$1 and c.relname=$2 and t.tgname=$3',[future.runtime_schema,'bookings','booking_party_pending_benefits_release'])).rows[0].n;
     assert.equal(release,1);
+    const futureGuard=(await h.db.query(`select fn.nspname function_schema
+      from pg_trigger t join pg_class c on c.oid=t.tgrelid
+      join pg_namespace n on n.oid=c.relnamespace
+      join pg_proc p on p.oid=t.tgfoid join pg_namespace fn on fn.oid=p.pronamespace
+      where n.nspname=$1 and c.relname='bookings' and t.tgname='booking_party_size_benefits_guard'`,
+      [future.runtime_schema])).rows[0];
+    assert.equal(futureGuard?.function_schema,future.runtime_schema,
+      'new merchant guard must not execute public booking rules');
   });
  }finally {await h.db.close();}
 });

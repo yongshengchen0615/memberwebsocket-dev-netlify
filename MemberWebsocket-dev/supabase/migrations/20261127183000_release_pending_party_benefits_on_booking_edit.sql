@@ -8,6 +8,7 @@ DECLARE
   v_template jsonb;
   v_new_functions jsonb;
   v_new_trigger jsonb;
+  v_guard_trigger jsonb;
 BEGIN
   FOR v_schema IN
     SELECT n.nspname FROM pg_namespace n
@@ -24,6 +25,12 @@ BEGIN
     END IF;
     v_guard:=replace(v_guard, 's.status IN (''pending'',''redeemed'')', 's.status = ''redeemed''');
     EXECUTE v_guard;
+
+    -- The previous tenant trigger was generated with an unqualified function
+    -- name, which can bind merchant bookings to the PUBLIC guard. Rebind the
+    -- trigger atomically to this schema's own guard function.
+    EXECUTE format('DROP TRIGGER booking_party_size_benefits_guard ON %I.bookings',v_schema);
+    EXECUTE format('CREATE TRIGGER booking_party_size_benefits_guard BEFORE UPDATE OF party_size ON %1$I.bookings FOR EACH ROW WHEN (OLD.party_size IS DISTINCT FROM NEW.party_size) EXECUTE FUNCTION %1$I.guard_booking_party_size_benefits()',v_schema);
 
     EXECUTE format($function$
       CREATE OR REPLACE FUNCTION %1$I.release_pending_booking_party_benefits()
@@ -74,11 +81,27 @@ BEGIN
     INTO STRICT v_new_trigger FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
       JOIN pg_namespace n ON n.oid=c.relnamespace
     WHERE n.nspname='public' AND c.relname='bookings' AND t.tgname='booking_party_pending_benefits_release';
+  -- pg_get_triggerdef omits the function's public prefix when public is on
+  -- search_path. Keep that prefix in the template so new-tenant provisioning
+  -- replaces it with the tenant schema instead of binding back to public.
+  SELECT jsonb_build_object('name',t.tgname,'definition',
+      replace(pg_get_triggerdef(t.oid),
+        'EXECUTE FUNCTION guard_booking_party_size_benefits()',
+        'EXECUTE FUNCTION public.guard_booking_party_size_benefits()'))
+    INTO STRICT v_guard_trigger
+    FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
+      JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relname='bookings'
+      AND t.tgname='booking_party_size_benefits_guard';
+  IF strpos(v_guard_trigger->>'definition',
+    'EXECUTE FUNCTION public.guard_booking_party_size_benefits()')=0 THEN
+    RAISE EXCEPTION 'BOOKING_PARTY_TEMPLATE_GUARD_BINDING_INVALID';
+  END IF;
   v_template:=jsonb_set(v_template,'{triggers}',
     COALESCE((SELECT jsonb_agg(t ORDER BY ordinal)
       FROM jsonb_array_elements(v_template->'triggers') WITH ORDINALITY a(t,ordinal)
-      WHERE t->>'name'<>'booking_party_pending_benefits_release'),'[]'::jsonb)
-    || jsonb_build_array(v_new_trigger));
+      WHERE t->>'name' NOT IN ('booking_party_pending_benefits_release','booking_party_size_benefits_guard')),'[]'::jsonb)
+    || jsonb_build_array(v_guard_trigger,v_new_trigger));
   UPDATE platform_private.business_templates SET snapshot=v_template WHERE version='business-v1-20261019';
 END;
 $party_edit$;
