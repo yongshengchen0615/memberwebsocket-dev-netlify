@@ -1049,6 +1049,7 @@
     renderConfirmation,
     renderBookingHistoryCard,
     renderControls: renderGroupControls,
+    partySize: () => state.partySize,
     notesSnapshot: () => state.participantNotes.slice(0, state.partySize),
     primaryMemberNote: () => String(state.participantNotes[0] || '').trim(),
   });
@@ -1075,7 +1076,7 @@
       serviceId,
       amount: Math.max(0, amounts.get(serviceId) || 0) * quantity,
     }));
-    window.BookingBenefits?.setServiceContext?.(context);
+    window.BookingBenefits?.setServiceContext?.(context, state.partySize);
   }
 
   function participantServiceNames(index) {
