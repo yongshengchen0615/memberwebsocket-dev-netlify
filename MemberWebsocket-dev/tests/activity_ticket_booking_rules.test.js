@@ -47,7 +47,7 @@ test('AC-004: member activities share configurable reservation item, amount and 
     'calendarMinBookingServiceIds', 'calendarMinBookingPartySize', 'calendarMaxBookingPartySize']) {
     assert.match(html, new RegExp('id="' + id + '"'));
   }
-  assert.match(app, /usageConditions:\s*collectCalendarUsageConditions\(/);
+  assert.match(app, /usageConditions:[^\n]*collectCalendarUsageConditions\(/);
   assert.match(api, /normalizeCalendarUsageConditions/);
   assert.match(api, /usageConditions:\s*row\.usage_conditions/);
 });
