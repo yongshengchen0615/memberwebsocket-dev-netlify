@@ -87,7 +87,7 @@ test('PG17 AC-PARTY-001..007: ticket min/max, member ownership, no bypass, tenan
       assert.equal((await h.db.query('select '+s+'.calendar_usage_conditions_valid($1::jsonb) value',[JSON.stringify(good)])).rows[0].value,true);
       assert.equal((await h.db.query('select '+s+'.calendar_usage_conditions_valid($1::jsonb) value',[JSON.stringify({...good,minBookingPartySize:5})])).rows[0].value,false);
       const id='PARTY-CALENDAR-'+uuid();
-      await h.db.query('insert into '+s+".calendar_items(calendar_item_id,title,item_type,status,starts_on,usage_conditions) values($1,'Party member activity','event','active',$2,$3::jsonb)",[id,date,JSON.stringify(good)]);
+      await h.db.query('insert into '+s+".calendar_items(calendar_item_id,title,item_type,status,starts_on,usage_conditions,created_by,updated_by) values($1,'Party member activity','event','active',$2,$3::jsonb,'system','system')",[id,date,JSON.stringify(good)]);
       assert.deepEqual((await h.db.query('select usage_conditions rule from '+s+'.calendar_items where calendar_item_id=$1',[id])).rows[0].rule,good);
       await assert.rejects(h.db.query('update '+s+'.calendar_items set usage_conditions=$2::jsonb where calendar_item_id=$1',[id,JSON.stringify({...good,maxBookingPartySize:1})]),/calendar_usage_conditions_check/);
     });
