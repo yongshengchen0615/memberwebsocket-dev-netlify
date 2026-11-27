@@ -42,6 +42,9 @@ for(const width of [390,1280])test(`AC-MEMBER-001..004_${width}: real booking re
   window.stopSync=BookingSystem.subscribeRealtime(cfg,()=>{BookingBenefits.syncNow();},'member',()=>{window.completedBookingSyncs++;});
  });
  await page.clock.runFor(1);
+ await expect(page.locator('#bookingBenefitModal')).toBeHidden();
+ // The grant test inspects eligibility in the final offer dialog, not the booking form.
+ await page.locator('#bookingBenefitModal').evaluate(el=>el.classList.remove('hidden'));
  await expect(page.locator('.booking-benefit-group[data-benefit-kind="points"]')).toBeVisible();
  // Benefits load independently of the revision probe. A paused clock cannot
  // advance the next poll until this HTTP read and its reconciliation finish.
@@ -62,7 +65,7 @@ for(const width of [390,1280])test(`AC-MEMBER-001..004_${width}: real booking re
  await page.evaluate(()=>BookingBenefits.clearSelection());
  await expect(page.locator('#bookingBenefitsStatus')).not.toContainText('集點卡');
  await expect(page.locator('#bookingBenefits')).not.toContainText(/點數仍在讀取/);
- await page.evaluate(()=>document.getElementById('appointmentPanel').classList.add('hidden'));
+ await page.evaluate(()=>{document.getElementById('bookingBenefitModal').classList.add('hidden');document.getElementById('appointmentPanel').classList.add('hidden');});
  await page.locator('#bookingAccessibleToggle').click();
  await page.locator('#bookingAccessibleUpload').click();
  await expect(page.locator('#snapshotTicketFields')).toBeVisible();

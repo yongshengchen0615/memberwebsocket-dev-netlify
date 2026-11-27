@@ -49,12 +49,24 @@ for(const width of [320,390,1280])for(const theme of ['light','dark'])test(`shar
    await page.locator('#closeMemberFriends').click();await page.locator('#openMemberReferral').click();await expect(page.locator('#memberReferralModal')).toBeVisible();await expect(page.locator('#memberReferralOwnCode')).toHaveCount(0);await expect(page.locator('#memberReferralForm')).toBeVisible();
    await expect(page.locator('#memberReferralShare')).toHaveCount(0);await expect(page.locator('#scanMemberReferralQr')).toHaveCount(0);await expect(page.locator('#memberReferralInviteCode')).toBeVisible();await capture(page.locator('#memberReferralModal .member-referral-dialog'),info,`friends-${width}-${theme}`);await page.keyboard.press('Escape');expect(await page.locator('.app-shell').evaluate(e=>e.inert)).toBe(false);
   }
+  if(surface==='booking'){
+   // Layout fixture reveals the final dialog; the separate booking flow E2E tests real navigation.
+   await expect(page.locator('#bookingBenefitModal')).toBeHidden();
+   await expect(page.locator('.booking-contact-fieldset #friendBookingRecipient')).toBeVisible();
+   await page.locator('#friendBookingRecipient').selectOption('FRIEND-00002');
+   expect(await page.evaluate(()=>MemberFriends.selected())).toBe('FRIEND-00002');
+   await page.locator('#bookingBenefitModal').evaluate(el=>el.classList.remove('hidden'));
+   await expect(page.locator('#bookingBenefitModal')).toBeVisible();
+  }
   if(surface==='points'||surface==='booking'){
    const card=page.locator(surface==='booking'?'#bookingBenefitsList .ui-ticket':'#pointsView .ui-ticket').first();await expect(card).toBeVisible();await fits(card);await expect(card.locator('.is-source')).toContainText(item.cardTitle);await expect(card.locator('.is-cost')).toContainText('5 點');
    const style=await card.evaluate(e=>{const s=getComputedStyle(e);return {background:s.backgroundColor,color:s.color,radius:s.borderRadius,padding:s.padding};});if(surface==='points')ticketStyle=style;else expect(style).toEqual(ticketStyle);
    if(surface==='booking'){
-    await expect(page.locator('.booking-contact-fieldset #friendBookingRecipient')).toBeVisible();await page.locator('#friendBookingRecipient').selectOption('FRIEND-00002');expect(await page.evaluate(()=>MemberFriends.selected())).toBe('FRIEND-00002');
-    await page.locator('input[data-booking-benefit-id="PT-1"]').check();expect(await page.evaluate(()=>BookingBenefits.selectionPayload())).toEqual([{kind:'points',id:'PT-1'}]);expect(await page.evaluate(()=>layoutCalls.some(c=>/create|redeem|bind/.test(c.action)))).toBe(false);
+    await page.locator('input[data-booking-benefit-id="PT-1"]').check();
+    expect(await page.evaluate(()=>BookingBenefits.selectionPayload())).toEqual([{kind:'points',id:'PT-1'}]);
+    expect(await page.evaluate(()=>layoutCalls.some(c=>/create|redeem|bind/.test(c.action)))).toBe(false);
+    await capture(page.locator('#bookingBenefitModal .booking-modal-card'),info,`booking-offers-${width}-${theme}`);
+    await page.locator('#bookingBenefitModal').evaluate(el=>el.classList.add('hidden'));
     await capture(page.locator('.booking-selection-modal-card'),info,`booking-selection-${width}-${theme}`);
     await page.locator('#appointmentPanel').evaluate(e=>e.classList.add('hidden'));await page.locator('#bookingAccessibleToggle').click();await expect(page.locator('#bookingAccessiblePanel .ui-ticket')).toBeVisible();await fits(page.locator('#bookingAccessiblePanel'));await expect(page.locator('#bookingAccessiblePanel .is-cost')).toContainText('5 點');
    }

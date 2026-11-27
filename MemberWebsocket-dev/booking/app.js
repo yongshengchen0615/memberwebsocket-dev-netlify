@@ -43,7 +43,9 @@
       'bookingForm', 'servicePicker', 'serviceEmpty', 'selectedServiceList', 'selectedServiceEmpty', 'selectionSummary',
       'bookingDate', 'slotHint', 'slotGrid', 'memberNote', 'bookingReminderEnabled', 'bookingReminderTime', 'bookingReminderConfirmSummary', 'formMessage', 'submitBookingButton',
       'bookingList', 'bookingEmpty', 'bookingConfirmModal', 'closeBookingConfirmButton', 'cancelBookingConfirmButton',
-      'bookingConfirmSummary', 'bookingConfirmMessage', 'confirmBookingButton'
+      'bookingConfirmSummary', 'bookingConfirmMessage', 'confirmBookingButton',
+      'bookingBenefitModal', 'closeBookingBenefitButton', 'backToBookingReviewButton',
+      'useBookingBenefitsButton', 'skipBookingBenefitsButton', 'bookingBenefitSubmitMessage'
     ].forEach((id) => { els[id] = document.getElementById(id); });
 
     els.retryButton.addEventListener('click', () => window.location.reload());
@@ -68,11 +70,24 @@
     });
     els.closeBookingConfirmButton.addEventListener('click', closeConfirmation);
     els.cancelBookingConfirmButton.addEventListener('click', closeConfirmation);
-    els.confirmBookingButton.addEventListener('click', confirmBooking);
+    els.confirmBookingButton.addEventListener('click', openBenefitStep);
+    els.closeBookingBenefitButton.addEventListener('click', closeBenefitStep);
+    els.backToBookingReviewButton.addEventListener('click', closeBenefitStep);
+    els.useBookingBenefitsButton.addEventListener('click', () => confirmBooking(true));
+    els.skipBookingBenefitsButton.addEventListener('click', () => confirmBooking(false));
     els.bookingConfirmModal.addEventListener('click', (event) => {
       if (event.target === els.bookingConfirmModal && window.matchMedia('(max-width: 768px)').matches) closeConfirmation();
     });
+    els.bookingBenefitModal.addEventListener('click', (event) => {
+      if (event.target === els.bookingBenefitModal && window.matchMedia('(max-width: 768px)').matches) closeBenefitStep();
+    });
     document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !els.bookingBenefitModal.classList.contains('hidden')) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        closeBenefitStep();
+        return;
+      }
       if (event.key === 'Escape' && !els.bookingConfirmModal.classList.contains('hidden')) {
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -80,7 +95,7 @@
         return;
       }
       if (event.key !== 'Tab') return;
-      const modal = [document.getElementById('bookingNoticeModal'), els.bookingConfirmModal, document.getElementById('bookingHolidayModal'), document.getElementById('appointmentPanel')]
+      const modal = [document.getElementById('bookingNoticeModal'), els.bookingBenefitModal, els.bookingConfirmModal, document.getElementById('bookingHolidayModal'), document.getElementById('appointmentPanel')]
         .find((node) => node && !node.classList.contains('hidden'));
       if (!modal) return;
       const focusable = [...modal.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href]')]
@@ -748,32 +763,6 @@
     card.append(title, serviceLine, duration, amount);
     box.appendChild(card);
 
-    const benefits = (window.BookingBenefits?.selectionSummary?.() || [])
-      .filter((item) => item?.kind === 'points' || item?.kind === 'event');
-    const benefitBox = document.createElement('div');
-    benefitBox.className = 'group-confirm-participant booking-confirm-benefits';
-    const benefitTitle = document.createElement('strong');
-    benefitTitle.textContent = '本次使用票券';
-    benefitBox.appendChild(benefitTitle);
-    if (benefits.length) {
-      const ticketKinds = { points: '集點卡票券', event: '活動票券' };
-      const ticketList = document.createElement('ul');
-      ticketList.className = 'booking-confirm-ticket-list';
-      benefits.forEach((item) => {
-        const ticket = document.createElement('li');
-        ticket.dataset.benefitKind=item.kind;
-        const sourceTitle = item.kind === 'points' && item.cardTitle ? `${item.cardTitle}｜` : '';
-        ticket.textContent = `${ticketKinds[item.kind] || '票券'}：${sourceTitle}${item.title || '未命名票券'}`;
-        ticketList.appendChild(ticket);
-      });
-      benefitBox.appendChild(ticketList);
-    } else {
-      const benefitCopy = document.createElement('p');
-      benefitCopy.textContent = '本次未使用票券';
-      benefitBox.appendChild(benefitCopy);
-    }
-    box.appendChild(benefitBox);
-
     const noteBox = document.createElement('div');
     noteBox.className = 'group-confirm-participant booking-confirm-note';
     const noteTitle = document.createElement('strong');
@@ -786,6 +775,34 @@
     els.bookingConfirmSummary.replaceChildren(box);
   }
 
+  function updateBenefitSubmitButtons() {
+    const hasSelectedBenefits = (window.BookingBenefits?.selectionPayload?.() || []).length > 0;
+    els.useBookingBenefitsButton.disabled = state.submitting || !hasSelectedBenefits;
+    els.skipBookingBenefitsButton.disabled = state.submitting;
+  }
+
+  function openBenefitStep() {
+    if (state.submitting || els.bookingConfirmModal.classList.contains('hidden')) return;
+    if (bookingRestricted()) return showConfirmMessage('目前暫停新的線上預約，請聯絡店家。', 'error');
+    if (!selectedItems().length || !els.bookingDate.value || !state.selectedSlot || reminderError()) {
+      return showConfirmMessage('預約內容已變更，請返回重新確認。', 'error');
+    }
+    clearConfirmMessage();
+    els.bookingConfirmModal.classList.add('hidden');
+    els.bookingBenefitModal.classList.remove('hidden');
+    window.BookingBenefits?.syncNow?.();
+    updateBenefitSubmitButtons();
+    els.closeBookingBenefitButton.focus();
+  }
+
+  function closeBenefitStep() {
+    if (state.submitting || els.bookingBenefitModal.classList.contains('hidden')) return;
+    els.bookingBenefitModal.classList.add('hidden');
+    els.bookingConfirmModal.classList.remove('hidden');
+    clearConfirmMessage();
+    els.confirmBookingButton.focus();
+  }
+
   function closeConfirmation() {
     if (state.submitting || els.bookingConfirmModal.classList.contains('hidden')) return;
     els.bookingConfirmModal.classList.add('hidden');
@@ -793,7 +810,7 @@
     els.submitBookingButton.focus();
   }
 
-  function bookingWriteFingerprint(items, bookingDate, startTime) {
+  function bookingWriteFingerprint(items, bookingDate, startTime, benefits) {
     return JSON.stringify({
       bookingId: state.editing?.bookingId || '',
       expectedUpdatedAt: state.editing?.updatedAt || '',
@@ -803,7 +820,7 @@
       memberNote: window.BookingGroupUI?.primaryMemberNote?.() ?? String(els.memberNote.value || ''),
       participantNotes: window.BookingGroupUI?.notesSnapshot?.() || [],
       ...reminderPreference(),
-      benefits: window.BookingBenefits?.selectionPayload?.() || [],
+      benefits,
     });
   }
 
@@ -819,8 +836,13 @@
     }
   }
 
-  async function confirmBooking() {
-    if (state.submitting) return;
+  async function confirmBooking(useBenefits) {
+    if (state.submitting || els.bookingBenefitModal.classList.contains('hidden')) return;
+    const benefits = useBenefits ? (window.BookingBenefits?.selectionPayload?.() || []) : [];
+    if (useBenefits && !benefits.length) {
+      showConfirmMessage('請先勾選本次要使用的優惠，或選擇不使用優惠送出。', 'error');
+      return;
+    }
     if (state.editing && !canEditOnline({
       status: state.editing.originalStatus,
       bookingDate: state.editing.originalDate,
@@ -842,7 +864,7 @@
     }
 
     const modifying = Boolean(state.editing);
-    const fingerprint = bookingWriteFingerprint(items, bookingDate, startTime);
+    const fingerprint = bookingWriteFingerprint(items, bookingDate, startTime, benefits);
     if (!state.pendingBookingWrite || state.pendingBookingWrite.fingerprint !== fingerprint) {
       state.pendingBookingWrite = { fingerprint, requestId: `BOOK-${crypto.randomUUID()}` };
     }
@@ -850,7 +872,9 @@
     state.submitting = true;
     const finishFeedback = window.AsyncActionFeedback?.begin(modifying ? '正在送出修改預約申請…' : '正在送出預約並更新資料…');
     els.confirmBookingButton.disabled = true;
-    els.confirmBookingButton.textContent = '送出中…';
+    els.useBookingBenefitsButton.textContent = '送出中…';
+    els.skipBookingBenefitsButton.textContent = '送出中…';
+    updateBenefitSubmitButtons();
     els.submitBookingButton.disabled = true;
     clearConfirmMessage();
     try {
@@ -864,10 +888,11 @@
         startTime,
         memberNote: window.BookingGroupUI?.primaryMemberNote?.() ?? els.memberNote.value,
         ...reminderPreference(),
-        benefits: window.BookingBenefits?.selectionPayload?.() || [],
+        benefits,
       });
       state.pendingBookingWrite = null;
       state.data.bookings = [result.booking, ...(state.data.bookings || []).filter((item) => item.bookingId !== result.booking.bookingId)];
+      els.bookingBenefitModal.classList.add('hidden');
       els.bookingConfirmModal.classList.add('hidden');
       state.editing = null;
       updateEditingLabel();
@@ -888,6 +913,7 @@
         const recovered = await recoverUncertainBookingWrite(requestId);
         if (recovered) {
           state.pendingBookingWrite = null;
+          els.bookingBenefitModal.classList.add('hidden');
           els.bookingConfirmModal.classList.add('hidden');
           state.editing = null;
           resetReminderPreference();
@@ -914,8 +940,12 @@
       }
       if (error?.code === 'BOOKING_PRICE_CHANGED') {
         await refresh(false);
-        if (state.selectedSlot) renderConfirmation(selectedServiceRows());
-        else els.bookingConfirmModal.classList.add('hidden');
+        els.bookingBenefitModal.classList.add('hidden');
+        if (state.selectedSlot) {
+          renderConfirmation(selectedServiceRows());
+          els.bookingConfirmModal.classList.remove('hidden');
+          els.confirmBookingButton.focus();
+        } else els.bookingConfirmModal.classList.add('hidden');
         showFormMessage('價格已更新，請重新確認項目、時間與總價。', 'error');
         showConfirmMessage('價格已更新，請返回確認最新項目與總價後再送出。', 'error');
         return;
@@ -929,7 +959,9 @@
       finishFeedback?.();
       state.submitting = false;
       els.confirmBookingButton.disabled = false;
-      els.confirmBookingButton.textContent = '確認送出';
+      els.useBookingBenefitsButton.textContent = '確認使用優惠送出預約';
+      els.skipBookingBenefitsButton.textContent = '不使用優惠送出預約';
+      updateBenefitSubmitButtons();
       els.submitBookingButton.disabled = !state.selectedSlot || bookingRestricted();
     }
   }
@@ -1334,13 +1366,17 @@
   }
 
   function showConfirmMessage(message, type) {
-    els.bookingConfirmMessage.textContent = message;
-    els.bookingConfirmMessage.className = `form-message ${type || ''}`;
+    const target = els.bookingBenefitModal && !els.bookingBenefitModal.classList.contains('hidden')
+      ? els.bookingBenefitSubmitMessage : els.bookingConfirmMessage;
+    target.textContent = message;
+    target.className = `form-message ${type || ''}`;
   }
 
   function clearConfirmMessage() {
-    els.bookingConfirmMessage.textContent = '';
-    els.bookingConfirmMessage.className = 'form-message hidden';
+    [els.bookingConfirmMessage, els.bookingBenefitSubmitMessage].forEach((target) => {
+      target.textContent = '';
+      target.className = 'form-message hidden';
+    });
   }
 
   function showView(view) {
@@ -1373,7 +1409,7 @@
   window.addEventListener('pagehide', () => window.clearTimeout(state.priceRefreshTimer));
   window.addEventListener('booking:benefits-changed',()=>{
     if(!state.submitting)state.pendingBookingWrite=null;
-    if(els.bookingConfirmModal&&!els.bookingConfirmModal.classList.contains('hidden')&&state.selectedSlot)renderConfirmation(selectedServiceRows());
+    if(els.useBookingBenefitsButton)updateBenefitSubmitButtons();
   });
   window.addEventListener('pageshow', event => { if (event.persisted) schedulePriceRefresh(); });
   window.MemberClientQaHooks = Object.freeze({

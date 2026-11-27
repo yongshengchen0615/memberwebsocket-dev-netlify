@@ -20,7 +20,7 @@ test('unavailable point-card tickets keep their configured theme instead of beco
   const availability = experience.slice(availabilityStart);
 
   assert.match(availability, /#pointsView \.ui-ticket\.locked/);
-  assert.match(availability, /#bookingView \.ui-ticket\.is-unavailable/);
+  assert.match(availability, /:is\(#bookingView, #bookingBenefitModal\) \.ui-ticket\.is-unavailable/, 'booking form and post-review dialog share the disabled card treatment');
   assert.match(availability, /filter:\s*grayscale\(\.68\) brightness\(\.92\);/);
   assert.doesNotMatch(availability, /filter:\s*grayscale\(1\);/);
 });

@@ -12,7 +12,7 @@ async function page(surface){
  return d;
 }
 function nodes(w){
- w.eval(read('user-test-control.js').replace('  window.MemberUserTestControl =','  window.qaNodes={memberCodeCopyCase,memberQrControlsCase,pointsTransferRecipientControlsCase};\n  window.MemberUserTestControl ='));
+ w.eval(read('user-test-control.js').replace('  window.MemberUserTestControl =','  window.qaNodes={memberCodeCopyCase,memberQrControlsCase,pointsTransferRecipientControlsCase,finishBookingAfterBenefitReview};\n  window.MemberUserTestControl ='));
  return w.qaNodes;
 }
 
@@ -117,5 +117,47 @@ test('recipient runtime cancels without debit, fails friend fetch, and blocks se
   get('pointTransferButton').click();fill('pointTransferMemberCode','AAAA');get('pointTransferLookup').click();await tick();
   assert.match(get('pointTransferMessage').textContent,/不可轉贈給自己/);assert.equal(q.calls.filter(call=>call.action==='points.transfer.create').length,0);
   assert.deepEqual([q.sender,q.receiver],[5,0]);
+ }finally{w.close();}
+});
+
+test('Human E2E booking runner completes either final-benefits choice after review',async()=>{
+ const d=await page('booking'),w=d.window;
+ try{
+  const get=id=>w.document.getElementById(id);
+  const dialog=get('bookingBenefitModal'),review=get('confirmBookingButton');
+  assert.ok(dialog && review && get('useBookingBenefitsButton') && get('skipBookingBenefitsButton'));
+  const group=w.document.createElement('div');
+  group.className='booking-benefit-group';
+  group.dataset.benefitKind='points';
+  const checkbox=w.document.createElement('input');
+  checkbox.type='checkbox';
+  checkbox.dataset.bookingBenefitKind='points';
+  checkbox.dataset.bookingBenefitId='PT-QA';
+  group.append(checkbox);
+  get('bookingBenefitsList').append(group);
+
+  let chosen=false;
+  const submitted=[];
+  w.BookingBenefits={selectionPayload:()=>chosen?[{kind:'points',id:'PT-QA'}]:[]};
+  review.disabled=false;
+  review.addEventListener('click',()=>dialog.classList.remove('hidden'));
+  const use=get('useBookingBenefitsButton'),skip=get('skipBookingBenefitsButton');
+  use.disabled=true;
+  checkbox.addEventListener('change',()=>{chosen=checkbox.checked;use.disabled=!chosen;});
+  use.addEventListener('click',()=>submitted.push({used:true,benefits:w.BookingBenefits.selectionPayload()}));
+  skip.addEventListener('click',()=>submitted.push({used:false,benefits:[]}));
+
+  const runner=nodes(w);
+  const skipped=await runner.finishBookingAfterBenefitReview();
+  assert.equal(skipped.benefitSelected,false);
+  assert.deepEqual(submitted,[{used:false,benefits:[]}]);
+  dialog.classList.add('hidden');
+  const selected=await runner.finishBookingAfterBenefitReview({
+   selector:'input[data-booking-benefit-kind="points"][data-booking-benefit-id="PT-QA"]',
+   kind:'points',id:'PT-QA'
+  });
+  assert.equal(selected.groupedSectionVisible,true);
+  assert.equal(selected.benefitSelected,true);
+  assert.deepEqual(submitted[1],{used:true,benefits:[{kind:'points',id:'PT-QA'}]});
  }finally{w.close();}
 });

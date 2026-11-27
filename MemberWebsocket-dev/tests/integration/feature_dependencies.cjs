@@ -173,7 +173,7 @@ test('review: public grant refresh aborts at its deadline and a later refresh re
   await h.change({booking:true,points:true});assert.equal(h.w.BusinessContext.allows('points'),true);
  }finally{h.close();}
 });
-for(const group of [false,true])test('review: open '+(group?'group':'single')+' confirmation rerenders revoked per-kind tickets',async()=>{
+for(const group of [false,true])test('review: open '+(group?'group':'single')+' confirmation isolates tickets while revoke filters selected intent',async()=>{
  const h=await memberGrantFixture({booking:true,points:true,events:true});try{
   const w=h.w;
   w.BookingSystem={formatDate:x=>x,request:async()=>({}),bookingBenefits:async()=>({items:[]})};
@@ -189,10 +189,12 @@ for(const group of [false,true])test('review: open '+(group?'group':'single')+' 
   }
   w.BookingBenefits.setSelection([{kind:'points',id:'P',title:'point draft'},{kind:'event',id:'E',title:'event draft'}]);
   t.els.bookingConfirmModal.classList.remove('hidden');t.renderConfirmation([{service,quantity:1}]);
-  assert.match(t.els.bookingConfirmSummary.textContent,/point draft/);
+  assert.deepEqual(JSON.parse(JSON.stringify(w.BookingBenefits.selectionPayload())),[{kind:'points',id:'P'},{kind:'event',id:'E'}]);
+  assert.doesNotMatch(t.els.bookingConfirmSummary.textContent,/point draft|event draft|本次使用票券/,'review must not expose the later discount choice');
   await h.change({booking:true,events:true});
-  assert.doesNotMatch(t.els.bookingConfirmSummary.textContent,/point draft|集點卡/);
-  assert.match(t.els.bookingConfirmSummary.textContent,/event draft/);
+  assert.deepEqual(JSON.parse(JSON.stringify(w.BookingBenefits.selectionPayload())),[{kind:'event',id:'E'}],'revoking point access must remove its pending intent');
+  assert.doesNotMatch(t.els.bookingConfirmSummary.textContent,/point draft|event draft|本次使用票券/);
+  assert.equal(w.BookingBenefits.selectionSummary()[0].title,'event draft','the allowed event remains selected for the next dialog');
  }finally{h.close();}
 });
 test('review: friend booking help exposes only granted ticket/point rewards and restores on regrant',async()=>{
