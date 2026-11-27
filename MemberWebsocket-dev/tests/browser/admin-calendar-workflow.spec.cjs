@@ -5,13 +5,6 @@ let host;
 test.beforeAll(async () => { host = await startFixture(); });
 test.afterAll(async () => { await host.close(); });
 test.beforeEach(async ({ page }, info) => {
-  // AC-014 exercises local admin calendars, not a remote map stylesheet.
-  // The production HTML loads Leaflet CSS from a CDN; under isolated CI,
-  // waiting for an unrelated external resource can exhaust the 20s load budget.
-  // Keep the original full page-load and visible-workspace assertions intact.
-  await page.route('https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css', route =>
-    route.fulfill({ status: 200, contentType: 'text/css', body: '/* unrelated map stylesheet, isolated fixture */' })
-  );
   await page.goto(host.base + '/admin/?run=' + encodeURIComponent(info.testId));
   await expect(page.locator('#adminView')).toBeVisible();
 });
