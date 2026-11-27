@@ -111,8 +111,16 @@
   function renderOffers() {
     const hasOffers = state.offers.length > 0;
     const hasUsedTickets = state.usedTicketCount > 0;
-    const ineligibleOfferCount = state.offers.filter((offer) => !eventTicketTierEligible(offer)).length;
-    els.eventList.replaceChildren(...state.offers.map(createOfferCard));
+    // Use server-computed membership eligibility; local UI groups must never grant access.
+    const eligibleOffers = state.offers.filter(eventTicketTierEligible);
+    const lockedOffers = state.offers.filter((offer) => !eventTicketTierEligible(offer));
+    const ineligibleOfferCount = lockedOffers.length;
+    els.eventList.replaceChildren(...(hasOffers ? [
+      createOfferGroup('可以使用', 'available', eligibleOffers,
+        '符合目前會員階級；實際使用仍須符合活動期限、預約及票券條件。', '目前沒有符合會員階級的票券'),
+      createOfferGroup('未解鎖', 'locked', lockedOffers,
+        '尚未符合會員階級；查看票券詳情可了解解鎖門檻。', '目前沒有未解鎖的票券')
+    ] : []));
     els.usedTicketList.replaceChildren(...state.usedTickets.map(createHistoryItem));
     els.emptyView.classList.toggle('hidden', hasOffers);
     els.usedTicketHistory.classList.toggle('hidden', !hasUsedTickets);
@@ -121,6 +129,34 @@
     autoOpenFromCalendar();
   }
 
+
+  function createOfferGroup(title, kind, offers, guidance, emptyMessage) {
+    const section = document.createElement('section');
+    section.className = 'event-offer-group event-offer-group--' + kind;
+    section.setAttribute('aria-label', title + '活動票券');
+    const header = document.createElement('div');
+    header.className = 'event-offer-group-heading';
+    const heading = document.createElement('h2');
+    heading.textContent = title;
+    const count = document.createElement('span');
+    count.className = 'event-offer-group-count';
+    count.textContent = offers.length + ' 張';
+    header.append(heading, count);
+    const note = document.createElement('p');
+    note.className = 'event-offer-group-note';
+    note.textContent = guidance;
+    const grid = document.createElement('div');
+    grid.className = 'event-offer-grid';
+    grid.replaceChildren(...offers.map(createOfferCard));
+    section.append(header, note, grid);
+    if (!offers.length) {
+      const empty = document.createElement('p');
+      empty.className = 'event-offer-group-empty';
+      empty.textContent = emptyMessage;
+      section.append(empty);
+    }
+    return section;
+  }
 
   function bookingRequiredForOffer(offer) {
     return window.TicketBookingChoice?.eventOptions?.(ticketForOffer(offer), offer.eligibleBookings)?.requiresBooking === true;
@@ -172,7 +208,7 @@
     button.dataset.eventTicketId = eventTicketId;
     const bindable = canBindExistingBooking(offer);
     button.dataset.ticketAction = bindable ? 'bind-booking' : offer.claim && offer.canUse ? 'use' : 'details';
-    button.textContent = history ? '查看紀錄' : reserved ? '已預約使用' : snapshotPending ? '快照待審核' : !eligible ? '查看預約綁定' : offer.claim ? bindable ? '綁定已有預約使用' : offer.canUse ? '使用票券' : '查看預約綁定' : '查看預約綁定';
+    button.textContent = history ? '查看紀錄' : reserved ? '已預約使用' : snapshotPending ? '快照待審核' : !eligible ? '查看解鎖條件' : offer.claim ? bindable ? '綁定已有預約使用' : offer.canUse ? '使用票券' : '查看預約綁定' : '查看預約綁定';
     button.disabled = !eventTicketId;
     if (offer.transferredOut) { button.textContent = '已轉贈好友'; }
     button.addEventListener('click', () => openTicketModal(physicalTicketKey));
