@@ -86,6 +86,14 @@ const entryPages = [
   'frontdesk/index.html',
   'booking/admin/index.html',
 ];
+const embeddedConfigPages = new Set([
+  'admin/index.html', 'member/index.html', 'points/index.html', 'event/index.html',
+  'calendar/index.html', 'booking/index.html',
+]);
+// This is the same public data as config/config.json. Escape '<' so a profile
+// string cannot change how the HTML parser reads the JSON data block.
+const embeddedConfig = JSON.stringify(publishedConfig).replaceAll('<', '\\u003c');
+const configBlock = `  <script id="memberwebsocket-public-config" type="application/json">${embeddedConfig}</script>\n`;
 for (const entry of entryPages) {
   const page = path.join(output, entry);
   const relative = path.relative(path.dirname(page), output).split(path.sep).join('/');
@@ -102,10 +110,11 @@ for (const entry of entryPages) {
   // Render during the build, not after DOMContentLoaded: works in restrictive
   // mobile WebViews without script execution or unsafe-inline CSP exemptions.
   const stylesheet = `  <link rel="stylesheet" href="${base}version-badge.css?v=${siteVersion}">`;
+  const headContent = (embeddedConfigPages.has(entry) ? configBlock : '') + stylesheet;
   const badge = `  <small id="site-build-version" class="site-build-version" role="note" aria-label="網站部署版本 ${siteVersion}" data-commit="${commit}">${siteVersion}</small>`;
   await writeFile(
     page,
-    html.replace('</head>', `${stylesheet}\n</head>`).replace('</body>', `${badge}\n</body>`),
+    html.replace('</head>', () => `${headContent}\n</head>`).replace('</body>', `${badge}\n</body>`),
   );
 }
 // Fail the whole build if a stale frontend asset still points at the

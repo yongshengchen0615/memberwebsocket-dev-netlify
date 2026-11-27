@@ -40,7 +40,7 @@ test('branch runtime discovers merchants and sends member requests to its isolat
   const result=address==='/config/config.json'?config:address.endsWith('/platform-api')?{ok:true,data:{business:'test',name:'Synthetic',features:{membership:true},line:{memberLiffId:'1234567890-synthetic'}}}:address.endsWith('/member-profile-api')?{ok:true,data:{saved:true}}:{ok:false,error:{message:'Wrong control-plane endpoint'}};
   return{ok:result.ok!==false,status:result.ok===false?400:200,text:async()=>JSON.stringify(result),json:async()=>result};
  }};
- const context=vm.createContext({window,location,document:{addEventListener(){},removeEventListener(){},querySelector(){return {};},querySelectorAll(){return[];}},URL,URLSearchParams,AbortController,Map,Set,Date,console,fetch:(...args)=>window.fetch(...args)});
+ const context=vm.createContext({window,location,document:{addEventListener(){},removeEventListener(){},getElementById(){return null;},querySelector(){return {};},querySelectorAll(){return[];}},URL,URLSearchParams,AbortController,Map,Set,Date,console,fetch:(...args)=>window.fetch(...args)});
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../business-context.js'),'utf8'),context);
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../member-system.js'),'utf8'),context);
  const configured=await window.MemberSystem.loadConfig();

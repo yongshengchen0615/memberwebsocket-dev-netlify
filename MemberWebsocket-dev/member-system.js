@@ -109,8 +109,9 @@
 
   async function loadConfig() {
     assertLegacyTenantScope();
-    let lastError, config;
-    for (let attempt = 0; attempt < 2; attempt += 1) {
+    let lastError;
+    let config = window.BusinessContext?.readEmbeddedConfig?.();
+    for (let attempt = 0; !config && attempt < 2; attempt += 1) {
       try {
         // Same-origin absolute path is stable for LIFF callback URLs and /admin/ routes.
         const result = await fetchWithTimeout('/config/config.json', { cache: 'no-store' }, READ_TIMEOUT_MS, (response) => response.text());
