@@ -67,6 +67,7 @@
   border-radius: 0;
   box-shadow: none;
 }
+.booking-benefit-modal .booking-benefits-heading h3 { margin: 0; font-size: 1rem; }
 .booking-benefit-modal .booking-benefit-group-grid { grid-template-columns: minmax(0, 1fr); }
 .booking-benefit-modal .booking-benefit.event-ticket { min-height: 0; padding: 15px; }
 .booking-benefit-modal .booking-benefit.event-ticket h3 { font-size: 21px; }
