@@ -41,21 +41,37 @@
     if (tier.key === currentTier) heading.append(element('span', 'member-monthly-current-tag', '目前階級'));
     section.append(heading);
     const offers = Array.isArray(tier.offers) ? tier.offers : [];
-    if (!offers.length) {
-      section.append(element('p', 'member-monthly-tier-empty', '本月無可查看的優惠'));
-      return section;
-    }
-    const list = element('ul', 'member-monthly-tier-list');
-    for (const offer of offers) {
-      const item = element('li', 'member-monthly-offer');
-      item.append(
-        element('span', 'member-monthly-offer-kind', offer.kind === 'ticket' ? '票券' : '活動'),
-        element('strong', 'member-monthly-offer-title', offer.title || '未命名活動'),
-        element('small', 'member-monthly-offer-date', dateLabel(offer))
+    // Render two compact sections without hiding or truncating any offer.
+    const categories = [
+      { kind: 'ticket', label: '活動票券', empty: '本月尚無活動票券' },
+      { kind: 'activity', label: '會員活動', empty: '本月尚無會員活動' }
+    ];
+    for (const category of categories) {
+      const entries = offers.filter(offer => offer && offer.kind === category.kind);
+      const group = element('section', 'member-monthly-offer-group');
+      group.dataset.monthlyOfferKind = category.kind;
+      const header = element('div', 'member-monthly-offer-group-heading');
+      header.append(
+        element('h5', 'member-monthly-offer-group-title', category.label),
+        element('span', 'member-monthly-offer-group-count', entries.length + ' 項')
       );
-      list.append(item);
+      group.append(header);
+      if (!entries.length) {
+        group.append(element('p', 'member-monthly-tier-empty', category.empty));
+      } else {
+        const list = element('ul', 'member-monthly-tier-list');
+        for (const offer of entries) {
+          const item = element('li', 'member-monthly-offer');
+          item.append(
+            element('strong', 'member-monthly-offer-title', offer.title || '未命名活動'),
+            element('small', 'member-monthly-offer-date', dateLabel(offer))
+          );
+          list.append(item);
+        }
+        group.append(list);
+      }
+      section.append(group);
     }
-    section.append(list);
     return section;
   }
 

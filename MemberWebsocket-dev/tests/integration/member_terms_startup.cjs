@@ -53,7 +53,7 @@ async function start(consentRequired, options = {}) {
   w.MemberSystem = {
     bindDialogKeyboard() {},
     loadConfig: async () => ({ brandName: 'Lumen Club', ...options.config }),
-    signIn: async () => 'fixture-token',
+    signIn: options.signIn || (async () => 'fixture-token'),
     initials: () => '會',
     formatDate: (value) => value || '',
     subscribeRealtime: () => () => {},
@@ -85,6 +85,83 @@ async function start(consentRequired, options = {}) {
   await new Promise((resolve) => setTimeout(resolve, 20));
   return { dom, w, calls };
 }
+
+for (const first of ['LINE 簡介', '會員資料']) {
+  test(`AC-001: member startup overlaps both reads and waits for both, with ${first} arriving first`, async () => {
+    const lineProfile = Promise.withResolvers();
+    const membership = Promise.withResolvers();
+    const resolveLineProfile = () => lineProfile.resolve({ displayName: 'LINE 測試會員' });
+    const resolveMembership = () => membership.resolve({ profile, terms });
+    let lineRequests = 0;
+    const { dom, w, calls } = await start(false, {
+      liff: { getProfile: () => { lineRequests++; return lineProfile.promise; } },
+      bootstrapResult: () => membership.promise,
+    });
+    const get = (id) => w.document.getElementById(id);
+    try {
+      assert.equal(lineRequests, 1);
+      assert.equal(calls.filter((call) => call.action === 'user.member.bootstrap').length, 1);
+      assert.equal(get('loadingView').classList.contains('hidden'), false);
+      assert.equal(get('memberView').classList.contains('hidden'), true);
+
+      if (first === 'LINE 簡介') resolveLineProfile();
+      else resolveMembership();
+      await new Promise(setImmediate);
+      assert.equal(get('memberView').classList.contains('hidden'), true);
+
+      resolveLineProfile();
+      resolveMembership();
+      await new Promise(setImmediate);
+      assert.equal(get('memberView').classList.contains('hidden'), false);
+      assert.equal(get('memberName').textContent, 'LINE 測試會員');
+      assert.equal(calls.filter((call) => call.action === 'user.member.card.open').length, 1);
+    } finally { dom.window.close(); }
+  });
+}
+
+test('AC-002: failed LINE profile read uses the decoded token name and opens the member card', async () => {
+  const { dom, w, calls } = await start(false, { liff: {
+    getDecodedIDToken: () => ({ name: 'LINE 備援名稱' }),
+    getProfile: async () => { throw new Error('LINE profile unavailable'); },
+  } });
+  try {
+    assert.equal(w.document.getElementById('memberView').classList.contains('hidden'), false);
+    assert.equal(w.document.getElementById('memberName').textContent, 'LINE 備援名稱');
+    assert.equal(calls.filter((call) => call.action === 'user.member.bootstrap').length, 1);
+  } finally { dom.window.close(); }
+});
+
+test('AC-003: failed sign-in cannot start either member startup read', async () => {
+  let lineRequests = 0;
+  const { dom, w, calls } = await start(false, {
+    signIn: async () => { throw new Error('登入遭拒'); },
+    liff: { getProfile: async () => { lineRequests++; } },
+  });
+  try {
+    assert.equal(w.document.getElementById('errorMessage').textContent, '登入遭拒');
+    assert.equal(w.document.getElementById('memberView').classList.contains('hidden'), true);
+    assert.equal(lineRequests, 0);
+    assert.deepEqual(calls, []);
+  } finally { dom.window.close(); }
+});
+
+test('AC-003: member authorization denial remains hidden even if the LINE profile later succeeds', async () => {
+  const lineProfile = Promise.withResolvers();
+  const { dom, w, calls } = await start(false, {
+    liff: { getProfile: () => lineProfile.promise },
+    bootstrapResult: () => { throw new Error('會員資料存取遭拒'); },
+  });
+  const get = (id) => w.document.getElementById(id);
+  try {
+    assert.equal(get('errorMessage').textContent, '會員資料存取遭拒');
+    assert.equal(get('memberView').classList.contains('hidden'), true);
+    lineProfile.resolve({ displayName: '不得顯示的 LINE 名稱' });
+    await new Promise(setImmediate);
+    assert.equal(get('memberView').classList.contains('hidden'), true);
+    assert.equal(get('errorView').classList.contains('hidden'), false);
+    assert.deepEqual(calls.map((call) => call.action), ['user.member.bootstrap']);
+  } finally { dom.window.close(); }
+});
 
 test('member page initializes and shows the latest terms to members who must reconsent', async () => {
   const { dom, w, calls } = await start(true);
