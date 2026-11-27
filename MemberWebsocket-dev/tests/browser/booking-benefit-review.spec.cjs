@@ -15,6 +15,7 @@ async function setup(page, width = 390) {
     <input id="bookingDate" type="date" value="2026-12-12">
     <input id="bookingReminderEnabled" type="checkbox">
     <input id="bookingReminderTime" value="18:00">
+    <textarea id="memberNote"></textarea>
     <button id="submitBookingButton">確認預約內容</button>
     <div id="bookingConfirmModal" class="booking-modal" role="dialog">
       <button id="confirmBookingButton" type="button">下一步：選擇優惠</button>
@@ -36,7 +37,7 @@ async function setup(page, width = 390) {
   await page.evaluate(() => {
     const { state, els } = window.__bookingBenefitFlowTest;
     for (const id of ['bookingConfirmModal', 'bookingBenefitModal', 'bookingDate',
-      'bookingReminderEnabled', 'bookingReminderTime', 'submitBookingButton',
+      'bookingReminderEnabled', 'bookingReminderTime', 'memberNote', 'submitBookingButton',
       'confirmBookingButton', 'closeBookingBenefitButton', 'skipBookingBenefitsButton',
       'useBookingBenefitsButton', 'bookingConfirmMessage', 'bookingBenefitSubmitMessage']) {
       els[id] = document.getElementById(id);
