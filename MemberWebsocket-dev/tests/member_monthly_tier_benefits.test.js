@@ -530,3 +530,51 @@ test('AC-026: all five member portals place monthly tier offers directly below m
   );
   assert.match(booking, /id="bookingAccessiblePanel"/, 'accessible snapshot mode remains available');
 });
+
+
+test('AC-027: monthly tier catalogue is independent of ticket calendar opt-in and deduplicates legacy calendar mirrors', async () => {
+  const { buildMonthlyTierOverview } = await load();
+  const ticket = {
+    id:'ticket-a', title:'未加入日曆的金級券', ticket_type:'coupon', status:'active',
+    starts_on:'2026-11-01', ends_on:'2026-11-30', allowed_tier_keys:['gold'],
+  };
+  const standaloneActivity = {
+    id:'activity-a', title:'不依賴日曆曝光的金級活動', item_type:'event', status:'active',
+    audience_type:'all', starts_on:'2026-11-15', ends_on:null,
+    allowed_tier_keys:['gold'], calendar_enabled:false,
+  };
+  const ticketMirror = {
+    id:'calendar-mirror', title:ticket.title, item_type:'event', status:'active',
+    starts_on:'2026-11-01', ends_on:'2026-11-30', allowed_tier_keys:['gold'],
+    link_url:'https://example.com/event/?source=event-ticket-calendar&eventTicketId=ticket-a',
+  };
+  // Some historical copies retain the managed source marker without its ticket ID.
+  // They must not be shown as a second, unrelated membership activity.
+  const legacyMirror = {
+    ...ticketMirror, id:'legacy-mirror', source_event_ticket_id:null,
+    link_url:'https://example.com/event/?source=event-ticket-calendar',
+  };
+  const get = (calendarItems) => buildMonthlyTierOverview({
+    month:'2026-11', tickets:[ticket], activities:calendarItems
+  }).tiers.find((tier) => tier.key === 'gold').offers.map(({kind,title}) => ({kind,title}));
+  const expected = [
+    {kind:'activity',title:standaloneActivity.title},
+    {kind:'ticket',title:ticket.title}
+  ];
+  // Opted out => no mirror. Opted in => mirror. Same entitlement catalogue.
+  assert.deepEqual(get([standaloneActivity]).sort((a,b) => a.title.localeCompare(b.title)), expected.sort((a,b) => a.title.localeCompare(b.title)));
+  assert.deepEqual(get([standaloneActivity,ticketMirror,legacyMirror]).sort((a,b) => a.title.localeCompare(b.title)),expected);
+});
+
+test('AC-028: monthly API and UI use a standalone catalogue, not membership calendar publication', () => {
+  const root = path.resolve(__dirname, '..');
+  const api = fs.readFileSync(path.join(root, 'supabase/functions/member-profile-api/index.ts'), 'utf8');
+  const calendar = fs.readFileSync(path.join(root, 'supabase/functions/member-calendar-api/index.ts'), 'utf8');
+  const client = fs.readFileSync(path.join(root, 'member/monthly-tier-benefits.js'), 'utf8');
+  const section = api.slice(api.indexOf('async function monthlyTierBenefits('),api.indexOf("serveBusiness('member-profile-api'"));
+  assert.match(section, /supabase\.from\("event_tickets"\)/, 'tickets are read from their authoritative records');
+  assert.match(section, /supabase\.from\("calendar_items"\)/, 'standalone member activities retain their source records');
+  assert.doesNotMatch(section, /member-calendar-api|user\.calendar\.bootstrap|calendar_enabled|eventTicketAddToCalendar/, 'monthly read does not depend on calendar opt-in');
+  assert.match(calendar, /Explicit calendar_items are the only source of member-facing calendar entries/, 'calendar publication remains independently scoped');
+  assert.match(client, /本月優惠不受加入活動日曆設定影響/, 'member UI explains the independent catalogue');
+});
