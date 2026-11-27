@@ -56,3 +56,13 @@ test('AC-PARTY-UI-003: change of participant count updates selector and reconcil
  assert.match(source,/const serviceBlocked = selectableKinds\.has\(item\.kind\) && !ticketRequirementMet\(item\)/);
  assert.match(source,/const parsedPartySize = Number\(partySize\)/);
 });
+
+test('AC-PARTY-UI-004: exact N is not a minimum while minimum N allows larger parties',()=>{
+ const minimum={kind:'event',minBookingPartySize:2,maxBookingPartySize:0,minBookingPartySizeLabel:'每筆預約至少 2 位'};
+ const exact={kind:'event',minBookingPartySize:2,maxBookingPartySize:2,minBookingPartySizeLabel:'每筆預約須剛好 2 位'};
+ for(const [size,minAllowed,exactAllowed] of [[1,false,false],[2,true,true],[3,true,false]]){
+   assert.equal(predicate(size).ticketRequirementMet(minimum),minAllowed);
+   assert.equal(predicate(size).ticketRequirementMet(exact),exactAllowed);
+ }
+ assert.match(predicate(3).ticketRequirementMessage(exact),/預約人數不符合/);
+});

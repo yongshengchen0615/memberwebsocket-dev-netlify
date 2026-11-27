@@ -1378,7 +1378,8 @@ function bookingPartySizeLabel(row: any): string {
   const min = Number(row.min_booking_party_size || 0);
   const max = Number(row.max_booking_party_size || 0);
   if (!Number.isInteger(min) || !Number.isInteger(max) || min<0 || max<0 || min>20 || max>20 || (max && max<Math.max(1,min))) return '預約人數條件資料異常，請洽店家確認';
-  if (min && max) return `每筆預約需 ${min}–${max} 位`;
+  if (min && max && min===max) return `每筆預約須剛好 ${min} 位`;
+  if (min && max) return `每筆預約需 ${min}–${max} 位（舊版區間條件）`;
   if (min) return `每筆預約至少 ${min} 位`;
   if (max) return `每筆預約最多 ${max} 位`;
   return '';
@@ -2060,8 +2061,8 @@ async function saveEventTicket(supabase: SupabaseClient, actor: string, body: Js
   const maxBookingPartySize = Number(input.maxBookingPartySize ?? 0);
   if (!Number.isInteger(minBookingPartySize) || !Number.isInteger(maxBookingPartySize)
       || minBookingPartySize<0 || minBookingPartySize>20 || maxBookingPartySize<0 || maxBookingPartySize>20
-      || (maxBookingPartySize>0 && maxBookingPartySize<Math.max(1,minBookingPartySize)))
-    throw new ApiError(400,'INVALID_BOOKING_PARTY_SIZE_RULE','預約人數上下限不正確。');
+      || (maxBookingPartySize>0 && (minBookingPartySize===0 || maxBookingPartySize!==minBookingPartySize)))
+    throw new ApiError(400,'INVALID_BOOKING_PARTY_SIZE_RULE','僅可設定不限人數、至少 N 位或剛好 N 位。');
   const payload = {
     title: requireText(input.title,"活動票券名稱",100),
     ticket_type: ticketType,
@@ -3054,8 +3055,8 @@ async function normalizeCalendarUsageRules(supabase: SupabaseClient, item: Json)
   const maxBookingPartySize = Number(item.maxBookingPartySize || 0);
   if (!Number.isInteger(minBookingPartySize) || !Number.isInteger(maxBookingPartySize)
       || minBookingPartySize<0 || minBookingPartySize>20 || maxBookingPartySize<0 || maxBookingPartySize>20
-      || (maxBookingPartySize>0 && maxBookingPartySize<Math.max(1,minBookingPartySize)))
-    throw new ApiError(400,'INVALID_BOOKING_PARTY_SIZE_RULE','會員活動預約人數條件不正確。');
+      || (maxBookingPartySize>0 && (minBookingPartySize===0 || maxBookingPartySize!==minBookingPartySize)))
+    throw new ApiError(400,'INVALID_BOOKING_PARTY_SIZE_RULE','會員活動僅可設定不限人數、至少 N 位或剛好 N 位。');
   return {...item,requiredServiceIds,requiredServiceMatchMode:groupMode?'any':item.requiredServiceMatchMode==='all'?'all':'any',requiredServiceGroups,
     minBookingAmountMode,minBookingAmount,minBookingServiceIds,minBookingPartySize,maxBookingPartySize};
 }

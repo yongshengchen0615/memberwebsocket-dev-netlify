@@ -1204,3 +1204,47 @@ for(const width of [390,1280])test('BOOKING_CONFIRMED_NO_SHOW_'+width+' — conf
  await p.locator('[data-booking-filter="all"]').click();
  await expect(p.locator('#bookingAdminQueue')).toContainText('無故未到');
 });
+
+test('EVENT_PARTY_RULE_MODES — minimum and exact booking counts persist and invalid count cannot save',async({page:p},info)=>{
+  await openEvent(p);
+  await expect(p.locator('#eventTicketBookingPartySize')).toBeHidden();
+  await select(p,'eventTicketBookingPartyMode','exact');
+  await expect(p.locator('#eventTicketBookingPartySize')).toBeVisible();
+  await fill(p,'eventTicketBookingPartySize','0');
+  await click(p,'saveEventTicketButton');
+  await expect(p.locator('#eventTicketFormMessage')).toContainText('1–20');
+  expect(calls(info.fixture,'admin.event-tickets.save')).toHaveLength(0);
+  await select(p,'eventTicketBookingPartyMode','minimum');await fill(p,'eventTicketBookingPartySize','2');
+  await click(p,'saveEventTicketButton');
+  await expect.poll(()=>info.fixture.eventTickets[0]?.minBookingPartySize).toBe(2);
+  expect(info.fixture.eventTickets[0]?.maxBookingPartySize).toBe(0);
+  await expect(p.locator('#eventTicketBookingPartyMode')).toHaveValue('minimum');
+  await select(p,'eventTicketBookingPartyMode','exact');await fill(p,'eventTicketBookingPartySize','2');
+  await click(p,'saveEventTicketButton');
+  await expect.poll(()=>info.fixture.eventTickets[0]?.maxBookingPartySize).toBe(2);
+  await expect(p.locator('#eventTicketBookingPartyMode')).toHaveValue('exact');
+  await select(p,'eventTicketBookingPartyMode','none');
+  await expect(p.locator('#eventTicketBookingPartySize')).toBeHidden();
+  await click(p,'saveEventTicketButton');
+  await expect.poll(()=>info.fixture.eventTickets[0]?.minBookingPartySize).toBe(0);
+  expect(info.fixture.eventTickets[0]?.maxBookingPartySize).toBe(0);
+});
+test('CALENDAR_PARTY_RULE_MODES — member activities persist minimum, exact, and no party limit',async({page:p},info)=>{
+  await openCalendar(p,'event');
+  await expect(p.locator('#calendarItemBookingPartySize')).toBeHidden();
+  await select(p,'calendarItemBookingPartyMode','minimum');
+  await fill(p,'calendarItemBookingPartySize','3');
+  await click(p,'saveCalendarItemButton');
+  await expect.poll(()=>info.fixture.calendarItems[0]?.minBookingPartySize).toBe(3);
+  expect(info.fixture.calendarItems[0]?.maxBookingPartySize).toBe(0);
+  await expect(p.locator('#calendarItemBookingPartyMode')).toHaveValue('minimum');
+  await select(p,'calendarItemBookingPartyMode','exact');
+  await fill(p,'calendarItemBookingPartySize','3');
+  await click(p,'saveCalendarItemButton');
+  await expect.poll(()=>info.fixture.calendarItems[0]?.maxBookingPartySize).toBe(3);
+  await expect(p.locator('#calendarItemBookingPartyMode')).toHaveValue('exact');
+  await select(p,'calendarItemBookingPartyMode','none');
+  await click(p,'saveCalendarItemButton');
+  await expect.poll(()=>info.fixture.calendarItems[0]?.minBookingPartySize).toBe(0);
+  expect(info.fixture.calendarItems[0]?.maxBookingPartySize).toBe(0);
+});
