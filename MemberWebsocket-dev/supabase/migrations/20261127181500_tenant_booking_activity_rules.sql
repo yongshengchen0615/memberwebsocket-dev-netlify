@@ -47,6 +47,48 @@ BEGIN
       SELECT e->>'definition' INTO STRICT v_definition
       FROM jsonb_array_elements(v_template->'functions') e
       WHERE e->>'name'=v_fn;
+      -- The 2026-10-30 service-group migration updated existing function bodies
+      -- but its versioned provisioning blueprint was not yet reseeded. Recognize
+      -- only that documented patch; retain strict refusal for arbitrary drift.
+      IF replace(v_old,v_schema,'public') IS DISTINCT FROM v_definition AND
+         v_fn IN ('booking_ticket_matches_services','ticket_has_service_requirement',
+                  'validate_booking_benefit_service_requirement_row') THEN
+        v_definition := replace(v_definition,v_schema,'public');
+        IF v_fn='booking_ticket_matches_services' THEN
+          v_definition:=replace(v_definition,
+            $a$coalesce(r.required_service_match_mode,'any'))$a$,
+            $b$coalesce(r.required_service_match_mode,'any'),coalesce(r.required_service_groups,'[]'::jsonb))$b$);
+          v_definition:=replace(v_definition,
+            $a$et.required_service_match_mode)$a$,
+            $b$et.required_service_match_mode,coalesce(et.required_service_groups,'[]'::jsonb))$b$);
+        ELSIF v_fn='ticket_has_service_requirement' THEN
+          v_definition:=replace(v_definition,
+            $a$cardinality(coalesce(r.required_service_ids,'{}'::uuid[]))>0$a$,
+            $b$(cardinality(coalesce(r.required_service_ids,'{}'::uuid[]))>0 or jsonb_array_length(coalesce(r.required_service_groups,'[]'::jsonb))>0)$b$);
+          v_definition:=replace(v_definition,
+            $a$cardinality(e.required_service_ids)>0$a$,
+            $b$(cardinality(e.required_service_ids)>0 or jsonb_array_length(coalesce(e.required_service_groups,'[]'::jsonb))>0)$b$);
+        ELSE
+          v_definition:=replace(v_definition,
+            $a$v_match_mode text := 'any';$a$,
+            $b$v_match_mode text := 'any';$b$||E'\n  v_groups jsonb := ''[]''::jsonb;');
+          v_definition:=replace(v_definition,
+            $a$coalesce(r.required_service_match_mode, 'any')$a$,
+            $b$coalesce(r.required_service_match_mode, 'any'), coalesce(r.required_service_groups,'[]'::jsonb)$b$);
+          v_definition:=replace(v_definition,
+            $a$coalesce(et.required_service_match_mode, 'any')$a$,
+            $b$coalesce(et.required_service_match_mode, 'any'), coalesce(et.required_service_groups,'[]'::jsonb)$b$);
+          v_definition:=replace(v_definition,
+            $a$into v_required, v_match_mode$a$,
+            $b$into v_required, v_match_mode, v_groups$b$);
+          v_definition:=replace(v_definition,
+            $a$if cardinality(v_required) > 0$a$,
+            $b$if (cardinality(v_required) > 0 or jsonb_array_length(coalesce(v_groups,'[]'::jsonb)) > 0)$b$);
+          v_definition:=replace(v_definition,
+            $a$v_required, v_match_mode)$a$,
+            $b$v_required, v_match_mode, v_groups)$b$);
+        END IF;
+      END IF;
       IF replace(v_old,v_schema,'public') IS DISTINCT FROM v_definition THEN
         RAISE EXCEPTION 'BOOKING_ACTIVITY_TENANT_FUNCTION_DRIFT: %.%',v_schema,v_fn;
       END IF;
