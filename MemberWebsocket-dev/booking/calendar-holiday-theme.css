@@ -51,6 +51,11 @@
   font-weight: 850;
 }
 
+/* Holiday day-number rules are more specific than the generic today badge. */
+#calendarGrid .calendar-day.holiday-disabled.today .calendar-day-number {
+  color: #ffffff;
+}
+
 #calendarGrid .calendar-day.today.selected:not(.holiday-disabled) {
   outline: 2px solid #17352e;
   outline-offset: 1px;
@@ -186,6 +191,10 @@ html[data-theme="dark"] #calendarGrid .calendar-day.today .calendar-day-number {
 
 html[data-theme="dark"] #calendarGrid .calendar-day.holiday-disabled.today::after {
   border-color: #79ccff;
+}
+
+html[data-theme="dark"] #calendarGrid .calendar-day.holiday-disabled.today .calendar-day-number {
+  color: #09283e;
 }
 
 html[data-theme="dark"] #calendarGrid .calendar-day.today.selected:not(.holiday-disabled) {
