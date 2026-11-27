@@ -12,6 +12,9 @@ type CalendarItem = Json & {
   linkUrl?: string;
   allowedTierKeys?: string[];
   visibilityPolicy?: string;
+  usageConditions?: unknown;
+  usageEligible?: boolean;
+  usageConditionLabel?: string;
 };
 
 const MAX_REQUEST_BYTES = 40_000;
@@ -387,7 +390,7 @@ serveBusiness('member-calendar-api',async (request: Request) => {
     // An active event ticket alone must never publish an activity to the calendar.
     const eventByUuid = new Map((eventTicketsResult.data || []).map((ticket: any) => [String(ticket.id), ticket]));
     const eventByCode = new Map((eventTicketsResult.data || []).map((ticket: any) => [String(ticket.event_ticket_id), ticket]));
-    const calendarEntries = rows.map((row: any) => {
+    const calendarEntries: CalendarItem[] = rows.map((row: any): CalendarItem => {
       const item = calendarClient(row);
       if (item.itemType !== 'event') return item;
       let linkedTicket = eventByUuid.get(String(row.source_event_ticket_id || ''));
