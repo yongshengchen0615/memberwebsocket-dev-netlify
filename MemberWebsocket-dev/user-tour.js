@@ -332,10 +332,10 @@
     ui.memberTourDescription.textContent = step.description;
     ui.memberTourBack.disabled = findStep(stepIndex - 1, -1) < 0;
     ui.memberTourNext.textContent = findStep(stepIndex + 1, 1) < 0 ? '完成' : '下一步';
-    // The booking mode control follows membership progress and monthly offers.
-    // Align it at the viewport bottom so the tour dialog has room above it on narrow screens.
+    // The booking mode control follows the monthly offers; put the full control
+    // at the viewport top so the tour dialog can occupy the space below on mobile.
     const scrollAlignment = activeSurface === 'booking' && step.selector === '.booking-accessible-switch'
-      ? 'end' : 'center';
+      ? 'start' : 'center';
     if (options.scroll !== false) target.scrollIntoView?.({ block: scrollAlignment, behavior: 'instant' });
     // Geometry must exist even when the page is backgrounded and rAF is throttled.
     positionFocus();
