@@ -39,6 +39,8 @@ test('AC-TODAY-003: when today is a holiday, red closure and blue today markers 
   assert.match(both, /border-color: #b6462f/);
   assert.match(rule('#calendarGrid .calendar-day.holiday-disabled.today::after'), /border: 2px dashed #1467af/);
   assert.match(rule('#calendarGrid .calendar-day.today .calendar-day-number'), /background: #1467af/);
+  assert.match(rule('#calendarGrid .calendar-day.holiday-disabled.today .calendar-day-number'), /color: #ffffff/);
+  assert.match(rule('html[data-theme="dark"] #calendarGrid .calendar-day.holiday-disabled.today .calendar-day-number'), /color: #09283e/);
   assert.match(styles, /#calendarGrid \.calendar-holiday-label/);
 });
 
