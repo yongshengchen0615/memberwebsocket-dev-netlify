@@ -78,5 +78,4 @@
   .booking-benefit-modal { align-items: center; padding: 12px; }
   .booking-benefit-modal-card { max-height: 94dvh; border-radius: 18px; padding: 16px; }
   .booking-benefit-modal-actions { grid-template-columns: 1fr; gap: 8px; }
-  .booking-benefit-modal .booking-benefit { padding: 12px; }
 }
