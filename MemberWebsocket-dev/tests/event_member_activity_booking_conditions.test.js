@@ -83,3 +83,13 @@ test('AC-006: member surfaces describe condition and no artificial claim is issu
   assert.match(benefits,/selectable: false, selectionId: ''/);
   assert.doesNotMatch(migration,/\b(update|delete)\s+public\.event_ticket_claims/gi);
 });
+
+test('AC-REVIEW-001: switching a member activity to groups cannot submit hidden single-service checkboxes or report a false save failure',()=>{
+  const admin=read('admin/app.js');
+  assert.match(admin,/requiredServiceIds: els\.calendarItemType\.value === 'event' && els\.calendarItemRequiredServiceMatchMode\.value !== 'groups' \? collectRequiredServiceIds/);
+  assert.match(admin,/requiredServiceGroups: els\.calendarItemType\.value === 'event' && els\.calendarItemRequiredServiceMatchMode\.value === 'groups' \? collectRequiredServiceGroups/);
+  const api=read('supabase/functions/api/index.ts');
+  assert.match(api,/const groupMode = item\.requiredServiceMatchMode === 'groups'/);
+  assert.match(api,/const requiredServiceIds = groupMode \? \[\] :/);
+  assert.match(api,/const requiredServiceGroups = groupMode \? /);
+});
