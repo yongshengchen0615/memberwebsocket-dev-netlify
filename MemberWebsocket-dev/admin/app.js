@@ -35,8 +35,8 @@
       'memberSearch', 'memberResultCount', 'memberTableBody', 'memberEmptyState', 'memberPagination', 'memberPrevPageButton', 'memberPageStatus', 'memberNextPageButton',
       'newCardButton', 'cardResultCount', 'cardListItems', 'cardEmptyState', 'editorKicker', 'editorTitle', 'editorStatus', 'cardForm', 'cardId', 'cardExpectedUpdatedAt', 'cardTitle', 'cardUsageMethod', 'cardUsageInstructions', 'cardBenefitDescription', 'cardStatus', 'cardExpiryMode', 'cardExpiresOnField', 'cardExpiresOn', 'cardExpiresOnSummary', 'cardAccent', 'accentValue', 'rewardRows', 'addRewardButton', 'rewardEditorHint', 'cardFormMessage', 'resetCardButton', 'archiveCardButton', 'deleteCardButton', 'saveCardButton',
       'newTicketButton', 'ticketResultCount', 'ticketListItems', 'ticketEmptyState', 'ticketEditorKicker', 'ticketEditorTitle', 'ticketEditorStatus', 'ticketForm', 'ticketTemplateId', 'ticketExpectedUpdatedAt', 'ticketTitle', 'ticketType', 'ticketDescription', 'ticketUsageMethod', 'ticketUsageInstructions', 'ticketStatus', 'ticketPrizeEditor', 'ticketPrizeRows', 'addTicketPrizeButton', 'balanceTicketPrizesButton', 'ticketPrizeTotal', 'ticketFormMessage', 'resetTicketButton', 'deleteTicketButton', 'saveTicketButton',
-      'newEventTicketButton', 'eventTicketResultCount', 'eventTicketListItems', 'eventTicketEmptyState', 'eventTicketEditorKicker', 'eventTicketEditorTitle', 'eventTicketEditorStatus', 'eventTicketForm', 'eventTicketId', 'eventTicketExpectedUpdatedAt', 'eventTicketTitle', 'eventTicketType', 'eventTicketDescription', 'eventTicketUsageMethod', 'eventTicketUsageInstructions', 'eventTicketStatus', 'eventTicketRequiredServiceMatchMode', 'eventTicketRequiredServiceIds', 'eventTicketMinBookingAmountMode', 'eventTicketMinBookingAmount', 'eventTicketMinBookingServiceIds', 'eventTicketValidityMode', 'eventTicketValidityDays', 'eventTicketStartsOn', 'eventTicketEndsOn', 'eventTicketDateRangeSummary', 'eventTicketDateRangeMessage', 'eventTicketQuota', 'eventTicketAccent', 'eventTicketAccentValue', 'eventTicketPrizeEditor', 'eventTicketPrizeRows', 'addEventTicketPrizeButton', 'balanceEventTicketPrizesButton', 'eventTicketPrizeTotal', 'eventTicketFormMessage', 'resetEventTicketButton', 'deleteEventTicketButton', 'saveEventTicketButton', 'eventTicketLocationRule', 'eventTicketRequiresLocation', 'eventTicketLatitude', 'eventTicketLongitude', 'eventTicketRadius',
-      'newCalendarItemButton', 'adminCalendarPreviousMonthButton', 'adminCalendarNextMonthButton', 'adminCalendarTodayButton', 'adminCalendarMonthTitle', 'adminCalendarGrid', 'calendarItemEditorKicker', 'calendarItemEditorTitle', 'calendarItemEditorStatus', 'calendarItemForm', 'calendarItemId', 'calendarItemExpectedUpdatedAt', 'calendarItemTitle', 'calendarItemType', 'calendarItemDescription', 'calendarItemLinkLabel', 'calendarItemLinkUrl', 'calendarItemEventLinkFields', 'calendarItemStatus', 'calendarItemStartsOn', 'calendarItemEndsOn', 'calendarItemAccent', 'calendarItemAccentValue', 'calendarItemFormMessage', 'resetCalendarItemButton', 'deleteCalendarItemButton', 'saveCalendarItemButton',
+      'newEventTicketButton', 'eventTicketResultCount', 'eventTicketListItems', 'eventTicketEmptyState', 'eventTicketEditorKicker', 'eventTicketEditorTitle', 'eventTicketEditorStatus', 'eventTicketForm', 'eventTicketId', 'eventTicketExpectedUpdatedAt', 'eventTicketTitle', 'eventTicketType', 'eventTicketDescription', 'eventTicketUsageMethod', 'eventTicketUsageInstructions', 'eventTicketStatus', 'eventTicketRequiredServiceMatchMode', 'eventTicketRequiredServiceIds', 'eventTicketMinBookingAmountMode', 'eventTicketMinBookingAmount', 'eventTicketMinBookingServiceIds', 'eventTicketMinBookingPartySize', 'eventTicketMaxBookingPartySize', 'eventTicketValidityMode', 'eventTicketValidityDays', 'eventTicketStartsOn', 'eventTicketEndsOn', 'eventTicketDateRangeSummary', 'eventTicketDateRangeMessage', 'eventTicketQuota', 'eventTicketAccent', 'eventTicketAccentValue', 'eventTicketPrizeEditor', 'eventTicketPrizeRows', 'addEventTicketPrizeButton', 'balanceEventTicketPrizesButton', 'eventTicketPrizeTotal', 'eventTicketFormMessage', 'resetEventTicketButton', 'deleteEventTicketButton', 'saveEventTicketButton', 'eventTicketLocationRule', 'eventTicketRequiresLocation', 'eventTicketLatitude', 'eventTicketLongitude', 'eventTicketRadius',
+      'newCalendarItemButton', 'adminCalendarPreviousMonthButton', 'adminCalendarNextMonthButton', 'adminCalendarTodayButton', 'adminCalendarMonthTitle', 'adminCalendarGrid', 'calendarItemEditorKicker', 'calendarItemEditorTitle', 'calendarItemEditorStatus', 'calendarItemForm', 'calendarItemId', 'calendarItemExpectedUpdatedAt', 'calendarItemTitle', 'calendarItemType', 'calendarItemDescription', 'calendarItemLinkLabel', 'calendarItemLinkUrl', 'calendarItemEventLinkFields', 'calendarItemStatus', 'calendarItemStartsOn', 'calendarItemEndsOn', 'calendarRequiredServiceMatchMode', 'calendarRequiredServiceIds', 'calendarMinBookingAmountMode', 'calendarMinBookingAmount', 'calendarMinBookingServiceIds', 'calendarMinBookingPartySize', 'calendarMaxBookingPartySize', 'calendarItemAccent', 'calendarItemAccentValue', 'calendarItemFormMessage', 'resetCalendarItemButton', 'deleteCalendarItemButton', 'saveCalendarItemButton',
       'memberModal', 'closeMemberModal', 'memberForm', 'memberLineUserId', 'memberExpectedUpdatedAt', 'memberIdentity', 'memberTier', 'memberStatus', 'memberFormMessage', 'cancelMemberButton', 'saveMemberButton',
       'memberRecordsModal', 'closeMemberRecordsModal', 'memberRecordsIdentity', 'memberRecordsOverview', 'memberRecordsModalMessage', 'memberRecordsOpenUsage', 'memberUsagePanel', 'memberUsageSearch', 'memberUsageSelect', 'memberUsagePrev', 'memberUsageNext', 'memberUsagePageStatus', 'memberUsageRosterMessage', 'memberUsageIntro', 'memberUsageSelectedLabel', 'memberRecordsSummary', 'memberRecordsTabs', 'memberRecordsSubfilter', 'memberRecordsFilterStatus', 'memberRecordsList', 'memberRecordsEmpty', 'memberRecordsMessage',
       'grantMode', 'grantServiceFields', 'grantServiceStatus', 'grantServiceList', 'previewServiceGrantButton', 'grantServicePreview', 'grantModal', 'closeGrantModal', 'grantForm', 'grantMemberId', 'grantMemberName', 'grantStampsEnabled', 'grantStampsFields', 'grantCardId', 'grantStampAmount', 'grantPointRows', 'addGrantPointButton', 'grantPointHint', 'grantServiceTimeEnabled', 'grantServiceTimeFields', 'grantServiceTimeMinutes', 'grantMessageSection', 'grantMessagePreset', 'grantMessagePreview', 'manageGrantMessagesButton', 'grantFormMessage', 'cancelGrantButton', 'saveGrantButton', 'grantSuccessNotice',
@@ -2309,6 +2309,12 @@
     if (ticket.minBookingAmountMode === 'selected_services' && (!ticket.minBookingServiceIds.length || ticket.minBookingServiceIds.length > 20)) return '指定預約項目金額門檻需選擇 1–20 個項目。';
     return '';
   }
+  function validateBookingPartyRange(minimum, maximum) {
+    return Number.isSafeInteger(minimum) && Number.isSafeInteger(maximum)
+      && minimum >= 0 && minimum <= 20 && maximum >= 0 && maximum <= 20
+      && (maximum === 0 || minimum <= maximum);
+  }
+
   function loadEventTicketForm(eventTicketId, renderList = true) {
     const ticket = state.eventTickets.find((item) => item.eventTicketId === eventTicketId); if (!ticket) return;
     state.selectedEventTicketId = eventTicketId;
@@ -2325,6 +2331,8 @@
     renderRequiredServiceOptions(els.eventTicketRequiredServiceIds, ticket.requiredServiceIds); setEventTicketServiceGroups(ticket.requiredServiceGroups);
     els.eventTicketMinBookingAmountMode.value = ticket.minBookingAmountMode || 'none';
     els.eventTicketMinBookingAmount.value = String(Number(ticket.minBookingAmount || 0));
+    els.eventTicketMinBookingPartySize.value = String(Number(ticket.minBookingPartySize || 0));
+    els.eventTicketMaxBookingPartySize.value = String(Number(ticket.maxBookingPartySize || 0));
     renderRequiredServiceOptions(els.eventTicketMinBookingServiceIds, ticket.minBookingServiceIds || []);
     updateEventTicketAmountModeUI();
     els.eventTicketStartsOn.value = String(ticket.startsOn || '');
@@ -2343,7 +2351,7 @@
   }
 
   function resetEventTicketForm(renderList = true) {
-    state.selectedEventTicketId = ''; els.eventTicketForm.reset(); els.eventTicketId.value = ''; els.eventTicketExpectedUpdatedAt.value = ''; els.eventTicketType.value = 'coupon'; els.eventTicketStatus.value = ''; document.getElementById('eventTicketVisibilityPolicy').value = 'eligible_only'; els.eventTicketRequiredServiceMatchMode.value = 'any'; els.eventTicketMinBookingAmountMode.value = 'none'; els.eventTicketMinBookingAmount.value = '0'; renderRequiredServiceOptions(els.eventTicketMinBookingServiceIds, []); updateEventTicketAmountModeUI(); renderRequiredServiceOptions(els.eventTicketRequiredServiceIds, []); setEventTicketServiceGroups([]); els.eventTicketStartsOn.value = ''; els.eventTicketEndsOn.value = ''; els.eventTicketValidityMode.value = 'fixed'; els.eventTicketValidityDays.value = '30'; els.eventTicketQuota.value = '0'; els.eventTicketRequiresLocation.checked = false; window.CouponLocationEditor.set([]); els.eventTicketAccent.value = '#df6b4d'; setEventTicketAllowedTiers(EVENT_TICKET_TIER_KEYS); els.deleteEventTicketButton.disabled = true; els.deleteEventTicketButton.classList.add('hidden'); els.deleteEventTicketButton.textContent = '刪除目前票券'; renderEventTicketPrizeRows([defaultPrize()]); updateEventTicketTypeUI(); updateEventTicketAccentValue(); updateEventTicketValidityUI(); els.eventTicketEditorKicker.textContent = 'Create event ticket'; els.eventTicketEditorTitle.textContent = '新增活動票券'; updateEditorStatus(els.eventTicketEditorStatus, ''); hideMessage(els.eventTicketFormMessage); if (renderList) renderEventTicketList();
+    state.selectedEventTicketId = ''; els.eventTicketForm.reset(); els.eventTicketId.value = ''; els.eventTicketExpectedUpdatedAt.value = ''; els.eventTicketType.value = 'coupon'; els.eventTicketStatus.value = ''; document.getElementById('eventTicketVisibilityPolicy').value = 'eligible_only'; els.eventTicketRequiredServiceMatchMode.value = 'any'; els.eventTicketMinBookingAmountMode.value = 'none'; els.eventTicketMinBookingAmount.value = '0'; els.eventTicketMinBookingPartySize.value = '0'; els.eventTicketMaxBookingPartySize.value = '0'; renderRequiredServiceOptions(els.eventTicketMinBookingServiceIds, []); updateEventTicketAmountModeUI(); renderRequiredServiceOptions(els.eventTicketRequiredServiceIds, []); setEventTicketServiceGroups([]); els.eventTicketStartsOn.value = ''; els.eventTicketEndsOn.value = ''; els.eventTicketValidityMode.value = 'fixed'; els.eventTicketValidityDays.value = '30'; els.eventTicketQuota.value = '0'; els.eventTicketRequiresLocation.checked = false; window.CouponLocationEditor.set([]); els.eventTicketAccent.value = '#df6b4d'; setEventTicketAllowedTiers(EVENT_TICKET_TIER_KEYS); els.deleteEventTicketButton.disabled = true; els.deleteEventTicketButton.classList.add('hidden'); els.deleteEventTicketButton.textContent = '刪除目前票券'; renderEventTicketPrizeRows([defaultPrize()]); updateEventTicketTypeUI(); updateEventTicketAccentValue(); updateEventTicketValidityUI(); els.eventTicketEditorKicker.textContent = 'Create event ticket'; els.eventTicketEditorTitle.textContent = '新增活動票券'; updateEditorStatus(els.eventTicketEditorStatus, ''); hideMessage(els.eventTicketFormMessage); if (renderList) renderEventTicketList();
   }
 
   function collectEventTicketAllowedTiers() { return Array.from(document.querySelectorAll('#eventTicketAllowedTiers input[name="eventTicketAllowedTierKey"]:checked')).map((input) => String(input.value || '').trim()).filter((tierKey) => EVENT_TICKET_TIER_KEYS.includes(tierKey)); }
@@ -2406,8 +2414,8 @@
   function validateEventTicket(ticket) { if (!['coupon', 'lottery', 'referral', 'membership_join'].includes(ticket.ticketType)) return '請選擇有效的票券類型。'; if (ticket.ticketType === 'referral' && ticket.requiresLocation) return '好友邀請票券目前不支援定位核銷。'; if (!['active', 'draft', 'archived'].includes(ticket.status)) return '請選擇活動票券公開狀態。'; if (!ticket.title || ticket.title.length > 100) return '請填寫活動票券名稱（最多 100 字）。'; if (!ticket.description || ticket.description.length > 240) return '請填寫票券說明（最多 240 字）。'; if (!ticket.usageMethod || ticket.usageMethod.length > 120) return '請填寫使用方式（最多 120 字）。'; if (!ticket.usageInstructions || ticket.usageInstructions.length > 500) return '請填寫使用說明（最多 500 字）。'; if (!ticket.allowedTierKeys.length) return '請至少選擇一個可使用的會員等級。'; if (!Number.isInteger(ticket.quota) || ticket.quota < 0 || ticket.quota > 1000000) return '使用數量上限必須是 0–1,000,000 的整數。'; if (ticket.requiresLocation && (!ticket.redemptionLocations.length || ticket.redemptionLocations.length > 20 || ticket.redemptionLocations.some((location) => !location.name?.trim() || location.name.length > 100 || !Number.isFinite(Number(location.latitude)) || Math.abs(Number(location.latitude)) > 90 || !Number.isFinite(Number(location.longitude)) || Math.abs(Number(location.longitude)) > 180 || !Number.isInteger(Number(location.radiusMeters)) || Number(location.radiusMeters) < 50 || Number(location.radiusMeters) > 2000))) return '請設定 1–20 個有效地點（名稱、座標、50–2000 公尺半徑）。'; if (!['fixed', 'relative', 'both'].includes(ticket.validityMode)) return '請選擇有效的票券使用期限模式。'; if (ticket.validityMode !== 'fixed' && (!Number.isSafeInteger(ticket.validityDays) || ticket.validityDays < 1 || ticket.validityDays > 3650)) return '獲得後有效天數必須是 1–3650。'; if (ticket.validityMode === 'both' && !ticket.endsOn) return '雙重期限必須設定活動結束日。'; const dateMessage = validateEventTicketDates(ticket.startsOn, ticket.endsOn); if (dateMessage) return dateMessage; if (ticket.ticketType !== 'lottery') return ''; if (!ticket.prizes.length || ticket.prizes.length > 30) return '抽獎券至少要設定 1 個獎項，最多 30 個獎項。'; let total = 0; for (const prize of ticket.prizes) { if (!prize.prizeTitle || prize.prizeTitle.length > 100) return '每個抽獎獎項都需要填寫名稱。'; if (prize.prizeDescription.length > 240) return '獎項說明最多 240 字。'; if (!Number.isFinite(prize.winRate) || prize.winRate < 0 || prize.winRate > 100) return '每個獎項機率必須介於 0–100%。'; total += Math.round(prize.winRate * 100); } return total === 10000 ? '' : '同一張抽獎券的獎項機率合計必須正好是 100%。'; }
   async function saveEventTicket(event) {
     event.preventDefault(); if (requireRefreshBeforeWrite(els.eventTicketFormMessage)) return; hideMessage(els.eventTicketFormMessage);
-    const ticket = { eventTicketId: els.eventTicketId.value, title: String(els.eventTicketTitle.value || '').trim(), ticketType: els.eventTicketType.value, description: String(els.eventTicketDescription.value || '').trim(), usageMethod: String(els.eventTicketUsageMethod.value || '').trim(), usageInstructions: String(els.eventTicketUsageInstructions.value || '').trim(), status: els.eventTicketStatus.value, startsOn: String(els.eventTicketStartsOn.value || '').trim(), endsOn: els.eventTicketValidityMode.value === 'relative' ? '' : String(els.eventTicketEndsOn.value || '').trim(), validityMode: els.eventTicketValidityMode.value, validityDays: els.eventTicketValidityMode.value === 'fixed' ? null : Number(els.eventTicketValidityDays.value), quota: Number(els.eventTicketQuota.value), requiresLocation: els.eventTicketRequiresLocation.checked, redemptionLocations: window.CouponLocationEditor.get(), allowedTierKeys: collectEventTicketAllowedTiers(), visibilityPolicy: document.getElementById('eventTicketVisibilityPolicy').value, requiredServiceIds: collectRequiredServiceIds(els.eventTicketRequiredServiceIds), requiredServiceMatchMode: els.eventTicketRequiredServiceMatchMode.value, requiredServiceGroups: collectRequiredServiceGroups(document.getElementById('eventTicketRequiredServiceGroups')), minBookingAmountMode: els.eventTicketMinBookingAmountMode.value, minBookingAmount: els.eventTicketMinBookingAmountMode.value === 'none' ? 0 : Number(els.eventTicketMinBookingAmount.value), minBookingServiceIds: els.eventTicketMinBookingAmountMode.value === 'selected_services' ? collectRequiredServiceIds(els.eventTicketMinBookingServiceIds) : [], accent: safeAccent(els.eventTicketAccent.value), prizes: els.eventTicketType.value === 'lottery' ? collectEventTicketPrizes() : [] };
-    const validationMessage = ticket.requiredServiceMatchMode === 'groups' && (!ticket.requiredServiceGroups.length || ticket.requiredServiceGroups.some(group => !group.length)) ? '請為每個預約組合至少勾選一個項目。' : (validateEventTicketAmountRule(ticket) || validateEventTicket(ticket)); if (validationMessage) return showMessage(els.eventTicketFormMessage, validationMessage);
+    const ticket = { eventTicketId: els.eventTicketId.value, title: String(els.eventTicketTitle.value || '').trim(), ticketType: els.eventTicketType.value, description: String(els.eventTicketDescription.value || '').trim(), usageMethod: String(els.eventTicketUsageMethod.value || '').trim(), usageInstructions: String(els.eventTicketUsageInstructions.value || '').trim(), status: els.eventTicketStatus.value, startsOn: String(els.eventTicketStartsOn.value || '').trim(), endsOn: els.eventTicketValidityMode.value === 'relative' ? '' : String(els.eventTicketEndsOn.value || '').trim(), validityMode: els.eventTicketValidityMode.value, validityDays: els.eventTicketValidityMode.value === 'fixed' ? null : Number(els.eventTicketValidityDays.value), quota: Number(els.eventTicketQuota.value), requiresLocation: els.eventTicketRequiresLocation.checked, redemptionLocations: window.CouponLocationEditor.get(), allowedTierKeys: collectEventTicketAllowedTiers(), visibilityPolicy: document.getElementById('eventTicketVisibilityPolicy').value, requiredServiceIds: collectRequiredServiceIds(els.eventTicketRequiredServiceIds), requiredServiceMatchMode: els.eventTicketRequiredServiceMatchMode.value, requiredServiceGroups: collectRequiredServiceGroups(document.getElementById('eventTicketRequiredServiceGroups')), minBookingAmountMode: els.eventTicketMinBookingAmountMode.value, minBookingAmount: els.eventTicketMinBookingAmountMode.value === 'none' ? 0 : Number(els.eventTicketMinBookingAmount.value), minBookingServiceIds: els.eventTicketMinBookingAmountMode.value === 'selected_services' ? collectRequiredServiceIds(els.eventTicketMinBookingServiceIds) : [], minBookingPartySize: Number(els.eventTicketMinBookingPartySize.value), maxBookingPartySize: Number(els.eventTicketMaxBookingPartySize.value), accent: safeAccent(els.eventTicketAccent.value), prizes: els.eventTicketType.value === 'lottery' ? collectEventTicketPrizes() : [] };
+    const validationMessage = ticket.requiredServiceMatchMode === 'groups' && (!ticket.requiredServiceGroups.length || ticket.requiredServiceGroups.some(group => !group.length)) ? '請為每個預約組合至少勾選一個項目。' : (validateEventTicketAmountRule(ticket) || (!validateBookingPartyRange(ticket.minBookingPartySize, ticket.maxBookingPartySize) ? '預約人數條件須為 0–20 人的整數，最多人數不可小於最少人數。' : '') || validateEventTicket(ticket)); if (validationMessage) return showMessage(els.eventTicketFormMessage, validationMessage);
     // Publishing general offers is an irreversible bulk grant, not merely a visibility toggle.
     const prior = state.eventTickets.find((row) => row.eventTicketId === ticket.eventTicketId);
     const issuingNow = ticket.status === 'active' && ['coupon', 'lottery'].includes(ticket.ticketType)
@@ -2430,6 +2438,10 @@
           || Number(result.eventTicket.minBookingAmount || 0) !== ticket.minBookingAmount
           || JSON.stringify(result.eventTicket.minBookingServiceIds || []) !== JSON.stringify(ticket.minBookingServiceIds)) {
         throw new Error('後端未保留最低預約金額設定，請確認 API 與資料庫已升級。');
+      }
+      if (!result.eventTicket || Number(result.eventTicket.minBookingPartySize) !== ticket.minBookingPartySize
+          || Number(result.eventTicket.maxBookingPartySize) !== ticket.maxBookingPartySize) {
+        throw new Error('後端未保留預約人數條件，請確認 API 與資料庫已升級。');
       }
       if (!result.eventTicket || result.eventTicket.validityMode !== ticket.validityMode || (ticket.validityMode !== 'fixed' && Number(result.eventTicket.validityDays) !== ticket.validityDays)) {
         throw new Error('後端未保留活動票券使用期限設定，請確認 API 與資料庫已升級。');
@@ -2913,6 +2925,58 @@
 
   function updateCalendarItemTierSummary() { updateCalendarTierAccessSummary(document.getElementById('calendarItemAllowedTiers')); }
 
+
+  function updateCalendarUsageConditionsUI() {
+    const groupSelect = els.calendarRequiredServiceMatchMode;
+    const groupEditor = document.getElementById('calendarRequiredServiceGroups');
+    updateServiceGroupMode(groupSelect, els.calendarRequiredServiceIds, groupEditor);
+    const mode = els.calendarMinBookingAmountMode.value;
+    document.getElementById('calendarMinBookingAmountField').classList.toggle('hidden', mode === 'none');
+    document.getElementById('calendarMinBookingServicesField').classList.toggle('hidden', mode !== 'selected_services');
+    if (!groupSelect.dataset.calendarRuleListener) {
+      groupSelect.dataset.calendarRuleListener = 'true';
+      groupSelect.addEventListener('change', updateCalendarUsageConditionsUI);
+      els.calendarMinBookingAmountMode.addEventListener('change', updateCalendarUsageConditionsUI);
+    }
+  }
+
+  function setCalendarUsageConditions(input = {}) {
+    const value = input && typeof input === 'object' ? input : {};
+    els.calendarRequiredServiceMatchMode.value = Array.isArray(value.requiredServiceGroups) && value.requiredServiceGroups.length
+      ? 'groups' : value.requiredServiceMatchMode === 'all' ? 'all' : 'any';
+    renderRequiredServiceOptions(els.calendarRequiredServiceIds, value.requiredServiceIds || []);
+    renderRequiredServiceGroups(document.getElementById('calendarRequiredServiceGroups'), value.requiredServiceGroups || []);
+    els.calendarMinBookingAmountMode.value = value.minBookingAmountMode || 'none';
+    els.calendarMinBookingAmount.value = String(Number(value.minBookingAmount || 0));
+    renderRequiredServiceOptions(els.calendarMinBookingServiceIds, value.minBookingServiceIds || []);
+    els.calendarMinBookingPartySize.value = String(Number(value.minBookingPartySize || 0));
+    els.calendarMaxBookingPartySize.value = String(Number(value.maxBookingPartySize || 0));
+    updateCalendarUsageConditionsUI();
+  }
+
+  function collectCalendarUsageConditions() {
+    const groupMode = els.calendarRequiredServiceMatchMode.value === 'groups';
+    const amountMode = els.calendarMinBookingAmountMode.value;
+    return {
+      requiredServiceIds: groupMode ? [] : collectRequiredServiceIds(els.calendarRequiredServiceIds),
+      requiredServiceMatchMode: els.calendarRequiredServiceMatchMode.value,
+      requiredServiceGroups: groupMode ? collectRequiredServiceGroups(document.getElementById('calendarRequiredServiceGroups')) : [],
+      minBookingAmountMode: amountMode,
+      minBookingAmount: amountMode === 'none' ? 0 : Number(els.calendarMinBookingAmount.value),
+      minBookingServiceIds: amountMode === 'selected_services' ? collectRequiredServiceIds(els.calendarMinBookingServiceIds) : [],
+      minBookingPartySize: Number(els.calendarMinBookingPartySize.value),
+      maxBookingPartySize: Number(els.calendarMaxBookingPartySize.value),
+    };
+  }
+
+  function validateCalendarUsageConditions(rule) {
+    if (!['any', 'all', 'groups'].includes(rule.requiredServiceMatchMode)) return '會員活動預約項目條件不正確。';
+    if (rule.requiredServiceMatchMode === 'groups'
+        && (!rule.requiredServiceGroups.length || rule.requiredServiceGroups.some(group => !group.length))) return '會員活動每組預約條件都必須選擇項目。';
+    if (!validateBookingPartyRange(rule.minBookingPartySize, rule.maxBookingPartySize)) return '會員活動預約人數必須是 0–20 人且上限不得低於下限。';
+    return validateEventTicketAmountRule(rule);
+  }
+
   function updateCalendarItemTypeUI() {
     const access = document.getElementById('calendarItemAllowedTiers');
     if (!access) return;
@@ -2920,6 +2984,8 @@
     access.classList.toggle('hidden', !isEvent);
     document.getElementById('calendarItemVisibilityPolicy').disabled = !isEvent;
     access.querySelectorAll('input[data-calendar-allowed-tier-key]').forEach((input) => { input.disabled = !isEvent; });
+    document.getElementById('calendarUsageConditionsEditor').classList.toggle('hidden', !isEvent);
+    updateCalendarUsageConditionsUI();
     els.calendarItemEventLinkFields.classList.toggle('hidden', !isEvent);
     [els.calendarItemLinkLabel, els.calendarItemLinkUrl].forEach((input) => { input.disabled = !isEvent; });
   }
@@ -2946,6 +3012,7 @@
     els.calendarItemStartsOn.value = String(item.startsOn || '');
     els.calendarItemEndsOn.value = String(item.endsOn || '') === String(item.startsOn || '') ? '' : String(item.endsOn || '');
     els.calendarItemAccent.value = safeAccent(item.accent || '#df6b4d');
+    setCalendarUsageConditions(item.usageConditions);
     setCalendarItemAllowedTiers(item.allowedTierKeys);
     els.deleteCalendarItemButton.disabled = false; els.deleteCalendarItemButton.textContent = '刪除目前項目';
     updateCalendarItemAccentValue(); updateCalendarItemTypeUI(); hideMessage(els.calendarItemFormMessage);
@@ -2954,7 +3021,7 @@
 
   function resetCalendarItemForm(shouldRender) {
     state.selectedCalendarItemId = ''; els.calendarItemForm.reset();
-    els.calendarItemId.value = ''; els.calendarItemExpectedUpdatedAt.value = ''; els.calendarItemType.value = 'event'; document.getElementById('calendarItemVisibilityPolicy').value = 'eligible_only'; els.calendarItemStatus.value = ''; els.calendarItemStartsOn.value = todayAdminIsoDate(); els.calendarItemEndsOn.value = ''; els.calendarItemAccent.value = '#df6b4d'; els.calendarItemLinkLabel.value = ''; els.calendarItemLinkUrl.value = ''; setCalendarItemAllowedTiers(CALENDAR_ITEM_TIER_KEYS);
+    els.calendarItemId.value = ''; els.calendarItemExpectedUpdatedAt.value = ''; els.calendarItemType.value = 'event'; document.getElementById('calendarItemVisibilityPolicy').value = 'eligible_only'; els.calendarItemStatus.value = ''; els.calendarItemStartsOn.value = todayAdminIsoDate(); els.calendarItemEndsOn.value = ''; els.calendarItemAccent.value = '#df6b4d'; els.calendarItemLinkLabel.value = ''; els.calendarItemLinkUrl.value = ''; setCalendarUsageConditions({}); setCalendarItemAllowedTiers(CALENDAR_ITEM_TIER_KEYS);
     els.deleteCalendarItemButton.disabled = true; els.deleteCalendarItemButton.textContent = '先儲存後才能刪除';
     els.calendarItemEditorKicker.textContent = 'Create calendar item'; els.calendarItemEditorTitle.textContent = '新增日曆項目'; updateEditorStatus(els.calendarItemEditorStatus, ''); updateCalendarItemAccentValue(); updateCalendarItemTypeUI(); hideMessage(els.calendarItemFormMessage); if (shouldRender !== false) renderAdminCalendar();
   }
@@ -2964,6 +3031,7 @@
     if (!['holiday', 'event'].includes(item.itemType)) return '日曆項目類型不合法。';
     if (item.itemType === 'event' && !normalizeCalendarItemTierKeys(item.allowedTierKeys).length) return '請至少選擇一個可參加活動的會員階級。';
     if (item.itemType === 'event' && !['eligible_only', 'higher_preview'].includes(item.visibilityPolicy)) return '請選擇有效的會員階級顯示方式。';
+    if (item.itemType === 'event') { const problem = validateCalendarUsageConditions(item.usageConditions); if (problem) return problem; }
     const linkLabel = String(item.linkLabel || '').trim(); const linkUrl = String(item.linkUrl || '').trim();
     if (item.itemType === 'event' && ((linkLabel || linkUrl) && (!linkLabel || !linkUrl || linkLabel.length > 80 || linkUrl.length > 2048 || !isSafeCalendarLinkUrl(linkUrl)))) return '活動連結需要同時填寫名稱與有效的 HTTPS 網址。';
     if (item.description.length > 500) return '日曆項目說明最多 500 字。';
@@ -2983,11 +3051,12 @@
 
   async function saveCalendarItem(event) {
     event.preventDefault(); if (requireRefreshBeforeWrite(els.calendarItemFormMessage)) return; hideMessage(els.calendarItemFormMessage);
-    const item = { calendarItemId: String(els.calendarItemId.value || '').trim(), title: String(els.calendarItemTitle.value || '').trim(), itemType: els.calendarItemType.value, description: String(els.calendarItemDescription.value || '').trim(), linkLabel: els.calendarItemType.value === 'event' ? String(els.calendarItemLinkLabel.value || '').trim() : '', linkUrl: els.calendarItemType.value === 'event' ? String(els.calendarItemLinkUrl.value || '').trim() : '', status: els.calendarItemStatus.value, startsOn: String(els.calendarItemStartsOn.value || '').trim(), endsOn: String(els.calendarItemEndsOn.value || '').trim(), allowedTierKeys: els.calendarItemType.value === 'event' ? collectCalendarItemAllowedTiers() : [], visibilityPolicy: els.calendarItemType.value === 'event' ? document.getElementById('calendarItemVisibilityPolicy').value : 'eligible_only', accent: safeAccent(els.calendarItemAccent.value) };
+    const item = { calendarItemId: String(els.calendarItemId.value || '').trim(), title: String(els.calendarItemTitle.value || '').trim(), itemType: els.calendarItemType.value, description: String(els.calendarItemDescription.value || '').trim(), linkLabel: els.calendarItemType.value === 'event' ? String(els.calendarItemLinkLabel.value || '').trim() : '', linkUrl: els.calendarItemType.value === 'event' ? String(els.calendarItemLinkUrl.value || '').trim() : '', status: els.calendarItemStatus.value, startsOn: String(els.calendarItemStartsOn.value || '').trim(), endsOn: String(els.calendarItemEndsOn.value || '').trim(), allowedTierKeys: els.calendarItemType.value === 'event' ? collectCalendarItemAllowedTiers() : [], visibilityPolicy: els.calendarItemType.value === 'event' ? document.getElementById('calendarItemVisibilityPolicy').value : 'eligible_only', usageConditions: els.calendarItemType.value === 'event' ? collectCalendarUsageConditions() : {}, accent: safeAccent(els.calendarItemAccent.value) };
     const validationMessage = validateCalendarItem(item); if (validationMessage) return showMessage(els.calendarItemFormMessage, validationMessage);
     setSaving(els.saveCalendarItemButton, true, '正在儲存日曆項目…');
     try {
       const result = await window.MemberSystem.request(state.config, 'admin', state.idToken, 'admin.calendar-items.save', { calendarItem: item, expectedUpdatedAt: els.calendarItemExpectedUpdatedAt.value });
+      if (!result.calendarItem || JSON.stringify(result.calendarItem.usageConditions || {}) !== JSON.stringify(item.usageConditions)) throw new Error('後端未保留會員活動使用條件，請確認 API 與資料庫已升級。');
       if (result.calendarItem) { state.calendarItems = replaceById(state.calendarItems, result.calendarItem, 'calendarItemId'); loadCalendarItemForm(result.calendarItem.calendarItemId); }
       if (await refreshAfterSuccessfulWrite('日曆項目已儲存', els.calendarItemFormMessage)) showMessage(els.calendarItemFormMessage, '日曆項目已儲存；啟用後會顯示在會員日曆。', true);
     } catch (error) { handleActionError(error, els.calendarItemFormMessage); } finally { setSaving(els.saveCalendarItemButton, false); }
