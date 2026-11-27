@@ -321,7 +321,7 @@ export function businessHandler(name:string,handler:(request:Request)=>Response|
     {name,context:c,body,response,dispatch:(id:string)=>control().rpc('platform_dispatch_booking',{p_tenant_id:id})},
     edgeRuntime ? (task:Promise<unknown>)=>edgeRuntime.waitUntil(task) : undefined,
    );
-   if((['admin.bootstrap','admin.member-records.list','user.booking.benefits'].includes(action)||action.startsWith('admin.booking.'))&&response.ok){
+   if((['admin.bootstrap','admin.summary','admin.pointcards.list','admin.event-tickets.list','admin.integration-overview','admin.member-records.list','user.booking.benefits'].includes(action)||action.startsWith('admin.booking.'))&&response.ok){
     const payload=await response.clone().json();if(payload.ok&&payload.data){payload.data=businessResponse(payload.data,c,action);return new Response(JSON.stringify(payload),{status:response.status,headers:response.headers});}
    }
    return response;
