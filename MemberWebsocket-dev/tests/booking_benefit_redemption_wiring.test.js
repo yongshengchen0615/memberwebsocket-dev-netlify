@@ -50,7 +50,9 @@ test('member create/update paths persist exact benefit intent', () => {
   const bookingApi = read('supabase/functions/booking-api/index.ts');
   const groupApi = read('supabase/functions/booking-group-api/index.ts');
   assert.match(app, /BookingBenefits\?\.selectionPayload/);
-  assert.match(app, /benefits:\s*window\.BookingBenefits/);
+  assert.match(app, /const benefits = useBenefits \? \(window\.BookingBenefits\?\.selectionPayload\?\.\(\) \|\| \[\]\) : \[\];/);
+  assert.match(app, /bookingWriteFingerprint\(items, bookingDate, startTime, benefits\)/);
+  assert.match(app, /benefits,\s*\}\);/);
   assert.match(app, /setSelection\?\.\(booking\.benefits/);
   const reminderAdapter = read('supabase/migrations/20261031090000_member_booking_reminder_choice.sql');
   assert.match(bookingApi, /create_booking_bundle_with_benefits_reminder/);
