@@ -142,7 +142,21 @@ begin
         raise exception 'INVALID_VISIBILITY_POLICY';
       end if;
       if coalesce(v_item->>'itemType','')='event' then
-        if (coalesce(v_item->>'minBookingPartySize','0') !~ '^(0|[1-9][0-9]?)
+        if coalesce((v_item->>'minBookingPartySize')::integer,0) not between 0 and 20
+           or coalesce((v_item->>'maxBookingPartySize')::integer,0) not between 0 and 20
+           or (coalesce((v_item->>'maxBookingPartySize')::integer,0)>0 and
+               coalesce((v_item->>'maxBookingPartySize')::integer,0)<greatest(1,coalesce((v_item->>'minBookingPartySize')::integer,0))) then
+          raise exception 'INVALID_BOOKING_PARTY_SIZE_RULE';
+        end if;
+        if coalesce(v_item->>'minBookingAmountMode','none') not in ('none','total','selected_services')
+          or coalesce((v_item->>'minBookingAmount')::integer,0) not between 0 and 10000000
+          or (coalesce(v_item->>'minBookingAmountMode','none')='none' and coalesce((v_item->>'minBookingAmount')::integer,0)<>0)
+          or (coalesce(v_item->>'minBookingAmountMode','none')<>'none' and coalesce((v_item->>'minBookingAmount')::integer,0)<1) then
+          raise exception 'INVALID_BOOKING_AMOUNT_RULE';
+        end if;
+      end if;
+      if v_id is null then
+        v_id := public.new_public_id('CAL');
         insert into public.calendar_items(
           calendar_item_id, title, item_type, description, starts_on, ends_on, status, accent, allowed_tier_keys, visibility_policy, link_label, link_url, created_by, updated_by,
           required_service_ids,required_service_match_mode,required_service_groups,min_booking_amount_mode,min_booking_amount,min_booking_service_ids,min_booking_party_size,max_booking_party_size
@@ -179,90 +193,6 @@ begin
           min_booking_service_ids = case when v_item ? 'minBookingServiceIds' then array(select value::uuid from jsonb_array_elements_text(v_item->'minBookingServiceIds') value) else min_booking_service_ids end,
           min_booking_party_size = coalesce((v_item->>'minBookingPartySize')::smallint,min_booking_party_size),
           max_booking_party_size = coalesce((v_item->>'maxBookingPartySize')::smallint,max_booking_party_size),
-          updated_by = p_actor_line_user_id,
-          updated_at = now()
-        where calendar_item_id = v_id;
-      end if;
-      v_result := v_result || jsonb_build_array(jsonb_build_object('action', 'save', 'calendarItemId', v_id));
-    end if;
-  end loop;
-
-  return v_result;
-end;
-$function$
-
-            or coalesce(v_item->>'maxBookingPartySize','0') !~ '^(0|[1-9][0-9]?)
-        insert into public.calendar_items(
-          calendar_item_id, title, item_type, description, starts_on, ends_on, status, accent, allowed_tier_keys, visibility_policy, link_label, link_url, created_by, updated_by
-        ) values(
-          v_id, trim(v_item->>'title'), v_item->>'itemType', coalesce(v_item->>'description', ''), (v_item->>'startsOn')::date,
-          nullif(v_item->>'endsOn', '')::date, v_item->>'status', v_item->>'accent',
-          coalesce(array(select jsonb_array_elements_text(v_item->'allowedTierKeys')), array[]::text[]),
-          coalesce(nullif(v_item->>'visibilityPolicy', ''), 'eligible_only'),
-          coalesce(v_item->>'linkLabel', ''), coalesce(v_item->>'linkUrl', ''), p_actor_line_user_id, p_actor_line_user_id
-        );
-      else
-        update public.calendar_items set
-          title = trim(v_item->>'title'),
-          item_type = v_item->>'itemType',
-          description = coalesce(v_item->>'description', ''),
-          starts_on = (v_item->>'startsOn')::date,
-          ends_on = nullif(v_item->>'endsOn', '')::date,
-          status = v_item->>'status',
-          accent = v_item->>'accent',
-          allowed_tier_keys = coalesce(array(select jsonb_array_elements_text(v_item->'allowedTierKeys')), array[]::text[]),
-          visibility_policy = coalesce(nullif(v_item->>'visibilityPolicy', ''), visibility_policy),
-          link_label = coalesce(v_item->>'linkLabel', ''),
-          link_url = coalesce(v_item->>'linkUrl', ''),
-          updated_by = p_actor_line_user_id,
-          updated_at = now()
-        where calendar_item_id = v_id;
-      end if;
-      v_result := v_result || jsonb_build_array(jsonb_build_object('action', 'save', 'calendarItemId', v_id));
-    end if;
-  end loop;
-
-  return v_result;
-end;
-$function$
-
-            or coalesce((v_item->>'minBookingPartySize')::int,0)>20
-            or coalesce((v_item->>'maxBookingPartySize')::int,0)>20
-            or (coalesce((v_item->>'maxBookingPartySize')::int,0)>0
-                and coalesce((v_item->>'maxBookingPartySize')::int,0)<greatest(1,coalesce((v_item->>'minBookingPartySize')::int,0)))) then
-          raise exception 'INVALID_BOOKING_PARTY_SIZE_RULE';
-        end if;
-        if coalesce(v_item->>'minBookingAmountMode','none') not in ('none','total','selected_services')
-          or coalesce((v_item->>'minBookingAmount')::int,0)<0
-          or (coalesce(v_item->>'minBookingAmountMode','none')='none' and coalesce((v_item->>'minBookingAmount')::int,0)<>0)
-          or (coalesce(v_item->>'minBookingAmountMode','none')<>'none' and coalesce((v_item->>'minBookingAmount')::int,0)<1) then
-          raise exception 'INVALID_BOOKING_AMOUNT_RULE';
-        end if;
-      end if;
-      if v_id is null then
-        v_id := public.new_public_id('CAL');
-        insert into public.calendar_items(
-          calendar_item_id, title, item_type, description, starts_on, ends_on, status, accent, allowed_tier_keys, visibility_policy, link_label, link_url, created_by, updated_by
-        ) values(
-          v_id, trim(v_item->>'title'), v_item->>'itemType', coalesce(v_item->>'description', ''), (v_item->>'startsOn')::date,
-          nullif(v_item->>'endsOn', '')::date, v_item->>'status', v_item->>'accent',
-          coalesce(array(select jsonb_array_elements_text(v_item->'allowedTierKeys')), array[]::text[]),
-          coalesce(nullif(v_item->>'visibilityPolicy', ''), 'eligible_only'),
-          coalesce(v_item->>'linkLabel', ''), coalesce(v_item->>'linkUrl', ''), p_actor_line_user_id, p_actor_line_user_id
-        );
-      else
-        update public.calendar_items set
-          title = trim(v_item->>'title'),
-          item_type = v_item->>'itemType',
-          description = coalesce(v_item->>'description', ''),
-          starts_on = (v_item->>'startsOn')::date,
-          ends_on = nullif(v_item->>'endsOn', '')::date,
-          status = v_item->>'status',
-          accent = v_item->>'accent',
-          allowed_tier_keys = coalesce(array(select jsonb_array_elements_text(v_item->'allowedTierKeys')), array[]::text[]),
-          visibility_policy = coalesce(nullif(v_item->>'visibilityPolicy', ''), visibility_policy),
-          link_label = coalesce(v_item->>'linkLabel', ''),
-          link_url = coalesce(v_item->>'linkUrl', ''),
           updated_by = p_actor_line_user_id,
           updated_at = now()
         where calendar_item_id = v_id;
