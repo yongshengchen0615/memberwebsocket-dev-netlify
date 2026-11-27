@@ -38,7 +38,7 @@ test('AC-HOL-002: authorized API uses CAS, validates length, and preserves older
   assert.match(migration, /runtime_schema IS NOT NULL/);
   assert.match(migration, /platform_private\.business_templates/);
   assert.match(migration, /'business-v1-20261019'/);
-  assert.match(migration, /jsonb_set\(v_template,'\{columns\}'/);
+  assert.match(migration, /jsonb_set\(t,'\{columns\}'/);
   assert.match(migration, /jsonb_set\(v_template,'\{constraints\}'/);
   assert.match(migration, /char_length\(holiday_notice\) <= 400/);
 });
