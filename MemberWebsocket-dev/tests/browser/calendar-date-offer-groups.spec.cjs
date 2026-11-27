@@ -67,9 +67,22 @@ test.beforeAll(async () => {
 });
 test.afterAll(async () => { if (server) await new Promise(resolve => server.close(resolve)); });
 
+const secureOrigin = 'https://calendar-test.example';
+
 async function open(page, which) {
   await page.clock.setFixedTime(new Date('2026-12-12T04:00:00Z'));
-  await page.goto(base + '/calendar/?case=' + which);
+  // Keep the production HTTPS-only link policy intact while serving isolated
+  // local fixtures. No external site or member data is contacted.
+  await page.route(secureOrigin + '/**', async route => {
+    const url = new URL(route.request().url());
+    const response = await page.request.get(base + url.pathname + url.search);
+    await route.fulfill({
+      status: response.status(),
+      body: await response.body(),
+      headers: { 'content-type': response.headers()['content-type'] || 'text/plain' }
+    });
+  });
+  await page.goto(secureOrigin + '/calendar/?case=' + which);
   await expect(page.locator('#calendarView')).toBeVisible();
   if (which !== 'hidden') {
     await page.locator('[data-calendar-date="2026-12-12"]').click();
@@ -117,7 +130,7 @@ test('locked-only dates are visible and hidden items are not invented by the cli
   await open(page, 'locked');
   await expect(page.locator('.calendar-detail-group.locked')).toHaveCount(1);
   await expect(page.locator('.calendar-detail-group.available')).toHaveCount(0);
-  await page.goto(base+'/calendar/?case=hidden');
+  await page.goto(secureOrigin+'/calendar/?case=hidden');
   await expect(page.locator('#calendarView')).toBeVisible();
   await expect(page.locator('[data-calendar-date]')).toHaveCount(0);
 });
