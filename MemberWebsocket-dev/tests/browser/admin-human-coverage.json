@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "bookingPartyMinimumExactReview": "2026-11-27 PR #509：檢查活動票券 EVENT_coupon/referral/membership_join/lottery 與會員活動 CALENDAR_event 的新增、編輯、讀回、刪除及既有會員等級、服務、金額、日期條件。人數限制改為不限、至少 N 位、剛好 N 位，原資料庫 min/max 映射維持不變，新增 EVENT_PARTY_RULE_MODES、CALENDAR_PARTY_RULE_MODES 真實 Chromium 旅程測試涵蓋空值、零人防呆、回填、切換與後端 payload；全部既有 62 組管理功能與原 runner 案例仍保留。舊版不等上下限資料明確標示須重新設定，不自動覆寫；TEST DB public/tenant 現無現存的舊區間。正式資料、LINE 收件、跨商家授權不在本輪變更；須以最終 SHA 完整 CI 與測試站 smoke 為準。",
   "adminBookingMobileLayoutReview": "2026-11-27 PR #498：已核對現有 62 項 admin-human 工作流程對照，以及管理端一般／快照預約、狀態篩選、逐位項目與技師調整、預約票券、複製編號、確認／拒絕／無故未到操作。此次僅調整 640px 以下預約處理 CSS 和 CSS 快取版本，不新增、移除、隱藏任何業務操作，不改 HTML 節點結構、LIFF、身分權限、API、資料庫與 LINE 通知。新增 AC-MOB-001～003 Playwright 320／390／430／1280px 視窗下的排版、按鈕可見性及橫向溢出檢查；原 62 項旅程不變，完整 CI 與真人管理端實機體驗另需驗證。",
   "monthlyTierBadgeStyleReview": "2026-11-27 PR #494：已核對 62 項既有 admin-human 人工旅程與六個工作區關聯，無新增、移除或變更管理端業務流程。此輪僅五個會員用戶端共用的本月階級優惠標籤 CSS 參照會員卡半透明白字膠囊樣式，以及五入口 CSS 快取版本；calendar/index.html 的原日曆功能、LIFF 登入、商家隔離與管理員流程不變。新增 AC-020 Node 契約與 360/1280px 亮暗主題 Chromium 測試，原有 62 個旅程和完整 CI 都是合併前必要驗收，正式 LINE Provider 不在本輪改動範圍。",
   "frontdeskNotificationVisibilityReview": "2026-11-27 PR #504：覆核管理員獨立櫃檯設定頁的既有申請、待審核/核准/停用、預約確認與拒絕、原有通知委派、批次儲存/遺失回應重試與刪除二次確認路徑。UI 新增各人員 LINE 通知開啟/暫停/不可接收狀態、原有個人通知偏好提示、待審/商家停用負向顯示及搜尋/篩選；本地篩選不觸發伺服器寫入、不重建草稿。新增 Node AC-FD-NOTIFY-UI-001/002 與 390/1280 Chromium FRONTDESK_STAFF_NOTICE_UI 及 FRONTDESK_STAFF_NOTICE_DISABLED；其餘現有 admin-human 旅程仍保留，未宣稱全部 CI 或 LINE 真實收件驗證已完成。本次來源 SHA256 依實際提交檔案更新，對應新 PR head；針對既有 AC-FD-BATCH 390／1280px 退化，已保留原始待審優先、其餘穩定順序，不修改斷言；無後端/資料庫變更。",
@@ -37,8 +38,8 @@
   "frontdeskRejectionSettingsReview": "[object Object] 2026-11-24 PR #446：新增櫃檯待審新預約／會員修改預約分類與操作標籤、管理端拒絕修改預約獨立編輯清單、LINE 管理端/會員端核准與拒絕修改標題。逐項覆核既有管理端六個工作區、管理員前台櫃檯 LINE／人員核准/拒絕預約/電話補登及原 62 組 admin-human 人工旅程：保留所有既有入口、權限、租戶審查和 requestId；新分流由後端 audit，不接受 browser 夾帶 reviewKind。新增 AC-FMR Node/JSDOM/Deno，完整 PostgreSQL/Chromium CI 與沙盒 LINE 實際收訊分別驗收；本紀錄不代表它們已通過。 2026-11-27 PR #508：已重新核對管理端拒絕原因設定的分類、既有新預約／修改預約兩組資料與原 62 組 admin-human browser journeys；兩組原因新增 ARIA 子分頁與鍵盤操作，切換保留未儲存草稿，隱藏分類必填失敗時顯示目標分類，仍由單一 tenant 版號及 requestId 儲存。保留原 FRONTDESK_SETTINGS_STANDALONE_390/1280、原因審核、跨商家權限和 LINE 通知既有測試，另擴充 frontdesk_ui.cjs 的 AC-FD-REJ-TABS-003/004。此清單紀錄只證明檢查範圍，實際同版完整 CI 與真人 LINE E2E 另核。",
   "reviewedSources": {
     "admin/booking-admin-ux.js": "da82c2bcbb7d8ece44e05d66bada9e20a384784e4346bdde50f6b9cb2897d1ee",
-    "admin/index.html": "8c24561bab79e0c38d86fe4b8ed05d6a3b5374bc0f90d3a74abc3aced2cc8176",
-    "admin/app.js": "0b9a927ab88cc2b775b3ac9dbff7c5a938bcde58860ee018b6969fad188a5f4e",
+    "admin/index.html": "0354e2039d23501c76e81c66dca47a282d0d9c6f3d37643bbcf272c2f5d340a8",
+    "admin/app.js": "fa5d76a946441f414f9a47707aa55004d9156936282ab444f32a648add3b6b2b",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
     "admin/grant-automation.js": "6a44e4c666d25adc4200f09ce95f8f6600209962be56ec7fe08ab11e4a779bfb",
@@ -236,7 +237,8 @@
         "EVENT_coupon",
         "EVENT_referral",
         "EVENT_membership_join",
-        "EVENT_lottery"
+        "EVENT_lottery",
+        "EVENT_PARTY_RULE_MODES"
       ]
     },
     {
@@ -323,6 +325,7 @@
       "cases": [
         "CALENDAR_holiday",
         "CALENDAR_event",
+        "CALENDAR_PARTY_RULE_MODES",
         "RUNNER_ADMIN_CALENDAR_CRUD"
       ]
     },

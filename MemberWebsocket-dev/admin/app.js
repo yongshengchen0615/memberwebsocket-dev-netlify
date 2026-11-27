@@ -2338,6 +2338,7 @@
     const raw = String(countInput.value || '').trim();
     if ((modeInput.value !== 'minimum' && modeInput.value !== 'exact') || raw === '') return {minBookingPartySize:-1,maxBookingPartySize:-1};
     const size = Number(raw);
+    if (!Number.isInteger(size) || size<1 || size>20) return {minBookingPartySize:-1,maxBookingPartySize:-1};
     return {minBookingPartySize:size,maxBookingPartySize:modeInput.value === 'exact' ? size : 0};
   }
   function loadEventTicketForm(eventTicketId, renderList = true) {
