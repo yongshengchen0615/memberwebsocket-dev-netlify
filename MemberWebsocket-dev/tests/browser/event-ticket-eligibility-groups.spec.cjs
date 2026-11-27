@@ -91,9 +91,13 @@ for (const width of [390,1280]) {
     await expect(locked).toContainText('金級限定券');
     await expect(locked).toContainText('政策尚未解鎖券');
     await expect(page.locator('#eventList')).not.toContainText('已轉贈出去的券');
-    await expect(locked.getByRole('button',{name:'查看解鎖條件'})).toBeVisible();
-    await locked.getByRole('button',{name:'查看解鎖條件'}).click();
+    await expect(locked.getByRole('button',{name:'查看解鎖條件'})).toHaveCount(2);
+    await locked.getByRole('button',{name:'查看解鎖條件'}).first().click();
     await expect(page.locator('#ticketModalStatus')).toContainText('需要金級會員');
+    await expect(page.locator('#ticketModalAction')).toBeDisabled();
+    await page.locator('#closeTicketModal').click();
+    await locked.getByRole('button',{name:'查看解鎖條件'}).last().click();
+    await expect(page.locator('#ticketModalStatus')).toContainText('需解鎖票券條件');
     await expect(page.locator('#ticketModalAction')).toBeDisabled();
     expect(errors).toEqual([]);
     const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+1);
