@@ -875,7 +875,9 @@ for(const width of [390,1280])test('FRONTDESK_REJECTION_SETTINGS_EDITOR_'+width+
   let rejectionSettings={dropdownTitle:'請選擇拒絕原因',reasons:[
    {id:'technician_leave',label:'技師休假',memberDescription:'請另約時間',enabled:true,requiresConflictTime:false},
    {id:'unrecorded_phone_booking',label:'現場預約',memberDescription:'時段已滿',enabled:true,requiresConflictTime:true}
-  ]};
+  ],modification:{dropdownTitle:'請選擇拒絕修改原因',reasons:[
+   {id:'custom_00000000-0000-4000-8000-000000000001',label:'修改後時段無法安排',memberDescription:'請重新選擇時間',enabled:true,requiresConflictTime:false,hasVacationTechnicians:false}
+  ]}};
   const result=()=>({version,frontdesk:{rejectionSettings:structuredClone(rejectionSettings)},staff:[]});
   window.FrontdeskSettings.mount({root:document.getElementById('root'),business:'shop-a',
    request:async(action,body)=>{
@@ -899,9 +901,25 @@ for(const width of [390,1280])test('FRONTDESK_REJECTION_SETTINGS_EDITOR_'+width+
  await expect(rejectionTab).toHaveAttribute('aria-selected','true');
  await expect(form).toBeVisible();
  await expect(page.locator('#frontdesk-line-panel')).toBeHidden();
+ const ordinaryTab=form.getByRole('tab',{name:'拒絕預約原因'});
+ const modificationTab=form.getByRole('tab',{name:'拒絕修改原因'});
+ const ordinaryPanel=form.locator('[data-frontdesk-reason-category="ordinary"]');
+ const modificationPanel=form.locator('[data-frontdesk-reason-category="modification"]');
+ await expect(ordinaryTab).toHaveAttribute('aria-selected','true');
+ await expect(ordinaryPanel).toBeVisible();
+ await expect(modificationPanel).toBeHidden();
+ await ordinaryTab.focus();
+ await page.keyboard.press('ArrowRight');
+ await expect(modificationTab).toHaveAttribute('aria-selected','true');
+ await expect(modificationPanel).toBeVisible();
+ await expect(ordinaryPanel).toBeHidden();
+ await modificationPanel.locator('[name^="modification-label-"]').fill('修改後時段已滿');
+ await ordinaryTab.click();
+ await expect(ordinaryPanel).toBeVisible();
+ await expect(modificationPanel).toBeHidden();
  await form.locator('[name=rejectionDropdownTitle]').fill('請選擇本店原因');
  await form.getByRole('button',{name:'新增拒絕原因'}).click();
- const rows=form.locator('fieldset');
+ const rows=ordinaryPanel.locator('fieldset');
  await expect(rows).toHaveCount(3);
  await rows.nth(2).locator('input[type=text]').fill('設備維護');
  await rows.nth(2).locator('textarea').fill('設備維護，請重新預約。');
@@ -916,7 +934,7 @@ for(const width of [390,1280])test('FRONTDESK_REJECTION_SETTINGS_EDITOR_'+width+
  await rows.nth(2).getByRole('button',{name:'移除原因 3：現場預約'}).click();
  await expect(rows).toHaveCount(2);
  await expect(form.getByLabel('啟用此拒絕原因')).toHaveCount(0);
- await form.getByRole('button',{name:'儲存拒絕預約設定'}).click();
+ await form.getByRole('button',{name:'儲存兩類拒絕原因設定'}).click();
  await expect(form.getByRole('button',{name:'重試相同儲存操作'})).toBeEnabled();
  await expect(form.locator('textarea').first()).toBeDisabled();
  await form.getByRole('button',{name:'重試相同儲存操作'}).click();
@@ -931,6 +949,7 @@ for(const width of [390,1280])test('FRONTDESK_REJECTION_SETTINGS_EDITOR_'+width+
  expect(writes[0].rejectionSettings.reasons[1].id).toMatch(/^custom_[0-9a-f-]{36}$/);
  expect(writes[0].rejectionSettings.reasons).toHaveLength(2);
  expect(writes[0].rejectionSettings.reasons.every(row=>row.enabled===true)).toBe(true);
+ expect(writes[0].rejectionSettings.modification.reasons[0].label).toBe('修改後時段已滿');
  expect(writes[0].rejectionSettings.reasons.find(row=>row.id==='unrecorded_phone_booking')).toBeUndefined();
  await expect(form.locator('[name=rejectionDropdownTitle]')).toHaveValue('請選擇本店原因');
  await expect(form.locator('.frontdesk-rejection-preview').nth(1)).toContainText('目前預約時間：{預約日期} {開始時間}，{勾選的技師} 技師休假。');
@@ -939,16 +958,19 @@ for(const width of [390,1280])test('FRONTDESK_REJECTION_SETTINGS_EDITOR_'+width+
  await expect(form).toBeHidden();
  await page.getByRole('tab',{name:'拒絕預約設定'}).click();
  await expect(form).toBeVisible();
+ await modificationTab.click();
+ await expect(modificationPanel.locator('[name^="modification-label-"]')).toHaveValue('修改後時段已滿');
+ await ordinaryTab.click();
  await expect(rows.nth(1).locator('textarea')).toHaveValue('設備維護，請重新預約。');
  await rows.nth(1).getByRole('button',{name:'移除原因 2：設備維護'}).click();
  await rows.nth(0).getByRole('button',{name:'移除原因 1：技師休假'}).click();
  await expect(rows).toHaveCount(0);
  await expect(form).toContainText('目前沒有拒絕原因');
- await form.getByRole('button',{name:'儲存拒絕預約設定'}).click();
+ await form.getByRole('button',{name:'儲存兩類拒絕原因設定'}).click();
  await expect.poll(async()=>page.evaluate(()=>window.rejectionWrites.length)).toBe(3);
  expect((await page.evaluate(()=>window.rejectionWrites[2])).rejectionSettings.reasons).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- await expect(form.getByRole('button',{name:'儲存拒絕預約設定'})).toBeVisible();
+ await expect(form.getByRole('button',{name:'儲存兩類拒絕原因設定'})).toBeVisible();
  await info.attach('frontdesk-rejection-settings-'+width,{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
 });
 
