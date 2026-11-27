@@ -116,7 +116,11 @@ test('test members use an isolated roster while staying out of formal KPI counts
   const coreApi = read('supabase/functions/api/index.ts');
   assert.match(coreApi, /const isTestAccount = asText\(memberKind,10\).*=== "test"/);
   assert.match(coreApi, /\.eq\("is_test_account",isTestAccount\)/);
-  assert.match(coreApi, /from\("members"\)\.select\("\*",\{ count:"exact",head:true \}\)\.eq\("is_test_account",false\)/);
+  // The count is now implemented in a shared, business-scoped helper.
+  const overviewStats = read('supabase/functions/_shared/admin-overview-stats.mjs');
+  assert.match(coreApi, /loadAdminOverviewStats\(supabase,\s*taipeiDate\(\)\)/);
+  assert.match(overviewStats, /from\('members'\)\.select\('id', \{ count: 'exact', head: true \}\)\.eq\('is_test_account', false\)/);
+  assert.match(overviewStats, /\.eq\('status', 'active'\)/);
 });
 
 test('booking API uses the shared direct test-session verifier', () => {
