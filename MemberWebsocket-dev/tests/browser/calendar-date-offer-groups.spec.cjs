@@ -50,8 +50,9 @@ test.beforeAll(async () => {
     const fixture = JSON.stringify(selected).replace(/</g, '\\u003c');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.end('<!doctype html><html lang="zh-Hant"><head><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/calendar/styles.css"></head><body><div id="app" class="app-shell">'
-      + ids.filter(id => !['calendarDetailModal','closeCalendarDetailButton','calendarDetailTitle','calendarDetailDate','calendarDetailItems'].includes(id))
+      + ids.filter(id => !['calendarView','calendarGrid','calendarDetailModal','closeCalendarDetailButton','calendarDetailTitle','calendarDetailDate','calendarDetailItems'].includes(id))
           .map(id => '<div id="' + id + '"></div>').join('')
+      + '<main id="calendarView"><section id="calendarGrid" class="calendar-grid"></section></main>'
       + '<div id="calendarDetailModal" class="calendar-detail-modal hidden" role="dialog"><div class="calendar-detail-card">'
       + '<button id="closeCalendarDetailButton">×</button><h2 id="calendarDetailTitle"></h2>'
       + '<p id="calendarDetailDate"></p><div id="calendarDetailItems"></div></div></div>'
