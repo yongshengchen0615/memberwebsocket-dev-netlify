@@ -15,7 +15,8 @@ const prerequisites=[
 ];
 const current=[
  '20261127180000_event_and_activity_booking_usage_rules.sql',
- '20261127181500_tenant_booking_activity_rules.sql'
+ '20261127181500_tenant_booking_activity_rules.sql',
+ '20261127183000_release_pending_party_benefits_on_booking_edit.sql'
 ];
 const uuid=()=>crypto.randomUUID();
 
@@ -58,6 +59,8 @@ test('PG17 AC-PARTY-001..008: real booking eligibility, tenant isolation, defaul
     assert.deepEqual(rights,{denied:false,allowed:true});
     const guard=(await h.db.query('select count(*)::integer n from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname=$1 and c.relname=$2 and t.tgname=$3',[schema,'bookings','booking_party_size_benefits_guard'])).rows[0].n;
     assert.equal(guard,1);
+    const pendingGuard=(await h.db.query('select count(*)::integer n from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname=$1 and c.relname=$2 and t.tgname=$3',[schema,'bookings','booking_party_pending_benefits_release'])).rows[0].n;
+    assert.equal(pendingGuard,1);
    }
   });
   const ids=[uuid(),uuid()];
@@ -111,6 +114,23 @@ test('PG17 AC-PARTY-001..008: real booking eligibility, tenant isolation, defaul
     assert.equal(forged,false);
     await assert.rejects(h.db.query('update '+s+'.event_tickets set max_booking_party_size=1 where id=$1',[ticketId]),/event_ticket_booking_party_size_chk/);
   });
+  await t.test('AC-PARTY-007: an edit that shrinks the booking releases pending incompatible tickets atomically',async()=>{
+    await h.db.query('insert into '+s+".booking_benefit_selections(booking_id,member_id,benefit_kind,benefit_ref,title_snapshot,status) values($1,$2,'event',$3,'Party QA','pending')",[booking,member,claimId]);
+    const before=(await h.db.query('select status from '+s+'.booking_benefit_selections where booking_id=$1 and benefit_ref=$2',[booking,claimId])).rows[0];
+    assert.equal(before.status,'pending');
+    await h.db.query('update '+s+'.bookings set party_size=1 where id=$1',[booking]);
+    const result=(await h.db.query('select status,result from '+s+'.booking_benefit_selections where booking_id=$1 and benefit_ref=$2',[booking,claimId])).rows[0];
+    assert.equal(result.status,'cancelled');
+    assert.equal(result.result.cancellationReason,'booking_party_size_changed');
+    assert.equal((await h.db.query('select party_size from '+s+'.bookings where id=$1',[booking])).rows[0].party_size,1);
+    await h.db.query('update '+s+'.bookings set party_size=2 where id=$1',[booking]);
+  });
+  await t.test('AC-PARTY-008: redeemed tickets block a conflicting booking edit with no data changes',async()=>{
+    await h.db.query('update '+s+".booking_benefit_selections set status='redeemed' where booking_id=$1 and benefit_ref=$2",[booking,claimId]);
+    await assert.rejects(h.db.query('update '+s+'.bookings set party_size=1 where id=$1',[booking]),/BOOKING_BENEFIT_PARTY_SIZE_REQUIRED/);
+    assert.equal((await h.db.query('select party_size from '+s+'.bookings where id=$1',[booking])).rows[0].party_size,2);
+    assert.equal((await h.db.query('select status from '+s+'.booking_benefit_selections where booking_id=$1 and benefit_ref=$2',[booking,claimId])).rows[0].status,'redeemed');
+  });
   await t.test('Future merchant gets all new rules',async()=>{
     const future=await h.approve('U'+'6'.repeat(32),'future-activity-'+uuid().slice(0,8));
     const rs=await h.db.query('select column_name from information_schema.columns where table_schema=$1 and table_name=$2 and column_name=$3',[
@@ -119,6 +139,8 @@ test('PG17 AC-PARTY-001..008: real booking eligibility, tenant isolation, defaul
     const fn=(await h.db.query('select to_regprocedure($1) function',[
       future.runtime_schema+'.booking_meets_activity_usage(uuid,uuid,uuid[],text,jsonb,text,integer,uuid[],integer,integer)'])).rows[0].function;
     assert.ok(fn);
+    const release=(await h.db.query('select count(*)::integer n from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname=$1 and c.relname=$2 and t.tgname=$3',[future.runtime_schema,'bookings','booking_party_pending_benefits_release'])).rows[0].n;
+    assert.equal(release,1);
   });
  }finally {await h.db.close();}
 });
