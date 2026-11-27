@@ -1,4 +1,4 @@
-import { activityUsageRules,activityRequiresBooking,usageConditionLabel,bookingSatisfiesActivity } from "../_shared/activity-usage-rules.ts";
+import { activityUsageRules,activityRequiresBooking,usageConditionLabel,bookingSatisfiesActivity,memberActivityAllowedLink } from "../_shared/activity-usage-rules.ts";
 import { businessEnv, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';
 import { tierVisibility, loadVisibilityPolicy } from "../_shared/tier-visibility.ts";
 import { createClient } from '../_shared/business-runtime.ts';
@@ -381,10 +381,11 @@ serveBusiness('member-calendar-api',async (request: Request) => {
       if (item.itemType !== "event") return item;
       const rule = activityUsageRules(item.usageConditions);
       const label = usageConditionLabel(rule,serviceNames);
-      if (!activityRequiresBooking(rule)) return {...item,usageEligible:true,usageConditionLabel:""};
+      if (!activityRequiresBooking(rule)) return {...item,usageEligible:true,usageConditionLabel:"",linkUrl:memberActivityAllowedLink(item,true)};
       const eligible = memberBookings.some((booking:any) =>
         bookingSatisfiesActivity(booking,bookedItemsByBooking.get(String(booking.id)) || [],rule));
       return {...item,usageEligible:eligible,usageConditionLabel:label,
+        linkUrl:memberActivityAllowedLink(item,eligible),
         locked:item.locked === true || !eligible,
         lockReason:item.locked === true ? item.lockReason : eligible ? "" : "需要已確認且符合使用條件的預約才能參加。"};
     });
