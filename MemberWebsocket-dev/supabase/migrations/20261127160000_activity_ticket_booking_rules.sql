@@ -149,7 +149,7 @@ begin
     into table_rows from jsonb_array_elements(tpl->'tables') with ordinality a(t,ordinal);
     tpl:=jsonb_set(tpl,'{tables}',table_rows);
 
-    select jsonb_agg(jsonb_build_object('name',p.proname,'definition',pg_get_functiondef(p.oid)) order by p.proname)
+    select jsonb_agg(jsonb_build_object('name',p.proname,'definition',pg_get_functiondef(p.oid),'identityArgs',pg_get_function_identity_arguments(p.oid)) order by p.proname)
       into funcs from pg_proc p join pg_namespace n on n.oid=p.pronamespace
       where n.nspname='public' and p.prokind='f' and p.proname in
         ('booking_ticket_meets_amount','booking_ticket_meets_party_size',
