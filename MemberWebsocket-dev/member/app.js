@@ -49,9 +49,12 @@
       state.config = await window.MemberSystem.loadConfig();
       startLoginProgress('正在驗證 LINE 身分…', 48);
       state.idToken = await window.MemberSystem.signIn(state.config, 'member');
-      state.lineProfile = await loadLineProfile();
       startLoginProgress('正在同步會員資料…', 92);
-      const result = await window.MemberSystem.request(state.config, 'member', state.idToken, 'user.member.bootstrap');
+      const [lineProfile, result] = await Promise.all([
+        loadLineProfile(),
+        window.MemberSystem.request(state.config, 'member', state.idToken, 'user.member.bootstrap'),
+      ]);
+      state.lineProfile = lineProfile;
       state.profile = result.profile || {};
       state.phoneVerificationRequired = result.phoneVerificationRequired === true;
       renderPhoneVerificationControls();
