@@ -1,5 +1,6 @@
 import { businessEnv, businessContext, businessFetch as fetch, businessHandler, deploymentAdminChannelId, memberSystemFooter } from '../_shared/business-runtime.ts';
 import { syncRevision } from '../_shared/sync-revision.mjs';
+import { loadAdminOverviewStats } from '../_shared/admin-overview-stats.mjs';
 import { removeMember } from "../_shared/member-removal.ts";
 import { tierVisibility, tierEligible, loadVisibilityPolicy } from "../_shared/tier-visibility.ts";
 import { bookingTicketUsageError, ticketBookingId } from "../_shared/booking-ticket-usage.ts";
@@ -1625,23 +1626,8 @@ async function calendarItems(supabase: SupabaseClient, activeOnly = false, calen
 }
 
 async function summaryStats(supabase: SupabaseClient): Promise<Json> {
-  const today = taipeiDate();
-  const start = new Date(today + "T00:00:00+08:00").toISOString();
-  const [members,activeMembers,cards,events,todayEntries] = await Promise.all([
-    supabase.from("members").select("*",{ count:"exact",head:true }).eq("is_test_account",false),
-    supabase.from("members").select("*",{ count:"exact",head:true }).eq("is_test_account",false).eq("status","active"),
-    supabase.from("point_cards").select("*",{ count:"exact",head:true }).eq("status","active"),
-    supabase.from("event_tickets").select("*",{ count:"exact",head:true }).eq("status","active").is("deleted_at",null).is("referral_source_event_ticket_id",null),
-    supabase.from("point_entries").select("*",{ count:"exact",head:true }).gte("created_at",start).gt("amount",0),
-  ]);
-  for (const result of [members,activeMembers,cards,events,todayEntries]) if (result.error) throw mapDatabaseError(result.error);
-  return {
-    memberCount: members.count || 0,
-    activeMemberCount: activeMembers.count || 0,
-    activeCardCount: cards.count || 0,
-    activeEventTicketCount: events.count || 0,
-    todayEntryCount: todayEntries.count || 0,
-  };
+  // The scoped client has already passed LINE admin and tenant authorization.
+  return await loadAdminOverviewStats(supabase, taipeiDate());
 }
 
 async function emitRealtime(supabase: SupabaseClient, action: string): Promise<void> {
