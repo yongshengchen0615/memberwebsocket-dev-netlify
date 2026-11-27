@@ -10,6 +10,7 @@
     minimumDate: '',
     maximumDate: '',
     phoneBookingNumber: '',
+    holidayNotice: '',
     services: [],
     config: null,
     occupancyRequestSeq: 0,
@@ -158,11 +159,13 @@
             <button id="closeBookingHolidayButton" class="booking-modal-close" type="button" aria-label="關閉休假提示">×</button>
           </div>
           <p id="bookingHolidayDate" class="booking-holiday-date"></p>
+          <p id="bookingHolidayWarning" class="booking-holiday-warning" role="status"></p>
           <div id="bookingHolidayDetails" class="booking-holiday-details"></div>
         </div>`;
       document.body.appendChild(modal);
       els.holidayModal = modal;
       els.holidayDate = modal.querySelector('#bookingHolidayDate');
+      els.holidayWarning = modal.querySelector('#bookingHolidayWarning');
       els.holidayDetails = modal.querySelector('#bookingHolidayDetails');
       els.closeHolidayButton = modal.querySelector('#closeBookingHolidayButton');
       els.closeHolidayButton.addEventListener('click', () => closeHolidayNotice(true));
@@ -172,6 +175,7 @@
     } else {
       els.holidayModal = document.getElementById('bookingHolidayModal');
       els.holidayDate = document.getElementById('bookingHolidayDate');
+      els.holidayWarning = document.getElementById('bookingHolidayWarning');
       els.holidayDetails = document.getElementById('bookingHolidayDetails');
       els.closeHolidayButton = document.getElementById('closeBookingHolidayButton');
     }
@@ -243,6 +247,7 @@
     state.minAdvanceDays = minAdvanceDays;
     state.maxAdvanceDays = maxAdvanceDays > 0 && maxAdvanceDays < minAdvanceDays ? 0 : maxAdvanceDays;
     if (detail.settings?.phoneBookingNumber !== undefined) state.phoneBookingNumber = safePhoneBookingNumber(detail.settings.phoneBookingNumber);
+    if (typeof detail.settings?.holidayNotice === 'string') state.holidayNotice = detail.settings.holidayNotice.slice(0, 400);
     state.minimumDate = addDays(state.today, minAdvanceDays);
     state.maximumDate = state.maxAdvanceDays > 0 ? addDays(state.today, state.maxAdvanceDays) : '';
     const actualDate = String(els.bookingDate?.value || '');
@@ -475,15 +480,21 @@
     renderPhoneServiceReference(phoneOnly);
     if (els.bookingDayHolidayNotice) {
       els.bookingDayHolidayNotice.hidden = !isHoliday;
-      const technicianHoliday = holidays.some(item => /技師|師傅/.test(String(item.title || '')));
-      els.bookingDayHolidayNotice.textContent = isHoliday
-        ? (technicianHoliday ? '技師休假提醒：當日無法預約，請改選其他日期。' : '休假提醒：當日無法預約，請改選其他日期。')
-        : '';
+      els.bookingDayHolidayNotice.textContent = isHoliday ? holidayNoticeText(holidays) : '';
     }
     if (els.bookingDayHolidayDetails) {
       els.bookingDayHolidayDetails.hidden = !holidays.length;
       els.bookingDayHolidayDetails.replaceChildren(...holidayDetails(holidays));
     }
+  }
+
+  function holidayNoticeText(holidays) {
+    const configuredNotice = String(state.holidayNotice || '').trim();
+    if (configuredNotice) return configuredNotice;
+    const technicianHoliday = holidays.some(item => /技師|師傅/.test(String(item.title || '')));
+    return technicianHoliday
+      ? '技師休假提醒：當日無法預約，請改選其他日期。'
+      : '休假提醒：當日無法預約，請改選其他日期。';
   }
 
   function renderPhoneServiceReference(phoneOnly) {
@@ -556,6 +567,7 @@
     closeAppointmentModal(false);
     state.historyDate = '';
     state.services = [];
+    state.holidayNotice = '';
     if (els.bookingPhoneServiceReference) els.bookingPhoneServiceReference.hidden = true;
     els.bookingPhoneServiceList?.replaceChildren();
     state.linkedRecordOpened = false;
@@ -730,6 +742,7 @@
     closeAppointmentModal(false);
     state.holidayTrigger = trigger instanceof HTMLElement ? trigger : null;
     if (els.holidayDate) els.holidayDate.textContent = `${formatDate(date)}｜此日休假，無法預約`;
+    if (els.holidayWarning) els.holidayWarning.textContent = holidayNoticeText(holidays);
     if (els.holidayDetails) {
       els.holidayDetails.replaceChildren(...holidayDetails(holidays));
     }

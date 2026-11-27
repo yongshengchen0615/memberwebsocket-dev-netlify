@@ -148,6 +148,7 @@ function settingsClient(row: any, storeService?: any): Json {
     phoneBookingNumber: String(row?.phone_booking_number || ""),
     storeServiceMinutes: Number(storeService?.duration_minutes || 10),
     bookingNotice: String(row?.booking_notice || ""),
+    holidayNotice: String(row?.holiday_notice || ""),
     onsiteEditMessage: String(row?.onsite_edit_message || "此預約已超過線上可修改時間，請至現場洽詢修改預約。"),
     pendingMessage: String(row?.pending_message || "我們已收到您的預約申請，請等待管理員確認；確認後會再透過 LINE 通知您。"),
     reminderMessage: String(row?.reminder_message || "請準時到場；如需調整請至預約頁操作。"),
@@ -282,6 +283,11 @@ async function messagesSave(supabase: SupabaseClient, identity: Identity, body: 
     throw new ApiError(400, "INVALID_ONSITE_EDIT_MESSAGE", "現場修改提醒必須為 1–400 字。");
   }
   const onsiteEditMessage = hasOnsiteEditMessage ? preserveText(body.onsiteEditMessage, 401) : undefined;
+  // Older cached administrators omit this optional field; never erase existing notices.
+  const hasHolidayNotice = Object.prototype.hasOwnProperty.call(body, "holidayNotice");
+  if (hasHolidayNotice && typeof body.holidayNotice !== "string") throw new ApiError(400, "INVALID_HOLIDAY_NOTICE", "休假提醒格式不正確。");
+  const holidayNotice = hasHolidayNotice ? preserveText(body.holidayNotice, 401) : undefined;
+  if (hasHolidayNotice && (holidayNotice?.length ?? 0) > 400) throw new ApiError(400, "INVALID_HOLIDAY_NOTICE", "休假提醒不可超過 400 字。");
   if (hasOnsiteEditMessage && (!onsiteEditMessage?.trim() || onsiteEditMessage.length > 400)) {
     throw new ApiError(400, "INVALID_ONSITE_EDIT_MESSAGE", "現場修改提醒必須為 1–400 字。");
   }
@@ -296,10 +302,11 @@ async function messagesSave(supabase: SupabaseClient, identity: Identity, body: 
       pending_message: pendingMessage,
       reminder_message: reminderMessage,
       ...(hasOnsiteEditMessage ? { onsite_edit_message: onsiteEditMessage } : {}),
+      ...(hasHolidayNotice ? { holiday_notice: holidayNotice } : {}),
       updated_by: identity.lineUserId,
     })
     .eq("id", 1).eq("updated_at", expectedUpdatedAt)
-    .select("booking_notice,pending_message,reminder_message,onsite_edit_message,updated_at").maybeSingle();
+    .select("booking_notice,pending_message,reminder_message,onsite_edit_message,holiday_notice,updated_at").maybeSingle();
   if (result.error) throw mapDatabaseError(result.error);
   if (!result.data) throw new ApiError(409, "BOOKING_SETTINGS_CONFLICT", "設定已由其他管理員變更，請重新載入。");
   await audit(supabase, identity, "BOOKING_MESSAGES_UPDATED", "booking_settings", "1", {
@@ -307,6 +314,7 @@ async function messagesSave(supabase: SupabaseClient, identity: Identity, body: 
     pendingLength: pendingMessage.length,
     reminderLength: reminderMessage.length,
     ...(hasOnsiteEditMessage ? { onsiteEditLength: onsiteEditMessage?.length ?? 0 } : {}),
+    ...(hasHolidayNotice ? { holidayNoticeLength: holidayNotice?.length ?? 0 } : {}),
   });
   return {
     messages: {
@@ -314,6 +322,7 @@ async function messagesSave(supabase: SupabaseClient, identity: Identity, body: 
       pendingMessage: result.data.pending_message,
       reminderMessage: result.data.reminder_message,
       onsiteEditMessage: result.data.onsite_edit_message,
+      holidayNotice: result.data.holiday_notice,
     },
     updatedAt: result.data.updated_at,
   };
