@@ -1,5 +1,5 @@
 import { businessEnv, businessContext, serveBusiness } from '../_shared/business-runtime.ts';
-import { currentTaipeiMonth, monthlyTierBounds, buildMonthlyTierOverview } from '../_shared/monthly-tier-benefits.mjs';
+import { currentTaipeiMonth, monthlyTierBounds, buildMonthlyTierOverview, collectAllMonthlyRows } from '../_shared/monthly-tier-benefits.mjs';
 import { tierVisibility, loadVisibilityPolicy } from '../_shared/tier-visibility.ts';
 import { requireMemberOaBeforeActivation, memberOaGuidance, strictLineAccessToken } from '../_shared/member-oa-registration-gate.mjs';
 import { readJsonObject } from "../_shared/request-body.ts";
@@ -381,6 +381,17 @@ function termsError(error: { code?: string; message?: string; details?: string; 
   return new ApiError(500, "DATABASE_ERROR", "會員資料暫時無法儲存。");
 }
 
+const MONTHLY_CATALOGUE_PAGE_SIZE = 200;
+
+// Fail closed if any page fails; partial monthly catalogues must not look complete.
+async function monthlyCatalogueRows(fetchPage: (cursor: string | null, first: boolean) => Promise<any>): Promise<any[]> {
+  try {
+    return await collectAllMonthlyRows(fetchPage);
+  } catch {
+    throw new ApiError(503, "MONTHLY_TIER_OFFERS_UNAVAILABLE", "本月階級優惠暫時無法讀取。");
+  }
+}
+
 // A member can preview published tier offers without obtaining a physical ticket.
 // Check merchant module grants before reading each collection.
 async function monthlyTierBenefits(supabase: SupabaseClient, member: any): Promise<Json> {
@@ -389,22 +400,30 @@ async function monthlyTierBenefits(supabase: SupabaseClient, member: any): Promi
   const features = businessContext()?.features;
   const showTickets = !features || features.events === true;
   const showActivities = !features || features.calendar === true;
-  const [ticketResult, calendarResult, viewerProfile, defaultVisibilityPolicy] = await Promise.all([
-    showTickets ? supabase.from("event_tickets")
-      .select("title,ticket_type,status,starts_on,ends_on,allowed_tier_keys,visibility_policy,deleted_at,referral_source_event_ticket_id,fixed_ticket_template_id")
-      .eq("status", "active").is("deleted_at", null)
-      .or(`starts_on.is.null,starts_on.lte.${end}`).or(`ends_on.is.null,ends_on.gte.${start}`)
-      : Promise.resolve({ data: [], error: null }),
-    showActivities ? supabase.from("calendar_items")
-      .select("title,item_type,status,audience_type,starts_on,ends_on,allowed_tier_keys,visibility_policy,source_event_ticket_id,link_url")
-      .eq("item_type", "event").eq("status", "active")
-      .lte("starts_on", end).or(`ends_on.gte.${start},and(ends_on.is.null,starts_on.gte.${start})`)
-      : Promise.resolve({ data: [], error: null }),
+  // A plain select silently stops at the Supabase/PostgREST max-rows limit.
+  // Read keyset pages in stable primary-key order until all matching rows exist.
+  const [ticketRows, activityRows, viewerProfile, defaultVisibilityPolicy] = await Promise.all([
+    showTickets ? monthlyCatalogueRows(async (cursor, first) => {
+      let query = supabase.from("event_tickets")
+        .select("id,title,ticket_type,status,starts_on,ends_on,allowed_tier_keys,visibility_policy,deleted_at,referral_source_event_ticket_id,fixed_ticket_template_id",
+          first ? { count: "exact" } : undefined)
+        .eq("status", "active").is("deleted_at", null)
+        .or(`starts_on.is.null,starts_on.lte.${end}`).or(`ends_on.is.null,ends_on.gte.${start}`);
+      if (cursor) query = query.gt("id", cursor);
+      return await query.order("id", { ascending: true }).range(0, MONTHLY_CATALOGUE_PAGE_SIZE - 1);
+    }) : Promise.resolve([]),
+    showActivities ? monthlyCatalogueRows(async (cursor, first) => {
+      let query = supabase.from("calendar_items")
+        .select("id,title,item_type,status,audience_type,starts_on,ends_on,allowed_tier_keys,visibility_policy,source_event_ticket_id,link_url",
+          first ? { count: "exact" } : undefined)
+        .eq("item_type", "event").eq("status", "active")
+        .lte("starts_on", end).or(`ends_on.gte.${start},and(ends_on.is.null,starts_on.gte.${start})`);
+      if (cursor) query = query.gt("id", cursor);
+      return await query.order("id", { ascending: true }).range(0, MONTHLY_CATALOGUE_PAGE_SIZE - 1);
+    }) : Promise.resolve([]),
     profileFor(supabase, member, true),
     showTickets || showActivities ? loadVisibilityPolicy(supabase) : Promise.resolve('eligible_only'),
   ]);
-  if (ticketResult.error || calendarResult.error)
-    throw new ApiError(503, "MONTHLY_TIER_OFFERS_UNAVAILABLE", "本月階級優惠暫時無法讀取。");
   // Preserve the existing administrative presentation policy. The four tier
   // sections are always rendered, but hidden campaign titles must not leak.
   const visibleToViewer = (row: any, allowUnrestricted: boolean): boolean => {
@@ -415,8 +434,8 @@ async function monthlyTierBenefits(supabase: SupabaseClient, member: any): Promi
   };
   return buildMonthlyTierOverview({
     month,
-    tickets: (ticketResult.data || []).filter((row: any) => visibleToViewer(row, false)),
-    activities: (calendarResult.data || []).filter((row: any) => visibleToViewer(row, true)),
+    tickets: ticketRows.filter((row: any) => visibleToViewer(row, false)),
+    activities: activityRows.filter((row: any) => visibleToViewer(row, true)),
     showTickets,
     showActivities,
     tierSettings: Array.isArray(viewerProfile.tierPresentations)
