@@ -192,7 +192,9 @@ html[data-theme] #bookingView :where(.calendar-nav-button, .calendar-day) {
   border-color: var(--theme-border);
 }
 
-html[data-theme] #bookingView .calendar-day:not(:disabled):hover {
+/* Preserve the holiday-specific border on hover; holiday colors are a warning,
+   not the generic selectable-calendar accent. Keyboard focus retains its outline. */
+html[data-theme] #bookingView .calendar-day:not(.holiday-disabled):not(:disabled):hover {
   border-color: var(--theme-accent);
   box-shadow: 0 0 0 2px var(--theme-focus-ring);
 }

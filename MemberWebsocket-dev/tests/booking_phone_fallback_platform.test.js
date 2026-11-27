@@ -33,7 +33,7 @@ test('AC-002 admin phone is part of draft detection, validation, save, readback'
 });
 test('AC-003 both member bootstrap and calendar month return the shop telephone number',()=>{
   assert.match(memberApi,/phoneBookingNumber: String\(row\?\.phone_booking_number \|\| ""\)/);
-  assert.match(monthApi,/booking_notice,work_start_time,work_end_time,phone_booking_number/);
+  assert.match(monthApi,/booking_notice,holiday_notice,work_start_time,work_end_time,phone_booking_number/);
   assert.match(monthApi,/phoneBookingNumber: String\(settingsResult\.data\.phone_booking_number \|\| ""\)/);
   assert.match(calendar,/detail\.settings\?\.phoneBookingNumber !== undefined/);
 });

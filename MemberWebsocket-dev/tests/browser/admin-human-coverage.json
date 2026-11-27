@@ -36,7 +36,7 @@
   "frontdeskRejectionSettingsReview": "[object Object] 2026-11-24 PR #446：新增櫃檯待審新預約／會員修改預約分類與操作標籤、管理端拒絕修改預約獨立編輯清單、LINE 管理端/會員端核准與拒絕修改標題。逐項覆核既有管理端六個工作區、管理員前台櫃檯 LINE／人員核准/拒絕預約/電話補登及原 62 組 admin-human 人工旅程：保留所有既有入口、權限、租戶審查和 requestId；新分流由後端 audit，不接受 browser 夾帶 reviewKind。新增 AC-FMR Node/JSDOM/Deno，完整 PostgreSQL/Chromium CI 與沙盒 LINE 實際收訊分別驗收；本紀錄不代表它們已通過。",
   "reviewedSources": {
     "admin/booking-admin-ux.js": "da82c2bcbb7d8ece44e05d66bada9e20a384784e4346bdde50f6b9cb2897d1ee",
-    "admin/index.html": "477cd714a71864e85eb0876d912f35b0ea5923f35bfe97a73d4209ccbad59ace",
+    "admin/index.html": "a371d25015013358ee288fabdf1663de61ecb791ebaf2c8f8a14af952a6f4d22",
     "admin/app.js": "4b796407ca7de54a56bf513e6949eb2bae5263fe62c7c1da51cecce2e884022b",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
@@ -47,8 +47,8 @@
     "admin/fixed-ticket-calendar-option.js": "0bbc53970ff0ec7408985b001113f64de718963bcfbc793f563a44f2e068f1f1",
     "admin/pointcard-redemption-limit.js": "fbba580c9babdac950b2f619c3f3b949fe89ae0c1365e2555f758d1a8818035c",
     "admin/event-ticket-redemption-limit.js": "263a564d64845c5abb4ed5167305b0bffefb064130a0268ab533b481d320b688",
-    "admin/booking-panel.js": "97b04a26ee5edb6cc374fb1aef9f47778cb50062f8d8d0c848428e43028ef93a",
-    "admin/booking-panel-core.js": "5eae47beb641280c047afabeee846da83a03d8789b34a9a6e415adc19c61c4cf",
+    "admin/booking-panel.js": "372ee7e4a59d6bdb87a53291200223d9725d9ed55668ed4f3398d60b3327000a",
+    "admin/booking-panel-core.js": "9ee629fa885e6646d055e717512addce171ceeed0a7adb7aed1c9ede24093008",
     "admin/booking-resources.js": "6a9c9d9ab1530869d13191668c251e02258a8b5830cb80abafbda3bf556e6319",
     "admin/booking-always-open.js": "9cb236902a7f3f36cf3fe4c3f13fbbac622f000c72d36ec34f7d4dde08e6e54a",
     "admin/booking-cancellation-sync.js": "810d09beb8650d5a88237172a95d6bdbc19c83888e1ab17ef92ec3c5b2de9674",
@@ -844,5 +844,6 @@
   "memberMonthlyCompactReview": "2026-11-27 PR #491：已盤點原有 62 組 admin-human 管理員旅程；新變更只在五個使用者頁面 member/points/event/calendar/booking 加入統一的唯讀本月階級優惠收合元件，預設關閉、約 44px，不額外呼叫 API，展開後只取一次資料並用四階級分頁切換。booking/common.js 增加獨立只讀 member-profile-api wrapper，不變更現有 booking.memberProfile、預約寫入／提交／取消／收據／票券核銷與管理員預約確認，保留 BOOKING_* 相關管理員旅程；calendar/app.js 只在原有會員階級快照後綁定可選入口，calendar/index.html 僅新增同源 CSS 與 defer JS 及語意化 details，不觸及管理員日曆 CRUD、休假、活動票券、行事曆顯示或會員活動權限。原 62 個功能 ID、cases 與瀏覽器測試不刪不弱化。後端只擴大 read-only catalogue 的五個合法 clientType allowlist，所有寫入／其他 member action 仍限 member、測試 session 需與頁面一致，停權／待同意條款／跨租戶仍拒絕。新增 AC-013～015、五入口 390px Playwright 真實瀏覽器 fixture、原管理員所有 62 旅程及完整 CI；LINE Provider 真實手機與實際活動資料仍需獨立驗證，不以 stub 冒充。",
   "memberMonthlyThemeReview": "2026-11-27：本輪只優化 #491 共用會員月度優惠收合元件的亮色／暗色配色、欄位對比、四階按鈕短標籤／數量徽章、320/390px 排版、鍵盤焦點與 reduced-motion，沿用現有全站 --theme-* tokens，不新增 JS API 請求、權限、資料庫、LINE 操作或額外依賴。五個會員端 index.html 只更新相同 CSS/JS 的 cache 版本；calendar/index.html 對應 reviewedSources 已以實際 SHA256 更新。原 62 組 admin-human 管理員業務旅程及預約日期／模式、日曆、發券、集點與 LINE 登入原順序均保留，沒有修改／弱化既有 browser assertions。新增 AC-016 靜態與五端 390px 亮／暗及 320px 暗色 Chromium 真實 CSS 對比測試；全量 CI 與測試分支部署完成前不能宣稱通過，真實 LINE Provider 實機仍須獨立驗證。 2026-11-27 PR #492 後續易用性修正：使用者需要看出收合列可以操作，五端 summary 改為清楚的「展開查看」文字 + 高對比膠囊按鈕視覺 + 向下箭頭，展開後立刻切換「收合內容」及向上箭頭；整列鍵盤／滑鼠皆可操作。AC-017 驗證雙向動態提示、對比與 320/390px 可點擊區，保持原生 details、初始零 API、所有 62 組管理員流程與同 SHA 完整回歸，不降低測試標準。",
   "memberMonthlyCardParityReview": "2026-11-27 PR #493：月度優惠的四階名稱及按鈕背景、強調色，不再使用與會員卡無關的依 rank 固定顏色；依據原本 membership_tier_settings 每階級 style_key、tier_label（同一 profileFor 讀取結果）動態回傳前台，完全沿用 member/styles.css 既有 10 套會員卡主題實際色碼（包括自訂商家階級樣式）。會員端、集點卡、活動票券、會員日曆、預約都由同一安全的只讀資料源呈現；不新增 DB 查詢、資料欄位、金流、票券寫入或階級繼承權限。未知 style_key 退回 forest、標題文字只用 textContent。保留收合懶讀及全專案 62 組人工管理旅程，新增 AC-018/019 以及五入口瀏覽器 320/390px 亮暗對比＆會員卡原生配色比對。此次 calendar/index.html 只有月度共用 CSS/JS 資產 cache 版號更新，已重新對照真實檔案 SHA256。",
+  "bookingHolidayNoticeReview": "2026-11-27 PR #497：已逐項盤點既有 62 組管理員 Human E2E 旅程與預約、日曆的資料及授權契約。此輪只在既有預約訊息設定新增一個休假提醒純文字欄位，原一次儲存、版本衝突、權限控管和 LINE 通知流程維持不變；會員休假日期原有預約禁止與按鈕隱藏仍需回歸驗證。admin/index.html 與 loader 僅更新 cache key，booking-panel-core.js 加入訊息欄位和草稿處理，不新增或刪除既有管理旅程。新 AC-HOL-001～005 靜態/實際函式測試檢查安全顯示、預設文字、亮暗模式和禁止操作；CI 的原 Human E2E 及實際測試站操作均須再驗證。",
   "crudTransportReview": "2026-11-27 PR #500：已核對62組管理端既有旅程；grant-automation 僅將 admin.member-grants.add 交由 MemberSystem 共用傳輸，保留 grant-automation endpoint、requestId、通知模式、預覽與發放結果、原表單及權限，不新增或移除UI操作。新增載入實際擴充的 Node 與390/1280px Chromium案例，涵蓋寫入前後讀取失效、payload及單次送出；原 MEMBER_SERVICE_GRANT、STALE、RETRY及62組旅程繼續為必要回歸。完整CI及指定測試環境部署仍需以最終SHA查驗。"
 }
