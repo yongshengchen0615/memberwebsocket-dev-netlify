@@ -600,9 +600,10 @@
       heading.append(node('h3', '櫃檯人員申請與權限'),
         node('p', '快速查看人員審核、預約權限和 LINE 通知狀態；修改權限後統一儲存。'));
       approvals.append(heading);
+      // Retain the original staff order within each status group so existing
+      // batch edits and keyboard navigation remain predictable.
       const people = [...(data.staff || [])].sort((a, b) =>
-        Number(b.status === 'pending') - Number(a.status === 'pending') ||
-        String(a.displayName || '').localeCompare(String(b.displayName || ''), 'zh-Hant'));
+        (a.status === 'pending' ? -1 : 0) - (b.status === 'pending' ? -1 : 0));
       const notificationState = person => person.status !== 'approved' || cfg.enabled === false
         ? 'unavailable' : person.receiveNotifications === false ? 'paused' : 'enabled';
       const counts = {
