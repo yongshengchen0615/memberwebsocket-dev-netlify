@@ -118,14 +118,53 @@
 
   // Only classify entries returned by the member-scoped calendar API. Never
   // synthesize hidden offers from ticket catalogs or client tier preferences.
+  const CALENDAR_TIER_ORDER = ['general', 'silver', 'gold', 'platinum'];
+  const CALENDAR_TIER_LABEL_RANK = {
+    '一般會員': 0, '一般': 0, '銀級會員': 1, '銀級': 1,
+    '金級會員': 2, '金級': 2, '白金會員': 3, '白金': 3
+  };
+
+  // Rank an offer by the lowest tier allowed to use it (its actual entry
+  // threshold), not the highest tier inherited through membership benefits.
+  function calendarRequiredTierRank(item) {
+    const keys = Array.isArray(item.allowedTierKeys) ? item.allowedTierKeys : [];
+    const keyRanks = keys.map((key) => CALENDAR_TIER_ORDER.indexOf(String(key)))
+      .filter((rank) => rank >= 0);
+    if (keyRanks.length) return Math.min(...keyRanks);
+    const labels = Array.isArray(item.allowedTierLabels) ? item.allowedTierLabels : [];
+    const labelRanks = labels.map((label) => CALENDAR_TIER_LABEL_RANK[String(label).trim()])
+      .filter((rank) => Number.isInteger(rank));
+    return labelRanks.length ? Math.min(...labelRanks) : -1;
+  }
+
+  function sortCalendarOffersByTier(items) {
+    return items.map((item, index) => ({ item, index, rank: calendarRequiredTierRank(item) }))
+      .sort((a, b) => b.rank - a.rank || a.index - b.index)
+      .map(({ item }) => item);
+  }
+
   function splitCalendarDateItems(items) {
-    const groups = { available: [], locked: [], notices: [] };
+    const groups = {
+      available: [], locked: [], notices: [],
+      availableActivities: [], availableTickets: [],
+      lockedActivities: [], lockedTickets: []
+    };
     (Array.isArray(items) ? items : []).forEach((item) => {
-      if (item.itemType === 'holiday') groups.notices.push(item);
-      else if (item.itemType === 'event' && (item.locked === true || item.tierEligible === false)) groups.locked.push(item);
-      else if (item.itemType === 'event') groups.available.push(item);
-      else groups.notices.push(item);
+      if (item.itemType === 'holiday') {
+        groups.notices.push(item);
+      } else if (item.itemType === 'event') {
+        const locked = item.locked === true || item.tierEligible === false;
+        const availability = locked ? 'locked' : 'available';
+        const kind = isManagedCalendarTicket(item) ? 'Tickets' : 'Activities';
+        groups[availability].push(item);
+        groups[availability + kind].push(item);
+      } else {
+        groups.notices.push(item);
+      }
     });
+    for (const category of ['availableActivities', 'availableTickets', 'lockedActivities', 'lockedTickets']) {
+      groups[category] = sortCalendarOffersByTier(groups[category]);
+    }
     return groups;
   }
 
@@ -201,8 +240,10 @@
     const groups = splitCalendarDateItems(items);
     const sections = [];
     if (groups.notices.length) sections.push(createCalendarDetailGroup('休假提醒', groups.notices, 'notice'));
-    if (groups.available.length) sections.push(createCalendarDetailGroup('當日可用的活動與票券', groups.available, 'available'));
-    if (groups.locked.length) sections.push(createCalendarDetailGroup('未解鎖的活動與票券', groups.locked, 'locked'));
+    if (groups.availableActivities.length) sections.push(createCalendarDetailGroup('當日可用的會員活動', groups.availableActivities, 'available activities'));
+    if (groups.availableTickets.length) sections.push(createCalendarDetailGroup('當日可用的活動票券', groups.availableTickets, 'available tickets'));
+    if (groups.lockedActivities.length) sections.push(createCalendarDetailGroup('未解鎖的會員活動', groups.lockedActivities, 'locked activities'));
+    if (groups.lockedTickets.length) sections.push(createCalendarDetailGroup('未解鎖的活動票券', groups.lockedTickets, 'locked tickets'));
     state.detailTrigger = trigger instanceof HTMLElement ? trigger : null;
     els.calendarDetailTitle.textContent = calendarDateLabel(isoDate);
     els.calendarDetailDate.textContent = groups.notices.length
