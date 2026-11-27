@@ -37,38 +37,9 @@
   }
 
   async function automationRequest(config, idToken, action, payload) {
-    // Always address the automation endpoint in the selected Supabase project.
-    const projectUrl = String(config && config.supabaseUrl || '').trim();
-    const url = /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(projectUrl)
-      ? projectUrl + '/functions/v1/grant-automation' : '';
-    if (!/^https:\/\/[a-z0-9-]+\.supabase\.co\/functions\/v1\/grant-automation$/i.test(url)) {
-      throw clientError('CONFIG_ERROR', '尚未設定發放自動化 Edge Function URL。');
-    }
-    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timer = window.setTimeout(() => { if (controller) controller.abort(); }, 30000);
-    let response;
-    let text;
-    try {
-      response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': String(config.supabasePublishableKey || '') },
-        cache: 'no-store',
-        signal: controller ? controller.signal : undefined,
-        body: JSON.stringify({ ...payload, action, clientType: 'admin', idToken })
-      });
-      text = await response.text();
-    } catch (_) {
-      throw clientError('API_RESPONSE_UNCERTAIN', '無法確認這次操作是否已送達；請先重新整理確認，請勿重複送出。');
-    } finally {
-      window.clearTimeout(timer);
-    }
-    let data;
-    try { data = JSON.parse(text); }
-    catch { throw clientError('API_RESPONSE_UNCERTAIN', '資料服務回應格式異常；請先重新整理確認，請勿重複送出。'); }
-    if (!data || data.ok !== true) {
-      throw clientError(data && data.error && data.error.code || 'API_ERROR', data && data.error && data.error.message || '資料服務拒絕此請求。', Number(data && data.status || response.status || 0), data && data.error && data.error.details || null);
-    }
-    return cacheCalendarResult(data.data || {});
+    // Keep grants on the same write boundary as other admin mutations. The
+    // shared transport owns endpoint selection, uncertainty and read invalidation.
+    return cacheCalendarResult(await originalRequest(config, 'admin', idToken, action, payload));
   }
 
   function selectedNotificationMode() {

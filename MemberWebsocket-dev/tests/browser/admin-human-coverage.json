@@ -41,7 +41,7 @@
     "admin/app.js": "0b9a927ab88cc2b775b3ac9dbff7c5a938bcde58860ee018b6969fad188a5f4e",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
-    "admin/grant-automation.js": "bf4acfae03c852f581ee6755e49f1441fb2ec9911dac8ff096de02ca19f38138",
+    "admin/grant-automation.js": "6a44e4c666d25adc4200f09ce95f8f6600209962be56ec7fe08ab11e4a779bfb",
     "admin/coupon-location-editor.js": "31fb9d8ab26519022ed20528f9ce7cba588826c4d20bf2cccc2c1a5f584d055f",
     "admin/fixed-ticket-admin.js": "c105feacd0c32d91ba6483fa045963da959339b14a545d574d8de5595180bfb5",
     "admin/fixed-ticket-admin-integration.js": "af65455cf96f6770fdbb0a72558d970b5a4377b0d42557ef55b2f5e70c43c190",
@@ -59,7 +59,7 @@
     "admin/workspace.html": "25bad61a0238e4d167cc184dc85b2de7fba38f1f88f6b684d098740b4d4b765a",
     "platform/app.js": "8aa9ca2e46f51fabb76ed6f03f71d377351e702c7512979b4030ddb0f9c58d49",
     "admin/business-workspace.js": "0d49c7a5369a7242581684aa626264a5e8f90e2c391b064e144a4f744071ee31",
-    "business-context.js": "55a290071971877fcf4f1fffc70d8f290f770f75ad8458482e3f0b694456ea37",
+    "business-context.js": "77b5e7c5c6339728d47ef055fa3304c5afa39f93710c2ceff3f92599cf6d813c",
     "admin/business-line-settings.js": "c91b11db6169d80247adcd51bb45e269b9ad4056d5026ed7ba909b1b6ef95df3",
     "admin/booking-risk.js": "a18bba899216a17cef819554cb216a6f0430709e30e5a241dcb60ee5d3f77462",
     "platform/index.html": "f307859acedcd4b49022455eb4e5f7dd107facb6df4475d44747e49414fd5b20",
@@ -847,5 +847,6 @@
   "memberMonthlyCardParityReview": "2026-11-27 PR #493：月度優惠的四階名稱及按鈕背景、強調色，不再使用與會員卡無關的依 rank 固定顏色；依據原本 membership_tier_settings 每階級 style_key、tier_label（同一 profileFor 讀取結果）動態回傳前台，完全沿用 member/styles.css 既有 10 套會員卡主題實際色碼（包括自訂商家階級樣式）。會員端、集點卡、活動票券、會員日曆、預約都由同一安全的只讀資料源呈現；不新增 DB 查詢、資料欄位、金流、票券寫入或階級繼承權限。未知 style_key 退回 forest、標題文字只用 textContent。保留收合懶讀及全專案 62 組人工管理旅程，新增 AC-018/019 以及五入口瀏覽器 320/390px 亮暗對比＆會員卡原生配色比對。此次 calendar/index.html 只有月度共用 CSS/JS 資產 cache 版號更新，已重新對照真實檔案 SHA256。",
   "bookingHolidayNoticeReview": "2026-11-27 PR #497：已逐項盤點既有 62 組管理員 Human E2E 旅程與預約、日曆的資料及授權契約。此輪只在既有預約訊息設定新增一個休假提醒純文字欄位，原一次儲存、版本衝突、權限控管和 LINE 通知流程維持不變；會員休假日期原有預約禁止與按鈕隱藏仍需回歸驗證。admin/index.html 與 loader 僅更新 cache key，booking-panel-core.js 加入訊息欄位和草稿處理，不新增或刪除既有管理旅程。新 AC-HOL-001～005 靜態/實際函式測試檢查安全顯示、預設文字、亮暗模式和禁止操作；CI 的原 Human E2E 及實際測試站操作均須再驗證。",
   "memberCalendarDateOfferGroupsReview": "2026-11-27 PR #501：已逐項覆核會員端營運日曆點日期、已啟用活動票券／會員活動、階級解鎖、休假優先、票券深層連結與商家歸屬；原有 62 項管理端 Human E2E 功能、日曆增修刪、可見性設定及票券核銷授權路徑不變。本輪改為伺服器已授權曝光之項目在日期詳細視窗中依 locked/tierEligible 分為當日可用與未解鎖兩區，鎖定項目顯示 lockReason 且永不產生使用連結；休假仍獨佔當日，eligible_only 不公開項目不得從瀏覽器補出。新增 tests/calendar_date_offer_groups.test.js AC-001～006 與 tests/browser/calendar-date-offer-groups.spec.cjs 在 320／390／1280px 與休假、純鎖定、空項目下實測分區、票券深層連結之 merchant 商家參數及橫向溢出。只改 calendar/app.js、styles.css、index.html 快取版本與文案，不變更資料庫、Edge、LINE、後端授權。已覆核既有 62 組管理員旅程未增刪；真人 LINE LIFF Provider 與此輪最終 SHA CI／Preview 仍須以實際結果驗證，不得以 stub 代替。",
-  "eventActivityBookingConditionsReview": "2026-11-27 PR #507：逐項檢視既有 62 組 admin-human 管理流程；活動票券新增可選的預約人數上下限，會員活動新增預約項目（任一／全部／組合）、金額與人數條件，均保留未設定時原有行為。管理端新增欄位於原票券及會員活動編輯頁，不移除任何既有操作；原 event.16/23 的建立、設定、編輯與 calendar 活動儲存工作流延伸新增條件。後端保留角色與商家隔離、驗證會員本人預約資訊和不可偽造人數；會員日曆及票券顯示條件，保留目前獨立快照模式原流程。新增 event_member_activity_booking_conditions.test.js AC-001..006 及資料庫規則，跨商家/新商家範本、Chromium、完整 CI 及 LINE 實機仍需以最終提交結果取證；不把靜態審閱當成 E2E 通過。\n2026-11-27 PR #507 程式審查修正：群組模式儲存不傳遞隱藏單項勾選，以防後端正常化後讀回被誤判失敗；關聯審查建議需有回歸測試證據。"
+  "eventActivityBookingConditionsReview": "2026-11-27 PR #507：逐項檢視既有 62 組 admin-human 管理流程；活動票券新增可選的預約人數上下限，會員活動新增預約項目（任一／全部／組合）、金額與人數條件，均保留未設定時原有行為。管理端新增欄位於原票券及會員活動編輯頁，不移除任何既有操作；原 event.16/23 的建立、設定、編輯與 calendar 活動儲存工作流延伸新增條件。後端保留角色與商家隔離、驗證會員本人預約資訊和不可偽造人數；會員日曆及票券顯示條件，保留目前獨立快照模式原流程。新增 event_member_activity_booking_conditions.test.js AC-001..006 及資料庫規則，跨商家/新商家範本、Chromium、完整 CI 及 LINE 實機仍需以最終提交結果取證；不把靜態審閱當成 E2E 通過。\n2026-11-27 PR #507 程式審查修正：群組模式儲存不傳遞隱藏單項勾選，以防後端正常化後讀回被誤判失敗；關聯審查建議需有回歸測試證據。",
+  "crudTransportReview": "2026-11-27 PR #500：已核對62組管理端既有旅程；grant-automation 僅將 admin.member-grants.add 交由 MemberSystem 共用傳輸，保留 grant-automation endpoint、requestId、通知模式、預覽與發放結果、原表單及權限，不新增或移除UI操作。新增載入實際擴充的 Node 與390/1280px Chromium案例，涵蓋寫入前後讀取失效、payload及單次送出；原 MEMBER_SERVICE_GRANT、STALE、RETRY及62組旅程繼續為必要回歸。完整CI及指定測試環境部署仍需以最終SHA查驗。"
 }

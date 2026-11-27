@@ -46,20 +46,20 @@ const fixture = {
     { member_id: member.id, event_ticket_id: 'archived-event', claim_id: 'HISTORY', status: 'used', event_tickets: { event_ticket_id: 'OLD' } },
   ],
 };
-function database({ rows = {}, errorTable, hold = () => false } = {}) {
+function database({ rows = {}, errorTable, hold = () => false, calendarResultId = 'CAL-SAVED', rowLimit = Infinity } = {}) {
   const calls = [], releases = [], writes = [];
   const data = { ...fixture, ...rows };
   const client = { calls, releases, writes, from(table) {
-    const filters = []; let single = false, options, columns;
+    const filters = [], equalities = []; let single = false, options, columns;
     const q = { select(value, opts) { columns = value; options = opts; return q; },
-      eq(key, value) { filters.push(row => row[key] === value); return q; },
+      eq(key, value) { equalities.push([key, value]); filters.push(row => row[key] === value); return q; },
       in(key, values) { filters.push(row => values.includes(row[key])); return q; },
       is(key, value) { filters.push(row => value === null ? row[key] == null : row[key] === value); return q; },
       single() { single = true; return q; }, maybeSingle() { single = true; return q; },
       insert() { writes.push(table); return q; }, update() { writes.push(table); return q; },
       then(resolve, reject) {
-        calls.push({ table, columns });
-        const selected = (data[table] || []).filter(row => filters.every(filter => filter(row)));
+        const selected = (data[table] || []).filter(row => filters.every(filter => filter(row))).slice(0, rowLimit);
+        calls.push({ table, columns, equalities, returnedRows: selected.length, returnedBytes: Buffer.byteLength(JSON.stringify(selected)) });
         const result = { data: options?.head ? null : single ? selected[0] || null : selected, count: selected.length, error: table === errorTable ? { message: 'fixture database failure' } : null };
         const promise = hold(table, columns) ? new Promise(done => releases.push(() => done(result))) : Promise.resolve(result);
         return promise.then(resolve, reject);
@@ -69,6 +69,7 @@ function database({ rows = {}, errorTable, hold = () => false } = {}) {
     return q;
   }, rpc(name, args) {
     calls.push({ table: name, args });
+    if (name === 'apply_calendar_batch') return Promise.resolve({ data: [{ calendarItemId: calendarResultId }], error: name === errorTable ? { message: 'fixture database failure' } : null });
     if (name === 'member_ticket_booking_options') return Promise.resolve({data: data.bookingOptions || {points:{},event:{}}, error:name===errorTable?{message:'fixture database failure'}:null});
     if (name === 'member_service_minute_totals') {
       const totals = args.p_member_ids.map(member_id => ({ member_id, total_minutes: (data.service_time_entries || []).filter(row => row.member_id === member_id).reduce((sum, row) => sum + row.minutes, 0) }));
@@ -86,6 +87,63 @@ function database({ rows = {}, errorTable, hold = () => false } = {}) {
   } }; return client;
 }
 const flush = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
+
+const calendarRow = (id, extra = {}) => ({
+  calendar_item_id: id, title: `Activity ${id}`, item_type: 'activity',
+  description: 'saved description', starts_on: '2026-11-27', ends_on: '2026-11-28',
+  status: 'active', accent: '#123456', allowed_tier_keys: ['gold'], visibility_policy: 'all_members',
+  link_label: 'Details', link_url: 'https://example.test/activity',
+  created_at: '2026-11-26T01:00:00Z', updated_at: '2026-11-27T02:00:00Z', ...extra,
+});
+for (const mode of ['create', 'update']) test(`CRUD AC-003 calendar ${mode}: return the committed row beyond the list limit without loading unrelated rows`, async () => {
+  const row = calendarRow('CAL-SAVED');
+  const db = database({ rows: { calendar_items: [...Array.from({ length: 1000 }, (_, i) => calendarRow(`CAL-${i}`)), row] }, rowLimit: 1000 });
+  const result = await api().handleAction(db, identity, 'admin.calendar-items.save', {
+    calendarItem: { title: row.title, ...(mode === 'update' ? { calendarItemId: 'CAL-SAVED' } : {}) },
+    expectedUpdatedAt: mode === 'update' ? '2026-11-26T01:00:00Z' : '',
+  });
+  assert.equal(result.calendarItem?.calendarItemId, 'CAL-SAVED');
+  assert.equal(result.calendarItem?.title, row.title);
+  assert.deepEqual(Array.from(result.calendarItem.allowedTierKeys), ['gold']);
+  assert.equal(result.calendarItem.visibilityPolicy, 'all_members');
+  assert.equal(result.calendarItem.linkUrl, row.link_url);
+  assert.equal(result.calendarItem.updatedAt, row.updated_at);
+  const query = db.calls.find(call => call.table === 'calendar_items');
+  assert.deepEqual(query.equalities, [['calendar_item_id', 'CAL-SAVED']]);
+  assert.equal(query.returnedRows, 1);
+  assert.equal(query.returnedBytes, Buffer.byteLength(JSON.stringify([row])));
+  const mutation = db.calls.find(call => call.table === 'apply_calendar_batch');
+  assert.equal(mutation.args.p_actor_line_user_id, identity.lineUserId);
+  assert.equal(mutation.args.p_operations[0].action, 'save');
+  assert.equal(mutation.args.p_operations[0].calendarItem.bonusPointsEnabled, false);
+});
+test('CRUD AC-003 calendar list and batch retain all mapped records', async () => {
+  const rows = [calendarRow('CAL-A'), calendarRow('CAL-B', { status: 'draft' })];
+  for (const [action, payload] of [['admin.calendar-items.list', {}], ['admin.calendar-items.batch', { calendarItemOperations: [] }]]) {
+    const db = database({ rows: { calendar_items: rows } });
+    const result = await api().handleAction(db, identity, action, payload);
+    assert.deepEqual(Array.from(result.calendarItems, row => row.calendarItemId), ['CAL-A', 'CAL-B']);
+    assert.deepEqual(db.calls.find(call => call.table === 'calendar_items').equalities, []);
+  }
+});
+test('CRUD AC-003 calendar missing committed ID never falls back to a full read', async () => {
+  for (const calendarResultId of ['', 'CAL-NOT-FOUND']) {
+    const db = database({ calendarResultId, rows: { calendar_items: [calendarRow('CAL-OTHER')] } });
+    const result = await api().handleAction(db, identity, 'admin.calendar-items.save', { calendarItem: { calendarItemId: 'untrusted-input-id' } });
+    assert.equal(result.calendarItem, null);
+    assert.deepEqual(db.calls.find(call => call.table === 'calendar_items').equalities, [['calendar_item_id', calendarResultId]]);
+  }
+});
+test('CRUD AC-003 calendar save propagates mutation/read failure and rejects unauthorized writes', async () => {
+  for (const errorTable of ['apply_calendar_batch', 'calendar_items']) {
+    const db = database({ errorTable });
+    await assert.rejects(api().handleAction(db, identity, 'admin.calendar-items.save', { calendarItem: { title: 'Activity' } }), { code: 'DATABASE_ERROR' });
+    if (errorTable === 'apply_calendar_batch') assert.equal(db.calls.some(call => call.table === 'calendar_items'), false);
+  }
+  const denied = database({ rows: { admins: [] } });
+  await assert.rejects(api().handleAction(denied, identity, 'admin.calendar-items.save', {}), { code: 'ADMIN_PENDING' });
+  assert.equal(denied.calls.some(call => call.table === 'apply_calendar_batch' || call.table === 'calendar_items'), false);
+});
 
 test('profile reads start together, retain member isolation and produce correct totals', async () => {
   const db = database({ hold: () => true }); const pending = api().profileFor(db, member);
