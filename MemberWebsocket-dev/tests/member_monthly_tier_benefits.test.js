@@ -140,7 +140,11 @@ test('AC-006: compact widget only loads on open, coalesces, and protects against
   await Promise.all([same,second]);
   assert.equal(target.children.length,1,'only selected tier is rendered');
   assert.equal(tabs.children.length,4,'four tier switches are available');
-  assert.equal(target.children[0].children[1].children[0].children[1].textContent,'<script>alert(1)</script>','offer titles remain plain text');
+  const renderedGroups = target.children[0].children.filter(node => node.dataset?.monthlyOfferKind);
+  assert.deepEqual(Array.from(renderedGroups, node => node.dataset.monthlyOfferKind),['ticket','activity'],'one ticket and one activity section per tier');
+  assert.equal(renderedGroups[0].children[1].children[0].children[0].textContent,
+    '<script>alert(1)</script>','offer titles remain plain text and must not become executable markup');
+  assert.equal(renderedGroups[1].children[1].textContent,'本月尚無會員活動','empty activity section remains explicit');
   assert.equal(button.disabled,false);
   assert.equal(teaser.textContent,'收合內容','expanded panel must advertise how to close it');
   tabs.children[0].onclick();
