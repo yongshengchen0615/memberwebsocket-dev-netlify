@@ -520,22 +520,30 @@ test('AC-ADM-FD-003/004: LINE deep link auto-displays admin original/replacement
 });
 
 
-test('AC-FD-REJ-TABS-003: configured merchant can switch to reason editor and retain the draft across tabs',async()=>{
+test('AC-FD-REJ-TABS-003/004: separate reason categories preserve drafts and save together',async()=>{
  const dom=new JSDOM('<div id="root"></div>',{
   url:'https://desk.test/admin/frontdesk-settings/?business=shop-a',
   runScripts:'outside-only',pretendToBeVisual:true
  });
  const w=dom.window,root=w.document.getElementById('root'),calls=[];
+ w.crypto.randomUUID=()=> '00000000-0000-4000-8000-000000000111';
  const current={version:7,frontdesk:{enabled:true,rejectionSettings:{
   dropdownTitle:'請選擇拒絕原因',reasons:[
    {id:'technician_leave',label:'休假技師',memberDescription:'休假無法接待，請改期',enabled:true,requiresConflictTime:false},
    {id:'unrecorded_phone_booking',label:'現場預約衝突',memberDescription:'時段已滿',enabled:true,requiresConflictTime:true}
-  ]
+  ],modification:{dropdownTitle:'拒絕修改原因',reasons:[
+   {id:'custom_00000000-0000-4000-8000-000000000001',label:'修改後時段無法安排',memberDescription:'修改時間無法安排，請改期',enabled:true,requiresConflictTime:false,hasVacationTechnicians:false}
+  ]}
  }},staff:[]};
  const request=async(action,body)=>{
   calls.push({action,body});
   if(action==='platform.frontdesk.get')return structuredClone(current);
   if(action==='platform.frontdesk.history.list')return{items:[]};
+  if(action==='platform.frontdesk.rejection-settings.save'){
+   current.version+=1;
+   current.frontdesk.rejectionSettings=structuredClone(body.rejectionSettings);
+   return structuredClone(current);
+  }
   throw Error('Unexpected action '+action);
  };
  w.eval(fs.readFileSync(path.join(__dirname,'../../admin/frontdesk-settings.js'),'utf8'));
@@ -544,26 +552,53 @@ test('AC-FD-REJ-TABS-003: configured merchant can switch to reason editor and re
  details.open=true;details.dispatchEvent(new w.Event('toggle'));
  const settle=()=>new Promise(resolve=>setImmediate(resolve));
  await settle();await settle();
- const getReadsAtOpen=calls.filter(c=>c.action==='platform.frontdesk.get').length;
+ const readsAtOpen=calls.filter(c=>c.action==='platform.frontdesk.get').length;
  const tab=root.querySelector('#frontdesk-tab-rejectionSettings'),editor=root.querySelector('[data-frontdesk-rejection-settings]');
  assert.equal(tab.hidden,false);
- assert.equal(editor.hidden,false,'the editor itself remains mounted but hidden through its panel');
  assert.equal(root.querySelector('#frontdesk-rejection-panel').hidden,true);
  tab.click();
  assert.equal(tab.getAttribute('aria-selected'),'true');
  assert.equal(root.querySelector('#frontdesk-line-panel').hidden,true);
  assert.equal(root.querySelector('#frontdesk-rejection-panel').hidden,false);
- const desc=editor.querySelector('textarea');
- desc.value='更新後會員看到的說明';desc.dispatchEvent(new w.Event('input',{bubbles:true}));
- assert.match(editor.querySelector('.frontdesk-rejection-preview').textContent,/更新後會員看到的說明/);
+ const ordinaryTab=editor.querySelector('#frontdesk-reason-tab-ordinary');
+ const modificationTab=editor.querySelector('#frontdesk-reason-tab-modification');
+ const ordinaryPanel=editor.querySelector('[data-frontdesk-reason-category="ordinary"]');
+ const modificationPanel=editor.querySelector('[data-frontdesk-reason-category="modification"]');
+ assert.ok(ordinaryTab && modificationTab,'separate keyboard-accessible rejection categories');
+ assert.equal(ordinaryTab.getAttribute('aria-selected'),'true');
+ assert.equal(ordinaryPanel.hidden,false);
+ assert.equal(modificationPanel.hidden,true);
+ const description=ordinaryPanel.querySelector('textarea');
+ description.value='更新後會員看到的說明';
+ description.dispatchEvent(new w.Event('input',{bubbles:true}));
+ assert.match(ordinaryPanel.querySelector('.frontdesk-rejection-preview').textContent,/更新後會員看到的說明/);
+ modificationTab.click();
+ assert.equal(modificationPanel.hidden,false);
+ assert.equal(ordinaryPanel.hidden,true);
+ assert.equal(modificationTab.getAttribute('aria-selected'),'true');
+ const modificationLabel=modificationPanel.querySelector('[name^="modification-label-"]');
+ modificationLabel.value='修改預約時間已滿';
+ modificationLabel.dispatchEvent(new w.Event('input',{bubbles:true}));
+ ordinaryTab.click();
+ assert.equal(description.value,'更新後會員看到的說明','switching categories must preserve new-booking draft');
+ assert.equal(modificationLabel.value,'修改預約時間已滿','switching categories must preserve modification draft');
  root.querySelector('#frontdesk-tab-confirmed').click();await settle();
  assert.equal(root.querySelector('#frontdesk-rejection-panel').hidden,true);
  assert.equal(root.querySelector('#frontdesk-history-panel').hidden,false);
  tab.click();
  assert.equal(root.querySelector('#frontdesk-rejection-panel').hidden,false);
- assert.equal(editor.querySelector('textarea').value,'更新後會員看到的說明');
- assert.equal(calls.filter(c=>c.action==='platform.frontdesk.get').length,getReadsAtOpen,
-  'tab switching must not add a new read or wipe unsaved draft');
+ assert.equal(description.value,'更新後會員看到的說明');
+ assert.equal(modificationLabel.value,'修改預約時間已滿');
+ assert.equal(calls.filter(c=>c.action==='platform.frontdesk.get').length,readsAtOpen,
+  'tab switches must not trigger extra read or wipe unsaved drafts');
+ editor.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+ await settle();await settle();
+ const writes=calls.filter(c=>c.action==='platform.frontdesk.rejection-settings.save');
+ assert.equal(writes.length,1,'both categories use one version-guarded request');
+ assert.equal(writes[0].body.expectedVersion,7);
+ assert.equal(writes[0].body.rejectionSettings.reasons[0].memberDescription,'更新後會員看到的說明');
+ assert.equal(writes[0].body.rejectionSettings.modification.reasons[0].label,'修改預約時間已滿');
+ assert.match(root.querySelector('.frontdesk-settings-body > [role="status"]').textContent,/拒絕預約與拒絕修改原因已一起儲存/);
  w.FrontdeskSettings.clear(root);dom.window.close();
 });
 
