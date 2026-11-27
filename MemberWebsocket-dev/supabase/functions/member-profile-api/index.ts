@@ -393,6 +393,10 @@ async function monthlyCatalogueRows(fetchPage: (cursor: string | null, first: bo
 }
 
 // A member can preview published tier offers without obtaining a physical ticket.
+// Calendar opt-in only adds/removes a ticket-linked calendar_items mirror; the
+// monthly ticket catalogue must read original event_tickets independently.
+// Standalone calendar_items activities remain a separate collection; mirrors
+// are filtered by buildMonthlyTierOverview. Keep merchant feature grants.
 // Check merchant module grants before reading each collection.
 async function monthlyTierBenefits(supabase: SupabaseClient, member: any): Promise<Json> {
   const month = currentTaipeiMonth();
