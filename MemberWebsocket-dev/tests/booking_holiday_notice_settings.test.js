@@ -107,5 +107,5 @@ test('AC-HOL-005: light/dark high-contrast holiday styles and versioned assets',
   assert.match(experienceCss, /#bookingView \.calendar-day:not\(\.holiday-disabled\):not\(:disabled\):hover/);
   assert.match(memberPage, /experience\.css\?v=[^"']+holiday-contrast=20261127-3/);
   assert.match(memberPage, /holiday-notice=20261127-1/);
-  assert.match(memberPage, /calendar-holiday-theme\\.css\\?v=[^\"']+holiday-contrast=20261127-2/);
+  assert.match(memberPage, /calendar-holiday-theme\.css\?v=[^"']+holiday-contrast=20261127-2/);
 });
