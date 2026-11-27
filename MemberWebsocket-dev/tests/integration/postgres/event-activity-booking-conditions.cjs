@@ -23,8 +23,29 @@ test('PG17 AC-PARTY-001..008: real booking eligibility, tenant isolation, defaul
  const h=await fixture({...await database()});
  try {
   const tenant=await h.approve('U'+'8'.repeat(32),'activity-party-'+uuid().slice(0,8));
-  for(const name of [...prerequisites,...current])await h.db.exec(sql(name));
+  for(const name of prerequisites)await h.db.exec(sql(name));
   const s=tenant.runtime_schema;
+  // The isolated October fixture initializes its template before applying later
+  // November migrations. Real TEST already has a synchronized business blueprint.
+  // Repair ONLY the synthetic fixture's blueprint from the tenant bodies generated
+  // by the prerequisites, so the production migration's strict drift gate remains
+  // unchanged. Verify each expected source function exists before doing so.
+  const sourceNames=['booking_ticket_matches_services','ticket_has_service_requirement',
+    'apply_calendar_batch','replace_booking_benefit_selections_request',
+    'validate_booking_benefit_service_requirement_row','reconcile_booking_ticket_services'];
+  const rows=(await h.db.query(`select p.proname,replace(pg_get_functiondef(p.oid),$1,'public') as definition
+    from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname=$1 and p.proname=any($2::text[])`,[s,'{'+sourceNames.join(',')+'}'])).rows;
+  assert.equal(rows.length,sourceNames.length,'every existing-tenant function required for baseline normalization is present');
+  const originals=Object.fromEntries(rows.map(r=>[r.proname,r.definition]));
+  await h.db.query(`update platform_private.business_templates
+    set snapshot=jsonb_set(snapshot,'{functions}',(
+      select jsonb_agg(case when $1::jsonb ? (item->>'name')
+        then jsonb_set(item,'{definition}',to_jsonb($1::jsonb->>(item->>'name')))
+        else item end order by ord)
+      from jsonb_array_elements(snapshot->'functions') with ordinality a(item,ord)))
+    where version='business-v1-20261019'`,[JSON.stringify(originals)]);
+  for(const name of current)await h.db.exec(sql(name));
   await t.test('Public/tenant DDL and function execute boundary, no legacy data loss',async()=>{
    for(const schema of ['public',s]){
     for(const [table,required] of [['event_tickets',['min_booking_party_size','max_booking_party_size']],
