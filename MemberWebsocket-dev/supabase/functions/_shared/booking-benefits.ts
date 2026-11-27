@@ -28,7 +28,7 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
     loadLatestPointOffers(db, String(member.id), true, true),
     loadLatestEventOffers(db, String(member.id), tier, true, true),
     allowed('calendar')?db.from('calendar_items')
-      .select('calendar_item_id,title,item_type,starts_on,ends_on,status,allowed_tier_keys,visibility_policy,source_event_ticket_id,link_url,audience_type,audience_month')
+      .select('calendar_item_id,title,item_type,starts_on,ends_on,status,allowed_tier_keys,visibility_policy,source_event_ticket_id,link_url,audience_type,audience_month,required_service_ids,required_service_match_mode,required_service_groups,min_booking_amount_mode,min_booking_amount,min_booking_service_ids,min_booking_party_size,max_booking_party_size')
       .eq('item_type', 'event').in('status', ['active', 'targeted'])
       .is('source_event_ticket_id', null).lte('starts_on', today)
       .order('starts_on', { ascending: true }):Promise.resolve(empty),
@@ -266,6 +266,9 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
         const minBookingAmountMode = offer.minBookingAmountMode || 'none';
         const minBookingAmount = Number(offer.minBookingAmount || 0);
         const minBookingServiceIds = Array.isArray(offer.minBookingServiceIds) ? offer.minBookingServiceIds : [];
+        const minBookingPartySize = Number(offer.minBookingPartySize || 0);
+        const maxBookingPartySize = Number(offer.maxBookingPartySize || 0);
+        const minBookingPartySizeLabel = minBookingPartySize && maxBookingPartySize ? `每筆預約需 ${minBookingPartySize}–${maxBookingPartySize} 位` : minBookingPartySize ? `每筆預約至少 ${minBookingPartySize} 位` : maxBookingPartySize ? `每筆預約最多 ${maxBookingPartySize} 位` : '';
         const minBookingServiceTitles = minBookingServiceIds.map((id) =>
           requiredServiceTitleById.get(String(id)) || '已停用項目');
         const amountText = 'NT' + String.fromCharCode(36) + minBookingAmount.toLocaleString('en-US');
@@ -292,7 +295,8 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
           claimRequired: false, // legacy response shape: booking never issues a claim
           requiredServiceIds, requiredServiceMatchMode, requiredServiceGroups, requiredServiceTitles, requiredServiceRequirementLabel,
           minBookingAmountMode, minBookingAmount, minBookingServiceIds, minBookingServiceTitles, minBookingAmountLabel,
-          conditionLabel: `${receivedAsGift ? '好友贈票 · 使用不限會員階級 · ' : ''}${eventTicketMaxPerDay === 0 ? '每日使用張數不限' : `每日最多使用 ${eventTicketMaxPerDay} 張`} · ${requiredServiceRequirementLabel ? `預約項目限制：${requiredServiceRequirementLabel}` : '預約項目限制：不限'} · ${minBookingAmountLabel}${offer.requiresLocation === true ? ' · 現場單獨使用需 GPS 定位' : ''}`,
+          minBookingPartySize, maxBookingPartySize, minBookingPartySizeLabel,
+          conditionLabel: `${receivedAsGift ? '好友贈票 · 使用不限會員階級 · ' : ''}${eventTicketMaxPerDay === 0 ? '每日使用張數不限' : `每日最多使用 ${eventTicketMaxPerDay} 張`} · ${requiredServiceRequirementLabel ? `預約項目限制：${requiredServiceRequirementLabel}` : '預約項目限制：不限'} · ${minBookingAmountLabel}${minBookingPartySizeLabel ? ' · '+minBookingPartySizeLabel : ''}${offer.requiresLocation === true ? ' · 現場單獨使用需 GPS 定位' : ''}`,
           disabledReason: locked ? visibility.lockReason : usageExhausted ? '本活動使用名額已額滿，已發放票券仍保留在帳戶。' : reservedForOtherBooking ? '此票券已在一般預約登記，不能重複登記。' : reservedInSnapshot ? '此票券已在快照模式登記，待審核期間不能重複登記。' : !offer.claimId ? '尚未發放，不能登記或使用。' : '',
         };
       }),
@@ -301,7 +305,10 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
         subtitle: tierVisibility(item.allowed_tier_keys,tier,item.visibility_policy || visibilityPolicy).lockReason || '適用於目前會員階級', statusLabel: tierVisibility(item.allowed_tier_keys,tier,item.visibility_policy || visibilityPolicy).locked ? '需升級' : '活動進行中',
         startsOn: item.starts_on || '', endsOn: item.ends_on || item.starts_on || '',
         selectable: false, selectionId: '',
-        conditionLabel: '會員條件：目前會員階級適用 · 活動資訊僅供預約參考',
+        requiredServiceIds: item.required_service_ids || [], requiredServiceGroups: item.required_service_groups || [],
+        minBookingAmountMode: item.min_booking_amount_mode || 'none', minBookingAmount: Number(item.min_booking_amount || 0),
+        minBookingPartySize: Number(item.min_booking_party_size || 0), maxBookingPartySize: Number(item.max_booking_party_size || 0),
+        conditionLabel: '會員條件：目前會員階級適用 · 活動資訊僅供預約參考' + (Number(item.min_booking_party_size || 0) ? ` · 至少 ${item.min_booking_party_size} 位` : '') + (Number(item.max_booking_party_size || 0) ? ` · 最多 ${item.max_booking_party_size} 位` : '') + (item.min_booking_amount_mode !== 'none' ? ` · 最低消費 NT${Number(item.min_booking_amount || 0).toLocaleString('en-US')}` : ''),
         disabledReason: '',
       })),
     ],

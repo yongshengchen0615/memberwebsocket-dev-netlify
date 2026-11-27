@@ -327,8 +327,9 @@
     els.ticketModalServiceRequirement.textContent = serviceRequirement ? `預約項目條件：${serviceRequirement}` : '';
     els.ticketModalServiceRequirement.classList.toggle('hidden', !serviceRequirement);
     const amountRequirement = String(ticket.minBookingAmountLabel || '').trim();
-    els.ticketModalAmountRequirement.textContent = amountRequirement ? `金額使用條件：${amountRequirement}` : '';
-    els.ticketModalAmountRequirement.classList.toggle('hidden', !amountRequirement);
+    const partyRequirement = String(ticket.minBookingPartySizeLabel || '').trim();
+    els.ticketModalAmountRequirement.textContent = [amountRequirement ? `金額使用條件：${amountRequirement}` : '', partyRequirement ? `預約人數條件：${partyRequirement}` : ''].filter(Boolean).join(' · ');
+    els.ticketModalAmountRequirement.classList.toggle('hidden', !amountRequirement && !partyRequirement);
     renderPrizes(ticket.ticketType, ticket.prizes);
     const needsGps = Boolean(!transferMode && claim && ticket.requiresLocation && !history && !reserved && !offer.pendingSnapshot);
     els.ticketModalLocationStatus.classList.toggle('hidden', !needsGps);

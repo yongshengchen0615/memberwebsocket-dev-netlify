@@ -14,10 +14,11 @@ function projectCalendarRows(calendarRows = [], tickets = [], profile = { tierKe
   const projection = source.slice(start, end)
     .replace(/:\s*any\b/g, '')
     .replace(/:\s*CalendarItem(?:\[\])?/g, '')
-    .replace(/new Set<string>\(\)/g, 'new Set()');
+    .replace(/new Set<string>\(\)/g, 'new Set()')
+    .replace(/new Map<string,string>\(/g, 'new Map(');
   const run = new Function(
-    'result', 'eventTicketsResult', 'profile', 'birthdayMonth', 'asText',
-    'calendarClient', 'decorateTierEligibility', 'parseIsoDate', 'URL',
+    'result', 'eventTicketsResult', 'bookingServicesResult', 'profile', 'birthdayMonth', 'asText',
+    'calendarClient', 'decorateTierEligibility', 'activityUsageLabels', 'parseIsoDate', 'URL',
     projection + '\nreturn { items, ongoingTickets };'
   );
   const asText = (value, max = 1000) => String(value ?? '').trim().slice(0, max);
@@ -30,8 +31,8 @@ function projectCalendarRows(calendarRows = [], tickets = [], profile = { tierKe
   const decorateTierEligibility = (item) => ({ ...item, tierEligible: true });
   const parseIsoDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value))
     ? new Date(String(value) + 'T00:00:00Z') : null;
-  return run({ data: calendarRows }, { data: tickets }, profile,
-    () => 0, asText, calendarClient, decorateTierEligibility, parseIsoDate, URL);
+  return run({ data: calendarRows }, { data: tickets }, { data: [] }, profile,
+    () => 0, asText, calendarClient, decorateTierEligibility, () => [], parseIsoDate, URL);
 }
 
 const activeTicket = {

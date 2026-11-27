@@ -263,6 +263,15 @@
         ? String(item.lockReason || `可參加階級：${labels}。目前會員階級尚未解鎖。`)
         : `可參加階級：${labels}。`;
       detail.append(tierAccess);
+      const rules = Array.isArray(item.usageConditionLabels) ? item.usageConditionLabels.filter(Boolean) : [];
+      if (rules.length) {
+        const requirements = document.createElement('div'); requirements.className = 'calendar-detail-usage-conditions';
+        const heading = document.createElement('strong'); heading.textContent = '活動使用條件';
+        const list = document.createElement('ul');
+        rules.forEach(rule => { const row = document.createElement('li'); row.textContent = String(rule); list.append(row); });
+        const hint = document.createElement('p'); hint.textContent = '須符合上述預約條件才能使用；是否可用以實際預約資料為準。';
+        requirements.append(heading,list,hint); detail.append(requirements);
+      }
       const linkUrl = resolveCalendarLink(item.linkUrl) || resolveCalendarLinkForItem(item);
       const linkLabel = String(item.linkLabel || '').trim();
       if (item.tierEligible !== false && linkLabel && isSafeCalendarLink(linkUrl) && !isLocked) {

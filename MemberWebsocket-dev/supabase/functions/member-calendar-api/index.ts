@@ -69,9 +69,42 @@ function calendarClient(row: any): CalendarItem {
     visibilityPolicy: row.visibility_policy || 'eligible_only',
     linkLabel: row.link_label || "",
     linkUrl: row.link_url || "",
+    requiredServiceIds: Array.isArray(row.required_service_ids)?row.required_service_ids:[],
+    requiredServiceMatchMode: Array.isArray(row.required_service_groups)&&row.required_service_groups.length?'groups':row.required_service_match_mode||'any',
+    requiredServiceGroups: Array.isArray(row.required_service_groups)?row.required_service_groups:[],
+    minBookingAmountMode: row.min_booking_amount_mode||'none',
+    minBookingAmount: Number(row.min_booking_amount||0),
+    minBookingServiceIds: Array.isArray(row.min_booking_service_ids)?row.min_booking_service_ids:[],
+    minBookingPartySize: Number(row.min_booking_party_size||0),
+    maxBookingPartySize: Number(row.max_booking_party_size||0),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+function activityUsageLabels(item: CalendarItem, titles: Map<string,string>): string[] {
+  const ids = Array.isArray(item.requiredServiceIds)?item.requiredServiceIds:[];
+  const groups = Array.isArray(item.requiredServiceGroups)?item.requiredServiceGroups:[];
+  const title = (id: unknown) => titles.get(String(id)) || '已停用項目';
+  const result: string[] = [];
+  if (groups.length) result.push('需預約以下任一組合：'+groups.map((group:any)=>Array.isArray(group)?group.map(title).join('＋'):'資料異常').join(' 或 '));
+  else if (ids.length) result.push(item.requiredServiceMatchMode==='all'
+    ? '需預約所有指定項目：'+ids.map(title).join('、')
+    : '需預約任一指定項目：'+ids.map(title).join('、'));
+  const mode=String(item.minBookingAmountMode||'none');
+  const amount=Number(item.minBookingAmount||0);
+  if (mode!=='none') {
+    const price='NT'+String.fromCharCode(36)+amount.toLocaleString('en-US');
+    const amountIds=Array.isArray(item.minBookingServiceIds)?item.minBookingServiceIds:[];
+    result.push(mode==='total'?'預約總金額至少 '+price:mode==='selected_services'&&amountIds.length
+      ? '指定項目「'+amountIds.map(title).join('、')+'」合計至少 '+price
+      : '預約金額條件資料異常，請洽店家');
+  }
+  const min=Number(item.minBookingPartySize||0), max=Number(item.maxBookingPartySize||0);
+  if (min>0 && max>0) result.push(`每筆預約需 ${min}–${max} 位`);
+  else if (min>0) result.push(`每筆預約至少 ${min} 位`);
+  else if (max>0) result.push(`每筆預約最多 ${max} 位`);
+  return result;
 }
 
 function birthdayMonth(value: unknown): number {
@@ -271,7 +304,7 @@ serveBusiness('member-calendar-api',async (request: Request) => {
     }
 
     const db = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession:false, autoRefreshToken:false } });
-    const [result, eventTicketsResult] = await Promise.all([
+    const [result, eventTicketsResult, bookingServicesResult] = await Promise.all([
       db.from("calendar_items")
         .select("*")
         .in("status", ["active", "targeted"])
@@ -283,8 +316,9 @@ serveBusiness('member-calendar-api',async (request: Request) => {
         .is("deleted_at", null)
         .is("referral_source_event_ticket_id", null)
         .is("fixed_ticket_template_id", null),
+      db.from("booking_services").select("id,title"),
     ]);
-    if (result.error || eventTicketsResult.error) {
+    if (result.error || eventTicketsResult.error || bookingServicesResult.error) {
       return reply(origin, { ok:false,status:500,error:{ code:"DATABASE_ERROR",message:"營運日曆暫時無法讀取。" } }, 500);
     }
 
@@ -300,11 +334,13 @@ serveBusiness('member-calendar-api',async (request: Request) => {
 
     // Explicit calendar_items are the only source of member-facing calendar entries.
     // An active event ticket alone must never publish an activity to the calendar.
+    const serviceTitles = new Map<string,string>((bookingServicesResult.data||[]).map((row:any)=>[String(row.id),String(row.title||'已停用項目')]));
     const eventByUuid = new Map((eventTicketsResult.data || []).map((ticket: any) => [String(ticket.id), ticket]));
     const eventByCode = new Map((eventTicketsResult.data || []).map((ticket: any) => [String(ticket.event_ticket_id), ticket]));
     const calendarEntries = rows.map((row: any) => {
       const item = calendarClient(row);
       if (item.itemType !== 'event') return item;
+      item.usageConditionLabels=activityUsageLabels(item,serviceTitles);
       let linkedTicket = eventByUuid.get(String(row.source_event_ticket_id || ''));
       if (!linkedTicket) {
         try {
