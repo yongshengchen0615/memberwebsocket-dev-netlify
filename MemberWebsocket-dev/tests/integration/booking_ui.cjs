@@ -25,8 +25,11 @@ assert.equal(calls.filter(x=>x.action==='user.booking.slots').at(-1).payload.boo
 clickText('10:00–11:10');
 w.document.getElementById('bookingForm').dispatchEvent(new w.Event('submit',{cancelable:true}));
 assert.equal(w.document.getElementById('bookingConfirmTitle').textContent,'確認修改預約');
-clickText('確認送出');await tick();
-const update=calls.find(x=>x.action==='user.booking.update');assert.ok(update);assert.equal(update.payload.expectedUpdatedAt,booking.updatedAt);
+clickText('下一步：選擇優惠');
+assert.equal(w.document.getElementById('bookingConfirmModal').classList.contains('hidden'), true);
+assert.equal(w.document.getElementById('bookingBenefitModal').classList.contains('hidden'), false);
+clickText('不使用優惠送出預約');await tick();
+const update=calls.find(x=>x.action==='user.booking.update');assert.ok(update);assert.equal(update.payload.expectedUpdatedAt,booking.updatedAt);assert.deepEqual(update.payload.benefits,[]);
 assert.equal(calls.some(x=>x.action==='user.booking.create'),false);
 assert.equal(w.document.getElementById('appointmentModalTitle').textContent,'預約');
 assert.match(w.document.getElementById('bookingList').textContent,/等待管理端確認/);
