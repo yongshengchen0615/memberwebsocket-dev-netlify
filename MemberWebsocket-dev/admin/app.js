@@ -3056,7 +3056,8 @@
     setSaving(els.saveCalendarItemButton, true, '正在儲存日曆項目…');
     try {
       const result = await window.MemberSystem.request(state.config, 'admin', state.idToken, 'admin.calendar-items.save', { calendarItem: item, expectedUpdatedAt: els.calendarItemExpectedUpdatedAt.value });
-      if (!result.calendarItem || JSON.stringify(result.calendarItem.usageConditions || {}) !== JSON.stringify(item.usageConditions)) throw new Error('後端未保留會員活動使用條件，請確認 API 與資料庫已升級。');
+      const canonicalRule = (rule) => JSON.stringify(Object.keys(rule || {}).sort().map((key) => [key, rule[key]]));
+      if (!result.calendarItem || canonicalRule(result.calendarItem.usageConditions) !== canonicalRule(item.usageConditions)) throw new Error('後端未保留會員活動使用條件，請確認 API 與資料庫已升級。');
       if (result.calendarItem) { state.calendarItems = replaceById(state.calendarItems, result.calendarItem, 'calendarItemId'); loadCalendarItemForm(result.calendarItem.calendarItemId); }
       if (await refreshAfterSuccessfulWrite('日曆項目已儲存', els.calendarItemFormMessage)) showMessage(els.calendarItemFormMessage, '日曆項目已儲存；啟用後會顯示在會員日曆。', true);
     } catch (error) { handleActionError(error, els.calendarItemFormMessage); } finally { setSaving(els.saveCalendarItemButton, false); }
