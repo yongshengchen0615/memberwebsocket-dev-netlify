@@ -127,7 +127,7 @@
       window.requestAnimationFrame(() => document.querySelector('.booking-detail-target')?.scrollIntoView?.({block:'center'}));
       window.dispatchEvent(new CustomEvent('user-tour:ready', { detail: { surface: 'booking', profile: state.profile } }));
       window.BookingBenefits?.setServiceContext?.(
-        bookingBenefitServiceContext()
+        bookingBenefitServiceContext(), window.BookingGroupUI?.partySize?.() || 1
       );
       window.BookingBenefits?.start(state.config, state.idToken);
       state.realtimeUnsubscribe = window.BookingSystem.subscribeRealtime(state.config, () => refresh(false), 'member', (signal = {}) => {
