@@ -125,7 +125,7 @@
     els.emptyView.classList.toggle('hidden', hasOffers);
     els.usedTicketHistory.classList.toggle('hidden', !hasUsedTickets);
     els.usedTicketHistorySummary.textContent = hasUsedTickets ? `共 ${state.usedTicketCount} 筆票券紀錄` : '尚無票券紀錄';
-    els.eventSummary.textContent = hasOffers ? `${state.offers.length} 個活動票券 · 一般票券發放後可轉贈已加入的好友${ineligibleOfferCount ? ` · ${ineligibleOfferCount} 張尚未達適用等級` : ''}${hasUsedTickets ? ` · ${state.usedTicketCount} 筆票券紀錄` : ''}` : hasUsedTickets ? `目前沒有可使用的活動票券 · ${state.usedTicketCount} 筆票券紀錄` : '目前沒有開放中的活動';
+    els.eventSummary.textContent = hasOffers ? `${state.offers.length} 個活動票券 · 一般票券發放後可轉贈已加入的好友${ineligibleOfferCount ? ` · ${ineligibleOfferCount} 張未解鎖` : ''}${hasUsedTickets ? ` · ${state.usedTicketCount} 筆票券紀錄` : ''}` : hasUsedTickets ? `目前沒有可使用的活動票券 · ${state.usedTicketCount} 筆票券紀錄` : '目前沒有開放中的活動';
     autoOpenFromCalendar();
   }
 
@@ -192,7 +192,7 @@
   function createOfferCard(offer) {
     const ticket = ticketForOffer(offer); const history = Boolean(offer.history); const fixed = isFixedOffer(offer); const used = history || String(offer?.claim?.status || '') === 'used'; const reserved = !used && Boolean(offer.reservedForBooking); const snapshotPending = !used && Boolean(offer.pendingSnapshot);
     const eligible = !history && !eventTicketOfferLocked(offer);
-    const stateLabel = used ? '已使用' : offer.availability === 'expired' ? '已到期' : reserved ? '已預約使用' : snapshotPending ? '快照待審核' : !eligible ? '需升級' : offer.claim ? '已發放' : '尚未發放';
+    const stateLabel = used ? '已使用' : offer.availability === 'expired' ? '已到期' : reserved ? '已預約使用' : snapshotPending ? '快照待審核' : !eligible ? '未解鎖' : offer.claim ? '已發放' : '尚未發放';
     const item = window.EventTicketUI.create(ticket, { history, fixed, stateLabel: offer.transferredOut ? '已轉贈' : stateLabel, stateClass: used ? 'used' : reserved ? 'reserved' : eligible ? offer.availability : 'tier-locked', usedAt: eventTicketTimestamp(offer.claim && offer.claim.usedAt), expiresAt: offer.claim?.expiresAt || null,
       giftFromName: offer.receivedAsGift ? String(offer.giftFromDisplayName || '好友') : '',
       giftTransferredAt: offer.receivedAsGift && offer.giftTransferredAt ? eventTicketTimestamp(offer.giftTransferredAt) : '',
@@ -201,7 +201,7 @@
     const physicalTicketKey = offerKey(offer);
     const action = document.createElement('div'); action.className = 'event-ticket-action';
     const hint = document.createElement('small');
-    hint.textContent = used ? '票券已使用，使用紀錄已保留' : reserved ? '已選入一般預約，將於服務完成時自動核銷' : snapshotPending ? '已選入快照，待管理員審核' : !eligible ? '目前會員等級無法使用' : fixed && !offer.claim ? '符合固定發放條件時會由系統自動發放' : offer.claim ? claimLabel(offer.claim.status) : offer.soldOut ? '活動使用名額已額滿' : offer.availability === 'scheduled' ? '活動開始後即可使用已發放票券' : offer.availability === 'ended' ? '活動已結束' : '點開查看完整說明';
+    hint.textContent = used ? '票券已使用，使用紀錄已保留' : reserved ? '已選入一般預約，將於服務完成時自動核銷' : snapshotPending ? '已選入快照，待管理員審核' : !eligible ? String(offer.lockReason || '目前尚未符合票券解鎖條件') : fixed && !offer.claim ? '符合固定發放條件時會由系統自動發放' : offer.claim ? claimLabel(offer.claim.status) : offer.soldOut ? '活動使用名額已額滿' : offer.availability === 'scheduled' ? '活動開始後即可使用已發放票券' : offer.availability === 'ended' ? '活動已結束' : '點開查看完整說明';
     const buttons = document.createElement('div'); buttons.className = 'event-ticket-action-buttons';
     const button = document.createElement('button'); button.type = 'button';
     button.className = `ticket-button${!history && offer.canUse ? ' accent' : ''}`;
@@ -399,7 +399,7 @@
     els.ticketTransferFriendSelect.disabled = state.processing || state.actionLocked || !transferMode || !canTransfer || els.ticketTransferFriendSelect.options.length <= 1;
     els.ticketTransferButton.disabled = state.processing || state.actionLocked || !transferMode || !canTransfer || !els.ticketTransferFriendSelect.value;
     const eligible = !history && !eventTicketOfferLocked(offer); const fixedPending = isFixedOffer(offer) && !claim; const canAct = !transferMode && !state.actionLocked && !history && !reserved && eligible && !fixedPending && Boolean(claim && (bindable || offer.canUse));
-    els.ticketModalStatus.textContent = transferMode ? '目前為轉贈好友流程，請選擇好友並確認；轉贈後不可撤銷，也無法再自行使用。' : offer.locked ? String(offer.lockReason || '需符合指定會員階級。') : modalStatusText(offer); els.ticketModalAction.textContent = state.actionLocked ? '請重新整理確認' : history ? offer.transferredOut ? '這張票券已轉贈' : '這張票券已使用' : reserved ? '已預約使用' : !eligible ? '目前等級無法使用' : fixedPending ? '由系統自動發放' : claim ? bindable ? '綁定已有預約使用' : offer.canUse ? '確認使用這張票券' : '尚無符合條件的預約' : '票券尚未發放'; els.ticketModalAction.disabled = !canAct || Boolean(claim && !window.TicketBookingChoice?.selected(bookingChoice)); els.ticketModalAction.classList.toggle('hidden', transferMode || history || Boolean(offer.transferredOut) || Boolean(claim && !offer.canUse && !bindable && eligible) && !state.actionLocked); els.refreshTicketButton.classList.toggle('hidden', !state.actionLocked); if (needsGps) syncLiveLocationState(offer);
+    els.ticketModalStatus.textContent = transferMode ? '目前為轉贈好友流程，請選擇好友並確認；轉贈後不可撤銷，也無法再自行使用。' : offer.locked ? String(offer.lockReason || '需符合指定會員階級。') : modalStatusText(offer); els.ticketModalAction.textContent = state.actionLocked ? '請重新整理確認' : history ? offer.transferredOut ? '這張票券已轉贈' : '這張票券已使用' : reserved ? '已預約使用' : !eligible ? '目前尚未解鎖' : fixedPending ? '由系統自動發放' : claim ? bindable ? '綁定已有預約使用' : offer.canUse ? '確認使用這張票券' : '尚無符合條件的預約' : '票券尚未發放'; els.ticketModalAction.disabled = !canAct || Boolean(claim && !window.TicketBookingChoice?.selected(bookingChoice)); els.ticketModalAction.classList.toggle('hidden', transferMode || history || Boolean(offer.transferredOut) || Boolean(claim && !offer.canUse && !bindable && eligible) && !state.actionLocked); els.refreshTicketButton.classList.toggle('hidden', !state.actionLocked); if (needsGps) syncLiveLocationState(offer);
     if (history && claim && ticket.ticketType === 'lottery' && claim.result) {
       renderRedeemedResult({ ...claim, ticketType: 'lottery' });
     }
