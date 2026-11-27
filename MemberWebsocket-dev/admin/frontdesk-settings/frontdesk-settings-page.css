@@ -506,6 +506,228 @@ html[data-frontdesk-page] .frontdesk-staff-draft-summary {
   color: var(--theme-text);
 }
 
+/* Staff dashboard: explicit notice state, readable light/dark tokens and
+   responsive controls. Notification colors supplement text, never replace it. */
+html[data-frontdesk-page] .frontdesk-staff-heading {
+  display: grid;
+  gap: 4px;
+}
+html[data-frontdesk-page] .frontdesk-staff-heading h3 {
+  color: var(--theme-text);
+  font-size: clamp(1.12rem, 2vw, 1.3rem);
+}
+html[data-frontdesk-page] .frontdesk-staff-heading p,
+html[data-frontdesk-page] .frontdesk-staff-help {
+  margin: 0;
+  color: var(--theme-text-muted);
+  font-size: .875rem;
+  line-height: 1.6;
+}
+html[data-frontdesk-page] .frontdesk-staff-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+html[data-frontdesk-page] .frontdesk-staff-metric {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--theme-border-strong);
+  border-radius: 12px;
+  background: var(--theme-surface-muted);
+  color: var(--theme-text);
+}
+html[data-frontdesk-page] .frontdesk-staff-metric strong {
+  font-size: clamp(1.25rem, 2.2vw, 1.65rem);
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+html[data-frontdesk-page] .frontdesk-staff-metric span {
+  font-size: .78rem;
+  color: var(--theme-text-muted);
+  font-weight: 650;
+}
+html[data-frontdesk-page] .frontdesk-staff-metric[data-state="enabled"] {
+  border-color: var(--theme-positive, #267457);
+}
+html[data-frontdesk-page] .frontdesk-staff-metric[data-state="paused"] {
+  border-color: var(--theme-warning, #a16b24);
+}
+html[data-frontdesk-page] .frontdesk-staff-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 240px);
+  align-items: end;
+  gap: 10px 14px;
+  padding: 12px;
+  border: 1px solid var(--theme-border);
+  border-radius: 12px;
+  background: var(--theme-surface-muted);
+}
+html[data-frontdesk-page] .frontdesk-staff-toolbar label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  font-size: .86rem;
+  color: var(--theme-text);
+  font-weight: 650;
+}
+html[data-frontdesk-page] .frontdesk-staff-toolbar :is(input, select) {
+  width: 100%;
+  min-width: 0;
+}
+html[data-frontdesk-page] .frontdesk-staff-filter-result {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--theme-text-muted);
+  font-size: .82rem;
+}
+html[data-frontdesk-page] .frontdesk-staff-list {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+html[data-frontdesk-page] .frontdesk-approvals .frontdesk-person {
+  gap: 14px;
+  padding: clamp(14px, 2vw, 20px);
+  border-radius: 14px;
+  border-color: var(--theme-border-strong);
+}
+html[data-frontdesk-page] .frontdesk-person > .frontdesk-person-heading {
+  grid-column: 1 / -1;
+}
+html[data-frontdesk-page] .frontdesk-person-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px 14px;
+}
+html[data-frontdesk-page] .frontdesk-person-identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-width: 0;
+}
+html[data-frontdesk-page] .frontdesk-person-identity h4 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+html[data-frontdesk-page] .frontdesk-person .frontdesk-person-status,
+html[data-frontdesk-page] .frontdesk-notification-badge {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  margin: 0;
+  padding: 5px 10px;
+  border: 1px solid var(--theme-border-strong);
+  border-radius: 999px;
+  font-size: .79rem;
+  font-weight: 750;
+  line-height: 1.45;
+}
+html[data-frontdesk-page] .frontdesk-person-status[data-state="pending"] {
+  color: var(--theme-warning-text, #805218);
+  border-color: var(--theme-warning, #ad7a31);
+  background: var(--theme-warning-soft, #fff2d5);
+}
+html[data-frontdesk-page] .frontdesk-person-status[data-state="approved"] {
+  color: var(--theme-positive-text, #246147);
+  border-color: var(--theme-positive, #267457);
+  background: var(--theme-positive-soft, #e4f4e9);
+}
+html[data-frontdesk-page] .frontdesk-person-status[data-state="rejected"],
+html[data-frontdesk-page] .frontdesk-person-status[data-state="suspended"] {
+  color: var(--theme-danger-text, #9c3d31);
+  background: var(--theme-danger-soft, #fce9e6);
+}
+html[data-frontdesk-page] .frontdesk-notification-badge[data-state="enabled"] {
+  color: var(--theme-positive-text, #246147);
+  border-color: var(--theme-positive, #267457);
+  background: var(--theme-positive-soft, #e4f4e9);
+}
+html[data-frontdesk-page] .frontdesk-notification-badge[data-state="paused"] {
+  color: var(--theme-warning-text, #805218);
+  border-color: var(--theme-warning, #ad7a31);
+  background: var(--theme-warning-soft, #fff2d5);
+}
+html[data-frontdesk-page] .frontdesk-notification-badge[data-state="unavailable"] {
+  color: var(--theme-text);
+  background: var(--theme-surface-muted);
+}
+html[data-frontdesk-page] .frontdesk-person > .frontdesk-notification-detail {
+  grid-column: 1 / -1;
+  margin: -5px 0 0;
+  color: var(--theme-text-muted);
+  font-size: .83rem;
+  line-height: 1.55;
+}
+html[data-frontdesk-page] .frontdesk-person .frontdesk-staff-notification-permission {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: start;
+  gap: 2px 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--theme-border);
+  border-radius: 10px;
+  background: var(--theme-surface-muted);
+  color: var(--theme-text);
+}
+html[data-frontdesk-page] .frontdesk-staff-notification-permission input {
+  grid-row: 1 / span 2;
+  width: 18px;
+  height: 18px;
+  margin: 3px 0 0;
+}
+html[data-frontdesk-page] .frontdesk-staff-notification-permission small {
+  grid-column: 2;
+  font-weight: 450;
+}
+html[data-frontdesk-page] .frontdesk-person > .frontdesk-remove-staff {
+  justify-self: end;
+  min-height: 44px;
+}
+html[data-frontdesk-page] .frontdesk-staff-footer {
+  position: sticky;
+  bottom: 10px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 12px;
+  border: 1px solid var(--theme-border-strong);
+  border-radius: 14px;
+  background: var(--theme-surface-raised);
+  box-shadow: 0 6px 25px #00000018;
+}
+html[data-frontdesk-page] .frontdesk-staff-footer .frontdesk-staff-draft-summary {
+  margin: 0;
+}
+html[data-frontdesk-page] .frontdesk-staff-footer .frontdesk-staff-save-all {
+  flex: 0 1 300px;
+  width: auto;
+}
+@media (max-width: 700px) {
+  html[data-frontdesk-page] .frontdesk-staff-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  html[data-frontdesk-page] .frontdesk-staff-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  html[data-frontdesk-page] .frontdesk-staff-footer {
+    flex-direction: column;
+    align-items: stretch;
+    bottom: 6px;
+  }
+  html[data-frontdesk-page] .frontdesk-staff-footer .frontdesk-staff-save-all {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+}
+
 /* Segmented merchant settings navigation and auditable read-only history. */
 html[data-frontdesk-page] .frontdesk-settings-tabs {
   grid-area: tabs;

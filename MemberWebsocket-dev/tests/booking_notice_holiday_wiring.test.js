@@ -48,7 +48,7 @@ assert.doesNotMatch(calendarFlow, />知道了</);
 assert.match(bookingIndex, /calendar-holiday-theme\.css\?v=booking-calendar-holiday-theme-20260916-2/);
 assert.match(holidayTheme, /#calendarGrid \.calendar-day\.holiday-disabled\.today/);
 assert.match(holidayTheme, /#calendarGrid \.calendar-day\.holiday-disabled\.today::after/);
-assert.match(holidayTheme, /border: 2px solid rgba\(223, 107, 77, \.82\)/);
+assert.match(holidayTheme, /border: 2px dashed #1467af/);
 assert.match(holidayTheme, /pointer-events: none/);
 assert.match(holidayTheme, /#calendarGrid \.calendar-holiday-label/);
 assert.match(holidayTheme, /background: var\(--holiday-accent, #df6b4d\)/);
