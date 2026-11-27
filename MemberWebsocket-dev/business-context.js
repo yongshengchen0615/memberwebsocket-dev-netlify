@@ -149,7 +149,7 @@
   applyFeatures(data.features);
   return config;
  }
- window.BusinessContext=Object.freeze({readEmbeddedConfig,configure,refresh:config=>configure(config,true),allows,allowsBenefit,get slug(){return slug;},set(value){if(!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(value))throw Error('Invalid business');slug=value;businessGeneration++;grants=null;publicStates.clear();configs.clear();resetPageTitle();retain();}});
+ window.BusinessContext=Object.freeze({readEmbeddedConfig,configure,refresh:config=>configure(config,true),allows,allowsBenefit,get slug(){return slug;},get generation(){return businessGeneration;},set(value){if(!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(value))throw Error('Invalid business');slug=value;businessGeneration++;grants=null;publicStates.clear();configs.clear();resetPageTitle();retain();}});
  window.fetch=function(input,init){
   if(slug&&init&&typeof init.body==='string'){
    try{

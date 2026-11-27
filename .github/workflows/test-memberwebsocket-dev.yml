@@ -455,7 +455,7 @@ jobs:
           grep -q 'grant-automation.js' MemberWebsocket-dev/admin/index.html
           test ! -e MemberWebsocket-dev/config.json
           ! grep -q 'supabaseGrantAutomationUrl' MemberWebsocket-dev/config/{production,testing}/config.json
-          grep -q "'/functions/v1/grant-automation'" MemberWebsocket-dev/admin/grant-automation.js
+          grep -q "'/functions/v1/grant-automation'" MemberWebsocket-dev/member-system.js
           grep -q 'fixed-ticket-admin-integration.js?v=fixed-ticket-sync-20260916-1' MemberWebsocket-dev/admin/index.html
           grep -q 'fixed-ticket-calendar-option.js?v=fixed-ticket-calendar-20260917-4' MemberWebsocket-dev/admin/index.html
           grep -q 'fixed-ticket-admin.js?v=qa-purge-sync-20261005-1' MemberWebsocket-dev/admin/index.html
