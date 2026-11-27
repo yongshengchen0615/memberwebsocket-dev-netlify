@@ -50,7 +50,11 @@ test.beforeAll(async () => {
     const fixture = JSON.stringify(selected).replace(/</g, '\\u003c');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.end('<!doctype html><html lang="zh-Hant"><head><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/calendar/styles.css"></head><body><div id="app" class="app-shell">'
-      + ids.map(id => '<div id="' + id + '"></div>').join('')
+      + ids.filter(id => !['calendarDetailModal','closeCalendarDetailButton','calendarDetailTitle','calendarDetailDate','calendarDetailItems'].includes(id))
+          .map(id => '<div id="' + id + '"></div>').join('')
+      + '<div id="calendarDetailModal" class="calendar-detail-modal hidden" role="dialog"><div class="calendar-detail-card">'
+      + '<button id="closeCalendarDetailButton">×</button><h2 id="calendarDetailTitle"></h2>'
+      + '<p id="calendarDetailDate"></p><div id="calendarDetailItems"></div></div></div>'
       + '</div><script>window.__fixtureItems=' + fixture + ';'
       + 'window.MemberSystem={bindDialogKeyboard(){},loadConfig:async()=>({}),signIn:async()=>"fixture",request:async()=>({profile:{displayName:"測試會員",tierKey:"general"},items:window.__fixtureItems,ongoingTickets:[]}),subscribeRealtime(){return ()=>{}}};'
       + 'window.MembershipProgress={render(){}};window.MemberMonthlyTierBenefits={bind(){}};window.BusinessContext={slug:"merchant-a"};'
