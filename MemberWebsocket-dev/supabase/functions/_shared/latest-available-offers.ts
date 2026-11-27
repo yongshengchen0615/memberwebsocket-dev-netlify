@@ -200,7 +200,9 @@ export function selectLatestEventOffers(
         minBookingAmount: number(row.min_booking_amount),
         minBookingServiceIds: Array.isArray(row.min_booking_service_ids) ? row.min_booking_service_ids.map(text).filter(Boolean) : [],
       } : {}),
-      minBookingPartySize: number(row.min_booking_party_size), maxBookingPartySize: number(row.max_booking_party_size),
+      ...(number(row.min_booking_party_size)>0 || number(row.max_booking_party_size)>0 ? {
+        minBookingPartySize: number(row.min_booking_party_size), maxBookingPartySize: number(row.max_booking_party_size)
+      } : {}),
       ...(Array.isArray(row.required_service_groups) && row.required_service_groups.length ? { requiredServiceGroups: row.required_service_groups } : {}),
     };
     const claimId = claimed ? (memberAvailableClaims.get(eventId) || "") : "";
