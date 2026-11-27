@@ -268,7 +268,7 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
         const minBookingServiceIds = Array.isArray(offer.minBookingServiceIds) ? offer.minBookingServiceIds : [];
         const minBookingPartySize = Number(offer.minBookingPartySize || 0);
         const maxBookingPartySize = Number(offer.maxBookingPartySize || 0);
-        const minBookingPartySizeLabel = minBookingPartySize && maxBookingPartySize ? `每筆預約需 ${minBookingPartySize}–${maxBookingPartySize} 位` : minBookingPartySize ? `每筆預約至少 ${minBookingPartySize} 位` : maxBookingPartySize ? `每筆預約最多 ${maxBookingPartySize} 位` : '';
+        const minBookingPartySizeLabel = minBookingPartySize && minBookingPartySize === maxBookingPartySize ? `每筆預約須剛好 ${minBookingPartySize} 位` : minBookingPartySize && maxBookingPartySize ? `每筆預約需 ${minBookingPartySize}–${maxBookingPartySize} 位（舊版區間條件）` : minBookingPartySize ? `每筆預約至少 ${minBookingPartySize} 位` : maxBookingPartySize ? `每筆預約最多 ${maxBookingPartySize} 位` : '';
         const minBookingServiceTitles = minBookingServiceIds.map((id) =>
           requiredServiceTitleById.get(String(id)) || '已停用項目');
         const amountText = 'NT' + String.fromCharCode(36) + minBookingAmount.toLocaleString('en-US');
@@ -308,7 +308,7 @@ export async function loadBookingBenefits(db: SupabaseClient, member: any, tier:
         requiredServiceIds: item.required_service_ids || [], requiredServiceGroups: item.required_service_groups || [],
         minBookingAmountMode: item.min_booking_amount_mode || 'none', minBookingAmount: Number(item.min_booking_amount || 0),
         minBookingPartySize: Number(item.min_booking_party_size || 0), maxBookingPartySize: Number(item.max_booking_party_size || 0),
-        conditionLabel: '會員條件：目前會員階級適用 · 活動資訊僅供預約參考' + (Number(item.min_booking_party_size || 0) ? ` · 至少 ${item.min_booking_party_size} 位` : '') + (Number(item.max_booking_party_size || 0) ? ` · 最多 ${item.max_booking_party_size} 位` : '') + (item.min_booking_amount_mode !== 'none' ? ` · 最低消費 NT${Number(item.min_booking_amount || 0).toLocaleString('en-US')}` : ''),
+        conditionLabel: '會員條件：目前會員階級適用 · 活動資訊僅供預約參考' + (Number(item.min_booking_party_size || 0)>0 && Number(item.min_booking_party_size || 0)===Number(item.max_booking_party_size || 0) ? ` · 剛好 ${item.min_booking_party_size} 位` : (Number(item.min_booking_party_size || 0) ? ` · 至少 ${item.min_booking_party_size} 位` : '') + (Number(item.max_booking_party_size || 0) ? ` · 最多 ${item.max_booking_party_size} 位` : '')) + (item.min_booking_amount_mode !== 'none' ? ` · 最低消費 NT${Number(item.min_booking_amount || 0).toLocaleString('en-US')}` : ''),
         disabledReason: '',
       })),
     ],
