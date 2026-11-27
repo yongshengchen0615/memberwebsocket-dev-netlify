@@ -1,7 +1,6 @@
 -- Event-ticket booking party range and member-calendar activity booking conditions.
 -- Scope: public plus every existing tenant schema; update the versioned future-tenant blueprint.
 -- 0 means no party-size bound. Unrestricted legacy rows retain original behavior.
-begin;
 do $migration$
 declare
   s text;
@@ -178,4 +177,3 @@ begin
 end;
 $migration$;
 notify pgrst,'reload schema';
-commit;
