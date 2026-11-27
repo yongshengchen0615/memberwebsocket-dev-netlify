@@ -68,6 +68,13 @@ test('PG17 AC-PARTY-001..008: real booking eligibility, tenant isolation, defaul
       schema+' booking guard must execute its own schema function');
     const pendingGuard=(await h.db.query('select count(*)::integer n from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname=$1 and c.relname=$2 and t.tgname=$3',[schema,'bookings','booking_party_pending_benefits_release'])).rows[0].n;
     assert.equal(pendingGuard,1);
+    const releaseBinding=(await h.db.query(`select fn.nspname function_schema, t.tgenabled
+      from pg_trigger t join pg_class c on c.oid=t.tgrelid
+      join pg_namespace n on n.oid=c.relnamespace
+      join pg_proc p on p.oid=t.tgfoid join pg_namespace fn on fn.oid=p.pronamespace
+      where n.nspname=$1 and c.relname='bookings' and t.tgname='booking_party_pending_benefits_release'`,[schema])).rows[0];
+    assert.deepEqual(releaseBinding,{function_schema:schema,tgenabled:'O'},
+      schema+' pending-release trigger must use its own schema function');
    }
   });
   const ids=[uuid(),uuid()];
@@ -178,6 +185,14 @@ test('PG17 AC-PARTY-001..008: real booking eligibility, tenant isolation, defaul
       [future.runtime_schema])).rows[0];
     assert.equal(futureGuard?.function_schema,future.runtime_schema,
       'new merchant guard must not execute public booking rules');
+    const futureRelease=(await h.db.query(`select fn.nspname function_schema
+      from pg_trigger t join pg_class c on c.oid=t.tgrelid
+      join pg_namespace n on n.oid=c.relnamespace
+      join pg_proc p on p.oid=t.tgfoid join pg_namespace fn on fn.oid=p.pronamespace
+      where n.nspname=$1 and c.relname='bookings' and t.tgname='booking_party_pending_benefits_release'`,
+      [future.runtime_schema])).rows[0];
+    assert.equal(futureRelease?.function_schema,future.runtime_schema,
+      'new merchant release trigger must not execute public booking rules');
   });
  }finally {await h.db.close();}
 });
