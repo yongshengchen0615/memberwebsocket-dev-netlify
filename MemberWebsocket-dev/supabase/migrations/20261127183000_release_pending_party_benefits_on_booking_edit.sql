@@ -77,10 +77,17 @@ BEGIN
       FROM jsonb_array_elements(v_template->'functions') WITH ORDINALITY a(f,ordinal)
       WHERE f->>'name' NOT IN ('guard_booking_party_size_benefits','release_pending_booking_party_benefits')),'[]'::jsonb)
     || v_new_functions);
-  SELECT jsonb_build_object('name',t.tgname,'definition',pg_get_triggerdef(t.oid))
+  SELECT jsonb_build_object('name',t.tgname,'definition',
+      replace(pg_get_triggerdef(t.oid),
+        'EXECUTE FUNCTION release_pending_booking_party_benefits()',
+        'EXECUTE FUNCTION public.release_pending_booking_party_benefits()'))
     INTO STRICT v_new_trigger FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
       JOIN pg_namespace n ON n.oid=c.relnamespace
     WHERE n.nspname='public' AND c.relname='bookings' AND t.tgname='booking_party_pending_benefits_release';
+  IF strpos(v_new_trigger->>'definition',
+    'EXECUTE FUNCTION public.release_pending_booking_party_benefits()')=0 THEN
+    RAISE EXCEPTION 'BOOKING_PARTY_TEMPLATE_RELEASE_BINDING_INVALID';
+  END IF;
   -- pg_get_triggerdef omits the function's public prefix when public is on
   -- search_path. Keep that prefix in the template so new-tenant provisioning
   -- replaces it with the tenant schema instead of binding back to public.
