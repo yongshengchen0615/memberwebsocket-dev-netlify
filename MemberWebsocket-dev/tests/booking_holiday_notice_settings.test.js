@@ -10,6 +10,7 @@ const member = read('booking/calendar-flow.js');
 const memberPage = read('booking/index.html');
 const cardCss = read('booking/calendar-flow.css');
 const calendarCss = read('booking/calendar-holiday-theme.css');
+const finalThemeCss = read('theme.css');
 const migration = read('supabase/migrations/20261127045000_booking_holiday_notice.sql');
 
 test('AC-HOL-001: admin edits holiday notice in the existing atomic messages form', () => {
@@ -99,6 +100,9 @@ test('AC-HOL-005: light/dark high-contrast holiday styles and versioned assets',
   assert.match(cardCss, /html\[data-theme="dark"\] #bookingHolidayModal \.booking-holiday-warning/);
   assert.match(calendarCss, /html\[data-theme="dark"\] #calendarGrid \.calendar-day\.holiday-disabled/);
   assert.match(calendarCss, /background: #ffeddf/);
+  assert.match(finalThemeCss, /html\[data-theme="dark"\] #calendarGrid \.calendar-day\.holiday-disabled\s*\{[^}]*background: #42231e;/);
+  assert.match(finalThemeCss, /html\[data-theme="dark"\] #bookingHolidayModal \.booking-holiday-detail strong\s*\{\s*color: #ffe7d9;/);
+  assert.match(memberPage, /theme\.css\?v=[^"']+holiday-contrast=20261127-2/);
   assert.match(memberPage, /holiday-notice=20261127-1/);
   assert.match(memberPage, /holiday-contrast=20261127-1/);
 });
