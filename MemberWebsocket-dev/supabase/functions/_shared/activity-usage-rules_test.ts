@@ -1,5 +1,5 @@
 import {
-  activityUsageRules, activityRequiresBooking, usageConditionLabel, bookingSatisfiesActivity,
+  activityUsageRules, activityRequiresBooking, usageConditionLabel, bookingSatisfiesActivity, memberActivityAllowedLink,
 } from "./activity-usage-rules.ts";
 
 function eq(actual: unknown, expected: unknown, label: string) {
@@ -68,4 +68,12 @@ Deno.test("AC-005: activity condition labels name actual services without showin
   if(!label.includes("肩頸＋修腳") || !label.includes("肩頸＋腳底")
     || !label.includes("NT$400") || !label.includes("2–4")
     || label.includes("已停用項目")) throw new Error("incomplete readable member activity condition label: "+label);
+});
+
+Deno.test("AC-SEC-001: never expose participation URL to an ineligible member", () => {
+  const link = "https://example.org/member-only-activity";
+  eq(memberActivityAllowedLink({linkUrl:link}, false), "", "no eligible booking");
+  eq(memberActivityAllowedLink({linkUrl:link,locked:true}, true), "", "tier lock");
+  eq(memberActivityAllowedLink({linkUrl:link,tierEligible:false}, true), "", "tier ineligible");
+  eq(memberActivityAllowedLink({linkUrl:link}, true), link, "verified eligible member");
 });
