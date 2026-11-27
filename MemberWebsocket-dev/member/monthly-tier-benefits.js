@@ -112,7 +112,7 @@
     const selected = tiers.find(tier => tier.key === state.selected);
     if (target) target.replaceChildren(...(selected ? [tierSection(selected, currentTier)] : []));
     const status = root.querySelector('[data-member-monthly-tier-status]');
-    if (status) status.textContent = tiers.length ? '顯示可查看的公開優惠；選擇階級切換' : '本月尚無階級優惠資料';
+    if (status) status.textContent = tiers.length ? '本月優惠不受加入活動日曆設定影響；選擇階級切換' : '本月尚無階級優惠資料';
   }
 
   function context(root, config, idToken, profile, surface) {
