@@ -40,10 +40,14 @@ async function setup(page, width = 390) {
       <div class="booking-modal-card booking-benefit-modal-card">
         <button id="closeBookingBenefitButton" type="button">返回</button>
         <div id="bookingBenefits" class="booking-benefits"><div id="bookingBenefitsList"></div></div>
-        <div id="bookingBenefitSubmitMessage" class="form-message hidden"></div>
-        <div class="booking-modal-actions booking-benefit-modal-actions">
-          <button id="skipBookingBenefitsButton" type="button">不使用優惠送出預約</button>
-          <button id="useBookingBenefitsButton" type="button">確認使用優惠送出預約</button>
+        <div class="booking-benefit-footer">
+          <p id="bookingBenefitSelectionStatus" class="booking-benefit-selection-status" role="status" aria-live="polite"></p>
+          <div id="bookingBenefitSubmitMessage" class="form-message hidden"></div>
+          <div class="booking-modal-actions booking-benefit-modal-actions">
+            <button id="skipBookingBenefitsButton" type="button">不使用優惠送出預約</button>
+            <button id="useBookingBenefitsButton" type="button">確認使用優惠送出預約</button>
+          </div>
+          <p class="booking-benefit-final-note">送出後仍須等待店家確認</p>
         </div>
       </div>
     </div>
@@ -61,7 +65,7 @@ async function setup(page, width = 390) {
     for (const id of ['bookingConfirmModal', 'bookingBenefitModal', 'bookingDate',
       'bookingReminderEnabled', 'bookingReminderTime', 'memberNote', 'submitBookingButton',
       'confirmBookingButton', 'closeBookingBenefitButton', 'skipBookingBenefitsButton',
-      'useBookingBenefitsButton', 'bookingConfirmMessage', 'bookingBenefitSubmitMessage']) {
+      'useBookingBenefitsButton', 'bookingConfirmMessage', 'bookingBenefitSubmitMessage', 'bookingBenefitSelectionStatus']) {
       els[id] = document.getElementById(id);
     }
     state.config = { pricePublishing: false };
@@ -144,4 +148,54 @@ test('AC-006: selected-benefit submission is disabled with no selected tickets',
   await page.getByRole('button', { name: '下一步：選擇優惠' }).click();
   await expect(page.getByRole('button', { name: '確認使用優惠送出預約' })).toBeDisabled();
   await expect(page.getByRole('button', { name: '不使用優惠送出預約' })).toBeEnabled();
+});
+test('AC-007: selection status reflects ticket count and clarifies skip behavior', async ({ page }) => {
+  await setup(page);
+  await page.getByRole('button', { name: '下一步：選擇優惠' }).click();
+  const dialog = page.getByRole('dialog', { name: '本次可使用優惠' });
+  const status = dialog.locator('#bookingBenefitSelectionStatus');
+  await expect(status).toContainText('已選 1 張優惠票券');
+  await page.evaluate(() => {
+    window.__selected = [];
+    window.dispatchEvent(new CustomEvent('booking:benefits-changed', { detail: { benefits: [] } }));
+  });
+  await expect(status).toContainText('尚未選擇優惠');
+  await expect(dialog.getByRole('button', { name: '確認使用優惠送出預約' })).toBeDisabled();
+  await expect(dialog.getByRole('button', { name: '不使用優惠送出預約' })).toBeEnabled();
+  await page.evaluate(() => {
+    window.__selected = [{ kind: 'event', id: 'E-TEST' }, { kind: 'points', id: 'P-TEST' }];
+    window.dispatchEvent(new CustomEvent('booking:benefits-changed', { detail: { benefits: window.__selected } }));
+  });
+  await expect(status).toContainText('已選 2 張優惠票券');
+  await expect(status).toContainText('不套用已勾選的票券');
+  await expect(dialog.getByRole('button', { name: '確認使用優惠送出預約' })).toBeEnabled();
+});
+
+test('AC-008: long mobile offer list scrolls without hiding final actions', async ({ page }) => {
+  await setup(page);
+  await page.setViewportSize({ width: 390, height: 640 });
+  await page.getByRole('button', { name: '下一步：選擇優惠' }).click();
+  const bounds = await page.evaluate(() => {
+    const list = document.getElementById('bookingBenefitsList');
+    for (let n = 0; n < 24; n++) {
+      const item = document.createElement('div');
+      item.className = 'booking-benefit';
+      item.textContent = '優惠票券 ' + n + ' 使用條件與詳細說明';
+      list.append(item);
+    }
+    const card = document.querySelector('#bookingBenefitModal .booking-benefit-modal-card').getBoundingClientRect();
+    const scroll = document.getElementById('bookingBenefits');
+    const submit = document.getElementById('useBookingBenefitsButton').getBoundingClientRect();
+    const skip = document.getElementById('skipBookingBenefitsButton').getBoundingClientRect();
+    return { height: innerHeight, cardTop: card.top, cardBottom: card.bottom,
+      scrollHeight: scroll.scrollHeight, clientHeight: scroll.clientHeight,
+      submitTop: submit.top, submitBottom: submit.bottom, skipTop: skip.top, skipBottom: skip.bottom };
+  });
+  expect(bounds.scrollHeight).toBeGreaterThan(bounds.clientHeight);
+  expect(bounds.cardTop).toBeGreaterThanOrEqual(0);
+  expect(bounds.cardBottom).toBeLessThanOrEqual(bounds.height);
+  expect(bounds.skipTop).toBeGreaterThanOrEqual(bounds.cardTop);
+  expect(bounds.submitTop).toBeGreaterThanOrEqual(bounds.cardTop);
+  expect(bounds.submitBottom).toBeLessThanOrEqual(bounds.cardBottom);
+  expect(bounds.skipBottom).toBeLessThanOrEqual(bounds.cardBottom);
 });
