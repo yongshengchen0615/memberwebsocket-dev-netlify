@@ -76,7 +76,7 @@
     "admin/calendar-scope-rules.js": "ccc0f6ae94860582563fe1e053a3a6e93856cd822cc7fe7c394b76d73f0d9513",
     "calendar/index.html": "453cbec66d070936f8a626897bee27c94b66602616d4b45640408f28cbb26e24",
     "calendar/app.js": "78298b600481f41f911e78fe23e559460d6d434c1e81aeb3d273988d70ebec8c",
-    "supabase/functions/member-calendar-api/index.ts": "2c12f51f7d70bd3db757cd4acb4ae51dcf8129290db74e05bf0f2780b1668034",
+    "supabase/functions/member-calendar-api/index.ts": "f7502d0dc3d27975ebb32157a9dfeabd478db6765759b750bb8d1650bf6fa7dd",
     "admin/calendar-navigation.js": "d8e302f3692f8fb4acb3708c1fde3f02c24f0d6b021dcbf9c07eb349c04f71f5",
     "admin/calendar-navigation.css": "214902d94229b7e9790be05a8e02d628cf58da94cc109a499ff6cf8081116f12"
   },
