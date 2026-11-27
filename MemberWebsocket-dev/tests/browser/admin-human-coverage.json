@@ -76,7 +76,7 @@
     "admin/calendar-scope-rules.js": "ccc0f6ae94860582563fe1e053a3a6e93856cd822cc7fe7c394b76d73f0d9513",
     "calendar/index.html": "453cbec66d070936f8a626897bee27c94b66602616d4b45640408f28cbb26e24",
     "calendar/app.js": "78298b600481f41f911e78fe23e559460d6d434c1e81aeb3d273988d70ebec8c",
-    "supabase/functions/member-calendar-api/index.ts": "996938999554656fb04f43347690cdf93f557b87c04a856f6b73085050fe0deb",
+    "supabase/functions/member-calendar-api/index.ts": "2c12f51f7d70bd3db757cd4acb4ae51dcf8129290db74e05bf0f2780b1668034",
     "admin/calendar-navigation.js": "d8e302f3692f8fb4acb3708c1fde3f02c24f0d6b021dcbf9c07eb349c04f71f5",
     "admin/calendar-navigation.css": "214902d94229b7e9790be05a8e02d628cf58da94cc109a499ff6cf8081116f12"
   },
@@ -846,5 +846,5 @@
   "memberMonthlyCardParityReview": "2026-11-27 PR #493：月度優惠的四階名稱及按鈕背景、強調色，不再使用與會員卡無關的依 rank 固定顏色；依據原本 membership_tier_settings 每階級 style_key、tier_label（同一 profileFor 讀取結果）動態回傳前台，完全沿用 member/styles.css 既有 10 套會員卡主題實際色碼（包括自訂商家階級樣式）。會員端、集點卡、活動票券、會員日曆、預約都由同一安全的只讀資料源呈現；不新增 DB 查詢、資料欄位、金流、票券寫入或階級繼承權限。未知 style_key 退回 forest、標題文字只用 textContent。保留收合懶讀及全專案 62 組人工管理旅程，新增 AC-018/019 以及五入口瀏覽器 320/390px 亮暗對比＆會員卡原生配色比對。此次 calendar/index.html 只有月度共用 CSS/JS 資產 cache 版號更新，已重新對照真實檔案 SHA256。",
   "bookingHolidayNoticeReview": "2026-11-27 PR #497：已逐項盤點既有 62 組管理員 Human E2E 旅程與預約、日曆的資料及授權契約。此輪只在既有預約訊息設定新增一個休假提醒純文字欄位，原一次儲存、版本衝突、權限控管和 LINE 通知流程維持不變；會員休假日期原有預約禁止與按鈕隱藏仍需回歸驗證。admin/index.html 與 loader 僅更新 cache key，booking-panel-core.js 加入訊息欄位和草稿處理，不新增或刪除既有管理旅程。新 AC-HOL-001～005 靜態/實際函式測試檢查安全顯示、預設文字、亮暗模式和禁止操作；CI 的原 Human E2E 及實際測試站操作均須再驗證。",
   "memberCalendarDateOfferGroupsReview": "2026-11-27 PR #501：已逐項覆核會員端營運日曆點日期、已啟用活動票券／會員活動、階級解鎖、休假優先、票券深層連結與商家歸屬；原有 62 項管理端 Human E2E 功能、日曆增修刪、可見性設定及票券核銷授權路徑不變。本輪改為伺服器已授權曝光之項目在日期詳細視窗中依 locked/tierEligible 分為當日可用與未解鎖兩區，鎖定項目顯示 lockReason 且永不產生使用連結；休假仍獨佔當日，eligible_only 不公開項目不得從瀏覽器補出。新增 tests/calendar_date_offer_groups.test.js AC-001～006 與 tests/browser/calendar-date-offer-groups.spec.cjs 在 320／390／1280px 與休假、純鎖定、空項目下實測分區、票券深層連結之 merchant 商家參數及橫向溢出。只改 calendar/app.js、styles.css、index.html 快取版本與文案，不變更資料庫、Edge、LINE、後端授權。已覆核既有 62 組管理員旅程未增刪；真人 LINE LIFF Provider 與此輪最終 SHA CI／Preview 仍須以實際結果驗證，不得以 stub 代替。",
-  "eventAndCalendarUsageReview": "2026-11-27 PR #502：逐項覆核現有 62 組管理員 Chrome 人工作業案例（尤其 event.16、event.23、calendar.24、calendar.25、event.visibility）；未刪除、取消、降級任何現有流程。活動票券新增一般預約人數上下限，會員活動新增指定項目／替代組合、滿額與人數條件，管理員原 CRUD、階級可見性、日期、休假、日曆同步與預約通知維持。新條件由 tenant 內 SQL、Edge service-role 會員歸屬及已確認預約狀態驗證；不影響舊票券、無條件活動、快照直接核銷等原規則。新增 node 靜態契約、PG17 與雙螢幕 Chromium 使用條件案例；同 SHA CI、Supabase 測試專案及 Netlify Preview 驗證為發佈前必要門檻；正式 LINE Provider 與正式 master 不在此次驗證範圍。"
+  "eventAndCalendarUsageReview": "2026-11-27 PR #502：逐項覆核現有 62 組管理員 Chrome 人工作業案例（尤其 event.16、event.23、calendar.24、calendar.25、event.visibility）；未刪除、取消、降級任何現有流程。活動票券新增一般預約人數上下限，會員活動新增指定項目／替代組合、滿額與人數條件，管理員原 CRUD、階級可見性、日期、休假、日曆同步與預約通知維持。新條件由 tenant 內 SQL、Edge service-role 會員歸屬及已確認預約狀態驗證；不影響舊票券、無條件活動、快照直接核銷等原規則。新增 node 靜態契約、PG17 與雙螢幕 Chromium 使用條件案例；同 SHA CI、Supabase 測試專案及 Netlify Preview 驗證為發佈前必要門檻；正式 LINE Provider 與正式 master 不在此次驗證範圍。 新增可實際執行的 Deno server 純函式測試，檢查同筆預約服務 OR-of-AND、金額、1/2/4/5 人邊界與人員限制；不以原始碼比對取代演算法驗收。"
 }
