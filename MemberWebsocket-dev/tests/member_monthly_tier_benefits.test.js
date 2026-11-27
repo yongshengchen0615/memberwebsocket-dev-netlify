@@ -308,7 +308,7 @@ test('AC-016: monthly catalogue uses shared semantic light/dark theme tokens and
   for (const surface of ['member','points','event','calendar','booking']) {
     const html=fs.readFileSync(path.join(root,surface,'index.html'),'utf8');
     assert.match(html,/monthly-tier-benefits\.css\?v=20261127-offer-groups-1/);
-    assert.match(html,/monthly-tier-benefits\.js\?v=20261127-offer-groups-1/);
+    assert.match(html,/monthly-tier-benefits\.js\?v=20261128-calendar-independent-1/);
     assert.match(html,/data-member-monthly-tier-teaser>展開查看<\/small>/);
   }
 });
@@ -584,7 +584,7 @@ test('AC-029: all five member portals load the calendar-independent monthly widg
   const root = path.resolve(__dirname, '..');
   for (const surface of ['member','points','event','calendar','booking']) {
     const html = fs.readFileSync(path.join(root, surface, 'index.html'), 'utf8');
-    assert.match(html, /monthly-tier-benefits\\.js\\?v=20261128-calendar-independent-1/,
+    assert.match(html, /monthly-tier-benefits\.js\?v=20261128-calendar-independent-1/,
       surface + ': asset version must change so the browser cannot keep a stale widget');
   }
 });
