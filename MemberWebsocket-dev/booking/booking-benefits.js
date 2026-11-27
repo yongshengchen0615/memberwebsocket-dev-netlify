@@ -143,7 +143,7 @@
   function ticketRequirementMessage(item) {
     return !serviceRequirementMet(item) ? serviceRequirementMessage(item)
       : !amountRequirementMet(item) ? `一般預約未達金額門檻：${String(item.minBookingAmountLabel || '請確認最低預約金額')}。`
-      : !partyRequirementMet(item) ? `預約人數不符合票券條件：${String(item.minBookingPartySizeLabel || '請確認最少及最多預約人數')}。`
+      : !partyRequirementMet(item) ? `預約人數不符合票券條件：${String(item.minBookingPartySizeLabel || '請確認至少或剛好的預約人數')}。`
       : '';
   }
 

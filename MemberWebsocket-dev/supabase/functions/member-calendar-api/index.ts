@@ -101,7 +101,8 @@ function activityUsageLabels(item: CalendarItem, titles: Map<string,string>): st
       : '預約金額條件資料異常，請洽店家');
   }
   const min=Number(item.minBookingPartySize||0), max=Number(item.maxBookingPartySize||0);
-  if (min>0 && max>0) result.push(`每筆預約需 ${min}–${max} 位`);
+  if (min>0 && max===min) result.push(`每筆預約須剛好 ${min} 位`);
+  else if (min>0 && max>0) result.push(`每筆預約需 ${min}–${max} 位（舊版區間條件）`);
   else if (min>0) result.push(`每筆預約至少 ${min} 位`);
   else if (max>0) result.push(`每筆預約最多 ${max} 位`);
   return result;

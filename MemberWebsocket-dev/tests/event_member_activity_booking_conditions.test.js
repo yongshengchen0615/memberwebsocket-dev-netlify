@@ -27,7 +27,8 @@ test('AC-002: party-size labels are inclusive, bounded, and free of raw identifi
   const b=source.indexOf('\n}\n',a);
   assert.ok(a>=0&&b>a);
   const fn=vm.runInNewContext(stripTypeScriptTypes(source.slice(a,b+2))+'\nbookingPartySizeLabel');
-  assert.equal(fn({min_booking_party_size:2,max_booking_party_size:4}),'每筆預約需 2–4 位');
+  assert.equal(fn({min_booking_party_size:2,max_booking_party_size:2}),'每筆預約須剛好 2 位');
+  assert.equal(fn({min_booking_party_size:2,max_booking_party_size:4}),'每筆預約需 2–4 位（舊版區間條件）');
   assert.equal(fn({min_booking_party_size:3}),'每筆預約至少 3 位');
   assert.equal(fn({max_booking_party_size:5}),'每筆預約最多 5 位');
   assert.equal(fn({}),'');
@@ -38,11 +39,16 @@ test('AC-003: admin editor and API both validate min/max, preserve values and re
   const html=read('admin/index.html');
   const admin=read('admin/app.js');
   const api=read('supabase/functions/api/index.ts');
-  for(const id of ['eventTicketMinBookingPartySize','eventTicketMaxBookingPartySize','calendarItemMinBookingPartySize','calendarItemMaxBookingPartySize','calendarItemRequiredServiceIds','calendarItemRequiredServiceGroups','calendarItemMinBookingAmountMode']){
+  for(const id of ['eventTicketBookingPartyMode','eventTicketBookingPartySize','calendarItemBookingPartyMode','calendarItemBookingPartySize','calendarItemRequiredServiceIds','calendarItemRequiredServiceGroups','calendarItemMinBookingAmountMode']){
     assert.match(html,new RegExp('id="'+id+'"'));
     assert.match(admin,new RegExp(id));
   }
   assert.match(admin,/function validateBookingPartyRule/);
+  assert.match(admin,/function readBookingPartyRule/);
+  assert.match(admin,/function setBookingPartyRuleInputs/);
+  assert.match(html,/option value="minimum"/);
+  assert.match(html,/option value="exact"/);
+  assert.match(api,/maxBookingPartySize!==minBookingPartySize/);
   assert.match(admin,/Number\(result\.eventTicket\.minBookingPartySize/);
   assert.match(admin,/Number\(result\.calendarItem\.maxBookingPartySize/);
   assert.match(api,/INVALID_BOOKING_PARTY_SIZE_RULE/);
@@ -92,4 +98,33 @@ test('AC-REVIEW-001: switching a member activity to groups cannot submit hidden 
   assert.match(api,/const groupMode = item\.requiredServiceMatchMode === 'groups'/);
   assert.match(api,/const requiredServiceIds = groupMode \? \[\] :/);
   assert.match(api,/const requiredServiceGroups = groupMode \? /);
+});
+
+test('AC-PARTY-MODE-001: admin maps minimum and exact modes to persisted min/max without accepting empty or legacy mode',()=>{
+  const source=read('admin/app.js');
+  const start=source.indexOf('  function readBookingPartyRule(');
+  const end=source.indexOf('\n  }',start);
+  assert.ok(start>0&&end>start);
+  const fn=vm.runInNewContext(source.slice(start,end+4)+'\nreadBookingPartyRule');
+  const map=(mode,value)=>fn({value:mode},{value});
+  const plain=result=>JSON.parse(JSON.stringify(result));
+  assert.deepEqual(plain(map('none','')),{minBookingPartySize:0,maxBookingPartySize:0});
+  assert.deepEqual(plain(map('minimum','3')),{minBookingPartySize:3,maxBookingPartySize:0});
+  assert.deepEqual(plain(map('exact','3')),{minBookingPartySize:3,maxBookingPartySize:3});
+  assert.deepEqual(plain(map('minimum','')),{minBookingPartySize:-1,maxBookingPartySize:-1});
+  assert.deepEqual(plain(map('legacy','')),{minBookingPartySize:-1,maxBookingPartySize:-1});
+});
+
+test('AC-PARTY-MODE-002: admin rejects upper-only and range rules but accepts minimum or exact',()=>{
+  const source=read('admin/app.js');
+  const start=source.indexOf('  function validateBookingPartyRule(');
+  const end=source.indexOf('\n  }',start);
+  const fn=vm.runInNewContext(source.slice(start,end+4)+'\nvalidateBookingPartyRule');
+  assert.equal(fn(0,0),'');
+  assert.equal(fn(2,0),'');
+  assert.equal(fn(2,2),'');
+  assert.match(fn(0,2),/不可設定人數區間/);
+  assert.match(fn(2,3),/不可設定人數區間/);
+  assert.match(fn(-1,-1),/1–20/);
+  assert.match(fn(21,0),/1–20/);
 });
