@@ -29,7 +29,7 @@ clickText('下一步：選擇優惠');
 assert.equal(w.document.getElementById('bookingConfirmModal').classList.contains('hidden'), true);
 assert.equal(w.document.getElementById('bookingBenefitModal').classList.contains('hidden'), false);
 clickText('不使用優惠送出預約');await tick();
-const update=calls.find(x=>x.action==='user.booking.update');assert.ok(update);assert.equal(update.payload.expectedUpdatedAt,booking.updatedAt);assert.deepEqual(update.payload.benefits,[]);
+const update=calls.find(x=>x.action==='user.booking.update');assert.ok(update);assert.equal(update.payload.expectedUpdatedAt,booking.updatedAt);assert.equal(JSON.stringify(update.payload.benefits),'[]','no discount intent is an empty serialized list');
 assert.equal(calls.some(x=>x.action==='user.booking.create'),false);
 assert.equal(w.document.getElementById('appointmentModalTitle').textContent,'預約');
 assert.match(w.document.getElementById('bookingList').textContent,/等待管理端確認/);
