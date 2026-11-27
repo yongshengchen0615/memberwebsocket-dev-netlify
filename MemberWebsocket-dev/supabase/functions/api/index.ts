@@ -1312,6 +1312,8 @@ function eventTicketClient(row: any, claimedCount = 0, admin = false, usedCount 
     minBookingAmountMode: row.min_booking_amount_mode || 'none',
     minBookingAmount: Number(row.min_booking_amount || 0),
     minBookingServiceIds: Array.isArray(row.min_booking_service_ids) ? row.min_booking_service_ids : [],
+    minBookingPartySize: Number(row.min_booking_party_size || 0),
+    maxBookingPartySize: Number(row.max_booking_party_size || 0),
     requiredServiceTypes: [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -1367,6 +1369,19 @@ function ticketRequiredServiceLabel(row: any, serviceTitles: Map<string,string>)
   const titles = names(ids);
   if (row.required_service_match_mode === "all") return `需預約所有指定項目：「${titles.join("、")}」`;
   return titles.length === 1 ? `需預約「${titles[0]}」項目` : `需預約「${titles.join("、")}」其中一個項目`;
+}
+
+function ticketBookingPartyLabel(row: any): string {
+  const minimum = Number(row.min_booking_party_size || 0);
+  const maximum = Number(row.max_booking_party_size || 0);
+  if (minimum === 0 && maximum === 0) return "";
+  if (!Number.isSafeInteger(minimum) || !Number.isSafeInteger(maximum)
+    || minimum < 0 || maximum < 0 || minimum > 20 || maximum > 20
+    || (maximum && minimum > maximum)) return "預約人數條件資料異常，請洽店家確認";
+  if (minimum && maximum && minimum === maximum) return `限 ${minimum} 人預約使用`;
+  if (minimum && maximum) return `預約 ${minimum}–${maximum} 人可使用`;
+  if (minimum) return `至少預約 ${minimum} 人可使用`;
+  return `最多預約 ${maximum} 人可使用`;
 }
 
 function ticketBookingAmountLabel(row: any, serviceTitles: Map<string,string>): string {
@@ -1490,6 +1505,7 @@ async function eventBootstrap(supabase: SupabaseClient, member: any): Promise<Js
       ...eventTicketClient(row,counts.get(row.id)||0,false,usedCounts.get(row.id)||0),
       requiredServiceRequirementLabel: ticketRequiredServiceLabel(row,serviceTitles),
       minBookingAmountLabel: ticketBookingAmountLabel(row,serviceTitles),
+      minBookingPartyLabel: ticketBookingPartyLabel(row),
     } as any;
     const claim = claimRow ? claimClient(claimRow,row.event_ticket_id) : null;
     const scheduled = Boolean(row.starts_on && today < row.starts_on);
@@ -1585,6 +1601,7 @@ function calendarClient(row: any): Json {
     visibilityPolicy: row.visibility_policy || 'eligible_only',
     linkLabel: row.link_label || "",
     linkUrl: row.link_url || "",
+    usageConditions: row.usage_conditions && typeof row.usage_conditions === 'object' && !Array.isArray(row.usage_conditions) ? row.usage_conditions : {},
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -1967,6 +1984,48 @@ async function saveTicketTemplate(supabase: SupabaseClient, actor: string, body:
   return { ticket: mapTicketTemplate(row) };
 }
 
+async function normalizeCalendarUsageConditions(supabase: SupabaseClient, input: unknown): Promise<Json> {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new ApiError(400, "INVALID_CALENDAR_USAGE_CONDITIONS", "會員活動使用條件格式不正確。");
+  }
+  const rule = input as Json;
+  const mode = String(rule.requiredServiceMatchMode ?? "any");
+  if (!["any","all","groups"].includes(mode)) {
+    throw new ApiError(400, "INVALID_CALENDAR_USAGE_CONDITIONS", "預約項目符合方式不正確。");
+  }
+  const grouped = mode === "groups";
+  const requiredServiceIds = grouped ? [] : await normalizeRequiredServiceIds(supabase,rule.requiredServiceIds ?? []);
+  const requiredServiceGroups = grouped ? await normalizeRequiredServiceGroups(supabase,rule.requiredServiceGroups ?? []) : [];
+  if (grouped && !requiredServiceGroups.length) {
+    throw new ApiError(400,"INVALID_CALENDAR_USAGE_CONDITIONS","請設定有效的預約項目替代組合。");
+  }
+  const minBookingAmountMode = String(rule.minBookingAmountMode ?? "none");
+  const minBookingAmount = Number(rule.minBookingAmount ?? 0);
+  if (!["none","total","selected_services"].includes(minBookingAmountMode)
+    || !Number.isSafeInteger(minBookingAmount)
+    || (minBookingAmountMode === "none" ? minBookingAmount !== 0 : minBookingAmount < 1 || minBookingAmount > 10000000)) {
+    throw new ApiError(400,"INVALID_CALENDAR_USAGE_CONDITIONS","會員活動最低預約金額條件不正確。");
+  }
+  const minBookingServiceIds = minBookingAmountMode === "selected_services"
+    ? await normalizeRequiredServiceIds(supabase,rule.minBookingServiceIds ?? []) : [];
+  if (minBookingAmountMode === "selected_services" && !minBookingServiceIds.length) {
+    throw new ApiError(400,"INVALID_CALENDAR_USAGE_CONDITIONS","指定項目金額條件須選擇有效項目。");
+  }
+  const minBookingPartySize = Number(rule.minBookingPartySize ?? 0);
+  const maxBookingPartySize = Number(rule.maxBookingPartySize ?? 0);
+  if (!Number.isSafeInteger(minBookingPartySize) || !Number.isSafeInteger(maxBookingPartySize)
+    || minBookingPartySize < 0 || maxBookingPartySize < 0
+    || minBookingPartySize > 20 || maxBookingPartySize > 20
+    || (maxBookingPartySize > 0 && minBookingPartySize > maxBookingPartySize)) {
+    throw new ApiError(400,"INVALID_BOOKING_PARTY_SIZE_RULE","預約人數限 0–20 人，且上限不可低於下限。");
+  }
+  return {
+    requiredServiceIds, requiredServiceMatchMode: mode, requiredServiceGroups,
+    minBookingAmountMode, minBookingAmount, minBookingServiceIds,
+    minBookingPartySize, maxBookingPartySize,
+  };
+}
+
 async function saveEventTicket(supabase: SupabaseClient, actor: string, body: Json): Promise<Json> {
   const input = body.eventTicket && typeof body.eventTicket === "object" ? body.eventTicket as Json : {};
   const id = asText(input.eventTicketId,100);
@@ -2029,6 +2088,17 @@ async function saveEventTicket(supabase: SupabaseClient, actor: string, body: Js
   if (minBookingAmountMode === "selected_services" && minBookingServiceIds.length === 0) {
     throw new ApiError(400,"INVALID_BOOKING_AMOUNT_RULE","指定項目最低消費必須勾選預約項目。");
   }
+  const minBookingPartySize = Number(input.minBookingPartySize ?? 0);
+  const maxBookingPartySize = Number(input.maxBookingPartySize ?? 0);
+  if (!Number.isSafeInteger(minBookingPartySize) || !Number.isSafeInteger(maxBookingPartySize)
+    || minBookingPartySize < 0 || maxBookingPartySize < 0 || minBookingPartySize > 20 || maxBookingPartySize > 20
+    || (maxBookingPartySize > 0 && minBookingPartySize > maxBookingPartySize)) {
+    throw new ApiError(400,"INVALID_BOOKING_PARTY_SIZE_RULE","預約人數限 0–20 人，上限不可低於下限。");
+  }
+  // Refuse an obsolete editor that might silently erase existing party-size gates.
+  if (id && (input.minBookingPartySize === undefined || input.maxBookingPartySize === undefined)) {
+    throw new ApiError(409,"INVALID_BOOKING_PARTY_SIZE_RULE","管理端版本過舊，請重新整理後再修改活動票券。");
+  }
   const payload = {
     title: requireText(input.title,"活動票券名稱",100),
     ticket_type: ticketType,
@@ -2053,6 +2123,8 @@ async function saveEventTicket(supabase: SupabaseClient, actor: string, body: Js
     min_booking_amount_mode: minBookingAmountMode,
     min_booking_amount: minBookingAmount,
     min_booking_service_ids: minBookingServiceIds,
+    min_booking_party_size: minBookingPartySize,
+    max_booking_party_size: maxBookingPartySize,
     updated_by: actor,
     updated_at: new Date().toISOString(),
     deleted_at: null,
@@ -3003,6 +3075,10 @@ async function handleAction(supabase: SupabaseClient, identity: { lineUserId: st
   if (action === "admin.calendar-items.save") {
     const item = body.calendarItem && typeof body.calendarItem === "object" && !Array.isArray(body.calendarItem)
       ? {...(body.calendarItem as Json),bonusPointsEnabled:false,bonusPoints:0} : {};
+    if (item.usageConditions !== undefined) {
+      item.usageConditions = item.itemType === 'event'
+        ? await normalizeCalendarUsageConditions(supabase,item.usageConditions) : {};
+    }
     const rpc = await supabase.rpc("apply_calendar_batch",{ p_actor_line_user_id:identity.lineUserId,p_operations:[{ action:"save",calendarItem:item,expectedUpdatedAt:body.expectedUpdatedAt || "" }] });
     if (rpc.error) throw mapDatabaseError(rpc.error);
     const id = String((rpc.data as any[])?.[0]?.calendarItemId || "");
@@ -3016,10 +3092,15 @@ async function handleAction(supabase: SupabaseClient, identity: { lineUserId: st
   }
   if (action === "admin.calendar-items.batch") {
     if (!Array.isArray(body.calendarItemOperations)) throw new ApiError(400,"INVALID_CALENDAR_BATCH","日曆批次操作格式不正確。");
-    const operations = (body.calendarItemOperations as any[]).map((operation:any) =>
-      operation?.action === "save" && operation.calendarItem && typeof operation.calendarItem === "object" && !Array.isArray(operation.calendarItem)
-        ? {...operation,calendarItem:{...operation.calendarItem,bonusPointsEnabled:false,bonusPoints:0}}
-        : operation);
+    const operations = await Promise.all((body.calendarItemOperations as any[]).map(async (operation:any) => {
+      if (operation?.action !== "save" || !operation.calendarItem || typeof operation.calendarItem !== "object" || Array.isArray(operation.calendarItem)) return operation;
+      const item = {...operation.calendarItem,bonusPointsEnabled:false,bonusPoints:0};
+      if (item.usageConditions !== undefined) {
+        item.usageConditions = item.itemType === "event"
+          ? await normalizeCalendarUsageConditions(supabase,item.usageConditions) : {};
+      }
+      return {...operation,calendarItem:item};
+    }));
     const rpc = await supabase.rpc("apply_calendar_batch",{ p_actor_line_user_id:identity.lineUserId,p_operations:operations });
     if (rpc.error) throw mapDatabaseError(rpc.error);
     return { operations:rpc.data || [],calendarItems:await calendarItems(supabase,false) };
