@@ -3073,7 +3073,7 @@ async function handleAction(supabase: SupabaseClient, identity: { lineUserId: st
   }
 
   if (action === "admin.calendar-items.save") {
-    const item = body.calendarItem && typeof body.calendarItem === "object" && !Array.isArray(body.calendarItem)
+    const item: Json = body.calendarItem && typeof body.calendarItem === "object" && !Array.isArray(body.calendarItem)
       ? {...(body.calendarItem as Json),bonusPointsEnabled:false,bonusPoints:0} : {};
     if (item.usageConditions !== undefined) {
       item.usageConditions = item.itemType === 'event'
@@ -3094,7 +3094,7 @@ async function handleAction(supabase: SupabaseClient, identity: { lineUserId: st
     if (!Array.isArray(body.calendarItemOperations)) throw new ApiError(400,"INVALID_CALENDAR_BATCH","日曆批次操作格式不正確。");
     const operations = await Promise.all((body.calendarItemOperations as any[]).map(async (operation:any) => {
       if (operation?.action !== "save" || !operation.calendarItem || typeof operation.calendarItem !== "object" || Array.isArray(operation.calendarItem)) return operation;
-      const item = {...operation.calendarItem,bonusPointsEnabled:false,bonusPoints:0};
+      const item: Json = {...operation.calendarItem,bonusPointsEnabled:false,bonusPoints:0};
       if (item.usageConditions !== undefined) {
         item.usageConditions = item.itemType === "event"
           ? await normalizeCalendarUsageConditions(supabase,item.usageConditions) : {};
