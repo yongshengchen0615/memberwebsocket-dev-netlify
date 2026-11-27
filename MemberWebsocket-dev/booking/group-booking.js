@@ -245,6 +245,7 @@
     ensureParticipantCount(false);
     renderParticipantCards();
     updateSelectionSummary();
+    syncBenefitServiceContext();
     if (previousPartySize === 1 && state.partySize > 1) scrollToParticipantStart(0);
     reloadSlots();
   }
@@ -1075,7 +1076,7 @@
       serviceId,
       amount: Math.max(0, amounts.get(serviceId) || 0) * quantity,
     }));
-    window.BookingBenefits?.setServiceContext?.(context);
+    window.BookingBenefits?.setServiceContext?.(context, state.partySize);
   }
 
   function participantServiceNames(index) {
