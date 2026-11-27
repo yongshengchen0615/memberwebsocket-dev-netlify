@@ -131,6 +131,24 @@ test('PG17 AC-PARTY-001..008: real booking eligibility, tenant isolation, defaul
     await h.db.query('delete from '+s+'.booking_benefit_selections where booking_id=$1 and benefit_ref=$2',[booking,claimId]);
     const redeemed=(await h.db.query('insert into '+s+".booking_benefit_selections(booking_id,member_id,benefit_kind,benefit_ref,title_snapshot,status,redeemed_at,redeemed_by) values($1,$2,'event',$3,'Party QA','redeemed',now(),'system') returning status",[booking,member,claimId])).rows[0];
     assert.equal(redeemed.status,'redeemed');
+    const evidence=(await h.db.query(`select b.party_size, et.min_booking_party_size min_required, et.max_booking_party_size max_allowed,
+      selection.status selection_status,
+      (select count(*)::int from ${s}.booking_benefit_selections x
+       left join ${s}.event_ticket_claims claim on x.benefit_kind='event' and x.benefit_ref=claim.claim_id and x.member_id=claim.member_id
+       left join ${s}.event_tickets ticket on ticket.id=claim.event_ticket_id
+       where x.booking_id=$1 and x.status='redeemed' and x.benefit_kind='event'
+         and (ticket.id is null or (ticket.min_booking_party_size>0 and 1<ticket.min_booking_party_size)
+            or (ticket.max_booking_party_size>0 and 1>ticket.max_booking_party_size))) eligible_to_block
+      from ${s}.bookings b
+      join ${s}.booking_benefit_selections selection on selection.booking_id=b.id and selection.benefit_ref=$2
+      join ${s}.event_ticket_claims claim on claim.claim_id=selection.benefit_ref and claim.member_id=selection.member_id
+      join ${s}.event_tickets et on et.id=claim.event_ticket_id
+      where b.id=$1`,[booking,claimId])).rows[0];
+    assert.ok(evidence,'booking, ticket claim and redeemed selection must be linked');
+    assert.equal(evidence.party_size,2,'booking has two persons before protected edit');
+    assert.equal(evidence.selection_status,'redeemed');
+    assert.equal(evidence.min_required,2);
+    assert.equal(evidence.eligible_to_block,1,'redeemed-ticket guard must match canonical stored records');
     await assert.rejects(h.db.query('update '+s+'.bookings set party_size=1 where id=$1',[booking]),/BOOKING_BENEFIT_PARTY_SIZE_REQUIRED/);
     assert.equal((await h.db.query('select party_size from '+s+'.bookings where id=$1',[booking])).rows[0].party_size,2);
     assert.equal((await h.db.query('select status from '+s+'.booking_benefit_selections where booking_id=$1 and benefit_ref=$2',[booking,claimId])).rows[0].status,'redeemed');
