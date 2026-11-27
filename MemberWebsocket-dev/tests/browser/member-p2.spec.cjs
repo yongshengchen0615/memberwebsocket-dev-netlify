@@ -3,12 +3,12 @@ const root=path.resolve(__dirname,'../..');let server,base;const fixtures=new Ma
 test.beforeAll(async()=>{
  server=http.createServer((req,res)=>{
   const url=new URL(req.url,'http://localhost');
-  if(['/member/','/booking/','/event/'].includes(url.pathname)){
+  if(['/member/','/points/','/event/','/calendar/','/booking/'].includes(url.pathname)){
    const surface=url.pathname.slice(1,-1);let html=fs.readFileSync(path.join(root,surface,'index.html'),'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'');
    const fixture=`window.p2Calls=[];window.p2Friends=[{memberCode:'BBBB',displayName:'王○',status:'pending',incoming:true}];const config={supabaseUrl:location.origin,supabasePublishableKey:'fixture'};
     async function request(c,t,k,action,payload={}){p2Calls.push({action,payload});if(action.endsWith('list'))return {friends:p2Friends};if(action.endsWith('lookup'))return {memberCode:'CCCC',displayName:'陳○'};if(action.endsWith('accept'))p2Friends[0].status='accepted';return {status:'pending'};}
     window.MemberSystem={getSession:()=>({config,idToken:'fixture'}),request};${surface==='booking'?'window.BookingSystem={getSession:()=>({config,idToken:"fixture"})};window.fetch=async(u,o)=>({ok:true,json:async()=>({ok:true,data:await request(null,null,null,JSON.parse(o.body).action,JSON.parse(o.body))})});':''}
-    window.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{document.getElementById('loadingView')?.classList.add('hidden');document.getElementById('${surface==='member'?'memberView':surface==='booking'?'bookingView':'eventView'}').classList.remove('hidden');document.getElementById('bookingNotice')?.classList.remove('hidden');
+    window.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{document.getElementById('loadingView')?.classList.add('hidden');document.getElementById('${surface+'View'}').classList.remove('hidden');document.getElementById('bookingNotice')?.classList.remove('hidden');
     const grid=document.getElementById('calendarGrid');if(grid)grid.innerHTML='<button type="button">預約日期</button>';
     const events=document.getElementById('eventList');if(events)events.innerHTML='<article class="event-ticket"><h3>QA 活動票券</h3><button type="button">查看並使用</button></article>';
     const profile={lineUserId:new URL(location.href).searchParams.get('account')||'QA-A',profileComplete:true,membershipRequired:false,memberCode:'AAAA',inviteCode:'AAAA000000'};
@@ -236,39 +236,134 @@ test('member onboarding spotlight reposition emits no blocked inline-style CSP v
   expect(states.every(mask => mask.position === 'absolute')).toBe(true);
 });
 
-test('monthly tier benefits display four sections on a narrow phone without granting tickets',async({page},info)=>{
- await page.setViewportSize({width:390,height:844});
- await page.goto(base+'/member/');
- await expect(page.locator('#membershipProgress')).toBeVisible();
- await page.addScriptTag({url:base+'/member/monthly-tier-benefits.js'});
- await page.evaluate(()=>{
-   const originalRequest = window.MemberSystem.request;
-   window.MemberSystem.request = async(_config,_client,_token,action,...rest)=>{
-     if(action!=='user.member.monthly-tier-benefits')return originalRequest(_config,_client,_token,action,...rest);
-     return {month:'2026-11',tiers:[
-       {key:'general',label:'一般會員',offers:[{kind:'ticket',title:'一般級券',startsOn:'2026-11-01',endsOn:'2026-11-30'}]},
-       {key:'silver',label:'銀級會員',offers:[{kind:'activity',title:'銀級活動',startsOn:'2026-11-15',endsOn:'2026-11-15'}]},
-       {key:'gold',label:'金級會員',offers:[]},
-       {key:'platinum',label:'白金會員',offers:[{kind:'ticket',title:'白金優惠',startsOn:'2026-11-03',endsOn:'2026-11-30'}]},
-     ]};
-   };
-   return window.MemberMonthlyTierBenefits.refresh(
-     document.getElementById('membershipProgress'),
-     {supabaseUrl:location.origin,business:'QA'},
-     'qa-id-token',
-     {lineUserId:'QA-A',tierKey:'silver',status:'active',profileComplete:true,membershipRequired:false}
-   );
- });
- await expect(page.locator('[data-member-monthly-tier-overview] .member-monthly-tier')).toHaveCount(4);
- await expect(page.locator('.member-monthly-tier.is-current')).toContainText('銀級會員');
- await expect(page.locator('[data-member-monthly-tier-overview]')).toContainText('一般級券');
- await expect(page.locator('[data-member-monthly-tier-overview]')).toContainText('銀級活動');
- await expect(page.locator('[data-member-monthly-tier-overview]')).toContainText('白金優惠');
- await expect(page.locator('.member-monthly-tier-empty')).toHaveCount(1);
- await expect(page.locator('[data-member-monthly-tier-month]')).toHaveText('2026 年 11 月');
- await expect(page.locator('[data-member-monthly-ticket-claim]')).toHaveCount(0);
- const boxes=await page.locator('[data-member-monthly-tier-overview] .member-monthly-tier').evaluateAll(
-   items=>items.map(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right}}));
- expect(boxes.every(r=>r.left>=0&&r.right<=391)).toBe(true);
- await info.attach('monthly-tier-member-mobile',{body:await page.locator('#membershipProgress').screenshot(),contentType:'image/png'});
-});
+for (const surface of ['member','points','event','calendar','booking']) for (const [theme, width] of [['light',390],['dark',390],['dark',320]]) {
+  test('compact monthly tier offers appear in '+surface+' '+theme+' '+width+' only when opened, with one mobile tier panel',async({page},info)=>{
+    await page.setViewportSize({width,height:844});
+    await page.goto(base+'/'+surface+'/');
+    await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
+    await expect(page.locator('#'+surface+'View')).toBeVisible();
+    await page.addScriptTag({url:base+'/member/monthly-tier-benefits.js'});
+    await page.evaluate(surface=>{
+      const tiers=[
+        {key:'general',label:'一般會員',styleKey:'forest',offers:[{kind:'ticket',title:'一般級券',startsOn:'2026-11-01',endsOn:'2026-11-30'}]},
+        {key:'silver',label:'銀級會員',styleKey:'lavender',offers:[{kind:'activity',title:'銀級活動',startsOn:'2026-11-15',endsOn:'2026-11-15'}]},
+        {key:'gold',label:'金級會員',styleKey:'cherry',offers:[]},
+        {key:'platinum',label:'白金會員',styleKey:'ocean',offers:[{kind:'ticket',title:'白金優惠',startsOn:'2026-11-03',endsOn:'2026-11-30'}]}
+      ];
+      window.__tierRequests=[];
+      const config={supabaseUrl:location.origin,business:'QA'};
+      if (surface==='booking') {
+        window.BookingSystem.monthlyTierBenefits=async(_config,_token)=>{
+          window.__tierRequests.push({surface});
+          return {month:'2026-11',tiers};
+        };
+      } else {
+        const originalRequest=window.MemberSystem.request;
+        window.MemberSystem.request=(_config,_client,_token,action,...rest)=>{
+          if(action!=='user.member.monthly-tier-benefits')return originalRequest(_config,_client,_token,action,...rest);
+          window.__tierRequests.push({surface:_client,action});
+          return Promise.resolve({month:'2026-11',tiers});
+        };
+      }
+      return window.MemberMonthlyTierBenefits.bind(
+        document.querySelector('[data-member-monthly-tier-widget]'),
+        config,'qa-id-token',
+        {lineUserId:'QA-A',tierKey:'silver',status:'active',profileComplete:true,membershipRequired:false},
+        surface
+      );
+    },surface);
+    const widget=page.locator('[data-member-monthly-tier-widget]');
+    await expect(widget).toBeVisible();
+    expect(await widget.evaluate(node=>node.open)).toBe(false);
+    expect(await widget.evaluate(node=>Math.round(node.getBoundingClientRect().height))).toBeLessThanOrEqual(66);
+    expect(await page.evaluate(()=>window.__tierRequests.length)).toBe(0);
+    const action=widget.locator('[data-member-monthly-tier-teaser]');
+    await expect(action).toHaveText('展開查看');
+    expect(await widget.locator('summary').evaluate(node=>getComputedStyle(node).cursor)).toBe('pointer');
+    const collapsedHint=await action.evaluate(node=>({
+      background:getComputedStyle(node).backgroundColor,
+      color:getComputedStyle(node).color,
+      border:getComputedStyle(node).borderStyle
+    }));
+    expect(collapsedHint.background).not.toBe('rgba(0, 0, 0, 0)');
+    expect(collapsedHint.border).toBe('solid');
+    await widget.locator('summary').click();
+    await expect(action).toHaveText('收合內容');
+    await expect(widget.locator('[data-member-monthly-tier-tabs] button')).toHaveCount(4);
+    await expect(widget.locator('[data-member-monthly-tier-tabs] button.is-current')).toHaveCount(1);
+    await expect(widget.locator('[data-member-monthly-tier-tabs] button.is-current')).toHaveAttribute('data-tier-key','silver');
+    await expect(widget.locator('[data-member-monthly-tier-tabs] button.is-current')).toHaveAttribute('data-membership-tier-style','lavender');
+    const cardStyleParity=await widget.evaluate(node=>{
+      const pairs=[['general','forest'],['silver','lavender'],['gold','cherry'],['platinum','ocean']];
+      return pairs.map(([tierKey,styleKey])=>{
+        const tab=node.querySelector('[data-member-monthly-tier-tabs] button[data-tier-key="'+tierKey+'"]');
+        const testCard=document.createElement('div');
+        testCard.className='membership-progress';
+        testCard.dataset.membershipTierStyle=styleKey;
+        testCard.style.position='absolute';
+        testCard.style.visibility='hidden';
+        testCard.style.color='var(--membership-card-soft)';
+        document.body.appendChild(testCard);
+        const row={
+          tierKey,styleKey,
+          tabBackground:getComputedStyle(tab).backgroundColor,
+          tabText:getComputedStyle(tab).color,
+          cardBackground:getComputedStyle(testCard).backgroundColor,
+          cardText:getComputedStyle(testCard).color,
+        };
+        testCard.remove();
+        return row;
+      });
+    });
+    for (const row of cardStyleParity) {
+      expect(row.tabBackground).toBe(row.cardBackground,row.tierKey+' should match member card background');
+      expect(row.tabText).toBe(row.cardText,row.tierKey+' should match member card label color');
+    }
+    await expect(widget.locator('[data-member-monthly-tier-tabs] button[aria-pressed="true"] .member-monthly-tab-count')).toHaveText('1');
+    await expect(widget.locator('[data-member-monthly-tier-tabs] button.is-current')).toHaveAttribute('aria-label',/目前會員階級/);
+    const palette = await widget.evaluate(node=>{
+      const rgb=str=>[...String(str).matchAll(/\d+(?:\.\d+)?/g)].slice(0,3).map(m=>Number(m[0]));
+      const luminance=c=>rgb(c).map(n=>{const v=n/255;return v<=0.04045?v/12.92:((v+0.055)/1.055)**2.4;})
+        .reduce((sum,val,i)=>sum+val*[.2126,.7152,.0722][i],0);
+      const contrast=(a,b)=>{const x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);};
+      const label=node.querySelector('.member-monthly-benefits-heading strong');
+      const selected=node.querySelector('[data-member-monthly-tier-tabs] button[aria-pressed="true"]');
+      const offer=node.querySelector('.member-monthly-offer-title');
+      const panel=node.querySelector('.member-monthly-tier');
+      const colors=(el)=>({foreground:getComputedStyle(el).color,background:getComputedStyle(el).backgroundColor});
+      const a=colors(label),b=colors(selected),c=colors(offer),p=colors(panel);
+      return {
+        heading:contrast(a.foreground,getComputedStyle(node.querySelector('summary')).backgroundColor),
+        tab:contrast(b.foreground,b.background),
+        offer:contrast(c.foreground,p.background),
+        surface:getComputedStyle(node).backgroundColor,
+        tabBackground:b.background
+      };
+    });
+    expect(palette.heading).toBeGreaterThanOrEqual(4.5);
+    expect(palette.tab).toBeGreaterThanOrEqual(4.5);
+    expect(palette.offer).toBeGreaterThanOrEqual(4.5);
+    const surfaceRGB=Number(palette.surface.match(/\d+/)?.[0]||0);
+    expect(theme==='dark'?surfaceRGB<100:surfaceRGB>200).toBe(true);
+    await expect(widget.locator('[data-member-monthly-tier-overview] .member-monthly-tier')).toHaveCount(1);
+    await expect(widget.locator('.member-monthly-tier.is-current')).toContainText('銀級會員');
+    await expect(widget.locator('.member-monthly-tier.is-current')).toHaveAttribute('data-membership-tier-style','lavender');
+    await expect(widget.locator('[data-member-monthly-tier-overview]')).toContainText('銀級活動');
+    await expect(widget.locator('[data-member-monthly-tier-overview]')).not.toContainText('一般級券');
+    await widget.locator('[data-member-monthly-tier-tabs] button').first().click();
+    await expect(widget.locator('[data-member-monthly-tier-overview]')).toContainText('一般級券');
+    await widget.locator('[data-member-monthly-tier-tabs] button').last().click();
+    await expect(widget.locator('[data-member-monthly-tier-overview]')).toContainText('白金優惠');
+    await expect(widget.locator('[data-member-monthly-ticket-claim]')).toHaveCount(0);
+    expect(await page.evaluate(()=>window.__tierRequests.length)).toBe(1,'switching tabs must not refetch');
+    const overflowing=await widget.evaluate(node=>{
+      const bounds=node.getBoundingClientRect();
+      return bounds.left < -1 || bounds.right > innerWidth+1;
+    });
+    expect(overflowing).toBe(false);
+    await widget.locator('summary').click();
+    expect(await widget.evaluate(node=>node.open)).toBe(false);
+    await expect(action).toHaveText('展開查看');
+    await info.attach('compact-monthly-tier-'+surface,{body:await widget.screenshot(),contentType:'image/png'});
+  });
+}

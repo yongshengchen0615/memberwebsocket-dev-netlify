@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="./calendar-flow.css?v=phone-booking-day-modal-20261107-1&phone-service-reference=20261125-2">
   <link rel="stylesheet" href="./calendar-holiday-theme.css?v=booking-calendar-holiday-theme-20260916-2-ui-20261007-1">
   <link rel="stylesheet" href="./membership-progress.css?v=booking-tier-style-20260910-1">
+  <link rel="stylesheet" href="../member/monthly-tier-benefits.css?v=20261127-card-style-2">
   <link rel="stylesheet" href="./booking-history.css?v=booking-history-accordion-20260918-1-no-show-20261014-1-status-tabs-20261014-1">
   <link rel="stylesheet" href="../booking-ticket-cards.css?v=booking-ticket-cards-20261004-1">
   <link rel="stylesheet" href="./member-booking-format.css?v=booking-service-type-colors-webview-20260918-2">
@@ -34,6 +35,7 @@
   <script src="./group-booking.js?v=async-architecture-20260921-1-ticket-service-requirements-20261002-1-test-data-20261009-1-accessible-1-ticket-source-20261004-1-booking-settings-20261006-2-p2-20261006-1-item-prices-20261105-1-single-participant-accordion-20261108-1&grants=20261107-1-individual-notes-20261109-1&amount=20261110-1&api=canonical-20261110-1&transport=20261111-1&phone-local=20261125-1&participant-guidance=20261125-1&slot-incomplete-hint=20261125-1&service-price-order=20261125-1" defer></script>
   <script src="./liff-fresh-login.js?v=member-presence-20260920-1-p1-secure-20261008-1-booking-session-20261013-3" defer></script>
   <script src="./membership-progress.js?v=booking-tier-member-parity-20260914-2" defer></script>
+  <script src="../member/monthly-tier-benefits.js?v=20261127-card-style-1" defer></script>
   <script src="./member-ui.js?v=test-mode-20260920-1-no-show-20261014-1-booking-history-status-tabs-20261014-1&frontdesk-direct-cancel=20261124-1" defer></script>
   <script src="./booking-benefits.js?v=ticket-service-requirements-20261002-1-accessible-1-ticket-source-20261004-1-ui-20261007-1-point-card-ticket-style-20261007-1-availability-style-20261007-1-ongoing-20261008-1-release-20261008-2-booking-no-gps-20261012-1-event-claim-exclusivity-20261015-1-booking-group-visibility-20261030-1&grants=20261107-1&amount=20261110-&amount-label=20261110-2&activity-cards=20261123-1&issue=automatic-only-20261123-2&booking-guide=20261123-3" defer></script>
   <script src="../async-action-feedback.js?v=20261125-2" defer></script>
@@ -95,6 +97,7 @@
         <div data-membership-progress-track class="membership-progress-track" role="progressbar" aria-label="會員階級進度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-membership-progress-bar></span></div>
       </section>
 
+
       <section class="booking-accessible-switch" aria-label="預約模式">
         <div class="booking-mode-description">
           <p class="booking-mode-current"><span aria-hidden="true"></span><strong id="bookingModeTitle">一般預約模式</strong></p>
@@ -117,6 +120,16 @@
         <p id="bookingAccessibleTicketsStatus" role="status" aria-live="polite">正在確認可用票券…</p>
         <div id="bookingAccessibleTickets" class="booking-accessible-tickets"></div>
       </section>
+      <details class="member-monthly-benefits" data-member-monthly-tier-widget aria-label="本月會員階級優惠">
+        <summary class="member-monthly-benefits-heading"><span class="member-monthly-benefits-spark" aria-hidden="true">✦</span><strong>本月階級優惠</strong><small data-member-monthly-tier-teaser>展開查看</small></summary>
+        <div class="member-monthly-benefits-body">
+          <div class="member-monthly-benefits-controls"><span data-member-monthly-tier-month>本月</span><button type="button" data-member-monthly-tier-reload>更新</button></div>
+          <p class="member-monthly-benefits-status" data-member-monthly-tier-status role="status">展開後載入當月優惠</p>
+          <div class="member-monthly-benefits-tabs" data-member-monthly-tier-tabs role="group" aria-label="選擇會員階級"></div>
+          <div class="member-monthly-tiers" data-member-monthly-tier-overview aria-live="polite"></div>
+          <p class="member-monthly-benefits-notice">僅供瀏覽；實際領取、使用及參加仍依會員資格與持券狀態判定。</p>
+        </div>
+      </details>
       <span id="memberProfileName" class="hidden" aria-hidden="true"></span>
       <span id="memberCode" class="hidden" aria-hidden="true"></span>
 

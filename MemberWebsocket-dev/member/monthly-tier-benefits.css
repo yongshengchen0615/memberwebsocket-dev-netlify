@@ -1,28 +1,426 @@
-/* Read-only monthly benefits displayed inside the member tier progress card. */
-.member-monthly-benefits { grid-column: 1 / -1; min-width: 0; margin-top: 8px; padding-top: 17px; border-top: 1px solid rgba(253,247,237,.24); }
-.member-monthly-benefits-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
-.member-monthly-benefits-heading h3 { margin: 0; color: #fdf7ed; font-size: 17px; line-height: 1.45; letter-spacing: .01em; }
-.member-monthly-benefits-month { margin: 6px 0 12px; color: var(--membership-card-soft); font-size: 12px; font-weight: 750; }
-.member-monthly-benefits-reload { padding: 5px 12px; border: 1px solid rgba(253,247,237,.45); border-radius: 999px; color: #fff; background: transparent; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
-.member-monthly-benefits-reload:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
-.member-monthly-benefits-reload:disabled { opacity: .5; cursor: wait; }
-.member-monthly-benefits-status { margin: 0 0 10px; color: rgba(253,247,237,.82); font-size: 12px; line-height: 1.5; }
-.member-monthly-tiers { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
-.member-monthly-tier { min-width: 0; padding: 13px; border: 1px solid rgba(253,247,237,.18); border-radius: 13px; background: rgba(255,255,255,.065); }
-.member-monthly-tier.is-current { border-color: var(--membership-card-soft); background: rgba(255,255,255,.10); }
-.member-monthly-tier-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px; }
-.member-monthly-tier h4 { margin: 0; color: #fdf7ed; font-size: 14px; font-weight: 850; }
-.member-monthly-current-tag { color: #1a2d27; background: var(--membership-card-soft); border-radius: 999px; padding: 2px 8px; font-size: 10px; font-weight: 800; }
-.member-monthly-tier-empty { margin: 10px 0 0; color: rgba(253,247,237,.76); font-size: 12px; }
-.member-monthly-tier-list { display: grid; gap: 8px; margin: 10px 0 0; padding: 0; list-style: none; }
-.member-monthly-offer { padding: 9px 10px; border-radius: 10px; background: rgba(10,24,21,.20); overflow-wrap: anywhere; }
-.member-monthly-offer-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 5px; margin-bottom: 5px; font-size: 11px; }
-.member-monthly-offer-kind { color: var(--membership-card-soft); font-weight: 850; }
-.member-monthly-offer-date { color: rgba(253,247,237,.80); }
-.member-monthly-offer-title { display: block; color: #fff; font-size: 13px; line-height: 1.5; }
-.member-monthly-benefits-notice { margin: 12px 0 0; color: rgba(253,247,237,.77); font-size: 11px; line-height: 1.55; }
-@media(max-width: 620px) {
-  .member-monthly-benefits { margin-top: 3px; padding-top: 14px; }
-  .member-monthly-tiers { grid-template-columns: 1fr; gap: 9px; }
-  .member-monthly-benefits-heading h3 { font-size: 16px; }
+/* Theme-aware, compact month catalogue shared by the five member portals.
+   Uses the existing design tokens; this widget never controls eligibility. */
+.member-monthly-benefits {
+  --monthly-surface: var(--theme-surface-raised, #ffffff);
+  --monthly-panel: var(--theme-surface, #fcfdfb);
+  --monthly-subtle: var(--theme-surface-muted, #edf1ed);
+  --monthly-text: var(--theme-text, #18241f);
+  --monthly-muted: var(--theme-text-muted, #627168);
+  --monthly-border: var(--theme-border-strong, rgba(24,36,31,.18));
+  --monthly-divider: var(--theme-border, rgba(24,36,31,.12));
+  --monthly-focus: var(--theme-focus-ring, rgba(177,79,57,.3));
+  --monthly-highlight: var(--theme-positive-soft, #e7f2eb);
+  --monthly-highlight-text: var(--theme-positive-text, #276947);
+  --monthly-tag-bg: #e6f2eb;
+  --monthly-tag-text: #276947;
+  --monthly-hover: #f4f8f3;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 12px 0;
+  overflow: hidden;
+  color: var(--monthly-text);
+  background: var(--monthly-surface);
+  border: 1px solid var(--monthly-border);
+  border-radius: 15px;
+  box-shadow: var(--theme-shadow, 0 1px 2px rgba(18,35,27,.05));
+  font: inherit;
+}
+html[data-theme="dark"] .member-monthly-benefits {
+  --monthly-tag-bg: #243b30;
+  --monthly-tag-text: #b1e4c6;
+  --monthly-hover: #233329;
+  --monthly-highlight: #21392b;
+  --monthly-highlight-text: #a8e9c3;
+}
+.member-monthly-benefits[hidden] { display: none !important; }
+.member-monthly-benefits[open] { border-color: var(--monthly-border); }
+.member-monthly-benefits-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  box-sizing: border-box;
+  min-height: 46px;
+  padding: 7px 13px;
+  margin: 0;
+  list-style: none;
+  cursor: pointer;
+  color: var(--monthly-text);
+  background: var(--monthly-surface);
+  transition: background-color .16s ease;
+}
+.member-monthly-benefits-heading::-webkit-details-marker { display: none; }
+.member-monthly-benefits-heading:hover { background: var(--monthly-hover); }
+.member-monthly-benefits-heading:focus-visible,
+.member-monthly-benefits button:focus-visible {
+  outline: 3px solid var(--monthly-focus);
+  outline-offset: -3px;
+}
+.member-monthly-benefits-heading::after {
+  content: "⌄";
+  flex: 0 0 26px;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  margin-left: 1px;
+  border-radius: 9px;
+  background: var(--monthly-highlight);
+  color: var(--monthly-highlight-text);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+  transition: transform .16s ease, background-color .16s ease;
+}
+.member-monthly-benefits[open] .member-monthly-benefits-heading::after { transform: rotate(180deg); }
+.member-monthly-benefits-spark {
+  display: inline-grid;
+  flex: 0 0 27px;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  background: var(--monthly-highlight);
+  color: var(--monthly-highlight-text);
+  border-radius: 9px;
+  font-size: 15px;
+}
+.member-monthly-benefits-heading strong {
+  min-width: 0;
+  color: var(--monthly-text);
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.member-monthly-benefits-heading small {
+  flex: 0 0 auto;
+  min-width: 0;
+  min-height: 27px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 4px 10px;
+  margin-left: auto;
+  border: 1px solid var(--monthly-border);
+  border-radius: 999px;
+  background: var(--monthly-highlight);
+  color: var(--monthly-highlight-text);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.member-monthly-benefits-heading:hover small,
+.member-monthly-benefits-heading:hover::after {
+  background: var(--monthly-subtle);
+}
+.member-monthly-benefits[open] .member-monthly-benefits-heading small {
+  background: var(--monthly-subtle);
+  color: var(--monthly-text);
+}
+.member-monthly-benefits-body {
+  padding: 11px 12px 12px;
+  border-top: 1px solid var(--monthly-divider);
+  background: var(--monthly-panel);
+}
+.member-monthly-benefits-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--monthly-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.member-monthly-benefits-controls [data-member-monthly-tier-month] {
+  padding: 4px 0;
+  font-variant-numeric: tabular-nums;
+}
+.member-monthly-benefits-controls [data-member-monthly-tier-reload] {
+  min-height: 30px;
+  padding: 4px 11px;
+  color: var(--monthly-text);
+  background: var(--monthly-surface);
+  border: 1px solid var(--monthly-border);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color .16s ease, border-color .16s ease;
+}
+.member-monthly-benefits-controls [data-member-monthly-tier-reload]:hover:not(:disabled) { background: var(--monthly-hover); }
+.member-monthly-benefits-controls [data-member-monthly-tier-reload]:disabled { opacity: .6; cursor: wait; }
+.member-monthly-benefits-status {
+  margin: 6px 0 9px;
+  color: var(--monthly-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.member-monthly-benefits-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 0 9px;
+  min-width: 0;
+}
+/* Match the exact admin-configured member-card palette, never a tier-name color. */
+.member-monthly-benefits :is(.member-monthly-tab, .member-monthly-tier)[data-membership-tier-style="forest"] {
+  --monthly-card-background: #17352e;
+  --monthly-card-accent: #df6b4d;
+  --monthly-card-soft: #f3c9ab;
+}
+.member-monthly-benefits :is(.member-monthly-tab, .member-monthly-tier)[data-membership-tier-style="midnight"] {
+  --monthly-card-background: #1a2340;
+  --monthly-card-accent: #78a8f7;
+  --monthly-card-soft: #dae6ff;
+}
+.member-monthly-benefits :is(.member-monthly-tab, .member-monthly-tier)[data-membership-tier-style="ocean"] {
+  --monthly-card-background: #0d3b4c;
+  --monthly-card-accent: #3dc4c5;
+  --monthly-card-soft: #c9f0ea;
+}
+.member-monthly-benefits :is(.member-monthly-tab, .member-monthly-tier)[data-membership-tier-style="sunset"] {
+  --monthly-card-background: #54261f;
+  --monthly-card-accent: #ee896d;
+  --monthly-card-soft: #ffd3b9;
+}
+.member-monthly-benefits :is(.member-monthly-tab, .member-monthly-tier)[data-membership-tier-style="lavender"] {
+  --monthly-card-background: #33264d;
+  --monthly-card-accent: #b999e8;
+  --monthly-card-soft: #eadbff;
+}
+.member-monthly-benefits :is(.member-monthly-tab, .member-monthly-tier)[data-membership-tier-style="rose"] {
+  --monthly-card-background: #501d32;
+  --monthly-card-accent: #e891ab;
+  --monthly-card-soft: #ffd8e3;
+}
+.member-monthly-benefits :is(.member-monthly-tab, .member-monthly-tier)[data-membership-tier-style="gold"] {
+  --monthly-card-background: #45320e;
+  --monthly-card-accent: #e6b84f;
+  --monthly-card-soft: #ffe7a7;
+}
+.member-monthly-benefits :is(.member-monthly-tab, .member-monthly-tier)[data-membership-tier-style="platinum"] {
+  --monthly-card-background: #38414e;
+  --monthly-card-accent: #b8cadc;
+  --monthly-card-soft: #e9eff5;
+}
+.member-monthly-benefits :is(.member-monthly-tab, .member-monthly-tier)[data-membership-tier-style="mint"] {
+  --monthly-card-background: #1e4039;
+  --monthly-card-accent: #6bd0a0;
+  --monthly-card-soft: #d1f4de;
+}
+.member-monthly-benefits :is(.member-monthly-tab, .member-monthly-tier)[data-membership-tier-style="cherry"] {
+  --monthly-card-background: #4a1721;
+  --monthly-card-accent: #ec6973;
+  --monthly-card-soft: #ffd0d4;
+}
+.member-monthly-benefits-tabs button {
+  display: flex;
+  min-width: 0;
+  min-height: 39px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 5px;
+  border: 1px solid var(--monthly-divider);
+  border-radius: 10px;
+  background: var(--monthly-surface);
+  color: var(--monthly-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 720;
+  cursor: pointer;
+  transition: filter .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+.member-monthly-benefits-tabs button[data-membership-tier-style] {
+  color: var(--monthly-card-soft);
+  background: linear-gradient(145deg, rgba(255,255,255,.075), transparent 55%), var(--monthly-card-background);
+  border-color: var(--monthly-card-accent);
+  box-shadow: inset 0 2px 0 var(--monthly-card-accent);
+}
+.member-monthly-benefits-tabs button[data-membership-tier-style]:hover { filter: brightness(1.11); }
+.member-monthly-benefits-tabs button[data-membership-tier-style][aria-pressed="true"] {
+  color: var(--monthly-card-soft);
+  background: linear-gradient(145deg, rgba(255,255,255,.075), transparent 55%), var(--monthly-card-background);
+  border-color: var(--monthly-card-accent);
+  box-shadow: inset 0 -3px 0 var(--monthly-card-accent), 0 0 0 2px var(--monthly-card-background);
+}
+.member-monthly-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The member card renders the tier name as a white frosted pill on its card palette. */
+.member-monthly-benefits-tabs button[data-membership-tier-style] .member-monthly-tab-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  max-width: 100%;
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(255,255,255,.14);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+.member-monthly-tab-label::before {
+  content: "";
+  display: none;
+  width: 5px;
+  height: 5px;
+  margin: 0 4px 2px 0;
+  border-radius: 50%;
+  vertical-align: middle;
+  background: currentColor;
+}
+.member-monthly-benefits-tabs button.is-current .member-monthly-tab-label::before { display: inline-block; }
+.member-monthly-tab-count {
+  display: inline-grid;
+  flex: 0 0 auto;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 3px;
+  box-sizing: border-box;
+  place-items: center;
+  border-radius: 6px;
+  background: var(--monthly-subtle);
+  color: var(--monthly-muted);
+  font-size: 10px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+.member-monthly-benefits-tabs button[data-membership-tier-style] .member-monthly-tab-count {
+  background: rgba(255,255,255,.16);
+  color: var(--monthly-card-soft);
+}
+.member-monthly-benefits-tabs button[data-membership-tier-style][aria-pressed="true"] .member-monthly-tab-count {
+  background: rgba(255,255,255,.22);
+  color: var(--monthly-card-soft);
+}
+.member-monthly-tier {
+  padding: 10px 11px;
+  background: var(--monthly-surface);
+  border: 1px solid var(--monthly-divider);
+  border-radius: 11px;
+}
+.member-monthly-tier-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 7px;
+}
+.member-monthly-tier-heading h4 {
+  margin: 0;
+  color: var(--monthly-text);
+  font-size: 13px;
+  font-weight: 750;
+}
+.member-monthly-tier[data-membership-tier-style] .member-monthly-tier-heading {
+  padding: 6px 8px;
+  border: 1px solid var(--monthly-card-accent);
+  border-radius: 10px;
+  background: linear-gradient(145deg, rgba(255,255,255,.075), transparent 55%), var(--monthly-card-background);
+}
+.member-monthly-tier[data-membership-tier-style] .member-monthly-tier-heading h4 {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.14);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.member-monthly-tier[data-membership-tier-style] .member-monthly-current-tag {
+  color: #fff;
+  background: rgba(255,255,255,.14);
+  border: 1px solid rgba(255,255,255,.22);
+}
+.member-monthly-current-tag {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--monthly-tag-bg);
+  color: var(--monthly-tag-text);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.member-monthly-tier-empty {
+  margin: 8px 0 4px;
+  color: var(--monthly-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.member-monthly-tier-list {
+  display: grid;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.member-monthly-offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px 8px;
+  min-width: 0;
+  padding: 9px 0;
+  border-top: 1px solid var(--monthly-divider);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.member-monthly-tier-list .member-monthly-offer:first-child { border-top: 0; }
+.member-monthly-offer-kind {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  color: var(--monthly-highlight-text);
+  background: var(--monthly-highlight);
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.4;
+}
+.member-monthly-offer-title {
+  flex: 1 1 110px;
+  min-width: 0;
+  color: var(--monthly-text);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.6;
+}
+.member-monthly-offer-date {
+  margin-left: auto;
+  color: var(--monthly-muted);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.member-monthly-benefits-notice {
+  margin: 9px 1px 0;
+  color: var(--monthly-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+@media (max-width: 420px) {
+  .member-monthly-benefits-heading { gap: 6px; padding: 6px 10px; }
+  .member-monthly-benefits-heading small { padding: 4px 7px; min-height: 26px; }
+  .member-monthly-benefits-heading::after { flex-basis: 24px; width: 24px; height: 24px; }
+  .member-monthly-benefits-spark { flex-basis: 24px; width: 24px; height: 24px; }
+  .member-monthly-benefits-body { padding: 9px 9px 11px; }
+  .member-monthly-benefits-tabs { gap: 4px; }
+  .member-monthly-benefits-tabs button { gap: 3px; padding: 6px 3px; font-size: 11px; }
+  .member-monthly-benefits-tabs button[data-membership-tier-style] .member-monthly-tab-label { padding: 3px 5px; font-size: 11px; }
+  .member-monthly-tab-count { min-width: 16px; height: 16px; }
+  .member-monthly-tier { padding: 9px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .member-monthly-benefits-heading,
+  .member-monthly-benefits-heading::after,
+  .member-monthly-benefits-controls [data-member-monthly-tier-reload],
+  .member-monthly-benefits-tabs button { transition: none; }
 }
