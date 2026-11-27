@@ -101,6 +101,7 @@ for (const width of [390,1280]) {
 test('AC-EVENT-GROUP-004..005: realtime tier changes reclassify cards without stale groups or extra requests',async({page})=>{
   await page.goto(base+'/');
   await expect(page.locator('.event-offer-group--locked .event-ticket')).toHaveCount(1);
+  await page.waitForFunction(()=>typeof window.__realtime === 'function');
   await page.evaluate(async()=>{
     window.__offers=window.__offers.map(o=>o.ticket.eventTicketId==='GOLD'?{...o,tierEligible:true,locked:false,canUse:true}:o);
     await window.__realtime();
