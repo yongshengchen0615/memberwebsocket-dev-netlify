@@ -403,6 +403,11 @@ serveBusiness('member-calendar-api',async (request: Request) => {
       }
       return linkedTicket ? { ...item, allowedTierKeys: Array.isArray(linkedTicket.allowed_tier_keys) ? linkedTicket.allowed_tier_keys : [], visibilityPolicy: linkedTicket.visibility_policy || 'eligible_only' } : item;
     });
+    let items = calendarEntries.map((item) => decorateTierEligibility(item, profile));
+    // Keep the response shape for existing clients, but never synthesize
+    // ongoing activities from tickets that were not opted into the calendar.
+    const ongoingTickets: CalendarItem[] = [];
+    const policy=await loadVisibilityPolicy(db);
     // The linked member ID, booking ownership, confirmation state and items are
     // read with the tenant-scoped service client. No browser-supplied count is trusted.
     const gatedEntries = calendarEntries.filter((item) => item.itemType === "event"
@@ -449,11 +454,7 @@ serveBusiness('member-calendar-api',async (request: Request) => {
         for (const service of services.data || []) serviceNames.set(String(service.id),String(service.title || ""));
       }
     }
-    let items = calendarEntries.map((item) => decorateTierEligibility(item, profile));
-    // Keep the response shape for existing clients, but never synthesize
-    // ongoing activities from tickets that were not opted into the calendar.
-    const ongoingTickets: CalendarItem[] = [];
-    const policy=await loadVisibilityPolicy(db);
+
     const visibility = (item:CalendarItem): CalendarItem[] => {
       const v = tierVisibility(item.allowedTierKeys, profile.tierKey, item.visibilityPolicy || policy);
       return item.itemType === "holiday" ? [item] : v.visible ? [{ ...item, ...v }] : [];
