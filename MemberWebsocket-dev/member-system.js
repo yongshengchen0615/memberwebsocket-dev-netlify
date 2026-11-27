@@ -32,59 +32,20 @@
     booking: Object.freeze({ clientType: 'booking', prefix: 'user.booking.presence' })
   });
 
-  const WRITE_ACTIONS = Object.freeze([
-    'user.member.card.open',
-    'user.member.presence.online',
-    'user.member.presence.offline',
-    'user.member.presence.heartbeat',
-    'user.pointcard.presence.online',
-    'user.pointcard.presence.offline',
-    'user.pointcard.presence.heartbeat',
-    'user.event.presence.online',
-    'user.event.presence.offline',
-    'user.event.presence.heartbeat',
-    'user.calendar.presence.online',
-    'user.calendar.presence.offline',
-    'user.calendar.presence.heartbeat',
-    'user.booking.presence.online',
-    'user.booking.presence.offline',
-    'user.booking.presence.heartbeat',
-    'user.member.profile.save',
-    'user.member.phone.send',
-    'user.member.terms.accept',
-    'admin.terms.draft.save',
-    'admin.terms.activate',
-    'admin.member.update',
-    'admin.member.remove',
-    'admin.member-tiers.save',
-    'admin.pointcards.save',
-    'admin.pointcards.reorder',
-    'admin.pointcards.archive',
-    'admin.pointcards.delete',
-    'admin.pointcards.remove',
-    'admin.tickets.save',
-    'admin.event-tickets.save',
-    'admin.event-tickets.delete',
-    'admin.calendar-items.save',
-    'admin.calendar-items.delete',
-    'admin.calendar-items.batch',
-    'admin.stamps.add',
-    'admin.service_minutes.add',
-    'admin.member-grants.add',
-    'admin.grant-message-presets.save',
-    'user.pointcard.booking-selections.update',
-    'user.event.booking-selections.update',
-    'user.pointcard.ticket.redeem',
-    'user.event.ticket.claim',
-    'user.event.ticket.transfer',
-    'user.event.ticket.redeem',
-    'member.referral.bind',
-    'member.invitation.create',
-    'member.invitation.retry',
-    'user.member.invitation.claim',
-    'points.transfer.create',
-    'admin.booking.receipt.register',
-    'admin.booking.receipt.dismiss'
+  // Only known reads may be retried or shared. A newly added mutation must
+  // never inherit read semantics just because it is absent from a write list.
+  const READ_ACTIONS = new Set([
+    'user.member.bootstrap', 'user.member.monthly-tier-benefits', 'user.member.oa.check',
+    'user.pointcard.bootstrap', 'user.pointcard.detail',
+    'user.event.bootstrap', 'user.event.ticket.detail',
+    'user.calendar.bootstrap', 'user.calendar.date.details', 'user.booking.benefits',
+    'admin.bootstrap', 'admin.terms.list', 'admin.members.list', 'admin.members.presence.list',
+    'admin.member-records.list', 'admin.pointcards.list', 'admin.event-tickets.list',
+    'admin.calendar-items.list', 'admin.summary', 'admin.integration-overview',
+    'admin.ticket-visibility.get', 'admin.service-grants.catalog', 'admin.service-grants.preview',
+    'admin.booking.receipt.list', 'admin.booking.receipt.options',
+    'member.friend.list', 'member.invitation.summary', 'event.today-usable',
+    'points.transfer.options', 'points.transfer.receiver',
   ]);
 
   function clientError(code, message) {
@@ -469,7 +430,8 @@
   }
 
   function isWriteAction(action) {
-    return action.endsWith('.session.claim') || action.endsWith('.session.logout') || WRITE_ACTIONS.includes(action) || ['admin.settings.copy','admin.ticket-visibility.save','member.friend.request','member.friend.accept','member.friend.remove','member.friend.block'].includes(action);
+    return !READ_ACTIONS.has(action)
+      && !/^(admin|user\.(member|points|event|calendar|booking))\.(session|sync)\.status$/.test(action);
   }
 
   function request(config, clientType, idToken, action, payload = {}) {
@@ -478,6 +440,9 @@
       pendingReads.clear();
       return sendRequest(config, clientType, idToken, action, payload).finally(() => pendingReads.clear());
     }
+    // Each session status check must observe current server state even if a
+    // previous check is still pending across a takeover or page resume.
+    if (action.endsWith('.session.status')) return sendRequest(config, clientType, idToken, action, payload);
     const endpoint = requestEndpoint(config, clientType, action);
     const business = window.BusinessContext?.slug || config.business || '';
     const key = JSON.stringify([endpoint, config.supabasePublishableKey, business, clientType, idToken, action, payload]);

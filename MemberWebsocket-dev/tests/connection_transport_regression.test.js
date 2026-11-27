@@ -34,6 +34,63 @@ function harness(kind = 'booking', network) {
 }
 const succeed = call => call.resolve({ ok: true, data: { marker: call.body.idToken } });
 
+const crudActions = [
+  ['admin', 'admin.service-grants.add'],
+  ['admin', 'admin.member.update'],
+  ['admin', 'admin.tickets.delete'],
+  ['admin', 'admin.member.force-logout'],
+  ['points', 'user.pointcard.snapshot-ticket.cancel'],
+  ['event', 'user.event.snapshot-ticket.cancel'],
+  ['booking', 'user.booking.event-ticket.claim'],
+  ['points', 'member.friend.lookup'],
+  ['admin', 'admin.future-resource.create'],
+];
+for (const [clientType, action] of crudActions) {
+  for (const failure of ['network', 'malformed']) test(`CRUD AC-001 ${action}: ${failure} cannot replay a mutation`, async () => {
+    const h = harness('member', async () => {
+      if (failure === 'network') throw new TypeError('connection lost after commit');
+      return { ok: true, status: 200, text: async () => '<html>gateway interrupted</html>' };
+    });
+    await assert.rejects(h.system.request(config, clientType, 'identity-A', action, { requestId: 'same-operation' }), { code: 'API_RESPONSE_UNCERTAIN' });
+    assert.equal(h.calls.length, 1);
+    assert.equal(h.timers.size, 0);
+  });
+  test(`CRUD AC-001 ${action}: separate mutations are not coalesced`, async () => {
+    const h = harness('member');
+    const writes = Array.from({ length: 2 }, () => h.system.request(config, clientType, 'identity-A', action, { requestId: 'same-operation' }));
+    h.calls.forEach(succeed);
+    await Promise.all(writes);
+    assert.equal(h.calls.length, 2);
+    assert.ok(h.calls.every(call => call.body.requestId === 'same-operation'));
+  });
+  test(`CRUD AC-002 ${action}: write boundaries invalidate shared reads`, async () => {
+    const h = harness('member');
+    const read = () => h.system.request(config, clientType, 'identity-A', 'user.member.bootstrap');
+    const old = read();
+    const write = h.system.request(config, clientType, 'identity-A', action);
+    const during = read();
+    const duringCount = h.calls.length;
+    h.calls.find(call => call.body.action === action).resolve({ ok: true, data: {} });
+    await write;
+    const fresh = read();
+    const afterCount = h.calls.length;
+    succeed(h.calls[0]); await old;
+    const sharedFresh = read();
+    const lateCount = h.calls.length;
+    h.calls.forEach(succeed); await Promise.all([during, fresh, sharedFresh]);
+    assert.equal(duringCount, 3);
+    assert.equal(afterCount, 4);
+    assert.equal(lateCount, 4, 'old completion must not evict the current shared read');
+  });
+}
+
+test('CRUD AC-002 member: session status checks cannot reuse an older pending status', async () => {
+  const h = harness('member');
+  const checks = [h.request('user.member.session.status'), h.request('user.member.session.status')];
+  h.calls.forEach(succeed); await Promise.all(checks);
+  assert.equal(h.calls.length, 2);
+});
+
 for (const [action, endpoint] of [['user.booking.group.bootstrap', 'booking-group-api'], ['user.booking.group.slots', 'booking-group-slots-api']]) {
   test(`AC-001 ${action}: 100 concurrent reads share one canonical request and later reads are fresh`, async () => {
     const h = harness(); const reads = Array.from({ length: 100 }, () => h.request(action, { bookingDate: '2026-11-11' }));

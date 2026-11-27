@@ -1590,9 +1590,10 @@ function calendarClient(row: any): Json {
   };
 }
 
-async function calendarItems(supabase: SupabaseClient, activeOnly = false): Promise<any[]> {
+async function calendarItems(supabase: SupabaseClient, activeOnly = false, calendarItemId?: string): Promise<any[]> {
   let query = supabase.from("calendar_items").select("*").order("starts_on",{ ascending:true }).order("created_at",{ ascending:true });
   if (activeOnly) query = query.eq("status","active");
+  if (calendarItemId !== undefined) query = query.eq("calendar_item_id",calendarItemId);
   const { data, error } = await query;
   if (error) throw mapDatabaseError(error);
   return (data || []).map(calendarClient);
@@ -3006,7 +3007,7 @@ async function handleAction(supabase: SupabaseClient, identity: { lineUserId: st
     const rpc = await supabase.rpc("apply_calendar_batch",{ p_actor_line_user_id:identity.lineUserId,p_operations:[{ action:"save",calendarItem:item,expectedUpdatedAt:body.expectedUpdatedAt || "" }] });
     if (rpc.error) throw mapDatabaseError(rpc.error);
     const id = String((rpc.data as any[])?.[0]?.calendarItemId || "");
-    return { calendarItem:(await calendarItems(supabase,false)).find((entry:any) => entry.calendarItemId === id) || null };
+    return { calendarItem:(await calendarItems(supabase,false,id))[0] || null };
   }
   if (action === "admin.calendar-items.delete") {
     const id = requireText(body.calendarItemId,"日曆項目識別",120);
