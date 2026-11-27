@@ -20,11 +20,11 @@ test('BUSINESS_APPROVAL_ACTIVATES — real approval/SQL immediately opens grant-
    // request adapter test; only the browser's external business HTTP is replaced.
    const t=(await h.db.query('select * from platform_private.tenants where slug=$1',[body.business])).rows[0];
    if(!t)return route.fulfill({status:403,json:{ok:false,error:{code:'BUSINESS_NOT_FOUND',message:'missing'}}});
-   const {assertBusinessAction}=await import('../../supabase/functions/_shared/business-policy.mjs');
+   const {assertBusinessAction,businessResponse}=await import('../../supabase/functions/_shared/business-policy.mjs');
    try{assertBusinessAction(t,body.action,body);}catch(e){return route.fulfill({status:403,json:{ok:false,error:{code:e.code,message:e.message}}});}
    let data={};
-   if(body.action==='admin.bootstrap')data={profile:{displayName:t.name},role:'Admin',business:{name:t.name,slug:t.slug},features:t.features,members:[],memberPage:{page:1,pageSize:100,total:0,totalPages:1,query:''},tierSettings:[],cards:[],tickets:[],eventTickets:[],calendarItems:[],messagePresets:[],bookingServices:[],stats:{}};
-   return route.fulfill({json:{ok:true,data}});
+   if(body.action==='admin.bootstrap')data={profile:{displayName:t.name},role:'Admin',business:{name:t.name,slug:t.slug},features:t.features,members:[],memberPage:{page:1,pageSize:100,total:0,totalPages:1,query:''},tierSettings:[],cards:[],tickets:[],eventTickets:[],calendarItems:[],messagePresets:[],bookingServices:[],stats:{memberCount:4,activeMemberCount:3,activeCardCount:2,activeEventTicketCount:6,todayEntryCount:20}};
+   return route.fulfill({json:{ok:true,data:businessResponse(data,t,body.action)}});
   });
  }
  const manager=await context.newPage(),platform=await context.newPage();
@@ -64,6 +64,13 @@ test('BUSINESS_APPROVAL_ACTIVATES — real approval/SQL immediately opens grant-
   await expect(manager.locator('#clientPageTitleTab')).toHaveCount(1);
   await expect(manager.locator('#membersTab')).toBeVisible();await expect(manager.locator('#cardsTab')).toBeVisible();await expect(manager.locator('#eventsTab')).toBeHidden();await expect(manager.locator('#bookingTab')).toBeHidden();
   await expect(manager.locator('#memberUsageTab')).toBeVisible();
+  // The real merchant response policy must preserve authorized KPI numbers.
+  await expect(manager.locator('#memberCount')).toHaveText('4');
+  await expect(manager.locator('#activeMemberCount')).toHaveText('3');
+  await expect(manager.locator('#activeCardCount')).toHaveText('2');
+  await expect(manager.locator('#todayEntryCount')).toHaveText('20');
+  // This tenant has no events grant: its event count must remain concealed.
+  await expect(manager.locator('#activeEventTicketCount')).toHaveText('—');
   await manager.locator('#memberDirectoryTab').focus();await manager.keyboard.press('ArrowRight');
   await expect(manager.locator('#memberUsageTab')).toBeFocused();
   await manager.keyboard.press('ArrowRight');await expect(manager.locator('#memberTierSettingsTab')).toBeFocused();
