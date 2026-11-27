@@ -132,6 +132,8 @@ for(const variant of [
   const messagesForm=page.locator('#bookingAdminMessagesForm');
   const messageNotice=page.locator('#bookingAdminNotice');
   const onsiteMessage=page.locator('#bookingAdminOnsiteEditMessage');
+  const holidayMessage=page.locator('#bookingAdminHolidayNotice');
+  await expect(holidayMessage).toHaveValue('');
   await expect(onsiteMessage).toHaveValue('此預約已超過線上可修改時間，請至現場洽詢修改預約。');
   const messageStatus=page.locator('#bookingAdminMessagesDraftStatus');
   const oldNotice=await messageNotice.inputValue();
@@ -149,10 +151,14 @@ for(const variant of [
   await page.locator('#bookingAdminMessagesSave').click();
   await expect(page.locator('#bookingAdminMessagesStatus')).toContainText('現場修改提醒必須為 1–400 字');
   await onsiteMessage.fill('請攜帶預約資訊到現場辦理修改 '+variant.name);
+  await holidayMessage.fill('技師休假提醒：請另選日期。 '+variant.name);
+  await expect(page.locator('#bookingAdminHolidayNoticeCount')).toContainText('400 字');
   await page.locator('#bookingAdminMessagesSave').click();
   await expect(page.locator('#bookingAdminRejectionMessage')).toHaveCount(0);
-  await expect(page.locator('#bookingAdminMessagesStatus')).toContainText('四項訊息已一次儲存');
+  await expect(page.locator('#bookingAdminMessagesStatus')).toContainText('五項訊息已一次儲存');
   expect(host.sessions.get(info.testId).settings.onsiteEditMessage).toBe('請攜帶預約資訊到現場辦理修改 '+variant.name);
+  expect(host.sessions.get(info.testId).settings.holidayNotice).toBe('技師休假提醒：請另選日期。 '+variant.name);
+  await expect(holidayMessage).toHaveValue('技師休假提醒：請另選日期。 '+variant.name);
   expect(host.sessions.get(info.testId).settings.bookingNotice).toBe('QA booking notice persisted '+variant.name);
   await expect(messageStatus).toContainText('沒有未儲存的變更');
   await page.locator('#bookingAdminRiskSubtab').click();

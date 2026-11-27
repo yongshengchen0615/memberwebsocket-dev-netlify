@@ -2237,19 +2237,27 @@ html[data-theme="dark"] #bookingView :where(
   background: var(--theme-positive-soft) !important;
 }
 
+/* Keep the holiday warning accent in the final site theme layer.
+   These selectors intentionally mirror calendar-holiday-theme.css so a later
+   theme.css load cannot silently turn holiday cards neutral in dark mode. */
 html[data-theme="dark"] #calendarGrid .calendar-day.holiday-disabled {
-  color: var(--theme-text);
-  background: var(--theme-surface-raised);
-  border-color: var(--theme-border);
+  color: #ffe7d9;
+  background: #42231e;
+  border-color: #ff9778;
 }
 
 html[data-theme="dark"] #calendarGrid .calendar-day.holiday-disabled:hover {
-  background: #1c2923;
-  border-color: var(--theme-border-strong);
+  background: #543027;
+  border-color: #ffb295;
 }
 
 html[data-theme="dark"] #bookingHolidayModal .booking-holiday-detail {
-  background: var(--theme-surface-muted);
+  background: #392820;
+  border-color: #a96752;
+}
+
+html[data-theme="dark"] #bookingHolidayModal .booking-holiday-detail strong {
+  color: #ffe7d9;
 }
 
 html[data-theme="dark"] :where(

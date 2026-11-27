@@ -19,7 +19,7 @@ function fixture() {
     tierSettings:tiers.map((tierKey,i)=>({tierKey,requiredServiceMinutes:i*100,styleKey:'forest'})),
     terms:[{id:'terms-1',version:'1',title:'QA terms',summary:'QA summary',body:'QA terms body',effectiveAt:version,status:'active',required:true,reconsentExisting:false}],
     limits:{'pointcard-extension-api':{maxTicketsPerRedemption:1,updatedAt:version},'event-ticket-extension-api':{maxTicketsPerDay:1,updatedAt:version}},
-    settings:{workStartTime:'09:00',workEndTime:'18:00',allowEndOverrun:false,maxEndOverrunMinutes:0,minAdvanceDays:0,maxAdvanceDays:60,slotIntervalMinutes:30,storeServiceMinutes:10,bookingNotice:'QA notice',onsiteEditMessage:'此預約已超過線上可修改時間，請至現場洽詢修改預約。',pendingMessage:'已收到預約，等待管理員確認。',rejectionMessage:'預約未通過，請重新預約。',reminderMessage:'請準時到店。',closedWeekdays:[],updatedAt:version,maxPartySize:2,primaryTechnicianId:'tech-1'},
+    settings:{workStartTime:'09:00',workEndTime:'18:00',allowEndOverrun:false,maxEndOverrunMinutes:0,minAdvanceDays:0,maxAdvanceDays:60,slotIntervalMinutes:30,storeServiceMinutes:10,bookingNotice:'QA notice',holidayNotice:'',onsiteEditMessage:'此預約已超過線上可修改時間，請至現場洽詢修改預約。',pendingMessage:'已收到預約，等待管理員確認。',rejectionMessage:'預約未通過，請重新預約。',reminderMessage:'請準時到店。',closedWeekdays:[],updatedAt:version,maxPartySize:2,primaryTechnicianId:'tech-1'},
     serviceTypes:[{id:'type-1',name:'Body',sortOrder:0}],
     services:[{serviceId:'service-1',title:'QA service',serviceType:'Body',durationMinutes:30,priceAmount:100,isActive:true,updatedAt:version,rewardRules:[]},{serviceId:'service-2',title:'QA second service',serviceType:'Body',durationMinutes:30,priceAmount:200,isActive:true,updatedAt:version,rewardRules:[]}],
     technicians:[{technicianId:'tech-1',name:'QA primary',sortOrder:0,isActive:true,updatedAt:version},{technicianId:'tech-2',name:'QA secondary',sortOrder:1,isActive:true,updatedAt:version}],
@@ -125,14 +125,14 @@ function transport(s, action, p={}, slug='api',record=true) {
   }))};
   if(action==='admin.booking.group.details')return {bookingGroups:s.groups,technicians:s.technicians,primaryTechnicianId:s.settings.primaryTechnicianId};
   if(action==='admin.booking.messages.save'){
-    const keys=['bookingNotice','onsiteEditMessage','pendingMessage','reminderMessage'];
+    const keys=['bookingNotice','onsiteEditMessage','holidayNotice','pendingMessage','reminderMessage'];
     if(Object.prototype.hasOwnProperty.call(p,'rejectionMessage'))throw Object.assign(new Error('拒絕預約說明已移至櫃檯設定'),{code:'REJECTION_SETTINGS_MOVED'});
     if(!p.expectedUpdatedAt||p.expectedUpdatedAt!==s.settings.updatedAt)
       throw Object.assign(new Error('設定版本已變更，請重新載入。'),{code:'BOOKING_SETTINGS_CONFLICT'});
     for(const key of keys){
       if(typeof p[key]!=='string')throw Object.assign(new Error('缺少訊息內容'),{code:'INVALID_BOOKING_MESSAGE'});
       const limit=key==='bookingNotice'?2000:400;
-      if(p[key].length>limit||(key!=='bookingNotice'&&!p[key].trim()))
+      if(p[key].length>limit||(!['bookingNotice','holidayNotice'].includes(key)&&!p[key].trim()))
         throw Object.assign(new Error('訊息內容不符合長度限制'),{code:'INVALID_BOOKING_MESSAGE'});
     }
     s.settings={...s.settings,...Object.fromEntries(keys.map(key=>[key,p[key]])),updatedAt:stamp()};
