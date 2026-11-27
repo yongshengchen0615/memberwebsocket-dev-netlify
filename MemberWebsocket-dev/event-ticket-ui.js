@@ -37,6 +37,9 @@
       if (options.showServiceRequirement && String(ticket.requiredServiceRequirementLabel || '').trim()) {
         row('預約項目條件', String(ticket.requiredServiceRequirementLabel).trim());
       }
+      if (options.showAmountRequirement && String(ticket.minBookingPartyLabel || '').trim()) {
+        row('預約人數條件', String(ticket.minBookingPartyLabel).trim());
+      }
       if (options.showAmountRequirement && String(ticket.minBookingAmountLabel || '').trim()) {
         row('金額使用條件', String(ticket.minBookingAmountLabel).trim());
       }

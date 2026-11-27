@@ -16,7 +16,7 @@
     window.MemberSystem.bindDialogKeyboard();
     [
       'app', 'loadingView', 'loadingProgress', 'loadingProgressBar', 'loadingProgressText', 'loadingStatus', 'errorView', 'errorTitle', 'errorMessage', 'joinMemberButton', 'retryButton', 'eventView', 'displayName', 'membershipProgress', 'eventSummary', 'eventList', 'emptyView', 'usedTicketHistory', 'usedTicketHistorySummary', 'usedTicketList',
-      'ticketModal', 'closeTicketModal', 'ticketModalType', 'ticketModalTitle', 'ticketModalDate', 'ticketModalDescription', 'ticketModalUsageMethod', 'ticketModalUsageInstructions', 'ticketModalServiceRequirement', 'ticketModalAmountRequirement', 'ticketModalPrizes', 'ticketModalStatus', 'ticketModalProcessing', 'ticketModalProcessingText', 'ticketModalResult', 'ticketModalAction', 'refreshTicketButton', 'ticketModalMessage', 'ticketModalLocationStatus', 'ticketModalLocationButton',
+      'ticketModal', 'closeTicketModal', 'ticketModalType', 'ticketModalTitle', 'ticketModalDate', 'ticketModalDescription', 'ticketModalUsageMethod', 'ticketModalUsageInstructions', 'ticketModalServiceRequirement', 'ticketModalAmountRequirement', 'ticketModalPartyRequirement', 'ticketModalPrizes', 'ticketModalStatus', 'ticketModalProcessing', 'ticketModalProcessingText', 'ticketModalResult', 'ticketModalAction', 'refreshTicketButton', 'ticketModalMessage', 'ticketModalLocationStatus', 'ticketModalLocationButton',
       'ticketTransferPanel', 'ticketTransferFriendSelect', 'ticketTransferStatus', 'ticketTransferButton'
     ].forEach((id) => { els[id] = document.getElementById(id); });
     els.retryButton.addEventListener('click', () => window.location.reload());
@@ -329,6 +329,9 @@
     const amountRequirement = String(ticket.minBookingAmountLabel || '').trim();
     els.ticketModalAmountRequirement.textContent = amountRequirement ? `金額使用條件：${amountRequirement}` : '';
     els.ticketModalAmountRequirement.classList.toggle('hidden', !amountRequirement);
+    const partyRequirement = String(ticket.minBookingPartyLabel || '').trim();
+    els.ticketModalPartyRequirement.textContent = partyRequirement ? `預約人數條件：${partyRequirement}` : '';
+    els.ticketModalPartyRequirement.classList.toggle('hidden', !partyRequirement);
     renderPrizes(ticket.ticketType, ticket.prizes);
     const needsGps = Boolean(!transferMode && claim && ticket.requiresLocation && !history && !reserved && !offer.pendingSnapshot);
     els.ticketModalLocationStatus.classList.toggle('hidden', !needsGps);

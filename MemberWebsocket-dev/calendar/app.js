@@ -122,7 +122,7 @@
     const groups = { available: [], locked: [], notices: [] };
     (Array.isArray(items) ? items : []).forEach((item) => {
       if (item.itemType === 'holiday') groups.notices.push(item);
-      else if (item.itemType === 'event' && (item.locked === true || item.tierEligible === false)) groups.locked.push(item);
+      else if (item.itemType === 'event' && (item.locked === true || item.tierEligible === false || item.usageEligible === false)) groups.locked.push(item);
       else if (item.itemType === 'event') groups.available.push(item);
       else groups.notices.push(item);
     });
@@ -160,7 +160,7 @@
   function createCalendarItem(item) {
     const entry = document.createElement('span');
     entry.className = 'calendar-item ' + (item.itemType === 'holiday' ? 'holiday' : 'event');
-    if (item.itemType === 'event' && item.tierEligible === false) entry.classList.add('tier-ineligible');
+    if (item.itemType === 'event' && (item.tierEligible === false || item.usageEligible === false)) entry.classList.add('tier-ineligible');
     applyCalendarItemAccent(entry, item.accent);
     const marker = document.createElement('i');
     marker.setAttribute('aria-hidden', 'true');
@@ -242,7 +242,7 @@
     const detail = document.createElement('section');
     detail.className = 'calendar-detail-item';
     detail.style.setProperty('--item-accent', safeAccent(item.accent));
-    const isLocked = item.itemType === 'event' && (item.locked === true || item.tierEligible === false);
+    const isLocked = item.itemType === 'event' && (item.locked === true || item.tierEligible === false || item.usageEligible === false);
     if (isLocked) detail.classList.add('is-locked');
     const heading = document.createElement('div');
     heading.className = 'calendar-detail-item-heading';
@@ -263,6 +263,19 @@
         ? String(item.lockReason || `可參加階級：${labels}。目前會員階級尚未解鎖。`)
         : `可參加階級：${labels}。`;
       detail.append(tierAccess);
+      const useConditions = String(item.usageConditionLabel || '').trim();
+      if (useConditions) {
+        const condition = document.createElement('p');
+        condition.className = 'calendar-detail-usage-conditions';
+        condition.textContent = '活動使用條件：' + useConditions;
+        detail.append(condition);
+        if (item.usageEligible === false && item.tierEligible !== false) {
+          const notice = document.createElement('p');
+          notice.className = 'calendar-detail-tier-access ineligible';
+          notice.textContent = '🔒 ' + String(item.lockReason || '尚未有符合條件的已確認預約。');
+          detail.append(notice);
+        }
+      }
       const linkUrl = resolveCalendarLink(item.linkUrl) || resolveCalendarLinkForItem(item);
       const linkLabel = String(item.linkLabel || '').trim();
       if (item.tierEligible !== false && linkLabel && isSafeCalendarLink(linkUrl) && !isLocked) {

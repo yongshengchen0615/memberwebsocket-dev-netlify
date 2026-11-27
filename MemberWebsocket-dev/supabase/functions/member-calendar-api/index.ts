@@ -1,3 +1,4 @@
+import { activityUsageRules,activityRequiresBooking,usageConditionLabel,bookingSatisfiesActivity,memberActivityAllowedLink } from "../_shared/activity-usage-rules.ts";
 import { businessEnv, businessFetch as fetch, serveBusiness } from '../_shared/business-runtime.ts';
 import { tierVisibility, loadVisibilityPolicy } from "../_shared/tier-visibility.ts";
 import { createClient } from '../_shared/business-runtime.ts';
@@ -12,6 +13,9 @@ type CalendarItem = Json & {
   linkUrl?: string;
   allowedTierKeys?: string[];
   visibilityPolicy?: string;
+  usageConditions?: unknown;
+  usageEligible?: boolean;
+  usageConditionLabel?: string;
 };
 
 const MAX_REQUEST_BYTES = 40_000;
@@ -69,10 +73,12 @@ function calendarClient(row: any): CalendarItem {
     visibilityPolicy: row.visibility_policy || 'eligible_only',
     linkLabel: row.link_label || "",
     linkUrl: row.link_url || "",
+    usageConditions: row.usage_conditions && typeof row.usage_conditions === 'object' ? row.usage_conditions : {},
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
+
 
 function birthdayMonth(value: unknown): number {
   const birthday = asText(value, 10);
@@ -302,7 +308,7 @@ serveBusiness('member-calendar-api',async (request: Request) => {
     // An active event ticket alone must never publish an activity to the calendar.
     const eventByUuid = new Map((eventTicketsResult.data || []).map((ticket: any) => [String(ticket.id), ticket]));
     const eventByCode = new Map((eventTicketsResult.data || []).map((ticket: any) => [String(ticket.event_ticket_id), ticket]));
-    const calendarEntries = rows.map((row: any) => {
+    const calendarEntries: CalendarItem[] = rows.map((row: any): CalendarItem => {
       const item = calendarClient(row);
       if (item.itemType !== 'event') return item;
       let linkedTicket = eventByUuid.get(String(row.source_event_ticket_id || ''));
@@ -320,11 +326,69 @@ serveBusiness('member-calendar-api',async (request: Request) => {
     // ongoing activities from tickets that were not opted into the calendar.
     const ongoingTickets: CalendarItem[] = [];
     const policy=await loadVisibilityPolicy(db);
+    // The linked member ID, booking ownership, confirmation state and items are
+    // read with the tenant-scoped service client. No browser-supplied count is trusted.
+    const gatedEntries = calendarEntries.filter((item) => item.itemType === "event"
+      && activityRequiresBooking(activityUsageRules(item.usageConditions)));
+    const memberBookings: any[] = [];
+    const bookedItemsByBooking = new Map<string, any[]>();
+    const serviceNames = new Map<string,string>();
+    if (gatedEntries.length) {
+      const memberRes = await db.from("members").select("id").eq("line_user_id",profile.lineUserId).maybeSingle();
+      if (memberRes.error || !memberRes.data?.id) {
+        return reply(origin,{ok:false,status:401,error:{code:"MEMBER_NOT_FOUND",message:"無法確認目前會員身分。"}},401);
+      }
+      const bookings = await db.from("bookings")
+        .select("id,party_size,cancellation_requested_at,cancellation_reviewed_at")
+        .eq("member_id",memberRes.data.id).eq("status","confirmed").is("completed_at",null);
+      if (bookings.error) {
+        return reply(origin,{ok:false,status:500,error:{code:"DATABASE_ERROR",message:"無法確認活動預約資格。"}},500);
+      }
+      memberBookings.push(...(bookings.data || []).filter((booking:any) =>
+        !(booking.cancellation_requested_at && !booking.cancellation_reviewed_at)));
+      if (memberBookings.length) {
+        const bookingItems = await db.from("booking_items")
+          .select("booking_id,service_id,unit_price_amount,quantity")
+          .in("booking_id",memberBookings.map((booking:any) => booking.id));
+        if (bookingItems.error) {
+          return reply(origin,{ok:false,status:500,error:{code:"DATABASE_ERROR",message:"無法確認活動預約項目。"}},500);
+        }
+        for (const item of bookingItems.data || []) {
+          const bookingId = String(item.booking_id);
+          const items = bookedItemsByBooking.get(bookingId) || [];
+          items.push(item);
+          bookedItemsByBooking.set(bookingId,items);
+        }
+      }
+      const ids = [...new Set(gatedEntries.flatMap((item) => {
+        const rule = activityUsageRules(item.usageConditions);
+        return [...rule.requiredServiceIds,...rule.requiredServiceGroups.flat(),...rule.minBookingServiceIds];
+      }))];
+      if (ids.length) {
+        const services = await db.from("booking_services").select("id,title").in("id",ids);
+        if (services.error) {
+          return reply(origin,{ok:false,status:500,error:{code:"DATABASE_ERROR",message:"無法確認活動指定服務項目。"}},500);
+        }
+        for (const service of services.data || []) serviceNames.set(String(service.id),String(service.title || ""));
+      }
+    }
+
     const visibility = (item:CalendarItem): CalendarItem[] => {
       const v = tierVisibility(item.allowedTierKeys, profile.tierKey, item.visibilityPolicy || policy);
       return item.itemType === "holiday" ? [item] : v.visible ? [{ ...item, ...v }] : [];
     };
-    items=items.flatMap(visibility);
+    items=items.flatMap(visibility).map((item) => {
+      if (item.itemType !== "event") return item;
+      const rule = activityUsageRules(item.usageConditions);
+      const label = usageConditionLabel(rule,serviceNames);
+      if (!activityRequiresBooking(rule)) return {...item,usageEligible:true,usageConditionLabel:"",linkUrl:memberActivityAllowedLink(item,true)};
+      const eligible = memberBookings.some((booking:any) =>
+        bookingSatisfiesActivity(booking,bookedItemsByBooking.get(String(booking.id)) || [],rule));
+      return {...item,usageEligible:eligible,usageConditionLabel:label,
+        linkUrl:memberActivityAllowedLink(item,eligible),
+        locked:item.locked === true || !eligible,
+        lockReason:item.locked === true ? item.lockReason : eligible ? "" : "需要已確認且符合使用條件的預約才能參加。"};
+    });
     items = applyCalendarDisplayRules(items);
 
     if (action === "user.calendar.date.details") {

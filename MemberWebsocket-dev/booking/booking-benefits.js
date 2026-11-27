@@ -12,6 +12,7 @@
   let pointTicketMaxPerRedemption = 1;
   let currentBookingId = '';
   let featureGeneration = 0;
+  let currentPartySize = 1;
   let currentServiceIds = new Set();
   let currentServiceAmounts = new Map();
   const selected = new Map();
@@ -127,13 +128,25 @@
     return amount >= minimum;
   }
 
+  function partyRequirementMet(item) {
+    if (item?.kind !== 'event') return true;
+    const minimum = Number(item.minBookingPartySize || 0);
+    const maximum = Number(item.maxBookingPartySize || 0);
+    if (!Number.isSafeInteger(minimum) || !Number.isSafeInteger(maximum)
+      || minimum < 0 || maximum < 0 || minimum > 20 || maximum > 20
+      || (maximum !== 0 && minimum > maximum)) return false;
+    return (minimum === 0 || currentPartySize >= minimum)
+      && (maximum === 0 || currentPartySize <= maximum);
+  }
+
   function ticketRequirementMet(item) {
-    return serviceRequirementMet(item) && amountRequirementMet(item);
+    return serviceRequirementMet(item) && amountRequirementMet(item) && partyRequirementMet(item);
   }
 
   function ticketRequirementMessage(item) {
     return !serviceRequirementMet(item) ? serviceRequirementMessage(item)
       : !amountRequirementMet(item) ? `一般預約未達金額門檻：${String(item.minBookingAmountLabel || '請確認最低預約金額')}。`
+      : !partyRequirementMet(item) ? `預約人數不符合票券條件：${String(item.minBookingPartyLabel || '請確認預約人數上下限')}。`
       : '';
   }
 
@@ -457,7 +470,9 @@
     updateReadyMessage(cardCount);
   }
 
-  function setServiceContext(services) {
+  function setServiceContext(services, partySize) {
+    const parsedPartySize = Number(partySize ?? document.getElementById('bookingPartySize')?.value ?? 1);
+    currentPartySize = Number.isSafeInteger(parsedPartySize) && parsedPartySize >= 1 && parsedPartySize <= 20 ? parsedPartySize : 1;
     const rows = Array.isArray(services) ? services : [];
     currentServiceIds = new Set();
     currentServiceAmounts = new Map();
@@ -473,7 +488,7 @@
     render(renderedItems);
     if (changed) {
       emitSelectionChange();
-      state('ready', '目前預約項目或金額不符合部分票券條件，已自動取消那些票券。');
+      state('ready', '目前預約項目、金額或人數不符合部分票券條件，已自動取消那些票券。');
     }
   }
 
