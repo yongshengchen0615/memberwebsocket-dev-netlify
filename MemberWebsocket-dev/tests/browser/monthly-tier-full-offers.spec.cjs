@@ -40,12 +40,60 @@ test('AC-024: large authorized monthly catalogue displays every row and exact ta
   await expect(page.locator('[data-member-monthly-tier-tabs] button')).toHaveCount(4);
   await expect(page.locator('.member-monthly-offer')).toHaveCount(1205);
   await expect(page.locator('[data-tier-key="general"] .member-monthly-tab-count')).toHaveText('1205');
-  await expect(page.locator('.member-monthly-offer').last()).toContainText('優惠-1204');
+  await expect(page.locator('[data-monthly-offer-kind="ticket"] .member-monthly-offer')).toHaveCount(603);
+  await expect(page.locator('[data-monthly-offer-kind="activity"] .member-monthly-offer')).toHaveCount(602);
+  await expect(page.locator('.member-monthly-offer-group-title')).toHaveText(['活動票券','會員活動']);
+  await expect(page.locator('.member-monthly-offer-group-count')).toHaveText(['603 項','602 項']);
+  await expect(page.locator('[data-monthly-offer-kind="ticket"] .member-monthly-offer').last()).toContainText('優惠-1204');
+  await expect(page.locator('[data-monthly-offer-kind="activity"] .member-monthly-offer').last()).toContainText('優惠-1203');
   await page.locator('[data-tier-key="silver"].member-monthly-tab').click();
   await expect(page.locator('[data-tier-key="silver"] .member-monthly-tab-count')).toHaveText('1206');
   await expect(page.locator('.member-monthly-offer')).toHaveCount(1206);
-  await expect(page.locator('.member-monthly-offer').last()).toContainText('銀級額外活動');
+  await expect(page.locator('[data-monthly-offer-kind="ticket"] .member-monthly-offer')).toHaveCount(603);
+  await expect(page.locator('[data-monthly-offer-kind="activity"] .member-monthly-offer')).toHaveCount(603);
+  await expect(page.locator('.member-monthly-offer-group-count')).toHaveText(['603 項','603 項']);
+  await expect(page.locator('[data-monthly-offer-kind="activity"] .member-monthly-offer').last()).toContainText('銀級額外活動');
+  await page.locator('[data-tier-key="gold"].member-monthly-tab').click();
+  await expect(page.locator('.member-monthly-offer-group-title')).toHaveText(['活動票券','會員活動']);
+  await expect(page.locator('.member-monthly-offer-group-count')).toHaveText(['0 項','0 項']);
+  await expect(page.locator('.member-monthly-tier-empty')).toHaveText(['本月尚無活動票券','本月尚無會員活動']);
+  await expect(page.locator('.member-monthly-offer')).toHaveCount(0);
   expect(await page.evaluate(()=>window.__requests)).toBe(1,'tier switching should not issue another API request');
   await page.locator('summary').click();
   await expect(page.locator('[data-member-monthly-tier-widget]')).not.toHaveAttribute('open');
 });
+
+for (const [width,theme] of [[320,'light'],[390,'dark'],[1280,'light'],[1280,'dark']]) {
+  test('AC-025: tier ticket and activity sections readable at '+width+'px '+theme,async({page})=>{
+    await page.setViewportSize({width,height:820});
+    await page.setContent(html);
+    await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
+    await page.addStyleTag({content:fs.readFileSync(path.join(__dirname,'../../member/monthly-tier-benefits.css'),'utf8')});
+    await page.evaluate(()=>{
+      window.MemberSystem={request:async()=>({month:'2026-11',tiers:[
+        {key:'general',label:'一般會員',styleKey:'forest',offers:[
+          {kind:'activity',title:'活動 A',startsOn:'2026-11-10'},
+          {kind:'ticket',title:'票券 B',startsOn:'2026-11-20'},
+          {kind:'ticket',title:'票券 C',startsOn:'2026-11-28'}
+        ]},
+        {key:'silver',label:'銀級會員',styleKey:'ocean',offers:[]}
+      ]})};
+    });
+    await page.addScriptTag({content:source});
+    await page.evaluate(()=>window.MemberMonthlyTierBenefits.bind(
+      document.querySelector('[data-member-monthly-tier-widget]'),
+      {supabaseUrl:'https://example.supabase.co',business:'qa'},'test-token',
+      {lineUserId:'qa-member',tierKey:'general',status:'active',membershipRequired:false,profileComplete:true},'member'));
+    await page.locator('summary').click();
+    await expect(page.locator('.member-monthly-offer-group')).toHaveCount(2);
+    await expect(page.locator('.member-monthly-offer-group-title')).toHaveText(['活動票券','會員活動']);
+    await expect(page.locator('.member-monthly-offer-group-count')).toHaveText(['2 項','1 項']);
+    await expect(page.locator('[data-monthly-offer-kind="ticket"] .member-monthly-offer-title')).toHaveText(['票券 B','票券 C']);
+    await expect(page.locator('[data-monthly-offer-kind="activity"] .member-monthly-offer-title')).toHaveText(['活動 A']);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    const styles=await page.locator('.member-monthly-offer-group').evaluateAll(nodes=>nodes.map(node=>({
+      border:getComputedStyle(node).borderTopStyle,radius:getComputedStyle(node).borderTopLeftRadius
+    })));
+    expect(styles.every(x=>x.border==='solid'&&x.radius==='10px')).toBe(true);
+  });
+}

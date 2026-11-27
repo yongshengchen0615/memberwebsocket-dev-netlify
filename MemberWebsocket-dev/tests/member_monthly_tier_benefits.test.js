@@ -303,8 +303,8 @@ test('AC-016: monthly catalogue uses shared semantic light/dark theme tokens and
   assert.match(js,/aria-label/);
   for (const surface of ['member','points','event','calendar','booking']) {
     const html=fs.readFileSync(path.join(root,surface,'index.html'),'utf8');
-    assert.match(html,/monthly-tier-benefits\.css\?v=20261127-card-style-2/);
-    assert.match(html,/monthly-tier-benefits\.js\?v=20261127-card-style-1/);
+    assert.match(html,/monthly-tier-benefits\.css\?v=20261127-offer-groups-1/);
+    assert.match(html,/monthly-tier-benefits\.js\?v=20261127-offer-groups-1/);
     assert.match(html,/data-member-monthly-tier-teaser>展開查看<\/small>/);
   }
 });
@@ -485,4 +485,18 @@ test('AC-023: API pages both collections by stable ID, refuses partial results a
   assert.match(block,/showTickets = !features \|\| features\.events === true/);
   assert.match(block,/showActivities = !features \|\| features\.calendar === true/);
   assert.doesNotMatch(block,/\.insert\(|\.update\(|\.delete\(/);
+});
+
+test('AC-025: monthly tier view groups all tickets and activities with counts and explicit zero states', () => {
+  const source=fs.readFileSync(path.join(__dirname,'..','member/monthly-tier-benefits.js'),'utf8');
+  const css=fs.readFileSync(path.join(__dirname,'..','member/monthly-tier-benefits.css'),'utf8');
+  assert.match(source,/kind: 'ticket', label: '活動票券', empty: '本月尚無活動票券'/);
+  assert.match(source,/kind: 'activity', label: '會員活動', empty: '本月尚無會員活動'/);
+  assert.match(source,/entries = offers\.filter\(offer => offer && offer\.kind === category\.kind\)/);
+  assert.match(source,/group\.dataset\.monthlyOfferKind = category\.kind/);
+  assert.match(source,/entries\.length \+ ' 項'/);
+  assert.match(source,/for \(const offer of entries\)/);
+  assert.doesNotMatch(source,/offers\.slice\(|entries\.slice\(|offers\.splice\(/);
+  assert.match(css,/\.member-monthly-offer-group-heading \{/);
+  assert.match(css,/\.member-monthly-offer-group \+ \.member-monthly-offer-group/);
 });
