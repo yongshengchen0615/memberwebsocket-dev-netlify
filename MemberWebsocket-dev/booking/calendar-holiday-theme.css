@@ -1,14 +1,14 @@
 /* Keep booking holiday markers visually consistent with the member calendar. */
 #calendarGrid .calendar-day.holiday-disabled {
-  border-color: rgba(23, 53, 46, .11);
-  background: #fffdf8;
-  color: #17352e;
-  box-shadow: none;
+  border: 2px solid #b6462f;
+  background: #ffeddf;
+  color: #632719;
+  box-shadow: inset 0 3px 0 #b6462f;
 }
 
 #calendarGrid .calendar-day.holiday-disabled:hover {
-  border-color: rgba(23, 53, 46, .18);
-  background: #fffdf8;
+  border-color: #9f321c;
+  background: #ffdfca;
 }
 
 /* A holiday can also be today. Draw an independent inset frame so holiday box-shadow rules cannot hide it. */
@@ -28,7 +28,7 @@
 }
 
 #calendarGrid .calendar-day.holiday-disabled .calendar-day-number {
-  color: #17352e;
+  color: #632719;
 }
 
 #calendarGrid .calendar-holiday-label {
@@ -72,7 +72,8 @@
   border: 0;
   border-left: 4px solid var(--holiday-accent, #df6b4d);
   border-radius: 8px;
-  background: #f5f7f2;
+  background: #fff0e3;
+  border: 1px solid #e9af99;
 }
 
 #bookingHolidayModal .booking-holiday-detail strong {
@@ -117,4 +118,26 @@
     font-size: 0;
     line-height: 0;
   }
+}
+
+/* Dark theme keeps holiday markers readable without relying on pastel surfaces. */
+html[data-theme="dark"] #calendarGrid .calendar-day.holiday-disabled {
+  border-color: #ff9778;
+  background: #42231e;
+  color: #ffe7d9;
+  box-shadow: inset 0 3px 0 #ff9778;
+}
+html[data-theme="dark"] #calendarGrid .calendar-day.holiday-disabled:hover {
+  background: #543027;
+  border-color: #ffb295;
+}
+html[data-theme="dark"] #calendarGrid .calendar-day.holiday-disabled .calendar-day-number {
+  color: #ffe7d9;
+}
+html[data-theme="dark"] #bookingHolidayModal .booking-holiday-detail {
+  background: #392820;
+  border-color: #a96752;
+}
+html[data-theme="dark"] #bookingHolidayModal .booking-holiday-detail p {
+  color: #f7d8c5;
 }

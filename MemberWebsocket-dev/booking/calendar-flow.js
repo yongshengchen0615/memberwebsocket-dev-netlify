@@ -10,6 +10,7 @@
     minimumDate: '',
     maximumDate: '',
     phoneBookingNumber: '',
+    holidayNotice: '',
     services: [],
     config: null,
     occupancyRequestSeq: 0,
@@ -243,6 +244,7 @@
     state.minAdvanceDays = minAdvanceDays;
     state.maxAdvanceDays = maxAdvanceDays > 0 && maxAdvanceDays < minAdvanceDays ? 0 : maxAdvanceDays;
     if (detail.settings?.phoneBookingNumber !== undefined) state.phoneBookingNumber = safePhoneBookingNumber(detail.settings.phoneBookingNumber);
+    if (typeof detail.settings?.holidayNotice === 'string') state.holidayNotice = detail.settings.holidayNotice.slice(0, 400);
     state.minimumDate = addDays(state.today, minAdvanceDays);
     state.maximumDate = state.maxAdvanceDays > 0 ? addDays(state.today, state.maxAdvanceDays) : '';
     const actualDate = String(els.bookingDate?.value || '');
@@ -476,8 +478,9 @@
     if (els.bookingDayHolidayNotice) {
       els.bookingDayHolidayNotice.hidden = !isHoliday;
       const technicianHoliday = holidays.some(item => /技師|師傅/.test(String(item.title || '')));
+      const configuredNotice = String(state.holidayNotice || '').trim();
       els.bookingDayHolidayNotice.textContent = isHoliday
-        ? (technicianHoliday ? '技師休假提醒：當日無法預約，請改選其他日期。' : '休假提醒：當日無法預約，請改選其他日期。')
+        ? (configuredNotice || (technicianHoliday ? '技師休假提醒：當日無法預約，請改選其他日期。' : '休假提醒：當日無法預約，請改選其他日期。'))
         : '';
     }
     if (els.bookingDayHolidayDetails) {
@@ -556,6 +559,7 @@
     closeAppointmentModal(false);
     state.historyDate = '';
     state.services = [];
+    state.holidayNotice = '';
     if (els.bookingPhoneServiceReference) els.bookingPhoneServiceReference.hidden = true;
     els.bookingPhoneServiceList?.replaceChildren();
     state.linkedRecordOpened = false;
