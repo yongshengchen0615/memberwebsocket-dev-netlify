@@ -38,7 +38,7 @@
   "reviewedSources": {
     "admin/booking-admin-ux.js": "da82c2bcbb7d8ece44e05d66bada9e20a384784e4346bdde50f6b9cb2897d1ee",
     "admin/index.html": "8c24561bab79e0c38d86fe4b8ed05d6a3b5374bc0f90d3a74abc3aced2cc8176",
-    "admin/app.js": "86e11570e10aef7ec7e30371dd9be801823e3dec4d1e6fcbe61f1c99ca6fe180",
+    "admin/app.js": "0b9a927ab88cc2b775b3ac9dbff7c5a938bcde58860ee018b6969fad188a5f4e",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
     "admin/grant-automation.js": "bf4acfae03c852f581ee6755e49f1441fb2ec9911dac8ff096de02ca19f38138",
@@ -847,5 +847,5 @@
   "memberMonthlyCardParityReview": "2026-11-27 PR #493：月度優惠的四階名稱及按鈕背景、強調色，不再使用與會員卡無關的依 rank 固定顏色；依據原本 membership_tier_settings 每階級 style_key、tier_label（同一 profileFor 讀取結果）動態回傳前台，完全沿用 member/styles.css 既有 10 套會員卡主題實際色碼（包括自訂商家階級樣式）。會員端、集點卡、活動票券、會員日曆、預約都由同一安全的只讀資料源呈現；不新增 DB 查詢、資料欄位、金流、票券寫入或階級繼承權限。未知 style_key 退回 forest、標題文字只用 textContent。保留收合懶讀及全專案 62 組人工管理旅程，新增 AC-018/019 以及五入口瀏覽器 320/390px 亮暗對比＆會員卡原生配色比對。此次 calendar/index.html 只有月度共用 CSS/JS 資產 cache 版號更新，已重新對照真實檔案 SHA256。",
   "bookingHolidayNoticeReview": "2026-11-27 PR #497：已逐項盤點既有 62 組管理員 Human E2E 旅程與預約、日曆的資料及授權契約。此輪只在既有預約訊息設定新增一個休假提醒純文字欄位，原一次儲存、版本衝突、權限控管和 LINE 通知流程維持不變；會員休假日期原有預約禁止與按鈕隱藏仍需回歸驗證。admin/index.html 與 loader 僅更新 cache key，booking-panel-core.js 加入訊息欄位和草稿處理，不新增或刪除既有管理旅程。新 AC-HOL-001～005 靜態/實際函式測試檢查安全顯示、預設文字、亮暗模式和禁止操作；CI 的原 Human E2E 及實際測試站操作均須再驗證。",
   "memberCalendarDateOfferGroupsReview": "2026-11-27 PR #501：已逐項覆核會員端營運日曆點日期、已啟用活動票券／會員活動、階級解鎖、休假優先、票券深層連結與商家歸屬；原有 62 項管理端 Human E2E 功能、日曆增修刪、可見性設定及票券核銷授權路徑不變。本輪改為伺服器已授權曝光之項目在日期詳細視窗中依 locked/tierEligible 分為當日可用與未解鎖兩區，鎖定項目顯示 lockReason 且永不產生使用連結；休假仍獨佔當日，eligible_only 不公開項目不得從瀏覽器補出。新增 tests/calendar_date_offer_groups.test.js AC-001～006 與 tests/browser/calendar-date-offer-groups.spec.cjs 在 320／390／1280px 與休假、純鎖定、空項目下實測分區、票券深層連結之 merchant 商家參數及橫向溢出。只改 calendar/app.js、styles.css、index.html 快取版本與文案，不變更資料庫、Edge、LINE、後端授權。已覆核既有 62 組管理員旅程未增刪；真人 LINE LIFF Provider 與此輪最終 SHA CI／Preview 仍須以實際結果驗證，不得以 stub 代替。",
-  "eventActivityBookingConditionsReview": "2026-11-27 PR #507：逐項檢視既有 62 組 admin-human 管理流程；活動票券新增可選的預約人數上下限，會員活動新增預約項目（任一／全部／組合）、金額與人數條件，均保留未設定時原有行為。管理端新增欄位於原票券及會員活動編輯頁，不移除任何既有操作；原 event.16/23 的建立、設定、編輯與 calendar 活動儲存工作流延伸新增條件。後端保留角色與商家隔離、驗證會員本人預約資訊和不可偽造人數；會員日曆及票券顯示條件，保留目前獨立快照模式原流程。新增 event_member_activity_booking_conditions.test.js AC-001..006 及資料庫規則，跨商家/新商家範本、Chromium、完整 CI 及 LINE 實機仍需以最終提交結果取證；不把靜態審閱當成 E2E 通過。"
+  "eventActivityBookingConditionsReview": "2026-11-27 PR #507：逐項檢視既有 62 組 admin-human 管理流程；活動票券新增可選的預約人數上下限，會員活動新增預約項目（任一／全部／組合）、金額與人數條件，均保留未設定時原有行為。管理端新增欄位於原票券及會員活動編輯頁，不移除任何既有操作；原 event.16/23 的建立、設定、編輯與 calendar 活動儲存工作流延伸新增條件。後端保留角色與商家隔離、驗證會員本人預約資訊和不可偽造人數；會員日曆及票券顯示條件，保留目前獨立快照模式原流程。新增 event_member_activity_booking_conditions.test.js AC-001..006 及資料庫規則，跨商家/新商家範本、Chromium、完整 CI 及 LINE 實機仍需以最終提交結果取證；不把靜態審閱當成 E2E 通過。\n2026-11-27 PR #507 程式審查修正：群組模式儲存不傳遞隱藏單項勾選，以防後端正常化後讀回被誤判失敗；關聯審查建議需有回歸測試證據。"
 }
