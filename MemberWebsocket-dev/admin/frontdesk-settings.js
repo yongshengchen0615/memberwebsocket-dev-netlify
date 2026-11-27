@@ -193,7 +193,10 @@
       }
     }
     function lock() {
-      for (const control of details.querySelectorAll('input,textarea,select,button:not([role="tab"])')) control.disabled = busy || Boolean(pending);
+      for (const control of details.querySelectorAll('input,textarea,select,button:not([role="tab"])')) {
+        control.disabled = busy || Boolean(pending) ||
+          (control.classList.contains('frontdesk-staff-save-all') && control.dataset.hasChanges !== 'true');
+      }
       const retry = details.querySelector('[data-frontdesk-retry]');
       if (!busy && pending && retry) retry.disabled = false;
     }
@@ -593,12 +596,32 @@
       }
 
       const approvals = node('section', '', 'frontdesk-approvals');
-      approvals.append(node('h3', '櫃檯人員申請與權限'));
-      approvals.append(node('p', '調整多位櫃檯人員後，按下方「儲存所有人員權限」一次送出；若有任何資料衝突，整批不會生效。'));
-      approvals.append(node('p', '人員須先從商家專屬櫃檯頁面申請，再由管理員逐人審核。未核准者無法查看預約或接收通知。'));
-      const people = [...(data.staff || [])].sort((a, b) => (a.status === 'pending' ? -1 : 0) - (b.status === 'pending' ? -1 : 0));
-      const waiting = people.filter(person => person.status === 'pending').length;
-      approvals.append(node('p', '待審核 ' + waiting + ' 人｜已記錄申請 ' + people.length + ' 人', 'business-line-summary'));
+      const heading = node('div', '', 'frontdesk-staff-heading');
+      heading.append(node('h3', '櫃檯人員申請與權限'),
+        node('p', '快速查看人員審核、預約權限和 LINE 通知狀態；修改權限後統一儲存。'));
+      approvals.append(heading);
+      const people = [...(data.staff || [])].sort((a, b) =>
+        Number(b.status === 'pending') - Number(a.status === 'pending') ||
+        String(a.displayName || '').localeCompare(String(b.displayName || ''), 'zh-Hant'));
+      const notificationState = person => person.status !== 'approved' || cfg.enabled === false
+        ? 'unavailable' : person.receiveNotifications === false ? 'paused' : 'enabled';
+      const counts = {
+        pending: people.filter(person => person.status === 'pending').length,
+        enabled: people.filter(person => notificationState(person) === 'enabled').length,
+        paused: people.filter(person => notificationState(person) === 'paused').length
+      };
+      const metrics = node('div', '', 'frontdesk-staff-metrics');
+      for (const [key, label, amount] of [
+        ['total', '申請總數', people.length], ['pending', '待審核', counts.pending],
+        ['enabled', '通知開啟', counts.enabled], ['paused', '通知暫停', counts.paused]
+      ]) {
+        const metric = node('div', '', 'frontdesk-staff-metric');
+        metric.dataset.state = key;
+        metric.append(node('strong', String(amount)), node('span', label));
+        metrics.append(metric);
+      }
+      approvals.append(metrics);
+      approvals.append(node('p', '通知狀態依伺服器資料顯示；未核准或商家櫃檯停用時不會推播。是否允許本人開關通知，與預約審核權限分開設定。', 'frontdesk-staff-help'));
       if (!people.length) approvals.append(node('p', '目前沒有申請。櫃檯人員請透過商家專屬 frontdesk 頁面提出申請。'));
       const staffRows = [];
       const changes = () => staffRows.flatMap(({person,state,mode,allowToggle}) => {
@@ -618,13 +641,82 @@
       function updateStaffDraft() {
         const count = changes().length;
         staffSummary.textContent = count ? '尚有 ' + count + ' 位人員的修改待儲存。' : '目前沒有未儲存的人員權限修改。';
+        saveAll.dataset.hasChanges = String(count > 0);
         saveAll.disabled = !count || busy || Boolean(pending);
       }
+      const cards = node('div', '', 'frontdesk-staff-list');
+      let searchInput = null, filterSelect = null, filterResult = null;
+      function applyStaffFilter() {
+        const query = (searchInput?.value || '').trim().toLocaleLowerCase();
+        const filter = filterSelect?.value || 'all';
+        let visibleCount = 0;
+        for (const {person,row} of staffRows) {
+          const matchesName = String(person.displayName || '櫃檯人員').toLocaleLowerCase().includes(query);
+          const matchesState = filter === 'all' ||
+            (filter === 'pending' && person.status === 'pending') ||
+            (filter === 'unavailable' && notificationState(person) === 'unavailable') ||
+            notificationState(person) === filter;
+          row.hidden = !(matchesName && matchesState);
+          if (!row.hidden) visibleCount++;
+        }
+        if (filterResult) filterResult.textContent = '顯示 ' + visibleCount + ' / ' + people.length + ' 位人員' +
+          (visibleCount === 0 ? '，沒有符合搜尋或篩選條件的人員。' : '。');
+      }
+      if (people.length) {
+        const toolbar = node('div', '', 'frontdesk-staff-toolbar');
+        const searchLabel = node('label', '搜尋櫃檯人員');
+        searchInput = node('input');
+        searchInput.type = 'search';
+        searchInput.name = 'staffSearch';
+        searchInput.placeholder = '輸入櫃檯人員名稱';
+        searchInput.autocomplete = 'off';
+        searchLabel.append(searchInput);
+        const filterLabel = node('label', '依狀態篩選');
+        filterSelect = node('select');
+        filterSelect.name = 'staffFilter';
+        for (const [value, label] of [
+          ['all', '全部人員'], ['pending', '待審核'], ['enabled', '通知開啟'],
+          ['paused', '通知暫停'], ['unavailable', '無法接收通知']
+        ]) {
+          const option = node('option', label);
+          option.value = value;
+          filterSelect.append(option);
+        }
+        filterLabel.append(filterSelect);
+        filterResult = node('p', '', 'frontdesk-staff-filter-result');
+        filterResult.setAttribute('role', 'status');
+        toolbar.append(searchLabel, filterLabel, filterResult);
+        searchInput.addEventListener('input', applyStaffFilter);
+        filterSelect.addEventListener('change', applyStaffFilter);
+        approvals.append(toolbar);
+      }
       for (const person of people) {
-        const row = node('div', '', 'frontdesk-person');
+        const row = node('article', '', 'frontdesk-person');
         const current = {pending:'待審核',approved:'已核准',rejected:'申請未通過',suspended:'已停用'}[person.status] || person.status;
-        row.append(node('h4', person.displayName || '櫃檯人員'), node('p', '申請狀態：' + current, 'frontdesk-person-status'));
-        if (person.status === 'pending') row.append(node('p', '此人員尚未獲授權，預設為「僅接收預約訊息」。'));
+        const noticeState = notificationState(person);
+        row.dataset.notificationState = noticeState;
+        row.dataset.staffStatus = person.status;
+        const rowHeading = node('div', '', 'frontdesk-person-heading');
+        const personName = node('h4', person.displayName || '櫃檯人員');
+        const approvalBadge = node('span', current, 'frontdesk-person-status');
+        approvalBadge.dataset.state = person.status;
+        const notificationBadge = node('span', {
+          enabled: 'LINE 通知：已開啟', paused: 'LINE 通知：已暫停',
+          unavailable: 'LINE 通知：無法接收'
+        }[noticeState], 'frontdesk-notification-badge');
+        notificationBadge.dataset.state = noticeState;
+        const nameAndState = node('div', '', 'frontdesk-person-identity');
+        nameAndState.append(personName, approvalBadge);
+        rowHeading.append(nameAndState, notificationBadge);
+        row.append(rowHeading);
+        const noticeDetails = person.status !== 'approved'
+          ? '目前尚未核准使用（個人通知偏好：' + (person.receiveNotifications === false ? '關閉' : '開啟') + '）。'
+          : cfg.enabled === false
+            ? '商家櫃檯已停用，無法推播（個人通知偏好：' + (person.receiveNotifications === false ? '關閉' : '開啟') + '）。'
+            : person.receiveNotifications === false
+              ? '本人已暫停接收；重新開啟後僅接收之後的新通知。'
+              : '目前設定為接收；實際推播仍需符合商家 LINE 通知設定。';
+        row.append(node('p', noticeDetails, 'frontdesk-notification-detail'));
         const states = node('label', '審核狀態'), state = node('select');
         state.name = 'staffStatus';
         for (const [value, text] of [['approved','核准'],['rejected','拒絕申請'],['suspended','停用']]) {
@@ -654,10 +746,11 @@
         allowToggle.name = 'allowNotificationToggle';
         allowToggle.checked = person.allowNotificationToggle === true;
         notificationPermission.append(allowToggle, node('span', '允許此人員自行開關 LINE 預約通知'));
+        notificationPermission.append(node('small', '只授權本人控制通知，不會直接開啟通知或更動預約審核權限。'));
         const controls = node('div', '', 'business-line-fields');
         controls.append(states, modes, notificationPermission);
-        row.append(controls, node('p', person.receiveNotifications === false ? '目前狀態：此人員已暫停接收 LINE 預約通知' : '目前狀態：此人員接收 LINE 預約通知', 'frontdesk-notification-status'));
-        staffRows.push({person,state,mode,allowToggle});
+        row.append(controls);
+        staffRows.push({person,row,state,mode,allowToggle});
         const remove = node('button', '移除帳號', 'button button-outline frontdesk-remove-staff');
         remove.type = 'button';
         remove.setAttribute('aria-label', '移除 ' + (person.displayName || '此櫃檯人員') + ' 的櫃檯帳號');
@@ -667,8 +760,7 @@
             status.textContent = '請先儲存或捨棄其他人員的修改，再移除帳號。';
             return;
           }
-          // An uncertain response must reuse the original requestId; do not re-confirm
-          // or generate another destructive request while the first outcome is unknown.
+          // Keep the original requestId for any uncertain destructive retry.
           if (!pending && !window.confirm('確定永久移除「' + (person.displayName || '此櫃檯人員') + '」的櫃檯資格、申請資料及通知紀錄？此動作無法復原；如需使用，必須重新提出申請並經管理員核准。')) return;
           void save('platform.frontdesk.staff.delete', {staffId:person.id,expectedVersion:person.version}, remove);
         };
@@ -679,8 +771,10 @@
           updateStaffDraft();
           syncState.textContent = '人員權限尚未儲存；自動同步不會覆蓋草稿。';
         });
-        approvals.append(row);
+        cards.append(row);
       }
+      approvals.append(cards);
+      applyStaffFilter();
       saveAll.addEventListener('click', () => {
         if (busy || (pending && pending.action !== 'platform.frontdesk.staff.batch')) return;
         if (pending) {
@@ -697,7 +791,11 @@
         }
         void save('platform.frontdesk.staff.batch', {expectedVersion:data.version,updates}, saveAll);
       });
-      if (people.length) approvals.append(staffSummary, saveAll);
+      if (people.length) {
+        const footer = node('div', '', 'frontdesk-staff-footer');
+        footer.append(staffSummary, saveAll);
+        approvals.append(footer);
+      }
       staffPanel.append(approvals);
       updateStaffDraft();
       lock();
