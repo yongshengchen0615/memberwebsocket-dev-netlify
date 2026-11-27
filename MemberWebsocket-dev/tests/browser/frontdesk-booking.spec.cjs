@@ -1078,3 +1078,80 @@ for(const width of [390,1280])test('AC-FD-BATCH browser: staff-only tab retains 
  expect(sent[1].updates[0].status).toBe('rejected');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+
+for (const width of [390, 1280]) test('FRONTDESK_STAFF_NOTICE_UI_'+width+' — server-backed notice status, filter, and unsaved draft',async({page},info)=>{
+ await page.setViewportSize({width,height:850});
+ await page.goto(base+'/frontdesk/');
+ await page.setContent('<link rel="stylesheet" href="'+base+'/theme.css"><link rel="stylesheet" href="'+base+'/frontdesk/styles.css"><link rel="stylesheet" href="'+base+'/admin/frontdesk-settings/frontdesk-settings-page.css"><main id="root"></main>');
+ await page.evaluate(()=>{document.documentElement.dataset.frontdeskPage='true';document.documentElement.dataset.theme='dark';});
+ await page.addScriptTag({url:base+'/admin/frontdesk-settings.js'});
+ await page.evaluate(()=>{
+  const staff=[
+   {id:'pending',displayName:'待審阿珍',status:'pending',permissionMode:'notify_only',receiveNotifications:true,version:1},
+   {id:'enabled',displayName:'小美',status:'approved',permissionMode:'notify_only',receiveNotifications:true,allowNotificationToggle:false,version:2},
+   {id:'paused',displayName:'阿惠',status:'approved',permissionMode:'review',receiveNotifications:false,allowNotificationToggle:true,version:3},
+   {id:'suspended',displayName:'已停用人員',status:'suspended',permissionMode:'notify_only',receiveNotifications:false,version:4}
+  ];
+  let version=4;window.staffUiWrites=[];
+  window.FrontdeskSettings.mount({root:document.getElementById('root'),business:'shop-a',request:async(action,body)=>{
+   if(action==='platform.frontdesk.staff.batch'){
+    window.staffUiWrites.push(body);
+    for(const update of body.updates)Object.assign(staff.find(s=>s.id===update.staffId),update);
+    version++;
+   }
+   return {version,frontdesk:{enabled:true},staff:staff.map(s=>({...s}))};
+  }});
+ });
+ await page.locator('summary').click();
+ await page.getByRole('tab',{name:'櫃檯人員申請與權限'}).click();
+ const list=page.locator('.frontdesk-staff-list');
+ await expect(list.locator('.frontdesk-person')).toHaveCount(4);
+ await expect(page.locator('.frontdesk-staff-metric[data-state="pending"] strong')).toHaveText('1');
+ await expect(page.locator('.frontdesk-staff-metric[data-state="enabled"] strong')).toHaveText('1');
+ await expect(page.locator('.frontdesk-staff-metric[data-state="paused"] strong')).toHaveText('1');
+ await expect(list.locator('[data-notification-state="enabled"] .frontdesk-notification-badge')).toHaveText('LINE 通知：已開啟');
+ await expect(list.locator('[data-notification-state="paused"] .frontdesk-notification-badge')).toHaveText('LINE 通知：已暫停');
+ await expect(list.locator('[data-staff-status="pending"] .frontdesk-notification-badge')).toHaveText('LINE 通知：無法接收');
+ await expect(list.locator('[data-staff-status="suspended"] .frontdesk-notification-detail')).toContainText('個人通知偏好：關閉');
+ await expect(page.locator('.frontdesk-staff-save-all')).toBeDisabled();
+ const paused=list.locator('[data-notification-state="paused"]');
+ await paused.locator('[name=permissionMode]').selectOption('notify_only');
+ await expect(page.locator('.frontdesk-staff-draft-summary')).toContainText('1 位');
+ await page.locator('[name=staffSearch]').fill('阿惠');
+ await expect(list.locator('.frontdesk-person:visible')).toHaveCount(1);
+ await page.locator('[name=staffFilter]').selectOption('pending');
+ await expect(list.locator('.frontdesk-person:visible')).toHaveCount(0);
+ await expect(page.locator('.frontdesk-staff-filter-result')).toContainText('沒有符合搜尋');
+ await expect(paused.locator('[name=permissionMode]')).toHaveValue('notify_only');
+ await expect(page.locator('.frontdesk-staff-save-all')).toBeEnabled();
+ expect(await page.evaluate(()=>window.staffUiWrites.length)).toBe(0);
+ await page.locator('[name=staffSearch]').fill('');
+ await page.locator('[name=staffFilter]').selectOption('paused');
+ await expect(list.locator('.frontdesk-person:visible')).toHaveCount(1);
+ await expect(paused.locator('[name=permissionMode]')).toHaveValue('notify_only');
+ await page.locator('.frontdesk-staff-save-all').click();
+ await expect(page.locator('.frontdesk-staff-draft-summary')).toContainText('沒有未儲存');
+ const writes=await page.evaluate(()=>window.staffUiWrites);
+ expect(writes).toHaveLength(1);
+ expect(writes[0].updates).toEqual([{staffId:'paused',expectedVersion:3,status:'approved',permissionMode:'notify_only',allowNotificationToggle:true}]);
+ await expect(list.locator('[data-notification-state="paused"] .frontdesk-notification-badge')).toHaveText('LINE 通知：已暫停');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await info.attach('frontdesk-staff-notification-'+width,{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
+});
+
+test('FRONTDESK_STAFF_NOTICE_DISABLED — configured off overrides stored notification preference',async({page})=>{
+ await page.goto(base+'/frontdesk/');
+ await page.setContent('<main id="root"></main>');
+ await page.addScriptTag({url:base+'/admin/frontdesk-settings.js'});
+ await page.evaluate(()=>window.FrontdeskSettings.mount({
+  root:document.getElementById('root'),business:'shop-a',
+  request:async()=>({version:1,frontdesk:{enabled:false},staff:[
+    {id:'staff',displayName:'已核准但商家停用',status:'approved',receiveNotifications:true,version:1}
+  ]})
+ }));
+ await page.locator('summary').click();
+ await page.getByRole('tab',{name:'櫃檯人員申請與權限'}).click();
+ await expect(page.locator('.frontdesk-notification-badge')).toHaveText('LINE 通知：無法接收');
+ await expect(page.locator('.frontdesk-notification-detail')).toContainText('個人通知偏好：開啟');
+ await expect(page.locator('.frontdesk-staff-metric[data-state="enabled"] strong')).toHaveText('0');
+});
