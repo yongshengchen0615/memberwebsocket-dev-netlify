@@ -12,6 +12,8 @@
   function eventOptions(ticket = {}, bookings = []) {
     const requiresBooking = String(ticket?.minBookingAmountMode || 'none') !== 'none'
       || Number(ticket?.minBookingAmount || 0) > 0
+      || Number(ticket?.minBookingPartySize || 0) > 0
+      || Number(ticket?.maxBookingPartySize || 0) > 0
       || Boolean(String(ticket?.minBookingAmountLabel || '').trim())
       || (Array.isArray(ticket?.requiredServiceIds) && ticket.requiredServiceIds.length > 0)
       || (Array.isArray(ticket?.requiredServiceGroups) && ticket.requiredServiceGroups.length > 0)
