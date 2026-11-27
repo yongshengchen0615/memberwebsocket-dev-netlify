@@ -32,6 +32,7 @@ const bootstrap = `
   window.__offers=[
     offer('ACTIVE','一般可用券',true,true),
     offer('GOLD','金級限定券',false,false,{locked:true,lockReason:'需要金級會員'}),
+    offer('FLAG','政策尚未解鎖券',true,false,{locked:true,lockReason:'需解鎖票券條件'}),
     offer('GIFT','好友贈送高階券',true,true,{receivedAsGift:true,giftFromDisplayName:'好友'}),
     offer('BOOK','需預約券',true,false),
     offer('OLD','已到期券',true,false,{availability:'expired'}),
@@ -83,11 +84,12 @@ for (const width of [390,1280]) {
     await expect(available.getByRole('heading',{name:/可以使用/})).toBeVisible();
     await expect(locked.getByRole('heading',{name:/未解鎖/})).toBeVisible();
     await expect(available.locator('.event-ticket')).toHaveCount(4);
-    await expect(locked.locator('.event-ticket')).toHaveCount(1);
+    await expect(locked.locator('.event-ticket')).toHaveCount(2);
     await expect(available).toContainText('好友贈送高階券');
     await expect(available).toContainText('已到期券');
     await expect(available).not.toContainText('金級限定券');
     await expect(locked).toContainText('金級限定券');
+    await expect(locked).toContainText('政策尚未解鎖券');
     await expect(page.locator('#eventList')).not.toContainText('已轉贈出去的券');
     await expect(locked.getByRole('button',{name:'查看解鎖條件'})).toBeVisible();
     await locked.getByRole('button',{name:'查看解鎖條件'}).click();
@@ -100,13 +102,13 @@ for (const width of [390,1280]) {
 }
 test('AC-EVENT-GROUP-004..005: realtime tier changes reclassify cards without stale groups or extra requests',async({page})=>{
   await page.goto(base+'/');
-  await expect(page.locator('.event-offer-group--locked .event-ticket')).toHaveCount(1);
+  await expect(page.locator('.event-offer-group--locked .event-ticket')).toHaveCount(2);
   await page.waitForFunction(()=>typeof window.__realtime === 'function');
   await page.evaluate(async()=>{
     window.__offers=window.__offers.map(o=>o.ticket.eventTicketId==='GOLD'?{...o,tierEligible:true,locked:false,canUse:true}:o);
     await window.__realtime();
   });
   await expect(page.locator('.event-offer-group--available .event-ticket')).toHaveCount(5);
-  await expect(page.locator('.event-offer-group--locked .event-ticket')).toHaveCount(0);
-  await expect(page.locator('.event-offer-group--locked')).toContainText('目前沒有未解鎖的票券');
+  await expect(page.locator('.event-offer-group--locked .event-ticket')).toHaveCount(1);
+  await expect(page.locator('.event-offer-group--locked')).toContainText('政策尚未解鎖券');
 });
