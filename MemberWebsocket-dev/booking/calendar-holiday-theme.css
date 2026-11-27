@@ -14,7 +14,7 @@
 /* A holiday can also be today. Draw an independent inset frame so holiday box-shadow rules cannot hide it. */
 #calendarGrid .calendar-day.holiday-disabled.today {
   position: relative;
-  border-color: #df6b4d;
+  border-color: #b6462f;
 }
 
 #calendarGrid .calendar-day.holiday-disabled.today::after {
@@ -22,13 +22,43 @@
   position: absolute;
   inset: 2px;
   z-index: 2;
-  border: 2px solid rgba(223, 107, 77, .82);
+  border: 2px dashed #1467af;
   border-radius: inherit;
   pointer-events: none;
 }
 
 #calendarGrid .calendar-day.holiday-disabled .calendar-day-number {
   color: #632719;
+}
+
+/* Today is blue, intentionally distinct from the warm-red closed/holiday state.
+   Keep a filled date badge so the distinction is not color-only. */
+#calendarGrid .calendar-day.today:not(.holiday-disabled) {
+  border: 2px solid #1467af;
+  background: #e8f3ff;
+  box-shadow: inset 0 0 0 1px rgba(20, 103, 175, .22);
+}
+
+#calendarGrid .calendar-day.today .calendar-day-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: #1467af;
+  color: #ffffff;
+  font-weight: 850;
+}
+
+#calendarGrid .calendar-day.today.selected:not(.holiday-disabled) {
+  outline: 2px solid #17352e;
+  outline-offset: 1px;
+}
+
+#bookingView .calendar-legend .today-dot {
+  background: #1467af;
+  border-color: #1467af;
 }
 
 #calendarGrid .calendar-holiday-label {
@@ -140,4 +170,29 @@ html[data-theme="dark"] #bookingHolidayModal .booking-holiday-detail {
 }
 html[data-theme="dark"] #bookingHolidayModal .booking-holiday-detail p {
   color: #f7d8c5;
+}
+
+/* Dark mode: blue continues to identify today; red continues to mean holiday. */
+html[data-theme="dark"] #calendarGrid .calendar-day.today:not(.holiday-disabled) {
+  background: #152e4b;
+  border-color: #75c8ff;
+  box-shadow: inset 0 0 0 1px rgba(117, 200, 255, .32);
+}
+
+html[data-theme="dark"] #calendarGrid .calendar-day.today .calendar-day-number {
+  background: #79ccff;
+  color: #09283e;
+}
+
+html[data-theme="dark"] #calendarGrid .calendar-day.holiday-disabled.today::after {
+  border-color: #79ccff;
+}
+
+html[data-theme="dark"] #calendarGrid .calendar-day.today.selected:not(.holiday-disabled) {
+  outline-color: #c0e6ff;
+}
+
+html[data-theme="dark"] #bookingView .calendar-legend .today-dot {
+  background: #79ccff;
+  border-color: #79ccff;
 }
