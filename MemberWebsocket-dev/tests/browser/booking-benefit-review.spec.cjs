@@ -106,7 +106,26 @@ for (const width of [390, 1280]) {
     const withBenefit = await page.evaluate(() => window.__writes.at(-1));
     expect(withBenefit.payload.benefits).toEqual([{ kind: 'event', id: 'E-TEST' }]);
     expect(withBenefit.payload.requestId).not.toEqual(noBenefit.payload.requestId);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    // Assert the feature's visible modal and both choices fit the viewport, without
+    // conflating unrelated standalone fixture elements with discount-dialog layout.
+    const bounds = await page.evaluate(() => {
+      const modal = document.getElementById('bookingBenefitModal');
+      const card = modal.querySelector('.booking-benefit-modal-card');
+      const buttons = ['skipBookingBenefitsButton', 'useBookingBenefitsButton']
+        .map((id) => document.getElementById(id).getBoundingClientRect());
+      const rect = card.getBoundingClientRect();
+      return {
+        width: innerWidth,
+        modalLeft: rect.left,
+        modalRight: rect.right,
+        buttonLefts: buttons.map((button) => button.left),
+        buttonRights: buttons.map((button) => button.right),
+      };
+    });
+    expect(bounds.modalLeft).toBeGreaterThanOrEqual(0);
+    expect(bounds.modalRight).toBeLessThanOrEqual(bounds.width);
+    for (const left of bounds.buttonLefts) expect(left).toBeGreaterThanOrEqual(0);
+    for (const right of bounds.buttonRights) expect(right).toBeLessThanOrEqual(bounds.width);
   });
 }
 
