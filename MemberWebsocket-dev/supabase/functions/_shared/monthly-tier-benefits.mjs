@@ -55,8 +55,9 @@ function isCalendarTicketMirror(row) {
   if (row.source_event_ticket_id) return true;
   try {
     const url = new URL(String(row.link_url || ''), 'https://member-calendar.invalid/');
-    return url.searchParams.get('source') === 'event-ticket-calendar'
-      && Boolean(url.searchParams.get('eventTicketId'));
+    // The managed source marker is authoritative even for older mirrors whose
+    // URL lost the eventTicketId. Never count ticket calendar copies as activities.
+    return url.searchParams.get('source') === 'event-ticket-calendar';
   } catch {
     return false;
   }
