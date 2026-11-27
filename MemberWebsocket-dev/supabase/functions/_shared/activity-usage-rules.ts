@@ -57,6 +57,15 @@ export function usageConditionLabel(rule: UsageRule, serviceNames: Map<string,st
   return clauses.join(" · ");
 }
 
+// Participation URL is only returned after server-verified booking and tier checks.
+export function memberActivityAllowedLink(
+  item: {linkUrl?: string; locked?: boolean; tierEligible?: boolean},
+  usageEligible: boolean,
+): string {
+  return usageEligible && item.locked !== true && item.tierEligible !== false
+    ? String(item.linkUrl || "") : "";
+}
+
 export function bookingSatisfiesActivity(
   booking: any, bookingItems: any[], rule: UsageRule,
 ): boolean {
