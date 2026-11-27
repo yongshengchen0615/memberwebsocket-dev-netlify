@@ -54,7 +54,10 @@ function renderNotice(holidayNotice, title) {
     bookingDayHint: { textContent: '' },
     bookingPhoneDial: { removeAttribute() {}, setAttribute() {} },
   };
-  vm.runInNewContext(member.slice(start, end) + '\nupdateDayAction();', {
+  const helperStart = member.indexOf('  function holidayNoticeText(holidays) {');
+  const helperEnd = member.indexOf('\n  function renderPhoneServiceReference(', helperStart);
+  assert.ok(helperStart > start && helperEnd > helperStart);
+  vm.runInNewContext(member.slice(start, end) + '\n' + member.slice(helperStart, helperEnd) + '\nupdateDayAction();', {
     state, els, bookingBlockReason: () => '休假日，無法預約',
     safePhoneBookingNumber: () => '', phoneBookingBlockReason: () => '休假日',
     renderPhoneServiceReference() {}, holidayDetails: () => [],
@@ -74,6 +77,8 @@ test('AC-HOL-003: member displays plain text and hides booking actions on holida
   assert.match(calendarApi, /maxAdvanceDays, bookingNotice, holidayNotice, phoneBookingNumber/);
   assert.match(member, /typeof detail\.settings\?\.holidayNotice === 'string'/);
   assert.match(member, /state\.holidayNotice = '';/);
+  assert.match(member, /id="bookingHolidayWarning"/);
+  assert.match(member, /els\.holidayWarning\.textContent = holidayNoticeText\(holidays\)/);
 });
 
 test('AC-HOL-004: empty notice uses the existing title-sensitive default', () => {
@@ -85,6 +90,7 @@ test('AC-HOL-005: light/dark high-contrast holiday styles and versioned assets',
   assert.match(cardCss, /border: 2px solid #b6462f/);
   assert.match(cardCss, /white-space: pre-wrap/);
   assert.match(cardCss, /html\[data-theme="dark"\] \.booking-day-footer \.booking-day-holiday-notice/);
+  assert.match(cardCss, /html\[data-theme="dark"\] #bookingHolidayModal \.booking-holiday-warning/);
   assert.match(calendarCss, /html\[data-theme="dark"\] #calendarGrid \.calendar-day\.holiday-disabled/);
   assert.match(calendarCss, /background: #ffeddf/);
   assert.match(memberPage, /holiday-notice=20261127-1/);

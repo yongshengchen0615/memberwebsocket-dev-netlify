@@ -81,3 +81,28 @@ html[data-theme="dark"] .booking-day-footer .booking-day-holiday-notice {
   color: #ffece0;
   box-shadow: 0 2px 12px rgba(0, 0, 0, .25);
 }
+
+/* Same administrator-configured warning in the secondary holiday prompt. */
+html[data-theme] #bookingHolidayModal .booking-holiday-warning {
+  margin: 12px 0 4px;
+  padding: 14px 16px;
+  border: 2px solid #b6462f;
+  border-left-width: 6px;
+  border-radius: 12px;
+  background: #ffe0cb;
+  color: #632719;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+html[data-theme] #bookingHolidayModal .booking-holiday-warning::before {
+  content: "⚠ ";
+  font-size: 18px;
+}
+html[data-theme="dark"] #bookingHolidayModal .booking-holiday-warning {
+  border-color: #ff9b7c;
+  background: #49251e;
+  color: #ffece0;
+}

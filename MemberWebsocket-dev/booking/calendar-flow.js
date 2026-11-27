@@ -159,11 +159,13 @@
             <button id="closeBookingHolidayButton" class="booking-modal-close" type="button" aria-label="關閉休假提示">×</button>
           </div>
           <p id="bookingHolidayDate" class="booking-holiday-date"></p>
+          <p id="bookingHolidayWarning" class="booking-holiday-warning" role="status"></p>
           <div id="bookingHolidayDetails" class="booking-holiday-details"></div>
         </div>`;
       document.body.appendChild(modal);
       els.holidayModal = modal;
       els.holidayDate = modal.querySelector('#bookingHolidayDate');
+      els.holidayWarning = modal.querySelector('#bookingHolidayWarning');
       els.holidayDetails = modal.querySelector('#bookingHolidayDetails');
       els.closeHolidayButton = modal.querySelector('#closeBookingHolidayButton');
       els.closeHolidayButton.addEventListener('click', () => closeHolidayNotice(true));
@@ -173,6 +175,7 @@
     } else {
       els.holidayModal = document.getElementById('bookingHolidayModal');
       els.holidayDate = document.getElementById('bookingHolidayDate');
+      els.holidayWarning = document.getElementById('bookingHolidayWarning');
       els.holidayDetails = document.getElementById('bookingHolidayDetails');
       els.closeHolidayButton = document.getElementById('closeBookingHolidayButton');
     }
@@ -477,16 +480,21 @@
     renderPhoneServiceReference(phoneOnly);
     if (els.bookingDayHolidayNotice) {
       els.bookingDayHolidayNotice.hidden = !isHoliday;
-      const technicianHoliday = holidays.some(item => /技師|師傅/.test(String(item.title || '')));
-      const configuredNotice = String(state.holidayNotice || '').trim();
-      els.bookingDayHolidayNotice.textContent = isHoliday
-        ? (configuredNotice || (technicianHoliday ? '技師休假提醒：當日無法預約，請改選其他日期。' : '休假提醒：當日無法預約，請改選其他日期。'))
-        : '';
+      els.bookingDayHolidayNotice.textContent = isHoliday ? holidayNoticeText(holidays) : '';
     }
     if (els.bookingDayHolidayDetails) {
       els.bookingDayHolidayDetails.hidden = !holidays.length;
       els.bookingDayHolidayDetails.replaceChildren(...holidayDetails(holidays));
     }
+  }
+
+  function holidayNoticeText(holidays) {
+    const configuredNotice = String(state.holidayNotice || '').trim();
+    if (configuredNotice) return configuredNotice;
+    const technicianHoliday = holidays.some(item => /技師|師傅/.test(String(item.title || '')));
+    return technicianHoliday
+      ? '技師休假提醒：當日無法預約，請改選其他日期。'
+      : '休假提醒：當日無法預約，請改選其他日期。';
   }
 
   function renderPhoneServiceReference(phoneOnly) {
@@ -734,6 +742,7 @@
     closeAppointmentModal(false);
     state.holidayTrigger = trigger instanceof HTMLElement ? trigger : null;
     if (els.holidayDate) els.holidayDate.textContent = `${formatDate(date)}｜此日休假，無法預約`;
+    if (els.holidayWarning) els.holidayWarning.textContent = holidayNoticeText(holidays);
     if (els.holidayDetails) {
       els.holidayDetails.replaceChildren(...holidayDetails(holidays));
     }
