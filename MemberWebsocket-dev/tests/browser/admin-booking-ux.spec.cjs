@@ -155,3 +155,50 @@ test('AC-010/011 Chromium: member reminder preference is visible to admins witho
     }
   }
 });
+
+
+test('AC-MOB-001/002/003 Chromium: phone booking queue is compact without hiding operations', async ({ page }) => {
+  const fixture = "<!doctype html><html lang=\"zh-Hant\"><head><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"></head>\n<body style=\"margin:0\"><div id=\"bookingPanel\"><section class=\"booking-admin-card booking-admin-operations-panel\">\n<nav class=\"booking-admin-queue-modes\"><button class=\"booking-admin-queue-mode active\"><span><strong>一般預約</strong><small>一般預約審核</small></span><b>3</b></button><button class=\"booking-admin-queue-mode\"><span><strong>快照收據</strong><small>照片審核入帳</small></span><b>2</b></button></nav>\n<section class=\"booking-admin-queue-view\"><div class=\"booking-admin-queue-toolbar\"><div><strong>一般預約</strong><small>處理預約</small></div><div class=\"booking-admin-filter\"><button class=\"booking-admin-filter-button\">待確認</button><button class=\"booking-admin-filter-button\">已確認</button><button class=\"booking-admin-filter-button\">無故未到</button></div></div><div class=\"booking-admin-queue\"><article class=\"booking-admin-booking booking-summary-normalized\">\n<div class=\"booking-received-summary\"><div class=\"booking-member-meta\">\n<div class=\"booking-member-meta-item booking-id-meta\"><span class=\"booking-member-meta-label\">預約編號</span><strong>12345678-1234-1234-1234-123456789abc</strong><button class=\"booking-id-copy-button\">複製編號</button></div>\n<div class=\"booking-member-meta-item\"><span class=\"booking-member-meta-label\">LINE 名稱</span><strong>測試會員</strong></div>\n<div class=\"booking-member-meta-item\"><span class=\"booking-member-meta-label\">會員編號</span><strong>001234</strong></div>\n<div class=\"booking-member-meta-item\"><span class=\"booking-member-meta-label\">LINE 預約提醒</span><strong>已設定｜預約前一天 09:30（台灣時間）</strong></div>\n<div class=\"booking-member-meta-item\"><span class=\"booking-member-meta-label\">總服務時間</span><strong>90 分鐘</strong></div>\n<div class=\"booking-member-meta-item\"><span class=\"booking-member-meta-label\">總金額</span><strong>NT$ 1,500</strong></div>\n</div><p class=\"booking-received-datetime\">2026/12/12 · 10:00–11:30</p><p class=\"booking-received-name\">預約人：測試會員</p><p class=\"booking-received-phone\">電話：0912-345-678</p><section class=\"booking-group-admin-details\"><strong>第 1 位</strong><p>預約項目：肩頸按摩</p><p>預約技師：10 號</p></section><button class=\"booking-copy-button\">複製預約內容</button></div>\n<div class=\"booking-admin-booking-heading\"><span class=\"booking-admin-status status-pending\">待確認</span></div>\n<label class=\"booking-admin-note-field\">管理端說明<textarea rows=\"2\"></textarea></label>\n<div class=\"booking-admin-actions\"><button class=\"button button-outline\">修改預約票券</button><button class=\"button button-danger\">無故未到</button><button class=\"button button-outline\">不通過</button><button class=\"button button-dark\">確認預約</button></div>\n</article></div></section></section></div></body></html>";
+  for (const width of [320, 390, 430, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.setContent(fixture);
+    for (const asset of ['booking-panel.css', 'booking-summary.css', 'booking-panel-responsive.css']) {
+      await page.addStyleTag({ path: path.join(root, 'admin', asset) });
+    }
+    const measured = await page.evaluate(() => {
+      const $ = selector => document.querySelector(selector);
+      const bounds = selector => $(selector).getBoundingClientRect();
+      return {
+        overflow: document.documentElement.scrollWidth - window.innerWidth,
+        modeA: bounds('.booking-admin-queue-mode:first-child'),
+        modeB: bounds('.booking-admin-queue-mode:last-child'),
+        modeSubtitle: getComputedStyle($('.booking-admin-queue-mode small')).display,
+        metaA: bounds('.booking-member-meta-item:nth-child(2)'),
+        metaB: bounds('.booking-member-meta-item:nth-child(3)'),
+        id: bounds('.booking-id-meta'),
+        date: bounds('.booking-received-datetime'),
+        memberMeta: bounds('.booking-member-meta'),
+        main: bounds('.booking-admin-actions .button-dark'),
+        secondary: bounds('.booking-admin-actions .button-outline'),
+        actionsDisplay: getComputedStyle($('.booking-admin-actions')).display,
+      };
+    });
+    expect(measured.overflow, 'page overflow at ' + width).toBeLessThanOrEqual(1);
+    if (width <= 640) {
+      expect(Math.abs(measured.modeA.top - measured.modeB.top), 'modes share a row').toBeLessThan(2);
+      expect(measured.modeSubtitle).toBe('none');
+      expect(Math.abs(measured.metaA.top - measured.metaB.top), 'metadata shares columns').toBeLessThan(2);
+      expect(measured.id.width).toBeGreaterThan(measured.metaA.width * 1.7);
+      expect(measured.date.top).toBeLessThan(measured.memberMeta.top);
+      expect(measured.main.top).toBeLessThan(measured.secondary.top);
+      expect(measured.main.width).toBeGreaterThan(measured.secondary.width * 1.7);
+      expect(measured.actionsDisplay).toBe('grid');
+    } else {
+      expect(measured.modeSubtitle).not.toBe('none');
+      expect(measured.actionsDisplay).toBe('flex');
+    }
+    await expect(page.getByRole('button', { name: '確認預約' })).toBeVisible();
+    await expect(page.locator('article.booking-admin-booking').getByRole('button', { name: '無故未到' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '複製編號' })).toBeVisible();
+  }
+});
