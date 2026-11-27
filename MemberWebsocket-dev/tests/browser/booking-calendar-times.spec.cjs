@@ -296,3 +296,51 @@ test('holiday inside booking range disables online and phone booking', async ({ 
   await expect(page.locator('#bookingPhoneDial')).not.toHaveAttribute('href', /tel:/);
   await expect(page.locator('#bookingDayHolidayDetails')).toContainText('公休日');
 });
+
+
+for (const variant of [
+  { width: 390, theme: 'light' },
+  { width: 1280, theme: 'dark' },
+]) {
+  test('custom merchant holiday warning keeps booking closed in ' + variant.theme + ' at ' + variant.width + 'px', async ({ page }) => {
+    await page.clock.setFixedTime(new Date('2026-11-27T04:00:00Z'));
+    await page.setViewportSize({ width: variant.width, height: 900 });
+    await page.route('https://fixture.supabase.co/functions/v1/platform-api', route =>
+      route.fulfill({ json: { ok: true, data: { business: 'merchant-a', name: 'QA', features: { booking: true }, line: {} } } }));
+    await page.route('https://fixture.supabase.co/functions/v1/booking-calendar-api', route =>
+      route.fulfill({ json: { ok: true, data: {
+        today: '2026-11-27',
+        settings: { minAdvanceDays: 0, maxAdvanceDays: 30, holidayNotice: '技師休假提醒：請另選日期。' },
+        holidays: [{ startsOn: '2026-11-29', endsOn: '2026-11-29', title: '技師休假', description: '全天暫停預約' }],
+        occupiedDates: [],
+      } } }));
+    await page.goto(baseUrl + '/booking/?business=merchant-a');
+    await page.addScriptTag({ url: baseUrl + '/business-context.js' });
+    await page.evaluate(async ({ theme }) => {
+      document.documentElement.dataset.theme = theme;
+      await window.BusinessContext.configure({ supabaseFunctionUrl: 'https://fixture.supabase.co/functions/v1/api', supabasePublishableKey: 'fixture-key' });
+      window.BookingSystem.loadConfig = async () => ({ supabaseUrl: 'https://fixture.supabase.co', supabasePublishableKey: 'fixture-key' });
+      window.liff = { isLoggedIn: () => true, getIDToken: () => 'synthetic-line-token' };
+      window.dispatchEvent(new CustomEvent('booking:settings-updated', { detail: {
+        today: '2026-11-27', settings: { minAdvanceDays: 0, maxAdvanceDays: 30 }
+      } }));
+      window.dispatchEvent(new Event('booking:view-shown'));
+    }, { theme: variant.theme });
+    const day = page.locator('[data-date="2026-11-29"]');
+    await expect(day).toHaveClass(/holiday-disabled/);
+    await day.click();
+    const warning = page.locator('#bookingDayHolidayNotice');
+    await expect(warning).toBeVisible();
+    await expect(warning).toContainText('技師休假提醒：請另選日期。');
+    await expect(page.locator('#startDayBookingButton')).toBeHidden();
+    await expect(page.locator('#bookingPhoneFallback')).toBeHidden();
+    const styles = await warning.evaluate(el => ({
+      background: getComputedStyle(el).backgroundColor,
+      borderLeftWidth: getComputedStyle(el).borderLeftWidth,
+      whiteSpace: getComputedStyle(el).whiteSpace,
+    }));
+    expect(styles.background).toBe(variant.theme === 'dark' ? 'rgb(73, 37, 30)' : 'rgb(255, 224, 203)');
+    expect(parseInt(styles.borderLeftWidth, 10)).toBeGreaterThanOrEqual(6);
+    expect(styles.whiteSpace).toBe('pre-wrap');
+  });
+}
