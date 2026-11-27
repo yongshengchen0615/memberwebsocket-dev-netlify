@@ -150,7 +150,12 @@ test('CRUD AC-001 loaded grant extension: uncertain grants are not replayed and 
   assert.equal(h.calls.filter(call => call.body.action === 'admin.member-grants.add').length, 1);
 });
 
-for (const [status, data] of [[502, {}], [200, null], [200, []], [200, { ok: false }], [503, { ok: true, data: {} }]]) {
+for (const [status, data] of [
+  [502, {}], [200, null], [200, []], [200, { ok: false }], [503, { ok: true, data: {} }],
+  [200, { ok: true }], [200, { ok: true, data: null }], [200, { ok: true, data: 'gateway body' }],
+  [200, { ok: true, data: [] }], [200, { ok: true, data: false }],
+  [200, { ok: true, data: {}, error: { code: 'DATABASE_ERROR', message: 'contradictory response' } }],
+]) {
   test(`CRUD AC-001 incomplete HTTP ${status} envelope ${JSON.stringify(data)} keeps mutation uncertainty`, async () => {
     const h = harness('member');
     const write = h.system.request(config, 'admin', 'identity-A', 'admin.tickets.delete');
@@ -210,6 +215,82 @@ test('CRUD AC-002 a new signed-in session cannot consume an older pending read',
   await rejected;
   assert.equal(h.system.getSession('admin').idToken, 'identity-B');
 });
+
+test('CRUD AC-002 OA checks observe each current LINE access token independently', async () => {
+  const h = harness('member');
+  let accessToken = 'access-A';
+  h.window.liff = { getAccessToken: () => accessToken };
+  const first = h.request('user.member.oa.check');
+  accessToken = 'access-B';
+  const second = h.request('user.member.oa.check');
+  h.calls.forEach(call => call.resolve({ ok: true, data: { checked: call.body.lineAccessToken } }));
+  const results = await Promise.all([first, second]);
+  assert.deepEqual(results.map(result => result.checked), ['access-A', 'access-B']);
+  assert.equal(h.calls.length, 2);
+  assert.equal(h.timers.size, 0);
+});
+
+test('CRUD AC-002 a replacement session with the same ID token starts a fresh shared read', async () => {
+  const h = harness('member');
+  h.window.liff = { init: async () => {}, isInClient: () => true, isLoggedIn: () => true, getIDToken: () => 'identity-A' };
+  await h.system.signIn(config, 'admin');
+  const read = () => h.system.request(config, 'admin', 'identity-A', 'admin.calendar-items.list');
+  const old = read();
+  await h.system.signIn(config, 'admin');
+  const fresh = read();
+  const settled = Promise.allSettled([old, fresh]);
+  h.calls[0].resolve({ ok: true, data: { current: false } });
+  await old.catch(() => {});
+  const sharedFresh = read();
+  h.calls.slice(1).forEach(call => call.resolve({ ok: true, data: { current: true } }));
+  const results = await settled;
+  await sharedFresh;
+  assert.equal(results[0].status, 'rejected');
+  assert.equal(results[0].reason.code, 'REQUEST_SCOPE_CHANGED');
+  assert.equal(results[1].status, 'fulfilled');
+  assert.equal(results[1].value.current, true);
+  assert.equal(sharedFresh, fresh, 'old session cleanup must preserve the new shared read');
+  assert.equal(h.calls.length, 2);
+  assert.equal(h.timers.size, 0);
+});
+
+for (const code of ['SESSION_REVOKED', 'SESSION_REPLACED', 'MEMBER_REMOVED', 'SYSTEM_MAINTENANCE']) {
+  test(`CRUD AC-002 current-session ${code} still terminates access and blocks late results`, async () => {
+    const h = harness('member');
+    h.window.liff = { init: async () => {}, isInClient: () => true, isLoggedIn: () => true, getIDToken: () => 'identity-A' };
+    await h.system.signIn(config, 'admin');
+    const slow = h.system.request(config, 'admin', 'identity-A', 'admin.calendar-items.list');
+    const denied = h.system.request(config, 'admin', 'identity-A', 'admin.members.list');
+    h.calls[1].resolve({ ok: false, error: { code, message: 'current session denial' } }, 403);
+    await assert.rejects(denied, { code });
+    succeed(h.calls[0]);
+    await assert.rejects(slow, { code: 'SESSION_REVOKED' });
+    await assert.rejects(h.system.request(config, 'admin', 'identity-A', 'admin.calendar-items.list'), { code: 'SESSION_REVOKED' });
+    assert.equal(h.calls.length, 2);
+    assert.equal(h.timers.size, 0);
+  });
+
+  test(`CRUD AC-002 late ${code} from another merchant cannot terminate the current merchant`, async () => {
+    const h = businessTransportHarness();
+    const old = h.system.request(config, 'member', 'identity-A', 'user.member.bootstrap');
+    const oldResult = old.then(() => null, error => error.code);
+    h.window.BusinessContext.set('shop-b');
+    const fresh = h.system.request(config, 'member', 'identity-A', 'user.member.bootstrap');
+    const freshResult = fresh.then(data => ({ data }), error => ({ error: error.code }));
+    h.calls[0].resolve({ ok: false, error: { code, message: 'old merchant denial' } }, 503);
+    const staleCode = await oldResult;
+    succeed(h.calls[1]);
+    const current = await freshResult;
+    assert.equal(staleCode, 'REQUEST_SCOPE_CHANGED');
+    assert.equal(current.error, undefined);
+    assert.equal(current.data.marker, 'identity-A');
+    const next = h.system.request(config, 'member', 'identity-A', 'user.member.bootstrap');
+    succeed(h.calls[2]);
+    assert.equal((await next).marker, 'identity-A');
+    assert.equal(h.calls.length, 3);
+    assert.equal(h.timers.size, 0);
+  });
+}
 
 for (const [action, endpoint] of [['user.booking.group.bootstrap', 'booking-group-api'], ['user.booking.group.slots', 'booking-group-slots-api']]) {
   test(`AC-001 ${action}: 100 concurrent reads share one canonical request and later reads are fresh`, async () => {

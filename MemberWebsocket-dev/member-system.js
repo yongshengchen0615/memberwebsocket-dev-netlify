@@ -441,17 +441,19 @@
       pendingReads.clear();
       return sendRequest(config, clientType, idToken, action, payload).finally(() => pendingReads.clear());
     }
-    // Each session status check must observe current server state even if a
-    // previous check is still pending across a takeover or page resume.
-    if (action.endsWith('.session.status')) return sendRequest(config, clientType, idToken, action, payload);
+    // Credential checks must observe the current session or LINE access token,
+    // even if a previous check with the same ID token is still pending.
+    if (action.endsWith('.session.status') || action === 'user.member.oa.check') return sendRequest(config, clientType, idToken, action, payload);
     const endpoint = requestEndpoint(config, clientType, action);
     const business = window.BusinessContext?.slug || config.business || '';
     const key = JSON.stringify([endpoint, config.supabasePublishableKey, business, window.BusinessContext?.generation || 0, clientType, idToken, action, payload]);
-    if (pendingReads.has(key)) return pendingReads.get(key);
+    const session = sessions.get(clientType);
+    const existing = pendingReads.get(key);
+    if (existing && existing.session === session) return existing.promise;
     const pending = sendRequest(config, clientType, idToken, action, payload).finally(() => {
-      if (pendingReads.get(key) === pending) pendingReads.delete(key);
+      if (pendingReads.get(key)?.promise === pending) pendingReads.delete(key);
     });
-    pendingReads.set(key, pending);
+    pendingReads.set(key, { session, promise: pending });
     return pending;
   }
 
@@ -522,6 +524,9 @@
           body: JSON.stringify({ ...verifiedJoinPayload, action, clientType, idToken })
         }, remaining, (response) => response.text());
 
+        if (isTerminatingAccess) throw clientError('SESSION_REVOKED', '連線已結束，請重新登入。');
+        assertRequestScope();
+
         let data;
         try { data = JSON.parse(fetched.body); }
         catch {
@@ -531,7 +536,8 @@
 
         const explicitFailure = data?.ok === false && typeof data.error?.code === 'string' && data.error.code.length > 0;
         if (!data || typeof data !== 'object' || Array.isArray(data)
-          || (data.ok !== true && !explicitFailure) || (fetched.response.ok === false && data.ok === true)) {
+          || (data.ok !== true && !explicitFailure) || (fetched.response.ok === false && data.ok === true)
+          || (data.ok === true && (data.error != null || (isWrite && (!data.data || typeof data.data !== 'object' || Array.isArray(data.data)))))) {
           throw clientError(isWrite ? 'API_RESPONSE_UNCERTAIN' : 'API_RESPONSE_ERROR',
             isWrite ? '無法確認這次操作的回應；資料可能已更新，請先重新整理確認，請勿重複送出。' : '資料服務回應格式異常。');
         }
@@ -545,7 +551,7 @@
               current.config.supabasePublishableKey, window.BusinessContext?.slug || current.config.business || '', window.BusinessContext?.generation || 0]);
             // A late denial belongs to the credential that made the request,
             // not a newly signed-in identity or a different merchant.
-            if (error.code === 'SYSTEM_MAINTENANCE' || !current ||
+            if (!current ||
               (current === startingSession && current.idToken === idToken && currentScope === scopeAtStart)) {
               terminateAccessSession(error.code, error.message);
             }

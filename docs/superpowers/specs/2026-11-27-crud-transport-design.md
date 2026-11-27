@@ -42,3 +42,18 @@
 獨立審查找到五項 P2，均以失敗案例重現後修正：未知 admin.session.status 不得走 read；兩種 booking-selections.detail 維持可重試讀取；實際 grant-automation 擴充接回共用 transport 與原 endpoint／通知 payload；重試及回傳前檢查原商家／generation／session；缺少有效服務 envelope 或 HTTP 與 success 矛盾時維持寫入結果不確定。
 
 BusinessContext 既有 generation 現供 transport 判斷 A→B→A 的舊請求；沒有新增 timer／持久狀態。原商家隔離測試原先期待切換後仍可取得舊結果，現保留兩筆不同請求與新商家結果，並明確要求舊結果 REQUEST_SCOPE_CHANGED。grant endpoint 的靜態接線檢查移至真正擁有路由的 member-system.js，檢查沒有移除，另有載入真實擴充的 Node／Chromium 行為測試。
+
+## 接續整合審查與修復
+
+接續時合入最新開發基線 `27ac2d02`，保留 #499、#501、#504、#506 的功能與全部 62 組管理端旅程。盤點檔衝突保留雙方 review，44 個來源雜湊逐一符合實際檔案與其中一個已審閱版本。
+
+最終獨立審查重現四項 Important，均列入本輪修復：
+
+- 同一 ID token、不同 LIFF access token 的 OA 檢查不得共用回應；只取消這項憑證檢查的合併，保留既有讀取重試。
+- 即使 ID token 相同，重新登入產生的新 session 也不得借用舊請求；進行中的讀取綁定原 session 物件，舊清理不得移除新 Promise。
+- 處理成功或拒絕回應前先核對商家／session 範圍；舊商家的維護、撤權、移除等回應不能結束新商家的連線。有效目前 session 的拒絕仍必須終止存取並拒絕晚到成功。
+- 寫入成功必須具有既有 Edge 契約的 object data，且不得附帶矛盾的非 null error；缺少結果、null、primitive、array 與矛盾回應一律保持 API_RESPONSE_UNCERTAIN，絕不自動重送。
+
+原始重現：範圍／憑證 6 個 RED，成功 envelope 新增 6 個 RED（同批 5 個既有拒絕案例仍通過）。修復後相關傳輸／身分測試 154 pass / 0 fail / 0 skip，包含 4 項有效拒絕的對照案例。最終完整 CI、建置與部署以 PR 最後 SHA 為準。
+
+審查範圍決定：真實 LINE 發送沒有修改，不以 fixture 宣稱真人驗收；完整 PostgreSQL、Edge、部署與受影響相鄰 UI 另由同 SHA 基線及測試發布查核。會員活動既有鎖定／交易／權益防重規則未有新缺陷證據，維持原實作與全量回歸，不新增發券邏輯。
