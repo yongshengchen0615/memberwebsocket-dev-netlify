@@ -504,3 +504,29 @@ test('AC-025: monthly tier view groups all tickets and activities with counts an
   assert.match(css,/\.member-monthly-offer-group-heading \{/);
   assert.match(css,/\.member-monthly-offer-group \+ \.member-monthly-offer-group/);
 });
+
+
+test('AC-026: all five member portals place monthly tier offers directly below membership progress', () => {
+  const root = path.resolve(__dirname, '..');
+  for (const surface of ['member', 'points', 'event', 'calendar', 'booking']) {
+    const html = fs.readFileSync(path.join(root, surface, 'index.html'), 'utf8');
+    const start = html.indexOf('<section id="membershipProgress"');
+    assert.ok(start >= 0, surface + ': membership progress is present');
+    const end = html.indexOf('</section>', start);
+    assert.ok(end > start, surface + ': membership progress is closed');
+    const widget = html.indexOf('<details class="member-monthly-benefits" data-member-monthly-tier-widget');
+    assert.ok(widget > end, surface + ': monthly offers follow membership progress');
+    const between = html.slice(end + '</section>'.length, widget);
+    if (surface === 'member') {
+      assert.match(between, /^\s*<\/div>\s*$/, 'member: only the member-overview wrapper may close between the two blocks');
+    } else {
+      assert.match(between, /^\s*$/, surface + ': no intervening UI block may separate tier progress and offers');
+    }
+  }
+  const booking = fs.readFileSync(path.join(root, 'booking/index.html'), 'utf8');
+  assert.ok(
+    booking.indexOf('data-member-monthly-tier-widget') < booking.indexOf('class="booking-accessible-switch"'),
+    'booking mode selector follows the monthly tier widget'
+  );
+  assert.match(booking, /id="bookingAccessiblePanel"/, 'accessible snapshot mode remains available');
+});
