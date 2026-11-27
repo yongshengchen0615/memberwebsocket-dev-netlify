@@ -60,14 +60,14 @@ function heading(section) { return section.children[0].children[0].textContent; 
 function cards(section) { return section.children[1].children; }
 function flatten(node) { return [node, ...node.children.flatMap(flatten)]; }
 
-test('AC-001: a date separates usable benefits from locked activities and tickets in original order', async () => {
+test('AC-001: a date separates usable benefits from locked activities and tickets while retaining stable order within a tier', async () => {
   const { qa, open } = runDateDetails([ticket, activity,
     { ...activity, calendarItemId:'activity-2', title:'另一項活動' }]);
   const categorized = qa.splitCalendarDateItems(qa.state.items);
   assert.equal(categorized.available.length, 2);
   assert.equal(categorized.locked.length, 1);
   await open();
-  assert.deepEqual(sections(qa).map(heading), ['當日可用的活動與票券', '未解鎖的活動與票券']);
+  assert.deepEqual(sections(qa).map(heading), ['當日可用的會員活動', '未解鎖的活動票券']);
   assert.deepEqual(cards(sections(qa)[0]).map(card => flatten(card).find(el => el.tagName === 'H4').textContent),
     ['一般會員活動', '另一項活動']);
   assert.match(qa.els.calendarDetailDate.textContent, /2 項可用.*1 項未解鎖/);
@@ -77,7 +77,7 @@ test('AC-002: locked benefits show unlocking guidance but never receive an actio
   const { qa, open } = runDateDetails([ticket, { ...ticket, calendarItemId:'ticket-2', title:'已鎖定票券',
     tierEligible:true, locked:true }]);
   await open();
-  assert.deepEqual(sections(qa).map(heading), ['未解鎖的活動與票券']);
+  assert.deepEqual(sections(qa).map(heading), ['未解鎖的活動票券']);
   for (const card of cards(sections(qa)[0])) {
     const nodes = flatten(card);
     assert.equal(nodes.filter(el => el.tagName === 'A').length, 0);
@@ -120,4 +120,69 @@ test('AC-006: unpreviewable offers cannot be invented from calendar UI and no ex
   assert.equal(sections(qa).length, 0);
   assert.match(source, /visibleCalendarItemsOnDate\(state\.items, isoDate\)/);
   assert.doesNotMatch(source, /calendar\.date\.details.*includeHidden/);
+});
+
+const tierOffer = (title, key, kind = 'activity', locked = false) => ({
+  ...(kind === 'ticket' ? ticket : activity),
+  calendarItemId: 'tier-' + title,
+  title,
+  allowedTierKeys: [key],
+  allowedTierLabels: [{general:'一般會員',silver:'銀級會員',gold:'金級會員',platinum:'白金會員'}[key] || '未知'],
+  tierEligible: !locked,
+  locked,
+  ...(kind === 'ticket' ? {eventTicketId:'EVT-' + title} : {linkUrl:'https://other.example/activity/'}),
+});
+function cardTitles(section) {
+  return cards(section).map(card => flatten(card).find(el => el.tagName === 'H4').textContent);
+}
+test('AC-007: date modal separates available and locked offers by activity and ticket kind', async () => {
+  const {qa, open} = runDateDetails([
+    tierOffer('已解鎖票券', 'gold', 'ticket'),
+    tierOffer('未解鎖活動', 'platinum', 'activity', true),
+    tierOffer('可用活動', 'silver'),
+    tierOffer('未解鎖票券', 'gold', 'ticket', true)
+  ]);
+  await open();
+  assert.deepEqual(sections(qa).map(heading), [
+    '當日可用的會員活動', '當日可用的活動票券',
+    '未解鎖的會員活動', '未解鎖的活動票券'
+  ]);
+  assert.deepEqual(sections(qa).map(s => s.className), [
+    'calendar-detail-group available activities', 'calendar-detail-group available tickets',
+    'calendar-detail-group locked activities', 'calendar-detail-group locked tickets'
+  ]);
+  assert.deepEqual(sections(qa).map(s => cards(s).length), [1,1,1,1]);
+  assert.match(qa.els.calendarDetailDate.textContent, /2 項可用.*2 項未解鎖/);
+});
+test('AC-008: highest minimum eligible membership tier comes first in each category with stable ties', async () => {
+  const entries = [
+    tierOffer('一般', 'general'),tierOffer('銀級甲','silver'),
+    tierOffer('白金','platinum'),tierOffer('金級','gold'),
+    tierOffer('銀級乙','silver'),
+    tierOffer('鎖定一般','general','ticket',true),
+    tierOffer('鎖定白金','platinum','ticket',true),
+    tierOffer('鎖定銀級','silver','ticket',true)
+  ];
+  const {qa,open} = runDateDetails(entries);
+  await open();
+  assert.deepEqual(cardTitles(sections(qa)[0]), ['白金','金級','銀級甲','銀級乙','一般']);
+  assert.deepEqual(cardTitles(sections(qa)[1]), ['🔒 鎖定白金','🔒 鎖定銀級','🔒 鎖定一般']);
+  assert.deepEqual(sections(qa).map(heading), ['當日可用的會員活動','未解鎖的活動票券']);
+  assert.equal(flatten(sections(qa)[1]).filter(n => n.tagName === 'A').length, 0);
+});
+test('AC-009: multi-tier inheritance sorts by the lowest eligible tier, not the highest advertised tier', async () => {
+  const inherited = {...tierOffer('金級起可用','gold'),allowedTierKeys:['gold','platinum'],allowedTierLabels:['金級會員','白金會員']};
+  const {qa,open} = runDateDetails([
+    tierOffer('白金專屬','platinum'), inherited, tierOffer('銀級起','silver')
+  ]);
+  await open();
+  assert.deepEqual(cardTitles(sections(qa)[0]), ['白金專屬','金級起可用','銀級起']);
+});
+test('AC-010: old label-only records sort by tier; unknown records keep original order at the end', async () => {
+  const oldGold = {...tierOffer('舊金級','gold'), allowedTierKeys:undefined};
+  const oldSilver = {...tierOffer('舊銀級','silver'), allowedTierKeys:undefined};
+  const unknown = {...tierOffer('未設定','general'),allowedTierKeys:['unexpected'],allowedTierLabels:['未設定']};
+  const {qa,open} = runDateDetails([unknown, oldSilver, oldGold, {...unknown,title:'第二筆未設定'}]);
+  await open();
+  assert.deepEqual(cardTitles(sections(qa)[0]), ['舊金級','舊銀級','未設定','第二筆未設定']);
 });
