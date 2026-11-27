@@ -82,7 +82,7 @@ for (const width of [390,1280]) {
     const available=page.locator('#eventList .event-offer-group--available');
     const locked=page.locator('#eventList .event-offer-group--locked');
     await expect(available.getByRole('heading',{name:/可以使用/})).toBeVisible();
-    await expect(locked.getByRole('heading',{name:/未解鎖/})).toBeVisible();
+    await expect(locked.getByRole('heading',{name:'未解鎖',exact:true})).toBeVisible();
     await expect(available.locator('.event-ticket')).toHaveCount(4);
     await expect(locked.locator('.event-ticket')).toHaveCount(2);
     await expect(available).toContainText('好友贈送高階券');
