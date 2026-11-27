@@ -69,9 +69,94 @@ function calendarClient(row: any): CalendarItem {
     visibilityPolicy: row.visibility_policy || 'eligible_only',
     linkLabel: row.link_label || "",
     linkUrl: row.link_url || "",
+    usageConditions: row.usage_conditions && typeof row.usage_conditions === 'object' ? row.usage_conditions : {},
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+
+type UsageRule = {
+  requiredServiceIds: string[];
+  requiredServiceMatchMode: string;
+  requiredServiceGroups: string[][];
+  minBookingAmountMode: string;
+  minBookingAmount: number;
+  minBookingServiceIds: string[];
+  minBookingPartySize: number;
+  maxBookingPartySize: number;
+};
+
+function activityUsageRules(value: unknown): UsageRule {
+  const rule: any = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  return {
+    requiredServiceIds: Array.isArray(rule.requiredServiceIds) ? rule.requiredServiceIds.map(String) : [],
+    requiredServiceMatchMode: String(rule.requiredServiceMatchMode || "any"),
+    requiredServiceGroups: Array.isArray(rule.requiredServiceGroups)
+      ? rule.requiredServiceGroups.filter((group: unknown) => Array.isArray(group)).map((group: string[]) => group.map(String)) : [],
+    minBookingAmountMode: String(rule.minBookingAmountMode || "none"),
+    minBookingAmount: Number(rule.minBookingAmount || 0),
+    minBookingServiceIds: Array.isArray(rule.minBookingServiceIds) ? rule.minBookingServiceIds.map(String) : [],
+    minBookingPartySize: Number(rule.minBookingPartySize || 0),
+    maxBookingPartySize: Number(rule.maxBookingPartySize || 0),
+  };
+}
+
+function activityRequiresBooking(rule: UsageRule): boolean {
+  return rule.requiredServiceIds.length > 0 || rule.requiredServiceGroups.length > 0
+    || rule.minBookingAmountMode !== "none" || rule.minBookingPartySize > 0 || rule.maxBookingPartySize > 0;
+}
+
+function usageConditionLabel(rule: UsageRule, serviceNames: Map<string,string>): string {
+  if (!activityRequiresBooking(rule)) return "";
+  const name = (id: string) => serviceNames.get(id) || "已停用項目";
+  const clauses: string[] = [];
+  if (rule.requiredServiceGroups.length) {
+    clauses.push("預約「" + rule.requiredServiceGroups.map((group) => group.map(name).join("＋")).join("」或「") + "」其中一組");
+  } else if (rule.requiredServiceIds.length) {
+    clauses.push(rule.requiredServiceMatchMode === "all"
+      ? "預約所有項目：「" + rule.requiredServiceIds.map(name).join("、") + "」"
+      : "預約其中一項：「" + rule.requiredServiceIds.map(name).join("、") + "」");
+  }
+  if (rule.minBookingAmountMode !== "none") {
+    const money = "NT$" + rule.minBookingAmount.toLocaleString("en-US");
+    clauses.push(rule.minBookingAmountMode === "total"
+      ? "整筆預約滿 " + money
+      : "指定項目「" + rule.minBookingServiceIds.map(name).join("、") + "」合計滿 " + money);
+  }
+  if (rule.minBookingPartySize && rule.maxBookingPartySize) {
+    clauses.push(rule.minBookingPartySize === rule.maxBookingPartySize
+      ? "限 " + rule.minBookingPartySize + " 人"
+      : "預約 " + rule.minBookingPartySize + "–" + rule.maxBookingPartySize + " 人");
+  } else if (rule.minBookingPartySize) clauses.push("至少 " + rule.minBookingPartySize + " 人");
+  else if (rule.maxBookingPartySize) clauses.push("最多 " + rule.maxBookingPartySize + " 人");
+  return clauses.join(" · ");
+}
+
+function bookingSatisfiesActivity(
+  booking: any, bookingItems: any[], rule: UsageRule,
+): boolean {
+  const party = Number(booking.party_size);
+  if (!Number.isSafeInteger(party) || party < 1) return false;
+  if (rule.minBookingPartySize > 0 && party < rule.minBookingPartySize) return false;
+  if (rule.maxBookingPartySize > 0 && party > rule.maxBookingPartySize) return false;
+  const serviceIds = new Set(bookingItems.map((item:any) => String(item.service_id || "")));
+  if (rule.requiredServiceGroups.length) {
+    if (!rule.requiredServiceGroups.some((group) => group.length > 0 && group.every((id) => serviceIds.has(id)))) return false;
+  } else if (rule.requiredServiceIds.length) {
+    const matches = rule.requiredServiceMatchMode === "all"
+      ? rule.requiredServiceIds.every((id) => serviceIds.has(id))
+      : rule.requiredServiceIds.some((id) => serviceIds.has(id));
+    if (!matches) return false;
+  }
+  if (rule.minBookingAmountMode !== "none") {
+    const total = bookingItems
+      .filter((item:any) => rule.minBookingAmountMode === "total"
+        || rule.minBookingServiceIds.includes(String(item.service_id || "")))
+      .reduce((sum:number,item:any) => sum + Number(item.unit_price_amount || 0) * Number(item.quantity || 0),0);
+    if (!Number.isSafeInteger(total) || total < rule.minBookingAmount) return false;
+  }
+  return true;
 }
 
 function birthdayMonth(value: unknown): number {
@@ -315,6 +400,52 @@ serveBusiness('member-calendar-api',async (request: Request) => {
       }
       return linkedTicket ? { ...item, allowedTierKeys: Array.isArray(linkedTicket.allowed_tier_keys) ? linkedTicket.allowed_tier_keys : [], visibilityPolicy: linkedTicket.visibility_policy || 'eligible_only' } : item;
     });
+    // The linked member ID, booking ownership, confirmation state and items are
+    // read with the tenant-scoped service client. No browser-supplied count is trusted.
+    const gatedEntries = calendarEntries.filter((item) => item.itemType === "event"
+      && activityRequiresBooking(activityUsageRules(item.usageConditions)));
+    const memberBookings: any[] = [];
+    const bookedItemsByBooking = new Map<string, any[]>();
+    const serviceNames = new Map<string,string>();
+    if (gatedEntries.length) {
+      const memberRes = await db.from("members").select("id").eq("line_user_id",profile.lineUserId).maybeSingle();
+      if (memberRes.error || !memberRes.data?.id) {
+        return reply(origin,{ok:false,status:401,error:{code:"MEMBER_NOT_FOUND",message:"無法確認目前會員身分。"}},401);
+      }
+      const bookings = await db.from("bookings")
+        .select("id,party_size,cancellation_requested_at,cancellation_reviewed_at")
+        .eq("member_id",memberRes.data.id).eq("status","confirmed").is("completed_at",null);
+      if (bookings.error) {
+        return reply(origin,{ok:false,status:500,error:{code:"DATABASE_ERROR",message:"無法確認活動預約資格。"}},500);
+      }
+      memberBookings.push(...(bookings.data || []).filter((booking:any) =>
+        !(booking.cancellation_requested_at && !booking.cancellation_reviewed_at)));
+      if (memberBookings.length) {
+        const bookingItems = await db.from("booking_items")
+          .select("booking_id,service_id,unit_price_amount,quantity")
+          .in("booking_id",memberBookings.map((booking:any) => booking.id));
+        if (bookingItems.error) {
+          return reply(origin,{ok:false,status:500,error:{code:"DATABASE_ERROR",message:"無法確認活動預約項目。"}},500);
+        }
+        for (const item of bookingItems.data || []) {
+          const bookingId = String(item.booking_id);
+          const items = bookedItemsByBooking.get(bookingId) || [];
+          items.push(item);
+          bookedItemsByBooking.set(bookingId,items);
+        }
+      }
+      const ids = [...new Set(gatedEntries.flatMap((item) => {
+        const rule = activityUsageRules(item.usageConditions);
+        return [...rule.requiredServiceIds,...rule.requiredServiceGroups.flat(),...rule.minBookingServiceIds];
+      }))];
+      if (ids.length) {
+        const services = await db.from("booking_services").select("id,title").in("id",ids);
+        if (services.error) {
+          return reply(origin,{ok:false,status:500,error:{code:"DATABASE_ERROR",message:"無法確認活動指定服務項目。"}},500);
+        }
+        for (const service of services.data || []) serviceNames.set(String(service.id),String(service.title || ""));
+      }
+    }
     let items = calendarEntries.map((item) => decorateTierEligibility(item, profile));
     // Keep the response shape for existing clients, but never synthesize
     // ongoing activities from tickets that were not opted into the calendar.
@@ -324,7 +455,17 @@ serveBusiness('member-calendar-api',async (request: Request) => {
       const v = tierVisibility(item.allowedTierKeys, profile.tierKey, item.visibilityPolicy || policy);
       return item.itemType === "holiday" ? [item] : v.visible ? [{ ...item, ...v }] : [];
     };
-    items=items.flatMap(visibility);
+    items=items.flatMap(visibility).map((item) => {
+      if (item.itemType !== "event") return item;
+      const rule = activityUsageRules(item.usageConditions);
+      const label = usageConditionLabel(rule,serviceNames);
+      if (!activityRequiresBooking(rule)) return {...item,usageEligible:true,usageConditionLabel:""};
+      const eligible = memberBookings.some((booking:any) =>
+        bookingSatisfiesActivity(booking,bookedItemsByBooking.get(String(booking.id)) || [],rule));
+      return {...item,usageEligible:eligible,usageConditionLabel:label,
+        locked:item.locked === true || !eligible,
+        lockReason:item.locked === true ? item.lockReason : eligible ? "" : "需要已確認且符合使用條件的預約才能參加。"};
+    });
     items = applyCalendarDisplayRules(items);
 
     if (action === "user.calendar.date.details") {
