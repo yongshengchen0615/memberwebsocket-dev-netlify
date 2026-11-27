@@ -572,7 +572,8 @@ test('AC-FD-REJ-TABS-003/004: separate reason categories preserve drafts and sav
  description.value='更新後會員看到的說明';
  description.dispatchEvent(new w.Event('input',{bubbles:true}));
  assert.match(ordinaryPanel.querySelector('.frontdesk-rejection-preview').textContent,/更新後會員看到的說明/);
- modificationTab.click();
+ ordinaryTab.focus();
+ ordinaryTab.dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
  assert.equal(modificationPanel.hidden,false);
  assert.equal(ordinaryPanel.hidden,true);
  assert.equal(modificationTab.getAttribute('aria-selected'),'true');
@@ -582,6 +583,9 @@ test('AC-FD-REJ-TABS-003/004: separate reason categories preserve drafts and sav
  ordinaryTab.click();
  assert.equal(description.value,'更新後會員看到的說明','switching categories must preserve new-booking draft');
  assert.equal(modificationLabel.value,'修改預約時間已滿','switching categories must preserve modification draft');
+ modificationLabel.dispatchEvent(new w.Event('invalid',{bubbles:false,cancelable:true}));
+ assert.equal(modificationPanel.hidden,false,'an invalid hidden category must become visible for correction');
+ ordinaryTab.click();
  root.querySelector('#frontdesk-tab-confirmed').click();await settle();
  assert.equal(root.querySelector('#frontdesk-rejection-panel').hidden,true);
  assert.equal(root.querySelector('#frontdesk-history-panel').hidden,false);
