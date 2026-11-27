@@ -61,6 +61,21 @@ export function assertBusinessAction(context,action,body={},now=Date.now()) {
   && ['membership','points','events','calendar','booking'].some(key=>context.features?.[key]===true);
  if(!foundation&&features.some(feature=>context.features?.[feature]!==true))throw Object.assign(Error('總管理員尚未核准這項功能，請聯絡總管理員。'),{code:'FEATURE_DISABLED',status:403});
 }
+const OVERVIEW_KPI_FEATURES = Object.freeze({
+ memberCount: 'membership',
+ activeMemberCount: 'membership',
+ activeCardCount: 'points',
+ activeEventTicketCount: 'events',
+ todayEntryCount: 'points',
+});
+function visibleOverviewStats(rawStats, features) {
+ const visible = {};
+ if (!rawStats || typeof rawStats !== 'object' || Array.isArray(rawStats)) return visible;
+ for (const [field, feature] of Object.entries(OVERVIEW_KPI_FEATURES)) {
+  if (features?.[feature] === true && Object.hasOwn(rawStats, field)) visible[field] = rawStats[field];
+ }
+ return visible;
+}
 export function businessBootstrap(data,context){
  const f=context.features||{},out={...data,features:f,business:{slug:context.slug,name:context.name}};
  if(!f.membership){out.members=[];out.memberPage={page:1,pageSize:100,total:0,totalPages:1,query:''};out.tierSettings=[];out.messagePresets=[];}
@@ -68,12 +83,13 @@ export function businessBootstrap(data,context){
  if(!f.events)out.eventTickets=[];
  if(!f.calendar)out.calendarItems=[];
  if(!f.booking){out.bookingServices=[];out.bookingServiceTypes=[];}
- out.stats={};
+ out.stats=visibleOverviewStats(data.stats,f);
  return out;
 }
 export function businessResponse(data,context,action){
  if(action==='admin.bootstrap')return businessBootstrap(data,context);
  const features=context.features||{},out={...data};
+ if(Object.hasOwn(data,'stats'))out.stats=visibleOverviewStats(data.stats,features);
  const benefitAllowed=item=>features[benefitFeature(item?.kind)]===true;
  if(/^(admin|user)\.booking\./.test(action)){
   const scrub=booking=>booking&&typeof booking==='object'?{...booking,...(Array.isArray(booking.benefits)?{benefits:booking.benefits.filter(benefitAllowed)}:{})}:booking;
