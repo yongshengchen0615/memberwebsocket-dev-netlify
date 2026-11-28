@@ -1,7 +1,8 @@
 import { businessEnv, businessContext, businessFetch as fetch } from './business-scope.ts';
 import { assertTenantIdentity } from './tenant-access.mjs';
 import { isVerifiedLineIdClaim } from './line-id-claims.mjs';
-export type ContractIdentity = { lineUserId: string; displayName: string; issuedAtMs: number };
+import { normalizeLinePictureUrl } from './line-profile-picture.mjs';
+export type ContractIdentity = { lineUserId: string; displayName: string; issuedAtMs: number; pictureUrl: string };
 
 type ErrorFactory = (status: number, code: string, message: string, details?: unknown) => Error;
 
@@ -51,6 +52,7 @@ export async function verifyLineIdTokenContract(args: {
   const identity = {
     lineUserId: sub,
     displayName: String(payload.name || "LINE 使用者").slice(0, 120),
+    pictureUrl: normalizeLinePictureUrl(payload.picture),
     issuedAtMs: iat * 1000,
   };
   try { assertTenantIdentity(businessContext(), identity); }

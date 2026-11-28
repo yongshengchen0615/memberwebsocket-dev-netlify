@@ -895,8 +895,39 @@
     return labels[String(surface || '')] || '用戶端';
   }
 
+  function createMemberAvatar(member, className) {
+    const avatar = document.createElement('span');
+    avatar.className = className;
+    const initials = window.MemberSystem.initials(member.displayName || 'LINE 使用者');
+    avatar.textContent = initials;
+    try {
+      const url = new URL(String(member.linePictureUrl || ''));
+      if (url.protocol === 'https:' && /(^|\.)line-scdn\.net$/i.test(url.hostname) && !url.username && !url.password && !url.port) {
+        const image = document.createElement('img');
+        image.alt = '';
+        image.loading = 'lazy';
+        image.decoding = 'async';
+        image.referrerPolicy = 'no-referrer';
+        image.onerror = () => { avatar.textContent = initials; };
+        image.src = url.href;
+        avatar.replaceChildren(image);
+      }
+    } catch { /* Missing or invalid LINE photo: keep member initials. */ }
+    return avatar;
+  }
+
   function createMemberIdentity(member) {
-    const wrapper = document.createElement('div'); wrapper.className = 'member-cell'; const avatar = document.createElement('span'); avatar.className = 'member-avatar'; avatar.textContent = window.MemberSystem.initials(member.displayName); const copy = document.createElement('div'); const name = document.createElement('strong'); name.textContent = String(member.displayName || 'LINE 使用者'); const code = document.createElement('small'); code.textContent = String(member.memberCode || '尚未建立'); copy.append(name, code); wrapper.append(avatar, copy); return wrapper;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'member-cell';
+    const avatar = createMemberAvatar(member, 'member-avatar');
+    const copy = document.createElement('div');
+    const name = document.createElement('strong');
+    name.textContent = String(member.displayName || 'LINE 使用者');
+    const code = document.createElement('small');
+    code.textContent = String(member.memberCode || '尚未建立');
+    copy.append(name, code);
+    wrapper.append(avatar, copy);
+    return wrapper;
   }
 
   function actionButton(label, action, value, accent) { const button = document.createElement('button'); button.type = 'button'; button.className = `small-button${accent ? ' accent' : ''}`; button.dataset.action = action; button.dataset.value = String(value || ''); button.textContent = label; return button; }
@@ -1249,10 +1280,8 @@
 
     const hero = document.createElement('div');
     hero.className = 'member-records-overview-hero';
-    const avatar = document.createElement('span');
-    avatar.className = 'member-records-avatar';
+    const avatar = createMemberAvatar(member, 'member-records-avatar');
     avatar.setAttribute('aria-hidden', 'true');
-    avatar.textContent = window.MemberSystem.initials(member.displayName || 'LINE 使用者');
 
     const copy = document.createElement('div');
     copy.className = 'member-records-overview-copy';
