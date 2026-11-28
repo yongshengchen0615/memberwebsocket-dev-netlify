@@ -107,7 +107,7 @@ async function serviceMinutesTotal(supabase: SupabaseClient, memberId: string): 
 }
 async function profileFor(supabase: SupabaseClient, member: any, includeTierPresentations = false): Promise<Json> {
   const [settings, total] = await Promise.all([tierSettings(supabase), serviceMinutesTotal(supabase, member.id)]);
-  let current = settings[0] || { tier_key: "general", tier_label: "一般會員", required_service_minutes: 0, style_key: "forest" };
+  let current = settings[0] || { tier_key: "general", tier_label: "銅級會員", required_service_minutes: 0, style_key: "forest" };
   for (const row of settings) if (Number(row.required_service_minutes || 0) <= total) current = row;
   const index = Math.max(0, settings.findIndex(row => row.tier_key === current.tier_key));
   const next = settings[index + 1] || null;
