@@ -43,7 +43,7 @@ async function fixture(mode) {
   const item = { serviceId, serviceTitle: '腳底40', unitDurationMinutes: 40, unitPriceAmount: 800, quantity: 1 };
   const booking = { bookingId, bookingDate: '2099-01-02', startTime: '09:00', endTime: '09:50', status: 'confirmed', totalDurationMinutes: 50, totalAmount: 800, items: [item] };
   const base = { today: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' }), settings: { minAdvanceDays: 0, workStartTime: '09:00', workEndTime: '18:00', bookingNotice: '測試商家預約說明\n請準時到場' }, services: [{ serviceId, title: '腳底40', durationMinutes: 40, priceAmount: 800, isActive: true }], bookings: [booking] };
-  const config = { supabaseUrl: 'https://fixture.supabase.co', supabasePublishableKey: 'fixture-key', bookingLiffId: 'fixture-liff' };
+  const config = { supabaseUrl: 'https://fixture.supabase.co', supabaseFunctionUrl: 'https://fixture.supabase.co/functions/v1/api', supabasePublishableKey: 'fixture-key', bookingLiffId: 'fixture-liff' };
   w.matchMedia = () => ({ matches: false });
   w.HTMLElement.prototype.scrollIntoView = () => {};
   w.liff = { init: async () => {}, isLoggedIn: () => true, isInClient: () => true, getIDToken: () => 'fixture-token' };
@@ -51,6 +51,7 @@ async function fixture(mode) {
     const body = JSON.parse(init.body);
     calls.push(body.action || 'calendar');
     let data = {};
+    if (body.action === 'member.list') data = { cancellationMode: 'approval', requests: [] };
     if (body.action === 'user.member.bootstrap') data = { profile: { displayName: '測試', membershipRequired: mode === 'membership-required' } };
     if (body.action === 'user.booking.group.bootstrap') {
       if (mode === 'group-error') return new Response(JSON.stringify({ ok: false, error: { code: 'API_ERROR', message: '多人預約讀取失敗' } }), { status: 503 });
@@ -69,7 +70,11 @@ async function fixture(mode) {
     }
     return new Response(JSON.stringify({ ok: true, data }));
   };
-  w.BookingSystem = {
+  // Keep the entrypoint's real transport/guard extension contract. Only the
+  // synthetic booking/group data below is replaced for this UI fixture.
+  w.eval(fs.readFileSync(path.join(root, 'booking/common.js'), 'utf8'));
+  const transportRequest = w.BookingSystem.request.bind(w.BookingSystem);
+  Object.assign(w.BookingSystem, {
     loadConfig: async () => config, signIn: async () => 'fixture-token', completeSignIn: async (_config, _type, idToken) => idToken, memberProfile: async () => ({}),
     subscribeRealtime: () => { subscriptions++; return () => {}; },
     setBookingNotice: value => { bookingNotice = value; },
@@ -77,6 +82,7 @@ async function fixture(mode) {
     formatDate: date => date, clientError: (code, message) => Object.assign(new Error(message), { code }),
     request: async (_config, _type, _token, action, payload) => {
       if (mode === 'unauthorized') throw Object.assign(new Error('登入已失效'), { code: 'AUTH_INVALID' });
+      if (action === 'member.list' || action === 'member.request') return transportRequest(_config, _type, _token, action, payload);
       if (action.startsWith('user.booking.group.')) {
         const response = await w.fetch('', { body: JSON.stringify({ ...payload, action }) });
         const result = await response.json();
@@ -85,7 +91,7 @@ async function fixture(mode) {
       }
       return structuredClone(base);
     },
-  };
+  });
   try {
     // Evaluate the actual entrypoint order, including all runtime extensions.
     for (const script of w.document.querySelectorAll('script[src]')) {

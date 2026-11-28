@@ -45,7 +45,7 @@ test('platform is a sibling of admin in the build output', () => {
   assert.equal(fs.existsSync(path.join(output, 'admin', 'platform')), false);
   const html = fs.readFileSync(path.join(output, 'platform/index.html'), 'utf8');
   const app = fs.readFileSync(path.join(output, 'platform/app.js'), 'utf8');
-  assert.match(html, /src="\.\.\/member-system\.js"/);
+  assert.match(html, /src="\.\.\/member-system\.js(?:\?[^"<>]*)?"/);
   assert.match(app, /fetch\('\.\.\/config\/config\.json'/);
 });
 

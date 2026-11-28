@@ -71,6 +71,7 @@
     "MemberWebsocket-dev/tests/integration/e2e_data_optimization.cjs",
     "MemberWebsocket-dev/tests/integration/qa_user_journeys.cjs",
     "MemberWebsocket-dev/tests/integration/fixed_ticket_automation_sql.cjs",
+    "MemberWebsocket-dev/tests/integration/effective_ticket_invalidation_sql.cjs",
     "MemberWebsocket-dev/tests/integration/automation_health_sql.cjs",
     "MemberWebsocket-dev/tests/integration/qa_event_day_sql.cjs",
     "MemberWebsocket-dev/tests/integration/qa_cleanup_boundaries.cjs",
