@@ -68,9 +68,9 @@ test('member removal blocks writes, retries cross-service failures, removes priv
     const end=api.indexOf('if (action === "admin.member-tiers.save")',start);
     assert.ok(start>0&&end>start,'member admin API must exist');
     const handler=api.slice(start,end);
-    assert.match(handler,/updated\\.error && String\\(updated\\.error\\.message[^\\n]*includes\\("MEMBER_REMOVED"\\)/);
-    assert.match(handler,/new ApiError\\(409,"MEMBER_REMOVAL_IN_PROGRESS"/);
-    assert.match(handler,/if \\(updated\\.error\\) throw mapDatabaseError\\(updated\\.error\\)/);
+    assert.ok(handler.includes('updated.error && String(updated.error.message || "").includes("MEMBER_REMOVED")'),'must detect guarded update');
+    assert.ok(handler.includes('new ApiError(409,"MEMBER_REMOVAL_IN_PROGRESS"'),'must provide actionable conflict');
+    assert.ok(handler.includes('if (updated.error) throw mapDatabaseError(updated.error)'),'other database errors stay mapped');
   });
   const job=await begin();assert.equal(job.state,'deleting');assert.equal((await begin()).jobId,job.jobId);
   await t.test('pending storage failure keeps identity disabled and rejects writes and stale signed uploads',async()=>{
