@@ -155,3 +155,18 @@ test('AC-003: tapping next while automatic slot revalidation is pending waits fo
   assert.equal(h.els.bookingBenefitModal.classList.contains('hidden'), false);
   assert.deepEqual(h.messages, []);
 });
+
+test('AC-004: an outdated slot candidate never restores for a different date or selection', async () => {
+  const itemsKey = JSON.stringify([{ serviceId: 'service-1', quantity: 1 }]);
+  for (const restoration of [
+    { bookingDate: '2026-11-30', itemsKey, startTime: '15:30' },
+    { bookingDate: '2026-11-29', itemsKey: '[]', startTime: '15:30' },
+  ]) {
+    const h = createHarness();
+    h.state.selectedSlot = null;
+    h.state.slotRestoration = restoration;
+    await h.functions.loadSlots(false);
+    assert.equal(h.state.selectedSlot, null, 'do not carry over a time from another form selection');
+    assert.equal(h.els.slotGrid.children.filter((node) => node.classList.contains('selected')).length, 0);
+  }
+});
