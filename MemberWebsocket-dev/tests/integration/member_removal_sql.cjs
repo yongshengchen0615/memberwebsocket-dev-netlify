@@ -34,7 +34,7 @@ test('member removal blocks writes, retries cross-service failures, removes priv
   const removedRecipient=(await one("select (create_friend_booking_request('qa-removal-BBBB','AAAA','QA-RECIPIENT-REMOVE',current_date+4,'10:00',$1,'QA','custom','PRIVATE','mr','0912345678','[]')).id id",[parts])).id;
   // These tables were added after the original removal guards. NO ACTION FKs
   // must not strand a disabled member or erase a surviving member's history.
-  await db.exec(\`create table public.booking_no_show_events (
+  await db.exec(`create table public.booking_no_show_events (
     booking_id uuid primary key references public.bookings(id),
     member_id uuid not null references public.members(id),
     occurred_at timestamptz not null,marked_by text not null
@@ -48,7 +48,7 @@ test('member removal blocks writes, retries cross-service failures, removes priv
     restriction_id uuid primary key references public.booking_restrictions(id),
     member_id uuid not null references public.members(id),
     reason text not null
-  );\`);
+  );`);
   await db.query("insert into booking_no_show_events(booking_id,member_id,occurred_at,marked_by)values($1,$2,now(),'qa-removal-admin'),($3,$4,now(),'qa-removal-admin')",[shared,a,removedRecipient,b]);
   const risk=(await one("insert into booking_restrictions(member_id,source_booking_id)values($1,$2)returning id",[a,shared])).id;
   await db.query("insert into booking_restriction_appeals(restriction_id,member_id,reason)values($1,$2,'member request')",[risk,a]);
@@ -82,7 +82,7 @@ test('member removal blocks writes, retries cross-service failures, removes priv
    const fks=(await db.query("select c.relname,a.attname from pg_constraint k join pg_class c on c.oid=k.conrelid join pg_attribute a on a.attrelid=k.conrelid and a.attnum=any(k.conkey) where k.contype='f' and k.confrelid='public.members'::regclass")).rows;
    for(const fk of fks)assert.equal((await one(`select count(*)::int n from ${fk.relname} where ${fk.attname}=$1`,[a])).n,0,fk.relname);
    for(const table of ['booking_no_show_events','booking_restrictions','booking_restriction_appeals']){
-    assert.equal((await one(\`select count(*)::int n from \${table} where member_id=$1\`,[a])).n,0,table);
+    assert.equal((await one(`select count(*)::int n from ${table} where member_id=$1`,[a])).n,0,table);
    }
    assert.equal((await one('select count(*)::int n from booking_no_show_events where member_id=$1',[b])).n,1);
    assert.equal((await one('select stamps from point_balances where member_id=$1 and point_card_id=$2',[b,card])).stamps,5);
