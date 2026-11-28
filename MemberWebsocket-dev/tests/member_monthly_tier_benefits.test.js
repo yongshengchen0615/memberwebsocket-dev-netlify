@@ -588,3 +588,32 @@ test('AC-029: all five member portals load the calendar-independent monthly widg
       surface + ': asset version must change so the browser cannot keep a stale widget');
   }
 });
+
+test('AC-030: the read-only monthly catalogue groups all published tier offers without viewer-tier prefiltering', async () => {
+  // Under eligible_only, the member's actual ticket use remains protected by the separate redemption API.
+  // The monthly informational catalogue must not silently omit published offers before building each tier.
+  const api=fs.readFileSync(path.join(__dirname,'..','supabase/functions/member-profile-api/index.ts'),'utf8');
+  const block=api.slice(api.indexOf('async function monthlyTierBenefits('),api.indexOf("serveBusiness('member-profile-api'"));
+  assert.match(block,/tickets: ticketRows,/);
+  assert.match(block,/activities: activityRows,/);
+  assert.doesNotMatch(block,/ticketRows\.filter\(.*visibleToViewer/);
+  assert.doesNotMatch(block,/activityRows\.filter\(.*visibleToViewer/);
+  const { buildMonthlyTierOverview }=await load();
+  const tickets=[
+    {id:'1',title:'銅級票券',ticket_type:'coupon',status:'active',starts_on:'2026-11-01',ends_on:'2026-11-30',allowed_tier_keys:['general'],visibility_policy:'eligible_only'},
+    {id:'2',title:'銀級票券',ticket_type:'coupon',status:'active',starts_on:'2026-11-01',ends_on:'2026-11-30',allowed_tier_keys:['silver'],visibility_policy:'eligible_only'},
+    {id:'3',title:'金級票券',ticket_type:'coupon',status:'active',starts_on:'2026-11-01',ends_on:'2026-11-30',allowed_tier_keys:['gold'],visibility_policy:'eligible_only'},
+    {id:'4',title:'白金票券',ticket_type:'coupon',status:'active',starts_on:'2026-11-01',ends_on:'2026-11-30',allowed_tier_keys:['platinum'],visibility_policy:'eligible_only'},
+    {id:'5',title:'私人推薦券',ticket_type:'referral',status:'active',starts_on:'2026-11-01',ends_on:'2026-11-30',allowed_tier_keys:['general']}
+  ];
+  const activities=[
+    {id:'6',title:'銀級活動',item_type:'event',status:'active',audience_type:'all',starts_on:'2026-11-02',ends_on:'2026-11-02',allowed_tier_keys:['silver'],visibility_policy:'eligible_only'},
+    {id:'7',title:'白金活動',item_type:'event',status:'active',audience_type:'all',starts_on:'2026-11-03',ends_on:'2026-11-03',allowed_tier_keys:['platinum'],visibility_policy:'eligible_only'},
+    {id:'8',title:'票券日曆鏡像',item_type:'event',status:'active',audience_type:'all',starts_on:'2026-11-03',ends_on:'2026-11-03',allowed_tier_keys:['platinum'],source_event_ticket_id:'mirror'},
+    {id:'9',title:'私人生日活動',item_type:'event',status:'active',audience_type:'birthday_month',starts_on:'2026-11-03',ends_on:'2026-11-03',allowed_tier_keys:['platinum']}
+  ];
+  const overview=buildMonthlyTierOverview({month:'2026-11',tickets,activities});
+  assert.deepEqual(overview.tiers.map(t=>t.offers.filter(o=>o.kind==='ticket').length),[1,2,3,4]);
+  assert.deepEqual(overview.tiers.map(t=>t.offers.filter(o=>o.kind==='activity').length),[0,1,1,2]);
+  assert.ok(overview.tiers.every(t=>t.offers.every(o=>!['私人推薦券','私人生日活動','票券日曆鏡像'].includes(o.title))));
+});
