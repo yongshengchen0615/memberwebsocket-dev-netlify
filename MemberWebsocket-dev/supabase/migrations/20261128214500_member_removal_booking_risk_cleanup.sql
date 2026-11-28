@@ -1,7 +1,6 @@
 -- AC-001..004: remove late-added no-show/restriction history atomically with
 -- member deletion and apply the deletion barrier to its newer member FKs.
 -- Public schema, existing merchants and future merchant provisioning stay aligned.
-BEGIN;
 DO $member_removal_booking_risk$
 DECLARE
   v_schema text;
@@ -115,4 +114,3 @@ BEGIN
   END IF;
 END
 $member_removal_booking_risk$;
-COMMIT;
