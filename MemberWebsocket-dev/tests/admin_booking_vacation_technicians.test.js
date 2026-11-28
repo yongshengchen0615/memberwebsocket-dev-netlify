@@ -34,7 +34,9 @@ test('AC-003: verified admin route is tenant-scoped; backend never trusts client
  assert.match(sql,/p_actor is distinct from t\.owner_line_user_id/);
  assert.match(sql,/t\.features->>'booking' is distinct from 'true'/);
  assert.match(sql,/t\.access_revoked_before/);
- assert.match(sql,/booking_participants/);
+ const candidates=read('supabase/migrations/20261124162000_frontdesk_booking_only_vacation_candidates.sql');
+ assert.match(candidates,/booking_participants/);
+ assert.match(candidates,/primary_technician_id/);
  assert.match(sql,/frontdesk_booked_vacation_names/);
  assert.match(sql,/frontdesk_vacation_member_description/);
  assert.match(sql,/VACATION_TECHNICIANS_INVALID/);
