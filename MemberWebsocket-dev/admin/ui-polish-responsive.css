@@ -185,3 +185,53 @@
   .modal:not(.hidden) { align-items: center; padding: 8px; }
   .modal-card:not(.member-records-modal-card) { max-height: calc(100dvh - 16px); }
 }
+
+/* AC-AR-006: approved merchant status stays readable and actionable on phones. */
+#adminView > #businessWorkspaceStatus {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+}
+#adminView > #businessWorkspaceStatus > span {
+  flex: 1 1 240px;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+#adminView > #businessWorkspaceStatus > a[data-business-switch] {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding-inline: 16px;
+  box-sizing: border-box;
+  text-align: center;
+}
+@media (max-width: 760px) {
+  #adminView > #businessWorkspaceStatus {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    padding: 14px;
+  }
+  #adminView > #businessWorkspaceStatus > span {
+    width: 100%;
+  }
+  #adminView > #businessWorkspaceStatus > :is(a[data-business-switch], button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    box-sizing: border-box;
+    white-space: normal;
+  }
+}
