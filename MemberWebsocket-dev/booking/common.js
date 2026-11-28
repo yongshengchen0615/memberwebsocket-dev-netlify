@@ -3,18 +3,10 @@
 
   const REQUEST_TIMEOUT_MS = 15000;
   const MIN_RESYNC_INTERVAL_MS = 1500;
-  const WRITE_ACTIONS = new Set([
-    'user.booking.create',
-    'user.booking.update',
-    'user.booking.cancel',
-    'user.booking.group.create',
-    'user.booking.group.update',
-    'admin.booking.settings.save',
-    'admin.booking.service.save',
-    'admin.booking.status.update',
-    'user.booking.receipt.prepare',
-    'user.booking.receipt.finalize',
-    'user.booking.receipt.cancel',
+  const UNSHARED_READ_ACTIONS = new Set([
+    'user.member.monthly-tier-benefits', 'user.booking.session.status',
+    'user.booking.sync.status', 'admin.sync.status',
+    'admin.booking.bootstrap', 'admin.booking.slots',
   ]);
   // Share only reads that are already safe to repeat. Never merge mutations or
   // login status checks: a takeover during a check needs a fresh server result.
@@ -363,7 +355,7 @@
     const body = window.TestModeClient && typeof window.TestModeClient.payload === 'function'
       ? window.TestModeClient.payload({ ...payload, ...(config.pricePublishing === true ? {pricePublishing:true} : {}), action, clientType, idToken })
       : { ...payload, ...(config.pricePublishing === true ? {pricePublishing:true} : {}), action, clientType, idToken };
-    const data = await postJson(endpoint, config, body, '預約服務', { write: WRITE_ACTIONS.has(action) });
+    const data = await postJson(endpoint, config, body, '預約服務');
 
     return data;
   }
@@ -417,30 +409,44 @@
     return data && data.profile && typeof data.profile === 'object' ? data.profile : {};
   }
 
+  function requestScope(config) {
+    return JSON.stringify([config.supabaseUrl, config.supabaseFunctionUrl, config.supabasePublishableKey,
+      window.BusinessContext?.slug || config.business || '', window.BusinessContext?.generation || 0]);
+  }
+
   function postJson(endpoint, config, body, serviceLabel, options = {}) {
     if (isTerminatingAccess) return Promise.reject(clientError('SESSION_REVOKED', '連線已結束，請重新登入。'));
-    if (options.write === true) {
+    // Unknown actions are mutations until explicitly established as safe reads.
+    options = { ...options, write: options.write === true ||
+      (!SHARED_READ_ACTIONS.has(body.action) && !UNSHARED_READ_ACTIONS.has(body.action)) };
+    if (options.write) {
       pendingReads.clear();
       return sendJson(endpoint, config, body, serviceLabel, options).finally(() => pendingReads.clear());
     }
     if (!SHARED_READ_ACTIONS.has(body.action)) return sendJson(endpoint, config, body, serviceLabel, options);
     // The serialized body includes the exact LINE/test identity and parameters.
-    const business = window.BusinessContext?.slug || config.business || '';
-    const key = JSON.stringify([endpoint, config.supabasePublishableKey, business, body]);
-    if (pendingReads.has(key)) return pendingReads.get(key);
+    const key = JSON.stringify([endpoint, requestScope(config), body]);
+    const existing = pendingReads.get(key);
+    if (existing?.session === authenticatedSession) return existing.promise;
     const pending = sendJson(endpoint, config, body, serviceLabel, options).finally(() => {
-      if (pendingReads.get(key) === pending) pendingReads.delete(key);
+      if (pendingReads.get(key)?.promise === pending) pendingReads.delete(key);
     });
-    pendingReads.set(key, pending);
+    pendingReads.set(key, { session: authenticatedSession, promise: pending });
     return pending;
   }
 
   async function sendJson(endpoint, config, body, serviceLabel, options = {}) {
     if (isTerminatingAccess) throw clientError('SESSION_REVOKED', '連線已結束，請重新登入。');
     const startingSession = authenticatedSession;
-    const scopeAtStart = JSON.stringify([config.supabaseUrl, config.supabaseFunctionUrl,
-      config.supabasePublishableKey, window.BusinessContext?.slug || config.business || '']);
+    const scopeAtStart = requestScope(config);
     const isWrite = options.write === true;
+    const assertRequestScope = () => {
+      if (isTerminatingAccess) throw clientError('SESSION_REVOKED', '連線已結束，請重新登入。');
+      if (authenticatedSession !== startingSession || requestScope(config) !== scopeAtStart) {
+        throw clientError(isWrite ? 'API_RESPONSE_UNCERTAIN' : 'REQUEST_SCOPE_CHANGED',
+          isWrite ? '商家或登入狀態已變更，無法確認操作結果；請先重新整理確認，請勿重複送出。' : '商家或登入狀態已變更，請重新整理後再試。');
+      }
+    };
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
@@ -454,21 +460,29 @@
         signal: controller.signal,
         body: JSON.stringify(body),
       });
+      assertRequestScope();
       let data;
       try { data = await response.json(); }
       catch {
         if (isWrite) throw clientError('API_RESPONSE_UNCERTAIN', '無法確認這次預約操作的回應；系統不會自動重送，請重新整理確認。');
         throw clientError('API_INVALID_RESPONSE', `${serviceLabel}回傳格式不正確。`);
       }
-      if (!response.ok || !data || data.ok !== true) {
+      assertRequestScope();
+      const explicitFailure = data?.ok === false && typeof data.error?.code === 'string' && data.error.code.length > 0;
+      if (!data || typeof data !== 'object' || Array.isArray(data)
+        || (data.ok !== true && !explicitFailure) || (!response.ok && data.ok === true)
+        || (data.ok === true && (data.error != null || (isWrite && (!data.data || typeof data.data !== 'object' || Array.isArray(data.data)))))) {
+        throw clientError(isWrite ? 'API_RESPONSE_UNCERTAIN' : 'API_INVALID_RESPONSE',
+          isWrite ? '無法確認這次預約操作的回應；系統不會自動重送，請重新整理確認。' : `${serviceLabel}回傳格式不正確。`);
+      }
+      if (explicitFailure) {
         const apiError = data && data.error || {};
         const apiErrorCode = String(apiError.code || 'API_ERROR');
         const error = clientError(apiErrorCode, String(apiError.message || `${serviceLabel}暫時無法完成操作。`), apiError.details || null);
         if (['SESSION_REVOKED', 'SESSION_REPLACED', 'MEMBER_REMOVED', 'SYSTEM_MAINTENANCE'].includes(apiErrorCode)) {
           const current = authenticatedSession;
-          const currentScope = current && JSON.stringify([current.config.supabaseUrl, current.config.supabaseFunctionUrl,
-            current.config.supabasePublishableKey, window.BusinessContext?.slug || current.config.business || '']);
-          if (apiErrorCode === 'SYSTEM_MAINTENANCE' || !current ||
+          const currentScope = current && requestScope(current.config);
+          if (!current ||
             (current === startingSession && current.idToken === body.idToken && currentScope === scopeAtStart)) {
             terminateAccessSession(apiErrorCode, error.message);
           }
