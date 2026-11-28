@@ -44,7 +44,7 @@
     if (!root || typeof root.querySelector !== 'function') return;
     applyTierStyle(root, profile);
     const progress = progressForProfile(profile);
-    const currentTier = String(profile && profile.tier || '一般會員');
+    const currentTier = String(profile && profile.tier || '銅級會員');
     const currentTierText = `目前會員階級：${currentTier}`;
     let summaryText = `累積 ${formatMinutes(progress.serviceMinutesTotal)}・下一階段資料載入中`;
     let remainingText = '下一階段資料載入中';
