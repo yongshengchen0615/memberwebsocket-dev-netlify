@@ -103,3 +103,23 @@ begin
   into v_count using v_booking::text;
  if v_count<>1 then raise exception 'REPLAY_AUDIT_COUNT_INVALID %',v_count;end if;
 end $admin_vacation_scenario$;
+
+-- Force deferred rejection notices inside the rollback and verify the
+-- canonical member text is queued once. This is NOT a provider delivery test.
+set constraints all immediate;
+do $member_notice_scenario$
+declare t platform_private.tenants;v_count integer;v_events integer;v_text text;
+begin
+ select * into strict t from platform_private.tenants
+  where status='active' and features->>'booking'='true'
+  and runtime_schema ~ '^business_[0-9a-f]{32}$' limit 1;
+ execute format($query$
+  select count(*)::int,count(distinct event_key)::int,max(message_text)
+  from %I.notice_outbox
+  where channel='member' and message_text like '%%合成休假技師A%%'
+ $query$,t.runtime_schema) into v_count,v_events,v_text;
+ if v_count<>1 or v_events<>1
+ then raise exception 'ADMIN_MEMBER_REJECTION_OUTBOX_COUNT_INVALID % %',v_count,v_events;end if;
+ if position('目前預約時間：' in v_text)=0 or position('技師休假。' in v_text)=0
+ then raise exception 'ADMIN_MEMBER_REJECTION_OUTBOX_CONTENT_INVALID';end if;
+end $member_notice_scenario$;
