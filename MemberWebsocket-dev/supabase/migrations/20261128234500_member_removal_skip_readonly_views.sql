@@ -9,8 +9,7 @@ DO $member_removal_writable_relations$
 DECLARE
   v_schema text;
   v_original text;
-  v_old constant text := $old$
-from information_schema.columns where table_schema=current_schema() and data_type='text' and column_name in ($old$;
+  v_old constant text := $old$from information_schema.columns where table_schema=current_schema() and data_type='text' and column_name in ($old$;
   v_new constant text := $new$
 from information_schema.columns c
  join pg_namespace n on n.nspname=c.table_schema
