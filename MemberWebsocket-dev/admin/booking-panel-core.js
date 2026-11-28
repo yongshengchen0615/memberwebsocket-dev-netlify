@@ -38,7 +38,7 @@
     messagesSaving: false,
   };
   const SETTINGS_INPUT_IDS = ['bookingAdminStartTime','bookingAdminEndTime','bookingAdminMaxEndOverrunMinutes','bookingAdminSlotInterval','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminPhoneNumber','bookingAdminStoreServiceMinutes','bookingAdminSnapshotLocationRequired'];
-  const MESSAGE_INPUT_IDS = ['bookingAdminNotice','bookingAdminOnsiteEditMessage','bookingAdminHolidayNotice','bookingAdminPendingMessage','bookingAdminReminderMessage'];
+  const MESSAGE_INPUT_IDS = ['bookingAdminNotice','bookingAdminOnsiteEditMessage','bookingAdminHolidayNotice','bookingAdminOutOfRangeNotice','bookingAdminPendingMessage','bookingAdminReminderMessage'];
   const els = {};
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
@@ -203,7 +203,7 @@
 
 
         <section id="bookingAdminMessagesPanel" class="booking-admin-card booking-admin-settings-panel booking-admin-messages-panel hidden" role="tabpanel" aria-labelledby="bookingAdminMessagesSubtab">
-          <div class="booking-admin-section-heading"><div><p class="kicker">Message settings</p><h3>訊息設定</h3><p>依照會員看到訊息的位置，分別設定預約頁說明與 LINE 通知內容。四項訊息會在按下「儲存所有訊息」後一起更新。</p></div></div>
+          <div class="booking-admin-section-heading"><div><p class="kicker">Message settings</p><h3>訊息設定</h3><p>依照會員看到訊息的位置，分別設定預約頁說明與 LINE 通知內容。六項訊息會在按下「儲存所有訊息」後一起更新。</p></div></div>
           <div class="booking-admin-messages-help" role="note" aria-label="設定前須知">
             <div><strong>編輯與儲存</strong><span>先調整下方文字，可隨時還原尚未儲存的變更；只有儲存成功才會套用。</span></div>
             <div><strong>顯示與發送</strong><span>會員端文字只在指定畫面顯示；LINE 通知依現有預約事件與提醒排程發送，不會因儲存設定立即群發。</span></div>
@@ -214,7 +214,7 @@
               <section class="booking-admin-messages-group" aria-labelledby="bookingAdminMessagesAudienceHeading">
                 <div class="booking-admin-messages-group-heading">
                   <span class="booking-admin-messages-step" aria-hidden="true">01</span>
-                  <div><h4 id="bookingAdminMessagesAudienceHeading">會員端顯示訊息</h4><p>顯示在會員操作預約的網頁，不會因為修改這三項文字而額外發送 LINE。</p></div>
+                  <div><h4 id="bookingAdminMessagesAudienceHeading">會員端顯示訊息</h4><p>顯示在會員操作預約的網頁，不會因為修改這四項文字而額外發送 LINE。</p></div>
                 </div>
                 <div class="booking-admin-messages-card-grid">
                   <section class="booking-admin-settings-block booking-admin-settings-notice" aria-labelledby="bookingAdminNoticeHeading">
@@ -240,6 +240,18 @@
                       <small>可自訂 0–400 字並支援換行；留空使用系統預設提醒。只有休假日期顯示，不會發送 LINE，也不會開放當日預約。</small>
                     </label>
                     <div class="booking-admin-message-count-row"><output id="bookingAdminHolidayNoticeCount" for="bookingAdminHolidayNotice" aria-label="休假提醒字數">0 / 400 字</output></div>
+                  </section>
+                  <section class="booking-admin-settings-block booking-admin-settings-notice" aria-labelledby="bookingAdminOutOfRangeNoticeHeading">
+                    <div class="booking-admin-settings-block-heading">
+                      <div><span class="booking-admin-settings-eyebrow">會員選擇非線上預約日期時</span><h4 id="bookingAdminOutOfRangeNoticeHeading">超出可預約範圍提醒</h4></div>
+                      <span class="booking-admin-settings-badge">不在可預約範圍才顯示</span>
+                    </div>
+                    <label class="booking-admin-settings-field booking-admin-settings-notice-field">
+                      <span>會員查看未開放線上預約日期時的提示文字</span>
+                      <textarea id="bookingAdminOutOfRangeNotice" maxlength="400" rows="4" placeholder="例如：此日期尚未開放線上預約，請選擇其他日期或洽店家詢問。"></textarea>
+                      <small>可自訂 0–400 字並支援換行；留空使用系統預設提醒。包含過去、未達提前天數與超過預約天數的日期；休假日優先顯示休假提醒。只顯示於會員端，不發送 LINE。</small>
+                    </label>
+                    <div class="booking-admin-message-count-row"><output id="bookingAdminOutOfRangeNoticeCount" for="bookingAdminOutOfRangeNotice" aria-label="超出可預約範圍提醒字數">0 / 400 字</output></div>
                   </section>
                   <section class="booking-admin-settings-block booking-admin-settings-notice" aria-labelledby="bookingAdminOnsiteEditMessageHeading">
                     <div class="booking-admin-settings-block-heading">
@@ -299,7 +311,7 @@
             </div>
             <p id="bookingAdminMessagesStatus" class="form-message hidden" role="status" aria-live="polite"></p>
             <div class="booking-admin-settings-actions">
-              <p><strong>五項訊息一次儲存</strong><span>儲存成功後才同步更新；若其他管理員同時修改，系統會保留本頁草稿並提示衝突，不會直接覆寫。</span><span id="bookingAdminMessagesDraftStatus" class="booking-admin-settings-draft-status" role="status" aria-live="polite">設定載入中…</span></p>
+              <p><strong>六項訊息一次儲存</strong><span>儲存成功後才同步更新；若其他管理員同時修改，系統會保留本頁草稿並提示衝突，不會直接覆寫。</span><span id="bookingAdminMessagesDraftStatus" class="booking-admin-settings-draft-status" role="status" aria-live="polite">設定載入中…</span></p>
               <div class="booking-admin-settings-action-buttons">
                 <button id="bookingAdminMessagesDiscard" class="button button-outline" type="button" disabled>還原未儲存變更</button>
                 <button id="bookingAdminMessagesSave" class="button button-dark" type="submit" disabled>儲存所有訊息</button>
@@ -377,7 +389,7 @@
 
   function cacheElements() {
     [
-      'bookingTab','bookingPanel','bookingAdminSyncStatus','bookingAdminSettingsForm','bookingAdminStartTime','bookingAdminEndTime','bookingAdminMaxEndOverrunMinutes','bookingAdminSlotInterval','bookingAdminHoursPreview','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminPhoneNumber','bookingAdminStoreServiceMinutes','bookingAdminSnapshotLocationRequired','bookingAdminNotice','bookingAdminOnsiteEditMessage','bookingAdminHolidayNotice','bookingAdminMessagesForm','bookingAdminMessagesStatus','bookingAdminMessagesDraftStatus','bookingAdminMessagesSave','bookingAdminMessagesDiscard','bookingAdminPendingMessage','bookingAdminPendingMessagePreview','bookingAdminReminderMessage','bookingAdminReminderMessagePreview','bookingAdminSettingsMessage','bookingAdminDraftStatus','bookingAdminDiscardSettingsButton','bookingAdminSaveSettingsButton',
+      'bookingTab','bookingPanel','bookingAdminSyncStatus','bookingAdminSettingsForm','bookingAdminStartTime','bookingAdminEndTime','bookingAdminMaxEndOverrunMinutes','bookingAdminSlotInterval','bookingAdminHoursPreview','bookingAdminAdvanceDays','bookingAdminMaxAdvanceDays','bookingAdminPhoneNumber','bookingAdminStoreServiceMinutes','bookingAdminSnapshotLocationRequired','bookingAdminNotice','bookingAdminOnsiteEditMessage','bookingAdminHolidayNotice','bookingAdminOutOfRangeNotice','bookingAdminMessagesForm','bookingAdminMessagesStatus','bookingAdminMessagesDraftStatus','bookingAdminMessagesSave','bookingAdminMessagesDiscard','bookingAdminPendingMessage','bookingAdminPendingMessagePreview','bookingAdminReminderMessage','bookingAdminReminderMessagePreview','bookingAdminSettingsMessage','bookingAdminDraftStatus','bookingAdminDiscardSettingsButton','bookingAdminSaveSettingsButton',
       'bookingAdminNewTypeButton','bookingAdminTypeMessage','bookingAdminTypeList','bookingAdminTypeEmpty','bookingAdminServiceCount','bookingAdminPendingCount','bookingAdminAccessiblePendingCount','bookingAdminConfirmedCount',
       'bookingAdminSubtabs','bookingAdminTechniciansSubtab','bookingAdminServicesSubtab','bookingAdminSettingsSubtab','bookingAdminMessagesSubtab','bookingAdminRiskSubtab','bookingAdminRiskPanel','bookingAdminRiskMount','bookingAdminRiskOpenAdvanceSettings','bookingAdminQueueSubtab','bookingAdminQueueSubtabCount','bookingAdminTechniciansPanel','bookingAdminServicesPanel','bookingAdminSettingsPanel','bookingAdminMessagesPanel','bookingAdminQueuePanel','bookingAdminStandardMode','bookingAdminAccessibleMode','bookingAdminStandardModeCount','bookingAdminAccessibleModeCount','bookingAdminStandardQueueView','bookingAdminNewServiceButton','bookingAdminBatchAddButton','bookingAdminBatchEditButton','bookingAdminBatchDeleteButton','bookingAdminServiceMessage','bookingAdminServiceList','bookingAdminServiceEmpty','bookingAdminQueue','bookingAdminQueueEmpty','bookingAdminPhoneCreateButton',
       'bookingAdminCrudModal','bookingAdminCrudModalTitle','bookingAdminCrudModalBody','bookingAdminCrudModalClose'
@@ -833,7 +845,7 @@
   }
 
   function renderMessageLengths() {
-    for (const [id, max] of [['bookingAdminNotice', 2000], ['bookingAdminOnsiteEditMessage', 400], ['bookingAdminHolidayNotice', 400], ['bookingAdminPendingMessage', 400], ['bookingAdminReminderMessage', 400]]) {
+    for (const [id, max] of [['bookingAdminNotice', 2000], ['bookingAdminOnsiteEditMessage', 400], ['bookingAdminHolidayNotice', 400], ['bookingAdminOutOfRangeNotice', 400], ['bookingAdminPendingMessage', 400], ['bookingAdminReminderMessage', 400]]) {
       const output = document.getElementById(id + 'Count');
       if (!output || !els[id]) continue;
       output.textContent = String(els[id].value || '').length.toLocaleString('zh-TW') + ' / ' + max.toLocaleString('zh-TW') + ' 字';
@@ -852,7 +864,7 @@
       : state.messagesDirty
         ? (serverVersion !== state.messagesDraftVersion
           ? '伺服器已有新版設定；草稿已保留。請先核對最新資料，再重新修改。'
-          : '五項訊息有未儲存的修改。')
+          : '六項訊息有未儲存的修改。')
         : '訊息已同步，目前沒有未儲存的變更。';
   }
 
@@ -865,6 +877,7 @@
     els.bookingAdminNotice.value = String(settings.bookingNotice || '');
     els.bookingAdminOnsiteEditMessage.value = String(settings.onsiteEditMessage || '此預約已超過線上可修改時間，請至現場洽詢修改預約。');
     els.bookingAdminHolidayNotice.value = String(settings.holidayNotice || '');
+    els.bookingAdminOutOfRangeNotice.value = String(settings.outOfRangeNotice || '');
     els.bookingAdminPendingMessage.value = String(settings.pendingMessage || '我們已收到您的預約申請，請等待管理員確認；確認後會再透過 LINE 通知您。');
     els.bookingAdminReminderMessage.value = String(settings.reminderMessage || '請準時到場；如需調整請至預約頁操作。');
     state.messagesBaseline = currentMessagesSignature();
@@ -1099,10 +1112,12 @@
       bookingNotice: String(els.bookingAdminNotice.value || '').replace(/\r\n?/g, '\n'),
       onsiteEditMessage: String(els.bookingAdminOnsiteEditMessage.value || '').replace(/\r\n?/g, '\n'),
       holidayNotice: String(els.bookingAdminHolidayNotice.value || '').replace(/\r\n?/g, '\n'),
+      outOfRangeNotice: String(els.bookingAdminOutOfRangeNotice.value || '').replace(/\r\n?/g, '\n'),
       pendingMessage: String(els.bookingAdminPendingMessage.value || '').replace(/\r\n?/g, '\n'),
       reminderMessage: String(els.bookingAdminReminderMessage.value || '').replace(/\r\n?/g, '\n'),
     };
     if (fields.holidayNotice.length > 400) return showMessage(els.bookingAdminMessagesStatus, '休假提醒不可超過 400 字。', 'error');
+    if (fields.outOfRangeNotice.length > 400) return showMessage(els.bookingAdminMessagesStatus, '超出可預約範圍提醒不可超過 400 字。', 'error');
     if (fields.bookingNotice.length > 2000) return showMessage(els.bookingAdminMessagesStatus, '預約說明不可超過 2,000 字。', 'error');
     if (!fields.onsiteEditMessage.trim() || fields.onsiteEditMessage.length > 400) {
       return showMessage(els.bookingAdminMessagesStatus, '現場修改提醒必須為 1–400 字。', 'error');
@@ -1129,7 +1144,7 @@
       state.messagesDirty = false;
       renderMessages(true);
       if (!state.settingsDirty) renderSettings(true);
-      showMessage(els.bookingAdminMessagesStatus, '五項訊息已一次儲存；拒絕預約說明以「櫃檯設定」的拒絕原因為準。', 'success');
+      showMessage(els.bookingAdminMessagesStatus, '六項訊息已一次儲存；拒絕預約說明以「櫃檯設定」的拒絕原因為準。', 'success');
     } catch (error) {
       const conflict = /CONFLICT|STALE_VERSION|VERSION_MISMATCH/i.test(String(error?.code || ''));
       showMessage(els.bookingAdminMessagesStatus, conflict
