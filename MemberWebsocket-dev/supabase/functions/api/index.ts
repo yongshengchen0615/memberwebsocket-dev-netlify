@@ -308,7 +308,7 @@ async function channelIdFor(clientType: ClientType): Promise<string> {
   return value;
 }
 
-async function verifyLineIdToken(idToken: string, clientType: ClientType, allowLoginClaim = false): Promise<{ lineUserId: string; displayName: string; issuedAtMs: number }> {
+async function verifyLineIdToken(idToken: string, clientType: ClientType, allowLoginClaim = false): Promise<{ lineUserId: string; displayName: string; issuedAtMs: number; pictureUrl: string }> {
   return await verifyLineIdTokenContract({
     idToken,
     expectedChannelId: await channelIdFor(clientType),
@@ -504,7 +504,7 @@ async function consumeRateLimit(supabase: SupabaseClient, principal: string, act
   if (!data) throw new ApiError(429,"RATE_LIMITED","請求過於密集，請稍後再試。");
 }
 
-async function ensureMember(supabase: SupabaseClient, identity: { lineUserId: string; displayName: string }): Promise<any> {
+async function ensureMember(supabase: SupabaseClient, identity: { lineUserId: string; displayName: string; pictureUrl?: string }): Promise<any> {
   let { data: member, error } = await supabase.from("members").select("*").eq("line_user_id",identity.lineUserId).maybeSingle();
   if (error) throw mapDatabaseError(error);
   if (!member) {
@@ -512,6 +512,7 @@ async function ensureMember(supabase: SupabaseClient, identity: { lineUserId: st
     const inserted = await supabase.from("members").insert({
       line_user_id: identity.lineUserId,
       display_name: identity.displayName,
+      line_picture_url: identity.pictureUrl || null,
       member_code: memberCode,
       last_login_at: new Date().toISOString(),
     }).select("*").single();
@@ -523,13 +524,14 @@ async function ensureMember(supabase: SupabaseClient, identity: { lineUserId: st
   } else {
     const patch: Json = { last_login_at: new Date().toISOString() };
     if (identity.displayName && identity.displayName !== member.display_name) patch.display_name = identity.displayName;
+    if (identity.pictureUrl && identity.pictureUrl !== member.line_picture_url) patch.line_picture_url = identity.pictureUrl;
     const updated = await supabase.from("members").update(patch).eq("id",member.id).select("*").single();
     if (!updated.error) member = updated.data;
   }
   return member;
 }
 
-async function requireJoinedMember(supabase: SupabaseClient, identity: { lineUserId: string; displayName: string }): Promise<any> {
+async function requireJoinedMember(supabase: SupabaseClient, identity: { lineUserId: string; displayName: string; pictureUrl?: string }): Promise<any> {
   const member = await ensureMember(supabase,identity);
   if (member.membership_status !== "active") throw new ApiError(403,"MEMBERSHIP_REQUIRED","請先完成會員加入後再使用此功能。");
   if (member.status !== "active") throw new ApiError(403,"MEMBER_DISABLED","此會員目前已停用。");
@@ -662,6 +664,7 @@ async function membersPage(supabase: SupabaseClient, page = 1, pageSize = 100, q
     return {
       lineUserId: member.line_user_id,
       displayName: member.display_name,
+      linePictureUrl: member.line_picture_url || "",
       memberCode: member.member_code,
       status: member.status,
       membershipStatus: member.membership_status,
@@ -2303,7 +2306,7 @@ async function adminIntegrationOverview(supabase: SupabaseClient): Promise<Json>
   };
 }
 
-async function handleAction(supabase: SupabaseClient, identity: { lineUserId: string; displayName: string; issuedAtMs?: number }, action: string, body: Json): Promise<Json> {
+async function handleAction(supabase: SupabaseClient, identity: { lineUserId: string; displayName: string; issuedAtMs?: number; pictureUrl?: string }, action: string, body: Json): Promise<Json> {
   if (action === 'admin.sync.status' || /^user\.(member|points|event|calendar|booking)\.sync\.status$/.test(action))
     return await syncRevision(supabase, clientTypeForAction(action), identity.lineUserId,
       (status:number,code:string,message:string) => new ApiError(status,code,message));
@@ -3234,7 +3237,7 @@ async function handleRequest(request: Request): Promise<Response> {
       }
     }
 
-    let identity: { lineUserId: string; displayName: string; issuedAtMs?: number };
+    let identity: { lineUserId: string; displayName: string; issuedAtMs?: number; pictureUrl?: string };
     if (clientType !== "admin" && testSessionToken) {
       try {
         const testIdentity = await resolveTestSession(supabase,testSessionToken);
