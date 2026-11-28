@@ -83,7 +83,24 @@ test('member removal blocks writes, retries cross-service failures, removes priv
   assert.equal(templateAfterRepeat.body.split("-- A member's archived booking-risk records").length,2,'future tenant template is applied exactly once');
   // A late no-show callback must not revive member-linked data after begin.
   await assert.rejects(db.query("insert into booking_restrictions(member_id,source_booking_id)values($1,$2)",[a,removedRecipient]),/MEMBER_REMOVED/);
-  const result=await finish(job.jobId);assert.equal(result.state,'complete');assert.equal((await finish(job.jobId)).alreadyApplied,true);
+  // Reproduce a real tenant failure: information_schema.columns includes joined
+  // read-only views such as booking_services_priced, not just writable tables.
+  await db.exec(`create view public.qa_member_removal_priced_view as
+    select s.title,s.created_by,t.name as type_name
+      from booking_services s join booking_service_types t on t.name=s.service_type;`);
+  assert.equal((await one("select relkind from pg_class where oid='public.qa_member_removal_priced_view'::regclass")).relkind,'v');
+  await assert.rejects(finish(job.jobId),/cannot update view|not automatically updatable|cannot modify|INSTEAD OF|is not updatable/i);
+  assert.equal((await one('select status from members where id=$1',[a])).status,'disabled','failed finish must remain blocked');
+  assert.equal((await one('select state from member_removal_jobs where id=$1',[job.jobId])).state,'deleting','failed finish must remain retryable');
+  await exec('20261128234500_member_removal_skip_readonly_views.sql');
+  const viewFix=(await removalDdl()).body;
+  assert.match(viewFix,/rel\.relkind in \('r','p'\)/,'finalizer updates only base/partitioned tables');
+  await exec('20261128234500_member_removal_skip_readonly_views.sql');
+  assert.equal((await removalDdl()).body,viewFix,'view fix is idempotent');
+  const futureViewFix=await one("select (snapshot->'functions'->1->>'definition') body from platform_private.business_templates where version='business-v1-20261019'");
+  assert.match(futureViewFix.body,/rel\.relkind in \('r','p'\)/,'future tenants must skip read-only views');
+    const result=await finish(job.jobId);assert.equal(result.state,'complete');assert.equal((await finish(job.jobId)).alreadyApplied,true);
+  assert.equal((await one("select count(*)::int n from members where id=$1",[a])).n,0,'retry after view-safe migration completes removal');
   await t.test('no member FK or private identity remains, receiver balance and ledger remain intact',async()=>{
    assert.equal((await one('select count(*)::int n from members where id=$1',[a])).n,0);
    const fks=(await db.query("select c.relname,a.attname from pg_constraint k join pg_class c on c.oid=k.conrelid join pg_attribute a on a.attrelid=k.conrelid and a.attnum=any(k.conkey) where k.contype='f' and k.confrelid='public.members'::regclass")).rows;
