@@ -308,7 +308,7 @@
       button.setAttribute('aria-selected', state.selectedDate === date ? 'true' : 'false');
       button.disabled = false;
       if (isPast) button.classList.add('past-disabled');
-      if ((isAdvanceBlocked || isRangeBlocked) && !isHoliday) button.classList.add('advance-disabled');
+      if (isAdvanceBlocked || isRangeBlocked) button.classList.add('advance-disabled');
       if (isHoliday) {
         button.classList.add('holiday-disabled');
         applyHolidayAccent(button, holidays[0]?.accent);
@@ -369,8 +369,12 @@
         button.title = isHoliday ? '休假日；日期已過，無法預約' : '日期已過，無法預約';
         button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，${button.title}`);
       } else if (isHoliday) {
-        button.title = '休假日，無法預約；點選查看說明';
-        button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，休假日，無法預約，點選查看休假說明`);
+        button.title = isAdvanceBlocked
+          ? `休假日，尚未開放線上預約，最早可預約 ${formatDate(minimumDate)}；點選查看說明`
+          : isRangeBlocked
+            ? `休假日，超過可預約範圍，最遠可預約 ${formatDate(maximumDate)}；點選查看說明`
+            : '休假日，無法預約；點選查看說明';
+        button.setAttribute('aria-label', `${formatDate(date)}${bookedTimesDescription}，${button.title}`);
       } else if (isAdvanceBlocked) {
         const reason = `需提前 ${state.minAdvanceDays} 天，最早可線上預約 ${formatDate(minimumDate)}`;
         button.title = reason;

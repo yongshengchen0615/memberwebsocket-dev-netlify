@@ -345,3 +345,46 @@ test('technician leave dates replace every booking action with a technician leav
     assert.equal(f.el('bookingDayHolidayNotice').textContent, '');
   } finally { f.w.close(); }
 });
+
+test('AC-RANGE-004: holiday styling separates booking window, history access and holiday identity', async () => {
+  const f = await fixture();
+  try {
+    f.w.BookingSystem.loadConfig = async () => ({ supabaseUrl: 'https://fixture.supabase.co' });
+    f.w.liff = { isLoggedIn: () => true, getIDToken: () => 'fixture' };
+    const holidays = [
+      { startsOn: '2026-10-29', endsOn: '2026-10-29', title: '過去休假' },
+      { startsOn: '2026-10-31', endsOn: '2026-10-31', title: '提前限制休假' },
+      { startsOn: '2026-11-01', endsOn: '2026-11-01', title: '範圍內休假' },
+      { startsOn: '2026-11-04', endsOn: '2026-11-04', title: '超過最遠休假' },
+    ];
+    f.w.fetch = async () => new Response(JSON.stringify({
+      ok: true, data: { settings: { minAdvanceDays: 2, maxAdvanceDays: 4 }, holidays },
+    }));
+    f.emit('booking:view-shown');
+    await new Promise(resolve => setTimeout(resolve, 20));
+
+    const day = date => f.w.document.querySelector('[data-date="' + date + '"]');
+    assert.equal(day('2026-10-29').classList.contains('past-disabled'), true);
+    assert.equal(day('2026-10-29').classList.contains('holiday-disabled'), true);
+    assert.equal(day('2026-10-31').classList.contains('advance-disabled'), true);
+    assert.equal(day('2026-10-31').classList.contains('holiday-disabled'), true);
+    assert.match(day('2026-10-31').title, /尚未開放線上預約/);
+    f.click('2026-10-31');
+    assert.equal(f.el('startDayBookingButton').disabled, true);
+    assert.equal(f.el('bookingDayHolidayNotice').hidden, false);
+
+    f.el('nextMonthButton').click();
+    await new Promise(resolve => setTimeout(resolve, 20));
+    assert.equal(day('2026-11-01').classList.contains('holiday-disabled'), true);
+    assert.equal(day('2026-11-01').classList.contains('advance-disabled'), false);
+    assert.equal(day('2026-11-04').classList.contains('holiday-disabled'), true);
+    assert.equal(day('2026-11-04').classList.contains('advance-disabled'), true);
+    assert.match(day('2026-11-04').title, /超過可預約範圍/);
+    assert.equal(day('2026-11-05').classList.contains('advance-disabled'), true);
+    assert.equal(day('2026-11-05').classList.contains('holiday-disabled'), false);
+    f.click('2026-11-04');
+    assert.equal(f.el('startDayBookingButton').disabled, true);
+    assert.equal(f.el('bookingDayHolidayNotice').hidden, false);
+    assert.equal(day('2026-11-04').disabled, false, 'day records stay accessible');
+  } finally { f.w.close(); }
+});
