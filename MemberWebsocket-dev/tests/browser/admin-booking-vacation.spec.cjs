@@ -23,7 +23,7 @@ for(const width of [390,1280])test('AC-005/006 real admin rejection modal: booke
      {technicianId:ids.a,technicianName:'A',isPrimaryTechnician:false},
      {technicianId:ids.b,technicianName:'B',isPrimaryTechnician:false},
      {technicianId:ids.a,technicianName:'A',isPrimaryTechnician:false}
-    ]}},technicians:[{technicianId:ids.unrelated,name:'不相關技師'}]}}};
+    ]}},technicians:[{technicianId:ids.unrelated,name:'不相關技師'}]}};
    const els={bookingAdminCrudModalTitle:document.querySelector('#title'),bookingAdminCrudModalBody:document.querySelector('#body')};
    const showMessage=(node,message)=>{node.textContent=message;node.hidden=false;};
    const clearMessage=node=>{node.textContent='';node.hidden=true;};
