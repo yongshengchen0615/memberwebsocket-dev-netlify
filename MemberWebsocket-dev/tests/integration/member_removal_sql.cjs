@@ -32,6 +32,26 @@ test('member removal blocks writes, retries cross-service failures, removes priv
   const parts=JSON.stringify([{technicianId:tech,items:[{serviceId:svc,quantity:1}]}]);
   const shared=(await one("select (create_friend_booking_request('qa-removal-AAAA','BBBB','QA-SHARED-REMOVE',current_date+3,'10:00',$1,'QA','custom','PRIVATE','mr','0912345678','[]')).id id",[parts])).id;
   const removedRecipient=(await one("select (create_friend_booking_request('qa-removal-BBBB','AAAA','QA-RECIPIENT-REMOVE',current_date+4,'10:00',$1,'QA','custom','PRIVATE','mr','0912345678','[]')).id id",[parts])).id;
+  // These tables were added after the original removal guards. NO ACTION FKs
+  // must not strand a disabled member or erase a surviving member's history.
+  await db.exec(\`create table public.booking_no_show_events (
+    booking_id uuid primary key references public.bookings(id),
+    member_id uuid not null references public.members(id),
+    occurred_at timestamptz not null,marked_by text not null
+  );
+  create table public.booking_restrictions (
+    id uuid primary key default gen_random_uuid(),
+    member_id uuid not null references public.members(id),
+    source_booking_id uuid not null unique references public.booking_no_show_events(booking_id)
+  );
+  create table public.booking_restriction_appeals (
+    restriction_id uuid primary key references public.booking_restrictions(id),
+    member_id uuid not null references public.members(id),
+    reason text not null
+  );\`);
+  await db.query("insert into booking_no_show_events(booking_id,member_id,occurred_at,marked_by)values($1,$2,now(),'qa-removal-admin'),($3,$4,now(),'qa-removal-admin')",[shared,a,removedRecipient,b]);
+  const risk=(await one("insert into booking_restrictions(member_id,source_booking_id)values($1,$2)returning id",[a,shared])).id;
+  await db.query("insert into booking_restriction_appeals(restriction_id,member_id,reason)values($1,$2,'member request')",[risk,a]);
   await db.query("insert into storage.objects(bucket_id,name)values('booking-receipts',$1)",[a+'/pending/photo.jpg']);
   const begin=async(actor='qa-removal-admin',code='AAAA')=>(await one("select begin_member_removal($1,'qa-removal-AAAA',$2) result",[actor,code])).result;
   const finish=async id=>(await one("select finish_member_removal('qa-removal-admin',$1) result",[id])).result;
@@ -49,11 +69,22 @@ test('member removal blocks writes, retries cross-service failures, removes priv
    await assert.rejects(db.query("update members set status='active' where id=$1",[a]),/MEMBER_REMOVED/);
   });
   await db.query('delete from storage.objects where name like $1',[a+'/%']);
+  // Reproduce the baseline bug: FK NO ACTION from newly added booking-risk
+  // tables blocks the final delete. This cannot count as a successful removal.
+  await assert.rejects(finish(job.jobId),/foreign key constraint|violates foreign key/);
+  assert.equal((await one('select status from members where id=$1',[a])).status,'disabled');
+  await exec('20261128214500_member_removal_booking_risk_cleanup.sql');
+  // A late no-show callback must not revive member-linked data after begin.
+  await assert.rejects(db.query("insert into booking_restrictions(member_id,source_booking_id)values($1,$2)",[a,removedRecipient]),/MEMBER_REMOVED/);
   const result=await finish(job.jobId);assert.equal(result.state,'complete');assert.equal((await finish(job.jobId)).alreadyApplied,true);
   await t.test('no member FK or private identity remains, receiver balance and ledger remain intact',async()=>{
    assert.equal((await one('select count(*)::int n from members where id=$1',[a])).n,0);
    const fks=(await db.query("select c.relname,a.attname from pg_constraint k join pg_class c on c.oid=k.conrelid join pg_attribute a on a.attrelid=k.conrelid and a.attnum=any(k.conkey) where k.contype='f' and k.confrelid='public.members'::regclass")).rows;
    for(const fk of fks)assert.equal((await one(`select count(*)::int n from ${fk.relname} where ${fk.attname}=$1`,[a])).n,0,fk.relname);
+   for(const table of ['booking_no_show_events','booking_restrictions','booking_restriction_appeals']){
+    assert.equal((await one(\`select count(*)::int n from \${table} where member_id=$1\`,[a])).n,0,table);
+   }
+   assert.equal((await one('select count(*)::int n from booking_no_show_events where member_id=$1',[b])).n,1);
    assert.equal((await one('select stamps from point_balances where member_id=$1 and point_card_id=$2',[b,card])).stamps,5);
    assert.equal((await one('select sum(amount)::int n from point_entries where member_id=$1',[b])).n,3);
    const kept=await one('select member_id,service_recipient_member_id,contact_phone from bookings where id=$1',[shared]);assert.equal(kept.member_id,null);assert.equal(kept.service_recipient_member_id,b);assert.equal(kept.contact_phone,null);
