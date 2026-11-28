@@ -108,6 +108,17 @@ test('member removal blocks writes, retries cross-service failures, removes priv
     await one("insert into members(line_user_id,member_code,invite_code,status,membership_status,display_name,is_test_account)values('qa-removal-peer-admin','PEER','AABB000000','active','active','Peer admin member',true) returning id");
     const self=(await one("insert into members(line_user_id,member_code,invite_code,status,membership_status,display_name,is_test_account)values('qa-removal-admin','SELF','CCDD000000','active','active','Admin member card',true) returning id")).id;
     await db.exec("insert into audit_logs(audit_id,actor_line_user_id,actor_role,action,target_type,target_id,result,detail)values(new_public_id('AUD'),'qa-removal-admin','admin','ADMIN_SETTINGS_UPDATED','business','business-settings','success','{}'::jsonb);");
+
+    // Self-removal must distinguish security-critical admin audits from the
+    // same LINE identity's private member presence and booking activity.
+    await db.exec(`insert into audit_logs(audit_id,actor_line_user_id,actor_role,action,target_type,target_id,result,detail)
+      values(new_public_id('AUD'),'qa-removal-admin','member','user.member.presence.online','member','qa-removal-admin','success','{}'::jsonb),
+            (new_public_id('AUD'),'qa-removal-admin','member','user.booking.presence.offline','member','qa-removal-admin','success','{}'::jsonb),
+            (new_public_id('AUD'),'system','system','line.push.grant','member','qa-removal-admin','success','{}'::jsonb);
+      insert into booking_audit_events(id,actor_line_user_id,actor_role,action,target_type,target_id,result,metadata)
+        values(990001,'qa-removal-admin','member','BOOKING_TICKETS_REDEEMED','booking','qa-synthetic-private','success','{}'::jsonb),
+              (990002,'qa-removal-admin','admin','BOOKING_SETTINGS_UPDATED','booking','qa-admin-security','success','{}'::jsonb);`);
+
     await assert.rejects(one("select begin_member_removal('qa-removal-admin','qa-removal-peer-admin','PEER')"),/ADMIN_PROTECTED/);
     await assert.rejects(one("select begin_member_removal('qa-removal-outsider','qa-removal-admin','SELF')"),/ADMIN_REQUIRED/);
     const priorRemovalAudits=(await one("select count(*)::int n from audit_logs where actor_line_user_id='qa-removal-admin' and action='MEMBER_REMOVAL_COMPLETE'")).n;
@@ -120,6 +131,12 @@ test('member removal blocks writes, retries cross-service failures, removes priv
     assert.deepEqual({role:retained.role,status:retained.status},{role:'admin',status:'active'});
     assert.equal((await one("select count(*)::int n from audit_logs where actor_line_user_id='qa-removal-admin' and action='ADMIN_SETTINGS_UPDATED'")).n,1);
     assert.equal((await one("select count(*)::int n from audit_logs where actor_line_user_id='qa-removal-admin' and action='MEMBER_REMOVAL_COMPLETE'")).n,priorRemovalAudits+1);
+ 
+    assert.equal((await one("select count(*)::int n from audit_logs where actor_role='member' and actor_line_user_id='qa-removal-admin'")).n,0,'self-removal must erase past member online/offline logs');
+    assert.equal((await one("select count(*)::int n from audit_logs where actor_role='system' and target_type='member' and target_id='qa-removal-admin'")).n,0,'member-targeted system activity must not be inherited');
+    assert.equal((await one("select count(*)::int n from booking_audit_events where actor_role='member' and actor_line_user_id='qa-removal-admin'")).n,0,'member booking audit must not survive on an admin identity');
+    assert.equal((await one("select count(*)::int n from booking_audit_events where actor_role='admin' and actor_line_user_id='qa-removal-admin'")).n,1,'admin booking security audit remains');
+
     assert.equal((await one("select count(*)::int n from members where line_user_id='qa-removal-peer-admin'")).n,1);
   });
   for(const role of ['anon','authenticated']){await db.exec('set role '+role);await assert.rejects(begin(),/permission denied/);await assert.rejects(db.query('select * from member_removal_jobs'),/permission denied/);await db.exec('reset role');}
