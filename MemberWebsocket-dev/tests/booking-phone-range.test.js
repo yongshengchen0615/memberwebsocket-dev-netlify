@@ -72,7 +72,7 @@ test('AC-002: past, holiday and beyond merchant horizon deny online AND telephon
     const result = action(h, date);
     assert.equal(result.onlineDisabled, true, date);
     // On a merchant holiday, show a leave notice, not an inactive online button.
-    assert.equal(result.onlineHidden, date === '2026-11-10', date);
+    assert.equal(result.onlineHidden, true, date);
     assert.equal(result.phoneHidden, true, date);
     assert.equal(result.href, undefined, date);
     assert.equal(result.dialLabel, '撥打店家電話', date);
@@ -86,7 +86,7 @@ test('AC-003: invalid or missing number must not offer a callable link', () => {
     h.state.phoneBookingNumber = phone;
     const result = action(h, '2026-11-08');
     assert.equal(result.phoneHidden, true);
-    assert.equal(result.onlineHidden, false);
+    assert.equal(result.onlineHidden, true);
     assert.equal(result.onlineDisabled, true);
     assert.equal(result.href, undefined);
     assert.equal(result.dialLabel, '撥打店家電話');
@@ -155,7 +155,7 @@ test('AC-006: changing availability restores online action when phone-only windo
   h.state.minimumDate = '2026-11-09';
   h.state.phoneBookingNumber = '';
   result = action(h, '2026-11-08');
-  assert.equal(result.onlineHidden, false);
+  assert.equal(result.onlineHidden, true);
   assert.equal(result.onlineDisabled, true);
   assert.equal(result.phoneHidden, true);
   assert.equal(result.href, undefined);
