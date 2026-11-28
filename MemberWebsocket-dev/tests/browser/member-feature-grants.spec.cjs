@@ -56,7 +56,7 @@ for(const width of [390,1280])test(`AC-MEMBER-001..004_${width}: real booking re
  await expect.poll(()=>page.evaluate(()=>window.completedBookingSyncs)).toBe(1);
  await page.evaluate(()=>BookingBenefits.setSelection([{kind:'points',id:'P'},{kind:'event',id:'E'}]));
  await page.locator('#memberNote').fill('保留的預約草稿');
- features={booking:true,events:true};revision='2';await page.clock.runFor(3001);
+ features={booking:true,events:true};revision='2';await page.clock.runFor(30001);
  await expect.poll(()=>page.evaluate(()=>window.completedBookingSyncs)).toBe(2);
  await expect(page.locator('.booking-benefit-group[data-benefit-kind="points"]')).toHaveCount(0);
  await expect(page.locator('.booking-benefit-group[data-benefit-kind="event"]')).toBeVisible();
@@ -72,18 +72,18 @@ for(const width of [390,1280])test(`AC-MEMBER-001..004_${width}: real booking re
  await expect(page.locator('[data-snapshot-kind="points"]')).toHaveCount(0);
  await page.locator('[data-snapshot-kind="event"]').check();
  await expect(page.locator('#snapshotTicketSelectionSummary')).not.toContainText('集點卡');
- features={booking:true};revision='3';await page.clock.runFor(3001);
+ features={booking:true};revision='3';await page.clock.runFor(30001);
  await expect.poll(()=>page.evaluate(()=>window.completedBookingSyncs)).toBe(3);
  await expect(page.locator('#snapshotTicketFields')).toBeHidden();
  await expect(page.locator('#bookingAccessibleTicketHeading')).toBeHidden();
  expect(await page.locator('[data-snapshot-id]:checked').count()).toBe(0);
- features={booking:true,points:true};revision='4';await page.clock.runFor(3001);
+ features={booking:true,points:true};revision='4';await page.clock.runFor(30001);
  await expect.poll(()=>page.evaluate(()=>window.completedBookingSyncs)).toBe(4);
  await expect(page.locator('#snapshotTicketFields')).toBeVisible();
  await expect(page.locator('[data-snapshot-kind="points"]')).toHaveCount(1);
  await expect(page.locator('[data-snapshot-kind="event"]')).toHaveCount(0);
  await expect(page.locator('#snapshotTicketSelectionSummary')).not.toContainText('活動票券');
- features={points:true};revision='5';await page.clock.runFor(3001);
+ features={points:true};revision='5';await page.clock.runFor(30001);
  await expect(page.locator('#bookingView')).toBeHidden();await expect(page.locator('#bookingReceiptModal')).toBeHidden();
  expect(await page.locator('#memberNote').inputValue()).toBe('保留的預約草稿');
  await page.evaluate(()=>stopSync());
@@ -120,18 +120,18 @@ test('AC-MEMBER-003: MemberSystem updates member cross-module links on revision 
  await expect.poll(()=>page.evaluate(()=>window.syncMetrics.length)).toBeGreaterThan(0);
  await expect(page.locator('#pointsLink')).toBeVisible();
  const initialReads=reads,initialProbes=await page.evaluate(()=>window.syncMetrics.length);
- // Three healthy 10s intervals cover the same idle 30s. Advancing 30s in one
- // jump also fires the real read's 15s deadline before HTTP can settle.
+ // Settle each authorized 30s revision read before advancing the next interval,
+ // so the controlled clock cannot outrun an in-flight HTTP deadline.
  for(let i=0;i<3;i++){
   const completed=await page.evaluate(()=>window.syncMetrics.length);
-  await page.clock.runFor(10000);
+  await page.clock.runFor(30000);
   await expect.poll(()=>page.evaluate(()=>window.syncMetrics.length)).toBeGreaterThan(completed);
  }
  expect(reads).toBe(initialReads);
  expect(await page.evaluate(n=>window.syncMetrics.slice(n).every(m=>m.changed===false),initialProbes)).toBe(true);
- features={membership:true,events:true};revision='2';await page.clock.runFor(10001);
+ features={membership:true,events:true};revision='2';await page.clock.runFor(30001);
  await expect(page.locator('#pointsLink')).toBeHidden();await expect(page.locator('#eventsLink')).toBeVisible();
- features={membership:true,points:true};revision='3';await page.clock.runFor(10001);
+ features={membership:true,points:true};revision='3';await page.clock.runFor(30001);
  await expect(page.locator('#pointsLink')).toBeVisible();await expect(page.locator('#eventsLink')).toBeHidden();
  await page.evaluate(()=>stopSync());
 });
