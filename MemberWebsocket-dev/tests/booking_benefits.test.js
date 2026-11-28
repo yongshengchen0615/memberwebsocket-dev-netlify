@@ -72,6 +72,51 @@ function database(overrides = {}, fail = '') {
   } };
 }
 
+for (const mode of ['groups', 'all', 'any']) test(`USAGE AC-005 calendar-only ${mode} rules describe the services and selected-service amount`, async () => {
+  const { loadBookingBenefits } = await modulePromise;
+  const db = database({ calendar_items: [{ calendar_item_id: 'CAL-RULE', title: '會員活動', item_type: 'event', status: 'active',
+    starts_on: today, ends_on: today, allowed_tier_keys: ['silver'],
+    required_service_ids: mode === 'groups' ? [] : ['service-A', 'service-B'],
+    required_service_match_mode: mode === 'all' ? 'all' : 'any',
+    required_service_groups: mode === 'groups' ? [['service-A', 'service-B']] : [],
+    min_booking_amount_mode: 'selected_services', min_booking_amount: 500, min_booking_service_ids: ['service-B'],
+    min_booking_party_size: 2, max_booking_party_size: 2,
+  }], booking_services: [{ id: 'service-A', title: '頭療', service_type: '' }, { id: 'service-B', title: '按摩', service_type: '' }] });
+  db.businessFeatures = { booking: true, calendar: true };
+  const result = await loadBookingBenefits(db, member, 'silver', today);
+  const item = result.items.find(item => item.kind === 'calendar');
+  assert.match(item.conditionLabel, /頭療/);
+  assert.match(item.conditionLabel, /按摩/);
+  assert.match(item.conditionLabel, /指定項目「按摩」合計滿 NT\$500/);
+  assert.match(item.conditionLabel, /剛好 2 位/);
+  assert.equal(item.requiredServiceMatchMode, mode === 'all' ? 'all' : 'any');
+  assert.deepEqual(item.minBookingServiceIds, ['service-B']);
+  assert.equal(item.selectable, false);
+  assert.equal(item.selectionId, '');
+  if (mode === 'groups') assert.match(item.conditionLabel, /頭療＋按摩.*符合其中一組/);
+  else assert.match(item.conditionLabel, mode === 'all' ? /所有/ : /任一|其中/);
+  assert.equal(db.calls.filter(call => call.table === 'booking_services' && call.read).length, 1);
+});
+
+test('USAGE AC-005 calendar total amount is distinct from selected-service amount and does not expose UUIDs', async () => {
+  const { loadBookingBenefits } = await modulePromise;
+  const db = database({ calendar_items: [{ calendar_item_id: 'CAL-TOTAL', title: '會員活動', item_type: 'event', status: 'active',
+    starts_on: today, ends_on: today, allowed_tier_keys: ['silver'], required_service_groups: [['missing-service-uuid']],
+    min_booking_amount_mode: 'total', min_booking_amount: 500, min_booking_service_ids: [] }] });
+  db.businessFeatures = { booking: true, calendar: true };
+  const item = (await loadBookingBenefits(db, member, 'silver', today)).items[0];
+  assert.match(item.conditionLabel, /一般預約總金額滿 NT\$500/);
+  assert.doesNotMatch(item.conditionLabel, /missing-service-uuid|指定項目「」/);
+});
+
+test('USAGE AC-005 calendar service catalog failure cannot silently publish incomplete conditions', async () => {
+  const { loadBookingBenefits } = await modulePromise;
+  const db = database({ calendar_items: [{ calendar_item_id: 'CAL-FAIL', title: '會員活動', item_type: 'event', status: 'active',
+    starts_on: today, ends_on: today, allowed_tier_keys: ['silver'], required_service_ids: ['service-A'] }] }, 'booking_services');
+  db.businessFeatures = { booking: true, calendar: true };
+  await assert.rejects(loadBookingBenefits(db, member, 'silver', today), /fixture failure/);
+});
+
 test('AC-001: booking member activities show only independent calendar events, not ticket-backed copies', async () => {
   const { loadBookingBenefits } = await modulePromise;
   const base = { item_type: 'event', status: 'active', starts_on: today, ends_on: today, allowed_tier_keys: ['silver'] };

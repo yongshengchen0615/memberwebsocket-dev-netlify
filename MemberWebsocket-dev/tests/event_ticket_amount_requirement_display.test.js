@@ -93,11 +93,14 @@ test('AC-006: API resolves selected service ids for ticket cards; booking UI ret
 
 function bookingAmountLabel(offer, entries) {
   const benefits=read('supabase/functions/_shared/booking-benefits.ts');
+  const helperStart=benefits.indexOf('  const bookingAmountLabelFor =');
+  const helperEnd=benefits.indexOf('\n  const visibilityPolicy=',helperStart);
+  assert.ok(helperStart>=0&&helperEnd>helperStart);
   const start=benefits.indexOf("const minBookingAmountMode = offer.minBookingAmountMode || 'none';");
   const end=benefits.indexOf('\n        return {',start);
   assert.ok(start>=0 && end>start, 'booking benefits formats event ticket amount conditions');
   const format=new Function('offer','requiredServiceTitleById',
-    benefits.slice(start,end) + '\nreturn { minBookingAmountLabel,minBookingServiceTitles };');
+    require('node:module').stripTypeScriptTypes(benefits.slice(helperStart,helperEnd)) + '\n' + benefits.slice(start,end) + '\nreturn { minBookingAmountLabel,minBookingServiceTitles };');
   return format(offer,new Map(entries));
 }
 

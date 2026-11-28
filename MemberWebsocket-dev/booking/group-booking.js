@@ -19,6 +19,7 @@
     participantTechnicians: [],
     participantNotes: [],
     services: [],
+    storeService: null,
     serviceTypeRewards: [],
     primaryItems: [],
     extras: [],
@@ -48,6 +49,7 @@
         ? base.services.find((item) => item.serviceId === STORE_SERVICE_ID)
         : null;
       const configuredStoreMinutes = Number(storeService?.durationMinutes ?? DEFAULT_STORE_SERVICE_MINUTES);
+      state.storeService = storeService || null;
       state.storeServiceMinutes = Number.isInteger(configuredStoreMinutes) && configuredStoreMinutes >= 0
         ? configuredStoreMinutes
         : DEFAULT_STORE_SERVICE_MINUTES;
@@ -1052,6 +1054,10 @@
     partySize: () => state.partySize,
     notesSnapshot: () => state.participantNotes.slice(0, state.partySize),
     primaryMemberNote: () => String(state.participantNotes[0] || '').trim(),
+    syncBenefitContext: (items) => {
+      syncPrimaryItems(items);
+      syncBenefitServiceContext();
+    },
   });
   window.addEventListener('business:features-changed',renderPrimaryRule);
 
@@ -1069,9 +1075,10 @@
         include(selection?.serviceId, 1);
     }
     // The store service is inserted once per booking, not per participant.
-    if (quantities.size && state.services.some((service) => service.serviceId === STORE_SERVICE_ID))
+    if (quantities.size && state.storeService)
       include(STORE_SERVICE_ID, 1);
     const amounts = new Map(state.services.map((service) => [String(service.serviceId), Number(service.priceAmount || 0)]));
+    if (state.storeService) amounts.set(STORE_SERVICE_ID, Number(state.storeService.priceAmount || 0));
     const context = [...quantities].map(([serviceId, quantity]) => ({
       serviceId,
       amount: Math.max(0, amounts.get(serviceId) || 0) * quantity,

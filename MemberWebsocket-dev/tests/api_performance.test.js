@@ -97,6 +97,104 @@ const calendarRow = (id, extra = {}) => ({
   link_label: 'Details', link_url: 'https://example.test/activity',
   created_at: '2026-11-26T01:00:00Z', updated_at: '2026-11-27T02:00:00Z', ...extra,
 });
+
+const activityRule = {
+  itemType: 'event', title: 'Activity rule validation', requiredServiceIds: [],
+  requiredServiceMatchMode: 'any', requiredServiceGroups: [],
+  minBookingAmountMode: 'none', minBookingAmount: 0, minBookingServiceIds: [],
+  minBookingPartySize: 0, maxBookingPartySize: 0,
+};
+const activitySaveShapes = [
+  ['single', item => ['admin.calendar-items.save', { calendarItem: item }]],
+  ['batch wrapped', item => ['admin.calendar-items.batch', { calendarItemOperations: [{ action: 'save', calendarItem: item }] }]],
+  ['batch operation alias', item => ['admin.calendar-items.batch', { calendarItemOperations: [{ operation: 'save', calendarItem: item }] }]],
+  ['batch default action', item => ['admin.calendar-items.batch', { calendarItemOperations: [{ calendarItem: item }] }]],
+  ['batch empty action alias', item => ['admin.calendar-items.batch', { calendarItemOperations: [{ action: '', operation: 'save', calendarItem: item }] }]],
+  ['batch flat', item => ['admin.calendar-items.batch', { calendarItemOperations: [{ action: 'save', ...item }] }]],
+  ['batch flat default', item => ['admin.calendar-items.batch', { calendarItemOperations: [item] }]],
+];
+for (const [name, build] of activitySaveShapes) {
+  for (const invalid of ['unknown selected service', 'unsupported party range']) test(`USAGE AC-004 ${name}: validates supplied rules even without requiredServiceIds (${invalid})`, async () => {
+    const item = { ...activityRule };
+    delete item.requiredServiceIds;
+    if (invalid === 'unknown selected service') Object.assign(item, {
+      minBookingAmountMode: 'selected_services', minBookingAmount: 500,
+      minBookingServiceIds: ['00000000-0000-4000-8000-000000000099'],
+    });
+    else Object.assign(item, { minBookingPartySize: 2, maxBookingPartySize: 3 });
+    const [action, payload] = build(item);
+    const db = database();
+    await assert.rejects(api().handleAction(db, identity, action, payload), {
+      code: invalid === 'unknown selected service' ? 'INVALID_REQUIRED_SERVICE_IDS' : 'INVALID_BOOKING_PARTY_SIZE_RULE',
+    });
+    assert.equal(db.calls.some(call => call.table === 'apply_calendar_batch'), false, 'invalid conditions must not reach the write');
+  });
+}
+
+test('USAGE AC-004 partial valid rules preserve the saved service and party conditions', async () => {
+  const serviceId = '00000000-0000-4000-8000-000000000001';
+  const row = calendarRow('CAL-SAVED', { item_type: 'event', required_service_ids: [serviceId], required_service_match_mode: 'all',
+    required_service_groups: [], min_booking_amount_mode: 'total', min_booking_amount: 400,
+    min_booking_service_ids: [], min_booking_party_size: 2, max_booking_party_size: 2 });
+  const db = database({ rows: { calendar_items: [row], booking_services: [{ id: serviceId, title: '按摩', is_active: true }] } });
+  await api().handleAction(db, identity, 'admin.calendar-items.save', {
+    calendarItem: { calendarItemId: 'CAL-SAVED', itemType: 'event', title: row.title, minBookingAmountMode: 'total', minBookingAmount: 500 },
+  });
+  const item = db.calls.find(call => call.table === 'apply_calendar_batch').args.p_operations[0].calendarItem;
+  assert.ok(Array.isArray(item.requiredServiceIds), 'partial updates must retain saved service conditions');
+  assert.deepEqual(Array.from(item.requiredServiceIds), [serviceId]);
+  assert.equal(item.requiredServiceMatchMode, 'all');
+  assert.equal(item.minBookingPartySize, 2);
+  assert.equal(item.maxBookingPartySize, 2);
+  assert.equal(item.minBookingAmount, 500);
+  assert.equal(db.calls.find(call => call.table === 'apply_calendar_batch').args.p_operations[0].expectedUpdatedAt, row.updated_at,
+    'merging a partial usage snapshot must protect that snapshot with optimistic concurrency');
+});
+
+test('USAGE AC-004 a partial grouped condition retains its stored group and validates without itemType', async () => {
+  const serviceId = '00000000-0000-4000-8000-000000000001';
+  const row = calendarRow('CAL-SAVED', { item_type: 'event', required_service_groups: [[serviceId]],
+    min_booking_amount_mode: 'total', min_booking_amount: 400, min_booking_party_size: 2, max_booking_party_size: 2 });
+  const db = database({ rows: { calendar_items: [row], booking_services: [{ id: serviceId, title: '按摩' }] } });
+  await api().handleAction(db, identity, 'admin.calendar-items.batch', {
+    calendarItemOperations: [{ operation: 'save', calendarItem: { calendarItemId: 'CAL-SAVED', minBookingAmount: 500 } }],
+  });
+  const operation = db.calls.find(call => call.table === 'apply_calendar_batch').args.p_operations[0];
+  assert.deepEqual(JSON.parse(JSON.stringify(operation.calendarItem.requiredServiceGroups)), [[serviceId]]);
+  assert.equal(operation.calendarItem.itemType, 'event');
+  assert.equal(operation.calendarItem.minBookingPartySize, 2);
+  assert.equal(operation.expectedUpdatedAt, row.updated_at);
+});
+
+test('USAGE AC-004 partial usage read failure never reaches a write', async () => {
+  const db = database({ errorTable: 'calendar_items' });
+  await assert.rejects(api().handleAction(db, identity, 'admin.calendar-items.save', {
+    calendarItem: { calendarItemId: 'CAL-SAVED', minBookingAmount: 500 },
+  }), { code: 'DATABASE_ERROR' });
+  assert.equal(db.calls.some(call => call.table === 'apply_calendar_batch'), false);
+});
+
+test('USAGE AC-004 complete editor payload retains the one-row readback without a pre-read', async () => {
+  const db = database({ rows: { calendar_items: [calendarRow('CAL-SAVED')] } });
+  await api().handleAction(db, identity, 'admin.calendar-items.save', {
+    calendarItem: { ...activityRule, calendarItemId: 'CAL-SAVED' },
+  });
+  assert.equal(db.calls.filter(call => call.table === 'calendar_items').length, 1);
+  assert.equal(db.calls.find(call => call.table === 'calendar_items').returnedRows, 1);
+});
+
+test('USAGE AC-004 legacy metadata saves omit usage defaults and keep saved conditions', async () => {
+  const row = calendarRow('CAL-SAVED', { item_type: 'event', min_booking_party_size: 2, max_booking_party_size: 2 });
+  const db = database({ rows: { calendar_items: [row] } });
+  const result = await api().handleAction(db, identity, 'admin.calendar-items.save', {
+    calendarItem: { calendarItemId: 'CAL-SAVED', itemType: 'event', title: 'Updated title' },
+  });
+  const item = db.calls.find(call => call.table === 'apply_calendar_batch').args.p_operations[0].calendarItem;
+  assert.equal(Object.hasOwn(item, 'minBookingPartySize'), false);
+  assert.equal(db.calls.some(call => call.table === 'booking_services'), false);
+  assert.equal(result.calendarItem.minBookingPartySize, 2);
+  assert.equal(result.calendarItem.maxBookingPartySize, 2);
+});
 for (const mode of ['create', 'update']) test(`CRUD AC-003 calendar ${mode}: return the committed row beyond the list limit without loading unrelated rows`, async () => {
   const row = calendarRow('CAL-SAVED');
   const db = database({ rows: { calendar_items: [...Array.from({ length: 1000 }, (_, i) => calendarRow(`CAL-${i}`)), row] }, rowLimit: 1000 });
