@@ -2911,6 +2911,9 @@ async function handleAction(supabase: SupabaseClient, identity: { lineUserId: st
     }
 
     const updated = await supabase.from("members").update(patch).eq("id",current.data.id).select("*").single();
+    if (updated.error && String(updated.error.message || "").includes("MEMBER_REMOVED")) {
+      throw new ApiError(409,"MEMBER_REMOVAL_IN_PROGRESS","此會員資料正在移除，無法重新啟用。請返回會員名冊重新執行「移除會員全部資料」，完成剩餘清理。");
+    }
     if (updated.error) throw mapDatabaseError(updated.error);
     await supabase.from("audit_logs").insert({
       audit_id:requestId("AUD"),
