@@ -133,7 +133,7 @@ test('AC-005: shared sorter loads before both booking renderers with cache-buste
   const appIndex = html.indexOf('app.js?v=');
   assert.ok(sorterIndex >= 0 && sorterIndex < groupIndex && sorterIndex < appIndex);
   assert.match(html, /group-booking\.js\?v=[^"]+&service-price-order=20261125-1"/);
-  assert.match(html, /app\.js\?v=[^"]+&service-price-order=20261125-1&onsite-edit-cutoff=20261125-1"/);
+  assert.match(html, /app\.js\?v=[^"]+&service-price-order=20261125-1&onsite-edit-cutoff=20261125-1&slot-review-refresh=20261128-1"/);
 });
 
 test('AC-006: unavailable optional sorter must not break primary/group booking rendering', () => {
