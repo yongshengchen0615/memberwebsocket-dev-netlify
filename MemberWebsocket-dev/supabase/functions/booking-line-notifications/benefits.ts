@@ -108,7 +108,7 @@ export async function loadBookingConfirmationBenefits(db: any, job: any): Promis
     .eq('tier_key', currentTier)
     .maybeSingle();
   const tierLabelRow = ensureNoError(tierLabelResult);
-  const tierLabel = text(tierLabelRow?.tier_label || '一般會員', 40);
+  const tierLabel = text(tierLabelRow?.tier_label || '銅級會員', 40);
   const today = taipeiDate();
 
   const cardsResult = allowed('points')?await db.from('point_cards')

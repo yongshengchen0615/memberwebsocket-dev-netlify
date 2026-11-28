@@ -1,7 +1,7 @@
 // Read-only monthly catalogue for the member-tier progress card.
 // Never use this result as ticket ownership or redemption authorization.
 export const MONTHLY_TIERS = Object.freeze([
-  Object.freeze({ key: 'general', label: '一般會員' }),
+  Object.freeze({ key: 'general', label: '銅級會員' }),
   Object.freeze({ key: 'silver', label: '銀級會員' }),
   Object.freeze({ key: 'gold', label: '金級會員' }),
   Object.freeze({ key: 'platinum', label: '白金會員' }),

@@ -6,7 +6,7 @@
   const base = window.MemberSystem;
   const originalRequest = base.request.bind(base);
   const calendarCache = new Map();
-  const EVENT_TICKET_TIER_LABELS = { general: '一般會員', silver: '銀級會員', gold: '金級會員', platinum: '白金會員' };
+  const EVENT_TICKET_TIER_LABELS = { general: '銅級會員', silver: '銀級會員', gold: '金級會員', platinum: '白金會員' };
   let lastCalendarItemId = null;
   let lastEventTicketId = null;
   let lastAdminConfig = null;

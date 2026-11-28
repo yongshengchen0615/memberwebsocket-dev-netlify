@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "bronzeMembershipLabelReview": "2026-11-28 PR #518：重新覆核管理端 62 項已建立的人工作業旅程及其測試映射。此次一般會員更名為銅級會員只改顯示字串：管理端等級門檻、會員名冊、票券條件與樣式預覽仍使用原 general 權限代碼；所有原操作按鈕、表單識別、儲存與讀取、登入身分及商家隔離皆不變。月優惠、預約、日曆、會員卡及自動 LINE 訊息一併採銅級名稱；保留歷史一般會員別名供里程碑和日曆排序辨識。新增 bronze_membership_label.test.js 的 AC-001～004；原 62 項 admin-human Chromium 旅程和原有斷言皆保留。最終完整 CI、測試 Supabase 遷移與測試站發布必須以本 PR 同一 SHA 的實際證據判定；真實 LINE Provider 收件未由此靜態覆核驗證。",
   "memberMonthlyCalendarIndependentReview": "2026-11-28 PR #513：已覆核全部既有 62 項管理端人工操作旅程，工作流程 ID、操作順序、權限與測試節點均不變。只更新五個會員入口本月階級優惠共用 JS 快取版本與提示，票券從原始 event_tickets 讀取、不依附勾選加入日曆，會員活動從既存 calendar_items 讀取，並排除缺少 eventTicketId 的歷史票券日曆鏡像；原商家授權、可見性、發行/核銷與日曆發布不變。calendar/index.html 僅改資源快取版本，重新計算其 SHA256 並更新 reviewedSources；新增 AC-027/028/029，現有 62 項 admin-human Chromium 旅程保留。Edge、完整同 SHA CI、測試站及真實 LINE 驗收分別依實際執行狀態判定。",
   "bookingPartyMinimumExactReview": "2026-11-27 PR #509：檢查活動票券 EVENT_coupon/referral/membership_join/lottery 與會員活動 CALENDAR_event 的新增、編輯、讀回、刪除及既有會員等級、服務、金額、日期條件。人數限制改為不限、至少 N 位、剛好 N 位，原資料庫 min/max 映射維持不變，新增 EVENT_PARTY_RULE_MODES、CALENDAR_PARTY_RULE_MODES 真實 Chromium 旅程測試涵蓋空值、零人防呆、回填、切換與後端 payload；全部既有 62 組管理功能與原 runner 案例仍保留。舊版不等上下限資料明確標示須重新設定，不自動覆寫；TEST DB public/tenant 現無現存的舊區間。正式資料、LINE 收件、跨商家授權不在本輪變更；須以最終 SHA 完整 CI 與測試站 smoke 為準。",
   "adminBookingMobileLayoutReview": "2026-11-27 PR #498：已核對現有 62 項 admin-human 工作流程對照，以及管理端一般／快照預約、狀態篩選、逐位項目與技師調整、預約票券、複製編號、確認／拒絕／無故未到操作。此次僅調整 640px 以下預約處理 CSS 和 CSS 快取版本，不新增、移除、隱藏任何業務操作，不改 HTML 節點結構、LIFF、身分權限、API、資料庫與 LINE 通知。新增 AC-MOB-001～003 Playwright 320／390／430／1280px 視窗下的排版、按鈕可見性及橫向溢出檢查；原 62 項旅程不變，完整 CI 與真人管理端實機體驗另需驗證。",
@@ -39,11 +40,11 @@
   "frontdeskRejectionSettingsReview": "[object Object] 2026-11-24 PR #446：新增櫃檯待審新預約／會員修改預約分類與操作標籤、管理端拒絕修改預約獨立編輯清單、LINE 管理端/會員端核准與拒絕修改標題。逐項覆核既有管理端六個工作區、管理員前台櫃檯 LINE／人員核准/拒絕預約/電話補登及原 62 組 admin-human 人工旅程：保留所有既有入口、權限、租戶審查和 requestId；新分流由後端 audit，不接受 browser 夾帶 reviewKind。新增 AC-FMR Node/JSDOM/Deno，完整 PostgreSQL/Chromium CI 與沙盒 LINE 實際收訊分別驗收；本紀錄不代表它們已通過。 2026-11-27 PR #508：已重新核對管理端拒絕原因設定的分類、既有新預約／修改預約兩組資料與原 62 組 admin-human browser journeys；兩組原因新增 ARIA 子分頁與鍵盤操作，切換保留未儲存草稿，隱藏分類必填失敗時顯示目標分類，仍由單一 tenant 版號及 requestId 儲存。保留原 FRONTDESK_SETTINGS_STANDALONE_390/1280、原因審核、跨商家權限和 LINE 通知既有測試，另擴充 frontdesk_ui.cjs 的 AC-FD-REJ-TABS-003/004。此清單紀錄只證明檢查範圍，實際同版完整 CI 與真人 LINE E2E 另核。",
   "reviewedSources": {
     "admin/booking-admin-ux.js": "da82c2bcbb7d8ece44e05d66bada9e20a384784e4346bdde50f6b9cb2897d1ee",
-    "admin/index.html": "b77db1bd6a46708ddbc32bd141df7ae4c3f75d81b181118a1de151e10d00928c",
-    "admin/app.js": "fa5d76a946441f414f9a47707aa55004d9156936282ab444f32a648add3b6b2b",
+    "admin/index.html": "5f8bacfd589af254c5c97c5db28a302ca3d87c61a1ba74f479aca18bde89b0af",
+    "admin/app.js": "30a98b45dbdfac7c0a62d3ad085c8afc705db2207540ffd236257d64037b87b0",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
-    "admin/grant-automation.js": "6a44e4c666d25adc4200f09ce95f8f6600209962be56ec7fe08ab11e4a779bfb",
+    "admin/grant-automation.js": "2617ebe7ec00008ce01d083cfaf55caab526a002ee1183f8b566710af53a26f1",
     "admin/coupon-location-editor.js": "31fb9d8ab26519022ed20528f9ce7cba588826c4d20bf2cccc2c1a5f584d055f",
     "admin/fixed-ticket-admin.js": "c105feacd0c32d91ba6483fa045963da959339b14a545d574d8de5595180bfb5",
     "admin/fixed-ticket-admin-integration.js": "af65455cf96f6770fdbb0a72558d970b5a4377b0d42557ef55b2f5e70c43c190",
@@ -78,8 +79,8 @@
     "admin/frontdesk-settings/frontdesk-settings-page.css": "f9295dfdd008208d7f56a5fd69d01ccd40e2c98a5b75934096d2fbb2a0965ddb",
     "admin/calendar-scope-rules.js": "ccc0f6ae94860582563fe1e053a3a6e93856cd822cc7fe7c394b76d73f0d9513",
     "calendar/index.html": "02afb1c5541ecca41556f98ce146be346f9d18c8b6bfc8bda13ef6f0433b36f7",
-    "calendar/app.js": "7fcf73fb6a2b738356ebb8e55ad1ae2d62687961ec47213a3e7d02bcea353275",
-    "supabase/functions/member-calendar-api/index.ts": "fb3827c3459dc5edea204f5a8b4e88b1d5ad026886a57e9602dd8c83282565ef",
+    "calendar/app.js": "69004f602a17bcc07f7bbf2dede01b5273817de27210ad121cab730fb0e7d76e",
+    "supabase/functions/member-calendar-api/index.ts": "9b261c417103e2d0d1ebb2ff60ed07ddad10cd3ec76d3215b0c044a75430082e",
     "admin/calendar-navigation.js": "d8e302f3692f8fb4acb3708c1fde3f02c24f0d6b021dcbf9c07eb349c04f71f5",
     "admin/calendar-navigation.css": "214902d94229b7e9790be05a8e02d628cf58da94cc109a499ff6cf8081116f12"
   },

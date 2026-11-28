@@ -20,7 +20,7 @@ class ApiError extends Error {
   }
 }
 
-const TIER_LABELS: Record<string,string> = { general:"一般會員",silver:"銀級會員",gold:"金級會員",platinum:"白金會員" };
+const TIER_LABELS: Record<string,string> = { general:"銅級會員",silver:"銀級會員",gold:"金級會員",platinum:"白金會員" };
 const MAX_REQUEST_BYTES = 40_000;
 const WRITE_LIMIT = 30;
 const READ_LIMIT = 90;
@@ -103,7 +103,7 @@ function formatTaipeiDateTime(value: Date): string {
 }
 function resolveTier(settings: any[], minutes: number): any {
   const ordered = [...settings].sort((a,b) => Number(a.required_service_minutes || 0) - Number(b.required_service_minutes || 0));
-  let selected = ordered[0] || { tier_key:"general",tier_label:"一般會員",style_key:"forest" };
+  let selected = ordered[0] || { tier_key:"general",tier_label:"銅級會員",style_key:"forest" };
   for (const row of ordered) if (minutes >= Number(row.required_service_minutes || 0)) selected = row;
   return selected;
 }
@@ -165,7 +165,7 @@ async function buildGrantMessage(supabase: SupabaseClient, member: any, tier: an
     const lines = bonusEvents.map((row:any) => "・" + String(row.title || "活動") + "：每張本次發放的集點卡 +" + Number(row.bonusPoints || 0) + " 點");
     sections.push("【活動加贈】\n" + lines.join("\n"));
   }
-  sections.push("【目前會員狀態】\n・累積服務時間：" + totalMinutes + " 分鐘\n・會員等級：" + String(tier.tier_label || TIER_LABELS[tier.tier_key] || "一般會員"));
+  sections.push("【目前會員狀態】\n・累積服務時間：" + totalMinutes + " 分鐘\n・會員等級：" + String(tier.tier_label || TIER_LABELS[tier.tier_key] || "銅級會員"));
   const ticketSection = await availableTicketsSection(supabase,member.id,String(tier.tier_key || "general"));
   if (ticketSection) sections.push(ticketSection);
   return (greeting + "\n\n" + sections.filter(Boolean).join("\n\n")).slice(0,5000);

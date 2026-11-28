@@ -157,7 +157,7 @@
     els.displayName.textContent = displayName;
     renderMemberAvatar(state.lineProfile?.pictureUrl, displayName);
     els.memberName.textContent = displayName;
-    els.memberTier.textContent = String(profile.tier || '一般會員');
+    els.memberTier.textContent = String(profile.tier || '銅級會員');
     const tierStyleKey = safeTierStyle(profile.tierStyleKey);
     MEMBER_TIER_STYLE_KEYS.forEach((styleKey) => els.memberPass.classList.remove(`tier-style-${styleKey}`));
     els.memberPass.classList.add(`tier-style-${tierStyleKey}`);

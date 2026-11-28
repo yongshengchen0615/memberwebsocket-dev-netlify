@@ -120,7 +120,7 @@
   // synthesize hidden offers from ticket catalogs or client tier preferences.
   const CALENDAR_TIER_ORDER = ['general', 'silver', 'gold', 'platinum'];
   const CALENDAR_TIER_LABEL_RANK = {
-    '一般會員': 0, '一般': 0, '銀級會員': 1, '銀級': 1,
+    '銅級會員': 0, '銅級': 0, '一般會員': 0, '一般': 0, '銀級會員': 1, '銀級': 1,
     '金級會員': 2, '金級': 2, '白金會員': 3, '白金': 3
   };
 

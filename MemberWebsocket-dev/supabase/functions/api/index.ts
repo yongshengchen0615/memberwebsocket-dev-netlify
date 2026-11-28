@@ -23,7 +23,7 @@ const MAX_REQUEST_BYTES = 40_000;
 const READ_LIMIT = 90;
 const WRITE_LIMIT = 30;
 const TIER_KEYS = ["general", "silver", "gold", "platinum"] as const;
-const TIER_LABELS: Record<string,string> = { general:"一般會員",silver:"銀級會員",gold:"金級會員",platinum:"白金會員" };
+const TIER_LABELS: Record<string,string> = { general:"銅級會員",silver:"銀級會員",gold:"金級會員",platinum:"白金會員" };
 const STYLE_KEYS = ["forest","midnight","ocean","sunset","lavender","rose","gold","platinum","mint","cherry"] as const;
 const POINT_CARD_STYLE_KEYS = ["citrus","coral","lagoon","skyline","violet","berry","cocoa","lime","denim","peach"] as const;
 const LEGACY_POINT_CARD_STYLE_MAP: Record<string,string> = { forest:"lagoon",midnight:"skyline",ocean:"denim",sunset:"coral",lavender:"violet",rose:"berry",gold:"citrus",platinum:"cocoa",mint:"lime",cherry:"peach" };
@@ -563,7 +563,7 @@ async function serviceMinutesForMembers(supabase: SupabaseClient, memberIds: str
 }
 
 function tierForMinutes(settings: any[], minutes: number): any {
-  let current = settings[0] || { tier_key:"general",tier_label:"一般會員",required_service_minutes:0,style_key:"forest" };
+  let current = settings[0] || { tier_key:"general",tier_label:"銅級會員",required_service_minutes:0,style_key:"forest" };
   for (const row of settings) if (Number(row.required_service_minutes) <= minutes) current = row;
   return current;
 }
