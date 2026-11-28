@@ -984,6 +984,10 @@
         return;
       }
       if (error?.code === 'BOOKING_PRICE_CHANGED') {
+        // A changed price invalidates the reviewed quote. Unlike a routine
+        // realtime refresh, this requires a fresh slot and explicit review.
+        state.selectedSlot = null;
+        state.slotRestoration = null;
         await refresh(false);
         els.bookingBenefitModal.classList.add('hidden');
         if (state.selectedSlot) {
