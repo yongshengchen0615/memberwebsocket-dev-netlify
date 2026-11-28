@@ -41,7 +41,7 @@
   "reviewedSources": {
     "admin/booking-admin-ux.js": "da82c2bcbb7d8ece44e05d66bada9e20a384784e4346bdde50f6b9cb2897d1ee",
     "admin/index.html": "5f8bacfd589af254c5c97c5db28a302ca3d87c61a1ba74f479aca18bde89b0af",
-    "admin/app.js": "30a98b45dbdfac7c0a62d3ad085c8afc705db2207540ffd236257d64037b87b0",
+    "admin/app.js": "fa8b633036e93663b00f17bc5a61b4082f29adaba4103814ff8ce7990bea0815",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
     "admin/grant-automation.js": "2617ebe7ec00008ce01d083cfaf55caab526a002ee1183f8b566710af53a26f1",
@@ -88,7 +88,7 @@
     {
       "id": "member.01",
       "module": "member",
-      "name": "會員名冊、搜尋、空結果與雙向分頁；上／下線競態由 admin_presence_race.test.js 驗證",
+      "name": "會員名冊、已驗證 LINE 頭像顯示／錯誤時姓名縮寫備援、搜尋、空結果與雙向分頁；上／下線競態由 admin_presence_race.test.js 驗證",
       "cases": [
         "MEMBER_DIRECTORY"
       ]
