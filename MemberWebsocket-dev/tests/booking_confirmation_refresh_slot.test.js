@@ -112,7 +112,7 @@ function createHarness({ slotAvailable = true, deferredSlot = null } = {}) {
     section('  async function loadSlots(', '\n  function renderSlots('),
     section('  function renderSlots(', '\n  function selectSlot('),
     section('  function selectSlot(', '\n  function reminderPreference('),
-    section('  function openBenefitStep(', '\n  function closeBenefitStep('),
+    section('  async function openBenefitStep(', '\n  function closeBenefitStep('),
     '({refresh, loadSlots, renderSlots, selectSlot, openBenefitStep})',
   ].join('\n'), context);
   return { state, els, messages, requests, functions };
