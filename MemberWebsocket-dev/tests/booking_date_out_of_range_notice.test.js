@@ -53,6 +53,8 @@ test('AC-RANGE-002: admin-configured multiline or HTML-like text is shown litera
   let els=show(h,'2026-12-29');
   assert.equal(els.bookingDayOutOfRangeNotice.textContent,custom);
   h.state.holidaysByDate.set('2026-12-29',[{title:'技師休假'}]);
+  // This test covers footer prioritization; the holiday details DOM has its own dedicated tests.
+  h.els.bookingDayHolidayDetails = null;
   els=show(h,'2026-12-29');
   assert.equal(els.bookingDayOutOfRangeNotice.hidden,true);
   assert.equal(els.bookingDayOutOfRangeNotice.textContent,'');
