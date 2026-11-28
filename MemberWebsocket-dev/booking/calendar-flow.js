@@ -11,6 +11,7 @@
     maximumDate: '',
     phoneBookingNumber: '',
     holidayNotice: '',
+    outOfRangeNotice: '',
     services: [],
     config: null,
     occupancyRequestSeq: 0,
@@ -36,7 +37,7 @@
       'appointmentPanel', 'appointmentModalTitle', 'selectedDateSummary', 'closeAppointmentButton',
       'bookingDate', 'servicePicker', 'selectedServiceList', 'bookingList', 'bookingConfirmModal',
       'bookingDayModal', 'bookingDayTitle', 'bookingDayHint', 'closeBookingDayButton', 'startDayBookingButton', 'bookingDayHolidayDetails',
-      'bookingPhoneFallback', 'bookingPhoneDial', 'bookingPhoneServiceReference', 'bookingPhoneServiceList', 'bookingDayHolidayNotice'
+      'bookingPhoneFallback', 'bookingPhoneDial', 'bookingPhoneServiceReference', 'bookingPhoneServiceList', 'bookingDayHolidayNotice', 'bookingDayOutOfRangeNotice'
     ].forEach((id) => { els[id] = document.getElementById(id); });
 
     if (!els.calendarGrid || !els.bookingDate || !els.servicePicker || !els.appointmentPanel) return;
@@ -248,6 +249,7 @@
     state.maxAdvanceDays = maxAdvanceDays > 0 && maxAdvanceDays < minAdvanceDays ? 0 : maxAdvanceDays;
     if (detail.settings?.phoneBookingNumber !== undefined) state.phoneBookingNumber = safePhoneBookingNumber(detail.settings.phoneBookingNumber);
     if (typeof detail.settings?.holidayNotice === 'string') state.holidayNotice = detail.settings.holidayNotice.slice(0, 400);
+    if (typeof detail.settings?.outOfRangeNotice === 'string') state.outOfRangeNotice = detail.settings.outOfRangeNotice.slice(0, 400);
     state.minimumDate = addDays(state.today, minAdvanceDays);
     state.maximumDate = state.maxAdvanceDays > 0 ? addDays(state.today, state.maxAdvanceDays) : '';
     const actualDate = String(els.bookingDate?.value || '');
@@ -459,11 +461,11 @@
     const phone = safePhoneBookingNumber(state.phoneBookingNumber);
     // Online lead-time rules do not block merchant-assisted phone enquiries.
     const phoneAllowed = Boolean(phone && date && reason && !phoneBookingBlockReason(date));
-    // Hide online booking only when the date permits telephone service but not online self-service.
+    // All dates outside online-booking range must hide online action.
     const phoneOnly = Boolean(phoneAllowed && reason && date < state.minimumDate);
     if (els.startDayBookingButton) {
       els.startDayBookingButton.disabled = Boolean(reason);
-      els.startDayBookingButton.hidden = Boolean(phoneOnly || isHoliday);
+      els.startDayBookingButton.hidden = Boolean(reason);
     }
     if (els.bookingDayHint) {
       els.bookingDayHint.textContent = phoneOnly
@@ -485,6 +487,13 @@
     if (els.bookingDayHolidayNotice) {
       els.bookingDayHolidayNotice.hidden = !isHoliday;
       els.bookingDayHolidayNotice.textContent = isHoliday ? holidayNoticeText(holidays) : '';
+    }
+    if (els.bookingDayOutOfRangeNotice) {
+      const showRangeNotice = Boolean(reason && !isHoliday);
+      const custom = String(state.outOfRangeNotice || '').trim();
+      els.bookingDayOutOfRangeNotice.hidden = !showRangeNotice;
+      els.bookingDayOutOfRangeNotice.textContent = showRangeNotice
+        ? (custom || '此日期不在開放線上預約範圍，請選擇其他日期，或洽店家詢問。') : '';
     }
     if (els.bookingDayHolidayDetails) {
       els.bookingDayHolidayDetails.hidden = !holidays.length;
@@ -572,6 +581,7 @@
     state.historyDate = '';
     state.services = [];
     state.holidayNotice = '';
+    state.outOfRangeNotice = '';
     if (els.bookingPhoneServiceReference) els.bookingPhoneServiceReference.hidden = true;
     els.bookingPhoneServiceList?.replaceChildren();
     state.linkedRecordOpened = false;
