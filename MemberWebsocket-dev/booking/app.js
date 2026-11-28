@@ -252,7 +252,7 @@
     els.memberName.textContent = name;
     els.memberProfileName.textContent = name;
     els.memberCode.textContent = String(profile.memberCode || '—');
-    els.memberTier.textContent = String(profile.tier || '一般會員');
+    els.memberTier.textContent = String(profile.tier || '銅級會員');
   }
 
   function renderSettings() {
