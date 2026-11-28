@@ -52,8 +52,11 @@ for(const width of [390,1280])test('AC-005/006 real admin rejection modal: booke
  await expect(panel.getByRole('checkbox')).toHaveCount(2);
  await expect(panel).toContainText('A');
  await expect(panel).toContainText('B');
- await expect(panel).not.toContainText('主要技師');
- await expect(panel).not.toContainText('不相關技師');
+ const selectableOptions=panel.locator('[data-admin-vacation-options]');
+ // Limit absence checks to actual checkbox labels; explanatory copy correctly
+ // mentions that primary technicians are excluded.
+ await expect(selectableOptions).not.toContainText('主要技師');
+ await expect(selectableOptions).not.toContainText('不相關技師');
  await expect(form.locator('[data-submit]')).toBeDisabled();
  await panel.getByRole('checkbox',{name:'A'}).check();
  await panel.getByRole('checkbox',{name:'B'}).check();
