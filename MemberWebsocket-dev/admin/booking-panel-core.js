@@ -2713,6 +2713,21 @@
     const originalStart = minutes(start) === null ? null : minutes(start) + offset*1440;
     const originalEnd = originalStart !== null && originalDuration > 0
       ? originalStart + originalDuration : null;
+    // Use this booking's already-authenticated participant snapshot, not the
+    // business-wide technician roster. SQL revalidates the same list on submit.
+    const group = state.booking.groups[booking.bookingId] || {};
+    const primaryTechnicianId = String(state.booking.primaryTechnicianId || '');
+    const bookedPeople = Array.isArray(group.participants) ? [...group.participants] : [];
+    if (!bookedPeople.length && booking.technicianId) bookedPeople.push({
+      technicianId: booking.technicianId, technicianName: booking.technicianName || '預約技師',
+    });
+    const candidateMap = new Map();
+    for (const person of bookedPeople) {
+      const id = String(person.technicianId || '');
+      if (!id || id === primaryTechnicianId || person.isPrimaryTechnician === true || candidateMap.has(id)) continue;
+      candidateMap.set(id, { id, name: String(person.technicianName || '預約技師') });
+    }
+    const bookedVacationTechnicians = [...candidateMap.values()];
 
     els.bookingAdminCrudModalTitle.textContent = '拒絕預約';
     els.bookingAdminCrudModalBody.innerHTML = `<form class="booking-admin-form" data-admin-rejection-form novalidate>
@@ -2728,6 +2743,15 @@
         <option value="technician_leave">預約中有休假技師</option>
         <option value="unrecorded_phone_booking">該時段已被現場人員預約但未登記</option>
       </select></label>
+      <section data-admin-vacation-technicians class="booking-admin-settings-block" hidden>
+        <strong>選擇休假的技師（可多選）</strong>
+        <p class="booking-admin-time">僅顯示本筆預約已指派、非主要技師的人員；至少選擇一位，最多 10 位。</p>
+        <div data-admin-vacation-options></div>
+      </section>
+      <section data-admin-vacation-preview class="booking-admin-settings-block" hidden>
+        <strong>會員端拒絕說明預覽</strong>
+        <p data-admin-vacation-description></p>
+      </section>
       <section data-rejection-phone hidden>
         <h4>登記電話／現場預約</h4>
         <p class="booking-admin-time">預約日期沿用原訂單（${escapeHtml(date || '—')}）。請選擇實際衝突的預約時間及服務總時長。預約相接也算衝突；開始時間可選原預約結束時間。</p>
@@ -2743,6 +2767,12 @@
     const form = els.bookingAdminCrudModalBody.querySelector('[data-admin-rejection-form]');
     const reason = form.querySelector('[data-rejection-reason]');
     const phone = form.querySelector('[data-rejection-phone]');
+    const vacationPanel = form.querySelector('[data-admin-vacation-technicians]');
+    const vacationList = form.querySelector('[data-admin-vacation-options]');
+    const vacationPreview = form.querySelector('[data-admin-vacation-preview]');
+    const vacationDescription = form.querySelector('[data-admin-vacation-description]');
+    const vacationBoxes = new Map();
+    const selectedVacationIds = () => [...vacationBoxes].filter(([, input]) => input.checked).map(([id]) => id);
     const time = form.querySelector('[data-rejection-time]');
     const duration = form.querySelector('[data-rejection-duration]');
     const feedback = form.querySelector('[data-modal-message]');
@@ -2759,6 +2789,33 @@
     time.value=time.options[0]?.value||'';
     duration.value = Array.from(duration.options).some(option=>Number(option.value)===originalDuration)
       ? String(originalDuration) : (duration.options[0]?.value || '');
+    for (const technician of bookedVacationTechnicians) {
+      const label = document.createElement('label');
+      label.className = 'booking-admin-toggle';
+      label.style.display = 'flex';
+      label.style.gap = '10px';
+      label.style.alignItems = 'center';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.name = 'vacationTechnicianIds';
+      checkbox.value = technician.id;
+      checkbox.setAttribute('aria-label', technician.name);
+      checkbox.addEventListener('change', () => {
+        if (selectedVacationIds().length > 10) {
+          checkbox.checked = false;
+          showMessage(feedback, '最多可勾選 10 位休假技師。', 'error');
+        } else clearMessage(feedback);
+        refresh();
+      });
+      label.append(checkbox, document.createTextNode(technician.name));
+      vacationList.append(label);
+      vacationBoxes.set(technician.id, checkbox);
+    }
+    if (!bookedVacationTechnicians.length) {
+      const empty = document.createElement('p');
+      empty.textContent = '本筆預約沒有可選擇的非主要技師；請先確認預約技師分配。';
+      vacationList.append(empty);
+    }
     const validChoice = (select) => Array.from(select.options).some(option=>option.value===select.value);
     // Original booking bounds are inclusive, including boundary-only adjacency.
     // Overnight business-day times may live on the next calendar day.
@@ -2771,8 +2828,16 @@
     };
     const refresh = () => {
       const isPhone = reason.value === 'unrecorded_phone_booking';
+      const isVacation = reason.value === 'technician_leave';
       phone.hidden = !isPhone;
+      vacationPanel.hidden = !isVacation;
+      vacationPreview.hidden = !isVacation;
+      const names = selectedVacationIds().map(id => bookedVacationTechnicians.find(tech => tech.id === id)?.name || '預約技師');
+      vacationDescription.textContent = names.length
+        ? `目前預約時間：${date.replace(/-/g, '/')} ${start}，${names.join('、')} 技師休假。`
+        : '請先勾選休假技師，確認後將以原預約時間通知會員。';
       submit.textContent = isPhone ? '確認不通過並登記現場預約' : '確認不通過';
+      submit.disabled = !reason.value || (isVacation && !names.length) || (isPhone && !overlapping());
       if (isPhone && !overlapping()) {
         showMessage(feedback,'請選擇原預約區間內的開始時間（含結束時間）。','error');
       } else clearMessage(feedback);
@@ -2790,6 +2855,12 @@
         showMessage(feedback,'請先選擇拒絕原因。','error'); reason.focus(); return;
       }
       const isPhone = reason.value === 'unrecorded_phone_booking';
+      const isVacation = reason.value === 'technician_leave';
+      const vacationTechnicianIds = isVacation ? selectedVacationIds() : [];
+      if (isVacation && (!vacationTechnicianIds.length || vacationTechnicianIds.length > 10)) {
+        showMessage(feedback, '請至少勾選一位休假技師（最多 10 位）。', 'error');
+        vacationPanel.focus(); return;
+      }
       if (isPhone && (!date || !validChoice(time) || !validChoice(duration))) {
         showMessage(feedback,'請選擇原預約區間內的衝突開始時間與服務總時長。','error'); return;
       }
@@ -2798,12 +2869,14 @@
       }
       const payload = {bookingId:booking.bookingId,expectedUpdatedAt:booking.updatedAt,
         status:'rejected',adminNote,rejectionReason:reason.value,
+        ...(isVacation ? {vacationTechnicianIds} : {}),
         ...(isPhone ? {startTime:time.value,totalDurationMinutes:Number(duration.value)} : {})};
       const signature = JSON.stringify(payload);
       if (previousPayload && signature !== previousPayload) requestId = crypto.randomUUID();
       previousPayload = signature;
-      await runModalAction(()=>bookingRequest(isPhone?'admin.booking.reject-walkin':'admin.booking.status.update',
-        isPhone?{...payload,requestId}:payload,true));
+      await runModalAction(()=>bookingRequest(isPhone?'admin.booking.reject-walkin'
+        :isVacation?'admin.booking.reject-vacation':'admin.booking.status.update',
+        isPhone||isVacation?{...payload,requestId}:payload,true));
     });
     showModal(); reason.focus(); refresh();
   }
