@@ -76,7 +76,7 @@ test('AC-004: multiline notices are text-only, and clearing instructions hides t
 });
 
 test('AC-005: existing tenant-scoped calendar API provides notice until booking-api deployment catches up', () => {
-  assert.match(calendarApi, /booking_notice,holiday_notice,work_start_time/);
+  assert.match(calendarApi, /booking_notice,holiday_notice,out_of_range_notice,work_start_time/);
   assert.match(calendarApi, /const bookingNotice = String\(settingsResult\.data\.booking_notice \|\| ""\)/);
   assert.match(calendarApi, /settings: \{ minAdvanceDays, maxAdvanceDays, bookingNotice/);
   assert.match(memberCalendar, /requestSeq !== state\.occupancyRequestSeq \|\| month !== state\.month/);

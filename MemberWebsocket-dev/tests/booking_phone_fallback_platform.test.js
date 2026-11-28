@@ -33,14 +33,14 @@ test('AC-002 admin phone is part of draft detection, validation, save, readback'
 });
 test('AC-003 both member bootstrap and calendar month return the shop telephone number',()=>{
   assert.match(memberApi,/phoneBookingNumber: String\(row\?\.phone_booking_number \|\| ""\)/);
-  assert.match(monthApi,/booking_notice,holiday_notice,work_start_time,work_end_time,phone_booking_number/);
+  assert.match(monthApi,/booking_notice,holiday_notice,out_of_range_notice,work_start_time,work_end_time,phone_booking_number/);
   assert.match(monthApi,/phoneBookingNumber: String\(settingsResult\.data\.phone_booking_number \|\| ""\)/);
   assert.match(calendar,/detail\.settings\?\.phoneBookingNumber !== undefined/);
 });
 test('AC-004 phone respects merchant horizon and holidays, not online-only lead time',()=>{
   assert.doesNotMatch(calendar,/calendar-phone-badge/);
   assert.match(calendar,/const phoneOnly = Boolean\(phoneAllowed && reason && date < state\.minimumDate\)/);
-  assert.match(calendar,/els\.startDayBookingButton\.hidden = Boolean\(phoneOnly \|\| isHoliday\)/);
+  assert.match(calendar,/els\.startDayBookingButton\.hidden = Boolean\(reason\)/);
   assert.match(calendar,/els\.bookingPhoneFallback\.hidden = Boolean\(isHoliday \|\| !phoneAllowed\)/);
   assert.match(calendar,/els\.bookingDayHolidayNotice\.hidden = !isHoliday/);
   assert.match(calendar,/const phoneAllowed = Boolean\(phone && date && reason && !phoneBookingBlockReason\(date\)\)/);

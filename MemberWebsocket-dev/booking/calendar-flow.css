@@ -106,3 +106,27 @@ html[data-theme="dark"] #bookingHolidayModal .booking-holiday-warning {
   background: #49251e;
   color: #ffece0;
 }
+
+/* Information state uses teal, never the orange-red holiday palette. */
+html[data-theme] .booking-day-footer .booking-day-out-of-range-notice {
+  margin: 0;
+  padding: 15px 17px;
+  border: 2px solid #21657d;
+  border-left-width: 6px;
+  border-radius: 12px;
+  background: #dceff5;
+  color: #174455;
+  font-size: 15px;
+  font-weight: 750;
+  line-height: 1.7;
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+html[data-theme] .booking-day-footer .booking-day-out-of-range-notice::before { content: "ℹ "; font-size: 18px; }
+html[data-theme="dark"] .booking-day-footer .booking-day-out-of-range-notice {
+  border-color: #7bcde7;
+  background: #143542;
+  color: #e1f6ff;
+}
+.booking-day-footer .booking-day-out-of-range-notice[hidden]{display:none!important}

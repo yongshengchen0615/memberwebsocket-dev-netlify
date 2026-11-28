@@ -159,7 +159,7 @@ function addDays(date: string, days: number): string {
 
 async function loadCalendar(supabase: SupabaseClient, month: string, memberId: string): Promise<Json> {
   const settingsResult = await supabase.from("booking_settings")
-    .select("min_advance_days,max_advance_days,booking_notice,holiday_notice,work_start_time,work_end_time,phone_booking_number")
+    .select("min_advance_days,max_advance_days,booking_notice,holiday_notice,out_of_range_notice,work_start_time,work_end_time,phone_booking_number")
     .eq("id", 1)
     .maybeSingle();
   if (settingsResult.error || !settingsResult.data) {
@@ -174,6 +174,7 @@ async function loadCalendar(supabase: SupabaseClient, month: string, memberId: s
   }
   const bookingNotice = String(settingsResult.data.booking_notice || "");
   const holidayNotice = String(settingsResult.data.holiday_notice || "");
+  const outOfRangeNotice = String(settingsResult.data.out_of_range_notice || "");
 
   const startDate = `${month}-01`;
   const endDate = nextMonthStart(month);
@@ -240,7 +241,7 @@ async function loadCalendar(supabase: SupabaseClient, month: string, memberId: s
   return {
     month,
     today,
-    settings: { minAdvanceDays, maxAdvanceDays, bookingNotice, holidayNotice, phoneBookingNumber: String(settingsResult.data.phone_booking_number || "") },
+    settings: { minAdvanceDays, maxAdvanceDays, bookingNotice, holidayNotice, outOfRangeNotice, phoneBookingNumber: String(settingsResult.data.phone_booking_number || "") },
     earliestBookingDate: addDays(today, minAdvanceDays),
     latestBookingDate,
     occupiedDates: [...grouped.entries()].map(([date, intervals]) => ({ date, intervals })),
