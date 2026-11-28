@@ -192,7 +192,7 @@ test('AC-009: private higher-tier titles obey tier visibility while opt-in previ
   assert.doesNotMatch(monthly, /tierVisibility\(/, 'read-only monthly preview must not erase higher-tier published offers');
   assert.match(monthly, /tickets: ticketRows,/);
   assert.match(monthly, /activities: activityRows,/);
-  assert.match(api, /loadVisibilityPolicy\(supabase\)/);
+  assert.doesNotMatch(monthly, /loadVisibilityPolicy\(supabase\)/, 'monthly preview no longer applies viewer-only visibility');
   assert.match(api, /TEST_SESSION_SURFACE_MISMATCH/);
 });
 
