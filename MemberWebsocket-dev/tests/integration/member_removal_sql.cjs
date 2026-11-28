@@ -28,6 +28,8 @@ test('member removal blocks writes, retries cross-service failures, removes priv
   await db.query("select member_friend_action('qa-removal-AAAA','request','BBBB')");await db.query("select member_friend_action('qa-removal-BBBB','accept','AAAA')");
   await db.exec("insert into booking_service_types(name)values('QA removal');");
   const svc=(await one("insert into booking_services(title,duration_minutes,price_amount,service_type,created_by)values('QA service',60,100,'QA removal','qa-removal-admin')returning id")).id;
+  // Member-owned text attribution in an actual base table must still be scrubbed.
+  await db.query("update booking_services set created_by='qa-removal-AAAA' where id=$1",[svc]);
   const tech=(await one('select primary_technician_id id from booking_settings where id=1')).id;
   const parts=JSON.stringify([{technicianId:tech,items:[{serviceId:svc,quantity:1}]}]);
   const shared=(await one("select (create_friend_booking_request('qa-removal-AAAA','BBBB','QA-SHARED-REMOVE',current_date+3,'10:00',$1,'QA','custom','PRIVATE','mr','0912345678','[]')).id id",[parts])).id;
@@ -101,6 +103,7 @@ test('member removal blocks writes, retries cross-service failures, removes priv
   assert.match(futureViewFix.body,/rel\.relkind in \('r','p'\)/,'future tenants must skip read-only views');
     const result=await finish(job.jobId);assert.equal(result.state,'complete');assert.equal((await finish(job.jobId)).alreadyApplied,true);
   assert.equal((await one("select count(*)::int n from members where id=$1",[a])).n,0,'retry after view-safe migration completes removal');
+  assert.equal((await one('select created_by from booking_services where id=$1',[svc])).created_by,'removed-member','base-table attribution still scrubbed');
   await t.test('no member FK or private identity remains, receiver balance and ledger remain intact',async()=>{
    assert.equal((await one('select count(*)::int n from members where id=$1',[a])).n,0);
    const fks=(await db.query("select c.relname,a.attname from pg_constraint k join pg_class c on c.oid=k.conrelid join pg_attribute a on a.attrelid=k.conrelid and a.attnum=any(k.conkey) where k.contype='f' and k.confrelid='public.members'::regclass")).rows;
