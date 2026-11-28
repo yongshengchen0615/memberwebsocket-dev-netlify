@@ -62,6 +62,16 @@ test('member removal blocks writes, retries cross-service failures, removes priv
    assert.equal((await one('select status from members where id=$1',[a])).status,'active');
    await assert.rejects(one("select begin_member_removal('qa-removal-admin','qa-removal-admin','ADMIN')"),/MEMBER_NOT_FOUND/);
   });
+  await t.test('admin status update reports a pending removal conflict, not a generic database error',async()=>{
+    const api=fs.readFileSync(path.resolve(__dirname,'../../supabase/functions/api/index.ts'),'utf8');
+    const start=api.indexOf('if (action === "admin.member.update")');
+    const end=api.indexOf('if (action === "admin.member-tiers.save")',start);
+    assert.ok(start>0&&end>start,'member admin API must exist');
+    const handler=api.slice(start,end);
+    assert.match(handler,/updated\\.error && String\\(updated\\.error\\.message[^\\n]*includes\\("MEMBER_REMOVED"\\)/);
+    assert.match(handler,/new ApiError\\(409,"MEMBER_REMOVAL_IN_PROGRESS"/);
+    assert.match(handler,/if \\(updated\\.error\\) throw mapDatabaseError\\(updated\\.error\\)/);
+  });
   const job=await begin();assert.equal(job.state,'deleting');assert.equal((await begin()).jobId,job.jobId);
   await t.test('pending storage failure keeps identity disabled and rejects writes and stale signed uploads',async()=>{
    await assert.rejects(finish(job.jobId),/REMOVAL_STORAGE_PENDING/);
