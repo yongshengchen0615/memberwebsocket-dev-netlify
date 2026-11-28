@@ -40,7 +40,7 @@
   "frontdeskRejectionSettingsReview": "[object Object] 2026-11-24 PR #446：新增櫃檯待審新預約／會員修改預約分類與操作標籤、管理端拒絕修改預約獨立編輯清單、LINE 管理端/會員端核准與拒絕修改標題。逐項覆核既有管理端六個工作區、管理員前台櫃檯 LINE／人員核准/拒絕預約/電話補登及原 62 組 admin-human 人工旅程：保留所有既有入口、權限、租戶審查和 requestId；新分流由後端 audit，不接受 browser 夾帶 reviewKind。新增 AC-FMR Node/JSDOM/Deno，完整 PostgreSQL/Chromium CI 與沙盒 LINE 實際收訊分別驗收；本紀錄不代表它們已通過。 2026-11-27 PR #508：已重新核對管理端拒絕原因設定的分類、既有新預約／修改預約兩組資料與原 62 組 admin-human browser journeys；兩組原因新增 ARIA 子分頁與鍵盤操作，切換保留未儲存草稿，隱藏分類必填失敗時顯示目標分類，仍由單一 tenant 版號及 requestId 儲存。保留原 FRONTDESK_SETTINGS_STANDALONE_390/1280、原因審核、跨商家權限和 LINE 通知既有測試，另擴充 frontdesk_ui.cjs 的 AC-FD-REJ-TABS-003/004。此清單紀錄只證明檢查範圍，實際同版完整 CI 與真人 LINE E2E 另核。",
   "reviewedSources": {
     "admin/booking-admin-ux.js": "da82c2bcbb7d8ece44e05d66bada9e20a384784e4346bdde50f6b9cb2897d1ee",
-    "admin/index.html": "5f8bacfd589af254c5c97c5db28a302ca3d87c61a1ba74f479aca18bde89b0af",
+    "admin/index.html": "1a5eaafea6b5e35f866878fc31a5eabf8cb1c4d30744e30629eb92934da1a24f",
     "admin/app.js": "30a98b45dbdfac7c0a62d3ad085c8afc705db2207540ffd236257d64037b87b0",
     "admin/member-workspace-tabs.js": "3dfa5e2758a2249c65326ead147a07440e1df2e01c87c828b9cefd8e66aea0a1",
     "admin/terms.js": "b226af4cb0778e89739a5be51770e64a13c59d59da6924a21646a00f17824ea7",
@@ -353,7 +353,7 @@
     {
       "id": "retired-center.28",
       "module": "integration",
-      "name": "移除整合中心後，各原有模組仍可經主要導覽存取（發放、服務、票券、預約、日曆與固定票券）",
+      "name": "移除整合中心後，各原有模組仍可經主要導覽存取（發放、服務、票券、預約、日曆與固定票券）；本輪審核核准商家狀態提示的來源 HTML 僅更新 CSS 快取版本，原有商家返回連結與權限邏輯不變；手機／桌機樣式由 ui-layout.spec.cjs 的 AC-AR-006 實際 Chromium 案例驗證",
       "cases": [
         "RETIRED_CENTER_DEST_member-grant",
         "RETIRED_CENTER_DEST_booking-services",
