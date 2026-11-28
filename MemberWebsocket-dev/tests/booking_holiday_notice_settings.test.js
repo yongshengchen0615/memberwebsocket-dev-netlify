@@ -22,7 +22,7 @@ test('AC-HOL-001: admin edits holiday notice in the existing atomic messages for
   assert.match(admin, /state\.messagesDraftVersion/);
   assert.match(admin, /els\.bookingAdminHolidayNotice\.value = String\(settings\.holidayNotice/);
   assert.match(admin, /'bookingAdminHolidayNotice', 400/);
-  assert.match(admin, /五項訊息一次儲存/);
+  assert.match(admin, /六項訊息一次儲存/);
 });
 
 test('AC-HOL-002: authorized API uses CAS, validates length, and preserves older clients', () => {
