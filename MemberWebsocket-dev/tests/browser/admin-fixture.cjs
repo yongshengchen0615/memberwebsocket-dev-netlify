@@ -246,6 +246,27 @@ function transport(s, action, p={}, slug='api',record=true) {
     return {bookingId:original.bookingId,phoneBookingId:phone.bookingId,
       status:'rejected',phoneBookingStatus:'confirmed',alreadyApplied:false};
   }
+  // Same current-booking/non-primary technician contract as the TEST SQL RPC.
+  // This local fixture checks the UI-to-API payload, not server authorization.
+  if(action==='admin.booking.reject-vacation'){
+    const booking=s.bookings.find(b=>b.bookingId===p.bookingId);
+    if(!booking || booking.status!=='pending' || booking.updatedAt!==p.expectedUpdatedAt)
+      throw Object.assign(new Error('Booking changed'),{code:'BOOKING_CONFLICT'});
+    const group=s.groups[p.bookingId],primaryId=String(s.settings.primaryTechnicianId||'');
+    const eligible=new Set((group?.participants||[]).filter(person=>
+      person.technicianId && !person.isPrimaryTechnician && person.technicianId!==primaryId)
+      .map(person=>person.technicianId));
+    const ids=p.vacationTechnicianIds;
+    if(p.status!=='rejected' || p.rejectionReason!=='technician_leave' ||
+      !Array.isArray(ids) || !ids.length || ids.length>10 ||
+      new Set(ids).size!==ids.length || ids.some(id=>!eligible.has(id)))
+      throw Object.assign(new Error('Invalid vacation technicians'),{code:'VACATION_TECHNICIANS_INVALID'});
+    const names=ids.map(id=>group.participants.find(person=>person.technicianId===id).technicianName);
+    const description=`目前預約時間：${booking.bookingDate.replaceAll('-','/')} ${booking.startTime}，${names.join('、')} 技師休假。`;
+    Object.assign(booking,{status:'rejected',rejectionReason:'technician_leave',
+      rejectionMemberDescription:description,adminNote:p.adminNote,updatedAt:stamp()});
+    return {bookingId:p.bookingId,status:'rejected',rejectionReason:'technician_leave',alreadyApplied:false};
+  }
   if(action==='admin.booking.status.update'||action==='admin.booking.status.complete'){const b=s.bookings.find(b=>b.bookingId===p.bookingId);Object.assign(b,p,{status:action.endsWith('.complete')?'completed':p.status,updatedAt:stamp()});return {booking:b};}
   if(action==='admin.booking.receipt.list')return {submissions:s.submissions,accessibleRecords:s.accessibleRecords,bookings:s.bookings,receipts:s.receipts};
   if(action==='admin.booking.receipt.url')return {signedUrl:'https://fixture.supabase.co/storage/v1/object/sign/booking-receipts/qa.svg?token=fixture'};
