@@ -75,3 +75,67 @@ for (const theme of ['light', 'dark']) {
     });
   }
 }
+
+for (const theme of ['light', 'dark']) {
+  for (const width of [320, 390, 1280]) {
+    test('AC-RANGE-UI: ' + theme + ' out-of-range holidays stay muted red at ' + width + 'px', async ({ page }) => {
+      await page.setViewportSize({ width, height: 840 });
+      await showCalendar(page, theme);
+      await page.locator('#calendarGrid').evaluate(grid => {
+        for (const [date, classes] of [
+          ['pastHoliday', 'calendar-day holiday-disabled past-disabled'],
+          ['advanceHoliday', 'calendar-day holiday-disabled advance-disabled'],
+          ['todayAdvanceHoliday', 'calendar-day today holiday-disabled advance-disabled'],
+          ['regularBlocked', 'calendar-day advance-disabled'],
+        ]) {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.dataset.date = date;
+          button.className = classes;
+          const day = document.createElement('strong');
+          day.className = 'calendar-day-number';
+          day.textContent = '29';
+          button.appendChild(day);
+          if (date !== 'regularBlocked') {
+            const label = document.createElement('span');
+            label.className = 'calendar-holiday-label';
+            label.textContent = '店休';
+            button.appendChild(label);
+          }
+          grid.appendChild(button);
+        }
+      });
+
+      const normalHoliday = await colorInfo(page, 'holiday');
+      const expectedMuted = theme === 'dark' ? 'rgb(57, 46, 43)' : 'rgb(241, 224, 218)';
+      for (const marker of ['pastHoliday', 'advanceHoliday', 'todayAdvanceHoliday']) {
+        const button = page.locator('[data-date="' + marker + '"]');
+        const computed = await button.evaluate(el => {
+          const style = getComputedStyle(el);
+          const label = el.querySelector('.calendar-holiday-label');
+          return {
+            background: style.backgroundColor,
+            borderStyle: style.borderTopStyle,
+            cursor: style.cursor,
+            label: label?.textContent,
+            labelVisibility: label ? getComputedStyle(label).visibility : '',
+            disabled: el.disabled,
+          };
+        });
+        expect(computed.background).toBe(expectedMuted);
+        expect(computed.background).not.toBe(normalHoliday.background);
+        expect(computed.borderStyle).toBe('dashed');
+        expect(computed.cursor).toBe('pointer');
+        expect(computed.label).toBe('店休');
+        expect(computed.labelVisibility).toBe('visible');
+        expect(computed.disabled).toBe(false);
+      }
+
+      const regularBlocked = await page.locator('[data-date="regularBlocked"]').evaluate(el => getComputedStyle(el).backgroundColor);
+      expect(regularBlocked).not.toBe(expectedMuted);
+      const todayAdvance = await colorInfo(page, 'todayAdvanceHoliday');
+      expect(todayAdvance.innerStyle).toBe('dashed');
+      expect(todayAdvance.innerColor).toBe(theme === 'dark' ? 'rgb(121, 204, 255)' : 'rgb(20, 103, 175)');
+    });
+  }
+}
