@@ -433,6 +433,7 @@ function bookingClient(row: any, items: any[] = [], benefits: any[] = [], frontd
   return {
     bookingId: row.id,
     requestId: row.request_id,
+    technicianId: row.technician_id || "",
     serviceId: row.service_id,
     serviceTitle: mappedItems.length ? mappedItems.map((item: any) => item.serviceTitle).join(" + ") : "預約項目",
     items: mappedItems,
