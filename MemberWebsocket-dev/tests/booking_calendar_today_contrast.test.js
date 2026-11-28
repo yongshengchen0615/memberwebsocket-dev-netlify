@@ -63,3 +63,29 @@ test('AC-TODAY-006: member booking page cache-busts the changed stylesheet', () 
   assert.match(page, /calendar-holiday-theme\.css\?v=[^"']+holiday-contrast=20261127-2/);
   assert.match(page, /calendar-flow\.css\?v=/);
 });
+
+test('AC-RANGE-001: holidays outside the booking window retain their holiday marker and gain the muted range state', () => {
+  const flow = read('booking/calendar-flow.js');
+  assert.match(flow, /if \(isAdvanceBlocked \|\| isRangeBlocked\) button\.classList\.add\('advance-disabled'\)/);
+  assert.match(flow, /if \(isPast\) button\.classList\.add\('past-disabled'\)/);
+  assert.match(flow, /if \(isHoliday\) \{[\s\S]*?button\.classList\.add\('holiday-disabled'\)/);
+  assert.match(flow, /button\.addEventListener\('click', \(\) => openDayModal\(date, button\)\)/);
+});
+
+test('AC-RANGE-002: out-of-range holidays use a muted warm holiday surface instead of generic gray, including dark mode', () => {
+  const muted = rule('#calendarGrid .calendar-day.holiday-disabled:is(.past-disabled, .advance-disabled)');
+  assert.match(muted, /background: #f1e0da/);
+  assert.match(muted, /border-style: dashed/);
+  assert.match(muted, /cursor: pointer/);
+  const dark = rule('html[data-theme="dark"] #calendarGrid .calendar-day.holiday-disabled:is(.past-disabled, .advance-disabled)');
+  assert.match(dark, /background: #392e2b/);
+  assert.match(dark, /border-color: #b58a7e/);
+  assert.match(styles, /#calendarGrid \.calendar-day\.holiday-disabled:is\(\.past-disabled, \.advance-disabled\) \.calendar-holiday-label/);
+});
+
+test('AC-RANGE-003: holiday range updates reach cached mobile clients and explain the boundary', () => {
+  const flow = read('booking/calendar-flow.js');
+  assert.match(flow, /休假日，.*超過可預約範圍/);
+  assert.match(page, /calendar-holiday-theme\.css\?v=[^"']+holiday-range=20261128-1/);
+  assert.match(page, /calendar-flow\.js\?v=[^"']+holiday-range=20261128-1/);
+});
