@@ -103,11 +103,23 @@ test('member removal blocks writes, retries cross-service failures, removes priv
    await one("select member_login_claim('qa-removal-AAAA',$1,$2,$3,'login')",['a'.repeat(64),'b'.repeat(64),Date.now()+10000]);
    const next=await make('AAAA');assert.notEqual(next,a);assert.equal((await one('select count(*)::int n from point_balances where member_id=$1',[next])).n,0);
   });
+  await exec('20261128223000_member_removal_admin_activity_reset.sql');
   await t.test('administrator self-removal deletes only their member card and retains administrator security history',async()=>{
     await db.exec("insert into admins(line_user_id,role,status)values('qa-removal-peer-admin','admin','active');");
     await one("insert into members(line_user_id,member_code,invite_code,status,membership_status,display_name,is_test_account)values('qa-removal-peer-admin','PEER','AABB000000','active','active','Peer admin member',true) returning id");
     const self=(await one("insert into members(line_user_id,member_code,invite_code,status,membership_status,display_name,is_test_account)values('qa-removal-admin','SELF','CCDD000000','active','active','Admin member card',true) returning id")).id;
     await db.exec("insert into audit_logs(audit_id,actor_line_user_id,actor_role,action,target_type,target_id,result,detail)values(new_public_id('AUD'),'qa-removal-admin','admin','ADMIN_SETTINGS_UPDATED','business','business-settings','success','{}'::jsonb);");
+
+    // Self-removal must distinguish security-critical admin audits from the
+    // same LINE identity's private member presence and booking activity.
+    await db.exec(`insert into audit_logs(audit_id,actor_line_user_id,actor_role,action,target_type,target_id,result,detail)
+      values(new_public_id('AUD'),'qa-removal-admin','member','user.member.presence.online','member','qa-removal-admin','success','{}'::jsonb),
+            (new_public_id('AUD'),'qa-removal-admin','member','user.booking.presence.offline','member','qa-removal-admin','success','{}'::jsonb),
+            (new_public_id('AUD'),'system','system','line.push.grant','member','qa-removal-admin','success','{}'::jsonb);
+      insert into booking_audit_events(id,actor_line_user_id,actor_role,action,target_type,target_id,result,metadata)
+        values(990001,'qa-removal-admin','member','BOOKING_TICKETS_REDEEMED','booking','qa-synthetic-private','success','{}'::jsonb),
+              (990002,'qa-removal-admin','admin','BOOKING_SETTINGS_UPDATED','booking','qa-admin-security','success','{}'::jsonb);`);
+
     await assert.rejects(one("select begin_member_removal('qa-removal-admin','qa-removal-peer-admin','PEER')"),/ADMIN_PROTECTED/);
     await assert.rejects(one("select begin_member_removal('qa-removal-outsider','qa-removal-admin','SELF')"),/ADMIN_REQUIRED/);
     const priorRemovalAudits=(await one("select count(*)::int n from audit_logs where actor_line_user_id='qa-removal-admin' and action='MEMBER_REMOVAL_COMPLETE'")).n;
@@ -120,7 +132,38 @@ test('member removal blocks writes, retries cross-service failures, removes priv
     assert.deepEqual({role:retained.role,status:retained.status},{role:'admin',status:'active'});
     assert.equal((await one("select count(*)::int n from audit_logs where actor_line_user_id='qa-removal-admin' and action='ADMIN_SETTINGS_UPDATED'")).n,1);
     assert.equal((await one("select count(*)::int n from audit_logs where actor_line_user_id='qa-removal-admin' and action='MEMBER_REMOVAL_COMPLETE'")).n,priorRemovalAudits+1);
+ 
+    assert.equal((await one("select count(*)::int n from audit_logs where actor_role='member' and actor_line_user_id='qa-removal-admin'")).n,0,'self-removal must erase past member online/offline logs');
+    assert.equal((await one("select count(*)::int n from audit_logs where actor_role='system' and target_type='member' and target_id='qa-removal-admin'")).n,0,'member-targeted system activity must not be inherited');
+    assert.equal((await one("select count(*)::int n from booking_audit_events where actor_role='member' and actor_line_user_id='qa-removal-admin'")).n,0,'member booking audit must not survive on an admin identity');
+    assert.equal((await one("select count(*)::int n from booking_audit_events where actor_role='admin' and actor_line_user_id='qa-removal-admin'")).n,1,'admin booking security audit remains');
+
     assert.equal((await one("select count(*)::int n from members where line_user_id='qa-removal-peer-admin'")).n,1);
+
+    // An old completed self-removal also has to be fixed by the one-time
+    // history backfill, even without its original member row.
+    await db.exec(`insert into audit_logs(audit_id,actor_line_user_id,actor_role,action,target_type,target_id,result,detail,created_at)
+       values(new_public_id('AUD'),'qa-removal-admin','member','user.member.presence.online','member','qa-removal-admin','success','{}'::jsonb,now()-interval '2 days'),
+             (new_public_id('AUD'),'qa-removal-admin','admin','ADMIN_SETTINGS_UPDATED','business','retained-admin-action','success','{}'::jsonb,now()-interval '2 days');
+       insert into booking_audit_events(id,actor_line_user_id,actor_role,action,target_type,target_id,result,metadata,created_at)
+       values(990003,'qa-removal-admin','member','BOOKING_TICKETS_REDEEMED','booking','qa-legacy-ticket','success','{}'::jsonb,now()-interval '2 days');`);
+    assert.equal((await one("select count(*)::int n from audit_logs where actor_role='member' and actor_line_user_id='qa-removal-admin'")).n,1,'simulate historical orphaned member audit');
+    await exec('20261128223000_member_removal_admin_activity_reset.sql');
+    assert.equal((await one("select count(*)::int n from audit_logs where actor_role='member' and actor_line_user_id='qa-removal-admin'")).n,0,'backfill clears orphaned past-member audit');
+    assert.equal((await one("select count(*)::int n from booking_audit_events where actor_role='member' and actor_line_user_id='qa-removal-admin'")).n,0,'backfill clears orphaned member booking audit');
+    assert.equal((await one("select count(*)::int n from audit_logs where actor_role='admin' and actor_line_user_id='qa-removal-admin' and action='ADMIN_SETTINGS_UPDATED'")).n,2,'backfill must preserve separate administrator audit');
+    const patched=(await removalDdl()).body;
+    assert.equal(patched.split('-- Member-only activity is erased even for an admin LINE identity.').length,2,'repeated migration must not duplicate the function cleanup');
+
+    // A new registration after removal is a new member, never the old ledger.
+    await one("select member_login_claim('qa-removal-admin',$1,$2,$3,'login')",['a'.repeat(64),'b'.repeat(64),Date.now()+10000]);
+    const rejoined=(await one("insert into members(line_user_id,member_code,invite_code,status,membership_status,display_name,is_test_account) values('qa-removal-admin','REJOIN','EEFF000000','active','pending','New account',true) returning id")).id;
+    assert.notEqual(rejoined,self);
+    assert.equal((await one('select count(*)::int n from point_entries where member_id=$1',[rejoined])).n,0);
+    assert.equal((await one('select count(*)::int n from point_balances where member_id=$1',[rejoined])).n,0);
+    assert.equal((await one('select count(*)::int n from member_referrals where inviter_member_id=$1 or invitee_member_id=$1',[rejoined])).n,0);
+    assert.equal((await one("select count(*)::int n from audit_logs where target_type='member' and target_id='qa-removal-admin' and action like 'user.%.presence.%'")).n,0,'new member must not see old presence timeline');
+
   });
   for(const role of ['anon','authenticated']){await db.exec('set role '+role);await assert.rejects(begin(),/permission denied/);await assert.rejects(db.query('select * from member_removal_jobs'),/permission denied/);await db.exec('reset role');}
  }finally{await db.close();}
