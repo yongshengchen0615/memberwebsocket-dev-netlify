@@ -150,3 +150,21 @@ for (const width of [390, 1280]) test('technician leave hides both footer bookin
   await expect(page.locator('#bookingPhoneServiceReference')).toBeHidden();
   await expect(page.locator('#appointmentPanel')).toBeHidden();
 });
+
+for (const width of [390,1280]) test('out-of-range date hides online booking and shows admin text at '+width+'px', async ({page}) => {
+  await page.setViewportSize({width,height:840});
+  await page.goto(base+'/booking/');
+  await expect(page.locator('#calendarGrid')).toBeVisible();
+  const custom='線上預約尚未開放。\n請選其他日期 <script>not executable</script>';
+  await page.evaluate(text=>window.dispatchEvent(new CustomEvent('booking:settings-updated',{detail:{today:'2026-10-30',settings:{minAdvanceDays:0,maxAdvanceDays:3,outOfRangeNotice:text}}})),custom);
+  await page.locator('[data-date="2026-10-29"]').click();
+  await expect(page.locator('#bookingDayModal')).toBeVisible();
+  await expect(page.locator('#startDayBookingButton')).toBeHidden();
+  await expect(page.locator('#bookingDayOutOfRangeNotice')).toBeVisible();
+  await expect(page.locator('#bookingDayOutOfRangeNotice')).toHaveText(custom);
+  await expect(page.locator('#bookingDayHolidayNotice')).toBeHidden();
+  await page.locator('#closeBookingDayButton').click();
+  await page.locator('[data-date="2026-10-31"]').click();
+  await expect(page.locator('#startDayBookingButton')).toBeVisible();
+  await expect(page.locator('#bookingDayOutOfRangeNotice')).toBeHidden();
+});
