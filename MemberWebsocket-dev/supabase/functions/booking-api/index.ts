@@ -31,6 +31,7 @@ const WRITE_ACTIONS = new Set([
   "admin.booking.service.save",
   "admin.booking.status.update",
   "admin.booking.reject-walkin",
+  "admin.booking.reject-vacation",
   "admin.booking.phone.create",
   "admin.booking.notifications.read",
 ]);
@@ -105,6 +106,9 @@ function mapDatabaseError(error: unknown): ApiError {
     ["ADMIN_WALKIN_POLICY",400,"ADMIN_WALKIN_POLICY","請選擇每 10 分鐘的預約時間及總時長。"],
     ["FRONTDESK_CONFLICT_POLICY",400,"ADMIN_WALKIN_POLICY","衝突預約時間或總時長不符合 10 分鐘刻度。"],
     ["ADMIN_WALKIN_REQUEST_CONFLICT",409,"ADMIN_WALKIN_REQUEST_CONFLICT","操作內容已變更，請重新開啟拒絕預約視窗。"],
+    ["ADMIN_VACATION_REQUEST_CONFLICT",409,"ADMIN_VACATION_REQUEST_CONFLICT","相同操作編號的休假技師選擇已變更，請重新開啟拒絕視窗。"],
+    ["VACATION_TECHNICIANS_REQUIRED",400,"VACATION_TECHNICIANS_REQUIRED","請至少勾選一位休假技師。"],
+    ["VACATION_TECHNICIANS_INVALID",409,"VACATION_TECHNICIANS_INVALID","休假技師名單已變更，請重新整理並重新選擇。"],
     ["INVALID_BOOKING_CONTACT",400,"INVALID_BOOKING_CONTACT","請填寫客人姓氏與稱謂；若提供聯絡電話，請確認格式正確。"],
     ["INVALID_BOOKING_NOTE",400,"INVALID_BOOKING_NOTE","預約說明不得超過 500 字。"],
     ["INVALID_REQUEST_ID",400,"INVALID_REQUEST_ID","操作識別碼不正確，請重新開啟登記預約表單。"],
@@ -1229,6 +1233,36 @@ async function adminRejectWalkin(supabase: SupabaseClient, identity: Identity, b
   return result.data && typeof result.data==="object" ? result.data as Json : {};
 }
 
+async function adminRejectVacation(supabase: SupabaseClient, identity: Identity, body: Json): Promise<Json> {
+  const bookingId=requireUuid(body.bookingId,"預約");
+  const requestId=requireUuid(body.requestId,"操作");
+  const expectedUpdatedAt=asText(body.expectedUpdatedAt,80);
+  const adminNote=asText(body.adminNote,500);
+  if (body.status!=="rejected" || body.rejectionReason!=="technician_leave") {
+    throw new ApiError(400,"BOOKING_REJECTION_REASON_REQUIRED","請選擇技師休假拒絕原因。");
+  }
+  if (!expectedUpdatedAt || !Number.isFinite(Date.parse(expectedUpdatedAt))) {
+    throw new ApiError(400,"INVALID_BOOKING_VERSION","預約版本不正確，請重新整理。");
+  }
+  const rawIds=body.vacationTechnicianIds;
+  if (!Array.isArray(rawIds) || rawIds.length<1 || rawIds.length>10) {
+    throw new ApiError(400,"VACATION_TECHNICIANS_REQUIRED","請選擇 1–10 位休假技師。");
+  }
+  const vacationTechnicianIds=rawIds.map(id=>requireUuid(id,"休假技師"));
+  if (new Set(vacationTechnicianIds.map(id=>id.toLowerCase())).size!==vacationTechnicianIds.length) {
+    throw new ApiError(400,"VACATION_TECHNICIANS_INVALID","不可重複選擇休假技師。");
+  }
+  // The trusted SQL wrapper rechecks the booking's current assigned (non-primary)
+  // technician IDs under the booking row lock. No client-supplied names or dates.
+  const result=await supabase.rpc("platform_admin_reject_vacation",{
+    p_actor:identity.lineUserId,
+    p_body:{bookingId,requestId,expectedUpdatedAt,status:"rejected",
+      rejectionReason:"technician_leave",adminNote,vacationTechnicianIds},
+  });
+  if(result.error)throw mapDatabaseError(result.error);
+  return result.data&&typeof result.data==="object"?result.data as Json:{};
+}
+
 async function adminStatusUpdate(supabase: SupabaseClient, identity: Identity, body: Json): Promise<Json> {
   const bookingId = requireUuid(body.bookingId, "預約");
   const nextStatus = asText(body.status, 20);
@@ -1252,6 +1286,9 @@ async function adminStatusUpdate(supabase: SupabaseClient, identity: Identity, b
   const rejectionReason = String(body.rejectionReason || "");
   if (nextStatus === "rejected" && !["technician_leave", "unrecorded_phone_booking"].includes(rejectionReason)) {
     throw new ApiError(400, "BOOKING_REJECTION_REASON_REQUIRED", "請選擇有效的拒絕預約原因。");
+  }
+  if (nextStatus === "rejected" && rejectionReason === "technician_leave") {
+    throw new ApiError(400, "VACATION_TECHNICIANS_REQUIRED", "請於拒絕預約視窗勾選休假技師。");
   }
   if (nextStatus === "rejected" && rejectionReason === "unrecorded_phone_booking") {
     throw new ApiError(400, "ADMIN_WALKIN_DETAILS_REQUIRED", "請在拒絕視窗設定衝突預約時間與服務總時長。");
@@ -1339,6 +1376,7 @@ async function route(supabase: SupabaseClient, identity: Identity, clientType: C
   if (action === "admin.booking.service.save") return await adminServiceSave(supabase, identity, body);
   if (action === "admin.booking.status.update") return await adminStatusUpdate(supabase, identity, body);
   if (action === "admin.booking.reject-walkin") return await adminRejectWalkin(supabase, identity, body);
+  if (action === "admin.booking.reject-vacation") return await adminRejectVacation(supabase, identity, body);
   throw new ApiError(404, "ACTION_NOT_FOUND", "不支援的管理端預約操作。");
 }
 
