@@ -7,6 +7,7 @@ DECLARE
   v_table text;
   v_original text;
   v_needle constant text := 'delete from booking_ticket_usage_requests where member_id=m.id;';
+  v_marker constant text := '-- A member''s archived booking-risk records must not block deletion.';
   v_replacement constant text := $cleanup$
 -- A member's archived booking-risk records must not block deletion.
 -- No-show tables are tenant-only in earlier installations.
@@ -29,6 +30,7 @@ if to_regclass('booking_no_show_events') is not null then
 end if;
 delete from booking_ticket_usage_requests where member_id=m.id;$cleanup$;
   v_installer_anchor constant text := 'grant select,insert,update,delete on S.booking_no_show_policy,S.booking_no_show_events,S.booking_restrictions,S.booking_restriction_appeals to service_role;';
+  v_installer_marker constant text := 'create trigger member_removal_write_guard before insert or update on S.booking_no_show_events';
   v_installer_guards constant text := $guards$
 drop trigger if exists member_removal_write_guard on S.booking_no_show_events;
 create trigger member_removal_write_guard before insert or update on S.booking_no_show_events
@@ -55,12 +57,19 @@ BEGIN
     IF v_original IS NULL THEN
       RAISE EXCEPTION 'MEMBER_REMOVAL_FUNCTION_MISSING: %',v_schema;
     END IF;
-    v_matches:=(length(v_original)-length(replace(v_original,v_needle,'')))/length(v_needle);
-    IF v_matches<>1 THEN
-      RAISE EXCEPTION 'MEMBER_REMOVAL_CONTRACT_CHANGED: %, %',v_schema,v_matches;
+    IF strpos(v_original,v_marker)=0 THEN
+      v_matches:=(length(v_original)-length(replace(v_original,v_needle,'')))/length(v_needle);
+      IF v_matches<>1 THEN
+        RAISE EXCEPTION 'MEMBER_REMOVAL_CONTRACT_CHANGED: %, %',v_schema,v_matches;
+      END IF;
+      -- CREATE OR REPLACE retains SECURITY DEFINER, search_path and EXECUTE grants.
+      EXECUTE replace(v_original,v_needle,v_replacement);
+    ELSE
+      v_matches:=(length(v_original)-length(replace(v_original,v_marker,'')))/length(v_marker);
+      IF v_matches<>1 THEN
+        RAISE EXCEPTION 'MEMBER_REMOVAL_DUPLICATE_PATCH: %, %',v_schema,v_matches;
+      END IF;
     END IF;
-    -- CREATE OR REPLACE retains SECURITY DEFINER, search_path and EXECUTE grants.
-    EXECUTE replace(v_original,v_needle,v_replacement);
 
     -- These three FK tables appeared after the original guard installation.
     -- The trigger blocks late writers while Storage deletion is in progress.
@@ -86,7 +95,7 @@ BEGIN
     CROSS JOIN LATERAL jsonb_array_elements(t.snapshot->'functions') f(value)
    WHERE t.version='business-v1-20261019'
      AND f.value->>'name'='finish_member_removal'
-     AND strpos(f.value->>'definition',v_needle)>0;
+     AND (strpos(f.value->>'definition',v_needle)>0 OR strpos(f.value->>'definition',v_marker)>0);
   IF v_matches<>1 THEN
     RAISE EXCEPTION 'MEMBER_REMOVAL_TEMPLATE_CONTRACT_CHANGED: %',v_matches;
   END IF;
@@ -94,6 +103,7 @@ BEGIN
      SET snapshot=jsonb_set(t.snapshot,'{functions}',(
        SELECT jsonb_agg(
          CASE WHEN f.value->>'name'='finish_member_removal'
+                AND strpos(f.value->>'definition',v_marker)=0
            THEN jsonb_set(f.value,'{definition}',to_jsonb(replace(f.value->>'definition',v_needle,v_replacement)),true)
            ELSE f.value END ORDER BY f.ordinality
        )
@@ -106,11 +116,13 @@ BEGIN
   IF to_regprocedure('platform_private.install_booking_risk(text)') IS NOT NULL THEN
     SELECT pg_get_functiondef('platform_private.install_booking_risk(text)'::regprocedure)
       INTO v_original;
-    v_matches:=(length(v_original)-length(replace(v_original,v_installer_anchor,'')))/length(v_installer_anchor);
-    IF v_matches<>1 THEN
-      RAISE EXCEPTION 'BOOKING_RISK_INSTALLER_CONTRACT_CHANGED: %',v_matches;
+    IF strpos(v_original,v_installer_marker)=0 THEN
+      v_matches:=(length(v_original)-length(replace(v_original,v_installer_anchor,'')))/length(v_installer_anchor);
+      IF v_matches<>1 THEN
+        RAISE EXCEPTION 'BOOKING_RISK_INSTALLER_CONTRACT_CHANGED: %',v_matches;
+      END IF;
+      EXECUTE replace(v_original,v_installer_anchor,v_installer_anchor||E'\n'||v_installer_guards);
     END IF;
-    EXECUTE replace(v_original,v_installer_anchor,v_installer_anchor||E'\n'||v_installer_guards);
   END IF;
 END
 $member_removal_booking_risk$;
