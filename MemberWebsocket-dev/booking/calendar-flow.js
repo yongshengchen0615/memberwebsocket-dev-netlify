@@ -489,7 +489,9 @@
       els.bookingDayHolidayNotice.textContent = isHoliday ? holidayNoticeText(holidays) : '';
     }
     if (els.bookingDayOutOfRangeNotice) {
-      const showRangeNotice = Boolean(reason && !isHoliday);
+      // This notice is exclusively for dates beyond the merchant's maximum booking horizon.
+      // Past and phone-only lead-time dates remain silent; holiday notices take priority.
+      const showRangeNotice = Boolean(date && state.maximumDate && date > state.maximumDate && !isHoliday);
       const custom = String(state.outOfRangeNotice || '').trim();
       els.bookingDayOutOfRangeNotice.hidden = !showRangeNotice;
       els.bookingDayOutOfRangeNotice.textContent = showRangeNotice

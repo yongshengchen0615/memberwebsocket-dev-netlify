@@ -115,6 +115,7 @@ for (const width of [390, 1280]) test('phone-only date displays reference items,
   });
   await page.locator('[data-date="2026-10-30"]').click();
   await expect(page.locator('#bookingPhoneServiceReference')).toBeVisible();
+  await expect(page.locator('#bookingDayOutOfRangeNotice')).toBeHidden();
   await expect(page.locator('#bookingPhoneServiceList')).toContainText('舒緩服務');
   await expect(page.locator('#bookingPhoneServiceList')).toContainText('NT$700');
   await expect(page.locator('#bookingPhoneServiceList button')).toHaveCount(0);
@@ -160,11 +161,20 @@ for (const width of [390,1280]) test('out-of-range date hides online booking and
   await page.locator('[data-date="2026-10-29"]').click();
   await expect(page.locator('#bookingDayModal')).toBeVisible();
   await expect(page.locator('#startDayBookingButton')).toBeHidden();
-  await expect(page.locator('#bookingDayOutOfRangeNotice')).toBeVisible();
-  await expect(page.locator('#bookingDayOutOfRangeNotice')).toHaveText(custom);
-  await expect(page.locator('#bookingDayHolidayNotice')).toBeHidden();
+  await expect(page.locator('#bookingDayOutOfRangeNotice')).toBeHidden();
   await page.locator('#closeBookingDayButton').click();
   await page.locator('[data-date="2026-10-31"]').click();
   await expect(page.locator('#startDayBookingButton')).toBeVisible();
   await expect(page.locator('#bookingDayOutOfRangeNotice')).toBeHidden();
+  await page.locator('#closeBookingDayButton').click();
+  await page.locator('#nextMonthButton').click();
+  // 2026-11-02 is the inclusive three-day limit; Nov 3 is outside the merchant horizon.
+  await page.locator('[data-date="2026-11-02"]').click();
+  await expect(page.locator('#bookingDayOutOfRangeNotice')).toBeHidden();
+  await page.locator('#closeBookingDayButton').click();
+  await page.locator('[data-date="2026-11-03"]').click();
+  await expect(page.locator('#startDayBookingButton')).toBeHidden();
+  await expect(page.locator('#bookingDayOutOfRangeNotice')).toBeVisible();
+  await expect(page.locator('#bookingDayOutOfRangeNotice')).toHaveText(custom);
+  await expect(page.locator('#bookingDayHolidayNotice')).toBeHidden();
 });
