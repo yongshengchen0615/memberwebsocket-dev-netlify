@@ -14,7 +14,14 @@ const ids={
 };
 for(const width of [390,1280])test('AC-005/006 real admin rejection modal: booked non-primary selections, mandatory and preview '+width,async({page})=>{
  await page.setViewportSize({width,height:820});
- await page.setContent('<!doctype html><html lang="zh-Hant"><body><section id="modal"><h3 id="title"></h3><div id="body"></div></section></body></html>');
+ // Production is HTTPS: use a secure synthetic origin so the unchanged
+ // browser crypto.randomUUID() works without mocking a cryptographic API.
+ await page.route('https://booking-vacation.test/**',route=>route.fulfill({
+  status:200,contentType:'text/html',
+  body:'<!doctype html><html lang="zh-Hant"><body><section id="modal"><h3 id="title"></h3><div id="body"></div></section></body></html>'
+ }));
+ await page.goto('https://booking-vacation.test/');
+ expect(await page.evaluate(()=>window.isSecureContext&&typeof crypto.randomUUID==='function')).toBe(true);
  await page.evaluate(({modalFunction,ids})=>{
    const booking={bookingId:'10000000-0000-4000-8000-000000000099',bookingDate:'2026-12-12',startTime:'11:00',endTime:'12:00',totalDurationMinutes:60,updatedAt:'2026-11-20T10:00:00Z'};
    const state={busy:false,booking:{primaryTechnicianId:ids.primary,groups:{
