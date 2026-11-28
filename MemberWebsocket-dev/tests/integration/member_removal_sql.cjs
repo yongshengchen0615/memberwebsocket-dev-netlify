@@ -74,6 +74,13 @@ test('member removal blocks writes, retries cross-service failures, removes priv
   await assert.rejects(finish(job.jobId),/foreign key constraint|violates foreign key/);
   assert.equal((await one('select status from members where id=$1',[a])).status,'disabled');
   await exec('20261128214500_member_removal_booking_risk_cleanup.sql');
+  const removalDdl=()=>one("select pg_get_functiondef('public.finish_member_removal(text,uuid)'::regprocedure) body");
+  const installedBeforeRepeat=(await removalDdl()).body;
+  assert.equal(installedBeforeRepeat.split("-- A member's archived booking-risk records").length,2);
+  await exec('20261128214500_member_removal_booking_risk_cleanup.sql');
+  assert.equal((await removalDdl()).body,installedBeforeRepeat,'repeated release must not duplicate cleanup');
+  const templateAfterRepeat=await one("select (snapshot->'functions'->1->>'definition') body from platform_private.business_templates where version='business-v1-20261019'");
+  assert.equal(templateAfterRepeat.body.split("-- A member's archived booking-risk records").length,2,'future tenant template is applied exactly once');
   // A late no-show callback must not revive member-linked data after begin.
   await assert.rejects(db.query("insert into booking_restrictions(member_id,source_booking_id)values($1,$2)",[a,removedRecipient]),/MEMBER_REMOVED/);
   const result=await finish(job.jobId);assert.equal(result.state,'complete');assert.equal((await finish(job.jobId)).alreadyApplied,true);
