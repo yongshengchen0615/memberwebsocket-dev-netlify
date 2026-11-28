@@ -38,6 +38,10 @@ test('both member entry points persist verified LINE picture without overwriting
     assert.match(code, /patch\.line_picture_url = identity\.pictureUrl/);
   }
   assert.match(migration, /alter table public\.members add column if not exists line_picture_url text/i);
+  assert.match(migration, /alter table %I\\.members add column if not exists line_picture_url text/i);
+  assert.match(migration, /platform_private\\.tenants/);
+  assert.match(migration, /platform_private\\.business_templates/);
+  assert.match(migration, /t->>'name' = 'members'/);
   assert.match(api, /linePictureUrl:\s*member\.line_picture_url \|\| ""/);
   const adminAuth = api.indexOf('const admin = await authorizeAdmin(supabase,identity);');
   const roster = api.indexOf('if (action === "admin.members.list")');
