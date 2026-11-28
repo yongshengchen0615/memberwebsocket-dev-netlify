@@ -17,7 +17,7 @@ type CalendarItem = Json & {
 const MAX_REQUEST_BYTES = 40_000;
 const TIER_KEYS = ["general", "silver", "gold", "platinum"] as const;
 const TIER_LABELS: Record<string, string> = {
-  general: "一般會員",
+  general: "銅級會員",
   silver: "銀級會員",
   gold: "金級會員",
   platinum: "白金會員",
