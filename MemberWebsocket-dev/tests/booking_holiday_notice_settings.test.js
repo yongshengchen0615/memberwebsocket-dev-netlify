@@ -81,8 +81,8 @@ test('AC-HOL-003: member displays plain text and hides booking actions on holida
   assert.equal(result.button.hidden, true);
   assert.equal(result.button.disabled, true);
   assert.equal(result.phone.hidden, true);
-  assert.match(calendarApi, /booking_notice,holiday_notice,work_start_time/);
-  assert.match(calendarApi, /maxAdvanceDays, bookingNotice, holidayNotice, phoneBookingNumber/);
+  assert.match(calendarApi, /booking_notice,holiday_notice,out_of_range_notice,work_start_time/);
+  assert.match(calendarApi, /maxAdvanceDays, bookingNotice, holidayNotice, outOfRangeNotice, phoneBookingNumber/);
   assert.match(member, /typeof detail\.settings\?\.holidayNotice === 'string'/);
   assert.match(member, /state\.holidayNotice = '';/);
   assert.match(member, /id="bookingHolidayWarning"/);
