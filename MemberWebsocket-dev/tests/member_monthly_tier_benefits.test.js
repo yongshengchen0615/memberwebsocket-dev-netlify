@@ -188,8 +188,11 @@ test('AC-009: private higher-tier titles obey tier visibility while opt-in previ
   assert.equal(tierVisibility(['platinum'], 'general', 'higher_preview').visible, true);
   assert.equal(tierVisibility(['platinum'], 'platinum', 'eligible_only').visible, true);
   const api = fs.readFileSync(path.join(__dirname, '..', 'supabase/functions/member-profile-api/index.ts'), 'utf8');
-  assert.match(api, /tierVisibility\(keys, viewerProfile\.tierKey, row\.visibility_policy \|\| defaultVisibilityPolicy\)\.visible/);
-  assert.match(api, /loadVisibilityPolicy\(supabase\)/);
+  const monthly = api.slice(api.indexOf('async function monthlyTierBenefits('), api.indexOf("serveBusiness('member-profile-api'"));
+  assert.doesNotMatch(monthly, /tierVisibility\(/, 'read-only monthly preview must not erase higher-tier published offers');
+  assert.match(monthly, /tickets: ticketRows,/);
+  assert.match(monthly, /activities: activityRows,/);
+  assert.doesNotMatch(monthly, /loadVisibilityPolicy\(supabase\)/, 'monthly preview no longer applies viewer-only visibility');
   assert.match(api, /TEST_SESSION_SURFACE_MISMATCH/);
 });
 
@@ -308,7 +311,7 @@ test('AC-016: monthly catalogue uses shared semantic light/dark theme tokens and
   for (const surface of ['member','points','event','calendar','booking']) {
     const html=fs.readFileSync(path.join(root,surface,'index.html'),'utf8');
     assert.match(html,/monthly-tier-benefits\.css\?v=20261127-offer-groups-1/);
-    assert.match(html,/monthly-tier-benefits\.js\?v=20261128-calendar-independent-1/);
+    assert.match(html,/monthly-tier-benefits\.js\?v=20261128-all-tier-preview-1/);
     assert.match(html,/data-member-monthly-tier-teaser>展開查看<\/small>/);
   }
 });
@@ -474,7 +477,7 @@ test('AC-022: catalogue pagination fails closed on later-page errors, missing da
   assert.deepEqual(await collectAllMonthlyRows(async()=>({data:[],count:0,error:null})),[]);
 });
 
-test('AC-023: API pages both collections by stable ID, refuses partial results and preserves scope/visibility', () => {
+test('AC-023: API pages both collections by stable ID, refuses partial results and preserves business scope', () => {
   const api=fs.readFileSync(path.join(__dirname,'..','supabase/functions/member-profile-api/index.ts'),'utf8');
   const block=api.slice(api.indexOf('async function monthlyTierBenefits('),api.indexOf("serveBusiness('member-profile-api'"));
   assert.match(api,/const MONTHLY_CATALOGUE_PAGE_SIZE = 200/);
@@ -484,8 +487,8 @@ test('AC-023: API pages both collections by stable ID, refuses partial results a
   assert.equal((block.match(/\.order\("id", \{ ascending: true \}\)\.range\(0, MONTHLY_CATALOGUE_PAGE_SIZE - 1\)/g)||[]).length,2);
   assert.equal((block.match(/\.gt\("id", cursor\)/g)||[]).length,2);
   assert.equal((block.match(/first \? \{ count: "exact" \} : undefined/g)||[]).length,2);
-  assert.match(block,/visibleToViewer\(row, false\)/);
-  assert.match(block,/visibleToViewer\(row, true\)/);
+  assert.match(block,/tickets: ticketRows,/);
+  assert.match(block,/activities: activityRows,/);
   assert.match(block,/showTickets = !features \|\| features\.events === true/);
   assert.match(block,/showActivities = !features \|\| features\.calendar === true/);
   assert.doesNotMatch(block,/\.insert\(|\.update\(|\.delete\(/);
@@ -584,7 +587,36 @@ test('AC-029: all five member portals load the calendar-independent monthly widg
   const root = path.resolve(__dirname, '..');
   for (const surface of ['member','points','event','calendar','booking']) {
     const html = fs.readFileSync(path.join(root, surface, 'index.html'), 'utf8');
-    assert.match(html, /monthly-tier-benefits\.js\?v=20261128-calendar-independent-1/,
+    assert.match(html, /monthly-tier-benefits\.js\?v=20261128-all-tier-preview-1/,
       surface + ': asset version must change so the browser cannot keep a stale widget');
   }
+});
+
+test('AC-030: the read-only monthly catalogue groups all published tier offers without viewer-tier prefiltering', async () => {
+  // Under eligible_only, the member's actual ticket use remains protected by the separate redemption API.
+  // The monthly informational catalogue must not silently omit published offers before building each tier.
+  const api=fs.readFileSync(path.join(__dirname,'..','supabase/functions/member-profile-api/index.ts'),'utf8');
+  const block=api.slice(api.indexOf('async function monthlyTierBenefits('),api.indexOf("serveBusiness('member-profile-api'"));
+  assert.match(block,/tickets: ticketRows,/);
+  assert.match(block,/activities: activityRows,/);
+  assert.doesNotMatch(block,/ticketRows\.filter\(.*visibleToViewer/);
+  assert.doesNotMatch(block,/activityRows\.filter\(.*visibleToViewer/);
+  const { buildMonthlyTierOverview }=await load();
+  const tickets=[
+    {id:'1',title:'銅級票券',ticket_type:'coupon',status:'active',starts_on:'2026-11-01',ends_on:'2026-11-30',allowed_tier_keys:['general'],visibility_policy:'eligible_only'},
+    {id:'2',title:'銀級票券',ticket_type:'coupon',status:'active',starts_on:'2026-11-01',ends_on:'2026-11-30',allowed_tier_keys:['silver'],visibility_policy:'eligible_only'},
+    {id:'3',title:'金級票券',ticket_type:'coupon',status:'active',starts_on:'2026-11-01',ends_on:'2026-11-30',allowed_tier_keys:['gold'],visibility_policy:'eligible_only'},
+    {id:'4',title:'白金票券',ticket_type:'coupon',status:'active',starts_on:'2026-11-01',ends_on:'2026-11-30',allowed_tier_keys:['platinum'],visibility_policy:'eligible_only'},
+    {id:'5',title:'私人推薦券',ticket_type:'referral',status:'active',starts_on:'2026-11-01',ends_on:'2026-11-30',allowed_tier_keys:['general']}
+  ];
+  const activities=[
+    {id:'6',title:'銀級活動',item_type:'event',status:'active',audience_type:'all',starts_on:'2026-11-02',ends_on:'2026-11-02',allowed_tier_keys:['silver'],visibility_policy:'eligible_only'},
+    {id:'7',title:'白金活動',item_type:'event',status:'active',audience_type:'all',starts_on:'2026-11-03',ends_on:'2026-11-03',allowed_tier_keys:['platinum'],visibility_policy:'eligible_only'},
+    {id:'8',title:'票券日曆鏡像',item_type:'event',status:'active',audience_type:'all',starts_on:'2026-11-03',ends_on:'2026-11-03',allowed_tier_keys:['platinum'],source_event_ticket_id:'mirror'},
+    {id:'9',title:'私人生日活動',item_type:'event',status:'active',audience_type:'birthday_month',starts_on:'2026-11-03',ends_on:'2026-11-03',allowed_tier_keys:['platinum']}
+  ];
+  const overview=buildMonthlyTierOverview({month:'2026-11',tickets,activities});
+  assert.deepEqual(overview.tiers.map(t=>t.offers.filter(o=>o.kind==='ticket').length),[1,2,3,4]);
+  assert.deepEqual(overview.tiers.map(t=>t.offers.filter(o=>o.kind==='activity').length),[0,1,1,2]);
+  assert.ok(overview.tiers.every(t=>t.offers.every(o=>!['私人推薦券','私人生日活動','票券日曆鏡像'].includes(o.title))));
 });

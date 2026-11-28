@@ -1,6 +1,5 @@
 import { businessEnv, businessContext, serveBusiness } from '../_shared/business-runtime.ts';
 import { currentTaipeiMonth, monthlyTierBounds, buildMonthlyTierOverview, collectAllMonthlyRows } from '../_shared/monthly-tier-benefits.mjs';
-import { tierVisibility, loadVisibilityPolicy } from '../_shared/tier-visibility.ts';
 import { requireMemberOaBeforeActivation, memberOaGuidance, strictLineAccessToken } from '../_shared/member-oa-registration-gate.mjs';
 import { readJsonObject } from "../_shared/request-body.ts";
 import { verifyLineIdTokenContract } from "../_shared/auth-contract.ts";
@@ -407,7 +406,7 @@ async function monthlyTierBenefits(supabase: SupabaseClient, member: any): Promi
   const showActivities = !features || features.calendar === true;
   // A plain select silently stops at the Supabase/PostgREST max-rows limit.
   // Read keyset pages in stable primary-key order until all matching rows exist.
-  const [ticketRows, activityRows, viewerProfile, defaultVisibilityPolicy] = await Promise.all([
+  const [ticketRows, activityRows, viewerProfile] = await Promise.all([
     showTickets ? monthlyCatalogueRows(async (cursor, first) => {
       let query = supabase.from("event_tickets")
         .select("id,title,ticket_type,status,starts_on,ends_on,allowed_tier_keys,visibility_policy,deleted_at,referral_source_event_ticket_id,fixed_ticket_template_id",
@@ -427,20 +426,14 @@ async function monthlyTierBenefits(supabase: SupabaseClient, member: any): Promi
       return await query.order("id", { ascending: true }).range(0, MONTHLY_CATALOGUE_PAGE_SIZE - 1);
     }) : Promise.resolve([]),
     profileFor(supabase, member, true),
-    showTickets || showActivities ? loadVisibilityPolicy(supabase) : Promise.resolve('eligible_only'),
   ]);
-  // Preserve the existing administrative presentation policy. The four tier
-  // sections are always rendered, but hidden campaign titles must not leak.
-  const visibleToViewer = (row: any, allowUnrestricted: boolean): boolean => {
-    const keys = Array.isArray(row.allowed_tier_keys) && row.allowed_tier_keys.length
-      ? row.allowed_tier_keys
-      : allowUnrestricted ? ['general', 'silver', 'gold', 'platinum'] : [];
-    return tierVisibility(keys, viewerProfile.tierKey, row.visibility_policy || defaultVisibilityPolicy).visible;
-  };
+  // The read-only monthly tier catalogue previews published offers across all
+  // tiers. Claim/redemption and other surfaces still enforce tier eligibility;
+  // never use this response as authorization to grant or redeem a ticket.
   return buildMonthlyTierOverview({
     month,
-    tickets: ticketRows.filter((row: any) => visibleToViewer(row, false)),
-    activities: activityRows.filter((row: any) => visibleToViewer(row, true)),
+    tickets: ticketRows,
+    activities: activityRows,
     showTickets,
     showActivities,
     tierSettings: Array.isArray(viewerProfile.tierPresentations)
