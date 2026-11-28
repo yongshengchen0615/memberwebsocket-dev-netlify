@@ -51,5 +51,13 @@ test('AC-004: migration only renames the default general label, without changing
   assert.match(migration, /tier_label\s*=\s*'銅級會員'/i);
   assert.match(migration, /tier_key\s*=\s*'general'/i);
   assert.match(migration, /tier_label\s*=\s*'一般會員'/i);
-  assert.doesNotMatch(migration, /DELETE\s+FROM|required_service_minutes\s*=/i);
+  assert.match(migration, /left\(table_schema, 9\) = 'business_'/);
+  assert.match(migration, /UPDATE %I\.membership_tier_settings SET tier_label/);
+  assert.match(migration, /pg_get_functiondef\(item\.oid\)/);
+  for (const procedure of ['save_tier_settings', 'platform_provision_business_base_20261021', 'ensure_required_system_baseline']) {
+    assert.ok(migration.includes(procedure), 'legacy reseeding procedure missing: ' + procedure);
+  }
+  assert.match(migration, /IF old_occurrences = 1 THEN/);
+  assert.match(migration, /EXECUTE replace\(definition, '一般會員', '銅級會員'\)/);
+  assert.doesNotMatch(migration, /DROP\s+FUNCTION|DELETE\s+FROM|required_service_minutes\s*=/i);
 });
