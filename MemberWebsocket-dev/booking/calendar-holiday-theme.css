@@ -205,3 +205,35 @@ html[data-theme="dark"] #bookingView .calendar-legend .today-dot {
   background: #79ccff;
   border-color: #79ccff;
 }
+
+/* Out-of-range holidays stay identifiable as holidays, but are visually muted.
+   They remain clickable for the existing day-record and holiday-detail dialog,
+   while server-side booking restrictions continue to enforce availability. */
+#calendarGrid .calendar-day.holiday-disabled:is(.past-disabled, .advance-disabled) {
+  background: #f1e0da;
+  border-color: #b58a7e;
+  border-style: dashed;
+  color: #62463d;
+  box-shadow: inset 0 3px 0 #b58a7e;
+  cursor: pointer;
+}
+
+#calendarGrid .calendar-day.holiday-disabled:is(.past-disabled, .advance-disabled) .calendar-holiday-label {
+  filter: saturate(.55);
+}
+
+/* Keep today's holiday border distinct from the muted out-of-range border. */
+#calendarGrid .calendar-day.holiday-disabled.today:is(.past-disabled, .advance-disabled) {
+  border-color: #b6462f;
+}
+
+html[data-theme="dark"] #calendarGrid .calendar-day.holiday-disabled:is(.past-disabled, .advance-disabled) {
+  background: #392e2b;
+  border-color: #b58a7e;
+  color: #f5d9ce;
+  box-shadow: inset 0 3px 0 #b58a7e;
+}
+
+html[data-theme="dark"] #calendarGrid .calendar-day.holiday-disabled.today:is(.past-disabled, .advance-disabled) {
+  border-color: #ff9778;
+}

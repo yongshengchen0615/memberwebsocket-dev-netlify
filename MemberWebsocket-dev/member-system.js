@@ -11,6 +11,7 @@
   const WRITE_TIMEOUT_MS = 30000;
   const pendingReads = new Map();
   const sessions = new Map();
+  const sessionDataDeadlines = new WeakMap();
   const realtimeSubscriptions = new Map();
   const realtimeStatuses = new Map();
   let realtimeClient = null;
@@ -481,6 +482,7 @@
 
   async function sendRequest(config, clientType, idToken, action, payload) {
     assertLegacyTenantScope();
+    const snapshotStartedAt = Date.now();
     if (isTerminatingAccess) throw clientError('SESSION_REVOKED', '連線已結束，請重新登入。');
     validateConfig(config, clientType);
     const startingSession = sessions.get(clientType);
@@ -560,6 +562,9 @@
         }
         if (isTerminatingAccess) throw clientError('SESSION_REVOKED', '連線已結束，請重新登入。');
         assertRequestScope();
+        if (startingSession && isFullBootstrap(clientType, action, payload)) {
+          sessionDataDeadlines.set(startingSession, { at: nextDataRefreshAt(data.data || {}, snapshotStartedAt) });
+        }
         return data.data || {};
       } catch (error) {
         if (error && error.code && !['REQUEST_TIMEOUT', 'NETWORK_ERROR', 'API_RESPONSE_ERROR'].includes(error.code)) throw error;
@@ -581,6 +586,23 @@
   function isFullBootstrap(clientType, action, payload) {
     if (action === 'admin.bootstrap') return clientType === 'admin' && !Boolean(payload && payload.lazy);
     return ({ member: 'user.member.bootstrap', points: 'user.pointcard.bootstrap', event: 'user.event.bootstrap', calendar: 'user.calendar.bootstrap' })[clientType] === action;
+  }
+
+  function taipeiDay() { return Math.floor((Date.now() + 8 * 3600000) / 86400000); }
+  function nextDataRefreshAt(data = {}, snapshotStartedAt = Date.now()) {
+    let next = (Math.floor((snapshotStartedAt + 8 * 3600000) / 86400000) + 1) * 86400000 - 8 * 3600000;
+    const include = value => { const at = Date.parse(value || ''); if (at > snapshotStartedAt) next = Math.min(next, at); };
+    for (const offer of Array.isArray(data.offers) ? data.offers : []) include(offer?.claim?.expiresAt);
+    // Date-only ticket/card validity is inclusive; the daily boundary handles it.
+    return next;
+  }
+
+  function consumeDataDeadline(session, observed) {
+    // Only consume the snapshot actually refreshed. A new response may have
+    // crossed its own expiry in transit and still needs one catch-up read.
+    if (sessionDataDeadlines.get(session) === observed && observed?.at <= Date.now()) {
+      sessionDataDeadlines.set(session, { at: nextDataRefreshAt() });
+    }
   }
 
   function realtimeClientFor(config) {
@@ -650,9 +672,10 @@
     if (config.business) {
       // Private schemas never subscribe to the shared anonymous event feed.
       // Read an authorized opaque revision; reload full data only on change.
-      let timer, pending = false, queued = false, revision, lastFullAt = -Infinity;
+      let timer, pending = false, queued = false, revision;
       let generation = 0, pendingGeneration = 0, refreshing = false;
       let failures = 0, probes = 0, refreshes = 0;
+      let dataDay = taipeiDay(), resumed = false, deadlineRefreshPending = false;
       const paused = () => pageHidden || document.visibilityState === 'hidden'
         || (typeof navigator !== 'undefined' && navigator.onLine === false);
       const status = value => {
@@ -681,7 +704,9 @@
           const current = await sendRequest(active.config, clientType, active.idToken, action, {business:config.business});
           if (stale()) return;
           if (typeof current.revision !== 'string' || current.revision.length > 120) throw Error('INVALID_SYNC_REVISION');
-          const changed = revision !== current.revision || Date.now() - lastFullAt >= 120000;
+          const observedDeadline = sessionDataDeadlines.get(active);
+          if (observedDeadline?.at <= Date.now()) deadlineRefreshPending = true;
+          const changed = revision !== current.revision || resumed || dataDay !== taipeiDay() || deadlineRefreshPending;
           if (changed) {
             if (clientType !== 'admin') await window.BusinessContext?.refresh?.(active.config);
             if (stale()) return;
@@ -690,7 +715,11 @@
             refreshing = true;
             await onUpdate({clientType,eventTypes:[],reasons:['revision-changed']});
             if (stale()) return;
-            revision = current.revision; lastFullAt = Date.now(); refreshes++;
+            revision = current.revision; refreshes++;
+            dataDay = taipeiDay(); resumed = false; deadlineRefreshPending = false;
+            // A bootstrap alone is insufficient: retain recovery until the
+            // complete consumer projection succeeds.
+            consumeDataDeadline(active, observedDeadline);
           }
           failures = 0; status('SUBSCRIBED');
           emitRealtimeEvent('member-system:sync-metrics', {clientType,transport:'authenticated-revision',durationMs:Date.now()-started,changed,probes,refreshes});
@@ -703,8 +732,7 @@
         finally {
           pending = false; refreshing = false;
           if (!disposed && !paused()) {
-            const healthyDelay = clientType === 'admin' ? 3000 : 10000;
-            const next = queued ? 0 : failures ? Math.min(60000,10000 * 2 ** Math.min(failures,3)) : healthyDelay;
+            const next = queued ? 0 : Math.min(60000,30000 * 2 ** Math.min(failures,3));
             queued = false; schedule(next);
           }
         }
@@ -718,6 +746,7 @@
         } else schedule(0);
       };
       const suspend = () => {
+        resumed = true;
         generation++;
         if (pending) queued = true;
         if (timer !== undefined) window.clearTimeout(timer);
@@ -787,6 +816,7 @@
     let lastRefreshAt = -Infinity;
     let subscribedOnce = false;
     let safetySyncTimer;
+    let deadlineRefreshPending = false;
     let channel = null, channelGeneration = 0, removingChannel = null;
     const SAFETY_SYNC_MS = 30000;
     const queuedEventTypes = new Set();
@@ -813,6 +843,9 @@
       queued = false;
       pending = true;
       lastRefreshAt = Date.now();
+      const active = sessions.get(clientType);
+      const observedDeadline = sessionDataDeadlines.get(active);
+      if (observedDeadline?.at <= Date.now()) deadlineRefreshPending = true;
       const context = Object.freeze({
         clientType,
         eventTypes: Object.freeze([...queuedEventTypes]),
@@ -822,6 +855,11 @@
       queuedReasons.clear();
       Promise.resolve().then(() => {
         if (!disposed) return onUpdate(context);
+      }).then(() => {
+        if (!disposed && sessions.get(clientType) === active) {
+          deadlineRefreshPending = false;
+          consumeDataDeadline(active, observedDeadline);
+        }
       }).catch(() => {}).finally(() => {
         pending = false;
         if (queued && !disposed) schedule(0);
@@ -871,16 +909,17 @@
         }).catch(() => {});
       } catch (_) {}
     }
-    // Safety net for lost Realtime messages or a disconnected mobile WebSocket.
-    // It refreshes only while the application is visible; background LIFF tabs do
-    // not poll. The normal Realtime path still invalidates immediately.
+    // Keep login verification independent of data invalidation. Healthy sockets
+    // deliver data events; a disconnected socket uses visible-page recovery.
+    // A known ticket expiry/day deadline is also an actual state transition.
     // setInterval is native in the deployed browser; unit-test timer shims only
     // implement setTimeout and should not count the independent reconciliation clock.
     if (typeof window.setInterval === 'function') {
       safetySyncTimer = window.setInterval(() => {
         if (!disposed && !isPaused()) {
           verifyCurrentLogin(false);
-          schedule(0, { reason: 'periodic-reconcile' });
+          const active = sessions.get(clientType);
+          if (realtimeStatuses.get(clientType) !== 'SUBSCRIBED' || deadlineRefreshPending || sessionDataDeadlines.get(active)?.at <= Date.now()) schedule(0, { reason: 'periodic-reconcile' });
         }
       }, SAFETY_SYNC_MS);
     }

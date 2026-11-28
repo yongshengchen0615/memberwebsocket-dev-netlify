@@ -5,7 +5,7 @@ const database=require('./database.cjs');
 const migrations=path.resolve(__dirname,'../../../supabase/migrations');
 const source=name=>fs.readFileSync(path.join(migrations,name),'utf8');
 
-async function setup(){
+async function setup(applyRepair=true){
  const {db}=await database();
  try{
   await db.exec(`create schema platform_private;
@@ -24,7 +24,7 @@ async function setup(){
    grant execute on function public.platform_business_context_v2(text,text) to service_role;`);
   const before=(await db.query("select public.platform_business_context_v2(null,'shop-a') value")).rows[0].value;
   const repair=fs.readdirSync(migrations).find(name=>name.endsWith('_business_routing_nonblocking_metadata.sql'));
-  if(repair)await db.exec(source(repair));
+  if(repair&&applyRepair)await db.exec(source(repair));
   return{db,before,repair};
  }catch(error){await db.close();throw error;}
 }
@@ -35,15 +35,35 @@ test('CRUD-LOG AC-003: metadata routing reads complete while another transaction
   await holder.query('begin');
   await holder.query("select pg_advisory_xact_lock(hashtextextended('booking-prices:public',0))");
   await reader.query("set lock_timeout='300ms'");
-  await reader.query('set role service_role');
+  await reader.query('begin');
+  await reader.query('set local role service_role');
   const actual=(await reader.query("select public.platform_business_context_v2(null,'shop-a') value")).rows[0].value;
   assert.deepEqual(actual,before,'routing output and qualification metadata must stay unchanged');
   const locks=(await reader.query("select count(*)::int n from pg_locks where pid=pg_backend_pid() and locktype='advisory'")).rows[0].n;
   assert.equal(locks,0);
+  await reader.query('commit');
  }finally{await holder.query('rollback');await db.close();}
 });
 
-test('CRUD-LOG AC-003: metadata migration replay and rollback retain service-role-only invoker privileges',async()=>{
+test('CRUD-LOG AC-003: rolling back the metadata migration restores its original function and privileges',async()=>{
+ const {db,before,repair}=await setup(false);
+ try{
+  assert.ok(repair,'repair migration must exist in the delivered version');
+  const definition=()=>db.query("select pg_get_functiondef('public.platform_business_context_v2(text,text)'::regprocedure) value,proacl::text acl from pg_proc where oid='public.platform_business_context_v2(text,text)'::regprocedure");
+  const original=(await definition()).rows[0];
+  await db.exec('begin');
+  await db.exec(source(repair));
+  const changed=(await definition()).rows[0];
+  assert.notEqual(changed.value,original.value);
+  assert.equal(changed.acl,original.acl);
+  await db.exec('rollback');
+  assert.deepEqual((await definition()).rows[0],original);
+  await db.exec(source(repair));
+  assert.deepEqual((await db.query("select public.platform_business_context_v2(null,'shop-a') value")).rows[0].value,before);
+ }finally{await db.close();}
+});
+
+test('CRUD-LOG AC-003: metadata migration replay and data transaction rollback retain service-role-only invoker privileges',async()=>{
  const {db,before,repair}=await setup();
  try{
   if(repair)await db.exec(source(repair));

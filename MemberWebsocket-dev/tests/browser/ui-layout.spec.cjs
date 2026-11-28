@@ -145,3 +145,53 @@ for (const {width, height} of [
     expect(errors).toEqual([]);
   });
 }
+
+/* AC-AR-006: exercise the production banner builder and stylesheet in Chromium,
+ * including a long merchant name, without real tenants or external services. */
+for (const width of [320,390,760,1280]) {
+  test('merchant approved banner adapts without clipping at '+width+'px',async({page},info)=>{
+    await page.setViewportSize({width,height:844});
+    await page.route('https://**',route=>route.abort());
+    await page.goto(admin.base+'/admin/?run='+info.testId);
+    await expect(page.locator('#adminView')).toBeVisible();
+    await expect(page.locator('#syncStatus')).toContainText('已完整同步');
+    await page.evaluate(()=>{
+      document.getElementById('businessWorkspaceStatus')?.remove();
+      window.BusinessWorkspace.apply({
+        business:{name:'經絡工程師測試｜極長商家名稱與英文 BRAND-ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789'},
+        features:{membership:true,points:true,events:true,calendar:true,booking:true,frontdesk:true},
+      });
+    });
+    const status=page.locator('#adminView > #businessWorkspaceStatus');
+    const back=status.locator('a[data-business-switch]');
+    await expect(status).toBeVisible();
+    await expect(status).toHaveAttribute('role','status');
+    await expect(status.locator('span')).toContainText('審核已通過');
+    await expect(back).toHaveAttribute('href','/admin/');
+    await expect(back).toHaveText('返回我的商家');
+    const layout=await status.evaluate(node=>{
+      const bounds=el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height};};
+      return {
+        mode:getComputedStyle(node).display,
+        card:bounds(node),
+        message:bounds(node.querySelector(':scope > span')),
+        action:bounds(node.querySelector(':scope > a[data-business-switch]')),
+        documentWidth:document.documentElement.scrollWidth,
+        viewport:innerWidth,
+      };
+    });
+    expect(layout.card.left).toBeGreaterThanOrEqual(-1);
+    expect(layout.card.right).toBeLessThanOrEqual(width+1);
+    expect(layout.action.height).toBeGreaterThanOrEqual(44);
+    expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewport+1);
+    if(width<=760){
+      expect(layout.mode).toBe('grid');
+      expect(layout.action.top).toBeGreaterThanOrEqual(layout.message.bottom+4);
+      expect(layout.action.width).toBeGreaterThanOrEqual(layout.card.width-40);
+    }else{
+      expect(layout.mode).toBe('flex');
+      expect(layout.action.left).toBeGreaterThanOrEqual(layout.message.right);
+    }
+    await capture(status,info,'merchant-approved-banner-'+width);
+  });
+}

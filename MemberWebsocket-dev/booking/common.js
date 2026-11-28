@@ -14,6 +14,7 @@
     'user.booking.bootstrap', 'user.booking.slots', 'user.booking.benefits',
     'user.booking.receipt.list', 'user.booking.receipt.options', 'user.member.bootstrap',
     'user.booking.group.bootstrap', 'user.booking.group.slots',
+    'member.list',
   ]);
   const pendingReads = new Map();
   const realtimeSubscriptions = new Map();
@@ -348,7 +349,8 @@
   async function request(config, clientType, idToken, action, payload = {}) {
     const receiptAction = String(action || '').startsWith('user.booking.receipt.');
     const groupAction = String(action || '').startsWith('user.booking.group.');
-    const functionName = groupAction
+    const cancellationAction = action === 'member.list' || action === 'member.request';
+    const functionName = cancellationAction ? 'booking-cancellation-api' : groupAction
       ? (action === 'user.booking.group.slots' ? 'booking-group-slots-api' : 'booking-group-api')
       : receiptAction ? 'booking-receipt-api' : 'booking-api';
     const endpoint = `${String(config.supabaseUrl).replace(/\/$/, '')}/functions/v1/${functionName}`;
@@ -414,6 +416,20 @@
       window.BusinessContext?.slug || config.business || '', window.BusinessContext?.generation || 0]);
   }
 
+  // Extensions with multiple awaits must guard their whole public operation,
+  // including enrichment that completes after the underlying fetch returned.
+  function requestGuard(config, isWrite = false) {
+    const startingSession = authenticatedSession;
+    const scopeAtStart = requestScope(config);
+    return () => {
+      if (isTerminatingAccess) throw clientError('SESSION_REVOKED', '連線已結束，請重新登入。');
+      if (authenticatedSession !== startingSession || requestScope(config) !== scopeAtStart) {
+        throw clientError(isWrite ? 'API_RESPONSE_UNCERTAIN' : 'REQUEST_SCOPE_CHANGED',
+          isWrite ? '商家或登入狀態已變更，無法確認操作結果；請先重新整理確認，請勿重複送出。' : '商家或登入狀態已變更，請重新整理後再試。');
+      }
+    };
+  }
+
   function postJson(endpoint, config, body, serviceLabel, options = {}) {
     if (isTerminatingAccess) return Promise.reject(clientError('SESSION_REVOKED', '連線已結束，請重新登入。'));
     // Unknown actions are mutations until explicitly established as safe reads.
@@ -440,13 +456,7 @@
     const startingSession = authenticatedSession;
     const scopeAtStart = requestScope(config);
     const isWrite = options.write === true;
-    const assertRequestScope = () => {
-      if (isTerminatingAccess) throw clientError('SESSION_REVOKED', '連線已結束，請重新登入。');
-      if (authenticatedSession !== startingSession || requestScope(config) !== scopeAtStart) {
-        throw clientError(isWrite ? 'API_RESPONSE_UNCERTAIN' : 'REQUEST_SCOPE_CHANGED',
-          isWrite ? '商家或登入狀態已變更，無法確認操作結果；請先重新整理確認，請勿重複送出。' : '商家或登入狀態已變更，請重新整理後再試。');
-      }
-    };
+    const assertRequestScope = requestGuard(config, isWrite);
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
@@ -512,7 +522,9 @@
     if (existing) return existing.unsubscribe;
 
     if (config.business && config.realtimeEnabled !== false) {
-      let stopped=false,timer,pending=false,queued=false,revision,lastFull=-Infinity,failures=0;
+      let stopped=false,timer,pending=false,queued=false,revision,failures=0;
+      const day=()=>Math.floor((Date.now()+8*3600000)/86400000);
+      let dataDay=day(),resumed=false;
       let generation=0,pendingGeneration=0,refreshing=false,pageHidden=false;
       const paused=()=>pageHidden||!navigator.onLine||document.visibilityState==='hidden';
       const schedule=delay=>{if(stopped||paused())return;if(timer!==undefined)window.clearTimeout(timer);timer=window.setTimeout(()=>{timer=undefined;void probe();},delay);};
@@ -526,14 +538,15 @@
             {action:targetScope==='admin'?'admin.sync.status':'user.booking.sync.status',clientType:targetScope==='admin'?'admin':'booking',idToken:session.idToken,business:config.business},'同步服務',{write:false});
           if(stale())return;
           if(typeof current.revision!=='string'||current.revision.length>120)throw Error('INVALID_SYNC_REVISION');
-          if(revision!==current.revision||Date.now()-lastFull>=120000){
+          if(revision!==current.revision||resumed||dataDay!==day()){
             if(targetScope==='member')await window.BusinessContext?.refresh?.(config);
             if(stale())return;
             refreshing=true;
             await onUpdate();if(stale())return;
             if(typeof onBenefitsUpdate==='function')await onBenefitsUpdate({scope:'all',eventType:'business.reconcile'});
             if(stale())return;
-            revision=current.revision;lastFull=Date.now();
+            revision=current.revision;
+            dataDay=day();resumed=false;
           }
           failures=0;
         }catch(error){
@@ -542,14 +555,14 @@
           }
           if(!stale())failures++;
         }
-        finally{pending=false;refreshing=false;if(!stopped&&!paused()){const delay=queued?0:Math.min(60000,(targetScope==='member'?3000:10000)*2**Math.min(failures,3));queued=false;schedule(delay);}}
+        finally{pending=false;refreshing=false;if(!stopped&&!paused()){const delay=queued?0:Math.min(60000,30000*2**Math.min(failures,3));queued=false;schedule(delay);}}
       };
       const resume=()=>{
         if(stopped||paused())return;
         if(pending){if(pendingGeneration!==generation||refreshing)queued=true;}
         else schedule(0);
       };
-      const suspend=()=>{generation++;if(pending)queued=true;if(timer!==undefined)window.clearTimeout(timer);timer=undefined;};
+      const suspend=()=>{resumed=true;generation++;if(pending)queued=true;if(timer!==undefined)window.clearTimeout(timer);timer=undefined;};
       const visibility=()=>{if(paused())suspend();else resume();};
       const pageHide=()=>{pageHidden=true;suspend();};
       const pageShow=()=>{pageHidden=false;resume();};
@@ -575,7 +588,7 @@
     let subscribedOnce = false;
     let realtimeTimer = null;
     let loginCheckTimer = null;
-    let pageHidden = false, channelGeneration = 0, removingChannel = null;
+    let pageHidden = false, channelGeneration = 0, removingChannel = null, channelConnected = false;
     let loginCheckPending = false;
     let loginCheckQueued = false;
     let queuedLoginInvalidation = false;
@@ -694,6 +707,7 @@
     const onPageHide = () => { pageHidden = true; suspendChannel(); };
     function disconnectChannel(reconnect = true) {
       const previous = channel;
+      channelConnected = false;
       channel = null; channelGeneration += 1;
       if (!previous || !client) return;
       try {
@@ -706,13 +720,13 @@
         }).catch(() => {});
       } catch (_) {}
     }
-    // Reconcile visible data even when the SDK is unavailable or a socket silently
-    // misses an event. Use the same queue so periodic reads never overlap Realtime.
+    // Check login independently. Only an unavailable/disconnected socket needs
+    // periodic data recovery; healthy sockets use actual invalidation events.
     if (typeof window.setInterval === 'function') {
       loginCheckTimer = window.setInterval(() => {
         if (disposed || shouldDeferResync()) return;
         validateCurrentLogin(false);
-        if (config.realtimeEnabled !== false) schedule(0);
+        if (config.realtimeEnabled !== false && !channelConnected) schedule(0);
       }, 30000);
     }
 
@@ -761,6 +775,7 @@
         })
         .subscribe((status) => {
           if (disposed || generation !== channelGeneration) return;
+          channelConnected = status === 'SUBSCRIBED';
           if (status !== 'SUBSCRIBED') {
             schedule(0);
             return;
@@ -923,6 +938,6 @@
     return { config: authenticatedSession.config, idToken: authenticatedSession.idToken };
   }
 
-  window.BookingSystem = { loadConfig, signIn, completeSignIn, startPresence, claimBrowserSession, getSession, request, setBookingNotice, memberProfile, monthlyTierBenefits, bookingBenefits, claimEventTicket, sendMemberChatMessage, subscribeRealtime, openMemberJoin, logout, showNotice, formatDate, addDays, clientError };
+  window.BookingSystem = { loadConfig, signIn, completeSignIn, startPresence, claimBrowserSession, getSession, request, setBookingNotice, memberProfile, monthlyTierBenefits, bookingBenefits, claimEventTicket, sendMemberChatMessage, subscribeRealtime, openMemberJoin, logout, showNotice, formatDate, addDays, clientError, requestGuard };
 })();
 

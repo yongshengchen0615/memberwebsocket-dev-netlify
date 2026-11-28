@@ -63,6 +63,50 @@ function harness(kind = 'booking') {
 }
 const succeed = (call, data = {}) => call.resolve({ ok: true, data });
 
+test('AC-REFRESH-005 member: a healthy socket retries failed expiry rendering after its bootstrap succeeded', async () => {
+  const h = harness('member'); await h.signIn(); let updates = 0, failProjection = true;
+  const initial = h.system.request(config, 'member', 'identity-A', 'user.member.bootstrap');
+  succeed(h.calls.at(-1), { offers: [{ claim: { expiresAt: '1970-01-01T00:00:20Z' } }] }); await initial;
+  const stop = h.subscribe(async () => {
+    updates++;
+    await h.system.request(config, 'member', 'identity-A', 'user.member.bootstrap');
+    if (failProjection) throw Error('projection failed');
+  });
+  const safetyTick = async () => { for (const tick of h.intervals.values()) tick(); await flush(); h.calls.filter(c => c.body.action.endsWith('.session.status')).forEach(c => succeed(c)); await flush(); };
+  const render = async () => {
+    const entry = [...h.timers].find(([, t]) => t.delay <= 1500);
+    assert.ok(entry, 'the due data refresh must remain scheduled');
+    h.timers.delete(entry[0]);h.advanceClock(entry[1].delay);entry[1].fn();await flush();
+    succeed(h.calls.at(-1), { offers: [] });await flush();
+  };
+  try {
+    h.channels[0].status('SUBSCRIBED');h.advanceClock(11000);await safetyTick();await render();
+    assert.equal(updates, 1);failProjection = false;await safetyTick();await render();
+    assert.equal(updates, 2);await safetyTick();
+    assert.equal([...h.timers.values()].some(t => t.delay <= 1500), false, 'successful recovery does not create a periodic rebuild');
+  } finally { stop(); }
+});
+
+for (const kind of ['member', 'booking']) test(`AC-REFRESH-003 ${kind}: healthy Realtime safety ticks check login without reloading the view`, async () => {
+  const h = harness(kind); await h.signIn(); let updates = 0;
+  const stop = h.subscribe(() => { updates++; });
+  try {
+    h.channels[0].status('SUBSCRIBED'); await flush();
+    h.calls.forEach(call => succeed(call)); await flush();
+    const baselineTimers = h.timers.size;
+    for (const tick of h.intervals.values()) tick();
+    await flush();
+    assert.ok(h.calls.some(call => call.body.action.endsWith('.session.status')), 'login revocation checks remain active');
+    h.calls.forEach(call => succeed(call)); await flush();
+    assert.equal(h.timers.size, baselineTimers, 'no background data refresh is scheduled beyond the signed-in presence heartbeat');
+    assert.equal(updates, 0, 'a healthy socket is not a periodic data invalidation');
+    h.channels[0].change({ new: { scope: 'member', event_type: 'booking.changed' } });
+    const [id, timer] = [...h.timers].find(([, timer]) => timer.delay < 1500);
+    h.timers.delete(id); h.advanceClock(timer.delay); timer.fn(); await flush();
+    assert.equal(updates, 1, 'a real data event still refreshes');
+  } finally { stop(); }
+});
+
 test('AC-002: booking cross-feature reads and claims ignore retired preview overrides',async()=>{
  const h=harness('booking');
  for(const preview of [false,true]){

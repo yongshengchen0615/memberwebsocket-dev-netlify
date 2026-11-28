@@ -10,7 +10,7 @@ import { createClient, SupabaseClient } from '../_shared/business-runtime.ts';
 import { hashInvitationToken, invitationDatabaseError, InvitationError } from '../_shared/member-invitations.mjs';
 
 type Json = Record<string, unknown>;
-type Identity = { lineUserId: string; displayName: string };
+type Identity = { lineUserId: string; displayName: string; pictureUrl?: string };
 
 const MAX_REQUEST_BYTES = 20_000;
 const READ_LIMIT = 90;
@@ -73,7 +73,7 @@ async function ensureMember(supabase: SupabaseClient, identity: Identity): Promi
   if (result.error) throw new ApiError(500, "DATABASE_ERROR", "會員資料暫時無法讀取。");
   let member = result.data;
   if (!member) {
-    const inserted = await supabase.from("members").insert({ line_user_id: identity.lineUserId, display_name: identity.displayName, member_code: "M" + crypto.randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase(), last_login_at: new Date().toISOString() }).select("*").single();
+    const inserted = await supabase.from("members").insert({ line_user_id: identity.lineUserId, display_name: identity.displayName, line_picture_url: identity.pictureUrl || null, member_code: "M" + crypto.randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase(), last_login_at: new Date().toISOString() }).select("*").single();
     if (inserted.error) {
       result = await supabase.from("members").select("*").eq("line_user_id", identity.lineUserId).single();
       if (result.error) throw new ApiError(500, "DATABASE_ERROR", "會員資料暫時無法建立。");
@@ -82,6 +82,7 @@ async function ensureMember(supabase: SupabaseClient, identity: Identity): Promi
   } else {
     const patch: Json = { last_login_at: new Date().toISOString() };
     if (identity.displayName && identity.displayName !== member.display_name) patch.display_name = identity.displayName;
+    if (identity.pictureUrl && identity.pictureUrl !== member.line_picture_url) patch.line_picture_url = identity.pictureUrl;
     const updated = await supabase.from("members").update(patch).eq("id", member.id).select("*").single();
     if (!updated.error) member = updated.data;
   }
@@ -107,7 +108,7 @@ async function serviceMinutesTotal(supabase: SupabaseClient, memberId: string): 
 }
 async function profileFor(supabase: SupabaseClient, member: any, includeTierPresentations = false): Promise<Json> {
   const [settings, total] = await Promise.all([tierSettings(supabase), serviceMinutesTotal(supabase, member.id)]);
-  let current = settings[0] || { tier_key: "general", tier_label: "一般會員", required_service_minutes: 0, style_key: "forest" };
+  let current = settings[0] || { tier_key: "general", tier_label: "銅級會員", required_service_minutes: 0, style_key: "forest" };
   for (const row of settings) if (Number(row.required_service_minutes || 0) <= total) current = row;
   const index = Math.max(0, settings.findIndex(row => row.tier_key === current.tier_key));
   const next = settings[index + 1] || null;

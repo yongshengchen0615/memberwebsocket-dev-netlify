@@ -33,10 +33,10 @@ test('BUSINESS_SYNC — actual browser runtime refreshes two authorized views, p
    await page.bringToFront();await page.clock.runFor(1);await expect(page.locator('#value')).toHaveText(authority[business].value);
   }
   authority['shop-a']={revision:'2',value:'A changed'};
-  await pages[2].clock.runFor(10000);await expect(pages[2].locator('#value')).toHaveText('A changed');
+  await pages[2].clock.runFor(30000);await expect(pages[2].locator('#value')).toHaveText('A changed');
   await pages[1].bringToFront();await pages[1].clock.runFor(1);await expect(pages[1].locator('#value')).toHaveText('A changed');
   const before=calls.filter(c=>c.business==='shop-b'&&c.action==='admin.bootstrap').length;
-  await pages[0].bringToFront();await pages[0].clock.runFor(10001);await expect(pages[0].locator('#value')).toHaveText('B initial');
+  await pages[0].bringToFront();await pages[0].clock.runFor(30001);await expect(pages[0].locator('#value')).toHaveText('B initial');
   expect(calls.filter(c=>c.business==='shop-b'&&c.action==='admin.bootstrap')).toHaveLength(before);
   await pages[2].bringToFront();await pages[2].clock.runFor(1);
   // A request sent before unsubscribe may still reach the fixture afterwards;

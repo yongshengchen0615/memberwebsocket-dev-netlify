@@ -1,5 +1,5 @@
 const TIERS = ['general','silver','gold','platinum'];
-const LABELS: Record<string,string> = {general:'一般會員',silver:'銀級會員',gold:'金級會員',platinum:'白金會員'};
+const LABELS: Record<string,string> = {general:'銅級會員',silver:'銀級會員',gold:'金級會員',platinum:'白金會員'};
 // Visibility is presentation only. Claim/redemption RPCs independently enforce eligibility.
 export function tierEligible(keys: unknown, tier: unknown): boolean {
   const current = TIERS.indexOf(String(tier));

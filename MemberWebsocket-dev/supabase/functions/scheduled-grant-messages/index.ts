@@ -8,7 +8,7 @@ import { buildLatestAvailableOffersSection } from "../_shared/latest-available-o
 
 type Json = Record<string, unknown>;
 
-const TIER_LABELS: Record<string,string> = { general:"一般會員",silver:"銀級會員",gold:"金級會員",platinum:"白金會員" };
+const TIER_LABELS: Record<string,string> = { general:"銅級會員",silver:"銀級會員",gold:"金級會員",platinum:"白金會員" };
 const DEFAULT_EVENT_LIFF_URL = "https://liff.line.me/2010787602-tuapstY3";
 
 function env(name: string): string { return (businessEnv(name) || "").trim(); }
@@ -29,7 +29,7 @@ function secureEqual(left: string, right: string): boolean {
 }
 function resolveTier(settings: any[], minutes: number): any {
   const ordered = [...settings].sort((a,b) => Number(a.required_service_minutes || 0) - Number(b.required_service_minutes || 0));
-  let selected = ordered[0] || { tier_key:"general",tier_label:"一般會員" };
+  let selected = ordered[0] || { tier_key:"general",tier_label:"銅級會員" };
   for (const row of ordered) if (minutes >= Number(row.required_service_minutes || 0)) selected = row;
   return selected;
 }
@@ -100,7 +100,7 @@ async function refreshScheduledMessage(supabase: SupabaseClient, row: any): Prom
   const tiers = await supabase.from("membership_tier_settings").select("tier_key,tier_label,required_service_minutes").order("required_service_minutes",{ ascending:true });
   if (tiers.error) throw tiers.error;
   const tier:any = resolveTier(tiers.data || [],totalMinutes);
-  const statusSection = "【目前會員狀態】\n・累積服務時間：" + totalMinutes + " 分鐘\n・會員等級：" + String(tier.tier_label || TIER_LABELS[tier.tier_key] || "一般會員");
+  const statusSection = "【目前會員狀態】\n・累積服務時間：" + totalMinutes + " 分鐘\n・會員等級：" + String(tier.tier_label || TIER_LABELS[tier.tier_key] || "銅級會員");
   const ticketSection = await availableTicketsSection(supabase,memberId,String(tier.tier_key || "general"));
 
   return replaceCurrentGrantSections(row.message_text,statusSection,ticketSection);

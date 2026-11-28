@@ -26,3 +26,14 @@ test('AC-AR-004/005: member table is keyboard scrollable; existing auth tabs rem
   }
   assert.match(css,/#adminView \.table-wrap:focus-visible/);
 });
+
+const businessWorkspace=fs.readFileSync(path.join(root,'admin/business-workspace.js'),'utf8');
+test('AC-AR-006: approved merchant banner keeps a separate, accessible mobile return action',()=>{
+  assert.match(businessWorkspace,/status\.id='businessWorkspaceStatus'/);
+  assert.match(businessWorkspace,/status\.setAttribute\('role','status'\)/);
+  assert.match(businessWorkspace,/back\.href='\/admin\/'/);
+  assert.match(html,/ui-polish-responsive\.css\?v=[^"]*merchant-status-20261128-1/);
+  assert.match(css,/#adminView > #businessWorkspaceStatus \{[^}]*display: flex/);
+  assert.match(css,/@media \(max-width: 760px\) \{\s*#adminView > #businessWorkspaceStatus \{[^}]*display: grid/);
+  assert.match(css,/#adminView > #businessWorkspaceStatus > a\[data-business-switch\]/);
+});

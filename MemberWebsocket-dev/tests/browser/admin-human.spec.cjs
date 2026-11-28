@@ -559,6 +559,14 @@ function seedBooking(s,status='pending'){
 }
 for(const [initial,label,status] of [['pending','確認預約','confirmed'],['pending','不通過','rejected'],['confirmed','取消預約','cancelled'],['confirmed','確認服務完成','completed']])test('BOOKING_STATUS_'+status+' — UI transition, note and readback',async({page:p},info)=>{
   seedBooking(info.fixture,initial);
+  if (status === 'rejected') {
+    // Vacation rejection must be tied to actual participants rather than a
+    // free-form reason. Include primary + secondary technician assignments.
+    info.fixture.groups['booking-1'] = {partySize:2,participants:[
+      {position:1,technicianId:'tech-1',technicianName:'QA primary',isPrimaryTechnician:true,items:[]},
+      {position:2,technicianId:'tech-2',technicianName:'QA secondary',isPrimaryTechnician:false,items:[]},
+    ]};
+  }
   // A real confirmed booking has a persisted participant/item snapshot. Keep the
   // fixture valid: incomplete group data is explicitly blocked by the preview.
   if (status === 'completed') {
@@ -580,8 +588,18 @@ for(const [initial,label,status] of [['pending','確認預約','confirmed'],['pe
     expect(calls(info.fixture,'admin.booking.status.update')).toHaveLength(0);
     await modal.locator('[data-rejection-reason]').selectOption('technician_leave');
     await expect(modal.locator('[data-rejection-phone]')).toBeHidden();
+    await expect(modal.locator('[data-admin-vacation-technicians]')).toBeVisible();
+    await expect(modal.locator('[data-submit]')).toBeDisabled();
+    await modal.locator('[data-admin-vacation-technicians] input[value="tech-2"]').check();
+    await expect(modal.locator('[data-admin-vacation-preview]')).toContainText('QA secondary 技師休假');
+    await expect(modal.locator('[data-submit]')).toBeEnabled();
     await modal.locator('[data-submit]').click();
-  }if(status==='completed'){await expect(p.locator('#bookingAdminCrudModal')).toContainText('30 分鐘');await expect(p.locator('#bookingAdminCrudModal')).toContainText('QA per-person note');await expect(p.locator('#bookingAdminCrudModal button[type="submit"]')).toBeEnabled();await p.locator('#bookingAdminCrudModal button[type="submit"]').click();}await expect.poll(()=>info.fixture.bookings[0].status).toBe(status);if(status==='rejected')expect(calls(info.fixture,'admin.booking.status.update').some(call=>call.payload.rejectionReason==='technician_leave')).toBe(true);await p.locator('[data-booking-filter="all"]').click();await expect(p.locator('#bookingAdminQueue')).toContainText('QA booking member');
+  }if(status==='completed'){await expect(p.locator('#bookingAdminCrudModal')).toContainText('30 分鐘');await expect(p.locator('#bookingAdminCrudModal')).toContainText('QA per-person note');await expect(p.locator('#bookingAdminCrudModal button[type="submit"]')).toBeEnabled();await p.locator('#bookingAdminCrudModal button[type="submit"]').click();}await expect.poll(()=>info.fixture.bookings[0].status).toBe(status);if(status==='rejected'){
+    expect(calls(info.fixture,'admin.booking.status.update')).toHaveLength(0);
+    expect(calls(info.fixture,'admin.booking.reject-vacation')).toHaveLength(1);
+    expect(calls(info.fixture,'admin.booking.reject-vacation')[0].payload.vacationTechnicianIds).toEqual(['tech-2']);
+    expect(info.fixture.bookings[0].rejectionMemberDescription).toContain('QA secondary 技師休假');
+  }await p.locator('[data-booking-filter="all"]').click();await expect(p.locator('#bookingAdminQueue')).toContainText('QA booking member');
 });
 
 test('BOOKING_REJECTION_WALKIN_GUARD — required reason, original window, inclusive adjacency and paired replacement',async({page:p},info)=>{

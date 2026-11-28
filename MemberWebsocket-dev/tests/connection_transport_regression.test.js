@@ -454,3 +454,54 @@ test('CRUD-LOG AC-002 booking: stale maintenance denial cannot terminate a new m
   succeed(h.calls[1]);
   assert.equal((await fresh).marker, 'identity-A');
 });
+
+function activeBookingHarness(network) {
+  const h = harness('booking', network);
+  h.window.confirm = () => true;
+  h.window.MembershipProgress = { render() {} };
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../booking/member-ui.js'), 'utf8'), h.context);
+  return h;
+}
+
+test('CRUD-LOG AC-001 loaded member UI: cancellation cannot synthesize success from a missing result', async () => {
+  const h = activeBookingHarness(async call => ({ ok: true, status: 200, json: async () =>
+    call.body.action === 'member.request' ? { ok: true } : { ok: true, data: { bookings: [{ bookingId: 'booking-A', status: 'confirmed' }] } } }));
+  await assert.rejects(h.request('user.booking.cancel', { bookingId: 'booking-A' }), { code: 'API_RESPONSE_UNCERTAIN' });
+  assert.equal(h.calls.length, 1);
+  assert.equal(h.calls[0].body.action, 'member.request');
+  assert.equal(h.timers.size, 0);
+});
+
+test('CRUD-LOG AC-002 loaded member UI: delayed cancellation enrichment cannot release old merchant bookings', async () => {
+  const h = activeBookingHarness();
+  h.window.BusinessContext = { slug: 'merchant-a', generation: 1 };
+  const pending = h.request('user.booking.bootstrap');
+  h.calls[0].resolve({ ok: true, data: { bookings: [{ bookingId: 'booking-A', status: 'confirmed' }] } });
+  await flush();
+  assert.equal(h.calls[1].body.action, 'member.list');
+  h.window.BusinessContext.slug = 'merchant-b'; h.window.BusinessContext.generation++;
+  h.calls[1].resolve({ ok: true, data: { cancellationMode: 'approval', requests: [] } });
+  await assert.rejects(pending, { code: 'REQUEST_SCOPE_CHANGED' });
+  assert.equal(h.timers.size, 0);
+});
+
+for (const data of [{}, { request: {} }, { request: { bookingId: 'other-booking' } }]) {
+  test(`CRUD-LOG AC-001 loaded member UI: cancellation result ${JSON.stringify(data)} cannot fake a requested cancellation`, async () => {
+    const h = activeBookingHarness(async call => ({ ok: true, status: 200, json: async () => ({ ok: true, data:
+      call.body.action === 'member.request' ? data : { bookings: [{ bookingId: 'booking-A', status: 'confirmed' }] } }) }));
+    await assert.rejects(h.request('user.booking.cancel', { bookingId: 'booking-A' }), { code: 'API_RESPONSE_UNCERTAIN' });
+    assert.equal(h.calls.length, 1);
+  });
+}
+
+test('CRUD-LOG AC-001 loaded member UI: failed readback after cancellation acknowledgment stays uncertain and forwards test session', async () => {
+  const h = activeBookingHarness(async call => {
+    if (call.body.action === 'member.request') return { ok: true, status: 200, json: async () => ({ ok: true, data: { request: { bookingId: 'booking-A' } } }) };
+    throw new TypeError('readback disconnected');
+  });
+  h.window.TestModeClient = { payload: body => ({ ...body, testSessionToken: 'synthetic-session' }) };
+  await assert.rejects(h.request('user.booking.cancel', { bookingId: 'booking-A' }), { code: 'API_RESPONSE_UNCERTAIN' });
+  assert.equal(h.calls.length, 2);
+  assert.equal(h.calls[0].body.testSessionToken, 'synthetic-session');
+  assert.equal(h.timers.size, 0);
+});

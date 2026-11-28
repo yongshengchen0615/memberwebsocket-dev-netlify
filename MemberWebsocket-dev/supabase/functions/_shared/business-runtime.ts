@@ -105,6 +105,15 @@ export function createClient(url:string,key:string,options?:any):import('npm:@su
      p_actor:current.verifiedAdmin.actor,p_issued_at:current.verifiedAdmin.issuedAt,
      p_body:params?.p_body});
    }
+   // Vacation rejection has the same verified LINE-admin and tenant boundary as
+   // the existing atomic walk-in rejection; never accept actor or tenant from JSON.
+   if(name==='platform_admin_reject_vacation'){
+    if(!current.verifiedAdmin || params?.p_actor!==current.verifiedAdmin.actor)
+     return Promise.resolve({data:null,error:{message:'ADMIN_REQUIRED'}});
+    return control().rpc(name,{p_tenant_id:current.id,
+     p_actor:current.verifiedAdmin.actor,p_issued_at:current.verifiedAdmin.issuedAt,
+     p_body:params?.p_body});
+   }
    if(name==='get_line_setting'){
     const keys:Record<string,string>={LINE_MEMBER_LIFF_ID:'memberLiffId',LINE_POINTS_LIFF_ID:'pointsLiffId',LINE_EVENT_LIFF_ID:'eventLiffId',LINE_CALENDAR_LIFF_ID:'calendarLiffId',LINE_BOOKING_LIFF_ID:'bookingLiffId',LINE_ADMIN_LIFF_ID:'adminLiffId'};
     if(keys[params?.p_key])return Promise.resolve({data:current.customLineReady?current.line_config?.[keys[params.p_key]]||null:null,error:null});

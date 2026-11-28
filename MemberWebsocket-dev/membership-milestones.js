@@ -2,7 +2,7 @@
   'use strict';
 
   const TIERS = Object.freeze([
-    { key: 'general', label: '一般', aliases: ['一般會員', '一般'] },
+    { key: 'general', label: '銅級', aliases: ['銅級會員', '銅級', '一般會員', '一般'] },
     { key: 'silver', label: '銀級', aliases: ['銀級會員', '銀級'] },
     { key: 'gold', label: '金級', aliases: ['金級會員', '金級'] },
     { key: 'platinum', label: '白金', aliases: ['白金會員', '白金'] },

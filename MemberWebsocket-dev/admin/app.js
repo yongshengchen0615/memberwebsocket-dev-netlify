@@ -3,7 +3,7 @@
 
   const EVENT_TICKET_TIER_KEYS = Object.freeze(['general', 'silver', 'gold', 'platinum']);
   const CALENDAR_ITEM_TIER_KEYS = Object.freeze(['general', 'silver', 'gold', 'platinum']);
-  const CALENDAR_ITEM_TIER_LABELS = Object.freeze({ general: '一般會員', silver: '銀級會員', gold: '金級會員', platinum: '白金會員' });
+  const CALENDAR_ITEM_TIER_LABELS = Object.freeze({ general: '銅級會員', silver: '銀級會員', gold: '金級會員', platinum: '白金會員' });
   const MEMBERSHIP_TIER_STYLE_KEYS = Object.freeze(['forest', 'midnight', 'ocean', 'sunset', 'lavender', 'rose', 'gold', 'platinum', 'mint', 'cherry']);
   const MEMBERSHIP_TIER_STYLE_LABELS = Object.freeze({ forest: '森林綠', midnight: '午夜藍', ocean: '海灣青', sunset: '夕陽橘', lavender: '薰衣草紫', rose: '玫瑰粉', gold: '金曜棕', platinum: '鉑金灰', mint: '薄荷綠', cherry: '櫻桃紅' });
   const POINT_CARD_STYLE_KEYS = Object.freeze(['citrus', 'coral', 'lagoon', 'skyline', 'violet', 'berry', 'cocoa', 'lime', 'denim', 'peach']);
@@ -799,7 +799,7 @@
     els.memberTableBody.replaceChildren(...members.map((member) => {
       const row = document.createElement('tr');
       const memberCell = document.createElement('td'); memberCell.append(createMemberIdentity(member));
-      const tierCell = document.createElement('td'); const tier = document.createElement('span'); tier.className = 'tier-text'; tier.textContent = String(member.tier || '一般會員'); tierCell.append(tier);
+      const tierCell = document.createElement('td'); const tier = document.createElement('span'); tier.className = 'tier-text'; tier.textContent = String(member.tier || '銅級會員'); tierCell.append(tier);
       const statusCell = document.createElement('td'); const status = document.createElement('span'); status.className = `status-pill${member.status === 'active' ? '' : ' disabled'}`; status.textContent = member.status === 'active' ? '啟用中' : '已停用'; statusCell.append(status);
       const presenceCell = document.createElement('td'); presenceCell.className = 'member-presence-cell';
       const presence = document.createElement('span'); presence.className = `member-presence-pill ${member.isOnline ? 'online' : 'offline'}`; presence.textContent = member.isOnline ? '上線' : '下線'; presenceCell.append(presence);
@@ -853,7 +853,7 @@
     event.preventDefault(); if (requireRefreshBeforeWrite(els.tierSettingsFormMessage)) return; hideMessage(els.tierSettingsFormMessage);
     const tierSettings = collectTierSettings();
     const invalid = tierSettings.some((setting, index) => !Number.isInteger(setting.requiredServiceMinutes) || setting.requiredServiceMinutes < 0 || setting.requiredServiceMinutes > 10000000 || !MEMBERSHIP_TIER_STYLE_KEYS.includes(setting.styleKey) || (index === 0 ? setting.requiredServiceMinutes !== 0 : setting.requiredServiceMinutes <= tierSettings[index - 1].requiredServiceMinutes));
-    if (invalid) return showMessage(els.tierSettingsFormMessage, '門檻必須由一般會員 0 分鐘開始，銀級、金級與白金會員需依序遞增。');
+    if (invalid) return showMessage(els.tierSettingsFormMessage, '門檻必須由銅級會員 0 分鐘開始，銀級、金級與白金會員需依序遞增。');
     setSaving(els.saveTierSettingsButton, true, '正在儲存會員等級門檻…');
     try {
       const result = await window.MemberSystem.request(state.config, 'admin', state.idToken, 'admin.member-tiers.save', { tierSettings });
@@ -895,8 +895,39 @@
     return labels[String(surface || '')] || '用戶端';
   }
 
+  function createMemberAvatar(member, className) {
+    const avatar = document.createElement('span');
+    avatar.className = className;
+    const initials = window.MemberSystem.initials(member.displayName || 'LINE 使用者');
+    avatar.textContent = initials;
+    try {
+      const url = new URL(String(member.linePictureUrl || ''));
+      if (url.protocol === 'https:' && /(^|\.)line-scdn\.net$/i.test(url.hostname) && !url.username && !url.password && !url.port) {
+        const image = document.createElement('img');
+        image.alt = '';
+        image.loading = 'lazy';
+        image.decoding = 'async';
+        image.referrerPolicy = 'no-referrer';
+        image.onerror = () => { avatar.textContent = initials; };
+        image.src = url.href;
+        avatar.replaceChildren(image);
+      }
+    } catch { /* Missing or invalid LINE photo: keep member initials. */ }
+    return avatar;
+  }
+
   function createMemberIdentity(member) {
-    const wrapper = document.createElement('div'); wrapper.className = 'member-cell'; const avatar = document.createElement('span'); avatar.className = 'member-avatar'; avatar.textContent = window.MemberSystem.initials(member.displayName); const copy = document.createElement('div'); const name = document.createElement('strong'); name.textContent = String(member.displayName || 'LINE 使用者'); const code = document.createElement('small'); code.textContent = String(member.memberCode || '尚未建立'); copy.append(name, code); wrapper.append(avatar, copy); return wrapper;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'member-cell';
+    const avatar = createMemberAvatar(member, 'member-avatar');
+    const copy = document.createElement('div');
+    const name = document.createElement('strong');
+    name.textContent = String(member.displayName || 'LINE 使用者');
+    const code = document.createElement('small');
+    code.textContent = String(member.memberCode || '尚未建立');
+    copy.append(name, code);
+    wrapper.append(avatar, copy);
+    return wrapper;
   }
 
   function actionButton(label, action, value, accent) { const button = document.createElement('button'); button.type = 'button'; button.className = `small-button${accent ? ' accent' : ''}`; button.dataset.action = action; button.dataset.value = String(value || ''); button.textContent = label; return button; }
@@ -1241,7 +1272,7 @@
     if (!member) { els.memberRecordsOverview.replaceChildren(); return; }
     const counts = memberRecordCounts();
     const metrics = [
-      ['會員等級', String(member.tier || '一般會員')],
+      ['會員等級', String(member.tier || '銅級會員')],
       ['累積服務時間', formatServiceMinutes(Number(member.serviceMinutesTotal || 0))],
       ['全部紀錄', String(counts.all || 0) + ' 筆'],
       ['預約紀錄', String(counts.bookings || 0) + ' 筆'],
@@ -1249,10 +1280,8 @@
 
     const hero = document.createElement('div');
     hero.className = 'member-records-overview-hero';
-    const avatar = document.createElement('span');
-    avatar.className = 'member-records-avatar';
+    const avatar = createMemberAvatar(member, 'member-records-avatar');
     avatar.setAttribute('aria-hidden', 'true');
-    avatar.textContent = window.MemberSystem.initials(member.displayName || 'LINE 使用者');
 
     const copy = document.createElement('div');
     copy.className = 'member-records-overview-copy';
@@ -3082,7 +3111,7 @@
     els.memberLineUserId.value = String(member.lineUserId);
     els.memberExpectedUpdatedAt.value = String(member.updatedAt || '');
     els.memberIdentity.textContent = `${member.displayName || 'LINE 使用者'} · ${member.memberCode || '尚未建立'}`;
-    els.memberTier.textContent = String(member.tier || '一般會員');
+    els.memberTier.textContent = String(member.tier || '銅級會員');
     els.memberStatus.value = member.status === 'active' ? 'active' : 'disabled';
     hideMessage(els.memberFormMessage);
     els.memberModal.classList.remove('hidden');
