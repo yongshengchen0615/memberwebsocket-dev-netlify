@@ -64,10 +64,10 @@ for(const width of [390,1280])test(`AC-SYNC-001..005_${width}: root SQL grant ch
   const syncAfterGrant=async features=>{
     const completedBefore=await page.evaluate(()=>window.__grantRevisionCompletions);
     await grants(features);
-    // The 3000ms production poll is measured from the prior probe's end.
+    // The 30000ms production check is measured from the prior probe's end.
     // Observe the real completed revision rather than assuming page paint
     // means that onUpdate/finally has finished scheduling its next probe.
-    await page.clock.runFor(3001);
+    await page.clock.runFor(30001);
     await expect.poll(()=>page.evaluate(()=>window.__grantRevisionCompletions))
       .toBeGreaterThan(completedBefore);
   };

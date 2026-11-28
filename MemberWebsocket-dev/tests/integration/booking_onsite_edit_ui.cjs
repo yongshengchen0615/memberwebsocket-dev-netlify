@@ -39,23 +39,20 @@ for (const minAdvanceDays of [0, 1]) {
     w.fetch = async (_url,init) => {
       const body=JSON.parse(init.body);
       calls.push(body.action);
+      if(body.action==='user.booking.bootstrap')return new Response(JSON.stringify({ok:true,data:structuredClone(data)}));
+      if(body.action==='user.booking.slots')return new Response(JSON.stringify({ok:true,data:{slots:[]}}));
       if(body.action==='member.list')return new Response(JSON.stringify({ok:true,data:{cancellationMode:'direct',requests:[]}}));
       throw Error('Unexpected endpoint '+body.action);
     };
-    w.BookingSystem = {
+    w.eval(read('booking/common.js'));
+    Object.assign(w.BookingSystem, {
       loadConfig:async()=>({supabaseUrl:'https://db.test',supabasePublishableKey:'publishable-test'}),
       signIn:async()=>'test-token',subscribeRealtime:()=>()=>{},
       memberProfile:async()=>({}),
       addDays:(day,days)=>new Date(Date.parse(day+'T00:00:00Z')+days*86400000).toISOString().slice(0,10),
       formatDate:x=>x,
       showNotice:(message,opts)=>{notices.push({message,opts});},
-      request:async(_config,_type,_token,action)=>{
-        calls.push(action);
-        if(action==='user.booking.bootstrap')return structuredClone(data);
-        if(action==='user.booking.slots')return { slots:[] };
-        throw Error('Unexpected action '+action);
-      },
-    };
+    });
     try {
       w.eval(read('booking/onsite-edit-policy.js'));
       w.eval(read('booking/member-ui.js'));

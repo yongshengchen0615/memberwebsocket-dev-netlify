@@ -309,7 +309,11 @@ test('AC-002 group slots separate credentials, merchant, keys, parameters and li
   const reads = [h.request(action), h.request(action, {}, config, 'identity-B'),
     h.request(action, {}, { ...config, supabasePublishableKey: 'other-key' }), h.request(action, { bookingDate: '2026-11-12' })];
   h.window.BusinessContext.slug = 'shop-b'; reads.push(h.request(action));
-  h.calls.forEach(succeed); await Promise.all(reads); assert.equal(h.calls.length, 5);
+  h.calls.forEach(succeed);
+  const results = await Promise.allSettled(reads);
+  assert.ok(results.slice(0, 4).every(result => result.status === 'rejected' && result.reason.code === 'REQUEST_SCOPE_CHANGED'));
+  assert.equal(results[4].status, 'fulfilled');
+  assert.equal(h.calls.length, 5);
   h.window.BusinessContext = null;
   const a = h.request(action, {}, { ...config, business: 'a' }), b = h.request(action, {}, { ...config, business: 'b' });
   h.calls.slice(5).forEach(succeed); await Promise.all([a, b]); assert.equal(h.calls.length, 7);
@@ -392,4 +396,112 @@ test('AC-005 revoked group responses prevent later requests and reject late succ
   succeed(h.calls[0]); await assert.rejects(slow, { code: 'SESSION_REVOKED' });
   await assert.rejects(h.request('user.booking.group.slots'), { code: 'SESSION_REVOKED' });
   assert.equal(h.calls.length, 2);
+});
+
+for (const action of ['user.booking.create', 'user.booking.group.update', 'user.booking.receipt.finalize', 'user.booking.future.delete']) {
+  for (const envelope of [{ ok: true }, { ok: true, data: null }, { ok: true, data: [] }, { ok: true, data: {}, error: { code: 'DATABASE_ERROR' } }, { ok: false }]) {
+    test(`CRUD-LOG AC-001 ${action}: incomplete/contradictory ${JSON.stringify(envelope)} is uncertain`, async () => {
+      const h = harness('booking');
+      const pending = h.request(action);
+      h.calls[0].resolve(envelope);
+      await assert.rejects(pending, { code: 'API_RESPONSE_UNCERTAIN' });
+      assert.equal(h.calls.length, 1);
+      assert.equal(h.timers.size, 0);
+    });
+  }
+}
+
+test('CRUD-LOG AC-001 booking: HTTP failure cannot acknowledge a committed mutation', async () => {
+  const h = harness('booking');
+  const pending = h.request('user.booking.group.create');
+  h.calls[0].resolve({ ok: true, data: { bookingId: 'saved' } }, 500);
+  await assert.rejects(pending, { code: 'API_RESPONSE_UNCERTAIN' });
+  assert.equal(h.calls.length, 1);
+});
+
+test('CRUD-LOG AC-002 booking: late merchant success cannot update the current scope', async () => {
+  const h = harness('booking');
+  h.window.BusinessContext = { slug: 'merchant-a', generation: 1 };
+  const read = h.request('user.booking.group.bootstrap');
+  const write = h.request('user.booking.group.create');
+  h.window.BusinessContext.slug = 'merchant-b'; h.window.BusinessContext.generation++;
+  h.calls.forEach(succeed);
+  await assert.rejects(read, { code: 'REQUEST_SCOPE_CHANGED' });
+  await assert.rejects(write, { code: 'API_RESPONSE_UNCERTAIN' });
+  assert.equal(h.timers.size, 0);
+});
+
+test('CRUD-LOG AC-002 booking: merchant generation prevents reusing a previous pending read', async () => {
+  const h = harness('booking');
+  h.window.BusinessContext = { slug: 'merchant-a', generation: 1 };
+  const old = h.request('user.booking.group.slots');
+  h.window.BusinessContext.generation += 2;
+  const fresh = h.request('user.booking.group.slots');
+  h.calls.forEach(succeed);
+  await assert.rejects(old, { code: 'REQUEST_SCOPE_CHANGED' });
+  assert.equal((await fresh).marker, 'identity-A');
+  assert.equal(h.calls.length, 2);
+});
+
+test('CRUD-LOG AC-002 booking: stale maintenance denial cannot terminate a new merchant', async () => {
+  const h = harness('booking');
+  h.window.BusinessContext = { slug: 'merchant-a', generation: 1 };
+  const old = h.request('user.booking.group.bootstrap');
+  h.window.BusinessContext.slug = 'merchant-b'; h.window.BusinessContext.generation++;
+  h.calls[0].resolve({ ok: false, error: { code: 'SYSTEM_MAINTENANCE', message: 'old merchant' } }, 503);
+  await assert.rejects(old, { code: 'REQUEST_SCOPE_CHANGED' });
+  const fresh = h.request('user.booking.group.bootstrap');
+  succeed(h.calls[1]);
+  assert.equal((await fresh).marker, 'identity-A');
+});
+
+function activeBookingHarness(network) {
+  const h = harness('booking', network);
+  h.window.confirm = () => true;
+  h.window.MembershipProgress = { render() {} };
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../booking/member-ui.js'), 'utf8'), h.context);
+  return h;
+}
+
+test('CRUD-LOG AC-001 loaded member UI: cancellation cannot synthesize success from a missing result', async () => {
+  const h = activeBookingHarness(async call => ({ ok: true, status: 200, json: async () =>
+    call.body.action === 'member.request' ? { ok: true } : { ok: true, data: { bookings: [{ bookingId: 'booking-A', status: 'confirmed' }] } } }));
+  await assert.rejects(h.request('user.booking.cancel', { bookingId: 'booking-A' }), { code: 'API_RESPONSE_UNCERTAIN' });
+  assert.equal(h.calls.length, 1);
+  assert.equal(h.calls[0].body.action, 'member.request');
+  assert.equal(h.timers.size, 0);
+});
+
+test('CRUD-LOG AC-002 loaded member UI: delayed cancellation enrichment cannot release old merchant bookings', async () => {
+  const h = activeBookingHarness();
+  h.window.BusinessContext = { slug: 'merchant-a', generation: 1 };
+  const pending = h.request('user.booking.bootstrap');
+  h.calls[0].resolve({ ok: true, data: { bookings: [{ bookingId: 'booking-A', status: 'confirmed' }] } });
+  await flush();
+  assert.equal(h.calls[1].body.action, 'member.list');
+  h.window.BusinessContext.slug = 'merchant-b'; h.window.BusinessContext.generation++;
+  h.calls[1].resolve({ ok: true, data: { cancellationMode: 'approval', requests: [] } });
+  await assert.rejects(pending, { code: 'REQUEST_SCOPE_CHANGED' });
+  assert.equal(h.timers.size, 0);
+});
+
+for (const data of [{}, { request: {} }, { request: { bookingId: 'other-booking' } }]) {
+  test(`CRUD-LOG AC-001 loaded member UI: cancellation result ${JSON.stringify(data)} cannot fake a requested cancellation`, async () => {
+    const h = activeBookingHarness(async call => ({ ok: true, status: 200, json: async () => ({ ok: true, data:
+      call.body.action === 'member.request' ? data : { bookings: [{ bookingId: 'booking-A', status: 'confirmed' }] } }) }));
+    await assert.rejects(h.request('user.booking.cancel', { bookingId: 'booking-A' }), { code: 'API_RESPONSE_UNCERTAIN' });
+    assert.equal(h.calls.length, 1);
+  });
+}
+
+test('CRUD-LOG AC-001 loaded member UI: failed readback after cancellation acknowledgment stays uncertain and forwards test session', async () => {
+  const h = activeBookingHarness(async call => {
+    if (call.body.action === 'member.request') return { ok: true, status: 200, json: async () => ({ ok: true, data: { request: { bookingId: 'booking-A' } } }) };
+    throw new TypeError('readback disconnected');
+  });
+  h.window.TestModeClient = { payload: body => ({ ...body, testSessionToken: 'synthetic-session' }) };
+  await assert.rejects(h.request('user.booking.cancel', { bookingId: 'booking-A' }), { code: 'API_RESPONSE_UNCERTAIN' });
+  assert.equal(h.calls.length, 2);
+  assert.equal(h.calls[0].body.testSessionToken, 'synthetic-session');
+  assert.equal(h.timers.size, 0);
 });
