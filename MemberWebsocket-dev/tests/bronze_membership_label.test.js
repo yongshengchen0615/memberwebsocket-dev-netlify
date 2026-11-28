@@ -37,6 +37,10 @@ test('AC-003: member, booking, admin and server entry points use the bronze labe
     'supabase/functions/api/index.ts',
     'supabase/functions/member-profile-api/index.ts',
     'supabase/functions/member-calendar-api/index.ts',
+    'event-ticket-ui.js', 'admin/grant-automation.js',
+    'supabase/functions/booking-line-notifications/benefits.ts',
+    'supabase/functions/grant-automation/index.ts',
+    'supabase/functions/scheduled-grant-messages/index.ts',
   ];
   for (const file of sources) assert.match(read(file), /銅級會員/, file);
 });
