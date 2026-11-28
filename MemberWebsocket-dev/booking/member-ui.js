@@ -60,35 +60,7 @@
   }
 
   async function cancellationRequest(config, idToken, action, payload = {}) {
-    const endpoint = `${String(config?.supabaseUrl || '').replace(/\/$/, '')}/functions/v1/booking-cancellation-api`;
-    if (!endpoint.startsWith('https://')) throw clientError('API_CONFIG_MISSING', '取消申請服務尚未設定。');
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), 20000);
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        cache: 'no-store',
-        signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: String(config?.supabasePublishableKey || ''),
-        },
-        body: JSON.stringify(window.TestModeClient && typeof window.TestModeClient.payload === 'function'
-          ? window.TestModeClient.payload({ ...payload, action, clientType: 'member', idToken })
-          : { ...payload, action, clientType: 'member', idToken }),
-      });
-      const data = await response.json().catch(() => null);
-      if (!response.ok || data?.ok !== true) {
-        throw clientError(String(data?.error?.code || 'API_ERROR'), String(data?.error?.message || '取消申請服務拒絕此操作。'));
-      }
-      return data.data || {};
-    } catch (error) {
-      if (error?.code) throw error;
-      if (error?.name === 'AbortError') throw clientError('API_TIMEOUT', '取消申請服務回應逾時，請更新後確認申請狀態。');
-      throw clientError('NETWORK_ERROR', '目前無法連線取消申請服務。');
-    } finally {
-      window.clearTimeout(timer);
-    }
+    return originalRequest(config, 'member', idToken, action, payload);
   }
 
   function applyCancellationRequests(bookingData, requests) {
@@ -118,6 +90,7 @@
       cancellationMode = cancellationData.cancellationMode;
       return { ...applyCancellationRequests(bookingData, cancellationData.requests), cancellationMode };
     } catch (error) {
+      if (['REQUEST_SCOPE_CHANGED', 'SESSION_REVOKED', 'SESSION_REPLACED', 'MEMBER_REMOVED', 'SYSTEM_MAINTENANCE'].includes(error?.code)) throw error;
       console.warn('booking cancellation state unavailable', error?.code || error?.message || error);
       cancellationMode = 'unavailable';
       return { ...bookingData, cancellationMode };
@@ -376,16 +349,28 @@
 
   window.BookingSystem.request = async (...args) => {
     const [config, clientType, idToken, action, payload] = args;
+    let cancellationAcknowledged = false;
     try {
       if (clientType === 'member' && action === 'user.booking.bootstrap') {
+        const assertScope = window.BookingSystem.requestGuard(config);
         const bookingData = await originalRequest(...args);
-        return await enrichBootstrapWithCancellationState(config, idToken, bookingData);
+        assertScope();
+        const enriched = await enrichBootstrapWithCancellationState(config, idToken, bookingData);
+        assertScope();
+        return enriched;
       }
       if (clientType === 'member' && action === 'user.booking.cancel') {
+        const assertScope = window.BookingSystem.requestGuard(config, true);
         const cancellation = await cancellationRequest(config, idToken, 'member.request', {
           bookingId: payload?.bookingId, expectedUpdatedAt: payload?.expectedUpdatedAt,
         });
+        if (!payload?.bookingId || cancellation?.request?.bookingId !== payload.bookingId) {
+          throw clientError('API_RESPONSE_UNCERTAIN', '無法確認這次取消操作的結果，請先重新整理確認，請勿重複送出。');
+        }
+        cancellationAcknowledged = true;
+        assertScope();
         const fresh = await originalRequest(config, clientType, idToken, 'user.booking.bootstrap');
+        assertScope();
         const booking = (fresh?.bookings || []).find((item) => item.bookingId === payload?.bookingId);
         if (!booking) throw clientError('BOOKING_NOT_FOUND', '取消操作已完成，但目前無法重新載入這筆預約，請重新整理。');
         const directCancelled = cancellation?.directCancelled === true;
@@ -402,6 +387,9 @@
       }
       return await originalRequest(...args);
     } catch (error) {
+      if (cancellationAcknowledged && !['SESSION_REVOKED', 'SESSION_REPLACED', 'MEMBER_REMOVED', 'SYSTEM_MAINTENANCE'].includes(error?.code)) {
+        throw clientError('API_RESPONSE_UNCERTAIN', '取消操作已送出，但無法重新確認預約狀態；請先重新整理確認，請勿重複送出。');
+      }
       if (error && error.code === 'MEMBERSHIP_REQUIRED') showMembershipRequiredView();
       throw error;
     }

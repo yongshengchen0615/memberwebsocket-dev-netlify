@@ -32,6 +32,8 @@ for (const mode of ['direct', 'approval']) {
     w.fetch = async (_url, init) => {
       const body = JSON.parse(init.body);
       calls.push(body);
+      if (body.action === 'user.booking.bootstrap') return new Response(JSON.stringify({ ok: true, data: structuredClone(data) }));
+      if (body.action === 'user.booking.slots') return new Response(JSON.stringify({ ok: true, data: { slots: [] } }));
       if (body.action === 'member.list') return new Response(JSON.stringify({
         ok: true, data: { cancellationMode: mode,
           requests: requested && mode === 'approval' ? [{
@@ -43,24 +45,20 @@ for (const mode of ['direct', 'approval']) {
         if (mode === 'direct') booking.status = 'cancelled';
         return new Response(JSON.stringify({ ok: true, data: {
           directCancelled: mode === 'direct',
-          request: { cancellationRequestedAt: '2026-11-24T10:00:00Z' },
+          request: { bookingId, cancellationRequestedAt: '2026-11-24T10:00:00Z' },
         } }));
       }
       throw Error('Unexpected endpoint ' + body.action);
     };
-    w.BookingSystem = {
+    w.eval(fs.readFileSync(path.join(root, 'booking/common.js'), 'utf8'));
+    Object.assign(w.BookingSystem, {
       loadConfig: async () => cfg,
       signIn: async () => 'test-token',
       subscribeRealtime: () => () => {},
       memberProfile: async () => ({}),
       addDays: (date, days) => new Date(Date.parse(date + 'T00:00:00Z') + days * 86400000).toISOString().slice(0, 10),
       formatDate: x => x,
-      request: async (_config, _type, _token, action) => {
-        if (action === 'user.booking.bootstrap') return structuredClone(data);
-        if (action === 'user.booking.slots') return { slots: [] };
-        throw Error('Unexpected action ' + action);
-      },
-    };
+    });
     try {
       w.eval(fs.readFileSync(path.join(root, 'booking/onsite-edit-policy.js'), 'utf8'));
       w.eval(fs.readFileSync(path.join(root, 'booking/member-ui.js'), 'utf8'));

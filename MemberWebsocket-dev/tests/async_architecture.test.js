@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
 const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
@@ -14,12 +15,22 @@ test('admin full refresh has one coordinator with a trailing refresh queue', () 
   assert.match(source, /do \{[\s\S]*admin\.bootstrap[\s\S]*\} while \(adminRefreshQueued && state\.idToken\)/);
 });
 
-test('booking writes classify uncertain responses and reuse idempotency keys', () => {
+test('booking writes classify uncertain responses and reuse idempotency keys', async () => {
   const common = read('booking/common.js');
   const group = read('booking/group-booking.js');
   const app = read('booking/app.js');
-  assert.match(common, /const WRITE_ACTIONS = new Set/);
-  assert.match(common, /API_RESPONSE_UNCERTAIN/);
+  const calls = [];
+  const window = { setTimeout, clearTimeout, addEventListener() {}, location: { pathname: '/booking/' } };
+  vm.runInNewContext(common, { window, document: { addEventListener() {}, getElementById() { return null; } },
+    navigator: {}, AbortController, console,
+    fetch: async (_url, options) => {
+      calls.push(JSON.parse(options.body));
+      throw new TypeError('connection closed after commit');
+    } });
+  for (const action of ['user.booking.create', 'user.booking.update', 'user.booking.cancel', 'user.booking.future.delete']) {
+    await assert.rejects(window.BookingSystem.request({ supabaseUrl: 'https://fixture.supabase.co' }, 'member', 'identity-A', action, { requestId: 'same-operation' }), { code: 'API_RESPONSE_UNCERTAIN' });
+  }
+  assert.deepEqual(calls.map(call => call.requestId), Array(4).fill('same-operation'));
   assert.match(group, /return originalRequest\(state\.config, 'member', state\.idToken, action, pricePayload\)/);
   assert.doesNotMatch(group, /fetch\(|new AbortController/);
   assert.match(app, /pendingBookingWrite/);

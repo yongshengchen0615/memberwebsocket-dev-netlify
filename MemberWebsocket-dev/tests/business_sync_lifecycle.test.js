@@ -3,6 +3,18 @@ const assert = require('node:assert/strict');
 const { businessSyncHarness, flush } = require('./helpers/business-sync-harness.cjs');
 
 for (const kind of ['member', 'booking']) {
+  test(`AC-REFRESH-001 ${kind}: five idle minutes never rebuild unchanged data and use a bounded background cadence`, async () => {
+    const h = await businessSyncHarness(kind), stop = h.subscribe();
+    try {
+      await h.tick();
+      const initial = h.updates.length;
+      await h.tick(300000);
+      assert.equal(h.updates.length, initial, 'unchanged revisions must not cause a timer-based full reload');
+      assert.equal(h.probes.length, 11, 'one initial probe plus ten 30-second background checks');
+      h.setRevision('real-change'); h.emit('online'); await h.tick();
+      assert.equal(h.updates.at(-1), 'real-change', 'lifecycle recovery still checks changes immediately');
+    } finally { stop(); }
+  });
   test(`AC-001 ${kind}: resume bursts share an in-flight revision read`, async () => {
     const h = await businessSyncHarness(kind);
     h.holdProbes(); const stop = h.subscribe();
@@ -12,7 +24,7 @@ for (const kind of ['member', 'booking']) {
       h.holdProbes(false); h.probes[0].resolve(); await h.tick();
       assert.equal(h.probes.length, 1, 'same foreground generation must not add a trailing request');
       assert.equal(h.updates.length, 1);
-      await h.tick(kind === 'booking' ? 3000 : 10000); assert.equal(h.probes.length, 2);
+      await h.tick(30000); assert.equal(h.probes.length, 2);
     } finally { stop(); }
   });
   test(`AC-002 ${kind}: late hidden response does not refresh and foreground rechecks authority`, async () => {
@@ -71,7 +83,7 @@ test('AC-005 booking: subscriptions isolate businesses and cleanup preserves the
   try {
     assert.notEqual(stopA, stopB);
     await h.tick(); assert.deepEqual(h.probes.map(p => p.body.business).sort(), ['shop-a', 'shop-b']);
-    stopA(); await h.tick(3000);
+    stopA(); await h.tick(30000);
     assert.deepEqual(h.probes.map(p => p.body.business), ['shop-a', 'shop-b', 'shop-b']);
   } finally { stopA(); stopB(); }
 });
@@ -81,14 +93,14 @@ test('AC-003 booking: disposal during refresh suppresses the late benefits callb
   assert.equal(h.benefits.length, 0);
 });
 
-test('AC-006 booking: visible shop detects a changed booking revision within 3 seconds without repeated full reads', async () => {
+test('AC-006 booking: visible shop detects a changed booking revision within 30 seconds without repeated full reads', async () => {
   const h = await businessSyncHarness('booking');
   const stop = h.subscribe();
   try {
     await h.tick(0);
     assert.deepEqual(h.updates, ['initial']);
     h.setRevision('manager-booking-created');
-    await h.tick(2999);
+    await h.tick(29999);
     assert.deepEqual(h.updates, ['initial'], 'a poll must not start before the bounded delay');
     await h.tick(1);
     assert.deepEqual(h.updates, ['initial', 'manager-booking-created']);
@@ -121,7 +133,7 @@ test('AC-007 booking: a delayed initial grants read schedules the next probe aft
     assert.equal(h.updates.length, 0);
     releaseInitialRefresh(); await flush();
     h.window.BusinessContext.refresh = async () => {};
-    await h.tick(2999);
+    await h.tick(29999);
     assert.equal(h.probes.length, 1, 'the healthy interval starts when reconciliation finishes');
     await h.tick(1);
     assert.equal(h.probes.length, 2);

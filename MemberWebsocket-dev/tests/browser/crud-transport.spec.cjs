@@ -66,3 +66,86 @@ for (const width of [390, 1280]) {
     } finally { h.release(); }
   });
 }
+
+for (const width of [390, 1280]) {
+  for (const envelope of [{ ok: true }, { ok: true, data: {}, error: { code: 'DATABASE_ERROR' } }]) {
+    test(`CRUD-LOG AC-001 Chromium ${width}: booking rejects ${JSON.stringify(envelope)} without replay`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 844 });
+      const { calls } = await mount(page);
+      await page.route('https://fixture.supabase.co/**', route => {
+        calls.push(route.request().postDataJSON());
+        return route.fulfill({ json: envelope });
+      });
+      await page.addScriptTag({ path: path.resolve(__dirname, '../../booking/common.js') });
+      const code = await page.evaluate(async config => {
+        try { await BookingSystem.request(config, 'member', 'identity-A', 'user.booking.group.create', { requestId: 'save-once' }); return 'unexpected success'; }
+        catch (error) { return error.code; }
+      }, config);
+      expect(code).toBe('API_RESPONSE_UNCERTAIN');
+      expect(calls).toHaveLength(1);
+      expect(calls[0]).toMatchObject({ action: 'user.booking.group.create', requestId: 'save-once' });
+    });
+  }
+  test(`CRUD-LOG AC-002 Chromium ${width}: switching merchant rejects a delayed booking write`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    const { calls } = await mount(page);
+    let release;
+    const held = new Promise(resolve => { release = resolve; });
+    await page.route('https://fixture.supabase.co/**', async route => {
+      calls.push(route.request().postDataJSON());
+      await held;
+      await route.fulfill({ json: { ok: true, data: { bookingId: 'saved' } } });
+    });
+    await page.addScriptTag({ path: path.resolve(__dirname, '../../booking/common.js') });
+    await page.evaluate(config => {
+      window.BusinessContext = { slug: 'shop-a', generation: 1 };
+      window.writeResult = BookingSystem.request(config, 'member', 'identity-A', 'user.booking.group.create')
+        .then(() => 'unexpected success', error => error.code);
+    }, config);
+    await expect.poll(() => calls.length).toBe(1);
+    await page.evaluate(() => { BusinessContext.slug = 'shop-b'; BusinessContext.generation++; });
+    release();
+    expect(await page.evaluate(() => window.writeResult)).toBe('API_RESPONSE_UNCERTAIN');
+    expect(calls).toHaveLength(1);
+  });
+  test(`CRUD-LOG AC-001 Chromium ${width}: loaded member UI cancellation uses hardened transport`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    const { calls } = await mount(page);
+    await page.route('https://fixture.supabase.co/**', route => {
+      calls.push({ ...route.request().postDataJSON(), endpoint: route.request().url() });
+      return route.fulfill({ json: { ok: true } });
+    });
+    await page.addScriptTag({ path: path.resolve(__dirname, '../../booking/common.js') });
+    await page.evaluate(() => { window.MembershipProgress = { render() {} }; });
+    await page.addScriptTag({ path: path.resolve(__dirname, '../../booking/member-ui.js') });
+    const code = await page.evaluate(async config => {
+      try { await BookingSystem.request(config, 'member', 'identity-A', 'user.booking.cancel', { bookingId: 'booking-A' }); return 'unexpected success'; }
+      catch (error) { return error.code; }
+    }, config);
+    expect(code).toBe('API_RESPONSE_UNCERTAIN');
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({ action: 'member.request', endpoint: config.supabaseUrl + '/functions/v1/booking-cancellation-api', bookingId: 'booking-A' });
+  });
+  test(`CRUD-LOG AC-002 Chromium ${width}: loaded member UI rejects old merchant cancellation enrichment`, async ({ page }) => {
+    const { calls } = await mount(page);
+    let release;
+    const held = new Promise(resolve => { release = resolve; });
+    await page.route('https://fixture.supabase.co/**', async route => {
+      const body = route.request().postDataJSON(); calls.push(body);
+      if (body.action === 'member.list') await held;
+      await route.fulfill({ json: { ok: true, data: body.action === 'member.list'
+        ? { cancellationMode: 'approval', requests: [] } : { bookings: [{ bookingId: 'private-A' }] } } });
+    });
+    await page.addScriptTag({ path: path.resolve(__dirname, '../../booking/common.js') });
+    await page.evaluate(() => { window.MembershipProgress = { render() {} }; window.BusinessContext = { slug: 'shop-a', generation: 1 }; });
+    await page.addScriptTag({ path: path.resolve(__dirname, '../../booking/member-ui.js') });
+    await page.evaluate(config => {
+      window.readResult = BookingSystem.request(config, 'member', 'identity-A', 'user.booking.bootstrap')
+        .then(() => 'unexpected success', error => error.code);
+    }, config);
+    await expect.poll(() => calls.length).toBe(2);
+    await page.evaluate(() => { BusinessContext.slug = 'shop-b'; BusinessContext.generation++; });
+    release();
+    expect(await page.evaluate(() => window.readResult)).toBe('REQUEST_SCOPE_CHANGED');
+  });
+}

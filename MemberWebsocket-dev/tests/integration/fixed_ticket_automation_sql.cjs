@@ -26,6 +26,10 @@ test('production fixed-ticket automation SQL',async t=>{
         scheduled_for timestamptz,message_text text,status text,created_by text);
       create table audit_logs(audit_id text,actor_line_user_id text,actor_role text,action text,target_type text,target_id text,result text,detail jsonb);
       create table calendar_sync(template_id uuid,event_id uuid);
+      create table maintenance_writes(id integer generated always as identity);
+      create function observe_ticket_update() returns trigger language plpgsql as $$ begin insert into maintenance_writes default values;return new;end $$;
+      create trigger observe_ticket_update after update on event_tickets for each row execute function observe_ticket_update();
+      create function emit_realtime_invalidation(text[],text) returns void language sql as $$ select $$;
       create function sync_fixed_ticket_calendar_item(uuid,uuid) returns void language sql as $$ insert into calendar_sync values($1,$2) $$;
       create function current_tier_key(uuid) returns text language sql as $$ select tier from members where id=$1 $$;
       create function new_public_id(text) returns text language sql as $$ select $1||gen_random_uuid()::text $$;
@@ -33,6 +37,8 @@ test('production fixed-ticket automation SQL',async t=>{
     await db.exec(original.slice(0,original.indexOf('create or replace function public.issue_fixed_tickets')));
     await db.exec(`alter table fixed_ticket_templates add column expiry_mode text default 'month_end',add column expiry_date date,add column expiry_days integer default 7;`);
     await db.exec(migration);
+    const repairFile=fs.readdirSync(path.join(__dirname,'../../supabase/migrations')).find(name=>name.endsWith('_effective_ticket_invalidation.sql'));
+    if(repairFile&&read(repairFile).trim())await db.exec(read(repairFile));
     const value=async(sql,args=[])=> (await db.query(sql,args)).rows[0];
     const member=async(test=true,tier='general')=>(await value('insert into members(line_user_id,birthday,is_test_account,tier) values($1,$2,$3,$4) returning id',['fixture-'+crypto.randomUUID(),'1990-10-01',test,tier])).id;
     const template=async(schedule='birthday_month',expiry='month_end',qa=true,extra={})=>{
@@ -45,6 +51,20 @@ test('production fixed-ticket automation SQL',async t=>{
     const issue=async(date,id,mid=null)=>(await value('select issue_fixed_tickets($1::date,$2::uuid,$3::uuid) result',[date,mid,id])).result;
     const event=async id=>value('select starts_on::text,ends_on::text,status from event_tickets where fixed_ticket_template_id=$1 order by starts_on desc limit 1',[id]);
     const reset=()=>db.exec('truncate members,event_tickets,event_ticket_claims,scheduled_grant_messages,audit_logs,calendar_sync,fixed_ticket_templates,fixed_ticket_grants cascade');
+
+    await t.test('AC-REFRESH-004: recurring maintenance does not rewrite an unchanged ticket or its optimistic version',async()=>{
+      await reset();const mid=await member(),id=await template();
+      await issue('2026-10-04',id,mid);
+      const before=await value('select title,updated_at::text version from event_tickets where fixed_ticket_template_id=$1',[id]);
+      await db.exec('truncate maintenance_writes');
+      assert.equal((await issue('2026-10-04',id,mid)).issued,0);
+      assert.equal((await value('select count(*)::int n from maintenance_writes')).n,0);
+      assert.deepEqual(await value('select title,updated_at::text version from event_tickets where fixed_ticket_template_id=$1',[id]),before);
+      await db.query("update fixed_ticket_templates set title='Changed {year}/{month}' where id=$1",[id]);
+      await issue('2026-10-04',id,mid);
+      assert.equal((await value('select count(*)::int n from maintenance_writes')).n,1);
+      assert.match((await value('select title from event_tickets where fixed_ticket_template_id=$1',[id])).title,/Changed/);
+    });
 
     await t.test('QA template grants only test accounts and never queues LINE notifications',async()=>{
       await reset();const qa=await member(),formal=await member(false),id=await template();
