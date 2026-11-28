@@ -11,6 +11,8 @@
     profile: {},
     selections: [],
     selectedSlot: null,
+    slotRestoration: null,
+    slotRefreshPromise: null,
     loadingSlots: false,
     slotRequestSequence: 0,
     submitting: false,
@@ -166,6 +168,11 @@
       // Realtime、手動刷新與 QA refresh 可能同時進行；只允許最後發出的 refresh
       // 寫回畫面，避免較舊的 Bootstrap 回應覆蓋較新的預約狀態。
       if (refreshSequence !== state.refreshSequence) return false;
+      // A background bootstrap must not discard the selected time merely
+      // because the slots grid is rebuilt before it can be revalidated.
+      const priorSlot = state.selectedSlot;
+      const priorDate = els.bookingDate.value;
+      const priorItemsKey = JSON.stringify(selectedItems());
       state.data = bookingData || state.data;
       schedulePriceRefresh();
       syncServerClock(state.data.serverNow);
@@ -178,6 +185,11 @@
         window.BookingSystem.setBookingNotice(state.data.settings.bookingNotice);
       }
       pruneSelections();
+      if (priorDate !== els.bookingDate.value || priorItemsKey !== JSON.stringify(selectedItems())) {
+        state.slotRestoration = null;
+      } else if (priorSlot?.startTime) {
+        state.slotRestoration = { bookingDate: priorDate, itemsKey: priorItemsKey, startTime: priorSlot.startTime };
+      }
       renderMemberProfile();
       renderBookingRestriction();
       renderSettings();
@@ -193,7 +205,12 @@
       renderBookings();
       applySelectionConstraints(false);
       window.dispatchEvent(new CustomEvent('booking:settings-updated', { detail: { settings: state.data.settings, today: state.data.today } }));
-      if (selectedItems().length && els.bookingDate.value) await loadSlots(showMessage);
+      if (selectedItems().length && els.bookingDate.value) {
+        const slotRefresh = loadSlots(showMessage);
+        state.slotRefreshPromise = slotRefresh;
+        try { await slotRefresh; }
+        finally { if (state.slotRefreshPromise === slotRefresh) state.slotRefreshPromise = null; }
+      } else state.slotRestoration = null;
       if (refreshSequence !== state.refreshSequence) return false;
       window.BookingBenefits?.invalidate();
       if (showMessage) showFormMessage('資料已更新。', 'success');
@@ -538,6 +555,7 @@
   }
 
   function selectionChanged() {
+    state.slotRestoration = null;
     clearFormMessage();
     state.selectedSlot = null;
     renderServices();
@@ -587,6 +605,7 @@
   }
 
   async function dateChanged() {
+    state.slotRestoration = null;
     clearFormMessage();
     state.selectedSlot = null;
     await loadSlots();
@@ -616,7 +635,11 @@
       return;
     }
     state.loadingSlots = true;
-    const previouslySelected = state.selectedSlot?.startTime || '';
+    const restore = state.slotRestoration;
+    const previouslySelected = state.selectedSlot?.startTime || (
+      restore?.bookingDate === bookingDate && restore.itemsKey === JSON.stringify(items)
+        ? restore.startTime : ''
+    );
     state.selectedSlot = null;
     els.submitBookingButton.disabled = true;
     els.slotGrid.replaceChildren();
@@ -640,7 +663,10 @@
       if (requestSequence !== state.slotRequestSequence) return;
       els.slotHint.textContent = error?.message || '目前無法取得可預約時段。';
     } finally {
-      if (requestSequence === state.slotRequestSequence) state.loadingSlots = false;
+      if (requestSequence === state.slotRequestSequence) {
+        state.loadingSlots = false;
+        state.slotRestoration = null;
+      }
       finishFeedback?.();
     }
   }
@@ -677,6 +703,7 @@
   }
 
   function selectSlot(button, slot) {
+    state.slotRestoration = null;
     state.selectedSlot = { startTime: slot.startTime, endTime: slot.endTime, startAt: slot.startAt, endAt: slot.endAt };
     els.slotGrid.querySelectorAll('.slot-button').forEach((item) => {
       const selected = item === button;
@@ -788,11 +815,20 @@
     els.skipBookingBenefitsButton.disabled = state.submitting;
   }
 
-  function openBenefitStep() {
+  async function openBenefitStep() {
     if (state.submitting || els.bookingConfirmModal.classList.contains('hidden')) return;
+    // Realtime may refresh availability after the review was rendered.
+    // Wait for that same request rather than mistaking its temporary empty
+    // selectedSlot for a user edit or starting another slots request.
+    if (state.loadingSlots && state.slotRefreshPromise) await state.slotRefreshPromise;
+    if (state.submitting || els.bookingConfirmModal.classList.contains('hidden')) return;
+    if (state.loadingSlots) return showConfirmMessage('正在重新確認可預約時段，請稍後再繼續。', 'error');
     if (bookingRestricted()) return showConfirmMessage('目前暫停新的線上預約，請聯絡店家。', 'error');
-    if (!selectedItems().length || !els.bookingDate.value || !state.selectedSlot || reminderError()) {
+    if (!selectedItems().length || !els.bookingDate.value || reminderError()) {
       return showConfirmMessage('預約內容已變更，請返回重新確認。', 'error');
+    }
+    if (!state.selectedSlot) {
+      return showConfirmMessage('原預約時段已無法使用，請返回重新選擇時間。', 'error');
     }
     clearConfirmMessage();
     els.bookingConfirmModal.classList.add('hidden');
@@ -844,6 +880,8 @@
   }
 
   async function confirmBooking(useBenefits) {
+    if (state.submitting || els.bookingBenefitModal.classList.contains('hidden')) return;
+    if (state.loadingSlots && state.slotRefreshPromise) await state.slotRefreshPromise;
     if (state.submitting || els.bookingBenefitModal.classList.contains('hidden')) return;
     const benefits = useBenefits ? (window.BookingBenefits?.selectionPayload?.() || []) : [];
     if (useBenefits && !benefits.length) {
@@ -946,6 +984,10 @@
         return;
       }
       if (error?.code === 'BOOKING_PRICE_CHANGED') {
+        // A changed price invalidates the reviewed quote. Unlike a routine
+        // realtime refresh, this requires a fresh slot and explicit review.
+        state.selectedSlot = null;
+        state.slotRestoration = null;
         await refresh(false);
         els.bookingBenefitModal.classList.add('hidden');
         if (state.selectedSlot) {
