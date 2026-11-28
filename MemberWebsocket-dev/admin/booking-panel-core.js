@@ -2837,7 +2837,10 @@
         ? `目前預約時間：${date.replace(/-/g, '/')} ${start}，${names.join('、')} 技師休假。`
         : '請先勾選休假技師，確認後將以原預約時間通知會員。';
       submit.textContent = isPhone ? '確認不通過並登記現場預約' : '確認不通過';
-      submit.disabled = !reason.value || (isVacation && !names.length) || (isPhone && !overlapping());
+      // Keep the original clickable validation path for missing reason and
+      // invalid walk-in time; only vacation selection has an explicit disabled
+      // state, matching the frontdesk checkbox guard.
+      submit.disabled = isVacation && !names.length;
       if (isPhone && !overlapping()) {
         showMessage(feedback,'請選擇原預約區間內的開始時間（含結束時間）。','error');
       } else clearMessage(feedback);
