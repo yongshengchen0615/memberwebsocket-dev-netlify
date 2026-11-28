@@ -43,7 +43,7 @@ async function fixture(mode) {
   const item = { serviceId, serviceTitle: '腳底40', unitDurationMinutes: 40, unitPriceAmount: 800, quantity: 1 };
   const booking = { bookingId, bookingDate: '2099-01-02', startTime: '09:00', endTime: '09:50', status: 'confirmed', totalDurationMinutes: 50, totalAmount: 800, items: [item] };
   const base = { today: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' }), settings: { minAdvanceDays: 0, workStartTime: '09:00', workEndTime: '18:00', bookingNotice: '測試商家預約說明\n請準時到場' }, services: [{ serviceId, title: '腳底40', durationMinutes: 40, priceAmount: 800, isActive: true }], bookings: [booking] };
-  const config = { supabaseUrl: 'https://fixture.supabase.co', supabaseFunctionUrl: 'https://fixture.supabase.co/functions/v1/booking-api', supabasePublishableKey: 'fixture-key', bookingLiffId: 'fixture-liff' };
+  const config = { supabaseUrl: 'https://fixture.supabase.co', supabaseFunctionUrl: 'https://fixture.supabase.co/functions/v1/api', supabasePublishableKey: 'fixture-key', bookingLiffId: 'fixture-liff' };
   w.matchMedia = () => ({ matches: false });
   w.HTMLElement.prototype.scrollIntoView = () => {};
   w.liff = { init: async () => {}, isLoggedIn: () => true, isInClient: () => true, getIDToken: () => 'fixture-token' };
