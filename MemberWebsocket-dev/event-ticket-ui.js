@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const types = { lottery: '活動抽獎券', referral: '好友邀請券', membership_join: '加入會員券' };
-  const tiers = { general: '一般會員', silver: '銀級會員', gold: '金級會員', platinum: '白金會員' };
+  const tiers = { general: '銅級會員', silver: '銀級會員', gold: '金級會員', platinum: '白金會員' };
   function create(ticket = {}, options = {}) {
     const card = document.createElement('article');
     card.className = 'event-ticket' + (options.history ? ' used-ticket' : '');
