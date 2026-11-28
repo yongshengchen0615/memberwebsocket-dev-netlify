@@ -21,7 +21,7 @@ begin
  execute format('update %I.booking_settings set require_primary_technician=false,primary_technician_id=$1,work_start_time=''08:00'',work_end_time=''22:00'' where id=1',t.runtime_schema)
   using v_primary;
  execute format('insert into %I.booking_service_types(name) values(''VACATION_ADMIN_E2E_20261128'')',t.runtime_schema);
- execute format('insert into %I.members(line_user_id,member_code,invite_code,status,membership_status,is_test_account) values($1,''VACMEM998'',''ZYXW987654'',''active'',''active'',true) returning id',t.runtime_schema)
+ execute format('insert into %I.members(line_user_id,member_code,invite_code,status,membership_status,is_test_account) values($1,''VACMEM998'',''ABCD123456'',''active'',''active'',true) returning id',t.runtime_schema)
   into v_member using 'Uffffffffffffffffffffffffffffffff';
  execute format('update %I.members set is_test_account=false where id=$1',t.runtime_schema) using v_member;
  execute format('insert into %I.booking_services(title,duration_minutes,price_amount,service_type,created_by) values(''ADMIN_VACATION_TEST'',30,100,''VACATION_ADMIN_E2E_20261128'',$1) returning id',t.runtime_schema)
